@@ -382,4 +382,37 @@ func TestSkippedPolicyRevision(t *testing.T) {
 		require.False(t, skip(ep, rev2))
 		require.Zero(t, ep.skippedPolicyRevision)
 	})
+
+	// waiting-for-identity cannot transition to waiting-to-regenerate, so the
+	// request must be buffered rather than dropped until the next periodic
+	// regeneration.
+	t.Run("waiting-for-identity buffers the regeneration", func(t *testing.T) {
+		ep := newEP()
+		ep.state = StateWaitingForIdentity
+
+		require.True(t, skip(ep, rev2))
+		require.Equal(t, uint64(rev2), ep.skippedPolicyRevision)
+		require.Equal(t, regeneration.RegenerateWithoutDatapath, ep.skippedRegenerationLevel)
+
+		// Leaving waiting-for-identity must surface the buffered request.
+		ep.unconditionalLock()
+		deferred := ep.consumeDeferredRegenerationLocked()
+		ep.unlock()
+		require.NotNil(t, deferred)
+		require.Equal(t, uint64(rev2), deferred.PolicyRevisionToWaitFor)
+		require.Equal(t, regeneration.RegenerateWithoutDatapath, deferred.RegenerationLevel)
+
+		// The buffered revision is still consumed by the regeneration itself.
+		ctx := &datapathRegenerationContext{}
+		consume(ep, ctx)
+		require.Equal(t, uint64(rev2), ctx.policyRevisionToWaitFor)
+	})
+
+	t.Run("no deferred regeneration when nothing was buffered", func(t *testing.T) {
+		ep := newEP()
+		ep.state = StateWaitingForIdentity
+		ep.unconditionalLock()
+		defer ep.unlock()
+		require.Nil(t, ep.consumeDeferredRegenerationLocked())
+	})
 }

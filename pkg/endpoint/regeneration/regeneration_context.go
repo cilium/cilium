@@ -54,6 +54,7 @@ const (
 	ReasonPolicyUpdate               = "PolicyUpdate"
 	ReasonSelectorPolicyStale        = "SelectorPolicyStale"
 	ReasonRegenerationFailure        = "RegenerationFailure"
+	ReasonDeferredRegeneration       = "DeferredRegeneration"
 
 	// Custom Triggers for regeneration.
 	ReasonDaemonTrigger = "DeamonTrigger"
