@@ -82,10 +82,6 @@ func new(log *slog.Logger, interval time.Duration, reasons []string, showPolicie
 }
 
 func (e *dropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
-	if e.rateLimiter != nil && !e.rateLimiter.Allow() {
-		return nil
-	}
-
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -97,6 +93,11 @@ func (e *dropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) e
 		!slices.Contains(e.reasons, flow.GetDropReasonDesc()) ||
 		(flow.TrafficDirection == flowpb.TrafficDirection_INGRESS && flow.Destination.PodName == "") ||
 		(flow.TrafficDirection == flowpb.TrafficDirection_EGRESS && flow.Source.PodName == "") {
+		return nil
+	}
+
+	// Charge the budget only for flows that become events.
+	if e.rateLimiter != nil && !e.rateLimiter.Allow() {
 		return nil
 	}
 
