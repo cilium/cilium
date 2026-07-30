@@ -2015,15 +2015,14 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 
 		// Route-specific checks will go in here separately if required.
 
-		if cond, invalid := i.ValidateHeaderModifier(); invalid {
-			for _, parent := range hr.Status.Parents {
-				i.SetParentCondition(parent.ParentRef, cond)
-			}
-		}
-
-		if cond, invalid := i.ValidateMatchRegexps(); invalid {
-			for _, parent := range hr.Status.Parents {
-				i.SetParentCondition(parent.ParentRef, cond)
+		for _, validate := range []func() (metav1.Condition, bool){
+			i.ValidateHeaderModifier,
+			i.ValidateMatchRegexps,
+		} {
+			if cond, invalid := validate(); invalid {
+				for _, parent := range hr.Status.Parents {
+					i.SetParentCondition(parent.ParentRef, cond)
+				}
 			}
 		}
 
