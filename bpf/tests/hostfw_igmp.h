@@ -85,6 +85,8 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
+	assert(*status_code == CTX_ACT_OK);
+
 	/* Check for egress CT entry */
 	struct ipv4_ct_tuple tuple = {
 		.daddr   = NODE_IP,
@@ -97,15 +99,11 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
 #ifdef TEST_EXTENDED_PROTOCOLS
-	assert(*status_code == CTX_ACT_OK);
-
 	if (!ct_entry)
 		test_fatal("no CT entry found");
 
 	assert(ct_entry->packets == 1);
 #else
-	assert(*status_code == CTX_ACT_DROP);
-
 	if (ct_entry)
 		test_fatal("CT entry found");
 
@@ -113,7 +111,7 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 		.reason = (__u8)-DROP_CT_UNKNOWN_PROTO,
 		.dir = METRIC_EGRESS,
 	};
-	__u64 count = 1;
+	__u64 count = 0;
 
 	assert_metrics_count(key, count);
 #endif
@@ -152,6 +150,8 @@ int hostfw_igmp_ingress_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hostfw_igmp_2_ingress")
 int hostfw_igmp_ingress_setup(struct __ctx_buff *ctx)
 {
+	policy_add_ingress_allow_all_entry();
+
 	return netdev_receive_packet(ctx);
 }
 
@@ -203,6 +203,8 @@ int hostfw_igmp_ingress_check(const struct __ctx_buff *ctx)
 
 	assert_metrics_count(key, count);
 #endif
+
+	policy_delete_ingress_all_entry();
 
 	test_finish();
 }
@@ -262,6 +264,8 @@ int hostfw_igmp_egress_policy_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
+	assert(*status_code == CTX_ACT_OK);
+
 	/* Check for egress CT entry */
 	struct ipv4_ct_tuple tuple = {
 		.daddr   = NODE_IP2,
@@ -274,13 +278,9 @@ int hostfw_igmp_egress_policy_check(const struct __ctx_buff *ctx)
 	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
 #ifdef TEST_EXTENDED_PROTOCOLS
-	assert(*status_code == CTX_ACT_OK);
-
 	if (!ct_entry)
 		test_fatal("no CT entry found");
 #else
-	assert(*status_code == CTX_ACT_DROP);
-
 	if (ct_entry)
 		test_fatal("CT entry found");
 
@@ -288,7 +288,7 @@ int hostfw_igmp_egress_policy_check(const struct __ctx_buff *ctx)
 		.reason = (__u8)-DROP_CT_UNKNOWN_PROTO,
 		.dir = METRIC_EGRESS,
 	};
-	__u64 count = 2;
+	__u64 count = 0;
 
 	assert_metrics_count(key, count);
 #endif
@@ -328,6 +328,7 @@ SETUP("tc", "hostfw_igmp_4_ingress_policy")
 int hostfw_igmp_ingress_policy_setup(struct __ctx_buff *ctx)
 {
 	policy_add_ingress_deny_l4_entry(IPPROTO_IGMP, 0, 0);
+	policy_add_ingress_allow_all_entry();
 
 	return netdev_receive_packet(ctx);
 }
@@ -363,6 +364,8 @@ int hostfw_igmp_ingress_policy_check(const struct __ctx_buff *ctx)
 #endif
 
 	assert_metrics_count(key, count);
+
+	policy_delete_ingress_all_entry();
 
 	test_finish();
 }
