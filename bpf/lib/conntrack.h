@@ -646,10 +646,10 @@ ct_extract_ports6(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6, fragi
 		return ipv6_load_l4_ports(ctx, ip6, fraginfo, off,
 					  dir, &tuple->dport);
 	default:
+		tuple->sport = 0;
+		tuple->dport = 0;
 		/* See comment in ct_extract_ports4. */
 		if (CONFIG(enable_extended_ip_protocols)) {
-			tuple->sport = 0;
-			tuple->dport = 0;
 			break;
 		}
 		/* Unsupported L4 protocol */
@@ -904,10 +904,10 @@ ct_extract_ports4(const struct __ctx_buff *ctx, const struct iphdr *ip4, fraginf
 		return ipv4_load_l4_ports(ctx, ip4, fraginfo, off,
 					  dir, &tuple->dport);
 	default:
+		tuple->sport = 0;
+		tuple->dport = 0;
 		/* Traffic is allowed/dropped based on user-defined policies. */
 		if (CONFIG(enable_extended_ip_protocols)) {
-			tuple->sport = 0;
-			tuple->dport = 0;
 			break;
 		}
 		/* Unsupported L4 protocol */
