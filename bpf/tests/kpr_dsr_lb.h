@@ -470,8 +470,8 @@ int kpr_v4_dsr_lb1_synack_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (tunnel_key->tunnel_id != WORLD_ID)
 		test_fatal("tunnel id is not correct");
 
-	if (!tunnel_opt_set)
-		test_fatal("expected DSR opt");
+	if (tunnel_opt_set)
+		test_fatal("DSR opt set");
 # endif
 #else
 # ifdef ATTACHMENT_XDP
@@ -972,8 +972,8 @@ int kpr_v6_dsr_lb1_synack_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (tunnel_key->tunnel_id != WORLD_ID)
 		test_fatal("tunnel id is not correct");
 
-	if (!tunnel_opt_set)
-		test_fatal("expected DSR opt");
+	if (tunnel_opt_set)
+		test_fatal("DSR opt set");
 # endif
 #else
 # ifdef ATTACHMENT_XDP
