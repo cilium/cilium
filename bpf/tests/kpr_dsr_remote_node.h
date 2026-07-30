@@ -60,6 +60,10 @@ const __u8 kpr_v4_dsr_remote_node_reply2_post[] = {
 	SCAPY_BUF_BYTES(kpr_v4_dsr_remote_node_reply2_post)
 };
 
+const __u8 kpr_v4_dsr_remote_node_syn_non_dsr[] = {
+	SCAPY_BUF_BYTES(kpr_v4_dsr_remote_node_syn_non_dsr)
+};
+
 const __u8 kpr_v6_dsr_remote_node_syn[] = {
 	SCAPY_BUF_BYTES(kpr_v6_dsr_lb1_syn_post_option_xdp)
 };
@@ -82,6 +86,10 @@ const __u8 kpr_v6_dsr_remote_node_reply_post[] = {
 
 const __u8 kpr_v6_dsr_remote_node_reply2_post[] = {
 	SCAPY_BUF_BYTES(kpr_v6_dsr_remote_node_reply2_post)
+};
+
+const __u8 kpr_v6_dsr_remote_node_syn_non_dsr[] = {
+	SCAPY_BUF_BYTES(kpr_v6_dsr_remote_node_syn_non_dsr)
 };
 
 #ifdef ENABLE_IPV4
@@ -459,6 +467,77 @@ int kpr_v4_dsr_remote_node_6reply_check(__maybe_unused const struct __ctx_buff *
 	test_finish();
 }
 #endif
+
+/* Now receive a SYN without DSR-info. CT entry should be updated accordingly.
+ */
+PKTGEN(PROG_TYPE, "kpr_v4_dsr_remote_node_7syn_non_dsr")
+int kpr_v4_dsr_remote_node_7syn_non_dsr_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	scapy_push_data(&builder, kpr_v4_dsr_remote_node_syn_non_dsr,
+			sizeof(kpr_v4_dsr_remote_node_syn_non_dsr));
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "kpr_v4_dsr_remote_node_7syn_non_dsr")
+int kpr_v4_dsr_remote_node_7syn_non_dsr_setup(struct __ctx_buff *ctx)
+{
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "kpr_v4_dsr_remote_node_7syn_non_dsr")
+int kpr_v4_dsr_remote_node_7syn_non_dsr_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	__u32 pkt_offset = sizeof(__u32);
+	void *data, *data_end;
+	__u32 *status_code;
+
+#ifdef ATTACHMENT_XDP
+	pkt_offset += sizeof(__u32);
+#endif
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_remote_node_syn_non_dsr",
+			   "Ether", ctx, pkt_offset,
+			   kpr_v4_dsr_remote_node_syn_non_dsr,
+			   sizeof(kpr_v4_dsr_remote_node_syn_non_dsr));
+
+	struct ipv4_ct_tuple tuple;
+	struct ct_entry *ct_entry;
+
+	tuple.flags = TUPLE_F_IN;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.daddr = v4_pod_one;
+	tuple.saddr = v4_ext_one;
+	tuple.sport = tcp_dst_one;
+	tuple.dport = tcp_src_one;
+	ipv4_ct_tuple_reverse(&tuple);
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR found");
+	if (ct_entry->dsr_internal)
+		test_fatal("CT entry still has the .dsr_internal flag set");
+
+	test_finish();
+}
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
@@ -840,4 +919,75 @@ int kpr_v6_dsr_remote_node_6reply_check(__maybe_unused const struct __ctx_buff *
 	test_finish();
 }
 #endif
+
+PKTGEN(PROG_TYPE, "kpr_v6_dsr_remote_node_7syn_non_dsr")
+int kpr_v6_dsr_remote_node_7syn_non_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	scapy_push_data(&builder, kpr_v6_dsr_remote_node_syn_non_dsr,
+			sizeof(kpr_v6_dsr_remote_node_syn_non_dsr));
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "kpr_v6_dsr_remote_node_7syn_non_dsr")
+int kpr_v6_dsr_remote_node_7syn_non_setup(struct __ctx_buff *ctx)
+{
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "kpr_v6_dsr_remote_node_7syn_non_dsr")
+int kpr_v6_dsr_remote_node_7syn_non_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	__u32 pkt_offset = sizeof(__u32);
+	void *data, *data_end;
+	__u32 *status_code;
+
+#ifdef ATTACHMENT_XDP
+	pkt_offset += sizeof(__u32);
+#endif
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_remote_node_syn_non_dsr",
+			   "Ether", ctx, pkt_offset,
+			   kpr_v6_dsr_remote_node_syn_non_dsr,
+			   sizeof(kpr_v6_dsr_remote_node_syn_non_dsr));
+
+	struct ipv6_ct_tuple tuple __align_stack_8;
+	struct ct_entry *ct_entry;
+	union v6addr backend_ip = { v6_pod_one_addr };
+	union v6addr client_ip = { v6_ext_node_one_addr };
+
+	tuple.flags = TUPLE_F_IN;
+	tuple.nexthdr = IPPROTO_TCP;
+	ipv6_addr_copy(&tuple.daddr, &backend_ip);
+	ipv6_addr_copy(&tuple.saddr, &client_ip);
+	tuple.sport = tcp_dst_one;
+	tuple.dport = tcp_src_one;
+	ipv6_ct_tuple_reverse(&tuple);
+
+	ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR found");
+	if (ct_entry->dsr_internal)
+		test_fatal("CT entry still has the .dsr_internal flag set");
+
+	test_finish();
+}
 #endif /* ENABLE_IPV6 */

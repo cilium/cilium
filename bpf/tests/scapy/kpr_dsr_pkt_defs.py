@@ -244,6 +244,12 @@ kpr_v4_dsr_remote_node_data_option = (
     b"foobar"
 )
 
+kpr_v4_dsr_remote_node_syn_non_dsr = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="S")
+)
+
 kpr_v4_dsr_remote_node_reply2_post = (
     Ether(src=mac_two, dst=mac_one) /
     IP(src=v4_svc_one, dst=v4_ext_one) /
@@ -433,4 +439,10 @@ kpr_v6_dsr_remote_node_reply2_post = (
     Ether(src=mac_two, dst=mac_one) /
     IPv6(src=v6_svc_one, dst=v6_ext_node_one) /
     TCP(sport=tcp_svc_two, dport=tcp_src_one, flags="R")
+)
+
+kpr_v6_dsr_remote_node_syn_non_dsr = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="S")
 )
