@@ -8,7 +8,6 @@
 {{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
 {{- $defaultBpfCtTcpMax := 524288 -}}
 {{- $defaultBpfCtAnyMax := 262144 -}}
-{{- $enableIdentityMark := "true" -}}
 {{- $fragmentTracking := "true" -}}
 {{- $defaultKubeProxyReplacement := "false" -}}
 {{- $azureUsePrimaryAddress := "true" -}}
@@ -625,17 +624,16 @@ data:
   #  - portmap (Enables HostPort support for Cilium)
   cni-chaining-mode: {{ $cniChainingMode }}
 
-{{- if hasKey .Values "enableIdentityMark" }}
-  enable-identity-mark: {{ .Values.enableIdentityMark | quote }}
-{{- else if (ne $enableIdentityMark "true") }}
-  enable-identity-mark: "false"
-{{- end }}
 {{- if ne $cniChainingMode "portmap" }}
   # Disable the PodCIDR route to the cilium_host interface as it is not
   # required. While chaining, it is the responsibility of the underlying plugin
   # to enable routing.
   enable-local-node-route: "false"
 {{- end }}
+{{- end }}
+
+{{- if hasKey .Values "enableIdentityMark" }}
+  enable-identity-mark: {{ .Values.enableIdentityMark | quote }}
 {{- end }}
 
 {{- if (not (kindIs "invalid" .Values.enableIPv4Masquerade)) }}
