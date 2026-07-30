@@ -555,7 +555,8 @@ static __always_inline int nodeport_extract_dsr_v6(
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
-		ipv6_ct_tuple_reverse(&tmp);
+		tmp.flags = TUPLE_F_OUT;
+		__ipv6_ct_tuple_reverse(&tmp);
 
 		if (tcp_flags.value & TCP_FLAG_SYN) {
 			/* SYN for a new connection that's not / no longer DSR.
@@ -1901,7 +1902,9 @@ static __always_inline int nodeport_extract_dsr_v4(
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
-		ipv4_ct_tuple_reverse(&tmp);
+		/* tuple direction only gets initialized on the first CT lookup */
+		tmp.flags = TUPLE_F_OUT;
+		__ipv4_ct_tuple_reverse(&tmp);
 
 		if (tcp_flags.value & TCP_FLAG_SYN) {
 			/* SYN for a new connection that's not / no longer DSR.
