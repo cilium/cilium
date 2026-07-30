@@ -110,15 +110,13 @@ kpr_v4_dsr_lb1_synack = (
 
 kpr_v4_dsr_lb1_synack_post_option = (
     Ether(src=host_mac_addr, dst=mac_one) /
-    IP(src=v4_ext_one, dst=v4_pod_one, ttl=63,
-       options=[bytes(IPOption_DSR(port=tcp_svc_one, addr=v4_svc_one))]) /
+    IP(src=v4_ext_one, dst=v4_pod_one, ttl=63) /
     TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="SA")
 )
 
 kpr_v4_dsr_lb1_synack_post_option_xdp = (
     Ether(src=mac_one, dst=mac_two) /
-    IP(src=v4_ext_one, dst=v4_pod_one, ttl=63,
-       options=[bytes(IPOption_DSR(port=tcp_svc_one, addr=v4_svc_one))]) /
+    IP(src=v4_ext_one, dst=v4_pod_one, ttl=63) /
     TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="SA")
 )
 
@@ -132,8 +130,7 @@ kpr_v4_dsr_lb1_synack_post_geneve_xdp = (
     Ether(src=mac_one, dst=mac_two) /
     IP(src=v4_node_one, dst=v4_node_two, id=0, ttl=63) /
     UDP(sport=56602, dport=6081, chksum=0) /
-    GENEVE(vni=2,proto=0x6558,
-           options=[Geneve_DSR_Opt4(addr=v4_svc_one, port=tcp_svc_one)]) /
+    GENEVE(vni=2,proto=0x6558) /
     Ether(src=host_mac_addr, dst=mac_one) /
     IP(src=v4_ext_one, dst=v4_pod_one) /
     TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="SA")
@@ -298,16 +295,14 @@ kpr_v6_dsr_lb1_synack = (
 
 kpr_v6_dsr_lb1_synack_post_option = (
     Ether(src=host_mac_addr, dst=mac_one) /
-    IPv6(src=v6_ext_node_one, dst=v6_pod_one, nh=60) /
-    IPv6Ext_DSR(addr=v6_svc_one, port=tcp_svc_one) /
-    TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="SA", chksum=50261)
+    IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="SA")
 )
 
 kpr_v6_dsr_lb1_synack_post_option_xdp = (
     Ether(src=mac_one, dst=mac_two) /
-    IPv6(src=v6_ext_node_one, dst=v6_pod_one, nh=60) /
-    IPv6Ext_DSR(addr=v6_svc_one, port=tcp_svc_one) /
-    TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="SA", chksum=50261)
+    IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="SA")
 )
 
 kpr_v6_dsr_lb1_synack_post_geneve = (
@@ -320,8 +315,7 @@ kpr_v6_dsr_lb1_synack_post_geneve_xdp = (
     Ether(src=mac_one, dst=mac_two) /
     IP(src=v4_node_one, dst=v4_node_two, id=0) /
     UDP(sport=52625, dport=6081, chksum=0) /
-    GENEVE(vni=2,proto=0x6558,
-           options=[Geneve_DSR_Opt6(addr=v6_svc_one, port=tcp_svc_one)]) /
+    GENEVE(vni=2,proto=0x6558) /
     Ether(src=host_mac_addr, dst=mac_one) /
     IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
     TCP(sport=tcp_src_one, dport=tcp_dst_one, flags="SA")
