@@ -11,6 +11,66 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+func TestGRPCRouteValidateHeaderModifier(t *testing.T) {
+	tests := []struct {
+		name    string
+		filters []gatewayv1.GRPCRouteFilter
+		invalid bool
+	}{
+		{
+			name: "valid request header modifier",
+			filters: []gatewayv1.GRPCRouteFilter{{
+				Type: gatewayv1.GRPCRouteFilterRequestHeaderModifier,
+				RequestHeaderModifier: &gatewayv1.HTTPHeaderFilter{
+					Set: []gatewayv1.HTTPHeader{{
+						Name:  "X-Forwarded-Host",
+						Value: "example.com",
+					}},
+				},
+			}},
+		},
+		{
+			name: "invalid host request header modifier",
+			filters: []gatewayv1.GRPCRouteFilter{{
+				Type: gatewayv1.GRPCRouteFilterRequestHeaderModifier,
+				RequestHeaderModifier: &gatewayv1.HTTPHeaderFilter{
+					Set: []gatewayv1.HTTPHeader{{
+						Name:  "Host",
+						Value: "example.com",
+					}},
+				},
+			}},
+			invalid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := &GRPCRouteInput{
+				ControllerName: "io.cilium/gateway-controller",
+				GRPCRoute: &gatewayv1.GRPCRoute{
+					Spec: gatewayv1.GRPCRouteSpec{
+						CommonRouteSpec: gatewayv1.CommonRouteSpec{
+							ParentRefs: []gatewayv1.ParentReference{{Name: "my-gw"}},
+						},
+						Rules: []gatewayv1.GRPCRouteRule{{Filters: tt.filters}},
+					},
+				},
+			}
+
+			cond, invalid := input.ValidateHeaderModifier()
+
+			assert.Equal(t, tt.invalid, invalid)
+			if invalid {
+				assert.Equal(t, string(gatewayv1.RouteConditionAccepted), cond.Type)
+				assert.Equal(t, metav1.ConditionFalse, cond.Status)
+				assert.Equal(t, string(gatewayv1.RouteReasonUnsupportedValue), cond.Reason)
+				assert.Equal(t, `Invalid header modifier: "Host" header is not supported`, cond.Message)
+			}
+		})
+	}
+}
+
 func TestGRPCRouteValidateMatchRegexps(t *testing.T) {
 	tests := []struct {
 		name    string
