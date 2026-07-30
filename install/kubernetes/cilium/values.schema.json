@@ -4989,6 +4989,9 @@
         },
         "enableHealthCheckLoadBalancerIP": {
           "type": "boolean"
+        },
+        "extendedNATPortRange": {
+          "type": "string"
         }
       },
       "type": "object"
