@@ -570,7 +570,7 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 		tmp.flags = TUPLE_F_OUT;
 		__ipv6_ct_tuple_reverse(&tmp);
 
-		if (tcp_flags.value & TCP_FLAG_SYN) {
+		if (tcp_is_syn(tcp_flags)) {
 			/* SYN for a new connection that's not / no longer DSR.
 			 * If it's reopened, avoid sending subsequent traffic down the DSR path.
 			 */
@@ -1948,7 +1948,7 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 		tmp.flags = TUPLE_F_OUT;
 		__ipv4_ct_tuple_reverse(&tmp);
 
-		if (tcp_flags.value & TCP_FLAG_SYN) {
+		if (tcp_is_syn(tcp_flags)) {
 			/* SYN for a new connection that's not / no longer DSR.
 			 * If it's reopened, avoid sending subsequent traffic down the DSR path.
 			 */
