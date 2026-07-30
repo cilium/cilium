@@ -294,7 +294,7 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Duration("lb-retry-backoff-min", def.RetryBackoffMin, "Minimum amount of time to wait before retrying LB operation")
 	flags.MarkHidden("lb-retry-backoff-min")
 
-	flags.Duration("lb-retry-backoff-max", def.RetryBackoffMin, "Maximum amount of time to wait before retrying LB operation")
+	flags.Duration("lb-retry-backoff-max", def.RetryBackoffMax, "Maximum amount of time to wait before retrying LB operation")
 	flags.MarkHidden("lb-retry-backoff-max")
 
 	flags.Int(LBMapEntriesName, def.LBMapEntries, "Maximum number of entries in Cilium BPF lbmap")
