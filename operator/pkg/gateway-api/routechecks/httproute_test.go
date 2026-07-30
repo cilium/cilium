@@ -12,6 +12,66 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+func TestHTTPRouteValidateHeaderModifier(t *testing.T) {
+	tests := []struct {
+		name    string
+		filters []gatewayv1.HTTPRouteFilter
+		invalid bool
+	}{
+		{
+			name: "valid request header modifier",
+			filters: []gatewayv1.HTTPRouteFilter{{
+				Type: gatewayv1.HTTPRouteFilterRequestHeaderModifier,
+				RequestHeaderModifier: &gatewayv1.HTTPHeaderFilter{
+					Set: []gatewayv1.HTTPHeader{{
+						Name:  "X-Forwarded-Host",
+						Value: "example.com",
+					}},
+				},
+			}},
+		},
+		{
+			name: "invalid host request header modifier",
+			filters: []gatewayv1.HTTPRouteFilter{{
+				Type: gatewayv1.HTTPRouteFilterRequestHeaderModifier,
+				RequestHeaderModifier: &gatewayv1.HTTPHeaderFilter{
+					Set: []gatewayv1.HTTPHeader{{
+						Name:  "Host",
+						Value: "example.com",
+					}},
+				},
+			}},
+			invalid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := &HTTPRouteInput{
+				ControllerName: "io.cilium/gateway-controller",
+				HTTPRoute: &gatewayv1.HTTPRoute{
+					Spec: gatewayv1.HTTPRouteSpec{
+						CommonRouteSpec: gatewayv1.CommonRouteSpec{
+							ParentRefs: []gatewayv1.ParentReference{{Name: "my-gw"}},
+						},
+						Rules: []gatewayv1.HTTPRouteRule{{Filters: tt.filters}},
+					},
+				},
+			}
+
+			cond, invalid := input.ValidateHeaderModifier()
+
+			assert.Equal(t, tt.invalid, invalid)
+			if invalid {
+				assert.Equal(t, string(gatewayv1.RouteConditionAccepted), cond.Type)
+				assert.Equal(t, metav1.ConditionFalse, cond.Status)
+				assert.Equal(t, string(gatewayv1.RouteReasonUnsupportedValue), cond.Reason)
+				assert.Equal(t, `Invalid HTTPRoute header modifier: "Host" header is not supported; use URLRewrite.hostname instead`, cond.Message)
+			}
+		})
+	}
+}
+
 func TestHTTPRouteValidateMatchRegexps(t *testing.T) {
 	tests := []struct {
 		name    string
