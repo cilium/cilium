@@ -123,7 +123,7 @@ else:
     tags.add('stable')
 relinfo = semver.parse_version_info(release)
 prev_release = '%d.%d' % (relinfo.major, relinfo.minor - 1)
-if relinfo.prerelease != '':
+if relinfo.prerelease:
     next_release = '%d.%d' % (relinfo.major, relinfo.minor)
     current_release = prev_release
 else:
