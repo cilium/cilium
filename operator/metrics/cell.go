@@ -28,8 +28,13 @@ var Cell = cell.Module(
 	// however the operator has a different flag name for this the
 	// server address flag so we configure this ourselves.
 	cell.Provide(func(conf Config) metrics.RegistryConfig {
+		// An empty address is what keeps the registry from serving.
+		addr := conf.OperatorPrometheusServeAddr
+		if !conf.EnableMetrics {
+			addr = ""
+		}
 		return metrics.RegistryConfig{
-			PrometheusServeAddr: conf.OperatorPrometheusServeAddr,
+			PrometheusServeAddr: addr,
 		}
 	}),
 	// Metrics cell provides a bare-bones registry that has not been initialized yet.
