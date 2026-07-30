@@ -41,18 +41,16 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             bpf-tree:
-              - 'bpf/**'
-              - 'images/**'
+              - '!(**/*.md)bpf/**'
+              - '!(**/*.md)images/**'
               - 'Makefile*'
               - 'contrib/scripts/builder.sh'
-              - '!**/*.md'
 
             coccinelle:
               - 'contrib/coccinelle/**'
             bpf-tests-runner:
-              - 'bpf/tests/bpftest/**'
-              - 'pkg/bpf/**'
-              - '!**/*.md'
+              - '!(**/*.md)bpf/tests/bpftest/**'
+              - '!(**/*.md)pkg/bpf/**'
             workflow-description:
               - '.github/workflows/lint-bpf-checks.yaml'
 
