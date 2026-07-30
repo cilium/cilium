@@ -155,11 +155,10 @@ DNS proxy operates in transparent mode (``--dnsproxy-enable-transparent-mode=tru
 Encryption interface
 --------------------
 
-An additional argument can be used to identify the network-facing interface.
 If direct routing is used and no interface is specified, the default route
 link is chosen by inspecting the routing tables. This will work in many cases,
-but depending on routing rules, users may need to specify the encryption
-interface as follows:
+but depending on routing rules, users may need to name the network-facing
+interface explicitly with ``devices``:
 
 .. tabs::
 
@@ -170,13 +169,13 @@ interface as follows:
           cilium install |CHART_VERSION| \\
              --set encryption.enabled=true \\
              --set encryption.type=ipsec \\
-             --set encryption.ipsec.interface=ethX
+             --set devices=ethX
 
     .. group-tab:: Helm
 
        .. code-block:: shell-session
 
-           --set encryption.ipsec.interface=ethX
+           --set devices=ethX
 
 Validate the Setup
 ==================
@@ -298,9 +297,8 @@ Troubleshooting
 
  * Check for ``level=warning`` and ``level=error`` messages in the Cilium log files
 
-   * If there is a warning message similar to ``Device eth0 does not exist``,
-     use ``--set encryption.ipsec.interface=ethX`` to set the encryption
-     interface.
+   * If a warning names a device Cilium could not find, use ``--set devices=ethX``
+     to name the network-facing interface explicitly.
 
  * Run ``cilium-dbg encrypt status`` in the Cilium Pod:
 
