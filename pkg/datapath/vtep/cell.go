@@ -64,7 +64,7 @@ func newVTEPManager(params vtepManagerParams) error {
 	// use trigger to enforce first execution immediately when the timer job starts
 	tr := job.NewTrigger()
 	tr.Trigger()
-	params.JobGroup.Add(job.Timer("sync-vtep", mgr.syncVTEP, 1*time.Minute, job.WithTrigger(tr)))
+	params.JobGroup.Add(job.Timer("sync-vtep", mgr.syncVTEP, params.Config.VTEPSyncInterval, job.WithTrigger(tr)))
 
 	return nil
 }
@@ -85,6 +85,10 @@ func (r config) Flags(flags *pflag.FlagSet) {
 
 func (r config) validatedConfig() (*vtepManagerConfig, error) {
 	config := vtepManagerConfig{}
+
+	if r.VTEPSyncInterval <= 0 {
+		return nil, fmt.Errorf("VTEP sync interval must be positive (got %s)", r.VTEPSyncInterval)
+	}
 
 	if len(r.VTEPEndpoint) < 1 {
 		return nil, fmt.Errorf("If VTEP is enabled, at least one VTEP device must be configured")
