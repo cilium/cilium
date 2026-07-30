@@ -796,8 +796,11 @@ reList:
 			}
 		}
 
+		watcherDuration := spanstat.Start()
 		etcdWatch := e.client.Watch(client.WithRequireLeader(ctx), prefix,
 			client.WithPrefix(), client.WithRev(nextRev))
+		// This does not measure the actual time a watcher is open, but just the fact that it was opened
+		increaseMetric(prefix, metricRead, "WatchStart", watcherDuration.EndError(nil).Total(), nil)
 		lr.Done()
 
 		for {
@@ -889,10 +892,12 @@ func (e *etcdClient) paginatedList(ctx context.Context, log *slog.Logger, prefix
 	start, end := prefix, client.GetPrefixRangeEnd(prefix)
 
 	for {
+		duration := spanstat.Start()
 		res, err := e.client.Get(ctx, start, client.WithRange(end),
 			client.WithSort(client.SortByKey, client.SortAscend),
 			client.WithRev(revision), client.WithLimit(int64(e.listBatchSize)),
 		)
+		increaseMetric(prefix, metricRead, "ListPrefixPaginated", duration.EndError(err).Total(), err)
 		if err != nil {
 			return nil, 0, err
 		}
