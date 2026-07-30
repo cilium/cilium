@@ -763,10 +763,40 @@ func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.External
 			e.skippedPolicyRevision = regenMetadata.PolicyRevisionToWaitFor
 		}
 		regen = false
+	case StateWaitingForIdentity:
+		// The state machine forbids waiting-for-identity -> waiting-to-regenerate,
+		// as policy cannot be computed before the endpoint has an identity. Buffer
+		// the request so whoever takes the endpoint out of this state picks it up,
+		// instead of dropping it until the next periodic regeneration.
+		if regenMetadata.RegenerationLevel > e.skippedRegenerationLevel {
+			e.skippedRegenerationLevel = regenMetadata.RegenerationLevel
+		}
+		if regenMetadata.PolicyRevisionToWaitFor > e.skippedPolicyRevision {
+			e.skippedPolicyRevision = regenMetadata.PolicyRevisionToWaitFor
+		}
+		e.logStatusLocked(Other, OK, fmt.Sprintf("Deferred endpoint regeneration until identity resolution completes due to %s", regenMetadata.GetRegenerationReason()))
+		regen = false
 	default:
 		regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.GetRegenerationReason()))
 	}
 	return regen
+}
+
+// consumeDeferredRegenerationLocked returns metadata for a regeneration that was
+// buffered while the endpoint was in StateWaitingForIdentity, or nil if there was
+// none. The buffered level and revision are left in place, regenerate() consumes
+// them.
+// Must be called with e.mutex held.
+func (e *Endpoint) consumeDeferredRegenerationLocked() *regeneration.ExternalRegenerationMetadata {
+	if e.skippedRegenerationLevel == regeneration.Invalid && e.skippedPolicyRevision == 0 {
+		return nil
+	}
+	return &regeneration.ExternalRegenerationMetadata{
+		Reason:                  regeneration.ReasonDeferredRegeneration,
+		Message:                 "regeneration deferred while waiting for identity",
+		RegenerationLevel:       max(e.skippedRegenerationLevel, regeneration.RegenerateWithoutDatapath),
+		PolicyRevisionToWaitFor: e.skippedPolicyRevision,
+	}
 }
 
 // consumeSkippedPolicyRevision transfers any buffered revision to ctx.
