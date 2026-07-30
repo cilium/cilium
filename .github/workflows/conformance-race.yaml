@@ -87,6 +87,11 @@ jobs:
         id: merge
         run: |
           ARGS='${{ inputs.extra-args }}'
+          # Empty on schedule events, where jq would emit nothing and thus
+          # silently drop "detect-race".
+          if [ -z "${ARGS}" ]; then
+            ARGS='{}'
+          fi
           echo "extra-args=$(echo "${ARGS}" | jq -c '. + {"detect-race": true}')" >> "$GITHUB_OUTPUT"
 
   conformance-ginkgo-race:
