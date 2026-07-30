@@ -197,6 +197,15 @@ func (a *Agent) Stop(cell.HookContext) error {
 		return nil
 	}
 
+	// Unsubscribe from node events before tearing down the WireGuard client.
+	// Unsubscribe blocks until any in-flight backgroundSync iteration in the
+	// node manager completes and guarantees the handler is not invoked again,
+	// so NodeValidateImplementation (and the other node handler callbacks) can
+	// no longer call ConfigureDevice on the closed wgClient. This must run
+	// before acquiring a.RLock() to avoid deadlocking with an in-flight handler
+	// that takes a.Lock().
+	a.nodeManager.Unsubscribe(a)
+
 	a.RLock()
 	defer a.RUnlock()
 
