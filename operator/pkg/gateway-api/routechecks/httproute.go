@@ -179,7 +179,7 @@ func invalidHeaderModifierCondition(headerName gatewayv1.HTTPHeaderName) metav1.
 		Type:    string(gatewayv1.RouteConditionAccepted),
 		Status:  metav1.ConditionFalse,
 		Reason:  string(gatewayv1.RouteReasonUnsupportedValue),
-		Message: fmt.Sprintf("Invalid HTTPRoute header modifier: %q header is not supported; use URLRewrite.hostname instead", headerName),
+		Message: fmt.Sprintf("Invalid header modifier: %q header is not supported", headerName),
 	}
 }
 
