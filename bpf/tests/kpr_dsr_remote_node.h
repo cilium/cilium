@@ -264,6 +264,27 @@ int kpr_v4_dsr_remote_node_3synack_check(__maybe_unused const struct __ctx_buff 
 			   kpr_v4_dsr_remote_node_synack,
 			   sizeof(kpr_v4_dsr_remote_node_synack));
 
+	struct ipv4_ct_tuple tuple;
+	struct ct_entry *ct_entry;
+
+	tuple.flags = TUPLE_F_IN;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.daddr = v4_pod_one;
+	tuple.saddr = v4_ext_one;
+	tuple.sport = tcp_dst_one;
+	tuple.dport = tcp_src_one;
+	ipv4_ct_tuple_reverse(&tuple);
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR found");
+	if (!ct_entry->dsr_internal)
+		test_fatal("CT entry doesn't have the .dsr_internal flag set");
+	if (ct_entry->nat_addr.p4 != v4_svc_one)
+		test_fatal("CT entry doesn't have the RevDNAT addr set");
+	if (ct_entry->nat_port != tcp_svc_one)
+		test_fatal("CT entry doesn't have the RevDNAT port set");
+
 	test_finish();
 }
 
@@ -620,6 +641,30 @@ int kpr_v6_dsr_remote_node_3synack_check(__maybe_unused const struct __ctx_buff 
 			   "Ether", ctx, pkt_offset,
 			   kpr_v6_dsr_remote_node_synack,
 			   sizeof(kpr_v6_dsr_remote_node_synack));
+
+	struct ipv6_ct_tuple tuple __align_stack_8;
+	struct ct_entry *ct_entry;
+	union v6addr frontend_ip = { v6_svc_one_addr };
+	union v6addr backend_ip = { v6_pod_one_addr };
+	union v6addr client_ip = { v6_ext_node_one_addr };
+
+	tuple.flags = TUPLE_F_IN;
+	tuple.nexthdr = IPPROTO_TCP;
+	ipv6_addr_copy(&tuple.daddr, &backend_ip);
+	ipv6_addr_copy(&tuple.saddr, &client_ip);
+	tuple.sport = tcp_dst_one;
+	tuple.dport = tcp_src_one;
+	ipv6_ct_tuple_reverse(&tuple);
+
+	ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR found");
+	if (!ct_entry->dsr_internal)
+		test_fatal("CT entry doesn't have the .dsr_internal flag set");
+	if (!ipv6_addr_equals(&ct_entry->nat_addr, &frontend_ip))
+		test_fatal("CT entry doesn't have the RevDNAT addr set");
+	if (ct_entry->nat_port != tcp_svc_one)
+		test_fatal("CT entry doesn't have the RevDNAT port set");
 
 	test_finish();
 }
