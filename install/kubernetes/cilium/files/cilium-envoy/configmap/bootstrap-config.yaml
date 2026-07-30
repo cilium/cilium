@@ -187,6 +187,7 @@ staticResources:
       - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
         maxConnections: {{ .Values.envoy.clusterMaxConnections }}
         maxRequests: {{ .Values.envoy.clusterMaxRequests }}
+        maxPendingRequests: {{ .Values.envoy.clusterMaxPendingRequests }}
     lbPolicy: "CLUSTER_PROVIDED"
     typedExtensionProtocolOptions:
       envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -205,6 +206,7 @@ staticResources:
       - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
         maxConnections: {{ .Values.envoy.clusterMaxConnections }}
         maxRequests: {{ .Values.envoy.clusterMaxRequests }}
+        maxPendingRequests: {{ .Values.envoy.clusterMaxPendingRequests }}
     lbPolicy: "CLUSTER_PROVIDED"
     typedExtensionProtocolOptions:
       envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -228,6 +230,7 @@ staticResources:
       - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
         maxConnections: {{ .Values.envoy.clusterMaxConnections }}
         maxRequests: {{ .Values.envoy.clusterMaxRequests }}
+        maxPendingRequests: {{ .Values.envoy.clusterMaxPendingRequests }}
     lbPolicy: "CLUSTER_PROVIDED"
     typedExtensionProtocolOptions:
       envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -246,6 +249,7 @@ staticResources:
       - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
         maxConnections: {{ .Values.envoy.clusterMaxConnections }}
         maxRequests: {{ .Values.envoy.clusterMaxRequests }}
+        maxPendingRequests: {{ .Values.envoy.clusterMaxPendingRequests }}
     lbPolicy: "CLUSTER_PROVIDED"
     typedExtensionProtocolOptions:
       envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -269,6 +273,7 @@ staticResources:
       - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
         maxConnections: {{ .Values.envoy.clusterMaxConnections }}
         maxRequests: {{ .Values.envoy.clusterMaxRequests }}
+        maxPendingRequests: {{ .Values.envoy.clusterMaxPendingRequests }}
     loadAssignment:
       clusterName: "xds-grpc-cilium"
       endpoints:
