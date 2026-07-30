@@ -228,7 +228,10 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 			fmt.Errorf("failed waiting for policy computation result: %w", err))
 	} else if pcr != nil {
 		selectorPolicy = pcr.NewPolicy
-		result.policyRevision = pcr.Revision
+		// The realized revision is how far forward this policy is known to be
+		// correct, which is what waiters (e.g. the policy-revision wait in the
+		// connectivity tests) compare against.
+		result.policyRevision = pcr.CurrentAtRevision
 		err = pcr.Err
 	}
 	// Release the hold taken in waitForPolicyComputationResult. On success
@@ -289,11 +292,15 @@ func (e *Endpoint) waitForPolicyComputationResult(
 
 	for {
 		computeResult, _, watch, found := e.policyFetcher.GetIdentityPolicyByIdentity(securityIdentity)
-		if found && computeResult.Revision >= wantedRevision {
+		// CurrentAtRevision, not Revision: a policy computed at an older
+		// revision is still the right one to use if no later update selected
+		// this identity.
+		if found && computeResult.CurrentAtRevision >= wantedRevision {
 			if computeResult.NewPolicy.AddHold() {
 				e.getLogger().Debug(
 					"Retrieved identity policy from statedb",
 					logfields.PolicyRevision, computeResult.Revision,
+					logfields.PolicyRevisionCurrentAt, computeResult.CurrentAtRevision,
 				)
 				return &computeResult, nil
 			}
@@ -309,6 +316,7 @@ func (e *Endpoint) waitForPolicyComputationResult(
 				"Policy computation result has stale revision, waiting for update",
 				logfields.Identity, securityIdentity.ID,
 				logfields.PolicyRevision, computeResult.Revision,
+				logfields.PolicyRevisionCurrentAt, computeResult.CurrentAtRevision,
 				logfields.PolicyRevisionNext, wantedRevision,
 			)
 		} else {
@@ -325,12 +333,17 @@ func (e *Endpoint) waitForPolicyComputationResult(
 			continue
 		case <-timeout.C:
 			if found {
-				return nil, fmt.Errorf("%w: got rev=%d, want rev=%d",
+				return nil, fmt.Errorf("%w: identity=%d got rev=%d currentAt=%d, want rev=%d",
 					errPolicyComputationStaleRevision,
+					securityIdentity.ID,
 					computeResult.Revision,
+					computeResult.CurrentAtRevision,
 					wantedRevision)
 			}
-			return nil, errPolicyComputationNotFound
+			return nil, fmt.Errorf("%w: identity=%d, want rev=%d",
+				errPolicyComputationNotFound,
+				securityIdentity.ID,
+				wantedRevision)
 		}
 	}
 }
