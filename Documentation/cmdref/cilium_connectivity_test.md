@@ -19,6 +19,7 @@ cilium connectivity test [flags]
       --cilium-pod-selector string                                 Label selector matching all cilium-related pods (default "app.kubernetes.io/part-of=cilium")
       --cleanup                                                    Cleanup all connectivity test artifacts (namespaces, deployments, services) without running tests
       --collect-sysdump-on-failure                                 Collect sysdump after a test fails
+      --conn-disrupt-client-timeout duration                       Conn disrupt client per-request timeout, after which it exits (0 leaves the client default)
       --conn-disrupt-dispatch-interval duration                    TCP packet dispatch interval
       --conn-disrupt-test-restarts-path string                     Conn disrupt test temporary result file (used internally) (default "/tmp/cilium-conn-disrupt-restarts")
       --conn-disrupt-test-setup                                    Set up conn disrupt test dependencies

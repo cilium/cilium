@@ -2083,6 +2083,9 @@ func (ct *ConnectivityTest) createTestConnDisruptClientDeployment(ctx context.Co
 		"tcd-client",
 		"--dispatch-interval", ct.params.ConnDisruptDispatchInterval.String(),
 	}
+	if ct.params.ConnDisruptClientTimeout != 0 {
+		command = append(command, "--timeout", ct.params.ConnDisruptClientTimeout.String())
+	}
 	if len(protocol) != 0 {
 		command = append(command, "--protocol", protocol)
 	}
