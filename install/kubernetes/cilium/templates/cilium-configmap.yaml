@@ -68,6 +68,12 @@
   {{- $ipam = "eni" -}}
 {{- end }}
 
+{{- /* Default values when 1.21 was initially deployed */ -}}
+{{- if semverCompare ">=1.21" (default "1.21" .Values.upgradeCompatibility) -}}
+  {{- /* Needs to be explicitly enabled because it was disabled on all versions >=v1.10 above. */ -}}
+  {{- $defaultBpfMasquerade = "true" -}}
+{{- end -}}
+
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
 {{- $stringValueKPR := (toString .Values.kubeProxyReplacement) -}}

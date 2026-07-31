@@ -114,7 +114,8 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	} else if params.DaemonConfig.EnableIPMasqAgent {
 		return fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 	} else if !params.DaemonConfig.MasqueradingEnabled() && params.DaemonConfig.EnableBPFMasquerade {
-		return fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
+		params.Logger.Info("Disabling BPF masquerade as it requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
+		params.DaemonConfig.EnableBPFMasquerade = false
 	}
 
 	// If kernel does not support TBID lookup, we do not support dynamic pod
