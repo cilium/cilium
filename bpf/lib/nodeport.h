@@ -495,8 +495,52 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 }
 # endif /* DSR_ENCAP_MODE */
 
-static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
-				       struct dsr_opt_v6 *dsr_opt, bool *found)
+#ifdef HAVE_BPF_LOOP
+struct dsr_v6_loop_ctx {
+	struct __ctx_buff *ctx;
+	struct dsr_opt_v6 *dsr_opt;
+	__u8 nexthdr;
+	int len;
+	bool found;
+	int ret;
+};
+
+static long find_dsr_v6_loop_cb(__u32 index __maybe_unused, void *data)
+{
+	struct dsr_v6_loop_ctx *lctx = data;
+	struct dsr_opt_v6 *dsr_opt = lctx->dsr_opt;
+	__u8 nh = lctx->nexthdr;
+	int len = lctx->len;
+
+	int hdrlen = ipv6_skip_exthdr(lctx->ctx, &nh, ETH_HLEN + len);
+
+	if (hdrlen <= 0) {
+		lctx->ret = hdrlen;
+		return 1;
+	}
+
+	build_bug_on(sizeof(*dsr_opt) != 24);
+	if (nh == NEXTHDR_DEST && hdrlen == sizeof(*dsr_opt)) {
+		if (ctx_load_bytes(lctx->ctx, ETH_HLEN + len, dsr_opt, sizeof(*dsr_opt)) < 0) {
+			lctx->ret = DROP_INVALID;
+			return 1;
+		}
+
+		if (dsr_opt->opt_type == DSR_IPV6_OPT_TYPE &&
+		    dsr_opt->opt_len == DSR_IPV6_OPT_LEN) {
+			lctx->found = true;
+			return 1;
+		}
+	}
+
+	/* continue with next option */
+	lctx->nexthdr = nh;
+	lctx->len += hdrlen;
+	return 0;
+}
+#else
+static __always_inline int find_dsr_v6_unroll(struct __ctx_buff *ctx, __u8 nexthdr,
+					      struct dsr_opt_v6 *dsr_opt, bool *found)
 {
 	int i, len = sizeof(struct ipv6hdr);
 	__u8 nh = nexthdr;
@@ -529,6 +573,30 @@ static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 
 	/* Reached limit of supported extension headers */
 	return DROP_INVALID_EXTHDR;
+}
+#endif /* HAVE_BPF_LOOP */
+
+static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
+				       struct dsr_opt_v6 *dsr_opt, bool *found)
+{
+#ifdef HAVE_BPF_LOOP
+	struct dsr_v6_loop_ctx lctx = {
+		.ctx = ctx,
+		.dsr_opt = dsr_opt,
+		.nexthdr = nexthdr,
+		.len = sizeof(struct ipv6hdr),
+		.found = false,
+		.ret = 0,
+	};
+
+	if (loop(IPV6_MAX_HEADERS, find_dsr_v6_loop_cb, &lctx, 0) < 0)
+		return DROP_INVALID_EXTHDR;
+
+	*found = lctx.found;
+	return lctx.ret;
+#else
+	return find_dsr_v6_unroll(ctx, nexthdr, dsr_opt, found);
+#endif
 }
 
 static __always_inline int
