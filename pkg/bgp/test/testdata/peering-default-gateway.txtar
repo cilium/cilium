@@ -89,10 +89,16 @@ selected: true
 operstatus: up
 
 -- routes.yaml --
+# table 254 (main) / type 1 (unicast): auto-discovery only follows the node's
+# real default route, not one from an auxiliary table.
+table: 254
+type: 1
 linkindex: 1
 dst: 0.0.0.0/0
 gw: 10.99.0.135
 ---
+table: 254
+type: 1
 linkindex: 2
 dst: ::/0
 gw: fd00::aa:bb:cc:135
