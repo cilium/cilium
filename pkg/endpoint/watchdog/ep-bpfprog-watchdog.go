@@ -119,10 +119,12 @@ func (r *endpointBPFProgWatchdog) checkEndpointBPFPrograms(ctx context.Context) 
 			return fmt.Errorf("failed to assert if endpoint BPF programs need to be reloaded: %w", err)
 		}
 
-		// We've detected missing bpf progs for this endpoint.
-		// Trigger bpf progs reload - but first fetch all endpoints that
-		// don't have the programs loaded.
-		if !loaded {
+		// Collect all endpoints without the programs loaded before triggering
+		// the reload below. An Endpoint being deleted also detaches the programs
+		// while the host device still exists, so check if the Endpoint is still
+		// alive. Both the StateReady check above and loaded were fetched earlier.
+		// Otherwise, we will false warn of programs being unloaded.
+		if !loaded && ep.IsAlive() {
 			epsWithoutProgramsLoaded[ep.ID] = ep.GetK8sNamespaceAndCEPName()
 		}
 	}
