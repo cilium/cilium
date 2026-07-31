@@ -111,7 +111,7 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 	if (ct_entry)
 		test_fatal("CT entry found when it shouldn't be");
 
-	policy_delete_egress_entry();
+	policy_delete_egress_all_entry();
 
 	test_finish();
 }
