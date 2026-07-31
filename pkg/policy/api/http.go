@@ -114,11 +114,11 @@ type PortRuleHTTP struct {
 // +deepequal-gen:unordered-array=true
 type PortRulesHTTP []PortRuleHTTP
 
-// Sanitize sanitizes HTTP rules. It ensures that the path and method fields
+// Validate validates HTTP rules. It ensures that the path and method fields
 // are valid regular expressions. Note that the proxy may support a wider-range
 // of regular expressions (e.g. that specified by ECMAScript), so this function
 // may return some false positives. If the rule is invalid, returns an error.
-func (h *PortRuleHTTP) Sanitize() error {
+func (h *PortRuleHTTP) Validate() error {
 	if h.Path != "" {
 		_, err := regexp.Compile(h.Path)
 		if err != nil {

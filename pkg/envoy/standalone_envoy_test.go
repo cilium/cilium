@@ -735,7 +735,7 @@ func newStandaloneTestPolicyRepo(t *testing.T, logger *slog.Logger, secretManage
 			}},
 		}},
 	}
-	require.NoError(t, rule.Sanitize())
+	require.NoError(t, rule.ValidateAndSanitize())
 	repo.MustAddList(api.Rules{rule})
 
 	return repo, localIdentity

@@ -120,7 +120,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		t.Helper()
 
 		for _, r := range rules {
-			require.NoError(t, r.Sanitize())
+			require.NoError(t, r.ValidateAndSanitize())
 		}
 
 		dc := make(chan uint64, 1)

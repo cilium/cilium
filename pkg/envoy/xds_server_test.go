@@ -1485,7 +1485,7 @@ func TestCNPWildcardPortListenerRedirectToEnvoy(t *testing.T) {
 			}},
 		}},
 	}
-	require.NoError(t, cnpRule.Sanitize())
+	require.NoError(t, cnpRule.ValidateAndSanitize())
 	repo.MustAddList(api.Rules{cnpRule})
 
 	selPolicy, _, err := repo.ComputeSelectorPolicy(localIdentity)
@@ -2600,7 +2600,7 @@ func newTestEndpointPolicy(t *testing.T, ep *listenerProxyUpdaterMock) (*policy.
 			},
 		}},
 	}
-	require.NoError(t, rule.Sanitize())
+	require.NoError(t, rule.ValidateAndSanitize())
 	repo.MustAddList(api.Rules{rule})
 
 	return repo, localIdentity, distillEndpointPolicy(t, repo, localIdentity, ep)

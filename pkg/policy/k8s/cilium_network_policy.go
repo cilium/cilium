@@ -5,7 +5,6 @@ package k8s
 
 import (
 	"context"
-	"fmt"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -28,6 +27,11 @@ func (p *policyWatcher) onUpsert(
 	dc chan uint64,
 ) error {
 	initialRecvTime := time.Now()
+	scopedLog := p.log.With(
+		logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name,
+		logfields.K8sAPIVersion, cnp.TypeMeta.APIVersion,
+		logfields.K8sNamespace, cnp.ObjectMeta.Namespace,
+	)
 
 	defer func() {
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
@@ -43,15 +47,21 @@ func (p *policyWatcher) onUpsert(
 			return nil
 		}
 
-		p.log.Debug(
+		scopedLog.Debug(
 			"Modified CiliumNetworkPolicy",
-			logfields.K8sAPIVersion, cnp.TypeMeta.APIVersion,
-			logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name,
-			logfields.K8sNamespace, cnp.ObjectMeta.Namespace,
 			logfields.AnnotationsOld, oldCNP.ObjectMeta.Annotations,
 			logfields.Annotations, cnp.ObjectMeta.Annotations,
 		)
 	}
+
+	// Do early validation for CNP object so we don't continue processing invalid objects.
+	if err := cnp.Validate(); err != nil {
+		scopedLog.Error("Invalid CiliumNetworkPolicy")
+		return err
+	}
+
+	// Cache the valid un-sanitized CNP for use when resolving external references.
+	p.cnpCache[key] = cnp
 
 	// check if this cnp was referencing or is now referencing at least one ToServices rule
 	if hasToServices(cnp) {
@@ -67,7 +77,8 @@ func (p *policyWatcher) onUpsert(
 		}
 	}
 
-	return p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID, dc)
+	p.upsertCiliumNetworkPolicyV2(cnp, key, initialRecvTime, resourceID, dc)
+	return nil
 }
 
 func (p *policyWatcher) onDelete(
@@ -90,46 +101,34 @@ func (p *policyWatcher) onDelete(
 	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 }
 
-// resolveCiliumNetworkPolicyRefs resolves all the references to external resources
-// (e.g. CiliumCIDRGroups) in a CNP/CCNP, inlines them into a "translated" CNP,
-// and then adds the translated CNP to the policy repository.
-// If the CNP was successfully imported, the raw (i.e. untranslated) CNP/CCNP
-// is also added to p.cnpCache.
-func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
-	cnp *types.SlimCNP,
+// upsertCiliumNetworkPolicyV2 resolves all references to external resources(eg. ToServices),
+// parses the rules and adds them to policy repository.
+//
+// NOTE: This method assumes that the provided CNP object is validated beforehand.
+func (p *policyWatcher) upsertCiliumNetworkPolicyV2(
+	cachedCNP *types.SlimCNP,
 	key resource.Key,
 	initialRecvTime time.Time,
 	resourceID ipcacheTypes.ResourceID,
 	dc chan uint64,
-) error {
-	// We need to deepcopy this structure because we are writing
-	// fields in cnp.Parse() in upsertCiliumNetworkPolicyV2.
-	// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
-	translatedCNP := cnp.DeepCopy()
+) {
+	// DeepCopy the object as it will be mutated by Sanitize and later when resolving
+	// external(eg. toServices) references.
+	cnp := cachedCNP.DeepCopy()
+	cnp.Sanitize()
 
-	// Resolve ToService references
+	// Resolve ToService references if present.
 	if _, exists := p.toServicesPolicies[key]; exists {
-		p.resolveToServices(key, translatedCNP)
+		p.resolveToServices(key, cnp)
 	}
 
-	err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID, dc)
-	if err == nil {
-		p.cnpCache[key] = cnp
-	}
-
-	return err
-}
-
-func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialRecvTime time.Time, resourceID ipcacheTypes.ResourceID, dc chan uint64) error {
 	scopedLog := p.log.With(
 		logfields.CiliumNetworkPolicyName, cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion, cnp.TypeMeta.APIVersion,
 		logfields.K8sNamespace, cnp.ObjectMeta.Namespace,
 	)
 
-	scopedLog.Debug(
-		"Adding CiliumNetworkPolicy",
-	)
+	scopedLog.Debug("Adding CiliumNetworkPolicy")
 	namespace := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 	if namespace == "" {
 		p.metricsManager.AddCCNP(cnp.CiliumNetworkPolicy)
@@ -137,14 +136,7 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 		p.metricsManager.AddCNP(cnp.CiliumNetworkPolicy)
 	}
 
-	rules, err := cnp.Parse(scopedLog, cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.config.ClusterName))
-	if err != nil {
-		scopedLog.Warn(
-			"Unable to add CiliumNetworkPolicy",
-			logfields.Error, err,
-		)
-		return fmt.Errorf("failed to parse CiliumNetworkPolicy %s/%s: %w", cnp.ObjectMeta.Namespace, cnp.ObjectMeta.Name, err)
-	}
+	rules := cnp.ParseRules(scopedLog, cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.config.ClusterName))
 	if dc != nil {
 		if cnp.ObjectMeta.Namespace == "" {
 			p.ccnpSyncPending.Add(1)
@@ -159,10 +151,8 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 		Resource:            resourceID,
 		DoneChan:            dc,
 	})
-	scopedLog.Info(
-		"Imported CiliumNetworkPolicy",
-	)
-	return nil
+
+	scopedLog.Info("Imported CiliumNetworkPolicy")
 }
 
 func (p *policyWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP, resourceID ipcacheTypes.ResourceID, dc chan uint64) {
