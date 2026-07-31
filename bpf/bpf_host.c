@@ -198,7 +198,10 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
 		if (ipv6_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip6, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
+			/* Tolerate L4 protocol not supported by CT and defer the
+			 * decision to the egress policies if any and applicable.
+			 */
+			if (unlikely(ct_buffer.ret < 0) && ct_buffer.ret != DROP_CT_UNKNOWN_PROTO)
 				return ct_buffer.ret;
 			need_hostfw = true;
 			is_host_id = secctx == HOST_ID;
@@ -209,7 +212,10 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			return DROP_INVALID;
 
 		if (ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
+			/* Tolerate L4 protocol not supported by CT and defer the
+			 * decision to the ingress policies if any and applicable.
+			 */
+			if (unlikely(ct_buffer.ret < 0) && ct_buffer.ret != DROP_CT_UNKNOWN_PROTO)
 				return ct_buffer.ret;
 			need_hostfw = true;
 		}
@@ -627,7 +633,10 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	if (from_host) {
 		/* We're on the egress path of cilium_host. */
 		if (ipv4_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip4, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
+			/* Tolerate L4 protocol not supported by CT and defer the
+			 * decision to the egress policies if any and applicable.
+			 */
+			if (unlikely(ct_buffer.ret < 0) && ct_buffer.ret != DROP_CT_UNKNOWN_PROTO)
 				return ct_buffer.ret;
 			need_hostfw = true;
 			is_host_id = secctx == HOST_ID;
@@ -639,7 +648,10 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 
 		/* We're on the ingress path of the native device. */
 		if (ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
+			/* Tolerate L4 protocol not supported by CT and defer the
+			 * decision to the ingress policies if any and applicable.
+			 */
+			if (unlikely(ct_buffer.ret < 0) && ct_buffer.ret != DROP_CT_UNKNOWN_PROTO)
 				return ct_buffer.ret;
 			need_hostfw = true;
 		}
