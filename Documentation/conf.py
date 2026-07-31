@@ -48,7 +48,7 @@ extensions = ['myst_parser',
               'versionwarning.extension',
               "sphinxext.rediraffe",
               'cilium_helm_directive',
-]
+              ]
 
 rediraffe_redirects = 'redirects.txt'
 # rediraffe_branch is the base for which rediraffe compares the current HEAD to
@@ -153,7 +153,20 @@ rst_epilog = """
 .. |IMAGE_TAG| replace:: \\{i}
 .. |GATEWAY_API_VERSION| replace:: \\{gav}
 .. |GATEWAY_API_RAW_BASE_URL| replace:: \\{grbu}
-""".format(s=scm_web, b=branch, a=archive_name, f=archive_filename, l=archive_link, c=current_release, n=next_release, h=chart_release, g=go_release, i=image_tag, v=chart_version, gav=gateway_api_version, grbu=gateway_api_raw_base_url)
+""".format(
+    s=scm_web,
+    b=branch,
+    a=archive_name,
+    f=archive_filename,
+    l=archive_link,
+    c=current_release,
+    n=next_release,
+    h=chart_release,
+    g=go_release,
+    i=image_tag,
+    v=chart_version,
+    gav=gateway_api_version,
+    grbu=gateway_api_raw_base_url)
 
 # Make shared and constructed links globally available.
 rst_epilog += """
