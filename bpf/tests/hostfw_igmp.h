@@ -42,7 +42,7 @@ struct {
 /* Send an IGMP packet from host to IGMP destination (allow all egress policy).
  *
  */
-PKTGEN("tc", "hostfw_igmp_egress")
+PKTGEN("tc", "hostfw_igmp_1_egress")
 int hostfw_igmp_egress_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -64,13 +64,15 @@ int hostfw_igmp_egress_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hostfw_igmp_egress")
+SETUP("tc", "hostfw_igmp_1_egress")
 int hostfw_igmp_egress_setup(struct __ctx_buff *ctx)
 {
 	policy_add_egress_allow_all_entry();
 	endpoint_v4_add_entry(NODE_IP, 0, 0, ENDPOINT_F_HOST, HOST_ID,
 			      0, (__u8 *)node_mac, (__u8 *)node_mac);
 	ipcache_v4_add_entry(NODE_IP, 0, HOST_ID, 0, 0);
+	ipcache_v4_add_world_entry();
+
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
 
 	/* Jump into the entrypoint */
@@ -79,7 +81,7 @@ int hostfw_igmp_egress_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "hostfw_igmp_egress")
+CHECK("tc", "hostfw_igmp_1_egress")
 int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -125,7 +127,7 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 /* Send an IGMP packet from the IGMP destination to host.
  *
  */
-PKTGEN("tc", "hostfw_igmp_ingress")
+PKTGEN("tc", "hostfw_igmp_2_ingress")
 int hostfw_igmp_ingress_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -147,7 +149,7 @@ int hostfw_igmp_ingress_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hostfw_igmp_ingress")
+SETUP("tc", "hostfw_igmp_2_ingress")
 int hostfw_igmp_ingress_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
@@ -156,7 +158,7 @@ int hostfw_igmp_ingress_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "hostfw_igmp_ingress")
+CHECK("tc", "hostfw_igmp_2_ingress")
 int hostfw_igmp_ingress_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
