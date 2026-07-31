@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -106,7 +107,8 @@ func newTestRAReconciler(t *testing.T, factory *fakeSenderFactory) *UnnumberedRA
 }
 
 // raParams builds ReconcileParams for an instance whose peers request the given
-// unnumbered interfaces (one unnumbered peer per interface).
+// unnumbered interfaces (one unnumbered peer per interface). PeerInterface is set
+// as the DefaultGatewayReconciler, which runs first, would have set it.
 func raParams(instanceName string, ifaces ...string) ReconcileParams {
 	var peers []v2.CiliumBGPNodePeer
 	for i, ifname := range ifaces {
@@ -116,6 +118,7 @@ func raParams(instanceName string, ifaces ...string) ReconcileParams {
 				Mode:       v2.BGPUnnumberedMode,
 				Unnumbered: &v2.BGPUnnumbered{Interface: ifname},
 			},
+			PeerInterface: ptr.To(ifname),
 		})
 	}
 	return ReconcileParams{
@@ -153,13 +156,31 @@ func TestUnnumberedRAReconciler_SelectsOnlyUnnumberedInterfaces(t *testing.T) {
 		DesiredConfig: &v2.CiliumBGPNodeInstance{
 			Name: "instance-1",
 			Peers: []v2.CiliumBGPNodePeer{
-				// Unnumbered with a real interface -> selected.
+				// Unnumbered with an explicitly configured interface -> selected.
 				{
 					Name: "unnum",
 					AutoDiscovery: &v2.BGPAutoDiscovery{
 						Mode:       v2.BGPUnnumberedMode,
 						Unnumbered: &v2.BGPUnnumbered{Interface: "net0"},
 					},
+					PeerInterface: ptr.To("net0"),
+				},
+				// Unnumbered with the interface derived from the default route by
+				// the DefaultGatewayReconciler -> selected.
+				{
+					Name: "unnum-derived",
+					AutoDiscovery: &v2.BGPAutoDiscovery{
+						Mode:           v2.BGPUnnumberedMode,
+						DefaultGateway: &v2.DefaultGateway{AddressFamily: "ipv4"},
+					},
+					PeerInterface: ptr.To("net1"),
+				},
+				// Not unnumbered, peered over a link-local address on an
+				// interface -> ignored, the peer sends its own RAs.
+				{
+					Name:          "link-local",
+					PeerAddress:   ptr.To("fe80::1"),
+					PeerInterface: ptr.To("net2"),
 				},
 				// Not unnumbered -> ignored.
 				{
@@ -171,18 +192,19 @@ func TestUnnumberedRAReconciler_SelectsOnlyUnnumberedInterfaces(t *testing.T) {
 				},
 				// No AutoDiscovery at all -> ignored.
 				{Name: "static"},
-				// Unnumbered mode but no unnumbered config -> ignored.
+				// Unnumbered mode whose interface is not (yet) resolved -> ignored.
 				{
-					Name:          "unnum-nil",
+					Name:          "unnum-unresolved",
 					AutoDiscovery: &v2.BGPAutoDiscovery{Mode: v2.BGPUnnumberedMode},
 				},
-				// Unnumbered mode but empty interface -> ignored.
+				// Unnumbered mode with an empty resolved interface -> ignored.
 				{
 					Name: "unnum-empty",
 					AutoDiscovery: &v2.BGPAutoDiscovery{
 						Mode:       v2.BGPUnnumberedMode,
 						Unnumbered: &v2.BGPUnnumbered{Interface: ""},
 					},
+					PeerInterface: ptr.To(""),
 				},
 			},
 		},
@@ -190,7 +212,7 @@ func TestUnnumberedRAReconciler_SelectsOnlyUnnumberedInterfaces(t *testing.T) {
 	}
 
 	require.NoError(t, r.Reconcile(context.Background(), params))
-	require.Equal(t, []string{"net0"}, runningIfaces(r))
+	require.Equal(t, []string{"net0", "net1"}, runningIfaces(r))
 }
 
 func TestUnnumberedRAReconciler_StartsUpdatesAndStops(t *testing.T) {
