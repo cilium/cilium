@@ -85,12 +85,6 @@ encrypt_src_matches_policy(__u32 src_sec_identity) {
 		return false;
 #endif /* !ENABLE_NODE_ENCRYPTION */
 
-	/* We don't want to encrypt any traffic that originates from outside
-	 * the cluster. This check excludes DSR traffic from the LB node to a remote backend.
-	 */
-	if (!identity_is_cluster(src_sec_identity))
-		return false;
-
 	/* If source is remote node we should treat it like outside traffic.
 	 * This is possible when connection is done from pod to load balancer with DSR enabled.
 	 */
