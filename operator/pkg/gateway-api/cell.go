@@ -323,14 +323,22 @@ func registerSecretSync(params secretSyncParams) secretsync.SecretSyncRegistrati
 	}
 
 	handler := NewSecretSyncHandler(params.CtrlRuntimeManager.GetClient(), params.Logger, defaultControllerName)
+	secretSyncRegistration := &secretsync.SecretSyncRegistration{
+		RefObject:            &gatewayv1.Gateway{},
+		RefObjectEnqueueFunc: handler.EnqueueTLSSecrets(),
+		RefObjectCheckFunc:   handler.IsReferencedByGateway,
+		SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
+	}
+
+	if helpers.HasListenerSetSupport(params.CtrlRuntimeManager.GetScheme()) {
+		secretSyncRegistration.AdditionalWatches = append(secretSyncRegistration.AdditionalWatches, secretsync.AdditionalWatch{
+			RefObject:            &gatewayv1.ListenerSet{},
+			RefObjectEnqueueFunc: handler.EnqueueListenerSetTLSSecrets(),
+		})
+	}
 
 	return secretsync.SecretSyncRegistrationOut{
-		SecretSyncRegistration: &secretsync.SecretSyncRegistration{
-			RefObject:            &gatewayv1.Gateway{},
-			RefObjectEnqueueFunc: handler.EnqueueTLSSecrets(),
-			RefObjectCheckFunc:   handler.IsReferencedByGateway,
-			SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
-		},
+		SecretSyncRegistration: secretSyncRegistration,
 		ConfigMapSyncRegistration: &secretsync.ConfigMapSyncRegistration{
 			RefObject:            &gatewayv1.BackendTLSPolicy{},
 			RefObjectEnqueueFunc: handler.EnqueueBackendTLSPolicyConfigMaps(),
