@@ -2204,7 +2204,10 @@
       "type": "boolean"
     },
     "endpointPolicyUpdateTimeoutDuration": {
-      "type": "null"
+      "type": [
+        "null",
+        "string"
+      ]
     },
     "endpointRoutes": {
       "properties": {

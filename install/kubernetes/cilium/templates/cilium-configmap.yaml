@@ -474,7 +474,7 @@ data:
 {{- if has (kindOf .Values.bpf.policyMapPressureMetricsThreshold) (list "int64" "float64") }}
   bpf-policy-map-pressure-metrics-threshold: {{ .Values.bpf.policyMapPressureMetricsThreshold | quote }}
 {{- end }}
-{{- if .Values.endpointPolicyUpdateTimeoutDuration }}
+{{- if (not (kindIs "invalid" .Values.endpointPolicyUpdateTimeoutDuration)) }}
   endpoint-policy-update-timeout: {{ .Values.endpointPolicyUpdateTimeoutDuration | quote }}
 {{- end }}
 {{- if hasKey .Values.bpf "policyStatsMapMax" }}
