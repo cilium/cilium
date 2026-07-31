@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"strconv"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/labels"
@@ -40,15 +39,13 @@ type Identity struct {
 }
 
 // IPIdentityPair is a pairing of an IP and the security identity to which that
-// IP corresponds. May include an optional Mask which, if present, denotes that
-// the IP represents a CIDR with the specified Mask.
+// IP corresponds.
 //
 // WARNING - STABLE API
 // This structure is written as JSON to the key-value store. Do NOT modify this
 // structure in ways which are not JSON forward compatible.
 type IPIdentityPair struct {
 	IP                net.IP          `json:"IP"`
-	Mask              net.IPMask      `json:"Mask"`
 	HostIP            net.IP          `json:"HostIP"`
 	ID                NumericIdentity `json:"ID"`
 	Key               uint8           `json:"Key"`
@@ -62,7 +59,7 @@ type IPIdentityPair struct {
 type IdentityMap map[NumericIdentity]labels.LabelArray
 
 // GetKeyName returns the kvstore key to be used for the IPIdentityPair
-func (pair *IPIdentityPair) GetKeyName() string { return pair.PrefixString() }
+func (pair *IPIdentityPair) GetKeyName() string { return pair.IP.String() }
 
 // Marshal returns the IPIdentityPair object as JSON byte slice
 func (pair *IPIdentityPair) Marshal() ([]byte, error) { return json.Marshal(pair) }
@@ -144,26 +141,6 @@ func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
 		lblArray = lbls.LabelArray()
 	}
 	return &Identity{ID: id, Labels: lbls, LabelArray: lblArray}
-}
-
-// IsHost determines whether the IP in the pair represents a host (true) or a
-// CIDR prefix (false)
-func (pair *IPIdentityPair) IsHost() bool {
-	return pair.Mask == nil
-}
-
-// PrefixString returns the IPIdentityPair's IP as either a host IP in the
-// format w.x.y.z if 'host' is true, or as a prefix in the format the w.x.y.z/N
-// if 'host' is false.
-func (pair *IPIdentityPair) PrefixString() string {
-	ipstr := pair.IP.String()
-
-	if pair.IsHost() {
-		return ipstr
-	}
-
-	ones, _ := pair.Mask.Size()
-	return ipstr + "/" + strconv.Itoa(ones)
 }
 
 // ScopeForLabels returns the identity scope to be used for the label set.
