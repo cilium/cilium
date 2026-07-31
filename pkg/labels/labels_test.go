@@ -337,7 +337,7 @@ func TestLabelsK8sStringMap(t *testing.T) {
 	require.Equal(t, map[string]string{"gen.a": "2", "reserved.b": "2"}, lblsAll.K8sStringMap())
 }
 
-func TestLabels_Has(t *testing.T) {
+func TestLabels_HasLabel(t *testing.T) {
 	tests := []struct {
 		name string
 		l    Labels
@@ -377,11 +377,49 @@ func TestLabels_Has(t *testing.T) {
 			in:   NewLabel("nope", "", ""),
 			want: false,
 		},
+		{
+			name: "value mismatch",
+			l: Labels{
+				"foo":   NewLabel("foo", "bar", "any"),
+				"other": NewLabel("other", "bar", ""),
+			},
+			in:   NewLabel("foo", "baz", "any"),
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.l.Has(tt.in))
+			assert.Equal(t, tt.want, tt.l.HasLabel(tt.in))
 		})
+	}
+}
+
+// Labels.Has() is a specific interface
+// that is required for kubernetes selectors to work
+func TestLabels_Has(t *testing.T) {
+	lbls := LabelArray{
+		NewLabel("foo", "bar", "k8s"),
+		NewLabel("foo1", "bar1", "any"), // not valid, but good to capture
+		NewLabel("kube-apiserver", "", "reserved"),
+	}.Labels()
+	lbls.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("10.1.2.0/24")))
+	lbls.MergeLabels(GetCIDRLabels(netip.MustParsePrefix("2001:db8:cafe::/54")))
+
+	for key, expected := range map[string]bool{
+		"any:foo":                 true,
+		"k8s:foo":                 true,
+		"k8s:foo1":                false,
+		"reserved:kube-apiserver": true,
+
+		"cidr:10.1.2.0/24": true,  // exact match
+		"cidr:10.1.0.0/22": true,  // larger cidr: OK
+		"cidr:10.1.2.0/25": false, // smaller cidr: no
+
+		"cidr:2001-db8-cafe--0/54": true,  // exact
+		"cidr:2001-db8-cafe--0/53": true,  // larger
+		"cidr:2001-db8-cafe--0/55": false, // smaller
+	} {
+		assert.Equal(t, expected, lbls.Has(key), key)
 	}
 }
 

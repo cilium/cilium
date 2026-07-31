@@ -2636,19 +2636,12 @@ type keyEntry struct {
 func TestMapState_orderedMapStateValidation(t *testing.T) {
 	// identities used in tests
 	identityFoo := identity.NumericIdentity(100)
-	labelsFoo := labels.ParseSelectLabelArray("foo", "blue")
 	identityWorld := identity.ReservedIdentityWorld
-	labelsWorld := labels.LabelWorld.LabelArray()
 	identitySubnet := localIdentity(192020)
-	labelsSubnet := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("192.0.2.0/24")))).LabelArray()
 	identitySubnetIP := localIdentity(192023)
-	labelsSubnetIP := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("192.0.2.3/32")))).LabelArray()
 	identityWorldIP := localIdentity(192042)
-	labelsWorldIP := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("192.0.4.2/32")))).LabelArray()
 	identity1111 := localIdentity(1111)
-	labels1111 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32")))).LabelArray()
 	identity1100 := localIdentity(1100)
-	labels1100 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.0.0/16")))).LabelArray()
 
 	type probe struct {
 		key   Key
@@ -2660,21 +2653,15 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		entries      []keyEntry
 	}
 	tests := []struct {
-		name       string               // test name
-		identities identity.IdentityMap // Identities used in the test
-		tiers      []TierEntries        // Explicitly ordered sets of implicitly ordered entries
-		want       mapStateMap          // expected MapState, optional
-		probes     []probe              // probes to test the policy, optional
+		name   string        // test name
+		tiers  []TierEntries // Explicitly ordered sets of implicitly ordered entries
+		want   mapStateMap   // expected MapState, optional
+		probes []probe       // probes to test the policy, optional
 	}{{
 		name: "allow one.one.one.one, deny everything else on port 80 TAKE 2",
 		// 1. allow 1.1.1.1:80
 		// 2. deny *:80-81
 		// 3. allow 1.1.1.1:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
 		tiers: []TierEntries{{
 			basePriority: 1000,
 			entries: []keyEntry{
@@ -2708,11 +2695,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		// 1. allow 1.1.1.1:80
 		// 2. deny *:80
 		// 3. allow 1.1.1.1:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
 		tiers: []TierEntries{{
 			basePriority: 2000,
 			entries: []keyEntry{
@@ -2754,11 +2736,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		// 1. allow 1.1.1.1:80-81
 		// 2. deny *:80
 		// 3. allow 1.1.1.1:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
 		tiers: []TierEntries{{
 			basePriority: 1000,
 			entries: []keyEntry{
@@ -2792,11 +2769,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		// 1. allow 1.1.1.1:80
 		// 2. deny *:80
 		// 3. allow 1.1.1.1:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
 		tiers: []TierEntries{{
 			basePriority: 1000,
 			entries: []keyEntry{
@@ -2831,11 +2803,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		// 1. allow 1.1.1.1:80
 		// 2. deny *:80
 		// 3. allow 1.1.1.1:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
 		tiers: []TierEntries{{
 			basePriority: 1000,
 			entries: []keyEntry{
@@ -2878,11 +2845,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		// 1. allow 1.1.1.1:80
 		// 2. deny *:80
 		// 3. allow 1.1.0.0/16:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
 		tiers: []TierEntries{{
 			basePriority: 1000,
 			entries: []keyEntry{
@@ -2920,10 +2882,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		},
 	}, {
 		name: "ordered test-1a: earlier order allow takes precedence",
-		identities: identity.IdentityMap{
-			identityFoo:   labelsFoo,
-			identityWorld: labelsWorld,
-		},
 		tiers: []TierEntries{{
 			basePriority: 1000,
 			entries: []keyEntry{
@@ -2952,10 +2910,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		},
 	}, {
 		name: "ordered test-1b: earlier order allow takes precedence",
-		identities: identity.IdentityMap{
-			identityFoo:   labelsFoo,
-			identityWorld: labelsWorld,
-		},
 		tiers: []TierEntries{{
 			basePriority: 1000,
 			entries: []keyEntry{
@@ -2981,10 +2935,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		},
 	}, {
 		name: "ordered test-2a: earlier order deny takes precedence",
-		identities: identity.IdentityMap{
-			identityFoo:   labelsFoo,
-			identityWorld: labelsWorld,
-		},
 		tiers: []TierEntries{{
 			basePriority: 1000,
 			entries: []keyEntry{
@@ -3017,13 +2967,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		},
 	}, {
 		name: "ordered test-3a: CIDR deny with an earlier order allow hole",
-		identities: identity.IdentityMap{
-			identityFoo:      labelsFoo,
-			identityWorld:    labelsWorld,
-			identityWorldIP:  labelsWorldIP,
-			identitySubnet:   labelsSubnet,
-			identitySubnetIP: labelsSubnetIP,
-		},
 		tiers: []TierEntries{{
 			basePriority: 42000,
 			entries: []keyEntry{
@@ -3077,9 +3020,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		},
 	}, {
 		name: "deny 1.1.1.1",
-		identities: identity.IdentityMap{
-			identity1111: labels1111,
-		},
 		tiers: []TierEntries{{
 			basePriority: 0,
 			entries: []keyEntry{
@@ -3098,9 +3038,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		probes: []probe{},
 	}, {
 		name: "Allow 1.1.1.1",
-		identities: identity.IdentityMap{
-			identity1111: labels1111,
-		},
 		tiers: []TierEntries{{
 			basePriority: 0,
 			entries: []keyEntry{
@@ -3122,9 +3059,6 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		probes: []probe{},
 	}, {
 		name: "PASS 1.1.1.1 over deny all",
-		identities: identity.IdentityMap{
-			identity1111: labels1111,
-		},
 		tiers: []TierEntries{{
 			basePriority: 0,
 			entries: []keyEntry{
@@ -3242,7 +3176,7 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 func TestMapState_passValidation(t *testing.T) {
 	// identities used in tests
 	identity1111 := localIdentity(1111)
-	labels1111 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32")))).LabelArray()
+	labels1111 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32"))))
 
 	identityCache := identity.IdentityMap{
 		identity1111: labels1111,
