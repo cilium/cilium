@@ -83,7 +83,13 @@ class CiliumHelmInstallDirective(SphinxDirective):
         opts.extend(f'--set {opt}' for opt in set_options)
         return opts
 
-    def _format_command(self, base_cmd, opts, indent, post_helm_commands='', post_commands=''):
+    def _format_command(
+            self,
+            base_cmd,
+            opts,
+            indent,
+            post_helm_commands='',
+            post_commands=''):
         """Format a helm command with proper line continuation."""
         # Parse post_helm_commands (these get line continuation like helm args)
         post_helm_lines = []
@@ -113,7 +119,8 @@ class CiliumHelmInstallDirective(SphinxDirective):
             suffix = '' if is_last else ' \\\\'
             lines.append(f'{indent}   {opt}{suffix}')
 
-        # Add post_helm_commands - no line continuation, just aligned with other args
+        # Add post_helm_commands - no line continuation, just aligned with
+        # other args
         for line in post_helm_lines:
             lines.append(f'{indent}   {line}')
 
