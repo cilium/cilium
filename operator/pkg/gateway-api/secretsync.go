@@ -71,6 +71,50 @@ func (h *SecretSyncHandler) EnqueueTLSSecrets() handler.EventHandler {
 	})
 }
 
+func (h *SecretSyncHandler) EnqueueListenerSetTLSSecrets() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		scopedLog := h.logger.With(
+			logfields.Resource, obj.GetName(),
+		)
+
+		ls, ok := obj.(*gatewayv1.ListenerSet)
+		if !ok {
+			return nil
+		}
+
+		gw := &gatewayv1.Gateway{}
+		gwNN := helpers.ListenerSetParentGateway(ls)
+		if err := h.client.Get(ctx, *gwNN, gw); err != nil {
+			scopedLog.DebugContext(ctx, "Unable to get parent gateway for listenerset", logfields.Error, err)
+			return nil
+		}
+
+		// Check whether parent Gateway is managed by Cilium
+		if !helpers.GatewayHasMatchingControllerFn(ctx, h.client, h.controllerName, h.logger)(gw) {
+			return nil
+		}
+
+		var reqs []reconcile.Request
+		for _, l := range ls.Spec.Listeners {
+			if l.TLS == nil {
+				continue
+			}
+			for _, cert := range l.TLS.CertificateRefs {
+				if !helpers.IsSecret(cert) {
+					continue
+				}
+				s := types.NamespacedName{
+					Namespace: helpers.NamespaceDerefOr(cert.Namespace, ls.Namespace),
+					Name:      string(cert.Name),
+				}
+				reqs = append(reqs, reconcile.Request{NamespacedName: s})
+				scopedLog.DebugContext(ctx, "Enqueued secret for listenerset", logfields.Secret, s)
+			}
+		}
+		return reqs
+	})
+}
+
 func (h *SecretSyncHandler) IsReferencedByGateway(ctx context.Context, _ client.Client, _ *slog.Logger, obj *corev1.Secret) bool {
 	return len(helpers.GetGatewaysForSecret(ctx, h.client, obj, h.controllerName, h.logger)) > 0
 }
