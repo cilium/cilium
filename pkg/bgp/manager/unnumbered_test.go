@@ -37,15 +37,23 @@ func unnumberedInstanceConfig(peers ...v2.CiliumBGPNodePeer) *v2.CiliumBGPNodeIn
 	}
 }
 
-// peerIface returns the interface an unnumbered peer is configured with, from either
-// spelling: PeerInterface, or the autoDiscovery Unnumbered configuration it is derived
-// from. Stands in for what the DefaultGatewayReconciler and the neighbor reconciler do.
+// peerIface returns the interface an unnumbered peer is configured with, from any of its
+// spellings: PeerInterface, the autoDiscovery Unnumbered configuration it is derived from,
+// or - for a peer whose interface comes from the node's default route - the interface this
+// test stands in for that derivation. Stands in for what the DefaultGatewayReconciler and
+// the neighbor reconciler do.
 func peerIface(peer v2.CiliumBGPNodePeer) string {
 	if iface := ptr.Deref(peer.PeerInterface, ""); iface != "" {
 		return iface
 	}
-	if peer.AutoDiscovery != nil && peer.AutoDiscovery.Unnumbered != nil {
+	if peer.AutoDiscovery == nil {
+		return ""
+	}
+	if peer.AutoDiscovery.Unnumbered != nil {
 		return peer.AutoDiscovery.Unnumbered.Interface
+	}
+	if peer.AutoDiscovery.Mode == v2.BGPUnnumberedMode && peer.AutoDiscovery.DefaultGateway != nil {
+		return unnumberedIface
 	}
 	return ""
 }
@@ -72,6 +80,16 @@ func TestResolvedPeerAddresses(t *testing.T) {
 		AutoDiscovery: &v2.BGPAutoDiscovery{
 			Mode:       v2.BGPUnnumberedMode,
 			Unnumbered: &v2.BGPUnnumbered{Interface: unnumberedIface},
+		},
+	}
+	// Unnumbered by way of autoDiscovery as well, but with the interface derived from
+	// the node's default route rather than named in the configuration.
+	derivedIfacePeer := v2.CiliumBGPNodePeer{
+		Name:    "derived-interface-unnumbered-peer",
+		PeerASN: ptr.To[int64](65002),
+		AutoDiscovery: &v2.BGPAutoDiscovery{
+			Mode:           v2.BGPUnnumberedMode,
+			DefaultGateway: &v2.DefaultGateway{AddressFamily: "ipv4"},
 		},
 	}
 	defaultGatewayPeer := v2.CiliumBGPNodePeer{
@@ -117,6 +135,20 @@ func TestResolvedPeerAddresses(t *testing.T) {
 		{
 			name:     "autoDiscovery unnumbered peer not resolved by the router yet",
 			peers:    []v2.CiliumBGPNodePeer{autoDiscoveryPeer},
+			expected: map[string]netip.Addr{},
+		},
+		{
+			// The interface is discovered from the default route, so neither
+			// PeerInterface nor the unnumbered configuration is set at this point:
+			// only the mode tells the manager the peer is addressless.
+			name:     "autoDiscovery unnumbered peer with a derived interface resolved by the router",
+			peers:    []v2.CiliumBGPNodePeer{derivedIfacePeer, numberedPeer},
+			resolve:  true,
+			expected: map[string]netip.Addr{derivedIfacePeer.Name: unnumberedPeerAddr},
+		},
+		{
+			name:     "autoDiscovery unnumbered peer with a derived interface not resolved by the router yet",
+			peers:    []v2.CiliumBGPNodePeer{derivedIfacePeer},
 			expected: map[string]netip.Addr{},
 		},
 		{
