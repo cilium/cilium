@@ -101,6 +101,15 @@ gateway_api_raw_base_url = (
     gateway_api_version
 )
 
+relinfo = semver.parse_version_info(release)
+prev_branch = '%d.%d' % (relinfo.major, relinfo.minor - 1)
+if relinfo.prerelease:
+    next_release = '%d.%d' % (relinfo.major, relinfo.minor)
+    current_release = prev_branch
+else:
+    next_release = '%d.%d' % (relinfo.major, relinfo.minor + 1)
+    current_release = '%d.%d' % (relinfo.major, relinfo.minor)
+
 # Fetch the docs version from an environment variable.
 # Map latest -> main.
 # Map stable -> current version number.
@@ -121,14 +130,6 @@ else:
     chart_version = '--version ' + release
     chart_release = 'cilium/cilium ' + chart_version
     tags.add('stable')
-relinfo = semver.parse_version_info(release)
-prev_release = '%d.%d' % (relinfo.major, relinfo.minor - 1)
-if relinfo.prerelease:
-    next_release = '%d.%d' % (relinfo.major, relinfo.minor)
-    current_release = prev_release
-else:
-    next_release = '%d.%d' % (relinfo.major, relinfo.minor + 1)
-    current_release = '%d.%d' % (relinfo.major, relinfo.minor)
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 github_repo = 'https://github.com/cilium/cilium/'
@@ -185,7 +186,7 @@ extlinks = {
     'git-tree': (scm_web + "/%s", None),
     'github-backport': (backport_format, None),
     'gh-issue': (github_repo + 'issues/%s', 'GitHub issue %s'),
-    'prev-docs': (versionwarning_api_url + language + '/v' + prev_release + '/%s', None),
+    'prev-docs': (versionwarning_api_url + language + '/v' + prev_branch + '/%s', None),
 }
 
 # List of patterns, relative to source directory, that match files and
