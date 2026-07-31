@@ -124,6 +124,7 @@ type Parameters struct {
 	ConnDisruptTestRestartsPath         string
 	ConnDisruptTestXfrmErrorsPath       string
 	ConnDisruptDispatchInterval         time.Duration
+	ConnDisruptClientTimeout            time.Duration
 
 	ExpectedDropReasons []string
 	ExpectedXFRMErrors  []string
