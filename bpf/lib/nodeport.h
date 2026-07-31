@@ -512,8 +512,8 @@ find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr, struct dsr_opt_v6 *dsr_opt,
 
 static __always_inline int nodeport_extract_dsr_v6(
 	struct __ctx_buff *ctx, struct ipv6hdr *ip6 __maybe_unused,
-	const struct ipv6_ct_tuple *tuple, int l4_off, union v6addr *addr,
-	__be16 *port, bool *dsr)
+	const struct ipv6_ct_tuple *tuple, int l4_off, fraginfo_t fraginfo,
+	union v6addr *addr, __be16 *port, bool *dsr)
 {
 #   if defined(IS_BPF_OVERLAY)
 	{
@@ -552,8 +552,10 @@ static __always_inline int nodeport_extract_dsr_v6(
 		struct ipv6_ct_tuple tmp = *tuple;
 		union tcp_flags tcp_flags = {};
 
-		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
-			return DROP_CT_INVALID_HDR;
+		if (ipfrag_has_l4_header(fraginfo)) {
+			if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
+				return DROP_CT_INVALID_HDR;
+		}
 
 		tmp.flags = TUPLE_F_OUT;
 		__ipv6_ct_tuple_reverse(&tmp);
@@ -1586,7 +1588,8 @@ skip_service_lookup:
 	    (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
 	if (is_svc_proto) {
 		ret = nodeport_extract_dsr_v6(
-			ctx, ip6, &tuple, l4_off, &key.address, &key.dport, dsr);
+			ctx, ip6, &tuple, l4_off, fraginfo, &key.address,
+			&key.dport, dsr);
 		if (IS_ERR(ret))
 			return ret;
 		if (*dsr)
@@ -1842,8 +1845,8 @@ static __always_inline int encap_geneve_dsr_opt4(
 
 static __always_inline int nodeport_extract_dsr_v4(
 	struct __ctx_buff *ctx, const struct iphdr *ip4 __maybe_unused,
-	const struct ipv4_ct_tuple *tuple, int l4_off, __be32 *addr,
-	__be16 *port, bool *dsr)
+	const struct ipv4_ct_tuple *tuple, int l4_off, fraginfo_t fraginfo,
+	__be32 *addr, __be16 *port, bool *dsr)
 {
 	/* Parse DSR info from the packet, to get the addr/port of the
 	 * addressed service. We need this for RevDNATing the backend's replies.
@@ -1899,8 +1902,10 @@ static __always_inline int nodeport_extract_dsr_v4(
 		struct ipv4_ct_tuple tmp = *tuple;
 		union tcp_flags tcp_flags = {};
 
-		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
-			return DROP_CT_INVALID_HDR;
+		if (ipfrag_has_l4_header(fraginfo)) {
+			if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
+				return DROP_CT_INVALID_HDR;
+		}
 
 		/* tuple direction only gets initialized on the first CT lookup */
 		tmp.flags = TUPLE_F_OUT;
@@ -2931,7 +2936,8 @@ skip_service_lookup:
 		 * an established DSR connection:
 		 */
 		ret = nodeport_extract_dsr_v4(
-			ctx, ip4, &tuple, l4_off, &key.address, &key.dport, dsr);
+			ctx, ip4, &tuple, l4_off, fraginfo, &key.address,
+			&key.dport, dsr);
 		if (IS_ERR(ret))
 			return ret;
 		if (*dsr)
