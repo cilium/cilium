@@ -134,6 +134,12 @@ Once this configuration is applied:
 
    Link-local address as default gateway is not supported.
 
+.. note::
+
+   Only unicast default routes in the ``main`` routing table are considered. A node commonly
+   carries default routes in other tables - Cilium installs one by way of ``cilium_host`` -
+   which are not the way off the node even though they often have a better metric.
+
 Multi-homing with Default Gateway Auto-Discovery
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

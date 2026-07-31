@@ -47,24 +47,9 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 
 	// Test data
 	defaultRouteTable := []*tables.Route{
-		{
-			Dst:       netip.MustParsePrefix("0.0.0.0/0"),
-			Gw:        netip.MustParseAddr("192.168.0.3"),
-			LinkIndex: 123,
-			Priority:  100,
-		},
-		{
-			Dst:       netip.MustParsePrefix("0.0.0.0/0"),
-			Gw:        netip.MustParseAddr("192.168.0.4"),
-			LinkIndex: 124,
-			Priority:  200,
-		},
-		{
-			Dst:       netip.MustParsePrefix("::/0"),
-			Gw:        netip.MustParseAddr("fd00:10:0:1::1"),
-			LinkIndex: 124,
-			Priority:  200,
-		},
+		defaultRouteEntry("0.0.0.0/0", "192.168.0.3", 123, 100),
+		defaultRouteEntry("0.0.0.0/0", "192.168.0.4", 124, 200),
+		defaultRouteEntry("::/0", "fd00:10:0:1::1", 124, 200),
 	}
 
 	table := []struct {
@@ -249,18 +234,8 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 				},
 			},
 			newRoutes: []*tables.Route{
-				{
-					Dst:       netip.MustParsePrefix("0.0.0.0/0"),
-					Gw:        netip.MustParseAddr("192.168.0.3"),
-					LinkIndex: 123,
-					Priority:  200,
-				},
-				{
-					Dst:       netip.MustParsePrefix("0.0.0.0/0"),
-					Gw:        netip.MustParseAddr("192.168.0.4"),
-					LinkIndex: 124,
-					Priority:  100,
-				},
+				defaultRouteEntry("0.0.0.0/0", "192.168.0.3", 123, 200),
+				defaultRouteEntry("0.0.0.0/0", "192.168.0.4", 124, 100),
 			},
 			newPeers: []v2.CiliumBGPNodePeer{
 				{
@@ -278,6 +253,62 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 				{
 					Name:        "peer-3",
 					PeerAddress: ptr.To[string]("192.168.0.4"),
+					AutoDiscovery: &v2.BGPAutoDiscovery{
+						Mode: v2.BGPDefaultGatewayMode,
+						DefaultGateway: &v2.DefaultGateway{
+							AddressFamily: "ipv4",
+						},
+					},
+					PeerASN: ptr.To[int64](64124),
+				},
+			},
+			err: nil,
+		},
+		{
+			// A node runs default routes in tables other than main - Cilium installs one
+			// by way of cilium_host, and a local table holds a metric-0 "default dev lo"
+			// - and those outrank the real default route on metric. Only the main-table
+			// unicast route is the way off the node.
+			name: "ignores default routes outside the main table",
+			routes: []*tables.Route{
+				defaultRouteEntry("0.0.0.0/0", "192.168.0.3", 123, 1024),
+				{
+					// local table: "local default dev lo" with the best metric
+					Table:     2004,
+					Type:      tables.RTN_LOCAL,
+					Scope:     tables.RT_SCOPE_HOST,
+					Dst:       netip.MustParsePrefix("0.0.0.0/0"),
+					Gw:        netip.MustParseAddr("192.168.0.9"),
+					LinkIndex: 123,
+					Priority:  0,
+				},
+				{
+					// Cilium's own table: a default route with a better metric than the
+					// real one
+					Table:     2005,
+					Type:      tables.RTN_UNICAST,
+					Dst:       netip.MustParsePrefix("0.0.0.0/0"),
+					Gw:        netip.MustParseAddr("10.0.5.160"),
+					LinkIndex: 124,
+					Priority:  0,
+				},
+			},
+			peers: []v2.CiliumBGPNodePeer{
+				{
+					Name: "peer-tables",
+					AutoDiscovery: &v2.BGPAutoDiscovery{
+						Mode: v2.BGPDefaultGatewayMode,
+						DefaultGateway: &v2.DefaultGateway{
+							AddressFamily: "ipv4",
+						},
+					},
+					PeerASN: ptr.To[int64](64124),
+				},
+			},
+			expectedPeers: []v2.CiliumBGPNodePeer{
+				{
+					Name:        "peer-tables",
+					PeerAddress: ptr.To[string]("192.168.0.3"),
 					AutoDiscovery: &v2.BGPAutoDiscovery{
 						Mode: v2.BGPDefaultGatewayMode,
 						DefaultGateway: &v2.DefaultGateway{
@@ -522,6 +553,19 @@ func setupBGPInstance(logger *slog.Logger) (*instance.BGPInstance, error) {
 
 	testInstance, err := instance.NewBGPInstance(context.Background(), gobgp.NewRouterProvider(), logger, "test-instance", srvParams)
 	return testInstance, err
+}
+
+// defaultRouteEntry builds a main-table unicast default route, the shape the reconciler
+// selects from.
+func defaultRouteEntry(dst, gw string, linkIndex, priority int) *tables.Route {
+	return &tables.Route{
+		Table:     tables.RT_TABLE_MAIN,
+		Type:      tables.RTN_UNICAST,
+		Dst:       netip.MustParsePrefix(dst),
+		Gw:        netip.MustParseAddr(gw),
+		LinkIndex: linkIndex,
+		Priority:  priority,
+	}
 }
 
 func setupStateDB(routes []*tables.Route) (*statedb.DB, error) {
