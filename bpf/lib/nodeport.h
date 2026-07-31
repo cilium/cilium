@@ -797,6 +797,11 @@ nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 		return false;
 
 	if (entry->node_port) {
+		/* A direct connection to the backend reuses this tuple: */
+		if (!ct_entry_alive(entry) &&
+		    ct_has_live_ingress_entry6(get_ct_map6(tuple), tuple))
+			return false;
+
 		if (entry->rev_nat_index) {
 			__u16 rev_nat_index = entry->rev_nat_index;
 			const struct lb6_reverse_nat *tmp;
@@ -2111,6 +2116,11 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 		return false;
 
 	if (entry->node_port) {
+		/* A direct connection to the backend reuses this tuple: */
+		if (!ct_entry_alive(entry) &&
+		    ct_has_live_ingress_entry4(get_ct_map4(tuple), tuple))
+			return false;
+
 		if (entry->rev_nat_index) {
 			__u16 rev_nat_index = entry->rev_nat_index;
 			const struct lb4_reverse_nat *tmp;
