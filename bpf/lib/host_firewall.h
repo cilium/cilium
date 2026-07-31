@@ -334,19 +334,23 @@ static __always_inline int
 ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			 struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ct_buffer6 ct_buffer = {};
+	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	__u32 zero = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	if (!ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer))
+	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
+	if (!ct_buffer)
+		return DROP_INVALID_TC_BUFFER;
+	if (!ipv6_host_policy_ingress_lookup(ctx, ip6, ct_buffer))
 		return CTX_ACT_OK;
-	if (ct_buffer.ret < 0 && ct_buffer.ret != DROP_CT_UNKNOWN_PROTO)
-		return ct_buffer.ret;
+	if (ct_buffer->ret < 0 && ct_buffer->ret != DROP_CT_UNKNOWN_PROTO)
+		return ct_buffer->ret;
 
-	return __ipv6_host_policy_ingress(ctx, ip6, &ct_buffer, src_sec_identity, trace, ext_err);
+	return __ipv6_host_policy_ingress(ctx, ip6, ct_buffer, src_sec_identity, trace, ext_err);
 }
 # endif /* ENABLE_IPV6 */
 
@@ -625,19 +629,23 @@ static __always_inline int
 ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			 struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ct_buffer4 ct_buffer = {};
+	struct ct_buffer4 *ct_buffer;
 	void *data, *data_end;
 	struct iphdr *ip4;
+	__u32 zero = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	if (!ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer))
+	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
+	if (!ct_buffer)
+		return DROP_INVALID_TC_BUFFER;
+	if (!ipv4_host_policy_ingress_lookup(ctx, ip4, ct_buffer))
 		return CTX_ACT_OK;
-	if (ct_buffer.ret < 0 && ct_buffer.ret != DROP_CT_UNKNOWN_PROTO)
-		return ct_buffer.ret;
+	if (ct_buffer->ret < 0 && ct_buffer->ret != DROP_CT_UNKNOWN_PROTO)
+		return ct_buffer->ret;
 
-	return __ipv4_host_policy_ingress(ctx, ip4, &ct_buffer, src_sec_identity, trace, ext_err);
+	return __ipv4_host_policy_ingress(ctx, ip4, ct_buffer, src_sec_identity, trace, ext_err);
 }
 #  endif /* ENABLE_IPV4 */
 # endif /* ENABLE_HOST_FIREWALL */
