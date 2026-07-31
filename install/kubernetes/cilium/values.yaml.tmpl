@@ -1475,6 +1475,9 @@ hubble:
           # This option has no effect when TLS is disabled.
           enabled: false
           useSecret: false
+          # @schema
+          # type: [null, string]
+          # @schema
           # -- Name of the ConfigMap containing the CA to validate client certificates against.
           # If mTLS is enabled and this is unspecified, it will default to the
           # same CA used for Hubble metrics server certificates.
