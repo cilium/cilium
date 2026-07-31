@@ -8,7 +8,6 @@
 {{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
 {{- $defaultBpfCtTcpMax := 524288 -}}
 {{- $defaultBpfCtAnyMax := 262144 -}}
-{{- $fragmentTracking := "true" -}}
 {{- $defaultKubeProxyReplacement := "false" -}}
 {{- $azureUsePrimaryAddress := "true" -}}
 {{- $defaultK8sClientQPS := 5 -}}
@@ -828,8 +827,6 @@ data:
 
 {{- if hasKey .Values "fragmentTracking" }}
   enable-ipv4-fragment-tracking: {{ .Values.fragmentTracking | quote }}
-{{- else if (ne $fragmentTracking "true") }}
-  enable-ipv4-fragment-tracking: "false"
 {{- end }}
 
 {{- if .Values.nat46x64Gateway.enabled }}
