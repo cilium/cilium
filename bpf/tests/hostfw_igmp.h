@@ -95,7 +95,8 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
-	assert(*status_code == CTX_ACT_DROP);
+#ifdef TEST_EXTENDED_PROTOCOLS
+	assert(*status_code == CTX_ACT_OK);
 
 	/* Check for egress CT entry */
 	struct ipv4_ct_tuple tuple = {
@@ -108,8 +109,13 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 	};
 	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
-	if (ct_entry)
-		test_fatal("CT entry found when it shouldn't be");
+	if (!ct_entry)
+		test_fatal("no CT entry found");
+
+	assert(ct_entry->packets == 1);
+#else
+	assert(*status_code == CTX_ACT_DROP);
+#endif
 
 	policy_delete_egress_all_entry();
 
@@ -166,7 +172,8 @@ int hostfw_igmp_ingress_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
-	assert(*status_code == CTX_ACT_DROP);
+#ifdef TEST_EXTENDED_PROTOCOLS
+	assert(*status_code == CTX_ACT_OK);
 
 	/* Check whether this packet hits the existing egress entry */
 	struct ipv4_ct_tuple tuple = {
@@ -179,8 +186,13 @@ int hostfw_igmp_ingress_check(const struct __ctx_buff *ctx)
 	};
 	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
-	if (ct_entry)
-		test_fatal("CT entry found when it shouldn't be");
+	if (!ct_entry)
+		test_fatal("no CT entry found");
+
+	assert(ct_entry->packets == 2);
+#else
+	assert(*status_code == CTX_ACT_DROP);
+#endif
 
 	test_finish();
 }
