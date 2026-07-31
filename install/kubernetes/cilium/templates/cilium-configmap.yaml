@@ -1513,7 +1513,7 @@ data:
   external-envoy-proxy: {{ include "envoyDaemonSetEnabled" . | quote }}
   envoy-base-id: {{ .Values.envoy.baseID | quote }}
 
-{{- if .Values.envoy.httpUpstreamLingerTimeout }}
+{{- if (not (kindIs "invalid" .Values.envoy.httpUpstreamLingerTimeout)) }}
   envoy-http-upstream-linger-timeout: {{ .Values.envoy.httpUpstreamLingerTimeout | quote }}
 {{- end }}
 
