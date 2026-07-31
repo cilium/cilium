@@ -563,7 +563,7 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 			return ret;
 
 		if (*dsr) {
-			*addr = opt.addr;
+			ipv6_addr_copy_unaligned(addr, &opt.addr);
 			*port = opt.port;
 			return 0;
 		}
