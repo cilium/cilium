@@ -1238,6 +1238,36 @@ ct_has_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
 	return entry;
 }
 
+/* Returns true if a CT_INGRESS entry exists for the given tuple and is not
+ * fully closed yet. Used to tell a stale TUPLE_F_OUT entry apart from a live
+ * connection that keys the very same 5-tuple.
+ */
+static __always_inline bool
+ct_has_live_ingress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
+{
+	__u8 flags = tuple->flags;
+	const struct ct_entry *entry;
+
+	tuple->flags = TUPLE_F_IN;
+	entry = map_lookup_elem(map, tuple);
+	tuple->flags = flags;
+
+	return entry && ct_entry_alive(entry);
+}
+
+static __always_inline bool
+ct_has_live_ingress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
+{
+	__u8 flags = tuple->flags;
+	const struct ct_entry *entry;
+
+	tuple->flags = TUPLE_F_IN;
+	entry = map_lookup_elem(map, tuple);
+	tuple->flags = flags;
+
+	return entry && ct_entry_alive(entry);
+}
+
 static __always_inline bool
 __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
 			       __u16 *rev_nat_index, bool check_dsr)
