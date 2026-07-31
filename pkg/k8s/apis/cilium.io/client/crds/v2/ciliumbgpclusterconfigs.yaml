@@ -90,12 +90,26 @@ spec:
                               of the peer address.
                             properties:
                               defaultGateway:
-                                description: defaultGateway is the configuration for
-                                  auto-discovery of the default gateway.
+                                description: |-
+                                  defaultGateway is the configuration for discovery based on the default
+                                  route of an address family.
+
+                                  With mode DefaultGateway, the gateway address of that default route is
+                                  used as the peer address. With mode Unnumbered, only the interface the
+                                  default route egresses is used - see DefaultGateway.
                                 properties:
                                   addressFamily:
-                                    description: addressFamily is the address family
-                                      of the default gateway.
+                                    description: |-
+                                      addressFamily is the address family whose default route is followed. If
+                                      the node has more than one default route in that family, the one with the
+                                      lowest metric is used.
+
+                                      With mode Unnumbered this selects which routing table to consult, not the
+                                      address family the BGP session is established over: only the interface the
+                                      default route egresses is taken from the route, and the peer is then
+                                      reached over that interface at the IPv6 link-local address discovered via
+                                      IPv6 ND. Following the IPv4 default route to establish an unnumbered
+                                      (IPv6 link-local) session is therefore a valid configuration.
                                     enum:
                                     - ipv4
                                     - ipv6
@@ -112,7 +126,8 @@ spec:
                               unnumbered:
                                 description: |-
                                   unnumbered is the configuration for BGP unnumbered peering over an
-                                  interface with no configured peer address.
+                                  explicitly named interface with no configured peer address. Only valid
+                                  with mode Unnumbered, where it is an alternative to defaultGateway.
                                 properties:
                                   interface:
                                     description: |-
@@ -130,8 +145,10 @@ spec:
                             x-kubernetes-validations:
                             - message: defaultGateway must be set when mode is DefaultGateway
                               rule: self.mode != 'DefaultGateway' || has(self.defaultGateway)
-                            - message: unnumbered must be set when mode is Unnumbered
-                              rule: self.mode != 'Unnumbered' || has(self.unnumbered)
+                            - message: exactly one of unnumbered or defaultGateway
+                                must be set when mode is Unnumbered
+                              rule: self.mode != 'Unnumbered' || (has(self.unnumbered)
+                                != has(self.defaultGateway))
                           name:
                             description: Name is the name of the BGP peer. It is a
                               unique identifier for the peer within the BGP instance.

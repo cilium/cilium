@@ -358,9 +358,9 @@ func Test_toNodeBGPInstance_PeerInterface(t *testing.T) {
 				Name: "i",
 				Peers: []v2.CiliumBGPPeer{
 					{
-						Name:             "p",
-						PeerAddress:      ptr.To("fe80::1"),
-						PeerASN:          ptr.To[int64](64512),
+						Name:          "p",
+						PeerAddress:   ptr.To("fe80::1"),
+						PeerASN:       ptr.To[int64](64512),
 						PeerInterface: ptr.To("eth0"),
 					},
 				},
@@ -373,9 +373,9 @@ func Test_toNodeBGPInstance_PeerInterface(t *testing.T) {
 				Name: "i",
 				Peers: []v2.CiliumBGPPeer{
 					{
-						Name:             "p",
-						PeerAddress:      ptr.To("fe80::1"),
-						PeerASN:          ptr.To[int64](64512),
+						Name:          "p",
+						PeerAddress:   ptr.To("fe80::1"),
+						PeerASN:       ptr.To[int64](64512),
 						PeerInterface: ptr.To("eth0"),
 					},
 				},
@@ -396,9 +396,9 @@ func Test_toNodeBGPInstance_PeerInterface(t *testing.T) {
 				Name: "i",
 				Peers: []v2.CiliumBGPPeer{
 					{
-						Name:             "p",
-						PeerAddress:      ptr.To("fe80::1"),
-						PeerASN:          ptr.To[int64](64512),
+						Name:          "p",
+						PeerAddress:   ptr.To("fe80::1"),
+						PeerASN:       ptr.To[int64](64512),
 						PeerInterface: ptr.To("eth0"),
 					},
 				},

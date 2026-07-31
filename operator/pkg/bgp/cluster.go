@@ -402,11 +402,11 @@ func (b *BGPResourceManager) toNodeBGPInstance(clusterBGPInstances []v2.CiliumBG
 
 		for _, clusterBGPInstancePeer := range clusterBGPInstance.Peers {
 			nodePeer := v2.CiliumBGPNodePeer{
-				Name:             clusterBGPInstancePeer.Name,
-				PeerAddress:      clusterBGPInstancePeer.PeerAddress,
-				PeerASN:          clusterBGPInstancePeer.PeerASN,
-				PeerConfigRef:    clusterBGPInstancePeer.PeerConfigRef,
-				AutoDiscovery:    clusterBGPInstancePeer.AutoDiscovery,
+				Name:          clusterBGPInstancePeer.Name,
+				PeerAddress:   clusterBGPInstancePeer.PeerAddress,
+				PeerASN:       clusterBGPInstancePeer.PeerASN,
+				PeerConfigRef: clusterBGPInstancePeer.PeerConfigRef,
+				AutoDiscovery: clusterBGPInstancePeer.AutoDiscovery,
 				PeerInterface: clusterBGPInstancePeer.PeerInterface,
 			}
 

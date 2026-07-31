@@ -758,20 +758,20 @@ func (m *BGPRouterManager) resolvedPeerAddresses(ctx context.Context, i *instanc
 // isUnnumbered reports whether the peer is an addressless (BGP unnumbered) peer.
 //
 // PeerInterface alone is not sufficient: a peer configured with autoDiscovery mode
-// Unnumbered carries only the interface under AutoDiscovery, and PeerInterface is
-// filled in from it by the DefaultGatewayReconciler - which runs *inside* the
-// reconciler loop, after resolvedPeerAddresses has already been snapshotted for the
-// round. Keying off the derived field alone therefore never classifies such a peer as
-// unnumbered, so it never gets a resolved address, no route policy matches it, and
-// nothing is ever advertised to it (see GetConfiguredAdvertisements). Recognize the
-// declared intent instead.
+// Unnumbered has its interface under AutoDiscovery (named explicitly, or to be derived
+// from the default route), and PeerInterface is filled in from it by the
+// DefaultGatewayReconciler - which runs *inside* the reconciler loop, after
+// resolvedPeerAddresses has already been snapshotted for the round. Keying off the
+// derived field alone therefore never classifies such a peer as unnumbered, so it never
+// gets a resolved address, no route policy matches it, and nothing is ever advertised to
+// it (see GetConfiguredAdvertisements). Recognize the declared intent instead: the mode
+// alone decides, the mode-specific configuration below it is not inspected.
 func isUnnumbered(peer v2.CiliumBGPNodePeer) bool {
 	if ptr.Deref(peer.PeerInterface, "") != "" {
 		return true
 	}
 	return peer.AutoDiscovery != nil &&
-		peer.AutoDiscovery.Mode == v2.BGPUnnumberedMode &&
-		peer.AutoDiscovery.Unnumbered != nil
+		peer.AutoDiscovery.Mode == v2.BGPUnnumberedMode
 }
 
 func (m *BGPRouterManager) updateReconcilerErrors(instance string, newErrors []error) error {

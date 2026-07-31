@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/mdlayher/ndp"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/types"
@@ -137,10 +138,16 @@ func (r *UnnumberedRAReconciler) Reconcile(_ context.Context, p ReconcileParams)
 		if peer.AutoDiscovery == nil || peer.AutoDiscovery.Mode != v2.BGPUnnumberedMode {
 			continue
 		}
-		if peer.AutoDiscovery.Unnumbered == nil || peer.AutoDiscovery.Unnumbered.Interface == "" {
+		// Read the interface resolved by the DefaultGatewayReconciler rather than
+		// the configured one: with mode Unnumbered the interface may be derived
+		// from the default route instead of named explicitly. That reconciler has
+		// a lower priority, so it has already populated PeerInterface on this
+		// config by the time we run.
+		ifname := ptr.Deref(peer.PeerInterface, "")
+		if ifname == "" {
 			continue
 		}
-		ifaces[peer.AutoDiscovery.Unnumbered.Interface] = struct{}{}
+		ifaces[ifname] = struct{}{}
 	}
 
 	r.mu.Lock()
