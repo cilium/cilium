@@ -22,27 +22,20 @@ from textwrap import dedent
 
 
 RST_TEMPLATE = """\
-.. only:: stable
+.. tabs::
 
-   .. tabs::
+   .. group-tab:: Helm Repository
 
-      .. group-tab:: Helm Repository
-
-         .. parsed-literal::
+      .. parsed-literal::
 
 {helm_repo_cmd}
 
-      .. group-tab:: OCI Registry
+   .. group-tab:: OCI Registry
 
-         .. parsed-literal::
+      .. parsed-literal::
 
 {oci_cmd}
 
-.. only:: not stable
-
-   .. parsed-literal::
-
-{not_stable_cmd}
 """
 
 
@@ -159,16 +152,11 @@ class CiliumHelmInstallDirective(SphinxDirective):
             oci_base,
             opts_list, '            ', post_helm_commands, post_commands
         )
-        not_stable_cmd = self._format_command(
-            helm_repo_base,
-            opts_list, '      ', post_helm_commands, post_commands
-        )
 
         # Generate RST from template
         rst_content = RST_TEMPLATE.format(
             helm_repo_cmd=helm_repo_cmd,
             oci_cmd=oci_cmd,
-            not_stable_cmd=not_stable_cmd,
         )
 
         # Parse and return nodes

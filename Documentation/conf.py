@@ -114,20 +114,15 @@ else:
 branch = os.environ.get('READTHEDOCS_VERSION')
 if not branch or branch == 'latest':
     branch = 'HEAD'
-    archive_name = 'main'
-    chart_release = './cilium'
-    chart_version = "--chart-directory ./install/kubernetes/cilium"
+    chart_version = prev_release
 elif branch == 'stable':
     branch = release
-    archive_name = release
-    chart_version = '--version ' + release
-    chart_release = 'cilium/cilium ' + chart_version
+    chart_version = release
     tags.add('stable')
 else:
-    archive_name = branch
-    chart_version = '--version ' + release
-    chart_release = 'cilium/cilium ' + chart_version
+    chart_version = release
     tags.add('stable')
+chart_release = 'cilium/cilium --version ' + chart_version
 
 if relinfo.prerelease == 'dev':
     # There's no dev snapshot yet. Use the last release.
@@ -138,9 +133,6 @@ else:
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 github_repo = 'https://github.com/cilium/cilium/'
-archive_filename = archive_name + '.tar.gz'
-archive_link = github_repo + 'archive/' + archive_filename
-archive_name = 'cilium-' + archive_name.strip('v')
 backport_format = github_repo + \
     'pulls?q=is:open+is:pr+-label:backport/author+label:%s/' + current_release
 
@@ -148,9 +140,6 @@ backport_format = github_repo + \
 rst_epilog = """
 .. |SCM_WEB| replace:: \\{s}
 .. |SCM_BRANCH| replace:: \\{b}
-.. |SCM_ARCHIVE_NAME| replace:: \\{a}
-.. |SCM_ARCHIVE_FILENAME| replace:: \\{f}
-.. |SCM_ARCHIVE_LINK| replace:: \\{l}
 .. |CURRENT_RELEASE| replace:: \\{c}
 .. |NEXT_RELEASE| replace:: \\{n}
 .. |CHART_RELEASE| replace:: \\{h}
@@ -162,9 +151,6 @@ rst_epilog = """
 """.format(
     s=scm_web,
     b=branch,
-    a=archive_name,
-    f=archive_filename,
-    l=archive_link,
     c=current_release,
     n=next_release,
     h=chart_release,
