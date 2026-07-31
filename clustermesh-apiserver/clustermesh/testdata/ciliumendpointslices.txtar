@@ -198,7 +198,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.1.79
 {
   "IP": "10.244.1.79",
-  "Mask": null,
   "HostIP": "172.18.0.3",
   "ID": 199472,
   "Key": 0,
@@ -210,7 +209,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.74
 {
   "IP": "10.244.2.74",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199475,
   "Key": 5,
@@ -222,7 +220,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.78
 {
   "IP": "10.244.2.78",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -246,7 +243,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.91
 {
   "IP": "10.244.2.91",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199475,
   "Key": 0,
@@ -258,7 +254,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:1::d643
 {
   "IP": "fd00:10:244:1::d643",
-  "Mask": null,
   "HostIP": "172.18.0.3",
   "ID": 199472,
   "Key": 0,
@@ -270,7 +265,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::9182
 {
   "IP": "fd00:10:244:2::9182",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -294,7 +288,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::e024
 {
   "IP": "fd00:10:244:2::e024",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199475,
   "Key": 5,
@@ -306,7 +299,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b4
 {
   "IP": "fd00:10:244:2::e4b4",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199475,
   "Key": 0,
@@ -319,7 +311,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.15
 {
   "IP": "10.244.2.15",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
@@ -331,7 +322,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.78
 {
   "IP": "10.244.2.78",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -355,7 +345,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.91
 {
   "IP": "10.244.2.91",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
@@ -367,7 +356,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::9182
 {
   "IP": "fd00:10:244:2::9182",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -391,7 +379,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::d615
 {
   "IP": "fd00:10:244:2::d615",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
@@ -403,7 +390,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b3
 {
   "IP": "fd00:10:244:2::e4b3",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
@@ -416,7 +402,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.120
 {
   "IP": "10.244.2.120",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -428,7 +413,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.15
 {
   "IP": "10.244.2.15",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
@@ -440,7 +424,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.78
 {
   "IP": "10.244.2.78",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -464,7 +447,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.91
 {
   "IP": "10.244.2.91",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
@@ -476,7 +458,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::5e16
 {
   "IP": "fd00:10:244:2::5e16",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -488,7 +469,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::9182
 {
   "IP": "fd00:10:244:2::9182",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -512,7 +492,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::d615
 {
   "IP": "fd00:10:244:2::d615",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
@@ -524,7 +503,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b3
 {
   "IP": "fd00:10:244:2::e4b3",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
@@ -537,7 +515,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.120
 {
   "IP": "10.244.2.120",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -549,7 +526,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.15
 {
   "IP": "10.244.2.15",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
@@ -561,7 +537,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.91
 {
   "IP": "10.244.2.91",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
@@ -573,7 +548,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::5e16
 {
   "IP": "fd00:10:244:2::5e16",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -585,7 +559,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::d615
 {
   "IP": "fd00:10:244:2::d615",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
@@ -597,7 +570,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b3
 {
   "IP": "fd00:10:244:2::e4b3",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
@@ -610,7 +582,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.120
 {
   "IP": "10.244.2.120",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -622,7 +593,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::5e16
 {
   "IP": "fd00:10:244:2::5e16",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199494,
   "Key": 0,
@@ -635,7 +605,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.15
 {
   "IP": "10.244.2.15",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
@@ -647,7 +616,6 @@ namespace: fred
 # cilium/state/ip/v1/default/10.244.2.91
 {
   "IP": "10.244.2.91",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
@@ -659,7 +627,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::d615
 {
   "IP": "fd00:10:244:2::d615",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199477,
   "Key": 0,
@@ -671,7 +638,6 @@ namespace: fred
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b3
 {
   "IP": "fd00:10:244:2::e4b3",
-  "Mask": null,
   "HostIP": "172.18.0.2",
   "ID": 199481,
   "Key": 0,
