@@ -123,7 +123,7 @@ cilium-agent [flags]
       --enable-bgp-control-plane-status-report                    Enable the BGP control plane status reporting (default true)
       --enable-bgp-legacy-origin-attribute                        Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-bpf-clock-probe                                    Enable BPF clock source probing for more efficient tick retrieval
-      --enable-bpf-masquerade                                     Masquerade packets from endpoints leaving the host with BPF instead of iptables
+      --enable-bpf-masquerade                                     Masquerade packets from endpoints leaving the host with BPF instead of iptables (default true)
       --enable-bpf-stats                                          Enable BPF statistics collection
       --enable-bpf-tproxy                                         Enable BPF-based proxy redirection (beta), if support available
       --enable-cilium-api-server-access strings                   List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])

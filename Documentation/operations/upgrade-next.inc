@@ -50,6 +50,7 @@ The following options have been modified in this version of Cilium to behave
 differently than in prior releases:
 
 * ``bpf.hostLegacyRouting`` now defaults to true on new Cilium deployments.
+* ``bpf.masquerade`` is enabled by default on new Cilium deployments.
 
 Deprecated Options
 ##################
