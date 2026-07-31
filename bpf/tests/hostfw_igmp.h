@@ -97,6 +97,8 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
+	assert(*status_code == CTX_ACT_OK);
+
 	/* Check for egress CT entry */
 	struct ipv4_ct_tuple tuple = {
 		.daddr   = NODE_IP,
@@ -109,15 +111,11 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
 #ifdef TEST_EXTENDED_PROTOCOLS
-	assert(*status_code == CTX_ACT_OK);
-
 	if (!ct_entry)
 		test_fatal("no CT entry found");
 
 	assert(ct_entry->packets == 1);
 #else
-	assert(*status_code == CTX_ACT_DROP);
-
 	if (ct_entry)
 		test_fatal("CT entry found");
 
@@ -125,7 +123,7 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 		.reason = (__u8)-DROP_CT_UNKNOWN_PROTO,
 		.dir = METRIC_EGRESS,
 	};
-	__u64 count = 1;
+	__u64 count = 0;
 
 	assert_metrics_count(key, count);
 #endif
@@ -135,7 +133,7 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-/* Send an IGMP packet from the IGMP destination to host.
+/* Send an IGMP packet from the IGMP destination to host  (allow all ingress policy).
  *
  */
 PKTGEN("tc", "hostfw_igmp_2_ingress")
@@ -163,6 +161,8 @@ int hostfw_igmp_ingress_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hostfw_igmp_2_ingress")
 int hostfw_igmp_ingress_setup(struct __ctx_buff *ctx)
 {
+	policy_add_ingress_allow_all_entry();
+
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	/* Fail if we didn't jump */
@@ -217,6 +217,8 @@ int hostfw_igmp_ingress_check(const struct __ctx_buff *ctx)
 
 	assert_metrics_count(key, count);
 #endif
+
+	policy_delete_ingress_all_entry();
 
 	test_finish();
 }
