@@ -806,10 +806,11 @@ func (mgr *endpointManager) AddEndpoint(ep *endpoint.Endpoint) (err error) {
 	}
 
 	mgr.mutex.RLock()
-	for s := range mgr.subscribers {
+	subscribers := maps.Clone(mgr.subscribers)
+	mgr.mutex.RUnlock()
+	for s := range subscribers {
 		s.EndpointCreated(ep)
 	}
-	mgr.mutex.RUnlock()
 
 	return nil
 }
