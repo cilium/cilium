@@ -91,9 +91,6 @@ go_mod = open("../go.mod", "r").readlines()
 go_release = [line.rstrip()[len("go "):]
               for line in go_mod if line.startswith("go ")][0]
 
-# The image tag for Cilium docker images
-image_tag = 'v' + release
-
 # The upstream Gateway API version referenced across the documentation.
 gateway_api_version = 'v1.6.1'
 gateway_api_raw_base_url = (
@@ -103,6 +100,7 @@ gateway_api_raw_base_url = (
 
 relinfo = semver.parse_version_info(release)
 prev_branch = '%d.%d' % (relinfo.major, relinfo.minor - 1)
+prev_release = '%d.%d.%d' % (relinfo.major, relinfo.minor - 1, 0)
 if relinfo.prerelease:
     next_release = '%d.%d' % (relinfo.major, relinfo.minor)
     current_release = prev_branch
@@ -130,6 +128,13 @@ else:
     chart_version = '--version ' + release
     chart_release = 'cilium/cilium ' + chart_version
     tags.add('stable')
+
+if relinfo.prerelease == 'dev':
+    # There's no dev snapshot yet. Use the last release.
+    docker_tag = 'v' + prev_release
+else:
+    docker_tag = 'v' + release
+
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 github_repo = 'https://github.com/cilium/cilium/'
@@ -164,7 +169,7 @@ rst_epilog = """
     n=next_release,
     h=chart_release,
     g=go_release,
-    i=image_tag,
+    i=docker_tag,
     v=chart_version,
     gav=gateway_api_version,
     grbu=gateway_api_raw_base_url)
