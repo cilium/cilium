@@ -26,6 +26,20 @@
 
 #define	NODEPORT_USE_NAT_46x64		1
 
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct ct_buffer6);
+	__uint(max_entries, 1);
+} cilium_tail_call_buffer6 __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct ct_buffer4);
+	__uint(max_entries, 1);
+} cilium_tail_call_buffer4 __section_maps_btf;
+
 #include "lib/common.h"
 #include "lib/config_map.h"
 #include "lib/edt.h"
@@ -75,20 +89,6 @@
 static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __maybe_unused vlan_id) {
 	VLAN_FILTER(ifindex, vlan_id);
 }
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct ct_buffer6);
-	__uint(max_entries, 1);
-} cilium_tail_call_buffer6 __section_maps_btf;
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct ct_buffer4);
-	__uint(max_entries, 1);
-} cilium_tail_call_buffer4 __section_maps_btf;
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
