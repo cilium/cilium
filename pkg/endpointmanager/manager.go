@@ -515,10 +515,13 @@ func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 	}
 
 	mgr.mutex.RLock()
-	for s := range mgr.subscribers {
+	// Invoke subscribers without holding the endpoint-manager lock. Deletion
+	// callbacks may use EndpointOwnsIP, which performs an endpoint lookup.
+	subscribers := maps.Clone(mgr.subscribers)
+	mgr.mutex.RUnlock()
+	for s := range subscribers {
 		s.EndpointDeleted(ep, conf)
 	}
-	mgr.mutex.RUnlock()
 
 	return result
 }

@@ -17,8 +17,6 @@ type Subscriber interface {
 	// EndpointDeleted is called at the end of endpoint deletion.
 	// Implementations must not attempt write operations on the
 	// EndpointManager from this callback.
-	// This function is being called inside a RLock, so it must not attempt
-	// to acquire a lock on the EndpointManager.
 	EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig)
 
 	// EndpointRestored is called at the end of endpoint restoration.
