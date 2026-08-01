@@ -248,6 +248,13 @@ kubeadmConfigPatches:
     kind: InitConfiguration
     nodeRegistration:
       kubeletExtraArgs:
+        container-log-max-files: "10"
+        container-log-max-size: "10M"
+  - |
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        container-log-max-files: "10"
         container-log-max-size: "10M"
 EOF
 

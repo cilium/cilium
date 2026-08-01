@@ -1269,6 +1269,7 @@ type DeleteConfig struct {
 func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	errs := []error{}
 
+	e.getLogger().Info("Cleaning up endpoint policy redirects during delete")
 	// Remove policy references from shared policy structures
 	// Endpoint with desiredPolicy computed can get deleted while queueing for regeneration,
 	// must mark the policy as 'Ready' so that Detach does not complain about it.
@@ -1284,6 +1285,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	}
 
 	// Remove restored rules of cleaned endpoint
+	e.getLogger().Info("Cleaning up endpoint DNS rules during delete")
 	e.dnsRulesAPI.RemoveRestoredDNSRules(e.ID)
 
 	if e.policyMap != nil {
@@ -1295,8 +1297,10 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	// Endpoint's network policy must be released even if the identity is not released.
 	// Remove network policy before (possibly) releasing identity so proxy cleanup
 	// can still observe the endpoint exactly as it was published.
+	e.getLogger().Info("Removing endpoint envoy network policy during delete")
 	e.removeNetworkPolicy()
 
+	e.getLogger().Info("Releasing endpoint security identity if required during delete")
 	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
 		if e.identitySet {
 			// Restored endpoint may be created with a reserved identity of 5
@@ -1316,6 +1320,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 		e.SecurityIdentity = nil
 	}
 
+	e.getLogger().Info("Cleaning up endpoint state directory and controllers during delete")
 	e.removeDirectories()
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
@@ -2707,13 +2712,17 @@ func (e *Endpoint) SyncEndpointHeaderFile() {
 func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	errs := []error{}
 
+	e.getLogger().Info("Stopping endpoint")
 	e.Stop()
+	e.getLogger().Info("Endpoint stopped")
 
 	// Wait for any pending endpoint regenerate() calls to finish. The
 	// latter bails out after taking the lock when it detects that the
 	// endpoint state is disconnecting.
+	e.getLogger().Info("Acquiring endpoint build mutex during delete")
 	e.buildMutex.Lock()
 	defer e.buildMutex.Unlock()
+	e.getLogger().Info("Acquired endpoint build mutex during delete")
 
 	// Lock out any other writers to the endpoint.  In case multiple delete
 	// requests have been enqueued, have all of them except the first
@@ -2777,20 +2786,24 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	if !e.isPropertyLocked(endpoint.PropertyFakeEndpoint) {
 		// Set the Endpoint's interface down to prevent it from passing any traffic
 		// after its tc filters are removed.
+		e.getLogger().Info("Cleaning up endpoint interface during delete")
 		if err := e.setDown(); err != nil {
 			errs = append(errs, err)
 		}
 
 		// Detach the endpoint program from any tc(x) hooks.
+		e.getLogger().Info("Detaching endpoint program from TC hook during delete")
 		e.orchestrator.Unload(e.createEpInfoCache(""))
 
 		// Delete the endpoint's entries from the global cilium_(egress)call_policy
 		// maps and remove per-endpoint cilium_calls_ and cilium_policy_ map pins.
+		e.getLogger().Info("Cleaning up endpoint maps during delete")
 		if err := e.deleteMaps(); err != nil {
 			errs = append(errs, err...)
 		}
 	}
 
+	e.getLogger().Info("Cleaning up endpoint state during delete")
 	errs = append(errs, e.leaveLocked(conf)...)
 	e.unlock()
 
