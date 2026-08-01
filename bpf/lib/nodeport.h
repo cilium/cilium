@@ -1517,7 +1517,8 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 			return CTX_ACT_OK;
 		}
 
-		ret = neigh_record_ip6(ctx);
+		/* tuple was reversed earlier, this gives us the ip6->saddr: */
+		ret = neigh_record_ip6(ctx, &tuple->daddr);
 		if (ret < 0)
 			return ret;
 	}
@@ -1601,7 +1602,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
 	if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->daddr)) {
-		ret = neigh_record_ip6(ctx);
+		ret = neigh_record_ip6(ctx, &tuple.saddr);
 		if (ret < 0)
 			return ret;
 		if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->saddr))
@@ -2891,7 +2892,8 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			return CTX_ACT_OK;
 		}
 
-		ret = neigh_record_ip4(ctx);
+		/* tuple was reversed earlier, this gives us the ip4->saddr: */
+		ret = neigh_record_ip4(ctx, tuple->daddr);
 		if (ret < 0)
 			return ret;
 	}
