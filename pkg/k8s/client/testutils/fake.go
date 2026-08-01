@@ -387,11 +387,21 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 	}
 
 	addUpdateOrDelete := func(s *script.State, action string, files []string) error {
+		validate, _ := s.Flags.GetBool("validate")
 		for _, file := range files {
 			b, err := readInputFile(s, file)
 			if err != nil {
 				return err
 			}
+
+			// Validate the raw bytes, not the typed object below, which would
+			// drop the unknown fields we want to catch.
+			if validate && action != "delete" {
+				if _, err := testutils.ValidateCRD(fc.ot.log, b); err != nil {
+					return fmt.Errorf("validate %s: %w", file, err)
+				}
+			}
+
 			obj, gvk, err := testutils.DecodeObjectGVK(b)
 			if err != nil {
 				return fmt.Errorf("decode: %w", err)
@@ -462,6 +472,10 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 					"'kubectl get -o yaml'",
 				},
 				Args: "files...",
+				Flags: func(fs *pflag.FlagSet) {
+					fs.Bool("validate", true,
+						"Validate objects against their CRD OpenAPI schema (and reject unknown fields) the way the kube-apiserver would, before adding. Kinds without a known CRD schema are accepted as-is. Pass --validate=false to accept objects the apiserver would reject.")
+				},
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
 				if len(args) == 0 {
@@ -479,6 +493,8 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 				Flags: func(fs *pflag.FlagSet) {
 					fs.Bool("strict", false,
 						"Enable strict optimistic concurrency control")
+					fs.Bool("validate", true,
+						"Validate objects against their CRD OpenAPI schema (and reject unknown fields) the way the kube-apiserver would, before updating. Kinds without a known CRD schema are accepted as-is. Pass --validate=false to accept objects the apiserver would reject.")
 				},
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {

@@ -102,18 +102,21 @@ apiVersion: cilium.io/v2
 kind: CiliumNode
 metadata:
   name: node-1
+spec: {}
 
 -- cilium-node-2.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
 metadata:
   name: node-2
+spec: {}
 
 -- cilium-node-4.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
 metadata:
   name: node-4
+spec: {}
 
 -- pod-node-1a.yaml --
 apiVersion: v1
