@@ -5,6 +5,7 @@ package types
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/cilium/statedb/part"
 
+	ciliumcel "github.com/cilium/cilium/pkg/cel"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -145,7 +147,7 @@ func ToSelector[T APISelector](peer T) Selector {
 		}
 		return NewLabelSelector(api.EndpointSelector{LabelSelector: v})
 	case api.EndpointSelector:
-		if v.LabelSelector == nil {
+		if v.IsZero() {
 			return nil
 		}
 		return NewLabelSelector(v)
@@ -264,13 +266,41 @@ type Selector interface {
 	MetricsClass() string
 }
 
+// +deepequal-gen=false
+type selectionCondition struct {
+	CELExpression *ciliumcel.CompilationResult
+}
+
+func (c *selectionCondition) IsWildcard() bool {
+	return c.CELExpression == nil
+}
+
+func (c *selectionCondition) Evaluate(labels labels.LabelMatcher) bool {
+	if c.CELExpression == nil {
+		return true
+	}
+
+	res, err := c.CELExpression.Evaluate(context.Background(), labels)
+	if err != nil {
+		return false
+	}
+	return res
+}
+
+func (c *selectionCondition) DeepEqual(in *selectionCondition) bool {
+	return c.CELExpression.Expression == in.CELExpression.Expression
+}
+
 // +deepequal-gen=true
 type LabelSelector struct {
 	key          string
 	ls           *slim_metav1.LabelSelector
 	requirements Requirements
-	class        string
-	namespaces   []string // allowed namespaces, or nil for no namespace requirement
+	// condition is the auxilary condition that must evalaute to true
+	// during matching along with the label selector requirements.
+	condition  selectionCondition
+	class      string
+	namespaces []string // allowed namespaces, or nil for no namespace requirement
 }
 
 func (p *LabelSelector) MarshalJSON() ([]byte, error) {
@@ -294,13 +324,22 @@ func NewLabelSelector(es api.EndpointSelector) *LabelSelector {
 		}
 	}
 
-	return &LabelSelector{
+	ls := &LabelSelector{
 		key:          key,
 		ls:           es.LabelSelector,
 		requirements: requirements,
 		class:        class,
 		namespaces:   namespaces,
 	}
+
+	if !es.MatchCELExpression.IsZero() {
+		res := ciliumcel.Env.Compile(ciliumcel.EnvTypeLabelSelector, string(es.MatchCELExpression))
+		if res.Error == nil {
+			// Its assumed that the CEL Expression has been validated before.
+			ls.condition.CELExpression = &res
+		}
+	}
+	return ls
 }
 
 func NewLabelSelectorFromLabels(lbls ...labels.Label) *LabelSelector {
@@ -325,7 +364,7 @@ func (p *LabelSelector) String() string {
 }
 
 func (p *LabelSelector) IsWildcard() bool {
-	return len(p.requirements) == 0
+	return len(p.requirements) == 0 && p.condition.IsWildcard()
 }
 
 func (p *LabelSelector) SelectedNamespaces() []string {
@@ -334,7 +373,7 @@ func (p *LabelSelector) SelectedNamespaces() []string {
 
 // matchesLabels returns true if the CachedSelector matches given labels.
 func (p *LabelSelector) Matches(lbls labels.LabelArray) bool {
-	return MatchesRequirements(p.requirements, lbls)
+	return Matches(p, lbls)
 }
 
 func (p *LabelSelector) GetFQDNSelector() (*api.FQDNSelector, bool) {
@@ -353,7 +392,8 @@ func (p *LabelSelector) MetricsClass() string {
 // Selector interface are defined for this use below.
 
 func Matches[T labels.LabelMatcher](s *LabelSelector, ls T) bool {
-	return MatchesRequirements(s.requirements, ls)
+	return MatchesRequirements(s.requirements, ls) &&
+		s.condition.Evaluate(ls)
 }
 
 // HasKeyPrefix checks if the label selector contains the given key prefix in

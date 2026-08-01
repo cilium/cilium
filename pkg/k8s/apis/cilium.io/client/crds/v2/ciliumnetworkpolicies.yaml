@@ -252,6 +252,41 @@ spec:
                               CIDRGroupSelector selects CiliumCIDRGroups by their labels,
                               rather than by name.
                             properties:
+                              matchCELExpression:
+                                description: "MatchCELExpression is an optional, serialized,
+                                  boolean CEL expression\nthat provides additional
+                                  label match conditions for this selector.\nWhen
+                                  set, an endpoint must satisfy this expression **AND**
+                                  the\nk8s LabelSelector constraints.\nThe environment
+                                  for CEL expression provides a 'label(<key>)' macro\nto
+                                  lookup value of key(with source prefix) against
+                                  the Label being\nevaluated for selection.\nThe return
+                                  type of this macro is the label value wrapped in
+                                  an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                  Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                  label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                  == optional.none()\n* Get value of a known existing
+                                  key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                  Unwrapping a non existing key through `value()`
+                                  will cause evaluation error.\n* Get value of an
+                                  unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                  Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                  == optional.of(\"myapp\")\n* Set membership for
+                                  a label value:\n\t\t* label(\"k8s:env\").value()
+                                  in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                  operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                  label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                  label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                  Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                  == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                  label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                  == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                  != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                  \"k8s:env\"].all(k, label(k).hasValue())\n\t\t*
+                                  [\"k8s:app\", \"k8s:env\"].map(k, label(k).orValue(\"\"))
+                                  == [\"myapp\", \"prod\"]"
+                                maxLength: 4096
+                                type: string
                               matchExpressions:
                                 description: matchExpressions is a list of label selector
                                   requirements. The requirements are ANDed.
@@ -337,6 +372,39 @@ spec:
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
+                          matchCELExpression:
+                            description: "MatchCELExpression is an optional, serialized,
+                              boolean CEL expression\nthat provides additional label
+                              match conditions for this selector.\nWhen set, an endpoint
+                              must satisfy this expression **AND** the\nk8s LabelSelector
+                              constraints.\nThe environment for CEL expression provides
+                              a 'label(<key>)' macro\nto lookup value of key(with
+                              source prefix) against the Label being\nevaluated for
+                              selection.\nThe return type of this macro is the label
+                              value wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                              Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                              label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                              == optional.none()\n* Get value of a known existing
+                              key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                              Unwrapping a non existing key through `value()` will
+                              cause evaluation error.\n* Get value of an unknown key:\n\t\t*
+                              label(\"k8s:app\").orValue(\"\")\n* Compare value of
+                              an unknown key:\n\t\t* label(\"k8s:app\") == optional.of(\"myapp\")\n*
+                              Set membership for a label value:\n\t\t* label(\"k8s:env\").value()
+                              in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                              operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                              Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                              == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                              label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                              == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                              != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                              \"prod\"]"
+                            maxLength: 4096
+                            type: string
                           matchExpressions:
                             description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
@@ -535,6 +603,39 @@ spec:
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
+                          matchCELExpression:
+                            description: "MatchCELExpression is an optional, serialized,
+                              boolean CEL expression\nthat provides additional label
+                              match conditions for this selector.\nWhen set, an endpoint
+                              must satisfy this expression **AND** the\nk8s LabelSelector
+                              constraints.\nThe environment for CEL expression provides
+                              a 'label(<key>)' macro\nto lookup value of key(with
+                              source prefix) against the Label being\nevaluated for
+                              selection.\nThe return type of this macro is the label
+                              value wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                              Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                              label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                              == optional.none()\n* Get value of a known existing
+                              key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                              Unwrapping a non existing key through `value()` will
+                              cause evaluation error.\n* Get value of an unknown key:\n\t\t*
+                              label(\"k8s:app\").orValue(\"\")\n* Compare value of
+                              an unknown key:\n\t\t* label(\"k8s:app\") == optional.of(\"myapp\")\n*
+                              Set membership for a label value:\n\t\t* label(\"k8s:env\").value()
+                              in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                              operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                              Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                              == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                              label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                              == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                              != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                              \"prod\"]"
+                            maxLength: 4096
+                            type: string
                           matchExpressions:
                             description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
@@ -1039,6 +1140,41 @@ spec:
                                 description: ServiceSelector is a label selector for
                                   k8s services
                                 properties:
+                                  matchCELExpression:
+                                    description: "MatchCELExpression is an optional,
+                                      serialized, boolean CEL expression\nthat provides
+                                      additional label match conditions for this selector.\nWhen
+                                      set, an endpoint must satisfy this expression
+                                      **AND** the\nk8s LabelSelector constraints.\nThe
+                                      environment for CEL expression provides a 'label(<key>)'
+                                      macro\nto lookup value of key(with source prefix)
+                                      against the Label being\nevaluated for selection.\nThe
+                                      return type of this macro is the label value
+                                      wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                      Usage:\n\n* Check if a key exist in the input
+                                      Labels:\n\t\t* label(\"k8s:app\").hasValue()\n\t\t*
+                                      label(\"any:missing\") == optional.none()\n*
+                                      Get value of a known existing key:\n\t\t* label(\"k8s:app\").value()\n\t\t*
+                                      Note: Unwrapping a non existing key through
+                                      `value()` will cause evaluation error.\n* Get
+                                      value of an unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                      Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                      == optional.of(\"myapp\")\n* Set membership
+                                      for a label value:\n\t\t* label(\"k8s:env\").value()
+                                      in [\"prod\", \"staging\", \"dev\"]\n* Common
+                                      string operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                      label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                      label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                      Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                      == \"dev\" || label(\"k8s:env\").value() ==
+                                      \"staging\"\n\t\t* label(\"k8s:env\") == optional.of(\"prod\")
+                                      && label(\"k8s:app\") == optional.of(\"myapp\")\n\t\t*
+                                      label(\"k8s:env\") != optional.of(\"prod\")\n*
+                                      Iterators:\n\t\t* [\"k8s:app\", \"k8s:env\"].all(k,
+                                      label(k).hasValue())\n\t\t* [\"k8s:app\", \"k8s:env\"].map(k,
+                                      label(k).orValue(\"\")) == [\"myapp\", \"prod\"]"
+                                    maxLength: 4096
+                                    type: string
                                   matchExpressions:
                                     description: matchExpressions is a list of label
                                       selector requirements. The requirements are
@@ -1252,6 +1388,41 @@ spec:
                               CIDRGroupSelector selects CiliumCIDRGroups by their labels,
                               rather than by name.
                             properties:
+                              matchCELExpression:
+                                description: "MatchCELExpression is an optional, serialized,
+                                  boolean CEL expression\nthat provides additional
+                                  label match conditions for this selector.\nWhen
+                                  set, an endpoint must satisfy this expression **AND**
+                                  the\nk8s LabelSelector constraints.\nThe environment
+                                  for CEL expression provides a 'label(<key>)' macro\nto
+                                  lookup value of key(with source prefix) against
+                                  the Label being\nevaluated for selection.\nThe return
+                                  type of this macro is the label value wrapped in
+                                  an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                  Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                  label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                  == optional.none()\n* Get value of a known existing
+                                  key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                  Unwrapping a non existing key through `value()`
+                                  will cause evaluation error.\n* Get value of an
+                                  unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                  Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                  == optional.of(\"myapp\")\n* Set membership for
+                                  a label value:\n\t\t* label(\"k8s:env\").value()
+                                  in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                  operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                  label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                  label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                  Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                  == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                  label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                  == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                  != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                  \"k8s:env\"].all(k, label(k).hasValue())\n\t\t*
+                                  [\"k8s:app\", \"k8s:env\"].map(k, label(k).orValue(\"\"))
+                                  == [\"myapp\", \"prod\"]"
+                                maxLength: 4096
+                                type: string
                               matchExpressions:
                                 description: matchExpressions is a list of label selector
                                   requirements. The requirements are ANDed.
@@ -1337,6 +1508,39 @@ spec:
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
+                          matchCELExpression:
+                            description: "MatchCELExpression is an optional, serialized,
+                              boolean CEL expression\nthat provides additional label
+                              match conditions for this selector.\nWhen set, an endpoint
+                              must satisfy this expression **AND** the\nk8s LabelSelector
+                              constraints.\nThe environment for CEL expression provides
+                              a 'label(<key>)' macro\nto lookup value of key(with
+                              source prefix) against the Label being\nevaluated for
+                              selection.\nThe return type of this macro is the label
+                              value wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                              Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                              label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                              == optional.none()\n* Get value of a known existing
+                              key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                              Unwrapping a non existing key through `value()` will
+                              cause evaluation error.\n* Get value of an unknown key:\n\t\t*
+                              label(\"k8s:app\").orValue(\"\")\n* Compare value of
+                              an unknown key:\n\t\t* label(\"k8s:app\") == optional.of(\"myapp\")\n*
+                              Set membership for a label value:\n\t\t* label(\"k8s:env\").value()
+                              in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                              operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                              Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                              == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                              label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                              == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                              != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                              \"prod\"]"
+                            maxLength: 4096
+                            type: string
                           matchExpressions:
                             description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
@@ -1476,6 +1680,39 @@ spec:
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
+                          matchCELExpression:
+                            description: "MatchCELExpression is an optional, serialized,
+                              boolean CEL expression\nthat provides additional label
+                              match conditions for this selector.\nWhen set, an endpoint
+                              must satisfy this expression **AND** the\nk8s LabelSelector
+                              constraints.\nThe environment for CEL expression provides
+                              a 'label(<key>)' macro\nto lookup value of key(with
+                              source prefix) against the Label being\nevaluated for
+                              selection.\nThe return type of this macro is the label
+                              value wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                              Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                              label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                              == optional.none()\n* Get value of a known existing
+                              key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                              Unwrapping a non existing key through `value()` will
+                              cause evaluation error.\n* Get value of an unknown key:\n\t\t*
+                              label(\"k8s:app\").orValue(\"\")\n* Compare value of
+                              an unknown key:\n\t\t* label(\"k8s:app\") == optional.of(\"myapp\")\n*
+                              Set membership for a label value:\n\t\t* label(\"k8s:env\").value()
+                              in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                              operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                              Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                              == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                              label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                              == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                              != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                              \"prod\"]"
+                            maxLength: 4096
+                            type: string
                           matchExpressions:
                             description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
@@ -1632,6 +1869,41 @@ spec:
                                 description: ServiceSelector is a label selector for
                                   k8s services
                                 properties:
+                                  matchCELExpression:
+                                    description: "MatchCELExpression is an optional,
+                                      serialized, boolean CEL expression\nthat provides
+                                      additional label match conditions for this selector.\nWhen
+                                      set, an endpoint must satisfy this expression
+                                      **AND** the\nk8s LabelSelector constraints.\nThe
+                                      environment for CEL expression provides a 'label(<key>)'
+                                      macro\nto lookup value of key(with source prefix)
+                                      against the Label being\nevaluated for selection.\nThe
+                                      return type of this macro is the label value
+                                      wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                      Usage:\n\n* Check if a key exist in the input
+                                      Labels:\n\t\t* label(\"k8s:app\").hasValue()\n\t\t*
+                                      label(\"any:missing\") == optional.none()\n*
+                                      Get value of a known existing key:\n\t\t* label(\"k8s:app\").value()\n\t\t*
+                                      Note: Unwrapping a non existing key through
+                                      `value()` will cause evaluation error.\n* Get
+                                      value of an unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                      Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                      == optional.of(\"myapp\")\n* Set membership
+                                      for a label value:\n\t\t* label(\"k8s:env\").value()
+                                      in [\"prod\", \"staging\", \"dev\"]\n* Common
+                                      string operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                      label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                      label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                      Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                      == \"dev\" || label(\"k8s:env\").value() ==
+                                      \"staging\"\n\t\t* label(\"k8s:env\") == optional.of(\"prod\")
+                                      && label(\"k8s:app\") == optional.of(\"myapp\")\n\t\t*
+                                      label(\"k8s:env\") != optional.of(\"prod\")\n*
+                                      Iterators:\n\t\t* [\"k8s:app\", \"k8s:env\"].all(k,
+                                      label(k).hasValue())\n\t\t* [\"k8s:app\", \"k8s:env\"].map(k,
+                                      label(k).orValue(\"\")) == [\"myapp\", \"prod\"]"
+                                    maxLength: 4096
+                                    type: string
                                   matchExpressions:
                                     description: matchExpressions is a list of label
                                       selector requirements. The requirements are
@@ -1727,6 +1999,36 @@ spec:
                   this rule. EndpointSelector and NodeSelector cannot be both empty and
                   are mutually exclusive.
                 properties:
+                  matchCELExpression:
+                    description: "MatchCELExpression is an optional, serialized, boolean
+                      CEL expression\nthat provides additional label match conditions
+                      for this selector.\nWhen set, an endpoint must satisfy this
+                      expression **AND** the\nk8s LabelSelector constraints.\nThe
+                      environment for CEL expression provides a 'label(<key>)' macro\nto
+                      lookup value of key(with source prefix) against the Label being\nevaluated
+                      for selection.\nThe return type of this macro is the label value
+                      wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                      Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                      label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                      == optional.none()\n* Get value of a known existing key:\n\t\t*
+                      label(\"k8s:app\").value()\n\t\t* Note: Unwrapping a non existing
+                      key through `value()` will cause evaluation error.\n* Get value
+                      of an unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                      Compare value of an unknown key:\n\t\t* label(\"k8s:app\") ==
+                      optional.of(\"myapp\")\n* Set membership for a label value:\n\t\t*
+                      label(\"k8s:env\").value() in [\"prod\", \"staging\", \"dev\"]\n*
+                      Common string operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                      label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                      label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                      Boolean composition:\n\t\t* label(\"k8s:env\").value() == \"dev\"
+                      || label(\"k8s:env\").value() == \"staging\"\n\t\t* label(\"k8s:env\")
+                      == optional.of(\"prod\") && label(\"k8s:app\") == optional.of(\"myapp\")\n\t\t*
+                      label(\"k8s:env\") != optional.of(\"prod\")\n* Iterators:\n\t\t*
+                      [\"k8s:app\", \"k8s:env\"].all(k, label(k).hasValue())\n\t\t*
+                      [\"k8s:app\", \"k8s:env\"].map(k, label(k).orValue(\"\")) ==
+                      [\"myapp\", \"prod\"]"
+                    maxLength: 4096
+                    type: string
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.
                       The requirements are ANDed.
@@ -1885,6 +2187,41 @@ spec:
                               CIDRGroupSelector selects CiliumCIDRGroups by their labels,
                               rather than by name.
                             properties:
+                              matchCELExpression:
+                                description: "MatchCELExpression is an optional, serialized,
+                                  boolean CEL expression\nthat provides additional
+                                  label match conditions for this selector.\nWhen
+                                  set, an endpoint must satisfy this expression **AND**
+                                  the\nk8s LabelSelector constraints.\nThe environment
+                                  for CEL expression provides a 'label(<key>)' macro\nto
+                                  lookup value of key(with source prefix) against
+                                  the Label being\nevaluated for selection.\nThe return
+                                  type of this macro is the label value wrapped in
+                                  an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                  Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                  label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                  == optional.none()\n* Get value of a known existing
+                                  key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                  Unwrapping a non existing key through `value()`
+                                  will cause evaluation error.\n* Get value of an
+                                  unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                  Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                  == optional.of(\"myapp\")\n* Set membership for
+                                  a label value:\n\t\t* label(\"k8s:env\").value()
+                                  in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                  operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                  label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                  label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                  Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                  == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                  label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                  == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                  != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                  \"k8s:env\"].all(k, label(k).hasValue())\n\t\t*
+                                  [\"k8s:app\", \"k8s:env\"].map(k, label(k).orValue(\"\"))
+                                  == [\"myapp\", \"prod\"]"
+                                maxLength: 4096
+                                type: string
                               matchExpressions:
                                 description: matchExpressions is a list of label selector
                                   requirements. The requirements are ANDed.
@@ -1971,6 +2308,39 @@ spec:
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
+                          matchCELExpression:
+                            description: "MatchCELExpression is an optional, serialized,
+                              boolean CEL expression\nthat provides additional label
+                              match conditions for this selector.\nWhen set, an endpoint
+                              must satisfy this expression **AND** the\nk8s LabelSelector
+                              constraints.\nThe environment for CEL expression provides
+                              a 'label(<key>)' macro\nto lookup value of key(with
+                              source prefix) against the Label being\nevaluated for
+                              selection.\nThe return type of this macro is the label
+                              value wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                              Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                              label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                              == optional.none()\n* Get value of a known existing
+                              key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                              Unwrapping a non existing key through `value()` will
+                              cause evaluation error.\n* Get value of an unknown key:\n\t\t*
+                              label(\"k8s:app\").orValue(\"\")\n* Compare value of
+                              an unknown key:\n\t\t* label(\"k8s:app\") == optional.of(\"myapp\")\n*
+                              Set membership for a label value:\n\t\t* label(\"k8s:env\").value()
+                              in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                              operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                              Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                              == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                              label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                              == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                              != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                              \"prod\"]"
+                            maxLength: 4096
+                            type: string
                           matchExpressions:
                             description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
@@ -2111,6 +2481,39 @@ spec:
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
+                          matchCELExpression:
+                            description: "MatchCELExpression is an optional, serialized,
+                              boolean CEL expression\nthat provides additional label
+                              match conditions for this selector.\nWhen set, an endpoint
+                              must satisfy this expression **AND** the\nk8s LabelSelector
+                              constraints.\nThe environment for CEL expression provides
+                              a 'label(<key>)' macro\nto lookup value of key(with
+                              source prefix) against the Label being\nevaluated for
+                              selection.\nThe return type of this macro is the label
+                              value wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                              Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                              label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                              == optional.none()\n* Get value of a known existing
+                              key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                              Unwrapping a non existing key through `value()` will
+                              cause evaluation error.\n* Get value of an unknown key:\n\t\t*
+                              label(\"k8s:app\").orValue(\"\")\n* Compare value of
+                              an unknown key:\n\t\t* label(\"k8s:app\") == optional.of(\"myapp\")\n*
+                              Set membership for a label value:\n\t\t* label(\"k8s:env\").value()
+                              in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                              operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                              Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                              == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                              label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                              == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                              != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                              \"prod\"]"
+                            maxLength: 4096
+                            type: string
                           matchExpressions:
                             description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
@@ -2740,6 +3143,41 @@ spec:
                               CIDRGroupSelector selects CiliumCIDRGroups by their labels,
                               rather than by name.
                             properties:
+                              matchCELExpression:
+                                description: "MatchCELExpression is an optional, serialized,
+                                  boolean CEL expression\nthat provides additional
+                                  label match conditions for this selector.\nWhen
+                                  set, an endpoint must satisfy this expression **AND**
+                                  the\nk8s LabelSelector constraints.\nThe environment
+                                  for CEL expression provides a 'label(<key>)' macro\nto
+                                  lookup value of key(with source prefix) against
+                                  the Label being\nevaluated for selection.\nThe return
+                                  type of this macro is the label value wrapped in
+                                  an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                  Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                  label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                  == optional.none()\n* Get value of a known existing
+                                  key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                  Unwrapping a non existing key through `value()`
+                                  will cause evaluation error.\n* Get value of an
+                                  unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                  Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                  == optional.of(\"myapp\")\n* Set membership for
+                                  a label value:\n\t\t* label(\"k8s:env\").value()
+                                  in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                  operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                  label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                  label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                  Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                  == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                  label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                  == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                  != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                  \"k8s:env\"].all(k, label(k).hasValue())\n\t\t*
+                                  [\"k8s:app\", \"k8s:env\"].map(k, label(k).orValue(\"\"))
+                                  == [\"myapp\", \"prod\"]"
+                                maxLength: 4096
+                                type: string
                               matchExpressions:
                                 description: matchExpressions is a list of label selector
                                   requirements. The requirements are ANDed.
@@ -2826,6 +3264,39 @@ spec:
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
+                          matchCELExpression:
+                            description: "MatchCELExpression is an optional, serialized,
+                              boolean CEL expression\nthat provides additional label
+                              match conditions for this selector.\nWhen set, an endpoint
+                              must satisfy this expression **AND** the\nk8s LabelSelector
+                              constraints.\nThe environment for CEL expression provides
+                              a 'label(<key>)' macro\nto lookup value of key(with
+                              source prefix) against the Label being\nevaluated for
+                              selection.\nThe return type of this macro is the label
+                              value wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                              Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                              label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                              == optional.none()\n* Get value of a known existing
+                              key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                              Unwrapping a non existing key through `value()` will
+                              cause evaluation error.\n* Get value of an unknown key:\n\t\t*
+                              label(\"k8s:app\").orValue(\"\")\n* Compare value of
+                              an unknown key:\n\t\t* label(\"k8s:app\") == optional.of(\"myapp\")\n*
+                              Set membership for a label value:\n\t\t* label(\"k8s:env\").value()
+                              in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                              operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                              Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                              == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                              label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                              == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                              != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                              \"prod\"]"
+                            maxLength: 4096
+                            type: string
                           matchExpressions:
                             description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
@@ -2966,6 +3437,39 @@ spec:
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
+                          matchCELExpression:
+                            description: "MatchCELExpression is an optional, serialized,
+                              boolean CEL expression\nthat provides additional label
+                              match conditions for this selector.\nWhen set, an endpoint
+                              must satisfy this expression **AND** the\nk8s LabelSelector
+                              constraints.\nThe environment for CEL expression provides
+                              a 'label(<key>)' macro\nto lookup value of key(with
+                              source prefix) against the Label being\nevaluated for
+                              selection.\nThe return type of this macro is the label
+                              value wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                              Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                              label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                              == optional.none()\n* Get value of a known existing
+                              key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                              Unwrapping a non existing key through `value()` will
+                              cause evaluation error.\n* Get value of an unknown key:\n\t\t*
+                              label(\"k8s:app\").orValue(\"\")\n* Compare value of
+                              an unknown key:\n\t\t* label(\"k8s:app\") == optional.of(\"myapp\")\n*
+                              Set membership for a label value:\n\t\t* label(\"k8s:env\").value()
+                              in [\"prod\", \"staging\", \"dev\"]\n* Common string
+                              operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                              label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                              Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                              == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                              label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                              == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                              != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                              \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                              \"prod\"]"
+                            maxLength: 4096
+                            type: string
                           matchExpressions:
                             description: matchExpressions is a list of label selector
                               requirements. The requirements are ANDed.
@@ -3191,6 +3695,36 @@ spec:
                   EndpointSelector and NodeSelector cannot be both empty and are mutually
                   exclusive. Can only be used in CiliumClusterwideNetworkPolicies.
                 properties:
+                  matchCELExpression:
+                    description: "MatchCELExpression is an optional, serialized, boolean
+                      CEL expression\nthat provides additional label match conditions
+                      for this selector.\nWhen set, an endpoint must satisfy this
+                      expression **AND** the\nk8s LabelSelector constraints.\nThe
+                      environment for CEL expression provides a 'label(<key>)' macro\nto
+                      lookup value of key(with source prefix) against the Label being\nevaluated
+                      for selection.\nThe return type of this macro is the label value
+                      wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                      Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                      label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                      == optional.none()\n* Get value of a known existing key:\n\t\t*
+                      label(\"k8s:app\").value()\n\t\t* Note: Unwrapping a non existing
+                      key through `value()` will cause evaluation error.\n* Get value
+                      of an unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                      Compare value of an unknown key:\n\t\t* label(\"k8s:app\") ==
+                      optional.of(\"myapp\")\n* Set membership for a label value:\n\t\t*
+                      label(\"k8s:env\").value() in [\"prod\", \"staging\", \"dev\"]\n*
+                      Common string operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                      label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                      label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                      Boolean composition:\n\t\t* label(\"k8s:env\").value() == \"dev\"
+                      || label(\"k8s:env\").value() == \"staging\"\n\t\t* label(\"k8s:env\")
+                      == optional.of(\"prod\") && label(\"k8s:app\") == optional.of(\"myapp\")\n\t\t*
+                      label(\"k8s:env\") != optional.of(\"prod\")\n* Iterators:\n\t\t*
+                      [\"k8s:app\", \"k8s:env\"].all(k, label(k).hasValue())\n\t\t*
+                      [\"k8s:app\", \"k8s:env\"].map(k, label(k).orValue(\"\")) ==
+                      [\"myapp\", \"prod\"]"
+                    maxLength: 4096
+                    type: string
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.
                       The requirements are ANDed.
@@ -3459,6 +3993,41 @@ spec:
                                 CIDRGroupSelector selects CiliumCIDRGroups by their labels,
                                 rather than by name.
                               properties:
+                                matchCELExpression:
+                                  description: "MatchCELExpression is an optional,
+                                    serialized, boolean CEL expression\nthat provides
+                                    additional label match conditions for this selector.\nWhen
+                                    set, an endpoint must satisfy this expression
+                                    **AND** the\nk8s LabelSelector constraints.\nThe
+                                    environment for CEL expression provides a 'label(<key>)'
+                                    macro\nto lookup value of key(with source prefix)
+                                    against the Label being\nevaluated for selection.\nThe
+                                    return type of this macro is the label value wrapped
+                                    in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                    Usage:\n\n* Check if a key exist in the input
+                                    Labels:\n\t\t* label(\"k8s:app\").hasValue()\n\t\t*
+                                    label(\"any:missing\") == optional.none()\n* Get
+                                    value of a known existing key:\n\t\t* label(\"k8s:app\").value()\n\t\t*
+                                    Note: Unwrapping a non existing key through `value()`
+                                    will cause evaluation error.\n* Get value of an
+                                    unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                    Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                    == optional.of(\"myapp\")\n* Set membership for
+                                    a label value:\n\t\t* label(\"k8s:env\").value()
+                                    in [\"prod\", \"staging\", \"dev\"]\n* Common
+                                    string operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                    label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                    label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                    Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                    == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                    label(\"k8s:env\") == optional.of(\"prod\") &&
+                                    label(\"k8s:app\") == optional.of(\"myapp\")\n\t\t*
+                                    label(\"k8s:env\") != optional.of(\"prod\")\n*
+                                    Iterators:\n\t\t* [\"k8s:app\", \"k8s:env\"].all(k,
+                                    label(k).hasValue())\n\t\t* [\"k8s:app\", \"k8s:env\"].map(k,
+                                    label(k).orValue(\"\")) == [\"myapp\", \"prod\"]"
+                                  maxLength: 4096
+                                  type: string
                                 matchExpressions:
                                   description: matchExpressions is a list of label
                                     selector requirements. The requirements are ANDed.
@@ -3544,6 +4113,41 @@ spec:
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
+                            matchCELExpression:
+                              description: "MatchCELExpression is an optional, serialized,
+                                boolean CEL expression\nthat provides additional label
+                                match conditions for this selector.\nWhen set, an
+                                endpoint must satisfy this expression **AND** the\nk8s
+                                LabelSelector constraints.\nThe environment for CEL
+                                expression provides a 'label(<key>)' macro\nto lookup
+                                value of key(with source prefix) against the Label
+                                being\nevaluated for selection.\nThe return type of
+                                this macro is the label value wrapped in an optional
+                                type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                == optional.none()\n* Get value of a known existing
+                                key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                Unwrapping a non existing key through `value()` will
+                                cause evaluation error.\n* Get value of an unknown
+                                key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n* Compare
+                                value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n* Set membership for a
+                                label value:\n\t\t* label(\"k8s:env\").value() in
+                                [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                                \"prod\"]"
+                              maxLength: 4096
+                              type: string
                             matchExpressions:
                               description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
@@ -3742,6 +4346,41 @@ spec:
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
+                            matchCELExpression:
+                              description: "MatchCELExpression is an optional, serialized,
+                                boolean CEL expression\nthat provides additional label
+                                match conditions for this selector.\nWhen set, an
+                                endpoint must satisfy this expression **AND** the\nk8s
+                                LabelSelector constraints.\nThe environment for CEL
+                                expression provides a 'label(<key>)' macro\nto lookup
+                                value of key(with source prefix) against the Label
+                                being\nevaluated for selection.\nThe return type of
+                                this macro is the label value wrapped in an optional
+                                type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                == optional.none()\n* Get value of a known existing
+                                key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                Unwrapping a non existing key through `value()` will
+                                cause evaluation error.\n* Get value of an unknown
+                                key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n* Compare
+                                value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n* Set membership for a
+                                label value:\n\t\t* label(\"k8s:env\").value() in
+                                [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                                \"prod\"]"
+                              maxLength: 4096
+                              type: string
                             matchExpressions:
                               description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
@@ -4246,6 +4885,45 @@ spec:
                                   description: ServiceSelector is a label selector
                                     for k8s services
                                   properties:
+                                    matchCELExpression:
+                                      description: "MatchCELExpression is an optional,
+                                        serialized, boolean CEL expression\nthat provides
+                                        additional label match conditions for this
+                                        selector.\nWhen set, an endpoint must satisfy
+                                        this expression **AND** the\nk8s LabelSelector
+                                        constraints.\nThe environment for CEL expression
+                                        provides a 'label(<key>)' macro\nto lookup
+                                        value of key(with source prefix) against the
+                                        Label being\nevaluated for selection.\nThe
+                                        return type of this macro is the label value
+                                        wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                        Usage:\n\n* Check if a key exist in the input
+                                        Labels:\n\t\t* label(\"k8s:app\").hasValue()\n\t\t*
+                                        label(\"any:missing\") == optional.none()\n*
+                                        Get value of a known existing key:\n\t\t*
+                                        label(\"k8s:app\").value()\n\t\t* Note: Unwrapping
+                                        a non existing key through `value()` will
+                                        cause evaluation error.\n* Get value of an
+                                        unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                        Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                        == optional.of(\"myapp\")\n* Set membership
+                                        for a label value:\n\t\t* label(\"k8s:env\").value()
+                                        in [\"prod\", \"staging\", \"dev\"]\n* Common
+                                        string operations on label values:\n\t\t*
+                                        label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                        label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                        label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                        Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                        == \"dev\" || label(\"k8s:env\").value() ==
+                                        \"staging\"\n\t\t* label(\"k8s:env\") == optional.of(\"prod\")
+                                        && label(\"k8s:app\") == optional.of(\"myapp\")\n\t\t*
+                                        label(\"k8s:env\") != optional.of(\"prod\")\n*
+                                        Iterators:\n\t\t* [\"k8s:app\", \"k8s:env\"].all(k,
+                                        label(k).hasValue())\n\t\t* [\"k8s:app\",
+                                        \"k8s:env\"].map(k, label(k).orValue(\"\"))
+                                        == [\"myapp\", \"prod\"]"
+                                      maxLength: 4096
+                                      type: string
                                     matchExpressions:
                                       description: matchExpressions is a list of label
                                         selector requirements. The requirements are
@@ -4460,6 +5138,41 @@ spec:
                                 CIDRGroupSelector selects CiliumCIDRGroups by their labels,
                                 rather than by name.
                               properties:
+                                matchCELExpression:
+                                  description: "MatchCELExpression is an optional,
+                                    serialized, boolean CEL expression\nthat provides
+                                    additional label match conditions for this selector.\nWhen
+                                    set, an endpoint must satisfy this expression
+                                    **AND** the\nk8s LabelSelector constraints.\nThe
+                                    environment for CEL expression provides a 'label(<key>)'
+                                    macro\nto lookup value of key(with source prefix)
+                                    against the Label being\nevaluated for selection.\nThe
+                                    return type of this macro is the label value wrapped
+                                    in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                    Usage:\n\n* Check if a key exist in the input
+                                    Labels:\n\t\t* label(\"k8s:app\").hasValue()\n\t\t*
+                                    label(\"any:missing\") == optional.none()\n* Get
+                                    value of a known existing key:\n\t\t* label(\"k8s:app\").value()\n\t\t*
+                                    Note: Unwrapping a non existing key through `value()`
+                                    will cause evaluation error.\n* Get value of an
+                                    unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                    Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                    == optional.of(\"myapp\")\n* Set membership for
+                                    a label value:\n\t\t* label(\"k8s:env\").value()
+                                    in [\"prod\", \"staging\", \"dev\"]\n* Common
+                                    string operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                    label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                    label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                    Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                    == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                    label(\"k8s:env\") == optional.of(\"prod\") &&
+                                    label(\"k8s:app\") == optional.of(\"myapp\")\n\t\t*
+                                    label(\"k8s:env\") != optional.of(\"prod\")\n*
+                                    Iterators:\n\t\t* [\"k8s:app\", \"k8s:env\"].all(k,
+                                    label(k).hasValue())\n\t\t* [\"k8s:app\", \"k8s:env\"].map(k,
+                                    label(k).orValue(\"\")) == [\"myapp\", \"prod\"]"
+                                  maxLength: 4096
+                                  type: string
                                 matchExpressions:
                                   description: matchExpressions is a list of label
                                     selector requirements. The requirements are ANDed.
@@ -4545,6 +5258,41 @@ spec:
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
+                            matchCELExpression:
+                              description: "MatchCELExpression is an optional, serialized,
+                                boolean CEL expression\nthat provides additional label
+                                match conditions for this selector.\nWhen set, an
+                                endpoint must satisfy this expression **AND** the\nk8s
+                                LabelSelector constraints.\nThe environment for CEL
+                                expression provides a 'label(<key>)' macro\nto lookup
+                                value of key(with source prefix) against the Label
+                                being\nevaluated for selection.\nThe return type of
+                                this macro is the label value wrapped in an optional
+                                type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                == optional.none()\n* Get value of a known existing
+                                key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                Unwrapping a non existing key through `value()` will
+                                cause evaluation error.\n* Get value of an unknown
+                                key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n* Compare
+                                value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n* Set membership for a
+                                label value:\n\t\t* label(\"k8s:env\").value() in
+                                [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                                \"prod\"]"
+                              maxLength: 4096
+                              type: string
                             matchExpressions:
                               description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
@@ -4684,6 +5432,41 @@ spec:
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
+                            matchCELExpression:
+                              description: "MatchCELExpression is an optional, serialized,
+                                boolean CEL expression\nthat provides additional label
+                                match conditions for this selector.\nWhen set, an
+                                endpoint must satisfy this expression **AND** the\nk8s
+                                LabelSelector constraints.\nThe environment for CEL
+                                expression provides a 'label(<key>)' macro\nto lookup
+                                value of key(with source prefix) against the Label
+                                being\nevaluated for selection.\nThe return type of
+                                this macro is the label value wrapped in an optional
+                                type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                == optional.none()\n* Get value of a known existing
+                                key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                Unwrapping a non existing key through `value()` will
+                                cause evaluation error.\n* Get value of an unknown
+                                key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n* Compare
+                                value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n* Set membership for a
+                                label value:\n\t\t* label(\"k8s:env\").value() in
+                                [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                                \"prod\"]"
+                              maxLength: 4096
+                              type: string
                             matchExpressions:
                               description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
@@ -4840,6 +5623,45 @@ spec:
                                   description: ServiceSelector is a label selector
                                     for k8s services
                                   properties:
+                                    matchCELExpression:
+                                      description: "MatchCELExpression is an optional,
+                                        serialized, boolean CEL expression\nthat provides
+                                        additional label match conditions for this
+                                        selector.\nWhen set, an endpoint must satisfy
+                                        this expression **AND** the\nk8s LabelSelector
+                                        constraints.\nThe environment for CEL expression
+                                        provides a 'label(<key>)' macro\nto lookup
+                                        value of key(with source prefix) against the
+                                        Label being\nevaluated for selection.\nThe
+                                        return type of this macro is the label value
+                                        wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                        Usage:\n\n* Check if a key exist in the input
+                                        Labels:\n\t\t* label(\"k8s:app\").hasValue()\n\t\t*
+                                        label(\"any:missing\") == optional.none()\n*
+                                        Get value of a known existing key:\n\t\t*
+                                        label(\"k8s:app\").value()\n\t\t* Note: Unwrapping
+                                        a non existing key through `value()` will
+                                        cause evaluation error.\n* Get value of an
+                                        unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                        Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                        == optional.of(\"myapp\")\n* Set membership
+                                        for a label value:\n\t\t* label(\"k8s:env\").value()
+                                        in [\"prod\", \"staging\", \"dev\"]\n* Common
+                                        string operations on label values:\n\t\t*
+                                        label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                        label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                        label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                        Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                        == \"dev\" || label(\"k8s:env\").value() ==
+                                        \"staging\"\n\t\t* label(\"k8s:env\") == optional.of(\"prod\")
+                                        && label(\"k8s:app\") == optional.of(\"myapp\")\n\t\t*
+                                        label(\"k8s:env\") != optional.of(\"prod\")\n*
+                                        Iterators:\n\t\t* [\"k8s:app\", \"k8s:env\"].all(k,
+                                        label(k).hasValue())\n\t\t* [\"k8s:app\",
+                                        \"k8s:env\"].map(k, label(k).orValue(\"\"))
+                                        == [\"myapp\", \"prod\"]"
+                                      maxLength: 4096
+                                      type: string
                                     matchExpressions:
                                       description: matchExpressions is a list of label
                                         selector requirements. The requirements are
@@ -4935,6 +5757,36 @@ spec:
                     this rule. EndpointSelector and NodeSelector cannot be both empty and
                     are mutually exclusive.
                   properties:
+                    matchCELExpression:
+                      description: "MatchCELExpression is an optional, serialized,
+                        boolean CEL expression\nthat provides additional label match
+                        conditions for this selector.\nWhen set, an endpoint must
+                        satisfy this expression **AND** the\nk8s LabelSelector constraints.\nThe
+                        environment for CEL expression provides a 'label(<key>)' macro\nto
+                        lookup value of key(with source prefix) against the Label
+                        being\nevaluated for selection.\nThe return type of this macro
+                        is the label value wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                        Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                        label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                        == optional.none()\n* Get value of a known existing key:\n\t\t*
+                        label(\"k8s:app\").value()\n\t\t* Note: Unwrapping a non existing
+                        key through `value()` will cause evaluation error.\n* Get
+                        value of an unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                        Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                        == optional.of(\"myapp\")\n* Set membership for a label value:\n\t\t*
+                        label(\"k8s:env\").value() in [\"prod\", \"staging\", \"dev\"]\n*
+                        Common string operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                        label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                        label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                        Boolean composition:\n\t\t* label(\"k8s:env\").value() ==
+                        \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                        label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                        == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\") != optional.of(\"prod\")\n*
+                        Iterators:\n\t\t* [\"k8s:app\", \"k8s:env\"].all(k, label(k).hasValue())\n\t\t*
+                        [\"k8s:app\", \"k8s:env\"].map(k, label(k).orValue(\"\"))
+                        == [\"myapp\", \"prod\"]"
+                      maxLength: 4096
+                      type: string
                     matchExpressions:
                       description: matchExpressions is a list of label selector requirements.
                         The requirements are ANDed.
@@ -5093,6 +5945,41 @@ spec:
                                 CIDRGroupSelector selects CiliumCIDRGroups by their labels,
                                 rather than by name.
                               properties:
+                                matchCELExpression:
+                                  description: "MatchCELExpression is an optional,
+                                    serialized, boolean CEL expression\nthat provides
+                                    additional label match conditions for this selector.\nWhen
+                                    set, an endpoint must satisfy this expression
+                                    **AND** the\nk8s LabelSelector constraints.\nThe
+                                    environment for CEL expression provides a 'label(<key>)'
+                                    macro\nto lookup value of key(with source prefix)
+                                    against the Label being\nevaluated for selection.\nThe
+                                    return type of this macro is the label value wrapped
+                                    in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                    Usage:\n\n* Check if a key exist in the input
+                                    Labels:\n\t\t* label(\"k8s:app\").hasValue()\n\t\t*
+                                    label(\"any:missing\") == optional.none()\n* Get
+                                    value of a known existing key:\n\t\t* label(\"k8s:app\").value()\n\t\t*
+                                    Note: Unwrapping a non existing key through `value()`
+                                    will cause evaluation error.\n* Get value of an
+                                    unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                    Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                    == optional.of(\"myapp\")\n* Set membership for
+                                    a label value:\n\t\t* label(\"k8s:env\").value()
+                                    in [\"prod\", \"staging\", \"dev\"]\n* Common
+                                    string operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                    label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                    label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                    Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                    == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                    label(\"k8s:env\") == optional.of(\"prod\") &&
+                                    label(\"k8s:app\") == optional.of(\"myapp\")\n\t\t*
+                                    label(\"k8s:env\") != optional.of(\"prod\")\n*
+                                    Iterators:\n\t\t* [\"k8s:app\", \"k8s:env\"].all(k,
+                                    label(k).hasValue())\n\t\t* [\"k8s:app\", \"k8s:env\"].map(k,
+                                    label(k).orValue(\"\")) == [\"myapp\", \"prod\"]"
+                                  maxLength: 4096
+                                  type: string
                                 matchExpressions:
                                   description: matchExpressions is a list of label
                                     selector requirements. The requirements are ANDed.
@@ -5179,6 +6066,41 @@ spec:
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
+                            matchCELExpression:
+                              description: "MatchCELExpression is an optional, serialized,
+                                boolean CEL expression\nthat provides additional label
+                                match conditions for this selector.\nWhen set, an
+                                endpoint must satisfy this expression **AND** the\nk8s
+                                LabelSelector constraints.\nThe environment for CEL
+                                expression provides a 'label(<key>)' macro\nto lookup
+                                value of key(with source prefix) against the Label
+                                being\nevaluated for selection.\nThe return type of
+                                this macro is the label value wrapped in an optional
+                                type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                == optional.none()\n* Get value of a known existing
+                                key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                Unwrapping a non existing key through `value()` will
+                                cause evaluation error.\n* Get value of an unknown
+                                key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n* Compare
+                                value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n* Set membership for a
+                                label value:\n\t\t* label(\"k8s:env\").value() in
+                                [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                                \"prod\"]"
+                              maxLength: 4096
+                              type: string
                             matchExpressions:
                               description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
@@ -5319,6 +6241,41 @@ spec:
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
+                            matchCELExpression:
+                              description: "MatchCELExpression is an optional, serialized,
+                                boolean CEL expression\nthat provides additional label
+                                match conditions for this selector.\nWhen set, an
+                                endpoint must satisfy this expression **AND** the\nk8s
+                                LabelSelector constraints.\nThe environment for CEL
+                                expression provides a 'label(<key>)' macro\nto lookup
+                                value of key(with source prefix) against the Label
+                                being\nevaluated for selection.\nThe return type of
+                                this macro is the label value wrapped in an optional
+                                type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                == optional.none()\n* Get value of a known existing
+                                key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                Unwrapping a non existing key through `value()` will
+                                cause evaluation error.\n* Get value of an unknown
+                                key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n* Compare
+                                value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n* Set membership for a
+                                label value:\n\t\t* label(\"k8s:env\").value() in
+                                [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                                \"prod\"]"
+                              maxLength: 4096
+                              type: string
                             matchExpressions:
                               description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
@@ -5949,6 +6906,41 @@ spec:
                                 CIDRGroupSelector selects CiliumCIDRGroups by their labels,
                                 rather than by name.
                               properties:
+                                matchCELExpression:
+                                  description: "MatchCELExpression is an optional,
+                                    serialized, boolean CEL expression\nthat provides
+                                    additional label match conditions for this selector.\nWhen
+                                    set, an endpoint must satisfy this expression
+                                    **AND** the\nk8s LabelSelector constraints.\nThe
+                                    environment for CEL expression provides a 'label(<key>)'
+                                    macro\nto lookup value of key(with source prefix)
+                                    against the Label being\nevaluated for selection.\nThe
+                                    return type of this macro is the label value wrapped
+                                    in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                    Usage:\n\n* Check if a key exist in the input
+                                    Labels:\n\t\t* label(\"k8s:app\").hasValue()\n\t\t*
+                                    label(\"any:missing\") == optional.none()\n* Get
+                                    value of a known existing key:\n\t\t* label(\"k8s:app\").value()\n\t\t*
+                                    Note: Unwrapping a non existing key through `value()`
+                                    will cause evaluation error.\n* Get value of an
+                                    unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                                    Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                    == optional.of(\"myapp\")\n* Set membership for
+                                    a label value:\n\t\t* label(\"k8s:env\").value()
+                                    in [\"prod\", \"staging\", \"dev\"]\n* Common
+                                    string operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                    label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                    label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                    Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                    == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                    label(\"k8s:env\") == optional.of(\"prod\") &&
+                                    label(\"k8s:app\") == optional.of(\"myapp\")\n\t\t*
+                                    label(\"k8s:env\") != optional.of(\"prod\")\n*
+                                    Iterators:\n\t\t* [\"k8s:app\", \"k8s:env\"].all(k,
+                                    label(k).hasValue())\n\t\t* [\"k8s:app\", \"k8s:env\"].map(k,
+                                    label(k).orValue(\"\")) == [\"myapp\", \"prod\"]"
+                                  maxLength: 4096
+                                  type: string
                                 matchExpressions:
                                   description: matchExpressions is a list of label
                                     selector requirements. The requirements are ANDed.
@@ -6035,6 +7027,41 @@ spec:
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
+                            matchCELExpression:
+                              description: "MatchCELExpression is an optional, serialized,
+                                boolean CEL expression\nthat provides additional label
+                                match conditions for this selector.\nWhen set, an
+                                endpoint must satisfy this expression **AND** the\nk8s
+                                LabelSelector constraints.\nThe environment for CEL
+                                expression provides a 'label(<key>)' macro\nto lookup
+                                value of key(with source prefix) against the Label
+                                being\nevaluated for selection.\nThe return type of
+                                this macro is the label value wrapped in an optional
+                                type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                == optional.none()\n* Get value of a known existing
+                                key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                Unwrapping a non existing key through `value()` will
+                                cause evaluation error.\n* Get value of an unknown
+                                key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n* Compare
+                                value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n* Set membership for a
+                                label value:\n\t\t* label(\"k8s:env\").value() in
+                                [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                                \"prod\"]"
+                              maxLength: 4096
+                              type: string
                             matchExpressions:
                               description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
@@ -6175,6 +7202,41 @@ spec:
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
+                            matchCELExpression:
+                              description: "MatchCELExpression is an optional, serialized,
+                                boolean CEL expression\nthat provides additional label
+                                match conditions for this selector.\nWhen set, an
+                                endpoint must satisfy this expression **AND** the\nk8s
+                                LabelSelector constraints.\nThe environment for CEL
+                                expression provides a 'label(<key>)' macro\nto lookup
+                                value of key(with source prefix) against the Label
+                                being\nevaluated for selection.\nThe return type of
+                                this macro is the label value wrapped in an optional
+                                type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                                Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                                label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                                == optional.none()\n* Get value of a known existing
+                                key:\n\t\t* label(\"k8s:app\").value()\n\t\t* Note:
+                                Unwrapping a non existing key through `value()` will
+                                cause evaluation error.\n* Get value of an unknown
+                                key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n* Compare
+                                value of an unknown key:\n\t\t* label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n* Set membership for a
+                                label value:\n\t\t* label(\"k8s:env\").value() in
+                                [\"prod\", \"staging\", \"dev\"]\n* Common string
+                                operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                                label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                                Boolean composition:\n\t\t* label(\"k8s:env\").value()
+                                == \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                                label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                                == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\")
+                                != optional.of(\"prod\")\n* Iterators:\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].all(k, label(k).hasValue())\n\t\t* [\"k8s:app\",
+                                \"k8s:env\"].map(k, label(k).orValue(\"\")) == [\"myapp\",
+                                \"prod\"]"
+                              maxLength: 4096
+                              type: string
                             matchExpressions:
                               description: matchExpressions is a list of label selector
                                 requirements. The requirements are ANDed.
@@ -6403,6 +7465,36 @@ spec:
                     EndpointSelector and NodeSelector cannot be both empty and are mutually
                     exclusive. Can only be used in CiliumClusterwideNetworkPolicies.
                   properties:
+                    matchCELExpression:
+                      description: "MatchCELExpression is an optional, serialized,
+                        boolean CEL expression\nthat provides additional label match
+                        conditions for this selector.\nWhen set, an endpoint must
+                        satisfy this expression **AND** the\nk8s LabelSelector constraints.\nThe
+                        environment for CEL expression provides a 'label(<key>)' macro\nto
+                        lookup value of key(with source prefix) against the Label
+                        being\nevaluated for selection.\nThe return type of this macro
+                        is the label value wrapped in an optional type:\nhttps://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes\n\nExample
+                        Usage:\n\n* Check if a key exist in the input Labels:\n\t\t*
+                        label(\"k8s:app\").hasValue()\n\t\t* label(\"any:missing\")
+                        == optional.none()\n* Get value of a known existing key:\n\t\t*
+                        label(\"k8s:app\").value()\n\t\t* Note: Unwrapping a non existing
+                        key through `value()` will cause evaluation error.\n* Get
+                        value of an unknown key:\n\t\t* label(\"k8s:app\").orValue(\"\")\n*
+                        Compare value of an unknown key:\n\t\t* label(\"k8s:app\")
+                        == optional.of(\"myapp\")\n* Set membership for a label value:\n\t\t*
+                        label(\"k8s:env\").value() in [\"prod\", \"staging\", \"dev\"]\n*
+                        Common string operations on label values:\n\t\t* label(\"k8s:env\").orValue(\"\").startsWith(\"prod\")\n\t\t*
+                        label(\"k8s:env\").orValue(\"\").endsWith(\"-us-east\")\n\t\t*
+                        label(\"k8s:env\").orValue(\"\").contains(\"db-staging\")\n*
+                        Boolean composition:\n\t\t* label(\"k8s:env\").value() ==
+                        \"dev\" || label(\"k8s:env\").value() == \"staging\"\n\t\t*
+                        label(\"k8s:env\") == optional.of(\"prod\") && label(\"k8s:app\")
+                        == optional.of(\"myapp\")\n\t\t* label(\"k8s:env\") != optional.of(\"prod\")\n*
+                        Iterators:\n\t\t* [\"k8s:app\", \"k8s:env\"].all(k, label(k).hasValue())\n\t\t*
+                        [\"k8s:app\", \"k8s:env\"].map(k, label(k).orValue(\"\"))
+                        == [\"myapp\", \"prod\"]"
+                      maxLength: 4096
+                      type: string
                     matchExpressions:
                       description: matchExpressions is a list of label selector requirements.
                         The requirements are ANDed.

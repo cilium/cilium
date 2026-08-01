@@ -400,7 +400,10 @@ func (in *EndpointSelector) DeepEqual(other *EndpointSelector) bool {
 		}
 	}
 
-	if in.cachedLabelSelectorString != other.cachedLabelSelectorString {
+	if in.MatchCELExpression != other.MatchCELExpression {
+		return false
+	}
+	if in.cachedSelectorKey != other.cachedSelectorKey {
 		return false
 	}
 	if in.Generated != other.Generated {
@@ -1341,7 +1344,10 @@ func (in *ServiceSelector) DeepEqual(other *ServiceSelector) bool {
 		}
 	}
 
-	if in.cachedLabelSelectorString != other.cachedLabelSelectorString {
+	if in.MatchCELExpression != other.MatchCELExpression {
+		return false
+	}
+	if in.cachedSelectorKey != other.cachedSelectorKey {
 		return false
 	}
 	if in.Generated != other.Generated {

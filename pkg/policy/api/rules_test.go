@@ -73,9 +73,9 @@ func TestRuleMarshalling(t *testing.T) {
 				LabelSelector: &slim_metav1.LabelSelector{},
 			},
 			sanitized: EndpointSelector{
-				LabelSelector:             &slim_metav1.LabelSelector{},
-				cachedLabelSelectorString: "&LabelSelector{MatchLabels:map[string]string{},MatchExpressions:[]LabelSelectorRequirement{},}",
-				Generated:                 false,
+				LabelSelector:     &slim_metav1.LabelSelector{},
+				cachedSelectorKey: "&LabelSelector{MatchLabels:map[string]string{},MatchExpressions:[]LabelSelectorRequirement{},}",
+				Generated:         false,
 			},
 			sanitizedJSON: `{}`,
 		},
@@ -90,8 +90,8 @@ func TestRuleMarshalling(t *testing.T) {
 				LabelSelector: &slim_metav1.LabelSelector{
 					MatchLabels: map[string]string{"any:app": "frontend"},
 				},
-				cachedLabelSelectorString: "&LabelSelector{MatchLabels:map[string]string{any:app: frontend,},MatchExpressions:[]LabelSelectorRequirement{},}",
-				Generated:                 false,
+				cachedSelectorKey: "&LabelSelector{MatchLabels:map[string]string{any:app: frontend,},MatchExpressions:[]LabelSelectorRequirement{},}",
+				Generated:         false,
 			},
 			sanitizedJSON: `{"matchLabels":{"any:app":"frontend"}}`,
 		},
