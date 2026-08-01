@@ -207,6 +207,47 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 }
 #endif /* HAVE_ENCAP */
 
+static __always_inline int
+nodeport_l7_lb_redirect(struct __ctx_buff *ctx __maybe_unused,
+			struct iphdr *ip4 __maybe_unused,
+			__be16 proxy_port __maybe_unused,
+			__u32 src_sec_identity __maybe_unused,
+			bool *punt_to_stack __maybe_unused)
+{
+#if defined(IS_BPF_XDP)
+	/* We cannot redirect from the XDP layer to cilium_host.
+	 * Just let the packet pass through instead, and have bpf_host
+	 * handle the L7 ingress request.
+	 */
+	return CTX_ACT_OK;
+#else
+	send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
+			  bpf_ntohs(proxy_port),
+			  CONFIG(interface_ifindex), TRACE_REASON_POLICY, 0,
+			  ip4 ? bpf_htons(ETH_P_IP) : bpf_htons(ETH_P_IPV6));
+
+	/* Hairpin the packet through cilium_net when BPF tproxy is enabled
+	 * or when attaching the BPF program to a bridge network device.
+	 */
+	if (CONFIG(enable_tproxy) || CONFIG(proxy_redirect_via_cilium_net)) {
+		int ret;
+
+		ret = ctx_redirect_to_proxy_hairpin(ctx, ip4, proxy_port);
+		ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
+		return ret;
+	}
+	/* Pass the packet straight to the proxy, without redirecting via
+	 * cilium_host.
+	 */
+	cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
+	ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
+	cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
+
+	*punt_to_stack = true;
+	return CTX_ACT_OK;
+# endif /* IS_BPF_XDP */
+}
+
 static __always_inline bool dsr_fail_needs_reply(int code __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
@@ -1407,30 +1448,11 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		return CTX_ACT_OK;
 
 #if defined(ENABLE_L7_LB)
-	if (lb6_svc_is_l7_loadbalancer(svc)) {
-# if !defined(IS_BPF_XDP)
-		__be16 proxy_port = (__be16)svc->l7_lb_proxy_port;
-
-		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
-				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
-				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
-				  bpf_htons(ETH_P_IPV6));
-
-		/* See IPv4 codepath for comments. */
-		if (CONFIG(enable_tproxy) || CONFIG(proxy_redirect_via_cilium_net)) {
-			ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
-			ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
-			return ret;
-		}
-
-		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
-		ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
-		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
-
-		*punt_to_stack = true;
-# endif /* IS_BPF_XDP */
-		return CTX_ACT_OK;
-	}
+	if (lb6_svc_is_l7_loadbalancer(svc))
+		return nodeport_l7_lb_redirect(ctx, NULL,
+					       (__be16)svc->l7_lb_proxy_port,
+					       src_sec_identity,
+					       punt_to_stack);
 #endif
 	if (CONFIG(enable_ipip_termination)) {
 		union v6addr forced_addr = {};
@@ -2740,38 +2762,11 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		return CTX_ACT_OK;
 
 #if defined(ENABLE_L7_LB)
-	if (lb4_svc_is_l7_loadbalancer(svc)) {
-		/* We cannot redirect from the XDP layer to cilium_host.
-		 * Therefore, let the bpf_host to handle the L7 ingress
-		 * request.
-		 */
-# if !defined(IS_BPF_XDP)
-		__be16 proxy_port = (__be16)svc->l7_lb_proxy_port;
-
-		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
-				  bpf_ntohs(proxy_port),
-				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
-				  bpf_htons(ETH_P_IP));
-
-		/* Hairpin the packet through cilium_net when BPF tproxy is enabled
-		 * or when attaching the BPF program to a bridge network device.
-		 */
-		if (CONFIG(enable_tproxy) || CONFIG(proxy_redirect_via_cilium_net)) {
-			ret = ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
-			ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
-			return ret;
-		}
-		/* Pass the packet straight to the proxy, without redirecting via
-		 * cilium_host.
-		 */
-		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
-		ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
-		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
-
-		*punt_to_stack = true;
-# endif /* IS_BPF_XDP */
-		return CTX_ACT_OK;
-	}
+	if (lb4_svc_is_l7_loadbalancer(svc))
+		return nodeport_l7_lb_redirect(ctx, ip4,
+					       (__be16)svc->l7_lb_proxy_port,
+					       src_sec_identity,
+					       punt_to_stack);
 #endif
 	if (lb4_to_lb6_service(svc)) {
 		if (!is_defined(ENABLE_IPV6) || !is_defined(NODEPORT_USE_NAT_46x64))
