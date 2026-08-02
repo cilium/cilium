@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 type reconciler struct {
@@ -56,6 +55,7 @@ func newReconciler(
 	ctx context.Context,
 	logger *slog.Logger,
 	clientset k8sClient.Clientset,
+	clusterInfo cmtypes.ClusterInfo,
 	namespace resource.Resource[*slim_corev1.Namespace],
 	pod resource.Resource[*slim_corev1.Pod],
 	ciliumIdentity resource.Resource[*cilium_api_v2.CiliumIdentity],
@@ -66,12 +66,8 @@ func newReconciler(
 ) (*reconciler, error) {
 	logger.InfoContext(ctx, "Creating CID controller Operator reconciler")
 
-	clusterInfo := cmtypes.ClusterInfo{
-		ID:                   option.Config.ClusterID,
-		MaxConnectedClusters: option.Config.MaxConnectedClusters,
-	}
-	minIDValue := idpool.ID(clusterInfo.MinimalAllocationIdentity(option.Config.ClusterID))
-	maxIDValue := idpool.ID(clusterInfo.MaximumAllocationIdentity(option.Config.ClusterID))
+	minIDValue := idpool.ID(clusterInfo.MinimalAllocationIdentity())
+	maxIDValue := idpool.ID(clusterInfo.MaximumAllocationIdentity())
 	idAllocator := basicallocator.NewBasicIDAllocator(minIDValue, maxIDValue)
 
 	nsStore, err := namespace.Store(ctx)

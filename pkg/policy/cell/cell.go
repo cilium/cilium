@@ -93,6 +93,7 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 		params.IdentityManager,
 		params.MetricsManager,
 	)
+	policyRepo.SetClusterInfo(params.ClusterInfo)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {

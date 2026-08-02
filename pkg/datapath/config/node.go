@@ -4,7 +4,6 @@
 package config
 
 import (
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
@@ -12,9 +11,7 @@ import (
 
 func NodeConfig(lnc *Config) Node {
 	node := *NewNode()
-	node.ClusterIDBits = cmtypes.ClusterInfo{
-		MaxConnectedClusters: option.Config.MaxConnectedClusters,
-	}.GetClusterIDBits()
+	node.ClusterIDBits = lnc.ClusterInfo.GetClusterIDBits()
 
 	node.CiliumHostIfIndex = lnc.CiliumHostIfIndex
 	node.CiliumHostMAC.Addr = lnc.CiliumHostMAC.As6()
@@ -33,7 +30,7 @@ func NodeConfig(lnc *Config) Node {
 		node.RouterIPv6.Addr = lnc.CiliumInternalIPv6.As16()
 	}
 
-	node.ClusterID = option.Config.ClusterID
+	node.ClusterID = lnc.ClusterInfo.ID
 	node.MonitorAggregation = uint8(option.Config.Opts.GetValue(option.MonitorAggregation))
 	node.TracePayloadLen = uint32(option.Config.TracePayloadlen)
 	node.TracePayloadLenOverlay = uint32(option.Config.TracePayloadlenOverlay)

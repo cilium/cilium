@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/key"
+	identitynumeric "github.com/cilium/cilium/pkg/identity/numericidentity"
 	"github.com/cilium/cilium/pkg/idpool"
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -221,14 +222,14 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 	m.logger.Info("Initializing identity allocator")
 
-	minID := idpool.ID(m.clusterInfo.MinimalAllocationIdentity(option.Config.ClusterID))
-	maxID := idpool.ID(m.clusterInfo.MaximumAllocationIdentity(option.Config.ClusterID))
+	minID := idpool.ID(m.clusterInfo.MinimalAllocationIdentity())
+	maxID := idpool.ID(m.clusterInfo.MaximumAllocationIdentity())
 
 	m.logger.Info(
 		"Allocating identities between range",
 		logfields.Min, minID,
 		logfields.Max, maxID,
-		logfields.ClusterID, option.Config.ClusterID,
+		logfields.ClusterID, m.clusterInfo.ID,
 	)
 
 	// In the case of the allocator being closed, we need to create a new events channel
@@ -309,7 +310,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		allocOptions := []allocator.AllocatorOption{
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithEvents(events), allocator.WithSyncInterval(m.syncInterval),
-			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << m.clusterInfo.GetClusterIDShift())),
+			allocator.WithPrefixMask(idpool.ID(m.clusterInfo.ID << m.clusterInfo.GetClusterIDShift())),
 		}
 		if m.operatorIDManagement {
 			allocOptions = append(allocOptions, allocator.WithOperatorIDManagement())
@@ -1030,8 +1031,8 @@ func (m *CachingIdentityAllocator) LocalIdentityChanges() stream.Observable[Iden
 // clusterIDValidator returns a validator ensuring that the identity ID belongs
 // to the ClusterID range.
 func clusterIDValidator(cinfo cmtypes.ClusterInfo, clusterID uint32) allocator.CacheValidator {
-	min := idpool.ID(cinfo.MinimalAllocationIdentity(clusterID))
-	max := idpool.ID(cinfo.MaximumAllocationIdentity(clusterID))
+	min := idpool.ID(identitynumeric.MinimalAllocationIdentity(clusterID, cinfo.GetClusterIDShift()))
+	max := idpool.ID(identitynumeric.MaximumAllocationIdentity(clusterID, cinfo.GetClusterIDShift()))
 
 	return func(_ allocator.AllocatorChangeKind, id idpool.ID, _ allocator.AllocatorKey) error {
 		if id < min || id > max {

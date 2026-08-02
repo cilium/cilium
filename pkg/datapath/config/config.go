@@ -8,6 +8,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -34,6 +35,9 @@ type ChangeHandler interface {
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
 type Config struct {
+	// ClusterInfo carries the local cluster's numeric identity layout settings.
+	ClusterInfo cmtypes.ClusterInfo
+
 	// NodeIPv4 is the primary IPv4 address of this node.
 	// Mutable at runtime.
 	// +deepequal-gen=false

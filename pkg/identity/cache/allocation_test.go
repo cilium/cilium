@@ -21,6 +21,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
+	identitynumeric "github.com/cilium/cilium/pkg/identity/numericidentity"
 	"github.com/cilium/cilium/pkg/idpool"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -707,8 +708,8 @@ func testCheckpointRestore(t *testing.T, testConfig testConfig) {
 func TestClusterIDValidator(t *testing.T) {
 	const cid = 5
 	cinfo := cmtypes.DefaultClusterInfo
-	minID := idpool.ID(cinfo.MinimalAllocationIdentity(cid))
-	maxID := idpool.ID(cinfo.MaximumAllocationIdentity(cid))
+	minID := idpool.ID(identitynumeric.MinimalAllocationIdentity(cid, cinfo.GetClusterIDShift()))
+	maxID := idpool.ID(identitynumeric.MaximumAllocationIdentity(cid, cinfo.GetClusterIDShift()))
 
 	var (
 		validator = clusterIDValidator(cinfo, cid)

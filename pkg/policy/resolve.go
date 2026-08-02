@@ -14,6 +14,7 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -198,6 +199,8 @@ type selectorPolicy struct {
 
 	// Getter for egress named ports
 	namedPortsGetter NamedPortsGetter
+
+	clusterInfo cmtypes.ClusterInfo
 
 	// L4Policy contains the computed L4 and L7 policy.
 	L4Policy L4Policy
@@ -416,7 +419,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 		calculatedPolicy = &EndpointPolicy{
 			SelectorPolicy: p,
 			selectors:      selectors,
-			policyMapState: newMapState(logger, policyOwner.PreviousMapState(), features),
+			policyMapState: newMapState(logger, policyOwner.PreviousMapState(), features, p.clusterInfo),
 			policyMapChanges: MapChanges{
 				logger:   logger,
 				firstRev: selectors.Revision,
@@ -714,7 +717,7 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
-		policyMapState: emptyMapState(logger),
+		policyMapState: newMapState(logger, nil, 0, repo.GetClusterInfo()),
 	}
 }
 

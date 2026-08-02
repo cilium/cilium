@@ -17,6 +17,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
+	identitynumeric "github.com/cilium/cilium/pkg/identity/numericidentity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	storepkg "github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -289,8 +290,8 @@ func WithCachedPrefix(cached bool) IWOpt {
 // observed IPs are associated with an identity belonging to the expected range.
 func WithIdentityValidator(cinfo cmtypes.ClusterInfo, clusterID uint32) IWOpt {
 	return func(opts *iwOpts) {
-		min := identity.NumericIdentity(cinfo.MinimalAllocationIdentity(clusterID))
-		max := identity.NumericIdentity(cinfo.MaximumAllocationIdentity(clusterID))
+		min := identity.NumericIdentity(identitynumeric.MinimalAllocationIdentity(clusterID, cinfo.GetClusterIDShift()))
+		max := identity.NumericIdentity(identitynumeric.MaximumAllocationIdentity(clusterID, cinfo.GetClusterIDShift()))
 
 		validator := func(pair *identity.IPIdentityPair) error {
 			switch {

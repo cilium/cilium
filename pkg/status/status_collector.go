@@ -505,8 +505,8 @@ func (d *statusCollector) getBPFMapStatus() *models.BPFMapStatus {
 
 func (d *statusCollector) getIdentityRange() *models.IdentityRange {
 	s := &models.IdentityRange{
-		MinIdentity: int64(d.statusParams.ClusterInfo.MinimalAllocationIdentity(d.statusParams.ClusterInfo.ID)),
-		MaxIdentity: int64(d.statusParams.ClusterInfo.MaximumAllocationIdentity(d.statusParams.ClusterInfo.ID)),
+		MinIdentity: int64(d.statusParams.ClusterInfo.MinimalAllocationIdentity()),
+		MaxIdentity: int64(d.statusParams.ClusterInfo.MaximumAllocationIdentity()),
 	}
 
 	return s

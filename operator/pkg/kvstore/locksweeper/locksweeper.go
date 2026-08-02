@@ -47,8 +47,8 @@ func runLockSweeper(p params) {
 		logging.Fatal(p.Logger, "Unable to initialize kvstore backend for stale locks collection", logfields.Error, err)
 	}
 
-	minID := idpool.ID(p.ClusterInfo.MinimalAllocationIdentity(p.ClusterInfo.ID))
-	maxID := idpool.ID(p.ClusterInfo.MaximumAllocationIdentity(p.ClusterInfo.ID))
+	minID := idpool.ID(p.ClusterInfo.MinimalAllocationIdentity())
+	maxID := idpool.ID(p.ClusterInfo.MaximumAllocationIdentity())
 	a := allocator.NewAllocatorForGC(p.Logger, backend, allocator.WithMin(minID), allocator.WithMax(maxID))
 
 	keysToDelete := map[string]kvstore.Value{}

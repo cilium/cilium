@@ -20,6 +20,8 @@ import (
 
 	"github.com/cilium/cilium/operator/k8s"
 	cidtest "github.com/cilium/cilium/operator/pkg/ciliumidentity/testutils"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/key"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -85,6 +87,7 @@ func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reco
 		ctx,
 		tlog,
 		fakeClient.Clientset,
+		cmtypes.ClusterInfo{MaxConnectedClusters: defaults.MaxConnectedClusters},
 		namespace,
 		pod,
 		ciliumIdentity,

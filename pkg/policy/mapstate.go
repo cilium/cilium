@@ -11,7 +11,9 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -87,7 +89,8 @@ var (
 // greatly enhances the usefuleness of the Trie and improves lookup,
 // deletion, and insertion times.
 type mapState struct {
-	logger *slog.Logger
+	logger      *slog.Logger
+	clusterInfo cmtypes.ClusterInfo
 	// entries is the map containing the MapStateEntries
 	entries mapStateMap
 	// trie is a Trie that indexes policy Keys without their identity
@@ -195,7 +198,7 @@ func (ms *mapState) forKey(k Key, f func(Key, mapStateEntry) bool) bool {
 // forCoveredIDs calls 'f' for each covered non-aggregate ID in 'idSet' with port/proto from 'k'.
 func (ms *mapState) forCoveredIDs(agg identity.NumericIdentity, k Key, idSet IDSet, f func(Key, mapStateEntry) bool) bool {
 	for id := range idSet {
-		if aggregates(agg, id) {
+		if aggregates(ms.clusterInfo, agg, id) {
 			k.Identity = id
 			if !ms.forKey(k, f) {
 				return false
@@ -220,7 +223,7 @@ func (ms *mapState) forID(k Key, idSet IDSet, f func(Key, mapStateEntry) bool) b
 //
 // All yielded keys will have either the specified ID or the aggregate ID.
 func (ms *mapState) CoveringBroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
-	agg := aggregateFor(key.Identity)
+	agg := aggregateFor(ms.clusterInfo, key.Identity)
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.AncestorIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
@@ -249,7 +252,7 @@ func (ms *mapState) CoveringBroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateE
 // The difference is when the aggregate key is supplied - this yields *all* keys
 // with shorter-or-equal prefix length.
 func (ms *mapState) BroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
-	agg := aggregateFor(key.Identity)
+	agg := aggregateFor(ms.clusterInfo, key.Identity)
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.AncestorIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
@@ -284,7 +287,7 @@ func (ms *mapState) BroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 // If a non-aggregate key is supplied, all keys yielded will have that identity.
 // If an aggregate key is supplied, all longer-prefix keys will be yielded.
 func (ms *mapState) CoveredNarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
-	agg := aggregateFor(key.Identity)
+	agg := aggregateFor(ms.clusterInfo, key.Identity)
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.DescendantIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
@@ -318,7 +321,7 @@ func (ms *mapState) CoveredNarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateE
 //
 // If a aggregate key is supplied, this will yield all longer-prefix keys.
 func (ms *mapState) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
-	wc := aggregateFor(key.Identity)
+	wc := aggregateFor(ms.clusterInfo, key.Identity)
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.DescendantIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
@@ -381,7 +384,7 @@ func (ms *mapState) SubsetKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] 
 // LPMAncestors iterates over broader or equal port/proto entries in the trie in LPM order,
 // with most specific match with the same ID as in 'key' being returned first.
 func (ms *mapState) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
-	agg := aggregateFor(key.Identity)
+	agg := aggregateFor(ms.clusterInfo, key.Identity)
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.AncestorLongestPrefixFirstIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
@@ -417,7 +420,7 @@ func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 	}
 
 	// The aggregate identity to retrieve
-	agg := aggregateFor(key.Identity)
+	agg := aggregateFor(ms.clusterInfo, key.Identity)
 
 	// two entries: aggregate and specific.
 	// Must retrieve both.
@@ -709,17 +712,23 @@ func emptyMapState(logger *slog.Logger) mapState {
 
 // newMapState returns a new mapState with capacities from the given old mapState (if non-nil),
 // according to the given policy features.
-func newMapState(logger *slog.Logger, old *mapState, features policyFeatures) mapState {
+func newMapState(logger *slog.Logger, old *mapState, features policyFeatures, cinfo ...cmtypes.ClusterInfo) mapState {
 	var nEntries int
+	clusterInfo := cmtypes.ClusterInfo{MaxConnectedClusters: defaults.MaxConnectedClusters}
 
 	if old != nil {
 		nEntries = len(old.entries)
+		clusterInfo = old.clusterInfo
+	}
+	if len(cinfo) > 0 {
+		clusterInfo = cinfo[0]
 	}
 
 	ms := mapState{
-		logger:  logger,
-		entries: make(mapStateMap, nEntries),
-		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
+		logger:      logger,
+		clusterInfo: clusterInfo,
+		entries:     make(mapStateMap, nEntries),
+		trie:        bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
 
 	if features&(passRules|namedPortRules) != 0 {
@@ -1041,7 +1050,7 @@ func (ms *mapState) pruneCoveredNarrowerKey(k Key, v mapStateEntry, key Key, ent
 
 	// If k is a direct child of key, and k's entry is equivalent to key,
 	// then delete k as it is redundant.
-	deleteEntry = deleteEntry || (key.LPMKey == k.LPMKey && aggregates(key.Identity, k.Identity) && v.equivalent(entry))
+	deleteEntry = deleteEntry || (key.LPMKey == k.LPMKey && aggregates(ms.clusterInfo, key.Identity, k.Identity) && v.equivalent(entry))
 
 	// Delete whole entry?
 	if deletePassMeta && deleteEntry {
@@ -1079,9 +1088,9 @@ func (sp *keySlice) addNewKeys(l34Keys, doneKeys *Keys) {
 
 // collectNarrowerPasses adds the narrower key 'k' (with identity from 'key' if narrower) to 'm' if
 // 'v' has a higher precedence pass.
-func (sp *keySlice) collectNarrowerPasses(tierMaxPrecedence types.Precedence, k Key, v mapStateEntry, key Key, doneKeys *Keys) {
+func (sp *keySlice) collectNarrowerPasses(cinfo cmtypes.ClusterInfo, tierMaxPrecedence types.Precedence, k Key, v mapStateEntry, key Key, doneKeys *Keys) {
 	// k has narrower L4, but the narrower identity may be on 'key'
-	if k.Identity == aggregateFor(key.Identity) {
+	if k.Identity == aggregateFor(cinfo, key.Identity) {
 		k.Identity = key.Identity
 	}
 	if k != key {
@@ -1214,7 +1223,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 	var l34Keys, doneKeys Keys
 	var bailPrecedence types.Precedence
 	var keys keySlice
-	aggregateID := aggregateFor(key.Identity)
+	aggregateID := aggregateFor(ms.clusterInfo, key.Identity)
 
 	// Find the covering pass and bail entries and pass if the found
 	// passPrecedence is higher than the bailPrecedence, else bail if found.
@@ -1280,7 +1289,7 @@ func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key
 		if !bail && isCoveringKey {
 			ms.pruneCoveredNarrowerKey(k, v, key, entry, entry.Precedence, changes)
 		}
-		keys.collectNarrowerPasses(tierMaxPrecedence, k, v, key, &doneKeys)
+		keys.collectNarrowerPasses(ms.clusterInfo, tierMaxPrecedence, k, v, key, &doneKeys)
 	}
 
 	// Pass to a higher tier?
@@ -1486,7 +1495,7 @@ func (ms *mapState) insertWithChanges(tierMaxPrecedence types.Precedence, newKey
 // aggregateIsEquivalent returns true if an entry has an aggregate (wildcard)
 // on the same level. If so, inserting `newKey` can be skipped entirely.
 func (ms *mapState) aggregateIsEquivalent(newKey Key, newEntry mapStateEntry) bool {
-	agg := aggregateFor(newKey.Identity)
+	agg := aggregateFor(ms.clusterInfo, newKey.Identity)
 	// if newKey is already aggregate, then we can bail.
 	if agg == newKey.Identity {
 		return false
@@ -1509,7 +1518,7 @@ func (ms *mapState) aggregateIsEquivalent(newKey Key, newEntry mapStateEntry) bo
 // of another entry appearing between the aggregated and specific entry.
 func (ms *mapState) pruneAggregated(newKey Key, newEntry mapStateEntry, changes ChangeState) {
 	// newKey must be capable of aggregating.
-	if !isAggregate(newKey.Identity) {
+	if !isAggregate(ms.clusterInfo, newKey.Identity) {
 		return
 	}
 
@@ -1520,7 +1529,7 @@ func (ms *mapState) pruneAggregated(newKey Key, newEntry mapStateEntry, changes 
 	}
 
 	for id := range idSet {
-		if !aggregates(newKey.Identity, id) {
+		if !aggregates(ms.clusterInfo, newKey.Identity, id) {
 			// skip if this ID is not aggregated by newKey
 			continue
 		}

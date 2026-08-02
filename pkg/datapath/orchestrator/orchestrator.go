@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
@@ -97,6 +98,7 @@ type orchestratorParams struct {
 	cell.In
 
 	Config              Config
+	ClusterInfo         cmtypes.ClusterInfo
 	Log                 *slog.Logger
 	Loader              loader.Loader
 	TunnelConfig        tunnel.Config
@@ -220,6 +222,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	for {
 		localNodeConfig, localNodeConfigWatch, err := newLocalNodeConfig(
 			ctx,
+			o.params.ClusterInfo,
 			option.Config,
 			localNode,
 			o.params.Sysctl,

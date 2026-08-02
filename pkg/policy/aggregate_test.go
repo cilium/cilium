@@ -10,15 +10,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestAllAggregates(t *testing.T) {
+	cinfo := cmtypes.ClusterInfo{MaxConnectedClusters: defaults.MaxConnectedClusters}
+
 	// Validate that the aggregates evaluate to themselves:
 
 	for _, nid := range AllAggregates {
-		require.True(t, isAggregate(nid))
+		require.True(t, isAggregate(cinfo, nid))
 	}
 
 	c := identity.ReservedIdentityAggregateCluster
@@ -36,14 +39,14 @@ func TestAllAggregates(t *testing.T) {
 		// duplicate of AllAggregates for efficiency.
 		switch nid {
 		case 0, c, m, n, w:
-			require.True(t, isAggregate(nid))
+			require.True(t, isAggregate(cinfo, nid))
 		default:
-			require.False(t, isAggregate(nid))
+			require.False(t, isAggregate(cinfo, nid))
 		}
 
 		if writeOutput {
 			expectedIn = append(expectedIn, nid)
-			expectedOut = append(expectedOut, aggregateFor(nid))
+			expectedOut = append(expectedOut, aggregateFor(cinfo, nid))
 		}
 	}
 
@@ -93,11 +96,7 @@ func writeCArray(path string, nids []identity.NumericIdentity) error {
 }
 
 func TestIsAggregate(t *testing.T) {
-	oldCid := option.Config.ClusterID
-	t.Cleanup(func() {
-		option.Config.ClusterID = oldCid
-	})
-	option.Config.ClusterID = 0
+	cinfo := cmtypes.ClusterInfo{MaxConnectedClusters: defaults.MaxConnectedClusters}
 
 	// save typing
 	w := identity.ReservedIdentityAggregateWorld
@@ -122,10 +121,10 @@ func TestIsAggregate(t *testing.T) {
 		{identity.IdentityScopeRemoteNode, n},
 		{identity.IdentityScopeRemoteNode + 100, n},
 	} {
-		require.Equal(t, tc.out, aggregateFor(tc.in), "index %d ID %d", i, tc.in)
+		require.Equal(t, tc.out, aggregateFor(cinfo, tc.in), "index %d ID %d", i, tc.in)
 	}
 
-	option.Config.ClusterID = 1
+	cinfo.ID = 1
 
 	for i, tc := range []struct {
 		in, out identity.NumericIdentity
@@ -146,6 +145,6 @@ func TestIsAggregate(t *testing.T) {
 		{identity.IdentityScopeRemoteNode, n},
 		{identity.IdentityScopeRemoteNode + 100, n},
 	} {
-		require.Equal(t, tc.out, aggregateFor(tc.in), "cluster ID 1, index %d ID %d", i, tc.in)
+		require.Equal(t, tc.out, aggregateFor(cinfo, tc.in), "cluster ID 1, index %d ID %d", i, tc.in)
 	}
 }

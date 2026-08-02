@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/operator/k8s"
 	cestest "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	cidtest "github.com/cilium/cilium/operator/pkg/ciliumidentity/testutils"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -129,6 +131,9 @@ func initHiveTest(t *testing.T, operatorManagingCID bool) (*resource.Resource[*c
 				EnableCiliumEndpointSlice: true,
 				DisableNetworkPolicy:      false,
 			}
+		}),
+		cell.Provide(func() cmtypes.ClusterInfo {
+			return cmtypes.ClusterInfo{MaxConnectedClusters: defaults.MaxConnectedClusters}
 		}),
 		cell.Invoke(func(p params) error {
 			registerController(p)

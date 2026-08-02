@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/clock"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -56,6 +57,7 @@ type params struct {
 	SharedCfg           SharedConfig
 	JobGroup            job.Group
 	Metrics             *Metrics
+	ClusterInfo         cmtypes.ClusterInfo
 	Namespace           resource.Resource[*slim_corev1.Namespace]
 	Pod                 resource.Resource[*slim_corev1.Pod]
 	CiliumIdentity      resource.Resource[*cilium_api_v2.CiliumIdentity]
@@ -67,6 +69,7 @@ type params struct {
 type Controller struct {
 	logger              *slog.Logger
 	clientset           k8sClient.Clientset
+	clusterInfo         cmtypes.ClusterInfo
 	reconciler          *reconciler
 	jobGroup            job.Group
 	metrics             *Metrics
@@ -110,6 +113,7 @@ func registerController(p params) {
 	cidController := &Controller{
 		logger:                   p.Logger,
 		clientset:                p.Clientset,
+		clusterInfo:              p.ClusterInfo,
 		namespace:                p.Namespace,
 		pod:                      p.Pod,
 		jobGroup:                 p.JobGroup,
@@ -216,7 +220,7 @@ func (c *Controller) startEventProcessing() {
 
 func (c *Controller) initReconciler(ctx context.Context) error {
 	var err error
-	c.reconciler, err = newReconciler(ctx, c.logger, c.clientset, c.namespace, c.pod, c.ciliumIdentity, c.ciliumEndpoint, c.ciliumEndpointSlice, c.cesEnabled, c)
+	c.reconciler, err = newReconciler(ctx, c.logger, c.clientset, c.clusterInfo, c.namespace, c.pod, c.ciliumIdentity, c.ciliumEndpoint, c.ciliumEndpointSlice, c.cesEnabled, c)
 	if err != nil {
 		return fmt.Errorf("cid reconciler failed to init: %w", err)
 	}

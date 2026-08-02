@@ -233,8 +233,8 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 		ID:                   option.Config.ClusterID,
 		MaxConnectedClusters: option.Config.MaxConnectedClusters,
 	}
-	minID := idpool.ID(clusterInfo.MinimalAllocationIdentity(option.Config.ClusterID))
-	maxID := idpool.ID(clusterInfo.MaximumAllocationIdentity(option.Config.ClusterID))
+	minID := idpool.ID(clusterInfo.MinimalAllocationIdentity())
+	maxID := idpool.ID(clusterInfo.MaximumAllocationIdentity())
 	crdAllocator, err = allocator.NewAllocator(log, &cacheKey.GlobalIdentity{}, crdBackend, allocator.WithMax(maxID), allocator.WithMin(minID))
 	if err != nil {
 		logging.Fatal(log, "Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs", logfields.Error, err)

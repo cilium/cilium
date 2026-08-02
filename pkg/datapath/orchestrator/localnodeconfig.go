@@ -15,6 +15,7 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -66,6 +67,7 @@ func prefixToCIDR(p netip.Prefix) *cidr.CIDR {
 // failing condition changes.
 func newLocalNodeConfig(
 	ctx context.Context,
+	clusterInfo cmtypes.ClusterInfo,
 	daemon *option.DaemonConfig,
 	localNode node.LocalNode,
 	sysctlOps sysctl.Sysctl,
@@ -169,6 +171,7 @@ func newLocalNodeConfig(
 	}
 
 	return config.Config{
+		ClusterInfo:                  clusterInfo,
 		NodeIPv4:                     ip.AddrFromIP(localNode.GetNodeIP(false)),
 		NodeIPv6:                     ip.AddrFromIP(localNode.GetNodeIP(true)),
 		CiliumInternalIPv4:           ip.AddrFromIP(localNode.GetCiliumInternalIP(false)),

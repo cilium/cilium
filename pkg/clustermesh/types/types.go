@@ -130,17 +130,10 @@ const (
 	EndpointSlicesExportModeEndpointSlicesOnly        EndpointSlicesExportMode = "endpointslices-only"
 )
 
-func (c ClusterInfo) configuredMaxConnectedClusters() uint32 {
-	if c.MaxConnectedClusters == 0 {
-		return defaults.MaxConnectedClusters
-	}
-	return c.MaxConnectedClusters
-}
-
 // GetClusterIDBits returns the number of bits that represent a cluster ID in a
 // numeric identity for this cluster configuration.
 func (c ClusterInfo) GetClusterIDBits() uint32 {
-	return uint32(math.Log2(float64(c.configuredMaxConnectedClusters() + 1)))
+	return uint32(math.Log2(float64(c.MaxConnectedClusters + 1)))
 }
 
 // GetClusterIDShift returns the number of bits to shift a cluster ID in a
@@ -150,19 +143,14 @@ func (c ClusterInfo) GetClusterIDShift() uint32 {
 }
 
 // MinimalAllocationIdentity returns the minimal numeric identity not used for
-// reserved purposes for the given cluster ID under this cluster configuration.
-func (c ClusterInfo) MinimalAllocationIdentity(clusterID uint32) uint32 {
-	if clusterID > 0 {
-		// For ClusterID > 0, the identity range just starts from cluster shift,
-		// no well-known-identities need to be reserved from the range.
-		return (1 << c.GetClusterIDShift()) * clusterID
-	}
-	return identitynumeric.MinimalIdentity
+// reserved purposes for this cluster under this cluster configuration.
+func (c ClusterInfo) MinimalAllocationIdentity() uint32 {
+	return identitynumeric.MinimalAllocationIdentity(c.ID, c.GetClusterIDShift())
 }
 
 // MaximumAllocationIdentity returns the maximum numeric identity that should be
-// handed out by the identity allocator for the given cluster ID under this
-// cluster configuration.
-func (c ClusterInfo) MaximumAllocationIdentity(clusterID uint32) uint32 {
-	return (1<<c.GetClusterIDShift())*(clusterID+1) - 1
+// handed out by the identity allocator for this cluster under this cluster
+// configuration.
+func (c ClusterInfo) MaximumAllocationIdentity() uint32 {
+	return identitynumeric.MaximumAllocationIdentity(c.ID, c.GetClusterIDShift())
 }

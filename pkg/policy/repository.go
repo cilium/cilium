@@ -21,8 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	"github.com/cilium/cilium/pkg/defaults"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -52,6 +54,7 @@ type PolicyRepository interface {
 
 	GetRevision() uint64
 	GetRulesList() *models.Policy
+	GetClusterInfo() cmtypes.ClusterInfo
 	GetSelectorCache() *SelectorCache
 	GetSubjectSelectorCache() *SelectorCache
 	Iterate(f func(rule *types.PolicyEntry))
@@ -100,6 +103,7 @@ type Repository struct {
 
 	// Getter for egress named ports
 	namedPortsGetter NamedPortsGetter
+	clusterInfo      cmtypes.ClusterInfo
 }
 
 func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
@@ -137,9 +141,18 @@ func NewPolicyRepository(
 		certManager:          certManager,
 		metricsManager:       metricsManager,
 		l7RulesTranslator:    l7RulesTranslator,
+		clusterInfo:          cmtypes.ClusterInfo{MaxConnectedClusters: defaults.MaxConnectedClusters},
 	}
 	repo.revision.Store(1)
 	return repo
+}
+
+func (p *Repository) SetClusterInfo(clusterInfo cmtypes.ClusterInfo) {
+	p.clusterInfo = clusterInfo
+}
+
+func (p *Repository) GetClusterInfo() cmtypes.ClusterInfo {
+	return p.clusterInfo
 }
 
 // SetNamedPortsGetter must be called after NewPolicyRepository and before the repository is used.
@@ -341,6 +354,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		Revision:             p.GetRevision(),
 		SelectorCache:        sc,
 		namedPortsGetter:     p.namedPortsGetter,
+		clusterInfo:          p.clusterInfo,
 		L4Policy:             NewL4Policy(p.GetRevision()),
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
@@ -722,6 +736,7 @@ func (p *Repository) Snapshot(logger *slog.Logger, cm certificatemanager.Certifi
 		nil, // disable metrics
 	)
 	out.namedPortsGetter = p.namedPortsGetter
+	out.clusterInfo = p.clusterInfo
 
 	// Insert all rules in to the new policy repository.
 	//

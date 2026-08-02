@@ -16,6 +16,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
+	identitynumeric "github.com/cilium/cilium/pkg/identity/numericidentity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	storepkg "github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/source"
@@ -175,8 +176,8 @@ func TestIdentityValidator(t *testing.T) {
 		cid = 5
 	)
 	cinfo := cmtypes.DefaultClusterInfo
-	minID := identity.NumericIdentity(cinfo.MinimalAllocationIdentity(cid))
-	maxID := identity.NumericIdentity(cinfo.MaximumAllocationIdentity(cid))
+	minID := identity.NumericIdentity(identitynumeric.MinimalAllocationIdentity(cid, cinfo.GetClusterIDShift()))
+	maxID := identity.NumericIdentity(identitynumeric.MaximumAllocationIdentity(cid, cinfo.GetClusterIDShift()))
 
 	var opts iwOpts
 	WithIdentityValidator(cinfo, cid)(&opts)
