@@ -503,7 +503,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"enforceCAValidityThroughoutLeavesDuration":true,"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:e65f1d15a0ffaf2df32797c8ad1c797fc64dad11c274cd96a2eafa89d712cdc3","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.4.8","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"enforceCAValidityThroughoutLeavesDuration":true,"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:6213a4c54a1f36e14a9280765f058aaa2017550c28bc122f5b09ad146fd0da2b","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.4.9","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
