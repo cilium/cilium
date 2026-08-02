@@ -76,6 +76,10 @@ func NodeConfig(lnc *Config) Node {
 		node.NAT46X64Prefix.Addr = option.Config.IPv6NAT46x64CIDRBase.As4()
 	}
 
+	if lnc.NodeIPv4.Is4() {
+		node.IPv4InterClusterSNAT.Addr = lnc.NodeIPv4.As4()
+	}
+
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
 	node.KernelHz = uint32(option.Config.KernelHz)
 

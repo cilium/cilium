@@ -326,14 +326,14 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			extract_cluster_id_from_identity(*identity);
 
 		/* When we see inter-cluster communication and if
-		 * the destination is IPV4_INTER_CLUSTER_SNAT, try
-		 * to perform revSNAT. We tailcall from here since
-		 * we saw the complexity issue when we added this
-		 * logic in-line.
+		 * the destination is the configured inter-cluster
+		 * SNAT address, try to perform revSNAT. We tailcall
+		 * from here since we saw the complexity issue when
+		 * we added this logic in-line.
 		 */
 		if (cluster_id_from_identity != 0 &&
 		    cluster_id_from_identity != CONFIG(cluster_id) &&
-		    ip4->daddr == IPV4_INTER_CLUSTER_SNAT) {
+		    ip4->daddr == CONFIG(ipv4_inter_cluster_snat).be32) {
 			ctx_store_meta(ctx, CB_SRC_LABEL, *identity);
 			return tail_call_internal(ctx,
 						  CILIUM_CALL_IPV4_INTER_CLUSTER_REVSNAT,
