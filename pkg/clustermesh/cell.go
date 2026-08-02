@@ -42,7 +42,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(func(mgr nodemanager.NodeManager) (nodeStore.NodeManager, kvstore.ClusterSizeDependantIntervalFunc) {
 		return mgr, mgr.ClusterSizeDependantInterval
 	}),
-	cell.ProvidePrivate(idsMgrProvider),
+	cell.ProvidePrivate(common.NewClusterIDsManager),
 
 	cell.Config(common.DefaultConfig),
 	cell.Config(types.DefaultServiceModeV2Config),

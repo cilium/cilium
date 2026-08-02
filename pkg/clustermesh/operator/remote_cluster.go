@@ -37,6 +37,8 @@ type remoteCluster struct {
 	logger *slog.Logger
 	// name is the name of the cluster
 	name string
+	// clusterID is the cluster ID advertised by the remote cluster.
+	clusterID uint32
 
 	clusterMeshEnableEndpointSync bool
 	clusterMeshEnableMCSAPI       bool
@@ -66,6 +68,8 @@ type remoteCluster struct {
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config types.CiliumClusterConfig, ready chan<- error) {
+	rc.clusterID = config.ID
+
 	var mgr store.WatchStoreManager
 	if config.Capabilities.SyncedCanaries {
 		mgr = rc.storeFactory.NewWatchStoreManager(backend, rc.name)
@@ -120,6 +124,24 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		clusterAddHook(rc.name)
 	}
 	mgr.Run(ctx)
+}
+
+func (rc *remoteCluster) OnClusterIDChange(ctx context.Context, newID uint32) {
+	if rc.clusterID != types.ClusterIDUnset {
+		rc.logger.Info(
+			"Remote Cluster ID changed: draining all known entries before reconnecting. "+
+				"Expect connectivity disruption towards this cluster",
+			logfields.ClusterID, newID,
+		)
+		// Let's fully drain all previously known entries by calling [Remove] if the
+		// remote cluster changed the cluster ID. Although synthetic deletion events
+		// would be generated in any case upon initial listing (as the entries with
+		// the incorrect ID would not pass validation), that would leave a window of
+		// time in which there would still be stale entries for a Cluster ID that has
+		// already been released, potentially leading to inconsistencies if the same
+		// ID is acquired again in the meanwhile.
+		rc.Remove(ctx)
+	}
 }
 
 func (rc *remoteCluster) Stop() {

@@ -20,6 +20,7 @@ var Cell = cell.Module(
 		newKVStoreMesh,
 		newAPIClustersHandler,
 	),
+	cell.ProvidePrivate(common.NewClusterIDsManager),
 
 	cell.Config(common.DefaultConfig),
 
