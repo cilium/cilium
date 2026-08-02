@@ -15,6 +15,7 @@
 #include "common.h"
 #include "drop.h"
 #include "drop_reasons.h"
+#include "dsr.h"
 #include "overloadable.h"
 #include "egress_gateway.h"
 #include "eps.h"
@@ -74,47 +75,6 @@ DECLARE_CONFIG(__u8, ipv6_rss_prefix_bits,
 })
 
 #ifdef ENABLE_NODEPORT
-/* The IPv6 extension should be 8-bytes aligned */
-struct dsr_opt_v6 {
-	struct ipv6_opt_hdr hdr;
-	__u8 opt_type;
-	__u8 opt_len;
-	union v6addr addr;
-	__be16 port;
-	__u16 pad;
-};
-
-struct dsr_opt_v4 {
-	__u8 type;
-	__u8 len;
-	__u16 port;
-	__u32 addr;
-};
-
-/* IPv4 option used to carry service addr and port for DSR.
- *
- * Copy = 1 (option is copied to each fragment)
- * Class = 0 (control option)
- * Number = 26 (not used according to [1])
- * Len = 8 (option type (1) + option len (1) + addr (4) + port (2))
- *
- * [1]: https://www.iana.org/assignments/ip-parameters/ip-parameters.xhtml
- */
-#define DSR_IPV4_OPT_TYPE	(IPOPT_COPY | 0x1a)
-
-/* IPv6 option type of Destination Option used to carry service IPv6 addr and
- * port for DSR.
- *
- * 0b00		- "skip over this option and continue processing the header"
- *     0	- "Option Data does not change en-route"
- *      11011   - Unassigned [1]
- *
- * [1]:  https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#ipv6-parameters-2
- */
-#define DSR_IPV6_OPT_TYPE	0x1B
-#define DSR_IPV6_OPT_LEN	(sizeof(struct dsr_opt_v6) - 4)
-#define DSR_IPV6_EXT_LEN	((sizeof(struct dsr_opt_v6) - 8) / 8)
-
 static __always_inline bool nodeport_uses_dsr(bool flip __maybe_unused)
 {
 #ifdef ENABLE_DSR
@@ -495,47 +455,11 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 }
 # endif /* DSR_ENCAP_MODE */
 
-static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
-				       struct dsr_opt_v6 *dsr_opt, bool *found)
-{
-	int i, len = sizeof(struct ipv6hdr);
-	__u8 nh = nexthdr;
-
-#pragma unroll
-	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
-		__u8 newnh = nh;
-		int hdrlen = ipv6_skip_exthdr(ctx, &newnh, ETH_HLEN + len);
-
-		if (hdrlen < 0)
-			return hdrlen;
-
-		if (!hdrlen)
-			return 0;
-
-		build_bug_on(sizeof(*dsr_opt) != 24);
-		if (nh == NEXTHDR_DEST && hdrlen == sizeof(*dsr_opt)) {
-			if (ctx_load_bytes(ctx, ETH_HLEN + len, dsr_opt, sizeof(*dsr_opt)) < 0)
-				return DROP_INVALID;
-			if (dsr_opt->opt_type == DSR_IPV6_OPT_TYPE &&
-			    dsr_opt->opt_len == DSR_IPV6_OPT_LEN) {
-				*found = true;
-				return 0;
-			}
-		}
-
-		len += hdrlen;
-		nh = newnh;
-	}
-
-	/* Reached limit of supported extension headers */
-	return DROP_INVALID_EXTHDR;
-}
-
 static __always_inline int
 nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
-			struct ipv6hdr *ip6 __maybe_unused,
 			const struct ipv6_ct_tuple *tuple, int l4_off,
-			struct lb6_reverse_nat *dsr_info, bool *dsr)
+			struct lb6_reverse_nat *dsr_info __maybe_unused,
+			bool *dsr)
 {
 #if defined(IS_BPF_OVERLAY)
 	{
@@ -551,22 +475,6 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 							 (union v6addr *)&gopt.addr);
 				return 0;
 			}
-		}
-	}
-#else
-	{
-		struct dsr_opt_v6 opt __align_stack_8 = {};
-		int ret;
-
-		ret = find_dsr_v6(ctx, ip6->nexthdr, &opt, dsr);
-		if (ret != 0)
-			return ret;
-
-		if (*dsr) {
-			dsr_info->port = opt.port;
-			ipv6_addr_copy_unaligned(&dsr_info->address,
-						 &opt.addr);
-			return 0;
 		}
 	}
 #endif
@@ -1563,13 +1471,22 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					__s8 *ext_err,
 					bool __maybe_unused *dsr)
 {
+	struct lb6_reverse_nat dsr_info __maybe_unused = {};
 	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	fraginfo_t fraginfo = 0;
 
 	tuple.nexthdr = ip6->nexthdr;
+
+#if defined(ENABLE_DSR) &&						\
+    (defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD) && \
+    (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
+	ret = ipv6_hdrlen_with_dsr_info(ctx, &tuple.nexthdr, &fraginfo,
+					&dsr_info, dsr);
+#else
 	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+#endif
 	if (ret < 0)
 		return ret;
 
@@ -1622,12 +1539,14 @@ skip_service_lookup:
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
      (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
 	if (is_svc_proto) {
-		struct lb6_reverse_nat dsr_info = {};
+		/* We maybe already found an exthdr with DSR info: */
+		if (!*dsr) {
+			ret = nodeport_extract_dsr_v6(ctx, &tuple, l4_off,
+						      &dsr_info, dsr);
+			if (IS_ERR(ret))
+				return ret;
+		}
 
-		ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
-					      &dsr_info, dsr);
-		if (IS_ERR(ret))
-			return ret;
 		if (*dsr)
 			return nodeport_dsr_ingress_ipv6(ctx, &tuple, fraginfo, l4_off,
 							 &dsr_info, ext_err);
