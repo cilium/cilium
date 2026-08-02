@@ -50,9 +50,6 @@
 #define BACKEND_CLUSTER_ID	2
 #define BACKEND_IDENTITY	(0x00000000 | (BACKEND_CLUSTER_ID << 16) | 0xff01)
 
-#undef IPV4_INTER_CLUSTER_SNAT
-#define IPV4_INTER_CLUSTER_SNAT CLIENT_NODE_IP
-
 /* SNAT should always select NODEPORT_PORT_MIN_NAT as a source */
 #define CLIENT_INTER_CLUSTER_SNAT_PORT __bpf_htons(NODEPORT_PORT_MIN_NAT)
 
@@ -90,6 +87,8 @@ int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 
 /* Include an actual datapath code */
 #include "lib/bpf_overlay.h"
+
+ASSIGN_CONFIG(union v4addr, ipv4_inter_cluster_snat, { .be32 = CLIENT_NODE_IP })
 
 /* Overwrite (local) cluster_id defined in clustermesh.h */
 ASSIGN_CONFIG(__u32, cluster_id, 1)
@@ -140,7 +139,7 @@ pktgen_from_overlay(struct __ctx_buff *ctx, bool syn, bool ack)
 	l4 = pktgen__push_ipv4_tcp_packet(&builder,
 					  (__u8 *)BACKEND_ROUTER_MAC,
 					  (__u8 *)CLIENT_ROUTER_MAC,
-					  BACKEND_IP, IPV4_INTER_CLUSTER_SNAT,
+					  BACKEND_IP, CONFIG(ipv4_inter_cluster_snat).be32,
 					  BACKEND_PORT, CLIENT_INTER_CLUSTER_SNAT_PORT);
 	if (!l4)
 		return TEST_ERROR;
@@ -214,7 +213,7 @@ int to_overlay_syn_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("dst MAC has changed")
 
-	if (l3->saddr != IPV4_INTER_CLUSTER_SNAT)
+	if (l3->saddr != CONFIG(ipv4_inter_cluster_snat).be32)
 		test_fatal("src IP hasn't been SNATed for inter-cluster communication");
 
 	if (l3->daddr != BACKEND_IP)
@@ -243,7 +242,7 @@ int to_overlay_syn_check(struct __ctx_buff *ctx)
 	if (!entry)
 		test_fatal("couldn't find egress SNAT mapping");
 
-	tuple.daddr = IPV4_INTER_CLUSTER_SNAT;
+	tuple.daddr = CONFIG(ipv4_inter_cluster_snat).be32;
 	tuple.saddr = BACKEND_IP;
 	tuple.dport = CLIENT_INTER_CLUSTER_SNAT_PORT;
 	tuple.sport = BACKEND_PORT;
@@ -411,7 +410,7 @@ int to_overlay_ack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("dst MAC has changed");
 
-	if (l3->saddr != IPV4_INTER_CLUSTER_SNAT)
+	if (l3->saddr != CONFIG(ipv4_inter_cluster_snat).be32)
 		test_fatal("src IP hasn't been SNATed for inter-cluster communication");
 
 	if (l3->daddr != BACKEND_IP)

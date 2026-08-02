@@ -102,3 +102,6 @@ NODE_CONFIG(bool, enable_bpf_host_routing, "Enable BPF Host Routing")
 NODE_CONFIG(bool, encryption_strict_ingress, "Enable strict encryption for ingress traffic")
 
 NODE_CONFIG(__u8, monitor_aggregation, "Level of aggregation for monitor events")
+
+NODE_CONFIG(union v4addr, ipv4_inter_cluster_snat,
+	    "Node IPv4 address used as the source for inter-cluster SNAT")
