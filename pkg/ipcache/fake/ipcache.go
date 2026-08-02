@@ -5,6 +5,7 @@ package fake
 
 import (
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/source"
@@ -17,7 +18,7 @@ const (
 
 type NodeEvent struct {
 	event string
-	ip    net.IP
+	ip    netip.Addr
 }
 
 type IPCache struct {
@@ -33,11 +34,13 @@ func NewIPCache(events bool) *IPCache {
 }
 
 func (i *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
-	i.Events <- NodeEvent{EventUpsert, net.ParseIP(ip)}
+	addr, _ := netip.ParseAddr(ip)
+	i.Events <- NodeEvent{EventUpsert, addr}
 	return false, nil
 }
 
 func (i *IPCache) Delete(IP string, source source.Source) bool {
-	i.Events <- NodeEvent{EventDelete, net.ParseIP(IP)}
+	addr, _ := netip.ParseAddr(IP)
+	i.Events <- NodeEvent{EventDelete, addr}
 	return false
 }
