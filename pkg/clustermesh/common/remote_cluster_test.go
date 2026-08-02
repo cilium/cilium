@@ -63,8 +63,9 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	var statusfn StatusFunc
 	ready := make(chan struct{}, 1)
 	cm := NewClusterMesh(Configuration{
-		Logger:      hivetest.Logger(t),
-		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
+		Logger:            hivetest.Logger(t),
+		ClusterInfo:       types.ClusterInfo{ID: 255, Name: "local"},
+		ClusterIDsManager: NewClusterIDsManager(types.ClusterInfo{ID: 255}),
 		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
 			statusfn = sf
 			return &fakeRemoteCluster{
@@ -128,8 +129,9 @@ func TestRemoteClusterCacheRevokeOnTimeout(t *testing.T) {
 	revoked := make(chan struct{}, 1)
 
 	cm := NewClusterMesh(Configuration{
-		Logger:      hivetest.Logger(t),
-		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
+		Logger:            hivetest.Logger(t),
+		ClusterInfo:       types.ClusterInfo{ID: 255, Name: "local"},
+		ClusterIDsManager: NewClusterIDsManager(types.ClusterInfo{ID: 255}),
 		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
 			return &fakeRemoteCluster{
 				onRun: func(context.Context) {
