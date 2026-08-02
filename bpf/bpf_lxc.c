@@ -1103,6 +1103,9 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	if (unlikely(is_icmp6_ndp(ctx, ip6, ETH_HLEN)))
 		return icmp6_ndp_handle(ctx, ETH_HLEN, METRIC_EGRESS, ext_err);
 
+	if (unlikely(is_icmp6_link_local_ctrl(ctx, ip6, ETH_HLEN)))
+		return CTX_ACT_OK;
+
 #ifdef ENABLE_L7_LB
 	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
 #endif
