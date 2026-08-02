@@ -70,8 +70,8 @@ export CILIUM_CLI ?= cilium
 export KUBECTL ?= kubectl
 
 # renovate: datasource=docker depName=quay.io/goswagger/swagger
-SWAGGER_VERSION = 0.35.3
-SWAGGER_IMAGE_SHA = sha256:d1dc904e13b63eb27d2b34a9c9d3ddfca7e0d25ae7b77f91d06ad4e659b2eef4
+SWAGGER_VERSION = 0.36.1
+SWAGGER_IMAGE_SHA = sha256:5a9c4bafe0dde50e5d910fad4f96d711886ad7d45390cce1dffead26c6472a1e
 SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(ROOT_DIR):$(ROOT_DIR) -w $(ROOT_DIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)@$(SWAGGER_IMAGE_SHA)
 
 # go build/test/clean flags
