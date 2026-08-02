@@ -33,6 +33,9 @@ type Configuration struct {
 	// ClusterInfo is the id/name of the local cluster.
 	ClusterInfo types.ClusterInfo
 
+	// ClusterIDsManager reserves IDs advertised by remote clusters.
+	ClusterIDsManager ClusterIDsManager
+
 	// RemoteClientFactory is the factory to create new backend instances.
 	RemoteClientFactory RemoteClientFactoryFn
 
@@ -139,6 +142,8 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		name:                         name,
 		configPath:                   path,
 		clusterSizeDependantInterval: cm.conf.ClusterSizeDependantInterval,
+		localClusterInfo:             cm.conf.ClusterInfo,
+		clusterIDsManager:            cm.conf.ClusterIDsManager,
 
 		resolvers: cm.conf.Resolvers,
 

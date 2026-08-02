@@ -43,7 +43,7 @@ var Cell = cell.Module(
 	) nodeStore.NodeManager {
 		return mgr
 	}),
-	cell.ProvidePrivate(idsMgrProvider),
+	cell.ProvidePrivate(common.NewClusterIDsManager),
 
 	cell.Config(common.DefaultConfig),
 	cell.Config(types.DefaultServiceModeV2Config),

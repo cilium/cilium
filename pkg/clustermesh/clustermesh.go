@@ -74,7 +74,7 @@ type Configuration struct {
 
 	// ClusterIDsManager handles the reservation of the ClusterIDs associated
 	// with remote clusters, to ensure their uniqueness.
-	ClusterIDsManager clusterIDsManager
+	ClusterIDsManager common.ClusterIDsManager
 
 	// ObserverFactories is the list of factories to instantiate additional observers.
 	ObserverFactories []observer.Factory `group:"clustermesh-observers"`
@@ -157,7 +157,8 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 			return out
 		}(),
 
-		NewRemoteCluster: cm.NewRemoteCluster,
+		NewRemoteCluster:  cm.NewRemoteCluster,
+		ClusterIDsManager: c.ClusterIDsManager,
 
 		Metrics: c.CommonMetrics,
 	})
@@ -170,9 +171,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 	rc := &remoteCluster{
 		name:                     name,
 		clusterID:                cmtypes.ClusterIDUnset,
-		clusterConfigValidator:   cm.conf.ClusterInfo.ValidateRemoteConfig,
 		serviceModeV2:            cm.conf.ServiceModeV2,
-		usedIDs:                  cm.conf.ClusterIDsManager,
 		status:                   status,
 		storeFactory:             cm.conf.StoreFactory,
 		remoteIdentityWatcher:    cm.conf.RemoteIdentityWatcher,

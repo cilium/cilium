@@ -37,6 +37,7 @@ type RemoteCluster interface {
 	// The ready channel shall be closed when the initialization tasks completed, possibly returning an error.
 	Run(ctx context.Context, backend kvstore.BackendOperations, config types.CiliumClusterConfig, ready chan<- error)
 
+	OnClusterIDChange(ctx context.Context, newID uint32)
 	Stop()
 	Remove(ctx context.Context)
 	RevokeCache(ctx context.Context)
@@ -49,6 +50,11 @@ type remoteCluster struct {
 
 	// name is the name of the cluster
 	name string
+	// clusterID is the clusterID advertized by the remote cluster
+	clusterID uint32
+
+	localClusterInfo  types.ClusterInfo
+	clusterIDsManager ClusterIDsManager
 
 	// configPath is the path to the etcd configuration to be used to
 	// connect to the etcd cluster of the remote cluster
@@ -220,6 +226,11 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					cancel()
 					return err
 				}
+				if err := rc.onClusterConfigUpdate(ctx, config); err != nil {
+					rc.logger.Warn("Invalid remote cluster configuration", logfields.Error, err)
+					cancel()
+					return err
+				}
 				rc.logger.Info("Found remote cluster configuration")
 
 				ready := make(chan error)
@@ -260,6 +271,28 @@ func (rc *remoteCluster) restartRemoteConnection() {
 			CancelDoFuncOnUpdate: true,
 		},
 	)
+}
+
+func (rc *remoteCluster) onClusterConfigUpdate(ctx context.Context, config types.CiliumClusterConfig) error {
+	if err := rc.localClusterInfo.ValidateRemoteConfig(config); err != nil {
+		return err
+	}
+	if config.ID == rc.clusterID {
+		return nil
+	}
+
+	if err := rc.clusterIDsManager.ReserveClusterID(config.ID); err != nil {
+		// release the old ID
+		rc.RemoteCluster.OnClusterIDChange(ctx, types.ClusterIDUnset)
+		rc.clusterIDsManager.ReleaseClusterID(rc.clusterID)
+		rc.clusterID = types.ClusterIDUnset
+		return err
+	}
+
+	rc.RemoteCluster.OnClusterIDChange(ctx, config.ID)
+	rc.clusterIDsManager.ReleaseClusterID(rc.clusterID)
+	rc.clusterID = config.ID
+	return nil
 }
 
 func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOperations, clusterLock *clusterLock) {
@@ -401,6 +434,7 @@ func (rc *remoteCluster) onStop() {
 func (rc *remoteCluster) onRemove(ctx context.Context) {
 	rc.onStop()
 	rc.Remove(ctx)
+	rc.clusterIDsManager.ReleaseClusterID(rc.clusterID)
 
 	rc.logger.Info("Remote cluster disconnected")
 }

@@ -71,8 +71,9 @@ type params struct {
 
 	Config
 
-	ClusterInfo  types.ClusterInfo
-	CommonConfig common.Config
+	ClusterInfo       types.ClusterInfo
+	ClusterIDsManager common.ClusterIDsManager
+	CommonConfig      common.Config
 
 	// Client is the client targeting the local cluster
 	Client kvstore.Client
@@ -101,6 +102,7 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 		Logger:              params.Logger,
 		Config:              params.CommonConfig,
 		ClusterInfo:         params.ClusterInfo,
+		ClusterIDsManager:   params.ClusterIDsManager,
 		RemoteClientFactory: params.RemoteClientFactory,
 		NewRemoteCluster:    km.newRemoteCluster,
 		Metrics:             params.Metrics,
