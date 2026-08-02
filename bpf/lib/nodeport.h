@@ -2598,7 +2598,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		target.addr = IPV4_GATEWAY;
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 		if (cluster_id && cluster_id != CONFIG(cluster_id))
-			target.addr = IPV4_INTER_CLUSTER_SNAT;
+			target.addr = CONFIG(ipv4_inter_cluster_snat).be32;
 #endif
 		/* skip over the source SNAT lookup if we know we'll be using
 		 * the GATEWAY as source

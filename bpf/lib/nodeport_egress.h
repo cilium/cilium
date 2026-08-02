@@ -381,7 +381,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 # if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 	if (args->target.cluster_id != 0 &&
 	    args->target.cluster_id != CONFIG(cluster_id)) {
-		args->target.addr = IPV4_INTER_CLUSTER_SNAT;
+		args->target.addr = CONFIG(ipv4_inter_cluster_snat).be32;
 		args->target.from_local_endpoint = true;
 
 		ret = NAT_NEEDED;
