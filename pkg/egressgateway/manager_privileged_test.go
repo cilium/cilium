@@ -141,6 +141,8 @@ type EgressGatewayTestSuite struct {
 	nodes     fakeResource[*cilium_api_v2.CiliumNode]
 	endpoints fakeResource[*k8sTypes.CiliumEndpoint]
 	sysctl    sysctl.Sysctl
+	db        *statedb.DB
+	devicesRW statedb.RWTable[*tables.Device]
 }
 
 func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
@@ -166,7 +168,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 
 	var (
 		db          *statedb.DB
-		deviceTable statedb.Table[*tables.Device]
+		deviceTable statedb.RWTable[*tables.Device]
 	)
 
 	// create a hive to provide statedb
@@ -187,6 +189,9 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	t.Cleanup(func() {
 		require.NoError(t, h.Stop(logger, context.TODO()))
 	})
+
+	k.db = db
+	k.devicesRW = deviceTable
 
 	k.manager, err = newEgressGatewayManager(Params{
 		Logger:            logger,
@@ -1088,6 +1093,60 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 	}
 	assertEgressRules4(t, policyMap4, assignEndpoints(eps, nodes[:1], ifIndex1, true))
 	assertEgressRules6(t, policyMap6, assignEndpoints(eps, nodes[:1], ifIndex1, false))
+}
+
+// TestPrivilegedDeviceTableTriggersReconcile verifies that mutations to the
+// statedb device table fire an egress gateway reconciliation. This is the
+// mechanism that allows a CEGP to heal when its egress IP appears,
+// disappears, or moves between interfaces, without requiring any CEGP or
+// CiliumNode update to occur.
+func TestPrivilegedDeviceTableTriggersReconcile(t *testing.T) {
+	k := setupEgressGatewayTestSuite(t)
+	egressGatewayManager := k.manager
+
+	// Drive the initial reconciliation so we have a stable baseline.
+	k.policies.sync(t)
+	k.nodes.sync(t)
+	k.endpoints.sync(t)
+	_ = waitForReconciliationRun(t, egressGatewayManager, egressGatewayManager.reconciliationEventsCount.Load())
+
+	// Insert a device into the table and assert the watcher fires a reconcile.
+	insertRun := egressGatewayManager.reconciliationEventsCount.Load()
+	wtxn := k.db.WriteTxn(k.devicesRW)
+	_, _, err := k.devicesRW.Insert(wtxn, &tables.Device{
+		Index: 4242,
+		Name:  "egw-test-dev0",
+		Addrs: []tables.DeviceAddress{
+			{Addr: netip.MustParseAddr(egressIP1)},
+		},
+	})
+	require.NoError(t, err)
+	wtxn.Commit()
+	_ = waitForReconciliationRun(t, egressGatewayManager, insertRun)
+
+	// Mutate the device's addresses (simulating the egress IP being moved
+	// off this interface) and assert the watcher fires another reconcile.
+	updateRun := egressGatewayManager.reconciliationEventsCount.Load()
+	wtxn = k.db.WriteTxn(k.devicesRW)
+	_, _, err = k.devicesRW.Insert(wtxn, &tables.Device{
+		Index: 4242,
+		Name:  "egw-test-dev0",
+		Addrs: nil,
+	})
+	require.NoError(t, err)
+	wtxn.Commit()
+	_ = waitForReconciliationRun(t, egressGatewayManager, updateRun)
+
+	// Delete the device entirely and assert the watcher fires a reconcile.
+	deleteRun := egressGatewayManager.reconciliationEventsCount.Load()
+	wtxn = k.db.WriteTxn(k.devicesRW)
+	_, _, err = k.devicesRW.Delete(wtxn, &tables.Device{
+		Index: 4242,
+		Name:  "egw-test-dev0",
+	})
+	require.NoError(t, err)
+	wtxn.Commit()
+	_ = waitForReconciliationRun(t, egressGatewayManager, deleteRun)
 }
 
 func TestCell(t *testing.T) {
