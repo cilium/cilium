@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
@@ -32,28 +33,26 @@ func TestCorrelatePolicy(t *testing.T) {
 	remoteID := uint32(56)
 	dstPort := uint32(443)
 
-	flow := &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow := ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -85,9 +84,9 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
-	expected := []*flowpb.Policy{
+	expected := []ir.Policy{
 		{
 			Name:      "web-policy",
 			Namespace: "foo-namespace",
@@ -110,35 +109,33 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	// check same flow at egress with deny
-	flow = &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow = ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_DROPPED,
 		DropReasonDesc:   flowpb.DropReason_POLICY_DENY,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -148,28 +145,26 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	// check port+proto rule.
-	flow = &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow = ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -189,7 +184,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -212,7 +207,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -222,28 +217,26 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	// check protocol-only rule.
-	flow = &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow = ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -263,7 +256,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -273,28 +266,26 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	// check identity and protocol-only rule.
-	flow = &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow = ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -314,7 +305,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -324,28 +315,26 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	// check allow-all rule.
-	flow = &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow = ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -365,7 +354,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -375,28 +364,26 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	// check same flow at ingress
-	flow = &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow = ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_INGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -425,7 +412,8 @@ func TestCorrelatePolicy(t *testing.T) {
 			return nil, false
 		},
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -435,35 +423,33 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	// check same flow at ingress with deny
-	flow = &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow = ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_DROPPED,
 		DropReasonDesc:   flowpb.DropReason_POLICY_DENY,
 		TrafficDirection: flowpb.TrafficDirection_INGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3Only,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -473,28 +459,26 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	// match ccnp
-	flow = &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow = ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -526,9 +510,9 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
-	expected = []*flowpb.Policy{
+	expected = []ir.Policy{
 		{
 			Name: "ccnp",
 			Kind: utils.ResourceTypeCiliumClusterwideNetworkPolicy,
@@ -559,7 +543,7 @@ func TestCorrelatePolicyAudit(t *testing.T) {
 	dstPort := uint32(443)
 
 	policyLabel := utils.GetPolicyLabels("foo-namespace", "deny-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
-	expected := []*flowpb.Policy{
+	expected := []ir.Policy{
 		{
 			Name:      "deny-policy",
 			Namespace: "foo-namespace",
@@ -597,28 +581,26 @@ func TestCorrelatePolicyAudit(t *testing.T) {
 	}
 
 	// Verdict_AUDIT at egress should populate EgressDeniedBy
-	flow := &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow := &ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_AUDIT,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -656,28 +638,26 @@ func TestCorrelatePolicyAudit(t *testing.T) {
 		},
 	}
 
-	flow = &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow = &ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_AUDIT,
 		TrafficDirection: flowpb.TrafficDirection_INGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -703,7 +683,7 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 	dstPort := uint32(443)
 
 	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
-	expected := []*flowpb.Policy{
+	expected := []ir.Policy{
 		{
 			Name:      "web-policy",
 			Namespace: "foo-namespace",
@@ -741,35 +721,33 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 		},
 	}
 
-	flow := &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow := ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_DROPPED,
 		DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -801,35 +779,33 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 		},
 	}
 
-	flow = &flowpb.Flow{
-		EventType: &flowpb.CiliumEventType{
+	flow = ir.Flow{
+		EventType: ir.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_DROPPED,
 		DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
 		TrafficDirection: flowpb.TrafficDirection_INGRESS,
-		IP: &flowpb.IP{
+		IP: ir.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: dstPort,
 			},
 		},
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: &flowpb.Endpoint{
+		Destination: ir.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -848,16 +824,16 @@ func TestCorrelatePolicy_PortRange(t *testing.T) {
 	remoteID := uint32(56)
 	dstPort := uint32(80) // inside [64, 127]
 
-	flow := &flowpb.Flow{
-		EventType:        &flowpb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
+	flow := ir.Flow{
+		EventType:        ir.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP:               &flowpb.IP{Source: localIP, Destination: remoteIP},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{DestinationPort: dstPort}},
+		IP:               ir.IP{Source: localIP, Destination: remoteIP},
+		L4: ir.Layer4{
+			TCP: ir.TCP{DestinationPort: dstPort},
 		},
-		Source:          &flowpb.Endpoint{ID: localID, Identity: localIdentity},
-		Destination:     &flowpb.Endpoint{ID: remoteID, Identity: remoteIdentity},
+		Source:          ir.Endpoint{ID: localID, Identity: localIdentity},
+		Destination:     ir.Endpoint{ID: remoteID, Identity: remoteIdentity},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
 
@@ -888,9 +864,9 @@ func TestCorrelatePolicy_PortRange(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, &flow)
 
-	expected := []*flowpb.Policy{
+	expected := []ir.Policy{
 		{
 			Name:      "port-range-policy",
 			Namespace: "foo-namespace",

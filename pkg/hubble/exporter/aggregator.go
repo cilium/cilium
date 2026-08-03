@@ -8,10 +8,12 @@ import (
 	"sync"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	fa "github.com/cilium/cilium/pkg/hubble/parser/fieldaggregate"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -26,7 +28,7 @@ type AggregateValue struct {
 	IngressFlowCount          int
 	EgressFlowCount           int
 	UnknownDirectionFlowCount int
-	ProcessedFlow             *flowpb.Flow
+	ProcessedFlow             *ir.Flow
 }
 
 type Aggregator struct {
@@ -54,45 +56,27 @@ func NewAggregatorWithFields(fieldAggregate fa.FieldAggregate, logger *slog.Logg
 }
 
 func (a *Aggregator) Add(ev *v1.Event) {
+	if ev == nil {
+		return
+	}
 	f := ev.GetFlow()
 	if f == nil {
 		return
 	}
 
-	processedFlow := &flowpb.Flow{}
-	a.fieldAggregate.Copy(processedFlow.ProtoReflect(), f.ProtoReflect())
-
-	k := generateAggregationKey(processedFlow)
+	processedFlow := new(flowpb.Flow)
+	a.fieldAggregate.Copy(processedFlow.ProtoReflect(), f.ToProto().ProtoReflect())
 
 	// Enrich the processed flow with timestamp after key generation.
 	// This ensures timestamp doesn't affect aggregation, but preserves temporal context.
-	processedFlow.Time = f.GetTime()
+	processedFlow.Time = ev.Timestamp
+	k := generateAggregationKey(processedFlow)
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	v, ok := a.m[k]
-	if !ok {
-		switch f.GetTrafficDirection() {
-		case flowpb.TrafficDirection_INGRESS:
-			v = &AggregateValue{
-				IngressFlowCount: 1,
-				ProcessedFlow:    processedFlow,
-			}
-		case flowpb.TrafficDirection_EGRESS:
-			v = &AggregateValue{
-				EgressFlowCount: 1,
-				ProcessedFlow:   processedFlow,
-			}
-		default:
-			v = &AggregateValue{
-				UnknownDirectionFlowCount: 1,
-				ProcessedFlow:             processedFlow,
-			}
-		}
-		a.m[k] = v
-	} else {
-		switch f.GetTrafficDirection() {
+	if v, ok := a.m[k]; ok {
+		switch f.TrafficDirection {
 		case flowpb.TrafficDirection_INGRESS:
 			v.IngressFlowCount++
 		case flowpb.TrafficDirection_EGRESS:
@@ -100,7 +84,28 @@ func (a *Aggregator) Add(ev *v1.Event) {
 		default:
 			v.UnknownDirectionFlowCount++
 		}
+		return
 	}
+
+	var v AggregateValue
+	switch f.TrafficDirection {
+	case flowpb.TrafficDirection_INGRESS:
+		v = AggregateValue{
+			IngressFlowCount: 1,
+			ProcessedFlow:    f,
+		}
+	case flowpb.TrafficDirection_EGRESS:
+		v = AggregateValue{
+			EgressFlowCount: 1,
+			ProcessedFlow:   f,
+		}
+	default:
+		v = AggregateValue{
+			UnknownDirectionFlowCount: 1,
+			ProcessedFlow:             f,
+		}
+	}
+	a.m[k] = &v
 }
 
 // Export exports all aggregated flows and clears the aggregator.
@@ -119,11 +124,18 @@ func (a *Aggregator) Export(encoder Encoder) {
 		}
 	}
 
-	a.m = make(map[AggregateKey]*AggregateValue)
+	if a.m == nil {
+		a.m = make(map[AggregateKey]*AggregateValue)
+		return
+	}
+	for k := range a.m {
+		delete(a.m, k)
+	}
 }
 
 func generateAggregationKey(processedFlow *flowpb.Flow) AggregateKey {
 	b, _ := proto.Marshal(processedFlow.ProtoReflect().Interface())
+
 	return AggregateKey(b)
 }
 
@@ -181,20 +193,19 @@ func (r *AggregatorRunner) exportAggregates() {
 }
 
 // processedFlowToAggregatedExportEvent converts a flow to ExportEvent with aggregation counts.
-func processedFlowToAggregatedExportEvent(processedFlow *flowpb.Flow, ingressCount, egressCount, unknownDirectionFlowCount int) *observerpb.ExportEvent {
-	aggregate := &flowpb.Aggregate{
+func processedFlowToAggregatedExportEvent(processedFlow *ir.Flow, ingressCount, egressCount, unknownDirectionFlowCount int) *observerpb.ExportEvent {
+	flow := processedFlow.ToProto()
+	flow.Aggregate = &flowpb.Aggregate{
 		IngressFlowCount:          uint32(ingressCount),
 		EgressFlowCount:           uint32(egressCount),
 		UnknownDirectionFlowCount: uint32(unknownDirectionFlowCount),
 	}
 
-	processedFlow.Aggregate = aggregate
-
 	return &observerpb.ExportEvent{
-		Time:     processedFlow.GetTime(),
-		NodeName: processedFlow.GetNodeName(),
+		Time:     timestamppb.New(processedFlow.Time),
+		NodeName: processedFlow.NodeName,
 		ResponseTypes: &observerpb.ExportEvent_Flow{
-			Flow: processedFlow,
+			Flow: flow,
 		},
 	}
 }

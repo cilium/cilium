@@ -21,10 +21,17 @@ func filterByNodeNames(nodeNames []string) (FilterFunc, error) {
 	}
 
 	return func(ev *v1.Event) bool {
-		nodeName := ev.GetFlow().GetNodeName()
-		if nodeName == "" {
+		if ev == nil {
 			return false
 		}
+		fl := ev.GetFlow()
+		if fl == nil {
+			return false
+		}
+		if fl.NodeName == "" {
+			return false
+		}
+		nodeName := fl.NodeName
 		// ensure that the node name always includes a cluster name
 		if !strings.Contains(nodeName, "/") {
 			nodeName = ciliumDefaults.ClusterName + "/" + nodeName

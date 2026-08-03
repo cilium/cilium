@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
@@ -26,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 	exportercell "github.com/cilium/cilium/pkg/hubble/exporter/cell"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
 	"github.com/cilium/cilium/pkg/hubble/observer"
@@ -223,7 +223,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 
 	if h.dropEventEmitter != nil {
 		observerOpts = append(observerOpts,
-			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
+			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *ir.Flow) (bool, error) {
 				err := h.dropEventEmitter.ProcessFlow(ctx, flow)
 				if err != nil {
 					h.log.Error("Failed to ProcessFlow in drop events handler", logfields.Error, err)
@@ -260,7 +260,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 
 	// register metrics flow processor
 	if h.metricsFlowProcessor != nil {
-		observerOpts = append(observerOpts, observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, f *flowpb.Flow) (bool, error) {
+		observerOpts = append(observerOpts, observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, f *ir.Flow) (bool, error) {
 			return false, h.metricsFlowProcessor.ProcessFlow(ctx, f)
 		}))
 	}
