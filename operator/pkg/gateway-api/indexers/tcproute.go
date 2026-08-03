@@ -16,7 +16,7 @@ import (
 
 // GenerateIndexerTCPRoutebyBackendService takes a single TCPRoute and returns all referenced
 // backend service full names (`namespace/name`) to add to the relevant index.
-func GenerateIndexerTCPRoutebyBackendService(c client.Client, logger *slog.Logger) client.IndexerFunc {
+func GenerateIndexerTCPRoutebyBackendService(c helpers.ClientReader, logger *slog.Logger) client.IndexerFunc {
 	return func(rawObj client.Object) []string {
 		route := rawObj.(*gatewayv1.TCPRoute)
 		var backendServices []string
