@@ -723,6 +723,14 @@
         "root": {
           "type": "string"
         },
+        "stats": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "tproxy": {
           "type": [
             "null",

@@ -562,6 +562,9 @@ bpf:
   # -- Enables pre-allocation of eBPF map values. This increases
   # memory usage but can reduce latency.
   preallocateMaps: false
+  stats:
+    # -- Enable BPF statistics collection
+    enabled: false
   # @schema
   # type: [null, integer]
   # @schema
