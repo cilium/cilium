@@ -23,6 +23,7 @@ func setBasePermutations(t *config.Node) {
 	t.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
 	t.TracingIPOptionType = 1
 	t.DebugLB = true
+	t.EventsMapRateLimit = 1000
 }
 
 func baseLXCPermutations() *loadPermutationBuilder {
