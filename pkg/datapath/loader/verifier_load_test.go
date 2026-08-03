@@ -17,16 +17,20 @@ var (
 	xdpLoadPermutations       = baseXDPPermutations()
 )
 
+func setBasePermutations(t *config.Node) {
+	t.EnableBPFHostRouting = true
+	t.LBSelectionPerService = true
+	t.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
+	t.TracingIPOptionType = 1
+	t.DebugLB = true
+}
+
 func baseLXCPermutations() *loadPermutationBuilder {
 	b := new(loadPermutationBuilder)
 	b.addConstructor(func() any { return config.NewBPFLXC(*config.NewNode()) })
 	b.addOptions(
 		Always(func(t *config.BPFLXC, _ bool) {
-			t.Node.EnableBPFHostRouting = true
-			t.Node.LBSelectionPerService = true
-			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
-			t.Node.TracingIPOptionType = 1
-			t.Node.DebugLB = true
+			setBasePermutations(&t.Node)
 			t.AllowICMPFragNeeded = true
 			t.EnableICMPRule = true
 			t.EnableConntrackAccounting = true
@@ -49,11 +53,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 	b.addConstructor(func() any { return config.NewBPFHost(*config.NewNode()) })
 	b.addOptions(
 		Always(func(t *config.BPFHost, _ bool) {
-			t.Node.EnableBPFHostRouting = true
-			t.Node.LBSelectionPerService = true
-			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
-			t.Node.TracingIPOptionType = 1
-			t.Node.DebugLB = true
+			setBasePermutations(&t.Node)
 			t.AllowICMPFragNeeded = true
 			t.EnableICMPRule = true
 			t.EnableConntrackAccounting = true
@@ -82,11 +82,7 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 	b.addConstructor(func() any { return config.NewBPFOverlay(*config.NewNode()) })
 	b.addOptions(
 		Always(func(t *config.BPFOverlay, _ bool) {
-			t.Node.EnableBPFHostRouting = true
-			t.Node.LBSelectionPerService = true
-			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
-			t.Node.TracingIPOptionType = 1
-			t.Node.DebugLB = true
+			setBasePermutations(&t.Node)
 			t.EnableConntrackAccounting = true
 		}),
 		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableEndpointRoutes = v }),
@@ -99,10 +95,7 @@ func baseSockPermutations() *loadPermutationBuilder {
 	b.addConstructor(func() any { return config.NewBPFSock(*config.NewNode()) })
 	b.addOptions(
 		Always(func(t *config.BPFSock, _ bool) {
-			t.Node.EnableBPFHostRouting = true
-			t.Node.LBSelectionPerService = true
-			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
-			t.Node.DebugLB = true
+			setBasePermutations(&t.Node)
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
 		}),
@@ -116,10 +109,7 @@ func baseWireguardPermutations() *loadPermutationBuilder {
 	b.addConstructor(func() any { return config.NewBPFWireguard(*config.NewNode()) })
 	b.addOptions(
 		Always(func(t *config.BPFWireguard, _ bool) {
-			t.Node.EnableBPFHostRouting = true
-			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
-			t.Node.TracingIPOptionType = 1
-			t.Node.DebugLB = true
+			setBasePermutations(&t.Node)
 			t.EnableConntrackAccounting = true
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
@@ -134,11 +124,7 @@ func baseXDPPermutations() *loadPermutationBuilder {
 	b.addConstructor(func() any { return config.NewBPFXDP(*config.NewNode()) })
 	b.addOptions(
 		Always(func(t *config.BPFXDP, _ bool) {
-			t.Node.EnableBPFHostRouting = true
-			t.Node.LBSelectionPerService = true
-			t.Node.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
-			t.Node.TracingIPOptionType = 1
-			t.Node.DebugLB = true
+			setBasePermutations(&t.Node)
 			t.EnableConntrackAccounting = true
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
