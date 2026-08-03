@@ -374,7 +374,7 @@ To enable the iptables connection-tracking bypass:
 
        .. parsed-literal::
 
-          cilium install |CHART_VERSION| \\
+          cilium install --version |CHART_VERSION| \\
             --set installNoConntrackIptablesRules=true \\
             --set kubeProxyReplacement=true
 
@@ -443,7 +443,7 @@ increase the memory usage by up to five Megabytes.
 
        .. parsed-literal::
 
-           cilium install |CHART_VERSION| \\
+           cilium install --version |CHART_VERSION| \\
              --set hubble.eventQueueSize=32768
 
     .. group-tab:: Helm
@@ -506,7 +506,7 @@ The following will set the aggregation interval to 10 seconds.
 
        .. parsed-literal::
 
-           cilium install |CHART_VERSION| \\
+           cilium install --version |CHART_VERSION| \\
              --set bpf.events.monitorInterval="10s"
 
     .. group-tab:: Helm
@@ -545,7 +545,7 @@ To enable eBPF Event Rate Limiting with a rate limit of 10,000 and a burst limit
 
        .. parsed-literal::
 
-           cilium install |CHART_VERSION| \\
+           cilium install --version |CHART_VERSION| \\
              --set bpf.events.default.rateLimit=10000 \\
              --set bpf.events.default.burstLimit=50000
 
