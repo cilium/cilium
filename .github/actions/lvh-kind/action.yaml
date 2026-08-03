@@ -51,7 +51,7 @@ runs:
           export IMAGE=${{ inputs.kind-image }}
 
           if [ "${{ inputs.kind-config }}" != "" ]; then
-            kind create cluster --config ${{ inputs.kind-config }}
+            kind create cluster --config ${{ inputs.kind-config }} --image ${{ inputs.kind-image }}
           else
             ./contrib/scripts/kind.sh ${{ inputs.kind-params }} 0.0.0.0 6443
           fi
