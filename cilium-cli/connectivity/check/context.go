@@ -409,6 +409,14 @@ func (ct *ConnectivityTest) setupAndValidatePerf(ctx context.Context, _ SetupHoo
 		return err
 	}
 
+	if err := ct.initCiliumPods(ctx); err != nil {
+		return err
+	}
+
+	if err := ct.detectCiliumVersion(ctx); err != nil {
+		return err
+	}
+
 	if err := ct.deployPerf(ctx); err != nil {
 		return err
 	}
