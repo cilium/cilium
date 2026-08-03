@@ -244,6 +244,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		gw,
 		attachedListenerSets,
 		conflictedListeners,
+		inputs.DisallowedListenerSets,
 		inputs.HTTPRoutes,
 		inputs.TLSRoutes,
 		inputs.GRPCRoutes,
@@ -1402,6 +1403,7 @@ func (r *gatewayReconciler) setListenerSetStatuses(
 	gw *gatewayv1.Gateway,
 	attachedListenerSets []gatewayv1.ListenerSet,
 	conflictedListeners listenerConflictsBySource,
+	disallowedListenerSets []gatewayv1.ListenerSet,
 	httpRoutes []gatewayv1.HTTPRoute,
 	tlsRoutes []gatewayv1.TLSRoute,
 	grpcRoutes []gatewayv1.GRPCRoute,
@@ -1412,6 +1414,18 @@ func (r *gatewayReconciler) setListenerSetStatuses(
 ) {
 	gw.Status.AttachedListenerSets = nil
 
+	for i := range disallowedListenerSets {
+		ls := &disallowedListenerSets[i]
+		original := ls.DeepCopy()
+
+		setListenerSetAccepted(ls, false, "ListenerSet is not allowed by the Gateway's allowedListeners policy", gatewayv1.ListenerSetReasonNotAllowed)
+		setListenerSetProgrammed(ls, false, "ListenerSet is not allowed by the Gateway's allowedListeners policy", gatewayv1.ListenerSetReasonNotAllowed)
+
+		if err := r.updateListenerSetStatus(ctx, original, ls); err != nil {
+			r.logger.ErrorContext(ctx, "Unable to update ListenerSet status", logfields.Error, err,
+				logfields.Resource, client.ObjectKeyFromObject(ls).String())
+		}
+	}
 	var validAttachedCount int32
 	for i := range attachedListenerSets {
 		ls := &attachedListenerSets[i]
