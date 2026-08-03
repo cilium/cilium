@@ -31,7 +31,7 @@ DOCS_BASE_IMG ?= cilium/docs-base
 base-image: Dockerfile ## Build the docs-base image for updating the requirements.txt file.
 	$(call build_image,$<,docs-base,$(DOCS_BASE_IMG))
 
-DOCS_BUILDER_IMG ?= quay.io/cilium/docs-builder:299b1b0619ca41010e1a3d930848cfbba6166df5@sha256:30b84cea76127ba89cf3aec9dc6cc2a7d81825e49957a59b648f8b26c414800b
+DOCS_BUILDER_IMG ?= quay.io/cilium/docs-builder:660b3f8d8002dd32f2d95c1115b5e663d0e07d18@sha256:f035447f692da7304a8890b356225cb202590175b4e48eb971b6269655e7d42a
 DOCS_BUILDER_REPO := $(shell echo $(DOCS_BUILDER_IMG) | sed -E 's/:.*//')
 
 ifndef SKIP_BUILDER_IMAGE
