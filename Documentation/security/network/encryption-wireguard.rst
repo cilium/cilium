@@ -61,7 +61,7 @@ on how to install the kernel module on your Linux distribution.
 
        .. parsed-literal::
 
-          cilium install |CHART_VERSION| \\
+          cilium install --version |CHART_VERSION| \\
              --set encryption.enabled=true \\
              --set encryption.type=wireguard
 
@@ -230,7 +230,7 @@ options:
 
        .. parsed-literal::
 
-          cilium install |CHART_VERSION| \\
+          cilium install --version |CHART_VERSION| \\
              --set encryption.enabled=true \\
              --set encryption.type=wireguard \\
              --set encryption.nodeEncryption=true

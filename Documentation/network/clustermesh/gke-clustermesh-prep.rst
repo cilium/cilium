@@ -95,7 +95,7 @@ Deploy clusters
 
     .. parsed-literal::
 
-        cilium install |CHART_VERSION| \\
+        cilium install --version |CHART_VERSION| \\
             --set cluster.id=1 \\
             --set cluster.name=${CLUSTER}
 

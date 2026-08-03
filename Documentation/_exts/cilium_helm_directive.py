@@ -138,10 +138,10 @@ class CiliumHelmInstallDirective(SphinxDirective):
         # For install/upgrade, format is "helm install name |CHART_RELEASE|"
         if command == 'template':
             helm_repo_base = f'helm {command} |CHART_RELEASE|'
-            oci_base = f'helm {command} oci://quay.io/cilium/charts/cilium |CHART_VERSION|'
+            oci_base = f'helm {command} oci://quay.io/cilium/charts/cilium --version |CHART_VERSION|'
         else:
             helm_repo_base = f'helm {command} {name} |CHART_RELEASE|'
-            oci_base = f'helm {command} {name} oci://quay.io/cilium/charts/cilium |CHART_VERSION|'
+            oci_base = f'helm {command} {name} oci://quay.io/cilium/charts/cilium --version |CHART_VERSION|'
 
         # Build formatted commands for each section
         helm_repo_cmd = self._format_command(

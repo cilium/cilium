@@ -27,7 +27,7 @@ Install Cilium by running:
 
 .. parsed-literal::
 
-    cilium install |CHART_VERSION|
+    cilium install --version |CHART_VERSION|
 
 Validate the Installation
 =========================

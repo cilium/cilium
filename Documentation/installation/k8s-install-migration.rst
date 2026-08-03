@@ -190,7 +190,7 @@ Preparation
 
     .. parsed-literal::
 
-        $ cilium install |CHART_VERSION| --values values-migration.yaml --dry-run-helm-values > values-initial.yaml
+        $ cilium install --version |CHART_VERSION| --values values-migration.yaml --dry-run-helm-values > values-initial.yaml
         $ cat values-initial.yaml
 
 
@@ -323,7 +323,7 @@ Perform these steps once the cluster is fully migrated.
 
     .. parsed-literal::
 
-      $ cilium install |CHART_VERSION| --values values-initial.yaml --dry-run-helm-values \\
+      $ cilium install --version |CHART_VERSION| --values values-initial.yaml --dry-run-helm-values \\
         --set operator.unmanagedPodWatcher.restart=true --set cni.customConf=false \\
         --set policyEnforcementMode=default \\
         --set bpf.hostLegacyRouting=false > values-final.yaml # optional, can cause brief interruptions

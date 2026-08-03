@@ -62,7 +62,7 @@ Before you install Cilium with ztunnel enabled, ensure that:
 
        .. parsed-literal::
 
-          cilium install |CHART_VERSION| \\
+          cilium install --version |CHART_VERSION| \\
              --set encryption.enabled=true \\
              --set encryption.type=ztunnel
 

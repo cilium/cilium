@@ -118,7 +118,7 @@ Enable Encryption in Cilium
 
        .. parsed-literal::
 
-          cilium install |CHART_VERSION| \\
+          cilium install --version |CHART_VERSION| \\
              --set encryption.enabled=true \\
              --set encryption.type=ipsec
 
@@ -167,7 +167,7 @@ interface as follows:
 
        .. parsed-literal::
 
-          cilium install |CHART_VERSION| \\
+          cilium install --version |CHART_VERSION| \\
              --set encryption.enabled=true \\
              --set encryption.type=ipsec \\
              --set encryption.ipsec.interface=ethX
