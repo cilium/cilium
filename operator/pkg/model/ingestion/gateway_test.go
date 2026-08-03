@@ -14,10 +14,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -25,6 +27,48 @@ import (
 const (
 	basedGatewayTestdataDir = "testdata/gateway"
 )
+
+func setTestMergedListeners(input *Input, namespaces []corev1.Namespace) {
+	source := model.FullyQualifiedResource{
+		Name:      input.Gateway.GetName(),
+		Namespace: input.Gateway.GetNamespace(),
+		Group:     gatewayv1.GroupVersion.Group,
+		Version:   gatewayv1.GroupVersion.Version,
+		Kind:      "Gateway",
+		UID:       string(input.Gateway.GetUID()),
+	}
+
+	namespaceLabels := helpers.NewNamespaceLabelIndex(namespaces)
+
+	candidateNamespaces := sets.New[string](source.Namespace)
+	for _, namespace := range namespaces {
+		candidateNamespaces.Insert(namespace.GetName())
+	}
+
+	for _, listener := range input.Gateway.Spec.Listeners {
+		var allowedNamespaces map[string]struct{}
+		allowedRoutes := listener.AllowedRoutes
+
+		if allowedRoutes == nil || allowedRoutes.Namespaces == nil ||
+			allowedRoutes.Namespaces.From == nil ||
+			*allowedRoutes.Namespaces.From != gatewayv1.NamespacesFromAll {
+
+			allowedNamespaces = make(map[string]struct{})
+			for namespace := range candidateNamespaces {
+				if helpers.IsListenerNamespaceAllowed(listener, namespace, source.Namespace, namespaceLabels) {
+					allowedNamespaces[namespace] = struct{}{}
+				}
+			}
+
+		}
+
+		input.MergedListeners = append(input.MergedListeners, ListenerWithContext{
+			Listener:          listener,
+			Source:            source,
+			AllowedNamespaces: allowedNamespaces,
+		})
+	}
+}
 
 func TestHTTPGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
@@ -120,8 +164,16 @@ func TestExtractRoutesSetsHTTPRouteRuleSource(t *testing.T) {
 func TestHTTPGatewayAPIFiltersSelectorNamespacesPerListener(t *testing.T) {
 	selector := gatewayv1.NamespacesFromSelector
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	namespaces := []corev1.Namespace{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "backend-a",
+				Labels: map[string]string{"expose": "true"},
+			},
+		},
+	}
 
-	m := GatewayAPI(logger, Input{
+	input := Input{
 		Gateway: gatewayv1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "selector-listener-conflict-gateway",
@@ -194,14 +246,6 @@ func TestHTTPGatewayAPIFiltersSelectorNamespacesPerListener(t *testing.T) {
 				},
 			},
 		},
-		Namespaces: []corev1.Namespace{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   "backend-a",
-					Labels: map[string]string{"expose": "true"},
-				},
-			},
-		},
 		Services: []corev1.Service{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -213,7 +257,9 @@ func TestHTTPGatewayAPIFiltersSelectorNamespacesPerListener(t *testing.T) {
 				},
 			},
 		},
-	})
+	}
+	setTestMergedListeners(&input, namespaces)
+	m := GatewayAPI(logger, input)
 
 	require.Len(t, m.HTTP, 2)
 	require.Equal(t, "http-selected", m.HTTP[0].Name)
@@ -233,7 +279,7 @@ func TestHTTPAndGRPCGatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testin
 	grpcMethod := "Get"
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
-	m := GatewayAPI(logger, Input{
+	input := Input{
 		Gateway: gatewayv1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "platform",
@@ -392,7 +438,9 @@ func TestHTTPAndGRPCGatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testin
 				},
 			},
 		},
-	})
+	}
+	setTestMergedListeners(&input, nil)
+	m := GatewayAPI(logger, input)
 
 	require.Len(t, m.HTTP, 2)
 	require.Equal(t, "http", m.HTTP[0].Name)
@@ -416,7 +464,7 @@ func TestTLSGatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 	allNamespaces := gatewayv1.NamespacesFromAll
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
-	m := GatewayAPI(logger, Input{
+	input := Input{
 		Gateway: gatewayv1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "platform",
@@ -495,7 +543,9 @@ func TestTLSGatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 				},
 			},
 		},
-	})
+	}
+	setTestMergedListeners(&input, nil)
+	m := GatewayAPI(logger, input)
 
 	require.Len(t, m.TLSPassthrough, 2)
 	require.Equal(t, "tls-same", m.TLSPassthrough[0].Name)
@@ -683,7 +733,7 @@ func TestL4GatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 	allNamespaces := gatewayv1.NamespacesFromAll
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
-	m := GatewayAPI(logger, Input{
+	input := Input{
 		Gateway: gatewayv1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "platform",
@@ -874,7 +924,9 @@ func TestL4GatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 				},
 			},
 		},
-	})
+	}
+	setTestMergedListeners(&input, nil)
+	m := GatewayAPI(logger, input)
 
 	require.Len(t, m.L4, 4)
 	require.Equal(t, "tcp-same", m.L4[0].Name)
@@ -1472,7 +1524,7 @@ func TestGatewayAPI_GatewayClassConfig(t *testing.T) {
 		}, m.Telemetry)
 	})
 	t.Run("sets server header transformation from GatewayClassConfig envoy config", func(t *testing.T) {
-		m := GatewayAPI(logger, Input{
+		input := Input{
 			Gateway: gatewayv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
@@ -1495,7 +1547,9 @@ func TestGatewayAPI_GatewayClassConfig(t *testing.T) {
 					},
 				},
 			},
-		})
+		}
+		setTestMergedListeners(&input, nil)
+		m := GatewayAPI(logger, input)
 
 		require.Len(t, m.HTTP, 1)
 		assert.Equal(t, model.ServerHeaderTransformationPassThrough, m.HTTP[0].ServerHeaderTransformation)
@@ -1692,11 +1746,14 @@ func readGatewayInput(t *testing.T, testName string) Input {
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-httproute.yaml"), &input.HTTPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-tlsroute.yaml"), &input.TLSRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-grpcroute.yaml"), &input.GRPCRoutes)
-	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-namespace.yaml"), &input.Namespaces)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-tcproute.yaml"), &input.TCPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-udproute.yaml"), &input.UDPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-service.yaml"), &input.Services)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-serviceimport.yaml"), &input.ServiceImports)
+
+	// namespaces are used to construct mergedListeners
+	var namespaces []corev1.Namespace
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-namespace.yaml"), &namespaces)
 
 	btlspMapFixture := &BackendTLSPolicyMapFixture{}
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-backendtlspolicy.yaml"), btlspMapFixture)
@@ -1705,6 +1762,7 @@ func readGatewayInput(t *testing.T, testName string) Input {
 		t.Fatal("Failed reading a BackendTLSPolicy fixture", err)
 	}
 	input.BackendTLSPolicyMap = btlspMap
+	setTestMergedListeners(&input, namespaces)
 
 	return input
 }

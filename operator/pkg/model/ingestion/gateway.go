@@ -141,7 +141,6 @@ type Input struct {
 	TCPRoutes           []gatewayv1.TCPRoute
 	UDPRoutes           []gatewayv1.UDPRoute
 	ReferenceGrants     []gatewayv1.ReferenceGrant
-	Namespaces          []corev1.Namespace
 	Services            []corev1.Service
 	ServiceImports      []mcsapiv1beta1.ServiceImport
 	BackendTLSPolicyMap helpers.BackendTLSPolicyServiceMap
@@ -177,26 +176,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 		}
 	}
 
-	namespaceLabels := helpers.NewNamespaceLabelIndex(input.Namespaces)
 	listeners := input.MergedListeners
-	// When MergedListeners is not provided, build it from the direct
-	// Gateway-listeners
-	if listeners == nil {
-		gwSource := model.FullyQualifiedResource{
-			Name:      input.Gateway.GetName(),
-			Namespace: input.Gateway.GetNamespace(),
-			Group:     gatewayv1.GroupVersion.Group,
-			Version:   gatewayv1.GroupVersion.Version,
-			Kind:      "Gateway",
-			UID:       string(input.Gateway.GetUID()),
-		}
-		for _, l := range input.Gateway.Spec.Listeners {
-			listeners = append(listeners, ListenerWithContext{
-				Listener: l,
-				Source:   gwSource,
-			})
-		}
-	}
 
 	// Find all the listener host names, so that we can match them with the routes
 	// Gateway API spec guarantees that the hostnames are unique across all listeners
@@ -219,17 +199,8 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 
 			var httpRoutes []model.HTTPRoute
 
-			// (ajs) Note well, we are using the existence of AllowedNamespace
-			// as a hint that this listener has already performed filtering for
-			// routes based on AllowedNamespaces. We need to refactor this type
-			// of assumption to not apply only to ListenerSets, and be a true
-			// invariant expected by this code path. That is, move all such
-			// validation out of the ingestion codepath and into a combined
-			// validate-and-record status phase of the reconcile pipeline.
-			namespacesPreFiltered := l.AllowedNamespaces != nil
-
-			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
-			httpRoutes = append(httpRoutes, toGRPCRoutes(l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
+			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, listenerHostnamesByProtocol, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
+			httpRoutes = append(httpRoutes, toGRPCRoutes(l.Listener, listenerHostnamesByProtocol, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
 			m.HTTP = append(m.HTTP, model.HTTPListener{
 				Name:                       string(l.Name),
 				Sources:                    []model.FullyQualifiedResource{l.Source},
@@ -248,32 +219,30 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 					Sources:        []model.FullyQualifiedResource{l.Source},
 					Port:           uint32(l.Port),
 					Hostname:       toHostname(l.Hostname),
-					Routes:         toTLSRoutes(l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, listenerHostnamesByProtocol, l.FilterTLSRoutes(input.TLSRoutes), input.Services, input.ServiceImports, input.ReferenceGrants),
+					Routes:         toTLSRoutes(l.Listener, listenerHostnamesByProtocol, l.FilterTLSRoutes(input.TLSRoutes), input.Services, input.ServiceImports, input.ReferenceGrants),
 					Infrastructure: infra,
 					Service:        toServiceModel(input.GatewayClassConfig),
 				})
 			}
 
 		case gatewayv1.TCPProtocolType:
-			namespacesPreFiltered := l.AllowedNamespaces != nil
 			m.L4 = append(m.L4, model.L4Listener{
 				Name:           string(l.Name),
 				Sources:        []model.FullyQualifiedResource{l.Source},
 				Port:           uint32(l.Port),
 				Protocol:       model.L4ProtocolTCP,
-				Routes:         toTCPRoutes(l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, l.FilterTCPRoutes(input.TCPRoutes), input.Services, input.ServiceImports, input.ReferenceGrants),
+				Routes:         toTCPRoutes(l.Listener, l.FilterTCPRoutes(input.TCPRoutes), input.Services, input.ServiceImports, input.ReferenceGrants),
 				Infrastructure: infra,
 				Service:        toServiceModel(input.GatewayClassConfig),
 			})
 
 		case gatewayv1.UDPProtocolType:
-			namespacesPreFiltered := l.AllowedNamespaces != nil
 			m.L4 = append(m.L4, model.L4Listener{
 				Name:           string(l.Name),
 				Sources:        []model.FullyQualifiedResource{l.Source},
 				Port:           uint32(l.Port),
 				Protocol:       model.L4ProtocolUDP,
-				Routes:         toUDPRoutes(l.Listener, l.Source.Namespace, namespaceLabels, namespacesPreFiltered, l.FilterUDPRoutes(input.UDPRoutes), input.Services, input.ServiceImports, input.ReferenceGrants),
+				Routes:         toUDPRoutes(l.Listener, l.FilterUDPRoutes(input.UDPRoutes), input.Services, input.ServiceImports, input.ReferenceGrants),
 				Infrastructure: infra,
 				Service:        toServiceModel(input.GatewayClassConfig),
 			})
@@ -331,9 +300,6 @@ func getBackendServiceName(namespace string, services []corev1.Service, serviceI
 
 func toHTTPRoutes(log *slog.Logger,
 	listener gatewayv1.Listener,
-	gatewayNamespace string,
-	namespaceLabels helpers.NamespaceLabelIndex,
-	namespacesPreFiltered bool,
 	listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string,
 	input []gatewayv1.HTTPRoute,
 	services []corev1.Service,
@@ -344,10 +310,6 @@ func toHTTPRoutes(log *slog.Logger,
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
 		if !parentRefsMatchListener(r.Spec.ParentRefs, listener) {
-			continue
-		}
-
-		if !namespacesPreFiltered && !helpers.IsListenerNamespaceAllowed(listener, r.GetNamespace(), gatewayNamespace, namespaceLabels) {
 			continue
 		}
 
@@ -757,9 +719,6 @@ func toHTTPRetry(retry *gatewayv1.HTTPRouteRetry) *model.HTTPRetry {
 }
 
 func toGRPCRoutes(listener gatewayv1beta1.Listener,
-	gatewayNamespace string,
-	namespaceLabels helpers.NamespaceLabelIndex,
-	namespacesPreFiltered bool,
 	listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string,
 	input []gatewayv1.GRPCRoute,
 	services []corev1.Service,
@@ -769,10 +728,6 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 	var grpcRoutes []model.HTTPRoute
 	for _, r := range input {
 		if !parentRefsMatchListener(r.Spec.ParentRefs, listener) {
-			continue
-		}
-
-		if !namespacesPreFiltered && !helpers.IsListenerNamespaceAllowed(listener, r.GetNamespace(), gatewayNamespace, namespaceLabels) {
 			continue
 		}
 
@@ -909,14 +864,10 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 	return grpcRoutes
 }
 
-func toTLSRoutes(listener gatewayv1beta1.Listener, gatewayNamespace string, namespaceLabels helpers.NamespaceLabelIndex, namespacesPreFiltered bool, listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string, input []gatewayv1.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.TLSPassthroughRoute {
+func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string, input []gatewayv1.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.TLSPassthroughRoute {
 	var tlsRoutes []model.TLSPassthroughRoute
 	for _, r := range input {
 		if !parentRefsMatchListener(r.Spec.ParentRefs, listener) {
-			continue
-		}
-
-		if !namespacesPreFiltered && !helpers.IsListenerNamespaceAllowed(listener, r.GetNamespace(), gatewayNamespace, namespaceLabels) {
 			continue
 		}
 
@@ -997,9 +948,6 @@ func sortL4RoutesByAge[T any](routes []T, meta func(T) metav1.ObjectMeta) {
 }
 
 func toTCPRoutes(listener gatewayv1beta1.Listener,
-	gatewayNamespace string,
-	namespaceLabels helpers.NamespaceLabelIndex,
-	namespacesPreFiltered bool,
 	input []gatewayv1.TCPRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1beta1.ServiceImport,
@@ -1013,9 +961,6 @@ func toTCPRoutes(listener gatewayv1beta1.Listener,
 	// Accepted=True (handled by the status reconciler) but route no traffic.
 	attached := make([]gatewayv1.TCPRoute, 0, len(input))
 	for _, r := range input {
-		if !namespacesPreFiltered && !helpers.IsListenerNamespaceAllowed(listener, r.GetNamespace(), gatewayNamespace, namespaceLabels) {
-			continue
-		}
 		if parentRefsMatchListener(r.Spec.ParentRefs, listener) {
 			attached = append(attached, r)
 		}
@@ -1061,9 +1006,6 @@ func toTCPRoutes(listener gatewayv1beta1.Listener,
 }
 
 func toUDPRoutes(listener gatewayv1beta1.Listener,
-	gatewayNamespace string,
-	namespaceLabels helpers.NamespaceLabelIndex,
-	namespacesPreFiltered bool,
 	input []gatewayv1.UDPRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1beta1.ServiceImport,
@@ -1072,9 +1014,6 @@ func toUDPRoutes(listener gatewayv1beta1.Listener,
 	// Keep only the oldest attaching UDPRoute. See toTCPRoutes for the rationale.
 	attached := make([]gatewayv1.UDPRoute, 0, len(input))
 	for _, r := range input {
-		if !namespacesPreFiltered && !helpers.IsListenerNamespaceAllowed(listener, r.GetNamespace(), gatewayNamespace, namespaceLabels) {
-			continue
-		}
 		if parentRefsMatchListener(r.Spec.ParentRefs, listener) {
 			attached = append(attached, r)
 		}
