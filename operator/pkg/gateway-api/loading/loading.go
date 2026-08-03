@@ -9,10 +9,7 @@ import (
 	"log/slog"
 	"sort"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,27 +24,25 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 type TranslationInputs struct {
-	GatewayClass         gatewayv1.GatewayClass
-	GatewayClassConfig   *ciliumv2alpha1.CiliumGatewayClassConfig
-	MergedListeners      []ingestion.ListenerWithContext
-	AttachedListenerSets []gatewayv1.ListenerSet
-	HTTPRoutes           []gatewayv1.HTTPRoute
-	TLSRoutes            []gatewayv1.TLSRoute
-	GRPCRoutes           []gatewayv1.GRPCRoute
-	TCPRoutes            []gatewayv1.TCPRoute
-	UDPRoutes            []gatewayv1.UDPRoute
-	ReferenceGrants      []gatewayv1.ReferenceGrant
-	Namespaces           []corev1.Namespace
-	BackendTLSPolicies   []gatewayv1.BackendTLSPolicy
-	Services             []corev1.Service
-	ServiceImports       []mcsapiv1beta1.ServiceImport
+	GatewayClass           gatewayv1.GatewayClass
+	GatewayClassConfig     *ciliumv2alpha1.CiliumGatewayClassConfig
+	MergedListeners        []ingestion.ListenerWithContext
+	AttachedListenerSets   []gatewayv1.ListenerSet
+	DisallowedListenerSets []gatewayv1.ListenerSet
+	HTTPRoutes             []gatewayv1.HTTPRoute
+	TLSRoutes              []gatewayv1.TLSRoute
+	GRPCRoutes             []gatewayv1.GRPCRoute
+	TCPRoutes              []gatewayv1.TCPRoute
+	UDPRoutes              []gatewayv1.UDPRoute
+	ReferenceGrants        []gatewayv1.ReferenceGrant
+	Namespaces             []corev1.Namespace
+	BackendTLSPolicies     []gatewayv1.BackendTLSPolicy
+	Services               []corev1.Service
+	ServiceImports         []mcsapiv1beta1.ServiceImport
 }
-
-const lastTransitionTimeField = "LastTransitionTime"
 
 type TranslationInputLoaderConfig struct {
 	IncludeTCPRoutes      bool
@@ -238,13 +233,15 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		udpRouteList.Items,
 	)
 	var attachedListenerSets []gatewayv1.ListenerSet
+	var disallowedListenerSets []gatewayv1.ListenerSet
 	if l.config.IncludeListenerSets {
-		listenerSets, err := l.listenerSetsForGateway(ctx, gw)
+		listenerSetListeners, resolvedAttachedListenerSets, resolvedDisallowedListenerSets, err := l.resolveAllowedListenersFromListenerSets(ctx, scopedLog, gw)
 		if err != nil {
 			return TranslationInputs{}, err
 		}
-		attachedListenerSets = l.filterToAllowedListenerSets(ctx, scopedLog, gw, listenerSets)
-		mergedListeners = append(mergedListeners, l.resolveAllowedListenersFromListenerSets(ctx, scopedLog, attachedListenerSets)...)
+		mergedListeners = append(mergedListeners, listenerSetListeners...)
+		attachedListenerSets = resolvedAttachedListenerSets
+		disallowedListenerSets = resolvedDisallowedListenerSets
 
 		for _, ls := range attachedListenerSets {
 			lsKey := client.ObjectKeyFromObject(&ls).String()
@@ -292,20 +289,21 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 	}
 
 	return TranslationInputs{
-		GatewayClass:         *gatewayClass,
-		GatewayClassConfig:   gatewayClassConfig,
-		MergedListeners:      mergedListeners,
-		AttachedListenerSets: attachedListenerSets,
-		HTTPRoutes:           routeCollections.httpRoutes,
-		TLSRoutes:            routeCollections.tlsRoutes,
-		GRPCRoutes:           routeCollections.grpcRoutes,
-		TCPRoutes:            routeCollections.tcpRoutes,
-		UDPRoutes:            routeCollections.udpRoutes,
-		ReferenceGrants:      grants.Items,
-		Namespaces:           namespaces,
-		BackendTLSPolicies:   btlspList.Items,
-		Services:             servicesList.Items,
-		ServiceImports:       serviceImportsList.Items,
+		GatewayClass:           *gatewayClass,
+		GatewayClassConfig:     gatewayClassConfig,
+		MergedListeners:        mergedListeners,
+		AttachedListenerSets:   attachedListenerSets,
+		DisallowedListenerSets: disallowedListenerSets,
+		HTTPRoutes:             routeCollections.httpRoutes,
+		TLSRoutes:              routeCollections.tlsRoutes,
+		GRPCRoutes:             routeCollections.grpcRoutes,
+		TCPRoutes:              routeCollections.tcpRoutes,
+		UDPRoutes:              routeCollections.udpRoutes,
+		ReferenceGrants:        grants.Items,
+		Namespaces:             namespaces,
+		BackendTLSPolicies:     btlspList.Items,
+		Services:               servicesList.Items,
+		ServiceImports:         serviceImportsList.Items,
 	}, nil
 }
 
@@ -398,29 +396,6 @@ func (l *TranslationInputLoader) resolveAllowedListenersFromGateway(ctx context.
 	return listeners
 }
 
-func (l *TranslationInputLoader) resolveAllowedListenersFromListenerSets(
-	ctx context.Context,
-	scopedLog *slog.Logger,
-	listenerSets []gatewayv1.ListenerSet,
-) []ingestion.ListenerWithContext {
-	var merged []ingestion.ListenerWithContext
-	for i := range listenerSets {
-		ls := &listenerSets[i]
-		lsSource := listenerSetFQR(ls)
-		for _, entry := range ls.Spec.Listeners {
-			listener := helpers.ListenerEntryToListener(entry)
-			merged = append(merged, ingestion.ListenerWithContext{
-				Listener:          listener,
-				Source:            lsSource,
-				SourceGeneration:  ls.Generation,
-				AllowedNamespaces: resolveAllowedNamespaces(ctx, l.client, ls.GetNamespace(), listener, scopedLog),
-			})
-		}
-	}
-
-	return merged
-}
-
 func (l *TranslationInputLoader) listenerSetsForGateway(
 	ctx context.Context,
 	gw *gatewayv1.Gateway,
@@ -441,23 +416,51 @@ func (l *TranslationInputLoader) filterToAllowedListenerSets(
 	scopedLog *slog.Logger,
 	gw *gatewayv1.Gateway,
 	listenerSets []gatewayv1.ListenerSet,
-) []gatewayv1.ListenerSet {
+) ([]gatewayv1.ListenerSet, []gatewayv1.ListenerSet) {
 	var attachedSets []gatewayv1.ListenerSet
+	var disallowedSets []gatewayv1.ListenerSet
 	for i := range listenerSets {
 		ls := &listenerSets[i]
 		if !isListenerSetAllowed(ctx, l.client, gw, ls, scopedLog) {
-			if err := l.updateDisallowedListenerSetStatus(ctx, ls); err != nil {
-				scopedLog.ErrorContext(ctx, "Unable to update ListenerSet status", logfields.Error, err)
-			}
+			disallowedSets = append(disallowedSets, *ls)
 			continue
 		}
 
 		attachedSets = append(attachedSets, *ls)
 	}
 
-	return attachedSets
+	return attachedSets, disallowedSets
 }
 
+func (l *TranslationInputLoader) resolveAllowedListenersFromListenerSets(
+	ctx context.Context,
+	scopedLog *slog.Logger,
+	gw *gatewayv1.Gateway,
+) ([]ingestion.ListenerWithContext, []gatewayv1.ListenerSet, []gatewayv1.ListenerSet, error) {
+	listenerSets, err := l.listenerSetsForGateway(ctx, gw)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	attachedSets, disallowedSets := l.filterToAllowedListenerSets(ctx, scopedLog, gw, listenerSets)
+
+	var listeners []ingestion.ListenerWithContext
+	for i := range attachedSets {
+		ls := &attachedSets[i]
+		lsSource := listenerSetFQR(ls)
+		for _, entry := range ls.Spec.Listeners {
+			listener := helpers.ListenerEntryToListener(entry)
+			listeners = append(listeners, ingestion.ListenerWithContext{
+				Listener:          listener,
+				Source:            lsSource,
+				SourceGeneration:  ls.Generation,
+				AllowedNamespaces: resolveAllowedNamespaces(ctx, l.client, ls.GetNamespace(), listener, scopedLog),
+			})
+		}
+	}
+
+	return listeners, attachedSets, disallowedSets, nil
+}
 func isListenerSetAllowed(
 	ctx context.Context,
 	c client.Client,
@@ -588,19 +591,6 @@ func resolveAllowedNamespaces(ctx context.Context, c client.Client, listenerName
 	return map[string]struct{}{listenerNamespace: {}}
 }
 
-func (l *TranslationInputLoader) updateDisallowedListenerSetStatus(ctx context.Context, ls *gatewayv1.ListenerSet) error {
-	original := ls.DeepCopy()
-
-	setListenerSetAccepted(ls, false, "ListenerSet is not allowed by the Gateway's allowedListeners policy", gatewayv1.ListenerSetReasonNotAllowed)
-	setListenerSetProgrammed(ls, false, "ListenerSet is not allowed by the Gateway's allowedListeners policy", gatewayv1.ListenerSetReasonNotAllowed)
-
-	if cmp.Equal(original.Status, ls.Status, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTimeField)) {
-		return nil
-	}
-
-	return l.client.Status().Update(ctx, ls)
-}
-
 type routeCollections struct {
 	httpRoutes []gatewayv1.HTTPRoute
 	grpcRoutes []gatewayv1.GRPCRoute
@@ -652,38 +642,6 @@ func (l *TranslationInputLoader) newRouteCollections(
 	}
 
 	return collections
-}
-
-func setListenerSetAccepted(ls *gatewayv1.ListenerSet, accepted bool, msg string, reason gatewayv1.ListenerSetConditionReason) {
-	status := metav1.ConditionTrue
-	if !accepted {
-		status = metav1.ConditionFalse
-	}
-
-	apimeta.SetStatusCondition(&ls.Status.Conditions, metav1.Condition{
-		Type:               string(gatewayv1.ListenerSetConditionAccepted),
-		Status:             status,
-		Reason:             string(reason),
-		Message:            msg,
-		ObservedGeneration: ls.GetGeneration(),
-		LastTransitionTime: metav1.NewTime(time.Now()),
-	})
-}
-
-func setListenerSetProgrammed(ls *gatewayv1.ListenerSet, programmed bool, msg string, reason gatewayv1.ListenerSetConditionReason) {
-	status := metav1.ConditionTrue
-	if !programmed {
-		status = metav1.ConditionFalse
-	}
-
-	apimeta.SetStatusCondition(&ls.Status.Conditions, metav1.Condition{
-		Type:               string(gatewayv1.ListenerSetConditionProgrammed),
-		Status:             status,
-		Reason:             string(reason),
-		Message:            msg,
-		ObservedGeneration: ls.GetGeneration(),
-		LastTransitionTime: metav1.NewTime(time.Now()),
-	})
 }
 
 func (c *routeCollections) appendHTTPRoutes(routes []gatewayv1.HTTPRoute) {
