@@ -407,7 +407,7 @@ For large clusters, consider disabling high-cardinality metrics like
 
       .. parsed-literal::
 
-         helm install cilium cilium/cilium |CHART_VERSION| \\
+         helm install cilium cilium/cilium --version |CHART_VERSION| \\
              --namespace kube-system \\
              --set prometheus.enabled=true \\
              --set prometheus.metrics="{-cilium_node_health_connectivity_status,-cilium_node_health_connectivity_latency_seconds}"

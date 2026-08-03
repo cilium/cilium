@@ -87,7 +87,7 @@ Install cluster one
 
     .. parsed-literal::
 
-        cilium install |CHART_VERSION| \\
+        cilium install --version |CHART_VERSION| \\
             --set azure.resourceGroup="${AZURE_RESOURCE_GROUP}" \\
             --set cluster.id=1 \\
             --set ipam.operator.clusterPoolIPv4PodCIDRList='{10.10.0.0/16}'
@@ -174,7 +174,7 @@ arguments.
 
     .. parsed-literal::
 
-        cilium install |CHART_VERSION| \\
+        cilium install --version |CHART_VERSION| \\
             --set azure.resourceGroup="${AZURE_RESOURCE_GROUP}" \\
             --set cluster.id=2 \\
             --set ipam.operator.clusterPoolIPv4PodCIDRList='{10.20.0.0/16}'

@@ -45,7 +45,7 @@ Installation
 
         .. parsed-literal::
 
-            $ cilium install |CHART_VERSION| \\
+            $ cilium install --version |CHART_VERSION| \\
                 --set kubeProxyReplacement=true \\
                 --set ingressController.enabled=true \\
                 --set ingressController.defaultSecretNamespace=kube-system \\

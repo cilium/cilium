@@ -254,7 +254,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        .. parsed-literal::
 
-          cilium install |CHART_VERSION|
+          cilium install --version |CHART_VERSION|
 
     .. group-tab:: GKE
 
@@ -266,7 +266,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        .. parsed-literal::
 
-           cilium install |CHART_VERSION|
+           cilium install --version |CHART_VERSION|
 
     .. group-tab:: AKS
        
@@ -278,7 +278,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        .. parsed-literal::
 
-           cilium install |CHART_VERSION| --set azure.resourceGroup="${AZURE_RESOURCE_GROUP}"
+           cilium install --version |CHART_VERSION| --set azure.resourceGroup="${AZURE_RESOURCE_GROUP}"
            
     .. group-tab:: EKS
 
@@ -290,7 +290,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        .. parsed-literal::
 
-           cilium install |CHART_VERSION|
+           cilium install --version |CHART_VERSION|
            cilium status --wait
 
        .. note::
@@ -320,7 +320,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        .. parsed-literal::
 
-           cilium install |CHART_VERSION|
+           cilium install --version |CHART_VERSION|
 
     .. group-tab:: k3s
 
@@ -332,7 +332,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        .. parsed-literal::
 
-           cilium install |CHART_VERSION|
+           cilium install --version |CHART_VERSION|
 
     .. group-tab:: Alibaba ACK
 
