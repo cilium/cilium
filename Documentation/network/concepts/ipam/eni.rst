@@ -649,6 +649,21 @@ If ``--instance-tags-filter`` is used:
 
  * ``DescribeInstances``
 
+The following privilege is optional, but recommended:
+
+ * ``GetSecurityGroupsForVpc``
+
+The operator resyncs the list of security groups of the VPC on every IPAM sync,
+but only retains their ID, VPC ID and tags. ``GetSecurityGroupsForVpc`` returns
+exactly those fields, whereas ``DescribeSecurityGroups`` also returns the full
+ingress and egress rule sets, which are deserialized and then discarded. Granting
+this privilege roughly halves the memory allocated per security group resync.
+
+When the privilege is not granted, the operator logs a warning once and falls
+back to ``DescribeSecurityGroups``, so deployments that cannot be updated keep
+working unchanged. ``DescribeSecurityGroups`` remains required either way, as it
+is still used when no VPC ID is known.
+
 
 *******
 Metrics

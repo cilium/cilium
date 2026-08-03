@@ -73,7 +73,7 @@ func (cfg AWSConfig) Flags(flags *pflag.FlagSet) {
 		"Interval for garbage collection of unattached ENIs. Set to 0 to disable")
 	flags.Bool("aws-use-primary-address", awsDefaultConfig.AWSUsePrimaryAddress, "Allows for using primary address of the ENI for allocations on the node")
 	flags.String("ec2-api-endpoint", awsDefaultConfig.EC2APIEndpoint, "AWS API endpoint for the EC2 service")
-	flags.Int32("aws-max-results-per-call", awsDefaultConfig.AWSMaxResultsPerCall, "Maximum results per AWS API call for DescribeNetworkInterfaces and DescribeSecurityGroups. Set to 0 to let AWS determine optimal page size (default). If set to 0 and AWS returns OperationNotPermitted errors, automatically switches to 1000 for all future requests")
+	flags.Int32("aws-max-results-per-call", awsDefaultConfig.AWSMaxResultsPerCall, "Maximum results per AWS API call for DescribeNetworkInterfaces, DescribeSecurityGroups and GetSecurityGroupsForVpc. Set to 0 to let AWS determine optimal page size (default). If set to 0 and AWS returns OperationNotPermitted errors, automatically switches to 1000 for all future requests")
 	flags.StringSlice("subnet-ids-filter", awsDefaultConfig.IPAMSubnetsIDs, "Subnets IDs (separated by commas)")
 	flags.StringToString("subnet-tags-filter", awsDefaultConfig.IPAMSubnetsTags,
 		"Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
