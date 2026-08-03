@@ -31,6 +31,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -64,7 +65,7 @@ func TestPrivilegedDevicesControllerScript(t *testing.T) {
 			DevicesControllerCell,
 			cell.Provide(func() (*netlinkFuncs, error) {
 				// Provide the normal netlink interface, restricted to the test network namespace.
-				return makeNetlinkFuncs()
+				return makeNetlinkFuncs(defaults.NetlinkBufferSize)
 			}),
 		)
 

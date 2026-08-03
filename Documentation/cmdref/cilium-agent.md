@@ -371,6 +371,7 @@ cilium-agent [flags]
       --multicast-enabled                                         Enables multicast in Cilium
       --nat-map-stats-entries int                                 Number k top stats entries to store locally in statedb (default 32)
       --nat-map-stats-interval duration                           Interval upon which nat maps are iterated for stats (default 30s)
+      --netlink-buffer-size int                                   Size in bytes of the devices controller's netlink receive buffers, capped by net.core.rmem_max (default 4194304)
       --node-labels strings                                       List of label prefixes used to determine identity of a node (used only when enable-node-selector-labels is enabled)
       --node-port-bind-protection                                 Reject application bind(2) requests to service ports in the NodePort range (default true)
       --node-port-range strings                                   Set the min/max NodePort port range (default [30000,32767])
