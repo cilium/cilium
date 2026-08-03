@@ -238,9 +238,7 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		}
 		attachedListenerSets = l.filterToAllowedListenerSets(ctx, scopedLog, gw, listenerSets)
 		mergedListeners = append(mergedListeners, l.resolveAllowedListenersFromListenerSets(ctx, scopedLog, attachedListenerSets)...)
-	}
 
-	if l.config.IncludeListenerSets {
 		for _, ls := range attachedListenerSets {
 			lsKey := client.ObjectKeyFromObject(&ls).String()
 			if err := l.appendListenerSetRoutes(ctx, &ls, lsKey, httpRouteList, grpcRouteList, tlsRouteList, tcpRouteList, udpRouteList); err != nil {
@@ -383,9 +381,9 @@ func (l *TranslationInputLoader) getGatewayClassConfig(ctx context.Context, gwc 
 func (l *TranslationInputLoader) resolveAllowedListenersFromGateway(ctx context.Context, scopedLog *slog.Logger, gw *gatewayv1.Gateway) []ingestion.ListenerWithContext {
 	gwSource := gatewayFQR(gw)
 
-	var merged []ingestion.ListenerWithContext
+	var listeners []ingestion.ListenerWithContext
 	for _, listener := range gw.Spec.Listeners {
-		merged = append(merged, ingestion.ListenerWithContext{
+		listeners = append(listeners, ingestion.ListenerWithContext{
 			Listener:          listener,
 			Source:            gwSource,
 			SourceGeneration:  gw.Generation,
@@ -393,7 +391,7 @@ func (l *TranslationInputLoader) resolveAllowedListenersFromGateway(ctx context.
 		})
 	}
 
-	return merged
+	return listeners
 }
 
 func (l *TranslationInputLoader) resolveAllowedListenersFromListenerSets(
