@@ -8,7 +8,6 @@ triggers:
     - tests-smoke-conformance.yaml
     - tests-smoke-ipv6.yaml
     - tests-cifuzz.yaml
-    - lint-ariane-config.yaml
     - conformance-kubespray.yaml
     - k8s-kind-network-e2e.yaml
     - lint-images-base.yaml
