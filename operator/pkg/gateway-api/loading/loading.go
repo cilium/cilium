@@ -230,6 +230,13 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 	}
 
 	mergedListeners := l.resolveAllowedListenersFromGateway(ctx, scopedLog, gw)
+	routeCollections := l.newRouteCollections(
+		httpRouteList.Items,
+		grpcRouteList.Items,
+		tlsRouteList.Items,
+		tcpRouteList.Items,
+		udpRouteList.Items,
+	)
 	var attachedListenerSets []gatewayv1.ListenerSet
 	if l.config.IncludeListenerSets {
 		listenerSets, err := l.listenerSetsForGateway(ctx, gw)
@@ -241,16 +248,16 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 
 		for _, ls := range attachedListenerSets {
 			lsKey := client.ObjectKeyFromObject(&ls).String()
-			if err := l.appendListenerSetRoutes(ctx, &ls, lsKey, httpRouteList, grpcRouteList, tlsRouteList, tcpRouteList, udpRouteList); err != nil {
+			lsHTTPRoutes, lsGRPCRoutes, lsTLSRoutes, lsTCPRoutes, lsUDPRoutes, err := l.loadListenerSetRoutes(ctx, &ls, lsKey)
+			if err != nil {
 				return TranslationInputs{}, err
 			}
+			routeCollections.appendHTTPRoutes(lsHTTPRoutes)
+			routeCollections.appendGRPCRoutes(lsGRPCRoutes)
+			routeCollections.appendTLSRoutes(lsTLSRoutes)
+			routeCollections.appendTCPRoutes(lsTCPRoutes)
+			routeCollections.appendUDPRoutes(lsUDPRoutes)
 		}
-
-		httpRouteList.Items = deduplicateHTTPRoutes(httpRouteList.Items)
-		grpcRouteList.Items = deduplicateGRPCRoutes(grpcRouteList.Items)
-		tlsRouteList.Items = deduplicateTLSRoutes(tlsRouteList.Items)
-		tcpRouteList.Items = deduplicateTCPRoutes(tcpRouteList.Items)
-		udpRouteList.Items = deduplicateUDPRoutes(udpRouteList.Items)
 	}
 
 	btlspList := &gatewayv1.BackendTLSPolicyList{}
@@ -289,11 +296,11 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		GatewayClassConfig:   gatewayClassConfig,
 		MergedListeners:      mergedListeners,
 		AttachedListenerSets: attachedListenerSets,
-		HTTPRoutes:           httpRouteList.Items,
-		TLSRoutes:            tlsRouteList.Items,
-		GRPCRoutes:           grpcRouteList.Items,
-		TCPRoutes:            tcpRouteList.Items,
-		UDPRoutes:            udpRouteList.Items,
+		HTTPRoutes:           routeCollections.httpRoutes,
+		TLSRoutes:            routeCollections.tlsRoutes,
+		GRPCRoutes:           routeCollections.grpcRoutes,
+		TCPRoutes:            routeCollections.tcpRoutes,
+		UDPRoutes:            routeCollections.udpRoutes,
 		ReferenceGrants:      grants.Items,
 		Namespaces:           namespaces,
 		BackendTLSPolicies:   btlspList.Items,
@@ -302,48 +309,45 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 	}, nil
 }
 
-func (l *TranslationInputLoader) appendListenerSetRoutes(
+func (l *TranslationInputLoader) loadListenerSetRoutes(
 	ctx context.Context,
 	ls *gatewayv1.ListenerSet,
 	lsKey string,
-	httpRouteList *gatewayv1.HTTPRouteList,
-	grpcRouteList *gatewayv1.GRPCRouteList,
-	tlsRouteList *gatewayv1.TLSRouteList,
-	tcpRouteList *gatewayv1.TCPRouteList,
-	udpRouteList *gatewayv1.UDPRouteList,
-) error {
+) ([]gatewayv1.HTTPRoute, []gatewayv1.GRPCRoute, []gatewayv1.TLSRoute, []gatewayv1.TCPRoute, []gatewayv1.UDPRoute, error) {
 	lsHTTPRoutes := &gatewayv1.HTTPRouteList{}
 	if err := l.client.List(ctx, lsHTTPRoutes, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexers.HTTPRouteListenerSetIndex, lsKey),
 	}); err != nil {
-		return fmt.Errorf("failed to list HTTPRoutes for ListenerSet %s/%s: %w", ls.Namespace, ls.Name, err)
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to list HTTPRoutes for ListenerSet %s/%s: %w", ls.Namespace, ls.Name, err)
 	}
-	httpRouteList.Items = append(httpRouteList.Items, lsHTTPRoutes.Items...)
 
 	lsGRPCRoutes := &gatewayv1.GRPCRouteList{}
 	if err := l.client.List(ctx, lsGRPCRoutes, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexers.GRPCRouteListenerSetIndex, lsKey),
 	}); err != nil {
-		return fmt.Errorf("failed to list GRPCRoutes for ListenerSet %s/%s: %w", ls.Namespace, ls.Name, err)
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to list GRPCRoutes for ListenerSet %s/%s: %w", ls.Namespace, ls.Name, err)
 	}
-	grpcRouteList.Items = append(grpcRouteList.Items, lsGRPCRoutes.Items...)
+
+	var tlsRoutes []gatewayv1.TLSRoute
+	var tcpRoutes []gatewayv1.TCPRoute
+	var udpRoutes []gatewayv1.UDPRoute
 
 	lsTLSRoutes := &gatewayv1.TLSRouteList{}
 	if err := l.client.List(ctx, lsTLSRoutes, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexers.TLSRouteListenerSetIndex, lsKey),
 	}); err != nil {
-		return fmt.Errorf("failed to list TLSRoutes for ListenerSet %s/%s: %w", ls.Namespace, ls.Name, err)
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to list TLSRoutes for ListenerSet %s/%s: %w", ls.Namespace, ls.Name, err)
 	}
-	tlsRouteList.Items = append(tlsRouteList.Items, lsTLSRoutes.Items...)
+	tlsRoutes = lsTLSRoutes.Items
 
 	if l.config.IncludeTCPRoutes {
 		lsTCPRoutes := &gatewayv1.TCPRouteList{}
 		if err := l.client.List(ctx, lsTCPRoutes, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(indexers.TCPRouteListenerSetIndex, lsKey),
 		}); err != nil {
-			return fmt.Errorf("failed to list TCPRoutes for ListenerSet %s/%s: %w", ls.Namespace, ls.Name, err)
+			return nil, nil, nil, nil, nil, fmt.Errorf("failed to list TCPRoutes for ListenerSet %s/%s: %w", ls.Namespace, ls.Name, err)
 		}
-		tcpRouteList.Items = append(tcpRouteList.Items, lsTCPRoutes.Items...)
+		tcpRoutes = lsTCPRoutes.Items
 	}
 
 	if l.config.IncludeUDPRoutes {
@@ -351,12 +355,12 @@ func (l *TranslationInputLoader) appendListenerSetRoutes(
 		if err := l.client.List(ctx, lsUDPRoutes, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(indexers.UDPRouteListenerSetIndex, lsKey),
 		}); err != nil {
-			return fmt.Errorf("failed to list UDPRoutes for ListenerSet %s/%s: %w", ls.Namespace, ls.Name, err)
+			return nil, nil, nil, nil, nil, fmt.Errorf("failed to list UDPRoutes for ListenerSet %s/%s: %w", ls.Namespace, ls.Name, err)
 		}
-		udpRouteList.Items = append(udpRouteList.Items, lsUDPRoutes.Items...)
+		udpRoutes = lsUDPRoutes.Items
 	}
 
-	return nil
+	return lsHTTPRoutes.Items, lsGRPCRoutes.Items, tlsRoutes, tcpRoutes, udpRoutes, nil
 }
 
 func (l *TranslationInputLoader) getGatewayClassConfig(ctx context.Context, gwc *gatewayv1.GatewayClass) *ciliumv2alpha1.CiliumGatewayClassConfig {
@@ -597,6 +601,59 @@ func (l *TranslationInputLoader) updateDisallowedListenerSetStatus(ctx context.C
 	return l.client.Status().Update(ctx, ls)
 }
 
+type routeCollections struct {
+	httpRoutes []gatewayv1.HTTPRoute
+	grpcRoutes []gatewayv1.GRPCRoute
+	tlsRoutes  []gatewayv1.TLSRoute
+	tcpRoutes  []gatewayv1.TCPRoute
+	udpRoutes  []gatewayv1.UDPRoute
+
+	seenHTTPRoutes map[types.NamespacedName]struct{}
+	seenGRPCRoutes map[types.NamespacedName]struct{}
+	seenTLSRoutes  map[types.NamespacedName]struct{}
+	seenTCPRoutes  map[types.NamespacedName]struct{}
+	seenUDPRoutes  map[types.NamespacedName]struct{}
+}
+
+func (l *TranslationInputLoader) newRouteCollections(
+	httpRoutes []gatewayv1.HTTPRoute,
+	grpcRoutes []gatewayv1.GRPCRoute,
+	tlsRoutes []gatewayv1.TLSRoute,
+	tcpRoutes []gatewayv1.TCPRoute,
+	udpRoutes []gatewayv1.UDPRoute,
+) routeCollections {
+	collections := routeCollections{
+		httpRoutes:     httpRoutes,
+		grpcRoutes:     grpcRoutes,
+		tlsRoutes:      tlsRoutes,
+		tcpRoutes:      tcpRoutes,
+		udpRoutes:      udpRoutes,
+		seenHTTPRoutes: make(map[types.NamespacedName]struct{}, len(httpRoutes)),
+		seenGRPCRoutes: make(map[types.NamespacedName]struct{}, len(grpcRoutes)),
+		seenTLSRoutes:  make(map[types.NamespacedName]struct{}, len(tlsRoutes)),
+		seenTCPRoutes:  make(map[types.NamespacedName]struct{}, len(tcpRoutes)),
+		seenUDPRoutes:  make(map[types.NamespacedName]struct{}, len(udpRoutes)),
+	}
+
+	for _, route := range httpRoutes {
+		collections.seenHTTPRoutes[types.NamespacedName{Namespace: route.Namespace, Name: route.Name}] = struct{}{}
+	}
+	for _, route := range grpcRoutes {
+		collections.seenGRPCRoutes[types.NamespacedName{Namespace: route.Namespace, Name: route.Name}] = struct{}{}
+	}
+	for _, route := range tlsRoutes {
+		collections.seenTLSRoutes[types.NamespacedName{Namespace: route.Namespace, Name: route.Name}] = struct{}{}
+	}
+	for _, route := range tcpRoutes {
+		collections.seenTCPRoutes[types.NamespacedName{Namespace: route.Namespace, Name: route.Name}] = struct{}{}
+	}
+	for _, route := range udpRoutes {
+		collections.seenUDPRoutes[types.NamespacedName{Namespace: route.Namespace, Name: route.Name}] = struct{}{}
+	}
+
+	return collections
+}
+
 func setListenerSetAccepted(ls *gatewayv1.ListenerSet, accepted bool, msg string, reason gatewayv1.ListenerSetConditionReason) {
 	status := metav1.ConditionTrue
 	if !accepted {
@@ -629,72 +686,57 @@ func setListenerSetProgrammed(ls *gatewayv1.ListenerSet, programmed bool, msg st
 	})
 }
 
-func deduplicateHTTPRoutes(routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
-	seen := make(map[types.NamespacedName]struct{}, len(routes))
-	result := make([]gatewayv1.HTTPRoute, 0, len(routes))
+func (c *routeCollections) appendHTTPRoutes(routes []gatewayv1.HTTPRoute) {
 	for _, route := range routes {
 		key := types.NamespacedName{Namespace: route.Namespace, Name: route.Name}
-		if _, ok := seen[key]; ok {
+		if _, exists := c.seenHTTPRoutes[key]; exists {
 			continue
 		}
-		seen[key] = struct{}{}
-		result = append(result, route)
+		c.seenHTTPRoutes[key] = struct{}{}
+		c.httpRoutes = append(c.httpRoutes, route)
 	}
-	return result
 }
 
-func deduplicateGRPCRoutes(routes []gatewayv1.GRPCRoute) []gatewayv1.GRPCRoute {
-	seen := make(map[types.NamespacedName]struct{}, len(routes))
-	result := make([]gatewayv1.GRPCRoute, 0, len(routes))
+func (c *routeCollections) appendGRPCRoutes(routes []gatewayv1.GRPCRoute) {
 	for _, route := range routes {
 		key := types.NamespacedName{Namespace: route.Namespace, Name: route.Name}
-		if _, ok := seen[key]; ok {
+		if _, exists := c.seenGRPCRoutes[key]; exists {
 			continue
 		}
-		seen[key] = struct{}{}
-		result = append(result, route)
+		c.seenGRPCRoutes[key] = struct{}{}
+		c.grpcRoutes = append(c.grpcRoutes, route)
 	}
-	return result
 }
 
-func deduplicateTLSRoutes(routes []gatewayv1.TLSRoute) []gatewayv1.TLSRoute {
-	seen := make(map[types.NamespacedName]struct{}, len(routes))
-	result := make([]gatewayv1.TLSRoute, 0, len(routes))
+func (c *routeCollections) appendTLSRoutes(routes []gatewayv1.TLSRoute) {
 	for _, route := range routes {
 		key := types.NamespacedName{Namespace: route.Namespace, Name: route.Name}
-		if _, ok := seen[key]; ok {
+		if _, exists := c.seenTLSRoutes[key]; exists {
 			continue
 		}
-		seen[key] = struct{}{}
-		result = append(result, route)
+		c.seenTLSRoutes[key] = struct{}{}
+		c.tlsRoutes = append(c.tlsRoutes, route)
 	}
-	return result
 }
 
-func deduplicateTCPRoutes(routes []gatewayv1.TCPRoute) []gatewayv1.TCPRoute {
-	seen := make(map[types.NamespacedName]struct{}, len(routes))
-	result := make([]gatewayv1.TCPRoute, 0, len(routes))
+func (c *routeCollections) appendTCPRoutes(routes []gatewayv1.TCPRoute) {
 	for _, route := range routes {
 		key := types.NamespacedName{Namespace: route.Namespace, Name: route.Name}
-		if _, ok := seen[key]; ok {
+		if _, exists := c.seenTCPRoutes[key]; exists {
 			continue
 		}
-		seen[key] = struct{}{}
-		result = append(result, route)
+		c.seenTCPRoutes[key] = struct{}{}
+		c.tcpRoutes = append(c.tcpRoutes, route)
 	}
-	return result
 }
 
-func deduplicateUDPRoutes(routes []gatewayv1.UDPRoute) []gatewayv1.UDPRoute {
-	seen := make(map[types.NamespacedName]struct{}, len(routes))
-	result := make([]gatewayv1.UDPRoute, 0, len(routes))
+func (c *routeCollections) appendUDPRoutes(routes []gatewayv1.UDPRoute) {
 	for _, route := range routes {
 		key := types.NamespacedName{Namespace: route.Namespace, Name: route.Name}
-		if _, ok := seen[key]; ok {
+		if _, exists := c.seenUDPRoutes[key]; exists {
 			continue
 		}
-		seen[key] = struct{}{}
-		result = append(result, route)
+		c.seenUDPRoutes[key] = struct{}{}
+		c.udpRoutes = append(c.udpRoutes, route)
 	}
-	return result
 }
