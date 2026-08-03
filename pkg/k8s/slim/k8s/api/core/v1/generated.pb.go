@@ -83,8 +83,6 @@ func (m *SessionAffinityConfig) Reset() { *m = SessionAffinityConfig{} }
 
 func (m *Taint) Reset() { *m = Taint{} }
 
-func (m *VolumeMount) Reset() { *m = VolumeMount{} }
-
 func (m *ClientIPConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -133,20 +131,6 @@ func (m *Container) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.VolumeMounts) > 0 {
-		for iNdEx := len(m.VolumeMounts) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.VolumeMounts[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintGenerated(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x4a
-		}
-	}
 	if len(m.Ports) > 0 {
 		for iNdEx := len(m.Ports) - 1; iNdEx >= 0; iNdEx-- {
 			{
@@ -161,11 +145,6 @@ func (m *Container) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			dAtA[i] = 0x32
 		}
 	}
-	i -= len(m.Image)
-	copy(dAtA[i:], m.Image)
-	i = encodeVarintGenerated(dAtA, i, uint64(len(m.Image)))
-	i--
-	dAtA[i] = 0x12
 	i -= len(m.Name)
 	copy(dAtA[i:], m.Name)
 	i = encodeVarintGenerated(dAtA, i, uint64(len(m.Name)))
@@ -1780,34 +1759,6 @@ func (m *Taint) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *VolumeMount) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *VolumeMount) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *VolumeMount) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	i -= len(m.MountPath)
-	copy(dAtA[i:], m.MountPath)
-	i = encodeVarintGenerated(dAtA, i, uint64(len(m.MountPath)))
-	i--
-	dAtA[i] = 0x1a
-	return len(dAtA) - i, nil
-}
-
 func encodeVarintGenerated(dAtA []byte, offset int, v uint64) int {
 	offset -= sovGenerated(v)
 	base := offset
@@ -1839,16 +1790,8 @@ func (m *Container) Size() (n int) {
 	_ = l
 	l = len(m.Name)
 	n += 1 + l + sovGenerated(uint64(l))
-	l = len(m.Image)
-	n += 1 + l + sovGenerated(uint64(l))
 	if len(m.Ports) > 0 {
 		for _, e := range m.Ports {
-			l = e.Size()
-			n += 1 + l + sovGenerated(uint64(l))
-		}
-	}
-	if len(m.VolumeMounts) > 0 {
-		for _, e := range m.VolumeMounts {
 			l = e.Size()
 			n += 1 + l + sovGenerated(uint64(l))
 		}
@@ -2460,17 +2403,6 @@ func (m *Taint) Size() (n int) {
 	return n
 }
 
-func (m *VolumeMount) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.MountPath)
-	n += 1 + l + sovGenerated(uint64(l))
-	return n
-}
-
 func sovGenerated(x uint64) (n int) {
 	return (math_bits.Len64(x|1) + 6) / 7
 }
@@ -2496,16 +2428,9 @@ func (this *Container) String() string {
 		repeatedStringForPorts += strings.Replace(strings.Replace(f.String(), "ContainerPort", "ContainerPort", 1), `&`, ``, 1) + ","
 	}
 	repeatedStringForPorts += "}"
-	repeatedStringForVolumeMounts := "[]VolumeMount{"
-	for _, f := range this.VolumeMounts {
-		repeatedStringForVolumeMounts += strings.Replace(strings.Replace(f.String(), "VolumeMount", "VolumeMount", 1), `&`, ``, 1) + ","
-	}
-	repeatedStringForVolumeMounts += "}"
 	s := strings.Join([]string{`&Container{`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
-		`Image:` + fmt.Sprintf("%v", this.Image) + `,`,
 		`Ports:` + repeatedStringForPorts + `,`,
-		`VolumeMounts:` + repeatedStringForVolumeMounts + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2998,16 +2923,6 @@ func (this *Taint) String() string {
 	}, "")
 	return s
 }
-func (this *VolumeMount) String() string {
-	if this == nil {
-		return "nil"
-	}
-	s := strings.Join([]string{`&VolumeMount{`,
-		`MountPath:` + fmt.Sprintf("%v", this.MountPath) + `,`,
-		`}`,
-	}, "")
-	return s
-}
 func valueToStringGenerated(v interface{}) string {
 	rv := reflect.ValueOf(v)
 	if rv.IsNil() {
@@ -3147,38 +3062,6 @@ func (m *Container) Unmarshal(dAtA []byte) error {
 			}
 			m.Name = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Image", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenerated
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Image = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
 		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Ports", wireType)
@@ -3210,40 +3093,6 @@ func (m *Container) Unmarshal(dAtA []byte) error {
 			}
 			m.Ports = append(m.Ports, ContainerPort{})
 			if err := m.Ports[len(m.Ports)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 9:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field VolumeMounts", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenerated
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.VolumeMounts = append(m.VolumeMounts, VolumeMount{})
-			if err := m.VolumeMounts[len(m.VolumeMounts)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -8310,88 +8159,6 @@ func (m *Taint) Unmarshal(dAtA []byte) error {
 			if err := m.TimeAdded.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipGenerated(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *VolumeMount) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowGenerated
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: VolumeMount: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: VolumeMount: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field MountPath", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenerated
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.MountPath = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
