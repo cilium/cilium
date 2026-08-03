@@ -32,13 +32,6 @@ message Container {
   // Cannot be updated.
   optional string name = 1;
 
-  // Container image name.
-  // More info: https://kubernetes.io/docs/concepts/containers/images
-  // This field is optional to allow higher level config management to default or override
-  // container images in workload controllers like Deployments and StatefulSets.
-  // +optional
-  optional string image = 2;
-
   // List of ports to expose from the container. Not specifying a port here
   // DOES NOT prevent that port from being exposed. Any port which is
   // listening on the default "0.0.0.0" address inside a container will be
@@ -53,15 +46,6 @@ message Container {
   // +listMapKey=containerPort
   // +listMapKey=protocol
   repeated ContainerPort ports = 6;
-
-  // Pod volumes to mount into the container's filesystem.
-  // Cannot be updated.
-  // +optional
-  // +patchMergeKey=mountPath
-  // +patchStrategy=merge
-  // +listType=map
-  // +listMapKey=mountPath
-  repeated VolumeMount volumeMounts = 9;
 }
 
 // ContainerPort represents a network port in a single container.
@@ -914,12 +898,5 @@ message Taint {
   // TimeAdded represents the time at which the taint was added.
   // +optional
   optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time timeAdded = 4;
-}
-
-// VolumeMount describes a mounting of a Volume within a container.
-message VolumeMount {
-  // Path within the container at which the volume should be mounted.  Must
-  // not contain ':'.
-  optional string mountPath = 3;
 }
 

@@ -58,25 +58,12 @@ type ContainerPort struct {
 	HostIP string `json:"hostIP,omitempty" protobuf:"bytes,5,opt,name=hostIP"`
 }
 
-// VolumeMount describes a mounting of a Volume within a container.
-type VolumeMount struct {
-	// Path within the container at which the volume should be mounted.  Must
-	// not contain ':'.
-	MountPath string `json:"mountPath" protobuf:"bytes,3,opt,name=mountPath"`
-}
-
 // A single application container that you want to run within a pod.
 type Container struct {
 	// Name of the container specified as a DNS_LABEL.
 	// Each container in a pod must have a unique name (DNS_LABEL).
 	// Cannot be updated.
 	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
-	// Container image name.
-	// More info: https://kubernetes.io/docs/concepts/containers/images
-	// This field is optional to allow higher level config management to default or override
-	// container images in workload controllers like Deployments and StatefulSets.
-	// +optional
-	Image string `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
 	// List of ports to expose from the container. Not specifying a port here
 	// DOES NOT prevent that port from being exposed. Any port which is
 	// listening on the default "0.0.0.0" address inside a container will be
@@ -91,14 +78,6 @@ type Container struct {
 	// +listMapKey=containerPort
 	// +listMapKey=protocol
 	Ports []ContainerPort `json:"ports,omitempty" patchStrategy:"merge" patchMergeKey:"containerPort" protobuf:"bytes,6,rep,name=ports"`
-	// Pod volumes to mount into the container's filesystem.
-	// Cannot be updated.
-	// +optional
-	// +patchMergeKey=mountPath
-	// +patchStrategy=merge
-	// +listType=map
-	// +listMapKey=mountPath
-	VolumeMounts []VolumeMount `json:"volumeMounts,omitempty" patchStrategy:"merge" patchMergeKey:"mountPath" protobuf:"bytes,9,rep,name=volumeMounts"`
 }
 
 type ConditionStatus string

@@ -78,16 +78,10 @@ default/nginx
     "containers": [
       {
         "name": "nginx",
-        "image": "nginx",
         "ports": [
           {
             "containerPort": 80,
             "protocol": "TCP"
-          }
-        ],
-        "volumeMounts": [
-          {
-            "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
           }
         ]
       }
