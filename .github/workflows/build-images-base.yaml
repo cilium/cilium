@@ -108,7 +108,7 @@ jobs:
 
       - name: Login to ${{ env.REGISTRY_DEV }}
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        uses: docker/login-action@371161bbe7024a29a25c5e19bfcbc0804fe9ad2c # v4.5.2
         with:
           registry: ${{ env.REGISTRY_DEV }}
           username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 }}
@@ -186,7 +186,7 @@ jobs:
 
       - name: Login to ${{ env.REGISTRY_DEV }}
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        uses: docker/login-action@371161bbe7024a29a25c5e19bfcbc0804fe9ad2c # v4.5.2
         with:
           registry: ${{ env.REGISTRY_DEV }}
           username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 }}
