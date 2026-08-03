@@ -129,8 +129,7 @@ func (c *Client) getMaxResults() *int32 {
 // isOperationNotPermitted checks if an error is an AWS OperationNotPermitted error,
 // which indicates the request returned too many results without sufficient filtering or pagination.
 func isOperationNotPermitted(err error) bool {
-	var apiErr smithy.APIError
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[smithy.APIError](err); ok {
 		return apiErr.ErrorCode() == OperationNotPermittedStr
 	}
 	return false
@@ -140,8 +139,7 @@ func isOperationNotPermitted(err error) bool {
 // IAM permission for the requested action. EC2 reports this as an
 // UnauthorizedOperation API error with HTTP status 403.
 func isUnauthorizedOperation(err error) bool {
-	var apiErr smithy.APIError
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[smithy.APIError](err); ok {
 		return apiErr.ErrorCode() == UnauthorizedOperationStr
 	}
 	return false
@@ -244,8 +242,7 @@ func MergeTags(tagMaps ...map[string]string) map[string]string {
 // the AWS API server. If no specific status is provided, either "OK" or
 // "Failed" is returned based on the error variable.
 func deriveStatus(err error) string {
-	var respErr *awshttp.ResponseError
-	if errors.As(err, &respErr) {
+	if respErr, ok := errors.AsType[*awshttp.ResponseError](err); ok {
 		return respErr.Response.Status
 	}
 
