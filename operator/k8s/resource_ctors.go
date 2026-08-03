@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
@@ -122,10 +123,74 @@ func PodResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsPro
 	}
 
 	return resource.New[*slim_corev1.Pod](lc, lw, mp,
+			resource.WithTransform(TransformToOperatorPod),
 			resource.WithMetric("Pod"),
 			resource.WithIndexers(indexers),
 		),
 		nil
+}
+
+// TransformToOperatorPod strips the fields of a Pod which no consumer of
+// PodResource reads, before the object is stored.
+//
+// The retained set is the union of what the consumers actually use:
+//
+//   - IPAM surge allocation (operator/pkg/ipam/nodemanager): spec.nodeName (via
+//     PodNodeNameIndex), spec.hostNetwork, status.phase
+//   - endpoint GC (operator/endpointgc): status.phase
+//   - kvstore node GC (operator/pkg/kvstore/nodesgc): spec.nodeName,
+//     status.phase, labels
+//   - CiliumIdentity reconciler (operator/pkg/ciliumidentity): namespace,
+//     labels, spec.serviceAccountName, spec.hostNetwork
+//   - CiliumEndpointSlice (operator/pkg/ciliumendpointslice): name, namespace,
+//     uid, labels, spec.{nodeName,hostNetwork,serviceAccountName},
+//     spec.containers[].ports, status.{podIPs,hostIP}
+//
+// Note that the two standalone pod informers in operator/watchers have their own
+// transforms and their own field sets.
+func TransformToOperatorPod(pod *slim_corev1.Pod) (*slim_corev1.Pod, error) {
+	// Only the named ports of the containers are read, by GetPodMetadata and by
+	// the CiliumEndpointSlice reconciler, so containers without ports carry no
+	// information at all.
+	var containers []slim_corev1.Container
+	for _, c := range pod.Spec.Containers {
+		if len(c.Ports) == 0 {
+			continue
+		}
+		containers = append(containers, slim_corev1.Container{Ports: c.Ports})
+	}
+
+	stripped := &slim_corev1.Pod{
+		TypeMeta: pod.TypeMeta,
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:            pod.Name,
+			Namespace:       pod.Namespace,
+			UID:             pod.UID,
+			ResourceVersion: pod.ResourceVersion,
+			Labels:          pod.Labels,
+		},
+		Spec: slim_corev1.PodSpec{
+			Containers:         containers,
+			ServiceAccountName: pod.Spec.ServiceAccountName,
+			NodeName:           pod.Spec.NodeName,
+			HostNetwork:        pod.Spec.HostNetwork,
+		},
+		Status: slim_corev1.PodStatus{
+			Phase:  pod.Status.Phase,
+			HostIP: pod.Status.HostIP,
+			PodIPs: pod.Status.PodIPs,
+		},
+	}
+
+	// Small GC optimization: a transform is only ever handed a freshly decoded
+	// object, referenced by nothing but the delta being processed (see
+	// resource.WithTransform), so zeroing it drops the last reference to
+	// everything not retained above without waiting for the delta itself to
+	// become garbage. The retained labels and ports are unaffected: stripped
+	// holds copies of their map and slice headers.
+	*pod = slim_corev1.Pod{}
+
+	return stripped, nil
 }
 
 func LBIPPoolsResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool], error) {
