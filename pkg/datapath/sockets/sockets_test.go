@@ -492,7 +492,7 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 	}{
 		"close 127.0.0.1:8888 (UDP)": {
 			filter: SocketFilter{
-				DestIp:   net.IP{127, 0, 0, 1},
+				DestIp:   netip.MustParseAddr("127.0.0.1"),
 				DestPort: 8888,
 				Family:   unix.AF_INET,
 				Protocol: unix.IPPROTO_UDP,
@@ -504,7 +504,7 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 		},
 		"close 127.0.0.1:8888 (TCP)": {
 			filter: SocketFilter{
-				DestIp:   net.IP{127, 0, 0, 1},
+				DestIp:   netip.MustParseAddr("127.0.0.1"),
 				DestPort: 8888,
 				Family:   unix.AF_INET,
 				Protocol: unix.IPPROTO_TCP,
@@ -516,7 +516,7 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 		},
 		"close [::1]:8888 (UDP)": {
 			filter: SocketFilter{
-				DestIp:   net.IPv6loopback,
+				DestIp:   netip.IPv6Loopback(),
 				DestPort: 8888,
 				Family:   unix.AF_INET6,
 				Protocol: unix.IPPROTO_UDP,
@@ -528,7 +528,7 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 		},
 		"close [::1]:8888 (TCP)": {
 			filter: SocketFilter{
-				DestIp:   net.IPv6loopback,
+				DestIp:   netip.IPv6Loopback(),
 				DestPort: 8888,
 				Family:   unix.AF_INET6,
 				Protocol: unix.IPPROTO_TCP,
@@ -540,7 +540,7 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 		},
 		"close [::ffff:127.0.0.1]:8890 (UDP)": {
 			filter: SocketFilter{
-				DestIp:   net.IP{127, 0, 0, 1},
+				DestIp:   netip.MustParseAddr("127.0.0.1"),
 				DestPort: 8890,
 				Family:   unix.AF_INET,
 				Protocol: unix.IPPROTO_UDP,
@@ -552,7 +552,7 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 		},
 		"close [::ffff:127.0.0.1]:8890 (TCP)": {
 			filter: SocketFilter{
-				DestIp:   net.IP{127, 0, 0, 1},
+				DestIp:   netip.MustParseAddr("127.0.0.1"),
 				DestPort: 8890,
 				Family:   unix.AF_INET,
 				Protocol: unix.IPPROTO_TCP,
@@ -632,7 +632,7 @@ func BenchmarkDestroyers(b *testing.B) {
 				defer conn.Close()
 
 				require.NoError(b, sockDestroyer.Destroy(log, SocketFilter{
-					DestIp:   net.IPv4(127, 0, 0, 1),
+					DestIp:   netip.MustParseAddr("127.0.0.1"),
 					DestPort: 8888,
 					Family:   unix.AF_INET,
 					Protocol: unix.IPPROTO_UDP,

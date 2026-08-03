@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
-	"net"
 	"syscall"
 
 	"github.com/vishvananda/netlink"
@@ -200,7 +199,6 @@ func terminateConnectionsToBackend(p socketTerminationParams, sd sockets.SocketD
 		protocol uint8
 		states   uint32
 	)
-	ip := net.IP(l3n4Addr.Addr().AsSlice())
 
 	switch l3n4Addr.Protocol() {
 	case lb.UDP:
@@ -246,7 +244,7 @@ func terminateConnectionsToBackend(p socketTerminationParams, sd sockets.SocketD
 				Family:    family,
 				Protocol:  protocol,
 				States:    states,
-				DestIp:    ip,
+				DestIp:    l3n4Addr.Addr(),
 				DestPort:  l3n4Addr.Port(),
 				DestroyCB: checkSockInRevNat,
 			})

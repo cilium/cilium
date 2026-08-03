@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/netip"
 	"syscall"
 
 	"github.com/vishvananda/netlink"
@@ -115,7 +116,7 @@ type SocketDestroyer interface {
 }
 
 type SocketFilter struct {
-	DestIp   net.IP
+	DestIp   netip.Addr
 	DestPort uint16
 	Family   uint8
 	Protocol uint8
@@ -175,8 +176,9 @@ func (d *netlinkSocketDestroyer) Destroy(logger *slog.Logger, filter SocketFilte
 		// Note that socketlb placed the revnat entry into the IPv4-related
 		// map (not the IPv6 one!). The DestroyCB looks up the right revnat
 		// BPF map based on the filter.DestIp which in our case is an IPv4
-		// address. The filter.DestIp stores the IPv4 address internally
-		// as IPv4-mapped IPv6 form as per net.IP.
+		// address. So the filter must remain an IPv4 address even while
+		// matching IPv6 sockets. MatchSocket unmaps both sides so the
+		// v4-in-v6 form compares equal.
 		if family == syscall.AF_INET {
 			family = syscall.AF_INET6
 			goto redo
@@ -198,7 +200,11 @@ func (d *netlinkSocketDestroyer) Destroy(logger *slog.Logger, filter SocketFilte
 }
 
 func (f *SocketFilter) MatchSocket(socket netlink.SocketID) bool {
-	if socket.Destination.Equal(f.DestIp) && socket.DestinationPort == f.DestPort {
+	socketAddr, ok := netip.AddrFromSlice(socket.Destination)
+	if !ok {
+		return false
+	}
+	if socketAddr.Unmap() == f.DestIp.Unmap() && socket.DestinationPort == f.DestPort {
 		if f.DestroyCB == nil || f.DestroyCB(socket) {
 			return true
 		}

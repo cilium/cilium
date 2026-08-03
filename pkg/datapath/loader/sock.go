@@ -6,7 +6,7 @@ package loader
 import (
 	"fmt"
 	"log/slog"
-	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
@@ -23,7 +23,7 @@ const (
 	filterVarName = "cilium_sock_term_filter"
 )
 
-type FilterSetter func(af uint8, addr net.IP, port uint16) error
+type FilterSetter func(af uint8, addr netip.Addr, port uint16) error
 
 // LoadSockTerm loads the cil_sock_udp_destroy_v4, cil_sock_tcp_destroy_v4,
 // cil_sock_tcp_destroy_v6, and cil_sock_udp_destroy_v6 programs. It returns a
@@ -82,11 +82,12 @@ func LoadSockTerm(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfgen.So
 			CilSockTcpDestroyV4: coll.Programs[v4TCPProgName],
 			CilSockUdpDestroyV6: coll.Programs[v6UDPProgName],
 			CilSockTcpDestroyV6: coll.Programs[v6TCPProgName],
-		}, func(af uint8, addr net.IP, port uint16) error {
+		}, func(af uint8, addr netip.Addr, port uint16) error {
 			var value bpfgen.SockTermSockTermFilter
 			value.AddressFamily = af
 			value.Port = port
-			copy(value.Address.Addr6.Addr[:], addr.To16())
+			a16 := addr.As16()
+			copy(value.Address.Addr6.Addr[:], a16[:])
 
 			return coll.Variables[filterVarName].Set(&value)
 		}, nil
