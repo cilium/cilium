@@ -181,6 +181,7 @@ func (gm *externalGroupManager) upsertCCG(ctx context.Context, row *ExternalGrou
 		newCCG, err = gm.createCCG(ctx, newCCG)
 	} else {
 		newCCG.Name = row.CCG.Name
+		newCCG.SetResourceVersion(row.CCG.GetResourceVersion())
 		newCCG, err = gm.updateCCG(ctx, newCCG)
 	}
 	if err != nil {
