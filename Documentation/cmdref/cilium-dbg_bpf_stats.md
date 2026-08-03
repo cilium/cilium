@@ -23,6 +23,5 @@ BPF program runtime and execution count stats
 ### SEE ALSO
 
 * [cilium-dbg bpf](cilium-dbg_bpf.md)	 - Direct access to local BPF maps
-* [cilium-dbg bpf stats diff](cilium-dbg_bpf_stats_diff.md)	 - Compare BPF runtime stats against baseline config
 * [cilium-dbg bpf stats report](cilium-dbg_bpf_stats_report.md)	 - Display BPF runtime stats
 
