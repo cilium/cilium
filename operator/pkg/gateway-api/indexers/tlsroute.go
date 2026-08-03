@@ -16,7 +16,7 @@ import (
 
 // indexTLSRoutebyBackendService takes a single TLSRoute and  returns all referenced backend service full names (`namespace/name`)
 // to add to the relevant index.
-func GenerateIndexerTLSRoutebyBackendService(c client.Client, logger *slog.Logger) client.IndexerFunc {
+func GenerateIndexerTLSRoutebyBackendService(c helpers.ClientReader, logger *slog.Logger) client.IndexerFunc {
 	return func(rawObj client.Object) []string {
 		route := rawObj.(*gatewayv1.TLSRoute)
 		var backendServices []string
