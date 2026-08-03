@@ -78,7 +78,7 @@ func IndexHTTPRouteByGammaService(rawObj client.Object) []string {
 
 // GenerateIndexerHTTPRouteByBackendService makes a client.IndexerFunc that takes a single HTTPRoute and
 // returns all referenced backend service full names (`namespace/name`) to add to the relevant index.
-func GenerateIndexerHTTPRouteByBackendService(c client.Client, logger *slog.Logger) client.IndexerFunc {
+func GenerateIndexerHTTPRouteByBackendService(c helpers.ClientReader, logger *slog.Logger) client.IndexerFunc {
 	return func(rawObj client.Object) []string {
 		route, ok := rawObj.(*gatewayv1.HTTPRoute)
 		if !ok {

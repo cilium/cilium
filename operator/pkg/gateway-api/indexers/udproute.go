@@ -16,7 +16,7 @@ import (
 
 // GenerateIndexerUDPRoutebyBackendService takes a single UDPRoute and returns all referenced
 // backend service full names (`namespace/name`) to add to the relevant index.
-func GenerateIndexerUDPRoutebyBackendService(c client.Client, logger *slog.Logger) client.IndexerFunc {
+func GenerateIndexerUDPRoutebyBackendService(c helpers.ClientReader, logger *slog.Logger) client.IndexerFunc {
 	return func(rawObj client.Object) []string {
 		route := rawObj.(*gatewayv1.UDPRoute)
 		var backendServices []string
