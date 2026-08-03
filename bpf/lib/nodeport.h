@@ -15,6 +15,7 @@
 #include "common.h"
 #include "drop.h"
 #include "drop_reasons.h"
+#include "dsr.h"
 #include "overloadable.h"
 #include "egress_gateway.h"
 #include "eps.h"
@@ -74,47 +75,6 @@ DECLARE_CONFIG(__u8, ipv6_rss_prefix_bits,
 })
 
 #ifdef ENABLE_NODEPORT
-/* The IPv6 extension should be 8-bytes aligned */
-struct dsr_opt_v6 {
-	struct ipv6_opt_hdr hdr;
-	__u8 opt_type;
-	__u8 opt_len;
-	union v6addr addr;
-	__be16 port;
-	__u16 pad;
-};
-
-struct dsr_opt_v4 {
-	__u8 type;
-	__u8 len;
-	__u16 port;
-	__u32 addr;
-};
-
-/* IPv4 option used to carry service addr and port for DSR.
- *
- * Copy = 1 (option is copied to each fragment)
- * Class = 0 (control option)
- * Number = 26 (not used according to [1])
- * Len = 8 (option type (1) + option len (1) + addr (4) + port (2))
- *
- * [1]: https://www.iana.org/assignments/ip-parameters/ip-parameters.xhtml
- */
-#define DSR_IPV4_OPT_TYPE	(IPOPT_COPY | 0x1a)
-
-/* IPv6 option type of Destination Option used to carry service IPv6 addr and
- * port for DSR.
- *
- * 0b00		- "skip over this option and continue processing the header"
- *     0	- "Option Data does not change en-route"
- *      11011   - Unassigned [1]
- *
- * [1]:  https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#ipv6-parameters-2
- */
-#define DSR_IPV6_OPT_TYPE	0x1B
-#define DSR_IPV6_OPT_LEN	(sizeof(struct dsr_opt_v6) - 4)
-#define DSR_IPV6_EXT_LEN	((sizeof(struct dsr_opt_v6) - 8) / 8)
-
 static __always_inline bool nodeport_uses_dsr(bool flip __maybe_unused)
 {
 #ifdef ENABLE_DSR
@@ -495,47 +455,11 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 }
 # endif /* DSR_ENCAP_MODE */
 
-static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
-				       struct dsr_opt_v6 *dsr_opt, bool *found)
-{
-	int i, len = sizeof(struct ipv6hdr);
-	__u8 nh = nexthdr;
-
-#pragma unroll
-	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
-		__u8 newnh = nh;
-		int hdrlen = ipv6_skip_exthdr(ctx, &newnh, ETH_HLEN + len);
-
-		if (hdrlen < 0)
-			return hdrlen;
-
-		if (!hdrlen)
-			return 0;
-
-		build_bug_on(sizeof(*dsr_opt) != 24);
-		if (nh == NEXTHDR_DEST && hdrlen == sizeof(*dsr_opt)) {
-			if (ctx_load_bytes(ctx, ETH_HLEN + len, dsr_opt, sizeof(*dsr_opt)) < 0)
-				return DROP_INVALID;
-			if (dsr_opt->opt_type == DSR_IPV6_OPT_TYPE &&
-			    dsr_opt->opt_len == DSR_IPV6_OPT_LEN) {
-				*found = true;
-				return 0;
-			}
-		}
-
-		len += hdrlen;
-		nh = newnh;
-	}
-
-	/* Reached limit of supported extension headers */
-	return DROP_INVALID_EXTHDR;
-}
-
 static __always_inline int
 nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
-			struct ipv6hdr *ip6 __maybe_unused,
 			const struct ipv6_ct_tuple *tuple, int l4_off,
-			union v6addr *addr, __be16 *port, bool *dsr)
+			struct lb6_reverse_nat *dsr_info __maybe_unused,
+			bool *dsr)
 {
 #if defined(IS_BPF_OVERLAY)
 	{
@@ -546,26 +470,11 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 			if (gopt.hdr.opt_class == bpf_htons(DSR_GENEVE_OPT_CLASS) &&
 			    gopt.hdr.type == DSR_GENEVE_OPT_TYPE) {
 				*dsr = true;
-				*port = gopt.port;
-				ipv6_addr_copy_unaligned(addr,
+				dsr_info->port = gopt.port;
+				ipv6_addr_copy_unaligned(&dsr_info->address,
 							 (union v6addr *)&gopt.addr);
 				return 0;
 			}
-		}
-	}
-#else
-	{
-		struct dsr_opt_v6 opt __align_stack_8 = {};
-		int ret;
-
-		ret = find_dsr_v6(ctx, ip6->nexthdr, &opt, dsr);
-		if (ret != 0)
-			return ret;
-
-		if (*dsr) {
-			*addr = opt.addr;
-			*port = opt.port;
-			return 0;
 		}
 	}
 #endif
@@ -587,7 +496,6 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 			ct_update_dsr(get_ct_map6(&tmp), &tmp, false);
 		} else {
 			*dsr = ct_has_dsr_egress_entry6(get_ct_map6(&tmp), &tmp);
-			*port = 0;
 			return 0;
 		}
 	}
@@ -780,7 +688,7 @@ drop_err:
 
 static __always_inline int
 nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, fraginfo_t fraginfo,
-			  int l4_off, union v6addr *addr, __be16 port, __s8 *ext_err)
+			  int l4_off, const struct lb6_reverse_nat *dsr_info, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {};
 	__u32 monitor = 0;
@@ -798,11 +706,11 @@ nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, f
 	switch (ret) {
 	case CT_NEW:
 create_ct:
-		if (port == 0)
+		if (dsr_info->port == 0)
 			return DROP_INVALID;
 
-		ipv6_addr_copy(&ct_state_new.nat_addr, addr);
-		ct_state_new.nat_port = port;
+		ipv6_addr_copy(&ct_state_new.nat_addr, &dsr_info->address);
+		ct_state_new.nat_port = dsr_info->port;
 		ct_state_new.src_sec_id = WORLD_IPV6_ID;
 		ct_state_new.dsr_internal = 1;
 
@@ -812,7 +720,7 @@ create_ct:
 			return ret;
 		break;
 	case CT_ESTABLISHED:
-		if (tuple->nexthdr == IPPROTO_TCP && port)
+		if (tuple->nexthdr == IPPROTO_TCP && dsr_info->port)
 			goto create_ct;
 		break;
 	default:
@@ -1563,15 +1471,22 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					__s8 *ext_err,
 					bool __maybe_unused *dsr)
 {
+	struct lb6_reverse_nat dsr_info __maybe_unused = {};
 	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
-	const struct lb6_service *svc;
 	fraginfo_t fraginfo = 0;
-	struct lb6_key key = {};
 
 	tuple.nexthdr = ip6->nexthdr;
+
+#if defined(ENABLE_DSR) &&						\
+    (defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD) && \
+    (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
+	ret = ipv6_hdrlen_with_dsr_info(ctx, &tuple.nexthdr, &fraginfo,
+					&dsr_info, dsr);
+#else
 	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+#endif
 	if (ret < 0)
 		return ret;
 
@@ -1590,13 +1505,18 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		return ret;
 	}
 
-	lb6_fill_key(&key, &tuple);
+	{
+		const struct lb6_service *svc;
+		struct lb6_key key = {};
 
-	svc = lb6_lookup_service(&key, false);
-	if (svc)
-		return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
-					fraginfo, l4_off, src_sec_identity,
-					punt_to_stack, ext_err);
+		lb6_fill_key(&key, &tuple);
+
+		svc = lb6_lookup_service(&key, false);
+		if (svc)
+			return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
+						fraginfo, l4_off, src_sec_identity,
+						punt_to_stack, ext_err);
+	}
 
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
@@ -1619,15 +1539,17 @@ skip_service_lookup:
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
      (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
 	if (is_svc_proto) {
-		ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
-					      &key.address,
-					      &key.dport, dsr);
-		if (IS_ERR(ret))
-			return ret;
+		/* We maybe already found an exthdr with DSR info: */
+		if (!*dsr) {
+			ret = nodeport_extract_dsr_v6(ctx, &tuple, l4_off,
+						      &dsr_info, dsr);
+			if (IS_ERR(ret))
+				return ret;
+		}
+
 		if (*dsr)
 			return nodeport_dsr_ingress_ipv6(ctx, &tuple, fraginfo, l4_off,
-							 &key.address, key.dport,
-							 ext_err);
+							 &dsr_info, ext_err);
 	}
 #endif
 #endif /* ENABLE_DSR */
@@ -1893,7 +1815,7 @@ static __always_inline int
 nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 			const struct iphdr *ip4 __maybe_unused,
 			const struct ipv4_ct_tuple *tuple, int l4_off,
-			__be32 *addr, __be16 *port, bool *dsr)
+			struct lb4_reverse_nat *dsr_info, bool *dsr)
 {
 	/* Parse DSR info from the packet, to get the addr/port of the
 	 * addressed service. We need this for RevDNATing the backend's replies.
@@ -1910,8 +1832,8 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 			if (gopt.hdr.opt_class == bpf_htons(DSR_GENEVE_OPT_CLASS) &&
 			    gopt.hdr.type == DSR_GENEVE_OPT_TYPE) {
 				*dsr = true;
-				*port = gopt.port;
-				*addr = gopt.addr;
+				dsr_info->port = gopt.port;
+				dsr_info->address = gopt.addr;
 				return 0;
 			}
 		}
@@ -1930,11 +1852,11 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 		if (opt.type == DSR_IPV4_OPT_TYPE && opt.len == sizeof(opt)) {
 			*dsr = true;
 #ifdef TEST_DSR_OPT_NETWORK_BYTE_ORDER
-			*addr = opt.addr;
-			*port = opt.port;
+			dsr_info->address = opt.addr;
+			dsr_info->port = opt.port;
 #else
-			*addr = bpf_ntohl(opt.addr);
-			*port = bpf_ntohs(opt.port);
+			dsr_info->address = bpf_ntohl(opt.addr);
+			dsr_info->port = bpf_ntohs(opt.port);
 #endif
 			return 0;
 		}
@@ -1967,7 +1889,6 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 			 * We don't have any DSR info to report back, and that's ok.
 			 */
 			*dsr = ct_has_dsr_egress_entry4(get_ct_map4(&tmp), &tmp);
-			*port = 0;
 			return 0;
 		}
 	}
@@ -2145,7 +2066,7 @@ drop_err:
 
 static __always_inline int
 nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, fraginfo_t fraginfo,
-			  int l4_off, __be32 addr, __be16 port, __s8 *ext_err)
+			  int l4_off, const struct lb4_reverse_nat *dsr_info, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {};
 	__u32 monitor = 0;
@@ -2163,15 +2084,15 @@ nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, f
 	switch (ret) {
 	case CT_NEW:
 create_ct:
-		if (port == 0)
+		if (dsr_info->port == 0)
 			/* Not expected at all - nodeport_extract_dsr_v4() said
 			 * there would be a CT entry! Without DSR info we can't
 			 * do anything smart here.
 			 */
 			return DROP_INVALID;
 
-		ct_state_new.nat_addr.p4 = addr;
-		ct_state_new.nat_port = port;
+		ct_state_new.nat_addr.p4 = dsr_info->address;
+		ct_state_new.nat_port = dsr_info->port;
 		ct_state_new.src_sec_id = WORLD_IPV4_ID;
 		ct_state_new.dsr_internal = 1;
 
@@ -2184,7 +2105,7 @@ create_ct:
 		/* For TCP we only expect DSR info on the SYN, so CT_ESTABLISHED
 		 * is unexpected and we need to refresh the CT entry.
 		 */
-		if (tuple->nexthdr == IPPROTO_TCP && port)
+		if (tuple->nexthdr == IPPROTO_TCP && dsr_info->port)
 			goto create_ct;
 
 		/* Otherwise we tolerate DSR info on an established connection.
@@ -2935,8 +2856,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	fraginfo_t fraginfo;
 	struct ipv4_ct_tuple tuple = {};
 	bool is_svc_proto = true;
-	const struct lb4_service *svc;
-	struct lb4_key key = {};
 	int l3_off = ETH_HLEN;
 	int ret, l4_off;
 
@@ -2956,13 +2875,18 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		return ret;
 	}
 
-	lb4_fill_key(&key, &tuple);
+	{
+		const struct lb4_service *svc;
+		struct lb4_key key = {};
 
-	svc = lb4_lookup_service(&key, false);
-	if (svc)
-		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
-					fraginfo, l4_off, src_sec_identity,
-					punt_to_stack, ext_err);
+		lb4_fill_key(&key, &tuple);
+
+		svc = lb4_lookup_service(&key, false);
+		if (svc)
+			return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
+						fraginfo, l4_off, src_sec_identity,
+						punt_to_stack, ext_err);
+	}
 
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
@@ -2980,18 +2904,19 @@ skip_service_lookup:
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
      (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
 	if (is_svc_proto) {
+		struct lb4_reverse_nat dsr_info = {};
+
 		/* Check if packet has embedded DSR info, or belongs to
 		 * an established DSR connection:
 		 */
 		ret = nodeport_extract_dsr_v4(ctx, ip4, &tuple,
-					      l4_off, &key.address,
-					      &key.dport, dsr);
+					      l4_off, &dsr_info, dsr);
 		if (IS_ERR(ret))
 			return ret;
 		if (*dsr)
 			/* Packet continues on its way to local backend: */
 			return nodeport_dsr_ingress_ipv4(ctx, &tuple, fraginfo, l4_off,
-							 key.address, key.dport,
+							 &dsr_info,
 							 ext_err);
 	}
 #endif

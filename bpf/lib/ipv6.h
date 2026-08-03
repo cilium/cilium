@@ -8,6 +8,7 @@
 #include "eth.h"
 #include "dbg.h"
 #include "drop_reasons.h"
+#include "dsr.h"
 #include "ipv6_core.h"
 #include "l4.h"
 #include "metrics.h"
@@ -117,8 +118,10 @@ static __always_inline int ipv6_skip_exthdr(const struct __ctx_buff *ctx, __u8 *
 	}
 }
 
-static __always_inline int ipv6_hdrlen_offset(const struct __ctx_buff *ctx, int l3_off,
-					      __u8 *nexthdr, fraginfo_t *fraginfo)
+static __always_inline int
+ipv6_walk_exthdrs(const struct __ctx_buff *ctx, int l3_off, __u8 *nexthdr,
+		  fraginfo_t *fraginfo, struct lb6_reverse_nat *dsr_info,
+		  bool *dsr_found)
 {
 	int i, len = sizeof(struct ipv6hdr);
 	__u8 nh = *nexthdr;
@@ -145,13 +148,38 @@ static __always_inline int ipv6_hdrlen_offset(const struct __ctx_buff *ctx, int 
 			return len;
 		}
 
-		if (fraginfo && nh == NEXTHDR_FRAGMENT) {
-			struct ipv6_frag_hdr frag = { 0 };
+		switch (nh) {
+		case NEXTHDR_FRAGMENT:
+			if (fraginfo) {
+				struct ipv6_frag_hdr frag = { 0 };
 
-			if (ctx_load_bytes(ctx, l3_off + len, &frag, sizeof(frag)) < 0)
-				return DROP_INVALID;
+				if (ctx_load_bytes(ctx, l3_off + len, &frag, sizeof(frag)) < 0)
+					return DROP_INVALID;
 
-			*fraginfo = ipfrag_encode_ipv6(&frag);
+				*fraginfo = ipfrag_encode_ipv6(&frag);
+			}
+			break;
+		case NEXTHDR_DEST:
+			if (dsr_info && hdrlen == sizeof(struct dsr_opt_v6)) {
+				struct dsr_opt_v6 opt __align_stack_8;
+
+				build_bug_on(sizeof(opt) != 24);
+
+				if (ctx_load_bytes(ctx, l3_off + len, &opt, sizeof(opt)) < 0)
+					return DROP_INVALID;
+
+				if (opt.opt_type == DSR_IPV6_OPT_TYPE &&
+				    opt.opt_len == DSR_IPV6_OPT_LEN) {
+					if (dsr_found)
+						*dsr_found = true;
+					dsr_info->port = opt.port;
+					ipv6_addr_copy_unaligned(&dsr_info->address,
+								 &opt.addr);
+				}
+			}
+			break;
+		default:
+			break;
 		}
 
 		len += hdrlen;
@@ -160,6 +188,24 @@ static __always_inline int ipv6_hdrlen_offset(const struct __ctx_buff *ctx, int 
 
 	/* Reached limit of supported extension headers */
 	return DROP_INVALID_EXTHDR;
+}
+
+__noinline __weak
+int ipv6_hdrlen_with_dsr_info(const struct __ctx_buff *ctx, __u8 *nexthdr,
+			      fraginfo_t *fraginfo,
+			      struct lb6_reverse_nat *dsr_info,
+			      bool *found)
+{
+	if (!nexthdr)
+		return DROP_INVALID;
+
+	return ipv6_walk_exthdrs(ctx, ETH_HLEN, nexthdr, fraginfo, dsr_info, found);
+}
+
+static __always_inline int
+ipv6_hdrlen_offset(const struct __ctx_buff *ctx, int l3_off, __u8 *nexthdr, fraginfo_t *fraginfo)
+{
+	return ipv6_walk_exthdrs(ctx, l3_off, nexthdr, fraginfo, NULL, NULL);
 }
 
 __noinline __weak
