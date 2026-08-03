@@ -529,8 +529,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.Alloc
 
 // isSubnetAtPrefixCapacity parses error from AWS SDK to understand if the subnet is out of capacity for /28 prefixes.
 func isSubnetAtPrefixCapacity(err error) bool {
-	var apiErr smithy.APIError
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[smithy.APIError](err); ok {
 		return apiErr.ErrorCode() == api.InsufficientPrefixesInSubnetStr ||
 			(apiErr.ErrorCode() == api.InvalidParameterValueStr &&
 				strings.Contains(apiErr.ErrorMessage(), api.SubnetFullErrMsgStr))
@@ -652,8 +651,7 @@ func (n *Node) errorInstanceNotRunning(err error) (notRunning bool) {
 }
 
 func isAttachmentIndexConflict(err error) bool {
-	var apiErr smithy.APIError
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[smithy.APIError](err); ok {
 		return apiErr.ErrorCode() == api.InvalidParameterValueStr &&
 			strings.Contains(apiErr.ErrorMessage(), "interface attached at device")
 	}
