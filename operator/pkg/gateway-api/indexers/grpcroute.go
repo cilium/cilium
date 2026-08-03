@@ -78,7 +78,7 @@ func IndexGRPCRouteByGammaService(rawObj client.Object) []string {
 
 // GenerateIndexerGRPCRoutebyBackendService takes a single GRPCRoute and  returns all referenced backend service full names (`namespace/name`)
 // to add to the relevant index.
-func GenerateIndexerGRPCRoutebyBackendService(c client.Client, logger *slog.Logger) client.IndexerFunc {
+func GenerateIndexerGRPCRoutebyBackendService(c helpers.ClientReader, logger *slog.Logger) client.IndexerFunc {
 	return func(rawObj client.Object) []string {
 		route := rawObj.(*gatewayv1.GRPCRoute)
 		var backendServices []string

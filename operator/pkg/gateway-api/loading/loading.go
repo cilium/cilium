@@ -52,13 +52,13 @@ type TranslationInputLoaderConfig struct {
 }
 
 type TranslationInputLoader struct {
-	client         client.Client
+	client         helpers.ClientReader
 	logger         *slog.Logger
 	controllerName string
 	config         TranslationInputLoaderConfig
 }
 
-func NewTranslationInputLoader(client client.Client, logger *slog.Logger, controllerName string, config TranslationInputLoaderConfig) *TranslationInputLoader {
+func NewTranslationInputLoader(client helpers.ClientReader, logger *slog.Logger, controllerName string, config TranslationInputLoaderConfig) *TranslationInputLoader {
 	return &TranslationInputLoader{
 		client:         client,
 		logger:         logger,
@@ -463,7 +463,7 @@ func (l *TranslationInputLoader) resolveAllowedListenersFromListenerSets(
 }
 func isListenerSetAllowed(
 	ctx context.Context,
-	c client.Client,
+	c helpers.ClientReader,
 	gw *gatewayv1.Gateway,
 	ls *gatewayv1.ListenerSet,
 	logger *slog.Logger,
@@ -566,7 +566,7 @@ func hasAllowedRoutesNamespaceSelector(gw *gatewayv1.Gateway, attachedListenerSe
 	return false
 }
 
-func resolveAllowedNamespaces(ctx context.Context, c client.Client, listenerNamespace string, listener gatewayv1.Listener, logger *slog.Logger) map[string]struct{} {
+func resolveAllowedNamespaces(ctx context.Context, c helpers.ClientReader, listenerNamespace string, listener gatewayv1.Listener, logger *slog.Logger) map[string]struct{} {
 	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil || listener.AllowedRoutes.Namespaces.From == nil {
 		return map[string]struct{}{listenerNamespace: {}}
 	}
