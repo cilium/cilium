@@ -12,7 +12,7 @@ import (
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
-func GetBackendServiceName(k8sclient client.Client, namespace string, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
+func GetBackendServiceName(k8sclient ClientReader, namespace string, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
 	backendServiceName := ""
 	switch {
 	case IsService(backendObjectReference):
