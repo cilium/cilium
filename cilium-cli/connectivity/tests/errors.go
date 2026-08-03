@@ -118,7 +118,8 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
 		envoyExternalTargetTLSWarning, envoyExternalOtherTargetTLSWarning,
 		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation, ccgAlphaResourceDeprecation,
-		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn, certloaderInitialLoadWarn, localKeyAlreadyAllocated}
+		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn, certloaderInitialLoadWarn, localKeyAlreadyAllocated,
+		getSecurityGroupsForVpcUnauthorized}
 
 	warningThresholdExceptions := thresholdExceptions{
 		// Benign for one node at ENI capacity, a real IP-starvation signal for
@@ -561,6 +562,11 @@ const (
 	k8sEndpointDeprecatedWarn stringMatcher = "v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice" // cf. https://github.com/cilium/cilium/issues/39105
 	proxylibDeprecatedWarn    stringMatcher = "The support for Envoy Go Extensions (proxylib) has been deprecated"          // cf. https://github.com/cilium/cilium/issues/38224
 	instanceOutOfInterfaces   stringMatcher = "Instance is out of interfaces"                                               // AWS ENI-at-capacity; benign for one node, fails if several nodes hit it. cf. https://github.com/cilium/cilium/issues/42092
+	// Expected when the operator lacks the ec2:GetSecurityGroupsForVpc
+	// privilege, as is the case for the default eksctl node role used by CI: the
+	// fallback to DescribeSecurityGroups is a supported configuration, and the
+	// warning is emitted at most once per operator process.
+	getSecurityGroupsForVpcUnauthorized stringMatcher = "Not authorized to use the EC2 GetSecurityGroupsForVpc API, falling back to DescribeSecurityGroups"
 
 	certloaderInitialLoadWarn stringMatcher = certloader.InitialLoadWarn // Expected when certificates are not yet mounted.
 
