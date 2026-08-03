@@ -985,10 +985,29 @@ func GetHttpFilterChainProto(clusterName string, tls bool, isIngress bool, acces
 		xffNumTrustedHops = config.proxyXffNumTrustedHopsIngress
 	}
 
+	newHTTPRouteAction := func() *envoy_config_route.RouteAction {
+		action := &envoy_config_route.RouteAction{
+			ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
+				Cluster: clusterName,
+			},
+			Timeout: &durationpb.Duration{Seconds: requestTimeout},
+			RetryPolicy: &envoy_config_route.RetryPolicy{
+				RetryOn:       "5xx",
+				NumRetries:    &wrapperspb.UInt32Value{Value: numRetries},
+				PerTryTimeout: &durationpb.Duration{Seconds: retryTimeout},
+			},
+		}
+		if idleTimeout > 0 {
+			action.IdleTimeout = &durationpb.Duration{Seconds: idleTimeout}
+		}
+		return action
+	}
+
 	hcmConfig := &envoy_config_http.HttpConnectionManager{
 		StatPrefix: "proxy",
 		UpgradeConfigs: []*envoy_config_http.HttpConnectionManager_UpgradeConfig{
 			{UpgradeType: "websocket"},
+			{UpgradeType: "CONNECT"},
 		},
 		UseRemoteAddress:  &wrapperspb.BoolValue{Value: true},
 		SkipXffAppend:     true,
@@ -1013,6 +1032,16 @@ func GetHttpFilterChainProto(clusterName string, tls bool, isIngress bool, acces
 					Name:    "default_route",
 					Domains: []string{"*"},
 					Routes: []*envoy_config_route.Route{{
+						// CONNECT requests have no path, so they need a dedicated route matcher.
+						Match: &envoy_config_route.RouteMatch{
+							PathSpecifier: &envoy_config_route.RouteMatch_ConnectMatcher_{
+								ConnectMatcher: &envoy_config_route.RouteMatch_ConnectMatcher{},
+							},
+						},
+						Action: &envoy_config_route.Route_Route{
+							Route: newHTTPRouteAction(),
+						},
+					}, {
 						Match: &envoy_config_route.RouteMatch{
 							PathSpecifier: &envoy_config_route.RouteMatch_Prefix{Prefix: "/"},
 							Grpc:          &envoy_config_route.RouteMatch_GrpcRouteMatchOptions{},
@@ -1038,18 +1067,7 @@ func GetHttpFilterChainProto(clusterName string, tls bool, isIngress bool, acces
 							PathSpecifier: &envoy_config_route.RouteMatch_Prefix{Prefix: "/"},
 						},
 						Action: &envoy_config_route.Route_Route{
-							Route: &envoy_config_route.RouteAction{
-								ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
-									Cluster: clusterName,
-								},
-								Timeout: &durationpb.Duration{Seconds: requestTimeout},
-								// IdleTimeout: &durationpb.Duration{Seconds: idleTimeout},
-								RetryPolicy: &envoy_config_route.RetryPolicy{
-									RetryOn:       "5xx",
-									NumRetries:    &wrapperspb.UInt32Value{Value: numRetries},
-									PerTryTimeout: &durationpb.Duration{Seconds: retryTimeout},
-								},
-							},
+							Route: newHTTPRouteAction(),
 						},
 					}},
 				}},
@@ -1061,11 +1079,6 @@ func GetHttpFilterChainProto(clusterName string, tls bool, isIngress bool, acces
 		hcmConfig.NormalizePath = &wrapperspb.BoolValue{Value: true}
 		hcmConfig.MergeSlashes = true
 		hcmConfig.PathWithEscapedSlashesAction = envoy_config_http.HttpConnectionManager_UNESCAPE_AND_REDIRECT
-	}
-
-	// Idle timeout can only be specified if non-zero
-	if idleTimeout > 0 {
-		hcmConfig.GetRouteConfig().VirtualHosts[0].Routes[1].GetRoute().IdleTimeout = &durationpb.Duration{Seconds: idleTimeout}
 	}
 
 	chain := &envoy_config_listener.FilterChain{

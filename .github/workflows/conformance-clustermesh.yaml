@@ -411,6 +411,8 @@ jobs:
             CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER2="--helm-set=ipMasqAgent.enabled=true \
               --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{11.10.0.0/16}' \
               --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.cidrs='{11.20.0.0/16}' \
+              --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.maskSize=24 \
               --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/24}' \
               --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27"
           fi
