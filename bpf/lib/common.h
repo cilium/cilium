@@ -337,12 +337,6 @@ enum {
 #define	CB_SRV6_VRF_ID		CB_CT_STATE	/* Alias, non-overlapping */
 };
 
-/* Magic values for CB_FROM_HOST.
- * CB_FROM_HOST overlaps with CB_NAT46_STATE, so this value must be distinct
- * from any in enum NAT46 below!
- */
-#define FROM_HOST_L7_LB 0xFACADE42
-
 #define TUPLE_F_OUT		0	/* Outgoing flow */
 #define TUPLE_F_IN		1	/* Incoming flow */
 #define TUPLE_F_RELATED		2	/* Flow represents related packets */

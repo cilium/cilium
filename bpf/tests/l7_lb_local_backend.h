@@ -61,8 +61,9 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 	tail_call(ctx, &mock_cilium_egresscall_policy, slot);
 }
 
-# include "lib/bpf_lxc.h"
+#include "lib/bpf_lxc.h"
 #include "lib/policy.h"
+#include "lib/l7lb.h"
 
 /* BPF_PROG_TEST_RUN are executed with `ctx->ifindex = 1` (loopback device) as in
  * the kernel `bpf_prog_test_run_skb()` function.
@@ -108,11 +109,28 @@ int l7_lb_local_backend_v4_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
+static __always_inline void
+setup_l7_metadata(struct __ctx_buff *ctx,
+		  const __u16 ep_id,
+		  const __u8 direction __maybe_unused)
+{
+	/* Write the client identity into our skb mark so it's available as
+	 * expected in the egress policy code paths.
+	 */
+	ctx->mark = (ep_id << 16) | MARK_MAGIC_PROXY_EGRESS_EPID;
+
+	/* We need to mark the skb as coming from L7-LB. */
+	l7lb_set_metadata(ctx, 0);
+}
+
 SETUP("tc", "l7_lb_local_backend_v4")
 int l7_lb_local_backend_v4_setup(struct __ctx_buff *ctx)
 {
 	/* We need this to allow the packet proceeding. */
 	policy_add_egress_allow_all_entry();
+
+	/* Setup L7-LB metadata expected by egress policy code */
+	setup_l7_metadata(ctx, CLIENT_EP_ID, 0);
 
 	/* Simulate hitting the codepath. */
 	return tail_call_egress_policy(ctx, CLIENT_EP_ID);
@@ -170,6 +188,9 @@ int l7_lb_local_backend_v6_setup(struct __ctx_buff *ctx)
 {
 	/* We need this to allow the packet proceeding. */
 	policy_add_egress_allow_all_entry();
+
+	/* Setup L7-LB metadata expected by egress policy code */
+	setup_l7_metadata(ctx, CLIENT_EP_ID, 0);
 
 	/* Simulate hitting the codepath. */
 	return tail_call_egress_policy(ctx, CLIENT_EP_ID);

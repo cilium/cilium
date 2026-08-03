@@ -40,6 +40,7 @@
 #include "lib/mcast.h"
 
 #include "lib/lb.h"
+#include "lib/l7lb.h"
 #include "lib/drop.h"
 #include "lib/trace.h"
 #include "lib/srv6.h"
@@ -554,8 +555,7 @@ int NAME(struct __ctx_buff *ctx)						\
 			scope = SCOPE_FORWARD;					\
 		if (is_defined(ENABLE_L7_LB) && proxy_port)			\
 			scope = SCOPE_FORWARD;					\
-		if (is_defined(ENABLE_L7_LB) &&					\
-		    (ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB))	\
+		if (is_defined(ENABLE_L7_LB) && is_from_l7lb(ctx))		\
 			scope = SCOPE_FORWARD;					\
 	}									\
 										\
@@ -622,8 +622,7 @@ int NAME(struct __ctx_buff *ctx)						\
 			scope = SCOPE_FORWARD;					\
 		if (is_defined(ENABLE_L7_LB) && proxy_port)			\
 			scope = SCOPE_FORWARD;					\
-		if (is_defined(ENABLE_L7_LB) &&					\
-		    (ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB))	\
+		if (is_defined(ENABLE_L7_LB) &&	is_from_l7lb(ctx))		\
 			scope = SCOPE_FORWARD;					\
 	}									\
 										\
@@ -917,7 +916,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	case CT_NEW:
 	case CT_ESTABLISHED:
 #if defined(ENABLE_L7_LB)
-		from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+		from_l7lb = is_from_l7lb(ctx);
 
 		/* Forward to L7 LB first before applying network policy: */
 		if (proxy_port > 0) {
@@ -1102,7 +1101,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 		return icmp6_ndp_handle(ctx, ETH_HLEN, METRIC_EGRESS, ext_err);
 
 #ifdef ENABLE_L7_LB
-	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+	from_l7lb = is_from_l7lb(ctx);
 #endif
 	if (!from_l7lb && unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
@@ -1485,7 +1484,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	case CT_NEW:
 	case CT_ESTABLISHED:
 #if defined(ENABLE_L7_LB)
-		from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+		from_l7lb = is_from_l7lb(ctx);
 
 		/* Forward to L7 LB first before applying network policy: */
 		if (proxy_port > 0) {
@@ -1690,7 +1689,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 	}
 
 #ifdef ENABLE_L7_LB
-	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+	from_l7lb = is_from_l7lb(ctx);
 #endif
 	if (!from_l7lb && unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
@@ -2555,8 +2554,8 @@ out:
  * endpoint.  Previously, the packet has come from the same endpoint,
  * but was redirected to a L7 LB.
  *
- * This program will be tail called from bpf_host for packets sent by
- * a L7 LB.
+ * This program will be tail called from bpf_host or bpf_lxc for packets
+ * sent by a L7 LB. We expect the caller to set L7-LB metadata.
  */
 __section_entry
 int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
@@ -2571,8 +2570,6 @@ int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 		ret = DROP_UNSUPPORTED_L2;
 		goto out;
 	}
-
-	ctx_store_meta(ctx, CB_FROM_HOST, FROM_HOST_L7_LB);
 
 	edt_set_aggregate(ctx, 0); /* do not count this traffic again */
 	send_trace_notify(ctx, TRACE_FROM_PROXY, SECLABEL, UNKNOWN_ID,
@@ -2639,6 +2636,8 @@ int cil_to_container(struct __ctx_buff *ctx)
 		__u16 lxc_id = get_epid(ctx);
 
 		ctx->mark = 0;
+		l7lb_set_metadata(ctx, L7LB_DIR_TO_CONTAINER);
+
 		ret = tail_call_egress_policy(ctx, lxc_id);
 		return send_drop_notify(ctx, lxc_id, sec_label, LXC_ID,
 					ret, METRIC_INGRESS);
