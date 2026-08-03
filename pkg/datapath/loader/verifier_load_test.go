@@ -21,6 +21,7 @@ func setBasePermutations(t *config.Node) {
 	t.LBSelectionPerService = true
 	t.TracingIPOptionType = 1
 	t.DebugLB = true
+	t.EventsMapRateLimit = 1000
 }
 
 func baseLXCPermutations() *loadPermutationBuilder {
