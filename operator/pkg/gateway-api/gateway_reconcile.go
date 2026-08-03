@@ -357,7 +357,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		GRPCRoutes:          grpcRoutes,
 		TCPRoutes:           tcpRoutes,
 		UDPRoutes:           udpRoutes,
-		Namespaces:          namespaces,
 		Services:            servicesList.Items,
 		ServiceImports:      serviceImportsList.Items,
 		ReferenceGrants:     grants.Items,
@@ -814,9 +813,10 @@ func (r *gatewayReconciler) mergeListeners(
 	var merged []ingestion.ListenerWithContext
 	for _, listener := range gw.Spec.Listeners {
 		merged = append(merged, ingestion.ListenerWithContext{
-			Listener:         listener,
-			Source:           gwSource,
-			SourceGeneration: gw.Generation,
+			Listener:          listener,
+			Source:            gwSource,
+			SourceGeneration:  gw.Generation,
+			AllowedNamespaces: resolveAllowedNamespaces(ctx, r.Client, gw.GetNamespace(), listener, scopedLog),
 		})
 	}
 
