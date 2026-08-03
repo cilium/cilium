@@ -45,6 +45,32 @@ func GenerateIndexerTLSRoutebyBackendService(c client.Client, logger *slog.Logge
 	}
 }
 
+// IndexTLSRouteByBackendServiceImport is a client.IndexerFunc that takes a single TLSRoute and
+// returns all referenced backend ServiceImport full names (`namespace/name`) to add to the relevant index.
+func IndexTLSRouteByBackendServiceImport(rawObj client.Object) []string {
+	route, ok := rawObj.(*gatewayv1.TLSRoute)
+	if !ok {
+		return nil
+	}
+	var backendServiceImports []string
+
+	for _, rule := range route.Spec.Rules {
+		for _, backend := range rule.BackendRefs {
+			if !helpers.IsServiceImport(backend.BackendObjectReference) {
+				continue
+			}
+			backendServiceImports = append(backendServiceImports,
+				types.NamespacedName{
+					Namespace: helpers.NamespaceDerefOr(backend.Namespace, route.Namespace),
+					Name:      string(backend.Name),
+				}.String(),
+			)
+		}
+	}
+
+	return backendServiceImports
+}
+
 // IndexTLSRouteByGateway takes a single TLSRoute and returns all referenced Gateway object full names (`namespace/name`)
 // to add to the relevant index.
 //
