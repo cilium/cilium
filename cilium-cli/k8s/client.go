@@ -53,6 +53,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	ciliumPortforward "github.com/cilium/cilium/pkg/k8s/portforward"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	ciliumnetworkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
@@ -923,10 +924,9 @@ func (c *Client) createDialer(url *url.URL) (httpstream.Dialer, error) {
 		return nil, fmt.Errorf("Error while creating k8s dialer: (websocket) %w, (spdy) %w", errWebsocket, errSPDY)
 	}
 
-	// Default to the SPDY connection
-	dialerFallback := portforward.NewFallbackDialer(dialerSPDY, dialerWebsocket, func(err error) bool {
-		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
-	})
+	// Default to the SPDY connection, falling back to WebSocket when the
+	// SPDY upgrade is rejected.
+	dialerFallback := portforward.NewFallbackDialer(dialerSPDY, dialerWebsocket, ciliumPortforward.ShouldFallbackToWebSocket)
 	return dialerFallback, nil
 }
 
