@@ -159,12 +159,12 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 	// We should see two deletions: one for host ns (if enabled) and one for the mocked
 	// "foo" one.
 	filter := <-mock.requests
-	require.True(t, beAddr.AddrCluster().AsNetIP().Equal(filter.DestIp), "IP matches")
+	require.Equal(t, beAddr.Addr(), filter.DestIp, "IP matches")
 	require.Equal(t, beAddr.Port(), filter.DestPort, "Port matches")
 
 	if !hostOnly {
 		filter = <-mock.requests
-		require.True(t, beAddr.AddrCluster().AsNetIP().Equal(filter.DestIp), "IP matches")
+		require.Equal(t, beAddr.Addr(), filter.DestIp, "IP matches")
 		require.Equal(t, beAddr.Port(), filter.DestPort, "Port matches")
 		require.ElementsMatch(t, visitedNamespaces, []*netns.NetNS{hostNS, fooNS})
 	} else {
