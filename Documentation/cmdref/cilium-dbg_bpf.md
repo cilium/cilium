@@ -42,5 +42,6 @@ Direct access to local BPF maps
 * [cilium-dbg bpf sha](cilium-dbg_bpf_sha.md)	 - Manage compiled BPF template objects
 * [cilium-dbg bpf socknat](cilium-dbg_bpf_socknat.md)	 - Socket NAT operations
 * [cilium-dbg bpf srv6](cilium-dbg_bpf_srv6.md)	 - Manage the SRv6 routing rules
+* [cilium-dbg bpf stats](cilium-dbg_bpf_stats.md)	 - BPF program runtime and execution count stats
 * [cilium-dbg bpf vtep](cilium-dbg_bpf_vtep.md)	 - Manage the VTEP mappings for IP/CIDR <-> VTEP MAC/IP
 
