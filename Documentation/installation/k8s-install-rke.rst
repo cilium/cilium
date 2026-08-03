@@ -83,7 +83,7 @@ Deploy Cilium
 
         .. parsed-literal::
 
-            cilium install |CHART_VERSION|
+            cilium install --version |CHART_VERSION|
 
 .. include:: k8s-install-validate.rst
 
