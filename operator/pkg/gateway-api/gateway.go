@@ -86,6 +86,19 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexers.BackendServiceImportGRPCRouteIndex, indexers.IndexGRPCRouteByBackendServiceImport); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportGRPCRouteIndex, err)
 		}
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TLSRoute{}, indexers.BackendServiceImportTLSRouteIndex, indexers.IndexTLSRouteByBackendServiceImport); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportTLSRouteIndex, err)
+		}
+		if tcpRouteEnabled {
+			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.TCPRoute{}, indexers.BackendServiceImportTCPRouteIndex, indexers.IndexTCPRouteByBackendServiceImport); err != nil {
+				return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportTCPRouteIndex, err)
+			}
+		}
+		if udpRouteEnabled {
+			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.UDPRoute{}, indexers.BackendServiceImportUDPRouteIndex, indexers.IndexUDPRouteByBackendServiceImport); err != nil {
+				return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportUDPRouteIndex, err)
+			}
+		}
 	}
 
 	// Index Gateways by implementation (ie `cilium`)

@@ -132,7 +132,7 @@ func EnqueueRequestForBackendService(c client.Client, scheme *runtime.Scheme, lo
 }
 
 // EnqueueRequestForBackendServiceImport makes sure that Gateways are reconciled
-// if a relevant HTTPRoute or GRPCRoute backend ServiceImport is updated.
+// if a relevant route backend ServiceImport is updated.
 func EnqueueRequestForBackendServiceImport(c client.Client, logger slog.Logger, controllerName string) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		_, ok := o.(*mcsapiv1beta1.ServiceImport)
@@ -145,7 +145,7 @@ func EnqueueRequestForBackendServiceImport(c client.Client, logger slog.Logger, 
 		// make a set to hold all reconcile requests
 		reconcileRequests := make(map[reconcile.Request]struct{})
 
-		// Fetch all HTTPRoutes and GRPCRoutes that reference this ServiceImport.
+		// Fetch all routes that reference this ServiceImport.
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := c.List(ctx, hrList, &client.ListOptions{
@@ -164,6 +164,35 @@ func EnqueueRequestForBackendServiceImport(c client.Client, logger slog.Logger, 
 			return []reconcile.Request{}
 		}
 
+		tlsRouteList := &gatewayv1.TLSRouteList{}
+
+		if err := c.List(ctx, tlsRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceImportTLSRouteIndex, client.ObjectKeyFromObject(o).String()),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Failed to get related TLSRoutes", logfields.Error, err)
+			return []reconcile.Request{}
+		}
+
+		tcpRouteList := &gatewayv1.TCPRouteList{}
+		if helpers.HasTCPRouteSupport(c.Scheme()) {
+			if err := c.List(ctx, tcpRouteList, &client.ListOptions{
+				FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceImportTCPRouteIndex, client.ObjectKeyFromObject(o).String()),
+			}); err != nil {
+				scopedLog.ErrorContext(ctx, "Failed to get related TCPRoutes", logfields.Error, err)
+				return []reconcile.Request{}
+			}
+		}
+
+		udpRouteList := &gatewayv1.UDPRouteList{}
+		if helpers.HasUDPRouteSupport(c.Scheme()) {
+			if err := c.List(ctx, udpRouteList, &client.ListOptions{
+				FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceImportUDPRouteIndex, client.ObjectKeyFromObject(o).String()),
+			}); err != nil {
+				scopedLog.ErrorContext(ctx, "Failed to get related UDPRoutes", logfields.Error, err)
+				return []reconcile.Request{}
+			}
+		}
+
 		allGatewaysSet, err := getAllGatewaysSetForController(ctx, c, controllerName)
 		if err != nil {
 			scopedLog.ErrorContext(ctx, "Failed to get controller Gateways", logfields.Error, err)
@@ -176,6 +205,15 @@ func EnqueueRequestForBackendServiceImport(c client.Client, logger slog.Logger, 
 		}
 		for _, grpcr := range grpcRouteList.Items {
 			updateReconcileRequestsForParentRefs(ctx, c, grpcr.Spec.ParentRefs, grpcr.Namespace, allGatewaysSet, reconcileRequests)
+		}
+		for _, tlsr := range tlsRouteList.Items {
+			updateReconcileRequestsForParentRefs(ctx, c, tlsr.Spec.ParentRefs, tlsr.Namespace, allGatewaysSet, reconcileRequests)
+		}
+		for _, tcpr := range tcpRouteList.Items {
+			updateReconcileRequestsForParentRefs(ctx, c, tcpr.Spec.ParentRefs, tcpr.Namespace, allGatewaysSet, reconcileRequests)
+		}
+		for _, udpr := range udpRouteList.Items {
+			updateReconcileRequestsForParentRefs(ctx, c, udpr.Spec.ParentRefs, udpr.Namespace, allGatewaysSet, reconcileRequests)
 		}
 
 		// return the keys of the set.

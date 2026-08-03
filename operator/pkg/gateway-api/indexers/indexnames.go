@@ -19,6 +19,9 @@ const (
 	// Indexes TLSRoutes by all the backend Services referenced in the object.
 	BackendServiceTLSRouteIndex = "backendServiceTLSRouteIndex"
 
+	// Indexes TLSRoutes by all the backend ServiceImports referenced in the object.
+	BackendServiceImportTLSRouteIndex = "backendServiceImportTLSRouteIndex"
+
 	// Indexes TLSRoutes by all the Gateway parents referenced in the object.
 	GatewayTLSRouteIndex = "gatewayTLSRouteIndex"
 
@@ -50,11 +53,17 @@ const (
 	// Indexes TCPRoutes by all the backend Services referenced in the object.
 	BackendServiceTCPRouteIndex = "backendServiceTCPRouteIndex"
 
+	// Indexes TCPRoutes by all the backend ServiceImports referenced in the object.
+	BackendServiceImportTCPRouteIndex = "backendServiceImportTCPRouteIndex"
+
 	// Indexes TCPRoutes by all the Gateway parents referenced in the object.
 	GatewayTCPRouteIndex = "gatewayTCPRouteIndex"
 
 	// Indexes UDPRoutes by all the backend Services referenced in the object.
 	BackendServiceUDPRouteIndex = "backendServiceUDPRouteIndex"
+
+	// Indexes UDPRoutes by all the backend ServiceImports referenced in the object.
+	BackendServiceImportUDPRouteIndex = "backendServiceImportUDPRouteIndex"
 
 	// Indexes UDPRoutes by all the Gateway parents referenced in the object.
 	GatewayUDPRouteIndex = "gatewayUDPRouteIndex"
