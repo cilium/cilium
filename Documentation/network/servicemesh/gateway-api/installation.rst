@@ -124,7 +124,7 @@ Once CRDs are installed, use Helm or Cilium CLI to enable Cilium Gateway API con
 
         .. parsed-literal::
 
-            $ cilium upgrade |CHART_VERSION| \\
+            $ cilium upgrade --version |CHART_VERSION| \\
                 --set kubeProxyReplacement=true \\
                 --set gatewayAPI.enabled=true
 

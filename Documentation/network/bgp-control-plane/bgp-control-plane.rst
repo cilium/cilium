@@ -46,7 +46,7 @@ Installation
 
         .. parsed-literal::
 
-            $ cilium install |CHART_VERSION| --set bgpControlPlane.enabled=true
+            $ cilium install --version |CHART_VERSION| --set bgpControlPlane.enabled=true
 
 IPv4/IPv6 single-stack and dual-stack setup are supported. Note that the BGP
 Control Plane can only advertise the route of the address family that the
