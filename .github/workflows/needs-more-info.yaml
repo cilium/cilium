@@ -13,8 +13,36 @@ jobs:
       issues: write
     steps:
       - name: Apply Needs Attention Label
-        uses: hramos/needs-attention@d0eaa7f961c04d4da86466b1176b56e0d4089022 # v2.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
-            repo-token: ${{ secrets.GITHUB_TOKEN }}
-            response-required-label: 'need-more-info'
-            needs-attention-label: 'info-completed'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            const comment = context.payload.comment;
+            if (!issue || !comment) {
+              core.setOutput('result', 'Event does not contain an issue and comment');
+              return;
+            }
+
+            const responseRequiredLabel = 'need-more-info';
+            const needsAttentionLabel = 'info-completed';
+            const labels = issue.labels.map((label) =>
+              typeof label === 'string' ? label : label.name
+            );
+
+            if (!labels.includes(responseRequiredLabel) || issue.user.login !== comment.user.login) {
+              core.setOutput('result', `${context.repo.owner}/${context.repo.repo}#${issue.number} does not need attention`);
+              return;
+            }
+
+            await github.rest.issues.removeLabel({
+              ...context.repo,
+              issue_number: issue.number,
+              name: responseRequiredLabel,
+            });
+            await github.rest.issues.addLabels({
+              ...context.repo,
+              issue_number: issue.number,
+              labels: [needsAttentionLabel],
+            });
+            core.setOutput('result', `${context.repo.owner}/${context.repo.repo}#${issue.number} marked as needing attention`);
