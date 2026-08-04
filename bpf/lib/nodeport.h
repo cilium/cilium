@@ -1465,6 +1465,18 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	if (!backend_local && lb6_svc_is_hostport(svc))
 		return DROP_INVALID;
 
+	if (!backend_local && nodeport_uses_dsr6(svc)) {
+#if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
+		__u32 port = key->dport;
+
+		if (nodeport_need_dsr_info(tuple->nexthdr, &ct_state_svc))
+			port |= NEED_DSR_INFO;
+
+		ctx_store_meta(ctx, CB_PORT, port);
+		ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &key->address);
+#endif
+	}
+
 	if (lb6_svc_is_l7_punt_proxy(svc) && backend_local) {
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 		*punt_to_stack = true;
@@ -1529,14 +1541,6 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		ctx_store_meta(ctx, CB_HINT,
 			       ((__u32)tuple->sport << 16) | tuple->dport);
 		ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &backend->address);
-#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
-		__u32 port = key->dport;
-
-		if (nodeport_need_dsr_info(tuple->nexthdr, &ct_state_svc))
-			port |= NEED_DSR_INFO;
-
-		ctx_store_meta(ctx, CB_PORT, port);
-		ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &key->address);
 #endif /* DSR_ENCAP_MODE */
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR, ext_err);
 	} else {
@@ -2814,6 +2818,18 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		if (!backend_local && lb4_svc_is_hostport(svc))
 			return DROP_INVALID;
 
+		if (!backend_local && nodeport_uses_dsr4(svc)) {
+#if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
+			__u32 port = key->dport;
+
+			if (nodeport_need_dsr_info(tuple->nexthdr, &ct_state_svc))
+				port |= NEED_DSR_INFO;
+
+			ctx_store_meta(ctx, CB_PORT, port);
+			ctx_store_meta(ctx, CB_ADDR_V4, key->address);
+#endif /* DSR_ENCAP_MODE */
+		}
+
 		if (lb4_svc_is_l7_punt_proxy(svc) && backend_local) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			*punt_to_stack = true;
@@ -2903,14 +2919,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		ctx_store_meta(ctx, CB_HINT,
 			       ((__u32)tuple->sport << 16) | tuple->dport);
 		ctx_store_meta(ctx, CB_ADDR_V4, backend->address);
-#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
-		__u32 port = key->dport;
-
-		if (nodeport_need_dsr_info(tuple->nexthdr, &ct_state_svc))
-			port |= NEED_DSR_INFO;
-
-		ctx_store_meta(ctx, CB_PORT, port);
-		ctx_store_meta(ctx, CB_ADDR_V4, key->address);
 #endif /* DSR_ENCAP_MODE */
 		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR, ext_err);
 	}
