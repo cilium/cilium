@@ -34,6 +34,10 @@ type reconcilerMetrics struct {
 	// IDAllocatorFailures tracks the number of times an idAllocator failed to
 	// provide an ID, e.g. if the allocator had consumed its entire range of IDs.
 	IDAllocatorFailures metric.Vec[metric.Counter]
+
+	// IDMappingsPendingRestore tracks address-to-ID mappings restored from BPF
+	// that have not yet been adopted or pruned by the reconciler.
+	IDMappingsPendingRestore metric.Vec[metric.Gauge]
 }
 
 // newReconcilerMetrics returns a pointer to reconcilerMetrics.
@@ -70,6 +74,12 @@ func newReconcilerMetrics() *reconcilerMetrics {
 			Name:      "id_allocation_failures_total",
 			Help:      "Total number of loadbalancer ID allocation failures",
 		}, idAllocTypeLabels),
+		IDMappingsPendingRestore: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: subsystemName,
+			Name:      "id_mappings_pending_restore",
+			Help:      "Number of loadbalancer address-to-ID mappings pending restoration",
+		}, idAllocTypeLabels),
 	}
 }
 
@@ -80,4 +90,8 @@ func newIDAllocatorMetrics(m *reconcilerMetrics, idType string) idAllocatorMetri
 		allocationAttempts: m.IDAllocatorAttempts.WithLabelValues(idType),
 		allocationFailures: m.IDAllocatorFailures.WithLabelValues(idType),
 	}
+}
+
+func (m *reconcilerMetrics) setIDMappingsPendingRestore(idType string, count int) {
+	m.IDMappingsPendingRestore.WithLabelValues(idType).Set(float64(count))
 }
