@@ -204,7 +204,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
     .. group-tab:: Alibaba ACK
 
-        .. include:: ../beta.rst
+        .. include:: /beta.rst
 
         .. note::
 
