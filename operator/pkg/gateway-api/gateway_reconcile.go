@@ -128,10 +128,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid GatewayClass"), original, gw)
 		}
 	}
-	attachedListenerSets := inputs.AttachedListenerSets
-	namespaceLabels := helpers.NewNamespaceLabelIndex(inputs.Namespaces)
-	btlspMap := helpers.BuildBackendTLSPolicyLookup(&gatewayv1.BackendTLSPolicyList{Items: inputs.BackendTLSPolicies})
-	conflictedListeners := conflictsAcrossSources(inputs.MergedListeners)
+
 	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.Annotations[annotation.LBIPAMIPKeyAlias] != "" {
 		scopedLog.WarnContext(ctx, fmt.Sprintf("DEPRECATED: The Gateway <%s/%s> is setting an IP address using the infrastructure annotations <%s>."+
 			" These should be set using the spec.addresses field in Gateway objects instead."+
@@ -176,11 +173,13 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// update helpers above, so it must only be used after route status has been
 	// computed for this reconciliation.
 
+	btlspMap := helpers.BuildBackendTLSPolicyLookup(&gatewayv1.BackendTLSPolicyList{Items: inputs.BackendTLSPolicies})
 	if err := r.setBackendTLSPolicyStatuses(scopedLog, ctx, inputs.AttachedHTTPRoutes(gw), btlspMap, req.NamespacedName); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update BackendTLSPolicy Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
 
+	conflictedListeners := conflictsAcrossSources(inputs.MergedListeners)
 	mergedListeners := filterOutConflictedListeners(inputs.MergedListeners, conflictedListeners)
 	mergedListeners = r.filterOutInvalidListeners(ctx, mergedListeners, inputs.ReferenceGrants)
 
@@ -199,6 +198,8 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		BackendTLSPolicyMap: btlspMap,
 		MergedListeners:     mergedListeners,
 	})
+
+	namespaceLabels := helpers.NewNamespaceLabelIndex(inputs.Namespaces)
 
 	listenersStatus, err := r.setListenerStatus(
 		ctx,
@@ -239,7 +240,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	r.setListenerSetStatuses(
 		ctx,
 		gw,
-		attachedListenerSets,
+		inputs.AttachedListenerSets,
 		conflictedListeners,
 		inputs.DisallowedListenerSets,
 		inputs.HTTPRoutes,
