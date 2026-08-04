@@ -99,30 +99,30 @@ func EnqueueRequestForBackendService(c client.Client, scheme *runtime.Scheme, lo
 
 		// iterate through the HTTPRoutes, update reconcileRequests for each Gateway that is relevant.
 		for _, hr := range hrList.Items {
-			updateReconcileRequestsForParentRefs(ctx, c, hr.Spec.ParentRefs, hr.Namespace, allGatewaysSet, reconcileRequests)
+			helpers.UpdateReconcileRequestsForParentRefs(ctx, c, hr.Spec.ParentRefs, hr.Namespace, allGatewaysSet, reconcileRequests)
 		}
 
 		// iterate through the TLSRoutes, update reconcileRequests for each Gateway that is relevant.
 		for _, tlsr := range tlsrList.Items {
-			updateReconcileRequestsForParentRefs(ctx, c, tlsr.Spec.ParentRefs, tlsr.Namespace, allGatewaysSet, reconcileRequests)
+			helpers.UpdateReconcileRequestsForParentRefs(ctx, c, tlsr.Spec.ParentRefs, tlsr.Namespace, allGatewaysSet, reconcileRequests)
 		}
 
 		// iterate through the GRPCRoutes, update reconcileRequests for each Gateway that is relevant.
 		for _, grpcr := range grpcRouteList.Items {
-			updateReconcileRequestsForParentRefs(ctx, c, grpcr.Spec.ParentRefs, grpcr.Namespace, allGatewaysSet, reconcileRequests)
+			helpers.UpdateReconcileRequestsForParentRefs(ctx, c, grpcr.Spec.ParentRefs, grpcr.Namespace, allGatewaysSet, reconcileRequests)
 		}
 
 		if tcpRouteEnabled {
 			// iterate through the TCPRoutes, update reconcileRequests for each Gateway that is relevant.
 			for _, tcpr := range tcpRouteList.Items {
-				updateReconcileRequestsForParentRefs(ctx, c, tcpr.Spec.ParentRefs, tcpr.Namespace, allGatewaysSet, reconcileRequests)
+				helpers.UpdateReconcileRequestsForParentRefs(ctx, c, tcpr.Spec.ParentRefs, tcpr.Namespace, allGatewaysSet, reconcileRequests)
 			}
 		}
 
 		if udpRouteEnabled {
 			// iterate through the UDPRoutes, update reconcileRequests for each Gateway that is relevant.
 			for _, udpr := range udpRouteList.Items {
-				updateReconcileRequestsForParentRefs(ctx, c, udpr.Spec.ParentRefs, udpr.Namespace, allGatewaysSet, reconcileRequests)
+				helpers.UpdateReconcileRequestsForParentRefs(ctx, c, udpr.Spec.ParentRefs, udpr.Namespace, allGatewaysSet, reconcileRequests)
 			}
 		}
 
@@ -201,19 +201,19 @@ func EnqueueRequestForBackendServiceImport(c client.Client, logger slog.Logger, 
 
 		// Iterate through matching routes and return a reconcile.Request for each relevant Gateway.
 		for _, hr := range hrList.Items {
-			updateReconcileRequestsForParentRefs(ctx, c, hr.Spec.ParentRefs, hr.Namespace, allGatewaysSet, reconcileRequests)
+			helpers.UpdateReconcileRequestsForParentRefs(ctx, c, hr.Spec.ParentRefs, hr.Namespace, allGatewaysSet, reconcileRequests)
 		}
 		for _, grpcr := range grpcRouteList.Items {
-			updateReconcileRequestsForParentRefs(ctx, c, grpcr.Spec.ParentRefs, grpcr.Namespace, allGatewaysSet, reconcileRequests)
+			helpers.UpdateReconcileRequestsForParentRefs(ctx, c, grpcr.Spec.ParentRefs, grpcr.Namespace, allGatewaysSet, reconcileRequests)
 		}
 		for _, tlsr := range tlsRouteList.Items {
-			updateReconcileRequestsForParentRefs(ctx, c, tlsr.Spec.ParentRefs, tlsr.Namespace, allGatewaysSet, reconcileRequests)
+			helpers.UpdateReconcileRequestsForParentRefs(ctx, c, tlsr.Spec.ParentRefs, tlsr.Namespace, allGatewaysSet, reconcileRequests)
 		}
 		for _, tcpr := range tcpRouteList.Items {
-			updateReconcileRequestsForParentRefs(ctx, c, tcpr.Spec.ParentRefs, tcpr.Namespace, allGatewaysSet, reconcileRequests)
+			helpers.UpdateReconcileRequestsForParentRefs(ctx, c, tcpr.Spec.ParentRefs, tcpr.Namespace, allGatewaysSet, reconcileRequests)
 		}
 		for _, udpr := range udpRouteList.Items {
-			updateReconcileRequestsForParentRefs(ctx, c, udpr.Spec.ParentRefs, udpr.Namespace, allGatewaysSet, reconcileRequests)
+			helpers.UpdateReconcileRequestsForParentRefs(ctx, c, udpr.Spec.ParentRefs, udpr.Namespace, allGatewaysSet, reconcileRequests)
 		}
 
 		// return the keys of the set.
