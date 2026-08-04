@@ -10,7 +10,7 @@
 VXLAN Tunnel Endpoint (VTEP) Integration (beta)
 ***********************************************
 
-.. include:: ../beta.rst
+.. include:: /beta.rst
 
 The VTEP integration allows third party VTEP devices to send and receive traffic to
 and from Cilium-managed pods directly using VXLAN. This allows for example external

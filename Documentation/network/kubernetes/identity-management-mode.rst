@@ -28,7 +28,7 @@ reliability of network policies and cluster scalability.
 Enable Identity Management by the Cilium Operator (Beta)
 =========================================================
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst
 
 The Cilium Agents manage CIDs by default. This section describes the steps necessary for enabling CID management by the Cilium Operator.
 
