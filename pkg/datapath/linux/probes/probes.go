@@ -699,16 +699,6 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 		ProgramHelpers: make(map[ProgramHelper]bool),
 	}
 
-	progHelpers := []ProgramHelper{
-		// xdp related probes
-		{ebpf.XDP, asm.FnXdpGetBuffLen},
-		{ebpf.XDP, asm.FnXdpLoadBytes},
-		{ebpf.XDP, asm.FnXdpStoreBytes},
-	}
-	for _, ph := range progHelpers {
-		probes.ProgramHelpers[ph] = (HaveProgramHelper(logger, ph.Program, ph.Helper) == nil)
-	}
-
 	return &probes
 }
 
@@ -728,11 +718,7 @@ func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
 
 // writeXdpHeader defines macros for bpf/include/bpf/features_xdp.h
 func writeXdpHeader(writer io.Writer, probes *FeatureProbes) error {
-	featuresXdp := map[string]bool{
-		"HAVE_XDP_GET_BUFF_LEN": probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpGetBuffLen}],
-		"HAVE_XDP_LOAD_BYTES":   probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpLoadBytes}],
-		"HAVE_XDP_STORE_BYTES":  probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpStoreBytes}],
-	}
+	featuresXdp := map[string]bool{}
 
 	return writeFeatureHeader(writer, featuresXdp, false)
 }

@@ -32,9 +32,8 @@
 /* This must be a mask and all offsets guaranteed to be less than that. */
 #define __CTX_OFF_MAX			0xff
 
-#ifndef HAVE_XDP_LOAD_BYTES
 static __always_inline __maybe_unused int
-xdp_load_bytes(const struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
+xdp_load_bytes_asm(const struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 {
 	void *from;
 	int ret;
@@ -60,12 +59,19 @@ xdp_load_bytes(const struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 		memcpy(to, from, len);
 	return ret;
 }
-#endif
 
-#ifndef HAVE_XDP_STORE_BYTES
 static __always_inline __maybe_unused int
-xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
-		const __u64 len, __u64 flags __maybe_unused)
+ctx_load_bytes(const struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
+{
+	if (bpf_core_enum_value_exists(enum bpf_func_id, BPF_FUNC_xdp_load_bytes))
+		return xdp_load_bytes(ctx, (__u32)off, to, (__u32)len);
+
+	return xdp_load_bytes_asm(ctx, off, to, len);
+}
+
+static __always_inline __maybe_unused int
+xdp_store_bytes_asm(const struct xdp_md *ctx, __u64 off, const void *from,
+		    const __u64 len, __u64 flags __maybe_unused)
 {
 	void *to;
 	int ret;
@@ -88,10 +94,17 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 		memcpy(to, from, len);
 	return ret;
 }
-#endif
 
-#define ctx_load_bytes			xdp_load_bytes
-#define ctx_store_bytes			xdp_store_bytes
+static __always_inline __maybe_unused int
+ctx_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
+		const __u64 len, __u64 flags)
+{
+	if (bpf_core_enum_value_exists(enum bpf_func_id, BPF_FUNC_xdp_store_bytes))
+		return xdp_store_bytes((struct xdp_md *)ctx, (__u32)off, from,
+				       (__u32)len, flags);
+
+	return xdp_store_bytes_asm(ctx, off, from, len, flags);
+}
 
 /* Fyi, remapping to stubs helps to assert that the code is not in
  * use since it otherwise triggers a verifier error.
@@ -357,15 +370,8 @@ ctx_redirect_peer(const struct xdp_md *ctx __maybe_unused,
 	__throw_build_bug();
 }
 
-#ifdef HAVE_XDP_GET_BUFF_LEN
 static __always_inline __maybe_unused __u64
-ctx_full_len(const struct xdp_md *ctx)
-{
-	return xdp_get_buff_len((struct xdp_md *)ctx);
-}
-#else
-static __always_inline __maybe_unused __u64
-ctx_full_len(const struct xdp_md *ctx)
+xdp_full_len_asm(const struct xdp_md *ctx)
 {
 	__u64 len;
 	/* Compute the length using inline assembly as clang
@@ -381,7 +387,15 @@ ctx_full_len(const struct xdp_md *ctx)
 		     : "r1", "r2");
 	return len;
 }
-#endif
+
+static __always_inline __maybe_unused __u64
+ctx_full_len(const struct xdp_md *ctx)
+{
+	if (bpf_core_enum_value_exists(enum bpf_func_id, BPF_FUNC_xdp_get_buff_len))
+		return xdp_get_buff_len((struct xdp_md *)ctx);
+
+	return xdp_full_len_asm(ctx);
+}
 
 static __always_inline __maybe_unused __u32
 ctx_wire_len(const struct xdp_md *ctx)
