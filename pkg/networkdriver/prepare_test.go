@@ -187,7 +187,7 @@ func buildGeneratedPrepClaim(devices ...string) *resourceapi.ResourceClaim {
 }
 
 // buildPrepDriver builds a *Driver with a fake kube client and the given
-// devices pre-populated in driver.devices.
+// devices pre-populated as a mock device manager.
 func buildPrepDriver(t *testing.T, cs *k8sClient.FakeClientset, devs ...*trackedDevice) *Driver {
 	t.Helper()
 
@@ -218,8 +218,8 @@ func buildPrepDriver(t *testing.T, cs *k8sClient.FakeClientset, devs ...*tracked
 		config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
 			DriverName: prepTestDriverName,
 		},
-		devices: map[types.DeviceManagerType][]types.Device{
-			types.DeviceManagerTypeMock: deviceList,
+		deviceManagers: map[types.DeviceManagerType]types.DeviceManager{
+			types.DeviceManagerTypeMock: &mockDeviceManager{devices: deviceList},
 		},
 		allocations: make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
 	}

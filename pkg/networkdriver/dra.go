@@ -497,11 +497,15 @@ func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string,
 	alloc := allocation{Config: cfg}
 
 	var found bool
-	for mgr, devices := range driver.devices {
+	for mgrType, mgr := range driver.deviceManagers {
+		devices, err := mgr.ListDevices()
+		if err != nil {
+			return alloc, fmt.Errorf("failed to list devices from manager %s: %w", mgrType, err)
+		}
 		if i := slices.IndexFunc(devices, func(dev types.Device) bool {
 			return dev.IfName() == result.Device
 		}); i >= 0 {
-			alloc.Manager = mgr
+			alloc.Manager = mgrType
 			alloc.Device = devices[i]
 			found = true
 			break
