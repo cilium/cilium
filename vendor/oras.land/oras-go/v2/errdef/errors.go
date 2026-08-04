@@ -26,6 +26,7 @@ var (
 	ErrMissingReference   = errors.New("missing reference")
 	ErrNotFound           = errors.New("not found")
 	ErrSizeExceedsLimit   = errors.New("size exceeds limit")
+	ErrTooManyPages       = errors.New("too many pages")
 	ErrUnsupported        = errors.New("unsupported")
 	ErrUnsupportedVersion = errors.New("unsupported version")
 )

@@ -2791,7 +2791,7 @@ k8s.io/utils/net
 k8s.io/utils/ptr
 k8s.io/utils/third_party/forked/golang/btree
 k8s.io/utils/trace
-# oras.land/oras-go/v2 v2.6.1
+# oras.land/oras-go/v2 v2.6.2
 ## explicit; go 1.25.0
 oras.land/oras-go/v2
 oras.land/oras-go/v2/content
