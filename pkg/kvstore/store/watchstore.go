@@ -41,7 +41,7 @@ type WatchStore interface {
 // by WatchStore implementations.
 type WatchStoreBackend interface {
 	// ListAndWatch creates a new watcher for the given prefix after listing the existing keys.
-	ListAndWatch(ctx context.Context, prefix string) kvstore.EventChan
+	ListAndWatch(ctx context.Context, prefix string, opts ...kvstore.ListAndWatchOption) kvstore.EventChan
 }
 
 type RWSOpt func(*restartableWatchStore)
