@@ -89,33 +89,33 @@ int check(struct __ctx_buff *ctx, bool ipv4)
 	test_finish();
 }
 
-PKTGEN("tc", "do_decrypt4")
+PKTGEN(PROG_TYPE, "do_decrypt4")
 static __always_inline int
 do_decrypt4_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, true);
 }
 
-CHECK("tc", "do_decrypt4")
+CHECK(PROG_TYPE, "do_decrypt4")
 int do_decrypt4_check(struct __ctx_buff *ctx)
 {
 	return check(ctx, true);
 }
 
-PKTGEN("tc", "do_decrypt6")
+PKTGEN(PROG_TYPE, "do_decrypt6")
 static __always_inline int
 do_decrypt6_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, false);
 }
 
-CHECK("tc", "do_decrypt6")
+CHECK(PROG_TYPE, "do_decrypt6")
 int do_decrypt6_check(struct __ctx_buff *ctx)
 {
 	return check(ctx, false);
 }
 
-CHECK("tc", "ctx_is_encrypt_success")
+CHECK(PROG_TYPE, "ctx_is_encrypt_success")
 int check2(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -129,7 +129,7 @@ int check2(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "ctx_is_decrypt_success")
+CHECK(PROG_TYPE, "ctx_is_decrypt_success")
 int check3(struct __ctx_buff *ctx)
 {
 	test_init();

@@ -156,13 +156,13 @@ pktgen_from_overlay(struct __ctx_buff *ctx, bool syn, bool ack)
 	return 0;
 }
 
-PKTGEN("tc", "01_to_overlay_syn")
+PKTGEN(PROG_TYPE, "01_to_overlay_syn")
 int to_overlay_syn_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_to_overlay(ctx, true, false);
 }
 
-SETUP("tc", "01_to_overlay_syn")
+SETUP(PROG_TYPE, "01_to_overlay_syn")
 int to_overlay_syn_setup(struct __ctx_buff *ctx)
 {
 	/* Emulate input from bpf_lxc */
@@ -171,7 +171,7 @@ int to_overlay_syn_setup(struct __ctx_buff *ctx)
 	return overlay_send_packet(ctx);
 }
 
-CHECK("tc", "01_to_overlay_syn")
+CHECK(PROG_TYPE, "01_to_overlay_syn")
 int to_overlay_syn_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -256,13 +256,13 @@ int to_overlay_syn_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "02_from_overlay_synack")
+PKTGEN(PROG_TYPE, "02_from_overlay_synack")
 int from_overlay_synack_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_from_overlay(ctx, true, true);
 }
 
-SETUP("tc", "02_from_overlay_synack")
+SETUP(PROG_TYPE, "02_from_overlay_synack")
 int from_overlay_synack_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(CLIENT_IP, CLIENT_IFINDEX, 0, 0, 0, 0,
@@ -271,7 +271,7 @@ int from_overlay_synack_setup(struct __ctx_buff *ctx)
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "02_from_overlay_synack")
+CHECK(PROG_TYPE, "02_from_overlay_synack")
 int from_overlay_synack_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -355,13 +355,13 @@ int from_overlay_synack_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "03_to_overlay_ack")
+PKTGEN(PROG_TYPE, "03_to_overlay_ack")
 int to_overlay_ack_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_to_overlay(ctx, false, true);
 }
 
-SETUP("tc", "03_to_overlay_ack")
+SETUP(PROG_TYPE, "03_to_overlay_ack")
 int to_overlay_ack_setup(struct __ctx_buff *ctx)
 {
 	/* Emulate input from bpf_lxc */
@@ -370,7 +370,7 @@ int to_overlay_ack_setup(struct __ctx_buff *ctx)
 	return overlay_send_packet(ctx);
 }
 
-CHECK("tc", "03_to_overlay_ack")
+CHECK(PROG_TYPE, "03_to_overlay_ack")
 int to_overlay_ack_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

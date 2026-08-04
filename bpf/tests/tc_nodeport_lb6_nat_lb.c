@@ -170,7 +170,7 @@ ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
  * - gets DNATed (but not SNATed)
  * - gets redirected by TC (as BPF Host Routing is enabled)
  */
-PKTGEN("tc", "tc_nodeport_local_backend")
+PKTGEN(PROG_TYPE, "tc_nodeport_local_backend")
 int nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = CLIENT_IP;
@@ -196,7 +196,7 @@ int nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_local_backend")
+SETUP(PROG_TYPE, "tc_nodeport_local_backend")
 int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip_local = FRONTEND_IP_LOCAL;
@@ -215,7 +215,7 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_local_backend")
+CHECK(PROG_TYPE, "tc_nodeport_local_backend")
 int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = CLIENT_IP;
@@ -275,7 +275,7 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 }
 
 /* Test that a reply by the local backend gets revDNATed at to-netdev. */
-PKTGEN("tc", "tc_nodeport_local_backend_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_local_backend_reply")
 int nodeport_local_backend_reply_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip_local = BACKEND_IP_LOCAL;
@@ -301,13 +301,13 @@ int nodeport_local_backend_reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_local_backend_reply")
+SETUP(PROG_TYPE, "tc_nodeport_local_backend_reply")
 int nodeport_local_backend_reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_local_backend_reply")
+CHECK(PROG_TYPE, "tc_nodeport_local_backend_reply")
 int nodeport_local_backend_reply_check(const struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip_local = FRONTEND_IP_LOCAL;
@@ -367,7 +367,7 @@ int nodeport_local_backend_reply_check(const struct __ctx_buff *ctx)
 /* Same scenario as above, but for a different CLIENT_IP_2. Here replies
  * should leave via a non-default interface.
  */
-PKTGEN("tc", "tc_nodeport_local_backend_redirect")
+PKTGEN(PROG_TYPE, "tc_nodeport_local_backend_redirect")
 int nodeport_local_backend_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip_2 = CLIENT_IP_2;
@@ -393,7 +393,7 @@ int nodeport_local_backend_redirect_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_local_backend_redirect")
+SETUP(PROG_TYPE, "tc_nodeport_local_backend_redirect")
 int nodeport_local_backend_redirect_setup(struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip_local = BACKEND_IP_LOCAL;
@@ -404,7 +404,7 @@ int nodeport_local_backend_redirect_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_local_backend_redirect")
+CHECK(PROG_TYPE, "tc_nodeport_local_backend_redirect")
 int nodeport_local_backend_redirect_check(const struct __ctx_buff *ctx)
 {
 	union v6addr client_ip_2 = CLIENT_IP_2;
@@ -466,7 +466,7 @@ int nodeport_local_backend_redirect_check(const struct __ctx_buff *ctx)
 /* Test that to-netdev respects the routing needed for CLIENT_IP_2,
  * and redirects the packet to the correct egress interface.
  */
-PKTGEN("tc", "tc_nodeport_local_backend_redirect_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_local_backend_redirect_reply")
 int nodeport_local_backend_redirect_reply_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip_local = BACKEND_IP_LOCAL;
@@ -492,13 +492,13 @@ int nodeport_local_backend_redirect_reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_local_backend_redirect_reply")
+SETUP(PROG_TYPE, "tc_nodeport_local_backend_redirect_reply")
 int nodeport_local_backend_redirect_reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_local_backend_redirect_reply")
+CHECK(PROG_TYPE, "tc_nodeport_local_backend_redirect_reply")
 int nodeport_local_backend_redirect_reply_check(const struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip_local = BACKEND_IP_LOCAL;
@@ -559,7 +559,7 @@ int nodeport_local_backend_redirect_reply_check(const struct __ctx_buff *ctx)
  * - gets DNATed (but not SNATed)
  * - gets redirected by TC (as BPF Host Routing is enabled)
  */
-PKTGEN("tc", "tc_nodeport_udp_local_backend")
+PKTGEN(PROG_TYPE, "tc_nodeport_udp_local_backend")
 int nodeport_udp_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = CLIENT_IP;
@@ -585,7 +585,7 @@ int nodeport_udp_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_udp_local_backend")
+SETUP(PROG_TYPE, "tc_nodeport_udp_local_backend")
 int nodeport_udp_local_backend_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip_local = FRONTEND_IP_LOCAL;
@@ -602,7 +602,7 @@ int nodeport_udp_local_backend_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_udp_local_backend")
+CHECK(PROG_TYPE, "tc_nodeport_udp_local_backend")
 int nodeport_udp_local_backend_check(const struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = CLIENT_IP;
@@ -665,7 +665,7 @@ int nodeport_udp_local_backend_check(const struct __ctx_buff *ctx)
  * - gets DNATed and SNATed,
  * - gets redirected back out by TC
  */
-PKTGEN("tc", "tc_nodeport_nat_fwd")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_fwd")
 int nodeport_nat_fwd_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = CLIENT_IP;
@@ -691,7 +691,7 @@ int nodeport_nat_fwd_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_nat_fwd")
+SETUP(PROG_TYPE, "tc_nodeport_nat_fwd")
 int nodeport_nat_fwd_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip_remote = FRONTEND_IP_REMOTE;
@@ -707,7 +707,7 @@ int nodeport_nat_fwd_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_fwd")
+CHECK(PROG_TYPE, "tc_nodeport_nat_fwd")
 int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	union v6addr lb_ip = LB_IP;
@@ -838,19 +838,19 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 /* Test that the LB RevDNATs and RevSNATs a reply from the
  * NAT remote backend, and sends it back to the client.
  */
-PKTGEN("tc", "tc_nodeport_nat_fwd_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_fwd_reply")
 int nodeport_nat_fwd_reply_pktgen(struct __ctx_buff *ctx)
 {
 	return build_reply(ctx);
 }
 
-SETUP("tc", "tc_nodeport_nat_fwd_reply")
+SETUP(PROG_TYPE, "tc_nodeport_nat_fwd_reply")
 int nodeport_nat_fwd_reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_fwd_reply")
+CHECK(PROG_TYPE, "tc_nodeport_nat_fwd_reply")
 int nodeport_nat_fwd_reply_check(const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
@@ -860,13 +860,13 @@ int nodeport_nat_fwd_reply_check(const struct __ctx_buff *ctx)
  * NAT remote backend, and sends it back to the client.
  * Even if the FIB lookup fails.
  */
-PKTGEN("tc", "tc_nodeport_nat_fwd_reply_no_fib")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_fwd_reply_no_fib")
 int nodeport_nat_fwd_reply_no_fib_pktgen(struct __ctx_buff *ctx)
 {
 	return build_reply(ctx);
 }
 
-SETUP("tc", "tc_nodeport_nat_fwd_reply_no_fib")
+SETUP(PROG_TYPE, "tc_nodeport_nat_fwd_reply_no_fib")
 int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 {
 	__u32 key = 0;
@@ -878,7 +878,7 @@ int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_fwd_reply_no_fib")
+CHECK(PROG_TYPE, "tc_nodeport_nat_fwd_reply_no_fib")
 int nodeport_nat_fwd_reply_no_fib_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
@@ -894,13 +894,13 @@ int nodeport_nat_fwd_reply_no_fib_check(__maybe_unused const struct __ctx_buff *
  * Test that the LB fails to RevDNAT and RevSNAT a reply from the
  * NAT remote backend when its Rev NAT entry gets deleted
  */
-PKTGEN("tc", "tc_nodeport_nat_fwd_reply_punt")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_fwd_reply_punt")
 int nodeport_nat_fwd_reply_punt_pktgen(struct __ctx_buff *ctx)
 {
 	return build_reply(ctx);
 }
 
-SETUP("tc", "tc_nodeport_nat_fwd_reply_punt")
+SETUP(PROG_TYPE, "tc_nodeport_nat_fwd_reply_punt")
 int nodeport_nat_fwd_reply_punt_setup(struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip_remote = BACKEND_IP_REMOTE;
@@ -931,7 +931,7 @@ int nodeport_nat_fwd_reply_punt_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_fwd_reply_punt")
+CHECK(PROG_TYPE, "tc_nodeport_nat_fwd_reply_punt")
 int nodeport_nat_fwd_reply_punt_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -957,7 +957,7 @@ int nodeport_nat_fwd_reply_punt_check(const struct __ctx_buff *ctx)
  * - gets DNATed and SNATed,
  * - gets redirected back out by TC
  */
-PKTGEN("tc", "tc_nodeport_nat_fwd_restore")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_fwd_restore")
 int nodeport_nat_fwd_restore_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = CLIENT_IP;
@@ -983,7 +983,7 @@ int nodeport_nat_fwd_restore_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_nat_fwd_restore")
+SETUP(PROG_TYPE, "tc_nodeport_nat_fwd_restore")
 int nodeport_nat_fwd_restore_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip_remote = FRONTEND_IP_REMOTE;
@@ -999,7 +999,7 @@ int nodeport_nat_fwd_restore_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_fwd_restore")
+CHECK(PROG_TYPE, "tc_nodeport_nat_fwd_restore")
 int nodeport_nat_fwd_restore_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	union v6addr lb_ip = LB_IP;
@@ -1052,19 +1052,19 @@ int nodeport_nat_fwd_restore_check(__maybe_unused const struct __ctx_buff *ctx)
 /* Test that the restored LB RevDNATs and RevSNATs a reply from the
  * NAT remote backend, and sends it back to the client.
  */
-PKTGEN("tc", "tc_nodeport_nat_fwd_restore_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_fwd_restore_reply")
 int nodeport_nat_fwd_restore_reply_pktgen(struct __ctx_buff *ctx)
 {
 	return build_reply(ctx);
 }
 
-SETUP("tc", "tc_nodeport_nat_fwd_restore_reply")
+SETUP(PROG_TYPE, "tc_nodeport_nat_fwd_restore_reply")
 int nodeport_nat_fwd_restore_reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_fwd_restore_reply")
+CHECK(PROG_TYPE, "tc_nodeport_nat_fwd_restore_reply")
 int nodeport_nat_fwd_restore_reply_check(const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
@@ -1081,7 +1081,7 @@ int nodeport_nat_fwd_restore_reply_check(const struct __ctx_buff *ctx)
  * Test that source port is changed when the Original NAT entry is deleted.
  * (ReSNATed)
  */
-PKTGEN("tc", "tc_nodeport_nat_fwd_original_renated")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_fwd_original_renated")
 int nodeport_nat_fwd_original_renated_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = CLIENT_IP;
@@ -1107,7 +1107,7 @@ int nodeport_nat_fwd_original_renated_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_nat_fwd_original_renated")
+SETUP(PROG_TYPE, "tc_nodeport_nat_fwd_original_renated")
 int nodeport_nat_fwd_original_renated_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip_remote = FRONTEND_IP_REMOTE;
@@ -1136,7 +1136,7 @@ int nodeport_nat_fwd_original_renated_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_fwd_original_renated")
+CHECK(PROG_TYPE, "tc_nodeport_nat_fwd_original_renated")
 int nodeport_nat_fwd_original_renated_check(const struct __ctx_buff *ctx)
 {
 	union v6addr lb_ip = LB_IP;
@@ -1197,13 +1197,13 @@ int nodeport_nat_fwd_original_renated_check(const struct __ctx_buff *ctx)
  * NAT remote backend, and sends it back to the client. And expects
  * the Original NAT entry to be restored.
  */
-PKTGEN("tc", "tc_nodeport_nat_fwd_restore_original_entry")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_fwd_restore_original_entry")
 int nodeport_nat_fwd_restore_original_entry_pktgen(struct __ctx_buff *ctx)
 {
 	return build_reply(ctx);
 }
 
-SETUP("tc", "tc_nodeport_nat_fwd_restore_original_entry")
+SETUP(PROG_TYPE, "tc_nodeport_nat_fwd_restore_original_entry")
 int nodeport_nat_fwd_restore_original_entry_setup(struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip_remote = BACKEND_IP_REMOTE;
@@ -1224,7 +1224,7 @@ int nodeport_nat_fwd_restore_original_entry_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_fwd_restore_original_entry")
+CHECK(PROG_TYPE, "tc_nodeport_nat_fwd_restore_original_entry")
 int nodeport_nat_fwd_restore_original_entry_check(struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
@@ -1235,7 +1235,7 @@ int nodeport_nat_fwd_restore_original_entry_check(struct __ctx_buff *ctx)
  * - gets redirected back out by TC
  * - verifies that the Original NAT entry is restored.
  */
-PKTGEN("tc", "tc_nodeport_nat_fwd_verify_restored_original_entry")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_fwd_verify_restored_original_entry")
 int nodeport_nat_fwd_verify_restored_original_entry_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = CLIENT_IP;
@@ -1261,7 +1261,7 @@ int nodeport_nat_fwd_verify_restored_original_entry_pktgen(struct __ctx_buff *ct
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_nat_fwd_verify_restored_original_entry")
+SETUP(PROG_TYPE, "tc_nodeport_nat_fwd_verify_restored_original_entry")
 int nodeport_nat_fwd_verify_restored_original_entry_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip_remote = FRONTEND_IP_REMOTE;
@@ -1276,7 +1276,7 @@ int nodeport_nat_fwd_verify_restored_original_entry_setup(struct __ctx_buff *ctx
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_fwd_verify_restored_original_entry")
+CHECK(PROG_TYPE, "tc_nodeport_nat_fwd_verify_restored_original_entry")
 int nodeport_nat_fwd_verify_restored_original_entry_check(struct __ctx_buff *ctx)
 {
 	union v6addr lb_ip = LB_IP;
@@ -1339,7 +1339,7 @@ int nodeport_nat_fwd_verify_restored_original_entry_check(struct __ctx_buff *ctx
 /* Test that a request to svc2 (FRONTEND_IP_REMOTE_2), which shares the same
  * backend as svc1, is correctly forwarded.
  */
-PKTGEN("tc", "tc_nodeport_nat_shared_backend_fwd")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_shared_backend_fwd")
 int gh10983_svc2_fwd_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = CLIENT_IP;
@@ -1365,7 +1365,7 @@ int gh10983_svc2_fwd_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_nat_shared_backend_fwd")
+SETUP(PROG_TYPE, "tc_nodeport_nat_shared_backend_fwd")
 int gh10983_svc2_fwd_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip_remote_2 = FRONTEND_IP_REMOTE_2;
@@ -1382,7 +1382,7 @@ int gh10983_svc2_fwd_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_shared_backend_fwd")
+CHECK(PROG_TYPE, "tc_nodeport_nat_shared_backend_fwd")
 int gh10983_svc2_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	union v6addr lb_ip = LB_IP;
@@ -1432,19 +1432,19 @@ int gh10983_svc2_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 /* Test that the reply from the shared backend is rev-NATed to svc2
  * (FRONTEND_IP_REMOTE_2), not svc1.
  */
-PKTGEN("tc", "tc_nodeport_nat_shared_backend_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_shared_backend_reply")
 int gh10983_svc2_reply_pktgen(struct __ctx_buff *ctx)
 {
 	return build_reply(ctx);
 }
 
-SETUP("tc", "tc_nodeport_nat_shared_backend_reply")
+SETUP(PROG_TYPE, "tc_nodeport_nat_shared_backend_reply")
 int gh10983_svc2_reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_shared_backend_reply")
+CHECK(PROG_TYPE, "tc_nodeport_nat_shared_backend_reply")
 int gh10983_svc2_reply_check(const struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip_remote_2 = FRONTEND_IP_REMOTE_2;

@@ -21,7 +21,7 @@ ASSIGN_CONFIG(bool, policy_deny_response_enabled, true)
 #define CLIENT_IP v4_pod_one
 #define TARGET_IP v4_ext_one
 
-PKTGEN("tc", "policy_reject_response_v4")
+PKTGEN(PROG_TYPE, "policy_reject_response_v4")
 int policy_reject_response_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -48,7 +48,7 @@ int policy_reject_response_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "policy_reject_response_v4")
+SETUP(PROG_TYPE, "policy_reject_response_v4")
 int policy_reject_response_setup(struct __ctx_buff *ctx)
 {
 	/* Add endpoint for source */
@@ -64,7 +64,7 @@ int policy_reject_response_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "policy_reject_response_v4")
+CHECK(PROG_TYPE, "policy_reject_response_v4")
 int policy_reject_response_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -142,7 +142,7 @@ validate_icmpv6_reply_return(const struct __ctx_buff *ctx, __u32 retval)
 	return validate_icmpv6_reply(&args);
 }
 
-PKTGEN("tc", "policy_reject_response_v6")
+PKTGEN(PROG_TYPE, "policy_reject_response_v6")
 int policy_reject_response_v6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -170,7 +170,7 @@ int policy_reject_response_v6_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "policy_reject_response_v6")
+SETUP(PROG_TYPE, "policy_reject_response_v6")
 int policy_reject_response_v6_setup(struct __ctx_buff *ctx)
 {
 	/* Add endpoint for source */
@@ -186,7 +186,7 @@ int policy_reject_response_v6_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "policy_reject_response_v6")
+CHECK(PROG_TYPE, "policy_reject_response_v6")
 int policy_reject_response_v6_check(const struct __ctx_buff *ctx)
 {
 	/* we should have a redirect of the packet on the same interface. */
@@ -196,14 +196,14 @@ int policy_reject_response_v6_check(const struct __ctx_buff *ctx)
 /*
  * Test that the ICMP error message goes back into the pod
  */
-PKTGEN("tc", "policy_reject_response_v6_ingress")
+PKTGEN(PROG_TYPE, "policy_reject_response_v6_ingress")
 int policy_reject_response_v6_ingress_pktgen(struct __ctx_buff *ctx)
 {
 	/* Start with the initial request, and let SETUP() below rebuild it. */
 	return policy_reject_response_v6_pktgen(ctx);
 }
 
-SETUP("tc", "policy_reject_response_v6_ingress")
+SETUP(PROG_TYPE, "policy_reject_response_v6_ingress")
 int policy_reject_response_v6_ingress_setup(struct __ctx_buff *ctx)
 {
 	if (generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_ADM_PROHIBITED))
@@ -212,7 +212,7 @@ int policy_reject_response_v6_ingress_setup(struct __ctx_buff *ctx)
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "policy_reject_response_v6_ingress")
+CHECK(PROG_TYPE, "policy_reject_response_v6_ingress")
 int policy_reject_response_v6_ingress_check(const struct __ctx_buff *ctx)
 {
 	return validate_icmpv6_reply_return(ctx, TC_ACT_SHOT);
