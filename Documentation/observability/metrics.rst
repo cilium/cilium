@@ -493,6 +493,18 @@ Name                                       Labels                               
 ``service_implementation_delay``           ``action``                                         Enabled    Duration in seconds to propagate the data plane programming of a service, its network and endpoints from the time the service or the service pod was changed excluding the event queue latency
 ========================================== ================================================== ========== ========================================================
 
+Load-balancer
+~~~~~~~~~~~~~
+
+============================================== =============================== =========== ===================================================================
+Name                                           Labels                          Default     Description
+============================================== =============================== =========== ===================================================================
+``loadbalancer_id_capacity``                   ``type``                        Enabled     Number of loadbalancer IDs in the allocation range
+``loadbalancer_id_allocations``                ``type``                        Enabled     Number of loadbalancer IDs currently allocated
+``loadbalancer_id_allocation_attempts_total``  ``type``                        Enabled     Total number of loadbalancer ID allocation attempts
+``loadbalancer_id_allocation_failures_total``  ``type``                        Enabled     Total number of loadbalancer ID allocation failures
+============================================== =============================== =========== ===================================================================
+
 Cluster health
 ~~~~~~~~~~~~~~
 

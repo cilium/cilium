@@ -119,6 +119,7 @@ type BPFOps struct {
 	maglev        *maglev.Maglev
 	lastUpdatedAt atomic.Pointer[time.Time]
 	pruneCount    atomic.Int32
+	metrics       *reconcilerMetrics
 
 	// mu protects the state below. The reconciler itself is single-threaded, but we need
 	// to protect the state in order to be able to ResetAndRestore() in tests.
@@ -188,6 +189,7 @@ type bpfOpsParams struct {
 	DB             *statedb.DB
 	NodeAddresses  statedb.Table[tables.NodeAddress]
 	Frontends      statedb.Table[*loadbalancer.Frontend]
+	Metrics        *reconcilerMetrics
 }
 
 const (
@@ -206,6 +208,7 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 		db:        p.DB,
 		nodeAddrs: p.NodeAddresses,
 		frontends: p.Frontends,
+		metrics:   p.Metrics,
 	}
 	ops.setLastUpdatedAt()
 
@@ -230,9 +233,17 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.mu.Lock()
 	defer ops.mu.Unlock()
 
-	ops.serviceIDAlloc = newIDAllocator(firstFreeServiceID, maxSetOfServiceID)
+	ops.serviceIDAlloc = newIDAllocator(
+		firstFreeServiceID,
+		maxSetOfServiceID,
+		newIDAllocatorMetrics(ops.metrics, idAllocTypeService),
+	)
 	ops.restoredServiceIDs = map[loadbalancer.L3n4Addr]loadbalancer.ServiceID{}
-	ops.backendIDAlloc = newIDAllocator(firstFreeBackendID, maxSetOfBackendID)
+	ops.backendIDAlloc = newIDAllocator(
+		firstFreeBackendID,
+		maxSetOfBackendID,
+		newIDAllocatorMetrics(ops.metrics, idAllocTypeBackend),
+	)
 	ops.restoredBackendIDs = map[loadbalancer.L3n4Addr]loadbalancer.BackendID{}
 	ops.backendStates = map[loadbalancer.L3n4Addr]backendState{}
 	ops.backendReferences = map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{}
