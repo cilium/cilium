@@ -458,7 +458,7 @@ use a :ref:`CiliumCIDRGroup` to reduce identity usage.
 Selecting nodes with CIDR / ipBlock
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst
 
 By default, CIDR-based selectors do not match in-cluster entities (pods or nodes).
 Optionally, you can direct the policy engine to select nodes by CIDR / ipBlock.
