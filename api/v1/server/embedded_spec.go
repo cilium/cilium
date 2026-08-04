@@ -3243,7 +3243,7 @@ func init() {
           "description": "List of CIDRs out of which IPs are allocated",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/CIDR"
           }
         },
         "expiration-uuid": {
@@ -3252,7 +3252,7 @@ func init() {
         },
         "gateway": {
           "description": "IP of gateway",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         },
         "interface-number": {
           "description": "InterfaceNumber is a field for generically identifying an interface. This is only useful in ENI mode.\n",
@@ -3260,7 +3260,7 @@ func init() {
         },
         "ip": {
           "description": "Allocated IP for endpoint",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         },
         "master-mac": {
           "description": "MAC of master interface if address is a slave/secondary of a master interface",
@@ -8712,7 +8712,7 @@ func init() {
           "description": "List of CIDRs out of which IPs are allocated",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/CIDR"
           }
         },
         "expiration-uuid": {
@@ -8721,7 +8721,7 @@ func init() {
         },
         "gateway": {
           "description": "IP of gateway",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         },
         "interface-number": {
           "description": "InterfaceNumber is a field for generically identifying an interface. This is only useful in ENI mode.\n",
@@ -8729,7 +8729,7 @@ func init() {
         },
         "ip": {
           "description": "Allocated IP for endpoint",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         },
         "master-mac": {
           "description": "MAC of master interface if address is a slave/secondary of a master interface",

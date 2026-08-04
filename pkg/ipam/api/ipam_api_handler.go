@@ -19,23 +19,13 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	cslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-func prefixesToStrings(prefixes []netip.Prefix) []string {
-	return cslices.Map(prefixes, func(p netip.Prefix) string { return p.String() })
-}
-
-func gatewayString(addr netip.Addr) string {
-	if !addr.IsValid() {
-		return ""
-	}
-	return addr.String()
-}
 
 type IpamDeleteIpamIPHandler struct {
 	IPAM            *ipam.IPAM
@@ -80,10 +70,10 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 		resp.Address.IPv4 = ipv4Result.IP.String()
 		resp.Address.IPv4PoolName = ipv4Result.IPPoolName.String()
 		resp.IPv4 = &models.IPAMAddressResponse{
-			Cidrs:           prefixesToStrings(ipv4Result.CIDRs),
-			IP:              ipv4Result.IP.String(),
+			Cidrs:           cslices.Map(ipv4Result.CIDRs, iputil.PrefixFrom),
+			IP:              iputil.AddrFrom(ipv4Result.IP),
 			MasterMac:       ipv4Result.PrimaryMAC,
-			Gateway:         gatewayString(ipv4Result.GatewayIP),
+			Gateway:         iputil.AddrFrom(ipv4Result.GatewayIP),
 			ExpirationUUID:  ipv4Result.ExpirationUUID,
 			InterfaceNumber: ipv4Result.InterfaceNumber,
 			SkipMasquerade:  ipv4Result.SkipMasquerade,
@@ -94,10 +84,10 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 		resp.Address.IPv6 = ipv6Result.IP.String()
 		resp.Address.IPv6PoolName = ipv6Result.IPPoolName.String()
 		resp.IPv6 = &models.IPAMAddressResponse{
-			Cidrs:           prefixesToStrings(ipv6Result.CIDRs),
-			IP:              ipv6Result.IP.String(),
+			Cidrs:           cslices.Map(ipv6Result.CIDRs, iputil.PrefixFrom),
+			IP:              iputil.AddrFrom(ipv6Result.IP),
 			MasterMac:       ipv6Result.PrimaryMAC,
-			Gateway:         gatewayString(ipv6Result.GatewayIP),
+			Gateway:         iputil.AddrFrom(ipv6Result.GatewayIP),
 			ExpirationUUID:  ipv6Result.ExpirationUUID,
 			InterfaceNumber: ipv6Result.InterfaceNumber,
 			SkipMasquerade:  ipv6Result.SkipMasquerade,

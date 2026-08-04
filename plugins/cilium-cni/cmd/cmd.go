@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/hooks"
@@ -254,8 +255,8 @@ func allocateIPsWithDelegatedPlugin(
 			if conf.Addressing.IPv4 != nil {
 				ipam.Address.IPv4 = ipNet.String()
 				ipam.IPv4 = &models.IPAMAddressResponse{
-					IP:              ipNet.IP.String(),
-					Gateway:         ipConfig.Gateway.String(),
+					IP:              iputil.AddrFrom(iputil.AddrFromIP(ipNet.IP)),
+					Gateway:         iputil.AddrFrom(iputil.AddrFromIP(ipConfig.Gateway)),
 					MasterMac:       masterMac,
 					InterfaceNumber: "0",
 				}
@@ -264,8 +265,8 @@ func allocateIPsWithDelegatedPlugin(
 			if conf.Addressing.IPv6 != nil {
 				ipam.Address.IPv6 = ipNet.String()
 				ipam.IPv6 = &models.IPAMAddressResponse{
-					IP:              ipNet.IP.String(),
-					Gateway:         ipConfig.Gateway.String(),
+					IP:              iputil.AddrFrom(iputil.AddrFromIP(ipNet.IP)),
+					Gateway:         iputil.AddrFrom(iputil.AddrFromIP(ipConfig.Gateway)),
 					MasterMac:       masterMac,
 					InterfaceNumber: "0",
 				}

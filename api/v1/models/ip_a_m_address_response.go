@@ -8,8 +8,12 @@ package models
 import (
 	"context"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
+
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
+	"github.com/go-openapi/swag/typeutils"
 )
 
 // IPAMAddressResponse IPAM configuration of an individual address family
@@ -18,7 +22,7 @@ import (
 type IPAMAddressResponse struct {
 
 	// List of CIDRs out of which IPs are allocated
-	Cidrs []string `json:"cidrs"`
+	Cidrs []iputil.Prefix `json:"cidrs"`
 
 	// The UUID for the expiration timer. Set when expiration has been
 	// enabled while allocating.
@@ -26,14 +30,14 @@ type IPAMAddressResponse struct {
 	ExpirationUUID string `json:"expiration-uuid,omitempty"`
 
 	// IP of gateway
-	Gateway string `json:"gateway,omitempty"`
+	Gateway iputil.Addr `json:"gateway,omitzero"`
 
 	// InterfaceNumber is a field for generically identifying an interface. This is only useful in ENI mode.
 	//
 	InterfaceNumber string `json:"interface-number,omitempty"`
 
 	// Allocated IP for endpoint
-	IP string `json:"ip,omitempty"`
+	IP iputil.Addr `json:"ip,omitzero"`
 
 	// MAC of master interface if address is a slave/secondary of a master interface
 	MasterMac string `json:"master-mac,omitempty"`
@@ -45,6 +49,23 @@ type IPAMAddressResponse struct {
 
 // Validate validates this IP a m address response
 func (m *IPAMAddressResponse) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateCidrs(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *IPAMAddressResponse) validateCidrs(formats strfmt.Registry) error {
+	if typeutils.IsZero(m.Cidrs) { // not required
+		return nil
+	}
+
 	return nil
 }
 
