@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
+	"github.com/cilium/cilium/pkg/cidr"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -273,4 +274,61 @@ func TestAzureIPMasq(t *testing.T) {
 	)
 
 	ipMasqAgent.Stop()
+}
+
+func TestAutoDetectIPv4NativeRoutingCIDR(t *testing.T) {
+	newStore := func(t *testing.T, nativeCIDR string) *nodeStore {
+		return &nodeStore{
+			logger: hivetest.Logger(t),
+			conf: &option.DaemonConfig{
+				IPv4NativeRoutingCIDR: cidr.MustParseCIDR(nativeCIDR),
+			},
+			ownNode: &ciliumv2.CiliumNode{
+				Status: ciliumv2.NodeStatus{
+					Azure: azureTypes.AzureStatus{
+						Interfaces: []azureTypes.AzureInterface{
+							{
+								ID:   "azure-interface-1",
+								Name: "eth0",
+								Subnet: azureTypes.AzureSubnet{
+									ID:   "subnet-1",
+									CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.10.0.0/16")),
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("accepts a native routing CIDR that is a subnet of the VNet CIDR", func(t *testing.T) {
+		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+		require.True(t, newStore(t, "10.10.64.0/19").autoDetectIPv4NativeRoutingCIDR(localNodeStore))
+
+		localNode, err := localNodeStore.Get(t.Context())
+		require.NoError(t, err)
+		// Should NOT have been written since the config already has a value.
+		require.Nil(t, localNode.Local.IPv4NativeRoutingCIDR)
+	})
+
+	t.Run("accepts a native routing CIDR that is a supernet of the VNet CIDR", func(t *testing.T) {
+		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+		require.True(t, newStore(t, "10.0.0.0/8").autoDetectIPv4NativeRoutingCIDR(localNodeStore))
+
+		localNode, err := localNodeStore.Get(t.Context())
+		require.NoError(t, err)
+		require.Nil(t, localNode.Local.IPv4NativeRoutingCIDR)
+	})
+
+	t.Run("uses the autodetected primary CIDR when unset", func(t *testing.T) {
+		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+		n := newStore(t, "10.10.0.0/16")
+		n.conf.IPv4NativeRoutingCIDR = nil
+		require.True(t, n.autoDetectIPv4NativeRoutingCIDR(localNodeStore))
+
+		localNode, err := localNodeStore.Get(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, "10.10.0.0/16", localNode.Local.IPv4NativeRoutingCIDR.String())
+	})
 }
