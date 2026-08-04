@@ -164,6 +164,7 @@ run_linter() {
     # Filter out the AttributeError reports that are due to a bug in rstcheck,
     # see https://github.com/rstcheck/rstcheck-core/issues/3.
     rstcheck \
+        --sphinx-source-dir "${script_dir}" \
         --report-level info \
         --ignore-languages "bash,c" \
         --ignore-messages "${ignored_messages}" \
