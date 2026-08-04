@@ -16,6 +16,7 @@ limitations under the License.
 package content
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -24,11 +25,15 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// maxDescriptorSize is the upper-bound for descriptor sizes accepted by
-// ReadAll. Descriptors sourced from attacker-supplied OCI layouts can carry
-// arbitrarily large Size values; without this cap, make([]byte, desc.Size)
-// triggers a runtime panic before any allocation occurs.
-const maxDescriptorSize = 32 * 1024 * 1024 // 32 MiB
+// maxInitialBufferSize bounds the buffer that ReadAll pre-allocates from
+// desc.Size before any content is read. desc.Size is attacker-controllable: a
+// crafted OCI layout index.json can declare an arbitrarily large Size (e.g.
+// 2^62), and make([]byte, desc.Size) on such a value triggers a runtime panic
+// ("makeslice: len out of range") before any allocation occurs. ReadAll caps
+// the initial allocation at this value and grows the buffer as it reads, so the
+// declared size is never trusted for allocation while legitimately large
+// content (e.g. plugin or chart layers) is still read in full.
+const maxInitialBufferSize = 32 * 1024 * 1024 // 32 MiB
 
 var (
 	// ErrInvalidDescriptorSize is returned by ReadAll() when
@@ -125,22 +130,32 @@ func NewVerifyReader(r io.Reader, desc ocispec.Descriptor) *VerifyReader {
 // The read content is verified against the size and the digest
 // using a VerifyReader.
 func ReadAll(r io.Reader, desc ocispec.Descriptor) ([]byte, error) {
-	if desc.Size < 0 || desc.Size > maxDescriptorSize {
+	if desc.Size < 0 {
 		return nil, ErrInvalidDescriptorSize
 	}
-	buf := make([]byte, desc.Size)
 
 	vr := NewVerifyReader(r, desc)
-	if n, err := io.ReadFull(vr, buf); err != nil {
+
+	// Do not pre-allocate desc.Size directly: it is attacker-controllable and a
+	// forged value (e.g. 2^62) would panic make(). Cap the initial allocation
+	// and let the buffer grow as content is read. The VerifyReader enforces the
+	// declared size and digest, so a size that does not match the actual content
+	// still fails verification rather than over-allocating.
+	initialCap := desc.Size
+	if initialCap > maxInitialBufferSize {
+		initialCap = maxInitialBufferSize
+	}
+	buf := bytes.NewBuffer(make([]byte, 0, initialCap))
+	if _, err := buf.ReadFrom(vr); err != nil {
 		if errors.Is(err, io.ErrUnexpectedEOF) {
-			return nil, fmt.Errorf("read failed: expected content size of %d, got %d, for digest %s: %w", desc.Size, n, desc.Digest.String(), err)
+			return nil, fmt.Errorf("read failed: expected content size of %d, got %d, for digest %s: %w", desc.Size, buf.Len(), desc.Digest.String(), err)
 		}
 		return nil, fmt.Errorf("read failed: %w", err)
 	}
 	if err := vr.Verify(); err != nil {
 		return nil, err
 	}
-	return buf, nil
+	return buf.Bytes(), nil
 }
 
 // ensureEOF ensures the read operation ends with an EOF and no
