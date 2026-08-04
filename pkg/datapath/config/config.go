@@ -82,10 +82,12 @@ type Config struct {
 	AllocCIDRIPv6 *cidr.CIDR
 
 	// NativeRoutingCIDRIPv4 is the v4 CIDR in which pod IPs are routable.
-	NativeRoutingCIDRIPv4 *cidr.CIDR
+	// +deepequal-gen=false
+	NativeRoutingCIDRIPv4 netip.Prefix
 
 	// NativeRoutingCIDRIPv6 is the v4 CIDR in which pod IPs are routable.
-	NativeRoutingCIDRIPv6 *cidr.CIDR
+	// +deepequal-gen=false
+	NativeRoutingCIDRIPv6 netip.Prefix
 
 	// LoopbackIPv4 is the source address used for SNAT when a Pod talks to itself
 	// over a Service.
@@ -272,7 +274,7 @@ func (cfg *Config) DeepEqual(other *Config) bool {
 	if other == nil {
 		return false
 	}
-	// Manually compare netip.Addr fields
+	// Manually compare netip.Addr and netip.Prefix fields
 	if cfg.NodeIPv4 != other.NodeIPv4 {
 		return false
 	}
@@ -289,6 +291,12 @@ func (cfg *Config) DeepEqual(other *Config) bool {
 		return false
 	}
 	if cfg.ServiceLoopbackIPv6 != other.ServiceLoopbackIPv6 {
+		return false
+	}
+	if cfg.NativeRoutingCIDRIPv4 != other.NativeRoutingCIDRIPv4 {
+		return false
+	}
+	if cfg.NativeRoutingCIDRIPv6 != other.NativeRoutingCIDRIPv6 {
 		return false
 	}
 	// Call generated `deepEqual` method which compares all other fields

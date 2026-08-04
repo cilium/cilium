@@ -74,22 +74,6 @@ func (in *Config) deepEqual(other *Config) bool {
 		}
 	}
 
-	if (in.NativeRoutingCIDRIPv4 == nil) != (other.NativeRoutingCIDRIPv4 == nil) {
-		return false
-	} else if in.NativeRoutingCIDRIPv4 != nil {
-		if !in.NativeRoutingCIDRIPv4.DeepEqual(other.NativeRoutingCIDRIPv4) {
-			return false
-		}
-	}
-
-	if (in.NativeRoutingCIDRIPv6 == nil) != (other.NativeRoutingCIDRIPv6 == nil) {
-		return false
-	} else if in.NativeRoutingCIDRIPv6 != nil {
-		if !in.NativeRoutingCIDRIPv6.DeepEqual(other.NativeRoutingCIDRIPv6) {
-			return false
-		}
-	}
-
 	if ((in.Devices != nil) && (other.Devices != nil)) || ((in.Devices == nil) != (other.Devices == nil)) {
 		in, other := &in.Devices, &other.Devices
 		if other == nil {
