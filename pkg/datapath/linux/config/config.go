@@ -19,10 +19,8 @@ import (
 	"text/template"
 
 	"github.com/vishvananda/netlink"
-	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -376,43 +374,40 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 			cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
 
 			// ip-masq-agent depends on bpf-masq
-			var excludeCIDR *cidr.CIDR
+			var excludeCIDR netip.Prefix
 			if option.Config.EnableIPMasqAgent {
 				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
 
 				// native-routing-cidr is optional with ip-masq-agent and may be unset
-				if option.Config.IPv4NativeRoutingCIDR.IsValid() {
-					excludeCIDR = cidr.NewCIDR(netipx.PrefixIPNet(option.Config.IPv4NativeRoutingCIDR))
-				}
+				excludeCIDR = option.Config.IPv4NativeRoutingCIDR
 			} else {
 				excludeCIDR = cfg.NativeRoutingCIDRIPv4
 			}
 
-			if excludeCIDR != nil {
-				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(excludeCIDR.IP))
-				ones, _ := excludeCIDR.Mask.Size()
-				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
+			if excludeCIDR.IsValid() {
+				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(excludeCIDR.Addr()))
+				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", excludeCIDR.Bits())
 			}
 		}
 		if option.Config.EnableIPv6Masquerade {
 			cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
 
-			var excludeCIDR *cidr.CIDR
+			var excludeCIDR netip.Prefix
 			if option.Config.EnableIPMasqAgent {
 				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
 
-				if option.Config.IPv6NativeRoutingCIDR.IsValid() {
-					excludeCIDR = cidr.NewCIDR(netipx.PrefixIPNet(option.Config.IPv6NativeRoutingCIDR))
-				}
+				excludeCIDR = option.Config.IPv6NativeRoutingCIDR
 			} else {
 				excludeCIDR = cfg.NativeRoutingCIDRIPv6
 			}
 
-			if excludeCIDR != nil {
-				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR"] = excludeCIDR.IP.String()
-				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR", excludeCIDR.IP))
-				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR_MASK"] = excludeCIDR.Mask.String()
-				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", excludeCIDR.Mask))
+			if excludeCIDR.IsValid() {
+				addr := excludeCIDR.Addr().AsSlice()
+				mask := net.CIDRMask(excludeCIDR.Bits(), excludeCIDR.Addr().BitLen())
+				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR"] = excludeCIDR.Addr().String()
+				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR", addr))
+				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR_MASK"] = mask.String()
+				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", mask))
 			}
 		}
 	}
