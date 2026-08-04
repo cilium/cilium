@@ -1576,6 +1576,7 @@ func newBPFOpsLeakTestFixture(
 		DB:             db,
 		NodeAddresses:  nodeAddrs,
 		Frontends:      frontends,
+		Metrics:        newReconcilerMetrics(),
 	})
 
 	return bpfOpsLeakTestFixture{ops: ops, db: db, lbmaps: lbmaps}
@@ -1981,6 +1982,7 @@ func TestBPFOps(t *testing.T) {
 			DB:             db,
 			NodeAddresses:  nodeAddrs,
 			Frontends:      frontends,
+			Metrics:        newReconcilerMetrics(),
 		})
 
 		svc := baseService
@@ -2162,6 +2164,7 @@ func TestBPFOps(t *testing.T) {
 					DB:             db,
 					NodeAddresses:  nodeAddrs,
 					Frontends:      frontends,
+					Metrics:        newReconcilerMetrics(),
 				}
 
 				ops := newBPFOps(p)
@@ -2189,6 +2192,7 @@ func TestBPFOps(t *testing.T) {
 				DB:             db,
 				NodeAddresses:  nodeAddrs,
 				Frontends:      frontends,
+				Metrics:        newReconcilerMetrics(),
 			}
 			ops := newBPFOps(p)
 			runTests(ops, setWithAlgo.testCaseSet, setWithAlgo.algo, addr, true)
