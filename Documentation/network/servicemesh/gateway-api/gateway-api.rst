@@ -77,7 +77,7 @@ Cilium's Gateway API features:
    access-logs
    listenerset
 
-More examples can be found in the `upstream repository <GATEWAY_API_EXAMPLES_URL_>`_.
+More examples can be found in the :gateway-api-scm:`upstream repository <examples>`.
 
 Troubleshooting
 ###############
