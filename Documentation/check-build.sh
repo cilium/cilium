@@ -159,6 +159,7 @@ run_linter() {
     ignored_messages="${ignored_messages}|Duplicate implicit target name:"
     ignored_messages="${ignored_messages}|\(ERROR/3\) Indirect hyperlink target \".*\"  refers to target \"${CONF_PY_TARGET_NAMES}\", which does not exist."
     ignored_messages="${ignored_messages}|\(ERROR/3\) Unknown target name: \"${CONF_PY_TARGET_NAMES}\"."
+    ignored_messages="${ignored_messages}|.*expected a single document in the stream.*"
     ignored_messages="${ignored_messages})"
     # Filter out the AttributeError reports that are due to a bug in rstcheck,
     # see https://github.com/rstcheck/rstcheck-core/issues/3.
