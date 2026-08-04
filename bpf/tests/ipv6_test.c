@@ -223,7 +223,7 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	test_finish();
 }
 
-CHECK("tc", "test_ipv6_sol_mc_helpers")
+CHECK(PROG_TYPE, "test_ipv6_sol_mc_helpers")
 int test_ipv6_sol_mc_helpers(__maybe_unused struct __ctx_buff *ctx)
 {
 	union macaddr mac = {{0}};
