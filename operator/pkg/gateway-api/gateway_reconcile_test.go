@@ -128,6 +128,12 @@ func Test_Conformance(t *testing.T) {
 			},
 		},
 		{
+			name: "gateway-rejected-gatewayclass",
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-rejected-gatewayclass", Namespace: "gateway-conformance-infra"}, skipCEC: true},
+			},
+		},
+		{
 			name: "gateway-invalid-route-kind",
 			gateway: []gwDetails{
 				{FullName: types.NamespacedName{Name: "gateway-only-invalid-route-kind", Namespace: "gateway-conformance-infra"}, wantErr: true},

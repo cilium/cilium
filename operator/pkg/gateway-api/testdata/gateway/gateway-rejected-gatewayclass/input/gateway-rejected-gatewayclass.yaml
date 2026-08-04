@@ -1,0 +1,32 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: rejected
+spec:
+  controllerName: io.cilium/gateway-controller
+  description: A GatewayClass rejected by the GatewayClass reconciler
+  parametersRef:
+    group: cilium.io
+    kind: CiliumGatewayClassConfig
+    name: does-not-exist
+    namespace: gateway-conformance-infra
+status:
+  conditions:
+    - lastTransitionTime: "2025-07-01T05:06:15Z"
+      message: Referenced CiliumGatewayClassConfig does not exist
+      observedGeneration: 0
+      reason: InvalidParameters
+      status: "False"
+      type: Accepted
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-rejected-gatewayclass
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: rejected
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP

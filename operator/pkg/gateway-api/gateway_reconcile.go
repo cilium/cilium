@@ -18,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
@@ -88,8 +89,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		scopedLog.ErrorContext(ctx, "Unable to get GatewayClass",
 			gatewayClass, gw.Spec.GatewayClassName,
 			logfields.Error, err)
-		// Doing nothing till the GatewayClass is available and matching controller name
-		return controllerruntime.Success()
+		return controllerruntime.Fail(err)
 	}
 
 	if string(gwc.Spec.ControllerName) != r.controllerName {
@@ -110,18 +110,16 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid Gateway"), original, gw)
 	}
 
-	if ref := gwc.Spec.ParametersRef; ref != nil {
-		if !isParameterRefSupported(ref) {
-			setGatewayAccepted(gw, false, "Invalid GatewayClass parameters: spec.parametersRef.kind must be CiliumGatewayClassConfig", gatewayv1.GatewayReasonInvalidParameters)
-			setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
-			return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid GatewayClass"), original, gw)
-		}
+	// Ensure the GatewayClass has been accepted.
+	if cond := meta.FindStatusCondition(gwc.Status.Conditions, string(gatewayv1.GatewayClassConditionStatusAccepted)); cond != nil &&
+		cond.Status == metav1.ConditionFalse {
+		scopedLog.ErrorContext(ctx, "GatewayClass is not accepted",
+			gatewayClass, gw.Spec.GatewayClassName,
+			logfields.Reason, cond.Message)
 
-		if !hasNamespacedName(ref) {
-			setGatewayAccepted(gw, false, "Invalid GatewayClass parametersRef: both name and namespace are required", gatewayv1.GatewayReasonInvalidParameters)
-			setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
-			return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid GatewayClass"), original, gw)
-		}
+		setGatewayAccepted(gw, false, cond.Message, gatewayv1.GatewayReasonInvalidParameters)
+		setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
+		return r.successWithStatus(ctx, original, gw)
 	}
 
 	grants := &gatewayv1.ReferenceGrantList{}
@@ -349,9 +347,17 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Fail(err)
 	}
 
+	gwcConfig, err := r.getGatewayClassConfig(ctx, gwc)
+	if err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to get CiliumGatewayClassConfig referenced by GatewayClass",
+			gatewayClass, gwc.GetName(),
+			logfields.Error, err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	}
+
 	m := ingestion.GatewayAPI(scopedLog, ingestion.Input{
 		GatewayClass:        *gwc,
-		GatewayClassConfig:  r.getGatewayClassConfig(ctx, gwc),
+		GatewayClassConfig:  gwcConfig,
 		Gateway:             *gw,
 		HTTPRoutes:          httpRoutes,
 		TLSRoutes:           tlsRoutes,
@@ -959,12 +965,11 @@ func (r *gatewayReconciler) filterGRPCRoutesByListener(ctx context.Context, gw *
 }
 
 // getGatewayClassConfig returns the CiliumGatewayClassConfig referenced by the GatewayClass.
-// If the GatewayClass does not reference a CiliumGatewayClassConfig, it returns nil.
-func (r *gatewayReconciler) getGatewayClassConfig(ctx context.Context, gwc *gatewayv1.GatewayClass) *v2alpha1.CiliumGatewayClassConfig {
-	if gwc.Spec.ParametersRef == nil ||
-		gwc.Spec.ParametersRef.Group != v2alpha1.CustomResourceDefinitionGroup ||
-		gwc.Spec.ParametersRef.Kind != v2alpha1.CGCCKindDefinition {
-		return nil
+// If the GatewayClass does not reference a CiliumGatewayClassConfig, it returns a nil config
+// and a nil error.
+func (r *gatewayReconciler) getGatewayClassConfig(ctx context.Context, gwc *gatewayv1.GatewayClass) (*v2alpha1.CiliumGatewayClassConfig, error) {
+	if !hasNamespacedName(gwc.Spec.ParametersRef) {
+		return nil, nil
 	}
 
 	key := client.ObjectKey{
@@ -974,12 +979,9 @@ func (r *gatewayReconciler) getGatewayClassConfig(ctx context.Context, gwc *gate
 
 	res := &v2alpha1.CiliumGatewayClassConfig{}
 	if err := r.Client.Get(ctx, key, res); err != nil {
-		r.logger.ErrorContext(ctx, "Failed to get CiliumGatewayClassConfig",
-			logfields.Resource, key,
-			logfields.Error, err)
-		return nil
+		return nil, fmt.Errorf("failed to get CiliumGatewayClassConfig %s: %w", key, err)
 	}
-	return res
+	return res, nil
 }
 
 func parentRefMatched(gw *gatewayv1.Gateway, listener *gatewayv1.Listener, listenerSource *model.FullyQualifiedResource, routeNamespace string, refs []gatewayv1.ParentReference) bool {
@@ -1547,6 +1549,13 @@ func (r *gatewayReconciler) handleReconcileErrorWithStatus(ctx context.Context, 
 	}
 
 	return controllerruntime.Fail(reconcileErr)
+}
+
+func (r *gatewayReconciler) successWithStatus(ctx context.Context, original *gatewayv1.Gateway, modified *gatewayv1.Gateway) (ctrl.Result, error) {
+	if err := r.updateStatus(ctx, original, modified); err != nil {
+		return controllerruntime.Fail(fmt.Errorf("failed to update Gateway status: %w", err))
+	}
+	return controllerruntime.Success()
 }
 
 func (r *gatewayReconciler) verifyGatewayStaticAddresses(gw *gatewayv1.Gateway) error {
