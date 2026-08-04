@@ -1515,7 +1515,7 @@
    * - :spelling:ignore:`endpointPolicyUpdateTimeoutDuration`
      - Max duration to wait for envoy to respond to configuration changes. Default "10s".
      - string
-     - ``nil``
+     - ``""``
    * - :spelling:ignore:`endpointRoutes.enabled`
      - Enable use of per endpoint routes instead of routing via the cilium_host interface.
      - bool
