@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -513,14 +512,6 @@ func (n *Node) validate() error {
 		return errors.New("cluster is unset")
 	case n.Name == "":
 		return errors.New("name is unset")
-	}
-
-	// Skip the ClusterID check if it matches the local one, as we assume that
-	// it has already been validated, and to allow it to be zero.
-	if n.ClusterID != option.Config.ClusterID {
-		if err := cmtypes.ValidateClusterID(n.ClusterID); err != nil {
-			return err
-		}
 	}
 
 	return nil
