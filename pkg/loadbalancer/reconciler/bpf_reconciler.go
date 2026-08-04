@@ -239,12 +239,16 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 		newIDAllocatorMetrics(ops.metrics, idAllocTypeService),
 	)
 	ops.restoredServiceIDs = map[loadbalancer.L3n4Addr]loadbalancer.ServiceID{}
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
+
 	ops.backendIDAlloc = newIDAllocator(
 		firstFreeBackendID,
 		maxSetOfBackendID,
 		newIDAllocatorMetrics(ops.metrics, idAllocTypeBackend),
 	)
 	ops.restoredBackendIDs = map[loadbalancer.L3n4Addr]loadbalancer.BackendID{}
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeBackend, len(ops.restoredBackendIDs))
+
 	ops.backendStates = map[loadbalancer.L3n4Addr]backendState{}
 	ops.backendReferences = map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{}
 	ops.wildcardReferences = map[netip.Addr][]loadbalancer.ServiceID{}
@@ -270,6 +274,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 		}
 		ops.backendIDAlloc.nextID = max(ops.backendIDAlloc.nextID, key.GetID()+1)
 	})
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeBackend, len(ops.restoredBackendIDs))
 	if err != nil {
 		return fmt.Errorf("restore backend ids: %w", err)
 	}
@@ -336,6 +341,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 			}
 		}
 	}
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
 	return nil
 }
 
@@ -650,7 +656,9 @@ func (ops *BPFOps) pruneBackendMaps() error {
 
 func (ops *BPFOps) pruneRestoredIDs() error {
 	ops.restoredServiceIDs = nil
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
 	ops.restoredBackendIDs = nil
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeBackend, len(ops.restoredBackendIDs))
 	return nil
 }
 
@@ -899,6 +907,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		feID = id
 		ops.serviceIDAlloc.addID(fe.Address, id)
 		delete(ops.restoredServiceIDs, fe.Address)
+		ops.metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
 	} else {
 		var err error
 		feID, err = ops.serviceIDAlloc.acquireLocalID(fe.Address)
@@ -1005,6 +1014,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 				beID = id
 				ops.backendIDAlloc.addID(be.Address, id)
 				delete(ops.restoredBackendIDs, be.Address)
+				ops.metrics.setIDMappingsPendingRestore(idAllocTypeBackend, len(ops.restoredBackendIDs))
 			} else {
 				var err error
 				beID, err = ops.backendIDAlloc.acquireLocalID(be.Address)
