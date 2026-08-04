@@ -503,6 +503,7 @@ Name                                           Labels                          D
 ``loadbalancer_id_allocations``                ``type``                        Enabled     Number of loadbalancer IDs currently allocated
 ``loadbalancer_id_allocation_attempts_total``  ``type``                        Enabled     Total number of loadbalancer ID allocation attempts
 ``loadbalancer_id_allocation_failures_total``  ``type``                        Enabled     Total number of loadbalancer ID allocation failures
+``loadbalancer_id_mappings_pending_restore``   ``type``                        Enabled     Number of loadbalancer address-to-ID mappings pending restoration
 ============================================== =============================== =========== ===================================================================
 
 Cluster health
