@@ -186,8 +186,8 @@ func TestPrepareResourceClaim(t *testing.T) {
 			config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
 				DriverName: "testdriver",
 			},
-			devices: map[types.DeviceManagerType][]types.Device{
-				types.DeviceManagerTypeMock: {&trackedDevice{name: "mydevice"}},
+			deviceManagers: map[types.DeviceManagerType]types.DeviceManager{
+				types.DeviceManagerTypeMock: &mockDeviceManager{devices: []types.Device{&trackedDevice{name: "mydevice"}}},
 			},
 			allocations: make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
 		}
