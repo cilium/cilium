@@ -4,11 +4,9 @@ allowed-teams:
 triggers:
   /default:
     workflows:
-    - conformance-kind-proxy-embedded.yaml
     - tests-smoke-conformance.yaml
     - tests-smoke-ipv6.yaml
     - tests-cifuzz.yaml
-    - conformance-kubespray.yaml
     - k8s-kind-network-e2e.yaml
     - lint-images-base.yaml
     - k8s-kind-network-policies-e2e.yaml
@@ -26,7 +24,9 @@ triggers:
     - conformance-ingress.yaml
     - conformance-l3-l4.yaml
     - conformance-l7.yaml
+    - conformance-kind-proxy-embedded.yaml
     - conformance-kpr.yaml
+    - conformance-kubespray.yaml
     - conformance-multi-pool.yaml
     - conformance-race.yaml
     - conformance-runtime.yaml
