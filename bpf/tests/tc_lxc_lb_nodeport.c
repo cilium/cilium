@@ -86,7 +86,7 @@ ASSIGN_CONFIG(union v6addr, endpoint_ipv6, { .addr = v6_pod_one_addr })
  * - Connection tracking entry should be created with
  * - nat_addr = REMOTE_NODE_IP and nat_port = NODEPORT_PORT
  */
-PKTGEN("tc", "tc_lxc_v4_remote_nodeport_local_backend")
+PKTGEN(PROG_TYPE, "tc_lxc_v4_remote_nodeport_local_backend")
 int lxc_v4_remote_nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -111,7 +111,7 @@ int lxc_v4_remote_nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v4_remote_nodeport_local_backend")
+SETUP(PROG_TYPE, "tc_lxc_v4_remote_nodeport_local_backend")
 int lxc_v4_remote_nodeport_local_backend_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -131,7 +131,7 @@ int lxc_v4_remote_nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v4_remote_nodeport_local_backend")
+CHECK(PROG_TYPE, "tc_lxc_v4_remote_nodeport_local_backend")
 int lxc_v4_remote_nodeport_local_backend_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -207,7 +207,7 @@ int lxc_v4_remote_nodeport_local_backend_check(const struct __ctx_buff *ctx)
  * - Client pod's cil_to_container receives it
  * - RevNAT applied: src IP/port changed to REMOTE_NODE_IP:NODEPORT_PORT
  */
-PKTGEN("tc", "tc_lxc_v4_remote_nodeport_local_backend_reply")
+PKTGEN(PROG_TYPE, "tc_lxc_v4_remote_nodeport_local_backend_reply")
 int lxc_v4_remote_nodeport_local_backend_reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -232,7 +232,7 @@ int lxc_v4_remote_nodeport_local_backend_reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v4_remote_nodeport_local_backend_reply")
+SETUP(PROG_TYPE, "tc_lxc_v4_remote_nodeport_local_backend_reply")
 int lxc_v4_remote_nodeport_local_backend_reply_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(CLIENT_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
@@ -241,7 +241,7 @@ int lxc_v4_remote_nodeport_local_backend_reply_setup(struct __ctx_buff *ctx)
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v4_remote_nodeport_local_backend_reply")
+CHECK(PROG_TYPE, "tc_lxc_v4_remote_nodeport_local_backend_reply")
 int lxc_v4_remote_nodeport_local_backend_reply_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -299,7 +299,7 @@ int lxc_v4_remote_nodeport_local_backend_reply_check(const struct __ctx_buff *ct
  * - Connection tracking entry should be created with
  * - nat_addr = REMOTE_NODE_IP and nat_port = NODEPORT_PORT_DSR
  */
-PKTGEN("tc", "tc_lxc_v4_remote_nodeport_dsr_local_backend")
+PKTGEN(PROG_TYPE, "tc_lxc_v4_remote_nodeport_dsr_local_backend")
 int lxc_v4_remote_nodeport_dsr_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -324,7 +324,7 @@ int lxc_v4_remote_nodeport_dsr_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v4_remote_nodeport_dsr_local_backend")
+SETUP(PROG_TYPE, "tc_lxc_v4_remote_nodeport_dsr_local_backend")
 int lxc_v4_remote_nodeport_dsr_local_backend_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
@@ -345,7 +345,7 @@ int lxc_v4_remote_nodeport_dsr_local_backend_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v4_remote_nodeport_dsr_local_backend")
+CHECK(PROG_TYPE, "tc_lxc_v4_remote_nodeport_dsr_local_backend")
 int lxc_v4_remote_nodeport_dsr_local_backend_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -421,7 +421,7 @@ int lxc_v4_remote_nodeport_dsr_local_backend_check(const struct __ctx_buff *ctx)
  * - Client pod's cil_to_container receives it
  * - RevNAT applied: src IP/port changed to REMOTE_NODE_IP:NODEPORT_PORT_DSR
  */
-PKTGEN("tc", "tc_lxc_v4_remote_nodeport_dsr_local_backend_reply")
+PKTGEN(PROG_TYPE, "tc_lxc_v4_remote_nodeport_dsr_local_backend_reply")
 int lxc_v4_remote_nodeport_dsr_local_backend_reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -446,7 +446,7 @@ int lxc_v4_remote_nodeport_dsr_local_backend_reply_pktgen(struct __ctx_buff *ctx
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v4_remote_nodeport_dsr_local_backend_reply")
+SETUP(PROG_TYPE, "tc_lxc_v4_remote_nodeport_dsr_local_backend_reply")
 int lxc_v4_remote_nodeport_dsr_local_backend_reply_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(CLIENT_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
@@ -455,7 +455,7 @@ int lxc_v4_remote_nodeport_dsr_local_backend_reply_setup(struct __ctx_buff *ctx)
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v4_remote_nodeport_dsr_local_backend_reply")
+CHECK(PROG_TYPE, "tc_lxc_v4_remote_nodeport_dsr_local_backend_reply")
 int lxc_v4_remote_nodeport_dsr_local_backend_reply_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -512,7 +512,7 @@ int lxc_v4_remote_nodeport_dsr_local_backend_reply_check(const struct __ctx_buff
  * - Packet should be DNATed to CLIENT_IP:BACKEND_PORT
  * - Source should be SNATed to loopback IP to avoid routing issues
  */
-PKTGEN("tc", "tc_lxc_v4_remote_nodeport_hairpin")
+PKTGEN(PROG_TYPE, "tc_lxc_v4_remote_nodeport_hairpin")
 int lxc_v4_remote_nodeport_hairpin_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -537,7 +537,7 @@ int lxc_v4_remote_nodeport_hairpin_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v4_remote_nodeport_hairpin")
+SETUP(PROG_TYPE, "tc_lxc_v4_remote_nodeport_hairpin")
 int lxc_v4_remote_nodeport_hairpin_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 3;
@@ -557,7 +557,7 @@ int lxc_v4_remote_nodeport_hairpin_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v4_remote_nodeport_hairpin")
+CHECK(PROG_TYPE, "tc_lxc_v4_remote_nodeport_hairpin")
 int lxc_v4_remote_nodeport_hairpin_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -629,7 +629,7 @@ int lxc_v4_remote_nodeport_hairpin_check(const struct __ctx_buff *ctx)
  * - After hairpin, the pod replies to loopback IP
  * - RevNAT applied: src IP/port changed to REMOTE_NODE_IP:NODEPORT_PORT_HAIRPIN
  */
-PKTGEN("tc", "tc_lxc_v4_remote_nodeport_hairpin_reply")
+PKTGEN(PROG_TYPE, "tc_lxc_v4_remote_nodeport_hairpin_reply")
 int lxc_v4_remote_nodeport_hairpin_reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -655,7 +655,7 @@ int lxc_v4_remote_nodeport_hairpin_reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v4_remote_nodeport_hairpin_reply")
+SETUP(PROG_TYPE, "tc_lxc_v4_remote_nodeport_hairpin_reply")
 int lxc_v4_remote_nodeport_hairpin_reply_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(CLIENT_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
@@ -664,7 +664,7 @@ int lxc_v4_remote_nodeport_hairpin_reply_setup(struct __ctx_buff *ctx)
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v4_remote_nodeport_hairpin_reply")
+CHECK(PROG_TYPE, "tc_lxc_v4_remote_nodeport_hairpin_reply")
 int lxc_v4_remote_nodeport_hairpin_reply_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -721,7 +721,7 @@ int lxc_v4_remote_nodeport_hairpin_reply_check(const struct __ctx_buff *ctx)
  * - Packet should NOT be DNATed (goes to remote node directly)
  * - CT entry is created for this connection
  */
-PKTGEN("tc", "tc_lxc_v4_existing_conn_udp_first")
+PKTGEN(PROG_TYPE, "tc_lxc_v4_existing_conn_udp_first")
 int lxc_v4_existing_conn_udp_first_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -746,7 +746,7 @@ int lxc_v4_existing_conn_udp_first_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v4_existing_conn_udp_first")
+SETUP(PROG_TYPE, "tc_lxc_v4_existing_conn_udp_first")
 int lxc_v4_existing_conn_udp_first_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry(REMOTE_NODE_IP, 0, REMOTE_NODE_ID, 0, 0);
@@ -756,7 +756,7 @@ int lxc_v4_existing_conn_udp_first_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v4_existing_conn_udp_first")
+CHECK(PROG_TYPE, "tc_lxc_v4_existing_conn_udp_first")
 int lxc_v4_existing_conn_udp_first_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -826,7 +826,7 @@ int lxc_v4_existing_conn_udp_first_check(const struct __ctx_buff *ctx)
  * - Packet should still NOT be DNATed because CT entry already exists
  * - This verifies the CT check prevents wildcard lookup for existing connections
  */
-PKTGEN("tc", "tc_lxc_v4_existing_conn_udp_second")
+PKTGEN(PROG_TYPE, "tc_lxc_v4_existing_conn_udp_second")
 int lxc_v4_existing_conn_udp_second_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -852,7 +852,7 @@ int lxc_v4_existing_conn_udp_second_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v4_existing_conn_udp_second")
+SETUP(PROG_TYPE, "tc_lxc_v4_existing_conn_udp_second")
 int lxc_v4_existing_conn_udp_second_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 10;
@@ -867,7 +867,7 @@ int lxc_v4_existing_conn_udp_second_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v4_existing_conn_udp_second")
+CHECK(PROG_TYPE, "tc_lxc_v4_existing_conn_udp_second")
 int lxc_v4_existing_conn_udp_second_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -928,7 +928,7 @@ int lxc_v4_existing_conn_udp_second_check(const struct __ctx_buff *ctx)
  * - Wildcard NodePort lookup should match HOST_ID and perform DNAT
  * - Packet should be DNATed to local backend IP and port
  */
-PKTGEN("tc", "tc_lxc_v4_host_nodeport_local_backend")
+PKTGEN(PROG_TYPE, "tc_lxc_v4_host_nodeport_local_backend")
 int lxc_v4_host_nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -953,7 +953,7 @@ int lxc_v4_host_nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v4_host_nodeport_local_backend")
+SETUP(PROG_TYPE, "tc_lxc_v4_host_nodeport_local_backend")
 int lxc_v4_host_nodeport_local_backend_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 11;
@@ -973,7 +973,7 @@ int lxc_v4_host_nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v4_host_nodeport_local_backend")
+CHECK(PROG_TYPE, "tc_lxc_v4_host_nodeport_local_backend")
 int lxc_v4_host_nodeport_local_backend_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -1051,7 +1051,7 @@ int lxc_v4_host_nodeport_local_backend_check(const struct __ctx_buff *ctx)
  * - Connection tracking entry should be created with
  * - nat_addr = REMOTE_NODE_IP and nat_port = NODEPORT_PORT
  */
-PKTGEN("tc", "tc_lxc_v6_remote_nodeport_local_backend")
+PKTGEN(PROG_TYPE, "tc_lxc_v6_remote_nodeport_local_backend")
 int lxc_v6_remote_nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -1076,7 +1076,7 @@ int lxc_v6_remote_nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v6_remote_nodeport_local_backend")
+SETUP(PROG_TYPE, "tc_lxc_v6_remote_nodeport_local_backend")
 int lxc_v6_remote_nodeport_local_backend_setup(struct __ctx_buff *ctx)
 {
 	union v6addr remote_node_ip = {};
@@ -1102,7 +1102,7 @@ int lxc_v6_remote_nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v6_remote_nodeport_local_backend")
+CHECK(PROG_TYPE, "tc_lxc_v6_remote_nodeport_local_backend")
 int lxc_v6_remote_nodeport_local_backend_check(const struct __ctx_buff *ctx)
 {
 	union v6addr remote_node_ip = {};
@@ -1183,7 +1183,7 @@ int lxc_v6_remote_nodeport_local_backend_check(const struct __ctx_buff *ctx)
  * - Client pod's cil_to_container receives it
  * - RevNAT applied: src IP/port changed to REMOTE_NODE_IP:NODEPORT_PORT
  */
-PKTGEN("tc", "tc_lxc_v6_remote_nodeport_local_backend_reply")
+PKTGEN(PROG_TYPE, "tc_lxc_v6_remote_nodeport_local_backend_reply")
 int lxc_v6_remote_nodeport_local_backend_reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -1208,7 +1208,7 @@ int lxc_v6_remote_nodeport_local_backend_reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v6_remote_nodeport_local_backend_reply")
+SETUP(PROG_TYPE, "tc_lxc_v6_remote_nodeport_local_backend_reply")
 int lxc_v6_remote_nodeport_local_backend_reply_setup(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = {};
@@ -1221,7 +1221,7 @@ int lxc_v6_remote_nodeport_local_backend_reply_setup(struct __ctx_buff *ctx)
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v6_remote_nodeport_local_backend_reply")
+CHECK(PROG_TYPE, "tc_lxc_v6_remote_nodeport_local_backend_reply")
 int lxc_v6_remote_nodeport_local_backend_reply_check(const struct __ctx_buff *ctx)
 {
 	union v6addr remote_node_ip = {};
@@ -1282,7 +1282,7 @@ int lxc_v6_remote_nodeport_local_backend_reply_check(const struct __ctx_buff *ct
  * - Connection tracking entry should be created with
  * - nat_addr = REMOTE_NODE_IP and nat_port = NODEPORT_PORT_DSR
  */
-PKTGEN("tc", "tc_lxc_v6_remote_nodeport_dsr_local_backend")
+PKTGEN(PROG_TYPE, "tc_lxc_v6_remote_nodeport_dsr_local_backend")
 int lxc_v6_remote_nodeport_dsr_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -1307,7 +1307,7 @@ int lxc_v6_remote_nodeport_dsr_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v6_remote_nodeport_dsr_local_backend")
+SETUP(PROG_TYPE, "tc_lxc_v6_remote_nodeport_dsr_local_backend")
 int lxc_v6_remote_nodeport_dsr_local_backend_setup(struct __ctx_buff *ctx)
 {
 	union v6addr remote_node_ip = {};
@@ -1334,7 +1334,7 @@ int lxc_v6_remote_nodeport_dsr_local_backend_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v6_remote_nodeport_dsr_local_backend")
+CHECK(PROG_TYPE, "tc_lxc_v6_remote_nodeport_dsr_local_backend")
 int lxc_v6_remote_nodeport_dsr_local_backend_check(const struct __ctx_buff *ctx)
 {
 	union v6addr remote_node_ip = {};
@@ -1415,7 +1415,7 @@ int lxc_v6_remote_nodeport_dsr_local_backend_check(const struct __ctx_buff *ctx)
  * - Client pod's cil_to_container receives it
  * - RevNAT applied: src IP/port changed to REMOTE_NODE_IP:NODEPORT_PORT_DSR
  */
-PKTGEN("tc", "tc_lxc_v6_remote_nodeport_dsr_local_backend_reply")
+PKTGEN(PROG_TYPE, "tc_lxc_v6_remote_nodeport_dsr_local_backend_reply")
 int lxc_v6_remote_nodeport_dsr_local_backend_reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -1440,7 +1440,7 @@ int lxc_v6_remote_nodeport_dsr_local_backend_reply_pktgen(struct __ctx_buff *ctx
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v6_remote_nodeport_dsr_local_backend_reply")
+SETUP(PROG_TYPE, "tc_lxc_v6_remote_nodeport_dsr_local_backend_reply")
 int lxc_v6_remote_nodeport_dsr_local_backend_reply_setup(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = {};
@@ -1453,7 +1453,7 @@ int lxc_v6_remote_nodeport_dsr_local_backend_reply_setup(struct __ctx_buff *ctx)
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v6_remote_nodeport_dsr_local_backend_reply")
+CHECK(PROG_TYPE, "tc_lxc_v6_remote_nodeport_dsr_local_backend_reply")
 int lxc_v6_remote_nodeport_dsr_local_backend_reply_check(const struct __ctx_buff *ctx)
 {
 	union v6addr remote_node_ip = {};
@@ -1513,7 +1513,7 @@ int lxc_v6_remote_nodeport_dsr_local_backend_reply_check(const struct __ctx_buff
  * - Packet should be DNATed to CLIENT_IP:BACKEND_PORT
  * - Source should be SNATed to loopback IP to avoid routing issues
  */
-PKTGEN("tc", "tc_lxc_v6_remote_nodeport_hairpin")
+PKTGEN(PROG_TYPE, "tc_lxc_v6_remote_nodeport_hairpin")
 int lxc_v6_remote_nodeport_hairpin_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -1538,7 +1538,7 @@ int lxc_v6_remote_nodeport_hairpin_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v6_remote_nodeport_hairpin")
+SETUP(PROG_TYPE, "tc_lxc_v6_remote_nodeport_hairpin")
 int lxc_v6_remote_nodeport_hairpin_setup(struct __ctx_buff *ctx)
 {
 	union v6addr remote_node_ip = {};
@@ -1564,7 +1564,7 @@ int lxc_v6_remote_nodeport_hairpin_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v6_remote_nodeport_hairpin")
+CHECK(PROG_TYPE, "tc_lxc_v6_remote_nodeport_hairpin")
 int lxc_v6_remote_nodeport_hairpin_check(const struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = {};
@@ -1642,7 +1642,7 @@ int lxc_v6_remote_nodeport_hairpin_check(const struct __ctx_buff *ctx)
  * - After hairpin, the pod replies to loopback IP
  * - RevNAT applied: src IP/port changed to REMOTE_NODE_IP:NODEPORT_PORT_HAIRPIN
  */
-PKTGEN("tc", "tc_lxc_v6_remote_nodeport_hairpin_reply")
+PKTGEN(PROG_TYPE, "tc_lxc_v6_remote_nodeport_hairpin_reply")
 int lxc_v6_remote_nodeport_hairpin_reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -1669,7 +1669,7 @@ int lxc_v6_remote_nodeport_hairpin_reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v6_remote_nodeport_hairpin_reply")
+SETUP(PROG_TYPE, "tc_lxc_v6_remote_nodeport_hairpin_reply")
 int lxc_v6_remote_nodeport_hairpin_reply_setup(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = {};
@@ -1682,7 +1682,7 @@ int lxc_v6_remote_nodeport_hairpin_reply_setup(struct __ctx_buff *ctx)
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v6_remote_nodeport_hairpin_reply")
+CHECK(PROG_TYPE, "tc_lxc_v6_remote_nodeport_hairpin_reply")
 int lxc_v6_remote_nodeport_hairpin_reply_check(const struct __ctx_buff *ctx)
 {
 	union v6addr remote_node_ip = {};
@@ -1742,7 +1742,7 @@ int lxc_v6_remote_nodeport_hairpin_reply_check(const struct __ctx_buff *ctx)
  * - Packet should NOT be DNATed (goes to remote node directly)
  * - CT entry is created for this connection
  */
-PKTGEN("tc", "tc_lxc_v6_existing_conn_udp_first")
+PKTGEN(PROG_TYPE, "tc_lxc_v6_existing_conn_udp_first")
 int lxc_v6_existing_conn_udp_first_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -1767,7 +1767,7 @@ int lxc_v6_existing_conn_udp_first_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v6_existing_conn_udp_first")
+SETUP(PROG_TYPE, "tc_lxc_v6_existing_conn_udp_first")
 int lxc_v6_existing_conn_udp_first_setup(struct __ctx_buff *ctx)
 {
 	/* Add ipcache entry for remote node, but NO NodePort service */
@@ -1778,7 +1778,7 @@ int lxc_v6_existing_conn_udp_first_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v6_existing_conn_udp_first")
+CHECK(PROG_TYPE, "tc_lxc_v6_existing_conn_udp_first")
 int lxc_v6_existing_conn_udp_first_check(const struct __ctx_buff *ctx)
 {
 	union v6addr remote_node_ip = {};
@@ -1854,7 +1854,7 @@ int lxc_v6_existing_conn_udp_first_check(const struct __ctx_buff *ctx)
  * - Packet should still NOT be DNATed because CT entry already exists
  * - This verifies the CT check prevents wildcard lookup for existing connections
  */
-PKTGEN("tc", "tc_lxc_v6_existing_conn_udp_second")
+PKTGEN(PROG_TYPE, "tc_lxc_v6_existing_conn_udp_second")
 int lxc_v6_existing_conn_udp_second_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -1880,7 +1880,7 @@ int lxc_v6_existing_conn_udp_second_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v6_existing_conn_udp_second")
+SETUP(PROG_TYPE, "tc_lxc_v6_existing_conn_udp_second")
 int lxc_v6_existing_conn_udp_second_setup(struct __ctx_buff *ctx)
 {
 	union v6addr zero_addr = {};
@@ -1897,7 +1897,7 @@ int lxc_v6_existing_conn_udp_second_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v6_existing_conn_udp_second")
+CHECK(PROG_TYPE, "tc_lxc_v6_existing_conn_udp_second")
 int lxc_v6_existing_conn_udp_second_check(const struct __ctx_buff *ctx)
 {
 	union v6addr remote_node_ip = {};
@@ -1961,7 +1961,7 @@ int lxc_v6_existing_conn_udp_second_check(const struct __ctx_buff *ctx)
  * - Wildcard NodePort lookup should match HOST_ID and perform DNAT
  * - Packet should be DNATed to local backend IP and port
  */
-PKTGEN("tc", "tc_lxc_v6_host_nodeport_local_backend")
+PKTGEN(PROG_TYPE, "tc_lxc_v6_host_nodeport_local_backend")
 int lxc_v6_host_nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -1986,7 +1986,7 @@ int lxc_v6_host_nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v6_host_nodeport_local_backend")
+SETUP(PROG_TYPE, "tc_lxc_v6_host_nodeport_local_backend")
 int lxc_v6_host_nodeport_local_backend_setup(struct __ctx_buff *ctx)
 {
 	union v6addr host_node_ip = {};
@@ -2012,7 +2012,7 @@ int lxc_v6_host_nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v6_host_nodeport_local_backend")
+CHECK(PROG_TYPE, "tc_lxc_v6_host_nodeport_local_backend")
 int lxc_v6_host_nodeport_local_backend_check(const struct __ctx_buff *ctx)
 {
 	union v6addr host_node_ip = {};

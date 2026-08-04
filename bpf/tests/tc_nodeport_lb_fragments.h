@@ -171,7 +171,7 @@ const __u8 lb6_ew_nodeport_fragment2_post_dnat[] = {
 };
 
 /* Test that the 1st fragment of an external-to-nodeport request is handled correctly */
-PKTGEN("tc", "tc_nodeport_lb4_fragments_1")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb4_fragments_1")
 int nodeport_lb4_fragments_1_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -189,7 +189,7 @@ int nodeport_lb4_fragments_1_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_lb4_fragments_1")
+SETUP(PROG_TYPE, "tc_nodeport_lb4_fragments_1")
 int nodeport_lb4_fragments_1_setup(struct __ctx_buff *ctx)
 {
 	policy_add_egress_allow_all_entry();
@@ -204,7 +204,7 @@ int nodeport_lb4_fragments_1_setup(struct __ctx_buff *ctx)
 	return HOOK(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb4_fragments_1")
+CHECK(PROG_TYPE, "tc_nodeport_lb4_fragments_1")
 int nodeport_lb4_fragments_1_check(struct __ctx_buff *ctx)
 {
 	__u32 *status_code;
@@ -262,7 +262,7 @@ int nodeport_lb4_fragments_1_check(struct __ctx_buff *ctx)
 }
 
 /* Test that the 2nd fragment is handled correctly */
-PKTGEN("tc", "tc_nodeport_lb4_fragments_2")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb4_fragments_2")
 int nodeport_lb4_fragments_2_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -280,7 +280,7 @@ int nodeport_lb4_fragments_2_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_lb4_fragments_2")
+SETUP(PROG_TYPE, "tc_nodeport_lb4_fragments_2")
 int nodeport_lb4_fragments_2_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0, 0,
@@ -289,7 +289,7 @@ int nodeport_lb4_fragments_2_setup(struct __ctx_buff *ctx)
 	return HOOK(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb4_fragments_2")
+CHECK(PROG_TYPE, "tc_nodeport_lb4_fragments_2")
 int nodeport_lb4_fragments_2_check(struct __ctx_buff *ctx)
 {
 	__u32 *status_code;
@@ -341,7 +341,7 @@ int nodeport_lb4_fragments_2_check(struct __ctx_buff *ctx)
 }
 
 /* Test that the 1st fragment is handled correctly */
-PKTGEN("tc", "tc_nodeport_lb6_fragment1")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb6_fragment1")
 int nodeport_lb6_fragment1_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -359,7 +359,7 @@ int nodeport_lb6_fragment1_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_lb6_fragment1")
+SETUP(PROG_TYPE, "tc_nodeport_lb6_fragment1")
 int nodeport_lb6_fragment1_setup(struct __ctx_buff *ctx)
 {
 	policy_add_egress_allow_all_entry();
@@ -375,7 +375,7 @@ int nodeport_lb6_fragment1_setup(struct __ctx_buff *ctx)
 	return HOOK(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb6_fragment1")
+CHECK(PROG_TYPE, "tc_nodeport_lb6_fragment1")
 int nodeport_lb6_fragment1_check(struct __ctx_buff *ctx)
 {
 	__u32 *status_code;
@@ -432,7 +432,7 @@ int nodeport_lb6_fragment1_check(struct __ctx_buff *ctx)
 }
 
 /* Test that the 2nd fragment is handled correctly */
-PKTGEN("tc", "tc_nodeport_lb6_fragment2")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb6_fragment2")
 int nodeport_lb6_fragment2_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -450,13 +450,13 @@ int nodeport_lb6_fragment2_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_lb6_fragment2")
+SETUP(PROG_TYPE, "tc_nodeport_lb6_fragment2")
 int nodeport_lb6_fragment2_setup(struct __ctx_buff *ctx)
 {
 	return HOOK(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb6_fragment2")
+CHECK(PROG_TYPE, "tc_nodeport_lb6_fragment2")
 int nodeport_lb6_fragment2_check(struct __ctx_buff *ctx)
 {
 	__u32 *status_code;

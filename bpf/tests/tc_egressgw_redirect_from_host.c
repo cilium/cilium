@@ -78,7 +78,7 @@ mock_fib_lookup(void *ctx __maybe_unused,
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program egresses locally.
  */
-PKTGEN("tc", "tc_egressgw_egress1")
+PKTGEN(PROG_TYPE, "tc_egressgw_egress1")
 int egressgw_egress1_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -86,7 +86,7 @@ int egressgw_egress1_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_egress1")
+SETUP(PROG_TYPE, "tc_egressgw_egress1")
 int egressgw_egress1_setup(struct __ctx_buff *ctx)
 {
 	__u32 key = 0;
@@ -113,7 +113,7 @@ int egressgw_egress1_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_egress1")
+CHECK(PROG_TYPE, "tc_egressgw_egress1")
 int egressgw_egress1_check(const struct __ctx_buff *ctx)
 {
 	__u32 key = 0;
@@ -132,7 +132,7 @@ int egressgw_egress1_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program egresses locally. Using the ifindex in the policy.
  */
-PKTGEN("tc", "tc_egressgw_egress2_ifindex")
+PKTGEN(PROG_TYPE, "tc_egressgw_egress2_ifindex")
 int egressgw_egress2_ifindex_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -140,7 +140,7 @@ int egressgw_egress2_ifindex_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_egress2_ifindex")
+SETUP(PROG_TYPE, "tc_egressgw_egress2_ifindex")
 int egressgw_egress2_ifindex_setup(struct __ctx_buff *ctx)
 {
 	__u32 key = 0;
@@ -157,7 +157,7 @@ int egressgw_egress2_ifindex_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_egress2_ifindex")
+CHECK(PROG_TYPE, "tc_egressgw_egress2_ifindex")
 int egressgw_egress2_ifindex_check(const struct __ctx_buff *ctx)
 {
 	__u32 key = 0;
@@ -176,7 +176,7 @@ int egressgw_egress2_ifindex_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program egresses locally, using the endpoint's rt_info.
  */
-PKTGEN("tc", "tc_egressgw_egress3_rt_info")
+PKTGEN(PROG_TYPE, "tc_egressgw_egress3_rt_info")
 int egressgw_egress3_rt_info_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -184,7 +184,7 @@ int egressgw_egress3_rt_info_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_egress3_rt_info")
+SETUP(PROG_TYPE, "tc_egressgw_egress3_rt_info")
 int egressgw_egress3_rt_info_setup(struct __ctx_buff *ctx)
 {
 	__u32 key = 0;
@@ -205,7 +205,7 @@ int egressgw_egress3_rt_info_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_egress3_rt_info")
+CHECK(PROG_TYPE, "tc_egressgw_egress3_rt_info")
 int egressgw_egress3_rt_info_check(const struct __ctx_buff *ctx)
 {
 	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
@@ -232,7 +232,7 @@ int egressgw_egress3_rt_info_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program gets redirected to the gateway node.
  */
-PKTGEN("tc", "tc_egressgw_redirect")
+PKTGEN(PROG_TYPE, "tc_egressgw_redirect")
 int egressgw_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -240,7 +240,7 @@ int egressgw_redirect_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_redirect")
+SETUP(PROG_TYPE, "tc_egressgw_redirect")
 int egressgw_redirect_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_world_entry();
@@ -252,7 +252,7 @@ int egressgw_redirect_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_redirect")
+CHECK(PROG_TYPE, "tc_egressgw_redirect")
 int egressgw_redirect_check(const struct __ctx_buff *ctx)
 {
 	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
@@ -267,7 +267,7 @@ int egressgw_redirect_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an excluded CIDR egress gateway policy on the
  * to-netdev program does not get redirected to the gateway node.
  */
-PKTGEN("tc", "tc_egressgw_skip_excluded_cidr_redirect")
+PKTGEN(PROG_TYPE, "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -275,7 +275,7 @@ int egressgw_skip_excluded_cidr_redirect_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_skip_excluded_cidr_redirect")
+SETUP(PROG_TYPE, "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_world_entry();
@@ -289,7 +289,7 @@ int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_skip_excluded_cidr_redirect")
+CHECK(PROG_TYPE, "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_check(const struct __ctx_buff *ctx)
 {
 	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
@@ -305,7 +305,7 @@ int egressgw_skip_excluded_cidr_redirect_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy without a gateway on the
  * to-netdev program does not get redirected to the gateway node.
  */
-PKTGEN("tc", "tc_egressgw_skip_no_gateway_redirect")
+PKTGEN(PROG_TYPE, "tc_egressgw_skip_no_gateway_redirect")
 int egressgw_skip_no_gateway_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -313,7 +313,7 @@ int egressgw_skip_no_gateway_redirect_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_skip_no_gateway_redirect")
+SETUP(PROG_TYPE, "tc_egressgw_skip_no_gateway_redirect")
 int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 {
 	metrics_del_entry((__u8)-DROP_NO_EGRESS_GATEWAY, METRIC_EGRESS);
@@ -325,7 +325,7 @@ int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_skip_no_gateway_redirect")
+CHECK(PROG_TYPE, "tc_egressgw_skip_no_gateway_redirect")
 int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 {
 	struct metrics_value *entry = NULL;
@@ -357,7 +357,7 @@ int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy without an egressIP on the
  * to-netdev program gets dropped.
  */
-PKTGEN("tc", "tc_egressgw_drop_no_egress_ip")
+PKTGEN(PROG_TYPE, "tc_egressgw_drop_no_egress_ip")
 int egressgw_drop_no_egress_ip_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -365,7 +365,7 @@ int egressgw_drop_no_egress_ip_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_drop_no_egress_ip")
+SETUP(PROG_TYPE, "tc_egressgw_drop_no_egress_ip")
 int egressgw_drop_no_egress_ip_setup(struct __ctx_buff *ctx)
 {
 	metrics_del_entry((__u8)-DROP_NO_EGRESS_IP, METRIC_EGRESS);
@@ -379,7 +379,7 @@ int egressgw_drop_no_egress_ip_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_drop_no_egress_ip")
+CHECK(PROG_TYPE, "tc_egressgw_drop_no_egress_ip")
 int egressgw_drop_no_egress_ip_check(const struct __ctx_buff *ctx)
 {
 	struct metrics_value *entry = NULL;
@@ -412,7 +412,7 @@ int egressgw_drop_no_egress_ip_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program egresses locally.
  */
-PKTGEN("tc", "tc_egressgw_v6_egress1")
+PKTGEN(PROG_TYPE, "tc_egressgw_v6_egress1")
 int egressgw_v6_egress1_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -420,7 +420,7 @@ int egressgw_v6_egress1_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_v6_egress1")
+SETUP(PROG_TYPE, "tc_egressgw_v6_egress1")
 int egressgw_v6_egress1_setup(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -451,7 +451,7 @@ int egressgw_v6_egress1_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_v6_egress1")
+CHECK(PROG_TYPE, "tc_egressgw_v6_egress1")
 int egressgw_v6_egress1_check(const struct __ctx_buff *ctx)
 {
 	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
@@ -470,7 +470,7 @@ int egressgw_v6_egress1_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program egresses locally. Using the ifindex in the policy.
  */
-PKTGEN("tc", "tc_egressgw_v6_egress2_ifindex")
+PKTGEN(PROG_TYPE, "tc_egressgw_v6_egress2_ifindex")
 int egressgw_v6_egress2_ifindex_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -478,7 +478,7 @@ int egressgw_v6_egress2_ifindex_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_v6_egress2_ifindex")
+SETUP(PROG_TYPE, "tc_egressgw_v6_egress2_ifindex")
 int egressgw_v6_egress2_ifindex_setup(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -498,7 +498,7 @@ int egressgw_v6_egress2_ifindex_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_v6_egress2_ifindex")
+CHECK(PROG_TYPE, "tc_egressgw_v6_egress2_ifindex")
 int egressgw_v6_egress2_ifindex_check(const struct __ctx_buff *ctx)
 {
 	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
@@ -517,7 +517,7 @@ int egressgw_v6_egress2_ifindex_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program egresses locally, using the endpoint's rt_info.
  */
-PKTGEN("tc", "tc_egressgw_v6_egress3_rt_info")
+PKTGEN(PROG_TYPE, "tc_egressgw_v6_egress3_rt_info")
 int egressgw_v6_egress3_rt_info_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -525,7 +525,7 @@ int egressgw_v6_egress3_rt_info_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_v6_egress3_rt_info")
+SETUP(PROG_TYPE, "tc_egressgw_v6_egress3_rt_info")
 int egressgw_v6_egress3_rt_info_setup(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -549,7 +549,7 @@ int egressgw_v6_egress3_rt_info_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_v6_egress3_rt_info")
+CHECK(PROG_TYPE, "tc_egressgw_v6_egress3_rt_info")
 int egressgw_v6_egress3_rt_info_check(const struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -579,7 +579,7 @@ int egressgw_v6_egress3_rt_info_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program gets redirected to the gateway node (IPv6).
  */
-PKTGEN("tc", "tc_egressgw_redirect_v6")
+PKTGEN(PROG_TYPE, "tc_egressgw_redirect_v6")
 int egressgw_redirect_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -587,7 +587,7 @@ int egressgw_redirect_pktgen_v6(struct __ctx_buff *ctx)
 	});
 }
 
-SETUP("tc", "tc_egressgw_redirect_v6")
+SETUP(PROG_TYPE, "tc_egressgw_redirect_v6")
 int egressgw_redirect_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -603,7 +603,7 @@ int egressgw_redirect_setup_v6(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_redirect_v6")
+CHECK(PROG_TYPE, "tc_egressgw_redirect_v6")
 int egressgw_redirect_check_v6(const struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -621,7 +621,7 @@ int egressgw_redirect_check_v6(const struct __ctx_buff *ctx)
 /* Test that a packet matching an excluded CIDR egress gateway policy on the
  * to-netdev program does not get redirected to the gateway node (IPv6).
  */
-PKTGEN("tc", "tc_egressgw_skip_excluded_cidr_redirect_v6")
+PKTGEN(PROG_TYPE, "tc_egressgw_skip_excluded_cidr_redirect_v6")
 int egressgw_skip_excluded_cidr_redirect_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -629,7 +629,7 @@ int egressgw_skip_excluded_cidr_redirect_pktgen_v6(struct __ctx_buff *ctx)
 	});
 }
 
-SETUP("tc", "tc_egressgw_skip_excluded_cidr_redirect_v6")
+SETUP(PROG_TYPE, "tc_egressgw_skip_excluded_cidr_redirect_v6")
 int egressgw_skip_excluded_cidr_redirect_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -647,7 +647,7 @@ int egressgw_skip_excluded_cidr_redirect_setup_v6(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_skip_excluded_cidr_redirect_v6")
+CHECK(PROG_TYPE, "tc_egressgw_skip_excluded_cidr_redirect_v6")
 int egressgw_skip_excluded_cidr_redirect_check_v6(const struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -666,7 +666,7 @@ int egressgw_skip_excluded_cidr_redirect_check_v6(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy without a gateway on the
  * to-netdev program does not get redirected to the gateway node (IPv6).
  */
-PKTGEN("tc", "tc_egressgw_skip_no_gateway_redirect_v6")
+PKTGEN(PROG_TYPE, "tc_egressgw_skip_no_gateway_redirect_v6")
 int egressgw_skip_no_gateway_redirect_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -674,7 +674,7 @@ int egressgw_skip_no_gateway_redirect_pktgen_v6(struct __ctx_buff *ctx)
 	});
 }
 
-SETUP("tc", "tc_egressgw_skip_no_gateway_redirect_v6")
+SETUP(PROG_TYPE, "tc_egressgw_skip_no_gateway_redirect_v6")
 int egressgw_skip_no_gateway_redirect_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -691,7 +691,7 @@ int egressgw_skip_no_gateway_redirect_setup_v6(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_skip_no_gateway_redirect_v6")
+CHECK(PROG_TYPE, "tc_egressgw_skip_no_gateway_redirect_v6")
 int egressgw_skip_no_gateway_redirect_check_v6(const struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -725,7 +725,7 @@ int egressgw_skip_no_gateway_redirect_check_v6(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy without an egressIP on the
  * to-netdev program gets dropped (IPv6).
  */
-PKTGEN("tc", "tc_egressgw_drop_no_egress_ip_v6")
+PKTGEN(PROG_TYPE, "tc_egressgw_drop_no_egress_ip_v6")
 int egressgw_drop_no_egress_ip_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -733,7 +733,7 @@ int egressgw_drop_no_egress_ip_pktgen_v6(struct __ctx_buff *ctx)
 	});
 }
 
-SETUP("tc", "tc_egressgw_drop_no_egress_ip_v6")
+SETUP(PROG_TYPE, "tc_egressgw_drop_no_egress_ip_v6")
 int egressgw_drop_no_egress_ip_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -750,7 +750,7 @@ int egressgw_drop_no_egress_ip_setup_v6(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_drop_no_egress_ip_v6")
+CHECK(PROG_TYPE, "tc_egressgw_drop_no_egress_ip_v6")
 int egressgw_drop_no_egress_ip_check_v6(const struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;

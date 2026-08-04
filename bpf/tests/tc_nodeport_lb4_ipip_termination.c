@@ -281,13 +281,13 @@ pktgen_ipip_v4(struct __ctx_buff *ctx, __be32 outer_dst, __be32 inner_dst)
 /* Test 1: outer dst is a local Pod IP. Expect strip + DNAT + redirect_peer.  */
 /* -------------------------------------------------------------------------- */
 
-PKTGEN("tc", "tc_nodeport_ipip_term_v4_local_pod")
+PKTGEN(PROG_TYPE, "tc_nodeport_ipip_term_v4_local_pod")
 int ipip_term_v4_local_pod_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_ipip_v4(ctx, BACKEND_IP, FRONTEND_IP);
 }
 
-SETUP("tc", "tc_nodeport_ipip_term_v4_local_pod")
+SETUP(PROG_TYPE, "tc_nodeport_ipip_term_v4_local_pod")
 int ipip_term_v4_local_pod_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -316,7 +316,7 @@ int ipip_term_v4_local_pod_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_ipip_term_v4_local_pod")
+CHECK(PROG_TYPE, "tc_nodeport_ipip_term_v4_local_pod")
 int ipip_term_v4_local_pod_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -397,14 +397,14 @@ int ipip_term_v4_local_pod_check(struct __ctx_buff *ctx)
 /* decapped inner reaches the host stack unchanged for Envoy to intercept.    */
 /* -------------------------------------------------------------------------- */
 
-PKTGEN("tc", "tc_nodeport_ipip_term_v4_l7_punt_proxy")
+PKTGEN(PROG_TYPE, "tc_nodeport_ipip_term_v4_l7_punt_proxy")
 int ipip_term_v4_l7_punt_proxy_pktgen(struct __ctx_buff *ctx)
 {
 	/* Outer dst = local host IP; inner dst = the L7-delegate svc VIP. */
 	return pktgen_ipip_v4(ctx, L7_HOST_BACKEND_IP, L7_FRONTEND_IP);
 }
 
-SETUP("tc", "tc_nodeport_ipip_term_v4_l7_punt_proxy")
+SETUP(PROG_TYPE, "tc_nodeport_ipip_term_v4_l7_punt_proxy")
 int ipip_term_v4_l7_punt_proxy_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
@@ -437,7 +437,7 @@ int ipip_term_v4_l7_punt_proxy_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_ipip_term_v4_l7_punt_proxy")
+CHECK(PROG_TYPE, "tc_nodeport_ipip_term_v4_l7_punt_proxy")
 int ipip_term_v4_l7_punt_proxy_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -502,13 +502,13 @@ int ipip_term_v4_l7_punt_proxy_check(struct __ctx_buff *ctx)
 /* runs - otherwise the inner falls through with daddr == LB VIP.            */
 /* -------------------------------------------------------------------------- */
 
-PKTGEN("tc", "tc_nodeport_ipip_term_v4_xdp_handoff")
+PKTGEN(PROG_TYPE, "tc_nodeport_ipip_term_v4_xdp_handoff")
 int ipip_term_v4_xdp_handoff_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_ipip_v4(ctx, BACKEND_IP, FRONTEND_IP);
 }
 
-SETUP("tc", "tc_nodeport_ipip_term_v4_xdp_handoff")
+SETUP(PROG_TYPE, "tc_nodeport_ipip_term_v4_xdp_handoff")
 int ipip_term_v4_xdp_handoff_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -536,7 +536,7 @@ int ipip_term_v4_xdp_handoff_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_ipip_term_v4_xdp_handoff")
+CHECK(PROG_TYPE, "tc_nodeport_ipip_term_v4_xdp_handoff")
 int ipip_term_v4_xdp_handoff_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

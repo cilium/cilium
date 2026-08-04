@@ -37,7 +37,7 @@ ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
  * The egress path should create a CT entry, but apply no egress network policy.
  * The ingress path should apply no ingress network policy.
  */
-PKTGEN("tc", "hostfw_ipv4_bpf_masq_proxy_01")
+PKTGEN(PROG_TYPE, "hostfw_ipv4_bpf_masq_proxy_01")
 int hostfw_ipv4_bpf_masq_proxy_01_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -59,7 +59,7 @@ int hostfw_ipv4_bpf_masq_proxy_01_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hostfw_ipv4_bpf_masq_proxy_01")
+SETUP(PROG_TYPE, "hostfw_ipv4_bpf_masq_proxy_01")
 int hostfw_ipv4_bpf_masq_proxy_01_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(NODE_IP, 0, 0, ENDPOINT_F_HOST, HOST_ID,
@@ -74,7 +74,7 @@ int hostfw_ipv4_bpf_masq_proxy_01_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "hostfw_ipv4_bpf_masq_proxy_01")
+CHECK(PROG_TYPE, "hostfw_ipv4_bpf_masq_proxy_01")
 int hostfw_ipv4_bpf_masq_proxy_01_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -115,7 +115,7 @@ int hostfw_ipv4_bpf_masq_proxy_01_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "hostfw_ipv4_bpf_masq_proxy_02")
+PKTGEN(PROG_TYPE, "hostfw_ipv4_bpf_masq_proxy_02")
 int hostfw_ipv4_bpf_masq_proxy_02_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -137,7 +137,7 @@ int hostfw_ipv4_bpf_masq_proxy_02_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hostfw_ipv4_bpf_masq_proxy_02")
+SETUP(PROG_TYPE, "hostfw_ipv4_bpf_masq_proxy_02")
 int hostfw_ipv4_bpf_masq_proxy_02_setup(struct __ctx_buff *ctx)
 {
 	policy_add_ingress_allow_all_entry();
@@ -145,7 +145,7 @@ int hostfw_ipv4_bpf_masq_proxy_02_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "hostfw_ipv4_bpf_masq_proxy_02")
+CHECK(PROG_TYPE, "hostfw_ipv4_bpf_masq_proxy_02")
 int hostfw_ipv4_bpf_masq_proxy_02_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

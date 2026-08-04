@@ -79,7 +79,7 @@ const __u8 v4_overlay_tcp_packet_rewritten[] = {
 	SCAPY_BUF_BYTES(v4_overlay_tcp_packet_rewritten)
 };
 
-PKTGEN("tc", "ipv4_wireguard_no_mark_from_overlay")
+PKTGEN(PROG_TYPE, "ipv4_wireguard_no_mark_from_overlay")
 int ipv4_wireguard_no_mark_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -92,13 +92,13 @@ int ipv4_wireguard_no_mark_from_overlay_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-SETUP("tc", "ipv4_wireguard_no_mark_from_overlay")
+SETUP(PROG_TYPE, "ipv4_wireguard_no_mark_from_overlay")
 int ipv4_wireguard_no_mark_from_overlay_setup(struct __ctx_buff *ctx)
 {
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "ipv4_wireguard_no_mark_from_overlay")
+CHECK(PROG_TYPE, "ipv4_wireguard_no_mark_from_overlay")
 int ipv4_wireguard_no_mark_from_overlay_check(const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -128,7 +128,7 @@ int ipv4_wireguard_no_mark_from_overlay_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "ipv4_wireguard_mark_from_overlay")
+PKTGEN(PROG_TYPE, "ipv4_wireguard_mark_from_overlay")
 int ipv4_wireguard_mark_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -141,7 +141,7 @@ int ipv4_wireguard_mark_from_overlay_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-SETUP("tc", "ipv4_wireguard_mark_from_overlay")
+SETUP(PROG_TYPE, "ipv4_wireguard_mark_from_overlay")
 int ipv4_wireguard_mark_from_overlay_setup(struct __ctx_buff *ctx)
 {
 	/* Set the correct mark so that from-overlay doesn't drop the packet */
@@ -153,7 +153,7 @@ int ipv4_wireguard_mark_from_overlay_setup(struct __ctx_buff *ctx)
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "ipv4_wireguard_mark_from_overlay")
+CHECK(PROG_TYPE, "ipv4_wireguard_mark_from_overlay")
 int ipv4_wireguard_mark_from_overlay_check(const struct __ctx_buff *ctx)
 {
 	void *data;

@@ -32,7 +32,7 @@ check_egress_policy(struct __ctx_buff *ctx, __u32 dst_id, __u8 proto, __be16 dpo
 				 &cookie);
 }
 
-CHECK("tc", "network_policy_egress_allow")
+CHECK(PROG_TYPE, "network_policy_egress_allow")
 int network_policy_egress_allow_check(struct __ctx_buff *ctx)
 {
 	test_init();

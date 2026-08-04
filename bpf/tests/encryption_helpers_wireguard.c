@@ -23,7 +23,7 @@
 ASSIGN_CONFIG(__u32, wg_ifindex, 42)
 ASSIGN_CONFIG(__u16, wg_port, 51871)
 
-PKTGEN("tc", "ctx_is_wireguard_success")
+PKTGEN(PROG_TYPE, "ctx_is_wireguard_success")
 static __always_inline int
 pktgen_wireguard_mock_check1(struct __ctx_buff *ctx) {
 	struct pktgen builder;
@@ -46,7 +46,7 @@ pktgen_wireguard_mock_check1(struct __ctx_buff *ctx) {
 	return 0;
 }
 
-CHECK("tc", "ctx_is_wireguard_success")
+CHECK(PROG_TYPE, "ctx_is_wireguard_success")
 int check1(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -86,7 +86,7 @@ int check1(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "ctx_is_encrypt_success")
+CHECK(PROG_TYPE, "ctx_is_encrypt_success")
 int check2(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -100,7 +100,7 @@ int check2(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "ctx_is_decrypt_success")
+CHECK(PROG_TYPE, "ctx_is_decrypt_success")
 int check3(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -114,7 +114,7 @@ int check3(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "wireguard_icmpv6_na_skip")
+PKTGEN(PROG_TYPE, "wireguard_icmpv6_na_skip")
 int wireguard_icmpv6_na_skip_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -136,7 +136,7 @@ int wireguard_icmpv6_na_skip_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-CHECK("tc", "wireguard_icmpv6_na_skip")
+CHECK(PROG_TYPE, "wireguard_icmpv6_na_skip")
 int wireguard_icmpv6_na_skip_check(struct __ctx_buff *ctx)
 {
 	int ret_val;

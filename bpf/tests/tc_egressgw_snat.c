@@ -76,7 +76,7 @@ mock_fib_lookup(void *ctx __maybe_unused, const struct bpf_fib_lookup *params __
 /* Test that a packet matching an egress gateway policy on the to-netdev program
  * gets correctly SNATed with the egress IP of the policy.
  */
-PKTGEN("tc", "tc_egressgw_snat1")
+PKTGEN(PROG_TYPE, "tc_egressgw_snat1")
 int egressgw_snat1_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -84,7 +84,7 @@ int egressgw_snat1_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_snat1")
+SETUP(PROG_TYPE, "tc_egressgw_snat1")
 int egressgw_snat1_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
@@ -96,7 +96,7 @@ int egressgw_snat1_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_snat1")
+CHECK(PROG_TYPE, "tc_egressgw_snat1")
 int egressgw_snat1_check(const struct __ctx_buff *ctx)
 {
 	return egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
@@ -109,7 +109,7 @@ int egressgw_snat1_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the from-netdev program
  * gets correctly revSNATed and connection tracked.
  */
-PKTGEN("tc", "tc_egressgw_snat1_2_reply")
+PKTGEN(PROG_TYPE, "tc_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -118,7 +118,7 @@ int egressgw_snat1_2_reply_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_snat1_2_reply")
+SETUP(PROG_TYPE, "tc_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_setup(struct __ctx_buff *ctx)
 {
 	/* install ipcache entry for the CLIENT_IP: */
@@ -127,7 +127,7 @@ int egressgw_snat1_2_reply_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_snat1_2_reply")
+CHECK(PROG_TYPE, "tc_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_check(const struct __ctx_buff *ctx)
 {
 	return egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
@@ -138,7 +138,7 @@ int egressgw_snat1_2_reply_check(const struct __ctx_buff *ctx)
 		});
 }
 
-PKTGEN("tc", "tc_egressgw_snat2")
+PKTGEN(PROG_TYPE, "tc_egressgw_snat2")
 int egressgw_snat2_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -146,7 +146,7 @@ int egressgw_snat2_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_snat2")
+SETUP(PROG_TYPE, "tc_egressgw_snat2")
 int egressgw_snat2_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -154,7 +154,7 @@ int egressgw_snat2_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_snat2")
+CHECK(PROG_TYPE, "tc_egressgw_snat2")
 int egressgw_snat2_check(struct __ctx_buff *ctx)
 {
 	int ret = egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
@@ -172,7 +172,7 @@ int egressgw_snat2_check(struct __ctx_buff *ctx)
  * gets correctly SNATed with the desired egress IP of the policy, event if the
  * packet hits a stale NAT entry.
  */
-PKTGEN("tc", "tc_egressgw_tuple_collision1")
+PKTGEN(PROG_TYPE, "tc_egressgw_tuple_collision1")
 int egressgw_tuple_collision1_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -180,7 +180,7 @@ int egressgw_tuple_collision1_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_tuple_collision1")
+SETUP(PROG_TYPE, "tc_egressgw_tuple_collision1")
 int egressgw_tuple_collision1_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
@@ -192,7 +192,7 @@ int egressgw_tuple_collision1_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_tuple_collision1")
+CHECK(PROG_TYPE, "tc_egressgw_tuple_collision1")
 int egressgw_tuple_collision1_check(const struct __ctx_buff *ctx)
 {
 	int ret = egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
@@ -206,7 +206,7 @@ int egressgw_tuple_collision1_check(const struct __ctx_buff *ctx)
 	return ret;
 }
 
-PKTGEN("tc", "tc_egressgw_tuple_collision2")
+PKTGEN(PROG_TYPE, "tc_egressgw_tuple_collision2")
 int egressgw_tuple_collision2_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -214,7 +214,7 @@ int egressgw_tuple_collision2_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_tuple_collision2")
+SETUP(PROG_TYPE, "tc_egressgw_tuple_collision2")
 int egressgw_tuple_collision2_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
@@ -226,7 +226,7 @@ int egressgw_tuple_collision2_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_tuple_collision2")
+CHECK(PROG_TYPE, "tc_egressgw_tuple_collision2")
 int egressgw_tuple_collision2_check(const struct __ctx_buff *ctx)
 {
 	return egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
@@ -241,7 +241,7 @@ int egressgw_tuple_collision2_check(const struct __ctx_buff *ctx)
  * gets correctly revSNATed and connection tracked, even if the packet hits a
  * stale NAT entry.
  */
-PKTGEN("tc", "tc_egressgw_tuple_collision2_reply")
+PKTGEN(PROG_TYPE, "tc_egressgw_tuple_collision2_reply")
 int egressgw_tuple_collision2_reply_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -251,7 +251,7 @@ int egressgw_tuple_collision2_reply_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_tuple_collision2_reply")
+SETUP(PROG_TYPE, "tc_egressgw_tuple_collision2_reply")
 int egressgw_tuple_collision2_reply_setup(struct __ctx_buff *ctx)
 {
 	/* install ipcache entry for the CLIENT_IP: */
@@ -260,7 +260,7 @@ int egressgw_tuple_collision2_reply_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_tuple_collision2_reply")
+CHECK(PROG_TYPE, "tc_egressgw_tuple_collision2_reply")
 int egressgw_tuple_collision2_reply_check(const struct __ctx_buff *ctx)
 {
 	int ret = egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
@@ -278,7 +278,7 @@ int egressgw_tuple_collision2_reply_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an excluded CIDR egress gateway policy on the
  * to-netdev program does not get SNATed with the egress IP of the policy.
  */
-PKTGEN("tc", "tc_egressgw_skip_excluded_cidr_snat")
+PKTGEN(PROG_TYPE, "tc_egressgw_skip_excluded_cidr_snat")
 int egressgw_skip_excluded_cidr_snat_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -286,7 +286,7 @@ int egressgw_skip_excluded_cidr_snat_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_skip_excluded_cidr_snat")
+SETUP(PROG_TYPE, "tc_egressgw_skip_excluded_cidr_snat")
 int egressgw_skip_excluded_cidr_snat_setup(struct __ctx_buff *ctx)
 {
 
@@ -300,7 +300,7 @@ int egressgw_skip_excluded_cidr_snat_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_skip_excluded_cidr_snat")
+CHECK(PROG_TYPE, "tc_egressgw_skip_excluded_cidr_snat")
 int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -361,7 +361,7 @@ int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the to-netdev program
  * gets correctly SNATed with the egress IP of the policy (IPv6).
  */
-PKTGEN("tc", "tc_v6_egressgw_snat1")
+PKTGEN(PROG_TYPE, "tc_v6_egressgw_snat1")
 int egressgw_snat1_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -369,7 +369,7 @@ int egressgw_snat1_pktgen_v6(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_v6_egressgw_snat1")
+SETUP(PROG_TYPE, "tc_v6_egressgw_snat1")
 int egressgw_snat1_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -385,7 +385,7 @@ int egressgw_snat1_setup_v6(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_v6_egressgw_snat1")
+CHECK(PROG_TYPE, "tc_v6_egressgw_snat1")
 int egressgw_snat1_check_v6(const struct __ctx_buff *ctx)
 {
 	return egressgw_snat_check_v6(ctx, (struct egressgw_test_ctx) {
@@ -398,7 +398,7 @@ int egressgw_snat1_check_v6(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the from-netdev program
  * gets correctly revSNATed and connection tracked (IPv6).
  */
-PKTGEN("tc", "tc_v6_egressgw_snat1_2_reply")
+PKTGEN(PROG_TYPE, "tc_v6_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -407,7 +407,7 @@ int egressgw_snat1_2_reply_pktgen_v6(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_v6_egressgw_snat1_2_reply")
+SETUP(PROG_TYPE, "tc_v6_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = CLIENT_IP_V6;
@@ -418,7 +418,7 @@ int egressgw_snat1_2_reply_setup_v6(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_v6_egressgw_snat1_2_reply")
+CHECK(PROG_TYPE, "tc_v6_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_check_v6(const struct __ctx_buff *ctx)
 {
 	return egressgw_snat_check_v6(ctx, (struct egressgw_test_ctx) {
@@ -429,7 +429,7 @@ int egressgw_snat1_2_reply_check_v6(const struct __ctx_buff *ctx)
 		});
 }
 
-PKTGEN("tc", "tc_v6_egressgw_snat2")
+PKTGEN(PROG_TYPE, "tc_v6_egressgw_snat2")
 int egressgw_snat2_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -437,7 +437,7 @@ int egressgw_snat2_pktgen_v6(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_v6_egressgw_snat2")
+SETUP(PROG_TYPE, "tc_v6_egressgw_snat2")
 int egressgw_snat2_setup_v6(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -445,7 +445,7 @@ int egressgw_snat2_setup_v6(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_v6_egressgw_snat2")
+CHECK(PROG_TYPE, "tc_v6_egressgw_snat2")
 int egressgw_snat2_check_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -466,7 +466,7 @@ int egressgw_snat2_check_v6(struct __ctx_buff *ctx)
  * gets correctly SNATed with the desired egress IP of the policy, even if the
  * packet hits a stale NAT entry (IPv6).
  */
-PKTGEN("tc", "tc_v6_egressgw_tuple_collision1")
+PKTGEN(PROG_TYPE, "tc_v6_egressgw_tuple_collision1")
 int egressgw_tuple_collision1_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -474,7 +474,7 @@ int egressgw_tuple_collision1_pktgen_v6(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_v6_egressgw_tuple_collision1")
+SETUP(PROG_TYPE, "tc_v6_egressgw_tuple_collision1")
 int egressgw_tuple_collision1_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -490,7 +490,7 @@ int egressgw_tuple_collision1_setup_v6(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_v6_egressgw_tuple_collision1")
+CHECK(PROG_TYPE, "tc_v6_egressgw_tuple_collision1")
 int egressgw_tuple_collision1_check_v6(const struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -507,7 +507,7 @@ int egressgw_tuple_collision1_check_v6(const struct __ctx_buff *ctx)
 	return ret;
 }
 
-PKTGEN("tc", "tc_v6_egressgw_tuple_collision2")
+PKTGEN(PROG_TYPE, "tc_v6_egressgw_tuple_collision2")
 int egressgw_tuple_collision2_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -515,7 +515,7 @@ int egressgw_tuple_collision2_pktgen_v6(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_v6_egressgw_tuple_collision2")
+SETUP(PROG_TYPE, "tc_v6_egressgw_tuple_collision2")
 int egressgw_tuple_collision2_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -531,7 +531,7 @@ int egressgw_tuple_collision2_setup_v6(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_v6_egressgw_tuple_collision2")
+CHECK(PROG_TYPE, "tc_v6_egressgw_tuple_collision2")
 int egressgw_tuple_collision2_check_v6(const struct __ctx_buff *ctx)
 {
 	return egressgw_snat_check_v6(ctx, (struct egressgw_test_ctx) {
@@ -546,7 +546,7 @@ int egressgw_tuple_collision2_check_v6(const struct __ctx_buff *ctx)
  * gets correctly revSNATed and connection tracked, even if the packet hits a
  * stale NAT entry (IPv6).
  */
-PKTGEN("tc", "tc_v6_egressgw_tuple_collision2_reply")
+PKTGEN(PROG_TYPE, "tc_v6_egressgw_tuple_collision2_reply")
 int egressgw_tuple_collision2_reply_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -556,7 +556,7 @@ int egressgw_tuple_collision2_reply_pktgen_v6(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_v6_egressgw_tuple_collision2_reply")
+SETUP(PROG_TYPE, "tc_v6_egressgw_tuple_collision2_reply")
 int egressgw_tuple_collision2_reply_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr client_ip = CLIENT_IP_V6;
@@ -567,7 +567,7 @@ int egressgw_tuple_collision2_reply_setup_v6(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_v6_egressgw_tuple_collision2_reply")
+CHECK(PROG_TYPE, "tc_v6_egressgw_tuple_collision2_reply")
 int egressgw_tuple_collision2_reply_check_v6(const struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -588,7 +588,7 @@ int egressgw_tuple_collision2_reply_check_v6(const struct __ctx_buff *ctx)
 /* Test that a packet matching an excluded CIDR egress gateway policy on the
  * to-netdev program does not get SNATed with the egress IP of the policy (IPv6).
  */
-PKTGEN("tc", "tc_v6_egressgw_skip_excluded_cidr_snat")
+PKTGEN(PROG_TYPE, "tc_v6_egressgw_skip_excluded_cidr_snat")
 int egressgw_skip_excluded_cidr_snat_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -596,7 +596,7 @@ int egressgw_skip_excluded_cidr_snat_pktgen_v6(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_v6_egressgw_skip_excluded_cidr_snat")
+SETUP(PROG_TYPE, "tc_v6_egressgw_skip_excluded_cidr_snat")
 int egressgw_skip_excluded_cidr_snat_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -612,7 +612,7 @@ int egressgw_skip_excluded_cidr_snat_setup_v6(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_v6_egressgw_skip_excluded_cidr_snat")
+CHECK(PROG_TYPE, "tc_v6_egressgw_skip_excluded_cidr_snat")
 int egressgw_skip_excluded_cidr_snat_check_v6(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
