@@ -117,6 +117,58 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	require.NotZero(t, status.LastFailure, "Cluster status should report two failures")
 }
 
+func TestRemoteClusterConfigUpdate(t *testing.T) {
+	client := kvstore.NewInMemoryClient(statedb.New(), "__all__")
+
+	const name = "remote-config-update"
+	path := filepath.Join(t.TempDir(), name)
+	writeFile(t, path, "endpoints:\n- in-memory\n")
+	require.NoError(t, clustercfg.Set(t.Context(), name, types.CiliumClusterConfig{ID: 2}, client))
+
+	wait := func(t *testing.T, ch <-chan struct{}, msg string) {
+		t.Helper()
+		select {
+		case <-ch:
+		case <-time.After(timeout):
+			t.Fatal(msg)
+		}
+	}
+
+	var statusfn StatusFunc
+	ready := make(chan struct{}, 1)
+	cm := NewClusterMesh(Configuration{
+		Logger:            hivetest.Logger(t),
+		ClusterInfo:       types.ClusterInfo{ID: 255, Name: "local"},
+		ClusterIDsManager: NewClusterIDsManager(types.ClusterInfo{ID: 255}),
+		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
+			statusfn = sf
+			return &fakeRemoteCluster{
+				onRun: func(context.Context) { ready <- struct{}{} },
+			}
+		},
+		Metrics: MetricsProvider(metrics.SubsystemClusterMesh)(),
+	})
+
+	rc := cm.(*clusterMesh).newRemoteCluster(name, path)
+	rc.remoteClientFactory = fakeRemoteClusterFactory(client)
+
+	rc.connect()
+	t.Cleanup(rc.onStop)
+
+	wait(t, ready, "Remote cluster didn't turn ready for the first time")
+
+	// Any configuration change should trigger a reconnection.
+	require.NoError(t, clustercfg.Set(t.Context(), name, types.CiliumClusterConfig{
+		ID: 2, Capabilities: types.CiliumClusterConfigCapabilities{SyncedCanaries: true},
+	}, client))
+	wait(t, ready, "Remote cluster didn't turn ready after configuration change")
+
+	// A configuration change is not a connection failure.
+	status := statusfn()
+	require.True(t, status.Ready, "Cluster status should report ready")
+	require.Zero(t, status.NumFailures, "Cluster status should report no failures")
+}
+
 func TestRemoteClusterCacheRevokeOnTimeout(t *testing.T) {
 	client := kvstore.NewInMemoryClient(statedb.New(), "etcd")
 

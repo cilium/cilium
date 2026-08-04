@@ -32,6 +32,7 @@ var (
 type ClusterConfigBackend interface {
 	Get(ctx context.Context, key string) ([]byte, error)
 	UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error)
+	ListAndWatch(ctx context.Context, prefix string, opts ...kvstore.ListAndWatchOption) kvstore.EventChan
 }
 
 func Set(ctx context.Context, clusterName string, config cmtypes.CiliumClusterConfig, backend ClusterConfigBackend) error {
@@ -118,4 +119,44 @@ func Get(ctx context.Context, clusterName string, backend ClusterConfigBackend) 
 	}
 
 	return config, nil
+}
+
+// Watch watches the configuration of the given cluster and sends the observed
+// configurations to the configUpdates channel. This function already
+// de-deduplicate identical configurations, and ignores any deletion event.
+func Watch(
+	ctx context.Context, clusterName string,
+	backend ClusterConfigBackend, log *slog.Logger,
+	configUpdates chan<- cmtypes.CiliumClusterConfig,
+) {
+	key := kvstore.JoinKey(kvstore.ClusterConfigPrefix, clusterName)
+
+	var current *cmtypes.CiliumClusterConfig
+	for event := range backend.ListAndWatch(ctx, key, kvstore.WithExactKey()) {
+		// Ignore deletion events on purpose to not propagate a temporary
+		// deletion which may be associated to a lease expiration. The list
+		// done event does not carry a configuration so it's similarly ignored.
+		if event.Typ == kvstore.EventTypeDelete || event.Typ == kvstore.EventTypeListDone {
+			continue
+		}
+
+		var config cmtypes.CiliumClusterConfig
+		if err := json.Unmarshal(event.Value, &config); err != nil {
+			log.Warn("Failed to unmarshal cluster configuration",
+				logfields.Error, err,
+				logfields.ClusterName, clusterName)
+			continue
+		}
+
+		if current != nil && current.DeepEqual(&config) {
+			continue
+		}
+
+		select {
+		case configUpdates <- config:
+			current = &config
+		case <-ctx.Done():
+			return
+		}
+	}
 }

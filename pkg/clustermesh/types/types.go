@@ -93,12 +93,14 @@ func RegisterClusterInfoValidator(lc cell.Lifecycle, cinfo ClusterInfo) {
 	})
 }
 
+// +deepequal-gen=true
 type CiliumClusterConfig struct {
 	ID uint32 `json:"id,omitempty"`
 
 	Capabilities CiliumClusterConfigCapabilities `json:"capabilities,omitempty"`
 }
 
+// +deepequal-gen=true
 type CiliumClusterConfigCapabilities struct {
 	// Supports per-prefix "synced" canaries
 	SyncedCanaries bool `json:"syncedCanaries,omitempty"`
