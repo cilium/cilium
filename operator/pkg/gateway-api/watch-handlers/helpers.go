@@ -20,32 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-// updateReconcileRequestsForParentRefs mutates the passed reconcile.Request set
-// to add all referenced Gateways, both via Gateway and via ListenerSet
-func updateReconcileRequestsForParentRefs(ctx context.Context, c client.Client, parentRefs []gatewayv1.ParentReference, ns string, allGatewaysSet map[string]struct{}, rrSet map[reconcile.Request]struct{}) {
-	for _, parent := range parentRefs {
-		if helpers.IsGateway(parent) {
-			parentFullName := types.NamespacedName{
-				Name:      string(parent.Name),
-				Namespace: helpers.NamespaceDerefOr(parent.Namespace, ns),
-			}
-			if _, found := allGatewaysSet[parentFullName.String()]; found {
-				rrSet[reconcile.Request{NamespacedName: parentFullName}] = struct{}{}
-			}
-			continue
-		}
-
-		if helpers.IsListenerSet(parent) {
-			gwNN := helpers.ResolveListenerSetToGateway(ctx, c, string(parent.Name), helpers.NamespaceDerefOr(parent.Namespace, ns))
-			if gwNN != nil {
-				if _, found := allGatewaysSet[gwNN.String()]; found {
-					rrSet[reconcile.Request{NamespacedName: *gwNN}] = struct{}{}
-				}
-			}
-		}
-	}
-}
-
 func hasMatchingController(ctx context.Context, c client.Client, controllerName string, logger *slog.Logger) func(object client.Object) bool {
 	return func(obj client.Object) bool {
 		scopedLog := logger.With(
