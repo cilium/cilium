@@ -9,6 +9,7 @@ import (
 	"net"
 
 	current "github.com/containernetworking/cni/pkg/types/100"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/api/v1/models"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -20,18 +21,19 @@ func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.
 		return fmt.Errorf("missing IPAM configuration")
 	}
 	// If the gateway IP is not available, it is already set up
-	if ipam.Gateway == "" {
+	if !ipam.Gateway.IsValid() {
 		return nil
 	}
 
 	var allCIDRs []*net.IPNet
 
-	for _, cidrString := range ipam.Cidrs {
-		_, cidr, err := net.ParseCIDR(cidrString)
-		if err != nil {
-			return fmt.Errorf("invalid CIDR '%s': %w", cidrString, err)
+	for _, cidr := range ipam.Cidrs {
+		if !cidr.IsValid() {
+			return fmt.Errorf("invalid CIDR '%s'", cidr)
 		}
-		allCIDRs = append(allCIDRs, cidr)
+		// Mask explicitly: net.ParseCIDR, which this loop replaces, returned
+		// the masked network, and ip.CoalesceCIDRs below expects that shape.
+		allCIDRs = append(allCIDRs, netipx.PrefixIPNet(cidr.Masked()))
 	}
 
 	// Coalesce CIDRs into minimum set needed for route rules
@@ -57,7 +59,7 @@ func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.
 
 	routingInfo, err := linuxrouting.NewRoutingInfo(
 		logger,
-		ipam.Gateway,
+		ipam.Gateway.String(),
 		coalescedCIDRs,
 		ipam.MasterMac,
 		ipam.InterfaceNumber,

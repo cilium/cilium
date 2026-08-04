@@ -1656,15 +1656,15 @@ definitions:
     properties:
       ip:
         description: Allocated IP for endpoint
-        type: string
+        "$ref": "#/definitions/Address"
       gateway:
         description: IP of gateway
-        type: string
+        "$ref": "#/definitions/Address"
       cidrs:
         description: List of CIDRs out of which IPs are allocated
         type: array
         items:
-          type: string
+          "$ref": "#/definitions/CIDR"
       master-mac:
         type: string
         description: MAC of master interface if address is a slave/secondary of a master interface
