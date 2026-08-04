@@ -187,7 +187,7 @@ type BackendOperations interface {
 	// matching the prefix and report them as new keys. The Events channel is
 	// unbuffered. Upon every change observed, a KeyValueEvent will be sent
 	// to the Events channel
-	ListAndWatch(ctx context.Context, prefix string) EventChan
+	ListAndWatch(ctx context.Context, prefix string, opts ...ListAndWatchOption) EventChan
 
 	// RegisterLeaseExpiredObserver registers a function which is executed when
 	// the lease associated with a key having the given prefix is detected as expired.
@@ -200,6 +200,28 @@ type BackendOperations interface {
 	RegisterLockLeaseExpiredObserver(prefix string, fn func(key string))
 
 	BackendOperationsUserMgmt
+}
+
+type listAndWatchOptions struct {
+	exactKey bool
+}
+
+type ListAndWatchOption func(*listAndWatchOptions)
+
+// WithExactKey configures ListAndWatch to operate on the exact key rather than
+// all keys matching the provided prefix.
+func WithExactKey() ListAndWatchOption {
+	return func(opts *listAndWatchOptions) {
+		opts.exactKey = true
+	}
+}
+
+func applyListAndWatchOptions(opts ...ListAndWatchOption) listAndWatchOptions {
+	var options listAndWatchOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+	return options
 }
 
 // BackendOperationsUserMgmt are the kvstore operations for users management.
