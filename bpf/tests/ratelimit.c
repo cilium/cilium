@@ -16,7 +16,7 @@ static __u64 mock_ktime_get_ns(void)
 
 #include "lib/ratelimit.h"
 
-CHECK("xdp", "ratelimit") int test_ratelimit(void)
+CHECK(PROG_TYPE, "ratelimit") int test_ratelimit(void)
 {
 	struct ratelimit_settings settings = {
 		.bucket_size = 1000,

@@ -37,7 +37,7 @@ static volatile const __u8 *lb_mac = mac_two;
  * - doesn't touch a NATed request,
  * - passes it up from XDP to TC
  */
-PKTGEN("xdp", "xdp_nodeport_nat_backend")
+PKTGEN(PROG_TYPE, "xdp_nodeport_nat_backend")
 int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -64,7 +64,7 @@ int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "xdp_nodeport_nat_backend")
+SETUP(PROG_TYPE, "xdp_nodeport_nat_backend")
 int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 {
 	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
@@ -79,7 +79,7 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_nodeport_nat_backend")
+CHECK(PROG_TYPE, "xdp_nodeport_nat_backend")
 int nodeport_nat_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

@@ -102,7 +102,7 @@ static __always_inline int craft_packet(struct __ctx_buff *ctx)
 			  .proto = SERVICE_PROTO },\
 	}
 
-SETUP("xdp", "session_affinity")
+SETUP(PROG_TYPE, "session_affinity")
 int test1_setup(struct __ctx_buff *ctx)
 {
 	struct {
@@ -161,7 +161,7 @@ int test1_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "session_affinity")
+CHECK(PROG_TYPE, "session_affinity")
 int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	test_init();

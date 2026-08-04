@@ -76,7 +76,7 @@ const __u8 xdp_nodeport_lb4_nat_lb_tun_dynamic_post[] = {
 /* Test that an XDP nodeport load balanced packet has its outer source
  * ip dynamically resolved.
  */
-PKTGEN("xdp", "xdp_nodeport_lb4_nat_lb_tun_dynamic")
+PKTGEN(PROG_TYPE, "xdp_nodeport_lb4_nat_lb_tun_dynamic")
 int xdp_nodeport_lb4_nat_lb_tun_dynamic_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -91,7 +91,7 @@ int xdp_nodeport_lb4_nat_lb_tun_dynamic_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "xdp_nodeport_lb4_nat_lb_tun_dynamic")
+SETUP(PROG_TYPE, "xdp_nodeport_lb4_nat_lb_tun_dynamic")
 int xdp_nodeport_lb4_nat_lb_tun_dynamic_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -105,7 +105,7 @@ int xdp_nodeport_lb4_nat_lb_tun_dynamic_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_nodeport_lb4_nat_lb_tun_dynamic")
+CHECK(PROG_TYPE, "xdp_nodeport_lb4_nat_lb_tun_dynamic")
 int xdp_nodeport_lb4_nat_lb_tun_dynamic_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
