@@ -4,7 +4,7 @@
 Multi-Cluster Services API (Beta)
 *********************************
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst
 
 This tutorial will guide you to through the support of `Multi-Cluster Services API (MCS-API)`_ in Cilium.
 

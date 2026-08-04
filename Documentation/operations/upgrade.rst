@@ -719,7 +719,7 @@ If a migration has gone wrong, it possible to start with a clean slate. Ensure t
 Migration with the "Double Write" identity allocation mode
 ##########################################################
 
-.. include:: ../beta.rst
+.. include:: /beta.rst
 
 The "Double Write" Identity Allocation Mode allows Cilium to allocate identities as KVStore values *and* as CRDs at the
 same time. This mode also has two versions: one where the source of truth comes from the kvstore (``--identity-allocation-mode=doublewrite-readkvstore``),

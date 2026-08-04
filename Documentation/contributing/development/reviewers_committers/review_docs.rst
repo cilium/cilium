@@ -91,7 +91,7 @@ dedicated banner, as follows:
 
 .. code-block:: rst
 
-   .. include:: /Documentation/beta.rst
+   .. include:: /beta.rst
 
 Upgrade notes
 ~~~~~~~~~~~~~

@@ -10,7 +10,7 @@
 Ztunnel Transparent Encryption (Beta)
 *************************************
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst
 
 This guide explains how to configure Cilium to use ztunnel for transparent
 encryption and mutual TLS (mTLS) authentication between Cilium-managed endpoints.
