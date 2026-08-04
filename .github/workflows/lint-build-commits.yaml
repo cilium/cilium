@@ -391,10 +391,6 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.14
 
-      - name: Set clang directory
-        id: set_clang_dir
-        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
-
       - name: Install LLVM and Clang prerequisites
         timeout-minutes: 5
         run: |
@@ -402,10 +398,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends libtinfo6
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0 # v2.0.9
+        uses: ./.github/actions/install-llvm
         with:
           version: "19.1.7"
-          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
 
       - name: Install ginkgo
         run: |
