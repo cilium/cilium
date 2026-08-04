@@ -223,7 +223,7 @@ loop:
 		// Processing svc change
 		svcChanges, svcWatch := svcChangeIter.Next(rtxn)
 		for event := range svcChanges {
-			if err := l2a.processSvcEvent(rtxn, event); err != nil {
+			if err := l2a.processSvcEvent(l2a.params.StateDB.ReadTxn(), event); err != nil {
 				l2a.params.Logger.Warn("Error processing service event",
 					logfields.Error, err,
 				)
@@ -232,7 +232,7 @@ loop:
 
 		frontendChanges, frontendWatch := frontendChangeIter.Next(rtxn)
 		for event := range frontendChanges {
-			if err := l2a.processFrontendEvent(rtxn, event); err != nil {
+			if err := l2a.processFrontendEvent(l2a.params.StateDB.ReadTxn(), event); err != nil {
 				l2a.params.Logger.Warn("Error processing frontend event",
 					logfields.Error, err,
 				)
@@ -242,11 +242,13 @@ loop:
 		// Processing backend change
 		beChanges, beWatch := beChangeIter.Next(rtxn)
 		for event := range beChanges {
-			// Get the backend struct which changed
 			backend := event.Object
-			svc, _, found := l2a.params.Services.Get(rtxn, loadbalancer.ServiceByName(backend.ServiceName))
+
+			latestTxn := l2a.params.StateDB.ReadTxn()
+
+			svc, _, found := l2a.params.Services.Get(latestTxn, loadbalancer.ServiceByName(backend.ServiceName))
 			if found {
-				if err := l2a.upsertSvc(rtxn, svc); err != nil {
+				if err := l2a.upsertSvc(latestTxn, svc); err != nil {
 					l2a.params.Logger.Warn("Error re-evaluating service on backend change",
 						logfields.Error, err,
 						logfields.ServiceName, backend.ServiceName,
@@ -400,7 +402,9 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 	key := serviceKey(svc)
 
 	// If ext traffic policy is `Local`, check that l2a is assigned to the correct node
-	if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !l2a.hasLocalBackends(rtxn, svc) {
+	hasLocal := l2a.hasLocalBackends(rtxn, svc)
+
+	if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocal {
 		return l2a.delSvc(key)
 	}
 
