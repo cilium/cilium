@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 	"testing"
@@ -398,6 +399,43 @@ func Test_translator_Translate_L4MaglevWeightAnnotation(t *testing.T) {
 	require.NotNil(t, svc)
 	_, ok := svc.Annotations[lbAlgorithmAnnotation]
 	assert.False(t, ok, "unweighted L4 backend must not set maglev annotation")
+}
+
+func Test_decorateCECDoesNotPropagateCECAnnotations(t *testing.T) {
+	const (
+		ordinaryAnnotation  = "example.com/annotation"
+		futureCECAnnotation = annotation.CECPrefix + "/future-control"
+	)
+
+	cec := &ciliumv2.CiliumEnvoyConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				annotation.CECUseOriginalSourceAddress: "false",
+			},
+		},
+	}
+	infrastructureAnnotations := map[string]string{
+		ordinaryAnnotation:                     "preserved",
+		annotation.CECInjectCiliumFilters:      "false",
+		annotation.CECIsL7LB:                   "false",
+		annotation.CECUseOriginalSourceAddress: "true",
+		futureCECAnnotation:                    "false",
+	}
+	originalInfrastructureAnnotations := maps.Clone(infrastructureAnnotations)
+
+	err := decorateCEC(cec, &model.FullyQualifiedResource{
+		Name: "gateway",
+		Kind: "Gateway",
+	}, nil, infrastructureAnnotations)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		ordinaryAnnotation:                     "preserved",
+		annotation.CECUseOriginalSourceAddress: "false",
+	}, cec.Annotations)
+
+	// Infrastructure annotations are also used to decorate the generated Service.
+	// Filtering CEC annotations must not mutate the source map.
+	require.Equal(t, originalInfrastructureAnnotations, infrastructureAnnotations)
 }
 
 func Test_translator_toServicePorts_MixedProtocolsSamePort(t *testing.T) {
