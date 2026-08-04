@@ -1975,11 +1975,10 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
 	const __s32 orig_dgram = 8, off = ETH_HLEN;
-	const __u32 l3_max = MAX_IPOPTLEN + sizeof(*ip4) + orig_dgram;
+	__u8 tmp[MAX_IPOPTLEN + sizeof(*ip4) + orig_dgram];
 	__s32 len_new = off + ipv4_hdrlen(ip4) + orig_dgram;
 	__s32 len_old = (__s32)ctx_full_len(ctx);
 	__u8 reason = (__u8)-code;
-	__u8 tmp[l3_max];
 	union macaddr smac, dmac;
 	struct icmphdr icmp __align_stack_8 = {
 		.type		= ICMP_DEST_UNREACH,
