@@ -48,6 +48,9 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if original.GetDeletionTimestamp() != nil {
 		return controllerruntime.Success()
 	}
+	if string(original.Spec.ControllerName) != r.controllerName {
+		return controllerruntime.Success()
+	}
 
 	gwc := original.DeepCopy()
 

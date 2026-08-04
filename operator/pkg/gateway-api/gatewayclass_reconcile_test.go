@@ -124,9 +124,7 @@ var (
 		},
 		&gatewayv1.GatewayClass{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:              "non-matching-gw-class",
-				DeletionTimestamp: &metav1.Time{Time: time.Now()},
-				Finalizers:        []string{gwcFinalizer},
+				Name: "non-matching-gw-class",
 			},
 			Spec: gatewayv1.GatewayClassSpec{
 				ControllerName: "not-cilium-controller-name",
@@ -142,7 +140,7 @@ func Test_gatewayClassReconciler_Reconcile(t *testing.T) {
 		WithObjects(cgwccFixture...).
 		WithStatusSubresource(&gatewayv1.GatewayClass{}).
 		Build()
-	r := &gatewayClassReconciler{Client: c, logger: hivetest.Logger(t)}
+	r := &gatewayClassReconciler{Client: c, logger: hivetest.Logger(t), controllerName: defaultControllerName}
 
 	t.Run("no gateway class", func(t *testing.T) {
 		result, err := r.Reconcile(t.Context(), ctrl.Request{
