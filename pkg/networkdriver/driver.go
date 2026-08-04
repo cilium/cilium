@@ -68,8 +68,6 @@ type Driver struct {
 	// removes the netns only after the StopPodSandbox hook returns, so the cached
 	// path is still valid when we use it. Guarded by lock, like allocations.
 	podNetns map[kube_types.UID]string
-	// manager_type: devices
-	devices map[types.DeviceManagerType][]types.Device
 	// device ifname: pool name — stable cross-reconcile assignment for conflict resolution
 	assignedDevices map[string]string
 
@@ -318,8 +316,7 @@ func filterDevices(devices []types.Device, filter v2alpha1.CiliumNetworkDriverDe
 //  1. The pool the device was assigned to in a previous call (stable across reconcile cycles).
 //  2. The pool that comes first in alphabetical order (deterministic tie-break for new devices).
 func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourceslice.Pool, error) {
-	driver.devices = make(map[types.DeviceManagerType][]types.Device)
-
+	var allDevices []types.Device
 	for m, mgr := range driver.deviceManagers {
 		devices, err := mgr.ListDevices()
 		if err != nil {
@@ -332,14 +329,8 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 				logfields.DriverName, m,
 				logfields.Devices, len(devices),
 			)
-
-			driver.devices[mgr.Type()] = append(driver.devices[mgr.Type()], devices...)
+			allDevices = append(allDevices, devices...)
 		}
-	}
-
-	var allDevices []types.Device
-	for _, devs := range driver.devices {
-		allDevices = append(allDevices, devs...)
 	}
 
 	devicePool := driver.resolvePoolAssignments(ctx, allDevices)
