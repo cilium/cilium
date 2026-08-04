@@ -10,7 +10,7 @@
 L2 Announcements / L2 Aware LB (Beta)
 *************************************
 
-.. include:: ../beta.rst
+.. include:: /beta.rst
 
 L2 Announcements is a feature which makes services visible and reachable on 
 the local area network. This feature is primarily intended for on-premises

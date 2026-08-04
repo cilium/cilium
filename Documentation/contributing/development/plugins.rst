@@ -14,7 +14,7 @@ Datapath Plugins
    can break Cilium's functionality or even compromise security. Use it at your
    own risk and know what you're doing.
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst
 
 Datapath plugins let you inject your own BPF programs throughout the Cilium
 datapath to influence datapath behavior or build custom observability tooling.
