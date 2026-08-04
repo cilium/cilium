@@ -40,11 +40,14 @@ import (
 // ---------------------------------------------------------------------------
 
 // mockDeviceManager implements types.DeviceManager using trackedDevice.
-type mockDeviceManager struct{}
+// If devices is non-nil, ListDevices returns those devices; otherwise returns nil.
+type mockDeviceManager struct {
+	devices []types.Device
+}
 
 func (m *mockDeviceManager) Type() types.DeviceManagerType { return types.DeviceManagerTypeMock }
 
-func (m *mockDeviceManager) ListDevices() ([]types.Device, error) { return nil, nil }
+func (m *mockDeviceManager) ListDevices() ([]types.Device, error) { return m.devices, nil }
 
 func (m *mockDeviceManager) RestoreDevice(data []byte) (types.Device, error) {
 	d := &trackedDevice{}
@@ -55,8 +58,8 @@ func (m *mockDeviceManager) RestoreDevice(data []byte) (types.Device, error) {
 }
 
 // buildDriverForPool builds a minimal *Driver ready for pool-related tests.
-// It has no real device managers; caller populates driver.devices directly.
-func buildDriverForPool(t *testing.T, pools []v2alpha1.CiliumNetworkDriverDevicePoolConfig, devsByMgr map[types.DeviceManagerType][]types.Device) *Driver {
+// It has no real device managers; devices are passed directly to resolvePoolAssignments / buildPools.
+func buildDriverForPool(t *testing.T, pools []v2alpha1.CiliumNetworkDriverDevicePoolConfig) *Driver {
 	t.Helper()
 	d := &Driver{
 		logger: hivetest.Logger(t),
@@ -64,7 +67,6 @@ func buildDriverForPool(t *testing.T, pools []v2alpha1.CiliumNetworkDriverDevice
 			DriverName: prepTestDriverName,
 			Pools:      pools,
 		},
-		devices:         devsByMgr,
 		assignedDevices: make(map[string]string),
 		allocations:     make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
 		podNetns:        make(map[kubetypes.UID]string),
@@ -171,9 +173,6 @@ func TestResolvePoolAssignments(t *testing.T) {
 			[]v2alpha1.CiliumNetworkDriverDevicePoolConfig{
 				{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 			},
-			map[types.DeviceManagerType][]types.Device{
-				types.DeviceManagerTypeMock: {dev},
-			},
 		)
 
 		devicePool := driver.resolvePoolAssignments(t.Context(), []types.Device{dev})
@@ -189,7 +188,6 @@ func TestResolvePoolAssignments(t *testing.T) {
 				{PoolName: "alpha", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 				{PoolName: "beta", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 			},
-			nil,
 		)
 		driver.assignedDevices = map[string]string{
 			"eth0": "alpha",
@@ -208,7 +206,6 @@ func TestResolvePoolAssignments(t *testing.T) {
 				{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 				{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 			},
-			nil,
 		)
 
 		first := driver.resolvePoolAssignments(t.Context(), []types.Device{dev})
@@ -224,7 +221,6 @@ func TestResolvePoolAssignments(t *testing.T) {
 			[]v2alpha1.CiliumNetworkDriverDevicePoolConfig{
 				{PoolName: "no-filter", Filter: nil},
 			},
-			nil,
 		)
 
 		devicePool := driver.resolvePoolAssignments(t.Context(), []types.Device{dev})
@@ -238,7 +234,6 @@ func TestBuildPools(t *testing.T) {
 			[]v2alpha1.CiliumNetworkDriverDevicePoolConfig{
 				{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 			},
-			nil,
 		)
 
 		pools := driver.buildPools(nil, nil)
@@ -252,7 +247,6 @@ func TestBuildPools(t *testing.T) {
 			[]v2alpha1.CiliumNetworkDriverDevicePoolConfig{
 				{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 			},
-			nil,
 		)
 
 		devicePool := map[string]string{"eth0": "pool-a"}
@@ -268,7 +262,8 @@ func TestBuildPools(t *testing.T) {
 			dummyPoolConfig("dummy-pool"),
 		})
 
-		allDevices := driver.devices[types.DeviceManagerTypeDummy]
+		allDevices, err := driver.deviceManagers[types.DeviceManagerTypeDummy].ListDevices()
+		require.NoError(t, err)
 		devicePool := driver.resolvePoolAssignments(t.Context(), allDevices)
 		pools := driver.buildPools(allDevices, devicePool)
 
@@ -513,9 +508,6 @@ func buildDriverWithDummyManager(t *testing.T, pools []v2alpha1.CiliumNetworkDri
 	mgr, err := dummy.NewManager(tlog, &v2alpha1.DummyDeviceManagerConfig{Count: 2})
 	require.NoError(t, err)
 
-	devs, err := mgr.ListDevices()
-	require.NoError(t, err)
-
 	d := buildPrepDriver(t, cs)
 	d.config = &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
 		DriverName: prepTestDriverName,
@@ -523,9 +515,6 @@ func buildDriverWithDummyManager(t *testing.T, pools []v2alpha1.CiliumNetworkDri
 	}
 	d.deviceManagers = map[types.DeviceManagerType]types.DeviceManager{
 		types.DeviceManagerTypeDummy: mgr,
-	}
-	d.devices = map[types.DeviceManagerType][]types.Device{
-		types.DeviceManagerTypeDummy: devs,
 	}
 	d.assignedDevices = make(map[string]string)
 	d.podNetns = make(map[kubetypes.UID]string)
