@@ -187,7 +187,7 @@ var (
 
 	ConnectivityCheckImagesPerf = map[string]string{
 		// renovate: datasource=docker
-		"ConnectivityPerformanceImage": "quay.io/cilium/network-perf:3.21-1782913202-88c270c@sha256:c115a00b80bbf4ff49857dd545f0c40025f226d79051b2c8fdab3e8b938c7f92",
+		"ConnectivityPerformanceImage": "quay.io/cilium/network-perf:3.21-1785800728-1bb0d67@sha256:ca65e0b188c76acb22f0d0686ec0ce8b850393bd78beb7f39b4efd3dcdcc52fb",
 	}
 
 	// The following variables are set at compile time via LDFLAGS.
