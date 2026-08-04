@@ -726,7 +726,9 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 
 // writeSkbHeader defines macros for bpf/include/bpf/features_skb.h
 func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
-	featuresSkb := map[string]bool{}
+	featuresSkb := map[string]bool{
+		"HAVE_BPF_LOOP": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnLoop}],
+	}
 
 	return writeFeatureHeader(writer, featuresSkb, false)
 }
@@ -737,6 +739,7 @@ func writeXdpHeader(writer io.Writer, probes *FeatureProbes) error {
 		"HAVE_XDP_GET_BUFF_LEN": probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpGetBuffLen}],
 		"HAVE_XDP_LOAD_BYTES":   probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpLoadBytes}],
 		"HAVE_XDP_STORE_BYTES":  probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnXdpStoreBytes}],
+		"HAVE_BPF_LOOP":         probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnLoop}],
 	}
 
 	return writeFeatureHeader(writer, featuresXdp, false)
