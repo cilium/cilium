@@ -130,6 +130,11 @@ jobs:
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
+      - name: Install LLVM and Clang
+        uses: ./.github/actions/install-llvm
+        with:
+          version: "19.1.7"
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -145,17 +150,6 @@ jobs:
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.14
-
-      - name: Set clang directory
-        id: set_clang_dir
-        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
-
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0 # v2.0.9
-        with:
-          version: "19.1.7"
-          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
-
 
       - name: Prepare environment
         timeout-minutes: 15
