@@ -221,7 +221,7 @@ fi
 
 echo "Building documentation (${target})..."
 sphinx-build -M "${target}" "${script_dir}" "${build_dir}" $@ \
-    ${read_all_opt} -n --color -w "${warnings}" 2>/dev/null
+    ${read_all_opt} -n --color -w "${warnings}"
 
 # We can have warnings but no errors here, or sphinx-build would return non-0
 # and we would have exited because of "set -o errexit".
