@@ -552,3 +552,6 @@ static __always_inline __nobuiltin("memmove") void memmove(void *d,
 {
 	return __bpf_memmove(d, s, len);
 }
+
+#define bpf_core_enum_value_exists(enum_type, enum_value) \
+	__builtin_preserve_enum_value(*(typeof(enum_type) *)enum_value, 0)
