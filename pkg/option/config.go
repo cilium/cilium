@@ -2870,7 +2870,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		c.ExcludeNodeLabelPatterns = append(c.ExcludeNodeLabelPatterns, r)
 	}
 
-	if theKVStore != "" {
+	if theKVStore != "" && !vp.IsSet(IdentityRestoreGracePeriod) {
 		c.IdentityRestoreGracePeriod = defaults.IdentityRestoreGracePeriodKvstore
 	}
 
