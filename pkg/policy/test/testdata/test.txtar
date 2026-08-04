@@ -46,6 +46,15 @@ stdout health.+1
 stdout ${id1}.+3
 stdout ${id2}.+3
 
+# Those policies were not recomputed, but they are known to be correct at the
+# new repo revision 4. An endpoint created from here on must be able to realize
+# revision 4 without waiting for a recomputation that will never come.
+db/show --columns Identity,CurrentAtRevision policy-computations
+stdout host.+4
+stdout health.+4
+stdout ${id1}.+4
+stdout ${id2}.+4
+
 -- policy.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy

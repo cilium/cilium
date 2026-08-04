@@ -31,8 +31,17 @@ type PolicyRecomputer interface {
 type Result struct {
 	Identity             identity.NumericIdentity
 	NewPolicy, OldPolicy policy.SelectorPolicy
-	Revision             uint64
-	Err                  error
+	// Revision is the repository revision this policy was computed at. It is
+	// how processRequests tells whether a requested computation has already
+	// run, so it must only ever be set by an actual computation. Use
+	// CurrentAtRevision to ask how far forward the policy is still valid.
+	Revision uint64
+	// CurrentAtRevision is the highest repository revision this policy is
+	// known to be correct for. It starts equal to Revision and is advanced,
+	// without recomputing, by policy updates that do not select this identity.
+	// Always >= Revision.
+	CurrentAtRevision uint64
+	Err               error
 }
 
 type computeRequest struct {
@@ -41,7 +50,14 @@ type computeRequest struct {
 	done     chan struct{}
 }
 
-func (r *IdentityPolicyComputer) UpdatePolicy(idsToRegen set.Set[identity.NumericIdentity], _, toRev uint64) {
+// advanceRequest carries a policy update's revision range for the identities it
+// did not select. See applyAdvances.
+type advanceRequest struct {
+	unaffectedBy   set.Set[identity.NumericIdentity]
+	fromRev, toRev uint64
+}
+
+func (r *IdentityPolicyComputer) UpdatePolicy(idsToRegen set.Set[identity.NumericIdentity], fromRev, toRev uint64) {
 	// The lock order is IdentityManager.mutex before reqsMu, since the
 	// IdentityManager observer takes reqsMu. Resolve identities, which takes
 	// IdentityManager.mutex, before locking reqsMu.
@@ -58,8 +74,58 @@ func (r *IdentityPolicyComputer) UpdatePolicy(idsToRegen set.Set[identity.Numeri
 	for _, idd := range ids {
 		r.enqueueLocked(idd, toRev)
 	}
+	// Identities this update did not select keep their committed policy, but
+	// still need their revision advanced. The computation loop owns the table,
+	// so hand the work to it rather than writing here.
+	r.advances = append(r.advances, advanceRequest{
+		unaffectedBy: idsToRegen,
+		fromRev:      fromRev,
+		toRev:        toRev,
+	})
 	r.reqsMu.Unlock()
 	r.notifyTrigger()
+}
+
+// applyAdvances raises CurrentAtRevision for every committed policy that an
+// update did not select.
+//
+// An identity absent from an update's idsToRegen is not selected by any of the
+// rules that changed, so its already-committed policy is still correct at toRev
+// and needs no recomputation. Recording that fact mirrors what the importer
+// does for endpoints that are already exposed, which have their revision bumped
+// without a regeneration. Without it, an endpoint exposed after the importer
+// snapshotted the endpoint list has no way to learn that its policy is already
+// current, and adopts the pre-import revision as its realized one.
+//
+// A policy is only carried forward if it was already current at the revision
+// this update started from. That keeps the claim inductive: an identity whose
+// policy is still awaiting (or has failed) a computation for an earlier
+// revision is never marked current for a later one.
+//
+// Must be called from processRequests with wtxn open, so that these writes
+// cannot invalidate a CompareAndSwap performed by a concurrent recomputation.
+func (r *IdentityPolicyComputer) applyAdvances(wtxn statedb.WriteTxn, advances []advanceRequest) {
+	for _, adv := range advances {
+		var advanced []Result
+		for obj := range r.tbl.All(wtxn) {
+			if obj.CurrentAtRevision < adv.fromRev || obj.CurrentAtRevision >= adv.toRev {
+				continue
+			}
+			if adv.unaffectedBy.Has(obj.Identity) {
+				continue
+			}
+			obj.CurrentAtRevision = adv.toRev
+			advanced = append(advanced, obj)
+		}
+		for _, obj := range advanced {
+			if _, _, err := r.tbl.Insert(wtxn, obj); err != nil {
+				r.logger.Error("Failed to advance policy computation revision",
+					logfields.Identity, obj.Identity,
+					logfields.PolicyRevisionCurrentAt, adv.toRev,
+					logfields.Error, err)
+			}
+		}
+	}
 }
 
 // enqueueLocked appends or coalesces a request and returns the done channel.
@@ -161,8 +227,10 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 		r.reqsMu.Lock()
 		batch := r.reqs
 		r.reqs = nil
+		advances := r.advances
+		r.advances = nil
 		r.reqsMu.Unlock()
-		if len(batch) == 0 {
+		if len(batch) == 0 && len(advances) == 0 {
 			continue
 		}
 
@@ -173,6 +241,8 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 		var work []pending
 		for _, req := range batch {
 			obj, rev, found := r.tbl.Get(rtxn, PolicyComputationByIdentity(req.identity.ID))
+			// Revision, not CurrentAtRevision: only a computation that actually
+			// ran can satisfy a request. See applyAdvances.
 			if found && obj.Revision >= req.toRev {
 				close(req.done)
 				continue
@@ -182,6 +252,11 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 			work = append(work, pending{computeRequest: req, rev: rev, oldPolicy: obj.NewPolicy})
 		}
 		if len(work) == 0 {
+			if len(advances) > 0 {
+				wtxn := r.db.WriteTxn(r.tbl)
+				r.applyAdvances(wtxn, advances)
+				wtxn.Commit()
+			}
 			continue
 		}
 
@@ -198,6 +273,9 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				results[i].res.Identity = w.identity.ID
 				results[i].res.OldPolicy = w.oldPolicy
 				results[i].res.NewPolicy, results[i].res.Revision, results[i].res.Err = r.repo.ComputeSelectorPolicy(w.identity)
+				// A freshly computed policy is current as of the revision it
+				// was computed at.
+				results[i].res.CurrentAtRevision = results[i].res.Revision
 				outcome := metrics.LabelValueOutcomeSuccess
 				if results[i].res.Err != nil {
 					outcome = metrics.LabelValueOutcomeFailure
@@ -247,6 +325,9 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				results[i].res = Result{}
 			}
 		}
+		// After the CompareAndSwaps above, so that advancing a revision cannot
+		// invalidate a recomputation's expected statedb revision.
+		r.applyAdvances(wtxn, advances)
 		wtxn.Commit()
 
 		if len(retry) > 0 {
