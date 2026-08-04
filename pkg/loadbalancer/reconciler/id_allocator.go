@@ -24,13 +24,13 @@ type idAllocator[ID idConstraint] struct {
 	// nextID is the next ID to attempt to allocate
 	nextID ID
 
-	// maxID is the maximum ID available for allocation
+	// maxID is the exclusive upper bound of the ID allocation range
 	maxID ID
 
 	// initNextID is the initial nextID
 	initNextID ID
 
-	// initMaxID is the initial maxID
+	// initMaxID is the initial exclusive upper bound of the ID allocation range
 	initMaxID ID
 }
 
@@ -38,16 +38,16 @@ const (
 	// firstFreeServiceID is the first ID for which the services should be assigned.
 	firstFreeServiceID = loadbalancer.ServiceID(1)
 
-	// maxSetOfServiceID is maximum number of set of service IDs that can be stored
-	// in the kvstore or the local ID allocator.
+	// maxSetOfServiceID is the exclusive upper bound of the service ID allocation
+	// range.
 	maxSetOfServiceID = loadbalancer.ServiceID(0xFFFF)
 
 	// firstFreeBackendID is the first ID for which the backend should be assigned.
 	// BPF datapath assumes that backend_id cannot be 0.
 	firstFreeBackendID = loadbalancer.BackendID(1)
 
-	// maxSetOfBackendID is maximum number of set of backendIDs IDs that can be
-	// stored in the local ID allocator.
+	// maxSetOfBackendID is the exclusive upper bound of the backend ID allocation
+	// range.
 	maxSetOfBackendID = loadbalancer.BackendID(0xFFFFFFFF)
 )
 
