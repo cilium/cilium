@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -17,6 +18,8 @@ import (
 var Cell = cell.Module(
 	"loadbalancer-reconciler",
 	"Load-balancing BPF map reconciliation",
+
+	metrics.Metric(newReconcilerMetrics),
 
 	cell.Provide(
 		// Provide [BPFOps] for reconciling a changed frontend.
