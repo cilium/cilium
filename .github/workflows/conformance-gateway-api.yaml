@@ -127,6 +127,11 @@ jobs:
                 "default": true
               },
               {
+                "conformance-profile": false,
+                "default": true,
+                "dsr": true
+              },
+              {
                 "conformance-profile": true
               },
               {
@@ -227,6 +232,15 @@ jobs:
 
           if [ "${{ matrix.split }}" == "true" ]; then
             CILIUM_INSTALL_DEFAULTS="${CILIUM_INSTALL_DEFAULTS} --helm-set=envoy.xdsMode=split"
+          fi
+
+          if [ "${{ matrix.dsr }}" == "true" ]; then
+            CILIUM_INSTALL_DEFAULTS="${CILIUM_INSTALL_DEFAULTS} \
+              --helm-set=routingMode=tunnel \
+              --helm-set=tunnelProtocol=geneve \
+              --helm-set=loadBalancer.mode=dsr \
+              --helm-set=loadBalancer.dsrDispatch=geneve \
+              --helm-set=envoy.nodeSelector.node-role\\.kubernetes\\.io/control-plane="
           fi
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
