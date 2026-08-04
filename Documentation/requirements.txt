@@ -40,7 +40,7 @@ MarkupSafe==3.0.3
 mdit-py-plugins==0.6.1
 mdurl==0.1.2
 mistune==3.3.4
-packaging==26.2
+packaging==26.3
 pathspec==1.1.1
 picobox==4.0.0
 pydantic==2.13.4
