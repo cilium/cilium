@@ -107,7 +107,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "xdp_lb4_forward_to_other_node")
+SETUP(PROG_TYPE, "xdp_lb4_forward_to_other_node")
 int test1_setup(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -123,7 +123,7 @@ int test1_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_lb4_forward_to_other_node")
+CHECK(PROG_TYPE, "xdp_lb4_forward_to_other_node")
 int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	test_init();
@@ -190,7 +190,7 @@ int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-SETUP("xdp", "xdp_lb4_drop_no_backend")
+SETUP(PROG_TYPE, "xdp_lb4_drop_no_backend")
 int test2_setup(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -204,7 +204,7 @@ int test2_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_lb4_drop_no_backend")
+CHECK(PROG_TYPE, "xdp_lb4_drop_no_backend")
 int test2_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data_end = (void *)(long)ctx->data_end;

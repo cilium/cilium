@@ -5,7 +5,7 @@
 #include "common.h"
 #include <lib/jhash.h>
 
-CHECK("xdp", "jhash")
+CHECK(PROG_TYPE, "jhash")
 int bpf_test(__maybe_unused struct xdp_md *ctx)
 {
 	test_init();

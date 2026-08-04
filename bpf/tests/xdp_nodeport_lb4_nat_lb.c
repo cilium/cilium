@@ -94,7 +94,7 @@ ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
  * - gets DNATed (but not SNATed)
  * - gets passed up from XDP to TC
  */
-PKTGEN("xdp", "xdp_nodeport_local_backend")
+PKTGEN(PROG_TYPE, "xdp_nodeport_local_backend")
 int nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -121,7 +121,7 @@ int nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "xdp_nodeport_local_backend")
+SETUP(PROG_TYPE, "xdp_nodeport_local_backend")
 int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -138,7 +138,7 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_nodeport_local_backend")
+CHECK(PROG_TYPE, "xdp_nodeport_local_backend")
 int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -210,7 +210,7 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
  * - doesn't have the XFER_PKT_NO_SVC flag set, so that the TC layer applies
  *   another round of SVC processing
  */
-PKTGEN("xdp", "xdp_nodeport_etp_local")
+PKTGEN(PROG_TYPE, "xdp_nodeport_etp_local")
 int nodeport_etp_local_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -237,7 +237,7 @@ int nodeport_etp_local_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "xdp_nodeport_etp_local")
+SETUP(PROG_TYPE, "xdp_nodeport_etp_local")
 int nodeport_etp_local_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
@@ -252,7 +252,7 @@ int nodeport_etp_local_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_nodeport_etp_local")
+CHECK(PROG_TYPE, "xdp_nodeport_etp_local")
 int nodeport_etp_local_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -310,7 +310,7 @@ int nodeport_etp_local_check(const struct __ctx_buff *ctx)
  * - gets DNATed and SNATed,
  * - gets redirected back out by XDP
  */
-PKTGEN("xdp", "xdp_nodeport_nat_fwd")
+PKTGEN(PROG_TYPE, "xdp_nodeport_nat_fwd")
 int nodeport_nat_fwd_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -337,7 +337,7 @@ int nodeport_nat_fwd_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "xdp_nodeport_nat_fwd")
+SETUP(PROG_TYPE, "xdp_nodeport_nat_fwd")
 int nodeport_nat_fwd_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -351,7 +351,7 @@ int nodeport_nat_fwd_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_nodeport_nat_fwd")
+CHECK(PROG_TYPE, "xdp_nodeport_nat_fwd")
 int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -507,19 +507,19 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 /* Test that the LB RevDNATs and RevSNATs a reply from the
  * NAT remote backend, and sends it back to the client.
  */
-PKTGEN("xdp", "xdp_nodeport_nat_fwd_reply")
+PKTGEN(PROG_TYPE, "xdp_nodeport_nat_fwd_reply")
 int nodeport_nat_fwd_reply_pktgen(struct __ctx_buff *ctx)
 {
 	return build_reply(ctx);
 }
 
-SETUP("xdp", "xdp_nodeport_nat_fwd_reply")
+SETUP(PROG_TYPE, "xdp_nodeport_nat_fwd_reply")
 int nodeport_nat_fwd_reply_setup(struct __ctx_buff *ctx)
 {
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_nodeport_nat_fwd_reply")
+CHECK(PROG_TYPE, "xdp_nodeport_nat_fwd_reply")
 int nodeport_nat_fwd_reply_check(const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
@@ -529,13 +529,13 @@ int nodeport_nat_fwd_reply_check(const struct __ctx_buff *ctx)
  * NAT remote backend, and sends it back to the client.
  * Even if the FIB lookup fails.
  */
-PKTGEN("xdp", "xdp_nodeport_nat_fwd_reply_no_fib")
+PKTGEN(PROG_TYPE, "xdp_nodeport_nat_fwd_reply_no_fib")
 int nodepoirt_nat_fwd_reply_no_fib_pktgen(struct __ctx_buff *ctx)
 {
 	return build_reply(ctx);
 }
 
-SETUP("xdp", "xdp_nodeport_nat_fwd_reply_no_fib")
+SETUP(PROG_TYPE, "xdp_nodeport_nat_fwd_reply_no_fib")
 int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 {
 	__u32 key = 0;
@@ -549,7 +549,7 @@ int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_nodeport_nat_fwd_reply_no_fib")
+CHECK(PROG_TYPE, "xdp_nodeport_nat_fwd_reply_no_fib")
 int nodeport_nat_fwd_reply_no_fib_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	cilium_device_del_entry(DEFAULT_IFACE);
@@ -562,7 +562,7 @@ int nodeport_nat_fwd_reply_no_fib_check(__maybe_unused const struct __ctx_buff *
  * - does have XFER_PKT_NO_SVC flag set so that TC does not process it again
  * if the backend is a /local/ backend
  */
-PKTGEN("xdp", "xdp_nodeport_l7delegate_local")
+PKTGEN(PROG_TYPE, "xdp_nodeport_l7delegate_local")
 int nodeport_l7delegate_local_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -586,7 +586,7 @@ int nodeport_l7delegate_local_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "xdp_nodeport_l7delegate_local")
+SETUP(PROG_TYPE, "xdp_nodeport_l7delegate_local")
 int nodeport_l7delegate_local_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
@@ -605,7 +605,7 @@ int nodeport_l7delegate_local_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_nodeport_l7delegate_local")
+CHECK(PROG_TYPE, "xdp_nodeport_l7delegate_local")
 int nodeport_l7delegate_local_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -673,7 +673,7 @@ int nodeport_l7delegate_local_check(const struct __ctx_buff *ctx)
  * xdp_nodeport_l7delegate_local just that the backend is not
  * part of the endpoint map.
  */
-PKTGEN("xdp", "xdp_nodeport_l7delegate_remote")
+PKTGEN(PROG_TYPE, "xdp_nodeport_l7delegate_remote")
 int nodeport_l7delegate_remote_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -697,7 +697,7 @@ int nodeport_l7delegate_remote_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "xdp_nodeport_l7delegate_remote")
+SETUP(PROG_TYPE, "xdp_nodeport_l7delegate_remote")
 int nodeport_l7delegate_remote_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
@@ -715,7 +715,7 @@ int nodeport_l7delegate_remote_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_nodeport_l7delegate_remote")
+CHECK(PROG_TYPE, "xdp_nodeport_l7delegate_remote")
 int nodeport_l7delegate_remote_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
