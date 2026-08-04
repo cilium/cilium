@@ -22,6 +22,7 @@ var Cell = cell.Module(
 
 	cell.Config(Config{}),
 	cell.Provide(registerBPFStatsEnable),
+	cell.Provide(newProgStatsCollector),
 )
 
 type bpfStatsStatus struct {
