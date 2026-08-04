@@ -4,12 +4,14 @@
 package infraendpoints
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
@@ -249,6 +251,75 @@ func createDevices(t *testing.T) {
 	_, ipnet, _ := net.ParseCIDR("192.0.2.1/32")
 	addr := &netlink.Addr{IPNet: ipnet}
 	assert.NoError(t, netlink.AddrAdd(ciliumHost, addr))
+}
+
+func TestPrivilegedWaitForENI(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	infraIPAllocator := &infraIPAllocator{
+		logger: hivetest.Logger(t),
+	}
+
+	cases := []struct {
+		name        string
+		ifaceDelay  time.Duration
+		ctxTimeout  time.Duration
+		expectError bool
+	}{
+		{
+			name:        "10s nominal delay",
+			ifaceDelay:  10 * time.Second,
+			ctxTimeout:  30 * time.Second,
+			expectError: false,
+		},
+		{
+			name:        "149s delay, just under the 150s cap",
+			ifaceDelay:  149 * time.Second,
+			ctxTimeout:  170 * time.Second,
+			expectError: false,
+		},
+		{
+			name:        "160s delay, past the 150s cap",
+			ifaceDelay:  160 * time.Second,
+			ctxTimeout:  170 * time.Second,
+			expectError: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ns := netns.NewNetNS(t)
+
+			hwAddr, err := mac.GenerateRandMAC()
+			require.NoError(t, err)
+
+			done := make(chan error, 1)
+			go func() {
+				time.Sleep(tc.ifaceDelay)
+				done <- ns.Do(func() error {
+					return netlink.LinkAdd(&netlink.Dummy{
+						LinkAttrs: netlink.LinkAttrs{
+							Name:         "eni-test0",
+							HardwareAddr: net.HardwareAddr(hwAddr),
+						},
+					})
+				})
+			}()
+
+			ctx, cancel := context.WithTimeout(context.Background(), tc.ctxTimeout)
+			defer cancel()
+
+			err = ns.Do(func() error {
+				return infraIPAllocator.waitForENI(ctx, hwAddr.String())
+			})
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.NoError(t, <-done)
+		})
+	}
 }
 
 func Test_getCiliumHostIPsFromFile(t *testing.T) {
