@@ -68,7 +68,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx,
 	return 0;
 }
 
-PKTGEN("tc", "hairpin_flow_1_forward_v4")
+PKTGEN(PROG_TYPE, "hairpin_flow_1_forward_v4")
 int hairpin_flow_forward_pktgen(struct __ctx_buff *ctx)
 {
 	return build_packet(ctx, tcp_src_one);
@@ -77,7 +77,7 @@ int hairpin_flow_forward_pktgen(struct __ctx_buff *ctx)
 /* Test that sending a packet from a pod to its own service gets source nat-ed
  * and that it is forwarded to the correct veth.
  */
-SETUP("tc", "hairpin_flow_1_forward_v4")
+SETUP(PROG_TYPE, "hairpin_flow_1_forward_v4")
 int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -98,7 +98,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "hairpin_flow_1_forward_v4")
+CHECK(PROG_TYPE, "hairpin_flow_1_forward_v4")
 int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -188,7 +188,7 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 }
 
 /* Let backend's ingress path create its own CT entry: */
-PKTGEN("tc", "hairpin_flow_2_forward_ingress_v4")
+PKTGEN(PROG_TYPE, "hairpin_flow_2_forward_ingress_v4")
 int hairpin_flow_forward_ingress_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -219,13 +219,13 @@ int hairpin_flow_forward_ingress_pktgen(struct __ctx_buff *ctx)
 }
 
 /* Test that a packet in the forward direction is good. */
-SETUP("tc", "hairpin_flow_2_forward_ingress_v4")
+SETUP(PROG_TYPE, "hairpin_flow_2_forward_ingress_v4")
 int hairpin_flow_forward_ingress_setup(struct __ctx_buff *ctx)
 {
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "hairpin_flow_2_forward_ingress_v4")
+CHECK(PROG_TYPE, "hairpin_flow_2_forward_ingress_v4")
 int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -297,7 +297,7 @@ int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *c
 	test_finish();
 }
 
-PKTGEN("tc", "hairpin_flow_3_reverse_v4")
+PKTGEN(PROG_TYPE, "hairpin_flow_3_reverse_v4")
 int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -330,7 +330,7 @@ int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 }
 
 /* Test that a packet in the reverse direction gets translated back. */
-SETUP("tc", "hairpin_flow_3_reverse_v4")
+SETUP(PROG_TYPE, "hairpin_flow_3_reverse_v4")
 int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, 0, NULL, NULL);
@@ -338,7 +338,7 @@ int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "hairpin_flow_3_reverse_v4")
+CHECK(PROG_TYPE, "hairpin_flow_3_reverse_v4")
 int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -389,7 +389,7 @@ int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "hairpin_flow_4_reverse_ingress_v4")
+PKTGEN(PROG_TYPE, "hairpin_flow_4_reverse_ingress_v4")
 int hairpin_flow_reverse_ingress_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -421,13 +421,13 @@ int hairpin_flow_reverse_ingress_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hairpin_flow_4_reverse_ingress_v4")
+SETUP(PROG_TYPE, "hairpin_flow_4_reverse_ingress_v4")
 int hairpin_flow_reverse_ingress_setup(struct __ctx_buff *ctx)
 {
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "hairpin_flow_4_reverse_ingress_v4")
+CHECK(PROG_TYPE, "hairpin_flow_4_reverse_ingress_v4")
 int hairpin_flow_reverse_ingress_check(const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -480,7 +480,7 @@ int hairpin_flow_reverse_ingress_check(const struct __ctx_buff *ctx)
 }
 
 /* Test that a packet for a SVC without any backend gets dropped. */
-SETUP("tc", "tc_drop_no_backend")
+SETUP(PROG_TYPE, "tc_drop_no_backend")
 int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -497,7 +497,7 @@ int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_drop_no_backend")
+CHECK(PROG_TYPE, "tc_drop_no_backend")
 int tc_drop_no_backend_check(const struct __ctx_buff *ctx)
 {
 	__u32 expected_status = TC_ACT_SHOT;
@@ -546,13 +546,13 @@ static __always_inline int build_packet_v6(struct __ctx_buff *ctx, __be16 sport)
 	return 0;
 }
 
-PKTGEN("tc", "hairpin_flow_1_forward_v6")
+PKTGEN(PROG_TYPE, "hairpin_flow_1_forward_v6")
 int hairpin_flow_forward_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return build_packet_v6(ctx, tcp_src_one);
 }
 
-SETUP("tc", "hairpin_flow_1_forward_v6")
+SETUP(PROG_TYPE, "hairpin_flow_1_forward_v6")
 int hairpin_flow_forward_setup_v6(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -572,7 +572,7 @@ int hairpin_flow_forward_setup_v6(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "hairpin_flow_1_forward_v6")
+CHECK(PROG_TYPE, "hairpin_flow_1_forward_v6")
 int hairpin_flow_forward_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -653,7 +653,7 @@ int hairpin_flow_forward_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "hairpin_flow_2_forward_ingress_v6")
+PKTGEN(PROG_TYPE, "hairpin_flow_2_forward_ingress_v6")
 int hairpin_flow_forward_ingress_pktgen_v6(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -679,13 +679,13 @@ int hairpin_flow_forward_ingress_pktgen_v6(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hairpin_flow_2_forward_ingress_v6")
+SETUP(PROG_TYPE, "hairpin_flow_2_forward_ingress_v6")
 int hairpin_flow_forward_ingress_setup_v6(struct __ctx_buff *ctx)
 {
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "hairpin_flow_2_forward_ingress_v6")
+CHECK(PROG_TYPE, "hairpin_flow_2_forward_ingress_v6")
 int hairpin_flow_forward_ingress_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -753,7 +753,7 @@ int hairpin_flow_forward_ingress_check_v6(__maybe_unused const struct __ctx_buff
 	test_finish();
 }
 
-PKTGEN("tc", "hairpin_flow_3_reverse_v6")
+PKTGEN(PROG_TYPE, "hairpin_flow_3_reverse_v6")
 int hairpin_flow_reverse_pktgen_v6(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -782,13 +782,13 @@ int hairpin_flow_reverse_pktgen_v6(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hairpin_flow_3_reverse_v6")
+SETUP(PROG_TYPE, "hairpin_flow_3_reverse_v6")
 int hairpin_flow_rev_setup_v6(struct __ctx_buff *ctx)
 {
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "hairpin_flow_3_reverse_v6")
+CHECK(PROG_TYPE, "hairpin_flow_3_reverse_v6")
 int hairpin_flow_rev_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -838,7 +838,7 @@ int hairpin_flow_rev_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "hairpin_flow_4_reverse_ingress_v6")
+PKTGEN(PROG_TYPE, "hairpin_flow_4_reverse_ingress_v6")
 int hairpin_flow_reverse_ingress_pktgen_v6(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -867,13 +867,13 @@ int hairpin_flow_reverse_ingress_pktgen_v6(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hairpin_flow_4_reverse_ingress_v6")
+SETUP(PROG_TYPE, "hairpin_flow_4_reverse_ingress_v6")
 int hairpin_flow_reverse_ingress_setup_v6(struct __ctx_buff *ctx)
 {
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "hairpin_flow_4_reverse_ingress_v6")
+CHECK(PROG_TYPE, "hairpin_flow_4_reverse_ingress_v6")
 int hairpin_flow_reverse_ingress_check_v6(const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -922,7 +922,7 @@ int hairpin_flow_reverse_ingress_check_v6(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-SETUP("tc", "tc_drop_no_backend_v6")
+SETUP(PROG_TYPE, "tc_drop_no_backend_v6")
 int tc_drop_no_backend_setup_v6(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -939,7 +939,7 @@ int tc_drop_no_backend_setup_v6(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_drop_no_backend_v6")
+CHECK(PROG_TYPE, "tc_drop_no_backend_v6")
 int tc_drop_no_backend_check_v6(const struct __ctx_buff *ctx)
 {
 	__u32 expected_status = TC_ACT_SHOT;

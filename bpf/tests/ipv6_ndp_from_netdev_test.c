@@ -115,7 +115,7 @@ int __ipv6_from_netdev_ns_pod_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-PKTGEN("tc", "011_ipv6_from_netdev_ns_pod")
+PKTGEN(PROG_TYPE, "011_ipv6_from_netdev_ns_pod")
 int ipv6_from_netdev_ns_pod_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -128,13 +128,13 @@ int ipv6_from_netdev_ns_pod_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "011_ipv6_from_netdev_ns_pod")
+SETUP(PROG_TYPE, "011_ipv6_from_netdev_ns_pod")
 int ipv6_from_netdev_ns_pod_setup(struct __ctx_buff *ctx)
 {
 	return __ipv6_from_netdev_ns_pod_setup(ctx);
 }
 
-CHECK("tc", "011_ipv6_from_netdev_ns_pod")
+CHECK(PROG_TYPE, "011_ipv6_from_netdev_ns_pod")
 int ipv6_from_netdev_ns_pod_check(const struct __ctx_buff *ctx)
 {
 	test_init();
@@ -151,7 +151,7 @@ int ipv6_from_netdev_ns_pod_check(const struct __ctx_buff *ctx)
 	return 0;
 }
 
-PKTGEN("tc", "011_ipv6_from_netdev_ns_pod_noopt")
+PKTGEN(PROG_TYPE, "011_ipv6_from_netdev_ns_pod_noopt")
 int ipv6_from_netdev_ns_pod_pktgen_noopt(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -165,13 +165,13 @@ int ipv6_from_netdev_ns_pod_pktgen_noopt(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "011_ipv6_from_netdev_ns_pod_noopt")
+SETUP(PROG_TYPE, "011_ipv6_from_netdev_ns_pod_noopt")
 int ipv6_from_netdev_ns_pod_setup_noopt(struct __ctx_buff *ctx)
 {
 	return __ipv6_from_netdev_ns_pod_setup(ctx);
 }
 
-CHECK("tc", "011_ipv6_from_netdev_ns_pod_noopt")
+CHECK(PROG_TYPE, "011_ipv6_from_netdev_ns_pod_noopt")
 int ipv6_from_netdev_ns_pod_check_noopt(const struct __ctx_buff *ctx)
 {
 	test_init();
@@ -200,7 +200,7 @@ int __ipv6_from_netdev_ns_pod_setup_mcast(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-PKTGEN("tc", "012_ipv6_from_netdev_ns_pod_mcast")
+PKTGEN(PROG_TYPE, "012_ipv6_from_netdev_ns_pod_mcast")
 int ipv6_from_netdev_ns_pod_pktgen_mcast(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -215,13 +215,13 @@ int ipv6_from_netdev_ns_pod_pktgen_mcast(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "012_ipv6_from_netdev_ns_pod_mcast")
+SETUP(PROG_TYPE, "012_ipv6_from_netdev_ns_pod_mcast")
 int ipv6_from_netdev_ns_pod_setup_mcast(struct __ctx_buff *ctx)
 {
 	return __ipv6_from_netdev_ns_pod_setup_mcast(ctx);
 }
 
-CHECK("tc", "012_ipv6_from_netdev_ns_pod_mcast")
+CHECK(PROG_TYPE, "012_ipv6_from_netdev_ns_pod_mcast")
 int ipv6_from_netdev_ns_pod_check_mcast(const struct __ctx_buff *ctx)
 {
 	test_init();
@@ -239,7 +239,7 @@ int ipv6_from_netdev_ns_pod_check_mcast(const struct __ctx_buff *ctx)
 	return 0;
 }
 
-PKTGEN("tc", "012_ipv6_from_netdev_ns_pod_mcast_noopt")
+PKTGEN(PROG_TYPE, "012_ipv6_from_netdev_ns_pod_mcast_noopt")
 int ipv6_from_netdev_ns_pod_pktgen_mcast_noopt(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -253,13 +253,13 @@ int ipv6_from_netdev_ns_pod_pktgen_mcast_noopt(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "012_ipv6_from_netdev_ns_pod_mcast_noopt")
+SETUP(PROG_TYPE, "012_ipv6_from_netdev_ns_pod_mcast_noopt")
 int ipv6_from_netdev_ns_pod_setup_mcast_noopt(struct __ctx_buff *ctx)
 {
 	return __ipv6_from_netdev_ns_pod_setup_mcast(ctx);
 }
 
-CHECK("tc", "012_ipv6_from_netdev_ns_pod_mcast_noopt")
+CHECK(PROG_TYPE, "012_ipv6_from_netdev_ns_pod_mcast_noopt")
 int ipv6_from_netdev_ns_pod_check_mcast_noopt(const struct __ctx_buff *ctx)
 {
 	test_init();
@@ -294,7 +294,7 @@ int __ipv6_from_netdev_ns_node_ip_setup(struct __ctx_buff *ctx)
 }
 
 /* With LL SRC option */
-PKTGEN("tc", "0211_ipv6_from_netdev_ns_node_ip")
+PKTGEN(PROG_TYPE, "0211_ipv6_from_netdev_ns_node_ip")
 int ipv6_from_netdev_ns_node_ip_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -308,13 +308,13 @@ int ipv6_from_netdev_ns_node_ip_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "0211_ipv6_from_netdev_ns_node_ip")
+SETUP(PROG_TYPE, "0211_ipv6_from_netdev_ns_node_ip")
 int ipv6_from_netdev_ns_node_ip_setup(struct __ctx_buff *ctx)
 {
 	return __ipv6_from_netdev_ns_node_ip_setup(ctx);
 }
 
-CHECK("tc", "0211_ipv6_from_netdev_ns_node_ip")
+CHECK(PROG_TYPE, "0211_ipv6_from_netdev_ns_node_ip")
 int ipv6_from_netdev_ns_node_ip_check(const struct __ctx_buff *ctx)
 {
 	test_init();
@@ -334,7 +334,7 @@ int ipv6_from_netdev_ns_node_ip_check(const struct __ctx_buff *ctx)
 }
 
 /* Without LL SRC option */
-PKTGEN("tc", "0212_ipv6_from_netdev_ns_node_ip_noopt")
+PKTGEN(PROG_TYPE, "0212_ipv6_from_netdev_ns_node_ip_noopt")
 int ipv6_from_netdev_ns_node_ip_pktgen_noopt(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -348,13 +348,13 @@ int ipv6_from_netdev_ns_node_ip_pktgen_noopt(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "0212_ipv6_from_netdev_ns_node_ip_noopt")
+SETUP(PROG_TYPE, "0212_ipv6_from_netdev_ns_node_ip_noopt")
 int ipv6_from_netdev_ns_node_ip_setup_noopt(struct __ctx_buff *ctx)
 {
 	return __ipv6_from_netdev_ns_node_ip_setup(ctx);
 }
 
-CHECK("tc", "0212_ipv6_from_netdev_ns_node_ip_noopt")
+CHECK(PROG_TYPE, "0212_ipv6_from_netdev_ns_node_ip_noopt")
 int ipv6_from_netdev_ns_node_ip_check_noopt(const struct __ctx_buff *ctx)
 {
 	test_init();
@@ -383,7 +383,7 @@ int __ipv6_from_netdev_ns_node_ip_setup_mcast(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-PKTGEN("tc", "022_ipv6_from_netdev_ns_node_ip_mcast")
+PKTGEN(PROG_TYPE, "022_ipv6_from_netdev_ns_node_ip_mcast")
 int ipv6_from_netdev_ns_node_ip_pktgen_mcast(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -398,13 +398,13 @@ int ipv6_from_netdev_ns_node_ip_pktgen_mcast(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "022_ipv6_from_netdev_ns_node_ip_mcast")
+SETUP(PROG_TYPE, "022_ipv6_from_netdev_ns_node_ip_mcast")
 int ipv6_from_netdev_ns_node_ip_setup_mcast(struct __ctx_buff *ctx)
 {
 	return __ipv6_from_netdev_ns_node_ip_setup_mcast(ctx);
 }
 
-CHECK("tc", "022_ipv6_from_netdev_ns_node_ip_mcast")
+CHECK(PROG_TYPE, "022_ipv6_from_netdev_ns_node_ip_mcast")
 int ipv6_from_netdev_ns_node_ip_check_mcast(const struct __ctx_buff *ctx)
 {
 	test_init();
@@ -423,7 +423,7 @@ int ipv6_from_netdev_ns_node_ip_check_mcast(const struct __ctx_buff *ctx)
 	return 0;
 }
 
-PKTGEN("tc", "022_ipv6_from_netdev_ns_node_ip_mcast_noopt")
+PKTGEN(PROG_TYPE, "022_ipv6_from_netdev_ns_node_ip_mcast_noopt")
 int ipv6_from_netdev_ns_node_ip_pktgen_mcast_noopt(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -437,13 +437,13 @@ int ipv6_from_netdev_ns_node_ip_pktgen_mcast_noopt(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "022_ipv6_from_netdev_ns_node_ip_mcast_noopt")
+SETUP(PROG_TYPE, "022_ipv6_from_netdev_ns_node_ip_mcast_noopt")
 int ipv6_from_netdev_ns_node_ip_setup_mcast_noopt(struct __ctx_buff *ctx)
 {
 	return __ipv6_from_netdev_ns_node_ip_setup_mcast(ctx);
 }
 
-CHECK("tc", "022_ipv6_from_netdev_ns_node_ip_mcast_noopt")
+CHECK(PROG_TYPE, "022_ipv6_from_netdev_ns_node_ip_mcast_noopt")
 int ipv6_from_netdev_ns_node_ip_check_mcast_noopt(const struct __ctx_buff *ctx)
 {
 	test_init();

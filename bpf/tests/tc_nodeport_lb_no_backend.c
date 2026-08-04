@@ -38,7 +38,7 @@ ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 #include "lib/lb.h"
 
 /* Test that a SVC without backends returns a TCP RST or ICMP error */
-PKTGEN("tc", "tc_nodeport_no_backend4")
+PKTGEN(PROG_TYPE, "tc_nodeport_no_backend4")
 int nodeport_no_backend4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -65,7 +65,7 @@ int nodeport_no_backend4_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_no_backend4")
+SETUP(PROG_TYPE, "tc_nodeport_no_backend4")
 int nodeport_no_backend4_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -140,21 +140,21 @@ validate_icmp_reply(const struct __ctx_buff *ctx, __u32 retval)
 	test_finish();
 }
 
-CHECK("tc", "tc_nodeport_no_backend4")
+CHECK(PROG_TYPE, "tc_nodeport_no_backend4")
 int nodeport_no_backend4_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return validate_icmp_reply(ctx, CTX_ACT_REDIRECT);
 }
 
 /* Test that the ICMP error message leaves the node */
-PKTGEN("tc", "tc_nodeport_no_backend4_2_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_no_backend4_2_reply")
 int nodeport_no_backend4_2_reply_pktgen(struct __ctx_buff *ctx)
 {
 	/* Start with the initial request, and let SETUP() below rebuild it. */
 	return nodeport_no_backend4_pktgen(ctx);
 }
 
-SETUP("tc", "tc_nodeport_no_backend4_2_reply")
+SETUP(PROG_TYPE, "tc_nodeport_no_backend4_2_reply")
 int nodeport_no_backend4_2_reply_setup(struct __ctx_buff *ctx)
 {
 	if (tail_no_service_ipv4(ctx) != CTX_ACT_REDIRECT)
@@ -163,14 +163,14 @@ int nodeport_no_backend4_2_reply_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_no_backend4_2_reply")
+CHECK(PROG_TYPE, "tc_nodeport_no_backend4_2_reply")
 int nodeport_no_backend4_2_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return validate_icmp_reply(ctx, CTX_ACT_OK);
 }
 
 /* Test that a SVC without backends returns a TCP RST or ICMP error */
-PKTGEN("tc", "tc_nodeport_no_backend6")
+PKTGEN(PROG_TYPE, "tc_nodeport_no_backend6")
 int nodeport_no_backend6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -198,7 +198,7 @@ int nodeport_no_backend6_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_no_backend6")
+SETUP(PROG_TYPE, "tc_nodeport_no_backend6")
 int nodeport_no_backend6_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
@@ -235,21 +235,21 @@ validate_icmpv6_reply_return(const struct __ctx_buff *ctx, __u32 retval) {
 	return validate_icmpv6_reply(&args);
 }
 
-CHECK("tc", "tc_nodeport_no_backend6")
+CHECK(PROG_TYPE, "tc_nodeport_no_backend6")
 int nodeport_no_backend6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return validate_icmpv6_reply_return(ctx, CTX_ACT_REDIRECT);
 }
 
 /* Test that the ICMP error message leaves the node */
-PKTGEN("tc", "tc_nodeport_no_backend6_2_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_no_backend6_2_reply")
 int nodeport_no_backend6_2_reply_pktgen(struct __ctx_buff *ctx)
 {
 	/* Start with the initial request, and let SETUP() below rebuild it. */
 	return nodeport_no_backend6_pktgen(ctx);
 }
 
-SETUP("tc", "tc_nodeport_no_backend6_2_reply")
+SETUP(PROG_TYPE, "tc_nodeport_no_backend6_2_reply")
 int nodeport_no_backend6_2_reply_setup(struct __ctx_buff *ctx)
 {
 	if (generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH))
@@ -258,7 +258,7 @@ int nodeport_no_backend6_2_reply_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_no_backend6_2_reply")
+CHECK(PROG_TYPE, "tc_nodeport_no_backend6_2_reply")
 int nodeport_no_backend6_2_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return validate_icmpv6_reply_return(ctx, CTX_ACT_OK);

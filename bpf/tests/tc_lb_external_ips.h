@@ -105,7 +105,7 @@ const __u8 lb6_ew_external_ip[] = {
  * - For East-West traffic, the packet should be dropped and no conntrack entry
  *   should be created for the connection.
  */
-PKTGEN("tc", "tc_lb4_external_ips")
+PKTGEN(PROG_TYPE, "tc_lb4_external_ips")
 int lb4_external_ips_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -123,7 +123,7 @@ int lb4_external_ips_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lb4_external_ips")
+SETUP(PROG_TYPE, "tc_lb4_external_ips")
 int lb4_external_ips_setup(struct __ctx_buff *ctx)
 {
 	policy_add_egress_allow_all_entry();
@@ -140,7 +140,7 @@ int lb4_external_ips_setup(struct __ctx_buff *ctx)
 	return HOOK(ctx);
 }
 
-CHECK("tc", "tc_lb4_external_ips")
+CHECK(PROG_TYPE, "tc_lb4_external_ips")
 int lb4_external_ips_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -200,7 +200,7 @@ int lb4_external_ips_check(__maybe_unused const struct __ctx_buff *ctx)
  * - For East-West traffic, the packet should be dropped and no conntrack entry
  *   should be created for the connection.
  */
-PKTGEN("tc", "tc_lb6_external_ips")
+PKTGEN(PROG_TYPE, "tc_lb6_external_ips")
 int lb6_external_ips_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -218,7 +218,7 @@ int lb6_external_ips_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lb6_external_ips")
+SETUP(PROG_TYPE, "tc_lb6_external_ips")
 int lb6_external_ips_setup(struct __ctx_buff *ctx)
 {
 	policy_add_egress_allow_all_entry();
@@ -235,7 +235,7 @@ int lb6_external_ips_setup(struct __ctx_buff *ctx)
 	return HOOK(ctx);
 }
 
-CHECK("tc", "tc_lb6_external_ips")
+CHECK(PROG_TYPE, "tc_lb6_external_ips")
 int lb6_external_ips_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

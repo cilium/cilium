@@ -26,7 +26,7 @@
 #define EXT_IPV6 v6_node_one
 #define SID v6_node_two
 
-PKTGEN("tc", "tc_srv6_encap_from_pod_ipv4")
+PKTGEN(PROG_TYPE, "tc_srv6_encap_from_pod_ipv4")
 int srv6_encap_from_pod_ipv4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -65,7 +65,7 @@ int srv6_encap_from_pod_ipv4_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-SETUP("tc", "tc_srv6_encap_from_pod_ipv4")
+SETUP(PROG_TYPE, "tc_srv6_encap_from_pod_ipv4")
 int srv6_encap_from_pod_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 {
 	struct srv6_vrf_key4 vrf_key = {
@@ -91,7 +91,7 @@ int srv6_encap_from_pod_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_srv6_encap_from_pod_ipv4")
+CHECK(PROG_TYPE, "tc_srv6_encap_from_pod_ipv4")
 int srv6_encap_from_pod_ipv4_check(const struct __ctx_buff *ctx __maybe_unused)
 {
 	void *data;
@@ -177,7 +177,7 @@ int srv6_encap_from_pod_ipv4_check(const struct __ctx_buff *ctx __maybe_unused)
 	return TEST_PASS;
 }
 
-PKTGEN("tc", "tc_srv6_encap_from_pod_ipv6")
+PKTGEN(PROG_TYPE, "tc_srv6_encap_from_pod_ipv6")
 int srv6_encap_from_pod_ipv6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -216,7 +216,7 @@ int srv6_encap_from_pod_ipv6_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-SETUP("tc", "tc_srv6_encap_from_pod_ipv6")
+SETUP(PROG_TYPE, "tc_srv6_encap_from_pod_ipv6")
 int srv6_encap_from_pod_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 {
 	struct srv6_vrf_key6 vrf_key = {
@@ -243,7 +243,7 @@ int srv6_encap_from_pod_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_srv6_encap_from_pod_ipv6")
+CHECK(PROG_TYPE, "tc_srv6_encap_from_pod_ipv6")
 int srv6_encap_from_pod_ipv6_check(const struct __ctx_buff *ctx __maybe_unused)
 {
 	void *data;

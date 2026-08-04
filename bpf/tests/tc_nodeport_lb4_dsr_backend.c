@@ -112,7 +112,7 @@ ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
  * - redirects it to the pod (as BPF Host Routing is enabled)
  * - creates a matching CT entry, and SNAT entry from the DSR info
  */
-PKTGEN("tc", "tc_nodeport_dsr_backend")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_backend")
 int nodeport_dsr_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct dsr_opt_v4 *opt;
@@ -164,7 +164,7 @@ int nodeport_dsr_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_dsr_backend")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_backend")
 int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 {
 	/* add local backend */
@@ -176,7 +176,7 @@ int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_dsr_backend")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_backend")
 int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 {
 	struct dsr_opt_v4 *opt;
@@ -361,19 +361,19 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 /* Test that the backend node revDNATs a reply from the
  * DSR backend, and sends the reply back to the client.
  */
-PKTGEN("tc", "tc_nodeport_dsr_backend_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_backend_reply")
 int nodeport_dsr_backend_reply_pktgen(struct __ctx_buff *ctx)
 {
 	return build_reply(ctx);
 }
 
-SETUP("tc", "tc_nodeport_dsr_backend_reply")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_backend_reply")
 int nodeport_dsr_backend_reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_dsr_backend_reply")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_backend_reply")
 int nodeport_dsr_backend_reply_check(const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
@@ -382,7 +382,7 @@ int nodeport_dsr_backend_reply_check(const struct __ctx_buff *ctx)
 /* Same scenario as above, but for a different CLIENT_IP_2. Here replies
  * should leave via a non-default interface.
  */
-PKTGEN("tc", "tc_nodeport_dsr_backend_redirect")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_backend_redirect")
 int nodeport_dsr_backend_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	struct dsr_opt_v4 *opt;
@@ -434,7 +434,7 @@ int nodeport_dsr_backend_redirect_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_dsr_backend_redirect")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_backend_redirect")
 int nodeport_dsr_backend_redirect_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
@@ -443,7 +443,7 @@ int nodeport_dsr_backend_redirect_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_dsr_backend_redirect")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_backend_redirect")
 int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 {
 	struct dsr_opt_v4 *opt;
@@ -537,7 +537,7 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "tc_nodeport_dsr_backend_redirect_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_backend_redirect_reply")
 int nodeport_dsr_backend_redirect_reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -564,7 +564,7 @@ int nodeport_dsr_backend_redirect_reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_dsr_backend_redirect_reply")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_backend_redirect_reply")
 int nodeport_dsr_backend_redirect_reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
@@ -573,7 +573,7 @@ int nodeport_dsr_backend_redirect_reply_setup(struct __ctx_buff *ctx)
 /* Test that to-netdev respects the routing needed for CLIENT_IP_2,
  * and redirects the packet to the correct egress interface.
  */
-CHECK("tc", "tc_nodeport_dsr_backend_redirect_reply")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_backend_redirect_reply")
 int nodeport_dsr_backend_redirect_reply_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

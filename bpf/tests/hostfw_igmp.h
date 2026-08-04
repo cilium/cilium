@@ -34,7 +34,7 @@ ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 /* Send an IGMP packet from host to IGMP destination (allow all egress policy).
  *
  */
-PKTGEN("tc", "hostfw_igmp_1_egress")
+PKTGEN(PROG_TYPE, "hostfw_igmp_1_egress")
 int hostfw_igmp_egress_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -56,7 +56,7 @@ int hostfw_igmp_egress_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hostfw_igmp_1_egress")
+SETUP(PROG_TYPE, "hostfw_igmp_1_egress")
 int hostfw_igmp_egress_setup(struct __ctx_buff *ctx)
 {
 	policy_add_egress_allow_all_entry();
@@ -70,7 +70,7 @@ int hostfw_igmp_egress_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "hostfw_igmp_1_egress")
+CHECK(PROG_TYPE, "hostfw_igmp_1_egress")
 int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -128,7 +128,7 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
  * conntrack entry (no ingress policy).
  *
  */
-PKTGEN("tc", "hostfw_igmp_2_ingress")
+PKTGEN(PROG_TYPE, "hostfw_igmp_2_ingress")
 int hostfw_igmp_ingress_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -150,7 +150,7 @@ int hostfw_igmp_ingress_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hostfw_igmp_2_ingress")
+SETUP(PROG_TYPE, "hostfw_igmp_2_ingress")
 int hostfw_igmp_ingress_setup(struct __ctx_buff *ctx)
 {
 	policy_add_ingress_allow_all_entry();
@@ -158,7 +158,7 @@ int hostfw_igmp_ingress_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "hostfw_igmp_2_ingress")
+CHECK(PROG_TYPE, "hostfw_igmp_2_ingress")
 int hostfw_igmp_ingress_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -214,7 +214,7 @@ int hostfw_igmp_ingress_check(const struct __ctx_buff *ctx)
  *
  * The packet is allowed by the egress policy.
  */
-PKTGEN("tc", "hostfw_igmp_3_egress_policy")
+PKTGEN(PROG_TYPE, "hostfw_igmp_3_egress_policy")
 int hostfw_igmp_egress_policy_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -236,7 +236,7 @@ int hostfw_igmp_egress_policy_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hostfw_igmp_3_egress_policy")
+SETUP(PROG_TYPE, "hostfw_igmp_3_egress_policy")
 int hostfw_igmp_egress_policy_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(NODE_IP2, 0, 0, ENDPOINT_F_HOST, HOST_ID,
@@ -249,7 +249,7 @@ int hostfw_igmp_egress_policy_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "hostfw_igmp_3_egress_policy")
+CHECK(PROG_TYPE, "hostfw_igmp_3_egress_policy")
 int hostfw_igmp_egress_policy_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -305,7 +305,7 @@ int hostfw_igmp_egress_policy_check(const struct __ctx_buff *ctx)
  *
  * The packet is dropped by the ingress policy.
  */
-PKTGEN("tc", "hostfw_igmp_4_ingress_policy")
+PKTGEN(PROG_TYPE, "hostfw_igmp_4_ingress_policy")
 int hostfw_igmp_ingress_policy_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -327,7 +327,7 @@ int hostfw_igmp_ingress_policy_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "hostfw_igmp_4_ingress_policy")
+SETUP(PROG_TYPE, "hostfw_igmp_4_ingress_policy")
 int hostfw_igmp_ingress_policy_setup(struct __ctx_buff *ctx)
 {
 	policy_add_ingress_deny_l4_entry(IPPROTO_IGMP, 0, 0);
@@ -336,7 +336,7 @@ int hostfw_igmp_ingress_policy_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "hostfw_igmp_4_ingress_policy")
+CHECK(PROG_TYPE, "hostfw_igmp_4_ingress_policy")
 int hostfw_igmp_ingress_policy_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
