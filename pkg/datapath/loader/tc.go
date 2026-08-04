@@ -213,12 +213,14 @@ func removeTCFilters(device netlink.Link, parent uint32) error {
 	return nil
 }
 
-// hasCiliumTCFilters returns true if device has Cilium-managed bpf filters
-// for the given direction (parent).
-func hasCiliumTCFilters(device netlink.Link, parent uint32) (bool, error) {
+// ListCiliumTCFilters lists Cilium-managed bpf filters for the given direction
+// (parent).
+func ListCiliumTCFilters(device netlink.Link, parent uint32) ([]*netlink.BpfFilter, error) {
+	var result []*netlink.BpfFilter
+
 	filters, err := safenetlink.FilterList(device, parent)
 	if err != nil {
-		return false, fmt.Errorf("listing tc filters for device %s, direction %d: %w", device.Attrs().Name, parent, err)
+		return nil, fmt.Errorf("listing tc filters for device %s, direction %d: %w", device.Attrs().Name, parent, err)
 	}
 
 	for _, f := range filters {
@@ -226,12 +228,20 @@ func hasCiliumTCFilters(device netlink.Link, parent uint32) (bool, error) {
 			// If any filter contains the cil_ prefix in the name we know Cilium
 			// previously attached its programs to this netlink device.
 			if isCiliumFilter(bpfFilter) {
-				return true, nil
+				result = append(result, bpfFilter)
 			}
 		}
 	}
 
-	return false, nil
+	return result, nil
+}
+
+// hasCiliumTCFilters returns true if device has Cilium-managed bpf filters
+// for the given direction (parent).
+func hasCiliumTCFilters(device netlink.Link, parent uint32) (bool, error) {
+	filters, err := ListCiliumTCFilters(device, parent)
+
+	return len(filters) > 0, err
 }
 
 func replaceQdisc(link netlink.Link) error {
