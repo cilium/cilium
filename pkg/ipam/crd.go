@@ -277,19 +277,24 @@ func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNo
 	if primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(n.ownNode); primaryCIDR != nil {
 		allCIDRs := append([]*cidr.CIDR{primaryCIDR}, secondaryCIDRs...)
 		if nativeCIDR := n.conf.IPv4NativeRoutingCIDR; nativeCIDR != nil {
+			native, ok := netipx.FromStdIPNet(nativeCIDR.IPNet)
 			found := false
 			for _, vpcCIDR := range allCIDRs {
-				ranges4, _ := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, vpcCIDR.IPNet})
-				if len(ranges4) != 1 {
+				vpc, vpcOK := netipx.FromStdIPNet(vpcCIDR.IPNet)
+				// Accept the configured native routing CIDR as long as it
+				// overlaps one of the VPC CIDRs, i.e. it is a VPC CIDR, a
+				// subnet of one (e.g. a single availability-zone subnet, used
+				// to masquerade cross-subnet traffic), or a supernet of one.
+				if !ok || !vpcOK || !ip.LaminarCIDRsOverlap(native, vpc) {
 					n.logger.Info(
-						"Native routing CIDR does not contain VPC CIDR, trying next",
+						"Native routing CIDR does not overlap VPC CIDR, trying next",
 						logfields.VPCCIDR, vpcCIDR,
 						option.IPv4NativeRoutingCIDR, nativeCIDR,
 					)
 				} else {
 					found = true
 					n.logger.Info(
-						"Native routing CIDR contains VPC CIDR, ignoring autodetected VPC CIDRs.",
+						"Native routing CIDR overlaps VPC CIDR, ignoring autodetected VPC CIDRs.",
 						logfields.VPCCIDR, vpcCIDR,
 						option.IPv4NativeRoutingCIDR, nativeCIDR,
 					)
@@ -297,7 +302,7 @@ func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNo
 				}
 			}
 			if !found {
-				logging.Fatal(n.logger, "None of the VPC CIDRs contains the specified native routing CIDR")
+				logging.Fatal(n.logger, "None of the VPC CIDRs overlaps the specified native routing CIDR")
 			}
 		} else {
 			n.logger.Info(
