@@ -45,6 +45,12 @@ notes carefully below to understand what to do during upgrade.
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
 
+* Annotations in the ``cec.cilium.io/*`` namespace supplied through Gateway or
+  GAMMA infrastructure metadata are no longer propagated to internally
+  generated ``CiliumEnvoyConfig`` resources. They remain on generated Services,
+  where they have no effect, to preserve Gateway API infrastructure metadata
+  propagation. This prevents user-controlled infrastructure metadata from
+  changing proxy and policy behavior.
 * CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy resources that specify
   neither ``spec`` nor ``specs`` are now rejected at admission time by the
   Kubernetes API server via a CEL validation rule. Previously, such empty
