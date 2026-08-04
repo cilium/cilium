@@ -180,10 +180,12 @@ func TestListAndWatch(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	events := client.ListAndWatch(ctx, "foo2/")
-	require.NotNil(t, t)
+	exactEvents := client.ListAndWatch(ctx, key1, WithExactKey())
 
 	expectEvent(t, events, EventTypeCreate, key1, val1)
+	expectEvent(t, exactEvents, EventTypeCreate, key1, val1)
 	expectEvent(t, events, EventTypeListDone, "", "")
+	expectEvent(t, exactEvents, EventTypeListDone, "", "")
 
 	success, err = client.CreateOnly(context.Background(), key2, []byte(val2), false)
 	require.NoError(t, err)
@@ -193,15 +195,18 @@ func TestListAndWatch(t *testing.T) {
 	err = client.Delete(context.TODO(), key1)
 	require.NoError(t, err)
 	expectEvent(t, events, EventTypeDelete, key1, val1)
+	expectEvent(t, exactEvents, EventTypeDelete, key1, val1)
 
 	success, err = client.CreateOnly(context.Background(), key1, []byte(val1), false)
 	require.NoError(t, err)
 	require.True(t, success)
 	expectEvent(t, events, EventTypeCreate, key1, val1)
+	expectEvent(t, exactEvents, EventTypeCreate, key1, val1)
 
 	err = client.Delete(context.TODO(), key1)
 	require.NoError(t, err)
 	expectEvent(t, events, EventTypeDelete, key1, val1)
+	expectEvent(t, exactEvents, EventTypeDelete, key1, val1)
 
 	err = client.Delete(context.TODO(), key2)
 	require.NoError(t, err)
@@ -211,5 +216,7 @@ func TestListAndWatch(t *testing.T) {
 
 	// Wait for the Events channel to be closed
 	_, ok := <-events
+	require.False(t, ok, "Received unexpected event")
+	_, ok = <-exactEvents
 	require.False(t, ok, "Received unexpected event")
 }

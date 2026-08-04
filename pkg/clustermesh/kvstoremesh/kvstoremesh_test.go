@@ -79,12 +79,12 @@ type remoteClientWrapper struct {
 }
 
 // Override the ListAndWatch method to track whether synced canaries have been watched.
-func (w *remoteClientWrapper) ListAndWatch(ctx context.Context, prefix string) kvstore.EventChan {
+func (w *remoteClientWrapper) ListAndWatch(ctx context.Context, prefix string, opts ...kvstore.ListAndWatchOption) kvstore.EventChan {
 	if strings.HasPrefix(prefix, "cilium/synced/") {
 		w.syncedCanariesWatched.Store(true)
 	}
 
-	return w.Client.ListAndWatch(ctx, prefix)
+	return w.Client.ListAndWatch(ctx, prefix, opts...)
 }
 
 func TestMain(m *testing.M) {

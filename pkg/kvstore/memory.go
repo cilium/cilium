@@ -155,7 +155,8 @@ func (c *inMemoryClient) GetIfLocked(ctx context.Context, key string, lock KVLoc
 }
 
 // ListAndWatch implements BackendOperations.
-func (c *inMemoryClient) ListAndWatch(ctx context.Context, prefix string) EventChan {
+func (c *inMemoryClient) ListAndWatch(ctx context.Context, prefix string, opts ...ListAndWatchOption) EventChan {
+	options := applyListAndWatchOptions(opts...)
 	wtxn := c.db.WriteTxn(c.table)
 	changeIter, err := c.table.Changes(wtxn)
 	wtxn.Commit()
@@ -172,7 +173,8 @@ func (c *inMemoryClient) ListAndWatch(ctx context.Context, prefix string) EventC
 			changes, watch := changeIter.Next(c.db.ReadTxn())
 			for change := range changes {
 				obj := change.Object
-				if !strings.HasPrefix(obj.key, prefix) {
+				if (options.exactKey && obj.key != prefix) ||
+					(!options.exactKey && !strings.HasPrefix(obj.key, prefix)) {
 					continue
 				}
 				var typ EventType
