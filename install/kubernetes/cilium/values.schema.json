@@ -2493,7 +2493,10 @@
           "type": "integer"
         },
         "httpUpstreamLingerTimeout": {
-          "type": "null"
+          "type": [
+            "null",
+            "integer"
+          ]
         },
         "idleTimeoutDurationSeconds": {
           "type": "integer"
