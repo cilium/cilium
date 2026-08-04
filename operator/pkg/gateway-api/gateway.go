@@ -13,8 +13,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -174,28 +172,9 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.enableExtensionRefFilters {
 		gatewayBuilder = gatewayBuilder.Watches(
 			&v2alpha1.CiliumEnvoyExtProcFilter{},
-			handler.EnqueueRequestsFromMapFunc(r.enqueueAllGateways()),
+			watchhandlers.EnqueueRequestForExtProcFilter(r.Client, r.logger, r.controllerName),
 		)
 	}
 
 	return gatewayBuilder.Complete(r)
-}
-
-func (r *gatewayReconciler) enqueueAllGateways() handler.MapFunc {
-	// TODO: this re-reconciles every Gateway whenever any CiliumEnvoyExtProcFilter
-	// changes. Replace with a targeted index that maps each filter to only the
-	// Gateways whose routes reference it.
-	return func(ctx context.Context, obj client.Object) []reconcile.Request {
-		gwList := &gatewayv1.GatewayList{}
-		if err := r.Client.List(ctx, gwList); err != nil {
-			return nil
-		}
-		var requests []reconcile.Request
-		for _, gw := range gwList.Items {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: client.ObjectKeyFromObject(&gw),
-			})
-		}
-		return requests
-	}
 }

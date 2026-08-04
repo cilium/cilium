@@ -26,6 +26,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
@@ -428,6 +429,12 @@ func registerReconcilers(
 	hostNetworkEnabled bool,
 	enableExtensionRefFilters bool,
 ) error {
+	if enableExtensionRefFilters {
+		if err := registerExtensionRefFilterIndexes(mgr); err != nil {
+			return err
+		}
+	}
+
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
@@ -469,6 +476,20 @@ func registerReconcilers(
 		default:
 			panic(fmt.Sprintf("No reconciler available for GVK %s", gvk))
 		}
+	}
+	return nil
+}
+
+// registerExtensionRefFilterIndexes registers the shared HTTPRoute and GRPCRoute
+// indexes used to find routes that reference a CiliumEnvoyExtProcFilter. The
+// indexes must be registered centrally because Gateway and GAMMA share the
+// manager cache.
+func registerExtensionRefFilterIndexes(mgr ctrlRuntime.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexers.ExtProcFilterHTTPRouteIndex, indexers.IndexHTTPRouteByExtProcFilter); err != nil {
+		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ExtProcFilterHTTPRouteIndex, err)
+	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexers.ExtProcFilterGRPCRouteIndex, indexers.IndexGRPCRouteByExtProcFilter); err != nil {
+		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ExtProcFilterGRPCRouteIndex, err)
 	}
 	return nil
 }
