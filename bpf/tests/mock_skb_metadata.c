@@ -7,7 +7,7 @@
 
 #include "mock_skb_metadata.h"
 
-PKTGEN("tc", "01_mock_skb_metadata")
+PKTGEN(PROG_TYPE, "01_mock_skb_metadata")
 int mock_skb_metadata_pktgen(__maybe_unused struct __ctx_buff *ctx)
 {
 	ctx_store_meta(ctx, 0, 1);
@@ -18,7 +18,7 @@ int mock_skb_metadata_pktgen(__maybe_unused struct __ctx_buff *ctx)
 	return 0;
 }
 
-CHECK("tc", "01_mock_skb_metadata")
+CHECK(PROG_TYPE, "01_mock_skb_metadata")
 int mock_skb_metadata_check1(__maybe_unused struct __ctx_buff *ctx)
 {
 	__u32 data;
@@ -43,7 +43,7 @@ int mock_skb_metadata_check1(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "02_mock_skb_metadata")
+CHECK(PROG_TYPE, "02_mock_skb_metadata")
 int mock_skb_metadata_check2(__maybe_unused struct __ctx_buff *ctx)
 {
 	__u32 data;

@@ -39,7 +39,7 @@ bool timeout_in(const struct ct_entry *entry, int seconds)
 	return entry->lifetime == __now + seconds;
 }
 
-CHECK("tc", "conntrack")
+CHECK(PROG_TYPE, "conntrack")
 int bpf_test(__maybe_unused struct __sk_buff *sctx)
 {
 	test_init();
@@ -210,7 +210,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 	test_finish();
 }
 
-CHECK("tc", "conntrack_svc")
+CHECK(PROG_TYPE, "conntrack_svc")
 int svc_test(__maybe_unused struct __sk_buff *sctx)
 {
 	test_init();

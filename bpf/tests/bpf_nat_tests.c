@@ -169,7 +169,7 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress, b
 	return (int)(dst - orig);
 }
 
-CHECK("tc", "nat4_icmp_error_tcp")
+CHECK(PROG_TYPE, "nat4_icmp_error_tcp")
 int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 {
 	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_TCP, false, true);
@@ -283,7 +283,7 @@ int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "nat4_icmp_error_tcp_rfc1191")
+CHECK(PROG_TYPE, "nat4_icmp_error_tcp_rfc1191")
 int test_nat4_icmp_error_tcp_rfc1191(__maybe_unused struct __ctx_buff *ctx)
 {
 	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_TCP, false, false);
@@ -407,7 +407,7 @@ int test_nat4_icmp_error_tcp_rfc1191(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "nat4_icmp_error_udp")
+CHECK(PROG_TYPE, "nat4_icmp_error_udp")
 int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 {
 	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_UDP, false, true);
@@ -521,7 +521,7 @@ int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "nat4_icmp_error_icmp")
+CHECK(PROG_TYPE, "nat4_icmp_error_icmp")
 int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 {
 	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_ICMP, false, true);
@@ -630,7 +630,7 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "nat4_icmp_error_sctp")
+CHECK(PROG_TYPE, "nat4_icmp_error_sctp")
 int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 {
 	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_SCTP, false, true);
@@ -688,7 +688,7 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "nat4_icmp_error_tcp_egress")
+CHECK(PROG_TYPE, "nat4_icmp_error_tcp_egress")
 int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 {
 	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_TCP, true, true);
@@ -807,7 +807,7 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "nat4_icmp_error_tcp_egress_rfc1191")
+CHECK(PROG_TYPE, "nat4_icmp_error_tcp_egress_rfc1191")
 int test_nat4_icmp_error_tcp_egress_rfc1191(__maybe_unused struct __ctx_buff *ctx)
 {
 	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_TCP, true, false);
@@ -936,7 +936,7 @@ int test_nat4_icmp_error_tcp_egress_rfc1191(__maybe_unused struct __ctx_buff *ct
 	test_finish();
 }
 
-CHECK("tc", "nat4_icmp_error_udp_egress")
+CHECK(PROG_TYPE, "nat4_icmp_error_udp_egress")
 int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 {
 	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_UDP, true, true);
@@ -1055,7 +1055,7 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "nat4_icmp_error_icmp_egress")
+CHECK(PROG_TYPE, "nat4_icmp_error_icmp_egress")
 int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 {
 	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_ICMP, true, true);
@@ -1169,7 +1169,7 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "nat4_icmp_error_sctp_egress")
+CHECK(PROG_TYPE, "nat4_icmp_error_sctp_egress")
 int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 {
 	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_SCTP, true, true);
@@ -1403,7 +1403,7 @@ static long snat_callback_tcp(__u32 i, struct snat_callback_ctx *ctx)
 	return ctx->err != 0;
 }
 
-CHECK("tc", "nat4_port_allocation_tcp")
+CHECK(PROG_TYPE, "nat4_port_allocation_tcp")
 int test_nat4_port_allocation_tcp_check(struct __ctx_buff *ctx)
 {
 	struct snat_callback_ctx cb_ctx = {
@@ -1530,7 +1530,7 @@ static long snat_callback_udp(__u32 i, struct snat_callback_ctx *ctx)
 	return ctx->err != 0;
 }
 
-CHECK("tc", "nat4_port_allocation_udp")
+CHECK(PROG_TYPE, "nat4_port_allocation_udp")
 int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 {
 	struct snat_callback_ctx cb_ctx = {

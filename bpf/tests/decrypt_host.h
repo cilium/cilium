@@ -138,37 +138,37 @@ int check(const struct __ctx_buff *ctx, bool ipv4)
  * For both WireGuard and IPSec, we expect the packet to not be modified,
  * and to be passed up the stack with the MARK_MAGIC_DECRYPT mark set.
  */
-PKTGEN("tc", "encrypted_v4")
+PKTGEN(PROG_TYPE, "encrypted_v4")
 int encrypted_v4_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, true);
 }
 
-SETUP("tc", "encrypted_v4")
+SETUP(PROG_TYPE, "encrypted_v4")
 int encrypted_v4_setup(struct __ctx_buff *ctx)
 {
 	return setup(ctx, true);
 }
 
-CHECK("tc", "encrypted_v4")
+CHECK(PROG_TYPE, "encrypted_v4")
 int encrypted_v4_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, true);
 }
 
-PKTGEN("tc", "encrypted_v6")
+PKTGEN(PROG_TYPE, "encrypted_v6")
 int encrypted_v6_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, false);
 }
 
-SETUP("tc", "encrypted_v6")
+SETUP(PROG_TYPE, "encrypted_v6")
 int encrypted_v6_setup(struct __ctx_buff *ctx)
 {
 	return setup(ctx, false);
 }
 
-CHECK("tc", "encrypted_v6")
+CHECK(PROG_TYPE, "encrypted_v6")
 int encrypted_v6_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, false);

@@ -125,7 +125,7 @@ const __u8 tc_nodeport_lb6_nat_lb_dynamic_post[] = {
  * - gets DNATed and SNATed,
  * - gets redirected back out by TC
  */
-PKTGEN("tc", "tc_nodeport_lb4_nat_lb_dynamic")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb4_nat_lb_dynamic")
 int tc_nodeport_lb4_nat_lb_dynamic_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -140,7 +140,7 @@ int tc_nodeport_lb4_nat_lb_dynamic_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_lb4_nat_lb_dynamic")
+SETUP(PROG_TYPE, "tc_nodeport_lb4_nat_lb_dynamic")
 int tc_nodeport_lb4_nat_lb_dynamic_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -154,7 +154,7 @@ int tc_nodeport_lb4_nat_lb_dynamic_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb4_nat_lb_dynamic")
+CHECK(PROG_TYPE, "tc_nodeport_lb4_nat_lb_dynamic")
 int tc_nodeport_lb4_nat_lb_dynamic_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -184,7 +184,7 @@ int tc_nodeport_lb4_nat_lb_dynamic_check(const struct __ctx_buff *ctx)
  * - gets DNATed and SNATed,
  * - gets redirected back out by TC
  */
-PKTGEN("tc", "tc_nodeport_lb6_nat_lb_dynamic")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb6_nat_lb_dynamic")
 int tc_nodeport_lb6_nat_lb_dynamic_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -199,7 +199,7 @@ int tc_nodeport_lb6_nat_lb_dynamic_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_lb6_nat_lb_dynamic")
+SETUP(PROG_TYPE, "tc_nodeport_lb6_nat_lb_dynamic")
 int tc_nodeport_lb6_nat_lb_dynamic_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IPV6;
@@ -215,7 +215,7 @@ int tc_nodeport_lb6_nat_lb_dynamic_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb6_nat_lb_dynamic")
+CHECK(PROG_TYPE, "tc_nodeport_lb6_nat_lb_dynamic")
 int tc_nodeport_lb6_nat_lb_dynamic_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

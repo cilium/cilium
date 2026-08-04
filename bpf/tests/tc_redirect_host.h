@@ -189,7 +189,7 @@ const __u8 tc_redirect_host_ipv4_post[] = {
  * | v4_ext_one:high-port   | -> | v4_pod_one:tcp_svc_one |
  * +------------------------+    +------------------------+
  */
-PKTGEN("tc", "tc_redirect_host_ipv4")
+PKTGEN(PROG_TYPE, "tc_redirect_host_ipv4")
 int tc_redirect_host_ipv4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -207,7 +207,7 @@ int tc_redirect_host_ipv4_pktgen(struct __ctx_buff *ctx)
 /* Test that sending a packet from the host into a Pod is correctly forwarded via
  * the appropriate bpf redirect helper.
  */
-SETUP("tc", "tc_redirect_host_ipv4")
+SETUP(PROG_TYPE, "tc_redirect_host_ipv4")
 int tc_redirect_host_ipv4_setup(struct __ctx_buff *ctx)
 {
 	/* Add an IPCache entry for pod 1 */
@@ -224,7 +224,7 @@ int tc_redirect_host_ipv4_setup(struct __ctx_buff *ctx)
 	return host_send_packet(ctx);
 }
 
-CHECK("tc", "tc_redirect_host_ipv4")
+CHECK(PROG_TYPE, "tc_redirect_host_ipv4")
 int tc_redirect_host_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 #ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
@@ -301,7 +301,7 @@ const __u8 tc_redirect_host_ipv6_post[] = {
  * | v6_ext_one:high-port   | -> | v6_pod_one:tcp_svc_one |
  * +------------------------+    +------------------------+
  */
-PKTGEN("tc", "tc_redirect_host_ipv6")
+PKTGEN(PROG_TYPE, "tc_redirect_host_ipv6")
 int tc_redirect_host_ipv6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -319,7 +319,7 @@ int tc_redirect_host_ipv6_pktgen(struct __ctx_buff *ctx)
 /* Test that sending a packet from the host into a Pod is correctly forwarded via
  * the appropriate bpf redirect helper.
  */
-SETUP("tc", "tc_redirect_host_ipv6")
+SETUP(PROG_TYPE, "tc_redirect_host_ipv6")
 int tc_redirect_host_ipv6_setup(struct __ctx_buff *ctx)
 {
 	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
@@ -339,7 +339,7 @@ int tc_redirect_host_ipv6_setup(struct __ctx_buff *ctx)
 	return host_send_packet(ctx);
 }
 
-CHECK("tc", "tc_redirect_host_ipv6")
+CHECK(PROG_TYPE, "tc_redirect_host_ipv6")
 int tc_redirect_host_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 #ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
