@@ -1623,6 +1623,29 @@ func TestBPFOps(t *testing.T) {
 	}
 }
 
+func TestIDMappingsPendingRestoreMetric(t *testing.T) {
+	metrics := newReconcilerMetrics()
+	ops := &BPFOps{
+		metrics: metrics,
+		restoredServiceIDs: map[loadbalancer.L3n4Addr]loadbalancer.ServiceID{
+			frontendAddrs[0]: 1,
+		},
+		restoredBackendIDs: map[loadbalancer.L3n4Addr]loadbalancer.BackendID{
+			backend1: 1,
+			backend2: 2,
+		},
+	}
+
+	metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
+	metrics.setIDMappingsPendingRestore(idAllocTypeBackend, len(ops.restoredBackendIDs))
+	require.Equal(t, float64(1), metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeService).Get())
+	require.Equal(t, float64(2), metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeBackend).Get())
+
+	require.NoError(t, ops.pruneRestoredIDs())
+	require.Zero(t, metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeService).Get())
+	require.Zero(t, metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeBackend).Get())
+}
+
 // showMaps formats the map dumps as the Go code expected in the test cases.
 func showMaps(m []maps.MapDump) string {
 	var w strings.Builder
