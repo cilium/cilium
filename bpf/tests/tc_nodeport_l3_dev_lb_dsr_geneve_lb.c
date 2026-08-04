@@ -55,7 +55,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
  * - has IP Option inserted,
  * - gets redirected back out by TC
  */
-PKTGEN("tc", "ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd")
+PKTGEN(PROG_TYPE, "ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd")
 int ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -82,7 +82,7 @@ int ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd")
+SETUP(PROG_TYPE, "ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd")
 int ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd_setup(struct __ctx_buff *ctx)
 {
 	void *data = (void *)(long)ctx->data;
@@ -105,7 +105,7 @@ int ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd")
+CHECK(PROG_TYPE, "ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd")
 int ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -158,7 +158,7 @@ int ipv4_tc_nodeport_l3_dev_dsr_geneve_fwd_check(__maybe_unused struct __ctx_buf
  * - has IPv6 Extension inserted,
  * - gets redirected back out by TC
  */
-PKTGEN("tc", "ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd")
+PKTGEN(PROG_TYPE, "ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd")
 int ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IPV6;
@@ -187,7 +187,7 @@ int ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd")
+SETUP(PROG_TYPE, "ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd")
 int ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd_setup(struct __ctx_buff *ctx)
 {
 	void *data = (void *)(long)ctx->data;
@@ -212,7 +212,7 @@ int ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd")
+CHECK(PROG_TYPE, "ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd")
 int ipv6_tc_nodeport_l3_dev_dsr_geneve_fwd_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip = BACKEND_IPV6;

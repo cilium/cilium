@@ -42,7 +42,7 @@ ASSIGN_CONFIG(bool, enable_extended_ip_protocols, false)
 
 #include "lib/ipcache.h"
 
-CHECK("tc", "nat4_remote_node_masquerade_skipped_test")
+CHECK(PROG_TYPE, "nat4_remote_node_masquerade_skipped_test")
 int test_nat4_remote_node_masquerade_skipped(__maybe_unused struct __ctx_buff *ctx)
 {
     struct snat_v4_args *args = AUX(snat_v4_args);

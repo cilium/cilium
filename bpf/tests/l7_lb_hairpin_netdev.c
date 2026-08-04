@@ -68,7 +68,7 @@ ASSIGN_CONFIG(__u32, cilium_net_ifindex, CILIUM_NET_IFINDEX)
 ASSIGN_CONFIG(bool, proxy_redirect_via_cilium_net, true)
 
 /* Test 1: IPv4 L7 LB on bridge device. Ensure packets is hairpinned via cilium_net. */
-PKTGEN("tc", "l7_lb_hairpin_v4")
+PKTGEN(PROG_TYPE, "l7_lb_hairpin_v4")
 int l7_lb_hairpin_v4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -87,7 +87,7 @@ int l7_lb_hairpin_v4_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "l7_lb_hairpin_v4")
+SETUP(PROG_TYPE, "l7_lb_hairpin_v4")
 int l7_lb_hairpin_v4_setup(struct __ctx_buff *ctx)
 {
 	clear_map(&cilium_lb4_services_v2);
@@ -102,7 +102,7 @@ int l7_lb_hairpin_v4_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "l7_lb_hairpin_v4")
+CHECK(PROG_TYPE, "l7_lb_hairpin_v4")
 int l7_lb_hairpin_v4_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -128,7 +128,7 @@ int l7_lb_hairpin_v4_check(const struct __ctx_buff *ctx)
 }
 
 /* Test 1: IPv6 L7 LB on bridge device. Ensure packets is hairpinned via cilium_net. */
-PKTGEN("tc", "l7_lb_hairpin_v6")
+PKTGEN(PROG_TYPE, "l7_lb_hairpin_v6")
 int l7_lb_hairpin_v6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -148,7 +148,7 @@ int l7_lb_hairpin_v6_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "l7_lb_hairpin_v6")
+SETUP(PROG_TYPE, "l7_lb_hairpin_v6")
 int l7_lb_hairpin_v6_setup(struct __ctx_buff *ctx)
 {
 	clear_map(&cilium_lb6_services_v2);
@@ -164,7 +164,7 @@ int l7_lb_hairpin_v6_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "l7_lb_hairpin_v6")
+CHECK(PROG_TYPE, "l7_lb_hairpin_v6")
 int l7_lb_hairpin_v6_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

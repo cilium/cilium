@@ -87,7 +87,7 @@ int force_assert_fail_ctx_smaller_exp(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-PKTGEN("tc", "1_basic_test")
+PKTGEN(PROG_TYPE, "1_basic_test")
 int pktgen_scapy_basic_test(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -101,7 +101,7 @@ int pktgen_scapy_basic_test(struct __ctx_buff *ctx)
 	return 0;
 }
 
-CHECK("tc", "1_basic_test")
+CHECK(PROG_TYPE, "1_basic_test")
 int check_scapy_basic_test(struct __ctx_buff *ctx)
 {
 	int rc, id;
@@ -184,7 +184,7 @@ int check_scapy_basic_test(struct __ctx_buff *ctx)
 	return 0;
 }
 
-PKTGEN("tc", "1_test_large_pkts")
+PKTGEN(PROG_TYPE, "1_test_large_pkts")
 int pktgen_scapy_large_pkts(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -198,7 +198,7 @@ int pktgen_scapy_large_pkts(struct __ctx_buff *ctx)
 	return 0;
 }
 
-CHECK("tc", "1_test_large_pkts")
+CHECK(PROG_TYPE, "1_test_large_pkts")
 int check_scapy_large_pkts(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -211,7 +211,7 @@ int check_scapy_large_pkts(struct __ctx_buff *ctx)
 	return 0;
 }
 
-PKTGEN("tc", "2_test_xlarge_pkts")
+PKTGEN(PROG_TYPE, "2_test_xlarge_pkts")
 int pktgen_scapy_xlarge_pkts(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -225,7 +225,7 @@ int pktgen_scapy_xlarge_pkts(struct __ctx_buff *ctx)
 	return 0;
 }
 
-CHECK("tc", "2_test_xlarge_pkts")
+CHECK(PROG_TYPE, "2_test_xlarge_pkts")
 int check_scapy_xlarge_pkts(struct __ctx_buff *ctx)
 {
 	test_init();

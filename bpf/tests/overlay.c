@@ -6,7 +6,7 @@
 
 #include "bpf_overlay.c"
 
-CHECK("tc", "overlay_neigh_resolver")
+CHECK(PROG_TYPE, "overlay_neigh_resolver")
 int overlay_neigh_resolver(__maybe_unused struct __sk_buff *ctx)
 {
 	test_init();

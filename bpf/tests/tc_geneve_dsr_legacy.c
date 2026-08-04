@@ -75,7 +75,7 @@ int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
 	return 0;
 }
 
-PKTGEN("tc", "tc_geneve_dsr_v4_legacy")
+PKTGEN(PROG_TYPE, "tc_geneve_dsr_v4_legacy")
 int tc_geneve_dsr_v4_legacy_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -102,7 +102,7 @@ int tc_geneve_dsr_v4_legacy_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_geneve_dsr_v4_legacy")
+SETUP(PROG_TYPE, "tc_geneve_dsr_v4_legacy")
 int tc_geneve_dsr_v4_legacy_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, 0, 0, NULL, NULL);
@@ -111,7 +111,7 @@ int tc_geneve_dsr_v4_legacy_setup(struct __ctx_buff *ctx)
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_geneve_dsr_v4_legacy")
+CHECK(PROG_TYPE, "tc_geneve_dsr_v4_legacy")
 int tc_geneve_dsr_v4_legacy_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -153,7 +153,7 @@ int tc_geneve_dsr_v4_legacy_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "tc_geneve_dsr_v6_legacy")
+PKTGEN(PROG_TYPE, "tc_geneve_dsr_v6_legacy")
 int tc_geneve_dsr_v6_legacy_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -182,7 +182,7 @@ int tc_geneve_dsr_v6_legacy_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_geneve_dsr_v6_legacy")
+SETUP(PROG_TYPE, "tc_geneve_dsr_v6_legacy")
 int tc_geneve_dsr_v6_legacy_setup(struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip = BACKEND_IPV6;
@@ -194,7 +194,7 @@ int tc_geneve_dsr_v6_legacy_setup(struct __ctx_buff *ctx)
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_geneve_dsr_v6_legacy")
+CHECK(PROG_TYPE, "tc_geneve_dsr_v6_legacy")
 int tc_geneve_dsr_v6_legacy_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

@@ -166,7 +166,7 @@ const __u8 tc_redirect_lxc_ipv4_post[] = {
  *            ^                            |
  *            \---------------------------/
  */
-PKTGEN("tc", "tc_redirect_lxc_ipv4")
+PKTGEN(PROG_TYPE, "tc_redirect_lxc_ipv4")
 int tc_redirect_lxc_ipv4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -184,7 +184,7 @@ int tc_redirect_lxc_ipv4_pktgen(struct __ctx_buff *ctx)
 /* Test that sending a packet from a pod to its own service gets source nat-ed
  * and that it is forwarded via the correct BPF redirect helper.
  */
-SETUP("tc", "tc_redirect_lxc_ipv4")
+SETUP(PROG_TYPE, "tc_redirect_lxc_ipv4")
 int tc_redirect_lxc_ipv4_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -205,7 +205,7 @@ int tc_redirect_lxc_ipv4_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_redirect_lxc_ipv4")
+CHECK(PROG_TYPE, "tc_redirect_lxc_ipv4")
 int tc_redirect_lxc_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 #ifdef __CONFIG_ENABLE_NETKIT
@@ -274,7 +274,7 @@ const __u8 tc_redirect_lxc_ipv6_post[] = {
  *            ^                            |
  *            \---------------------------/
  */
-PKTGEN("tc", "tc_redirect_lxc_ipv6")
+PKTGEN(PROG_TYPE, "tc_redirect_lxc_ipv6")
 int tc_redirect_lxc_ipv6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -292,7 +292,7 @@ int tc_redirect_lxc_ipv6_pktgen(struct __ctx_buff *ctx)
 /* Test that sending a packet from a pod to its own service gets source nat-ed
  * and that it is forwarded via the correct BPF redirect helper.
  */
-SETUP("tc", "tc_redirect_lxc_ipv6")
+SETUP(PROG_TYPE, "tc_redirect_lxc_ipv6")
 int tc_redirect_lxc_ipv6_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -315,7 +315,7 @@ int tc_redirect_lxc_ipv6_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_redirect_lxc_ipv6")
+CHECK(PROG_TYPE, "tc_redirect_lxc_ipv6")
 int tc_redirect_lxc_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 #ifdef __CONFIG_ENABLE_NETKIT

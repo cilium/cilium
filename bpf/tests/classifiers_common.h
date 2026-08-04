@@ -162,37 +162,37 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 	test_finish();
 }
 
-PKTGEN("tc", "ctx_classify4")
+PKTGEN(PROG_TYPE, "ctx_classify4")
 static __always_inline int
 ctx_classify4_pktgen(struct __ctx_buff *ctx) {
 	return pktgen(ctx, true);
 }
 
-CHECK("tc", "ctx_classify4")
+CHECK(PROG_TYPE, "ctx_classify4")
 int ctx_classify4_check(struct __ctx_buff *ctx)
 {
 	return check(ctx, true);
 }
 
-PKTGEN("tc", "ctx_classify6")
+PKTGEN(PROG_TYPE, "ctx_classify6")
 static __always_inline int
 ctx_classify6_pktgen(struct __ctx_buff *ctx) {
 	return pktgen(ctx, false);
 }
 
-CHECK("tc", "ctx_classify6")
+CHECK(PROG_TYPE, "ctx_classify6")
 int ctx_classify6_check(struct __ctx_buff *ctx)
 {
 	return check(ctx, false);
 }
 
-PKTGEN("tc", "compute_capture_len")
+PKTGEN(PROG_TYPE, "compute_capture_len")
 static __always_inline int
 compute_capture_len_pktgen(struct __ctx_buff *ctx) {
 	return pktgen(ctx, true);
 }
 
-CHECK("tc", "compute_capture_len")
+CHECK(PROG_TYPE, "compute_capture_len")
 int compute_capture_len_check(struct __ctx_buff *ctx)
 {
 	test_init();
