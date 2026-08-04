@@ -159,6 +159,7 @@ type CiliumNetworkDriverPoolName string
 // +deepequal-gen=true
 type CiliumNetworkDriverDevicePoolConfig struct {
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^[^/]+$`
 	PoolName string `json:"name"`
 
 	// +kubebuilder:validation:Optional
