@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -45,7 +47,7 @@ var (
 		},
 		&gatewayv1.GatewayClass{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "dummy-gw-class-with-unsupported-parameters-ref",
+				Name: "dummy-gw-class-with-unsupported-parameters-ref-resource",
 			},
 			Spec: gatewayv1.GatewayClassSpec{
 				ControllerName: "io.cilium/gateway-controller",
@@ -67,6 +69,45 @@ var (
 					Group:     "cilium.io",
 					Kind:      "CiliumGatewayClassConfig",
 					Name:      "dummy-gateway-class-config",
+					Namespace: ptr.To(gatewayv1.Namespace("default")),
+				},
+			},
+		},
+		&gatewayv1.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "dummy-gw-class-with-unnamespaced-parameters-ref",
+			},
+			Spec: gatewayv1.GatewayClassSpec{
+				ControllerName: "io.cilium/gateway-controller",
+				ParametersRef: &gatewayv1.ParametersReference{
+					Group: "cilium.io",
+					Kind:  "CiliumGatewayClassConfig",
+				},
+			},
+		},
+		&gatewayv1.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "dummy-gw-class-with-unnamed-parameters-ref",
+			},
+			Spec: gatewayv1.GatewayClassSpec{
+				ControllerName: "io.cilium/gateway-controller",
+				ParametersRef: &gatewayv1.ParametersReference{
+					Group:     "cilium.io",
+					Kind:      "CiliumGatewayClassConfig",
+					Namespace: ptr.To(gatewayv1.Namespace("default")),
+				},
+			},
+		},
+		&gatewayv1.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "dummy-gw-class-with-parameters-ref-not-found",
+			},
+			Spec: gatewayv1.GatewayClassSpec{
+				ControllerName: "io.cilium/gateway-controller",
+				ParametersRef: &gatewayv1.ParametersReference{
+					Group:     "cilium.io",
+					Kind:      "CiliumGatewayClassConfig",
+					Name:      "does-not-exist",
 					Namespace: ptr.To(gatewayv1.Namespace("default")),
 				},
 			},
@@ -144,14 +185,57 @@ func Test_gatewayClassReconciler_Reconcile(t *testing.T) {
 	t.Run("gateway class exists with unsupported parameter ref", func(t *testing.T) {
 		result, err := r.Reconcile(t.Context(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
-				Name: "dummy-gw-class-with-unsupported-parameters-ref",
+				Name: "dummy-gw-class-with-unsupported-parameters-ref-resource",
 			},
 		})
 
 		require.NoError(t, err, "Successfully reconciling gateway class")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
-		gwconformance.GWCMustHaveAcceptedConditionAny(t, c, gwconformanceconfig.DefaultTimeoutConfig(), "dummy-gw-class-with-unsupported-parameters-ref")
+		assertGatewayClassRejected(t, c, "dummy-gw-class-with-unsupported-parameters-ref-resource",
+			"Unsupported ParametersRef resource; Must be "+v2alpha1.CGCCName)
+	})
+
+	t.Run("gateway class exists with unnamespaced parameters ref", func(t *testing.T) {
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name: "dummy-gw-class-with-unnamespaced-parameters-ref",
+			},
+		})
+
+		require.NoError(t, err, "Successfully reconciling gateway class")
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		assertGatewayClassRejected(t, c, "dummy-gw-class-with-unnamespaced-parameters-ref",
+			"ParametersRef namespace must be specified")
+	})
+
+	t.Run("gateway class exists with unnamed parameters ref", func(t *testing.T) {
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name: "dummy-gw-class-with-unnamed-parameters-ref",
+			},
+		})
+
+		require.NoError(t, err, "Successfully reconciling gateway class")
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		assertGatewayClassRejected(t, c, "dummy-gw-class-with-unnamed-parameters-ref",
+			"ParametersRef name must be specified")
+	})
+
+	t.Run("gateway class exists with parameters ref not found", func(t *testing.T) {
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name: "dummy-gw-class-with-parameters-ref-not-found",
+			},
+		})
+
+		require.NoError(t, err, "Missing CiliumGatewayClassConfig should not be retried")
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		assertGatewayClassRejected(t, c, "dummy-gw-class-with-parameters-ref-not-found",
+			"Referenced CiliumGatewayClassConfig does not exist")
 	})
 
 	t.Run("gateway class exists with valid parameter ref", func(t *testing.T) {
@@ -221,4 +305,19 @@ func Test_hasNamespacedName(t *testing.T) {
 		}
 		require.True(t, hasNamespacedName(ref))
 	})
+}
+
+// requireGatewayClassRejected asserts that the GatewayClass carries an Accepted
+// condition reporting the given message as invalid parameters.
+func assertGatewayClassRejected(t *testing.T, c client.Client, name string, msg string) {
+	t.Helper()
+
+	gwc := &gatewayv1.GatewayClass{}
+	require.NoError(t, c.Get(t.Context(), client.ObjectKey{Name: name}, gwc), "Error getting gateway class")
+
+	cond := meta.FindStatusCondition(gwc.Status.Conditions, string(gatewayv1.GatewayClassConditionStatusAccepted))
+	require.NotNil(t, cond, "GatewayClass should have an Accepted condition")
+	assert.Equal(t, metav1.ConditionFalse, cond.Status, "GatewayClass should not be accepted")
+	assert.Equal(t, string(gatewayv1.GatewayClassReasonInvalidParameters), cond.Reason)
+	assert.Equal(t, msg, cond.Message)
 }

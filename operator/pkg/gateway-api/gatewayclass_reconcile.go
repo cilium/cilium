@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -51,19 +52,10 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	gwc := original.DeepCopy()
 
 	if ref := gwc.Spec.ParametersRef; ref != nil {
-		if !isParameterRefSupported(ref) {
-			scopedLog.ErrorContext(ctx, "Only CiliumGatewayClassConfig is supported for ParametersRef")
-			setGatewayClassAccepted(gwc, false)
-			if err := r.ensureStatus(ctx, gwc, original); err != nil {
-				scopedLog.ErrorContext(ctx, "Failed to update GatewayClass status", logfields.Error, err)
-				return controllerruntime.Fail(err)
-			}
-			return controllerruntime.Fail(nil)
-		}
-
-		if !hasNamespacedName(ref) {
-			scopedLog.ErrorContext(ctx, "ParametersRef must specify namespace and name")
-			setGatewayClassAccepted(gwc, false)
+		if reason, msg, ok := r.validateParametersRef(gwc); !ok {
+			scopedLog.ErrorContext(ctx, "Invalid ParametersRef",
+				logfields.Resource, req.NamespacedName)
+			setGatewayClassAccepted(gwc, false, reason, msg)
 			if err := r.ensureStatus(ctx, gwc, original); err != nil {
 				scopedLog.ErrorContext(ctx, "Failed to update GatewayClass status", logfields.Error, err)
 				return controllerruntime.Fail(err)
@@ -76,13 +68,24 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			Namespace: string(*ref.Namespace),
 			Name:      ref.Name,
 		}
+
 		if err := r.Client.Get(ctx, key, cgcc); err != nil {
-			setGatewayClassAccepted(gwc, false)
+			if !k8serrors.IsNotFound(err) {
+				scopedLog.ErrorContext(ctx, "Failed to get CiliumGatewayClassConfig",
+					logfields.Resource, key,
+					logfields.Error, err)
+				return controllerruntime.Fail(err)
+			}
+
+			scopedLog.ErrorContext(ctx, "Referenced CiliumGatewayClassConfig does not exist",
+				logfields.Resource, key)
+			setGatewayClassAccepted(gwc, false, gatewayv1.GatewayClassReasonInvalidParameters, "Referenced CiliumGatewayClassConfig does not exist")
 			if err := r.ensureStatus(ctx, gwc, original); err != nil {
 				scopedLog.ErrorContext(ctx, "Failed to update GatewayClass status", logfields.Error, err)
 				return controllerruntime.Fail(err)
 			}
-			return controllerruntime.Fail(err)
+
+			return controllerruntime.Fail(nil)
 		}
 
 		if gwc.Annotations == nil {
@@ -96,7 +99,7 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	setGatewayClassAccepted(gwc, true)
+	setGatewayClassAccepted(gwc, true, gatewayv1.GatewayClassReasonAccepted, gatewayClassAcceptedMessage)
 	setGatewayClassSupportedFeatures(gwc)
 	if err := r.ensureStatus(ctx, gwc, original); err != nil {
 		scopedLog.ErrorContext(ctx, "Failed to update GatewayClass status", logfields.Error, err)
@@ -113,6 +116,26 @@ func (r *gatewayClassReconciler) ensureStatus(ctx context.Context, gwc *gatewayv
 
 func (r *gatewayClassReconciler) ensureResource(ctx context.Context, gwc *gatewayv1.GatewayClass, original *gatewayv1.GatewayClass) error {
 	return r.Client.Patch(ctx, gwc, client.MergeFrom(original))
+}
+
+func (r *gatewayClassReconciler) validateParametersRef(gwc *gatewayv1.GatewayClass) (reason gatewayv1.GatewayClassConditionReason, msg string, ok bool) {
+	switch {
+	case !isParameterRefSupported(gwc.Spec.ParametersRef):
+		reason = gatewayv1.GatewayClassReasonInvalidParameters
+		msg = fmt.Sprintf("Unsupported ParametersRef resource; Must be %s",
+			v2alpha1.CGCCName)
+
+	case ptr.Deref(gwc.Spec.ParametersRef.Namespace, "") == "":
+		reason = gatewayv1.GatewayClassReasonInvalidParameters
+		msg = "ParametersRef namespace must be specified"
+
+	case gwc.Spec.ParametersRef.Name == "":
+		reason = gatewayv1.GatewayClassReasonInvalidParameters
+		msg = "ParametersRef name must be specified"
+	}
+
+	ok = reason == ""
+	return
 }
 
 // checksum returns a sha256 checksum of CiliumGatewayClassConfig.spec.
