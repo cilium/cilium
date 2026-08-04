@@ -9,7 +9,7 @@
 #include "lib/common.h"
 #include "lib/ipv6.h"
 
-PKTGEN("xdp", "ipv6_without_extension_header")
+PKTGEN(PROG_TYPE, "ipv6_without_extension_header")
 int ipv6_without_extension_header_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -29,13 +29,13 @@ int ipv6_without_extension_header_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "ipv6_without_extension_header")
+SETUP(PROG_TYPE, "ipv6_without_extension_header")
 int ipv6_without_extension_header_setup(__maybe_unused struct __ctx_buff *ctx)
 {
 	return 123;
 }
 
-CHECK("xdp", "ipv6_without_extension_header")
+CHECK(PROG_TYPE, "ipv6_without_extension_header")
 int ipv6_without_extension_header_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -85,7 +85,7 @@ struct ipv6_authhdr {
 	char icv[];
 };
 
-PKTGEN("xdp", "ipv6_with_auth_hop_tcp")
+PKTGEN(PROG_TYPE, "ipv6_with_auth_hop_tcp")
 int ipv6_with_hop_auth_tcp_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -128,13 +128,13 @@ int ipv6_with_hop_auth_tcp_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "ipv6_with_auth_hop_tcp")
+SETUP(PROG_TYPE, "ipv6_with_auth_hop_tcp")
 int ipv6_with_hop_auth_tcp_setup(__maybe_unused struct __ctx_buff *ctx)
 {
 	return 1234;
 }
 
-CHECK("xdp", "ipv6_with_auth_hop_tcp")
+CHECK(PROG_TYPE, "ipv6_with_auth_hop_tcp")
 int ipv6_with_hop_auth_tcp_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -176,7 +176,7 @@ int ipv6_with_hop_auth_tcp_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("xdp", "ipv6")
+CHECK(PROG_TYPE, "ipv6")
 int bpf_test(__maybe_unused struct xdp_md *ctx)
 {
 	test_init();

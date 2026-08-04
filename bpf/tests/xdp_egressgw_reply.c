@@ -71,7 +71,7 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 /* Test that a EgressGW reply gets RevSNATed, and forwarded to the
  * worker node via tunnel.
  */
-PKTGEN("xdp", "xdp_egressgw_reply")
+PKTGEN(PROG_TYPE, "xdp_egressgw_reply")
 int egressgw_reply_pktgen(struct __ctx_buff *ctx)
 {
 	/* Add a new NAT entry so that pktgen can figure out the correct destination port */
@@ -96,7 +96,7 @@ int egressgw_reply_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("xdp", "xdp_egressgw_reply")
+SETUP(PROG_TYPE, "xdp_egressgw_reply")
 int egressgw_reply_setup(struct __ctx_buff *ctx)
 {
 	/* install EgressGW policy for the connection: */
@@ -125,7 +125,7 @@ int egressgw_reply_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_egressgw_reply")
+CHECK(PROG_TYPE, "xdp_egressgw_reply")
 int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -228,7 +228,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 /* Test that a EgressGW reply gets RevSNATed, and forwarded to the
  * worker node via tunnel (IPv6).
  */
-PKTGEN("xdp", "xdp_egressgw_reply_v6")
+PKTGEN(PROG_TYPE, "xdp_egressgw_reply_v6")
 int egressgw_reply_pktgen_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -257,7 +257,7 @@ int egressgw_reply_pktgen_v6(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("xdp", "xdp_egressgw_reply_v6")
+SETUP(PROG_TYPE, "xdp_egressgw_reply_v6")
 int egressgw_reply_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -291,7 +291,7 @@ int egressgw_reply_setup_v6(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_egressgw_reply_v6")
+CHECK(PROG_TYPE, "xdp_egressgw_reply_v6")
 int egressgw_reply_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
