@@ -72,6 +72,7 @@ type Driver struct {
 	assignedDevices map[string]string
 
 	db             *statedb.DB
+	deviceTable    statedb.RWTable[*DRADevice]
 	localNodeStore *node.LocalNodeStore
 }
 

@@ -211,6 +211,7 @@ spec:
                           type: array
                       type: object
                     name:
+                      pattern: ^[^/]+$
                       type: string
                   required:
                   - name
