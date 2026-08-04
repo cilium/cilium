@@ -11,8 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
@@ -78,28 +76,9 @@ func (r *gammaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.enableExtensionRefFilters {
 		gammaBuilder = gammaBuilder.Watches(
 			&v2alpha1.CiliumEnvoyExtProcFilter{},
-			handler.EnqueueRequestsFromMapFunc(r.enqueueAllGammaServices()),
+			watchhandlers.EnqueueRequestForExtProcFilterGAMMA(r.Client, r.logger),
 		)
 	}
 
 	return gammaBuilder.Complete(r)
-}
-
-func (r *gammaReconciler) enqueueAllGammaServices() handler.MapFunc {
-	// TODO: this re-reconciles every GAMMA Service whenever any
-	// CiliumEnvoyExtProcFilter changes. Replace with a targeted index that maps
-	// each filter to only the Services whose routes reference it.
-	return func(ctx context.Context, obj client.Object) []reconcile.Request {
-		svcList := &corev1.ServiceList{}
-		if err := r.Client.List(ctx, svcList); err != nil {
-			return nil
-		}
-		var requests []reconcile.Request
-		for _, svc := range svcList.Items {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: client.ObjectKeyFromObject(&svc),
-			})
-		}
-		return requests
-	}
 }
