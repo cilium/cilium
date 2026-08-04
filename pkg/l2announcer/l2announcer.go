@@ -154,7 +154,7 @@ func (l2a *L2Announcer) hasLocalBackends(txn statedb.ReadTxn, svc *loadbalancer.
 
 func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 	// Start watching the 'services' table for changes.
-	wtxn := l2a.params.StateDB.WriteTxn(l2a.params.Services, l2a.params.Backends)
+	wtxn := l2a.params.StateDB.WriteTxn(l2a.params.Services)
 	svcChangeIter, err := l2a.params.Services.Changes(wtxn)
 	if err != nil {
 		return err
