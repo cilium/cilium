@@ -57,7 +57,7 @@ pod_send_packet(struct __ctx_buff *ctx)
 /* Send an IGMP packet from pod to IGMP destination (allow all egress policy).
  *
  */
-PKTGEN("tc", "lxc_igmp_egress")
+PKTGEN(PROG_TYPE, "lxc_igmp_egress")
 int lxc_igmp_egress_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -79,7 +79,7 @@ int lxc_igmp_egress_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "lxc_igmp_egress")
+SETUP(PROG_TYPE, "lxc_igmp_egress")
 int lxc_igmp_egress_setup(struct __ctx_buff *ctx)
 {
 	policy_add_egress_allow_all_entry();
@@ -95,7 +95,7 @@ int lxc_igmp_egress_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "lxc_igmp_egress")
+CHECK(PROG_TYPE, "lxc_igmp_egress")
 int lxc_igmp_egress_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -140,7 +140,7 @@ int lxc_igmp_egress_check(const struct __ctx_buff *ctx)
  *
  * The packet is allowed by the egress policy.
  */
-PKTGEN("tc", "lxc_igmp_egress_policy")
+PKTGEN(PROG_TYPE, "lxc_igmp_egress_policy")
 int lxc_igmp_egress_policy_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -162,7 +162,7 @@ int lxc_igmp_egress_policy_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "lxc_igmp_egress_policy")
+SETUP(PROG_TYPE, "lxc_igmp_egress_policy")
 int lxc_igmp_egress_policy_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(CLIENT_IP, 0, 0, ENDPOINT_F_HOST, LXC_ID,
@@ -178,7 +178,7 @@ int lxc_igmp_egress_policy_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "lxc_igmp_egress_policy")
+CHECK(PROG_TYPE, "lxc_igmp_egress_policy")
 int lxc_igmp_egress_policy_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -221,7 +221,7 @@ int lxc_igmp_egress_policy_check(const struct __ctx_buff *ctx)
  *
  * The packet is denied by the egress policy.
  */
-PKTGEN("tc", "lxc_igmp_egress_policy_deny")
+PKTGEN(PROG_TYPE, "lxc_igmp_egress_policy_deny")
 int lxc_igmp_egress_policy_deny_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -243,7 +243,7 @@ int lxc_igmp_egress_policy_deny_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "lxc_igmp_egress_policy_deny")
+SETUP(PROG_TYPE, "lxc_igmp_egress_policy_deny")
 int lxc_igmp_egress_policy_deny_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(CLIENT_IP, 0, 0, ENDPOINT_F_HOST, LXC_ID,
@@ -259,7 +259,7 @@ int lxc_igmp_egress_policy_deny_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "lxc_igmp_egress_policy_deny")
+CHECK(PROG_TYPE, "lxc_igmp_egress_policy_deny")
 int lxc_igmp_egress_policy_deny_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

@@ -35,7 +35,7 @@
 
 static volatile const __u8 *node_mac = mac_two;
 
-PKTGEN("tc", "ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel")
+PKTGEN(PROG_TYPE, "ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel")
 int ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -70,7 +70,7 @@ int ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel")
+SETUP(PROG_TYPE, "ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel")
 int ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel_setup(struct __ctx_buff *ctx)
 {
 	void *data = (void *)(long)ctx->data;
@@ -96,7 +96,7 @@ int ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel_setup(struct __ctx_buff *ct
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel")
+CHECK(PROG_TYPE, "ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel")
 int ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel_check(__maybe_unused
 							   const struct __ctx_buff *ctx)
 {
@@ -130,7 +130,7 @@ int ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel_check(__maybe_unused
 	test_finish();
 }
 
-PKTGEN("tc", "ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel")
+PKTGEN(PROG_TYPE, "ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel")
 int ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IPV6;
@@ -167,7 +167,7 @@ int ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel")
+SETUP(PROG_TYPE, "ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel")
 int ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IPV6;
@@ -195,7 +195,7 @@ int ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel_setup(struct __ctx_buff *ct
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel")
+CHECK(PROG_TYPE, "ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel")
 int ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel_check(__maybe_unused
 							   const struct __ctx_buff *ctx)
 {

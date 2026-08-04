@@ -71,7 +71,7 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 #include "lib/bpf_host.h"
 
 /* Test that a health-check request to a remote backend is IPIP-encapsulated. */
-PKTGEN("tc", "l4lb_health_check_host")
+PKTGEN(PROG_TYPE, "l4lb_health_check_host")
 int l4lb_health_check_host_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -98,7 +98,7 @@ int l4lb_health_check_host_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "l4lb_health_check_host")
+SETUP(PROG_TYPE, "l4lb_health_check_host")
 int l4lb_health_check_host_setup(struct __ctx_buff *ctx)
 {
 	__sock_cookie key = SOCKET_COOKIE;
@@ -113,7 +113,7 @@ int l4lb_health_check_host_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "l4lb_health_check_host")
+CHECK(PROG_TYPE, "l4lb_health_check_host")
 int l4lb_health_check_host_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

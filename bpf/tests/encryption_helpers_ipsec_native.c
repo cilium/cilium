@@ -148,73 +148,73 @@ int bad_identities_check(struct __ctx_buff *ctx, bool is_ipv4)
 	test_finish();
 }
 
-PKTGEN("tc", "ipsec_redirect4")
+PKTGEN(PROG_TYPE, "ipsec_redirect4")
 int ipsec_redirect4_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_native_packet(ctx, true);
 }
 
-CHECK("tc", "ipsec_redirect4")
+CHECK(PROG_TYPE, "ipsec_redirect4")
 int ipsec_redirect4_check(struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, true, true);
 }
 
-PKTGEN("tc", "ipsec_redirect4_over6")
+PKTGEN(PROG_TYPE, "ipsec_redirect4_over6")
 int ipsec_redirect4_over6_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_native_packet(ctx, true);
 }
 
-CHECK("tc", "ipsec_redirect4_over6")
+CHECK(PROG_TYPE, "ipsec_redirect4_over6")
 int ipsec_redirect4_over6_check(struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, true, false);
 }
 
-PKTGEN("tc", "ipsec_redirect6")
+PKTGEN(PROG_TYPE, "ipsec_redirect6")
 int ipsec_redirect6_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_native_packet(ctx, false);
 }
 
-CHECK("tc", "ipsec_redirect6")
+CHECK(PROG_TYPE, "ipsec_redirect6")
 int ipsec_redirect6_check(struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, false, true);
 }
 
-PKTGEN("tc", "ipsec_redirect6_over6")
+PKTGEN(PROG_TYPE, "ipsec_redirect6_over6")
 int ipsec_redirect6_over6_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_native_packet(ctx, false);
 }
 
-CHECK("tc", "ipsec_redirect6_over6")
+CHECK(PROG_TYPE, "ipsec_redirect6_over6")
 int ipsec_redirect6_over6_check(struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, false, false);
 }
 
-PKTGEN("tc", "ipsec_redirect_bad_identities4")
+PKTGEN(PROG_TYPE, "ipsec_redirect_bad_identities4")
 int ipsec_redirect_bad_identities4_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_native_packet(ctx, true);
 }
 
-CHECK("tc", "ipsec_redirect_bad_identities4")
+CHECK(PROG_TYPE, "ipsec_redirect_bad_identities4")
 int ipsec_redirect_bad_identities4_check(struct __ctx_buff *ctx)
 {
 	return bad_identities_check(ctx, true);
 }
 
-PKTGEN("tc", "ipsec_redirect_bad_identities6")
+PKTGEN(PROG_TYPE, "ipsec_redirect_bad_identities6")
 int ipsec_redirect_bad_identities6_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_native_packet(ctx, false);
 }
 
-CHECK("tc", "ipsec_redirect_bad_identities6")
+CHECK(PROG_TYPE, "ipsec_redirect_bad_identities6")
 int ipsec_redirect_bad_identities6_check(struct __ctx_buff *ctx)
 {
 	return bad_identities_check(ctx, false);

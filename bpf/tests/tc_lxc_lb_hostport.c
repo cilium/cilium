@@ -78,7 +78,7 @@ ASSIGN_CONFIG(union v6addr, endpoint_ipv6, { .addr = v6_pod_one_addr })
  * - Port is outside NodePort range so NodePort wildcard lookup misses
  * - HostPort wildcard lookup should match and perform DNAT
  */
-PKTGEN("tc", "tc_lxc_v4_host_hostport_local_backend")
+PKTGEN(PROG_TYPE, "tc_lxc_v4_host_hostport_local_backend")
 int lxc_v4_host_hostport_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -103,7 +103,7 @@ int lxc_v4_host_hostport_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v4_host_hostport_local_backend")
+SETUP(PROG_TYPE, "tc_lxc_v4_host_hostport_local_backend")
 int lxc_v4_host_hostport_local_backend_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -123,7 +123,7 @@ int lxc_v4_host_hostport_local_backend_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v4_host_hostport_local_backend")
+CHECK(PROG_TYPE, "tc_lxc_v4_host_hostport_local_backend")
 int lxc_v4_host_hostport_local_backend_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -197,7 +197,7 @@ int lxc_v4_host_hostport_local_backend_check(const struct __ctx_buff *ctx)
  * - HostPort wildcard lookup should NOT match (port in NodePort range is rejected)
  * - Packet should pass through without DNAT
  */
-PKTGEN("tc", "tc_lxc_v4_hostport_nodeport_range_no_match")
+PKTGEN(PROG_TYPE, "tc_lxc_v4_hostport_nodeport_range_no_match")
 int lxc_v4_hostport_nodeport_range_no_match_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -223,7 +223,7 @@ int lxc_v4_hostport_nodeport_range_no_match_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v4_hostport_nodeport_range_no_match")
+SETUP(PROG_TYPE, "tc_lxc_v4_hostport_nodeport_range_no_match")
 int lxc_v4_hostport_nodeport_range_no_match_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
@@ -246,7 +246,7 @@ int lxc_v4_hostport_nodeport_range_no_match_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v4_hostport_nodeport_range_no_match")
+CHECK(PROG_TYPE, "tc_lxc_v4_hostport_nodeport_range_no_match")
 int lxc_v4_hostport_nodeport_range_no_match_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -298,7 +298,7 @@ int lxc_v4_hostport_nodeport_range_no_match_check(const struct __ctx_buff *ctx)
  * - Port is outside NodePort range so NodePort wildcard lookup misses
  * - HostPort wildcard lookup should match and perform DNAT
  */
-PKTGEN("tc", "tc_lxc_v6_host_hostport_local_backend")
+PKTGEN(PROG_TYPE, "tc_lxc_v6_host_hostport_local_backend")
 int lxc_v6_host_hostport_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -323,7 +323,7 @@ int lxc_v6_host_hostport_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v6_host_hostport_local_backend")
+SETUP(PROG_TYPE, "tc_lxc_v6_host_hostport_local_backend")
 int lxc_v6_host_hostport_local_backend_setup(struct __ctx_buff *ctx)
 {
 	union v6addr host_node_ip = {};
@@ -349,7 +349,7 @@ int lxc_v6_host_hostport_local_backend_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v6_host_hostport_local_backend")
+CHECK(PROG_TYPE, "tc_lxc_v6_host_hostport_local_backend")
 int lxc_v6_host_hostport_local_backend_check(const struct __ctx_buff *ctx)
 {
 	union v6addr host_node_ip = {};
@@ -430,7 +430,7 @@ int lxc_v6_host_hostport_local_backend_check(const struct __ctx_buff *ctx)
  * - HostPort wildcard lookup should NOT match (port in NodePort range is rejected)
  * - Packet should pass through without DNAT
  */
-PKTGEN("tc", "tc_lxc_v6_hostport_nodeport_range_no_match")
+PKTGEN(PROG_TYPE, "tc_lxc_v6_hostport_nodeport_range_no_match")
 int lxc_v6_hostport_nodeport_range_no_match_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -456,7 +456,7 @@ int lxc_v6_hostport_nodeport_range_no_match_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc_v6_hostport_nodeport_range_no_match")
+SETUP(PROG_TYPE, "tc_lxc_v6_hostport_nodeport_range_no_match")
 int lxc_v6_hostport_nodeport_range_no_match_setup(struct __ctx_buff *ctx)
 {
 	union v6addr host_node_ip = {};
@@ -485,7 +485,7 @@ int lxc_v6_hostport_nodeport_range_no_match_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_v6_hostport_nodeport_range_no_match")
+CHECK(PROG_TYPE, "tc_lxc_v6_hostport_nodeport_range_no_match")
 int lxc_v6_hostport_nodeport_range_no_match_check(const struct __ctx_buff *ctx)
 {
 	union v6addr host_node_ip = {};

@@ -79,7 +79,7 @@ ASSIGN_CONFIG(__u32, interface_ifindex, PRIMARY_IFACE)
  */
 
 /* Create a boring TCP packet */
-PKTGEN("tc", "eni_nlb_symetric_routing_egress_v4_setup")
+PKTGEN(PROG_TYPE, "eni_nlb_symetric_routing_egress_v4_setup")
 int eni_nlb_symetric_routing_egress_v4_setup_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -107,7 +107,7 @@ int eni_nlb_symetric_routing_egress_v4_setup_pktgen(struct __ctx_buff *ctx)
 }
 
 /* Setup IPCache / Endpoint map / CT state according to the scenario */
-SETUP("tc", "eni_nlb_symetric_routing_egress_v4_setup")
+SETUP(PROG_TYPE, "eni_nlb_symetric_routing_egress_v4_setup")
 int eni_nlb_symetric_routing_egress_v4_setup_setup(struct __ctx_buff *ctx)
 {
 	struct ipv4_ct_tuple ct = {
@@ -132,7 +132,7 @@ int eni_nlb_symetric_routing_egress_v4_setup_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "eni_nlb_symetric_routing_egress_v4_setup")
+CHECK(PROG_TYPE, "eni_nlb_symetric_routing_egress_v4_setup")
 int eni_nlb_symetric_routing_egress_v4_setup_check(const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -192,7 +192,7 @@ int eni_nlb_symetric_routing_egress_v4_setup_check(const struct __ctx_buff *ctx)
 }
 
 /* The same test, but for ICMP */
-PKTGEN("tc", "eni_nlb_symetric_routing_egress_v4_setup_icmp")
+PKTGEN(PROG_TYPE, "eni_nlb_symetric_routing_egress_v4_setup_icmp")
 int eni_nlb_symetric_routing_egress_v4_setup_icmp_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -220,7 +220,7 @@ int eni_nlb_symetric_routing_egress_v4_setup_icmp_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "eni_nlb_symetric_routing_egress_v4_setup_icmp")
+SETUP(PROG_TYPE, "eni_nlb_symetric_routing_egress_v4_setup_icmp")
 int eni_nlb_symetric_routing_egress_v4_setup_icmp_setup(struct __ctx_buff *ctx)
 {
 	struct ipv4_ct_tuple ct = {
@@ -245,7 +245,7 @@ int eni_nlb_symetric_routing_egress_v4_setup_icmp_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "eni_nlb_symetric_routing_egress_v4_setup_icmp")
+CHECK(PROG_TYPE, "eni_nlb_symetric_routing_egress_v4_setup_icmp")
 int eni_nlb_symetric_routing_egress_v4_setup_icmp_check(const struct __ctx_buff *ctx)
 {
 	void *data;

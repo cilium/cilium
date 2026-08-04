@@ -9,7 +9,7 @@
 #include <lib/ipfrag.h>
 #include <lib/ipv6.h>
 
-PKTGEN("tc", "ipfrag_helpers_ipv4")
+PKTGEN(PROG_TYPE, "ipfrag_helpers_ipv4")
 int test_ipfrag_helpers_ipv4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -35,7 +35,7 @@ int test_ipfrag_helpers_ipv4_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-CHECK("tc", "ipfrag_helpers_ipv4")
+CHECK(PROG_TYPE, "ipfrag_helpers_ipv4")
 int test_ipfrag_helpers_ipv4_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -91,7 +91,7 @@ int test_ipfrag_helpers_ipv4_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "ipfrag_helpers_ipv6_nofrag")
+PKTGEN(PROG_TYPE, "ipfrag_helpers_ipv6_nofrag")
 int test_ipfrag_helpers_ipv6_nofrag_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -117,7 +117,7 @@ int test_ipfrag_helpers_ipv6_nofrag_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-CHECK("tc", "ipfrag_helpers_ipv6_nofrag")
+CHECK(PROG_TYPE, "ipfrag_helpers_ipv6_nofrag")
 int test_ipfrag_helpers_ipv6_nofrag_check(struct __ctx_buff *ctx __maybe_unused)
 {
 	void *data, *data_end;
@@ -155,7 +155,7 @@ int test_ipfrag_helpers_ipv6_nofrag_check(struct __ctx_buff *ctx __maybe_unused)
 	test_finish();
 }
 
-PKTGEN("tc", "ipfrag_helpers_ipv6")
+PKTGEN(PROG_TYPE, "ipfrag_helpers_ipv6")
 int test_ipfrag_helpers_ipv6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -197,7 +197,7 @@ int test_ipfrag_helpers_ipv6_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-CHECK("tc", "ipfrag_helpers_ipv6")
+CHECK(PROG_TYPE, "ipfrag_helpers_ipv6")
 int test_ipfrag_helpers_ipv6_check(struct __ctx_buff *ctx __maybe_unused)
 {
 	void *data, *data_end;

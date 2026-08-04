@@ -127,13 +127,13 @@ pktgen_to_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 	return 0;
 }
 
-PKTGEN("tc", "01_lxc_to_overlay_syn")
+PKTGEN(PROG_TYPE, "01_lxc_to_overlay_syn")
 int lxc_to_overlay_syn_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_from_lxc(ctx, true, false);
 }
 
-SETUP("tc", "01_lxc_to_overlay_syn")
+SETUP(PROG_TYPE, "01_lxc_to_overlay_syn")
 int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 {
 
@@ -151,7 +151,7 @@ int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "01_lxc_to_overlay_syn")
+CHECK(PROG_TYPE, "01_lxc_to_overlay_syn")
 int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -244,13 +244,13 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "02_overlay_to_lxc_synack")
+PKTGEN(PROG_TYPE, "02_overlay_to_lxc_synack")
 int overlay_to_lxc_synack_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_to_lxc(ctx, true, true);
 }
 
-SETUP("tc", "02_overlay_to_lxc_synack")
+SETUP(PROG_TYPE, "02_overlay_to_lxc_synack")
 int overlay_to_lxc_synack_setup(struct __ctx_buff *ctx)
 {
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
@@ -259,7 +259,7 @@ int overlay_to_lxc_synack_setup(struct __ctx_buff *ctx)
 	return pod_receive_packet_by_tailcall(ctx);
 }
 
-CHECK("tc", "02_overlay_to_lxc_synack")
+CHECK(PROG_TYPE, "02_overlay_to_lxc_synack")
 int overlay_to_lxc_synack_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -337,19 +337,19 @@ int overlay_to_lxc_synack_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "03_lxc_to_overlay_ack")
+PKTGEN(PROG_TYPE, "03_lxc_to_overlay_ack")
 int lxc_to_overlay_ack_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_from_lxc(ctx, false, true);
 }
 
-SETUP("tc", "03_lxc_to_overlay_ack")
+SETUP(PROG_TYPE, "03_lxc_to_overlay_ack")
 int lxc_to_overlay_ack_setup(struct __ctx_buff *ctx)
 {
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "03_lxc_to_overlay_ack")
+CHECK(PROG_TYPE, "03_lxc_to_overlay_ack")
 int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

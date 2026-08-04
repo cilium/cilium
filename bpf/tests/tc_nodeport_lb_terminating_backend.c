@@ -92,7 +92,7 @@ ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
  * - gets DNATed (but not SNATed)
  * - gets redirected by TC (as BPF Host Routing is enabled)
  */
-PKTGEN("tc", "tc_nodeport_lb_terminating_backend_0")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb_terminating_backend_0")
 int tc_nodeport_lb_terminating_backend_0_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -119,7 +119,7 @@ int tc_nodeport_lb_terminating_backend_0_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_lb_terminating_backend_0")
+SETUP(PROG_TYPE, "tc_nodeport_lb_terminating_backend_0")
 int tc_nodeport_lb_terminating_backend_0_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = SVC_REV_NAT_ID;
@@ -137,7 +137,7 @@ int tc_nodeport_lb_terminating_backend_0_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb_terminating_backend_0")
+CHECK(PROG_TYPE, "tc_nodeport_lb_terminating_backend_0")
 int tc_nodeport_lb_terminating_backend_0_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -201,7 +201,7 @@ int tc_nodeport_lb_terminating_backend_0_check(const struct __ctx_buff *ctx)
 /* Test that a second request gets LBed to a terminating backend,
  * even when the service has no active backends remaining.
  */
-PKTGEN("tc", "tc_nodeport_lb_terminating_backend_1")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb_terminating_backend_1")
 int tc_nodeport_lb_terminating_backend_1_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -228,7 +228,7 @@ int tc_nodeport_lb_terminating_backend_1_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_lb_terminating_backend_1")
+SETUP(PROG_TYPE, "tc_nodeport_lb_terminating_backend_1")
 int tc_nodeport_lb_terminating_backend_1_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = SVC_REV_NAT_ID;
@@ -246,7 +246,7 @@ int tc_nodeport_lb_terminating_backend_1_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb_terminating_backend_1")
+CHECK(PROG_TYPE, "tc_nodeport_lb_terminating_backend_1")
 int tc_nodeport_lb_terminating_backend_1_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

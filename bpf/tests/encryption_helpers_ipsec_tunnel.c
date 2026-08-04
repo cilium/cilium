@@ -51,49 +51,49 @@ int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool outer_ipv4
 	test_finish();
 }
 
-PKTGEN("tc", "ipsec_redirect_tunnel4_v4")
+PKTGEN(PROG_TYPE, "ipsec_redirect_tunnel4_v4")
 int ipsec_redirect_tunnel4_v4_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_vxlan_packet(ctx, true, true);
 }
 
-CHECK("tc", "ipsec_redirect_tunnel4_v4")
+CHECK(PROG_TYPE, "ipsec_redirect_tunnel4_v4")
 int ipsec_redirect_tunnel4_v4_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, true);
 }
 
-PKTGEN("tc", "ipsec_redirect_tunnel4_v6")
+PKTGEN(PROG_TYPE, "ipsec_redirect_tunnel4_v6")
 int ipsec_redirect_tunnel4_v6_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_vxlan_packet(ctx, true, false);
 }
 
-CHECK("tc", "ipsec_redirect_tunnel4_v6")
+CHECK(PROG_TYPE, "ipsec_redirect_tunnel4_v6")
 int ipsec_redirect_tunnel4_v6_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, true);
 }
 
-PKTGEN("tc", "ipsec_redirect_tunnel6_v4")
+PKTGEN(PROG_TYPE, "ipsec_redirect_tunnel6_v4")
 int ipsec_redirect_tunnel6_v4_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_vxlan_packet(ctx, false, true);
 }
 
-CHECK("tc", "ipsec_redirect_tunnel6_v4")
+CHECK(PROG_TYPE, "ipsec_redirect_tunnel6_v4")
 int ipsec_redirect_tunnel6_v4_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, false);
 }
 
-PKTGEN("tc", "ipsec_redirect_tunnel6_v6")
+PKTGEN(PROG_TYPE, "ipsec_redirect_tunnel6_v6")
 int ipsec_redirect_tunnel6_v6_pktgen(struct __ctx_buff *ctx)
 {
 	return generate_vxlan_packet(ctx, false, true);
 }
 
-CHECK("tc", "ipsec_redirect_tunnel6_v6")
+CHECK(PROG_TYPE, "ipsec_redirect_tunnel6_v6")
 int ipsec_redirect_tunnel6_v6_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, false);

@@ -75,19 +75,19 @@ static __always_inline int build_packet(struct __ctx_buff *ctx, bool targeted)
 	return 0;
 }
 
-PKTGEN("tc", "0_no_entry")
+PKTGEN(PROG_TYPE, "0_no_entry")
 int l2_announcement_nd_no_entry_pktgen(struct __ctx_buff *ctx)
 {
 	return build_packet(ctx, false);
 }
 
-SETUP("tc", "0_no_entry")
+SETUP(PROG_TYPE, "0_no_entry")
 int l2_announcement_nd_no_entry_setup(struct __ctx_buff *ctx)
 {
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "0_no_entry")
+CHECK(PROG_TYPE, "0_no_entry")
 int l2_announcement_nd_no_entry_check(const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -114,19 +114,19 @@ int l2_announcement_nd_no_entry_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "0_no_entry_targeted")
+PKTGEN(PROG_TYPE, "0_no_entry_targeted")
 int l2_announcement_nd_no_entry_tar_pktgen(struct __ctx_buff *ctx)
 {
 	return build_packet(ctx, true);
 }
 
-SETUP("tc", "0_no_entry_targeted")
+SETUP(PROG_TYPE, "0_no_entry_targeted")
 int l2_announcement_nd_no_entry_tar_setup(struct __ctx_buff *ctx)
 {
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "0_no_entry_targeted")
+CHECK(PROG_TYPE, "0_no_entry_targeted")
 int l2_announcement_nd_no_entry_tar_check(const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -153,7 +153,7 @@ int l2_announcement_nd_no_entry_tar_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "1_ok")
+PKTGEN(PROG_TYPE, "1_ok")
 int l2_announcement_nd_ok_pktgen(struct __ctx_buff *ctx)
 {
 	return build_packet(ctx, false);
@@ -174,13 +174,13 @@ int __l2_announcement_nd_ok_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-SETUP("tc", "1_ok")
+SETUP(PROG_TYPE, "1_ok")
 int l2_announcement_nd_ok_setup(struct __ctx_buff *ctx)
 {
 	return __l2_announcement_nd_ok_setup(ctx);
 }
 
-CHECK("tc", "1_ok")
+CHECK(PROG_TYPE, "1_ok")
 int l2_announcement_nd_ok_check(const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -207,19 +207,19 @@ int l2_announcement_nd_ok_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "1_ok_targeted")
+PKTGEN(PROG_TYPE, "1_ok_targeted")
 int l2_announcement_nd_ok_tar_pktgen(struct __ctx_buff *ctx)
 {
 	return build_packet(ctx, true);
 }
 
-SETUP("tc", "1_ok_targeted")
+SETUP(PROG_TYPE, "1_ok_targeted")
 int l2_announcement_nd_ok_tar_setup(struct __ctx_buff *ctx)
 {
 	return __l2_announcement_nd_ok_setup(ctx);
 }
 
-CHECK("tc", "1_ok_targeted")
+CHECK(PROG_TYPE, "1_ok_targeted")
 int l2_announcement_nd_ok_tar_check(const struct __ctx_buff *ctx)
 {
 	void *data;

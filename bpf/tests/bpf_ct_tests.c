@@ -79,7 +79,7 @@ __always_inline int mkpkt(void *dst, bool first)
 
 static char pkt[100];
 
-CHECK("tc", "ct4")
+CHECK(PROG_TYPE, "ct4")
 int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();

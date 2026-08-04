@@ -55,7 +55,7 @@ int mock_tail_call(void *ctx, __maybe_unused const void *map, __maybe_unused __u
 
 /* A sample test for function send_drop_notify */
 /* It is a demo to show how we handle tailcalls. */
-CHECK("tc", "send_drop_notify")
+CHECK(PROG_TYPE, "send_drop_notify")
 int test_send_drop_notify(struct __ctx_buff ctx)
 {
 	test_init();

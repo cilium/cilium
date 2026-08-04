@@ -56,13 +56,13 @@ pktgen(struct __ctx_buff *ctx, __be16 node_port, bool to_pod)
 /* Validate that a host-to-world packet matching a `proxy` policy entry
  * is actually redirected to the proxy.
  */
-PKTGEN("tc", "proxy_v4_1_host_to_world")
+PKTGEN(PROG_TYPE, "proxy_v4_1_host_to_world")
 int proxy_v4_1_host_to_world_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, NODE_PORT, false);
 }
 
-SETUP("tc", "proxy_v4_1_host_to_world")
+SETUP(PROG_TYPE, "proxy_v4_1_host_to_world")
 int proxy_v4_1_host_to_world_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(NODE_IP, 0, 0, ENDPOINT_F_HOST, HOST_ID,
@@ -114,7 +114,7 @@ check_redirect(struct __ctx_buff *ctx, bool to_pod)
 	test_finish();
 }
 
-CHECK("tc", "proxy_v4_1_host_to_world")
+CHECK(PROG_TYPE, "proxy_v4_1_host_to_world")
 int proxy_v4_1_host_to_world_check(struct __ctx_buff *ctx)
 {
 	return check_redirect(ctx, false);
@@ -122,13 +122,13 @@ int proxy_v4_1_host_to_world_check(struct __ctx_buff *ctx)
 
 /* Validate that a proxy-to-world packet is not redirected back to the proxy.
  */
-PKTGEN("tc", "proxy_v4_2_proxy_to_world")
+PKTGEN(PROG_TYPE, "proxy_v4_2_proxy_to_world")
 int proxy_v4_2_proxy_to_world_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, NODE_PROXY_PORT, false);
 }
 
-SETUP("tc", "proxy_v4_2_proxy_to_world")
+SETUP(PROG_TYPE, "proxy_v4_2_proxy_to_world")
 int proxy_v4_2_proxy_to_world_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, HOST_ID, MARK_MAGIC_PROXY_EGRESS);
@@ -183,7 +183,7 @@ check_passthrough(const struct __ctx_buff *ctx, bool to_pod)
 	test_finish();
 }
 
-CHECK("tc", "proxy_v4_2_proxy_to_world")
+CHECK(PROG_TYPE, "proxy_v4_2_proxy_to_world")
 int proxy_v4_2_proxy_to_world_check(const struct __ctx_buff *ctx)
 {
 	return check_passthrough(ctx, false);
@@ -192,13 +192,13 @@ int proxy_v4_2_proxy_to_world_check(const struct __ctx_buff *ctx)
 /* Validate that a host-to-pod packet matching a `proxy` policy entry
  * is actually redirected to the proxy.
  */
-PKTGEN("tc", "proxy_v4_3_host_to_pod")
+PKTGEN(PROG_TYPE, "proxy_v4_3_host_to_pod")
 int proxy_v4_3_host_to_pod_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, NODE_PORT, true);
 }
 
-SETUP("tc", "proxy_v4_3_host_to_pod")
+SETUP(PROG_TYPE, "proxy_v4_3_host_to_pod")
 int proxy_v4_3_host_to_pod_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry(POD_IP, 0, POD_SECURITY_ID, 0, 0);
@@ -208,7 +208,7 @@ int proxy_v4_3_host_to_pod_setup(struct __ctx_buff *ctx)
 	return host_send_packet(ctx);
 }
 
-CHECK("tc", "proxy_v4_3_host_to_pod")
+CHECK(PROG_TYPE, "proxy_v4_3_host_to_pod")
 int proxy_v4_3_host_to_pod_check(struct __ctx_buff *ctx)
 {
 	return check_redirect(ctx, true);
@@ -216,13 +216,13 @@ int proxy_v4_3_host_to_pod_check(struct __ctx_buff *ctx)
 
 /* Validate that a proxy-to-pod packet is not redirected back to the proxy.
  */
-PKTGEN("tc", "proxy_v4_4_proxy_to_pod")
+PKTGEN(PROG_TYPE, "proxy_v4_4_proxy_to_pod")
 int proxy_v4_4_proxy_to_pod_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, NODE_PROXY_PORT, true);
 }
 
-SETUP("tc", "proxy_v4_4_proxy_to_pod")
+SETUP(PROG_TYPE, "proxy_v4_4_proxy_to_pod")
 int proxy_v4_4_proxy_to_pod_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, HOST_ID, MARK_MAGIC_PROXY_EGRESS);
@@ -230,7 +230,7 @@ int proxy_v4_4_proxy_to_pod_setup(struct __ctx_buff *ctx)
 	return host_send_packet(ctx);
 }
 
-CHECK("tc", "proxy_v4_4_proxy_to_pod")
+CHECK(PROG_TYPE, "proxy_v4_4_proxy_to_pod")
 int proxy_v4_4_proxy_to_pod_check(const struct __ctx_buff *ctx)
 {
 	return check_passthrough(ctx, true);

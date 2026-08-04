@@ -27,7 +27,7 @@ ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one})
 
 /* Test that a packet drop results in BPF metric counters increament.
  */
-PKTGEN("tc", "tc_lxc_policy_drop")
+PKTGEN(PROG_TYPE, "tc_lxc_policy_drop")
 int tc_lxc_policy_drop_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -56,7 +56,7 @@ int tc_lxc_policy_drop_pktgen(struct __ctx_buff *ctx)
 
 __u64 drop_count;
 
-SETUP("tc", "tc_lxc_policy_drop")
+SETUP(PROG_TYPE, "tc_lxc_policy_drop")
 int tc_lxc_policy_drop__setup(struct __ctx_buff *ctx)
 {
 	policy_add_egress_deny_all_entry();
@@ -64,7 +64,7 @@ int tc_lxc_policy_drop__setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc_policy_drop")
+CHECK(PROG_TYPE, "tc_lxc_policy_drop")
 int tc_lxc_policy_drop_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

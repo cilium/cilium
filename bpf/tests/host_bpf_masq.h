@@ -39,7 +39,7 @@ ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 #include "lib/ipcache.h"
 
 /* Host-originating UDP should be tracked by BPF Masq. */
-PKTGEN("tc", "host_bpf_masq_v4_1_udp")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v4_1_udp")
 int host_bpf_masq_v4_1_udp_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -61,7 +61,7 @@ int host_bpf_masq_v4_1_udp_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v4_1_udp")
+SETUP(PROG_TYPE, "host_bpf_masq_v4_1_udp")
 int host_bpf_masq_v4_1_udp_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(NODE_IP, 0, 0, ENDPOINT_F_HOST, HOST_ID,
@@ -74,7 +74,7 @@ int host_bpf_masq_v4_1_udp_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v4_1_udp")
+CHECK(PROG_TYPE, "host_bpf_masq_v4_1_udp")
 int host_bpf_masq_v4_1_udp_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -113,7 +113,7 @@ int host_bpf_masq_v4_1_udp_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "host_bpf_masq_v6_1_udp")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v6_1_udp")
 int host_bpf_masq_v6_1_udp_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -135,7 +135,7 @@ int host_bpf_masq_v6_1_udp_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v6_1_udp")
+SETUP(PROG_TYPE, "host_bpf_masq_v6_1_udp")
 int host_bpf_masq_v6_1_udp_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v6_add_entry((union v6addr *)NODE_IP_V6, 0, 0, ENDPOINT_F_HOST, HOST_ID,
@@ -148,7 +148,7 @@ int host_bpf_masq_v6_1_udp_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v6_1_udp")
+CHECK(PROG_TYPE, "host_bpf_masq_v6_1_udp")
 int host_bpf_masq_v6_1_udp_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -189,7 +189,7 @@ int host_bpf_masq_v6_1_udp_check(const struct __ctx_buff *ctx)
 }
 
 /* Host-originating IPIP should be skipped by BPF Masq. */
-PKTGEN("tc", "host_bpf_masq_v4_2_ipip")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v4_2_ipip")
 int host_bpf_masq_v4_2_ipip_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -212,7 +212,7 @@ int host_bpf_masq_v4_2_ipip_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v4_2_ipip")
+SETUP(PROG_TYPE, "host_bpf_masq_v4_2_ipip")
 int host_bpf_masq_v4_2_ipip_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
@@ -220,7 +220,7 @@ int host_bpf_masq_v4_2_ipip_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v4_2_ipip")
+CHECK(PROG_TYPE, "host_bpf_masq_v4_2_ipip")
 int host_bpf_masq_v4_2_ipip_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -241,7 +241,7 @@ int host_bpf_masq_v4_2_ipip_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "host_bpf_masq_v6_2_ipip")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v6_2_ipip")
 int host_bpf_masq_v6_2_ipip_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -264,7 +264,7 @@ int host_bpf_masq_v6_2_ipip_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v6_2_ipip")
+SETUP(PROG_TYPE, "host_bpf_masq_v6_2_ipip")
 int host_bpf_masq_v6_2_ipip_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
@@ -272,7 +272,7 @@ int host_bpf_masq_v6_2_ipip_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v6_2_ipip")
+CHECK(PROG_TYPE, "host_bpf_masq_v6_2_ipip")
 int host_bpf_masq_v6_2_ipip_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -294,7 +294,7 @@ int host_bpf_masq_v6_2_ipip_check(const struct __ctx_buff *ctx)
 }
 
 /* Host-originating unhandled ICMP should be dropped by BPF Masq. */
-PKTGEN("tc", "host_bpf_masq_v4_3_icmp_unhandled")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v4_3_icmp_unhandled")
 int host_bpf_masq_v4_3_icmp_unhandled_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -316,7 +316,7 @@ int host_bpf_masq_v4_3_icmp_unhandled_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v4_3_icmp_unhandled")
+SETUP(PROG_TYPE, "host_bpf_masq_v4_3_icmp_unhandled")
 int host_bpf_masq_v4_3_icmp_unhandledp_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
@@ -324,7 +324,7 @@ int host_bpf_masq_v4_3_icmp_unhandledp_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v4_3_icmp_unhandled")
+CHECK(PROG_TYPE, "host_bpf_masq_v4_3_icmp_unhandled")
 int host_bpf_masq_v4_3_icmp_timestamp_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -345,7 +345,7 @@ int host_bpf_masq_v4_3_icmp_timestamp_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "host_bpf_masq_v6_3_icmp_unhandled")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v6_3_icmp_unhandled")
 int host_bpf_masq_v6_3_icmp_unhandled_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -367,7 +367,7 @@ int host_bpf_masq_v6_3_icmp_unhandled_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v6_3_icmp_unhandled")
+SETUP(PROG_TYPE, "host_bpf_masq_v6_3_icmp_unhandled")
 int host_bpf_masq_v6_3_icmp_unhandled_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
@@ -375,7 +375,7 @@ int host_bpf_masq_v6_3_icmp_unhandled_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v6_3_icmp_unhandled")
+CHECK(PROG_TYPE, "host_bpf_masq_v6_3_icmp_unhandled")
 int host_bpf_masq_v6_3_icmp_unhandled_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -397,7 +397,7 @@ int host_bpf_masq_v6_3_icmp_unhandled_check(const struct __ctx_buff *ctx)
 }
 
 /* Host-originating ICMP ECHO should be tracked by BPF Masq. */
-PKTGEN("tc", "host_bpf_masq_v4_4_icmp_echo")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v4_4_icmp_echo")
 int host_bpf_masq_v4_4_icmp_echo_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -421,7 +421,7 @@ int host_bpf_masq_v4_4_icmp_echo_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v4_4_icmp_echo")
+SETUP(PROG_TYPE, "host_bpf_masq_v4_4_icmp_echo")
 int host_bpf_masq_v4_4_icmp_echo_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
@@ -429,7 +429,7 @@ int host_bpf_masq_v4_4_icmp_echo_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v4_4_icmp_echo")
+CHECK(PROG_TYPE, "host_bpf_masq_v4_4_icmp_echo")
 int host_bpf_masq_v4_4_icmp_echo_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -466,7 +466,7 @@ int host_bpf_masq_v4_4_icmp_echo_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "host_bpf_masq_v6_4_icmp_echo")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v6_4_icmp_echo")
 int host_bpf_masq_v6_4_icmp_echo_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -490,7 +490,7 @@ int host_bpf_masq_v6_4_icmp_echo_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v6_4_icmp_echo")
+SETUP(PROG_TYPE, "host_bpf_masq_v6_4_icmp_echo")
 int host_bpf_masq_v6_4_icmp_echo_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
@@ -498,7 +498,7 @@ int host_bpf_masq_v6_4_icmp_echo_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v6_4_icmp_echo")
+CHECK(PROG_TYPE, "host_bpf_masq_v6_4_icmp_echo")
 int host_bpf_masq_v6_4_icmp_echo_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -537,7 +537,7 @@ int host_bpf_masq_v6_4_icmp_echo_check(const struct __ctx_buff *ctx)
 }
 
 /* NO_SNAT endpoints should not be masqueraded */
-PKTGEN("tc", "host_bpf_masq_v4_5_no_snat_ep_udp")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v4_5_no_snat_ep_udp")
 int host_bpf_masq_v4_5_no_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -557,7 +557,7 @@ int host_bpf_masq_v4_5_no_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v4_5_no_snat_ep_udp")
+SETUP(PROG_TYPE, "host_bpf_masq_v4_5_no_snat_ep_udp")
 int host_bpf_masq_v4_5_no_snat_ep_udp_setup(struct __ctx_buff *ctx)
 {
 	/* mark the source IP as a local endpoint with NO_SNAT flag */
@@ -566,7 +566,7 @@ int host_bpf_masq_v4_5_no_snat_ep_udp_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v4_5_no_snat_ep_udp")
+CHECK(PROG_TYPE, "host_bpf_masq_v4_5_no_snat_ep_udp")
 int host_bpf_masq_v4_5_no_snat_ep_udp_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -596,7 +596,7 @@ int host_bpf_masq_v4_5_no_snat_ep_udp_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "host_bpf_masq_v6_5_no_snat_ep_udp")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v6_5_no_snat_ep_udp")
 int host_bpf_masq_v6_5_no_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -616,7 +616,7 @@ int host_bpf_masq_v6_5_no_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v6_5_no_snat_ep_udp")
+SETUP(PROG_TYPE, "host_bpf_masq_v6_5_no_snat_ep_udp")
 int host_bpf_masq_v6_5_no_snat_ep_udp_setup(struct __ctx_buff *ctx)
 {
 	/* mark the source IP as a local endpoint with NO_SNAT flag */
@@ -631,7 +631,7 @@ int host_bpf_masq_v6_5_no_snat_ep_udp_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v6_5_no_snat_ep_udp")
+CHECK(PROG_TYPE, "host_bpf_masq_v6_5_no_snat_ep_udp")
 int host_bpf_masq_v6_5_no_snat_ep_udp_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -666,7 +666,7 @@ int host_bpf_masq_v6_5_no_snat_ep_udp_check(const struct __ctx_buff *ctx)
 }
 
 /* Regular endpoints (without NO_SNAT) should be masqueraded */
-PKTGEN("tc", "host_bpf_masq_v4_6_snat_ep_udp")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v4_6_snat_ep_udp")
 int host_bpf_masq_v4_6_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -686,7 +686,7 @@ int host_bpf_masq_v4_6_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v4_6_snat_ep_udp")
+SETUP(PROG_TYPE, "host_bpf_masq_v4_6_snat_ep_udp")
 int host_bpf_masq_v4_6_snat_ep_udp_setup(struct __ctx_buff *ctx)
 {
 	/* mark the source IP as a local endpoint without NO_SNAT flag */
@@ -695,7 +695,7 @@ int host_bpf_masq_v4_6_snat_ep_udp_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v4_6_snat_ep_udp")
+CHECK(PROG_TYPE, "host_bpf_masq_v4_6_snat_ep_udp")
 int host_bpf_masq_v4_6_snat_ep_udp_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -724,7 +724,7 @@ int host_bpf_masq_v4_6_snat_ep_udp_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "host_bpf_masq_v6_6_snat_ep_udp")
+PKTGEN(PROG_TYPE, "host_bpf_masq_v6_6_snat_ep_udp")
 int host_bpf_masq_v6_6_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -744,7 +744,7 @@ int host_bpf_masq_v6_6_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "host_bpf_masq_v6_6_snat_ep_udp")
+SETUP(PROG_TYPE, "host_bpf_masq_v6_6_snat_ep_udp")
 int host_bpf_masq_v6_6_snat_ep_udp_setup(struct __ctx_buff *ctx)
 {
 	/* mark the source IP as a local endpoint without NO_SNAT flag */
@@ -753,7 +753,7 @@ int host_bpf_masq_v6_6_snat_ep_udp_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "host_bpf_masq_v6_6_snat_ep_udp")
+CHECK(PROG_TYPE, "host_bpf_masq_v6_6_snat_ep_udp")
 int host_bpf_masq_v6_6_snat_ep_udp_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

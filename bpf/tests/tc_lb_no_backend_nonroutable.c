@@ -63,7 +63,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx,
 }
 
 /* Test that a packet for a SVC without any backend does not get dropped (enable_no_endpoints_routable=false). */
-SETUP("tc", "tc_lb_no_backend_nonroutable")
+SETUP(PROG_TYPE, "tc_lb_no_backend_nonroutable")
 int tc_lb_no_backend_nonroutable_setup(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -81,7 +81,7 @@ int tc_lb_no_backend_nonroutable_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lb_no_backend_nonroutable")
+CHECK(PROG_TYPE, "tc_lb_no_backend_nonroutable")
 int tc_lb_no_backend_nonroutable_check(const struct __ctx_buff *ctx)
 {
 	__u32 expected_status = TC_ACT_OK;
@@ -106,7 +106,7 @@ int tc_lb_no_backend_nonroutable_check(const struct __ctx_buff *ctx)
 }
 
 /* Test that a packet for a SVC without any backend with eTP=Local gets dropped. */
-SETUP("tc", "tc_lb_no_backend_nonroutable_etp")
+SETUP(PROG_TYPE, "tc_lb_no_backend_nonroutable_etp")
 int tc_lb_no_backend_nonroutable_etp_setup(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -124,7 +124,7 @@ int tc_lb_no_backend_nonroutable_etp_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lb_no_backend_nonroutable_etp")
+CHECK(PROG_TYPE, "tc_lb_no_backend_nonroutable_etp")
 int tc_lb_no_backend_nonroutable_etp_check(const struct __ctx_buff *ctx)
 {
 	__u32 expected_status = TC_ACT_SHOT;

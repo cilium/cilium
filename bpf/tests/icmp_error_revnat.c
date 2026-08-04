@@ -54,7 +54,7 @@ const __u8 icmp4_err_frag_needed_after_revnat[] = {
  * 4. Result: ICMP error should be addressed to endpoint (10.0.10.1)
  *            with embedded packet showing original src (10.0.10.1:3030)
  */
-PKTGEN("tc", "nat4_icmp_error_tcp_snat_revnat")
+PKTGEN(PROG_TYPE, "nat4_icmp_error_tcp_snat_revnat")
 int nat4_icmp_error_tcp_snat_revnat_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -70,7 +70,7 @@ int nat4_icmp_error_tcp_snat_revnat_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "nat4_icmp_error_tcp_snat_revnat")
+SETUP(PROG_TYPE, "nat4_icmp_error_tcp_snat_revnat")
 int nat4_icmp_error_tcp_snat_revnat_setup(struct __ctx_buff *ctx)
 {
 	/* Set up NAT mapping to simulate prior outgoing connection.
@@ -121,7 +121,7 @@ int nat4_icmp_error_tcp_snat_revnat_setup(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-CHECK("tc", "nat4_icmp_error_tcp_snat_revnat")
+CHECK(PROG_TYPE, "nat4_icmp_error_tcp_snat_revnat")
 int nat4_icmp_error_tcp_snat_revnat_check(const struct __ctx_buff *ctx)
 {
 	void *data;

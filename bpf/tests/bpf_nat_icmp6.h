@@ -207,7 +207,7 @@ int do_icmp6_pkt_too_big_check(const struct __ctx_buff *ctx)
 	return 0;
 }
 
-PKTGEN("tc", "snat_v6_tcp_pmtu")
+PKTGEN(PROG_TYPE, "snat_v6_tcp_pmtu")
 int snat_v6_pmtu_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -218,7 +218,7 @@ int snat_v6_pmtu_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-SETUP("tc", "snat_v6_tcp_pmtu")
+SETUP(PROG_TYPE, "snat_v6_tcp_pmtu")
 int snat_v6_pmtu_setup(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -230,7 +230,7 @@ int snat_v6_pmtu_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "snat_v6_tcp_pmtu")
+CHECK(PROG_TYPE, "snat_v6_tcp_pmtu")
 int snat_v6_pmtu_check(const struct __ctx_buff *ctx)
 {
 	test_init();
@@ -240,7 +240,7 @@ int snat_v6_pmtu_check(const struct __ctx_buff *ctx)
 	return 0;
 }
 
-PKTGEN("tc", "snat_v6_udp_pmtu")
+PKTGEN(PROG_TYPE, "snat_v6_udp_pmtu")
 int snat_v6_pmtu_udp_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -251,7 +251,7 @@ int snat_v6_pmtu_udp_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-SETUP("tc", "snat_v6_udp_pmtu")
+SETUP(PROG_TYPE, "snat_v6_udp_pmtu")
 int snat_v6_pmtu_udp_setup(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -263,7 +263,7 @@ int snat_v6_pmtu_udp_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "snat_v6_udp_pmtu")
+CHECK(PROG_TYPE, "snat_v6_udp_pmtu")
 int snat_v6_pmtu_udp_check(const struct __ctx_buff *ctx)
 {
 	test_init();

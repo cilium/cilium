@@ -53,7 +53,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 	return 0;
 }
 
-PKTGEN("tc", "0_no_entry")
+PKTGEN(PROG_TYPE, "0_no_entry")
 int l2_announcement_arp_no_entry_pktgen(struct __ctx_buff *ctx)
 {
 	return build_packet(ctx);
@@ -61,13 +61,13 @@ int l2_announcement_arp_no_entry_pktgen(struct __ctx_buff *ctx)
 
 /* Test that sending a ARP broadcast request without entries in the map.
  */
-SETUP("tc", "0_no_entry")
+SETUP(PROG_TYPE, "0_no_entry")
 int l2_announcement_arp_no_entry_setup(struct __ctx_buff *ctx)
 {
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "0_no_entry")
+CHECK(PROG_TYPE, "0_no_entry")
 int l2_announcement_arp_no_entry_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
@@ -93,7 +93,7 @@ int l2_announcement_arp_no_entry_check(__maybe_unused const struct __ctx_buff *c
 
 }
 
-PKTGEN("tc", "1_happy_path")
+PKTGEN(PROG_TYPE, "1_happy_path")
 int l2_announcement_arp_happy_path_pktgen(struct __ctx_buff *ctx)
 {
 	return build_packet(ctx);
@@ -102,7 +102,7 @@ int l2_announcement_arp_happy_path_pktgen(struct __ctx_buff *ctx)
 /* Test that sending a ARP broadcast request matching an entry in
  * cilium_l2_responder_v4 results in a valid ARP reply.
  */
-SETUP("tc", "1_happy_path")
+SETUP(PROG_TYPE, "1_happy_path")
 int l2_announcement_arp_happy_path_setup(struct __ctx_buff *ctx)
 {
 	struct l2_responder_v4_key key;
@@ -117,7 +117,7 @@ int l2_announcement_arp_happy_path_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "1_happy_path")
+CHECK(PROG_TYPE, "1_happy_path")
 int l2_announcement_arp_happy_path_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;

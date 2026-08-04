@@ -70,7 +70,7 @@ static __always_inline int igmpv3_join_packet(struct __ctx_buff *ctx)
 	return 0;
 }
 
-CHECK("tc", "mcast_tests")
+CHECK(PROG_TYPE, "mcast_tests")
 int test1_check(struct __ctx_buff *ctx)
 {
 	test_init();

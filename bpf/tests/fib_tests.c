@@ -64,7 +64,7 @@ long mock_fib_lookup(void *ctx __maybe_unused,
 
 ASSIGN_CONFIG(bool, supports_fib_lookup_skip_neigh, true)
 
-CHECK("tc", "fib_do_redirect_happy_path")
+CHECK(PROG_TYPE, "fib_do_redirect_happy_path")
 int test1_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -178,7 +178,7 @@ int test1_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "fib_redirect*_fib_lookup_flags")
+CHECK(PROG_TYPE, "fib_redirect*_fib_lookup_flags")
 int test2_check(struct __ctx_buff *ctx)
 {
 	test_init();

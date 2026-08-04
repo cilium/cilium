@@ -180,13 +180,13 @@ pktgen_client_to_svc_v6(struct __ctx_buff *ctx, const void *svc_addr,
 /* run (post-fd483bd2cd contract), delivery via ctx_redirect_peer, no encap.  */
 /* -------------------------------------------------------------------------- */
 
-PKTGEN("tc", "tc_nodeport_dsr_ipip_lb_local_pod_v6")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_pod_v6")
 int nodeport_dsr_ipip_lb_local_pod_v6_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_client_to_svc_v6(ctx, (void *)v6_pod_three, FRONTEND_PORT);
 }
 
-SETUP("tc", "tc_nodeport_dsr_ipip_lb_local_pod_v6")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_pod_v6")
 int nodeport_dsr_ipip_lb_local_pod_v6_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -211,7 +211,7 @@ int nodeport_dsr_ipip_lb_local_pod_v6_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_dsr_ipip_lb_local_pod_v6")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_pod_v6")
 int nodeport_dsr_ipip_lb_local_pod_v6_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -283,13 +283,13 @@ int nodeport_dsr_ipip_lb_local_pod_v6_check(struct __ctx_buff *ctx)
 /* host-ns). Punt to stack; no DNAT, no encap, no redirect.                   */
 /* -------------------------------------------------------------------------- */
 
-PKTGEN("tc", "tc_nodeport_dsr_ipip_lb_local_l7punt_v6")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_l7punt_v6")
 int nodeport_dsr_ipip_lb_local_l7punt_v6_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_client_to_svc_v6(ctx, (void *)v6_pod_three, FRONTEND_PORT);
 }
 
-SETUP("tc", "tc_nodeport_dsr_ipip_lb_local_l7punt_v6")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_l7punt_v6")
 int nodeport_dsr_ipip_lb_local_l7punt_v6_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
@@ -315,7 +315,7 @@ int nodeport_dsr_ipip_lb_local_l7punt_v6_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_dsr_ipip_lb_local_l7punt_v6")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_l7punt_v6")
 int nodeport_dsr_ipip_lb_local_l7punt_v6_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

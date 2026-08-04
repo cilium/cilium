@@ -19,7 +19,7 @@
 
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 
-CHECK("tc", "test_nodeport_uses_dsr_ipv4_with_flag")
+CHECK(PROG_TYPE, "test_nodeport_uses_dsr_ipv4_with_flag")
 int test_nodeport_uses_dsr_ipv4_with_flag(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();
@@ -60,7 +60,7 @@ int test_nodeport_uses_dsr_ipv4_with_flag(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "test_nodeport_uses_dsr_ipv6_with_flag")
+CHECK(PROG_TYPE, "test_nodeport_uses_dsr_ipv6_with_flag")
 int test_nodeport_uses_dsr_ipv6_with_flag(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();

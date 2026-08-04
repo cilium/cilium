@@ -33,7 +33,7 @@ ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 #include "lib/lb.h"
 
 /* Test that a SVC without backends returns a TCP RST or ICMP error */
-PKTGEN("tc", "tc_lxc4_no_backend")
+PKTGEN(PROG_TYPE, "tc_lxc4_no_backend")
 int lxc4_no_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -60,7 +60,7 @@ int lxc4_no_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc4_no_backend")
+SETUP(PROG_TYPE, "tc_lxc4_no_backend")
 int lxc4_no_backend_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -72,7 +72,7 @@ int lxc4_no_backend_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc4_no_backend")
+CHECK(PROG_TYPE, "tc_lxc4_no_backend")
 int lxc4_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -132,7 +132,7 @@ int lxc4_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 }
 
 /* Test that a SVC without backends returns a TCP RST or ICMP error */
-PKTGEN("tc", "tc_lxc6_no_backend")
+PKTGEN(PROG_TYPE, "tc_lxc6_no_backend")
 int lxc6_no_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -160,7 +160,7 @@ int lxc6_no_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lxc6_no_backend")
+SETUP(PROG_TYPE, "tc_lxc6_no_backend")
 int lxc6_no_backend_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
@@ -180,7 +180,7 @@ int lxc6_no_backend_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "tc_lxc6_no_backend")
+CHECK(PROG_TYPE, "tc_lxc6_no_backend")
 int lxc6_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

@@ -211,13 +211,13 @@ pktgen_client_to_svc(struct __ctx_buff *ctx, __be32 svc_addr, __be16 svc_port)
 /* Pod netns (netkit). No IPIP encap happens.                                 */
 /* -------------------------------------------------------------------------- */
 
-PKTGEN("tc", "tc_nodeport_dsr_ipip_lb_local_pod")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_pod")
 int nodeport_dsr_ipip_lb_local_pod_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_client_to_svc(ctx, FRONTEND_IP, FRONTEND_PORT);
 }
 
-SETUP("tc", "tc_nodeport_dsr_ipip_lb_local_pod")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_pod")
 int nodeport_dsr_ipip_lb_local_pod_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -239,7 +239,7 @@ int nodeport_dsr_ipip_lb_local_pod_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_dsr_ipip_lb_local_pod")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_pod")
 int nodeport_dsr_ipip_lb_local_pod_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -319,13 +319,13 @@ int nodeport_dsr_ipip_lb_local_pod_check(struct __ctx_buff *ctx)
 /* no encap, no redirect.                                                     */
 /* -------------------------------------------------------------------------- */
 
-PKTGEN("tc", "tc_nodeport_dsr_ipip_lb_local_l7punt")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_l7punt")
 int nodeport_dsr_ipip_lb_local_l7punt_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen_client_to_svc(ctx, L7_FRONTEND_IP, FRONTEND_PORT);
 }
 
-SETUP("tc", "tc_nodeport_dsr_ipip_lb_local_l7punt")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_l7punt")
 int nodeport_dsr_ipip_lb_local_l7punt_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
@@ -349,7 +349,7 @@ int nodeport_dsr_ipip_lb_local_l7punt_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_dsr_ipip_lb_local_l7punt")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_ipip_lb_local_l7punt")
 int nodeport_dsr_ipip_lb_local_l7punt_check(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

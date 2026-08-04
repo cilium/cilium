@@ -189,7 +189,7 @@ const __u8 tc_redirect_netdev_ipv4_post[] = {
  * and netkit - that's the behavior the runtime arm of should_redirect_peer
  * encodes (and what 210b5866e0 inadvertently broke for netkit).
  */
-PKTGEN("tc", "tc_redirect_netdev_ipv4")
+PKTGEN(PROG_TYPE, "tc_redirect_netdev_ipv4")
 int tc_redirect_netdev_ipv4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -204,7 +204,7 @@ int tc_redirect_netdev_ipv4_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_redirect_netdev_ipv4")
+SETUP(PROG_TYPE, "tc_redirect_netdev_ipv4")
 int tc_redirect_netdev_ipv4_setup(struct __ctx_buff *ctx)
 {
 	/* phys-netdev TC ingress: kernel sets ingress_ifindex */
@@ -221,7 +221,7 @@ int tc_redirect_netdev_ipv4_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_redirect_netdev_ipv4")
+CHECK(PROG_TYPE, "tc_redirect_netdev_ipv4")
 int tc_redirect_netdev_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	/* Both veth and netkit must take the redirect_peer() path here:
@@ -273,7 +273,7 @@ int tc_redirect_netdev_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
  * is the right answer (and matches the existing tc_redirect_lxc_veth_*
  * expectations).
  */
-PKTGEN("tc", "tc_redirect_pod_egress_ipv4")
+PKTGEN(PROG_TYPE, "tc_redirect_pod_egress_ipv4")
 int tc_redirect_pod_egress_ipv4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -288,7 +288,7 @@ int tc_redirect_pod_egress_ipv4_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_redirect_pod_egress_ipv4")
+SETUP(PROG_TYPE, "tc_redirect_pod_egress_ipv4")
 int tc_redirect_pod_egress_ipv4_setup(struct __ctx_buff *ctx)
 {
 	/* Pod-egress on netkit: ns crossing scrubs ingress_ifindex to 0 */
@@ -302,7 +302,7 @@ int tc_redirect_pod_egress_ipv4_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_redirect_pod_egress_ipv4")
+CHECK(PROG_TYPE, "tc_redirect_pod_egress_ipv4")
 int tc_redirect_pod_egress_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 #ifdef __CONFIG_ENABLE_NETKIT
@@ -363,7 +363,7 @@ const __u8 tc_redirect_netdev_ipv6_post[] = {
 	SCAPY_BUF_BYTES(tc_redirect_host_ipv6_post)
 };
 
-PKTGEN("tc", "tc_redirect_netdev_ipv6")
+PKTGEN(PROG_TYPE, "tc_redirect_netdev_ipv6")
 int tc_redirect_netdev_ipv6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -378,7 +378,7 @@ int tc_redirect_netdev_ipv6_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_redirect_netdev_ipv6")
+SETUP(PROG_TYPE, "tc_redirect_netdev_ipv6")
 int tc_redirect_netdev_ipv6_setup(struct __ctx_buff *ctx)
 {
 	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
@@ -394,7 +394,7 @@ int tc_redirect_netdev_ipv6_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_redirect_netdev_ipv6")
+CHECK(PROG_TYPE, "tc_redirect_netdev_ipv6")
 int tc_redirect_netdev_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	const unsigned int expected[RECORD__MAX] = {1, 0, 1};
@@ -432,7 +432,7 @@ int tc_redirect_netdev_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 }
 
 /* See the IPv4 sibling for the rationale of this scenario. */
-PKTGEN("tc", "tc_redirect_pod_egress_ipv6")
+PKTGEN(PROG_TYPE, "tc_redirect_pod_egress_ipv6")
 int tc_redirect_pod_egress_ipv6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -447,7 +447,7 @@ int tc_redirect_pod_egress_ipv6_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_redirect_pod_egress_ipv6")
+SETUP(PROG_TYPE, "tc_redirect_pod_egress_ipv6")
 int tc_redirect_pod_egress_ipv6_setup(struct __ctx_buff *ctx)
 {
 	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
@@ -462,7 +462,7 @@ int tc_redirect_pod_egress_ipv6_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_redirect_pod_egress_ipv6")
+CHECK(PROG_TYPE, "tc_redirect_pod_egress_ipv6")
 int tc_redirect_pod_egress_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 #ifdef __CONFIG_ENABLE_NETKIT

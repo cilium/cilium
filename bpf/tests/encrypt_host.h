@@ -132,13 +132,13 @@ int v4_build_packet(struct __ctx_buff *ctx)
  * its ipcache entry is missing), then the corresponding PodCIDR entry
  * is still sufficient to apply encryption for a pod-to-pod packet.
  */
-PKTGEN("tc", "encrypt_v4_1_missing_dst")
+PKTGEN(PROG_TYPE, "encrypt_v4_1_missing_dst")
 int encrypt_v4_1_missing_dst_pktgen(struct __ctx_buff *ctx)
 {
 	return v4_build_packet(ctx);
 }
 
-SETUP("tc", "encrypt_v4_1_missing_dst")
+SETUP(PROG_TYPE, "encrypt_v4_1_missing_dst")
 int encrypt_v4_1_missing_dst_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry_with_mask_size(DST_POD_CIDR_V4, 0, WORLD_ID,
@@ -155,7 +155,7 @@ int encrypt_v4_1_missing_dst_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "encrypt_v4_1_missing_dst")
+CHECK(PROG_TYPE, "encrypt_v4_1_missing_dst")
 int encrypt_v4_1_missing_dst_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_REDIRECT);
@@ -167,13 +167,13 @@ int encrypt_v4_1_missing_dst_check(const struct __ctx_buff *ctx)
  * sufficient to trigger encryption, even if the endpoint's ipcache entry
  * is not available.
  */
-PKTGEN("tc", "encrypt_v4_2_src_mark")
+PKTGEN(PROG_TYPE, "encrypt_v4_2_src_mark")
 int encrypt_v4_2_src_mark_pktgen(struct __ctx_buff *ctx)
 {
 	return v4_build_packet(ctx);
 }
 
-SETUP("tc", "encrypt_v4_2_src_mark")
+SETUP(PROG_TYPE, "encrypt_v4_2_src_mark")
 int encrypt_v4_2_src_mark_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry(DST_POD_V4, 0, DST_POD_SEC_IDENTITY,
@@ -184,7 +184,7 @@ int encrypt_v4_2_src_mark_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "encrypt_v4_2_src_mark")
+CHECK(PROG_TYPE, "encrypt_v4_2_src_mark")
 int encrypt_v4_2_src_mark_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_REDIRECT);
@@ -193,19 +193,19 @@ int encrypt_v4_2_src_mark_check(const struct __ctx_buff *ctx)
 /* Now test *without* the identity in the mark. This should *not* trigger
  * encryption. Strict-Mode should capture the packet.
  */
-PKTGEN("tc", "encrypt_v4_3_no_src_mark")
+PKTGEN(PROG_TYPE, "encrypt_v4_3_no_src_mark")
 int encrypt_v4_3_no_src_mark_pktgen(struct __ctx_buff *ctx)
 {
 	return v4_build_packet(ctx);
 }
 
-SETUP("tc", "encrypt_v4_3_no_src_mark")
+SETUP(PROG_TYPE, "encrypt_v4_3_no_src_mark")
 int encrypt_v4_3_no_src_mark_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "encrypt_v4_3_no_src_mark")
+CHECK(PROG_TYPE, "encrypt_v4_3_no_src_mark")
 int encrypt_v4_3_no_src_mark_check(const struct __ctx_buff *ctx)
 {
 #ifdef ENCRYPTION_STRICT_MODE_EGRESS
@@ -216,13 +216,13 @@ int encrypt_v4_3_no_src_mark_check(const struct __ctx_buff *ctx)
 }
 
 /* Finally test without the mark, but with the endpoint's ipcache entry: */
-PKTGEN("tc", "encrypt_v4_4_no_src_mark_with_src_entry")
+PKTGEN(PROG_TYPE, "encrypt_v4_4_no_src_mark_with_src_entry")
 int encrypt_v4_4_no_src_mark_with_src_entry_pktgen(struct __ctx_buff *ctx)
 {
 	return v4_build_packet(ctx);
 }
 
-SETUP("tc", "encrypt_v4_4_no_src_mark_with_src_entry")
+SETUP(PROG_TYPE, "encrypt_v4_4_no_src_mark_with_src_entry")
 int encrypt_v4_4_no_src_mark_with_src_entry_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry(SRC_POD_V4, 0, SRC_POD_SEC_IDENTITY,
@@ -231,7 +231,7 @@ int encrypt_v4_4_no_src_mark_with_src_entry_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "encrypt_v4_4_no_src_mark_with_src_entry")
+CHECK(PROG_TYPE, "encrypt_v4_4_no_src_mark_with_src_entry")
 int encrypt_v4_4_no_src_mark_with_src_entry_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_REDIRECT);
@@ -256,13 +256,13 @@ int v6_build_packet(struct __ctx_buff *ctx)
 	return 0;
 }
 
-PKTGEN("tc", "encrypt_v6_1_missing_dst")
+PKTGEN(PROG_TYPE, "encrypt_v6_1_missing_dst")
 int encrypt_v6_1_missing_dst_pktgen(struct __ctx_buff *ctx)
 {
 	return v6_build_packet(ctx);
 }
 
-SETUP("tc", "encrypt_v6_1_missing_dst")
+SETUP(PROG_TYPE, "encrypt_v6_1_missing_dst")
 int encrypt_v6_1_missing_dst_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v6_add_entry_with_mask_size_ipv6_underlay(DST_POD_CIDR_V6, 0, WORLD_ID,
@@ -279,19 +279,19 @@ int encrypt_v6_1_missing_dst_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "encrypt_v6_1_missing_dst")
+CHECK(PROG_TYPE, "encrypt_v6_1_missing_dst")
 int encrypt_v6_1_missing_dst_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_REDIRECT);
 }
 
-PKTGEN("tc", "encrypt_v6_2_src_mark")
+PKTGEN(PROG_TYPE, "encrypt_v6_2_src_mark")
 int encrypt_v6_2_src_mark_pktgen(struct __ctx_buff *ctx)
 {
 	return v6_build_packet(ctx);
 }
 
-SETUP("tc", "encrypt_v6_2_src_mark")
+SETUP(PROG_TYPE, "encrypt_v6_2_src_mark")
 int encrypt_v6_2_src_mark_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v6_add_entry_ipv6_underlay(DST_POD_V6, 0, DST_POD_SEC_IDENTITY,
@@ -302,37 +302,37 @@ int encrypt_v6_2_src_mark_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "encrypt_v6_2_src_mark")
+CHECK(PROG_TYPE, "encrypt_v6_2_src_mark")
 int encrypt_v6_2_src_mark_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_REDIRECT);
 }
 
-PKTGEN("tc", "encrypt_v6_3_no_src_mark")
+PKTGEN(PROG_TYPE, "encrypt_v6_3_no_src_mark")
 int encrypt_v6_3_no_src_mark_pktgen(struct __ctx_buff *ctx)
 {
 	return v6_build_packet(ctx);
 }
 
-SETUP("tc", "encrypt_v6_3_no_src_mark")
+SETUP(PROG_TYPE, "encrypt_v6_3_no_src_mark")
 int encrypt_v6_3_no_src_mark_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "encrypt_v6_3_no_src_mark")
+CHECK(PROG_TYPE, "encrypt_v6_3_no_src_mark")
 int encrypt_v6_3_no_src_mark_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_OK);
 }
 
-PKTGEN("tc", "encrypt_v6_4_no_src_mark_with_src_entry")
+PKTGEN(PROG_TYPE, "encrypt_v6_4_no_src_mark_with_src_entry")
 int encrypt_v6_4_no_src_mark_with_src_entry_pktgen(struct __ctx_buff *ctx)
 {
 	return v6_build_packet(ctx);
 }
 
-SETUP("tc", "encrypt_v6_4_no_src_mark_with_src_entry")
+SETUP(PROG_TYPE, "encrypt_v6_4_no_src_mark_with_src_entry")
 int encrypt_v6_4_no_src_mark_with_src_entry_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v6_add_entry(SRC_POD_V6, 0, SRC_POD_SEC_IDENTITY,
@@ -341,14 +341,14 @@ int encrypt_v6_4_no_src_mark_with_src_entry_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "encrypt_v6_4_no_src_mark_with_src_entry")
+CHECK(PROG_TYPE, "encrypt_v6_4_no_src_mark_with_src_entry")
 int encrypt_v6_4_no_src_mark_with_src_entry_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_REDIRECT);
 }
 
 #ifdef TUNNEL_MODE
-PKTGEN("tc", "encrypt_v4_vxlan")
+PKTGEN(PROG_TYPE, "encrypt_v4_vxlan")
 int encrypt_v4_vxlan_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -372,7 +372,7 @@ int encrypt_v4_vxlan_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "encrypt_v4_vxlan")
+SETUP(PROG_TYPE, "encrypt_v4_vxlan")
 int encrypt_v4_vxlan_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, SRC_POD_SEC_IDENTITY, MARK_MAGIC_OVERLAY);
@@ -380,13 +380,13 @@ int encrypt_v4_vxlan_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "encrypt_v4_vxlan")
+CHECK(PROG_TYPE, "encrypt_v4_vxlan")
 int encrypt_v4_vxlan_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_REDIRECT);
 }
 
-PKTGEN("tc", "encrypt_v6_vxlan")
+PKTGEN(PROG_TYPE, "encrypt_v6_vxlan")
 int encrypt_v6_vxlan_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -410,7 +410,7 @@ int encrypt_v6_vxlan_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "encrypt_v6_vxlan")
+SETUP(PROG_TYPE, "encrypt_v6_vxlan")
 int encrypt_v6_vxlan_setup(struct __ctx_buff *ctx)
 {
 	set_identity_mark(ctx, SRC_POD_SEC_IDENTITY, MARK_MAGIC_OVERLAY);
@@ -418,7 +418,7 @@ int encrypt_v6_vxlan_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "encrypt_v6_vxlan")
+CHECK(PROG_TYPE, "encrypt_v6_vxlan")
 int encrypt_v6_vxlan_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_REDIRECT);

@@ -150,7 +150,7 @@ __always_inline int check_pmtu_snat(const struct __ctx_buff *ctx)
 	return 0;
 }
 
-PKTGEN("tc", "nodeport_revsnat_icmp4_pmtu")
+PKTGEN(PROG_TYPE, "nodeport_revsnat_icmp4_pmtu")
 int nodeport_revsnat_icmp4_pmtu_pktgen(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -162,7 +162,7 @@ int nodeport_revsnat_icmp4_pmtu_pktgen(struct __ctx_buff *ctx)
 	return ret;
 }
 
-SETUP("tc", "nodeport_revsnat_icmp4_pmtu")
+SETUP(PROG_TYPE, "nodeport_revsnat_icmp4_pmtu")
 int nodeport_revsnat_icmp4_pmtu_setup(struct __ctx_buff *ctx)
 {
 	snat_v4_insert_ct_nat(IPPROTO_TCP);
@@ -170,7 +170,7 @@ int nodeport_revsnat_icmp4_pmtu_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "nodeport_revsnat_icmp4_pmtu")
+CHECK(PROG_TYPE, "nodeport_revsnat_icmp4_pmtu")
 int nodeport_revsnat_icmp4_pmtu_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	test_init();
@@ -179,7 +179,7 @@ int nodeport_revsnat_icmp4_pmtu_check(__maybe_unused const struct __ctx_buff *ct
 	test_finish();
 }
 
-PKTGEN("tc", "nodeport_revsnat_icmp4_pmtu_udp")
+PKTGEN(PROG_TYPE, "nodeport_revsnat_icmp4_pmtu_udp")
 int nodeport_revsnat_icmp4_pmtu_udp_pktgen(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -191,7 +191,7 @@ int nodeport_revsnat_icmp4_pmtu_udp_pktgen(struct __ctx_buff *ctx)
 	return ret;
 }
 
-SETUP("tc", "nodeport_revsnat_icmp4_pmtu_udp")
+SETUP(PROG_TYPE, "nodeport_revsnat_icmp4_pmtu_udp")
 int nodeport_revsnat_icmp4_pmtu_udp_setup(struct __ctx_buff *ctx)
 {
 	snat_v4_insert_ct_nat(IPPROTO_UDP);
@@ -199,7 +199,7 @@ int nodeport_revsnat_icmp4_pmtu_udp_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "nodeport_revsnat_icmp4_pmtu_udp")
+CHECK(PROG_TYPE, "nodeport_revsnat_icmp4_pmtu_udp")
 int nodeport_revsnat_icmp4_pmtu_udp_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	test_init();

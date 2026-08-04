@@ -20,7 +20,7 @@
 #include "lib/lb.h"
 
 /* TCP Service, single-scope */
-CHECK("tc", "lb4_tcp_single_scope")
+CHECK(PROG_TYPE, "lb4_tcp_single_scope")
 int test_lb4_tcp_single_scope(__maybe_unused struct __ctx_buff *ctx)
 {
 	const struct lb4_service *service;
@@ -47,7 +47,7 @@ int test_lb4_tcp_single_scope(__maybe_unused struct __ctx_buff *ctx)
 }
 
 /* TCP Service, dual-scope */
-CHECK("tc", "lb4_tcp_dual_scope")
+CHECK(PROG_TYPE, "lb4_tcp_dual_scope")
 int test_lb4_tcp_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 {
 	const struct lb4_service *service;
@@ -75,7 +75,7 @@ int test_lb4_tcp_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 }
 
 /* UDP Service, single-scope */
-CHECK("tc", "lb4_udp_single_scope")
+CHECK(PROG_TYPE, "lb4_udp_single_scope")
 int test_lb4_udp_single_scope(__maybe_unused struct __ctx_buff *ctx)
 {
 	const struct lb4_service *service;
@@ -102,7 +102,7 @@ int test_lb4_udp_single_scope(__maybe_unused struct __ctx_buff *ctx)
 }
 
 /* UDP Service, dual-scope */
-CHECK("tc", "lb4_udp_dual_scope")
+CHECK(PROG_TYPE, "lb4_udp_dual_scope")
 int test_lb4_udp_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 {
 	const struct lb4_service *service;
@@ -129,7 +129,7 @@ int test_lb4_udp_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 }
 
 /* Protocol mismatch, no wildcard, single scope */
-CHECK("tc", "lb4_proto_mismatch_nowild_single_scope")
+CHECK(PROG_TYPE, "lb4_proto_mismatch_nowild_single_scope")
 int test_lb4_proto_mismatch_nowild_single_scope(__maybe_unused struct __ctx_buff *ctx)
 {
 	const struct lb4_service *service;
@@ -156,7 +156,7 @@ int test_lb4_proto_mismatch_nowild_single_scope(__maybe_unused struct __ctx_buff
 }
 
 /* Protocol mismatch, no wildcard, dual scope */
-CHECK("tc", "lb4_proto_mismatch_nowild_dual_scope")
+CHECK(PROG_TYPE, "lb4_proto_mismatch_nowild_dual_scope")
 int test_lb4_proto_mismatch_nowild_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 {
 	const struct lb4_service *service;
@@ -183,7 +183,7 @@ int test_lb4_proto_mismatch_nowild_dual_scope(__maybe_unused struct __ctx_buff *
 }
 
 /* Protocol mismatch, with wildcard, single scope */
-CHECK("tc", "lb4_proto_mismatch_wild_single_scope")
+CHECK(PROG_TYPE, "lb4_proto_mismatch_wild_single_scope")
 int test_lb4_proto_mismatch_wild_single_scope(__maybe_unused struct __ctx_buff *ctx)
 {
 	const struct lb4_service *service;
@@ -222,7 +222,7 @@ int test_lb4_proto_mismatch_wild_single_scope(__maybe_unused struct __ctx_buff *
 }
 
 /* Protocol mismatch, with wildcard, dual scope */
-CHECK("tc", "lb4_proto_mismatch_wild_dual_scope")
+CHECK(PROG_TYPE, "lb4_proto_mismatch_wild_dual_scope")
 int test_lb4_proto_mismatch_wild_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 {
 	const struct lb4_service *service;

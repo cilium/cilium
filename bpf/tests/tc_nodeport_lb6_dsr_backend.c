@@ -95,7 +95,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
  * - redirects it to the pod (as BPF Host Routing is enabled)
  * - creates a matching CT entry, and SNAT entry from the DSR info
  */
-PKTGEN("tc", "tc_nodeport_dsr_backend")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_backend")
 int nodeport_dsr_backend_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IP;
@@ -147,7 +147,7 @@ int nodeport_dsr_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_dsr_backend")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_backend")
 int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip = BACKEND_IP;
@@ -161,7 +161,7 @@ int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_dsr_backend")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_backend")
 int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IP;
@@ -359,19 +359,19 @@ int check_reply(const struct __ctx_buff *ctx)
 /* Test that the backend node revDNATs a reply from the
  * DSR backend, and sends the reply back to the client.
  */
-PKTGEN("tc", "tc_nodeport_dsr_backend_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_backend_reply")
 int nodeport_dsr_backend_reply_pktgen(struct __ctx_buff *ctx)
 {
 	return build_reply(ctx);
 }
 
-SETUP("tc", "tc_nodeport_dsr_backend_reply")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_backend_reply")
 int nodeport_dsr_backend_reply_reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_dsr_backend_reply")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_backend_reply")
 int nodeport_dsr_backend_reply_reply_check(const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
