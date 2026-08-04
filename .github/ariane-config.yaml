@@ -4,12 +4,10 @@ allowed-teams:
 triggers:
   /default:
     workflows:
-    - conformance-kind-proxy-embedded.yaml
     - tests-smoke-conformance.yaml
     - tests-smoke-ipv6.yaml
     - tests-cifuzz.yaml
     - lint-ariane-config.yaml
-    - conformance-kubespray.yaml
     - lint-images-base.yaml
   # This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
   /test\s*:
@@ -26,9 +24,11 @@ triggers:
     - conformance-ingress.yaml
     - conformance-l3-l4.yaml
     - conformance-l7.yaml
+    - conformance-kind-proxy-embedded.yaml
     - conformance-kpr-aks.yaml
     - conformance-kpr-eks.yaml
     - conformance-kpr-gke.yaml
+    - conformance-kubespray.yaml
     - conformance-multi-pool.yaml
     - conformance-race.yaml
     - conformance-runtime.yaml
