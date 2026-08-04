@@ -28,4 +28,4 @@ To check whether fragmentation occurred, check the value of the following metric
 
 If they're non-zero, it means that fragmented packets were processed.
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst

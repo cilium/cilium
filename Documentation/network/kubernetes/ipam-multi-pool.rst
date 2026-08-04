@@ -10,7 +10,7 @@
 CRD-Backed by Cilium Multi-Pool IPAM (Beta)
 *******************************************
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst
 
 This is a quick tutorial walking through how to enable multi-pool IPAM backed by the
 ``CiliumPodIPPool`` CRD. The purpose of this tutorial is to show how components are configured and

@@ -9,7 +9,7 @@
 Multi-Pool (Beta)
 #################
 
-.. include:: ../../../beta.rst
+.. include:: /beta.rst
 
 The Multi-Pool IPAM mode supports allocating PodCIDRs from multiple different IPAM pools, depending
 on workload annotations and node labels defined by the user.

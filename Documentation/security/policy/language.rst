@@ -457,7 +457,7 @@ use a :ref:`CiliumCIDRGroup` to reduce identity usage.
 Selecting nodes with CIDR / ipBlock
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst
 
 By default, CIDR-based selectors do not match in-cluster entities (pods or nodes).
 Optionally, you can direct the policy engine to select nodes by CIDR / ipBlock.
@@ -890,7 +890,7 @@ While communicating on this port, the only API endpoints allowed will be ``GET
 Kafka (beta)
 ------------
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst
 
 PortRuleKafka is a list of Kafka protocol constraints. All fields are optional,
 if all fields are empty or missing, the rule will match all Kafka messages.
