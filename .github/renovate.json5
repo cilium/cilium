@@ -97,7 +97,6 @@
     "v1.20",
     "v1.19",
     "v1.18",
-    "v1.17"
   ],
   "vulnerabilityAlerts": {
     "enabled": true
@@ -526,7 +525,6 @@
         "v1.20",
         "v1.19",
         "v1.18",
-        "v1.17",
         "main"
       ]
     },
@@ -540,7 +538,6 @@
         "v1.20",
         "v1.19",
         "v1.18",
-        "v1.17"
       ]
     },
     {
@@ -560,15 +557,6 @@
       "allowedVersions": "<3.23",
       "matchBaseBranches": [
         "v1.18"
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "docker.io/library/alpine"
-      ],
-      "allowedVersions": "<3.20",
-      "matchBaseBranches": [
-        "v1.17"
       ]
     },
     {
@@ -930,7 +918,6 @@
         "v1.20",
         "v1.19",
         "v1.18",
-        "v1.17"
       ]
     },
     {
@@ -1021,20 +1008,6 @@
         "!main",
       ]
     },
-    {
-      // Temporarily disable all etcd updates on v1.17, because newer
-      // versions are compiled with go 1.24.8 or later, which includes a breaking
-      // change in IP addresses parsing affecting the clustermesh-apiserver usage.
-      // See cilium/cilium#42818 for more details and the fix, which is intended
-      // to be backported once we built up sufficient confidence.
-      "enabled": false,
-      "matchDepNames": [
-        "gcr.io/etcd-development/etcd"
-      ],
-      "matchBaseBranches": [
-        "v1.17"
-      ]
-    }
   ],
   "kubernetes": {
     "managerFilePatterns": [
