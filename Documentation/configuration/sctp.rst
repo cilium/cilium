@@ -10,7 +10,7 @@
 SCTP support (beta)
 *******************
 
-.. include:: ../beta.rst
+.. include:: /beta.rst
 
 Enabling
 ========

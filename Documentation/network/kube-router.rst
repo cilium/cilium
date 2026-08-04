@@ -14,7 +14,7 @@ This guide explains how to configure Cilium and kube-router to co-operate to
 use kube-router for BGP peering and route propagation and Cilium for policy
 enforcement and load-balancing.
 
-.. include:: ../beta.rst
+.. include:: /beta.rst
 
 Deploy kube-router
 ##################

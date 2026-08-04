@@ -16,7 +16,7 @@ load-balancing. Once enabled, the traffic to a Kubernetes service will be
 redirected to a Cilium-managed Envoy proxy for load balancing. This feature
 is independent of the :ref:`gs_ingress` feature.
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst
 
 Deploy Test Applications
 ========================

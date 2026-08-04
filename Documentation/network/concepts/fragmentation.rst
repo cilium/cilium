@@ -36,4 +36,4 @@ have been processed by Cilium's datapath by checking the following metrics:
 These packets are the basis for path MTU discovery and indicate that packets
 along a network path are exceeding max MTU size of the network.
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst
