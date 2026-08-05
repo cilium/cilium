@@ -1080,6 +1080,77 @@ func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
 	}
 }
 
+func Test_gatewayReconciler_setAddressStatus_updatesAcceptedListenerProgrammedCondition(t *testing.T) {
+	gw := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "gateway",
+			Namespace:  "gateway-conformance-infra",
+			Generation: 7,
+		},
+		Status: gatewayv1.GatewayStatus{
+			Listeners: []gatewayv1.ListenerStatus{
+				{
+					Name: "http",
+					Conditions: []metav1.Condition{
+						{
+							Type:               string(gatewayv1.ListenerConditionAccepted),
+							Status:             metav1.ConditionTrue,
+							Reason:             string(gatewayv1.ListenerReasonAccepted),
+							ObservedGeneration: 7,
+						},
+						{
+							Type:               string(gatewayv1.ListenerConditionProgrammed),
+							Status:             metav1.ConditionFalse,
+							Reason:             string(gatewayv1.ListenerReasonPending),
+							ObservedGeneration: 7,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway-service",
+			Namespace: gw.Namespace,
+			Labels: map[string]string{
+				owningGatewayLabel: shortener.ShortenK8sResourceName(gw.Name),
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeLoadBalancer,
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{IP: "192.0.2.10"},
+				},
+			},
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithObjects(svc).
+		Build()
+
+	r := &gatewayReconciler{
+		Client: c,
+		logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+	}
+
+	require.NoError(t, r.setAddressStatus(t.Context(), gw))
+
+	require.Len(t, gw.Status.Addresses, 1)
+	require.Equal(t, "192.0.2.10", gw.Status.Addresses[0].Value)
+
+	programmed := listenerStatusCondition(t, gw.Status.Listeners, "http", string(gatewayv1.ListenerConditionProgrammed))
+	require.Equal(t, metav1.ConditionTrue, programmed.Status)
+	require.Equal(t, string(gatewayv1.ListenerReasonProgrammed), programmed.Reason)
+	require.Equal(t, int64(7), programmed.ObservedGeneration)
+}
+
 func listenerStatusCondition(t *testing.T, listeners []gatewayv1.ListenerStatus, name gatewayv1.SectionName, conditionType string) metav1.Condition {
 	t.Helper()
 

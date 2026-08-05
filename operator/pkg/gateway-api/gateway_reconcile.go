@@ -1170,7 +1170,8 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 	if len(addresses) > 0 {
 		r.logger.InfoContext(ctx, "At least one valid address, marking gateway programmed", logfields.Resource, client.ObjectKeyFromObject(gw).String())
 		setGatewayProgrammed(gw, metav1.ConditionTrue, "Gateway Programmed", gatewayv1.GatewayReasonProgrammed)
-		for _, l := range gw.Status.Listeners {
+		for i := range gw.Status.Listeners {
+			l := &gw.Status.Listeners[i]
 			// Is Listener Accepted?
 			accepted := false
 
