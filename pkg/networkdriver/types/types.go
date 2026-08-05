@@ -160,7 +160,6 @@ type Device interface {
 
 type DeviceManager interface {
 	Type() DeviceManagerType
-	ListDevices() ([]Device, error)
 	// Run publishes the current device set by calling publish, then blocks
 	// until ctx is cancelled. Implementations must call publish at least once
 	// before returning so the driver knows what devices are available.
