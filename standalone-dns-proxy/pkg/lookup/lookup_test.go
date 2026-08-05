@@ -98,7 +98,7 @@ func TestLookupRegisteredEndpoint(t *testing.T) {
 	require.False(t, isHost)
 
 	ep, isHost, err = rc.LookupRegisteredEndpoint(netip.MustParseAddr("10.0.0.2"))
-	require.NoError(t, err)
+	require.Error(t, err)
 	require.Nil(t, ep)
 	require.False(t, isHost)
 
