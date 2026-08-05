@@ -5,7 +5,7 @@ on:
   # Tests are only run when current hour % 6 corresponds
   # to the branch hourModulo value in the matrix
   schedule:
-    - cron: '0 */1 * * *'
+    - cron: '30 */1 * * *'
 
 
 permissions:
