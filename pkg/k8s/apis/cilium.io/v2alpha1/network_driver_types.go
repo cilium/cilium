@@ -124,11 +124,6 @@ type CiliumNetworkDriverNodeConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=10
 	DraRegistrationMaxAttempts int64 `json:"draRegistrationMaxAttempts,omitempty"`
-	// How often DRA plugin scans for devices and publishes resourceslices.
-	//
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=10
-	PublishIntervalSeconds int64 `json:"publishInterval,omitempty"`
 
 	// Driver name used to register to DRA and with the container runtime.
 	// Is also the driver that shows up in the ResourceSlice resources advertised by the node.
