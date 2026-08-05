@@ -38,6 +38,8 @@
     ".github/actions/e2e/**",
     ".github/actions/kvstore/**",
     ".github/actions/gather-metrics/**",
+    ".github/actions/get-runner-ip/**",
+    ".github/actions/wait-for-images/**",
     ".github/actions/merge-artifacts/**",
     ".github/actions/post-logic/**",
     ".github/actions/ginkgo/**",
