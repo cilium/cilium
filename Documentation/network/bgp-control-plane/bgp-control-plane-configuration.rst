@@ -740,7 +740,7 @@ See :ref:`External Access To ClusterIP Services <external_access_to_clusterip_se
 for how to enable it.
 
 If you only wish to advertise the ``.spec.clusterIP`` and ``.spec.clusterIPs`` of a Service,
-you can specify the ``virtualRouters[*].serviceAdvertisements`` field as ``ClusterIP``.
+you can specify the ``advertisements[*].service.addresses`` field as ``ClusterIP``.
 
 .. code-block:: yaml
 
