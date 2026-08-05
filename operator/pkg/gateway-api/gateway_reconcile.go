@@ -160,13 +160,11 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	tlsRouteList := &gatewayv1.TLSRouteList{}
-	if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
-		if err := r.Client.List(ctx, tlsRouteList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexers.GatewayTLSRouteIndex, client.ObjectKeyFromObject(original).String()),
-		}); err != nil {
-			scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes", logfields.Error, err)
-			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
-		}
+	if err := r.Client.List(ctx, tlsRouteList, &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(indexers.GatewayTLSRouteIndex, client.ObjectKeyFromObject(original).String()),
+	}); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes", logfields.Error, err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	tcpRouteList := &gatewayv1.TCPRouteList{}
@@ -215,17 +213,15 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				grpcRouteList.Items = append(grpcRouteList.Items, lsGRPCRoutes.Items...)
 			}
 
-			if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
-				lsTLSRoutes := &gatewayv1.TLSRouteList{}
-				if err := r.Client.List(ctx, lsTLSRoutes, &client.ListOptions{
-					FieldSelector: fields.OneTermEqualSelector(indexers.TLSRouteListenerSetIndex, lsKey),
-				}); err != nil {
-					scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes for ListenerSet",
-						logfields.Error, err,
-						logfields.Resource, lsKey)
-				} else {
-					tlsRouteList.Items = append(tlsRouteList.Items, lsTLSRoutes.Items...)
-				}
+			lsTLSRoutes := &gatewayv1.TLSRouteList{}
+			if err := r.Client.List(ctx, lsTLSRoutes, &client.ListOptions{
+				FieldSelector: fields.OneTermEqualSelector(indexers.TLSRouteListenerSetIndex, lsKey),
+			}); err != nil {
+				scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes for ListenerSet",
+					logfields.Error, err,
+					logfields.Resource, lsKey)
+			} else {
+				tlsRouteList.Items = append(tlsRouteList.Items, lsTLSRoutes.Items...)
 			}
 
 			if helpers.HasTCPRouteSupport(r.Client.Scheme()) {
@@ -308,11 +304,9 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Run the TLSRoute route checks here and update the status accordingly.
-	if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
-		if err := r.setTLSRouteStatuses(scopedLog, ctx, tlsRouteList, grants); err != nil {
-			scopedLog.ErrorContext(ctx, "Unable to update TLSRoute Status", logfields.Error, err)
-			return controllerruntime.Fail(err)
-		}
+	if err := r.setTLSRouteStatuses(scopedLog, ctx, tlsRouteList, grants); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to update TLSRoute Status", logfields.Error, err)
+		return controllerruntime.Fail(err)
 	}
 
 	// Run the TCPRoute route checks here and update the status accordingly.
