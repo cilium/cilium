@@ -5,6 +5,7 @@
 
 #include <linux/ipv6.h>
 
+#include "auxvars.h"
 #include "eth.h"
 #include "dbg.h"
 #include "drop_reasons.h"
@@ -162,13 +163,38 @@ static __always_inline int ipv6_hdrlen_offset(const struct __ctx_buff *ctx, int 
 	return DROP_INVALID_EXTHDR;
 }
 
+struct ipv6_hdrlen_arg {
+	fraginfo_t fraginfo;
+	__u8 nexthdr;
+};
+
+DEFINE_AUX(struct ipv6_hdrlen_arg, ipv6_hdrlen_arg);
+
 __noinline __weak
+int ipv6_hdrlen_with_fraginfo_weak(const struct __ctx_buff *ctx)
+{
+	struct ipv6_hdrlen_arg *arg = AUX(ipv6_hdrlen_arg);
+
+	return ipv6_hdrlen_offset(ctx, ETH_HLEN, &arg->nexthdr, &arg->fraginfo);
+}
+
+static __always_inline
 int ipv6_hdrlen_with_fraginfo(const struct __ctx_buff *ctx, __u8 *nexthdr, fraginfo_t *fraginfo)
 {
-	if (!nexthdr)
-		return DROP_INVALID;
+	struct ipv6_hdrlen_arg *arg = AUX(ipv6_hdrlen_arg);
+	int ret;
 
-	return ipv6_hdrlen_offset(ctx, ETH_HLEN, nexthdr, fraginfo);
+	/* For global function on pre-v5.12 kernel, we can't pass pointers as
+	 * parameters. So let's wrap them into an auxvar.
+	 */
+	arg->fraginfo = 0;
+	arg->nexthdr = *nexthdr;
+
+	ret = ipv6_hdrlen_with_fraginfo_weak(ctx);
+	*nexthdr = arg->nexthdr;
+	*fraginfo = arg->fraginfo;
+
+	return ret;
 }
 
 static __always_inline int ipv6_hdrlen(const struct __ctx_buff *ctx, __u8 *nexthdr)
