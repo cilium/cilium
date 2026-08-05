@@ -1120,14 +1120,14 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 			if len(node.Status.Addresses) == 0 {
 				continue
 			}
-			nodeAddress := node.Status.Addresses[0]
-			ip, err := netip.ParseAddr(nodeAddress.Address)
-			if err != nil {
-				// the first address is not an IP address (e.g. a hostname),
-				// skip the node instead of reporting an invalid address.
-				continue
+			for _, nodeAddress := range node.Status.Addresses {
+				ip, err := netip.ParseAddr(nodeAddress.Address)
+				if err != nil {
+					continue
+				}
+				ips = append(ips, ip.Unmap())
+				break
 			}
-			ips = append(ips, ip.Unmap())
 		}
 
 		// sort the addresses for consistent ip addresses assigned
