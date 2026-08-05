@@ -216,6 +216,7 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 			}
 
 			for _, fn := range []routechecks.CheckWithParentFunc{
+				routechecks.CheckSessionPersistence,
 				routechecks.CheckAgainstCrossNamespaceBackendReferences,
 				routechecks.CheckBackend,
 				routechecks.CheckBackendIsExistingService,
@@ -326,6 +327,7 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 			}
 
 			for _, fn := range []routechecks.CheckWithParentFunc{
+				routechecks.CheckSessionPersistence,
 				routechecks.CheckAgainstCrossNamespaceBackendReferences,
 				routechecks.CheckBackend,
 				routechecks.CheckBackendIsExistingService,
