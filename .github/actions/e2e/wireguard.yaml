@@ -96,10 +96,6 @@
   encryption: 'wireguard'
   encryption-strict-ingress: 'true'
   encryption-strict-egress: 'true'
-  # Strict ingress encryption in native routing mode is new in this release, so
-  # the previous stable version cannot run it. Skip the upgrade path and install
-  # directly from main instead.
-  skip-upgrade: 'true'
   ingress-controller: 'true'
   # L7 testing: WireGuard encryption + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
