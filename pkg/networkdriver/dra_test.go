@@ -9,10 +9,10 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
-	v1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubetypes "k8s.io/apimachinery/pkg/types"
@@ -179,6 +179,20 @@ func TestPrepareResourceClaim(t *testing.T) {
 
 		require.NotNil(t, pods, "pod resource must be wired by hive")
 
+		db := statedb.New()
+		tbl, err := newDeviceTable(db)
+		require.NoError(t, err)
+
+		dev := &trackedDevice{name: "mydevice"}
+		wtxn := db.WriteTxn(tbl)
+		tbl.Insert(wtxn, &DRADevice{
+			Name:    dev.IfName(),
+			Manager: types.DeviceManagerTypeMock,
+			Dev:     dev,
+			Pool:    prepTestPool,
+		})
+		wtxn.Commit()
+
 		driver := &Driver{
 			logger:     tlog,
 			kubeClient: cs,
@@ -187,9 +201,11 @@ func TestPrepareResourceClaim(t *testing.T) {
 				DriverName: "testdriver",
 			},
 			deviceManagers: map[types.DeviceManagerType]types.DeviceManager{
-				types.DeviceManagerTypeMock: &mockDeviceManager{devices: []types.Device{&trackedDevice{name: "mydevice"}}},
+				types.DeviceManagerTypeMock: &mockDeviceManager{devices: []types.Device{dev}},
 			},
 			allocations: make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
+			db:          db,
+			deviceTable: tbl,
 		}
 
 		claim := &resourceapi.ResourceClaim{
@@ -201,8 +217,8 @@ func TestPrepareResourceClaim(t *testing.T) {
 			Status: resourceapi.ResourceClaimStatus{
 				ReservedFor: []resourceapi.ResourceClaimConsumerReference{{Resource: "pods", UID: prepTestPodUID}},
 				Allocation: &resourceapi.AllocationResult{
-					Devices: v1.DeviceAllocationResult{
-						Results: []v1.DeviceRequestAllocationResult{
+					Devices: resourceapi.DeviceAllocationResult{
+						Results: []resourceapi.DeviceRequestAllocationResult{
 							{
 								Request: prepTestRequest,
 								Driver:  "testdriver",
