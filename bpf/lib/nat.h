@@ -935,8 +935,8 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, fraginfo_t frag
 	    int off, struct ipv4_nat_target *target, struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ipv4_nat_entry *state = NULL;
+	union ports_ret ports;
 	__u16 port_off = 0;
-	int ret;
 
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
 
@@ -954,10 +954,12 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, fraginfo_t frag
 		if (!CONFIG(enable_ipv4_fragments) && ipfrag_is_fragment(fraginfo))
 			return DROP_FRAG_NOSUPPORT;
 
-		ret = ipv4_load_l4_ports(ctx, fraginfo, off, CT_EGRESS, &tuple->dport);
-		if (ret < 0)
-			return ret;
+		ports.val = ipv4_load_l4_ports(ctx, fraginfo, off, CT_EGRESS);
+		if (ports.ret < 0)
+			return ports.ret;
 
+		tuple->dport = ports.src;
+		tuple->sport = ports.dst;
 		ipv4_ct_tuple_swap_ports(tuple);
 		port_off = TCP_SPORT_OFF;
 
@@ -968,6 +970,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, fraginfo_t frag
 #ifdef ENABLE_SNAT_ICMPV4
 	case IPPROTO_ICMP: {
 		struct icmphdr icmphdr __align_stack_8;
+		int ret;
 
 		/* Fragmented ECHO packets are not supported currently. Drop all
 		 * fragments, because letting the first fragment pass would be
@@ -1145,6 +1148,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 {
 	struct ipv4_nat_entry *state = NULL;
 	struct ipv4_ct_tuple tuple = {};
+	union ports_ret ports;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo;
@@ -1170,10 +1174,12 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		ret = ipv4_load_l4_ports(ctx, fraginfo, (int)off, CT_INGRESS, &tuple.dport);
-		if (ret < 0)
-			return ret;
+		ports.val = ipv4_load_l4_ports(ctx, fraginfo, (int)off, CT_INGRESS);
+		if (ports.ret < 0)
+			return ports.ret;
 
+		tuple.dport = ports.src;
+		tuple.sport = ports.dst;
 		ipv4_ct_tuple_swap_ports(&tuple);
 		port_off = TCP_DPORT_OFF;
 

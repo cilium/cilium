@@ -763,6 +763,7 @@ static __always_inline int ct_lookup6(const void *map,
 static __always_inline int
 ipv4_extract_tuple(const struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple)
 {
+	union ports_ret ports;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo;
@@ -784,8 +785,10 @@ ipv4_extract_tuple(const struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple)
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
 
-	return ipv4_load_l4_ports(ctx, fraginfo, ETH_HLEN + ipv4_hdrlen(ip4), CT_EGRESS,
-				  &tuple->dport);
+	ports.val = ipv4_load_l4_ports(ctx, fraginfo, ETH_HLEN + ipv4_hdrlen(ip4), CT_EGRESS);
+	tuple->dport = ports.src;
+	tuple->sport = ports.dst;
+	return ports.ret;
 }
 
 static __always_inline void ct_flip_tuple_dir4(struct ipv4_ct_tuple *tuple)
@@ -850,6 +853,8 @@ static __always_inline int
 ct_extract_ports4(const struct __ctx_buff *ctx, fraginfo_t fraginfo, int off, enum ct_dir dir,
 		  struct ipv4_ct_tuple *tuple)
 {
+	union ports_ret ports;
+
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP: {
 		__be16 identifier = 0;
@@ -905,7 +910,10 @@ ct_extract_ports4(const struct __ctx_buff *ctx, fraginfo_t fraginfo, int off, en
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		return ipv4_load_l4_ports(ctx, fraginfo, off, dir, &tuple->dport);
+		ports.val = ipv4_load_l4_ports(ctx, fraginfo, off, dir);
+		tuple->dport = ports.src;
+		tuple->sport = ports.dst;
+		return ports.ret;
 	default:
 		tuple->sport = 0;
 		tuple->dport = 0;

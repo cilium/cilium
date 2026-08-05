@@ -140,24 +140,49 @@ ipv4_handle_fragmentation(const struct __ctx_buff *ctx,
 	return 0;
 }
 
-static __always_inline int
+/* Union used to return the ports from ipv4_load_l4_ports(). We cannot simply use a pointer
+ * argument to write the ports into because older kernels don't support pointer arguments for
+ * global functions.
+ */
+union ports_ret {
+	__u64 val;
+	struct {
+		int ret;
+		__be16 src;
+		__be16 dst;
+	};
+};
+
+static __always_inline __u64
 ipv4_load_l4_ports(const struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off,
-		   enum ct_dir dir __maybe_unused, __be16 *ports)
+		   enum ct_dir dir __maybe_unused)
 {
+	union ports_ret retval = {};
+
+	build_bug_on(sizeof(union ports_ret) != sizeof(__u64));
+
 	if (CONFIG(enable_ipv4_fragments)) {
 		void *data, *data_end;
 		struct iphdr *ip4;
 
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
+		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+			retval.ret = DROP_INVALID;
+			goto out;
+		}
 
-		return ipv4_handle_fragmentation(ctx, ip4, fraginfo, l4_off, dir,
-						 (struct ipv4_frag_l4ports *)ports);
+		retval.ret = ipv4_handle_fragmentation(ctx, ip4, fraginfo, l4_off, dir,
+						       (struct ipv4_frag_l4ports *)&retval.src);
+		goto out;
 	}
-	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
-		return DROP_FRAG_NOSUPPORT;
-	if (l4_load_ports(ctx, l4_off, ports) < 0)
-		return DROP_CT_INVALID_HDR;
+	if (unlikely(!ipfrag_has_l4_header(fraginfo))) {
+		retval.ret = DROP_FRAG_NOSUPPORT;
+		goto out;
+	}
+	if (l4_load_ports(ctx, l4_off, (__be16 *)&retval.src) < 0) {
+		retval.ret = DROP_CT_INVALID_HDR;
+		goto out;
+	}
 
-	return 0;
+out:
+	return retval.val;
 }
