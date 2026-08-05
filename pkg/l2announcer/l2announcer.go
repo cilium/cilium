@@ -401,13 +401,6 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 	}
 	key := serviceKey(svc)
 
-	// If ext traffic policy is `Local`, check that l2a is assigned to the correct node
-	hasLocal := l2a.hasLocalBackends(rtxn, svc)
-
-	if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocal {
-		return l2a.delSvc(key)
-	}
-
 	noExternal := len(externalAddresses) == 0
 	noLB := len(lbAddresses) == 0
 	if noExternal && noLB {
@@ -419,6 +412,12 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 	if svc.LoadBalancerClass != nil &&
 		*svc.LoadBalancerClass != cilium_api_v2alpha1.L2AnnounceLoadBalancerClass {
 		return l2a.delSvc(key)
+	}
+
+	// If the service has a local traffic policy, check if there are any backends on this node. If not, we are not eligible to be leader for this service.
+	isEligibleNode := true
+	if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+		isEligibleNode = l2a.hasLocalBackends(rtxn, svc)
 	}
 
 	ss, found := l2a.selectedServices[key]
@@ -448,6 +447,13 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 			return nil
 		}
 
+		if !isEligibleNode {
+			// selectedServices contains a service which is no longer eligible for this node, withdraw lease and entries.
+			l2a.withdrawServiceLeaseAndEntries(ss)
+			return nil
+		}
+		l2a.startLeaderElectionJob(ss)
+
 		// Since IPs may have changed, re-calculate its entries in the output table, if we are leader
 		err := l2a.recalculateL2EntriesTableEntries(ss)
 		if err != nil {
@@ -471,7 +477,23 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 
 	// Add the services to list of selected services if at least 1 policy matches it.
 	if len(matchingPolicies) >= 1 {
-		l2a.addSelectedService(svc, externalAddresses, lbAddresses, matchingPolicies)
+		l2a.addSelectedService(svc, externalAddresses, lbAddresses, matchingPolicies, isEligibleNode)
+	}
+
+	return nil
+}
+
+func (l2a *L2Announcer) withdrawServiceLeaseAndEntries(ss *selectedService) error {
+	// Stop leader election for this service, if we are leader, this will also remove the entries from the output table.
+	select {
+	case <-ss.done:
+		// if the channel is already closed, we are not leader for this service, so nothing to do.
+	default:
+		close(ss.done)
+	}
+
+	if err := l2a.recalculateL2EntriesTableEntries(ss); err != nil {
+		return fmt.Errorf("recalculateL2EntriesTableEntries: %w", err)
 	}
 
 	return nil
@@ -689,7 +711,13 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 			continue
 		}
 
-		l2a.addSelectedService(svc, externalAddresses, lbAddresses, []types.NamespacedName{key})
+		// If the service has a local traffic policy, check if there are any backends on this node. If not, we are not eligible to be leader for this service.
+		isEligibleNode := true
+		if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+			isEligibleNode = l2a.hasLocalBackends(txn, svc)
+		}
+
+		l2a.addSelectedService(svc, externalAddresses, lbAddresses, []types.NamespacedName{key}, isEligibleNode)
 	}
 
 	err := l2a.gcOrphanedServices()
@@ -861,7 +889,7 @@ func (l2a *L2Announcer) leaseTimings() (leaseDuration, renewDeadline, retryPerio
 	return leaseDuration, renewDeadline, retryPeriod
 }
 
-func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, lbAddrs []netip.Addr, byPolicies []types.NamespacedName) {
+func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, lbAddrs []netip.Addr, byPolicies []types.NamespacedName, isEligible bool) {
 	leaseDuration, renewDeadline, retryPeriod := l2a.leaseTimings()
 	ss := &selectedService{
 		svc:               svc,
@@ -878,9 +906,22 @@ func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, 
 
 	l2a.selectedServices[serviceKey(svc)] = ss
 
+	if isEligible {
+		l2a.startLeaderElectionJob(ss)
+	}
+}
+
+func (l2a *L2Announcer) startLeaderElectionJob(ss *selectedService) {
+	// done channel is used to signal the leader election job to stop. If it is already closed, we need to create a new one.
+	select {
+	case <-ss.done:
+		ss.done = make(chan struct{})
+	default:
+	}
+
 	// kick off leader election job
 	l2a.scopedGroup.Add(job.OneShot(
-		shortener.ShortenHiveJobName(fmt.Sprintf("leader-election-%s-%s", svc.Name.Namespace(), svc.Name.Name())),
+		shortener.ShortenHiveJobName(fmt.Sprintf("leader-election-%s-%s", ss.svc.Name.Namespace(), ss.svc.Name.Name())),
 		ss.serviceLeaderElection),
 	)
 }
