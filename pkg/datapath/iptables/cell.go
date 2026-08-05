@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -30,6 +31,7 @@ var Cell = cell.Module(
 		tunnelCfg tunnel.Config,
 		ipsecCfg ipsec.Config,
 		wgConfig wgTypes.Config,
+		kprCfg kpr.KPRConfig,
 	) SharedConfig {
 		return SharedConfig{
 			TunnelingEnabled:                cfg.TunnelingEnabled(),
@@ -50,6 +52,7 @@ var Cell = cell.Module(
 			EnableL7Proxy:               cfg.EnableL7Proxy,
 			InstallIptRules:             cfg.InstallIptRules,
 			EnableWireguard:             wgConfig.Enabled(),
+			KubeProxyReplacement:        kprCfg.KubeProxyReplacement,
 		}
 	}),
 	cell.Provide(newManager),
@@ -111,4 +114,5 @@ type SharedConfig struct {
 	EnableL7Proxy               bool
 	InstallIptRules             bool
 	EnableWireguard             bool
+	KubeProxyReplacement        bool
 }
