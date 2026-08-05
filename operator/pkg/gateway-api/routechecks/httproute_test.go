@@ -4,11 +4,16 @@
 package routechecks
 
 import (
+	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -193,4 +198,72 @@ func TestHTTPRouteRuleGetBackendRefsIncludesFilterBackends(t *testing.T) {
 	assert.Equal(t, gatewayv1.ObjectName("backend-svc"), refs[0].Name)
 	assert.Equal(t, gatewayv1.ObjectName("mirror-svc"), refs[1].Name)
 	assert.Equal(t, gatewayv1.ObjectName("auth-svc"), refs[2].Name)
+}
+
+func TestCheckBackendIsExistingServiceSetsResolvedRefsFalseForUnknownServicePort(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, gatewayv1.Install(scheme))
+
+	route := &gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-route",
+			Namespace:  "default",
+			Generation: 1,
+		},
+		Spec: gatewayv1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayv1.CommonRouteSpec{
+				ParentRefs: []gatewayv1.ParentReference{{Name: "my-gw"}},
+			},
+			Rules: []gatewayv1.HTTPRouteRule{{
+				BackendRefs: []gatewayv1.HTTPBackendRef{{
+					BackendRef: gatewayv1.BackendRef{
+						BackendObjectReference: gatewayv1.BackendObjectReference{
+							Name: "backend-svc",
+							Port: ptrTo(gatewayv1.PortNumber(8080)),
+						},
+					},
+				}},
+			}},
+		},
+	}
+
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "backend-svc",
+			Namespace: "default",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{
+				Name: "web",
+				Port: 80,
+			}},
+		},
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(route, service).Build()
+	input := &HTTPRouteInput{
+		Ctx:            context.Background(),
+		Logger:         slog.New(slog.DiscardHandler),
+		Client:         cl,
+		Grants:         &gatewayv1.ReferenceGrantList{},
+		HTTPRoute:      route,
+		ControllerName: "io.cilium/gateway-deployment-controller",
+	}
+
+	ok, err := CheckBackendIsExistingService(input, gatewayv1.ParentReference{Name: "my-gw"})
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Len(t, route.Status.Parents, 1)
+	require.Len(t, route.Status.Parents[0].Conditions, 1)
+
+	cond := route.Status.Parents[0].Conditions[0]
+	assert.Equal(t, string(gatewayv1.RouteConditionResolvedRefs), cond.Type)
+	assert.Equal(t, metav1.ConditionFalse, cond.Status)
+	assert.Equal(t, string(gatewayv1.RouteReasonBackendNotFound), cond.Reason)
+	assert.Equal(t, "Service port 8080 could not be resolved for backend default/backend-svc", cond.Message)
+}
+
+func ptrTo[T any](value T) *T {
+	return &value
 }

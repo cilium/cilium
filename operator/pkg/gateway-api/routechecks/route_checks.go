@@ -4,6 +4,8 @@
 package routechecks
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -130,9 +132,33 @@ func CheckBackendIsExistingService(input Input, parentRef gatewayv1.ParentRefere
 					Reason:  string(gatewayv1.RouteReasonBackendNotFound),
 					Message: err.Error(),
 				})
+				continue
+			}
+
+			if err := checkBackendServicePort(svc, be); err != nil {
+				input.SetParentCondition(parentRef, metav1.Condition{
+					Type:    string(gatewayv1.RouteConditionResolvedRefs),
+					Status:  metav1.ConditionFalse,
+					Reason:  string(gatewayv1.RouteReasonBackendNotFound),
+					Message: err.Error(),
+				})
 			}
 		}
 	}
 
 	return true, nil
+}
+
+func checkBackendServicePort(svc *corev1.Service, be gatewayv1.BackendRef) error {
+	if be.Port == nil {
+		return nil
+	}
+
+	for _, p := range svc.Spec.Ports {
+		if gatewayv1.PortNumber(p.Port) == *be.Port {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("Service port %d could not be resolved for backend %s/%s", *be.Port, svc.Namespace, svc.Name)
 }
