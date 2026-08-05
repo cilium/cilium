@@ -124,10 +124,10 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 
 		log = log.With(logfields.NetNamespace, networkNamespace)
 
-		alloc, ok := driver.allocations[kube_types.UID(podSandbox.Uid)]
-		if !ok {
+		// Collect all allocations for this pod from the statedb table.
+		podAllocations := driver.allocationsForPod(kube_types.UID(podSandbox.Uid))
+		if len(podAllocations) == 0 {
 			log.DebugContext(ctx, "no allocation found")
-			// allocation not found/doesn't exist
 			return nil
 		}
 
@@ -142,7 +142,7 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 
 		// Check for interface name collisions with existing interfaces in pod netns
 		if err := podNs.Do(func() error {
-			if err := validateInterfaceNames(alloc); err != nil {
+			if err := validateInterfaceNames(podAllocations); err != nil {
 				return err
 			}
 
@@ -151,66 +151,64 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 			return fmt.Errorf("pod interface allocations is invalid: %w", err)
 		}
 
-		for _, devices := range alloc {
-			for _, a := range devices {
-				l, err := safenetlink.LinkByName(a.Device.KernelIfName())
+		for _, a := range podAllocations {
+			l, err := safenetlink.LinkByName(a.Device.KernelIfName())
+			if err != nil {
+				// The kernel link can be absent here when the node
+				// rebooted: the reboot reaped the pod netns (and with
+				// it any on-demand device such as a dummy
+				// device), and the restore path rebuilt the
+				// in-memory allocation WITHOUT re-creating the kernel
+				// device — Device.Setup runs only on the prepare path,
+				// which is short-circuited for a restored allocation.
+				//
+				// Only the (re)creation of the sandbox drives
+				// RunPodSandbox, so this is the one moment that
+				// unambiguously means "the device must exist now but
+				// doesn't". An agent restart leaves the sandbox intact
+				// and never reaches here, so re-creating on demand
+				// cannot duplicate a healthy in-pod link. Every
+				// Device.Setup is idempotent (dummy adopts/recreates
+				// via EEXIST, sr-iov re-applies VLAN, dummy is a no-op),
+				// so this is safe to retry.
+				if !errors.As(err, &netlink.LinkNotFoundError{}) {
+					return err
+				}
+
+				log.InfoContext(ctx, "allocated device link not found; re-creating on demand",
+					logfields.Device, a.Device.KernelIfName())
+
+				if setupErr := a.Device.Setup(a.Config); setupErr != nil {
+					return fmt.Errorf("failed to re-create device %s on demand: %w", a.Device.KernelIfName(), setupErr)
+				}
+
+				l, err = safenetlink.LinkByName(a.Device.KernelIfName())
 				if err != nil {
-					// The kernel link can be absent here when the node
-					// rebooted: the reboot reaped the pod netns (and with
-					// it any on-demand device such as a dummy
-					// device), and the restore path rebuilt the
-					// in-memory allocation WITHOUT re-creating the kernel
-					// device — Device.Setup runs only on the prepare path,
-					// which is short-circuited for a restored allocation.
-					//
-					// Only the (re)creation of the sandbox drives
-					// RunPodSandbox, so this is the one moment that
-					// unambiguously means "the device must exist now but
-					// doesn't". An agent restart leaves the sandbox intact
-					// and never reaches here, so re-creating on demand
-					// cannot duplicate a healthy in-pod link. Every
-					// Device.Setup is idempotent (dummy adopts/recreates
-					// via EEXIST, sr-iov re-applies VLAN, dummy is a no-op),
-					// so this is safe to retry.
-					if !errors.As(err, &netlink.LinkNotFoundError{}) {
-						return err
-					}
+					return fmt.Errorf("device %s still not found after re-creating it on demand: %w", a.Device.KernelIfName(), err)
+				}
+			}
 
-					log.InfoContext(ctx, "allocated device link not found; re-creating on demand",
-						logfields.Device, a.Device.KernelIfName())
+			if err := netlink.LinkSetNsFd(l, podNs.FD()); err != nil {
+				return err
+			}
 
-					if setupErr := a.Device.Setup(a.Config); setupErr != nil {
-						return fmt.Errorf("failed to re-create device %s on demand: %w", a.Device.KernelIfName(), setupErr)
-					}
-
-					l, err = safenetlink.LinkByName(a.Device.KernelIfName())
-					if err != nil {
-						return fmt.Errorf("device %s still not found after re-creating it on demand: %w", a.Device.KernelIfName(), err)
-					}
+			if err := podNs.Do(func() error {
+				// Rename interface to custom name
+				l, err = configureIfName(l, a.Config.PodIfName)
+				if err != nil {
+					return fmt.Errorf("failed to set interface name: %w", err)
 				}
 
-				if err := netlink.LinkSetNsFd(l, podNs.FD()); err != nil {
+				if err := netlink.LinkSetUp(l); err != nil {
 					return err
 				}
 
-				if err := podNs.Do(func() error {
-					// Rename interface to custom name
-					l, err = configureIfName(l, a.Config.PodIfName)
-					if err != nil {
-						return fmt.Errorf("failed to set interface name: %w", err)
-					}
-
-					if err := netlink.LinkSetUp(l); err != nil {
-						return err
-					}
-
-					return nil
-				}); err != nil {
-					log.ErrorContext(ctx, "failed to configure device",
-						logfields.Device, a.Device.IfName,
-						logfields.Error, err)
-					return err
-				}
+				return nil
+			}); err != nil {
+				log.ErrorContext(ctx, "failed to configure device",
+					logfields.Device, a.Device.IfName,
+					logfields.Error, err)
+				return err
 			}
 		}
 
@@ -246,10 +244,9 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 		log = log.With(logfields.NetNamespace, networkNamespace)
 
-		alloc, ok := driver.allocations[kube_types.UID(podSandbox.Uid)]
-		if !ok {
+		podAllocations := driver.allocationsForPod(kube_types.UID(podSandbox.Uid))
+		if len(podAllocations) == 0 {
 			log.DebugContext(ctx, "no allocation found")
-			// allocation not found/doesn't exist
 			return nil
 		}
 
@@ -269,56 +266,54 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 		}
 		defer rootNs.Close()
 
-		for _, devices := range alloc {
-			if err := podNs.Do(func() error {
-				for _, a := range devices {
-					if a.Manager == types.DeviceManagerTypeDummy {
-						// dummy device is an on-demand virtual device: the
-						// netns delete that follows tears them down, so there is
-						// nothing to move back to the root namespace.
-						continue
-					}
-
-					// Determine the interface name in the pod namespace
-					ifName := a.Device.KernelIfName()
-					if a.Config.PodIfName != "" {
-						ifName = a.Config.PodIfName
-					}
-
-					l, err := safenetlink.LinkByName(ifName)
-					if err != nil {
-						return err
-					}
-
-					if err := netlink.LinkSetDown(l); err != nil {
-						return err
-					}
-
-					// Rename back to original kernel name before moving to root namespace
-					l, err = configureIfName(l, a.Device.KernelIfName())
-					if err != nil {
-						driver.logger.ErrorContext(
-							ctx, "failed to restore interface name",
-							logfields.Error, err,
-						)
-
-						// we want to continue here to clean up the remaining, even if this one failed
-						continue
-					}
-
-					// Always try to move back to root netns
-					if err := netlink.LinkSetNsFd(l, rootNs.FD()); err != nil {
-						driver.logger.WarnContext(ctx, "Failed to move interface to root namespace",
-							logfields.Error, err,
-							logfields.Device, a.Device.KernelIfName())
-						// Log but don't return - continue with other devices
-					}
+		if err := podNs.Do(func() error {
+			for _, a := range podAllocations {
+				if a.Manager == types.DeviceManagerTypeDummy {
+					// dummy device is an on-demand virtual device: the
+					// netns delete that follows tears them down, so there is
+					// nothing to move back to the root namespace.
+					continue
 				}
 
-				return nil
-			}); err != nil {
-				return err
+				// Determine the interface name in the pod namespace
+				ifName := a.Device.KernelIfName()
+				if a.Config.PodIfName != "" {
+					ifName = a.Config.PodIfName
+				}
+
+				l, err := safenetlink.LinkByName(ifName)
+				if err != nil {
+					return err
+				}
+
+				if err := netlink.LinkSetDown(l); err != nil {
+					return err
+				}
+
+				// Rename back to original kernel name before moving to root namespace
+				l, err = configureIfName(l, a.Device.KernelIfName())
+				if err != nil {
+					driver.logger.ErrorContext(
+						ctx, "failed to restore interface name",
+						logfields.Error, err,
+					)
+
+					// we want to continue here to clean up the remaining, even if this one failed
+					continue
+				}
+
+				// Always try to move back to root netns
+				if err := netlink.LinkSetNsFd(l, rootNs.FD()); err != nil {
+					driver.logger.WarnContext(ctx, "Failed to move interface to root namespace",
+						logfields.Error, err,
+						logfields.Device, a.Device.KernelIfName())
+					// Log but don't return - continue with other devices
+				}
 			}
+
+			return nil
+		}); err != nil {
+			return err
 		}
 
 		return nil
@@ -388,7 +383,7 @@ func configureIfName(l netlink.Link, newIfName string) (netlink.Link, error) {
 
 // validateInterfaceNames checks if a pod's set of allocated devices
 // contain valid interface names, that dont collide with interfaces in the pod namespace.
-func validateInterfaceNames(alloc map[kube_types.UID][]allocation) error {
+func validateInterfaceNames(alloc []allocation) error {
 	existingLinks, err := safenetlink.LinkList()
 	if err != nil {
 		return fmt.Errorf("failed to list existing interfaces in pod netns: %w", err)
@@ -400,13 +395,11 @@ func validateInterfaceNames(alloc map[kube_types.UID][]allocation) error {
 	}
 
 	// Check if any of our planned renames would collide with existing interfaces
-	for _, devices := range alloc {
-		for _, a := range devices {
-			if a.Config.PodIfName != "" && existingNames[a.Config.PodIfName] {
-				return fmt.Errorf(
-					"interface name collision: %q already exists in pod namespace (possibly from CNI)",
-					a.Config.PodIfName)
-			}
+	for _, a := range alloc {
+		if a.Config.PodIfName != "" && existingNames[a.Config.PodIfName] {
+			return fmt.Errorf(
+				"interface name collision: %q already exists in pod namespace (possibly from CNI)",
+				a.Config.PodIfName)
 		}
 	}
 

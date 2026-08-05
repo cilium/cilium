@@ -39,9 +39,17 @@ func buildNRIDriverWithAlloc(t *testing.T, podUID kubetypes.UID, claimUID kubety
 	d := buildPrepDriver(t, cs)
 	d.podNetns = make(map[kubetypes.UID]string)
 	dev := &dummy.DummyDevice{Name: "dummy0"}
-	d.allocations[podUID] = map[kubetypes.UID][]allocation{
-		claimUID: {{Device: dev, Config: types.DeviceConfig{}, Manager: types.DeviceManagerTypeDummy}},
-	}
+	// Write the allocation into statedb directly (replaces driver.allocations).
+	wtxn := d.db.WriteTxn(d.deviceTable)
+	d.deviceTable.Insert(wtxn, &DRADevice{
+		Name:     dev.IfName(),
+		Pool:     "dummy-pool",
+		Manager:  types.DeviceManagerTypeDummy,
+		Dev:      dev,
+		PodUID:   podUID,
+		ClaimUID: claimUID,
+	})
+	wtxn.Commit()
 	return d
 }
 

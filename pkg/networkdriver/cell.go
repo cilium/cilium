@@ -145,7 +145,6 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		kubeClient:     params.ClientSet,
 		deviceManagers: make(map[types.DeviceManagerType]types.DeviceManager),
 		configCRD:      params.Configs,
-		allocations:    make(map[kube_types.UID]map[kube_types.UID][]allocation),
 		podNetns:       make(map[kube_types.UID]string),
 		db:             params.DB,
 		deviceTable:    params.DeviceTable,
