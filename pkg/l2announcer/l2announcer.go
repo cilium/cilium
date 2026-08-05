@@ -485,11 +485,20 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 
 func (l2a *L2Announcer) withdrawServiceLeaseAndEntries(ss *selectedService) error {
 	// Stop leader election for this service, if we are leader, this will also remove the entries from the output table.
-	select {
-	case <-ss.done:
-		// if the channel is already closed, we are not leader for this service, so nothing to do.
-	default:
-		close(ss.done)
+	if ss.running {
+		if ss.cancel != nil {
+			ss.cancel()
+			ss.cancel = nil
+		}
+
+		if ss.done != nil {
+			select {
+			case <-ss.done:
+			default:
+				close(ss.done)
+			}
+		}
+		ss.running = false
 	}
 
 	if err := l2a.recalculateL2EntriesTableEntries(ss); err != nil {
@@ -897,7 +906,7 @@ func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, 
 		lbAddresses:       lbAddrs,
 		byPolicies:        byPolicies,
 		lock:              l2a.newLeaseLock(svc),
-		done:              make(chan struct{}),
+		done:              nil,
 		leaderChannel:     l2a.leaderChannel,
 		leaseDuration:     leaseDuration,
 		renewDeadline:     renewDeadline,
@@ -912,18 +921,29 @@ func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, 
 }
 
 func (l2a *L2Announcer) startLeaderElectionJob(ss *selectedService) {
-	// done channel is used to signal the leader election job to stop. If it is already closed, we need to create a new one.
-	select {
-	case <-ss.done:
-		ss.done = make(chan struct{})
-	default:
+	if ss.running {
+		return
 	}
+
+	ss.running = true
+	ss.done = make(chan struct{})
+
+	ss.lock = l2a.newLeaseLock(ss.svc)
 
 	// kick off leader election job
 	l2a.scopedGroup.Add(job.OneShot(
 		shortener.ShortenHiveJobName(fmt.Sprintf("leader-election-%s-%s", ss.svc.Name.Namespace(), ss.svc.Name.Name())),
-		ss.serviceLeaderElection),
-	)
+		func(jobCtx context.Context, health cell.Health) error {
+			ctx, cancel := context.WithCancel(jobCtx)
+			ss.cancel = cancel
+
+			defer func() {
+				ss.running = false
+				cancel()
+			}()
+			return ss.serviceLeaderElection(ctx, health)
+		},
+	))
 }
 
 func (l2a *L2Announcer) leaseNamespace() string {
@@ -1249,9 +1269,10 @@ type selectedService struct {
 	leaderChannel   chan leaderElectionEvent
 
 	// Leader election goroutine lifetime management
-	ctx    context.Context
-	cancel context.CancelFunc
-	done   chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	done    chan struct{}
+	running bool
 }
 
 func (ss *selectedService) serviceLeaderElection(ctx context.Context, health cell.Health) error {
