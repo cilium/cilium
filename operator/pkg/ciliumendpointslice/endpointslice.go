@@ -69,6 +69,18 @@ func (c *Controller) initializeQueue() {
 		})
 }
 
+// shutdownQueues shuts down both workqueues and wakes any worker waiting for
+// an item on the controller's condition variable. Holding the condition lock
+// prevents a worker from starting to wait between shutdown and the broadcast.
+func (c *Controller) shutdownQueues() {
+	c.cond.L.Lock()
+	defer c.cond.L.Unlock()
+
+	c.fastQueue.ShutDown()
+	c.standardQueue.ShutDown()
+	c.cond.Broadcast()
+}
+
 // isValidEndpoint reports whether a CiliumEndpoint has enough state to be
 // placed into a CES. Endpoints missing Networking/Identity are being
 // initialized by the agent and would produce invalid CoreCiliumEndpoint entries.
@@ -218,8 +230,7 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 			<-ctx.Done()
 			workerCancel()
 			c.wp.Close()
-			c.fastQueue.ShutDown()
-			c.standardQueue.ShutDown()
+			c.shutdownQueues()
 			return nil
 		}),
 	)
@@ -290,8 +301,7 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 		// Add the shutdown job last so it stops first.
 		job.OneShot("shutdown", func(ctx context.Context, health cell.Health) error {
 			<-ctx.Done()
-			c.fastQueue.ShutDown()
-			c.standardQueue.ShutDown()
+			c.shutdownQueues()
 			workerCancel()
 			return nil
 		}),
@@ -754,7 +764,13 @@ func (c *Controller) getQueue() workqueue.TypedRateLimitingInterface[CESKey] {
 	c.cond.L.Lock()
 	defer c.cond.L.Unlock()
 
-	if c.fastQueue.Len() == 0 && c.standardQueue.Len() == 0 {
+	for c.fastQueue.Len() == 0 && c.standardQueue.Len() == 0 {
+		if c.fastQueue.ShuttingDown() {
+			return c.fastQueue
+		}
+		if c.standardQueue.ShuttingDown() {
+			return c.standardQueue
+		}
 		c.cond.Wait()
 	}
 
