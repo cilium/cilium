@@ -5,6 +5,7 @@ package lookup
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -41,7 +42,7 @@ func (r *rulesClient) LookupByIdentity(nid identity.NumericIdentity) []string {
 func (r *rulesClient) LookupRegisteredEndpoint(endpointAddr netip.Addr) (endpt *endpoint.Endpoint, isHost bool, err error) {
 	info, _, found := r.ipToIdentityTable.Get(r.db.ReadTxn(), client.IdIPToEndpointIndex.Query(endpointAddr))
 	if !found {
-		return nil, false, nil
+		return nil, false, fmt.Errorf("cannot find endpoint with IP %s", endpointAddr)
 	}
 	return &endpoint.Endpoint{
 		ID: uint16(info.ID),
