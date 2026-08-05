@@ -52,6 +52,12 @@ func newNodeWatcherJobFactory(
 
 				return nil
 			},
+			// An IPAM allocator that cannot be brought up (e.g. the initial
+			// cloud API synchronization failed) leaves the operator unable to
+			// allocate any IP. Shut down the hive so the failure surfaces as a
+			// single fatal log and the operator is restarted instead of running
+			// silently without an allocator.
+			job.WithShutdown(),
 		)
 	}
 }
