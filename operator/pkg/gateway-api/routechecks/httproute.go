@@ -174,6 +174,10 @@ func (t *HTTPRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
 	return refs
 }
 
+func (t *HTTPRouteRule) GetSessionPersistence() *gatewayv1.SessionPersistence {
+	return t.Rule.SessionPersistence
+}
+
 func invalidHeaderModifierCondition(headerName gatewayv1.HTTPHeaderName) metav1.Condition {
 	return metav1.Condition{
 		Type:    string(gatewayv1.RouteConditionAccepted),

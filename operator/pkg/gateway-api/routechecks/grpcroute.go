@@ -62,6 +62,10 @@ func (g *GRPCRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
 	return refs
 }
 
+func (g *GRPCRouteRule) GetSessionPersistence() *gatewayv1.SessionPersistence {
+	return g.Rule.SessionPersistence
+}
+
 func (g *GRPCRouteInput) GetRules() []GenericRule {
 	var rules []GenericRule
 	for _, rule := range g.GRPCRoute.Spec.Rules {

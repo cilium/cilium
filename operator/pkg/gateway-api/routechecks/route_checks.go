@@ -17,6 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+type sessionPersistenceRule interface {
+	GetSessionPersistence() *gatewayv1.SessionPersistence
+}
+
 func CheckAgainstCrossNamespaceBackendReferences(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	continueChecks := true
 
@@ -161,4 +165,61 @@ func checkBackendServicePort(svc *corev1.Service, be gatewayv1.BackendRef) error
 	}
 
 	return fmt.Errorf("Service port %d could not be resolved for backend %s/%s", *be.Port, svc.Namespace, svc.Name)
+}
+
+func CheckSessionPersistence(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
+	continueChecks := true
+	for _, rule := range input.GetRules() {
+		sessionRule, ok := rule.(sessionPersistenceRule)
+		if !ok {
+			continue
+		}
+
+		sp := sessionRule.GetSessionPersistence()
+		if sp == nil {
+			continue
+		}
+
+		if helpers.IsGammaService(parentRef) {
+			setUnsupportedValue(input, parentRef, "Cilium does not support session persistence for GAMMA routes")
+			return false, nil
+		}
+
+		if sp.Type != nil && *sp.Type != gatewayv1.CookieBasedSessionPersistence {
+			setUnsupportedValue(input, parentRef, "Cilium only supports cookie-based session persistence")
+			continueChecks = false
+			continue
+		}
+
+		if sp.SessionName != nil && *sp.SessionName == "" {
+			setUnsupportedValue(input, parentRef, "Session name cannot be explicitly empty")
+			continueChecks = false
+			continue
+		}
+
+		if sp.AbsoluteTimeout != nil {
+			setUnsupportedValue(input, parentRef, "Unsupported session persistence field AbsoluteTimeout")
+			continueChecks = false
+			continue
+		}
+
+		if cc := sp.CookieConfig; cc != nil {
+
+			if cc.LifetimeType != nil && *cc.LifetimeType != gatewayv1.SessionCookieLifetimeType {
+				setUnsupportedValue(input, parentRef, "Cilium only supports session cookie persistence")
+				continueChecks = false
+			}
+		}
+	}
+
+	return continueChecks, nil
+}
+
+func setUnsupportedValue(input Input, parentRef gatewayv1.ParentReference, message string) {
+	input.SetParentCondition(parentRef, metav1.Condition{
+		Type:    string(gatewayv1.RouteConditionAccepted),
+		Status:  metav1.ConditionFalse,
+		Reason:  string(gatewayv1.RouteReasonUnsupportedValue),
+		Message: message,
+	})
 }
