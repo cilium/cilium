@@ -49,6 +49,7 @@ require (
 	github.com/go-openapi/swag/cmdutils v0.27.3
 	github.com/go-openapi/swag/conv v0.27.3
 	github.com/go-openapi/swag/jsonutils v0.27.3
+	github.com/go-openapi/swag/netutils v0.27.3
 	github.com/go-openapi/swag/typeutils v0.27.3
 	github.com/go-openapi/validate v0.26.1
 	github.com/google/cel-go v0.29.2
@@ -212,7 +213,6 @@ require (
 	github.com/go-openapi/swag/fileutils v0.27.3 // indirect
 	github.com/go-openapi/swag/loading v0.27.3 // indirect
 	github.com/go-openapi/swag/mangling v0.27.3 // indirect
-	github.com/go-openapi/swag/netutils v0.27.3 // indirect
 	github.com/go-openapi/swag/pools v0.27.3 // indirect
 	github.com/go-openapi/swag/stringutils v0.27.3 // indirect
 	github.com/go-openapi/swag/yamlutils v0.27.3 // indirect

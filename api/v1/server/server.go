@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/go-openapi/swag"
+	"github.com/go-openapi/swag/netutils"
 	"github.com/spf13/pflag"
 	"golang.org/x/net/netutil"
 
@@ -339,7 +339,7 @@ type Server struct {
 }
 
 // Logf logs message either via defined user logger or via system one if no user logger is defined.
-func (s *Server) Logf(f string, args ...interface{}) {
+func (s *Server) Logf(f string, args ...any) {
 	if s.logger != nil {
 		s.logger.Info(fmt.Sprintf(f, args...))
 	} else if s.api != nil && s.api.Logger != nil {
@@ -350,7 +350,7 @@ func (s *Server) Logf(f string, args ...interface{}) {
 }
 
 // Debugf logs debug messages either via defined user logger or via system one if no user logger is defined.
-func (s *Server) Debugf(f string, args ...interface{}) {
+func (s *Server) Debugf(f string, args ...any) {
 	if s.logger != nil {
 		s.logger.Debug(fmt.Sprintf(f, args...))
 	} else {
@@ -360,7 +360,7 @@ func (s *Server) Debugf(f string, args ...interface{}) {
 
 // Fatalf logs message either via defined user logger or via system one if no user logger is defined.
 // Exits with non-zero status after printing
-func (s *Server) Fatalf(f string, args ...interface{}) {
+func (s *Server) Fatalf(f string, args ...any) {
 	if s.shutdowner != nil {
 		s.shutdowner.Shutdown(hive.ShutdownWithError(fmt.Errorf(f, args...)))
 	} else if s.api != nil && s.api.Logger != nil {
@@ -450,8 +450,8 @@ func (s *Server) Start(cell.HookContext) (err error) {
 		s.Logf("Serving cilium API at unix://%s", s.SocketPath)
 		go func(l net.Listener) {
 			defer s.wg.Done()
-			if err := domainSocket.Serve(l); err != nil && err != http.ErrServerClosed {
-				s.Fatalf("%v", err)
+			if errServe := domainSocket.Serve(l); errServe != nil && !errors.Is(errServe, http.ErrServerClosed) {
+				s.Fatalf("%v", errServe)
 			}
 			s.Logf("Stopped serving cilium API at unix://%s", s.SocketPath)
 		}(s.domainSocketL)
@@ -480,8 +480,8 @@ func (s *Server) Start(cell.HookContext) (err error) {
 		s.Logf("Serving cilium API at http://%s", s.httpServerL.Addr())
 		go func(l net.Listener) {
 			defer s.wg.Done()
-			if err := httpServer.Serve(l); err != nil && err != http.ErrServerClosed {
-				s.Fatalf("%v", err)
+			if errServe := httpServer.Serve(l); errServe != nil && !errors.Is(errServe, http.ErrServerClosed) {
+				s.Fatalf("%v", errServe)
 			}
 			s.Logf("Stopped serving cilium API at http://%s", l.Addr())
 		}(s.httpServerL)
@@ -542,7 +542,7 @@ func (s *Server) Start(cell.HookContext) (err error) {
 			caCertPool := x509.NewCertPool()
 			ok := caCertPool.AppendCertsFromPEM(caCert)
 			if !ok {
-				return fmt.Errorf("cannot parse CA certificate")
+				return errors.New("cannot parse CA certificate")
 			}
 			httpsServer.TLSConfig.ClientCAs = caCertPool
 			httpsServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
@@ -573,8 +573,8 @@ func (s *Server) Start(cell.HookContext) (err error) {
 		s.Logf("Serving cilium API at https://%s", s.httpsServerL.Addr())
 		go func(l net.Listener) {
 			defer s.wg.Done()
-			if err := httpsServer.Serve(l); err != nil && err != http.ErrServerClosed {
-				s.Fatalf("%v", err)
+			if errServe := httpsServer.Serve(l); errServe != nil && !errors.Is(errServe, http.ErrServerClosed) {
+				s.Fatalf("%v", errServe)
 			}
 			s.Logf("Stopped serving cilium API at https://%s", l.Addr())
 		}(tls.NewListener(s.httpsServerL, httpsServer.TLSConfig))
@@ -630,7 +630,7 @@ func (s *Server) Listen() error {
 			return err
 		}
 
-		h, p, err := swag.SplitHostPort(listener.Addr().String())
+		h, p, err := netutils.SplitHostPort(listener.Addr().String())
 		if err != nil {
 			return err
 		}
@@ -645,7 +645,7 @@ func (s *Server) Listen() error {
 			return err
 		}
 
-		sh, sp, err := swag.SplitHostPort(tlsListener.Addr().String())
+		sh, sp, err := netutils.SplitHostPort(tlsListener.Addr().String())
 		if err != nil {
 			return err
 		}
