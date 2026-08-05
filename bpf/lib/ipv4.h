@@ -141,13 +141,19 @@ ipv4_handle_fragmentation(const struct __ctx_buff *ctx,
 }
 
 static __always_inline int
-ipv4_load_l4_ports(const struct __ctx_buff *ctx, const struct iphdr *ip4 __maybe_unused,
-		   fraginfo_t fraginfo, int l4_off, enum ct_dir dir __maybe_unused,
-		   __be16 *ports)
+ipv4_load_l4_ports(const struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off,
+		   enum ct_dir dir __maybe_unused, __be16 *ports)
 {
-	if (CONFIG(enable_ipv4_fragments))
+	if (CONFIG(enable_ipv4_fragments)) {
+		void *data, *data_end;
+		struct iphdr *ip4;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
 		return ipv4_handle_fragmentation(ctx, ip4, fraginfo, l4_off, dir,
 						 (struct ipv4_frag_l4ports *)ports);
+	}
 	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
 		return DROP_FRAG_NOSUPPORT;
 	if (l4_load_ports(ctx, l4_off, ports) < 0)

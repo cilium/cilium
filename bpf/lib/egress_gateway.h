@@ -520,8 +520,7 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		tuple4.saddr = ip4->saddr;
 
 		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-		ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
-					CT_EGRESS, &tuple4);
+		ret = ct_extract_ports4(ctx, fraginfo, l4_off, CT_EGRESS, &tuple4);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_CT_UNKNOWN_PROTO)
 				return CTX_ACT_OK;
