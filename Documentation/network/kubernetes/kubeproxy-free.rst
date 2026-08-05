@@ -1963,6 +1963,29 @@ cookie metadata can be used to identify all the trace events from a socket.
 Troubleshooting
 ***************
 
+Pods cannot reach a Service backed by an unpublished Docker container
+=====================================================================
+
+On hosts running both Kubernetes and Docker, a Service may use a backend that
+is an unpublished Docker container. In this setup, Pods can fail to reach the
+Service even though the backend is healthy and no NetworkPolicy denies the
+traffic.
+
+This happens because Cilium translates the ClusterIP in the eBPF datapath
+before the packet reaches netfilter. As a result, the packet arrives at
+Docker's ``raw/PREROUTING`` rules already addressed to the backend container,
+where Docker's per-container ``raw`` protection may drop it before it reaches
+``DOCKER-USER``. Any allow rule placed in ``DOCKER-USER`` therefore has no
+effect for this traffic.
+
+To confirm this is what you are seeing, compare packet counters while attempting
+a connection from a Pod. If Docker's ``raw`` DROP rule increases while the
+kube-proxy service chains (``KUBE-SVC`` / ``KUBE-SEP``) remain unchanged, the
+packet is being dropped before it reaches the expected netfilter path.
+
+If this communication is intentional, allow only the specific traffic required
+by adding a narrowly scoped rule in the ``raw`` table.
+
 Validate BPF cgroup programs attachment
 =======================================
 
