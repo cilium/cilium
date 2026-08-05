@@ -4,6 +4,7 @@
 package dummy
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,23 +66,19 @@ func (mgr *DummyManager) Type() types.DeviceManagerType {
 	return types.DeviceManagerTypeDummy
 }
 
-// ListDevices advertises the dummy devices derived from configuration.
-//
-// Like macvlan, dummy links are virtual devices that this driver owns: they do
-// not exist in the kernel until a claim is allocated and Device.Setup creates
-// one. ListDevices therefore does not scan the kernel; it synthesises Count
-// discrete devices named dummy0..dummy<Count-1> so DRA can advertise and
-// allocate them. The (Count+1)th claim stays Pending.
-func (mgr *DummyManager) ListDevices() ([]types.Device, error) {
-	var result []types.Device
-
+// Run publishes the synthesised dummy devices once, then blocks until ctx is
+// cancelled. Dummy devices are static — derived purely from config — so a
+// single publish at startup is sufficient.
+func (mgr *DummyManager) Run(ctx context.Context, publish func([]types.Device)) error {
+	var devices []types.Device
 	for i := 0; i < mgr.config.Count; i++ {
-		result = append(result, &DummyDevice{
+		devices = append(devices, &DummyDevice{
 			Name: fmt.Sprintf("%s%d", dummyIfNamePrefix, i),
 		})
 	}
-
-	return result, nil
+	publish(devices)
+	<-ctx.Done()
+	return nil
 }
 
 func (mgr *DummyManager) RestoreDevice(data []byte) (types.Device, error) {
