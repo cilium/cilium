@@ -1176,7 +1176,7 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 			accepted := false
 
 			for _, cond := range l.Conditions {
-				if cond.Type == string(gatewayv1.GatewayConditionAccepted) &&
+				if cond.Type == string(gatewayv1.ListenerConditionAccepted) &&
 					cond.Status == metav1.ConditionTrue {
 					accepted = true
 					break
