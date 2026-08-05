@@ -137,8 +137,7 @@ Requirements on the network
      If all nodes share a single L2 network, then this can be taken care of by
      enabling the option ``auto-direct-node-routes: true``. Otherwise, an
      additional system component such as a BGP daemon must be run to distribute
-     the routes.  See the guide :ref:`kube-router` on how to achieve this using
-     the kube-router project.
+     the routes.
 
 Configuration
 -------------
