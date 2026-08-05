@@ -168,6 +168,20 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 	return verdict;
 }
 
+/* Enforce HostFW egress policies. For the two following types of traffic, we
+ * create a CT entry to allow reply traffic:
+ *
+ * 1. Host-originated traffic carrying HOST_ID: for this traffic we also enforce
+ *    host egress policies.
+ * 2. Traffic with Node IP not necessarily Host-generated (i.e. UNKNOWN_ID but
+ *    matching HOST_ID in ipcache): for this traffic, we don't need to enforce
+ *    policies. Traffic can be SNATed pod traffic, or non-transparent proxy
+ *    connections. There exists an exception, that is unmarked kernel-generated
+ *    packets (https://github.com/cilium/cilium/issues/47223).
+ *
+ * For all L4 protocols not supported by CT, we tolerate the entry lookup
+ * failure, and defer the decision to the egress policy if any and applicable.
+ */
 static __always_inline int
 ipv6_host_policy_egress(struct __ctx_buff *ctx,  bool is_from_proxy, __u32 src_id,
 			__u32 ipcache_srcid, struct ipv6hdr *ip6,
@@ -177,7 +191,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx,  bool is_from_proxy, __u32 src_i
 
 	if (!ipv6_host_policy_egress_lookup(ctx, src_id, ipcache_srcid, ip6, &ct_buffer))
 		return CTX_ACT_OK;
-	if (ct_buffer.ret < 0)
+	if (ct_buffer.ret < 0 && ct_buffer.ret != DROP_CT_UNKNOWN_PROTO)
 		return ct_buffer.ret;
 
 	return __ipv6_host_policy_egress(ctx, src_id == HOST_ID, is_from_proxy,
@@ -307,6 +321,12 @@ out:
 	return verdict;
 }
 
+/* Enforce HostFW ingress policies. We skip policies on reply packets for which
+ * a CT entry exists.
+ *
+ * For all L4 protocols not supported by CT, we tolerate the entry lookup
+ * failure, and defer the decision to the ingress policy if any and applicable.
+ */
 static __always_inline int
 ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			 struct trace_ctx *trace, __s8 *ext_err)
@@ -320,7 +340,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 	if (!ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer))
 		return CTX_ACT_OK;
-	if (ct_buffer.ret < 0)
+	if (ct_buffer.ret < 0 && ct_buffer.ret != DROP_CT_UNKNOWN_PROTO)
 		return ct_buffer.ret;
 
 	return __ipv6_host_policy_ingress(ctx, ip6, &ct_buffer, src_sec_identity, trace, ext_err);
@@ -441,6 +461,20 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 	return verdict;
 }
 
+/* Enforce HostFW egress policies. For the two following types of traffic, we
+ * create a CT entry to allow reply traffic:
+ *
+ * 1. Host-originated traffic carrying HOST_ID: for this traffic we also enforce
+ *    host egress policies.
+ * 2. Traffic with Node IP not necessarily Host-generated (i.e. UNKNOWN_ID but
+ *    matching HOST_ID in ipcache): for this traffic, we don't need to enforce
+ *    policies. Traffic can be SNATed pod traffic, or non-transparent proxy
+ *    connections. There exists an exception, that is unmarked kernel-generated
+ *    packets (https://github.com/cilium/cilium/issues/47223).
+ *
+ * For all L4 protocols not supported by CT, we tolerate the entry lookup
+ * failure, and defer the decision to the egress policy if any and applicable.
+ */
 static __always_inline int
 ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_from_proxy, __u32 src_id,
 			__u32 ipcache_srcid, struct iphdr *ip4,
@@ -450,7 +484,7 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_from_proxy, __u32 src_id
 
 	if (!ipv4_host_policy_egress_lookup(ctx, src_id, ipcache_srcid, ip4, &ct_buffer))
 		return CTX_ACT_OK;
-	if (ct_buffer.ret < 0)
+	if (ct_buffer.ret < 0 && ct_buffer.ret != DROP_CT_UNKNOWN_PROTO)
 		return ct_buffer.ret;
 
 	return __ipv4_host_policy_egress(ctx, src_id == HOST_ID, is_from_proxy,
@@ -574,6 +608,12 @@ out:
 	return verdict;
 }
 
+/* Enforce HostFW ingress policies. We skip policies on reply packets for which
+ * a CT entry exists.
+ *
+ * For all L4 protocols not supported by CT, we tolerate the entry lookup
+ * failure, and defer the decision to the ingress policy if any and applicable.
+ */
 static __always_inline int
 ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			 struct trace_ctx *trace, __s8 *ext_err)
@@ -587,7 +627,7 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 	if (!ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer))
 		return CTX_ACT_OK;
-	if (ct_buffer.ret < 0)
+	if (ct_buffer.ret < 0 && ct_buffer.ret != DROP_CT_UNKNOWN_PROTO)
 		return ct_buffer.ret;
 
 	return __ipv4_host_policy_ingress(ctx, ip4, &ct_buffer, src_sec_identity, trace, ext_err);
