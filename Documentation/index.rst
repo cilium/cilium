@@ -81,6 +81,7 @@ get started and experiment with Cilium.
    network/servicemesh/index
    network/vtep
    network/l2-announcements
+   network/lb-ipam
    network/node-ipam
    network/pod-annotations
    network/multicast
