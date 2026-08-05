@@ -495,6 +495,37 @@ type HTTPCORSFilter struct {
 	MaxAge int32 `json:"maxAge,omitempty"`
 }
 
+type HTTPSessionPersistence struct {
+	Cookie *HTTPCookieSessionPersistence `json:"cookie,omitempty"`
+}
+
+func (s *HTTPSessionPersistence) String() string {
+	if s == nil || s.Cookie == nil {
+		return ""
+	}
+
+	sb := strings.Builder{}
+	sb.WriteString("cookie:")
+	sb.WriteString(s.Cookie.Name)
+	sb.WriteString(":")
+	sb.WriteString(s.Cookie.Path)
+	sb.WriteString(":")
+	sb.WriteString(strconv.FormatBool(s.Cookie.Secure))
+	sb.WriteString(":")
+	sb.WriteString(strconv.FormatBool(s.Cookie.HTTPOnly))
+	sb.WriteString(":")
+	sb.WriteString(s.Cookie.SameSite)
+	return sb.String()
+}
+
+type HTTPCookieSessionPersistence struct {
+	Name     string `json:"name,omitempty"`
+	Path     string `json:"path,omitempty"`
+	Secure   bool   `json:"secure,omitempty"`
+	HTTPOnly bool   `json:"httpOnly,omitempty"`
+	SameSite string `json:"sameSite,omitempty"`
+}
+
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
@@ -550,6 +581,9 @@ type HTTPRoute struct {
 
 	// CORS holds cross-origin resource sharing filters for a route.
 	CORS *HTTPCORSFilter `json:"cors,omitempty"`
+
+	// SessionPersistence holds session persistence configuration for a route.
+	SessionPersistence *HTTPSessionPersistence `json:"session_persistence,omitempty"`
 }
 
 type BackendHTTPFilter struct {
@@ -625,6 +659,12 @@ func (r *HTTPRoute) GetMatchKey() string {
 			sb.WriteString(":")
 			sb.WriteString(r.ExternalAuth.Backend.Port.GetPort())
 		}
+		sb.WriteString("|")
+	}
+
+	if r.SessionPersistence != nil {
+		sb.WriteString("session:")
+		sb.WriteString(r.SessionPersistence.String())
 		sb.WriteString("|")
 	}
 
@@ -950,6 +990,18 @@ func (m *Model) IsCORSFilterConfigured() bool {
 		}
 	}
 
+	return false
+}
+
+// IsSessionPersistenceConfigured returns true if any HTTP route has configured session persistence.
+func (m *Model) IsSessionPersistenceConfigured() bool {
+	for _, h := range m.HTTP {
+		for _, r := range h.Routes {
+			if r.SessionPersistence != nil && r.SessionPersistence.Cookie != nil {
+				return true
+			}
+		}
+	}
 	return false
 }
 

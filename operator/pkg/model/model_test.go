@@ -989,3 +989,137 @@ func TestModel_IsTCPAccessLogsConfigured(t *testing.T) {
 		})
 	}
 }
+
+func TestModel_IsSessionPersistenceConfigured(t *testing.T) {
+	tests := []struct {
+		name          string
+		httpListeners []HTTPListener
+		want          bool
+	}{
+		{
+			name:          "no HTTP listeners",
+			httpListeners: []HTTPListener{},
+			want:          false,
+		},
+		{
+			name:          "HTTP listener without session persistence",
+			httpListeners: []HTTPListener{{Routes: []HTTPRoute{{SessionPersistence: nil}}}},
+			want:          false,
+		},
+		{
+			name:          "HTTP listener with empty session persistence",
+			httpListeners: []HTTPListener{{Routes: []HTTPRoute{{SessionPersistence: &HTTPSessionPersistence{}}}}},
+			want:          false,
+		},
+		{
+			name: "one HTTP listener with session persistence",
+			httpListeners: []HTTPListener{
+				{
+					Routes: []HTTPRoute{
+						{
+							SessionPersistence: &HTTPSessionPersistence{
+								Cookie: &HTTPCookieSessionPersistence{Name: "session"},
+							},
+						},
+					}},
+			},
+			want: true,
+		},
+		{
+			name: "multiple HTTP listeners with mixed session persistence",
+			httpListeners: []HTTPListener{
+				{
+					Routes: []HTTPRoute{{SessionPersistence: nil}},
+				},
+				{
+					Routes: []HTTPRoute{
+						{
+							SessionPersistence: &HTTPSessionPersistence{
+								Cookie: &HTTPCookieSessionPersistence{Name: "session"},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Model{HTTP: tt.httpListeners}
+			if got := m.IsSessionPersistenceConfigured(); got != tt.want {
+				t.Errorf("Model.IsSessionPersistenceConfigured() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHTTPRouteSessionPersistenceMatchKey(t *testing.T) {
+	baseRoute := HTTPRoute{
+		PathMatch: StringMatch{Prefix: "/api"},
+		SessionPersistence: &HTTPSessionPersistence{
+			Cookie: &HTTPCookieSessionPersistence{
+				Name: "gateway-session",
+				Path: "/api",
+			},
+		},
+	}
+	baseKey := baseRoute.GetMatchKey()
+
+	tests := []struct {
+		name        string
+		persistence *HTTPSessionPersistence
+		wantEqual   bool
+	}{
+		{
+			name:        "no persistence",
+			persistence: nil,
+			wantEqual:   false,
+		},
+		{
+			name: "identical configuration",
+			persistence: &HTTPSessionPersistence{
+				Cookie: &HTTPCookieSessionPersistence{
+					Name: "gateway-session",
+					Path: "/api",
+				},
+			},
+			wantEqual: true,
+		},
+		{
+			name: "different cookie name",
+			persistence: &HTTPSessionPersistence{
+				Cookie: &HTTPCookieSessionPersistence{
+					Name: "other-session",
+					Path: "/api",
+				},
+			},
+			wantEqual: false,
+		},
+		{
+			name: "different cookie path",
+			persistence: &HTTPSessionPersistence{
+				Cookie: &HTTPCookieSessionPersistence{
+					Name: "gateway-session",
+					Path: "/other",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			route := HTTPRoute{
+				PathMatch:          StringMatch{Prefix: "/api"},
+				SessionPersistence: tt.persistence,
+			}
+			got := route.GetMatchKey()
+
+			if tt.wantEqual {
+				assert.Equal(t, baseKey, got)
+			} else {
+				assert.NotEqual(t, baseKey, got)
+			}
+		})
+	}
+}
