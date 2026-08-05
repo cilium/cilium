@@ -153,7 +153,7 @@ union ports_ret {
 	};
 };
 
-static __always_inline __u64
+__noinline __weak __u64
 ipv4_load_l4_ports(const struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off,
 		   enum ct_dir dir __maybe_unused)
 {
