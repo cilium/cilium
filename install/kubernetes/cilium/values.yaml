@@ -1540,6 +1540,11 @@ hubble:
       # This requires the prometheus CRDs to be available.
       # ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
       enabled: false
+      # -- Attach node metadata to the discovered targets, making node labels
+      # and annotations available as relabeling sources. Requires the
+      # Prometheus service account to be able to list and watch nodes.
+      # E.g. attachMetadata: {node: true}
+      attachMetadata: {}
       # -- Labels to add to ServiceMonitor hubble
       labels: {}
       # -- Annotations to add to ServiceMonitor hubble
@@ -2687,6 +2692,11 @@ prometheus:
     # -- Enable service monitors.
     # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
     enabled: false
+    # -- Attach node metadata to the discovered targets, making node labels
+    # and annotations available as relabeling sources. Requires the
+    # Prometheus service account to be able to list and watch nodes.
+    # E.g. attachMetadata: {node: true}
+    attachMetadata: {}
     # -- Labels to add to ServiceMonitor cilium-agent
     labels: {}
     # -- Annotations to add to ServiceMonitor cilium-agent
@@ -3073,6 +3083,11 @@ envoy:
       # Note that this setting applies to both cilium-envoy _and_ cilium-agent
       # with Envoy enabled.
       enabled: false
+      # -- Attach node metadata to the discovered targets, making node labels
+      # and annotations available as relabeling sources. Requires the
+      # Prometheus service account to be able to list and watch nodes.
+      # E.g. attachMetadata: {node: true}
+      attachMetadata: {}
       # -- Labels to add to ServiceMonitor cilium-envoy
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-envoy
@@ -3437,6 +3452,11 @@ operator:
       # -- Enable service monitors.
       # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
       enabled: false
+      # -- Attach node metadata to the discovered targets, making node labels
+      # and annotations available as relabeling sources. Requires the
+      # Prometheus service account to be able to list and watch nodes.
+      # E.g. attachMetadata: {node: true}
+      attachMetadata: {}
       # -- Labels to add to ServiceMonitor cilium-operator
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-operator
