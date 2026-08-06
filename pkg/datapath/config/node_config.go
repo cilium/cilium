@@ -12,6 +12,26 @@ import "github.com/cilium/cilium/pkg/datapath/types"
 // Warning: do not instantiate directly! Always use [NewNode] to ensure the
 // default values configured in the ELF are honored.
 type Node struct {
+	// Lifetime of closed TCP conntrack entries in seconds.
+	CTCloseTimeout uint32 `config:"ct_close_timeout"`
+	// Lifetime of non-service non-TCP conntrack entries in seconds.
+	CTConnectionLifetimeNonTCP uint32 `config:"ct_connection_lifetime_non_tcp"`
+	// Lifetime of non-service TCP conntrack entries in seconds.
+	CTConnectionLifetimeTCP uint32 `config:"ct_connection_lifetime_tcp"`
+	// TCP flags that trigger conntrack monitor reports.
+	CTReportFlags uint8 `config:"ct_report_flags"`
+	// Interval between aggregated monitor reports in seconds.
+	CTReportInterval uint32 `config:"ct_report_interval"`
+	// Lifetime of TCP conntrack entries that have only seen SYN packets, in
+	// seconds.
+	CTSYNTimeout uint32 `config:"ct_syn_timeout"`
+	// Grace period before a closed TCP service connection may be rebalanced, in
+	// seconds.
+	CTServiceCloseRebalance uint32 `config:"ct_service_close_rebalance"`
+	// Lifetime of non-TCP service conntrack entries in seconds.
+	CTServiceLifetimeNonTCP uint32 `config:"ct_service_lifetime_non_tcp"`
+	// Lifetime of TCP service conntrack entries in seconds.
+	CTServiceLifetimeTCP uint32 `config:"ct_service_lifetime_tcp"`
 	// Interface index of the cilium_host device.
 	CiliumHostIfIndex uint32 `config:"cilium_host_ifindex"`
 	// MAC address of the cilium_host device.
@@ -93,7 +113,7 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0x0,
+	return &Node{0xa, 0x3c, 0x5460, 0xff, 0x5, 0x3c, 0x1e, 0x3c, 0x5460, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

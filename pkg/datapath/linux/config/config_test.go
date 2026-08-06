@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/netip"
 	"testing"
-	"time"
 
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
@@ -505,69 +504,6 @@ func writeNodeConfigToBuffer(t *testing.T, nodeCfg *config.Config) string {
 	var buffer bytes.Buffer
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, nodeCfg))
 	return buffer.String()
-}
-
-// TestPrivilegedWriteNodeConfigMonitorAggregation verifies that the monitor
-// aggregation configuration options (MonitorAggregationInterval and
-// MonitorAggregationFlags) are correctly propagated to BPF defines
-// (CT_REPORT_INTERVAL and CT_REPORT_FLAGS).
-// This covers the MonitorAggregation scenarios previously tested by
-// K8sDatapathConfig.
-func TestPrivilegedWriteNodeConfigMonitorAggregation(t *testing.T) {
-	testutils.PrivilegedTest(t)
-	ns := netns.NewNetNS(t)
-	setupCiliumDummyDevices(t, ns)
-	err := ns.Do(func() error {
-		setupConfigSuite(t)
-
-		origInterval := option.Config.MonitorAggregationInterval
-		origFlags := option.Config.MonitorAggregationFlags
-		t.Cleanup(func() {
-			option.Config.MonitorAggregationInterval = origInterval
-			option.Config.MonitorAggregationFlags = origFlags
-		})
-
-		t.Run("medium aggregation with SYN flag", func(t *testing.T) {
-			// bpf.monitorAggregation=medium, bpf.monitorInterval=60s,
-			// bpf.monitorFlags=syn (TCP SYN = 0x02)
-			option.Config.MonitorAggregationInterval = 60 * time.Second
-			option.Config.MonitorAggregationFlags = 0x02 // SYN flag
-
-			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
-			require.Contains(t, output, "define CT_REPORT_INTERVAL 60\n",
-				"Expected 60s monitor aggregation interval")
-			require.Contains(t, output, "define CT_REPORT_FLAGS 0x0002\n",
-				"Expected SYN flag (0x0002) in monitor aggregation flags")
-		})
-
-		t.Run("medium aggregation with PSH flag", func(t *testing.T) {
-			// bpf.monitorAggregation=medium, bpf.monitorInterval=60s,
-			// bpf.monitorFlags=psh (TCP PSH = 0x08)
-			option.Config.MonitorAggregationInterval = 60 * time.Second
-			option.Config.MonitorAggregationFlags = 0x08 // PSH flag
-
-			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
-			require.Contains(t, output, "define CT_REPORT_INTERVAL 60\n",
-				"Expected 60s monitor aggregation interval")
-			require.Contains(t, output, "define CT_REPORT_FLAGS 0x0008\n",
-				"Expected PSH flag (0x0008) in monitor aggregation flags")
-		})
-
-		t.Run("no aggregation", func(t *testing.T) {
-			// monitorAggregation=none => interval=0, flags=0
-			option.Config.MonitorAggregationInterval = 0
-			option.Config.MonitorAggregationFlags = 0
-
-			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
-			require.Contains(t, output, "define CT_REPORT_INTERVAL 0\n",
-				"Expected 0 interval with no aggregation")
-			require.Contains(t, output, "define CT_REPORT_FLAGS 0x0000\n",
-				"Expected 0x0000 flags with no aggregation")
-		})
-
-		return nil
-	})
-	require.NoError(t, err)
 }
 
 // TestPrivilegedWriteNodeConfigHostFirewall verifies that with host firewall

@@ -105,3 +105,9 @@ NODE_CONFIG(__u8, monitor_aggregation, "Level of aggregation for monitor events"
 
 NODE_CONFIG(union v4addr, ipv4_inter_cluster_snat,
 	    "Node IPv4 address used as the source for inter-cluster SNAT")
+
+NODE_CONFIG(__u32, ct_report_interval, "Interval between aggregated monitor reports in seconds")
+ASSIGN_CONFIG(__u32, ct_report_interval, 5)
+
+NODE_CONFIG(__u8, ct_report_flags, "TCP flags that trigger conntrack monitor reports")
+ASSIGN_CONFIG(__u8, ct_report_flags, 0xff)

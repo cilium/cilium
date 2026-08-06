@@ -18,6 +18,34 @@
 #include "ipfrag.h"
 #include "auxvars.h"
 
+NODE_CONFIG(__u32, ct_connection_lifetime_tcp,
+	    "Lifetime of non-service TCP conntrack entries in seconds.")
+ASSIGN_CONFIG(__u32, ct_connection_lifetime_tcp, 21600)
+
+NODE_CONFIG(__u32, ct_connection_lifetime_non_tcp,
+	    "Lifetime of non-service non-TCP conntrack entries in seconds.")
+ASSIGN_CONFIG(__u32, ct_connection_lifetime_non_tcp, 60)
+
+NODE_CONFIG(__u32, ct_service_lifetime_tcp,
+	    "Lifetime of TCP service conntrack entries in seconds.")
+ASSIGN_CONFIG(__u32, ct_service_lifetime_tcp, 21600)
+
+NODE_CONFIG(__u32, ct_service_lifetime_non_tcp,
+	    "Lifetime of non-TCP service conntrack entries in seconds.")
+ASSIGN_CONFIG(__u32, ct_service_lifetime_non_tcp, 60)
+
+NODE_CONFIG(__u32, ct_service_close_rebalance,
+	    "Grace period before a closed TCP service connection may be rebalanced, in seconds.")
+ASSIGN_CONFIG(__u32, ct_service_close_rebalance, 30)
+
+NODE_CONFIG(__u32, ct_syn_timeout,
+	    "Lifetime of TCP conntrack entries that have only seen SYN packets, in seconds.")
+ASSIGN_CONFIG(__u32, ct_syn_timeout, 60)
+
+NODE_CONFIG(__u32, ct_close_timeout,
+	    "Lifetime of closed TCP conntrack entries in seconds.")
+ASSIGN_CONFIG(__u32, ct_close_timeout, 10)
+
 /* Traffic is allowed/dropped based on user-defined policies. */
 DECLARE_CONFIG(bool, enable_extended_ip_protocols, "Pass traffic with extended IP protocols")
 
@@ -195,9 +223,9 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 	 *
 	 * If the branch is taken by multiple CPUs because of '*last_report',
 	 * then this merely causes multiple notifications to be sent after
-	 * CT_REPORT_INTERVAL rather than a single notification. '*last_report'
+	 * ct_report_interval rather than a single notification. '*last_report'
 	 * will be updated by all CPUs and subsequent checks should not take
-	 * this branch until the next CT_REPORT_INTERVAL. As such, the trace
+	 * this branch until the next ct_report_interval. As such, the trace
 	 * aggregation that uses the result of this function may reduce the
 	 * number of packets per interval to a small integer value (max N_CPUS)
 	 * rather than 1 notification per packet throughout the interval.
@@ -217,7 +245,7 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 	 * otherwise be sent if the monitor aggregation level is set to none
 	 * (ie, sending a notification for every packet).
 	 */
-	if (last_report + bpf_sec_to_mono(CT_REPORT_INTERVAL) < now ||
+	if (last_report + bpf_sec_to_mono(CONFIG(ct_report_interval)) < now ||
 	    accumulated_flags != seen_flags) {
 		/* verifier workaround: we don't use reference here. */
 		if (dir == CT_INGRESS) {
@@ -235,7 +263,7 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 /**
  * Update the CT timeouts for the specified entry.
  *
- * If CT_REPORT_INTERVAL has elapsed since the last update, updates the
+ * If ct_report_interval has elapsed since the last update, updates the
  * last_updated timestamp and returns true. Otherwise returns false.
  */
 static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
@@ -243,23 +271,23 @@ static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
 					       union tcp_flags seen_flags)
 {
 	__u32 lifetime = dir == CT_SERVICE ?
-			 bpf_sec_to_mono(CT_SERVICE_LIFETIME_NONTCP) :
-			 bpf_sec_to_mono(CT_CONNECTION_LIFETIME_NONTCP);
+			 bpf_sec_to_mono(CONFIG(ct_service_lifetime_non_tcp)) :
+			 bpf_sec_to_mono(CONFIG(ct_connection_lifetime_non_tcp));
 	bool syn = seen_flags.value & TCP_FLAG_SYN;
 
 	if (tcp) {
 		entry->seen_non_syn |= !syn;
 		if (entry->seen_non_syn) {
 			lifetime = dir == CT_SERVICE ?
-				   bpf_sec_to_mono(CT_SERVICE_LIFETIME_TCP) :
-				   bpf_sec_to_mono(CT_CONNECTION_LIFETIME_TCP);
+				   bpf_sec_to_mono(CONFIG(ct_service_lifetime_tcp)) :
+				   bpf_sec_to_mono(CONFIG(ct_connection_lifetime_tcp));
 		} else {
-			lifetime = bpf_sec_to_mono(CT_SYN_TIMEOUT);
+			lifetime = bpf_sec_to_mono(CONFIG(ct_syn_timeout));
 		}
 	}
 
 	return __ct_update_timeout(entry, lifetime, dir, seen_flags,
-				   CT_REPORT_FLAGS);
+				   CONFIG(ct_report_flags));
 }
 
 static __always_inline void
@@ -308,7 +336,7 @@ static __always_inline bool ct_entry_closing(const struct ct_entry *entry)
 static __always_inline bool
 ct_entry_expired_rebalance(const struct ct_entry *entry)
 {
-	__u32 wait_time = bpf_sec_to_mono(CT_SERVICE_CLOSE_REBALANCE);
+	__u32 wait_time = bpf_sec_to_mono(CONFIG(ct_service_close_rebalance));
 
 	/* This doesn't check last_rx_report because we don't see closing
 	 * in RX direction for CT_SERVICE.
@@ -426,8 +454,8 @@ __ct_lookup(const void *map, const struct __ctx_buff *ctx, const void *tuple,
 			*monitor = TRACE_PAYLOAD_LEN;
 			if (ct_entry_alive(entry))
 				break;
-			__ct_update_timeout(entry, bpf_sec_to_mono(CT_CLOSE_TIMEOUT),
-					    dir, seen_flags, CT_REPORT_FLAGS);
+			__ct_update_timeout(entry, bpf_sec_to_mono(CONFIG(ct_close_timeout)),
+					    dir, seen_flags, CONFIG(ct_report_flags));
 			break;
 		default:
 			break;
