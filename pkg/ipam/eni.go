@@ -170,13 +170,12 @@ func autoDetectENINativeRoutingCIDR(
 	localNodeStore *node.LocalNodeStore,
 	conf *option.DaemonConfig,
 ) {
-	if nativeCIDR := conf.IPv4NativeRoutingCIDR; nativeCIDR != nil {
-		native, ok := netipx.FromStdIPNet(nativeCIDR.IPNet)
+	if nativeCIDR := conf.IPv4NativeRoutingCIDR; nativeCIDR.IsValid() {
 		// Accept the configured native routing CIDR as long as it overlaps the
 		// VPC primary CIDR, i.e. it is the VPC CIDR, a subnet of it (e.g. a
 		// single availability-zone subnet, used to masquerade cross-subnet
 		// traffic), or a supernet of it.
-		if ok && iputil.LaminarCIDRsOverlap(native, primaryCIDR) {
+		if iputil.LaminarCIDRsOverlap(nativeCIDR, primaryCIDR) {
 			logger.Info(
 				"Native routing CIDR overlaps VPC CIDR, ignoring autodetected VPC CIDR.",
 				logfields.VPCCIDR, primaryCIDR,
@@ -495,15 +494,11 @@ func buildENIAllocationResult(
 		}
 
 		// Add manually configured Native Routing CIDR
-		if conf.IPv4NativeRoutingCIDR != nil && conf.EnableIPv4 {
-			if p, ok := netipx.FromStdIPNet(conf.IPv4NativeRoutingCIDR.IPNet); ok {
-				result.CIDRs = append(result.CIDRs, p)
-			}
+		if conf.IPv4NativeRoutingCIDR.IsValid() && conf.EnableIPv4 {
+			result.CIDRs = append(result.CIDRs, conf.IPv4NativeRoutingCIDR)
 		}
-		if conf.IPv6NativeRoutingCIDR != nil && conf.EnableIPv6 {
-			if p, ok := netipx.FromStdIPNet(conf.IPv6NativeRoutingCIDR.IPNet); ok {
-				result.CIDRs = append(result.CIDRs, p)
-			}
+		if conf.IPv6NativeRoutingCIDR.IsValid() && conf.EnableIPv6 {
+			result.CIDRs = append(result.CIDRs, conf.IPv6NativeRoutingCIDR)
 		}
 
 		// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.

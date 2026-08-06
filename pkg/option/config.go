@@ -30,7 +30,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	clustermeshTypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -1686,10 +1685,10 @@ type DaemonConfig struct {
 	ExcludeNodeLabelPatterns []*regexp.Regexp
 
 	// IPv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
-	IPv4NativeRoutingCIDR *cidr.CIDR
+	IPv4NativeRoutingCIDR netip.Prefix
 
 	// IPv6NativeRoutingCIDR describes a CIDR in which pod IPs are routable
-	IPv6NativeRoutingCIDR *cidr.CIDR
+	IPv6NativeRoutingCIDR netip.Prefix
 
 	// MasqueradeInterfaces is the selector used to select interfaces subject
 	// to egress masquerading.
@@ -2633,12 +2632,13 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	ipv4NativeRoutingCIDR := vp.GetString(IPv4NativeRoutingCIDR)
 
 	if ipv4NativeRoutingCIDR != "" {
-		c.IPv4NativeRoutingCIDR, err = cidr.ParseCIDR(ipv4NativeRoutingCIDR)
+		prefix, err := netip.ParsePrefix(ipv4NativeRoutingCIDR)
 		if err != nil {
 			logging.Fatal(logger, fmt.Sprintf("Unable to parse CIDR '%s'", ipv4NativeRoutingCIDR), logfields.Error, err)
 		}
+		c.IPv4NativeRoutingCIDR = prefix.Masked()
 
-		if len(c.IPv4NativeRoutingCIDR.IP) != net.IPv4len {
+		if !c.IPv4NativeRoutingCIDR.Addr().Is4() {
 			logging.Fatal(logger, fmt.Sprintf("%s must be an IPv4 CIDR", IPv4NativeRoutingCIDR))
 		}
 	}
@@ -2646,12 +2646,13 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	ipv6NativeRoutingCIDR := vp.GetString(IPv6NativeRoutingCIDR)
 
 	if ipv6NativeRoutingCIDR != "" {
-		c.IPv6NativeRoutingCIDR, err = cidr.ParseCIDR(ipv6NativeRoutingCIDR)
+		prefix, err := netip.ParsePrefix(ipv6NativeRoutingCIDR)
 		if err != nil {
 			logging.Fatal(logger, fmt.Sprintf("Unable to parse CIDR '%s'", ipv6NativeRoutingCIDR), logfields.Error, err)
 		}
+		c.IPv6NativeRoutingCIDR = prefix.Masked()
 
-		if len(c.IPv6NativeRoutingCIDR.IP) != net.IPv6len {
+		if !c.IPv6NativeRoutingCIDR.Addr().Is6() {
 			logging.Fatal(logger, fmt.Sprintf("%s must be an IPv6 CIDR", IPv6NativeRoutingCIDR))
 		}
 	}
@@ -2979,7 +2980,7 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 }
 
 func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
-	if c.IPv4NativeRoutingCIDR != nil {
+	if c.IPv4NativeRoutingCIDR.IsValid() {
 		return nil
 	}
 	if !c.EnableIPv4 || !c.EnableIPv4Masquerade {
@@ -3006,7 +3007,7 @@ func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
 }
 
 func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
-	if c.IPv6NativeRoutingCIDR != nil {
+	if c.IPv6NativeRoutingCIDR.IsValid() {
 		return nil
 	}
 	if !c.EnableIPv6 || !c.EnableIPv6Masquerade {

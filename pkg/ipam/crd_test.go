@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
-	"github.com/cilium/cilium/pkg/cidr"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -281,7 +280,7 @@ func TestAutoDetectIPv4NativeRoutingCIDR(t *testing.T) {
 		return &nodeStore{
 			logger: hivetest.Logger(t),
 			conf: &option.DaemonConfig{
-				IPv4NativeRoutingCIDR: cidr.MustParseCIDR(nativeCIDR),
+				IPv4NativeRoutingCIDR: netip.MustParsePrefix(nativeCIDR),
 			},
 			ownNode: &ciliumv2.CiliumNode{
 				Status: ciliumv2.NodeStatus{
@@ -324,7 +323,7 @@ func TestAutoDetectIPv4NativeRoutingCIDR(t *testing.T) {
 	t.Run("uses the autodetected primary CIDR when unset", func(t *testing.T) {
 		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 		n := newStore(t, "10.10.0.0/16")
-		n.conf.IPv4NativeRoutingCIDR = nil
+		n.conf.IPv4NativeRoutingCIDR = netip.Prefix{}
 		require.True(t, n.autoDetectIPv4NativeRoutingCIDR(localNodeStore))
 
 		localNode, err := localNodeStore.Get(t.Context())
