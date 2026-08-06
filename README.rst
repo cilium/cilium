@@ -234,7 +234,7 @@ Getting Started
 ===============
 
 * `Why Cilium?`_
-* `Getting Started`_
+* `Getting Started <gs_>`_
 * `Architecture and Concepts`_
 * `Installing Cilium`_
 * `Frequently Asked Questions`_
@@ -295,7 +295,7 @@ and the `2-Clause BSD License <bsd-license_>`__
 
 .. _`Cilium Upgrade Guide`: https://docs.cilium.io/en/stable/operations/upgrade/
 .. _`Why Cilium?`: https://docs.cilium.io/en/stable/overview/intro
-.. _`Getting Started`: https://docs.cilium.io/en/stable/#getting-started
+.. _gs: https://docs.cilium.io/en/stable/#getting-started
 .. _`Architecture and Concepts`: https://docs.cilium.io/en/stable/overview/component-overview/
 .. _`Installing Cilium`: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/
 .. _`Frequently Asked Questions`: https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Akind%2Fquestion+

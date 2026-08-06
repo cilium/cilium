@@ -1186,9 +1186,9 @@ and ``extraHostPathMounts`` as follows:
    - --static-cnp-path=/policies
    extraHostPathMounts:
    - name: static-policies
-      mountPath: /policies
-      hostPath: /policies
-      hostPathType: Directory
+     mountPath: /policies
+     hostPath: /policies
+     hostPathType: Directory
 
 To determine whether a policy was established via Kubernetes CRD or directly from a directory,
 execute the command ``cilium policy get`` and examine the source attribute within the policy.
