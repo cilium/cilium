@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
@@ -302,9 +303,10 @@ func TestAgent_PeerConfig(t *testing.T) {
 
 			assertAllowedIPs := func(e expectation) {
 				node := wgAgent.peerByNodeName[e.Subject]
-				require.Len(t, node.allowedIPs, len(e.AllowedIPs))
+				wantLen := len(e.AllowedIPs)
+				require.Equal(t, wantLen, node.allowedIPs.Len())
 				for _, ipn := range e.AllowedIPs {
-					require.True(t, containsIP(maps.Values(node.allowedIPs), ipn))
+					require.True(t, node.allowedIPs.Has(ipnetToPrefix(*ipn)))
 				}
 			}
 
@@ -741,4 +743,9 @@ func TestAgent_PeerEndpointSelection(t *testing.T) {
 			require.Equal(t, tt.expectedPort, peer.endpoint.Port)
 		})
 	}
+}
+
+func ipnetToPrefix(ipn net.IPNet) netip.Prefix {
+	cidr, _ := ipn.Mask.Size()
+	return netip.PrefixFrom(netipx.MustFromStdIP(ipn.IP), cidr)
 }

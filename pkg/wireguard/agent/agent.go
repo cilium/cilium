@@ -34,11 +34,13 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/lock"
@@ -457,8 +459,12 @@ func (a *Agent) restoreFinished() error {
 	for _, p := range dev.Peers {
 		if pc, ok := pubKeyToPeerConfig[p.PublicKey]; ok {
 			for _, ip := range p.AllowedIPs {
-				if !pc.hasAllowedIP(ip) {
-					pc.queueAllowedIPsRemove(ip)
+				pfx, ok := netipx.FromStdIPNet(&ip)
+				if !ok {
+					continue
+				}
+				if !pc.hasAllowedIP(pfx) {
+					pc.queueAllowedIPsRemove(pfx)
 				}
 			}
 			a.logger.Info(
@@ -540,35 +546,29 @@ func (a *Agent) updatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	// Handle Node IP change
 	if peer.nodeIPv4 != nil && !peer.nodeIPv4.Equal(nodeIPv4) {
 		delete(a.nodeNameByNodeIP, peer.nodeIPv4.String())
-		peer.queueAllowedIPsRemove(net.IPNet{
-			IP:   peer.nodeIPv4,
-			Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
-		})
+		if ip := iputil.IPToNetPrefix(peer.nodeIPv4); ip.IsValid() {
+			peer.queueAllowedIPsRemove(ip)
+		}
 	}
 	if peer.nodeIPv6 != nil && !peer.nodeIPv6.Equal(nodeIPv6) {
 		delete(a.nodeNameByNodeIP, peer.nodeIPv6.String())
-		peer.queueAllowedIPsRemove(net.IPNet{
-			IP:   peer.nodeIPv6,
-			Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),
-		})
+		if ip := iputil.IPToNetPrefix(peer.nodeIPv6); ip.IsValid() {
+			peer.queueAllowedIPsRemove(ip)
+		}
 	}
 
 	if a.config.EnableIPv4 && nodeIPv4 != nil {
-		ipn := net.IPNet{
-			IP:   nodeIPv4,
-			Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
-		}
-		if !peer.hasAllowedIP(ipn) {
-			peer.queueAllowedIPsInsert(ipn)
+		if ipn := iputil.IPToNetPrefix(nodeIPv4); ipn.IsValid() {
+			if !peer.hasAllowedIP(ipn) {
+				peer.queueAllowedIPsInsert(ipn)
+			}
 		}
 	}
 	if a.config.EnableIPv6 && nodeIPv6 != nil {
-		ipn := net.IPNet{
-			IP:   nodeIPv6,
-			Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),
-		}
-		if !peer.hasAllowedIP(ipn) {
-			peer.queueAllowedIPsInsert(ipn)
+		if ipn := iputil.IPToNetPrefix(nodeIPv6); ipn.IsValid() {
+			if !peer.hasAllowedIP(ipn) {
+				peer.queueAllowedIPsInsert(ipn)
+			}
 		}
 	}
 
@@ -674,7 +674,7 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 	peer := wgtypes.PeerConfig{
 		PublicKey:  p.pubKey,
 		Endpoint:   p.endpoint,
-		AllowedIPs: addedIPs,
+		AllowedIPs: prefixesToIPNets(addedIPs),
 	}
 	if a.config.WireguardPersistentKeepalive != 0 {
 		peer.PersistentKeepaliveInterval = &a.config.WireguardPersistentKeepalive
@@ -722,7 +722,7 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 		cfg.Peers = []wgtypes.PeerConfig{
 			{
 				PublicKey:  wgDummyPeerKey,
-				AllowedIPs: removedIPs,
+				AllowedIPs: prefixesToIPNets(removedIPs),
 			},
 		}
 
@@ -778,7 +778,7 @@ func loadOrGeneratePrivKey(filePath string) (key wgtypes.Key, err error) {
 // OnIPIdentityCacheChange implements ipcache.IPIdentityMappingListener
 func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP,
 	_ *ipcache.Identity, _ ipcache.Identity, _ uint8, _ *ipcache.K8sMetadata, _ uint8) {
-	ipnet := cidrCluster.AsIPNet()
+	prefix := cidrCluster.AsPrefix()
 
 	// This function is invoked from the IPCache with the
 	// ipcache.IPIdentityCache lock held. We therefore need to be careful when
@@ -811,8 +811,8 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 	case modType == ipcache.Delete && oldHostIP != nil:
 		if nodeName, ok := a.nodeNameByNodeIP[oldHostIP.String()]; ok {
 			if peer := a.peerByNodeName[nodeName]; peer != nil {
-				if peer.hasAllowedIP(ipnet) {
-					peer.queueAllowedIPsRemove(ipnet)
+				if peer.hasAllowedIP(prefix) {
+					peer.queueAllowedIPsRemove(prefix)
 					updatedPeer = peer
 				}
 			}
@@ -820,8 +820,8 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 	case modType == ipcache.Upsert && newHostIP != nil:
 		if nodeName, ok := a.nodeNameByNodeIP[newHostIP.String()]; ok {
 			if peer := a.peerByNodeName[nodeName]; peer != nil {
-				if !peer.hasAllowedIP(ipnet) {
-					peer.queueAllowedIPsInsert(ipnet)
+				if !peer.hasAllowedIP(prefix) {
+					peer.queueAllowedIPsInsert(prefix)
 					updatedPeer = peer
 				}
 			}
@@ -834,7 +834,7 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 				"Failed to update WireGuard peer after ipcache update",
 				logfields.Error, err,
 				logfields.Modification, modType,
-				logfields.IPAddr, ipnet,
+				logfields.IPAddr, prefix.Addr(),
 				logfields.OldNode, oldHostIP,
 				logfields.NewNode, newHostIP,
 				logfields.PubKey, updatedPeer.pubKey,
@@ -934,36 +934,19 @@ type peerConfig struct {
 	pubKey             wgtypes.Key
 	endpoint           *net.UDPAddr
 	nodeIPv4, nodeIPv6 net.IP
-	allowedIPs         map[netip.Prefix]net.IPNet
-	needsInsert        map[netip.Prefix]net.IPNet
-	needsRemove        map[netip.Prefix]net.IPNet
-}
-
-func (p *peerConfig) lazyInitMaps() {
-	if p.allowedIPs == nil {
-		p.allowedIPs = map[netip.Prefix]net.IPNet{}
-	}
-
-	if p.needsInsert == nil {
-		p.needsInsert = map[netip.Prefix]net.IPNet{}
-	}
-
-	if p.needsRemove == nil {
-		p.needsRemove = map[netip.Prefix]net.IPNet{}
-	}
+	allowedIPs         set.Set[netip.Prefix]
+	needsInsert        set.Set[netip.Prefix]
+	needsRemove        set.Set[netip.Prefix]
 }
 
 // queueAllowedIPsInsert adds ip to the list of IPs that need to be inserted
 // during the next update to this peer. The update is queued regardless of the
 // current state of p.allowedIPs, so callers should use hasAllowedIP to
 // avoid unnecessary updates.
-func (p *peerConfig) queueAllowedIPsInsert(ips ...net.IPNet) {
-	p.lazyInitMaps()
-
+func (p *peerConfig) queueAllowedIPsInsert(ips ...netip.Prefix) {
 	for _, ip := range ips {
-		pfx := ipnetToPrefix(ip)
-		p.needsInsert[pfx] = ip
-		delete(p.needsRemove, pfx)
+		p.needsInsert.Insert(ip)
+		p.needsRemove.Remove(ip)
 	}
 }
 
@@ -971,65 +954,49 @@ func (p *peerConfig) queueAllowedIPsInsert(ips ...net.IPNet) {
 // during the next update to this peer. The update is queued regardless of the
 // current state of p.allowedIPs, so callers should use hasAllowedIP to
 // avoid unnecessary updates.
-func (p *peerConfig) queueAllowedIPsRemove(ips ...net.IPNet) {
-	p.lazyInitMaps()
-
+func (p *peerConfig) queueAllowedIPsRemove(ips ...netip.Prefix) {
 	for _, ip := range ips {
-		pfx := ipnetToPrefix(ip)
-		p.needsRemove[pfx] = ip
-		delete(p.needsInsert, pfx)
+		p.needsRemove.Insert(ip)
+		p.needsInsert.Remove(ip)
 	}
 }
 
 // queuedAllowedIPUpdates returns the set of allowed IP insertions and removals
 // that are currently pending. If enableAllowedIPRemovals has not yet been
 // called, this method will not return any removals.
-func (p *peerConfig) queuedAllowedIPUpdates() (insert []net.IPNet, remove []net.IPNet) {
-	for _, ip := range p.needsInsert {
-		insert = append(insert, ip)
-	}
-
-	for _, ip := range p.needsRemove {
-		remove = append(remove, ip)
-	}
-
-	return
+func (p *peerConfig) queuedAllowedIPUpdates() (insert []netip.Prefix, remove []netip.Prefix) {
+	return p.needsInsert.AsSlice(), p.needsRemove.AsSlice()
 }
 
 // hasAllowedIP returns true if ip has been synced to this peer on the device.
-func (p *peerConfig) hasAllowedIP(ip net.IPNet) bool {
-	_, exists := p.allowedIPs[ipnetToPrefix(ip)]
-
-	return exists
+func (p *peerConfig) hasAllowedIP(ip netip.Prefix) bool {
+	return p.allowedIPs.Has(ip)
 }
 
 // finishAllowedIPSync signals that any queued updates for the given ips have
 // been processed and synced to the device. This removes these ips from the
 // update queues.
-func (p *peerConfig) finishAllowedIPSync(ips []net.IPNet) {
+func (p *peerConfig) finishAllowedIPSync(ips []netip.Prefix) {
 	for _, ip := range ips {
-		pfx := ipnetToPrefix(ip)
-		if aip, exists := p.needsInsert[pfx]; exists {
-			p.allowedIPs[pfx] = aip
-			delete(p.needsInsert, pfx)
+		if p.needsInsert.Has(ip) {
+			p.allowedIPs.Insert(ip)
+			p.needsInsert.Remove(ip)
 		}
 
-		if _, exists := p.needsRemove[pfx]; exists {
-			delete(p.allowedIPs, pfx)
-			delete(p.needsRemove, pfx)
+		if p.needsRemove.Has(ip) {
+			p.allowedIPs.Remove(ip)
+			p.needsRemove.Remove(ip)
 		}
-	}
-
-	if len(p.needsInsert) == 0 {
-		p.needsInsert = nil
-	}
-
-	if len(p.needsRemove) == 0 {
-		p.needsRemove = nil
 	}
 }
 
-func ipnetToPrefix(ipn net.IPNet) netip.Prefix {
-	cidr, _ := ipn.Mask.Size()
-	return netip.PrefixFrom(netipx.MustFromStdIP(ipn.IP), cidr)
+func prefixesToIPNets(prefixes []netip.Prefix) []net.IPNet {
+	if len(prefixes) == 0 {
+		return nil
+	}
+	ipnets := make([]net.IPNet, 0, len(prefixes))
+	for _, pfx := range prefixes {
+		ipnets = append(ipnets, *netipx.PrefixIPNet(pfx))
+	}
+	return ipnets
 }

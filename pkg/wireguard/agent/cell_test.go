@@ -318,8 +318,9 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
 				assert.Contains(c, wgAgent.peerByNodeName, k8s2NodeName)
 				assert.Truef(c, func() bool {
-					for _, n := range wgAgent.peerByNodeName[k8s2NodeName].allowedIPs {
-						if n.Contains(pod2IPv4.IP) {
+					pfx := ipnetToPrefix(*pod2IPv4)
+					for _, n := range wgAgent.peerByNodeName[k8s2NodeName].allowedIPs.AsSlice() {
+						if n.Contains(pfx.Addr()) {
 							return true
 						}
 					}
