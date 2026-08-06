@@ -166,6 +166,7 @@ func (c *inMemoryClient) ListAndWatch(ctx context.Context, prefix string, opts .
 	events := make(chan KeyValueEvent)
 
 	go func() {
+		defer changeIter.Close()
 		defer close(events)
 		initDone := false
 		exists := sets.New[string]()
@@ -188,15 +189,24 @@ func (c *inMemoryClient) ListAndWatch(ctx context.Context, prefix string, opts .
 					typ = EventTypeCreate
 					exists.Insert(obj.key)
 				}
-				events <- KeyValueEvent{
+				event := KeyValueEvent{
 					Typ:   typ,
 					Key:   obj.key,
 					Value: obj.value,
 				}
+				select {
+				case events <- event:
+				case <-ctx.Done():
+					return
+				}
 			}
 
 			if !initDone {
-				events <- KeyValueEvent{Typ: EventTypeListDone}
+				select {
+				case events <- KeyValueEvent{Typ: EventTypeListDone}:
+				case <-ctx.Done():
+					return
+				}
 				initDone = true
 			}
 
