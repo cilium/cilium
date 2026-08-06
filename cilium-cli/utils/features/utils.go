@@ -4,7 +4,6 @@
 package features
 
 import (
-	"net"
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/subnet/topology"
@@ -54,17 +53,16 @@ func NewIPFamily(s string) IPFamily {
 }
 
 func GetIPFamily(addr string) IPFamily {
-	ip := net.ParseIP(addr)
+	ip, err := netip.ParseAddr(addr)
+	if err != nil {
+		return IPFamilyAny
+	}
 
-	if ip.To4() != nil {
+	if ip.Unmap().Is4() {
 		return IPFamilyV4
 	}
 
-	if ip.To16() != nil {
-		return IPFamilyV6
-	}
-
-	return IPFamilyAny
+	return IPFamilyV6
 }
 
 // ComputeFailureExceptions computes a list of failure exceptions for various
