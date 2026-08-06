@@ -40,7 +40,7 @@ This is a monthly community meeting held at APAC friendly time.
 Slack
 =====
 
-Our `Cilium & eBPF Slack <Cilium Slack_>`_ is the main discussion space for the
+Our `Cilium & eBPF Slack <Cilium Slack>`_ is the main discussion space for the
 Cilium community.
 
 Slack channels

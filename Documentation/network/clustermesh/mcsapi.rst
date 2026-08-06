@@ -188,21 +188,20 @@ ServiceImport backend, for example:
    spec:
       parentRefs:
       - group: gateway.networking.k8s.io
-         kind: Gateway
-         name: my-gateway
-         namespace: default
+        kind: Gateway
+        name: my-gateway
+        namespace: default
       rules:
       - backendRefs:
-         - group: multicluster.x-k8s.io
-            kind: ServiceImport
-            name: rebel-base-mcsapi
-            port: 80
-         matches:
-         - method: GET
-            path:
+        - group: multicluster.x-k8s.io
+          kind: ServiceImport
+          name: rebel-base-mcsapi
+          port: 80
+        matches:
+        - method: GET
+          path:
             type: PathPrefix
             value: /
-
 
 The Gateway API implementation of Cilium fully support its own MCS-API implementation.
 
