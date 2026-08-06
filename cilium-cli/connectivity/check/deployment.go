@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"net/netip"
 	"slices"
 	"sort"
@@ -1184,7 +1185,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 			for targetName, target := range allTargets {
 				clientDeploymentName := fmt.Sprintf("%s-%s", testConnDisruptClientL7TrafficDeploymentName, targetName)
-				targetAddress := fmt.Sprintf("http://%s:8000/echo", target)
+				targetAddress := fmt.Sprintf("http://%s/echo", net.JoinHostPort(target, "8000"))
 
 				if err := ct.createTestConnDisruptClientDeployment(ctx, clientDeploymentName, KindTestConnDisruptL7Traffic,
 					testConnDisruptClientL7TrafficAppLabel, targetAddress, 1, false, nil, "http"); err != nil {
