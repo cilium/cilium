@@ -2166,6 +2166,22 @@ func (m *manager) addCiliumENIRules() error {
 			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
 			return err
 		}
+		// Restore the primary-ENI mark for L7 proxy return traffic that
+		// loops back via cilium_net. When a NodePort SYN arrives on the
+		// primary ENI, the CONNMARK is set to 0x80 (above). The L7 hairpin
+		// path routes Envoy's reply through cilium_host → cilium_net;
+		// restoring the mark on cilium_net fires ip rule 109 (fwmark 0x80
+		// → main table) before ip rule 111 (from PodIP → secondary ENI),
+		// so the reply exits via the primary ENI and satisfies the AWS VPC
+		// source/destination check.
+		if err := m.ip4tables.runProg([]string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", defaults.SecondHostDevice,
+			"-m", "comment", "--comment", "cilium: primary ENI",
+			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
+			return err
+		}
 	}
 
 	if m.sharedCfg.EnableIPv6 {
@@ -2187,6 +2203,14 @@ func (m *manager) addCiliumENIRules() error {
 			"-t", "mangle",
 			"-A", ciliumPreMangleChain,
 			"-i", "lxc+",
+			"-m", "comment", "--comment", "cilium: primary ENI",
+			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
+			return err
+		}
+		if err := m.ip6tables.runProg([]string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", defaults.SecondHostDevice,
 			"-m", "comment", "--comment", "cilium: primary ENI",
 			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
 			return err
