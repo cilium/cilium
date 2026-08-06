@@ -10,12 +10,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/flow"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -23,23 +23,6 @@ const (
 	// podPrefixLbl is the value the prefix used in the label selector to
 	// represent pods on the default namespace.
 	podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
-
-	// podAnyPrefixLbl is the value of the prefix used in the label selector to
-	// represent pods in the default namespace for any source type.
-	podAnyPrefixLbl = labels.LabelSourceAnyKeyPrefix + k8sConst.PodNamespaceLabel
-
-	// podK8SNamespaceLabelsPrefix is the prefix use in the label selector for namespace labels.
-	podK8SNamespaceLabelsPrefix = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceMetaLabelsPrefix
-	// podAnyNamespaceLabelsPrefix is the prefix use in the label selector for namespace labels
-	// for any source type.
-	podAnyNamespaceLabelsPrefix = labels.LabelSourceAnyKeyPrefix + k8sConst.PodNamespaceMetaLabelsPrefix
-
-	// clusterPrefixLbl is the prefix use in the label selector for cluster name.
-	clusterPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelCluster
-
-	// clusterAnyPrefixLbl is the prefix use in the label selector for cluster name
-	// for any source type.
-	clusterAnyPrefixLbl = labels.LabelSourceAnyKeyPrefix + k8sConst.PolicyLabelCluster
 
 	// podInitLbl is the label used in a label selector to match on
 	// initializing pods.
@@ -103,14 +86,6 @@ func GetPolicyFromLabels(policyLabels []string, revision uint64) *flow.Policy {
 	return f
 }
 
-// addClusterFilterByDefault attempt to add a cluster filter if the cluster name
-// is defined and that the EndpointSelector doesn't already have a cluster selector
-func addClusterFilterByDefault(es *api.EndpointSelector, clusterName string) {
-	if clusterName != cmtypes.PolicyAnyCluster && !es.HasKey(clusterPrefixLbl) && !es.HasKey(clusterAnyPrefixLbl) {
-		es.AddMatch(clusterPrefixLbl, clusterName)
-	}
-}
-
 // getEndpointSelector converts the provided labelSelector into an EndpointSelector,
 // adding the relevant matches for namespaces and clusters based on the provided options.
 // If no namespace is provided then it is assumed that the selector is global to the cluster
@@ -133,25 +108,14 @@ func getEndpointSelector(clusterName, namespace string, labelSelector *slim_meta
 	// Those pods don't have any labels, so they don't have a namespace label either.
 	// Don't add a namespace label to those endpoint selectors, or we wouldn't be
 	// able to match on those pods.
-	if !es.HasKey(podPrefixLbl) && !es.HasKey(podAnyPrefixLbl) {
-		if namespace == "" {
-			// For a clusterwide policy if a namespace is not specified in the labels we add
-			// a selector to only match endpoints that contains a namespace label.
-			// This is to make sure that we are only allowing traffic for cilium managed k8s endpoints
-			// and even if a wildcard is provided in the selector we don't proceed with a truly
-			// empty(allow all) endpoint selector for the policy.
-			if !matchesInit {
-				es.AddMatchExpression(podPrefixLbl, slim_metav1.LabelSelectorOpExists, []string{})
-			}
-		} else if !es.HasKeyPrefix(podK8SNamespaceLabelsPrefix) && !es.HasKeyPrefix(podAnyNamespaceLabelsPrefix) {
-			es.AddMatch(podPrefixLbl, namespace)
-		}
+	if !matchesInit || namespace != "" {
+		utils.EnsureNamespaceSelector(&es, namespace)
 	}
 
 	// Similarly to namespace, the user can explicitly specify the cluster in the
 	// FromEndpoints selector. If omitted, we limit the
 	// scope to the cluster the policy lives in.
-	addClusterFilterByDefault(&es, clusterName)
+	utils.EnsureClusterSelector(&es, clusterName)
 
 	return es
 }
@@ -172,7 +136,7 @@ func parseToCiliumIngressCommonRule(clusterName, namespace string, es api.Endpoi
 		for j, node := range ing.FromNodes {
 			es = api.NewESFromK8sLabelSelector("", node.LabelSelector)
 			es.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
-			addClusterFilterByDefault(&es, clusterName)
+			utils.EnsureClusterSelector(&es, clusterName)
 			retRule.FromNodes[j] = es
 		}
 	}
@@ -278,7 +242,7 @@ func parseToCiliumEgressCommonRule(clusterName, namespace string, es api.Endpoin
 		for j, node := range egr.ToNodes {
 			es = api.NewESFromK8sLabelSelector("", node.LabelSelector)
 			es.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
-			addClusterFilterByDefault(&es, clusterName)
+			utils.EnsureClusterSelector(&es, clusterName)
 			retRule.ToNodes[j] = es
 		}
 	}
