@@ -351,6 +351,46 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 				"cidr:192.168.1.10/32;reserved:host",
 			},
 		},
+		{
+			name: "world v4 CIDR matching nodes enabled, matches node",
+			rule: api.CIDRRule{Cidr: "0.0.0.0/0", ExceptCIDRs: []api.CIDR{"192.168.2.0/24"}},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:0.0.0.0/0-[192.168.2.0/24]",
+				requirements: Requirements{
+					NewExistRequirement(labels.WorldLabelV4),
+					NewExceptRequirement(labels.NewLabel("192.168.2.0/24", "", labels.LabelSourceCIDR)),
+				},
+			}},
+			enableIPv4:             true,
+			enableIPv6:             true,
+			policyCIDRMatchesNodes: true,
+			matchesLabels: []string{
+				"cidr:192.168.1.10/32;reserved:remote-node",
+				"cidr:192.168.1.10/32;reserved:host",
+			},
+			notMatchesLabels: []string{
+				"cidr:192.168.1.10/32",                      // pod: MatchPods is false
+				"cidr:192.168.2.10/32;reserved:remote-node", // inside except CIDR
+				"cidr:192.168.2.10/32;reserved:host",        // inside except CIDR
+			},
+		},
+		{
+			name: "world v4 CIDR matching nodes disabled, does not match node",
+			rule: api.CIDRRule{Cidr: "0.0.0.0/0"},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:0.0.0.0/0",
+				requirements: Requirements{
+					NewExistRequirement(labels.WorldLabelV4),
+				},
+			}},
+			enableIPv4:             true,
+			enableIPv6:             true,
+			policyCIDRMatchesNodes: false,
+			notMatchesLabels: []string{
+				"cidr:192.168.1.10/32;reserved:remote-node",
+				"cidr:192.168.1.10/32;reserved:host",
+			},
+		},
 	}
 
 	for _, test := range tt {
