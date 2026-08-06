@@ -29,6 +29,16 @@ func nodeLabels(ev *v1.Event) k8sLabels.Labels {
 	return ciliumLabels.ParseK8sLabelArrayFromArray(labels)
 }
 
+func sourceNodeLabels(ev *v1.Event) k8sLabels.Labels {
+	labels := ev.GetFlow().GetSourceNodeLabels()
+	return ciliumLabels.ParseK8sLabelArrayFromArray(labels)
+}
+
+func destinationNodeLabels(ev *v1.Event) k8sLabels.Labels {
+	labels := ev.GetFlow().GetDestinationNodeLabels()
+	return ciliumLabels.ParseK8sLabelArrayFromArray(labels)
+}
+
 func parseSelector(selector string) (k8sLabels.Selector, error) {
 	// ciliumLabels.LabelArray extends the k8sLabels.Selector logic with
 	// support for Cilium source prefixes such as "k8s:foo" or "any:bar".
@@ -99,6 +109,22 @@ func (l *LabelsFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter)
 			return nil, fmt.Errorf("invalid node label filter: %w", err)
 		}
 		fs = append(fs, nlf)
+	}
+
+	if len(ff.GetSourceNodeLabels()) > 0 {
+		snlf, err := FilterByLabelSelectors(ff.GetSourceNodeLabels(), sourceNodeLabels)
+		if err != nil {
+			return nil, fmt.Errorf("invalid source node label filter: %w", err)
+		}
+		fs = append(fs, snlf)
+	}
+
+	if len(ff.GetDestinationNodeLabels()) > 0 {
+		dnlf, err := FilterByLabelSelectors(ff.GetDestinationNodeLabels(), destinationNodeLabels)
+		if err != nil {
+			return nil, fmt.Errorf("invalid destination node label filter: %w", err)
+		}
+		fs = append(fs, dnlf)
 	}
 
 	return fs, nil

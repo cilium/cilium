@@ -4,6 +4,7 @@
 package observe
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strconv"
@@ -494,6 +495,120 @@ func TestLabels(t *testing.T) {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
 	assert.Nil(t, f.blacklist)
+}
+
+func TestDirectionalNodeLabels(t *testing.T) {
+	tests := []struct {
+		name  string
+		flags []string
+		want  []*flowpb.FlowFilter
+	}{
+		{
+			name:  "from single",
+			flags: []string{"--from-node-labels", "topology.kubernetes.io/zone=zone-a"},
+			want: []*flowpb.FlowFilter{
+				{SourceNodeLabels: []string{"topology.kubernetes.io/zone=zone-a"}},
+			},
+		},
+		{
+			name:  "to single",
+			flags: []string{"--to-node-labels", "topology.kubernetes.io/zone=zone-b"},
+			want: []*flowpb.FlowFilter{
+				{DestinationNodeLabels: []string{"topology.kubernetes.io/zone=zone-b"}},
+			},
+		},
+		{
+			name: "repeated from and to preserve argument order",
+			flags: []string{
+				"--from-node-labels", "source-first=one",
+				"--to-node-labels", "destination-first=one",
+				"--from-node-labels", "source-second=two",
+				"--to-node-labels", "destination-second=two",
+			},
+			want: []*flowpb.FlowFilter{
+				{
+					SourceNodeLabels:      []string{"source-first=one", "source-second=two"},
+					DestinationNodeLabels: []string{"destination-first=one", "destination-second=two"},
+				},
+			},
+		},
+		{
+			name: "both directional fields in one filter",
+			flags: []string{
+				"--from-node-labels", "topology.kubernetes.io/zone=zone-a",
+				"--to-node-labels", "topology.kubernetes.io/zone=zone-b",
+			},
+			want: []*flowpb.FlowFilter{
+				{
+					SourceNodeLabels:      []string{"topology.kubernetes.io/zone=zone-a"},
+					DestinationNodeLabels: []string{"topology.kubernetes.io/zone=zone-b"},
+				},
+			},
+		},
+		{
+			name: "observing and directional node labels combine in one filter",
+			flags: []string{
+				"--node-label", "observing-node=true",
+				"--from-node-labels", "source-node=true",
+				"--to-node-labels", "destination-node=true",
+			},
+			want: []*flowpb.FlowFilter{
+				{
+					NodeLabels:            []string{"observing-node=true"},
+					SourceNodeLabels:      []string{"source-node=true"},
+					DestinationNodeLabels: []string{"destination-node=true"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFlowFilter()
+			cmd := newFlowsCmdWithFilter(viper.New(), f)
+
+			require.NoError(t, cmd.Flags().Parse(tt.flags))
+			if diff := cmp.Diff(
+				tt.want,
+				f.whitelist.flowFilters(),
+				cmpopts.IgnoreUnexported(flowpb.FlowFilter{}),
+			); diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+			assert.Nil(t, f.blacklist)
+		})
+	}
+}
+
+func TestDirectionalNodeLabelsBlacklistDispatch(t *testing.T) {
+	f := newFlowFilter()
+	cmd := newFlowsCmdWithFilter(viper.New(), f)
+
+	require.NoError(t, cmd.Flags().Parse([]string{
+		"--not", "--from-node-labels", "topology.kubernetes.io/zone=zone-a",
+	}))
+	assert.Nil(t, f.whitelist, "blacklisted directional filter must not leak into allowlist")
+	if diff := cmp.Diff(
+		[]*flowpb.FlowFilter{
+			{SourceNodeLabels: []string{"topology.kubernetes.io/zone=zone-a"}},
+		},
+		f.blacklist.flowFilters(),
+		cmpopts.IgnoreUnexported(flowpb.FlowFilter{}),
+	); diff != "" {
+		t.Errorf("blacklist mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestDirectionalNodeLabelsHelp(t *testing.T) {
+	cmd := newFlowsCmdWithFilter(viper.New(), newFlowFilter())
+	var help bytes.Buffer
+	cmd.SetOut(&help)
+
+	require.NoError(t, cmd.Help())
+	assert.Contains(t, help.String(), "--from-node-labels")
+	assert.Contains(t, help.String(), "Show only flows whose source node matches the given label selector")
+	assert.Contains(t, help.String(), "--to-node-labels")
+	assert.Contains(t, help.String(), "Show only flows whose destination node matches the given label selector")
 }
 
 func TestFromToWorkloadCombined(t *testing.T) {

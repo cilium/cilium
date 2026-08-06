@@ -68,12 +68,13 @@ type AddressingInfo struct {
 func (logTags) Addressing(ctx context.Context, i AddressingInfo) LogTag {
 	return func(lr *LogRecord, endpointInfoRegistry EndpointInfoRegistry) {
 		lr.SourceEndpoint.ID = i.SrcEPID
+		sourceIdentity := i.SrcIdentity
 		if i.SrcSecIdentity != nil {
-			lr.SourceEndpoint.Identity = uint64(i.SrcSecIdentity.ID)
+			sourceIdentity = i.SrcSecIdentity.ID
 			lr.SourceEndpoint.Labels = i.SrcSecIdentity.LabelArray
-		} else {
-			lr.SourceEndpoint.Identity = uint64(i.SrcIdentity)
 		}
+		lr.SourceEndpoint.Identity = uint64(sourceIdentity)
+		lr.SourceEndpoint.SecurityIdentityProvided = sourceIdentity != identity.IdentityUnknown
 
 		addrPort, err := netip.ParseAddrPort(i.SrcIPPort)
 		if err == nil {
@@ -86,12 +87,13 @@ func (logTags) Addressing(ctx context.Context, i AddressingInfo) LogTag {
 		}
 
 		lr.DestinationEndpoint.ID = i.DstEPID
+		destinationIdentity := i.DstIdentity
 		if i.DstSecIdentity != nil {
-			lr.DestinationEndpoint.Identity = uint64(i.DstSecIdentity.ID)
+			destinationIdentity = i.DstSecIdentity.ID
 			lr.DestinationEndpoint.Labels = i.DstSecIdentity.LabelArray
-		} else {
-			lr.DestinationEndpoint.Identity = uint64(i.DstIdentity)
 		}
+		lr.DestinationEndpoint.Identity = uint64(destinationIdentity)
+		lr.DestinationEndpoint.SecurityIdentityProvided = destinationIdentity != identity.IdentityUnknown
 
 		addrPort, err = netip.ParseAddrPort(i.DstIPPort)
 		if err == nil {

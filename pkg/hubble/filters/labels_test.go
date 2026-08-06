@@ -4,6 +4,7 @@
 package filters
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +13,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
-func TestLabelSelectorFilter(t *testing.T) {
+func TestLabelsFilter(t *testing.T) {
 	type args struct {
 		f  []*flowpb.FlowFilter
 		ev []*v1.Event
@@ -20,7 +21,7 @@ func TestLabelSelectorFilter(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		wantErr bool
+		wantErr string
 		want    []bool
 	}{
 		{
@@ -224,6 +225,207 @@ func TestLabelSelectorFilter(t *testing.T) {
 				false,
 				false,
 			},
+		},
+		{
+			name: "source node label filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						SourceNodeLabels: []string{"topology.kubernetes.io/zone=source-zone"},
+					},
+				},
+				ev: []*v1.Event{
+					{
+						Event: &flowpb.Flow{
+							SourceNodeLabels: []string{"topology.kubernetes.io/zone=source-zone"},
+						},
+					},
+					{
+						Event: &flowpb.Flow{
+							DestinationNodeLabels: []string{"topology.kubernetes.io/zone=source-zone"},
+							NodeLabels:            []string{"topology.kubernetes.io/zone=source-zone"},
+						},
+					},
+					{Event: &flowpb.Flow{}},
+					{},
+					nil,
+				},
+			},
+			want: []bool{
+				true,
+				false,
+				false,
+				false,
+				false,
+			},
+		},
+		{
+			name: "destination node label filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						DestinationNodeLabels: []string{"topology.kubernetes.io/zone=destination-zone"},
+					},
+				},
+				ev: []*v1.Event{
+					{
+						Event: &flowpb.Flow{
+							DestinationNodeLabels: []string{"topology.kubernetes.io/zone=destination-zone"},
+						},
+					},
+					{
+						Event: &flowpb.Flow{
+							SourceNodeLabels: []string{"topology.kubernetes.io/zone=destination-zone"},
+							NodeLabels:       []string{"topology.kubernetes.io/zone=destination-zone"},
+						},
+					},
+					{Event: &flowpb.Flow{}},
+					{},
+					nil,
+				},
+			},
+			want: []bool{
+				true,
+				false,
+				false,
+				false,
+				false,
+			},
+		},
+		{
+			name: "source node label selectors use OR",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						SourceNodeLabels: []string{"role=source-first", "role=source-second"},
+					},
+				},
+				ev: []*v1.Event{
+					{Event: &flowpb.Flow{SourceNodeLabels: []string{"role=source-first"}}},
+					{Event: &flowpb.Flow{SourceNodeLabels: []string{"role=source-second"}}},
+					{Event: &flowpb.Flow{SourceNodeLabels: []string{"role=other"}}},
+				},
+			},
+			want: []bool{true, true, false},
+		},
+		{
+			name: "destination node label selectors use OR",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						DestinationNodeLabels: []string{"role=destination-first", "role=destination-second"},
+					},
+				},
+				ev: []*v1.Event{
+					{Event: &flowpb.Flow{DestinationNodeLabels: []string{"role=destination-first"}}},
+					{Event: &flowpb.Flow{DestinationNodeLabels: []string{"role=destination-second"}}},
+					{Event: &flowpb.Flow{DestinationNodeLabels: []string{"role=other"}}},
+				},
+			},
+			want: []bool{true, true, false},
+		},
+		{
+			name: "source and destination node label filters use AND",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						SourceNodeLabels:      []string{"topology.kubernetes.io/zone=source-zone"},
+						DestinationNodeLabels: []string{"topology.kubernetes.io/zone=destination-zone"},
+					},
+				},
+				ev: []*v1.Event{
+					{
+						Event: &flowpb.Flow{
+							SourceNodeLabels:      []string{"topology.kubernetes.io/zone=source-zone"},
+							DestinationNodeLabels: []string{"topology.kubernetes.io/zone=destination-zone"},
+						},
+					},
+					{
+						Event: &flowpb.Flow{
+							SourceNodeLabels:      []string{"topology.kubernetes.io/zone=other-zone"},
+							DestinationNodeLabels: []string{"topology.kubernetes.io/zone=destination-zone"},
+						},
+					},
+					{
+						Event: &flowpb.Flow{
+							SourceNodeLabels:      []string{"topology.kubernetes.io/zone=source-zone"},
+							DestinationNodeLabels: []string{"topology.kubernetes.io/zone=other-zone"},
+						},
+					},
+				},
+			},
+			want: []bool{true, false, false},
+		},
+		{
+			name: "observing and directional node labels do not cross-match",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						NodeLabels:            []string{"node=observer"},
+						SourceNodeLabels:      []string{"node=source"},
+						DestinationNodeLabels: []string{"node=destination"},
+					},
+				},
+				ev: []*v1.Event{
+					{
+						Event: &flowpb.Flow{
+							NodeLabels:            []string{"node=observer"},
+							SourceNodeLabels:      []string{"node=source"},
+							DestinationNodeLabels: []string{"node=destination"},
+						},
+					},
+					{
+						Event: &flowpb.Flow{
+							NodeLabels:            []string{"node=source"},
+							SourceNodeLabels:      []string{"node=destination"},
+							DestinationNodeLabels: []string{"node=observer"},
+						},
+					},
+				},
+			},
+			want: []bool{true, false},
+		},
+		{
+			name: "observing node label selectors retain OR",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						NodeLabels: []string{"role=observer-first", "role=observer-second"},
+					},
+				},
+				ev: []*v1.Event{
+					{Event: &flowpb.Flow{NodeLabels: []string{"role=observer-first"}}},
+					{Event: &flowpb.Flow{NodeLabels: []string{"role=observer-second"}}},
+					{
+						Event: &flowpb.Flow{
+							SourceNodeLabels:      []string{"role=observer-first"},
+							DestinationNodeLabels: []string{"role=observer-second"},
+						},
+					},
+				},
+			},
+			want: []bool{true, true, false},
+		},
+		{
+			name: "empty directional node label filters add no matcher",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						SourceNodeLabels:      []string{},
+						DestinationNodeLabels: []string{},
+					},
+				},
+				ev: []*v1.Event{nil},
+			},
+			want: []bool{true},
+		},
+		{
+			name: "unset directional node label filters add no matcher",
+			args: args{
+				f:  []*flowpb.FlowFilter{{}},
+				ev: []*v1.Event{nil},
+			},
+			want: []bool{true},
 		},
 		{
 			name: "source and destination label filter",
@@ -550,7 +752,7 @@ func TestLabelSelectorFilter(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: "invalid source label filter",
 		},
 		{
 			name: "invalid destination filter",
@@ -561,7 +763,7 @@ func TestLabelSelectorFilter(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: "invalid destination label filter",
 		},
 		{
 			name: "invalid node filter",
@@ -572,17 +774,41 @@ func TestLabelSelectorFilter(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: "invalid node label filter",
+		},
+		{
+			name: "invalid source node label filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						SourceNodeLabels: []string{"()"},
+					},
+				},
+			},
+			wantErr: "invalid source node label filter",
+		},
+		{
+			name: "invalid destination node label filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						DestinationNodeLabels: []string{"="},
+					},
+				},
+			},
+			wantErr: "invalid destination node label filter",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fl, err := BuildFilterList(t.Context(), tt.args.f, []OnBuildFilter{&LabelsFilter{}})
-			if (err != nil) != tt.wantErr {
-				t.Errorf("\"%s\" error = %v, wantErr %v", tt.name, err, tt.wantErr)
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+				assert.Error(t, errors.Unwrap(err))
 				return
 			}
 			if err != nil {
+				t.Errorf("\"%s\" unexpected error = %v", tt.name, err)
 				return
 			}
 			for i, ev := range tt.args.ev {

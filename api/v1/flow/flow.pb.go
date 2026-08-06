@@ -1517,7 +1517,13 @@ type Flow struct {
 	Uuid string `protobuf:"bytes,34,opt,name=uuid,proto3" json:"uuid,omitempty"`
 	// emitter identifies the source that emitted the flow.
 	Emitter *Emitter `protobuf:"bytes,41,opt,name=emitter,proto3" json:"emitter,omitempty"`
-	Verdict Verdict  `protobuf:"varint,2,opt,name=verdict,proto3,enum=flow.Verdict" json:"verdict,omitempty"`
+	// source_node_labels are the labels of the node hosting the source endpoint,
+	// formatted as "key=value".
+	SourceNodeLabels []string `protobuf:"bytes,42,rep,name=source_node_labels,json=sourceNodeLabels,proto3" json:"source_node_labels,omitempty"`
+	// destination_node_labels are the labels of the node hosting the destination
+	// endpoint, formatted as "key=value".
+	DestinationNodeLabels []string `protobuf:"bytes,43,rep,name=destination_node_labels,json=destinationNodeLabels,proto3" json:"destination_node_labels,omitempty"`
+	Verdict               Verdict  `protobuf:"varint,2,opt,name=verdict,proto3,enum=flow.Verdict" json:"verdict,omitempty"`
 	// only applicable to Verdict = DROPPED.
 	// deprecated in favor of drop_reason_desc.
 	//
@@ -1673,6 +1679,20 @@ func (x *Flow) GetUuid() string {
 func (x *Flow) GetEmitter() *Emitter {
 	if x != nil {
 		return x.Emitter
+	}
+	return nil
+}
+
+func (x *Flow) GetSourceNodeLabels() []string {
+	if x != nil {
+		return x.SourceNodeLabels
+	}
+	return nil
+}
+
+func (x *Flow) GetDestinationNodeLabels() []string {
+	if x != nil {
+		return x.DestinationNodeLabels
 	}
 	return nil
 }
@@ -3599,6 +3619,10 @@ type FlowFilter struct {
 	// node_labels filters on a list of node label selectors. Selectors support
 	// the full Kubernetes label selector syntax.
 	NodeLabels []string `protobuf:"bytes,36,rep,name=node_labels,json=nodeLabels,proto3" json:"node_labels,omitempty"`
+	// source_node_labels filters on source node label selectors.
+	SourceNodeLabels []string `protobuf:"bytes,41,rep,name=source_node_labels,json=sourceNodeLabels,proto3" json:"source_node_labels,omitempty"`
+	// destination_node_labels filters on destination node label selectors.
+	DestinationNodeLabels []string `protobuf:"bytes,42,rep,name=destination_node_labels,json=destinationNodeLabels,proto3" json:"destination_node_labels,omitempty"`
 	// filter based on IP version (ipv4 or ipv6)
 	IpVersion []IPVersion `protobuf:"varint,25,rep,packed,name=ip_version,json=ipVersion,proto3,enum=flow.IPVersion" json:"ip_version,omitempty"`
 	// trace_id filters flows by trace ID
@@ -3894,6 +3918,20 @@ func (x *FlowFilter) GetNodeName() []string {
 func (x *FlowFilter) GetNodeLabels() []string {
 	if x != nil {
 		return x.NodeLabels
+	}
+	return nil
+}
+
+func (x *FlowFilter) GetSourceNodeLabels() []string {
+	if x != nil {
+		return x.SourceNodeLabels
+	}
+	return nil
+}
+
+func (x *FlowFilter) GetDestinationNodeLabels() []string {
+	if x != nil {
+		return x.DestinationNodeLabels
 	}
 	return nil
 }
@@ -5515,11 +5553,13 @@ var File_flow_flow_proto protoreflect.FileDescriptor
 
 const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
-	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbf\x10\n" +
+	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa5\x11\n" +
 	"\x04Flow\x12.\n" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x12\n" +
 	"\x04uuid\x18\" \x01(\tR\x04uuid\x12'\n" +
-	"\aemitter\x18) \x01(\v2\r.flow.EmitterR\aemitter\x12'\n" +
+	"\aemitter\x18) \x01(\v2\r.flow.EmitterR\aemitter\x12,\n" +
+	"\x12source_node_labels\x18* \x03(\tR\x10sourceNodeLabels\x126\n" +
+	"\x17destination_node_labels\x18+ \x03(\tR\x15destinationNodeLabels\x12'\n" +
 	"\averdict\x18\x02 \x01(\x0e2\r.flow.VerdictR\averdict\x12#\n" +
 	"\vdrop_reason\x18\x03 \x01(\rB\x02\x18\x01R\n" +
 	"dropReason\x12+\n" +
@@ -5682,7 +5722,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\bsub_type\x18\x03 \x01(\x05R\asubType\"@\n" +
 	"\x0fCiliumEventType\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\x05R\x04type\x12\x19\n" +
-	"\bsub_type\x18\x02 \x01(\x05R\asubType\"\xe2\r\n" +
+	"\bsub_type\x18\x02 \x01(\x05R\asubType\"\xc8\x0e\n" +
 	"\n" +
 	"FlowFilter\x12\x12\n" +
 	"\x04uuid\x18\x1d \x03(\tR\x04uuid\x12\x1b\n" +
@@ -5728,7 +5768,9 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\ttcp_flags\x18\x17 \x03(\v2\x0e.flow.TCPFlagsR\btcpFlags\x12\x1b\n" +
 	"\tnode_name\x18\x18 \x03(\tR\bnodeName\x12\x1f\n" +
 	"\vnode_labels\x18$ \x03(\tR\n" +
-	"nodeLabels\x12.\n" +
+	"nodeLabels\x12,\n" +
+	"\x12source_node_labels\x18) \x03(\tR\x10sourceNodeLabels\x126\n" +
+	"\x17destination_node_labels\x18* \x03(\tR\x15destinationNodeLabels\x12.\n" +
 	"\n" +
 	"ip_version\x18\x19 \x03(\x0e2\x0f.flow.IPVersionR\tipVersion\x12\x19\n" +
 	"\btrace_id\x18\x1c \x03(\tR\atraceId\x12\x1e\n" +

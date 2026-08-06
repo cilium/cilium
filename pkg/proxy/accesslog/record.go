@@ -84,6 +84,10 @@ type EndpointInfo struct {
 	// Identity is the security identity of the endpoint
 	Identity uint64
 
+	// SecurityIdentityProvided indicates whether Identity was provided by the
+	// original proxy event rather than filled later by a userspace lookup.
+	SecurityIdentityProvided bool `json:"-"`
+
 	// Labels is the list of security relevant labels of the endpoint.
 	// Shared, do not mutate!
 	Labels labels.LabelArray

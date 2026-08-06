@@ -90,24 +90,25 @@ type IPCache interface {
 type IPSetFilterFn func(*nodeTypes.Node) bool
 
 var _ Notifier = (*manager)(nil)
+var _ NodeStateNotifier = (*manager)(nil)
 
 // manager is the entity that manages a collection of nodes
 type manager struct {
 	logger *slog.Logger
-	// mutex is the lock protecting access to the nodes map. The mutex must
-	// be held for any access of the nodes map.
+	// mutex protects the nodes map and nodeStateObservers. It must be held for
+	// any access to either collection.
 	//
 	// The manager mutex works together with the entry mutex in the
-	// following way to minimize the duration the manager mutex is held:
+	// following way to serialize stored state changes before datapath work:
 	//
 	// 1. Acquire manager mutex to safely access nodes map and to retrieve
 	//    node entry.
 	// 2. Acquire mutex of the entry while the manager mutex is still held.
 	//    This guarantees that no change to the entry has happened.
-	// 3. Release of the manager mutex to unblock changes or reads to other
-	//    node entries.
-	// 4. Change of entry data or performing of datapath interactions
-	// 5. Release of the entry mutex
+	// 3. Change stored entry data and synchronously notify state observers.
+	// 4. Release the manager mutex to unblock other node state operations.
+	// 5. Perform datapath interactions.
+	// 6. Release the entry mutex.
 	//
 	// If both the nodeEntry.mutex and Manager.mutex must be held, then the
 	// Manager.mutex must *always* be acquired first.
@@ -115,6 +116,9 @@ type manager struct {
 
 	// nodes is the list of nodes. Access must be protected via mutex.
 	nodes map[nodeTypes.Identity]*nodeEntry
+	// nodeStateObservers is protected by mutex. Observer callbacks run while
+	// mutex is write locked to serialize them with stored node state changes.
+	nodeStateObservers map[NodeStateObserver]struct{}
 
 	// Upon agent startup, this is filled with nodes as read from disk. Used to
 	// synthesize node deletion events for nodes which disappeared while we were
@@ -207,6 +211,42 @@ func (m *manager) Unsubscribe(nh node.Handler) {
 	m.nodeHandlersMu.Unlock()
 }
 
+// SubscribeNodeState subscribes an observer and replays the complete current
+// node state before allowing another stored state change to proceed.
+func (m *manager) SubscribeNodeState(observer NodeStateObserver) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.nodeStateObservers[observer] = struct{}{}
+	for _, entry := range m.nodes {
+		entry.mutex.Lock()
+		observer.NodeUpsert(entry.node)
+		entry.mutex.Unlock()
+	}
+}
+
+// UnsubscribeNodeState removes an observer after any in-flight callback has
+// completed. Once this method returns, no later callback can start.
+func (m *manager) UnsubscribeNodeState(observer NodeStateObserver) {
+	m.mutex.Lock()
+	delete(m.nodeStateObservers, observer)
+	m.mutex.Unlock()
+}
+
+// notifyNodeStateUpsert notifies observers while m.mutex is write locked.
+func (m *manager) notifyNodeStateUpsert(n nodeTypes.Node) {
+	for observer := range m.nodeStateObservers {
+		observer.NodeUpsert(n)
+	}
+}
+
+// notifyNodeStateDelete notifies observers while m.mutex is write locked.
+func (m *manager) notifyNodeStateDelete(n nodeTypes.Node) {
+	for observer := range m.nodeStateObservers {
+		observer.NodeDelete(n)
+	}
+}
+
 // Iter executes the given function in all subscribed node handlers.
 func (m *manager) Iter(f func(nh node.Handler)) {
 	m.nodeHandlersMu.RLock()
@@ -283,6 +323,7 @@ func New(
 	m := &manager{
 		logger:                 logger,
 		nodes:                  map[nodeTypes.Identity]*nodeEntry{},
+		nodeStateObservers:     map[NodeStateObserver]struct{}{},
 		restoredNodes:          map[nodeTypes.Identity]*nodeTypes.Node{},
 		conf:                   c,
 		clusterInfo:            clusterInfo,
@@ -834,24 +875,40 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		ingressIPsAdded = append(ingressIPsAdded, prefixCluster.AsPrefix())
 	}
 
+	m.updateNodeState(n, nodeIdentifier, dpUpdate, resource, ipsetEntries,
+		nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded)
+}
+
+// updateNodeState replaces the stored node and publishes the accepted state
+// before running per-entry datapath work. Its first operation is the manager
+// lock, which is the serialization boundary shared with state subscriptions.
+func (m *manager) updateNodeState(
+	n nodeTypes.Node,
+	nodeIdentifier nodeTypes.Identity,
+	dpUpdate bool,
+	resource ipcacheTypes.ResourceID,
+	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix,
+) {
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentifier]
 	if oldNodeExists {
 		m.metrics.EventsReceived.WithLabelValues("update", string(n.Source)).Inc()
+		entry.mutex.Lock()
 
 		if !source.AllowOverwrite(entry.node.Source, n.Source) {
 			// Done; skip node-handler updates and label injection
 			// triggers below. Includes case where the local host
 			// was discovered locally and then is subsequently
 			// updated by the k8s watcher.
+			entry.mutex.Unlock()
 			m.mutex.Unlock()
 			return
 		}
 
-		entry.mutex.Lock()
-		m.mutex.Unlock()
 		oldNode := entry.node
 		entry.node = n
+		m.notifyNodeStateUpsert(entry.node)
+		m.mutex.Unlock()
 		if dpUpdate {
 			var errs error
 			m.Iter(func(nh node.Handler) {
@@ -884,6 +941,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		entry = &nodeEntry{node: n}
 		entry.mutex.Lock()
 		m.nodes[nodeIdentifier] = entry
+		m.notifyNodeStateUpsert(entry.node)
 		m.mutex.Unlock()
 		var errs error
 		if dpUpdate {
@@ -1092,31 +1150,43 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	m.metrics.EventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
 
 	nodeIdentifier := n.Identity()
+	m.deleteNodeState(n, nodeIdentifier)
+}
+
+// deleteNodeState removes a node from stored state. Its first operation is the
+// manager lock, followed immediately by the live entry lock when one exists.
+func (m *manager) deleteNodeState(n nodeTypes.Node, nodeIdentifier nodeTypes.Identity) {
+	m.mutex.Lock()
 
 	var (
 		entry         *nodeEntry
 		oldNodeExists bool
+		currentNode   nodeTypes.Node
 	)
 
-	m.mutex.Lock()
 	// If the node is restored from disk, it doesn't exist in the bookkeeping,
 	// but we need to synthesize a deletion event for downstream.
 	if n.Source == source.Restored {
 		entry = &nodeEntry{
 			node: n,
 		}
+		entry.mutex.Lock()
+		currentNode = entry.node
 	} else {
 		entry, oldNodeExists = m.nodes[nodeIdentifier]
 		if !oldNodeExists {
 			m.mutex.Unlock()
 			return
 		}
+		entry.mutex.Lock()
+		currentNode = entry.node
 	}
 
 	// If the source is Kubernetes and the node is the node we are running on
 	// Kubernetes is giving us a hint it is about to delete our node. Close down
 	// the agent gracefully in this case.
-	if n.Source != entry.node.Source {
+	if n.Source != currentNode.Source {
+		entry.mutex.Unlock()
 		m.mutex.Unlock()
 		if n.IsLocal() && n.Source == source.Kubernetes {
 			m.logger.Debug(
@@ -1128,7 +1198,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 				"Ignoring delete event of node",
 				logfields.Name, n.Name,
 				logfields.Source, n.Source,
-				logfields.NodeOwner, entry.node.Source,
+				logfields.NodeOwner, currentNode.Source,
 			)
 		}
 		return
@@ -1136,15 +1206,16 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 
 	if n.Source != source.Restored {
 		// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
-		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil, nil)
+		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", currentNode.Name)
+		m.removeNodeFromIPCache(currentNode, resource, nil, nil, nil, nil, nil)
 
 		// We only need to decrement for nodes we've accounted for.
 		m.metrics.NumNodes.Dec()
+
+		delete(m.nodes, currentNode.Identity())
+		m.notifyNodeStateDelete(currentNode)
 	}
 
-	entry.mutex.Lock()
-	delete(m.nodes, nodeIdentifier)
 	if m.nodeCheckpointer != nil {
 		m.nodeCheckpointer.TriggerWithReason("NodeDeleted")
 	}

@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	ciliumLabels "github.com/cilium/cilium/pkg/labels"
@@ -36,6 +37,7 @@ type Parser struct {
 	ipGetter          getters.IPGetter
 	serviceGetter     getters.ServiceGetter
 	endpointGetter    getters.EndpointGetter
+	nodeLabelsGetter  getters.NodeLabelsGetter
 	opts              *options.Options
 }
 
@@ -83,6 +85,7 @@ func New(
 		ipGetter:          ipGetter,
 		serviceGetter:     serviceGetter,
 		endpointGetter:    endpointGetter,
+		nodeLabelsGetter:  args.NodeLabelsGetter,
 		opts:              args,
 	}, nil
 }
@@ -145,6 +148,18 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	decoded.L4 = l4
 	decoded.Source = srcEndpoint
 	decoded.Destination = dstEndpoint
+	decoded.SourceNodeLabels = nil
+	decoded.DestinationNodeLabels = nil
+	if p.nodeLabelsGetter != nil {
+		decoded.SourceNodeLabels = p.nodeLabelsGetter.GetNodeLabels(sourceIP, getters.NodeClusterHint{
+			Identity:      identity.NumericIdentity(r.SourceEndpoint.Identity),
+			IdentityKnown: r.SourceEndpoint.SecurityIdentityProvided,
+		})
+		decoded.DestinationNodeLabels = p.nodeLabelsGetter.GetNodeLabels(destinationIP, getters.NodeClusterHint{
+			Identity:      identity.NumericIdentity(r.DestinationEndpoint.Identity),
+			IdentityKnown: r.DestinationEndpoint.SecurityIdentityProvided,
+		})
+	}
 	decoded.Type = flowpb.FlowType_L7
 	decoded.SourceNames = sourceNames
 	decoded.DestinationNames = destinationNames

@@ -46,6 +46,19 @@ type IPGetter interface {
 	LookupSecIDByIP(ip netip.Addr) (ipcache.Identity, bool)
 }
 
+// NodeClusterHint carries only cluster provenance established by the original
+// event. IdentityKnown must not be set for identities filled by a later lookup.
+type NodeClusterHint struct {
+	Identity      identity.NumericIdentity
+	IdentityKnown bool
+	LocalEndpoint bool
+}
+
+// NodeLabelsGetter resolves the labels of the node owning an endpoint IP.
+type NodeLabelsGetter interface {
+	GetNodeLabels(netip.Addr, NodeClusterHint) []string
+}
+
 // ServiceGetter fetches service metadata.
 type ServiceGetter interface {
 	GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service

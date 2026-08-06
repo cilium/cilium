@@ -51,6 +51,24 @@ type ipTuple struct {
 	src, dst netip.Addr
 }
 
+type nodeLabelsCall struct {
+	ip   netip.Addr
+	hint getters.NodeClusterHint
+}
+
+type recordingNodeLabelsGetter struct {
+	calls           []nodeLabelsCall
+	onGetNodeLabels func(netip.Addr, getters.NodeClusterHint) []string
+}
+
+func (g *recordingNodeLabelsGetter) GetNodeLabels(ip netip.Addr, hint getters.NodeClusterHint) []string {
+	g.calls = append(g.calls, nodeLabelsCall{ip: ip, hint: hint})
+	if g.onGetNodeLabels != nil {
+		return g.onGetNodeLabels(ip, hint)
+	}
+	return nil
+}
+
 var (
 	localIP  = netip.MustParseAddr("1.2.3.4")
 	localEP  = uint16(1234)
@@ -1566,6 +1584,243 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "10.0.0.2", f.IP.Source)
 	assert.Empty(t, f.IP.SourceXlated)
+}
+
+func TestDecodeNodeLabelsUsesFinalNATOrientationAndRawIdentities(t *testing.T) {
+	packetSourceIP := netip.MustParseAddr("10.0.0.2")
+	finalSourceIP := netip.MustParseAddr("192.0.2.10")
+	destinationIP := netip.MustParseAddr("10.0.0.3")
+	sourceIdentity := identity.GetMinimalAllocationIdentity(7)
+	destinationIdentity := identity.GetMinimalAllocationIdentity(9)
+	sourceLabels := []string{"topology.kubernetes.io/zone=remote-a"}
+	destinationLabels := []string{"topology.kubernetes.io/zone=unknown"}
+
+	getter := &recordingNodeLabelsGetter{
+		onGetNodeLabels: func(ip netip.Addr, _ getters.NodeClusterHint) []string {
+			switch ip {
+			case finalSourceIP:
+				return sourceLabels
+			case destinationIP:
+				return destinationLabels
+			default:
+				t.Fatalf("unexpected node-label lookup for %s", ip)
+				return nil
+			}
+		},
+	}
+	parser, err := New(
+		hivetest.Logger(t),
+		&testutils.NoopEndpointGetter,
+		&testutils.NoopIdentityGetter,
+		&testutils.NoopDNSGetter,
+		&testutils.NoopIPGetter,
+		&testutils.NoopServiceGetter,
+		&testutils.NoopLinkGetter,
+		options.WithNodeLabelsGetter(getter),
+	)
+	require.NoError(t, err)
+
+	event := monitor.TraceNotify{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Version:  monitor.TraceNotifyVersion1,
+		SrcLabel: sourceIdentity,
+		DstLabel: destinationIdentity,
+		OrigIP:   types.IPv6{192, 0, 2, 10},
+	}
+	data, err := testutils.CreateL3L4Payload(
+		event,
+		&layers.Ethernet{SrcMAC: srcMAC, DstMAC: dstMAC, EthernetType: layers.EthernetTypeIPv4},
+		&layers.IPv4{SrcIP: packetSourceIP.AsSlice(), DstIP: destinationIP.AsSlice()},
+	)
+	require.NoError(t, err)
+
+	flow := &flowpb.Flow{}
+	require.NoError(t, parser.Decode(data, flow))
+
+	require.Equal(t, finalSourceIP.String(), flow.GetIP().GetSource())
+	require.Equal(t, packetSourceIP.String(), flow.GetIP().GetSourceXlated())
+	require.Equal(t, []nodeLabelsCall{
+		{
+			ip: finalSourceIP,
+			hint: getters.NodeClusterHint{
+				Identity:      sourceIdentity,
+				IdentityKnown: true,
+			},
+		},
+		{
+			ip: destinationIP,
+			hint: getters.NodeClusterHint{
+				Identity:      destinationIdentity,
+				IdentityKnown: true,
+			},
+		},
+	}, getter.calls)
+	require.Equal(t, sourceLabels, flow.GetSourceNodeLabels())
+	require.Equal(t, destinationLabels, flow.GetDestinationNodeLabels())
+	require.Same(t, &sourceLabels[0], &flow.SourceNodeLabels[0])
+	require.Same(t, &destinationLabels[0], &flow.DestinationNodeLabels[0])
+}
+
+func TestDecodeNodeLabelsNilGetterPreservesExistingOutput(t *testing.T) {
+	sourceIP := netip.MustParseAddr("10.0.0.2")
+	destinationIP := netip.MustParseAddr("10.0.0.3")
+	event := monitor.TraceNotify{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Version:  monitor.TraceNotifyVersion2,
+		SrcLabel: identity.GetMinimalAllocationIdentity(1),
+		DstLabel: identity.GetMinimalAllocationIdentity(2),
+	}
+	data, err := testutils.CreateL3L4Payload(
+		event,
+		&layers.Ethernet{SrcMAC: srcMAC, DstMAC: dstMAC, EthernetType: layers.EthernetTypeIPv4},
+		&layers.IPv4{SrcIP: sourceIP.AsSlice(), DstIP: destinationIP.AsSlice()},
+	)
+	require.NoError(t, err)
+
+	getter := &recordingNodeLabelsGetter{
+		onGetNodeLabels: func(ip netip.Addr, _ getters.NodeClusterHint) []string {
+			return []string{"node=" + ip.String()}
+		},
+	}
+	disabledGetter := &recordingNodeLabelsGetter{
+		onGetNodeLabels: func(netip.Addr, getters.NodeClusterHint) []string {
+			t.Fatal("nil node-label getter must not be called")
+			return nil
+		},
+	}
+	enrichedParser, err := New(hivetest.Logger(t), nil, nil, nil, nil, nil, nil, options.WithNodeLabelsGetter(getter))
+	require.NoError(t, err)
+	nilGetterParser, err := New(
+		hivetest.Logger(t), nil, nil, nil, nil, nil, nil,
+		options.WithNodeLabelsGetter(disabledGetter),
+		options.WithNodeLabelsGetter(nil),
+	)
+	require.NoError(t, err)
+
+	enriched := &flowpb.Flow{}
+	require.NoError(t, enrichedParser.Decode(data, enriched))
+	require.Len(t, getter.calls, 2)
+	require.NotEmpty(t, enriched.GetSourceNodeLabels())
+	require.NotEmpty(t, enriched.GetDestinationNodeLabels())
+
+	withoutGetter := &flowpb.Flow{
+		SourceNodeLabels:      []string{"stale-source-label"},
+		DestinationNodeLabels: []string{"stale-destination-label"},
+	}
+	require.NoError(t, nilGetterParser.Decode(data, withoutGetter))
+	require.Empty(t, disabledGetter.calls)
+	require.Empty(t, withoutGetter.GetSourceNodeLabels())
+	require.Empty(t, withoutGetter.GetDestinationNodeLabels())
+
+	enrichedWithoutNewFields := proto.Clone(enriched).(*flowpb.Flow)
+	enrichedWithoutNewFields.SourceNodeLabels = nil
+	enrichedWithoutNewFields.DestinationNodeLabels = nil
+	require.Empty(t, cmp.Diff(enrichedWithoutNewFields, withoutGetter, protocmp.Transform()))
+}
+
+func TestDecodeNodeLabelsClusterCollisionUsesOnlyRawIdentityProvenance(t *testing.T) {
+	collidingIP := netip.MustParseAddr("10.0.0.2")
+	destinationIP := netip.MustParseAddr("10.0.0.3")
+	localIdentity := identity.GetMinimalAllocationIdentity(1)
+	remoteIdentity := identity.GetMinimalAllocationIdentity(7)
+	remoteLabels := []string{"topology.kubernetes.io/zone=remote-a"}
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfo: func(ip netip.Addr) (getters.EndpointInfo, bool) {
+			if ip != collidingIP {
+				return nil, false
+			}
+			return &testutils.FakeEndpointInfo{
+				ID:           1234,
+				Identity:     localIdentity,
+				PodName:      "colliding-local-pod",
+				PodNamespace: "default",
+				Labels: []string{
+					"k8s:io.cilium.k8s.policy.cluster=local-cluster",
+				},
+			}, true
+		},
+	}
+
+	for _, tc := range []struct {
+		name              string
+		rawSourceIdentity identity.NumericIdentity
+		wantKnown         bool
+		wantLabels        []string
+	}{
+		{
+			name:              "remote raw identity ignores colliding local metadata",
+			rawSourceIdentity: remoteIdentity,
+			wantKnown:         true,
+			wantLabels:        remoteLabels,
+		},
+		{
+			name:              "raw unknown does not become local provenance",
+			rawSourceIdentity: identity.IdentityUnknown,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			getter := &recordingNodeLabelsGetter{
+				onGetNodeLabels: func(_ netip.Addr, hint getters.NodeClusterHint) []string {
+					if hint.IdentityKnown && hint.Identity == remoteIdentity {
+						return remoteLabels
+					}
+					return nil
+				},
+			}
+			parser, err := New(
+				hivetest.Logger(t),
+				endpointGetter,
+				&testutils.NoopIdentityGetter,
+				&testutils.NoopDNSGetter,
+				&testutils.NoopIPGetter,
+				&testutils.NoopServiceGetter,
+				&testutils.NoopLinkGetter,
+				options.WithNodeLabelsGetter(getter),
+			)
+			require.NoError(t, err)
+
+			event := monitor.TraceNotify{
+				Type:     byte(monitorAPI.MessageTypeTrace),
+				Version:  monitor.TraceNotifyVersion2,
+				SrcLabel: tc.rawSourceIdentity,
+			}
+			data, err := testutils.CreateL3L4Payload(
+				event,
+				&layers.Ethernet{SrcMAC: srcMAC, DstMAC: dstMAC, EthernetType: layers.EthernetTypeIPv4},
+				&layers.IPv4{SrcIP: collidingIP.AsSlice(), DstIP: destinationIP.AsSlice()},
+			)
+			require.NoError(t, err)
+
+			flow := &flowpb.Flow{}
+			require.NoError(t, parser.Decode(data, flow))
+
+			require.Equal(t, "colliding-local-pod", flow.GetSource().GetPodName())
+			require.Equal(t, "local-cluster", flow.GetSource().GetClusterName())
+			require.Equal(t, []nodeLabelsCall{
+				{
+					ip: collidingIP,
+					hint: getters.NodeClusterHint{
+						Identity:      tc.rawSourceIdentity,
+						IdentityKnown: tc.wantKnown,
+					},
+				},
+				{
+					ip: destinationIP,
+					hint: getters.NodeClusterHint{
+						Identity: identity.IdentityUnknown,
+					},
+				},
+			}, getter.calls)
+			require.Equal(t, tc.wantLabels, flow.GetSourceNodeLabels())
+			require.Empty(t, flow.GetDestinationNodeLabels())
+
+			if tc.rawSourceIdentity == identity.IdentityUnknown {
+				require.Equal(t, localIdentity.Uint32(), flow.GetSource().GetIdentity())
+			} else {
+				require.Equal(t, remoteIdentity.Uint32(), flow.GetSource().GetIdentity())
+			}
+		})
+	}
 }
 
 func TestICMP(t *testing.T) {

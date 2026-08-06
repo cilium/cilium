@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/monitor"
 )
 
@@ -20,6 +21,7 @@ type Options struct {
 	HubbleRedactSettings           HubbleRedactSettings
 	EnableNetworkPolicyCorrelation bool
 	SkipUnknownCGroupIDs           bool
+	NodeLabelsGetter               getters.NodeLabelsGetter
 
 	DropNotifyDecoder          DropNotifyDecoderFunc
 	DebugMsgDecoder            DebugMsgDecoderFunc
@@ -28,6 +30,14 @@ type Options struct {
 	PolicyVerdictNotifyDecoder PolicyVerdictNotifyDecoderFunc
 	TraceSockNotifyDecoder     TraceSockNotifyDecoderFunc
 	L34PacketDecoder           L34PacketDecoder
+}
+
+// WithNodeLabelsGetter configures directional node-label resolution. A nil
+// getter preserves the parser's existing behavior.
+func WithNodeLabelsGetter(g getters.NodeLabelsGetter) Option {
+	return func(opt *Options) {
+		opt.NodeLabelsGetter = g
+	}
 }
 
 // HubbleRedactSettings contains all hubble redact related options
