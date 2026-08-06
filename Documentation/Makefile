@@ -19,7 +19,7 @@ define build_image
   $(ECHO_DOCKER) $(3)
   # Pre-pull FROM docker image due to Buildkit sometimes failing to pull them.
   grep --color=never -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
-  $(QUIET)tar c $(REQUIREMENTS) Dockerfile \
+  $(QUIET)tar --owner=0 --group=0 -c $(REQUIREMENTS) Dockerfile \
     | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) \
                           --build-arg READTHEDOCS_VERSION \
                           --target $(2) --tag $(3) -
