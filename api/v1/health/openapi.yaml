@@ -71,9 +71,6 @@ definitions:
       import:
         package: "github.com/cilium/cilium/api/v1/models"
         alias: "ciliumModels"
-      hint:
-        kind: object
-        nullable: true
   HealthResponse:
     description: Health and status information of local node
     type: object
