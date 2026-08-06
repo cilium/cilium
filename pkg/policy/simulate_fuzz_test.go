@@ -136,16 +136,16 @@ var (
 		labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32")))))
 
 	identityNodeC = identity.NewIdentity(identity.IdentityScopeRemoteNode+1,
-		labels.FromSlice([]labels.Label{
+		labels.FromSlice(
 			labels.NewLabel("nodename", "nodeC", labels.LabelSourceK8s),
 			labels.NewLabel("remote-node", "", labels.LabelSourceReserved),
-		}))
+		))
 
 	fuzzCorpusAggregateIDs = identity.IdentityMap{
-		idA.ID:           idA.LabelArray,
-		idB.ID:           idB.LabelArray,
-		identity1111.ID:  identity1111.LabelArray,
-		identityNodeC.ID: identityNodeC.LabelArray,
+		idA.ID:           idA.Labels,
+		idB.ID:           idB.Labels,
+		identity1111.ID:  identity1111.Labels,
+		identityNodeC.ID: identityNodeC.Labels,
 	}
 
 	// All possible port ranges between 4-7
