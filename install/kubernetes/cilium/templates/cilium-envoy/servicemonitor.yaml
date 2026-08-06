@@ -32,6 +32,10 @@ spec:
   namespaceSelector:
     matchNames:
     - {{ include "cilium.namespace" . }}
+  {{- with .Values.envoy.prometheus.serviceMonitor.attachMetadata }}
+  attachMetadata:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   endpoints:
   - port: envoy-metrics
     interval: {{ .Values.envoy.prometheus.serviceMonitor.interval | quote }}
