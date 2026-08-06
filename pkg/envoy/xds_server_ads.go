@@ -104,10 +104,12 @@ func newADSServerWithCache(cache xdsnew.Cache, logger *slog.Logger, ipCache IPCa
 		config:             config,
 		secretManager:      secretManager,
 		socketPath:         util.GetXDSSocketPath(config.envoySocketDir),
-		accessLogPath:      util.GetAccessLogSocketPath(config.envoySocketDir),
 		restorerPromise:    restorerPromise,
 		listenerCount:      make(map[string]uint),
 		npdsListeners:      make(npdsListenersTracker),
+	}
+	if config.envoyAccessLogEnabled {
+		adsServer.accessLogPath = util.GetAccessLogSocketPath(config.envoySocketDir)
 	}
 	return adsServer
 }

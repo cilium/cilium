@@ -31,6 +31,7 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 
 	callbacks := callbacks.ChainedCallbacks{
 		callbacks.LoggingCallbacks{Log: s.logger},
+		callbacks.MetricsCallbacks{Metrics: s.config.metrics},
 		s.cache.GetCompletionCallbacks(),
 		newNPHDSIPCacheListenerCallbacks(s.logger, s.ipCache, s),
 	}
