@@ -1,0 +1,104 @@
+#! --cluster-id=1 --cluster-name=cluster1 --clustermesh-enable-mcs-api
+
+# Start with the ServiceExport CRD missing the required v1beta1 version
+k8s/add serviceexport-crd-v1alpha1.yaml
+hive/start
+
+# The failed CRD check must fail and we shouldn't have created the synced marker
+* health --levels=degraded --match=job-serviceexport-sync
+kvstore/list -o plain cilium/synced synced.actual
+! grep -q '^# cilium/synced/cluster1/cilium/state/serviceexports/v1$' synced.actual
+
+# Upgrade the CRD and export a service
+k8s/update serviceexport-crd-v1beta1.yaml
+k8s/add namespace.yaml service.yaml serviceexport.yaml
+
+# Verify that the sync job recovers without a restart
+kvstore/list -o json cilium/state/serviceexports serviceexports.actual
+* cmp serviceexports.actual serviceexports.expected
+kvstore/list -o plain cilium/synced synced.actual
+* grep -q '^# cilium/synced/cluster1/cilium/state/serviceexports/v1$' synced.actual
+health/ok --match=job-serviceexport-sync
+
+# ----
+
+-- namespace.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
+
+-- serviceexport-crd-v1alpha1.yaml --
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: serviceexports.multicluster.x-k8s.io
+spec:
+  group: multicluster.x-k8s.io
+  names:
+    kind: ServiceExport
+    plural: serviceexports
+    singular: serviceexport
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+
+-- serviceexport-crd-v1beta1.yaml --
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: serviceexports.multicluster.x-k8s.io
+spec:
+  group: multicluster.x-k8s.io
+  names:
+    kind: ServiceExport
+    plural: serviceexports
+    singular: serviceexport
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: basic
+  namespace: default
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  selector:
+    name: basic
+  sessionAffinity: None
+
+-- serviceexport.yaml --
+apiVersion: multicluster.x-k8s.io/v1beta1
+kind: ServiceExport
+metadata:
+  name: basic
+  namespace: default
+  creationTimestamp: "2026-01-01T00:00:00Z"
+
+-- serviceexports.expected --
+# cilium/state/serviceexports/v1/cluster1/default/basic
+{
+  "cluster": "cluster1",
+  "name": "basic",
+  "namespace": "default",
+  "exportCreationTimestamp": "2026-01-01T00:00:00Z",
+  "ports": [
+    {
+      "name": "http",
+      "protocol": "TCP",
+      "port": 80
+    }
+  ],
+  "type": "ClusterSetIP",
+  "sessionAffinity": "None"
+}
