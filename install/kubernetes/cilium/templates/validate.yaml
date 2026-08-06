@@ -91,6 +91,10 @@
   {{ fail "Only one of .Values.hubble.redact.http.headers.allow, .Values.hubble.redact.http.headers.deny can be specified"}}
 {{- end }}
 
+{{- if and .Values.hubble.exclude.http.headers.allow .Values.hubble.exclude.http.headers.deny }}
+  {{ fail "Only one of .Values.hubble.exclude.http.headers.allow, .Values.hubble.exclude.http.headers.deny can be specified"}}
+{{- end }}
+
 {{- if and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.tls.auto.enabled (eq .Values.clustermesh.apiserver.tls.auto.method "certmanager") }}
   {{- if not .Values.clustermesh.apiserver.tls.auto.certManagerIssuerRef }}
     {{ fail "ClusterMesh TLS certgen method=certmanager requires that user specifies .Values.clustermesh.apiserver.tls.auto.certManagerIssuerRef" }}
