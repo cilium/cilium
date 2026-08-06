@@ -972,6 +972,11 @@ Users (Alphabetically)
       U. CNI, BGP, eBPF, Hubble, DirectRouting (via kube-router)
       Q: @nerzhul
 
+    * N: Verbano Tech
+      D: Verbano Tech runs Cilium as the CNI for a production K3s deployment on a node that coexists with Docker Compose services.
+      U: CNI, Hubble, Kubernetes Services with eBPF per-packet ClusterIP load-balancing
+      L: https://verbano.tech/en/engineering/k3s-cilium-docker-compose-clusterip-timeouts/
+
     * N: Vietnam Post Cloud
       D: Vietnnam Post Cloud is using Cilium in their production, staging, and development clusters
       U: Networking, NetworkPolicy, Services, IPVLAN
