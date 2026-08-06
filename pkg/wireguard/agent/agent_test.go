@@ -304,7 +304,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 				node := wgAgent.peerByNodeName[e.Subject]
 				require.Len(t, node.allowedIPs, len(e.AllowedIPs))
 				for _, ipn := range e.AllowedIPs {
-					require.True(t, containsIP(maps.Values(node.allowedIPs), ipn))
+					require.Contains(t, node.allowedIPs, ipnetToPrefix(*ipn))
 				}
 			}
 
