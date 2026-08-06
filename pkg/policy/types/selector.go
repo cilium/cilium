@@ -20,6 +20,7 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -506,11 +507,75 @@ func (p *CIDRSelector) SelectedNamespaces() []string {
 	return nil
 }
 
+// hasCIDRLabel returns true if the labels contain an IPv4 (ip4==true) or IPv6 CIDR label.
+func hasCIDRLabel(ls labels.LabelArray, is4 bool) bool {
+	for i := range ls {
+		if pfx := ls[i].GetCIDRPrefix(); pfx != nil {
+			if pfx.IsValid() && pfx.Addr().Is4() == is4 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// hasNodeLabel returns true if the labels contain a reserved:host or
+// reserved:remote-node label.
+func hasNodeLabel(ls labels.LabelArray) bool {
+	for i := range ls {
+		if ls[i].Source == labels.LabelSourceReserved &&
+			(ls[i].Key == labels.IDNameHost || ls[i].Key == labels.IDNameRemoteNode) {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *CIDRSelector) Matches(ls labels.LabelArray) bool {
 	if p.encoded {
 		return matchesEncodedRequirements(p.requirements, ls)
 	}
-	return MatchesRequirements(p.requirements, ls)
+
+	for i := range p.requirements {
+		req := &p.requirements[i]
+		if matchesCIDRWildcard(req, ls) {
+			continue // Wildcard requirement satisfied.
+		}
+		if !MatchesRequirement(req, ls) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// matchesCIDRWildcard returns true if the requirement is a wildcard and matches
+// a node target under the PolicyCIDRMatchesNodes configuration.
+//
+// Wildcard CIDRs (e.g., 0.0.0.0/0) are represented by a reserved:world
+// requirement, but node identities never carry the world label. When nodes are
+// selectable by CIDR, they carry CIDR labels instead, which satisfy the
+// wildcard requirement for the matching address family.
+func matchesCIDRWildcard(req *Requirement, ls labels.LabelArray) bool {
+	if req.key.Source != labels.LabelSourceReserved || !option.Config.PolicyCIDRMatchesNodes() {
+		return false
+	}
+
+	isIPv4Req := (req.key.Key == labels.IDNameWorldIPv4 || req.key.Key == labels.IDNameWorld)
+	isIPv6Req := (req.key.Key == labels.IDNameWorldIPv6 || req.key.Key == labels.IDNameWorld)
+
+	if (!isIPv4Req && !isIPv6Req) || !hasNodeLabel(ls) {
+		return false
+	}
+
+	if option.Config.IPv4Enabled() && isIPv4Req && hasCIDRLabel(ls, true /* ip4 */) {
+		return true
+	}
+	if option.Config.IPv6Enabled() && isIPv6Req && hasCIDRLabel(ls, false /* ip4 */) {
+		return true
+	}
+
+	return false
 }
 
 func (p *CIDRSelector) GetFQDNSelector() (*api.FQDNSelector, bool) {

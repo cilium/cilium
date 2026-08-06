@@ -19,9 +19,11 @@ import (
 func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 	oldv4 := option.Config.EnableIPv4
 	oldv6 := option.Config.EnableIPv6
+	oldPolicyCIDRMatchMode := option.Config.PolicyCIDRMatchMode
 	t.Cleanup(func() {
 		option.Config.EnableIPv4 = oldv4
 		option.Config.EnableIPv6 = oldv6
+		option.Config.PolicyCIDRMatchMode = oldPolicyCIDRMatchMode
 	})
 
 	selectors := func(needKeys ...string) Selectors {
@@ -70,12 +72,12 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 	}
 
 	tt := []struct {
-		name                   string
-		rule                   api.CIDRRule
-		expected               Selectors
-		enableIPv4, enableIPv6 bool
-		matchesLabels          []string
-		notMatchesLabels       []string
+		name                                           string
+		rule                                           api.CIDRRule
+		expected                                       Selectors
+		enableIPv4, enableIPv6, policyCIDRMatchesNodes bool
+		matchesLabels                                  []string
+		notMatchesLabels                               []string
 	}{
 		{
 			name:       "basic cidr",
@@ -236,12 +238,56 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 			matchesLabels:    []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidr:192.168.1.1/32;reserved:world-ipv4"},
 			notMatchesLabels: []string{"cidr:::/0;reserved:world-ipv6", "cidr:::1/128;reserved:world-ipv6", "cidr:1.2.3.4/32;reserved:world-ipv4", "cidr:10.1.1.5/32;reserved:world-ipv4"},
 		},
+		{
+			name: "world v4 CIDR matching nodes enabled, matches node",
+			rule: api.CIDRRule{Cidr: "0.0.0.0/0", ExceptCIDRs: []api.CIDR{"192.168.2.0/24"}},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:0.0.0.0/0-[192.168.2.0/24]",
+				requirements: Requirements{
+					NewExistRequirement(labels.WorldLabelV4),
+					NewExceptRequirement(labels.NewLabel("192.168.2.0/24", "", labels.LabelSourceCIDR)),
+				},
+			}},
+			enableIPv4:             true,
+			enableIPv6:             true,
+			policyCIDRMatchesNodes: true,
+			matchesLabels: []string{
+				"cidr:192.168.1.10/32;reserved:remote-node",
+				"cidr:192.168.1.10/32;reserved:host",
+			},
+			notMatchesLabels: []string{
+				"cidr:192.168.1.10/32",                      // pod: not a node
+				"cidr:192.168.2.10/32;reserved:remote-node", // inside except CIDR
+				"cidr:192.168.2.10/32;reserved:host",        // inside except CIDR
+			},
+		},
+		{
+			name: "world v4 CIDR matching nodes disabled, does not match node",
+			rule: api.CIDRRule{Cidr: "0.0.0.0/0"},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:0.0.0.0/0",
+				requirements: Requirements{
+					NewExistRequirement(labels.WorldLabelV4),
+				},
+			}},
+			enableIPv4:             true,
+			enableIPv6:             true,
+			policyCIDRMatchesNodes: false,
+			notMatchesLabels: []string{
+				"cidr:192.168.1.10/32;reserved:remote-node",
+				"cidr:192.168.1.10/32;reserved:host",
+			},
+		},
 	}
 
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
 			option.Config.EnableIPv6 = test.enableIPv6
 			option.Config.EnableIPv4 = test.enableIPv4
+			option.Config.PolicyCIDRMatchMode = []string{}
+			if test.policyCIDRMatchesNodes {
+				option.Config.PolicyCIDRMatchMode = append(option.Config.PolicyCIDRMatchMode, "nodes")
+			}
 
 			if test.rule.CIDRGroupSelector.LabelSelector != nil {
 				test.rule.CIDRGroupSelector.SanitizeWithKeyExtender(labels.GetSourcePrefixKeyExtender(labels.LabelSourceCIDRGroupKeyPrefix))
