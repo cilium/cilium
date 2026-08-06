@@ -6,7 +6,9 @@ package mcsapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -85,7 +87,7 @@ func registerServiceExportSync(jg job.Group, cfg ServiceExportSyncParameters) {
 		job.OneShot(
 			"serviceexport-sync",
 			func(ctx context.Context, _ cell.Health) error {
-				(&serviceExportSync{
+				return (&serviceExportSync{
 					logger:      cfg.Logger,
 					enabled:     cfg.Config.EnableMCSAPI,
 					clusterName: cfg.ClusterInfo.Name,
@@ -100,8 +102,11 @@ func registerServiceExportSync(jg job.Group, cfg ServiceExportSyncParameters) {
 					namespaceManager: cfg.NamespaceManager,
 					namespaces:       cfg.Namespaces,
 				}).loop(ctx)
-				return nil
 			},
+			job.WithRetry(-1, &job.ExponentialBackoff{
+				Min: time.Second,
+				Max: time.Minute,
+			}),
 		),
 		job.OneShot(
 			"run-serviceexport-store",
@@ -129,7 +134,7 @@ type serviceExportSync struct {
 	namespaces       resource.Resource[*slim_corev1.Namespace]
 }
 
-func (s *serviceExportSync) loop(ctx context.Context) {
+func (s *serviceExportSync) loop(ctx context.Context) error {
 	if s.syncCallback == nil {
 		s.syncCallback = func(ctx context.Context) {}
 	}
@@ -141,31 +146,25 @@ func (s *serviceExportSync) loop(ctx context.Context) {
 		// as it's the only cluster mesh type that can be disabled separately.
 		// This is especially useful in the case of the kvstoremesh.
 		s.store.Synced(ctx, s.syncCallback)
-		return
+		return nil
 	}
 
 	if s.clientset != nil /* clientset is nil in tests */ {
 		err := checkCRD(ctx, s.clientset, mcsapiv1beta1.SchemeGroupVersion.WithKind("serviceexports"))
 		if err != nil {
-			s.logger.Warn("starting synchronizing service exports without the required CRD installed", logfields.Error, err)
-			// Also pretend that the service exports are synced for the same reason
-			// as above.
-			s.store.Synced(ctx, s.syncCallback)
-			return
+			return fmt.Errorf("required ServiceExport CRD is not installed: %w", err)
 		}
 	}
 
 	serviceEvents := s.services.Events(ctx)
 	serviceStore, err := s.services.Store(ctx)
 	if err != nil {
-		s.logger.Error("can't init service store", logfields.Error, err)
-		return
+		return fmt.Errorf("can't init service store: %w", err)
 	}
 	serviceExportsEvents := s.serviceExports.Events(ctx)
 	serviceExportStore, err := s.serviceExports.Store(ctx)
 	if err != nil {
-		s.logger.Error("can't init service export store", logfields.Error, err)
-		return
+		return fmt.Errorf("can't init service export store: %w", err)
 	}
 
 	namespaceEvents := s.namespaces.Events(ctx)
@@ -242,6 +241,8 @@ func (s *serviceExportSync) loop(ctx context.Context) {
 			ev.Done(errors.Join(errs...))
 		}
 	}
+
+	return nil
 }
 
 func (s *serviceExportSync) syncMCSAPIServiceSpec(
