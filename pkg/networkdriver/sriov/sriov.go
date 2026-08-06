@@ -4,6 +4,7 @@
 package sriov
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -76,7 +77,7 @@ type PciDevice struct {
 	KernelIfaceName string
 
 	// nl is the netlink ops used by Setup and Free.
-	// Populated by SRIOVManager at ListDevices / RestoreDevice time.
+	// Populated by SRIOVManager at listDevices / RestoreDevice time.
 	// Not serialised — restored devices get the manager's ops re-injected
 	// via RestoreDevice.
 	nl netlinkOps
@@ -254,12 +255,25 @@ func (mgr *SRIOVManager) Type() types.DeviceManagerType {
 	return types.DeviceManagerTypeSRIOV
 }
 
+// Run publishes the discovered SR-IOV VF devices once, then blocks until ctx
+// is cancelled. SR-IOV devices are static — determined by the PF configuration
+// at startup — so a single publish is sufficient.
+func (mgr *SRIOVManager) Run(ctx context.Context, publish func([]types.Device)) error {
+	devices, err := mgr.listDevices()
+	if err != nil {
+		return err
+	}
+	publish(devices)
+	<-ctx.Done()
+	return nil
+}
+
 func (mgr *SRIOVManager) pciDevicesPath() string {
 	return filepath.Join(mgr.sysPath, pciDevicesPath)
 }
 
-// ListDevices scans the system to find sr-iov virtual functions.
-func (mgr *SRIOVManager) ListDevices() ([]types.Device, error) {
+// listDevices scans the system to find sr-iov virtual functions.
+func (mgr *SRIOVManager) listDevices() ([]types.Device, error) {
 	var (
 		result []types.Device
 	)
