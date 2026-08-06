@@ -54,7 +54,7 @@ func EnqueueRequestForBackendService(c client.Client, scheme *runtime.Scheme, lo
 		if err := c.List(ctx, tlsrList, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceTLSRouteIndex, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
-			scopedLog.Error("Failed to get related HTTPRoutes", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Failed to get related TLSRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
