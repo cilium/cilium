@@ -464,14 +464,12 @@ jobs:
         uses: ./.github/actions/bpftrace/check
 
       - name: Fetch artifacts
-        if: ${{ !success() }}
+        if: ${{ !success() && steps.kvstore.outcome == 'success' }}
         shell: bash
         run: |
-          if [ "${{ matrix.kvstore }}" == "true" ]; then
-            echo
-            echo "# Retrieving Cilium etcd logs"
-            kubectl -n kube-system logs kvstore
-          fi
+          echo
+          echo "# Retrieving Cilium etcd logs"
+          kubectl -n kube-system logs kvstore
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
