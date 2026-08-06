@@ -760,14 +760,12 @@ jobs:
           json-filename: "${{ env.job_name }} - after downgrade"
 
       - name: Fetch artifacts
-        if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
+        if: ${{ steps.vars.outputs.downgrade_version != '' && !success() && steps.kvstore.outcome == 'success' }}
         shell: bash
         run: |
-          if [ "${{ matrix.kvstore }}" == "true" ]; then
-            echo
-            echo "# Retrieving Cilium etcd logs"
-            kubectl -n kube-system logs kvstore
-          fi
+          echo
+          echo "# Retrieving Cilium etcd logs"
+          kubectl -n kube-system logs kvstore
 
       - name: Run common post steps
         if: ${{ always() && steps.vars.outputs.downgrade_version != '' && steps.install-cilium.outcome != 'skipped' }}
