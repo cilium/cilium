@@ -16,11 +16,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cilium/dns"
-	"go4.org/netipx"
-	"golang.org/x/sync/semaphore"
-	"golang.org/x/sys/unix"
-
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/lookup"
@@ -37,6 +33,10 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/dns"
+	"go4.org/netipx"
+	"golang.org/x/sync/semaphore"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -253,6 +253,7 @@ func (p *DNSProxy) skipIPInRestorationRLocked(ip netip.Addr) bool {
 // for later restoration.
 //
 // Only used for testing.
+
 func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	// Lock ordering note: Acquiring the IPCache read lock (as LookupIPsBySecID does) while holding
 	// the proxy lock can lead to a deadlock. Avoid this by reading the state from DNSProxy while
@@ -260,20 +261,18 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	// Note that IPCache state may change in between calls to LookupIPsBySecID.
 	p.RLock()
 
-	type selRegex struct {
-		re *regexp.Regexp
-		cs policy.CachedSelector
-	}
-
-	portProtoToSelRegex := make(map[restore.PortProto][]selRegex)
+	regexToSelectors := make(map[restore.PortProto]map[*regexp.Regexp]*set.Set[policy.CachedSelector])
 	for pp, entries := range p.allowed[uint64(endpointID)] {
-		nidRules := make([]selRegex, 0, len(entries))
+		regexToSelectors[pp] = make(map[*regexp.Regexp]*set.Set[policy.CachedSelector])
 		// Copy the entries to avoid racy map accesses after we release the lock. We don't need
 		// constant time access, hence a preallocated slice instead of another map.
 		for cs, regex := range entries {
-			nidRules = append(nidRules, selRegex{cs: cs, re: regex})
+			if regexToSelectors[pp][regex] == nil {
+				s := set.NewSet[policy.CachedSelector]()
+				regexToSelectors[pp][regex] = &s
+			}
+			regexToSelectors[pp][regex].Insert(cs)
 		}
-		portProtoToSelRegex[pp] = nidRules
 	}
 
 	// We've read what we need from the proxy. The following IPCache lookups _must_ occur outside of
@@ -281,61 +280,66 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	p.RUnlock()
 
 	restored := make(restore.DNSRules)
-	for pp, selRegexes := range portProtoToSelRegex {
+
+	for pp, regexMap := range regexToSelectors {
 		var ipRules restore.IPRules
-		for _, selRegex := range selRegexes {
-			if selRegex.cs.IsWildcard() {
-				ipRules = append(ipRules, asIPRule(selRegex.re, nil))
-				continue
-			}
-			ips := make(map[restore.RuleIPOrCIDR]struct{})
-			count := 0
-			nids := selRegex.cs.GetSelections()
-		Loop:
-			for _, nid := range nids {
-				// Note: p.RLock must not be held during this call to IPCache
-				nidIPs := p.proxyLookupHandler.LookupByIdentity(nid)
-				p.RLock()
-				for _, ip := range nidIPs {
-					rip, err := restore.ParseRuleIPOrCIDR(ip)
-					if err != nil {
-						if errors.Is(err, restore.ErrRemoteClusterAddr) {
-							// ignore non-local IPs or CIDRs
-							continue
+
+		for regex, selectorSet := range regexMap {
+			for cs := range selectorSet.Members() {
+				if cs.IsWildcard() {
+					ipRules = append(ipRules, asIPRule(regex, nil))
+				} else {
+					ips := make(map[restore.RuleIPOrCIDR]struct{})
+					count := 0
+					nids := cs.GetSelections()
+				Loop:
+					for _, nid := range nids {
+						// Note: p.RLock must not be held during this call to IPCache
+						nidIPs := p.proxyLookupHandler.LookupByIdentity(nid)
+						p.RLock()
+						for _, ip := range nidIPs {
+							rip, err := restore.ParseRuleIPOrCIDR(ip)
+							if err != nil {
+								if errors.Is(err, restore.ErrRemoteClusterAddr) {
+									// ignore non-local IPs or CIDRs
+									continue
+								}
+								p.logger.Warn(
+									"Could not parse IP for a DNS rule (?!), skipping",
+									logfields.EndpointID, endpointID,
+									logfields.Port, pp.Port(),
+									logfields.Protocol, pp.Protocol(),
+									logfields.EndpointLabelSelector, selectorSet,
+									logfields.IPAddr, ip,
+								)
+								continue
+							}
+							if rip.IsAddr() && p.skipIPInRestorationRLocked(rip.Addr()) {
+								continue
+							}
+							ips[rip] = struct{}{}
+							count++
+							if count > p.maxIPsPerRestoredDNSRule {
+								p.logger.Warn(
+									"Too many IPs for a DNS rule, skipping the rest",
+									logfields.EndpointID, endpointID,
+									logfields.Port, pp.Port(),
+									logfields.Protocol, pp.Protocol(),
+									logfields.Limit, p.maxIPsPerRestoredDNSRule,
+									logfields.Count, len(nidIPs),
+								)
+								p.RUnlock()
+								break Loop
+							}
 						}
-						p.logger.Warn(
-							"Could not parse IP for a DNS rule (?!), skipping",
-							logfields.EndpointID, endpointID,
-							logfields.Port, pp.Port(),
-							logfields.Protocol, pp.Protocol(),
-							logfields.EndpointLabelSelector, selRegex.cs,
-							logfields.IPAddr, ip,
-						)
-						continue
-					}
-					if rip.IsAddr() && p.skipIPInRestorationRLocked(rip.Addr()) {
-						continue
-					}
-					ips[rip] = struct{}{}
-					count++
-					if count > p.maxIPsPerRestoredDNSRule {
-						p.logger.Warn(
-							"Too many IPs for a DNS rule, skipping the rest",
-							logfields.EndpointID, endpointID,
-							logfields.Port, pp.Port(),
-							logfields.Protocol, pp.Protocol(),
-							logfields.Limit, p.maxIPsPerRestoredDNSRule,
-							logfields.Count, len(nidIPs),
-						)
 						p.RUnlock()
-						break Loop
 					}
+					ipRules = append(ipRules, asIPRule(regex, ips))
 				}
-				p.RUnlock()
+
 			}
-			ipRules = append(ipRules, asIPRule(selRegex.re, ips))
+			restored[pp] = ipRules
 		}
-		restored[pp] = ipRules
 	}
 
 	return restored, nil
