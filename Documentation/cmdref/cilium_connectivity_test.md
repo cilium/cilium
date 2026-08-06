@@ -118,7 +118,7 @@ cilium connectivity test [flags]
                                                                    NOTE: There is a lower bound requirement on the number of workers for the sysdump operation to be effective. Therefore, for low values, the actual number of workers may be adjusted upwards. Defaults to the number of available CPUs. (default 20)
       --test strings                                               Run tests that match one of the given regular expressions, skip tests by starting the expression with '!', target Scenarios with e.g. '/pod-to-cidr'
       --test-concurrency int                                       Count of namespaces to perform the connectivity tests in parallel (value <= 0 will be treated as 1) (default 1)
-      --test-conn-disrupt-image string                             Image path to use for connection disruption tests (default "quay.io/cilium/test-connection-disruption:v0.0.17@sha256:62374cfd0e87e6541244331ccf477a21c527c3eefa9d841b97af79996939be0c")
+      --test-conn-disrupt-image string                             Image path to use for connection disruption tests (default "quay.io/cilium/test-connection-disruption:v0.0.18@sha256:1666bbed3eb6f0e3074b366fbf701a5ea7206a946fa2a9fd4efff738bae2d1f9")
       --test-namespace string                                      Namespace to perform the connectivity in (always suffixed with a sequence number to be compliant with test-concurrency param, e.g.: cilium-test-1) (default "cilium-test")
       --timeout duration                                           Maximum time to allow the connectivity test suite to take
   -t, --timestamp                                                  Show timestamp in messages
