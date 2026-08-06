@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/pkg/ip"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -664,6 +665,9 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		ipv6Enabled = true
 	}
 
+	status, ok := ct.Feature(features.CiliumIPAMMode)
+	isENIMode := ok && status.Mode == "eni"
+
 	egressGatewayNode := t.EgressGatewayNode()
 	if egressGatewayNode == "" {
 		t.Fatal("Cannot get egress gateway node")
@@ -767,6 +771,14 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 
 	// Traffic matching an egress gateway policy and an excluded CIDR should leave the cluster masqueraded with the
 	// node IP where the pod is running rather than with the egress IP(pod to external service)
+
+	// In ENI mode each Pod IP is owned by a ENI device with it's own primary IP. In such case
+	// the IP used for egress masquerade may not be the same as the nodes internal IP.
+	var podToEgressIPv4, podToEgressIPv6 map[string]netip.Addr
+	if isENIMode {
+		podToEgressIPv4, podToEgressIPv6 = buildENIPodToNodeIPMap(t, slices.Collect(maps.Values(ct.ClientPods())))
+	}
+
 	i := 0
 	for _, client := range ct.ClientPods() {
 		for _, externalEcho := range ct.ExternalEchoPods() {
@@ -787,16 +799,118 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 					}
 				}
 
+				var eniHostIP netip.Addr
+				if isENIMode {
+					podIP := client.Pod.Status.PodIP
+					eniMap := podToEgressIPv4
+					if ipFam == features.IPFamilyV6 {
+						eniMap = podToEgressIPv6
+						if v6 := podIPv6(client); v6.IsValid() {
+							podIP = v6.String()
+						}
+					}
+					var ok bool
+					eniHostIP, ok = eniMap[podIP]
+					if !ok {
+						t.Fatalf("No ENI node IP mapping for pod %s/%s IP %s", client.Pod.Namespace, client.Pod.Name, podIP)
+					}
+				}
+
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
 					clientIP := extractClientIPFromResponse(t, a.CmdOutput())
 
-					if ip.CompareUnmap(clientIP, hostIP) != 0 {
-						a.Failf("Request reached external echo service with wrong source IP: expected: %s, actual %s", hostIP.String(), clientIP.String())
+					if isENIMode {
+						if ip.CompareUnmap(clientIP, eniHostIP) != 0 {
+							a.Failf("Request reached external echo service with wrong source IP: expected ENI primary IP %s for pod %s/%s, actual %s",
+								eniHostIP.String(), client.Pod.Namespace, client.Pod.Name, clientIP.String())
+						}
+					} else {
+						if ip.CompareUnmap(clientIP, hostIP) != 0 {
+							a.Failf("Request reached external echo service with wrong source IP: expected: %s, actual %s", hostIP.String(), clientIP.String())
+						}
 					}
 				})
 			})
 			i++
 		}
 	}
+}
+
+// podIPv6 returns the first IPv6 address from pod.Status.PodIPs, or an invalid Addr if none.
+func podIPv6(pod check.Pod) netip.Addr {
+	for _, p := range pod.Pod.Status.PodIPs {
+		if a, err := netip.ParseAddr(p.IP); err == nil && a.Unmap().Is6() {
+			return a.Unmap()
+		}
+	}
+	return netip.Addr{}
+}
+
+// hostIPv6 returns the first IPv6 address from pod.Status.HostIPs, or an invalid Addr if none.
+func hostIPv6(pod check.Pod) netip.Addr {
+	for _, h := range pod.Pod.Status.HostIPs {
+		if a, err := netip.ParseAddr(h.IP); err == nil && a.Unmap().Is6() {
+			return a.Unmap()
+		}
+	}
+	return netip.Addr{}
+}
+
+// buildENIPodToNodeIPMap builds a mapping of pod IP to its host ENI device primary IP.
+// In ENI mode, a instance can have multiple ENI networking devices attached and pods
+// IPAM may be allocated from different such devices.
+// Therefore: in cases where traffic is expected to be masqueraded by Pods host node IP
+// (such as in the excluded CIDRs test) we need to find out specifically what address
+// will be used for what Pod (unlike in other test environments where we can rely on the
+// node internal IP being the egress IP.
+func buildENIPodToNodeIPMap(t *check.Test, pods []check.Pod) (v4 map[string]netip.Addr, v6 map[string]netip.Addr) {
+	v4 = make(map[string]netip.Addr)
+	v6 = make(map[string]netip.Addr)
+
+	for _, pod := range pods {
+		var ciliumNode *ciliumv2.CiliumNode
+		for nodeID, cn := range t.Context().CiliumNodes() {
+			if nodeID.Name == pod.Pod.Spec.NodeName {
+				ciliumNode = cn
+				break
+			}
+		}
+		if ciliumNode == nil {
+			t.Fatalf("CiliumNode not found for node %s", pod.Pod.Spec.NodeName)
+		}
+
+		// Resolve the node's IPv6 HostIP once per pod for the v6 map.
+		nodeIPv6 := hostIPv6(pod)
+
+		for _, podIPEntry := range pod.Pod.Status.PodIPs {
+			addr, err := netip.ParseAddr(podIPEntry.IP)
+			if err != nil {
+				continue
+			}
+			addr = addr.Unmap()
+
+			if addr.Is4() {
+				alloc, ok := ciliumNode.Spec.IPAM.Pool[podIPEntry.IP]
+				if !ok {
+					t.Fatalf("Pod IP %s not found in CiliumNode %s IPAM pool", podIPEntry.IP, ciliumNode.Name)
+				}
+				eni, ok := ciliumNode.Status.ENI.ENIs[alloc.Resource]
+				if !ok {
+					t.Fatalf("ENI %s not found in CiliumNode %s status", alloc.Resource, ciliumNode.Name)
+				}
+				eniIP := eni.IP.Addr.Unmap()
+				if !eniIP.IsValid() {
+					t.Fatalf("ENI %s on CiliumNode %s has no valid primary IP", alloc.Resource, ciliumNode.Name)
+				}
+				v4[podIPEntry.IP] = eniIP
+			} else {
+				if !nodeIPv6.IsValid() {
+					t.Fatalf("No IPv6 HostIP found for pod %s/%s", pod.Pod.Namespace, pod.Pod.Name)
+				}
+				v6[podIPEntry.IP] = nodeIPv6
+			}
+		}
+	}
+	return v4, v6
 }
