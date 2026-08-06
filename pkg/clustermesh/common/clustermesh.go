@@ -230,6 +230,7 @@ func (cm *clusterMesh) remove(name string) {
 		// Run onRemove in a separate go routing as potentially slow, to avoid
 		// blocking the processing of further events in the meanwhile.
 		cluster.onRemove(cm.rctx)
+		cm.conf.Metrics.DeRegister(name)
 
 		cm.mutex.Lock()
 		path := cm.tombstones[name]

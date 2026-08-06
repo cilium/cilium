@@ -23,6 +23,7 @@ func newFactory(params params) observer.Factory {
 			name:          cluster,
 			serviceModeV2: params.ServiceModeV2,
 			onSync:        onSync,
+			metrics:       params.Metrics,
 		}
 
 		observer := store.Observer(dummyObserver{})
@@ -54,6 +55,7 @@ type endpointSliceObserver struct {
 	store         store.WatchStore
 	onSync        func()
 	enabled       atomic.Bool
+	metrics       Metrics
 }
 
 func (o *endpointSliceObserver) Name() observer.Name { return Name }
@@ -97,6 +99,10 @@ func (o *endpointSliceObserver) Register(mgr store.WatchStoreManager, backend kv
 
 func (o *endpointSliceObserver) Drain()  { o.store.Drain() }
 func (o *endpointSliceObserver) Revoke() { o.store.Drain() }
+
+func (o *endpointSliceObserver) DeRegister() {
+	o.metrics.DeRegister(o.name)
+}
 
 type dummyObserver struct{}
 

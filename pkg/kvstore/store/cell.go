@@ -24,6 +24,7 @@ type Factory interface {
 	NewSyncStore(clusterName string, backend SyncStoreBackend, prefix string, opts ...WSSOpt) SyncStore
 	NewWatchStore(clusterName string, keyCreator KeyCreator, observer Observer, opts ...RWSOpt) WatchStore
 	NewWatchStoreManager(backend WatchStoreBackend, clusterName string) WatchStoreManager
+	DeRegister(clusterName string)
 }
 
 type factoryImpl struct {
@@ -41,6 +42,10 @@ func (w *factoryImpl) NewWatchStore(clusterName string, keyCreator KeyCreator, o
 
 func (w *factoryImpl) NewWatchStoreManager(backend WatchStoreBackend, clusterName string) WatchStoreManager {
 	return newWatchStoreManagerSync(w.logger, backend, clusterName, w)
+}
+
+func (w *factoryImpl) DeRegister(clusterName string) {
+	w.metrics.DeRegister(clusterName)
 }
 
 func NewFactory(logger *slog.Logger, storeMetrics *Metrics) Factory {

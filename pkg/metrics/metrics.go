@@ -539,27 +539,27 @@ var (
 
 	// APILimiterWaitDuration is the gauge of the current mean, min, and
 	// max wait duration
-	APILimiterWaitDuration = NoOpGaugeVec
+	APILimiterWaitDuration = NoOpGaugeDeletableVec
 
 	// APILimiterProcessingDuration is the gauge of the mean and estimated
 	// processing duration
-	APILimiterProcessingDuration = NoOpGaugeVec
+	APILimiterProcessingDuration = NoOpGaugeDeletableVec
 
 	// APILimiterRequestsInFlight is the gauge of the current and max
 	// requests in flight
-	APILimiterRequestsInFlight = NoOpGaugeVec
+	APILimiterRequestsInFlight = NoOpGaugeDeletableVec
 
 	// APILimiterRateLimit is the gauge of the current rate limiting
 	// configuration including limit and burst
-	APILimiterRateLimit = NoOpGaugeVec
+	APILimiterRateLimit = NoOpGaugeDeletableVec
 
 	// APILimiterAdjustmentFactor is the gauge representing the latest
 	// adjustment factor that was applied
-	APILimiterAdjustmentFactor = NoOpGaugeVec
+	APILimiterAdjustmentFactor = NoOpGaugeDeletableVec
 
 	// APILimiterProcessedRequests is the counter of the number of
 	// processed (successful and failed) requests
-	APILimiterProcessedRequests = NoOpCounterVec
+	APILimiterProcessedRequests = NoOpCounterDeletableVec
 
 	// WorkQueueDepth is the depth of the workqueue
 	//
@@ -701,12 +701,12 @@ type LegacyMetrics struct {
 	BPFMapCapacity                          metric.Vec[metric.Gauge]
 	VersionMetric                           metric.Vec[metric.Gauge]
 	APILimiterWaitHistoryDuration           metric.Vec[metric.Observer]
-	APILimiterWaitDuration                  metric.Vec[metric.Gauge]
-	APILimiterProcessingDuration            metric.Vec[metric.Gauge]
-	APILimiterRequestsInFlight              metric.Vec[metric.Gauge]
-	APILimiterRateLimit                     metric.Vec[metric.Gauge]
-	APILimiterAdjustmentFactor              metric.Vec[metric.Gauge]
-	APILimiterProcessedRequests             metric.Vec[metric.Counter]
+	APILimiterWaitDuration                  metric.DeletableVec[metric.Gauge]
+	APILimiterProcessingDuration            metric.DeletableVec[metric.Gauge]
+	APILimiterRequestsInFlight              metric.DeletableVec[metric.Gauge]
+	APILimiterRateLimit                     metric.DeletableVec[metric.Gauge]
+	APILimiterAdjustmentFactor              metric.DeletableVec[metric.Gauge]
+	APILimiterProcessedRequests             metric.DeletableVec[metric.Counter]
 	WorkQueueDepth                          metric.Vec[metric.Gauge]
 	WorkQueueAddsTotal                      metric.Vec[metric.Counter]
 	WorkQueueLatency                        metric.Vec[metric.Observer]

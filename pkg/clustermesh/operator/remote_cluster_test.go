@@ -259,6 +259,7 @@ type fakeCMObserver struct {
 func (f *fakeCMObserver) Name() observer.Name { return f.name }
 func (f *fakeCMObserver) Revoke()             { f.revoked.Store(true) }
 func (f *fakeCMObserver) Drain()              { f.drained.Store(true) }
+func (f *fakeCMObserver) DeRegister()         {}
 
 func (f *fakeCMObserver) Register(mgr store.WatchStoreManager, backend kvstore.BackendOperations, cfg types.CiliumClusterConfig) {
 	f.registered.Store(true)

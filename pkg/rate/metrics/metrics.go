@@ -6,6 +6,8 @@ package metrics
 import (
 	"strconv"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/rate"
 )
@@ -38,4 +40,13 @@ func (a *apiRateLimitingMetrics) ProcessedRequest(name string, v rate.MetricsVal
 	}
 
 	metrics.APILimiterProcessedRequests.WithLabelValues(name, v.Outcome, strconv.Itoa(v.ReturnCode)).Inc()
+}
+
+func (a *apiRateLimitingMetrics) DeRegister(name string) {
+	metrics.APILimiterAdjustmentFactor.DeletePartialMatch(prometheus.Labels{"api_call": name})
+	metrics.APILimiterProcessedRequests.DeletePartialMatch(prometheus.Labels{"api_call": name})
+	metrics.APILimiterProcessingDuration.DeletePartialMatch(prometheus.Labels{"api_call": name})
+	metrics.APILimiterRateLimit.DeletePartialMatch(prometheus.Labels{"api_call": name})
+	metrics.APILimiterRequestsInFlight.DeletePartialMatch(prometheus.Labels{"api_call": name})
+	metrics.APILimiterWaitDuration.DeletePartialMatch(prometheus.Labels{"api_call": name})
 }

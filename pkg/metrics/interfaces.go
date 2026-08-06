@@ -24,14 +24,15 @@ var (
 	NoOpMetric    prometheus.Metric    = &mockMetric{}
 	NoOpCollector prometheus.Collector = &collector{}
 
-	NoOpCounter           metricpkg.Counter                       = &counter{NoOpMetric, NoOpCollector}
-	NoOpCounterVec        metricpkg.Vec[metricpkg.Counter]        = &counterVec{NoOpCollector}
-	NoOpObserver          metricpkg.Observer                      = &observer{}
-	NoOpHistogram         metricpkg.Histogram                     = &histogram{NoOpCollector}
-	NoOpObserverVec       metricpkg.Vec[metricpkg.Observer]       = &observerVec{NoOpCollector}
-	NoOpGauge             metricpkg.Gauge                         = &gauge{NoOpMetric, NoOpCollector}
-	NoOpGaugeVec          metricpkg.Vec[metricpkg.Gauge]          = &gaugeVec{NoOpCollector}
-	NoOpGaugeDeletableVec metricpkg.DeletableVec[metricpkg.Gauge] = &gaugeDeletableVec{gaugeVec{NoOpCollector}}
+	NoOpCounter             metricpkg.Counter                         = &counter{NoOpMetric, NoOpCollector}
+	NoOpCounterVec          metricpkg.Vec[metricpkg.Counter]          = &counterVec{NoOpCollector}
+	NoOpObserver            metricpkg.Observer                        = &observer{}
+	NoOpHistogram           metricpkg.Histogram                       = &histogram{NoOpCollector}
+	NoOpObserverVec         metricpkg.Vec[metricpkg.Observer]         = &observerVec{NoOpCollector}
+	NoOpCounterDeletableVec metricpkg.DeletableVec[metricpkg.Counter] = &counterDeletableVec{counterVec{NoOpCollector}}
+	NoOpGauge               metricpkg.Gauge                           = &gauge{NoOpMetric, NoOpCollector}
+	NoOpGaugeVec            metricpkg.Vec[metricpkg.Gauge]            = &gaugeVec{NoOpCollector}
+	NoOpGaugeDeletableVec   metricpkg.DeletableVec[metricpkg.Gauge]   = &gaugeDeletableVec{gaugeVec{NoOpCollector}}
 )
 
 // Metric
@@ -86,6 +87,24 @@ func (cv *counterVec) GetMetricWithLabelValues(...string) (metricpkg.Counter, er
 func (cv *counterVec) IsEnabled() bool      { return false }
 func (cv *counterVec) SetEnabled(bool)      {}
 func (cv *counterVec) Opts() metricpkg.Opts { return metricpkg.Opts{} }
+
+type counterDeletableVec struct {
+	counterVec
+}
+
+func (*counterDeletableVec) Delete(ll prometheus.Labels) bool {
+	return false
+}
+
+func (*counterDeletableVec) DeleteLabelValues(lvs ...string) bool {
+	return false
+}
+
+func (*counterDeletableVec) DeletePartialMatch(labels prometheus.Labels) int {
+	return 0
+}
+
+func (*counterDeletableVec) Reset() {}
 
 // Observer
 
