@@ -1691,6 +1691,12 @@ func (r *gatewayReconciler) validateListener(ctx context.Context, l gatewayv1.Li
 		}
 	}
 
+	// supportedKinds is serialized with omitzero: a nil slice is dropped from
+	// the listener status, so always emit an explicit (possibly empty) list.
+	if res.supportedKinds == nil {
+		res.supportedKinds = []gatewayv1.RouteGroupKind{}
+	}
+
 	return res
 }
 
