@@ -2774,25 +2774,332 @@ func (x *MUPDirectSegmentDiscoveryRoute) GetAddress() string {
 	return ""
 }
 
+type MUPSessionParametersTLV struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Teid          uint32                 `protobuf:"varint,1,opt,name=teid,proto3" json:"teid,omitempty"`
+	Qfi           uint32                 `protobuf:"varint,2,opt,name=qfi,proto3" json:"qfi,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MUPSessionParametersTLV) Reset() {
+	*x = MUPSessionParametersTLV{}
+	mi := &file_api_nlri_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MUPSessionParametersTLV) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MUPSessionParametersTLV) ProtoMessage() {}
+
+func (x *MUPSessionParametersTLV) ProtoReflect() protoreflect.Message {
+	mi := &file_api_nlri_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MUPSessionParametersTLV.ProtoReflect.Descriptor instead.
+func (*MUPSessionParametersTLV) Descriptor() ([]byte, []int) {
+	return file_api_nlri_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *MUPSessionParametersTLV) GetTeid() uint32 {
+	if x != nil {
+		return x.Teid
+	}
+	return 0
+}
+
+func (x *MUPSessionParametersTLV) GetQfi() uint32 {
+	if x != nil {
+		return x.Qfi
+	}
+	return 0
+}
+
+type MUPInterworkEndpointTLV struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MUPInterworkEndpointTLV) Reset() {
+	*x = MUPInterworkEndpointTLV{}
+	mi := &file_api_nlri_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MUPInterworkEndpointTLV) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MUPInterworkEndpointTLV) ProtoMessage() {}
+
+func (x *MUPInterworkEndpointTLV) ProtoReflect() protoreflect.Message {
+	mi := &file_api_nlri_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MUPInterworkEndpointTLV.ProtoReflect.Descriptor instead.
+func (*MUPInterworkEndpointTLV) Descriptor() ([]byte, []int) {
+	return file_api_nlri_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *MUPInterworkEndpointTLV) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+type MUPSourceAddressTLV struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MUPSourceAddressTLV) Reset() {
+	*x = MUPSourceAddressTLV{}
+	mi := &file_api_nlri_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MUPSourceAddressTLV) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MUPSourceAddressTLV) ProtoMessage() {}
+
+func (x *MUPSourceAddressTLV) ProtoReflect() protoreflect.Message {
+	mi := &file_api_nlri_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MUPSourceAddressTLV.ProtoReflect.Descriptor instead.
+func (*MUPSourceAddressTLV) Descriptor() ([]byte, []int) {
+	return file_api_nlri_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *MUPSourceAddressTLV) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+type MUPUnknownTLV struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          uint32                 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
+	Value         []byte                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MUPUnknownTLV) Reset() {
+	*x = MUPUnknownTLV{}
+	mi := &file_api_nlri_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MUPUnknownTLV) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MUPUnknownTLV) ProtoMessage() {}
+
+func (x *MUPUnknownTLV) ProtoReflect() protoreflect.Message {
+	mi := &file_api_nlri_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MUPUnknownTLV.ProtoReflect.Descriptor instead.
+func (*MUPUnknownTLV) Descriptor() ([]byte, []int) {
+	return file_api_nlri_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *MUPUnknownTLV) GetType() uint32 {
+	if x != nil {
+		return x.Type
+	}
+	return 0
+}
+
+func (x *MUPUnknownTLV) GetValue() []byte {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type MUPTLV struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Tlv:
+	//
+	//	*MUPTLV_SessionParameters
+	//	*MUPTLV_InterworkEndpoint
+	//	*MUPTLV_SourceAddress
+	//	*MUPTLV_Unknown
+	Tlv           isMUPTLV_Tlv `protobuf_oneof:"tlv"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MUPTLV) Reset() {
+	*x = MUPTLV{}
+	mi := &file_api_nlri_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MUPTLV) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MUPTLV) ProtoMessage() {}
+
+func (x *MUPTLV) ProtoReflect() protoreflect.Message {
+	mi := &file_api_nlri_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MUPTLV.ProtoReflect.Descriptor instead.
+func (*MUPTLV) Descriptor() ([]byte, []int) {
+	return file_api_nlri_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *MUPTLV) GetTlv() isMUPTLV_Tlv {
+	if x != nil {
+		return x.Tlv
+	}
+	return nil
+}
+
+func (x *MUPTLV) GetSessionParameters() *MUPSessionParametersTLV {
+	if x != nil {
+		if x, ok := x.Tlv.(*MUPTLV_SessionParameters); ok {
+			return x.SessionParameters
+		}
+	}
+	return nil
+}
+
+func (x *MUPTLV) GetInterworkEndpoint() *MUPInterworkEndpointTLV {
+	if x != nil {
+		if x, ok := x.Tlv.(*MUPTLV_InterworkEndpoint); ok {
+			return x.InterworkEndpoint
+		}
+	}
+	return nil
+}
+
+func (x *MUPTLV) GetSourceAddress() *MUPSourceAddressTLV {
+	if x != nil {
+		if x, ok := x.Tlv.(*MUPTLV_SourceAddress); ok {
+			return x.SourceAddress
+		}
+	}
+	return nil
+}
+
+func (x *MUPTLV) GetUnknown() *MUPUnknownTLV {
+	if x != nil {
+		if x, ok := x.Tlv.(*MUPTLV_Unknown); ok {
+			return x.Unknown
+		}
+	}
+	return nil
+}
+
+type isMUPTLV_Tlv interface {
+	isMUPTLV_Tlv()
+}
+
+type MUPTLV_SessionParameters struct {
+	SessionParameters *MUPSessionParametersTLV `protobuf:"bytes,1,opt,name=session_parameters,json=sessionParameters,proto3,oneof"`
+}
+
+type MUPTLV_InterworkEndpoint struct {
+	InterworkEndpoint *MUPInterworkEndpointTLV `protobuf:"bytes,2,opt,name=interwork_endpoint,json=interworkEndpoint,proto3,oneof"`
+}
+
+type MUPTLV_SourceAddress struct {
+	SourceAddress *MUPSourceAddressTLV `protobuf:"bytes,3,opt,name=source_address,json=sourceAddress,proto3,oneof"`
+}
+
+type MUPTLV_Unknown struct {
+	Unknown *MUPUnknownTLV `protobuf:"bytes,4,opt,name=unknown,proto3,oneof"`
+}
+
+func (*MUPTLV_SessionParameters) isMUPTLV_Tlv() {}
+
+func (*MUPTLV_InterworkEndpoint) isMUPTLV_Tlv() {}
+
+func (*MUPTLV_SourceAddress) isMUPTLV_Tlv() {}
+
+func (*MUPTLV_Unknown) isMUPTLV_Tlv() {}
+
 type MUPType1SessionTransformedRoute struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Rd    *RouteDistinguisher    `protobuf:"bytes,1,opt,name=rd,proto3" json:"rd,omitempty"`
 	// Deprecated: Marked as deprecated in api/nlri.proto.
-	PrefixLength          uint32 `protobuf:"varint,2,opt,name=prefix_length,json=prefixLength,proto3" json:"prefix_length,omitempty"`
-	Prefix                string `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
-	Teid                  uint32 `protobuf:"varint,4,opt,name=teid,proto3" json:"teid,omitempty"`
-	Qfi                   uint32 `protobuf:"varint,5,opt,name=qfi,proto3" json:"qfi,omitempty"`
-	EndpointAddressLength uint32 `protobuf:"varint,6,opt,name=endpoint_address_length,json=endpointAddressLength,proto3" json:"endpoint_address_length,omitempty"`
-	EndpointAddress       string `protobuf:"bytes,7,opt,name=endpoint_address,json=endpointAddress,proto3" json:"endpoint_address,omitempty"`
-	SourceAddressLength   uint32 `protobuf:"varint,8,opt,name=source_address_length,json=sourceAddressLength,proto3" json:"source_address_length,omitempty"`
-	SourceAddress         string `protobuf:"bytes,9,opt,name=source_address,json=sourceAddress,proto3" json:"source_address,omitempty"`
+	PrefixLength          uint32    `protobuf:"varint,2,opt,name=prefix_length,json=prefixLength,proto3" json:"prefix_length,omitempty"`
+	Prefix                string    `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	Teid                  uint32    `protobuf:"varint,4,opt,name=teid,proto3" json:"teid,omitempty"`
+	Qfi                   uint32    `protobuf:"varint,5,opt,name=qfi,proto3" json:"qfi,omitempty"`
+	EndpointAddressLength uint32    `protobuf:"varint,6,opt,name=endpoint_address_length,json=endpointAddressLength,proto3" json:"endpoint_address_length,omitempty"`
+	EndpointAddress       string    `protobuf:"bytes,7,opt,name=endpoint_address,json=endpointAddress,proto3" json:"endpoint_address,omitempty"`
+	SourceAddressLength   uint32    `protobuf:"varint,8,opt,name=source_address_length,json=sourceAddressLength,proto3" json:"source_address_length,omitempty"`
+	SourceAddress         string    `protobuf:"bytes,9,opt,name=source_address,json=sourceAddress,proto3" json:"source_address,omitempty"`
+	Tlvs                  []*MUPTLV `protobuf:"bytes,10,rep,name=tlvs,proto3" json:"tlvs,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
 
 func (x *MUPType1SessionTransformedRoute) Reset() {
 	*x = MUPType1SessionTransformedRoute{}
-	mi := &file_api_nlri_proto_msgTypes[36]
+	mi := &file_api_nlri_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2804,7 +3111,7 @@ func (x *MUPType1SessionTransformedRoute) String() string {
 func (*MUPType1SessionTransformedRoute) ProtoMessage() {}
 
 func (x *MUPType1SessionTransformedRoute) ProtoReflect() protoreflect.Message {
-	mi := &file_api_nlri_proto_msgTypes[36]
+	mi := &file_api_nlri_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2817,7 +3124,7 @@ func (x *MUPType1SessionTransformedRoute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MUPType1SessionTransformedRoute.ProtoReflect.Descriptor instead.
 func (*MUPType1SessionTransformedRoute) Descriptor() ([]byte, []int) {
-	return file_api_nlri_proto_rawDescGZIP(), []int{36}
+	return file_api_nlri_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *MUPType1SessionTransformedRoute) GetRd() *RouteDistinguisher {
@@ -2884,19 +3191,27 @@ func (x *MUPType1SessionTransformedRoute) GetSourceAddress() string {
 	return ""
 }
 
+func (x *MUPType1SessionTransformedRoute) GetTlvs() []*MUPTLV {
+	if x != nil {
+		return x.Tlvs
+	}
+	return nil
+}
+
 type MUPType2SessionTransformedRoute struct {
 	state                 protoimpl.MessageState `protogen:"open.v1"`
 	Rd                    *RouteDistinguisher    `protobuf:"bytes,1,opt,name=rd,proto3" json:"rd,omitempty"`
 	EndpointAddressLength uint32                 `protobuf:"varint,2,opt,name=endpoint_address_length,json=endpointAddressLength,proto3" json:"endpoint_address_length,omitempty"`
 	EndpointAddress       string                 `protobuf:"bytes,3,opt,name=endpoint_address,json=endpointAddress,proto3" json:"endpoint_address,omitempty"`
 	Teid                  uint32                 `protobuf:"varint,4,opt,name=teid,proto3" json:"teid,omitempty"`
+	Tlvs                  []*MUPTLV              `protobuf:"bytes,5,rep,name=tlvs,proto3" json:"tlvs,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
 
 func (x *MUPType2SessionTransformedRoute) Reset() {
 	*x = MUPType2SessionTransformedRoute{}
-	mi := &file_api_nlri_proto_msgTypes[37]
+	mi := &file_api_nlri_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2908,7 +3223,7 @@ func (x *MUPType2SessionTransformedRoute) String() string {
 func (*MUPType2SessionTransformedRoute) ProtoMessage() {}
 
 func (x *MUPType2SessionTransformedRoute) ProtoReflect() protoreflect.Message {
-	mi := &file_api_nlri_proto_msgTypes[37]
+	mi := &file_api_nlri_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2921,7 +3236,7 @@ func (x *MUPType2SessionTransformedRoute) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MUPType2SessionTransformedRoute.ProtoReflect.Descriptor instead.
 func (*MUPType2SessionTransformedRoute) Descriptor() ([]byte, []int) {
-	return file_api_nlri_proto_rawDescGZIP(), []int{37}
+	return file_api_nlri_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *MUPType2SessionTransformedRoute) GetRd() *RouteDistinguisher {
@@ -2952,6 +3267,13 @@ func (x *MUPType2SessionTransformedRoute) GetTeid() uint32 {
 	return 0
 }
 
+func (x *MUPType2SessionTransformedRoute) GetTlvs() []*MUPTLV {
+	if x != nil {
+		return x.Tlvs
+	}
+	return nil
+}
+
 type LsAddrPrefix_LsNLRI struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Nlri:
@@ -2968,7 +3290,7 @@ type LsAddrPrefix_LsNLRI struct {
 
 func (x *LsAddrPrefix_LsNLRI) Reset() {
 	*x = LsAddrPrefix_LsNLRI{}
-	mi := &file_api_nlri_proto_msgTypes[38]
+	mi := &file_api_nlri_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2980,7 +3302,7 @@ func (x *LsAddrPrefix_LsNLRI) String() string {
 func (*LsAddrPrefix_LsNLRI) ProtoMessage() {}
 
 func (x *LsAddrPrefix_LsNLRI) ProtoReflect() protoreflect.Message {
-	mi := &file_api_nlri_proto_msgTypes[38]
+	mi := &file_api_nlri_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3282,7 +3604,23 @@ const file_api_nlri_proto_rawDesc = "" +
 	"\x06prefix\x18\x02 \x01(\tR\x06prefix\"c\n" +
 	"\x1eMUPDirectSegmentDiscoveryRoute\x12'\n" +
 	"\x02rd\x18\x01 \x01(\v2\x17.api.RouteDistinguisherR\x02rd\x12\x18\n" +
-	"\aaddress\x18\x02 \x01(\tR\aaddress\"\xef\x02\n" +
+	"\aaddress\x18\x02 \x01(\tR\aaddress\"?\n" +
+	"\x17MUPSessionParametersTLV\x12\x12\n" +
+	"\x04teid\x18\x01 \x01(\rR\x04teid\x12\x10\n" +
+	"\x03qfi\x18\x02 \x01(\rR\x03qfi\"3\n" +
+	"\x17MUPInterworkEndpointTLV\x12\x18\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddress\"/\n" +
+	"\x13MUPSourceAddressTLV\x12\x18\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddress\"9\n" +
+	"\rMUPUnknownTLV\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\rR\x04type\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\fR\x05value\"\xa0\x02\n" +
+	"\x06MUPTLV\x12M\n" +
+	"\x12session_parameters\x18\x01 \x01(\v2\x1c.api.MUPSessionParametersTLVH\x00R\x11sessionParameters\x12M\n" +
+	"\x12interwork_endpoint\x18\x02 \x01(\v2\x1c.api.MUPInterworkEndpointTLVH\x00R\x11interworkEndpoint\x12A\n" +
+	"\x0esource_address\x18\x03 \x01(\v2\x18.api.MUPSourceAddressTLVH\x00R\rsourceAddress\x12.\n" +
+	"\aunknown\x18\x04 \x01(\v2\x12.api.MUPUnknownTLVH\x00R\aunknownB\x05\n" +
+	"\x03tlv\"\x90\x03\n" +
 	"\x1fMUPType1SessionTransformedRoute\x12'\n" +
 	"\x02rd\x18\x01 \x01(\v2\x17.api.RouteDistinguisherR\x02rd\x12'\n" +
 	"\rprefix_length\x18\x02 \x01(\rB\x02\x18\x01R\fprefixLength\x12\x16\n" +
@@ -3292,12 +3630,15 @@ const file_api_nlri_proto_rawDesc = "" +
 	"\x17endpoint_address_length\x18\x06 \x01(\rR\x15endpointAddressLength\x12)\n" +
 	"\x10endpoint_address\x18\a \x01(\tR\x0fendpointAddress\x122\n" +
 	"\x15source_address_length\x18\b \x01(\rR\x13sourceAddressLength\x12%\n" +
-	"\x0esource_address\x18\t \x01(\tR\rsourceAddress\"\xc1\x01\n" +
+	"\x0esource_address\x18\t \x01(\tR\rsourceAddress\x12\x1f\n" +
+	"\x04tlvs\x18\n" +
+	" \x03(\v2\v.api.MUPTLVR\x04tlvs\"\xe2\x01\n" +
 	"\x1fMUPType2SessionTransformedRoute\x12'\n" +
 	"\x02rd\x18\x01 \x01(\v2\x17.api.RouteDistinguisherR\x02rd\x126\n" +
 	"\x17endpoint_address_length\x18\x02 \x01(\rR\x15endpointAddressLength\x12)\n" +
 	"\x10endpoint_address\x18\x03 \x01(\tR\x0fendpointAddress\x12\x12\n" +
-	"\x04teid\x18\x04 \x01(\rR\x04teid*\xab\x01\n" +
+	"\x04teid\x18\x04 \x01(\rR\x04teid\x12\x1f\n" +
+	"\x04tlvs\x18\x05 \x03(\v2\v.api.MUPTLVR\x04tlvs*\xab\x01\n" +
 	"\n" +
 	"LsNLRIType\x12\x1c\n" +
 	"\x18LS_NLRI_TYPE_UNSPECIFIED\x10\x00\x12\x15\n" +
@@ -3336,7 +3677,7 @@ func file_api_nlri_proto_rawDescGZIP() []byte {
 }
 
 var file_api_nlri_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_api_nlri_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_api_nlri_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_api_nlri_proto_goTypes = []any{
 	(LsNLRIType)(0),                                // 0: api.LsNLRIType
 	(LsProtocolID)(0),                              // 1: api.LsProtocolID
@@ -3377,11 +3718,16 @@ var file_api_nlri_proto_goTypes = []any{
 	(*LsAddrPrefix)(nil),                           // 36: api.LsAddrPrefix
 	(*MUPInterworkSegmentDiscoveryRoute)(nil),      // 37: api.MUPInterworkSegmentDiscoveryRoute
 	(*MUPDirectSegmentDiscoveryRoute)(nil),         // 38: api.MUPDirectSegmentDiscoveryRoute
-	(*MUPType1SessionTransformedRoute)(nil),        // 39: api.MUPType1SessionTransformedRoute
-	(*MUPType2SessionTransformedRoute)(nil),        // 40: api.MUPType2SessionTransformedRoute
-	(*LsAddrPrefix_LsNLRI)(nil),                    // 41: api.LsAddrPrefix.LsNLRI
-	(*RouteDistinguisher)(nil),                     // 42: api.RouteDistinguisher
-	(*RouteTarget)(nil),                            // 43: api.RouteTarget
+	(*MUPSessionParametersTLV)(nil),                // 39: api.MUPSessionParametersTLV
+	(*MUPInterworkEndpointTLV)(nil),                // 40: api.MUPInterworkEndpointTLV
+	(*MUPSourceAddressTLV)(nil),                    // 41: api.MUPSourceAddressTLV
+	(*MUPUnknownTLV)(nil),                          // 42: api.MUPUnknownTLV
+	(*MUPTLV)(nil),                                 // 43: api.MUPTLV
+	(*MUPType1SessionTransformedRoute)(nil),        // 44: api.MUPType1SessionTransformedRoute
+	(*MUPType2SessionTransformedRoute)(nil),        // 45: api.MUPType2SessionTransformedRoute
+	(*LsAddrPrefix_LsNLRI)(nil),                    // 46: api.LsAddrPrefix.LsNLRI
+	(*RouteDistinguisher)(nil),                     // 47: api.RouteDistinguisher
+	(*RouteTarget)(nil),                            // 48: api.RouteTarget
 }
 var file_api_nlri_proto_depIdxs = []int32{
 	4,  // 0: api.NLRI.prefix:type_name -> api.IPAddressPrefix
@@ -3403,28 +3749,28 @@ var file_api_nlri_proto_depIdxs = []int32{
 	15, // 16: api.NLRI.sr_policy:type_name -> api.SRPolicyNLRI
 	37, // 17: api.NLRI.mup_interwork_segment_discovery:type_name -> api.MUPInterworkSegmentDiscoveryRoute
 	38, // 18: api.NLRI.mup_direct_segment_discovery:type_name -> api.MUPDirectSegmentDiscoveryRoute
-	39, // 19: api.NLRI.mup_type_1_session_transformed:type_name -> api.MUPType1SessionTransformedRoute
-	40, // 20: api.NLRI.mup_type_2_session_transformed:type_name -> api.MUPType2SessionTransformedRoute
-	42, // 21: api.VPLSNLRI.rd:type_name -> api.RouteDistinguisher
-	42, // 22: api.EVPNEthernetAutoDiscoveryRoute.rd:type_name -> api.RouteDistinguisher
+	44, // 19: api.NLRI.mup_type_1_session_transformed:type_name -> api.MUPType1SessionTransformedRoute
+	45, // 20: api.NLRI.mup_type_2_session_transformed:type_name -> api.MUPType2SessionTransformedRoute
+	47, // 21: api.VPLSNLRI.rd:type_name -> api.RouteDistinguisher
+	47, // 22: api.EVPNEthernetAutoDiscoveryRoute.rd:type_name -> api.RouteDistinguisher
 	8,  // 23: api.EVPNEthernetAutoDiscoveryRoute.esi:type_name -> api.EthernetSegmentIdentifier
-	42, // 24: api.EVPNMACIPAdvertisementRoute.rd:type_name -> api.RouteDistinguisher
+	47, // 24: api.EVPNMACIPAdvertisementRoute.rd:type_name -> api.RouteDistinguisher
 	8,  // 25: api.EVPNMACIPAdvertisementRoute.esi:type_name -> api.EthernetSegmentIdentifier
-	42, // 26: api.EVPNInclusiveMulticastEthernetTagRoute.rd:type_name -> api.RouteDistinguisher
-	42, // 27: api.EVPNEthernetSegmentRoute.rd:type_name -> api.RouteDistinguisher
+	47, // 26: api.EVPNInclusiveMulticastEthernetTagRoute.rd:type_name -> api.RouteDistinguisher
+	47, // 27: api.EVPNEthernetSegmentRoute.rd:type_name -> api.RouteDistinguisher
 	8,  // 28: api.EVPNEthernetSegmentRoute.esi:type_name -> api.EthernetSegmentIdentifier
-	42, // 29: api.EVPNIPPrefixRoute.rd:type_name -> api.RouteDistinguisher
+	47, // 29: api.EVPNIPPrefixRoute.rd:type_name -> api.RouteDistinguisher
 	8,  // 30: api.EVPNIPPrefixRoute.esi:type_name -> api.EthernetSegmentIdentifier
-	42, // 31: api.EVPNIPMSIRoute.rd:type_name -> api.RouteDistinguisher
-	43, // 32: api.EVPNIPMSIRoute.rt:type_name -> api.RouteTarget
-	42, // 33: api.LabeledVPNIPAddressPrefix.rd:type_name -> api.RouteDistinguisher
-	43, // 34: api.RouteTargetMembershipNLRI.rt:type_name -> api.RouteTarget
+	47, // 31: api.EVPNIPMSIRoute.rd:type_name -> api.RouteDistinguisher
+	48, // 32: api.EVPNIPMSIRoute.rt:type_name -> api.RouteTarget
+	47, // 33: api.LabeledVPNIPAddressPrefix.rd:type_name -> api.RouteDistinguisher
+	48, // 34: api.RouteTargetMembershipNLRI.rt:type_name -> api.RouteTarget
 	20, // 35: api.FlowSpecComponent.items:type_name -> api.FlowSpecComponentItem
 	18, // 36: api.FlowSpecRule.ip_prefix:type_name -> api.FlowSpecIPPrefix
 	19, // 37: api.FlowSpecRule.mac:type_name -> api.FlowSpecMAC
 	21, // 38: api.FlowSpecRule.component:type_name -> api.FlowSpecComponent
 	22, // 39: api.FlowSpecNLRI.rules:type_name -> api.FlowSpecRule
-	42, // 40: api.VPNFlowSpecNLRI.rd:type_name -> api.RouteDistinguisher
+	47, // 40: api.VPNFlowSpecNLRI.rd:type_name -> api.RouteDistinguisher
 	22, // 41: api.VPNFlowSpecNLRI.rules:type_name -> api.FlowSpecRule
 	2,  // 42: api.LsPrefixDescriptor.ospf_route_type:type_name -> api.LsOspfRouteType
 	26, // 43: api.LsNodeNLRI.local_node:type_name -> api.LsNodeDescriptor
@@ -3439,22 +3785,28 @@ var file_api_nlri_proto_depIdxs = []int32{
 	33, // 52: api.LsSrv6SIDNLRI.srv6_sid_information:type_name -> api.LsSrv6SIDInformation
 	34, // 53: api.LsSrv6SIDNLRI.multi_topo_id:type_name -> api.LsMultiTopologyIdentifier
 	0,  // 54: api.LsAddrPrefix.type:type_name -> api.LsNLRIType
-	41, // 55: api.LsAddrPrefix.nlri:type_name -> api.LsAddrPrefix.LsNLRI
+	46, // 55: api.LsAddrPrefix.nlri:type_name -> api.LsAddrPrefix.LsNLRI
 	1,  // 56: api.LsAddrPrefix.protocol_id:type_name -> api.LsProtocolID
-	42, // 57: api.MUPInterworkSegmentDiscoveryRoute.rd:type_name -> api.RouteDistinguisher
-	42, // 58: api.MUPDirectSegmentDiscoveryRoute.rd:type_name -> api.RouteDistinguisher
-	42, // 59: api.MUPType1SessionTransformedRoute.rd:type_name -> api.RouteDistinguisher
-	42, // 60: api.MUPType2SessionTransformedRoute.rd:type_name -> api.RouteDistinguisher
-	29, // 61: api.LsAddrPrefix.LsNLRI.node:type_name -> api.LsNodeNLRI
-	30, // 62: api.LsAddrPrefix.LsNLRI.link:type_name -> api.LsLinkNLRI
-	31, // 63: api.LsAddrPrefix.LsNLRI.prefix_v4:type_name -> api.LsPrefixV4NLRI
-	32, // 64: api.LsAddrPrefix.LsNLRI.prefix_v6:type_name -> api.LsPrefixV6NLRI
-	35, // 65: api.LsAddrPrefix.LsNLRI.srv6_sid:type_name -> api.LsSrv6SIDNLRI
-	66, // [66:66] is the sub-list for method output_type
-	66, // [66:66] is the sub-list for method input_type
-	66, // [66:66] is the sub-list for extension type_name
-	66, // [66:66] is the sub-list for extension extendee
-	0,  // [0:66] is the sub-list for field type_name
+	47, // 57: api.MUPInterworkSegmentDiscoveryRoute.rd:type_name -> api.RouteDistinguisher
+	47, // 58: api.MUPDirectSegmentDiscoveryRoute.rd:type_name -> api.RouteDistinguisher
+	39, // 59: api.MUPTLV.session_parameters:type_name -> api.MUPSessionParametersTLV
+	40, // 60: api.MUPTLV.interwork_endpoint:type_name -> api.MUPInterworkEndpointTLV
+	41, // 61: api.MUPTLV.source_address:type_name -> api.MUPSourceAddressTLV
+	42, // 62: api.MUPTLV.unknown:type_name -> api.MUPUnknownTLV
+	47, // 63: api.MUPType1SessionTransformedRoute.rd:type_name -> api.RouteDistinguisher
+	43, // 64: api.MUPType1SessionTransformedRoute.tlvs:type_name -> api.MUPTLV
+	47, // 65: api.MUPType2SessionTransformedRoute.rd:type_name -> api.RouteDistinguisher
+	43, // 66: api.MUPType2SessionTransformedRoute.tlvs:type_name -> api.MUPTLV
+	29, // 67: api.LsAddrPrefix.LsNLRI.node:type_name -> api.LsNodeNLRI
+	30, // 68: api.LsAddrPrefix.LsNLRI.link:type_name -> api.LsLinkNLRI
+	31, // 69: api.LsAddrPrefix.LsNLRI.prefix_v4:type_name -> api.LsPrefixV4NLRI
+	32, // 70: api.LsAddrPrefix.LsNLRI.prefix_v6:type_name -> api.LsPrefixV6NLRI
+	35, // 71: api.LsAddrPrefix.LsNLRI.srv6_sid:type_name -> api.LsSrv6SIDNLRI
+	72, // [72:72] is the sub-list for method output_type
+	72, // [72:72] is the sub-list for method input_type
+	72, // [72:72] is the sub-list for extension type_name
+	72, // [72:72] is the sub-list for extension extendee
+	0,  // [0:72] is the sub-list for field type_name
 }
 
 func init() { file_api_nlri_proto_init() }
@@ -3492,7 +3844,13 @@ func file_api_nlri_proto_init() {
 		(*FlowSpecRule_Mac)(nil),
 		(*FlowSpecRule_Component)(nil),
 	}
-	file_api_nlri_proto_msgTypes[38].OneofWrappers = []any{
+	file_api_nlri_proto_msgTypes[40].OneofWrappers = []any{
+		(*MUPTLV_SessionParameters)(nil),
+		(*MUPTLV_InterworkEndpoint)(nil),
+		(*MUPTLV_SourceAddress)(nil),
+		(*MUPTLV_Unknown)(nil),
+	}
+	file_api_nlri_proto_msgTypes[43].OneofWrappers = []any{
 		(*LsAddrPrefix_LsNLRI_Node)(nil),
 		(*LsAddrPrefix_LsNLRI_Link)(nil),
 		(*LsAddrPrefix_LsNLRI_PrefixV4)(nil),
@@ -3505,7 +3863,7 @@ func file_api_nlri_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_nlri_proto_rawDesc), len(file_api_nlri_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   39,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

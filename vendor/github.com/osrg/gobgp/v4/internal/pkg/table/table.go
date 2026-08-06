@@ -87,6 +87,16 @@ func tableKey(nlri bgp.NLRI) addrPrefixKey {
 		h = fnv1a.AddBytes64(h, serializedRD)
 		h = fnv1a.AddBytes64(h, T.Prefix.Addr().AsSlice())
 		h = fnv1a.AddBytes64(h, []byte{uint8(T.Prefix.Bits())})
+	case *bgp.LsAddrPrefix:
+		// BGP-LS NLRIs must be keyed on their full serialized form so that
+		// otherwise-identical NLRIs differing only by Protocol-ID (e.g. IS-IS
+		// L1 vs L2) or Identifier are stored as distinct destinations rather
+		// than colliding on a String()-derived key.
+		if serialized, err := T.Serialize(); err == nil {
+			h = fnv1a.AddBytes64(h, serialized)
+		} else {
+			h = fnv1a.AddString64(h, nlri.String())
+		}
 	default:
 		h = fnv1a.AddString64(h, nlri.String())
 	}

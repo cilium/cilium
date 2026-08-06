@@ -292,13 +292,26 @@ func ToAgentFamily(fam v2.CiliumBGPFamily) Family {
 }
 
 // ToNeighborV2 converts a CiliumBGPNodePeer to Neighbor which can be used
-// with Router API. The caller must ensure that the np, np.PeerAddress,
-// np.PeerASN and pc are not nil.
+// with Router API. The caller must ensure that np, np.PeerASN and pc are not
+// nil. Either np.PeerAddress or np.PeerInterface must be set.
 func ToNeighborV2(np *v2.CiliumBGPNodePeer, pc *v2.CiliumBGPPeerConfigSpec, password string) *Neighbor {
 	neighbor := &Neighbor{}
 
 	neighbor.Name = np.Name
-	neighbor.Address = toPeerAddressV2(*np.PeerAddress)
+	if np.PeerAddress != nil {
+		neighbor.Address = toPeerAddressV2(*np.PeerAddress)
+		// Step 1: an explicit IPv6 link-local address peered over an interface
+		// is encoded as an IPv6 zone identifier on the address. The zone rides
+		// through Address.String() into gobgp's NeighborAddress as
+		// e.g. "fe80::1%eth0".
+		if np.PeerInterface != nil && *np.PeerInterface != "" && neighbor.Address.IsValid() {
+			neighbor.Address = neighbor.Address.WithZone(*np.PeerInterface)
+		}
+	} else if np.PeerInterface != nil && *np.PeerInterface != "" {
+		// Step 2: BGP unnumbered. No address; gobgp will discover the peer's
+		// link-local via IPv6 ND on this interface.
+		neighbor.Interface = *np.PeerInterface
+	}
 	neighbor.ASN = uint32(*np.PeerASN)
 	neighbor.AuthPassword = password
 	neighbor.EbgpMultihop = toNeighborEbgpMultihopV2(pc.EBGPMultihop)

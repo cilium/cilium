@@ -209,7 +209,12 @@ const (
 
 	EC_SUBTYPE_ORIGIN_VALIDATION ExtendedCommunityAttrSubType = 0x00 // EC_TYPE: 0x43
 
-	EC_SUBTYPE_MUP_DIRECT_SEG ExtendedCommunityAttrSubType = 0x00 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_DIRECT_SEG               ExtendedCommunityAttrSubType = 0x00 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_DIRECT_SEG_IPV4          ExtendedCommunityAttrSubType = 0x01 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_DIRECT_SEG_4_OCTET_AS    ExtendedCommunityAttrSubType = 0x02 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_INTERWORK_SEG            ExtendedCommunityAttrSubType = 0x03 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_INTERWORK_SEG_IPV4       ExtendedCommunityAttrSubType = 0x04 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_INTERWORK_SEG_4_OCTET_AS ExtendedCommunityAttrSubType = 0x05 // EC_TYPE: 0x0c
 
 	EC_SUBTYPE_FLOWSPEC_TRAFFIC_RATE   ExtendedCommunityAttrSubType = 0x06 // EC_TYPE: 0x80
 	EC_SUBTYPE_FLOWSPEC_TRAFFIC_ACTION ExtendedCommunityAttrSubType = 0x07 // EC_TYPE: 0x80
@@ -3002,6 +3007,9 @@ func (er *EVPNIPPrefixRoute) DecodeFromBytes(data []byte) error {
 	er.ETag = binary.BigEndian.Uint32(data[18:22])
 
 	er.IPPrefixLength = data[22]
+	if int(er.IPPrefixLength) > addrLen*8 {
+		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid IP Prefix length: %d", er.IPPrefixLength))
+	}
 
 	offset := 23 // RD(8) + ESI(10) + ETag(4) + IPPrefixLength(1)
 	er.IPPrefix, _ = netip.AddrFromSlice(data[offset : offset+addrLen])
@@ -4525,6 +4533,12 @@ func (n *FlowSpecNLRI) decodeFromBytes(data []byte, options ...*MarshallingOptio
 		length -= 8
 	}
 
+	// keep the component parser within the declared NLRI length. a component's
+	// own operator/value bytes are self-terminating, so without this a
+	// component reaching past `length` consumes bytes from the next NLRI in the
+	// same MP_(UN)REACH attribute and mis-frames it.
+	data = data[:length]
+
 	for l := length; l > 0; {
 		if len(data) == 0 {
 			return malformedAttrListErr("not all flowspec component bytes available")
@@ -5197,7 +5211,7 @@ func (l *LsLinkNLRI) String() string {
 	link := &LsLinkDescriptor{}
 	link.ParseTLVs(l.LinkDesc)
 
-	return fmt.Sprintf("LINK { LOCAL_NODE: %v REMOTE_NODE: %v LINK: %v}", local, remote, link)
+	return fmt.Sprintf("LINK { LOCAL_NODE: %v REMOTE_NODE: %v LINK: %v %v:%v}", local, remote, link, l.ProtocolID.String(), l.Identifier)
 }
 
 func (l *LsLinkNLRI) DecodeFromBytes(data []byte) error {
@@ -5381,7 +5395,7 @@ func (l *LsPrefixV4NLRI) String() string {
 		ospf = fmt.Sprintf("OSPF_ROUTE_TYPE:%v ", prefix.OSPFRouteType)
 	}
 
-	return fmt.Sprintf("PREFIXv4 { LOCAL_NODE: %s PREFIX: %v %s%s}", local.IGPRouterID, ips, ospf, multiTopoIDsToString(prefix.MultiTopoIDs))
+	return fmt.Sprintf("PREFIXv4 { LOCAL_NODE: %s PREFIX: %v %s%s %s:%v}", local.IGPRouterID, ips, ospf, multiTopoIDsToString(prefix.MultiTopoIDs), l.ProtocolID.String(), l.Identifier)
 }
 
 func (l *LsPrefixV4NLRI) DecodeFromBytes(data []byte) error {
@@ -5558,7 +5572,7 @@ func (l *LsPrefixV6NLRI) String() string {
 		ospf = fmt.Sprintf("OSPF_ROUTE_TYPE:%v ", prefix.OSPFRouteType)
 	}
 
-	return fmt.Sprintf("PREFIXv6 { LOCAL_NODE: %v PREFIX: %v %v%s}", local.IGPRouterID, ips, ospf, multiTopoIDsToString(prefix.MultiTopoIDs))
+	return fmt.Sprintf("PREFIXv6 { LOCAL_NODE: %v PREFIX: %v %v%s %s:%v}", local.IGPRouterID, ips, ospf, multiTopoIDsToString(prefix.MultiTopoIDs), l.ProtocolID.String(), l.Identifier)
 }
 
 func (l *LsPrefixV6NLRI) DecodeFromBytes(data []byte) error {

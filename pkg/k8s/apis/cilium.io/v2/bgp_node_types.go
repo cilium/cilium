@@ -101,6 +101,9 @@ type CiliumBGPNodeInstance struct {
 	Peers []CiliumBGPNodePeer `json:"peers,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!has(self.peerInterface) || !has(self.peerAddress) || self.peerAddress.startsWith('fe80:') || self.peerAddress.startsWith('FE80:')",message="peerAddress must be an IPv6 link-local address (fe80::/10) when peerInterface is set"
+// +kubebuilder:validation:XValidation:rule="!has(self.peerInterface) || !has(self.localAddress)",message="localAddress must not be set when peerInterface is set"
+// +kubebuilder:validation:XValidation:rule="has(self.peerAddress) || has(self.autoDiscovery)",message="one of peerAddress or autoDiscovery must be set"
 type CiliumBGPNodePeer struct {
 	// Name is the name of the BGP peer. This name is used to identify the BGP peer for the BGP instance.
 	//
@@ -133,6 +136,16 @@ type CiliumBGPNodePeer struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Pattern=`((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))\s*$)|(^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))`
 	LocalAddress *string `json:"localAddress,omitempty"`
+
+	// PeerInterface is the name of the local network interface used to reach
+	// the peer. When set together with an IPv6 link-local peerAddress (fe80::/10),
+	// the BGP session is established to that address over the named interface
+	// (the interface is encoded as an IPv6 zone identifier).
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	PeerInterface *string `json:"peerInterface,omitempty"`
 
 	// PeerConfigRef is a reference to a peer configuration resource.
 	// If not specified, the default BGP configuration is used for this peer.

@@ -591,3 +591,58 @@ func validatePeerData(req *require.Assertions, expected, running []PeerData) {
 		req.True(found)
 	}
 }
+
+func TestNeighborReconciler_neighborID(t *testing.T) {
+	r := &NeighborReconciler{}
+
+	tests := []struct {
+		name  string
+		peer  *v2.CiliumBGPNodePeer
+		expdt string
+	}{
+		{
+			name: "numbered peer uses address",
+			peer: &v2.CiliumBGPNodePeer{
+				Name:        "p",
+				PeerAddress: ptr.To("192.168.0.1"),
+				PeerASN:     ptr.To[int64](64512),
+			},
+			expdt: "p192.168.0.164512",
+		},
+		{
+			name: "unnumbered peer falls back to interface",
+			peer: &v2.CiliumBGPNodePeer{
+				Name:          "p",
+				PeerInterface: ptr.To("eth0"),
+				PeerASN:       ptr.To[int64](64512),
+			},
+			expdt: "peth064512",
+		},
+		{
+			name: "address wins when both set",
+			peer: &v2.CiliumBGPNodePeer{
+				Name:          "p",
+				PeerAddress:   ptr.To("fe80::1"),
+				PeerInterface: ptr.To("eth0"),
+				PeerASN:       ptr.To[int64](64512),
+			},
+			expdt: "pfe80::164512",
+		},
+		{
+			name: "empty address falls back to interface",
+			peer: &v2.CiliumBGPNodePeer{
+				Name:          "p",
+				PeerAddress:   ptr.To(""),
+				PeerInterface: ptr.To("eth0"),
+				PeerASN:       ptr.To[int64](64512),
+			},
+			expdt: "peth064512",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expdt, r.neighborID(tt.peer))
+		})
+	}
+}

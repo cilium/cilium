@@ -97,9 +97,21 @@ spec:
                             maxLength: 255
                             minLength: 1
                             type: string
+                          peerInterface:
+                            description: |-
+                              PeerInterface overrides the local network interface used to reach the
+                              peer. Use this when interface naming differs across nodes; the override
+                              takes precedence over the value set on the cluster-level peer.
+                            maxLength: 255
+                            minLength: 1
+                            type: string
                         required:
                         - name
                         type: object
+                        x-kubernetes-validations:
+                        - message: localAddress must not be set when peerInterface
+                            is set
+                          rule: '!has(self.peerInterface) || !has(self.localAddress)'
                       type: array
                       x-kubernetes-list-map-keys:
                       - name

@@ -154,15 +154,14 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 
 	for i, n := range newNeigh {
 		l := l.With(types.PeerLogField, n.Name)
-		// validate that peer has ASN and address. In current implementation these fields are
-		// mandatory for a peer. Eventually we will relax this restriction with implementation
-		// of BGP unnumbered.
+		// validate that peer has ASN. PeerAddress is optional for BGP
+		// unnumbered peers, which are identified by PeerInterface instead.
 		if n.PeerASN == nil {
 			return fmt.Errorf("peer %s does not have a PeerASN", n.Name)
 		}
 
-		if n.PeerAddress == nil {
-			l.Debug("Peer does not have PeerAddress configured, skipping")
+		if n.PeerAddress == nil && ptr.Deref(n.PeerInterface, "") == "" {
+			l.Debug("Peer does not have PeerAddress or PeerInterface configured, skipping")
 			continue
 		}
 
@@ -187,8 +186,11 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		}
 
 		// If the local address is not provided via override and the source interface is provided in the peer config,
-		// use the local address from the provided source interface.
-		if ptr.Deref(peer.LocalAddress, "") == "" &&
+		// use the local address from the provided source interface. Skip this
+		// for unnumbered peers — they have no PeerAddress and the local source
+		// is derived from PeerInterface by gobgp.
+		if n.PeerAddress != nil &&
+			ptr.Deref(peer.LocalAddress, "") == "" &&
 			config.Transport != nil && ptr.Deref(config.Transport.SourceInterface, "") != "" {
 			localAddr, found, err := r.getInterfaceLocalAddress(*config.Transport.SourceInterface, *n.PeerAddress)
 			if err != nil {
@@ -368,7 +370,13 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 }
 
 func (r *NeighborReconciler) neighborID(n *v2.CiliumBGPNodePeer) string {
-	return fmt.Sprintf("%s%s%d", n.Name, *n.PeerAddress, *n.PeerASN)
+	// Unnumbered peers have no PeerAddress; PeerInterface fills its slot in
+	// the identifier so two peers on different interfaces don't collide.
+	addr := ptr.Deref(n.PeerAddress, "")
+	if addr == "" {
+		addr = ptr.Deref(n.PeerInterface, "")
+	}
+	return fmt.Sprintf("%s%s%d", n.Name, addr, *n.PeerASN)
 }
 
 func (r *NeighborReconciler) getInterfaceLocalAddress(interfaceName, peerAddress string) (localAddr string, found bool, err error) {

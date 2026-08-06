@@ -82,8 +82,16 @@ func (p *Path) Age() time.Duration {
 // of GoBGP's Peer object, but only contains minimal fields required for Cilium
 // usecases.
 type Neighbor struct {
-	Name            string
-	Address         netip.Addr
+	Name string
+	// Address is the peer address. For BGP unnumbered (interface-only peering)
+	// it is left zero and Interface is set instead.
+	Address netip.Addr
+	// Interface is the local interface for BGP unnumbered peering. Set only
+	// when there is no configured peer address; gobgp will discover the peer's
+	// link-local via IPv6 ND on this interface. When peering to a specific
+	// IPv6 link-local address on an interface, leave this empty and encode the
+	// interface as the zone identifier of Address (e.g. fe80::1%eth0).
+	Interface       string
 	ASN             uint32
 	AuthPassword    string
 	EbgpMultihop    *NeighborEbgpMultihop
@@ -159,8 +167,15 @@ type PeerState struct {
 	// Name of the peer
 	Name string `json:"name,omitempty"`
 
-	// Address of the peer
+	// Address of the peer. For unnumbered peers this is the peer's IPv6
+	// link-local address discovered by the router on Interface, carrying the
+	// interface as an IPv6 zone (e.g. "fe80::1%eth0"). It is invalid if the
+	// router has not resolved the peer yet.
 	Address netip.Addr `json:"peer-address,omitempty"`
+
+	// Interface is the local interface of an unnumbered peer. Empty for peers
+	// configured with an explicit address.
+	Interface string `json:"peer-interface,omitempty"`
 
 	// TCP port number of peer
 	// Maximum: 65535

@@ -115,6 +115,79 @@ var (
 		},
 	}
 
+	// unnumberedPeer65001 peers over an interface only, its address is whatever
+	// the router resolved via IPv6 ND.
+	unnumberedPeer65001 = v2.CiliumBGPNodePeer{
+		Name:          "red-peer-65001",
+		PeerInterface: ptr.To[string]("eth0"),
+		PeerConfigRef: &v2.PeerConfigReference{
+			Name: "peer-config-red",
+		},
+	}
+	unnumberedPeer65001Address = netip.MustParseAddr("fe80::1%eth0")
+
+	unnumberedPeer65001v4PodCIDRRoutePolicy = &bgpTables.DesiredRoutePolicy{
+		Instance:   "fake-instance",
+		Peer:       unnumberedPeer65001.Name,
+		PolicyType: types.RoutePolicyTypeExport,
+		Priority:   PodCIDRReconcilerPriority,
+		Owner:      PodCIDRReconcilerName,
+		Statement: &types.RoutePolicyStatement{
+			Name: PolicyStatementName(v2.BGPPodCIDRAdvert, "") + "-ipv4",
+			Conditions: types.RoutePolicyConditions{
+				MatchNeighbors: &types.RoutePolicyNeighborMatch{
+					Type:      types.RoutePolicyMatchAny,
+					Neighbors: []netip.Addr{unnumberedPeer65001Address},
+				},
+				MatchPrefixes: &types.RoutePolicyPrefixMatch{
+					Type: types.RoutePolicyMatchAny,
+					Prefixes: []types.RoutePolicyPrefix{
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR1v4),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR1v4).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR1v4).Bits(),
+						},
+					},
+				},
+			},
+			Actions: types.RoutePolicyActions{
+				RouteAction:    types.RoutePolicyActionAccept,
+				AddCommunities: []string{"65000:100"},
+			},
+		},
+	}
+
+	unnumberedPeer65001v6PodCIDRRoutePolicy = &bgpTables.DesiredRoutePolicy{
+		Instance:   "fake-instance",
+		Peer:       unnumberedPeer65001.Name,
+		PolicyType: types.RoutePolicyTypeExport,
+		Priority:   PodCIDRReconcilerPriority,
+		Owner:      PodCIDRReconcilerName,
+		Statement: &types.RoutePolicyStatement{
+			Name: PolicyStatementName(v2.BGPPodCIDRAdvert, "") + "-ipv6",
+			Conditions: types.RoutePolicyConditions{
+				MatchNeighbors: &types.RoutePolicyNeighborMatch{
+					Type:      types.RoutePolicyMatchAny,
+					Neighbors: []netip.Addr{unnumberedPeer65001Address},
+				},
+				MatchPrefixes: &types.RoutePolicyPrefixMatch{
+					Type: types.RoutePolicyMatchAny,
+					Prefixes: []types.RoutePolicyPrefix{
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR1v6),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR1v6).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR1v6).Bits(),
+						},
+					},
+				},
+			},
+			Actions: types.RoutePolicyActions{
+				RouteAction:    types.RoutePolicyActionAccept,
+				AddCommunities: []string{"65000:100"},
+			},
+		},
+	}
+
 	bluePeer65001v4PodCIDRRoutePolicy = &bgpTables.DesiredRoutePolicy{
 		Instance:   "fake-instance",
 		Peer:       bluePeer65001.Name,
@@ -199,6 +272,7 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 		preconfiguredRPs      []*bgpTables.DesiredRoutePolicy
 		testCiliumNode        *v2.CiliumNode
 		testBGPInstanceConfig *v2.CiliumBGPNodeInstance
+		resolvedPeers         map[string]netip.Addr
 		expectedPaths         map[types.Family]map[string]struct{}
 		expectedRPs           []*bgpTables.DesiredRoutePolicy
 	}{
@@ -291,6 +365,86 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				bluePeer65001v4PodCIDRRoutePolicy,
 				bluePeer65001v6PodCIDRRoutePolicy,
 			},
+		},
+		{
+			name: "pod cidr advertisement to an unnumbered peer resolved by the router",
+			peerConfig: []*v2.CiliumBGPPeerConfig{
+				redPeerConfig,
+			},
+			advertisements: []*v2.CiliumBGPAdvertisement{
+				redAdvert,
+			},
+			preconfiguredPaths: map[types.Family]map[string]struct{}{},
+			testCiliumNode: &v2.CiliumNode{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "Test Node",
+				},
+				Spec: v2.NodeSpec{
+					IPAM: ipamtypes.IPAMSpec{
+						PodCIDRs: mustNewIPPrefixes(podCIDR1v4, podCIDR1v6),
+					},
+				},
+			},
+			testBGPInstanceConfig: &v2.CiliumBGPNodeInstance{
+				Name:     "bgp-65001",
+				LocalASN: ptr.To[int64](65001),
+				Peers: []v2.CiliumBGPNodePeer{
+					unnumberedPeer65001,
+				},
+			},
+			resolvedPeers: map[string]netip.Addr{
+				unnumberedPeer65001.Name: unnumberedPeer65001Address,
+			},
+			expectedPaths: map[types.Family]map[string]struct{}{
+				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+					podCIDR1v4: struct{}{},
+				},
+				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
+					podCIDR1v6: struct{}{},
+				},
+			},
+			expectedRPs: []*bgpTables.DesiredRoutePolicy{
+				unnumberedPeer65001v4PodCIDRRoutePolicy,
+				unnumberedPeer65001v6PodCIDRRoutePolicy,
+			},
+		},
+		{
+			// The paths are still advertised into the local RIB, only the export
+			// policies wait for the peer address.
+			name: "pod cidr advertisement to an unnumbered peer not resolved yet",
+			peerConfig: []*v2.CiliumBGPPeerConfig{
+				redPeerConfig,
+			},
+			advertisements: []*v2.CiliumBGPAdvertisement{
+				redAdvert,
+			},
+			preconfiguredPaths: map[types.Family]map[string]struct{}{},
+			testCiliumNode: &v2.CiliumNode{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "Test Node",
+				},
+				Spec: v2.NodeSpec{
+					IPAM: ipamtypes.IPAMSpec{
+						PodCIDRs: mustNewIPPrefixes(podCIDR1v4, podCIDR1v6),
+					},
+				},
+			},
+			testBGPInstanceConfig: &v2.CiliumBGPNodeInstance{
+				Name:     "bgp-65001",
+				LocalASN: ptr.To[int64](65001),
+				Peers: []v2.CiliumBGPNodePeer{
+					unnumberedPeer65001,
+				},
+			},
+			expectedPaths: map[types.Family]map[string]struct{}{
+				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+					podCIDR1v4: struct{}{},
+				},
+				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
+					podCIDR1v6: struct{}{},
+				},
+			},
+			expectedRPs: nil,
 		},
 		{
 			name: "pod cidr advertisement - cleanup old pod cidr",
@@ -473,9 +627,10 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 			// preconfigure advertisements
 			testBGPInstance := instance.NewFakeBGPInstance()
 			reconcileParams := ReconcileParams{
-				BGPInstance:   testBGPInstance,
-				DesiredConfig: tt.testBGPInstanceConfig,
-				CiliumNode:    tt.testCiliumNode,
+				BGPInstance:           testBGPInstance,
+				DesiredConfig:         tt.testBGPInstanceConfig,
+				CiliumNode:            tt.testCiliumNode,
+				ResolvedPeerAddresses: tt.resolvedPeers,
 			}
 
 			presetAdverts := make(AFPathsMap)

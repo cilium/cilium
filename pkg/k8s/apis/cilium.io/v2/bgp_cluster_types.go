@@ -13,12 +13,18 @@ import (
 //
 // Note list of supported auto discovery modes is not exhaustive and can be extended in the future.
 //
-// +kubebuilder:validation:Enum=DefaultGateway
+// +kubebuilder:validation:Enum=DefaultGateway;Unnumbered
 type BGPAutoDiscoveryMode string
 
 const (
 	// BGPDefaultGatewayMode when configured, Cilium will discover bgp peers using default gateway
 	BGPDefaultGatewayMode BGPAutoDiscoveryMode = "DefaultGateway"
+
+	// BGPUnnumberedMode when configured, Cilium peers over an interface without a
+	// configured peer address (BGP unnumbered). gobgp discovers the peer's IPv6
+	// link-local address on that interface via IPv6 ND. The interface is either
+	// named explicitly, or discovered as the one the default route egresses.
+	BGPUnnumberedMode BGPAutoDiscoveryMode = "Unnumbered"
 )
 
 // +genclient
@@ -114,6 +120,8 @@ type CiliumBGPInstance struct {
 	Peers []CiliumBGPPeer `json:"peers,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!has(self.peerInterface) || !has(self.peerAddress) || self.peerAddress.startsWith('fe80:') || self.peerAddress.startsWith('FE80:')",message="peerAddress must be an IPv6 link-local address (fe80::/10) when peerInterface is set"
+// +kubebuilder:validation:XValidation:rule="has(self.peerAddress) || has(self.autoDiscovery)",message="one of peerAddress or autoDiscovery must be set"
 type CiliumBGPPeer struct {
 	// Name is the name of the BGP peer. It is a unique identifier for the peer within the BGP instance.
 	//
@@ -146,6 +154,22 @@ type CiliumBGPPeer struct {
 	// +kubebuilder:validation:Optional
 	AutoDiscovery *BGPAutoDiscovery `json:"autoDiscovery,omitempty"`
 
+	// PeerInterface is the name of the local network interface used to reach
+	// the peer. It must be set together with an IPv6 link-local peerAddress
+	// (fe80::/10): the BGP session is established to that address over the named
+	// interface (the interface is encoded as an IPv6 zone identifier).
+	//
+	// For BGP unnumbered peering (an interface with no configured peer address),
+	// use autoDiscovery with mode Unnumbered instead of peerInterface.
+	//
+	// Interface naming may differ across nodes in a heterogeneous fleet; in that
+	// case use CiliumBGPNodeConfigOverride to set peerInterface per node.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	PeerInterface *string `json:"peerInterface,omitempty"`
+
 	// PeerConfigRef is a reference to a peer configuration resource.
 	// If not specified, the default BGP configuration is used for this peer.
 	//
@@ -154,25 +178,67 @@ type CiliumBGPPeer struct {
 }
 
 // AutoDiscovery is the configuration for auto-discovery of the peer address.
+//
+// +kubebuilder:validation:XValidation:rule="self.mode != 'DefaultGateway' || has(self.defaultGateway)",message="defaultGateway must be set when mode is DefaultGateway"
+// +kubebuilder:validation:XValidation:rule="self.mode != 'Unnumbered' || (has(self.unnumbered) != has(self.defaultGateway))",message="exactly one of unnumbered or defaultGateway must be set when mode is Unnumbered"
 type BGPAutoDiscovery struct {
 	// mode is the mode of the auto-discovery.
 	//
 	// +kubebuilder:validation:Required
 	Mode BGPAutoDiscoveryMode `json:"mode"`
 
-	// defaultGateway is the configuration for auto-discovery of the default gateway.
+	// defaultGateway is the configuration for discovery based on the default
+	// route of an address family.
+	//
+	// With mode DefaultGateway, the gateway address of that default route is
+	// used as the peer address. With mode Unnumbered, only the interface the
+	// default route egresses is used - see DefaultGateway.
 	//
 	// +kubebuilder:validation:Optional
 	DefaultGateway *DefaultGateway `json:"defaultGateway,omitempty"`
+
+	// unnumbered is the configuration for BGP unnumbered peering over an
+	// explicitly named interface with no configured peer address. Only valid
+	// with mode Unnumbered, where it is an alternative to defaultGateway.
+	//
+	// +kubebuilder:validation:Optional
+	Unnumbered *BGPUnnumbered `json:"unnumbered,omitempty"`
 }
 
-// DefaultGateway is the configuration for auto-discovery of the default gateway.
+// DefaultGateway is the configuration for discovery based on the default route
+// of an address family.
 type DefaultGateway struct {
-	// addressFamily is the address family of the default gateway.
+	// addressFamily is the address family whose default route is followed. If
+	// the node has more than one default route in that family, the one with the
+	// lowest metric is used.
+	//
+	// With mode Unnumbered this selects which routing table to consult, not the
+	// address family the BGP session is established over: only the interface the
+	// default route egresses is taken from the route, and the peer is then
+	// reached over that interface at the IPv6 link-local address discovered via
+	// IPv6 ND. Following the IPv4 default route to establish an unnumbered
+	// (IPv6 link-local) session is therefore a valid configuration.
 	//
 	// +kubebuilder:validation:Enum=ipv4;ipv6
 	// +kubebuilder:validation:Required
 	AddressFamily string `json:"addressFamily"`
+}
+
+// BGPUnnumbered is the configuration for BGP unnumbered peering over an
+// explicitly named interface. The peer's IPv6 link-local address is discovered
+// on that interface via IPv6 ND, so no peer address is configured.
+//
+// Interface naming may differ across nodes in a heterogeneous fleet. In that
+// case, use autoDiscovery mode Unnumbered with defaultGateway instead, which
+// discovers the interface on each node from its default route.
+type BGPUnnumbered struct {
+	// interface is the name of the local network interface used to reach the
+	// peer.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	Interface string `json:"interface"`
 }
 
 // PeerConfigReference is a reference to a peer configuration resource.

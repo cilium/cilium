@@ -29,9 +29,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/dgryski/go-farm"
+
 	"github.com/osrg/gobgp/v4/pkg/config/oc"
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
-	"github.com/segmentio/fasthash/fnv1a"
 )
 
 const (
@@ -472,6 +473,14 @@ func (path *Path) GetNexthop() netip.Addr {
 		return attr.(*bgp.PathAttributeMpReachNLRI).Nexthop
 	}
 	return netip.Addr{}
+}
+
+func (path *Path) mpReachNexthops() (netip.Addr, netip.Addr) {
+	if attr := path.getPathAttr(bgp.BGP_ATTR_TYPE_MP_REACH_NLRI); attr != nil {
+		mp := attr.(*bgp.PathAttributeMpReachNLRI)
+		return mp.Nexthop, mp.LinkLocalNexthop
+	}
+	return netip.Addr{}, netip.Addr{}
 }
 
 func (path *Path) SetNexthop(nexthop netip.Addr) {
@@ -1049,6 +1058,9 @@ func (lhs *Path) Equal(rhs *Path) bool {
 	if rhs == nil {
 		return false
 	}
+	if lhs == rhs {
+		return true
+	}
 
 	lhsPathAttrs := lhs.GetPathAttrs()
 	rhsPathAttrs := rhs.GetPathAttrs()
@@ -1069,27 +1081,48 @@ func (lhs *Path) Equal(rhs *Path) bool {
 	lhsHash := lhs.attrsHash.Load()
 	rhsHash := rhs.attrsHash.Load()
 	if lhsHash > 0 && rhsHash > 0 { // avoid unnecessary hash calculation
-		return lhsHash == rhsHash
-	}
-	// slow path comparison, could happen as attributes flags is not part of the hash
-	for t, a := range lhsPathAttrs {
-		b := rhsPathAttrs[t]
-		if a.GetType() != b.GetType() {
+		if lhsHash != rhsHash {
 			return false
 		}
-		if a.Len() != b.Len() {
+	} else {
+		// slow path comparison, could happen as attributes flags is not part of the hash
+		for t, a := range lhsPathAttrs {
+			b := rhsPathAttrs[t]
+			if a.GetType() != b.GetType() {
+				return false
+			}
+			if a.Len() != b.Len() {
+				return false
+			}
+			if a.GetFlags() != b.GetFlags() {
+				return false
+			}
+		}
+		// really slow path comparison, if hash not been calculated yet
+		if lhs.GetHash() != rhs.GetHash() {
 			return false
 		}
-		if a.GetFlags() != b.GetFlags() {
-			return false
-		}
-	}
-	// really slow path comparison, if hash not been calculated yet
-	if lhs.GetHash() != rhs.GetHash() {
-		return false
 	}
 
-	return true
+	// The attributes hash deliberately excludes MP_REACH_NLRI so it can double
+	// as the UPDATE batching key (see CreateUpdateMsgFromPaths), so its content
+	// — the nexthops and the NLRI — must be compared explicitly here; every
+	// other attribute, including NEXT_HOP, is covered by the hash. The NLRI
+	// comparison uses serialized bytes because it must cover fields outside
+	// the route key (e.g. the TEID of a MUP type-1 session transformed route),
+	// which nlri.String() does not include.
+	lhsNexthop, lhsLinkLocal := lhs.mpReachNexthops()
+	rhsNexthop, rhsLinkLocal := rhs.mpReachNexthops()
+	if lhsNexthop != rhsNexthop || lhsLinkLocal != rhsLinkLocal {
+		return false
+	}
+	lhsNlri, rhsNlri := lhs.GetNlri(), rhs.GetNlri()
+	if lhsNlri == nil || rhsNlri == nil {
+		return lhsNlri == nil && rhsNlri == nil
+	}
+	lhsNlriBytes, _ := lhsNlri.Serialize()
+	rhsNlriBytes, _ := rhsNlri.Serialize()
+	return bytes.Equal(lhsNlriBytes, rhsNlriBytes)
 }
 
 func (path *Path) MarshalJSON() ([]byte, error) {
@@ -1258,10 +1291,10 @@ func (p *Path) ToGlobal(vrf *Vrf) *Path {
 			nlri = bgp.NewMUPDirectSegmentDiscoveryRoute(vrf.Rd, old.Address)
 		case bgp.MUP_ROUTE_TYPE_TYPE_1_SESSION_TRANSFORMED:
 			old := n.RouteTypeData.(*bgp.MUPType1SessionTransformedRoute)
-			nlri = bgp.NewMUPType1SessionTransformedRoute(vrf.Rd, old.Prefix, old.TEID, old.QFI, old.EndpointAddress, old.SourceAddress)
+			nlri = bgp.NewMUPType1SessionTransformedRoute(vrf.Rd, old.Prefix, old.TEID, old.QFI, old.EndpointAddress, old.SourceAddress, old.TLVs...)
 		case bgp.MUP_ROUTE_TYPE_TYPE_2_SESSION_TRANSFORMED:
 			old := n.RouteTypeData.(*bgp.MUPType2SessionTransformedRoute)
-			nlri = bgp.NewMUPType2SessionTransformedRoute(vrf.Rd, old.EndpointAddressLength, old.EndpointAddress, old.TEID)
+			nlri = bgp.NewMUPType2SessionTransformedRoute(vrf.Rd, old.EndpointAddressLength, old.EndpointAddress, old.TEID, old.TLVs...)
 		}
 		newFamily = rf
 	default:
@@ -1329,13 +1362,21 @@ func (p *Path) ToLocal() *Path {
 	return path
 }
 
+// updateHash must stay in sync with the shared per-UPDATE hash in
+// ProcessMessage (table_manager.go) so that lazily and eagerly hashed
+// paths compare equal. MP_REACH_NLRI is excluded so the hash can double
+// as the UPDATE batching key (see CreateUpdateMsgFromPaths); Equal
+// compares the nexthop and the NLRI explicitly instead.
 func (p *Path) updateHash() {
-	hash := fnv1a.Init64
+	total := bytes.NewBuffer(make([]byte, 0))
 	for _, a := range p.GetPathAttrs() {
+		if a.GetType() == bgp.BGP_ATTR_TYPE_MP_REACH_NLRI {
+			continue
+		}
 		d, _ := a.Serialize()
-		hash = fnv1a.AddBytes64(hash, d)
+		total.Write(d)
 	}
-	p.attrsHash.Store(hash)
+	p.attrsHash.Store(farm.Hash64(total.Bytes()))
 }
 
 func (p *Path) SetHash(v uint64) {
