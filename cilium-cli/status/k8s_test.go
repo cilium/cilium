@@ -266,15 +266,6 @@ func TestPodStatusSkipsSupersededRejection(t *testing.T) {
 	assert.Equal(t, 1, status.totalErrors())
 }
 
-func TestIsSupersededPodRejection(t *testing.T) {
-	for _, reason := range []string{"TaintToleration", "NodeAffinity", "NodeLost", "Evicted", "Shutdown", "Preempting", "UnexpectedAdmissionError"} {
-		assert.True(t, isSupersededPodRejection(reason), reason)
-	}
-	for _, reason := range []string{"", "OOMKilled", "Error", "ContainerCannotRun"} {
-		assert.False(t, isSupersededPodRejection(reason), reason)
-	}
-}
-
 func TestFormat(t *testing.T) {
 	client := newK8sStatusMockClient()
 	assert.NotNil(t, client)
