@@ -105,7 +105,9 @@ func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, erro
 	return endpoint.ParseEndpoint(
 		c.epParams,
 		c.params.DNSRulesService,
-		c.params.Proxy, epJSON)
+		c.params.Proxy,
+		epJSON,
+		c.policyLogger())
 }
 
 func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {

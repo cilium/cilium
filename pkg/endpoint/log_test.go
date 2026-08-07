@@ -86,8 +86,10 @@ func TestPolicyLogAfterEndpointRestore(t *testing.T) {
 	ep.runlock()
 	require.NoError(t, err)
 
-	restoredEP, err := ParseEndpoint(p, nil, nil, epJSON)
+	var policyLog bytes.Buffer
+	restoredEP, err := ParseEndpoint(p, nil, nil, epJSON, &policyLog)
 	require.NoError(t, err)
 
 	restoredEP.PolicyDebug("testing restored endpoint PolicyDebug")
+	require.Contains(t, policyLog.String(), "testing restored endpoint PolicyDebug")
 }
