@@ -2,8 +2,10 @@ name: Ariane scheduled workflows
 
 on:
   # Run every 1 hours
-  # Tests are only run when current hour % 6 corresponds
-  # to the branch hourModulo value in the matrix
+  # Tests are only run when current GITHUB_RUN_NUMBER % 6 corresponds to the branch runModulo value in the matrix,
+  # meaning we run every branch roughly every six hours.
+  # We run this at :30, to avoid running at the same time as the default branch scheduled workflows (that mostly run
+  # at the top of the hour).
   schedule:
     - cron: '30 */1 * * *'
 
@@ -21,14 +23,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        # DON'T USE hourModulo=0 to avoid running ariane scheduled-workflows
-        # at the same time as regular main scheduled workflows
+          # runModulo (range [0, 5]) should be different for every branch
           - branch: 'v1.18'
-            hourModulo: 1
+            runModulo: 1
           - branch: 'v1.19'
-            hourModulo: 2
+            runModulo: 2
           - branch: 'v1.20'
-            hourModulo: 3
+            runModulo: 3
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout branch
@@ -42,9 +43,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Current date time: $(date --utc --rfc-3339=seconds)"
+          echo "Current run number: $GITHUB_RUN_NUMBER"
 
-          HOUR=$(date --utc +"%-H")
-          if (( HOUR % 6 == ${{ matrix.hourModulo }} )); then
+          if (( GITHUB_RUN_NUMBER % 6 == ${{ matrix.runModulo }} )); then
             echo "Running scheduled workflows for branch ${{ matrix.branch }}"
           else
             echo "Skipping scheduled workflows for branch ${{ matrix.branch }}"
