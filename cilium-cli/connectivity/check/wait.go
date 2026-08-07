@@ -32,6 +32,12 @@ const (
 	ShortTimeout = 30 * time.Second
 
 	PollInterval = 1 * time.Second
+
+	// daemonSetRejectionGrace is how much longer WaitForDaemonSet keeps polling
+	// past LongTimeout when the DaemonSet is only held back by pods that were
+	// rejected before running. kubelet's rejection backoff reaches roughly four
+	// minutes, so this has to cover one burst plus the scheduling that follows.
+	daemonSetRejectionGrace = 5 * time.Minute
 )
 
 // WaitForDeployment waits until the specified deployment becomes ready.
@@ -58,11 +64,22 @@ func WaitForDeployment(ctx context.Context, log Logger, client *k8s.Client, name
 }
 
 // WaitForDaemonSet waits until the specified daemonset becomes ready.
+//
+// A node condition such as DiskPressure makes kubelet reject the pods bound to
+// it, and each rejection is retried on an exponential backoff that reaches
+// several minutes on its own. LongTimeout cannot outlast one such burst, so
+// when the deadline is reached and the only thing holding the DaemonSet back is
+// pods that were rejected without ever running, keep polling for a bounded
+// grace period instead of failing. Anything else, including a container that
+// ran and crashed, still fails at LongTimeout.
 func WaitForDaemonSet(ctx context.Context, log Logger, client *k8s.Client, namespace string, name string) error {
 	log.Logf("⌛ [%s] Waiting for DaemonSet %s/%s to become ready...", client.ClusterName(), namespace, name)
 
-	ctx, cancel := context.WithTimeout(ctx, LongTimeout)
+	ctx, cancel := context.WithTimeout(ctx, LongTimeout+daemonSetRejectionGrace)
 	defer cancel()
+
+	deadline := time.Now().Add(LongTimeout)
+	graceGranted := false
 	for {
 		err := client.CheckDaemonSetStatus(ctx, namespace, name)
 		if err == nil {
@@ -71,13 +88,58 @@ func WaitForDaemonSet(ctx context.Context, log Logger, client *k8s.Client, names
 
 		log.Debugf("[%s] DaemonSet %s/%s is not yet ready: %s", client.ClusterName(), namespace, name, err)
 
+		if !graceGranted && time.Now().After(deadline) {
+			rejected := supersededDaemonSetPods(ctx, client, namespace, name)
+			if len(rejected) == 0 {
+				return fmt.Errorf("timeout reached waiting for DaemonSet %s/%s to become ready (last error: %w)",
+					namespace, name, err)
+			}
+			graceGranted = true
+			log.Logf("⌛ [%s] DaemonSet %s/%s is held back by pods rejected before running (%s), waiting up to %s more...",
+				client.ClusterName(), namespace, name, strings.Join(rejected, ", "), daemonSetRejectionGrace)
+		}
+
 		select {
 		case <-time.After(PollInterval):
 		case <-ctx.Done():
+			if rejected := supersededDaemonSetPods(ctx, client, namespace, name); len(rejected) > 0 {
+				return fmt.Errorf("timeout reached waiting for DaemonSet %s/%s to become ready, pods rejected before running: %s (last error: %w)",
+					namespace, name, strings.Join(rejected, ", "), err)
+			}
 			return fmt.Errorf("timeout reached waiting for DaemonSet %s/%s to become ready (last error: %w)",
 				namespace, name, err)
 		}
 	}
+}
+
+// supersededDaemonSetPods returns "pod (reason)" for every pod of the DaemonSet
+// that reached a terminal state without ever running its workload, but only if
+// no other pod failed for a different reason. A pod that ran and crashed leaves
+// the result empty, so its DaemonSet is never granted the extra grace period.
+func supersededDaemonSetPods(ctx context.Context, client *k8s.Client, namespace, name string) []string {
+	ds, err := client.GetDaemonSet(ctx, namespace, name, metav1.GetOptions{})
+	if err != nil || ds == nil {
+		return nil
+	}
+
+	pods, err := client.ListPods(ctx, namespace, metav1.ListOptions{
+		LabelSelector: metav1.FormatLabelSelector(ds.Spec.Selector),
+	})
+	if err != nil || pods == nil {
+		return nil
+	}
+
+	var rejected []string
+	for _, pod := range pods.Items {
+		if pod.Status.Phase != corev1.PodFailed {
+			continue
+		}
+		if !k8s.IsSupersededPodRejection(pod.Status.Reason) {
+			return nil
+		}
+		rejected = append(rejected, fmt.Sprintf("%s (%s)", pod.Name, pod.Status.Reason))
+	}
+	return rejected
 }
 
 // WaitForPodDNS waits until src can query the DNS server on dst successfully.
