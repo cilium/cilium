@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -62,6 +63,10 @@ type Controller struct {
 	// Loader is used to wait for host datapath initialization before
 	// allowing BGP route announcements.
 	Loader loadertypes.Loader
+
+	// LBInitWait is called to wait for the initial load-balancing state to be
+	// reconciled to BPF maps before allowing BGP route announcements.
+	LBInitWait loadbalancer.InitWaitFunc
 }
 
 // ControllerParams contains all parameters needed to construct a Controller
@@ -79,6 +84,7 @@ type ControllerParams struct {
 	DaemonConfig            *option.DaemonConfig
 	LocalCiliumNodeResource daemon_k8s.LocalCiliumNodeResource
 	Loader                  loadertypes.Loader
+	LBInitWait              loadbalancer.InitWaitFunc
 }
 
 // NewController constructs a new BGP Control Plane Controller.
@@ -103,6 +109,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 		BGPNodeConfigStore: params.BGPNodeConfigStore,
 		CiliumNodeResource: params.LocalCiliumNodeResource,
 		Loader:             params.Loader,
+		LBInitWait:         params.LBInitWait,
 	}
 
 	params.JobGroup.Add(
@@ -136,10 +143,20 @@ func (c *Controller) Run(ctx context.Context) {
 	scopedLog.Info("BGP Control Plane waiting for host datapath initialization")
 	select {
 	case <-c.Loader.HostDatapathInitialized():
-		scopedLog.Info("BGP Control Plane host datapath ready, starting event processing")
+		scopedLog.Info("BGP Control Plane host datapath ready")
 	case <-ctx.Done():
 		return
 	}
+
+	// Wait for the initial load-balancing state to be reconciled to BPF maps.
+	// This ensures the service map is populated before BGP announces routes,
+	// preventing a window where traffic is forwarded to nodes whose service
+	// BPF programs are not yet ready to handle it.
+	scopedLog.Info("BGP Control Plane waiting for load-balancing state initialization")
+	if err := c.LBInitWait(ctx); err != nil {
+		return
+	}
+	scopedLog.Info("BGP Control Plane load-balancing state ready, starting event processing")
 
 	ciliumNodeCh := c.CiliumNodeResource.Events(ctx)
 	for {
