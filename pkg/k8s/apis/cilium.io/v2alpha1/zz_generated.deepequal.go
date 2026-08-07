@@ -1435,8 +1435,8 @@ func (in *CiliumNetworkDriverDeviceFilter) DeepEqual(other *CiliumNetworkDriverD
 		return false
 	}
 
-	if ((in.PfNames != nil) && (other.PfNames != nil)) || ((in.PfNames == nil) != (other.PfNames == nil)) {
-		in, other := &in.PfNames, &other.PfNames
+	if ((in.PFNames != nil) && (other.PFNames != nil)) || ((in.PFNames == nil) != (other.PFNames == nil)) {
+		in, other := &in.PFNames, &other.PFNames
 		if other == nil {
 			return false
 		}
@@ -1657,9 +1657,6 @@ func (in *CiliumNetworkDriverNodeConfigSpec) DeepEqual(other *CiliumNetworkDrive
 		return false
 	}
 	if in.DraRegistrationMaxAttempts != other.DraRegistrationMaxAttempts {
-		return false
-	}
-	if in.PublishIntervalSeconds != other.PublishIntervalSeconds {
 		return false
 	}
 	if in.DriverName != other.DriverName {
@@ -2090,7 +2087,7 @@ func (in *SRIOVDeviceConfig) DeepEqual(other *SRIOVDeviceConfig) bool {
 		return false
 	}
 
-	if in.VfCount != other.VfCount {
+	if in.VFCount != other.VFCount {
 		return false
 	}
 	if in.IfName != other.IfName {
@@ -2110,7 +2107,7 @@ func (in *SRIOVDeviceManagerConfig) DeepEqual(other *SRIOVDeviceManagerConfig) b
 	if in.Enabled != other.Enabled {
 		return false
 	}
-	if in.SysPciDevicesPath != other.SysPciDevicesPath {
+	if in.SysPCIDevicesPath != other.SysPCIDevicesPath {
 		return false
 	}
 	if ((in.Ifaces != nil) && (other.Ifaces != nil)) || ((in.Ifaces == nil) != (other.Ifaces == nil)) {
