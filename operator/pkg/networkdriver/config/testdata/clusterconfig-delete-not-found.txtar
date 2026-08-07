@@ -1,0 +1,61 @@
+hive start
+
+# Add a node and a matching cluster config so a NodeConfig is created.
+
+k8s/add kind-worker-node.yaml
+k8s/add driver-cluster-config.yaml
+
+* db/cmp netdriver-node-config node-config.table
+
+# Delete the cluster config — NodeConfig should disappear.
+
+k8s/delete driver-cluster-config.yaml
+
+* db/empty netdriver-node-config
+
+# Delete the same cluster config again — manager has already removed it from its
+# cache, so the second Delete is a no-op.  The manager must not error or panic.
+
+k8s/delete driver-cluster-config.yaml
+
+* db/empty netdriver-node-config
+
+hive stop
+
+# ----
+
+-- kind-worker-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker
+  name: kind-worker
+spec:
+
+-- driver-cluster-config.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: kind-worker
+  spec:
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    publishInterval: 10
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- node-config.table --
+Node                ClusterConfig          Config                                                                                                                                                                                                                                           Status  Error
+kind-worker         driver-cluster-config  {"draRegistrationRetryInterval":1,"draRegistrationTimeout":600,"publishInterval":10,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}  Done

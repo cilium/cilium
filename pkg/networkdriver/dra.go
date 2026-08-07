@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"slices"
 
+	"github.com/cilium/statedb/reconciler"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -129,13 +129,16 @@ func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resou
 	result = make(map[kube_types.UID]kubeletplugin.PrepareResult)
 
 	err = driver.withLock(func() error {
+		// inBatch tracks devices allocated within this PrepareResourceClaims
+		// call so that within-batch conflict checks work correctly
+		inBatch := make(map[string]kube_types.UID) // ifname → claimUID
 		for _, c := range claims {
 			l := driver.logger.With(
 				logfields.K8sNamespace, c.Namespace,
 				logfields.UID, c.UID,
 				logfields.Name, c.Name,
 			)
-			result[c.UID] = driver.prepareResourceClaim(ctx, c)
+			result[c.UID] = driver.prepareResourceClaim(ctx, c, inBatch)
 
 			l.DebugContext(ctx, "allocation for claim",
 				logfields.Result, result[c.UID],
@@ -183,47 +186,52 @@ func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kube
 }
 
 // unprepareResourceClaim removes an allocation and frees up the device.
+// On success the allocation fields are cleared (device stays in table as
+// unallocated). On partial failure the devices that failed Free() keep their
+// allocation fields so a retry can attempt Free() again.
 func (d *Driver) unprepareResourceClaim(ctx context.Context, claim kubeletplugin.NamespacedObject) error {
 	var errs []error
-	var found bool
 
-	for pod, alloc := range d.allocations {
-		devices, ok := alloc[claim.UID]
-
-		if ok {
-			found = true
-			for _, dev := range devices {
-				if err := dev.Device.Free(dev.Config); err != nil {
-					errs = append(errs, err)
-				}
-			}
-		}
-
-		if found {
-			delete(alloc, claim.UID)
-			// see if pod ended up without any allocations.
-			// clean it up if we just removed the last one.
-			if len(alloc) == 0 {
-				delete(d.allocations, pod)
-			}
-
-			break
-		}
+	if d.deviceTable == nil {
+		return nil
 	}
 
-	if !found {
+	rtxn := d.db.ReadTxn()
+	var devices []*Device
+	for row := range d.deviceTable.List(rtxn, DeviceByClaimUID(claim.UID)) {
+		devices = append(devices, row)
+	}
+
+	if len(devices) == 0 {
 		d.logger.DebugContext(
 			ctx, "no allocation found for claim",
 			logfields.UID, claim.UID,
 			logfields.K8sNamespace, claim.Namespace,
 			logfields.Name, claim.Name,
 		)
+		return nil
 	}
+
+	txn := d.db.WriteTxn(d.deviceTable)
+	for _, row := range devices {
+		if err := row.Dev.Free(row.Config); err != nil {
+			// Keep allocation fields — retry will find and attempt Free again.
+			errs = append(errs, err)
+			continue
+		}
+		// Clear allocation fields in-place; device still exists.
+		cleared := row.Clone()
+		cleared.PodUID = ""
+		cleared.ClaimUID = ""
+		cleared.Config = types.DeviceConfig{}
+		d.deviceTable.Insert(txn, cleared)
+	}
+	txn.Commit()
 
 	return errors.Join(errs...)
 }
 
-func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourceapi.ResourceClaim) kubeletplugin.PrepareResult {
+func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourceapi.ResourceClaim, inBatch map[string]kube_types.UID) kubeletplugin.PrepareResult {
 	if len(claim.Status.ReservedFor) != 1 {
 		return kubeletplugin.PrepareResult{
 			Err: fmt.Errorf("%w: Status.ReservedFor field has more than one entry", errUnexpectedInput),
@@ -232,8 +240,9 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 
 	pod := claim.Status.ReservedFor[0]
 
-	// Reject devices that are already claimed by a *different* claim for this pod.
-	if dev := driver.conflictingDeviceForPod(pod.UID, claim.UID, claim.Status.Allocation.Devices.Results); dev != "" {
+	// Reject devices that are already claimed by a *different* claim for this pod,
+	// including devices allocated earlier in this same PrepareResourceClaims batch
+	if dev := driver.conflictingDeviceForPod(pod.UID, claim.UID, claim.Status.Allocation.Devices.Results, inBatch); dev != "" {
 		return kubeletplugin.PrepareResult{
 			Err: fmt.Errorf("device %s is already allocated for pod %s by another claim", dev, pod.Name),
 		}
@@ -306,7 +315,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
-	driver.commitAllocation(pod.UID, claim.UID, alloc)
+	driver.commitAllocation(pod.UID, claim.UID, alloc, inBatch)
 
 	// we dont need to return anything here.
 	return kubeletplugin.PrepareResult{}
@@ -387,8 +396,17 @@ type claimPrepState struct {
 // Kubernetes status entry. Both let a retry skip work that already completed.
 func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerReference, claim *resourceapi.ResourceClaim) claimPrepState {
 	existingByDevice := make(map[string]allocation)
-	for _, a := range driver.allocations[pod.UID][claim.UID] {
-		existingByDevice[a.Device.IfName()] = a
+	if driver.deviceTable != nil {
+		rtxn := driver.db.ReadTxn()
+		for row := range driver.deviceTable.List(rtxn, DeviceByPodUID(pod.UID)) {
+			if row.ClaimUID == claim.UID {
+				existingByDevice[row.Name] = allocation{
+					Device:  row.Dev,
+					Config:  row.Config,
+					Manager: row.Manager,
+				}
+			}
+		}
 	}
 
 	existingStatusDevice := make(map[string]struct{})
@@ -496,18 +514,16 @@ func (driver *Driver) prepareClaimDevice(
 func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string, result resourceapi.DeviceRequestAllocationResult, cfg types.DeviceConfig) (allocation, error) {
 	alloc := allocation{Config: cfg}
 
-	var found bool
-	for mgr, devices := range driver.devices {
-		if i := slices.IndexFunc(devices, func(dev types.Device) bool {
-			return dev.IfName() == result.Device
-		}); i >= 0 {
-			alloc.Manager = mgr
-			alloc.Device = devices[i]
-			found = true
-			break
+	// Look up the device by ifname in the Device statedb table.
+	if driver.deviceTable != nil {
+		rtxn := driver.db.ReadTxn()
+		if row, _, ok := driver.deviceTable.Get(rtxn, DeviceByName(result.Device)); ok {
+			alloc.Manager = row.Manager
+			alloc.Device = row.Dev
 		}
 	}
-	if !found {
+
+	if alloc.Device == nil {
 		return alloc, fmt.Errorf("%w with ifname %s for %s", errDeviceNotFound, result.Device, claim)
 	}
 
@@ -593,31 +609,66 @@ func (driver *Driver) buildDeviceStatus(
 
 // conflictingDeviceForPod returns the ifname of the first device that is
 // already allocated to podUID by a claim other than skipClaimUID, or "" if
-// there is no conflict. The check is intentionally skipped for skipClaimUID so
-// that re-preparing an existing claim (idempotent retry) is not rejected.
-func (driver *Driver) conflictingDeviceForPod(podUID kube_types.UID, skipClaimUID kube_types.UID, results []resourceapi.DeviceRequestAllocationResult) string {
-	for claimUID, allocs := range driver.allocations[podUID] {
-		if claimUID == skipClaimUID {
+// there is no conflict. inBatch covers devices committed earlier in the same
+// PrepareResourceClaims batch that aren't yet visible in the table
+func (driver *Driver) conflictingDeviceForPod(podUID kube_types.UID, skipClaimUID kube_types.UID, results []resourceapi.DeviceRequestAllocationResult, inBatch map[string]kube_types.UID) string {
+	for _, result := range results {
+		// Check within-batch allocations first.
+		if claimUID, ok := inBatch[result.Device]; ok && claimUID != skipClaimUID {
+			return result.Device
+		}
+	}
+
+	if driver.deviceTable == nil {
+		return ""
+	}
+	rtxn := driver.db.ReadTxn()
+	for row := range driver.deviceTable.List(rtxn, DeviceByPodUID(podUID)) {
+		if row.ClaimUID == skipClaimUID {
 			continue
 		}
 		for _, result := range results {
-			for _, a := range allocs {
-				if a.Device.IfName() == result.Device {
-					return result.Device
-				}
+			if row.Name == result.Device {
+				return result.Device
 			}
 		}
 	}
 	return ""
 }
 
-// commitAllocation stores allocs under driver.allocations[podUID][claimUID],
-// creating the inner map if this is the first claim for the pod.
-func (driver *Driver) commitAllocation(podUID, claimUID kube_types.UID, allocs []allocation) {
-	if _, exists := driver.allocations[podUID]; !exists {
-		driver.allocations[podUID] = make(map[kube_types.UID][]allocation)
+// commitAllocation stores allocs in the Device statedb table under
+// (podUID, claimUID) by updating existing rows with allocation fields.
+// If no row exists yet (race before first publish cycle), a minimal row is
+// inserted so the allocation is always recorded. inBatch is updated so
+// subsequent claims in the same PrepareResourceClaims call see these devices.
+func (driver *Driver) commitAllocation(podUID, claimUID kube_types.UID, allocs []allocation, inBatch map[string]kube_types.UID) {
+	if driver.deviceTable == nil {
+		return
 	}
-	driver.allocations[podUID][claimUID] = allocs
+	txn := driver.db.WriteTxn(driver.deviceTable)
+	defer txn.Abort()
+	for _, a := range allocs {
+		name := a.Device.IfName()
+		row := &Device{
+			Name:     name,
+			Manager:  a.Manager,
+			Dev:      a.Device,
+			PodUID:   podUID,
+			ClaimUID: claimUID,
+			Config:   a.Config,
+			Status:   reconciler.StatusDone(),
+		}
+		// Preserve Pool/Attrs from an existing discovered row.
+		if existing, _, ok := driver.deviceTable.Get(txn, DeviceByName(name)); ok {
+			row.Pool = existing.Pool
+			row.Attrs = existing.Attrs
+		}
+		driver.deviceTable.Insert(txn, row)
+		if inBatch != nil {
+			inBatch[name] = claimUID
+		}
+	}
+	txn.Commit()
 }
 
 func conditionReady(claim *resourceapi.ResourceClaim) metav1.Condition {
