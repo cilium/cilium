@@ -488,6 +488,10 @@
      - Configure the mount point for the BPF filesystem
      - string
      - ``"/sys/fs/bpf"``
+   * - :spelling:ignore:`bpf.stats.enabled`
+     - Enable BPF statistics collection
+     - bool
+     - ``false``
    * - :spelling:ignore:`bpf.tproxy`
      - Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules for implementing Layer 7 policy. Note this is incompatible with netkit (\ ``bpf.datapathMode=netkit``\ , ``bpf.datapathMode=netkit-l2``\ ).
      - bool
