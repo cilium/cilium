@@ -47,9 +47,9 @@ var Cell = cell.Module(
 			EnableIPSec:                 ipsecCfg.Enabled(),
 			MasqueradeInterfaces:        cfg.MasqueradeInterfaces,
 			EnableMasqueradeRouteSource: cfg.EnableMasqueradeRouteSource,
-			EnableL7Proxy:   cfg.EnableL7Proxy,
-			InstallIptRules: cfg.InstallIptRules,
-			EnableWireguard: wgConfig.Enabled(),
+			EnableL7Proxy:               cfg.EnableL7Proxy,
+			InstallIptRules:             cfg.InstallIptRules,
+			EnableWireguard:             wgConfig.Enabled(),
 		}
 	}),
 	cell.Provide(newManager),
@@ -108,7 +108,7 @@ type SharedConfig struct {
 	EnableIPSec                 bool
 	MasqueradeInterfaces        []string
 	EnableMasqueradeRouteSource bool
-	EnableL7Proxy   bool
-	InstallIptRules bool
-	EnableWireguard bool
+	EnableL7Proxy               bool
+	InstallIptRules             bool
+	EnableWireguard             bool
 }
