@@ -509,6 +509,7 @@ jobs:
           external-target-ca-name: custom-ca
           external-target-fake-dns: true
           hubble: false
+          include-unsafe-tests: true
           test-concurrency: 5
 
       - name: Set up job variables for connectivity tests
