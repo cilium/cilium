@@ -1,0 +1,129 @@
+hive/start
+
+# Identities used by the four policy APIs below. The selected namespace
+# identity carries both legal extremes: a 63-character unqualified key and a
+# key with a 253-character DNS prefix plus a 63-character name.
+env long_name=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+env qualified_name=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+env namespace_labels=k8s:io.cilium.k8s.namespace.labels.${long_name}=selected,k8s:io.cilium.k8s.namespace.labels.${qualified_name}=selected
+
+env source_labels=k8s:io.kubernetes.pod.namespace=selected,k8s:app=client,${namespace_labels}
+identity/allocate ${source_labels}
+env --from-stdout source_id
+
+env selected_destination_labels=k8s:io.kubernetes.pod.namespace=selected,k8s:app=server,${namespace_labels}
+identity/allocate ${selected_destination_labels}
+env --from-stdout selected_destination_id
+
+env unselected_destination_labels=k8s:io.kubernetes.pod.namespace=unselected,k8s:app=other-server
+identity/allocate ${unselected_destination_labels}
+env --from-stdout unselected_destination_id
+
+# CNP: exercise maximum-length namespace labels in toEndpoints.
+policy/import cnp.yaml
+policy/lookup-flow --egress ${source_id} ${selected_destination_id} tcp 80
+stdout allowed
+policy/lookup-flow --egress ${source_id} ${unselected_destination_id} tcp 80
+stdout denied
+policy/remove cnp.yaml
+
+# CCNP: exercise the same labels in the policy's endpointSelector.
+policy/import ccnp.yaml
+policy/lookup-flow --egress ${source_id} ${selected_destination_id} tcp 80
+stdout allowed
+policy/lookup-flow --egress ${source_id} ${unselected_destination_id} tcp 80
+stdout denied
+policy/remove ccnp.yaml
+
+# Kubernetes NetworkPolicy: namespaceSelector keys are expanded internally by
+# Cilium and must remain valid after expansion.
+policy/import knp.yaml
+policy/lookup-flow --egress ${source_id} ${selected_destination_id} tcp 80
+stdout allowed
+policy/lookup-flow --egress ${source_id} ${unselected_destination_id} tcp 80
+stdout denied
+policy/remove knp.yaml
+
+# Kubernetes ClusterNetworkPolicy: cover both its subject namespace selector
+# and an egress namespace selector through the parser.
+policy/import kcnp.yaml
+policy/lookup-flow --egress ${source_id} ${selected_destination_id} tcp 80
+stdout allowed
+policy/lookup-flow --egress ${source_id} ${unselected_destination_id} tcp 80
+stdout denied
+
+-- cnp.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: namespace-label-limits
+  namespace: selected
+spec:
+  endpointSelector:
+    matchLabels:
+      app: client
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: selected
+        k8s:io.cilium.k8s.namespace.labels.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: selected
+        k8s:io.cilium.k8s.namespace.labels.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: selected
+
+-- ccnp.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: namespace-label-limits
+spec:
+  endpointSelector:
+    matchLabels:
+      io.kubernetes.pod.namespace: selected
+      k8s:io.cilium.k8s.namespace.labels.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: selected
+      k8s:io.cilium.k8s.namespace.labels.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: selected
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: server
+        io.kubernetes.pod.namespace: selected
+        k8s:io.cilium.k8s.namespace.labels.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: selected
+        k8s:io.cilium.k8s.namespace.labels.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: selected
+
+-- knp.yaml --
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: namespace-label-limits
+  namespace: selected
+spec:
+  podSelector:
+    matchLabels:
+      app: client
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: selected
+          aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: selected
+-- kcnp.yaml --
+apiVersion: policy.networking.k8s.io/v1alpha2
+kind: ClusterNetworkPolicy
+metadata:
+  name: namespace-label-limits
+spec:
+  tier: Admin
+  priority: 1
+  subject:
+    namespaces:
+      matchLabels:
+        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: selected
+        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: selected
+  egress:
+  - action: Accept
+    to:
+    - namespaces:
+        matchLabels:
+          aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: selected
+          aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: selected
+  - action: Deny
