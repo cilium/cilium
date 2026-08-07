@@ -10,6 +10,8 @@ import (
 	stderrors "errors"
 	"strconv"
 
+	"github.com/cilium/cilium/pkg/mac"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
@@ -31,7 +33,7 @@ type EndpointNetworking struct {
 	HostAddressing *NodeAddressing `json:"host-addressing,omitempty"`
 
 	// MAC address
-	HostMac string `json:"host-mac,omitempty"`
+	HostMac mac.MAC `json:"host-mac,omitempty"`
 
 	// Index of network device in host netns
 	InterfaceIndex int64 `json:"interface-index,omitempty"`
@@ -40,7 +42,7 @@ type EndpointNetworking struct {
 	InterfaceName string `json:"interface-name,omitempty"`
 
 	// MAC address
-	Mac string `json:"mac,omitempty"`
+	Mac mac.MAC `json:"mac,omitempty"`
 }
 
 // Validate validates this endpoint networking

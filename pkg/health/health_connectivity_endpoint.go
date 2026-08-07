@@ -32,6 +32,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
@@ -307,8 +308,8 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	hostLinkAttrs := linkPair.GetHostLink().Attrs()
 	peerLinkAttrs := linkPair.GetPeerLink().Attrs()
 
-	info.Mac = peerLinkAttrs.HardwareAddr.String()
-	info.HostMac = hostLinkAttrs.HardwareAddr.String()
+	info.Mac = mac.MAC(peerLinkAttrs.HardwareAddr)
+	info.HostMac = mac.MAC(hostLinkAttrs.HardwareAddr)
 	info.InterfaceIndex = int64(hostLinkAttrs.Index)
 	info.InterfaceName = hostLinkAttrs.Name
 
