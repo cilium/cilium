@@ -19,6 +19,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
 )
 
 const testGatewayControllerName = "io.cilium/gateway-controller"
@@ -73,7 +74,7 @@ func TestSecretSyncHandlerEnqueueListenerSetTLSSecretsIncludingCrossNamespaceRef
 	}
 
 	fakeClient := fake.NewClientBuilder().
-		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 		WithObjects(gatewayClass, gateway, listenerSet).
 		Build()
 
