@@ -44,7 +44,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/hooks"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/version"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
@@ -895,7 +894,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		// Set the MAC address on the interface in the container namespace
 		if isLayer2 {
 			err = ns.Do(func() error {
-				return mac.ReplaceMacAddressWithLinkName(args.IfName, newEp.Status.Networking.Mac)
+				return link.SetHardwareAddr(args.IfName, newEp.Status.Networking.Mac)
 			})
 			if err != nil {
 				return fmt.Errorf("unable to set MAC address on interface %s: %w", args.IfName, err)

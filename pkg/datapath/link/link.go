@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
@@ -65,6 +66,24 @@ func GetHardwareAddr(ifName string) (mac.MAC, error) {
 		return nil, err
 	}
 	return mac.MAC(iface.Attrs().HardwareAddr), nil
+}
+
+// SetHardwareAddr sets the MAC address of the interface with the name ifName.
+//
+// Returns nil if the interface does not exist.
+func SetHardwareAddr(ifName, macAddress string) error {
+	l, err := safenetlink.LinkByName(ifName)
+	if err != nil {
+		if errors.As(err, &netlink.LinkNotFoundError{}) {
+			return nil
+		}
+		return err
+	}
+	hw, err := net.ParseMAC(macAddress)
+	if err != nil {
+		return err
+	}
+	return netlink.LinkSetHardwareAddr(l, hw)
 }
 
 func GetIfIndex(ifName string) (uint32, error) {
