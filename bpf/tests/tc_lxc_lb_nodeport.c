@@ -9,6 +9,8 @@
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
 #define ENABLE_NODEPORT		1
+/* Exercise the TC fallback for packets that bypass socket hooks. */
+#define ENABLE_SOCKET_LB_FULL	1
 #define ENABLE_DSR		1
 #define ENABLE_DSR_BYUSER	1
 #define ENCAP_IFINDEX		42

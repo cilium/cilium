@@ -86,9 +86,13 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
  * in bpf_sock, so we must check for those via per packet LB as well.
  * Furthermore, since SCTP cannot be handled as part of bpf_sock, also
  * enable per-packet LB is SCTP is enabled.
+ *
+ * Packets forwarded by pods do not pass through bpf_sock. Keep per-packet LB
+ * enabled with NodePort so these packets can still be translated.
  */
 #if !defined(ENABLE_SOCKET_LB_FULL) || \
     defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
+    defined(ENABLE_NODEPORT)            || \
     defined(ENABLE_L7_LB)               || \
     defined(ENABLE_SCTP)                || \
     defined(ENABLE_CLUSTER_AWARE_ADDRESSING)
