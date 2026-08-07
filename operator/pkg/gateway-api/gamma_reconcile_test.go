@@ -25,6 +25,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
@@ -94,7 +95,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 				t.Run(serviceKey.String(), func(t *testing.T) {
 					base := readInputDir(t, "testdata/gamma/base")
 					input := readInputDir(t, fmt.Sprintf("testdata/gamma/%s/input", tt.name))
-					scheme := helpers.TestScheme(helpers.AllOptionalKinds)
+					scheme := testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)
 
 					c := fake.NewClientBuilder().
 						WithScheme(scheme).
@@ -200,7 +201,7 @@ func Test_gammaReconciler_Reconcile_BackendRequestHeaderModifier(t *testing.T) {
 
 	base := readInputDir(t, "testdata/gamma/base")
 	input := readInputDir(t, "testdata/gamma/mesh-request-header-modifier-backend/input")
-	scheme := helpers.TestScheme(helpers.AllOptionalKinds)
+	scheme := testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)
 
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -280,7 +281,7 @@ func Test_gammaReconciler_Reconcile_ReplacesOwnerReferencesForRecreatedRoute(t *
 	base := readInputDir(t, "testdata/gamma/base")
 	originalInput := readInputDir(t, "testdata/gamma/mesh-request-header-modifier/input")
 	recreatedInput := readInputDir(t, "testdata/gamma/mesh-request-header-modifier-backend/input")
-	scheme := helpers.TestScheme(helpers.AllOptionalKinds)
+	scheme := testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)
 
 	setRouteIdentity := func(objs []client.Object, uid string) {
 		t.Helper()

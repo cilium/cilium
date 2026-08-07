@@ -82,7 +82,7 @@ func TestSNIHostnamesIntersect(t *testing.T) {
 
 func Test_hasMatchingController(t *testing.T) {
 	logger := hivetest.Logger(t)
-	c := fake.NewClientBuilder().WithScheme(TestScheme(AllOptionalKinds)).WithObjects(testhelpers.ControllerTestFixture...).Build()
+	c := fake.NewClientBuilder().WithScheme(testhelpers.TestScheme(AllOptionalKinds, RegisterGatewayAPITypesToScheme)).WithObjects(testhelpers.ControllerTestFixture...).Build()
 	fn := GatewayHasMatchingControllerFn(t.Context(), c, "io.cilium/gateway-controller", logger)
 
 	t.Run("invalid object", func(t *testing.T) {

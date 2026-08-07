@@ -19,13 +19,14 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 )
 
 const testGatewayControllerName = "io.cilium/gateway-controller"
 
 func TestEnqueueRequestForBackendServiceIncludesGRPCTCPAndUDP(t *testing.T) {
-	scheme := helpers.TestScheme(helpers.AllOptionalKinds)
+	scheme := testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)
 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

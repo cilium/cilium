@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
 	gwModel "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 )
 
@@ -268,7 +269,7 @@ func Test_endpointSliceReconciler_Reconcile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := fake.NewClientBuilder().
-				WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+				WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 				WithObjects(tt.objects...).
 				Build()
 
