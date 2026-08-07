@@ -21,8 +21,9 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- if not .Values.hubble.metrics.serviceMonitor.enabled }}
-    prometheus.io/scrape: "true"
-    prometheus.io/port: {{ .Values.hubble.metrics.port | quote }}
+    {{- with include "cilium.prometheusAnnotations" (list .Values.hubble.metrics.port .Values.hubble.annotations .Values.hubble.metrics.serviceAnnotations) }}
+    {{- . | nindent 4 }}
+    {{- end }}
     {{- end }}
 spec:
   clusterIP: None

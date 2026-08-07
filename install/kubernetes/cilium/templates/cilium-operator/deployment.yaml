@@ -50,8 +50,9 @@ spec:
         cilium.io/cilium-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-configmap.yaml") . | sha256sum | quote }}
         {{- end }}
         {{- if and .Values.operator.prometheus.enabled (not .Values.operator.prometheus.serviceMonitor.enabled) }}
-        prometheus.io/port: {{ .Values.operator.prometheus.port | quote }}
-        prometheus.io/scrape: "true"
+        {{- with include "cilium.prometheusAnnotations" (list .Values.operator.prometheus.port .Values.operator.podAnnotations) }}
+        {{- . | nindent 8 }}
+        {{- end }}
         {{- end }}
         {{- with .Values.operator.podAnnotations }}
         {{- toYaml . | nindent 8 }}

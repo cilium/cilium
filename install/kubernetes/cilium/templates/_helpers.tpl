@@ -112,6 +112,32 @@ Validate duration field, return validated duration, 0s when provided duration is
 {{- end }}
 
 {{/*
+Render the Prometheus scrape annotations for the given metrics port, skipping
+the ones already set in the user annotations rendered next to them, so that
+each key stays unique and the user value wins.
+Usage:
+  include "cilium.prometheusAnnotations" (list .Values.prometheus.port .Values.podAnnotations)
+*/}}
+{{- define "cilium.prometheusAnnotations" -}}
+{{- $userKeys := list -}}
+{{- range $i, $userAnnotations := . -}}
+{{- if $i -}}
+{{- $userKeys = concat $userKeys (keys (default (dict) $userAnnotations)) -}}
+{{- end -}}
+{{- end -}}
+{{- $annotations := dict -}}
+{{- if not (has "prometheus.io/port" $userKeys) -}}
+{{- $_ := set $annotations "prometheus.io/port" (index . 0 | toString) -}}
+{{- end -}}
+{{- if not (has "prometheus.io/scrape" $userKeys) -}}
+{{- $_ := set $annotations "prometheus.io/scrape" "true" -}}
+{{- end -}}
+{{- with $annotations -}}
+{{- toYaml . -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Convert a map to a comma-separated string: key1=value1,key2=value2
 */}}
 {{- define "mapToString" -}}

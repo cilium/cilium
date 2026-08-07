@@ -54,8 +54,9 @@ spec:
     metadata:
       annotations:
         {{- if and .Values.prometheus.enabled (not .Values.prometheus.serviceMonitor.enabled) }}
-        prometheus.io/port: "{{ .Values.prometheus.port }}"
-        prometheus.io/scrape: "true"
+        {{- with include "cilium.prometheusAnnotations" (list .Values.prometheus.port .Values.podAnnotations) }}
+        {{- . | nindent 8 }}
+        {{- end }}
         {{- end }}
         {{- if .Values.rollOutCiliumPods }}
         # ensure pods roll when configmap updates
