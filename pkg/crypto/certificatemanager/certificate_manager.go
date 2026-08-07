@@ -5,18 +5,24 @@ package certificatemanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
+
+var errInvalidSecretReference = errors.New("invalid Secret reference")
 
 var Cell = cell.Module(
 	"certificate-manager",
@@ -122,30 +128,43 @@ func (m *manager) getSecrets(ctx context.Context, secret *api.Secret, ns string)
 	if secret.Name == "" {
 		return ns, nil, false, fmt.Errorf("Missing Secret name")
 	}
+	if reasons := validation.IsDNS1123Subdomain(secret.Name); len(reasons) > 0 {
+		errs := strings.Join(reasons, ", ")
+		return ns, nil, false, fmt.Errorf("%w: name %q: %s", errInvalidSecretReference, secret.Name, errs)
+	}
+	if ns != "" {
+		if reasons := validation.IsDNS1123Label(ns); len(reasons) > 0 {
+			errs := strings.Join(reasons, ", ")
+			return ns, nil, false, fmt.Errorf("%w: namespace %q: %s", errInvalidSecretReference, ns, errs)
+		}
+	}
 	nsName := filepath.Join(ns, secret.Name)
 
 	// Give priority to local secrets.
 	// K8s API request is only done if the local secret directory can't be read!
-	certPath := filepath.Join(m.rootPath, nsName)
-	files, ioErr := os.ReadDir(certPath)
-	if ioErr == nil {
-		secrets := make(map[string][]byte, len(files))
-		for _, file := range files {
-			var bytes []byte
+	// Read only from the rootPath to prevent filesystem traversal.
+	if root, ioErr := os.OpenRoot(m.rootPath); ioErr == nil {
+		defer root.Close()
+		var readErr error
+		if files, ioErr := fs.ReadDir(root.FS(), nsName); ioErr == nil {
+			secrets := make(map[string][]byte, len(files))
+			for _, file := range files {
+				var bytes []byte
 
-			path := filepath.Join(certPath, file.Name())
-			bytes, ioErr = os.ReadFile(path)
-			if ioErr == nil {
-				secrets[file.Name()] = bytes
+				path := filepath.Join(nsName, file.Name())
+				bytes, readErr = root.ReadFile(path)
+				if readErr == nil {
+					secrets[file.Name()] = bytes
+				}
 			}
-		}
-		// Return the (latest) error only if no secrets were found
-		if len(secrets) == 0 && ioErr != nil {
+			// Return the last file-read error only if no secret files were read successfully.
+			if len(secrets) == 0 && readErr != nil {
+				// Files read from disk, so bool returnval is true
+				return nsName, nil, true, readErr
+			}
 			// Files read from disk, so bool returnval is true
-			return nsName, nil, true, ioErr
+			return nsName, secrets, true, nil
 		}
-		// Files read from disk, so bool returnval is true
-		return nsName, secrets, true, nil
 	}
 
 	if m.secretSyncEnabled && m.secretSyncNamespace != "" {
