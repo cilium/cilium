@@ -351,6 +351,59 @@ func (n *linuxNodeHandler) RestoreNodeIDs() {
 		logfields.Count, len(nodeValues))
 }
 
+// NodeMapGarbageCollect removes stale entries from the BPF node map that do not
+// correspond to any currently known node IP.
+func (n *linuxNodeHandler) NodeMapGarbageCollect() {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	validNodeIPs := make(map[string]struct{})
+	for _, node := range n.nodes {
+		for _, addr := range node.IPAddresses {
+			validNodeIPs[addr.IP.String()] = struct{}{}
+		}
+	}
+
+	staleIPsByID := make(map[uint16][]string)
+	for ip, nodeID := range n.nodeIDsByIPs {
+		if _, ok := validNodeIPs[ip]; ok {
+			continue
+		}
+		staleIPsByID[nodeID] = append(staleIPsByID[nodeID], ip)
+	}
+
+	if len(staleIPsByID) == 0 {
+		n.log.Debug("No stale node ID mappings found")
+		return
+	}
+
+	var staleIPs int
+	for nodeID, ips := range staleIPsByID {
+		for _, ip := range ips {
+			if err := n.unmapNodeID(ip); err != nil {
+				n.log.Warn("Failed to remove stale node ID mapping",
+					logfields.Error, err,
+					logfields.NodeID, nodeID,
+					logfields.IPAddr, ip,
+				)
+			} else {
+				staleIPs++
+			}
+		}
+		if n.nodeIPsByIDs[nodeID].Len() == 0 {
+			if !n.nodeIDs.Insert(idpool.ID(nodeID)) {
+				n.log.Warn("Attempted to deallocate a node ID that wasn't allocated",
+					logfields.NodeID, nodeID,
+				)
+			}
+		}
+	}
+
+	n.log.Info("Garbage collected stale node ID mappings",
+		logfields.Count, staleIPs,
+	)
+}
+
 func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string]*nodemap.NodeValueV2) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()

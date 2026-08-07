@@ -191,6 +191,9 @@ type signalNodeHandler struct {
 	NodeValidateImplementationEvent       chan nodeTypes.Node
 	NodeValidateImplementationEventError  error
 	EnableNodeValidateImplementationEvent bool
+	NodeMapGarbageCollectEvent            chan struct{}
+	EnableNodeMapGarbageCollectEvent      bool
+	OnNodeMapGarbageCollect               func()
 	Stop                                  chan struct{}
 }
 
@@ -200,6 +203,7 @@ func newSignalNodeHandler() *signalNodeHandler {
 		NodeUpdateEvent:                 make(chan nodeTypes.Node, 10),
 		NodeDeleteEvent:                 make(chan nodeTypes.Node, 10),
 		NodeValidateImplementationEvent: make(chan nodeTypes.Node, 4096),
+		NodeMapGarbageCollectEvent:      make(chan struct{}, 10),
 		Stop:                            make(chan struct{}, 10),
 	}
 }
@@ -240,6 +244,33 @@ func (n *signalNodeHandler) NodeValidateImplementation(node nodeTypes.Node) erro
 		}
 	}
 	return n.NodeValidateImplementationEventError
+}
+
+func (n *signalNodeHandler) NodeMapGarbageCollect() {
+	if n.OnNodeMapGarbageCollect != nil {
+		n.OnNodeMapGarbageCollect()
+	}
+	if n.EnableNodeMapGarbageCollectEvent {
+		n.NodeMapGarbageCollectEvent <- struct{}{}
+	}
+}
+
+func assertNoNodeMapGarbageCollect(t *testing.T, dp *signalNodeHandler) {
+	t.Helper()
+	select {
+	case <-dp.NodeMapGarbageCollectEvent:
+		t.Fatal("unexpected NodeMapGarbageCollect() call")
+	default:
+	}
+}
+
+func assertNodeMapGarbageCollect(t *testing.T, dp *signalNodeHandler) {
+	t.Helper()
+	select {
+	case <-dp.NodeMapGarbageCollectEvent:
+	default:
+		t.Fatal("expected NodeMapGarbageCollect() to be called")
+	}
 }
 
 func TestNodeLifecycle(t *testing.T) {
@@ -321,6 +352,50 @@ func TestNodeLifecycle(t *testing.T) {
 
 	err = mngr.Stop(context.TODO())
 	require.NoError(t, err)
+}
+
+func TestNodeMapGarbageCollectOnNodeSync(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	dp := newSignalNodeHandler()
+	dp.EnableNodeMapGarbageCollectEvent = true
+	ipcacheMock := newIPcacheMock()
+	h, _ := cell.NewSimpleHealth()
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	require.NoError(t, err)
+	mngr.Subscribe(dp)
+	t.Cleanup(func() {
+		mngr.Stop(context.TODO())
+	})
+
+	n1 := nodeTypes.Node{
+		Name:    "node1",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("10.0.0.1"),
+			},
+			{
+				Type: addressing.NodeCiliumInternalIP,
+				IP:   net.ParseIP("192.0.2.1"),
+			},
+		},
+		Source: source.CustomResource,
+	}
+	mngr.NodeUpdated(n1)
+
+	mngr.NodeSync()
+	assertNoNodeMapGarbageCollect(t, dp)
+	mngr.NodeSync()
+	assertNoNodeMapGarbageCollect(t, dp)
+
+	mngr.MeshNodeSync()
+	assertNodeMapGarbageCollect(t, dp)
+
+	mngr.NodeSync()
+	mngr.MeshNodeSync()
+	assertNoNodeMapGarbageCollect(t, dp)
 }
 
 func TestNodeLabels(t *testing.T) {
@@ -1494,6 +1569,7 @@ func TestNodesStartupPruning(t *testing.T) {
 		ipcacheMock := newIPcacheMock()
 		dp := newSignalNodeHandler()
 		dp.EnableNodeDeleteEvent = true
+		dp.EnableNodeMapGarbageCollectEvent = true
 		h, _ := cell.NewSimpleHealth()
 		mngr, err := New(logger, &option.DaemonConfig{
 			StateDir: stateDir,
@@ -1547,6 +1623,8 @@ func TestNodesStartupPruning(t *testing.T) {
 		mngr.NodeUpdated(c1Node2)
 		mngr.NodeSync()
 
+		assertNoNodeMapGarbageCollect(t, dp)
+
 		select {
 		case dn := <-dp.NodeDeleteEvent:
 			expectedNode := c1StaleNode
@@ -1562,6 +1640,8 @@ func TestNodesStartupPruning(t *testing.T) {
 		// it's present in the file but not in our current view).
 		mngr.NodeUpdated(c2Node1)
 		mngr.MeshNodeSync()
+
+		assertNodeMapGarbageCollect(t, dp)
 
 		select {
 		case dn := <-dp.NodeDeleteEvent:
@@ -1590,6 +1670,8 @@ func TestNodesStartupPruning(t *testing.T) {
 		mngr.NodeUpdated(c2Node1)
 		mngr.MeshNodeSync()
 
+		assertNoNodeMapGarbageCollect(t, dp)
+
 		select {
 		case dn := <-dp.NodeDeleteEvent:
 			expectedNode := c2StaleNode
@@ -1609,6 +1691,8 @@ func TestNodesStartupPruning(t *testing.T) {
 		mngr.NodeUpdated(c1Node2)
 		mngr.NodeSync()
 
+		assertNodeMapGarbageCollect(t, dp)
+
 		select {
 		case dn := <-dp.NodeDeleteEvent:
 			expectedNode := c1StaleNode
@@ -1622,5 +1706,61 @@ func TestNodesStartupPruning(t *testing.T) {
 
 		assert.Equal(t, float64(2), mngr.metrics.EventsReceived.WithLabelValues("delete", string(source.Restored)).Get())
 		assert.Equal(t, float64(3), mngr.metrics.NumNodes.Get())
+	})
+
+	t.Run("no checkpoint waits for both syncs before GC", func(t *testing.T) {
+		stateDir := t.TempDir()
+		logger := hivetest.Logger(t)
+
+		ipcacheMock := newIPcacheMock()
+		dp := newSignalNodeHandler()
+		dp.EnableNodeMapGarbageCollectEvent = true
+		h, _ := cell.NewSimpleHealth()
+		mngr, err := New(logger, &option.DaemonConfig{
+			StateDir:    stateDir,
+			ClusterName: "c1",
+		}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			mngr.Stop(context.TODO())
+		})
+		mngr.Subscribe(dp)
+
+		mngr.NodeUpdated(c1Node1)
+		mngr.NodeSync()
+		assertNoNodeMapGarbageCollect(t, dp)
+
+		mngr.MeshNodeSync()
+		assertNodeMapGarbageCollect(t, dp)
+	})
+
+	t.Run("node map GC releases manager lock before handlers", func(t *testing.T) {
+		stateDir := t.TempDir()
+		logger := hivetest.Logger(t)
+
+		ipcacheMock := newIPcacheMock()
+		dp := newSignalNodeHandler()
+		dp.EnableNodeMapGarbageCollectEvent = true
+		h, _ := cell.NewSimpleHealth()
+		mngr, err := New(logger, &option.DaemonConfig{
+			StateDir:    stateDir,
+			ClusterName: "c1",
+		}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			mngr.Stop(context.TODO())
+		})
+		mngr.Subscribe(dp)
+
+		dp.OnNodeMapGarbageCollect = func() {
+			require.True(t, mngr.mutex.TryLock(), "manager lock must not be held while running node map GC handlers")
+			mngr.mutex.Unlock()
+		}
+
+		mngr.NodeUpdated(c1Node1)
+		mngr.NodeSync()
+		mngr.MeshNodeSync()
+
+		assertNodeMapGarbageCollect(t, dp)
 	})
 }

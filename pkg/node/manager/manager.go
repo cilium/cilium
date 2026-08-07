@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -91,6 +92,10 @@ type IPSetFilterFn func(*nodeTypes.Node) bool
 
 var _ Notifier = (*manager)(nil)
 
+type nodeMapGarbageCollector interface {
+	NodeMapGarbageCollect()
+}
+
 // manager is the entity that manages a collection of nodes
 type manager struct {
 	logger *slog.Logger
@@ -163,6 +168,11 @@ type manager struct {
 
 	// Ensure the pruning is only attempted once.
 	nodePruneOnce sync.Once
+	// nodeMapGCSyncs counts the two distinct initial node syncs. The per-source
+	// guards ensure duplicate cluster or mesh sync notifications are ignored.
+	nodeMapGCSyncs           atomic.Int32
+	nodeMapGCClusterSyncOnce sync.Once
+	nodeMapGCMeshSyncOnce    sync.Once
 
 	// Reference to the StateDB
 	db *statedb.DB
@@ -1187,6 +1197,7 @@ func (m *manager) NodeSync() {
 	m.nodePruneOnce.Do(func() {
 		m.pruneClusterNodes()
 	})
+	m.nodeMapGCClusterSyncOnce.Do(m.nodeMapSyncDone)
 }
 
 // MeshNodeSync signals the manager that the initial nodes listing from
@@ -1194,6 +1205,7 @@ func (m *manager) NodeSync() {
 // deletion of possible stale meshed nodes.
 func (m *manager) MeshNodeSync() {
 	m.pruneMeshedNodes()
+	m.nodeMapGCMeshSyncOnce.Do(m.nodeMapSyncDone)
 }
 
 func (m *manager) pruneClusterNodes() {
@@ -1286,6 +1298,17 @@ func (m *manager) pruneMeshedNodes() {
 		m.NodeDeleted(*n)
 		delete(m.restoredNodes, n.Identity())
 	}
+}
+
+func (m *manager) nodeMapSyncDone() {
+	if m.nodeMapGCSyncs.Add(1) != 2 {
+		return
+	}
+	m.Iter(func(nh node.Handler) {
+		if gc, ok := nh.(nodeMapGarbageCollector); ok {
+			gc.NodeMapGarbageCollect()
+		}
+	})
 }
 
 // GetNodeIdentities returns a list of all node identities store in node
