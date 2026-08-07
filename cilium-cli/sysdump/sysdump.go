@@ -1563,7 +1563,7 @@ func (c *Collector) Run() error {
 					return fmt.Errorf("could not find Cilium Agent Pod to run kvstore get, Cilium Pod list was empty")
 				}
 				for _, pod := range c.CiliumPods {
-					if pod.Status.Phase == "Running" {
+					if pod.Status.Phase == corev1.PodRunning {
 						return c.submitKVStoreTasks(ctx, pod.DeepCopy())
 					}
 				}
