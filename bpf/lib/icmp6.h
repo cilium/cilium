@@ -542,6 +542,7 @@ static __always_inline
 bool icmp6_ndisc_validate(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 			  const union macaddr *iface_mac, union v6addr *tip)
 {
+	int l3_off = (int)((void *)ip6 - ctx_data(ctx));
 	__u8 nexthdr = ip6->nexthdr;
 	struct icmp6hdr *icmp;
 	int l4_off = ipv6_hdrlen(ctx, &nexthdr);
@@ -556,7 +557,7 @@ bool icmp6_ndisc_validate(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 	if (l4_off < 0 || nexthdr != NEXTHDR_ICMP)
 		return false;
 
-	icmp = (struct icmp6hdr *)((__u8 *)ip6 + l4_off);
+	icmp = (struct icmp6hdr *)(ctx_data(ctx) + l3_off + l4_off);
 	if ((void *)icmp + sizeof(*icmp) + sizeof(*tip) > ctx_data_end(ctx))
 		return false;
 
