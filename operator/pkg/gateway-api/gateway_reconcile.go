@@ -1987,6 +1987,32 @@ func (r *gatewayReconciler) parentIsMatchingGateway(ctx context.Context, parent 
 	return hasMatchingControllerFn(gw)
 }
 
+// collectValidationConditions runs the given route validators and returns the
+// conditions of the failed ones. Conditions sharing the same type are merged
+// into a single condition by joining their messages, so that independent
+// validation failures are all reported instead of overwriting each other.
+func collectValidationConditions(validators ...func() (metav1.Condition, bool)) []metav1.Condition {
+	var conds []metav1.Condition
+	for _, validate := range validators {
+		cond, invalid := validate()
+		if !invalid {
+			continue
+		}
+		merged := false
+		for i := range conds {
+			if conds[i].Type == cond.Type {
+				conds[i].Message = conds[i].Message + "; " + cond.Message
+				merged = true
+				break
+			}
+		}
+		if !merged {
+			conds = append(conds, cond)
+		}
+	}
+	return conds
+}
+
 func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx context.Context, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1.ReferenceGrantList) error {
 	scopedLog.DebugContext(ctx, "Updating HTTPRoute statuses for Gateway", numRoutes, len(httpRoutes.Items))
 	for httpRouteIndex, original := range httpRoutes.Items {
@@ -2011,14 +2037,12 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 
 		// Route-specific checks will go in here separately if required.
 
-		for _, validate := range []func() (metav1.Condition, bool){
+		for _, cond := range collectValidationConditions(
 			i.ValidateHeaderModifier,
 			i.ValidateMatchRegexps,
-		} {
-			if cond, invalid := validate(); invalid {
-				for _, parent := range hr.Status.Parents {
-					i.SetParentCondition(parent.ParentRef, cond)
-				}
+		) {
+			for _, parent := range hr.Status.Parents {
+				i.SetParentCondition(parent.ParentRef, cond)
 			}
 		}
 
@@ -2092,14 +2116,12 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 			return fmt.Errorf("failure during GRPCRoute checks: %w", err)
 		}
 
-		for _, validate := range []func() (metav1.Condition, bool){
+		for _, cond := range collectValidationConditions(
 			i.ValidateHeaderModifier,
 			i.ValidateMatchRegexps,
-		} {
-			if cond, invalid := validate(); invalid {
-				for _, parent := range grpcr.Status.Parents {
-					i.SetParentCondition(parent.ParentRef, cond)
-				}
+		) {
+			for _, parent := range grpcr.Status.Parents {
+				i.SetParentCondition(parent.ParentRef, cond)
 			}
 		}
 
