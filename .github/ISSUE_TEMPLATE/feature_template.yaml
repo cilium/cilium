@@ -1,5 +1,6 @@
 name: Feature Proposal
 description: Suggest a feature to Cilium
+type: Enhancement
 labels: ["kind/feature", "kind/cfp"]
 body:
   - type: markdown

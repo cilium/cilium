@@ -1,5 +1,6 @@
 name: Bug Report
 description: Report a bug encountered while operating Cilium
+type: Bug
 labels: ["kind/community-report", "kind/bug", "needs/triage"]
 body:
   - type: markdown
