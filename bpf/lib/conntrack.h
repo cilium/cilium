@@ -53,8 +53,7 @@ struct ct_state {
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 	      closing:1,
-	      new_backend:1,	/* Service connection was assigned a new backend */
-	      reserved:6;
+	      reserved:7;
 	__u32 src_sec_id;
 	__u32 backend_id;	/* Backend ID in lb4_backends */
 };
