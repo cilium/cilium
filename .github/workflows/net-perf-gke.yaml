@@ -193,6 +193,7 @@ jobs:
           chart-dir: ./install/kubernetes/cilium
           debug: false
           image-pull-secret: "cilium-registry"
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       - name: Truncate owner label for GKE
         id: truncate-owner

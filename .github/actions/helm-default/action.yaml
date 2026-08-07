@@ -21,6 +21,10 @@ inputs:
     description: "Whether to include the image pull secret in the generated defaults"
     required: false
     default: ''
+  auth-required:
+    description: 'Variable setting up if auth is required or not. Can be found in the repository variable under DOCKER_AUTH_REQUIRED name'
+    required: false
+    default: 'true'
   registry_host:
     description: 'Registry host for Cilium images'
     default: 'quay.io'
@@ -101,7 +105,7 @@ runs:
             --helm-set=debug.verbose=envoy"
         fi
 
-        if [ "${{ inputs.image-pull-secret }}" != "" ]; then
+        if [ "${{ inputs.auth-required }}" == "true" ] && [ "${{ inputs.image-pull-secret }}" != "" ]; then
           CILIUM_INSTALL_DEFAULTS+=" --helm-set=imagePullSecrets[0].name=${{ inputs.image-pull-secret }}"
         fi
 

@@ -245,6 +245,7 @@ jobs:
           chart-dir: ./untrusted/install/kubernetes/cilium
           debug: false
           image-pull-secret: "cilium-registry"
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       - name: Install Cilium
         id: install-cilium

@@ -92,6 +92,7 @@ jobs:
           registry_host: ${{ vars.DOCKER_READ_HOST }}
           registry_organization: ${{ vars.DOCKER_READ_ORG }}
           image-pull-secret: "cilium-registry"
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
           chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set image tag

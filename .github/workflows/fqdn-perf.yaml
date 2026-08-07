@@ -248,7 +248,11 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} --helm-set=imagePullSecrets[0].name=cilium-registry
+          PULL_SECRET=""
+          if [ "${{ vars.DOCKER_AUTH_REQUIRED }}" == "true" ]; then
+            PULL_SECRET="--helm-set=imagePullSecrets[0].name=cilium-registry"
+          fi
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} $PULL_SECRET
 
       - name: Wait for cluster to be ready
         uses: cilium/scale-tests-action/validate-cluster@d89fc21b123f4047828366d1505a8bb5d414c07d # main
