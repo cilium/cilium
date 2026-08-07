@@ -79,29 +79,6 @@ func gatewayStatusProgrammedCondition(gw *gatewayv1.Gateway, scheduled metav1.Co
 	}
 }
 
-func gatewayStatusReadyCondition(gw *gatewayv1.Gateway, scheduled bool, msg string) metav1.Condition {
-	switch scheduled {
-	case true:
-		return metav1.Condition{
-			Type:               string(gatewayv1.GatewayConditionReady),
-			Status:             metav1.ConditionTrue,
-			Reason:             string(gatewayv1.GatewayReasonReady),
-			Message:            msg,
-			ObservedGeneration: gw.GetGeneration(),
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		}
-	default:
-		return metav1.Condition{
-			Type:               string(gatewayv1.GatewayConditionReady),
-			Status:             metav1.ConditionFalse,
-			Reason:             string(gatewayv1.GatewayReasonListenersNotReady),
-			Message:            msg,
-			ObservedGeneration: gw.GetGeneration(),
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		}
-	}
-}
-
 func listenerProgrammedCondition(generation int64, ready bool, reason gatewayv1.ListenerConditionReason, msg string) metav1.Condition {
 	switch ready {
 	case true:
