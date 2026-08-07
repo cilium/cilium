@@ -5,6 +5,8 @@ package ingestion
 
 import (
 	"cmp"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -517,14 +519,16 @@ func extractRoutes(logger *slog.Logger,
 				Timeout:                toTimeout(rule.Timeouts),
 				Retry:                  toHTTPRetry(rule.Retry),
 				CORS:                   requestCORS,
+				SessionPersistence:     toHTTPSessionPersistence(rule.SessionPersistence, helpers.HTTPRouteKind, hr.Namespace, hr.Name, ruleIndex, model.StringMatch{}),
 			})
 		}
 
 		for matchIndex, match := range rule.Matches {
+			pathMatch := toPathMatch(match)
 			httpRoutes = append(httpRoutes, model.HTTPRoute{
 				SourceRule:             sourceHTTPRouteRule(hr, ruleIndex, matchIndex),
 				Hostnames:              hostnames,
-				PathMatch:              toPathMatch(match),
+				PathMatch:              pathMatch,
 				HeadersMatch:           toHeaderMatch(match),
 				QueryParamsMatch:       toQueryMatch(match),
 				Method:                 (*string)(match.Method),
@@ -540,6 +544,7 @@ func extractRoutes(logger *slog.Logger,
 				Timeout:                toTimeout(rule.Timeouts),
 				Retry:                  toHTTPRetry(rule.Retry),
 				CORS:                   requestCORS,
+				SessionPersistence:     toHTTPSessionPersistence(rule.SessionPersistence, helpers.HTTPRouteKind, hr.Namespace, hr.Name, ruleIndex, pathMatch),
 			})
 		}
 	}
@@ -763,7 +768,7 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 
 func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
-	for _, rule := range grpcr.Spec.Rules {
+	for ruleIndex, rule := range grpcr.Spec.Rules {
 		bes := make([]model.Backend, 0, len(rule.BackendRefs))
 		for _, be := range rule.BackendRefs {
 			if !helpers.IsBackendReferenceAllowed(grpcr.GetNamespace(), be.BackendRef, helpers.GatewayV1GVK("GRPCRoute"), grants) {
@@ -857,13 +862,15 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 				RequestHeaderFilter:    requestHeaderFilter,
 				ResponseHeaderModifier: responseHeaderFilter,
 				RequestMirrors:         requestMirrors,
+				SessionPersistence:     toHTTPSessionPersistence(rule.SessionPersistence, helpers.GRPCRouteKind, grpcr.Namespace, grpcr.Name, ruleIndex, model.StringMatch{}),
 			})
 		}
 
 		for _, match := range rule.Matches {
+			pathMatch := toGRPCPathMatch(match)
 			grpcRoutes = append(grpcRoutes, model.HTTPRoute{
 				Hostnames:              hostnames,
-				PathMatch:              toGRPCPathMatch(match),
+				PathMatch:              pathMatch,
 				HeadersMatch:           toGRPCHeaderMatch(match),
 				Backends:               bes,
 				DirectResponse:         dr,
@@ -871,6 +878,7 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 				ResponseHeaderModifier: responseHeaderFilter,
 				RequestMirrors:         requestMirrors,
 				IsGRPC:                 true,
+				SessionPersistence:     toHTTPSessionPersistence(rule.SessionPersistence, helpers.GRPCRouteKind, grpcr.Namespace, grpcr.Name, ruleIndex, pathMatch),
 			})
 		}
 	}
@@ -1475,4 +1483,40 @@ func toStringSlice[S ~string](s []S) []string {
 		res = append(res, string(h))
 	}
 	return res
+}
+
+func toHTTPSessionPersistence(sp *gatewayv1.SessionPersistence, kind, namespace, routeName string, ruleIndex int, pathMatch model.StringMatch) *model.HTTPSessionPersistence {
+	if sp == nil {
+		return nil
+	}
+
+	sessionName := defaultSessionName(kind, namespace, routeName, ruleIndex)
+	if sp.SessionName != nil {
+		sessionName = *sp.SessionName
+	}
+
+	cookiePath := ""
+	switch {
+	case pathMatch.Exact != "":
+		cookiePath = pathMatch.Exact
+	case pathMatch.Prefix != "":
+		cookiePath = pathMatch.Prefix
+	default:
+		cookiePath = "/"
+	}
+
+	return &model.HTTPSessionPersistence{
+		Cookie: &model.HTTPCookieSessionPersistence{
+			Name:     sessionName,
+			Path:     cookiePath,
+			Secure:   true,
+			HTTPOnly: true,
+			SameSite: "Strict",
+		},
+	}
+}
+
+func defaultSessionName(kind, namespace, routeName string, ruleIndex int) string {
+	sum := sha256.Sum256(fmt.Appendf(nil, "%s/%s/%s/%d", kind, namespace, routeName, ruleIndex))
+	return fmt.Sprintf("cilium-gw-session-%s", hex.EncodeToString(sum[:8]))
 }
