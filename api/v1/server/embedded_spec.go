@@ -2670,7 +2670,7 @@ func init() {
         },
         "host-mac": {
           "description": "MAC address",
-          "type": "string"
+          "$ref": "#/definitions/MAC"
         },
         "id": {
           "description": "Local endpoint ID",
@@ -2706,7 +2706,7 @@ func init() {
         },
         "mac": {
           "description": "MAC address",
-          "type": "string"
+          "$ref": "#/definitions/MAC"
         },
         "netns-cookie": {
           "description": "Network namespace cookie",
@@ -2892,7 +2892,7 @@ func init() {
         },
         "host-mac": {
           "description": "MAC address",
-          "type": "string"
+          "$ref": "#/definitions/MAC"
         },
         "interface-index": {
           "description": "Index of network device in host netns",
@@ -2904,7 +2904,7 @@ func init() {
         },
         "mac": {
           "description": "MAC address",
-          "type": "string"
+          "$ref": "#/definitions/MAC"
         }
       }
     },
@@ -3264,7 +3264,7 @@ func init() {
         },
         "master-mac": {
           "description": "MAC of master interface if address is a slave/secondary of a master interface",
-          "type": "string"
+          "$ref": "#/definitions/MAC"
         },
         "skip-masquerade": {
           "description": "SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.\n",
@@ -3873,6 +3873,20 @@ func init() {
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "MAC": {
+      "description": "MAC address",
+      "type": "string",
+      "x-go-type": {
+        "hints": {
+          "kind": "primitive",
+          "noValidation": true
+        },
+        "import": {
+          "package": "github.com/cilium/cilium/pkg/mac"
+        },
+        "type": "MAC"
       }
     },
     "MapEvent": {
@@ -8116,7 +8130,7 @@ func init() {
         },
         "host-mac": {
           "description": "MAC address",
-          "type": "string"
+          "$ref": "#/definitions/MAC"
         },
         "id": {
           "description": "Local endpoint ID",
@@ -8152,7 +8166,7 @@ func init() {
         },
         "mac": {
           "description": "MAC address",
-          "type": "string"
+          "$ref": "#/definitions/MAC"
         },
         "netns-cookie": {
           "description": "Network namespace cookie",
@@ -8338,7 +8352,7 @@ func init() {
         },
         "host-mac": {
           "description": "MAC address",
-          "type": "string"
+          "$ref": "#/definitions/MAC"
         },
         "interface-index": {
           "description": "Index of network device in host netns",
@@ -8350,7 +8364,7 @@ func init() {
         },
         "mac": {
           "description": "MAC address",
-          "type": "string"
+          "$ref": "#/definitions/MAC"
         }
       }
     },
@@ -8733,7 +8747,7 @@ func init() {
         },
         "master-mac": {
           "description": "MAC of master interface if address is a slave/secondary of a master interface",
-          "type": "string"
+          "$ref": "#/definitions/MAC"
         },
         "skip-masquerade": {
           "description": "SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.\n",
@@ -9674,6 +9688,20 @@ func init() {
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "MAC": {
+      "description": "MAC address",
+      "type": "string",
+      "x-go-type": {
+        "hints": {
+          "kind": "primitive",
+          "noValidation": true
+        },
+        "import": {
+          "package": "github.com/cilium/cilium/pkg/mac"
+        },
+        "type": "MAC"
       }
     },
     "MapEvent": {

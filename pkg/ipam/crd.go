@@ -721,7 +721,10 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 	case ipamOption.IPAMAzure:
 		for _, iface := range a.store.ownNode.Status.Azure.Interfaces {
 			if iface.ID == ipInfo.Resource {
-				result.PrimaryMAC = iface.MAC
+				result.PrimaryMAC, err = parsePrimaryMAC(iface.MAC)
+				if err != nil {
+					return nil, fmt.Errorf("invalid MAC address %q reported for Azure interface %s: %w", iface.MAC, iface.ID, err)
+				}
 				if iface.Gateway.IsValid() {
 					result.GatewayIP = iface.Gateway.Addr
 				}
@@ -771,7 +774,10 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 			if eni.NetworkInterfaceID != ipInfo.Resource {
 				continue
 			}
-			result.PrimaryMAC = eni.MACAddress
+			result.PrimaryMAC, err = parsePrimaryMAC(eni.MACAddress)
+			if err != nil {
+				return nil, fmt.Errorf("invalid MAC address %q reported for ENI %s: %w", eni.MACAddress, eni.NetworkInterfaceID, err)
+			}
 			if eni.VSwitch.CIDRBlock.IsValid() {
 				p := eni.VSwitch.CIDRBlock.Prefix
 				result.CIDRs = []netip.Prefix{p}
