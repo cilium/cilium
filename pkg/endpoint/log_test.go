@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"bytes"
+	"encoding/json"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -68,4 +69,25 @@ func TestPolicyLog(t *testing.T) {
 	require.True(t, bytes.Contains(buf, []byte("testing policy logging")))
 	require.True(t, bytes.Contains(buf, []byte("testing PolicyDebug")))
 	require.True(t, bytes.Contains(buf, []byte("Test Value")))
+}
+
+func TestPolicyLogAfterEndpointRestore(t *testing.T) {
+	logger := hivetest.Logger(t)
+	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
+	p := createEndpointParams(t, nil, do.repo, do.fetcher)
+	model := newTestEndpointModel(12345, StateReady)
+
+	ep, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
+	require.NoError(t, err)
+	ep.Options.SetValidated(option.DebugPolicy, option.OptionEnabled)
+
+	ep.unconditionalRLock()
+	epJSON, err := json.Marshal(ep)
+	ep.runlock()
+	require.NoError(t, err)
+
+	restoredEP, err := ParseEndpoint(p, nil, nil, epJSON)
+	require.NoError(t, err)
+
+	restoredEP.PolicyDebug("testing restored endpoint PolicyDebug")
 }
