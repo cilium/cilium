@@ -25,8 +25,8 @@ func TestWithFeatureRequirements(t *testing.T) {
 		},
 		"Adding several features to an existing list with no duplicate": {
 			requirements: []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}},
-			in:           []features.Requirement{{Feature: features.L7Proxy}, {Feature: features.EncryptionNode}},
-			want:         []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}, {Feature: features.L7Proxy}, {Feature: features.EncryptionNode}},
+			in:           []features.Requirement{{Feature: features.L7Proxy}},
+			want:         []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}, {Feature: features.L7Proxy}},
 		},
 		"Adding one duplicate": {
 			requirements: []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}},
