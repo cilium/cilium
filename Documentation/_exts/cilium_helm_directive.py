@@ -22,27 +22,20 @@ from textwrap import dedent
 
 
 RST_TEMPLATE = """\
-.. only:: stable
+.. tabs::
 
-   .. tabs::
+   .. group-tab:: Helm Repository
 
-      .. group-tab:: Helm Repository
-
-         .. parsed-literal::
+      .. parsed-literal::
 
 {helm_repo_cmd}
 
-      .. group-tab:: OCI Registry
+   .. group-tab:: OCI Registry
 
-         .. parsed-literal::
+      .. parsed-literal::
 
 {oci_cmd}
 
-.. only:: not stable
-
-   .. parsed-literal::
-
-{not_stable_cmd}
 """
 
 
@@ -83,7 +76,13 @@ class CiliumHelmInstallDirective(SphinxDirective):
         opts.extend(f'--set {opt}' for opt in set_options)
         return opts
 
-    def _format_command(self, base_cmd, opts, indent, post_helm_commands='', post_commands=''):
+    def _format_command(
+            self,
+            base_cmd,
+            opts,
+            indent,
+            post_helm_commands='',
+            post_commands=''):
         """Format a helm command with proper line continuation."""
         # Parse post_helm_commands (these get line continuation like helm args)
         post_helm_lines = []
@@ -113,7 +112,8 @@ class CiliumHelmInstallDirective(SphinxDirective):
             suffix = '' if is_last else ' \\\\'
             lines.append(f'{indent}   {opt}{suffix}')
 
-        # Add post_helm_commands - no line continuation, just aligned with other args
+        # Add post_helm_commands - no line continuation, just aligned with
+        # other args
         for line in post_helm_lines:
             lines.append(f'{indent}   {line}')
 
@@ -152,16 +152,11 @@ class CiliumHelmInstallDirective(SphinxDirective):
             oci_base,
             opts_list, '            ', post_helm_commands, post_commands
         )
-        not_stable_cmd = self._format_command(
-            helm_repo_base,
-            opts_list, '      ', post_helm_commands, post_commands
-        )
 
         # Generate RST from template
         rst_content = RST_TEMPLATE.format(
             helm_repo_cmd=helm_repo_cmd,
             oci_cmd=oci_cmd,
-            not_stable_cmd=not_stable_cmd,
         )
 
         # Parse and return nodes

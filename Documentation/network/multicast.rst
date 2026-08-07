@@ -10,7 +10,7 @@
 Multicast Support in Cilium (Beta)
 **********************************
 
-.. include:: ../beta.rst
+.. include:: /beta.rst
 
 The multicast capability allows user application to distribute data feeds to
 multiple consumers in the Kubernetes cluster.

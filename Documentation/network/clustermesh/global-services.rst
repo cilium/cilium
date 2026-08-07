@@ -67,7 +67,7 @@ Below example will expose remote endpoint without sharing local endpoints.
 Synchronizing Kubernetes EndpointSlice (Beta)
 #############################################
 
-.. include:: ../../beta.rst
+.. include:: /beta.rst
 
 By default Kubernetes EndpointSlice synchronization is disabled on non Headless Global services.
 To have Cilium discover remote clusters endpoints of a Global Service
