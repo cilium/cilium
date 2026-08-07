@@ -752,6 +752,11 @@ int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port hasn't been NATed to backend port");
 
+	__be32 client_ip = CLIENT_IP;
+
+	if (!neigh_lookup_ip4(&client_ip))
+		test_fatal("client is missing from neighbour table")
+
 	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
 
 	if (settings)
