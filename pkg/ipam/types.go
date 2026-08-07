@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -41,8 +42,9 @@ type AllocationResult struct {
 	// PrimaryMAC is the MAC address of the primary interface. This is useful
 	// when the IP is a secondary address of an interface which is
 	// represented on the node as a Linux device and all routing of the IP
-	// must occur through that master interface.
-	PrimaryMAC string
+	// must occur through that master interface. It is unset for the IPAM
+	// modes which have no master interface.
+	PrimaryMAC mac.MAC
 
 	// GatewayIP is the IP of the gateway which must be used for this IP.
 	// If the allocated IP is derived from a VPC, then the gateway
@@ -59,6 +61,18 @@ type AllocationResult struct {
 
 	// SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP when the cluster is in tunneling mode.
 	SkipMasquerade bool
+}
+
+// parsePrimaryMAC parses the MAC address of a master interface as reported by
+// the cloud provider in the CiliumNode status. An empty value is not an error:
+// the IPAM modes without a master interface never set one, and the ENI status
+// is accepted without a MAC (see validateENIConfig). Routing rejects an unset
+// MAC when it actually needs one.
+func parsePrimaryMAC(macAddr string) (mac.MAC, error) {
+	if macAddr == "" {
+		return nil, nil
+	}
+	return mac.ParseMAC(macAddr)
 }
 
 // Allocator is the interface for an IP allocator implementation

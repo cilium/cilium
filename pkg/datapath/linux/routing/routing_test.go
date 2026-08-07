@@ -301,7 +301,7 @@ func getFakes(t *testing.T, ipamMode string, masquerade bool, withZeroCIDR bool)
 	fakeGateway := "192.168.2.1"
 	fakeSubnet1CIDR := "192.168.0.0/16"
 	fakeSubnet2CIDR := "192.170.0.0/16"
-	fakeMAC := "00:11:22:33:44:55"
+	fakeMAC := mac.MustParseMAC("00:11:22:33:44:55")
 
 	var cidrs []string
 	if masquerade {

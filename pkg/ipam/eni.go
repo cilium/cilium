@@ -492,10 +492,15 @@ func buildENIAllocationResult(
 			continue
 		}
 
+		primaryMAC, err := parsePrimaryMAC(eni.MAC)
+		if err != nil {
+			return nil, fmt.Errorf("invalid MAC address %q reported for ENI %s: %w", eni.MAC, eni.ID, err)
+		}
+
 		result := &AllocationResult{
 			IP:         allocatedAddr,
 			IPPoolName: pool,
-			PrimaryMAC: eni.MAC,
+			PrimaryMAC: primaryMAC,
 		}
 		if eni.VPC.PrimaryCIDR.IsValid() {
 			result.CIDRs = append(result.CIDRs, eni.VPC.PrimaryCIDR.Prefix)

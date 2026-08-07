@@ -72,7 +72,7 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 		resp.IPv4 = &models.IPAMAddressResponse{
 			Cidrs:           cslices.Map(ipv4Result.CIDRs, iputil.PrefixFrom),
 			IP:              iputil.AddrFrom(ipv4Result.IP),
-			MasterMac:       ipv4Result.PrimaryMAC,
+			MasterMac:       ipv4Result.PrimaryMAC.String(),
 			Gateway:         iputil.AddrFrom(ipv4Result.GatewayIP),
 			ExpirationUUID:  ipv4Result.ExpirationUUID,
 			InterfaceNumber: ipv4Result.InterfaceNumber,
@@ -86,7 +86,7 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 		resp.IPv6 = &models.IPAMAddressResponse{
 			Cidrs:           cslices.Map(ipv6Result.CIDRs, iputil.PrefixFrom),
 			IP:              iputil.AddrFrom(ipv6Result.IP),
-			MasterMac:       ipv6Result.PrimaryMAC,
+			MasterMac:       ipv6Result.PrimaryMAC.String(),
 			Gateway:         iputil.AddrFrom(ipv6Result.GatewayIP),
 			ExpirationUUID:  ipv6Result.ExpirationUUID,
 			InterfaceNumber: ipv6Result.InterfaceNumber,

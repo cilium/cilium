@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -317,7 +318,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 	t.Run("secondary IP on eni-1", func(t *testing.T) {
 		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, conf, nil)
 		require.NoError(t, err)
-		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
+		require.Equal(t, mac.MustParseMAC("aa:bb:cc:dd:ee:01"), result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)
 		require.Equal(t, netip.MustParseAddr("10.1.1.1"), result.GatewayIP)
 		require.Contains(t, result.CIDRs, netip.MustParsePrefix("10.1.0.0/16"))
@@ -327,7 +328,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 	t.Run("secondary IP on eni-2", func(t *testing.T) {
 		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.3.1.20"), "", node.Status.ENI.ENIs, conf, nil)
 		require.NoError(t, err)
-		require.Equal(t, "aa:bb:cc:dd:ee:02", result.PrimaryMAC)
+		require.Equal(t, mac.MustParseMAC("aa:bb:cc:dd:ee:02"), result.PrimaryMAC)
 		require.Equal(t, "2", result.InterfaceNumber)
 		require.Equal(t, netip.MustParseAddr("10.3.1.1"), result.GatewayIP)
 	})
@@ -387,14 +388,14 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 	t.Run("IP in first prefix", func(t *testing.T) {
 		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.5"), "", node.Status.ENI.ENIs, conf, nil)
 		require.NoError(t, err)
-		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
+		require.Equal(t, mac.MustParseMAC("aa:bb:cc:dd:ee:01"), result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)
 	})
 
 	t.Run("IP in second prefix", func(t *testing.T) {
 		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.20"), "", node.Status.ENI.ENIs, conf, nil)
 		require.NoError(t, err)
-		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
+		require.Equal(t, mac.MustParseMAC("aa:bb:cc:dd:ee:01"), result.PrimaryMAC)
 	})
 
 	t.Run("IP outside all prefixes", func(t *testing.T) {
@@ -405,7 +406,7 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 	t.Run("IP in IPv6 prefix", func(t *testing.T) {
 		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, conf, nil)
 		require.NoError(t, err)
-		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
+		require.Equal(t, mac.MustParseMAC("aa:bb:cc:dd:ee:01"), result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)
 		require.Equal(t, netip.MustParseAddr("fe80:ec2::1"), result.GatewayIP)
 	})
