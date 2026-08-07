@@ -17,6 +17,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
 )
 
 func fromPtr(f gatewayv1.FromNamespaces) *gatewayv1.FromNamespaces {
@@ -157,7 +158,7 @@ func Test_isListenerSetAllowed_fromSelector(t *testing.T) {
 
 	t.Run("matching label allowed", func(t *testing.T) {
 		c := fake.NewClientBuilder().
-			WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+			WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 			WithObjects(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "infra-ns", Labels: map[string]string{"team": "infra"}}}).
 			Build()
 		ls := &gatewayv1.ListenerSet{ObjectMeta: metav1.ObjectMeta{Namespace: "infra-ns"}}
@@ -166,7 +167,7 @@ func Test_isListenerSetAllowed_fromSelector(t *testing.T) {
 
 	t.Run("non-matching label rejected", func(t *testing.T) {
 		c := fake.NewClientBuilder().
-			WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+			WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 			WithObjects(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other-ns", Labels: map[string]string{"team": "platform"}}}).
 			Build()
 		ls := &gatewayv1.ListenerSet{ObjectMeta: metav1.ObjectMeta{Namespace: "other-ns"}}

@@ -15,6 +15,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 )
 
@@ -123,7 +124,7 @@ func Test_setTCPRouteStatusesPrunesDetachedParents(t *testing.T) {
 		}}}},
 	}
 	c := fake.NewClientBuilder().
-		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 		WithStatusSubresource(&gatewayv1.TCPRoute{}).
 		WithObjects(route).
 		Build()
@@ -152,7 +153,7 @@ func Test_setUDPRouteStatusesPrunesDetachedParents(t *testing.T) {
 		}}}},
 	}
 	c := fake.NewClientBuilder().
-		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 		WithStatusSubresource(&gatewayv1.UDPRoute{}).
 		WithObjects(route).
 		Build()
