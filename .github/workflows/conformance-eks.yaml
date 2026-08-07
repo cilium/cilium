@@ -596,7 +596,6 @@ jobs:
           # IPs on the primary ENI, so they run and gate on them as usual. To
           # quarantine another test add it to this list; to re-arm one, drop it.
           QUARANTINED_TESTS=(
-            north-south-loadbalancing-with-l7-policy
             egress-gateway-excluded-cidrs
           )
 
