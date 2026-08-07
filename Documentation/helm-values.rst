@@ -3636,6 +3636,10 @@
      - Interval, in seconds, to check if there are any pods that are not managed by Cilium.
      - int
      - ``15``
+   * - :spelling:ignore:`operator.unmanagedPodWatcher.observeOnly`
+     - Run the unmanaged pod watcher in observe-only mode. When true, the operator still counts unmanaged pods and reports the cilium_operator_unmanaged_pods metric, but does not restart (delete) them. Enabling this activates the watcher even when restart is false. It has no effect when the watcher interval is 0.
+     - bool
+     - ``false``
    * - :spelling:ignore:`operator.unmanagedPodWatcher.restart`
      - Restart any pod that are not managed by Cilium.
      - bool
