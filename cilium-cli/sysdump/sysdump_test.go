@@ -840,3 +840,52 @@ func Test_untar(t *testing.T) {
 		assert.ErrorContains(t, err, "invalid path in tar entry")
 	})
 }
+
+func TestFormatNodeDiskUsageRow(t *testing.T) {
+	// Shape and field names as served by kubelet's /stats/summary, trimmed to
+	// the disk fields. Sizes are those of the AKS 30 GB OS disk nodes.
+	summary := `{
+	  "node": {
+	    "nodeName": "aks-nodepool1-16135303-vmss000003",
+	    "fs": {
+	      "availableBytes": 3221225472,
+	      "capacityBytes": 30089314304,
+	      "usedBytes": 26868088832,
+	      "inodesFree": 1835008
+	    },
+	    "runtime": {
+	      "imageFs": {
+	        "availableBytes": 3221225472,
+	        "capacityBytes": 30089314304,
+	        "usedBytes": 20401094656
+	      }
+	    }
+	  }
+	}`
+
+	row := formatNodeDiskUsageRow("aks-nodepool1-16135303-vmss000003", summary, "True")
+	fields := strings.Split(row, "\t")
+	assert.Len(t, fields, 8)
+	assert.Equal(t, "aks-nodepool1-16135303-vmss000003", fields[0])
+	assert.Equal(t, "25623Mi", fields[1])
+	assert.Equal(t, "28695Mi", fields[2])
+	assert.Equal(t, "89%", fields[3])
+	assert.Equal(t, "19456Mi", fields[4])
+	assert.Equal(t, "28695Mi", fields[5])
+	assert.Equal(t, "1835008", fields[6])
+	assert.Equal(t, "True", fields[7])
+
+	// Missing stats must not panic or drop the node from the table.
+	row = formatNodeDiskUsageRow("node-without-stats", `{"node":{"nodeName":"node-without-stats"}}`, "False")
+	fields = strings.Split(row, "\t")
+	assert.Len(t, fields, 8)
+	assert.Equal(t, "<unknown>", fields[1])
+	assert.Equal(t, "<unknown>", fields[3])
+	assert.Equal(t, "False", fields[7])
+
+	// A garbage payload keeps the node and its condition visible.
+	row = formatNodeDiskUsageRow("node-broken", "not json", "Unknown")
+	assert.Contains(t, row, "node-broken")
+	assert.Contains(t, row, "unparseable")
+	assert.Contains(t, row, "Unknown")
+}
