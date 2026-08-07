@@ -20,7 +20,7 @@ const testGatewayControllerName = "io.cilium/gateway-controller"
 
 func Test_gatewayReconcilePredicate(t *testing.T) {
 	logger := hivetest.Logger(t)
-	c := fake.NewClientBuilder().WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).WithObjects(testhelpers.ControllerTestFixture...).Build()
+	c := fake.NewClientBuilder().WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).WithObjects(testhelpers.ControllerTestFixture...).Build()
 	predicate := GatewayOwnedByController(helpers.GatewayHasMatchingControllerFn(t.Context(), c, testGatewayControllerName, logger))
 
 	t.Run("update keeps handoff reconcile when old gateway matched", func(t *testing.T) {

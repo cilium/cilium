@@ -18,6 +18,7 @@ import (
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
 )
 
 func TestIndexGRPCRouteByGateway(t *testing.T) {
@@ -188,7 +189,7 @@ func TestIndexGRPCRouteByBackendServiceImport(t *testing.T) {
 
 func TestGenerateIndexerGRPCRoutebyBackendServiceIncludesRequestMirror(t *testing.T) {
 	indexer := GenerateIndexerGRPCRoutebyBackendService(
-		fake.NewClientBuilder().WithScheme(helpers.TestScheme(nil)).Build(),
+		fake.NewClientBuilder().WithScheme(testhelpers.TestScheme(nil, helpers.RegisterGatewayAPITypesToScheme)).Build(),
 		slog.New(slog.DiscardHandler),
 	)
 

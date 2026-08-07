@@ -30,7 +30,7 @@ func withSecretIndexes(b *fake.ClientBuilder) *fake.ClientBuilder {
 }
 
 func Test_getGatewaysForSecret(t *testing.T) {
-	c := withSecretIndexes(fake.NewClientBuilder().WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).WithObjects(testhelpers.ControllerTestFixture...)).Build()
+	c := withSecretIndexes(fake.NewClientBuilder().WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).WithObjects(testhelpers.ControllerTestFixture...)).Build()
 	logger := hivetest.Logger(t)
 
 	t.Run("secret is used in gateway", func(t *testing.T) {
@@ -95,7 +95,7 @@ func Test_getGatewaysForSecret(t *testing.T) {
 		}
 
 		c := withSecretIndexes(fake.NewClientBuilder().
-			WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+			WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 			WithObjects(secret, gwc, gw)).
 			Build()
 
@@ -161,7 +161,7 @@ func Test_getGatewaysForSecretInListenerSet(t *testing.T) {
 	}
 
 	c := withSecretIndexes(fake.NewClientBuilder().
-		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 		WithObjects(testhelpers.ControllerTestFixture...).
 		WithObjects(lsSecret, gw, ls)).
 		Build()
@@ -261,7 +261,7 @@ func Test_getGatewaysForSecretFromBothGatewayAndListenerSet(t *testing.T) {
 	}
 
 	c := withSecretIndexes(fake.NewClientBuilder().
-		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 		WithObjects(testhelpers.ControllerTestFixture...).
 		WithObjects(sharedSecret, gwA, gwB, ls)).
 		Build()
@@ -340,7 +340,7 @@ func Test_getGatewaysForSecretDeduplication(t *testing.T) {
 	}
 
 	c := withSecretIndexes(fake.NewClientBuilder().
-		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 		WithObjects(testhelpers.ControllerTestFixture...).
 		WithObjects(sharedSecret, gw, ls)).
 		Build()
