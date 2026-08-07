@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -166,6 +167,106 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 					}
 				})
 			}
+		})
+	}
+}
+
+func Test_gammaReconciler_ReconcileWithoutRoutes(t *testing.T) {
+	t.Parallel()
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "echo",
+			Namespace: "default",
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+		},
+	}
+
+	cec := func(ownerKind, serviceName string) *ciliumv2.CiliumEnvoyConfig {
+		return &ciliumv2.CiliumEnvoyConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      svc.Name,
+				Namespace: svc.Namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: gatewayv1.GroupVersion.String(),
+						Kind:       ownerKind,
+						Name:       "route",
+						Controller: ptr.To(true),
+					},
+				},
+			},
+			Spec: ciliumv2.CiliumEnvoyConfigSpec{
+				Services: []*ciliumv2.ServiceListener{
+					{Name: serviceName, Namespace: svc.Namespace},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		cec         *ciliumv2.CiliumEnvoyConfig
+		wantDeleted bool
+	}{
+		{
+			name: "succeeds when no CEC exists",
+		},
+		{
+			name:        "deletes stale HTTPRoute CEC",
+			cec:         cec("HTTPRoute", svc.Name),
+			wantDeleted: true,
+		},
+		{
+			name:        "deletes stale GRPCRoute CEC",
+			cec:         cec("GRPCRoute", svc.Name),
+			wantDeleted: true,
+		},
+		{
+			name: "keeps CEC controlled by another resource",
+			cec:  cec("Gateway", svc.Name),
+		},
+		{
+			name: "keeps CEC targeting another Service",
+			cec:  cec("HTTPRoute", "other-service"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objects := []client.Object{svc.DeepCopy()}
+			if tt.cec != nil {
+				objects = append(objects, tt.cec.DeepCopy())
+			}
+
+			scheme := helpers.TestScheme(helpers.AllOptionalKinds)
+			c := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(objects...).
+				WithIndex(&gatewayv1.HTTPRoute{}, indexers.GammaHTTPRouteParentRefsIndex, indexers.IndexHTTPRouteByGammaService).
+				WithIndex(&gatewayv1.GRPCRoute{}, indexers.GammaGRPCRouteParentRefsIndex, indexers.IndexGRPCRouteByGammaService).
+				Build()
+
+			r := &gammaReconciler{
+				Client: c,
+				logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+			}
+
+			result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(svc)})
+			require.NoError(t, err)
+			require.Equal(t, ctrl.Result{}, result)
+
+			if tt.cec == nil {
+				return
+			}
+			err = c.Get(t.Context(), client.ObjectKeyFromObject(tt.cec), &ciliumv2.CiliumEnvoyConfig{})
+			if tt.wantDeleted {
+				require.ErrorContains(t, err, "not found")
+				return
+			}
+			require.NoError(t, err)
 		})
 	}
 }

@@ -15,6 +15,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -93,6 +94,10 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	if !gammaService {
+		if err := r.ensureGAMMAEnvoyConfigDeleted(ctx, svc); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to delete stale CiliumEnvoyConfig", logfields.Error, err)
+			return controllerruntime.Fail(err)
+		}
 		return controllerruntime.Success()
 	}
 
@@ -387,6 +392,45 @@ func (r *gammaReconciler) ensureEnvoyConfig(ctx context.Context, desired *cilium
 		return nil
 	})
 	return err
+}
+
+func (r *gammaReconciler) ensureGAMMAEnvoyConfigDeleted(ctx context.Context, svc *corev1.Service) error {
+	cec := &ciliumv2.CiliumEnvoyConfig{}
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(svc), cec); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+
+	// A CEC can share the Service name without being managed by GAMMA.
+	owner := metav1.GetControllerOf(cec)
+	if owner == nil {
+		return nil
+	}
+
+	gv, err := schema.ParseGroupVersion(owner.APIVersion)
+	if err != nil || gv.Group != gatewayv1.GroupName {
+		return nil
+	}
+	if owner.Kind != "HTTPRoute" && owner.Kind != "GRPCRoute" {
+		return nil
+	}
+
+	for _, service := range cec.Spec.Services {
+		if service == nil || service.Name != svc.Name {
+			continue
+		}
+
+		namespace := service.Namespace
+		if namespace == "" {
+			namespace = cec.Namespace
+		}
+		if namespace != svc.Namespace {
+			continue
+		}
+
+		return client.IgnoreNotFound(r.Client.Delete(ctx, cec))
+	}
+
+	return nil
 }
 
 func (r *gammaReconciler) updateStatus(ctx context.Context, original *corev1.Service, new *corev1.Service) error {
