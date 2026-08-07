@@ -99,6 +99,15 @@ func attachCgroup(logger *slog.Logger, spec *ebpf.Collection, name, cgroupRoot, 
 			logfields.Pin, pin,
 		)
 
+		// Clean up any orphan bpf_links left over from a previous agent instance.
+		// This can happen when the agent restarts and the pin file is removed
+		// (e.g. bpffs cleanup) but the bpf_link remains in the kernel.
+		if err := cleanupOrphanLinks(logger, attachTypes[name], cgroupRoot); err != nil {
+			scopedLog.Warn("Failed to clean up orphan links, continuing with attach",
+				logfields.Error, err,
+			)
+		}
+
 	default:
 		return fmt.Errorf("updating link %s for program %s: %w", pin, name, err)
 	}
@@ -231,6 +240,23 @@ func detachAll(logger *slog.Logger, attach ebpf.AttachType, cgroupRoot string) e
 
 	// Detach only Cilium-owned programs from the cgroup.
 	for _, id := range ids.Programs {
+		// If the program was attached via bpf_link, try to detach via link API first.
+		// Programs attached via bpf_link cannot be detached using PROG_DETACH.
+		if linkID, ok := id.LinkID(); ok {
+			if err := detachLinkByID(logger, linkID); err != nil {
+				logger.Warn("Failed to detach program via bpf_link, trying PROG_DETACH",
+					logfields.LinkID, linkID,
+					logfields.Error, err,
+				)
+			} else {
+				logger.Debug("Detached program via bpf_link",
+					logfields.ID, id.ID,
+					logfields.LinkID, linkID,
+				)
+				continue
+			}
+		}
+
 		prog, err := ebpf.NewProgramFromID(id.ID)
 		if err != nil {
 			return fmt.Errorf("could not open program id %d: %w", id.ID, err)
@@ -252,12 +278,120 @@ func detachAll(logger *slog.Logger, attach ebpf.AttachType, cgroupRoot string) e
 			Program: prog,
 			Attach:  attach,
 		}); err != nil {
+			// If PROG_DETACH fails because the program was attached via bpf_link
+			// (kernel returns ENOENT), log a warning and continue.
+			// This handles the case where QueryPrograms doesn't return link IDs
+			// (older kernels) but the program is still attached via bpf_link.
+			if errors.Is(err, unix.ENOENT) {
+				logger.Warn("PROG_DETACH failed for bpf_link-attached program, skipping",
+					logfields.ID, id.ID,
+					logfields.Error, err,
+				)
+				continue
+			}
 			return fmt.Errorf("detach programs from cgroup %s attach type %s: %w", cgroupRoot, attach, err)
 		}
 
 		logger.Debug("Detached program id",
-			logfields.ID, id,
+			logfields.ID, id.ID,
 		)
+	}
+
+	return nil
+}
+
+// cleanupOrphanLinks queries the cgroup for programs attached with the given attach
+// type and detaches any bpf_links found. This is used to clean up orphan links left
+// behind by a previous Cilium agent instance whose pin files have been removed.
+//
+// An orphan link occurs when:
+// 1. The agent attaches a program via bpf_link and pins it to bpffs
+// 2. The agent restarts and the pin file is cleaned up
+// 3. The bpf_link persists in the kernel with no pin, making it unreachable
+//	via the usual pin-based update path
+func cleanupOrphanLinks(logger *slog.Logger, attach ebpf.AttachType, cgroupRoot string) error {
+	cg, err := os.Open(cgroupRoot)
+	if err != nil {
+		return fmt.Errorf("open cgroup %s: %w", cgroupRoot, err)
+	}
+	defer cg.Close()
+
+	result, err := link.QueryPrograms(link.QueryOptions{
+		Target: int(cg.Fd()),
+		Attach: attach,
+	})
+	if err != nil {
+		// Non-fatal: the attach type may not support querying.
+		if errors.Is(err, unix.EINVAL) || errors.Is(err, unix.EBADF) {
+			return nil
+		}
+		return fmt.Errorf("query cgroup for orphan links: %w", err)
+	}
+	if result == nil || len(result.Programs) == 0 {
+		return nil
+	}
+
+	for _, ap := range result.Programs {
+		// Only clean up programs that belong to Cilium (name starts with "cil_").
+		// This prevents accidentally detaching programs from other applications.
+		prog, err := ebpf.NewProgramFromID(ap.ID)
+		if err != nil {
+			logger.Warn("Failed to open program by ID for ownership check",
+				logfields.ID, ap.ID,
+				logfields.Error, err,
+			)
+			continue
+		}
+		info, err := prog.Info()
+		prog.Close()
+		if err != nil {
+			logger.Warn("Failed to get program info for ownership check",
+				logfields.ID, ap.ID,
+				logfields.Error, err,
+			)
+			continue
+		}
+		if !strings.HasPrefix(info.Name, "cil_") {
+			continue
+		}
+
+		linkID, ok := ap.LinkID()
+		if !ok {
+			// Program attached via PROG_ATTACH (no bpf_link), or kernel doesn't
+			// support link ID in query results. Skip — PROG_ATTACH programs
+			// are handled by the normal attachCgroup flow.
+			continue
+		}
+
+		if err := detachLinkByID(logger, linkID); err != nil {
+			logger.Warn("Failed to detach orphan bpf_link",
+				logfields.LinkID, linkID,
+				logfields.BPFProgID, ap.ID,
+				logfields.Error, err,
+			)
+			continue
+		}
+
+		logger.Info("Detached orphan bpf_link from previous agent instance",
+			logfields.LinkID, linkID,
+			logfields.BPFProgID, ap.ID,
+			logfields.Type, attach,
+		)
+	}
+
+	return nil
+}
+
+// detachLinkByID opens a bpf_link by its kernel ID and detaches it.
+func detachLinkByID(logger *slog.Logger, id link.ID) error {
+	l, err := link.NewFromID(id)
+	if err != nil {
+		return fmt.Errorf("open link ID %d: %w", id, err)
+	}
+	defer l.Close()
+
+	if err := l.Detach(); err != nil {
+		return fmt.Errorf("detach link ID %d: %w", id, err)
 	}
 
 	return nil
