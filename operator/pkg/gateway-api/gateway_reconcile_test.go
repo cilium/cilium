@@ -1366,6 +1366,52 @@ func findRouteAcceptedCondition(conds []metav1.Condition) *metav1.Condition {
 	return nil
 }
 
+func TestCollectValidationConditions(t *testing.T) {
+	accepted := func(msg string) func() (metav1.Condition, bool) {
+		return func() (metav1.Condition, bool) {
+			return metav1.Condition{
+				Type:    string(gatewayv1.RouteConditionAccepted),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(gatewayv1.RouteReasonUnsupportedValue),
+				Message: msg,
+			}, true
+		}
+	}
+	valid := func() (metav1.Condition, bool) { return metav1.Condition{}, false }
+
+	t.Run("no failures", func(t *testing.T) {
+		assert.Empty(t, collectValidationConditions(valid, valid))
+	})
+
+	t.Run("single failure", func(t *testing.T) {
+		conds := collectValidationConditions(valid, accepted("err-B"))
+		require.Len(t, conds, 1)
+		assert.Equal(t, "err-B", conds[0].Message)
+		assert.Equal(t, metav1.ConditionFalse, conds[0].Status)
+		assert.Equal(t, string(gatewayv1.RouteReasonUnsupportedValue), conds[0].Reason)
+	})
+
+	t.Run("failures of same type are merged", func(t *testing.T) {
+		conds := collectValidationConditions(accepted("err-A"), accepted("err-B"))
+		require.Len(t, conds, 1)
+		assert.Equal(t, "err-A; err-B", conds[0].Message)
+	})
+
+	t.Run("failures of different types are kept separate", func(t *testing.T) {
+		resolvedRefs := func() (metav1.Condition, bool) {
+			return metav1.Condition{
+				Type:    string(gatewayv1.RouteConditionResolvedRefs),
+				Status:  metav1.ConditionFalse,
+				Message: "err-C",
+			}, true
+		}
+		conds := collectValidationConditions(accepted("err-A"), resolvedRefs)
+		require.Len(t, conds, 2)
+		assert.Equal(t, "err-A", conds[0].Message)
+		assert.Equal(t, "err-C", conds[1].Message)
+	})
+}
+
 func TestGatewayReconciler_statuses(t *testing.T) {
 	ciliumGWClass := &gatewayv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "cilium"},
@@ -1437,7 +1483,32 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 			},
 		}
 
-		r, c := testReconciler(t, ciliumGWClass, ciliumGW, otherGWClass, otherGW, validRoute, invalidRoute)
+		doubleInvalidRoute := &gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: "double-invalid-route", Namespace: "default"},
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
+						{Name: gatewayv1.ObjectName(ciliumGW.Name)},
+					},
+				},
+				Rules: []gatewayv1.HTTPRouteRule{{
+					Matches: []gatewayv1.HTTPRouteMatch{{
+						Path: &gatewayv1.HTTPPathMatch{
+							Type:  new(gatewayv1.PathMatchRegularExpression),
+							Value: new("[invalid"),
+						},
+					}},
+					Filters: []gatewayv1.HTTPRouteFilter{{
+						Type: gatewayv1.HTTPRouteFilterRequestHeaderModifier,
+						RequestHeaderModifier: &gatewayv1.HTTPHeaderFilter{
+							Set: []gatewayv1.HTTPHeader{{Name: "Host", Value: "example.com"}},
+						},
+					}},
+				}},
+			},
+		}
+
+		r, c := testReconciler(t, ciliumGWClass, ciliumGW, otherGWClass, otherGW, validRoute, invalidRoute, doubleInvalidRoute)
 
 		hrList := &gatewayv1.HTTPRouteList{}
 		require.NoError(t, c.List(ctx, hrList))
@@ -1460,6 +1531,17 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 		invalidAcceptedCond := findRouteAcceptedCondition(updatedInvalidRoute.Status.Parents[0].Conditions)
 		assert.NotNil(t, invalidAcceptedCond)
 		assert.Equal(t, metav1.ConditionFalse, invalidAcceptedCond.Status)
+
+		var updatedDoubleInvalidRoute gatewayv1.HTTPRoute
+		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: doubleInvalidRoute.Name, Namespace: doubleInvalidRoute.Namespace}, &updatedDoubleInvalidRoute))
+		require.Len(t, updatedDoubleInvalidRoute.Status.Parents, 1)
+
+		doubleInvalidAcceptedCond := findRouteAcceptedCondition(updatedDoubleInvalidRoute.Status.Parents[0].Conditions)
+		require.NotNil(t, doubleInvalidAcceptedCond)
+		assert.Equal(t, metav1.ConditionFalse, doubleInvalidAcceptedCond.Status)
+		assert.Contains(t, doubleInvalidAcceptedCond.Message, `"Host" header is not supported`,
+			"header modifier failure must not be overwritten by the regex failure")
+		assert.Contains(t, doubleInvalidAcceptedCond.Message, "Invalid regular expression in path match")
 	})
 
 	t.Run("setGRPCRouteStatuses sets related parent statuses", func(t *testing.T) {
