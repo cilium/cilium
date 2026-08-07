@@ -2502,6 +2502,9 @@
         "httpRetryCount": {
           "type": "integer"
         },
+        "httpRetryTimeout": {
+          "type": "integer"
+        },
         "httpUpstreamLingerTimeout": {
           "type": [
             "null",

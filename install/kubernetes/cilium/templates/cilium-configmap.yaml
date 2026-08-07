@@ -1501,6 +1501,7 @@ data:
   proxy-cluster-max-pending-requests: {{ .Values.envoy.clusterMaxPendingRequests | quote }}
   proxy-cluster-max-requests: {{ .Values.envoy.clusterMaxRequests | quote }}
   http-retry-count: {{ .Values.envoy.httpRetryCount | quote }}
+  http-retry-timeout: {{ .Values.envoy.httpRetryTimeout | quote }}
   http-stream-idle-timeout: {{ .Values.envoy.streamIdleTimeoutDurationSeconds | quote }}
   envoy-node-locality-enabled: {{ .Values.envoy.nodeLocality.enabled | quote }}
 

@@ -69,6 +69,8 @@ cilium-operator-generic hive dot-graph [flags]
       --gateway-api-use-remote-address                             Use the immediate client's IP address as the origin client's IP address (default true)
       --gateway-api-xff-num-trusted-hops uint32                    The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
       --gops-port uint16                                           Port for gops server to listen on (default 9891)
+      --http-retry-count uint                                      Number of retries performed after a forwarded request attempt fails (default 3)
+      --http-retry-timeout uint                                    Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
       --identity-gc-interval duration                              GC interval for security identities (default 15m0s)
       --identity-gc-rate-interval duration                         Interval used for rate limiting the GC of security identities (default 1m0s)
       --identity-gc-rate-limit int                                 Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
@@ -136,6 +138,7 @@ cilium-operator-generic hive dot-graph [flags]
       --policy-external-group-sync-interval duration               Period between refreshing the CIDRs for a given policy external group. (default 10m0s)
       --policy-secrets-namespace string                            Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --proxy-idle-timeout-seconds int                             Set Envoy upstream HTTP idle connection timeout in seconds. Does not apply to connections with pending requests. (default 60)
+      --proxy-max-requests-per-connection int                      Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)
       --proxy-stream-idle-timeout-seconds int                      Set Envoy HTTP stream idle timeout in seconds. A stream is considered idle when there is no upstream or downstream activity. (default 300)
       --remove-cilium-node-taints                                  Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
       --set-cilium-is-up-condition                                 Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)

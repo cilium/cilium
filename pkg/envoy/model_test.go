@@ -39,3 +39,11 @@ func TestGetListenerFilterADSMode(t *testing.T) {
 		assert.Equal(t, envoy_config_core.ApiVersion_V3, meta.CiliumConfigSource.ResourceApiVersion)
 	})
 }
+
+func TestGetHTTPRetryPolicy(t *testing.T) {
+	policy := GetHTTPRetryPolicy(3, 5)
+
+	assert.Equal(t, "5xx", policy.RetryOn)
+	assert.Equal(t, uint32(3), policy.GetNumRetries().GetValue())
+	assert.Equal(t, int64(5), policy.GetPerTryTimeout().GetSeconds())
+}

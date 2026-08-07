@@ -11,6 +11,7 @@ import (
 	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -69,6 +70,25 @@ func withIdleTimeout(seconds int) ClusterMutator {
 		opts.CommonHttpProtocolOptions = &envoy_config_core_v3.HttpProtocolOptions{
 			IdleTimeout: &durationpb.Duration{Seconds: int64(seconds)},
 		}
+		cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType] = toAny(opts)
+		return cluster
+	}
+}
+
+func withMaxRequestsPerConnection(maxRequests int) ClusterMutator {
+	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
+		if cluster == nil || maxRequests <= 0 {
+			return cluster
+		}
+		a := cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType]
+		opts := &envoy_upstreams_http_v3.HttpProtocolOptions{}
+		if err := a.UnmarshalTo(opts); err != nil {
+			return cluster
+		}
+		if opts.CommonHttpProtocolOptions == nil {
+			opts.CommonHttpProtocolOptions = &envoy_config_core_v3.HttpProtocolOptions{}
+		}
+		opts.CommonHttpProtocolOptions.MaxRequestsPerConnection = wrapperspb.UInt32(uint32(maxRequests))
 		cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType] = toAny(opts)
 		return cluster
 	}

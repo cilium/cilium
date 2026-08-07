@@ -1024,7 +1024,10 @@ ct_recreate6:
 
 		/* See comment in handle_ipv4_from_lxc(). */
 		ct_state_new.proxy_redirect = proxy_port > 0;
-		if (unlikely(ct_state->proxy_redirect != ct_state_new.proxy_redirect))
+		ct_state_new.from_l7lb = from_l7lb;
+		if (unlikely(ct_state->proxy_redirect != ct_state_new.proxy_redirect ||
+			     (ct_state->syn &&
+			      ct_state->from_l7lb != ct_state_new.from_l7lb)))
 			goto ct_recreate6;
 		break;
 
@@ -1608,11 +1611,18 @@ ct_recreate4:
 		 * suddenly comes into the scope of an L7 policy. Recreating the entry
 		 * updates the proxy_redirect flag properly.
 		 *
+		 * A new SYN may reuse a tuple with different L7 LB provenance. Recreate
+		 * the entry so the new connection takes ownership of the tuple, but do
+		 * not allow later packets from the old connection to take it back.
+		 *
 		 * if the packet hits a closing stale entry, ct_lookup returns CT_NEW and
 		 * caller recreates the entry.
 		 */
 		ct_state_new.proxy_redirect = proxy_port > 0;
-		if (unlikely(ct_state->proxy_redirect != ct_state_new.proxy_redirect))
+		ct_state_new.from_l7lb = from_l7lb;
+		if (unlikely(ct_state->proxy_redirect != ct_state_new.proxy_redirect ||
+			     (ct_state->syn &&
+			      ct_state->from_l7lb != ct_state_new.from_l7lb)))
 			goto ct_recreate4;
 		break;
 

@@ -267,6 +267,7 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		     enum ct_dir dir)
 {
 	state->rev_nat_index = entry->rev_nat_index;
+	state->syn = syn;
 	if (dir == CT_SERVICE) {
 		state->backend_id = (__u32)entry->backend_id;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {

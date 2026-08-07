@@ -11,6 +11,7 @@ import (
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -75,7 +76,10 @@ func Test_withConnectionTimeout(t *testing.T) {
 }
 
 func Test_httpCluster(t *testing.T) {
-	c := &cecTranslator{}
+	c := &cecTranslator{Config: Config{ClusterConfig: ClusterConfig{
+		IdleTimeoutSeconds:       60,
+		MaxRequestsPerConnection: 1,
+	}}}
 	res, err := c.httpCluster("dummy-name", "dummy-name", false, "", nil)
 	require.NoError(t, err)
 
@@ -87,6 +91,11 @@ func Test_httpCluster(t *testing.T) {
 	require.Equal(t, &envoy_config_cluster_v3.Cluster_Type{
 		Type: envoy_config_cluster_v3.Cluster_EDS,
 	}, cluster.ClusterDiscoveryType)
+
+	protocolOptions := &envoy_upstreams_http_v3.HttpProtocolOptions{}
+	require.NoError(t, cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(protocolOptions))
+	require.Equal(t, int64(60), protocolOptions.CommonHttpProtocolOptions.IdleTimeout.Seconds)
+	require.Equal(t, uint32(1), protocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.Value)
 }
 
 func Test_httpClusterWithTLSOriginationAllowsTLS13(t *testing.T) {

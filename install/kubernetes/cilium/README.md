@@ -471,6 +471,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.extraVolumes | list | `[]` | Additional envoy volumes. |
 | envoy.healthPort | int | `9878` | TCP port for the health API. |
 | envoy.httpRetryCount | int | `3` | Maximum number of retries for each HTTP request |
+| envoy.httpRetryTimeout | int | `0` | Time in seconds after which a forwarded but uncompleted HTTP request is retried. Default 0 (never). |
 | envoy.httpUpstreamLingerTimeout | string | `nil` | Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
 | envoy.image | object | `{"digest":"sha256:4fb60b44dbc775cecad17eb5ba877c3893375d5aeb46486898a5d1cc1fd00208","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.37.5-1784087459-5c6d365aae12510675d55f3576539472045d6b03","useDigest":true}` | Envoy container image. |
