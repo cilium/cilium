@@ -100,12 +100,24 @@ func setupVethPair(logger *slog.Logger, sysctl sysctl.Sysctl, name, peerName str
 	if err != nil {
 		return fmt.Errorf("failed to get link by name %s: %w", name, err)
 	}
-	if err := enableForwarding(logger, sysctl, veth); err != nil {
-		return fmt.Errorf("failed to enable forwarding on veth: %w", err)
-	}
 	peer, err := safenetlink.LinkByName(peerName)
 	if err != nil {
 		return fmt.Errorf("failed to get link by name %s: %w", peerName, err)
+	}
+
+	// Turn ARP off before bringing the links up. The kernel skips duplicate
+	// address detection on NOARP devices, so the kernel-generated IPv6
+	// link-local is added as permanent instead of spending up to a second in
+	// the tentative state, invisible to netlink subscribers.
+	if err := netlink.LinkSetARPOff(veth); err != nil {
+		return fmt.Errorf("failed to set ARP off for %s: %w", name, err)
+	}
+	if err := netlink.LinkSetARPOff(peer); err != nil {
+		return fmt.Errorf("failed to set ARP off for %s: %w", peerName, err)
+	}
+
+	if err := enableForwarding(logger, sysctl, veth); err != nil {
+		return fmt.Errorf("failed to enable forwarding on veth: %w", err)
 	}
 	if err := enableForwarding(logger, sysctl, peer); err != nil {
 		return fmt.Errorf("failed to enable forwarding on peer: %w", err)
@@ -130,13 +142,6 @@ func setupBaseDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mtu int) (netlin
 	linkNet, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get link for %s: %w", defaults.SecondHostDevice, err)
-	}
-
-	if err := netlink.LinkSetARPOff(linkHost); err != nil {
-		return nil, nil, fmt.Errorf("failed to set ARP off for %s: %w", linkHost.Attrs().Name, err)
-	}
-	if err := netlink.LinkSetARPOff(linkNet); err != nil {
-		return nil, nil, fmt.Errorf("failed to set ARP off for %s: %w", linkNet.Attrs().Name, err)
 	}
 
 	if err := netlink.LinkSetMTU(linkHost, mtu); err != nil {

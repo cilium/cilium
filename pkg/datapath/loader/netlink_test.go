@@ -8,6 +8,7 @@ package loader
 import (
 	"net"
 	"testing"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -15,6 +16,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	fakebigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -103,6 +105,69 @@ func TestPrivilegedSetupDev(t *testing.T) {
 
 		err = netlink.LinkDel(dummy)
 		require.NoError(t, err)
+
+		return nil
+	})
+}
+
+// TestPrivilegedSetupBaseDeviceIPv6NotTentative checks that the IPv6 link-local
+// addresses of the base devices are usable as soon as setupBaseDevice returns.
+// Bringing a link up before turning ARP off leaves the kernel-generated
+// link-local tentative for as long as duplicate address detection takes, and
+// the kernel does not notify subscribers about tentative addresses, so the
+// devices table stays without an IPv6 address for cilium_net and the from-proxy
+// routes cannot be installed.
+func TestPrivilegedSetupBaseDeviceIPv6NotTentative(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
+
+	sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+
+	prevConfigEnableIPv4 := option.Config.EnableIPv4
+	prevConfigEnableIPv6 := option.Config.EnableIPv6
+	t.Cleanup(func() {
+		option.Config.EnableIPv4 = prevConfigEnableIPv4
+		option.Config.EnableIPv6 = prevConfigEnableIPv6
+	})
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = true
+
+	ns := netns.NewNetNS(t)
+
+	ns.Do(func() error {
+		_, _, err := setupBaseDevice(logger, sysctl, 1500)
+		require.NoError(t, err)
+
+		for _, devName := range []string{defaults.HostDevice, defaults.SecondHostDevice} {
+			link, err := safenetlink.LinkByName(devName)
+			require.NoError(t, err)
+
+			require.NotZero(t, link.Attrs().RawFlags&unix.IFF_NOARP,
+				"%s should have ARP off", devName)
+
+			// The kernel adds the link-local from a workqueue, so wait for it
+			// to show up and assert on the flags it is created with. With ARP
+			// off it is created permanent, otherwise it starts out tentative.
+			// Polled inline because the network namespace is per-thread, so
+			// the wait cannot run on another goroutine.
+			var addrs []netlink.Addr
+			for range 5000 {
+				addrs, err = safenetlink.AddrList(link, netlink.FAMILY_V6)
+				require.NoError(t, err)
+				if len(addrs) > 0 {
+					break
+				}
+				time.Sleep(time.Millisecond)
+			}
+			require.NotEmpty(t, addrs, "%s should get an IPv6 link-local address", devName)
+
+			for _, addr := range addrs {
+				require.Zero(t, addr.Flags&unix.IFA_F_TENTATIVE,
+					"%s address %s was created tentative, duplicate address detection was not skipped", devName, addr.IP)
+				require.Zero(t, addr.Flags&unix.IFA_F_DADFAILED,
+					"%s address %s failed duplicate address detection", devName, addr.IP)
+			}
+		}
 
 		return nil
 	})
