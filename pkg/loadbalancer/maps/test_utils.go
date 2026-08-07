@@ -4,8 +4,6 @@
 package maps
 
 import (
-	"encoding"
-	"encoding/binary"
 	"fmt"
 	"slices"
 	"sort"
@@ -190,35 +188,4 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(types.AddrCl
 
 	sort.Strings(out)
 	return
-}
-
-// unmarshalFromBpfMapBytes unmarshals ebpf map bytes to golang value
-// It is trimmed from from github.com/cilium/ebpf/internal/sysenc.Unmarshal
-// The original one is internal and it limits client writing unit test
-
-func unmarshalFromBpfMapBytes(data any, buf []byte) error {
-	switch value := data.(type) {
-	case encoding.BinaryUnmarshaler:
-		return value.UnmarshalBinary(buf)
-
-	case *string:
-		*value = string(buf)
-		return nil
-
-	case *[]byte:
-		// Backwards compat: unmarshaling into a slice replaces the whole slice.
-		*value = slices.Clone(buf)
-		return nil
-
-	default:
-		n, err := binary.Decode(buf, binary.NativeEndian, value)
-		if err != nil {
-			return err
-		}
-		if n != len(buf) {
-			return fmt.Errorf("unmarshaling %T doesn't consume all data", data)
-		}
-
-		return nil
-	}
 }
