@@ -434,6 +434,11 @@ const (
 	// without any backends
 	ServiceNoBackendResponseDrop = "drop"
 
+	// EnableSvcICMPEchoResponder is the name of the option that makes the
+	// datapath reply to ICMP echo (ping) requests addressed to a service
+	// (LoadBalancer/ClusterIP) VIP.
+	EnableSvcICMPEchoResponder = "enable-svc-icmp-echo-responder"
+
 	// PolicyDenyResponse is the name of the option to pick how to handle ipv4 egress traffic denied by policy
 	PolicyDenyResponse = "policy-deny-response"
 
@@ -1853,6 +1858,10 @@ type DaemonConfig struct {
 	// ServiceNoBackendResponse determines how we handle traffic to a service with no backends.
 	ServiceNoBackendResponse string
 
+	// EnableSvcICMPEchoResponder makes the datapath reply to ICMP echo (ping)
+	// requests addressed to a service (LoadBalancer/ClusterIP) VIP.
+	EnableSvcICMPEchoResponder bool
+
 	// PolicyDenyResponse determines how we handle pod egress traffic denied by network policy.
 	PolicyDenyResponse string
 
@@ -2557,6 +2566,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	default:
 		logging.Fatal(logger, "Invalid value for --%s: %s (must be 'reject' or 'drop')", ServiceNoBackendResponse, c.ServiceNoBackendResponse)
 	}
+	c.EnableSvcICMPEchoResponder = vp.GetBool(EnableSvcICMPEchoResponder)
 
 	c.populateLoadBalancerSettings(logger, vp)
 	c.PolicyDenyResponse = vp.GetString(PolicyDenyResponse)

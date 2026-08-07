@@ -217,6 +217,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		cDefinesMap["SERVICE_NO_BACKEND_RESPONSE"] = "1"
 	}
 
+	// Reply to ICMP echo (ping) requests addressed to a service VIP
+	// (LoadBalancer/ClusterIP). Opt-in; the datapath answers from the VIP so
+	// operators/monitoring can ping the VIP as they can with kube-proxy/IPVS.
+	if option.Config.EnableSvcICMPEchoResponder {
+		cDefinesMap["ENABLE_SVC_ICMP_ECHO_RESPONDER"] = "1"
+	}
+
 	if option.Config.EnableEncryptionStrictModeEgress {
 		cDefinesMap["ENCRYPTION_STRICT_MODE_EGRESS"] = "1"
 
