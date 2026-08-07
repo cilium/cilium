@@ -211,6 +211,17 @@ func (m *Map) ValueSize() uint32 {
 	return 0
 }
 
+// WithMaxEntries sets the maximum entries of the map specification prior to map creation.
+func (m *Map) WithMaxEntries(maxEntries int) *Map {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if m.spec != nil {
+		m.spec.MaxEntries = uint32(maxEntries)
+	}
+	return m
+}
+
 func (m *Map) MaxEntries() uint32 {
 	if m.m != nil {
 		return m.m.MaxEntries()

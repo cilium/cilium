@@ -153,3 +153,94 @@ static __always_inline void policy_delete_egress_all_entry(void)
 {
 	policy_delete_egress_l3_l4_entry(0, 0, 0, 0);
 }
+
+static __always_inline void
+policy_add_shared_entry(__u32 handle, __u32 identity, __u8 dir, __u8 proto, __be16 port, bool deny)
+{
+	__u8 wildcard_bits = policy_calc_wildcard_bits(proto, port, 0);
+	__u32 key_prefix_len = SHARED_POLICY_FULL_PREFIX - wildcard_bits;
+	__u8 value_prefix_len = LPM_FULL_PREFIX_BITS - wildcard_bits;
+
+	struct shared_policy_key key = {
+		.lpm_key = { .prefixlen = key_prefix_len },
+		.rule_set_id = handle,
+		.sec_label = identity,
+		.egress = dir,
+		.pad = 0,
+		.protocol = proto,
+		.dport = port,
+	};
+	struct policy_entry value = {
+		.deny = deny,
+		.lpm_prefix_length = value_prefix_len,
+		.proxy_port = 0,
+		.auth_type = 0,
+		.precedence = deny ? MAX_PRECEDENCE : 0,
+		.cookie = 0,
+	};
+
+	map_update_elem(&cilium_policy_shared, &key, &value, BPF_ANY);
+}
+
+static __always_inline void
+policy_add_shared_entry_full(__u32 handle, __u32 identity, __u8 dir, __u8 proto,
+			     __be16 port, __u16 port_mask, bool deny,
+			     __u8 auth_type, __be16 proxy_port)
+{
+	/* Calculate prefix length based on port mask */
+	__u8 port_wildcard_bits = 0;
+
+	if (port_mask == 0) {
+		port_wildcard_bits = 16;
+	} else if (port_mask != 0xFFFF) {
+		/* Count trailing zeros in mask to get wildcard bits */
+		__u16 m = port_mask;
+
+		while ((m & 1) == 0 && port_wildcard_bits < 16) {
+			port_wildcard_bits++;
+			m >>= 1;
+		}
+	}
+
+	__u8 proto_wildcard_bits = 0;
+
+	if (proto == 0) {
+		proto_wildcard_bits = 8;
+		port_wildcard_bits = 16; /* Protocol wildcard implies port wildcard */
+	}
+
+	__u8 wildcard_bits = proto_wildcard_bits + port_wildcard_bits;
+	__u32 key_prefix_len = SHARED_POLICY_FULL_PREFIX - wildcard_bits;
+	__u8 value_prefix_len = LPM_FULL_PREFIX_BITS - wildcard_bits;
+
+	struct shared_policy_key key = {
+		.lpm_key = { .prefixlen = key_prefix_len },
+		.rule_set_id = handle,
+		.sec_label = identity,
+		.egress = dir,
+		.pad = 0,
+		.protocol = proto,
+		.dport = port & bpf_htons(port_mask), /* Apply mask to port in correct byte order */
+	};
+
+	struct policy_entry value = {
+		.deny = deny,
+		.lpm_prefix_length = value_prefix_len,
+		.proxy_port = proxy_port,
+		.auth_type = auth_type & 0x7f,
+		.has_explicit_auth_type = (auth_type >> 7) & 0x1,
+		.precedence = deny ? MAX_PRECEDENCE : 0,
+		.cookie = 0,
+	};
+
+	map_update_elem(&cilium_policy_shared, &key, &value, BPF_ANY);
+}
+
+static __always_inline void
+policy_update_overlay(__u32 endpoint_id, __u32 shared_handle)
+{
+	__u32 value = shared_handle;
+
+	map_update_elem(&cilium_policy_overlay, &endpoint_id, &value, BPF_ANY);
+}
+

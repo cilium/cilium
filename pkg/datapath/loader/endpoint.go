@@ -181,11 +181,13 @@ func (l *loader) WriteEndpointConfig(w io.Writer, e endpoint.Config) error {
 
 // defaultEndpointMapRenames returns map rename operations for an endpoint.
 func defaultEndpointMapRenames(ep endpoint.Config, lnc *config.Config) map[string]string {
-	return map[string]string{
-		// Rename the calls and policy maps to include the endpoint's id.
-		"cilium_calls":  bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
-		"cilium_policy": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+	renames := map[string]string{
+		"cilium_calls": bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
 	}
+	if !option.Config.EnableSharedPolicy {
+		renames["cilium_policy"] = bpf.LocalMapName(policymap.MapName, uint16(ep.GetID()))
+	}
+	return renames
 }
 
 // reloadEndpoint loads programs in spec into the device used by ep.

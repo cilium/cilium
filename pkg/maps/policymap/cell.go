@@ -31,21 +31,39 @@ type PolicyConfig struct {
 
 	// PolicyStatsMapMax is the maximum number of entries allowed in a BPF policy map.
 	BpfPolicyStatsMapMax int
+
+	// BpfPolicySharedMapMax is the maximum number of entries allowed in the shared BPF policy map.
+	BpfPolicySharedMapMax int
+
+	// BpfPolicyOverlayMapMax is the maximum number of entries allowed in the policy overlay BPF map.
+	BpfPolicyOverlayMapMax int
+
+	// BpfPolicyMaxRuleSets is the maximum number of unique rule sets per node.
+	BpfPolicyMaxRuleSets int
 }
 
 var DefaultPolicyConfig = PolicyConfig{
-	BpfPolicyMapMax:      16384,
-	BpfPolicyStatsMapMax: 1 << 16,
+	BpfPolicyMapMax:        16384,
+	BpfPolicyStatsMapMax:   1 << 16,
+	BpfPolicySharedMapMax:  131072,
+	BpfPolicyOverlayMapMax: 16384,
+	BpfPolicyMaxRuleSets:   4096,
 }
 
 const (
-	PolicyMapMaxName      = "bpf-policy-map-max"
-	PolicyStatsMapMaxName = "bpf-policy-stats-map-max"
+	PolicyMapMaxName        = "bpf-policy-map-max"
+	PolicyStatsMapMaxName   = "bpf-policy-stats-map-max"
+	PolicySharedMapMaxName  = "bpf-policy-shared-map-max"
+	PolicyOverlayMapMaxName = "bpf-policy-overlay-map-max"
+	PolicyMaxRuleSetsName   = "bpf-policy-max-rule-sets"
 )
 
 func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int(PolicyMapMaxName, def.BpfPolicyMapMax, "Maximum number of entries in endpoint policy map (per endpoint)")
 	flags.Int(PolicyStatsMapMaxName, def.BpfPolicyStatsMapMax, "Maximum number of entries in bpf policy stats map")
+	flags.Int(PolicySharedMapMaxName, def.BpfPolicySharedMapMax, "Maximum number of entries in node-scoped shared BPF policy map")
+	flags.Int(PolicyOverlayMapMaxName, def.BpfPolicyOverlayMapMax, "Maximum number of entries in BPF policy overlay map")
+	flags.Int(PolicyMaxRuleSetsName, def.BpfPolicyMaxRuleSets, "Maximum number of unique policy rule sets per node")
 }
 
 type Factory interface {
@@ -160,9 +178,41 @@ func createFactory(in struct {
 			if err != nil {
 				return fmt.Errorf("Policy call map creation failed: %w", err)
 			}
+			if option.Config.EnableSharedPolicy {
+				if in.BpfPolicyMaxRuleSets > 0 {
+					InitSharedManager(uint32(in.BpfPolicyMaxRuleSets))
+				}
+				if in.BpfPolicySharedMapMax > 0 {
+					SharedPolicyMap.WithMaxEntries(in.BpfPolicySharedMapMax)
+				}
+				if in.BpfPolicyOverlayMapMax > 0 {
+					PolicyOverlayMap.WithMaxEntries(in.BpfPolicyOverlayMapMax)
+				}
+				if err := SharedPolicyMap.OpenOrCreate(); err != nil {
+					return fmt.Errorf("failed to create SharedPolicyMap: %w", err)
+				}
+				if err := PolicyOverlayMap.OpenOrCreate(); err != nil {
+					return fmt.Errorf("failed to create PolicyOverlayMap: %w", err)
+				}
+
+				// Recover shared policy state from pinned maps
+				in.Log.Info("Recovering shared policy overlays...")
+				err = PolicyOverlayMap.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+					epID := uint16(k.(*OverlayKey).EndpointID)
+					ruleSetID := v.(*OverlayValue).RuleSetID
+					RestoreEndpointOverlay(epID, ruleSetID)
+				})
+				if err != nil {
+					in.Log.Warn("Failed to iterate overlay map during recovery", logfields.Error, err)
+				}
+			}
 			return m.OpenOrCreate()
 		},
 		OnStop: func(cell.HookContext) error {
+			if option.Config.EnableSharedPolicy {
+				SharedPolicyMap.Close()
+				PolicyOverlayMap.Close()
+			}
 			return m.Close()
 		},
 	})

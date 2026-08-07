@@ -53,9 +53,11 @@ add_type(struct lb6_src_range_key);
 add_type(struct metrics_key);
 add_type(struct metrics_value);
 
+#define ENABLE_SHARED_POLICY 1
 #include "lib/policy.h"
 add_type(struct policy_key);
 add_type(struct policy_entry);
+add_type(struct shared_policy_key);
 
 add_type(struct ipv4_nat_entry);
 add_type(struct ipv6_nat_entry);

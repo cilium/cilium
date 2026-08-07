@@ -171,6 +171,106 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_policy __section_maps_btf;
 
+#define SHARED_POLICY_FULL_PREFIX 96
+#define SHARED_POLICY_BASE_PREFIX 72
+
+struct shared_policy_key {
+	struct bpf_lpm_trie_key lpm_key;  /* Must be first */
+	__u32 rule_set_id;                /* Identifies the rule set (for sharing) */
+	__u32 sec_label;                  /* Remote identity (0 for L4-only) */
+	__u8  egress:1,                   /* Direction: 0=ingress, 1=egress */
+	      pad:7;
+	__u8  protocol;                   /* L4 protocol (can be LPM wildcarded) */
+	__be16 dport;                     /* Destination port (can be LPM wildcarded) */
+} __packed;
+
+/* Shared policy map lookup maps Rule Set ID + Packet Details -> policy_entry */
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct shared_policy_key);
+	__type(value, struct policy_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 131072);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_policy_shared __section_maps_btf;
+
+/* Overlay map maps Endpoint ID -> Rule Set ID */
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_policy_overlay __section_maps_btf;
+
+struct policy_lookup_info {
+	__u32 remote_id;
+	__u8 direction;
+	__u8 proto;
+	__be16 port;
+};
+
+static __always_inline bool
+policy_lookup_shared(struct policy_lookup_info *info, bool *is_l3_match,
+		     struct policy_entry *result)
+{
+	__u32 ep_id = EFFECTIVE_EP_ID;
+	__u32 *rule_set_id_ptr;
+
+	rule_set_id_ptr = map_lookup_elem(&cilium_policy_overlay, &ep_id);
+	if (!rule_set_id_ptr)
+		return false;
+
+	__u32 rule_set_id = *rule_set_id_ptr;
+	__u8 egress = (info->direction == POLICY_EGRESS) ? 1 : 0;
+	struct shared_policy_key key;
+
+	memset(&key, 0, sizeof(key));
+	key.lpm_key.prefixlen = SHARED_POLICY_FULL_PREFIX;
+	key.rule_set_id = rule_set_id;
+	key.sec_label = info->remote_id;
+	key.egress = egress;
+	key.protocol = info->proto;
+	key.dport = info->port;
+
+	struct policy_entry *policy = map_lookup_elem(&cilium_policy_shared, &key);
+	struct policy_entry *agg_policy = NULL;
+
+	if (likely(policy && policy->precedence == MAX_PRECEDENCE)) {
+		*result = *policy;
+		*is_l3_match = true;
+		return true;
+	}
+
+	key.sec_label = aggregate_for_identity(info->remote_id);
+	if (likely(key.sec_label != info->remote_id))
+		agg_policy = map_lookup_elem(&cilium_policy_shared, &key);
+
+	if (unlikely(!agg_policy && key.sec_label != 0)) {
+		key.sec_label = 0;
+		agg_policy = map_lookup_elem(&cilium_policy_shared, &key);
+	}
+
+	if (agg_policy &&
+	    (!policy ||
+	     agg_policy->precedence > policy->precedence ||
+	     (agg_policy->precedence == policy->precedence &&
+	      agg_policy->lpm_prefix_length > policy->lpm_prefix_length))) {
+		*result = *agg_policy;
+		*is_l3_match = (key.sec_label != 0);
+		return true;
+	}
+
+	if (likely(policy)) {
+		*result = *policy;
+		*is_l3_match = true;
+		return true;
+	}
+
+	return false;
+}
+
 /* Return a verdict for the chosen 'policy', possibly propagating the auth type from 'policy2', if
  * non-NULL and of the same precedence.
  *
@@ -365,10 +465,60 @@ check_agg_policy:
 
 static __always_inline int
 policy_can_access(const struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
-		  __u16 ethertype, __be16 dport, __u8 proto, int off, int dir,
+		  __u16 ethertype __maybe_unused, __be16 dport,
+		  __u8 proto, int off __maybe_unused, int dir,
 		  bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
 		  __u16 *proxy_port, __u32 *cookie)
 {
+	if (CONFIG(enable_shared_policy)) {
+		struct policy_lookup_info info = {
+			.remote_id = remote_id,
+			.direction = (dir == CT_EGRESS) ? POLICY_EGRESS : POLICY_INGRESS,
+			.proto = proto,
+			.port = dport,
+		};
+		bool is_l3_match = false;
+		struct policy_entry policy = {0};
+
+		if (policy_lookup_shared(&info, &is_l3_match, &policy)) {
+			__u8 p_len = policy.lpm_prefix_length;
+
+			cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
+				    bpf_ntohs(dport) << 16 | proto);
+
+			if (CONFIG(enable_policy_accounting)) {
+				__u8 egress = (dir == CT_EGRESS) ? 1 : 0;
+
+				__policy_account(is_l3_match ? remote_id : 0, egress, proto, dport,
+						 p_len, ctx_full_len(ctx));
+			}
+
+			if (is_l3_match) {
+				*match_type =
+					p_len > LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_L3_L4 :
+					p_len > 0 ? POLICY_MATCH_L3_PROTO :
+					POLICY_MATCH_L3_ONLY;
+			} else {
+				*match_type =
+					p_len == 0 ? POLICY_MATCH_ALL :
+					p_len <= LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_PROTO_ONLY :
+					POLICY_MATCH_L4_ONLY;
+			}
+
+			return __policy_check(&policy, NULL, ext_err, proxy_port, cookie);
+		}
+
+		if (EFFECTIVE_EP_ID == 0 || is_defined(IS_BPF_HOST)) {
+			*match_type = POLICY_MATCH_ALL;
+			return CTX_ACT_OK;
+		}
+
+		if (is_untracked_fragment)
+			return DROP_FRAG_NOSUPPORT;
+
+		return DROP_POLICY;
+	}
+
 	return __policy_can_access(&cilium_policy, ctx, local_id, remote_id,
 				   ethertype, dport, proto, off, dir,
 				   is_untracked_fragment, match_type, ext_err,
