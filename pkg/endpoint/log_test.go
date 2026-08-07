@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"bytes"
+	"encoding/json"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -76,4 +77,24 @@ func TestPolicyLog(t *testing.T) {
 	require.True(t, bytes.Contains(buf, []byte("testing policy logging")))
 	require.True(t, bytes.Contains(buf, []byte("testing PolicyDebug")))
 	require.True(t, bytes.Contains(buf, []byte("Test Value")))
+}
+
+func TestPolicyLogAfterEndpointRestore(t *testing.T) {
+	logger := hivetest.Logger(t)
+	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
+	model := newTestEndpointModel(12345, StateReady)
+
+	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
+	require.NoError(t, err)
+	ep.Options.SetValidated(option.DebugPolicy, option.OptionEnabled)
+
+	ep.unconditionalRLock()
+	epJSON, err := json.Marshal(ep)
+	ep.runlock()
+	require.NoError(t, err)
+
+	restoredEP, err := ParseEndpoint(logger, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, do.repo, nil, nil, nil, nil, nil, epJSON, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	require.NoError(t, err)
+
+	restoredEP.PolicyDebug("testing restored endpoint PolicyDebug")
 }
