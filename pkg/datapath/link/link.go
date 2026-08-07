@@ -71,7 +71,7 @@ func GetHardwareAddr(ifName string) (mac.MAC, error) {
 // SetHardwareAddr sets the MAC address of the interface with the name ifName.
 //
 // Returns nil if the interface does not exist.
-func SetHardwareAddr(ifName, macAddress string) error {
+func SetHardwareAddr(ifName string, m mac.MAC) error {
 	l, err := safenetlink.LinkByName(ifName)
 	if err != nil {
 		if errors.As(err, &netlink.LinkNotFoundError{}) {
@@ -79,11 +79,7 @@ func SetHardwareAddr(ifName, macAddress string) error {
 		}
 		return err
 	}
-	hw, err := net.ParseMAC(macAddress)
-	if err != nil {
-		return err
-	}
-	return netlink.LinkSetHardwareAddr(l, hw)
+	return netlink.LinkSetHardwareAddr(l, net.HardwareAddr(m))
 }
 
 func GetIfIndex(ifName string) (uint32, error) {
