@@ -17,45 +17,6 @@ import (
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
-func Test_matchesControllerName(t *testing.T) {
-	testCases := []struct {
-		name     string
-		object   client.Object
-		expected bool
-	}{
-		{
-			name: "matches",
-			object: &gatewayv1.GatewayClass{
-				Spec: gatewayv1.GatewayClassSpec{
-					ControllerName: "foo",
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "does not match",
-			object: &gatewayv1.GatewayClass{
-				Spec: gatewayv1.GatewayClassSpec{
-					ControllerName: "bar",
-				},
-			},
-			expected: false,
-		},
-		{
-			name:     "not a GatewayClass",
-			object:   &corev1.Service{},
-			expected: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			gwc, ok := tc.object.(*gatewayv1.GatewayClass)
-			require.Equal(t, tc.expected, ok && string(gwc.Spec.ControllerName) == "foo")
-		})
-	}
-}
-
 func Test_referencedConfig(t *testing.T) {
 	testCases := []struct {
 		name     string
