@@ -2145,6 +2145,24 @@ func (m *manager) addCiliumENIRules() error {
 			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
 			return err
 		}
+		// Force L7 proxy NodePort replies from cilium_net onto the primary ENI.
+		// cil_to_host (TC INGRESS on cilium_net) sets MARK_MAGIC_SKIP_TPROXY (0x0800)
+		// on all mark=0 packets, which covers Envoy's reply after cil_from_host clears
+		// it. Adding bit 0x80 here makes ip rule 109 (fwmark 0x80 → main table) fire
+		// before ip rule 111 (from PodIP → secondary ENI table), so the reply exits via
+		// the primary ENI where cil_to_netdev's handle_nat_fwd() applies BPF NodePort
+		// reverse DNAT (src=PodIP → NodeIP:NodePort). Without this, non-PD mode replies
+		// exit the secondary ENI without revDNAT and are dropped by the client.
+		matchSkipTProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
+		if err := m.ip4tables.runProg([]string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", defaults.SecondHostDevice,
+			"-m", "mark", "--mark", matchSkipTProxy,
+			"-m", "comment", "--comment", "cilium: primary ENI for L7 proxy NodePort replies",
+			"-j", "MARK", "--or-mark", nfmask}); err != nil {
+			return err
+		}
 	}
 
 	if m.sharedCfg.EnableIPv6 {
@@ -2168,6 +2186,16 @@ func (m *manager) addCiliumENIRules() error {
 			"-i", "lxc+",
 			"-m", "comment", "--comment", "cilium: primary ENI",
 			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
+			return err
+		}
+		matchSkipTProxy6 := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
+		if err := m.ip6tables.runProg([]string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", defaults.SecondHostDevice,
+			"-m", "mark", "--mark", matchSkipTProxy6,
+			"-m", "comment", "--comment", "cilium: primary ENI for L7 proxy NodePort replies",
+			"-j", "MARK", "--or-mark", nfmask}); err != nil {
 			return err
 		}
 	}
