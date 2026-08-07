@@ -50,6 +50,96 @@ func filterDefaultRouteIPv6(t *testing.T, rt []netlink.Route) netlink.Route {
 	return rt[i]
 }
 
+// TestRequireFromProxyRoutes covers the rule-selection logic in isolation
+// (no privileged netns required) so the from-egress-proxy rule wiring stays
+// honest. Regression coverage for issue #46422: ingress L7 upstream connections
+// from Envoy are stamped with MagicMarkEgress, so the Egress proxy rule must be
+// present whenever Envoy is enabled in native routing, even without IPSec or
+// WireGuard. Otherwise a coexisting third-party tool (e.g. tailscaled) with its
+// own policy-routing rules on the upper mark bits can silently steal the
+// upstream packet before it ever reaches Cilium's BPF datapath.
+func TestRequireFromProxyRoutes(t *testing.T) {
+	defer func(orig *option.DaemonConfig) { option.Config = orig }(option.Config)
+
+	tests := []struct {
+		name             string
+		tunneling        bool
+		envoyConfig      bool
+		ipsecEnabled     bool
+		wireguardEnabled bool
+		mtuIn            int
+		wantFromIngress  bool
+		wantFromEgress   bool
+		wantMTU          int
+	}{
+		{
+			name:            "tunneling on disables both rules",
+			tunneling:       true,
+			envoyConfig:     true,
+			ipsecEnabled:    true,
+			wantFromIngress: false,
+			wantFromEgress:  false,
+			wantMTU:         0,
+		},
+		{
+			name:            "envoy only installs both ingress and egress rules (regression #46422)",
+			envoyConfig:     true,
+			wantFromIngress: true,
+			wantFromEgress:  true,
+			wantMTU:         0,
+		},
+		{
+			name:            "ipsec installs both rules with overhead MTU",
+			ipsecEnabled:    true,
+			mtuIn:           1380,
+			wantFromIngress: true,
+			wantFromEgress:  true,
+			wantMTU:         1380,
+		},
+		{
+			name:             "wireguard installs only ingress rule with overhead MTU",
+			wireguardEnabled: true,
+			mtuIn:            1420,
+			wantFromIngress:  true,
+			wantFromEgress:   false,
+			wantMTU:          1420,
+		},
+		{
+			name:             "envoy + wireguard installs both rules (envoy contributes egress)",
+			envoyConfig:      true,
+			wireguardEnabled: true,
+			mtuIn:            1420,
+			wantFromIngress:  true,
+			wantFromEgress:   true,
+			wantMTU:          1420,
+		},
+		{
+			name:            "no triggers leaves both rules off",
+			wantFromIngress: false,
+			wantFromEgress:  false,
+			wantMTU:         0,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			option.Config = &option.DaemonConfig{
+				EnableEnvoyConfig: tc.envoyConfig,
+			}
+			if tc.tunneling {
+				option.Config.RoutingMode = option.RoutingModeTunnel
+			} else {
+				option.Config.RoutingMode = option.RoutingModeNative
+			}
+
+			gotIngress, gotEgress, gotMTU := requireFromProxyRoutes(tc.ipsecEnabled, tc.wireguardEnabled, tc.mtuIn)
+			assert.Equal(t, tc.wantFromIngress, gotIngress, "fromIngressProxy")
+			assert.Equal(t, tc.wantFromEgress, gotEgress, "fromEgressProxy")
+			assert.Equal(t, tc.wantMTU, gotMTU, "mtu")
+		})
+	}
+}
+
 func TestPrivilegedRoutes(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
