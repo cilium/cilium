@@ -7,12 +7,14 @@ on:
     branches:
       - main
       - ft/main/**
+  # Add this workflow to be triggered by merge queue events
+  merge_group:
 
 permissions: read-all
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
+  cancel-in-progress: ${{ !github.event.merge_group }}
 
 jobs:
   ginkgo-workflow-comments:
