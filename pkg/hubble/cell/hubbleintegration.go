@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
-	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -63,7 +62,6 @@ type hubbleIntegration struct {
 	ipcache           *ipcache.IPCache
 	cgroupManager     manager.CGroupManager
 	nodeManager       nodeManager.NodeManager
-	nodeLocalStore    *node.LocalNodeStore
 	monitorAgent      monitorAgent.Agent
 	tlsConfigPromise  tlsConfigPromise
 	exporters         []exporter.FlowLogExporter
@@ -92,7 +90,6 @@ func createHubbleIntegration(
 	ipcache *ipcache.IPCache,
 	cgroupManager manager.CGroupManager,
 	nodeManager nodeManager.NodeManager,
-	nodeLocalStore *node.LocalNodeStore,
 	monitorAgent monitorAgent.Agent,
 	tlsConfigPromise tlsConfigPromise,
 	observerOptions []observeroption.Option,
@@ -123,7 +120,6 @@ func createHubbleIntegration(
 		ipcache:              ipcache,
 		cgroupManager:        cgroupManager,
 		nodeManager:          nodeManager,
-		nodeLocalStore:       nodeLocalStore,
 		monitorAgent:         monitorAgent,
 		tlsConfigPromise:     tlsConfigPromise,
 		observerOptions:      observerOptions,
@@ -232,14 +228,6 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 			}),
 		)
 	}
-
-	// fill in the local node information after the dropEventEmitter logique,
-	// but before anything else (e.g. metrics).
-	localNodeWatcher, err := observer.NewLocalNodeWatcher(ctx, h.nodeLocalStore)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve local node information: %w", err)
-	}
-	observerOpts = append(observerOpts, observeroption.WithOnDecodedFlow(localNodeWatcher))
 
 	maxFlows, err := container.NewCapacity(h.config.EventBufferCapacity)
 	if err != nil {
