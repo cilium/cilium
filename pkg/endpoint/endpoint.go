@@ -919,7 +919,8 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
 func ParseEndpoint(p EndpointParams,
 	dnsRulesAPI DNSRulesAPI,
-	proxy EndpointProxy, epJSON []byte) (*Endpoint, error) {
+	proxy EndpointProxy, epJSON []byte,
+	policyDebugLog io.Writer) (*Endpoint, error) {
 	ep := Endpoint{
 		dnsRulesAPI:      dnsRulesAPI,
 		epBuildQueue:     p.EPBuildQueue,
@@ -941,6 +942,7 @@ func ParseEndpoint(p EndpointParams,
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
 		kvstoreSyncher:   p.KVStoreSynchronizer,
+		policyDebugLog:   policyDebugLog,
 	}
 
 	if err := ep.UnmarshalJSON(epJSON); err != nil {
