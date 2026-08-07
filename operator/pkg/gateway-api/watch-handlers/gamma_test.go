@@ -20,13 +20,14 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers/testhelpers"
 )
 
 // TestEnqueueRequestForGAMMAHTTPRouteOnlyMatchesServiceParents ensures that only
 // core Service parents resolve to a GAMMA Service. Any other parent kind sharing
 // a name with a Service in the same namespace must not enqueue that Service.
 func TestEnqueueRequestForGAMMAHTTPRouteOnlyMatchesServiceParents(t *testing.T) {
-	scheme := helpers.TestScheme(helpers.AllOptionalKinds)
+	scheme := testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)
 
 	// A valid GAMMA Service whose name collides with the ListenerSet and the
 	// Gateway referenced as parents below.

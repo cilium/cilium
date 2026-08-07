@@ -18,7 +18,7 @@ import (
 
 func Test_getGatewaysForNamespace(t *testing.T) {
 	c := fake.NewClientBuilder().
-		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
 		WithObjects(testhelpers.NamespaceFixtures...).
 		WithObjects(testhelpers.ControllerTestFixture...).
 		Build()
