@@ -15,7 +15,7 @@ struct {
 
 enum {
 	SIGNAL_NAT_FILL_UP = 0,
-	SIGNAL_CT_FILL_UP,
+	UNUSED,
 	SIGNAL_AUTH_REQUIRED,
 };
 
@@ -53,12 +53,6 @@ static __always_inline void send_signal_nat_fill_up(const struct __ctx_buff *ctx
 						    __u32 proto)
 {
 	SEND_SIGNAL(ctx, SIGNAL_NAT_FILL_UP, proto, proto);
-}
-
-static __always_inline void send_signal_ct_fill_up(const struct __ctx_buff *ctx,
-						   __u32 proto)
-{
-	SEND_SIGNAL(ctx, SIGNAL_CT_FILL_UP, proto, proto);
 }
 
 static __always_inline void send_signal_auth_required(const struct __ctx_buff *ctx,
