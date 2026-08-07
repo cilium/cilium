@@ -307,7 +307,7 @@ type fakeParser struct {
 }
 
 func (f *fakeParser) ParseEndpoint(epJSON []byte) (*Endpoint, error) {
-	return ParseEndpoint(f.p, nil, nil, epJSON)
+	return ParseEndpoint(f.p, nil, nil, epJSON, nil)
 }
 
 var _ EndpointParser = &fakeParser{}
