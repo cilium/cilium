@@ -120,7 +120,7 @@ static __always_inline bool nodeport_uses_dsr(bool flip __maybe_unused)
 #define NEED_DSR_INFO	(1 << 16)
 
 static __always_inline bool
-nodeport_need_dsr_info(__u8 nexthdr, const struct ct_state *ct_state)
+nodeport_need_dsr_info(__u8 nexthdr, bool syn, bool new_backend)
 {
 	/* We only need to embed the DSR info into the first packet of a connection
 	 * (since it will then be cached on the backend node).
@@ -129,9 +129,7 @@ nodeport_need_dsr_info(__u8 nexthdr, const struct ct_state *ct_state)
 	 * We also send DSR info for the first TCP packet towards a new backend,
 	 * so that it can at least RevDNAT its RST reply.
 	 */
-	return (nexthdr != IPPROTO_TCP) ||
-	       ct_state->new_backend ||
-	       ct_state->syn;
+	return (nexthdr != IPPROTO_TCP) || syn || new_backend;
 }
 
 #if defined(ENABLE_IPV4)
@@ -1370,6 +1368,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 					    bool *punt_to_stack __maybe_unused,
 					    __s8 *ext_err)
 {
+	bool new_backend __maybe_unused = false;
 	struct ct_state ct_state_svc = {};
 	const struct lb6_backend *backend;
 	const struct lb6_backend *forced_be_p __maybe_unused = NULL;
@@ -1434,7 +1433,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		}
 	}
 	ret = lb6_local(get_ct_map6(tuple), ctx, fraginfo, l4_off,
-			key, tuple, svc, &ct_state_svc, &backend,
+			key, tuple, svc, &ct_state_svc, &backend, &new_backend,
 			ext_err, forced_be_p);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE) {
@@ -1523,7 +1522,9 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		__u32 port = key->dport;
 
-		if (nodeport_need_dsr_info(tuple->nexthdr, &ct_state_svc))
+		if (nodeport_need_dsr_info(tuple->nexthdr,
+					   ct_state_svc.syn,
+					   new_backend))
 			port |= NEED_DSR_INFO;
 
 		ctx_store_meta(ctx, CB_PORT, port);
@@ -2698,6 +2699,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 					    bool *punt_to_stack __maybe_unused,
 					    __s8 *ext_err)
 {
+	bool new_backend __maybe_unused = false;
 	const struct lb4_backend *backend;
 	struct ct_state ct_state_svc = {};
 	__u32 cluster_id = 0;
@@ -2784,7 +2786,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		}
 		ret = lb4_local(get_ct_map4(tuple), ctx, fraginfo, l4_off,
 				key, tuple, svc, &ct_state_svc, &backend,
-				ext_err, tmp);
+				&new_backend, ext_err, tmp);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
 				if (!CONFIG(enable_no_service_endpoints_routable))
@@ -2899,7 +2901,9 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		__u32 port = key->dport;
 
-		if (nodeport_need_dsr_info(tuple->nexthdr, &ct_state_svc))
+		if (nodeport_need_dsr_info(tuple->nexthdr,
+					   ct_state_svc.syn,
+					   new_backend))
 			port |= NEED_DSR_INFO;
 
 		ctx_store_meta(ctx, CB_PORT, port);
