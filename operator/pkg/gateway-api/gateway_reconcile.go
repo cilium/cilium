@@ -1114,14 +1114,14 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 			if len(node.Status.Addresses) == 0 {
 				continue
 			}
-			nodeAddress := node.Status.Addresses[0]
-			ip, err := netip.ParseAddr(nodeAddress.Address)
-			if err != nil {
-				// the first address is not an IP address (e.g. a hostname),
-				// skip the node instead of reporting an invalid address.
-				continue
+			for _, nodeAddress := range node.Status.Addresses {
+				ip, err := netip.ParseAddr(nodeAddress.Address)
+				if err != nil {
+					continue
+				}
+				ips = append(ips, ip.Unmap())
+				break
 			}
-			ips = append(ips, ip.Unmap())
 		}
 
 		// sort the addresses for consistent ip addresses assigned
@@ -1164,12 +1164,13 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 	if len(addresses) > 0 {
 		r.logger.InfoContext(ctx, "At least one valid address, marking gateway programmed", logfields.Resource, client.ObjectKeyFromObject(gw).String())
 		setGatewayProgrammed(gw, metav1.ConditionTrue, "Gateway Programmed", gatewayv1.GatewayReasonProgrammed)
-		for _, l := range gw.Status.Listeners {
+		for i := range gw.Status.Listeners {
+			l := &gw.Status.Listeners[i]
 			// Is Listener Accepted?
 			accepted := false
 
 			for _, cond := range l.Conditions {
-				if cond.Type == string(gatewayv1.GatewayConditionAccepted) &&
+				if cond.Type == string(gatewayv1.ListenerConditionAccepted) &&
 					cond.Status == metav1.ConditionTrue {
 					accepted = true
 					break
