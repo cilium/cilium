@@ -1205,10 +1205,10 @@ definitions:
         "$ref": "#/definitions/EndpointState"
       mac:
         description: MAC address
-        type: string
+        "$ref": "#/definitions/MAC"
       host-mac:
         description: MAC address
-        type: string
+        "$ref": "#/definitions/MAC"
       addressing:
         "$ref": "#/definitions/AddressPair"
       k8s-pod-name:
@@ -1666,8 +1666,8 @@ definitions:
         items:
           "$ref": "#/definitions/CIDR"
       master-mac:
-        type: string
         description: MAC of master interface if address is a slave/secondary of a master interface
+        "$ref": "#/definitions/MAC"
       expiration-uuid:
         type: string
         description: |
@@ -1725,6 +1725,16 @@ definitions:
       hints:
         kind: primitive
         noValidation: true
+  MAC:
+    description: MAC address
+    type: string
+    x-go-type:
+      type: MAC
+      import:
+        package: "github.com/cilium/cilium/pkg/mac"
+      hints:
+        kind: primitive
+        noValidation: true
   ClusterNodesResponse:
     properties:
       self:
@@ -1771,10 +1781,10 @@ definitions:
         "$ref": "#/definitions/NodeAddressing"
       host-mac:
         description: MAC address
-        type: string
+        "$ref": "#/definitions/MAC"
       mac:
         description: MAC address
-        type: string
+        "$ref": "#/definitions/MAC"
       interface-name:
         description: Name of network device in host netns
         type: string

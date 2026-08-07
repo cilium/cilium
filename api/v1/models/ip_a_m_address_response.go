@@ -9,6 +9,7 @@ import (
 	"context"
 
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/mac"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -40,7 +41,7 @@ type IPAMAddressResponse struct {
 	IP iputil.Addr `json:"ip,omitzero"`
 
 	// MAC of master interface if address is a slave/secondary of a master interface
-	MasterMac string `json:"master-mac,omitempty"`
+	MasterMac mac.MAC `json:"master-mac,omitempty"`
 
 	// SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.
 	//

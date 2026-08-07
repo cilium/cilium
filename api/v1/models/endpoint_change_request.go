@@ -9,6 +9,8 @@ import (
 	"context"
 	stderrors "errors"
 
+	"github.com/cilium/cilium/pkg/mac"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
@@ -40,7 +42,7 @@ type EndpointChangeRequest struct {
 	DatapathMapID int64 `json:"datapath-map-id,omitempty"`
 
 	// MAC address
-	HostMac string `json:"host-mac,omitempty"`
+	HostMac mac.MAC `json:"host-mac,omitempty"`
 
 	// Local endpoint ID
 	ID int64 `json:"id,omitempty"`
@@ -67,7 +69,7 @@ type EndpointChangeRequest struct {
 	Labels Labels `json:"labels,omitempty"`
 
 	// MAC address
-	Mac string `json:"mac,omitempty"`
+	Mac mac.MAC `json:"mac,omitempty"`
 
 	// Network namespace cookie
 	NetnsCookie string `json:"netns-cookie,omitempty"`

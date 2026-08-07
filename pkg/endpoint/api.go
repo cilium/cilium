@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -72,21 +71,8 @@ func NewEndpointFromChangeModel(p EndpointParams, dnsRulesAPI DNSRulesAPI, proxy
 	ep.K8sUID = model.K8sUID
 	ep.isSecondaryInterface = model.IsSecondaryInterface
 
-	if model.Mac != "" {
-		m, err := mac.ParseMAC(model.Mac)
-		if err != nil {
-			return nil, err
-		}
-		ep.mac = m
-	}
-
-	if model.HostMac != "" {
-		m, err := mac.ParseMAC(model.HostMac)
-		if err != nil {
-			return nil, err
-		}
-		ep.nodeMAC = m
-	}
+	ep.mac = model.Mac
+	ep.nodeMAC = model.HostMac
 
 	if model.NetnsCookie != "" {
 		cookie64, err := strconv.ParseInt(model.NetnsCookie, 10, 64)
@@ -175,8 +161,8 @@ func (e *Endpoint) getModelNetworkingRLocked() *models.EndpointNetworking {
 		InterfaceIndex:         int64(e.ifIndex),
 		InterfaceName:          e.ifName,
 		ContainerInterfaceName: e.containerIfName,
-		Mac:                    e.mac.String(),
-		HostMac:                e.nodeMAC.String(),
+		Mac:                    e.mac,
+		HostMac:                e.nodeMAC,
 	}
 }
 

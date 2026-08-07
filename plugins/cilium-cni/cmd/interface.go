@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/mac"
 )
 
 func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf *models.DaemonConfigurationStatus) error {
@@ -58,16 +57,11 @@ func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.
 		masq = conf.MasqueradeProtocols.IPv6
 	}
 
-	masterMAC, err := mac.ParseMAC(ipam.MasterMac)
-	if err != nil {
-		return fmt.Errorf("invalid master interface MAC %q: %w", ipam.MasterMac, err)
-	}
-
 	routingInfo, err := linuxrouting.NewRoutingInfo(
 		logger,
 		ipam.Gateway.String(),
 		coalescedCIDRs,
-		masterMAC,
+		ipam.MasterMac,
 		ipam.InterfaceNumber,
 		conf.IpamMode,
 		masq,
