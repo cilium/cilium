@@ -16,10 +16,10 @@ import (
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/netns"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 	"github.com/cilium/cilium/plugins/cilium-cni/lib"
@@ -247,7 +247,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		newEp.Status.Networking.Mac != vethLXCMac {
 
 		err = ns.Do(func() error {
-			return mac.ReplaceMacAddressWithLinkName(vethLXCName, newEp.Status.Networking.Mac)
+			return link.SetHardwareAddr(vethLXCName, newEp.Status.Networking.Mac)
 		})
 		if err != nil {
 			err = fmt.Errorf("unable to set MAC address on interface %s: %w", vethLXCName, err)
