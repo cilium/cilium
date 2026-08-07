@@ -28,7 +28,7 @@ func TestPrivilegedParse(t *testing.T) {
 		name      string
 		gateway   string
 		cidrs     []string
-		macAddr   string
+		macAddr   mac.MAC
 		masq      bool
 		ifaceNum  string
 		wantRInfo *RoutingInfo
@@ -38,7 +38,7 @@ func TestPrivilegedParse(t *testing.T) {
 			name:      "invalid gateway",
 			gateway:   "",
 			cidrs:     []string{"192.168.0.0/16"},
-			macAddr:   "11:22:33:44:55:66",
+			macAddr:   fakeMAC,
 			masq:      true,
 			wantRInfo: nil,
 			wantErr:   true,
@@ -47,7 +47,7 @@ func TestPrivilegedParse(t *testing.T) {
 			name:      "invalid cidr",
 			gateway:   "192.168.1.1",
 			cidrs:     []string{"192.168.0.0/16", "192.168.0.0/33"},
-			macAddr:   "11:22:33:44:55:66",
+			macAddr:   fakeMAC,
 			masq:      true,
 			wantRInfo: nil,
 			wantErr:   true,
@@ -56,7 +56,7 @@ func TestPrivilegedParse(t *testing.T) {
 			name:      "empty cidr",
 			gateway:   "192.168.1.1",
 			cidrs:     []string{},
-			macAddr:   "11:22:33:44:55:66",
+			macAddr:   fakeMAC,
 			masq:      true,
 			wantRInfo: nil,
 			wantErr:   true,
@@ -65,16 +65,7 @@ func TestPrivilegedParse(t *testing.T) {
 			name:      "nil cidr",
 			gateway:   "192.168.1.1",
 			cidrs:     nil,
-			macAddr:   "11:22:33:44:55:66",
-			masq:      true,
-			wantRInfo: nil,
-			wantErr:   true,
-		},
-		{
-			name:      "invalid mac address",
-			gateway:   "192.168.1.1",
-			cidrs:     []string{"192.168.0.0/16"},
-			macAddr:   "11:22:33:44:55:zz",
+			macAddr:   fakeMAC,
 			masq:      true,
 			wantRInfo: nil,
 			wantErr:   true,
@@ -83,7 +74,7 @@ func TestPrivilegedParse(t *testing.T) {
 			name:      "empty mac address",
 			gateway:   "192.168.1.1",
 			cidrs:     []string{"192.168.0.0/16"},
-			macAddr:   "",
+			macAddr:   nil,
 			masq:      true,
 			wantRInfo: nil,
 			wantErr:   true,
@@ -92,7 +83,7 @@ func TestPrivilegedParse(t *testing.T) {
 			name:      "invalid interface number",
 			gateway:   "192.168.1.1",
 			cidrs:     []string{"192.168.0.0/16"},
-			macAddr:   "11:22:33:44:55:zz",
+			macAddr:   fakeMAC,
 			ifaceNum:  "a",
 			wantRInfo: nil,
 			wantErr:   true,
@@ -101,7 +92,7 @@ func TestPrivilegedParse(t *testing.T) {
 			name:     "valid IPv4 input",
 			gateway:  "192.168.1.1",
 			cidrs:    []string{"192.168.0.0/16"},
-			macAddr:  "11:22:33:44:55:66",
+			macAddr:  fakeMAC,
 			ifaceNum: "1",
 			wantRInfo: &RoutingInfo{
 				Gateway:         net.ParseIP("192.168.1.1"),
@@ -116,7 +107,7 @@ func TestPrivilegedParse(t *testing.T) {
 			name:     "disabled masquerade",
 			gateway:  "192.168.1.1",
 			cidrs:    []string{},
-			macAddr:  "11:22:33:44:55:66",
+			macAddr:  fakeMAC,
 			masq:     false,
 			ifaceNum: "0",
 			wantRInfo: &RoutingInfo{
@@ -131,7 +122,7 @@ func TestPrivilegedParse(t *testing.T) {
 			name:      "masquerade lacking cidrs",
 			gateway:   "192.168.1.1",
 			cidrs:     []string{},
-			macAddr:   "11:22:33:44:55:66",
+			macAddr:   fakeMAC,
 			masq:      true,
 			wantRInfo: nil,
 			wantErr:   true,
