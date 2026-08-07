@@ -46,6 +46,9 @@ DOCKER_BUILD_FLAGS?=
 # gsed is needed for MacOS to make in-place replacement work correctly.
 SED ?= $(if $(shell command -v gsed),gsed,sed)
 
+NPROC ?= $(shell nproc 2>/dev/null || echo 1)
+SUBMAKE_JOBS ?= $(if $(filter -j% --jobs%,$(MAKEFLAGS)),,-j$(NPROC))
+
 # Set DOCKER_DEV_ACCOUNT with "cilium" by default
 ifeq ($(DOCKER_DEV_ACCOUNT),)
     DOCKER_DEV_ACCOUNT=cilium
