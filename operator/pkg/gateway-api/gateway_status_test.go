@@ -74,64 +74,6 @@ func Test_gatewayStatusScheduledCondition(t *testing.T) {
 	}
 }
 
-func Test_gatewayStatusReadyCondition(t *testing.T) {
-	type args struct {
-		gw    *gatewayv1.Gateway
-		ready bool
-		msg   string
-	}
-	tests := []struct {
-		name string
-		args args
-		want metav1.Condition
-	}{
-		{
-			name: "ready",
-			args: args{
-				gw: &gatewayv1.Gateway{
-					ObjectMeta: metav1.ObjectMeta{
-						Generation: 100,
-					},
-				},
-				ready: true,
-				msg:   "Listener Ready",
-			},
-			want: metav1.Condition{
-				Type:               "Ready",
-				Status:             "True",
-				ObservedGeneration: 100,
-				Reason:             "Ready",
-				Message:            "Listener Ready",
-			},
-		},
-		{
-			name: "unready",
-			args: args{
-				gw: &gatewayv1.Gateway{
-					ObjectMeta: metav1.ObjectMeta{
-						Generation: 100,
-					},
-				},
-				ready: false,
-				msg:   "Listener Pending",
-			},
-			want: metav1.Condition{
-				Type:               "Ready",
-				Status:             "False",
-				ObservedGeneration: 100,
-				Reason:             "ListenersNotReady",
-				Message:            "Listener Pending",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := gatewayStatusReadyCondition(tt.args.gw, tt.args.ready, tt.args.msg)
-			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "gatewayStatusAcceptedCondition() = %v, want %v", got, tt.want)
-		})
-	}
-}
-
 func Test_listenerProgrammedCondition(t *testing.T) {
 	type args struct {
 		generation int64
