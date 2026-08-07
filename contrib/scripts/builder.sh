@@ -129,5 +129,6 @@ if [ "$V" = '0' ]; then
 else
 	docker exec "$CONTAINER" usermod -u "$USERID" ubuntu
 fi
+docker exec "$CONTAINER" mkdir -p /home/ubuntu/.cache
 docker exec "$CONTAINER" chown "${CHOWN_FLAGS[@]}" ubuntu:ubuntu /home/ubuntu/.cache
 docker exec "${USER_OPTION[@]}" ${DOCKER_ARGS:+$DOCKER_ARGS} "$CONTAINER" "$@"
