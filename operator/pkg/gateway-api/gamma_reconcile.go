@@ -383,6 +383,7 @@ func (r *gammaReconciler) ensureEnvoyConfig(ctx context.Context, desired *cilium
 	cec := desired.DeepCopy()
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, cec, func() error {
 		cec.Spec = desired.Spec
+		cec.OwnerReferences = desired.OwnerReferences
 		setMergedLabelsAndAnnotations(cec, desired)
 		return nil
 	})
