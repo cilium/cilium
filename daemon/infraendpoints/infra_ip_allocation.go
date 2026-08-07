@@ -5,6 +5,7 @@ package infraendpoints
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -33,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -268,7 +270,7 @@ func (r *infraIPAllocator) allocateNextFromPool(ctx context.Context, family ipam
 	return result, nil
 }
 
-func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr string) error {
+func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr mac.MAC) error {
 	bo := wait.Backoff{
 		Duration: 250 * time.Millisecond,
 		Factor:   2,
@@ -287,7 +289,7 @@ func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr string) error
 			if l.Attrs().RawFlags&unix.IFF_SLAVE != 0 {
 				continue
 			}
-			if l.Attrs().HardwareAddr.String() == macAddr {
+			if bytes.Equal(l.Attrs().HardwareAddr, net.HardwareAddr(macAddr)) {
 				return true, nil
 			}
 		}

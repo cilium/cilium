@@ -54,11 +54,11 @@ func (info *RoutingInfo) GetCIDRs() []net.IPNet {
 // NewRoutingInfo creates a new RoutingInfo struct, from data that will be
 // parsed and validated. Note, this code assumes IPv4 values because IPv4
 // (on either ENI or Azure interface) is the only supported path currently.
-func NewRoutingInfo(logger *slog.Logger, gateway string, cidrs []string, mac, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
-	return parse(logger, gateway, cidrs, mac, ifaceNum, ipamMode, masquerade)
+func NewRoutingInfo(logger *slog.Logger, gateway string, cidrs []string, masterIfMAC mac.MAC, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
+	return parse(logger, gateway, cidrs, masterIfMAC, ifaceNum, ipamMode, masquerade)
 }
 
-func parse(logger *slog.Logger, gateway string, cidrs []string, macAddr, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
+func parse(logger *slog.Logger, gateway string, cidrs []string, masterIfMAC mac.MAC, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
 	ip := net.ParseIP(gateway)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid gateway: %s", gateway)
@@ -77,9 +77,10 @@ func parse(logger *slog.Logger, gateway string, cidrs []string, macAddr, ifaceNu
 		parsedCIDRs = append(parsedCIDRs, *c)
 	}
 
-	parsedMAC, err := mac.ParseMAC(macAddr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid mac: %s", macAddr)
+	// The MAC of the master interface is what the routes and rules are keyed
+	// on, so an unset one cannot be worked around here.
+	if len(masterIfMAC) == 0 {
+		return nil, errors.New("empty mac")
 	}
 
 	parsedIfaceNum, err := strconv.Atoi(ifaceNum)
@@ -91,7 +92,7 @@ func parse(logger *slog.Logger, gateway string, cidrs []string, macAddr, ifaceNu
 		logger:          logger.With(logfields.LogSubsys, "linux-routing"),
 		Gateway:         ip,
 		CIDRs:           parsedCIDRs,
-		MasterIfMAC:     parsedMAC,
+		MasterIfMAC:     masterIfMAC,
 		Masquerade:      masquerade,
 		InterfaceNumber: parsedIfaceNum,
 		IpamMode:        ipamMode,
