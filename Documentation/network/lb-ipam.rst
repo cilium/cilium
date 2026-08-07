@@ -510,3 +510,58 @@ As long as the services do not have conflicting ports, they will be allocated th
 If a service has a sharing key and also requests a specific IP, the service will be allocated the requested IP and it will be added to the set of IPs belonging to that sharing key.
 
 By default, sharing IPs across namespaces is not allowed. To allow sharing across a namespace, set the ``lbipam.cilium.io/sharing-cross-namespace`` annotation to the namespaces the service can be shared with. The value must be a comma-separated list of namespaces. The annotation must be present on both services. You can allow all namespaces with ``*``.
+
+Sharing an IP across services that select different pods
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When both services use ``externalTrafficPolicy: Local``, LB IPAM by default requires the services to select the same set of pods. This guarantees that any node receiving traffic for the shared IP has a backend for every service sharing it; otherwise traffic would be dropped on nodes without a backend.
+
+Some deployments steer traffic with mechanisms outside Cilium's view, for example an external L4-aware load balancer that uses the per-service ``healthCheckNodePort`` to direct each connection only to nodes with a backend. In that case the same-selector requirement is too strict.
+
+Setting the ``lbipam.cilium.io/sharing-permit-different-pods: "true"`` annotation on all services opts out of this check. With the opt-in present on all services with the same sharing key, LB IPAM allows them to share an IP even when their selectors differ. The annotation only relaxes the same-selector requirement; services without a selector (Endpoints-based) are still rejected because LB IPAM cannot read endpoints to determine where traffic should land.
+
+.. warning::
+
+   This annotation disables a safety check. The user is responsible for ensuring traffic only reaches nodes that have a backend for the destination service.
+
+   Cilium's built-in BGP and L2 announcements are **not** L4 aware and will advertise the shared IP from every node that hosts at least one of the sharing services. Combining this opt-in with those announcers can result in dropped traffic.
+
+   Safe ways to use it include an L4-aware external load balancer that respects each service's ``healthCheckNodePort``, or deploying every service in the sharing group as a DaemonSet with matching node coverage so all nodes host all backends.
+
+In the examples below, ``externalTrafficPolicy: Local`` makes Kubernetes auto-assign a per-service ``spec.healthCheckNodePort``. An external L4-aware load balancer must use that node port for its per-service health checks so that traffic for each service is sent only to nodes that have a backend for it.
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: service-blue
+    namespace: example
+    annotations:
+      "lbipam.cilium.io/sharing-key": "1234"
+      "lbipam.cilium.io/sharing-permit-different-pods": "true"
+  spec:
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+    selector:
+      app: blue
+    ports:
+    - port: 1234
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: service-red
+    namespace: example
+    annotations:
+      "lbipam.cilium.io/sharing-key": "1234"
+      "lbipam.cilium.io/sharing-permit-different-pods": "true"
+  spec:
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+    selector:
+      app: red
+    ports:
+    - port: 2345
