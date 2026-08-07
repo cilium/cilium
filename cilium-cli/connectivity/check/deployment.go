@@ -2931,11 +2931,12 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to list same node pods: %w", err)
 	}
-	if len(sameNodePods.Items) != 1 {
-		return fmt.Errorf("unexpected number of same node pods: %d", len(sameNodePods.Items))
+	sameNodePodItems := k8s.LivePods(sameNodePods.Items)
+	if len(sameNodePodItems) != 1 {
+		return fmt.Errorf("unexpected number of same node pods: %d", len(sameNodePodItems))
 	}
 	sameNodePod := Pod{
-		Pod: sameNodePods.Items[0].DeepCopy(),
+		Pod: sameNodePodItems[0].DeepCopy(),
 	}
 
 	for _, cp := range ct.clientPods {
@@ -2950,11 +2951,12 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("unable to list other node pods: %w", err)
 		}
-		if len(otherNodePods.Items) != 1 {
-			return fmt.Errorf("unexpected number of other node pods: %d", len(otherNodePods.Items))
+		otherNodePodItems := k8s.LivePods(otherNodePods.Items)
+		if len(otherNodePodItems) != 1 {
+			return fmt.Errorf("unexpected number of other node pods: %d", len(otherNodePodItems))
 		}
 		otherNodePod := Pod{
-			Pod: otherNodePods.Items[0].DeepCopy(),
+			Pod: otherNodePodItems[0].DeepCopy(),
 		}
 
 		for _, cp := range ct.clientPods {
