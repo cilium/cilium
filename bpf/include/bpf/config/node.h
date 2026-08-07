@@ -80,6 +80,8 @@ ASSIGN_CONFIG(__u8, lb_default_alg, LB_DEFAULT_ALG)
 
 NODE_CONFIG(__u16, nodeport_port_min, "Nodeport minimum port value.")
 NODE_CONFIG(__u16, nodeport_port_max, "Nodeport maximum port value.")
+NODE_CONFIG(__u16, nodeport_port_min_nat_ext, "Nodeport NAT extended minimum port value.")
+NODE_CONFIG(__u16, nodeport_port_max_nat_ext, "Nodeport NAT extended maximum port value.")
 
 NODE_CONFIG(__u32, hash_init4_seed, "Cluster-wide IPv4 tuple hash seed sourced")
 NODE_CONFIG(__u32, hash_init6_seed, "Cluster-wide IPv6 tuple hash seed sourced")
