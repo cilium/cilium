@@ -673,7 +673,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// pre-existing connections using that IP are now invalid.
 	if !e.ctCleaned {
 		go func() {
-			if !e.isPropertyLocked(endpointtypes.PropertyFakeEndpoint) {
+			if !e.IsProperty(endpointtypes.PropertyFakeEndpoint) {
 				e.scrubIPsInConntrackTable()
 			}
 			close(datapathRegenCtxt.ctCleaned)
