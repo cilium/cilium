@@ -740,22 +740,33 @@ func TestENIMultiPoolAllocator(t *testing.T) {
 	}, 5*time.Second, 10*time.Millisecond)
 }
 
-func TestDeriveENIVpcCIDR(t *testing.T) {
-	t.Run("returns primary VPC CIDR from first ENI", func(t *testing.T) {
+func TestDeriveVpcCIDRsFromENI(t *testing.T) {
+	t.Run("returns VPC CIDRs from first ENI", func(t *testing.T) {
 		node := &ciliumv2.CiliumNode{}
 		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
 			"eni-1": {
 				VPC: awsTypes.AwsVPC{
 					PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/16")),
+					CIDRs: prefixes(
+						"100.64.0.0/16",
+						"172.16.0.0/16",
+					),
 				},
 			},
 		}
-		require.Equal(t, netip.MustParsePrefix("10.0.0.0/16"), deriveENIVpcCIDR(node))
+		primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(node)
+		require.Equal(t, netip.MustParsePrefix("10.0.0.0/16"), primaryCIDR)
+		require.Equal(t, []netip.Prefix{
+			netip.MustParsePrefix("100.64.0.0/16"),
+			netip.MustParsePrefix("172.16.0.0/16"),
+		}, secondaryCIDRs)
 	})
 
 	t.Run("returns zero when no ENIs", func(t *testing.T) {
 		node := &ciliumv2.CiliumNode{}
-		require.False(t, deriveENIVpcCIDR(node).IsValid())
+		primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(node)
+		require.False(t, primaryCIDR.IsValid())
+		require.Empty(t, secondaryCIDRs)
 	})
 
 	t.Run("returns zero when VPC CIDR is empty", func(t *testing.T) {
@@ -765,7 +776,9 @@ func TestDeriveENIVpcCIDR(t *testing.T) {
 				VPC: awsTypes.AwsVPC{},
 			},
 		}
-		require.False(t, deriveENIVpcCIDR(node).IsValid())
+		primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(node)
+		require.False(t, primaryCIDR.IsValid())
+		require.Empty(t, secondaryCIDRs)
 	})
 }
 
@@ -776,7 +789,7 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 
 		primaryCIDR := netip.MustParsePrefix("10.0.0.0/16")
 		conf := &option.DaemonConfig{}
-		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf)
+		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, nil, localNodeStore, conf)
 
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
@@ -792,7 +805,7 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 		conf := &option.DaemonConfig{
 			IPv4NativeRoutingCIDR: cidr.MustParseCIDR("10.0.0.0/8"),
 		}
-		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf)
+		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, nil, localNodeStore, conf)
 
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
@@ -812,7 +825,24 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 		conf := &option.DaemonConfig{
 			IPv4NativeRoutingCIDR: cidr.MustParseCIDR("192.168.64.0/19"),
 		}
-		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf)
+		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, nil, localNodeStore, conf)
+
+		localNode, err := localNodeStore.Get(context.Background())
+		require.NoError(t, err)
+		// Should NOT have been written since the config already has a value.
+		require.Nil(t, localNode.Local.IPv4NativeRoutingCIDR)
+	})
+
+	t.Run("accepts a native routing CIDR that overlaps a secondary VPC CIDR", func(t *testing.T) {
+		logger := hivetest.Logger(t)
+		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+
+		primaryCIDR := netip.MustParsePrefix("10.1.128.0/19")
+		secondaryCIDRs := []netip.Prefix{netip.MustParsePrefix("100.64.0.0/16")}
+		conf := &option.DaemonConfig{
+			IPv4NativeRoutingCIDR: cidr.MustParseCIDR("100.64.0.0/16"),
+		}
+		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, secondaryCIDRs, localNodeStore, conf)
 
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
