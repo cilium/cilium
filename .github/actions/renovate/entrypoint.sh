@@ -24,4 +24,12 @@ fi
 
 usermod -aG "$GROUP_NAME" ubuntu
 
+# The ubuntu user in the Renovate image has primary GID 0, which makes
+# builder.sh take the root path. Swap the primary group to ubuntu and keep
+# root as a supplementary group.
+if [ "$(id -gn ubuntu)" = "root" ]; then
+  usermod -aG root ubuntu
+  usermod -g ubuntu ubuntu
+fi
+
 runuser -u ubuntu renovate
