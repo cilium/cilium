@@ -288,7 +288,7 @@ type fakeParser struct {
 }
 
 func (f *fakeParser) ParseEndpoint(epJSON []byte) (*Endpoint, error) {
-	return ParseEndpoint(f.logger, nil, nil, nil, f.orchestrator, nil, nil, nil, nil, nil, nil, f.policyRepo, nil, nil, nil, nil, nil, epJSON, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	return ParseEndpoint(f.logger, nil, nil, nil, f.orchestrator, nil, nil, nil, nil, nil, nil, f.policyRepo, nil, nil, nil, nil, nil, epJSON, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 }
 
 var _ EndpointParser = &fakeParser{}

@@ -212,7 +212,7 @@ func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, erro
 		c.wgConfig,
 		c.ipsecConfig,
 		c.lxcMap,
-	)
+		c.policyLogger())
 }
 
 func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
