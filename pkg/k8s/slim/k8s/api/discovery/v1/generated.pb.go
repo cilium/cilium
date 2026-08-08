@@ -242,13 +242,6 @@ func (m *EndpointPort) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.AppProtocol != nil {
-		i -= len(*m.AppProtocol)
-		copy(dAtA[i:], *m.AppProtocol)
-		i = encodeVarintGenerated(dAtA, i, uint64(len(*m.AppProtocol)))
-		i--
-		dAtA[i] = 0x22
-	}
 	if m.Port != nil {
 		i = encodeVarintGenerated(dAtA, i, uint64(*m.Port))
 		i--
@@ -514,10 +507,6 @@ func (m *EndpointPort) Size() (n int) {
 	if m.Port != nil {
 		n += 1 + sovGenerated(uint64(*m.Port))
 	}
-	if m.AppProtocol != nil {
-		l = len(*m.AppProtocol)
-		n += 1 + l + sovGenerated(uint64(l))
-	}
 	return n
 }
 
@@ -641,7 +630,6 @@ func (this *EndpointPort) String() string {
 		`Name:` + valueToStringGenerated(this.Name) + `,`,
 		`Protocol:` + valueToStringGenerated(this.Protocol) + `,`,
 		`Port:` + valueToStringGenerated(this.Port) + `,`,
-		`AppProtocol:` + valueToStringGenerated(this.AppProtocol) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1392,39 +1380,6 @@ func (m *EndpointPort) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.Port = &v
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AppProtocol", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenerated
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			s := string(dAtA[iNdEx:postIndex])
-			m.AppProtocol = &s
-			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGenerated(dAtA[iNdEx:])

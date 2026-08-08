@@ -728,14 +728,6 @@ func (in *Secret) DeepEqual(other *Secret) bool {
 		return false
 	}
 
-	if (in.Immutable == nil) != (other.Immutable == nil) {
-		return false
-	} else if in.Immutable != nil {
-		if *in.Immutable != *other.Immutable {
-			return false
-		}
-	}
-
 	if ((in.Data != nil) && (other.Data != nil)) || ((in.Data == nil) != (other.Data == nil)) {
 		in, other := &in.Data, &other.Data
 		if other == nil {
@@ -750,27 +742,6 @@ func (in *Secret) DeepEqual(other *Secret) bool {
 					return false
 				} else {
 					if !inValue.DeepEqual(&otherValue) {
-						return false
-					}
-				}
-			}
-		}
-	}
-
-	if ((in.StringData != nil) && (other.StringData != nil)) || ((in.StringData == nil) != (other.StringData == nil)) {
-		in, other := &in.StringData, &other.StringData
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for key, inValue := range *in {
-				if otherValue, present := (*other)[key]; !present {
-					return false
-				} else {
-					if inValue != otherValue {
 						return false
 					}
 				}
@@ -905,10 +876,6 @@ func (in *ServicePort) DeepEqual(other *ServicePort) bool {
 	if in.Port != other.Port {
 		return false
 	}
-	if in.TargetPort != other.TargetPort {
-		return false
-	}
-
 	if in.NodePort != other.NodePort {
 		return false
 	}
@@ -1154,13 +1121,6 @@ func (in *Taint) DeepEqual(other *Taint) bool {
 	}
 	if in.Effect != other.Effect {
 		return false
-	}
-	if (in.TimeAdded == nil) != (other.TimeAdded == nil) {
-		return false
-	} else if in.TimeAdded != nil {
-		if !in.TimeAdded.DeepEqual(other.TimeAdded) {
-			return false
-		}
 	}
 
 	return true

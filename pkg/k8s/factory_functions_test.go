@@ -566,44 +566,6 @@ func Test_EqualV1Node(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "Nodes with the same taints and different specs should false",
-			args: args{
-				o1: &slim_corev1.Node{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name: "Node1",
-					},
-					Spec: slim_corev1.NodeSpec{
-						PodCIDR: "192.168.0.0/10",
-						Taints: []slim_corev1.Taint{
-							{
-								Key:       "key",
-								Value:     "value",
-								Effect:    "no-effect",
-								TimeAdded: func() *slim_metav1.Time { return &slim_metav1.Time{Time: time.Unix(1, 1)} }(),
-							},
-						},
-					},
-				},
-				o2: &slim_corev1.Node{
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name: "Node1",
-					},
-					Spec: slim_corev1.NodeSpec{
-						PodCIDR: "127.0.0.1/10",
-						Taints: []slim_corev1.Taint{
-							{
-								Key:       "key",
-								Value:     "value",
-								Effect:    "no-effect",
-								TimeAdded: func() *slim_metav1.Time { return &slim_metav1.Time{Time: time.Unix(1, 1)} }(),
-							},
-						},
-					},
-				},
-			},
-			want: false,
-		},
-		{
 			name: "Nodes with the different taints and different specs should return false",
 			args: args{
 				o1: &slim_corev1.Node{
@@ -628,10 +590,9 @@ func Test_EqualV1Node(t *testing.T) {
 						PodCIDR: "127.0.0.1/10",
 						Taints: []slim_corev1.Taint{
 							{
-								Key:       "key",
-								Value:     "value",
-								Effect:    "no-effect",
-								TimeAdded: func() *slim_metav1.Time { return &slim_metav1.Time{Time: time.Unix(1, 1)} }(),
+								Key:    "key",
+								Value:  "other-value",
+								Effect: "no-effect",
 							},
 						},
 					},
