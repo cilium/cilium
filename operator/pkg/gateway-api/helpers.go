@@ -37,16 +37,6 @@ func GroupPtr(name string) *gatewayv1.Group {
 	return &group
 }
 
-func KindPtr(name string) *gatewayv1.Kind {
-	kind := gatewayv1.Kind(name)
-	return &kind
-}
-
-func ObjectNamePtr(name string) *gatewayv1.ObjectName {
-	objectName := gatewayv1.ObjectName(name)
-	return &objectName
-}
-
 func groupDerefOr(group *gatewayv1.Group, defaultGroup string) string {
 	if group != nil && *group != "" {
 		return string(*group)
