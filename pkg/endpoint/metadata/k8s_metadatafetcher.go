@@ -12,6 +12,7 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -30,20 +31,22 @@ type EndpointMetadataFetcher interface {
 }
 
 type cachedEndpointMetadataFetcher struct {
-	logger     *slog.Logger
-	config     *option.DaemonConfig
-	db         *statedb.DB
-	pods       statedb.Table[k8sTables.LocalPod]
-	namespaces statedb.Table[k8sTables.Namespace]
+	logger      *slog.Logger
+	config      *option.DaemonConfig
+	clusterInfo cmtypes.ClusterInfo
+	db          *statedb.DB
+	pods        statedb.Table[k8sTables.LocalPod]
+	namespaces  statedb.Table[k8sTables.Namespace]
 }
 
-func NewEndpointMetadataFetcher(logger *slog.Logger, config *option.DaemonConfig, db *statedb.DB, pods statedb.Table[k8sTables.LocalPod], namespaces statedb.Table[k8sTables.Namespace]) EndpointMetadataFetcher {
+func NewEndpointMetadataFetcher(logger *slog.Logger, config *option.DaemonConfig, clusterInfo cmtypes.ClusterInfo, db *statedb.DB, pods statedb.Table[k8sTables.LocalPod], namespaces statedb.Table[k8sTables.Namespace]) EndpointMetadataFetcher {
 	return &cachedEndpointMetadataFetcher{
-		logger:     logger,
-		config:     config,
-		db:         db,
-		pods:       pods,
-		namespaces: namespaces,
+		logger:      logger,
+		config:      config,
+		clusterInfo: clusterInfo,
+		db:          db,
+		pods:        pods,
+		namespaces:  namespaces,
 	}
 }
 
@@ -85,7 +88,7 @@ func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpointFromPod(p 
 		return nil, err
 	}
 
-	namedPorts, lbls := k8s.GetPodMetadata(cemf.logger, ns, p)
+	namedPorts, lbls := k8s.GetPodMetadata(cemf.logger, cemf.clusterInfo, ns, p)
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
 	return &endpoint.K8sMetadata{

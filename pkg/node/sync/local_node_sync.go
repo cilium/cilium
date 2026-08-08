@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -50,6 +51,7 @@ type localNodeSynchronizerParams struct {
 
 	Logger             *slog.Logger
 	Config             *option.DaemonConfig
+	ClusterInfo        cmtypes.ClusterInfo
 	TunnelConfig       tunnel.Config
 	K8sLocalNode       agentK8s.LocalNodeResource
 	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
@@ -108,7 +110,7 @@ func (ini *localNodeSynchronizer) SyncLocalNode(ctx context.Context, store *node
 					ln.Local.IsBeingDeleted = true
 				})
 			}
-			new := parseNode(ini.Logger, ev.Object)
+			new := parseNode(ini.Logger, ev.Object, ini.ClusterInfo)
 			if !ini.mutableFieldsEqual(new) {
 				store.Update(func(ln *node.LocalNode) {
 					ini.syncFromK8s(ln, new)
@@ -134,8 +136,8 @@ func newLocalNodeSynchronizer(p localNodeSynchronizerParams) node.LocalNodeSynch
 }
 
 func (ini *localNodeSynchronizer) initFromConfig(n *node.LocalNode) error {
-	n.Cluster = ini.Config.ClusterName
-	n.ClusterID = ini.Config.ClusterID
+	n.Cluster = ini.ClusterInfo.Name
+	n.ClusterID = ini.ClusterInfo.ID
 	n.Name = nodeTypes.GetName()
 
 	n.Local.IPv4NativeRoutingCIDR = ini.Config.IPv4NativeRoutingCIDR
@@ -205,7 +207,7 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 	if err != nil {
 		return err
 	}
-	parsedNode := parseNode(ini.Logger, k8sNode)
+	parsedNode := parseNode(ini.Logger, k8sNode, ini.ClusterInfo)
 
 	// Initialize the fields in local node where the source of truth is in Kubernetes.
 	// Later stages will deal with updating rest of the fields depending on configuration.
@@ -307,9 +309,9 @@ func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
 	)
 }
 
-func parseNode(logger *slog.Logger, k8sNode *slim_corev1.Node) *node.LocalNode {
+func parseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, clusterInfo cmtypes.ClusterInfo) *node.LocalNode {
 	return &node.LocalNode{
-		Node: *k8s.ParseNode(logger, k8sNode, source.Kubernetes),
+		Node: *k8s.ParseNode(logger, k8sNode, source.Kubernetes, clusterInfo),
 		Local: &node.LocalNodeInfo{
 			UID:        k8sNode.GetUID(),
 			ProviderID: k8sNode.Spec.ProviderID,

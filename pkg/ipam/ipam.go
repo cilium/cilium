@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/statedb"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
@@ -73,6 +74,7 @@ type Metadata interface {
 type NewIPAMParams struct {
 	Logger         *slog.Logger
 	NodeAddressing node.Addressing
+	ClusterInfo    cmtypes.ClusterInfo
 	AgentConfig    *option.DaemonConfig
 	NodeDiscovery  Owner
 	LocalNodeStore *node.LocalNodeStore
@@ -95,6 +97,7 @@ type NewIPAMParams struct {
 func NewIPAM(params NewIPAMParams) *IPAM {
 	return &IPAM{
 		logger:                    params.Logger,
+		clusterInfo:               params.ClusterInfo,
 		config:                    params.AgentConfig,
 		nodeAddressing:            params.NodeAddressing,
 		owner:                     map[Pool]map[string]string{},
@@ -150,6 +153,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 			Logger:                    ipam.logger,
 			IPv4Enabled:               ipam.config.IPv4Enabled(),
 			IPv6Enabled:               ipam.config.IPv6Enabled(),
+			ClusterInfo:               ipam.clusterInfo,
 			CiliumNodeUpdateRate:      ipam.config.IPAMCiliumNodeUpdateRate,
 			PreAllocPools:             ipam.config.IPAMMultiPoolPreAllocation,
 			Node:                      ipam.nodeResource,
@@ -179,6 +183,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 			LocalNodeStore:       ipam.localNodeStore,
 			CNClient:             ipam.clientset.CiliumV2().CiliumNodes(),
 			JobGroup:             ipam.jg,
+			ClusterInfo:          ipam.clusterInfo,
 			Conf:                 ipam.config,
 			IPMasqAgent:          ipam.ipMasqAgent,
 		})

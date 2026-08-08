@@ -15,6 +15,7 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -50,6 +51,7 @@ type MultiPoolAllocatorParams struct {
 
 	IPv4Enabled          bool
 	IPv6Enabled          bool
+	ClusterInfo          cmtypes.ClusterInfo
 	CiliumNodeUpdateRate time.Duration
 	PreAllocPools        map[string]string
 
@@ -89,7 +91,7 @@ func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
 
 	waitForAllPools(p.Logger, p.DB, p.PodIPPools, preallocMap)
 
-	allocCIDRsReady := startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)
+	allocCIDRsReady := startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.ClusterInfo, p.JobGroup, p.Node, p.LocalNodeStore)
 
 	// wait for local node to be updated to avoid propagating spurious updates.
 	waitForLocalNodeUpdate(p.Logger, mgr)
@@ -239,6 +241,7 @@ const waitForLocalNodeAllocCIDRsTimeout = 5 * time.Minute
 // mgr.localNodeUpdated()).
 func startLocalNodeAllocCIDRsSync(
 	enableIPv4, enableIPv6 bool,
+	clusterInfo cmtypes.ClusterInfo,
 	jobGroup job.Group,
 	localNode agentK8s.LocalCiliumNodeResource,
 	localNodeStore *node.LocalNodeStore,
@@ -255,7 +258,7 @@ func startLocalNodeAllocCIDRsSync(
 					return nil
 				}
 
-				no := k8s.ParseCiliumNode(ev.Object)
+				no := k8s.ParseCiliumNode(ev.Object, clusterInfo)
 				localNodeStore.Update(func(n *node.LocalNode) {
 					if enableIPv4 && no.IPv4AllocCIDR.IsValid() {
 						n.IPv4AllocCIDR = no.IPv4AllocCIDR

@@ -32,6 +32,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
@@ -943,7 +944,7 @@ func Test_LocalNodeCIDRsSyncer(t *testing.T) {
 	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
 
 	// start syncing local node allocation CIDRs
-	startLocalNodeAllocCIDRsSync(true, true, jg, localNode, localNodeStore)
+	startLocalNodeAllocCIDRsSync(true, true, cmtypes.DefaultClusterInfo, jg, localNode, localNodeStore)
 
 	// create local node
 	currentNode, err := clientset.CiliumV2().CiliumNodes().Create(t.Context(), currentNode, metav1.CreateOptions{})
@@ -1652,6 +1653,7 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 		Logger:                    hivetest.Logger(t),
 		IPv4Enabled:               fakeConfig.EnableIPv4,
 		IPv6Enabled:               fakeConfig.EnableIPv6,
+		ClusterInfo:               cmtypes.DefaultClusterInfo,
 		CiliumNodeUpdateRate:      fakeConfig.IPAMCiliumNodeUpdateRate,
 		PreAllocPools:             fakeConfig.IPAMMultiPoolPreAllocation,
 		Node:                      localNode,

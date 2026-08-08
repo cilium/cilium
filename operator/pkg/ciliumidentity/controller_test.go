@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/operator/k8s"
 	cestest "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	cidtest "github.com/cilium/cilium/operator/pkg/ciliumidentity/testutils"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -113,6 +114,9 @@ func initHiveTest(t *testing.T, operatorManagingCID bool) (*resource.Resource[*c
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
+		cell.Provide(func() cmtypes.ClusterInfo {
+			return cmtypes.DefaultClusterInfo
+		}),
 		cell.Provide(func() config {
 			if operatorManagingCID {
 				return config{
