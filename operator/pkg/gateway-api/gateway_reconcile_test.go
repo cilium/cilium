@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -604,6 +605,98 @@ func Test_Conformance(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGatewayReconciler_ProxyProtocolInjected(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	cecTranslatorWithProxy := translation.NewCECTranslator(translation.Config{
+		SecretsNamespace: "cilium-secrets",
+		RouteConfig: translation.RouteConfig{
+			HostNameSuffixMatch: true,
+		},
+		ListenerConfig: translation.ListenerConfig{
+			UseProxyProtocol:         true,
+			StreamIdleTimeoutSeconds: 300,
+		},
+		ClusterConfig: translation.ClusterConfig{
+			IdleTimeoutSeconds: 60,
+		},
+		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+			UseRemoteAddress: true,
+		},
+	})
+
+	gatewayKey := types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}
+	cecKey := types.NamespacedName{Name: "cilium-gateway-same-namespace", Namespace: "gateway-conformance-infra"}
+
+	base := readInputDir(t, "testdata/gateway/base")
+	input := readInputDir(t, "testdata/gateway/httproute-simple-same-namespace/input")
+
+	c := fake.NewClientBuilder().
+		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithObjects(append(base, input...)...).
+		WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway).
+		WithIndex(&gatewayv1.HTTPRoute{}, indexers.BackendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService).
+		WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway).
+		WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway).
+		WithIndex(&gatewayv1.TCPRoute{}, indexers.GatewayTCPRouteIndex, indexers.IndexTCPRouteByGateway).
+		WithIndex(&gatewayv1.UDPRoute{}, indexers.GatewayUDPRouteIndex, indexers.IndexUDPRouteByGateway).
+		WithIndex(&gatewayv1.ListenerSet{}, indexers.ListenerSetGatewayIndex, indexers.IndexListenerSetByGateway).
+		WithIndex(&gatewayv1.HTTPRoute{}, indexers.HTTPRouteListenerSetIndex, indexers.IndexHTTPRouteByListenerSet).
+		WithIndex(&gatewayv1.GRPCRoute{}, indexers.GRPCRouteListenerSetIndex, indexers.IndexGRPCRouteByListenerSet).
+		WithIndex(&gatewayv1.TLSRoute{}, indexers.TLSRouteListenerSetIndex, indexers.IndexTLSRouteByListenerSet).
+		WithIndex(&gatewayv1.TCPRoute{}, indexers.TCPRouteListenerSetIndex, indexers.IndexTCPRouteByListenerSet).
+		WithIndex(&gatewayv1.UDPRoute{}, indexers.UDPRouteListenerSetIndex, indexers.IndexUDPRouteByListenerSet).
+		WithStatusSubresource(&corev1.Service{}).
+		WithStatusSubresource(&corev1.Namespace{}).
+		WithStatusSubresource(&gatewayv1.Gateway{}).
+		WithStatusSubresource(&gatewayv1.GatewayClass{}).
+		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
+		WithStatusSubresource(&gatewayv1.GRPCRoute{}).
+		WithStatusSubresource(&gatewayv1.TLSRoute{}).
+		WithStatusSubresource(&gatewayv1.TCPRoute{}).
+		WithStatusSubresource(&gatewayv1.UDPRoute{}).
+		WithStatusSubresource(&gatewayv1.ListenerSet{}).
+		Build()
+
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslatorWithProxy, translation.Config{
+		ServiceConfig: translation.ServiceConfig{
+			ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
+		},
+		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+			UseRemoteAddress: true,
+		},
+	})
+
+	r := &gatewayReconciler{
+		Client:         c,
+		translator:     gatewayAPITranslator,
+		logger:         logger,
+		controllerName: defaultControllerName,
+	}
+
+	result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gatewayKey})
+	require.NoError(t, err)
+	require.Equal(t, ctrl.Result{}, result)
+
+	actualCEC := &ciliumv2.CiliumEnvoyConfig{}
+	err = c.Get(t.Context(), cecKey, actualCEC)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, actualCEC.Spec.Resources)
+
+	var foundProxyProtocol bool
+	for _, res := range actualCEC.Spec.Resources {
+		if res.TypeUrl == "type.googleapis.com/envoy.config.listener.v3.Listener" {
+			if strings.Contains(string(res.Value), "envoy.filters.listener.proxy_protocol") {
+				foundProxyProtocol = true
+				break
+			}
+		}
+	}
+	require.True(t, foundProxyProtocol,
+		"Gateway CEC must contain proxy_protocol listener filter when UseProxyProtocol is enabled")
 }
 
 func Test_grpcWebTranslationEnabled(t *testing.T) {

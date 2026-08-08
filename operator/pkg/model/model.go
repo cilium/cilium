@@ -784,6 +784,15 @@ func (m *Model) IsEmpty() bool {
 	return len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0 && len(m.L4) == 0
 }
 
+func (m *Model) IsGamma() bool {
+	for _, l := range m.HTTP {
+		if l.Gamma {
+			return true
+		}
+	}
+	return false
+}
+
 // IsHTTPListenerConfigured returns true if the model has any HTTP listeners.
 func (m *Model) IsHTTPListenerConfigured() bool {
 	return len(m.HTTP) > 0

@@ -376,6 +376,37 @@ func TestSharedIngressTranslator_getListenerProxy(t *testing.T) {
 	require.Equal(t, []string{proxyProtocolType, tlsInspectorType}, listenerNames)
 }
 
+func TestSharedIngressTranslator_getListenerProxy_GammaNotInjected(t *testing.T) {
+	i := &cecTranslator{
+		Config: Config{
+			SecretsNamespace: "cilium-secrets",
+			ListenerConfig: ListenerConfig{
+				UseProxyProtocol: true,
+			},
+		},
+	}
+	res, err := i.desiredEnvoyListener(&model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				Gamma: true,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, res, 1)
+
+	listener := &envoy_config_listener.Listener{}
+	err = proto.Unmarshal(res[0].GetValue(), listener)
+	require.NoError(t, err)
+
+	listenerNames := []string{}
+	for _, l := range listener.ListenerFilters {
+		listenerNames = append(listenerNames, l.Name)
+	}
+	require.NotContains(t, listenerNames, proxyProtocolType,
+		"GAMMA CEC must not contain proxy_protocol listener filter")
+}
+
 func TestSharedIngressTranslator_getListener(t *testing.T) {
 	i := &cecTranslator{
 		Config: Config{
