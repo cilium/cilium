@@ -34,6 +34,7 @@ var files = map[uint8]string{
 	113: "nodeport_egress.h",
 	114: "ipv6.h",
 	115: "classifiers.h",
+	116: "common.h",
 
 	// @@ source files list end
 }

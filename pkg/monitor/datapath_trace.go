@@ -23,6 +23,8 @@ const (
 	traceNotifyV1Len = 48
 	// traceNotifyV2Len is the amount of packet data provided in a trace notification v2.
 	traceNotifyV2Len = 56
+	// traceNotifyV3Len is the amount of packet data provided in a trace notification v3 (with CT accounting).
+	traceNotifyV3Len = 72
 )
 
 const (
@@ -44,6 +46,7 @@ const (
 	TraceNotifyVersion0 = iota
 	TraceNotifyVersion1
 	TraceNotifyVersion2
+	TraceNotifyVersion3
 )
 
 // TraceNotify is the message format of a trace notification in the BPF ring buffer
@@ -64,6 +67,8 @@ type TraceNotify struct {
 	Ifindex    uint32                   `align:"ifindex"`
 	OrigIP     types.IPv6               `align:"$union0"`
 	IPTraceID  uint64                   `align:"ip_trace_id"`
+	Packets    uint64                   `align:"ct_packets"`
+	Bytes      uint64                   `align:"ct_bytes"`
 	// data
 }
 
@@ -99,12 +104,19 @@ func (tn *TraceNotify) Decode(data []byte) error {
 	version := data[14]
 
 	// Check against max version.
-	if version > TraceNotifyVersion2 {
+	if version > TraceNotifyVersion3 {
 		return fmt.Errorf("Unrecognized trace event (version %d)", version)
 	}
 
 	// Decode logic for version >= v1.
 	switch version {
+	case TraceNotifyVersion3:
+		if l := len(data); l < traceNotifyV3Len {
+			return fmt.Errorf("unexpected TraceNotify data length (version %d), expected at least %d but got %d", version, traceNotifyV3Len, l)
+		}
+		tn.Packets = binary.NativeEndian.Uint64(data[56:64])
+		tn.Bytes = binary.NativeEndian.Uint64(data[64:72])
+		fallthrough
 	case TraceNotifyVersion2:
 		if l := len(data); l < traceNotifyV2Len {
 			return fmt.Errorf("unexpected TraceNotify data length (version %d), expected at least %d but got %d", version, traceNotifyV2Len, l)
@@ -186,6 +198,7 @@ var (
 		TraceNotifyVersion0: traceNotifyV0Len,
 		TraceNotifyVersion1: traceNotifyV1Len,
 		TraceNotifyVersion2: traceNotifyV2Len,
+		TraceNotifyVersion3: traceNotifyV3Len,
 	}
 )
 

@@ -57,6 +57,11 @@ struct ct_state {
 	      reserved:6;
 	__u32 src_sec_id;
 	__u32 backend_id;	/* Backend ID in lb4_backends */
+	/* Per-flow counters from the matching ct_entry, set by
+	 * ct_lookup_fill_state() when enable_conntrack_accounting is on (else 0).
+	 */
+	__u64 packets;
+	__u64 bytes;
 };
 
 static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)
@@ -280,6 +285,11 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		state->from_tunnel = entry->from_tunnel;
 		ipv6_addr_copy(&state->nat_addr, &entry->nat_addr);
 		state->nat_port = entry->nat_port;
+	}
+
+	if (CONFIG(enable_conntrack_accounting)) {
+		state->packets = entry->packets;
+		state->bytes = entry->bytes;
 	}
 }
 
