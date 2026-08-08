@@ -78,16 +78,10 @@ default/nginx
     "containers": [
       {
         "name": "nginx",
-        "image": "nginx",
         "ports": [
           {
             "containerPort": 80,
             "protocol": "TCP"
-          }
-        ],
-        "volumeMounts": [
-          {
-            "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount"
           }
         ]
       }
@@ -100,33 +94,23 @@ default/nginx
     "conditions": [
       {
         "type": "PodReadyToStartContainers",
-        "status": "True",
-        "lastProbeTime": null,
-        "lastTransitionTime": "2024-11-21T14:52:24Z"
+        "status": "True"
       },
       {
         "type": "Initialized",
-        "status": "True",
-        "lastProbeTime": null,
-        "lastTransitionTime": "2024-11-21T14:52:23Z"
+        "status": "True"
       },
       {
         "type": "Ready",
-        "status": "True",
-        "lastProbeTime": null,
-        "lastTransitionTime": "2024-11-21T14:52:24Z"
+        "status": "True"
       },
       {
         "type": "ContainersReady",
-        "status": "True",
-        "lastProbeTime": null,
-        "lastTransitionTime": "2024-11-21T14:52:24Z"
+        "status": "True"
       },
       {
         "type": "PodScheduled",
-        "status": "True",
-        "lastProbeTime": null,
-        "lastTransitionTime": "2024-11-21T14:52:23Z"
+        "status": "True"
       }
     ],
     "hostIP": "172.19.0.3",
@@ -140,9 +124,7 @@ default/nginx
     "containerStatuses": [
       {
         "state": {
-          "running": {
-            "startedAt": "2024-11-21T14:52:24Z"
-          }
+          "running": {}
         },
         "containerID": "containerd://8e707b9ac927f5c25b6be87ee483845993063b540f9465cbe14dc5ea113fc636"
       }

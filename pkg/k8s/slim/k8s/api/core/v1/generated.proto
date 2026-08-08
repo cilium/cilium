@@ -9,7 +9,6 @@ syntax = "proto2";
 package github.com.cilium.cilium.pkg.k8s.slim.k8s.api.core.v1;
 
 import "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1/generated.proto";
-import "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr/generated.proto";
 import "k8s.io/apimachinery/pkg/runtime/generated.proto";
 import "k8s.io/apimachinery/pkg/runtime/schema/generated.proto";
 
@@ -32,13 +31,6 @@ message Container {
   // Cannot be updated.
   optional string name = 1;
 
-  // Container image name.
-  // More info: https://kubernetes.io/docs/concepts/containers/images
-  // This field is optional to allow higher level config management to default or override
-  // container images in workload controllers like Deployments and StatefulSets.
-  // +optional
-  optional string image = 2;
-
   // List of ports to expose from the container. Not specifying a port here
   // DOES NOT prevent that port from being exposed. Any port which is
   // listening on the default "0.0.0.0" address inside a container will be
@@ -53,15 +45,6 @@ message Container {
   // +listMapKey=containerPort
   // +listMapKey=protocol
   repeated ContainerPort ports = 6;
-
-  // Pod volumes to mount into the container's filesystem.
-  // Cannot be updated.
-  // +optional
-  // +patchMergeKey=mountPath
-  // +patchStrategy=merge
-  // +listType=map
-  // +listMapKey=mountPath
-  repeated VolumeMount volumeMounts = 9;
 }
 
 // ContainerPort represents a network port in a single container.
@@ -105,9 +88,6 @@ message ContainerState {
 
 // ContainerStateRunning is a running state of a container.
 message ContainerStateRunning {
-  // Time at which the container was last (re-)started
-  // +optional
-  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startedAt = 1;
 }
 
 // ContainerStatus contains details for the current status of this container.
@@ -321,22 +301,6 @@ message PodCondition {
   // Can be True, False, Unknown.
   // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
   optional string status = 2;
-
-  // Last time we probed the condition.
-  // +optional
-  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time lastProbeTime = 3;
-
-  // Last time the condition transitioned from one status to another.
-  // +optional
-  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time lastTransitionTime = 4;
-
-  // Unique, one-word, CamelCase reason for the condition's last transition.
-  // +optional
-  optional string reason = 5;
-
-  // Human-readable message indicating details about last transition.
-  // +optional
-  optional string message = 6;
 }
 
 // PodIP represents a single IP address allocated to the pod.
@@ -356,12 +320,6 @@ message PodList {
   // List of pods.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
   repeated Pod items = 2;
-}
-
-// PodReadinessGate contains the reference to a pod condition
-message PodReadinessGate {
-  // ConditionType refers to a condition in the pod's condition list with matching type.
-  optional string conditionType = 1;
 }
 
 // PodSpec is a description of a pod.
@@ -529,27 +487,12 @@ message Secret {
   // +optional
   optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 
-  // Immutable, if set to true, ensures that data stored in the Secret cannot
-  // be updated (only object metadata can be modified).
-  // If not set to true, the field can be modified at any time.
-  // Defaulted to nil.
-  // +optional
-  optional bool immutable = 5;
-
   // Data contains the secret data. Each key must consist of alphanumeric
   // characters, '-', '_' or '.'. The serialized form of the secret data is a
   // base64 encoded string, representing the arbitrary (possibly non-string)
   // data value here. Described in https://tools.ietf.org/html/rfc4648#section-4
   // +optional
   map<string, bytes> data = 2;
-
-  // stringData allows specifying non-binary secret data in string form.
-  // It is provided as a write-only input field for convenience.
-  // All keys and values are merged into the data field on write, overwriting any existing values.
-  // The stringData field is never output when reading from the API.
-  // +k8s:conversion-gen=false
-  // +optional
-  map<string, string> stringData = 4;
 
   // Used to facilitate programmatic handling of secret data.
   // More info: https://kubernetes.io/docs/concepts/configuration/secret/#secret-types
@@ -638,17 +581,6 @@ message ServicePort {
 
   // The port that will be exposed by this service.
   optional int32 port = 3;
-
-  // Number or name of the port to access on the pods targeted by the service.
-  // Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
-  // If this is a string, it will be looked up as a named port in the
-  // target Pod's container ports. If this is not specified, the value
-  // of the 'port' field is used (an identity map).
-  // This field is ignored for services with clusterIP=None, and should be
-  // omitted or set equal to the 'port' field.
-  // More info: https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service
-  // +optional
-  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.util.intstr.IntOrString targetPort = 4;
 
   // The port on each node on which this service is exposed when type is
   // NodePort or LoadBalancer.  Usually assigned by the system. If a value is
@@ -916,47 +848,5 @@ message Taint {
   // that do not tolerate the taint.
   // Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
   optional string effect = 3;
-
-  // TimeAdded represents the time at which the taint was added.
-  // +optional
-  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time timeAdded = 4;
-}
-
-// TypedLocalObjectReference contains enough information to let you locate the
-// typed referenced object inside the same namespace.
-// ---
-// New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.
-//  1. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular
-//     restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".
-//     Those cannot be well described when embedded.
-//  2. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.
-//  3. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity
-//     during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple
-//     and the version of the actual struct is irrelevant.
-//  4. We cannot easily change it.  Because this type is embedded in many locations, updates to this type
-//     will affect numerous schemas.  Don't make new APIs embed an underspecified API type they do not control.
-//
-// Instead of using this type, create a locally provided and used type that is well-focused on your reference.
-// For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .
-// +structType=atomic
-message TypedLocalObjectReference {
-  // APIGroup is the group for the resource being referenced.
-  // If APIGroup is not specified, the specified Kind must be in the core API group.
-  // For any other third-party types, APIGroup is required.
-  // +optional
-  optional string apiGroup = 1;
-
-  // Kind is the type of resource being referenced
-  optional string kind = 2;
-
-  // Name is the name of resource being referenced
-  optional string name = 3;
-}
-
-// VolumeMount describes a mounting of a Volume within a container.
-message VolumeMount {
-  // Path within the container at which the volume should be mounted.  Must
-  // not contain ':'.
-  optional string mountPath = 3;
 }
 

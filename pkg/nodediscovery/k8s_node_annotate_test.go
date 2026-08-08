@@ -159,18 +159,12 @@ func convertToTaints(v1Taints []v1.Taint) []slim_corev1.Taint {
 
 	taints := make([]slim_corev1.Taint, 0, len(v1Taints))
 	for _, taint := range v1Taints {
-		var ta *slim_metav1.Time
-		if taint.TimeAdded != nil {
-			t := slim_metav1.NewTime(taint.TimeAdded.Time)
-			ta = &t
-		}
 		taints = append(
 			taints,
 			slim_corev1.Taint{
-				Key:       taint.Key,
-				Value:     taint.Value,
-				Effect:    slim_corev1.TaintEffect(taint.Effect),
-				TimeAdded: ta,
+				Key:    taint.Key,
+				Value:  taint.Value,
+				Effect: slim_corev1.TaintEffect(taint.Effect),
 			},
 		)
 	}
