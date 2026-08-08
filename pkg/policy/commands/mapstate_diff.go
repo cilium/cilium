@@ -308,7 +308,7 @@ func (s *stageCmd) applyPolicy(obj *unstructured.Unstructured) error {
 }
 
 func makeCNPEntries(s *stageCmd, obj *unstructured.Unstructured) (policytypes.PolicyEntries, ipcacheTypes.ResourceKind, error) {
-	clusterName := cmtypes.LocalClusterNameForPolicies(s.params.ClusterMeshPolicyConfig, s.params.Config.ClusterName)
+	clusterName := cmtypes.LocalClusterNameForPolicies(s.params.ClusterMeshPolicyConfig, s.params.ClusterInfo.Name)
 	// parse to CNP
 	cnp := ciliumv2.CiliumNetworkPolicy{}
 	if err := convertInto(obj, &cnp); err != nil {
@@ -332,7 +332,7 @@ func makeCNPEntries(s *stageCmd, obj *unstructured.Unstructured) (policytypes.Po
 }
 
 func makeKNPEntries(s *stageCmd, obj *unstructured.Unstructured) (policytypes.PolicyEntries, ipcacheTypes.ResourceKind, error) {
-	clusterName := cmtypes.LocalClusterNameForPolicies(s.params.ClusterMeshPolicyConfig, s.params.Config.ClusterName)
+	clusterName := cmtypes.LocalClusterNameForPolicies(s.params.ClusterMeshPolicyConfig, s.params.ClusterInfo.Name)
 	knp := slim_networkingv1.NetworkPolicy{}
 	if err := convertInto(obj, &knp); err != nil {
 		return nil, "", err

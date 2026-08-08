@@ -39,6 +39,7 @@ type CmdParams struct {
 	Backends   statedb.Table[*loadbalancer.Backend]
 
 	ClusterMeshPolicyConfig cmtypes.PolicyConfig
+	ClusterInfo             cmtypes.ClusterInfo
 	Config                  *option.DaemonConfig
 	PMFactory               policymap.Factory
 }
