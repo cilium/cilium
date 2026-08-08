@@ -72,6 +72,7 @@ type UpsertParams struct {
 	Metadata          string
 	K8sNamespace      string
 	K8sPodName        string
+	K8sCEPName        string
 	K8sServiceAccount string
 	NPM               types.NamedPortMap
 }
@@ -100,6 +101,7 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, params *UpsertParam
 		Key:               params.Key,
 		K8sNamespace:      params.K8sNamespace,
 		K8sPodName:        params.K8sPodName,
+		K8sCEPName:        params.K8sCEPName,
 		K8sServiceAccount: params.K8sServiceAccount,
 		NamedPorts:        namedPorts,
 	}
@@ -203,6 +205,10 @@ func (liw *LocalIPIdentityWatcher) IsEnabled() bool {
 	return liw.client.IsEnabled()
 }
 
+func (liw *LocalIPIdentityWatcher) AddIPIdentityPairObserver(observer IPIdentityPairObserver) {
+	liw.watcher.AddIPIdentityPairObserver(observer)
+}
+
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
 // change in the kvstore.
 type IPIdentityWatcher struct {
@@ -215,6 +221,7 @@ type IPIdentityWatcher struct {
 	source                     source.Source
 	withSelfDeletionProtection bool
 	validators                 []ipIdentityValidator
+	pairObservers              []IPIdentityPairObserver
 
 	// Set only when withSelfDeletionProtection is true
 	syncer *IPIdentitySynchronizer
@@ -226,6 +233,18 @@ type IPIdentityWatcher struct {
 type IPCacher interface {
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (bool, error)
 	Delete(IP string, source source.Source) (namedPortsChanged bool)
+}
+
+type IPIdentityPairObserver interface {
+	OnIPIdentityPairUpsert(clusterName string, pair *identity.IPIdentityPair) error
+	OnIPIdentityPairDelete(clusterName string, pair *identity.IPIdentityPair) error
+}
+
+func (iw *IPIdentityWatcher) AddIPIdentityPairObserver(observer IPIdentityPairObserver) {
+	if observer == nil {
+		return
+	}
+	iw.pairObservers = append(iw.pairObservers, observer)
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher for the given cluster.
@@ -409,6 +428,16 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 		}
 	}
 
+	for _, observer := range iw.pairObservers {
+		if err := observer.OnIPIdentityPairUpsert(iw.clusterName, ipIDPair); err != nil {
+			iw.log.Warn(
+				"Failed to update IP identity pair observer",
+				logfields.Error, err,
+				logfields.IPAddr, ip,
+			)
+		}
+	}
+
 	var k8sMeta *K8sMetadata
 	if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" || len(ipIDPair.NamedPorts) > 0 {
 		k8sMeta = &K8sMetadata{
@@ -478,6 +507,16 @@ func (iw *IPIdentityWatcher) OnDelete(k storepkg.NamedKey) {
 
 	if iw.withSelfDeletionProtection && iw.selfDeletionProtection(ip) {
 		return
+	}
+
+	for _, observer := range iw.pairObservers {
+		if err := observer.OnIPIdentityPairDelete(iw.clusterName, ipIDPair); err != nil {
+			iw.log.Warn(
+				"Failed to delete IP identity pair observer",
+				logfields.Error, err,
+				logfields.IPAddr, ip,
+			)
+		}
 	}
 
 	if iw.clusterID != 0 {
