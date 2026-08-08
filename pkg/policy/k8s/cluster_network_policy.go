@@ -24,7 +24,7 @@ func (p *policyWatcher) addK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.Cluste
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
 
-	rules, err := k8s.ParseClusterNetworkPolicy(p.log, clusterName, k8sCNP)
+	rules, err := k8s.ParseClusterNetworkPolicy(p.log, clusterName, k8sCNP, k8s.WithFQDNPolicyDNSServerConfig(p.fqdnPolicyDNSServerConfig))
 	if err != nil {
 		metrics.PolicyChangeTotal.WithLabelValues(string(source.Kubernetes), metrics.LabelValueUpdateOperation, metrics.LabelValueOutcomeFail).Inc()
 		p.log.Error(

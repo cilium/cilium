@@ -15,6 +15,7 @@ import (
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -52,10 +53,11 @@ type PolicyWatcherParams struct {
 
 	Lifecycle cell.Lifecycle
 
-	ClientSet               client.Clientset
-	Config                  *option.DaemonConfig
-	ClusterMeshPolicyConfig cmtypes.PolicyConfig
-	Logger                  *slog.Logger
+	ClientSet                 client.Clientset
+	Config                    *option.DaemonConfig
+	ClusterMeshPolicyConfig   cmtypes.PolicyConfig
+	FQDNPolicyDNSServerConfig fqdnconfig.FQDNPolicyDNSServerConfig
+	Logger                    *slog.Logger
 
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
@@ -89,6 +91,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		log:                              params.Logger,
 		config:                           params.Config,
 		clusterMeshPolicyConfig:          params.ClusterMeshPolicyConfig,
+		fqdnPolicyDNSServerConfig:        params.FQDNPolicyDNSServerConfig,
 		policyImporter:                   params.PolicyImporter,
 		k8sResourceSynced:                params.K8sResourceSynced,
 		k8sAPIGroups:                     params.K8sAPIGroups,
