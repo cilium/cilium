@@ -200,6 +200,9 @@ func (in *Config) deepEqual(other *Config) bool {
 	if in.EnableWireguard != other.EnableWireguard {
 		return false
 	}
+	if in.EnableBandwidthManager != other.EnableBandwidthManager {
+		return false
+	}
 	if in.EphemeralMin != other.EphemeralMin {
 		return false
 	}

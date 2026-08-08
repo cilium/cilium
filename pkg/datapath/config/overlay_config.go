@@ -14,6 +14,8 @@ import "github.com/cilium/cilium/pkg/datapath/types"
 type BPFOverlay struct {
 	// MTU of the device the bpf program is attached to.
 	DeviceMTU uint16 `config:"device_mtu"`
+	// Enable bandwidth manager.
+	EnableBandwidthManager bool `config:"enable_bandwidth_manager"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Enable IPv4 fragments tracking.
@@ -49,7 +51,7 @@ type BPFOverlay struct {
 }
 
 func NewBPFOverlay(node Node) *BPFOverlay {
-	return &BPFOverlay{0x0, false, false, false, false, false, false, 0x0, 0x0,
+	return &BPFOverlay{0x0, false, false, false, false, false, false, false, 0x0, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

@@ -18,6 +18,7 @@ func Wireguard(lnc *Config, link netlink.Link) any {
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
+	cfg.EnableBandwidthManager = lnc.EnableBandwidthManager
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
