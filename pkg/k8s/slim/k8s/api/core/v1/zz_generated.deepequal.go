@@ -127,10 +127,6 @@ func (in *ContainerStateRunning) DeepEqual(other *ContainerStateRunning) bool {
 		return false
 	}
 
-	if !in.StartedAt.DeepEqual(&other.StartedAt) {
-		return false
-	}
-
 	return true
 }
 
@@ -502,20 +498,6 @@ func (in *PodCondition) DeepEqual(other *PodCondition) bool {
 		return false
 	}
 	if in.Status != other.Status {
-		return false
-	}
-	if !in.LastProbeTime.DeepEqual(&other.LastProbeTime) {
-		return false
-	}
-
-	if !in.LastTransitionTime.DeepEqual(&other.LastTransitionTime) {
-		return false
-	}
-
-	if in.Reason != other.Reason {
-		return false
-	}
-	if in.Message != other.Message {
 		return false
 	}
 

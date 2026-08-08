@@ -94,9 +94,6 @@ const (
 
 // ContainerStateRunning is a running state of a container.
 type ContainerStateRunning struct {
-	// Time at which the container was last (re-)started
-	// +optional
-	StartedAt slim_metav1.Time `json:"startedAt,omitempty" protobuf:"bytes,1,opt,name=startedAt"`
 }
 
 // ContainerState holds a possible state of container.
@@ -224,18 +221,6 @@ type PodCondition struct {
 	// Can be True, False, Unknown.
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
 	Status ConditionStatus `json:"status" protobuf:"bytes,2,opt,name=status,casttype=ConditionStatus"`
-	// Last time we probed the condition.
-	// +optional
-	LastProbeTime slim_metav1.Time `json:"lastProbeTime,omitempty" protobuf:"bytes,3,opt,name=lastProbeTime"`
-	// Last time the condition transitioned from one status to another.
-	// +optional
-	LastTransitionTime slim_metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,4,opt,name=lastTransitionTime"`
-	// Unique, one-word, CamelCase reason for the condition's last transition.
-	// +optional
-	Reason string `json:"reason,omitempty" protobuf:"bytes,5,opt,name=reason"`
-	// Human-readable message indicating details about last transition.
-	// +optional
-	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
 }
 
 const (
