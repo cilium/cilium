@@ -16,6 +16,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcsapi_fake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
+	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
@@ -73,6 +74,9 @@ func init() {
 
 	// Add mcsapi
 	mcsapi_fake.AddToScheme(Scheme)
+
+	// Add policy.networking.k8s.io/v1alpha2
+	policyv1alpha2.AddToScheme(Scheme)
 
 	fake.AddToScheme(KubernetesScheme)
 }

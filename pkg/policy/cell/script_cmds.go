@@ -8,18 +8,21 @@ import (
 	"os"
 
 	"github.com/cilium/hive/script"
+	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
+	k8s "github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
-	"github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	policyutils "github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/source"
 )
 
 func PolicyImporterScriptCmds(p *Importer) map[string]script.Cmd {
-	parse := func(s *script.State, args []string, del bool) (api.Rules, ipcachetypes.ResourceID, error) {
+	parse := func(s *script.State, args []string, del bool) (policytypes.PolicyEntries, ipcachetypes.ResourceID, error) {
 		if len(args) != 1 {
 			return nil, "", fmt.Errorf("expected one arg but got %d, see usage details", len(args))
 		}
@@ -38,12 +41,14 @@ func PolicyImporterScriptCmds(p *Importer) map[string]script.Cmd {
 		}
 
 		var (
-			rules      api.Rules
+			rules      policytypes.PolicyEntries
 			resourceID ipcachetypes.ResourceID
 		)
 		switch policy := robj.(type) {
 		case *v2.CiliumClusterwideNetworkPolicy:
-			rules, err = policy.Parse(p.log, "")
+			parsed, parseErr := policy.Parse(p.log, "")
+			err = parseErr
+			rules = policyutils.RulesToPolicyEntries(parsed)
 			if err != nil {
 				return nil, "", fmt.Errorf("ccnp parse: %w", err)
 			}
@@ -53,12 +58,34 @@ func PolicyImporterScriptCmds(p *Importer) map[string]script.Cmd {
 				policy.ObjectMeta.Name,
 			)
 		case *v2.CiliumNetworkPolicy:
-			rules, err = policy.Parse(p.log, "")
+			parsed, parseErr := policy.Parse(p.log, "")
+			err = parseErr
+			rules = policyutils.RulesToPolicyEntries(parsed)
 			if err != nil {
 				return nil, "", fmt.Errorf("cnp parse: %w", err)
 			}
 			resourceID = ipcachetypes.NewResourceID(
 				ipcachetypes.ResourceKindCNP,
+				policy.ObjectMeta.Namespace,
+				policy.ObjectMeta.Name,
+			)
+		case *slim_networkingv1.NetworkPolicy:
+			rules, err = k8s.ParseNetworkPolicy(p.log, cmtypes.PolicyAnyCluster, policy)
+			if err != nil {
+				return nil, "", fmt.Errorf("network policy parse: %w", err)
+			}
+			resourceID = ipcachetypes.NewResourceID(
+				ipcachetypes.ResourceKindNetpol,
+				policy.ObjectMeta.Namespace,
+				policy.ObjectMeta.Name,
+			)
+		case *policyv1alpha2.ClusterNetworkPolicy:
+			rules, err = k8s.ParseClusterNetworkPolicy(p.log, cmtypes.PolicyAnyCluster, policy)
+			if err != nil {
+				return nil, "", fmt.Errorf("cluster network policy parse: %w", err)
+			}
+			resourceID = ipcachetypes.NewResourceID(
+				ipcachetypes.ResourceKindKCNP,
 				policy.ObjectMeta.Namespace,
 				policy.ObjectMeta.Name,
 			)
@@ -85,7 +112,7 @@ func PolicyImporterScriptCmds(p *Importer) map[string]script.Cmd {
 				}
 				dc := make(chan uint64, 1)
 				p.UpdatePolicy(&policytypes.PolicyUpdate{
-					Rules:    policyutils.RulesToPolicyEntries(rules),
+					Rules:    rules,
 					Source:   source.CustomResource,
 					Resource: resourceID,
 					DoneChan: dc,
@@ -108,7 +135,7 @@ func PolicyImporterScriptCmds(p *Importer) map[string]script.Cmd {
 				}
 				dc := make(chan uint64, 1)
 				p.UpdatePolicy(&policytypes.PolicyUpdate{
-					Rules:    policyutils.RulesToPolicyEntries(rules),
+					Rules:    rules,
 					Source:   source.CustomResource,
 					Resource: resourceID,
 					DoneChan: dc,
