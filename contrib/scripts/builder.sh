@@ -15,6 +15,10 @@ GO="$(which go 2> /dev/null || :)"
 
 USERID=$(id -u)
 GROUPID=$(id -g)
+if [ "$USERID" -eq 0 ] || [ "$GROUPID" -eq 0 ]; then
+	echo "Running builder.sh with root privileges is not supported, run it as a regular user." 1>&2
+	exit 1
+fi
 USER_OPTION=(--user "$USERID:$GROUPID")
 USER_PATH="/home/ubuntu"
 CHOWN_FLAGS=("--no-dereference")
@@ -70,13 +74,6 @@ set -u # End workaround for macOS and BASH 3.2.
 trap 'docker rm -f "$CONTAINER"' EXIT
 docker start "$CONTAINER"
 
-if [ "$USERID" -eq 0 ] || [ "$GROUPID" -eq 0 ]; then
-	echo "WARNING: Running with root permissions is discouraged, not supported and insecure!" 1>&2
-	echo "Go cache dirs and ccache dir will be mounted at wrong locations. Don't run as root." 1>&2
-	docker exec ${DOCKER_ARGS:+$DOCKER_ARGS} "$CONTAINER" "$@"
-	exit "$?"
-fi
-
 EXISTING_GROUP=$(docker exec "$CONTAINER" getent group "$GROUPID" || :)
 if [ -n "$EXISTING_GROUP" ] && [ "${EXISTING_GROUP%%:*}" != "ubuntu" ]; then
 	echo "Group exists in the container, trying to reassign ID: $EXISTING_GROUP"
@@ -129,5 +126,6 @@ if [ "$V" = '0' ]; then
 else
 	docker exec "$CONTAINER" usermod -u "$USERID" ubuntu
 fi
+docker exec "$CONTAINER" mkdir -p /home/ubuntu/.cache
 docker exec "$CONTAINER" chown "${CHOWN_FLAGS[@]}" ubuntu:ubuntu /home/ubuntu/.cache
 docker exec "${USER_OPTION[@]}" ${DOCKER_ARGS:+$DOCKER_ARGS} "$CONTAINER" "$@"
