@@ -11,8 +11,9 @@ on:
           👋 Welcome to the Cilium community! 🐝 Thanks and congrats for opening your first PR here. We're excited to have you contributing!
 
           **Before we can merge, please ensure:**
-          - ✅ **You've Gone Through** every step of the [pull request template](https://github.com/cilium/cilium/blob/main/.github/pull_request_template.md) and have it in your PR
-          - ✅ **You've Read** [Submitting a pull request](https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#submitting-a-pull-request)
+          - **You've Read** [Submitting a pull request](https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#submitting-a-pull-request)
+          - **You understand and agree to follow** the [Generative AI Policy](https://github.com/cilium/community/blob/main/AI-POLICY.md).
+          - **Your PR description includes** the full [pull request template](https://github.com/cilium/cilium/blob/main/.github/pull_request_template.md) and you complete each checkbox, and it is not written by Generative AI tools.
 
           📬 If you're using Cilium in your organization, please [add your name to our Adopters list](https://github.com/cilium/cilium/blob/main/USERS.md). 🙏 It really helps the project gain momentum and credibility.
 
@@ -38,6 +39,7 @@ on:
           - If you are new to Cilium, we have great [getting started guides](https://docs.cilium.io/en/stable/#getting-started)
           - Subscribe to eCHO News for your bi-weekly [Cilium and eBPF update](https://cilium.io/newsletter/)
           - [Slack](https://docs.cilium.io/en/stable/community/community/#slack) is the best place to start conversation.
+          - This community is for humans to connect, so please [avoid sending Generative AI text](https://github.com/cilium/community/blob/main/AI-POLICY.md#unacceptable-use) to others.
           - Get hands on learning with interactive [courses and labs](https://cilium.io/labs/categories/getting-started/)
           - To get Cilium enterprise support or for other matters, see the [enterprise page](https://cilium.io/enterprise/)
 
