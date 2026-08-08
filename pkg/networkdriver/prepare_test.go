@@ -28,6 +28,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
@@ -63,6 +64,8 @@ type trackedDevice struct {
 func (d *trackedDevice) IfName() string       { return d.name }
 func (d *trackedDevice) KernelIfName() string { return d.name }
 
+// GetAttrs intentionally returns nil — these tests do not exercise device
+// attributes, and attrsToPartMap handles a nil map safely.
 func (d *trackedDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	return nil
 }
@@ -128,6 +131,7 @@ func buildPrepClaim(devices ...string) *resourceapi.ResourceClaim {
 		results = append(results, resourceapi.DeviceRequestAllocationResult{
 			Device:  d,
 			Driver:  prepTestDriverName,
+			Pool:    prepTestPool,
 			Request: prepTestRequest,
 		})
 	}
@@ -187,7 +191,7 @@ func buildGeneratedPrepClaim(devices ...string) *resourceapi.ResourceClaim {
 }
 
 // buildPrepDriver builds a *Driver with a fake kube client and the given
-// devices pre-populated in driver.devices.
+// devices pre-populated as a mock device manager.
 func buildPrepDriver(t *testing.T, cs *k8sClient.FakeClientset, devs ...*trackedDevice) *Driver {
 	t.Helper()
 
@@ -211,6 +215,24 @@ func buildPrepDriver(t *testing.T, cs *k8sClient.FakeClientset, devs ...*tracked
 	require.NoError(t, hive.Start(tlog, t.Context()))
 	t.Cleanup(func() { hive.Stop(tlog, context.Background()) })
 
+	db := statedb.New()
+	tbl, err := newDeviceTable(db)
+	require.NoError(t, err)
+
+	// Pre-populate the table with the test devices under the test pool.
+	if len(deviceList) > 0 {
+		wtxn := db.WriteTxn(tbl)
+		for _, dev := range deviceList {
+			tbl.Insert(wtxn, &DRADevice{
+				Name:    dev.IfName(),
+				Manager: types.DeviceManagerTypeMock,
+				Dev:     dev,
+				Pool:    prepTestPool,
+			})
+		}
+		wtxn.Commit()
+	}
+
 	return &Driver{
 		logger:     hivetest.Logger(t),
 		kubeClient: cs,
@@ -218,10 +240,12 @@ func buildPrepDriver(t *testing.T, cs *k8sClient.FakeClientset, devs ...*tracked
 		config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
 			DriverName: prepTestDriverName,
 		},
-		devices: map[types.DeviceManagerType][]types.Device{
-			types.DeviceManagerTypeMock: deviceList,
+		deviceManagers: map[types.DeviceManagerType]types.DeviceManager{
+			types.DeviceManagerTypeMock: &mockDeviceManager{devices: deviceList},
 		},
 		allocations: make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
+		db:          db,
+		deviceTable: tbl,
 	}
 }
 
@@ -271,6 +295,13 @@ func TestPrepare(t *testing.T) {
 		require.Contains(t, driver.allocations, prepTestPodUID)
 		require.Contains(t, driver.allocations[prepTestPodUID], prepTestClaimUID)
 		require.Len(t, driver.allocations[prepTestPodUID][prepTestClaimUID], 1)
+
+		// Allocation state must be reflected in the statedb table.
+		txn := driver.db.ReadTxn()
+		row, _, found := driver.deviceTable.Get(txn, deviceByKey.Query(DeviceKey(prepTestPool, prepTestDev0)))
+		require.True(t, found, "device row must exist in statedb")
+		require.Equal(t, prepTestPodUID, row.PodUID, "statedb row must have PodUID set after prepare")
+		require.Equal(t, prepTestClaimUID, row.ClaimUID, "statedb row must have ClaimUID set after prepare")
 
 		updated, err := cs.KubernetesFakeClientset.ResourceV1().
 			ResourceClaims(prepTestClaimNS).Get(t.Context(), prepTestClaimName, metav1.GetOptions{})
@@ -584,6 +615,13 @@ func TestUnprepare(t *testing.T) {
 		require.Empty(t, driver.allocations,
 			"allocations map must be empty after unprepare")
 		require.EqualValues(t, 1, dev.freeCalls.Load(), "Free must be called once on unprepare")
+
+		// Statedb row must still exist but have allocation fields cleared.
+		txn := driver.db.ReadTxn()
+		row, _, found := driver.deviceTable.Get(txn, deviceByKey.Query(DeviceKey(prepTestPool, prepTestDev0)))
+		require.True(t, found, "device row must still exist after unprepare")
+		require.Empty(t, row.PodUID, "PodUID must be cleared in statedb row after unprepare")
+		require.Empty(t, row.ClaimUID, "ClaimUID must be cleared in statedb row after unprepare")
 	})
 
 	t.Run("multiple devices all are freed", func(t *testing.T) {
