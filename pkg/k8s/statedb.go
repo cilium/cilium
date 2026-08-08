@@ -295,6 +295,10 @@ type ReflectorConfig[Obj any] struct {
 	// ClearTableOnStop if true will cause all inserted objects to be deleted (using QueryAll)
 	// when the reflector is stopped.
 	ClearTableOnStop bool
+
+	// InitWait is an optional wait function which will be called during reflector setup, before
+	// running the processing loop to wait on any dependencies to be initialized.
+	InitWait func(ctx context.Context) error
 }
 
 // JobName returns the name of the background reflector job.
@@ -386,6 +390,13 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 		// Wait for the CRD to be registered.
 		health.OK("Waiting for CRD registration")
 		if _, err := r.CRDSync.Await(ctx); err != nil {
+			return err
+		}
+	}
+
+	if r.InitWait != nil {
+		health.OK("Waiting for reflector initializer")
+		if err := r.InitWait(ctx); err != nil {
 			return err
 		}
 	}
@@ -570,6 +581,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 		health.OK(fmt.Sprintf("%d upserted, %d deleted, %d total objects", numUpserted, numDeleted, numTotal))
 	}
 
+	health.OK("Starting resource events stream observer")
 	errs := make(chan error)
 	src.Observe(
 		ctx,

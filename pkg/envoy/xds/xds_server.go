@@ -5,7 +5,9 @@ package xds
 
 import (
 	"context"
+	"fmt"
 	"maps"
+	"strings"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -41,6 +43,12 @@ type XDSServer interface {
 	// The completion is signaled on 'wg'. Returns a revert function that can be called
 	// to undo the removal.
 	RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) AckingResourceMutatorRevertFunc
+
+	// InitializeEnvoyResources seeds the xDS cache with the given resources. Unlike
+	// UpsertEnvoyResources/UpdateEnvoyResources, it does not wait for any Envoy ACK/NACK and
+	// does not ack any proxy ports. It is meant to be used once at startup to populate the
+	// cache with the last known resources before the reconciler takes over.
+	InitializeEnvoyResources(ctx context.Context, resources Resources) error
 
 	// UpsertEnvoyResources inserts or updates Envoy resources (listeners, routes, clusters,
 	// endpoints, secrets) in the xDS cache, from where they will be delivered to Envoy via
@@ -104,6 +112,35 @@ func cloneOrInit[K comparable, V any](m map[K]V) map[K]V {
 		return make(map[K]V)
 	}
 	return maps.Clone(m)
+}
+
+// DebugInfo returns aggregated info about the underlying envoy resources in the object
+func (r *Resources) DebugInfo() string {
+	resourcesInfo := make([]string, 0, 7)
+
+	if len(r.Listeners) > 0 {
+		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d listeners", len(r.Listeners)))
+	}
+	if len(r.Routes) > 0 {
+		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d routes", len(r.Routes)))
+	}
+	if len(r.Clusters) > 0 {
+		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d clusters", len(r.Clusters)))
+	}
+	if len(r.Endpoints) > 0 {
+		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d endpoints", len(r.Endpoints)))
+	}
+	if len(r.Secrets) > 0 {
+		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d listeners", len(r.Secrets)))
+	}
+	if len(r.NetworkPolicies) > 0 {
+		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d networkpolicies", len(r.NetworkPolicies)))
+	}
+	if len(r.NetworkPolicyHosts) > 0 {
+		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d networkpolicyhosts", len(r.NetworkPolicyHosts)))
+	}
+
+	return strings.Join(resourcesInfo, ", ")
 }
 
 func (r *Resources) DeepCopy() *Resources {

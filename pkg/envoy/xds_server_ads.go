@@ -948,41 +948,9 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		// Host proxy uses "127.0.0.1" as the nodeID
 		nodeId = localNodeID
 	}
-	if option.Config.Debug {
-		msg := ""
-		sep := ""
-		if len(resources.Listeners) > 0 {
-			msg += fmt.Sprintf("%d listeners", len(resources.Listeners))
-			sep = ", "
-		}
-		if len(resources.Routes) > 0 {
-			msg += fmt.Sprintf("%s%d routes", sep, len(resources.Routes))
-			sep = ", "
-		}
-		if len(resources.Clusters) > 0 {
-			msg += fmt.Sprintf("%s%d clusters", sep, len(resources.Clusters))
-			sep = ", "
-		}
-		if len(resources.Endpoints) > 0 {
-			msg += fmt.Sprintf("%s%d endpoints", sep, len(resources.Endpoints))
-			sep = ", "
-		}
-		if len(resources.Secrets) > 0 {
-			msg += fmt.Sprintf("%s%d secrets", sep, len(resources.Secrets))
-		}
-		if len(resources.NetworkPolicies) > 0 {
-			msg += fmt.Sprintf("%s%d network policies", sep, len(resources.NetworkPolicies))
-			sep = ", "
-		}
-		if len(resources.NetworkPolicyHosts) > 0 {
-			msg += fmt.Sprintf("%s%d network policy hosts", sep, len(resources.NetworkPolicyHosts))
-		}
 
-		s.logger.Debug(
-			"updateXdsSnapshot: Updating Envoy resources",
-			logfields.Resource, msg,
-		)
-	}
+	s.logger.Debug("updateXdsSnapshot: Updating Envoy resources",
+		logfields.Resource, resources.DebugInfo())
 	for _, r := range resources.Secrets {
 		s.logger.Debug(
 			"Envoy updateSecret",
@@ -1095,6 +1063,20 @@ func (s *adsServer) syncNPDSListeners(resources *xds.Resources) {
 	if hadNPDSListeners && s.npdsListeners.Empty() {
 		s.cache.GetCompletionCallbacks().CancelPendingCompletions(NetworkPolicyTypeURL)
 	}
+}
+
+func (s *adsServer) InitializeEnvoyResources(ctx context.Context, resources xds.Resources) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	currentResources := s.cache.GetAllResources(localNodeID)
+	if currentResources == nil {
+		currentResources = &xds.Resources{}
+	}
+	merged := currentResources.DeepCopy()
+	mergeResources(merged, &resources)
+
+	return s.updateSnapshot(ctx, merged, "", nil, nil, nil)
 }
 
 func (s *adsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, wg *completion.WaitGroup) error {
