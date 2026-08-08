@@ -31,6 +31,10 @@ spec:
   namespaceSelector:
     matchNames:
     - {{ include "cilium.namespace" . }}
+  {{- with .Values.hubble.metrics.serviceMonitor.attachMetadata }}
+  attachMetadata:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   endpoints:
   - port: hubble-metrics
     interval: {{ .Values.hubble.metrics.serviceMonitor.interval | quote }}
