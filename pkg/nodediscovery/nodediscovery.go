@@ -368,12 +368,12 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 	}
 
 	nodeResource.Spec.IngressAddressing.IPV4 = ""
-	if ip := ln.IPv4IngressIP; ip != nil {
+	if ip := ln.IPv4IngressIP; ip.IsValid() {
 		nodeResource.Spec.IngressAddressing.IPV4 = ip.String()
 	}
 
 	nodeResource.Spec.IngressAddressing.IPV6 = ""
-	if ip := ln.IPv6IngressIP; ip != nil {
+	if ip := ln.IPv6IngressIP; ip.IsValid() {
 		nodeResource.Spec.IngressAddressing.IPV6 = ip.String()
 	}
 

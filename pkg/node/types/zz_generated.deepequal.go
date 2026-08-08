@@ -88,38 +88,12 @@ func (in *Node) DeepEqual(other *Node) bool {
 		return false
 	}
 
-	if ((in.IPv4IngressIP != nil) && (other.IPv4IngressIP != nil)) || ((in.IPv4IngressIP == nil) != (other.IPv4IngressIP == nil)) {
-		in, other := &in.IPv4IngressIP, &other.IPv4IngressIP
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if inElement != (*other)[i] {
-					return false
-				}
-			}
-		}
+	if !in.IPv4IngressIP.DeepEqual(&other.IPv4IngressIP) {
+		return false
 	}
 
-	if ((in.IPv6IngressIP != nil) && (other.IPv6IngressIP != nil)) || ((in.IPv6IngressIP == nil) != (other.IPv6IngressIP == nil)) {
-		in, other := &in.IPv6IngressIP, &other.IPv6IngressIP
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if inElement != (*other)[i] {
-					return false
-				}
-			}
-		}
+	if !in.IPv6IngressIP.DeepEqual(&other.IPv6IngressIP) {
+		return false
 	}
 
 	if in.ClusterID != other.ClusterID {

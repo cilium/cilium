@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
@@ -36,6 +35,7 @@ import (
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -63,8 +63,8 @@ type CECResourceParser struct {
 	logger        *slog.Logger
 	portAllocator PortAllocator
 
-	ingressIPv4 net.IP
-	ingressIPv6 net.IP
+	ingressIPv4 iputil.Addr
+	ingressIPv6 iputil.Addr
 
 	defaultMaxConcurrentRetries uint32
 	defaultMaxConnections       uint32
@@ -652,12 +652,12 @@ func (r *CECResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 	// One solution to this dilemma would be to never configure these addresses if
 	// useOriginalSourceAddr is true and let such traffic fail.
 	if l7lb {
-		if r.ingressIPv4 != nil {
+		if r.ingressIPv4.IsValid() {
 			conf.Ipv4SourceAddress = r.ingressIPv4.String()
 			// Enforce ingress policy for Ingress
 			conf.EnforcePolicyOnL7Lb = true
 		}
-		if r.ingressIPv6 != nil {
+		if r.ingressIPv6.IsValid() {
 			conf.Ipv6SourceAddress = r.ingressIPv6.String()
 			// Enforce ingress policy for Ingress
 			conf.EnforcePolicyOnL7Lb = true

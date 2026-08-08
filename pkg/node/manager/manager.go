@@ -815,8 +815,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		healthIPsAdded = append(healthIPsAdded, prefixCluster.AsPrefix())
 	}
 
-	for _, address := range []net.IP{n.IPv4IngressIP, n.IPv6IngressIP} {
-		prefix := ip.IPToNetPrefix(address)
+	for _, address := range []netip.Addr{n.IPv4IngressIP.Addr, n.IPv6IngressIP.Addr} {
+		prefix := netip.PrefixFrom(address, address.BitLen())
 		if !prefix.IsValid() {
 			continue
 		}
@@ -1059,8 +1059,8 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 	}
 
 	// Delete the old ingress IP addresses if they have changed in this node.
-	for _, address := range []net.IP{oldNode.IPv4IngressIP, oldNode.IPv6IngressIP} {
-		prefix := ip.IPToNetPrefix(address)
+	for _, address := range []netip.Addr{oldNode.IPv4IngressIP.Addr, oldNode.IPv6IngressIP.Addr} {
+		prefix := netip.PrefixFrom(address, address.BitLen())
 		if !prefix.IsValid() || slices.Contains(ingressIPsAdded, prefix) {
 			continue
 		}

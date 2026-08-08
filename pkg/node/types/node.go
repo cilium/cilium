@@ -69,13 +69,13 @@ type Node struct {
 	// cilium-health endpoint located on the node.
 	IPv6HealthIP iputil.Addr
 
-	// IPv4IngressIP if not nil, this is the IPv4 address of the
+	// IPv4IngressIP if set, this is the IPv4 address of the
 	// Ingress listener on the node.
-	IPv4IngressIP net.IP
+	IPv4IngressIP iputil.Addr
 
-	// IPv6IngressIP if not nil, this is the IPv6 address of the
+	// IPv6IngressIP if set, this is the IPv6 address of the
 	// Ingress listener located on the node.
-	IPv6IngressIP net.IP
+	IPv6IngressIP iputil.Addr
 
 	// ClusterID is the unique identifier of the cluster
 	ClusterID uint32
@@ -384,15 +384,15 @@ func (n *Node) getHealthAddresses() *models.NodeAddressing {
 }
 
 func (n *Node) getIngressAddresses() *models.NodeAddressing {
-	if n.IPv4IngressIP == nil && n.IPv6IngressIP == nil {
+	if !n.IPv4IngressIP.IsValid() && !n.IPv6IngressIP.IsValid() {
 		return nil
 	}
 
 	var v4Str, v6Str string
-	if n.IPv4IngressIP != nil {
+	if n.IPv4IngressIP.IsValid() {
 		v4Str = n.IPv4IngressIP.String()
 	}
-	if n.IPv6IngressIP != nil {
+	if n.IPv6IngressIP.IsValid() {
 		v6Str = n.IPv6IngressIP.String()
 	}
 
