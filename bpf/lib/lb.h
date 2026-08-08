@@ -1381,6 +1381,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
 				     const struct lb6_backend **selected_backend,
+				     bool *new_backend,
 				     __s8 *ext_err,
 				     const struct lb6_backend *forced_backend)
 {
@@ -1442,7 +1443,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			if (backend == NULL)
 				goto no_service;
 
-			state->new_backend = true;
+			*new_backend = true;
 		}
 
 		state->backend_id = backend_id;
@@ -1490,7 +1491,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend)
 				goto no_service;
 
-			state->new_backend = true;
+			*new_backend = true;
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
 		}
@@ -2207,6 +2208,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb4_service *svc,
 				     struct ct_state *state,
 				     const struct lb4_backend **selected_backend,
+				     bool *new_backend,
 				     __s8 *ext_err,
 				     const struct lb4_backend *forced_backend)
 {
@@ -2272,7 +2274,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			if (backend == NULL)
 				goto no_service;
 
-			state->new_backend = true;
+			*new_backend = true;
 		}
 
 		state->backend_id = backend_id;
@@ -2320,7 +2322,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend)
 				goto no_service;
 
-			state->new_backend = true;
+			*new_backend = true;
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
 		}

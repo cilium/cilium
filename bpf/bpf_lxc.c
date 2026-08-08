@@ -205,6 +205,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 #endif /* ENABLE_NODEPORT */
 
 	if (svc) {
+		bool new_backend __maybe_unused = false;
 		const struct lb4_backend *backend;
 
 #if defined(ENABLE_L7_LB)
@@ -231,7 +232,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 
 		ret = lb4_local(get_ct_map4(&tuple), ctx, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
-				&backend, ext_err, NULL);
+				&backend, &new_backend, ext_err, NULL);
 
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
@@ -383,6 +384,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 #endif /* ENABLE_NODEPORT */
 
 	if (svc) {
+		bool new_backend __maybe_unused = false;
 		const struct lb6_backend *backend;
 
 #if defined(ENABLE_L7_LB)
@@ -401,7 +403,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 
 		ret = lb6_local(get_ct_map6(&tuple), ctx, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
-				&backend, ext_err, NULL);
+				&backend, &new_backend, ext_err, NULL);
 
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
