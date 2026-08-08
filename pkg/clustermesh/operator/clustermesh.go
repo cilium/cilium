@@ -120,6 +120,7 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 		Logger:              params.Logger,
 		Config:              params.Config,
 		ClusterInfo:         params.ClusterInfo,
+		ClusterIDsManager:   params.ClusterIDsManager,
 		RemoteClientFactory: params.RemoteClientFactory,
 		NewRemoteCluster:    cm.newRemoteCluster,
 		Resolvers: func() (out []dial.Resolver) {
@@ -202,6 +203,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 	rc := &remoteCluster{
 		logger:                        cm.logger.With(logfields.ClusterName, name),
 		name:                          name,
+		clusterID:                     types.ClusterIDUnset,
 		clusterMeshEnableEndpointSync: cm.cfg.ClusterMeshEnableEndpointSync,
 		clusterMeshEnableMCSAPI:       cm.cfgMCSAPI.EnableMCSAPI,
 		clusterMeshServiceModeV2:      cm.serviceModeV2,
@@ -217,6 +219,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 		serviceStore.KeyCreator(
 			serviceStore.ClusterNameValidator(name),
 			serviceStore.NamespacedNameValidator(),
+			serviceStore.ClusterIDValidator(&rc.clusterID),
 		),
 		common.NewSharedServicesObserver(
 			rc.logger,
@@ -241,6 +244,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 		mcsapitypes.KeyCreator(
 			mcsapitypes.ClusterNameValidator(name),
 			mcsapitypes.NamespacedNameValidator(),
+			// Note that service exports don't embed the cluster ID
 		),
 		NewServiceExportsObserver(
 			cm.globalServiceExports,

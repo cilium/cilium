@@ -101,6 +101,14 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	mgr.Run(ctx)
 }
 
+// OnClusterIDChange is intentionnally a no-op since draining the local entries
+// would not be simple (having a grace period like the drain but also not
+// blocking the initial connection too much). Also kvstoremesh is supposed to
+// reflect the remote cluster entries locally and draining entries earlier
+// might not be clearly better since it would mean that state would differ
+// until actually removed from the remote cluster.
+func (rc *remoteCluster) OnClusterIDChange(context.Context, uint32) {}
+
 func (rc *remoteCluster) Stop() {
 	rc.cancel()
 	rc.synced.Stop()

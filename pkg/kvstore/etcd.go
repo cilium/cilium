@@ -662,8 +662,8 @@ func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) 
 	return Hint(err)
 }
 
-// watch starts watching for changes in a prefix
-func (e *etcdClient) watch(ctx context.Context, prefix string, events emitter) {
+// watch starts watching for changes in a key or prefix
+func (e *etcdClient) watch(ctx context.Context, prefix string, options listAndWatchOptions, events emitter) {
 	localCache := watcherCache{}
 	listSignalSent := false
 
@@ -694,7 +694,13 @@ reList:
 		if err != nil {
 			continue
 		}
-		kvs, revision, err := e.paginatedList(ctx, scopedLog, prefix)
+		var kvs []*mvccpb.KeyValue
+		var revision int64
+		if options.exactKey {
+			kvs, revision, err = e.getForWatch(ctx, scopedLog, prefix)
+		} else {
+			kvs, revision, err = e.paginatedList(ctx, scopedLog, prefix)
+		}
 		if err != nil {
 			lr.Error(err, -1)
 
@@ -797,8 +803,11 @@ reList:
 		}
 
 		watcherDuration := spanstat.Start()
-		etcdWatch := e.client.Watch(client.WithRequireLeader(ctx), prefix,
-			client.WithPrefix(), client.WithRev(nextRev))
+		watchOpts := []client.OpOption{client.WithRev(nextRev)}
+		if !options.exactKey {
+			watchOpts = append(watchOpts, client.WithPrefix())
+		}
+		etcdWatch := e.client.Watch(client.WithRequireLeader(ctx), prefix, watchOpts...)
 		// This does not measure the actual time a watcher is open, but just the fact that it was opened
 		increaseMetric(prefix, metricRead, "WatchStart", watcherDuration.EndError(nil).Total(), nil)
 		lr.Done()
@@ -886,6 +895,20 @@ reList:
 			}
 		}
 	}
+}
+
+func (e *etcdClient) getForWatch(
+	ctx context.Context, log *slog.Logger, key string,
+) (kvs []*mvccpb.KeyValue, revision int64, err error) {
+	duration := spanstat.Start()
+	res, err := e.client.Get(ctx, key)
+	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	log.Debug("Received get response from etcd", fieldNumEntries, len(res.Kvs))
+	return res.Kvs, res.Header.Revision, nil
 }
 
 func (e *etcdClient) paginatedList(ctx context.Context, log *slog.Logger, prefix string) (kvs []*mvccpb.KeyValue, revision int64, err error) {
@@ -1586,10 +1609,11 @@ func (e *etcdClient) Close() {
 }
 
 // ListAndWatch implements the BackendOperations.ListAndWatch using etcd
-func (e *etcdClient) ListAndWatch(ctx context.Context, prefix string) EventChan {
+func (e *etcdClient) ListAndWatch(ctx context.Context, prefix string, opts ...ListAndWatchOption) EventChan {
 	events := make(chan KeyValueEvent)
+	options := applyListAndWatchOptions(opts...)
 
-	go e.watch(ctx, prefix, emitter{events: events, scope: GetScopeFromKey(strings.TrimRight(prefix, "/"))})
+	go e.watch(ctx, prefix, options, emitter{events: events, scope: GetScopeFromKey(strings.TrimRight(prefix, "/"))})
 
 	return events
 }

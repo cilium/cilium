@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 func TestRemoteClusterStatus(t *testing.T) {
 	client := kvstore.NewInMemoryClient(statedb.New(), "__remote__")
 	kvsService := map[string]string{
-		"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 1}`,
+		"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 10}`,
 	}
 	kvsServiceExport := map[string]string{
 		"cilium/state/serviceexports/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "exportCreationTimestamp": "2024-07-07T15:55:07.627472784+02:00", "type": "ClusterSetIP", "sessionAffinity": "None"}`,

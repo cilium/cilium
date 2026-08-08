@@ -133,11 +133,6 @@ func TestNodeValidate(t *testing.T) {
 			node:   Node{Cluster: "foo", Name: "bar", ClusterID: 99},
 			assert: assert.NoError,
 		},
-		{
-			name:   "invalid cluster ID",
-			node:   Node{Cluster: "foo", Name: "bar", ClusterID: 260},
-			assert: assert.Error,
-		},
 	}
 
 	for _, tt := range tests {

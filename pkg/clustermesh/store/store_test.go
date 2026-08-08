@@ -126,15 +126,6 @@ func TestClusterServiceValidate(t *testing.T) {
 			assert: assert.NoError,
 		},
 		{
-			name: "invalid cluster ID",
-			svc: ClusterService{
-				Cluster: "foo", Namespace: "bar", Name: "qux", ClusterID: 260,
-				Zones:     map[string]BackendZone{},
-				Hostnames: map[string]string{},
-			},
-			assert: assert.Error,
-		},
-		{
 			name: "invalid frontend IP",
 			svc: ClusterService{
 				Cluster: "foo", Namespace: "bar", Name: "qux",

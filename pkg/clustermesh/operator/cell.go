@@ -33,6 +33,7 @@ var Cell = cell.Module(
 		newClusterMesh,
 		newAPIClustersHandler,
 	),
+	cell.ProvidePrivate(common.NewClusterIDsManager),
 
 	cell.Config(common.DefaultConfig),
 	cell.Config(wait.TimeoutConfigDefault),
@@ -59,9 +60,10 @@ type clusterMeshParams struct {
 	// RemoteClientFactory is the factory to create new backend instances.
 	RemoteClientFactory common.RemoteClientFactoryFn
 
-	Metrics       Metrics
-	CommonMetrics common.Metrics
-	StoreFactory  store.Factory
+	Metrics           Metrics
+	CommonMetrics     common.Metrics
+	StoreFactory      store.Factory
+	ClusterIDsManager common.ClusterIDsManager
 
 	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
 	ServiceResolver dial.Resolver
