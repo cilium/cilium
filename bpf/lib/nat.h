@@ -529,13 +529,9 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 	if (old_addr == new_addr && old_port == new_port && !l4_csum_diff_from_inner)
 		return 0;
 
-	sum = csum_diff(&old_addr, 4, &new_addr, 4, 0);
-	if (ctx_store_bytes(ctx, l3_off + addr_off, &new_addr, 4, 0) < 0)
-		return DROP_WRITE_ERROR;
-
-	/* Amend the L3 checksum due to changing the addresses. */
-	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
-		return DROP_CSUM_L3;
+	err = ipv4_l3_rewrite_addr(ctx, l3_off, addr_off, old_addr, new_addr, &sum);
+	if (err < 0)
+		return err;
 
 	if (has_l4_header) {
 		struct csum_offset csum = {};
@@ -1681,14 +1677,15 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 {
 	struct csum_offset csum = {};
 	__wsum sum;
+	int err;
 
 	/* No change needed: */
 	if (ipv6_addr_equals(old_addr, new_addr) && old_port == new_port)
 		return 0;
 
-	sum = csum_diff(old_addr, 16, new_addr, 16, 0);
-	if (ctx_store_bytes(ctx, l3_off + addr_off, new_addr, 16, 0) < 0)
-		return DROP_WRITE_ERROR;
+	err = ipv6_l3_rewrite_addr(ctx, l3_off, addr_off, old_addr, new_addr, &sum);
+	if (err < 0)
+		return err;
 
 	if (!has_l4_header)
 		return 0;
@@ -1696,8 +1693,6 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 	csum_l4_offset_and_flags(nexthdr, &csum);
 
 	if (old_port != new_port) {
-		int err;
-
 		switch (nexthdr) {
 		case IPPROTO_TCP:
 		case IPPROTO_UDP:
