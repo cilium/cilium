@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"maps"
-	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -250,7 +250,7 @@ func (r *fakeNodeIDHandler) GetNodeIP(id uint16) string {
 	return r.nodeIdMappings[id]
 }
 
-func (r *fakeNodeIDHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
+func (r *fakeNodeIDHandler) GetNodeID(nodeIP netip.Addr) (uint16, bool) {
 	for id, ip := range r.nodeIdMappings {
 		if ip == nodeIP.String() {
 			return id, true
