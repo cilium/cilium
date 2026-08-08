@@ -8,7 +8,9 @@ import (
 	"log/slog"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -19,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/callsmap"
 )
 
 // bpfMasqAddrs returns the IPv4 and IPv6 masquerade addresses to be used for
@@ -176,6 +179,57 @@ func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 				logfields.Error, err,
 				logfields.Path, statePath,
 			)
+		}
+	}
+
+	// Clean up BPFFS pins and tail call maps for physically deleted devices.
+	// Devices that have been removed from the kernel do not appear in safenetlink.LinkList(),
+	// so their obsolete BPF maps and directories must be explicitly discovered and deleted.
+	validIfindexes := make(map[int]struct{}, len(links))
+	validDeviceNames := make(map[string]struct{}, len(links))
+	for _, l := range links {
+		validIfindexes[l.Attrs().Index] = struct{}{}
+		validDeviceNames[l.Attrs().Name] = struct{}{}
+		// Include the sanitized name used for bpffs directory mapping
+		validDeviceNames[strings.ReplaceAll(l.Attrs().Name, ".", "-")] = struct{}{}
+	}
+
+	callMapsPattern := filepath.Join(bpf.TCGlobalsPath(), callsmap.NetdevMapName+"*")
+	matches, _ := filepath.Glob(callMapsPattern)
+	for _, match := range matches {
+		parts := strings.Split(match, "_")
+		if len(parts) > 0 {
+			ifindexStr := parts[len(parts)-1]
+			ifindex, err := strconv.Atoi(ifindexStr)
+			if err == nil {
+				if _, ok := validIfindexes[ifindex]; !ok {
+					if err := os.RemoveAll(match); err != nil {
+						logger.Error("Failed to remove orphaned netdev calls map",
+							logfields.Error, err,
+							logfields.Path, match,
+						)
+					}
+				}
+			}
+		}
+	}
+
+	devicesDir := bpffsDevicesDir(bpf.CiliumPath())
+	devDirs, err := os.ReadDir(devicesDir)
+	if err == nil {
+		for _, d := range devDirs {
+			if !d.IsDir() {
+				continue
+			}
+			if _, ok := validDeviceNames[d.Name()]; !ok {
+				orphanedDir := filepath.Join(devicesDir, d.Name())
+				if err := bpf.Remove(orphanedDir); err != nil {
+					logger.Error("Failed to remove orphaned bpffs device directory",
+						logfields.Error, err,
+						logfields.Path, orphanedDir,
+					)
+				}
+			}
 		}
 	}
 
