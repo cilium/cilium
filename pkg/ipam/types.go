@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/statedb"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
@@ -99,6 +100,7 @@ type IPAM struct {
 	logger *slog.Logger
 
 	nodeAddressing node.Addressing
+	clusterInfo    cmtypes.ClusterInfo
 	config         *option.DaemonConfig
 
 	ipv6Allocator Allocator

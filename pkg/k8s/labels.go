@@ -12,12 +12,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/validate/content"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	ciliumLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 )
 
@@ -35,7 +35,7 @@ type nameLabelsGetter interface {
 
 // GetPodMetadata returns the named ports, labels and annotations of the pod
 // with the given namespace / name.
-func GetPodMetadata(logger *slog.Logger, k8sNs nameLabelsGetter, pod *slim_corev1.Pod) (namedPorts ciliumTypes.NamedPortMap, lbls map[string]string) {
+func GetPodMetadata(logger *slog.Logger, clusterInfo cmtypes.ClusterInfo, k8sNs nameLabelsGetter, pod *slim_corev1.Pod) (namedPorts ciliumTypes.NamedPortMap, lbls map[string]string) {
 	namespace := pod.Namespace
 	logger.Debug(
 		"Connecting to k8s local stores to retrieve labels for pod",
@@ -44,7 +44,7 @@ func GetPodMetadata(logger *slog.Logger, k8sNs nameLabelsGetter, pod *slim_corev
 	)
 
 	objMetaCpy := pod.ObjectMeta.DeepCopy()
-	labels := k8sUtils.SanitizePodLabels(objMetaCpy.Labels, k8sNs, pod.Spec.ServiceAccountName, option.Config.ClusterName)
+	labels := k8sUtils.SanitizePodLabels(objMetaCpy.Labels, k8sNs, pod.Spec.ServiceAccountName, clusterInfo.Name)
 
 	namedPorts = make(ciliumTypes.NamedPortMap)
 	for _, containers := range pod.Spec.Containers {

@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/operator/k8s"
 	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	cidtest "github.com/cilium/cilium/operator/pkg/ciliumidentity/testutils"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -353,7 +354,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	podStore, _ := pods.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
 	cesController := &SlimController{
@@ -481,7 +482,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	podStore, _ := pods.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -606,7 +607,7 @@ func TestCESManagement(t *testing.T) {
 	nodeStore, _ := ciliumNode.Store(t.Context())
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -731,7 +732,7 @@ func TestSyncCESsInLocalCacheOperatorDowntime(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	podStore, _ := pods.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
 	cesController := &SlimController{

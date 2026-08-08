@@ -22,6 +22,7 @@ import (
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -712,6 +713,7 @@ type ENIMultiPoolAllocatorParams struct {
 	CNClient       cilium_v2.CiliumNodeInterface
 	JobGroup       job.Group
 
+	ClusterInfo cmtypes.ClusterInfo
 	Conf        *option.DaemonConfig
 	IPMasqAgent *ipmasq.IPMasqAgent
 }
@@ -734,7 +736,7 @@ func newENIMultiPoolAllocators(p ENIMultiPoolAllocatorParams) (Allocator, Alloca
 		LinearPreAlloc:       true,
 	})
 
-	allocCIDRsReady := startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)
+	allocCIDRsReady := startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.ClusterInfo, p.JobGroup, p.Node, p.LocalNodeStore)
 	nativeRoutingCIDRReady := startENINativeRoutingCIDRSync(p.Logger, p.JobGroup, p.Node, p.LocalNodeStore, p.Conf)
 
 	// Wait for local node to be updated to avoid propagating spurious updates.

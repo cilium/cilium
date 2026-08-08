@@ -14,6 +14,7 @@ import (
 
 	ipamrestapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -71,6 +72,7 @@ type ipamParams struct {
 
 	Logger *slog.Logger
 
+	ClusterInfo cmtypes.ClusterInfo
 	AgentConfig *option.DaemonConfig
 
 	NodeAddressing      node.Addressing
@@ -97,6 +99,7 @@ func newIPAddressManager(params ipamParams, c ipamConfig) (*ipam.IPAM, error) {
 	ipam := ipam.NewIPAM(ipam.NewIPAMParams{
 		Logger:                    params.Logger,
 		NodeAddressing:            params.NodeAddressing,
+		ClusterInfo:               params.ClusterInfo,
 		AgentConfig:               params.AgentConfig,
 		NodeDiscovery:             params.NodeDiscovery,
 		LocalNodeStore:            params.LocalNodeStore,

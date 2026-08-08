@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/operator/k8s"
 	cidtest "github.com/cilium/cilium/operator/pkg/ciliumidentity/testutils"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/key"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -84,6 +85,7 @@ func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reco
 	reconciler, _ := newReconciler(
 		ctx,
 		tlog,
+		cmtypes.DefaultClusterInfo,
 		fakeClient.Clientset,
 		namespace,
 		pod,
@@ -402,7 +404,7 @@ func TestReconcilePod(t *testing.T) {
 				}
 
 				expectedLbs := key.GetCIDKeyFromLabels(
-					k8sUtils.SanitizePodLabels(tc.newPod.ObjectMeta.Labels, ns1, "", ""),
+					k8sUtils.SanitizePodLabels(tc.newPod.ObjectMeta.Labels, ns1, "", cmtypes.DefaultClusterInfo.Name),
 					labels.LabelSourceK8s,
 				).GetAsMap()
 
@@ -495,7 +497,7 @@ func TestGetRelevantLabelsForPodDoesNotIncludeGeneratedNamedPorts(t *testing.T) 
 		}},
 	}}
 
-	k8sLabels, err := GetRelevantLabelsForPod(hivetest.Logger(t), pod, reconciler.nsStore)
+	k8sLabels, err := GetRelevantLabelsForPod(hivetest.Logger(t), pod, reconciler.nsStore, reconciler.clusterInfo)
 	require.NoError(t, err)
 	require.NotContains(t, k8sLabels, ciliumio.NamedPortsIdentityLabelName)
 }

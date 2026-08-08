@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/operator/pkg/ciliumidentity"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -66,6 +67,7 @@ type slimReconciler struct {
 
 	ipsecEnabled bool
 	wgEnabled    bool
+	clusterInfo  cmtypes.ClusterInfo
 }
 
 // newDefaultReconciler creates and initializes a new defaultReconciler.
@@ -97,6 +99,7 @@ func newSlimReconciler(
 	client clientset.CiliumV2alpha1Interface,
 	cesMgr *slimManager,
 	logger *slog.Logger,
+	clusterInfo cmtypes.ClusterInfo,
 	cesStore resource.Store[*cilium_v2a1.CiliumEndpointSlice],
 	podStore resource.Store[*slim_corev1.Pod],
 	cidStore resource.Store[*cilium_v2.CiliumIdentity],
@@ -121,6 +124,7 @@ func newSlimReconciler(
 		manager:         cesMgr,
 		ipsecEnabled:    ipsecEnabled,
 		wgEnabled:       wgEnabled,
+		clusterInfo:     clusterInfo,
 	}
 	sReconciler.reconciler.endpointGetter = &sReconciler
 	return &sReconciler
@@ -456,8 +460,8 @@ func getNodeNameForPod(pod *slim_corev1.Pod) (string, error) {
 	return pod.Spec.NodeName, nil
 }
 
-func getPodCIDKey(pod *slim_corev1.Pod, logger *slog.Logger, nsStore resource.Store[*slim_corev1.Namespace]) (*key.GlobalIdentity, error) {
-	k8sLabels, err := ciliumidentity.GetRelevantLabelsForPod(logger, pod, nsStore)
+func getPodCIDKey(pod *slim_corev1.Pod, logger *slog.Logger, nsStore resource.Store[*slim_corev1.Namespace], clusterInfo cmtypes.ClusterInfo) (*key.GlobalIdentity, error) {
+	k8sLabels, err := ciliumidentity.GetRelevantLabelsForPod(logger, pod, nsStore, clusterInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relevant labels for pod: %w", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -44,7 +45,7 @@ type nodeAddressGroup struct {
 }
 
 // ParseNode parses a kubernetes node to a cilium node
-func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node {
+func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Source, clusterInfo cmtypes.ClusterInfo) *nodeTypes.Node {
 	addrGroups := make(map[nodeAddressGroup]struct{})
 	scopedLog := logger.With(
 		logfields.NodeName, k8sNode.Name,
@@ -107,7 +108,7 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 	}
 	newNode := &nodeTypes.Node{
 		Name:        k8sNode.Name,
-		Cluster:     option.Config.ClusterName,
+		Cluster:     clusterInfo.Name,
 		IPAddresses: addrs,
 		Source:      source,
 	}
@@ -311,7 +312,7 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 
 // ParseCiliumNode parses a CiliumNode custom resource and returns a Node
 // instance. Invalid IP and CIDRs are silently ignored
-func ParseCiliumNode(n *ciliumv2.CiliumNode) (node nodeTypes.Node) {
+func ParseCiliumNode(n *ciliumv2.CiliumNode, clusterInfo cmtypes.ClusterInfo) (node nodeTypes.Node) {
 	var appendAllocCIDR = func(node *nodeTypes.Node, podCIDR netip.Prefix) {
 		prefix := nodeTypes.PrefixFrom(podCIDR)
 		if podCIDR.Addr().Is4() {
@@ -333,8 +334,8 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node nodeTypes.Node) {
 	node = nodeTypes.Node{
 		Name:            n.Name,
 		EncryptionKey:   uint8(n.Spec.Encryption.Key),
-		Cluster:         option.Config.ClusterName,
-		ClusterID:       option.Config.ClusterID,
+		Cluster:         clusterInfo.Name,
+		ClusterID:       clusterInfo.ID,
 		Source:          source.CustomResource,
 		Labels:          n.ObjectMeta.Labels,
 		Annotations:     n.ObjectMeta.Annotations,
