@@ -9,9 +9,47 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+func Test_setGatewayInsecureFrontendValidationMode(t *testing.T) {
+	gw := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Generation: 7},
+		Spec: gatewayv1.GatewaySpec{
+			TLS: &gatewayv1.GatewayTLSConfig{
+				Frontend: &gatewayv1.FrontendTLSConfig{
+					Default: gatewayv1.TLSConfig{
+						Validation: &gatewayv1.FrontendTLSValidation{Mode: gatewayv1.AllowInsecureFallback},
+					},
+				},
+			},
+		},
+	}
+
+	setGatewayInsecureFrontendValidationMode(gw)
+	condition := findListenerCondition(gw.Status.Conditions, string(gatewayv1.GatewayConditionInsecureFrontendValidationMode))
+	require.NotNil(t, condition)
+	assert.Equal(t, metav1.ConditionTrue, condition.Status)
+	assert.Equal(t, string(gatewayv1.GatewayReasonConfigurationChanged), condition.Reason)
+	assert.Equal(t, gw.Generation, condition.ObservedGeneration)
+
+	gw.Spec.TLS.Frontend.Default.Validation.Mode = gatewayv1.AllowValidOnly
+	gw.Spec.TLS.Frontend.PerPort = []gatewayv1.TLSPortConfig{{
+		Port: 8443,
+		TLS: gatewayv1.TLSConfig{
+			Validation: &gatewayv1.FrontendTLSValidation{Mode: gatewayv1.AllowInsecureFallback},
+		},
+	}}
+	setGatewayInsecureFrontendValidationMode(gw)
+	condition = findListenerCondition(gw.Status.Conditions, string(gatewayv1.GatewayConditionInsecureFrontendValidationMode))
+	require.NotNil(t, condition, "per-port fallback must retain the condition")
+
+	gw.Spec.TLS.Frontend.PerPort[0].TLS.Validation.Mode = gatewayv1.AllowValidOnly
+	setGatewayInsecureFrontendValidationMode(gw)
+	assert.Nil(t, findListenerCondition(gw.Status.Conditions, string(gatewayv1.GatewayConditionInsecureFrontendValidationMode)))
+}
 
 func Test_gatewayStatusScheduledCondition(t *testing.T) {
 	type args struct {

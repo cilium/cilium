@@ -91,6 +91,8 @@ type HTTPListener struct {
 	Hostname string `json:"hostname,omitempty"`
 	// TLS Certificate information. If omitted, then the listener is a cleartext HTTP listener.
 	TLS []TLSSecret `json:"tls,omitempty"`
+	// FrontendTLSValidation holds mTLS configuration for client certificate validation.
+	FrontendTLSValidation *FrontendTLSValidation `json:"frontend_tls_validation,omitempty"`
 	// Routes associated with HTTP traffic to the service.
 	// An empty list means that traffic will not be routed.
 	Routes []HTTPRoute `json:"routes,omitempty"`
@@ -366,6 +368,15 @@ func (r HTTPRouteRule) key() string {
 type TLSSecret struct {
 	Name      string `json:"name,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
+}
+
+// FrontendTLSValidation holds configuration for client certificate validation (mTLS).
+type FrontendTLSValidation struct {
+	// CACertRefs references ConfigMaps containing CA certificates for client validation.
+	CACertRefs []FullyQualifiedResource `json:"ca_cert_refs,omitempty"`
+	// RequireClientCertificate when true requires valid client cert (AllowValidOnly mode).
+	// When false, allows connections without valid cert (AllowInsecureFallback mode).
+	RequireClientCertificate bool `json:"require_client_certificate,omitempty"`
 }
 
 // DirectResponse holds configuration for a direct response.
@@ -1005,32 +1016,98 @@ func (m *Model) AllPorts() []uint32 {
 	return slices.SortedUnique(ports)
 }
 
-// TLSSecretsToHostnames returns a map of TLS secrets to hostnames.
+// TLSSecretListenerData holds TLS secret data along with the listener's frontend validation.
+type TLSSecretListenerData struct {
+	TLSSecret             TLSSecret
+	Hostnames             []string
+	FrontendTLSValidation *FrontendTLSValidation
+}
+
+// TLSSecretsToHostnamesWithValidation returns grouped TLS secret data with hostnames and frontend validation.
 // This is only for HTTP listeners.
-func (m *Model) TLSSecretsToHostnames() map[TLSSecret][]string {
-	res := make(map[TLSSecret][]string)
+func (m *Model) TLSSecretsToHostnamesWithValidation() []TLSSecretListenerData {
+	return m.tlsSecretListenerData(0, false)
+}
+
+// TLSSecretsToListenerDataForPort returns grouped TLS secret data for HTTPS listeners on a port.
+func (m *Model) TLSSecretsToListenerDataForPort(port uint32) []TLSSecretListenerData {
+	return m.tlsSecretListenerData(port, true)
+}
+
+func (m *Model) tlsSecretListenerData(port uint32, filterByPort bool) []TLSSecretListenerData {
+	type listenerBucket struct {
+		secret              TLSSecret
+		validation          *FrontendTLSValidation
+		validationKey       string
+		aggregatedHostnames []string
+	}
+
+	res := make(map[string]*listenerBucket)
 	for _, h := range m.HTTP {
+		if filterByPort && h.Port != port {
+			continue
+		}
 		for _, s := range h.TLS {
-			res[s] = append(res[s], h.Hostname)
+			validationKey := frontendTLSValidationKey(h.FrontendTLSValidation)
+			key := tlsSecretListenerDataKey(s, validationKey)
+
+			bucket, exists := res[key]
+			if !exists {
+				bucket = &listenerBucket{
+					secret:        s,
+					validation:    h.FrontendTLSValidation,
+					validationKey: validationKey,
+				}
+				res[key] = bucket
+			}
+			bucket.aggregatedHostnames = append(bucket.aggregatedHostnames, h.Hostname)
 		}
 	}
-	return res
-}
 
-// TLSListenerRef records a (hostname, port) pair for an HTTPS listener.
-type TLSListenerRef struct {
-	Hostname string
-	Port     uint32
-}
-
-// TLSSecretsToListeners returns, for each TLS secret, the set of
-// (hostname, port) pairs of all HTTPS listeners that reference it.
-func (m *Model) TLSSecretsToListeners() map[TLSSecret][]TLSListenerRef {
-	res := make(map[TLSSecret][]TLSListenerRef)
-	for _, l := range m.HTTP {
-		for _, s := range l.TLS {
-			res[s] = append(res[s], TLSListenerRef{Hostname: l.Hostname, Port: l.Port})
-		}
+	keys := make([]string, 0, len(res))
+	for k := range res {
+		keys = append(keys, k)
 	}
-	return res
+
+	sort.Slice(keys, func(i, j int) bool {
+		left := res[keys[i]]
+		right := res[keys[j]]
+		if left.secret.Namespace != right.secret.Namespace {
+			return left.secret.Namespace < right.secret.Namespace
+		}
+		if left.secret.Name != right.secret.Name {
+			return left.secret.Name < right.secret.Name
+		}
+		return left.validationKey < right.validationKey
+	})
+
+	output := make([]TLSSecretListenerData, 0, len(keys))
+	for _, key := range keys {
+		bucket := res[key]
+		output = append(output, TLSSecretListenerData{
+			TLSSecret:             bucket.secret,
+			Hostnames:             slices.SortedUnique(bucket.aggregatedHostnames),
+			FrontendTLSValidation: bucket.validation,
+		})
+	}
+
+	return output
+}
+
+func tlsSecretListenerDataKey(secret TLSSecret, validationKey string) string {
+	return strings.Join([]string{secret.Namespace, secret.Name, validationKey}, "|")
+}
+
+func frontendTLSValidationKey(validation *FrontendTLSValidation) string {
+	if validation == nil {
+		return "none"
+	}
+
+	refs := make([]string, 0, len(validation.CACertRefs))
+	for _, ref := range validation.CACertRefs {
+		refs = append(refs, strings.Join([]string{ref.Group, ref.Version, ref.Kind, ref.Namespace, ref.Name}, "/"))
+	}
+	sort.Strings(refs)
+
+	return "require_client_cert=" + strconv.FormatBool(validation.RequireClientCertificate) + ";ca_refs=" + strings.Join(refs, ",")
 }
