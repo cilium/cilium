@@ -72,6 +72,7 @@ type l2AnnouncerParams struct {
 	Clientset            k8sClient.Clientset
 	Services             statedb.Table[*loadbalancer.Service]
 	Frontends            statedb.Table[*loadbalancer.Frontend]
+	Backends             statedb.Table[*loadbalancer.Backend]
 	L2AnnouncementPolicy resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	LocalNodeResource    daemon_k8s.LocalCiliumNodeResource
 	L2AnnounceTable      statedb.RWTable[*tables.L2AnnounceEntry]
@@ -137,14 +138,28 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	return announcer
 }
 
+func (l2a *L2Announcer) hasLocalBackends(txn statedb.ReadTxn, svc *loadbalancer.Service) bool {
+	// Get all backends from svc name
+	seq, _ := loadbalancer.ListBackendsByServiceName(txn, l2a.params.Backends, svc.Name)
+
+	for be := range seq {
+		// Returns `true` if there is at least one backend that belongs to the current node and is alive.
+		if be.NodeName == l2a.localNode.Name && be.IsAlive() {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 	// Start watching the 'services' table for changes.
 	wtxn := l2a.params.StateDB.WriteTxn(l2a.params.Services)
 	svcChangeIter, err := l2a.params.Services.Changes(wtxn)
-	wtxn.Commit()
 	if err != nil {
 		return err
 	}
+	wtxn.Commit()
 
 	wtxn = l2a.params.StateDB.WriteTxn(l2a.params.Frontends)
 	frontendChangeIter, err := l2a.params.Frontends.Changes(wtxn)
@@ -152,6 +167,15 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 	if err != nil {
 		return err
 	}
+
+	// Initialize backends table
+	wtxn = l2a.params.StateDB.WriteTxn(l2a.params.Backends)
+	beChangeIter, err := l2a.params.Backends.Changes(wtxn)
+	if err != nil {
+		return err
+	}
+	wtxn.Commit()
+
 	// Wait for services to initialize
 	_, servicesInitialized := l2a.params.Services.Initialized(l2a.params.StateDB.ReadTxn())
 	select {
@@ -196,9 +220,10 @@ loop:
 	for {
 		rtxn := l2a.params.StateDB.ReadTxn()
 
+		// Processing svc change
 		svcChanges, svcWatch := svcChangeIter.Next(rtxn)
 		for event := range svcChanges {
-			if err := l2a.processSvcEvent(rtxn, event); err != nil {
+			if err := l2a.processSvcEvent(l2a.params.StateDB.ReadTxn(), event); err != nil {
 				l2a.params.Logger.Warn("Error processing service event",
 					logfields.Error, err,
 				)
@@ -207,10 +232,28 @@ loop:
 
 		frontendChanges, frontendWatch := frontendChangeIter.Next(rtxn)
 		for event := range frontendChanges {
-			if err := l2a.processFrontendEvent(rtxn, event); err != nil {
+			if err := l2a.processFrontendEvent(l2a.params.StateDB.ReadTxn(), event); err != nil {
 				l2a.params.Logger.Warn("Error processing frontend event",
 					logfields.Error, err,
 				)
+			}
+		}
+
+		// Processing backend change
+		beChanges, beWatch := beChangeIter.Next(rtxn)
+		for event := range beChanges {
+			backend := event.Object
+
+			latestTxn := l2a.params.StateDB.ReadTxn()
+
+			svc, _, found := l2a.params.Services.Get(latestTxn, loadbalancer.ServiceByName(backend.ServiceName))
+			if found {
+				if err := l2a.upsertSvc(latestTxn, svc); err != nil {
+					l2a.params.Logger.Warn("Error re-evaluating service on backend change",
+						logfields.Error, err,
+						logfields.ServiceName, backend.ServiceName,
+					)
+				}
 			}
 		}
 
@@ -221,6 +264,7 @@ loop:
 		case <-svcWatch:
 
 		case <-frontendWatch:
+		case <-beWatch:
 
 		case event, more := <-policyChan:
 			// resource closed, shutting down
@@ -356,6 +400,7 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 		}
 	}
 	key := serviceKey(svc)
+
 	noExternal := len(externalAddresses) == 0
 	noLB := len(lbAddresses) == 0
 	if noExternal && noLB {
@@ -367,6 +412,12 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 	if svc.LoadBalancerClass != nil &&
 		*svc.LoadBalancerClass != cilium_api_v2alpha1.L2AnnounceLoadBalancerClass {
 		return l2a.delSvc(key)
+	}
+
+	// If the service has a local traffic policy, check if there are any backends on this node. If not, we are not eligible to be leader for this service.
+	isEligibleNode := true
+	if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+		isEligibleNode = l2a.hasLocalBackends(rtxn, svc)
 	}
 
 	ss, found := l2a.selectedServices[key]
@@ -396,6 +447,13 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 			return nil
 		}
 
+		if !isEligibleNode {
+			// selectedServices contains a service which is no longer eligible for this node, withdraw lease and entries.
+			l2a.withdrawServiceLeaseAndEntries(ss)
+			return nil
+		}
+		l2a.startLeaderElectionJob(ss)
+
 		// Since IPs may have changed, re-calculate its entries in the output table, if we are leader
 		err := l2a.recalculateL2EntriesTableEntries(ss)
 		if err != nil {
@@ -419,7 +477,32 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 
 	// Add the services to list of selected services if at least 1 policy matches it.
 	if len(matchingPolicies) >= 1 {
-		l2a.addSelectedService(svc, externalAddresses, lbAddresses, matchingPolicies)
+		l2a.addSelectedService(svc, externalAddresses, lbAddresses, matchingPolicies, isEligibleNode)
+	}
+
+	return nil
+}
+
+func (l2a *L2Announcer) withdrawServiceLeaseAndEntries(ss *selectedService) error {
+	// Stop leader election for this service, if we are leader, this will also remove the entries from the output table.
+	if ss.running {
+		if ss.cancel != nil {
+			ss.cancel()
+			ss.cancel = nil
+		}
+
+		if ss.done != nil {
+			select {
+			case <-ss.done:
+			default:
+				close(ss.done)
+			}
+		}
+		ss.running = false
+	}
+
+	if err := l2a.recalculateL2EntriesTableEntries(ss); err != nil {
+		return fmt.Errorf("recalculateL2EntriesTableEntries: %w", err)
 	}
 
 	return nil
@@ -637,7 +720,13 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 			continue
 		}
 
-		l2a.addSelectedService(svc, externalAddresses, lbAddresses, []types.NamespacedName{key})
+		// If the service has a local traffic policy, check if there are any backends on this node. If not, we are not eligible to be leader for this service.
+		isEligibleNode := true
+		if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+			isEligibleNode = l2a.hasLocalBackends(txn, svc)
+		}
+
+		l2a.addSelectedService(svc, externalAddresses, lbAddresses, []types.NamespacedName{key}, isEligibleNode)
 	}
 
 	err := l2a.gcOrphanedServices()
@@ -809,7 +898,7 @@ func (l2a *L2Announcer) leaseTimings() (leaseDuration, renewDeadline, retryPerio
 	return leaseDuration, renewDeadline, retryPeriod
 }
 
-func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, lbAddrs []netip.Addr, byPolicies []types.NamespacedName) {
+func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, lbAddrs []netip.Addr, byPolicies []types.NamespacedName, isEligible bool) {
 	leaseDuration, renewDeadline, retryPeriod := l2a.leaseTimings()
 	ss := &selectedService{
 		svc:               svc,
@@ -817,7 +906,7 @@ func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, 
 		lbAddresses:       lbAddrs,
 		byPolicies:        byPolicies,
 		lock:              l2a.newLeaseLock(svc),
-		done:              make(chan struct{}),
+		done:              nil,
 		leaderChannel:     l2a.leaderChannel,
 		leaseDuration:     leaseDuration,
 		renewDeadline:     renewDeadline,
@@ -826,11 +915,35 @@ func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, 
 
 	l2a.selectedServices[serviceKey(svc)] = ss
 
+	if isEligible {
+		l2a.startLeaderElectionJob(ss)
+	}
+}
+
+func (l2a *L2Announcer) startLeaderElectionJob(ss *selectedService) {
+	if ss.running {
+		return
+	}
+
+	ss.running = true
+	ss.done = make(chan struct{})
+
+	ss.lock = l2a.newLeaseLock(ss.svc)
+
 	// kick off leader election job
 	l2a.scopedGroup.Add(job.OneShot(
-		shortener.ShortenHiveJobName(fmt.Sprintf("leader-election-%s-%s", svc.Name.Namespace(), svc.Name.Name())),
-		ss.serviceLeaderElection),
-	)
+		shortener.ShortenHiveJobName(fmt.Sprintf("leader-election-%s-%s", ss.svc.Name.Namespace(), ss.svc.Name.Name())),
+		func(jobCtx context.Context, health cell.Health) error {
+			ctx, cancel := context.WithCancel(jobCtx)
+			ss.cancel = cancel
+
+			defer func() {
+				ss.running = false
+				cancel()
+			}()
+			return ss.serviceLeaderElection(ctx, health)
+		},
+	))
 }
 
 func (l2a *L2Announcer) leaseNamespace() string {
@@ -1156,9 +1269,10 @@ type selectedService struct {
 	leaderChannel   chan leaderElectionEvent
 
 	// Leader election goroutine lifetime management
-	ctx    context.Context
-	cancel context.CancelFunc
-	done   chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	done    chan struct{}
+	running bool
 }
 
 func (ss *selectedService) serviceLeaderElection(ctx context.Context, health cell.Health) error {
