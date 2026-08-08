@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -125,6 +126,12 @@ func Test_Conformance(t *testing.T) {
 			name: "gateway-invalid-parameters-ref",
 			gateway: []gwDetails{
 				{FullName: types.NamespacedName{Name: "gateway-invalid-parameters-ref", Namespace: "gateway-conformance-infra"}, wantErr: true},
+			},
+		},
+		{
+			name: "gateway-rejected-gatewayclass",
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-rejected-gatewayclass", Namespace: "gateway-conformance-infra"}, skipCEC: true},
 			},
 		},
 		{
@@ -604,6 +611,91 @@ func Test_Conformance(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGatewayReconciler_GatewayClassStatus(t *testing.T) {
+	gw := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gateway", Namespace: "default"},
+		Spec:       gatewayv1.GatewaySpec{GatewayClassName: "gateway-class"},
+	}
+	ownerRef := *metav1.NewControllerRef(gw, schema.GroupVersionKind{
+		Group:   gatewayv1.GroupVersion.Group,
+		Version: gatewayv1.GroupVersion.Version,
+		Kind:    "Gateway",
+	})
+	resourceName := shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name)
+	ownedResources := []client.Object{
+		&corev1.Service{ObjectMeta: metav1.ObjectMeta{
+			Name: resourceName, Namespace: gw.Namespace, OwnerReferences: []metav1.OwnerReference{ownerRef},
+		}},
+		&discoveryv1.EndpointSlice{ObjectMeta: metav1.ObjectMeta{
+			Name: resourceName, Namespace: gw.Namespace, OwnerReferences: []metav1.OwnerReference{ownerRef},
+			Labels: map[string]string{gatewayApiTranslation.EndpointSliceServiceNameLabel: resourceName},
+		}},
+		&ciliumv2.CiliumEnvoyConfig{ObjectMeta: metav1.ObjectMeta{
+			Name: resourceName, Namespace: gw.Namespace, OwnerReferences: []metav1.OwnerReference{ownerRef},
+		}},
+	}
+
+	t.Run("accepted GatewayClass becomes rejected", func(t *testing.T) {
+		gwc := &gatewayv1.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "gateway-class"},
+			Spec:       gatewayv1.GatewayClassSpec{ControllerName: defaultControllerName},
+			Status: gatewayv1.GatewayClassStatus{Conditions: []metav1.Condition{{
+				Type:    string(gatewayv1.GatewayClassConditionStatusAccepted),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(gatewayv1.GatewayClassReasonInvalidParameters),
+				Message: "Referenced CiliumGatewayClassConfig does not exist",
+			}}},
+		}
+
+		objects := append([]client.Object{gw, gwc}, ownedResources...)
+		r, c := testReconciler(t, objects...)
+
+		result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(gw)})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		for _, resource := range ownedResources {
+			actual := resource.DeepCopyObject().(client.Object)
+			require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(resource), actual), "%T should be retained", resource)
+		}
+
+		updatedGW := &gatewayv1.Gateway{}
+		require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(gw), updatedGW))
+
+		accepted := meta.FindStatusCondition(updatedGW.Status.Conditions, string(gatewayv1.GatewayConditionAccepted))
+		require.NotNil(t, accepted)
+		assert.Equal(t, metav1.ConditionFalse, accepted.Status)
+		assert.Equal(t, string(gatewayv1.GatewayReasonInvalidParameters), accepted.Reason)
+		assert.Equal(t, "Referenced CiliumGatewayClassConfig does not exist", accepted.Message)
+
+		programmed := meta.FindStatusCondition(updatedGW.Status.Conditions, string(gatewayv1.GatewayConditionProgrammed))
+		require.NotNil(t, programmed)
+		assert.Equal(t, metav1.ConditionUnknown, programmed.Status)
+		assert.Equal(t, string(gatewayv1.GatewayReasonPending), programmed.Reason)
+		assert.Equal(t, "Waiting for Accepted condition to be True", programmed.Message)
+	})
+
+	t.Run("GatewayClass no longer managed by cilium", func(t *testing.T) {
+		gwc := &gatewayv1.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "gateway-class"},
+			Spec:       gatewayv1.GatewayClassSpec{ControllerName: "example.com/other-gateway-controller"},
+		}
+
+		objects := append([]client.Object{gw, gwc}, ownedResources...)
+		r, c := testReconciler(t, objects...)
+
+		result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(gw)})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		for _, resource := range ownedResources {
+			res := resource.DeepCopyObject().(client.Object)
+			require.True(t, k8serrors.IsNotFound(c.Get(t.Context(), client.ObjectKeyFromObject(resource), res)), "%T should be deleted", resource)
+		}
+	})
+
 }
 
 func Test_grpcWebTranslationEnabled(t *testing.T) {
@@ -1345,7 +1437,7 @@ func testReconciler(t *testing.T, obj ...client.Object) (*gatewayReconciler, cli
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 		WithObjects(obj...).
-		WithStatusSubresource(&gatewayv1.HTTPRoute{}, &gatewayv1.GRPCRoute{}).
+		WithStatusSubresource(&gatewayv1.Gateway{}, &gatewayv1.HTTPRoute{}, &gatewayv1.GRPCRoute{}).
 		Build()
 
 	reconciler := &gatewayReconciler{
