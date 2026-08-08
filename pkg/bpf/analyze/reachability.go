@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/btf"
 )
 
 // Reachability performs static analysis on BPF programs to determine which code
@@ -152,9 +153,14 @@ func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]*e
 		return nil, fmt.Errorf("predicting blocks: %w", err)
 	}
 
-	// Always visit bpf2bpf callees since they are always reachable, on pre-6.8 kernels
+	// Always visit static bpf2bpf callees since they are always reachable on pre-6.8
+	// kernels. Global callees are only visited when their call site is live, which
+	// allows dead global functions to be stubbed out before loading.
 	for _, block := range blocks {
 		for _, called := range block.calls {
+			if fn := btf.FuncMetadata(&insns[called.start]); fn != nil && fn.Linkage == btf.GlobalFunc {
+				continue
+			}
 			if err := r.visitBlock(called, vars); err != nil {
 				return nil, fmt.Errorf("predicting blocks: %w", err)
 			}
@@ -180,6 +186,39 @@ func (r *Reachable) Iterate() iter.Seq2[*BlockIterator, bool] {
 			}
 		}
 	}
+}
+
+// DeadGlobalFuncRanges returns instruction index ranges [start, end] (inclusive)
+// for global BPF functions whose entry block is unreachable. These functions can
+// be replaced with stubs before loading to prevent the pre-6.8 verifier from
+// independently verifying them, enabling their maps to be pruned.
+func (r *Reachable) DeadGlobalFuncRanges() [][2]int {
+	var ranges [][2]int
+
+	for i, block := range r.blocks {
+		if block.sym == "" {
+			continue
+		}
+		if r.l.Get(block.id) {
+			continue
+		}
+		fn := btf.FuncMetadata(&r.insns[block.start])
+		if fn == nil || fn.Linkage != btf.GlobalFunc {
+			continue
+		}
+
+		end := len(r.insns) - 1
+		for _, next := range r.blocks[i+1:] {
+			if next.sym != "" {
+				end = next.start - 1
+				break
+			}
+		}
+
+		ranges = append(ranges, [2]int{block.start, end})
+	}
+
+	return ranges
 }
 
 func (r *Reachable) Dump(insns asm.Instructions) string {
