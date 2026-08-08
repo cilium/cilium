@@ -37,6 +37,13 @@ func (r *rulesClient) LookupByIdentity(nid identity.NumericIdentity) []string {
 	return []string{}
 }
 
+// LookupIdentityByID returns a numeric-only identity for the given numeric identity. The standalone
+// DNS proxy does not have access to the identity allocator (and therefore to the labels), so the
+// numeric identity is propagated to the agent, which resolves the labels on its side.
+func (r *rulesClient) LookupIdentityByID(ctx context.Context, nid identity.NumericIdentity) *identity.Identity {
+	return &identity.Identity{ID: nid}
+}
+
 // Note: isHost is always false because the standalone DNS proxy does not handle host endpoints yet.
 func (r *rulesClient) LookupRegisteredEndpoint(endpointAddr netip.Addr) (endpt *endpoint.Endpoint, isHost bool, err error) {
 	info, _, found := r.ipToIdentityTable.Get(r.db.ReadTxn(), client.IdIPToEndpointIndex.Query(endpointAddr))
