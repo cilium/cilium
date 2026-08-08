@@ -119,6 +119,7 @@ type BPFOps struct {
 	maglev        *maglev.Maglev
 	lastUpdatedAt atomic.Pointer[time.Time]
 	pruneCount    atomic.Int32
+	metrics       *reconcilerMetrics
 
 	// mu protects the state below. The reconciler itself is single-threaded, but we need
 	// to protect the state in order to be able to ResetAndRestore() in tests.
@@ -188,6 +189,7 @@ type bpfOpsParams struct {
 	DB             *statedb.DB
 	NodeAddresses  statedb.Table[tables.NodeAddress]
 	Frontends      statedb.Table[*loadbalancer.Frontend]
+	Metrics        *reconcilerMetrics
 }
 
 const (
@@ -206,6 +208,7 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 		db:        p.DB,
 		nodeAddrs: p.NodeAddresses,
 		frontends: p.Frontends,
+		metrics:   p.Metrics,
 	}
 	ops.setLastUpdatedAt()
 
@@ -230,10 +233,22 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.mu.Lock()
 	defer ops.mu.Unlock()
 
-	ops.serviceIDAlloc = newIDAllocator(firstFreeServiceID, maxSetOfServiceID)
+	ops.serviceIDAlloc = newIDAllocator(
+		firstFreeServiceID,
+		maxSetOfServiceID,
+		newIDAllocatorMetrics(ops.metrics, idAllocTypeService),
+	)
 	ops.restoredServiceIDs = map[loadbalancer.L3n4Addr]loadbalancer.ServiceID{}
-	ops.backendIDAlloc = newIDAllocator(firstFreeBackendID, maxSetOfBackendID)
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
+
+	ops.backendIDAlloc = newIDAllocator(
+		firstFreeBackendID,
+		maxSetOfBackendID,
+		newIDAllocatorMetrics(ops.metrics, idAllocTypeBackend),
+	)
 	ops.restoredBackendIDs = map[loadbalancer.L3n4Addr]loadbalancer.BackendID{}
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeBackend, len(ops.restoredBackendIDs))
+
 	ops.backendStates = map[loadbalancer.L3n4Addr]backendState{}
 	ops.backendReferences = map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{}
 	ops.wildcardReferences = map[netip.Addr][]loadbalancer.ServiceID{}
@@ -259,6 +274,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 		}
 		ops.backendIDAlloc.nextID = max(ops.backendIDAlloc.nextID, key.GetID()+1)
 	})
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeBackend, len(ops.restoredBackendIDs))
 	if err != nil {
 		return fmt.Errorf("restore backend ids: %w", err)
 	}
@@ -320,6 +336,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 			}
 		}
 	}
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
 	return nil
 }
 
@@ -616,7 +633,9 @@ func (ops *BPFOps) pruneBackendMaps() error {
 
 func (ops *BPFOps) pruneRestoredIDs() error {
 	ops.restoredServiceIDs = nil
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
 	ops.restoredBackendIDs = nil
+	ops.metrics.setIDMappingsPendingRestore(idAllocTypeBackend, len(ops.restoredBackendIDs))
 	return nil
 }
 
@@ -862,6 +881,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		feID = id
 		ops.serviceIDAlloc.addID(fe.Address, id)
 		delete(ops.restoredServiceIDs, fe.Address)
+		ops.metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
 	} else {
 		var err error
 		feID, err = ops.serviceIDAlloc.acquireLocalID(fe.Address)
@@ -955,6 +975,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 				beID = id
 				ops.backendIDAlloc.addID(be.Address, id)
 				delete(ops.restoredBackendIDs, be.Address)
+				ops.metrics.setIDMappingsPendingRestore(idAllocTypeBackend, len(ops.restoredBackendIDs))
 			} else {
 				var err error
 				beID, err = ops.backendIDAlloc.acquireLocalID(be.Address)
