@@ -256,6 +256,17 @@ func (n *linuxNodeHandler) unmapNodeID(ip string) error {
 		n.nodeIPsByIDs[id].Delete(ip)
 		if n.nodeIPsByIDs[id].Len() == 0 {
 			delete(n.nodeIPsByIDs, id)
+
+			// No IP references this ID anymore: return it to the free pool.
+			// Without this, an ID orphaned by a partial remap (e.g. the
+			// inconsistent-mapping recovery path in allocateIDForNode) is
+			// never freed, since deallocateNodeIDLocked - which does return
+			// IDs to the pool - is only reached via full node deletion.
+			if n.nodeIDs.Insert(idpool.ID(id)) {
+				n.log.Debug("Returned now-unused node ID to the pool",
+					logfields.NodeID, id,
+				)
+			}
 		}
 	}
 
