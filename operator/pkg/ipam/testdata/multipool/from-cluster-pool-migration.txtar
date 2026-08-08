@@ -57,7 +57,7 @@ spec:
     - 10.244.2.0/24
     - fd00::10/124
 -- custom-pool.yaml --
-apiVersion: cilium.io/v2alpha1
+apiVersion: cilium.io/v2
 kind: CiliumPodIPPool
 metadata:
   name: custom-pool

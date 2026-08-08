@@ -42,7 +42,7 @@ hive stop
 # ----
 
 -- ippool-green.yaml --
-apiVersion: cilium.io/v2alpha1
+apiVersion: cilium.io/v2
 kind: CiliumPodIPPool
 metadata:
   name: green-pool
@@ -53,7 +53,7 @@ spec:
     maskSize: 24
 
 -- ippool-red.yaml --
-apiVersion: cilium.io/v2alpha1
+apiVersion: cilium.io/v2
 kind: CiliumPodIPPool
 metadata:
   name: red-pool
@@ -64,7 +64,7 @@ spec:
     maskSize: 28
 
 -- ippool-blue.yaml --
-apiVersion: cilium.io/v2alpha1
+apiVersion: cilium.io/v2
 kind: CiliumPodIPPool
 metadata:
   name: blue-pool
