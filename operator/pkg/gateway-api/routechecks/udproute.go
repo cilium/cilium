@@ -24,7 +24,7 @@ type UDPRouteInput struct {
 	Ctx            context.Context
 	Logger         *slog.Logger
 	Client         client.Client
-	Grants         *gatewayv1.ReferenceGrantList
+	Grants         []gatewayv1.ReferenceGrant
 	UDPRoute       *gatewayv1.UDPRoute
 	ControllerName string
 
@@ -60,7 +60,7 @@ func (u *UDPRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReferenc
 }
 
 func (u *UDPRouteInput) GetGrants() []gatewayv1.ReferenceGrant {
-	return u.Grants.Items
+	return u.Grants
 }
 
 func (u *UDPRouteInput) GetNamespace() string {

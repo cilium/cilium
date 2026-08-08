@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,7 +41,8 @@ func newGatewayClassReconciler(mgr ctrl.Manager, logger *slog.Logger, controller
 // SetupWithManager sets up the controller with the Manager.
 func (r *gatewayClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		indexers.GatewayClassCiliumGatewayClassConfigsIndex: r.referencedConfig,
+		// Index GatewayClass objects by the referenced CiliumGatewayClassConfig.
+		indexers.GatewayClassCiliumGatewayClassConfigsIndex: indexers.IndexGatewayClassByCiliumGatewayClassConfig(gatewayv1.GatewayController(r.controllerName)),
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GatewayClass{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
@@ -54,39 +54,4 @@ func (r *gatewayClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(predicates.GatewayClassOwnedByController(r.controllerName))).
 		Watches(&v2alpha1.CiliumGatewayClassConfig{}, watchhandlers.EnqueueRequestForCiliumGatewayClassConfig(r.Client, r.logger)).
 		Complete(r)
-}
-
-func matchesControllerName(controllerName string) func(object client.Object) bool {
-	return func(object client.Object) bool {
-		gwc, ok := object.(*gatewayv1.GatewayClass)
-		if !ok {
-			return false
-		}
-		return string(gwc.Spec.ControllerName) == controllerName
-	}
-}
-
-// referencedConfig returns a list of CiliumGatewayClassConfig names referenced by the GatewayClass.
-func (r *gatewayClassReconciler) referencedConfig(rawObj client.Object) []string {
-	gwc, ok := rawObj.(*gatewayv1.GatewayClass)
-	if !ok {
-		return nil
-	}
-
-	if string(gwc.Spec.ControllerName) != r.controllerName {
-		return nil
-	}
-
-	if !isParameterRefSupported(gwc.Spec.ParametersRef) {
-		return nil
-	}
-
-	if gwc.Spec.ParametersRef.Namespace == nil {
-		return nil
-	}
-
-	return []string{types.NamespacedName{
-		Namespace: string(*gwc.Spec.ParametersRef.Namespace),
-		Name:      gwc.Spec.ParametersRef.Name,
-	}.String()}
 }

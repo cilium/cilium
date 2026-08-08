@@ -123,8 +123,8 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return controllerruntime.Fail(err)
 	}
 
-	httpRoutes := r.filterHTTPRoutesByService(ctx, originalSvc, httpRouteList.Items)
-	grpcRoutes := r.filterGRPCRoutesByService(ctx, originalSvc, grpcRouteList.Items)
+	httpRoutes := r.filterHTTPRoutesByService(originalSvc, httpRouteList.Items)
+	grpcRoutes := r.filterGRPCRoutesByService(originalSvc, grpcRouteList.Items)
 
 	// TODO(youngnick): GammaHTTPRoutes needs to be updated now that we have a source Service.
 	httpListeners := ingestion.GammaHTTPRoutes(r.logger, ingestion.GammaInput{
@@ -182,7 +182,7 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 			Ctx:            ctx,
 			Logger:         gammaLogger.With(httpRoute, hrName),
 			Client:         r.Client,
-			Grants:         grants,
+			Grants:         grants.Items,
 			HTTPRoute:      hr,
 			ControllerName: r.controllerName,
 		}
@@ -256,20 +256,20 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 	return nil
 }
 
-func (r *gammaReconciler) filterHTTPRoutesByService(ctx context.Context, gammaService *corev1.Service, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
+func (r *gammaReconciler) filterHTTPRoutesByService(gammaService *corev1.Service, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
 	var filtered []gatewayv1.HTTPRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(ctx, gammaService, &route, route.Status.Parents, nil) {
+		if helpers.IsParentAttachable(gammaService, &route, route.Status.Parents, nil) {
 			filtered = append(filtered, route)
 		}
 	}
 	return filtered
 }
 
-func (r *gammaReconciler) filterGRPCRoutesByService(ctx context.Context, gammaService *corev1.Service, routes []gatewayv1.GRPCRoute) []gatewayv1.GRPCRoute {
+func (r *gammaReconciler) filterGRPCRoutesByService(gammaService *corev1.Service, routes []gatewayv1.GRPCRoute) []gatewayv1.GRPCRoute {
 	var filtered []gatewayv1.GRPCRoute
 	for _, route := range routes {
-		if helpers.IsParentAttachable(ctx, gammaService, &route, route.Status.Parents, nil) {
+		if helpers.IsParentAttachable(gammaService, &route, route.Status.Parents, nil) {
 			filtered = append(filtered, route)
 		}
 	}
@@ -292,7 +292,7 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 			Ctx:            ctx,
 			Logger:         gammaLogger.With(grpcRoute, grpcName),
 			Client:         r.Client,
-			Grants:         grants,
+			Grants:         grants.Items,
 			GRPCRoute:      grpc,
 			ControllerName: r.controllerName,
 		}
