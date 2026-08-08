@@ -30,6 +30,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/envoy/config"
@@ -672,6 +673,7 @@ func newStandaloneTestPolicyRepo(t *testing.T, logger *slog.Logger, secretManage
 	idMgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(
 		logger,
+		cmtypes.DefaultClusterInfo.ID,
 		idCache,
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager),
