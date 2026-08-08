@@ -533,54 +533,10 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 	if (err < 0)
 		return err;
 
-	if (has_l4_header) {
-		struct csum_offset csum = {};
-
-		csum_l4_offset_and_flags(nexthdr, &csum);
-
-		if (old_port != new_port) {
-			switch (nexthdr) {
-			case IPPROTO_TCP:
-			case IPPROTO_UDP:
-				break;
-#ifdef ENABLE_SCTP
-			case IPPROTO_SCTP:
-				return DROP_CSUM_L4;
-#endif  /* ENABLE_SCTP */
-			case IPPROTO_ICMP:
-				/* Not initialized by csum_l4_offset_and_flags(), because ICMPv4
-				 * doesn't use a pseudo-header, and the change in IP addresses is
-				 * not supposed to change the L4 checksum.
-				 * Set it temporarily to amend the checksum after changing ports.
-				 */
-				csum.offset = offsetof(struct icmphdr, checksum);
-				break;
-			default:
-				return DROP_UNKNOWN_L4;
-			}
-
-			/* Amend the L4 checksum due to changing the ports. */
-			err = l4_modify_port(ctx, l4_off, port_off, &csum, new_port, old_port);
-			if (err < 0)
-				return err;
-
-			/* Restore the original offset. */
-			if (nexthdr == IPPROTO_ICMP)
-				csum.offset = 0;
-		}
-
-		/* Amend the L4 checksum due to changing the addresses. */
-		if (csum.offset &&
-		    csum_l4_replace(ctx, l4_off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-			return DROP_CSUM_L4;
-
-		/* Apply additional L4 checksum diff if provided (for ICMP error messages). */
-		if (l4_csum_diff_from_inner && !csum.offset) {
-			csum.offset = offsetof(struct icmphdr, checksum);
-			if (csum_l4_replace(ctx, l4_off, &csum, 0, l4_csum_diff_from_inner, 0) < 0)
-				return DROP_CSUM_L4;
-		}
-	}
+	if (has_l4_header)
+		return l4_rewrite_port_and_csum(ctx, nexthdr, l4_off, port_off,
+						old_port, new_port, sum,
+						l4_csum_diff_from_inner);
 
 	return 0;
 }
@@ -1675,7 +1631,6 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 			const union v6addr *new_addr, __u16 addr_off,
 			__be16 old_port, __be16 new_port, __u16 port_off)
 {
-	struct csum_offset csum = {};
 	__wsum sum;
 	int err;
 
@@ -1687,34 +1642,9 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 	if (err < 0)
 		return err;
 
-	if (!has_l4_header)
-		return 0;
-
-	csum_l4_offset_and_flags(nexthdr, &csum);
-
-	if (old_port != new_port) {
-		switch (nexthdr) {
-		case IPPROTO_TCP:
-		case IPPROTO_UDP:
-		case IPPROTO_ICMPV6:
-			break;
-#ifdef ENABLE_SCTP
-		case IPPROTO_SCTP:
-			return DROP_CSUM_L4;
-#endif  /* ENABLE_SCTP */
-		default:
-			return DROP_UNKNOWN_L4;
-		}
-
-		/* Amend the L4 checksum due to changing the ports. */
-		err = l4_modify_port(ctx, l4_off, port_off, &csum, new_port, old_port);
-		if (err < 0)
-			return err;
-	}
-
-	if (csum.offset &&
-	    csum_l4_replace(ctx, l4_off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-		return DROP_CSUM_L4;
+	if (has_l4_header)
+		return l4_rewrite_port_and_csum(ctx, nexthdr, l4_off, port_off,
+						old_port, new_port, sum, 0);
 
 	return 0;
 }
