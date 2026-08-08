@@ -145,6 +145,27 @@ underlying Linux kernel support is missing.
 By default, Helm sets ``kubeProxyReplacement=false``, which only enables
 per-packet in-cluster load-balancing of ClusterIP services.
 
+.. note::
+
+   On hosts running both Kubernetes and Docker, a Service may use a backend that
+   is an unpublished Docker container. In this setup, ClusterIP translation is
+   performed by Cilium in the eBPF datapath before the packet reaches netfilter.
+   As a result, the packet can arrive at Docker's ``raw/PREROUTING`` rules
+   already addressed to the backend container.
+
+   In this case, Docker's per-container ``raw`` protection may drop the packet
+   before it reaches ``DOCKER-USER``. Any allow rule placed in
+   ``DOCKER-USER`` therefore has no effect for this traffic.
+
+   A simple way to verify this behaviour is to compare packet counters while
+   attempting a connection from a pod. If Docker's ``raw`` DROP rule increases
+   while the kube-proxy service chains (``KUBE-SVC`` / ``KUBE-SEP``) remain
+   unchanged, the packet is being dropped before it reaches the expected
+   netfilter path.
+
+   If this communication is intentional, allow only the specific traffic
+   required by adding a narrowly scoped rule in the ``raw`` table.
+
 Cilium's eBPF kube-proxy replacement is supported in direct routing as well as in
 tunneling mode.
 
