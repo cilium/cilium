@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
@@ -79,7 +80,7 @@ func newTestData(tb testing.TB, logger *slog.Logger) *testData {
 		identityManager:   idMgr,
 		sc:                testNewSelectorCache(tb, logger, nil),
 		subjectSc:         testNewSelectorCache(tb, logger, nil),
-		repo:              NewPolicyRepository(logger, nil, &testcertificatemanager.Fake{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
+		repo:              NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, &testcertificatemanager.Fake{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
 		idSet:             set.NewSet[identity.NumericIdentity](),
 		testPolicyContext: &testPolicyContextType{logger: logger},
 	}

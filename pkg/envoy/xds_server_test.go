@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -1452,6 +1453,7 @@ func TestCNPWildcardPortListenerRedirectToEnvoy(t *testing.T) {
 	idMgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(
 		logger,
+		cmtypes.DefaultClusterInfo.ID,
 		identity.IdentityMap{localIdentity.ID: localIdentity.LabelArray},
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()),
@@ -2580,6 +2582,7 @@ func newTestEndpointPolicy(t *testing.T, ep *listenerProxyUpdaterMock) (*policy.
 	idMgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(
 		logger,
+		cmtypes.DefaultClusterInfo.ID,
 		identity.IdentityMap{localIdentity.ID: localIdentity.LabelArray},
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()),

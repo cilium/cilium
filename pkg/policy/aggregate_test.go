@@ -11,14 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestAllAggregates(t *testing.T) {
 	// Validate that the aggregates evaluate to themselves:
 
 	for _, nid := range AllAggregates {
-		require.True(t, isAggregate(nid))
+		require.True(t, isAggregate(nid, 0))
 	}
 
 	c := identity.ReservedIdentityAggregateCluster
@@ -36,14 +35,14 @@ func TestAllAggregates(t *testing.T) {
 		// duplicate of AllAggregates for efficiency.
 		switch nid {
 		case 0, c, m, n, w:
-			require.True(t, isAggregate(nid))
+			require.True(t, isAggregate(nid, 0))
 		default:
-			require.False(t, isAggregate(nid))
+			require.False(t, isAggregate(nid, 0))
 		}
 
 		if writeOutput {
 			expectedIn = append(expectedIn, nid)
-			expectedOut = append(expectedOut, aggregateFor(nid))
+			expectedOut = append(expectedOut, aggregateFor(nid, 0))
 		}
 	}
 
@@ -93,12 +92,6 @@ func writeCArray(path string, nids []identity.NumericIdentity) error {
 }
 
 func TestIsAggregate(t *testing.T) {
-	oldCid := option.Config.ClusterID
-	t.Cleanup(func() {
-		option.Config.ClusterID = oldCid
-	})
-	option.Config.ClusterID = 0
-
 	// save typing
 	w := identity.ReservedIdentityAggregateWorld
 	n := identity.ReservedIdentityAggregateRemoteNode
@@ -122,10 +115,8 @@ func TestIsAggregate(t *testing.T) {
 		{identity.IdentityScopeRemoteNode, n},
 		{identity.IdentityScopeRemoteNode + 100, n},
 	} {
-		require.Equal(t, tc.out, aggregateFor(tc.in), "index %d ID %d", i, tc.in)
+		require.Equal(t, tc.out, aggregateFor(tc.in, 0), "index %d ID %d", i, tc.in)
 	}
-
-	option.Config.ClusterID = 1
 
 	for i, tc := range []struct {
 		in, out identity.NumericIdentity
@@ -146,6 +137,6 @@ func TestIsAggregate(t *testing.T) {
 		{identity.IdentityScopeRemoteNode, n},
 		{identity.IdentityScopeRemoteNode + 100, n},
 	} {
-		require.Equal(t, tc.out, aggregateFor(tc.in), "cluster ID 1, index %d ID %d", i, tc.in)
+		require.Equal(t, tc.out, aggregateFor(tc.in, 1), "cluster ID 1, index %d ID %d", i, tc.in)
 	}
 }

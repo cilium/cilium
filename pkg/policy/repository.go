@@ -68,7 +68,8 @@ type PolicyRepository interface {
 // Repository is a list of policy rules which in combination form the security
 // policy. A policy repository can be
 type Repository struct {
-	logger *slog.Logger
+	logger         *slog.Logger
+	localClusterID uint32
 	// mutex protects the whole policy tree
 	mutex lock.RWMutex
 
@@ -119,6 +120,7 @@ func (p *Repository) GetSubjectSelectorCache() *SelectorCache {
 // NewPolicyRepository creates a new policy repository.
 func NewPolicyRepository(
 	logger *slog.Logger,
+	localClusterID uint32,
 	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator,
@@ -130,6 +132,7 @@ func NewPolicyRepository(
 	repo := &Repository{
 		logger:               logger,
 		rules:                make(map[ruleKey]*rule),
+		localClusterID:       localClusterID,
 		rulesByNamespace:     make(map[string]sets.Set[ruleKey]),
 		rulesByResource:      make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
 		selectorCache:        selectorCache,
@@ -339,6 +342,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
+		localClusterID:       p.localClusterID,
 		SelectorCache:        sc,
 		namedPortsGetter:     p.namedPortsGetter,
 		L4Policy:             NewL4Policy(p.GetRevision()),
@@ -715,6 +719,7 @@ func (p *Repository) Snapshot(logger *slog.Logger, cm certificatemanager.Certifi
 
 	out := NewPolicyRepository(
 		logger,
+		p.localClusterID,
 		ids,
 		cm,
 		rt,

@@ -55,6 +55,7 @@ type PolicyWatcherParams struct {
 	ClientSet               client.Clientset
 	Config                  *option.DaemonConfig
 	ClusterMeshPolicyConfig cmtypes.PolicyConfig
+	ClusterInfo             cmtypes.ClusterInfo
 	Logger                  *slog.Logger
 
 	K8sResourceSynced *synced.Resources
@@ -89,6 +90,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		log:                              params.Logger,
 		config:                           params.Config,
 		clusterMeshPolicyConfig:          params.ClusterMeshPolicyConfig,
+		clusterInfo:                      params.ClusterInfo,
 		policyImporter:                   params.PolicyImporter,
 		k8sResourceSynced:                params.K8sResourceSynced,
 		k8sAPIGroups:                     params.K8sAPIGroups,

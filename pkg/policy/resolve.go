@@ -189,6 +189,8 @@ type NamedPortsGetter interface {
 // particular Identity across all layers (L3, L4, and L7), with the policy
 // still determined in terms of EndpointSelectors.
 type selectorPolicy struct {
+	localClusterID uint32
+
 	// Revision is the revision of the policy repository used to generate
 	// this selectorPolicy.
 	Revision uint64
@@ -416,7 +418,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 		calculatedPolicy = &EndpointPolicy{
 			SelectorPolicy: p,
 			selectors:      selectors,
-			policyMapState: newMapState(logger, policyOwner.PreviousMapState(), features),
+			policyMapState: newMapState(logger, policyOwner.PreviousMapState(), features, p.localClusterID),
 			policyMapChanges: MapChanges{
 				logger:   logger,
 				firstRev: selectors.Revision,

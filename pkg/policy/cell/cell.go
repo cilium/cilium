@@ -87,6 +87,7 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 	// cache of label selector -> identities for policy peers.
 	policyRepo := policy.NewPolicyRepository(
 		params.Logger,
+		params.ClusterInfo.ID,
 		identity.ListReservedIdentities(), // Load SelectorCache with reserved identities
 		params.CertManager,
 		params.L7RulesTranslator,
