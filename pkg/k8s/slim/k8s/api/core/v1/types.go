@@ -306,12 +306,6 @@ const (
 	TaintEffectNoExecute TaintEffect = "NoExecute"
 )
 
-// PodReadinessGate contains the reference to a pod condition
-type PodReadinessGate struct {
-	// ConditionType refers to a condition in the pod's condition list with matching type.
-	ConditionType PodConditionType `json:"conditionType" protobuf:"bytes,1,opt,name=conditionType,casttype=PodConditionType"`
-}
-
 // PodSpec is a description of a pod.
 type PodSpec struct {
 	// List of initialization containers belonging to the pod.
@@ -1261,35 +1255,6 @@ type NamespaceList struct {
 	// Items is the list of Namespace objects in the list.
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
 	Items []Namespace `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
-// TypedLocalObjectReference contains enough information to let you locate the
-// typed referenced object inside the same namespace.
-// ---
-// New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.
-//  1. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular
-//     restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".
-//     Those cannot be well described when embedded.
-//  2. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.
-//  3. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity
-//     during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple
-//     and the version of the actual struct is irrelevant.
-//  4. We cannot easily change it.  Because this type is embedded in many locations, updates to this type
-//     will affect numerous schemas.  Don't make new APIs embed an underspecified API type they do not control.
-//
-// Instead of using this type, create a locally provided and used type that is well-focused on your reference.
-// For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .
-// +structType=atomic
-type TypedLocalObjectReference struct {
-	// APIGroup is the group for the resource being referenced.
-	// If APIGroup is not specified, the specified Kind must be in the core API group.
-	// For any other third-party types, APIGroup is required.
-	// +optional
-	APIGroup *string `json:"apiGroup" protobuf:"bytes,1,opt,name=apiGroup"`
-	// Kind is the type of resource being referenced
-	Kind string `json:"kind" protobuf:"bytes,2,opt,name=kind"`
-	// Name is the name of resource being referenced
-	Name string `json:"name" protobuf:"bytes,3,opt,name=name"`
 }
 
 // Bytes type is used to avoid issue with deepequal
