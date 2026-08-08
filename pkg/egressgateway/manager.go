@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net/netip"
 	"slices"
@@ -68,6 +69,7 @@ const (
 	eventDeleteEndpoint
 	eventUpdateNode
 	eventDeleteNode
+	eventUpdateDevices
 )
 
 type Config struct {
@@ -265,6 +267,9 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 			wg.Go(func() {
 				manager.processEvents(ctx)
 			})
+			wg.Go(func() {
+				manager.processDeviceEvents(ctx)
+			})
 
 			return nil
 		},
@@ -398,6 +403,61 @@ func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy]) {
 	case resource.Delete:
 		manager.onDeleteEgressPolicy(event.Object)
 		event.Done(nil)
+	}
+}
+
+// processDeviceEvents watches the device statedb table and triggers a
+// reconciliation whenever a local interface or one of its addresses is
+// added, modified or removed. This is what allows a CEGP to heal
+// automatically when its egress IP appears, disappears, or moves between
+// interfaces without requiring any CEGP / CiliumNode update to occur.
+//
+// The reconciliationTrigger already coalesces bursts via
+// reconciliationTriggerInterval, so a flurry of address add/del events will
+// not cause reconcile storms.
+func (manager *Manager) processDeviceEvents(ctx context.Context) {
+	if manager.db == nil || manager.deviceTable == nil {
+		return
+	}
+
+	wtxn := manager.db.WriteTxn(manager.deviceTable)
+	changeIter, err := manager.deviceTable.Changes(wtxn)
+	wtxn.Commit()
+	if err != nil {
+		manager.logger.Error(
+			"Failed to subscribe to device table changes; egress gateway will not react to local interface or address changes",
+			logfields.Error, err,
+		)
+		return
+	}
+
+	// Drain the initial snapshot without triggering reconciles: the initial
+	// reconciliation is already driven by k8s sync. After this loop, the
+	// watch channel will only fire on subsequent changes.
+	_, watch := changeIter.Next(manager.db.ReadTxn())
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-watch:
+		}
+
+		var changed bool
+		var changes iter.Seq2[statedb.Change[*tables.Device], statedb.Revision]
+		changes, watch = changeIter.Next(manager.db.ReadTxn())
+		for range changes {
+			changed = true
+		}
+
+		if !changed {
+			continue
+		}
+
+		manager.Lock()
+		manager.setEventBitmap(eventUpdateDevices)
+		manager.Unlock()
+		manager.reconciliationTrigger.TriggerWithReason("devices updated")
 	}
 }
 
@@ -810,7 +870,7 @@ func (manager *Manager) reconcileLocked() {
 		manager.updatePoliciesMatchedEndpointIDs()
 	}
 
-	if manager.eventBitmapIsSet(eventK8sSyncDone, eventAddPolicy, eventDeletePolicy, eventUpdateNode, eventDeleteNode) {
+	if manager.eventBitmapIsSet(eventK8sSyncDone, eventAddPolicy, eventDeletePolicy, eventUpdateNode, eventDeleteNode, eventUpdateDevices) {
 		manager.regenerateGatewayConfigs()
 
 		// Sysctl updates are handled by a reconciler, with the initial update attempting to wait some time
