@@ -17,9 +17,11 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
+	loadertypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -57,6 +59,14 @@ type Controller struct {
 	// BGPMgr is an implementation of the BGPRouterManager interface
 	// and provides a declarative API for configuring BGP peers.
 	BGPMgr BGPRouterManager
+
+	// Loader is used to wait for host datapath initialization before
+	// allowing BGP route announcements.
+	Loader loadertypes.Loader
+
+	// LBInitWait is called to wait for the initial load-balancing state to be
+	// reconciled to BPF maps before allowing BGP route announcements.
+	LBInitWait loadbalancer.InitWaitFunc
 }
 
 // ControllerParams contains all parameters needed to construct a Controller
@@ -73,6 +83,8 @@ type ControllerParams struct {
 	BGPNodeConfigStore      store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig]
 	DaemonConfig            *option.DaemonConfig
 	LocalCiliumNodeResource daemon_k8s.LocalCiliumNodeResource
+	Loader                  loadertypes.Loader
+	LBInitWait              loadbalancer.InitWaitFunc
 }
 
 // NewController constructs a new BGP Control Plane Controller.
@@ -96,6 +108,8 @@ func NewController(params ControllerParams) (*Controller, error) {
 		BGPMgr:             params.RouteMgr,
 		BGPNodeConfigStore: params.BGPNodeConfigStore,
 		CiliumNodeResource: params.LocalCiliumNodeResource,
+		Loader:             params.Loader,
+		LBInitWait:         params.LBInitWait,
 	}
 
 	params.JobGroup.Add(
@@ -122,6 +136,28 @@ func (c *Controller) Run(ctx context.Context) {
 	scopedLog := c.Logger.With(types.ComponentLogField, "Controller.Run")
 
 	scopedLog.Info("Cilium BGP Control Plane Controller now running...")
+
+	// Wait for bpf_host.c to be attached to native devices before processing
+	// any BGP events. Without this gate, BGP may advertise routes before the
+	// DNAT programs are in place, causing a "No route to host" window.
+	scopedLog.Info("BGP Control Plane waiting for host datapath initialization")
+	select {
+	case <-c.Loader.HostDatapathInitialized():
+		scopedLog.Info("BGP Control Plane host datapath ready")
+	case <-ctx.Done():
+		return
+	}
+
+	// Wait for the initial load-balancing state to be reconciled to BPF maps.
+	// This ensures the service map is populated before BGP announces routes,
+	// preventing a window where traffic is forwarded to nodes whose service
+	// BPF programs are not yet ready to handle it.
+	scopedLog.Info("BGP Control Plane waiting for load-balancing state initialization")
+	if err := c.LBInitWait(ctx); err != nil {
+		return
+	}
+	scopedLog.Info("BGP Control Plane load-balancing state ready, starting event processing")
+
 	ciliumNodeCh := c.CiliumNodeResource.Events(ctx)
 	for {
 		select {
