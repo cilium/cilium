@@ -184,14 +184,6 @@ func (in *EndpointPort) DeepEqual(other *EndpointPort) bool {
 		}
 	}
 
-	if (in.AppProtocol == nil) != (other.AppProtocol == nil) {
-		return false
-	} else if in.AppProtocol != nil {
-		if *in.AppProtocol != *other.AppProtocol {
-			return false
-		}
-	}
-
 	return true
 }
 
