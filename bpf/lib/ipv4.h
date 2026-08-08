@@ -52,6 +52,27 @@ ipv4_csum_update_by_diff(struct __ctx_buff *ctx, int l3_off, __u64 diff)
 			       0, (__u32)diff, 0);
 }
 
+/**
+ * Rewrite the L3 address at addr_off and amend the L3 checksum accordingly.
+ * @arg sum: set to the checksum diff of the change, for the caller to fold
+ *      into any paired L4 pseudo-header checksum update.
+ *
+ * Return 0 on success or a negative DROP_* reason
+ */
+static __always_inline int
+ipv4_l3_rewrite_addr(struct __ctx_buff *ctx, int l3_off, __u16 addr_off,
+		     __be32 old_addr, __be32 new_addr, __wsum *sum)
+{
+	*sum = csum_diff(&old_addr, 4, &new_addr, 4, 0);
+	if (ctx_store_bytes(ctx, l3_off + addr_off, &new_addr, 4, 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	if (ipv4_csum_update_by_diff(ctx, l3_off, *sum) < 0)
+		return DROP_CSUM_L3;
+
+	return 0;
+}
+
 static __always_inline int ipv4_load_daddr(const struct __ctx_buff *ctx, int off,
 					   __u32 *dst)
 {
