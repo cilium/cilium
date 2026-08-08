@@ -1,0 +1,41 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideEnvoyConfig
+metadata:
+  name: add-header-config
+  annotations:
+    # For pod-originated egress redirects: Envoy uses its own source address
+    # for the upstream connection instead of the pod's source address.
+    cec.cilium.io/use-original-source-address: "false"
+spec:
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: add-header-listener
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: add-header-listener
+                route_config:
+                  name: add_header_route
+                  request_headers_to_add:
+                    - header:
+                        key: X-Request-Source
+                        value: cilium
+                  virtual_hosts:
+                    - name: add_header_vhost
+                      domains: ["*"]
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: original-dst-cluster
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      name: original-dst-cluster
+      type: ORIGINAL_DST
+      connect_timeout: 5s
+      lb_policy: CLUSTER_PROVIDED

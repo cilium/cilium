@@ -1,0 +1,20 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "redirect-http-to-envoy"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: myService
+  egress:
+    - toFQDNs:
+        - matchName: "example.com"
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+          listener:
+            envoyConfig:
+              kind: CiliumClusterwideEnvoyConfig
+              name: add-header-config
+            name: add-header-listener
