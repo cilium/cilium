@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -57,7 +58,7 @@ func TestEgressNamedPortToMapStateUnion(t *testing.T) {
 	epPolicy := &EndpointPolicy{
 		SelectorPolicy: &selectorPolicy{namedPortsGetter: testNamedPortsGetter{npm: namedPorts}},
 		PolicyOwner:    owner,
-		policyMapState: newMapState(logger, nil, namedPortRules),
+		policyMapState: newMapState(logger, nil, namedPortRules, cmtypes.DefaultClusterInfo.ID),
 		selectors:      types.MockSelectorSnapshot(),
 	}
 	filter := &L4Filter{
@@ -113,7 +114,7 @@ func TestEgressNamedPortWildcardOptimization(t *testing.T) {
 		epPolicy := &EndpointPolicy{
 			SelectorPolicy: &selectorPolicy{namedPortsGetter: testNamedPortsGetter{npm: namedPorts}},
 			PolicyOwner:    owner,
-			policyMapState: newMapState(logger, nil, namedPortRules),
+			policyMapState: newMapState(logger, nil, namedPortRules, cmtypes.DefaultClusterInfo.ID),
 			selectors:      types.MockSelectorSnapshot(),
 		}
 
@@ -139,7 +140,7 @@ func TestEgressNamedPortWildcardOptimization(t *testing.T) {
 		epPolicy := &EndpointPolicy{
 			SelectorPolicy: &selectorPolicy{namedPortsGetter: testNamedPortsGetter{npm: namedPorts}},
 			PolicyOwner:    owner,
-			policyMapState: newMapState(logger, nil, namedPortRules),
+			policyMapState: newMapState(logger, nil, namedPortRules, cmtypes.DefaultClusterInfo.ID),
 			selectors:      types.MockSelectorSnapshot(),
 		}
 
@@ -163,7 +164,7 @@ func TestNamedPortRulesDeleteByID(t *testing.T) {
 	logger := hivetest.Logger(t)
 	epPolicy := &EndpointPolicy{
 		PolicyOwner:    DummyOwner{logger: logger},
-		policyMapState: newMapState(logger, nil, namedPortRules),
+		policyMapState: newMapState(logger, nil, namedPortRules, cmtypes.DefaultClusterInfo.ID),
 	}
 	require.NotNil(t, epPolicy.policyMapState.byId)
 
@@ -783,7 +784,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 // it is released, even after all current users have been removed.
 func TestHoldPreventsDetach(t *testing.T) {
 	logger := hivetest.Logger(t)
-	repo := NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	repo.revision.Store(1)
 
 	ep := testutils.NewTestEndpoint(t)
@@ -824,7 +825,7 @@ func TestHoldPreventsDetach(t *testing.T) {
 // a policy that is being replaced.
 func TestAddHoldRejectsDetached(t *testing.T) {
 	logger := hivetest.Logger(t)
-	repo := NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	repo.revision.Store(1)
 
 	ep := testutils.NewTestEndpoint(t)

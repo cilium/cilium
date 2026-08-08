@@ -140,7 +140,7 @@ func testNewPolicyRepository(t *testing.T, initialIDs []*identity.Identity) (ide
 	}
 	logger := hivetest.Logger(t)
 	idManager := identitymanager.NewIDManager(logger)
-	repo := policy.NewPolicyRepository(logger, idmap, nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, idmap, nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	idManager.Subscribe(testpolicy.SelectorCacheObserver{Cache: repo.GetSubjectSelectorCache()})
 	return idManager, repo
