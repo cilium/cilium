@@ -1,0 +1,176 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: ciliumenvoyextprocfilters.cilium.io
+spec:
+  group: cilium.io
+  names:
+    categories:
+    - cilium
+    kind: CiliumEnvoyExtProcFilter
+    listKind: CiliumEnvoyExtProcFilterList
+    plural: ciliumenvoyextprocfilters
+    shortNames:
+    - ceepf
+    singular: ciliumenvoyextprocfilter
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          CiliumEnvoyExtProcFilter defines an Envoy ext_proc filter that can be
+          referenced by Gateway API HTTPRoute or GRPCRoute ExtensionRef filters.
+          It specifies an external gRPC processing service that will be inserted
+          into the Envoy HTTP filter chain for matching routes.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired ext_proc filter configuration.
+            properties:
+              backendRef:
+                description: |-
+                  BackendRef is a reference to the Kubernetes Service that implements
+                  the ext_proc gRPC protocol. The service must expose a gRPC endpoint
+                  compatible with the Envoy ext_proc API.
+
+                  Cross-namespace references require a ReferenceGrant in the target
+                  namespace.
+                properties:
+                  name:
+                    description: |-
+                      Name is the name of the Kubernetes Service. Must be a valid RFC 1123
+                      label (lowercase alphanumeric characters or '-', starting and ending
+                      with an alphanumeric character, up to 63 characters).
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace is the namespace of the Service. When unspecified, the
+                      namespace of the CiliumEnvoyExtProcFilter resource is used.
+
+                      Cross-namespace references require a ReferenceGrant.
+                    type: string
+                  port:
+                    description: |-
+                      Port is the port number on the Service to connect to for the ext_proc
+                      gRPC service.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                required:
+                - name
+                - port
+                type: object
+              failureModeAllow:
+                description: |-
+                  FailureModeAllow determines behavior when the ext_proc service is
+                  unavailable. If false (the default), requests fail with an error when
+                  the ext_proc service cannot be reached. If true, requests proceed
+                  without external processing.
+                type: boolean
+              messageTimeout:
+                description: |-
+                  MessageTimeout is the timeout for an individual message exchange with
+                  the ext_proc service. If not specified, Envoy's default of 200ms is
+                  used.
+                type: string
+              processingMode:
+                description: |-
+                  ProcessingMode determines which parts of the HTTP request and response
+                  are sent to the ext_proc service for processing.
+
+                  If not specified, Envoy defaults apply: request and response headers
+                  are sent, bodies and trailers are not.
+                properties:
+                  requestBodyMode:
+                    description: |-
+                      RequestBodyMode determines how request bodies are handled.
+                      Valid values are "NONE", "STREAMED", "BUFFERED", and "BUFFERED_PARTIAL".
+                      Default is "NONE".
+                    enum:
+                    - NONE
+                    - STREAMED
+                    - BUFFERED
+                    - BUFFERED_PARTIAL
+                    type: string
+                  requestHeaderMode:
+                    description: |-
+                      RequestHeaderMode determines how request headers are handled.
+                      Valid values are "SEND" and "SKIP". Default is "SEND".
+                    enum:
+                    - SEND
+                    - SKIP
+                    type: string
+                  requestTrailerMode:
+                    description: |-
+                      RequestTrailerMode determines how request trailers are handled.
+                      Valid values are "SEND" and "SKIP". Default is "SKIP".
+                    enum:
+                    - SEND
+                    - SKIP
+                    type: string
+                  responseBodyMode:
+                    description: |-
+                      ResponseBodyMode determines how response bodies are handled.
+                      Valid values are "NONE", "STREAMED", "BUFFERED", and "BUFFERED_PARTIAL".
+                      Default is "NONE".
+                    enum:
+                    - NONE
+                    - STREAMED
+                    - BUFFERED
+                    - BUFFERED_PARTIAL
+                    type: string
+                  responseHeaderMode:
+                    description: |-
+                      ResponseHeaderMode determines how response headers are handled.
+                      Valid values are "SEND" and "SKIP". Default is "SEND".
+                    enum:
+                    - SEND
+                    - SKIP
+                    type: string
+                  responseTrailerMode:
+                    description: |-
+                      ResponseTrailerMode determines how response trailers are handled.
+                      Valid values are "SEND" and "SKIP". Default is "SKIP".
+                    enum:
+                    - SEND
+                    - SKIP
+                    type: string
+                type: object
+            required:
+            - backendRef
+            type: object
+        required:
+        - metadata
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}

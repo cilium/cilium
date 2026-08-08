@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -879,5 +880,85 @@ func Test_getUniqueAuthFilters(t *testing.T) {
 		}}}}
 		result := i.getUniqueAuthFilters(m)
 		require.Len(t, result, 1)
+	})
+}
+
+func Test_getUniqueExtProcFilters_conflictResolution(t *testing.T) {
+	i := &cecTranslator{}
+
+	// Helpers to build a named ExtensionRefFilter with full provenance.
+	makeFilter := func(name, routeNS, routeName string, ts time.Time, idx int) model.ExtensionRefFilter {
+		return model.ExtensionRefFilter{
+			Name:                         name,
+			TypeURL:                      "type.googleapis.com/test.Filter",
+			SourceRouteNamespace:         routeNS,
+			SourceRouteName:              routeName,
+			SourceRouteCreationTimestamp: ts,
+			SourceRouteFilterIndex:       idx,
+		}
+	}
+
+	old := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	new_ := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	t.Run("oldest route wins when filters appear in opposite order", func(t *testing.T) {
+		// Older route declares [alpha, beta]; newer declares [beta, alpha].
+		// Expected result: alpha then beta (oldest route order).
+		m := &model.Model{HTTP: []model.HTTPListener{{
+			Routes: []model.HTTPRoute{
+				{ExtensionRefFilters: []model.ExtensionRefFilter{
+					makeFilter("alpha", "default", "old-route", old, 0),
+					makeFilter("beta", "default", "old-route", old, 1),
+				}},
+				{ExtensionRefFilters: []model.ExtensionRefFilter{
+					makeFilter("beta", "default", "new-route", new_, 0),
+					makeFilter("alpha", "default", "new-route", new_, 1),
+				}},
+			},
+		}}}
+		result := i.getUniqueExtProcFilters(m)
+		require.Len(t, result, 2)
+		require.Equal(t, "alpha", result[0].Name)
+		require.Equal(t, "beta", result[1].Name)
+	})
+
+	t.Run("alphabetic namespace/name tiebreak on equal creationTimestamp", func(t *testing.T) {
+		// Two routes with identical timestamps; route in namespace "aaa" wins over "zzz".
+		// aaa/route declares [beta, alpha]; zzz/route declares [alpha, beta].
+		// Expected: beta then alpha (aaa/route order).
+		ts := old
+		m := &model.Model{HTTP: []model.HTTPListener{{
+			Routes: []model.HTTPRoute{
+				{ExtensionRefFilters: []model.ExtensionRefFilter{
+					makeFilter("beta", "aaa", "route", ts, 0),
+					makeFilter("alpha", "aaa", "route", ts, 1),
+				}},
+				{ExtensionRefFilters: []model.ExtensionRefFilter{
+					makeFilter("alpha", "zzz", "route", ts, 0),
+					makeFilter("beta", "zzz", "route", ts, 1),
+				}},
+			},
+		}}}
+		result := i.getUniqueExtProcFilters(m)
+		require.Len(t, result, 2)
+		require.Equal(t, "beta", result[0].Name)
+		require.Equal(t, "alpha", result[1].Name)
+	})
+
+	t.Run("duplicate references from different routes collapse to one", func(t *testing.T) {
+		// Two routes both reference the same filter; it must appear exactly once.
+		m := &model.Model{HTTP: []model.HTTPListener{{
+			Routes: []model.HTTPRoute{
+				{ExtensionRefFilters: []model.ExtensionRefFilter{
+					makeFilter("shared", "default", "route-a", old, 0),
+				}},
+				{ExtensionRefFilters: []model.ExtensionRefFilter{
+					makeFilter("shared", "default", "route-b", new_, 0),
+				}},
+			},
+		}}}
+		result := i.getUniqueExtProcFilters(m)
+		require.Len(t, result, 1)
+		require.Equal(t, "shared", result[0].Name)
 	})
 }

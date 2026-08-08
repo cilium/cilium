@@ -37,6 +37,14 @@ type CiliumDatapathPluginListerExpansion interface{}
 // CiliumEndpointSliceLister.
 type CiliumEndpointSliceListerExpansion interface{}
 
+// CiliumEnvoyExtProcFilterListerExpansion allows custom methods to be added to
+// CiliumEnvoyExtProcFilterLister.
+type CiliumEnvoyExtProcFilterListerExpansion interface{}
+
+// CiliumEnvoyExtProcFilterNamespaceListerExpansion allows custom methods to be added to
+// CiliumEnvoyExtProcFilterNamespaceLister.
+type CiliumEnvoyExtProcFilterNamespaceListerExpansion interface{}
+
 // CiliumGatewayClassConfigListerExpansion allows custom methods to be added to
 // CiliumGatewayClassConfigLister.
 type CiliumGatewayClassConfigListerExpansion interface{}

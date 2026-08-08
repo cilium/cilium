@@ -85,4 +85,12 @@ const (
 
 	// Indexes UDPRoutes by all the ListenerSet parents referenced in the object.
 	UDPRouteListenerSetIndex = "listenerSetUDPRouteIndex"
+
+	// Indexes HTTPRoutes by all the CiliumEnvoyExtProcFilters referenced via
+	// ExtensionRef filters.
+	ExtProcFilterHTTPRouteIndex = "extProcFilterHTTPRouteIndex"
+
+	// Indexes GRPCRoutes by all the CiliumEnvoyExtProcFilters referenced via
+	// ExtensionRef filters.
+	ExtProcFilterGRPCRouteIndex = "extProcFilterGRPCRouteIndex"
 )

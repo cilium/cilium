@@ -405,6 +405,25 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 		}
 	}
 
+	// Also include ExtensionRef filter backends (e.g. ext_proc services)
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			for _, cf := range r.ExtensionRefFilters {
+				if cf.Backend != nil {
+					namePortMap, exist := namespaceNamePortMap[cf.Backend.Namespace]
+					if exist {
+						namePortMap[cf.Backend.Name] = slices.SortedUnique(append(namePortMap[cf.Backend.Name], cf.Backend.Port.GetPort()))
+					} else {
+						namePortMap = map[string][]string{
+							cf.Backend.Name: {cf.Backend.Port.GetPort()},
+						}
+						namespaceNamePortMap[cf.Backend.Namespace] = namePortMap
+					}
+				}
+			}
+		}
+	}
+
 	return namespaceNamePortMap
 }
 
@@ -425,6 +444,55 @@ func (i *cecTranslator) getUniqueAuthFilters(m *model.Model) []*model.HTTPExtern
 				seen[key] = struct{}{}
 				result = append(result, r.ExternalAuth)
 			}
+		}
+	}
+	return result
+}
+
+// getUniqueExtProcFilters returns a deduplicated, deterministically ordered list
+// of ExtensionRefFilter from all routes in the model.
+//
+// When multiple routes reference the same filter, or when routes disagree on the
+// relative ordering of filters, the result follows Gateway API precedence:
+// oldest route by creationTimestamp wins; ties are broken alphabetically by
+// namespace then name; within a route, the original declaration order is kept.
+//
+// Deduplication keeps the first (highest-precedence) occurrence of each filter
+// name so that each ext_proc instance appears exactly once in the HCM chain.
+//
+// TODO: surface ordering conflicts on the losing route via
+// RouteConditionAccepted=Unknown with reason OrderingConflict.
+func (i *cecTranslator) getUniqueExtProcFilters(m *model.Model) []model.ExtensionRefFilter {
+	var all []model.ExtensionRefFilter
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			all = append(all, r.ExtensionRefFilters...)
+		}
+	}
+
+	// Sort by (creationTimestamp asc, namespace asc, name asc, index asc) so
+	// that the oldest route's ordering wins on conflict.
+	sort.SliceStable(all, func(a, b int) bool {
+		fa, fb := all[a], all[b]
+		if !fa.SourceRouteCreationTimestamp.Equal(fb.SourceRouteCreationTimestamp) {
+			return fa.SourceRouteCreationTimestamp.Before(fb.SourceRouteCreationTimestamp)
+		}
+		if fa.SourceRouteNamespace != fb.SourceRouteNamespace {
+			return fa.SourceRouteNamespace < fb.SourceRouteNamespace
+		}
+		if fa.SourceRouteName != fb.SourceRouteName {
+			return fa.SourceRouteName < fb.SourceRouteName
+		}
+		return fa.SourceRouteFilterIndex < fb.SourceRouteFilterIndex
+	})
+
+	// Deduplicate by filter name, keeping the first (highest-precedence) occurrence.
+	seen := make(map[string]struct{})
+	var result []model.ExtensionRefFilter
+	for _, f := range all {
+		if _, exists := seen[f.Name]; !exists {
+			seen[f.Name] = struct{}{}
+			result = append(result, f)
 		}
 	}
 	return result
