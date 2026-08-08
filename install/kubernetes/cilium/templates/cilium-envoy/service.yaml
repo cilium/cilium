@@ -8,8 +8,9 @@ metadata:
   {{- if or (not .Values.envoy.prometheus.serviceMonitor.enabled) .Values.envoy.annotations }}
   annotations:
   {{- if not .Values.envoy.prometheus.serviceMonitor.enabled }}
-    prometheus.io/scrape: "true"
-    prometheus.io/port: {{ .Values.envoy.prometheus.port | quote }}
+    {{- with include "cilium.prometheusAnnotations" (list .Values.envoy.prometheus.port .Values.envoy.annotations) }}
+    {{- . | nindent 4 }}
+    {{- end }}
   {{- end }}
   {{- with .Values.envoy.annotations }}
     {{- toYaml . | nindent 4 }}
