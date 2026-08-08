@@ -89,9 +89,6 @@ message ContainerState {
 
 // ContainerStateRunning is a running state of a container.
 message ContainerStateRunning {
-  // Time at which the container was last (re-)started
-  // +optional
-  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startedAt = 1;
 }
 
 // ContainerStatus contains details for the current status of this container.
@@ -305,22 +302,6 @@ message PodCondition {
   // Can be True, False, Unknown.
   // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
   optional string status = 2;
-
-  // Last time we probed the condition.
-  // +optional
-  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time lastProbeTime = 3;
-
-  // Last time the condition transitioned from one status to another.
-  // +optional
-  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time lastTransitionTime = 4;
-
-  // Unique, one-word, CamelCase reason for the condition's last transition.
-  // +optional
-  optional string reason = 5;
-
-  // Human-readable message indicating details about last transition.
-  // +optional
-  optional string message = 6;
 }
 
 // PodIP represents a single IP address allocated to the pod.

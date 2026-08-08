@@ -17,7 +17,6 @@ import (
 
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func TestServiceAndEndpoints(t *testing.T) {
@@ -364,36 +363,20 @@ func TestIsPodRunning(t *testing.T) {
 
 func TestGetLatestPodReadiness(t *testing.T) {
 	podReadyconditiontrue := slim_corev1.PodCondition{
-		Type:               slim_corev1.PodReady,
-		Status:             slim_corev1.ConditionTrue,
-		LastProbeTime:      slim_metav1.Now(),
-		LastTransitionTime: slim_metav1.Now(),
-		Reason:             "",
-		Message:            "",
+		Type:   slim_corev1.PodReady,
+		Status: slim_corev1.ConditionTrue,
 	}
 	podReadyconditionfalse := slim_corev1.PodCondition{
-		Type:               slim_corev1.PodReady,
-		Status:             slim_corev1.ConditionFalse,
-		LastProbeTime:      slim_metav1.Now(),
-		LastTransitionTime: slim_metav1.Now(),
-		Reason:             "",
-		Message:            "",
+		Type:   slim_corev1.PodReady,
+		Status: slim_corev1.ConditionFalse,
 	}
 	podReadyconditionUnknown := slim_corev1.PodCondition{
-		Type:               slim_corev1.PodReady,
-		Status:             slim_corev1.ConditionUnknown,
-		LastProbeTime:      slim_metav1.Now(),
-		LastTransitionTime: slim_metav1.Now(),
-		Reason:             "",
-		Message:            "",
+		Type:   slim_corev1.PodReady,
+		Status: slim_corev1.ConditionUnknown,
 	}
 	podScheduled := slim_corev1.PodCondition{
-		Type:               slim_corev1.PodScheduled,
-		Status:             slim_corev1.ConditionTrue,
-		LastProbeTime:      slim_metav1.Now(),
-		LastTransitionTime: slim_metav1.Now(),
-		Reason:             "",
-		Message:            "",
+		Type:   slim_corev1.PodScheduled,
+		Status: slim_corev1.ConditionTrue,
 	}
 	tests := []struct {
 		name string
