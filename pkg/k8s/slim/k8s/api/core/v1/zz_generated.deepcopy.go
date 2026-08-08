@@ -588,11 +588,6 @@ func (in *Secret) DeepCopyInto(out *Secret) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	if in.Immutable != nil {
-		in, out := &in.Immutable, &out.Immutable
-		*out = new(bool)
-		**out = **in
-	}
 	if in.Data != nil {
 		in, out := &in.Data, &out.Data
 		*out = make(map[string]Bytes, len(*in))
@@ -606,13 +601,6 @@ func (in *Secret) DeepCopyInto(out *Secret) {
 				copy(*out, *in)
 			}
 			(*out)[key] = outVal
-		}
-	}
-	if in.StringData != nil {
-		in, out := &in.StringData, &out.StringData
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
 		}
 	}
 	return
@@ -738,7 +726,6 @@ func (in *ServicePort) DeepCopyInto(out *ServicePort) {
 		*out = new(string)
 		**out = **in
 	}
-	out.TargetPort = in.TargetPort
 	return
 }
 

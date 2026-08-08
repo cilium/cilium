@@ -1129,40 +1129,6 @@ func (m *Secret) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.Immutable != nil {
-		i--
-		if *m.Immutable {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x28
-	}
-	if len(m.StringData) > 0 {
-		keysForStringData := make([]string, 0, len(m.StringData))
-		for k := range m.StringData {
-			keysForStringData = append(keysForStringData, string(k))
-		}
-		sort.Strings(keysForStringData)
-		for iNdEx := len(keysForStringData) - 1; iNdEx >= 0; iNdEx-- {
-			v := m.StringData[string(keysForStringData[iNdEx])]
-			baseI := i
-			i -= len(v)
-			copy(dAtA[i:], v)
-			i = encodeVarintGenerated(dAtA, i, uint64(len(v)))
-			i--
-			dAtA[i] = 0x12
-			i -= len(keysForStringData[iNdEx])
-			copy(dAtA[i:], keysForStringData[iNdEx])
-			i = encodeVarintGenerated(dAtA, i, uint64(len(keysForStringData[iNdEx])))
-			i--
-			dAtA[i] = 0xa
-			i = encodeVarintGenerated(dAtA, i, uint64(baseI-i))
-			i--
-			dAtA[i] = 0x22
-		}
-	}
 	i -= len(m.Type)
 	copy(dAtA[i:], m.Type)
 	i = encodeVarintGenerated(dAtA, i, uint64(len(m.Type)))
@@ -1384,16 +1350,6 @@ func (m *ServicePort) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i = encodeVarintGenerated(dAtA, i, uint64(m.NodePort))
 	i--
 	dAtA[i] = 0x28
-	{
-		size, err := m.TargetPort.MarshalToSizedBuffer(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-		i = encodeVarintGenerated(dAtA, i, uint64(size))
-	}
-	i--
-	dAtA[i] = 0x22
 	i = encodeVarintGenerated(dAtA, i, uint64(m.Port))
 	i--
 	dAtA[i] = 0x18
@@ -2142,17 +2098,6 @@ func (m *Secret) Size() (n int) {
 	}
 	l = len(m.Type)
 	n += 1 + l + sovGenerated(uint64(l))
-	if len(m.StringData) > 0 {
-		for k, v := range m.StringData {
-			_ = k
-			_ = v
-			mapEntrySize := 1 + len(k) + sovGenerated(uint64(len(k))) + 1 + len(v) + sovGenerated(uint64(len(v)))
-			n += mapEntrySize + 1 + sovGenerated(uint64(mapEntrySize))
-		}
-	}
-	if m.Immutable != nil {
-		n += 2
-	}
 	return n
 }
 
@@ -2216,8 +2161,6 @@ func (m *ServicePort) Size() (n int) {
 	l = len(m.Protocol)
 	n += 1 + l + sovGenerated(uint64(l))
 	n += 1 + sovGenerated(uint64(m.Port))
-	l = m.TargetPort.Size()
-	n += 1 + l + sovGenerated(uint64(l))
 	n += 1 + sovGenerated(uint64(m.NodePort))
 	if m.AppProtocol != nil {
 		l = len(*m.AppProtocol)
@@ -2709,22 +2652,10 @@ func (this *Secret) String() string {
 		mapStringForData += fmt.Sprintf("%v: %v,", k, this.Data[k])
 	}
 	mapStringForData += "}"
-	keysForStringData := make([]string, 0, len(this.StringData))
-	for k := range this.StringData {
-		keysForStringData = append(keysForStringData, k)
-	}
-	sort.Strings(keysForStringData)
-	mapStringForStringData := "map[string]string{"
-	for _, k := range keysForStringData {
-		mapStringForStringData += fmt.Sprintf("%v: %v,", k, this.StringData[k])
-	}
-	mapStringForStringData += "}"
 	s := strings.Join([]string{`&Secret{`,
 		`ObjectMeta:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ObjectMeta), "ObjectMeta", "v1.ObjectMeta", 1), `&`, ``, 1) + `,`,
 		`Data:` + mapStringForData + `,`,
 		`Type:` + fmt.Sprintf("%v", this.Type) + `,`,
-		`StringData:` + mapStringForStringData + `,`,
-		`Immutable:` + valueToStringGenerated(this.Immutable) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2781,7 +2712,6 @@ func (this *ServicePort) String() string {
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
 		`Protocol:` + fmt.Sprintf("%v", this.Protocol) + `,`,
 		`Port:` + fmt.Sprintf("%v", this.Port) + `,`,
-		`TargetPort:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.TargetPort), "IntOrString", "intstr.IntOrString", 1), `&`, ``, 1) + `,`,
 		`NodePort:` + fmt.Sprintf("%v", this.NodePort) + `,`,
 		`AppProtocol:` + valueToStringGenerated(this.AppProtocol) + `,`,
 		`}`,
@@ -6122,154 +6052,6 @@ func (m *Secret) Unmarshal(dAtA []byte) error {
 			}
 			m.Type = SecretType(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StringData", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenerated
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.StringData == nil {
-				m.StringData = make(map[string]string)
-			}
-			var mapkey string
-			var mapvalue string
-			for iNdEx < postIndex {
-				entryPreIndex := iNdEx
-				var wire uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowGenerated
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					wire |= uint64(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				fieldNum := int32(wire >> 3)
-				if fieldNum == 1 {
-					var stringLenmapkey uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowGenerated
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapkey |= uint64(b&0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapkey := int(stringLenmapkey)
-					if intStringLenmapkey < 0 {
-						return ErrInvalidLengthGenerated
-					}
-					postStringIndexmapkey := iNdEx + intStringLenmapkey
-					if postStringIndexmapkey < 0 {
-						return ErrInvalidLengthGenerated
-					}
-					if postStringIndexmapkey > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
-					iNdEx = postStringIndexmapkey
-				} else if fieldNum == 2 {
-					var stringLenmapvalue uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowGenerated
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapvalue |= uint64(b&0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapvalue := int(stringLenmapvalue)
-					if intStringLenmapvalue < 0 {
-						return ErrInvalidLengthGenerated
-					}
-					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
-					if postStringIndexmapvalue < 0 {
-						return ErrInvalidLengthGenerated
-					}
-					if postStringIndexmapvalue > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
-					iNdEx = postStringIndexmapvalue
-				} else {
-					iNdEx = entryPreIndex
-					skippy, err := skipGenerated(dAtA[iNdEx:])
-					if err != nil {
-						return err
-					}
-					if (skippy < 0) || (iNdEx+skippy) < 0 {
-						return ErrInvalidLengthGenerated
-					}
-					if (iNdEx + skippy) > postIndex {
-						return io.ErrUnexpectedEOF
-					}
-					iNdEx += skippy
-				}
-			}
-			m.StringData[mapkey] = mapvalue
-			iNdEx = postIndex
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Immutable", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenerated
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			b := bool(v != 0)
-			m.Immutable = &b
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGenerated(dAtA[iNdEx:])
@@ -6786,39 +6568,6 @@ func (m *ServicePort) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TargetPort", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenerated
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthGenerated
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if err := m.TargetPort.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		case 5:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field NodePort", wireType)
