@@ -188,7 +188,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 	case vethHostName == "":
 		err = errors.New("unable to determine name of veth pair on the host side")
 		return
-	case len(vethLXCMac) == 0:
+	case !vethLXCMac.IsValid():
 		err = errors.New("unable to determine MAC address of veth pair on the container side")
 		return
 	case vethIP == "" && vethIPv6 == "":
@@ -246,7 +246,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		err = fmt.Errorf("unable to create endpoint: %w", err)
 		return
 	}
-	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && len(newEp.Status.Networking.Mac) > 0 &&
+	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac.IsValid() &&
 		!bytes.Equal(newEp.Status.Networking.Mac, vethLXCMac) {
 
 		err = ns.Do(func() error {

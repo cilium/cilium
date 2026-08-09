@@ -59,6 +59,26 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestIsValid(t *testing.T) {
+	tests := []struct {
+		name  string
+		in    MAC
+		valid bool
+	}{
+		{"nil", nil, false},
+		{"empty", MAC{}, false},
+		{"mac-48", MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}, true},
+		{"zeroed mac-48", MAC{0, 0, 0, 0, 0, 0}, true},
+		{"too short", MAC{0x11, 0x12, 0x23}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.valid, tt.in.IsValid())
+		})
+	}
+}
+
 func TestUint64(t *testing.T) {
 	m := MAC([]byte{0x11, 0x12, 0x23, 0x34, 0x45, 0x56})
 	v, err := m.Uint64()
