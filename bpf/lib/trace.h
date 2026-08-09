@@ -207,10 +207,10 @@ emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 }
 
 static __always_inline void
-_send_trace_notify(const struct __ctx_buff *ctx, enum trace_point obs_point,
-		   __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
-		   enum trace_reason reason, __u32 monitor,
-		   __be16 proto, __u16 line, __u8 file)
+__send_trace_notify(const struct __ctx_buff *ctx, enum trace_point obs_point,
+		    __u32 src, __u32 dst, void *orig_addr, __u16 dst_id, __u32 ifindex,
+		    enum trace_reason reason, __u32 monitor,
+		    __be16 proto, __u16 line, __u8 file)
 {
 	__u64 ip_trace_id = load_ip_trace_id();
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -251,11 +251,27 @@ _send_trace_notify(const struct __ctx_buff *ctx, enum trace_point obs_point,
 		.ip_trace_id	= ip_trace_id,
 	};
 	memset(&msg.orig_ip6, 0, sizeof(union v6addr));
+	if (orig_addr) {
+		if (proto == bpf_htons(ETH_P_IP))
+			memcpy(&msg.orig_ip4.be32, orig_addr, sizeof(__be32));
+		else
+			ipv6_addr_copy(&msg.orig_ip6, orig_addr);
+	}
 
 	trace_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
+}
+
+static __always_inline void
+_send_trace_notify(const struct __ctx_buff *ctx, enum trace_point obs_point,
+		   __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
+		   enum trace_reason reason, __u32 monitor,
+		   __be16 proto, __u16 line, __u8 file)
+{
+	return __send_trace_notify(ctx, obs_point, src, dst, NULL, dst_id, ifindex,
+				   reason, monitor, proto, line, file);
 }
 
 static __always_inline void
@@ -264,50 +280,9 @@ _send_trace_notify4(const struct __ctx_buff *ctx, enum trace_point obs_point,
 		    __u32 ifindex, enum trace_reason reason, __u32 monitor,
 		    __u16 line, __u8 file)
 {
-	__u64 ip_trace_id = load_ip_trace_id();
-	__u64 ctx_len = ctx_full_len(ctx);
-	__u64 cap_len;
-	struct ratelimit_key rkey = {
-		.usage = RATELIMIT_USAGE_EVENTS_MAP,
-	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
-	struct trace_notify msg = {};
-	cls_flags_t flags = CLS_FLAG_NONE;
-
-	_update_trace_metrics(ctx, obs_point, reason, line, file);
-
-	if (!emit_trace_notify(obs_point, monitor))
-		return;
-
-	if (CONFIG(events_map_rate_limit) > 0) {
-		settings.bucket_size = CONFIG(events_map_burst_limit);
-		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
-		if (!ratelimit_check_and_take(&rkey, &settings))
-			return;
-	}
-
-	flags = ctx_classify(ctx, bpf_htons(ETH_P_IP), obs_point);
-	cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
-
-	msg = (typeof(msg)) {
-		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
-		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_TRACE_VER),
-		.src_label	= src,
-		.dst_label	= dst,
-		.dst_id		= dst_id,
-		.reason		= reason,
-		.ifindex	= ifindex,
-		.flags		= flags,
-		.orig_ip4.be32	= orig_addr,
-		.ip_trace_id	= ip_trace_id,
-	};
-
-	trace_extension_hook(ctx, msg);
-	ctx_event_output(ctx, &cilium_events,
-			 (cap_len << 32) | BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
+	return __send_trace_notify(ctx, obs_point, src, dst, &orig_addr, dst_id,
+				   ifindex, reason, monitor, bpf_htons(ETH_P_IP),
+				   line, file);
 }
 
 static __always_inline void
@@ -316,51 +291,9 @@ _send_trace_notify6(const struct __ctx_buff *ctx, enum trace_point obs_point,
 		    __u16 dst_id, __u32 ifindex, enum trace_reason reason,
 		    __u32 monitor, __u16 line, __u8 file)
 {
-	__u64 ip_trace_id = load_ip_trace_id();
-	__u64 ctx_len = ctx_full_len(ctx);
-	__u64 cap_len;
-	struct ratelimit_key rkey = {
-		.usage = RATELIMIT_USAGE_EVENTS_MAP,
-	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
-	struct trace_notify msg = {};
-	cls_flags_t flags = CLS_FLAG_NONE;
-
-	_update_trace_metrics(ctx, obs_point, reason, line, file);
-
-	if (!emit_trace_notify(obs_point, monitor))
-		return;
-
-	if (CONFIG(events_map_rate_limit) > 0) {
-		settings.bucket_size = CONFIG(events_map_burst_limit);
-		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
-		if (!ratelimit_check_and_take(&rkey, &settings))
-			return;
-	}
-
-	flags = ctx_classify(ctx, bpf_htons(ETH_P_IPV6), obs_point);
-	cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
-
-	msg = (typeof(msg)) {
-		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
-		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_TRACE_VER),
-		.src_label	= src,
-		.dst_label	= dst,
-		.dst_id		= dst_id,
-		.reason		= reason,
-		.ifindex	= ifindex,
-		.flags		= flags,
-		.ip_trace_id	= ip_trace_id,
-	};
-
-	ipv6_addr_copy(&msg.orig_ip6, orig_addr);
-
-	trace_extension_hook(ctx, msg);
-	ctx_event_output(ctx, &cilium_events,
-			 (cap_len << 32) | BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
+	return __send_trace_notify(ctx, obs_point, src, dst, &orig_addr, dst_id,
+				   ifindex, reason, monitor, bpf_htons(ETH_P_IPV6),
+				   line, file);
 }
 #else
 static __always_inline void
