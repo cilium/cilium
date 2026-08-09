@@ -308,8 +308,12 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	hostLinkAttrs := linkPair.GetHostLink().Attrs()
 	peerLinkAttrs := linkPair.GetPeerLink().Attrs()
 
-	info.Mac = mac.MAC(peerLinkAttrs.HardwareAddr)
-	info.HostMac = mac.MAC(hostLinkAttrs.HardwareAddr)
+	if info.Mac, err = mac.FromHardwareAddr(peerLinkAttrs.HardwareAddr); err != nil {
+		return nil, fmt.Errorf("invalid MAC address for %s: %w", peerLinkAttrs.Name, err)
+	}
+	if info.HostMac, err = mac.FromHardwareAddr(hostLinkAttrs.HardwareAddr); err != nil {
+		return nil, fmt.Errorf("invalid MAC address for %s: %w", hostLinkAttrs.Name, err)
+	}
 	info.InterfaceIndex = int64(hostLinkAttrs.Index)
 	info.InterfaceName = hostLinkAttrs.Name
 

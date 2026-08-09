@@ -240,10 +240,12 @@ func allocateIPsWithDelegatedPlugin(
 				masterMac = ifMac
 			}
 		} else if iface.Name != "" {
-			if uplink, err := safenetlink.LinkByName(iface.Name); err != nil {
+			uplink, err := safenetlink.LinkByName(iface.Name)
+			if err != nil {
 				return nil, releaseFunc, fmt.Errorf("failed to get uplink %q: %w", iface.Name, err)
-			} else {
-				masterMac = mac.MAC(uplink.Attrs().HardwareAddr)
+			}
+			if masterMac, err = mac.FromHardwareAddr(uplink.Attrs().HardwareAddr); err != nil {
+				return nil, releaseFunc, fmt.Errorf("failed to parse uplink %q MAC: %w", iface.Name, err)
 			}
 		}
 		break
@@ -769,8 +771,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	res.Interfaces = append(res.Interfaces, iface)
 
 	if isLayer2 {
-		ep.Mac = mac.MAC(peerLinkAttrs.HardwareAddr)
-		ep.HostMac = mac.MAC(hostLinkAttrs.HardwareAddr)
+		if ep.Mac, err = mac.FromHardwareAddr(peerLinkAttrs.HardwareAddr); err != nil {
+			return fmt.Errorf("invalid MAC address for %s: %w", peerLinkAttrs.Name, err)
+		}
+		if ep.HostMac, err = mac.FromHardwareAddr(hostLinkAttrs.HardwareAddr); err != nil {
+			return fmt.Errorf("invalid MAC address for %s: %w", hostLinkAttrs.Name, err)
+		}
 	}
 	ep.InterfaceIndex = int64(hostLinkAttrs.Index)
 	ep.InterfaceName = hostLinkAttrs.Name

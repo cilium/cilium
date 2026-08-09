@@ -18,8 +18,7 @@ func Overlay(lnc *Config, link netlink.Link) any {
 	cfg.InterfaceIfIndex = uint32(link.Attrs().Index)
 	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
 
-	em := mac.MAC(link.Attrs().HardwareAddr)
-	if em.IsValid() {
+	if em, err := mac.FromHardwareAddr(link.Attrs().HardwareAddr); err == nil {
 		cfg.InterfaceMAC.Addr = em.As6()
 	}
 

@@ -710,10 +710,15 @@ func CreateHostEndpoint(p EndpointParams,
 		return nil, err
 	}
 
+	hostMAC, err := mac.FromHardwareAddr(iface.Attrs().HardwareAddr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid MAC address for %s: %w", defaults.HostDevice, err)
+	}
+
 	ep := createEndpoint(p, dnsRulesAPI, proxy, 0, defaults.HostDevice, policyDebugLog)
 	ep.isHost = true
-	ep.mac = mac.MAC(iface.Attrs().HardwareAddr)
-	ep.nodeMAC = mac.MAC(iface.Attrs().HardwareAddr)
+	ep.mac = hostMAC
+	ep.nodeMAC = hostMAC
 	ep.ifIndex = iface.Attrs().Index
 	ep.DatapathConfiguration = NewDatapathConfiguration()
 

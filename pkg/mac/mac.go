@@ -65,6 +65,20 @@ func ParseMAC(s string) (MAC, error) {
 	return MAC(ha), nil
 }
 
+// FromHardwareAddr converts ha to a MAC. Like [ParseMAC] it only accepts an
+// IEEE 802 MAC-48 address, so a device carrying no layer 2 address, such as an
+// L3/NOARP device, yields an error rather than an unset MAC.
+//
+// Prefer this over a plain MAC(ha) conversion, which accepts a
+// [net.HardwareAddr] of any length and leaves it to the caller to notice.
+func FromHardwareAddr(ha net.HardwareAddr) (MAC, error) {
+	if len(ha) != 6 {
+		return nil, fmt.Errorf("invalid MAC address %q", ha)
+	}
+
+	return MAC(ha), nil
+}
+
 // MustParseMAC calls [ParseMAC] and panics on error. It is intended for use in tests with
 // hard-coded strings.
 func MustParseMAC(s string) MAC {
