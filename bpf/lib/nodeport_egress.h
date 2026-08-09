@@ -127,7 +127,7 @@ __declare_tail(CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
-	union v6addr saddr = {};
+	union v6addr saddr __align_stack_8 = {};
 	int ret;
 	__s8 ext_err = 0;
 	struct snat_v6_args *args = AUX(snat_v6_args);
