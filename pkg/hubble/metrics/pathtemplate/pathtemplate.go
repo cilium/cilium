@@ -13,10 +13,11 @@ import (
 // label values and the cost of a single match.
 const MaxTemplates = 100
 
-// maxStackSegments sizes the split buffer so it stays on the stack and a match
-// does not allocate. A template deeper than this still matches, at one
-// allocation per call.
-const maxStackSegments = 24
+// MaxTemplateSegments caps a single template's depth. It is what keeps Match's
+// split buffer on the stack, so a match never allocates whatever the config
+// holds. Raising it later is backwards compatible but costs time on every
+// match, since the buffer is zeroed per call.
+const MaxTemplateSegments = 32
 
 type segmentKind uint8
 
@@ -61,8 +62,8 @@ type Shadow struct {
 }
 
 // Compile turns templates into a Matcher, keeping the order given. The list
-// needs at least one entry and at most MaxTemplates, and every bad template is
-// reported in one error.
+// needs at least one entry and at most MaxTemplates, no template may be deeper
+// than MaxTemplateSegments, and every bad template is reported in one error.
 //
 // Two templates that match the same set of paths are rejected as duplicates,
 // even when they differ in placeholder names, because the second could never
@@ -132,15 +133,11 @@ func (m *Matcher) Match(path string) (string, bool) {
 	// Split at most maxSegments+1 times. No template looks past segment
 	// maxSegments-1, so splitting further cannot change the answer, and a path
 	// with thousands of segments costs the same as a short one. Splitting all of
-	// it would let the client set how much work a match takes.
+	// it would let the client set how much work a match takes. MaxTemplateSegments
+	// bounds maxSegments, so the buffer always fits on the stack.
 	limit := m.maxSegments + 1
-	var buf [maxStackSegments]string
-	var segments []string
-	if limit <= maxStackSegments {
-		segments = buf[:0]
-	} else {
-		segments = make([]string, 0, limit)
-	}
+	var buf [MaxTemplateSegments + 1]string
+	segments := buf[:0]
 
 	rest := path
 	for len(segments) < limit-1 {
@@ -304,6 +301,9 @@ func compileTemplate(raw string) (template, error) {
 	}
 
 	parts := strings.Split(raw, "/")
+	if len(parts) > MaxTemplateSegments {
+		return template{}, fmt.Errorf("template has %d segments, at most %d are supported", len(parts), MaxTemplateSegments)
+	}
 	segments := make([]segment, len(parts))
 	for i, part := range parts {
 		seg, err := compileSegment(part)
