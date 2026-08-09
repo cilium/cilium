@@ -5,6 +5,7 @@ package mac
 
 import (
 	"encoding/json"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -75,6 +76,36 @@ func TestIsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.valid, tt.in.IsValid())
+		})
+	}
+}
+
+func TestFromHardwareAddr(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      net.HardwareAddr
+		out     MAC
+		wantErr bool
+	}{
+		{"mac-48", net.HardwareAddr{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}, MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}, false},
+		{"zeroed mac-48", net.HardwareAddr{0, 0, 0, 0, 0, 0}, MAC{0, 0, 0, 0, 0, 0}, false},
+		// An L3/NOARP device reports no hardware address at all.
+		{"nil", nil, nil, true},
+		{"empty", net.HardwareAddr{}, nil, true},
+		{"too short", net.HardwareAddr{0x11, 0x12, 0x23}, nil, true},
+		// Not IEEE 802 MAC-48, unlike [net.ParseMAC] which accepts EUI-64.
+		{"eui-64", net.HardwareAddr{0x11, 0x12, 0x23, 0x34, 0x45, 0x56, 0x67, 0x78}, nil, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := FromHardwareAddr(tt.in)
+			require.Equal(t, tt.out, out)
+			if tt.wantErr {
+				require.ErrorContains(t, err, "invalid MAC address")
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
