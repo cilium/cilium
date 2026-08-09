@@ -77,6 +77,10 @@ func TestCompileErrors(t *testing.T) {
 		// ":" is checked before the braces the pattern holds, so the error
 		// names the real problem.
 		{"pattern holding braces", []string{"/users/{id:[0-9]{2}}"}, "patterns in placeholders are not supported"},
+		// One segment past the cap. The cap is what keeps Match's split buffer
+		// on the stack, and TestMatch covers a template sitting exactly on it.
+		{"template past the segment cap", []string{"/" + strings.Repeat("seg/", MaxTemplateSegments-1) + "{id}"},
+			fmt.Sprintf("template has %d segments, at most %d are supported", MaxTemplateSegments+1, MaxTemplateSegments)},
 		{"duplicate", []string{"/users/{id}", "/users/{id}"}, "matches the same paths as templates[0]"},
 		{"duplicate but for the name", []string{"/users/{id}", "/users/{user}"}, "matches the same paths as templates[0]"},
 		{"duplicate tail but for the name", []string{"/s/{rest...}", "/s/{other...}"}, "matches the same paths as templates[0]"},
@@ -380,29 +384,30 @@ func TestMatch(t *testing.T) {
 			want:      "/{rest...}",
 		},
 		{
-			// maxStackSegments-1 segments is the longest template that still
-			// splits into the stack buffer, and it fills it exactly.
-			name:      "template filling the stack buffer",
-			templates: []string{"/" + strings.Repeat("seg/", maxStackSegments-3) + "{id}"},
-			path:      "/" + strings.Repeat("seg/", maxStackSegments-3) + "abc",
-			want:      "/" + strings.Repeat("seg/", maxStackSegments-3) + "{id}",
+			// MaxTemplateSegments-2 repeats plus the leading empty segment and
+			// the placeholder is a template right at the cap, which fills the
+			// split buffer exactly.
+			name:      "template at the segment cap",
+			templates: []string{"/" + strings.Repeat("seg/", MaxTemplateSegments-2) + "{id}"},
+			path:      "/" + strings.Repeat("seg/", MaxTemplateSegments-2) + "abc",
+			want:      "/" + strings.Repeat("seg/", MaxTemplateSegments-2) + "{id}",
 		},
 		{
-			name:      "template one segment past the stack buffer",
-			templates: []string{"/" + strings.Repeat("seg/", maxStackSegments-2) + "{id}"},
-			path:      "/" + strings.Repeat("seg/", maxStackSegments-2) + "abc",
-			want:      "/" + strings.Repeat("seg/", maxStackSegments-2) + "{id}",
+			name:      "template one segment under the cap",
+			templates: []string{"/" + strings.Repeat("seg/", MaxTemplateSegments-3) + "{id}"},
+			path:      "/" + strings.Repeat("seg/", MaxTemplateSegments-3) + "abc",
+			want:      "/" + strings.Repeat("seg/", MaxTemplateSegments-3) + "{id}",
 		},
 		{
-			name:      "template deeper than the stack buffer",
-			templates: []string{"/" + strings.Repeat("seg/", maxStackSegments+4) + "{id}"},
-			path:      "/" + strings.Repeat("seg/", maxStackSegments+4) + "abc",
-			want:      "/" + strings.Repeat("seg/", maxStackSegments+4) + "{id}",
+			name:      "template at the cap against a path one segment short",
+			templates: []string{"/" + strings.Repeat("seg/", MaxTemplateSegments-2) + "{id}"},
+			path:      "/" + strings.Repeat("seg/", MaxTemplateSegments-2),
+			want:      "",
 		},
 		{
-			name:      "deep template against a path one segment short",
-			templates: []string{"/" + strings.Repeat("seg/", maxStackSegments+4) + "{id}"},
-			path:      "/" + strings.Repeat("seg/", maxStackSegments+4),
+			name:      "template at the cap against a deeper path",
+			templates: []string{"/" + strings.Repeat("seg/", MaxTemplateSegments-2) + "{id}"},
+			path:      "/" + strings.Repeat("seg/", MaxTemplateSegments+8) + "abc",
 			want:      "",
 		},
 	}
