@@ -24,7 +24,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	if !em.IsValid() {
 		panic(fmt.Sprintf("invalid MAC address for cilium_host: %q", em))
 	}
-	cfg.InterfaceMAC.Addr = em.As6()
+	cfg.InterfaceMAC.Addr = em
 
 	cfg.InterfaceIfIndex = uint32(ep.GetIfIndex())
 	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
@@ -81,7 +81,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	if err != nil {
 		panic(fmt.Sprintf("invalid MAC address for %s: %s", link.Attrs().Name, err))
 	}
-	cfg.InterfaceMAC.Addr = em.As6()
+	cfg.InterfaceMAC.Addr = em
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
@@ -133,7 +133,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	// External devices can be L2-less, in which case it won't have a MAC address
 	// and its ethernet header length is set to 0.
 	if em, err := mac.FromHardwareAddr(link.Attrs().HardwareAddr); err == nil {
-		cfg.InterfaceMAC.Addr = em.As6()
+		cfg.InterfaceMAC.Addr = em
 	} else {
 		cfg.EthHeaderLength = 0
 	}

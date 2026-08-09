@@ -340,7 +340,7 @@ var HaveNetkitScrub = sync.OnceValue(func() error {
 			LinkAttrs: netlink.LinkAttrs{
 				Name:         hostIfName,
 				TxQLen:       1000,
-				HardwareAddr: net.HardwareAddr(hostMac),
+				HardwareAddr: hostMac.HardwareAddr(),
 			},
 			Mode:       netlink.NETKIT_MODE_L3,
 			Policy:     netlink.NETKIT_POLICY_FORWARD,
@@ -350,7 +350,7 @@ var HaveNetkitScrub = sync.OnceValue(func() error {
 		}
 		netkit.SetPeerAttrs(&netlink.LinkAttrs{
 			Name:         peerIfName,
-			HardwareAddr: net.HardwareAddr(peerMac),
+			HardwareAddr: peerMac.HardwareAddr(),
 		})
 
 		err = netlink.LinkAdd(netkit)
@@ -398,7 +398,7 @@ var HaveNetkitTunableBufferMargins = sync.OnceValue(func() error {
 			LinkAttrs: netlink.LinkAttrs{
 				Name:         hostIfName,
 				TxQLen:       1000,
-				HardwareAddr: net.HardwareAddr(hostMac),
+				HardwareAddr: hostMac.HardwareAddr(),
 			},
 			Mode:            netlink.NETKIT_MODE_L3,
 			Policy:          netlink.NETKIT_POLICY_FORWARD,
@@ -410,7 +410,7 @@ var HaveNetkitTunableBufferMargins = sync.OnceValue(func() error {
 		}
 		netkit.SetPeerAttrs(&netlink.LinkAttrs{
 			Name:         peerIfName,
-			HardwareAddr: net.HardwareAddr(peerMac),
+			HardwareAddr: peerMac.HardwareAddr(),
 		})
 
 		err = netlink.LinkAdd(netkit)

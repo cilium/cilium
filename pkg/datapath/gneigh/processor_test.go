@@ -72,31 +72,31 @@ var fakeDevices = map[int]*tables.Device{
 	1: {
 		Index:        1,
 		Name:         "lo",
-		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:00:00:00:00:00")),
+		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:00:00:00:00:00").HardwareAddr()),
 		Selected:     false,
 	},
 	2: {
 		Index:        2,
 		Name:         "eth0",
-		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:02")),
+		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:02").HardwareAddr()),
 		Selected:     true,
 	},
 	3: {
 		Index:        3,
 		Name:         "eth0.0",
-		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:03")),
+		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:03").HardwareAddr()),
 		Selected:     false,
 	},
 	4: {
 		Index:        4,
 		Name:         "eth0.1",
-		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:04")),
+		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:04").HardwareAddr()),
 		Selected:     true,
 	},
 	5: {
 		Index:        5,
 		Name:         "ens1",
-		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:05")),
+		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:05").HardwareAddr()),
 		Selected:     true,
 	},
 }

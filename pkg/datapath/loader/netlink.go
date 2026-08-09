@@ -85,11 +85,11 @@ func setupVethPair(logger *slog.Logger, sysctl sysctl.Sysctl, name, peerName str
 		veth := &netlink.Veth{
 			LinkAttrs: netlink.LinkAttrs{
 				Name:         name,
-				HardwareAddr: net.HardwareAddr(hostMac),
+				HardwareAddr: hostMac.HardwareAddr(),
 				TxQLen:       1000,
 			},
 			PeerName:         peerName,
-			PeerHardwareAddr: net.HardwareAddr(peerMac),
+			PeerHardwareAddr: peerMac.HardwareAddr(),
 		}
 		if err := netlink.LinkAdd(veth); err != nil {
 			return fmt.Errorf("failed to add veth pair: %w", err)
@@ -241,7 +241,7 @@ func setupGeneveDevice(logger *slog.Logger, sysctl sysctl.Sysctl, dport, srcPort
 		LinkAttrs: netlink.LinkAttrs{
 			Name:         defaults.GeneveDevice,
 			MTU:          mtu,
-			HardwareAddr: net.HardwareAddr(mac),
+			HardwareAddr: mac.HardwareAddr(),
 		},
 		FlowBased: true,
 		Dport:     dport,
@@ -293,7 +293,7 @@ func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, port, srcPortLo
 		LinkAttrs: netlink.LinkAttrs{
 			Name:         defaults.VxlanDevice,
 			MTU:          mtu,
-			HardwareAddr: net.HardwareAddr(mac),
+			HardwareAddr: mac.HardwareAddr(),
 		},
 		FlowBased: true,
 		Port:      int(port),

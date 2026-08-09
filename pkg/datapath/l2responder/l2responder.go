@@ -79,7 +79,7 @@ type l2ResponderReconciler struct {
 // Used for IPv6 Solicited node Group membership tracking.
 type McMACEntry struct {
 	IfIndex int
-	MAC     [6]byte
+	MAC     mac.MAC
 }
 
 // McMACMap stores a solicited node multicast l2 entry with
@@ -87,9 +87,8 @@ type McMACEntry struct {
 type McMACMap map[McMACEntry]struct{}
 
 func (m McMACMap) Add(ifIndex int, ip netip.Addr) {
-	mac := multicast.SolicitedNodeMACAddr(ip)
 	key := McMACEntry{
-		MAC:     mac.As6(),
+		MAC:     multicast.SolicitedNodeMACAddr(ip),
 		IfIndex: ifIndex,
 	}
 
@@ -458,13 +457,13 @@ func (p *l2ResponderReconciler) reconcileMcMACEntries(curr McMACMap, desired McM
 			continue
 		}
 		// New group — join it.
-		if err := p.params.AddRemMcMACFunc(key.IfIndex, key.MAC[:], true); err != nil {
+		if err := p.params.AddRemMcMACFunc(key.IfIndex, key.MAC, true); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("join solicited-node multicast group %s@%d: %w", key.MAC, key.IfIndex, err))
 		}
 	}
 	for key := range curr {
 		// Group no longer desired — leave it.
-		if err := p.params.AddRemMcMACFunc(key.IfIndex, key.MAC[:], false); err != nil {
+		if err := p.params.AddRemMcMACFunc(key.IfIndex, key.MAC, false); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("leave solicited-node multicast group %s@%d: %w", key.MAC, key.IfIndex, err))
 		}
 	}

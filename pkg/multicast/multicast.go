@@ -165,10 +165,10 @@ func (a Address) SolicitedNodeMaddr() netip.Addr {
 // where XX:XX:XX are the last 3 bytes of the target IP address
 func SolicitedNodeMACAddr(addr netip.Addr) mac.MAC {
 	if !addr.Is6() {
-		return mac.MAC([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0})
+		return mac.MAC{0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 	}
 	bytes := addr.As16()
-	return mac.MAC([]byte{0x33, 0x33, 0xFF, bytes[13], bytes[14], bytes[15]})
+	return mac.MAC{0x33, 0x33, 0xFF, bytes[13], bytes[14], bytes[15]}
 }
 
 // interfaceByName get *net.Interface by name using netlink.

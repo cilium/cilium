@@ -431,7 +431,7 @@ func createDevices(t *testing.T) {
 	veth := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			Name:         defaults.HostDevice,
-			HardwareAddr: net.HardwareAddr(hostMac),
+			HardwareAddr: hostMac.HardwareAddr(),
 			TxQLen:       1000,
 		},
 	}

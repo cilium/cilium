@@ -6,7 +6,6 @@ package connector
 import (
 	"fmt"
 	"log/slog"
-	"net"
 
 	"github.com/vishvananda/netlink"
 
@@ -50,7 +49,7 @@ func setupNetkitPair(defaultLogger *slog.Logger, cfg LinkConfig, l2Mode bool, sy
 		LinkAttrs: netlink.LinkAttrs{
 			Name:         cfg.HostIfName,
 			TxQLen:       1000,
-			HardwareAddr: net.HardwareAddr(epHostMAC),
+			HardwareAddr: epHostMAC.HardwareAddr(),
 		},
 		Mode:       mode,
 		Policy:     netlink.NETKIT_POLICY_FORWARD,
@@ -69,7 +68,7 @@ func setupNetkitPair(defaultLogger *slog.Logger, cfg LinkConfig, l2Mode bool, sy
 	}
 	peerAttr := &netlink.LinkAttrs{
 		Name:         cfg.PeerIfName,
-		HardwareAddr: net.HardwareAddr(epLXCMAC),
+		HardwareAddr: epLXCMAC.HardwareAddr(),
 	}
 	netkit.SetPeerAttrs(peerAttr)
 

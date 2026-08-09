@@ -9,7 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/mac"
 )
 
 // Map provides access to the eBPF map cilium_devices.
@@ -97,7 +97,7 @@ func (k *Index) String() string {
 
 // DeviceState matches struct device_state in bpf/lib/network_device.h.
 type DeviceState struct {
-	MAC types.MACAddr `align:"mac"`
+	MAC mac.MAC `align:"mac"`
 	_   uint16
 	L3  DeviceStateL3 `align:"l3"`
 	_   uint8         `align:"pad1"`
@@ -105,10 +105,10 @@ type DeviceState struct {
 	_   uint32        `align:"pad3"`
 }
 
-func NewDeviceState(mac net.HardwareAddr) DeviceState {
+func NewDeviceState(ha net.HardwareAddr) DeviceState {
 	state := DeviceState{}
-	if len(mac) == len(state.MAC) {
-		copy(state.MAC[:], mac)
+	if m, err := mac.FromHardwareAddr(ha); err == nil {
+		state.MAC = m
 	} else {
 		state.L3 |= deviceStateL3Mask
 	}

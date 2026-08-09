@@ -19,7 +19,7 @@ func Overlay(lnc *Config, link netlink.Link) any {
 	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
 
 	if em, err := mac.FromHardwareAddr(link.Attrs().HardwareAddr); err == nil {
-		cfg.InterfaceMAC.Addr = em.As6()
+		cfg.InterfaceMAC.Addr = em
 	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols

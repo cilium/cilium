@@ -41,7 +41,7 @@ type IPAMAddressResponse struct {
 	IP iputil.Addr `json:"ip,omitzero"`
 
 	// MAC of master interface if address is a slave/secondary of a master interface
-	MasterMac mac.MAC `json:"master-mac,omitempty"`
+	MasterMac mac.MAC `json:"master-mac,omitzero"`
 
 	// SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.
 	//

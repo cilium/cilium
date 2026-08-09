@@ -25,7 +25,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 	// at its default non-zero value.
 	em := ep.GetNodeMAC()
 	if em.IsValid() {
-		cfg.InterfaceMAC.Addr = em.As6()
+		cfg.InterfaceMAC.Addr = em
 	}
 
 	cfg.InterfaceIfIndex = uint32(ep.GetIfIndex())

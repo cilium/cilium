@@ -106,13 +106,8 @@ func (m *vtepMap) close() error {
 func (m *vtepMap) Update(newCIDR netip.Prefix, newTunnelEndpoint netip.Addr, vtepMAC mac.MAC) error {
 	key := newKey(newCIDR.Addr())
 
-	mac, err := vtepMAC.Uint64()
-	if err != nil {
-		return fmt.Errorf("invalid VTEP MAC: %w", err)
-	}
-
 	value := VtepEndpointInfo{
-		VtepMAC:        mac,
+		VtepMAC:        vtepMAC.Uint64(),
 		TunnelEndpoint: newTunnelEndpoint.As4(),
 	}
 

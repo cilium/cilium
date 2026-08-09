@@ -526,7 +526,7 @@ func ifindexFromMac(m mac.MAC) (int64, error) {
 		if l.Attrs().RawFlags&unix.IFF_SLAVE != 0 {
 			continue
 		}
-		if bytes.Equal(l.Attrs().HardwareAddr, net.HardwareAddr(m)) {
+		if bytes.Equal(l.Attrs().HardwareAddr, m.HardwareAddr()) {
 			if iface != nil {
 				return -1, fmt.Errorf("several interfaces found with MAC %s: %s and %s", m, iface.Attrs().Name, l.Attrs().Name)
 			}

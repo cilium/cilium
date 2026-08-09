@@ -70,7 +70,7 @@ type AllocationResult struct {
 // MAC when it actually needs one.
 func parsePrimaryMAC(macAddr string) (mac.MAC, error) {
 	if macAddr == "" {
-		return nil, nil
+		return mac.MAC{}, nil
 	}
 	return mac.ParseMAC(macAddr)
 }

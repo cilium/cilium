@@ -230,7 +230,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	for i := range numFlows {
 		tn := monitor.TraceNotify{Type: byte(monitorAPI.MessageTypeTrace)}
 		macOnly := func(s string) net.HardwareAddr {
-			return net.HardwareAddr(mac.MustParseMAC(s))
+			return mac.MustParseMAC(s).HardwareAddr()
 		}
 		data := testutils.MustCreateL3L4Payload(tn, &layers.Ethernet{
 			SrcMAC: macOnly(fake.MAC()),

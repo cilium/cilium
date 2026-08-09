@@ -110,8 +110,8 @@ func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.Lo
 		dst := getRandomEndpoint()
 		data := testutils.MustCreateL3L4Payload(tn,
 			&layers.Ethernet{
-				SrcMAC:       net.HardwareAddr(mac.MustParseMAC(fake.MAC())),
-				DstMAC:       net.HardwareAddr(mac.MustParseMAC(fake.MAC())),
+				SrcMAC:       mac.MustParseMAC(fake.MAC()).HardwareAddr(),
+				DstMAC:       mac.MustParseMAC(fake.MAC()).HardwareAddr(),
 				EthernetType: layers.EthernetTypeIPv4,
 			},
 			&layers.IPv4{
