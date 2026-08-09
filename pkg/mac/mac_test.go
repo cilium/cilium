@@ -25,23 +25,23 @@ func TestParse(t *testing.T) {
 		// invalid delimiter
 		{
 			"01.02.03.04.05.06",
-			nil,
+			MAC{},
 			"invalid MAC address",
 		},
 		// not IEEE 802 MAC-48
 		{
 			"00:00:00:00:fe:80:00:00:00:00:00:00:02:00:5e:10:00:00:00:01",
-			nil,
+			MAC{},
 			"invalid MAC address",
 		},
 		{
 			"00-00-00-00-fe-80-00-00-00-00-00-00-02-00-5e-10-00-00-00-01",
-			nil,
+			MAC{},
 			"invalid MAC address",
 		},
 		{
 			"0000.0000.fe80.0000.0000.0000.0200.5e10.0000.0001",
-			nil,
+			MAC{},
 			"invalid MAC address",
 		},
 	}
@@ -66,11 +66,11 @@ func TestIsValid(t *testing.T) {
 		in    MAC
 		valid bool
 	}{
-		{"nil", nil, false},
-		{"empty", MAC{}, false},
+		{"zero value", MAC{}, false},
 		{"mac-48", MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}, true},
-		{"zeroed mac-48", MAC{0, 0, 0, 0, 0, 0}, true},
-		{"too short", MAC{0x11, 0x12, 0x23}, false},
+		// The zero value is the "unset" sentinel, so the all-zero MAC-48 is not
+		// representable as a distinct address.
+		{"all-zero mac-48", MustParseMAC("00:00:00:00:00:00"), false},
 	}
 
 	for _, tt := range tests {
@@ -88,13 +88,12 @@ func TestFromHardwareAddr(t *testing.T) {
 		wantErr bool
 	}{
 		{"mac-48", net.HardwareAddr{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}, MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}, false},
-		{"zeroed mac-48", net.HardwareAddr{0, 0, 0, 0, 0, 0}, MAC{0, 0, 0, 0, 0, 0}, false},
 		// An L3/NOARP device reports no hardware address at all.
-		{"nil", nil, nil, true},
-		{"empty", net.HardwareAddr{}, nil, true},
-		{"too short", net.HardwareAddr{0x11, 0x12, 0x23}, nil, true},
+		{"nil", nil, MAC{}, true},
+		{"empty", net.HardwareAddr{}, MAC{}, true},
+		{"too short", net.HardwareAddr{0x11, 0x12, 0x23}, MAC{}, true},
 		// Not IEEE 802 MAC-48, unlike [net.ParseMAC] which accepts EUI-64.
-		{"eui-64", net.HardwareAddr{0x11, 0x12, 0x23, 0x34, 0x45, 0x56, 0x67, 0x78}, nil, true},
+		{"eui-64", net.HardwareAddr{0x11, 0x12, 0x23, 0x34, 0x45, 0x56, 0x67, 0x78}, MAC{}, true},
 	}
 
 	for _, tt := range tests {
@@ -110,16 +109,44 @@ func TestFromHardwareAddr(t *testing.T) {
 	}
 }
 
-func TestUint64(t *testing.T) {
-	m := MAC([]byte{0x11, 0x12, 0x23, 0x34, 0x45, 0x56})
-	v, err := m.Uint64()
+// TestStringUnset asserts that an unset MAC has no text representation, and
+// that [MAC.String] and [MAC.MarshalText] agree on it. Both are relied upon to
+// keep an unset MAC off the wire as "" rather than "00:00:00:00:00:00".
+func TestStringUnset(t *testing.T) {
+	require.Empty(t, MAC{}.String())
+
+	text, err := MAC{}.MarshalText()
 	require.NoError(t, err)
-	require.Equal(t, Uint64MAC(0x564534231211), v)
+	require.Empty(t, text)
+
+	var m MAC
+	require.NoError(t, m.UnmarshalText(text))
+	require.Equal(t, MAC{}, m)
+}
+
+func TestHardwareAddr(t *testing.T) {
+	m := MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}
+	ha := m.HardwareAddr()
+	require.Equal(t, net.HardwareAddr{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}, ha)
+
+	// The result is a copy: mutating it must not affect m.
+	ha[0] = 0xff
+	require.Equal(t, MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}, m)
+
+	// An unset MAC maps to a nil net.HardwareAddr, not to six zero bytes, so
+	// that netlink leaves the address attribute out entirely.
+	require.Nil(t, MAC{}.HardwareAddr())
+}
+
+func TestUint64(t *testing.T) {
+	m := MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}
+	require.Equal(t, Uint64MAC(0x564534231211), m.Uint64())
+	require.Equal(t, Uint64MAC(0), MAC{}.Uint64())
 }
 
 func TestUnmarshalYAML(t *testing.T) {
 	m := MustParseMAC("11:12:23:34:45:56")
-	w := MAC([]byte{0x11, 0x12, 0x23, 0x34, 0x45, 0xAB})
+	w := MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0xAB}
 	d, err := yaml.Marshal(m)
 	require.NoError(t, err)
 	require.Equal(t, []byte("\"11:12:23:34:45:56\"\n"), d)
@@ -130,8 +157,8 @@ func TestUnmarshalYAML(t *testing.T) {
 	err = yaml.Unmarshal([]byte("11:12:23:34:45:A"), &t1)
 	require.Error(t, err)
 
-	m = MAC([]byte{})
-	w = MAC([]byte{})
+	m = MAC{}
+	w = MAC{}
 	d, err = yaml.Marshal(m)
 	require.NoError(t, err)
 	require.Equal(t, []byte("\"\"\n"), d)
@@ -142,8 +169,8 @@ func TestUnmarshalYAML(t *testing.T) {
 }
 
 func TestUnmarshalJSON(t *testing.T) {
-	m := MAC([]byte{0x11, 0x12, 0x23, 0x34, 0x45, 0x56})
-	w := MAC([]byte{0x11, 0x12, 0x23, 0x34, 0x45, 0xAB})
+	m := MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}
+	w := MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0xAB}
 	d, err := json.Marshal(m)
 	require.NoError(t, err)
 	require.Equal(t, []byte(`"11:12:23:34:45:56"`), d)
@@ -154,8 +181,8 @@ func TestUnmarshalJSON(t *testing.T) {
 	err = json.Unmarshal([]byte(`"11:12:23:34:45:A"`), &t1)
 	require.Error(t, err)
 
-	m = MAC([]byte{})
-	w = MAC([]byte{})
+	m = MAC{}
+	w = MAC{}
 	d, err = json.Marshal(m)
 	require.NoError(t, err)
 	require.Equal(t, []byte(`""`), d)
@@ -163,4 +190,21 @@ func TestUnmarshalJSON(t *testing.T) {
 	err = json.Unmarshal([]byte(`""`), &t2)
 	require.NoError(t, err)
 	require.Equal(t, w, t2)
+}
+
+// TestOmitZero asserts that a zero MAC is omitted by encoding/json's omitzero
+// tag option, which the generated API models rely on to reproduce the wire
+// format the slice-backed MAC produced with omitempty.
+func TestOmitZero(t *testing.T) {
+	type model struct {
+		Mac MAC `json:"mac,omitempty,omitzero"`
+	}
+
+	d, err := json.Marshal(model{})
+	require.NoError(t, err)
+	require.JSONEq(t, `{}`, string(d))
+
+	d, err = json.Marshal(model{Mac: MustParseMAC("11:12:23:34:45:56")})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"mac":"11:12:23:34:45:56"}`, string(d))
 }

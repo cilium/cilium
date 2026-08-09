@@ -4,7 +4,6 @@
 package genericveth
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -252,7 +251,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		return
 	}
 	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac.IsValid() &&
-		!bytes.Equal(newEp.Status.Networking.Mac, vethLXCMac) {
+		newEp.Status.Networking.Mac != vethLXCMac {
 
 		err = ns.Do(func() error {
 			return link.SetHardwareAddr(vethLXCName, newEp.Status.Networking.Mac)

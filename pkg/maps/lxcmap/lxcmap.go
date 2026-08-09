@@ -150,25 +150,14 @@ func (m *lxcMap) getBPFKeys(e EndpointFrontend) []*EndpointKey {
 // BPF endpoints map
 // Must only be called if init() succeeded.
 func (m *lxcMap) getBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
-	tmp := e.LXCMac()
-	mac, err := tmp.Uint64()
-	if len(tmp) > 0 && err != nil {
-		return nil, fmt.Errorf("invalid LXC MAC: %w", err)
-	}
-
-	tmp = e.GetNodeMAC()
-	nodeMAC, err := tmp.Uint64()
-	if len(tmp) > 0 && err != nil {
-		return nil, fmt.Errorf("invalid node MAC: %w", err)
-	}
-
 	rtInfo, _ := e.GetRTInfo()
-	// Both lxc and node mac can be nil for the case of L3/NOARP devices.
+	// Both lxc and node mac can be unset for the case of L3/NOARP devices, in
+	// which case they are written to the map as zero.
 	info := &EndpointInfo{
 		IfIndex:       uint32(e.GetIfIndex()),
 		LxcID:         uint16(e.GetID()),
-		MAC:           mac,
-		NodeMAC:       nodeMAC,
+		MAC:           e.LXCMac().Uint64(),
+		NodeMAC:       e.GetNodeMAC().Uint64(),
 		SecID:         e.GetIdentity().Uint32(), // Host byte-order
 		ParentIfIndex: uint32(e.GetParentIfIndex()),
 		RTInfo:        rtInfo,

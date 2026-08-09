@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
@@ -63,7 +62,7 @@ func AddAltName(linkName, altName string) error {
 func GetHardwareAddr(ifName string) (mac.MAC, error) {
 	iface, err := safenetlink.LinkByName(ifName)
 	if err != nil {
-		return nil, err
+		return mac.MAC{}, err
 	}
 	return mac.FromHardwareAddr(iface.Attrs().HardwareAddr)
 }
@@ -79,7 +78,7 @@ func SetHardwareAddr(ifName string, m mac.MAC) error {
 		}
 		return err
 	}
-	return netlink.LinkSetHardwareAddr(l, net.HardwareAddr(m))
+	return netlink.LinkSetHardwareAddr(l, m.HardwareAddr())
 }
 
 func GetIfIndex(ifName string) (uint32, error) {

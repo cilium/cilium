@@ -6,7 +6,6 @@ package connector
 import (
 	"fmt"
 	"log/slog"
-	"net"
 
 	"github.com/vishvananda/netlink"
 
@@ -41,11 +40,11 @@ func setupVethPair(defaultLogger *slog.Logger, cfg LinkConfig, sysctl sysctl.Sys
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
 			Name:         cfg.HostIfName,
-			HardwareAddr: net.HardwareAddr(epHostMAC),
+			HardwareAddr: epHostMAC.HardwareAddr(),
 			TxQLen:       1000,
 		},
 		PeerName:         cfg.PeerIfName,
-		PeerHardwareAddr: net.HardwareAddr(epLXCMAC),
+		PeerHardwareAddr: epLXCMAC.HardwareAddr(),
 	}
 
 	if err := netlink.LinkAdd(veth); err != nil {
