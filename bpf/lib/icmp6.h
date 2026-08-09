@@ -539,31 +539,33 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 }
 
 static __always_inline
-bool icmp6_ndisc_validate(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
+bool icmp6_ndisc_validate(struct __ctx_buff *ctx, __u8 nexthdr,
 			  const union macaddr *iface_mac, union v6addr *tip)
 {
-	__u8 nexthdr = ip6->nexthdr;
-	struct icmp6hdr *icmp;
-	int l4_off = ipv6_hdrlen(ctx, &nexthdr);
+	int hdrlen = ipv6_hdrlen(ctx, &nexthdr);
 	struct ethhdr *eth = ctx_data(ctx);
+	int icmp_off, tip_off;
 	union macaddr *dmac;
+	__u8 icmp6_type;
 
 	if ((void *)eth + ETH_HLEN > ctx_data_end(ctx))
 		return false;
 
 	dmac = (union macaddr *)&eth->h_dest;
 
-	if (l4_off < 0 || nexthdr != NEXTHDR_ICMP)
+	if (hdrlen < 0 || nexthdr != NEXTHDR_ICMP)
 		return false;
 
-	icmp = (struct icmp6hdr *)((__u8 *)ip6 + l4_off);
-	if ((void *)icmp + sizeof(*icmp) + sizeof(*tip) > ctx_data_end(ctx))
+	icmp_off = ETH_HLEN + hdrlen;
+	if (icmp6_load_type(ctx, icmp_off, &icmp6_type))
+		return DROP_INVALID;
+
+	if (icmp6_type != ICMP6_NS_MSG_TYPE)
 		return false;
 
-	if (icmp->icmp6_type != ICMP6_NS_MSG_TYPE)
-		return false;
-
-	*tip = *(union v6addr *)(icmp + 1);
+	tip_off = icmp_off + offsetof(struct icmp6hdr, icmp6_dataun) + sizeof(__u32);
+	if (ctx_load_bytes(ctx, tip_off, tip, sizeof(*tip)))
+		return DROP_INVALID;
 
 	if (!ipv6_is_sol_mc_mac(tip, dmac) && eth_addrcmp(dmac, iface_mac) != 0)
 		return false;
