@@ -16,9 +16,9 @@ func NodeConfig(lnc *Config) Node {
 	node.ClusterIDBits = identity.GetClusterIDBits()
 
 	node.CiliumHostIfIndex = lnc.CiliumHostIfIndex
-	node.CiliumHostMAC.Addr = lnc.CiliumHostMAC.As6()
+	node.CiliumHostMAC.Addr = lnc.CiliumHostMAC
 	node.CiliumNetIfIndex = lnc.CiliumNetIfIndex
-	node.CiliumNetMAC.Addr = lnc.CiliumNetMAC.As6()
+	node.CiliumNetMAC.Addr = lnc.CiliumNetMAC
 
 	node.CTTimeouts = types.CTTimeoutConfig{
 		ConnectionLifetimeTCP:    uint32(option.Config.CTMapEntriesTimeoutTCP.Seconds()),

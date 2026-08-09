@@ -289,7 +289,7 @@ func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr mac.MAC) erro
 			if l.Attrs().RawFlags&unix.IFF_SLAVE != 0 {
 				continue
 			}
-			if bytes.Equal(l.Attrs().HardwareAddr, net.HardwareAddr(macAddr)) {
+			if bytes.Equal(l.Attrs().HardwareAddr, macAddr.HardwareAddr()) {
 				return true, nil
 			}
 		}

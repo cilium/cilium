@@ -42,7 +42,7 @@ type EndpointChangeRequest struct {
 	DatapathMapID int64 `json:"datapath-map-id,omitempty"`
 
 	// MAC address
-	HostMac mac.MAC `json:"host-mac,omitempty"`
+	HostMac mac.MAC `json:"host-mac,omitzero"`
 
 	// Local endpoint ID
 	ID int64 `json:"id,omitempty"`
@@ -69,7 +69,7 @@ type EndpointChangeRequest struct {
 	Labels Labels `json:"labels,omitempty"`
 
 	// MAC address
-	Mac mac.MAC `json:"mac,omitempty"`
+	Mac mac.MAC `json:"mac,omitzero"`
 
 	// Network namespace cookie
 	NetnsCookie string `json:"netns-cookie,omitempty"`

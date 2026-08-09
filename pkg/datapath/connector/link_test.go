@@ -5,7 +5,6 @@ package connector
 
 import (
 	"fmt"
-	"net"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -81,11 +80,11 @@ func createFakePair(tb testing.TB, h *netlink.Handle, hostIfName string, peerIfN
 	hostVeth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
 			Name:         hostIfName,
-			HardwareAddr: net.HardwareAddr(hostMacAddr),
+			HardwareAddr: hostMacAddr.HardwareAddr(),
 			TxQLen:       1000,
 		},
 		PeerName:         peerIfName,
-		PeerHardwareAddr: net.HardwareAddr(peerMacAddr),
+		PeerHardwareAddr: peerMacAddr.HardwareAddr(),
 	}
 	if err := h.LinkAdd(hostVeth); err != nil {
 		tb.Fatalf("error creating fake veth pair: %v", err)

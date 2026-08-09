@@ -74,7 +74,7 @@ func TestPrivilegedParse(t *testing.T) {
 			name:      "empty mac address",
 			gateway:   "192.168.1.1",
 			cidrs:     []string{"192.168.0.0/16"},
-			macAddr:   nil,
+			macAddr:   mac.MAC{},
 			masq:      true,
 			wantRInfo: nil,
 			wantErr:   true,

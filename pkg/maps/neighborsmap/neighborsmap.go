@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -89,7 +90,7 @@ const SizeofNeighKey6 = int(unsafe.Sizeof(Key6{}))
 
 // Value is the MAC address for the IP-to-MAC address mappings.
 type Value struct {
-	Macaddr types.MACAddr
+	Macaddr mac.MAC
 	_       uint16
 }
 

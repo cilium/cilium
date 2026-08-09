@@ -72,11 +72,11 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 	t.Cleanup(ep.Stop)
 
 	ep.ifName = "lxc" + strID
-	ep.mac = mac.MAC([]byte{0x01, 0xff, 0xf2, 0x12, b[0], b[1]})
+	ep.mac = mac.MAC{0x01, 0xff, 0xf2, 0x12, b[0], b[1]}
 	ep.IPv4 = netip.AddrFrom4([4]byte{0xc0, 0xa8, b[0], b[1]})
 	ep.IPv6 = netip.AddrFrom16([16]byte{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
 	ep.ifIndex = 1
-	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}
+	ep.nodeMAC = mac.MAC{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}
 	ep.SecurityIdentity = identity
 	ep.labels = labels.NewOpLabels()
 	ep.NetNsCookie = 1234
@@ -126,7 +126,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 			if ep.ID == 256 {
 				// Change endpoint a little bit so we know which endpoint is in
 				// "256_next_fail" and with one is in the "256" directory.
-				ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
+				ep.nodeMAC = mac.MAC{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
 				err = ep.writeHeaderfile(failedDir)
 				require.NoError(t, err)
 			}
@@ -188,7 +188,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	// Change endpoint a little bit so we know which endpoint is in
 	// "${EPID}_next" and with one is in the "${EPID}" directory.
 	tmpNodeMAC := ep.nodeMAC
-	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
+	ep.nodeMAC = mac.MAC{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
 	err = ep.writeHeaderfile(nextDir)
 	require.NoError(t, err)
 	ep.nodeMAC = tmpNodeMAC
