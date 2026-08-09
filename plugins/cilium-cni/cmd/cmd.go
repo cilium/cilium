@@ -892,7 +892,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		)
 		return fmt.Errorf("unable to create endpoint: %w", err)
 	}
-	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && len(newEp.Status.Networking.Mac) > 0 {
+	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac.IsValid() {
 		// Set the MAC address on the interface in the container namespace
 		if isLayer2 {
 			err = ns.Do(func() error {

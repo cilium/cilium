@@ -21,7 +21,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	cfg := NewBPFHost(NodeConfig(lnc))
 
 	em := ep.GetNodeMAC()
-	if len(em) != 6 {
+	if !em.IsValid() {
 		panic(fmt.Sprintf("invalid MAC address for cilium_host: %q", em))
 	}
 	cfg.InterfaceMAC.Addr = em.As6()
@@ -78,7 +78,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	em := mac.MAC(link.Attrs().HardwareAddr)
-	if len(em) != 6 {
+	if !em.IsValid() {
 		panic(fmt.Sprintf("invalid MAC address for %s: %q", link.Attrs().Name, em))
 	}
 	cfg.InterfaceMAC.Addr = em.As6()
@@ -133,7 +133,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	// External devices can be L2-less, in which case it won't have a MAC address
 	// and its ethernet header length is set to 0.
 	em := mac.MAC(link.Attrs().HardwareAddr)
-	if len(em) == 6 {
+	if em.IsValid() {
 		cfg.InterfaceMAC.Addr = em.As6()
 	} else {
 		cfg.EthHeaderLength = 0

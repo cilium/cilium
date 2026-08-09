@@ -24,7 +24,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 	// address. Unlike other L2-less devices, the ethernet header length remains
 	// at its default non-zero value.
 	em := ep.GetNodeMAC()
-	if len(em) == 6 {
+	if em.IsValid() {
 		cfg.InterfaceMAC.Addr = em.As6()
 	}
 

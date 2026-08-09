@@ -35,6 +35,13 @@ func (m MAC) String() string {
 	return net.HardwareAddr(m).String()
 }
 
+// IsValid reports whether m holds a MAC-48 address, i.e. whether it is both
+// set and well-formed. Devices without a layer 2 address, such as L3/NOARP
+// devices, carry an invalid MAC.
+func (m MAC) IsValid() bool {
+	return len(m) == 6
+}
+
 // As6 returns the MAC as an array of 6 bytes for use in datapath configuration
 // structs.
 func (m MAC) As6() [6]byte {
