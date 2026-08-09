@@ -61,12 +61,6 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
-	struct ratelimit_key rkey = {
-		.usage = RATELIMIT_USAGE_EVENTS_MAP,
-	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
 	struct policy_verdict_notify msg;
 
 #if defined(IS_BPF_HOST)
@@ -94,6 +88,13 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u
 		verdict = (int)proxy_port;
 
 	if (CONFIG(events_map_rate_limit) > 0) {
+		struct ratelimit_key rkey = {
+			.usage = RATELIMIT_USAGE_EVENTS_MAP,
+		};
+		struct ratelimit_settings settings = {
+			.topup_interval_ns = NSEC_PER_SEC,
+		};
+
 		settings.bucket_size = CONFIG(events_map_burst_limit);
 		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
 		if (!ratelimit_check_and_take(&rkey, &settings))

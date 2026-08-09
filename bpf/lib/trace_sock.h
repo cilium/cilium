@@ -123,12 +123,6 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 			bool is_connect)
 {
 	struct trace_sock_notify msg __align_stack_8 = {};
-	struct ratelimit_key rkey = {
-		.usage = RATELIMIT_USAGE_SOCKET_EVENTS_MAP,
-	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = CT_REPORT_INTERVAL * NSEC_PER_SEC,
-	};
 
 	if (!emit_trace_sock_notify(xlate_point, is_connect))
 		return;
@@ -138,6 +132,13 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 	 * align with monitor aggregation timing.
 	 */
 	if (CONFIG(monitor_aggregation) != TRACE_SOCK_AGGREGATE_NONE) {
+		struct ratelimit_key rkey = {
+			.usage = RATELIMIT_USAGE_SOCKET_EVENTS_MAP,
+		};
+		struct ratelimit_settings settings = {
+			.topup_interval_ns = CT_REPORT_INTERVAL * NSEC_PER_SEC,
+		};
+
 		/* One token per CT_REPORT_INTERVAL with no burst to align with
 		 * monitor aggregation semantics ("~1 per interval").
 		 */
@@ -167,12 +168,6 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 			bool is_connect)
 {
 	struct trace_sock_notify msg __align_stack_8;
-	struct ratelimit_key rkey = {
-		.usage = RATELIMIT_USAGE_SOCKET_EVENTS_MAP,
-	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = CT_REPORT_INTERVAL * NSEC_PER_SEC,
-	};
 
 	if (!emit_trace_sock_notify(xlate_point, is_connect))
 		return;
@@ -182,6 +177,13 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 	 * align with monitor aggregation timing.
 	 */
 	if (CONFIG(monitor_aggregation) != TRACE_SOCK_AGGREGATE_NONE) {
+		struct ratelimit_key rkey = {
+			.usage = RATELIMIT_USAGE_SOCKET_EVENTS_MAP,
+		};
+		struct ratelimit_settings settings = {
+			.topup_interval_ns = CT_REPORT_INTERVAL * NSEC_PER_SEC,
+		};
+
 		/* One token per CT_REPORT_INTERVAL with no burst to align with
 		 * monitor aggregation semantics ("~1 per interval").
 		 */

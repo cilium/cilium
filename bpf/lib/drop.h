@@ -79,15 +79,16 @@ int tail_drop_notify(struct __ctx_buff *ctx)
 	__u8 file = (__u8)(meta4 >> 8);
 	__u8 exitcode = (__u8)meta4;
 	cls_flags_t flags = CLS_FLAG_NONE;
-	struct ratelimit_key rkey = {
-		.usage = RATELIMIT_USAGE_EVENTS_MAP,
-	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
 	struct drop_notify msg;
 
 	if (CONFIG(events_map_rate_limit) > 0) {
+		struct ratelimit_key rkey = {
+			.usage = RATELIMIT_USAGE_EVENTS_MAP,
+		};
+		struct ratelimit_settings settings = {
+			.topup_interval_ns = NSEC_PER_SEC,
+		};
+
 		settings.bucket_size = CONFIG(events_map_burst_limit);
 		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
 		if (!ratelimit_check_and_take(&rkey, &settings))
