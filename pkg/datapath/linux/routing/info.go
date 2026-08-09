@@ -79,7 +79,7 @@ func parse(logger *slog.Logger, gateway string, cidrs []string, masterIfMAC mac.
 
 	// The MAC of the master interface is what the routes and rules are keyed
 	// on, so an unset one cannot be worked around here.
-	if len(masterIfMAC) == 0 {
+	if !masterIfMAC.IsValid() {
 		return nil, errors.New("empty mac")
 	}
 
