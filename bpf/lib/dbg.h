@@ -202,24 +202,6 @@ struct debug_capture_msg {
 				     ##__VA_ARGS__);		\
 		})
 
-
-static __always_inline void cilium_dbg(const struct __ctx_buff *ctx, __u8 type,
-				       __u32 arg1, __u32 arg2)
-{
-	struct debug_msg msg = {
-		__notify_common_hdr(CILIUM_NOTIFY_DBG_MSG, type),
-		.arg1	= arg1,
-		.arg2	= arg2,
-	};
-#ifdef DEBUG_TAGGED
-	if (!load_ip_trace_id())
-		return;
-#endif
-	dbg_extension_hook(ctx, msg);
-	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
-}
-
 static __always_inline void cilium_dbg3(const struct __ctx_buff *ctx, __u8 type,
 					__u32 arg1, __u32 arg2, __u32 arg3)
 {
@@ -238,6 +220,12 @@ static __always_inline void cilium_dbg3(const struct __ctx_buff *ctx, __u8 type,
 			 &msg, sizeof(msg));
 }
 
+
+static __always_inline void
+cilium_dbg(const struct __ctx_buff *ctx, __u8 type, __u32 arg1, __u32 arg2)
+{
+	cilium_dbg3(ctx, type, arg1, arg2, 0);
+}
 
 static __always_inline void cilium_dbg_capture2(const struct __ctx_buff *ctx, __u8 type,
 						__u32 arg1, __u32 arg2)
