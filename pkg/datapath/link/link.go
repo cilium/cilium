@@ -65,7 +65,7 @@ func GetHardwareAddr(ifName string) (mac.MAC, error) {
 	if err != nil {
 		return nil, err
 	}
-	return mac.MAC(iface.Attrs().HardwareAddr), nil
+	return mac.FromHardwareAddr(iface.Attrs().HardwareAddr)
 }
 
 // SetHardwareAddr sets the MAC address of the interface with the name ifName.
