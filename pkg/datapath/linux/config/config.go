@@ -321,24 +321,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 	// be set by the Service annotation
 	cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", cfg.MaglevConfig.TableSize)
 
-	// We assume that validation for DirectRoutingDevice requirement and presence is already done
-	// upstream when constructing the LocalNodeConfiguration.
-	// See orchestrator/localnodeconfig.go
-	drd := cfg.DirectRoutingDevice
-	if drd != nil {
-		if option.Config.EnableIPv6 {
-			ip := preferredIPv6Address(drd.Addrs)
-			extraMacrosMap["IPV6_DIRECT_ROUTING"] = ip.String()
-			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", ip.AsSlice()))
-		}
-	} else {
-		var directRoutingIPv6 net.IP
-		if option.Config.EnableIPv6 {
-			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
-			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
-		}
-	}
-
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
 	if option.Config.EnableHostFirewall {
@@ -593,17 +575,4 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e endpoint.Conf
 func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, e endpoint.Config) error {
 	fw := bufio.NewWriter(w)
 	return h.writeTemplateConfig(fw, e)
-}
-
-func preferredIPv6Address(deviceAddresses []tables.DeviceAddress) netip.Addr {
-	var ip netip.Addr
-	for _, addr := range deviceAddresses {
-		if addr.Addr.Is6() {
-			ip = addr.Addr
-			if !ip.IsLinkLocalUnicast() {
-				break
-			}
-		}
-	}
-	return ip
 }

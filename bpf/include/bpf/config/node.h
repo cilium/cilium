@@ -136,3 +136,5 @@ ASSIGN_CONFIG(struct ct_timeout_config, ct_timeouts, {
 
 NODE_CONFIG(union v4addr, ipv4_direct_routing,
 	    "IPv4 address of the device used for direct routing between nodes")
+NODE_CONFIG(union v6addr, ipv6_direct_routing,
+	    "IPv6 address of the device used for direct routing between nodes")
