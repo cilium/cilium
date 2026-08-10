@@ -1169,8 +1169,8 @@ type UnsafeDaemonConfig struct {
 	EnableSocketLBPodConnectionTermination bool
 	// EnableHostLegacyRouting enables the old routing path via stack.
 	EnableHostLegacyRouting bool
-	LoadBalancerRSSv4       net.IPNet
-	LoadBalancerRSSv6       net.IPNet
+	LoadBalancerRSSv4       netip.Prefix
+	LoadBalancerRSSv6       netip.Prefix
 
 	// EnableIPIPDevices enables the creation of IPIP devices for IPv4 and IPv6
 	EnableIPIPDevices bool
