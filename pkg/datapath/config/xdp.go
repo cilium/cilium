@@ -30,9 +30,8 @@ func XDP(lnc *Config, link netlink.Link) any {
 
 	if option.Config.EnableIPv4 {
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
-			copy(cfg.IPv4RSSPrefix.Addr[:], option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4.IP.To4())
-			ones, _ := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4.Mask.Size()
-			cfg.IPv4RSSPrefixBits = uint8(ones)
+			cfg.IPv4RSSPrefix.Addr = option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4.Addr().As4()
+			cfg.IPv4RSSPrefixBits = uint8(option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4.Bits())
 		} else {
 			if lnc.DirectRoutingDevice != nil {
 				for _, addr := range lnc.DirectRoutingDevice.Addrs {
@@ -47,9 +46,8 @@ func XDP(lnc *Config, link netlink.Link) any {
 
 	if option.Config.EnableIPv6 {
 		if option.Config.LoadBalancerRSSv6CIDR != "" {
-			copy(cfg.IPv6RSSPrefix.Addr[:], option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6.IP.To16())
-			ones, _ := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6.Mask.Size()
-			cfg.IPv6RSSPrefixBits = uint8(ones)
+			cfg.IPv6RSSPrefix.Addr = option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6.Addr().As16()
+			cfg.IPv6RSSPrefixBits = uint8(option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6.Bits())
 		} else {
 			if lnc.DirectRoutingDevice != nil {
 				for _, addr := range lnc.DirectRoutingDevice.Addrs {
