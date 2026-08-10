@@ -29,7 +29,6 @@
 
 #define LB_IP			v4_node_one
 #define LB_IPV6			{ .addr = v6_node_one_addr }
-#define IPV6_DIRECT_ROUTING	LB_IPV6
 
 #define IPV4_SNAT_TARGET	0xDEADBEEF
 #define IPV6_SNAT_TARGET_ADDR	{ 0xDE, 0xAD, 0, 0, 0, 0, 0, 0, \
@@ -96,6 +95,7 @@ ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, supports_fib_lookup_src, true)
 ASSIGN_CONFIG(bool, enable_nodeport_source_lookup, true)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
+ASSIGN_CONFIG(union v6addr, ipv6_direct_routing, LB_IPV6)
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"

@@ -607,6 +607,21 @@ func showAddresses(addrs []NodeAddress) string {
 	return strings.Join(ss, ", ")
 }
 
+// PreferredIPv6Address returns a non-link-local IPv6 address,
+// falling back to a link-local address when necessary.
+func PreferredIPv6Address(addrs []DeviceAddress) netip.Addr {
+	var ip netip.Addr
+	for _, addr := range addrs {
+		if addr.Addr.Is6() && !addr.Addr.IsUnspecified() {
+			ip = addr.Addr
+			if !ip.IsLinkLocalUnicast() {
+				break
+			}
+		}
+	}
+	return ip
+}
+
 // PreferredIPv4Address returns the first usable IPv4 address ordered by SortedAddresses.
 func PreferredIPv4Address(addrs []DeviceAddress) netip.Addr {
 	for _, addr := range SortedAddresses(addrs) {
