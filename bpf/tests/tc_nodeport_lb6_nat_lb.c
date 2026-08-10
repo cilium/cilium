@@ -19,7 +19,6 @@
 #define FRONTEND_PORT		tcp_svc_one
 
 #define LB_IP			{ .addr = v6_node_one_addr }
-#define IPV6_DIRECT_ROUTING	LB_IP
 
 #define BACKEND_IP_LOCAL	{ .addr = v6_pod_one_addr }
 #define BACKEND_IP_REMOTE	{ .addr = v6_pod_two_addr }
@@ -162,6 +161,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
+ASSIGN_CONFIG(union v6addr, ipv6_direct_routing, LB_IP)
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"

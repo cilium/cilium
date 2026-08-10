@@ -78,14 +78,6 @@
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
 
-#ifdef ENABLE_NODEPORT
-# ifdef ENABLE_IPV6
-#  ifndef IPV6_DIRECT_ROUTING
-#   define IPV6_DIRECT_ROUTING { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
-#  endif
-# endif
-#endif
-
 #define LB4_SRC_RANGE_MAP_SIZE	1000
 #define LB6_SRC_RANGE_MAP_SIZE	1000
 

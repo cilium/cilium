@@ -1187,7 +1187,7 @@ __declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS) static __always_inline
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
-		.addr = IPV6_DIRECT_ROUTING,
+		.addr = CONFIG(ipv6_direct_routing),
 	};
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct trace_ctx trace = {

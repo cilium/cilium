@@ -56,6 +56,12 @@ func NodeConfig(lnc *Config) Node {
 				node.IPv4DirectRouting.Addr = ipv4.As4()
 			}
 		}
+		if option.Config.EnableIPv6 {
+			ipv6 := tables.PreferredIPv6Address(lnc.DirectRoutingDevice.Addrs)
+			if ipv6.IsValid() {
+				node.IPv6DirectRouting.Addr = ipv6.As16()
+			}
+		}
 	}
 
 	node.SupportsFIBLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil

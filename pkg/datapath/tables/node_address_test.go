@@ -948,6 +948,76 @@ func TestSortedAddresses(t *testing.T) {
 	}
 }
 
+func TestPreferredIPv6Address(t *testing.T) {
+	tests := []struct {
+		name  string
+		addrs []DeviceAddress
+		want  netip.Addr
+	}{
+		{
+			name: "link_local_only",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805")},
+			},
+			want: netip.MustParseAddr("fe80::4001:aff:fe35:a805"),
+		},
+		{
+			name: "global_only",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::")},
+			},
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+		},
+		{
+			name: "local_first",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805")},
+				{Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::")},
+			},
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+		},
+		{
+			name: "global_first",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::")},
+				{Addr: netip.MustParseAddr("fe80::4001:aff:fe35:a805")},
+			},
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+		},
+		{
+			name: "select_first_global",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::")},
+				{Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:3::")},
+			},
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+		},
+		{
+			name: "link_local_fallback",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("fe80::1")},
+				{Addr: netip.MustParseAddr("::")},
+			},
+			want: netip.MustParseAddr("fe80::1"),
+		},
+		{
+			name: "ignore_unspecified_address",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("fe80::1")},
+				{Addr: netip.MustParseAddr("::")},
+				{Addr: netip.MustParseAddr("2600:1900:4001:2a1:0:2::")},
+			},
+			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, PreferredIPv6Address(tt.addrs))
+		})
+	}
+}
+
 func TestPreferredIPv4Address(t *testing.T) {
 	tests := []struct {
 		name  string
