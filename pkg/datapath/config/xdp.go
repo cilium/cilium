@@ -6,6 +6,7 @@ package config
 import (
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -29,17 +30,14 @@ func XDP(lnc *Config, link netlink.Link) any {
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
 
 	if option.Config.EnableIPv4 {
-		if option.Config.LoadBalancerRSSv4CIDR != "" {
-			cfg.IPv4RSSPrefix.Addr = option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4.Addr().As4()
-			cfg.IPv4RSSPrefixBits = uint8(option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4.Bits())
-		} else {
-			if lnc.DirectRoutingDevice != nil {
-				for _, addr := range lnc.DirectRoutingDevice.Addrs {
-					if addr.Addr.Is4() {
-						cfg.IPv4RSSPrefix.Addr = addr.Addr.As4()
-						break
-					}
-				}
+		rssPrefix := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4
+		if rssPrefix.IsValid() {
+			cfg.IPv4RSSPrefix.Addr = rssPrefix.Addr().As4()
+			cfg.IPv4RSSPrefixBits = uint8(rssPrefix.Bits())
+		} else if lnc.DirectRoutingDevice != nil {
+			addr := tables.PreferredIPv4Address(lnc.DirectRoutingDevice.Addrs)
+			if addr.IsValid() {
+				cfg.IPv4RSSPrefix.Addr = addr.As4()
 			}
 		}
 	}
