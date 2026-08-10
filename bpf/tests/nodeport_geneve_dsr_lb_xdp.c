@@ -26,7 +26,6 @@
 #define FRONTEND_PORT		tcp_svc_one
 
 #define LB_IP			v4_node_one
-#define IPV4_DIRECT_ROUTING	LB_IP
 #define BACKEND_NODE_IP		v4_node_two
 
 #define DIRECT_ROUTING_IFINDEX	25
@@ -82,6 +81,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
+ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
@@ -315,7 +315,7 @@ int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff 
 	if (l3->protocol != IPPROTO_UDP)
 		test_fatal("outer IP doesn't have correct L4 protocol");
 
-	if (l3->saddr != IPV4_DIRECT_ROUTING)
+	if (l3->saddr != CONFIG(ipv4_direct_routing).be32)
 		test_fatal("outerSrcIP is not correct");
 
 	if (l3->daddr != BACKEND_NODE_IP)

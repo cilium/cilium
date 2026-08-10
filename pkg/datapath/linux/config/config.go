@@ -326,10 +326,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 	// See orchestrator/localnodeconfig.go
 	drd := cfg.DirectRoutingDevice
 	if drd != nil {
-		if option.Config.EnableIPv4 {
-			ipv4 := preferredIPv4Address(drd.Addrs)
-			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
-		}
 		if option.Config.EnableIPv6 {
 			ip := preferredIPv6Address(drd.Addrs)
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = ip.String()
@@ -337,9 +333,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		}
 	} else {
 		var directRoutingIPv6 net.IP
-		if option.Config.EnableIPv4 {
-			cDefinesMap["IPV4_DIRECT_ROUTING"] = "0"
-		}
 		if option.Config.EnableIPv6 {
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
 			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
@@ -600,17 +593,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e endpoint.Conf
 func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, e endpoint.Config) error {
 	fw := bufio.NewWriter(w)
 	return h.writeTemplateConfig(fw, e)
-}
-
-func preferredIPv4Address(deviceAddresses []tables.DeviceAddress) uint32 {
-	var ip uint32
-	for _, addr := range tables.SortedAddresses(deviceAddresses) {
-		if addr.Addr.Is4() {
-			ip = byteorder.NetIPAddrToHost32(addr.Addr)
-			break
-		}
-	}
-	return ip
 }
 
 func preferredIPv6Address(deviceAddresses []tables.DeviceAddress) netip.Addr {

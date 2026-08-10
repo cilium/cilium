@@ -104,6 +104,8 @@ ASSIGN_CONFIG(__u32, hash_init6_seed, 0xeb9f)
 
 ASSIGN_CONFIG(__u16, device_mtu, 200);
 
+ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = v4_node_one })
+
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 

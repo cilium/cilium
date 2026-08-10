@@ -5,6 +5,7 @@ package config
 
 import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -49,6 +50,12 @@ func NodeConfig(lnc *Config) Node {
 
 	if lnc.DirectRoutingDevice != nil {
 		node.DirectRoutingDevIfIndex = uint32(lnc.DirectRoutingDevice.Index)
+		if option.Config.EnableIPv4 {
+			ipv4 := tables.PreferredIPv4Address(lnc.DirectRoutingDevice.Addrs)
+			if ipv4.IsValid() {
+				node.IPv4DirectRouting.Addr = ipv4.As4()
+			}
+		}
 	}
 
 	node.SupportsFIBLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil
