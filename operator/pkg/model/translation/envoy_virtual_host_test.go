@@ -573,6 +573,136 @@ func Test_pathPrefixMutation(t *testing.T) {
 	})
 }
 
+func Test_pathFullReplaceMutation(t *testing.T) {
+	t.Run("no full path replace", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		res := pathFullReplaceMutation(nil)(route)
+		require.Equal(t, route, res)
+
+		res = pathFullReplaceMutation(&model.HTTPURLRewriteFilter{})(route)
+		require.Equal(t, route, res)
+
+		res = pathFullReplaceMutation(&model.HTTPURLRewriteFilter{Path: &model.StringMatch{}})(route)
+		require.Equal(t, route, res)
+	})
+
+	t.Run("with simple full path replace", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			Path: &model.StringMatch{
+				Exact: "/new-path",
+			},
+		}
+
+		res := pathFullReplaceMutation(rewrite)(route)
+		require.Equal(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+			Pattern: &envoy_type_matcher_v3.RegexMatcher{
+				Regex: "^/.*$",
+			},
+			Substitution: "/new-path",
+		}, res.Route.RegexRewrite)
+	})
+
+	t.Run("with full path replace containing backreferences", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			Path: &model.StringMatch{
+				Exact: `/foo/\1`,
+			},
+		}
+
+		res := pathFullReplaceMutation(rewrite)(route)
+		require.Equal(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+			Pattern: &envoy_type_matcher_v3.RegexMatcher{
+				Regex: "^/.*$",
+			},
+			Substitution: `/foo/\\1`,
+		}, res.Route.RegexRewrite)
+	})
+
+	t.Run("with full path replace containing whole match backreference 0", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			Path: &model.StringMatch{
+				Exact: `/prefix/\0/suffix`,
+			},
+		}
+
+		res := pathFullReplaceMutation(rewrite)(route)
+		require.Equal(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+			Pattern: &envoy_type_matcher_v3.RegexMatcher{
+				Regex: "^/.*$",
+			},
+			Substitution: `/prefix/\\0/suffix`,
+		}, res.Route.RegexRewrite)
+	})
+
+	t.Run("with full path replace containing trailing backslash", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			Path: &model.StringMatch{
+				Exact: `/foo\`,
+			},
+		}
+
+		res := pathFullReplaceMutation(rewrite)(route)
+		require.Equal(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+			Pattern: &envoy_type_matcher_v3.RegexMatcher{
+				Regex: "^/.*$",
+			},
+			Substitution: `/foo\\`,
+		}, res.Route.RegexRewrite)
+	})
+
+	t.Run("with full path replace containing consecutive backslashes", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			Path: &model.StringMatch{
+				Exact: `/foo\\bar`,
+			},
+		}
+
+		res := pathFullReplaceMutation(rewrite)(route)
+		require.Equal(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+			Pattern: &envoy_type_matcher_v3.RegexMatcher{
+				Regex: "^/.*$",
+			},
+			Substitution: `/foo\\\\bar`,
+		}, res.Route.RegexRewrite)
+	})
+
+	t.Run("with full path replace containing multiple backslashes", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			Path: &model.StringMatch{
+				Exact: `\1\2\3\g\k`,
+			},
+		}
+
+		res := pathFullReplaceMutation(rewrite)(route)
+		require.Equal(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+			Pattern: &envoy_type_matcher_v3.RegexMatcher{
+				Regex: "^/.*$",
+			},
+			Substitution: `\\1\\2\\3\\g\\k`,
+		}, res.Route.RegexRewrite)
+	})
+}
+
 func Test_requestMirrorMutation(t *testing.T) {
 	t.Run("no mirror", func(t *testing.T) {
 		route := &envoy_config_route_v3.Route_Route{

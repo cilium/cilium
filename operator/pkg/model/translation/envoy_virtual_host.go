@@ -409,7 +409,7 @@ func pathPrefixMutation(rewrite *model.HTTPURLRewriteFilter, httpRoute *model.HT
 				Pattern: &envoy_type_matcher_v3.RegexMatcher{
 					Regex: `^/(.*)`,
 				},
-				Substitution: strings.TrimSuffix(rewrite.Path.Prefix, "/") + `/\1`,
+				Substitution: strings.ReplaceAll(strings.TrimSuffix(rewrite.Path.Prefix, "/"), `\`, `\\`) + `/\1`,
 			}
 		} else {
 			route.Route.PrefixRewrite = rewrite.Path.Prefix
@@ -427,7 +427,7 @@ func pathFullReplaceMutation(rewrite *model.HTTPURLRewriteFilter) routeActionMut
 			Pattern: &envoy_type_matcher_v3.RegexMatcher{
 				Regex: "^/.*$",
 			},
-			Substitution: rewrite.Path.Exact,
+			Substitution: strings.ReplaceAll(rewrite.Path.Exact, `\`, `\\`),
 		}
 		return route
 	}
