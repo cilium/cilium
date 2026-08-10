@@ -28,6 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
+	fakeloader "github.com/cilium/cilium/pkg/datapath/loader/fake"
+	loadertypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
@@ -136,6 +138,14 @@ func TestPrivilegedScript(t *testing.T) {
 			reflectors.Cell,
 			lbipamconfig.Cell,
 			nodeipamconfig.Cell,
+
+			// Stub dependencies added by the BGP announcement gating:
+			// - Loader: signal host datapath as immediately ready so tests are not gated.
+			// - InitWaitFunc: signal load-balancing state as immediately ready.
+			cell.Provide(func() loadertypes.Loader { return fakeloader.NewInitializedLoader() }),
+			cell.Provide(func() loadbalancer.InitWaitFunc {
+				return func(ctx context.Context) error { return nil }
+			}),
 
 			// Provide source.Sources for loadbalancer writer
 			cell.Provide(func() source.Sources { return source.Sources{} }),
