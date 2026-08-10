@@ -22,7 +22,6 @@
 
 #define LB_IP			v4_node_one
 #define LB_IPV6			{ .addr = { 0x5, 0x0, 0x0, 0x0, 0x0, 0x0 } }
-#define IPV4_DIRECT_ROUTING	LB_IP
 #define IPV6_DIRECT_ROUTING	LB_IPV6
 
 #define BACKEND_IP		v4_pod_two
@@ -43,6 +42,7 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/bpf_xdp.h"
 
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
+ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 
 static __always_inline __maybe_unused long
 mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,

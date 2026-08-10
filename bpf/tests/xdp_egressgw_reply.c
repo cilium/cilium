@@ -17,7 +17,6 @@
 
 #define ENCAP_IFINDEX		42
 
-#define IPV4_DIRECT_ROUTING	v4_node_one /* gateway node */
 #define MASQ_PORT		__bpf_htons(NODEPORT_PORT_MIN_NAT + 1)
 #define DIRECT_ROUTING_IFINDEX	25
 
@@ -38,6 +37,8 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
+
+ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = v4_node_one }) /* gateway node */
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
@@ -190,7 +191,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->check != bpf_htons(0x527e))
 		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
-	if (l3->saddr != IPV4_DIRECT_ROUTING)
+	if (l3->saddr != CONFIG(ipv4_direct_routing).be32)
 		test_fatal("outerSrcIP is not correct")
 
 	if (l3->daddr != CLIENT_NODE_IP)
@@ -359,7 +360,7 @@ int egressgw_reply_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->check != bpf_htons(0x526a))
 		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
-	if (l3->saddr != IPV4_DIRECT_ROUTING)
+	if (l3->saddr != CONFIG(ipv4_direct_routing).be32)
 		test_fatal("outerSrcIP is not correct")
 
 	if (l3->daddr != CLIENT_NODE_IP)

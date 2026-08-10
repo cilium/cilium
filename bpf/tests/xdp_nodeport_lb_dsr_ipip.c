@@ -25,7 +25,6 @@
 
 #define LB_IP			v4_node_one
 #define LB_IPV6			{ .addr = { 0x5 } }
-#define IPV4_DIRECT_ROUTING	LB_IP
 #define IPV6_DIRECT_ROUTING	LB_IPV6
 
 #define BACKEND_IP		v4_pod_two
@@ -45,10 +44,12 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 
-ASSIGN_CONFIG(union v4addr, ipv4_rss_prefix, { .be32 = IPV4_DIRECT_ROUTING })
+ASSIGN_CONFIG(union v4addr, ipv4_rss_prefix, { .be32 = LB_IP })
 ASSIGN_CONFIG(__u8, ipv4_rss_prefix_bits, 32)
 ASSIGN_CONFIG(union v6addr, ipv6_rss_prefix, IPV6_DIRECT_ROUTING)
 ASSIGN_CONFIG(__u8, ipv6_rss_prefix_bits, 128)
+
+ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		     __maybe_unused int plen, __maybe_unused __u32 flags)
@@ -175,7 +176,7 @@ int nodeport_dsr_ipip4_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	if (outer_l3->protocol != IPPROTO_IPIP)
 		test_fatal("outer IP doesn't have correct L4 protocol");
-	if (outer_l3->saddr != IPV4_DIRECT_ROUTING)
+	if (outer_l3->saddr != CONFIG(ipv4_direct_routing).be32)
 		test_fatal("outerSrcIP is not correct");
 	if (outer_l3->daddr != BACKEND_IP)
 		test_fatal("outerDstIP is not correct");
