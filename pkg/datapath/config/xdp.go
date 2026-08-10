@@ -43,19 +43,14 @@ func XDP(lnc *Config, link netlink.Link) any {
 	}
 
 	if option.Config.EnableIPv6 {
-		if option.Config.LoadBalancerRSSv6CIDR != "" {
-			cfg.IPv6RSSPrefix.Addr = option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6.Addr().As16()
-			cfg.IPv6RSSPrefixBits = uint8(option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6.Bits())
-		} else {
-			if lnc.DirectRoutingDevice != nil {
-				for _, addr := range lnc.DirectRoutingDevice.Addrs {
-					if addr.Addr.Is6() {
-						cfg.IPv6RSSPrefix.Addr = addr.Addr.As16()
-						if !addr.Addr.IsLinkLocalUnicast() {
-							break
-						}
-					}
-				}
+		rssPrefix := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6
+		if rssPrefix.IsValid() {
+			cfg.IPv6RSSPrefix.Addr = rssPrefix.Addr().As16()
+			cfg.IPv6RSSPrefixBits = uint8(rssPrefix.Bits())
+		} else if lnc.DirectRoutingDevice != nil {
+			addr := tables.PreferredIPv6Address(lnc.DirectRoutingDevice.Addrs)
+			if addr.IsValid() {
+				cfg.IPv6RSSPrefix.Addr = addr.As16()
 			}
 		}
 	}
