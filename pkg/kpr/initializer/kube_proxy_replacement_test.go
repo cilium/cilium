@@ -4,6 +4,7 @@
 package initializer
 
 import (
+	"net/netip"
 	"regexp"
 	"strings"
 	"testing"
@@ -423,5 +424,136 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 		require.NoError(t, cfg.set())
 		testCase.out.verify(t, cfg.lbConfig, cfg.kprConfig, tunnel.NewTestConfig(cfg.tunnelProtocol), fakewireguard.Config{})
 		def.set()
+	}
+}
+
+func TestLoadBalancerRSSCIDRIPv4Parsing(t *testing.T) {
+	originalV4CIDR := option.Config.LoadBalancerRSSv4CIDR
+	originalV4Prefix := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4
+	originalDryMode := option.Config.DryMode
+	t.Cleanup(func() {
+		option.Config.LoadBalancerRSSv4CIDR = originalV4CIDR
+		option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4 = originalV4Prefix
+		option.Config.DryMode = originalDryMode
+	})
+	option.Config.DryMode = true
+
+	tests := []struct {
+		name    string
+		cidr    string
+		want    netip.Prefix
+		wantErr bool
+	}{
+		{
+			name: "IPv4 prefix is masked",
+			cidr: "192.0.2.129/24",
+			want: netip.MustParsePrefix("192.0.2.0/24"),
+		},
+		{
+			name:    "invalid IPv4 address is rejected",
+			cidr:    "192.0.2.999/24",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			option.Config.LoadBalancerRSSv4CIDR = ""
+			option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4 = netip.Prefix{}
+			option.Config.LoadBalancerRSSv4CIDR = tt.cidr
+
+			cfg := kprConfig{
+				kubeProxyReplacement: true,
+				routingMode:          option.RoutingModeNative,
+				nodePortMode:         loadbalancer.LBModeDSR,
+				dispatchMode:         loadbalancer.DSRDispatchIPIP,
+			}
+			require.NoError(t, cfg.set())
+
+			initializer := &kprInitializer{
+				logger:       hivetest.Logger(t),
+				sysctl:       sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+				tunnelConfig: tunnel.NewTestConfig(cfg.tunnelProtocol),
+				lbConfig:     cfg.lbConfig,
+				kprCfg:       cfg.kprConfig,
+				wgCfg:        fakewireguard.Config{},
+			}
+			err := initializer.InitKubeProxyReplacementOptions()
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.want, option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4)
+		})
+	}
+}
+
+func TestLoadBalancerRSSCIDRIPv6Parsing(t *testing.T) {
+	originalV6CIDR := option.Config.LoadBalancerRSSv6CIDR
+	originalV6Prefix := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6
+	originalDryMode := option.Config.DryMode
+	t.Cleanup(func() {
+		option.Config.LoadBalancerRSSv6CIDR = originalV6CIDR
+		option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6 = originalV6Prefix
+		option.Config.DryMode = originalDryMode
+	})
+	option.Config.DryMode = true
+
+	tests := []struct {
+		name    string
+		cidr    string
+		want    netip.Prefix
+		wantErr bool
+	}{
+		{
+			name: "IPv6 prefix is masked",
+			cidr: "2001:db8::1/64",
+			want: netip.MustParsePrefix("2001:db8::/64"),
+		},
+		{
+			name:    "invalid IPv6 address is rejected",
+			cidr:    "2001:db8::gg/64",
+			wantErr: true,
+		},
+		{
+			name:    "IPv4-mapped IPv6 prefix is rejected",
+			cidr:    "::ffff:192.0.2.1/128",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			option.Config.LoadBalancerRSSv6CIDR = ""
+			option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6 = netip.Prefix{}
+			option.Config.LoadBalancerRSSv6CIDR = tt.cidr
+
+			cfg := kprConfig{
+				kubeProxyReplacement: true,
+				routingMode:          option.RoutingModeNative,
+				nodePortMode:         loadbalancer.LBModeDSR,
+				dispatchMode:         loadbalancer.DSRDispatchIPIP,
+			}
+			require.NoError(t, cfg.set())
+
+			initializer := &kprInitializer{
+				logger:       hivetest.Logger(t),
+				sysctl:       sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+				tunnelConfig: tunnel.NewTestConfig(cfg.tunnelProtocol),
+				lbConfig:     cfg.lbConfig,
+				kprCfg:       cfg.kprConfig,
+				wgCfg:        fakewireguard.Config{},
+			}
+			err := initializer.InitKubeProxyReplacementOptions()
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.want, option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6)
+		})
 	}
 }

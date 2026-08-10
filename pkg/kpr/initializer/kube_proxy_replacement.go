@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -64,37 +64,34 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 
 	if r.kprCfg.KubeProxyReplacement {
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
-			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv4CIDR)
-			if ip.To4() == nil {
+			prefix, err := netip.ParsePrefix(option.Config.LoadBalancerRSSv4CIDR)
+			if err == nil && !prefix.Addr().Is4() {
 				err = fmt.Errorf("CIDR is not IPv4 based")
 			}
-			if err == nil {
-				if ones, _ := cidr.Mask.Size(); ones == 0 {
-					err = fmt.Errorf("CIDR length must be in (0,32]")
-				}
+			if err == nil && prefix.Bits() == 0 {
+				err = fmt.Errorf("CIDR length must be in (0,32]")
 			}
 			if err != nil {
 				return fmt.Errorf("Invalid value for --%s: %s",
 					option.LoadBalancerRSSv4CIDR, option.Config.LoadBalancerRSSv4CIDR)
 			}
-			option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4 = *cidr
+			option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4 = prefix.Masked()
 		}
 
 		if option.Config.LoadBalancerRSSv6CIDR != "" {
-			ip, cidr, err := net.ParseCIDR(option.Config.LoadBalancerRSSv6CIDR)
-			if ip.To4() != nil {
+			prefix, err := netip.ParsePrefix(option.Config.LoadBalancerRSSv6CIDR)
+			// Is6() is not enough, because it includes IPv4-mapped IPv6 addresses
+			if err == nil && (!prefix.Addr().Is6() || prefix.Addr().Is4In6()) {
 				err = fmt.Errorf("CIDR is not IPv6 based")
 			}
-			if err == nil {
-				if ones, _ := cidr.Mask.Size(); ones == 0 {
-					err = fmt.Errorf("CIDR length must be in (0,128]")
-				}
+			if err == nil && prefix.Bits() == 0 {
+				err = fmt.Errorf("CIDR length must be in (0,128]")
 			}
 			if err != nil {
 				return fmt.Errorf("Invalid value for --%s: %s",
 					option.LoadBalancerRSSv6CIDR, option.Config.LoadBalancerRSSv6CIDR)
 			}
-			option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6 = *cidr
+			option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6 = prefix.Masked()
 		}
 
 		dsrIPIP := r.lbConfig.LoadBalancerUsesDSR() && r.lbConfig.DSRDispatch == loadbalancer.DSRDispatchIPIP
