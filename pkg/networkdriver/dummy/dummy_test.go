@@ -10,6 +10,7 @@ package dummy
 // are required.
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -101,24 +102,46 @@ func TestNewManager(t *testing.T) {
 	})
 }
 
-func TestListDevices(t *testing.T) {
+func TestRun(t *testing.T) {
 	tlog := hivetest.Logger(t)
 
-	t.Run("count N returns N named devices", func(t *testing.T) {
+	t.Run("count N publishes N named devices", func(t *testing.T) {
 		mgr, _ := NewManager(tlog, &v2alpha1.DummyDeviceManagerConfig{Count: 3})
-		devs, err := mgr.ListDevices()
-		require.NoError(t, err)
-		require.Len(t, devs, 3)
-		require.Equal(t, "dummy0", devs[0].IfName())
-		require.Equal(t, "dummy1", devs[1].IfName())
-		require.Equal(t, "dummy2", devs[2].IfName())
+		ctx, cancel := context.WithCancel(t.Context())
+
+		var published []types.Device
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			mgr.Run(ctx, func(devs []types.Device) {
+				published = devs
+				cancel() // one publish is enough
+			})
+		}()
+		<-done
+
+		require.Len(t, published, 3)
+		require.Equal(t, "dummy0", published[0].IfName())
+		require.Equal(t, "dummy1", published[1].IfName())
+		require.Equal(t, "dummy2", published[2].IfName())
 	})
 
-	t.Run("zero count returns empty slice", func(t *testing.T) {
+	t.Run("zero count publishes empty slice", func(t *testing.T) {
 		mgr, _ := NewManager(tlog, &v2alpha1.DummyDeviceManagerConfig{Count: 0})
-		devs, err := mgr.ListDevices()
-		require.NoError(t, err)
-		require.Empty(t, devs)
+		ctx, cancel := context.WithCancel(t.Context())
+
+		var published []types.Device
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			mgr.Run(ctx, func(devs []types.Device) {
+				published = devs
+				cancel()
+			})
+		}()
+		<-done
+
+		require.Empty(t, published)
 	})
 }
 func TestRestoreDevice(t *testing.T) {

@@ -18,6 +18,7 @@ package networkdriver
 //   - Synchronize          — lock + bulk cache population
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -40,9 +41,15 @@ import (
 // ---------------------------------------------------------------------------
 
 // mockDeviceManager implements types.DeviceManager using trackedDevice.
-// If devices is non-nil, ListDevices returns those devices; otherwise returns nil.
+// Run publishes devices once and then blocks until ctx is cancelled.
 type mockDeviceManager struct {
 	devices []types.Device
+}
+
+func (m *mockDeviceManager) Run(ctx context.Context, publish func([]types.Device)) error {
+	publish(m.devices)
+	<-ctx.Done()
+	return nil
 }
 
 func (m *mockDeviceManager) Type() types.DeviceManagerType { return types.DeviceManagerTypeMock }
