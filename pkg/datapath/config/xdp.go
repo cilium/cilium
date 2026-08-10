@@ -34,7 +34,6 @@ func XDP(lnc *Config, link netlink.Link) any {
 			ones, _ := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4.Mask.Size()
 			cfg.IPv4RSSPrefixBits = uint8(ones)
 		} else {
-			cfg.IPv4RSSPrefixBits = 32
 			if lnc.DirectRoutingDevice != nil {
 				for _, addr := range lnc.DirectRoutingDevice.Addrs {
 					if addr.Addr.Is4() {
@@ -52,7 +51,6 @@ func XDP(lnc *Config, link netlink.Link) any {
 			ones, _ := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6.Mask.Size()
 			cfg.IPv6RSSPrefixBits = uint8(ones)
 		} else {
-			cfg.IPv6RSSPrefixBits = 128
 			if lnc.DirectRoutingDevice != nil {
 				for _, addr := range lnc.DirectRoutingDevice.Addrs {
 					if addr.Addr.Is6() {
