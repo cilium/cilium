@@ -17,7 +17,6 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node/addressing"
 
 	"github.com/cilium/hive/cell"
 )
@@ -117,16 +116,9 @@ func (m *MTUManager) observeLocalCiliumNode(ctx context.Context, event resource.
 		return nil
 	}
 
-	// Ignore update events if the node local IPs is not yet know, which might not happen
-	// in the first event.
-	hasInternalIP := false
-	for _, addr := range event.Object.Spec.Addresses {
-		if addr.Type == addressing.NodeInternalIP {
-			hasInternalIP = true
-			break
-		}
-	}
-	if !hasInternalIP {
+	// Ignore update events until the ENIs of the node are known, which might not be the
+	// case in the first event.
+	if len(event.Object.Status.ENI.ENIs) == 0 {
 		event.Done(nil)
 		return nil
 	}
@@ -166,22 +158,9 @@ func (m *MTUManager) consideredDevices(devs []*tables.Device) []*tables.Device {
 			break
 		}
 
-		var internalIP string
-		for _, addr := range localNode.Spec.Addresses {
-			if addr.Type == addressing.NodeInternalIP {
-				internalIP = addr.IP
-				break
-			}
-		}
-		// If we don't have the internal IP yet, we cannot exclude any devices
-		if internalIP == "" {
-			break
-		}
-
 		for _, eni := range localNode.Status.ENI.ENIs {
-			// Use the primary IP of the node to tell which ENI is the primary
-			isPrimary := eni.IP.String() == internalIP
-			if isPrimary {
+			// Skip primary ENI
+			if eni.Number == 0 {
 				continue
 			}
 
