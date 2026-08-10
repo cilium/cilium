@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"iter"
@@ -1607,4 +1608,41 @@ func TestComputeCIDRLabels(t *testing.T) {
 			assert.Equal(t, tt.expectLabels, ep.computeCIDRLabelsRLocked())
 		})
 	}
+}
+
+// TestComputeCIDRLabelsAfterRestore ensures that endpoints restored from disk
+// are wired up with the ipcache, so that they keep resolving their CIDR labels
+// across an agent restart.
+func TestComputeCIDRLabelsAfterRestore(t *testing.T) {
+	originalMode := option.Config.PolicyCIDRMatchMode
+	defer func() {
+		option.Config.PolicyCIDRMatchMode = originalMode
+	}()
+	option.Config.PolicyCIDRMatchMode = []string{"pods"}
+
+	logger := hivetest.Logger(t)
+	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
+	p := createEndpointParams(t, nil, do.repo, do.fetcher)
+
+	podIP := netip.MustParseAddr("10.244.1.7")
+	lblCIDR := labels.NewLabel("10.244.1.0/24", "", labels.LabelSourceCIDR)
+	expected := labels.Labels{lblCIDR.GetExtendedKey(): lblCIDR}
+	p.IPCache = &mockIPCache{labels: map[string]labels.Labels{
+		podIP.String(): expected,
+	}}
+
+	ep, err := NewEndpointFromChangeModel(p, nil, nil, newTestEndpointModel(12345, StateReady), nil)
+	require.NoError(t, err)
+	ep.IPv4 = podIP
+	require.Equal(t, expected, ep.computeCIDRLabelsRLocked())
+
+	ep.unconditionalRLock()
+	epJSON, err := json.Marshal(ep)
+	ep.runlock()
+	require.NoError(t, err)
+
+	restoredEP, err := ParseEndpoint(p, nil, nil, epJSON, nil)
+	require.NoError(t, err)
+	require.Equal(t, podIP, restoredEP.IPv4)
+	require.Equal(t, expected, restoredEP.computeCIDRLabelsRLocked())
 }
