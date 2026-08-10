@@ -56,10 +56,20 @@ func (m *MTUManager) Updater(ctx context.Context, health cell.Health) error {
 			baseMTU = min(baseMTU, dev.MTU)
 			deviceNames = append(deviceNames, dev.Name)
 		}
-		m.Log.Debug("Detected base MTU from devices",
-			logfields.Devices, deviceNames,
-			logfields.MTU, baseMTU,
-		)
+		if len(consideredDevices) == 0 {
+			// Without any device to detect the MTU from we would keep MaxMTU, which no
+			// real NIC can carry. Fall back to the safe Ethernet default instead, the MTU
+			// is re-evaluated whenever the devices or the local node change.
+			baseMTU = EthernetMTU
+			m.Log.Warn("No devices to detect the MTU from, falling back to the default MTU",
+				logfields.MTU, baseMTU,
+			)
+		} else {
+			m.Log.Debug("Detected base MTU from devices",
+				logfields.Devices, deviceNames,
+				logfields.MTU, baseMTU,
+			)
+		}
 
 		routeMTU := m.Config.Calculate(baseMTU)
 
