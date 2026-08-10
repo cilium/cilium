@@ -59,6 +59,9 @@ func (n *linuxNodeHandler) GetNodeID(nodeIP netip.Addr) (uint16, bool) {
 }
 
 func (n *linuxNodeHandler) getNodeIDForIP(nodeIP netip.Addr) (uint16, bool) {
+	if !nodeIP.IsValid() {
+		return 0, false
+	}
 	ln, err := n.localNodeStore.Get(context.Background())
 	if err != nil {
 		logging.Fatal(n.log, "failed to retrieve local node")
