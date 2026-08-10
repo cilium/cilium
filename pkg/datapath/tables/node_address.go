@@ -607,7 +607,17 @@ func showAddresses(addrs []NodeAddress) string {
 	return strings.Join(ss, ", ")
 }
 
-// sortedAddresses returns a copy of the addresses sorted by following predicates
+// PreferredIPv4Address returns the first usable IPv4 address ordered by SortedAddresses.
+func PreferredIPv4Address(addrs []DeviceAddress) netip.Addr {
+	for _, addr := range SortedAddresses(addrs) {
+		if addr.Addr.Is4() && !addr.Addr.IsUnspecified() {
+			return addr.Addr
+		}
+	}
+	return netip.Addr{}
+}
+
+// SortedAddresses returns a copy of the addresses sorted by following predicates
 // (first predicate matching in this order wins):
 // - Primary (e.g. !IFA_F_SECONDARY)
 // - Scope, with lower scope going first (e.g. UNIVERSE before LINK)

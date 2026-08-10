@@ -2169,7 +2169,7 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired(kprCfg kpr.KPRConfig, wiregua
 	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
 	BPFHostRoutingEnabled := !c.UnsafeDaemonConfigOption.EnableHostLegacyRouting
 
-	// XDP needs IPV4_DIRECT_ROUTING when building tunnel headers:
+	// XDP needs ipv4_direct_routing when building tunnel headers:
 	if kprCfg.KubeProxyReplacement && c.NodePortAcceleration != NodePortAccelerationDisabled {
 		return true
 	}

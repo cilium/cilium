@@ -21,7 +21,6 @@
 #define FRONTEND_PORT		tcp_svc_one
 
 #define LB_IP			v4_node_two
-#define IPV4_DIRECT_ROUTING	LB_IP
 
 #define BACKEND_IP		v4_pod_three
 #define BACKEND_PORT		__bpf_htons(8080)
@@ -101,6 +100,8 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 #include "lib/lb.h"
 
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
+
+ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 
 /* Test that a SVC request to an intermediate LB node gets DNATed and SNATed,
  * and flows back out on the overlay interface to a remote backend

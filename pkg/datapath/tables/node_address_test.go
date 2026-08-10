@@ -948,6 +948,47 @@ func TestSortedAddresses(t *testing.T) {
 	}
 }
 
+func TestPreferredIPv4Address(t *testing.T) {
+	tests := []struct {
+		name  string
+		addrs []DeviceAddress
+		want  netip.Addr
+	}{
+		{
+			name: "prefer primary IPv4",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("1.1.1.1"), Secondary: true},
+				{Addr: netip.MustParseAddr("2.2.2.2")},
+			},
+			want: netip.MustParseAddr("2.2.2.2"),
+		},
+		{
+			name: "skip preferred IPv6",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("2001:db8::1"), Scope: RT_SCOPE_UNIVERSE},
+				{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_SITE},
+			},
+			want: netip.MustParseAddr("10.0.0.1"),
+		},
+		{
+			name:  "no IPv4 address",
+			addrs: []DeviceAddress{{Addr: netip.MustParseAddr("2001:db8::1")}},
+			want:  netip.Addr{},
+		},
+		{
+			name:  "skip unspecified IPv4 address",
+			addrs: []DeviceAddress{{Addr: netip.MustParseAddr("0.0.0.0")}},
+			want:  netip.Addr{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, PreferredIPv4Address(tt.addrs))
+		})
+	}
+}
+
 func TestFallbackAddresses(t *testing.T) {
 	var f fallbackAddresses
 

@@ -10,7 +10,4 @@
 #  define DSR_ENCAP_IPIP 2
 #  define DSR_ENCAP_GENEVE 3
 # endif
-# ifndef IPV4_DIRECT_ROUTING
-#  define IPV4_DIRECT_ROUTING 0
-# endif
 #endif

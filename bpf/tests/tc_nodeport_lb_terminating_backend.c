@@ -12,7 +12,6 @@
 #define FRONTEND_PORT		tcp_svc_one
 
 #define LB_IP			v4_node_one
-#define IPV4_DIRECT_ROUTING	LB_IP
 
 #define BACKEND_IP_LOCAL	v4_pod_one
 #define BACKEND_PORT		__bpf_htons(8080)
@@ -87,6 +86,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
+ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 
 /* Test that a SVC request (UDP) to a local backend
  * - gets DNATed (but not SNATed)

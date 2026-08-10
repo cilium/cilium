@@ -19,7 +19,6 @@
 #define FRONTEND_PORT		tcp_svc_one
 
 #define LB_IP			v4_node_one
-#define IPV4_DIRECT_ROUTING	LB_IP
 
 #define BACKEND_IP_LOCAL	v4_pod_one
 #define BACKEND_IP_REMOTE	v4_pod_two
@@ -84,6 +83,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/bpf_xdp.h"
 
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
+
+ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

@@ -259,8 +259,9 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 		if (expected_result == CTX_ACT_REDIRECT && l3->saddr != IPV4_GATEWAY)
 			test_fatal("src IP was not changed to IPV4_GATEWAY");
 
-		if (expected_result == CTX_ACT_DROP && l3->saddr != IPV4_DIRECT_ROUTING)
-			test_fatal("src IP was not changed to IPV4_DIRECT_ROUTING");
+		if (expected_result == CTX_ACT_DROP &&
+		    l3->saddr != CONFIG(ipv4_direct_routing).be32)
+			test_fatal("src IP was not changed to ipv4_direct_routing");
 
 		if (l3->daddr != DST_IPV4)
 			test_fatal("dest IP was not dnatted");

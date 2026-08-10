@@ -503,14 +503,15 @@ static __always_inline int encap_geneve_dsr_opt6(
 
 	if (need_opt)
 		return nodeport_add_tunnel_encap_opt(
-			ctx, IPV4_DIRECT_ROUTING, src_port, info, WORLD_IPV6_ID,
-			&gopt, sizeof(gopt), (enum trace_reason)CT_NEW,
-			TRACE_PAYLOAD_LEN, ifindex, bpf_htons(ETH_P_IPV6));
+			ctx, CONFIG(ipv4_direct_routing).be32, src_port, info,
+			WORLD_IPV6_ID, &gopt, sizeof(gopt),
+			(enum trace_reason)CT_NEW, TRACE_PAYLOAD_LEN, ifindex,
+			bpf_htons(ETH_P_IPV6));
 
 	return nodeport_add_tunnel_encap(
-		ctx, IPV4_DIRECT_ROUTING, src_port, info, WORLD_IPV6_ID,
-		(enum trace_reason)CT_NEW, TRACE_PAYLOAD_LEN, ifindex,
-		bpf_htons(ETH_P_IPV6));
+		ctx, CONFIG(ipv4_direct_routing).be32, src_port, info,
+		WORLD_IPV6_ID, (enum trace_reason)CT_NEW, TRACE_PAYLOAD_LEN,
+		ifindex, bpf_htons(ETH_P_IPV6));
 }
 #   endif /* DSR_ENCAP_MODE */
 
@@ -998,15 +999,16 @@ encap_redirect:
 	src_port = tunnel_gen_src_port_v6(&tuple);
 
 	ret = nodeport_add_tunnel_encap(
-		ctx, IPV4_DIRECT_ROUTING, src_port, info, src_sec_identity,
-		trace->reason, trace->monitor, &ifindex, bpf_htons(ETH_P_IPV6));
+		ctx, CONFIG(ipv4_direct_routing).be32, src_port, info,
+		src_sec_identity, trace->reason, trace->monitor, &ifindex,
+		bpf_htons(ETH_P_IPV6));
 	if (IS_ERR(ret))
 		return ret;
 
 	if (ret == CTX_ACT_REDIRECT && ifindex)
 		return ctx_redirect(ctx, ifindex, 0);
 
-	fib_params.l.ipv4_src = IPV4_DIRECT_ROUTING;
+	fib_params.l.ipv4_src = CONFIG(ipv4_direct_routing).be32;
 	fib_params.l.ipv4_dst = info->tunnel_endpoint.ip4.be32;
 	fib_params.l.family = AF_INET;
 
@@ -1204,7 +1206,7 @@ __declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS) static __always_inline
 #  endif
 
 	if (nat_46x64)
-		build_v4_in_v6(&target.addr, IPV4_DIRECT_ROUTING);
+		build_v4_in_v6(&target.addr, CONFIG(ipv4_direct_routing).be32);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -1272,8 +1274,9 @@ skip_source_lookup:
 		src_port = tunnel_gen_src_port_v6(&tuple);
 
 		ret = nodeport_add_tunnel_encap(
-			ctx, IPV4_DIRECT_ROUTING, src_port, info, WORLD_IPV6_ID,
-			trace.reason, trace.monitor, &oif, bpf_htons(ETH_P_IPV6));
+			ctx, CONFIG(ipv4_direct_routing).be32, src_port, info,
+			WORLD_IPV6_ID, trace.reason, trace.monitor, &oif,
+			bpf_htons(ETH_P_IPV6));
 		if (IS_ERR(ret))
 			goto drop_err;
 
@@ -1798,14 +1801,15 @@ static __always_inline int encap_geneve_dsr_opt4(
 
 	if (need_opt)
 		return nodeport_add_tunnel_encap_opt(
-			ctx, IPV4_DIRECT_ROUTING, src_port, info, src_sec_identity,
-			&gopt, sizeof(gopt), (enum trace_reason)CT_NEW,
-			TRACE_PAYLOAD_LEN, ifindex, bpf_htons(ETH_P_IP));
+			ctx, CONFIG(ipv4_direct_routing).be32, src_port, info,
+			src_sec_identity, &gopt, sizeof(gopt),
+			(enum trace_reason)CT_NEW, TRACE_PAYLOAD_LEN, ifindex,
+			bpf_htons(ETH_P_IP));
 
 	return nodeport_add_tunnel_encap(
-		ctx, IPV4_DIRECT_ROUTING, src_port, info, src_sec_identity,
-		(enum trace_reason)CT_NEW, TRACE_PAYLOAD_LEN, ifindex,
-		bpf_htons(ETH_P_IP));
+		ctx, CONFIG(ipv4_direct_routing).be32, src_port, info,
+		src_sec_identity, (enum trace_reason)CT_NEW, TRACE_PAYLOAD_LEN,
+		ifindex, bpf_htons(ETH_P_IP));
 }
 #   endif /* DSR_ENCAP_MODE */
 
@@ -2244,16 +2248,16 @@ redirect:
 		fake_info.flag_has_tunnel_ep = true;
 		fake_info.sec_identity = dst_sec_identity;
 		ret = nodeport_add_tunnel_encap(
-			ctx, IPV4_DIRECT_ROUTING, src_port, &fake_info,
-			src_sec_identity, trace->reason, trace->monitor,
-			&ifindex, bpf_htons(ETH_P_IP));
+			ctx, CONFIG(ipv4_direct_routing).be32, src_port,
+			&fake_info, src_sec_identity, trace->reason,
+			trace->monitor, &ifindex, bpf_htons(ETH_P_IP));
 		if (IS_ERR(ret))
 			return ret;
 
 		if (ret == CTX_ACT_REDIRECT && ifindex)
 			return ctx_redirect(ctx, ifindex, 0);
 
-		fib_params.l.ipv4_src = IPV4_DIRECT_ROUTING;
+		fib_params.l.ipv4_src = CONFIG(ipv4_direct_routing).be32;
 		fib_params.l.ipv4_dst = tunnel_endpoint;
 
 		/* neigh map doesn't contain DMACs for other nodes */
@@ -2407,7 +2411,7 @@ __declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS) static __always_inline
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
-		.addr = IPV4_DIRECT_ROUTING,
+		.addr = CONFIG(ipv4_direct_routing).be32,
 	};
 	struct ipv4_ct_tuple tuple = {};
 	struct trace_ctx trace = {
@@ -2511,8 +2515,9 @@ skip_source_lookup:
 		 * outside.
 		 */
 		ret = nodeport_add_tunnel_encap(
-			ctx, IPV4_DIRECT_ROUTING, src_port, info, src_sec_identity,
-			trace.reason, trace.monitor, &oif, bpf_htons(ETH_P_IP));
+			ctx, CONFIG(ipv4_direct_routing).be32, src_port, info,
+			src_sec_identity, trace.reason, trace.monitor, &oif,
+			bpf_htons(ETH_P_IP));
 		if (IS_ERR(ret))
 			goto drop_err;
 
@@ -2780,7 +2785,7 @@ nodeport_lb4(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_sec_identity,
 
 skip_service_lookup:
 #  ifdef ENABLE_NAT_46X64_GATEWAY
-	if (ip4->daddr != IPV4_DIRECT_ROUTING)
+	if (ip4->daddr != CONFIG(ipv4_direct_routing).be32)
 		return tail_call_internal(ctx, CILIUM_CALL_IPV46_RFC6052, ext_err);
 #  endif
 	/* The packet is not destined to a service but it can be a reply

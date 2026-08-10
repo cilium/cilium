@@ -133,3 +133,6 @@ ASSIGN_CONFIG(struct ct_timeout_config, ct_timeouts, {
 	.syn_timeout = 60,
 	.close_timeout = 10,
 })
+
+NODE_CONFIG(union v4addr, ipv4_direct_routing,
+	    "IPv4 address of the device used for direct routing between nodes")

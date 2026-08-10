@@ -79,11 +79,6 @@
 #define CT_MAP_SIZE_ANY 4096
 
 #ifdef ENABLE_NODEPORT
-# ifdef ENABLE_IPV4
-#  ifndef IPV4_DIRECT_ROUTING
-#   define IPV4_DIRECT_ROUTING 0
-#  endif
-# endif
 # ifdef ENABLE_IPV6
 #  ifndef IPV6_DIRECT_ROUTING
 #   define IPV6_DIRECT_ROUTING { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }

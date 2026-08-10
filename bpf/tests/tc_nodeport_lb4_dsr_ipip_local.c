@@ -43,7 +43,6 @@
 #define CLIENT_PORT		__bpf_htons(111)
 
 #define LB_NODE_IP		v4_node_one	/* this node, the LB */
-#define IPV4_DIRECT_ROUTING	LB_NODE_IP
 
 #define FRONTEND_IP		v4_svc_one	/* regular DSR-IPIP svc VIP */
 #define FRONTEND_PORT		tcp_svc_one
@@ -174,6 +173,7 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_netkit, true)
+ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_NODE_IP })
 
 /* Build a plain client -> svc TCP SYN. No IPIP wrapping - this is the first
  * hop into the LB node from the external client.
