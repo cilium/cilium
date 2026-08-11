@@ -496,7 +496,7 @@ func TestPrivilegedAddHostDeviceAddr(t *testing.T) {
 		err = addHostDeviceAddr(dummy, testIPv4, testIPv6)
 		require.NoError(t, err)
 
-		addrs, err := netlink.AddrList(dummy, netlink.FAMILY_ALL)
+		addrs, err := safenetlink.AddrList(dummy, netlink.FAMILY_ALL)
 		require.NoError(t, err)
 
 		var foundIPv4, foundIPv6 bool

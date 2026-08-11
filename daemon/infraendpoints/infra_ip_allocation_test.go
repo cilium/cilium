@@ -385,7 +385,7 @@ func TestPrivilegedRemoveOldRouterState(t *testing.T) {
 			// Assert that the old router IP (192.0.2.1) was removed because we are
 			// restoring a different one (10.0.0.1).
 			assert.NoError(t, infraIPAllocator.removeOldRouterState(false, net.ParseIP("10.0.0.1")))
-			addrs, err := netlink.AddrList(&netlink.Dummy{
+			addrs, err := safenetlink.AddrList(&netlink.Dummy{
 				LinkAttrs: netlink.LinkAttrs{
 					Name: defaults.HostDevice,
 				},

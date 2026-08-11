@@ -201,7 +201,7 @@ func initializeNetns(t *testing.T, ns *netns.NetNS, addr string) net.Conn {
 					},
 				})
 			}
-			_, err := netlink.AddrList(l, unix.AF_INET)
+			_, err := safenetlink.AddrList(l, unix.AF_INET)
 			assert.NoError(t, err)
 		}
 		conn, err = net.Dial("udp", addr)
