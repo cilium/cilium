@@ -134,7 +134,11 @@ spec:
           "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
           commonTlsContext:
             combinedValidationContext:
-              defaultValidationContext: {}
+              defaultValidationContext:
+                match_typed_subject_alt_names:
+                - san_type: DNS
+                  matcher:
+                    exact: "auth-service.example.com"
               validationContextSdsSecretConfig:
                 name: cilium-secrets/cilium-sync-cfgmap-ca69f479872195ddf0c746b372fde7d6eb588087afb68c393439bc065a98e496
             tlsParams:

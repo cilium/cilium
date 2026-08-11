@@ -9,6 +9,7 @@ import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"k8s.io/apimachinery/pkg/types"
@@ -134,7 +135,18 @@ func withTLSOrigination(secretsNamespace string, tls *model.BackendTLSOriginatio
 				},
 				ValidationContextType: &envoy_config_tls.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &envoy_config_tls.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext: &envoy_config_tls.CertificateValidationContext{},
+						DefaultValidationContext: &envoy_config_tls.CertificateValidationContext{
+							MatchTypedSubjectAltNames: []*envoy_config_tls.SubjectAltNameMatcher{
+								{
+									SanType: envoy_config_tls.SubjectAltNameMatcher_DNS,
+									Matcher: &envoy_type_matcher.StringMatcher{
+										MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+											Exact: tls.SNI,
+										},
+									},
+								},
+							},
+						},
 						ValidationContextSdsSecretConfig: &envoy_config_tls.SdsSecretConfig{
 							// This secret is synchronized by the secretsyncer Cell, with the Secret being copied
 							// out of the relevant ConfigMap by the ConfigMap sync Reconcile function there, which itself
