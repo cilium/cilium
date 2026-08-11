@@ -12,6 +12,7 @@
 #include "hash.h"
 #include "eps.h"
 #include "identity.h"
+#include "lb_lc.h"
 #include "nat_46x64.h"
 #include "ratelimit.h"
 
@@ -83,6 +84,7 @@ struct lb4_service {
 		 *                  values:
 		 *                     1 - random
 		 *                     2 - maglev
+		 *                     5 - least-connection
 		 * - Lower 24 bits: timeout in seconds
 		 * Note: We don't use bitfield here given storage is
 		 * compiler implementation dependent and the map needs
@@ -1156,6 +1158,45 @@ lb6_select_backend_id_maglev(const struct __ctx_buff *ctx __maybe_unused,
 	return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
 
+#ifdef ENABLE_LB_LEAST_CONNECTION
+static __always_inline __u32
+lb6_select_backend_id_least_connection(const struct __ctx_buff *ctx,
+				       struct lb6_key *key,
+				       const struct ipv6_ct_tuple *tuple,
+				       const struct lb6_service *svc)
+{
+	const struct lb6_service *first, *second;
+	__u32 first_active, second_active;
+	__u32 random;
+	__u16 first_slot, second_slot;
+
+	if (tuple->nexthdr != IPPROTO_TCP)
+		return lb6_select_backend_id_random(ctx, key, tuple, svc);
+
+	random = get_prandom_u32();
+	first_slot = (random % svc->count) + 1;
+	if (svc->count == 1)
+		second_slot = first_slot;
+	else
+		second_slot = ((first_slot + (random >> 16) %
+			       (svc->count - 1)) % svc->count) + 1;
+
+	first = lb6_lookup_backend_slot(ctx, key, first_slot);
+	second = lb6_lookup_backend_slot(ctx, key, second_slot);
+	if (!first)
+		return second ? second->backend_id : 0;
+	if (!second || first->backend_id == second->backend_id)
+		return first->backend_id;
+
+	first_active = lb_lc_active_connections(svc->rev_nat_index, first->backend_id);
+	second_active = lb_lc_active_connections(svc->rev_nat_index, second->backend_id);
+	if (first_active == second_active)
+		return random & 1 ? first->backend_id : second->backend_id;
+	return first_active < second_active ? first->backend_id :
+					     second->backend_id;
+}
+#endif /* ENABLE_LB_LEAST_CONNECTION */
+
 /* Backend selection for unit tests that always chooses first slot. This
  * part is unreachable from agent code enablement.
  */
@@ -1195,6 +1236,9 @@ lb6_select_backend_id(const struct __ctx_buff *ctx, struct lb6_key *key,
 	switch (alg) {
 	case LB_SELECTION_MAGLEV:
 	case LB_SELECTION_RANDOM:
+#ifdef ENABLE_LB_LEAST_CONNECTION
+	case LB_SELECTION_LEAST_CONNECTION:
+#endif
 	case LB_SELECTION_FIRST:
 		break;
 	default:
@@ -1211,6 +1255,10 @@ lb6_select_backend_id(const struct __ctx_buff *ctx, struct lb6_key *key,
 		return lb6_select_backend_id_maglev(ctx, key, tuple, svc);
 	case LB_SELECTION_RANDOM:
 		return lb6_select_backend_id_random(ctx, key, tuple, svc);
+#ifdef ENABLE_LB_LEAST_CONNECTION
+	case LB_SELECTION_LEAST_CONNECTION:
+		return lb6_select_backend_id_least_connection(ctx, key, tuple, svc);
+#endif
 	case LB_SELECTION_FIRST:
 		return lb6_select_backend_id_first(ctx, key, tuple, svc);
 	}
@@ -1455,6 +1503,12 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			goto drop_err;
 
+#ifdef ENABLE_LB_LEAST_CONNECTION
+		if (tuple->nexthdr == IPPROTO_TCP &&
+		    lb6_algorithm(svc) == LB_SELECTION_LEAST_CONNECTION)
+			lb_lc_conn_open(state->rev_nat_index, backend_id);
+#endif
+
 #ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
 		_lb_act_conn_open(state->rev_nat_index, backend->zone);
 #endif
@@ -1468,6 +1522,15 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		 * session we are likely to get a TCP RST.
 		 */
 		backend = lb6_lookup_backend(ctx, backend_id);
+#ifdef ENABLE_LB_LEAST_CONNECTION
+		if (backend && tuple->nexthdr == IPPROTO_TCP &&
+		    lb6_algorithm(svc) == LB_SELECTION_LEAST_CONNECTION) {
+			if (state->syn)
+				lb_lc_conn_open(svc->rev_nat_index, backend_id);
+			else if (state->closing)
+				lb_lc_conn_closed(svc->rev_nat_index, backend_id);
+		}
+#endif
 #ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
 		if (backend) {
 			if (state->syn) /* Reopened connections */
@@ -1980,6 +2043,45 @@ lb4_select_backend_id_maglev(const struct __ctx_buff *ctx __maybe_unused,
 	return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
 
+#ifdef ENABLE_LB_LEAST_CONNECTION
+static __always_inline __u32
+lb4_select_backend_id_least_connection(const struct __ctx_buff *ctx,
+				       struct lb4_key *key,
+				       const struct ipv4_ct_tuple *tuple,
+				       const struct lb4_service *svc)
+{
+	const struct lb4_service *first, *second;
+	__u32 first_active, second_active;
+	__u32 random;
+	__u16 first_slot, second_slot;
+
+	if (tuple->nexthdr != IPPROTO_TCP)
+		return lb4_select_backend_id_random(ctx, key, tuple, svc);
+
+	random = get_prandom_u32();
+	first_slot = (random % svc->count) + 1;
+	if (svc->count == 1)
+		second_slot = first_slot;
+	else
+		second_slot = ((first_slot + (random >> 16) %
+			       (svc->count - 1)) % svc->count) + 1;
+
+	first = lb4_lookup_backend_slot(ctx, key, first_slot);
+	second = lb4_lookup_backend_slot(ctx, key, second_slot);
+	if (!first)
+		return second ? second->backend_id : 0;
+	if (!second || first->backend_id == second->backend_id)
+		return first->backend_id;
+
+	first_active = lb_lc_active_connections(svc->rev_nat_index, first->backend_id);
+	second_active = lb_lc_active_connections(svc->rev_nat_index, second->backend_id);
+	if (first_active == second_active)
+		return random & 1 ? first->backend_id : second->backend_id;
+	return first_active < second_active ? first->backend_id :
+					     second->backend_id;
+}
+#endif /* ENABLE_LB_LEAST_CONNECTION */
+
 /*
  * Backend selection for unit tests that always chooses first slot.
  * This part is unreachable from agent code enablement.
@@ -2020,6 +2122,9 @@ lb4_select_backend_id(const struct __ctx_buff *ctx, struct lb4_key *key,
 	switch (alg) {
 	case LB_SELECTION_MAGLEV:
 	case LB_SELECTION_RANDOM:
+#ifdef ENABLE_LB_LEAST_CONNECTION
+	case LB_SELECTION_LEAST_CONNECTION:
+#endif
 	case LB_SELECTION_FIRST:
 		break;
 	default:
@@ -2036,6 +2141,10 @@ lb4_select_backend_id(const struct __ctx_buff *ctx, struct lb4_key *key,
 		return lb4_select_backend_id_maglev(ctx, key, tuple, svc);
 	case LB_SELECTION_RANDOM:
 		return lb4_select_backend_id_random(ctx, key, tuple, svc);
+#ifdef ENABLE_LB_LEAST_CONNECTION
+	case LB_SELECTION_LEAST_CONNECTION:
+		return lb4_select_backend_id_least_connection(ctx, key, tuple, svc);
+#endif
 	case LB_SELECTION_FIRST:
 		return lb4_select_backend_id_first(ctx, key, tuple, svc);
 	}
@@ -2286,6 +2395,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			goto drop_err;
 
+#ifdef ENABLE_LB_LEAST_CONNECTION
+		if (tuple->nexthdr == IPPROTO_TCP &&
+		    lb4_algorithm(svc) == LB_SELECTION_LEAST_CONNECTION)
+			lb_lc_conn_open(state->rev_nat_index, backend_id);
+#endif
+
 #ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
 		_lb_act_conn_open(state->rev_nat_index, backend->zone);
 #endif
@@ -2299,6 +2414,15 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		 * session we are likely to get a TCP RST.
 		 */
 		backend = lb4_lookup_backend(ctx, backend_id);
+#ifdef ENABLE_LB_LEAST_CONNECTION
+		if (backend && tuple->nexthdr == IPPROTO_TCP &&
+		    lb4_algorithm(svc) == LB_SELECTION_LEAST_CONNECTION) {
+			if (state->syn)
+				lb_lc_conn_open(svc->rev_nat_index, backend_id);
+			else if (state->closing)
+				lb_lc_conn_closed(svc->rev_nat_index, backend_id);
+		}
+#endif
 #ifdef ENABLE_ACTIVE_CONNECTION_TRACKING
 		if (backend) {
 			if (state->syn) /* Reopened connections */

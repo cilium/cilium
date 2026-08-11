@@ -98,10 +98,11 @@ func ToSVCForwardingMode(s string, proto ...uint8) SVCForwardingMode {
 type SVCLoadBalancingAlgorithm uint8
 
 const (
-	SVCLoadBalancingAlgorithmUndef  SVCLoadBalancingAlgorithm = 0
-	SVCLoadBalancingAlgorithmRandom SVCLoadBalancingAlgorithm = 1
-	SVCLoadBalancingAlgorithmMaglev SVCLoadBalancingAlgorithm = 2
-	SVCLoadBalancingAlgorithmCustom SVCLoadBalancingAlgorithm = 0x80
+	SVCLoadBalancingAlgorithmUndef           SVCLoadBalancingAlgorithm = 0
+	SVCLoadBalancingAlgorithmRandom          SVCLoadBalancingAlgorithm = 1
+	SVCLoadBalancingAlgorithmMaglev          SVCLoadBalancingAlgorithm = 2
+	SVCLoadBalancingAlgorithmLeastConnection SVCLoadBalancingAlgorithm = 5
+	SVCLoadBalancingAlgorithmCustom          SVCLoadBalancingAlgorithm = 0x80
 )
 
 type SVCLoadBalancingAlgorithmSpec struct {
@@ -121,6 +122,10 @@ func init() {
 		Name:      LBAlgorithmMaglev,
 		Value:     SVCLoadBalancingAlgorithmMaglev,
 		UseMaglev: true,
+	})
+	RegisterSVCLoadBalancingAlgorithm(SVCLoadBalancingAlgorithmSpec{
+		Name:  LBAlgorithmLeastConnection,
+		Value: SVCLoadBalancingAlgorithmLeastConnection,
 	})
 }
 

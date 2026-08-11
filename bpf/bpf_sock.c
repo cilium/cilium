@@ -126,6 +126,76 @@ __u64 sock_select_slot(struct bpf_sock_addr *ctx)
 	       get_prandom_u32() : sock_local_cookie(ctx);
 }
 
+#if defined(ENABLE_IPV4) && defined(ENABLE_LB_LEAST_CONNECTION)
+static __always_inline __u32
+sock4_select_backend_id_least_connection(struct lb4_key *key,
+					 const struct lb4_service *svc)
+{
+	const struct lb4_service *first, *second;
+	__u32 first_active, second_active;
+	__u32 random = get_prandom_u32();
+	__u16 first_slot, second_slot;
+
+	first_slot = (random % svc->count) + 1;
+	if (svc->count == 1)
+		second_slot = first_slot;
+	else
+		second_slot = ((first_slot + (random >> 16) %
+			       (svc->count - 1)) % svc->count) + 1;
+
+	key->backend_slot = first_slot;
+	first = __lb4_lookup_backend_slot(key);
+	key->backend_slot = second_slot;
+	second = __lb4_lookup_backend_slot(key);
+	if (!first)
+		return second ? second->backend_id : 0;
+	if (!second || first->backend_id == second->backend_id)
+		return first->backend_id;
+
+	first_active = lb_lc_active_connections(svc->rev_nat_index, first->backend_id);
+	second_active = lb_lc_active_connections(svc->rev_nat_index, second->backend_id);
+	if (first_active == second_active)
+		return random & 1 ? first->backend_id : second->backend_id;
+	return first_active < second_active ? first->backend_id :
+					     second->backend_id;
+}
+#endif /* ENABLE_IPV4 && ENABLE_LB_LEAST_CONNECTION */
+
+#if defined(ENABLE_IPV6) && defined(ENABLE_LB_LEAST_CONNECTION)
+static __always_inline __u32
+sock6_select_backend_id_least_connection(struct lb6_key *key,
+					 const struct lb6_service *svc)
+{
+	const struct lb6_service *first, *second;
+	__u32 first_active, second_active;
+	__u32 random = get_prandom_u32();
+	__u16 first_slot, second_slot;
+
+	first_slot = (random % svc->count) + 1;
+	if (svc->count == 1)
+		second_slot = first_slot;
+	else
+		second_slot = ((first_slot + (random >> 16) %
+			       (svc->count - 1)) % svc->count) + 1;
+
+	key->backend_slot = first_slot;
+	first = __lb6_lookup_backend_slot(key);
+	key->backend_slot = second_slot;
+	second = __lb6_lookup_backend_slot(key);
+	if (!first)
+		return second ? second->backend_id : 0;
+	if (!second || first->backend_id == second->backend_id)
+		return first->backend_id;
+
+	first_active = lb_lc_active_connections(svc->rev_nat_index, first->backend_id);
+	second_active = lb_lc_active_connections(svc->rev_nat_index, second->backend_id);
+	if (first_active == second_active)
+		return random & 1 ? first->backend_id : second->backend_id;
+	return first_active < second_active ? first->backend_id :
+					     second->backend_id;
+}
+#endif /* ENABLE_IPV6 && ENABLE_LB_LEAST_CONNECTION */
+
 static __always_inline __maybe_unused
 bool sock_proto_enabled(__u8 proto)
 {
@@ -425,14 +495,24 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (backend_id == 0) {
 		backend_from_affinity = false;
 
-		key.backend_slot = (sock_select_slot(ctx_full) % svc->count) + 1;
-		backend_slot = __lb4_lookup_backend_slot(&key);
-		if (!backend_slot) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND_SLOT);
-			return -EHOSTUNREACH;
+#ifdef ENABLE_LB_LEAST_CONNECTION
+		if (protocol == IPPROTO_TCP &&
+		    lb4_algorithm(svc) == LB_SELECTION_LEAST_CONNECTION) {
+			backend_id = sock4_select_backend_id_least_connection(&key, svc);
+		} else {
+#endif
+			key.backend_slot = (sock_select_slot(ctx_full) % svc->count) + 1;
+			backend_slot = __lb4_lookup_backend_slot(&key);
+			if (!backend_slot) {
+				update_metrics(0, METRIC_EGRESS,
+					       REASON_LB_NO_BACKEND_SLOT);
+				return -EHOSTUNREACH;
+			}
+			backend_id = backend_slot->backend_id;
+#ifdef ENABLE_LB_LEAST_CONNECTION
 		}
+#endif
 
-		backend_id = backend_slot->backend_id;
 		backend = __lb4_lookup_backend(backend_id);
 	}
 
@@ -456,6 +536,12 @@ out:
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
+#ifdef ENABLE_LB_LEAST_CONNECTION
+	if (protocol == IPPROTO_TCP &&
+	    lb4_algorithm(svc) == LB_SELECTION_LEAST_CONNECTION)
+		lb_lc_sock_open(sock_local_cookie(ctx_full), svc->rev_nat_index,
+				backend_id);
+#endif
 
 	ctx->user_ip4 = backend->address;
 	ctx_set_port(ctx, backend->port);
@@ -1133,14 +1219,24 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (backend_id == 0) {
 		backend_from_affinity = false;
 
-		key.backend_slot = (sock_select_slot(ctx) % svc->count) + 1;
-		backend_slot = __lb6_lookup_backend_slot(&key);
-		if (!backend_slot) {
-			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND_SLOT);
-			return -EHOSTUNREACH;
+#ifdef ENABLE_LB_LEAST_CONNECTION
+		if (protocol == IPPROTO_TCP &&
+		    lb6_algorithm(svc) == LB_SELECTION_LEAST_CONNECTION) {
+			backend_id = sock6_select_backend_id_least_connection(&key, svc);
+		} else {
+#endif
+			key.backend_slot = (sock_select_slot(ctx) % svc->count) + 1;
+			backend_slot = __lb6_lookup_backend_slot(&key);
+			if (!backend_slot) {
+				update_metrics(0, METRIC_EGRESS,
+					       REASON_LB_NO_BACKEND_SLOT);
+				return -EHOSTUNREACH;
+			}
+			backend_id = backend_slot->backend_id;
+#ifdef ENABLE_LB_LEAST_CONNECTION
 		}
+#endif
 
-		backend_id = backend_slot->backend_id;
 		backend = __lb6_lookup_backend(backend_id);
 	}
 
@@ -1164,6 +1260,12 @@ out:
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
+#ifdef ENABLE_LB_LEAST_CONNECTION
+	if (protocol == IPPROTO_TCP &&
+	    lb6_algorithm(svc) == LB_SELECTION_LEAST_CONNECTION)
+		lb_lc_sock_open(sock_local_cookie(ctx), svc->rev_nat_index,
+				backend_id);
+#endif
 
 	ctx_set_v6_address(ctx, &backend->address);
 	ctx_set_port(ctx, backend->port);
@@ -1303,6 +1405,10 @@ int cil_sock6_getpeername(struct bpf_sock_addr *ctx)
 __section("cgroup/sock_release")
 int cil_sock_release(struct bpf_sock *ctx __maybe_unused)
 {
+#ifdef ENABLE_LB_LEAST_CONNECTION
+	lb_lc_sock_closed(get_socket_cookie(ctx));
+#endif
+
 #ifdef ENABLE_IPV4
 	if (ctx->family == AF_INET) {
 		if (!sock4_delete_revnat(ctx, ctx))

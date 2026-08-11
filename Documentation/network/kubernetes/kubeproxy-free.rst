@@ -938,12 +938,16 @@ basis through the ``service.cilium.io/lb-algorithm`` annotation. Setting
 corresponding agent code. A typical use-case is to reduce the memory footprint
 which comes with Maglev given the latter requires large lookup tables for each
 service. Thus, if not all services need consistent hashing, then these can
-fallback to a random selection instead.
+fallback to a random selection instead. Cilium also supports
+``least-connection`` for TCP services. It samples two active backends and sends
+each new connection to the backend with the lower node-local active connection
+estimate.
 
 By default, if no service annotation is provided, the logic falls back to use
 whichever method was specified globally through ``loadBalancer.algorithm``. The
 latter supports either ``random`` or ``maglev`` as values today with ``random``
 being the default if ``loadBalancer.algorithm`` was not explicitly set via Helm.
+``least-connection`` is available only through the per-service annotation.
 
 To add a new service which must use ``random`` as its load balancing algorithm:
 
@@ -983,6 +987,28 @@ Similarly, for opting into ``maglev``, use the following:
 
 All north-south traffic is now subsequently subject to ``maglev``-based load
 balancing for the latter example.
+
+To balance new TCP connections using node-local backend load estimates:
+
+ .. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/lb-algorithm: least-connection
+  spec:
+    selector:
+      app: example
+    ports:
+      - port: 8765
+        targetPort: 9376
+    type: LoadBalancer
+
+The algorithm uses the power-of-two-choices approximation rather than scanning
+all backends. Counts are local to each Cilium node and are based on TCP
+connection lifetime. Non-TCP traffic falls back to random selection.
 
 Note that ``service.cilium.io/lb-algorithm`` only takes effect upon initial
 service creation and cannot be changed during the lifetime of the given

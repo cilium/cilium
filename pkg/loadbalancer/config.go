@@ -116,6 +116,9 @@ const (
 	// LBAlgorithmMaglev is for using maglev consistent hashing for backend selection
 	LBAlgorithmMaglev = "maglev"
 
+	// LBAlgorithmLeastConnection selects the less-loaded of two sampled backends.
+	LBAlgorithmLeastConnection = "least-connection"
+
 	// LBModeSNAT is for SNATing requests to remote nodes
 	LBModeSNAT = "snat"
 

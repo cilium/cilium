@@ -660,6 +660,29 @@ type LBAffinityVal struct {
 	Pad       uint32
 }
 
+// LBLcKey is generated from the BPF C type lb_lc_key.
+type LBLcKey struct {
+	_         structs.HostLayout
+	BackendID uint32
+	SvcID     uint16
+	Pad       uint16
+}
+
+// LBLcSockValue is generated from the BPF C type lb_lc_sock_value.
+type LBLcSockValue struct {
+	_         structs.HostLayout
+	BackendID uint32
+	SvcID     uint16
+	Pad       uint16
+}
+
+// LBLcValue is generated from the BPF C type lb_lc_value.
+type LBLcValue struct {
+	_      structs.HostLayout
+	Opened uint32
+	Closed uint32
+}
+
 // LPMV4Key is generated from the BPF C type lpm_v4_key.
 type LPMV4Key struct {
 	_   structs.HostLayout
