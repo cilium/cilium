@@ -5,15 +5,20 @@ package seven
 
 import (
 	"net/http"
+	"net/netip"
 	"net/url"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -122,7 +127,119 @@ func Test_decodeEndpoint(t *testing.T) {
 			"k8s:k8s-app=hubble-ui",
 		},
 		PodName: "hubble-ui",
+		PodUid:  "hubble-ui-uid",
 	}
-	ep := decodeEndpoint(epi, "kube-system", "hubble-ui")
+	ep := decodeEndpoint(epi, "kube-system", "hubble-ui", "hubble-ui-uid")
 	assert.Equal(t, expected, ep)
+
+	ep = decodeEndpoint(epi, "kube-system", "hubble-ui", "")
+	assert.Empty(t, ep.GetPodUid())
+}
+
+func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
+	ip := netip.MustParseAddr("10.0.0.1")
+	controller := true
+	newLocalPod := func(uid string) *slim_corev1.Pod {
+		return &slim_corev1.Pod{ObjectMeta: slim_metav1.ObjectMeta{
+			UID:          k8sTypes.UID(uid),
+			GenerateName: "local-pod-",
+			OwnerReferences: []slim_metav1.OwnerReference{{
+				Kind:       "StatefulSet",
+				Name:       "local-workload",
+				Controller: &controller,
+			}},
+		}}
+	}
+	localWorkload := []*flowpb.Workload{{Kind: "StatefulSet", Name: "local-workload"}}
+	tests := []struct {
+		name            string
+		endpointID      uint32
+		localEndpointID uint64
+		localNamespace  string
+		localPodName    string
+		localPodUID     string
+		localPod        *slim_corev1.Pod
+		wantNamespace   string
+		wantPodName     string
+		wantPodUID      string
+		wantWorkloads   []*flowpb.Workload
+	}{
+		{
+			name:            "CNI UID overrides IPCache metadata",
+			endpointID:      1234,
+			localEndpointID: 1234,
+			localNamespace:  "local-namespace",
+			localPodName:    "local-pod",
+			localPodUID:     "cni-pod-uid",
+			localPod:        newLocalPod("attached-pod-uid"),
+			wantNamespace:   "local-namespace",
+			wantPodName:     "local-pod",
+			wantPodUID:      "cni-pod-uid",
+			wantWorkloads:   localWorkload,
+		},
+		{
+			name:            "attached Pod UID overrides IPCache metadata",
+			endpointID:      1234,
+			localEndpointID: 1234,
+			localNamespace:  "local-namespace",
+			localPodName:    "local-pod",
+			localPod:        newLocalPod("attached-pod-uid"),
+			wantNamespace:   "local-namespace",
+			wantPodName:     "local-pod",
+			wantPodUID:      "attached-pod-uid",
+			wantWorkloads:   localWorkload,
+		},
+		{
+			name:            "unknown local UID clears IPCache UID",
+			endpointID:      1234,
+			localEndpointID: 1234,
+			localNamespace:  "local-namespace",
+			localPodName:    "local-pod",
+			wantNamespace:   "local-namespace",
+			wantPodName:     "local-pod",
+		},
+		{
+			name:            "different local endpoint preserves IPCache metadata and skips workloads",
+			endpointID:      1234,
+			localEndpointID: 4321,
+			localNamespace:  "local-namespace",
+			localPodName:    "local-pod",
+			localPodUID:     "local-pod-uid",
+			localPod:        newLocalPod("local-pod-uid"),
+			wantNamespace:   "ipcache-namespace",
+			wantPodName:     "ipcache-pod",
+			wantPodUID:      "ipcache-pod-uid",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := &Parser{
+				endpointGetter: &testutils.FakeEndpointGetter{
+					OnGetEndpointInfo: func(netip.Addr) (getters.EndpointInfo, bool) {
+						return &testutils.FakeEndpointInfo{
+							ID:           tt.localEndpointID,
+							PodNamespace: tt.localNamespace,
+							PodName:      tt.localPodName,
+							PodUID:       tt.localPodUID,
+							Pod:          tt.localPod,
+						}, true
+					},
+				},
+			}
+			endpoint := &flowpb.Endpoint{
+				ID:        tt.endpointID,
+				Namespace: "ipcache-namespace",
+				PodName:   "ipcache-pod",
+				PodUid:    "ipcache-pod-uid",
+			}
+
+			parser.updateEndpointFromLocal(ip, endpoint)
+
+			assert.Equal(t, tt.wantNamespace, endpoint.GetNamespace())
+			assert.Equal(t, tt.wantPodName, endpoint.GetPodName())
+			assert.Equal(t, tt.wantPodUID, endpoint.GetPodUid())
+			assert.Equal(t, tt.wantWorkloads, endpoint.GetWorkloads())
+		})
+	}
 }

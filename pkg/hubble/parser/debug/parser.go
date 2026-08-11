@@ -93,6 +93,7 @@ func (p *Parser) decodeEndpoint(id uint16) *flowpb.Endpoint {
 				Namespace:   ep.GetK8sNamespace(),
 				Labels:      common.SortAndFilterLabels(p.log, labels.GetModel(), ep.GetIdentity()),
 				PodName:     ep.GetK8sPodName(),
+				PodUid:      ep.GetK8sPodUID(),
 			}
 		}
 	}

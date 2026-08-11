@@ -109,25 +109,25 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	sourceIP, _ := netip.ParseAddr(ip.Source)
 	destinationIP, _ := netip.ParseAddr(ip.Destination)
 	var sourceNames, destinationNames []string
-	var sourceNamespace, sourcePod, destinationNamespace, destinationPod string
+	var sourceNamespace, sourcePod, sourcePodUID, destinationNamespace, destinationPod, destinationPodUID string
 	if p.dnsGetter != nil {
 		sourceNames = p.dnsGetter.GetNamesOf(uint32(r.DestinationEndpoint.ID), sourceIP)
 		destinationNames = p.dnsGetter.GetNamesOf(uint32(r.SourceEndpoint.ID), destinationIP)
 	}
 	if p.ipGetter != nil {
 		if meta := p.ipGetter.GetK8sMetadata(sourceIP); meta != nil {
-			sourceNamespace, sourcePod = meta.Namespace, meta.PodName
+			sourceNamespace, sourcePod, sourcePodUID = meta.Namespace, meta.PodName, meta.PodUID
 		}
 		if meta := p.ipGetter.GetK8sMetadata(destinationIP); meta != nil {
-			destinationNamespace, destinationPod = meta.Namespace, meta.PodName
+			destinationNamespace, destinationPod, destinationPodUID = meta.Namespace, meta.PodName, meta.PodUID
 		}
 	}
-	srcEndpoint := decodeEndpoint(r.SourceEndpoint, sourceNamespace, sourcePod)
-	dstEndpoint := decodeEndpoint(r.DestinationEndpoint, destinationNamespace, destinationPod)
+	srcEndpoint := decodeEndpoint(r.SourceEndpoint, sourceNamespace, sourcePod, sourcePodUID)
+	dstEndpoint := decodeEndpoint(r.DestinationEndpoint, destinationNamespace, destinationPod, destinationPodUID)
 
 	if p.endpointGetter != nil {
-		p.updateEndpointWorkloads(sourceIP, srcEndpoint)
-		p.updateEndpointWorkloads(destinationIP, dstEndpoint)
+		p.updateEndpointFromLocal(sourceIP, srcEndpoint)
+		p.updateEndpointFromLocal(destinationIP, dstEndpoint)
 	}
 
 	l4, sourcePort, destinationPort := decodeLayer4(r.TransportProtocol, r.SourceEndpoint, r.DestinationEndpoint)
@@ -223,8 +223,18 @@ func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time
 	return 0
 }
 
-func (p *Parser) updateEndpointWorkloads(ip netip.Addr, endpoint *flowpb.Endpoint) {
+func (p *Parser) updateEndpointFromLocal(ip netip.Addr, endpoint *flowpb.Endpoint) {
 	if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
+		// Access logs are decoded asynchronously. The IP may now belong to a
+		// replacement endpoint, so only use Pod metadata when the IDs match.
+		if ep.GetID() != uint64(endpoint.GetID()) {
+			return
+		}
+		// Keep the Pod identity tuple tied to the ID-matched endpoint. When the
+		// UID is unknown, empty is safer than retaining metadata resolved by IP.
+		endpoint.Namespace = ep.GetK8sNamespace()
+		endpoint.PodName = ep.GetK8sPodName()
+		endpoint.PodUid = ep.GetK8sPodUID()
 		if pod := ep.GetPod(); pod != nil {
 			workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
 			if ok {
@@ -324,7 +334,7 @@ func decodeLayer4(protocol accesslog.TransportProtocol, source, destination acce
 	}
 }
 
-func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) *flowpb.Endpoint {
+func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName, podUID string) *flowpb.Endpoint {
 	labels := endpoint.Labels.GetModel()
 	slices.Sort(labels)
 	return &flowpb.Endpoint{
@@ -334,6 +344,7 @@ func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) 
 		Namespace:   namespace,
 		Labels:      labels,
 		PodName:     podName,
+		PodUid:      podUID,
 	}
 }
 

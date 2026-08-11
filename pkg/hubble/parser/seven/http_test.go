@@ -72,6 +72,7 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 				return &ipcache.K8sMetadata{
 					Namespace: "default",
 					PodName:   "pod-1234",
+					PodUID:    "pod-1234-uid",
 				}
 			}
 			return nil
@@ -90,14 +91,10 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
-			switch {
-			case ip == netip.MustParseAddr(fakeSourceEndpoint.IPv4):
+			if ip == netip.MustParseAddr(fakeSourceEndpoint.IPv4) {
 				return &testutils.FakeEndpointInfo{
-					ID: fakeSourceEndpoint.ID,
-				}, true
-			case ip == netip.MustParseAddr(fakeDestinationEndpoint.IPv4):
-				return &testutils.FakeEndpointInfo{
-					ID: fakeDestinationEndpoint.ID,
+					ID:     fakeSourceEndpoint.ID,
+					PodUID: "source-pod-uid",
 				}, true
 			}
 			return nil, false
@@ -117,6 +114,7 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 	assert.Equal(t, fakeSourceEndpoint.Labels.GetModel(), f.GetSource().GetLabels())
 	assert.Empty(t, f.GetSource().GetNamespace())
 	assert.Empty(t, f.GetSource().GetPodName())
+	assert.Equal(t, "source-pod-uid", f.GetSource().GetPodUid())
 	assert.Empty(t, f.GetSourceService().GetNamespace())
 	assert.Empty(t, f.GetSourceService().GetName())
 
@@ -126,6 +124,7 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 	assert.Equal(t, fakeDestinationEndpoint.Labels.GetModel(), f.GetDestination().GetLabels())
 	assert.Equal(t, "default", f.GetDestination().GetNamespace())
 	assert.Equal(t, "pod-1234", f.GetDestination().GetPodName())
+	assert.Equal(t, "pod-1234-uid", f.GetDestination().GetPodUid())
 	assert.Equal(t, "default", f.GetDestinationService().GetNamespace())
 	assert.Equal(t, "service-1234", f.GetDestinationService().GetName())
 
@@ -187,6 +186,7 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 				return &ipcache.K8sMetadata{
 					Namespace: "default",
 					PodName:   "pod-1234",
+					PodUID:    "pod-1234-uid",
 				}
 			}
 			return nil
@@ -205,14 +205,10 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
-			switch {
-			case ip.String() == fakeSourceEndpoint.IPv4:
+			if ip.String() == fakeSourceEndpoint.IPv4 {
 				return &testutils.FakeEndpointInfo{
-					ID: fakeSourceEndpoint.ID,
-				}, true
-			case ip.String() == fakeDestinationEndpoint.IPv4:
-				return &testutils.FakeEndpointInfo{
-					ID: fakeDestinationEndpoint.ID,
+					ID:     fakeSourceEndpoint.ID,
+					PodUID: "source-pod-uid",
 				}, true
 			}
 			return nil, false
@@ -232,6 +228,7 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 	assert.Equal(t, fakeSourceEndpoint.Labels.GetModel(), f.GetDestination().GetLabels())
 	assert.Empty(t, f.GetDestination().GetNamespace())
 	assert.Empty(t, f.GetDestination().GetPodName())
+	assert.Equal(t, "source-pod-uid", f.GetDestination().GetPodUid())
 	assert.Empty(t, f.GetDestinationService().GetNamespace())
 	assert.Empty(t, f.GetDestinationService().GetName())
 
@@ -241,6 +238,7 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 	assert.Equal(t, fakeDestinationEndpoint.Labels.GetModel(), f.GetSource().GetLabels())
 	assert.Equal(t, "default", f.GetSource().GetNamespace())
 	assert.Equal(t, "pod-1234", f.GetSource().GetPodName())
+	assert.Equal(t, "pod-1234-uid", f.GetSource().GetPodUid())
 	assert.Equal(t, "default", f.GetSourceService().GetNamespace())
 	assert.Equal(t, "service-1234", f.GetSourceService().GetName())
 

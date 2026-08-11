@@ -422,6 +422,7 @@ type FakeEndpointInfo struct {
 	IPv6         net.IP
 	PodName      string
 	PodNamespace string
+	PodUID       string
 	Labels       []string
 	Pod          *slim_corev1.Pod
 
@@ -447,6 +448,17 @@ func (e *FakeEndpointInfo) GetK8sPodName() string {
 // GetK8sNamespace returns the pod namespace of the endpoint.
 func (e *FakeEndpointInfo) GetK8sNamespace() string {
 	return e.PodNamespace
+}
+
+// GetK8sPodUID returns the Pod UID of the endpoint.
+func (e *FakeEndpointInfo) GetK8sPodUID() string {
+	if e.PodUID != "" {
+		return e.PodUID
+	}
+	if e.Pod != nil {
+		return string(e.Pod.UID)
+	}
+	return ""
 }
 
 // GetLabels returns the labels of the endpoint.

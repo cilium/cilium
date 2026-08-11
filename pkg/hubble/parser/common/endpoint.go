@@ -147,6 +147,7 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 				Namespace:   ep.GetK8sNamespace(),
 				Labels:      SortAndFilterLabels(r.log, labels.GetModel(), identity.NumericIdentity(epIdentity)),
 				PodName:     ep.GetK8sPodName(),
+				PodUid:      ep.GetK8sPodUID(),
 			}
 			if pod := ep.GetPod(); pod != nil {
 				workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
@@ -160,13 +161,13 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 
 	// for remote endpoints, assemble the information via ip and identity
 	numericIdentity := datapathSecurityIdentity
-	var namespace, podName string
+	var namespace, podName, podUID string
 	if r.ipGetter != nil {
 		if ipIdentity, ok := r.ipGetter.LookupSecIDByIP(ip); ok {
 			numericIdentity = resolveIdentityConflict(ipIdentity.ID, false)
 		}
 		if meta := r.ipGetter.GetK8sMetadata(ip); meta != nil {
-			namespace, podName = meta.Namespace, meta.PodName
+			namespace, podName, podUID = meta.Namespace, meta.PodName, meta.PodUID
 		}
 	}
 	var labels []string
@@ -190,5 +191,6 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 		Namespace:   namespace,
 		Labels:      labels,
 		PodName:     podName,
+		PodUid:      podUID,
 	}
 }

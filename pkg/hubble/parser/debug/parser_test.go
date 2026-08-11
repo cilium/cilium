@@ -38,6 +38,7 @@ func TestDecodeDebugEvent(t *testing.T) {
 					Identity:     5678,
 					PodName:      "hubble-ui",
 					PodNamespace: "kube-system",
+					PodUID:       "hubble-ui-uid",
 					Labels: []string{
 						"k8s:io.cilium.k8s.policy.cluster=default",
 						"k8s:io.kubernetes.pod.namespace=kube-system",
@@ -98,6 +99,7 @@ func TestDecodeDebugEvent(t *testing.T) {
 					ID:          1234,
 					Identity:    5678,
 					PodName:     "hubble-ui",
+					PodUid:      "hubble-ui-uid",
 					ClusterName: "default",
 					Namespace:   "kube-system",
 					Labels: []string{
@@ -133,6 +135,7 @@ func TestDecodeDebugEvent(t *testing.T) {
 					ID:          1234,
 					Identity:    5678,
 					PodName:     "hubble-ui",
+					PodUid:      "hubble-ui-uid",
 					ClusterName: "default",
 					Namespace:   "kube-system",
 					Labels: []string{
