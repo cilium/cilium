@@ -50,6 +50,9 @@ linters:
         - pattern: ^netlink\.XfrmState(Add|Update|Del|Flush)$
           pkg: ^github.com/vishvananda/netlink$
           msg: Found direct XFRM state modification which would leave the cache stale. Use xfrmStateCache instead.
+        - pattern: ^sync\.(Mutex|RWMutex|Map)$
+          pkg: ^sync$
+          msg: Use pkg/lock instead to improve deadlock detection.
       analyze-types: true
     goheader:
       values:
@@ -215,6 +218,11 @@ linters:
           - gomodguard_v2
         path: test/
         text: "logrus"
+      # The lock packages are the sanctioned wrappers around sync
+      - linters:
+          - forbidigo
+        path: (pkg|cilium-cli/utils)/lock/.+\.go
+        text: sync\.
     paths:
       - third_party$
       - builtin$
