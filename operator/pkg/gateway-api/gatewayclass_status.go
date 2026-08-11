@@ -6,7 +6,6 @@ package gateway_api
 import (
 	"cmp"
 	"slices"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -14,8 +13,7 @@ import (
 )
 
 const (
-	gatewayClassAcceptedMessage    = "Valid GatewayClass"
-	gatewayClassNotAcceptedMessage = "Invalid GatewayClass"
+	gatewayClassAcceptedMessage = "Valid GatewayClass"
 )
 
 var supportedFeatures = features.AllFeatures
@@ -52,8 +50,8 @@ func getSupportedFeatures() []gatewayv1.SupportedFeature {
 
 // setGatewayClassAccepted inserts or updates the Accepted condition
 // for the provided GatewayClass.
-func setGatewayClassAccepted(gwc *gatewayv1.GatewayClass, accepted bool) *gatewayv1.GatewayClass {
-	gwc.Status.Conditions = merge(gwc.Status.Conditions, gatewayClassAcceptedCondition(gwc, accepted))
+func setGatewayClassAccepted(gwc *gatewayv1.GatewayClass, accepted bool, reason gatewayv1.GatewayClassConditionReason, msg string) *gatewayv1.GatewayClass {
+	gwc.Status.Conditions = merge(gwc.Status.Conditions, gatewayClassAcceptedCondition(gwc, accepted, reason, msg))
 	return gwc
 }
 
@@ -64,25 +62,18 @@ func setGatewayClassSupportedFeatures(gwc *gatewayv1.GatewayClass) *gatewayv1.Ga
 }
 
 // gatewayClassAcceptedCondition returns the GatewayClass with Accepted status condition.
-func gatewayClassAcceptedCondition(gwc *gatewayv1.GatewayClass, accepted bool) metav1.Condition {
-	switch accepted {
-	case true:
-		return metav1.Condition{
-			Type:               string(gatewayv1.GatewayClassConditionStatusAccepted),
-			Status:             metav1.ConditionTrue,
-			Reason:             string(gatewayv1.GatewayClassReasonAccepted),
-			Message:            gatewayClassAcceptedMessage,
-			ObservedGeneration: gwc.Generation,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		}
-	default:
-		return metav1.Condition{
-			Type:               string(gatewayv1.GatewayClassConditionStatusAccepted),
-			Status:             metav1.ConditionFalse,
-			Reason:             string(gatewayv1.GatewayClassReasonInvalidParameters),
-			Message:            gatewayClassNotAcceptedMessage,
-			ObservedGeneration: gwc.Generation,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		}
+func gatewayClassAcceptedCondition(gwc *gatewayv1.GatewayClass, accepted bool, reason gatewayv1.GatewayClassConditionReason, msg string) metav1.Condition {
+	status := metav1.ConditionTrue
+	if !accepted {
+		status = metav1.ConditionFalse
+	}
+
+	return metav1.Condition{
+		Type:               string(gatewayv1.GatewayClassConditionStatusAccepted),
+		Status:             status,
+		Reason:             string(reason),
+		Message:            msg,
+		ObservedGeneration: gwc.Generation,
+		LastTransitionTime: metav1.Now(),
 	}
 }
