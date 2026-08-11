@@ -130,6 +130,7 @@ func cleanIPSecStatesAndPolicies(t *testing.T) {
 	}
 
 	for _, s := range xfrmStateList {
+		//nolint:forbidigo
 		if err := netlink.XfrmStateDel(&s); err != nil {
 			t.Fatalf("Can't delete XFRM state: %v", err)
 		}
