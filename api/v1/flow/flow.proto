@@ -319,6 +319,8 @@ message Endpoint {
     repeated string labels = 4;
     string pod_name = 5;
     repeated Workload workloads = 6;
+    // pod_uid is the Kubernetes UID of the Pod represented by this endpoint.
+    string pod_uid = 8;
 }
 
 message Workload {
