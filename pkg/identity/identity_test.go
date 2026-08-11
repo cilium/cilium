@@ -4,6 +4,8 @@
 package identity
 
 import (
+	"encoding/json"
+	"net"
 	"net/netip"
 	"testing"
 
@@ -13,6 +15,30 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
+
+func TestIPIdentityPairPodUIDJSONCompatibility(t *testing.T) {
+	pair := IPIdentityPair{
+		IP:           net.ParseIP("10.0.0.1"),
+		K8sNamespace: "default",
+		K8sPodName:   "echo",
+	}
+
+	withoutUID, err := pair.Marshal()
+	require.NoError(t, err)
+	assert.NotContains(t, string(withoutUID), "K8sPodUID")
+
+	var decoded IPIdentityPair
+	require.NoError(t, json.Unmarshal(withoutUID, &decoded))
+	assert.Empty(t, decoded.K8sPodUID)
+
+	pair.K8sPodUID = "90b3d76d-3c14-42ce-b132-d2aad6789d47"
+	withUID, err := pair.Marshal()
+	require.NoError(t, err)
+	assert.Contains(t, string(withUID), `"K8sPodUID":"90b3d76d-3c14-42ce-b132-d2aad6789d47"`)
+
+	require.NoError(t, json.Unmarshal(withUID, &decoded))
+	assert.Equal(t, pair.K8sPodUID, decoded.K8sPodUID)
+}
 
 func TestReservedID(t *testing.T) {
 	i := GetReservedID("host")

@@ -52,6 +52,7 @@ type IPIdentityPair struct {
 	Metadata          string          `json:"Metadata"`
 	K8sNamespace      string          `json:"K8sNamespace,omitempty"`
 	K8sPodName        string          `json:"K8sPodName,omitempty"`
+	K8sPodUID         string          `json:"K8sPodUID,omitempty"`
 	K8sServiceAccount string          `json:"K8sServiceAccount,omitempty"`
 	NamedPorts        []NamedPort     `json:"NamedPorts,omitempty"`
 }
