@@ -7,7 +7,7 @@
 # $ cosign verify $IMAGE_NAME --certificate-oidc-issuer https://accounts.google.com --certificate-identity keyless@distroless.iam.gserviceaccount.com
 ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:f7f8f729987ad0fdf6b05eeeae94b26e6a0f613bdf46feea7fc40f7bd72953e6
 ARG GOLANG_IMAGE=docker.io/library/golang:1.26.5@sha256:7caba5286b4c3613a337b709c573047d8ae62ee76106647313b61e72b99f20af
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:ac53d4a278e911e98d5c4652922ef25dd0f91249@sha256:e07478673288c43adb34972a30f28c54ea2abc926e2d54ebf41428cab8b38d1b
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:70fa82a1c11aee8c01c0c50949aa17f834653346@sha256:be1729cc2bffca8c445443dfbf7316d49bdb23a6c06fbbe77e344d4fb76e4386
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
