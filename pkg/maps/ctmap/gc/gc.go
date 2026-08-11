@@ -13,7 +13,7 @@ import (
 	"os"
 	"slices"
 	"sync"
-	stdtime "time"
+	stdtime "time" //nolint:depguard // see the stdtime.After call below
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
@@ -381,6 +381,9 @@ func (gc *GC) enableWithConfig(
 	go func() {
 		select {
 		case <-initialScanComplete:
+		// Deliberately the stdlib timer rather than pkg/time: this watchdog
+		// must not be shortened to option.MaxInternalTimerDelay, or the warning
+		// below fires spuriously.
 		case <-stdtime.After(initialGCInterval):
 			gc.logger.Warn("Failed to perform initial ctmap gc scan within expected duration." +
 				"This may be caused by large ctmap sizes or by constraint CPU resources upon start." +
