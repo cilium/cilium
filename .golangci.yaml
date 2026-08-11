@@ -56,6 +56,9 @@ linters:
         - pattern: ^net\.(Interfaces|InterfaceAddrs|InterfaceByIndex|InterfaceByName|Interface\.Addrs)$
           pkg: ^net$
           msg: 'Found stdlib net.Interface* function which can block forever, see https://github.com/cilium/cilium/issues/15051. Use the netlink or safenetlink package instead.'
+        - pattern: ^sync\.(Mutex|RWMutex|Map)$
+          pkg: ^sync$
+          msg: Use pkg/lock instead to improve deadlock detection.
       analyze-types: true
     goheader:
       values:
@@ -221,6 +224,11 @@ linters:
           - gomodguard_v2
         path: test/
         text: "logrus"
+      # The lock packages are the sanctioned wrappers around sync
+      - linters:
+          - forbidigo
+        path: (pkg|cilium-cli/utils)/lock/.+\.go
+        text: sync\.
     paths:
       - third_party$
       - builtin$
