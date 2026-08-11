@@ -96,6 +96,8 @@ type K8sMetadata struct {
 	Namespace string
 	// PodName is the Kubernetes pod name behind the IP
 	PodName string
+	// PodUID is the Kubernetes pod UID behind the IP
+	PodUID string
 	// NamedPorts is the set of named ports for the pod
 	NamedPorts types.NamedPortMap
 }
@@ -985,5 +987,5 @@ func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
 			return false
 		}
 	}
-	return m.Namespace == o.Namespace && m.PodName == o.PodName
+	return m.Namespace == o.Namespace && m.PodName == o.PodName && m.PodUID == o.PodUID
 }
