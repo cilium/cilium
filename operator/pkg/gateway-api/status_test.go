@@ -118,12 +118,12 @@ func Test_conditionChanged(t *testing.T) {
 			name:     "check condition reason differs",
 			expected: true,
 			a: metav1.Condition{
-				Type:   string(gatewayv1.GatewayConditionReady),
+				Type:   string(gatewayv1.GatewayClassConditionStatusAccepted),
 				Status: metav1.ConditionFalse,
 				Reason: "foo",
 			},
 			b: metav1.Condition{
-				Type:   string(gatewayv1.GatewayConditionReady),
+				Type:   string(gatewayv1.GatewayClassConditionStatusAccepted),
 				Status: metav1.ConditionFalse,
 				Reason: "bar",
 			},

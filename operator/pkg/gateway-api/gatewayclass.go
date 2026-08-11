@@ -56,16 +56,6 @@ func (r *gatewayClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func matchesControllerName(controllerName string) func(object client.Object) bool {
-	return func(object client.Object) bool {
-		gwc, ok := object.(*gatewayv1.GatewayClass)
-		if !ok {
-			return false
-		}
-		return string(gwc.Spec.ControllerName) == controllerName
-	}
-}
-
 // referencedConfig returns a list of CiliumGatewayClassConfig names referenced by the GatewayClass.
 func (r *gatewayClassReconciler) referencedConfig(rawObj client.Object) []string {
 	gwc, ok := rawObj.(*gatewayv1.GatewayClass)
