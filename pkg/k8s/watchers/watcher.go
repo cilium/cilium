@@ -80,11 +80,10 @@ type ipcacheManager interface {
 	// GH-21142: Re-evaluate the need for these APIs
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (namedPortsChanged bool, err error)
 	LookupByIP(IP string) (ipcache.Identity, bool)
-	Delete(IP string, source source.Source) (namedPortsChanged bool)
 
 	UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
 	RemoveLabelsExcluded(lbls labels.Labels, toExclude map[cmtypes.PrefixCluster]struct{}, resource ipcacheTypes.ResourceID)
-	DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool)
+	DeleteOnMetadataMatch(IP string, source source.Source, namespace, name, uid string) (namedPortsChanged bool)
 }
 
 type hostNetworkManager interface {

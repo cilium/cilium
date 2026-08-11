@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -166,6 +167,17 @@ func newEndpoint(name, namespace string, id int64, serviceAccount string) *types
 		Encryption:     &v2.EncryptionSpec{},
 		ServiceAccount: serviceAccount,
 	}
+}
+
+func newEndpointWithPodUID(name, namespace string, id int64, serviceAccount, podUID string) *types.CiliumEndpoint {
+	endpoint := newEndpoint(name, namespace, id, serviceAccount)
+	endpoint.OwnerReferences = []slim_metav1.OwnerReference{
+		{
+			Kind: "Pod",
+			UID:  k8sTypes.UID(podUID),
+		},
+	}
+	return endpoint
 }
 
 // TestCESSubscriber_CEPTransfer tests a CEP being transferred between two
@@ -731,6 +743,32 @@ func TestCESSubscriber_OnUpdate(t *testing.T) {
 			expectedCurrentCES: map[string]string{
 				"default/cep1": "ces",
 				"default/cep2": "ces",
+			},
+		},
+		{
+			name: "update_pod_uid",
+			oldCES: newCES("ces", testNamespace,
+				v2alpha1.CoreCiliumEndpoint{
+					Name:           "cep1",
+					ServiceAccount: "test-service-account",
+					PodUID:         "old-pod-uid",
+				},
+			),
+			newCES: newCES("ces", testNamespace,
+				v2alpha1.CoreCiliumEndpoint{
+					Name:           "cep1",
+					ServiceAccount: "test-service-account",
+					PodUID:         "new-pod-uid",
+				},
+			),
+			expectUpdates: []endpointUpdate{
+				{
+					OldEP: newEndpointWithPodUID("cep1", testNamespace, 0, "test-service-account", "old-pod-uid"),
+					NewEP: newEndpointWithPodUID("cep1", testNamespace, 0, "test-service-account", "new-pod-uid"),
+				},
+			},
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
 			},
 		},
 		{
