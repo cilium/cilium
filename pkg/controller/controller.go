@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"math"
 	"math/rand/v2"
-	stdtime "time"
+	stdtime "time" //nolint:depguard // see the stdtime.After call below
 
 	"github.com/cilium/hive/cell"
 
@@ -414,6 +414,9 @@ func (c *controller) runController() {
 
 		case <-c.update:
 			// update channel is never closed
+		// Deliberately the stdlib timer rather than pkg/time: interval can be
+		// math.MaxInt64 to mean "wait for the next update", and pkg/time.After
+		// would shorten it to option.MaxInternalTimerDelay during testing.
 		case <-stdtime.After(interval):
 			// timer channel is not yet closed
 		case <-c.trigger:

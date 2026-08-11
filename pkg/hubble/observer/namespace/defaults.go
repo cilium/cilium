@@ -3,7 +3,7 @@
 
 package namespace
 
-import "time"
+import "github.com/cilium/cilium/pkg/time"
 
 const (
 	// cleanupInterval is the interval at which the namespace list from the

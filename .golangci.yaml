@@ -41,6 +41,49 @@ linters:
             - '**/*clustermesh*.go'
             - '**/*etcd*.go'
             - '**/*store*.go'
+        time:
+          deny:
+            - pkg: time$
+              desc: Use github.com/cilium/cilium/pkg/time instead to improve ordering and consistency testing
+          # The rule applies to every file not excluded below. Note that the
+          # globs are matched against absolute paths, so every pattern has to
+          # start with '**/': a repository-root-relative one matches nothing.
+          files:
+            - '!**/*_test.go'
+            # Wrapper directories
+            - '!**/time/*.go'
+            # Generated directories
+            - '!**/api/**'
+            - '!**/client/**'
+            - '!**/slim/**'
+            # Not part of any binary
+            - '!**/examples/**'
+            # Not for cilium-agent
+            - '!**/bugtool/**'
+            - '!**/cilium-dbg/**'
+            - '!**/clustermesh/**'
+            - '!**/clustermesh-apiserver/**'
+            - '!**/health/**'
+            - '!**/operator/**'
+            - '!**/plugins/**'
+            - '!**/tools/**'
+            - '!**/test/**'
+            - '!**/testutils/**'
+            # Not for cilium-cli
+            - '!**/cilium-cli/**'
+            # Source shared with other binaries
+            - '!**/hive/**'
+            - '!**/lock/**'
+            # Skip override (not applicable)
+            - '!**/defaults/**'
+            - '!**/loadinfo/**'
+            - '!**/logging/**'
+            - '!**/metric/**'
+            - '!**/probes/**'
+            - '!**/types/**'
+            # May need subsequent evaluation to detect resiliency issues in CI
+            - '!**/rate/**'
+            - '!**/resiliency/**'
     forbidigo:
       forbid:
         # List based on https://github.com/vishvananda/netlink/pull/1018
