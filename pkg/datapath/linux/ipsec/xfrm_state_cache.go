@@ -45,21 +45,25 @@ func (c *xfrmStateListCache) XfrmStateList() ([]netlink.XfrmState, error) {
 
 func (c *xfrmStateListCache) XfrmStateDel(state *netlink.XfrmState) error {
 	c.invalidate()
+	//nolint:forbidigo
 	return netlink.XfrmStateDel(state)
 }
 
 func (c *xfrmStateListCache) XfrmStateUpdate(state *netlink.XfrmState) error {
 	c.invalidate()
+	//nolint:forbidigo
 	return netlink.XfrmStateUpdate(state)
 }
 
 func (c *xfrmStateListCache) XfrmStateAdd(state *netlink.XfrmState) error {
 	c.invalidate()
+	//nolint:forbidigo
 	return netlink.XfrmStateAdd(state)
 }
 
 func (c *xfrmStateListCache) XfrmStateFlush(proto netlink.Proto) error {
 	c.invalidate()
+	//nolint:forbidigo
 	return netlink.XfrmStateFlush(proto)
 }
 

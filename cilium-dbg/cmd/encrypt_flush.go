@@ -105,6 +105,10 @@ func runXFRMFlush(logger *slog.Logger) {
 
 	nbDeleted := len(states)
 	for _, state := range states {
+		// cilium-dbg is a separate one-shot process: it cannot reach the
+		// agent's in-memory xfrmStateCache, and an instance of its own would
+		// never be read back before the process exits.
+		//nolint:forbidigo
 		if err := netlink.XfrmStateDel(&state); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to delete XFRM state: %s", err)
 			nbDeleted--
@@ -232,6 +236,8 @@ func flushEverything() {
 		return
 	}
 	netlink.XfrmPolicyFlush()
+	// See the note in runXFRMFlush on why the cache is not involved here.
+	//nolint:forbidigo
 	netlink.XfrmStateFlush(netlink.XFRM_PROTO_ESP)
 	fmt.Println("All XFRM states and policies have been deleted.")
 }

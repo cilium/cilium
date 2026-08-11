@@ -536,8 +536,6 @@ endif
 	$(QUIET) contrib/scripts/check-go-test-tags.sh
 	@$(ECHO_CHECK) contrib/scripts/check-source-info.sh
 	$(QUIET) contrib/scripts/check-source-info.sh
-	@$(ECHO_CHECK) contrib/scripts/check-xfrmstate.sh
-	$(QUIET) contrib/scripts/check-xfrmstate.sh
 	@$(ECHO_CHECK) contrib/scripts/check-legacy-header-guard.sh
 	$(QUIET) contrib/scripts/check-legacy-header-guard.sh
 	@$(ECHO_CHECK) contrib/scripts/check-datapathconfig.sh
