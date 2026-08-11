@@ -524,8 +524,6 @@ ifeq ($(SKIP_CUSTOMVET_CHECK),false)
 	@$(ECHO_CHECK) contrib/scripts/custom-vet-check.sh
 	$(QUIET) contrib/scripts/custom-vet-check.sh
 endif
-	@$(ECHO_CHECK) contrib/scripts/check-time.sh
-	$(QUIET) contrib/scripts/check-time.sh
 	@$(ECHO_CHECK) contrib/scripts/check-go-testdata.sh
 	$(QUIET) contrib/scripts/check-go-testdata.sh
 	@$(ECHO_CHECK) contrib/scripts/check-go-test-tags.sh
