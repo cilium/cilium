@@ -103,7 +103,12 @@ func (m *cgroupManager) OnAddPod(pod *v1.Pod) {
 }
 
 func (m *cgroupManager) OnUpdatePod(oldPod, newPod *v1.Pod) {
-	if newPod.Spec.NodeName != nodetypes.GetName() {
+	localNodeName := nodetypes.GetName()
+	if oldPod.UID != newPod.UID {
+		if oldPod.Spec.NodeName != localNodeName && newPod.Spec.NodeName != localNodeName {
+			return
+		}
+	} else if newPod.Spec.NodeName != localNodeName {
 		return
 	}
 	m.podEvents <- podEvent{
@@ -214,7 +219,11 @@ func (m *cgroupManager) processPodEvents(ctx context.Context, _ cell.Health) err
 		case ev := <-m.podEvents:
 			switch ev.eventType {
 			case podAddEvent, podUpdateEvent:
-				m.updatePodMetadata(ev.pod, ev.oldPod)
+				if ev.oldPod != nil && ev.oldPod.UID != ev.pod.UID {
+					m.replacePodMetadata(ev.oldPod, ev.pod)
+				} else {
+					m.updatePodMetadata(ev.pod, ev.oldPod)
+				}
 				if m.podEventsDone != nil {
 					m.podEventsDone <- podEventStatus{
 						name:      ev.pod.Name,
@@ -348,6 +357,16 @@ func (m *cgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 			}
 		}
 		m.metadataCacheLock.Unlock()
+	}
+}
+
+func (m *cgroupManager) replacePodMetadata(oldPod, newPod *v1.Pod) {
+	localNodeName := nodetypes.GetName()
+	if oldPod.Spec.NodeName == localNodeName {
+		m.deletePodMetadata(oldPod)
+	}
+	if newPod.Spec.NodeName == localNodeName {
+		m.updatePodMetadata(newPod, nil)
 	}
 }
 

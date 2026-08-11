@@ -1344,12 +1344,16 @@ func (e *Endpoint) GetK8sNamespace() string {
 	return ns
 }
 
-// GetK8sUID returns the UID of the pod if the endpoint represents a Kubernetes
-// pod.
-func (e *Endpoint) GetK8sUID() string {
-	// const after creation
-	uid := e.K8sUID
-	return uid
+// GetK8sPodUID returns the UID of the Pod represented by the endpoint.
+func (e *Endpoint) GetK8sPodUID() string {
+	// K8sUID is immutable and identifies the Pod generation supplied by CNI.
+	if e.K8sUID != "" {
+		return e.K8sUID
+	}
+	if pod := e.GetPod(); pod != nil {
+		return string(pod.UID)
+	}
+	return ""
 }
 
 // SetPod sets the pod related to this endpoint.

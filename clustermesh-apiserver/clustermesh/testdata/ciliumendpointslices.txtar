@@ -107,6 +107,7 @@ endpoints:
     key: 5
   id: 199475
   name: foo-002
+  pod-uid: ces-pod-uid
   service-account: default
   networking:
     addressing:
@@ -215,6 +216,7 @@ namespace: fred
   "Metadata": "",
   "K8sNamespace": "qux",
   "K8sPodName": "foo-002",
+  "K8sPodUID": "ces-pod-uid",
   "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/10.244.2.78
@@ -294,6 +296,7 @@ namespace: fred
   "Metadata": "",
   "K8sNamespace": "qux",
   "K8sPodName": "foo-002",
+  "K8sPodUID": "ces-pod-uid",
   "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::e4b4
