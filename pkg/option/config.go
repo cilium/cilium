@@ -3395,20 +3395,6 @@ func (c *DaemonConfig) IsLocalRouterIP(ip string) bool {
 	return ip != "" && (c.LocalRouterIPv4 == ip || c.LocalRouterIPv6 == ip)
 }
 
-// StoreViperInFile stores viper's configuration in a the given directory under
-// the file name 'viper-config.yaml'. If this file already exists, it is renamed
-// to 'viper-config-1.yaml', if 'viper-config-1.yaml' also exists,
-// 'viper-config-1.yaml' is renamed to 'viper-config-2.yaml'
-func StoreViperInFile(logger *slog.Logger, dir string) error {
-	backupFileNames := []string{
-		"viper-agent-config.yaml",
-		"viper-agent-config-1.yaml",
-		"viper-agent-config-2.yaml",
-	}
-	backupFiles(logger, dir, backupFileNames)
-	return viper.WriteConfigAs(backupFileNames[0])
-}
-
 func backupFiles(logger *slog.Logger, dir string, backupFilenames []string) {
 	for i := len(backupFilenames) - 1; i > 0; i-- {
 		newFileName := filepath.Join(dir, backupFilenames[i-1])

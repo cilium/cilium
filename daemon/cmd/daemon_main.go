@@ -1244,12 +1244,6 @@ func daemonConfigInitialization(params daemonConfigParams) legacy.DaemonConfigIn
 					params.CfgResolver.Reject(err)
 					return err
 				}
-
-				if err := option.StoreViperInFile(params.Logger, option.Config.StateDir); err != nil {
-					params.Logger.Error("Unable to store Viper's configuration", logfields.Error, err)
-					params.CfgResolver.Reject(err)
-					return err
-				}
 			}
 
 			// 'option.Config' is assumed to be stable at this point, except for
