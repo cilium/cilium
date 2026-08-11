@@ -93,7 +93,12 @@ linters:
         - pattern: ^netlink\.XfrmState(Add|Update|Del|Flush)$
           pkg: ^github.com/vishvananda/netlink$
           msg: Found direct XFRM state modification which would leave the cache stale. Use xfrmStateCache instead.
-        - pattern: ^viper\.(Set|Get[^V])
+        # Every package-level function that viper delegates to its default
+        # instance. The remaining exported names are the constructors
+        # (New, NewWithOptions, NewCodecRegistry), the Option builders
+        # (DecodeHook, EnvKeyReplacer, Experimental*, Finders, KeyDelimiter,
+        # With*) and the exported types, none of which touch global state.
+        - pattern: ^viper\.(Add|All|Automatic|Bind|ConfigFileUsed|Debug|Get|InConfig|IsSet|Merge|Must|On|Read|Register|Reset|Safe|Set|Sub|Unmarshal|Watch|Write)
           pkg: ^github.com/spf13/viper$
           msg: Found use of viper's default instance. Use viper.New() or the hive.Viper() instance instead.
         - pattern: GetStringMapString$
