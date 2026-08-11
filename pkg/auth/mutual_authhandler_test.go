@@ -444,7 +444,11 @@ func getRandomOpenPort(t *testing.T) int {
 }
 
 func GetLoopBackIP(t *testing.T) string {
-	addrs, err := net.InterfaceAddrs()
+	// Test-only helper, so blocking forever on the stdlib netlink socket is not
+	// a concern here. Retrieving addresses of all interfaces at once has no
+	// netlink equivalent, and the netlink package is Linux-only while this test
+	// is not.
+	addrs, err := net.InterfaceAddrs() //nolint:forbidigo
 	if err != nil {
 		t.Fatalf("failed to get interface addresses: %v", err)
 	}
