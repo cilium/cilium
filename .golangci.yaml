@@ -93,6 +93,18 @@ linters:
         - pattern: ^netlink\.XfrmState(Add|Update|Del|Flush)$
           pkg: ^github.com/vishvananda/netlink$
           msg: Found direct XFRM state modification which would leave the cache stale. Use xfrmStateCache instead.
+        - pattern: ^viper\.(Set|Get[^V])
+          pkg: ^github.com/spf13/viper$
+          msg: Found use of viper's default instance. Use viper.New() or the hive.Viper() instance instead.
+        - pattern: GetStringMapString$
+          pkg: ^github.com/spf13/viper$
+          msg: Use command.GetStringMapString(vp, key) instead. See https://github.com/spf13/viper/issues/911
+        - pattern: GetIntSlice$
+          pkg: ^github.com/spf13/viper$
+          msg: Use a flags.StringSlice type and vp.GetStringSlice(key) instead. See https://github.com/cilium/cilium/issues/20173
+        - pattern: StringToStringVar$
+          pkg: ^github.com/spf13/pflag$
+          msg: Use option.NewMapOptions instead.
         - pattern: ^sync\.(Mutex|RWMutex|Map)$
           pkg: ^sync$
           msg: Use pkg/lock instead to improve deadlock detection.
@@ -266,6 +278,12 @@ linters:
           - forbidigo
         path: (pkg|cilium-cli/utils)/lock/.+\.go
         text: sync\.
+      # cilium-health is a standalone CLI without a hive, so it has no viper
+      # instance of its own. See the comment in the file.
+      - linters:
+          - forbidigo
+        path: cilium-health/cmd/root\.go
+        text: viper\.
     paths:
       - third_party$
       - builtin$

@@ -55,6 +55,11 @@ func init() {
 }
 
 // initConfig reads in config file and ENV variables if set.
+//
+// cilium-health is a standalone CLI without a hive, so it has no viper instance
+// of its own and configures the default one directly, here and in init() above.
+// .golangci.yaml exempts this file from the forbidigo rule that forbids the
+// default instance elsewhere.
 func initConfig() {
 	viper.SetEnvPrefix("cilium")
 	viper.SetConfigName(".cilium-health") // name of config file (without extension)

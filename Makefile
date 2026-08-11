@@ -518,8 +518,6 @@ ifeq ($(SKIP_K8S_CODE_GEN_CHECK),false)
 endif
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
 	$(QUIET) contrib/scripts/check-log-newlines.sh
-	@$(ECHO_CHECK) contrib/scripts/check-viper.sh
-	$(QUIET) contrib/scripts/check-viper.sh
 ifeq ($(SKIP_CUSTOMVET_CHECK),false)
 	@$(ECHO_CHECK) contrib/scripts/custom-vet-check.sh
 	$(QUIET) contrib/scripts/custom-vet-check.sh
