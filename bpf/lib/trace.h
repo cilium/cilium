@@ -208,8 +208,8 @@ emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 
 static __always_inline void
 __send_trace_notify(const struct __ctx_buff *ctx, enum trace_point obs_point,
-		    __u32 src, __u32 dst, void *orig_addr, __u16 dst_id, __u32 ifindex,
-		    enum trace_reason reason, __u32 monitor,
+		    __u32 src, __u32 dst, const void *orig_addr, __u16 dst_id,
+		    __u32 ifindex, enum trace_reason reason, __u32 monitor,
 		    __be16 proto, __u16 line, __u8 file)
 {
 	__u64 ip_trace_id = load_ip_trace_id();
@@ -291,7 +291,7 @@ _send_trace_notify6(const struct __ctx_buff *ctx, enum trace_point obs_point,
 		    __u16 dst_id, __u32 ifindex, enum trace_reason reason,
 		    __u32 monitor, __u16 line, __u8 file)
 {
-	return __send_trace_notify(ctx, obs_point, src, dst, &orig_addr, dst_id,
+	return __send_trace_notify(ctx, obs_point, src, dst, orig_addr, dst_id,
 				   ifindex, reason, monitor, bpf_htons(ETH_P_IPV6),
 				   line, file);
 }
