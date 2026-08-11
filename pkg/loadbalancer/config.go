@@ -116,6 +116,9 @@ const (
 	// LBAlgorithmMaglev is for using maglev consistent hashing for backend selection
 	LBAlgorithmMaglev = "maglev"
 
+	// LBAlgorithmRoundRobin selects backends sequentially for each service.
+	LBAlgorithmRoundRobin = "round-robin"
+
 	// LBModeSNAT is for SNATing requests to remote nodes
 	LBModeSNAT = "snat"
 

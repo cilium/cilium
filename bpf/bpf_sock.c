@@ -425,7 +425,11 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (backend_id == 0) {
 		backend_from_affinity = false;
 
-		key.backend_slot = (sock_select_slot(ctx_full) % svc->count) + 1;
+		if (lb4_algorithm(svc) == LB_SELECTION_ROUND_ROBIN)
+			key.backend_slot = lb_select_backend_slot_round_robin(
+				svc->rev_nat_index, svc->count);
+		else
+			key.backend_slot = (sock_select_slot(ctx_full) % svc->count) + 1;
 		backend_slot = __lb4_lookup_backend_slot(&key);
 		if (!backend_slot) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND_SLOT);
@@ -1133,7 +1137,11 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (backend_id == 0) {
 		backend_from_affinity = false;
 
-		key.backend_slot = (sock_select_slot(ctx) % svc->count) + 1;
+		if (lb6_algorithm(svc) == LB_SELECTION_ROUND_ROBIN)
+			key.backend_slot = lb_select_backend_slot_round_robin(
+				svc->rev_nat_index, svc->count);
+		else
+			key.backend_slot = (sock_select_slot(ctx) % svc->count) + 1;
 		backend_slot = __lb6_lookup_backend_slot(&key);
 		if (!backend_slot) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND_SLOT);
