@@ -42,8 +42,21 @@ func (in *CiliumEndpoint) DeepEqual(other *CiliumEndpoint) bool {
 	if in.Namespace != other.Namespace {
 		return false
 	}
+	if in.GetPodUID() != other.GetPodUID() {
+		return false
+	}
 
 	return in.deepEqual(other)
+}
+
+// GetPodUID returns the UID of the Pod that owns the CiliumEndpoint.
+func (in *CiliumEndpoint) GetPodUID() string {
+	for _, ref := range in.OwnerReferences {
+		if ref.Kind == "Pod" {
+			return string(ref.UID)
+		}
+	}
+	return ""
 }
 
 // +deepequal-gen=true

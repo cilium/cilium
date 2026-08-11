@@ -2303,7 +2303,12 @@ func groupL4AddrsByProto(ports []lb.L4Addr) map[lb.L4Type][]uint16 {
 	return result
 }
 
-// replaceNoTrackHostPortRules replaces noTrackHostPort rules on a state change. the new ruleset is added, and the previous one is removed.
+// replaceNoTrackHostPortRules replaces noTrackHostPort rules on a state change.
+// Install all changed protocols before removing old rules so a cross-protocol
+// update does not leave a gap in which neither ruleset is installed. This
+// deliberately allows a short overlap where both rulesets match. If
+// installation fails, the old rules remain and full reconciliation retries
+// the desired state.
 func (m *manager) replaceNoTrackHostPortRules(oldPorts, newPorts map[lb.L4Type][]uint16) error {
 	for _, proto := range noTrackSupportedProtos {
 		oldP := set.NewSet(oldPorts[proto]...)
@@ -2317,6 +2322,15 @@ func (m *manager) replaceNoTrackHostPortRules(oldPorts, newPorts map[lb.L4Type][
 			if err := m.installHostNoTrackRules(proto, newP.AsSlice()); err != nil {
 				return err
 			}
+		}
+	}
+
+	for _, proto := range noTrackSupportedProtos {
+		oldP := set.NewSet(oldPorts[proto]...)
+		newP := set.NewSet(newPorts[proto]...)
+
+		if newP.Equal(oldP) {
+			continue
 		}
 
 		if !oldP.Empty() {

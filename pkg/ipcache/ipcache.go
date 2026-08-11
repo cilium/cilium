@@ -839,12 +839,14 @@ func (ipc *IPCache) GetNamedPorts() (npm types.NamedPortMultiMap) {
 }
 
 // DeleteOnMetadataMatch removes the provided IP to security identity mapping from the IPCache
-// if the metadata cache holds the same "owner" metadata as the triggering pod event.
-func (ipc *IPCache) DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool) {
+// if its Kubernetes metadata matches the triggering Pod event. The UIDs must match exactly:
+// two empty UIDs retain the legacy behavior, while a missing UID on only one side is treated
+// as a mismatch to avoid deleting an entry that cannot be proven to have the same owner.
+func (ipc *IPCache) DeleteOnMetadataMatch(IP string, source source.Source, namespace, name, uid string) (namedPortsChanged bool) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
 	k8sMeta := ipc.getK8sMetadata(IP)
-	if k8sMeta != nil && k8sMeta.Namespace == namespace && k8sMeta.PodName == name {
+	if k8sMeta != nil && k8sMeta.Namespace == namespace && k8sMeta.PodName == name && k8sMeta.PodUID == uid {
 		return ipc.deleteLocked(IP, source)
 	}
 	return false

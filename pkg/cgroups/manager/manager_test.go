@@ -227,7 +227,7 @@ func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got)
 
 	// Update pod, and check for pod metadata for their containers.
-	mm.OnUpdatePod(pod1, newPod)
+	mm.OnUpdatePod(pod3, newPod)
 
 	got1 := mm.GetPodMetadataForContainer(c3CId)
 	got2 := mm.GetPodMetadataForContainer(c1CId)
@@ -246,6 +246,84 @@ func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 
 	got = mm.GetPodMetadataForContainer(c3CId)
 	require.Nil(t, got)
+}
+
+func TestGetPodMetadataOnPodUIDReplacement(t *testing.T) {
+	setup()
+
+	const cgroupID = uint64(1234)
+	cgMock := cgroupMock{cgroupIds: map[string]uint64{
+		pod1C1CgrpPath: cgroupID,
+	}}
+	provMock := providerMock{paths: map[string]string{
+		c1Id: pod1C1CgrpPath,
+	}}
+	manager := newCgroupManagerTest(t, provMock, cgMock, nil)
+	oldPod := pod1.DeepCopy()
+	newPod := oldPod.DeepCopy()
+	newPod.UID = "replacement-pod-uid"
+
+	manager.OnAddPod(oldPod)
+	require.NotNil(t, manager.GetPodMetadataForContainer(cgroupID))
+
+	manager.OnUpdatePod(oldPod, newPod)
+	manager.DumpPodMetadata() // Wait for the replacement event to be processed.
+
+	impl := manager.(*cgroupManager)
+	require.NotContains(t, impl.podMetadataById, string(oldPod.UID))
+	require.Contains(t, impl.podMetadataById, string(newPod.UID))
+	require.Equal(t, string(newPod.UID), impl.containerMetadataByCgrpId[cgroupID].podId)
+	require.Equal(t, pod1Ipstrs, impl.podMetadataById[string(newPod.UID)].ips)
+}
+
+func TestPodUIDReplacementNodeTransitions(t *testing.T) {
+	setup()
+
+	tests := []struct {
+		name        string
+		oldNodeName string
+		newNodeName string
+		wantNew     bool
+		wantOld     bool
+	}{
+		{name: "local to local", oldNodeName: "n1", newNodeName: "n1", wantNew: true},
+		{name: "local to remote", oldNodeName: "n1", newNodeName: "n2"},
+		{name: "remote to local", oldNodeName: "n2", newNodeName: "n1", wantNew: true},
+		{name: "remote to remote", oldNodeName: "n2", newNodeName: "n3"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const cgroupID = uint64(1234)
+			cgMock := cgroupMock{cgroupIds: map[string]uint64{
+				pod1C1CgrpPath: cgroupID,
+			}}
+			provMock := providerMock{paths: map[string]string{
+				c1Id: pod1C1CgrpPath,
+			}}
+			manager := newCgroupManagerTest(t, provMock, cgMock, nil)
+			oldPod := pod1.DeepCopy()
+			oldPod.Spec.NodeName = tt.oldNodeName
+			newPod := oldPod.DeepCopy()
+			newPod.UID = "replacement-pod-uid"
+			newPod.Spec.NodeName = tt.newNodeName
+
+			manager.OnAddPod(oldPod)
+			manager.OnUpdatePod(oldPod, newPod)
+			manager.DumpPodMetadata() // Wait for any replacement event to be processed.
+
+			impl := manager.(*cgroupManager)
+			_, gotOld := impl.podMetadataById[string(oldPod.UID)]
+			_, gotNew := impl.podMetadataById[string(newPod.UID)]
+			require.Equal(t, tt.wantOld, gotOld)
+			require.Equal(t, tt.wantNew, gotNew)
+			if tt.wantNew {
+				require.Equal(t, string(newPod.UID), impl.containerMetadataByCgrpId[cgroupID].podId)
+			} else {
+				require.NotContains(t, impl.containerMetadataByCgrpId, cgroupID)
+			}
+		})
+	}
 }
 
 func TestGetPodMetadataOnManagerDisabled(t *testing.T) {

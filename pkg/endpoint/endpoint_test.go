@@ -1257,6 +1257,42 @@ func TestK8sPodNameIsSet(t *testing.T) {
 	require.True(t, e.K8sNamespaceAndPodNameIsSet())
 }
 
+func TestGetK8sPodUID(t *testing.T) {
+	tests := []struct {
+		name   string
+		cniUID string
+		podUID string
+		want   string
+	}{
+		{
+			name:   "CNI UID takes precedence",
+			cniUID: "cni-pod-uid",
+			podUID: "cached-pod-uid",
+			want:   "cni-pod-uid",
+		},
+		{
+			name:   "cached Pod UID fallback",
+			podUID: "cached-pod-uid",
+			want:   "cached-pod-uid",
+		},
+		{
+			name: "unknown Pod UID",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &Endpoint{K8sUID: tt.cniUID}
+			if tt.podUID != "" {
+				e.SetPod(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+					UID: k8sTypes.UID(tt.podUID),
+				}})
+			}
+			require.Equal(t, tt.want, e.GetK8sPodUID())
+		})
+	}
+}
+
 type EndpointDeadlockEvent struct {
 	ep           *Endpoint
 	deadlockChan chan struct{}

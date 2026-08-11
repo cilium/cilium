@@ -4,6 +4,7 @@
 package iptables
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -999,27 +1001,27 @@ func TestNoTrackHostPorts(t *testing.T) {
 		assert.NoError(t, mockIp6tables.checkExpectations())
 	})
 
-	t.Run("test changing the port", func(t *testing.T) {
+	t.Run("test changing the protocol installs before deleting", func(t *testing.T) {
 		mockIp4tables.expectations = []expectation{
 			{args: "-t raw -A CILIUM_PRE_raw -p tcp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
 			{args: "-t raw -A CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
 
-			{args: "-t raw -D CILIUM_PRE_raw -p tcp --match multiport --dports 443,999 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
-			{args: "-t raw -D CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443,999 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
-
 			{args: "-t raw -A CILIUM_PRE_raw -p udp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
 			{args: "-t raw -A CILIUM_OUTPUT_raw -p udp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -D CILIUM_PRE_raw -p tcp --match multiport --dports 443,999 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443,999 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
 		}
 
 		mockIp6tables.expectations = []expectation{
 			{args: "-t raw -A CILIUM_PRE_raw -p tcp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
 			{args: "-t raw -A CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
 
-			{args: "-t raw -D CILIUM_PRE_raw -p tcp --match multiport --dports 443,999 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
-			{args: "-t raw -D CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443,999 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
-
 			{args: "-t raw -A CILIUM_PRE_raw -p udp --match multiport --dports 443 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
 			{args: "-t raw -A CILIUM_OUTPUT_raw -p udp --match multiport --sports 443 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
+
+			{args: "-t raw -D CILIUM_PRE_raw -p tcp --match multiport --dports 443,999 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{args: "-t raw -D CILIUM_OUTPUT_raw -p tcp --match multiport --sports 443,999 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack"},
 		}
 
 		assert.NoError(t, testMgr.setNoTrackHostPorts(testState, testPod2, []string{"443/udp"}))
@@ -1100,6 +1102,34 @@ func TestNoTrackHostPorts(t *testing.T) {
 		assert.NoError(t, mockIp6tables.checkExpectations())
 		assert.Empty(t, testState)
 	})
+}
+
+func TestReplaceNoTrackHostPortRulesDoesNotCleanupOnInstallFailure(t *testing.T) {
+	installErr := errors.New("install failed")
+	mockIp4tables := &mockIptables{
+		t:    t,
+		prog: "iptables",
+		expectations: []expectation{
+			{args: "-t raw -A CILIUM_PRE_raw -p udp --match multiport --dports 53 -m comment --comment cilium no-track-host-ports -j CT --notrack"},
+			{
+				args: "-t raw -A CILIUM_OUTPUT_raw -p udp --match multiport --sports 53 -m comment --comment cilium no-track-host-ports return traffic -j CT --notrack",
+				err:  installErr,
+			},
+		},
+	}
+	testMgr := &manager{
+		sharedCfg: SharedConfig{EnableIPv4: true},
+		ip4tables: mockIp4tables,
+	}
+
+	// No delete commands are expected: failed installation must leave the old
+	// TCP rules in place for full reconciliation.
+	err := testMgr.replaceNoTrackHostPortRules(
+		map[loadbalancer.L4Type][]uint16{loadbalancer.TCP: {80}},
+		map[loadbalancer.L4Type][]uint16{loadbalancer.UDP: {53}},
+	)
+	require.ErrorIs(t, err, installErr)
+	require.NoError(t, mockIp4tables.checkExpectations())
 }
 
 func TestEncryptionRules(t *testing.T) {
