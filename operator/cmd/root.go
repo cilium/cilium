@@ -430,9 +430,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		Short: "Run " + binaryName,
 		Run: func(cobraCmd *cobra.Command, args []string) {
 			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
-			logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, binaryName)
-
-			initEnv(logger, h.Viper())
+			initEnv(logging.DefaultSlogLogger, h.Viper())
 
 			// Pass the DefaultSlogLogger to the hive after being initialized
 			// with the initEnv which sets up the logging.DefaultSlogLogger with
@@ -513,6 +511,13 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 
 	// add hooks after setting up metrics in the option.Config
 	logging.AddHandlers(metrics.NewLoggingHook())
+
+	// Derive the subsystem logger only now that the logging setup is complete.
+	// slog.Logger.With() snapshots the handlers of the logger it is derived
+	// from, hence a logger derived any earlier would keep emitting through the
+	// default text handler, ignoring the user-provided --log-opt format.
+	// slogloggercheck: the logger has been initialized by SetupLogging above
+	logger = logging.DefaultSlogLogger.With(logfields.LogSubsys, binaryName)
 
 	// Register the user options in the logs
 	option.LogRegisteredSlogOptions(vp, logger)
