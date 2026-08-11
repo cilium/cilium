@@ -47,6 +47,12 @@ linters:
         - pattern: ^netlink\.(Handle\.)?(AddrList|BridgeVlanList|ChainList|ClassList|ConntrackTableList|DevLinkGetDeviceList|DevLinkGetAllPortList|DevlinkGetDeviceParams|FilterList|FouList|GenlFamilyList|GTPPDPList|LinkByName|LinkByAlias|LinkList|LinkSubscribeWithOptions|NeighList|NeighProxyList|NeighListExecute|LinkGetProtinfo|QdiscList|RdmaLinkList|RdmaLinkByName|RdmaLinkDel|RouteList|RouteListFiltered|RouteListFilteredIter|RouteSubscribeWithOptions|RuleList|RuleListFiltered|SocketGet|SocketDiagTCPInfo|SocketDiagTCP|SocketDiagUDPInfo|SocketDiagUDP|UnixSocketDiagInfo|UnixSocketDiag|SocketXDPGetInfo|SocketDiagXDP|VDPAGetDevList|VDPAGetDevConfigList|VDPAGetMGMTDevList|XfrmPolicyList|XfrmStateList)
           pkg: ^github.com/vishvananda/netlink$
           msg: Found netlink function which can return ErrDumpInterrupted. Use safenetlink package instead.
+        # The stdlib net.Interface* functions query the kernel over a netlink
+        # socket without a timeout, so they can block forever. See
+        # https://github.com/cilium/cilium/issues/15051
+        - pattern: ^net\.(Interfaces|InterfaceAddrs|InterfaceByIndex|InterfaceByName|Interface\.Addrs)$
+          pkg: ^net$
+          msg: 'Found stdlib net.Interface* function which can block forever, see https://github.com/cilium/cilium/issues/15051. Use the netlink or safenetlink package instead.'
       analyze-types: true
     goheader:
       values:
