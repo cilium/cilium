@@ -263,6 +263,66 @@ func TestK8sMetadataEqualIncludesPodUID(t *testing.T) {
 	}))
 }
 
+func TestDeleteOnMetadataMatchPodUID(t *testing.T) {
+	tests := []struct {
+		name        string
+		metadataUID string
+		deleteUID   string
+		wantDeleted bool
+	}{
+		{
+			name:        "matching UID",
+			metadataUID: "pod-uid",
+			deleteUID:   "pod-uid",
+			wantDeleted: true,
+		},
+		{
+			name:        "different UID",
+			metadataUID: "new-pod-uid",
+			deleteUID:   "old-pod-uid",
+			wantDeleted: false,
+		},
+		{
+			name:        "cached UID with empty deletion UID",
+			metadataUID: "pod-uid",
+			deleteUID:   "",
+			wantDeleted: false,
+		},
+		{
+			name:        "empty metadata UID with UID deletion",
+			metadataUID: "",
+			deleteUID:   "pod-uid",
+			wantDeleted: false,
+		},
+		{
+			name:        "legacy metadata and deletion",
+			metadataUID: "",
+			deleteUID:   "",
+			wantDeleted: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := setupIPCacheTestSuite(t)
+			const endpointIP = "10.0.0.15"
+			_, err := s.IPIdentityCache.Upsert(endpointIP, nil, 0, &K8sMetadata{
+				Namespace: "default",
+				PodName:   "echo",
+				PodUID:    tt.metadataUID,
+			}, Identity{
+				ID:     identityPkg.NumericIdentity(68),
+				Source: source.Kubernetes,
+			})
+			require.NoError(t, err)
+
+			s.IPIdentityCache.DeleteOnMetadataMatch(endpointIP, source.Kubernetes, "default", "echo", tt.deleteUID)
+			_, exists := s.IPIdentityCache.LookupByIP(endpointIP)
+			require.Equal(t, !tt.wantDeleted, exists)
+		})
+	}
+}
+
 func TestIPCacheNamedPorts(t *testing.T) {
 	s := setupIPCacheTestSuite(t)
 	t.Parallel()
