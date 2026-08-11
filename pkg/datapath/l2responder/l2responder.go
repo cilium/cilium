@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -101,7 +100,7 @@ func NewL2ResponderReconciler(params params) *l2ResponderReconciler {
 	if params.AddRemMcMACFunc == nil {
 		log := params.Logger
 		params.AddRemMcMACFunc = func(ifindex int, m mac.MAC, add bool) error {
-			ifi, err := net.InterfaceByIndex(ifindex)
+			link, err := netlink.LinkByIndex(ifindex)
 			if err != nil {
 				return fmt.Errorf("interface by index %d: %w", ifindex, err)
 			}
@@ -113,10 +112,10 @@ func NewL2ResponderReconciler(params params) *l2ResponderReconciler {
 			solAddr := netip.AddrFrom16(raw)
 
 			if add {
-				return multicast.JoinGroup(log, ifi.Name, solAddr)
+				return multicast.JoinGroup(log, link.Attrs().Name, solAddr)
 			}
 
-			return multicast.LeaveGroup(log, ifi.Name, solAddr)
+			return multicast.LeaveGroup(log, link.Attrs().Name, solAddr)
 		}
 	}
 
