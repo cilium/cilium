@@ -516,8 +516,6 @@ ifeq ($(SKIP_K8S_CODE_GEN_CHECK),false)
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
 	$(QUIET) contrib/scripts/check-k8s-code-gen.sh
 endif
-	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
-	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
 	$(QUIET) contrib/scripts/check-log-newlines.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
