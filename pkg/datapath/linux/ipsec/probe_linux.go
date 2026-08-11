@@ -49,6 +49,9 @@ func createDummyXfrmState(state *netlink.XfrmState) error {
 		Value: linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.RouteMarkMask,
 	}
+	// The probe adds and removes a dummy state; it never touches the
+	// datapath, so it has no cache to keep in sync.
+	//nolint:forbidigo
 	return netlink.XfrmStateAdd(state)
 }
 
@@ -62,6 +65,7 @@ func ProbeXfrmStateOutputMask() (e error) {
 		return err
 	}
 	defer func() {
+		//nolint:forbidigo
 		e = errors.Join(e, netlink.XfrmStateDel(state))
 	}()
 
