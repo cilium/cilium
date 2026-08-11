@@ -2494,9 +2494,11 @@ type Endpoint struct {
 	ClusterName string                 `protobuf:"bytes,7,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
 	Namespace   string                 `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// labels in `foo=bar` format.
-	Labels        []string    `protobuf:"bytes,4,rep,name=labels,proto3" json:"labels,omitempty"`
-	PodName       string      `protobuf:"bytes,5,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty"`
-	Workloads     []*Workload `protobuf:"bytes,6,rep,name=workloads,proto3" json:"workloads,omitempty"`
+	Labels    []string    `protobuf:"bytes,4,rep,name=labels,proto3" json:"labels,omitempty"`
+	PodName   string      `protobuf:"bytes,5,opt,name=pod_name,json=podName,proto3" json:"pod_name,omitempty"`
+	Workloads []*Workload `protobuf:"bytes,6,rep,name=workloads,proto3" json:"workloads,omitempty"`
+	// pod_uid is the Kubernetes UID of the Pod represented by this endpoint.
+	PodUid        string `protobuf:"bytes,8,opt,name=pod_uid,json=podUid,proto3" json:"pod_uid,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2578,6 +2580,13 @@ func (x *Endpoint) GetWorkloads() []*Workload {
 		return x.Workloads
 	}
 	return nil
+}
+
+func (x *Endpoint) GetPodUid() string {
+	if x != nil {
+		return x.PodUid
+	}
+	return ""
 }
 
 type Workload struct {
@@ -5625,7 +5634,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\fTraceContext\x12)\n" +
 	"\x06parent\x18\x01 \x01(\v2\x11.flow.TraceParentR\x06parent\"(\n" +
 	"\vTraceParent\x12\x19\n" +
-	"\btrace_id\x18\x01 \x01(\tR\atraceId\"\xd8\x01\n" +
+	"\btrace_id\x18\x01 \x01(\tR\atraceId\"\xf1\x01\n" +
 	"\bEndpoint\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\rR\x02ID\x12\x1a\n" +
 	"\bidentity\x18\x02 \x01(\rR\bidentity\x12!\n" +
@@ -5633,7 +5642,8 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\tnamespace\x18\x03 \x01(\tR\tnamespace\x12\x16\n" +
 	"\x06labels\x18\x04 \x03(\tR\x06labels\x12\x19\n" +
 	"\bpod_name\x18\x05 \x01(\tR\apodName\x12,\n" +
-	"\tworkloads\x18\x06 \x03(\v2\x0e.flow.WorkloadR\tworkloads\"2\n" +
+	"\tworkloads\x18\x06 \x03(\v2\x0e.flow.WorkloadR\tworkloads\x12\x17\n" +
+	"\apod_uid\x18\b \x01(\tR\x06podUid\"2\n" +
 	"\bWorkload\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\"w\n" +

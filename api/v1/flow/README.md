@@ -226,6 +226,7 @@ Emitter identifies the source that emits a Hubble flow.
 | labels | [string](#string) | repeated | labels in `foo=bar` format. |
 | pod_name | [string](#string) |  |  |
 | workloads | [Workload](#flow-Workload) | repeated |  |
+| pod_uid | [string](#string) |  | pod_uid is the Kubernetes UID of the Pod represented by this endpoint. |
 
 
 
