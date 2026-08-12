@@ -272,6 +272,14 @@ func TestAzureIPMasq(t *testing.T) {
 		result.CIDRs,
 	)
 
+	resolved, err := ipam.ResolveRoutingMetadata(epipv4, PoolDefault())
+	require.NoError(t, err)
+	require.Equal(t, result.IP, resolved.IP)
+	require.Equal(t, result.PrimaryMAC, resolved.PrimaryMAC)
+	require.Equal(t, result.GatewayIP, resolved.GatewayIP)
+	require.Equal(t, result.InterfaceNumber, resolved.InterfaceNumber)
+	require.ElementsMatch(t, result.CIDRs, resolved.CIDRs)
+
 	ipMasqAgent.Stop()
 }
 
