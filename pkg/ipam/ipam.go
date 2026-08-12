@@ -184,9 +184,11 @@ func (ipam *IPAM) ConfigureAllocator() {
 		})
 		if ipam.config.IPv6Enabled() {
 			ipam.ipv6Allocator = v6Allocator
+			ipam.ipv6RoutingMetadataResolver = v6Allocator
 		}
 		if ipam.config.IPv4Enabled() {
 			ipam.ipv4Allocator = v4Allocator
+			ipam.ipv4RoutingMetadataResolver = v4Allocator
 		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		ipam.logger.Info("Initializing CRD-based IPAM")

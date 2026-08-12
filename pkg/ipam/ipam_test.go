@@ -41,6 +41,12 @@ func (f fakeMetadataFunc) GetIPPoolForPod(owner string, family Family) (pool str
 	return f(owner, family)
 }
 
+type fakeRoutingMetadataResolver func(netip.Addr, Pool) (*AllocationResult, error)
+
+func (f fakeRoutingMetadataResolver) ResolveRoutingMetadata(addr netip.Addr, pool Pool) (*AllocationResult, error) {
+	return f(addr, pool)
+}
+
 type fakePoolAllocator struct {
 	pools map[Pool]Allocator
 }
@@ -190,6 +196,32 @@ func TestExcludeIP(t *testing.T) {
 func TestDeriveFamily(t *testing.T) {
 	require.Equal(t, IPv4, DeriveFamily(netip.MustParseAddr("1.1.1.1")))
 	require.Equal(t, IPv6, DeriveFamily(netip.MustParseAddr("f00d::1")))
+}
+
+func TestResolveRoutingMetadata(t *testing.T) {
+	ipv4 := netip.MustParseAddr("10.0.0.1")
+	ipv6 := netip.MustParseAddr("2001:db8::1")
+
+	ipam := &IPAM{
+		ipv4RoutingMetadataResolver: fakeRoutingMetadataResolver(func(addr netip.Addr, pool Pool) (*AllocationResult, error) {
+			require.Equal(t, ipv4, addr)
+			require.Equal(t, PoolDefault(), pool)
+			return &AllocationResult{IP: addr}, nil
+		}),
+		ipv6RoutingMetadataResolver: fakeRoutingMetadataResolver(func(addr netip.Addr, pool Pool) (*AllocationResult, error) {
+			require.Equal(t, ipv6, addr)
+			require.Equal(t, Pool("pool-v6"), pool)
+			return &AllocationResult{IP: addr}, nil
+		}),
+	}
+
+	result, err := ipam.ResolveRoutingMetadata(netip.MustParseAddr("::ffff:10.0.0.1"), "")
+	require.NoError(t, err)
+	require.Equal(t, ipv4, result.IP)
+
+	result, err = ipam.ResolveRoutingMetadata(ipv6, Pool("pool-v6"))
+	require.NoError(t, err)
+	require.Equal(t, ipv6, result.IP)
 }
 
 func TestIPAMMetadata(t *testing.T) {
