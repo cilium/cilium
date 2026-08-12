@@ -57,8 +57,9 @@ type AllocationResult struct {
 	// only set if AllocateNextWithExpiration is used.
 	ExpirationUUID string
 
-	// InterfaceNumber is a field for generically identifying an interface.
-	// This is only useful in ENI mode.
+	// InterfaceNumber identifies a cloud interface using provider-specific
+	// numbering. ENI and AlibabaCloud use it to derive the per-interface
+	// routing table.
 	InterfaceNumber string
 
 	// SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP when the cluster is in tunneling mode.

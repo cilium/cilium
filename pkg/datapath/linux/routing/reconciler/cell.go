@@ -4,6 +4,7 @@
 package reconciler
 
 import (
+	"errors"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -15,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -53,6 +55,15 @@ func registerEndpointRulesReconciler(p params) error {
 	}
 
 	ipamMode := p.DaemonConfig.IPAMMode()
+	if ipamMode == ipamOption.IPAMAlibabaCloud && p.DaemonConfig.EnableIPv6 {
+		// AlibabaCloud only supplies IPv4 routing metadata, so disable the whole
+		// reconciler to avoid repeatedly failing to reconcile endpoint IPv6
+		// addresses. This also disables IPv4 repair and garbage collection.
+		p.Logger.Error("Endpoint routing rule reconciliation is disabled",
+			logfields.Error, errors.New("routing metadata for IPv6 is not supported by AlibabaCloud IPAM"))
+		return nil
+	}
+
 	if !isCloudIPAMMode(ipamMode) {
 		return nil
 	}
@@ -108,5 +119,7 @@ func registerEndpointRulesReconciler(p params) error {
 }
 
 func isCloudIPAMMode(ipamMode string) bool {
-	return ipamMode == ipamOption.IPAMENI || ipamMode == ipamOption.IPAMAzure
+	return ipamMode == ipamOption.IPAMENI ||
+		ipamMode == ipamOption.IPAMAzure ||
+		ipamMode == ipamOption.IPAMAlibabaCloud
 }
