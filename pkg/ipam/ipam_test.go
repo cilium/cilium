@@ -4,6 +4,7 @@
 package ipam
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"net/netip"
@@ -190,6 +191,22 @@ func TestExcludeIP(t *testing.T) {
 func TestDeriveFamily(t *testing.T) {
 	require.Equal(t, IPv4, DeriveFamily(netip.MustParseAddr("1.1.1.1")))
 	require.Equal(t, IPv6, DeriveFamily(netip.MustParseAddr("f00d::1")))
+}
+
+func TestRestoreReadiness(t *testing.T) {
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:      hivetest.Logger(t),
+		AgentConfig: &option.DaemonConfig{},
+	})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	require.ErrorIs(t, ipam.WaitForRestoreFinished(ctx), context.Canceled)
+
+	ipam.RestoreFinished()
+	require.NoError(t, ipam.WaitForRestoreFinished(t.Context()))
+	// RestoreFinished may be reported by more than one shutdown/restoration path.
+	require.NotPanics(t, ipam.RestoreFinished)
 }
 
 func TestIPAMMetadata(t *testing.T) {
