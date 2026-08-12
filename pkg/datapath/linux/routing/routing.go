@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -222,77 +221,18 @@ func (info *RoutingInfo) installRoutes(ifindex, tableID int) error {
 // succeed (albeit very rarely that egress deletion fails) because we are able
 // to perform a narrower search on the rule because we know it references the
 // main routing table. Due to multiple routing CIDRs, there might be more than
-// one egress rule. Deletion of any rule only proceeds if the rule matches
-// the IP & priority. In order to avoid leaving stale rules behind, all the
-// matching rules are removed.
+// one egress rule. Deletion only proceeds for unmarked Cilium rules matching
+// the IP and one of the known priority/table schemes. Missing rules are treated
+// as already deleted, and all matching rules are removed to avoid leaving stale
+// rules.
 func Delete(logger *slog.Logger, ip netip.Addr) error {
-	if !ip.IsValid() {
-		logger.Warn(
-			"Unable to delete rules because IP is not a valid IP address",
-			logfields.IPAddr, ip,
-		)
-		return errors.New("IP not compatible")
+	if err := DeleteRulesIfExists(logger, ip); err != nil {
+		return err
 	}
-
-	ipWithMask := netipx.AddrIPNet(ip)
-
-	var family int
-	if ip.Is4() {
-		family = netlink.FAMILY_V4
-	} else {
-		family = netlink.FAMILY_V6
-	}
-
-	// Ingress rules
-	ingress := route.Rule{
-		Priority: linux_defaults.RulePriorityIngress,
-		To:       ipWithMask,
-		Table:    route.MainTable,
-	}
-
-	if err := deleteRulesFiltered(
-		logger, ingress, family,
-		deleteRuleFilter{
-			fn:  func(r netlink.Rule) bool { return true }, // no further check needed, delete all rules found
-			msg: "",
-		},
-	); err != nil {
-		return fmt.Errorf("unable to delete ingress rule from main table with ip %s: %w", ipWithMask.String(), err)
-	}
-	logger.Debug("Deleted ingress rule",
-		logfields.Rule, ingress,
-		logfields.IPAddr, ipWithMask,
-	)
-
-	compat := option.Config.IPAM == ipamOption.IPAMAzure
-	priority := linux_defaults.RulePriorityEgressv2
-	if compat {
-		priority = linux_defaults.RulePriorityEgress
-	}
-
-	// Egress rules
-	withENIRouteTableID := deleteRuleFilter{
-		fn:  func(r netlink.Rule) bool { return r.Table >= computeTableIDFromIfaceNumber(compat, 0) },
-		msg: "rule does not refer to a per-ENI routing table ID",
-	}
-
-	// Delete all egress rules matching the priority and source IP.
-	// This covers the unconditional rule (from <IP> lookup <table>) and
-	// any CIDR-specific rules (from <IP> to <CIDR> lookup <table>).
-	egress := route.Rule{
-		Priority: priority,
-		From:     ipWithMask,
-	}
-	if err := deleteRulesFiltered(
-		logger, egress, family, withENIRouteTableID); err != nil {
-		return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
-	}
-	logger.Debug("Deleted egress rule",
-		logfields.Rule, egress,
-		logfields.IPAddr, ipWithMask,
-	)
 
 	if option.Config.EnableUnreachableRoutes {
+		ipWithMask := netipx.AddrIPNet(ip)
+
 		// Replace route to old IP with an unreachable route. This will
 		//   - trigger ICMP error messages for clients attempting to connect to the stale IP
 		//   - avoid hitting rp_filter and getting Martian packet warning
@@ -312,37 +252,130 @@ func Delete(logger *slog.Logger, ip netip.Addr) error {
 	return nil
 }
 
-type deleteRuleFilter struct {
-	fn  func(r netlink.Rule) bool
-	msg string
-}
-
-func deleteRulesFiltered(logger *slog.Logger, template route.Rule, family int, filters ...deleteRuleFilter) error {
-	rules, err := route.ListRules(family, &template)
-	if err != nil {
-		return err
+// DeleteRulesIfExists removes Cilium endpoint routing rules for ip without
+// installing an unreachable route. It is intended for rollback of a partially
+// completed endpoint setup and for asynchronous rule reconciliation.
+func DeleteRulesIfExists(logger *slog.Logger, ip netip.Addr) error {
+	if !ip.IsValid() {
+		logger.Warn(
+			"Unable to delete rules because IP is not a valid IP address",
+			logfields.IPAddr, ip,
+		)
+		return errors.New("IP not compatible")
 	}
 
-	if len(rules) == 0 {
-		logger.Warn("No rule matching found", logfields.Rule, template)
-		return errors.New("no rule found to delete")
+	family := netlink.FAMILY_V6
+	if ip.Is4() {
+		family = netlink.FAMILY_V4
 	}
+	ipWithMask := netipx.AddrIPNet(ip)
 
 	var errs []error
-next:
-	for _, rule := range rules {
-		for _, filter := range filters {
-			if !filter.fn(rule) {
-				logger.Info("Skipping deletion of matching rule",
-					logfields.Rule, rule,
-					logfields.Message, filter.msg,
-				)
-				continue next
-			}
-		}
-		errs = append(errs, netlink.RuleDel(&rule))
+	ingressRules, err := route.ListRules(family, &route.Rule{
+		Priority: linux_defaults.RulePriorityIngress,
+		To:       ipWithMask,
+		Table:    route.MainTable,
+	})
+	if err != nil {
+		errs = append(errs, fmt.Errorf("list ingress rules for %s: %w", ip, err))
 	}
+
+	for _, rule := range ingressRules {
+		if !isCiliumEndpointIngressRule(rule) {
+			continue
+		}
+		deleted, err := deleteRuleIfExists(&rule)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("delete ingress rule for %s: %w", ip, err))
+			continue
+		}
+		if deleted {
+			logger.Debug("Deleted endpoint ingress rule",
+				logfields.Rule, rule,
+				logfields.IPAddr, ip,
+			)
+		}
+	}
+
+	egressRules, err := route.ListRules(family, &route.Rule{
+		From: ipWithMask,
+	})
+	if err != nil {
+		errs = append(errs, fmt.Errorf("list egress rules for %s: %w", ip, err))
+	}
+	for _, rule := range egressRules {
+		if !isCiliumEndpointEgressRule(rule) {
+			continue
+		}
+		deleted, err := deleteRuleIfExists(&rule)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("delete egress rule for %s: %w", ip, err))
+			continue
+		}
+		if deleted {
+			logger.Debug("Deleted endpoint egress rule",
+				logfields.Rule, rule,
+				logfields.IPAddr, ip,
+			)
+		}
+	}
+
 	return errors.Join(errs...)
+}
+
+func isCiliumEndpointIngressRule(rule netlink.Rule) bool {
+	return rule.Dst != nil &&
+		rule.Priority == linux_defaults.RulePriorityIngress &&
+		rule.Table == route.MainTable &&
+		rule.Mark == 0 &&
+		rule.Mask == nil &&
+		rule.Protocol == linux_defaults.RTProto
+}
+
+func isCiliumEndpointEgressRule(rule netlink.Rule) bool {
+	// Endpoint egress rules are unmarked Cilium-owned source rules.
+	if rule.Src == nil ||
+		rule.Protocol != linux_defaults.RTProto ||
+		rule.Mark != 0 ||
+		rule.Mask != nil {
+		return false
+	}
+
+	switch rule.Priority {
+	case linux_defaults.RulePriorityEgress:
+		// Legacy rules and current Azure rules may use any non-reserved table.
+		return isNonReservedTable(rule.Table)
+	case linux_defaults.RulePriorityEgressv2:
+		// Current ENI and AlibabaCloud rules use Cilium's interface-number table range.
+		return isCiliumInterfaceRouteTable(rule.Table)
+	default:
+		return false
+	}
+}
+
+func deleteRuleIfExists(rule *netlink.Rule) (bool, error) {
+	err := netlink.RuleDel(rule)
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, unix.ENOENT), errors.Is(err, unix.ESRCH):
+		return false, nil
+	default:
+		return false, err
+	}
+}
+
+func isCiliumInterfaceRouteTable(table int) bool {
+	return table >= computeTableIDFromIfaceNumber(false, 0) && table < unix.RT_TABLE_DEFAULT
+}
+
+func isNonReservedTable(table int) bool {
+	switch table {
+	case unix.RT_TABLE_UNSPEC, unix.RT_TABLE_DEFAULT, unix.RT_TABLE_MAIN, unix.RT_TABLE_LOCAL:
+		return false
+	default:
+		return true
+	}
 }
 
 // retrieveLinkFromMAC finds the corresponding device for a MAC address,
