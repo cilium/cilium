@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 	"net/netip"
 	"slices"
 
@@ -15,9 +14,10 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/ip"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
 
-func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf *models.DaemonConfigurationStatus) error {
+func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf *models.DaemonConfigurationStatus) error {
 	if ipam == nil {
 		return fmt.Errorf("missing IPAM configuration")
 	}
@@ -60,14 +60,22 @@ func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.
 		masq = conf.MasqueradeProtocols.IPv4
 	}
 
+	options := []linuxrouting.RoutingInfoOption{
+		linuxrouting.WithCIDRsAndMasquerade(coalescedPrefixes, masq),
+		// Ensure CNI ADD can repair interface MTU and state after a transient
+		// setup failure before installing endpoint routing state.
+		linuxrouting.WithMTU(int(conf.DeviceMTU)),
+		linuxrouting.WithLinkState(true),
+	}
+	if conf.IpamMode == ipamOption.IPAMAzure {
+		options = append(options, linuxrouting.WithCompatEgressPriority())
+	}
+
 	routingInfo, err := linuxrouting.NewRoutingInfo(
-		logger,
 		ipam.Gateway.String(),
-		coalescedPrefixes,
 		ipam.MasterMac,
 		ipam.InterfaceNumber,
-		conf.IpamMode,
-		masq,
+		options...,
 	)
 	if err != nil {
 		return fmt.Errorf("unable to parse routing info: %w", err)
@@ -75,7 +83,6 @@ func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.
 
 	if err := routingInfo.Configure(
 		ip.AddrFromIP(ipConfig.Address.IP),
-		int(conf.DeviceMTU),
 		false,
 	); err != nil {
 		return fmt.Errorf("unable to install ip rules and routes: %w", err)

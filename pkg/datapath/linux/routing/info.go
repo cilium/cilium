@@ -6,25 +6,22 @@ package linuxrouting
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/netip"
 	"strconv"
 
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
-// RoutingInfo represents information that's required to enable
-// connectivity via the local rule and route tables while in ENI,Azure IPAM mode and delegated IPAM mode.
+// RoutingInfo represents information required to enable connectivity via local
+// policy rules and route tables.
 // The information in this struct is used to create rules and routes which direct
 // traffic out of the interface (egress).
 //
 // This struct is mostly derived from the `ipam.AllocationResult` as the
 // information comes from IPAM.
 type RoutingInfo struct {
-	logger *slog.Logger
 	// Gateway is the gateway where outbound/egress IPv4/IPv6 traffic is directed.
 	Gateway net.IP
 
@@ -45,29 +42,76 @@ type RoutingInfo struct {
 	// the per-ENI tables.
 	InterfaceNumber int
 
-	// IpamMode tells us which IPAM mode is being used (e.g., ENI, AKS).
-	IpamMode string
+	mtu       *int
+	linkState *bool
+
+	// compatEgressPriority determines whether to use the new or old style egress rule.
+	compatEgressPriority bool
 }
 
 func (info *RoutingInfo) GetCIDRs() []netip.Prefix {
 	return info.CIDRs
 }
 
-// NewRoutingInfo creates a new RoutingInfo struct, from data that will be
-// parsed and validated. Note, this code assumes IPv4 values because IPv4
-// (on either ENI or Azure interface) is the only supported path currently.
-func NewRoutingInfo(logger *slog.Logger, gateway string, cidrs []netip.Prefix, masterIfMAC mac.MAC, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
-	return parse(logger, gateway, cidrs, masterIfMAC, ifaceNum, ipamMode, masquerade)
+type RoutingInfoOption func(*RoutingInfo) error
+
+// WithOptions applies functional options to info.
+func (info *RoutingInfo) WithOptions(opts ...RoutingInfoOption) error {
+	for _, opt := range opts {
+		if err := opt(info); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func parse(logger *slog.Logger, gateway string, cidrs []netip.Prefix, masterIfMAC mac.MAC, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
+// WithCIDRsAndMasquerade configures the directly reachable CIDRs and whether
+// masquerading is enabled.
+func WithCIDRsAndMasquerade(cidrs []netip.Prefix, masquerade bool) RoutingInfoOption {
+	return func(info *RoutingInfo) error {
+		if len(cidrs) == 0 && masquerade {
+			return errors.New("empty cidrs")
+		}
+
+		info.CIDRs = cslices.Map(cidrs, netip.Prefix.Masked)
+		info.Masquerade = masquerade
+		return nil
+	}
+}
+
+// WithLinkState configures whether the master interface should be brought up
+// or down before routes and rules are installed.
+func WithLinkState(up bool) RoutingInfoOption {
+	return func(info *RoutingInfo) error {
+		info.linkState = &up
+		return nil
+	}
+}
+
+// WithMTU configures the MTU to apply to the master interface before routes
+// and rules are installed.
+func WithMTU(mtu int) RoutingInfoOption {
+	return func(info *RoutingInfo) error {
+		info.mtu = &mtu
+		return nil
+	}
+}
+
+// WithCompatEgressPriority selects the legacy egress priority and ifindex-based
+// route table scheme used by Azure IPAM.
+func WithCompatEgressPriority() RoutingInfoOption {
+	return func(info *RoutingInfo) error {
+		info.compatEgressPriority = true
+		return nil
+	}
+}
+
+// NewRoutingInfo parses the required routing information and applies opts. By
+// default, using the returned information does not change link state or MTU.
+func NewRoutingInfo(gateway string, masterIfMAC mac.MAC, ifaceNum string, opts ...RoutingInfoOption) (*RoutingInfo, error) {
 	ip := net.ParseIP(gateway)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid gateway: %s", gateway)
-	}
-
-	if len(cidrs) == 0 && masquerade {
-		return nil, errors.New("empty cidrs")
 	}
 
 	// The MAC of the master interface is what the routes and rules are keyed
@@ -81,13 +125,13 @@ func parse(logger *slog.Logger, gateway string, cidrs []netip.Prefix, masterIfMA
 		return nil, fmt.Errorf("invalid interface number: %s", ifaceNum)
 	}
 
-	return &RoutingInfo{
-		logger:          logger.With(logfields.LogSubsys, "linux-routing"),
+	info := &RoutingInfo{
 		Gateway:         ip,
-		CIDRs:           cslices.Map(cidrs, netip.Prefix.Masked),
 		MasterIfMAC:     masterIfMAC,
-		Masquerade:      masquerade,
 		InterfaceNumber: parsedIfaceNum,
-		IpamMode:        ipamMode,
-	}, nil
+	}
+	if err := info.WithOptions(opts...); err != nil {
+		return nil, err
+	}
+	return info, nil
 }
