@@ -351,11 +351,11 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 			}
 		}
 
-		if err = routingInfo.Configure(
+		if err = routingInfo.ReconcileEndpointRules(
 			result.IP,
 			true,
 		); err != nil {
-			return nil, fmt.Errorf("failed to configure router IP rules and routes: %w", err)
+			return nil, fmt.Errorf("failed to reconcile router IP rules and routes: %w", err)
 		}
 
 		node.SetRouterInfo(routingInfo)
