@@ -156,6 +156,86 @@ func TestSyncToAPIServerForNonExistingNode(t *testing.T) {
 	require.NoError(t, node.syncToAPIServer())
 }
 
+func waitingForPoolMaintenance(n *Node) bool {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	return n.waitingForPoolMaintenance
+}
+
+// newMaintenanceTestNode returns a node in deficit, wired with the bare
+// minimum for MaintainIPPool's early returns. It deliberately has no triggers
+// so that nothing runs pool maintenance concurrently with the test.
+func newMaintenanceTestNode(t *testing.T, instancesAPIReady bool) *Node {
+	t.Helper()
+
+	node := &Node{
+		rootLogger: hivetest.Logger(t),
+		name:       "test-node",
+		manager: &NodeManager{
+			k8sAPI:             &k8sMockNode{},
+			stableInstancesAPI: instancesAPIReady,
+		},
+		logLimiter: logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
+		resource:   newCiliumNode("test-node", 0, 0, 0),
+		ops:        &nodeOperationsMock{},
+	}
+	node.updateLogger()
+	node.stats.IPv4.NeededIPs = 1
+
+	return node
+}
+
+// TestMaintainIPPoolReleasesPoolMaintenance covers the invariant documented on
+// MaintainIPPool: it owns waitingForPoolMaintenance and releases it on every
+// return path, including the early ones. The flag gates allocationNeeded() and
+// releaseNeeded(), which in turn gate the only two places that ever enqueue the
+// pool maintainer, so a pass that returns with the flag still set strands the
+// node for good.
+func TestMaintainIPPoolReleasesPoolMaintenance(t *testing.T) {
+	t.Run("instances API is unstable", func(t *testing.T) {
+		node := newMaintenanceTestNode(t, false)
+
+		err := node.MaintainIPPool(context.Background())
+		require.ErrorIs(t, err, errInstancesAPIUnstable)
+		require.False(t, waitingForPoolMaintenance(node), "the pass must release the flag it took")
+		require.True(t, node.allocationNeeded(), "node must report its deficit again so the background resync re-drives it")
+	})
+
+	t.Run("instance stopped running", func(t *testing.T) {
+		node := newMaintenanceTestNode(t, true)
+		node.SetRunning(false)
+
+		require.NoError(t, node.MaintainIPPool(context.Background()))
+		require.False(t, waitingForPoolMaintenance(node), "the pass must release the flag it took")
+		require.True(t, node.allocationNeeded(), "node must report its deficit again so the sign of life can re-drive it")
+	})
+}
+
+// TestUpdatedResourceDoesNotSetPoolMaintenance pins the other half of that
+// ownership: enqueue sites only enqueue. If they set the flag themselves, they
+// reintroduce the skew where setting and clearing live in different layers and
+// a return path can leak it.
+func TestUpdatedResourceDoesNotSetPoolMaintenance(t *testing.T) {
+	node := newMaintenanceTestNode(t, true)
+	maintainer := &countingPoolMaintainer{}
+	node.poolMaintainer = maintainer
+
+	require.True(t, node.UpdatedResource(newCiliumNode("test-node", 0, 4, 0)))
+	require.Equal(t, 1, maintainer.triggered, "a node in deficit must enqueue a maintenance pass")
+	require.False(t, waitingForPoolMaintenance(node), "the flag belongs to the pass, not to the enqueue")
+}
+
+// countingPoolMaintainer counts enqueues without running any maintenance, so
+// that the flag is only ever touched by the code under test. Unlike
+// poolMaintainerMock, which only silences the maintainer, the count is the
+// assertion here, so it is used from a single goroutine and left unsynchronized.
+type countingPoolMaintainer struct {
+	triggered int
+}
+
+func (p *countingPoolMaintainer) Trigger()  { p.triggered++ }
+func (p *countingPoolMaintainer) Shutdown() {}
+
 func TestPoolRequestedIPv4(t *testing.T) {
 	t.Run("returns IPv4 demand from default pool", func(t *testing.T) {
 		cn := &v2.CiliumNode{}
