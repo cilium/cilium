@@ -15,6 +15,7 @@ import (
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -43,6 +44,9 @@ const (
 var Cell = cell.Module(
 	"policy-k8s-watcher",
 	"Watches K8s policy related objects",
+
+	cell.Config(fqdnconfig.DefaultFQDNPolicyDNSServerConfig),
+	cell.Invoke(func(cfg fqdnconfig.FQDNPolicyDNSServerConfig) error { return cfg.Validate() }),
 
 	cell.Invoke(startK8sPolicyWatcher),
 )

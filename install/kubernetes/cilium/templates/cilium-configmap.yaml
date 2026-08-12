@@ -1486,6 +1486,15 @@ data:
   tofqdns-proxy-response-max-delay: {{ .Values.dnsProxy.proxyResponseMaxDelay | quote }}
   {{- end }}
   tofqdns-preallocate-identities:  {{ .Values.dnsProxy.preAllocateIdentities | quote }}
+  {{- if .Values.dnsProxy.dnsServerIPs }}
+  fqdn-policy-dns-server-ips: {{ join "," .Values.dnsProxy.dnsServerIPs | quote }}
+  {{- end }}
+  {{- if .Values.dnsProxy.dnsServerService }}
+  fqdn-policy-dns-server-service: {{ .Values.dnsProxy.dnsServerService | quote }}
+  {{- end }}
+  {{- if .Values.dnsProxy.dnsServerPorts }}
+  fqdn-policy-dns-server-ports: {{ join "," .Values.dnsProxy.dnsServerPorts | quote }}
+  {{- end }}
 {{- end }}
 
 {{- if hasKey .Values "agentNotReadyTaintKey" }}

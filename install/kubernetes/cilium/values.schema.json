@@ -1506,6 +1506,23 @@
         "dnsRejectResponseCode": {
           "type": "string"
         },
+        "dnsServerIPs": {
+          "items": {},
+          "type": "array"
+        },
+        "dnsServerPorts": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "dnsServerService": {
+          "type": "string"
+        },
         "enableDnsCompression": {
           "type": "boolean"
         },
