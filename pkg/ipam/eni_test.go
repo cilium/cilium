@@ -775,7 +775,7 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 
 		primaryCIDR := netip.MustParsePrefix("10.0.0.0/16")
 		conf := &option.DaemonConfig{}
-		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf)
+		require.NoError(t, autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf))
 
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
@@ -791,7 +791,7 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 		conf := &option.DaemonConfig{
 			IPv4NativeRoutingCIDR: netip.MustParsePrefix("10.0.0.0/8"),
 		}
-		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf)
+		require.NoError(t, autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf))
 
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
@@ -802,8 +802,7 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 	t.Run("accepts a native routing CIDR that is a subnet of the VPC CIDR", func(t *testing.T) {
 		// Regression test: a native routing CIDR that is a subset of the VPC
 		// CIDR (e.g. a single availability-zone subnet) is a valid, supported
-		// configuration. It must not be rejected (which would call
-		// logging.Fatal and crash the agent on startup).
+		// configuration. It must not be rejected.
 		logger := hivetest.Logger(t)
 		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 
@@ -811,11 +810,22 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 		conf := &option.DaemonConfig{
 			IPv4NativeRoutingCIDR: netip.MustParsePrefix("192.168.64.0/19"),
 		}
-		autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf)
+		require.NoError(t, autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf))
 
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
 		// Should NOT have been written since the config already has a value.
 		require.Nil(t, localNode.Local.IPv4NativeRoutingCIDR)
+	})
+
+	t.Run("rejects a native routing CIDR that overlaps no VPC CIDR", func(t *testing.T) {
+		logger := hivetest.Logger(t)
+		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+
+		primaryCIDR := netip.MustParsePrefix("10.0.0.0/16")
+		conf := &option.DaemonConfig{
+			IPv4NativeRoutingCIDR: netip.MustParsePrefix("192.168.0.0/16"),
+		}
+		require.Error(t, autoDetectENINativeRoutingCIDR(logger, primaryCIDR, localNodeStore, conf))
 	})
 }
