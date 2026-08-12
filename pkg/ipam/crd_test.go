@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -339,4 +340,56 @@ func TestAutoDetectIPv4NativeRoutingCIDR(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "10.10.0.0/16", localNode.Local.IPv4NativeRoutingCIDR.String())
 	})
+}
+
+func TestAlibabaCloudRoutingMetadata(t *testing.T) {
+	const resource = "eni-1"
+	addr := netip.MustParseAddr("10.10.1.5")
+	subnet := netip.MustParsePrefix("10.10.1.0/24")
+
+	cn := newCiliumNode("node1", 4, 4, 0)
+	cn.Spec.IPAM.Pool[addr.String()] = ipamTypes.AllocationIP{Resource: resource}
+	cn.Status.AlibabaCloud.ENIs = map[string]alibabaCloudTypes.ENI{
+		resource: {
+			NetworkInterfaceID: resource,
+			MACAddress:         "00:00:5e:00:53:01",
+			VSwitch: alibabaCloudTypes.VSwitch{
+				CIDRBlock: iputil.PrefixFrom(subnet),
+			},
+			Tags: map[string]string{"cilium-eni-index": "1"},
+		},
+	}
+
+	conf := testDaemonConfig()
+	conf.IPAM = ipamOption.IPAMAlibabaCloud
+	conf.EnableIPv6 = true
+	initNodeStore.Do(func() {}) // Ensure the real initNodeStore is not called
+	sharedNodeStore = newFakeNodeStore(conf, t)
+	sharedNodeStore.ownNode = cn
+
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:         hivetest.Logger(t),
+		NodeAddressing: fakenode.NewAddressing(),
+		AgentConfig:    conf,
+		NodeDiscovery:  &ownerMock{},
+		LocalNodeStore: node.NewTestLocalNodeStore(node.LocalNode{}),
+		K8sEventReg:    &ownerMock{},
+		NodeResource:   &resourceMock{},
+		MTUConfig:      &mtuMock,
+	})
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
+
+	result, err := ipam.ipv4Allocator.Allocate(addr, "test1", PoolDefault())
+	require.NoError(t, err)
+
+	resolved, err := ipam.ResolveRoutingMetadata(addr, PoolDefault())
+	require.NoError(t, err)
+	require.Equal(t, result, resolved)
+	require.Equal(t, mac.MustParseMAC("00:00:5e:00:53:01"), resolved.PrimaryMAC)
+	require.Equal(t, "1", resolved.InterfaceNumber)
+	require.Equal(t, netip.MustParseAddr("10.10.1.253"), resolved.GatewayIP)
+	require.Equal(t, []netip.Prefix{subnet}, resolved.CIDRs)
+
+	_, err = ipam.ResolveRoutingMetadata(netip.MustParseAddr("2001:db8::1"), PoolDefault())
+	require.ErrorIs(t, err, ErrRoutingMetadataUnsupported)
 }

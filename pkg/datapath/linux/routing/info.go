@@ -35,9 +35,9 @@ type RoutingInfo struct {
 	// Masquerade represents whether masquerading is enabled or not.
 	Masquerade bool
 
-	// InterfaceNumber is the generic number of the master interface that
-	// egress traffic is directed to. This is used to compute the table ID for
-	// the per-ENI tables.
+	// InterfaceNumber is the provider-specific number of the master interface
+	// that egress traffic is directed to. It is used to compute the
+	// per-interface route table when the compatibility scheme is disabled.
 	InterfaceNumber int
 
 	mtu       *int
