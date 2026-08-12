@@ -119,6 +119,7 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 		podIPPools:                params.PodIPPools,
 		onlyMasqueradeDefaultPool: params.OnlyMasqueradeDefaultPool,
 		cloudProviders:            params.CloudProviders,
+		restoreFinished:           make(chan struct{}),
 	}
 }
 

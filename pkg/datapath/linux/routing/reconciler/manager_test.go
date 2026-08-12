@@ -4,10 +4,12 @@
 package reconciler
 
 import (
+	"context"
 	"log/slog"
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
@@ -15,7 +17,12 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/promise"
+	testendpointmanager "github.com/cilium/cilium/pkg/testutils/endpointmanager"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -24,7 +31,12 @@ func TestEndpointRulesManager(t *testing.T) {
 	table, err := newEndpointRulesTable(db)
 	require.NoError(t, err)
 
-	manager := newEndpointRulesManager(slog.Default(), db, table)
+	manager := &endpointRulesManager{
+		logger:       slog.Default(),
+		db:           db,
+		table:        table,
+		initializing: false,
+	}
 	ep := newTestEndpoint(t, 1, "container-a", "192.0.2.10", "2001:db8::10")
 
 	manager.EndpointCreated(ep)
@@ -66,7 +78,12 @@ func TestEndpointRulesManagerFencesStaleEndpointDeletion(t *testing.T) {
 	table, err := newEndpointRulesTable(db)
 	require.NoError(t, err)
 
-	manager := newEndpointRulesManager(slog.Default(), db, table)
+	manager := &endpointRulesManager{
+		logger:       slog.Default(),
+		db:           db,
+		table:        table,
+		initializing: false,
+	}
 	address := netip.MustParseAddr("192.0.2.10")
 	// same owner and IP address but different lifecycle generations
 	oldEndpoint := newTestEndpoint(t, 1, "container-a", address.String(), "")
@@ -104,6 +121,65 @@ func TestEndpointRulesManagerFencesStaleEndpointDeletion(t *testing.T) {
 	require.False(t, found)
 }
 
+func TestEndpointRulesManagerInitialization(t *testing.T) {
+	db := statedb.New()
+	table, err := newEndpointRulesTable(db)
+	require.NoError(t, err)
+
+	live := newTestEndpoint(t, 1, "live-container", "192.0.2.10", "")
+	deletedDuringInitialization := newTestEndpoint(t, 2, "deleted-container", "192.0.2.11", "")
+	replacedDuringInitialization := newTestEndpoint(t, 3, "reused-container", "192.0.2.12", "")
+	replacement := newTestEndpoint(t, 4, "reused-container", "192.0.2.12", "")
+	endpointManager := testendpointmanager.NewMockEndpointManager()
+
+	ipamManager := ipam.NewIPAM(ipam.NewIPAMParams{
+		Logger:      slog.Default(),
+		AgentConfig: &option.DaemonConfig{},
+	})
+	ipamManager.RestoreFinished()
+
+	resolver, restorerPromise := promise.New[endpointstate.Restorer]()
+	resolver.Resolve(fakeRestorer{})
+	manager := newEndpointRulesManager(
+		slog.Default(),
+		db,
+		table,
+		ipamManager,
+		endpointManager,
+		restorerPromise,
+	)
+
+	initialized, _ := table.Initialized(db.ReadTxn())
+	require.False(t, initialized)
+
+	// Subscription is established before endpoint restoration starts, so
+	// restored endpoints and concurrent lifecycle events are queued until the
+	// IPAM and endpoint restoration barriers have completed.
+	manager.EndpointRestored(live)
+	manager.EndpointCreated(deletedDuringInitialization)
+	manager.EndpointDeleted(deletedDuringInitialization, endpoint.DeleteConfig{})
+	manager.EndpointCreated(replacedDuringInitialization)
+	manager.EndpointCreated(replacement)
+	manager.EndpointDeleted(replacedDuringInitialization, endpoint.DeleteConfig{})
+	require.Zero(t, table.NumObjects(db.ReadTxn()))
+
+	health, _ := cell.NewSimpleHealth()
+	require.NoError(t, manager.initialize(t.Context(), health))
+
+	initialized, _ = table.Initialized(db.ReadTxn())
+	require.True(t, initialized)
+	require.Equal(t, 2, table.NumObjects(db.ReadTxn()))
+
+	_, _, found := table.Get(db.ReadTxn(), endpointRulesAddressIndex.Query(live.IPv4Address()))
+	require.True(t, found)
+	_, _, found = table.Get(db.ReadTxn(), endpointRulesAddressIndex.Query(deletedDuringInitialization.IPv4Address()))
+	require.False(t, found)
+	rules, _, found := table.Get(db.ReadTxn(), endpointRulesAddressIndex.Query(replacement.IPv4Address()))
+	require.True(t, found)
+	require.Equal(t, endpointRulesOwner(replacement), rules.Owner)
+	require.Equal(t, replacement.GetLifecycleGeneration(), rules.Generation)
+}
+
 func newTestEndpoint(t *testing.T, generation uint64, containerID, ipv4, ipv6 string) *endpoint.Endpoint {
 	t.Helper()
 
@@ -130,4 +206,18 @@ func newTestEndpoint(t *testing.T, generation uint64, containerID, ipv4, ipv6 st
 		ep.IPv6 = netip.MustParseAddr(ipv6)
 	}
 	return ep
+}
+
+type fakeRestorer struct{}
+
+func (fakeRestorer) WaitForEndpointRestoreWithoutRegeneration(context.Context) error {
+	return nil
+}
+
+func (fakeRestorer) WaitForEndpointRestore(context.Context) error {
+	return nil
+}
+
+func (fakeRestorer) WaitForInitialPolicy(context.Context) error {
+	return nil
 }
