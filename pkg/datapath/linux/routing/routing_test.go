@@ -32,6 +32,7 @@ func TestPrivilegedConfigure(t *testing.T) {
 	ns1 := netns.NewNetNS(t)
 	ns1.Do(func() error {
 		ip, ri := getFakes(t, ipamOption.IPAMENI, true, false)
+		require.NoError(t, ri.WithOptions(WithMTU(1500), WithLinkState(true)))
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
@@ -73,6 +74,7 @@ func TestPrivilegedConfigureZeros(t *testing.T) {
 	ns1 := netns.NewNetNS(t)
 	ns1.Do(func() error {
 		ip, ri := getFakes(t, ipamOption.IPAMENI, true, true)
+		require.NoError(t, ri.WithOptions(WithMTU(1500), WithLinkState(true)))
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
@@ -104,6 +106,7 @@ func TestPrivilegedDelete(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	fakeIP, fakeRoutingInfo := getFakes(t, ipamOption.IPAMENI, true, false)
+	require.NoError(t, fakeRoutingInfo.WithOptions(WithMTU(1500), WithLinkState(true)))
 	masterMAC := fakeRoutingInfo.MasterIfMAC
 
 	tests := []struct {
@@ -310,8 +313,9 @@ func getFakes(t *testing.T, ipamMode string, masquerade bool, withZeroCIDR bool)
 
 	options := []RoutingInfoOption{
 		WithCIDRsAndMasquerade(cidrs, masquerade),
-		WithMTU(1500),
-		WithLinkState(true),
+	}
+	if ipamMode != ipamOption.IPAMENI {
+		options = append(options, WithMTU(1500), WithLinkState(true))
 	}
 	if ipamMode == ipamOption.IPAMAzure {
 		options = append(options, WithCompatEgressPriority())
