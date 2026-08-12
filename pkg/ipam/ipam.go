@@ -194,11 +194,19 @@ func (ipam *IPAM) ConfigureAllocator() {
 	case ipamOption.IPAMCRD, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		ipam.logger.Info("Initializing CRD-based IPAM")
 		if ipam.config.IPv6Enabled() {
-			ipam.ipv6Allocator = newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
+			allocator := newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
+			ipam.ipv6Allocator = allocator
+			if ipam.config.IPAMMode() == ipamOption.IPAMAzure {
+				ipam.ipv6RoutingMetadataResolver = allocator
+			}
 		}
 
 		if ipam.config.IPv4Enabled() {
-			ipam.ipv4Allocator = newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
+			allocator := newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
+			ipam.ipv4Allocator = allocator
+			if ipam.config.IPAMMode() == ipamOption.IPAMAzure {
+				ipam.ipv4RoutingMetadataResolver = allocator
+			}
 		}
 	case ipamOption.IPAMDelegatedPlugin:
 		ipam.logger.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")

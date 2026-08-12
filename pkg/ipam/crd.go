@@ -684,7 +684,7 @@ type crdAllocator struct {
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(logger *slog.Logger, family Family, c *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl, ipMasqAgent *ipmasq.IPMasqAgent) Allocator {
+func newCRDAllocator(logger *slog.Logger, family Family, c *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl, ipMasqAgent *ipmasq.IPMasqAgent) *crdAllocator {
 	initNodeStore.Do(func() {
 		sharedNodeStore = newNodeStore(logger, nodeTypes.GetName(), c, owner, localNodeStore, clientset, k8sEventReg, mtuConfig, sysctl)
 	})
@@ -701,6 +701,17 @@ func newCRDAllocator(logger *slog.Logger, family Family, c *option.DaemonConfig,
 	sharedNodeStore.addAllocator(allocator)
 
 	return allocator
+}
+
+func (a *crdAllocator) ResolveRoutingMetadata(addr netip.Addr, _ Pool) (*AllocationResult, error) {
+	a.mutex.RLock()
+	ipInfo, allocated := a.allocated[addr.String()]
+	a.mutex.RUnlock()
+	if !allocated {
+		return nil, fmt.Errorf("IP %s is not allocated", addr)
+	}
+
+	return a.buildAllocationResult(addr, &ipInfo)
 }
 
 func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.AllocationIP) (result *AllocationResult, err error) {
