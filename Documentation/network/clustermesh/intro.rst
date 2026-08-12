@@ -32,3 +32,17 @@ improved scalability and isolation.
   Starting from v1.16 KVStoreMesh is enabled by default.
   If you wish to disable it, please refer to :ref:`enable_clustermesh`
   for instructions on how to disable KVStoreMesh.
+
+Security
+========
+
+.. _clustermesh_security_model:
+
+All clusters connected in a Cluster Mesh form a single trust domain.
+
+While Cilium performs various sanity checks on information received from remote
+clusters, these checks cannot fully prevent a compromised cluster's Cilium
+control plane from propagating malicious information to other clusters.
+
+Only connect clusters that are mutually trusted and have equivalent security
+postures.
