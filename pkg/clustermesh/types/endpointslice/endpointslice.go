@@ -55,6 +55,10 @@ func (eps *ClusterEndpointSlice) GetKeyName() string {
 	return kvstore.JoinKey(eps.Cluster, eps.Namespace, eps.Name)
 }
 
+// maxDecodedSize bounds decoder memory to guard against crafted payloads. The
+// selected 16MB limit provides ample margin for every legitimate EndpointSlice.
+const maxDecodeSize = 16 << 20
+
 var (
 	zstdEncoderPool sync.Pool
 	zstdDecoderPool sync.Pool
@@ -73,7 +77,7 @@ func getZstdDecoder() (*zstd.Decoder, error) {
 		return decoder.(*zstd.Decoder), nil
 	}
 
-	return zstd.NewReader(nil)
+	return zstd.NewReader(nil, zstd.WithDecoderMaxMemory(maxDecodeSize))
 }
 
 // Marshal returns the cluster EndpointSlice object as zstd-compressed protobuf
