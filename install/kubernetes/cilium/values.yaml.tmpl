@@ -4435,6 +4435,12 @@ dnsProxy:
   # -- Pre-allocate ToFQDN identities. This reduces DNS proxy tail latency, at the potential cost of some
   # unnecessary policymap entries. Disable this if you have a large (200+) number of unique ToFQDN selectors.
   preAllocateIdentities: true
+  # -- IP addresses of DNS servers for FQDN policy resolution.
+  dnsServerIPs: []
+  # -- K8s service (namespace/name) of DNS servers for FQDN policy resolution.
+  dnsServerService: ""
+  # -- Port of DNS server pods for FQDN policy resolution.
+  dnsServerPort: 53
 # -- SCTP Configuration Values
 sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
