@@ -4,25 +4,43 @@
 package reconciler
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/netip"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	statedbReconciler "github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointTypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/promise"
 )
 
 const internalEndpointOwner = "internal"
 
 type endpointRulesManager struct {
-	logger *slog.Logger
-	db     *statedb.DB
-	table  statedb.RWTable[*EndpointRules]
+	logger          *slog.Logger
+	db              *statedb.DB
+	table           statedb.RWTable[*EndpointRules]
+	endpointManager endpointmanager.EndpointManager
+	restorer        promise.Promise[endpointstate.Restorer]
+	initDone        func(statedb.WriteTxn)
+
+	mu lock.Mutex
+	// pending holds the latest owner-aware operation for each address while
+	// endpoint restoration is in progress.
+	pending map[netip.Addr]pendingEndpointRules
+}
+
+type pendingEndpointRules struct {
+	owner   string
+	deleted bool
 }
 
 var _ endpointmanager.Subscriber = (*endpointRulesManager)(nil)
@@ -31,12 +49,59 @@ func newEndpointRulesManager(
 	logger *slog.Logger,
 	db *statedb.DB,
 	table statedb.RWTable[*EndpointRules],
+	endpointManager endpointmanager.EndpointManager,
+	restorer promise.Promise[endpointstate.Restorer],
 ) *endpointRulesManager {
+	txn := db.WriteTxn(table)
+	initDone := table.RegisterInitializer(txn, "endpoint-restoration")
+	txn.Commit()
+
 	return &endpointRulesManager{
-		logger: logger,
-		db:     db,
-		table:  table,
+		logger:          logger,
+		db:              db,
+		table:           table,
+		endpointManager: endpointManager,
+		restorer:        restorer,
+		initDone:        initDone,
+		pending:         map[netip.Addr]pendingEndpointRules{},
 	}
+}
+
+func (mgr *endpointRulesManager) initialize(ctx context.Context, health cell.Health) error {
+	restorer, err := mgr.restorer.Await(ctx)
+	if err != nil {
+		return fmt.Errorf("wait for endpoint restorer: %w", err)
+	}
+	// Wait until every restored endpoint event is queued before enabling pruning.
+	if err := restorer.WaitForEndpointRestoreWithoutRegeneration(ctx); err != nil {
+		return fmt.Errorf("wait for endpoint restoration: %w", err)
+	}
+
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	txn := mgr.db.WriteTxn(mgr.table)
+	defer txn.Abort()
+
+	for address, pending := range mgr.pending {
+		var err error
+		if pending.deleted {
+			err = mgr.handleEndpointDeletion(txn, []netip.Addr{address}, pending.owner)
+		} else {
+			err = mgr.handleEndpointCreation(txn, []netip.Addr{address}, pending.owner)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	mgr.initDone(txn)
+	txn.Commit()
+
+	mgr.pending = nil
+
+	health.OK(fmt.Sprintf("Published desired routing rules for %d endpoint addresses", mgr.table.NumObjects(mgr.db.ReadTxn())))
+
+	return nil
 }
 
 func (mgr *endpointRulesManager) EndpointCreated(ep *endpoint.Endpoint) {
@@ -71,6 +136,14 @@ func (mgr *endpointRulesManager) handleEvent(
 		return
 	}
 
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	if initialized, _ := mgr.table.Initialized(mgr.db.ReadTxn()); !initialized {
+		mgr.queuePending(addresses, owner, deleted)
+		return
+	}
+
 	txn := mgr.db.WriteTxn(mgr.table)
 	defer txn.Abort()
 
@@ -89,6 +162,27 @@ func (mgr *endpointRulesManager) handleEvent(
 	}
 
 	txn.Commit()
+}
+
+// queuePending records the latest desired endpoint owner for each address
+// while the initial state is being restored.
+func (mgr *endpointRulesManager) queuePending(
+	addresses []netip.Addr,
+	owner string,
+	deleted bool,
+) {
+	for _, address := range addresses {
+		current, found := mgr.pending[address]
+		// A different owner means that a replacement endpoint now owns
+		// this address, so ignore the delayed deletion for the old one.
+		if deleted && found && current.owner != owner {
+			continue
+		}
+		mgr.pending[address] = pendingEndpointRules{
+			owner:   owner,
+			deleted: deleted,
+		}
+	}
 }
 
 func (mgr *endpointRulesManager) handleEndpointCreation(txn statedb.WriteTxn, addresses []netip.Addr, owner string) error {
