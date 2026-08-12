@@ -53,6 +53,10 @@ const (
 	fieldName = "name"
 )
 
+// errInstancesAPIUnstable is returned by MaintainIPPool while the instances
+// API is unstable, in which case pool maintenance is skipped entirely.
+var errInstancesAPIUnstable = errors.New("instances API is unstable, blocking mutating operations")
+
 func (n *Node) SetOpts(ops NodeOperations) {
 	n.ops = ops
 }
@@ -138,10 +142,6 @@ type Node struct {
 
 	// ops is the IPAM implementation to use for this node
 	ops NodeOperations
-
-	// retry is the trigger used to retry pool maintenance while the
-	// instances API is unstable
-	retry *trigger.Trigger
 
 	// logLimiter rate limits potentially repeating warning logs
 	logLimiter logging.Limiter
@@ -660,7 +660,6 @@ func (n *Node) UpdatedResource(resource *v2.CiliumNode) bool {
 	allocationNeeded := n.allocationNeeded()
 	releaseNeeded := n.releaseNeeded()
 	if allocationNeeded || releaseNeeded {
-		n.requirePoolMaintenance()
 		n.poolMaintainer.Trigger()
 	}
 
@@ -1394,14 +1393,21 @@ func (n *Node) updateLastResync(syncTime time.Time) {
 
 // MaintainIPPool attempts to allocate or release all required IPs to fulfill
 // the needed gap. If required, interfaces are created.
+//
+// It owns waitingForPoolMaintenance, taken on entry and released on every
+// return path: the flag makes allocationNeeded() and releaseNeeded() false, and
+// those gate the only two sites that enqueue this, so a pass returning with it
+// set would strand the node for good. It is released before the pass triggers
+// any further asynchronous work, so that a resync racing with the tail of the
+// pass still observes the deficit and can enqueue the next one.
 func (n *Node) MaintainIPPool(ctx context.Context) error {
+	n.requirePoolMaintenance()
+	defer n.poolMaintenanceComplete()
+
 	// As long as the instances API is unstable, don't perform any
 	// operation that can mutate state.
 	if !n.manager.InstancesAPIIsReady() {
-		if n.retry != nil {
-			n.retry.Trigger()
-		}
-		return fmt.Errorf("instances API is unstable. Blocking mutating operations. See logs for details.")
+		return errInstancesAPIUnstable
 	}
 
 	// If the instance has stopped running for less than a minute, don't attempt any deficit
@@ -1416,6 +1422,12 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 		n.logger.Load().Debug("Setting resync needed")
 		n.requireResync()
 	}
+
+	// The mutating part of the pass is over. Release the flag before the
+	// instance syncs below: those run asynchronously, and the resync they
+	// end up driving reads allocationNeeded() for this node, which the flag
+	// would make false, dropping the enqueue of the next pass. The deferred
+	// release stays as the guarantee for the early returns above.
 	n.poolMaintenanceComplete()
 
 	n.recalculate(ctx)

@@ -355,7 +355,13 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 			MetricsObserver: n.metricsAPI.PoolMaintainerTrigger(),
 			TriggerFunc: func(reasons []string) {
 				if err := node.MaintainIPPool(ctx); err != nil {
-					node.logger.Load().Warn("Unable to maintain ip pool of node", logfields.Error, err)
+					// An unstable instances API is a cluster wide failure
+					// that every node hits on every attempt, and it is
+					// already reported by the instances API resync itself,
+					// so don't log it once more per node.
+					if !errors.Is(err, errInstancesAPIUnstable) {
+						node.logger.Load().Warn("Unable to maintain ip pool of node", logfields.Error, err)
+					}
 					backoff.Wait(ctx)
 				}
 			},
@@ -365,17 +371,6 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 			node.logger.Load().Error("Unable to create pool-maintainer trigger", logfields.Error, err)
 			return
 		}
-
-		retry, err := trigger.NewTrigger(trigger.Parameters{
-			Name:        fmt.Sprintf("ipam-pool-maintainer-%s-retry", resource.Name),
-			MinInterval: time.Minute, // large minimal interval to not retry too often
-			TriggerFunc: func(reasons []string) { poolMaintainer.Trigger() },
-		})
-		if err != nil {
-			node.logger.Load().Error("Unable to create pool-maintainer-retry trigger", logfields.Error, err)
-			return
-		}
-		node.retry = retry
 
 		k8sSync, err := trigger.NewTrigger(trigger.Parameters{
 			Name:            fmt.Sprintf("ipam-node-k8s-sync-%s", resource.Name),
@@ -442,9 +437,6 @@ func (n *NodeManager) Delete(resource *v2.CiliumNode) {
 		}
 		if node.k8sSync != nil {
 			node.k8sSync.Shutdown()
-		}
-		if node.retry != nil {
-			node.retry.Shutdown()
 		}
 		if node.instanceSync != nil {
 			node.instanceSync.Shutdown()
@@ -528,7 +520,6 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 	allocationNeeded := node.allocationNeeded()
 	releaseNeeded := node.releaseNeeded()
 	if allocationNeeded || releaseNeeded {
-		node.requirePoolMaintenance()
 		node.poolMaintainer.Trigger()
 	}
 
