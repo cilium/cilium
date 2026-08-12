@@ -131,33 +131,45 @@ static __always_inline __u32
 sock4_select_backend_id_least_connection(struct lb4_key *key,
 					 const struct lb4_service *svc)
 {
-	const struct lb4_service *first, *second;
-	__u32 first_active, second_active;
+	const struct lb4_service *candidate;
+	__u32 best_active = 0;
+	__u32 best_backend_id = 0;
+	__u32 candidate_active;
+	__u32 candidate_id;
 	__u32 random = get_prandom_u32();
-	__u16 first_slot, second_slot;
+	__u16 first_slot;
+	__u16 slot;
+	__u8 i;
 
 	first_slot = (random % svc->count) + 1;
-	if (svc->count == 1)
-		second_slot = first_slot;
-	else
-		second_slot = ((first_slot + (random >> 16) %
-			       (svc->count - 1)) % svc->count) + 1;
+#pragma unroll
+	for (i = 0; i < LB_LEAST_CONNECTION_CHOICES; i++) {
+		if (i == 0 || svc->count == 1) {
+			slot = first_slot;
+		} else {
+			random = get_prandom_u32();
+			slot = ((first_slot + random % (svc->count - 1)) %
+				svc->count) + 1;
+		}
 
-	key->backend_slot = first_slot;
-	first = __lb4_lookup_backend_slot(key);
-	key->backend_slot = second_slot;
-	second = __lb4_lookup_backend_slot(key);
-	if (!first)
-		return second ? second->backend_id : 0;
-	if (!second || first->backend_id == second->backend_id)
-		return first->backend_id;
+		key->backend_slot = slot;
+		candidate = __lb4_lookup_backend_slot(key);
+		if (!candidate)
+			continue;
+		candidate_id = candidate->backend_id;
+		if (candidate_id == best_backend_id)
+			continue;
 
-	first_active = lb_lc_active_connections(svc->rev_nat_index, first->backend_id);
-	second_active = lb_lc_active_connections(svc->rev_nat_index, second->backend_id);
-	if (first_active == second_active)
-		return random & 1 ? first->backend_id : second->backend_id;
-	return first_active < second_active ? first->backend_id :
-					     second->backend_id;
+		candidate_active = lb_lc_active_connections(svc->rev_nat_index,
+							    candidate_id);
+		if (best_backend_id == 0 || candidate_active < best_active ||
+		    (candidate_active == best_active && (random & 1))) {
+			best_backend_id = candidate_id;
+			best_active = candidate_active;
+		}
+	}
+
+	return best_backend_id;
 }
 #endif /* ENABLE_IPV4 && ENABLE_LB_LEAST_CONNECTION */
 
@@ -166,33 +178,45 @@ static __always_inline __u32
 sock6_select_backend_id_least_connection(struct lb6_key *key,
 					 const struct lb6_service *svc)
 {
-	const struct lb6_service *first, *second;
-	__u32 first_active, second_active;
+	const struct lb6_service *candidate;
+	__u32 best_active = 0;
+	__u32 best_backend_id = 0;
+	__u32 candidate_active;
+	__u32 candidate_id;
 	__u32 random = get_prandom_u32();
-	__u16 first_slot, second_slot;
+	__u16 first_slot;
+	__u16 slot;
+	__u8 i;
 
 	first_slot = (random % svc->count) + 1;
-	if (svc->count == 1)
-		second_slot = first_slot;
-	else
-		second_slot = ((first_slot + (random >> 16) %
-			       (svc->count - 1)) % svc->count) + 1;
+#pragma unroll
+	for (i = 0; i < LB_LEAST_CONNECTION_CHOICES; i++) {
+		if (i == 0 || svc->count == 1) {
+			slot = first_slot;
+		} else {
+			random = get_prandom_u32();
+			slot = ((first_slot + random % (svc->count - 1)) %
+				svc->count) + 1;
+		}
 
-	key->backend_slot = first_slot;
-	first = __lb6_lookup_backend_slot(key);
-	key->backend_slot = second_slot;
-	second = __lb6_lookup_backend_slot(key);
-	if (!first)
-		return second ? second->backend_id : 0;
-	if (!second || first->backend_id == second->backend_id)
-		return first->backend_id;
+		key->backend_slot = slot;
+		candidate = __lb6_lookup_backend_slot(key);
+		if (!candidate)
+			continue;
+		candidate_id = candidate->backend_id;
+		if (candidate_id == best_backend_id)
+			continue;
 
-	first_active = lb_lc_active_connections(svc->rev_nat_index, first->backend_id);
-	second_active = lb_lc_active_connections(svc->rev_nat_index, second->backend_id);
-	if (first_active == second_active)
-		return random & 1 ? first->backend_id : second->backend_id;
-	return first_active < second_active ? first->backend_id :
-					     second->backend_id;
+		candidate_active = lb_lc_active_connections(svc->rev_nat_index,
+							    candidate_id);
+		if (best_backend_id == 0 || candidate_active < best_active ||
+		    (candidate_active == best_active && (random & 1))) {
+			best_backend_id = candidate_id;
+			best_active = candidate_active;
+		}
+	}
+
+	return best_backend_id;
 }
 #endif /* ENABLE_IPV6 && ENABLE_LB_LEAST_CONNECTION */
 

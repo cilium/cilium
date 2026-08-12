@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
@@ -58,7 +59,8 @@ func provide(
 		return bpf.NoneMap[Map](), nodeOut, nil
 	}
 	nodeOut.NodeDefines = map[string]string{
-		"ENABLE_LB_LEAST_CONNECTION": "1",
+		"ENABLE_LB_LEAST_CONNECTION":  "1",
+		"LB_LEAST_CONNECTION_CHOICES": strconv.Itoa(cfg.LBLeastConnectionChoices),
 	}
 
 	m := &mapImpl{log: log}

@@ -10,6 +10,7 @@
 
 #define ENABLE_IPV4					1
 #define ENABLE_LB_LEAST_CONNECTION			1
+#define LB_LEAST_CONNECTION_CHOICES			2
 
 #define FRONTEND_IP	v4_svc_one
 #define FRONTEND_PORT	tcp_svc_one

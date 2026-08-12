@@ -5,6 +5,10 @@
 
 #ifdef ENABLE_LB_LEAST_CONNECTION
 
+#if LB_LEAST_CONNECTION_CHOICES < 2 || LB_LEAST_CONNECTION_CHOICES > 4
+#error "LB_LEAST_CONNECTION_CHOICES must be between 2 and 4"
+#endif
+
 #include <linux/bpf.h>
 #include <bpf/loader.h>
 

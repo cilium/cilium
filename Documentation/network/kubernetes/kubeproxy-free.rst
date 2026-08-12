@@ -1010,6 +1010,20 @@ The algorithm uses the power-of-two-choices approximation rather than scanning
 all backends. Counts are local to each Cilium node and are based on TCP
 connection lifetime. Non-TCP traffic falls back to random selection.
 
+The number of sampled backends defaults to two and can be configured from two
+through four with ``loadBalancer.leastConnectionChoiceCount``:
+
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: kubeProxyReplacement=true
+         bpf.lbAlgorithmAnnotation=true
+         loadBalancer.leastConnectionChoiceCount=4
+         k8sServiceHost=${API_SERVER_IP}
+         k8sServicePort=${API_SERVER_PORT}
+
+Higher values more closely approximate an absolute least-connection scan while
+adding backend and counter map lookups to each new TCP connection.
+
 Note that ``service.cilium.io/lb-algorithm`` only takes effect upon initial
 service creation and cannot be changed during the lifetime of the given
 Kubernetes service. Switching between load balancing algorithms requires

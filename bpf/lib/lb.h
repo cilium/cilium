@@ -1165,35 +1165,47 @@ lb6_select_backend_id_least_connection(const struct __ctx_buff *ctx,
 				       const struct ipv6_ct_tuple *tuple,
 				       const struct lb6_service *svc)
 {
-	const struct lb6_service *first, *second;
-	__u32 first_active, second_active;
-	__u32 random;
-	__u16 first_slot, second_slot;
+	const struct lb6_service *candidate;
+	__u32 best_active = 0;
+	__u32 best_backend_id = 0;
+	__u32 candidate_active;
+	__u32 candidate_id;
+	__u32 random = get_prandom_u32();
+	__u16 first_slot;
+	__u16 slot;
+	__u8 i;
 
 	if (tuple->nexthdr != IPPROTO_TCP)
 		return lb6_select_backend_id_random(ctx, key, tuple, svc);
 
-	random = get_prandom_u32();
 	first_slot = (random % svc->count) + 1;
-	if (svc->count == 1)
-		second_slot = first_slot;
-	else
-		second_slot = ((first_slot + (random >> 16) %
-			       (svc->count - 1)) % svc->count) + 1;
+#pragma unroll
+	for (i = 0; i < LB_LEAST_CONNECTION_CHOICES; i++) {
+		if (i == 0 || svc->count == 1) {
+			slot = first_slot;
+		} else {
+			random = get_prandom_u32();
+			slot = ((first_slot + random % (svc->count - 1)) %
+				svc->count) + 1;
+		}
 
-	first = lb6_lookup_backend_slot(ctx, key, first_slot);
-	second = lb6_lookup_backend_slot(ctx, key, second_slot);
-	if (!first)
-		return second ? second->backend_id : 0;
-	if (!second || first->backend_id == second->backend_id)
-		return first->backend_id;
+		candidate = lb6_lookup_backend_slot(ctx, key, slot);
+		if (!candidate)
+			continue;
+		candidate_id = candidate->backend_id;
+		if (candidate_id == best_backend_id)
+			continue;
 
-	first_active = lb_lc_active_connections(svc->rev_nat_index, first->backend_id);
-	second_active = lb_lc_active_connections(svc->rev_nat_index, second->backend_id);
-	if (first_active == second_active)
-		return random & 1 ? first->backend_id : second->backend_id;
-	return first_active < second_active ? first->backend_id :
-					     second->backend_id;
+		candidate_active = lb_lc_active_connections(svc->rev_nat_index,
+							    candidate_id);
+		if (best_backend_id == 0 || candidate_active < best_active ||
+		    (candidate_active == best_active && (random & 1))) {
+			best_backend_id = candidate_id;
+			best_active = candidate_active;
+		}
+	}
+
+	return best_backend_id;
 }
 #endif /* ENABLE_LB_LEAST_CONNECTION */
 
@@ -2050,35 +2062,47 @@ lb4_select_backend_id_least_connection(const struct __ctx_buff *ctx,
 				       const struct ipv4_ct_tuple *tuple,
 				       const struct lb4_service *svc)
 {
-	const struct lb4_service *first, *second;
-	__u32 first_active, second_active;
-	__u32 random;
-	__u16 first_slot, second_slot;
+	const struct lb4_service *candidate;
+	__u32 best_active = 0;
+	__u32 best_backend_id = 0;
+	__u32 candidate_active;
+	__u32 candidate_id;
+	__u32 random = get_prandom_u32();
+	__u16 first_slot;
+	__u16 slot;
+	__u8 i;
 
 	if (tuple->nexthdr != IPPROTO_TCP)
 		return lb4_select_backend_id_random(ctx, key, tuple, svc);
 
-	random = get_prandom_u32();
 	first_slot = (random % svc->count) + 1;
-	if (svc->count == 1)
-		second_slot = first_slot;
-	else
-		second_slot = ((first_slot + (random >> 16) %
-			       (svc->count - 1)) % svc->count) + 1;
+#pragma unroll
+	for (i = 0; i < LB_LEAST_CONNECTION_CHOICES; i++) {
+		if (i == 0 || svc->count == 1) {
+			slot = first_slot;
+		} else {
+			random = get_prandom_u32();
+			slot = ((first_slot + random % (svc->count - 1)) %
+				svc->count) + 1;
+		}
 
-	first = lb4_lookup_backend_slot(ctx, key, first_slot);
-	second = lb4_lookup_backend_slot(ctx, key, second_slot);
-	if (!first)
-		return second ? second->backend_id : 0;
-	if (!second || first->backend_id == second->backend_id)
-		return first->backend_id;
+		candidate = lb4_lookup_backend_slot(ctx, key, slot);
+		if (!candidate)
+			continue;
+		candidate_id = candidate->backend_id;
+		if (candidate_id == best_backend_id)
+			continue;
 
-	first_active = lb_lc_active_connections(svc->rev_nat_index, first->backend_id);
-	second_active = lb_lc_active_connections(svc->rev_nat_index, second->backend_id);
-	if (first_active == second_active)
-		return random & 1 ? first->backend_id : second->backend_id;
-	return first_active < second_active ? first->backend_id :
-					     second->backend_id;
+		candidate_active = lb_lc_active_connections(svc->rev_nat_index,
+							    candidate_id);
+		if (best_backend_id == 0 || candidate_active < best_active ||
+		    (candidate_active == best_active && (random & 1))) {
+			best_backend_id = candidate_id;
+			best_active = candidate_active;
+		}
+	}
+
+	return best_backend_id;
 }
 #endif /* ENABLE_LB_LEAST_CONNECTION */
 

@@ -4882,6 +4882,11 @@
           },
           "type": "object"
         },
+        "leastConnectionChoiceCount": {
+          "maximum": 4,
+          "minimum": 2,
+          "type": "integer"
+        },
         "serviceTopology": {
           "type": "boolean"
         }
