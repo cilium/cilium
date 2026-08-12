@@ -44,7 +44,8 @@ func (ops *endpointRulesOperations) Update(
 	}
 
 	var options []linuxrouting.RoutingInfoOption
-	// Azure uses the legacy ifindex-based priority/table scheme.
+	// Azure uses the legacy ifindex-based priority/table scheme. ENI and
+	// AlibabaCloud use the interface-number-based scheme.
 	if ops.ipamMode == ipamOption.IPAMAzure {
 		options = append(options, linuxrouting.WithCompatEgressPriority())
 	}
