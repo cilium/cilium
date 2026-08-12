@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -185,6 +186,170 @@ func TestPrivilegedDelete(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestPrivilegedDeleteRulesAllEgressSchemes(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
+		ip := netip.MustParseAddr("192.0.2.10")
+		ipWithMask := netipx.AddrIPNet(ip)
+		for _, rule := range []route.Rule{
+			{
+				Priority: linux_defaults.RulePriorityEgress,
+				From:     ipWithMask,
+				Table:    100,
+				Protocol: linux_defaults.RTProto,
+			},
+			{
+				Priority: linux_defaults.RulePriorityEgressv2,
+				From:     ipWithMask,
+				Table:    linux_defaults.RouteTableInterfacesOffset + 1,
+				Protocol: linux_defaults.RTProto,
+			},
+		} {
+			require.NoError(t, route.ReplaceRule(rule))
+		}
+
+		// A rule outside the known endpoint-egress priorities must be preserved.
+		require.NoError(t, route.ReplaceRule(route.Rule{
+			Priority: linux_defaults.RulePriorityEgressv2 + 1,
+			From:     ipWithMask,
+			Table:    100,
+			Protocol: linux_defaults.RTProto,
+		}))
+
+		require.NoError(t, DeleteRulesIfExists(hivetest.Logger(t), ip))
+		require.NoError(t, DeleteRulesIfExists(hivetest.Logger(t), ip))
+
+		rules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{From: ipWithMask})
+		require.NoError(t, err)
+		require.Len(t, rules, 1)
+		require.Equal(t, linux_defaults.RulePriorityEgressv2+1, rules[0].Priority)
+		return nil
+	})
+}
+
+func TestIsCiliumEndpointIngressRule(t *testing.T) {
+	ingressRule := netlink.Rule{
+		Priority: linux_defaults.RulePriorityIngress,
+		Dst:      netipx.AddrIPNet(netip.MustParseAddr("192.0.2.10")),
+		Table:    route.MainTable,
+		Protocol: linux_defaults.RTProto,
+	}
+	missingDestinationRule := ingressRule
+	missingDestinationRule.Dst = nil
+	differentPriorityRule := ingressRule
+	differentPriorityRule.Priority++
+	differentTableRule := ingressRule
+	differentTableRule.Table = 100
+	markedRule := ingressRule
+	markedRule.Mark = 1
+	mask := uint32(0xffffffff)
+	maskedRule := ingressRule
+	maskedRule.Mask = &mask
+	differentProtocolRule := ingressRule
+	differentProtocolRule.Protocol = 0
+
+	tests := []struct {
+		name string
+		rule netlink.Rule
+		want bool
+	}{
+		{"ingress-rule", ingressRule, true},
+		{"missing-destination", missingDestinationRule, false},
+		{"different-priority", differentPriorityRule, false},
+		{"different-table", differentTableRule, false},
+		{"marked", markedRule, false},
+		{"masked", maskedRule, false},
+		{"different-protocol", differentProtocolRule, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isCiliumEndpointIngressRule(tt.rule))
+		})
+	}
+}
+
+func TestIsCiliumEndpointEgressRule(t *testing.T) {
+	ipWithMask := netipx.AddrIPNet(netip.MustParseAddr("192.0.2.10"))
+	legacyRule := netlink.Rule{
+		Priority: linux_defaults.RulePriorityEgress,
+		Src:      ipWithMask,
+		Table:    100,
+		Protocol: linux_defaults.RTProto,
+	}
+	currentRule := legacyRule
+	currentRule.Priority = linux_defaults.RulePriorityEgressv2
+	currentRule.Table = linux_defaults.RouteTableInterfacesOffset + 1
+	reservedTableRule := legacyRule
+	reservedTableRule.Table = route.MainTable
+	outOfRangeTableRule := currentRule
+	outOfRangeTableRule.Table = linux_defaults.RouteTableInterfacesOffset - 1
+	markedRule := legacyRule
+	markedRule.Mark = 1
+	mask := uint32(0xffffffff)
+	maskedRule := legacyRule
+	maskedRule.Mask = &mask
+	differentProtocolRule := legacyRule
+	differentProtocolRule.Protocol = 0
+	missingSourceRule := legacyRule
+	missingSourceRule.Src = nil
+	differentPriorityRule := legacyRule
+	differentPriorityRule.Priority = linux_defaults.RulePriorityEgressv2 + 1
+
+	tests := []struct {
+		name string
+		rule netlink.Rule
+		want bool
+	}{
+		{"legacy-priority", legacyRule, true},
+		{"current-priority", currentRule, true},
+		{"legacy-priority-reserved-table", reservedTableRule, false},
+		{"current-priority-outside-interface-table-range", outOfRangeTableRule, false},
+		{"marked", markedRule, false},
+		{"masked", maskedRule, false},
+		{"different-protocol", differentProtocolRule, false},
+		{"missing-source", missingSourceRule, false},
+		{"different-priority", differentPriorityRule, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isCiliumEndpointEgressRule(tt.rule))
+		})
+	}
+}
+
+func TestPrivilegedDeleteRuleIfExists(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
+		ip := netip.MustParseAddr("192.0.2.10")
+		spec := route.Rule{
+			Priority: linux_defaults.RulePriorityEgressv2,
+			From:     netipx.AddrIPNet(ip),
+			Table:    linux_defaults.RouteTableInterfacesOffset + 1,
+			Protocol: linux_defaults.RTProto,
+		}
+		require.NoError(t, route.ReplaceRule(spec))
+
+		rules, err := route.ListRules(netlink.FAMILY_V4, &spec)
+		require.NoError(t, err)
+		require.Len(t, rules, 1)
+
+		deleted, err := deleteRuleIfExists(&rules[0])
+		require.NoError(t, err)
+		require.True(t, deleted)
+
+		deleted, err = deleteRuleIfExists(&rules[0])
+		require.NoError(t, err)
+		require.False(t, deleted)
+		return nil
+	})
 }
 
 func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr) {
