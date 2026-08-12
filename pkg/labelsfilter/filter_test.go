@@ -4,6 +4,8 @@
 package labelsfilter
 
 import (
+	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 
@@ -187,6 +189,62 @@ func TestFilterLabelsDocExample(t *testing.T) {
 
 	require.Len(t, filtered, 10)
 	require.Equal(t, wanted, filtered)
+}
+
+func TestFilterLabelsFromFileRegex(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	fileContents := `{
+		"version": 1,
+		"valid-prefixes": [
+			{"source": "reserved", "prefix": ".*"},
+			{"source": "k8s", "prefix": "kind$"},
+			{"source": "k8s", "prefix": "foo.bar"}
+		]
+	}`
+	file := filepath.Join(t.TempDir(), "label-prefix.json")
+	require.NoError(t, os.WriteFile(file, []byte(fileContents), 0o644))
+
+	err := ParseLabelPrefixCfg(logger, []string{}, []string{}, file)
+	require.NoError(t, err)
+	dlpcfg := validLabelPrefixes
+
+	allNormalLabels := map[string]string{
+		"kind":    "foo", // matches "kind$" (anchored) as a regexp
+		"fooXbar": "foo", // matches "foo.bar"
+		"kindly":  "foo", // does NOT match "kind$" because it is anchored to the end
+		"other":   "foo", // does NOT match anything
+	}
+	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceK8s)
+	allLabels["host"] = labels.NewLabel("host", "", labels.LabelSourceReserved)
+
+	wanted := labels.Labels{
+		"kind":    labels.NewLabel("kind", "foo", labels.LabelSourceK8s),
+		"fooXbar": labels.NewLabel("fooXbar", "foo", labels.LabelSourceK8s),
+		"host":    labels.NewLabel("host", "", labels.LabelSourceReserved),
+	}
+
+	filtered, _ := dlpcfg.filterLabels(allLabels)
+	require.Equal(t, wanted, filtered)
+}
+
+func TestReadLabelPrefixCfgInvalidRegex(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	// An unparseable regexp in the prefix field must surface as an error
+	// rather than silently falling back to literal matching.
+	fileContents := `{
+		"version": 1,
+		"valid-prefixes": [
+			{"source": "reserved", "prefix": ".*"},
+			{"source": "k8s", "prefix": "foo["}
+		]
+	}`
+	file := filepath.Join(t.TempDir(), "label-prefix.json")
+	require.NoError(t, os.WriteFile(file, []byte(fileContents), 0o644))
+
+	err := ParseLabelPrefixCfg(logger, []string{}, []string{}, file)
+	require.Error(t, err)
 }
 
 func TestFilterLabelsByRegex(t *testing.T) {

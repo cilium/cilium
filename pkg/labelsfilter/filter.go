@@ -287,6 +287,16 @@ func readLabelPrefixCfgFrom(fileName string) (*labelPrefixCfg, error) {
 		if lp.Source == "" {
 			return nil, fmt.Errorf("invalid label prefix file: source was empty")
 		}
+		// Compile the prefix into a regular expression so that file-loaded
+		// prefixes are matched with the same regexp semantics as prefixes
+		// provided on the command line (see parseLabelPrefix). Without this,
+		// the unexported expr field stays nil and matches() falls back to
+		// literal strings.HasPrefix matching.
+		r, err := regexp.Compile(lp.Prefix)
+		if err != nil {
+			return nil, fmt.Errorf("invalid label prefix file: unable to compile regexp %q: %w", lp.Prefix, err)
+		}
+		lp.expr = r
 		if !lp.Ignore {
 			lpc.whitelist = true
 		}
