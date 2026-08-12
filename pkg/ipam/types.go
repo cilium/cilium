@@ -4,8 +4,10 @@
 package ipam
 
 import (
+	"context"
 	"log/slog"
 	"net/netip"
+	"sync"
 
 	"github.com/davecgh/go-spew/spew"
 
@@ -146,6 +148,9 @@ type IPAM struct {
 	// cloudProviders holds the registered cloud providers, keyed by the IPAM
 	// mode each one handles.
 	cloudProviders map[string]CloudProvider
+
+	restoreFinished     chan struct{}
+	restoreFinishedOnce sync.Once
 }
 
 func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}
@@ -174,6 +179,18 @@ func (ipam *IPAM) RestoreFinished() {
 	}
 	if ipam.config.EnableIPv4 {
 		ipam.ipv4Allocator.RestoreFinished()
+	}
+	ipam.restoreFinishedOnce.Do(func() { close(ipam.restoreFinished) })
+}
+
+// WaitForRestoreFinished waits until IPAM has restored endpoint allocations and
+// the agent has allocated its infrastructure addresses.
+func (ipam *IPAM) WaitForRestoreFinished(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ipam.restoreFinished:
+		return nil
 	}
 }
 
