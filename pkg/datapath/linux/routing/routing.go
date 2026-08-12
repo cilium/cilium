@@ -323,6 +323,66 @@ func DeleteRulesIfExists(logger *slog.Logger, ip netip.Addr) error {
 	return errors.Join(errs...)
 }
 
+// GCOrphanRules removes Cilium endpoint policy-routing rules left behind when
+// endpoint teardown was missed or interrupted, for example by a CNI or agent
+// crash. A recognized rule is removed only when shouldCollect confirms that
+// its endpoint address is no longer in use.
+func GCOrphanRules(logger *slog.Logger, shouldCollect func(netip.Addr) bool) error {
+	if shouldCollect == nil {
+		return errors.New("orphan rule collection predicate must not be nil")
+	}
+
+	var errs []error
+	for _, family := range []int{netlink.FAMILY_V4, netlink.FAMILY_V6} {
+		rules, err := route.ListRules(family, nil)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		for _, rule := range rules {
+			var network *net.IPNet
+
+			switch {
+			// Cilium endpoint ingress rules in the main table.
+			case isCiliumEndpointIngressRule(rule):
+				network = rule.Dst
+			// Cilium endpoint egress rules from current and legacy schemes.
+			case isCiliumEndpointEgressRule(rule):
+				network = rule.Src
+			}
+			if network == nil {
+				continue
+			}
+
+			prefix, ok := netipx.FromStdIPNet(network)
+			// Endpoint rules select one pod IP; preserve subnet-wide prefixes.
+			if !ok || prefix.Bits() != prefix.Addr().BitLen() {
+				continue
+			}
+			addr := prefix.Addr()
+
+			if !shouldCollect(addr) {
+				continue
+			}
+
+			deleted, err := deleteRuleIfExists(&rule)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("delete orphan rule for %s: %w", addr, err))
+				continue
+			}
+
+			if deleted {
+				logger.Info("Deleted orphan endpoint routing rule",
+					logfields.Rule, rule,
+					logfields.IPAddr, addr,
+				)
+			}
+		}
+	}
+	return errors.Join(errs...)
+}
+
 func isCiliumEndpointIngressRule(rule netlink.Rule) bool {
 	return rule.Dst != nil &&
 		rule.Priority == linux_defaults.RulePriorityIngress &&

@@ -442,6 +442,145 @@ func TestPrivilegedDeleteRuleIfExists(t *testing.T) {
 	})
 }
 
+func TestPrivilegedGCOrphanRules(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
+		orphan := netip.MustParseAddr("192.0.2.10")
+		inUse := netip.MustParseAddr("192.0.2.11")
+		_, subnet, err := net.ParseCIDR("198.51.100.0/24")
+		require.NoError(t, err)
+
+		// rules that should be preserved after GCOrphanRules is called, even if they match the orphan IP
+		preservedRules := []route.Rule{
+			{
+				Priority: linux_defaults.RulePriorityEgressv2,
+				From:     subnet,
+				Table:    linux_defaults.RouteTableInterfacesOffset + 2,
+				Protocol: linux_defaults.RTProto,
+			},
+			{
+				Priority: linux_defaults.RulePriorityEgressv2,
+				From:     netipx.AddrIPNet(netip.MustParseAddr("192.0.2.20")),
+				Table:    route.MainTable,
+				Protocol: linux_defaults.RTProto,
+			},
+			{
+				Priority: linux_defaults.RulePriorityEgressv2,
+				From:     netipx.AddrIPNet(netip.MustParseAddr("192.0.2.21")),
+				Table:    linux_defaults.RouteTableInterfacesOffset + 2,
+				Mark:     1,
+				Protocol: linux_defaults.RTProto,
+			},
+			{
+				Priority: linux_defaults.RulePriorityIngress,
+				To:       netipx.AddrIPNet(netip.MustParseAddr("192.0.2.22")),
+				Table:    route.MainTable,
+				Mask:     0xff,
+				Protocol: linux_defaults.RTProto,
+			},
+			{
+				Priority: linux_defaults.RulePriorityEgressv2,
+				From:     netipx.AddrIPNet(netip.MustParseAddr("192.0.2.23")),
+				Table:    linux_defaults.RouteTableInterfacesOffset + 2,
+				Mask:     0xff,
+				Protocol: linux_defaults.RTProto,
+			},
+			{
+				Priority: linux_defaults.RulePriorityEgress,
+				From:     netipx.AddrIPNet(netip.MustParseAddr("192.0.2.24")),
+				Table:    300,
+				Mask:     0xff,
+				Protocol: linux_defaults.RTProto,
+			},
+		}
+
+		// create rules for both the orphan and in-use IPs
+		for _, addr := range []netip.Addr{orphan, inUse} {
+			require.NoError(t, route.ReplaceRule(route.Rule{
+				Priority: linux_defaults.RulePriorityIngress,
+				To:       netipx.AddrIPNet(addr),
+				Table:    route.MainTable,
+				Protocol: linux_defaults.RTProto,
+			}))
+			require.NoError(t, route.ReplaceRule(route.Rule{
+				Priority: linux_defaults.RulePriorityEgressv2,
+				From:     netipx.AddrIPNet(addr),
+				Table:    linux_defaults.RouteTableInterfacesOffset + 1,
+				Protocol: linux_defaults.RTProto,
+			}))
+			require.NoError(t, route.ReplaceRule(route.Rule{
+				Priority: linux_defaults.RulePriorityEgress,
+				From:     netipx.AddrIPNet(addr),
+				Table:    300,
+				Protocol: linux_defaults.RTProto,
+			}))
+		}
+		for _, rule := range preservedRules {
+			require.NoError(t, route.ReplaceRule(rule))
+		}
+
+		err = GCOrphanRules(hivetest.Logger(t), func(addr netip.Addr) bool {
+			return addr != inUse
+		})
+		require.NoError(t, err)
+
+		// verify that the rules for the orphan IP have been deleted, and the rules for the in-use IP remain
+		orphanIngressRules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{
+			Priority: linux_defaults.RulePriorityIngress,
+			To:       netipx.AddrIPNet(orphan),
+			Table:    route.MainTable,
+		})
+		require.NoError(t, err)
+		require.Empty(t, orphanIngressRules)
+
+		orphanEgressRules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{
+			Priority: linux_defaults.RulePriorityEgressv2,
+			From:     netipx.AddrIPNet(orphan),
+		})
+		require.NoError(t, err)
+		require.Empty(t, orphanEgressRules)
+
+		orphanLegacyEgressRules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{
+			Priority: linux_defaults.RulePriorityEgress,
+			From:     netipx.AddrIPNet(orphan),
+		})
+		require.NoError(t, err)
+		require.Empty(t, orphanLegacyEgressRules)
+
+		inUseIngressRules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{
+			Priority: linux_defaults.RulePriorityIngress,
+			To:       netipx.AddrIPNet(inUse),
+			Table:    route.MainTable,
+		})
+		require.NoError(t, err)
+		require.Len(t, inUseIngressRules, 1)
+
+		inUseEgressRules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{
+			Priority: linux_defaults.RulePriorityEgressv2,
+			From:     netipx.AddrIPNet(inUse),
+		})
+		require.NoError(t, err)
+		require.Len(t, inUseEgressRules, 1)
+
+		inUseLegacyEgressRules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{
+			Priority: linux_defaults.RulePriorityEgress,
+			From:     netipx.AddrIPNet(inUse),
+		})
+		require.NoError(t, err)
+		require.Len(t, inUseLegacyEgressRules, 1)
+
+		// verify that the preserved rules are still present
+		for _, rule := range preservedRules {
+			rules, err := route.ListRules(netlink.FAMILY_V4, &rule)
+			require.NoError(t, err)
+			require.Len(t, rules, 1)
+		}
+		return nil
+	})
+}
+
 func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr) {
 	// Create rules and routes
 	beforeCreationRules, beforeCreationRoutes := listRulesAndRoutes(t, netlink.FAMILY_V4)
