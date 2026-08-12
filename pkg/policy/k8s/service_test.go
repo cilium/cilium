@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"cmp"
+	"maps"
 	"net/netip"
 	"slices"
 	"testing"
@@ -16,8 +17,11 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -1211,6 +1215,30 @@ func TestServiceEventStream(t *testing.T) {
 	}
 }
 
+func TestServiceEventStreamPortNames(t *testing.T) {
+	sf := newServicesFixture(t)
+	serviceEvents := stream.ToChannel(t.Context(), serviceEventStream(sf.db, sf.services, sf.backends))
+
+	svc := loadbalancer.NewServiceName("test", "svc1")
+	upsert := func(portNames map[string]uint16) {
+		wtxn := sf.db.WriteTxn(sf.services)
+		sf.services.Insert(wtxn, &loadbalancer.Service{Name: svc, PortNames: portNames})
+		wtxn.Commit()
+	}
+
+	upsert(map[string]uint16{"dns": 53})
+	ev := <-serviceEvents
+	require.Equal(t, map[string]uint16{"dns": 53}, ev.portNames)
+
+	// Changing only the service ports emits an event, since it can change the
+	// translation of service ports to backend ports.
+	upsert(map[string]uint16{"dns": 5353})
+	ev = <-serviceEvents
+	require.Equal(t, map[string]uint16{"dns": 5353}, ev.portNames)
+	require.NotNil(t, ev.previous)
+	require.Equal(t, map[string]uint16{"dns": 53}, ev.previous.portNames)
+}
+
 func TestServiceSelectorMatches(t *testing.T) {
 	testSvc := func(lbls map[string]string, source string) serviceDetailer {
 		return serviceEvent{
@@ -1357,4 +1385,156 @@ func TestServiceSelectorMatches(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPolicyWatcher_updateDNSServerServicePolicies(t *testing.T) {
+	servicesFixture := newServicesFixture(t)
+
+	dnsSvcID := loadbalancer.NewServiceName("kube-system", "kube-dns")
+	dnsSvcLabels := map[string]string{"k8s-app": "kube-dns"}
+
+	policyAdd := make(chan policytypes.PolicyEntries, 10)
+	importer := &fakePolicyImporter{
+		OnUpdatePolicy: func(upd *policytypes.PolicyUpdate) {
+			policyAdd <- upd.Rules
+		},
+	}
+
+	p := &policyWatcher{
+		log: hivetest.Logger(t),
+		fqdnPolicyDNSServerConfig: fqdnconfig.FQDNPolicyDNSServerConfig{
+			FQDNPolicyDNSServerService: "kube-system/kube-dns",
+			FQDNPolicyDNSServerPorts:   []string{"53"},
+		},
+		policyImporter:     importer,
+		k8sResourceSynced:  &k8sSynced.Resources{},
+		db:                 servicesFixture.db,
+		services:           servicesFixture.services,
+		backends:           servicesFixture.backends,
+		fqdnKCNPs:          make(map[resource.Key]*policyv1alpha2.ClusterNetworkPolicy),
+		cnpCache:           make(map[resource.Key]*types.SlimCNP),
+		toServicesPolicies: make(map[resource.Key]struct{}),
+		cnpByServiceID:     make(map[loadbalancer.ServiceName]map[resource.Key]struct{}),
+	}
+
+	// Add KCNP with FQDN egress rule
+	kcnp := &policyv1alpha2.ClusterNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kcnp-fqdn-test",
+		},
+		Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+			Priority: 10,
+			Subject: policyv1alpha2.ClusterNetworkPolicySubject{
+				Namespaces: &metav1.LabelSelector{},
+			},
+			Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{
+				{
+					Action: policyv1alpha2.ClusterNetworkPolicyRuleActionAccept,
+					To: []policyv1alpha2.ClusterNetworkPolicyEgressPeer{
+						{
+							DomainNames: []policyv1alpha2.DomainName{"example.com"},
+						},
+					},
+				},
+			},
+		},
+	}
+	// KCNP without domainNames peers, which must not be recomputed on DNS changes.
+	plainKCNP := &policyv1alpha2.ClusterNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kcnp-plain-test",
+		},
+		Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+			Priority: 20,
+			Subject: policyv1alpha2.ClusterNetworkPolicySubject{
+				Namespaces: &metav1.LabelSelector{},
+			},
+			Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{
+				{
+					Action: policyv1alpha2.ClusterNetworkPolicyRuleActionAccept,
+					To: []policyv1alpha2.ClusterNetworkPolicyEgressPeer{
+						{Namespaces: &metav1.LabelSelector{}},
+					},
+				},
+			},
+		},
+	}
+	for _, k := range []*policyv1alpha2.ClusterNetworkPolicy{kcnp, plainKCNP} {
+		require.NoError(t, p.addK8sClusterNetworkPolicy(k, k8sAPIGroupPolicyNetworkingV1Alpha2, nil, ""))
+		<-policyAdd
+	}
+	require.Equal(t, []resource.Key{{Name: kcnp.Name}}, slices.Collect(maps.Keys(p.fqdnKCNPs)))
+
+	// upsertDNSService upserts the kube-dns service with pod selector, where
+	// service port 53 is served by a backend on backendPort.
+	upsertDNSService := func(backendAddr string, backendPort uint16) serviceEvent {
+		wtxn := servicesFixture.db.WriteTxn(servicesFixture.services, servicesFixture.backends)
+		defer wtxn.Commit()
+		servicesFixture.services.Insert(wtxn, &loadbalancer.Service{
+			Name:      dnsSvcID,
+			Selector:  dnsSvcLabels,
+			PortNames: map[string]uint16{"dns": 53},
+		})
+		bes, _ := loadbalancer.ListBackendsByServiceName(wtxn, servicesFixture.backends, dnsSvcID)
+		for be := range bes {
+			servicesFixture.backends.Delete(wtxn, be)
+		}
+		servicesFixture.backends.Insert(wtxn, &loadbalancer.Backend{
+			ServiceName: dnsSvcID,
+			Address:     loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.MustParseAddrCluster(backendAddr), backendPort, loadbalancer.ScopeExternal),
+			PortNames:   []string{"dns"},
+			Source:      source.Kubernetes,
+		})
+		return serviceEvent{name: dnsSvcID, selector: dnsSvcLabels}
+	}
+
+	expectedL3 := policytypes.ToSelectors(api.NewESFromLabels(
+		labels.NewLabel("k8s-app", "kube-dns", labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PodNamespaceLabel, "kube-system", labels.LabelSourceK8s),
+	))
+	expectUpdate := func(backendPort string) {
+		t.Helper()
+		select {
+		case rules := <-policyAdd:
+			require.Len(t, rules, 2)
+			// rules[0] is the DNS egress policy entry resolved via serviceResolver
+			require.Equal(t, expectedL3, rules[0].L3)
+			require.Equal(t, []api.PortProtocol{{Port: backendPort, Protocol: api.ProtoUDP}}, rules[0].L4[0].Ports)
+		default:
+			t.Fatalf("Expected policy update after DNS service event, but none received")
+		}
+	}
+
+	// Initial event computes the policy with the backend port.
+	require.NoError(t, p.updateDNSServerServicePolicies(upsertDNSService("10.0.0.1", 1053)))
+	expectUpdate("1053")
+
+	// A new backend IP on the same port does not change the policy.
+	require.NoError(t, p.updateDNSServerServicePolicies(upsertDNSService("10.0.0.2", 1053)))
+	require.Empty(t, policyAdd)
+
+	// A backend port change recomputes the policy.
+	require.NoError(t, p.updateDNSServerServicePolicies(upsertDNSService("10.0.0.2", 2053)))
+	expectUpdate("2053")
+	require.Empty(t, policyAdd)
+
+	// A failed recompute leaves the cache unset, so that the next event retries.
+	// The KCNP fails to parse since node selector labels are disabled.
+	oldNodeSelectorLabels := option.Config.EnableNodeSelectorLabels
+	option.Config.EnableNodeSelectorLabels = false
+	t.Cleanup(func() { option.Config.EnableNodeSelectorLabels = oldNodeSelectorLabels })
+	failingKCNP := kcnp.DeepCopy()
+	failingKCNP.Name = "kcnp-failing-test"
+	failingKCNP.Spec.Egress[0].To = append(failingKCNP.Spec.Egress[0].To,
+		policyv1alpha2.ClusterNetworkPolicyEgressPeer{Nodes: &metav1.LabelSelector{}})
+	failingKey := resource.Key{Name: failingKCNP.Name}
+	p.fqdnKCNPs[failingKey] = failingKCNP
+	require.Error(t, p.updateDNSServerServicePolicies(upsertDNSService("10.0.0.2", 3053)))
+	require.Nil(t, p.dnsServerBackends)
+	expectUpdate("3053")
+
+	delete(p.fqdnKCNPs, failingKey)
+	require.NoError(t, p.updateDNSServerServicePolicies(upsertDNSService("10.0.0.2", 3053)))
+	expectUpdate("3053")
+	require.NotNil(t, p.dnsServerBackends)
 }

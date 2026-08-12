@@ -36,6 +36,9 @@ type policyWatcher struct {
 	clusterInfo               cmtypes.ClusterInfo
 	clusterMeshPolicyConfig   cmtypes.PolicyConfig
 	fqdnPolicyDNSServerConfig fqdnconfig.FQDNPolicyDNSServerConfig
+	// dnsServerBackends caches the backends of the FQDN policy DNS server service
+	// that the policies in fqdnKCNPs were last computed with. Nil forces a recompute.
+	dnsServerBackends *fqdnconfig.ServiceBackends
 
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
@@ -70,6 +73,10 @@ type policyWatcher struct {
 	// The cache contains CNPs and CCNPs in their "original form"
 	// (i.e: pre-translation of each CIDRGroupRef to a CIDRSet).
 	cnpCache map[resource.Key]*types.SlimCNP
+
+	// fqdnKCNPs holds the ClusterNetworkPolicies with domainNames peers. Their DNS
+	// rules depend on the DNS server service, so they are recomputed when it changes.
+	fqdnKCNPs map[resource.Key]*policyv1alpha2.ClusterNetworkPolicy
 
 	cidrGroupCache map[string]*cilium_v2.CiliumCIDRGroup
 

@@ -6,6 +6,7 @@ package k8s
 import (
 	"cmp"
 	"context"
+	"errors"
 	"maps"
 	"net/netip"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"github.com/cilium/stream"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -45,10 +47,13 @@ import (
 // serviceEvent captures the relevant description of a change to a service.
 // This is used to find matching CNPs and trigger recomputation if needed.
 type serviceEvent struct {
-	deleted          bool
-	name             loadbalancer.ServiceName
-	labels           labels.Labels
-	selector         map[string]string
+	deleted  bool
+	name     loadbalancer.ServiceName
+	labels   labels.Labels
+	selector map[string]string
+	// portNames maps the service port names to the service ports. A change to the
+	// service ports can change the DNS server rules without changing the backends.
+	portNames        map[string]uint16
 	backendRevisions []statedb.Revision
 	previous         *serviceEvent
 }
@@ -58,7 +63,8 @@ func (s serviceEvent) Equal(other serviceEvent) bool {
 		s.name.Equal(other.name) &&
 		s.labels.Equals(other.labels) &&
 		slices.Equal(s.backendRevisions, other.backendRevisions) &&
-		maps.Equal(s.selector, other.selector)
+		maps.Equal(s.selector, other.selector) &&
+		maps.Equal(s.portNames, other.portNames)
 }
 
 func (s serviceEvent) getLabels() labels.Labels { return s.labels }
@@ -127,6 +133,7 @@ func serviceEventStream(db *statedb.DB, services statedb.Table[*loadbalancer.Ser
 						newEvent.name = svc.Name
 						newEvent.labels = svc.Labels
 						newEvent.selector = svc.Selector
+						newEvent.portNames = svc.PortNames
 						bes, _ := loadbalancer.ListBackendsByServiceName(txn, backends, name)
 						preferred := loadbalancer.PreferredBackendsByAddress(bes)
 						for _, rev := range preferred {
@@ -169,6 +176,13 @@ func serviceEventStream(db *statedb.DB, services statedb.Table[*loadbalancer.Ser
 // recalculates all policies affected by this change.
 func (p *policyWatcher) onServiceEvent(event serviceEvent) {
 	p.updateToServicesPolicies(event)
+	if err := p.updateDNSServerServicePolicies(event); err != nil {
+		p.log.Warn(
+			"Failed to recalculate policy rules after service event",
+			logfields.Error, err,
+			logfields.Event, event,
+		)
+	}
 }
 
 // serviceResolver returns the backends of the given service. servicePorts are
@@ -230,6 +244,50 @@ func (p *policyWatcher) serviceResolver(namespace, name string, servicePorts []u
 		out.IPs = slices.Sorted(maps.Keys(ips))
 	}
 	return out
+}
+
+func matchesServiceRef(svcName loadbalancer.ServiceName, targetNs, targetName string) bool {
+	return svcName.Name() == targetName && svcName.Namespace() == targetNs
+}
+
+// updateDNSServerServicePolicies recomputes the ClusterNetworkPolicies with
+// domainNames peers when the resolved backends of the DNS server service change.
+func (p *policyWatcher) updateDNSServerServicePolicies(ev serviceEvent) error {
+	if p.fqdnPolicyDNSServerConfig.FQDNPolicyDNSServerService == "" {
+		return nil
+	}
+
+	ns, name, err := fqdnconfig.ParseServiceRef(p.fqdnPolicyDNSServerConfig.FQDNPolicyDNSServerService)
+	if err != nil {
+		return err
+	}
+	if !matchesServiceRef(ev.name, ns, name) && (ev.previous == nil || !matchesServiceRef(ev.previous.name, ns, name)) {
+		return nil
+	}
+
+	// Only recompute policies if the resolved selector, IPs or ports changed.
+	// Backend churn without such changes, e.g. DNS pod restarts, does not affect policy.
+	ports, err := p.fqdnPolicyDNSServerConfig.Ports()
+	if err != nil {
+		return err
+	}
+	backends := p.serviceResolver(ns, name, ports)
+	if p.dnsServerBackends != nil && p.dnsServerBackends.Equal(backends) {
+		return nil
+	}
+
+	clusterName := cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.clusterInfo.Name)
+	var errs []error
+	for _, kcnp := range p.fqdnKCNPs {
+		errs = append(errs, p.addK8sClusterNetworkPolicy(kcnp, k8sAPIGroupPolicyNetworkingV1Alpha2, nil, clusterName))
+	}
+	if err := errors.Join(errs...); err != nil {
+		// Leave the cache unset, so that the next event retries.
+		p.dnsServerBackends = nil
+		return err
+	}
+	p.dnsServerBackends = &backends
+	return nil
 }
 
 // updateToServicesPolicies is to be invoked when a service has changed (i.e. it was

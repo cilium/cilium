@@ -111,6 +111,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		clusterNetworkPolicies:           params.ClusterNetworkPolicies,
 
 		cnpCache:       make(map[resource.Key]*types.SlimCNP),
+		fqdnKCNPs:      make(map[resource.Key]*policyv1alpha2.ClusterNetworkPolicy),
 		cidrGroupCache: make(map[string]*cilium_v2.CiliumCIDRGroup),
 		cidrGroupCIDRs: make(map[string]sets.Set[netip.Prefix]),
 
@@ -119,8 +120,8 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		metricsManager:     params.MetricsManager,
 	}
 
-	// Service notifications are not used if CNPs/CCNPs are disabled.
-	if params.Config.EnableCiliumNetworkPolicy || params.Config.EnableCiliumClusterwideNetworkPolicy {
+	// Service notifications are used if CNPs/CCNPs or the FQDN policy DNS server service are enabled.
+	if params.Config.EnableCiliumNetworkPolicy || params.Config.EnableCiliumClusterwideNetworkPolicy || params.FQDNPolicyDNSServerConfig.FQDNPolicyDNSServerService != "" {
 		p.serviceEvents = serviceEventStream(params.DB, params.Services, params.Backends)
 	}
 
