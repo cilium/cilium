@@ -229,6 +229,9 @@ cilium-agent [flags]
       --exclude-node-label-patterns strings                       List of k8s node label regex patterns to be excluded from CiliumNode
       --external-envoy-proxy                                      whether the Envoy is deployed externally in form of a DaemonSet or not
       --force-device-detection                                    Forces the auto-detection of devices, even if specific devices are explicitly listed
+      --fqdn-policy-dns-server-ips strings                        Comma-separated list of IP addresses of DNS servers for FQDN policy resolution
+      --fqdn-policy-dns-server-port int                           Port of DNS server pods for FQDN policy resolution (default 53)
+      --fqdn-policy-dns-server-service string                     K8s service (namespace/name) of DNS servers for FQDN policy resolution
       --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
       --health-check-icmp-failure-threshold int                   Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy. (default 3)
