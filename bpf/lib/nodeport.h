@@ -671,7 +671,7 @@ static __always_inline int dsr_reply_icmp6(
 		    &dport, sizeof(dport), 0) < 0)
 		goto drop_err;
 
-	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+	return redirect_self(ctx);
 drop_err:
 #   endif
 	return send_drop_notify_error(ctx, UNKNOWN_ID, code, METRIC_EGRESS);
@@ -2042,7 +2042,7 @@ static __always_inline int dsr_reply_icmp4(
 		    &dport, sizeof(dport), 0) < 0)
 		goto drop_err;
 
-	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+	return redirect_self(ctx);
 drop_err:
 #   endif
 	return send_drop_notify_error(ctx, UNKNOWN_ID, code, METRIC_EGRESS);
