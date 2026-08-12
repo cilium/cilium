@@ -132,7 +132,7 @@ func TestPrivilegedDelete(t *testing.T) {
 				runConfigure(t, fakeRoutingInfo, fakeIP)
 				return ip
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "IP addr matches multiple rules",
@@ -319,6 +319,112 @@ func TestIsCiliumEndpointEgressRule(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.want, isCiliumEndpointEgressRule(tt.rule))
+		})
+	}
+}
+
+func TestPrivilegedReconcileObsoleteRules(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
+	for _, ipamMode := range []string{
+		ipamOption.IPAMENI,
+		ipamOption.IPAMAzure,
+		ipamOption.IPAMAlibabaCloud,
+	} {
+		t.Run(ipamMode, func(t *testing.T) {
+			ns := netns.NewNetNS(t)
+			ns.Do(func() error {
+				ip, routingInfo := getFakes(t, ipamMode, true, false)
+				ifaceCleanup := createDummyDevice(t, routingInfo.MasterIfMAC)
+				defer ifaceCleanup()
+
+				link, err := retrieveLinkFromMAC(routingInfo.MasterIfMAC)
+				require.NoError(t, err)
+				ifindex := link.Attrs().Index
+
+				requireLinkUnchanged := func() {}
+				if ipamMode == ipamOption.IPAMENI {
+					require.NoError(t, netlink.LinkSetMTU(link, 1400))
+					require.NoError(t, netlink.LinkSetUp(link))
+					requireLinkUnchanged = func() {
+						link, err := netlink.LinkByIndex(ifindex)
+						require.NoError(t, err)
+						require.Equal(t, 1400, link.Attrs().MTU)
+						require.NotZero(t, link.Attrs().Flags&net.FlagUp)
+					}
+				}
+
+				desiredPriority := linux_defaults.RulePriorityEgressv2
+				desiredTable := linux_defaults.RouteTableInterfacesOffset + routingInfo.InterfaceNumber
+				obsoleteSameSchemeTable := desiredTable + 1
+				obsoleteOtherPriority := linux_defaults.RulePriorityEgress
+				obsoleteOtherSchemeTable := 100
+				if routingInfo.useCompatEgressPriority() {
+					desiredPriority = linux_defaults.RulePriorityEgress
+					desiredTable = ifindex
+					obsoleteSameSchemeTable = 100
+					obsoleteOtherPriority = linux_defaults.RulePriorityEgressv2
+					obsoleteOtherSchemeTable = linux_defaults.RouteTableInterfacesOffset + routingInfo.InterfaceNumber
+				}
+
+				_, legacyDestination, err := net.ParseCIDR("10.0.0.0/8")
+				require.NoError(t, err)
+				for _, rule := range []route.Rule{
+					{
+						Priority: desiredPriority,
+						From:     netipx.AddrIPNet(ip),
+						To:       legacyDestination,
+						Table:    desiredTable,
+						Protocol: linux_defaults.RTProto,
+					},
+					{
+						Priority: desiredPriority,
+						From:     netipx.AddrIPNet(ip),
+						Table:    obsoleteSameSchemeTable,
+						Protocol: linux_defaults.RTProto,
+					},
+					{
+						Priority: obsoleteOtherPriority,
+						From:     netipx.AddrIPNet(ip),
+						Table:    obsoleteOtherSchemeTable,
+						Protocol: linux_defaults.RTProto,
+					},
+				} {
+					require.NoError(t, route.ReplaceRule(rule))
+				}
+
+				// Configure is the additive CNI path. Obsolete rules are left for the
+				// agent-side StateDB reconciler.
+				require.NoError(t, routingInfo.Configure(ip, false))
+				requireLinkUnchanged()
+				rules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{
+					From: netipx.AddrIPNet(ip),
+				})
+				require.NoError(t, err)
+				require.Len(t, rules, 3)
+
+				requireDesiredRule := func() {
+					rules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{
+						From: netipx.AddrIPNet(ip),
+					})
+					require.NoError(t, err)
+					require.Len(t, rules, 1)
+					require.Equal(t, desiredPriority, rules[0].Priority)
+					require.Equal(t, desiredTable, rules[0].Table)
+					require.Nil(t, rules[0].Dst)
+					require.Equal(t, uint8(linux_defaults.RTProto), rules[0].Protocol)
+				}
+
+				// The first pass must replace destination-scoped legacy rules with
+				// the unconditional desired rule. The second verifies idempotency.
+				require.NoError(t, routingInfo.ReconcileEndpointRules(ip, false))
+				requireLinkUnchanged()
+				requireDesiredRule()
+
+				require.NoError(t, routingInfo.ReconcileEndpointRules(ip, false))
+				requireDesiredRule()
+				return nil
+			})
 		})
 	}
 }
@@ -606,7 +712,12 @@ func getFakes(t *testing.T, ipamMode string, masquerade bool, withZeroCIDR bool)
 		options = append(options, WithCompatEgressPriority())
 	}
 
-	fakeRoutingInfo, err := NewRoutingInfo(fakeGateway, fakeMAC, "1", options...)
+	fakeRoutingInfo, err := NewRoutingInfo(
+		fakeGateway,
+		fakeMAC,
+		"1",
+		options...,
+	)
 
 	require.NoError(t, err)
 	require.NotNil(t, fakeRoutingInfo)

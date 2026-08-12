@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+var errEgressRuleConflict = errors.New("egress rule conflicts with an existing rule")
+
 // useCompatEgressPriority determines whether to use the new or old style egress rule.
 func (info *RoutingInfo) useCompatEgressPriority() bool {
 	return info.compatEgressPriority
@@ -37,13 +39,65 @@ func (info *RoutingInfo) useCompatEgressPriority() bool {
 // info: The interface routing info used to create rules and routes.
 // host: Whether the IP is a host IP and needs to be routed via the 'local' table
 func (info *RoutingInfo) Configure(ip netip.Addr, host bool) error {
-	if !ip.IsValid() {
-		return fmt.Errorf("unable to install endpoint rules: invalid endpoint IP address %s", ip)
+	_, _, err := info.installEndpointRules(ip, host)
+	if errors.Is(err, errEgressRuleConflict) {
+		// Leave the stale rule for the reconciler to delete before it installs the
+		// new unconditional rule.
+		return nil
+	}
+	return err
+}
+
+// ReconcileEndpointRules installs the desired routes and ingress rule for ip,
+// removes obsolete Cilium egress rules for the same source address, then ensures
+// that the desired unconditional egress rule is installed.
+func (info *RoutingInfo) ReconcileEndpointRules(ip netip.Addr, host bool) error {
+	egressPriority, tableID, err := info.installEndpointRules(ip, host)
+	if err != nil && !errors.Is(err, errEgressRuleConflict) {
+		return err
 	}
 
-	ifindex, err := info.prepareInterface()
+	if err := deleteObsoleteEgressRules(ip, egressPriority, tableID); err != nil {
+		return fmt.Errorf("unable to remove obsolete egress rules: %w", err)
+	}
+
+	_, _, err = info.installEndpointRules(ip, host)
+	return err
+}
+
+func (info *RoutingInfo) installEndpointRules(ip netip.Addr, host bool) (egressPriority, tableID int, err error) {
+	return info.doInstallEndpointRules(ip, host, func() (int, error) {
+		return info.prepareInterface()
+	})
+}
+
+func (info *RoutingInfo) doInstallEndpointRules(
+	ip netip.Addr,
+	host bool,
+	interfaceIndex func() (int, error),
+) (egressPriority, tableID int, err error) {
+	if !ip.IsValid() {
+		return 0, 0, fmt.Errorf("unable to install endpoint rules: invalid endpoint IP address %s", ip)
+	}
+
+	ifindex, err := interfaceIndex()
 	if err != nil {
-		return fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
+		return 0, 0, fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
+	}
+
+	var ifaceNum int
+	if info.useCompatEgressPriority() {
+		egressPriority = linux_defaults.RulePriorityEgress
+		ifaceNum = ifindex
+	} else {
+		egressPriority = linux_defaults.RulePriorityEgressv2
+		ifaceNum = info.InterfaceNumber
+	}
+	tableID = computeTableIDFromIfaceNumber(info.useCompatEgressPriority(), ifaceNum)
+
+	// Make the desired table usable before directing any new traffic to it.
+	if err := info.installRoutes(ifindex, tableID); err != nil {
+		return 0, 0, err
 	}
 
 	ipWithMask := netipx.AddrIPNet(ip)
@@ -67,19 +121,9 @@ func (info *RoutingInfo) Configure(ip netip.Addr, host bool) error {
 			Table:    route.MainTable,
 			Protocol: linux_defaults.RTProto,
 		}); err != nil {
-			return fmt.Errorf("unable to install ip rule: %w", err)
+			return 0, 0, fmt.Errorf("unable to install ip rule: %w", err)
 		}
 	}
-
-	var egressPriority, ifaceNum, tableID int
-	if info.useCompatEgressPriority() {
-		egressPriority = linux_defaults.RulePriorityEgress
-		ifaceNum = ifindex
-	} else {
-		egressPriority = linux_defaults.RulePriorityEgressv2
-		ifaceNum = info.InterfaceNumber
-	}
-	tableID = computeTableIDFromIfaceNumber(info.useCompatEgressPriority(), ifaceNum)
 
 	// Install an unconditional rule so all traffic from the endpoint
 	// (including external/internet traffic) is routed through the correct ENI.
@@ -93,10 +137,50 @@ func (info *RoutingInfo) Configure(ip netip.Addr, host bool) error {
 		Table:    tableID,
 		Protocol: linux_defaults.RTProto,
 	}); err != nil {
-		return fmt.Errorf("unable to install ip rule: %w", err)
+		// Linux treats an omitted destination selector as a wildcard when checking
+		// for duplicate rules. The new unconditional rule may therefore be rejected
+		// with EEXIST while a stale destination-scoped rule is still installed.
+		if errors.Is(err, unix.EEXIST) {
+			return egressPriority, tableID, fmt.Errorf("%w: %w", errEgressRuleConflict, err)
+		}
+		return 0, 0, fmt.Errorf("unable to install ip rule: %w", err)
 	}
 
-	return info.installRoutes(ifindex, tableID)
+	return egressPriority, tableID, nil
+}
+
+func deleteObsoleteEgressRules(ip netip.Addr, desiredPriority, desiredTable int) error {
+	family := netlink.FAMILY_V6
+	if ip.Is4() {
+		family = netlink.FAMILY_V4
+	}
+
+	rules, err := route.ListRules(family, &route.Rule{
+		From: netipx.AddrIPNet(ip),
+	})
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, rule := range rules {
+		// Ignore rules outside the two Cilium endpoint-egress schemes.
+		if !isCiliumEndpointEgressRule(rule) {
+			continue
+		}
+		// Preserve the desired unconditional rule installed for this endpoint.
+		if rule.Priority == desiredPriority &&
+			rule.Table == desiredTable &&
+			rule.Dst == nil {
+			continue
+		}
+
+		_, err := deleteRuleIfExists(&rule)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (info *RoutingInfo) ReconcileGatewayRoutes(rx statedb.ReadTxn, routes statedb.Table[*tables.Route]) (*statedb.WatchSet, error) {
