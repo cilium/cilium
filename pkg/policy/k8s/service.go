@@ -4,16 +4,19 @@
 package k8s
 
 import (
+	"cmp"
 	"context"
 	"maps"
 	"net/netip"
 	"slices"
+	"strconv"
 	"sync"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -166,6 +169,67 @@ func serviceEventStream(db *statedb.DB, services statedb.Table[*loadbalancer.Ser
 // recalculates all policies affected by this change.
 func (p *policyWatcher) onServiceEvent(event serviceEvent) {
 	p.updateToServicesPolicies(event)
+}
+
+// serviceResolver returns the backends of the given service. servicePorts are
+// translated to backend ports by matching service port names against the backend
+// port names, in the same way the load-balancer selects backends for a frontend.
+func (p *policyWatcher) serviceResolver(namespace, name string, servicePorts []uint16) fqdnconfig.ServiceBackends {
+	var out fqdnconfig.ServiceBackends
+	if p.db == nil {
+		return out
+	}
+	txn := p.db.ReadTxn()
+	svcName := loadbalancer.NewServiceName(namespace, name)
+	svc, _, found := p.services.Get(txn, loadbalancer.ServiceByName(svcName))
+	if !found {
+		return out
+	}
+
+	portNames := sets.New[string]()
+	for portName, port := range svc.PortNames {
+		if slices.Contains(servicePorts, port) {
+			portNames.Insert(portName)
+		}
+	}
+	if portNames.Len() == 0 {
+		return out
+	}
+
+	ports := sets.New[api.PortProtocol]()
+	ips := sets.New[string]()
+	bes, _ := loadbalancer.ListBackendsByServiceName(txn, p.backends, svc.Name)
+	for be := range loadbalancer.PreferredBackendsByAddress(bes) {
+		// Backends without port names match all service ports.
+		if len(be.PortNames) > 0 && !slices.ContainsFunc(be.PortNames, portNames.Has) {
+			continue
+		}
+		var proto api.L4Proto
+		switch be.Address.Protocol() {
+		case loadbalancer.UDP:
+			proto = api.ProtoUDP
+		case loadbalancer.TCP:
+			proto = api.ProtoTCP
+		default:
+			continue
+		}
+		ports.Insert(api.PortProtocol{Port: strconv.FormatUint(uint64(be.Address.Port()), 10), Protocol: proto})
+		ips.Insert(be.Address.Addr().String())
+	}
+	if ports.Len() == 0 {
+		return out
+	}
+
+	// Sort for stable output, so that changes can be detected with Equal.
+	out.Ports = slices.SortedFunc(maps.Keys(ports), func(a, b api.PortProtocol) int {
+		return cmp.Or(cmp.Compare(a.Port, b.Port), cmp.Compare(a.Protocol, b.Protocol))
+	})
+	if len(svc.Selector) > 0 {
+		out.PodSelector = maps.Clone(svc.Selector)
+	} else {
+		out.IPs = slices.Sorted(maps.Keys(ips))
+	}
+	return out
 }
 
 // updateToServicesPolicies is to be invoked when a service has changed (i.e. it was

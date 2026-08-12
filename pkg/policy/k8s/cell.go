@@ -56,11 +56,12 @@ type PolicyWatcherParams struct {
 
 	Lifecycle cell.Lifecycle
 
-	ClientSet               client.Clientset
-	Config                  *option.DaemonConfig
-	ClusterMeshPolicyConfig cmtypes.PolicyConfig
-	ClusterInfo             cmtypes.ClusterInfo
-	Logger                  *slog.Logger
+	ClientSet                 client.Clientset
+	Config                    *option.DaemonConfig
+	ClusterMeshPolicyConfig   cmtypes.PolicyConfig
+	ClusterInfo               cmtypes.ClusterInfo
+	FQDNPolicyDNSServerConfig fqdnconfig.FQDNPolicyDNSServerConfig
+	Logger                    *slog.Logger
 
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
@@ -95,6 +96,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		config:                           params.Config,
 		clusterMeshPolicyConfig:          params.ClusterMeshPolicyConfig,
 		clusterInfo:                      params.ClusterInfo,
+		fqdnPolicyDNSServerConfig:        params.FQDNPolicyDNSServerConfig,
 		policyImporter:                   params.PolicyImporter,
 		k8sResourceSynced:                params.K8sResourceSynced,
 		k8sAPIGroups:                     params.K8sAPIGroups,

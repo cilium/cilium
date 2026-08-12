@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -112,6 +113,99 @@ func (sf *servicesFixture) upsertService(name loadbalancer.ServiceName, lbls, se
 		sf.backends.Insert(wtxn, be)
 	}
 	return ev
+}
+
+func TestPolicyWatcher_serviceResolver(t *testing.T) {
+	sf := newServicesFixture(t)
+	p := &policyWatcher{db: sf.db, services: sf.services, backends: sf.backends}
+
+	dnsPorts := map[string]uint16{"dns": 53, "dns-tcp": 53, "metrics": 9153}
+	insertBackend := func(wtxn statedb.WriteTxn, svc loadbalancer.ServiceName, addr string, proto loadbalancer.L4Type, port uint16, portName string) {
+		sf.backends.Insert(wtxn, &loadbalancer.Backend{
+			ServiceName: svc,
+			Address:     loadbalancer.NewL3n4Addr(proto, cmtypes.MustParseAddrCluster(addr), port, loadbalancer.ScopeExternal),
+			PortNames:   []string{portName},
+			Source:      source.Kubernetes,
+		})
+	}
+
+	selectorSvc := loadbalancer.NewServiceName("kube-system", "kube-dns")
+	selectorlessSvc := loadbalancer.NewServiceName("kube-system", "external-dns")
+	wtxn := sf.db.WriteTxn(sf.services, sf.backends)
+	sf.services.Insert(wtxn, &loadbalancer.Service{
+		Name:      selectorSvc,
+		Selector:  map[string]string{"k8s-app": "kube-dns"},
+		PortNames: dnsPorts,
+	})
+	sf.services.Insert(wtxn, &loadbalancer.Service{
+		Name:      selectorlessSvc,
+		PortNames: dnsPorts,
+	})
+	for _, svc := range []loadbalancer.ServiceName{selectorSvc, selectorlessSvc} {
+		for _, addr := range []string{"10.0.0.2", "10.0.0.1"} {
+			insertBackend(wtxn, svc, addr, loadbalancer.UDP, 1053, "dns")
+			insertBackend(wtxn, svc, addr, loadbalancer.TCP, 1053, "dns-tcp")
+			insertBackend(wtxn, svc, addr, loadbalancer.TCP, 9153, "metrics")
+		}
+	}
+	wtxn.Commit()
+
+	backendPorts := []api.PortProtocol{
+		{Port: "1053", Protocol: api.ProtoTCP},
+		{Port: "1053", Protocol: api.ProtoUDP},
+	}
+
+	tests := []struct {
+		name         string
+		svc          loadbalancer.ServiceName
+		servicePorts []uint16
+		expected     fqdnconfig.ServiceBackends
+	}{
+		{
+			name:         "selector service, service port translated to backend port",
+			svc:          selectorSvc,
+			servicePorts: []uint16{53},
+			expected: fqdnconfig.ServiceBackends{
+				PodSelector: map[string]string{"k8s-app": "kube-dns"},
+				Ports:       backendPorts,
+			},
+		},
+		{
+			name:         "selectorless service returns backend IPs",
+			svc:          selectorlessSvc,
+			servicePorts: []uint16{53},
+			expected: fqdnconfig.ServiceBackends{
+				IPs:   []string{"10.0.0.1", "10.0.0.2"},
+				Ports: backendPorts,
+			},
+		},
+		{
+			name:         "multiple service ports",
+			svc:          selectorSvc,
+			servicePorts: []uint16{53, 9153},
+			expected: fqdnconfig.ServiceBackends{
+				PodSelector: map[string]string{"k8s-app": "kube-dns"},
+				Ports:       append(slices.Clone(backendPorts), api.PortProtocol{Port: "9153", Protocol: api.ProtoTCP}),
+			},
+		},
+		{
+			name:         "no matching service port",
+			svc:          selectorSvc,
+			servicePorts: []uint16{5353},
+		},
+		{
+			name:         "unknown service",
+			svc:          loadbalancer.NewServiceName("kube-system", "unknown"),
+			servicePorts: []uint16{53},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := p.serviceResolver(tt.svc.Namespace(), tt.svc.Name(), tt.servicePorts)
+			require.Equal(t, tt.expected, got)
+		})
+	}
 }
 
 func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
