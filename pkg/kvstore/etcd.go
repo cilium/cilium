@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/time/rate"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1630,18 +1631,42 @@ func (e *etcdClient) expiredLockLeaseObserver(key string) {
 }
 
 // UserEnforcePresence creates a user in etcd if not already present, and grants the specified roles.
+// It additionally revokes any other roles that may have been previously granted to that user.
 func (e *etcdClient) UserEnforcePresence(ctx context.Context, name string, roles []string) error {
+	var desired = sets.New(roles...)
+
 	e.logger.Debug("Creating user", FieldUser, name)
 	_, err := e.client.Auth.UserAddWithOptions(ctx, name, "", &client.UserAddOptions{NoPassword: true})
 	if err != nil {
 		if errors.Is(err, v3rpcErrors.ErrUserAlreadyExist) {
 			e.logger.Debug("User already exists", FieldUser, name)
+			user, err := e.client.Auth.UserGet(ctx, name)
+			if err != nil {
+				return fmt.Errorf("retrieving user: %w", err)
+			}
+
+			for _, role := range user.Roles {
+				if desired.Has(role) {
+					desired.Delete(role)
+					continue
+				}
+
+				e.logger.Debug("Revoking stale role from user",
+					FieldRole, role,
+					FieldUser, name,
+				)
+
+				_, err := e.client.Auth.UserRevokeRole(ctx, name, role)
+				if err != nil {
+					return fmt.Errorf("revoking %q role: %w", role, err)
+				}
+			}
 		} else {
 			return err
 		}
 	}
 
-	for _, role := range roles {
+	for role := range desired {
 		e.logger.Debug("Granting role to user",
 			FieldRole, role,
 			FieldUser, name,
