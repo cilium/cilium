@@ -720,8 +720,12 @@ func (r *infraIPAllocator) parseRoutingInfo(result *ipam.AllocationResult) (*lin
 func (r *infraIPAllocator) newRoutingInfo(result *ipam.AllocationResult, masquerade bool) (*linuxrouting.RoutingInfo, error) {
 	options := []linuxrouting.RoutingInfoOption{
 		linuxrouting.WithCIDRsAndMasquerade(prefixesToStrings(result.CIDRs), masquerade),
-		linuxrouting.WithMTU(r.mtuManager.GetDeviceMTU()),
-		linuxrouting.WithLinkState(true),
+	}
+	if r.daemonConfig.IPAM != ipamOption.IPAMENI {
+		options = append(options,
+			linuxrouting.WithMTU(r.mtuManager.GetDeviceMTU()),
+			linuxrouting.WithLinkState(true),
+		)
 	}
 	if r.daemonConfig.IPAM == ipamOption.IPAMAzure {
 		options = append(options, linuxrouting.WithCompatEgressPriority())
