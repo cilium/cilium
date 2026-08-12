@@ -425,7 +425,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						 int *ifindex, int *ohead)
 {
 	const struct remote_endpoint_info *info;
-	struct ipv6_ct_tuple tuple __align_stack_8 = {};
+	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct geneve_dsr_opt6 gopt;
 	union v6addr *dst;
 	__u16 encap_len = sizeof(struct ipv6hdr) + sizeof(struct udphdr) +
@@ -437,6 +437,8 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	int l4_off, ret;
 
 	build_bug_on((sizeof(gopt) % 4) != 0);
+
+	memset(&tuple, 0, sizeof(tuple));
 
 	dst = (union v6addr *)&ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
@@ -956,7 +958,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 	};
 	int ret, l4_off;
 	const struct remote_endpoint_info *info __maybe_unused;
-	struct ipv6_ct_tuple tuple __align_stack_8 = {};
+	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -966,6 +968,8 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 	fraginfo_t fraginfo = 0;
 	int ifindex = 0;
 	__u32 monitor = 0;
+
+	memset(&tuple, 0, sizeof(tuple));
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1227,7 +1231,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.addr = IPV6_DIRECT_ROUTING,
 	};
-	struct ipv6_ct_tuple tuple __align_stack_8 = {};
+	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct trace_ctx trace = {
 		.reason = (enum trace_reason)CT_NEW,
 		.monitor = TRACE_PAYLOAD_LEN,
@@ -1242,6 +1246,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	const struct remote_endpoint_info *info;
 	union v6addr *dst;
 #endif
+
+	memset(&tuple, 0, sizeof(tuple));
 
 	if (nat_46x64)
 		build_v4_in_v6(&target.addr, IPV4_DIRECT_ROUTING);
@@ -1569,10 +1575,12 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 {
 	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
-	struct ipv6_ct_tuple tuple __align_stack_8 = {};
+	struct ipv6_ct_tuple tuple __align_stack_8;
 	const struct lb6_service *svc;
 	fraginfo_t fraginfo = 0;
 	struct lb6_key key = {};
+
+	memset(&tuple, 0, sizeof(tuple));
 
 	tuple.nexthdr = ip6->nexthdr;
 	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);

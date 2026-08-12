@@ -497,13 +497,15 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 	struct iphdr *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct ipv4_ct_tuple tuple4 = {};
-	struct ipv6_ct_tuple __maybe_unused tuple6 = {};
+	struct ipv6_ct_tuple __maybe_unused tuple6 __align_stack_8;
 	int l4_off;
 	const struct remote_endpoint_info *info;
 	const struct endpoint_info *src_ep;
 	fraginfo_t fraginfo = 0;
 	bool is_reply;
 	int ret;
+
+	memset(&tuple6, 0, sizeof(tuple6));
 
 	if (src_sec_identity == HOST_ID)
 		return CTX_ACT_OK;

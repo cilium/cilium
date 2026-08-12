@@ -1554,8 +1554,10 @@ snat_v6_rev_nat_handle_mapping(const struct __ctx_buff *ctx,
 	if (*state) {
 		struct ipv6_nat_entry *lookup_result;
 		struct ipv6_nat_entry ostate;
-		struct ipv6_ct_tuple otuple = {};
+		struct ipv6_ct_tuple otuple __align_stack_8;
 		int ret;
+
+		memset(&otuple, 0, sizeof(otuple));
 
 		/* Check for the original SNAT entry. If it is missing (e.g. due to LRU
 		 * eviction), it must be restored before returning.
@@ -1840,12 +1842,14 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			      struct ipv6_nat_entry **state)
 {
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmp6hdr));
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct ipv6hdr ip6;
 	__u16 port_off;
 	__u32 icmpoff;
 	int hdrlen;
 	__u8 type;
+
+	memset(&tuple, 0, sizeof(tuple));
 
 	/* According to the RFC 5508, any networking equipment that is
 	 * responding with an ICMP Error packet should embed the original
@@ -2058,12 +2062,14 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 				       __u32 inner_l3_off,
 				       struct ipv6_nat_entry **state)
 {
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct ipv6hdr iphdr;
 	__u16 port_off;
 	__u32 icmpoff;
 	__u8 type;
 	int hdrlen;
+
+	memset(&tuple, 0, sizeof(tuple));
 
 	/* According to the RFC 5508, any networking
 	 * equipment that is responding with an ICMP Error
@@ -2145,7 +2151,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
 	struct ipv6_nat_entry *state = NULL;
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8;
 	__u32 off, inner_l3_off;
 	fraginfo_t fraginfo = 0;
 	void *data, *data_end;
@@ -2155,6 +2161,8 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	int ret, hdrlen;
 
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
+
+	memset(&tuple, 0, sizeof(tuple));
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;

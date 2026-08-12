@@ -162,12 +162,14 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
 	struct lb6_reverse_nat nat_info __align_stack_8;
-	struct ipv6_ct_tuple tuple __align_stack_8 = {};
+	struct ipv6_ct_tuple tuple __align_stack_8;
 	fraginfo_t fraginfo = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__u32 monitor = 0;
 	int ret, l4_off;
+
+	memset(&tuple, 0, sizeof(tuple));
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;

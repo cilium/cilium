@@ -321,7 +321,7 @@ lb6_ctx_store_state(struct __ctx_buff *ctx, const struct ct_state *state,
 static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr *ip6,
 						       __s8 *ext_err)
 {
-	struct ipv6_ct_tuple tuple __align_stack_8 = {};
+	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct ct_state ct_state_new = {};
 	const struct lb6_service *svc;
 	fraginfo_t fraginfo = 0;
@@ -329,6 +329,8 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	__u16 proxy_port = 0;
 	int l4_off;
 	int ret;
+
+	memset(&tuple, 0, sizeof(tuple));
 
 	tuple.nexthdr = ip6->nexthdr;
 	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
@@ -2008,7 +2010,7 @@ __declare_tail(CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
 static __always_inline
 int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8;
 	__u32 delivery_flags = ctx_load_meta(ctx, CB_DELIVERY_FLAGS);
 	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
@@ -2018,6 +2020,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	struct ipv6hdr *ip6;
 	__s8 ext_err = 0;
 	int ret;
+
+	memset(&tuple, 0, sizeof(tuple));
 
 	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_HOST)
 		from_host = true;
