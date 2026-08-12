@@ -70,18 +70,17 @@ int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 	if (!ip6) {
 		struct l2_responder_v4_key key;
 		union macaddr smac;
-		__be32 sip, tip;
+		__be32 sip;
 
-		if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
+		if (!arp_validate(ctx, &mac, &smac, &sip, &key.ip4.be32))
 			return CTX_ACT_OK;
 
-		key.ip4.be32 = tip;
 		key.ifindex = ctx->ingress_ifindex;
 		stats = map_lookup_elem(&cilium_l2_responder_v4, &key);
 		if (!stats)
 			return CTX_ACT_OK;
 
-		ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+		ret = arp_respond(ctx, &mac, key.ip4.be32, &smac, sip, 0);
 	} else {
 #ifdef ENABLE_IPV6
 		struct l2_responder_v6_key key6;
