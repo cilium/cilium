@@ -215,6 +215,29 @@ func TestRestoreReadiness(t *testing.T) {
 	require.NotPanics(t, ipam.RestoreFinished)
 }
 
+func TestIsAllocatedIP(t *testing.T) {
+	fakeAddressing := fakenode.NewAddressing()
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:         hivetest.Logger(t),
+		NodeAddressing: fakeAddressing,
+		AgentConfig:    testConfiguration,
+		NodeDiscovery:  &ownerMock{},
+		LocalNodeStore: node.NewTestLocalNodeStore(node.LocalNode{}),
+		K8sEventReg:    &ownerMock{},
+		NodeResource:   &resourceMock{},
+		MTUConfig:      &mtuMock,
+	})
+	ipam.ConfigureAllocator()
+
+	addr := fakeIPv4AllocCIDRIP(fakeAddressing).Next()
+	_, err := ipam.AllocateIPWithoutSyncUpstream(addr, "test-owner", PoolDefault())
+	require.NoError(t, err)
+	require.True(t, ipam.IsAllocatedIP(addr))
+	require.True(t, ipam.IsAllocatedIP(netip.MustParseAddr("::ffff:"+addr.String())))
+	require.False(t, ipam.IsAllocatedIP(netip.Addr{}))
+	require.False(t, ipam.IsAllocatedIP(addr.Next()))
+}
+
 func TestResolveRoutingMetadata(t *testing.T) {
 	ipv4 := netip.MustParseAddr("10.0.0.1")
 	ipv6 := netip.MustParseAddr("2001:db8::1")
