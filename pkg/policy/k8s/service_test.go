@@ -16,7 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -1049,5 +1053,81 @@ func TestServiceEventStream(t *testing.T) {
 			ev := <-serviceEvents
 			require.True(t, ev.Equal(testCase.expected), "expected %+v to equal %+v", ev, testCase.expected)
 		}
+	}
+}
+
+func TestPolicyWatcher_updateDNSServerServicePolicies(t *testing.T) {
+	servicesFixture := newServicesFixture(t)
+
+	dnsSvcID := loadbalancer.NewServiceName("kube-system", "kube-dns")
+	dnsSvcLabels := map[string]string{"k8s-app": "kube-dns"}
+
+	policyAdd := make(chan policytypes.PolicyEntries, 10)
+	importer := &fakePolicyImporter{
+		OnUpdatePolicy: func(upd *policytypes.PolicyUpdate) {
+			policyAdd <- upd.Rules
+		},
+	}
+
+	p := &policyWatcher{
+		log: hivetest.Logger(t),
+		fqdnPolicyDNSServerConfig: fqdnconfig.FQDNPolicyDNSServerConfig{
+			FQDNPolicyDNSServerService: "kube-system/kube-dns",
+			FQDNPolicyDNSServerPort:    53,
+		},
+		policyImporter:     importer,
+		k8sResourceSynced:  &k8sSynced.Resources{},
+		db:                 servicesFixture.db,
+		services:           servicesFixture.services,
+		backends:           servicesFixture.backends,
+		kcnpCache:          make(map[resource.Key]*policyv1alpha2.ClusterNetworkPolicy),
+		cnpCache:           make(map[resource.Key]*types.SlimCNP),
+		toServicesPolicies: make(map[resource.Key]struct{}),
+		cnpByServiceID:     make(map[loadbalancer.ServiceName]map[resource.Key]struct{}),
+	}
+
+	// Add KCNP with FQDN egress rule
+	kcnp := &policyv1alpha2.ClusterNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kcnp-fqdn-test",
+		},
+		Spec: policyv1alpha2.ClusterNetworkPolicySpec{
+			Priority: 10,
+			Subject: policyv1alpha2.ClusterNetworkPolicySubject{
+				Namespaces: &metav1.LabelSelector{},
+			},
+			Egress: []policyv1alpha2.ClusterNetworkPolicyEgressRule{
+				{
+					Action: policyv1alpha2.ClusterNetworkPolicyRuleActionAccept,
+					To: []policyv1alpha2.ClusterNetworkPolicyEgressPeer{
+						{
+							DomainNames: []policyv1alpha2.DomainName{"example.com"},
+						},
+					},
+				},
+			},
+		},
+	}
+	key := resource.Key{Name: kcnp.Name, Namespace: kcnp.Namespace}
+	p.kcnpCache[key] = kcnp
+
+	// Upsert kube-dns service with pod selector
+	dnsEv := servicesFixture.upsertService(dnsSvcID, nil, dnsSvcLabels, nil, nil)
+
+	// Trigger updateDNSServerServicePolicies
+	err := p.updateDNSServerServicePolicies(dnsEv)
+	require.NoError(t, err)
+
+	select {
+	case rules := <-policyAdd:
+		require.Len(t, rules, 2)
+		// rules[0] is the DNS egress policy entry resolved via serviceResolver
+		expectedL3 := policytypes.ToSelectors(api.NewESFromLabels(
+			labels.NewLabel("k8s-app", "kube-dns", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "kube-system", labels.LabelSourceK8s),
+		))
+		require.Equal(t, expectedL3, rules[0].L3)
+	default:
+		t.Fatalf("Expected policy update after DNS service event, but none received")
 	}
 }
