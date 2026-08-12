@@ -15,6 +15,8 @@ import (
 	"github.com/cilium/stream"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -166,14 +168,93 @@ func serviceEventStream(db *statedb.DB, services statedb.Table[*loadbalancer.Ser
 // onServiceEvent processes a ServiceNotification and (if necessary)
 // recalculates all policies affected by this change.
 func (p *policyWatcher) onServiceEvent(event serviceEvent) {
-	err := p.updateToServicesPolicies(event)
-	if err != nil {
+	err1 := p.updateToServicesPolicies(event)
+	err2 := p.updateDNSServerServicePolicies(event)
+	if err := errors.Join(err1, err2); err != nil {
 		p.log.Warn(
-			"Failed to recalculate CiliumNetworkPolicy rules after service event",
+			"Failed to recalculate policy rules after service event",
 			logfields.Error, err,
 			logfields.Event, event,
 		)
 	}
+}
+
+func (p *policyWatcher) serviceResolver(namespace, name string) (map[string]string, []string) {
+	if p.db == nil {
+		return nil, nil
+	}
+	if namespace == "" {
+		namespace = "kube-system"
+	}
+	txn := p.db.ReadTxn()
+	svcName := loadbalancer.NewServiceName(namespace, name)
+	svc, _, found := p.services.Get(txn, loadbalancer.ServiceByName(svcName))
+	if !found {
+		return nil, nil
+	}
+
+	if len(svc.Selector) > 0 {
+		return maps.Clone(svc.Selector), nil
+	}
+
+	bes, _ := loadbalancer.ListBackendsByServiceName(txn, p.backends, svc.Name)
+	preferred := loadbalancer.PreferredBackendsByAddress(bes)
+	var ips []string
+	for be := range preferred {
+		ips = append(ips, be.Address.Addr().String())
+	}
+	return nil, ips
+}
+
+func matchesServiceRef(svcName loadbalancer.ServiceName, targetNs, targetName string) bool {
+	return svcName.Name() == targetName && (targetNs == "" || svcName.Namespace() == targetNs)
+}
+
+func hasToFQDNs(cnp *types.SlimCNP) bool {
+	if cnp == nil || cnp.CiliumNetworkPolicy == nil {
+		return false
+	}
+	if ruleHasToFQDNs(cnp.Spec) {
+		return true
+	}
+	return slices.ContainsFunc(cnp.Specs, ruleHasToFQDNs)
+}
+
+func ruleHasToFQDNs(rule *api.Rule) bool {
+	if rule == nil {
+		return false
+	}
+	return slices.ContainsFunc(rule.Egress, func(egress api.EgressRule) bool {
+		return len(egress.ToFQDNs) > 0
+	})
+}
+
+func (p *policyWatcher) updateDNSServerServicePolicies(ev serviceEvent) error {
+	if p.fqdnPolicyDNSServerConfig.FQDNPolicyDNSServerService == "" {
+		return nil
+	}
+
+	ns, name := fqdnconfig.ParseServiceRef(p.fqdnPolicyDNSServerConfig.FQDNPolicyDNSServerService)
+	if !matchesServiceRef(ev.name, ns, name) && (ev.previous == nil || !matchesServiceRef(ev.previous.name, ns, name)) {
+		return nil
+	}
+
+	var clusterName string
+	if p.config != nil {
+		clusterName = cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.config.ClusterName)
+	}
+	var errs []error
+	for _, kcnp := range p.kcnpCache {
+		errs = append(errs, p.addK8sClusterNetworkPolicy(kcnp, k8sAPIGroupPolicyNetworkingV1Alpha2, nil, clusterName))
+	}
+	for key, cnp := range p.cnpCache {
+		if hasToFQDNs(cnp) {
+			initialRecvTime := time.Now()
+			resourceID := resourceIDForCiliumNetworkPolicy(key, cnp)
+			errs = append(errs, p.upsertCiliumNetworkPolicyV2(cnp, initialRecvTime, resourceID, nil))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // updateToServicesPolicies is to be invoked when a service has changed (i.e. it was
