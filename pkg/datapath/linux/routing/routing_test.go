@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -131,7 +132,7 @@ func TestPrivilegedDelete(t *testing.T) {
 				runConfigure(t, fakeRoutingInfo, fakeIP)
 				return ip
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "IP addr matches multiple rules",
@@ -185,6 +186,260 @@ func TestPrivilegedDelete(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestPrivilegedDeleteRulesAllEgressSchemes(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
+		ip := netip.MustParseAddr("192.0.2.10")
+		ipWithMask := netipx.AddrIPNet(ip)
+		for _, rule := range []route.Rule{
+			{
+				Priority: linux_defaults.RulePriorityEgress,
+				From:     ipWithMask,
+				Table:    100,
+				Protocol: linux_defaults.RTProto,
+			},
+			{
+				Priority: linux_defaults.RulePriorityEgressv2,
+				From:     ipWithMask,
+				Table:    linux_defaults.RouteTableInterfacesOffset + 1,
+				Protocol: linux_defaults.RTProto,
+			},
+		} {
+			require.NoError(t, route.ReplaceRule(rule))
+		}
+
+		// A rule outside the known endpoint-egress priorities must be preserved.
+		require.NoError(t, route.ReplaceRule(route.Rule{
+			Priority: linux_defaults.RulePriorityEgressv2 + 1,
+			From:     ipWithMask,
+			Table:    100,
+			Protocol: linux_defaults.RTProto,
+		}))
+
+		require.NoError(t, DeleteRulesIfExists(hivetest.Logger(t), ip))
+		// call DeleteRulesIfExists again to ensure that it is idempotent and
+		// does not return an error if the rules have already been deleted
+		require.NoError(t, DeleteRulesIfExists(hivetest.Logger(t), ip))
+
+		rules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{From: ipWithMask})
+		require.NoError(t, err)
+		require.Len(t, rules, 1)
+		require.Equal(t, linux_defaults.RulePriorityEgressv2+1, rules[0].Priority)
+		return nil
+	})
+}
+
+func TestIsCiliumEndpointIngressRule(t *testing.T) {
+	mask := uint32(0xffffffff)
+	dst := netipx.AddrIPNet(netip.MustParseAddr("192.0.2.10"))
+
+	tests := []struct {
+		name string
+		rule netlink.Rule
+		want bool
+	}{
+		{
+			"ingress-rule",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityIngress,
+				Dst:      dst,
+				Table:    route.MainTable,
+				Protocol: linux_defaults.RTProto},
+			true,
+		},
+		{
+			"missing-destination",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityIngress,
+				Table:    route.MainTable,
+				Protocol: linux_defaults.RTProto},
+			false,
+		},
+		{
+			"different-priority",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityIngress + 1,
+				Dst:      dst,
+				Table:    route.MainTable,
+				Protocol: linux_defaults.RTProto},
+			false,
+		},
+		{
+			"different-table",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityIngress,
+				Dst:      dst,
+				Table:    100,
+				Protocol: linux_defaults.RTProto},
+			false,
+		},
+		{
+			"marked",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityIngress,
+				Dst:      dst,
+				Table:    route.MainTable,
+				Mark:     1,
+				Protocol: linux_defaults.RTProto},
+			false,
+		},
+		{
+			"masked",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityIngress,
+				Dst:      dst,
+				Table:    route.MainTable,
+				Mask:     &mask,
+				Protocol: linux_defaults.RTProto},
+			false,
+		},
+		{
+			"different-protocol",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityIngress,
+				Dst:      dst,
+				Table:    route.MainTable},
+			false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isCiliumEndpointIngressRule(tt.rule))
+		})
+	}
+}
+
+func TestIsCiliumEndpointEgressRule(t *testing.T) {
+	ipWithMask := netipx.AddrIPNet(netip.MustParseAddr("192.0.2.10"))
+	mask := uint32(0xffffffff)
+
+	tests := []struct {
+		name string
+		rule netlink.Rule
+		want bool
+	}{
+		{
+			"legacy-priority",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityEgress,
+				Src:      ipWithMask,
+				Table:    100,
+				Protocol: linux_defaults.RTProto},
+			true,
+		},
+		{
+			"current-priority",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityEgressv2,
+				Src:      ipWithMask,
+				Table:    linux_defaults.RouteTableInterfacesOffset + 1,
+				Protocol: linux_defaults.RTProto},
+			true,
+		},
+		{
+			"legacy-priority-reserved-table",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityEgress,
+				Src:      ipWithMask,
+				Table:    route.MainTable,
+				Protocol: linux_defaults.RTProto},
+			false,
+		},
+		{
+			"current-priority-outside-interface-table-range",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityEgressv2,
+				Src:      ipWithMask,
+				Table:    linux_defaults.RouteTableInterfacesOffset - 1,
+				Protocol: linux_defaults.RTProto},
+			false,
+		},
+		{
+			"marked",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityEgress,
+				Src:      ipWithMask,
+				Table:    100,
+				Mark:     1,
+				Protocol: linux_defaults.RTProto},
+			false,
+		},
+		{
+			"masked",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityEgress,
+				Src:      ipWithMask,
+				Table:    100,
+				Mask:     &mask,
+				Protocol: linux_defaults.RTProto},
+			false,
+		},
+		{
+			"different-protocol",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityEgress,
+				Src:      ipWithMask,
+				Table:    100},
+			false,
+		},
+		{
+			"missing-source",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityEgress,
+				Table:    100,
+				Protocol: linux_defaults.RTProto},
+			false,
+		},
+		{
+			"different-priority",
+			netlink.Rule{
+				Priority: linux_defaults.RulePriorityEgressv2 + 1,
+				Src:      ipWithMask,
+				Table:    100,
+				Protocol: linux_defaults.RTProto},
+			false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isCiliumEndpointEgressRule(tt.rule))
+		})
+	}
+}
+
+func TestPrivilegedDeleteRuleIfExists(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
+	ns := netns.NewNetNS(t)
+	ns.Do(func() error {
+		ip := netip.MustParseAddr("192.0.2.10")
+		spec := route.Rule{
+			Priority: linux_defaults.RulePriorityEgressv2,
+			From:     netipx.AddrIPNet(ip),
+			Table:    linux_defaults.RouteTableInterfacesOffset + 1,
+			Protocol: linux_defaults.RTProto,
+		}
+		require.NoError(t, route.ReplaceRule(spec))
+
+		rules, err := route.ListRules(netlink.FAMILY_V4, &spec)
+		require.NoError(t, err)
+		require.Len(t, rules, 1)
+
+		deleted, err := deleteRuleIfExists(&rules[0])
+		require.NoError(t, err)
+		require.True(t, deleted)
+
+		deleted, err = deleteRuleIfExists(&rules[0])
+		require.NoError(t, err)
+		require.False(t, deleted)
+		return nil
+	})
 }
 
 func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr) {
