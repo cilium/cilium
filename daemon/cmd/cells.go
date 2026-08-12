@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
+	routingreconciler "github.com/cilium/cilium/pkg/datapath/linux/routing/reconciler"
 	debugapi "github.com/cilium/cilium/pkg/debug/api"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
@@ -313,6 +314,9 @@ var (
 
 		// Provides the AWS ENI customization of the multi-pool IPAM allocator.
 		awsAgent.Cell,
+
+		// Reconciles desired cloud endpoint routing rules and removes orphan rules.
+		routingreconciler.Cell,
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
