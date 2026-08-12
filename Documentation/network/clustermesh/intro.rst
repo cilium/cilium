@@ -61,3 +61,17 @@ Cluster Mesh reuses several concepts from :ref:`kvstore mode <kvstore>` to
 exchange state between clusters. When Cilium is already running in kvstore mode,
 Cluster Mesh extends the existing kvstore etcd instance instead of
 deploying an additional embedded etcd instance.
+
+Security
+========
+
+.. _clustermesh_security_model:
+
+All clusters connected in a Cluster Mesh form a single trust domain.
+
+While Cilium performs various sanity checks on information received from remote
+clusters, these checks cannot fully prevent a compromised cluster's Cilium
+control plane from propagating malicious information to other clusters.
+
+Only connect clusters that are mutually trusted and have equivalent security
+postures.

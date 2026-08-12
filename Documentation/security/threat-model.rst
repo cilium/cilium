@@ -28,6 +28,11 @@ into Cilium. For users who are concerned about supply-chain attacks,
 Cilium's `security audit`_ assessed Cilium's supply chain controls
 against `the SLSA framework`_.
 
+For simplicity, the model covers a single cluster architecture. When using
+Cluster Mesh, all connected clusters form a single trust domain. See the
+:ref:`Cluster Mesh security model <clustermesh_security_model>` for more
+details.
+
 In order to understand the following threat model, readers will need
 familiarity with basic Kubernetes concepts, as well as a high-level
 understanding of Cilium's :ref:`architecture and components<component_overview>`.
