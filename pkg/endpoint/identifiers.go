@@ -79,6 +79,19 @@ func (e *Endpoint) GetContainerID() string {
 	return *cid
 }
 
+// GetLifecycleGeneration returns the generation identifying the endpoint's
+// current managed lifecycle.
+func (e *Endpoint) GetLifecycleGeneration() uint64 {
+	return e.lifecycleGeneration
+}
+
+// InitLifecycleGeneration assigns the generation identifying the endpoint's
+// next managed lifecycle. It must be called before the endpoint is exposed and
+// the generation must remain unchanged until the endpoint is unexposed.
+func (e *Endpoint) InitLifecycleGeneration(generation uint64) {
+	e.lifecycleGeneration = generation
+}
+
 // GetShortContainerID returns the endpoint's shortened container ID
 func (e *Endpoint) GetShortContainerID() string {
 	if e == nil {

@@ -56,8 +56,12 @@ type endpointManager struct {
 
 	health cell.Health
 
-	// mutex protects endpoints and endpointsAux
+	// mutex protects endpoints, endpointsAux, and nextLifecycleGeneration.
 	mutex lock.RWMutex
+
+	// nextLifecycleGeneration assigns a unique generation to each endpoint
+	// exposed during this manager's lifetime.
+	nextLifecycleGeneration uint64
 
 	// endpoints is the global list of endpoints indexed by ID. mutex must
 	// be held to read and write.
@@ -680,6 +684,8 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 	// Get a copy of the identifiers before exposing the endpoint
 	identifiers := ep.Identifiers()
 	ep.PolicyMapPressureUpdater = mgr.policyMapPressure
+	mgr.nextLifecycleGeneration++
+	ep.InitLifecycleGeneration(mgr.nextLifecycleGeneration)
 	ep.Start(newID)
 	mgr.mcastManager.AddAddress(ep.IPv6)
 	mgr.updateIDReferenceLocked(ep)
