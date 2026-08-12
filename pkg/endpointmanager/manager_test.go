@@ -98,6 +98,19 @@ func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, hr 
 func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
 }
 
+type endpointDeletedLookupSubscriber struct {
+	address netip.Addr
+	done    chan bool
+}
+
+func (*endpointDeletedLookupSubscriber) EndpointCreated(*endpoint.Endpoint) {}
+
+func (s *endpointDeletedLookupSubscriber) EndpointDeleted(_ *endpoint.Endpoint, conf endpoint.DeleteConfig) {
+	s.done <- conf.EndpointOwnsIP(s.address)
+}
+
+func (*endpointDeletedLookupSubscriber) EndpointRestored(*endpoint.Endpoint) {}
+
 type blockingCompletionOwner string
 
 func (o blockingCompletionOwner) ID() string {
@@ -730,6 +743,32 @@ func TestRemove(t *testing.T) {
 		require.Empty(t, mgr.endpoints, "Test Name: %s", tt.name)
 		require.Empty(t, mgr.endpointsAux, "Test Name: %s", tt.name)
 		tt.postTestRun()
+	}
+}
+
+func TestEndpointDeletedSubscriberCanLookupIP(t *testing.T) {
+	logger := hivetest.Logger(t)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+
+	subscriber := &endpointDeletedLookupSubscriber{
+		address: netip.MustParseAddr("192.0.2.1"),
+		done:    make(chan bool, 1),
+	}
+	mgr.Subscribe(subscriber)
+	t.Cleanup(func() { mgr.Unsubscribe(subscriber) })
+
+	conf := endpoint.DeleteConfig{
+		EndpointOwnsIP: func(address netip.Addr) bool {
+			return mgr.LookupIP(address) == nil
+		},
+	}
+	go mgr.notifyEndpointDeleted(&endpoint.Endpoint{}, conf)
+
+	select {
+	case ownsIP := <-subscriber.done:
+		require.True(t, ownsIP)
+	case <-time.After(5 * time.Second):
+		t.Fatal("EndpointDeleted callback blocked while looking up the endpoint IP")
 	}
 }
 
