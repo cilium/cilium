@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
+	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	etcdAPI "go.etcd.io/etcd/client/v3"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -1516,4 +1517,91 @@ func TestPaginatedList(t *testing.T) {
 				func(t *testing.T) { run(t, batchSize, parallelOps) })
 		}
 	}
+}
+
+func TestUserManagement(t *testing.T) {
+	testutils.IntegrationTest(t)
+
+	var (
+		client = SetupDummy(t, "etcd")
+		auth   = client.(*clientImpl).BackendOperations.(*etcdClient).client.Auth
+
+		assertUsers = func(t *testing.T, users ...string) {
+			got, err := auth.UserList(t.Context())
+			require.NoError(t, err, "auth.UserList")
+			require.ElementsMatch(t, got.Users, users)
+		}
+
+		assertRoles = func(t *testing.T, user string, roles ...string) {
+			got, err := auth.UserGet(t.Context(), user)
+			require.NoError(t, err, "auth.UserGet")
+			require.ElementsMatch(t, got.Roles, roles)
+		}
+	)
+
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		ignore := func(err, ignore error) error {
+			if errors.Is(err, ignore) {
+				return nil
+			}
+
+			return err
+		}
+
+		for _, role := range []string{"foo", "bar", "baz"} {
+			_, err := auth.RoleDelete(ctx, role)
+			require.NoError(t, ignore(err, v3rpcErrors.ErrRoleNotFound), "auth.RoleDelete")
+		}
+
+		for _, user := range []string{"alpaca", "llama", "dolphin"} {
+			_, err := auth.UserDelete(ctx, user)
+			require.NoError(t, ignore(err, v3rpcErrors.ErrUserNotFound), "auth.UserDelete")
+		}
+	})
+
+	// Create a few test roles.
+	for _, role := range []string{"foo", "bar", "baz"} {
+		_, err := auth.RoleAdd(t.Context(), role)
+		require.NoError(t, err, "auth.RoleAdd")
+	}
+
+	// Enforce two users, and assert that they are present and assigned the correct roles.
+	require.NoError(t, client.UserEnforcePresence(t.Context(), "alpaca", []string{"foo"}))
+	require.NoError(t, client.UserEnforcePresence(t.Context(), "llama", []string{"bar", "baz"}))
+
+	assertUsers(t, "alpaca", "llama")
+	assertRoles(t, "alpaca", "foo")
+	assertRoles(t, "llama", "bar", "baz")
+
+	// Enforce the same user again, with no changes, and assert that it succeeds.
+	require.NoError(t, client.UserEnforcePresence(t.Context(), "alpaca", []string{"foo"}))
+	assertRoles(t, "alpaca", "foo")
+
+	// Enforce the same user again, and assert that the roles are updated.
+	require.NoError(t, client.UserEnforcePresence(t.Context(), "llama", []string{"foo", "bar"}))
+	assertRoles(t, "llama", "foo", "bar")
+
+	// Enforce the same user again with no roles, and assert that the roles are withdrawn.
+	require.NoError(t, client.UserEnforcePresence(t.Context(), "llama", nil))
+	assertRoles(t, "llama")
+
+	// Delete a user, and assert that it gets removed. Deleting a non-existing
+	// user should also succeed.
+	require.NoError(t, client.UserEnforceAbsence(t.Context(), "alpaca"))
+	require.NoError(t, client.UserEnforceAbsence(t.Context(), "camel"))
+	assertUsers(t, "llama")
+
+	// Enforce the same user again, and assert that the roles are correct.
+	require.NoError(t, client.UserEnforcePresence(t.Context(), "alpaca", []string{"bar"}))
+	assertRoles(t, "alpaca", "bar")
+
+	// Enforcing a user and attempting to grant a non-existing role should return an error.
+	require.ErrorIs(t, client.UserEnforcePresence(t.Context(), "dolphin", []string{"other"}), v3rpcErrors.ErrRoleNotFound)
+
+	// But deleting it afterwards should succeed.
+	require.NoError(t, client.UserEnforceAbsence(t.Context(), "dolphin"))
+	assertUsers(t, "alpaca", "llama")
 }
