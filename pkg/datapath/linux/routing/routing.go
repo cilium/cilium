@@ -27,30 +27,22 @@ import (
 )
 
 // useCompatEgressPriority determines whether to use the new or old style egress rule.
-// Old style rules are only used in Azure IPAM mode.
 func (info *RoutingInfo) useCompatEgressPriority() bool {
-	return info.IpamMode == ipamOption.IPAMAzure
+	return info.compatEgressPriority
 }
 
-// Configure sets up the rules and routes needed when running in ENI or
-// Azure IPAM mode.
-// These rules and routes direct egress traffic out of the interface and
-// ingress traffic back to the endpoint (`ip`).
+// Configure sets up the rules and routes that direct egress traffic out of the
+// interface and ingress traffic back to the endpoint (ip).
 //
 // ip: The endpoint IP address to direct traffic out / from interface.
 // info: The interface routing info used to create rules and routes.
-// mtu: The interface MTU.
 // host: Whether the IP is a host IP and needs to be routed via the 'local' table
-func (info *RoutingInfo) Configure(ip netip.Addr, mtu int, host bool) error {
+func (info *RoutingInfo) Configure(ip netip.Addr, host bool) error {
 	if !ip.IsValid() {
-		info.logger.Warn(
-			"Unable to configure rules and routes because IP is not a valid IP address",
-			logfields.IPAddr, ip,
-		)
-		return errors.New("IP not compatible")
+		return fmt.Errorf("unable to install endpoint rules: invalid endpoint IP address %s", ip)
 	}
 
-	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
+	ifindex, err := info.prepareInterface()
 	if err != nil {
 		return fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
 	}
@@ -108,10 +100,10 @@ func (info *RoutingInfo) Configure(ip netip.Addr, mtu int, host bool) error {
 	return info.installRoutes(ifindex, tableID)
 }
 
-func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, rx statedb.ReadTxn, routes statedb.Table[*tables.Route]) (*statedb.WatchSet, error) {
+func (info *RoutingInfo) ReconcileGatewayRoutes(rx statedb.ReadTxn, routes statedb.Table[*tables.Route]) (*statedb.WatchSet, error) {
 	set := statedb.NewWatchSet()
 
-	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
+	ifindex, err := info.prepareInterface()
 	if err != nil {
 		return set, fmt.Errorf("unable to find ifindex for interface MAC: %w", err)
 	}
@@ -358,16 +350,14 @@ next:
 	return errors.Join(errs...)
 }
 
-// retrieveIfIndexFromMAC finds the corresponding device index (ifindex) for a
-// given MAC address, excluding Linux slave devices. This is useful for
-// creating rules and routes in order to specify the table. When the ifindex is
-// found, the device is brought up and its MTU is set.
-func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
+// retrieveLinkFromMAC finds the corresponding device for a MAC address,
+// excluding Linux slave devices.
+func retrieveLinkFromMAC(mac mac.MAC) (netlink.Link, error) {
 	var link netlink.Link
 
 	links, err := safenetlink.LinkList()
 	if err != nil {
-		return -1, fmt.Errorf("unable to list interfaces: %w", err)
+		return nil, fmt.Errorf("unable to list interfaces: %w", err)
 	}
 
 	for _, l := range links {
@@ -378,28 +368,47 @@ func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
 		}
 		if l.Attrs().HardwareAddr.String() == mac.String() {
 			if link != nil {
-				return -1, fmt.Errorf("several interfaces found with MAC %s: %s and %s", mac, link.Attrs().Name, l.Attrs().Name)
+				return nil, fmt.Errorf("several interfaces found with MAC %s: %s and %s", mac, link.Attrs().Name, l.Attrs().Name)
 			}
 			link = l
 		}
 	}
 
 	if link == nil {
-		return -1, fmt.Errorf("interface with MAC %s not found", mac)
+		return nil, fmt.Errorf("interface with MAC %s not found", mac)
+	}
+	return link, nil
+}
+
+// prepareInterface resolves the interface and applies any explicitly requested
+// link configuration.
+func (info *RoutingInfo) prepareInterface() (int, error) {
+	link, err := retrieveLinkFromMAC(info.MasterIfMAC)
+	if err != nil {
+		return -1, err
 	}
 
-	if err = netlink.LinkSetMTU(link, mtu); err != nil {
-		return -1, fmt.Errorf("unable to change MTU of link %s to %d: %w", link.Attrs().Name, mtu, err)
+	if info.mtu != nil {
+		if err = netlink.LinkSetMTU(link, *info.mtu); err != nil {
+			return -1, fmt.Errorf("unable to change MTU of link %s to %d: %w", link.Attrs().Name, *info.mtu, err)
+		}
 	}
-	if err = netlink.LinkSetUp(link); err != nil {
-		return -1, fmt.Errorf("unable to up link %s: %w", link.Attrs().Name, err)
+	if info.linkState != nil {
+		if *info.linkState {
+			err = netlink.LinkSetUp(link)
+		} else {
+			err = netlink.LinkSetDown(link)
+		}
+		if err != nil {
+			return -1, fmt.Errorf("unable to set link %s up state to %t: %w", link.Attrs().Name, *info.linkState, err)
+		}
 	}
 
 	return link.Attrs().Index, nil
 }
 
-// computeTableIDFromIfaceNumber returns a computed per-ENI route table ID for the given
-// ENI interface number.
+// computeTableIDFromIfaceNumber returns a computed per-interface route table
+// ID for the given routing interface number.
 func computeTableIDFromIfaceNumber(compat bool, num int) int {
 	if compat {
 		return num

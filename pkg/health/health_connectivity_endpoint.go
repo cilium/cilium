@@ -385,7 +385,6 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		// ENI mode does not support IPv6.
 		if err := ri.Configure(
 			healthIP,
-			mtuConfig.GetDeviceMTU(),
 			false,
 		); err != nil {
 			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %w", err)
