@@ -362,6 +362,8 @@ EventTypeFilter is a filter describing a particular event type.
 | sock_xlate_point | [SocketTranslationPoint](#flow-SocketTranslationPoint) |  | sock_xlate_point is the socket translation point. Only applicable to TraceSock notifications, blank for other types |
 | socket_cookie | [uint64](#uint64) |  | socket_cookie is the Linux kernel socket cookie for this flow. Only applicable to TraceSock notifications, zero for other types |
 | cgroup_id | [uint64](#uint64) |  | cgroup_id of the process which emitted this event. Only applicable to TraceSock notifications, zero for other types |
+| packets | [uint64](#uint64) |  | packets is the cumulative packet count from the CT entry for this connection. Only populated when CONNTRACK_ACCOUNTING is enabled. |
+| bytes | [uint64](#uint64) |  | bytes is the cumulative byte count from the CT entry for this connection. Only populated when CONNTRACK_ACCOUNTING is enabled. |
 | Summary | [string](#string) |  | **Deprecated.** This is a temporary workaround to support summary field for pb.Flow without duplicating logic from the old parser. This field will be removed once we fully migrate to the new parser. |
 | extensions | [google.protobuf.Any](#google-protobuf-Any) |  | extensions can be used to add arbitrary additional metadata to flows. This can be used to extend functionality for other Hubble compatible APIs, or experiment with new functionality without needing to change the public API. |
 | egress_allowed_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies allowing the egress of the flow. |
