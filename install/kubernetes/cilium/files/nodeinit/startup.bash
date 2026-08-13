@@ -24,11 +24,11 @@ fi
 {{- end }}
 
 {{- if .Values.nodeinit.reconfigureKubelet }}
-# Check if we're running on a GKE containerd flavor as indicated by the presence
-# of the '--container-runtime-endpoint' flag in '/etc/default/kubelet'.
+# Check if we're running on GKE, identified by the
+# presence of the kubelet binary at GKE_KUBERNETES_BIN_DIR.
 GKE_KUBERNETES_BIN_DIR="/home/kubernetes/bin"
 KUBELET_DEFAULTS_FILE="/etc/default/kubelet"
-if [[ -f "${GKE_KUBERNETES_BIN_DIR}/gke" ]] && [[ $(grep -cF -- '--container-runtime-endpoint' "${KUBELET_DEFAULTS_FILE}") == "1" ]]; then
+if [[ -f "${GKE_KUBERNETES_BIN_DIR}/kubelet" ]]; then
   echo "GKE *_containerd flavor detected..."
 
   # (GKE *_containerd) Upon node restarts, GKE's containerd images seem to reset
