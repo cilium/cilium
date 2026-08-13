@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/statedb"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -81,8 +80,6 @@ func newAllNodeManager(in struct {
 	TunnelConf                   tunnel.Config
 	Lifecycle                    cell.Lifecycle
 	IPCache                      *ipcache.IPCache
-	IPSetMgr                     ipset.Manager
-	IPSetFilter                  IPSetFilterFn `optional:"true"`
 	NodeMetrics                  *nodeMetrics
 	Health                       cell.Health
 	JobGroup                     job.Group
@@ -100,7 +97,21 @@ func newAllNodeManager(in struct {
 	// here.
 	nodeTable := in.Nodes.(statedb.RWTable[*node.Node])
 
-	mngr, err := New(in.Logger, option.Config, in.ClusterInfo, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, nodeTable, in.ClusterSizeDependantInterval)
+	mngr, err := New(
+		in.Logger,
+		option.Config,
+		in.ClusterInfo,
+		in.TunnelConf,
+		in.IPCache,
+		in.NodeMetrics,
+		in.Health,
+		in.JobGroup,
+		in.DB,
+		in.Devices,
+		in.WGConfig,
+		nodeTable,
+		in.ClusterSizeDependantInterval,
+	)
 	if err != nil {
 		return nil, err
 	}
