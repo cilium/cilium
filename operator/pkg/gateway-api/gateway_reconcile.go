@@ -380,6 +380,7 @@ func (r *gatewayReconciler) ensureEnvoyConfig(ctx context.Context, gw *gatewayv1
 	cec := desired.DeepCopy()
 	_, err := controllerutil.CreateOrPatch(ctx, r.Client, cec, func() error {
 		cec.Spec = desired.Spec
+		cec.OwnerReferences = desired.OwnerReferences
 		setMergedLabelsAndAnnotations(cec, desired)
 		return nil
 	})

@@ -928,6 +928,70 @@ func Test_gatewayReconciler_ensureEnvoyConfig_deletesStaleCEC(t *testing.T) {
 	})
 }
 
+// Test_gatewayReconciler_ensureEnvoyConfig_refreshesOwnerReferences verifies
+// that when a Gateway is deleted and recreated with the same name (new UID)
+// while its old CiliumEnvoyConfig still exists, patching the CEC refreshes
+// the owner reference to the new Gateway UID. Otherwise the garbage collector
+// could delete the in-use CEC because it is still owned by the old UID.
+func Test_gatewayReconciler_ensureEnvoyConfig_refreshesOwnerReferences(t *testing.T) {
+	t.Parallel()
+
+	gw := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "recreated-gateway",
+			Namespace: "default",
+			UID:       types.UID("new-gateway-uid"),
+		},
+	}
+
+	cecKey := types.NamespacedName{
+		Namespace: gw.Namespace,
+		Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
+	}
+
+	ownerRef := func(uid types.UID) metav1.OwnerReference {
+		return metav1.OwnerReference{
+			APIVersion: gatewayv1.GroupVersion.String(),
+			Kind:       "Gateway",
+			Name:       gw.Name,
+			UID:        uid,
+			Controller: ptr.To(true),
+		}
+	}
+
+	staleCEC := &ciliumv2.CiliumEnvoyConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            cecKey.Name,
+			Namespace:       cecKey.Namespace,
+			OwnerReferences: []metav1.OwnerReference{ownerRef("old-gateway-uid")},
+		},
+	}
+	desiredCEC := &ciliumv2.CiliumEnvoyConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            cecKey.Name,
+			Namespace:       cecKey.Namespace,
+			OwnerReferences: []metav1.OwnerReference{ownerRef(gw.UID)},
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+		WithObjects(staleCEC).
+		Build()
+	r := &gatewayReconciler{
+		Client: c,
+		logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+	}
+
+	require.NoError(t, r.ensureEnvoyConfig(t.Context(), gw, desiredCEC))
+
+	actual := &ciliumv2.CiliumEnvoyConfig{}
+	require.NoError(t, c.Get(t.Context(), cecKey, actual))
+	require.Len(t, actual.OwnerReferences, 1)
+	assert.Equal(t, string(gw.UID), string(actual.OwnerReferences[0].UID))
+	assert.True(t, metav1.IsControlledBy(actual, gw))
+}
+
 func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
 	tests := []struct {
 		name          string
