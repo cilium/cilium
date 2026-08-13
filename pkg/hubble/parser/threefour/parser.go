@@ -306,8 +306,8 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.Interface = p.decodeNetworkInterface(tn, dbg)
 	decoded.ProxyPort = decodeProxyPort(dbg, tn)
 
-	if p.correlateL3L4Policy && p.endpointGetter != nil {
-		correlation.CorrelatePolicy(p.log, p.endpointGetter, decoded)
+	if p.correlateL3L4Policy && p.endpointGetter != nil && pvn != nil {
+		correlation.CorrelatePolicy(p.log, p.endpointGetter, decoded, pvn.Source)
 	}
 
 	return nil
