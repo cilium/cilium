@@ -32,9 +32,12 @@ rm -f /tmp/node-init.cilium.io
 touch /tmp/node-deinit.cilium.io
 
 {{- if .Values.nodeinit.reconfigureKubelet }}
-# Check if we're running on a GKE containerd flavor.
+# Check if we're running on GKE, identified by the
+# presence of the kubelet binary at GKE_KUBERNETES_BIN_DIR. This also matches
+# after startup.bash has replaced the real kubelet with the Cilium wrapper,
+# since the wrapper is installed at the same path.
 GKE_KUBERNETES_BIN_DIR="/home/kubernetes/bin"
-if [[ -f "${GKE_KUBERNETES_BIN_DIR}/gke" ]] && command -v containerd &>/dev/null; then
+if [[ -f "${GKE_KUBERNETES_BIN_DIR}/kubelet" ]]; then
   CONTAINERD_CONFIG="/etc/containerd/config.toml"
   echo "Reverting changes to the containerd configuration"
   sed -Ei "s/^\#(\s+conf_template)/\1/g" "${CONTAINERD_CONFIG}"
