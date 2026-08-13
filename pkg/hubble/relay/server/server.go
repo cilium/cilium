@@ -190,6 +190,7 @@ func (s *Server) Serve() error {
 func (s *Server) Stop() {
 	s.opts.log.Info("Stopping server...")
 	s.server.Stop()
+	s.grpcHealthServer.Stop()
 	if s.metricsServer != nil {
 		if err := s.metricsServer.Shutdown(context.Background()); err != nil {
 			s.opts.log.Info("Failed to gracefully stop metrics server", logfields.Error, err)
