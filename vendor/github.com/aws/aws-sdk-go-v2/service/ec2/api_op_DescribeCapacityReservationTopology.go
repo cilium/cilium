@@ -6,7 +6,6 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Describes a tree-based hierarchy that represents the physical host placement of
@@ -52,7 +51,7 @@ type DescribeCapacityReservationTopologyInput struct {
 	//
 	// Default: Describes all your Capacity Reservations.
 	//
-	// Constraints: Maximum 100 explicitly specified Capacity Reservation IDs.
+	// Constraints: Maximum 10 explicitly specified Capacity Reservation IDs.
 	CapacityReservationIds []string
 
 	// Checks whether you have the required permissions for the operation, without
@@ -116,9 +115,6 @@ func (c *Client) addOperationDescribeCapacityReservationTopologyMiddlewares(stac
 		return err
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -128,19 +124,10 @@ func (c *Client) addOperationDescribeCapacityReservationTopologyMiddlewares(stac
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "DescribeCapacityReservationTopology"), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

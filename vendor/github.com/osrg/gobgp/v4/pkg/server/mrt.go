@@ -196,7 +196,10 @@ func (m *mrtWriter) loop(ctx context.Context) error {
 	case oc.MRT_TYPE_UPDATES:
 		ops = append(ops, WatchUpdate(false, "", ""))
 	}
-	w := m.s.watch(ops...)
+	w, err := m.s.watch(ops...)
+	if err != nil {
+		return err
+	}
 	rotator := func() *time.Ticker {
 		if m.rotationInterval == 0 {
 			return &time.Ticker{}

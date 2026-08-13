@@ -183,6 +183,16 @@ const (
 	EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL3      ExtendedCommunityAttrType = 0x82 // RFC7674
 )
 
+const (
+	// RFC4360 2. BGP Extended Communities Attribute
+	// Each Extended Community is encoded as an 8-octet quantity
+	ExtendedCommunityLen = 8
+	// RFC5701 2. IPv6 Address Specific BGP Extended Community Attribute
+	// Each IPv6 Address Specific extended community is encoded as a
+	// 20-octet quantity
+	IP6ExtendedCommunityLen = 20
+)
+
 // RFC7153 5.2. Registries for the "Sub-Type" Field
 // RANGE	REGISTRATION PROCEDURES
 // 0x00-0xBF	First Come First Served
@@ -209,7 +219,12 @@ const (
 
 	EC_SUBTYPE_ORIGIN_VALIDATION ExtendedCommunityAttrSubType = 0x00 // EC_TYPE: 0x43
 
-	EC_SUBTYPE_MUP_DIRECT_SEG ExtendedCommunityAttrSubType = 0x00 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_DIRECT_SEG               ExtendedCommunityAttrSubType = 0x00 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_DIRECT_SEG_IPV4          ExtendedCommunityAttrSubType = 0x01 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_DIRECT_SEG_4_OCTET_AS    ExtendedCommunityAttrSubType = 0x02 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_INTERWORK_SEG            ExtendedCommunityAttrSubType = 0x03 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_INTERWORK_SEG_IPV4       ExtendedCommunityAttrSubType = 0x04 // EC_TYPE: 0x0c
+	EC_SUBTYPE_MUP_INTERWORK_SEG_4_OCTET_AS ExtendedCommunityAttrSubType = 0x05 // EC_TYPE: 0x0c
 
 	EC_SUBTYPE_FLOWSPEC_TRAFFIC_RATE   ExtendedCommunityAttrSubType = 0x06 // EC_TYPE: 0x80
 	EC_SUBTYPE_FLOWSPEC_TRAFFIC_ACTION ExtendedCommunityAttrSubType = 0x07 // EC_TYPE: 0x80
@@ -1450,11 +1465,9 @@ func (r *IPAddrPrefixDefault) decodePrefix(data []byte, bitlen uint8, addrlen in
 	copy(b[:], data[:bytelen])
 	// clear trailing bits in the last byte. rfc doesn't require
 	// this but some bgp implementations need this...
-	rem := bitlen % 8
-	if rem != 0 {
+	if rem := bitlen % 8; rem != 0 {
 		mask := 0xff00 >> rem
-		lastByte := b[bytelen-1] & byte(mask)
-		b[bytelen-1] = lastByte
+		b[bytelen-1] &= byte(mask)
 	}
 	addr, _ := netip.AddrFromSlice(b[:addrlen])
 	r.Prefix = netip.PrefixFrom(addr, int(bitlen))
@@ -2133,6 +2146,9 @@ func NewLabeledIPAddrPrefix(prefix netip.Prefix, label MPLSLabelStack) (*Labeled
 	}, nil
 }
 
+// RouteTargetMembershipPrefixLen is the RTC NLRI bit length: 4-byte AS + 8-byte Route Target.
+const RouteTargetMembershipPrefixLen = 96
+
 type RouteTargetMembershipNLRI struct {
 	Length      uint8
 	AS          uint32
@@ -2150,16 +2166,33 @@ func (n *RouteTargetMembershipNLRI) decodeFromBytes(data []byte, options ...*Mar
 		return nil
 	}
 	data = data[1:]
-	if n.Length < 32 || len(data)*8 < int(n.Length) {
+	// RFC 4684 Section 4: the prefix is 0 to 96 bits, and other than the
+	// zero-length default route target it is at least 32 bits, since the
+	// origin-as field cannot be interpreted as a prefix.
+	if n.Length < 32 || n.Length > RouteTargetMembershipPrefixLen || len(data)*8 < int(n.Length) {
 		eCode := uint8(BGP_ERROR_UPDATE_MESSAGE_ERROR)
 		eSubCode := uint8(BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST)
 		return NewMessageError(eCode, eSubCode, nil, "bad RouteTargetMembershipNLRI length")
 	}
 	n.AS = binary.BigEndian.Uint32(data[:4])
-	if n.Length < 96 {
+	if n.Length >= RouteTargetMembershipPrefixLen {
+		data = data[4:]
+	} else if n.Length > 32 {
+		var b [8]byte
+		bitlen := int(n.Length) - 32
+		bytelen := (bitlen + 7) / 8
+		copy(b[:], data[4:4+bytelen])
+		// clear trailing bits in the last byte. rfc doesn't require
+		// this but some bgp implementations need this...
+		if rem := bitlen % 8; rem != 0 {
+			mask := 0xff00 >> rem
+			b[bytelen-1] &= byte(mask)
+		}
+		data = b[:]
+	} else {
 		return nil
 	}
-	rt, err := ParseExtended(data[4:])
+	rt, err := ParseExtended(data)
 	if err != nil {
 		return err
 	}
@@ -2176,12 +2209,17 @@ func (n *RouteTargetMembershipNLRI) Serialize(options ...*MarshallingOption) ([]
 	buf = append(buf, make([]byte, 5)...)
 	buf[offset] = n.Length
 	binary.BigEndian.PutUint32(buf[offset+1:], n.AS)
-	if n.RouteTarget == nil {
+	if n.Length <= 32 || n.RouteTarget == nil {
 		return buf, nil
 	}
 	ebuf, err := n.RouteTarget.Serialize()
 	if err != nil {
 		return nil, err
+	}
+	if n.Length < RouteTargetMembershipPrefixLen {
+		bitlen := int(n.Length) - 32
+		bytelen := (bitlen + 7) / 8
+		ebuf = ebuf[:bytelen]
 	}
 	return append(buf, ebuf...), nil
 }
@@ -2190,15 +2228,16 @@ func (n *RouteTargetMembershipNLRI) Len(options ...*MarshallingOption) int {
 	return 1 + (int(n.Length)+7)/8
 }
 
+// String renders the NLRI as "<origin-as>:<route-target>/<length>". The mask
+// length is always present, including for a full /96, so that the text form is
+// self-describing and matches how every other family and
+// table.Prefix.PrefixString spell a prefix.
 func (n *RouteTargetMembershipNLRI) String() string {
-	if n.Length == 0 {
-		return "default"
-	}
 	target := "0:0"
 	if n.RouteTarget != nil {
 		target = n.RouteTarget.String()
 	}
-	return strconv.FormatUint(uint64(n.AS), 10) + ":" + target
+	return strconv.FormatUint(uint64(n.AS), 10) + ":" + target + "/" + strconv.FormatUint(uint64(n.Length), 10)
 }
 
 func (n *RouteTargetMembershipNLRI) MarshalJSON() ([]byte, error) {
@@ -2209,8 +2248,16 @@ func (n *RouteTargetMembershipNLRI) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// RouteTargetKey returns the 64-bit serialized Route Target, or 0 for default/AS-only NLRI.
+func (n *RouteTargetMembershipNLRI) RouteTargetKey() (uint64, error) {
+	if n.RouteTarget == nil {
+		return 0, nil
+	}
+	return ExtCommRouteTargetKey(n.RouteTarget)
+}
+
 func NewRouteTargetMembershipNLRI(as uint32, target ExtendedCommunityInterface) *RouteTargetMembershipNLRI {
-	l := 12 * 8
+	l := RouteTargetMembershipPrefixLen
 	if as == 0 && target == nil {
 		l = 0
 	} else if target == nil {
@@ -2221,6 +2268,63 @@ func NewRouteTargetMembershipNLRI(as uint32, target ExtendedCommunityInterface) 
 		AS:          as,
 		RouteTarget: target,
 	}
+}
+
+// ParseRouteTargetMembershipNLRI parses "<origin-as>:<route-target>[/len]" into an NLRI
+// with Length set to the mask length (defaults to /96). Inverse of RouteTargetMembershipNLRI.String.
+func ParseRouteTargetMembershipNLRI(s string) (*RouteTargetMembershipNLRI, error) {
+	masklen := uint8(RouteTargetMembershipPrefixLen)
+	parts := strings.SplitN(s, "/", 2)
+	if len(parts) > 1 {
+		m, err := strconv.ParseUint(parts[1], 10, 8)
+		if err != nil {
+			return nil, fmt.Errorf("invalid rtc-prefix mask length %q: %w", parts[1], err)
+		}
+		// RFC 4684: the origin-AS is a 4-octet field that cannot be interpreted as a
+		// prefix, so the only valid lengths are 0 (default route) and 32..96.
+		if m > 0 && m < 32 || m > RouteTargetMembershipPrefixLen {
+			return nil, fmt.Errorf("invalid rtc-prefix mask length %d: must be 0 or 32..%d", m, RouteTargetMembershipPrefixLen)
+		}
+		masklen = uint8(m)
+	}
+	elems := strings.SplitN(parts[0], ":", 2)
+	if len(elems) != 2 {
+		return nil, fmt.Errorf("invalid rtc-prefix format %q: expected <origin-as>:<route-target>", s)
+	}
+	as, err := ParseAs4Value(elems[0])
+	if err != nil {
+		return nil, fmt.Errorf("invalid rtc-prefix origin-as %q: %w", elems[0], err)
+	}
+	var rt ExtendedCommunityInterface
+	if masklen > 32 {
+		rt, err = ParseRouteTarget(elems[1])
+		if err != nil {
+			return nil, fmt.Errorf("invalid rtc-prefix route-target %q: %w", elems[1], err)
+		}
+	}
+	nlri := NewRouteTargetMembershipNLRI(as, rt)
+	nlri.Length = masklen
+	return nlri, nil
+}
+
+// ParseRTCPrefix parses "<origin-as>:<route-target>[/len]" into a netip.Prefix for the
+// prefix-set trie. The 96-bit NLRI key [AS:4][RouteTarget:8] is padded to 16 bytes; /len
+// defaults to /96 and /32 matches the origin-AS only.
+func ParseRTCPrefix(s string) (netip.Prefix, error) {
+	nlri, err := ParseRouteTargetMembershipNLRI(s)
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+	var addr [16]byte
+	binary.BigEndian.PutUint32(addr[:4], nlri.AS)
+	if nlri.RouteTarget != nil {
+		rtKey, err := ExtCommRouteTargetKey(nlri.RouteTarget)
+		if err != nil {
+			return netip.Prefix{}, err
+		}
+		binary.BigEndian.PutUint64(addr[4:12], rtKey)
+	}
+	return netip.PrefixFrom(netip.AddrFrom16(addr), int(nlri.Length)), nil
 }
 
 //go:generate stringer -type=ESIType
@@ -3002,6 +3106,9 @@ func (er *EVPNIPPrefixRoute) DecodeFromBytes(data []byte) error {
 	er.ETag = binary.BigEndian.Uint32(data[18:22])
 
 	er.IPPrefixLength = data[22]
+	if int(er.IPPrefixLength) > addrLen*8 {
+		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid IP Prefix length: %d", er.IPPrefixLength))
+	}
 
 	offset := 23 // RD(8) + ESI(10) + ETag(4) + IPPrefixLength(1)
 	er.IPPrefix, _ = netip.AddrFromSlice(data[offset : offset+addrLen])
@@ -4525,6 +4632,12 @@ func (n *FlowSpecNLRI) decodeFromBytes(data []byte, options ...*MarshallingOptio
 		length -= 8
 	}
 
+	// keep the component parser within the declared NLRI length. a component's
+	// own operator/value bytes are self-terminating, so without this a
+	// component reaching past `length` consumes bytes from the next NLRI in the
+	// same MP_(UN)REACH attribute and mis-frames it.
+	data = data[:length]
+
 	for l := length; l > 0; {
 		if len(data) == 0 {
 			return malformedAttrListErr("not all flowspec component bytes available")
@@ -4993,6 +5106,17 @@ func (l *LsNodeNLRI) DecodeFromBytes(data []byte) error {
 	return nil
 }
 
+// extractLsNodeDesc returns the node descriptor carried by a Local or Remote
+// Node Descriptors TLV. It rejects a TLV of an unexpected type, including an
+// absent one, instead of panicking on the type assertion.
+func extractLsNodeDesc(tlv LsTLVInterface, name string) (*LsNodeDescriptor, error) {
+	desc, ok := tlv.(*LsTLVNodeDescriptor)
+	if !ok {
+		return nil, fmt.Errorf("invalid %s node descriptor type %T", name, tlv)
+	}
+	return desc.Extract(), nil
+}
+
 func (l *LsNodeNLRI) String() string {
 	if l.LocalNodeDesc == nil {
 		return "NODE { EMPTY }"
@@ -5015,12 +5139,17 @@ func (l *LsNodeNLRI) Serialize() ([]byte, error) {
 }
 
 func (l *LsNodeNLRI) MarshalJSON() ([]byte, error) {
+	local, err := extractLsNodeDesc(l.LocalNodeDesc, "local")
+	if err != nil {
+		return nil, err
+	}
+
 	return json.Marshal(struct {
 		Type      LsNLRIType       `json:"type"`
 		LocalNode LsNodeDescriptor `json:"local_node_desc"`
 	}{
 		Type:      l.Type(),
-		LocalNode: *l.LocalNodeDesc.(*LsTLVNodeDescriptor).Extract(),
+		LocalNode: *local,
 	})
 }
 
@@ -5197,7 +5326,7 @@ func (l *LsLinkNLRI) String() string {
 	link := &LsLinkDescriptor{}
 	link.ParseTLVs(l.LinkDesc)
 
-	return fmt.Sprintf("LINK { LOCAL_NODE: %v REMOTE_NODE: %v LINK: %v}", local, remote, link)
+	return fmt.Sprintf("LINK { LOCAL_NODE: %v REMOTE_NODE: %v LINK: %v %v:%v}", local, remote, link, l.ProtocolID.String(), l.Identifier)
 }
 
 func (l *LsLinkNLRI) DecodeFromBytes(data []byte) error {
@@ -5296,6 +5425,15 @@ func (l *LsLinkNLRI) Serialize() ([]byte, error) {
 }
 
 func (l *LsLinkNLRI) MarshalJSON() ([]byte, error) {
+	local, err := extractLsNodeDesc(l.LocalNodeDesc, "local")
+	if err != nil {
+		return nil, err
+	}
+	remote, err := extractLsNodeDesc(l.RemoteNodeDesc, "remote")
+	if err != nil {
+		return nil, err
+	}
+
 	linkDesc := &LsLinkDescriptor{}
 	linkDesc.ParseTLVs(l.LinkDesc)
 
@@ -5306,8 +5444,8 @@ func (l *LsLinkNLRI) MarshalJSON() ([]byte, error) {
 		LinkDesc   LsLinkDescriptor `json:"link_desc"`
 	}{
 		Type:       l.Type(),
-		LocalNode:  *l.LocalNodeDesc.(*LsTLVNodeDescriptor).Extract(),
-		RemoteNode: *l.RemoteNodeDesc.(*LsTLVNodeDescriptor).Extract(),
+		LocalNode:  *local,
+		RemoteNode: *remote,
 		LinkDesc:   *linkDesc,
 	})
 }
@@ -5381,7 +5519,7 @@ func (l *LsPrefixV4NLRI) String() string {
 		ospf = fmt.Sprintf("OSPF_ROUTE_TYPE:%v ", prefix.OSPFRouteType)
 	}
 
-	return fmt.Sprintf("PREFIXv4 { LOCAL_NODE: %s PREFIX: %v %s%s}", local.IGPRouterID, ips, ospf, multiTopoIDsToString(prefix.MultiTopoIDs))
+	return fmt.Sprintf("PREFIXv4 { LOCAL_NODE: %s PREFIX: %v %s%s %s:%v}", local.IGPRouterID, ips, ospf, multiTopoIDsToString(prefix.MultiTopoIDs), l.ProtocolID.String(), l.Identifier)
 }
 
 func (l *LsPrefixV4NLRI) DecodeFromBytes(data []byte) error {
@@ -5475,6 +5613,11 @@ func (l *LsPrefixV4NLRI) Serialize() ([]byte, error) {
 }
 
 func (l *LsPrefixV4NLRI) MarshalJSON() ([]byte, error) {
+	local, err := extractLsNodeDesc(l.LocalNodeDesc, "local")
+	if err != nil {
+		return nil, err
+	}
+
 	prefixDesc := &LsPrefixDescriptor{}
 	prefixDesc.ParseTLVs(l.PrefixDesc, false)
 
@@ -5484,7 +5627,7 @@ func (l *LsPrefixV4NLRI) MarshalJSON() ([]byte, error) {
 		PrefixDesc LsPrefixDescriptor `json:"prefix_desc"`
 	}{
 		Type:       l.Type(),
-		LocalNode:  *l.LocalNodeDesc.(*LsTLVNodeDescriptor).Extract(),
+		LocalNode:  *local,
 		PrefixDesc: *prefixDesc,
 	})
 }
@@ -5492,33 +5635,26 @@ func (l *LsPrefixV4NLRI) MarshalJSON() ([]byte, error) {
 func NewLsPrefixTLVs(pd *LsPrefixDescriptor) []LsTLVInterface {
 	lsTLVs := []LsTLVInterface{}
 	for _, ipReach := range pd.IPReachability {
+		// An invalid prefix has an address that is neither IPv4 nor IPv6, so no
+		// IP Reachability TLV can be built for it. Skip it: appending the nil TLV
+		// instead would store a typed nil pointer in the LsTLVInterface slice,
+		// which panics on every later use of the NLRI.
+		if !ipReach.IsValid() {
+			continue
+		}
+
 		prefixSize := ipReach.Bits()
 		lenIpPrefix := (prefixSize-1)/8 + 1
-		lenIpReach := uint16(lenIpPrefix + 1)
-		var tlv *LsTLVIPReachability
+		ip := ipReach.Addr().AsSlice()
 
-		if ipReach.Addr().Is4() {
-			ip := ipReach.Addr().AsSlice()
-			tlv = &LsTLVIPReachability{
-				LsTLV: LsTLV{
-					Type:   LS_TLV_IP_REACH_INFO,
-					Length: lenIpReach,
-				},
-				PrefixLength: uint8(prefixSize),
-				Prefix:       ip[:lenIpPrefix],
-			}
-		} else if ipReach.Addr().Is6() {
-			ip := ipReach.Addr().AsSlice()
-			tlv = &LsTLVIPReachability{
-				LsTLV: LsTLV{
-					Type:   LS_TLV_IP_REACH_INFO,
-					Length: lenIpReach,
-				},
-				PrefixLength: uint8(prefixSize),
-				Prefix:       ip[:lenIpPrefix],
-			}
-		}
-		lsTLVs = append(lsTLVs, tlv)
+		lsTLVs = append(lsTLVs, &LsTLVIPReachability{
+			LsTLV: LsTLV{
+				Type:   LS_TLV_IP_REACH_INFO,
+				Length: uint16(lenIpPrefix + 1),
+			},
+			PrefixLength: uint8(prefixSize),
+			Prefix:       ip[:lenIpPrefix],
+		})
 	}
 
 	if pd.OSPFRouteType != 0 {
@@ -5558,7 +5694,7 @@ func (l *LsPrefixV6NLRI) String() string {
 		ospf = fmt.Sprintf("OSPF_ROUTE_TYPE:%v ", prefix.OSPFRouteType)
 	}
 
-	return fmt.Sprintf("PREFIXv6 { LOCAL_NODE: %v PREFIX: %v %v%s}", local.IGPRouterID, ips, ospf, multiTopoIDsToString(prefix.MultiTopoIDs))
+	return fmt.Sprintf("PREFIXv6 { LOCAL_NODE: %v PREFIX: %v %v%s %s:%v}", local.IGPRouterID, ips, ospf, multiTopoIDsToString(prefix.MultiTopoIDs), l.ProtocolID.String(), l.Identifier)
 }
 
 func (l *LsPrefixV6NLRI) DecodeFromBytes(data []byte) error {
@@ -5643,6 +5779,11 @@ func (l *LsPrefixV6NLRI) Serialize() ([]byte, error) {
 }
 
 func (l *LsPrefixV6NLRI) MarshalJSON() ([]byte, error) {
+	local, err := extractLsNodeDesc(l.LocalNodeDesc, "local")
+	if err != nil {
+		return nil, err
+	}
+
 	prefixDesc := &LsPrefixDescriptor{}
 	prefixDesc.ParseTLVs(l.PrefixDesc, true)
 
@@ -5652,7 +5793,7 @@ func (l *LsPrefixV6NLRI) MarshalJSON() ([]byte, error) {
 		PrefixDesc LsPrefixDescriptor `json:"prefix_desc"`
 	}{
 		Type:       l.Type(),
-		LocalNode:  *l.LocalNodeDesc.(*LsTLVNodeDescriptor).Extract(),
+		LocalNode:  *local,
 		PrefixDesc: *prefixDesc,
 	})
 }
@@ -5784,8 +5925,17 @@ type LsSrv6SIDNLRI struct {
 }
 
 func (l *LsSrv6SIDNLRI) String() string {
+	if l.LocalNodeDesc == nil || l.Srv6SIDInfo == nil {
+		return "SRv6SID { EMPTY }"
+	}
+
 	local := l.LocalNodeDesc.(*LsTLVNodeDescriptor).Extract()
 	srv6SID := l.Srv6SIDInfo.(*LsTLVSrv6SIDInfo)
+
+	// The Multi-Topology Identifier TLV is optional (RFC 9514, Section 6).
+	if l.MultiTopoID == nil {
+		return fmt.Sprintf("SRv6SID { LOCAL_NODE: %s SRv6_SID: %v}", local, srv6SID.String())
+	}
 	multiTopo := l.MultiTopoID.(*LsTLVMultiTopoID)
 
 	return fmt.Sprintf("SRv6SID { LOCAL_NODE: %s SRv6_SID: %v MULTI_TOPO_IDs: %v}", local, srv6SID.String(), multiTopo.String())
@@ -5864,26 +6014,49 @@ func (l *LsSrv6SIDNLRI) Serialize() ([]byte, error) {
 	}
 	buf = append(buf, s...)
 
-	s, err = l.MultiTopoID.Serialize()
-	if err != nil {
-		return nil, err
+	// The Multi-Topology Identifier TLV is optional (RFC 9514, Section 6), so
+	// it may legitimately be absent from a decoded NLRI.
+	if l.MultiTopoID != nil {
+		s, err = l.MultiTopoID.Serialize()
+		if err != nil {
+			return nil, err
+		}
+		buf = append(buf, s...)
 	}
-	buf = append(buf, s...)
 
 	return l.LsNLRI.Serialize(buf)
 }
 
 func (l *LsSrv6SIDNLRI) MarshalJSON() ([]byte, error) {
+	local, err := extractLsNodeDesc(l.LocalNodeDesc, "local")
+	if err != nil {
+		return nil, err
+	}
+
+	srv6SID, ok := l.Srv6SIDInfo.(*LsTLVSrv6SIDInfo)
+	if !ok {
+		return nil, fmt.Errorf("invalid SRv6 SID info type %T", l.Srv6SIDInfo)
+	}
+
+	// The Multi-Topology Identifier TLV is optional (RFC 9514, Section 6).
+	var multiTopoID *LsTLVMultiTopoID
+	if l.MultiTopoID != nil {
+		multiTopoID, ok = l.MultiTopoID.(*LsTLVMultiTopoID)
+		if !ok {
+			return nil, fmt.Errorf("invalid multi topology ID type %T", l.MultiTopoID)
+		}
+	}
+
 	return json.Marshal(struct {
-		Type        LsNLRIType       `json:"type"`
-		LocalNode   LsNodeDescriptor `json:"local_node_desc"`
-		Srv6SID     LsTLVSrv6SIDInfo `json:"srv6_sid_info"`
-		MultiTopoID LsTLVMultiTopoID `json:"multi_topo"`
+		Type        LsNLRIType        `json:"type"`
+		LocalNode   LsNodeDescriptor  `json:"local_node_desc"`
+		Srv6SID     LsTLVSrv6SIDInfo  `json:"srv6_sid_info"`
+		MultiTopoID *LsTLVMultiTopoID `json:"multi_topo,omitempty"`
 	}{
 		Type:        l.Type(),
-		LocalNode:   *l.LocalNodeDesc.(*LsTLVNodeDescriptor).Extract(),
-		Srv6SID:     *l.Srv6SIDInfo.(*LsTLVSrv6SIDInfo),
-		MultiTopoID: *l.MultiTopoID.(*LsTLVMultiTopoID),
+		LocalNode:   *local,
+		Srv6SID:     *srv6SID,
+		MultiTopoID: multiTopoID,
 	})
 }
 
@@ -12737,7 +12910,18 @@ func (p *PathAttributeMpReachNLRI) DecodeFromBytes(data []byte, options ...*Mars
 	}
 
 	switch nexthoplen {
-	case 0: // no nexthop, skip (FlowSpec)
+	case 0:
+		// A zero-length next hop is only valid for the families that do
+		// not carry a next hop: the FlowSpec families and the gobgp opaque
+		// key/value family. It is malformed for any other family (e.g.
+		// IPv4/IPv6 unicast). The AFI/SAFI is not decoded on the MRT-only
+		// next hop path, so that path is left unchanged.
+		if !onlyNexthop &&
+			p.SAFI != SAFI_FLOW_SPEC_UNICAST &&
+			p.SAFI != SAFI_FLOW_SPEC_VPN &&
+			p.SAFI != SAFI_KEY_VALUE {
+			return NewMessageError(eCode, eSubCode, eData, "mpreach nexthop length is zero for a family that requires a next hop")
+		}
 	case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL: // 16 bytes IPv6 Global + 16 bytes IPv6 Link Local
 		p.LinkLocalNexthop, _ = netip.AddrFromSlice(nexthopbin[BGP_ATTR_NHLEN_IPV6_GLOBAL:BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL])
 		fallthrough
@@ -13069,8 +13253,8 @@ type TwoOctetAsSpecificExtended struct {
 	IsTransitive bool
 }
 
-func (e *TwoOctetAsSpecificExtended) Serialize() ([]byte, error) {
-	buf := [8]byte{}
+// serializeTo is the allocation-free core of Serialize.
+func (e *TwoOctetAsSpecificExtended) serializeTo(buf []byte) {
 	if e.IsTransitive {
 		buf[0] = byte(EC_TYPE_TRANSITIVE_TWO_OCTET_AS_SPECIFIC)
 	} else {
@@ -13079,6 +13263,11 @@ func (e *TwoOctetAsSpecificExtended) Serialize() ([]byte, error) {
 	buf[1] = byte(e.SubType)
 	binary.BigEndian.PutUint16(buf[2:], e.AS)
 	binary.BigEndian.PutUint32(buf[4:], e.LocalAdmin)
+}
+
+func (e *TwoOctetAsSpecificExtended) Serialize() ([]byte, error) {
+	var buf [8]byte
+	e.serializeTo(buf[:])
 	return buf[:], nil
 }
 
@@ -13123,8 +13312,7 @@ type IPv4AddressSpecificExtended struct {
 	IsTransitive bool
 }
 
-func (e *IPv4AddressSpecificExtended) Serialize() ([]byte, error) {
-	buf := [8]byte{}
+func (e *IPv4AddressSpecificExtended) serializeTo(buf []byte) {
 	if e.IsTransitive {
 		buf[0] = byte(EC_TYPE_TRANSITIVE_IP4_SPECIFIC)
 	} else {
@@ -13133,6 +13321,11 @@ func (e *IPv4AddressSpecificExtended) Serialize() ([]byte, error) {
 	buf[1] = byte(e.SubType)
 	copy(buf[2:6], e.IPv4.AsSlice())
 	binary.BigEndian.PutUint16(buf[6:], e.LocalAdmin)
+}
+
+func (e *IPv4AddressSpecificExtended) Serialize() ([]byte, error) {
+	var buf [8]byte
+	e.serializeTo(buf[:])
 	return buf[:], nil
 }
 
@@ -13237,8 +13430,7 @@ type FourOctetAsSpecificExtended struct {
 	IsTransitive bool
 }
 
-func (e *FourOctetAsSpecificExtended) Serialize() ([]byte, error) {
-	buf := [8]byte{}
+func (e *FourOctetAsSpecificExtended) serializeTo(buf []byte) {
 	if e.IsTransitive {
 		buf[0] = byte(EC_TYPE_TRANSITIVE_FOUR_OCTET_AS_SPECIFIC)
 	} else {
@@ -13247,6 +13439,11 @@ func (e *FourOctetAsSpecificExtended) Serialize() ([]byte, error) {
 	buf[1] = byte(e.SubType)
 	binary.BigEndian.PutUint32(buf[2:], e.AS)
 	binary.BigEndian.PutUint16(buf[6:], e.LocalAdmin)
+}
+
+func (e *FourOctetAsSpecificExtended) Serialize() ([]byte, error) {
+	var buf [8]byte
+	e.serializeTo(buf[:])
 	return buf[:], nil
 }
 
@@ -13398,6 +13595,30 @@ func SerializeExtendedCommunities(comms []ExtendedCommunityInterface) ([][]byte,
 		}
 	}
 	return bufs, err
+}
+
+var (
+	ErrInvalidRouteTarget = errors.New("ExtendedCommunity is not RouteTarget")
+	ErrNilCommunity       = errors.New("RouteTarget could not be nil")
+)
+
+// ExtCommRouteTargetKey returns the 64-bit serialized Route Target for use as a trie key.
+func ExtCommRouteTargetKey(routeTarget ExtendedCommunityInterface) (uint64, error) {
+	if routeTarget == nil {
+		return 0, ErrNilCommunity
+	}
+	var buf [8]byte
+	switch rt := routeTarget.(type) {
+	case *TwoOctetAsSpecificExtended:
+		rt.serializeTo(buf[:])
+	case *IPv4AddressSpecificExtended:
+		rt.serializeTo(buf[:])
+	case *FourOctetAsSpecificExtended:
+		rt.serializeTo(buf[:])
+	default:
+		return 0, ErrInvalidRouteTarget
+	}
+	return binary.BigEndian.Uint64(buf[:]), nil
 }
 
 type ValidationState uint8
@@ -14506,14 +14727,12 @@ func parseGenericTransitiveExperimentalExtended(data []byte) (ExtendedCommunityI
 	case EC_SUBTYPE_FLOWSPEC_TRAFFIC_REMARK:
 		dscp := data[7]
 		return NewTrafficRemarkExtended(dscp), nil
-	case EC_SUBTYPE_FLOWSPEC_REDIRECT_IP6:
-		if len(data) < 20 {
-			return nil, NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "not all extended community bytes for IPv6 FlowSpec are available")
-		}
-
-		ipv6, _ := netip.AddrFromSlice(data[2:18])
-		localAdmin := binary.BigEndian.Uint16(data[18:20])
-		return NewRedirectIPv6AddressSpecificExtended(ipv6, localAdmin)
+	// EC_SUBTYPE_FLOWSPEC_REDIRECT_IP6 is deliberately absent here. The
+	// redirect to IPv6 action is an IPv6 Address Specific Extended
+	// Community, which is 20 octets long and travels in its own path
+	// attribute (RFC5701 Section 2 and 3), so it cannot appear in this
+	// 8-octet attribute. It is decoded by parseIP6FlowSpecExtended instead.
+	// Falling through to UnknownExtended keeps the 8 octets intact.
 	case EC_SUBTYPE_L2_INFO:
 		switch data[2] {
 		case byte(LAYER2ENCAPSULATION_TYPE_VPLS):
@@ -14656,9 +14875,13 @@ type PathAttributeExtendedCommunities struct {
 }
 
 func ParseExtended(data []byte) (ExtendedCommunityInterface, error) {
-	if len(data) < 8 {
+	if len(data) < ExtendedCommunityLen {
 		return nil, NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "not all extended community bytes are available")
 	}
+	// Callers hand over the rest of the enclosing attribute or NLRI, so
+	// bound the buffer to this community. A sub-type decoder must not be
+	// able to read into the community that follows.
+	data = data[:ExtendedCommunityLen]
 	attrType := ExtendedCommunityAttrType(data[0])
 	subtype := ExtendedCommunityAttrSubType(data[1])
 	transitive := false
@@ -14713,18 +14936,18 @@ func (p *PathAttributeExtendedCommunities) DecodeFromBytes(data []byte, options 
 	if err != nil {
 		return err
 	}
-	if p.Length%8 != 0 {
+	if p.Length%ExtendedCommunityLen != 0 {
 		eCode := uint8(BGP_ERROR_UPDATE_MESSAGE_ERROR)
 		eSubCode := uint8(BGP_ERROR_SUB_ATTRIBUTE_LENGTH_ERROR)
 		return NewMessageError(eCode, eSubCode, nil, "extendedcommunities length isn't correct")
 	}
-	for len(value) >= 8 {
+	for len(value) >= ExtendedCommunityLen {
 		e, err := ParseExtended(value)
 		if err != nil {
 			return err
 		}
 		p.Value = append(p.Value, e)
-		value = value[8:]
+		value = value[ExtendedCommunityLen:]
 	}
 	return nil
 }
@@ -14923,6 +15146,30 @@ func NewPathAttributeAs4Aggregator(as uint32, address netip.Addr) (*PathAttribut
 			Address: address,
 		},
 	}, nil
+}
+
+// ParseAs4Value parses a four-octet AS in asplain or asdot (high.low) form.
+func ParseAs4Value(s string) (uint32, error) {
+	if strings.Contains(s, ".") {
+		v := strings.Split(s, ".")
+		if len(v) != 2 {
+			return 0, fmt.Errorf("invalid asplain %q: expected high.low", s)
+		}
+		upper, err := strconv.ParseUint(v[0], 10, 16)
+		if err != nil {
+			return 0, err
+		}
+		lower, err := strconv.ParseUint(v[1], 10, 16)
+		if err != nil {
+			return 0, err
+		}
+		return uint32(upper<<16 | lower), nil
+	}
+	i, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(i), nil
 }
 
 type TunnelEncapSubTLVInterface interface {
@@ -15702,9 +15949,11 @@ type PathAttributeIP6ExtendedCommunities struct {
 }
 
 func ParseIP6Extended(data []byte) (ExtendedCommunityInterface, error) {
-	if len(data) < 20 {
+	if len(data) < IP6ExtendedCommunityLen {
 		return nil, NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "not all extended community bytes are available")
 	}
+	// Bound the buffer to this community, like ParseExtended does.
+	data = data[:IP6ExtendedCommunityLen]
 	attrType := ExtendedCommunityAttrType(data[0])
 	subtype := ExtendedCommunityAttrSubType(data[1])
 	transitive := false
@@ -15733,18 +15982,18 @@ func (p *PathAttributeIP6ExtendedCommunities) DecodeFromBytes(data []byte, optio
 	if err != nil {
 		return err
 	}
-	if p.Length%20 != 0 {
+	if p.Length%IP6ExtendedCommunityLen != 0 {
 		eCode := uint8(BGP_ERROR_UPDATE_MESSAGE_ERROR)
 		eSubCode := uint8(BGP_ERROR_SUB_ATTRIBUTE_LENGTH_ERROR)
 		return NewMessageError(eCode, eSubCode, nil, "extendedcommunities length isn't correct")
 	}
-	for len(value) >= 20 {
+	for len(value) >= IP6ExtendedCommunityLen {
 		e, err := ParseIP6Extended(value)
 		if err != nil {
 			return err
 		}
 		p.Value = append(p.Value, e)
-		value = value[20:]
+		value = value[IP6ExtendedCommunityLen:]
 	}
 	return nil
 }
@@ -16349,7 +16598,9 @@ func (msg *BGPUpdate) DecodeFromBytes(data []byte, options ...*MarshallingOption
 	if len(data) < int(msg.TotalPathAttributeLen) {
 		return NewMessageError(eCode, eSubCode, nil, "path total attribute length exceeds message length")
 	}
-	attributes := getBGPUpdateAttributes(data)
+	// data still holds the NLRI field after the attributes, and the scan has
+	// no framing of its own, so it has to stop at the declared boundary.
+	attributes := getBGPUpdateAttributes(data[:msg.TotalPathAttributeLen])
 	o := MarshallingOption{
 		attributes: attributes,
 	}

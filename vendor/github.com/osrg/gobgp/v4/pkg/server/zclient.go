@@ -407,10 +407,17 @@ func (z *zebraClient) updatePathByNexthopCache(paths []*table.Path) {
 }
 
 func (z *zebraClient) loop() {
-	w := z.server.watch([]WatchOption{
+	w, err := z.server.watch([]WatchOption{
 		WatchBestPath(true),
 		WatchPostUpdate(true, "", ""),
 	}...)
+	if err != nil {
+		// the BGP server has stopped, so there is nothing left to watch.
+		z.server.logger.Warn("failed to start zebra watcher",
+			slog.String("Topic", "Zebra"),
+			slog.String("Error", err.Error()))
+		return
+	}
 	defer w.Stop()
 
 	for {

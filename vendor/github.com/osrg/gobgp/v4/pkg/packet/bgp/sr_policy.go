@@ -50,7 +50,15 @@ func (s *SRPolicyNLRI) decodeFromBytes(data []byte, options ...*MarshallingOptio
 	p += 4
 	s.Color = binary.BigEndian.Uint32(data[p : p+4])
 	p += 4
-	s.Endpoint = data[p:]
+	// Endpoint is the remainder of the declared NLRI length (4 bytes for
+	// IPv4, 16 for IPv6), not the rest of the buffer. When several SR Policy
+	// NLRIs are packed in one MP_REACH, data still holds the trailing
+	// siblings here, so slicing to p: would fold them into this endpoint.
+	endpointLen := int(s.Length) - 8
+	if len(data) < p+endpointLen {
+		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "Malformed SR Policy NLRI")
+	}
+	s.Endpoint = data[p : p+endpointLen]
 
 	return nil
 }
