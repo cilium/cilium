@@ -256,7 +256,7 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 	ciStore, _ := c.ciliumIdentity.Store(ctx)
 	cnodeStore, _ := c.ciliumNodes.Store(ctx)
 	namespaceStore, _ := c.namespace.Store(ctx)
-	c.reconciler = newSlimReconciler(c.clientset.CiliumV2alpha1(), c.manager, c.logger, cesStore, podStore, ciStore, cnodeStore, namespaceStore, c.metrics, c.ipsecEnabled, c.wgEnabled)
+	c.reconciler = newSlimReconciler(c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.clusterInfo, cesStore, podStore, ciStore, cnodeStore, namespaceStore, c.metrics, c.ipsecEnabled, c.wgEnabled)
 	c.doReconciler = c.reconciler
 
 	c.initializeQueue()
@@ -484,7 +484,8 @@ func (c *SlimController) resolvePodPlacement(pod *slim_corev1.Pod) (string, *key
 		// When pod is scheduled, we will receive a new update.
 		return "", nil, false
 	}
-	cidKey, err := getPodCIDKey(pod, c.logger, c.reconciler.namespaceStore)
+
+	cidKey, err := getPodCIDKey(pod, c.logger, c.reconciler.namespaceStore, c.reconciler.clusterInfo)
 	if err != nil {
 		c.logger.Debug("could not get labels for pod",
 			logfields.K8sPodName, pod.Name,
