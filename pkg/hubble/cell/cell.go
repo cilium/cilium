@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 )
 
 // The top-level Hubble cell, implements several Hubble subsystems: reports pod
@@ -85,7 +84,6 @@ type hubbleParams struct {
 	EndpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache
 	CGroupManager     manager.CGroupManager
-	NodeManager       nodeManager.NodeManager
 	NodeLocalStore    *node.LocalNodeStore
 	MonitorAgent      monitorAgent.Agent
 
@@ -119,7 +117,6 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.EndpointManager,
 		params.IPCache,
 		params.CGroupManager,
-		params.NodeManager,
 		params.NodeLocalStore,
 		params.MonitorAgent,
 		params.TLSConfigPromise,

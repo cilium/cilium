@@ -198,7 +198,7 @@ func TestNodeAdd(t *testing.T) {
 			wg.Go(func() {
 				got = <-h.C
 			})
-			h.NodeAdd(tt.arg)
+			h.nodeAdded(tt.arg)
 			wg.Wait()
 			assert.Equal(t, tt.want, got)
 		})
@@ -480,7 +480,7 @@ func TestNodeUpdate(t *testing.T) {
 					got = append(got, <-h.C)
 				}
 			})
-			h.NodeUpdate(tt.args.old, tt.args.updated)
+			h.nodeUpdated(tt.args.old, tt.args.updated)
 			wg.Wait()
 			assert.Equal(t, tt.want, got)
 		})
@@ -641,7 +641,7 @@ func TestNodeDelete(t *testing.T) {
 			wg.Go(func() {
 				got = <-h.C
 			})
-			h.NodeDelete(tt.arg)
+			h.nodeDeleted(tt.arg)
 			wg.Wait()
 			assert.Equal(t, tt.want, got)
 		})
@@ -695,7 +695,7 @@ func TestHubblePort(t *testing.T) {
 			wg.Go(func() {
 				got = <-h.C
 			})
-			h.NodeAdd(tt.arg)
+			h.nodeAdded(tt.arg)
 
 			want := &peerpb.ChangeNotification{
 				Address: tt.want,
