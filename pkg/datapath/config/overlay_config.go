@@ -28,6 +28,8 @@ type BPFOverlay struct {
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// Ephemeral port range minimun.
 	EphemeralMin uint16 `config:"ephemeral_min"`
+	// Enable hybrid mode routing based on subnet IDs.
+	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
@@ -49,7 +51,7 @@ type BPFOverlay struct {
 }
 
 func NewBPFOverlay(node Node) *BPFOverlay {
-	return &BPFOverlay{0x0, false, false, false, false, false, false, 0x0, 0x0,
+	return &BPFOverlay{0x0, false, false, false, false, false, false, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
