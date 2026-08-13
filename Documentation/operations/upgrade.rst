@@ -130,6 +130,24 @@ one stable release to a later stable release.
 
 .. include:: upgrade-warning.rst
 
+Hubble policy verdict metric labels
+-----------------------------------
+
+The ``hubble_policy_verdicts_total`` metric supports optional ``protocol`` and
+``destination_port`` labels. Existing metric configurations retain their
+current label set. To enable the additional labels, configure the Hubble policy
+metric with the ``protocol`` and ``destination_port`` options:
+
+.. code-block:: yaml
+
+    hubble:
+      metrics:
+        enabled:
+          - "policy:protocol;destination_port"
+
+The ``destination_port`` label may increase metric cardinality depending on
+traffic patterns. L7 reply flows are not counted when this option is enabled.
+
 Step 1: Upgrade to latest patch version
 ---------------------------------------
 
