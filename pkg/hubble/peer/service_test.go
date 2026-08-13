@@ -4,20 +4,21 @@
 package peer
 
 import (
+	"context"
 	"net"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -727,33 +728,35 @@ func TestService_Notify(t *testing.T) {
 			var got []*peerpb.ChangeNotification
 			var wg sync.WaitGroup
 			fakeServer := &testutils.FakePeerNotifyServer{
+				FakeGRPCServerStream: &testutils.FakeGRPCServerStream{
+					OnContext: t.Context,
+				},
 				OnSend: func(resp *peerpb.ChangeNotification) error {
 					got = append(got, resp)
 					wg.Done()
 					return nil
 				},
 			}
-			ready := make(chan struct{})
-			cb := func(nh node.Handler) {
-				ready <- struct{}{}
-			}
-			notif := newNotifier(cb, tt.args.init)
+			fixture := newNodeTableFixture(t, tt.args.init)
 			wg.Add(len(tt.args.init))
-			svc := NewService(notif, tt.svcOptions...)
+			svc := NewService(fixture.db, fixture.nodes, tt.svcOptions...)
 			done := make(chan struct{})
 			go func() {
 				err := svc.Notify(&peerpb.NotifyRequest{}, fakeServer)
 				assert.NoError(t, err)
 				close(done)
 			}()
-			<-ready
+			// Initial table contents are delivered as peer additions. Waiting for
+			// them also ensures that the change iterator is running before the
+			// table is mutated below.
+			wg.Wait()
 			for _, n := range tt.args.add {
 				wg.Add(1)
-				notif.notifyAdd(n)
+				fixture.notifyAdd(t, n)
 			}
 			for _, n := range tt.args.del {
 				wg.Add(1)
-				notif.notifyDelete(n)
+				fixture.notifyDelete(t, n)
 			}
 			// the update slice shall always be even with odd entry
 			// corresponding to the old node and following even entries to the
@@ -777,7 +780,7 @@ func TestService_Notify(t *testing.T) {
 				default:
 					wg.Add(1)
 				}
-				notif.notifyUpdate(o, n)
+				fixture.notifyUpdate(t, o, n)
 			}
 			wg.Wait()
 			svc.Close()
@@ -790,14 +793,13 @@ func TestService_Notify(t *testing.T) {
 
 func TestService_NotifyWithBlockedSend(t *testing.T) {
 	fakeServer := &testutils.FakePeerNotifyServer{
+		FakeGRPCServerStream: &testutils.FakeGRPCServerStream{
+			OnContext: t.Context,
+		},
 		OnSend: func(resp *peerpb.ChangeNotification) error {
 			<-time.After(100 * time.Millisecond)
 			return nil
 		},
-	}
-	ready := make(chan struct{})
-	cb := func(nh node.Handler) {
-		ready <- struct{}{}
 	}
 	init := []types.Node{
 		{
@@ -824,78 +826,92 @@ func TestService_NotifyWithBlockedSend(t *testing.T) {
 			},
 		},
 	}
-	notif := newNotifier(cb, init)
-	svc := NewService(notif, serviceoption.WithMaxSendBufferSize(2), serviceoption.WithoutTLSInfo())
+	fixture := newNodeTableFixture(t, init)
+	svc := NewService(fixture.db, fixture.nodes, serviceoption.WithMaxSendBufferSize(2), serviceoption.WithoutTLSInfo())
 	done := make(chan struct{})
 	go func() {
 		err := svc.Notify(&peerpb.NotifyRequest{}, fakeServer)
 		assert.Equal(t, ErrStreamSendBlocked, err)
 		close(done)
 	}()
-	<-ready
-	for _, n := range init {
-		notif.notifyAdd(n)
-	}
-	svc.Close()
 	// wait for the notify call routine to finish
 	<-done
+	svc.Close()
 }
 
-type notifier struct {
-	nodes       []types.Node
-	subscribers map[node.Handler]struct{}
-	cb          func(nh node.Handler)
-	mu          lock.Mutex
-}
+func TestService_NotifyStopsWhenStreamContextIsCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	fakeServer := &testutils.FakePeerNotifyServer{
+		FakeGRPCServerStream: &testutils.FakeGRPCServerStream{
+			OnContext: func() context.Context { return ctx },
+		},
+		OnSend: func(*peerpb.ChangeNotification) error {
+			return nil
+		},
+	}
+	fixture := newNodeTableFixture(t, nil)
+	svc := NewService(fixture.db, fixture.nodes)
+	defer svc.Close()
 
-var _ manager.Notifier = (*notifier)(nil)
+	done := make(chan error, 1)
+	go func() {
+		done <- svc.Notify(&peerpb.NotifyRequest{}, fakeServer)
+	}()
+	cancel()
 
-func newNotifier(subCallback func(nh node.Handler), nodes []types.Node) *notifier {
-	return &notifier{
-		nodes:       nodes,
-		subscribers: make(map[node.Handler]struct{}),
-		cb:          subCallback,
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("Notify did not stop after its stream context was cancelled")
 	}
 }
 
-func (n *notifier) Subscribe(nh node.Handler) {
-	n.mu.Lock()
-	n.subscribers[nh] = struct{}{}
-	n.mu.Unlock()
-	for _, e := range n.nodes {
-		nh.NodeAdd(e)
-	}
-	if n.cb != nil {
-		n.cb(nh)
-	}
+type nodeTableFixture struct {
+	db    *statedb.DB
+	nodes statedb.RWTable[*node.Node]
 }
 
-func (n *notifier) Unsubscribe(nh node.Handler) {
-	n.mu.Lock()
-	delete(n.subscribers, nh)
-	n.mu.Unlock()
+func newNodeTableFixture(t testing.TB, nodes []types.Node) *nodeTableFixture {
+	t.Helper()
+	db := statedb.New()
+	table, err := node.NewNodeTable(db)
+	require.NoError(t, err)
+
+	txn := db.WriteTxn(table)
+	for _, n := range nodes {
+		_, _, err := table.Insert(txn, &node.Node{Node: n})
+		require.NoError(t, err)
+	}
+	txn.Commit()
+
+	return &nodeTableFixture{db: db, nodes: table}
 }
 
-func (n *notifier) notifyAdd(e types.Node) {
-	n.mu.Lock()
-	for s := range n.subscribers {
-		s.NodeAdd(e)
-	}
-	n.mu.Unlock()
+func (f *nodeTableFixture) notifyAdd(t testing.TB, n types.Node) {
+	t.Helper()
+	txn := f.db.WriteTxn(f.nodes)
+	_, _, err := f.nodes.Insert(txn, &node.Node{Node: n})
+	require.NoError(t, err)
+	txn.Commit()
 }
 
-func (n *notifier) notifyDelete(e types.Node) {
-	n.mu.Lock()
-	for s := range n.subscribers {
-		s.NodeDelete(e)
-	}
-	n.mu.Unlock()
+func (f *nodeTableFixture) notifyDelete(t testing.TB, n types.Node) {
+	t.Helper()
+	txn := f.db.WriteTxn(f.nodes)
+	_, _, err := f.nodes.Delete(txn, &node.Node{Node: n})
+	require.NoError(t, err)
+	txn.Commit()
 }
 
-func (n *notifier) notifyUpdate(o, e types.Node) {
-	n.mu.Lock()
-	for s := range n.subscribers {
-		s.NodeUpdate(o, e)
+func (f *nodeTableFixture) notifyUpdate(t testing.TB, old, updated types.Node) {
+	t.Helper()
+	txn := f.db.WriteTxn(f.nodes)
+	if old.Fullname() != updated.Fullname() {
+		_, _, err := f.nodes.Delete(txn, &node.Node{Node: old})
+		require.NoError(t, err)
 	}
-	n.mu.Unlock()
+	_, _, err := f.nodes.Insert(txn, &node.Node{Node: updated})
+	require.NoError(t, err)
+	txn.Commit()
 }
