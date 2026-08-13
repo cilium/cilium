@@ -13,9 +13,7 @@
         hostname: example.com
         port: 80
       timeout: {}
-    - direct_response:
-        status_code: 500
-      path_match:
+    - path_match:
         prefix: /status-code-301
       request_redirect:
         port: 80
