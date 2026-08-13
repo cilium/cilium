@@ -100,3 +100,33 @@ subnet_lookup4(const void *map, __be32 addr)
 	subnet_lookup6(&cilium_subnet_map, addr)
 #define lookup_ip4_subnet_id(addr) \
 	subnet_lookup4(&cilium_subnet_map, addr)
+
+/* is_subnet_same_id4 returns true if both addresses have the same ID and it's
+ * different than zero.
+ */
+static __always_inline __maybe_unused bool
+is_subnet_same_id4(__be32 saddr, __be32 daddr)
+{
+	__u32 sid, did;
+
+	sid = lookup_ip4_subnet_id(saddr);
+	if (sid == 0)
+		return false;
+	did = lookup_ip4_subnet_id(daddr);
+	return sid == did;
+}
+
+/* is_subnet_same_id6 returns true if both addresses have the same ID and it's
+ * different than zero.
+ */
+static __always_inline __maybe_unused bool
+is_subnet_same_id6(const union v6addr *saddr, const union v6addr *daddr)
+{
+	__u32 sid, did;
+
+	sid = lookup_ip6_subnet_id(saddr);
+	if (sid == 0)
+		return false;
+	did = lookup_ip6_subnet_id(daddr);
+	return sid == did;
+}
