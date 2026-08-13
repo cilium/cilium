@@ -91,10 +91,12 @@ add_type(struct egress_gw_policy_entry6);
 add_type(struct vtep_key);
 add_type(struct vtep_value);
 
+#include "lib/srv6.h"
 add_type(struct srv6_vrf_key4);
 add_type(struct srv6_vrf_key6);
 add_type(struct srv6_policy_key4);
 add_type(struct srv6_policy_key6);
+
 add_type(struct trace_sock_notify);
 add_type(struct auth_key);
 add_type(struct auth_info);
