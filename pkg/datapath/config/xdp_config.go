@@ -28,6 +28,8 @@ type BPFXDP struct {
 	EnableXDPPrefilter bool `config:"enable_xdp_prefilter"`
 	// Ephemeral port range minimun.
 	EphemeralMin uint16 `config:"ephemeral_min"`
+	// Enable hybrid mode routing based on subnet IDs.
+	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
 	// IPv4 source prefix used for DSR IPIP RSS.
 	IPv4RSSPrefix types.V4Addr `config:"ipv4_rss_prefix"`
 	// Prefix length of the IPv4 DSR IPIP RSS source prefix.
@@ -55,7 +57,7 @@ type BPFXDP struct {
 }
 
 func NewBPFXDP(node Node) *BPFXDP {
-	return &BPFXDP{0x0, false, false, false, false, false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+	return &BPFXDP{0x0, false, false, false, false, false, false, 0x0, false, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		0x0,
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x0,
