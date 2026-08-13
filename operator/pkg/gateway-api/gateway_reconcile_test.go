@@ -1538,3 +1538,117 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 		assert.Equal(t, metav1.ConditionFalse, invalidAcceptedCond.Status)
 	})
 }
+
+func Test_gatewayReconciler_setStaticAddressStatus(t *testing.T) {
+	t.Parallel()
+
+	gateway := func(addr string) *gatewayv1.Gateway {
+		return &gatewayv1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "static-address-gateway",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.GatewaySpec{
+				Addresses: []gatewayv1.GatewaySpecAddress{
+					{
+						Type:  ptr.To(gatewayv1.IPAddressType),
+						Value: addr,
+					},
+				},
+			},
+		}
+	}
+
+	service := func(ingress ...corev1.LoadBalancerIngress) *corev1.Service {
+		return &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cilium-gateway-static-address-gateway",
+				Namespace: "default",
+				Labels: map[string]string{
+					owningGatewayLabel: shortener.ShortenK8sResourceName("static-address-gateway"),
+				},
+			},
+			Status: corev1.ServiceStatus{
+				LoadBalancer: corev1.LoadBalancerStatus{
+					Ingress: ingress,
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name      string
+		specAddr  string
+		ingress   []corev1.LoadBalancerIngress
+		wantError bool
+	}{
+		{
+			name:     "IPv6 spelled with :: matches the canonical status address",
+			specAddr: "2001:db8:1:2:3:4::6",
+			ingress:  []corev1.LoadBalancerIngress{{IP: "2001:db8:1:2:3:4:0:6"}},
+		},
+		{
+			name:     "IPv6 with leading zeroes matches the canonical status address",
+			specAddr: "2001:0db8::0001",
+			ingress:  []corev1.LoadBalancerIngress{{IP: "2001:db8::1"}},
+		},
+		{
+			name:     "identical IPv4 addresses match",
+			specAddr: "10.0.0.1",
+			ingress:  []corev1.LoadBalancerIngress{{IP: "10.0.0.1"}},
+		},
+		{
+			name:     "hostname entry is ignored when a matching IP is present",
+			specAddr: "2001:db8::1",
+			ingress: []corev1.LoadBalancerIngress{
+				{Hostname: "gateway.example.com"},
+				{IP: "2001:db8::1"},
+			},
+		},
+		{
+			name:      "a different address is still rejected",
+			specAddr:  "2001:db8::1",
+			ingress:   []corev1.LoadBalancerIngress{{IP: "2001:db8::2"}},
+			wantError: true,
+		},
+		{
+			name:      "hostname-only ingress is rejected",
+			specAddr:  "2001:db8::1",
+			ingress:   []corev1.LoadBalancerIngress{{Hostname: "gateway.example.com"}},
+			wantError: true,
+		},
+		{
+			name:      "invalid ingress IP is rejected",
+			specAddr:  "2001:db8::1",
+			ingress:   []corev1.LoadBalancerIngress{{IP: "not-an-ip"}},
+			wantError: true,
+		},
+		{
+			name:      "invalid Gateway spec address is rejected",
+			specAddr:  "not-an-ip",
+			ingress:   []corev1.LoadBalancerIngress{{IP: "2001:db8::1"}},
+			wantError: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gw := gateway(tc.specAddr)
+			c := fake.NewClientBuilder().
+				WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+				WithObjects(gw, service(tc.ingress...)).
+				Build()
+			r := &gatewayReconciler{
+				Client: c,
+				logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+			}
+
+			err := r.setStaticAddressStatus(t.Context(), gw)
+			if tc.wantError {
+				require.ErrorContains(t, err, "can't be used")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
