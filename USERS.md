@@ -641,6 +641,12 @@ Users (Alphabetically)
       L: https://www.nutanix.com/products/kubernetes-management-platform
       Q: @tuxtof
 
+    * N: OpenChoreo
+      D: OpenChoreo uses Cilium to enforce zero-trust network security through CiliumNetworkPolicies and provide advanced network observability with Hubble.
+      U: CNI, CiliumNetworkPolicy, Hubble, Layer 7 visibility via Cilium Envoy
+      L: https://openchoreo.dev/ecosystem/item/networking-cilium/
+      Q: @akila-i
+
     * N: Outscale Kubernetes as a Service (OKS)
       D: Cilium is the default Container Network Interface (CNI) used by OUTSCALE on all clusters provisioned through its Kubernetes offering, OKS.
       U: CNI, Hubble, CiliumNetworkPolicy, kube-proxy replacement, eBPF 
