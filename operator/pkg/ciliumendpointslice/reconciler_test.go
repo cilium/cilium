@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/operator/k8s"
 	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	cidtest "github.com/cilium/cilium/operator/pkg/ciliumidentity/testutils"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -310,7 +311,7 @@ func TestReconcileCreate(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	nodeStore, _ := ciliumNode.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	ciliumNodeStore, _ := ciliumNode.Store(t.Context())
 
 	var createdSlice *cilium_v2a1.CiliumEndpointSlice
@@ -408,7 +409,7 @@ func TestReconcileUpdate(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	nodeStore, _ := ciliumNode.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	ciliumNodeStore, _ := ciliumNode.Store(t.Context())
 
 	var updatedSlice *cilium_v2a1.CiliumEndpointSlice
@@ -506,7 +507,7 @@ func TestReconcileDelete(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	nodeStore, _ := ciliumNode.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	ciliumNodeStore, _ := ciliumNode.Store(t.Context())
 
 	var deletedSlice string
@@ -596,7 +597,7 @@ func TestReconcileNoop(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	nodeStore, _ := ciliumNode.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	ciliumNodeStore, _ := ciliumNode.Store(t.Context())
 
 	noRequest := true

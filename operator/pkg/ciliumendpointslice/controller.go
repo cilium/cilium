@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/workerpool"
 	"k8s.io/client-go/util/workqueue"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -44,6 +45,7 @@ type params struct {
 	SharedCfg    SharedConfig
 	IPSecCfg     ipsec.EnableConfig
 	WireguardCfg wgAgent.EnableConfig
+	ClusterInfo  cmtypes.ClusterInfo
 
 	Metrics                  *Metrics
 	WorkqueueMetricsProvider workqueue.MetricsProvider
@@ -52,7 +54,8 @@ type params struct {
 }
 
 type Controller struct {
-	logger *slog.Logger
+	logger      *slog.Logger
+	clusterInfo cmtypes.ClusterInfo
 
 	// Cilium kubernetes clients to access V2 and V2alpha1 resources
 	clientset           k8sClient.Clientset
@@ -153,6 +156,7 @@ func registerController(p params) error {
 
 	cesController := &Controller{
 		logger:                   p.Logger,
+		clusterInfo:              p.ClusterInfo,
 		clientset:                clientset,
 		ciliumEndpointSlice:      p.CiliumEndpointSlice,
 		ciliumNodes:              p.CiliumNodes,

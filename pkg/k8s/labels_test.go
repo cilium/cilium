@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -41,7 +42,7 @@ func TestGetPodMetadata(t *testing.T) {
 
 	expectedLabels := map[string]string{
 		"app":                          "test",
-		"io.cilium.k8s.policy.cluster": "",
+		"io.cilium.k8s.policy.cluster": "default",
 		"io.kubernetes.pod.namespace":  "default",
 		"io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "default",
 		"io.cilium.k8s.namespace.labels.namespace-level-key":         "namespace-level-value",
@@ -50,7 +51,7 @@ func TestGetPodMetadata(t *testing.T) {
 	t.Run("normal scenario", func(t *testing.T) {
 		pod := pod.DeepCopy()
 
-		_, labels := GetPodMetadata(hivetest.Logger(t), ns, pod)
+		_, labels := GetPodMetadata(hivetest.Logger(t), cmtypes.DefaultClusterInfo, ns, pod)
 		require.Equal(t, expectedLabels, labels)
 	})
 
@@ -59,7 +60,7 @@ func TestGetPodMetadata(t *testing.T) {
 			pod := pod.DeepCopy()
 			pod.Labels["io.cilium.k8s.namespace.labels.namespace-level-key"] = "override-namespace-level-value"
 
-			_, labels := GetPodMetadata(hivetest.Logger(t), ns, pod)
+			_, labels := GetPodMetadata(hivetest.Logger(t), cmtypes.DefaultClusterInfo, ns, pod)
 			require.Equal(t, expectedLabels, labels)
 		})
 
@@ -67,7 +68,7 @@ func TestGetPodMetadata(t *testing.T) {
 			pod := pod.DeepCopy()
 			pod.Labels["io.cilium.k8s.namespace.labels.another-namespace-key"] = "another-namespace-level-value"
 
-			_, labels := GetPodMetadata(hivetest.Logger(t), ns, pod)
+			_, labels := GetPodMetadata(hivetest.Logger(t), cmtypes.DefaultClusterInfo, ns, pod)
 			require.Equal(t, expectedLabels, labels)
 		})
 	})
@@ -85,7 +86,7 @@ func TestGetPodMetadata(t *testing.T) {
 			},
 		}}
 
-		namedPorts, labels := GetPodMetadata(hivetest.Logger(t), ns, pod)
+		namedPorts, labels := GetPodMetadata(hivetest.Logger(t), cmtypes.DefaultClusterInfo, ns, pod)
 		require.Equal(t, ciliumTypes.NamedPortMap{
 			"dns":   {Port: 53, Proto: u8proto.UDP},
 			"http":  {Port: 80, Proto: u8proto.TCP},

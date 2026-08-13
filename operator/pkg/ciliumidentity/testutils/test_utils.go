@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cestest "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity/key"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	idbackend "github.com/cilium/cilium/pkg/k8s/identitybackend"
@@ -31,7 +32,7 @@ func NewCID(id string, lbs map[string]string) *capi_v2.CiliumIdentity {
 }
 
 func NewCIDWithNamespace(id string, pod *slim_corev1.Pod, namespace *slim_corev1.Namespace) *capi_v2.CiliumIdentity {
-	lbs := k8sUtils.SanitizePodLabels(pod.ObjectMeta.Labels, namespace, "", "")
+	lbs := k8sUtils.SanitizePodLabels(pod.ObjectMeta.Labels, namespace, "", cmtypes.DefaultClusterInfo.Name)
 	return NewCID(id, lbs)
 }
 
