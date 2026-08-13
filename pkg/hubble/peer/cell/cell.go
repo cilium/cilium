@@ -10,11 +10,12 @@ import (
 	"strconv"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 // Cell provides the Hubble peer service that handles peer discovery and notifications.
@@ -35,11 +36,12 @@ type HubbleConfig struct {
 type peerServiceParams struct {
 	cell.In
 
-	Logger      *slog.Logger
-	Lifecycle   cell.Lifecycle
-	NodeManager nodeManager.NodeManager
-	Config      *HubbleConfig
-	Health      cell.Health
+	Logger    *slog.Logger
+	Lifecycle cell.Lifecycle
+	DB        *statedb.DB
+	Nodes     statedb.Table[*node.Node]
+	Config    *HubbleConfig
+	Health    cell.Health
 }
 
 // getPort extracts the port from an address string.
@@ -87,7 +89,7 @@ func newPeerService(params peerServiceParams) (*peer.Service, error) {
 		}
 	}
 
-	service := peer.NewService(params.NodeManager, peerServiceOptions...)
+	service := peer.NewService(params.DB, params.Nodes, peerServiceOptions...)
 
 	// Register stop hook to properly close the peer service
 	params.Lifecycle.Append(cell.Hook{
