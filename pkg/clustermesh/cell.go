@@ -77,6 +77,5 @@ var Cell = cell.Module(
 		}
 		return err
 	}),
-	cell.Invoke(ipsetNotifier),
 	cell.Invoke(nodeManagerNotifier),
 )
