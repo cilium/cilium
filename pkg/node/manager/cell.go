@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -76,8 +75,6 @@ func newAllNodeManager(in struct {
 	cell.In
 	Logger      *slog.Logger
 	Lifecycle   cell.Lifecycle
-	IPSetMgr    ipset.Manager
-	IPSetFilter IPSetFilterFn `optional:"true"`
 	NodeMetrics *nodeMetrics
 	Health      cell.Health
 	JobGroup    job.Group
@@ -93,7 +90,7 @@ func newAllNodeManager(in struct {
 	// here.
 	nodeTable := in.Nodes.(statedb.RWTable[*node.Node])
 
-	mngr, err := New(in.Logger, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, nodeTable)
+	mngr, err := New(in.Logger, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, nodeTable)
 	if err != nil {
 		return nil, err
 	}

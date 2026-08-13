@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/netip"
-	"slices"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -19,15 +17,12 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -56,11 +51,6 @@ type nodeEntry struct {
 	mutex lock.Mutex
 	node  nodeTypes.Node
 }
-
-// IPSetFilterFn is a function allowing to optionally filter out the insertion
-// of IPSet entries based on node characteristics. The insertion is performed
-// if the function returns false, and skipped otherwise.
-type IPSetFilterFn func(*nodeTypes.Node) bool
 
 var _ Notifier = (*manager)(nil)
 
@@ -100,11 +90,6 @@ type manager struct {
 
 	// metrics to track information about the node manager
 	metrics *nodeMetrics
-
-	// ipsetMgr is the ipset cluster nodes configuration manager
-	ipsetMgr         ipset.Manager
-	ipsetInitializer ipset.Initializer
-	ipsetFilter      IPSetFilterFn
 
 	// controllerManager manages the controllers that are launched within the
 	// Manager.
@@ -212,8 +197,6 @@ func NewNodeMetrics() *nodeMetrics {
 // New returns a new node manager
 func New(
 	logger *slog.Logger,
-	ipsetMgr ipset.Manager,
-	ipsetFilter IPSetFilterFn,
 	nodeMetrics *nodeMetrics,
 	health cell.Health,
 	jobGroup job.Group,
@@ -221,19 +204,12 @@ func New(
 	devices statedb.Table[*tables.Device],
 	nodeTable statedb.RWTable[*node.Node],
 ) (*manager, error) {
-	if ipsetFilter == nil {
-		ipsetFilter = func(*nodeTypes.Node) bool { return false }
-	}
-
 	m := &manager{
 		logger:            logger,
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
 		nodeTable:         nodeTable,
 		controllerManager: controller.NewManager(),
 		nodeHandlers:      map[node.Handler]struct{}{},
-		ipsetMgr:          ipsetMgr,
-		ipsetInitializer:  ipsetMgr.NewInitializer(),
-		ipsetFilter:       ipsetFilter,
 		metrics:           nodeMetrics,
 		health:            health,
 		jobGroup:          jobGroup,
@@ -418,25 +394,6 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	}
 
 	nodeIdentifier := n.Identity()
-	var ipsetEntries []netip.Prefix
-	for _, address := range n.IPAddresses {
-		if address.Type == addressing.NodeInternalIP && !m.ipsetFilter(&n) {
-			ipsetEntries = append(ipsetEntries, ip.IPToNetPrefix(address.IP))
-		}
-	}
-
-	var v4Addrs, v6Addrs []netip.Addr
-	for _, prefix := range ipsetEntries {
-		addr := prefix.Addr()
-		if addr.Is6() {
-			v6Addrs = append(v6Addrs, addr)
-		} else {
-			v4Addrs = append(v4Addrs, addr)
-		}
-	}
-	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV4, ipset.INetFamily, v4Addrs...)
-	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV6, ipset.INet6Family, v6Addrs...)
-
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentifier]
 	if oldNodeExists {
@@ -475,8 +432,6 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		} else {
 			hr.OK("Node updates successful")
 		}
-
-		m.removeNodeFromIPSet(oldNode, ipsetEntries)
 
 		entry.mutex.Unlock()
 	} else {
@@ -543,29 +498,6 @@ func (m *manager) deleteFromNodeTable(nodeId nodeTypes.Identity) {
 	}
 }
 
-func (m *manager) removeNodeFromIPSet(
-	oldNode nodeTypes.Node,
-	retained []netip.Prefix,
-) {
-	var v4Addrs, v6Addrs []netip.Addr
-	for _, address := range oldNode.IPAddresses {
-		if address.Type != addressing.NodeInternalIP {
-			continue
-		}
-		prefix := ip.IPToNetPrefix(address.IP)
-		if slices.Contains(retained, prefix) {
-			continue
-		}
-		if prefix.Addr().Is6() {
-			v6Addrs = append(v6Addrs, prefix.Addr())
-		} else {
-			v4Addrs = append(v4Addrs, prefix.Addr())
-		}
-	}
-	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV4, v4Addrs...)
-	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV6, v6Addrs...)
-}
-
 // NodeDeleted is called after a node has been deleted. It removes the node
 // from the manager if the node is still owned by the source of which the event
 // origins from. If the node was removed, NodeDelete() is invoked of the
@@ -613,7 +545,6 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		return
 	}
 
-	m.removeNodeFromIPSet(entry.node, nil)
 	m.metrics.NumNodes.Dec()
 
 	entry.mutex.Lock()
@@ -650,8 +581,6 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 // or kvstore) has been completed. This allows the manager to initiate the
 // deletion of possible stale nodes.
 func (m *manager) NodeSync() {
-	m.ipsetInitializer.InitDone()
-
 	if m.clusterNodeTableInit != nil {
 		m.clusterNodeTableInit()
 	}

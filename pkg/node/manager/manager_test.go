@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -20,7 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/health"
@@ -32,60 +30,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 )
-
-type ipsetMock struct {
-	v4 map[string]struct{}
-	v6 map[string]struct{}
-}
-
-func newIPSetMock() *ipsetMock {
-	return &ipsetMock{
-		v4: make(map[string]struct{}),
-		v6: make(map[string]struct{}),
-	}
-}
-
-type ipsetInitializerMock struct{}
-
-func (i *ipsetInitializerMock) InitDone() {
-}
-
-func (i *ipsetMock) NewInitializer() ipset.Initializer {
-	return &ipsetInitializerMock{}
-}
-
-func (i *ipsetMock) AddToIPSet(name string, family ipset.Family, addrs ...netip.Addr) {
-	for _, addr := range addrs {
-		if name == ipset.CiliumNodeIPSetV4 && family == ipset.INetFamily {
-			i.v4[addr.String()] = struct{}{}
-		} else if name == ipset.CiliumNodeIPSetV6 && family == ipset.INet6Family {
-			i.v6[addr.String()] = struct{}{}
-		}
-	}
-}
-
-func (i *ipsetMock) RemoveFromIPSet(name string, addrs ...netip.Addr) {
-	for _, addr := range addrs {
-		if name == ipset.CiliumNodeIPSetV4 {
-			delete(i.v4, addr.String())
-		} else if name == ipset.CiliumNodeIPSetV6 {
-			delete(i.v6, addr.String())
-		}
-	}
-}
-
-func ipsetContains(ipsetMgr *ipsetMock, setName string, addr string) (bool, error) {
-	switch setName {
-	case ipset.CiliumNodeIPSetV4:
-		_, found := ipsetMgr.v4[addr]
-		return found, nil
-	case ipset.CiliumNodeIPSetV6:
-		_, found := ipsetMgr.v6[addr]
-		return found, nil
-	default:
-		return false, fmt.Errorf("unexpected ipset name %s", setName)
-	}
-}
 
 type signalNodeHandler struct {
 	EnableNodeAddEvent                    bool
@@ -159,7 +103,7 @@ func TestNodeLifecycle(t *testing.T) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
+	mngr, err := New(logger, NewNodeMetrics(), h, nil, nil, nil, nil)
 	mngr.Subscribe(dp)
 	require.NoError(t, err)
 
@@ -239,7 +183,7 @@ func TestMultipleSources(t *testing.T) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
+	mngr, err := New(logger, NewNodeMetrics(), h, nil, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -322,7 +266,7 @@ func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
 	dp := fakenode.NewHandler()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(b)
-	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
+	mngr, err := New(logger, NewNodeMetrics(), h, nil, nil, nil, nil)
 	require.NoError(b, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -344,7 +288,7 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 
 	dp := fakenode.NewHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
+	mngr, err := New(logger, NewNodeMetrics(), h, nil, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -369,7 +313,7 @@ func TestBackgroundSync(t *testing.T) {
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
+	mngr, err := New(logger, NewNodeMetrics(), h, nil, nil, nil, nil)
 	mngr.Subscribe(signalNodeHandler)
 	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
@@ -419,7 +363,7 @@ func TestNode(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
+	mngr, err := New(logger, NewNodeMetrics(), h, nil, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -521,11 +465,7 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 
 	hive := hive.New(
 		cell.Provide(func() testParams {
-			return testParams{
-				IPSet:         newIPSetMock(),
-				NodeMetrics:   NewNodeMetrics(),
-				IPSetFilterFn: func(no *nodeTypes.Node) bool { return false },
-			}
+			return testParams{NodeMetrics: NewNodeMetrics()}
 		}),
 		cell.Provide(tables.NewDeviceTable),
 		cell.Provide(statedb.RWTable[*tables.Device].ToTable),
@@ -617,9 +557,7 @@ func (mh *mockHealth) Close() {}
 
 type testParams struct {
 	cell.Out
-	IPSet         ipset.Manager
-	NodeMetrics   *nodeMetrics
-	IPSetFilterFn IPSetFilterFn
+	NodeMetrics *nodeMetrics
 }
 
 func TestNodeWithSameInternalIP(t *testing.T) {
@@ -629,7 +567,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
+	mngr, err := New(logger, NewNodeMetrics(), h, nil, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -699,152 +637,6 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 	}
 }
 
-// TestNodeIpset tests that the ipset entries on the node are updated correctly
-// when a node is updated or removed.
-// It is inspired from TestNode() in manager_test.go.
-func TestNodeIpset(t *testing.T) {
-	logger := hivetest.Logger(t)
-	ipsetExpect := func(ipsetMgr *ipsetMock, ip string, expected bool) {
-		setName := ipset.CiliumNodeIPSetV6
-		if v4 := net.ParseIP(ip).To4(); v4 != nil {
-			setName = ipset.CiliumNodeIPSetV4
-		}
-
-		found, err := ipsetContains(ipsetMgr, setName, strings.ToLower(ip))
-		require.NoError(t, err)
-
-		if found && !expected {
-			t.Errorf("ipset %s contains IP %s but it should not", setName, ip)
-		}
-		if !found && expected {
-			t.Errorf("ipset %s does not contain expected IP %s", setName, ip)
-		}
-	}
-
-	dp := newSignalNodeHandler()
-	dp.EnableNodeAddEvent = true
-	dp.EnableNodeUpdateEvent = true
-	dp.EnableNodeDeleteEvent = true
-	filter := func(no *nodeTypes.Node) bool { return no.Name != "node1" }
-	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, newIPSetMock(), filter, NewNodeMetrics(), h, nil, nil, nil, nil)
-	mngr.Subscribe(dp)
-	require.NoError(t, err)
-	defer mngr.Stop(context.TODO())
-
-	n1 := nodeTypes.Node{
-		Name:    "node1",
-		Cluster: "c1",
-		IPAddresses: []nodeTypes.Address{
-			{
-				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("192.0.2.1"),
-			},
-			{
-				Type: addressing.NodeCiliumInternalIP,
-				IP:   net.ParseIP("2001:DB8::1"),
-			},
-			{
-				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.0.0.1"),
-			},
-			{
-				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("2001:ABCD::1"),
-			},
-		},
-		IPv4HealthIP: iputil.AddrFrom(netip.MustParseAddr("192.0.2.2")),
-		IPv6HealthIP: iputil.AddrFrom(netip.MustParseAddr("2001:DB8::2")),
-		Source:       source.KVStore,
-	}
-	mngr.NodeUpdated(n1)
-
-	select {
-	case nodeEvent := <-dp.NodeAddEvent:
-		require.Equal(t, n1, nodeEvent)
-	case nodeEvent := <-dp.NodeUpdateEvent:
-		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
-	case nodeEvent := <-dp.NodeDeleteEvent:
-		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
-	case <-time.After(3 * time.Second):
-		t.Errorf("timeout while waiting for NodeAdd() event")
-	}
-
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "192.0.2.1", false)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:DB8::1", false)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.0.0.1", true)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCD::1", true)
-
-	n2 := nodeTypes.Node{
-		Name:    "node2",
-		Cluster: "c1",
-		IPAddresses: []nodeTypes.Address{
-			{
-				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("10.1.0.1"),
-			},
-			{
-				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP("2001:ABCE::1"),
-			},
-		},
-		Source: source.CustomResource,
-	}
-	mngr.NodeUpdated(n2)
-
-	select {
-	case nodeEvent := <-dp.NodeAddEvent:
-		require.Equal(t, n2, nodeEvent)
-	case nodeEvent := <-dp.NodeUpdateEvent:
-		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
-	case nodeEvent := <-dp.NodeDeleteEvent:
-		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
-	case <-time.After(3 * time.Second):
-		t.Errorf("timeout while waiting for NodeAdd() event")
-	}
-
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.0.0.1", true)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCD::1", true)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.1.0.1", false)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCE::1", false)
-
-	n1.IPv4HealthIP = iputil.AddrFrom(netip.MustParseAddr("192.0.2.20"))
-	mngr.NodeUpdated(n1)
-
-	select {
-	case nodeEvent := <-dp.NodeAddEvent:
-		t.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
-	case nodeEvent := <-dp.NodeUpdateEvent:
-		require.Equal(t, n1, nodeEvent)
-	case nodeEvent := <-dp.NodeDeleteEvent:
-		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
-	case <-time.After(3 * time.Second):
-		t.Errorf("timeout while waiting for NodeUpdate() event")
-	}
-
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "192.0.2.1", false)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:DB8::1", false)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.0.0.1", true)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCD::1", true)
-
-	mngr.NodeDeleted(n1)
-	select {
-	case nodeEvent := <-dp.NodeDeleteEvent:
-		require.Equal(t, n1, nodeEvent)
-	case nodeEvent := <-dp.NodeAddEvent:
-		t.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
-	case nodeEvent := <-dp.NodeUpdateEvent:
-		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
-	case <-time.After(3 * time.Second):
-		t.Errorf("timeout while waiting for NodeDelete() event")
-	}
-
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "192.0.2.1", false)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:DB8::1", false)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "10.0.0.1", false)
-	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCD::1", false)
-}
-
 func TestNodeTableMirroring(t *testing.T) {
 	logger := hivetest.Logger(t)
 	db := statedb.New()
@@ -852,7 +644,7 @@ func TestNodeTableMirroring(t *testing.T) {
 	require.NoError(t, err)
 
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, db, nil, nodeTable)
+	mngr, err := New(logger, NewNodeMetrics(), h, nil, db, nil, nodeTable)
 	require.NoError(t, err)
 
 	initialized, initWatch := nodeTable.Initialized(db.ReadTxn())
@@ -951,8 +743,6 @@ func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
 			health, _ := cell.NewSimpleHealth()
 			mngr, err := New(
 				hivetest.Logger(t),
-				newIPSetMock(),
-				nil,
 				NewNodeMetrics(),
 				health,
 				nil,
