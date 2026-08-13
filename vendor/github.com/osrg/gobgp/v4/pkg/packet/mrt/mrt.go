@@ -444,12 +444,12 @@ func parseRibEntry(data []byte, family bgp.Family, isAddPath bool, prefix ...bgp
 			mp.Value = []bgp.PathNLRI{{NLRI: prefix[0], ID: e.PathIdentifier}}
 		}
 
-		pLen := uint16(p.Len())
-		if pLen > attrLen {
+		pLen := p.Len()
+		if pLen > int(attrLen) {
 			return nil, nil, fmt.Errorf("path attribute length %d exceeds remaining attribute length %d", pLen, attrLen)
 		}
-		attrLen -= pLen
-		data = data[p.Len():]
+		attrLen -= uint16(pLen)
+		data = data[pLen:]
 		e.PathAttributes = append(e.PathAttributes, p)
 	}
 	return e, data, nil

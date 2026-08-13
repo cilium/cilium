@@ -10509,6 +10509,7 @@ func (x *AddPaths) GetState() *AddPathsState {
 type Prefix struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	IpPrefix      string                 `protobuf:"bytes,1,opt,name=ip_prefix,json=ipPrefix,proto3" json:"ip_prefix,omitempty"`
+	RtcPrefix     string                 `protobuf:"bytes,4,opt,name=rtc_prefix,json=rtcPrefix,proto3" json:"rtc_prefix,omitempty"`
 	MaskLengthMin uint32                 `protobuf:"varint,2,opt,name=mask_length_min,json=maskLengthMin,proto3" json:"mask_length_min,omitempty"`
 	MaskLengthMax uint32                 `protobuf:"varint,3,opt,name=mask_length_max,json=maskLengthMax,proto3" json:"mask_length_max,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -10548,6 +10549,13 @@ func (*Prefix) Descriptor() ([]byte, []int) {
 func (x *Prefix) GetIpPrefix() string {
 	if x != nil {
 		return x.IpPrefix
+	}
+	return ""
+}
+
+func (x *Prefix) GetRtcPrefix() string {
+	if x != nil {
+		return x.RtcPrefix
 	}
 	return ""
 }
@@ -13896,9 +13904,11 @@ const file_api_gobgp_proto_rawDesc = "" +
 	"\bsend_max\x18\x02 \x01(\rR\asendMax\"a\n" +
 	"\bAddPaths\x12+\n" +
 	"\x06config\x18\x01 \x01(\v2\x13.api.AddPathsConfigR\x06config\x12(\n" +
-	"\x05state\x18\x02 \x01(\v2\x12.api.AddPathsStateR\x05state\"u\n" +
+	"\x05state\x18\x02 \x01(\v2\x12.api.AddPathsStateR\x05state\"\x94\x01\n" +
 	"\x06Prefix\x12\x1b\n" +
-	"\tip_prefix\x18\x01 \x01(\tR\bipPrefix\x12&\n" +
+	"\tip_prefix\x18\x01 \x01(\tR\bipPrefix\x12\x1d\n" +
+	"\n" +
+	"rtc_prefix\x18\x04 \x01(\tR\trtcPrefix\x12&\n" +
 	"\x0fmask_length_min\x18\x02 \x01(\rR\rmaskLengthMin\x12&\n" +
 	"\x0fmask_length_max\x18\x03 \x01(\rR\rmaskLengthMax\"\x92\x01\n" +
 	"\n" +

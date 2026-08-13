@@ -50,6 +50,7 @@ TETRAGON_IMAGE_PATHS=(
 # $1 - Helm chart tgz file or OCI chart reference
 main() {
   CHART="$1"
+  declare -a HELM_ARGS
 
   if [ -z "$CHART" ]; then
       echo "ERROR: Chart argument is required"
@@ -74,15 +75,14 @@ main() {
           exit 1
       fi
 
-      CHART_REF="$OCI_BASE"
-      VERSION_FLAG="--version $OCI_VERSION"
+      HELM_ARGS+=("$OCI_BASE")
+      HELM_ARGS+=("--version" "$OCI_VERSION")
   else
-      CHART_REF="$CHART"
-      VERSION_FLAG=""
+      HELM_ARGS+=("$CHART")
   fi
 
-  APP=$(helm show chart $VERSION_FLAG "$CHART_REF" | yq e '.name' -)
-  CHART_VERSION=$(helm show chart $VERSION_FLAG "$CHART_REF" | yq e '.version' -)
+  APP=$(helm show chart "${HELM_ARGS[@]}" | yq e '.name' -)
+  CHART_VERSION=$(helm show chart "${HELM_ARGS[@]}" | yq e '.version' -)
   if [ "$APP" == "cilium" ]; then
     IMAGE_PATHS=("${CILIUM_IMAGE_PATHS[@]}")
   elif [ "$APP" == "tetragon" ]; then
@@ -93,7 +93,7 @@ main() {
   fi
 
   for path in "${IMAGE_PATHS[@]}"; do
-    tag=$(helm show values $VERSION_FLAG --jsonpath "$path" "$CHART_REF")
+    tag=$(helm show values "${HELM_ARGS[@]}" --jsonpath "$path")
     if [ "$tag" == "v$CHART_VERSION" ]; then
       echo "SUCCESS: $APP $path=$tag matches chart version $CHART_VERSION"
     else

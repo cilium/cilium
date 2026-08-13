@@ -6,7 +6,6 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Bundles an Amazon instance store-backed Windows instance.
@@ -14,8 +13,9 @@ import (
 // During bundling, only the root device volume (C:\) is bundled. Data on other
 // instance store volumes is not preserved.
 //
-// This action is no longer supported. To create an AMI, use [CreateImage]. For more
-// information, see [Create an Amazon EBS-backed AMI]in the Amazon EC2 User Guide.
+// BundleInstance is no longer supported. To create an AMI, use [CreateImage] instead. For more
+// information about creating an Amazon EBS-backed AMI, see [Create an Amazon EBS-backed AMI]in the Amazon EC2 User
+// Guide.
 //
 // [Create an Amazon EBS-backed AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html
 // [CreateImage]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html
@@ -82,9 +82,6 @@ func (c *Client) addOperationBundleInstanceMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -94,22 +91,13 @@ func (c *Client) addOperationBundleInstanceMiddlewares(stack *middleware.Stack, 
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpBundleInstanceValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "BundleInstance"), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

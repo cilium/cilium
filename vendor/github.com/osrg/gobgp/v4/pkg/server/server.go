@@ -185,7 +185,7 @@ func NewBgpServer(opt ...ServerOption) *BgpServer {
 		neighborMap:  make(map[netip.Addr]*peer),
 		peerGroupMap: make(map[string]*peerGroup),
 		policy:       table.NewRoutingPolicy(logger),
-		mgmtCh:       make(chan *mgmtOp, 1),
+		mgmtCh:       make(chan *mgmtOp),
 		closeCh:      make(chan struct{}),
 		watcherMap:   make(map[watchEventType][]*watcher),
 		uuidMap:      make(map[string]uuid.UUID),
@@ -920,6 +920,51 @@ func (s *BgpServer) notifyPostPolicyUpdateWatcher(peer *peer, pathList []*table.
 	s.notifyWatcher(watchEventTypePostUpdate, ev)
 }
 
+// notifyAdjInWithdrawWatcher emits Adj-RIB-In withdrawals that gobgp generates
+// internally (peer down, graceful-restart timer expiry, de-configuration)
+// rather than receiving on the wire. Pre-policy route monitoring (BMP) needs
+// these so that a peer's Adj-RIB-In view is cleared; without them a cached path
+// would suppress an identical re-advertisement after the session comes back.
+//
+// The paths carry no BGP message payload (they were never on the wire), so the
+// event is delivered on a dedicated watch type. Consumers regenerate a withdraw
+// UPDATE from PathList. MRT deliberately does not subscribe to this type.
+func (s *BgpServer) notifyAdjInWithdrawWatcher(peer *peer, pathList []*table.Path) {
+	if !s.isWatched(watchEventTypeAdjInWithdraw) || peer == nil {
+		return
+	}
+
+	withdrawals := make([]*table.Path, 0, len(pathList))
+	for _, p := range pathList {
+		if p != nil && p.IsWithdraw {
+			withdrawals = append(withdrawals, p)
+		}
+	}
+	if len(withdrawals) == 0 {
+		return
+	}
+
+	cloned := clonePathList(withdrawals)
+	n := s.toConfig(peer, false)
+	conf := peer.fsm.pConf.ReadOnly()
+	peer.fsm.lock.Lock()
+	_, y := peer.fsm.capMap[bgp.BGP_CAP_FOUR_OCTET_AS_NUMBER]
+	peer.fsm.lock.Unlock()
+	ev := &watchEventUpdate{
+		PeerAS:       conf.State.PeerAs,
+		LocalAS:      conf.Config.LocalAs,
+		PeerAddress:  conf.State.NeighborAddress,
+		LocalAddress: conf.Transport.State.LocalAddress,
+		PeerID:       conf.State.RemoteRouterId,
+		FourBytesAs:  y,
+		Timestamp:    time.Now(),
+		PostPolicy:   false,
+		PathList:     cloned,
+		Neighbor:     n,
+	}
+	s.notifyWatcher(watchEventTypeAdjInWithdraw, ev)
+}
+
 func newWatchEventPeer(peer *peer, m *fsmMsg, newState, oldState bgp.FSMState, t apiutil.PeerEventType) *watchEventPeer {
 	peer.fsm.lock.Lock()
 	conf := peer.fsm.pConf.ReadCopy()
@@ -1036,15 +1081,14 @@ func (s *BgpServer) getBestFromLocalCallbackLocked(peer *peer, rfList []bgp.Fami
 			dsts := tbl.GetDestinations()
 			dl := make([]*table.Update, 0, len(dsts))
 			for _, d := range dsts {
-				l := d.GetAllKnownPathList()
-				pl := make([]*table.Path, len(l))
-				copy(pl, l)
 				u := &table.Update{
-					KnownPathList: pl,
+					KnownPathList: d.GetAllKnownPathList(),
 				}
 				dl = append(dl, u)
 			}
-			pathList = append(pathList, s.sendSecondaryRoutes(peer, nil, dl)...)
+			paths, rejected := s.sendSecondaryRoutes(peer, nil, dl)
+			pathList = append(pathList, paths...)
+			filtered = append(filtered, rejected...)
 		}
 		fn(pathList, filtered)
 		return
@@ -1105,11 +1149,10 @@ func needToAdvertise(peer *peer) bool {
 	return true
 }
 
-func (s *BgpServer) sendSecondaryRoutes(peer *peer, newPath *table.Path, dsts []*table.Update) []*table.Path {
+func (s *BgpServer) sendSecondaryRoutes(peer *peer, newPath *table.Path, dsts []*table.Update) (paths, filtered []*table.Path) {
 	if !needToAdvertise(peer) {
-		return nil
+		return nil, nil
 	}
-	pl := make([]*table.Path, 0, len(dsts))
 
 	f := func(path, old *table.Path) *table.Path {
 		path, options, stop := s.prePolicyFilterpath(peer, path, old)
@@ -1144,12 +1187,18 @@ func (s *BgpServer) sendSecondaryRoutes(peer *peer, newPath *table.Path, dsts []
 			return nil
 		}()
 		if path != nil {
-			pl = append(pl, path)
+			paths = append(paths, path)
 		} else if old != nil {
-			pl = append(pl, old.Clone(true))
+			paths = append(paths, old.Clone(true))
+		} else if len(dst.KnownPathList) > 0 {
+			// softResetOut uses filtered paths to withdraw destinations that were
+			// previously advertised but no longer have an advertisable path.
+			// For secondary-route peers, return one withdrawal candidate when all
+			// current paths for a destination are filtered.
+			filtered = append(filtered, filteredPathForPeer(peer, dst.KnownPathList[0]))
 		}
 	}
-	return pl
+	return paths, filtered
 }
 
 func (s *BgpServer) processOutgoingPaths(peer *peer, paths, olds []*table.Path) []*table.Path {
@@ -1194,6 +1243,16 @@ func (s *BgpServer) handleRouteRefresh(peer *peer, e *fsmMsg) {
 			sendfsmOutgoingMsg(peer, paths)
 		}
 	})
+}
+
+// dropAdjRIBIn removes the peer's Adj-RIB-In for the given families and
+// propagates the resulting withdrawals. The withdrawals are also reported to
+// pre-policy Adj-RIB-In watchers (BMP) before propagation so that the monitored
+// view is cleared; propagateUpdate itself only reaches post-policy watchers.
+func (s *BgpServer) dropAdjRIBIn(peer *peer, families []bgp.Family) {
+	dropped := peer.DropAll(families)
+	s.notifyAdjInWithdrawWatcher(peer, dropped)
+	s.propagateUpdate(peer, dropped)
 }
 
 func (s *BgpServer) propagateUpdate(peer *peer, pathList []*table.Path) {
@@ -1520,7 +1579,7 @@ func (s *BgpServer) propagateUpdateToNeighbors(rib *table.TableManager, source *
 			} else {
 				if targetPeer.isRouteServerClient() {
 					if targetPeer.isSecondaryRouteEnabled() {
-						if paths := s.sendSecondaryRoutes(targetPeer, newPath, dsts); len(paths) > 0 {
+						if paths, _ := s.sendSecondaryRoutes(targetPeer, newPath, dsts); len(paths) > 0 {
 							targetPeer.updateRoutes(paths...)
 							sendfsmOutgoingMsg(targetPeer, paths)
 						}
@@ -1632,7 +1691,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 			// This avoids rebuilding RIB-out bookkeeping by propagation that starts after the reset.
 			peer.fsm.state.Store(nextState)
 			s.resetAdvertisedRoutes(peer)
-			s.propagateUpdate(peer, peer.DropAll(dropFamilies))
+			s.dropAdjRIBIn(peer, dropFamilies)
 
 			if conf.Config.PeerAs == 0 {
 				peer.fsm.lock.Lock()
@@ -1657,7 +1716,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 				peer.longLivedRunning.Store(true)
 				llgr, no_llgr := peer.llgrFamilies()
 
-				s.propagateUpdate(peer, peer.DropAll(no_llgr))
+				s.dropAdjRIBIn(peer, no_llgr)
 
 				// attach LLGR_STALE community to paths in peer's adj-rib-in
 				// paths with NO_LLGR are deleted
@@ -1686,7 +1745,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 							err := s.mgmtOperation(func() error {
 								peer.fsm.logger.Info("LLGR restart timer expired", slog.String("Family", family.String()), slog.Any("Duration", t))
 
-								s.propagateUpdate(peer, peer.DropAll([]bgp.Family{family}))
+								s.dropAdjRIBIn(peer, []bgp.Family{family})
 
 								// when all llgr restart timer expired, stop PeerRestarting
 								if peer.llgrRestartTimerExpired(family) {
@@ -1722,7 +1781,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 				peer.fsm.pConf.Update(&conf)
 				peer.fsm.lock.Unlock()
 
-				s.propagateUpdate(peer, peer.DropAll(peer.configuredRFlist()))
+				s.dropAdjRIBIn(peer, peer.configuredRFlist())
 
 				if peer.isDynamicNeighbor() {
 					needStopNeighbor = true
@@ -2448,17 +2507,6 @@ func apiutil2Path(path *apiutil.Path, isVRFTable bool, isWithdraw ...bool) (*tab
 	p := table.NewPath(path.Family, source, bgp.PathNLRI{NLRI: path.Nlri, ID: path.RemoteID}, doWithdraw, pattrs, time.Unix(path.Age, 0), path.NoImplicitWithdraw)
 	if p == nil {
 		return nil, fmt.Errorf("invalid path: %v", path)
-	}
-	if !doWithdraw {
-		total := bytes.NewBuffer(make([]byte, 0))
-		for _, a := range pattrs {
-			if a.GetType() == bgp.BGP_ATTR_TYPE_MP_REACH_NLRI {
-				continue
-			}
-			b, _ := a.Serialize()
-			total.Write(b)
-		}
-		p.SetHash(farm.Hash64(total.Bytes()))
 	}
 	p.SetIsFromExternal(path.IsFromExternal)
 	return p, nil
@@ -3256,6 +3304,7 @@ func (s *BgpServer) GetBgp(ctx context.Context, r *api.GetBgpRequest) (rsp *api.
 				ListenPort:       g.Config.Port,
 				ListenAddresses:  l,
 				UseMultiplePaths: g.UseMultiplePaths.Config.Enabled,
+				BindToDevice:     g.Config.BindToDevice,
 			},
 		}
 		return nil
@@ -3408,15 +3457,14 @@ func (s *BgpServer) addPeerGroup(c *oc.PeerGroup) error {
 }
 
 func (s *BgpServer) addNeighbor(c *oc.Neighbor) error {
-	addr, err := c.ExtractNeighborAddress()
-	if err != nil {
-		return err
-	}
-
-	if _, y := s.neighborMap[netip.MustParseAddr(addr)]; y {
-		return fmt.Errorf("can't overwrite the existing peer: %s", addr)
-	}
-
+	// Resolve config defaults BEFORE extracting/validating the neighbor address.
+	// For an unnumbered (interface-only) neighbor added via the gRPC AddPeer API
+	// - NeighborInterface set, NeighborAddress empty - SetDefaultNeighborConfigValues
+	// resolves the peer's IPv6 link-local from the interface into
+	// State.NeighborAddress and derives the local link-local as the transport
+	// source address. ExtractNeighborAddress would otherwise reject the addressless
+	// neighbor up front with "NeighborAddress is not configured". The config-file
+	// path already defaults before addNeighbor; this makes the gRPC path match.
 	var pgConf *oc.PeerGroup
 	if c.Config.PeerGroup != "" {
 		pg, ok := s.peerGroupMap[c.Config.PeerGroup]
@@ -3428,6 +3476,15 @@ func (s *BgpServer) addNeighbor(c *oc.Neighbor) error {
 
 	if err := oc.SetDefaultNeighborConfigValues(c, pgConf, &s.bgpConfig.Global); err != nil {
 		return err
+	}
+
+	addr, err := c.ExtractNeighborAddress()
+	if err != nil {
+		return err
+	}
+
+	if _, y := s.neighborMap[netip.MustParseAddr(addr)]; y {
+		return fmt.Errorf("can't overwrite the existing peer: %s", addr)
 	}
 
 	if vrf := c.Config.Vrf; vrf != "" {
@@ -3653,7 +3710,7 @@ func (s *BgpServer) deleteNeighbor(c *oc.Neighbor, code, subcode uint8, sendNoti
 	if sendNotification {
 		n.fsm.deconfiguredNotification <- bgp.NewBGPNotificationMessage(code, subcode, nil)
 	}
-	s.propagateUpdate(n, n.DropAll(n.configuredRFlist()))
+	s.dropAdjRIBIn(n, n.configuredRFlist())
 	s.stopNeighbor(n, -1, nil)
 	return nil
 }
@@ -4062,7 +4119,16 @@ func (s *BgpServer) ListDefinedSet(ctx context.Context, r *api.ListDefinedSetReq
 					min, _ := strconv.ParseUint(elems[1], 10, 32)
 					max, _ := strconv.ParseUint(elems[2], 10, 32)
 
-					l = append(l, &api.Prefix{IpPrefix: p.IpPrefix.String(), MaskLengthMin: uint32(min), MaskLengthMax: uint32(max)})
+					ipPrefix := ""
+					if p.IpPrefix.IsValid() {
+						ipPrefix = p.IpPrefix.String()
+					}
+					l = append(l, &api.Prefix{
+						IpPrefix:      ipPrefix,
+						RtcPrefix:     p.RtcPrefix,
+						MaskLengthMin: uint32(min),
+						MaskLengthMax: uint32(max),
+					})
 				}
 				return l
 			}(),
@@ -4620,7 +4686,10 @@ func (s *BgpServer) WatchEvent(ctx context.Context, callbacks WatchEventMessageC
 	if len(opts) == 0 {
 		return fmt.Errorf("no events to watch")
 	}
-	w := s.watch(opts...)
+	w, err := s.watch(opts...)
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		defer w.Stop()
@@ -4752,12 +4821,13 @@ func (s *BgpServer) Log() *slog.Logger {
 type watchEventType string
 
 const (
-	watchEventTypeBestPath   watchEventType = "bestpath"
-	watchEventTypePreUpdate  watchEventType = "preupdate"
-	watchEventTypePostUpdate watchEventType = "postupdate"
-	watchEventTypePeerState  watchEventType = "peerstate"
-	watchEventTypeRecvMsg    watchEventType = "receivedmessage"
-	watchEventTypeEor        watchEventType = "eor"
+	watchEventTypeBestPath      watchEventType = "bestpath"
+	watchEventTypePreUpdate     watchEventType = "preupdate"
+	watchEventTypePostUpdate    watchEventType = "postupdate"
+	watchEventTypeAdjInWithdraw watchEventType = "adjinwithdraw"
+	watchEventTypePeerState     watchEventType = "peerstate"
+	watchEventTypeRecvMsg       watchEventType = "receivedmessage"
+	watchEventTypeEor           watchEventType = "eor"
 )
 
 type watchEvent any
@@ -4856,6 +4926,7 @@ type watchOptions struct {
 	preUpdateFilter  func(w watchEvent) bool
 	postUpdate       bool
 	postUpdateFilter func(w watchEvent) bool
+	adjInWithdraw    bool
 
 	peerState      bool
 	initBest       bool
@@ -4898,6 +4969,17 @@ func WatchUpdate(current bool, peerAddress string, peerGroup string) WatchOption
 				return false
 			}
 		}
+	}
+}
+
+// WatchAdjInWithdraw subscribes to locally-generated Adj-RIB-In withdrawals
+// (e.g. peer down, graceful-restart timer expiry). These paths are not received
+// on the wire, so they carry no BGP message payload. This stream is separate
+// from WatchUpdate so that consumers such as MRT, which dump only real wire
+// messages, are not affected.
+func WatchAdjInWithdraw() WatchOption {
+	return func(o *watchOptions) {
+		o.adjInWithdraw = true
 	}
 }
 
@@ -4958,6 +5040,7 @@ type watcher struct {
 	realCh chan watchEvent
 	ch     *channels.InfiniteChannel
 	s      *BgpServer
+	stop   sync.Once
 	// filters are used for notifyWatcher by using the filter for the given watchEvent,
 	// call notify method for skipping filtering.
 	filters map[watchEventType]func(w watchEvent) bool
@@ -4981,27 +5064,35 @@ func (w *watcher) loop() {
 	close(w.realCh)
 }
 
-//nolint:errcheck // we don't care about the error here.
 func (w *watcher) Stop() {
-	w.s.mgmtOperation(func() error {
-		w.s.watcherMu.Lock()
-		for k, l := range w.s.watcherMap {
-			for i, v := range l {
-				if w == v {
-					w.s.watcherMap[k] = append(l[:i], l[i+1:]...)
-					break
+	cleanup := func() error {
+		w.stop.Do(func() {
+			w.s.watcherMu.Lock()
+			for k, l := range w.s.watcherMap {
+				for i, v := range l {
+					if w == v {
+						w.s.watcherMap[k] = append(l[:i], l[i+1:]...)
+						break
+					}
 				}
 			}
-		}
-		w.s.watcherMu.Unlock()
+			w.s.watcherMu.Unlock()
 
-		cleanInfiniteChannel(w.ch)
-		// the loop function goroutine might be blocked for
-		// writing to realCh. make sure it finishes.
-		for range w.realCh {
-		}
+			cleanInfiniteChannel(w.ch)
+			// the loop function goroutine might be blocked for
+			// writing to realCh. make sure it finishes.
+			for range w.realCh {
+			}
+		})
+
 		return nil
-	}, false)
+	}
+
+	if err := w.s.mgmtOperation(cleanup, false); err != nil {
+		// Serve has stopped, so there is no management loop left to serialize cleanup.
+		// No new watcher notifications can be produced after the server has stopped.
+		_ = cleanup()
+	}
 }
 
 func (s *BgpServer) isWatched(typ watchEventType) bool {
@@ -5025,9 +5116,9 @@ func (s *BgpServer) notifyWatcher(typ watchEventType, ev watchEvent) {
 	s.watcherMu.RUnlock()
 }
 
-func (s *BgpServer) watch(opts ...WatchOption) (w *watcher) {
-	// TODO: return error
-	_ = s.mgmtOperation(func() error {
+func (s *BgpServer) watch(opts ...WatchOption) (*watcher, error) {
+	var w *watcher
+	err := s.mgmtOperation(func() error {
 		w = &watcher{
 			s:       s,
 			realCh:  make(chan watchEvent, 8),
@@ -5201,6 +5292,9 @@ func (s *BgpServer) watch(opts ...WatchOption) (w *watcher) {
 		if w.opts.postUpdate {
 			register(watchEventTypePostUpdate, w)
 		}
+		if w.opts.adjInWithdraw {
+			register(watchEventTypeAdjInWithdraw, w)
+		}
 		if w.opts.eor {
 			register(watchEventTypeEor, w)
 		}
@@ -5214,7 +5308,10 @@ func (s *BgpServer) watch(opts ...WatchOption) (w *watcher) {
 		go w.loop()
 		return nil
 	}, false)
-	return w
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
 }
 
 func (s *BgpServer) GetBfdServerStats() *api.BfdState {

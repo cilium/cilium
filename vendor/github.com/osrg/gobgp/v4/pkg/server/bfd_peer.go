@@ -34,6 +34,7 @@ type bfdPeerStats struct {
 	txDrop               atomic.Uint64
 	txError              atomic.Uint64
 	invalidDiscriminator atomic.Uint64
+	invalidMultiplier    atomic.Uint64
 	expired              atomic.Uint64
 }
 
@@ -284,14 +285,54 @@ func (p *bfdPeer) startClient() {
 }
 
 func (p *bfdPeer) rxPacket(h *bfd.BFDHeader) {
-	if h.YourDiscriminator != 0 && h.YourDiscriminator != p.myDiscriminator {
+	// RFC 5880 Section 6.8.6: if the Detect Mult field is zero, the packet
+	// MUST be discarded.
+	if h.DetectTimeMultiplier == 0 {
+		p.stats.invalidMultiplier.Add(1)
+		return
+	}
+
+	// RFC 5880 Section 6.8.6: if the My Discriminator field is zero, the
+	// packet MUST be discarded.
+	if h.MyDiscriminator == 0 {
 		p.stats.invalidDiscriminator.Add(1)
 		return
 	}
 
+	// RFC 5880 Section 6.8.6: a nonzero Your Discriminator selects the
+	// session and MUST match ours. A zero Your Discriminator carries no
+	// session binding, so it is only accepted from a remote system that has
+	// not learned our discriminator yet, i.e. one in Down or AdminDown.
+	if h.YourDiscriminator != 0 {
+		if h.YourDiscriminator != p.myDiscriminator {
+			p.stats.invalidDiscriminator.Add(1)
+			return
+		}
+	} else {
+		if h.State != bfd.StateDown && h.State != bfd.StateAdminDown {
+			p.stats.invalidDiscriminator.Add(1)
+			return
+		}
+
+		// Once the remote discriminator is bound, a packet that omits Your
+		// Discriminator still has to come from that same remote system, or
+		// it can tear the session down without ever having seen it.
+		if p.yourDiscriminator != 0 && h.MyDiscriminator != p.yourDiscriminator {
+			p.stats.invalidDiscriminator.Add(1)
+			return
+		}
+	}
+
 	p.stats.rxPacket.Add(1)
 
-	// NOTE: remote DesiredMinTxInterval and RequiredMinRxInterval ignored
+	// RFC 5880 Section 6.8.4: Detection Time is the remote Detect Mult
+	// multiplied by the negotiated receive interval, i.e. the greater of our
+	// RequiredMinRxInterval and the remote DesiredMinTxInterval.
+	negotiatedRx := p.rxInterval
+	if remoteTx := time.Duration(h.DesiredMinTxInterval) * time.Microsecond; remoteTx > negotiatedRx {
+		negotiatedRx = remoteTx
+	}
+	p.expiryInterval = time.Duration(h.DetectTimeMultiplier) * negotiatedRx
 
 	switch h.State {
 	case bfd.StateAdminDown:
@@ -338,6 +379,11 @@ func (p *bfdPeer) tx() {
 }
 
 func (p *bfdPeer) expiry() {
+	if p.sessionState() == api.BfdSessionState_BFD_SESSION_STATE_DOWN {
+		p.eventExpiry.Stop()
+		return
+	}
+
 	p.logger.Warn("Expired",
 		slog.String("Topic", "bfd"),
 		slog.String("Peer", p.peerAddress.String()),

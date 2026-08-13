@@ -6394,6 +6394,10 @@ type Prefix struct {
 	// to be the same address family.  Mixing address types in
 	// the same prefix set is likely to cause an error.
 	IpPrefix netip.Prefix `mapstructure:"ip-prefix" json:"ip-prefix,omitempty"`
+	// original -> gobgp:rtc-prefix
+	// Route Target in RFC 4684 NLRI key form (<origin-as>:<route-target>[/<masklen>]).
+	// Mutually exclusive with ip-prefix.
+	RtcPrefix string `mapstructure:"rtc-prefix" json:"rtc-prefix,omitempty"`
 	// original -> rpol:masklength-range
 	// Defines a range for the masklength, or 'exact' if
 	// the prefix has an exact length.
@@ -6413,6 +6417,9 @@ func (lhs *Prefix) Equal(rhs *Prefix) bool {
 		return false
 	}
 	if lhs.IpPrefix != rhs.IpPrefix {
+		return false
+	}
+	if lhs.RtcPrefix != rhs.RtcPrefix {
 		return false
 	}
 	if lhs.MasklengthRange != rhs.MasklengthRange {

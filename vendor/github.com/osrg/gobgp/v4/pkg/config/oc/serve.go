@@ -1,7 +1,9 @@
 package oc
 
 import (
+	"io"
 	"log/slog"
+	"os"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-viper/mapstructure/v2"
@@ -26,22 +28,38 @@ type BgpConfigSet struct {
 func ReadConfigfile(path, format string) (*BgpConfigSet, error) {
 	// Update config file type, if detectable
 	format = detectConfigFileType(path, format)
-	opts := viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(mapstructure.StringToNetIPAddrHookFunc(), mapstructure.StringToNetIPPrefixHookFunc()))
 
-	config := &BgpConfigSet{}
-	v := viper.New()
-	v.SetConfigFile(path)
-	v.SetConfigType(format)
-	var err error
-	if err = v.ReadInConfig(); err != nil {
+	configReader, err := os.Open(path)
+	if err != nil {
 		return nil, err
 	}
+
+	defer func() { _ = configReader.Close() }()
+
+	return ReadConfig(configReader, format)
+}
+
+func ReadConfig(r io.Reader, format string) (*BgpConfigSet, error) {
+	var err error
+
+	config := &BgpConfigSet{}
+	opts := viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(mapstructure.StringToNetIPAddrHookFunc(), mapstructure.StringToNetIPPrefixHookFunc()))
+
+	v := viper.New()
+	v.SetConfigType(format)
+
+	if err = v.ReadConfig(r); err != nil {
+		return nil, err
+	}
+
 	if err = v.UnmarshalExact(config, opts); err != nil {
 		return nil, err
 	}
+
 	if err = setDefaultConfigValuesWithViper(v, config); err != nil {
 		return nil, err
 	}
+
 	return config, nil
 }
 

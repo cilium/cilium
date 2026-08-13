@@ -194,12 +194,15 @@ func (s *SRv6L3ServiceAttribute) Serialize() ([]byte, error) {
 	buf := make([]byte, s.Length+3)
 	p := 4
 	for _, tlv := range s.SubTLVs {
-		s, err := tlv.Serialize()
+		b, err := tlv.Serialize()
 		if err != nil {
 			return nil, err
 		}
-		copy(buf[p:p+len(s)], s)
-		p += len(s)
+		if p+len(b) > len(buf) {
+			return nil, malformedAttrListErr("serialization failed: Prefix SID TLV malformed")
+		}
+		copy(buf[p:p+len(b)], b)
+		p += len(b)
 	}
 	return s.TLV.Serialize(buf)
 }
@@ -280,6 +283,12 @@ func (s *SRv6L3ServiceAttribute) Extract() *SRv6L3Service {
 
 const (
 	subTLVHdrLen = 3
+
+	// Minimum value length of an SRv6 SID Information Sub-TLV: RESERVED1(1)
+	// + SRv6 SID Value(16) + Svc SID Flags(1) + SRv6 Endpoint Behavior(2) +
+	// RESERVED2(1), per RFC 9252 Section 3.1. RFC 9252 Section 7 declares
+	// the sub-TLV malformed when "The Sub-TLV Length is less than 21".
+	srv6InformationSubTLVMinValueLen = 21
 )
 
 type SubTLVType uint8
@@ -360,6 +369,12 @@ func (s *SRv6InformationSubTLV) Len() int {
 }
 
 func (s *SRv6InformationSubTLV) Serialize() ([]byte, error) {
+	// The buffer is sized from s.Length, so it must leave room for the
+	// fixed fields written below: SID + Flags(1) + Endpoint Behavior(2) +
+	// RESERVED2(1).
+	if s.Length < srv6InformationSubTLVMinValueLen || len(s.SID)+4 > int(s.Length) {
+		return nil, malformedAttrListErr("serialization failed: Prefix SID TLV malformed")
+	}
 	buf := make([]byte, s.Length)
 	p := 0
 	copy(buf[p:], s.SID)
@@ -376,6 +391,9 @@ func (s *SRv6InformationSubTLV) Serialize() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		if p+len(sbuf) > len(buf) {
+			return nil, malformedAttrListErr("serialization failed: Prefix SID TLV malformed")
+		}
 		copy(buf[p:], sbuf)
 		p += len(sbuf)
 	}
@@ -389,12 +407,25 @@ func (s *SRv6InformationSubTLV) DecodeFromBytes(data []byte) error {
 	}
 	s.Type = SubTLVType(data[0])
 	s.Length = binary.BigEndian.Uint16(data[1:3])
+	// The declared Length must cover the fixed fields decoded below.
+	// Accepting a shorter one would leave Length inconsistent with the
+	// decoded object, and Serialize sizes its buffer from Length.
+	if s.Length < srv6InformationSubTLVMinValueLen {
+		return malformedAttrListErr("decoding failed: Prefix SID TLV malformed")
+	}
+	// Sub-Sub-TLVs are bounded by this sub-TLV's declared Length, not by
+	// the caller's remaining buffer, which may still hold sibling
+	// sub-TLVs of the enclosing Service TLV. subTLVHdrLen + Length is the
+	// end of this sub-TLV's body.
+	end := subTLVHdrLen + int(s.Length)
+	if end > len(data) {
+		return malformedAttrListErr("decoding failed: Prefix SID TLV malformed")
+	}
+	// The fixed fields are read within end, which the minimum Length above
+	// guarantees is at least subTLVHdrLen + 21.
 	// 4th reserved byte
 	p := 4
 	s.SID = make([]byte, 16)
-	if len(data) < p+16+1+2+1 {
-		return malformedAttrListErr("decoding failed: Prefix SID TLV malformed")
-	}
 	copy(s.SID, data[p:p+16])
 	p += 16
 	s.Flags = data[p]
@@ -403,11 +434,11 @@ func (s *SRv6InformationSubTLV) DecodeFromBytes(data []byte) error {
 	p += 2
 	// reserved byte
 	p++
-	if p+3 > len(data) {
+	if p+subSubTLVHdrLen > end {
 		// There is no Sub Sub TLVs detected, returning
 		return nil
 	}
-	stlvs := data[p:]
+	stlvs := data[p:end]
 	for len(stlvs) >= prefixSIDtlvHdrLen {
 		t := &SubSubTLV{}
 		_, err := t.DecodeFromBytes(stlvs)
@@ -471,6 +502,10 @@ func (s *SRv6InformationSubTLV) Extract() *SRv6InformationSTLV {
 
 const (
 	subSubTLVHdrLen = 3
+
+	// Value length of an SRv6 SID Structure Sub-Sub-TLV. RFC 9252 Section
+	// 3.2.1 fixes it: "This field contains a total length of 6 octets."
+	srv6SIDStructureSubSubTLVValueLen = 6
 )
 
 type SubSubTLVType uint8
@@ -501,17 +536,19 @@ func (s *SubSubTLV) Serialize(value []byte) ([]byte, error) {
 }
 
 func (s *SubSubTLV) DecodeFromBytes(data []byte) ([]byte, error) {
-	if len(data) < prefixSIDtlvHdrLen {
+	// A Sub-Sub-TLV header is Type(1) + Length(2); it has no reserved byte,
+	// unlike the TLV and Sub-TLV headers.
+	if len(data) < subSubTLVHdrLen {
 		return nil, malformedAttrListErr("decoding failed: Prefix SID Sub Sub TLV malformed")
 	}
 	s.Type = SubSubTLVType(data[0])
 	s.Length = binary.BigEndian.Uint16(data[1:3])
 
-	if len(data) < s.Len() || s.Len() < prefixSIDtlvHdrLen {
+	if len(data) < s.Len() {
 		return nil, malformedAttrListErr("decoding failed: Prefix SID Sub Sub TLV malformed")
 	}
 
-	return data[prefixSIDtlvHdrLen:s.Len()], nil
+	return data[subSubTLVHdrLen:s.Len()], nil
 }
 
 // SRv6SIDStructureSubSubTLV defines a structure of SRv6 SID Structure Sub Sub TLV (type 1) object
@@ -546,7 +583,10 @@ func (s *SRv6SIDStructureSubSubTLV) Len() int {
 }
 
 func (s *SRv6SIDStructureSubSubTLV) Serialize() ([]byte, error) {
-	buf := make([]byte, s.Length)
+	// Size the buffer from the fixed structure length rather than from
+	// s.Length, so an inconsistent Length is reported by
+	// SubSubTLV.Serialize instead of overflowing the buffer here.
+	buf := make([]byte, srv6SIDStructureSubSubTLVValueLen)
 	p := 0
 	buf[p] = s.LocatorBlockLength
 	p++
@@ -564,11 +604,17 @@ func (s *SRv6SIDStructureSubSubTLV) Serialize() ([]byte, error) {
 }
 
 func (s *SRv6SIDStructureSubSubTLV) DecodeFromBytes(data []byte) error {
-	if len(data) < 9 {
+	if len(data) < subSubTLVHdrLen+srv6SIDStructureSubSubTLVValueLen {
 		return malformedAttrListErr("decoding failed: Prefix SID Sub Sub TLV malformed")
 	}
 	s.Type = SubSubTLVType(data[0])
 	s.Length = binary.BigEndian.Uint16(data[1:3])
+	// The six structure fields below are fixed, so any other Length leaves
+	// Length inconsistent with the decoded object. Serialize sizes its
+	// buffer from Length, so a shorter one must not be accepted here.
+	if s.Length != srv6SIDStructureSubSubTLVValueLen {
+		return malformedAttrListErr("decoding failed: Prefix SID Sub Sub TLV malformed")
+	}
 
 	s.LocatorBlockLength = data[3]
 	s.LocatorNodeLength = data[4]
@@ -643,6 +689,9 @@ func (t *SRv6ServiceTLV) Serialize() ([]byte, error) {
 		b, err := tlv.Serialize()
 		if err != nil {
 			return nil, err
+		}
+		if p+len(b) > len(buf) {
+			return nil, malformedAttrListErr("serialization failed: Prefix SID TLV malformed")
 		}
 		copy(buf[p:p+len(b)], b)
 		p += len(b)

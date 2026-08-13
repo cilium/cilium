@@ -61,6 +61,8 @@ func ProcessMessage(m *bgp.BGPMessage, peerInfo *PeerInfo, timestamp time.Time, 
 		attrs = []bgp.PathAttributeInterface{}
 	}
 
+	// one hash shared by every path of this update; must stay in sync
+	// with Path.updateHash (farm.Hash64 over attrs without MP_REACH_NLRI)
 	var hash uint64
 	if len(attrs) != 0 {
 		total := bytes.NewBuffer(make([]byte, 0))

@@ -4,9 +4,9 @@ package ec2
 
 import (
 	"context"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Returns a list of transit gateway policy table entries.
@@ -38,7 +38,27 @@ type GetTransitGatewayPolicyTableEntriesInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The filters associated with the transit gateway policy table.
+	// One or more filters. The possible values are:
+	//
+	//   - policy-rule-number - The rule number for the transit gateway policy table
+	//   entry.
+	//
+	//   - target-route-table-id - The ID of the target route table.
+	//
+	//   - policy-rule.source-ip - The source CIDR block for the policy rule.
+	//
+	//   - policy-rule.destination-ip - The destination CIDR block for the policy rule.
+	//
+	//   - policy-rule.source-port - The source port or port range for the policy rule.
+	//
+	//   - policy-rule.destination-port - The destination port or port range for the
+	//   policy rule.
+	//
+	//   - policy-rule.protocol - The protocol for the policy rule.
+	//
+	//   - policy-rule.meta-data.key - The metadata key for the policy rule.
+	//
+	//   - policy-rule.meta-data.value - The metadata value for the policy rule.
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the
@@ -52,6 +72,10 @@ type GetTransitGatewayPolicyTableEntriesInput struct {
 }
 
 type GetTransitGatewayPolicyTableEntriesOutput struct {
+
+	// The token to use to retrieve the next page of results. This value is null when
+	// there are no more results to return.
+	NextToken *string
 
 	// The entries for the transit gateway policy table.
 	TransitGatewayPolicyTableEntries []types.TransitGatewayPolicyTableEntry
@@ -72,9 +96,6 @@ func (c *Client) addOperationGetTransitGatewayPolicyTableEntriesMiddlewares(stac
 		return err
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -84,22 +105,13 @@ func (c *Client) addOperationGetTransitGatewayPolicyTableEntriesMiddlewares(stac
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpGetTransitGatewayPolicyTableEntriesValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "GetTransitGatewayPolicyTableEntries"), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -119,3 +131,100 @@ func (c *Client) addOperationGetTransitGatewayPolicyTableEntriesMiddlewares(stac
 	}
 	return nil
 }
+
+// GetTransitGatewayPolicyTableEntriesPaginatorOptions is the paginator options
+// for GetTransitGatewayPolicyTableEntries
+type GetTransitGatewayPolicyTableEntriesPaginatorOptions struct {
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	Limit int32
+
+	// Set to true if pagination should stop if the service returns a pagination token
+	// that matches the most recent token provided to the service.
+	StopOnDuplicateToken bool
+}
+
+// GetTransitGatewayPolicyTableEntriesPaginator is a paginator for
+// GetTransitGatewayPolicyTableEntries
+type GetTransitGatewayPolicyTableEntriesPaginator struct {
+	options   GetTransitGatewayPolicyTableEntriesPaginatorOptions
+	client    GetTransitGatewayPolicyTableEntriesAPIClient
+	params    *GetTransitGatewayPolicyTableEntriesInput
+	nextToken *string
+	firstPage bool
+}
+
+// NewGetTransitGatewayPolicyTableEntriesPaginator returns a new
+// GetTransitGatewayPolicyTableEntriesPaginator
+func NewGetTransitGatewayPolicyTableEntriesPaginator(client GetTransitGatewayPolicyTableEntriesAPIClient, params *GetTransitGatewayPolicyTableEntriesInput, optFns ...func(*GetTransitGatewayPolicyTableEntriesPaginatorOptions)) *GetTransitGatewayPolicyTableEntriesPaginator {
+	if params == nil {
+		params = &GetTransitGatewayPolicyTableEntriesInput{}
+	}
+
+	options := GetTransitGatewayPolicyTableEntriesPaginatorOptions{}
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
+	}
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	return &GetTransitGatewayPolicyTableEntriesPaginator{
+		options:   options,
+		client:    client,
+		params:    params,
+		firstPage: true,
+		nextToken: params.NextToken,
+	}
+}
+
+// HasMorePages returns a boolean indicating whether more pages are available
+func (p *GetTransitGatewayPolicyTableEntriesPaginator) HasMorePages() bool {
+	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
+}
+
+// NextPage retrieves the next GetTransitGatewayPolicyTableEntries page.
+func (p *GetTransitGatewayPolicyTableEntriesPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*GetTransitGatewayPolicyTableEntriesOutput, error) {
+	if !p.HasMorePages() {
+		return nil, fmt.Errorf("no more pages available")
+	}
+
+	params := *p.params
+	params.NextToken = p.nextToken
+
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
+
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
+	result, err := p.client.GetTransitGatewayPolicyTableEntries(ctx, &params, optFns...)
+	if err != nil {
+		return nil, err
+	}
+	p.firstPage = false
+
+	prevToken := p.nextToken
+	p.nextToken = result.NextToken
+
+	if p.options.StopOnDuplicateToken &&
+		prevToken != nil &&
+		p.nextToken != nil &&
+		*prevToken == *p.nextToken {
+		p.nextToken = nil
+	}
+
+	return result, nil
+}
+
+// GetTransitGatewayPolicyTableEntriesAPIClient is a client that implements the
+// GetTransitGatewayPolicyTableEntries operation.
+type GetTransitGatewayPolicyTableEntriesAPIClient interface {
+	GetTransitGatewayPolicyTableEntries(context.Context, *GetTransitGatewayPolicyTableEntriesInput, ...func(*Options)) (*GetTransitGatewayPolicyTableEntriesOutput, error)
+}
+
+var _ GetTransitGatewayPolicyTableEntriesAPIClient = (*Client)(nil)

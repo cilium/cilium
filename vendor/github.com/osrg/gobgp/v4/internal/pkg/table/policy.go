@@ -16,6 +16,7 @@
 package table
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -23,6 +24,7 @@ import (
 	"net/netip"
 	"reflect"
 	"regexp"
+	"regexp/syntax"
 	"slices"
 	"sort"
 	"strconv"
@@ -306,17 +308,24 @@ func (lhs *Prefix) Equal(rhs *Prefix) bool {
 }
 
 func (p *Prefix) PrefixString() string {
+	if p.AddressFamily == bgp.RF_RTC_UC {
+		b := p.Prefix.Addr().As16()
+		as := binary.BigEndian.Uint32(b[:4])
+		rt, err := bgp.ParseExtended(b[4:12])
+		if err != nil {
+			return p.Prefix.String()
+		}
+		return fmt.Sprintf("%d:%s/%d", as, rt.String(), p.Prefix.Bits())
+	}
 	return p.Prefix.String()
 }
 
 var _regexpPrefixRange = regexp.MustCompile(`(\d+)\.\.(\d+)`)
 
 func NewPrefix(c oc.Prefix) (*Prefix, error) {
-	prefix := c.IpPrefix
-
-	rf := bgp.RF_IPv4_UC
-	if strings.Contains(c.IpPrefix.String(), ":") {
-		rf = bgp.RF_IPv6_UC
+	prefix, rf, err := c.ToPrefix()
+	if err != nil {
+		return nil, err
 	}
 	p := &Prefix{
 		Prefix:        prefix,
@@ -434,7 +443,13 @@ func (s *PrefixSet) ToConfig() *oc.PrefixSet {
 	list := make([]oc.Prefix, 0, s.tree.Size())
 	for _, ps := range s.tree.All() {
 		for _, p := range ps {
-			list = append(list, oc.Prefix{IpPrefix: netip.MustParsePrefix(p.PrefixString()), MasklengthRange: fmt.Sprintf("%d..%d", p.MasklengthRangeMin, p.MasklengthRangeMax)})
+			c := oc.Prefix{MasklengthRange: fmt.Sprintf("%d..%d", p.MasklengthRangeMin, p.MasklengthRangeMax)}
+			if p.AddressFamily == bgp.RF_RTC_UC {
+				c.RtcPrefix = p.PrefixString()
+			} else {
+				c.IpPrefix = netip.MustParsePrefix(p.PrefixString())
+			}
+			list = append(list, c)
 		}
 	}
 	return &oc.PrefixSet{
@@ -1173,8 +1188,19 @@ func scanLocalAdminBitmap(re *regexp.Regexp, asn uint16) *localAdminBitmap {
 	return bm
 }
 
+// hasTopLevelAlternation reports whether the outermost operator of the pattern
+// is an alternation. The leading ^<ASN>: then only describes the first branch,
+// so it says nothing about the communities the remaining branches accept.
+func hasTopLevelAlternation(s string) bool {
+	re, err := syntax.Parse(s, syntax.Perl)
+	if err != nil {
+		return true
+	}
+	return re.Op == syntax.OpAlternate
+}
+
 func extractLiteralASN(s string) (uint16, bool) {
-	if len(s) == 0 || s[0] != '^' {
+	if len(s) == 0 || s[0] != '^' || hasTopLevelAlternation(s) {
 		return 0, false
 	}
 	start := 1
@@ -1987,10 +2013,15 @@ func (c *PrefixCondition) Option() MatchOption {
 // subsequent comparison is skipped if that matches the conditions.
 // If PrefixList's length is zero, return true.
 func (c *PrefixCondition) Evaluate(path *Path, _ *PolicyOptions) bool {
-	pathAfi := path.GetFamily().Afi()
+	pathRf := path.GetFamily()
+	pathAfi := pathRf.Afi()
 	cAfi := c.set.family.Afi()
 
 	if cAfi != pathAfi {
+		return false
+	}
+	// RTC shares AFI_IP with IPv4-UC; only match RTC sets against RTC paths.
+	if bool(c.set.family == bgp.RF_RTC_UC) != bool(pathRf == bgp.RF_RTC_UC) {
 		return false
 	}
 
@@ -2930,8 +2961,14 @@ func NewCommunityAction(c oc.SetCommunity) (*CommunityAction, error) {
 }
 
 type ExtCommunityAction struct {
-	action      oc.BgpSetCommunityOptionType
+	action oc.BgpSetCommunityOptionType
+	// list keeps every community in configuration order, which ToConfig
+	// relies on to index subtypeList. list8 and list6 are the partitions
+	// actually applied to a path: the two attributes take communities of
+	// different sizes, so a community can only go to one of them.
 	list        []bgp.ExtendedCommunityInterface
+	list8       []bgp.ExtendedCommunityInterface
+	list6       []bgp.ExtendedCommunityInterface
 	removeList  []*regexp.Regexp
 	subtypeList []bgp.ExtendedCommunityAttrSubType
 }
@@ -2943,11 +2980,13 @@ func (a *ExtCommunityAction) Type() ActionType {
 func (a *ExtCommunityAction) Apply(path *Path, _ *PolicyOptions) (*Path, error) {
 	switch a.action {
 	case oc.BGP_SET_COMMUNITY_OPTION_TYPE_ADD:
-		path.SetExtCommunities(a.list, false)
+		path.SetExtCommunities(a.list8, false)
+		path.SetIP6ExtCommunities(a.list6, false)
 	case oc.BGP_SET_COMMUNITY_OPTION_TYPE_REMOVE:
 		RegexpRemoveExtCommunities(path, a.removeList, a.subtypeList)
 	case oc.BGP_SET_COMMUNITY_OPTION_TYPE_REPLACE:
-		path.SetExtCommunities(a.list, true)
+		path.SetExtCommunities(a.list8, true)
+		path.SetIP6ExtCommunities(a.list6, true)
 	}
 	return path, nil
 }
@@ -3002,7 +3041,7 @@ func NewExtCommunityAction(c oc.SetExtCommunity) (*ExtCommunityAction, error) {
 		}
 		return nil, fmt.Errorf("invalid option name: %s", c.Options)
 	}
-	var list []bgp.ExtendedCommunityInterface
+	var list, list8, list6 []bgp.ExtendedCommunityInterface
 	var removeList []*regexp.Regexp
 	subtypeList := make([]bgp.ExtendedCommunityAttrSubType, 0, len(c.SetExtCommunityMethod.CommunitiesList))
 	if a == oc.BGP_SET_COMMUNITY_OPTION_TYPE_REMOVE {
@@ -3023,6 +3062,25 @@ func NewExtCommunityAction(c oc.SetExtCommunity) (*ExtCommunityAction, error) {
 			if err != nil {
 				return nil, err
 			}
+			// Pick the attribute by encoded size, done once here rather than
+			// per path. RFC4360 Section 2 fixes every community of the
+			// Extended Communities attribute at 8 octets, and RFC5701
+			// Section 2 encodes the IPv6 address specific ones as 20 octets
+			// in an attribute of their own. Size is the reliable
+			// discriminator: RedirectIPv6AddressSpecificExtended reports the
+			// same type octet as the 8-octet experimental communities.
+			buf, err := comm.Serialize()
+			if err != nil {
+				return nil, err
+			}
+			switch len(buf) {
+			case bgp.ExtendedCommunityLen:
+				list8 = append(list8, comm)
+			case bgp.IP6ExtendedCommunityLen:
+				list6 = append(list6, comm)
+			default:
+				return nil, fmt.Errorf("ext-community %q encodes to %d octets, which fits neither the %d-octet nor the %d-octet attribute", x, len(buf), bgp.ExtendedCommunityLen, bgp.IP6ExtendedCommunityLen)
+			}
 			list = append(list, comm)
 			_, subtype := comm.GetTypes()
 			subtypeList = append(subtypeList, subtype)
@@ -3031,6 +3089,8 @@ func NewExtCommunityAction(c oc.SetExtCommunity) (*ExtCommunityAction, error) {
 	return &ExtCommunityAction{
 		action:      a,
 		list:        list,
+		list8:       list8,
+		list6:       list6,
 		removeList:  removeList,
 		subtypeList: subtypeList,
 	}, nil
@@ -4707,7 +4767,7 @@ func CanImportToVrf(v *Vrf, path *Path) bool {
 		if !isTransitiveType(x) {
 			continue
 		}
-		key, err := extCommRouteTargetKey(x)
+		key, err := bgp.ExtCommRouteTargetKey(x)
 		if err != nil {
 			continue
 		}

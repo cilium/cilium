@@ -6,7 +6,6 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Provisions an IPv4 or IPv6 address range for use with your Amazon Web Services
@@ -17,8 +16,10 @@ import (
 // Amazon Web Services verifies that you own the address range and are authorized
 // to advertise it. You must ensure that the address range is registered to you and
 // that you created an RPKI ROA to authorize Amazon ASNs 16509 and 14618 to
-// advertise the address range. For more information, see [Bring your own IP addresses (BYOIP)]in the Amazon EC2 User
-// Guide.
+// advertise the address range. For the Amazon Web Services GovCloud (US) Regions,
+// authorize only ASN 8987. For the Amazon Web Services European Sovereign Cloud,
+// authorize ASNs 16509 and 214101. For more information, see [Bring your own IP addresses (BYOIP)]in the Amazon EC2
+// User Guide.
 //
 // Provisioning an address range is an asynchronous operation, so the call returns
 // immediately, but the address range is not ready to use until its status changes
@@ -121,9 +122,6 @@ func (c *Client) addOperationProvisionByoipCidrMiddlewares(stack *middleware.Sta
 		return err
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -133,22 +131,13 @@ func (c *Client) addOperationProvisionByoipCidrMiddlewares(stack *middleware.Sta
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpProvisionByoipCidrValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "ProvisionByoipCidr"), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -17,8 +17,6 @@ package table
 
 import (
 	"bytes"
-	"encoding/binary"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math/bits"
@@ -87,6 +85,16 @@ func tableKey(nlri bgp.NLRI) addrPrefixKey {
 		h = fnv1a.AddBytes64(h, serializedRD)
 		h = fnv1a.AddBytes64(h, T.Prefix.Addr().AsSlice())
 		h = fnv1a.AddBytes64(h, []byte{uint8(T.Prefix.Bits())})
+	case *bgp.LsAddrPrefix:
+		// BGP-LS NLRIs must be keyed on their full serialized form so that
+		// otherwise-identical NLRIs differing only by Protocol-ID (e.g. IS-IS
+		// L1 vs L2) or Identifier are stored as distinct destinations rather
+		// than colliding on a String()-derived key.
+		if serialized, err := T.Serialize(); err == nil {
+			h = fnv1a.AddBytes64(h, serialized)
+		} else {
+			h = fnv1a.AddString64(h, nlri.String())
+		}
 	default:
 		h = fnv1a.AddString64(h, nlri.String())
 	}
@@ -334,7 +342,7 @@ func (t *Table) deleteRTCPathsByVrf(vrf *Vrf, vrfs map[string]*Vrf) []*Path {
 	for lhs := range vrf.ImportRt {
 		t.destinations.iterateAllDestinations(func(dest *destination) {
 			nlri := dest.GetNlri().(*bgp.RouteTargetMembershipNLRI)
-			rhs, _ := extCommRouteTargetKey(nlri.RouteTarget)
+			rhs, _ := nlri.RouteTargetKey()
 			if lhs == rhs && isLastTargetUser(vrfs, lhs) {
 				for _, p := range dest.knownPathList {
 					if p.IsLocal() {
@@ -1078,34 +1086,6 @@ func (t *Table) Info(option ...TableInfoOptions) *TableInfo {
 // In RouteTargetMembershipNLRI, this value is represented as a nil RouteTarget.
 const DefaultRT uint64 = 0
 
-var (
-	ErrInvalidRouteTarget error = errors.New("ExtendedCommunity is not RouteTarget")
-	ErrNilCommunity       error = errors.New("RouteTarget could not be nil")
-)
-
-func extCommRouteTargetKey(routeTarget bgp.ExtendedCommunityInterface) (uint64, error) {
-	if routeTarget == nil {
-		return 0, ErrNilCommunity
-	}
-	switch rt := routeTarget.(type) {
-	case *bgp.TwoOctetAsSpecificExtended, *bgp.IPv4AddressSpecificExtended, *bgp.FourOctetAsSpecificExtended:
-		bytes, err := rt.Serialize()
-		if err != nil {
-			return 0, err
-		}
-		return binary.BigEndian.Uint64(bytes[:]), nil
-	default:
-		return 0, ErrInvalidRouteTarget
-	}
-}
-
-func nlriRouteTargetKey(nlri *bgp.RouteTargetMembershipNLRI) (uint64, error) {
-	if nlri.RouteTarget == nil {
-		return DefaultRT, nil
-	}
-	return extCommRouteTargetKey(nlri.RouteTarget)
-}
-
 type routeTargetMap map[uint64]bgp.ExtendedCommunityInterface
 
 func (rtm routeTargetMap) ToSlice() []bgp.ExtendedCommunityInterface {
@@ -1127,7 +1107,7 @@ func (rtm routeTargetMap) Clone() routeTargetMap {
 func newRouteTargetMap(s []bgp.ExtendedCommunityInterface) (routeTargetMap, error) {
 	m := make(routeTargetMap, len(s))
 	for _, rt := range s {
-		key, err := extCommRouteTargetKey(rt)
+		key, err := bgp.ExtCommRouteTargetKey(rt)
 		if err != nil {
 			return nil, err
 		}

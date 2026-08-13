@@ -10,7 +10,6 @@ import (
 	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
 	smithytime "github.com/aws/smithy-go/time"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
 	"time"
 )
@@ -24,6 +23,10 @@ import (
 //   - Status checks - Amazon EC2 performs status checks on running EC2 instances
 //     to identify hardware and software issues. For more information, see [Status checks for your instances]and [Troubleshoot instances with failed status checks]in
 //     the Amazon EC2 User Guide.
+//
+//   - Application status checks - Amazon EC2 reports application-level health
+//     status for instances, indicating whether applications running on the instance
+//     are functioning properly.
 //
 //   - Scheduled events - Amazon EC2 can schedule events (such as reboot, stop, or
 //     terminate) for your instances related to hardware issues, software updates, or
@@ -122,6 +125,9 @@ type DescribeInstanceStatusInput struct {
 	//
 	//   - attached-ebs-status.status - The status of the attached EBS volume for the
 	//   instance ( ok | impaired | initializing | insufficient-data | not-applicable ).
+	//
+	//   - application-status.status - The application status of the instance ( ok |
+	//   impaired | initializing | insufficient-data | not-applicable ).
 	Filters []types.Filter
 
 	// When true , includes the health status for all instances. When false , includes
@@ -184,9 +190,6 @@ func (c *Client) addOperationDescribeInstanceStatusMiddlewares(stack *middleware
 		return err
 	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -196,19 +199,10 @@ func (c *Client) addOperationDescribeInstanceStatusMiddlewares(stack *middleware
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware(options.Region, "DescribeInstanceStatus"), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

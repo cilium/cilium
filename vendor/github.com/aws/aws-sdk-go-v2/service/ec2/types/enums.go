@@ -269,6 +269,25 @@ func (Affinity) Values() []Affinity {
 	}
 }
 
+type AggregationStatusEnum string
+
+// Enum values for AggregationStatusEnum
+const (
+	AggregationStatusEnumIncluded AggregationStatusEnum = "included"
+	AggregationStatusEnumExcluded AggregationStatusEnum = "excluded"
+)
+
+// Values returns all known values for AggregationStatusEnum. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (AggregationStatusEnum) Values() []AggregationStatusEnum {
+	return []AggregationStatusEnum{
+		"included",
+		"excluded",
+	}
+}
+
 type AllocationState string
 
 // Enum values for AllocationState
@@ -479,6 +498,58 @@ func (ApplianceModeSupportValue) Values() []ApplianceModeSupportValue {
 	}
 }
 
+type ApplicationStatusCheckEnum string
+
+// Enum values for ApplicationStatusCheckEnum
+const (
+	ApplicationStatusCheckEnumPassed           ApplicationStatusCheckEnum = "passed"
+	ApplicationStatusCheckEnumFailed           ApplicationStatusCheckEnum = "failed"
+	ApplicationStatusCheckEnumInitializing     ApplicationStatusCheckEnum = "initializing"
+	ApplicationStatusCheckEnumInsufficientData ApplicationStatusCheckEnum = "insufficient-data"
+	ApplicationStatusCheckEnumNotApplicable    ApplicationStatusCheckEnum = "not-applicable"
+)
+
+// Values returns all known values for ApplicationStatusCheckEnum. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ApplicationStatusCheckEnum) Values() []ApplicationStatusCheckEnum {
+	return []ApplicationStatusCheckEnum{
+		"passed",
+		"failed",
+		"initializing",
+		"insufficient-data",
+		"not-applicable",
+	}
+}
+
+type ApplicationStatusEnum string
+
+// Enum values for ApplicationStatusEnum
+const (
+	ApplicationStatusEnumOk               ApplicationStatusEnum = "ok"
+	ApplicationStatusEnumImpaired         ApplicationStatusEnum = "impaired"
+	ApplicationStatusEnumInitializing     ApplicationStatusEnum = "initializing"
+	ApplicationStatusEnumInsufficientData ApplicationStatusEnum = "insufficient-data"
+	ApplicationStatusEnumNotApplicable    ApplicationStatusEnum = "not-applicable"
+	ApplicationStatusEnumSuppressed       ApplicationStatusEnum = "suppressed"
+)
+
+// Values returns all known values for ApplicationStatusEnum. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ApplicationStatusEnum) Values() []ApplicationStatusEnum {
+	return []ApplicationStatusEnum{
+		"ok",
+		"impaired",
+		"initializing",
+		"insufficient-data",
+		"not-applicable",
+		"suppressed",
+	}
+}
+
 type ApplyCancellationCharges string
 
 // Enum values for ApplyCancellationCharges
@@ -639,6 +710,25 @@ func (AssociationStatusCode) Values() []AssociationStatusCode {
 		"association-failed",
 		"disassociating",
 		"disassociated",
+	}
+}
+
+type AssociationTypeEnum string
+
+// Enum values for AssociationTypeEnum
+const (
+	AssociationTypeEnumTag        AssociationTypeEnum = "tag"
+	AssociationTypeEnumInstanceId AssociationTypeEnum = "instance-id"
+)
+
+// Values returns all known values for AssociationTypeEnum. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (AssociationTypeEnum) Values() []AssociationTypeEnum {
+	return []AssociationTypeEnum{
+		"tag",
+		"instance-id",
 	}
 }
 
@@ -1588,6 +1678,25 @@ func (CarrierGatewayState) Values() []CarrierGatewayState {
 		"available",
 		"deleting",
 		"deleted",
+	}
+}
+
+type ChronologicalOrder string
+
+// Enum values for ChronologicalOrder
+const (
+	ChronologicalOrderForward ChronologicalOrder = "forward"
+	ChronologicalOrderReverse ChronologicalOrder = "reverse"
+)
+
+// Values returns all known values for ChronologicalOrder. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (ChronologicalOrder) Values() []ChronologicalOrder {
+	return []ChronologicalOrder{
+		"forward",
+		"reverse",
 	}
 }
 
@@ -7171,6 +7280,60 @@ func (IpamAssociatedResourceDiscoveryStatus) Values() []IpamAssociatedResourceDi
 	}
 }
 
+type IpamByoipAdvertisementType string
+
+// Enum values for IpamByoipAdvertisementType
+const (
+	IpamByoipAdvertisementTypeRegional IpamByoipAdvertisementType = "regional"
+	IpamByoipAdvertisementTypeGlobal   IpamByoipAdvertisementType = "global"
+)
+
+// Values returns all known values for IpamByoipAdvertisementType. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamByoipAdvertisementType) Values() []IpamByoipAdvertisementType {
+	return []IpamByoipAdvertisementType{
+		"regional",
+		"global",
+	}
+}
+
+type IpamByoipCidrState string
+
+// Enum values for IpamByoipCidrState
+const (
+	IpamByoipCidrStateAdvertised                         IpamByoipCidrState = "advertised"
+	IpamByoipCidrStateDeprovisioned                      IpamByoipCidrState = "deprovisioned"
+	IpamByoipCidrStateFailedDeprovision                  IpamByoipCidrState = "failed-deprovision"
+	IpamByoipCidrStateFailedProvision                    IpamByoipCidrState = "failed-provision"
+	IpamByoipCidrStatePendingAdvertising                 IpamByoipCidrState = "pending-advertising"
+	IpamByoipCidrStatePendingDeprovision                 IpamByoipCidrState = "pending-deprovision"
+	IpamByoipCidrStatePendingProvision                   IpamByoipCidrState = "pending-provision"
+	IpamByoipCidrStatePendingWithdrawal                  IpamByoipCidrState = "pending-withdrawal"
+	IpamByoipCidrStateProvisioned                        IpamByoipCidrState = "provisioned"
+	IpamByoipCidrStateProvisionedNotPubliclyAdvertisable IpamByoipCidrState = "provisioned-not-publicly-advertisable"
+)
+
+// Values returns all known values for IpamByoipCidrState. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamByoipCidrState) Values() []IpamByoipCidrState {
+	return []IpamByoipCidrState{
+		"advertised",
+		"deprovisioned",
+		"failed-deprovision",
+		"failed-provision",
+		"pending-advertising",
+		"pending-deprovision",
+		"pending-provision",
+		"pending-withdrawal",
+		"provisioned",
+		"provisioned-not-publicly-advertisable",
+	}
+}
+
 type IpamComplianceStatus string
 
 // Enum values for IpamComplianceStatus
@@ -7237,6 +7400,40 @@ func (IpamExternalResourceVerificationTokenState) Values() []IpamExternalResourc
 		"create-in-progress",
 		"create-complete",
 		"create-failed",
+		"delete-in-progress",
+		"delete-complete",
+		"delete-failed",
+	}
+}
+
+type IpamInternetRegistryAssociationState string
+
+// Enum values for IpamInternetRegistryAssociationState
+const (
+	IpamInternetRegistryAssociationStatePendingEnable    IpamInternetRegistryAssociationState = "pending-enable"
+	IpamInternetRegistryAssociationStateCreateInProgress IpamInternetRegistryAssociationState = "create-in-progress"
+	IpamInternetRegistryAssociationStateCreateFailed     IpamInternetRegistryAssociationState = "create-failed"
+	IpamInternetRegistryAssociationStateEnableInProgress IpamInternetRegistryAssociationState = "enable-in-progress"
+	IpamInternetRegistryAssociationStateEnableComplete   IpamInternetRegistryAssociationState = "enable-complete"
+	IpamInternetRegistryAssociationStateEnableFailed     IpamInternetRegistryAssociationState = "enable-failed"
+	IpamInternetRegistryAssociationStateDeleteInProgress IpamInternetRegistryAssociationState = "delete-in-progress"
+	IpamInternetRegistryAssociationStateDeleteComplete   IpamInternetRegistryAssociationState = "delete-complete"
+	IpamInternetRegistryAssociationStateDeleteFailed     IpamInternetRegistryAssociationState = "delete-failed"
+)
+
+// Values returns all known values for IpamInternetRegistryAssociationState. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamInternetRegistryAssociationState) Values() []IpamInternetRegistryAssociationState {
+	return []IpamInternetRegistryAssociationState{
+		"pending-enable",
+		"create-in-progress",
+		"create-failed",
+		"enable-in-progress",
+		"enable-complete",
+		"enable-failed",
 		"delete-in-progress",
 		"delete-complete",
 		"delete-failed",
@@ -7937,6 +8134,100 @@ func (IpamResourceType) Values() []IpamResourceType {
 	}
 }
 
+type IpamRoutingPolicyRegistrationDeltaState string
+
+// Enum values for IpamRoutingPolicyRegistrationDeltaState
+const (
+	IpamRoutingPolicyRegistrationDeltaStatePending   IpamRoutingPolicyRegistrationDeltaState = "pending"
+	IpamRoutingPolicyRegistrationDeltaStatePublished IpamRoutingPolicyRegistrationDeltaState = "published"
+	IpamRoutingPolicyRegistrationDeltaStateFailed    IpamRoutingPolicyRegistrationDeltaState = "failed"
+)
+
+// Values returns all known values for IpamRoutingPolicyRegistrationDeltaState.
+// Note that this can be expanded in the future, and so it is only as up to date as
+// the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamRoutingPolicyRegistrationDeltaState) Values() []IpamRoutingPolicyRegistrationDeltaState {
+	return []IpamRoutingPolicyRegistrationDeltaState{
+		"pending",
+		"published",
+		"failed",
+	}
+}
+
+type IpamRoutingPolicyRegistrationState string
+
+// Enum values for IpamRoutingPolicyRegistrationState
+const (
+	IpamRoutingPolicyRegistrationStatePendingActivate  IpamRoutingPolicyRegistrationState = "pending-activate"
+	IpamRoutingPolicyRegistrationStateActivateFailed   IpamRoutingPolicyRegistrationState = "activate-failed"
+	IpamRoutingPolicyRegistrationStateCreateInProgress IpamRoutingPolicyRegistrationState = "create-in-progress"
+	IpamRoutingPolicyRegistrationStateCreateComplete   IpamRoutingPolicyRegistrationState = "create-complete"
+	IpamRoutingPolicyRegistrationStateUpdateInProgress IpamRoutingPolicyRegistrationState = "update-in-progress"
+	IpamRoutingPolicyRegistrationStateUpdateComplete   IpamRoutingPolicyRegistrationState = "update-complete"
+	IpamRoutingPolicyRegistrationStateDeleteInProgress IpamRoutingPolicyRegistrationState = "delete-in-progress"
+	IpamRoutingPolicyRegistrationStateDeleteComplete   IpamRoutingPolicyRegistrationState = "delete-complete"
+)
+
+// Values returns all known values for IpamRoutingPolicyRegistrationState. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamRoutingPolicyRegistrationState) Values() []IpamRoutingPolicyRegistrationState {
+	return []IpamRoutingPolicyRegistrationState{
+		"pending-activate",
+		"activate-failed",
+		"create-in-progress",
+		"create-complete",
+		"update-in-progress",
+		"update-complete",
+		"delete-in-progress",
+		"delete-complete",
+	}
+}
+
+type IpamRpkiStatus string
+
+// Enum values for IpamRpkiStatus
+const (
+	IpamRpkiStatusValid   IpamRpkiStatus = "valid"
+	IpamRpkiStatusInvalid IpamRpkiStatus = "invalid"
+	IpamRpkiStatusUnknown IpamRpkiStatus = "unknown"
+)
+
+// Values returns all known values for IpamRpkiStatus. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamRpkiStatus) Values() []IpamRpkiStatus {
+	return []IpamRpkiStatus{
+		"valid",
+		"invalid",
+		"unknown",
+	}
+}
+
+type IpamRpkiStrength string
+
+// Enum values for IpamRpkiStrength
+const (
+	IpamRpkiStrengthStrict     IpamRpkiStrength = "strict"
+	IpamRpkiStrengthPermissive IpamRpkiStrength = "permissive"
+)
+
+// Values returns all known values for IpamRpkiStrength. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamRpkiStrength) Values() []IpamRpkiStrength {
+	return []IpamRpkiStrength{
+		"strict",
+		"permissive",
+	}
+}
+
 type IpamScopeExternalAuthorityType string
 
 // Enum values for IpamScopeExternalAuthorityType
@@ -8071,6 +8362,23 @@ func (IpamTier) Values() []IpamTier {
 	}
 }
 
+type IpScopeEnum string
+
+// Enum values for IpScopeEnum
+const (
+	IpScopeEnumPrivate IpScopeEnum = "private"
+)
+
+// Values returns all known values for IpScopeEnum. Note that this can be expanded
+// in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpScopeEnum) Values() []IpScopeEnum {
+	return []IpScopeEnum{
+		"private",
+	}
+}
+
 type IpSource string
 
 // Enum values for IpSource
@@ -8127,6 +8435,25 @@ func (Ipv6SupportValue) Values() []Ipv6SupportValue {
 	return []Ipv6SupportValue{
 		"enable",
 		"disable",
+	}
+}
+
+type IpVersionEnum string
+
+// Enum values for IpVersionEnum
+const (
+	IpVersionEnumIpv4 IpVersionEnum = "ipv4"
+	IpVersionEnumIpv6 IpVersionEnum = "ipv6"
+)
+
+// Values returns all known values for IpVersionEnum. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpVersionEnum) Values() []IpVersionEnum {
+	return []IpVersionEnum{
+		"ipv4",
+		"ipv6",
 	}
 }
 
@@ -9261,6 +9588,25 @@ func (NetworkInterfaceType) Values() []NetworkInterfaceType {
 	}
 }
 
+type NetworkProtocolEnum string
+
+// Enum values for NetworkProtocolEnum
+const (
+	NetworkProtocolEnumHttp  NetworkProtocolEnum = "http"
+	NetworkProtocolEnumHttps NetworkProtocolEnum = "https"
+)
+
+// Values returns all known values for NetworkProtocolEnum. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (NetworkProtocolEnum) Values() []NetworkProtocolEnum {
+	return []NetworkProtocolEnum{
+		"http",
+		"https",
+	}
+}
+
 type NitroEnclavesSupport string
 
 // Enum values for NitroEnclavesSupport
@@ -10187,6 +10533,7 @@ const (
 	ResourceTypeIpamPrefixListResolver                                 ResourceType = "ipam-prefix-list-resolver"
 	ResourceTypeIpamPolicy                                             ResourceType = "ipam-policy"
 	ResourceTypeIpamPrefixListResolverTarget                           ResourceType = "ipam-prefix-list-resolver-target"
+	ResourceTypeIpamInternetRegistryAssociation                        ResourceType = "ipam-internet-registry-association"
 	ResourceTypeSecondaryInterface                                     ResourceType = "secondary-interface"
 	ResourceTypeSecondaryNetwork                                       ResourceType = "secondary-network"
 	ResourceTypeSecondarySubnet                                        ResourceType = "secondary-subnet"
@@ -10194,6 +10541,7 @@ const (
 	ResourceTypeVpnConcentrator                                        ResourceType = "vpn-concentrator"
 	ResourceTypeIpamPoolAllocation                                     ResourceType = "ipam-pool-allocation"
 	ResourceTypeCapacityReservationCancellationQuote                   ResourceType = "capacity-reservation-cancellation-quote"
+	ResourceTypeApplicationStatusCheck                                 ResourceType = "application-status-check"
 )
 
 // Values returns all known values for ResourceType. Note that this can be
@@ -10304,6 +10652,7 @@ func (ResourceType) Values() []ResourceType {
 		"ipam-prefix-list-resolver",
 		"ipam-policy",
 		"ipam-prefix-list-resolver-target",
+		"ipam-internet-registry-association",
 		"secondary-interface",
 		"secondary-network",
 		"secondary-subnet",
@@ -10311,6 +10660,7 @@ func (ResourceType) Values() []ResourceType {
 		"vpn-concentrator",
 		"ipam-pool-allocation",
 		"capacity-reservation-cancellation-quote",
+		"application-status-check",
 	}
 }
 
@@ -10334,6 +10684,29 @@ func (RIProductDescription) Values() []RIProductDescription {
 		"Linux/UNIX (Amazon VPC)",
 		"Windows",
 		"Windows (Amazon VPC)",
+	}
+}
+
+type Rir string
+
+// Enum values for Rir
+const (
+	RirRipe   Rir = "ripe"
+	RirApnic  Rir = "apnic"
+	RirArin   Rir = "arin"
+	RirLacnic Rir = "lacnic"
+)
+
+// Values returns all known values for Rir. Note that this can be expanded in the
+// future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (Rir) Values() []Rir {
+	return []Rir{
+		"ripe",
+		"apnic",
+		"arin",
+		"lacnic",
 	}
 }
 
@@ -12258,6 +12631,26 @@ func (TransitGatewayMulticastDomainState) Values() []TransitGatewayMulticastDoma
 		"pending",
 		"available",
 		"deleting",
+		"deleted",
+	}
+}
+
+type TransitGatewayPolicyTableEntryState string
+
+// Enum values for TransitGatewayPolicyTableEntryState
+const (
+	TransitGatewayPolicyTableEntryStateActive  TransitGatewayPolicyTableEntryState = "active"
+	TransitGatewayPolicyTableEntryStateDeleted TransitGatewayPolicyTableEntryState = "deleted"
+)
+
+// Values returns all known values for TransitGatewayPolicyTableEntryState. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (TransitGatewayPolicyTableEntryState) Values() []TransitGatewayPolicyTableEntryState {
+	return []TransitGatewayPolicyTableEntryState{
+		"active",
 		"deleted",
 	}
 }

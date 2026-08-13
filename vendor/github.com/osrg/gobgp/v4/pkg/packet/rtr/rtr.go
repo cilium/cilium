@@ -229,11 +229,17 @@ func (m *RTRIPPrefix) DecodeFromBytes(data []byte) error {
 	m.PrefixLen = data[9]
 	m.MaxLen = data[10]
 	if m.Type == RTR_IPV4_PREFIX {
+		if m.MaxLen > 32 || m.PrefixLen > m.MaxLen {
+			return errors.New("prefix or max length out of range for IPv4 RTRIPPrefix")
+		}
 		m.Prefix, _ = netip.AddrFromSlice(data[12:16])
 		m.AS = binary.BigEndian.Uint32(data[16:20])
 	} else {
 		if len(data) < RTR_IPV6_PREFIX_LEN {
 			return errors.New("data too short for RTRIPPrefix")
+		}
+		if m.MaxLen > 128 || m.PrefixLen > m.MaxLen {
+			return errors.New("prefix or max length out of range for IPv6 RTRIPPrefix")
 		}
 		m.Prefix, _ = netip.AddrFromSlice(data[12:28])
 		m.AS = binary.BigEndian.Uint32(data[28:32])

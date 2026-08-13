@@ -18,6 +18,7 @@ package oc
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -231,12 +232,17 @@ func (n *Neighbor) NeedsResendOpenMessage(new *Neighbor) bool {
 var _regexpPrefixMaskLengthRange = regexp.MustCompile(`(\d+)\.\.(\d+)`)
 
 func ParseMaskLength(prefix, mask string) (int, int, error) {
-	_, ipNet, err := net.ParseCIDR(prefix)
+	p, err := netip.ParsePrefix(prefix)
+	var rf bgp.Family
 	if err != nil {
-		return 0, 0, fmt.Errorf("invalid prefix: %s", prefix)
+		p, err = bgp.ParseRTCPrefix(prefix)
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid prefix: %s", prefix)
+		}
+		rf = bgp.RF_RTC_UC
 	}
 	if mask == "" {
-		l, _ := ipNet.Mask.Size()
+		l := p.Bits()
 		return l, l, nil
 	}
 	elems := _regexpPrefixMaskLengthRange.FindStringSubmatch(mask)
@@ -249,22 +255,45 @@ func ParseMaskLength(prefix, mask string) (int, int, error) {
 	if min > max {
 		return 0, 0, fmt.Errorf("invalid mask length range: %s", mask)
 	}
-	if ipv4 := ipNet.IP.To4(); ipv4 != nil {
+	if rf == bgp.RF_RTC_UC {
 		f := func(i uint64) bool {
-			return i <= 32
+			return i <= bgp.RouteTargetMembershipPrefixLen
 		}
 		if !f(min) || !f(max) {
-			return 0, 0, fmt.Errorf("ipv4 mask length range outside scope :%s", mask)
+			return 0, 0, fmt.Errorf("rtc mask length range outside scope :%s", mask)
 		}
 	} else {
 		f := func(i uint64) bool {
-			return i <= 128
+			return i <= uint64(p.Addr().BitLen())
 		}
 		if !f(min) || !f(max) {
-			return 0, 0, fmt.Errorf("ipv6 mask length range outside scope :%s", mask)
+			return 0, 0, fmt.Errorf("ip mask length range outside scope :%s", mask)
 		}
 	}
 	return int(min), int(max), nil
+}
+
+// ToPrefix parses the ip-prefix or rtc-prefix field (mutually exclusive) into a netip.Prefix and family.
+func (c *Prefix) ToPrefix() (netip.Prefix, bgp.Family, error) {
+	if c.IpPrefix.IsValid() && c.RtcPrefix != "" {
+		return netip.Prefix{}, 0, fmt.Errorf("ip-prefix and rtc-prefix are mutually exclusive")
+	}
+	switch {
+	case c.IpPrefix.IsValid():
+		rf := bgp.RF_IPv4_UC
+		if c.IpPrefix.Addr().Is6() {
+			rf = bgp.RF_IPv6_UC
+		}
+		return c.IpPrefix, rf, nil
+	case c.RtcPrefix != "":
+		pfx, err := bgp.ParseRTCPrefix(c.RtcPrefix)
+		if err != nil {
+			return netip.Prefix{}, 0, err
+		}
+		return pfx, bgp.RF_RTC_UC, nil
+	default:
+		return netip.Prefix{}, 0, fmt.Errorf("prefix requires ip-prefix or rtc-prefix")
+	}
 }
 
 func extractFamilyFromConfigAfiSafi(c *AfiSafi) uint32 {
@@ -801,12 +830,21 @@ func NewGlobalFromConfigStruct(c *Global) *api.Global {
 }
 
 func newAPIPrefixFromConfigStruct(c Prefix) (*api.Prefix, error) {
-	min, max, err := ParseMaskLength(c.IpPrefix.String(), c.MasklengthRange)
+	prefix := c.RtcPrefix
+	if c.IpPrefix.IsValid() {
+		prefix = c.IpPrefix.String()
+	}
+	min, max, err := ParseMaskLength(prefix, c.MasklengthRange)
 	if err != nil {
 		return nil, err
 	}
+	ipPrefix := ""
+	if c.IpPrefix.IsValid() {
+		ipPrefix = c.IpPrefix.String()
+	}
 	return &api.Prefix{
-		IpPrefix:      c.IpPrefix.String(),
+		IpPrefix:      ipPrefix,
+		RtcPrefix:     c.RtcPrefix,
 		MaskLengthMin: uint32(min),
 		MaskLengthMax: uint32(max),
 	}, nil

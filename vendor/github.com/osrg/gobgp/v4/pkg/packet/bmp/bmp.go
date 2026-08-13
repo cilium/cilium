@@ -810,6 +810,9 @@ func NewBMPTermTLV16(t uint16, v uint16) *BMPTermTLV16 {
 }
 
 func (s *BMPTermTLV16) ParseValue(data []byte) error {
+	if s.Length != 2 {
+		return fmt.Errorf("invalid length: %d bytes (%d bytes expected)", s.Length, 2)
+	}
 	s.Value = binary.BigEndian.Uint16(data[:2])
 	return nil
 }
@@ -972,6 +975,9 @@ func NewBMPRouteMirrTLV16(t uint16, v uint16) *BMPRouteMirrTLV16 {
 }
 
 func (s *BMPRouteMirrTLV16) ParseValue(data []byte) error {
+	if s.Length != 2 {
+		return fmt.Errorf("invalid length: %d bytes (%d bytes expected)", s.Length, 2)
+	}
 	s.Value = binary.BigEndian.Uint16(data[:2])
 	return nil
 }
