@@ -331,3 +331,61 @@ func testAllocatedID(t *testing.T, nGoRoutines int) {
 		}
 	}
 }
+
+func TestLazyIDPoolAllocation(t *testing.T) {
+	minID, maxID := 1, 1_000_000
+	p := NewIDPool(ID(minID), ID(maxID))
+
+	// Ensure 10 leased IDs are valid and unique
+	leased := make(map[ID]bool)
+	var firstLeased ID
+	for i := 1; i <= 10; i++ {
+		id := p.LeaseAvailableID()
+		require.NotEqual(t, NoID, id)
+		require.GreaterOrEqual(t, uint64(id), uint64(minID))
+		require.LessOrEqual(t, uint64(id), uint64(maxID))
+		require.False(t, leased[id])
+		leased[id] = true
+		if i == 1 {
+			firstLeased = id
+		}
+	}
+
+	// Release firstLeased and verify it is reused on next lease
+	require.True(t, p.Release(firstLeased))
+	id := p.LeaseAvailableID()
+	require.Equal(t, firstLeased, id)
+
+	// Remove a specific unallocated ID (e.g. minID+500) and verify it is not leased
+	targetRemoved := ID(minID + 500)
+	// If targetRemoved happens to be in leased, pick another one
+	for leased[targetRemoved] || targetRemoved == firstLeased {
+		targetRemoved++
+	}
+	require.True(t, p.Remove(targetRemoved))
+	require.False(t, p.Remove(targetRemoved))
+}
+
+var globalIDPool *IDPool
+
+func BenchmarkNewIDPool(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		size uint64
+	}{
+		{"Size_100", 100},
+		{"Size_10000", 10000},
+		{"Size_1000000", 1000000},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			var p *IDPool
+			b.ReportAllocs()
+			for range b.N {
+				p = NewIDPool(1, ID(bm.size))
+			}
+			globalIDPool = p
+		})
+	}
+}

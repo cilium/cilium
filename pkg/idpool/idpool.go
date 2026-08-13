@@ -4,6 +4,7 @@
 package idpool
 
 import (
+	"math/rand/v2"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -136,33 +137,87 @@ func (p *IDPool) Remove(id ID) bool {
 }
 
 type idCache struct {
-	// ids is a slice of IDs available in this idCache.
-	ids map[ID]struct{}
+	minID ID
+	maxID ID
 
-	// leased is the set of IDs that are leased in this idCache.
+	// numAllocated tracks the total number of IDs currently unavailable (allocated, leased, or removed).
+	numAllocated uint64
+
+	// allocated contains unleased IDs currently allocated.
+	allocated map[ID]struct{}
+
+	// freed contains IDs that were leased/allocated and then released/inserted.
+	freed map[ID]struct{}
+
+	// leased contains IDs that are currently leased out.
 	leased map[ID]struct{}
+
+	// removed contains IDs that were explicitly removed.
+	removed map[ID]struct{}
 }
 
 func newIDCache(minID ID, maxID ID) *idCache {
-	n := max(int(maxID-minID+1), 0)
-
-	c := &idCache{
-		ids:    make(map[ID]struct{}, n),
-		leased: make(map[ID]struct{}),
+	return &idCache{
+		minID:     minID,
+		maxID:     maxID,
+		allocated: make(map[ID]struct{}),
+		freed:     make(map[ID]struct{}),
+		leased:    make(map[ID]struct{}),
+		removed:   make(map[ID]struct{}),
 	}
-
-	for id := minID; id < maxID+1; id++ {
-		c.ids[id] = struct{}{}
-	}
-
-	return c
 }
 
-// allocateID returns a random available ID without leasing it
+func (c *idCache) isAvailable(id ID) bool {
+	if id < c.minID || id > c.maxID {
+		return false
+	}
+	if _, ok := c.allocated[id]; ok {
+		return false
+	}
+	if _, ok := c.leased[id]; ok {
+		return false
+	}
+	if _, ok := c.removed[id]; ok {
+		return false
+	}
+	return true
+}
+
+// allocateID returns a random available ID without leasing it.
 func (c *idCache) allocateID() ID {
-	for id := range c.ids {
-		delete(c.ids, id)
+	for id := range c.freed {
+		delete(c.freed, id)
+		c.allocated[id] = struct{}{}
 		return id
+	}
+
+	if c.minID > c.maxID {
+		return NoID
+	}
+	totalIDs := uint64(c.maxID - c.minID + 1)
+	if c.numAllocated >= totalIDs {
+		return NoID
+	}
+
+	// 1. Try random sampling probes across range [minID, maxID]
+	for i := 0; i < 20; i++ {
+		candidate := c.minID + ID(rand.Uint64N(totalIDs))
+		if c.isAvailable(candidate) {
+			c.allocated[candidate] = struct{}{}
+			c.numAllocated++
+			return candidate
+		}
+	}
+
+	// 2. Fallback for dense pool: scan from a random start offset
+	startOffset := ID(rand.Uint64N(totalIDs))
+	for offset := uint64(0); offset < totalIDs; offset++ {
+		candidate := c.minID + ID((uint64(startOffset)+offset)%totalIDs)
+		if c.isAvailable(candidate) {
+			c.allocated[candidate] = struct{}{}
+			c.numAllocated++
+			return candidate
+		}
 	}
 
 	return NoID
@@ -175,7 +230,7 @@ func (c *idCache) leaseAvailableID() ID {
 		return NoID
 	}
 
-	// Mark as leased
+	delete(c.allocated, id)
 	c.leased[id] = struct{}{}
 
 	return id
@@ -190,7 +245,10 @@ func (c *idCache) release(id ID) bool {
 	}
 
 	delete(c.leased, id)
-	c.insert(id)
+	c.freed[id] = struct{}{}
+	if c.numAllocated > 0 {
+		c.numAllocated--
+	}
 
 	return true
 }
@@ -204,33 +262,76 @@ func (c *idCache) use(id ID) bool {
 	}
 
 	delete(c.leased, id)
+	c.allocated[id] = struct{}{}
 	return true
 }
 
 // insert adds the ID into the cache if it is currently unavailable.
 // Returns true if the ID was added to the cache.
 func (c *idCache) insert(id ID) bool {
-	if _, ok := c.ids[id]; ok {
-		return false
-	}
-
 	if _, exists := c.leased[id]; exists {
 		return false
 	}
+	if _, exists := c.freed[id]; exists {
+		return false
+	}
 
-	c.ids[id] = struct{}{}
-	return true
+	if _, exists := c.allocated[id]; exists {
+		delete(c.allocated, id)
+		c.freed[id] = struct{}{}
+		if c.numAllocated > 0 {
+			c.numAllocated--
+		}
+		return true
+	}
+
+	if _, exists := c.removed[id]; exists {
+		delete(c.removed, id)
+		c.freed[id] = struct{}{}
+		if c.numAllocated > 0 {
+			c.numAllocated--
+		}
+		return true
+	}
+
+	if id < c.minID || id > c.maxID {
+		c.freed[id] = struct{}{}
+		return true
+	}
+
+	// Was available in range minID..maxID
+	return false
 }
 
 // remove removes the ID from the cache.
 // Returns true if the ID was available in the cache.
 func (c *idCache) remove(id ID) bool {
-	delete(c.leased, id)
+	if _, exists := c.leased[id]; exists {
+		delete(c.leased, id)
+		c.allocated[id] = struct{}{}
+		return false
+	}
 
-	if _, ok := c.ids[id]; ok {
-		delete(c.ids, id)
+	if _, exists := c.freed[id]; exists {
+		delete(c.freed, id)
+		c.removed[id] = struct{}{}
+		c.numAllocated++
 		return true
 	}
 
-	return false
+	if _, exists := c.allocated[id]; exists {
+		return false
+	}
+
+	if _, exists := c.removed[id]; exists {
+		return false
+	}
+
+	if id < c.minID || id > c.maxID {
+		return false
+	}
+
+	c.removed[id] = struct{}{}
+	c.numAllocated++
+	return true
 }
