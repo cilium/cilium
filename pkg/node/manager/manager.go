@@ -28,7 +28,6 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/ip"
@@ -89,11 +88,6 @@ type IPCache interface {
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
 }
 
-// IPSetFilterFn is a function allowing to optionally filter out the insertion
-// of IPSet entries based on node characteristics. The insertion is performed
-// if the function returns false, and skipped otherwise.
-type IPSetFilterFn func(*nodeTypes.Node) bool
-
 var _ Notifier = (*manager)(nil)
 
 // manager is the entity that manages a collection of nodes
@@ -152,11 +146,6 @@ type manager struct {
 
 	// ipcache is the set operations performed against the ipcache
 	ipcache IPCache
-
-	// ipsetMgr is the ipset cluster nodes configuration manager
-	ipsetMgr         ipset.Manager
-	ipsetInitializer ipset.Initializer
-	ipsetFilter      IPSetFilterFn
 
 	// controllerManager manages the controllers that are launched within the
 	// Manager.
@@ -281,8 +270,6 @@ func New(
 	clusterInfo cmtypes.ClusterInfo,
 	tunnelConf tunnel.Config,
 	ipCache IPCache,
-	ipsetMgr ipset.Manager,
-	ipsetFilter IPSetFilterFn,
 	nodeMetrics *nodeMetrics,
 	health cell.Health,
 	jobGroup job.Group,
@@ -292,10 +279,6 @@ func New(
 	nodeTable statedb.RWTable[*node.Node],
 	clusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc,
 ) (*manager, error) {
-	if ipsetFilter == nil {
-		ipsetFilter = func(*nodeTypes.Node) bool { return false }
-	}
-
 	m := &manager{
 		logger:                       logger,
 		nodes:                        map[nodeTypes.Identity]*nodeEntry{},
@@ -307,9 +290,6 @@ func New(
 		controllerManager:            controller.NewManager(),
 		nodeHandlers:                 map[node.Handler]struct{}{},
 		ipcache:                      ipCache,
-		ipsetMgr:                     ipsetMgr,
-		ipsetInitializer:             ipsetMgr.NewInitializer(),
-		ipsetFilter:                  ipsetFilter,
 		metrics:                      nodeMetrics,
 		health:                       health,
 		jobGroup:                     jobGroup,
@@ -703,7 +683,6 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
 	nodeLabels := m.nodeIdentityLabels(n)
 
-	var ipsetEntries []netip.Prefix
 	var nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix
 
 	for _, address := range n.IPAddresses {
@@ -713,10 +692,6 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			prefixCluster = cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&n)...)
 		} else {
 			prefixCluster = cmtypes.NewLocalPrefixCluster(prefix)
-		}
-
-		if address.Type == addressing.NodeInternalIP && !m.ipsetFilter(&n) {
-			ipsetEntries = append(ipsetEntries, prefix)
 		}
 
 		var tunnelIP netip.Addr
@@ -769,18 +744,6 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			endpointFlags)
 		nodeIPsAdded = append(nodeIPsAdded, prefixCluster.AsPrefix())
 	}
-
-	var v4Addrs, v6Addrs []netip.Addr
-	for _, prefix := range ipsetEntries {
-		addr := prefix.Addr()
-		if addr.Is6() {
-			v6Addrs = append(v6Addrs, addr)
-		} else {
-			v4Addrs = append(v4Addrs, addr)
-		}
-	}
-	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV4, ipset.INetFamily, v4Addrs...)
-	m.ipsetMgr.AddToIPSet(ipset.CiliumNodeIPSetV6, ipset.INet6Family, v6Addrs...)
 
 	// Add the remote node's Pod CIDRs as fallback entries into IPCache with
 	// the nodeIP as the tunnel endpoint (no tunnel endpoint fallback is needed
@@ -880,7 +843,14 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			}
 		}
 
-		m.removeNodeFromIPCache(oldNode, resource, ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded)
+		m.removeNodeFromIPCache(
+			oldNode,
+			resource,
+			nodeIPsAdded,
+			healthIPsAdded,
+			ingressIPsAdded,
+			podCIDRsAdded,
+		)
 
 		entry.mutex.Unlock()
 	} else {
@@ -996,11 +966,9 @@ func (m *manager) podCIDREntries(source source.Source, resource ipcacheTypes.Res
 // unless they are present in the nodeIPsAdded, healthIPsAdded, ingressIPsAdded lists.
 // Removes all pod CIDRs associated with the oldNode from IPCache, unless they are present
 // in podCIDRsAdded.
-// Removes ipset entry associated with oldNode if it is not present in ipsetEntries.
-//
 // The removal logic in this function should mirror the upsert logic in nodeAddressHasTunnelIP.
 func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
-	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix,
+	nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix,
 ) {
 	var oldNodeIP netip.Addr
 	if nIP := oldNode.GetNodeIP(false); nIP != nil {
@@ -1010,7 +978,6 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 	oldNodeLabels := m.nodeIdentityLabels(oldNode)
 
 	// Delete the old node IP addresses if they have changed in this node.
-	var v4Addrs, v6Addrs []netip.Addr
 	for _, address := range oldNode.IPAddresses {
 		prefix := ip.IPToNetPrefix(address.IP)
 		if slices.Contains(nodeIPsAdded, prefix) {
@@ -1022,22 +989,6 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			oldPrefixCluster = cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&oldNode)...)
 		} else {
 			oldPrefixCluster = cmtypes.NewLocalPrefixCluster(prefix)
-		}
-
-		if address.Type == addressing.NodeInternalIP && !slices.Contains(ipsetEntries, oldPrefixCluster.AsPrefix()) {
-			addr, ok := netipx.FromStdIP(address.IP)
-			if !ok {
-				m.logger.Error(
-					"unable to convert to netip.Addr",
-					logfields.IPAddr, address.IP,
-				)
-				continue
-			}
-			if addr.Is6() {
-				v6Addrs = append(v6Addrs, addr)
-			} else {
-				v4Addrs = append(v4Addrs, addr)
-			}
 		}
 
 		var oldTunnelIP netip.Addr
@@ -1061,9 +1012,6 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			ipcacheTypes.EncryptKey(oldKey),
 			oldEndpointFlags)
 	}
-
-	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV4, v4Addrs...)
-	m.ipsetMgr.RemoveFromIPSet(ipset.CiliumNodeIPSetV6, v6Addrs...)
 
 	// Remove old pod CIDR fallback entries from IPCache
 	if !oldNode.IsLocal() {
@@ -1180,7 +1128,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	if n.Source != source.Restored {
 		// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
 		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil, nil)
+		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil)
 
 		// We only need to decrement for nodes we've accounted for.
 		m.metrics.NumNodes.Dec()
@@ -1223,8 +1171,6 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 // or kvstore) has been completed. This allows the manager to initiate the
 // deletion of possible stale nodes.
 func (m *manager) NodeSync() {
-	m.ipsetInitializer.InitDone()
-
 	if m.clusterNodeTableInit != nil {
 		m.clusterNodeTableInit()
 	}
