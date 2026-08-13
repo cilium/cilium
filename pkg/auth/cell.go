@@ -4,12 +4,14 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
@@ -19,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/time"
@@ -96,8 +97,9 @@ type authManagerParams struct {
 
 	SignalManager   signal.SignalManager
 	NodeIDHandler   node.IDHandler
+	DB              *statedb.DB
+	Nodes           statedb.Table[*node.Node]
 	IdentityChanges stream.Observable[cache.IdentityChange]
-	NodeManager     nodeManager.NodeManager
 	EndpointManager endpointmanager.EndpointManager
 	PolicyComputer  compute.PolicyRecomputer
 }
@@ -123,7 +125,7 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
 
-	mapGC := newAuthMapGC(params.Logger, mapCache, params.NodeIDHandler, params.PolicyComputer)
+	mapGC := newAuthMapGC(params.Logger, mapCache, params.NodeIDHandler, params.PolicyComputer, params.DB, params.Nodes)
 
 	// Register auth components to lifecycle hooks & jobs
 
@@ -141,7 +143,7 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 		return nil, fmt.Errorf("failed to register signal authentication job: %w", err)
 	}
 	registerReAuthenticationJob(params.JobGroup, mgr, params.AuthHandlers)
-	registerGCJobs(params.JobGroup, params.Lifecycle, mapGC, params.Config, params.NodeManager, params.EndpointManager, params.IdentityChanges)
+	registerGCJobs(params.JobGroup, params.Lifecycle, mapGC, params.Config, params.EndpointManager, params.IdentityChanges)
 
 	return mgr, nil
 }
@@ -168,20 +170,21 @@ func registerSignalAuthenticationJob(jobGroup job.Group, mgr *AuthManager, sm si
 	return nil
 }
 
-func registerGCJobs(jobGroup job.Group, lifecycle cell.Lifecycle, mapGC *authMapGarbageCollector, cfg config, nodeManager nodeManager.NodeManager, endpointManager endpointmanager.EndpointManager, identityChanges stream.Observable[cache.IdentityChange]) {
+func registerGCJobs(jobGroup job.Group, lifecycle cell.Lifecycle, mapGC *authMapGarbageCollector, cfg config, endpointManager endpointmanager.EndpointManager, identityChanges stream.Observable[cache.IdentityChange]) {
 	lifecycle.Append(cell.Hook{
 		OnStart: func(hookContext cell.HookContext) error {
-			mapGC.subscribeToNodeEvents(nodeManager)
 			mapGC.subscribeToEndpointEvents(endpointManager)
 			return nil
 		},
 		OnStop: func(hookContext cell.HookContext) error {
-			nodeManager.Unsubscribe(mapGC)
 			endpointManager.Unsubscribe(mapGC)
 			return nil
 		},
 	})
 
+	jobGroup.Add(job.OneShot("auth-gc-node-events", func(ctx context.Context, _ cell.Health) error {
+		return mapGC.observeNodeChanges(ctx)
+	}))
 	jobGroup.Add(job.Observer("auth-gc-identity-events", mapGC.handleIdentityChange, identityChanges))
 	jobGroup.Add(job.Timer("auth-gc-cleanup", mapGC.cleanup, cfg.MeshAuthGCInterval))
 }
