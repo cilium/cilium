@@ -272,8 +272,11 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, dev.Peers, 1)
 
-			// 6.d Close CacheStatus to unlock wait from the [*Agent.peerGarbageCollector].
+			// 6.d Signal that the initial Kubernetes node listing is complete. The
+			// cache status unblocks the peer garbage collector, while NodeSync
+			// completes the corresponding node table initializer.
 			close(cacheStatus)
+			manager.NodeSync()
 
 			// 6.e TriggerLabelInjection to unlock WaitForRevision from the [*Agent.peerGarbageCollector].
 			ipCache.TriggerLabelInjection()
