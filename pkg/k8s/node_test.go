@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -56,7 +57,7 @@ func TestParseNode(t *testing.T) {
 		},
 	}
 
-	n := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
+	n := ParseNode(hivetest.Logger(t), k8sNode, source.Local, cmtypes.DefaultClusterInfo)
 	require.Equal(t, "node1", n.Name)
 	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
@@ -87,7 +88,7 @@ func TestParseNode(t *testing.T) {
 		},
 	}
 
-	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
+	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local, cmtypes.DefaultClusterInfo)
 	require.Equal(t, "node2", n.Name)
 	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
@@ -106,7 +107,7 @@ func TestParseNode(t *testing.T) {
 		},
 	}
 
-	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
+	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local, cmtypes.DefaultClusterInfo)
 	require.Equal(t, "node2", n.Name)
 	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.254.0.0/16", n.IPv4AllocCIDR.String())
@@ -127,7 +128,7 @@ func TestParseNode(t *testing.T) {
 		},
 	}
 
-	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
+	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local, cmtypes.DefaultClusterInfo)
 	require.Equal(t, "node2", n.Name)
 	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
@@ -183,7 +184,7 @@ func TestParseNode(t *testing.T) {
 		},
 	}
 
-	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
+	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local, cmtypes.DefaultClusterInfo)
 	require.Equal(t, "node2", n.Name)
 	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
@@ -227,7 +228,7 @@ func TestParseNodeWithoutAnnotations(t *testing.T) {
 		},
 	}
 
-	n := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
+	n := ParseNode(hivetest.Logger(t), k8sNode, source.Local, cmtypes.DefaultClusterInfo)
 	require.Equal(t, "node1", n.Name)
 	require.True(t, n.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n.IPv4AllocCIDR.String())
@@ -252,7 +253,7 @@ func TestParseNodeWithoutAnnotations(t *testing.T) {
 		},
 	}
 
-	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local)
+	n = ParseNode(hivetest.Logger(t), k8sNode, source.Local, cmtypes.DefaultClusterInfo)
 	require.Equal(t, "node2", n.Name)
 	require.False(t, n.IPv4AllocCIDR.IsValid())
 	require.True(t, n.IPv6AllocCIDR.IsValid())
@@ -371,7 +372,7 @@ func TestParseNodeWithService(t *testing.T) {
 		},
 	}
 
-	n1 := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
+	n1 := ParseNode(hivetest.Logger(t), k8sNode, source.Local, cmtypes.DefaultClusterInfo)
 	require.Equal(t, "node1", n1.Name)
 	require.True(t, n1.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.1.0.0/16", n1.IPv4AllocCIDR.String())
@@ -386,8 +387,11 @@ func TestParseNodeWithService(t *testing.T) {
 		},
 	}
 
-	n2 := ParseNode(hivetest.Logger(t), k8sNode, source.Local)
+	clusterInfo := cmtypes.ClusterInfo{ID: 42, Name: "remote"}
+	n2 := ParseNode(hivetest.Logger(t), k8sNode, source.Local, clusterInfo)
 	require.Equal(t, "node2", n2.Name)
+	require.Equal(t, clusterInfo.Name, n2.Cluster)
+	require.Equal(t, clusterInfo.ID, n2.ClusterID)
 	require.True(t, n2.IPv4AllocCIDR.IsValid())
 	require.Equal(t, "10.2.0.0/16", n2.IPv4AllocCIDR.String())
 	require.Empty(t, n2.Labels[annotation.ServiceNodeExposure])
@@ -425,10 +429,13 @@ func TestParseCiliumNode(t *testing.T) {
 		},
 	}
 
-	n := ParseCiliumNode(nodeResource)
+	clusterInfo := cmtypes.ClusterInfo{ID: 42, Name: "remote"}
+	n := ParseCiliumNode(nodeResource, clusterInfo)
 	require.Equal(t, nodeTypes.Node{
-		Name:   "foo",
-		Source: source.CustomResource,
+		Name:      "foo",
+		Cluster:   clusterInfo.Name,
+		ClusterID: clusterInfo.ID,
+		Source:    source.CustomResource,
 		IPAddresses: []nodeTypes.Address{
 			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
 			{Type: addressing.NodeExternalIP, IP: net.ParseIP("3.3.3.3")},
