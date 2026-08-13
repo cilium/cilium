@@ -1212,13 +1212,24 @@ func (r *gatewayReconciler) setStaticAddressStatus(ctx context.Context, gw *gate
 		// reconciliation should be triggered when the loadbalancer services gets updated.
 		return nil
 	}
-	addresses := make(map[string]struct{})
+	// Compare parsed addresses because the same IP address can have multiple
+	// textual representations.
+	addresses := make(map[netip.Addr]struct{}, len(svc.Status.LoadBalancer.Ingress))
 	for _, addr := range svc.Status.LoadBalancer.Ingress {
-		addresses[addr.IP] = struct{}{}
+		ip, err := netip.ParseAddr(addr.IP)
+		if err != nil {
+			// Ignore hostname-only ingress entries.
+			continue
+		}
+		addresses[ip] = struct{}{}
 	}
 
 	for _, addr := range gw.Spec.Addresses {
-		if _, ok := addresses[addr.Value]; !ok {
+		ip, err := netip.ParseAddr(addr.Value)
+		if err != nil {
+			return fmt.Errorf("static address %q can't be used", addr.Value)
+		}
+		if _, ok := addresses[ip]; !ok {
 			return fmt.Errorf("static address %q can't be used", addr.Value)
 		}
 	}
