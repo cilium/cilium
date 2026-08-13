@@ -85,7 +85,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	expected := []*flowpb.Policy{
 		{
@@ -138,7 +138,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -189,7 +189,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -212,7 +212,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -263,7 +263,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -314,7 +314,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -365,7 +365,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -425,7 +425,7 @@ func TestCorrelatePolicy(t *testing.T) {
 			return nil, false
 		},
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
@@ -463,7 +463,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3Only,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -526,7 +526,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	expected = []*flowpb.Policy{
 		{
@@ -624,7 +624,7 @@ func TestCorrelatePolicyAudit(t *testing.T) {
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -683,7 +683,7 @@ func TestCorrelatePolicyAudit(t *testing.T) {
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -769,7 +769,7 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -829,7 +829,7 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
@@ -888,7 +888,7 @@ func TestCorrelatePolicy_PortRange(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	expected := []*flowpb.Policy{
 		{
@@ -911,4 +911,66 @@ func TestCorrelatePolicy_PortRange(t *testing.T) {
 	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
+}
+
+func TestCorrelatePolicy_NotifyEndpointID(t *testing.T) {
+	nodeIP := "10.211.60.1"
+	remoteIP := "10.211.59.133"
+	remoteIdentity := uint32(16777244)
+	hostEPID := uint16(1092)
+	dstPort := uint32(22)
+
+	flow := &flowpb.Flow{
+		EventType:        &flowpb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
+		Verdict:          flowpb.Verdict_FORWARDED,
+		TrafficDirection: flowpb.TrafficDirection_INGRESS,
+		IP:               &flowpb.IP{Source: remoteIP, Destination: nodeIP},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{DestinationPort: dstPort}},
+		},
+		Source: &flowpb.Endpoint{Identity: remoteIdentity},
+		// No ID: the node IP resolves to no local endpoint.
+		Destination: &flowpb.Endpoint{Identity: uint32(identity.ReservedIdentityHost)},
+	}
+
+	policyLabel := utils.GetPolicyLabels("", "host-fw", "abcd-ef01", utils.ResourceTypeCiliumClusterwideNetworkPolicy)
+	policyKey := policy.IngressKey().
+		WithIdentity(identity.NumericIdentity(remoteIdentity)).
+		WithTCPPort(uint16(dstPort))
+
+	ep := &testutils.FakeEndpointInfo{
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
+		},
+		PolicyRevision: 1,
+	}
+
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfoByID: func(id uint16) (getters.EndpointInfo, bool) {
+			if id == hostEPID {
+				return ep, true
+			}
+			return nil, false
+		},
+	}
+
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, hostEPID)
+
+	expected := []*flowpb.Policy{
+		{
+			Name: "host-fw",
+			Kind: utils.ResourceTypeCiliumClusterwideNetworkPolicy,
+			Labels: []string{
+				"k8s:io.cilium.k8s.policy.derived-from=CiliumClusterwideNetworkPolicy",
+				"k8s:io.cilium.k8s.policy.name=host-fw",
+				"k8s:io.cilium.k8s.policy.uid=abcd-ef01",
+			},
+			Revision: 1,
+		},
+	}
+
+	require.Nil(t, flow.EgressAllowedBy)
+	require.Nil(t, flow.EgressDeniedBy)
+	require.Nil(t, flow.IngressDeniedBy)
+	testutils.AssertProtoEqual(t, expected, flow.IngressAllowedBy)
 }

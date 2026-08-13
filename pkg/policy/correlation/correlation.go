@@ -4,6 +4,7 @@
 package correlation
 
 import (
+	"cmp"
 	"log/slog"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -20,8 +21,10 @@ import (
 )
 
 // CorrelatePolicy updates the IngressAllowedBy/EgressAllowedBy fields on the
-// provided flow.
-func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
+// provided flow. notifyEPID is the endpoint the datapath reported the verdict
+// at, zero if the notification carried none, and takes precedence over the ID
+// derived from the flow, which is unset for the host endpoint.
+func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter, f *flowpb.Flow, notifyEPID uint16) {
 	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) {
 		// If it's not a policy verdict, we don't care.
 		return
@@ -43,6 +46,7 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 
 	// extract fields relevant for looking up the policy
 	direction, endpointID, remoteIdentity, proto, dport := extractFlowKey(f)
+	endpointID = cmp.Or(notifyEPID, endpointID)
 	if dport == 0 || proto == 0 {
 		logger.Debug(
 			"failed to extract flow key",
