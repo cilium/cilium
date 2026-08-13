@@ -325,7 +325,7 @@ _send_trace_notify4(const struct __ctx_buff *ctx, enum trace_point obs_point,
 static __always_inline void
 _send_trace_notify6(const struct __ctx_buff *ctx, enum trace_point obs_point,
 		    __u32 src __maybe_unused, __u32 dst __maybe_unused,
-		    union v6addr *orig_addr __maybe_unused,
+		    const union v6addr *orig_addr __maybe_unused,
 		    __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
 		    enum trace_reason reason, __u32 monitor __maybe_unused,
 		    __u16 line, __u8 file)

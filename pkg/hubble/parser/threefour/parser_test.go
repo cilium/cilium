@@ -1566,6 +1566,32 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "10.0.0.2", f.IP.Source)
 	assert.Empty(t, f.IP.SourceXlated)
+
+	eth.EthernetType = layers.EthernetTypeIPv6
+	ip6 := layers.IPv6{
+		SrcIP: net.ParseIP("2001:db8::2"),
+		DstIP: net.ParseIP("2001:db8::3"),
+	}
+	v1 = monitor.TraceNotify{
+		Type:    byte(monitorAPI.MessageTypeTrace),
+		Version: monitor.TraceNotifyVersion1,
+		Flags:   monitor.TraceNotifyFlagIsIPv6,
+		OrigIP:  [16]byte{0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	}
+	data, err = testutils.CreateL3L4Payload(v1, &eth, &ip6, &layers.TCP{})
+	require.NoError(t, err)
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+	assert.Equal(t, "2001:db8::1", f.IP.Source)
+	assert.Equal(t, "2001:db8::2", f.IP.SourceXlated)
+
+	v1.OrigIP = [16]byte{0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
+	data, err = testutils.CreateL3L4Payload(v1, &eth, &ip6, &layers.TCP{})
+	require.NoError(t, err)
+	err = parser.Decode(data, f)
+	require.NoError(t, err)
+	assert.Equal(t, "2001:db8::2", f.IP.Source)
+	assert.Empty(t, f.IP.SourceXlated)
 }
 
 func TestICMP(t *testing.T) {

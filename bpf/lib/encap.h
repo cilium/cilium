@@ -15,9 +15,10 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    const struct remote_endpoint_info *info, __u32 seclabel,
 		    __u32 dstid, __u32 vni, void *opt, __u32 opt_len,
 		    enum trace_reason ct_reason, __u32 monitor, int *ifindex,
-		    __be16 proto)
+		    __be16 proto, const void *orig_addr)
 {
-	/* When encapsulating, a packet originating from the local host is
+	/* orig_addr only annotates the source-node trace; it is not tunnel data.
+	 * When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
 	 * received.
 	 */
@@ -30,8 +31,17 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	*ifindex = 0;
 #endif
 
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
-			  *ifindex, ct_reason, monitor, proto);
+	if (orig_addr && proto == bpf_htons(ETH_P_IP))
+		send_trace_notify4(ctx, TRACE_TO_OVERLAY, seclabel, dstid,
+				   *(const __be32 *)orig_addr,
+				   TRACE_EP_ID_UNKNOWN, *ifindex, ct_reason, monitor);
+	else if (orig_addr && proto == bpf_htons(ETH_P_IPV6))
+		send_trace_notify6(ctx, TRACE_TO_OVERLAY, seclabel, dstid,
+				   (const union v6addr *)orig_addr,
+				   TRACE_EP_ID_UNKNOWN, *ifindex, ct_reason, monitor);
+	else
+		send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid,
+				  TRACE_EP_ID_UNKNOWN, *ifindex, ct_reason, monitor, proto);
 
 	if (info->flag_ipv6_tunnel_ep)
 		return ctx_set_encap_info6(ctx, &info->tunnel_endpoint.ip6,
@@ -55,7 +65,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
 
 	ret = __encap_with_nodeid(ctx, 0, 0, info, seclabel,
 				  dstid, vni, NULL, 0, trace->reason,
-				  trace->monitor, &ifindex, proto);
+				  trace->monitor, &ifindex, proto, NULL);
 	if (ret != CTX_ACT_REDIRECT)
 		return ret;
 

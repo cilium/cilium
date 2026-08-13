@@ -165,7 +165,7 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 			      const struct remote_endpoint_info *info,
 			      __u32 src_sec_identity, void *opt, __u32 opt_len,
 			      enum trace_reason ct_reason, __u32 monitor,
-			      int *ifindex, __be16 proto)
+			      int *ifindex, __be16 proto, const void *orig_addr)
 {
 	/* Let kernel choose the outer source ip */
 	if (ctx_is_skb())
@@ -190,7 +190,8 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 
 	return __encap_with_nodeid(ctx, src_ip, src_port, info,
 				   src_sec_identity, info->sec_identity, NOT_VTEP_DST,
-				   opt, opt_len, ct_reason, monitor, ifindex, proto);
+				   opt, opt_len, ct_reason, monitor, ifindex, proto,
+				   orig_addr);
 }
 
 static __always_inline int
@@ -198,12 +199,12 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			  const struct remote_endpoint_info *info,
 			  __u32 src_sec_identity,
 			  enum trace_reason ct_reason, __u32 monitor,
-			  int *ifindex, __be16 proto)
+			  int *ifindex, __be16 proto, const void *orig_addr)
 {
 	return nodeport_add_tunnel_encap_opt(ctx, src_ip, src_port, info,
 					     src_sec_identity, NULL, 0,
 					     ct_reason, monitor, ifindex,
-					     proto);
+					     proto, orig_addr);
 }
 #endif /* HAVE_ENCAP */
 
@@ -479,7 +480,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						     (enum trace_reason)CT_NEW,
 						     TRACE_PAYLOAD_LEN,
 						     ifindex,
-						     bpf_htons(ETH_P_IPV6));
+						     bpf_htons(ETH_P_IPV6), NULL);
 
 	return nodeport_add_tunnel_encap(ctx,
 					 IPV4_DIRECT_ROUTING,
@@ -489,7 +490,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 					 (enum trace_reason)CT_NEW,
 					 TRACE_PAYLOAD_LEN,
 					 ifindex,
-					 bpf_htons(ETH_P_IPV6));
+					 bpf_htons(ETH_P_IPV6), NULL);
 }
 # endif /* DSR_ENCAP_MODE */
 
@@ -1041,7 +1042,7 @@ encap_redirect:
 
 	ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
 					info, src_sec_identity, trace->reason,
-					trace->monitor, &ifindex, bpf_htons(ETH_P_IPV6));
+					trace->monitor, &ifindex, bpf_htons(ETH_P_IPV6), NULL);
 	if (IS_ERR(ret))
 		return ret;
 
@@ -1239,6 +1240,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	struct ipv6hdr *ip6;
 	__s8 ext_err = 0;
 #ifdef TUNNEL_MODE
+	union v6addr orig_saddr __align_stack_8;
 	const struct remote_endpoint_info *info;
 	union v6addr *dst;
 #endif
@@ -1297,6 +1299,9 @@ skip_source_lookup:
 	if (unlikely(ret != CTX_ACT_OK))
 		goto drop_err;
 
+#ifdef TUNNEL_MODE
+	ipv6_addr_copy(&orig_saddr, &tuple.saddr);
+#endif
 	ret = __snat_v6_nat(ctx, &tuple, state, fraginfo, l4_off, true,
 			    &target, TCP_SPORT_OFF, &trace, &ext_err);
 	if (IS_ERR(ret))
@@ -1318,7 +1323,9 @@ skip_source_lookup:
 						trace.reason,
 						trace.monitor,
 						&oif,
-						bpf_htons(ETH_P_IPV6));
+						bpf_htons(ETH_P_IPV6),
+						ipv6_addr_equals(&orig_saddr, &tuple.saddr) ?
+							NULL : &orig_saddr);
 		if (IS_ERR(ret))
 			goto drop_err;
 
@@ -1879,7 +1886,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 						     (enum trace_reason)CT_NEW,
 						     TRACE_PAYLOAD_LEN,
 						     ifindex,
-						     bpf_htons(ETH_P_IP));
+						     bpf_htons(ETH_P_IP), NULL);
 
 	return nodeport_add_tunnel_encap(ctx,
 					 IPV4_DIRECT_ROUTING,
@@ -1889,7 +1896,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 					 (enum trace_reason)CT_NEW,
 					 TRACE_PAYLOAD_LEN,
 					 ifindex,
-					 bpf_htons(ETH_P_IP));
+					 bpf_htons(ETH_P_IP), NULL);
 }
 # endif /* DSR_ENCAP_MODE */
 
@@ -2406,7 +2413,7 @@ redirect:
 		ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
 						&fake_info, src_sec_identity,
 						trace->reason, trace->monitor, &ifindex,
-						bpf_htons(ETH_P_IP));
+						bpf_htons(ETH_P_IP), NULL);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -2581,6 +2588,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
 #ifdef TUNNEL_MODE
+	__be32 orig_saddr;
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u8 cluster_id __maybe_unused = (__u8)ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	const struct remote_endpoint_info *info;
@@ -2642,6 +2650,9 @@ skip_source_lookup:
 	if (unlikely(ret != CTX_ACT_OK))
 		goto drop_err;
 
+#ifdef TUNNEL_MODE
+	orig_saddr = tuple.saddr;
+#endif
 	ret = __snat_v4_nat(ctx, &tuple, state, fraginfo, l4_off, true,
 			    &target, TCP_SPORT_OFF, &trace, &ext_err);
 	if (IS_ERR(ret))
@@ -2673,7 +2684,8 @@ skip_source_lookup:
 						trace.reason,
 						trace.monitor,
 						&oif,
-						bpf_htons(ETH_P_IP));
+						bpf_htons(ETH_P_IP),
+						orig_saddr != tuple.saddr ? &orig_saddr : NULL);
 		if (IS_ERR(ret))
 			goto drop_err;
 
