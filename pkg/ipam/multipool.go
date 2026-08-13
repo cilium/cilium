@@ -15,6 +15,7 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -255,7 +256,12 @@ func startLocalNodeAllocCIDRsSync(
 					return nil
 				}
 
-				no := k8s.ParseCiliumNode(ev.Object)
+				no := k8s.ParseCiliumNode(
+					ev.Object,
+					// The rest of the function does not use the cluster name/id, so let's
+					// just pass a dummy value to avoid having to propagate a ClusterInfo
+					cmtypes.ClusterInfo{ID: 0, Name: "should-not-be-used"},
+				)
 				localNodeStore.Update(func(n *node.LocalNode) {
 					if enableIPv4 && no.IPv4AllocCIDR.IsValid() {
 						n.IPv4AllocCIDR = no.IPv4AllocCIDR

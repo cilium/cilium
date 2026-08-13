@@ -134,6 +134,11 @@ func TestPrivilegedScripts(t *testing.T) {
 				),
 
 				cell.Invoke(func(*Manager) {}),
+				cell.Invoke(func(clusterInfo cmtypes.ClusterInfo) {
+					// Set ClusterName for [nodeTypes.Node.IsLocal] to work properly
+					// since it still depends on the legacy global config.
+					option.Config.ClusterName = clusterInfo.Name
+				}),
 			)
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)

@@ -181,9 +181,7 @@ func (nc *CiliumNodeConverter) Convert(event resource.Event[*cilium_api_v2.Ciliu
 		return noneIter[store.Key], singleIter[store.NamedKey](&node)
 	}
 
-	node := k8s.ParseCiliumNode(event.Object)
-	node.Cluster = nc.cinfo.Name
-	node.ClusterID = nc.cinfo.ID
+	node := k8s.ParseCiliumNode(event.Object, nc.cinfo)
 	return singleIter[store.Key](&node), noneIter[store.NamedKey]
 }
 

@@ -40,7 +40,7 @@ func (ini *localNodeSynchronizer) retrieveNodeInformation(ctx context.Context) *
 				break
 			}
 			if event.Kind == resource.Upsert {
-				no := k8s.ParseCiliumNode(event.Object)
+				no := k8s.ParseCiliumNode(event.Object, ini.ClusterInfo)
 				n = &no
 				ini.Logger.Info("Retrieved node information from cilium node", logfields.NodeName, n.Name)
 				if err := waitForCIDR(); err != nil {
@@ -59,7 +59,7 @@ func (ini *localNodeSynchronizer) retrieveNodeInformation(ctx context.Context) *
 				break
 			}
 			if event.Kind == resource.Upsert {
-				n = k8s.ParseNode(ini.Logger, event.Object, source.Unspec)
+				n = k8s.ParseNode(ini.Logger, event.Object, source.Unspec, ini.ClusterInfo)
 				ini.Logger.Info("Retrieved node information from kubernetes node", logfields.NodeName, n.Name)
 				if err := waitForCIDR(); err != nil {
 					ini.Logger.Warn("Waiting for k8s node information", logfields.Error, err)

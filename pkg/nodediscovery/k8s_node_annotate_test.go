@@ -19,6 +19,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -69,7 +70,7 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 			return true, n1copy, nil
 		})
 
-	node1Cilium := k8s.ParseNode(logger, toSlimNode(node1.DeepCopy()), source.Unspec)
+	node1Cilium := k8s.ParseNode(logger, toSlimNode(node1.DeepCopy()), source.Unspec, cmtypes.DefaultClusterInfo)
 	node1Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 
 	n := &NodeDiscovery{logger: logger}
@@ -121,7 +122,7 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 			return true, n2Copy, nil
 		})
 
-	node2Cilium := k8s.ParseNode(hivetest.Logger(t), toSlimNode(node2.DeepCopy()), source.Unspec)
+	node2Cilium := k8s.ParseNode(hivetest.Logger(t), toSlimNode(node2.DeepCopy()), source.Unspec, cmtypes.DefaultClusterInfo)
 	node2Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 
 	n.annotateK8sNode(t.Context(), fakeK8sClient, *node2Cilium)

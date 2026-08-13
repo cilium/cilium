@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -90,6 +91,8 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type Manager struct {
 	logger *slog.Logger
 
+	clusterInfo cmtypes.ClusterInfo
+
 	lock.Mutex
 
 	// allCachesSynced is true when all k8s objects we depend on have had
@@ -158,6 +161,7 @@ type Params struct {
 
 	Config            Config
 	DaemonConfig      *option.DaemonConfig
+	ClusterInfo       cmtypes.ClusterInfo
 	TunnelConfig      tunnel.Config
 	IdentityAllocator identityCache.IdentityAllocator
 	PolicyMap4V2      egressmap.PolicyMap4V2
@@ -223,6 +227,7 @@ func NewEgressGatewayManager(p Params) (out struct {
 func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
 		logger:                        p.Logger,
+		clusterInfo:                   p.ClusterInfo,
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
@@ -555,7 +560,7 @@ func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.Ciliu
 func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.CiliumNode]) {
 	defer event.Done(nil)
 
-	node := k8s.ParseCiliumNode(event.Object)
+	node := k8s.ParseCiliumNode(event.Object, manager.clusterInfo)
 
 	manager.Lock()
 	defer manager.Unlock()
