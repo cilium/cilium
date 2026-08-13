@@ -2,7 +2,7 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
@@ -467,8 +467,7 @@ jobs:
     needs: build-and-push-prs
     runs-on: ubuntu-24.04
     if: ${{
-         github.event_name == 'pull_request_target' &&
-         github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
+         github.event_name == 'pull_request'
         }}
     steps:
     - name: Debug
@@ -480,19 +479,15 @@ jobs:
     name: Post test comment for Renovate PRs after images built
     runs-on: ubuntu-24.04
     needs: pre-comment
-    environment:
-      name: "Trigger CI from renovate PRs"
-      deployment: false
     if: ${{
-         github.event_name == 'pull_request_target' &&
-         github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
+         github.event_name == 'pull_request'
         }}
     steps:
       - name: Generate Github App Token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: generate-token
         with:
-          app-id: ${{ secrets.AUTO_COMMENT_BOT_APP_ID }}
+          client-id: ${{ secrets.AUTO_COMMENT_BOT_CLIENT_ID }}
           private-key: ${{ secrets.AUTO_COMMENT_BOT_PEM }}
       - name: Post /test comment
         env:
