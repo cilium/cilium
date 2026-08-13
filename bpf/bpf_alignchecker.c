@@ -5,13 +5,6 @@
 #include <bpf/config/global.h>
 #include <bpf/config/node.h>
 
-#include "lib/common.h"
-#include "lib/nat.h"
-#include "lib/trace.h"
-#include "lib/policy_log.h"
-#include "lib/trace_sock.h"
-#include "lib/mcast.h"
-
 /*
  * The __COUNTER__ macro expands to an integer value which is increasing every
  * time the macro is used.  Extra macros are required so that the __COUNTER__
@@ -23,6 +16,9 @@
 #define __expand(TYPE, N) __add_type(TYPE, N)
 #define add_type(TYPE) __expand(TYPE, __COUNTER__)
 
+#include "lib/common.h"
+add_type(struct auth_key);
+add_type(struct auth_info);
 add_type(struct ipv4_ct_tuple);
 add_type(struct ipv6_ct_tuple);
 
@@ -57,11 +53,20 @@ add_type(struct metrics_value);
 add_type(struct policy_key);
 add_type(struct policy_entry);
 
+#include "lib/nat.h"
 add_type(struct ipv4_nat_entry);
 add_type(struct ipv6_nat_entry);
+
+#include "lib/trace.h"
 add_type(struct trace_notify);
+
+#include "lib/drop.h"
 add_type(struct drop_notify);
+
+#include "lib/policy_log.h"
 add_type(struct policy_verdict_notify);
+
+#include "lib/dbg.h"
 add_type(struct debug_msg);
 add_type(struct debug_capture_msg);
 
@@ -71,10 +76,15 @@ add_type(struct ipv4_revnat_entry);
 add_type(struct ipv6_revnat_tuple);
 add_type(struct ipv6_revnat_entry);
 
+#include "lib/ipv4.h"
 add_type(struct ipv4_frag_id);
 add_type(struct ipv4_frag_l4ports);
+
+#include "lib/ipv6.h"
 add_type(struct ipv6_frag_id);
 add_type(struct ipv6_frag_l4ports);
+
+#include "lib/eth.h"
 add_type(union macaddr);
 
 #include "lib/edt.h"
@@ -97,13 +107,13 @@ add_type(struct srv6_vrf_key6);
 add_type(struct srv6_policy_key4);
 add_type(struct srv6_policy_key6);
 
+#include "lib/trace_sock.h"
 add_type(struct trace_sock_notify);
-add_type(struct auth_key);
-add_type(struct auth_info);
 
 #include "lib/ipsec.h"
 add_type(struct encrypt_config);
 
+#include "lib/mcast.h"
 add_type(struct mcast_subscriber_v4);
 
 #include "lib/node.h"
