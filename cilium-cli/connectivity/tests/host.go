@@ -239,6 +239,10 @@ func (s *hostToWorld) Run(ctx context.Context, t *check.Test) {
 		}
 
 		t.ForEachIPFamily(func(ipFam features.IPFamily) {
+			if ipFam == features.IPFamilyV6 && !t.Context().Params().ExternalTargetIPv6Capable {
+				return
+			}
+
 			// With http, over port 80.
 			t.NewAction(s, fmt.Sprintf("http-to-%s-%d", extTarget, i), &src, http, ipFam).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, ct.CurlCommand(http, ipFam, true, nil))
