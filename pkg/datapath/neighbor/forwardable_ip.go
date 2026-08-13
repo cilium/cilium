@@ -5,6 +5,7 @@ package neighbor
 
 import (
 	"fmt"
+	"iter"
 	"net/netip"
 	"slices"
 	"strings"
@@ -90,6 +91,16 @@ var (
 		FromString: index.NetIPAddrString,
 		Unique:     true,
 	}
+
+	forwardableIPOwnerIndex = statedb.Index[*ForwardableIP, ForwardableIPOwner]{
+		Name: "owner",
+		FromObject: func(fip *ForwardableIP) index.KeySet {
+			return index.StringerSlice(fip.Owners)
+		},
+		FromKey:    index.Stringer[ForwardableIPOwner],
+		FromString: index.FromString,
+		Unique:     false,
+	}
 )
 
 // Return the read-only table for consumption, and the [ForwardableIPManager] for modification.
@@ -98,6 +109,7 @@ func newForwardableIPTable(db *statedb.DB, config *CommonConfig) (*ForwardableIP
 		db,
 		"forwardable-ip",
 		ForwardableIPIndex,
+		forwardableIPOwnerIndex,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -225,6 +237,65 @@ func (fim *ForwardableIPManager) Delete(ip netip.Addr, owner ForwardableIPOwner)
 
 	tx.Commit()
 
+	return nil
+}
+
+// Set replaces the set of forwardable IPs associated with owner. Changes to
+// all addresses are committed atomically and ownership by other owners is
+// preserved.
+func (fim *ForwardableIPManager) Set(owner ForwardableIPOwner, addresses iter.Seq[netip.Addr]) error {
+	if !fim.config.Enabled {
+		return fmt.Errorf("L2 neighbor discovery is not enabled")
+	}
+
+	desired := map[netip.Addr]struct{}{}
+	for address := range addresses {
+		desired[address] = struct{}{}
+	}
+
+	tx := fim.db.WriteTxn(fim.table)
+	defer tx.Abort()
+
+	current := map[netip.Addr]*ForwardableIP{}
+	for fip := range fim.table.List(tx, forwardableIPOwnerIndex.Query(owner)) {
+		current[fip.IP] = fip
+	}
+
+	for ip, fip := range current {
+		if _, found := desired[ip]; found {
+			delete(desired, ip)
+			continue
+		}
+
+		owners := slices.Clone(fip.Owners)
+		idx := slices.Index(owners, owner)
+		if idx < 0 {
+			continue
+		}
+		owners = slices.Delete(owners, idx, idx+1)
+		if len(owners) == 0 {
+			if _, _, err := fim.table.Delete(tx, fip); err != nil {
+				return err
+			}
+		} else {
+			updated := &ForwardableIP{IP: ip, Owners: owners}
+			if _, _, err := fim.table.Insert(tx, updated); err != nil {
+				return err
+			}
+		}
+	}
+
+	for ip := range desired {
+		fip := &ForwardableIP{IP: ip, Owners: []ForwardableIPOwner{owner}}
+		if _, _, err := fim.table.Modify(tx, fip, func(old, new *ForwardableIP) *ForwardableIP {
+			new.Owners = append(slices.Clone(old.Owners), owner)
+			return new
+		}); err != nil {
+			return err
+		}
+	}
+
+	tx.Commit()
 	return nil
 }
 
