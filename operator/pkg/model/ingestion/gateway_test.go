@@ -1262,6 +1262,148 @@ func TestHTTPRequestMirrorServiceImportIsResolved(t *testing.T) {
 	assert.Equal(t, "default", routes[0].RequestMirrors[0].Backend.Namespace)
 }
 
+func TestHTTPRequestExternalAuthCrossNamespaceWithoutReferenceGrantFailsClosed(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	routes := extractRoutes(logger, 80, nil, gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cross-namespace-external-auth",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.HTTPRouteSpec{
+			Rules: []gatewayv1.HTTPRouteRule{
+				{
+					BackendRefs: []gatewayv1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1.BackendRef{
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Name: gatewayv1.ObjectName("backend"),
+									Port: ptr.To(gatewayv1.PortNumber(8080)),
+								},
+							},
+						},
+					},
+					Filters: []gatewayv1.HTTPRouteFilter{
+						{
+							Type: gatewayv1.HTTPRouteFilterExternalAuth,
+							ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{
+								BackendRef: gatewayv1.BackendObjectReference{
+									Name:      gatewayv1.ObjectName("auth-backend"),
+									Namespace: ptr.To(gatewayv1.Namespace("other-ns")),
+									Port:      ptr.To(gatewayv1.PortNumber(8080)),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, []corev1.Service{
+		testService("default", "backend", 8080),
+		testService("other-ns", "auth-backend", 8080),
+	}, nil, nil, nil)
+
+	require.Len(t, routes, 1)
+	require.NotNil(t, routes[0].DirectResponse)
+	assert.Equal(t, 500, routes[0].DirectResponse.StatusCode)
+	assert.Nil(t, routes[0].ExternalAuth)
+}
+
+func TestHTTPRequestExternalAuthCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	routes := extractRoutes(logger, 80, nil, gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cross-namespace-external-auth",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.HTTPRouteSpec{
+			Rules: []gatewayv1.HTTPRouteRule{
+				{
+					BackendRefs: []gatewayv1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1.BackendRef{
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Name: gatewayv1.ObjectName("backend"),
+									Port: ptr.To(gatewayv1.PortNumber(8080)),
+								},
+							},
+						},
+					},
+					Filters: []gatewayv1.HTTPRouteFilter{
+						{
+							Type: gatewayv1.HTTPRouteFilterExternalAuth,
+							ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{
+								BackendRef: gatewayv1.BackendObjectReference{
+									Name:      gatewayv1.ObjectName("auth-backend"),
+									Namespace: ptr.To(gatewayv1.Namespace("other-ns")),
+									Port:      ptr.To(gatewayv1.PortNumber(8080)),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, []corev1.Service{
+		testService("default", "backend", 8080),
+		testService("other-ns", "auth-backend", 8080),
+	}, nil, []gatewayv1.ReferenceGrant{
+		testReferenceGrant("other-ns", "default", "HTTPRoute"),
+	}, nil)
+
+	require.Len(t, routes, 1)
+	assert.Nil(t, routes[0].DirectResponse)
+	require.NotNil(t, routes[0].ExternalAuth)
+	assert.Equal(t, "auth-backend", routes[0].ExternalAuth.Backend.Name)
+	assert.Equal(t, "other-ns", routes[0].ExternalAuth.Backend.Namespace)
+}
+
+func TestHTTPRequestExternalAuthMissingBackendFailsClosed(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	routes := extractRoutes(logger, 80, nil, gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "missing-external-auth",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.HTTPRouteSpec{
+			Rules: []gatewayv1.HTTPRouteRule{
+				{
+					BackendRefs: []gatewayv1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1.BackendRef{
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Name: gatewayv1.ObjectName("backend"),
+									Port: ptr.To(gatewayv1.PortNumber(8080)),
+								},
+							},
+						},
+					},
+					Filters: []gatewayv1.HTTPRouteFilter{
+						{
+							Type: gatewayv1.HTTPRouteFilterExternalAuth,
+							ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{
+								BackendRef: gatewayv1.BackendObjectReference{
+									Name: gatewayv1.ObjectName("missing-auth"),
+									Port: ptr.To(gatewayv1.PortNumber(8080)),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, []corev1.Service{
+		testService("default", "backend", 8080),
+	}, nil, nil, nil)
+
+	require.Len(t, routes, 1)
+	require.NotNil(t, routes[0].DirectResponse)
+	assert.Equal(t, 500, routes[0].DirectResponse.StatusCode)
+	assert.Nil(t, routes[0].ExternalAuth)
+}
+
 func TestGRPCRequestMirrorNilFilterDoesNotPanic(t *testing.T) {
 	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{

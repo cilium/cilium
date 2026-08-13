@@ -330,8 +330,8 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 			backends = append(backends, r.Backends...)
 		}
 
-		if len(backends) == 0 && hRoutes[0].RequestRedirect == nil {
-			noBackendRoute := envoyHTTPRouteNoBackend(hRoutes[0], hostnames, hostNameSuffixMatch, allAuthFilters)
+		if hRoutes[0].DirectResponse != nil {
+			noBackendRoute := envoyHTTPRouteDirectResponse(hRoutes[0], hostnames, hostNameSuffixMatch, allAuthFilters)
 			routes = append(routes, noBackendRoute)
 			delete(matchBackendMap, key)
 			continue
@@ -645,7 +645,7 @@ func getRouteRedirectMatch(match string) *envoy_config_route_v3.HeaderMatcher {
 	}
 }
 
-func envoyHTTPRouteNoBackend(route model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter) *envoy_config_route_v3.Route {
+func envoyHTTPRouteDirectResponse(route model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter) *envoy_config_route_v3.Route {
 	if route.DirectResponse == nil {
 		return nil
 	}

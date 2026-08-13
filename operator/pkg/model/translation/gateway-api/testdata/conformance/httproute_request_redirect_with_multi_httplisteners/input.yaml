@@ -11,9 +11,7 @@ http:
     path_match:
       prefix: /request-redirect
     timeout: {}
-  - direct_response:
-      status_code: 500
-    path_match:
+  - path_match:
       prefix: /
     request_redirect:
       hostname: example.com
@@ -28,6 +26,7 @@ http:
     name: same-namespace
     namespace: gateway-conformance-infra
     version: v1
+
 - hostname: example.com
   name: https
   port: 443
@@ -40,9 +39,7 @@ http:
     path_match:
       prefix: /request-redirect
     timeout: {}
-  - direct_response:
-      status_code: 500
-    path_match:
+  - path_match:
       prefix: /
     request_redirect:
       hostname: example.com

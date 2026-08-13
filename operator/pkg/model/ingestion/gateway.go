@@ -398,19 +398,13 @@ func extractRoutes(logger *slog.Logger,
 			}
 		}
 
-		var dr *model.DirectResponse
-		if len(bes) == 0 {
-			dr = &model.DirectResponse{
-				StatusCode: 500,
-			}
-		}
-
 		var requestHeaderFilter *model.HTTPHeaderFilter
 		var responseHeaderFilter *model.HTTPHeaderFilter
 		var requestRedirectFilter *model.HTTPRequestRedirectFilter
 		var rewriteFilter *model.HTTPURLRewriteFilter
 		var requestMirrors []*model.HTTPRequestMirror
 		var externalAuth *model.HTTPExternalAuthFilter
+		var externalAuthInvalid bool
 		var requestCORS *model.HTTPCORSFilter
 
 		for _, f := range rule.Filters {
@@ -462,13 +456,20 @@ func extractRoutes(logger *slog.Logger,
 					requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, mirror, hr.Namespace))
 				}
 			case gatewayv1.HTTPRouteFilterExternalAuth:
-				if f.ExternalAuth != nil {
-					beRef := gatewayv1.BackendRef{BackendObjectReference: f.ExternalAuth.BackendRef}
-					if !helpers.IsBackendReferenceAllowed(hr.GetNamespace(), beRef, helpers.GatewayV1GVK("HTTPRoute"), grants) {
-						break
-					}
+				if f.ExternalAuth == nil {
+					continue
 				}
+
+				beRef := gatewayv1.BackendRef{BackendObjectReference: f.ExternalAuth.BackendRef}
+				if !helpers.IsBackendReferenceAllowed(hr.GetNamespace(), beRef, helpers.GatewayV1GVK("HTTPRoute"), grants) {
+					externalAuthInvalid = true
+					continue
+				}
+
 				externalAuth = toHTTPExternalAuthFilter(logger, f.ExternalAuth, hr.Namespace, services, serviceImports, btlspMap)
+				if externalAuth == nil {
+					externalAuthInvalid = true
+				}
 			case gatewayv1.HTTPRouteFilterCORS:
 				ac := false
 				if f.CORS.AllowCredentials != nil {
@@ -484,6 +485,19 @@ func extractRoutes(logger *slog.Logger,
 					// Local tests can bypass this, ensuring we always get a default.
 					MaxAge: cmp.Or(f.CORS.MaxAge, int32(5)),
 				}
+			}
+		}
+		var dr *model.DirectResponse
+
+		if len(bes) == 0 && requestRedirectFilter == nil {
+			dr = &model.DirectResponse{
+				StatusCode: 500,
+			}
+		}
+
+		if externalAuthInvalid {
+			dr = &model.DirectResponse{
+				StatusCode: 500,
 			}
 		}
 

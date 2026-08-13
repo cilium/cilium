@@ -975,6 +975,26 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 		require.Equal(t, uint32(500), res[0].GetDirectResponse().GetStatus())
 		require.Equal(t, "default:backend-v2:8080", res[1].GetRoute().GetCluster())
 	})
+	t.Run("fail closed direct response takes precedence over backend", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Prefix: "/"},
+				DirectResponse: &model.DirectResponse{
+					StatusCode: 500,
+				},
+				Backends: []model.Backend{
+					backend("backend", 8080),
+				},
+			},
+		}
+
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil)
+
+		require.Len(t, res, 1)
+		require.NotNil(t, res[0].GetDirectResponse())
+		require.Equal(t, uint32(500), res[0].GetDirectResponse().GetStatus())
+		require.Nil(t, res[0].GetRoute())
+	})
 }
 
 // Test_envoyHTTPSRoutes_disablesExtAuthzFilters verifies that HTTPS redirect routes
