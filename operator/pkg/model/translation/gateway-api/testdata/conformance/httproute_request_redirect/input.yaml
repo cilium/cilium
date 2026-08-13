@@ -13,9 +13,7 @@ http:
     request_redirect:
       hostname: example.com
     timeout: {}
-  - direct_response:
-      status_code: 500
-    path_match:
+  - path_match:
       prefix: /status-code-301
     request_redirect:
       status_code: 301
