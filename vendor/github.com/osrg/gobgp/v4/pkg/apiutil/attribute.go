@@ -678,15 +678,18 @@ func MarshalLsNodeDescriptor(d *bgp.LsNodeDescriptor) (*api.LsNodeDescriptor, er
 		OspfAreaId:             d.OspfAreaID,
 		Pseudonode:             d.PseudoNode,
 		IgpRouterId:            d.IGPRouterID,
-		BgpRouterId:            d.BGPRouterID.String(),
+		BgpRouterId:            addrOrEmpty(d.BGPRouterID),
 		BgpConfederationMember: d.BGPConfederationMember,
 	}, nil
 }
 
 func MarshalLsLinkDescriptor(n *bgp.LsLinkDescriptor) (*api.LsLinkDescriptor, error) {
+	// Both identifiers keep explicit presence: 0 is a valid Link Remote
+	// Identifier meaning "unknown" (RFC 5307, Section 1.1), so flattening an
+	// absent identifier to 0 would fabricate a Link Local/Remote Identifiers TLV.
 	return &api.LsLinkDescriptor{
-		LinkLocalId:       uint32OrDefault(n.LinkLocalID),
-		LinkRemoteId:      uint32OrDefault(n.LinkRemoteID),
+		LinkLocalId:       n.LinkLocalID,
+		LinkRemoteId:      n.LinkRemoteID,
 		InterfaceAddrIpv4: ipOrDefault(n.InterfaceAddrIPv4),
 		NeighborAddrIpv4:  ipOrDefault(n.NeighborAddrIPv4),
 		InterfaceAddrIpv6: ipOrDefault(n.InterfaceAddrIPv6),
@@ -705,8 +708,19 @@ func MarshalLsPrefixDescriptor(d *bgp.LsPrefixDescriptor) (*api.LsPrefixDescript
 	return p, nil
 }
 
+// marshalLsNodeDescTLV converts a Local or Remote Node Descriptors TLV to its
+// API form. It rejects a TLV of an unexpected type, including an absent one,
+// instead of panicking on the type assertion.
+func marshalLsNodeDescTLV(tlv bgp.LsTLVInterface, name string) (*api.LsNodeDescriptor, error) {
+	desc, ok := tlv.(*bgp.LsTLVNodeDescriptor)
+	if !ok {
+		return nil, fmt.Errorf("invalid %s node descriptor type %T", name, tlv)
+	}
+	return MarshalLsNodeDescriptor(desc.Extract())
+}
+
 func MarshalLsNodeNLRI(n *bgp.LsNodeNLRI) (*api.LsAddrPrefix_LsNLRI, error) {
-	ln, err := MarshalLsNodeDescriptor(n.LocalNodeDesc.(*bgp.LsTLVNodeDescriptor).Extract())
+	ln, err := marshalLsNodeDescTLV(n.LocalNodeDesc, "local")
 	if err != nil {
 		return nil, err
 	}
@@ -722,12 +736,11 @@ func MarshalLsLinkNLRI(n *bgp.LsLinkNLRI) (*api.LsAddrPrefix_LsNLRI, error) {
 	desc := &bgp.LsLinkDescriptor{}
 	desc.ParseTLVs(n.LinkDesc)
 
-	var err error
-	ln, err := MarshalLsNodeDescriptor(n.LocalNodeDesc.(*bgp.LsTLVNodeDescriptor).Extract())
+	ln, err := marshalLsNodeDescTLV(n.LocalNodeDesc, "local")
 	if err != nil {
 		return nil, err
 	}
-	rn, err := MarshalLsNodeDescriptor(n.RemoteNodeDesc.(*bgp.LsTLVNodeDescriptor).Extract())
+	rn, err := marshalLsNodeDescTLV(n.RemoteNodeDesc, "remote")
 	if err != nil {
 		return nil, err
 	}
@@ -753,7 +766,7 @@ func MarshalLsPrefixV4NLRI(n *bgp.LsPrefixV4NLRI) (*api.LsAddrPrefix_LsNLRI, err
 	desc := &bgp.LsPrefixDescriptor{}
 	desc.ParseTLVs(n.PrefixDesc, false)
 
-	ln, err := MarshalLsNodeDescriptor(n.LocalNodeDesc.(*bgp.LsTLVNodeDescriptor).Extract())
+	ln, err := marshalLsNodeDescTLV(n.LocalNodeDesc, "local")
 	if err != nil {
 		return nil, err
 	}
@@ -778,7 +791,7 @@ func MarshalLsPrefixV6NLRI(n *bgp.LsPrefixV6NLRI) (*api.LsAddrPrefix_LsNLRI, err
 	desc := &bgp.LsPrefixDescriptor{}
 	desc.ParseTLVs(n.PrefixDesc, true)
 
-	ln, err := MarshalLsNodeDescriptor(n.LocalNodeDesc.(*bgp.LsTLVNodeDescriptor).Extract())
+	ln, err := marshalLsNodeDescTLV(n.LocalNodeDesc, "local")
 	if err != nil {
 		return nil, err
 	}
@@ -800,13 +813,13 @@ func MarshalLsPrefixV6NLRI(n *bgp.LsPrefixV6NLRI) (*api.LsAddrPrefix_LsNLRI, err
 }
 
 func MarshalLsSRv6SIDNLRI(n *bgp.LsSrv6SIDNLRI) (*api.LsAddrPrefix_LsNLRI, error) {
-	ln, err := MarshalLsNodeDescriptor(n.LocalNodeDesc.(*bgp.LsTLVNodeDescriptor).Extract())
+	ln, err := marshalLsNodeDescTLV(n.LocalNodeDesc, "local")
 	if err != nil {
 		return nil, err
 	}
 	srv6Info, ok := n.Srv6SIDInfo.(*bgp.LsTLVSrv6SIDInfo)
 	if !ok {
-		return nil, fmt.Errorf("invalid SRv6 SID info type")
+		return nil, fmt.Errorf("invalid SRv6 SID info type %T", n.Srv6SIDInfo)
 	}
 	ssi, err := MarshalLsTLVSrv6SIDInfo(srv6Info)
 	if err != nil {
@@ -849,24 +862,43 @@ func MarshalLsBgpPeerSegmentSid(n *bgp.LsBgpPeerSegmentSID) (*api.LsBgpPeerSegme
 }
 
 func UnmarshalLsBgpPeerSegmentSid(a *api.LsBgpPeerSegmentSID) (*bgp.LsBgpPeerSegmentSID, error) {
+	// Every flag is optional, so an absent Flags message is equivalent to one
+	// with all flags cleared.
 	flags := &bgp.LsAttributeBgpPeerSegmentSIDFlags{
-		Value:      a.Flags.Value,
-		Local:      a.Flags.Local,
-		Backup:     a.Flags.Backup,
-		Persistent: a.Flags.Persistent,
+		Value:      a.GetFlags().GetValue(),
+		Local:      a.GetFlags().GetLocal(),
+		Backup:     a.GetFlags().GetBackup(),
+		Persistent: a.GetFlags().GetPersistent(),
 	}
 
 	sid := &bgp.LsBgpPeerSegmentSID{
 		Flags:  *flags,
-		Weight: uint8(a.Weight),
-		SID:    a.Sid,
+		Weight: uint8(a.GetWeight()),
+		SID:    a.GetSid(),
 	}
 
 	return sid, nil
 }
 
 func UnmarshalLsNodeDescriptor(nd *api.LsNodeDescriptor) (*bgp.LsNodeDescriptor, error) {
-	bgpRouterId, _ := netip.ParseAddr(nd.BgpRouterId)
+	// The Local Node Descriptors TLV "is a mandatory TLV in all three types of
+	// NLRIs (node, link, and prefix)" (RFC 7752, Section 3.2.1.2) and the Remote
+	// Node Descriptors TLV "is a mandatory TLV for Link NLRIs" (Section
+	// 3.2.1.3), so an absent descriptor cannot be defaulted.
+	if nd == nil {
+		return nil, errors.New("LS node descriptor is nil")
+	}
+	// An empty string means the BGP Router-ID is absent. A non-empty one must
+	// parse: silently keeping the zero Addr would make a malformed request
+	// indistinguishable from one that omitted the ID, and the ID is part of the
+	// NLRI key for BGP-sourced Link-State NLRIs.
+	var bgpRouterId netip.Addr
+	if id := nd.GetBgpRouterId(); id != "" {
+		var err error
+		if bgpRouterId, err = netip.ParseAddr(id); err != nil {
+			return nil, fmt.Errorf("invalid bgp_router_id %q: %w", id, err)
+		}
+	}
 	return &bgp.LsNodeDescriptor{
 		Asn:                    nd.Asn,
 		BGPLsID:                nd.BgpLsId,
@@ -879,39 +911,69 @@ func UnmarshalLsNodeDescriptor(nd *api.LsNodeDescriptor) (*bgp.LsNodeDescriptor,
 }
 
 func UnmarshalLsLinkDescriptor(ld *api.LsLinkDescriptor) (*bgp.LsLinkDescriptor, error) {
-	desc := &bgp.LsLinkDescriptor{
-		LinkLocalID:  &ld.LinkLocalId,
-		LinkRemoteID: &ld.LinkRemoteId,
+	// No link descriptor sub-TLV is mandatory, so an absent message is
+	// equivalent to an empty one.
+	desc := &bgp.LsLinkDescriptor{}
+
+	// The Link Local/Remote Identifiers TLV carries both identifiers in one
+	// 8-octet value (RFC 5307, Section 1.1), so setting either one requests the
+	// TLV and the other defaults to 0, which that section defines as "unknown".
+	// Leaving both unset must not emit the TLV at all.
+	if ld != nil && (ld.LinkLocalId != nil || ld.LinkRemoteId != nil) {
+		linkLocalID := ld.GetLinkLocalId()
+		linkRemoteID := ld.GetLinkRemoteId()
+		desc.LinkLocalID = &linkLocalID
+		desc.LinkRemoteID = &linkRemoteID
 	}
 
-	if ld.GetInterfaceAddrIpv4() != "" {
-		if ifAddrIPv4, err := netip.ParseAddr(ld.InterfaceAddrIpv4); err == nil {
-			desc.InterfaceAddrIPv4 = &ifAddrIPv4
-		}
+	var err error
+	if desc.InterfaceAddrIPv4, err = parseLsLinkAddr("interface_addr_ipv4", ld.GetInterfaceAddrIpv4()); err != nil {
+		return nil, err
 	}
-	if ld.GetNeighborAddrIpv4() != "" {
-		if neiAddrIPv4, err := netip.ParseAddr(ld.NeighborAddrIpv4); err == nil {
-			desc.NeighborAddrIPv4 = &neiAddrIPv4
-		}
+	if desc.NeighborAddrIPv4, err = parseLsLinkAddr("neighbor_addr_ipv4", ld.GetNeighborAddrIpv4()); err != nil {
+		return nil, err
 	}
-	if ld.GetInterfaceAddrIpv6() != "" {
-		if ifAddrIPv6, err := netip.ParseAddr(ld.InterfaceAddrIpv6); err == nil {
-			desc.InterfaceAddrIPv6 = &ifAddrIPv6
-		}
+	if desc.InterfaceAddrIPv6, err = parseLsLinkAddr("interface_addr_ipv6", ld.GetInterfaceAddrIpv6()); err != nil {
+		return nil, err
 	}
-	if ld.GetNeighborAddrIpv6() != "" {
-		if neiAddrIPv6, err := netip.ParseAddr(ld.NeighborAddrIpv6); err == nil {
-			desc.NeighborAddrIPv6 = &neiAddrIPv6
-		}
+	if desc.NeighborAddrIPv6, err = parseLsLinkAddr("neighbor_addr_ipv6", ld.GetNeighborAddrIpv6()); err != nil {
+		return nil, err
 	}
 
 	return desc, nil
 }
 
+// parseLsLinkAddr parses one optional link descriptor address. An empty string
+// means the sub-TLV is absent, while a non-empty one must parse: dropping an
+// unparseable address would make it indistinguishable from an omitted one even
+// though the sub-TLV takes part in the NLRI key.
+func parseLsLinkAddr(field, s string) (*netip.Addr, error) {
+	if s == "" {
+		return nil, nil
+	}
+	addr, err := netip.ParseAddr(s)
+	if err != nil {
+		return nil, fmt.Errorf("invalid %s %q: %w", field, s, err)
+	}
+	return &addr, nil
+}
+
 func UnmarshalPrefixDescriptor(pd *api.LsPrefixDescriptor) (*bgp.LsPrefixDescriptor, error) {
-	ipReachability := []netip.Prefix{}
+	// "The IP Reachability Information TLV is a mandatory TLV" of a Prefix NLRI
+	// (RFC 7752, Section 3.2.3.2) and is built from this message, so it cannot
+	// be absent.
+	if pd == nil {
+		return nil, errors.New("LS prefix descriptor is nil")
+	}
+	// An unparseable prefix must be rejected here: keeping the zero Prefix would
+	// reach NewLsPrefixTLVs, which cannot build an IP Reachability TLV for an
+	// address that is neither IPv4 nor IPv6.
+	ipReachability := make([]netip.Prefix, 0, len(pd.IpReachability))
 	for _, reach := range pd.IpReachability {
-		ipnet, _ := netip.ParsePrefix(reach)
+		ipnet, err := netip.ParsePrefix(reach)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ip_reachability %q: %w", reach, err)
+		}
 		ipReachability = append(ipReachability, ipnet)
 	}
 
@@ -921,10 +983,6 @@ func UnmarshalPrefixDescriptor(pd *api.LsPrefixDescriptor) (*bgp.LsPrefixDescrip
 		IPReachability: ipReachability,
 		OSPFRouteType:  ospfRouteType,
 	}, nil
-}
-
-func UnmarshalLsPrefixDescriptor(*api.LsPrefixDescriptor) (*bgp.LsPrefixDescriptor, error) {
-	return nil, nil
 }
 
 func StringToNetIPLsTLVSrv6SIDInfo(s []string) ([]netip.Addr, uint16, error) {
@@ -942,6 +1000,11 @@ func StringToNetIPLsTLVSrv6SIDInfo(s []string) ([]netip.Addr, uint16, error) {
 }
 
 func UnmarshalLsTLVSrv6SIDInfo(ssi *api.LsSrv6SIDInformation) (*bgp.LsTLVSrv6SIDInfo, error) {
+	// RFC 9514, Section 6: the SRv6 SID Descriptors field "MUST contain a single
+	// SRv6 SID Information TLV".
+	if ssi == nil {
+		return nil, errors.New("LS SRv6 SID information is nil")
+	}
 	sids, ssiLen, err := StringToNetIPLsTLVSrv6SIDInfo(ssi.Sids)
 	if err != nil {
 		return nil, err
@@ -956,6 +1019,9 @@ func UnmarshalLsTLVSrv6SIDInfo(ssi *api.LsSrv6SIDInformation) (*bgp.LsTLVSrv6SID
 }
 
 func MarshalLsTLVSrv6SIDInfo(info *bgp.LsTLVSrv6SIDInfo) (*api.LsSrv6SIDInformation, error) {
+	if info == nil {
+		return nil, errors.New("LS SRv6 SID information TLV is nil")
+	}
 	sids := make([]string, len(info.SIDs))
 	for i, ip := range info.SIDs {
 		sids[i] = ip.String()
@@ -966,6 +1032,12 @@ func MarshalLsTLVSrv6SIDInfo(info *bgp.LsTLVSrv6SIDInfo) (*api.LsSrv6SIDInformat
 }
 
 func UnmarshalLsTLVMultiTopoID(mti *api.LsMultiTopologyIdentifier) (*bgp.LsTLVMultiTopoID, error) {
+	// RFC 9514, Section 6: the SRv6 SID Descriptors field "MAY contain the
+	// Multi-Topology Identifier TLV". A TLV carrying no MT-ID conveys nothing,
+	// so treat it as absent rather than emitting a zero-length TLV.
+	if len(mti.GetMultiTopoIds()) == 0 {
+		return nil, nil
+	}
 	multiTopoIDs := make([]uint16, len(mti.MultiTopoIds))
 	var mtiLen uint16
 	for i, v := range mti.MultiTopoIds {
@@ -983,10 +1055,12 @@ func UnmarshalLsTLVMultiTopoID(mti *api.LsMultiTopologyIdentifier) (*bgp.LsTLVMu
 }
 
 func MarshalLsTLVMultiTopoID(mti *bgp.LsTLVMultiTopoID) (*api.LsMultiTopologyIdentifier, error) {
-	if mti == nil {
-		return &api.LsMultiTopologyIdentifier{
-			MultiTopoIds: []uint32{},
-		}, nil
+	// Report an absent TLV as an absent message. Returning an empty message
+	// instead would make an API round-trip resurrect a zero-length
+	// Multi-Topology Identifier TLV that was never advertised, and the MT-ID is
+	// part of the NLRI key.
+	if mti == nil || len(mti.MultiTopoIDs) == 0 {
+		return nil, nil
 	}
 	multiTopoIds := make([]uint32, len(mti.MultiTopoIDs))
 	for i, v := range mti.MultiTopoIDs {
@@ -1333,6 +1407,90 @@ func UnmarshalLsAttribute(a *api.LsAttribute) (*bgp.LsAttribute, error) {
 	return lsAttr, nil
 }
 
+func MarshalMUPTLVs(tlvs []bgp.MUPTLVInterface) ([]*api.MUPTLV, error) {
+	if len(tlvs) == 0 {
+		return nil, nil
+	}
+	apiTLVs := make([]*api.MUPTLV, 0, len(tlvs))
+	for _, tlv := range tlvs {
+		switch t := tlv.(type) {
+		case *bgp.MUPSessionParametersTLV:
+			apiTLVs = append(apiTLVs, &api.MUPTLV{
+				Tlv: &api.MUPTLV_SessionParameters{
+					SessionParameters: &api.MUPSessionParametersTLV{
+						Teid: binary.BigEndian.Uint32(t.TEID.AsSlice()),
+						Qfi:  uint32(t.QFI),
+					},
+				},
+			})
+		case *bgp.MUPInterworkEndpointTLV:
+			apiTLVs = append(apiTLVs, &api.MUPTLV{
+				Tlv: &api.MUPTLV_InterworkEndpoint{
+					InterworkEndpoint: &api.MUPInterworkEndpointTLV{
+						Address: t.Address.String(),
+					},
+				},
+			})
+		case *bgp.MUPSourceAddressTLV:
+			apiTLVs = append(apiTLVs, &api.MUPTLV{
+				Tlv: &api.MUPTLV_SourceAddress{
+					SourceAddress: &api.MUPSourceAddressTLV{
+						Address: t.Address.String(),
+					},
+				},
+			})
+		case *bgp.MUPUnknownTLV:
+			apiTLVs = append(apiTLVs, &api.MUPTLV{
+				Tlv: &api.MUPTLV_Unknown{
+					Unknown: &api.MUPUnknownTLV{
+						Type:  uint32(t.TLVType),
+						Value: t.Value,
+					},
+				},
+			})
+		default:
+			return nil, fmt.Errorf("invalid mup tlv type to marshal: %T", tlv)
+		}
+	}
+	return apiTLVs, nil
+}
+
+func UnmarshalMUPTLVs(tlvs []*api.MUPTLV) ([]bgp.MUPTLVInterface, error) {
+	if len(tlvs) == 0 {
+		return nil, nil
+	}
+	bgpTLVs := make([]bgp.MUPTLVInterface, 0, len(tlvs))
+	for _, tlv := range tlvs {
+		switch t := tlv.GetTlv().(type) {
+		case *api.MUPTLV_SessionParameters:
+			b := make([]byte, 4)
+			binary.BigEndian.PutUint32(b, t.SessionParameters.Teid)
+			teid, ok := netip.AddrFromSlice(b)
+			if !ok {
+				return nil, fmt.Errorf("invalid teid: %x", t.SessionParameters.Teid)
+			}
+			bgpTLVs = append(bgpTLVs, bgp.NewMUPSessionParametersTLV(teid, uint8(t.SessionParameters.Qfi)))
+		case *api.MUPTLV_InterworkEndpoint:
+			address, err := netip.ParseAddr(t.InterworkEndpoint.Address)
+			if err != nil {
+				return nil, err
+			}
+			bgpTLVs = append(bgpTLVs, bgp.NewMUPInterworkEndpointTLV(address))
+		case *api.MUPTLV_SourceAddress:
+			address, err := netip.ParseAddr(t.SourceAddress.Address)
+			if err != nil {
+				return nil, err
+			}
+			bgpTLVs = append(bgpTLVs, bgp.NewMUPSourceAddressTLV(address))
+		case *api.MUPTLV_Unknown:
+			bgpTLVs = append(bgpTLVs, bgp.NewMUPUnknownTLV(uint8(t.Unknown.Type), t.Unknown.Value))
+		default:
+			return nil, fmt.Errorf("invalid mup tlv type to unmarshal: %T", t)
+		}
+	}
+	return bgpTLVs, nil
+}
+
 func MarshalNLRI(value bgp.NLRI) (*api.NLRI, error) {
 	var nlri api.NLRI
 
@@ -1602,6 +1760,10 @@ func MarshalNLRI(value bgp.NLRI) (*api.NLRI, error) {
 				sal = uint32(r.SourceAddressLength)
 				sa = r.SourceAddress.String()
 			}
+			tlvs, err := MarshalMUPTLVs(r.TLVs)
+			if err != nil {
+				return nil, err
+			}
 			nlri.Nlri = &api.NLRI_MupType_1SessionTransformed{
 				MupType_1SessionTransformed: &api.MUPType1SessionTransformedRoute{
 					Rd:                    rd,
@@ -1612,10 +1774,15 @@ func MarshalNLRI(value bgp.NLRI) (*api.NLRI, error) {
 					EndpointAddress:       r.EndpointAddress.String(),
 					SourceAddressLength:   sal,
 					SourceAddress:         sa,
+					Tlvs:                  tlvs,
 				},
 			}
 		case *bgp.MUPType2SessionTransformedRoute:
 			rd, err := MarshalRD(r.RD)
+			if err != nil {
+				return nil, err
+			}
+			tlvs, err := MarshalMUPTLVs(r.TLVs)
 			if err != nil {
 				return nil, err
 			}
@@ -1625,6 +1792,7 @@ func MarshalNLRI(value bgp.NLRI) (*api.NLRI, error) {
 					EndpointAddressLength: uint32(r.EndpointAddressLength),
 					EndpointAddress:       r.EndpointAddress.String(),
 					Teid:                  binary.BigEndian.Uint32(r.TEID.AsSlice()),
+					Tlvs:                  tlvs,
 				},
 			}
 		}
@@ -1870,7 +2038,11 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 			}
 			sa = &a
 		}
-		nlri = bgp.NewMUPType1SessionTransformedRoute(rd, prefix, teid, uint8(v.Qfi), ea, sa)
+		tlvs, err := UnmarshalMUPTLVs(v.Tlvs)
+		if err != nil {
+			return nil, err
+		}
+		nlri = bgp.NewMUPType1SessionTransformedRoute(rd, prefix, teid, uint8(v.Qfi), ea, sa, tlvs...)
 	case *api.NLRI_MupType_2SessionTransformed:
 		v := n.MupType_2SessionTransformed
 		rd, err := UnmarshalRD(v.Rd)
@@ -1887,15 +2059,19 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 		if !ok {
 			return nil, fmt.Errorf("invalid teid: %x", v.Teid)
 		}
-		nlri = bgp.NewMUPType2SessionTransformedRoute(rd, uint8(v.EndpointAddressLength), ea, teid)
+		tlvs, err := UnmarshalMUPTLVs(v.Tlvs)
+		if err != nil {
+			return nil, err
+		}
+		nlri = bgp.NewMUPType2SessionTransformedRoute(rd, uint8(v.EndpointAddressLength), ea, teid, tlvs...)
 	case *api.NLRI_LsAddrPrefix:
 		v := n.LsAddrPrefix
 		switch t := v.Nlri.GetNlri().(type) {
 		case *api.LsAddrPrefix_LsNLRI_Node:
 			tp := t.Node
-			lnd, err := UnmarshalLsNodeDescriptor(tp.LocalNode)
+			lnd, err := UnmarshalLsNodeDescriptor(tp.GetLocalNode())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("local_node: %w", err)
 			}
 			lndTLV := bgp.NewLsTLVNodeDescriptor(lnd, bgp.LS_TLV_LOCAL_NODE_DESC)
 			nlri = &bgp.LsAddrPrefix{
@@ -1913,21 +2089,21 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 			}
 		case *api.LsAddrPrefix_LsNLRI_Link:
 			tp := t.Link
-			lnd, err := UnmarshalLsNodeDescriptor(tp.LocalNode)
+			lnd, err := UnmarshalLsNodeDescriptor(tp.GetLocalNode())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("local_node: %w", err)
 			}
 			lndTLV := bgp.NewLsTLVNodeDescriptor(lnd, bgp.LS_TLV_LOCAL_NODE_DESC)
 
-			rnd, err := UnmarshalLsNodeDescriptor(tp.RemoteNode)
+			rnd, err := UnmarshalLsNodeDescriptor(tp.GetRemoteNode())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("remote_node: %w", err)
 			}
 			rndTLV := bgp.NewLsTLVNodeDescriptor(rnd, bgp.LS_TLV_REMOTE_NODE_DESC)
 
-			ld, err := UnmarshalLsLinkDescriptor(tp.LinkDescriptor)
+			ld, err := UnmarshalLsLinkDescriptor(tp.GetLinkDescriptor())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("link_descriptor: %w", err)
 			}
 			ldSubTLVs := bgp.NewLsLinkTLVs(ld)
 
@@ -1948,15 +2124,15 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 			}
 		case *api.LsAddrPrefix_LsNLRI_PrefixV4:
 			tp := t.PrefixV4
-			lnd, err := UnmarshalLsNodeDescriptor(tp.LocalNode)
+			lnd, err := UnmarshalLsNodeDescriptor(tp.GetLocalNode())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("local_node: %w", err)
 			}
 			lndTLV := bgp.NewLsTLVNodeDescriptor(lnd, bgp.LS_TLV_LOCAL_NODE_DESC)
 
-			pd, err := UnmarshalPrefixDescriptor(tp.PrefixDescriptor)
+			pd, err := UnmarshalPrefixDescriptor(tp.GetPrefixDescriptor())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("prefix_descriptor: %w", err)
 			}
 			pdSubTLVs := bgp.NewLsPrefixTLVs(pd)
 
@@ -1976,15 +2152,15 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 			}
 		case *api.LsAddrPrefix_LsNLRI_PrefixV6:
 			tp := t.PrefixV6
-			lnd, err := UnmarshalLsNodeDescriptor(tp.LocalNode)
+			lnd, err := UnmarshalLsNodeDescriptor(tp.GetLocalNode())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("local_node: %w", err)
 			}
 			lndTLV := bgp.NewLsTLVNodeDescriptor(lnd, bgp.LS_TLV_LOCAL_NODE_DESC)
 
-			pd, err := UnmarshalPrefixDescriptor(tp.PrefixDescriptor)
+			pd, err := UnmarshalPrefixDescriptor(tp.GetPrefixDescriptor())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("prefix_descriptor: %w", err)
 			}
 			pdSubTLVs := bgp.NewLsPrefixTLVs(pd)
 
@@ -2004,36 +2180,43 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 			}
 		case *api.LsAddrPrefix_LsNLRI_Srv6Sid:
 			tp := t.Srv6Sid
-			lnd, err := UnmarshalLsNodeDescriptor(tp.LocalNode)
+			lnd, err := UnmarshalLsNodeDescriptor(tp.GetLocalNode())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("local_node: %w", err)
 			}
 			lndTLV := bgp.NewLsTLVNodeDescriptor(lnd, bgp.LS_TLV_LOCAL_NODE_DESC)
 
-			mtiTLV, err := UnmarshalLsTLVMultiTopoID(tp.MultiTopoId)
+			mtiTLV, err := UnmarshalLsTLVMultiTopoID(tp.GetMultiTopoId())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("multi_topo_id: %w", err)
 			}
 
-			ssiTLV, err := UnmarshalLsTLVSrv6SIDInfo(tp.Srv6SidInformation)
+			ssiTLV, err := UnmarshalLsTLVSrv6SIDInfo(tp.GetSrv6SidInformation())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("srv6_sid_information: %w", err)
+			}
+
+			srv6SID := &bgp.LsSrv6SIDNLRI{
+				LocalNodeDesc: &lndTLV,
+				Srv6SIDInfo:   ssiTLV,
+				LsNLRI: bgp.LsNLRI{
+					NLRIType:   bgp.LsNLRIType(v.Type),
+					Length:     uint16(v.Length),
+					ProtocolID: bgp.LsProtocolID(v.ProtocolId),
+					Identifier: v.Identifier,
+				},
+			}
+			// Assign only a non-nil TLV. Storing a typed nil pointer in the
+			// LsTLVInterface field would leave MultiTopoID != nil and defeat the
+			// absent-TLV guards in LsSrv6SIDNLRI.
+			if mtiTLV != nil {
+				srv6SID.MultiTopoID = mtiTLV
 			}
 
 			nlri = &bgp.LsAddrPrefix{
 				Type:   bgp.LS_NLRI_TYPE_SRV6_SID,
 				Length: uint16(v.Length),
-				NLRI: &bgp.LsSrv6SIDNLRI{
-					LocalNodeDesc: &lndTLV,
-					MultiTopoID:   mtiTLV,
-					Srv6SIDInfo:   ssiTLV,
-					LsNLRI: bgp.LsNLRI{
-						NLRIType:   bgp.LsNLRIType(v.Type),
-						Length:     uint16(v.Length),
-						ProtocolID: bgp.LsProtocolID(v.ProtocolId),
-						Identifier: v.Identifier,
-					},
-				},
+				NLRI:   srv6SID,
 			}
 
 		default:
@@ -2314,11 +2497,27 @@ func NewExtendedCommunitiesAttributeFromNative(a *bgp.PathAttributeExtendedCommu
 				},
 			}
 		case *bgp.MUPExtended:
-			community.Extcom = &api.ExtendedCommunity_Mup{
-				Mup: &api.MUPExtended{
+			community.Extcom = &api.ExtendedCommunity_MupTwoOctetAsSpecific{
+				MupTwoOctetAsSpecific: &api.MUPTwoOctetAsSpecificExtended{
 					SubType:    uint32(v.SubType),
-					SegmentId2: uint32(v.SegmentID2),
-					SegmentId4: v.SegmentID4,
+					Asn:        uint32(v.SegmentID2),
+					LocalAdmin: v.SegmentID4,
+				},
+			}
+		case *bgp.MUPIPv4AddressSpecificExtended:
+			community.Extcom = &api.ExtendedCommunity_MupIpv4AddressSpecific{
+				MupIpv4AddressSpecific: &api.MUPIPv4AddressSpecificExtended{
+					SubType:    uint32(v.SubType),
+					Address:    v.IPv4.String(),
+					LocalAdmin: uint32(v.LocalAdmin),
+				},
+			}
+		case *bgp.MUPFourOctetAsSpecificExtended:
+			community.Extcom = &api.ExtendedCommunity_MupFourOctetAsSpecific{
+				MupFourOctetAsSpecific: &api.MUPFourOctetAsSpecificExtended{
+					SubType:    uint32(v.SubType),
+					Asn:        v.AS,
+					LocalAdmin: uint32(v.LocalAdmin),
 				},
 			}
 		case *bgp.VPLSExtended:
@@ -2428,9 +2627,34 @@ func unmarshalExComm(a *api.ExtendedCommunitiesAttribute) (*bgp.PathAttributeExt
 		case *api.ExtendedCommunity_TrafficRemark:
 			v := comm.TrafficRemark
 			community = bgp.NewTrafficRemarkExtended(uint8(v.Dscp))
-		case *api.ExtendedCommunity_Mup:
-			v := comm.Mup
-			community = bgp.NewMUPExtended(uint16(v.SegmentId2), v.SegmentId4)
+		case *api.ExtendedCommunity_MupTwoOctetAsSpecific:
+			v := comm.MupTwoOctetAsSpecific
+			subType := bgp.ExtendedCommunityAttrSubType(v.SubType)
+			if subType != bgp.EC_SUBTYPE_MUP_DIRECT_SEG && subType != bgp.EC_SUBTYPE_MUP_INTERWORK_SEG {
+				return nil, fmt.Errorf("invalid mup 2-octet as specific sub type: %d", v.SubType)
+			}
+			community = bgp.NewMUPExtended(subType, uint16(v.Asn), v.LocalAdmin)
+		case *api.ExtendedCommunity_MupIpv4AddressSpecific:
+			v := comm.MupIpv4AddressSpecific
+			subType := bgp.ExtendedCommunityAttrSubType(v.SubType)
+			if subType != bgp.EC_SUBTYPE_MUP_DIRECT_SEG_IPV4 && subType != bgp.EC_SUBTYPE_MUP_INTERWORK_SEG_IPV4 {
+				return nil, fmt.Errorf("invalid mup ipv4 address specific sub type: %d", v.SubType)
+			}
+			address, err := netip.ParseAddr(v.Address)
+			if err != nil {
+				return nil, err
+			}
+			community, err = bgp.NewMUPIPv4AddressSpecificExtended(subType, address, uint16(v.LocalAdmin))
+			if err != nil {
+				return nil, err
+			}
+		case *api.ExtendedCommunity_MupFourOctetAsSpecific:
+			v := comm.MupFourOctetAsSpecific
+			subType := bgp.ExtendedCommunityAttrSubType(v.SubType)
+			if subType != bgp.EC_SUBTYPE_MUP_DIRECT_SEG_4_OCTET_AS && subType != bgp.EC_SUBTYPE_MUP_INTERWORK_SEG_4_OCTET_AS {
+				return nil, fmt.Errorf("invalid mup 4-octet as specific sub type: %d", v.SubType)
+			}
+			community = bgp.NewMUPFourOctetAsSpecificExtended(subType, v.Asn, uint16(v.LocalAdmin))
 		case *api.ExtendedCommunity_Vpls:
 			v := comm.Vpls
 			community = bgp.NewVPLSExtended(uint8(v.ControlFlags), uint16(v.Mtu))
@@ -2683,11 +2907,21 @@ func bytesOrDefault(b *[]byte) []byte {
 	return *b
 }
 
+// addrOrEmpty renders an optional address. An absent address must come out as
+// an empty string, not as the zero Addr's "invalid IP" text, which would be
+// rejected as a malformed address if the message were fed back in.
+func addrOrEmpty(addr netip.Addr) string {
+	if !addr.IsValid() {
+		return ""
+	}
+	return addr.String()
+}
+
 func ipOrDefault(ip *netip.Addr) string {
 	if ip == nil {
 		return ""
 	}
-	return ip.String()
+	return addrOrEmpty(*ip)
 }
 
 func uint32OrDefault(i *uint32) uint32 {

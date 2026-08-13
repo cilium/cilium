@@ -39,7 +39,7 @@ symbolic_ref() {
 main() {
     PROJECT="$1"
     version="$2"
-    ersion="$(echo $version | sed -e 's/^v//')"
+    ersion="${version/v/}"
 
     if [ "$PROJECT" != cilium  ] && [ "$PROJECT" != "tetragon" ] ; then
         echo "bad project $PROJECT"
@@ -57,7 +57,7 @@ main() {
     default_branch=$(symbolic_ref "refs/remotes/${remote}/HEAD" "${remote}")
     if [ "$(symbolic_ref HEAD "${remote}")" !=  "${default_branch}" ]; then
         git stash
-        git checkout $default_branch
+        git checkout "$default_branch"
         git fetch "${remote}"
         git merge --ff-only "${remote}/${default_branch}"
     fi
@@ -108,7 +108,7 @@ main() {
     mv "${chart_dir}/${PROJECT}-${ersion}".tgz "${chart_dir}/index.yaml" "${CWD}"
     ./generate_readme.sh > README.md
     git add README.md index.yaml "${PROJECT}-${ersion}".tgz
-    git commit -s -m "Add ${PROJECT} $version@$(cd ${PROJECT}; git rev-parse HEAD) ⎈"
+    git commit -s -m "Add ${PROJECT} $version@$(cd "${PROJECT}"; git rev-parse HEAD) ⎈"
 }
 
 main "$@"

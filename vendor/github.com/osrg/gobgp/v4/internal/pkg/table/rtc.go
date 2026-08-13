@@ -39,7 +39,7 @@ func (s *rtmSet) add(path *Path) {
 	if !ok {
 		return
 	}
-	rtHash, err := nlriRouteTargetKey(nlri)
+	rtHash, err := nlri.RouteTargetKey()
 	if err != nil {
 		return
 	}
@@ -64,7 +64,7 @@ func (s *rtmSet) sub(path *Path) {
 	if !ok {
 		return
 	}
-	rtHash, err := nlriRouteTargetKey(nlri)
+	rtHash, err := nlri.RouteTargetKey()
 	if err != nil {
 		return
 	}
@@ -142,7 +142,7 @@ func (idx *VPNPathIndex) RegisterPath(path *Path) {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 	for _, ext := range path.GetExtCommunities() {
-		rtHash, err := extCommRouteTargetKey(ext)
+		rtHash, err := bgp.ExtCommRouteTargetKey(ext)
 		if err != nil {
 			continue
 		}
@@ -163,7 +163,7 @@ func (idx *VPNPathIndex) UnregisterPath(path *Path) {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 	for _, ext := range path.GetExtCommunities() {
-		rtHash, err := extCommRouteTargetKey(ext)
+		rtHash, err := bgp.ExtCommRouteTargetKey(ext)
 		if err != nil {
 			continue
 		}
@@ -184,7 +184,7 @@ func (idx *VPNPathIndex) GetPathsByRT(rt bgp.ExtendedCommunityInterface) []*Path
 	if idx == nil || rt == nil {
 		return nil
 	}
-	rtHash, err := extCommRouteTargetKey(rt)
+	rtHash, err := bgp.ExtCommRouteTargetKey(rt)
 	if err != nil {
 		return nil
 	}
@@ -232,7 +232,7 @@ func (handler *RouteTargetMembershipHandler) HasRouteTarget(routeTarget bgp.Exte
 	if handler == nil || handler.s == nil {
 		return false
 	}
-	key, err := extCommRouteTargetKey(routeTarget)
+	key, err := bgp.ExtCommRouteTargetKey(routeTarget)
 	if err != nil {
 		return false
 	}
