@@ -1841,26 +1841,23 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 {
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmp6hdr));
 	struct ipv6_ct_tuple tuple = {};
-	struct ipv6hdr ip6;
 	__u16 port_off;
 	__u32 icmpoff;
 	int hdrlen;
 	__u8 type;
 
-	/* According to the RFC 5508, any networking equipment that is
-	 * responding with an ICMP Error packet should embed the original
-	 * packet in its response.
-	 */
-	if (ctx_load_bytes(ctx, inner_l3_off, &ip6, sizeof(ip6)) < 0)
-		return DROP_INVALID;
-
 	/* From the embedded IP headers we should be able to determine
 	 * corresponding protocol, IP src/dst of the packet sent to resolve
 	 * the NAT session.
 	 */
-	tuple.nexthdr = ip6.nexthdr;
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6.daddr);
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6.saddr);
+	if (ctx_load_bytes(ctx, inner_l3_off + offsetof(struct ipv6hdr, nexthdr),
+			   &tuple.nexthdr, sizeof(tuple.nexthdr)) < 0)
+		return DROP_INVALID;
+
+	if (ctx_load_bytes(ctx, inner_l3_off + offsetof(struct ipv6hdr, saddr),
+			   &tuple.daddr, 2 * sizeof(tuple.saddr)) < 0)
+		return DROP_INVALID;
+
 	tuple.flags = NAT_DIR_EGRESS;
 
 	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, NULL);
@@ -2059,29 +2056,23 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 				       struct ipv6_nat_entry **state)
 {
 	struct ipv6_ct_tuple tuple = {};
-	struct ipv6hdr iphdr;
 	__u16 port_off;
 	__u32 icmpoff;
 	__u8 type;
 	int hdrlen;
 
-	/* According to the RFC 5508, any networking
-	 * equipment that is responding with an ICMP Error
-	 * packet should embed the original packet in its
-	 * response.
-	 */
-
-	if (ctx_load_bytes(ctx, inner_l3_off, &iphdr, sizeof(iphdr)) < 0)
-		return DROP_INVALID;
-
 	/* From the embedded IP headers we should be able
 	 * to determine corresponding protocol, IP src/dst
 	 * of the packet sent to resolve the NAT session.
 	 */
+	if (ctx_load_bytes(ctx, inner_l3_off + offsetof(struct ipv6hdr, nexthdr),
+			   &tuple.nexthdr, sizeof(tuple.nexthdr)) < 0)
+		return DROP_INVALID;
 
-	tuple.nexthdr = iphdr.nexthdr;
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&iphdr.daddr);
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&iphdr.saddr);
+	if (ctx_load_bytes(ctx, inner_l3_off + offsetof(struct ipv6hdr, saddr),
+			   &tuple.daddr, 2 * sizeof(tuple.saddr)) < 0)
+		return DROP_INVALID;
+
 	tuple.flags = NAT_DIR_INGRESS;
 
 	/* Force tuple to be on the stack, a fix for a odd compiler bug
