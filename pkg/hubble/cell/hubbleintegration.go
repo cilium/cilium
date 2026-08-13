@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -62,7 +61,6 @@ type hubbleIntegration struct {
 	endpointManager   endpointmanager.EndpointManager
 	ipcache           *ipcache.IPCache
 	cgroupManager     manager.CGroupManager
-	nodeManager       nodeManager.NodeManager
 	nodeLocalStore    *node.LocalNodeStore
 	monitorAgent      monitorAgent.Agent
 	tlsConfigPromise  tlsConfigPromise
@@ -91,7 +89,6 @@ func createHubbleIntegration(
 	endpointManager endpointmanager.EndpointManager,
 	ipcache *ipcache.IPCache,
 	cgroupManager manager.CGroupManager,
-	nodeManager nodeManager.NodeManager,
 	nodeLocalStore *node.LocalNodeStore,
 	monitorAgent monitorAgent.Agent,
 	tlsConfigPromise tlsConfigPromise,
@@ -122,7 +119,6 @@ func createHubbleIntegration(
 		endpointManager:      endpointManager,
 		ipcache:              ipcache,
 		cgroupManager:        cgroupManager,
-		nodeManager:          nodeManager,
 		nodeLocalStore:       nodeLocalStore,
 		monitorAgent:         monitorAgent,
 		tlsConfigPromise:     tlsConfigPromise,
