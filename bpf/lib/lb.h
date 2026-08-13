@@ -801,7 +801,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 		ipv6_addr_copy(&tuple->daddr, &old_saddr);
 
 		if (has_l4_header) {
-			struct csum_offset csum_off = {};
+			struct csum_offset csum_off;
 
 			csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
@@ -818,7 +818,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 		return DROP_WRITE_ERROR;
 
 	if (has_l4_header) {
-		struct csum_offset csum_off = {};
+		struct csum_offset csum_off;
 
 		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
@@ -1623,7 +1623,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		return DROP_CSUM_L3;
 
 	if (has_l4_header) {
-		struct csum_offset csum_off = {};
+		struct csum_offset csum_off;
 
 		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
