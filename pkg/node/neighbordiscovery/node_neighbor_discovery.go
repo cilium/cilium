@@ -4,202 +4,219 @@
 package neighbordiscovery
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
+	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var Cell = cell.Module(
 	"node-neighbor-discovery",
-	"A node handler that manages forwardable IPs for nodes in the cluster",
-	cell.Invoke(NewNodeNeighborHandler),
+	"Observes nodes to manage forwardable IPs for the cluster",
+	cell.Invoke(registerNodeNeighborDiscovery),
 )
 
-var (
-	_ node.Handler         = (*nodeNeighborHandler)(nil)
-	_ config.ChangeHandler = (*nodeNeighborHandler)(nil)
-)
+const changeRateLimit = 50 * time.Millisecond
 
-// NewNodeNeighborHandler initializes the node neighbor handler and
-// subscribes it to the node manager if L2 neighbor discovery is enabled.
-// It will add forwardable IPs for all nodes in the cluster to the
-func NewNodeNeighborHandler(
-	nodeManger manager.NodeManager,
+type forwardableIPManager interface {
+	Insert(netip.Addr, neighbor.ForwardableIPOwner) error
+	Delete(netip.Addr, neighbor.ForwardableIPOwner) error
+	FinishInitializer(neighbor.ForwardableIPInitializer)
+}
+
+// registerNodeNeighborDiscovery observes the node table if L2 neighbor
+// discovery is enabled and maintains the node-owned forwardable IPs.
+func registerNodeNeighborDiscovery(
+	db *statedb.DB,
+	jobs job.Group,
+	nodes statedb.Table[*node.Node],
 	forwardableIPManager *neighbor.ForwardableIPManager,
 	nodeConfigNotifier *manager.NodeConfigNotifier,
-) {
-	// If the forwardable IP manager is not enabled, then there is no point to
-	// doing any work here.
+) error {
 	if !forwardableIPManager.Enabled() {
-		return
+		return nil
 	}
 
-	nnh := &nodeNeighborHandler{
-		forwardableIPManager: forwardableIPManager,
-		initializer:          forwardableIPManager.RegisterInitializer("node-neighbor-discovery"),
+	initializer := forwardableIPManager.RegisterInitializer("node-neighbor-discovery")
+	observer, err := newNodeNeighborObserver(db, nodes, forwardableIPManager, initializer)
+	if err != nil {
+		return fmt.Errorf("creating node change iterator: %w", err)
 	}
 
-	nodeManger.Subscribe(nnh)
-	nodeConfigNotifier.Subscribe(nnh)
+	nodeConfigNotifier.Subscribe(observer)
+	jobs.Add(
+		job.OneShot("node-neighbor-discovery", observer.run),
+		job.OneShot("node-neighbor-discovery-initializer", observer.finishInitialization),
+	)
+	return nil
 }
 
-type nodeNeighborHandler struct {
-	forwardableIPManager *neighbor.ForwardableIPManager
+type nodeNeighborObserver struct {
+	db                   *statedb.DB
+	nodes                statedb.Table[*node.Node]
+	changes              statedb.ChangeIterator[*node.Node]
+	forwardableIPManager forwardableIPManager
 	initializer          neighbor.ForwardableIPInitializer
+
+	current map[nodeTypes.Identity]map[netip.Addr]struct{}
+
+	nodesInitialized  chan struct{}
+	configInitialized chan struct{}
+	configInitOnce    sync.Once
 }
 
-// Name identifies the handler, this is used in logging/reporting handler
-// reconciliation errors.
-func (nnh *nodeNeighborHandler) Name() string {
-	return "node-neighbor-handler"
+var _ config.ChangeHandler = (*nodeNeighborObserver)(nil)
+
+func newNodeNeighborObserver(
+	db *statedb.DB,
+	nodes statedb.Table[*node.Node],
+	forwardableIPManager forwardableIPManager,
+	initializer neighbor.ForwardableIPInitializer,
+) (*nodeNeighborObserver, error) {
+	wtxn := db.WriteTxn(nodes)
+	changes, err := nodes.Changes(wtxn)
+	wtxn.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	return &nodeNeighborObserver{
+		db:                   db,
+		nodes:                nodes,
+		changes:              changes,
+		forwardableIPManager: forwardableIPManager,
+		initializer:          initializer,
+		current:              map[nodeTypes.Identity]map[netip.Addr]struct{}{},
+		nodesInitialized:     make(chan struct{}),
+		configInitialized:    make(chan struct{}),
+	}, nil
 }
 
-// NodeAdd is called when a node is discovered for the first time.
-func (nnh *nodeNeighborHandler) NodeAdd(newNode nodeTypes.Node) error {
-	// We only want to add forwardable IPs for nodes that are not local.
-	if newNode.IsLocal() {
+func (o *nodeNeighborObserver) run(ctx context.Context, _ cell.Health) error {
+	defer o.changes.Close()
+
+	limiter := rate.NewLimiter(changeRateLimit, 1)
+	defer limiter.Stop()
+
+	nodesInitialized := false
+	for {
+		txn := o.db.ReadTxn()
+		changes, watch := o.changes.Next(txn)
+		for change := range changes {
+			if err := o.apply(change); err != nil {
+				return err
+			}
+		}
+
+		var initWatch <-chan struct{}
+		if !nodesInitialized {
+			initialized, watch := o.nodes.Initialized(txn)
+			if initialized {
+				nodesInitialized = true
+				close(o.nodesInitialized)
+			} else {
+				initWatch = watch
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-watch:
+		case <-initWatch:
+		}
+		if err := limiter.Wait(ctx); err != nil {
+			return nil
+		}
+	}
+}
+
+func (o *nodeNeighborObserver) apply(change statedb.Change[*node.Node]) error {
+	n := change.Object
+	id := n.Identity()
+	oldIPs := o.current[id]
+	newIPs := nodeIPs(n)
+	if change.Deleted || n.Local != nil {
+		newIPs = nil
+	}
+	if maps.Equal(oldIPs, newIPs) {
 		return nil
 	}
 
-	if newNode.GetNodeIP(false).To4() != nil {
-		ipv4, ok := netip.AddrFromSlice(newNode.GetNodeIP(false).To4())
-		if ok {
-			err := nnh.forwardableIPManager.Insert(
-				ipv4,
-				neighbor.ForwardableIPOwner{
-					Type: neighbor.ForwardableIPOwnerNode,
-					ID:   newNode.Identity().String(),
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("failed to insert forwardable IP for node %s: %w", newNode.Name, err)
-			}
+	owner := neighbor.ForwardableIPOwner{
+		Type: neighbor.ForwardableIPOwnerNode,
+		ID:   id.String(),
+	}
+	var errs error
+	for ip := range oldIPs {
+		if _, found := newIPs[ip]; found {
+			continue
+		}
+		if err := o.forwardableIPManager.Delete(ip, owner); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("deleting forwardable IP for node %s: %w", id, err))
 		}
 	}
-
-	if newNode.GetNodeIP(true).To16() != nil {
-		ipv6, ok := netip.AddrFromSlice(newNode.GetNodeIP(true).To16())
-		if ok {
-			err := nnh.forwardableIPManager.Insert(
-				ipv6,
-				neighbor.ForwardableIPOwner{
-					Type: neighbor.ForwardableIPOwnerNode,
-					ID:   newNode.Identity().String(),
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("failed to insert forwardable IP for node %s: %w", newNode.Name, err)
-			}
+	for ip := range newIPs {
+		if _, found := oldIPs[ip]; found {
+			continue
+		}
+		if err := o.forwardableIPManager.Insert(ip, owner); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("inserting forwardable IP for node %s: %w", id, err))
 		}
 	}
+	if errs != nil {
+		return errs
+	}
 
+	if len(newIPs) == 0 {
+		delete(o.current, id)
+	} else {
+		o.current[id] = newIPs
+	}
 	return nil
 }
 
-// NodeUpdate is called when a node definition changes. Both the old
-// and new node definition is provided. NodeUpdate() is never called
-// before NodeAdd() is called for a particular node.
-func (nnh *nodeNeighborHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
-	// We only want to add forwardable IPs for nodes that are not local.
-	if oldNode.IsLocal() {
+func nodeIPs(n *node.Node) map[netip.Addr]struct{} {
+	ips := map[netip.Addr]struct{}{}
+	for _, ipv6 := range []bool{false, true} {
+		if ip, ok := netip.AddrFromSlice(n.GetNodeIP(ipv6)); ok {
+			ips[ip.Unmap()] = struct{}{}
+		}
+	}
+	return ips
+}
+
+func (o *nodeNeighborObserver) finishInitialization(ctx context.Context, _ cell.Health) error {
+	select {
+	case <-ctx.Done():
 		return nil
+	case <-o.nodesInitialized:
+	}
+	select {
+	case <-ctx.Done():
+		return nil
+	case <-o.configInitialized:
 	}
 
-	// We only care if the node name or IP address has changed.
-	if oldNode.Identity().String() != newNode.Identity().String() ||
-		!oldNode.GetNodeIP(false).To4().Equal(newNode.GetNodeIP(false).To4()) ||
-		!oldNode.GetNodeIP(true).To16().Equal(newNode.GetNodeIP(true).To16()) {
-
-		if err := nnh.NodeDelete(oldNode); err != nil {
-			return fmt.Errorf("failed to delete old node %s: %w", oldNode.Name, err)
-		}
-
-		if err := nnh.NodeAdd(newNode); err != nil {
-			return fmt.Errorf("failed to add new node %s: %w", newNode.Name, err)
-		}
-	}
-
+	o.forwardableIPManager.FinishInitializer(o.initializer)
 	return nil
 }
 
-// NodeDelete is called after a node has been deleted
-func (nnh *nodeNeighborHandler) NodeDelete(node nodeTypes.Node) error {
-	// We only want to add forwardable IPs for nodes that are not local.
-	if node.IsLocal() {
-		return nil
-	}
-
-	if node.GetNodeIP(false).To4() != nil {
-		ipv4, ok := netip.AddrFromSlice(node.GetNodeIP(false).To4())
-		if ok {
-			err := nnh.forwardableIPManager.Delete(
-				ipv4,
-				neighbor.ForwardableIPOwner{
-					Type: neighbor.ForwardableIPOwnerNode,
-					ID:   node.Name,
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("failed to delete forwardable IP for node %s: %w", node.Name, err)
-			}
-		}
-	}
-
-	if node.GetNodeIP(true).To16() != nil {
-		ipv6, ok := netip.AddrFromSlice(node.GetNodeIP(true).To16())
-		if ok {
-			err := nnh.forwardableIPManager.Delete(
-				ipv6,
-				neighbor.ForwardableIPOwner{
-					Type: neighbor.ForwardableIPOwnerNode,
-					ID:   node.Name,
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("failed to delete forwardable IP for node %s: %w", node.Name, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// AllNodeValidateImplementation is called to validate the implementation
-// of all nodes in the node cache.
-func (nnh *nodeNeighborHandler) AllNodeValidateImplementation() {
-	// This is a no-op for the node neighbor handler.
-}
-
-// NodeValidateImplementation is called to validate the implementation of
-// the node in the datapath. This function is intended to be run on an
-// interval to ensure that the datapath is consistently converged.
-func (nnh *nodeNeighborHandler) NodeValidateImplementation(node nodeTypes.Node) error {
-	// We only want to add forwardable IPs for nodes that are not local.
-	if node.IsLocal() {
-		return nil
-	}
-
-	// [nodeNeighborHandler.NodeAdd] is idempotent, so a forwardable IP already exists
-	// this is a no-op. If the forwardable IP does not exist, it will be created.
-	return nnh.NodeAdd(node)
-}
-
-// NodeConfigurationChanged is called when the local node configuration
-// has changed
-func (nnh *nodeNeighborHandler) NodeConfigurationChanged(config config.Config) error {
-
-	// `NodeConfigurationChanged` is called by the loader when the datapath is initialized.
-	// We use this event as a signal that `NodeAdd` should have been called for all nodes
-	// we should know about and that we can consider our entries in the forwardable IP manager
-	// as initialized.
-	nnh.forwardableIPManager.FinishInitializer(nnh.initializer)
-
+func (o *nodeNeighborObserver) NodeConfigurationChanged(config.Config) error {
+	o.configInitOnce.Do(func() { close(o.configInitialized) })
 	return nil
 }
