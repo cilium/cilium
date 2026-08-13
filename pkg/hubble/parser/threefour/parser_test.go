@@ -2800,3 +2800,124 @@ func TestDecode_CustomPacketDecoder(t *testing.T) {
 		t.Errorf("Unexpected diff (-want +got):\n%s", diff)
 	}
 }
+
+// The host endpoint registers no IP, so the flow carries no endpoint ID and only
+// the notification's own ID can correlate the verdict. See cilium/cilium#33870.
+func TestDecode_PolicyVerdictNotifyHostEndpoint(t *testing.T) {
+	nodeIP := netip.MustParseAddr("10.211.60.1")
+
+	policyLabel := utils.GetPolicyLabels("", "host-fw", "1234-5678", utils.ResourceTypeCiliumClusterwideNetworkPolicy)
+	expectedPolicy := []*flowpb.Policy{
+		{
+			Name: "host-fw",
+			Kind: "CiliumClusterwideNetworkPolicy",
+			Labels: []string{
+				"k8s:io.cilium.k8s.policy.derived-from=CiliumClusterwideNetworkPolicy",
+				"k8s:io.cilium.k8s.policy.name=host-fw",
+				"k8s:io.cilium.k8s.policy.uid=1234-5678",
+			},
+			Revision: 1,
+		},
+	}
+
+	ingressKey := policy.IngressKey().WithIdentity(remoteID).WithTCPPort(22)
+	egressKey := policy.EgressKey().WithIdentity(remoteID).WithTCPPort(443)
+
+	testCases := []struct {
+		name      string
+		key       policyTypes.Key
+		audited   bool
+		verdict   int32
+		allowedBy func(*flowpb.Flow) []*flowpb.Policy
+	}{
+		{
+			name:      "ingress_allowed",
+			key:       ingressKey,
+			allowedBy: (*flowpb.Flow).GetIngressAllowedBy,
+		},
+		{
+			name:      "egress_allowed",
+			key:       egressKey,
+			allowedBy: (*flowpb.Flow).GetEgressAllowedBy,
+		},
+		{
+			name:      "ingress_audited",
+			key:       ingressKey,
+			audited:   true,
+			allowedBy: (*flowpb.Flow).GetIngressDeniedBy,
+		},
+		{
+			name:      "ingress_denied",
+			key:       ingressKey,
+			verdict:   -int32(flowpb.DropReason_POLICY_DENIED),
+			allowedBy: (*flowpb.Flow).GetIngressDeniedBy,
+		},
+		{
+			name:      "egress_denied",
+			key:       egressKey,
+			verdict:   -int32(flowpb.DropReason_POLICY_DENIED),
+			allowedBy: (*flowpb.Flow).GetEgressDeniedBy,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			hostEPInfo := &testutils.FakeEndpointInfo{
+				PolicyMap: map[policyTypes.Key]labels.LabelArrayListString{
+					tc.key: labels.LabelArrayList{policyLabel}.ArrayListString(),
+				},
+				PolicyRevision: 1,
+			}
+
+			endpointGetter := &testutils.FakeEndpointGetter{
+				OnGetEndpointInfo: func(netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+					return nil, false
+				},
+				OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+					if id == hostEP {
+						return hostEPInfo, true
+					}
+					return nil, false
+				},
+			}
+
+			parser, err := New(hivetest.Logger(t), endpointGetter, nil, nil, nil, nil, nil)
+			require.NoError(t, err)
+
+			flags, srcIP, dstIP := uint8(monitorAPI.PolicyEgress), nodeIP, remoteIP
+			if tc.key.IsIngress() {
+				flags, srcIP, dstIP = monitorAPI.PolicyIngress, remoteIP, nodeIP
+			}
+			if tc.audited {
+				flags |= monitor.PolicyVerdictNotifyFlagIsAudited
+			}
+
+			pvn := monitor.PolicyVerdictNotify{
+				Type:        byte(monitorAPI.MessageTypePolicyVerdict),
+				Source:      hostEP,
+				Flags:       flags,
+				RemoteLabel: remoteID,
+				Verdict:     tc.verdict,
+			}
+			data, err := testutils.CreateL3L4Payload(pvn,
+				&layers.Ethernet{
+					SrcMAC:       srcMAC,
+					DstMAC:       dstMAC,
+					EthernetType: layers.EthernetTypeIPv4,
+				},
+				&layers.IPv4{
+					SrcIP:    srcIP.AsSlice(),
+					DstIP:    dstIP.AsSlice(),
+					Protocol: layers.IPProtocolTCP,
+				},
+				&layers.TCP{SrcPort: 37304, DstPort: layers.TCPPort(tc.key.DestPort), SYN: true})
+			require.NoError(t, err)
+
+			f := new(flowpb.Flow)
+			require.NoError(t, parser.Decode(data, f))
+
+			require.Zero(t, f.GetSource().GetID())
+			require.Zero(t, f.GetDestination().GetID())
+			testutils.AssertProtoEqual(t, expectedPolicy, tc.allowedBy(f))
+		})
+	}
+}
