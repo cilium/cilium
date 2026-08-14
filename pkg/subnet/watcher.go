@@ -4,6 +4,7 @@
 package subnet
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -25,7 +26,7 @@ type watcherParams struct {
 	SubnetTable        statedb.RWTable[subnetTable.SubnetTableEntry]
 	DB                 *statedb.DB
 	JobGroup           job.Group
-	NodeHandler        node.Handler `optional:"true"`
+	NodeWriter         *node.NodeWriter `optional:"true"`
 }
 
 type SubnetWatcher struct {
@@ -34,7 +35,7 @@ type SubnetWatcher struct {
 	subnetTable        statedb.RWTable[subnetTable.SubnetTableEntry]
 	db                 *statedb.DB
 	jobGroup           job.Group
-	nodeHandler        node.Handler
+	nodeWriter         *node.NodeWriter
 }
 
 func newSubnetWatcher(params watcherParams) *SubnetWatcher {
@@ -44,7 +45,7 @@ func newSubnetWatcher(params watcherParams) *SubnetWatcher {
 		subnetTable:        params.SubnetTable,
 		db:                 params.DB,
 		jobGroup:           params.JobGroup,
-		nodeHandler:        params.NodeHandler,
+		nodeWriter:         params.NodeWriter,
 	}
 }
 
@@ -71,8 +72,10 @@ func (w *SubnetWatcher) processSubnetConfigEntry(entry dynamicconfig.DynamicConf
 	wTx.Commit()
 
 	// Trigger re-evaluation of all node routes based on new topology
-	if w.nodeHandler != nil {
-		w.nodeHandler.AllNodeValidateImplementation()
+	if w.nodeWriter != nil {
+		if err := w.nodeWriter.Refresh(context.Background()); err != nil {
+			return fmt.Errorf("refreshing node routes: %w", err)
+		}
 	}
 
 	return nil

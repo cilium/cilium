@@ -46,7 +46,6 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -86,7 +85,7 @@ type paramsOut struct {
 	RemoteIdentityWatcher clustermesh.RemoteIdentityWatcher
 	CacheStatus           k8sSynced.CacheStatus
 	ClusterInfo           cmtypes.ClusterInfo
-	NodeHandler           node.Handler
+	NodeWriter            *node.NodeWriter
 	SecretSyncConfig      envoy.SecretSyncConfig
 }
 
@@ -108,11 +107,11 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 	var (
 		// Local references are updated when starting the Hive.
-		ipsecAgent  *agent
-		nodeStore   *node.LocalNodeStore
-		mtuConfig   mtu.MTU
-		encryptMap  encrypt.EncryptMap
-		nodeHandler node.Handler
+		ipsecAgent *agent
+		nodeStore  *node.LocalNodeStore
+		mtuConfig  mtu.MTU
+		encryptMap encrypt.EncryptMap
+		nodeWriter *node.NodeWriter
 
 		ctx = t.Context()
 		ns  = netns.NewNetNS(t)
@@ -204,18 +203,17 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 						RemoteIdentityWatcher: nil,
 						CacheStatus:           make(k8sSynced.CacheStatus),
 						ClusterInfo:           cmtypes.DefaultClusterInfo,
-						NodeHandler:           fakenode.NewHandler(),
 						SecretSyncConfig:      envoy.SecretSyncConfig{},
 					}
 				},
 			),
 
 			cell.Invoke(
-				func(a types.Agent, s *node.LocalNodeStore, m mtu.MTU, e encrypt.EncryptMap, n node.Handler) {
+				func(a types.Agent, s *node.LocalNodeStore, m mtu.MTU, e encrypt.EncryptMap, n *node.NodeWriter) {
 					ipsecAgent = a.(*agent)
 					nodeStore = s
 					mtuConfig = m
-					nodeHandler = n
+					nodeWriter = n
 					if a.Enabled() {
 						encryptMap = e
 					}
@@ -252,7 +250,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			}, TestTimeout, 50*time.Millisecond)
 
 			// 5. Start background ipsec jobs (publishes SPI to local node and encrypt map).
-			require.NoError(t, ipsecAgent.StartBackgroundJobs(nodeHandler, nil))
+			require.NoError(t, ipsecAgent.StartBackgroundJobs(nodeWriter, nil))
 
 			// 6. Ensure local node has been updated.
 			localNode, err := nodeStore.Get(ctx)
@@ -322,7 +320,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			// waits for dpInitialized, then publishes the new SPI.
 			dpInitialized := make(chan struct{})
 			close(dpInitialized)
-			require.NoError(t, ipsecAgent.StartBackgroundJobs(nodeHandler, dpInitialized))
+			require.NoError(t, ipsecAgent.StartBackgroundJobs(nodeWriter, dpInitialized))
 
 			// 5. Verify that after dpInitialized, the new SPI is published everywhere.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
