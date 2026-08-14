@@ -84,9 +84,8 @@ func (o *endpointSliceObserver) Register(mgr store.WatchStoreManager, backend kv
 
 	o.enabled.Store(false)
 	if o.serviceModeV2.ShouldWatchEndpointSlices() {
-		o.logger.Error("Remote cluster does not support endpoint slice resources while Cilium is configured to watch them. "+
-			"Global Services and MCS-API will not take into account any backends from this cluster!",
-			logfields.ClusterName, o.cluster)
+		o.logger.Error("Remote cluster does not support endpoint slice resources while Cilium is configured to watch them. " +
+			"Global Services and MCS-API will not take into account any backends from this cluster!")
 	}
 
 	// Drain any existing endpoint slices in case the remote cluster no longer supports them.
