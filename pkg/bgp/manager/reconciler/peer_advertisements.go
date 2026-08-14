@@ -6,6 +6,7 @@ package reconciler
 import (
 	"errors"
 	"log/slog"
+	"net/netip"
 	"sort"
 
 	"github.com/cilium/hive/cell"
@@ -66,7 +67,9 @@ func NewCiliumPeerAdvertisement(p PeerAdvertisementIn) *CiliumPeerAdvertisement 
 // Linear scan [ Peers ] - O(n) ( number of peers )
 // Linear scan [ Families ] - O(m) ( max 2 )
 // Linear scan [ Advertisements ] - O(k) ( number of advertisements - 3-4 types, which is again filtered)
-func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2.CiliumBGPNodeInstance, selectAdvertTypes ...v2.BGPAdvertisementType) (PeerAdvertisements, error) {
+// resolvedPeerAddresses holds the addresses the router resolved for peers configured
+// without one, keyed by peer name. It is taken from ReconcileParams.
+func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2.CiliumBGPNodeInstance, resolvedPeerAddresses map[string]netip.Addr, selectAdvertTypes ...v2.BGPAdvertisementType) (PeerAdvertisements, error) {
 	result := make(PeerAdvertisements)
 	l := p.logger.With(types.InstanceLogField, conf.Name)
 	for _, peer := range conf.Peers {
@@ -98,6 +101,18 @@ func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2.CiliumBGP
 		id := PeerID{
 			Name:    peer.Name,
 			Address: ptr.Deref(peer.PeerAddress, ""),
+		}
+		if id.Address == "" {
+			// BGP unnumbered peer: it is configured by interface only, its address
+			// is whatever the router resolved via IPv6 ND. Without it the peer
+			// cannot be matched by the route policies keyed on the peer address,
+			// so nothing would ever be advertised to it.
+			if addr, ok := resolvedPeerAddresses[peer.Name]; ok {
+				id.Address = addr.String()
+			} else {
+				l.Debug("Peer address not resolved yet, advertisements to it are deferred",
+					types.PeerLogField, peer.Name)
+			}
 		}
 		result[id] = peerAdverts
 	}

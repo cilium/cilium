@@ -25,8 +25,10 @@ import (
 )
 
 // DefaultGatewayReconciler is a ConfigReconciler which handles auto-discovery
-// of peer addresses for DefaultGateway mode. It runs with the highest priority
-// to ensure peer addresses are populated before other reconcilers run.
+// of peer addresses: DefaultGateway mode (from the default route) and
+// Unnumbered mode (hands the configured interface to gobgp, which resolves the
+// peer's IPv6 link-local via ND itself). It runs with the highest priority to
+// ensure peer addresses are populated before other reconcilers run.
 type DefaultGatewayReconciler struct {
 	logger      *slog.Logger
 	DB          *statedb.DB
@@ -133,6 +135,29 @@ func (r *DefaultGatewayReconciler) Reconcile(ctx context.Context, p ReconcilePar
 			l.Debug("Auto-discovered peer address",
 				types.PeerLogField, peer.Name,
 				logfields.Address, defaultGateway)
+		case v2.BGPUnnumberedMode:
+			if peer.AutoDiscovery.Unnumbered == nil {
+				l.Debug("Unnumbered mode set without unnumbered configuration, skipping",
+					types.PeerLogField, peer.Name)
+				continue
+			}
+
+			// BGP unnumbered: the user gives only an interface. Hand that
+			// interface to gobgp (PeerInterface, no PeerAddress) and let gobgp's
+			// native unnumbered path resolve the peer's IPv6 link-local from the
+			// kernel ND table AND derive the local link-local as the transport
+			// source address. Resolving in the agent instead (setting a zoned
+			// PeerAddress) skips gobgp's local-source derivation, so gobgp never
+			// dials the peer. This relies on the gobgp AddPeer fix that runs
+			// SetDefaultNeighborConfigValues (interface resolution) before
+			// validating the neighbor address; without it an addressless neighbor
+			// is rejected with "NeighborAddress is not configured".
+			iface := peer.AutoDiscovery.Unnumbered.Interface
+			p.DesiredConfig.Peers[i].PeerInterface = &iface
+
+			l.Debug("Configured unnumbered peer interface",
+				types.PeerLogField, peer.Name,
+				logfields.Interface, iface)
 		default:
 			l.Debug("Unsupported auto-discovery mode",
 				types.PeerLogField, peer.Name,

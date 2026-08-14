@@ -102,6 +102,30 @@ func TestToGoBGPPeer(t *testing.T) {
 			},
 		},
 		{
+			name: "Address IPv6 link-local with zone",
+			neighbor: &types.Neighbor{
+				Address: netip.MustParseAddr("fe80::1%eth0"),
+			},
+			expected: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborAddress: "fe80::1%eth0",
+				},
+				AfiSafis: defaultAfiSafi,
+			},
+		},
+		{
+			name: "BGP unnumbered (Interface only)",
+			neighbor: &types.Neighbor{
+				Interface: "eth0",
+			},
+			expected: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborInterface: "eth0",
+				},
+				AfiSafis: defaultAfiSafi,
+			},
+		},
+		{
 			name: "ASN",
 			neighbor: &types.Neighbor{
 				Address: netip.MustParseAddr("10.0.0.1"),
@@ -191,6 +215,48 @@ func TestToGoBGPPeer(t *testing.T) {
 					LocalAddress: "10.0.0.2",
 					LocalPort:    1179,
 					RemotePort:   1179,
+				},
+				AfiSafis: defaultAfiSafi,
+			},
+		},
+		{
+			// An empty local address is left empty rather than forced to the
+			// wildcard: gobgp defaults it (wildcard for numbered peers).
+			name: "Transport without local address is not forced to wildcard",
+			neighbor: &types.Neighbor{
+				Address: netip.MustParseAddr("10.0.0.1"),
+				Transport: &types.NeighborTransport{
+					LocalPort:  1179,
+					RemotePort: 1179,
+				},
+			},
+			expected: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborAddress: "10.0.0.1",
+				},
+				Transport: &gobgp.Transport{
+					LocalPort:  1179,
+					RemotePort: 1179,
+				},
+				AfiSafis: defaultAfiSafi,
+			},
+		},
+		{
+			// Unnumbered peer: empty local address must stay empty so gobgp can
+			// derive the interface's own link-local as the transport source.
+			name: "Unnumbered transport keeps empty local address",
+			neighbor: &types.Neighbor{
+				Interface: "eth0",
+				Transport: &types.NeighborTransport{
+					RemotePort: 1179,
+				},
+			},
+			expected: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborInterface: "eth0",
+				},
+				Transport: &gobgp.Transport{
+					RemotePort: 1179,
 				},
 				AfiSafis: defaultAfiSafi,
 			},

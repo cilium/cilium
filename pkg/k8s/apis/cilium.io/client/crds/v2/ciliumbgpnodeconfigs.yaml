@@ -108,10 +108,31 @@ spec:
                                 description: mode is the mode of the auto-discovery.
                                 enum:
                                 - DefaultGateway
+                                - Unnumbered
                                 type: string
+                              unnumbered:
+                                description: |-
+                                  unnumbered is the configuration for BGP unnumbered peering over an
+                                  interface with no configured peer address.
+                                properties:
+                                  interface:
+                                    description: |-
+                                      interface is the name of the local network interface used to reach the
+                                      peer.
+                                    maxLength: 255
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - interface
+                                type: object
                             required:
                             - mode
                             type: object
+                            x-kubernetes-validations:
+                            - message: defaultGateway must be set when mode is DefaultGateway
+                              rule: self.mode != 'DefaultGateway' || has(self.defaultGateway)
+                            - message: unnumbered must be set when mode is Unnumbered
+                              rule: self.mode != 'Unnumbered' || has(self.unnumbered)
                           localAddress:
                             description: |-
                               LocalAddress is the IP address of the local interface to use for the peering session.
@@ -149,9 +170,23 @@ spec:
                             required:
                             - name
                             type: object
+                          peerInterface:
+                            description: |-
+                              PeerInterface is the name of the local network interface the unnumbered
+                              peer is reached on. It is not user-configurable: like PeerAddress under
+                              autoDiscovery mode DefaultGateway, it is derived on the node by the agent
+                              for a peer using autoDiscovery mode Unnumbered, and takes the place of
+                              PeerAddress. The peer's own address is then resolved from IPv6 ND on this
+                              interface.
+                            maxLength: 255
+                            minLength: 1
+                            type: string
                         required:
                         - name
                         type: object
+                        x-kubernetes-validations:
+                        - message: one of peerAddress or autoDiscovery must be set
+                          rule: has(self.peerAddress) || has(self.autoDiscovery)
                       type: array
                       x-kubernetes-list-map-keys:
                       - name

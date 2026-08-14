@@ -263,6 +263,31 @@ func TestToNeighbor(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "BGP unnumbered (PeerInterface only)",
+			nodePeer: &v2.CiliumBGPNodePeer{
+				PeerASN:       ptr.To(int64(64512)),
+				PeerInterface: ptr.To("eth0"),
+			},
+			peerConfig: &v2.CiliumBGPPeerConfigSpec{},
+			expected: &Neighbor{
+				Interface: "eth0",
+				ASN:       64512,
+			},
+		},
+		{
+			name: "empty PeerAddress falls back to PeerInterface",
+			nodePeer: &v2.CiliumBGPNodePeer{
+				PeerAddress:   ptr.To(""),
+				PeerASN:       ptr.To(int64(64512)),
+				PeerInterface: ptr.To("eth0"),
+			},
+			peerConfig: &v2.CiliumBGPPeerConfigSpec{},
+			expected: &Neighbor{
+				Interface: "eth0",
+				ASN:       64512,
+			},
+		},
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
