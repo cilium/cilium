@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 var (
@@ -54,7 +55,7 @@ type remoteCluster struct {
 	configPath string
 
 	// clusterSizeDependantInterval allows to calculate intervals based on cluster size.
-	clusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
+	clusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc
 
 	// resolvers are the set of resolvers used to create the custom dialer.
 	resolvers []dial.Resolver

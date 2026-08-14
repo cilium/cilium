@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -70,12 +69,6 @@ type NodeManager interface {
 	// MeshNodeSync is called when the store completes the initial nodes listing including meshed nodes
 	MeshNodeSync()
 
-	// ClusterSizeDependantInterval returns a time.Duration that is dependent on
-	// the cluster size, i.e. the number of nodes that have been discovered. This
-	// can be used to control sync intervals of shared or centralized resources to
-	// avoid overloading these resources as the cluster grows.
-	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
-
 	// SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
 	// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom.
 	SetPrefixClusterMutatorFn(mutator func(*types.Node) []cmtypes.PrefixClusterOpts)
@@ -83,20 +76,21 @@ type NodeManager interface {
 
 func newAllNodeManager(in struct {
 	cell.In
-	Logger      *slog.Logger
-	ClusterInfo cmtypes.ClusterInfo
-	TunnelConf  tunnel.Config
-	Lifecycle   cell.Lifecycle
-	IPCache     *ipcache.IPCache
-	IPSetMgr    ipset.Manager
-	IPSetFilter IPSetFilterFn `optional:"true"`
-	NodeMetrics *nodeMetrics
-	Health      cell.Health
-	JobGroup    job.Group
-	DB          *statedb.DB
-	Devices     statedb.Table[*tables.Device]
-	WGConfig    wgTypes.Config
-	Nodes       statedb.Table[*node.Node]
+	Logger                       *slog.Logger
+	ClusterInfo                  cmtypes.ClusterInfo
+	TunnelConf                   tunnel.Config
+	Lifecycle                    cell.Lifecycle
+	IPCache                      *ipcache.IPCache
+	IPSetMgr                     ipset.Manager
+	IPSetFilter                  IPSetFilterFn `optional:"true"`
+	NodeMetrics                  *nodeMetrics
+	Health                       cell.Health
+	JobGroup                     job.Group
+	DB                           *statedb.DB
+	Devices                      statedb.Table[*tables.Device]
+	WGConfig                     wgTypes.Config
+	Nodes                        statedb.Table[*node.Node]
+	ClusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc
 },
 ) (NodeManager, error) {
 
@@ -106,7 +100,7 @@ func newAllNodeManager(in struct {
 	// here.
 	nodeTable := in.Nodes.(statedb.RWTable[*node.Node])
 
-	mngr, err := New(in.Logger, option.Config, in.ClusterInfo, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, nodeTable)
+	mngr, err := New(in.Logger, option.Config, in.ClusterInfo, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, nodeTable, in.ClusterSizeDependantInterval)
 	if err != nil {
 		return nil, err
 	}
