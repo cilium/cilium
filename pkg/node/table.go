@@ -142,6 +142,35 @@ var (
 	}
 	NodeByName = NodeNameIndex.Query
 
+	// NodeAddressIndex indexes every address of the node. Writer enforces single
+	// ownership and resolves conflicts prior to insertion according to source
+	// priority.
+	NodeAddressIndex = statedb.Index[*Node, netip.Addr]{
+		Name: "address",
+		FromObject: func(obj *Node) index.KeySet {
+			keys := make([]index.Key, 0, len(obj.IPAddresses)+4)
+			appendAddr := func(addr netip.Addr) {
+				if addr.IsValid() {
+					keys = append(keys, index.NetIPAddr(addr.Unmap()))
+				}
+			}
+			for _, address := range obj.IPAddresses {
+				if addr, ok := netip.AddrFromSlice(address.IP); ok {
+					appendAddr(addr)
+				}
+			}
+			appendAddr(obj.IPv4HealthIP.Addr)
+			appendAddr(obj.IPv6HealthIP.Addr)
+			appendAddr(obj.IPv4IngressIP.Addr)
+			appendAddr(obj.IPv6IngressIP.Addr)
+			return index.NewKeySet(keys...)
+		},
+		FromKey:    index.NetIPAddr,
+		FromString: index.NetIPAddrString,
+		Unique:     true,
+	}
+	NodeByAddress = NodeAddressIndex.Query
+
 	NodeLocalIndex = statedb.Index[*Node, bool]{
 		Name: "local",
 		FromObject: func(obj *LocalNode) index.KeySet {
@@ -166,5 +195,6 @@ func NewNodeTable(db *statedb.DB) (statedb.RWTable[*Node], error) {
 		NodeTableName,
 		NodeNameIndex,
 		NodeLocalIndex,
+		NodeAddressIndex,
 	)
 }

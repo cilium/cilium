@@ -41,6 +41,7 @@ var LocalNodeStoreCell = cell.Module(
 	"Provides LocalNodeStore for observing and updating local node info",
 
 	cell.ProvidePrivate(NewNodeTable),
+	cell.Provide(NewWriter),
 	cell.Provide(NewNodeTableAndLocalNodeStore),
 	cell.Provide(NewClusterSizeDependantInterval),
 )
