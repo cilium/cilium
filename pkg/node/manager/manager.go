@@ -4,25 +4,19 @@
 package manager
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"iter"
 	"log/slog"
 	"net"
 	"net/netip"
-	"os"
-	"path/filepath"
 	"slices"
 	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/google/renameio/v2"
-	jsoniter "github.com/json-iterator/go"
 	"go4.org/netipx"
 	"golang.org/x/time/rate"
 
@@ -48,16 +42,10 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
-	// The filename for the nodes checkpoint. This is periodically written, and
-	// restored on restart. The default path is /run/cilium/state/nodes.json
-	nodesFilename = "nodes.json"
-	// Minimum amount of time to wait in between writing nodes file.
-	nodeCheckpointMinInterval = time.Minute
 	// ClusterNodeTableInitializerName is completed once the initial listing of
 	// nodes in the local cluster has been received.
 	ClusterNodeTableInitializerName = "node-manager-cluster"
@@ -122,11 +110,6 @@ type manager struct {
 	// nodes is the list of nodes. Access must be protected via mutex.
 	nodes map[nodeTypes.Identity]*nodeEntry
 
-	// Upon agent startup, this is filled with nodes as read from disk. Used to
-	// synthesize node deletion events for nodes which disappeared while we were
-	// down.
-	restoredNodes map[nodeTypes.Identity]*nodeTypes.Node
-
 	// nodeHandlersMu protects the nodeHandlers map against concurrent access.
 	nodeHandlersMu lock.RWMutex
 	// nodeHandlers has a slice containing all node handlers subscribed to node
@@ -162,13 +145,6 @@ type manager struct {
 
 	// health reports on the current health status of the node manager module.
 	health cell.Health
-
-	// nodeCheckpointer triggers writing the current set of nodes to disk
-	nodeCheckpointer *trigger.Trigger
-	checkpointerDone chan struct{} // Closed once the checkpointer is shut down.
-
-	// Ensure the pruning is only attempted once.
-	nodePruneOnce sync.Once
 
 	// Reference to the StateDB
 	db *statedb.DB
@@ -297,7 +273,6 @@ func New(
 		logger:                 logger,
 		nodes:                  map[nodeTypes.Identity]*nodeEntry{},
 		nodeTable:              nodeTable,
-		restoredNodes:          map[nodeTypes.Identity]*nodeTypes.Node{},
 		conf:                   c,
 		clusterInfo:            clusterInfo,
 		underlay:               tunnelConf.UnderlayProtocol(),
@@ -343,12 +318,6 @@ func New(
 }
 
 func (m *manager) Start(cell.HookContext) error {
-	// Ensure that we read a potential nodes file before we overwrite it.
-	m.restoreNodeCheckpoint()
-	if err := m.initNodeCheckpointer(nodeCheckpointMinInterval); err != nil {
-		return fmt.Errorf("failed to initialize node file writer: %w", err)
-	}
-
 	m.jobGroup.Add(job.OneShot("backgroundSync", m.backgroundSync))
 
 	return nil
@@ -356,21 +325,6 @@ func (m *manager) Start(cell.HookContext) error {
 
 // Stop shuts down a node manager
 func (m *manager) Stop(cell.HookContext) error {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	if m.nodeCheckpointer != nil {
-		// Using the shutdown func of trigger to checkpoint would block shutdown
-		// for up to its MinInterval, which is too long.
-		m.nodeCheckpointer.Shutdown()
-		close(m.checkpointerDone)
-		err := m.checkpoint()
-		if err != nil {
-			m.logger.Error("Failed to write final node checkpoint.", logfields.Error, err)
-		}
-		m.nodeCheckpointer = nil
-	}
-
 	return nil
 }
 
@@ -493,125 +447,6 @@ func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime tim
 		m.metrics.DatapathValidations.Inc()
 	}
 	return errs
-}
-
-func (m *manager) restoreNodeCheckpoint() {
-	path := filepath.Join(m.conf.StateDir, nodesFilename)
-	scopedLog := m.logger.With(logfields.Path, path)
-	f, err := os.Open(path)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			// If we don't have a file to restore from, there's nothing we can
-			// do. This is expected in the upgrade path.
-			scopedLog.Debug(
-				fmt.Sprintf("No %v file found, cannot replay node deletion events for nodes"+
-					" which disappeared during downtime.", nodesFilename),
-			)
-			return
-		}
-		scopedLog.Error(
-			"failed to read node checkpoint file",
-			logfields.Error, err,
-		)
-		return
-	}
-	defer f.Close()
-
-	r := jsoniter.ConfigFastest.NewDecoder(bufio.NewReader(f))
-	var nodeCheckpoint []*nodeTypes.Node
-	if err := r.Decode(&nodeCheckpoint); err != nil {
-		scopedLog.Error(
-			"failed to decode node checkpoint file",
-			logfields.Error, err,
-		)
-		return
-	}
-
-	// We can't call NodeUpdated for restored nodes here, as the machinery
-	// assumes a fully initialized node manager, which we don't currently have.
-	// In addition, we only want to replay NodeDeletions, since k8s provided
-	// up-to-date information on all live nodes. We keep the restored nodes
-	// separate, let whatever init needs to happen occur and once we're synced
-	// to k8s, compare the restored nodes to the live ones.
-	for _, n := range nodeCheckpoint {
-		if !n.IsLocal() {
-			n.Source = source.Restored
-			m.restoredNodes[n.Identity()] = n
-		}
-	}
-}
-
-// initNodeCheckpointer sets up the trigger for writing nodes to disk.
-func (m *manager) initNodeCheckpointer(minInterval time.Duration) error {
-	var err error
-	health := m.health.NewScope("node-checkpoint-writer")
-	m.checkpointerDone = make(chan struct{})
-
-	m.nodeCheckpointer, err = trigger.NewTrigger(trigger.Parameters{
-		Name:        "node-checkpoint-trigger",
-		MinInterval: minInterval, // To avoid rapid repetition (e.g. during startup).
-		TriggerFunc: func(reasons []string) {
-			m.mutex.RLock()
-			select {
-			// The trigger package does not check whether the trigger is shut
-			// down already after sleeping to honor the MinInterval. Hence, we
-			// do so ourselves.
-			case <-m.checkpointerDone:
-				return
-			default:
-			}
-			err := m.checkpoint()
-			m.mutex.RUnlock()
-
-			if err != nil {
-				m.logger.Error(
-					"could not write node checkpoint",
-					logfields.Error, err,
-					logfields.Reasons, reasons,
-				)
-				health.Degraded("failed to write node checkpoint", err)
-			} else {
-				health.OK("node checkpoint written")
-			}
-		},
-	})
-	return err
-}
-
-// checkpoint writes all nodes to disk. Assumes the manager is read locked.
-// Don't call this directly, use the nodeCheckpointer trigger.
-func (m *manager) checkpoint() error {
-	stateDir := m.conf.StateDir
-	nodesPath := filepath.Join(stateDir, nodesFilename)
-	m.logger.Debug(
-		"writing node checkpoint to disk",
-		logfields.Path, nodesPath,
-	)
-
-	// Write new contents to a temporary file which will be atomically renamed to the
-	// real file at the end of this function to avoid data corruption if we crash.
-	f, err := renameio.TempFile(stateDir, nodesPath)
-	if err != nil {
-		return fmt.Errorf("failed to open temporary file: %w", err)
-	}
-	defer f.Cleanup()
-
-	bw := bufio.NewWriter(f)
-	w := jsoniter.ConfigFastest.NewEncoder(bw)
-	ns := make([]nodeTypes.Node, 0, len(m.nodes))
-	for _, n := range m.nodes {
-		if !n.node.IsLocal() {
-			ns = append(ns, n.node)
-		}
-	}
-	if err := w.Encode(ns); err != nil {
-		return fmt.Errorf("failed to encode node checkpoint: %w", err)
-	}
-	if err := bw.Flush(); err != nil {
-		return fmt.Errorf("failed to flush node checkpoint writer: %w", err)
-	}
-
-	return f.CloseAtomicallyReplace()
 }
 
 func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
@@ -948,9 +783,6 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 	}
 
-	if m.nodeCheckpointer != nil {
-		m.nodeCheckpointer.TriggerWithReason("NodeUpdate")
-	}
 }
 
 func (m *manager) upsertToNodeTable(n *nodeTypes.Node) {
@@ -1163,24 +995,11 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 
 	nodeIdentifier := n.Identity()
 
-	var (
-		entry         *nodeEntry
-		oldNodeExists bool
-	)
-
 	m.mutex.Lock()
-	// If the node is restored from disk, it doesn't exist in the bookkeeping,
-	// but we need to synthesize a deletion event for downstream.
-	if n.Source == source.Restored {
-		entry = &nodeEntry{
-			node: n,
-		}
-	} else {
-		entry, oldNodeExists = m.nodes[nodeIdentifier]
-		if !oldNodeExists {
-			m.mutex.Unlock()
-			return
-		}
+	entry, oldNodeExists := m.nodes[nodeIdentifier]
+	if !oldNodeExists {
+		m.mutex.Unlock()
+		return
 	}
 
 	// If the source is Kubernetes and the node is the node we are running on
@@ -1204,21 +1023,13 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		return
 	}
 
-	if n.Source != source.Restored {
-		// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
-		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil, nil)
-
-		// We only need to decrement for nodes we've accounted for.
-		m.metrics.NumNodes.Dec()
-	}
+	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
+	m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil, nil)
+	m.metrics.NumNodes.Dec()
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
 	m.deleteFromNodeTable(nodeIdentifier)
-	if m.nodeCheckpointer != nil {
-		m.nodeCheckpointer.TriggerWithReason("NodeDeleted")
-	}
 	m.mutex.Unlock()
 	var errs error
 	m.Iter(func(nh node.Handler) {
@@ -1255,13 +1066,6 @@ func (m *manager) NodeSync() {
 	if m.clusterNodeTableInit != nil {
 		m.clusterNodeTableInit()
 	}
-
-	// Due to the complexity around kvstore vs k8s as node sources, it may occur
-	// that both sources call NodeSync at some point. Ensure we only run this
-	// pruning operation once.
-	m.nodePruneOnce.Do(func() {
-		m.pruneClusterNodes()
-	})
 }
 
 // MeshNodeSync signals the manager that the initial nodes listing from
@@ -1270,100 +1074,6 @@ func (m *manager) NodeSync() {
 func (m *manager) MeshNodeSync() {
 	if m.meshNodeTableInit != nil {
 		m.meshNodeTableInit()
-	}
-
-	m.pruneMeshedNodes()
-}
-
-func (m *manager) pruneClusterNodes() {
-	m.mutex.Lock()
-	if len(m.restoredNodes) == 0 {
-		m.mutex.Unlock()
-		return
-	}
-	// Live nodes should not be pruned.
-	for id := range m.nodes {
-		delete(m.restoredNodes, id)
-	}
-
-	toDelete := make([]*nodeTypes.Node, 0, len(m.restoredNodes))
-	for _, n := range m.restoredNodes {
-		if n.Cluster == m.clusterInfo.Name {
-			toDelete = append(toDelete, n)
-		}
-	}
-
-	if len(toDelete) > 0 {
-		if m.logger.Enabled(context.Background(), slog.LevelDebug) {
-			printableNodes := make([]string, 0, len(toDelete))
-			for _, n := range toDelete {
-				printableNodes = append(printableNodes, n.Identity().String())
-			}
-			m.logger.Debug(
-				"Deleting stale cluster nodes",
-				logfields.LenStaleNodes, len(toDelete),
-				logfields.StaleNodes, printableNodes,
-			)
-		} else {
-			m.logger.Info(
-				"Deleting stale cluster nodes",
-				logfields.LenStaleNodes, len(toDelete),
-			)
-		}
-	}
-	m.mutex.Unlock()
-
-	// Delete nodes now considered stale. Can't hold the mutex as
-	// NodeDeleted also acquires it.
-	for _, n := range toDelete {
-		m.NodeDeleted(*n)
-		delete(m.restoredNodes, n.Identity())
-	}
-}
-
-func (m *manager) pruneMeshedNodes() {
-	m.mutex.Lock()
-	if len(m.restoredNodes) == 0 {
-		m.mutex.Unlock()
-		return
-	}
-	// Live nodes should not be pruned.
-	for id := range m.nodes {
-		delete(m.restoredNodes, id)
-	}
-
-	toDelete := make([]*nodeTypes.Node, 0, len(m.restoredNodes))
-	for _, n := range m.restoredNodes {
-		if n.Cluster != m.clusterInfo.Name {
-			toDelete = append(toDelete, n)
-		}
-	}
-
-	if len(toDelete) > 0 {
-		if m.logger.Enabled(context.Background(), slog.LevelDebug) {
-			printableNodes := make([]string, 0, len(toDelete))
-			for _, n := range toDelete {
-				printableNodes = append(printableNodes, n.Identity().String())
-			}
-			m.logger.Debug(
-				"Deleting stale meshed nodes",
-				logfields.LenStaleNodes, len(toDelete),
-				logfields.StaleNodes, printableNodes,
-			)
-		} else {
-			m.logger.Info(
-				"Deleting stale meshed nodes",
-				logfields.LenStaleNodes, len(toDelete),
-			)
-		}
-	}
-	m.mutex.Unlock()
-
-	// Delete nodes now considered stale. Can't hold the mutex as
-	// NodeDeleted also acquires it.
-	for _, n := range toDelete {
-		m.NodeDeleted(*n)
-		delete(m.restoredNodes, n.Identity())
 	}
 }
 
