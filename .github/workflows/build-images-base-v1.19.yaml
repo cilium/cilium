@@ -287,10 +287,20 @@ jobs:
           GH_TOKEN: ${{ steps.get_token.outputs.app_token }}
           pr_number: ${{ github.event.pull_request.number }}
           pr_author: ${{ github.event.pull_request.user.login }}
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          ref: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name }}
           repository:  ${{ github.event.pull_request.head.repo.full_name || github.repository }}
         run: |
-          if [ -n "${pr_number}" ] && [ "${pr_author}" = "cilium-renovate[bot]" ]; then
+          if [ -z "${pr_number}" ] || [ -z "${pr_author}" ]; then
+            # workflow_call runs invoked from renovate branch pushes do not have
+            # github.event.pull_request populated. Resolve the matching PR from
+            # the branch name so follow-up pushes can still temporarily draft it.
+            pr_number=$(gh -R ${repository} pr list --head "${ref}" --json number --jq '.[0].number // empty')
+            pr_author=$(gh -R ${repository} pr list --head "${ref}" --json author --jq '.[0].author.login // empty')
+          fi
+
+          # PR webhook payloads report the app as cilium-renovate[bot], while
+          # gh pr list returns the GraphQL app identity app/cilium-renovate.
+          if [ -n "${pr_number}" ] && { [ "${pr_author}" = "cilium-renovate[bot]" ] || [ "${pr_author}" = "app/cilium-renovate" ]; }; then
             is_draft=$(gh -R ${repository} pr view ${pr_number} --json isDraft --jq .isDraft)
             if [ "${is_draft}" = "false" ]; then
               # Follow-up image updates should not trigger CODEOWNERS while the
