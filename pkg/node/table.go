@@ -142,6 +142,24 @@ var (
 	}
 	NodeByName = NodeNameIndex.Query
 
+	// NodeAddressIndex indexes every address for which NodeManager historically
+	// checked source ownership: node, health and ingress addresses. The index is
+	// non-unique because Writer resolves conflicts atomically when producers
+	// update the table.
+	NodeAddressIndex = statedb.Index[*Node, netip.Addr]{
+		Name: "address",
+		FromObject: func(obj *Node) index.KeySet {
+			keys := make([]index.Key, 0, len(obj.IPAddresses)+4)
+			for addr := range conflictAddresses(&obj.Node) {
+				keys = append(keys, index.NetIPAddr(addr))
+			}
+			return index.NewKeySet(keys...)
+		},
+		FromKey:    index.NetIPAddr,
+		FromString: index.NetIPAddrString,
+	}
+	NodeByAddress = NodeAddressIndex.Query
+
 	NodeLocalIndex = statedb.Index[*Node, bool]{
 		Name: "local",
 		FromObject: func(obj *LocalNode) index.KeySet {
@@ -166,5 +184,6 @@ func NewNodeTable(db *statedb.DB) (statedb.RWTable[*Node], error) {
 		NodeTableName,
 		NodeNameIndex,
 		NodeLocalIndex,
+		NodeAddressIndex,
 	)
 }
