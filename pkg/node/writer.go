@@ -18,14 +18,20 @@ import (
 
 // NodeWriter provides source-aware write access to the node table.
 type NodeWriter struct {
-	log   *slog.Logger
-	db    *statedb.DB
-	nodes statedb.RWTable[*Node]
+	log     *slog.Logger
+	db      *statedb.DB
+	nodes   statedb.RWTable[*Node]
+	metrics *nodeMetrics
 }
 
 // NewNodeWriter constructs a node table writer.
-func NewNodeWriter(log *slog.Logger, db *statedb.DB, nodes statedb.RWTable[*Node]) *NodeWriter {
-	return &NodeWriter{log: log, db: db, nodes: nodes}
+func NewNodeWriter(
+	log *slog.Logger,
+	db *statedb.DB,
+	nodes statedb.RWTable[*Node],
+	metrics *nodeMetrics,
+) *NodeWriter {
+	return &NodeWriter{log: log, db: db, nodes: nodes, metrics: metrics}
 }
 
 // RegisterInitializer registers a producer that must finish its initial node
@@ -37,6 +43,8 @@ func (w *NodeWriter) RegisterInitializer(txn statedb.WriteTxn, name string) func
 // Refresh marks every node pending and waits for all currently known node
 // reconcilers to successfully process them.
 func (w *NodeWriter) Refresh(ctx context.Context) error {
+	w.metrics.DatapathValidations.Inc()
+
 	txn := w.db.WriteTxn(w.nodes)
 	targets := []string{}
 	for n := range w.nodes.All(txn) {
@@ -89,6 +97,7 @@ func (w *NodeWriter) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 
 	old, _, found := w.nodes.Get(txn, NodeByName(obj.Fullname()))
 	if found {
+		w.metrics.EventsReceived.WithLabelValues(nodeEventUpdate, string(obj.Source)).Inc()
 		if old.Local != nil || !source.AllowOverwrite(old.Source, obj.Source) {
 			return false
 		}
@@ -96,6 +105,8 @@ func (w *NodeWriter) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 			return false
 		}
 		obj.Statuses = old.Statuses.Pending()
+	} else {
+		w.metrics.EventsReceived.WithLabelValues(nodeEventAdd, string(obj.Source)).Inc()
 	}
 
 	if _, _, err := w.nodes.Insert(txn, obj); err != nil {
@@ -112,6 +123,8 @@ func (w *NodeWriter) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 // Delete removes a remote node if this writer's source still owns it. It
 // reports whether the table changed.
 func (w *NodeWriter) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTypes.Identity) bool {
+	w.metrics.EventsReceived.WithLabelValues(nodeEventDelete, string(src)).Inc()
+
 	old, _, found := w.nodes.Get(txn, NodeByName(identity.String()))
 	if !found || old.Local != nil || old.Source != src {
 		return false

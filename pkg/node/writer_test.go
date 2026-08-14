@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
+	prometheustestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/node/types"
@@ -21,7 +22,8 @@ func TestSourceWriter(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
 	require.NoError(t, err)
-	w := NewNodeWriter(hivetest.Logger(t), db, nodes)
+	metrics := NewNodeMetrics()
+	w := NewNodeWriter(hivetest.Logger(t), db, nodes, metrics)
 	upsert := func(n *types.Node) bool {
 		txn := db.WriteTxn(nodes)
 		defer txn.Abort()
@@ -78,13 +80,22 @@ func TestSourceWriter(t *testing.T) {
 	require.True(t, deleteNode(strongNode.Source, strongNode.Identity()))
 	_, _, found = nodes.Get(db.ReadTxn(), NodeByName("node-1"))
 	require.False(t, found)
+	require.Equal(t, float64(1), prometheustestutil.ToFloat64(
+		metrics.EventsReceived.WithLabelValues(nodeEventAdd, string(source.Kubernetes)),
+	))
+	require.Equal(t, float64(1), prometheustestutil.ToFloat64(
+		metrics.EventsReceived.WithLabelValues(nodeEventUpdate, string(source.ClusterMesh)),
+	))
+	require.Equal(t, float64(1), prometheustestutil.ToFloat64(
+		metrics.EventsReceived.WithLabelValues(nodeEventDelete, string(source.KVStore)),
+	))
 }
 
 func TestSourceWriterDoesNotOverwriteLocalNode(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
 	require.NoError(t, err)
-	w := NewNodeWriter(hivetest.Logger(t), db, nodes)
+	w := NewNodeWriter(hivetest.Logger(t), db, nodes, NewNodeMetrics())
 
 	local := &Node{
 		Node:  types.Node{Name: "local", Source: source.Local},
@@ -109,7 +120,8 @@ func TestNodeWriterRefresh(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
 	require.NoError(t, err)
-	w := NewNodeWriter(hivetest.Logger(t), db, nodes)
+	metrics := NewNodeMetrics()
+	w := NewNodeWriter(hivetest.Logger(t), db, nodes, metrics)
 
 	n := &Node{Node: types.Node{Name: "node-1", Source: source.Kubernetes}}
 	n.Statuses = n.Statuses.Set("test", reconciler.StatusDone())
@@ -135,4 +147,5 @@ func TestNodeWriterRefresh(t *testing.T) {
 	require.NoError(t, err)
 	txn.Commit()
 	require.NoError(t, <-done)
+	require.Equal(t, float64(1), prometheustestutil.ToFloat64(metrics.DatapathValidations))
 }

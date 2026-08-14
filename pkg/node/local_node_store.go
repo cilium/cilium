@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/statedb"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/source"
@@ -41,9 +42,11 @@ var LocalNodeStoreCell = cell.Module(
 	"Provides LocalNodeStore for observing and updating local node info",
 
 	cell.ProvidePrivate(NewNodeTable),
+	metrics.Metric(NewNodeMetrics),
 	cell.Provide(NewNodeWriter),
 	cell.Provide(NewNodeTableAndLocalNodeStore),
 	cell.Provide(NewClusterSizeDependantInterval),
+	cell.Invoke(registerNodeMetrics),
 )
 
 const (
