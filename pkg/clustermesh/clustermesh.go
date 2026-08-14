@@ -51,7 +51,7 @@ type Configuration struct {
 	ServiceMerger cmlb.ServiceMerger
 
 	// NodeObserver reacts to node events.
-	NodeObserver nodeStore.NodeManager
+	NodeWriter nodeStore.Writer
 
 	// RemoteIdentityWatcher provides identities that have been allocated on a
 	// remote cluster.
@@ -187,7 +187,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 			nodeStore.NameValidator(),
 			nodeStore.ClusterIDValidator(&rc.clusterID),
 		),
-		nodeStore.NewNodeObserver(cm.conf.NodeObserver, source.ClusterMesh),
+		nodeStore.NewNodeObserver(cm.conf.NodeWriter, source.ClusterMesh),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.nodes) }),
 		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(rc.name)),
 	)

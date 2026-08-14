@@ -52,6 +52,7 @@ type GetNodeAddresses interface {
 type NodeDiscovery struct {
 	logger           *slog.Logger
 	manager          nodemanager.NodeManager
+	nodeWriter       *node.NodeWriter
 	registrar        nodestore.NodeRegistrar
 	registered       chan struct{}
 	cniConfigManager cni.CNIConfigManager
@@ -68,6 +69,7 @@ type NodeDiscovery struct {
 func NewNodeDiscovery(
 	logger *slog.Logger,
 	manager nodemanager.NodeManager,
+	nodeWriter *node.NodeWriter,
 	clientset client.Clientset,
 	kvstoreClient kvstore.Client,
 	lns *node.LocalNodeStore,
@@ -84,6 +86,7 @@ func NewNodeDiscovery(
 	return &NodeDiscovery{
 		logger:           logger,
 		manager:          manager,
+		nodeWriter:       nodeWriter,
 		localNodeStore:   lns,
 		registered:       make(chan struct{}),
 		cniConfigManager: cniConfigManager,
@@ -121,7 +124,7 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 			logfields.Node, localNode.Name,
 		)
 		for {
-			if err := n.registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.manager); err != nil {
+			if err := n.registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.nodeWriter, n.manager); err != nil {
 				n.logger.Error("Unable to initialize local node. Retrying...", logfields.Error, err)
 				time.Sleep(time.Second)
 			} else {

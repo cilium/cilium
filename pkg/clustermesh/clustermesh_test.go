@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -45,16 +46,20 @@ func newNodesObserver() *testObserver {
 	return &testObserver{nodes: make(map[string]*nodeTypes.Node)}
 }
 
-func (o *testObserver) NodeUpdated(no nodeTypes.Node) {
+func (o *testObserver) Upsert(n *node.Node) bool {
+	no := n.Node
 	o.nodesMutex.Lock()
 	o.nodes[no.Fullname()] = &no
 	o.nodesMutex.Unlock()
+	return true
 }
 
-func (o *testObserver) NodeDeleted(no nodeTypes.Node) {
+func (o *testObserver) Delete(n *node.Node) bool {
+	no := n.Node
 	o.nodesMutex.Lock()
 	delete(o.nodes, no.Fullname())
 	o.nodesMutex.Unlock()
+	return true
 }
 
 func TestMain(m *testing.M) {
@@ -123,7 +128,7 @@ func TestClusterMesh(t *testing.T) {
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 		RemoteClientFactory:   common.DefaultRemoteClientFactory(kvstore.Config{}),
-		NodeObserver:          nodesObserver,
+		NodeWriter:            nodesObserver,
 		RemoteIdentityWatcher: mgr,
 		ServiceMerger:         &fakeObserver{},
 		IPCache:               ipc,
