@@ -5,6 +5,7 @@ package ipam
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/netip"
 	"testing"
@@ -82,100 +83,12 @@ func Test_validateENIConfig(t *testing.T) {
 										"10.1.1.226",
 										"10.1.1.229",
 									),
-									VPC: awsTypes.AwsVPC{
-										ID:          "vpc-1",
-										PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
-										CIDRs: prefixes(
-											"10.1.0.0/16",
-											"10.2.0.0/16",
-										),
-									},
 								},
 							},
 						},
 					},
 				},
 			},
-		},
-		{
-			name: "Missing VPC Primary CIDR",
-			args: args{
-				node: &ciliumv2.CiliumNode{
-					Spec: ciliumv2.NodeSpec{
-						IPAM: ipamTypes.IPAMSpec{
-							Pool: ipamTypes.AllocationMap{
-								"10.1.1.226": ipamTypes.AllocationIP{
-									Resource: "eni-1",
-								},
-							},
-						},
-					},
-					Status: ciliumv2.NodeStatus{
-						ENI: awsTypes.ENIStatus{
-							ENIs: map[string]awsTypes.ENI{
-								"eni-1": {
-									ID: "eni-1",
-									IP: iputil.AddrFrom(netip.MustParseAddr("10.1.1.225")),
-									Subnet: awsTypes.AwsSubnet{
-										CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
-									},
-									Addresses: addrs(
-										"10.1.1.226",
-										"10.1.1.229",
-									),
-									VPC: awsTypes.AwsVPC{
-										ID: "vpc-1",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErr: true,
-			want:    "VPC Primary CIDR not set for ENI eni-1",
-		},
-		{
-			name: "VPC CIDRs contain invalid value",
-			args: args{
-				node: &ciliumv2.CiliumNode{
-					Spec: ciliumv2.NodeSpec{
-						IPAM: ipamTypes.IPAMSpec{
-							Pool: ipamTypes.AllocationMap{
-								"10.1.1.226": ipamTypes.AllocationIP{
-									Resource: "eni-1",
-								},
-							},
-						},
-					},
-					Status: ciliumv2.NodeStatus{
-						ENI: awsTypes.ENIStatus{
-							ENIs: map[string]awsTypes.ENI{
-								"eni-1": {
-									ID: "eni-1",
-									IP: iputil.AddrFrom(netip.MustParseAddr("10.1.1.225")),
-									Subnet: awsTypes.AwsSubnet{
-										CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
-									},
-									Addresses: addrs(
-										"10.1.1.226",
-										"10.1.1.229",
-									),
-									VPC: awsTypes.AwsVPC{
-										ID:          "vpc-1",
-										PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
-										CIDRs: []iputil.Prefix{
-											{},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErr: true,
-			want:    "VPC CIDR not set for ENI eni-1",
 		},
 		{
 			name: "ENI not found in status",
@@ -203,14 +116,6 @@ func Test_validateENIConfig(t *testing.T) {
 										"10.1.1.226",
 										"10.1.1.229",
 									),
-									VPC: awsTypes.AwsVPC{
-										ID:          "vpc-1",
-										PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
-										CIDRs: prefixes(
-											"10.1.0.0/16",
-											"10.2.0.0/16",
-										),
-									},
 								},
 							},
 						},
@@ -246,14 +151,6 @@ func Test_validateENIConfig(t *testing.T) {
 										"10.1.1.226",
 										"10.1.1.229",
 									),
-									VPC: awsTypes.AwsVPC{
-										ID:          "vpc-1",
-										PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
-										CIDRs: prefixes(
-											"10.1.0.0/16",
-											"10.2.0.0/16",
-										),
-									},
 								},
 							},
 						},
@@ -289,10 +186,6 @@ func TestBuildENIAllocationResult(t *testing.T) {
 			Subnet: awsTypes.AwsSubnet{
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 			},
-			VPC: awsTypes.AwsVPC{
-				PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
-				CIDRs:       prefixes("10.2.0.0/16"),
-			},
 		},
 		"eni-2": {
 			ID:  "eni-2",
@@ -304,18 +197,19 @@ func TestBuildENIAllocationResult(t *testing.T) {
 			Subnet: awsTypes.AwsSubnet{
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.3.1.0/24")),
 			},
-			VPC: awsTypes.AwsVPC{
-				PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
-				CIDRs:       prefixes("10.2.0.0/16"),
-			},
 		},
 	}
 
+	// Primary VPC CIDR first, as GetVPCIPv4CIDRs guarantees.
+	vpcCIDRs := []netip.Prefix{
+		netip.MustParsePrefix("10.1.0.0/16"),
+		netip.MustParsePrefix("10.2.0.0/16"),
+	}
 	conf := &option.DaemonConfig{}
 	logger := hivetest.Logger(t)
 
 	t.Run("secondary IP on eni-1", func(t *testing.T) {
-		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, conf, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, vpcCIDRs, conf, nil)
 		require.NoError(t, err)
 		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)
@@ -325,7 +219,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 	})
 
 	t.Run("secondary IP on eni-2", func(t *testing.T) {
-		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.3.1.20"), "", node.Status.ENI.ENIs, conf, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.3.1.20"), "", node.Status.ENI.ENIs, vpcCIDRs, conf, nil)
 		require.NoError(t, err)
 		require.Equal(t, "aa:bb:cc:dd:ee:02", result.PrimaryMAC)
 		require.Equal(t, "2", result.InterfaceNumber)
@@ -333,7 +227,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 	})
 
 	t.Run("unknown IP returns error", func(t *testing.T) {
-		_, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.99.99.99"), "", node.Status.ENI.ENIs, conf, nil)
+		_, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.99.99.99"), "", node.Status.ENI.ENIs, vpcCIDRs, conf, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unable to find ENI for IP")
 	})
@@ -343,7 +237,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 			EnableIPv4:            true,
 			IPv4NativeRoutingCIDR: netip.MustParsePrefix("10.0.0.0/8"),
 		}
-		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, confWithNative, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, vpcCIDRs, confWithNative, nil)
 		require.NoError(t, err)
 		require.Contains(t, result.CIDRs, netip.MustParsePrefix("10.0.0.0/8"))
 	})
@@ -352,7 +246,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 		confWithNative := &option.DaemonConfig{
 			IPv4NativeRoutingCIDR: netip.MustParsePrefix("10.0.0.0/8"),
 		}
-		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, confWithNative, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, vpcCIDRs, confWithNative, nil)
 		require.NoError(t, err)
 		require.NotContains(t, result.CIDRs, netip.MustParsePrefix("10.0.0.0/8"))
 	})
@@ -375,35 +269,33 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 			Subnet: awsTypes.AwsSubnet{
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 			},
-			VPC: awsTypes.AwsVPC{
-				PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
-			},
 		},
 	}
 
+	vpcCIDRs := []netip.Prefix{netip.MustParsePrefix("10.1.0.0/16")}
 	conf := &option.DaemonConfig{}
 	logger := hivetest.Logger(t)
 
 	t.Run("IP in first prefix", func(t *testing.T) {
-		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.5"), "", node.Status.ENI.ENIs, conf, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.5"), "", node.Status.ENI.ENIs, vpcCIDRs, conf, nil)
 		require.NoError(t, err)
 		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)
 	})
 
 	t.Run("IP in second prefix", func(t *testing.T) {
-		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.20"), "", node.Status.ENI.ENIs, conf, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.20"), "", node.Status.ENI.ENIs, vpcCIDRs, conf, nil)
 		require.NoError(t, err)
 		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
 	})
 
 	t.Run("IP outside all prefixes", func(t *testing.T) {
-		_, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.32"), "", node.Status.ENI.ENIs, conf, nil)
+		_, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.32"), "", node.Status.ENI.ENIs, vpcCIDRs, conf, nil)
 		require.Error(t, err)
 	})
 
 	t.Run("IP in IPv6 prefix", func(t *testing.T) {
-		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, conf, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, vpcCIDRs, conf, nil)
 		require.NoError(t, err)
 		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)
@@ -415,7 +307,7 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 			EnableIPv6:            true,
 			IPv6NativeRoutingCIDR: netip.MustParsePrefix("2001:db8::/64"),
 		}
-		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, confWithNative, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, vpcCIDRs, confWithNative, nil)
 		require.NoError(t, err)
 		require.Contains(t, result.CIDRs, netip.MustParsePrefix("2001:db8::/64"))
 	})
@@ -424,7 +316,7 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 		confWithNative := &option.DaemonConfig{
 			IPv6NativeRoutingCIDR: netip.MustParsePrefix("2001:db8::/64"),
 		}
-		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, confWithNative, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, vpcCIDRs, confWithNative, nil)
 		require.NoError(t, err)
 		require.NotContains(t, result.CIDRs, netip.MustParsePrefix("2001:db8::/64"))
 	})
@@ -441,22 +333,19 @@ func TestBuildENIAllocationResultIPMasq(t *testing.T) {
 			Subnet: awsTypes.AwsSubnet{
 				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
 			},
-			VPC: awsTypes.AwsVPC{
-				ID:          "vpc-1",
-				PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.0.0/16")),
-				CIDRs: prefixes(
-					"10.2.0.0/16",
-				),
-			},
 		},
 	}
 
+	vpcCIDRs := []netip.Prefix{
+		netip.MustParsePrefix("10.1.0.0/16"),
+		netip.MustParsePrefix("10.2.0.0/16"),
+	}
 	conf := &option.DaemonConfig{EnableIPMasqAgent: true}
 	ipMasqAgent := ipmasq.NewIPMasqAgent(hivetest.Logger(t), "", ipMasqMapDummy{})
 	require.NoError(t, ipMasqAgent.Start())
 	defer ipMasqAgent.Stop()
 
-	result, err := buildENIAllocationResult(hivetest.Logger(t), netip.MustParseAddr("10.1.1.226"), "", enis, conf, ipMasqAgent)
+	result, err := buildENIAllocationResult(hivetest.Logger(t), netip.MustParseAddr("10.1.1.226"), "", enis, vpcCIDRs, conf, ipMasqAgent)
 	require.NoError(t, err)
 	// The resulting CIDRs should contain the VPC CIDRs and the default
 	// ip-masq-agent CIDRs from pkg/ipmasq/ipmasq.go
@@ -495,12 +384,15 @@ func TestBuildENIAllocationResultIPMasqIPv6(t *testing.T) {
 		},
 	}
 
+	// IPv6 VPC CIDRs are not sourced from IMDS yet, so the VPC CIDR set is
+	// empty for an IPv6-only allocation.
+	var vpcCIDRs []netip.Prefix
 	conf := &option.DaemonConfig{EnableIPv6: true, EnableIPMasqAgent: true}
 	ipMasqAgent := ipmasq.NewIPMasqAgent(hivetest.Logger(t), "", ipMasqMapDummy{})
 	require.NoError(t, ipMasqAgent.Start())
 	defer ipMasqAgent.Stop()
 
-	result, err := buildENIAllocationResult(hivetest.Logger(t), netip.MustParseAddr("2001:db8::1"), "", enis, conf, ipMasqAgent)
+	result, err := buildENIAllocationResult(hivetest.Logger(t), netip.MustParseAddr("2001:db8::1"), "", enis, vpcCIDRs, conf, ipMasqAgent)
 	require.NoError(t, err)
 	// Only the IPv6 ip-masq-agent CIDRs should be appended; the family
 	// filter in buildENIAllocationResult must exclude the IPv4 defaults.
@@ -671,9 +563,6 @@ func TestENIMultiPoolAllocator(t *testing.T) {
 				ENIs: map[string]awsTypes.ENI{
 					"eni-1": {
 						Addresses: addrs(eniCIDR1.Addr().String(), eniCIDR2.Addr().String()),
-						VPC: awsTypes.AwsVPC{
-							PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/16")),
-						},
 					},
 				},
 			},
@@ -712,7 +601,7 @@ func TestENIMultiPoolAllocator(t *testing.T) {
 	_, err := clientset.CiliumV2().CiliumNodes().Create(t.Context(), initialNode, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	ipv4Allocator, ipv6Allocator := newENIMultiPoolAllocators(ENIMultiPoolAllocatorParams{
+	ipv4Allocator, ipv6Allocator, err := newENIMultiPoolAllocators(t.Context(), ENIMultiPoolAllocatorParams{
 		Logger:               hivetest.Logger(t),
 		IPv4Enabled:          true,
 		IPv6Enabled:          false,
@@ -722,7 +611,9 @@ func TestENIMultiPoolAllocator(t *testing.T) {
 		CNClient:             clientset.CiliumV2().CiliumNodes(),
 		JobGroup:             jg,
 		Conf:                 &option.DaemonConfig{},
+		VPCCIDRSource:        fakeVPCCIDRSource(netip.MustParsePrefix("10.0.0.0/16")),
 	})
+	require.NoError(t, err)
 	require.NotNil(t, ipv4Allocator)
 	require.NotNil(t, ipv6Allocator)
 
@@ -739,78 +630,76 @@ func TestENIMultiPoolAllocator(t *testing.T) {
 	}, 5*time.Second, 10*time.Millisecond)
 }
 
-func TestDeriveENIVpcCIDRs(t *testing.T) {
-	t.Run("returns primary VPC CIDR from first ENI", func(t *testing.T) {
-		node := &ciliumv2.CiliumNode{}
-		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
-			"eni-1": {
-				VPC: awsTypes.AwsVPC{
-					PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/16")),
-				},
-			},
-		}
-		primaryCIDR, secondaryCIDRs := deriveENIVpcCIDRs(node)
-		require.Equal(t, netip.MustParsePrefix("10.0.0.0/16"), primaryCIDR)
-		require.Empty(t, secondaryCIDRs)
+func TestENIMultiPoolAllocatorVPCCIDRSourceFailure(t *testing.T) {
+	// A VPC CIDR set that cannot be determined must fail loudly at
+	// initialization: it drives masquerade exclusion, so proceeding without it
+	// would silently SNAT cross-node pod traffic.
+	params := ENIMultiPoolAllocatorParams{
+		Logger: hivetest.Logger(t),
+		Conf:   &option.DaemonConfig{},
+	}
+
+	t.Run("no source injected", func(t *testing.T) {
+		_, _, err := newENIMultiPoolAllocators(t.Context(), params)
+		require.ErrorContains(t, err, "ensure pkg/nodediscovery/eni is imported")
 	})
 
-	t.Run("returns the secondary VPC CIDR associations", func(t *testing.T) {
-		node := &ciliumv2.CiliumNode{}
-		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
-			"eni-1": {
-				VPC: awsTypes.AwsVPC{
-					PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.128.0/19")),
-					CIDRs:       prefixes("100.64.0.0/16"),
-				},
-			},
-		}
-		primaryCIDR, secondaryCIDRs := deriveENIVpcCIDRs(node)
-		require.Equal(t, netip.MustParsePrefix("10.1.128.0/19"), primaryCIDR)
-		require.Equal(t, []netip.Prefix{netip.MustParsePrefix("100.64.0.0/16")}, secondaryCIDRs)
+	t.Run("source fails", func(t *testing.T) {
+		p := params
+		p.VPCCIDRSource = errVPCCIDRSource(errors.New("IMDS unreachable"))
+		_, _, err := newENIMultiPoolAllocators(t.Context(), p)
+		require.ErrorContains(t, err, "IMDS unreachable")
 	})
 
-	t.Run("returns zero when no ENIs", func(t *testing.T) {
-		node := &ciliumv2.CiliumNode{}
-		primaryCIDR, _ := deriveENIVpcCIDRs(node)
-		require.False(t, primaryCIDR.IsValid())
-	})
-
-	t.Run("returns zero when VPC CIDR is empty", func(t *testing.T) {
-		node := &ciliumv2.CiliumNode{}
-		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
-			"eni-1": {
-				VPC: awsTypes.AwsVPC{},
-			},
-		}
-		primaryCIDR, _ := deriveENIVpcCIDRs(node)
-		require.False(t, primaryCIDR.IsValid())
+	t.Run("source returns no CIDR", func(t *testing.T) {
+		p := params
+		p.VPCCIDRSource = fakeVPCCIDRSource()
+		_, _, err := newENIMultiPoolAllocators(t.Context(), p)
+		require.ErrorContains(t, err, "no IPv4 VPC CIDRs")
 	})
 }
 
+// fakeVPCCIDRSource returns a fixed CIDR set, primary first.
+func fakeVPCCIDRSource(cidrs ...netip.Prefix) VPCCIDRSource {
+	return func(context.Context) ([]netip.Prefix, error) {
+		return cidrs, nil
+	}
+}
+
+// errVPCCIDRSource stands in for an unreachable or misbehaving IMDS.
+func errVPCCIDRSource(err error) VPCCIDRSource {
+	return func(context.Context) ([]netip.Prefix, error) {
+		return nil, err
+	}
+}
+
 func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
-	t.Run("auto-detects VPC CIDR when not configured", func(t *testing.T) {
+	t.Run("auto-detects the primary VPC CIDR when not configured", func(t *testing.T) {
 		logger := hivetest.Logger(t)
 		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 
-		primaryCIDR := netip.MustParsePrefix("10.0.0.0/16")
+		vpcCIDRs := []netip.Prefix{
+			netip.MustParsePrefix("10.128.0.0/16"), // primary CIDR
+			netip.MustParsePrefix("10.0.0.0/16"),
+		}
 		conf := &option.DaemonConfig{}
-		require.NoError(t, autoDetectENINativeRoutingCIDR(logger, primaryCIDR, nil, localNodeStore, conf))
+		require.NoError(t, autoDetectENINativeRoutingCIDR(logger, vpcCIDRs, localNodeStore, conf))
 
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, localNode.Local.IPv4NativeRoutingCIDR)
-		require.Equal(t, "10.0.0.0/16", localNode.Local.IPv4NativeRoutingCIDR.String())
+		require.Equal(t, "10.128.0.0/16", localNode.Local.IPv4NativeRoutingCIDR.String())
 	})
 
 	t.Run("does not overwrite when already configured", func(t *testing.T) {
 		logger := hivetest.Logger(t)
 		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 
-		primaryCIDR := netip.MustParsePrefix("10.0.0.0/16")
+		vpcCIDRs := []netip.Prefix{netip.MustParsePrefix("10.0.0.0/16")}
 		conf := &option.DaemonConfig{
 			IPv4NativeRoutingCIDR: netip.MustParsePrefix("10.0.0.0/8"),
 		}
-		require.NoError(t, autoDetectENINativeRoutingCIDR(logger, primaryCIDR, nil, localNodeStore, conf))
+		require.NoError(t, autoDetectENINativeRoutingCIDR(logger, vpcCIDRs, localNodeStore, conf))
 
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
@@ -825,11 +714,11 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 		logger := hivetest.Logger(t)
 		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 
-		primaryCIDR := netip.MustParsePrefix("192.168.0.0/16")
+		vpcCIDRs := []netip.Prefix{netip.MustParsePrefix("192.168.0.0/16")}
 		conf := &option.DaemonConfig{
 			IPv4NativeRoutingCIDR: netip.MustParsePrefix("192.168.64.0/19"),
 		}
-		require.NoError(t, autoDetectENINativeRoutingCIDR(logger, primaryCIDR, nil, localNodeStore, conf))
+		require.NoError(t, autoDetectENINativeRoutingCIDR(logger, vpcCIDRs, localNodeStore, conf))
 
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
@@ -843,12 +732,14 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 		logger := hivetest.Logger(t)
 		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 
-		primaryCIDR := netip.MustParsePrefix("10.1.128.0/19")
-		secondaryCIDRs := []netip.Prefix{netip.MustParsePrefix("100.64.0.0/16")}
+		vpcCIDRs := []netip.Prefix{
+			netip.MustParsePrefix("10.1.128.0/19"),
+			netip.MustParsePrefix("100.64.0.0/16"),
+		}
 		conf := &option.DaemonConfig{
 			IPv4NativeRoutingCIDR: netip.MustParsePrefix("100.64.0.0/16"),
 		}
-		require.NoError(t, autoDetectENINativeRoutingCIDR(logger, primaryCIDR, secondaryCIDRs, localNodeStore, conf))
+		require.NoError(t, autoDetectENINativeRoutingCIDR(logger, vpcCIDRs, localNodeStore, conf))
 
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
@@ -860,11 +751,13 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 		logger := hivetest.Logger(t)
 		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 
-		primaryCIDR := netip.MustParsePrefix("10.1.128.0/19")
-		secondaryCIDRs := []netip.Prefix{netip.MustParsePrefix("100.64.0.0/16")}
+		vpcCIDRs := []netip.Prefix{
+			netip.MustParsePrefix("10.1.128.0/19"),
+			netip.MustParsePrefix("100.64.0.0/16"),
+		}
 		conf := &option.DaemonConfig{
 			IPv4NativeRoutingCIDR: netip.MustParsePrefix("192.168.0.0/16"),
 		}
-		require.Error(t, autoDetectENINativeRoutingCIDR(logger, primaryCIDR, secondaryCIDRs, localNodeStore, conf))
+		require.Error(t, autoDetectENINativeRoutingCIDR(logger, vpcCIDRs, localNodeStore, conf))
 	})
 }

@@ -69,7 +69,7 @@ func TestAllocatedIPDump(t *testing.T) {
 		NodeResource:   &resourceMock{},
 		MTUConfig:      &mtuMock,
 	})
-	ipam.ConfigureAllocator()
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
 
 	allocv4, allocv6, status := ipam.Dump()
 	require.NotEmpty(t, status)
@@ -99,7 +99,7 @@ func TestExpirationTimer(t *testing.T) {
 		NodeResource:   &resourceMock{},
 		MTUConfig:      &mtuMock,
 	})
-	ipam.ConfigureAllocator()
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
 
 	err := ipam.AllocateIP(ip, "foo", PoolDefault())
 	require.NoError(t, err)
@@ -177,7 +177,7 @@ func TestAllocateNextWithExpiration(t *testing.T) {
 		MTUConfig:      &mtuMock,
 		Metadata:       fakeMetadata,
 	})
-	ipam.ConfigureAllocator()
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
 
 	// Allocate IPs and test expiration timer. 'pool' is empty in order to test
 	// that the allocated pool is passed to StartExpirationTimer

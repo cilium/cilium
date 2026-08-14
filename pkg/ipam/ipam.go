@@ -4,6 +4,8 @@
 package ipam
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -17,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -119,7 +120,7 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 // ConfigureAllocator initializes the IPAM allocator according to the configuration.
 // As a precondition, the NodeAddressing must be fully initialized - therefore the method
 // must be called after Daemon.WaitForNodeInformation.
-func (ipam *IPAM) ConfigureAllocator() {
+func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
 	switch ipam.config.IPAMMode() {
 	case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool:
 		ipam.logger.Info(
@@ -132,7 +133,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 		if ipam.config.IPv6Enabled() {
 			prefix := ipam.nodeAddressing.IPv6().AllocationCIDR()
 			if !prefix.IsValid() {
-				logging.Fatal(ipam.logger, "Invalid IPv6 allocation CIDR")
+				return errors.New("invalid IPv6 allocation CIDR")
 			}
 			ipam.ipv6Allocator = newHostScopeAllocator(prefix)
 		}
@@ -140,7 +141,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 		if ipam.config.IPv4Enabled() {
 			prefix := ipam.nodeAddressing.IPv4().AllocationCIDR()
 			if !prefix.IsValid() {
-				logging.Fatal(ipam.logger, "Invalid IPv4 allocation CIDR")
+				return errors.New("invalid IPv4 allocation CIDR")
 			}
 			ipam.ipv4Allocator = newHostScopeAllocator(prefix)
 		}
@@ -170,7 +171,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 	case ipamOption.IPAMENI:
 		ipam.logger.Info("Initializing ENI multi-pool IPAM")
 		startENIDeviceConfigurator(ipam.logger, ipam.jg, ipam.nodeResource, ipam.mtuConfig, ipam.sysctl)
-		v4Allocator, v6Allocator := newENIMultiPoolAllocators(ENIMultiPoolAllocatorParams{
+		v4Allocator, v6Allocator, err := newENIMultiPoolAllocators(ctx, ENIMultiPoolAllocatorParams{
 			Logger:               ipam.logger,
 			IPv4Enabled:          ipam.config.IPv4Enabled(),
 			IPv6Enabled:          ipam.config.IPv6Enabled(),
@@ -181,7 +182,11 @@ func (ipam *IPAM) ConfigureAllocator() {
 			JobGroup:             ipam.jg,
 			Conf:                 ipam.config,
 			IPMasqAgent:          ipam.ipMasqAgent,
+			VPCCIDRSource:        vpcCIDRSource,
 		})
+		if err != nil {
+			return fmt.Errorf("unable to initialize ENI multi-pool IPAM: %w", err)
+		}
 		if ipam.config.IPv6Enabled() {
 			ipam.ipv6Allocator = v6Allocator
 		}
@@ -206,8 +211,10 @@ func (ipam *IPAM) ConfigureAllocator() {
 			ipam.ipv4Allocator = &noOpAllocator{}
 		}
 	default:
-		logging.Fatal(ipam.logger, fmt.Sprintf("Unknown IPAM backend %s", ipam.config.IPAMMode()))
+		return fmt.Errorf("unknown IPAM backend %s", ipam.config.IPAMMode())
 	}
+
+	return nil
 }
 
 // getIPOwner returns the owner for an IP in a particular pool or the empty

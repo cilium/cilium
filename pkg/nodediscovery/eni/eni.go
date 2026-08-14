@@ -1,28 +1,46 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-// Package eni wires the ENI-specific CiliumNode mutator (using the EC2 IMDS
-// client and the AWS SDK helpers) into pkg/nodediscovery. It is imported
-// (with a blank import) by the cilium-agent so that ENI IPAM works at
-// runtime, while keeping the AWS SDK out of non-AWS binaries (notably
-// cilium-operator-generic) which do not import this package.
+// Package eni wires the ENI-specific CiliumNode mutator and the VPC CIDR
+// source (both using the EC2 IMDS client and the AWS SDK helpers) into
+// pkg/nodediscovery and pkg/ipam respectively. It is imported (with a blank
+// import) by the cilium-agent so that ENI IPAM works at runtime, while keeping
+// the AWS SDK out of non-AWS binaries (notably cilium-operator-generic) which
+// do not import this package but do import both of those.
 package eni
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 
 	awsMetadata "github.com/cilium/cilium/pkg/aws/metadata"
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/ipam"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 )
 
 func init() {
 	nodediscovery.RegisterENIMutator(mutate)
+	ipam.RegisterVPCCIDRSource(vpcIPv4CIDRs)
+}
+
+// vpcIPv4CIDRs returns the IPv4 CIDRs of the node's VPC, primary CIDR first.
+//
+// The IMDS client is built here rather than at registration time: init() runs
+// in every binary that links this package, regardless of the configured IPAM
+// mode.
+func vpcIPv4CIDRs(ctx context.Context) ([]netip.Prefix, error) {
+	imds, err := awsMetadata.NewClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create EC2 metadata client: %w", err)
+	}
+
+	return imds.GetVPCIPv4CIDRs(ctx)
 }
 
 // mutate populates the ENI-specific fields of nodeResource using EC2 IMDS
