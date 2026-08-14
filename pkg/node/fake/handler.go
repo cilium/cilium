@@ -53,38 +53,6 @@ func NewHandler() *Handler {
 	return &Handler{Nodes: make(map[string]types.Node)}
 }
 
-func (n *Handler) Name() string {
-	return "fake-node-handler"
-}
-
-func (n *Handler) NodeAdd(newNode types.Node) error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.Nodes[newNode.Name] = newNode
-	return nil
-}
-
-func (n *Handler) NodeUpdate(oldNode, newNode types.Node) error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.Nodes[newNode.Name] = newNode
-	return nil
-}
-
-func (n *Handler) NodeDelete(node types.Node) error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	delete(n.Nodes, node.Name)
-	return nil
-}
-
-func (n *Handler) AllNodeValidateImplementation() {
-}
-
-func (n *Handler) NodeValidateImplementation(node types.Node) error {
-	return nil
-}
-
 func (n *Handler) GetNodeIP(_ uint16) string {
 	return ""
 }
