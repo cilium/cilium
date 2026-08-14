@@ -166,6 +166,7 @@ func TestRemoteClusterRun(t *testing.T) {
 
 				allocator.Close()
 			})
+			nodeDB, nodeTable := newTestNodeTable(t)
 
 			// Populate the kvstore with the appropriate KV pairs
 			for key, value := range tt.kvs {
@@ -176,7 +177,9 @@ func TestRemoteClusterRun(t *testing.T) {
 			cm := ClusterMesh{
 				conf: Configuration{
 					ServiceModeV2Config:   types.ServiceModeV2Config{ServiceModeV2: tt.serviceModeV2},
-					NodeObserver:          newNodesObserver(),
+					NodeWriter:            newNodesObserver(),
+					DB:                    nodeDB,
+					Nodes:                 nodeTable,
 					IPCache:               &ipc,
 					RemoteIdentityWatcher: allocator,
 					ClusterIDsManager:     NewClusterMeshUsedIDs(localClusterID),
@@ -253,8 +256,17 @@ func (o *fakeObserver) reset() {
 	o.deletes.Store(0)
 }
 
-func (o *fakeObserver) NodeUpdated(_ nodeTypes.Node) { o.updates.Add(1) }
-func (o *fakeObserver) NodeDeleted(_ nodeTypes.Node) { o.deletes.Add(1) }
+type fakeNodeWriter struct{ observer *fakeObserver }
+
+func (w fakeNodeWriter) Upsert(statedb.WriteTxn, *nodeTypes.Node) bool {
+	w.observer.updates.Add(1)
+	return true
+}
+
+func (w fakeNodeWriter) Delete(statedb.WriteTxn, source.Source, nodeTypes.Identity) bool {
+	w.observer.deletes.Add(1)
+	return true
+}
 
 func (o *fakeObserver) MergeExternalServiceUpdate(_ *serviceStore.ClusterService) {
 	o.updates.Add(1)
@@ -312,10 +324,13 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	t.Cleanup(allocator.Close)
 
 	var obs fakeObserver
+	nodeDB, nodeTable := newTestNodeTable(t)
 	cm := ClusterMesh{
 		conf: Configuration{
 			ServiceModeV2Config:   types.ServiceModeV2Config{ServiceModeV2: types.ServiceV2PreferLegacy},
-			NodeObserver:          &obs,
+			NodeWriter:            fakeNodeWriter{&obs},
+			DB:                    nodeDB,
+			Nodes:                 nodeTable,
 			ServiceMerger:         &obs,
 			IPCache:               &obs,
 			RemoteIdentityWatcher: allocator,
