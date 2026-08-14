@@ -495,6 +495,7 @@ func computeLoadAssignments(
 		// hints every endpoint falls into the "" bucket producing a single flat
 		// LocalityLbEndpoints with no Locality, preserving prior behaviour.
 		zoneMap := map[string][]*envoy_config_endpoint.LbEndpoint{}
+		hasZoneHints := false
 		for _, addr := range slices.Sorted(maps.Keys(bes)) {
 			be := bes[addr]
 			if numActive != 0 && be.State == loadbalancer.BackendStateTerminating {
@@ -528,6 +529,7 @@ func computeLoadAssignments(
 			zone := ""
 			if be.Zone != nil && len(be.Zone.ForZones) > 0 {
 				zone = be.Zone.Zone
+				hasZoneHints = true
 			}
 			zoneMap[zone] = append(zoneMap[zone], ep)
 		}
@@ -537,13 +539,16 @@ func computeLoadAssignments(
 			eps := zoneMap[zone]
 			lle := &envoy_config_endpoint.LocalityLbEndpoints{
 				LbEndpoints: eps,
-				// Weight proportional to endpoint count so locality-weighted LB
-				// distributes traffic correctly. A nil weight means "no load" per
-				// the Envoy proto docs, which would cause panic-mode fallback.
-				LoadBalancingWeight: wrapperspb.UInt32(uint32(len(eps))),
 			}
 			if zone != "" {
 				lle.Locality = &envoy_config_core.Locality{Zone: zone}
+			}
+			if hasZoneHints {
+				// Weight proportional to endpoint count so locality-weighted LB
+				// distributes traffic correctly across localities. Only set once
+				// zone hints are actually in play; otherwise leave unset to
+				// preserve prior (flat) behaviour.
+				lle.LoadBalancingWeight = wrapperspb.UInt32(uint32(len(eps)))
 			}
 			endpoints = append(endpoints, lle)
 		}
