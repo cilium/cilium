@@ -104,7 +104,8 @@ func TestInjectLabels(t *testing.T) {
 	// Enable policy-cidr-selects-nodes, ensure that node now has a separate identity (in the node id scope)
 	option.Config.PolicyCIDRMatchMode = []string{"nodes"}
 
-	// Insert CIDR labels for the remote nodes (this is done by the node manager, but we need to test that it goes through)
+	// Insert CIDR labels for the remote nodes. The node IPCache reconciler
+	// normally derives this metadata.
 	s.IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "node-uid-cidr", labels.GetCIDRLabels(inClusterPrefix.AsPrefix()))
 	s.IPIdentityCache.metadata.upsertLocked(inClusterPrefix2, source.CustomResource, "node-uid-cidr", labels.GetCIDRLabels(inClusterPrefix2.AsPrefix()))
 
@@ -1358,7 +1359,8 @@ func TestIPCachePodCIDREntries(t *testing.T) {
 
 	ctx := t.Context()
 
-	// This emulates the upsert of fallback pod CIDR entry emitted by node manager
+	// Emulate the fallback pod CIDR metadata emitted by the node IPCache
+	// reconciler.
 	podCIDR1 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.10.0.0/24"))
 	podCIDR2 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.20.30.40/32"))
 	s.IPIdentityCache.metadata.upsertLocked(podCIDR1, source.CustomResource, "node-1",

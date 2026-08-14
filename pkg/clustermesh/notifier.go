@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 )
 
-func nodeManagerNotifier(
+func nodeTableInitializer(
 	jg job.Group,
 	cm *ClusterMesh,
 	nodeWriter *node.NodeWriter,
@@ -23,7 +23,7 @@ func nodeManagerNotifier(
 	txn := db.WriteTxn(nodes)
 	initialized := nodeWriter.RegisterInitializer(txn, "clustermesh-nodes")
 	txn.Commit()
-	jg.Add(job.OneShot("clustermesh-nodemanager-notifier", func(ctx context.Context, _ cell.Health) error {
+	jg.Add(job.OneShot("clustermesh-node-table-initializer", func(ctx context.Context, _ cell.Health) error {
 		if cm != nil {
 			// wait for initial nodes listing from all remote clusters
 			// before allowing stale node deletion

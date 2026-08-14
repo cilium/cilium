@@ -80,5 +80,5 @@ var Cell = cell.Module(
 		}
 		return err
 	}),
-	cell.Invoke(nodeManagerNotifier),
+	cell.Invoke(nodeTableInitializer),
 )
