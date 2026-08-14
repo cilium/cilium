@@ -5,6 +5,7 @@ package ciliumendpointslice
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strconv"
 	"time"
@@ -452,29 +453,29 @@ func (c *SlimController) onIdentityDelete(cid *cilium_api_v2.CiliumIdentity) {
 	c.enqueueCESReconciliation(touchedCESs)
 }
 
-// On Pod Update, verify all the necessary fields are set.
-// We recalculate the relevant fields when updating the CES instead of
-// saving them here in case of any changes in value, to minimize the
-// number of CES updates.
-// Returns error if requires retry without pod update.
+// errSkipPodEvent is a sentinel error used by [resolvePodPlacement] when the
+// given pod event should be skipped, waiting for a subsequent update event.
+var errSkipPodEvent = errors.New("pod event skipped")
+
 // resolvePodPlacement gathers the state needed to place a pod into a CES.
-// Returns (node, cidKey, true) if the pod is placeable, or ("", nil, false)
-// if it should be skipped (empty name/namespace, host-network, no IPs,
-// unscheduled, or unresolvable labels). Errors are logged at debug level.
-func (c *SlimController) resolvePodPlacement(pod *slim_corev1.Pod) (string, *key.GlobalIdentity, bool) {
+// Returns a [errSkipPodEvent] error if the event should be skipped without
+// further processing (empty name/namespace, host-network, no IPs, unscheduled),
+// and a real error in case it is not possible to resolve the pod placement
+// (e.g., unresolvable labels).
+func (c *SlimController) resolvePodPlacement(pod *slim_corev1.Pod) (string, *key.GlobalIdentity, error) {
 	if pod.GetName() == "" || pod.GetNamespace() == "" {
-		return "", nil, false
+		return "", nil, errSkipPodEvent
 	}
 	if pod.Spec.HostNetwork {
 		// no CEP for host networking pods
-		return "", nil, false
+		return "", nil, errSkipPodEvent
 	}
 	if _, err := GetPodEndpointNetworking(pod); err != nil {
 		c.logger.Debug("could not get endpointnetworking for pod",
 			logfields.K8sPodName, pod.Name,
 			logfields.Error, err)
 		// When pod is assigned IPs or scheduled, we will receive a new update.
-		return "", nil, false
+		return "", nil, errSkipPodEvent
 	}
 	node, err := getNodeNameForPod(pod)
 	if err != nil {
@@ -482,23 +483,33 @@ func (c *SlimController) resolvePodPlacement(pod *slim_corev1.Pod) (string, *key
 			logfields.K8sPodName, pod.Name,
 			logfields.Error, err)
 		// When pod is scheduled, we will receive a new update.
-		return "", nil, false
+		return "", nil, errSkipPodEvent
 	}
 	cidKey, err := getPodCIDKey(pod, c.logger, c.reconciler.namespaceStore)
 	if err != nil {
 		c.logger.Debug("could not get labels for pod",
 			logfields.K8sPodName, pod.Name,
 			logfields.Error, err)
-		return "", nil, false
+		return "", nil, err
 	}
-	return node, cidKey, true
+	return node, cidKey, nil
 }
 
+// On Pod Update, verify all the necessary fields are set.
+// We recalculate the relevant fields when updating the CES instead of
+// saving them here in case of any changes in value, to minimize the
+// number of CES updates.
+// Returns error if requires retry without pod update.
 func (c *SlimController) onPodUpdate(pod *slim_corev1.Pod) error {
-	node, cidKey, ok := c.resolvePodPlacement(pod)
-	if !ok {
-		return nil
+	node, cidKey, err := c.resolvePodPlacement(pod)
+	if err != nil {
+		if errors.Is(err, errSkipPodEvent) {
+			return nil
+		}
+
+		return err
 	}
+
 	touchedCESs := c.manager.AddPodMapping(pod, node, cidKey)
 	c.enqueueCESReconciliation(touchedCESs)
 	return nil
@@ -646,7 +657,7 @@ podLoop:
 		switch event.Kind {
 		case resource.Upsert:
 			pod := event.Object
-			if _, _, ok := c.resolvePodPlacement(pod); ok {
+			if _, _, err := c.resolvePodPlacement(pod); err == nil {
 				livepods[GetCEPNameFromPod(pod)] = pod
 			}
 		case resource.Delete:
