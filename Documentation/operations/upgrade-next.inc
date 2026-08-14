@@ -48,6 +48,16 @@ Informational Notes
   Service name prefix. EndpointSlices generated from Pods by the
   kube-controller-manager are unaffected.
 
+* The following ``CiliumNode`` fields are deprecated and will be removed in a
+  future release:
+
+  * ``status.eni.enis[].vpc.id``, superseded by ``spec.eni.vpc-id``
+  * ``status.eni.enis[].vpc.primary-cidr``, now read from IMDS by the agent
+  * ``status.eni.enis[].vpc.cidrs``, now read from IMDS by the agent
+
+  The operator still populates them, so agent and operator rolling upgrades
+  work in either order.
+
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~
 
