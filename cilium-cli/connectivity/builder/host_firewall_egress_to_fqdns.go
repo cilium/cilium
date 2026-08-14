@@ -23,6 +23,7 @@ func (t hostFirewallEgressToFqdns) build(ct *check.ConnectivityTest, templates m
 		WithCondition(differentExternalTargets).
 		WithFeatureRequirements(
 			features.RequireDisabled(features.EndpointRoutes), // currently broken when proxying to in-cluster endpoints, see #45957
+			features.RequireDisabled(features.RHEL),           // currently broken, see #47921
 			features.RequireEnabled(features.L7Proxy),
 			features.RequireEnabled(features.HostFirewall)).
 		WithCiliumClusterwidePolicy(templates["hostFirewallEgressToFQDNsPolicyYAML"]).
