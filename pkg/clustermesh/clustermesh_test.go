@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -46,20 +48,27 @@ func newNodesObserver() *testObserver {
 	return &testObserver{nodes: make(map[string]*nodeTypes.Node)}
 }
 
-func (o *testObserver) Upsert(n *node.Node) bool {
-	no := n.Node
+func (o *testObserver) Upsert(_ statedb.WriteTxn, n *nodeTypes.Node) bool {
+	no := *n
 	o.nodesMutex.Lock()
 	o.nodes[no.Fullname()] = &no
 	o.nodesMutex.Unlock()
 	return true
 }
 
-func (o *testObserver) Delete(n *node.Node) bool {
-	no := n.Node
+func (o *testObserver) Delete(_ statedb.WriteTxn, _ source.Source, identity nodeTypes.Identity) bool {
 	o.nodesMutex.Lock()
-	delete(o.nodes, no.Fullname())
+	delete(o.nodes, identity.String())
 	o.nodesMutex.Unlock()
 	return true
+}
+
+func newTestNodeTable(t testing.TB) (*statedb.DB, statedb.Table[*node.Node]) {
+	t.Helper()
+	db := statedb.New()
+	nodes, err := node.NewNodeTable(db)
+	require.NoError(t, err)
+	return db, nodes
 }
 
 func TestMain(m *testing.M) {
@@ -124,11 +133,14 @@ func TestClusterMesh(t *testing.T) {
 	usedIDs := NewClusterMeshUsedIDs(localClusterID)
 	storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 	nodesObserver := newNodesObserver()
+	nodeDB, nodeTable := newTestNodeTable(t)
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 		RemoteClientFactory:   common.DefaultRemoteClientFactory(kvstore.Config{}),
 		NodeWriter:            nodesObserver,
+		DB:                    nodeDB,
+		Nodes:                 nodeTable,
 		RemoteIdentityWatcher: mgr,
 		ServiceMerger:         &fakeObserver{},
 		IPCache:               ipc,

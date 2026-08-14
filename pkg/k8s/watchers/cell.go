@@ -7,10 +7,12 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -47,6 +49,9 @@ type k8sWatcherParams struct {
 	ResourceGroupsFn  ResourceGroupFunc
 
 	KVStoreClient kvstore.Client
+	NodeWriter    *node.NodeWriter
+	DB            *statedb.DB
+	Nodes         statedb.Table[*node.Node]
 }
 
 func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
@@ -63,5 +68,8 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.K8sAPIGroups,
 		params.AgentConfig,
 		params.KVStoreClient,
+		params.NodeWriter,
+		params.DB,
+		params.Nodes,
 	)
 }

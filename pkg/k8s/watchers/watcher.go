@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 
+	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/runtime"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -25,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -53,10 +56,6 @@ type endpointManager interface {
 	GetEndpointsByPodName(string) []*endpoint.Endpoint
 	WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error
 	UpdatePolicyMaps(context.Context) error
-}
-
-type nodeManager interface {
-	NodeSync()
 }
 
 type policyManager interface {
@@ -130,7 +129,23 @@ func newWatcher(
 	k8sAPIGroups *synced.APIGroups,
 	cfg WatcherConfiguration,
 	kcfg interface{ IsEnabled() bool },
+	nodeWriter *node.NodeWriter,
+	db *statedb.DB,
+	nodes statedb.Table[*node.Node],
 ) *K8sWatcher {
+	resourceGroups, _ := resourceGroupsFn(logger, cfg)
+	if k8sCiliumNodeWatcher != nil && nodeWriter != nil &&
+		clientset.IsEnabled() && !kcfg.IsEnabled() &&
+		slices.Contains(resourceGroups, k8sAPIGroupCiliumNodeV2) {
+		txn := db.WriteTxn(nodes)
+		k8sCiliumNodeWatcher.nodesInitialized = nodeWriter.RegisterInitializer(
+			txn,
+			"k8s-cilium-nodes",
+		)
+		txn.Commit()
+	} else if k8sCiliumNodeWatcher != nil {
+		k8sCiliumNodeWatcher.nodesInitialized = func(statedb.WriteTxn) {}
+	}
 	return &K8sWatcher{
 		logger:                    logger,
 		resourceGroupsFn:          resourceGroupsFn,

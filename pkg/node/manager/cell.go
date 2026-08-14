@@ -4,14 +4,8 @@
 package manager
 
 import (
-	"log/slog"
-
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
-	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -21,9 +15,7 @@ import (
 var Cell = cell.Module(
 	"node-manager",
 	"Manages the collection of Cilium nodes",
-	cell.Provide(newAllNodeManager),
 	cell.Provide(newNodeConfigNotifier),
-	metrics.Metric(NewNodeMetrics),
 )
 
 // Notifier is the interface the wraps Subscribe and Unsubscribe. An
@@ -58,31 +50,4 @@ type NodeManager interface {
 	NodeSync()
 	// MeshNodeSync is called when the store completes the initial nodes listing including meshed nodes
 	MeshNodeSync()
-}
-
-func newAllNodeManager(in struct {
-	cell.In
-	Logger      *slog.Logger
-	Lifecycle   cell.Lifecycle
-	NodeMetrics *nodeMetrics
-	Health      cell.Health
-	JobGroup    job.Group
-	DB          *statedb.DB
-	Devices     statedb.Table[*tables.Device]
-	Nodes       statedb.Table[*node.Node]
-},
-) (NodeManager, error) {
-
-	// We want to restrict access to RWTable[*Node] until the
-	// migration away from NodeManager is complete (#41744),
-	// hence we only have access to Table[*Node] and cast it
-	// here.
-	nodeTable := in.Nodes.(statedb.RWTable[*node.Node])
-
-	mngr, err := New(in.Logger, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, nodeTable)
-	if err != nil {
-		return nil, err
-	}
-	in.Lifecycle.Append(mngr)
-	return mngr, nil
 }

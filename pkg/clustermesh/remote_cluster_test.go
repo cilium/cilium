@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -166,6 +166,7 @@ func TestRemoteClusterRun(t *testing.T) {
 
 				allocator.Close()
 			})
+			nodeDB, nodeTable := newTestNodeTable(t)
 
 			// Populate the kvstore with the appropriate KV pairs
 			for key, value := range tt.kvs {
@@ -177,6 +178,8 @@ func TestRemoteClusterRun(t *testing.T) {
 				conf: Configuration{
 					ServiceModeV2Config:   types.ServiceModeV2Config{ServiceModeV2: tt.serviceModeV2},
 					NodeWriter:            newNodesObserver(),
+					DB:                    nodeDB,
+					Nodes:                 nodeTable,
 					IPCache:               &ipc,
 					RemoteIdentityWatcher: allocator,
 					ClusterIDsManager:     NewClusterMeshUsedIDs(localClusterID),
@@ -255,12 +258,12 @@ func (o *fakeObserver) reset() {
 
 type fakeNodeWriter struct{ observer *fakeObserver }
 
-func (w fakeNodeWriter) Upsert(*node.Node) bool {
+func (w fakeNodeWriter) Upsert(statedb.WriteTxn, *nodeTypes.Node) bool {
 	w.observer.updates.Add(1)
 	return true
 }
 
-func (w fakeNodeWriter) Delete(*node.Node) bool {
+func (w fakeNodeWriter) Delete(statedb.WriteTxn, source.Source, nodeTypes.Identity) bool {
 	w.observer.deletes.Add(1)
 	return true
 }
@@ -321,10 +324,13 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	t.Cleanup(allocator.Close)
 
 	var obs fakeObserver
+	nodeDB, nodeTable := newTestNodeTable(t)
 	cm := ClusterMesh{
 		conf: Configuration{
 			ServiceModeV2Config:   types.ServiceModeV2Config{ServiceModeV2: types.ServiceV2PreferLegacy},
 			NodeWriter:            fakeNodeWriter{&obs},
+			DB:                    nodeDB,
+			Nodes:                 nodeTable,
 			ServiceMerger:         &obs,
 			IPCache:               &obs,
 			RemoteIdentityWatcher: allocator,

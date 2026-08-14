@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -27,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -52,6 +54,8 @@ type Configuration struct {
 
 	// NodeObserver reacts to node events.
 	NodeWriter nodeStore.Writer
+	DB         *statedb.DB
+	Nodes      statedb.Table[*node.Node]
 
 	// RemoteIdentityWatcher provides identities that have been allocated on a
 	// remote cluster.
@@ -187,7 +191,12 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 			nodeStore.NameValidator(),
 			nodeStore.ClusterIDValidator(&rc.clusterID),
 		),
-		nodeStore.NewNodeObserver(cm.conf.NodeWriter, source.ClusterMesh),
+		nodeStore.NewNodeObserver(
+			cm.conf.DB,
+			cm.conf.Nodes,
+			cm.conf.NodeWriter,
+			source.ClusterMesh,
+		),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.nodes) }),
 		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(rc.name)),
 	)

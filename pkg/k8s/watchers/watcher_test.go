@@ -52,6 +52,9 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 		nil,
 		&fakeK8sWatcherConfiguration{},
 		&fakeKVStoreConfig{},
+		nil,
+		nil,
+		nil,
 	)
 
 	// ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

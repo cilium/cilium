@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -103,19 +105,24 @@ func ValidatingKeyCreator(validators ...nodeValidator) store.KeyCreator {
 type NodeObserver struct {
 	writer Writer
 	source source.Source
+	db     *statedb.DB
+	nodes  statedb.Table[*node.Node]
 }
 
 // NewNodeObserver returns a new NodeObserver associated with the specified
 // node writer.
-func NewNodeObserver(writer Writer, source source.Source) *NodeObserver {
-	return &NodeObserver{writer: writer, source: source}
+func NewNodeObserver(db *statedb.DB, nodes statedb.Table[*node.Node], writer Writer, source source.Source) *NodeObserver {
+	return &NodeObserver{writer: writer, source: source, db: db, nodes: nodes}
 }
 
 func (o *NodeObserver) OnUpdate(k store.Key) {
 	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = o.source
-		o.writer.Upsert(&node.Node{Node: *nodeCopy})
+		txn := o.db.WriteTxn(o.nodes)
+		defer txn.Abort()
+		o.writer.Upsert(txn, nodeCopy)
+		txn.Commit()
 	}
 }
 
@@ -123,19 +130,17 @@ func (o *NodeObserver) OnDelete(k store.NamedKey) {
 	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = o.source
-		o.writer.Delete(&node.Node{Node: *nodeCopy})
+		txn := o.db.WriteTxn(o.nodes)
+		defer txn.Abort()
+		o.writer.Delete(txn, nodeCopy.Source, nodeCopy.Identity())
+		txn.Commit()
 	}
 }
 
 // Writer is the node table mutation interface used by store observers.
 type Writer interface {
-	Upsert(*node.Node) bool
-	Delete(*node.Node) bool
-}
-
-type NodeSyncer interface {
-	// NodeSync is called when the store completes the initial nodes listing
-	NodeSync()
+	Upsert(statedb.WriteTxn, *nodeTypes.Node) bool
+	Delete(statedb.WriteTxn, source.Source, nodeTypes.Identity) bool
 }
 
 // NodeRegistrar is a wrapper around store.SharedStore.
@@ -144,7 +149,7 @@ type NodeRegistrar struct {
 }
 
 // RegisterNode registers the local node in the cluster.
-func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, client kvstore.Client, n *nodeTypes.Node, writer Writer, syncer NodeSyncer) error {
+func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, client kvstore.Client, n *nodeTypes.Node, db *statedb.DB, nodes statedb.Table[*node.Node], writer Writer, initialized func(statedb.WriteTxn)) error {
 	if !client.IsEnabled() {
 		return nil
 	}
@@ -157,7 +162,7 @@ func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, 
 		KeyCreator:              ValidatingKeyCreator(),
 		SynchronizationInterval: 30 * time.Minute,
 		SharedKeyDeleteDelay:    defaults.NodeDeleteDelay,
-		Observer:                NewNodeObserver(writer, source.KVStore),
+		Observer:                NewNodeObserver(db, nodes, writer, source.KVStore),
 	})
 	if err != nil {
 		return err
@@ -171,7 +176,9 @@ func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, 
 
 	nr.SharedStore = nodeStore
 
-	syncer.NodeSync()
+	txn := db.WriteTxn(nodes)
+	initialized(txn)
+	txn.Commit()
 
 	return nil
 }
