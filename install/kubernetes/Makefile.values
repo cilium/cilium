@@ -31,6 +31,11 @@ else
 endif
 
 # renovate: datasource=docker
+export BUSYBOX_REPO?=docker.io/library/busybox
+export BUSYBOX_VERSION?=1.38.0
+export BUSYBOX_DIGEST?=sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+
+# renovate: datasource=docker
 export CERTGEN_REPO?=quay.io/cilium/certgen
 export CERTGEN_VERSION?=v0.4.11
 export CERTGEN_DIGEST?=sha256:14d29a176fc96d15b154559ce1a5baf01367c10baabfa7bb8028b72f087a56f0
@@ -54,11 +59,6 @@ export HUBBLE_UI_BACKEND_DIGEST?=sha256:fac0c300ae119274edca11fd89b1ad23c788792d
 export HUBBLE_UI_FRONTEND_REPO?=quay.io/cilium/hubble-ui
 export HUBBLE_UI_FRONTEND_VERSION?=v0.13.5
 export HUBBLE_UI_FRONTEND_DIGEST?=sha256:f7d514fc54d784ed6df9d58cf0e97648b143f92b766dd1780ed3fc845bd4c516
-
-# renovate: datasource=docker
-export SPIRE_INIT_REPO?=docker.io/library/busybox
-export SPIRE_INIT_VERSION?=1.38.0
-export SPIRE_INIT_DIGEST?=sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
 
 # renovate: datasource=docker
 export SPIRE_SERVER_REPO?=ghcr.io/spiffe/spire-server
