@@ -40,9 +40,10 @@ type PFLog struct {
 }
 
 func (pf *PFLog) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
-	if len(data) < 60 {
+	// Direction is read from data[60], so 61 bytes are required.
+	if len(data) < 61 {
 		df.SetTruncated()
-		return errors.New("PFLog data less than 60 bytes")
+		return errors.New("PFLog data less than 61 bytes")
 	}
 	pf.Length = data[0]
 	pf.Family = ProtocolFamily(data[1])

@@ -102,6 +102,18 @@ type TLSHandshakeRecord struct {
 }
 
 func (t *TLSHandshakeRecordClientHello) decodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// The record framing hands us a slice whose length is the TLS record body
+	// but whose capacity may span the rest of the packet buffer. The original
+	// parser read up to that capacity; re-slice to it so the bounds checks
+	// below reflect the bytes actually available and can never read past the
+	// underlying buffer (which is what caused the panics this guards against).
+	data = data[:cap(data)]
+
+	// Fixed prefix: type(1) + length(3) + version(2) + random(32) + sessionIDLen(1).
+	if len(data) < 39 {
+		df.SetTruncated()
+		return errors.New("TLS ClientHello too short")
+	}
 	t.HandshakeType = data[0]
 	d := make([]byte, 4)
 	for k, v := range data[1:4] {
@@ -111,15 +123,42 @@ func (t *TLSHandshakeRecordClientHello) decodeFromBytes(data []byte, df gopacket
 	t.ProtocolVersion = TLSVersion(binary.BigEndian.Uint16(data[4:6]))
 	t.Random = data[6:38]
 	t.SessionIDLength = data[38]
-	t.SessionID = data[39 : 39+t.SessionIDLength]
-	t.CipherSuitsLength = binary.BigEndian.Uint16(data[39+t.SessionIDLength : 39+t.SessionIDLength+2])
-	t.CipherSuits = data[39+t.SessionIDLength+2 : (39 + uint16(t.SessionIDLength) + 2 + t.CipherSuitsLength)]
-	t.CompressionMethodsLength = data[(39 + uint16(t.SessionIDLength) + 2 + t.CipherSuitsLength)]
-	t.CompressionMethods = data[(39+uint16(t.SessionIDLength)+2+t.CipherSuitsLength)+1 : (39+uint16(t.SessionIDLength)+2+t.CipherSuitsLength)+1+uint16(t.CompressionMethodsLength)]
-	t.ExtensionsLength = binary.BigEndian.Uint16(data[(39+uint16(t.SessionIDLength)+2+t.CipherSuitsLength)+1+uint16(t.CompressionMethodsLength) : (39+uint16(t.SessionIDLength)+2+t.CipherSuitsLength)+1+uint16(t.CompressionMethodsLength)+2])
+
+	// All subsequent offsets are computed in int to avoid uint16 overflow,
+	// and each variable-length field is bounds-checked before it is read.
+	pos := 39 + int(t.SessionIDLength)
+	if len(data) < pos+2 {
+		df.SetTruncated()
+		return errors.New("TLS ClientHello truncated in session ID")
+	}
+	t.SessionID = data[39:pos]
+	t.CipherSuitsLength = binary.BigEndian.Uint16(data[pos : pos+2])
+	pos += 2
+
+	if len(data) < pos+int(t.CipherSuitsLength)+1 {
+		df.SetTruncated()
+		return errors.New("TLS ClientHello truncated in cipher suites")
+	}
+	t.CipherSuits = data[pos : pos+int(t.CipherSuitsLength)]
+	pos += int(t.CipherSuitsLength)
+	t.CompressionMethodsLength = data[pos]
+	pos++
+
+	if len(data) < pos+int(t.CompressionMethodsLength)+2 {
+		df.SetTruncated()
+		return errors.New("TLS ClientHello truncated in compression methods")
+	}
+	t.CompressionMethods = data[pos : pos+int(t.CompressionMethodsLength)]
+	pos += int(t.CompressionMethodsLength)
+	t.ExtensionsLength = binary.BigEndian.Uint16(data[pos : pos+2])
+	pos += 2
 
 	// extract extension data
-	data = data[((39 + uint16(t.SessionIDLength) + 2 + t.CipherSuitsLength) + 1 + uint16(t.CompressionMethodsLength) + 2) : ((39+uint16(t.SessionIDLength)+2+t.CipherSuitsLength)+1+uint16(t.CompressionMethodsLength)+2)+t.ExtensionsLength]
+	if len(data) < pos+int(t.ExtensionsLength) {
+		df.SetTruncated()
+		return errors.New("TLS ClientHello truncated in extensions")
+	}
+	data = data[pos : pos+int(t.ExtensionsLength)]
 	t.Extensions = data
 	for len(data) > 0 {
 		if len(data) < 4 {
@@ -193,10 +232,14 @@ func (t *TLSHandshakeRecord) decodeFromBytes(h TLSRecordHeader, data []byte, df 
 	if t.isEncryptedHandshakeMessage(h, data) {
 		return nil
 	}
+	if len(data) < 1 {
+		df.SetTruncated()
+		return errors.New("TLS handshake record too short")
+	}
 	handshakeType := data[0]
 	switch handshakeType {
 	case TLSHandshakeClientHello:
-		t.ClientHello.decodeFromBytes(data, df)
+		return t.ClientHello.decodeFromBytes(data, df)
 	case TLSHandshakeClientKeyExchange:
 		t.ClientKeyChange.decodeFromBytes(data, df)
 	default:

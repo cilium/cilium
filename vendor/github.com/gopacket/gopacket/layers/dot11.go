@@ -1631,6 +1631,10 @@ func (m *Dot11InformationElement) DecodeFromBytes(data []byte, df gopacket.Decod
 		}
 		m.Info = data[offset+4 : offset+int(m.Length)]
 	} else if m.ID == 255 {
+		if len(data) < offset+1 {
+			df.SetTruncated()
+			return fmt.Errorf("extension element size < %d", offset+1)
+		}
 		m.ExtensionID = Dot11InformationElementExtId(data[offset])
 		if err := checkOffsetLength(offset+1, offset+int(m.Length), &df); err != nil {
 			return err

@@ -8,6 +8,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/gopacket/gopacket"
@@ -71,6 +72,10 @@ func (c *EthernetCTPReply) LayerType() gopacket.LayerType {
 func (c *EthernetCTPReply) Payload() []byte { return c.Data }
 
 func decodeEthernetCTP(data []byte, p gopacket.PacketBuilder) error {
+	if len(data) < 2 {
+		p.SetTruncated()
+		return errors.New("EthernetCTP packet too small")
+	}
 	c := &EthernetCTP{
 		SkipCount: binary.LittleEndian.Uint16(data[:2]),
 		BaseLayer: BaseLayer{data[:2], data[2:]},
@@ -85,9 +90,17 @@ func decodeEthernetCTP(data []byte, p gopacket.PacketBuilder) error {
 // decodeEthernetCTPFromFunctionType reads in the first 2 bytes to determine the EthernetCTP
 // layer type to decode next, then decodes based on that.
 func decodeEthernetCTPFromFunctionType(data []byte, p gopacket.PacketBuilder) error {
+	if len(data) < 2 {
+		p.SetTruncated()
+		return errors.New("EthernetCTP function type too small")
+	}
 	function := EthernetCTPFunction(binary.LittleEndian.Uint16(data[:2]))
 	switch function {
 	case EthernetCTPFunctionReply:
+		if len(data) < 4 {
+			p.SetTruncated()
+			return errors.New("EthernetCTP reply too small")
+		}
 		reply := &EthernetCTPReply{
 			Function:      function,
 			ReceiptNumber: binary.LittleEndian.Uint16(data[2:4]),
@@ -98,6 +111,10 @@ func decodeEthernetCTPFromFunctionType(data []byte, p gopacket.PacketBuilder) er
 		p.SetApplicationLayer(reply)
 		return nil
 	case EthernetCTPFunctionForwardData:
+		if len(data) < 8 {
+			p.SetTruncated()
+			return errors.New("EthernetCTP forward data too small")
+		}
 		forward := &EthernetCTPForwardData{
 			Function:       function,
 			ForwardAddress: data[2:8],

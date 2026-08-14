@@ -48,7 +48,7 @@ func (s *SpecValidator) validateDubiousRefs() *Result {
 		// Rule 1: absolute local reference escaping the base path.
 		if refPath, isLocalAbs := absoluteLocalRefPath(r, u); isLocalAbs {
 			if !hasBase || !isBeneathBase(refPath, baseDir) {
-				res.AddWarnings(dubiousAbsoluteRefMsg(r.String()))
+				res.addWarningsAt(s.refLocations.at(r.String()), dubiousAbsoluteRefMsg(r.String()))
 			}
 			continue
 		}

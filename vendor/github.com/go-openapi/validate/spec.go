@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/go-openapi/analysis"
@@ -48,13 +49,15 @@ func Spec(doc *loads.Document, formats strfmt.Registry, options ...Option) error
 
 // SpecValidator validates a swagger 2.0 spec.
 type SpecValidator struct {
-	schema        *spec.Schema // swagger 2.0 schema
-	spec          *loads.Document
-	analyzer      *analysis.Spec
-	expanded      *loads.Document
-	KnownFormats  strfmt.Registry
-	Options       Opts // validation options
-	schemaOptions *SchemaValidatorOptions
+	schema         *spec.Schema // swagger 2.0 schema
+	spec           *loads.Document
+	analyzer       *analysis.Spec
+	expanded       *loads.Document
+	refLocations   refLocations
+	paramLocations paramLocations
+	KnownFormats   strfmt.Registry
+	Options        Opts // validation options
+	schemaOptions  *SchemaValidatorOptions
 }
 
 // NewSpecValidator creates a new swagger spec validator instance.
@@ -98,6 +101,12 @@ func (s *SpecValidator) Validate(data any) (*Result, *Result) {
 	}
 	s.spec = sd
 	s.analyzer = analysis.New(sd.Spec())
+	// where each $ref sits, as authored: refs are reported against the
+	// unexpanded document, before expansion flattens them away
+	s.refLocations = newRefLocations(s.analyzer)
+	// where each operation declares its parameters: the document addresses
+	// them by index, and expansion loses that
+	s.paramLocations = newParamLocations(sd.Spec())
 
 	// Raw spec unmarshalling errors
 	var obj any
@@ -111,11 +120,13 @@ func (s *SpecValidator) Validate(data any) (*Result, *Result) {
 		// errs holds all errors and warnings,
 		// warnings only warnings
 		errs.MergeAsWarnings(warnings)
-		warnings.AddErrors(errs.Warnings...)
+		// reported as errors of the warnings-only result, but keeping the
+		// location each was recorded with
+		warnings.carryErrors(errs.Warnings, errs.warningLocations)
 	}()
 
 	// Swagger schema validator
-	schv := newSchemaValidator(s.schema, nil, "", s.KnownFormats, s.schemaOptions)
+	schv := newSchemaValidator(s.schema, nil, rootPath(), s.KnownFormats, s.schemaOptions)
 	errs.Merge(schv.Validate(obj)) // error -
 	// There may be a point in continuing to try and determine more accurate errors
 	if !s.Options.ContinueOnErrors && errs.HasErrors() {
@@ -170,21 +181,21 @@ func (s *SpecValidator) validateNonEmptyPathParamNames() *Result {
 	res := pools.poolOfResults.BorrowResult()
 	if s.spec.Spec().Paths == nil {
 		// There is no Paths object: error
-		res.AddErrors(noValidPathMsg())
+		res.addErrorsAt(newPathSegments(swaggerPaths), noValidPathMsg())
 
 		return res
 	}
 
 	if s.spec.Spec().Paths.Paths == nil {
 		// Paths may be empty: warning
-		res.AddWarnings(noValidPathMsg())
+		res.addWarningsAt(newPathSegments(swaggerPaths), noValidPathMsg())
 
 		return res
 	}
 
 	for k := range s.spec.Spec().Paths.Paths {
 		if strings.Contains(k, "{}") {
-			res.AddErrors(emptyPathParameterMsg(k))
+			res.addErrorsAt(newPathSegments(swaggerPaths, k), emptyPathParameterMsg(k))
 		}
 	}
 
@@ -238,7 +249,7 @@ func (s *SpecValidator) validateDuplicatePropertyNames() *Result {
 			res.Merge(rec)
 		}
 		if len(ancs) > 0 {
-			res.AddErrors(circularAncestryDefinitionMsg(k, ancs))
+			res.addErrorsAt(newPathSegments(swaggerDefinitions, k), circularAncestryDefinitionMsg(k, ancs))
 			return res
 		}
 
@@ -252,7 +263,7 @@ func (s *SpecValidator) validateDuplicatePropertyNames() *Result {
 			for _, v := range dups {
 				pns = append(pns, v.Definition+"."+v.Name)
 			}
-			res.AddErrors(duplicatePropertiesMsg(k, pns))
+			res.addErrorsAt(newPathSegments(swaggerDefinitions, k), duplicatePropertiesMsg(k, pns))
 		}
 
 	}
@@ -367,7 +378,7 @@ func (s *SpecValidator) validateItems() *Result {
 			for _, param := range paramHelp.safeExpandedParamsFor(path, method, op.ID, res, s) {
 
 				if param.TypeName() == arrayType && param.ItemsTypeName() == "" {
-					res.AddErrors(arrayInParamRequiresItemsMsg(param.Name, op.ID))
+					res.addErrorsAt(s.parameterPath(path, method, param.In, param.Name), arrayInParamRequiresItemsMsg(param.Name, op.ID))
 					continue
 				}
 				if param.In != swaggerBody {
@@ -375,7 +386,7 @@ func (s *SpecValidator) validateItems() *Result {
 						items := param.Items
 						for items.TypeName() == arrayType {
 							if items.ItemsTypeName() == "" {
-								res.AddErrors(arrayInParamRequiresItemsMsg(param.Name, op.ID))
+								res.addErrorsAt(s.parameterPath(path, method, param.In, param.Name), arrayInParamRequiresItemsMsg(param.Name, op.ID))
 								break
 							}
 							items = items.Items
@@ -384,32 +395,38 @@ func (s *SpecValidator) validateItems() *Result {
 				} else {
 					// In: body
 					if param.Schema != nil {
-						res.Merge(s.validateSchemaItems(*param.Schema, fmt.Sprintf("body param %q", param.Name), op.ID))
+						res.Merge(s.validateSchemaItems(*param.Schema, s.parameterPath(path, method, param.In, param.Name).child(jsonSchema),
+							fmt.Sprintf("body param %q", param.Name), op.ID))
 					}
 				}
 			}
 
-			var responses []spec.Response
+			type codedResponse struct {
+				code string
+				resp spec.Response
+			}
+			var responses []codedResponse
 			if op.Responses != nil {
 				if op.Responses.Default != nil {
-					responses = append(responses, *op.Responses.Default)
+					responses = append(responses, codedResponse{code: jsonDefault, resp: *op.Responses.Default})
 				}
 				if op.Responses.StatusCodeResponses != nil {
-					for _, v := range op.Responses.StatusCodeResponses {
-						responses = append(responses, v)
+					for code, v := range op.Responses.StatusCodeResponses {
+						responses = append(responses, codedResponse{code: strconv.Itoa(code), resp: v})
 					}
 				}
 			}
 
 			for _, resp := range responses {
+				at := responsePath(path, method, resp.code)
 				// Response headers with array
-				for hn, hv := range resp.Headers {
+				for hn, hv := range resp.resp.Headers {
 					if hv.TypeName() == arrayType && hv.ItemsTypeName() == "" {
-						res.AddErrors(arrayInHeaderRequiresItemsMsg(hn, op.ID))
+						res.addErrorsAt(at.children(swaggerHeaders, hn), arrayInHeaderRequiresItemsMsg(hn, op.ID))
 					}
 				}
-				if resp.Schema != nil {
-					res.Merge(s.validateSchemaItems(*resp.Schema, "response body", op.ID))
+				if resp.resp.Schema != nil {
+					res.Merge(s.validateSchemaItems(*resp.resp.Schema, at.child(jsonSchema), "response body", op.ID))
 				}
 			}
 		}
@@ -418,24 +435,24 @@ func (s *SpecValidator) validateItems() *Result {
 }
 
 // Verifies constraints on array type.
-func (s *SpecValidator) validateSchemaItems(schema spec.Schema, prefix, opID string) *Result {
+func (s *SpecValidator) validateSchemaItems(schema spec.Schema, at pathSegments, prefix, opID string) *Result {
 	res := pools.poolOfResults.BorrowResult()
 	if !schema.Type.Contains(arrayType) {
 		return res
 	}
 
 	if schema.Items == nil || schema.Items.Len() == 0 {
-		res.AddErrors(arrayRequiresItemsMsg(prefix, opID))
+		res.addErrorsAt(at, arrayRequiresItemsMsg(prefix, opID))
 		return res
 	}
 
 	if schema.Items.Schema != nil {
 		schema = *schema.Items.Schema
 		if _, err := compileRegexp(schema.Pattern); err != nil {
-			res.AddErrors(invalidItemsPatternMsg(prefix, opID, schema.Pattern))
+			res.addErrorsAt(at, invalidItemsPatternMsg(prefix, opID, schema.Pattern))
 		}
 
-		res.Merge(s.validateSchemaItems(schema, prefix, opID))
+		res.Merge(s.validateSchemaItems(schema, at.child(jsonItems), prefix, opID))
 	}
 	return res
 }
@@ -453,7 +470,7 @@ func (s *SpecValidator) validatePathParamPresence(path string, fromPath, fromOpe
 			}
 		}
 		if !matched {
-			res.AddErrors(noParameterInPathMsg(l))
+			res.addErrorsAt(newPathSegments(swaggerPaths, l), noParameterInPathMsg(l))
 		}
 	}
 
@@ -463,7 +480,7 @@ func (s *SpecValidator) validatePathParamPresence(path string, fromPath, fromOpe
 			matched = true
 		}
 		if !matched {
-			res.AddErrors(pathParamNotInPathMsg(path, p))
+			res.addErrorsAt(newPathSegments(swaggerPaths, path), pathParamNotInPathMsg(path, p))
 		}
 	}
 
@@ -498,7 +515,7 @@ func (s *SpecValidator) validateReferencedParameters() *Result {
 	}
 	result := pools.poolOfResults.BorrowResult()
 	for k := range expected {
-		result.AddWarnings(unusedParamMsg(k))
+		result.addWarningsAt(localRefPath(k), unusedParamMsg(k))
 	}
 	return result
 }
@@ -523,7 +540,7 @@ func (s *SpecValidator) validateReferencedResponses() *Result {
 	}
 	result := pools.poolOfResults.BorrowResult()
 	for k := range expected {
-		result.AddWarnings(unusedResponseMsg(k))
+		result.addWarningsAt(localRefPath(k), unusedResponseMsg(k))
 	}
 	return result
 }
@@ -549,7 +566,7 @@ func (s *SpecValidator) validateReferencedDefinitions() *Result {
 
 	result := new(Result)
 	for k := range expected {
-		result.AddWarnings(unusedDefinitionMsg(k))
+		result.addWarningsAt(localRefPath(k), unusedDefinitionMsg(k))
 	}
 	return result
 }
@@ -561,8 +578,12 @@ func (s *SpecValidator) validateRequiredDefinitions() *Result {
 DEFINITIONS:
 	for d, schema := range s.spec.Spec().Definitions {
 		if schema.Required != nil { // Safeguard
-			for _, pn := range schema.Required {
-				red := s.validateRequiredProperties(pn, d, &schema) //#nosec
+			definitionAt := newPathSegments(swaggerDefinitions, d)
+			for i, pn := range schema.Required {
+				// the offending entry of the required array, not the definition
+				// holding it: that is what a reader has to go and amend
+				requiredAt := definitionAt.child(jsonRequired).item(i)
+				red := s.validateRequiredProperties(pn, d, definitionAt, requiredAt, &schema) //#nosec
 				// NOTE: capture validity before merging: Merge may redeem `red` to the
 				// pool (wantsRedeemOnMerge), after which reading it races with a concurrent
 				// BorrowResult().cleared() in another goroutine sharing the global pool.
@@ -577,7 +598,14 @@ DEFINITIONS:
 	return res
 }
 
-func (s *SpecValidator) validateRequiredProperties(path, in string, v *spec.Schema) *Result {
+// validateRequiredProperties checks one entry of a definition's required array.
+//
+// schemaAt locates the schema being searched for the property, which moves as
+// the search descends into additionalProperties. requiredAt locates the entry
+// of the required array that started it, and stays put.
+func (s *SpecValidator) validateRequiredProperties(
+	path, in string, schemaAt, requiredAt pathSegments, v *spec.Schema,
+) *Result {
 	// Takes care of recursive property definitions, which may be nested in additionalProperties schemas
 	res := pools.poolOfResults.BorrowResult()
 	propertyMatch := false
@@ -596,7 +624,7 @@ func (s *SpecValidator) validateRequiredProperties(path, in string, v *spec.Sche
 	for pp, pv := range v.PatternProperties {
 		re, err := compileRegexp(pp)
 		if err != nil {
-			res.AddErrors(invalidPatternMsg(pp, in))
+			res.addErrorsAt(schemaAt, invalidPatternMsg(pp, in))
 		} else if re.MatchString(path) {
 			patternMatch = true
 			if !propertyMatch {
@@ -613,7 +641,7 @@ func (s *SpecValidator) validateRequiredProperties(path, in string, v *spec.Sche
 				// additionalProperties as schema are upported in swagger
 				// recursively validates additionalProperties schema
 				// Proposal for enhancement: anyOf, allOf, oneOf like in schemaPropsValidator
-				red := s.validateRequiredProperties(path, in, v.AdditionalProperties.Schema)
+				red := s.validateRequiredProperties(path, in, schemaAt.child(jsonAdditionalProperties), requiredAt, v.AdditionalProperties.Schema)
 				if red.IsValid() {
 					additionalPropertiesMatch = true
 					if !propertyMatch && !patternMatch {
@@ -626,11 +654,11 @@ func (s *SpecValidator) validateRequiredProperties(path, in string, v *spec.Sche
 	}
 
 	if !propertyMatch && !patternMatch && !additionalPropertiesMatch {
-		res.AddErrors(requiredButNotDefinedMsg(path, in))
+		res.addErrorsAt(requiredAt, requiredButNotDefinedMsg(path, in))
 	}
 
 	if isReadOnly {
-		res.AddWarnings(readOnlyAndRequiredMsg(in, path))
+		res.addWarningsAt(requiredAt, readOnlyAndRequiredMsg(in, path))
 	}
 	return res
 }
@@ -656,16 +684,16 @@ func (s *SpecValidator) validateParameters() *Result {
 
 				// Warn on garbled path afer param stripping
 				if rexGarbledPathSegment.MatchString(pathToAdd) {
-					res.AddWarnings(pathStrippedParamGarbledMsg(pathToAdd))
+					res.addWarningsAt(newPathSegments(swaggerPaths, path), pathStrippedParamGarbledMsg(pathToAdd))
 				}
 
 				// Check uniqueness of stripped paths
 				if _, found := methodPaths[method][pathToAdd]; found {
 					// Sort names for stable, testable output
 					if strings.Compare(path, methodPaths[method][pathToAdd]) < 0 {
-						res.AddErrors(pathOverlapMsg(path, methodPaths[method][pathToAdd]))
+						res.addErrorsAt(newPathSegments(swaggerPaths, path), pathOverlapMsg(path, methodPaths[method][pathToAdd]))
 					} else {
-						res.AddErrors(pathOverlapMsg(methodPaths[method][pathToAdd], path))
+						res.addErrorsAt(newPathSegments(swaggerPaths, path), pathOverlapMsg(methodPaths[method][pathToAdd], path))
 					}
 				} else {
 					if _, found := methodPaths[method]; !found {
@@ -697,10 +725,10 @@ func (s *SpecValidator) validateParameters() *Result {
 
 			for _, pr := range paramHelp.safeExpandedParamsFor(path, method, op.ID, res, s) {
 				// An expanded parameter must validate the Parameter schema (an unexpanded $ref always passes high-level schema validation)
-				schv := newSchemaValidator(&paramSchema, s.schema, fmt.Sprintf("%s.%s.parameters.%s", path, method, pr.Name), s.KnownFormats, s.schemaOptions)
+				schv := newSchemaValidator(&paramSchema, s.schema, s.parameterPath(path, method, pr.In, pr.Name), s.KnownFormats, s.schemaOptions)
 				var obj any
 				if err := jsonutils.FromDynamicJSON(pr, &obj); err != nil {
-					res.AddErrors(err)
+					res.addErrorsAt(s.parameterPath(path, method, pr.In, pr.Name), err)
 
 					return res
 				}
@@ -709,7 +737,7 @@ func (s *SpecValidator) validateParameters() *Result {
 
 				// Validate pattern regexp for parameters with a Pattern property
 				if _, err := compileRegexp(pr.Pattern); err != nil {
-					res.AddErrors(invalidPatternInParamMsg(op.ID, pr.Name, pr.Pattern))
+					res.addErrorsAt(s.parameterPath(path, method, pr.In, pr.Name), invalidPatternInParamMsg(op.ID, pr.Name, pr.Pattern))
 				}
 
 				// There must be at most one parameter in body: list them all
@@ -722,7 +750,7 @@ func (s *SpecValidator) validateParameters() *Result {
 					paramNames = append(paramNames, pr.Name)
 					// Path declared in path must have the required: true property
 					if !pr.Required {
-						res.AddErrors(pathParamRequiredMsg(op.ID, pr.Name))
+						res.addErrorsAt(s.parameterPath(path, method, pr.In, pr.Name), pathParamRequiredMsg(op.ID, pr.Name))
 					}
 				}
 
@@ -733,31 +761,31 @@ func (s *SpecValidator) validateParameters() *Result {
 				if pr.Type != numberType && pr.Type != integerType &&
 					(pr.Maximum != nil || pr.Minimum != nil || pr.MultipleOf != nil) {
 					// A non-numeric parameter has validation keywords for numeric instances (number and integer)
-					res.AddWarnings(parameterValidationTypeMismatchMsg(pr.Name, path, pr.Type))
+					res.addWarningsAt(s.parameterPath(path, method, pr.In, pr.Name), parameterValidationTypeMismatchMsg(pr.Name, path, pr.Type))
 				}
 
 				if pr.Type != stringType &&
 					// A non-string parameter has validation keywords for strings
 					(pr.MaxLength != nil || pr.MinLength != nil || pr.Pattern != "") {
-					res.AddWarnings(parameterValidationTypeMismatchMsg(pr.Name, path, pr.Type))
+					res.addWarningsAt(s.parameterPath(path, method, pr.In, pr.Name), parameterValidationTypeMismatchMsg(pr.Name, path, pr.Type))
 				}
 
 				if pr.Type != arrayType &&
 					// A non-array parameter has validation keywords for arrays
 					(pr.MaxItems != nil || pr.MinItems != nil || pr.UniqueItems) {
-					res.AddWarnings(parameterValidationTypeMismatchMsg(pr.Name, path, pr.Type))
+					res.addWarningsAt(s.parameterPath(path, method, pr.In, pr.Name), parameterValidationTypeMismatchMsg(pr.Name, path, pr.Type))
 				}
 			}
 
 			// In:formData and In:body are mutually exclusive
 			if hasBody && hasForm {
-				res.AddErrors(bothFormDataAndBodyMsg(op.ID))
+				res.addErrorsAt(operationPath(path, method), bothFormDataAndBodyMsg(op.ID))
 			}
 			// There must be at most one body param
 			// Accurately report situations when more than 1 body param is declared (possibly unnamed)
 			if len(bodyParams) > 1 {
 				sort.Strings(bodyParams)
-				res.AddErrors(multipleBodyParamMsg(op.ID, bodyParams))
+				res.addErrorsAt(operationPath(path, method), multipleBodyParamMsg(op.ID, bodyParams))
 			}
 
 			// Check uniqueness of parameters in path
@@ -765,7 +793,7 @@ func (s *SpecValidator) validateParameters() *Result {
 			for i, p := range paramsInPath {
 				for j, q := range paramsInPath {
 					if p == q && i > j {
-						res.AddErrors(pathParamNotUniqueMsg(path, p, q))
+						res.addErrorsAt(newPathSegments(swaggerPaths, path), pathParamNotUniqueMsg(path, p, q))
 						break
 					}
 				}
@@ -775,7 +803,7 @@ func (s *SpecValidator) validateParameters() *Result {
 			rexGarbledParam := mustCompileRegexp(`{.*[{}\s]+.*}`)
 			for _, p := range paramsInPath {
 				if rexGarbledParam.MatchString(p) {
-					res.AddWarnings(pathParamGarbledMsg(path, p))
+					res.addWarningsAt(newPathSegments(swaggerPaths, path), pathParamGarbledMsg(path, p))
 				}
 			}
 
@@ -791,7 +819,7 @@ func (s *SpecValidator) validateReferencesValid() *Result {
 	res := pools.poolOfResults.BorrowResult()
 	for _, r := range s.analyzer.AllRefs() {
 		if !r.IsValidURI(s.spec.SpecFilePath()) { // Safeguard - spec should always yield a valid URI
-			res.AddErrors(invalidRefMsg(r.String()))
+			res.addErrorsAt(s.refLocations.at(r.String()), invalidRefMsg(r.String()))
 		}
 	}
 	if !res.HasErrors() {
@@ -830,7 +858,7 @@ func (s *SpecValidator) checkUniqueParams(path, method string, op *spec.Operatio
 				key := fmt.Sprintf("%s#%s", pr.In, pr.Name)
 
 				if _, ok = pnames[key]; ok {
-					res.AddErrors(duplicateParamNameMsg(pr.In, pr.Name, op.ID))
+					res.addErrorsAt(s.parameterPath(path, method, pr.In, pr.Name), duplicateParamNameMsg(pr.In, pr.Name, op.ID))
 				}
 				pnames[key] = struct{}{}
 			}

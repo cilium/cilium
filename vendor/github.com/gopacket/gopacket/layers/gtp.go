@@ -80,6 +80,9 @@ func (g *GTPv1U) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 		if g.ExtensionHeaderFlag {
 			extensionFlag := true
 			for extensionFlag {
+				if int(cIndex) >= dLen {
+					return fmt.Errorf("GTP packet too small: %d bytes", dLen)
+				}
 				extensionType := uint8(data[cIndex-1])
 				extensionLength := uint(data[cIndex])
 				if extensionLength == 0 {

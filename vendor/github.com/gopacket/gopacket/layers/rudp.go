@@ -42,6 +42,10 @@ type RUDPHeaderEACK struct {
 func (r *RUDP) LayerType() gopacket.LayerType { return LayerTypeRUDP }
 
 func decodeRUDP(data []byte, p gopacket.PacketBuilder) error {
+	if len(data) < 18 {
+		p.SetTruncated()
+		return fmt.Errorf("RUDP packet length %d too short", len(data))
+	}
 	r := &RUDP{
 		SYN:          data[0]&0x80 != 0,
 		ACK:          data[0]&0x40 != 0,
@@ -61,8 +65,17 @@ func decodeRUDP(data []byte, p gopacket.PacketBuilder) error {
 		return fmt.Errorf("RUDP packet with too-short header length %d", r.HeaderLength)
 	}
 	hlen := int(r.HeaderLength) * 2
+	if len(data) < hlen {
+		p.SetTruncated()
+		return fmt.Errorf("RUDP packet length %d too short, %d header bytes expected", len(data), hlen)
+	}
+	payloadEnd := hlen + int(r.DataLength)
+	if len(data) < payloadEnd {
+		p.SetTruncated()
+		return fmt.Errorf("RUDP packet length %d too short, %d total bytes expected", len(data), payloadEnd)
+	}
 	r.Contents = data[:hlen]
-	r.Payload = data[hlen : hlen+int(r.DataLength)]
+	r.Payload = data[hlen:payloadEnd]
 	r.VariableHeaderArea = data[18:hlen]
 	headerData := r.VariableHeaderArea
 	switch {
