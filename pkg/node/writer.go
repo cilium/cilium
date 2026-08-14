@@ -66,15 +66,7 @@ func (w *NodeWriter) Refresh(ctx context.Context) error {
 				break
 			}
 
-			finished := true
-			for _, status := range n.Statuses.All() {
-				if status.Kind != reconciler.StatusKindDone &&
-					status.Kind != reconciler.StatusKindError {
-					finished = false
-					break
-				}
-			}
-			if finished {
+			if reconciliationFinished(n) {
 				break
 			}
 
@@ -87,6 +79,16 @@ func (w *NodeWriter) Refresh(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func reconciliationFinished(n *Node) bool {
+	for _, status := range n.Statuses.All() {
+		if status.Kind != reconciler.StatusKindDone &&
+			status.Kind != reconciler.StatusKindError {
+			return false
+		}
+	}
+	return true
 }
 
 // Upsert takes ownership of n and inserts or updates it if its source is

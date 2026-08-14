@@ -47,6 +47,7 @@ var LocalNodeStoreCell = cell.Module(
 	cell.Provide(NewNodeTableAndLocalNodeStore),
 	cell.Provide(NewClusterSizeDependantInterval),
 	cell.Invoke(registerNodeMetrics),
+	cell.Invoke(registerNodeBackgroundSync),
 )
 
 const (

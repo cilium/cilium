@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
-	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
 
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
@@ -113,45 +112,4 @@ func TestLinuxNodeOpsRetriesFailedUpdate(t *testing.T) {
 	require.NoError(t, ops.Update(t.Context(), nil, statedb.Revision(2), n))
 	require.NotContains(t, handler.pendingNodes, n.Identity())
 	require.Equal(t, uint16(minNodeID), handler.nodeIDsByIPs["192.0.2.1"])
-}
-
-func TestMarkLinuxNodesRefreshing(t *testing.T) {
-	db := statedb.New()
-	nodes, err := node.NewNodeTable(db)
-	require.NoError(t, err)
-
-	done := &node.Node{Node: nodeTypes.Node{Name: "done"}}
-	done.Statuses = done.Statuses.Set(
-		linuxNodeReconcilerName,
-		reconciler.StatusDone(),
-	)
-	done.Statuses = done.Statuses.Set("other", reconciler.StatusDone())
-	pending := &node.Node{Node: nodeTypes.Node{Name: "pending"}}
-	pending.Statuses = pending.Statuses.Set(
-		linuxNodeReconcilerName,
-		reconciler.StatusPending(),
-	)
-
-	txn := db.WriteTxn(nodes)
-	_, _, err = nodes.Insert(txn, done)
-	require.NoError(t, err)
-	_, _, err = nodes.Insert(txn, pending)
-	require.NoError(t, err)
-	txn.Commit()
-
-	_, err = markLinuxNodesRefreshing(db, nodes)
-	require.NoError(t, err)
-
-	txn = db.WriteTxn(nodes)
-	done, _, found := nodes.Get(txn, node.NodeByName("done"))
-	require.True(t, found)
-	require.Equal(t, reconciler.StatusKindRefreshing,
-		done.Statuses.Get(linuxNodeReconcilerName).Kind)
-	require.Equal(t, reconciler.StatusKindDone,
-		done.Statuses.Get("other").Kind)
-	pending, _, found = nodes.Get(txn, node.NodeByName("pending"))
-	require.True(t, found)
-	require.Equal(t, reconciler.StatusKindPending,
-		pending.Statuses.Get(linuxNodeReconcilerName).Kind)
-	txn.Abort()
 }

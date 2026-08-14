@@ -27,7 +27,7 @@ type nodeMetrics struct {
 	// NumNodes tracks the number of objects in the node table.
 	NumNodes metric.Gauge
 
-	// DatapathValidations tracks explicit full node validation requests.
+	// DatapathValidations tracks node datapath validations.
 	DatapathValidations metric.Counter
 }
 
@@ -54,7 +54,7 @@ func NewNodeMetrics() *nodeMetrics {
 			Namespace:  metrics.Namespace,
 			Subsystem:  "nodes",
 			Name:       "all_datapath_validations_total",
-			Help:       "Number of explicit full node datapath validation requests",
+			Help:       "Number of node datapath validations",
 		}),
 	}
 }
