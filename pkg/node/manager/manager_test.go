@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -21,104 +20,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
-	"github.com/cilium/cilium/pkg/identity"
 	iputil "github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/ipcache"
-	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
-
-type nodeEvent struct {
-	event    string
-	prefix   netip.Prefix
-	metadata ipcache.IPMetadata
-}
-
-type ipcacheMock struct {
-	events chan nodeEvent
-}
-
-func newIPcacheMock() *ipcacheMock {
-	return &ipcacheMock{
-		events: make(chan nodeEvent, 1024),
-	}
-}
-
-func AddrOrPrefixToIP(ip string) (netip.Prefix, error) {
-	prefix, err := netip.ParsePrefix(ip)
-	if err != nil {
-		addr, err := netip.ParseAddr(ip)
-		if err != nil {
-			return netip.Prefix{}, err
-		}
-		return addr.Prefix(prefix.Bits())
-	}
-
-	return prefix, err
-}
-
-func (i *ipcacheMock) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity, aux ...ipcache.IPMetadata) (bool, error) {
-	addr, err := AddrOrPrefixToIP(ip)
-	if err != nil {
-		i.events <- nodeEvent{fmt.Sprintf("upsert failed: %s", err), addr, aux}
-		return false, err
-	}
-	i.events <- nodeEvent{"upsert", addr, aux}
-	return false, nil
-}
-
-func (i *ipcacheMock) Delete(ip string, source source.Source, aux ...ipcache.IPMetadata) bool {
-	addr, err := AddrOrPrefixToIP(ip)
-	if err != nil {
-		i.events <- nodeEvent{fmt.Sprintf("delete failed: %s", err), addr, aux}
-		return false
-	}
-	i.events <- nodeEvent{"delete", addr, aux}
-	return false
-}
-
-func (i *ipcacheMock) GetMetadataSourceByPrefix(prefix cmtypes.PrefixCluster) source.Source {
-	return source.Unspec
-}
-
-func (i *ipcacheMock) UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
-	i.Upsert(prefix.String(), nil, 0, nil, ipcache.Identity{}, aux...)
-}
-
-func (i *ipcacheMock) RemoveMetadata(prefix cmtypes.PrefixCluster, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
-	i.Delete(prefix.String(), source.CustomResource, aux...)
-}
-
-func (i *ipcacheMock) UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64) {
-	for _, update := range updates {
-		i.UpsertMetadata(update.Prefix, update.Source, update.Resource, update.Metadata)
-	}
-	return 0
-}
-
-func (i *ipcacheMock) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64) {
-	for _, update := range updates {
-		i.RemoveMetadata(update.Prefix, update.Resource, update.Metadata)
-	}
-	return 0
-}
 
 type ipsetMock struct {
 	v4 map[string]struct{}
@@ -245,9 +158,8 @@ func TestNodeLifecycle(t *testing.T) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
+	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
 	mngr.Subscribe(dp)
 	require.NoError(t, err)
 
@@ -319,109 +231,6 @@ func TestNodeLifecycle(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestNodeLabels(t *testing.T) {
-	logger := hivetest.Logger(t)
-
-	dp := newSignalNodeHandler()
-	ipcacheMock := newIPcacheMock()
-	h, _ := cell.NewSimpleHealth()
-
-	nodeLabels := map[string]string{
-		"test-label":  "test-value",
-		"other-label": "other-value",
-	}
-	nodeTypes.SetName("localNode")
-	nLocal := nodeTypes.Node{
-		Name:    "localNode",
-		Cluster: "default",
-		Labels:  nodeLabels,
-		Source:  source.Local,
-	}
-	nRemote := nodeTypes.Node{
-		Name:    "remoteNode",
-		Cluster: "default",
-		Labels:  nodeLabels,
-		Source:  source.Unspec,
-	}
-
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
-	mngr.Subscribe(dp)
-	require.NoError(t, err)
-	mngr.NodeUpdated(nRemote)
-
-	tests := []struct {
-		name               string
-		node               nodeTypes.Node
-		nodeSelectorLabels bool
-		nodeLabelPrefixes  []string
-		setupWanted        func() labels.Labels
-	}{{
-		name:               "Local node with node selector labels enabled",
-		node:               nLocal,
-		nodeSelectorLabels: true,
-		setupWanted: func() labels.Labels {
-			want := labels.NewFrom(labels.LabelHost)
-			want.MergeLabels(labels.Map2Labels(nodeLabels, labels.LabelSourceNode))
-			want.MergeLabels(labels.Map2Labels(map[string]string{
-				"io.cilium.k8s.policy.cluster": "default",
-			}, labels.LabelSourceK8s))
-			return want
-		},
-	}, {
-		name:               "Local node with node selector labels disabled",
-		node:               nLocal,
-		nodeSelectorLabels: false,
-		setupWanted: func() labels.Labels {
-			return labels.NewFrom(labels.LabelHost)
-		},
-	}, {
-		name:               "Remote node with node selector labels enabled",
-		node:               nRemote,
-		nodeSelectorLabels: true,
-		setupWanted: func() labels.Labels {
-			want := labels.NewFrom(labels.LabelRemoteNode)
-			want.MergeLabels(labels.Map2Labels(nodeLabels, labels.LabelSourceNode))
-			want.MergeLabels(labels.Map2Labels(map[string]string{
-				"io.cilium.k8s.policy.cluster": "default",
-			}, labels.LabelSourceK8s))
-			return want
-		},
-	}, {
-		name:               "Remote node with node selector labels disabled",
-		node:               nRemote,
-		nodeSelectorLabels: false,
-		setupWanted: func() labels.Labels {
-			return labels.NewFrom(labels.LabelRemoteNode)
-		},
-	}, {
-		name:               "Remote node with node selector labels enabled and filtered labels",
-		node:               nRemote,
-		nodeSelectorLabels: true,
-		nodeLabelPrefixes:  []string{"node:test-label"},
-		setupWanted: func() labels.Labels {
-			want := labels.NewFrom(labels.LabelRemoteNode)
-			want.MergeLabels(labels.Map2Labels(map[string]string{
-				"test-label": "test-value",
-			}, labels.LabelSourceNode))
-			want.MergeLabels(labels.Map2Labels(map[string]string{
-				"io.cilium.k8s.policy.cluster": "default",
-			}, labels.LabelSourceK8s))
-			return want
-		},
-	}}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.NoError(t, labelsfilter.ParseLabelPrefixCfg(logger, nil, tt.nodeLabelPrefixes, ""))
-			option.Config.EnableNodeSelectorLabels = tt.nodeSelectorLabels
-			option.Config.ClusterName = cmtypes.DefaultClusterInfo.Name
-			got := mngr.nodeIdentityLabels(tt.node)
-			want := tt.setupWanted()
-			assert.True(t, want.Equals(got), "Mismatched labels: want=%v got=%v", want, got)
-		})
-	}
-}
-
 func TestMultipleSources(t *testing.T) {
 	logger := hivetest.Logger(t)
 
@@ -429,9 +238,8 @@ func TestMultipleSources(t *testing.T) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
+	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -511,11 +319,10 @@ func TestMultipleSources(t *testing.T) {
 }
 
 func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
-	ipcacheMock := newIPcacheMock()
 	dp := fakenode.NewHandler()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(b)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
+	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
 	require.NoError(b, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -535,10 +342,9 @@ func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
 func TestClusterSizeDependantInterval(t *testing.T) {
 	logger := hivetest.Logger(t)
 
-	ipcacheMock := newIPcacheMock()
 	dp := fakenode.NewHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
+	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -561,10 +367,9 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 func TestBackgroundSync(t *testing.T) {
 	signalNodeHandler := newSignalNodeHandler()
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
-	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
+	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
 	mngr.Subscribe(signalNodeHandler)
 	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
@@ -607,350 +412,14 @@ func TestBackgroundSync(t *testing.T) {
 	allNodeValidateCallsReceived.Wait()
 }
 
-func expectIPCacheUpdate(
-	t *testing.T, ipcacheMock *ipcacheMock,
-	eventType string, prefix netip.Prefix, metadata ...ipcache.IPMetadata,
-) {
-	t.Helper()
-
-	select {
-	case ev := <-ipcacheMock.events:
-		require.Equal(t, eventType, ev.event)
-		require.Equal(t, prefix, ev.prefix)
-		if len(metadata) > 0 {
-			// unpack outer metadata slice
-			require.IsType(t, []ipcache.IPMetadata{}, ev.metadata)
-			md := ev.metadata.([]ipcache.IPMetadata)
-
-			require.ElementsMatch(t, metadata, md)
-		}
-	case <-time.After(5 * time.Second):
-		t.Errorf("timeout while waiting for ipcache upsert for %s", prefix)
-	}
-}
-
-func TestIpcache(t *testing.T) {
-	ipcacheMock := newIPcacheMock()
-	dp := newSignalNodeHandler()
-	h, _ := cell.NewSimpleHealth()
-	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
-	require.NoError(t, err)
-	mngr.Subscribe(dp)
-	defer mngr.Stop(context.TODO())
-
-	n1 := nodeTypes.Node{
-		Name:    "node1",
-		Cluster: "c1",
-		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
-		},
-
-		IPv4AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
-		IPv4SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("192.168.10.0/28"))},
-		IPv6AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("f00d::/96")),
-		IPv6SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("cafe::/96"))},
-	}
-	mngr.NodeUpdated(n1)
-
-	// node IP addresses
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
-
-	// node IPv4 allocation CIDRs
-	expectIPCacheUpdate(
-		t, ipcacheMock, "upsert", netip.MustParsePrefix("10.0.0.0/24"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(0),
-		},
-	)
-	expectIPCacheUpdate(
-		t, ipcacheMock, "upsert", netip.MustParsePrefix("192.168.10.0/28"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(0),
-		},
-	)
-
-	// node IPv6 allocation CIDRs
-	expectIPCacheUpdate(
-		t, ipcacheMock, "upsert", netip.MustParsePrefix("f00d::/96"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(0),
-		},
-	)
-	expectIPCacheUpdate(
-		t, ipcacheMock, "upsert", netip.MustParsePrefix("cafe::/96"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(0),
-		},
-	)
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-
-	// Update node by removing ExternalIPs and secondary PodCIDRs
-	n1 = *n1.DeepCopy()
-	n1.IPAddresses = slices.DeleteFunc(n1.IPAddresses, func(address nodeTypes.Address) bool {
-		return address.IP.Equal(net.ParseIP("f00d::1"))
-	})
-	n1.IPv4SecondaryAllocCIDRs = nil
-	n1.IPv6SecondaryAllocCIDRs = nil
-	mngr.NodeUpdated(n1)
-
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
-	expectIPCacheUpdate(
-		t, ipcacheMock, "upsert", netip.MustParsePrefix("10.0.0.0/24"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(0),
-		},
-	)
-	expectIPCacheUpdate(
-		t, ipcacheMock, "upsert", netip.MustParsePrefix("f00d::/96"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(0),
-		},
-	)
-
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("192.168.10.0/28"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(0),
-		},
-	)
-	expectIPCacheUpdate(
-		t, ipcacheMock, "delete", netip.MustParsePrefix("cafe::/96"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(0),
-		},
-	)
-
-	mngr.NodeDeleted(n1)
-
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
-	expectIPCacheUpdate(
-		t, ipcacheMock, "delete", netip.MustParsePrefix("10.0.0.0/24"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(0),
-		},
-	)
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("f00d::/96"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(0),
-		},
-	)
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-}
-
-func TestIpcacheHealthIP(t *testing.T) {
-	ipcacheMock := newIPcacheMock()
-	dp := newSignalNodeHandler()
-	h, _ := cell.NewSimpleHealth()
-	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
-	require.NoError(t, err)
-	mngr.Subscribe(dp)
-	defer mngr.Stop(context.TODO())
-
-	n1 := nodeTypes.Node{
-		Name:    "node1",
-		Cluster: "c1",
-		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1").To4()},
-		},
-		IPv4HealthIP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.4")),
-		IPv6HealthIP: iputil.AddrFrom(netip.MustParseAddr("f00d::4")),
-	}
-	mngr.NodeUpdated(n1)
-
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128))
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-
-	mngr.NodeDeleted(n1)
-
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("f00d::4"), 128))
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-}
-
-func TestNodeEncryption(t *testing.T) {
-	logger := hivetest.Logger(t)
-
-	ipcacheMock := newIPcacheMock()
-	dp := newSignalNodeHandler()
-	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{
-		EncryptNode: true,
-	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
-	require.NoError(t, err)
-	mngr.Subscribe(dp)
-	defer mngr.Stop(context.TODO())
-
-	n1 := nodeTypes.Node{
-		Name:    "node1",
-		Cluster: "c1",
-		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
-		},
-		IPv4AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
-		IPv4SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("192.168.10.0/28"))},
-		IPv6AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("f00d::/96")),
-		IPv6SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("cafe::/96"))},
-		EncryptionKey:           42,
-	}
-	mngr.NodeUpdated(n1)
-
-	// node IP addresses
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
-
-	// node IPv4 allocation CIDRs
-	expectIPCacheUpdate(
-		t, ipcacheMock, "upsert", netip.MustParsePrefix("10.0.0.0/24"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(42),
-		},
-	)
-	expectIPCacheUpdate(
-		t, ipcacheMock, "upsert", netip.MustParsePrefix("192.168.10.0/28"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(42),
-		},
-	)
-
-	// node IPv6 allocation CIDRs
-	expectIPCacheUpdate(
-		t, ipcacheMock, "upsert", netip.MustParsePrefix("f00d::/96"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(42),
-		},
-	)
-	expectIPCacheUpdate(
-		t, ipcacheMock, "upsert", netip.MustParsePrefix("cafe::/96"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(42),
-		},
-	)
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-
-	mngr.NodeDeleted(n1)
-
-	// node IP addresses
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128))
-
-	// node IPv4 allocation CIDRs
-	expectIPCacheUpdate(
-		t, ipcacheMock, "delete", netip.MustParsePrefix("10.0.0.0/24"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(42),
-		},
-	)
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("192.168.10.0/28"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(42),
-		},
-	)
-
-	// node IPv6 allocation CIDRs
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.MustParsePrefix("f00d::/96"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(42),
-		},
-	)
-	expectIPCacheUpdate(
-		t, ipcacheMock, "delete", netip.MustParsePrefix("cafe::/96"),
-		[]ipcache.IPMetadata{
-			worldLabelForPrefix(netip.PrefixFrom(netip.MustParseAddr("f00d::1"), 128)),
-			ipcacheTypes.TunnelPeer{Addr: netip.MustParseAddr("10.0.0.2")},
-			ipcacheTypes.EncryptKey(42),
-		},
-	)
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
-}
-
 func TestNode(t *testing.T) {
-	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
+	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -985,11 +454,6 @@ func TestNode(t *testing.T) {
 		t.Errorf("timeout while waiting for NodeAdd() event for node1")
 	}
 
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("192.0.2.1"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::1"), 128))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("192.0.2.2"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::2"), 128))
-
 	n1V2 := n1.DeepCopy()
 	n1V2.IPAddresses = []nodeTypes.Address{
 		{
@@ -1015,21 +479,6 @@ func TestNode(t *testing.T) {
 		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
 	case <-time.After(3 * time.Second):
 		t.Errorf("timeout while waiting for NodeUpdate() event for node2")
-	}
-
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("192.0.2.10"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::1"), 128))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("192.0.2.20"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::20"), 128))
-
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("192.0.2.1"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("192.0.2.2"), 32))
-	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::2"), 128))
-
-	select {
-	case event := <-ipcacheMock.events:
-		t.Errorf("Received unexpected event %+v", event)
-	case <-time.After(1 * time.Second):
 	}
 
 	nodes := mngr.GetNodes()
@@ -1070,17 +519,9 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 		lifecycle.Append(m)
 	}
 
-	ipcacheMock := newIPcacheMock()
-	config := &option.DaemonConfig{
-		StateDir: t.TempDir(),
-	}
 	hive := hive.New(
 		cell.Provide(func() testParams {
 			return testParams{
-				Config:        config,
-				TunnelConf:    tunnel.Config{},
-				WgConf:        fakewireguard.Config{},
-				IPCache:       ipcacheMock,
 				IPSet:         newIPSetMock(),
 				NodeMetrics:   NewNodeMetrics(),
 				IPSetFilterFn: func(no *nodeTypes.Node) bool { return false },
@@ -1090,7 +531,6 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 		cell.Provide(statedb.RWTable[*tables.Device].ToTable),
 		cell.Provide(node.NewNodeTable),
 		cell.Module("node_manager", "Node Manager", cell.Provide(New)),
-		cell.Provide(func() cmtypes.ClusterInfo { return cmtypes.DefaultClusterInfo }),
 		cell.Invoke(fn),
 	)
 	l := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
@@ -1177,42 +617,19 @@ func (mh *mockHealth) Close() {}
 
 type testParams struct {
 	cell.Out
-	Config        *option.DaemonConfig
-	TunnelConf    tunnel.Config
-	WgConf        wgTypes.Config
-	IPCache       IPCache
 	IPSet         ipset.Manager
 	NodeMetrics   *nodeMetrics
 	IPSetFilterFn IPSetFilterFn
 }
 
-type mockUpdater struct{}
-
-func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{} {
-	out := make(chan struct{})
-	close(out)
-	return out
-}
-
 func TestNodeWithSameInternalIP(t *testing.T) {
 	logger := hivetest.Logger(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	allocator := testidentity.NewMockIdentityAllocator(nil)
-	ipcache := ipcache.NewIPCache(&ipcache.Configuration{
-		Context:           ctx,
-		Logger:            hivetest.Logger(t),
-		IdentityAllocator: allocator,
-		IdentityUpdater:   &mockUpdater{},
-	})
-	defer cancel()
 	dp := newSignalNodeHandler()
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{
-		LocalRouterIPv4: "169.254.4.6",
-	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcache, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
+	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, nil)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -1310,10 +727,7 @@ func TestNodeIpset(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	filter := func(no *nodeTypes.Node) bool { return no.Name != "node1" }
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{
-		RoutingMode:          option.RoutingModeNative,
-		EnableIPv4Masquerade: true,
-	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, newIPcacheMock(), newIPSetMock(), filter, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
+	mngr, err := New(logger, newIPSetMock(), filter, NewNodeMetrics(), h, nil, nil, nil, nil)
 	mngr.Subscribe(dp)
 	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
@@ -1437,9 +851,8 @@ func TestNodeTableMirroring(t *testing.T) {
 	nodeTable, err := node.NewNodeTable(db)
 	require.NoError(t, err)
 
-	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.ClusterInfo{Name: "c1"}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, nodeTable)
+	mngr, err := New(logger, newIPSetMock(), nil, NewNodeMetrics(), h, nil, db, nil, nodeTable)
 	require.NoError(t, err)
 
 	initialized, initWatch := nodeTable.Initialized(db.ReadTxn())
@@ -1538,10 +951,6 @@ func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
 			health, _ := cell.NewSimpleHealth()
 			mngr, err := New(
 				hivetest.Logger(t),
-				&option.DaemonConfig{},
-				cmtypes.ClusterInfo{Name: "c1"},
-				tunnel.Config{},
-				newIPcacheMock(),
 				newIPSetMock(),
 				nil,
 				NewNodeMetrics(),
@@ -1549,7 +958,6 @@ func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
 				nil,
 				db,
 				nil,
-				fakewireguard.Config{},
 				nodeTable,
 			)
 			require.NoError(t, err)
