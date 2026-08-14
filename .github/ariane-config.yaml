@@ -179,6 +179,9 @@ triggers:
   /ci-ces-migrate:
     workflows:
     - tests-ces-migrate.yaml
+  /ci-e2e-upgrade:
+    workflows:
+    - tests-e2e-upgrade.yaml
   /l7-perf(\s+(?:\s*version=[-+.0-9a-z]+)?(?:\s*sha=[a-f0-9]+)?)?:
     workflows:
     - l7-perf.yaml
