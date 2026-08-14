@@ -427,6 +427,13 @@ func (s *SIP) ParseHeader(header []byte) (err error) {
 	// multiline headers must begin by SP or TAB
 	if header[0] == '\t' || header[0] == ' ' {
 
+		// A continuation line is only meaningful if a header has already been
+		// parsed. Without this check lastHeaderParsed is still "", the map
+		// lookup yields a nil slice, and the index below evaluates to [-1].
+		if len(s.Headers[s.lastHeaderParsed]) == 0 {
+			return fmt.Errorf("SIP header continuation line with no preceding header")
+		}
+
 		header = bytes.TrimSpace(header)
 		s.Headers[s.lastHeaderParsed][len(s.Headers[s.lastHeaderParsed])-1] += fmt.Sprintf(" %s", string(header))
 		return

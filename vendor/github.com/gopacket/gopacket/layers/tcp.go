@@ -346,9 +346,23 @@ OPTIONS:
 			opt.OptionLength = 1
 		case TCPOptionKindMultipathTCP:
 			tcp.Multipath = true
+			// The subtype nibble lives in data[2], so three bytes are the
+			// minimum any MPTCP option can occupy.
+			if len(data) < 3 {
+				df.SetTruncated()
+				return fmt.Errorf("Invalid MPTCP option. Length %d less than 3", len(data))
+			}
 			opt.OptionLength = data[1]
-			if opt.OptionLength <= 0 {
+			if opt.OptionLength < 3 {
 				return fmt.Errorf("MPTCP bad option length %d", opt.OptionLength)
+			} else if int(opt.OptionLength) > len(data) {
+				// Bound the declared length against the bytes actually present
+				// before any subtype dispatch. The per-subtype checks below only
+				// compare OptionLength against the expected constant for that
+				// subtype, so without this every fixed-offset slice below is
+				// reachable past the end of the options region.
+				df.SetTruncated()
+				return fmt.Errorf("Invalid MPTCP option length %d exceeds remaining %d bytes", opt.OptionLength, len(data))
 			}
 			opt.OptionMultipath = MPTCPSubtype(data[2] >> 4)
 			switch opt.OptionMultipath {
@@ -404,6 +418,12 @@ OPTIONS:
 					}
 				}
 			case MPTCPSubtypeDSS:
+				// The flags byte is read before the length can be computed from
+				// it, so it needs its own bound; 4 is the smallest value
+				// optionMptcpDsslen can return.
+				if opt.OptionLength < 4 {
+					return fmt.Errorf("DSS bad option length %d", opt.OptionLength)
+				}
 				opt.OptionMPTCPDss = &Dss{
 					F: data[3]&0x10 != 0,
 					m: data[3]&0x08 != 0,

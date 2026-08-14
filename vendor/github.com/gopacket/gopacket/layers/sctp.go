@@ -46,6 +46,13 @@ func (s *SCTP) TransportFlow() gopacket.Flow {
 }
 
 func decodeWithSCTPChunkTypePrefix(data []byte, p gopacket.PacketBuilder) error {
+	if len(data) == 0 {
+		return nil
+	}
+	if len(data) < 4 {
+		p.SetTruncated()
+		return errors.New("invalid SCTP chunk length")
+	}
 	chunkType := SCTPChunkType(data[0])
 	return chunkType.Decode(data, p)
 }
@@ -120,12 +127,21 @@ func roundUpToNearest4(i int) int {
 }
 
 func decodeSCTPChunk(data []byte) (SCTPChunk, error) {
+	if len(data) < 4 {
+		return SCTPChunk{}, errors.New("invalid SCTP chunk length")
+	}
 	length := binary.BigEndian.Uint16(data[2:4])
 	if length < 4 {
 		return SCTPChunk{}, errors.New("invalid SCTP chunk length")
 	}
 	actual := roundUpToNearest4(int(length))
 	ct := SCTPChunkType(data[0])
+	if ct == SCTPChunkTypeData && length < 16 {
+		return SCTPChunk{}, errors.New("invalid SCTP data chunk length")
+	}
+	if len(data) < actual {
+		return SCTPChunk{}, errors.New("SCTP chunk length exceeds remaining packet length")
+	}
 
 	// For SCTP Data, use a separate layer for the payload
 	delta := 0
@@ -144,11 +160,17 @@ func decodeSCTPChunk(data []byte) (SCTPChunk, error) {
 }
 
 func decodeSCTPDataChunk(data []byte) (SCTPChunk, error) {
-	length := binary.BigEndian.Uint16(data[2:4])
-	if length < 4 {
+	if len(data) < 4 {
 		return SCTPChunk{}, errors.New("invalid SCTP chunk length")
 	}
+	length := binary.BigEndian.Uint16(data[2:4])
+	if length < 16 {
+		return SCTPChunk{}, errors.New("invalid SCTP data chunk length")
+	}
 	actual := roundUpToNearest4(int(length))
+	if len(data) < actual {
+		return SCTPChunk{}, errors.New("SCTP data chunk length exceeds remaining packet length")
+	}
 	ct := SCTPChunkType(data[0])
 
 	return SCTPChunk{

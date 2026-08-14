@@ -132,6 +132,11 @@ func (d *DHCPv4) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 	d.Operation = DHCPOp(data[0])
 	d.HardwareType = LinkType(data[1])
 	d.HardwareLen = data[2]
+	if d.HardwareLen > 16 {
+		// The BOOTP chaddr field is fixed at 16 bytes (data[28:44]); a larger
+		// hardware length would read past it (and 28+HardwareLen wraps in uint8).
+		return fmt.Errorf("DHCPv4 hardware address length %d exceeds 16", d.HardwareLen)
+	}
 	d.RelayHops = data[3]
 	d.Xid = binary.BigEndian.Uint32(data[4:8])
 	d.Secs = binary.BigEndian.Uint16(data[8:10])

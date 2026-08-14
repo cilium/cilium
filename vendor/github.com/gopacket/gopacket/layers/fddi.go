@@ -7,6 +7,7 @@
 package layers
 
 import (
+	"errors"
 	"net"
 
 	"github.com/gopacket/gopacket"
@@ -29,6 +30,10 @@ func (f *FDDI) LinkFlow() gopacket.Flow {
 }
 
 func decodeFDDI(data []byte, p gopacket.PacketBuilder) error {
+	if len(data) < 13 {
+		p.SetTruncated()
+		return errors.New("FDDI packet too small")
+	}
 	f := &FDDI{
 		FrameControl: FDDIFrameControl(data[0] & 0xF8),
 		Priority:     data[0] & 0x07,

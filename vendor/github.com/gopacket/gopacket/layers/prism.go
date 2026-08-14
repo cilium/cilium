@@ -113,10 +113,21 @@ type PrismHeader struct {
 func (m *PrismHeader) LayerType() gopacket.LayerType { return LayerTypePrismHeader }
 
 func (m *PrismHeader) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	// The fixed part of the header (code, length, device name) is 24 bytes.
+	if len(data) < 24 {
+		df.SetTruncated()
+		return ErrPrismExpectedMoreData
+	}
 	m.Code = binary.LittleEndian.Uint16(data[0:4])
 	m.Length = binary.LittleEndian.Uint16(data[4:8])
+	// Length must cover the fixed header and be backed by real bytes; otherwise
+	// the slices below run past the end and the value subtraction underflows.
+	if int(m.Length) < 24 || int(m.Length) > len(data) {
+		df.SetTruncated()
+		return ErrPrismExpectedMoreData
+	}
 	m.DeviceName = string(data[8:24])
-	m.BaseLayer = BaseLayer{Contents: data[:m.Length], Payload: data[m.Length:len(data)]}
+	m.BaseLayer = BaseLayer{Contents: data[:m.Length], Payload: data[m.Length:]}
 
 	switch m.Code {
 	case PrismType1MessageCode:

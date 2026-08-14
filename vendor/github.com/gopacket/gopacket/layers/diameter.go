@@ -128,6 +128,11 @@ func (d *Diameter) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) erro
 	// Message Length is 24 bits (bytes 1-3)
 	d.MessageLength = uint32(data[1])<<16 | uint32(data[2])<<8 | uint32(data[3])
 
+	if d.MessageLength < 20 {
+		// The length includes the 20-byte header; a smaller value would make
+		// the data[20:MessageLength] AVP slice below have out-of-order bounds.
+		return fmt.Errorf("diameter message length %d below 20-byte header", d.MessageLength)
+	}
 	if uint32(len(data)) < d.MessageLength {
 		return fmt.Errorf("diameter message truncated: expected %d bytes, got %d", d.MessageLength, len(data))
 	}

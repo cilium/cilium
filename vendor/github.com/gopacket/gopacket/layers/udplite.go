@@ -9,6 +9,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 
 	"github.com/gopacket/gopacket"
 )
@@ -26,6 +27,10 @@ type UDPLite struct {
 func (u *UDPLite) LayerType() gopacket.LayerType { return LayerTypeUDPLite }
 
 func decodeUDPLite(data []byte, p gopacket.PacketBuilder) error {
+	if len(data) < 8 {
+		p.SetTruncated()
+		return errors.New("UDPLite packet too small")
+	}
 	udp := &UDPLite{
 		SrcPort:          UDPLitePort(binary.BigEndian.Uint16(data[0:2])),
 		sPort:            data[0:2],

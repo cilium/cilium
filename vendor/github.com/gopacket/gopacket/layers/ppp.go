@@ -39,11 +39,29 @@ func (p *PPP) LinkFlow() gopacket.Flow { return PPPFlow }
 func decodePPP(data []byte, p gopacket.PacketBuilder) error {
 	ppp := &PPP{}
 	offset := 0
-	if data[0] == 0xff && data[1] == 0x03 {
-		offset = 2
-		ppp.HasPPTPHeader = true
+	if len(data) < 1 {
+		p.SetTruncated()
+		return errors.New("PPP packet too small")
+	}
+	if data[0] == 0xff {
+		if len(data) < 2 {
+			p.SetTruncated()
+			return errors.New("PPP packet too small")
+		}
+		if data[1] == 0x03 {
+			offset = 2
+			ppp.HasPPTPHeader = true
+		}
+	}
+	if len(data) < offset+1 {
+		p.SetTruncated()
+		return errors.New("PPP packet too small")
 	}
 	if data[offset]&0x1 == 0 {
+		if len(data) < offset+2 {
+			p.SetTruncated()
+			return errors.New("PPP packet too small")
+		}
 		if data[offset+1]&0x1 == 0 {
 			return errors.New("PPP has invalid type")
 		}
