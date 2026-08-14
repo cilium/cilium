@@ -62,7 +62,7 @@ const (
 	// SubsystemFQDN is the subsystem to scope metrics related to the FQDN proxy.
 	SubsystemFQDN = "fqdn"
 
-	// SubsystemNodes is the subsystem to scope metrics related to the node manager.
+	// SubsystemNodes is the subsystem to scope metrics related to nodes.
 	SubsystemNodes = "nodes"
 
 	// SubsystemTriggers is the subsystem to scope metrics related to the trigger package.

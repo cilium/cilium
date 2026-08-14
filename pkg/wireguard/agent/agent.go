@@ -986,8 +986,8 @@ func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
 // peerConfig represents the kernel state of each WireGuard peer.
 // In order to be able to add and remove individual IPs from the
 // `AllowedIPs` list, we store a `peerConfig` for each known WireGuard peer.
-// When a peer is first discovered via node manager, we obtain the remote
-// peers `AllowedIPs` by querying Cilium's user-space copy of the IPCache
+// When a peer is first reconciled from the node table, we obtain the remote
+// peer's `AllowedIPs` by querying Cilium's user-space copy of the IPCache
 // in the agent. In addition, we also subscribe to IPCache updates in the
 // WireGuard agent and update the `AllowedIPs` list of known peers
 // accordingly.

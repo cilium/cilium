@@ -294,8 +294,8 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 				assert.Empty(c, dev.Peers)
 			}, TestTimeout, 50*time.Millisecond)
 
-			// 7.a Ensure the agent subscribed to node events (nodemanager-subscribe job).
-			//     Let's upsert a new node, and ensure the agent maps contain the new peer.
+			// 7.a Ensure the agent reconciles node table changes. Upsert a new node
+			//     and verify that the agent maps contain the new peer.
 			txn := db.WriteTxn(nodes)
 			nodeWriter.Upsert(txn, &nodeTypes.Node{
 				Name: k8s2NodeName,

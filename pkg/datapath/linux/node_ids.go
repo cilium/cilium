@@ -367,11 +367,11 @@ func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string
 	if len(n.nodeIDsByIPs) > 0 {
 		// If this happens, we likely have a bug in the startup logic and
 		// restored node IDs too late (after new node IDs were allocated).
-		n.log.Error("The node manager already contains node IDs")
+		n.log.Error("The Linux node handler already contains node IDs")
 	}
 
-	// The node manager holds both a map of nodeIP=>nodeID and a pool of ID for
-	// the allocation of node IDs. Not only do we need to update the map,
+	// The Linux node handler holds both a map of nodeIP=>nodeID and a pool for
+	// allocating node IDs. Not only do we need to update the map,
 	nodeIDs := make(map[uint16]struct{})
 	IDsByIPs := make(map[string]uint16)
 	IPsByIDs := make(map[uint16]sets.Set[string])
