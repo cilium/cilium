@@ -220,7 +220,9 @@ func mustConfigureNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, no
 func mustValidateNodeImplementation(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, node nodeTypes.Node) {
 	tb.Helper()
 	require.NoError(tb, ns.Do(func() error {
-		return lnh.NodeValidateImplementation(node)
+		lnh.mutex.Lock()
+		defer lnh.mutex.Unlock()
+		return lnh.nodeUpdate(nil, &node, false)
 	}))
 }
 
