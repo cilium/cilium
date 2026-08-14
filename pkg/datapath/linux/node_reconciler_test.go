@@ -139,7 +139,8 @@ func TestMarkLinuxNodesRefreshing(t *testing.T) {
 	require.NoError(t, err)
 	txn.Commit()
 
-	markLinuxNodesRefreshing(hivetest.Logger(t), db, nodes)
+	_, err = markLinuxNodesRefreshing(db, nodes)
+	require.NoError(t, err)
 
 	txn = db.WriteTxn(nodes)
 	done, _, found := nodes.Get(txn, node.NodeByName("done"))

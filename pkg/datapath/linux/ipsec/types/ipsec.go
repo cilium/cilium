@@ -18,7 +18,7 @@ type Config interface {
 type Agent interface {
 	Enabled() bool
 	AuthKeySize() int
-	StartBackgroundJobs(node.Handler, <-chan struct{}) error
+	StartBackgroundJobs(*node.NodeWriter, <-chan struct{}) error
 	UpsertIPsecEndpoint(params *Parameters) (uint8, error)
 	DeleteIPsecEndpoint(nodeID uint16) error
 	DeleteXFRM(reqID int) error
