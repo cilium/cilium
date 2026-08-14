@@ -42,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -120,7 +119,7 @@ func NewNodeHandler(
 	log *slog.Logger,
 	tunnelConfig dpTunnel.Config,
 	nodeMap nodemap.MapV2,
-	nodeConfigNotifier *manager.NodeConfigNotifier,
+	nodeConfigNotifier *config.NodeConfigNotifier,
 	kprCfg kpr.KPRConfig,
 	ipsecAgent ipsecTypes.Agent,
 	localNodeStore *node.LocalNodeStore,

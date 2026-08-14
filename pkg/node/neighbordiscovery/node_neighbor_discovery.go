@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
@@ -45,7 +44,7 @@ func registerNodeNeighborDiscovery(
 	jobs job.Group,
 	nodes statedb.Table[*node.Node],
 	forwardableIPManager *neighbor.ForwardableIPManager,
-	nodeConfigNotifier *manager.NodeConfigNotifier,
+	nodeConfigNotifier *config.NodeConfigNotifier,
 ) error {
 	if !forwardableIPManager.Enabled() {
 		return nil

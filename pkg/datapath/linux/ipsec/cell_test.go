@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	datapathConfig "github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -46,7 +47,6 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
@@ -129,7 +129,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 		return hive.New(
 			mtu.Cell,
 			encrypt.Cell,
-			nodeManager.Cell,
+			datapathConfig.NodeConfigNotifierCell,
 			nodediscovery.Cell,
 			source.Cell,
 			watchers.Cell,
