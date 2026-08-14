@@ -5,6 +5,7 @@ package linux
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -182,24 +183,30 @@ func mustSetupDevice(tb testing.TB, ns *netns.NetNS, name string, ips ...net.IP)
 	}
 }
 
-func mustAddNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, node nodeTypes.Node) {
+func mustAddNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, n nodeTypes.Node) {
 	tb.Helper()
 	require.NoError(tb, ns.Do(func() error {
-		return lnh.NodeAdd(node)
+		return (&linuxNodeOps{handler: lnh}).Update(
+			context.Background(), nil, 0, &node.Node{Node: n},
+		)
 	}))
 }
 
-func mustUpdateNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, old, new nodeTypes.Node) {
+func mustUpdateNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, _, new nodeTypes.Node) {
 	tb.Helper()
 	require.NoError(tb, ns.Do(func() error {
-		return lnh.NodeUpdate(old, new)
+		return (&linuxNodeOps{handler: lnh}).Update(
+			context.Background(), nil, 0, &node.Node{Node: new},
+		)
 	}))
 }
 
-func mustDeleteNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, node nodeTypes.Node) {
+func mustDeleteNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, n nodeTypes.Node) {
 	tb.Helper()
 	require.NoError(tb, ns.Do(func() error {
-		return lnh.NodeDelete(node)
+		return (&linuxNodeOps{handler: lnh}).Delete(
+			context.Background(), nil, 0, &node.Node{Node: n},
+		)
 	}))
 }
 

@@ -300,7 +300,6 @@ func New(
 		logger:                       logger,
 		nodes:                        map[nodeTypes.Identity]*nodeEntry{},
 		writer:                       writer,
-		restoredNodes:                map[nodeTypes.Identity]*nodeTypes.Node{},
 		conf:                         c,
 		clusterInfo:                  clusterInfo,
 		underlay:                     tunnelConf.UnderlayProtocol(),

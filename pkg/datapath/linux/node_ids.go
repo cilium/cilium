@@ -91,7 +91,10 @@ func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
 // node IPs receive the same. This might happen if we allocated a node ID from
 // the ipcache, where we don't have all node IPs but only one.
 func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *nodeTypes.Node) (uint16, error) {
-	var errs error
+	var (
+		errs           error
+		newlyAllocated bool
+	)
 
 	// Did we already allocate a node ID for any IP of that node?
 	nodeID := n.getNodeIDForNode(node)
@@ -115,6 +118,7 @@ func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *node
 			// so we make early return here.
 			return nodeID, fmt.Errorf("no available node ID %q", node.Name)
 		} else {
+			newlyAllocated = true
 			n.log.Debug("Allocated new node ID for node",
 				logfields.NodeID, nodeID,
 				logfields.NodeName, node.Name,
@@ -153,6 +157,11 @@ func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *node
 			)
 			errs = errors.Join(errs,
 				fmt.Errorf("failed to map IP %s with node ID %d: %w", ip, nodeID, err))
+		}
+	}
+	if newlyAllocated && errs != nil {
+		if _, mapped := n.nodeIPsByIDs[nodeID]; !mapped {
+			n.nodeIDs.Insert(idpool.ID(nodeID))
 		}
 	}
 	return nodeID, errs
