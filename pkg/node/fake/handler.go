@@ -4,12 +4,39 @@
 package fake
 
 import (
+	"context"
 	"net"
+
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 )
+
+// Observe mirrors the node table into the fake handler for control-plane
+// tests that inspect realized nodes.
+func (n *Handler) Observe(ctx context.Context, db *statedb.DB, nodes statedb.Table[*node.Node]) error {
+	for {
+		txn := db.ReadTxn()
+		all, watch := nodes.AllWatch(txn)
+		current := map[string]types.Node{}
+		for obj := range all {
+			current[obj.Name] = obj.Node
+		}
+
+		n.mu.Lock()
+		n.Nodes = current
+		n.mu.Unlock()
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-watch:
+		}
+	}
+}
 
 type Handler struct {
 	mu    lock.Mutex
