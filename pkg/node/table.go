@@ -51,6 +51,7 @@ func (n *Node) TableHeader() []string {
 	return []string{
 		"Name",
 		"Source",
+		"Status",
 		"Addresses",
 	}
 }
@@ -65,8 +66,48 @@ func (n *Node) TableRow() []string {
 	return []string{
 		n.Fullname(),
 		string(n.Source),
+		n.tableStatus(),
 		strings.Join(addrs, ", "),
 	}
+}
+
+func (n *Node) tableStatus() string {
+	statuses := n.Statuses.All()
+	if len(statuses) == 0 {
+		return reconciler.StatusKindPending.String()
+	}
+
+	var errors, pending, refreshing []string
+	for name, status := range statuses {
+		switch status.Kind {
+		case reconciler.StatusKindDone:
+		case reconciler.StatusKindError:
+			errors = append(errors, name)
+		case reconciler.StatusKindRefreshing:
+			refreshing = append(refreshing, name)
+		default:
+			pending = append(pending, name)
+		}
+	}
+	if len(errors)+len(pending)+len(refreshing) == 0 {
+		return reconciler.StatusKindDone.String()
+	}
+
+	var parts []string
+	for _, group := range []struct {
+		kind  reconciler.StatusKind
+		names []string
+	}{
+		{reconciler.StatusKindError, errors},
+		{reconciler.StatusKindPending, pending},
+		{reconciler.StatusKindRefreshing, refreshing},
+	} {
+		slices.Sort(group.names)
+		if len(group.names) > 0 {
+			parts = append(parts, group.kind.String()+": "+strings.Join(group.names, ","))
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 var _ statedb.TableWritable = &Node{}
