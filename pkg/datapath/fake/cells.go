@@ -4,10 +4,12 @@
 package fake
 
 import (
+	"context"
 	"net"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
@@ -50,7 +52,6 @@ import (
 	fakemtu "github.com/cilium/cilium/pkg/mtu/fake"
 	"github.com/cilium/cilium/pkg/node"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
-	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/time"
 	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/types"
@@ -64,9 +65,11 @@ var Cell = cell.Module(
 	"Fake Datapath",
 
 	cell.Provide(
-		func(lifecycle cell.Lifecycle, na node.Addressing, nodeManager manager.NodeManager) (node.IDHandler, *fakenode.Handler) {
+		func(jobs job.Group, db *statedb.DB, nodes statedb.Table[*node.Node]) (node.IDHandler, *fakenode.Handler) {
 			fakeNodeHandler := fakenode.NewHandler()
-			nodeManager.Subscribe(fakeNodeHandler)
+			jobs.Add(job.OneShot("fake-node-observer", func(ctx context.Context, _ cell.Health) error {
+				return fakeNodeHandler.Observe(ctx, db, nodes)
+			}))
 			return fakeNodeHandler, fakeNodeHandler
 		},
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
