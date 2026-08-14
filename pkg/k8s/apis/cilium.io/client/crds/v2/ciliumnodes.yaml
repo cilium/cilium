@@ -681,22 +681,35 @@ spec:
                             not be managed by Cilium
                           type: object
                         vpc:
-                          description: VPC is the VPC information to which the ENI
-                            is attached to
+                          description: |-
+                            VPC is the VPC information to which the ENI is attached to
+
+                            Deprecated: the agent reads the VPC of the node, and its CIDRs, from the
+                            EC2 instance metadata service instead. This field has no reader left and
+                            will be removed.
                           properties:
                             cidrs:
-                              description: CIDRs is the list of CIDR ranges associated
-                                with the VPC
+                              description: |-
+                                CIDRs is the list of CIDR ranges associated with the VPC
+
+                                Deprecated: the agent reads the VPC CIDRs from IMDS
+                                (network/interfaces/macs/<mac>/vpc-ipv4-cidr-blocks).
                               items:
                                 format: cidr
                                 type: string
                               type: array
                             id:
-                              description: / ID is the ID of a VPC
+                              description: |-
+                                / ID is the ID of a VPC
+
+                                Deprecated: use ENISpec.VpcID, which the agent populates from IMDS.
                               type: string
                             primary-cidr:
-                              description: PrimaryCIDR is the primary CIDR of the
-                                VPC
+                              description: |-
+                                PrimaryCIDR is the primary CIDR of the VPC
+
+                                Deprecated: the agent reads the VPC CIDRs from IMDS
+                                (network/interfaces/macs/<mac>/vpc-ipv4-cidr-block).
                               format: cidr
                               type: string
                           type: object
