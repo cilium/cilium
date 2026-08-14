@@ -4,18 +4,8 @@
 package manager
 
 import (
-	"github.com/cilium/hive/cell"
-
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
-)
-
-// Cell provides the NodeManager, which manages information about Cilium nodes
-// in the cluster and informs other modules of changes to node configuration.
-var Cell = cell.Module(
-	"node-manager",
-	"Manages the collection of Cilium nodes",
-	cell.Provide(newNodeConfigNotifier),
 )
 
 // Notifier is the interface the wraps Subscribe and Unsubscribe. An

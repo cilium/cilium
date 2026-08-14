@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	datapathConfig "github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
@@ -24,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/registry"
-	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -52,7 +52,7 @@ type loader struct {
 	prefilter           prefilter.PreFilter
 	compilationLock     types.CompilationLock
 	configWriter        config.Writer
-	nodeConfigNotifier  *manager.NodeConfigNotifier
+	nodeConfigNotifier  *datapathConfig.NodeConfigNotifier
 	bpfCollectionLoader *bpfCollectionLoader
 
 	db           *statedb.DB
@@ -70,7 +70,7 @@ type Params struct {
 	Prefilter          prefilter.PreFilter
 	CompilationLock    types.CompilationLock
 	ConfigWriter       config.Writer
-	NodeConfigNotifier *manager.NodeConfigNotifier
+	NodeConfigNotifier *datapathConfig.NodeConfigNotifier
 	RouteManager       *routeReconciler.DesiredRouteManager
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
