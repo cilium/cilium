@@ -34,7 +34,7 @@ var fakeConfig = &option.DaemonConfig{
 func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
 	logger := hivetest.Logger(tb)
 	h, _ := cell.NewSimpleHealth()
-	nm, err := New(logger, fakeConfig, cmtypes.DefaultClusterInfo, tunnel.Config{}, nil, &fakeipset.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil)
+	nm, err := New(logger, fakeConfig, cmtypes.DefaultClusterInfo, tunnel.Config{}, nil, &fakeipset.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil, testClusterSizeDependantInterval)
 	require.NoError(tb, err)
 
 	g := &GetNodesSuite{

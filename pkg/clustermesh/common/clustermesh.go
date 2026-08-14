@@ -15,9 +15,9 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/dial"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 type StatusFunc func() *models.RemoteCluster
@@ -40,7 +40,7 @@ type Configuration struct {
 	NewRemoteCluster RemoteClusterCreatorFunc
 
 	// ClusterSizeDependantInterval allows to calculate intervals based on cluster size.
-	ClusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
+	ClusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc
 
 	// Resolvers, if provided, are used to create a custom dialer to connect to etcd.
 	Resolvers []dial.Resolver

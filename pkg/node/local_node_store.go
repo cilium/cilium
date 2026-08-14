@@ -42,6 +42,7 @@ var LocalNodeStoreCell = cell.Module(
 
 	cell.ProvidePrivate(NewNodeTable),
 	cell.Provide(NewNodeTableAndLocalNodeStore),
+	cell.Provide(NewClusterSizeDependantInterval),
 )
 
 const (
