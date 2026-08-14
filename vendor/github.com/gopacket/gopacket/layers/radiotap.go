@@ -1365,6 +1365,10 @@ func (m *RadioTap) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) erro
 		// and expects all fields are packed in the first it_present.
 		// Extended bitmap will be just ignored.
 		offset += 4
+		if offset+4 > dataLen {
+			df.SetTruncated()
+			return errors.New("RadioTap present bitmap extends beyond data")
+		}
 		m.Present = append(m.Present, RadioTapPresent(binary.LittleEndian.Uint32(data[offset:offset+4])))
 	}
 	offset += 4 // move past the previous present bitmap

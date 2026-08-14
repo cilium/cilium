@@ -7,6 +7,7 @@
 package layers
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -267,6 +268,19 @@ func (doc DNSOpCode) String() string {
 //  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 
 // DNS contains data from a single Domain Name Service packet.
+//
+// DNS name fields (such as DNSQuestion.Name and DNSResourceRecord.Name) hold
+// names in dotted presentation form. When a packet decoded by this layer is
+// re-serialized without changing a name field, the original wire label
+// boundaries are preserved, so a label that legitimately contains a literal
+// dot (for example a DNS-SD instance label "foo.bar") round-trips correctly.
+//
+// A name field that is newly constructed or changed is instead parsed as a
+// presentation name, where a dot separates labels. To embed a literal dot,
+// backslash, or arbitrary byte in a single label, use the escapes "\.", "\\",
+// or "\DDD" (three decimal digits). A decoded name copied verbatim into a
+// different field loses its preserved boundaries and is re-parsed this way, so
+// any literal dot in it must be escaped first.
 type DNS struct {
 	BaseLayer
 
@@ -428,65 +442,285 @@ func b2i(b bool) int {
 	return 0
 }
 
-func recSize(rr *DNSResourceRecord) int {
+// dnsNameLabels is the sequence of raw wire labels (each without its length
+// octet) that a DNS name decoded to. It is recorded only when a name needs its
+// exact label boundaries preserved across a decode -> serialize round trip.
+type dnsNameLabels [][]byte
+
+// dnsNameMeta preserves one decoded DNS name's wire label boundaries together
+// with a snapshot of the decoded presentation bytes. Serialization reproduces
+// the exact labels only while the public name field still equals orig; once the
+// caller changes the name, the metadata is treated as stale.
+type dnsNameMeta struct {
+	labels dnsNameLabels
+	orig   []byte
+}
+
+// dnsRecordNameMeta holds the preserved name metadata for one resource record.
+// It is allocated lazily, only when a decoded name actually contains a label
+// boundary that the dotted presentation form cannot represent, so the common
+// case costs a single nil pointer rather than a metadata field per name. A
+// record carries at most its owner name plus the one or two DNS names in its
+// RDATA, so rdata holds the single RDATA name (NS, CNAME, PTR, MX, SRV, the
+// NAPTR Replacement, the SVCB/HTTPS Target, the RRSIG SignerName, or the SOA
+// MName), and rdata2 holds the SOA RName.
+type dnsRecordNameMeta struct {
+	name   dnsNameMeta
+	rdata  dnsNameMeta
+	rdata2 dnsNameMeta
+}
+
+// newDNSNameMeta builds metadata for a decoded name. Call it only when labels
+// is non-nil (the name needs boundary preservation).
+func newDNSNameMeta(name []byte, labels dnsNameLabels) dnsNameMeta {
+	return dnsNameMeta{labels: labels, orig: bytes.Clone(name)}
+}
+
+// dnsLabelNeedsPreservation reports whether a wire label cannot be represented
+// unambiguously in the dotted presentation Name. '.' and '\' are the only
+// metacharacters of presentation form: the label separator and the escape
+// introducer (see encodeDNSPresentationName). A label containing either would be
+// mis-split or mis-escaped if flattened into Name and re-encoded, so its exact
+// wire boundaries must be preserved. Every other byte round-trips literally.
+func dnsLabelNeedsPreservation(label []byte) bool {
+	for _, b := range label {
+		if b == '.' || b == '\\' {
+			return true
+		}
+	}
+	return false
+}
+
+// collectDNSWireLabels reads the literal wire labels of a name in data[offset:end].
+// It stops at the first compression pointer or out-of-range length, returning the
+// labels gathered so far; the caller appends any pointed-to labels separately.
+func collectDNSWireLabels(data []byte, offset, end int) dnsNameLabels {
+	var labels dnsNameLabels
+	for offset < end {
+		if offset >= len(data) || data[offset]&0xc0 != 0 {
+			return labels
+		}
+		next := offset + int(data[offset]) + 1
+		if next > end || next > len(data) {
+			return labels
+		}
+		labels = append(labels, bytes.Clone(data[offset+1:next]))
+		offset = next
+	}
+	return labels
+}
+
+// encodeDNSPresentationName encodes a presentation-form DNS name (where '.'
+// separates labels and '\' introduces an escape) into wire format. When data
+// is non-nil it writes the encoding starting at offset; when data is nil it only
+// measures. Either way it returns the wire size, so a caller sizes a buffer with
+// data == nil and then fills it with identical logic: one source of truth for
+// the grammar, with no separate size/write passes to keep in sync.
+//
+// Recognized escapes are \. \\ and \DDD (three decimal digits, value <= 255);
+// any other \X is preserved literally as backslash plus X.
+func encodeDNSPresentationName(name []byte, data []byte, offset int) (int, error) {
+	start := offset
+	if len(name) == 0 || (len(name) == 1 && name[0] == '.') {
+		if data != nil {
+			data[offset] = 0x00
+		}
+		return 1, nil
+	}
+	labelOffset := offset // reserved slot for the current label's length octet
+	offset++
+	labelLen := 0
+	lastWasSeparator := false
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		if c == '.' {
+			if labelLen > 63 {
+				return 0, errDNSNameTooLong
+			}
+			if data != nil {
+				data[labelOffset] = byte(labelLen)
+			}
+			labelOffset = offset
+			offset++
+			labelLen = 0
+			lastWasSeparator = true
+			continue
+		}
+		if c == '\\' {
+			if i+1 >= len(name) {
+				return 0, errDNSNameInvalidIndex
+			}
+			next := name[i+1]
+			switch {
+			case next == '.' || next == '\\':
+				if data != nil {
+					data[offset] = next
+				}
+				offset++
+				labelLen++
+				i++
+			case next >= '0' && next <= '9':
+				if i+3 >= len(name) || name[i+2] < '0' || name[i+2] > '9' || name[i+3] < '0' || name[i+3] > '9' {
+					return 0, errDNSNameInvalidIndex
+				}
+				v := int(name[i+1]-'0')*100 + int(name[i+2]-'0')*10 + int(name[i+3]-'0')
+				if v > 255 {
+					return 0, errDNSNameInvalidIndex
+				}
+				if data != nil {
+					data[offset] = byte(v)
+				}
+				offset++
+				labelLen++
+				i += 3
+			default:
+				if data != nil {
+					data[offset] = c
+					data[offset+1] = next
+				}
+				offset += 2
+				labelLen += 2
+				i++
+			}
+			lastWasSeparator = false
+			continue
+		}
+		if data != nil {
+			data[offset] = c
+		}
+		offset++
+		labelLen++
+		lastWasSeparator = false
+	}
+	if labelLen > 63 {
+		return 0, errDNSNameTooLong
+	}
+	if !lastWasSeparator {
+		if data != nil {
+			data[labelOffset] = byte(labelLen)
+		}
+	} else {
+		offset = labelOffset
+	}
+	if data != nil {
+		data[offset] = 0x00
+	}
+	size := offset + 1 - start
+	if size > 255 {
+		return 0, errDNSNameTooLong
+	}
+	return size, nil
+}
+
+func dnsNameLabelsSize(labels dnsNameLabels) (int, error) {
+	size := 1
+	for _, label := range labels {
+		if len(label) > 63 {
+			return 0, errDNSNameTooLong
+		}
+		size += 1 + len(label)
+		if size > 255 {
+			return 0, errDNSNameTooLong
+		}
+	}
+	return size, nil
+}
+
+// usePreservedDNSLabels reports whether the preserved wire labels in m should be
+// used to encode name: only when metadata exists, recorded labels, and the public
+// name field still matches the decoded snapshot (i.e. the caller did not change it).
+func usePreservedDNSLabels(name []byte, m *dnsNameMeta) bool {
+	return m != nil && m.labels != nil && bytes.Equal(name, m.orig)
+}
+
+func dnsNameSize(name []byte, m *dnsNameMeta) (int, error) {
+	if usePreservedDNSLabels(name, m) {
+		return dnsNameLabelsSize(m.labels)
+	}
+	return encodeDNSPresentationName(name, nil, 0)
+}
+
+func recSize(rr *DNSResourceRecord) (int, error) {
 	switch rr.Type {
 	case DNSTypeA:
-		return 4
+		return 4, nil
 	case DNSTypeAAAA:
-		return 16
+		return 16, nil
 	case DNSTypeNS:
-		return len(rr.NS) + 2
+		return dnsNameSize(rr.NS, rr.rdataMeta())
 	case DNSTypeCNAME:
-		return len(rr.CNAME) + 2
+		return dnsNameSize(rr.CNAME, rr.rdataMeta())
 	case DNSTypePTR:
-		return len(rr.PTR) + 2
+		return dnsNameSize(rr.PTR, rr.rdataMeta())
 	case DNSTypeSOA:
-		return len(rr.SOA.MName) + 2 + len(rr.SOA.RName) + 2 + 20
+		mNameSize, err := dnsNameSize(rr.SOA.MName, rr.rdataMeta())
+		if err != nil {
+			return 0, err
+		}
+		rNameSize, err := dnsNameSize(rr.SOA.RName, rr.rdata2Meta())
+		if err != nil {
+			return 0, err
+		}
+		return mNameSize + rNameSize + 20, nil
 	case DNSTypeMX:
-		return 2 + len(rr.MX.Name) + 2
+		nameSize, err := dnsNameSize(rr.MX.Name, rr.rdataMeta())
+		if err != nil {
+			return 0, err
+		}
+		return 2 + nameSize, nil
 	case DNSTypeTXT:
 		l := len(rr.TXTs)
 		for _, txt := range rr.TXTs {
 			l += len(txt)
 		}
-		return l
+		return l, nil
 	case DNSTypeSRV:
-		return 6 + len(rr.SRV.Name) + 2
+		nameSize, err := dnsNameSize(rr.SRV.Name, rr.rdataMeta())
+		if err != nil {
+			return 0, err
+		}
+		return 6 + nameSize, nil
 	case DNSTypeNAPTR:
-		return 4 + 1 + len(rr.NAPTR.Flags) + 1 + len(rr.NAPTR.Service) + 1 + len(rr.NAPTR.Regexp) + len(rr.NAPTR.Replacement) + 2
+		replacementSize, err := dnsNameSize(rr.NAPTR.Replacement, rr.rdataMeta())
+		if err != nil {
+			return 0, err
+		}
+		return 4 + 1 + len(rr.NAPTR.Flags) + 1 + len(rr.NAPTR.Service) + 1 + len(rr.NAPTR.Regexp) + replacementSize, nil
 	case DNSTypeURI:
-		return 4 + len(rr.URI.Target)
+		return 4 + len(rr.URI.Target), nil
 	case DNSTypeOPT:
 		l := len(rr.OPT) * 4
 		for _, opt := range rr.OPT {
 			l += len(opt.Data)
 		}
-		return l
+		return l, nil
 	case DNSTypeRRSIG:
-		return rr.RRSIG.size()
+		return rr.RRSIG.size(rr.rdataMeta())
 	case DNSTypeDNSKEY:
-		return rr.DNSKEY.size()
+		return rr.DNSKEY.size(), nil
 	case DNSTypeSVCB, DNSTypeHTTPS:
-		return rr.SVCB.size()
+		return rr.SVCB.size(rr.rdataMeta())
 	}
 
-	return 0
+	return 0, nil
 }
 
-func computeSize(recs []DNSResourceRecord) int {
+func computeSize(recs []DNSResourceRecord) (int, error) {
 	sz := 0
 	for _, rr := range recs {
-		v := len(rr.Name)
-
-		if v == 0 {
-			sz += v + 11
-		} else {
-			sz += v + 12
+		v, err := dnsNameSize(rr.Name, rr.ownerMeta())
+		if err != nil {
+			return 0, err
 		}
+		sz += v + 10
 
-		sz += recSize(&rr)
+		rSz, err := recSize(&rr)
+		if err != nil {
+			return 0, err
+		}
+		sz += rSz
 	}
-	return sz
+	return sz, nil
 }
 
 // SerializeTo writes the serialized form of this layer into the
@@ -494,11 +728,27 @@ func computeSize(recs []DNSResourceRecord) int {
 func (d *DNS) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
 	dsz := 0
 	for _, q := range d.Questions {
-		dsz += len(q.Name) + 6
+		qSize, err := dnsNameSize(q.Name, q.nameMeta)
+		if err != nil {
+			return err
+		}
+		dsz += qSize + 4
 	}
-	dsz += computeSize(d.Answers)
-	dsz += computeSize(d.Authorities)
-	dsz += computeSize(d.Additionals)
+	answersSize, err := computeSize(d.Answers)
+	if err != nil {
+		return err
+	}
+	dsz += answersSize
+	authoritiesSize, err := computeSize(d.Authorities)
+	if err != nil {
+		return err
+	}
+	dsz += authoritiesSize
+	additionalsSize, err := computeSize(d.Additionals)
+	if err != nil {
+		return err
+	}
+	dsz += additionalsSize
 
 	bytes, err := b.PrependBytes(12 + dsz)
 	if err != nil {
@@ -521,7 +771,10 @@ func (d *DNS) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 
 	off := 12
 	for _, qd := range d.Questions {
-		n := qd.encode(bytes, off)
+		n, err := qd.encode(bytes, off)
+		if err != nil {
+			return err
+		}
 		off += n
 	}
 
@@ -558,18 +811,19 @@ func (d *DNS) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 
 const maxRecursionLevel = 255
 
-func decodeName(data []byte, offset int, buffer *[]byte, level int) ([]byte, int, error) {
+func decodeName(data []byte, offset int, buffer *[]byte, level int) ([]byte, dnsNameLabels, int, error) {
 	if level > maxRecursionLevel {
-		return nil, 0, errMaxRecursion
+		return nil, nil, 0, errMaxRecursion
 	} else if offset >= len(data) {
-		return nil, 0, errDNSNameOffsetTooHigh
+		return nil, nil, 0, errDNSNameOffsetTooHigh
 	} else if offset < 0 {
-		return nil, 0, errDNSNameOffsetNegative
+		return nil, nil, 0, errDNSNameOffsetNegative
 	}
 	start := len(*buffer)
 	index := offset
+	var labels dnsNameLabels
 	if data[index] == 0x00 {
-		return nil, index + 1, nil
+		return nil, labels, index + 1, nil
 	}
 loop:
 	for data[index] != 0x00 {
@@ -585,12 +839,18 @@ loop:
 			*/
 			index2 := index + int(data[index]) + 1
 			if index2-offset > 255 {
-				return nil, 0, errDNSNameTooLong
+				return nil, nil, 0, errDNSNameTooLong
 			} else if index2 < index+1 || index2 > len(data) {
-				return nil, 0, errDNSNameInvalidIndex
+				return nil, nil, 0, errDNSNameInvalidIndex
 			}
+			label := data[index+1 : index2]
 			*buffer = append(*buffer, '.')
-			*buffer = append(*buffer, data[index+1:index2]...)
+			*buffer = append(*buffer, label...)
+			if labels != nil {
+				labels = append(labels, bytes.Clone(label))
+			} else if dnsLabelNeedsPreservation(label) {
+				labels = collectDNSWireLabels(data, offset, index2)
+			}
 			index = index2
 
 		case 0xc0:
@@ -614,39 +874,49 @@ loop:
 			      - a sequence of labels ending with a pointer
 			*/
 			if index+2 > len(data) {
-				return nil, 0, errDNSPointerOffsetTooHigh
+				return nil, nil, 0, errDNSPointerOffsetTooHigh
 			}
 			offsetp := int(binary.BigEndian.Uint16(data[index:index+2]) & 0x3fff)
 			if offsetp > len(data) {
-				return nil, 0, errDNSPointerOffsetTooHigh
+				return nil, nil, 0, errDNSPointerOffsetTooHigh
 			}
 			// This looks a little tricky, but actually isn't.  Because of how
 			// decodeName is written, calling it appends the decoded name to the
 			// current buffer.  We already have the start of the buffer, then, so
 			// once this call is done buffer[start:] will contain our full name.
-			_, _, err := decodeName(data, offsetp, buffer, level+1)
+			pointedName, pointedLabels, _, err := decodeName(data, offsetp, buffer, level+1)
 			if err != nil {
-				return nil, 0, err
+				return nil, nil, 0, err
+			}
+			if pointedLabels != nil {
+				if labels == nil {
+					labels = collectDNSWireLabels(data, offset, index)
+				}
+				labels = append(labels, pointedLabels...)
+			} else if labels != nil && len(pointedName) > 0 {
+				for _, lbl := range bytes.Split(pointedName, []byte{'.'}) {
+					labels = append(labels, bytes.Clone(lbl))
+				}
 			}
 			index++ // pointer is two bytes, so add an extra byte here.
 			break loop
 		/* EDNS, or other DNS option ? */
 		case 0x40: // RFC 2673
-			return nil, 0, fmt.Errorf("qname '0x40' - RFC 2673 unsupported yet (data=%x index=%d)",
+			return nil, nil, 0, fmt.Errorf("qname '0x40' - RFC 2673 unsupported yet (data=%x index=%d)",
 				data[index], index)
 
 		case 0x80:
-			return nil, 0, fmt.Errorf("qname '0x80' unsupported yet (data=%x index=%d)",
+			return nil, nil, 0, fmt.Errorf("qname '0x80' unsupported yet (data=%x index=%d)",
 				data[index], index)
 		}
 		if index >= len(data) {
-			return nil, 0, errDNSIndexOutOfRange
+			return nil, nil, 0, errDNSIndexOutOfRange
 		}
 	}
 	if len(*buffer) <= start {
-		return (*buffer)[start:], index + 1, nil
+		return (*buffer)[start:], labels, index + 1, nil
 	}
-	return (*buffer)[start+1:], index + 1, nil
+	return (*buffer)[start+1:], labels, index + 1, nil
 }
 
 // DNSQuestion wraps a single request (question) within a DNS query.
@@ -654,10 +924,14 @@ type DNSQuestion struct {
 	Name  []byte
 	Type  DNSType
 	Class DNSClass
+
+	// nameMeta preserves the wire label boundaries of a decoded Name; it is set
+	// only when Name contains a label with a literal dot or backslash. See DNS.
+	nameMeta *dnsNameMeta
 }
 
 func (q *DNSQuestion) decode(data []byte, offset int, df gopacket.DecodeFeedback, buffer *[]byte) (int, error) {
-	name, endq, err := decodeName(data, offset, buffer, 1)
+	name, labels, endq, err := decodeName(data, offset, buffer, 1)
 	if err != nil {
 		return 0, err
 	}
@@ -667,18 +941,25 @@ func (q *DNSQuestion) decode(data []byte, offset int, df gopacket.DecodeFeedback
 	}
 
 	q.Name = name
+	if labels != nil {
+		meta := newDNSNameMeta(name, labels)
+		q.nameMeta = &meta
+	}
 	q.Type = DNSType(binary.BigEndian.Uint16(data[endq : endq+2]))
 	q.Class = DNSClass(binary.BigEndian.Uint16(data[endq+2 : endq+4]))
 
 	return endq + 4, nil
 }
 
-func (q *DNSQuestion) encode(data []byte, offset int) int {
-	noff := encodeName(q.Name, data, offset)
-	nSz := noff - offset
+func (q *DNSQuestion) encode(data []byte, offset int) (int, error) {
+	nSz, err := encodeDNSName(q.Name, q.nameMeta, data, offset)
+	if err != nil {
+		return 0, err
+	}
+	noff := offset + nSz
 	binary.BigEndian.PutUint16(data[noff:], uint16(q.Type))
 	binary.BigEndian.PutUint16(data[noff+2:], uint16(q.Class))
-	return nSz + 4
+	return nSz + 4, nil
 }
 
 //  DNSResourceRecord
@@ -731,11 +1012,49 @@ type DNSResourceRecord struct {
 
 	// Undecoded TXT for backward compatibility
 	TXT []byte
+
+	// names preserves wire label boundaries for this record's owner and RDATA
+	// names; allocated lazily, only when a name needs it. See DNS and dnsRecordNameMeta.
+	names *dnsRecordNameMeta
+}
+
+// ensureNameMeta returns the record's preserved-name metadata block, allocating it
+// on first use. Only call it when a decoded name actually needs preservation.
+func (rr *DNSResourceRecord) ensureNameMeta() *dnsRecordNameMeta {
+	if rr.names == nil {
+		rr.names = &dnsRecordNameMeta{}
+	}
+	return rr.names
+}
+
+// ownerMeta, rdataMeta, and rdata2Meta return the preserved metadata for the
+// owner name, the single RDATA name (or SOA MName), and the SOA RName. They
+// return nil when no preservation metadata was recorded, which the size and
+// encode helpers treat as "use presentation form".
+func (rr *DNSResourceRecord) ownerMeta() *dnsNameMeta {
+	if rr.names == nil {
+		return nil
+	}
+	return &rr.names.name
+}
+
+func (rr *DNSResourceRecord) rdataMeta() *dnsNameMeta {
+	if rr.names == nil {
+		return nil
+	}
+	return &rr.names.rdata
+}
+
+func (rr *DNSResourceRecord) rdata2Meta() *dnsNameMeta {
+	if rr.names == nil {
+		return nil
+	}
+	return &rr.names.rdata2
 }
 
 // decode decodes the resource record, returning the total length of the record.
 func (rr *DNSResourceRecord) decode(data []byte, offset int, df gopacket.DecodeFeedback, buffer *[]byte) (int, error) {
-	name, endq, err := decodeName(data, offset, buffer, 1)
+	name, labels, endq, err := decodeName(data, offset, buffer, 1)
 	if err != nil {
 		return 0, err
 	}
@@ -745,6 +1064,9 @@ func (rr *DNSResourceRecord) decode(data []byte, offset int, df gopacket.DecodeF
 	}
 
 	rr.Name = name
+	if labels != nil {
+		rr.ensureNameMeta().name = newDNSNameMeta(name, labels)
+	}
 	rr.Type = DNSType(binary.BigEndian.Uint16(data[endq : endq+2]))
 	rr.Class = DNSClass(binary.BigEndian.Uint16(data[endq+2 : endq+4]))
 	rr.TTL = binary.BigEndian.Uint32(data[endq+4 : endq+8])
@@ -764,34 +1086,42 @@ func (rr *DNSResourceRecord) decode(data []byte, offset int, df gopacket.DecodeF
 	return endq + 10 + int(rr.DataLength), nil
 }
 
-func encodeName(name []byte, data []byte, offset int) int {
-	l := 0
-	for i := range name {
-		if name[i] == '.' {
-			data[offset+i-l] = byte(l)
-			l = 0
-		} else {
-			// skip one to write the length
-			data[offset+i+1] = name[i]
-			l++
-		}
+func encodeDNSNameLabels(labels dnsNameLabels, data []byte, offset int) (int, error) {
+	size, err := dnsNameLabelsSize(labels)
+	if err != nil {
+		return 0, err
 	}
-
-	if len(name) == 0 {
-		data[offset] = 0x00 // terminal
-		return offset + 1
+	start := offset
+	for _, label := range labels {
+		data[offset] = byte(len(label))
+		offset++
+		copy(data[offset:], label)
+		offset += len(label)
 	}
+	data[offset] = 0x00
+	if offset+1-start != size {
+		return 0, errDNSNameInvalidIndex
+	}
+	return size, nil
+}
 
-	// length for final portion
-	data[offset+len(name)-l] = byte(l)
-	data[offset+len(name)+1] = 0x00 // terminal
-	return offset + len(name) + 2
+// encodeDNSName writes name into data at offset, returning the wire size. If the
+// preserved wire labels in m still match name (an unchanged decoded name), they
+// are re-emitted exactly; otherwise name is parsed as presentation form.
+func encodeDNSName(name []byte, m *dnsNameMeta, data []byte, offset int) (int, error) {
+	if usePreservedDNSLabels(name, m) {
+		return encodeDNSNameLabels(m.labels, data, offset)
+	}
+	return encodeDNSPresentationName(name, data, offset)
 }
 
 func (rr *DNSResourceRecord) encode(data []byte, offset int, opts gopacket.SerializeOptions) (int, error) {
 
-	noff := encodeName(rr.Name, data, offset)
-	nSz := noff - offset
+	nSz, err := encodeDNSName(rr.Name, rr.ownerMeta(), data, offset)
+	if err != nil {
+		return 0, err
+	}
+	noff := offset + nSz
 
 	binary.BigEndian.PutUint16(data[noff:], uint16(rr.Type))
 	binary.BigEndian.PutUint16(data[noff+2:], uint16(rr.Class))
@@ -803,14 +1133,27 @@ func (rr *DNSResourceRecord) encode(data []byte, offset int, opts gopacket.Seria
 	case DNSTypeAAAA:
 		copy(data[noff+10:], rr.IP)
 	case DNSTypeNS:
-		encodeName(rr.NS, data, noff+10)
+		if _, err = encodeDNSName(rr.NS, rr.rdataMeta(), data, noff+10); err != nil {
+			return 0, err
+		}
 	case DNSTypeCNAME:
-		encodeName(rr.CNAME, data, noff+10)
+		if _, err = encodeDNSName(rr.CNAME, rr.rdataMeta(), data, noff+10); err != nil {
+			return 0, err
+		}
 	case DNSTypePTR:
-		encodeName(rr.PTR, data, noff+10)
+		if _, err = encodeDNSName(rr.PTR, rr.rdataMeta(), data, noff+10); err != nil {
+			return 0, err
+		}
 	case DNSTypeSOA:
-		noff2 := encodeName(rr.SOA.MName, data, noff+10)
-		noff2 = encodeName(rr.SOA.RName, data, noff2)
+		n1, err := encodeDNSName(rr.SOA.MName, rr.rdataMeta(), data, noff+10)
+		if err != nil {
+			return 0, err
+		}
+		n2, err := encodeDNSName(rr.SOA.RName, rr.rdata2Meta(), data, noff+10+n1)
+		if err != nil {
+			return 0, err
+		}
+		noff2 := noff + 10 + n1 + n2
 		binary.BigEndian.PutUint32(data[noff2:], rr.SOA.Serial)
 		binary.BigEndian.PutUint32(data[noff2+4:], rr.SOA.Refresh)
 		binary.BigEndian.PutUint32(data[noff2+8:], rr.SOA.Retry)
@@ -818,7 +1161,9 @@ func (rr *DNSResourceRecord) encode(data []byte, offset int, opts gopacket.Seria
 		binary.BigEndian.PutUint32(data[noff2+16:], rr.SOA.Minimum)
 	case DNSTypeMX:
 		binary.BigEndian.PutUint16(data[noff+10:], rr.MX.Preference)
-		encodeName(rr.MX.Name, data, noff+12)
+		if _, err = encodeDNSName(rr.MX.Name, rr.rdataMeta(), data, noff+12); err != nil {
+			return 0, err
+		}
 	case DNSTypeTXT:
 		noff2 := noff + 10
 		for _, txt := range rr.TXTs {
@@ -830,7 +1175,9 @@ func (rr *DNSResourceRecord) encode(data []byte, offset int, opts gopacket.Seria
 		binary.BigEndian.PutUint16(data[noff+10:], rr.SRV.Priority)
 		binary.BigEndian.PutUint16(data[noff+12:], rr.SRV.Weight)
 		binary.BigEndian.PutUint16(data[noff+14:], rr.SRV.Port)
-		encodeName(rr.SRV.Name, data, noff+16)
+		if _, err = encodeDNSName(rr.SRV.Name, rr.rdataMeta(), data, noff+16); err != nil {
+			return 0, err
+		}
 	case DNSTypeNAPTR:
 		binary.BigEndian.PutUint16(data[noff+10:], rr.NAPTR.Order)
 		binary.BigEndian.PutUint16(data[noff+12:], rr.NAPTR.Preference)
@@ -844,7 +1191,9 @@ func (rr *DNSResourceRecord) encode(data []byte, offset int, opts gopacket.Seria
 		data[noff2] = byte(len(rr.NAPTR.Regexp))
 		copy(data[noff2+1:], rr.NAPTR.Regexp)
 		noff2 += 1 + len(rr.NAPTR.Regexp)
-		encodeName(rr.NAPTR.Replacement, data, noff2)
+		if _, err = encodeDNSName(rr.NAPTR.Replacement, rr.rdataMeta(), data, noff2); err != nil {
+			return 0, err
+		}
 	case DNSTypeURI:
 		binary.BigEndian.PutUint16(data[noff+10:], rr.URI.Priority)
 		binary.BigEndian.PutUint16(data[noff+12:], rr.URI.Weight)
@@ -858,17 +1207,24 @@ func (rr *DNSResourceRecord) encode(data []byte, offset int, opts gopacket.Seria
 			noff2 += 4 + len(opt.Data)
 		}
 	case DNSTypeRRSIG:
-		rr.RRSIG.encode(data, noff+10)
+		if err = rr.RRSIG.encode(rr.rdataMeta(), data, noff+10); err != nil {
+			return 0, err
+		}
 	case DNSTypeDNSKEY:
 		rr.DNSKEY.encode(data, noff+10)
 	case DNSTypeSVCB, DNSTypeHTTPS:
-		rr.SVCB.encode(data, noff+10)
+		if _, err = rr.SVCB.encode(rr.rdataMeta(), data, noff+10); err != nil {
+			return 0, err
+		}
 	default:
 		return 0, fmt.Errorf("serializing resource record of type %v not supported", rr.Type)
 	}
 
 	// DataLength
-	dSz := recSize(rr)
+	dSz, err := recSize(rr)
+	if err != nil {
+		return 0, err
+	}
 	binary.BigEndian.PutUint16(data[noff+8:], uint16(dSz))
 
 	if opts.FixLengths {
@@ -950,32 +1306,32 @@ func decodeOPTs(data []byte, offset int) ([]DNSOPT, error) {
 	return allOPT, nil
 }
 
-func decodeSVCB(data []byte, offset int, buffer *[]byte) (DNSSVCB, error) {
+func decodeSVCB(data []byte, offset int, buffer *[]byte) (DNSSVCB, dnsNameLabels, error) {
 	var svcb DNSSVCB
 	end := len(data)
 
 	if offset == end {
-		return svcb, fmt.Errorf("DNSSVCB record is empty")
+		return svcb, nil, fmt.Errorf("DNSSVCB record is empty")
 	}
 
 	if offset+3 > end {
-		return svcb, fmt.Errorf("DNSSVCB record is of length %d, it should be at least length 3", end-offset)
+		return svcb, nil, fmt.Errorf("DNSSVCB record is of length %d, it should be at least length 3", end-offset)
 	}
 	priority := binary.BigEndian.Uint16(data[offset:])
-	target, ofs, err := decodeName(data, offset+2, buffer, 1)
+	target, labels, ofs, err := decodeName(data, offset+2, buffer, 1)
 	if err != nil {
-		return svcb, err
+		return svcb, nil, err
 	}
 
 	var params []DNSSvcParam
 	for ofs < end {
-		if offset+4 > end {
-			return svcb, fmt.Errorf("DNSSVCB record truncated in SvcParams")
+		if ofs+4 > end {
+			return svcb, nil, fmt.Errorf("DNSSVCB record truncated in SvcParams")
 		}
 		key := DNSSvcParamKey(binary.BigEndian.Uint16(data[ofs:]))
 		l := int(binary.BigEndian.Uint16(data[ofs+2:]))
 		if ofs+4+l > end {
-			return svcb, fmt.Errorf("DNSSVCB record truncated in SvcParams")
+			return svcb, nil, fmt.Errorf("DNSSVCB record truncated in SvcParams")
 		}
 		params = append(params, DNSSvcParam{
 			Key:   key,
@@ -988,7 +1344,7 @@ func decodeSVCB(data []byte, offset int, buffer *[]byte) (DNSSVCB, error) {
 		Priority: priority,
 		Target:   target,
 		Params:   params,
-	}, nil
+	}, labels, nil
 }
 
 func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte) error {
@@ -1005,30 +1361,42 @@ func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte
 		}
 		rr.TXTs = txts
 	case DNSTypeNS:
-		name, _, err := decodeName(data, offset, buffer, 1)
+		name, labels, _, err := decodeName(data, offset, buffer, 1)
 		if err != nil {
 			return err
 		}
 		rr.NS = name
+		if labels != nil {
+			rr.ensureNameMeta().rdata = newDNSNameMeta(name, labels)
+		}
 	case DNSTypeCNAME:
-		name, _, err := decodeName(data, offset, buffer, 1)
+		name, labels, _, err := decodeName(data, offset, buffer, 1)
 		if err != nil {
 			return err
 		}
 		rr.CNAME = name
+		if labels != nil {
+			rr.ensureNameMeta().rdata = newDNSNameMeta(name, labels)
+		}
 	case DNSTypePTR:
-		name, _, err := decodeName(data, offset, buffer, 1)
+		name, labels, _, err := decodeName(data, offset, buffer, 1)
 		if err != nil {
 			return err
 		}
 		rr.PTR = name
+		if labels != nil {
+			rr.ensureNameMeta().rdata = newDNSNameMeta(name, labels)
+		}
 	case DNSTypeSOA:
-		name, endq, err := decodeName(data, offset, buffer, 1)
+		name, labels, endq, err := decodeName(data, offset, buffer, 1)
 		if err != nil {
 			return err
 		}
 		rr.SOA.MName = name
-		name, endq, err = decodeName(data, endq, buffer, 1)
+		if labels != nil {
+			rr.ensureNameMeta().rdata = newDNSNameMeta(name, labels)
+		}
+		name, labels, endq, err = decodeName(data, endq, buffer, 1)
 		if err != nil {
 			return err
 		}
@@ -1036,6 +1404,9 @@ func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte
 			return errors.New("SOA too small")
 		}
 		rr.SOA.RName = name
+		if labels != nil {
+			rr.ensureNameMeta().rdata2 = newDNSNameMeta(name, labels)
+		}
 		rr.SOA.Serial = binary.BigEndian.Uint32(data[endq : endq+4])
 		rr.SOA.Refresh = binary.BigEndian.Uint32(data[endq+4 : endq+8])
 		rr.SOA.Retry = binary.BigEndian.Uint32(data[endq+8 : endq+12])
@@ -1046,11 +1417,14 @@ func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte
 			return errors.New("MX too small")
 		}
 		rr.MX.Preference = binary.BigEndian.Uint16(data[offset : offset+2])
-		name, _, err := decodeName(data, offset+2, buffer, 1)
+		name, labels, _, err := decodeName(data, offset+2, buffer, 1)
 		if err != nil {
 			return err
 		}
 		rr.MX.Name = name
+		if labels != nil {
+			rr.ensureNameMeta().rdata = newDNSNameMeta(name, labels)
+		}
 	case DNSTypeURI:
 		if len(rr.Data) < 4 {
 			return errors.New("URI too small")
@@ -1065,11 +1439,14 @@ func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte
 		rr.SRV.Priority = binary.BigEndian.Uint16(data[offset : offset+2])
 		rr.SRV.Weight = binary.BigEndian.Uint16(data[offset+2 : offset+4])
 		rr.SRV.Port = binary.BigEndian.Uint16(data[offset+4 : offset+6])
-		name, _, err := decodeName(data, offset+6, buffer, 1)
+		name, labels, _, err := decodeName(data, offset+6, buffer, 1)
 		if err != nil {
 			return err
 		}
 		rr.SRV.Name = name
+		if labels != nil {
+			rr.ensureNameMeta().rdata = newDNSNameMeta(name, labels)
+		}
 	case DNSTypeNAPTR:
 		if len(data) < offset+4 {
 			return errors.New("NAPTR too small")
@@ -1111,11 +1488,14 @@ func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte
 		rr.NAPTR.Regexp = data[offset : offset+regexpLen]
 		offset += regexpLen
 		// Decode Replacement (domain-name)
-		name, _, err := decodeName(data, offset, buffer, 1)
+		name, labels, _, err := decodeName(data, offset, buffer, 1)
 		if err != nil {
 			return err
 		}
 		rr.NAPTR.Replacement = name
+		if labels != nil {
+			rr.ensureNameMeta().rdata = newDNSNameMeta(name, labels)
+		}
 	case DNSTypeOPT:
 		allOPT, err := decodeOPTs(data, offset)
 		if err != nil {
@@ -1123,9 +1503,12 @@ func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte
 		}
 		rr.OPT = allOPT
 	case DNSTypeRRSIG:
-		err := rr.RRSIG.decode(data, offset)
+		labels, err := rr.RRSIG.decode(data, offset)
 		if err != nil {
 			return err
+		}
+		if labels != nil {
+			rr.ensureNameMeta().rdata = newDNSNameMeta(rr.RRSIG.SignerName, labels)
 		}
 	case DNSTypeDNSKEY:
 		err := rr.DNSKEY.decode(data, offset)
@@ -1133,11 +1516,14 @@ func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte
 			return err
 		}
 	case DNSTypeSVCB, DNSTypeHTTPS:
-		svcb, err := decodeSVCB(data, offset, buffer)
+		svcb, labels, err := decodeSVCB(data, offset, buffer)
 		if err != nil {
 			return err
 		}
 		rr.SVCB = svcb
+		if labels != nil {
+			rr.ensureNameMeta().rdata = newDNSNameMeta(svcb.Target, labels)
+		}
 	}
 	return nil
 }
@@ -1183,14 +1569,13 @@ type DNSSVCB struct {
 	Params   []DNSSvcParam
 }
 
-func (svcb DNSSVCB) size() int {
+func (svcb DNSSVCB) size(m *dnsNameMeta) (int, error) {
 	// Target.
-	sz := len(svcb.Target)
-	if sz == 0 {
-		sz++
-	} else {
-		sz += 2
+	targetSize, err := dnsNameSize(svcb.Target, m)
+	if err != nil {
+		return 0, err
 	}
+	sz := targetSize
 	// Priority.
 	sz += 2
 
@@ -1198,7 +1583,7 @@ func (svcb DNSSVCB) size() int {
 	for _, param := range svcb.Params {
 		sz += param.size()
 	}
-	return sz
+	return sz, nil
 }
 
 func (svcb DNSSVCB) String() string {
@@ -1206,13 +1591,19 @@ func (svcb DNSSVCB) String() string {
 		svcb.Priority, string(svcb.Target), svcb.Params)
 }
 
-func (svcb DNSSVCB) encode(data []byte, offset int) {
+func (svcb DNSSVCB) encode(m *dnsNameMeta, data []byte, offset int) (int, error) {
+	start := offset
 	binary.BigEndian.PutUint16(data[offset:], svcb.Priority)
-	offset = encodeName(svcb.Target, data, offset+2)
+	n, err := encodeDNSName(svcb.Target, m, data, offset+2)
+	if err != nil {
+		return 0, err
+	}
+	offset += 2 + n
 
 	for _, param := range svcb.Params {
 		offset = param.encode(data, offset)
 	}
+	return offset - start, nil
 }
 
 // DNSSvcParamKey defines SVCB service parameter keys.
@@ -1297,9 +1688,13 @@ type DNSRRSIG struct {
 	SignerName, Signature              []byte
 }
 
-func (rrsig DNSRRSIG) size() int {
-	// 18 bytes for the fixed fields, 2 bytes for the first Label Length, and ending 0x00 byte.
-	return 18 + len(rrsig.SignerName) + 2 + len(rrsig.Signature)
+func (rrsig DNSRRSIG) size(m *dnsNameMeta) (int, error) {
+	// 18 bytes for the fixed fields, plus the wire-encoded signer name and the signature.
+	signerSize, err := dnsNameSize(rrsig.SignerName, m)
+	if err != nil {
+		return 0, err
+	}
+	return 18 + signerSize + len(rrsig.Signature), nil
 }
 
 func (rrsig DNSRRSIG) String() string {
@@ -1328,11 +1723,12 @@ func (rrsig DNSRRSIG) String() string {
 // /                            Signature                          /
 // / 																/
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-func (rrsig *DNSRRSIG) decode(data []byte, offset int) error {
+func (rrsig *DNSRRSIG) decode(data []byte, offset int) (dnsNameLabels, error) {
 	if len(data) < offset+18 {
-		return errors.New("RRSIG too small")
+		return nil, errors.New("RRSIG too small")
 	}
 	var err error
+	var labels dnsNameLabels
 	rrsig.TypeCovered = DNSType(binary.BigEndian.Uint16(data[offset:]))
 	rrsig.Algorithm = DNSSECAlgorithm(data[offset+2])
 	rrsig.Labels = data[offset+3]
@@ -1340,18 +1736,18 @@ func (rrsig *DNSRRSIG) decode(data []byte, offset int) error {
 	rrsig.Expiration = binary.BigEndian.Uint32(data[offset+8:])
 	rrsig.Inception = binary.BigEndian.Uint32(data[offset+12:])
 	rrsig.KeyTag = binary.BigEndian.Uint16(data[offset+16:])
-	_, offset, err = decodeName(data, offset+18, &rrsig.SignerName, 1)
+	_, labels, offset, err = decodeName(data, offset+18, &rrsig.SignerName, 1)
 	if len(rrsig.SignerName) > 1 {
 		rrsig.SignerName = rrsig.SignerName[1:] // Remove leading '.'
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	rrsig.Signature = data[offset:]
-	return nil
+	return labels, nil
 }
 
-func (rrsig DNSRRSIG) encode(data []byte, offset int) {
+func (rrsig DNSRRSIG) encode(m *dnsNameMeta, data []byte, offset int) error {
 	binary.BigEndian.PutUint16(data[offset:], uint16(rrsig.TypeCovered))
 	data[offset+2] = uint8(rrsig.Algorithm)
 	data[offset+3] = rrsig.Labels
@@ -1359,8 +1755,13 @@ func (rrsig DNSRRSIG) encode(data []byte, offset int) {
 	binary.BigEndian.PutUint32(data[offset+8:], rrsig.Expiration)
 	binary.BigEndian.PutUint32(data[offset+12:], rrsig.Inception)
 	binary.BigEndian.PutUint16(data[offset+16:], rrsig.KeyTag)
-	offset += encodeName(rrsig.SignerName, data[offset+18:], 0) + 18
+	n, err := encodeDNSName(rrsig.SignerName, m, data, offset+18)
+	if err != nil {
+		return err
+	}
+	offset += 18 + n
 	copy(data[offset:], rrsig.Signature)
+	return nil
 }
 
 // DNSSECAlgorithm common values

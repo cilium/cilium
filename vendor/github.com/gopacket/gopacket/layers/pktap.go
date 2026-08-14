@@ -119,6 +119,10 @@ func (p *PktapV1) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error
 	}
 
 	p.HeaderLength = binary.LittleEndian.Uint32(data[0:4])
+	if int64(p.HeaderLength) > int64(len(data)) {
+		df.SetTruncated()
+		return fmt.Errorf("pktap header length %d exceeds packet length %d", p.HeaderLength, len(data))
+	}
 	if p.HeaderLength < 156 {
 		return fmt.Errorf("pktap v1 header length mismatch: got %d", p.HeaderLength)
 	}

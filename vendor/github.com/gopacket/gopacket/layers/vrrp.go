@@ -91,6 +91,10 @@ type VRRPv2 struct {
 func (v *VRRPv2) LayerType() gopacket.LayerType { return LayerTypeVRRP }
 
 func (v *VRRPv2) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 8 {
+		df.SetTruncated()
+		return errors.New("Not a valid VRRP packet. Packet length is too small.")
+	}
 
 	v.BaseLayer = BaseLayer{Contents: data[:len(data)]}
 	v.Version = data[0] >> 4 // high nibble == VRRP version. We're expecting v2
@@ -108,6 +112,11 @@ func (v *VRRPv2) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 	if v.CountIPAddr < 1 {
 		return errors.New("VRRPv2 number of IP addresses is not valid.")
 	}
+	addressEnd := 8 + 4*int(v.CountIPAddr)
+	if len(data) < addressEnd {
+		df.SetTruncated()
+		return errors.New("VRRPv2 packet too short for IP address count.")
+	}
 
 	v.AuthType = VRRPv2AuthType(data[4])
 	v.AdverInt = uint8(data[5])
@@ -116,6 +125,7 @@ func (v *VRRPv2) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error 
 	// populate the IPAddress field. The number of addresses is specified in the v.CountIPAddr field
 	// offset references the starting byte containing the list of ip addresses
 	offset := 8
+	v.IPAddress = nil
 	for i := uint8(0); i < v.CountIPAddr; i++ {
 		v.IPAddress = append(v.IPAddress, data[offset:offset+4])
 		offset += 4

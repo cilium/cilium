@@ -12,7 +12,7 @@ import (
 )
 
 type schemaPropsValidator struct {
-	Path            string
+	Path            pathSegments
 	In              string
 	AllOf           []spec.Schema
 	OneOf           []spec.Schema
@@ -28,12 +28,8 @@ type schemaPropsValidator struct {
 	Options         *SchemaValidatorOptions
 }
 
-func (s *schemaPropsValidator) SetPath(path string) {
-	s.Path = path
-}
-
 func newSchemaPropsValidator(
-	path string, in string, allOf, oneOf, anyOf []spec.Schema, not *spec.Schema, deps spec.Dependencies, root any, formats strfmt.Registry,
+	path pathSegments, in string, allOf, oneOf, anyOf []spec.Schema, not *spec.Schema, deps spec.Dependencies, root any, formats strfmt.Registry,
 	opts *SchemaValidatorOptions,
 ) *schemaPropsValidator {
 	if opts == nil {
@@ -178,7 +174,7 @@ func (s *schemaPropsValidator) validateAnyOf(data any, mainResult, keepResultAny
 		}
 	}
 
-	mainResult.AddErrors(mustValidateAtLeastOneSchemaMsg(s.Path))
+	mainResult.addErrorsAt(s.Path, mustValidateAtLeastOneSchemaMsg(s.Path.dotted()))
 	mainResult.Merge(bestFailures)
 }
 
@@ -224,7 +220,7 @@ func (s *schemaPropsValidator) validateOneOf(data any, mainResult, keepResultOne
 
 	switch validated {
 	case 0:
-		mainResult.AddErrors(mustValidateOnlyOneSchemaMsg(s.Path, "Found none valid"))
+		mainResult.addErrorsAt(s.Path, mustValidateOnlyOneSchemaMsg(s.Path.dotted(), "Found none valid"))
 		mainResult.Merge(bestFailures)
 		// firstSucess necessarily nil
 	case 1:
@@ -233,7 +229,7 @@ func (s *schemaPropsValidator) validateOneOf(data any, mainResult, keepResultOne
 			pools.poolOfResults.RedeemResult(bestFailures)
 		}
 	default:
-		mainResult.AddErrors(mustValidateOnlyOneSchemaMsg(s.Path, fmt.Sprintf("Found %d valid alternatives", validated)))
+		mainResult.addErrorsAt(s.Path, mustValidateOnlyOneSchemaMsg(s.Path.dotted(), fmt.Sprintf("Found %d valid alternatives", validated)))
 		mainResult.Merge(bestFailures)
 		if firstSuccess != nil && firstSuccess.wantsRedeemOnMerge {
 			pools.poolOfResults.RedeemResult(firstSuccess)
@@ -260,10 +256,10 @@ func (s *schemaPropsValidator) validateAllOf(data any, mainResult, keepResultAll
 
 	switch validated {
 	case 0:
-		mainResult.AddErrors(mustValidateAllSchemasMsg(s.Path, ". None validated"))
+		mainResult.addErrorsAt(s.Path, mustValidateAllSchemasMsg(s.Path.dotted(), ". None validated"))
 	case len(s.allOfValidators):
 	default:
-		mainResult.AddErrors(mustValidateAllSchemasMsg(s.Path, ""))
+		mainResult.addErrorsAt(s.Path, mustValidateAllSchemasMsg(s.Path.dotted(), ""))
 	}
 }
 
@@ -274,7 +270,7 @@ func (s *schemaPropsValidator) validateNot(data any, mainResult *Result) {
 	}
 	// We keep inner IMPORTANT! errors no matter what MatchCount tells us
 	if result.IsValid() {
-		mainResult.AddErrors(mustNotValidatechemaMsg(s.Path))
+		mainResult.addErrorsAt(s.Path, mustNotValidatechemaMsg(s.Path.dotted()))
 	}
 	if result.wantsRedeemOnMerge {
 		pools.poolOfResults.RedeemResult(result) // this result is ditched
@@ -291,7 +287,7 @@ func (s *schemaPropsValidator) validateDependencies(data any, mainResult *Result
 
 		if dep.Schema != nil {
 			mainResult.Merge(
-				newSchemaValidator(dep.Schema, s.Root, s.Path+"."+key, s.KnownFormats, s.Options).Validate(data),
+				newSchemaValidator(dep.Schema, s.Root, s.Path.child(key), s.KnownFormats, s.Options).Validate(data),
 			)
 			continue
 		}
@@ -299,11 +295,15 @@ func (s *schemaPropsValidator) validateDependencies(data any, mainResult *Result
 		if len(dep.Property) > 0 {
 			for _, depKey := range dep.Property {
 				if _, ok := val[depKey]; !ok {
-					mainResult.AddErrors(hasADependencyMsg(s.Path, depKey))
+					mainResult.addErrorsAt(s.Path, hasADependencyMsg(s.Path.dotted(), depKey))
 				}
 			}
 		}
 	}
+}
+
+func (s *schemaPropsValidator) setPath(path pathSegments) {
+	s.Path = path
 }
 
 func (s *schemaPropsValidator) redeem() {

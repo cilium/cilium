@@ -36,6 +36,10 @@ func (m *MPLS) LayerType() gopacket.LayerType { return LayerTypeMPLS }
 type ProtocolGuessingDecoder struct{}
 
 func (ProtocolGuessingDecoder) Decode(data []byte, p gopacket.PacketBuilder) error {
+	if len(data) < 1 {
+		p.SetTruncated()
+		return errors.New("Unable to guess protocol of empty packet data")
+	}
 	switch data[0] {
 	// 0x40 | header_len, where header_len is at least 5.
 	case 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f:
@@ -56,6 +60,10 @@ func (ProtocolGuessingDecoder) Decode(data []byte, p gopacket.PacketBuilder) err
 var MPLSPayloadDecoder gopacket.Decoder = ProtocolGuessingDecoder{}
 
 func decodeMPLS(data []byte, p gopacket.PacketBuilder) error {
+	if len(data) < 4 {
+		p.SetTruncated()
+		return errors.New("MPLS packet too small")
+	}
 	decoded := binary.BigEndian.Uint32(data[:4])
 	mpls := &MPLS{
 		Label:        decoded >> 12,
