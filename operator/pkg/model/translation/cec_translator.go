@@ -292,13 +292,7 @@ func (i *cecTranslator) desiredResources(m *model.Model) ([]ciliumv2.XDSResource
 }
 
 func (i *cecTranslator) shouldUseOriginalSourceAddress(m *model.Model) bool {
-	for _, l := range m.HTTP {
-		if l.Gamma {
-			return true
-		}
-	}
-
-	return false
+	return m.IsGamma()
 }
 
 func (i *cecTranslator) desiredNodeSelector() *slim_metav1.LabelSelector {

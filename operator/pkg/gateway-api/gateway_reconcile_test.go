@@ -87,6 +87,22 @@ func Test_Conformance(t *testing.T) {
 			UseRemoteAddress: true,
 		},
 	})
+	cecTranslatorWithProxy := translation.NewCECTranslator(translation.Config{
+		SecretsNamespace: "cilium-secrets",
+		RouteConfig: translation.RouteConfig{
+			HostNameSuffixMatch: true,
+		},
+		ListenerConfig: translation.ListenerConfig{
+			UseProxyProtocol:         true,
+			StreamIdleTimeoutSeconds: 300,
+		},
+		ClusterConfig: translation.ClusterConfig{
+			IdleTimeoutSeconds: 60,
+		},
+		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+			UseRemoteAddress: true,
+		},
+	})
 
 	type gwDetails struct {
 		FullName types.NamespacedName
@@ -109,6 +125,7 @@ func Test_Conformance(t *testing.T) {
 		skipCEC              bool
 		wantErr              bool
 		hostNetwork          bool
+		proxyProtocol        bool
 	}{
 		{
 			name: "gateway-http-listener-isolation",
@@ -383,6 +400,7 @@ func Test_Conformance(t *testing.T) {
 		{name: "listenerset-l4-namespace-isolation", skipCEC: true, gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "l4-namespace-isolation", Namespace: "gateway-conformance-infra"}},
 		}},
+		{name: "proxy-protocol-enabled", proxyProtocol: true, gateway: []gwDetails{gatewaySameNamespace}},
 	}
 
 	for _, tt := range tests {
@@ -439,7 +457,11 @@ func Test_Conformance(t *testing.T) {
 			clientBuilder.WithIndex(&gatewayv1.TLSRoute{}, indexers.TLSRouteListenerSetIndex, indexers.IndexTLSRouteByListenerSet)
 
 			c := clientBuilder.Build()
-			gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, translation.Config{
+			selectedCECTranslator := cecTranslator
+			if tt.proxyProtocol {
+				selectedCECTranslator = cecTranslatorWithProxy
+			}
+			gatewayAPITranslator := gatewayApiTranslation.NewTranslator(selectedCECTranslator, translation.Config{
 				ServiceConfig: translation.ServiceConfig{
 					ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
 				},
