@@ -1853,8 +1853,8 @@ func (m *manager) installRules(state desiredState) error {
 
 		if m.sharedCfg.IptablesMasqueradingIPv4Enabled && state.localNodeInfo.internalIPv4.IsValid() {
 			if err := m.installMasqueradeRules(m.ip4tables, state.devices.UnsortedList(), localDeliveryInterface,
-				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv4NativeRoutingCIDR, state.localNodeInfo.ipv4AllocCIDR),
-				state.localNodeInfo.ipv4AllocCIDR,
+				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv4NativeRoutingCIDR, state.localNodeInfo.ipv4AllocCIDR).String(),
+				state.localNodeInfo.ipv4AllocCIDR.String(),
 				state.localNodeInfo.internalIPv4.String(),
 			); err != nil {
 				return fmt.Errorf("cannot install masquerade rules: %w", err)
@@ -1869,8 +1869,8 @@ func (m *manager) installRules(state desiredState) error {
 
 		if m.sharedCfg.IptablesMasqueradingIPv6Enabled && state.localNodeInfo.internalIPv6.IsValid() {
 			if err := m.installMasqueradeRules(m.ip6tables, state.devices.UnsortedList(), localDeliveryInterface,
-				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv6NativeRoutingCIDR, state.localNodeInfo.ipv6AllocCIDR),
-				state.localNodeInfo.ipv6AllocCIDR,
+				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv6NativeRoutingCIDR, state.localNodeInfo.ipv6AllocCIDR).String(),
+				state.localNodeInfo.ipv6AllocCIDR.String(),
 				state.localNodeInfo.internalIPv6.String(),
 			); err != nil {
 				return fmt.Errorf("cannot install masquerade rules: %w", err)
@@ -1895,8 +1895,8 @@ func (m *manager) installRules(state desiredState) error {
 	}
 
 	podsCIDR := state.localNodeInfo.ipv4NativeRoutingCIDR
-	if m.sharedCfg.InstallNoConntrackIptRules && podsCIDR != "" {
-		if err := m.addNoTrackPodTrafficRules(m.ip4tables, podsCIDR); err != nil {
+	if m.sharedCfg.InstallNoConntrackIptRules && podsCIDR.IsValid() {
+		if err := m.addNoTrackPodTrafficRules(m.ip4tables, podsCIDR.String()); err != nil {
 			return fmt.Errorf("cannot install pod traffic no CT rules: %w", err)
 		}
 	}
@@ -1935,8 +1935,8 @@ func (m *manager) installRules(state desiredState) error {
 	return nil
 }
 
-func (m *manager) remoteSNATDstAddrExclusionCIDR(nativeRoutingCIDR, allocCIDR string) string {
-	if nativeRoutingCIDR != "" {
+func (m *manager) remoteSNATDstAddrExclusionCIDR(nativeRoutingCIDR, allocCIDR netip.Prefix) netip.Prefix {
+	if nativeRoutingCIDR.IsValid() {
 		// ip{v4,v6}-native-routing-cidr is set, so use it
 		return nativeRoutingCIDR
 	}
