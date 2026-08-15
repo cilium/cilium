@@ -11,3 +11,6 @@
 
 DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")
+
+DECLARE_CONFIG(__u32, mke_host,
+	       "Cgroup class ID identifying MKE containers treated as host-networked")

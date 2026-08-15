@@ -74,7 +74,7 @@ static __always_inline __maybe_unused bool task_in_extended_hostns(void)
 {
 #ifdef ENABLE_MKE
 	/* Extension for non-Cilium managed containers on MKE. */
-	return get_cgroup_classid() == MKE_HOST;
+	return get_cgroup_classid() == CONFIG(mke_host);
 #else
 	return false;
 #endif
