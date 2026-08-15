@@ -24,7 +24,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/types"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -308,7 +307,7 @@ func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNo
 				logfields.VPCCIDR, primaryCIDR,
 			)
 			localNodeStore.Update(func(n *node.LocalNode) {
-				n.Local.IPv4NativeRoutingCIDR = cidr.NewCIDR(netipx.PrefixIPNet(primaryCIDR))
+				n.Local.IPv4NativeRoutingCIDR = primaryCIDR
 			})
 		}
 		return true

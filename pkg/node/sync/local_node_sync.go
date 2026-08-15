@@ -12,10 +12,8 @@ import (
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
-	"go4.org/netipx"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -142,12 +140,8 @@ func (ini *localNodeSynchronizer) initFromConfig(n *node.LocalNode) error {
 	n.ClusterID = ini.ClusterInfo.ID
 	n.Name = nodeTypes.GetName()
 
-	if ini.Config.IPv4NativeRoutingCIDR.IsValid() {
-		n.Local.IPv4NativeRoutingCIDR = cidr.NewCIDR(netipx.PrefixIPNet(ini.Config.IPv4NativeRoutingCIDR))
-	}
-	if ini.Config.IPv6NativeRoutingCIDR.IsValid() {
-		n.Local.IPv6NativeRoutingCIDR = cidr.NewCIDR(netipx.PrefixIPNet(ini.Config.IPv6NativeRoutingCIDR))
-	}
+	n.Local.IPv4NativeRoutingCIDR = ini.Config.IPv4NativeRoutingCIDR
+	n.Local.IPv6NativeRoutingCIDR = ini.Config.IPv6NativeRoutingCIDR
 
 	// Initialize node IP addresses from configuration.
 	if ini.Config.IPv6NodeAddr != "auto" {

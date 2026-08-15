@@ -798,7 +798,7 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
-		require.NotNil(t, localNode.Local.IPv4NativeRoutingCIDR)
+		require.True(t, localNode.Local.IPv4NativeRoutingCIDR.IsValid())
 		require.Equal(t, "10.0.0.0/16", localNode.Local.IPv4NativeRoutingCIDR.String())
 	})
 
@@ -815,7 +815,7 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
 		// Should NOT have been written since the config already has a value.
-		require.Nil(t, localNode.Local.IPv4NativeRoutingCIDR)
+		require.False(t, localNode.Local.IPv4NativeRoutingCIDR.IsValid())
 	})
 
 	t.Run("accepts a native routing CIDR that is a subnet of the VPC CIDR", func(t *testing.T) {
@@ -834,7 +834,7 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
 		// Should NOT have been written since the config already has a value.
-		require.Nil(t, localNode.Local.IPv4NativeRoutingCIDR)
+		require.False(t, localNode.Local.IPv4NativeRoutingCIDR.IsValid())
 	})
 
 	t.Run("accepts a native routing CIDR matching a secondary VPC CIDR association", func(t *testing.T) {
@@ -853,7 +853,7 @@ func TestAutoDetectENINativeRoutingCIDR(t *testing.T) {
 		localNode, err := localNodeStore.Get(context.Background())
 		require.NoError(t, err)
 		// Should NOT have been written since the config already has a value.
-		require.Nil(t, localNode.Local.IPv4NativeRoutingCIDR)
+		require.False(t, localNode.Local.IPv4NativeRoutingCIDR.IsValid())
 	})
 
 	t.Run("rejects a native routing CIDR that overlaps no VPC CIDR", func(t *testing.T) {

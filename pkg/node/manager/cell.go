@@ -77,8 +77,7 @@ type NodeManager interface {
 	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
 
 	// SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
-	// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom,
-	// cmtypes.PrefixClusterFromCIDR and the like.
+	// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom.
 	SetPrefixClusterMutatorFn(mutator func(*types.Node) []cmtypes.PrefixClusterOpts)
 }
 
