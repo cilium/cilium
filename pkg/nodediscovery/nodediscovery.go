@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"slices"
 
+	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/net"
@@ -26,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
-	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -50,24 +50,29 @@ type GetNodeAddresses interface {
 
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
-	logger           *slog.Logger
-	manager          nodemanager.NodeManager
-	registrar        nodestore.NodeRegistrar
-	registered       chan struct{}
-	cniConfigManager cni.CNIConfigManager
-	k8sGetters       k8sGetters
-	localNodeStore   *node.LocalNodeStore
-	clientset        client.Clientset
-	kvstoreClient    kvstore.Client
-	ctrlmgr          *controller.Manager
-	daemonConfig     *option.DaemonConfig
-	config           config
+	logger                  *slog.Logger
+	nodeWriter              *node.NodeWriter
+	kvstoreNodesInitialized func(statedb.WriteTxn)
+	db                      *statedb.DB
+	nodes                   statedb.Table[*node.Node]
+	registrar               nodestore.NodeRegistrar
+	registered              chan struct{}
+	cniConfigManager        cni.CNIConfigManager
+	k8sGetters              k8sGetters
+	localNodeStore          *node.LocalNodeStore
+	clientset               client.Clientset
+	kvstoreClient           kvstore.Client
+	ctrlmgr                 *controller.Manager
+	daemonConfig            *option.DaemonConfig
+	config                  config
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
 func NewNodeDiscovery(
 	logger *slog.Logger,
-	manager nodemanager.NodeManager,
+	nodeWriter *node.NodeWriter,
+	db *statedb.DB,
+	nodes statedb.Table[*node.Node],
 	clientset client.Clientset,
 	kvstoreClient kvstore.Client,
 	lns *node.LocalNodeStore,
@@ -81,9 +86,11 @@ func NewNodeDiscovery(
 		return &NodeDiscovery{}
 	}
 
-	return &NodeDiscovery{
+	nd := &NodeDiscovery{
 		logger:           logger,
-		manager:          manager,
+		nodeWriter:       nodeWriter,
+		db:               db,
+		nodes:            nodes,
 		localNodeStore:   lns,
 		registered:       make(chan struct{}),
 		cniConfigManager: cniConfigManager,
@@ -94,6 +101,15 @@ func NewNodeDiscovery(
 		daemonConfig:     daemonConfig,
 		config:           c,
 	}
+	if kvstoreClient.IsEnabled() {
+		txn := db.WriteTxn(nodes)
+		nd.kvstoreNodesInitialized = nodeWriter.RegisterInitializer(
+			txn,
+			"kvstore-nodes",
+		)
+		txn.Commit()
+	}
+	return nd
 }
 
 // start configures the local node and starts node discovery. This is called on
@@ -121,7 +137,16 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 			logfields.Node, localNode.Name,
 		)
 		for {
-			if err := n.registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.manager); err != nil {
+			if err := n.registrar.RegisterNode(
+				ctx,
+				n.logger,
+				n.kvstoreClient,
+				&localNode.Node,
+				n.db,
+				n.nodes,
+				n.nodeWriter,
+				n.kvstoreNodesInitialized,
+			); err != nil {
 				n.logger.Error("Unable to initialize local node. Retrying...", logfields.Error, err)
 				time.Sleep(time.Second)
 			} else {
@@ -139,18 +164,11 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 		}
 	}()
 
-	n.manager.NodeUpdated(localNode.Node)
-
 	n.updateLocalNode(ctx, &localNode)
 
 	go func() {
 		// Propagate all updates to the CiliumNode and kvstore representations.
 		for ln := range updates {
-			// We want to propagate a local node update back into the Manager.
-			// This is particularly helpful when an IPSec key rotation occurs
-			// and the manager needs to evaluate the local node's EncryptionKey
-			// field.
-			n.manager.NodeUpdated(ln.Node)
 			n.updateLocalNode(ctx, &ln)
 		}
 	}()

@@ -51,8 +51,6 @@ import (
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
-	nodemanager "github.com/cilium/cilium/pkg/node/manager"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -128,9 +126,6 @@ func TestScript(t *testing.T) {
 				func() clustermesh.RemoteIdentityWatcher {
 					return dummyRemoteIdentityWatcher{}
 				},
-				func(log *slog.Logger) nodemanager.NodeManager {
-					return dummyNodeManager{log}
-				},
 				func() *ipcache.IPCache {
 					return nil
 				},
@@ -204,67 +199,6 @@ func TestScript(t *testing.T) {
 		[]string{},
 		"testdata/*.txtar")
 }
-
-type dummyNodeManager struct {
-	log *slog.Logger
-}
-
-// ClusterSizeDependantInterval implements manager.NodeManager.
-func (d dummyNodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
-	return time.Second
-}
-
-// Enqueue implements manager.NodeManager.
-func (d dummyNodeManager) Enqueue(*nodeTypes.Node) {
-	panic("unimplemented")
-}
-
-// GetNodeIdentities implements manager.NodeManager.
-func (d dummyNodeManager) GetNodeIdentities() []nodeTypes.Identity {
-	panic("unimplemented")
-}
-
-// GetNodes implements manager.NodeManager.
-func (d dummyNodeManager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
-	panic("unimplemented")
-}
-
-// MeshNodeSync implements manager.NodeManager.
-func (d dummyNodeManager) MeshNodeSync() {
-	d.log.Debug("NodeManager.MeshNodeSync()")
-}
-
-// NodeDeleted implements manager.NodeManager.
-func (d dummyNodeManager) NodeDeleted(n nodeTypes.Node) {
-	panic("unimplemented")
-}
-
-// NodeSync implements manager.NodeManager.
-func (d dummyNodeManager) NodeSync() {
-	panic("unimplemented")
-}
-
-// NodeUpdated implements manager.NodeManager.
-func (d dummyNodeManager) NodeUpdated(n nodeTypes.Node) {
-	panic("unimplemented")
-}
-
-// Subscribe implements manager.NodeManager.
-func (d dummyNodeManager) Subscribe(node.Handler) {
-	panic("unimplemented")
-}
-
-// Unsubscribe implements manager.NodeManager.
-func (d dummyNodeManager) Unsubscribe(node.Handler) {
-	panic("unimplemented")
-}
-
-// SetPrefixClusterMutatorFn implements manager.NodeManager
-func (d dummyNodeManager) SetPrefixClusterMutatorFn(mutator func(*nodeTypes.Node) []cmtypes.PrefixClusterOpts) {
-	panic("unimplemented")
-}
-
-var _ nodemanager.NodeManager = dummyNodeManager{}
 
 type dummyRemoteIdentityWatcher struct{}
 

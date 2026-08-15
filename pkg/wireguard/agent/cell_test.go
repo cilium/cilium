@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	datapathConfig "github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -46,7 +47,6 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
@@ -107,7 +107,9 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 		ipCache       *ipcache.IPCache
 		nodeStore     *node.LocalNodeStore
 		nodeDiscovery *nodediscovery.NodeDiscovery
-		manager       nodeManager.NodeManager
+		nodeWriter    *node.NodeWriter
+		db            *statedb.DB
+		nodes         statedb.Table[*node.Node]
 		cacheStatus   k8sSynced.CacheStatus
 
 		ctx = t.Context()
@@ -118,7 +120,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 	// getHive returns a new hive with Wireguard enabled/disabled.
 	getHive := func(wireguardEnabled bool) *hive.Hive {
 		return hive.New(
-			nodeManager.Cell,
+			datapathConfig.NodeConfigNotifierCell,
 			nodediscovery.Cell,
 			source.Cell,
 			watchers.Cell,
@@ -202,13 +204,15 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			),
 
 			cell.Invoke(
-				func(a types.Agent, n *nodediscovery.NodeDiscovery, s *node.LocalNodeStore, u nodeManager.NodeManager, i *ipcache.IPCache, c k8sSynced.CacheStatus) {
+				func(a types.Agent, n *nodediscovery.NodeDiscovery, s *node.LocalNodeStore, w *node.NodeWriter, i *ipcache.IPCache, c k8sSynced.CacheStatus, stateDB *statedb.DB, nodeTable statedb.Table[*node.Node]) {
 					wgAgent = a.(*Agent)
 					nodeDiscovery = n
-					manager = u
+					nodeWriter = w
 					nodeStore = s
 					ipCache = i
 					cacheStatus = c
+					db = stateDB
+					nodes = nodeTable
 				},
 				func(db *statedb.DB, mtuTable statedb.RWTable[mtu.RouteMTU]) {
 					txn := db.WriteTxn(mtuTable)
@@ -290,9 +294,10 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 				assert.Empty(c, dev.Peers)
 			}, TestTimeout, 50*time.Millisecond)
 
-			// 7.a Ensure the agent subscribed to node events (nodemanager-subscribe job).
-			//     Let's upsert a new node, and ensure the agent maps contain the new peer.
-			manager.NodeUpdated(nodeTypes.Node{
+			// 7.a Ensure the agent reconciles node table changes. Upsert a new node
+			//     and verify that the agent maps contain the new peer.
+			txn := db.WriteTxn(nodes)
+			nodeWriter.Upsert(txn, &nodeTypes.Node{
 				Name: k8s2NodeName,
 				IPAddresses: []nodeTypes.Address{
 					{
@@ -303,6 +308,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 				Source:          source.Unspec,
 				WireguardPubKey: wgAgent.privKey.String(),
 			})
+			txn.Commit()
 
 			// 7.b Ensure the agent has stored a peer configuration for the new node.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {

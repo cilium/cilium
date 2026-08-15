@@ -91,7 +91,10 @@ func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
 // node IPs receive the same. This might happen if we allocated a node ID from
 // the ipcache, where we don't have all node IPs but only one.
 func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *nodeTypes.Node) (uint16, error) {
-	var errs error
+	var (
+		errs           error
+		newlyAllocated bool
+	)
 
 	// Did we already allocate a node ID for any IP of that node?
 	nodeID := n.getNodeIDForNode(node)
@@ -115,6 +118,7 @@ func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *node
 			// so we make early return here.
 			return nodeID, fmt.Errorf("no available node ID %q", node.Name)
 		} else {
+			newlyAllocated = true
 			n.log.Debug("Allocated new node ID for node",
 				logfields.NodeID, nodeID,
 				logfields.NodeName, node.Name,
@@ -153,6 +157,11 @@ func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *node
 			)
 			errs = errors.Join(errs,
 				fmt.Errorf("failed to map IP %s with node ID %d: %w", ip, nodeID, err))
+		}
+	}
+	if newlyAllocated && errs != nil {
+		if _, mapped := n.nodeIPsByIDs[nodeID]; !mapped {
+			n.nodeIDs.Insert(idpool.ID(nodeID))
 		}
 	}
 	return nodeID, errs
@@ -358,11 +367,11 @@ func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string
 	if len(n.nodeIDsByIPs) > 0 {
 		// If this happens, we likely have a bug in the startup logic and
 		// restored node IDs too late (after new node IDs were allocated).
-		n.log.Error("The node manager already contains node IDs")
+		n.log.Error("The Linux node handler already contains node IDs")
 	}
 
-	// The node manager holds both a map of nodeIP=>nodeID and a pool of ID for
-	// the allocation of node IDs. Not only do we need to update the map,
+	// The Linux node handler holds both a map of nodeIP=>nodeID and a pool for
+	// allocating node IDs. Not only do we need to update the map,
 	nodeIDs := make(map[uint16]struct{})
 	IDsByIPs := make(map[string]uint16)
 	IPsByIDs := make(map[uint16]sets.Set[string])

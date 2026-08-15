@@ -6,16 +6,19 @@ package auth
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
@@ -33,7 +36,7 @@ func Test_authMapGarbageCollector_cleanupIdentities(t *testing.T) {
 			{localIdentity: 11, remoteIdentity: 12, remoteNodeID: 0, authType: policyTypes.AuthTypeAlwaysFail}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil, nil, nil)
 
 	assert.Len(t, authMap.entries, 5)
 	assert.Empty(t, gc.ciliumIdentitiesDiscovered)
@@ -96,8 +99,6 @@ func Test_authMapGarbageCollector_cleanupIdentities(t *testing.T) {
 }
 
 func Test_authMapGarbageCollector_cleanupNodes(t *testing.T) {
-	ctx := context.TODO()
-
 	authMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
 			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
@@ -107,72 +108,68 @@ func Test_authMapGarbageCollector_cleanupNodes(t *testing.T) {
 			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 4, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
+	db, nodes := newTestNodeTable(t,
+		ciliumNodeEvent("172.18.0.1"),
+		ciliumNodeEvent("172.18.0.2"),
+	)
 	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{
 		1: "172.18.0.1",
 		2: "172.18.0.2",
 		3: "172.18.0.3",
 		4: "172.18.0.4",
 		5: "172.18.0.5",
-	}), nil)
+	}), nil, db, nodes)
 
 	assert.Len(t, authMap.entries, 5)
-	assert.Len(t, gc.ciliumNodesDiscovered, 1, "Local node 0 is always present")
-	assert.Empty(t, gc.ciliumNodesDeleted)
 	assert.False(t, gc.ciliumNodesSynced)
 
-	err := gc.NodeAdd(ciliumNodeEvent("172.18.0.1"))
-	assert.NoError(t, err, "Handling a node event should never result in an error")
-	assert.Len(t, authMap.entries, 5, "Node events should never modify the map directly")
-	assert.Len(t, gc.ciliumNodesDiscovered, 2, "Discovered nodes should be kept in the internal state")
-
-	err = gc.NodeAdd(ciliumNodeEvent("172.18.0.2"))
-	assert.NoError(t, err, "Handling a node event should never result in an error")
-	assert.Len(t, authMap.entries, 5, "Node events should never modify the map directly")
-	assert.Len(t, gc.ciliumNodesDiscovered, 3, "Discovered nodes should be kept in the internal state")
-
-	err = gc.cleanupIdentities(ctx)
+	err := gc.cleanupNodes(t.Context())
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 5, "GC run before the initial sync should not delete any entries from the auth map")
-	assert.Len(t, gc.ciliumNodesDiscovered, 3, "GC run before the initial sync should not delete the discovered nodes")
 
-	gc.ciliumNodesSynced = true // Node sync event will mark the nodes as synced
+	gc.ciliumNodesSynced = true
+	gc.ciliumNodesChanged = true
+	deleteTestNode(t, db, nodes, ciliumNodeEvent("172.18.0.2"))
+	insertTestNode(t, db, nodes, ciliumNodeEvent("172.18.0.3"))
 
-	err = gc.NodeDelete(ciliumNodeEvent("172.18.0.2"))
-	assert.NoError(t, err, "Handling a node event should never result in an error")
-	assert.Len(t, authMap.entries, 5, "Node events should never modify the map directly")
-	assert.Len(t, gc.ciliumNodesDeleted, 1, "Deleted nodes after the sync and before the initial GC run should already be kept")
-
-	err = gc.NodeAdd(ciliumNodeEvent("172.18.0.3"))
-	assert.NoError(t, err, "Handling a node event should never result in an error")
-	assert.Len(t, authMap.entries, 5, "Node events should never modify the map directly")
-	assert.Len(t, gc.ciliumNodesDiscovered, 4, "Discovered nodes after the sync event should be kept until the first GC run")
-
-	err = gc.cleanupNodes(ctx)
+	err = gc.cleanupNodes(t.Context())
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 3, "GC run after the initial sync should delete all entries which belong to deleted or non-discovered nodes")
 	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire})
 	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: policyTypes.AuthTypeSpire})
 	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 3, authType: policyTypes.AuthTypeSpire})
-	assert.Nil(t, gc.ciliumNodesDiscovered, "First GC run after the initial sync should reset the option to discover nodes")
-	assert.Empty(t, gc.ciliumNodesDeleted, "GC runs should delete the successfully garbage collected entries from the list of deleted nodes")
+	assert.False(t, gc.ciliumNodesChanged)
 
-	err = gc.NodeAdd(ciliumNodeEvent("172.18.0.5"))
-	assert.NoError(t, err, "Handling a node should never result in an error")
-	assert.Len(t, authMap.entries, 3, "Node should never modify the map directly")
-	assert.Nil(t, gc.ciliumNodesDiscovered, "Discovered nodes after the first GC run should no longer be of any interest")
+	deleteTestNode(t, db, nodes, ciliumNodeEvent("172.18.0.3"))
+	_, gc.activeNodeIDs, gc.activeNodeIDsReady, _ = gc.nodeStateWatch()
+	gc.ciliumNodesChanged = true
 
-	err = gc.NodeDelete(ciliumNodeEvent("172.18.0.3"))
-	assert.NoError(t, err, "Handling a node event should never result in an error")
-	assert.Len(t, authMap.entries, 3, "Node events should never modify the map directly")
-	assert.Len(t, gc.ciliumNodesDeleted, 1, "Deleted nodes should be kept for the next GC run")
-
-	err = gc.cleanupNodes(ctx)
+	err = gc.cleanupNodes(t.Context())
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 2, "GC runs should delete all entries which belong to deleted nodes")
 	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire})
 	assert.Contains(t, authMap.entries, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: policyTypes.AuthTypeSpire})
-	assert.Nil(t, gc.ciliumNodesDiscovered)
-	assert.Empty(t, gc.ciliumNodesDeleted, "GC runs should delete the successfully garbage collected entries from the list of deleted nodes")
+	assert.False(t, gc.ciliumNodesChanged)
+}
+
+func Test_authMapGarbageCollector_cleanupNodesDefersUntilNodeIDsReady(t *testing.T) {
+	authMap := &fakeAuthMap{entries: map[authKey]authInfo{
+		{remoteNodeID: 1}: {},
+	}}
+	db, nodes := newTestNodeTable(t, ciliumNodeEvent("172.18.0.1"))
+	nodeIDs := newFakeNodeIDHandler(map[uint16]string{})
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nodeIDs, nil, db, nodes)
+	gc.ciliumNodesSynced = true
+	gc.ciliumNodesChanged = true
+
+	require.NoError(t, gc.cleanupNodes(t.Context()))
+	assert.Len(t, authMap.entries, 1, "cleanup must not remove entries while active node IDs are unavailable")
+	assert.True(t, gc.ciliumNodesChanged, "cleanup should be retried")
+
+	nodeIDs.nodeIdMappings[1] = "172.18.0.1"
+	require.NoError(t, gc.cleanupNodes(t.Context()))
+	assert.Len(t, authMap.entries, 1)
+	assert.False(t, gc.ciliumNodesChanged)
 }
 
 func Test_authMapGarbageCollector_cleanupPolicies(t *testing.T) {
@@ -198,6 +195,8 @@ func Test_authMapGarbageCollector_cleanupPolicies(t *testing.T) {
 				},
 			},
 		},
+		nil,
+		nil,
 	)
 
 	assert.Len(t, authMap.entries, 3)
@@ -217,7 +216,7 @@ func Test_authMapGarbageCollector_cleanupExpired(t *testing.T) {
 			{localIdentity: 1, remoteIdentity: 3, remoteNodeID: 0, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(-5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil, nil, nil)
 
 	assert.Len(t, authMap.entries, 2)
 
@@ -242,6 +241,7 @@ func Test_authMapGarbageCollector_cleanup(t *testing.T) {
 		},
 	}
 
+	db, nodes := newTestNodeTable(t, ciliumNodeEvent("172.18.0.2"))
 	gc := newAuthMapGC(hivetest.Logger(t), authMap,
 		newFakeNodeIDHandler(map[uint16]string{
 			1: "172.18.0.1",
@@ -269,14 +269,14 @@ func Test_authMapGarbageCollector_cleanup(t *testing.T) {
 				},
 			},
 		},
+		db,
+		nodes,
 	)
 
 	assert.Len(t, authMap.entries, 7)
 
-	require.NoError(t, gc.NodeAdd(ciliumNodeEvent("172.18.0.1")))
-	require.NoError(t, gc.NodeAdd(ciliumNodeEvent("172.18.0.2")))
 	gc.ciliumNodesSynced = true
-	require.NoError(t, gc.NodeDelete(ciliumNodeEvent("172.18.0.1")))
+	gc.ciliumNodesChanged = true
 	for i := 1; i < 15; i++ {
 		require.NoError(t, gc.handleIdentityChange(ctx, ciliumIdentityEvent(cache.IdentityChangeUpsert, identity.NumericIdentity(i))))
 	}
@@ -300,7 +300,7 @@ func Test_authMapGarbageCollector_cleanupEndpoints(t *testing.T) {
 			{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil, nil, nil)
 	gc.endpointsCache = map[uint16]*endpoint.Endpoint{
 		1: {
 			SecurityIdentity: &identity.Identity{
@@ -340,7 +340,7 @@ func Test_authMapGarbageCollector_cleanupEndpointsNoopCase(t *testing.T) {
 			{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policyTypes.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil, nil, nil)
 	gc.endpointsCache = map[uint16]*endpoint.Endpoint{
 		1: {
 			SecurityIdentity: &identity.Identity{
@@ -379,23 +379,18 @@ func Test_authMapGarbageCollector_cleanupEndpointsNoopCase(t *testing.T) {
 	assert.Len(t, authMap.entries, 3, "GC runs should not have deleted entries when all secrity IDs were stil in the endpoint map")
 }
 
-func Test_authMapGarbageCollector_HandleNodeEventError(t *testing.T) {
+func Test_authMapGarbageCollector_cleanupNodesError(t *testing.T) {
 	authMap := &fakeAuthMap{
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{10: "172.18.0.3"}), nil)
-
-	event := ciliumNodeEvent("172.18.0.3")
-	err := gc.NodeAdd(event)
-	assert.NoError(t, err)
-	err = gc.NodeDelete(event)
-	assert.NoError(t, err)
+	db, nodes := newTestNodeTable(t)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{10: "172.18.0.3"}), nil, db, nodes)
 
 	gc.ciliumNodesSynced = true
-	gc.ciliumNodesDiscovered = nil
-	err = gc.cleanupNodes(context.Background())
-	assert.ErrorContains(t, err, "failed to cleanup deleted node: failed to delete entry")
+	gc.ciliumNodesChanged = true
+	err := gc.cleanupNodes(context.Background())
+	assert.ErrorContains(t, err, "failed to cleanup missing nodes: failed to delete entry")
 }
 
 func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
@@ -403,7 +398,7 @@ func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{}), nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{}), nil, nil, nil)
 
 	event := ciliumIdentityEvent(cache.IdentityChangeDelete, 4)
 	err := gc.handleIdentityChange(context.Background(), event)
@@ -415,9 +410,86 @@ func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to cleanup deleted identity: failed to delete entry")
 }
 
+func Test_authMapGarbageCollector_observeNodeChanges(t *testing.T) {
+	db, nodes := newTestNodeTable(t)
+	gc := newAuthMapGC(hivetest.Logger(t), &fakeAuthMap{}, newFakeNodeIDHandler(nil), nil, db, nodes)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		done <- gc.observeNodeChanges(ctx)
+	}()
+
+	require.Eventually(t, func() bool {
+		gc.ciliumNodesMutex.Lock()
+		defer gc.ciliumNodesMutex.Unlock()
+		return gc.ciliumNodesSynced
+	}, time.Second, time.Millisecond)
+
+	gc.ciliumNodesMutex.Lock()
+	gc.ciliumNodesChanged = false
+	gc.ciliumNodesMutex.Unlock()
+	insertTestNode(t, db, nodes, ciliumNodeEvent("172.18.0.1"))
+
+	require.Eventually(t, func() bool {
+		gc.ciliumNodesMutex.Lock()
+		defer gc.ciliumNodesMutex.Unlock()
+		return gc.ciliumNodesChanged
+	}, time.Second, time.Millisecond)
+
+	gc.ciliumNodesMutex.Lock()
+	gc.ciliumNodesChanged = false
+	gc.ciliumNodesMutex.Unlock()
+	updated := ciliumNodeEvent("172.18.0.1")
+	updated.EncryptionKey = 1
+	insertTestNode(t, db, nodes, updated)
+	require.Never(t, func() bool {
+		gc.ciliumNodesMutex.Lock()
+		defer gc.ciliumNodesMutex.Unlock()
+		return gc.ciliumNodesChanged
+	}, 150*time.Millisecond, time.Millisecond, "node updates should not trigger cleanup")
+
+	insertTestNode(t, db, nodes, ciliumNodeEvent("172.18.0.2"))
+	require.Eventually(t, func() bool {
+		gc.ciliumNodesMutex.Lock()
+		defer gc.ciliumNodesMutex.Unlock()
+		return gc.ciliumNodesChanged
+	}, time.Second, time.Millisecond)
+
+	cancel()
+	require.ErrorIs(t, <-done, context.Canceled)
+}
+
+func newTestNodeTable(t testing.TB, initial ...nodeTypes.Node) (*statedb.DB, statedb.RWTable[*node.Node]) {
+	t.Helper()
+	db := statedb.New()
+	nodes, err := node.NewNodeTable(db)
+	require.NoError(t, err)
+	for _, n := range initial {
+		insertTestNode(t, db, nodes, n)
+	}
+	return db, nodes
+}
+
+func insertTestNode(t testing.TB, db *statedb.DB, nodes statedb.RWTable[*node.Node], n nodeTypes.Node) {
+	t.Helper()
+	txn := db.WriteTxn(nodes)
+	_, _, err := nodes.Insert(txn, &node.Node{Node: n})
+	require.NoError(t, err)
+	txn.Commit()
+}
+
+func deleteTestNode(t testing.TB, db *statedb.DB, nodes statedb.RWTable[*node.Node], n nodeTypes.Node) {
+	t.Helper()
+	txn := db.WriteTxn(nodes)
+	_, _, err := nodes.Delete(txn, &node.Node{Node: n})
+	require.NoError(t, err)
+	txn.Commit()
+}
+
 func ciliumNodeEvent(nodeInternalIP string) nodeTypes.Node {
 	return nodeTypes.Node{
-		Name:    "test-node",
+		Name:    "test-node-" + strings.ReplaceAll(nodeInternalIP, ".", "-"),
 		Cluster: "test-cluster",
 		IPAddresses: []nodeTypes.Address{
 			{

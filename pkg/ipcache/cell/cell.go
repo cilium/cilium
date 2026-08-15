@@ -34,6 +34,7 @@ import (
 var Cell = cell.Module(
 	"ipcache",
 	"Managing IP to identity mappings",
+	ipcache.NodeReconcilerCell,
 
 	cell.Provide(
 		newIPCache,

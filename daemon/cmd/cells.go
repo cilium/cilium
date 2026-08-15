@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
+	datapathConfig "github.com/cilium/cilium/pkg/datapath/config"
 	debugapi "github.com/cilium/cilium/pkg/debug/api"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
@@ -73,8 +74,8 @@ import (
 	"github.com/cilium/cilium/pkg/metrics/features"
 	"github.com/cilium/cilium/pkg/networkdriver"
 	"github.com/cilium/cilium/pkg/node"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
+	noderestapi "github.com/cilium/cilium/pkg/node/restapi"
 	nodesync "github.com/cilium/cilium/pkg/node/sync"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 
@@ -233,11 +234,13 @@ var (
 		// Endpoint cell provides the Endpoint modules.
 		endpoint.Cell,
 
-		// NodeManager maintains a collection of other nodes in the cluster.
-		nodeManager.Cell,
+		datapathConfig.NodeConfigNotifierCell,
 
-		// NodeNeighborDiscovery is a node handler that subscribes to the NodeManager
-		// and ensures node IPs are "forwardable" by adding them to the forwardable IP table.
+		// Node REST API serves snapshots and changes from the node table.
+		noderestapi.Cell,
+
+		// NodeNeighborDiscovery observes the node table and ensures node IPs are
+		// "forwardable" by adding them to the forwardable IP table.
 		// The neighbor subsystem will create neighbor entries for these forwardable IPs.
 		neighbordiscovery.Cell,
 
@@ -476,13 +479,15 @@ func kvstoreExtraOptions(in struct {
 
 	Logger *slog.Logger
 
-	NodeManager nodeManager.NodeManager
-	ClientSet   k8sClient.Clientset
-	Resolver    dial.Resolver
+	ClusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc
+	ClientSet                    k8sClient.Clientset
+	Resolver                     dial.Resolver
 },
 ) kvstore.ExtraOptions {
 	goopts := kvstore.ExtraOptions{
-		ClusterSizeDependantInterval: in.NodeManager.ClusterSizeDependantInterval,
+		ClusterSizeDependantInterval: kvstore.ClusterSizeDependantIntervalFunc(
+			in.ClusterSizeDependantInterval,
+		),
 	}
 
 	// If K8s is enabled we can do the service translation automagically by

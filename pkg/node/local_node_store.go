@@ -6,6 +6,7 @@ package node
 import (
 	"context"
 	"log/slog"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -39,12 +40,14 @@ var LocalNodeStoreCell = cell.Module(
 	"local-node-store",
 	"Provides LocalNodeStore for observing and updating local node info",
 
-	cell.Provide(
-		NewLocalNodeTable,
-		statedb.RWTable[*LocalNode].ToTable,
-	),
+	cell.ProvidePrivate(NewNodeTable),
+	cell.Provide(NewNodeWriter),
+	cell.Provide(NewNodeTableAndLocalNodeStore),
+	cell.Provide(NewClusterSizeDependantInterval),
+)
 
-	cell.Provide(NewLocalNodeStore),
+const (
+	LocalNodeTableInitializerName = "local"
 )
 
 // LocalNodeStoreParams are the inputs needed for constructing LocalNodeStore.
@@ -55,9 +58,9 @@ type LocalNodeStoreParams struct {
 	Lifecycle   cell.Lifecycle
 	Sync        LocalNodeSynchronizer
 	DB          *statedb.DB
-	Nodes       statedb.RWTable[*LocalNode]
 	Jobs        job.Group
 	ClusterInfo cmtypes.ClusterInfo
+	Nodes       statedb.RWTable[*LocalNode]
 }
 
 // LocalNodeStore is the canonical owner for the local node object and provides
@@ -68,15 +71,20 @@ type LocalNodeStore struct {
 	sync  LocalNodeSynchronizer
 }
 
-func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, NodeGetter, error) {
-	wtxn := params.DB.WriteTxn(params.Nodes)
+// NewNodeTableAndLocalNodeStore constructs [LocalNodeStore] and the node table.
+// Ensures that the local node object is present in the table.
+func NewNodeTableAndLocalNodeStore(params LocalNodeStoreParams) (
+	*LocalNodeStore, NodeGetter, statedb.Table[*Node], error,
+) {
+	nodeTable := params.Nodes
+	wtxn := params.DB.WriteTxn(nodeTable)
 
 	// Register an initializer that'll mark the table initialized once we're done
 	// with [LocalNodeSynchronizer.InitLocalNode].
-	initDone := params.Nodes.RegisterInitializer(wtxn, "LocalNodeSynchronizer")
+	initDone := nodeTable.RegisterInitializer(wtxn, LocalNodeTableInitializerName)
 
 	// Insert the skeleton local node.
-	params.Nodes.Insert(wtxn,
+	nodeTable.Insert(wtxn,
 		&LocalNode{
 			Node: types.Node{
 				Name:      types.GetName(),
@@ -92,18 +100,18 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, NodeGetter
 		})
 	wtxn.Commit()
 
-	s := &LocalNodeStore{params.DB, params.Nodes, params.Sync}
+	s := &LocalNodeStore{params.DB, nodeTable, params.Sync}
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			wtxn := params.DB.WriteTxn(params.Nodes)
-			n, _, _ := params.Nodes.Get(wtxn, LocalNodeQuery)
+			wtxn := params.DB.WriteTxn(nodeTable)
+			n, _, _ := nodeTable.Get(wtxn, LocalNodeQuery)
 			// Delete the initial one as name might change.
-			params.Nodes.Delete(wtxn, n)
+			nodeTable.Delete(wtxn, n)
 
 			n = n.DeepCopy()
 			err := params.Sync.InitLocalNode(ctx, n)
-			params.Nodes.Insert(wtxn, n)
+			nodeTable.Insert(wtxn, n)
 			initDone(wtxn)
 			wtxn.Commit()
 
@@ -124,7 +132,35 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, NodeGetter
 		},
 	})
 
-	return s, s, nil
+	return s, s, nodeTable, nil
+}
+
+// WaitForLocalNodeInit waits until the local-node initializer has completed.
+// The nodes table may have other pending initializers, so callers interested
+// only in the local node need not wait for the whole table to initialize.
+func WaitForLocalNodeInit(ctx context.Context, db *statedb.DB, nodes statedb.Table[*Node]) (statedb.ReadTxn, error) {
+	const localNodeInitPollInterval = 50 * time.Millisecond
+
+	txn := db.ReadTxn()
+	if !slices.Contains(nodes.PendingInitializers(txn), LocalNodeTableInitializerName) {
+		return txn, nil
+	}
+
+	ticker := time.NewTicker(localNodeInitPollInterval)
+	defer ticker.Stop()
+	for {
+		_, _, watch, _ := nodes.GetWatch(txn, LocalNodeQuery)
+		select {
+		case <-watch:
+		case <-ticker.C:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		txn = db.ReadTxn()
+		if !slices.Contains(nodes.PendingInitializers(txn), LocalNodeTableInitializerName) {
+			return txn, nil
+		}
+	}
 }
 
 // observeRatePerSecond sets the maximum number of [LocalNode] updates per second that
@@ -135,12 +171,9 @@ const observeRatePerSecond = 5
 // Observe changes to the local node state.
 func (s *LocalNodeStore) Observe(ctx context.Context, next func(LocalNode), complete func(error)) {
 	go func() {
-		// Wait until initialized before starting to observe.
-		_, initWatch := s.nodes.Initialized(s.db.ReadTxn())
-		select {
-		case <-initWatch:
-		case <-ctx.Done():
-			complete(ctx.Err())
+		// Wait until the local node is initialized before starting to observe.
+		if _, err := WaitForLocalNodeInit(ctx, s.db, s.nodes); err != nil {
+			complete(err)
 			return
 		}
 
@@ -150,7 +183,9 @@ func (s *LocalNodeStore) Observe(ctx context.Context, next func(LocalNode), comp
 		defer complete(nil)
 		for {
 			lns, _, watch, _ := s.nodes.GetWatch(s.db.ReadTxn(), LocalNodeQuery)
-			next(*lns)
+			if lns != nil {
+				next(*lns)
+			}
 			if err := limiter.Wait(ctx); err != nil {
 				return
 			}
@@ -167,14 +202,12 @@ func (s *LocalNodeStore) Observe(ctx context.Context, next func(LocalNode), comp
 // e.g. in API handlers. Do not assume the value does not change over time.
 // Blocks until the store has been initialized.
 func (s *LocalNodeStore) Get(ctx context.Context) (LocalNode, error) {
-	_, initWatch := s.nodes.Initialized(s.db.ReadTxn())
-	select {
-	case <-initWatch:
-	case <-ctx.Done():
-		return LocalNode{}, ctx.Err()
+	txn, err := WaitForLocalNodeInit(ctx, s.db, s.nodes)
+	if err != nil {
+		return LocalNode{}, err
 	}
 
-	ln, _, found := s.nodes.Get(s.db.ReadTxn(), LocalNodeQuery)
+	ln, _, found := s.nodes.Get(txn, LocalNodeQuery)
 	if !found {
 		panic("BUG: No local node exists")
 	}
@@ -217,7 +250,7 @@ func (s *LocalNodeStore) WaitForNodeInformation(ctx context.Context) error {
 
 func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
 	db := statedb.New()
-	tbl, err := NewLocalNodeTable(db)
+	tbl, err := NewNodeTable(db)
 	if err != nil {
 		panic(err)
 	}

@@ -23,7 +23,7 @@ func (*Agent) AuthKeySize() int {
 	return 16
 }
 
-func (*Agent) StartBackgroundJobs(node.Handler, <-chan struct{}) error {
+func (*Agent) StartBackgroundJobs(*node.NodeWriter, <-chan struct{}) error {
 	return nil
 }
 

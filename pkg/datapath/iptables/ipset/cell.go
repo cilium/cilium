@@ -24,6 +24,7 @@ import (
 // to cluster nodes from being masqueraded.
 // There are two distinct sets, one for IPv4 addresses and one for IPv6
 // addresses.
+// NodeInternalIP addresses are synchronized from the node table.
 // Internally, the cell stores the desired IP sets state in a StateDB table
 // and uses a reconciler to update the realized state (that is, the actual
 // kernel IP sets).
@@ -34,6 +35,7 @@ var Cell = cell.Module(
 	"Handle kernel IP sets configuration for Cilium",
 
 	cell.Provide(newIPSetManager),
+	cell.Invoke(newNodeIPSetSync),
 
 	cell.ProvidePrivate(
 		tables.NewIPSetTable,
