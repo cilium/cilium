@@ -64,6 +64,10 @@ type localNodeSynchronizerParams struct {
 type localNodeSynchronizer struct {
 	localNodeSynchronizerParams
 	old node.LocalNode
+
+	// Node IPs pinned via --ipv{4,6}-node-addr are never synced from k8s.
+	staticIPv4NodeAddr bool
+	staticIPv6NodeAddr bool
 }
 
 func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.LocalNode) error {
@@ -150,6 +154,7 @@ func (ini *localNodeSynchronizer) initFromConfig(n *node.LocalNode) error {
 				return fmt.Errorf("Invalid IPv6 node address: %q not a global unicast address", ip)
 			}
 			n.SetNodeInternalIP(ip)
+			ini.staticIPv6NodeAddr = true
 		}
 	}
 	if ini.Config.IPv4NodeAddr != "auto" {
@@ -157,6 +162,7 @@ func (ini *localNodeSynchronizer) initFromConfig(n *node.LocalNode) error {
 			return fmt.Errorf("Invalid IPv4 node address: %q", ini.Config.IPv4NodeAddr)
 		} else {
 			n.SetNodeInternalIP(ip)
+			ini.staticIPv4NodeAddr = true
 		}
 	}
 	return nil
@@ -258,7 +264,32 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 func (ini *localNodeSynchronizer) mutableFieldsEqual(new *node.LocalNode) bool {
 	return maps.Equal(ini.old.Labels, new.Labels) &&
 		maps.Equal(ini.old.Annotations, new.Annotations) &&
-		ini.old.Local.UID == new.Local.UID && ini.old.Local.ProviderID == new.Local.ProviderID
+		ini.old.Local.UID == new.Local.UID && ini.old.Local.ProviderID == new.Local.ProviderID &&
+		ini.nodeIPsEqual(new)
+}
+
+func (ini *localNodeSynchronizer) nodeIPsEqual(new *node.LocalNode) bool {
+	for _, ipv6 := range []bool{false, true} {
+		if ini.staticNodeAddr(ipv6) {
+			continue
+		}
+		// Skip absent families, as syncNodeIPsFromK8s does: reporting a change
+		// that it then declines to apply would make every event an update.
+		if ip := new.GetNodeIP(ipv6); ip != nil && !ini.old.GetNodeIP(ipv6).Equal(ip) {
+			return false
+		}
+		if ip := new.GetExternalIP(ipv6); ip != nil && !ini.old.GetExternalIP(ipv6).Equal(ip) {
+			return false
+		}
+	}
+	return true
+}
+
+func (ini *localNodeSynchronizer) staticNodeAddr(ipv6 bool) bool {
+	if ipv6 {
+		return ini.staticIPv6NodeAddr
+	}
+	return ini.staticIPv4NodeAddr
 }
 
 // syncFromK8s synchronizes the fields that can be mutated at runtime
@@ -305,6 +336,41 @@ func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
 		logfields.UID, ln.Local.UID,
 		logfields.ProviderID, ln.Local.ProviderID,
 	)
+
+	ini.syncNodeIPsFromK8s(ln, new)
+}
+
+// syncNodeIPsFromK8s adopts node IPs that changed after startup.
+func (ini *localNodeSynchronizer) syncNodeIPsFromK8s(ln, new *node.LocalNode) {
+	for _, ipv6 := range []bool{false, true} {
+		if ini.staticNodeAddr(ipv6) {
+			continue
+		}
+
+		// GetNodeIP returns nil for a family the Node object omits, and
+		// SetNodeInternalIP(nil) would delete the address rather than update it.
+		if ip := new.GetNodeIP(ipv6); ip != nil {
+			if !ln.GetNodeIP(ipv6).Equal(ip) {
+				ln.SetNodeInternalIP(ip)
+				ini.Logger.Info(
+					"Local node internal IP updated",
+					logfields.IPAddr, ip,
+				)
+			}
+			ini.old.SetNodeInternalIP(ip)
+		}
+
+		if ip := new.GetExternalIP(ipv6); ip != nil {
+			if !ln.GetExternalIP(ipv6).Equal(ip) {
+				ln.SetNodeExternalIP(ip)
+				ini.Logger.Info(
+					"Local node external IP updated",
+					logfields.IPAddr, ip,
+				)
+			}
+			ini.old.SetNodeExternalIP(ip)
+		}
+	}
 }
 
 func parseNode(logger *slog.Logger, k8sNode *slim_corev1.Node) *node.LocalNode {
