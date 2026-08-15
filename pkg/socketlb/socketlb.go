@@ -98,6 +98,10 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
 
+	if option.Config.EnableMKE {
+		cfg.MKEHost = option.HostExtensionMKE
+	}
+
 	coll, commit, cleanup, err := collLoader.Load(ctx, logger, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,
 		Constants:   cfg,
