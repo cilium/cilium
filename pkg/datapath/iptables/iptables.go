@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/netip"
 	"os"
 	"regexp"
@@ -22,11 +21,11 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/mattn/go-shellwords"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"k8s.io/utils/clock"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
@@ -1484,22 +1483,24 @@ func (m *manager) installForwardChainRulesIpX(prog runnable, ifName, localDelive
 	return nil
 }
 
+// isDefaultRoutePrefix reports whether p is the default route of its family,
+// i.e. 0.0.0.0/0 or ::/0. The zero Prefix is not a default route.
+func isDefaultRoutePrefix(p netip.Prefix) bool {
+	return p.Addr().IsUnspecified() && p.Bits() == 0
+}
+
 func (m *manager) installMasqueradeRules(
 	prog iptablesInterface, nativeDevices []string,
-	localDeliveryInterface, snatDstExclusionCIDR, allocRange, hostMasqueradeIP string,
+	localDeliveryInterface string, snatDstExclusionCIDR netip.Prefix,
+	allocRange, hostMasqueradeIP string,
 ) error {
 	devices := nativeDevices
 
-	if prog.getMode() == "nft" {
-		if _, exclusionCIDR, err := net.ParseCIDR(snatDstExclusionCIDR); err == nil {
-			maskSize, _ := exclusionCIDR.Mask.Size()
-			if exclusionCIDR.IP.IsUnspecified() && maskSize == 0 {
-				if prog == m.ip6tables {
-					return fmt.Errorf("nf_tables does not support ::/0 exclusion, set --%s=false", option.EnableIPv6Masquerade)
-				}
-				return fmt.Errorf("nf_tables does not support 0.0.0.0/0 exclusion, set --%s=false", option.EnableIPv4Masquerade)
-			}
+	if prog.getMode() == "nft" && isDefaultRoutePrefix(snatDstExclusionCIDR) {
+		if prog == m.ip6tables {
+			return fmt.Errorf("nf_tables does not support ::/0 exclusion, set --%s=false", option.EnableIPv6Masquerade)
 		}
+		return fmt.Errorf("nf_tables does not support 0.0.0.0/0 exclusion, set --%s=false", option.EnableIPv4Masquerade)
 	}
 
 	if m.sharedCfg.NodeIpsetNeeded {
@@ -1544,7 +1545,7 @@ func (m *manager) installMasqueradeRules(
 		//     range
 		// * Non-tunnel mode:
 		//   * May not be targeted to an IP in the cluster range
-		cmds := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, m.sharedCfg.MasqueradeInterfaces,
+		cmds := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR.String(), m.sharedCfg.MasqueradeInterfaces,
 			m.cfg.IPTablesRandomFully)
 		for _, cmd := range cmds {
 			if err := prog.runProg(cmd); err != nil {
@@ -1644,7 +1645,7 @@ func (m *manager) installMasqueradeRules(
 
 func (m *manager) installMasqueradeRouteSourceRules(
 	prog runnable, routes []netlink.Route, linkByIndex func(int) (netlink.Link, error),
-	devices []string, snatDstExclusionCIDR, allocRange string,
+	devices []string, snatDstExclusionCIDR netip.Prefix, allocRange string,
 ) error {
 	slices.SortFunc(routes, func(a, b netlink.Route) int {
 		aPfx, bPfx := 0, 0
@@ -1687,8 +1688,14 @@ func (m *manager) installMasqueradeRouteSourceRules(
 			// -o device.
 			match = true
 		}
-		_, exclusionCIDR, err := net.ParseCIDR(snatDstExclusionCIDR)
-		if !match || r.Src == nil || (err == nil && cidr.Equal(r.Dst, exclusionCIDR)) {
+		// dst is the zero Prefix for a route without a destination (the
+		// kernel reports the default route that way), which never compares
+		// equal to a valid exclusion CIDR and is not a default-route prefix.
+		var dst netip.Prefix
+		if r.Dst != nil {
+			dst, _ = netipx.FromStdIPNet(r.Dst)
+		}
+		if !match || r.Src == nil || (dst.IsValid() && dst == snatDstExclusionCIDR) {
 			continue
 		}
 		progArgs := []string{
@@ -1696,10 +1703,10 @@ func (m *manager) installMasqueradeRouteSourceRules(
 			"-A", ciliumPostNatChain,
 			"-s", allocRange,
 		}
-		if cidr.Equal(r.Dst, cidr.ZeroNet(r.Family)) {
+		if isDefaultRoutePrefix(dst) {
 			progArgs = append(
 				progArgs,
-				"!", "-d", snatDstExclusionCIDR)
+				"!", "-d", snatDstExclusionCIDR.String())
 		} else {
 			progArgs = append(
 				progArgs,
@@ -1853,7 +1860,7 @@ func (m *manager) installRules(state desiredState) error {
 
 		if m.sharedCfg.IptablesMasqueradingIPv4Enabled && state.localNodeInfo.internalIPv4.IsValid() {
 			if err := m.installMasqueradeRules(m.ip4tables, state.devices.UnsortedList(), localDeliveryInterface,
-				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv4NativeRoutingCIDR, state.localNodeInfo.ipv4AllocCIDR).String(),
+				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv4NativeRoutingCIDR, state.localNodeInfo.ipv4AllocCIDR),
 				state.localNodeInfo.ipv4AllocCIDR.String(),
 				state.localNodeInfo.internalIPv4.String(),
 			); err != nil {
@@ -1869,7 +1876,7 @@ func (m *manager) installRules(state desiredState) error {
 
 		if m.sharedCfg.IptablesMasqueradingIPv6Enabled && state.localNodeInfo.internalIPv6.IsValid() {
 			if err := m.installMasqueradeRules(m.ip6tables, state.devices.UnsortedList(), localDeliveryInterface,
-				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv6NativeRoutingCIDR, state.localNodeInfo.ipv6AllocCIDR).String(),
+				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv6NativeRoutingCIDR, state.localNodeInfo.ipv6AllocCIDR),
 				state.localNodeInfo.ipv6AllocCIDR.String(),
 				state.localNodeInfo.internalIPv6.String(),
 			); err != nil {
