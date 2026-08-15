@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/statedb/index"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -57,9 +56,11 @@ var _ statedb.TableWritable = &LocalNode{}
 // LocalNodeInfo is the additional information about the local node that
 // is only used internally.
 //
+// Every field is a comparable value type, which lets DeepCopyInto and
+// DeepEqual below be a plain assignment and a plain comparison.
+//
 // +k8s:deepcopy-gen=false
-// +deepequal-gen=true
-// +deepequal-gen:private-method=true
+// +deepequal-gen=false
 type LocalNodeInfo struct {
 	// OptOutNodeEncryption will make the local node opt-out of node-to-node
 	// encryption
@@ -70,16 +71,14 @@ type LocalNodeInfo struct {
 	// ID of the node assigned by the cloud provider.
 	ProviderID string
 	// v4 CIDR in which pod IPs are routable
-	IPv4NativeRoutingCIDR *cidr.CIDR
+	IPv4NativeRoutingCIDR netip.Prefix
 	// v6 CIDR in which pod IPs are routable
-	IPv6NativeRoutingCIDR *cidr.CIDR
+	IPv6NativeRoutingCIDR netip.Prefix
 	// ServiceLoopbackIPv4 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
-	// +deepequal-gen=false
 	ServiceLoopbackIPv4 netip.Addr
 	// ServiceLoopbackIPv6 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
-	// +deepequal-gen=false
 	ServiceLoopbackIPv6 netip.Addr
 	// IsBeingDeleted indicates that the local node is being deleted.
 	IsBeingDeleted bool
@@ -90,14 +89,6 @@ type LocalNodeInfo struct {
 // DeepCopyInto copies the receiver into out. in must be non-nil.
 func (in *LocalNodeInfo) DeepCopyInto(out *LocalNodeInfo) {
 	*out = *in
-	// Deep copy pointer fields
-	if in.IPv4NativeRoutingCIDR != nil {
-		out.IPv4NativeRoutingCIDR = in.IPv4NativeRoutingCIDR.DeepCopy()
-	}
-	if in.IPv6NativeRoutingCIDR != nil {
-		out.IPv6NativeRoutingCIDR = in.IPv6NativeRoutingCIDR.DeepCopy()
-	}
-	// netip.Addr fields are value types, already copied by *out = *in
 }
 
 // DeepCopy creates a deep copy of the LocalNodeInfo.
@@ -110,20 +101,12 @@ func (in *LocalNodeInfo) DeepCopy() *LocalNodeInfo {
 	return out
 }
 
-// DeepEqual compares two LocalNodeInfo structs for equality.
+// DeepEqual compares two LocalNodeInfo structs for equality. in must be non-nil.
 func (in *LocalNodeInfo) DeepEqual(other *LocalNodeInfo) bool {
 	if other == nil {
 		return false
 	}
-	// Manually compare netip.Addr fields
-	if in.ServiceLoopbackIPv4 != other.ServiceLoopbackIPv4 {
-		return false
-	}
-	if in.ServiceLoopbackIPv6 != other.ServiceLoopbackIPv6 {
-		return false
-	}
-	// Call generated private method for other fields
-	return in.deepEqual(other)
+	return *in == *other
 }
 
 const (

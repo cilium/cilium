@@ -1318,8 +1318,7 @@ func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 }
 
 // SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
-// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom,
-// cmtypes.PrefixClusterFromCIDR and the like.
+// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom.
 func (m *manager) SetPrefixClusterMutatorFn(mutator func(*nodeTypes.Node) []cmtypes.PrefixClusterOpts) {
 	m.prefixClusterMutatorFn = mutator
 }
