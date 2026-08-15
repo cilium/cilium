@@ -281,7 +281,7 @@ data:
   enable-ingress-secrets-sync: {{ .Values.ingressController.secretsNamespace.sync | quote }}
   ingress-secrets-namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
   ingress-lb-annotation-prefixes: {{ .Values.ingressController.ingressLBAnnotationPrefixes | join " " | quote }}
-  ingress-default-lb-mode: {{ .Values.ingressController.loadbalancerMode }}
+  ingress-default-lb-mode: {{ if .Values.ingressController.loadBalancerMode }}{{ .Values.ingressController.loadBalancerMode }}{{ else }}{{ .Values.ingressController.loadbalancerMode }}{{ end }}
   ingress-shared-lb-service-name: {{ .Values.ingressController.service.name }}
   ingress-default-xff-num-trusted-hops: {{ .Values.ingressController.xffNumTrustedHops | quote }}
   ingress-use-remote-address: {{ .Values.ingressController.useRemoteAddress | quote }}
