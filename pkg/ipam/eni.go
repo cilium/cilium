@@ -21,7 +21,6 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -202,7 +201,7 @@ func autoDetectENINativeRoutingCIDR(
 		logfields.VPCCIDR, primaryCIDR,
 	)
 	localNodeStore.Update(func(n *node.LocalNode) {
-		n.Local.IPv4NativeRoutingCIDR = cidr.NewCIDR(netipx.PrefixIPNet(primaryCIDR))
+		n.Local.IPv4NativeRoutingCIDR = primaryCIDR
 	})
 	return nil
 }
