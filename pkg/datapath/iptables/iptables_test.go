@@ -6,6 +6,7 @@ package iptables
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 	"testing"
 
@@ -1289,7 +1290,7 @@ func TestInstallMasqueradeRouteSourceRules(t *testing.T) {
 	mgr := &manager{}
 	err := mgr.installMasqueradeRouteSourceRules(
 		mockProg, routes, linkByIndex,
-		[]string{"eth0"}, "11.0.0.0/24", "11.0.0.0/24",
+		[]string{"eth0"}, netip.MustParsePrefix("11.0.0.0/24"), "11.0.0.0/24",
 	)
 	require.NoError(t, err)
 	require.NoError(t, mockProg.checkExpectations())
