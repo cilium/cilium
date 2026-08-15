@@ -33,64 +33,34 @@ type desiredState struct {
 type localNodeInfo struct {
 	internalIPv4          netip.Addr
 	internalIPv6          netip.Addr
-	ipv4AllocCIDR         string
-	ipv6AllocCIDR         string
-	ipv4NativeRoutingCIDR string
-	ipv6NativeRoutingCIDR string
+	ipv4AllocCIDR         netip.Prefix
+	ipv6AllocCIDR         netip.Prefix
+	ipv4NativeRoutingCIDR netip.Prefix
+	ipv6NativeRoutingCIDR netip.Prefix
 }
 
 func (lni localNodeInfo) isValid() bool {
 	switch {
-	case option.Config.EnableIPv4 && (lni.internalIPv4.IsUnspecified() || lni.ipv4AllocCIDR == ""):
+	case option.Config.EnableIPv4 && (lni.internalIPv4.IsUnspecified() || !lni.ipv4AllocCIDR.IsValid()):
 		return false
-	case option.Config.EnableIPv6 && (lni.internalIPv6.IsUnspecified() || lni.ipv6AllocCIDR == ""):
+	case option.Config.EnableIPv6 && (lni.internalIPv6.IsUnspecified() || !lni.ipv6AllocCIDR.IsValid()):
 		return false
 	default:
 		return true
 	}
 }
 
-func (lni localNodeInfo) equal(other localNodeInfo) bool {
-	if lni.internalIPv4 == other.internalIPv4 &&
-		lni.internalIPv6 == other.internalIPv6 &&
-		lni.ipv4AllocCIDR == other.ipv4AllocCIDR &&
-		lni.ipv6AllocCIDR == other.ipv6AllocCIDR &&
-		lni.ipv4NativeRoutingCIDR == other.ipv4NativeRoutingCIDR &&
-		lni.ipv6NativeRoutingCIDR == other.ipv6NativeRoutingCIDR {
-		return true
-	}
-	return false
-}
-
 func toLocalNodeInfo(n node.LocalNode) localNodeInfo {
-	var (
-		v4AllocCIDR, v6AllocCIDR                 string
-		v4NativeRoutingCIDR, v6NativeRoutingCIDR string
-	)
-
-	if n.IPv4AllocCIDR.IsValid() {
-		v4AllocCIDR = n.IPv4AllocCIDR.String()
-	}
-	if n.IPv6AllocCIDR.IsValid() {
-		v6AllocCIDR = n.IPv6AllocCIDR.String()
-	}
-	if n.Local.IPv4NativeRoutingCIDR.IsValid() {
-		v4NativeRoutingCIDR = n.Local.IPv4NativeRoutingCIDR.String()
-	}
-	if n.Local.IPv6NativeRoutingCIDR.IsValid() {
-		v6NativeRoutingCIDR = n.Local.IPv6NativeRoutingCIDR.String()
-	}
-
 	internalIPv4, _ := netip.AddrFromSlice(n.GetCiliumInternalIP(false).To4())
 	internalIPv6, _ := netip.AddrFromSlice(n.GetCiliumInternalIP(true).To16())
 
 	return localNodeInfo{
 		internalIPv4:          internalIPv4,
 		internalIPv6:          internalIPv6,
-		ipv4AllocCIDR:         v4AllocCIDR,
-		ipv6AllocCIDR:         v6AllocCIDR,
-		ipv4NativeRoutingCIDR: v4NativeRoutingCIDR,
-		ipv6NativeRoutingCIDR: v6NativeRoutingCIDR,
+		ipv4AllocCIDR:         n.IPv4AllocCIDR.Prefix.Prefix,
+		ipv6AllocCIDR:         n.IPv6AllocCIDR.Prefix.Prefix,
+		ipv4NativeRoutingCIDR: n.Local.IPv4NativeRoutingCIDR,
+		ipv6NativeRoutingCIDR: n.Local.IPv6NativeRoutingCIDR,
 	}
 }
 
@@ -216,7 +186,7 @@ stop:
 				break stop
 			}
 			localNodeInfo := toLocalNodeInfo(localNode)
-			if localNodeInfo.equal(state.localNodeInfo) {
+			if localNodeInfo == state.localNodeInfo {
 				continue
 			}
 			state.localNodeInfo = localNodeInfo

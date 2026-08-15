@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	baseclocktest "k8s.io/utils/clock/testing"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
@@ -177,8 +176,8 @@ func TestReconciliationLoop(t *testing.T) {
 				devices:      sets.New("test-1"),
 				localNodeInfo: localNodeInfo{
 					internalIPv4:  netip.MustParseAddr("1.1.1.1"),
-					ipv4AllocCIDR: cidr.MustParseCIDR("5.5.5.0/24").String(),
-					ipv6AllocCIDR: cidr.MustParseCIDR("2001:aaaa::/96").String(),
+					ipv4AllocCIDR: netip.MustParsePrefix("5.5.5.0/24"),
+					ipv6AllocCIDR: netip.MustParsePrefix("2001:aaaa::/96"),
 				},
 			},
 		},
@@ -198,8 +197,8 @@ func TestReconciliationLoop(t *testing.T) {
 				devices:      sets.New("test-1", "test-2"),
 				localNodeInfo: localNodeInfo{
 					internalIPv4:  netip.MustParseAddr("1.1.1.1"),
-					ipv4AllocCIDR: cidr.MustParseCIDR("5.5.5.0/24").String(),
-					ipv6AllocCIDR: cidr.MustParseCIDR("2001:aaaa::/96").String(),
+					ipv4AllocCIDR: netip.MustParsePrefix("5.5.5.0/24"),
+					ipv6AllocCIDR: netip.MustParsePrefix("2001:aaaa::/96"),
 				},
 			},
 		},
@@ -222,8 +221,8 @@ func TestReconciliationLoop(t *testing.T) {
 				devices:      sets.New("test-1", "test-2"),
 				localNodeInfo: localNodeInfo{
 					internalIPv4:  netip.MustParseAddr("2.2.2.2"),
-					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
-					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
+					ipv4AllocCIDR: netip.MustParsePrefix("6.6.6.0/24"),
+					ipv6AllocCIDR: netip.MustParsePrefix("3002:bbbb::/96"),
 				},
 			},
 		},
@@ -243,8 +242,8 @@ func TestReconciliationLoop(t *testing.T) {
 				devices:      sets.New("test-1", "test-2"),
 				localNodeInfo: localNodeInfo{
 					internalIPv4:  netip.MustParseAddr("2.2.2.2"),
-					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
-					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
+					ipv4AllocCIDR: netip.MustParsePrefix("6.6.6.0/24"),
+					ipv6AllocCIDR: netip.MustParsePrefix("3002:bbbb::/96"),
 				},
 				proxies: map[string]proxyInfo{
 					"proxy-test-1": {
@@ -270,8 +269,8 @@ func TestReconciliationLoop(t *testing.T) {
 				devices:      sets.New("test-1", "test-2"),
 				localNodeInfo: localNodeInfo{
 					internalIPv4:  netip.MustParseAddr("2.2.2.2"),
-					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
-					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
+					ipv4AllocCIDR: netip.MustParsePrefix("6.6.6.0/24"),
+					ipv6AllocCIDR: netip.MustParsePrefix("3002:bbbb::/96"),
 				},
 				proxies: map[string]proxyInfo{
 					"proxy-test-1": {
@@ -308,8 +307,8 @@ func TestReconciliationLoop(t *testing.T) {
 				devices:      sets.New("test-1", "test-2"),
 				localNodeInfo: localNodeInfo{
 					internalIPv4:  netip.MustParseAddr("2.2.2.2"),
-					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
-					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
+					ipv4AllocCIDR: netip.MustParsePrefix("6.6.6.0/24"),
+					ipv6AllocCIDR: netip.MustParsePrefix("3002:bbbb::/96"),
 				},
 				proxies: map[string]proxyInfo{
 					"proxy-test-1": {
@@ -343,8 +342,8 @@ func TestReconciliationLoop(t *testing.T) {
 				devices:      sets.New("test-1", "test-2"),
 				localNodeInfo: localNodeInfo{
 					internalIPv4:  netip.MustParseAddr("2.2.2.2"),
-					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
-					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
+					ipv4AllocCIDR: netip.MustParsePrefix("6.6.6.0/24"),
+					ipv6AllocCIDR: netip.MustParsePrefix("3002:bbbb::/96"),
 				},
 				proxies: map[string]proxyInfo{
 					"proxy-test-1": {
@@ -374,8 +373,8 @@ func TestReconciliationLoop(t *testing.T) {
 				devices:      sets.New("test-1", "test-2"),
 				localNodeInfo: localNodeInfo{
 					internalIPv4:  netip.MustParseAddr("2.2.2.2"),
-					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
-					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
+					ipv4AllocCIDR: netip.MustParsePrefix("6.6.6.0/24"),
+					ipv6AllocCIDR: netip.MustParsePrefix("3002:bbbb::/96"),
 				},
 				proxies: map[string]proxyInfo{
 					"proxy-test-1": {
@@ -408,8 +407,8 @@ func TestReconciliationLoop(t *testing.T) {
 				devices:      sets.New("test-1", "test-2"),
 				localNodeInfo: localNodeInfo{
 					internalIPv4:  netip.MustParseAddr("2.2.2.2"),
-					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
-					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
+					ipv4AllocCIDR: netip.MustParsePrefix("6.6.6.0/24"),
+					ipv6AllocCIDR: netip.MustParsePrefix("3002:bbbb::/96"),
 				},
 				proxies: map[string]proxyInfo{
 					"proxy-test-1": {
@@ -442,8 +441,8 @@ func TestReconciliationLoop(t *testing.T) {
 				devices:      sets.New("test-1", "test-2"),
 				localNodeInfo: localNodeInfo{
 					internalIPv4:  netip.MustParseAddr("2.2.2.2"),
-					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
-					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
+					ipv4AllocCIDR: netip.MustParsePrefix("6.6.6.0/24"),
+					ipv6AllocCIDR: netip.MustParsePrefix("3002:bbbb::/96"),
 				},
 				proxies: map[string]proxyInfo{
 					"proxy-test-1": {
@@ -559,7 +558,7 @@ func assertIptablesState(current, expected desiredState) error {
 		return fmt.Errorf("expected devices names to be %v, found %v",
 			expected.devices.UnsortedList(), current.devices.UnsortedList())
 	}
-	if !current.localNodeInfo.equal(expected.localNodeInfo) {
+	if current.localNodeInfo != expected.localNodeInfo {
 		return fmt.Errorf("expected local node info to be %v, found %v",
 			expected.localNodeInfo, current.localNodeInfo)
 	}
