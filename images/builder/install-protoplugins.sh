@@ -15,7 +15,7 @@ GRPC_VERSION=${GRPC_VERSION#cmd/protoc-gen-go-grpc/}
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${GRPC_VERSION}
 
 # renovate: datasource=github-releases depName=protocolbuffers/protobuf-go
-go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
 # renovate: datasource=github-releases depName=mfridman/protoc-gen-go-json
 go install github.com/mfridman/protoc-gen-go-json@v1.6.0
 # renovate: datasource=github-releases depName=pseudomuto/protoc-gen-doc
