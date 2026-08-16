@@ -1390,24 +1390,52 @@ func deserializeRoute(m []byte) (Route, error) {
 		switch attr.Attr.Type {
 		case unix.RTA_GATEWAY:
 			// Validate gateway address length matches address family.
-			// Prevents buffer aliasing if netlink attribute has corrupted Len field.
+			// Reject undersized attributes; clamp oversized; allocate independent storage.
 			gwValue := attr.Value
-			if msg.Family == nl.FAMILY_V4 && len(gwValue) > 4 {
-				gwValue = gwValue[:4]
-			} else if msg.Family == nl.FAMILY_V6 && len(gwValue) > 16 {
-				gwValue = gwValue[:16]
+			expectedLen := 0
+			if msg.Family == nl.FAMILY_V4 {
+				expectedLen = 4
+			} else if msg.Family == nl.FAMILY_V6 {
+				expectedLen = 16
 			}
-			route.Gw = net.IP(gwValue)
+			if expectedLen > 0 {
+				if len(gwValue) < expectedLen {
+					return route, fmt.Errorf("invalid RTA_GATEWAY length %d for family %d", len(gwValue), msg.Family)
+				}
+				if len(gwValue) > expectedLen {
+					gwValue = gwValue[:expectedLen]
+				}
+				// Allocate independent copy to break kernel buffer reference
+				gwCopy := make(net.IP, expectedLen)
+				copy(gwCopy, gwValue)
+				route.Gw = gwCopy
+			} else {
+				route.Gw = net.IP(gwValue)
+			}
 		case unix.RTA_PREFSRC:
 			// Validate source address length matches address family.
-			// Prevents buffer aliasing if netlink attribute has corrupted Len field.
+			// Reject undersized attributes; clamp oversized; allocate independent storage.
 			srcValue := attr.Value
-			if msg.Family == nl.FAMILY_V4 && len(srcValue) > 4 {
-				srcValue = srcValue[:4]
-			} else if msg.Family == nl.FAMILY_V6 && len(srcValue) > 16 {
-				srcValue = srcValue[:16]
+			expectedLen := 0
+			if msg.Family == nl.FAMILY_V4 {
+				expectedLen = 4
+			} else if msg.Family == nl.FAMILY_V6 {
+				expectedLen = 16
 			}
-			route.Src = net.IP(srcValue)
+			if expectedLen > 0 {
+				if len(srcValue) < expectedLen {
+					return route, fmt.Errorf("invalid RTA_PREFSRC length %d for family %d", len(srcValue), msg.Family)
+				}
+				if len(srcValue) > expectedLen {
+					srcValue = srcValue[:expectedLen]
+				}
+				// Allocate independent copy to break kernel buffer reference
+				srcCopy := make(net.IP, expectedLen)
+				copy(srcCopy, srcValue)
+				route.Src = srcCopy
+			} else {
+				route.Src = net.IP(srcValue)
+			}
 		case unix.RTA_DST:
 			if msg.Family == nl.FAMILY_MPLS {
 				stack := nl.DecodeMPLSStack(attr.Value)
@@ -1417,8 +1445,7 @@ func deserializeRoute(m []byte) (Route, error) {
 				route.MPLSDst = &stack[0]
 			} else {
 				// Validate that RTA_DST has reasonable length for the address family.
-				// IPv4 should be 4 bytes, IPv6 should be 16 bytes.
-				// If length doesn't match, it indicates corrupted data or buffer aliasing.
+				// Reject undersized attributes; clamp oversized; use address-family width for mask.
 				expectedLen := 0
 				if msg.Family == nl.FAMILY_V4 {
 					expectedLen = 4
@@ -1426,18 +1453,23 @@ func deserializeRoute(m []byte) (Route, error) {
 					expectedLen = 16
 				}
 
-				// Clamp the value to the expected length to prevent buffer aliasing
-				// when attr.Value points to corrupted or oversized netlink attribute data.
 				ipValue := attr.Value
+				if expectedLen > 0 && len(ipValue) < expectedLen {
+					return route, fmt.Errorf("invalid RTA_DST length %d for family %d", len(ipValue), msg.Family)
+				}
+
+				// Clamp oversized payload to expected address length
 				if expectedLen > 0 && len(ipValue) > expectedLen {
 					ipValue = ipValue[:expectedLen]
 				}
 
+				// Allocate independent IP and use address-family-based mask width
+				ipCopy := make(net.IP, len(ipValue))
+				copy(ipCopy, ipValue)
 				route.Dst = &net.IPNet{
-					IP:   make(net.IP, len(ipValue)),
-					Mask: net.CIDRMask(int(msg.Dst_len), 8*len(ipValue)),
+					IP:   ipCopy,
+					Mask: net.CIDRMask(int(msg.Dst_len), 8*len(ipCopy)),
 				}
-				copy(route.Dst.IP, ipValue)
 			}
 		case unix.RTA_OIF:
 			route.LinkIndex = int(native.Uint32(attr.Value[0:4]))
