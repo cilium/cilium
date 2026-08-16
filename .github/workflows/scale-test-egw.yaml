@@ -71,7 +71,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.229.0
+  eksctl_version: v0.230.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.36.3
   # renovate: datasource=docker depName=google/cloud-sdk
