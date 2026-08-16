@@ -72,7 +72,7 @@ env:
   # comparable.
   gcp_fallback_zones: us-east5-b us-east5-c
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 578.0.0
+  gcloud_version: 580.0.0
 
 jobs:
   echo-inputs:
@@ -363,7 +363,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@7e3eae9de9542f1a7616ca797e2d5090e8f9f8ee # main
+        uses: cilium/scale-tests-action/export-results@529d919e01deb35642ba5c6ecdcbf2e2311cd3de # main
         with:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
           tested_sha: ${{ inputs.SHA || github.sha }}
