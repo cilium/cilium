@@ -605,8 +605,6 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	__wsum csum;
 	int i;
 	int ret;
-	const int inner_offset = sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct icmp6hdr);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -658,17 +656,18 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	data_end = ctx_data_end(ctx);
 
 	/* Bound check all 3 headers at once. */
-	if (data + inner_offset > data_end)
+	ethhdr = data;
+	ip6 = (void *)ethhdr + sizeof(*ethhdr);
+	icmphdr = (void *)ip6 + sizeof(*ip6);
+	if ((void *)icmphdr + sizeof(*icmphdr) > data_end)
 		return DROP_INVALID;
 
 	/* Write reversed eth header, ready for egress */
-	ethhdr = data;
 	memcpy(ethhdr->h_dest, smac.addr, sizeof(smac.addr));
 	memcpy(ethhdr->h_source, dmac.addr, sizeof(dmac.addr));
 	ethhdr->h_proto = bpf_htons(ETH_P_IPV6);
 
 	/* Write reversed ip header, ready for egress */
-	ip6 = data + sizeof(struct ethhdr);
 	ip6->version = 6;
 	ip6->priority = 0;
 	ip6->flow_lbl[0] = 0;
@@ -681,7 +680,6 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	memcpy(&ip6->saddr, &daddr, sizeof(struct in6_addr));
 
 	/* Write reversed icmp header */
-	icmphdr = data + sizeof(struct ethhdr) + sizeof(struct ipv6hdr);
 	icmphdr->icmp6_type = icmp_type;
 	icmphdr->icmp6_code = icmp_code;
 	icmphdr->icmp6_cksum = 0;

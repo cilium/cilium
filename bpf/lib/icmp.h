@@ -33,8 +33,6 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	__u8	tos;
 	__wsum csum;
 	int ret;
-	const int inner_offset = sizeof(struct ethhdr) + sizeof(struct iphdr) +
-		sizeof(struct icmphdr);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -86,17 +84,18 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	data_end = ctx_data_end(ctx);
 
 	/* Bound check all 3 headers at once. */
-	if (data + inner_offset > data_end)
+	ethhdr = data;
+	ip4 = (void *)ethhdr + sizeof(*ethhdr);
+	icmphdr = (void *)ip4 + sizeof(*ip4);
+	if ((void *)icmphdr + sizeof(*icmphdr) > data_end)
 		return DROP_INVALID;
 
 	/* Write reversed eth header, ready for egress */
-	ethhdr = data;
 	memcpy(ethhdr->h_dest, smac.addr, sizeof(smac.addr));
 	memcpy(ethhdr->h_source, dmac.addr, sizeof(dmac.addr));
 	ethhdr->h_proto = bpf_htons(ETH_P_IP);
 
 	/* Write reversed ip header, ready for egress */
-	ip4 = data + sizeof(struct ethhdr);
 	ip4->version = 4;
 	ip4->ihl = sizeof(struct iphdr) >> 2;
 	ip4->tos = tos;
@@ -112,7 +111,6 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	ip4->check = csum_fold(csum_diff(ip4, 0, ip4, sizeof(struct iphdr), 0));
 
 	/* Write reversed icmp header */
-	icmphdr = data + sizeof(struct ethhdr) + sizeof(struct iphdr);
 	icmphdr->type = icmp_type;
 	icmphdr->code = icmp_code;
 	icmphdr->checksum = 0;
