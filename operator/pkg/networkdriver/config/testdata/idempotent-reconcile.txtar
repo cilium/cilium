@@ -1,0 +1,129 @@
+hive start
+
+# Add two nodes and two cluster configs that conflict on node-a, so that
+# config-b is marked conflicting.
+
+k8s/add node-a.yaml
+k8s/add node-b.yaml
+k8s/add cluster-config-a.yaml
+k8s/add cluster-config-b.yaml
+
+# Verify cluster-config-b is conflicting and node-a has a NodeConfig from config-a.
+
+* db/cmp netdriver-cluster-config cluster-config-conflicting.table
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node-a -o node-a-config-actual.yaml
+* cmp node-a-config-expected.yaml node-a-config-actual.yaml
+
+# Add node-a again with identical labels — manager detects no label change and
+# returns early from handleCiliumNodeEvent (labels.Equals guard), skipping
+# reconciliation.  Cluster-config and NodeConfig tables must be unchanged.
+
+k8s/add node-a.yaml
+
+* db/cmp netdriver-cluster-config cluster-config-conflicting.table
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node-a -o node-a-config-actual.yaml
+* cmp node-a-config-expected.yaml node-a-config-actual.yaml
+
+# Add cluster-config-b again with identical spec — manager detects no spec
+# change and returns early from handleClusterConfigEvent (DeepEqual guard),
+# skipping reconciliation.  Tables remain unchanged.
+
+k8s/add cluster-config-b.yaml
+
+* db/cmp netdriver-cluster-config cluster-config-conflicting.table
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node-a -o node-a-config-actual.yaml
+* cmp node-a-config-expected.yaml node-a-config-actual.yaml
+
+hive stop
+
+# ----
+
+-- node-a.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: node-a
+  name: node-a
+spec:
+
+-- node-b.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: node-b
+  name: node-b
+spec:
+
+-- cluster-config-a.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: cluster-config-a
+  creationTimestamp: 2026-01-01T00:00:00Z
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: node-a
+  spec:
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    publishInterval: 10
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- cluster-config-b.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: cluster-config-b
+  creationTimestamp: 2026-01-01T01:00:00Z
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: node-a
+  spec:
+    draRegistrationRetryInterval: 2
+    draRegistrationTimeout: 600
+    publishInterval: 10
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool-b"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- cluster-config-conflicting.table --
+Name              IsConflicting       Status    Error
+cluster-config-a  false               Done
+cluster-config-b  true                Done
+
+-- node-a-config-expected.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: node-a
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 1
+  draRegistrationTimeout: 600
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool
+  publishInterval: 10

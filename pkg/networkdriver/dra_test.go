@@ -71,8 +71,7 @@ func TestSerializeDevice(t *testing.T) {
 func TestDeviceClaimConfigs(t *testing.T) {
 	tlog := hivetest.Logger(t)
 	driver := &Driver{
-		logger:      tlog,
-		allocations: make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
+		logger: tlog,
 	}
 
 	t.Run("invalid JSON", func(t *testing.T) {
@@ -134,7 +133,8 @@ func TestDeviceClaimConfigs(t *testing.T) {
 						Allocation:  &resourceapi.AllocationResult{},
 					},
 				}
-				res := driver.prepareResourceClaim(t.Context(), claim)
+				// prepareResourceClaim needs an inBatch map; pass nil (same as empty).
+				res := driver.prepareResourceClaim(t.Context(), claim, nil)
 				require.Error(t, res.Err)
 				require.ErrorIs(t, res.Err, errUnexpectedInput)
 			})
@@ -179,17 +179,24 @@ func TestPrepareResourceClaim(t *testing.T) {
 
 		require.NotNil(t, pods, "pod resource must be wired by hive")
 
+		db, devTbl := newTestAllocDB(t)
+		dev := &trackedDevice{name: "mydevice"}
+		txn := db.WriteTxn(devTbl)
+		devTbl.Insert(txn, &Device{
+			Name:    "mydevice",
+			Manager: types.DeviceManagerTypeMock,
+			Dev:     dev,
+		})
+		txn.Commit()
+
 		driver := &Driver{
-			logger:     tlog,
-			kubeClient: cs,
-			pods:       pods,
-			config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
-				DriverName: "testdriver",
-			},
-			devices: map[types.DeviceManagerType][]types.Device{
-				types.DeviceManagerTypeMock: {&trackedDevice{name: "mydevice"}},
-			},
-			allocations: make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
+			logger:      tlog,
+			kubeClient:  cs,
+			pods:        pods,
+			config:      &v2alpha1.CiliumNetworkDriverNodeConfigSpec{DriverName: "testdriver"},
+			db:          db,
+			deviceTable: devTbl,
+			podNetns:    make(map[kubetypes.UID]string),
 		}
 
 		claim := &resourceapi.ResourceClaim{
@@ -216,7 +223,7 @@ func TestPrepareResourceClaim(t *testing.T) {
 		}
 		createPrepClaim(t, cs, claim)
 
-		res := driver.prepareResourceClaim(t.Context(), claim)
+		res := driver.prepareResourceClaim(t.Context(), claim, nil)
 		require.NoError(t, res.Err)
 	})
 
@@ -227,9 +234,15 @@ func TestPrepareResourceClaim(t *testing.T) {
 		claimUID := kubetypes.UID("existing-claim-uid")
 
 		driver := buildPrepDriver(t, cs)
-		driver.allocations = map[kubetypes.UID]map[kubetypes.UID][]allocation{
-			podUID: {claimUID: {}},
-		}
+		// Insert a pre-existing allocation into statedb to simulate idempotent retry.
+		txn := driver.db.WriteTxn(driver.deviceTable)
+		driver.deviceTable.Insert(txn, &Device{
+			Name:     "some-dev",
+			Manager:  types.DeviceManagerTypeMock,
+			PodUID:   podUID,
+			ClaimUID: claimUID,
+		})
+		txn.Commit()
 
 		claim := &resourceapi.ResourceClaim{
 			ObjectMeta: metav1.ObjectMeta{UID: claimUID},
@@ -240,7 +253,7 @@ func TestPrepareResourceClaim(t *testing.T) {
 				Allocation: &resourceapi.AllocationResult{},
 			},
 		}
-		res := driver.prepareResourceClaim(t.Context(), claim)
+		res := driver.prepareResourceClaim(t.Context(), claim, nil)
 		require.NoError(t, res.Err)
 	})
 }

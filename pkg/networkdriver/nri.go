@@ -124,10 +124,27 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 
 		log = log.With(logfields.NetNamespace, networkNamespace)
 
-		alloc, ok := driver.allocations[kube_types.UID(podSandbox.Uid)]
-		if !ok {
+		// Look up allocations for this pod from the device table.
+		podUID := kube_types.UID(podSandbox.Uid)
+		var alloc map[kube_types.UID][]allocation
+		if driver.deviceTable != nil {
+			rtxn := driver.db.ReadTxn()
+			for row := range driver.deviceTable.List(rtxn, DeviceByPodUID(podUID)) {
+				if !row.IsAllocated() {
+					continue
+				}
+				if alloc == nil {
+					alloc = make(map[kube_types.UID][]allocation)
+				}
+				alloc[row.ClaimUID] = append(alloc[row.ClaimUID], allocation{
+					Device:  row.Dev,
+					Config:  row.Config,
+					Manager: row.Manager,
+				})
+			}
+		}
+		if alloc == nil {
 			log.DebugContext(ctx, "no allocation found")
-			// allocation not found/doesn't exist
 			return nil
 		}
 
@@ -232,10 +249,12 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 		log.DebugContext(ctx, "StopPodSandbox request received")
 
+		uid := kube_types.UID(podSandbox.Uid)
+
 		// On containerd < 2.1 the stop event carries no namespaces; fall back to the
 		// path cached at RunPodSandbox / Synchronize. Evict the cache entry on the way
 		// out: this is the pod's terminal event, so the entry is no longer needed.
-		defer delete(driver.podNetns, kube_types.UID(podSandbox.Uid))
+		defer delete(driver.podNetns, uid)
 
 		networkNamespace := driver.getNetworkNamespace(podSandbox)
 		// host network pods cannot allocate network devices because it impacts the host
@@ -246,10 +265,27 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 		log = log.With(logfields.NetNamespace, networkNamespace)
 
-		alloc, ok := driver.allocations[kube_types.UID(podSandbox.Uid)]
-		if !ok {
+		// Look up allocations for this pod from the device table.
+		var alloc map[kube_types.UID][]allocation
+		if driver.deviceTable != nil {
+			rtxn := driver.db.ReadTxn()
+			for row := range driver.deviceTable.List(rtxn, DeviceByPodUID(uid)) {
+				if !row.IsAllocated() {
+					continue
+				}
+				if alloc == nil {
+					alloc = make(map[kube_types.UID][]allocation)
+				}
+				alloc[row.ClaimUID] = append(alloc[row.ClaimUID], allocation{
+					Device:  row.Dev,
+					Config:  row.Config,
+					Manager: row.Manager,
+				})
+			}
+		}
+		if alloc == nil {
+			// No allocation found — pod stopped without DRA devices.
 			log.DebugContext(ctx, "no allocation found")
-			// allocation not found/doesn't exist
 			return nil
 		}
 

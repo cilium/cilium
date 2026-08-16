@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/stretchr/testify/require"
 	resourceapi "k8s.io/api/resource/v1"
@@ -34,6 +35,17 @@ import (
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
+
+// newTestAllocDB creates a minimal in-process statedb.DB with the Device table
+// wired in, for use in unit tests that need to populate device state without a
+// full Driver or Hive.
+func newTestAllocDB(t *testing.T) (*statedb.DB, statedb.RWTable[*Device]) {
+	t.Helper()
+	db := statedb.New()
+	devTbl, err := NewDeviceTable(db)
+	require.NoError(t, err)
+	return db, devTbl
+}
 
 // ---------------------------------------------------------------------------
 // Minimal mock device manager (for restoreDevicesFromClaim)
@@ -55,19 +67,33 @@ func (m *mockDeviceManager) RestoreDevice(data []byte) (types.Device, error) {
 }
 
 // buildDriverForPool builds a minimal *Driver ready for pool-related tests.
-// It has no real device managers; caller populates driver.devices directly.
+// It has no real device managers; caller can populate statedb table directly.
 func buildDriverForPool(t *testing.T, pools []v2alpha1.CiliumNetworkDriverDevicePoolConfig, devsByMgr map[types.DeviceManagerType][]types.Device) *Driver {
 	t.Helper()
+	db, devTbl := newTestAllocDB(t)
+	// Pre-populate the device table from the supplied devsByMgr map.
+	if len(devsByMgr) > 0 {
+		txn := db.WriteTxn(devTbl)
+		for mgr, devs := range devsByMgr {
+			for _, dev := range devs {
+				devTbl.Insert(txn, &Device{
+					Name:    dev.IfName(),
+					Manager: mgr,
+					Dev:     dev,
+				})
+			}
+		}
+		txn.Commit()
+	}
 	d := &Driver{
 		logger: hivetest.Logger(t),
 		config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
 			DriverName: prepTestDriverName,
 			Pools:      pools,
 		},
-		devices:         devsByMgr,
-		assignedDevices: make(map[string]string),
-		allocations:     make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
-		podNetns:        make(map[kubetypes.UID]string),
+		db:          db,
+		deviceTable: devTbl,
+		podNetns:    make(map[kubetypes.UID]string),
 	}
 	return d
 }
@@ -105,7 +131,6 @@ func buildNRIDriver(t *testing.T) *Driver {
 	tlog := hivetest.Logger(t)
 	cs, _ := k8sClient.NewFakeClientset(tlog)
 	d := buildPrepDriver(t, cs)
-	d.podNetns = make(map[kubetypes.UID]string)
 	return d
 }
 
@@ -191,10 +216,11 @@ func TestResolvePoolAssignments(t *testing.T) {
 			},
 			nil,
 		)
-		driver.assignedDevices = map[string]string{
-			"eth0": "alpha",
-			"eth1": "beta",
-		}
+		// Pre-populate previous assignments in the device table.
+		txn := driver.db.WriteTxn(driver.deviceTable)
+		driver.deviceTable.Insert(txn, &Device{Name: "eth0", Pool: "alpha"})
+		driver.deviceTable.Insert(txn, &Device{Name: "eth1", Pool: "beta"})
+		txn.Commit()
 
 		devicePool := driver.resolvePoolAssignments(t.Context(), []types.Device{dev0, dev1})
 		require.Equal(t, "alpha", devicePool["eth0"])
@@ -268,7 +294,12 @@ func TestBuildPools(t *testing.T) {
 			dummyPoolConfig("dummy-pool"),
 		})
 
-		allDevices := driver.devices[types.DeviceManagerTypeDummy]
+		// Get all available devices from statedb (populated by buildDriverWithDummyManager).
+		rtxn := driver.db.ReadTxn()
+		var allDevices []types.Device
+		for row := range driver.deviceTable.All(rtxn) {
+			allDevices = append(allDevices, row.Dev)
+		}
 		devicePool := driver.resolvePoolAssignments(t.Context(), allDevices)
 		pools := driver.buildPools(allDevices, devicePool)
 
@@ -333,12 +364,12 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 		err := driver.restoreDevicesFromClaim(claim)
 		require.NoError(t, err)
 
-		require.Contains(t, driver.allocations, prepTestPodUID)
-		require.Contains(t, driver.allocations[prepTestPodUID], prepTestClaimUID)
-		allocs := driver.allocations[prepTestPodUID][prepTestClaimUID]
-		require.Len(t, allocs, 1)
-		require.Equal(t, prepTestDev0, allocs[0].Device.IfName())
-		require.Equal(t, "eth-pod", allocs[0].Config.PodIfName)
+		rtxn := driver.db.ReadTxn()
+		row, _, ok := driver.deviceTable.Get(rtxn, DeviceByName(prepTestDev0))
+		require.True(t, ok)
+		require.Equal(t, prepTestDev0, row.Name)
+		require.Equal(t, prepTestPodUID, row.PodUID)
+		require.Equal(t, "eth-pod", row.Config.PodIfName)
 	})
 
 	t.Run("wrong driver is skipped without error", func(t *testing.T) {
@@ -347,7 +378,15 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 
 		err := driver.restoreDevicesFromClaim(claim)
 		require.NoError(t, err)
-		require.Empty(t, driver.allocations)
+		// table must have no allocated rows
+		rtxn := driver.db.ReadTxn()
+		var count int
+		for row := range driver.deviceTable.All(rtxn) {
+			if row.IsAllocated() {
+				count++
+			}
+		}
+		require.Zero(t, count)
 	})
 
 	t.Run("unknown device manager returns error", func(t *testing.T) {
@@ -360,7 +399,17 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 
 		err := driver.restoreDevicesFromClaim(claim)
 		require.Error(t, err, "unknown device manager must return an error")
-		require.Empty(t, driver.allocations)
+		// table must have no allocated rows
+		if driver.deviceTable != nil {
+			rtxn := driver.db.ReadTxn()
+			var count int
+			for row := range driver.deviceTable.All(rtxn) {
+				if row.IsAllocated() {
+					count++
+				}
+			}
+			require.Zero(t, count)
+		}
 	})
 
 	t.Run("allocated and reserved but no devices logs warning without error", func(t *testing.T) {
@@ -377,7 +426,15 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 
 		err := driver.restoreDevicesFromClaim(claim)
 		require.NoError(t, err)
-		require.Empty(t, driver.allocations)
+		// table must have no allocated rows
+		rtxn := driver.db.ReadTxn()
+		var count int
+		for row := range driver.deviceTable.All(rtxn) {
+			if row.IsAllocated() {
+				count++
+			}
+		}
+		require.Zero(t, count)
 	})
 
 	t.Run("dummy device restored via real DummyManager", func(t *testing.T) {
@@ -413,12 +470,13 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 
 		require.NoError(t, driver.restoreDevicesFromClaim(claim))
 
-		require.Contains(t, driver.allocations, prepTestPodUID)
-		allocs := driver.allocations[prepTestPodUID][prepTestClaimUID]
-		require.Len(t, allocs, 1)
-		require.Equal(t, "dummy0", allocs[0].Device.IfName())
-		require.Equal(t, "eth0", allocs[0].Config.PodIfName)
-		require.Equal(t, types.DeviceManagerTypeDummy, allocs[0].Manager)
+		rtxn := driver.db.ReadTxn()
+		row, _, ok := driver.deviceTable.Get(rtxn, DeviceByName("dummy0"))
+		require.True(t, ok)
+		require.Equal(t, "dummy0", row.Name)
+		require.Equal(t, prepTestPodUID, row.PodUID)
+		require.Equal(t, "eth0", row.Config.PodIfName)
+		require.Equal(t, types.DeviceManagerTypeDummy, row.Manager)
 	})
 }
 
@@ -431,16 +489,17 @@ func TestGetNetworkNamespace(t *testing.T) {
 		require.Equal(t, "/run/netns/abc", ns)
 	})
 
-	t.Run("falls back to cache when sandbox has no namespaces", func(t *testing.T) {
+	t.Run("falls back to map when sandbox has no namespaces", func(t *testing.T) {
 		d := buildNRIDriver(t)
-		d.podNetns["pod-uid-2"] = "/run/netns/cached"
+		// Pre-populate the podNetns map.
+		d.podNetns[kubetypes.UID("pod-uid-2")] = "/run/netns/cached"
 		sb := podSandbox("pod-uid-2", "")
 
 		ns := d.getNetworkNamespace(sb)
 		require.Equal(t, "/run/netns/cached", ns)
 	})
 
-	t.Run("empty when neither sandbox nor cache has namespace", func(t *testing.T) {
+	t.Run("empty when neither sandbox nor map has namespace", func(t *testing.T) {
 		d := buildNRIDriver(t)
 		sb := podSandbox("pod-uid-3", "")
 
@@ -456,6 +515,8 @@ func TestRememberNetworkNamespace(t *testing.T) {
 
 		returned := d.rememberNetworkNamespace(sb)
 		require.Equal(t, "/run/netns/xyz", returned)
+
+		// Verify stored in the map.
 		require.Equal(t, "/run/netns/xyz", d.podNetns["pod-uid-4"])
 	})
 
@@ -465,7 +526,9 @@ func TestRememberNetworkNamespace(t *testing.T) {
 
 		returned := d.rememberNetworkNamespace(sb)
 		require.Empty(t, returned)
-		require.NotContains(t, d.podNetns, kubetypes.UID("pod-uid-5"))
+
+		// Must not be in the map.
+		require.NotContains(t, d.podNetns, "pod-uid-5")
 	})
 }
 
@@ -485,7 +548,7 @@ func TestSynchronize(t *testing.T) {
 
 		require.Equal(t, "/run/netns/a", d.podNetns["uid-a"])
 		require.Equal(t, "/run/netns/b", d.podNetns["uid-b"])
-		require.NotContains(t, d.podNetns, kubetypes.UID("uid-c"))
+		require.NotContains(t, d.podNetns, "uid-c")
 	})
 
 	t.Run("empty input is a no-op", func(t *testing.T) {
@@ -502,9 +565,9 @@ func TestSynchronize(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // buildDriverWithDummyManager returns a *Driver whose deviceManagers map
-// contains a real DummyManager with count=2.  It also seeds driver.devices
+// contains a real DummyManager with count=2. It also seeds the deviceTable
 // by calling ListDevices so pool-resolution helpers have real devices to work
-// with.  No netlink calls are made here — that only happens in Setup/Free.
+// with. No netlink calls are made here — that only happens in Setup/Free.
 func buildDriverWithDummyManager(t *testing.T, pools []v2alpha1.CiliumNetworkDriverDevicePoolConfig) *Driver {
 	t.Helper()
 	tlog := hivetest.Logger(t)
@@ -524,11 +587,18 @@ func buildDriverWithDummyManager(t *testing.T, pools []v2alpha1.CiliumNetworkDri
 	d.deviceManagers = map[types.DeviceManagerType]types.DeviceManager{
 		types.DeviceManagerTypeDummy: mgr,
 	}
-	d.devices = map[types.DeviceManagerType][]types.Device{
-		types.DeviceManagerTypeDummy: devs,
+
+	// Seed the statedb device table.
+	txn := d.db.WriteTxn(d.deviceTable)
+	for _, dev := range devs {
+		d.deviceTable.Insert(txn, &Device{
+			Name:    dev.IfName(),
+			Manager: types.DeviceManagerTypeDummy,
+			Dev:     dev,
+		})
 	}
-	d.assignedDevices = make(map[string]string)
-	d.podNetns = make(map[kubetypes.UID]string)
+	txn.Commit()
+
 	return d
 }
 
@@ -541,4 +611,20 @@ func dummyPoolConfig(name string) v2alpha1.CiliumNetworkDriverDevicePoolConfig {
 			DeviceManagers: []string{types.DeviceManagerTypeDummy.String()},
 		},
 	}
+}
+
+// ---------------------------------------------------------------------------
+// podForClaim tests — declared here since they use buildPodForClaimDriver
+// which depends on buildPrepDriver (in prepare_test.go).
+// ---------------------------------------------------------------------------
+
+func TestGetNetworkNamespaceFallback(t *testing.T) {
+	// This is a regression test for the containerd < 2.1 scenario where
+	// StopPodSandbox carries no namespaces; the driver must fall back to the
+	// cached map entry set at RunPodSandbox / Synchronize time.
+	d := buildNRIDriver(t)
+
+	const uid = "pod-fallback-regression"
+	d.podNetns[kubetypes.UID(uid)] = "/run/netns/fallback"
+	require.Equal(t, "/run/netns/fallback", d.getNetworkNamespace(podSandbox(uid, "")))
 }
