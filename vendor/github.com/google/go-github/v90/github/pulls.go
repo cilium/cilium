@@ -87,6 +87,7 @@ type PullRequest struct {
 	Links *PRLinks           `json:"_links,omitempty"`
 	Head  *PullRequestBranch `json:"head,omitempty"`
 	Base  *PullRequestBranch `json:"base,omitempty"`
+	Stack *PullRequestStack  `json:"stack,omitempty"`
 
 	// ActiveLockReason is populated only when LockReason is provided while locking the pull request.
 	// Possible values are: "off-topic", "too heated", "resolved", and "spam".
@@ -121,6 +122,31 @@ type PullRequestBranch struct {
 	SHA   *string     `json:"sha,omitempty"`
 	Repo  *Repository `json:"repo,omitempty"`
 	User  *User       `json:"user,omitempty"`
+}
+
+// PullRequestStack represents the stack a pull request belongs to, in
+// repositories that use stacked pull requests. Base reports the branch the
+// entire stack ultimately targets, which can differ from the pull request's own
+// Base branch (the branch below it in the stack).
+type PullRequestStack struct {
+	// Base is the base of the stack: the branch the entire stack ultimately targets.
+	Base *PullRequestStackBase `json:"base"`
+	// Size is the total number of pull requests in the stack.
+	Size *int `json:"size,omitempty"`
+	// Position is the one-based position of this pull request within the stack,
+	// where 1 is the bottom of the stack.
+	Position *int `json:"position,omitempty"`
+	// ID is the ID of the stack that this pull request belongs to.
+	ID *int64 `json:"id,omitempty"`
+	// Number is the number of the stack that this pull request belongs to.
+	Number *int `json:"number,omitempty"`
+}
+
+// PullRequestStackBase represents the base of a stacked pull request's stack:
+// the branch the entire stack ultimately targets.
+type PullRequestStackBase struct {
+	Ref string `json:"ref"`
+	SHA string `json:"sha"`
 }
 
 // PullRequestListOptions specifies the optional parameters to the
@@ -258,19 +284,19 @@ func (s *PullRequestsService) GetRaw(ctx context.Context, owner, repo string, nu
 	return buf.String(), resp, nil
 }
 
-// NewPullRequest represents a new pull request to be created.
-type NewPullRequest struct {
+// CreatePullRequest represents a request to create a pull request.
+type CreatePullRequest struct {
 	Title *string `json:"title,omitempty"`
 	// The name of the branch where your changes are implemented. For
 	// cross-repository pull requests in the same network, namespace head with
 	// a user like this: username:branch.
-	Head     *string `json:"head,omitempty"`
+	Head     string  `json:"head"`
 	HeadRepo *string `json:"head_repo,omitempty"`
 	// The name of the branch you want the changes pulled into. This should be
 	// an existing branch on the current repository. You cannot submit a pull
 	// request to one repository that requests a merge to a base of another
 	// repository.
-	Base                *string `json:"base,omitempty"`
+	Base                string  `json:"base"`
 	Body                *string `json:"body,omitempty"`
 	Issue               *int    `json:"issue,omitempty"`
 	MaintainerCanModify *bool   `json:"maintainer_can_modify,omitempty"`
@@ -282,7 +308,7 @@ type NewPullRequest struct {
 // GitHub API docs: https://docs.github.com/rest/pulls/pulls?apiVersion=2022-11-28#create-a-pull-request
 //
 //meta:operation POST /repos/{owner}/{repo}/pulls
-func (s *PullRequestsService) Create(ctx context.Context, owner, repo string, body *NewPullRequest) (*PullRequest, *Response, error) {
+func (s *PullRequestsService) Create(ctx context.Context, owner, repo string, body CreatePullRequest) (*PullRequest, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/pulls", owner, repo)
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
 	if err != nil {

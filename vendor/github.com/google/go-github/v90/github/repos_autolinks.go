@@ -10,11 +10,11 @@ import (
 	"fmt"
 )
 
-// AutolinkOptions specifies parameters for RepositoriesService.AddAutolink method.
-type AutolinkOptions struct {
-	KeyPrefix      *string `json:"key_prefix,omitempty"`
-	URLTemplate    *string `json:"url_template,omitempty"`
-	IsAlphanumeric *bool   `json:"is_alphanumeric,omitempty"`
+// CreateAutolinkRequest specifies parameters for RepositoriesService.CreateAutolink method.
+type CreateAutolinkRequest struct {
+	KeyPrefix      string `json:"key_prefix"`
+	URLTemplate    string `json:"url_template"`
+	IsAlphanumeric *bool  `json:"is_alphanumeric,omitempty"`
 }
 
 // Autolink represents autolinks to external resources like Jira issues and Zendesk tickets.
@@ -48,13 +48,13 @@ func (s *RepositoriesService) ListAutolinks(ctx context.Context, owner, repo str
 	return autolinks, resp, nil
 }
 
-// AddAutolink creates an autolink reference for a repository.
+// CreateAutolink creates an autolink reference for a repository.
 // Users with admin access to the repository can create an autolink.
 //
 // GitHub API docs: https://docs.github.com/rest/repos/autolinks?apiVersion=2022-11-28#create-an-autolink-reference-for-a-repository
 //
 //meta:operation POST /repos/{owner}/{repo}/autolinks
-func (s *RepositoriesService) AddAutolink(ctx context.Context, owner, repo string, body *AutolinkOptions) (*Autolink, *Response, error) {
+func (s *RepositoriesService) CreateAutolink(ctx context.Context, owner, repo string, body CreateAutolinkRequest) (*Autolink, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/autolinks", owner, repo)
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
 	if err != nil {

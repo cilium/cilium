@@ -30,12 +30,20 @@ type CustomRepoRoles struct {
 	UpdatedAt   *Timestamp    `json:"updated_at,omitempty"`
 }
 
-// CreateOrUpdateCustomRepoRoleOptions represents options required to create or update a custom repository role.
-type CreateOrUpdateCustomRepoRoleOptions struct {
+// CreateCustomRepoRoleRequest represents the parameters to create a custom repository role.
+type CreateCustomRepoRoleRequest struct {
+	Name        string   `json:"name"`
+	Description *string  `json:"description,omitempty"`
+	BaseRole    string   `json:"base_role"`
+	Permissions []string `json:"permissions"`
+}
+
+// UpdateCustomRepoRoleRequest represents the parameters to update a custom repository role.
+type UpdateCustomRepoRoleRequest struct {
 	Name        *string  `json:"name,omitempty"`
 	Description *string  `json:"description,omitempty"`
 	BaseRole    *string  `json:"base_role,omitempty"`
-	Permissions []string `json:"permissions"`
+	Permissions []string `json:"permissions,omitzero"`
 }
 
 // RepoFineGrainedPermission represents a fine-grained permission that can be used in a custom repository role.
@@ -96,7 +104,7 @@ func (s *OrganizationsService) GetCustomRepoRole(ctx context.Context, org string
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/orgs/custom-roles?apiVersion=2022-11-28#create-a-custom-repository-role
 //
 //meta:operation POST /orgs/{org}/custom-repository-roles
-func (s *OrganizationsService) CreateCustomRepoRole(ctx context.Context, org string, body *CreateOrUpdateCustomRepoRoleOptions) (*CustomRepoRoles, *Response, error) {
+func (s *OrganizationsService) CreateCustomRepoRole(ctx context.Context, org string, body CreateCustomRepoRoleRequest) (*CustomRepoRoles, *Response, error) {
 	u := fmt.Sprintf("orgs/%v/custom-repository-roles", org)
 
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
@@ -119,7 +127,7 @@ func (s *OrganizationsService) CreateCustomRepoRole(ctx context.Context, org str
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/orgs/custom-roles?apiVersion=2022-11-28#update-a-custom-repository-role
 //
 //meta:operation PATCH /orgs/{org}/custom-repository-roles/{role_id}
-func (s *OrganizationsService) UpdateCustomRepoRole(ctx context.Context, org string, roleID int64, body *CreateOrUpdateCustomRepoRoleOptions) (*CustomRepoRoles, *Response, error) {
+func (s *OrganizationsService) UpdateCustomRepoRole(ctx context.Context, org string, roleID int64, body UpdateCustomRepoRoleRequest) (*CustomRepoRoles, *Response, error) {
 	u := fmt.Sprintf("orgs/%v/custom-repository-roles/%v", org, roleID)
 
 	req, err := s.client.NewRequest(ctx, "PATCH", u, body)

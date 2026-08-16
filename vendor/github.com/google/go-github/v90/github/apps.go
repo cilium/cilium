@@ -98,6 +98,19 @@ type InstallationPermissions struct {
 	Deployments                             *string `json:"deployments,omitempty"`
 	Discussions                             *string `json:"discussions,omitempty"`
 	Emails                                  *string `json:"emails,omitempty"`
+	EnterpriseAIControls                    *string `json:"enterprise_ai_controls,omitempty"`
+	EnterpriseCopilotMetrics                *string `json:"enterprise_copilot_metrics,omitempty"`
+	EnterpriseCredentials                   *string `json:"enterprise_credentials,omitempty"`
+	EnterpriseCustomEnterpriseRoles         *string `json:"enterprise_custom_enterprise_roles,omitempty"`
+	EnterpriseCustomOrgRoles                *string `json:"enterprise_custom_org_roles,omitempty"`
+	EnterpriseCustomProperties              *string `json:"enterprise_custom_properties,omitempty"`
+	EnterpriseCustomPropertiesForOrgs       *string `json:"enterprise_custom_properties_for_organizations,omitempty"`
+	EnterpriseOrganizations                 *string `json:"enterprise_organizations,omitempty"`
+	EnterpriseOrganizationInstallations     *string `json:"enterprise_organization_installations,omitempty"`
+	EnterpriseOrgInstallationRepos          *string `json:"enterprise_organization_installation_repositories,omitempty"`
+	EnterprisePeople                        *string `json:"enterprise_people,omitempty"`
+	EnterpriseSSO                           *string `json:"enterprise_sso,omitempty"`
+	EnterpriseTeams                         *string `json:"enterprise_teams,omitempty"`
 	Environments                            *string `json:"environments,omitempty"`
 	Followers                               *string `json:"followers,omitempty"`
 	Gists                                   *string `json:"gists,omitempty"`

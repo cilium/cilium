@@ -107,7 +107,9 @@ func (g AssignmentGrade) String() string {
 // returned if the current user is an administrator of the GitHub Classroom
 // for the assignment.
 //
-// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#get-an-assignment
+// Deprecated: This endpoint has been deprecated by GitHub.
+//
+// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#closing-down---get-an-assignment
 //
 //meta:operation GET /assignments/{assignment_id}
 func (s *ClassroomService) GetAssignment(ctx context.Context, assignmentID int64) (*ClassroomAssignment, *Response, error) {
@@ -130,7 +132,9 @@ func (s *ClassroomService) GetAssignment(ctx context.Context, assignmentID int64
 // GetClassroom gets a GitHub Classroom for the current user. Classroom will only be
 // returned if the current user is an administrator of the GitHub Classroom.
 //
-// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#get-a-classroom
+// Deprecated: This endpoint has been deprecated by GitHub.
+//
+// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#closing-down---get-a-classroom
 //
 //meta:operation GET /classrooms/{classroom_id}
 func (s *ClassroomService) GetClassroom(ctx context.Context, classroomID int64) (*Classroom, *Response, error) {
@@ -153,7 +157,9 @@ func (s *ClassroomService) GetClassroom(ctx context.Context, classroomID int64) 
 // ListClassrooms lists GitHub Classrooms for the current user. Classrooms will only be
 // returned if the current user is an administrator of one or more GitHub Classrooms.
 //
-// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#list-classrooms
+// Deprecated: This endpoint has been deprecated by GitHub.
+//
+// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#closing-down---list-classrooms
 //
 //meta:operation GET /classrooms
 func (s *ClassroomService) ListClassrooms(ctx context.Context, opts *ListOptions) ([]*Classroom, *Response, error) {
@@ -179,7 +185,9 @@ func (s *ClassroomService) ListClassrooms(ctx context.Context, opts *ListOptions
 // ListClassroomAssignments lists GitHub Classroom assignments for a classroom. Assignments will only be
 // returned if the current user is an administrator of the GitHub Classroom.
 //
-// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#list-assignments-for-a-classroom
+// Deprecated: This endpoint has been deprecated by GitHub.
+//
+// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#closing-down---list-assignments-for-a-classroom
 //
 //meta:operation GET /classrooms/{classroom_id}/assignments
 func (s *ClassroomService) ListClassroomAssignments(ctx context.Context, classroomID int64, opts *ListOptions) ([]*ClassroomAssignment, *Response, error) {
@@ -207,7 +215,9 @@ func (s *ClassroomService) ListClassroomAssignments(ctx context.Context, classro
 // Accepted assignments will only be returned if the current user is an administrator
 // of the GitHub Classroom for the assignment.
 //
-// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#list-accepted-assignments-for-an-assignment
+// Deprecated: This endpoint has been deprecated by GitHub.
+//
+// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#closing-down---list-accepted-assignments-for-an-assignment
 //
 //meta:operation GET /assignments/{assignment_id}/accepted_assignments
 func (s *ClassroomService) ListAcceptedAssignments(ctx context.Context, assignmentID int64, opts *ListOptions) ([]*AcceptedAssignment, *Response, error) {
@@ -235,7 +245,9 @@ func (s *ClassroomService) ListAcceptedAssignments(ctx context.Context, assignme
 // Grades will only be returned if the current user is an administrator
 // of the GitHub Classroom for the assignment.
 //
-// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#get-assignment-grades
+// Deprecated: This endpoint has been deprecated by GitHub.
+//
+// GitHub API docs: https://docs.github.com/rest/classroom/classroom?apiVersion=2022-11-28#closing-down---get-assignment-grades
 //
 //meta:operation GET /assignments/{assignment_id}/grades
 func (s *ClassroomService) GetAssignmentGrades(ctx context.Context, assignmentID int64) ([]*AssignmentGrade, *Response, error) {
