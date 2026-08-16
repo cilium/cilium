@@ -1389,9 +1389,25 @@ func deserializeRoute(m []byte) (Route, error) {
 	for _, attr := range attrs {
 		switch attr.Attr.Type {
 		case unix.RTA_GATEWAY:
-			route.Gw = net.IP(attr.Value)
+			// Validate gateway address length matches address family.
+			// Prevents buffer aliasing if netlink attribute has corrupted Len field.
+			gwValue := attr.Value
+			if msg.Family == nl.FAMILY_V4 && len(gwValue) > 4 {
+				gwValue = gwValue[:4]
+			} else if msg.Family == nl.FAMILY_V6 && len(gwValue) > 16 {
+				gwValue = gwValue[:16]
+			}
+			route.Gw = net.IP(gwValue)
 		case unix.RTA_PREFSRC:
-			route.Src = net.IP(attr.Value)
+			// Validate source address length matches address family.
+			// Prevents buffer aliasing if netlink attribute has corrupted Len field.
+			srcValue := attr.Value
+			if msg.Family == nl.FAMILY_V4 && len(srcValue) > 4 {
+				srcValue = srcValue[:4]
+			} else if msg.Family == nl.FAMILY_V6 && len(srcValue) > 16 {
+				srcValue = srcValue[:16]
+			}
+			route.Src = net.IP(srcValue)
 		case unix.RTA_DST:
 			if msg.Family == nl.FAMILY_MPLS {
 				stack := nl.DecodeMPLSStack(attr.Value)
@@ -1400,10 +1416,28 @@ func deserializeRoute(m []byte) (Route, error) {
 				}
 				route.MPLSDst = &stack[0]
 			} else {
-				route.Dst = &net.IPNet{
-					IP:   attr.Value,
-					Mask: net.CIDRMask(int(msg.Dst_len), 8*len(attr.Value)),
+				// Validate that RTA_DST has reasonable length for the address family.
+				// IPv4 should be 4 bytes, IPv6 should be 16 bytes.
+				// If length doesn't match, it indicates corrupted data or buffer aliasing.
+				expectedLen := 0
+				if msg.Family == nl.FAMILY_V4 {
+					expectedLen = 4
+				} else if msg.Family == nl.FAMILY_V6 {
+					expectedLen = 16
 				}
+
+				// Clamp the value to the expected length to prevent buffer aliasing
+				// when attr.Value points to corrupted or oversized netlink attribute data.
+				ipValue := attr.Value
+				if expectedLen > 0 && len(ipValue) > expectedLen {
+					ipValue = ipValue[:expectedLen]
+				}
+
+				route.Dst = &net.IPNet{
+					IP:   make(net.IP, len(ipValue)),
+					Mask: net.CIDRMask(int(msg.Dst_len), 8*len(ipValue)),
+				}
+				copy(route.Dst.IP, ipValue)
 			}
 		case unix.RTA_OIF:
 			route.LinkIndex = int(native.Uint32(attr.Value[0:4]))
