@@ -401,7 +401,7 @@ func inheritFacts(act, dep *Action) {
 		if act.opts.SanityCheck {
 			encodedFact, err := codeFact(fact)
 			if err != nil {
-				log.Panicf("internal error: encoding of %T fact failed in %v", fact, act)
+				log.Panicf("internal error: encoding of %T fact failed in %v: %v", fact, act, err)
 			}
 			fact = encodedFact
 		}
@@ -435,7 +435,7 @@ func inheritFacts(act, dep *Action) {
 		if act.opts.SanityCheck {
 			encodedFact, err := codeFact(fact)
 			if err != nil {
-				log.Panicf("internal error: encoding of %T fact failed in %v", fact, act)
+				log.Panicf("internal error: encoding of %T fact failed in %v: %v", fact, act, err)
 			}
 			fact = encodedFact
 		}
