@@ -65,7 +65,7 @@ func (m *NodeID) validateIps(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this node ID based on context it is used
-func (m *NodeID) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *NodeID) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

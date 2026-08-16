@@ -86,7 +86,7 @@ func (m *ClockSource) validateMode(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this clock source based on context it is used
-func (m *ClockSource) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *ClockSource) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

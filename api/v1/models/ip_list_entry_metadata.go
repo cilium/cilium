@@ -29,12 +29,12 @@ type IPListEntryMetadata struct {
 }
 
 // Validate validates this IP list entry metadata
-func (m *IPListEntryMetadata) Validate(formats strfmt.Registry) error {
+func (m *IPListEntryMetadata) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this IP list entry metadata based on context it is used
-func (m *IPListEntryMetadata) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *IPListEntryMetadata) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

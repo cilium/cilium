@@ -76,6 +76,6 @@ func (m DatapathMode) Validate(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this datapath mode based on context it is used
-func (m DatapathMode) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m DatapathMode) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }

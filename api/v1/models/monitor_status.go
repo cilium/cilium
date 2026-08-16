@@ -34,12 +34,12 @@ type MonitorStatus struct {
 }
 
 // Validate validates this monitor status
-func (m *MonitorStatus) Validate(formats strfmt.Registry) error {
+func (m *MonitorStatus) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this monitor status based on context it is used
-func (m *MonitorStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *MonitorStatus) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

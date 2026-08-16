@@ -85,6 +85,6 @@ func (m EndpointHealthStatus) Validate(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this endpoint health status based on context it is used
-func (m EndpointHealthStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m EndpointHealthStatus) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }

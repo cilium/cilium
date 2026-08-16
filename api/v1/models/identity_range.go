@@ -25,12 +25,12 @@ type IdentityRange struct {
 }
 
 // Validate validates this identity range
-func (m *IdentityRange) Validate(formats strfmt.Registry) error {
+func (m *IdentityRange) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this identity range based on context it is used
-func (m *IdentityRange) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *IdentityRange) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

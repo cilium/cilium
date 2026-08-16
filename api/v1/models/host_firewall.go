@@ -88,7 +88,7 @@ func (m *HostFirewall) validateMode(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this host firewall based on context it is used
-func (m *HostFirewall) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *HostFirewall) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

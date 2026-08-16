@@ -25,12 +25,12 @@ type PrefilterSpec struct {
 }
 
 // Validate validates this prefilter spec
-func (m *PrefilterSpec) Validate(formats strfmt.Registry) error {
+func (m *PrefilterSpec) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this prefilter spec based on context it is used
-func (m *PrefilterSpec) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *PrefilterSpec) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

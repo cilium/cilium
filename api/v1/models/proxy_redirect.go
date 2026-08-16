@@ -28,12 +28,12 @@ type ProxyRedirect struct {
 }
 
 // Validate validates this proxy redirect
-func (m *ProxyRedirect) Validate(formats strfmt.Registry) error {
+func (m *ProxyRedirect) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this proxy redirect based on context it is used
-func (m *ProxyRedirect) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *ProxyRedirect) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

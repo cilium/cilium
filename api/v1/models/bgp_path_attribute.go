@@ -22,12 +22,12 @@ type BgpPathAttribute struct {
 }
 
 // Validate validates this bgp path attribute
-func (m *BgpPathAttribute) Validate(formats strfmt.Registry) error {
+func (m *BgpPathAttribute) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this bgp path attribute based on context it is used
-func (m *BgpPathAttribute) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *BgpPathAttribute) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

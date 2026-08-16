@@ -28,12 +28,12 @@ type IPV6BigTCP struct {
 }
 
 // Validate validates this IP v6 big TCP
-func (m *IPV6BigTCP) Validate(formats strfmt.Registry) error {
+func (m *IPV6BigTCP) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this IP v6 big TCP based on context it is used
-func (m *IPV6BigTCP) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *IPV6BigTCP) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

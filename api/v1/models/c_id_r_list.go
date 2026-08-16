@@ -25,12 +25,12 @@ type CIDRList struct {
 }
 
 // Validate validates this c ID r list
-func (m *CIDRList) Validate(formats strfmt.Registry) error {
+func (m *CIDRList) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this c ID r list based on context it is used
-func (m *CIDRList) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *CIDRList) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

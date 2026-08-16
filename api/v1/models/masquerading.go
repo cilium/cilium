@@ -205,12 +205,12 @@ type MasqueradingEnabledProtocols struct {
 }
 
 // Validate validates this masquerading enabled protocols
-func (m *MasqueradingEnabledProtocols) Validate(formats strfmt.Registry) error {
+func (m *MasqueradingEnabledProtocols) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this masquerading enabled protocols based on context it is used
-func (m *MasqueradingEnabledProtocols) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *MasqueradingEnabledProtocols) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

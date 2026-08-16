@@ -87,7 +87,7 @@ func (m *DNSLookup) validateLookupTime(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this DNS lookup based on context it is used
-func (m *DNSLookup) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *DNSLookup) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

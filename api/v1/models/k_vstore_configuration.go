@@ -25,12 +25,12 @@ type KVstoreConfiguration struct {
 }
 
 // Validate validates this k vstore configuration
-func (m *KVstoreConfiguration) Validate(formats strfmt.Registry) error {
+func (m *KVstoreConfiguration) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this k vstore configuration based on context it is used
-func (m *KVstoreConfiguration) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KVstoreConfiguration) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

@@ -17,11 +17,11 @@ import (
 type Labels []string
 
 // Validate validates this labels
-func (m Labels) Validate(formats strfmt.Registry) error {
+func (m Labels) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this labels based on context it is used
-func (m Labels) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m Labels) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
