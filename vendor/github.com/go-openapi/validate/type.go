@@ -30,7 +30,7 @@ func newTypeValidator(path pathSegments, in string, typ spec.StringOrArray, null
 
 	var t *typeValidator
 	if opts.recycleValidators {
-		t = pools.poolOfTypeValidators.BorrowValidator()
+		t = validatorPools.typeValidators.Borrow()
 	} else {
 		t = new(typeValidator)
 	}
@@ -202,5 +202,5 @@ func (t *typeValidator) setPath(path pathSegments) {
 }
 
 func (t *typeValidator) redeem() {
-	pools.poolOfTypeValidators.RedeemValidator(t)
+	validatorPools.typeValidators.Redeem(t)
 }

@@ -25,7 +25,7 @@ func newFormatValidator(path pathSegments, in, format string, formats strfmt.Reg
 
 	var f *formatValidator
 	if opts.recycleValidators {
-		f = pools.poolOfFormatValidators.BorrowValidator()
+		f = validatorPools.formatValidators.Borrow()
 	} else {
 		f = new(formatValidator)
 	}
@@ -67,7 +67,7 @@ func (f *formatValidator) Validate(val any) *Result {
 
 	var result *Result
 	if f.Options.recycleResult {
-		result = pools.poolOfResults.BorrowResult()
+		result = validatorPools.results.Borrow()
 	} else {
 		result = new(Result)
 	}
@@ -78,7 +78,7 @@ func (f *formatValidator) Validate(val any) *Result {
 	}
 
 	if err := FormatOf(f.Path.dotted(), f.In, f.Format, str, f.KnownFormats); err != nil {
-		result.AddErrors(err)
+		result.addErrorsAt(f.Path, err)
 	}
 
 	return result
@@ -89,5 +89,5 @@ func (f *formatValidator) setPath(path pathSegments) {
 }
 
 func (f *formatValidator) redeem() {
-	pools.poolOfFormatValidators.RedeemValidator(f)
+	validatorPools.formatValidators.Redeem(f)
 }

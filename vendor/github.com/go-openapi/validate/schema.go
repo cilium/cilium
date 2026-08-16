@@ -42,7 +42,7 @@ func AgainstSchema(schema *spec.Schema, data any, formats strfmt.Registry, optio
 		append(options, WithRecycleValidators(true), withRecycleResults(true))...,
 	).Validate(data)
 	defer func() {
-		pools.poolOfResults.RedeemResult(res)
+		redeemResult(res)
 	}()
 
 	if res.HasErrors() {
@@ -100,7 +100,7 @@ func newSchemaValidator(schema *spec.Schema, rootSchema any, root pathSegments, 
 
 	var s *SchemaValidator
 	if opts.recycleValidators {
-		s = pools.poolOfSchemaValidators.BorrowValidator()
+		s = validatorPools.schemaValidators.Borrow()
 	} else {
 		s = new(SchemaValidator)
 	}
@@ -158,7 +158,7 @@ func (s *SchemaValidator) Validate(data any) *Result {
 
 	var result *Result
 	if s.Options.recycleResult {
-		result = pools.poolOfResults.BorrowResult()
+		result = validatorPools.results.Borrow()
 		result.data = data
 	} else {
 		result = &Result{data: data}
@@ -366,7 +366,7 @@ func (s *SchemaValidator) setPath(path pathSegments) {
 }
 
 func (s *SchemaValidator) redeem() {
-	pools.poolOfSchemaValidators.RedeemValidator(s)
+	validatorPools.schemaValidators.Redeem(s)
 }
 
 func (s *SchemaValidator) redeemChildren() {
