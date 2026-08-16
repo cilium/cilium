@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"go4.org/netipx"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1045,4 +1046,32 @@ func TestPoolAllocator_ReleasedCIDRRemainsReserved(t *testing.T) {
 
 	err = p.AllocateToNode("node3", request)
 	require.ErrorIs(t, err, errPoolEmpty)
+}
+
+func TestPoolAllocatorMetrics(t *testing.T) {
+	m := NewMetrics()
+	p := NewPoolAllocator(hivetest.Logger(t), true, true)
+	p.SetMetrics(m)
+
+	// /24 carved at /28 => 1<<(28-24) = 16 v4 blocks; /120 at /122 => 1<<2 = 4 v6 blocks.
+	err := p.UpsertPool("default",
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.0.0.0/24")}}, 28,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("fd00::/120")}}, 122,
+	)
+	require.NoError(t, err)
+	require.Equal(t, float64(16), m.TotalBlocks.WithLabelValues("default", "ipv4").Get())
+	require.Equal(t, float64(4), m.TotalBlocks.WithLabelValues("default", "ipv6").Get())
+
+	// Adding a second v4 CIDR doubles the v4 total.
+	err = p.UpsertPool("default",
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("10.0.0.0/24")}, {cidr: netip.MustParsePrefix("10.0.1.0/24")}}, 28,
+		[]poolCIDRConfig{{cidr: netip.MustParsePrefix("fd00::/120")}}, 122,
+	)
+	require.NoError(t, err)
+	require.Equal(t, float64(32), m.TotalBlocks.WithLabelValues("default", "ipv4").Get())
+
+	// Deleting the pool clears its series (both families).
+	require.Equal(t, 2, testutil.CollectAndCount(m.TotalBlocks))
+	require.NoError(t, p.DeletePool("default"))
+	require.Equal(t, 0, testutil.CollectAndCount(m.TotalBlocks))
 }

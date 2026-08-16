@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/multipool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -22,17 +23,20 @@ func init() {
 		"Multi Pool IP Allocator",
 
 		cell.Config(multipool.DefaultConfig),
+		metrics.Metric(multipool.NewMetrics),
 		cell.Decorate(
 			func(logger *slog.Logger) *slog.Logger {
 				return logger.With(logfields.LogSubsys, "ipam-allocator-multi-pool")
 			},
 			cell.ProvidePrivate(
-				func(logger *slog.Logger, daemonCfg *option.DaemonConfig) *multipool.PoolAllocator {
+				func(logger *slog.Logger, daemonCfg *option.DaemonConfig, m multipool.Metrics) *multipool.PoolAllocator {
 					if daemonCfg.IPAM != ipamOption.IPAMMultiPool {
 						return nil
 					}
 
-					return multipool.NewPoolAllocator(logger, daemonCfg.EnableIPv4, daemonCfg.EnableIPv6)
+					pa := multipool.NewPoolAllocator(logger, daemonCfg.EnableIPv4, daemonCfg.EnableIPv6)
+					pa.SetMetrics(m)
+					return pa
 				},
 			),
 			cell.Invoke(multipool.StartAllocator),
