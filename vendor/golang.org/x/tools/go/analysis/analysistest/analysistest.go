@@ -419,7 +419,7 @@ func Run(t Testing, dir string, a *analysis.Analyzer, patterns ...string) []*Res
 		})
 	}
 
-	res, err := checker.Analyze([]*analysis.Analyzer{a}, pkgs, nil)
+	res, err := checker.Analyze([]*analysis.Analyzer{a}, pkgs, &checker.Options{SanityCheck: true})
 	if err != nil {
 		t.Errorf("Analyze: %v", err)
 		return nil
