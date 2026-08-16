@@ -282,7 +282,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
  * if successful.
  */
 static __always_inline int
-fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
+fib_lookup_v4(const struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 	      __be32 ipv4_src, __be32 ipv4_dst, int flags) {
 	fib_params->l.family	= AF_INET;
 	fib_params->l.ifindex	= ctx_get_ifindex(ctx);
@@ -291,7 +291,7 @@ fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 
 	flags |= fib_lookup_skip_neigh();
 
-	return (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
+	return (int)fib_lookup((void *)ctx, &fib_params->l, sizeof(fib_params->l), flags);
 }
 
 /* fib_lookup_src_v4 will perform a source IP resolution for the given
@@ -304,7 +304,7 @@ fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
  * src parameter will be unmodified.
  */
 static __always_inline int
-fib_lookup_src_v4(struct __ctx_buff *ctx, __be32 *src, const __be32 dst)
+fib_lookup_src_v4(const struct __ctx_buff *ctx, __be32 *src, const __be32 dst)
 {
 	struct bpf_fib_lookup_padded fib_params = {0};
 	int fib_result = 0;

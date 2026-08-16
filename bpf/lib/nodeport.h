@@ -160,6 +160,21 @@ nodeport_dsr_lookup_v6_nat_entry(const struct ipv6_ct_tuple *nat_tuple)
 #endif
 
 #ifdef HAVE_ENCAP
+static __always_inline void
+nodeport_select_tunnel_src_ip(const struct __ctx_buff *ctx __maybe_unused,
+			      const struct remote_endpoint_info *info __maybe_unused,
+			      __be32 *src_ip)
+{
+	/* Let kernel choose the outer source ip */
+	if (ctx_is_skb())
+		*src_ip = 0;
+#ifdef ENABLE_IPV4
+	else
+		/* no-op if failure, no need for capturing results */
+		fib_lookup_src_v4(ctx, src_ip, info->tunnel_endpoint.ip4.be32);
+#endif /* ENABLE_IPV4 */
+}
+
 static __always_inline int
 nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			      const struct remote_endpoint_info *info,
@@ -167,15 +182,6 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 			      enum trace_reason ct_reason, __u32 monitor,
 			      int *ifindex, __be16 proto)
 {
-	/* Let kernel choose the outer source ip */
-	if (ctx_is_skb())
-		src_ip = 0;
-#ifdef ENABLE_IPV4
-	else
-		/* no-op if failure, no need for capturing results */
-		fib_lookup_src_v4(ctx, &src_ip, info->tunnel_endpoint.ip4.be32);
-#endif /* ENABLE_IPV4 */
-
 	/* Append L2 hdr before redirecting to tunnel netdev.
 	 * Otherwise, the kernel will drop such request in
 	 * https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/net/core/filter.c?h=v6.7.4#n2147
@@ -426,6 +432,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 {
 	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
+	__be32 src_ip = IPV4_DIRECT_ROUTING;
 	struct geneve_dsr_opt6 gopt;
 	union v6addr *dst;
 	__u16 encap_len = sizeof(struct ipv6hdr) + sizeof(struct udphdr) +
@@ -468,9 +475,11 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 		return DROP_FRAG_NEEDED;
 	}
 
+	nodeport_select_tunnel_src_ip(ctx, info, &src_ip);
+
 	if (need_opt)
 		return nodeport_add_tunnel_encap_opt(ctx,
-						     IPV4_DIRECT_ROUTING,
+						     src_ip,
 						     src_port,
 						     info,
 						     WORLD_IPV6_ID,
@@ -961,6 +970,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__u32 src_sec_identity __maybe_unused = SECLABEL;
+	__be32 src_ip __maybe_unused = IPV4_DIRECT_ROUTING;
 	__be16 src_port __maybe_unused = 0;
 	bool allow_neigh_map = true;
 	fraginfo_t fraginfo = 0;
@@ -1037,9 +1047,10 @@ out:
 #if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||	\
     defined(TUNNEL_MODE)
 encap_redirect:
+	nodeport_select_tunnel_src_ip(ctx, info, &src_ip);
 	src_port = tunnel_gen_src_port_v6(&tuple);
 
-	ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
+	ret = nodeport_add_tunnel_encap(ctx, src_ip, src_port,
 					info, src_sec_identity, trace->reason,
 					trace->monitor, &ifindex, bpf_htons(ETH_P_IPV6));
 	if (IS_ERR(ret))
@@ -1306,12 +1317,14 @@ skip_source_lookup:
 
 #ifdef TUNNEL_MODE
 	if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel) {
+		__be32 src_ip = IPV4_DIRECT_ROUTING;
 		__be16 src_port;
 
+		nodeport_select_tunnel_src_ip(ctx, info, &src_ip);
 		src_port = tunnel_gen_src_port_v6(&tuple);
 
 		ret = nodeport_add_tunnel_encap(ctx,
-						IPV4_DIRECT_ROUTING,
+						src_ip,
 						src_port,
 						info,
 						WORLD_IPV6_ID,
@@ -1838,6 +1851,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 		sizeof(struct genevehdr) + ETH_HLEN;
 	__u16 total_len = bpf_ntohs(ip4->tot_len);
 	__u32 src_sec_identity = WORLD_IPV4_ID;
+	__be32 src_ip = IPV4_DIRECT_ROUTING;
 	__be16 src_port = 0;
 #  if __ctx_is == __ctx_xdp
 	fraginfo_t fraginfo = ipfrag_encode_ipv4(ip4);
@@ -1868,9 +1882,11 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 		return DROP_FRAG_NEEDED;
 	}
 
+	nodeport_select_tunnel_src_ip(ctx, info, &src_ip);
+
 	if (need_opt)
 		return nodeport_add_tunnel_encap_opt(ctx,
-						     IPV4_DIRECT_ROUTING,
+						     src_ip,
 						     src_port,
 						     info,
 						     src_sec_identity,
@@ -1882,7 +1898,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 						     bpf_htons(ETH_P_IP));
 
 	return nodeport_add_tunnel_encap(ctx,
-					 IPV4_DIRECT_ROUTING,
+					 src_ip,
 					 src_port,
 					 info,
 					 src_sec_identity,
@@ -2398,12 +2414,16 @@ redirect:
 	if (tunnel_endpoint) {
 		__be16 src_port = tunnel_gen_src_port_v4(&tuple);
 		struct remote_endpoint_info fake_info = {0};
+		__be32 src_ip = IPV4_DIRECT_ROUTING;
 
 		/* Needed because info might be null while tunnel_endpoint isn't. */
 		fake_info.tunnel_endpoint.ip4.be32 = tunnel_endpoint;
 		fake_info.flag_has_tunnel_ep = true;
 		fake_info.sec_identity = dst_sec_identity;
-		ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
+
+		nodeport_select_tunnel_src_ip(ctx, &fake_info, &src_ip);
+
+		ret = nodeport_add_tunnel_encap(ctx, src_ip, src_port,
 						&fake_info, src_sec_identity,
 						trace->reason, trace->monitor, &ifindex,
 						bpf_htons(ETH_P_IP));
@@ -2654,8 +2674,10 @@ skip_source_lookup:
 
 #ifdef TUNNEL_MODE
 	if (info && tunnel_endpoint) {
+		__be32 src_ip = IPV4_DIRECT_ROUTING;
 		__be16 src_port;
 
+		nodeport_select_tunnel_src_ip(ctx, info, &src_ip);
 		src_port = tunnel_gen_src_port_v4(&tuple);
 
 		/* The request came from outside, so we need to
@@ -2666,7 +2688,7 @@ skip_source_lookup:
 		 * outside.
 		 */
 		ret = nodeport_add_tunnel_encap(ctx,
-						IPV4_DIRECT_ROUTING,
+						src_ip,
 						src_port,
 						info,
 						src_sec_identity,
