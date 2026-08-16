@@ -34,9 +34,12 @@ type ActionsEnabledOnOrgRepos struct {
 //
 // GitHub API docs: https://docs.github.com/rest/actions/permissions?apiVersion=2022-11-28
 type ActionsAllowed struct {
-	GithubOwnedAllowed *bool    `json:"github_owned_allowed,omitempty"`
-	VerifiedAllowed    *bool    `json:"verified_allowed,omitempty"`
-	PatternsAllowed    []string `json:"patterns_allowed,omitempty"`
+	GithubOwnedAllowed *bool `json:"github_owned_allowed,omitempty"`
+	VerifiedAllowed    *bool `json:"verified_allowed,omitempty"`
+	// PatternsAllowed uses `omitzero` to allow an empty array to be sent in the request body in order to
+	// configure the organization to allow no 3rd-party actions. It needs to still omit a `nil` value so
+	// that it's possible to patch the other values without changing the allowed actions.
+	PatternsAllowed []string `json:"patterns_allowed,omitzero"`
 }
 
 func (a ActionsAllowed) String() string {

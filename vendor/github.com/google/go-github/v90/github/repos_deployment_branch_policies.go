@@ -24,10 +24,15 @@ type DeploymentBranchPolicyResponse struct {
 	BranchPolicies []*DeploymentBranchPolicy `json:"branch_policies,omitempty"`
 }
 
-// DeploymentBranchPolicyRequest represents a deployment branch policy request.
-type DeploymentBranchPolicyRequest struct {
-	Name *string `json:"name,omitempty"`
+// CreateDeploymentBranchPolicyRequest represents a request to create a deployment branch policy.
+type CreateDeploymentBranchPolicyRequest struct {
+	Name string  `json:"name"`
 	Type *string `json:"type,omitempty"`
+}
+
+// UpdateDeploymentBranchPolicyRequest represents a request to update a deployment branch policy.
+type UpdateDeploymentBranchPolicyRequest struct {
+	Name string `json:"name"`
 }
 
 // ListDeploymentBranchPolicies lists the deployment branch policies for an environment.
@@ -83,7 +88,7 @@ func (s *RepositoriesService) GetDeploymentBranchPolicy(ctx context.Context, own
 // GitHub API docs: https://docs.github.com/rest/deployments/branch-policies?apiVersion=2022-11-28#create-a-deployment-branch-policy
 //
 //meta:operation POST /repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies
-func (s *RepositoriesService) CreateDeploymentBranchPolicy(ctx context.Context, owner, repo, environment string, body *DeploymentBranchPolicyRequest) (*DeploymentBranchPolicy, *Response, error) {
+func (s *RepositoriesService) CreateDeploymentBranchPolicy(ctx context.Context, owner, repo, environment string, body CreateDeploymentBranchPolicyRequest) (*DeploymentBranchPolicy, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies", owner, repo, environment)
 
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
@@ -105,7 +110,7 @@ func (s *RepositoriesService) CreateDeploymentBranchPolicy(ctx context.Context, 
 // GitHub API docs: https://docs.github.com/rest/deployments/branch-policies?apiVersion=2022-11-28#update-a-deployment-branch-policy
 //
 //meta:operation PUT /repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies/{branch_policy_id}
-func (s *RepositoriesService) UpdateDeploymentBranchPolicy(ctx context.Context, owner, repo, environment string, branchPolicyID int64, body *DeploymentBranchPolicyRequest) (*DeploymentBranchPolicy, *Response, error) {
+func (s *RepositoriesService) UpdateDeploymentBranchPolicy(ctx context.Context, owner, repo, environment string, branchPolicyID int64, body UpdateDeploymentBranchPolicyRequest) (*DeploymentBranchPolicy, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies/%v", owner, repo, environment, branchPolicyID)
 
 	req, err := s.client.NewRequest(ctx, "PUT", u, body)

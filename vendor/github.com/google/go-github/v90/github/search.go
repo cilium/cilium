@@ -57,6 +57,10 @@ type SearchOptions struct {
 	// Whether to enable advanced search for issues
 	AdvancedSearch *bool `url:"advanced_search,omitempty"`
 
+	// The type of search to perform on issues. Possible values are:
+	// semantic, hybrid. Default is lexical search.
+	SearchType string `url:"search_type,omitempty"`
+
 	ListOptions
 }
 
@@ -167,6 +171,7 @@ func (s *SearchService) Commits(ctx context.Context, query string, opts *SearchO
 type IssuesSearchResult struct {
 	Total             *int     `json:"total_count,omitempty"`
 	IncompleteResults *bool    `json:"incomplete_results,omitempty"`
+	SearchType        *string  `json:"search_type,omitempty"`
 	Issues            []*Issue `json:"items,omitempty"`
 }
 

@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 // ProjectsService handles communication with the project V2
@@ -727,4 +728,328 @@ func (s *ProjectsService) DeleteUserProjectItem(ctx context.Context, username st
 	}
 
 	return s.client.Do(req, nil)
+}
+
+// CreateProjectV2DraftItemRequest specifies the parameters to create a draft item in a project.
+type CreateProjectV2DraftItemRequest struct {
+	// Title is the title of the draft issue item to create.
+	Title string `json:"title"`
+	// Body is the body content of the draft issue item to create.
+	Body *string `json:"body,omitempty"`
+}
+
+// CreateOrganizationProjectDraftItem creates a draft item in an organization owned project.
+//
+// GitHub API docs: https://docs.github.com/rest/projects/drafts?apiVersion=2022-11-28#create-draft-item-for-organization-owned-project
+//
+//meta:operation POST /orgs/{org}/projectsV2/{project_number}/drafts
+func (s *ProjectsService) CreateOrganizationProjectDraftItem(ctx context.Context, org string, projectNumber int, body CreateProjectV2DraftItemRequest) (*ProjectV2Item, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/projectsV2/%v/drafts", org, projectNumber)
+	req, err := s.client.NewRequest(ctx, "POST", u, body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var item *ProjectV2Item
+	resp, err := s.client.Do(req, &item)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return item, resp, nil
+}
+
+// CreateUserProjectDraftItem creates a draft item in a user owned project.
+//
+// Note: this endpoint identifies the user by their unique numeric ID (user_id)
+// in the path, not by username, mirroring the GitHub REST API.
+//
+// GitHub API docs: https://docs.github.com/rest/projects/drafts?apiVersion=2022-11-28#create-draft-item-for-user-owned-project
+//
+//meta:operation POST /user/{user_id}/projectsV2/{project_number}/drafts
+func (s *ProjectsService) CreateUserProjectDraftItem(ctx context.Context, userID int64, projectNumber int, body CreateProjectV2DraftItemRequest) (*ProjectV2Item, *Response, error) {
+	u := fmt.Sprintf("user/%v/projectsV2/%v/drafts", userID, projectNumber)
+	req, err := s.client.NewRequest(ctx, "POST", u, body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var item *ProjectV2Item
+	resp, err := s.client.Do(req, &item)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return item, resp, nil
+}
+
+// ProjectV2FieldSingleSelectOption represents an option to create for a single_select project field.
+type ProjectV2FieldSingleSelectOption struct {
+	// Name is the display name of the option.
+	Name string `json:"name"`
+	// Color is the color associated with the option.
+	// One of: BLUE, GRAY, GREEN, ORANGE, PINK, PURPLE, RED, YELLOW.
+	Color *string `json:"color,omitempty"`
+	// Description is an optional description of the option.
+	Description *string `json:"description,omitempty"`
+}
+
+// ProjectV2FieldIterationConfiguration represents the configuration to create an iteration project field.
+type ProjectV2FieldIterationConfiguration struct {
+	// StartDate is the start date of the first iteration in ISO 8601 (YYYY-MM-DD) format.
+	StartDate *string `json:"start_date,omitempty"`
+	// Duration is the default duration for iterations in days.
+	Duration *int `json:"duration,omitempty"`
+	// Iterations holds zero or more iterations for the field.
+	Iterations []*ProjectV2FieldIterationConfigurationIteration `json:"iterations,omitempty"`
+}
+
+// ProjectV2FieldIterationConfigurationIteration represents a single iteration within a ProjectV2FieldIterationConfiguration.
+type ProjectV2FieldIterationConfigurationIteration struct {
+	// Title is the title of the iteration.
+	Title *string `json:"title,omitempty"`
+	// StartDate is the start date of the iteration in ISO 8601 (YYYY-MM-DD) format.
+	StartDate *string `json:"start_date,omitempty"`
+	// Duration is the duration of the iteration in days.
+	Duration *int `json:"duration,omitempty"`
+}
+
+// AddProjectV2FieldRequest specifies the parameters to add a field to a project.
+//
+// The GitHub API models the body as a one-of: set IssueFieldID to link a
+// built-in issue field, or set Name and DataType to create a new field. When
+// DataType is "single_select", SingleSelectOptions is required; when DataType
+// is "iteration", IterationConfiguration is required.
+type AddProjectV2FieldRequest struct {
+	// Name is the name of the field.
+	Name *string `json:"name,omitempty"`
+	// DataType is the field's data type.
+	// One of: text, number, date, single_select, iteration.
+	DataType *string `json:"data_type,omitempty"`
+	// SingleSelectOptions holds the options for a single_select field. (Required for single_select.)
+	SingleSelectOptions []*ProjectV2FieldSingleSelectOption `json:"single_select_options,omitempty"`
+	// IterationConfiguration holds the configuration for an iteration field. (Required for iteration.)
+	IterationConfiguration *ProjectV2FieldIterationConfiguration `json:"iteration_configuration,omitempty"`
+	// IssueFieldID links an existing built-in issue field to the project. (Organization owned projects only.)
+	IssueFieldID *int64 `json:"issue_field_id,omitempty"`
+}
+
+// AddOrganizationProjectField adds a field to an organization owned project.
+//
+// GitHub API docs: https://docs.github.com/rest/projects/fields?apiVersion=2022-11-28#add-a-field-to-an-organization-owned-project
+//
+//meta:operation POST /orgs/{org}/projectsV2/{project_number}/fields
+func (s *ProjectsService) AddOrganizationProjectField(ctx context.Context, org string, projectNumber int, body AddProjectV2FieldRequest) (*ProjectV2Field, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/projectsV2/%v/fields", org, projectNumber)
+	req, err := s.client.NewRequest(ctx, "POST", u, body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var field *ProjectV2Field
+	resp, err := s.client.Do(req, &field)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return field, resp, nil
+}
+
+// AddUserProjectField adds a field to a user owned project.
+//
+// GitHub API docs: https://docs.github.com/rest/projects/fields?apiVersion=2022-11-28#add-field-to-user-owned-project
+//
+//meta:operation POST /users/{username}/projectsV2/{project_number}/fields
+func (s *ProjectsService) AddUserProjectField(ctx context.Context, username string, projectNumber int, body AddProjectV2FieldRequest) (*ProjectV2Field, *Response, error) {
+	u := fmt.Sprintf("users/%v/projectsV2/%v/fields", username, projectNumber)
+	req, err := s.client.NewRequest(ctx, "POST", u, body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var field *ProjectV2Field
+	resp, err := s.client.Do(req, &field)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return field, resp, nil
+}
+
+// ProjectV2View represents a view in a project.
+type ProjectV2View struct {
+	ID              int64                  `json:"id"`
+	Number          int                    `json:"number"`
+	Name            string                 `json:"name"`
+	Layout          string                 `json:"layout"`
+	NodeID          string                 `json:"node_id"`
+	ProjectURL      string                 `json:"project_url"`
+	HTMLURL         string                 `json:"html_url"`
+	Creator         User                   `json:"creator"`
+	Filter          *string                `json:"filter,omitempty"`
+	VisibleFields   []int64                `json:"visible_fields"`
+	SortBy          []*ProjectV2ViewSortBy `json:"sort_by"`
+	GroupBy         []int64                `json:"group_by"`
+	VerticalGroupBy []int64                `json:"vertical_group_by"`
+	CreatedAt       Timestamp              `json:"created_at"`
+	UpdatedAt       Timestamp              `json:"updated_at"`
+}
+
+// ProjectV2ViewSortBy represents a single sort criterion of a project view.
+//
+// On the wire it is encoded as a [field_id, direction] tuple rather than an
+// object, so it has custom JSON (un)marshaling.
+type ProjectV2ViewSortBy struct {
+	// FieldID is the ID of the field to sort by.
+	FieldID *int64 `json:"-"`
+	// Direction is the sort direction, one of "asc" or "desc".
+	Direction *string `json:"-"`
+}
+
+// UnmarshalJSON implements custom unmarshaling for the [field_id, direction]
+// tuple. The field_id may be encoded as either a number or a string.
+func (s *ProjectV2ViewSortBy) UnmarshalJSON(data []byte) error {
+	var tuple []json.RawMessage
+	if err := json.Unmarshal(data, &tuple); err != nil {
+		return err
+	}
+	if len(tuple) != 2 {
+		return fmt.Errorf("expected a [field_id, direction] tuple, got %v elements", len(tuple))
+	}
+
+	var fieldID int64
+	if err := json.Unmarshal(tuple[0], &fieldID); err != nil {
+		// The OpenAPI schema allows the field_id to be a string as well.
+		var str string
+		if err2 := json.Unmarshal(tuple[0], &str); err2 != nil {
+			return fmt.Errorf("invalid field_id: %w", err2)
+		}
+		fieldID, err = strconv.ParseInt(str, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid field_id %q: %w", str, err)
+		}
+	}
+
+	var direction string
+	if err := json.Unmarshal(tuple[1], &direction); err != nil {
+		return fmt.Errorf("invalid direction: %w", err)
+	}
+
+	s.FieldID = &fieldID
+	s.Direction = &direction
+	return nil
+}
+
+// MarshalJSON implements custom marshaling to the [field_id, direction] tuple.
+func (s ProjectV2ViewSortBy) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]any{s.FieldID, s.Direction})
+}
+
+// CreateProjectV2ViewRequest specifies the parameters to create a project view.
+type CreateProjectV2ViewRequest struct {
+	// Name is the view's display name.
+	Name string `json:"name"`
+	// Layout is the view's layout. One of: table, board, roadmap.
+	Layout string `json:"layout"`
+	// Filter is an optional query string to filter the items shown in the view.
+	Filter *string `json:"filter,omitempty"`
+	// VisibleFields lists the field IDs to display. Not applicable to the roadmap layout.
+	VisibleFields []int64 `json:"visible_fields,omitempty"`
+}
+
+// CreateOrganizationProjectView creates a view for an organization owned project.
+//
+// GitHub API docs: https://docs.github.com/rest/projects/views?apiVersion=2022-11-28#create-a-view-for-an-organization-owned-project
+//
+//meta:operation POST /orgs/{org}/projectsV2/{project_number}/views
+func (s *ProjectsService) CreateOrganizationProjectView(ctx context.Context, org string, projectNumber int, body CreateProjectV2ViewRequest) (*ProjectV2View, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/projectsV2/%v/views", org, projectNumber)
+	req, err := s.client.NewRequest(ctx, "POST", u, body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var view *ProjectV2View
+	resp, err := s.client.Do(req, &view)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return view, resp, nil
+}
+
+// CreateUserProjectView creates a view for a user owned project.
+//
+// Note: this endpoint identifies the user by their unique numeric ID (user_id)
+// in the path, not by username, mirroring the GitHub REST API.
+//
+// GitHub API docs: https://docs.github.com/rest/projects/views?apiVersion=2022-11-28#create-a-view-for-a-user-owned-project
+//
+//meta:operation POST /users/{user_id}/projectsV2/{project_number}/views
+func (s *ProjectsService) CreateUserProjectView(ctx context.Context, userID int64, projectNumber int, body CreateProjectV2ViewRequest) (*ProjectV2View, *Response, error) {
+	u := fmt.Sprintf("users/%v/projectsV2/%v/views", userID, projectNumber)
+	req, err := s.client.NewRequest(ctx, "POST", u, body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var view *ProjectV2View
+	resp, err := s.client.Do(req, &view)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return view, resp, nil
+}
+
+// ListOrganizationProjectViewItems lists the items of a view in an organization owned project.
+//
+// GitHub API docs: https://docs.github.com/rest/projects/items?apiVersion=2022-11-28#list-items-for-an-organization-project-view
+//
+//meta:operation GET /orgs/{org}/projectsV2/{project_number}/views/{view_number}/items
+func (s *ProjectsService) ListOrganizationProjectViewItems(ctx context.Context, org string, projectNumber, viewNumber int, opts *ListProjectItemsOptions) ([]*ProjectV2Item, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/projectsV2/%v/views/%v/items", org, projectNumber, viewNumber)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var items []*ProjectV2Item
+	resp, err := s.client.Do(req, &items)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return items, resp, nil
+}
+
+// ListUserProjectViewItems lists the items of a view in a user owned project.
+//
+// GitHub API docs: https://docs.github.com/rest/projects/items?apiVersion=2022-11-28#list-items-for-a-user-project-view
+//
+//meta:operation GET /users/{username}/projectsV2/{project_number}/views/{view_number}/items
+func (s *ProjectsService) ListUserProjectViewItems(ctx context.Context, username string, projectNumber, viewNumber int, opts *ListProjectItemsOptions) ([]*ProjectV2Item, *Response, error) {
+	u := fmt.Sprintf("users/%v/projectsV2/%v/views/%v/items", username, projectNumber, viewNumber)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var items []*ProjectV2Item
+	resp, err := s.client.Do(req, &items)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return items, resp, nil
 }
