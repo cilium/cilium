@@ -620,13 +620,11 @@ func (s *RepositoriesService) Create(ctx context.Context, org string, repo *Repo
 
 // TemplateRepoRequest represents a request to create a repository from a template.
 type TemplateRepoRequest struct {
-	// Name is required when creating a repo.
-	Name        *string `json:"name,omitempty"`
-	Owner       *string `json:"owner,omitempty"`
-	Description *string `json:"description,omitempty"`
-
-	IncludeAllBranches *bool `json:"include_all_branches,omitempty"`
-	Private            *bool `json:"private,omitempty"`
+	Name               string  `json:"name"`
+	Owner              *string `json:"owner,omitempty"`
+	Description        *string `json:"description,omitempty"`
+	IncludeAllBranches *bool   `json:"include_all_branches,omitempty"`
+	Private            *bool   `json:"private,omitempty"`
 }
 
 // CreateFromTemplate generates a repository from a template.
@@ -634,7 +632,7 @@ type TemplateRepoRequest struct {
 // GitHub API docs: https://docs.github.com/rest/repos/repos?apiVersion=2022-11-28#create-a-repository-using-a-template
 //
 //meta:operation POST /repos/{template_owner}/{template_repo}/generate
-func (s *RepositoriesService) CreateFromTemplate(ctx context.Context, templateOwner, templateRepo string, body *TemplateRepoRequest) (*Repository, *Response, error) {
+func (s *RepositoriesService) CreateFromTemplate(ctx context.Context, templateOwner, templateRepo string, body TemplateRepoRequest) (*Repository, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/generate", templateOwner, templateRepo)
 
 	req, err := s.client.NewRequest(ctx, "POST", u, body)

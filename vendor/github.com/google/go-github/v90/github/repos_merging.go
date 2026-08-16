@@ -13,15 +13,15 @@ import (
 // RepositoryMergeRequest represents a request to merge a branch in a
 // repository.
 type RepositoryMergeRequest struct {
-	Base          *string `json:"base,omitempty"`
-	Head          *string `json:"head,omitempty"`
+	Base          string  `json:"base"`
+	Head          string  `json:"head"`
 	CommitMessage *string `json:"commit_message,omitempty"`
 }
 
 // RepoMergeUpstreamRequest represents a request to sync a branch of
 // a forked repository to keep it up-to-date with the upstream repository.
 type RepoMergeUpstreamRequest struct {
-	Branch *string `json:"branch,omitempty"`
+	Branch string `json:"branch"`
 }
 
 // RepoMergeUpstreamResult represents the result of syncing a branch of
@@ -37,7 +37,7 @@ type RepoMergeUpstreamResult struct {
 // GitHub API docs: https://docs.github.com/rest/branches/branches?apiVersion=2022-11-28#merge-a-branch
 //
 //meta:operation POST /repos/{owner}/{repo}/merges
-func (s *RepositoriesService) Merge(ctx context.Context, owner, repo string, body *RepositoryMergeRequest) (*RepositoryCommit, *Response, error) {
+func (s *RepositoriesService) Merge(ctx context.Context, owner, repo string, body RepositoryMergeRequest) (*RepositoryCommit, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/merges", owner, repo)
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
 	if err != nil {
@@ -59,7 +59,7 @@ func (s *RepositoriesService) Merge(ctx context.Context, owner, repo string, bod
 // GitHub API docs: https://docs.github.com/rest/branches/branches?apiVersion=2022-11-28#sync-a-fork-branch-with-the-upstream-repository
 //
 //meta:operation POST /repos/{owner}/{repo}/merge-upstream
-func (s *RepositoriesService) MergeUpstream(ctx context.Context, owner, repo string, body *RepoMergeUpstreamRequest) (*RepoMergeUpstreamResult, *Response, error) {
+func (s *RepositoriesService) MergeUpstream(ctx context.Context, owner, repo string, body RepoMergeUpstreamRequest) (*RepoMergeUpstreamResult, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/merge-upstream", owner, repo)
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
 	if err != nil {

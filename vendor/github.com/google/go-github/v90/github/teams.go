@@ -974,6 +974,12 @@ type ExternalGroupList struct {
 	Groups []*ExternalGroup `json:"groups"`
 }
 
+// UpdateConnectedExternalGroupRequest represents a request to update the connection
+// between an external group and a team.
+type UpdateConnectedExternalGroupRequest struct {
+	GroupID int64 `json:"group_id"`
+}
+
 // GetExternalGroup fetches an external group.
 //
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/teams/external-groups?apiVersion=2022-11-28#get-an-external-group
@@ -1056,7 +1062,7 @@ func (s *TeamsService) ListExternalGroupsForTeamBySlug(ctx context.Context, org,
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/teams/external-groups?apiVersion=2022-11-28#update-the-connection-between-an-external-group-and-a-team
 //
 //meta:operation PATCH /orgs/{org}/teams/{team_slug}/external-groups
-func (s *TeamsService) UpdateConnectedExternalGroup(ctx context.Context, org, slug string, body *ExternalGroup) (*ExternalGroup, *Response, error) {
+func (s *TeamsService) UpdateConnectedExternalGroup(ctx context.Context, org, slug string, body UpdateConnectedExternalGroupRequest) (*ExternalGroup, *Response, error) {
 	u := fmt.Sprintf("orgs/%v/teams/%v/external-groups", org, slug)
 
 	req, err := s.client.NewRequest(ctx, "PATCH", u, body)

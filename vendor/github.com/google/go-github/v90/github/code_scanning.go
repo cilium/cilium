@@ -209,12 +209,13 @@ type ScanningAnalysis struct {
 //
 // GitHub API docs: https://docs.github.com/rest/code-scanning?apiVersion=2022-11-28
 type SarifAnalysis struct {
-	CommitSHA   *string    `json:"commit_sha,omitempty"`
-	Ref         *string    `json:"ref,omitempty"`
-	Sarif       *string    `json:"sarif,omitempty"`
+	CommitSHA   string     `json:"commit_sha"`
+	Ref         string     `json:"ref"`
+	Sarif       string     `json:"sarif"`
 	CheckoutURI *string    `json:"checkout_uri,omitempty"`
 	StartedAt   *Timestamp `json:"started_at,omitempty"`
 	ToolName    *string    `json:"tool_name,omitempty"`
+	Validate    *bool      `json:"validate,omitempty"`
 }
 
 // CodeScanningAlertState specifies the state of a code scanning alert.
@@ -392,7 +393,7 @@ func (s *CodeScanningService) ListAlertInstances(ctx context.Context, owner, rep
 // GitHub API docs: https://docs.github.com/rest/code-scanning/code-scanning?apiVersion=2022-11-28#upload-an-analysis-as-sarif-data
 //
 //meta:operation POST /repos/{owner}/{repo}/code-scanning/sarifs
-func (s *CodeScanningService) UploadSarif(ctx context.Context, owner, repo string, body *SarifAnalysis) (*SarifID, *Response, error) {
+func (s *CodeScanningService) UploadSarif(ctx context.Context, owner, repo string, body SarifAnalysis) (*SarifID, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/code-scanning/sarifs", owner, repo)
 
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
@@ -593,6 +594,25 @@ func (s *CodeScanningService) GetCodeQLDatabase(ctx context.Context, owner, repo
 	}
 
 	return codeqlDatabase, resp, nil
+}
+
+// DeleteCodeQLDatabase deletes a CodeQL database for a language in a repository.
+//
+// You must use an access token with the repo scope to use this
+// endpoint with private repos or the public_repo scope for public repos.
+//
+// GitHub API docs: https://docs.github.com/rest/code-scanning/code-scanning?apiVersion=2022-11-28#delete-a-codeql-database
+//
+//meta:operation DELETE /repos/{owner}/{repo}/code-scanning/codeql/databases/{language}
+func (s *CodeScanningService) DeleteCodeQLDatabase(ctx context.Context, owner, repo, language string) (*Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/code-scanning/codeql/databases/%v", owner, repo, language)
+
+	req, err := s.client.NewRequest(ctx, "DELETE", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.client.Do(req, nil)
 }
 
 // DefaultSetupConfiguration represents a code scanning default setup configuration.

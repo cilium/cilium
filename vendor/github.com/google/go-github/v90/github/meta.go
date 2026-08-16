@@ -139,6 +139,27 @@ func (c *Client) APIMeta(ctx context.Context) (*APIMeta, *Response, error) {
 	return c.Meta.Get(ctx)
 }
 
+// ListAPIVersions returns the API versions supported by the GitHub REST API,
+// as dates in the YYYY-MM-DD format.
+//
+// GitHub API docs: https://docs.github.com/rest/meta/meta?apiVersion=2022-11-28#get-all-api-versions
+//
+//meta:operation GET /versions
+func (s *MetaService) ListAPIVersions(ctx context.Context) ([]string, *Response, error) {
+	req, err := s.client.NewRequest(ctx, "GET", "versions", nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var versions []string
+	resp, err := s.client.Do(req, &versions)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return versions, resp, nil
+}
+
 // Octocat returns an ASCII art octocat with the specified message in a speech
 // bubble. If message is empty, a random zen phrase is used.
 //

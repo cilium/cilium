@@ -296,13 +296,13 @@ type EncryptedSecret struct {
 	SelectedRepositoryIDs SelectedRepoIDs `json:"selected_repository_ids,omitempty"`
 }
 
-// OrgSecretRequest represents a request to create or update a secret for an
+// SecretOrgRequest represents a request to create or update a secret for an
 // organization.
 //
 // The value of EncryptedValue must be your secret, encrypted with
 // LibSodium (see documentation here: https://libsodium.gitbook.io/doc/bindings_for_other_languages)
 // using the public key retrieved using the GetPublicKey method.
-type OrgSecretRequest struct {
+type SecretOrgRequest struct {
 	KeyID                 string  `json:"key_id"`
 	EncryptedValue        string  `json:"encrypted_value"`
 	Visibility            string  `json:"visibility"`
@@ -341,7 +341,7 @@ func (s *ActionsService) CreateOrUpdateRepoSecret(ctx context.Context, owner, re
 // GitHub API docs: https://docs.github.com/rest/actions/secrets?apiVersion=2022-11-28#create-or-update-an-organization-secret
 //
 //meta:operation PUT /orgs/{org}/actions/secrets/{secret_name}
-func (s *ActionsService) CreateOrUpdateOrgSecret(ctx context.Context, org, name string, body OrgSecretRequest) (*Response, error) {
+func (s *ActionsService) CreateOrUpdateOrgSecret(ctx context.Context, org, name string, body SecretOrgRequest) (*Response, error) {
 	u := fmt.Sprintf("orgs/%v/actions/secrets/%v", org, name)
 
 	req, err := s.client.NewRequest(ctx, "PUT", u, body)

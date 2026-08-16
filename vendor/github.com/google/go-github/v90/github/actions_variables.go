@@ -11,34 +11,34 @@ import (
 	"fmt"
 )
 
-// OrgActionsVariableCreateRequest represents a request to create an
+// ActionsCreateOrgVariableRequest represents a request to create an
 // organization variable.
-type OrgActionsVariableCreateRequest struct {
+type ActionsCreateOrgVariableRequest struct {
 	Name                  string  `json:"name"`
 	Value                 string  `json:"value"`
 	Visibility            string  `json:"visibility"`
 	SelectedRepositoryIDs []int64 `json:"selected_repository_ids,omitzero"`
 }
 
-// OrgActionsVariableUpdateRequest represents a request to update an
+// ActionsUpdateOrgVariableRequest represents a request to update an
 // organization variable.
-type OrgActionsVariableUpdateRequest struct {
+type ActionsUpdateOrgVariableRequest struct {
 	Name                  *string `json:"name,omitempty"`
 	Value                 *string `json:"value,omitempty"`
 	Visibility            *string `json:"visibility,omitempty"`
 	SelectedRepositoryIDs []int64 `json:"selected_repository_ids,omitzero"`
 }
 
-// ActionsVariableCreateRequest represents a request to create a variable
+// ActionsCreateVariableRequest represents a request to create a variable
 // for a repository or repository environment variable.
-type ActionsVariableCreateRequest struct {
+type ActionsCreateVariableRequest struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
 
-// ActionsVariableUpdateRequest represents a request to update a variable
+// ActionsUpdateVariableRequest represents a request to update a variable
 // for a repository or repository environment variable.
-type ActionsVariableUpdateRequest struct {
+type ActionsUpdateVariableRequest struct {
 	Name  *string `json:"name,omitempty"`
 	Value *string `json:"value,omitempty"`
 }
@@ -236,7 +236,7 @@ func (s *ActionsService) GetEnvVariable(ctx context.Context, owner, repo, env, v
 // GitHub API docs: https://docs.github.com/rest/actions/variables?apiVersion=2022-11-28#create-a-repository-variable
 //
 //meta:operation POST /repos/{owner}/{repo}/actions/variables
-func (s *ActionsService) CreateRepoVariable(ctx context.Context, owner, repo string, body ActionsVariableCreateRequest) (*Response, error) {
+func (s *ActionsService) CreateRepoVariable(ctx context.Context, owner, repo string, body ActionsCreateVariableRequest) (*Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/actions/variables", owner, repo)
 
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
@@ -252,7 +252,7 @@ func (s *ActionsService) CreateRepoVariable(ctx context.Context, owner, repo str
 // GitHub API docs: https://docs.github.com/rest/actions/variables?apiVersion=2022-11-28#create-an-organization-variable
 //
 //meta:operation POST /orgs/{org}/actions/variables
-func (s *ActionsService) CreateOrgVariable(ctx context.Context, org string, body OrgActionsVariableCreateRequest) (*Response, error) {
+func (s *ActionsService) CreateOrgVariable(ctx context.Context, org string, body ActionsCreateOrgVariableRequest) (*Response, error) {
 	u := fmt.Sprintf("orgs/%v/actions/variables", org)
 
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
@@ -268,7 +268,7 @@ func (s *ActionsService) CreateOrgVariable(ctx context.Context, org string, body
 // GitHub API docs: https://docs.github.com/rest/actions/variables?apiVersion=2022-11-28#create-an-environment-variable
 //
 //meta:operation POST /repos/{owner}/{repo}/environments/{environment_name}/variables
-func (s *ActionsService) CreateEnvVariable(ctx context.Context, owner, repo, env string, body ActionsVariableCreateRequest) (*Response, error) {
+func (s *ActionsService) CreateEnvVariable(ctx context.Context, owner, repo, env string, body ActionsCreateVariableRequest) (*Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables", owner, repo, env)
 
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
@@ -283,7 +283,7 @@ func (s *ActionsService) CreateEnvVariable(ctx context.Context, owner, repo, env
 // GitHub API docs: https://docs.github.com/rest/actions/variables?apiVersion=2022-11-28#update-a-repository-variable
 //
 //meta:operation PATCH /repos/{owner}/{repo}/actions/variables/{name}
-func (s *ActionsService) UpdateRepoVariable(ctx context.Context, owner, repo, name string, body ActionsVariableUpdateRequest) (*Response, error) {
+func (s *ActionsService) UpdateRepoVariable(ctx context.Context, owner, repo, name string, body ActionsUpdateVariableRequest) (*Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/actions/variables/%v", owner, repo, name)
 
 	req, err := s.client.NewRequest(ctx, "PATCH", u, body)
@@ -299,7 +299,7 @@ func (s *ActionsService) UpdateRepoVariable(ctx context.Context, owner, repo, na
 // GitHub API docs: https://docs.github.com/rest/actions/variables?apiVersion=2022-11-28#update-an-organization-variable
 //
 //meta:operation PATCH /orgs/{org}/actions/variables/{name}
-func (s *ActionsService) UpdateOrgVariable(ctx context.Context, org, name string, body OrgActionsVariableUpdateRequest) (*Response, error) {
+func (s *ActionsService) UpdateOrgVariable(ctx context.Context, org, name string, body ActionsUpdateOrgVariableRequest) (*Response, error) {
 	u := fmt.Sprintf("orgs/%v/actions/variables/%v", org, name)
 
 	req, err := s.client.NewRequest(ctx, "PATCH", u, body)
@@ -315,7 +315,7 @@ func (s *ActionsService) UpdateOrgVariable(ctx context.Context, org, name string
 // GitHub API docs: https://docs.github.com/rest/actions/variables?apiVersion=2022-11-28#update-an-environment-variable
 //
 //meta:operation PATCH /repos/{owner}/{repo}/environments/{environment_name}/variables/{name}
-func (s *ActionsService) UpdateEnvVariable(ctx context.Context, owner, repo, env, name string, body ActionsVariableUpdateRequest) (*Response, error) {
+func (s *ActionsService) UpdateEnvVariable(ctx context.Context, owner, repo, env, name string, body ActionsUpdateVariableRequest) (*Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables/%v", owner, repo, env, name)
 
 	req, err := s.client.NewRequest(ctx, "PATCH", u, body)

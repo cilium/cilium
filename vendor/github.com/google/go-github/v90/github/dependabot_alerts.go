@@ -23,6 +23,13 @@ type AdvisoryCVSS struct {
 	VectorString *string  `json:"vector_string,omitempty"`
 }
 
+// AdvisoryCVSSSeverities represents the advisory pertaining to the Common Vulnerability Scoring System
+// for each supported CVSS version.
+type AdvisoryCVSSSeverities struct {
+	CVSSV3 *AdvisoryCVSS `json:"cvss_v3,omitempty"`
+	CVSSV4 *AdvisoryCVSS `json:"cvss_v4,omitempty"`
+}
+
 // AdvisoryCWEs represent the advisory pertaining to Common Weakness Enumeration.
 type AdvisoryCWEs struct {
 	CWEID *string `json:"cwe_id,omitempty"`
@@ -46,7 +53,9 @@ type DependabotSecurityAdvisory struct {
 	Description     *string                  `json:"description,omitempty"`
 	Vulnerabilities []*AdvisoryVulnerability `json:"vulnerabilities,omitempty"`
 	Severity        *string                  `json:"severity,omitempty"`
+	Classification  *string                  `json:"classification,omitempty"`
 	CVSS            *AdvisoryCVSS            `json:"cvss,omitempty"`
+	CVSSSeverities  *AdvisoryCVSSSeverities  `json:"cvss_severities,omitempty"`
 	CWEs            []*AdvisoryCWEs          `json:"cwes,omitempty"`
 	EPSS            *AdvisoryEPSS            `json:"epss,omitempty"`
 	Identifiers     []*AdvisoryIdentifier    `json:"identifiers,omitempty"`
