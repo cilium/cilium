@@ -122,6 +122,8 @@ type PoolAllocator struct {
 
 	ipv4Enabled, ipv6Enabled bool
 
+	metrics Metrics
+
 	mutex   lock.RWMutex
 	pools   map[string]cidrPool    // poolName -> pool
 	nodes   map[string]poolToCIDRs // nodeName -> pool -> cidrs
@@ -138,6 +140,44 @@ func NewPoolAllocator(logger *slog.Logger, enableIPv4, enableIPv6 bool) *PoolAll
 		nodes:       map[string]poolToCIDRs{},
 		orphans:     map[string]poolToCIDRs{},
 	}
+}
+
+// SetMetrics wires pool-wide CIDR-block metrics into the allocator. Optional;
+// when unset, metric emission is a no-op.
+func (p *PoolAllocator) SetMetrics(m Metrics) {
+	p.metrics = m
+}
+
+// updatePoolMetricsLocked recomputes and emits the total-blocks gauge for a
+// single pool. The total only changes when a pool's CIDRs/mask change, so this
+// is called from UpsertPool. Caller must hold p.mutex.
+func (p *PoolAllocator) updatePoolMetricsLocked(poolName string) {
+	if !p.metrics.enabled() {
+		return
+	}
+	pool, ok := p.pools[poolName]
+	if !ok {
+		p.metrics.deletePool(poolName)
+		return
+	}
+	if p.ipv4Enabled {
+		p.metrics.setPool(poolName, ipam.IPv4, totalBlocks(pool.v4, pool.v4MaskSize))
+	}
+	if p.ipv6Enabled {
+		p.metrics.setPool(poolName, ipam.IPv6, totalBlocks(pool.v6, pool.v6MaskSize))
+	}
+}
+
+// totalBlocks sums the CIDR-block capacity across a pool's family allocators.
+// A cluster CIDR of prefix length P carved at mask size M yields 1<<(M-P) blocks.
+func totalBlocks(allocators []cidralloc.CIDRAllocator, maskSize int) int {
+	total := 0
+	for _, a := range allocators {
+		if bits := a.Prefix().Bits(); maskSize >= bits {
+			total += 1 << (maskSize - bits)
+		}
+	}
+	return total
 }
 
 func (p *PoolAllocator) RestoreFinished() {
@@ -281,6 +321,7 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []netip.Prefix, ipv4MaskSize int, ipv6CIDRs []netip.Prefix, ipv6MaskSize int, opts ...PoolOption) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+	defer p.updatePoolMetricsLocked(poolName)
 
 	var options poolOptions
 	for _, opt := range opts {
@@ -338,6 +379,7 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []netip.Prefix, ip
 func (p *PoolAllocator) DeletePool(poolName string) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+	defer p.metrics.deletePool(poolName)
 
 	if _, exists := p.pools[poolName]; !exists {
 		return fmt.Errorf("pool %q requested for deletion doesn't exist", poolName)

@@ -260,6 +260,8 @@ type MultiPoolManagerParams struct {
 	// matches the CRD allocator's calculateNeededIPs behavior and allows
 	// the operator to recover exact usage from the demand signal.
 	LinearPreAlloc bool
+
+	Metrics MultiPoolMetrics
 }
 
 type multiPoolManager struct {
@@ -293,6 +295,8 @@ type multiPoolManager struct {
 	skipMasqueradeForPool SkipMasqueradeForPoolFn
 
 	linearPreAlloc bool
+
+	metrics MultiPoolMetrics
 }
 
 func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
@@ -316,6 +320,7 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		}),
 		poolsAccessor:  p.PoolSpecAccessors,
 		linearPreAlloc: p.LinearPreAlloc,
+		metrics:        p.Metrics,
 		skipMasqueradeForPool: func(Pool) (bool, error) {
 			return false, nil
 		},
@@ -672,7 +677,18 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 		// remove pool if we've released all CIDRs
 		if len(cidrs) == 0 {
 			delete(m.pools, poolName)
+			m.metrics.deletePool(poolName.String())
 			continue
+		}
+
+		// Emit per-pool, per-family IPAM metrics for the surviving pool.
+		if v4Pool := pool.v4; v4Pool != nil {
+			used := v4Pool.inUseIPCount()
+			m.metrics.setPoolFamily(poolName.String(), IPv4, v4Pool.capacity()+used, used, neededIPs.IPv4Addrs, len(v4Pool.inUseCIDRs()))
+		}
+		if v6Pool := pool.v6; v6Pool != nil {
+			used := v6Pool.inUseIPCount()
+			m.metrics.setPoolFamily(poolName.String(), IPv6, v6Pool.capacity()+used, used, neededIPs.IPv6Addrs, len(v6Pool.inUseCIDRs()))
 		}
 
 		allocated = append(allocated, types.IPAMPoolAllocation{
