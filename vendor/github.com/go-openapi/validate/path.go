@@ -40,6 +40,12 @@ type pathToken struct {
 	// of its members, say. It is part of the pointer and absent from the
 	// dotted form.
 	structural bool
+
+	// cosmetic is the converse: a token messages name but that the document
+	// does not address, such as a parameter too broken to be found by name in
+	// the array holding it. It is part of the dotted form and absent from the
+	// pointer, which then stops at the deepest node the document does contain.
+	cosmetic bool
 }
 
 // readable renders a token the way a message should spell it.
@@ -92,12 +98,29 @@ func (p pathSegments) structuralChild(token string) pathSegments {
 	return p.appendToken(pathToken{token: token, structural: true})
 }
 
+// cosmeticChild returns a location that messages spell as a member named token,
+// while the pointer stays on p.
+func (p pathSegments) cosmeticChild(token string) pathSegments {
+	return p.appendToken(pathToken{token: token, cosmetic: true})
+}
+
 func (p pathSegments) appendToken(token pathToken) pathSegments {
 	child := make(pathSegments, len(p)+1)
 	copy(child, p)
-	child[len(p)] = token
+	child[len(p)] = p.inherit(token)
 
 	return child
+}
+
+// inherit passes down what a parent token says about addressability: nothing
+// below a token the document does not address is addressable either, so the
+// pointer has to stop at the same place.
+func (p pathSegments) inherit(token pathToken) pathToken {
+	if len(p) > 0 && p[len(p)-1].cosmetic {
+		token.cosmetic = true
+	}
+
+	return token
 }
 
 // children returns the location of a chain of named members below p.
@@ -105,7 +128,7 @@ func (p pathSegments) children(tokens ...string) pathSegments {
 	child := make(pathSegments, len(p)+len(tokens))
 	copy(child, p)
 	for i, token := range tokens {
-		child[len(p)+i] = pathToken{token: token}
+		child[len(p)+i] = child[:len(p)+i].inherit(pathToken{token: token})
 	}
 
 	return child
@@ -234,6 +257,10 @@ func (p pathSegments) pointer() string {
 
 	var w strings.Builder
 	for _, token := range p {
+		if token.cosmetic {
+			continue
+		}
+
 		w.WriteByte('/')
 		w.WriteString(jsonpointer.Escape(token.token))
 	}

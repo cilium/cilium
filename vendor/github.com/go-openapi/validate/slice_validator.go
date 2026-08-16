@@ -34,7 +34,7 @@ func newSliceValidator(path pathSegments, in string,
 
 	var v *schemaSliceValidator
 	if opts.recycleValidators {
-		v = pools.poolOfSliceValidators.BorrowValidator()
+		v = validatorPools.sliceValidators.Borrow()
 	} else {
 		v = new(schemaSliceValidator)
 	}
@@ -68,7 +68,7 @@ func (s *schemaSliceValidator) Validate(data any) *Result {
 
 	var result *Result
 	if s.Options.recycleResult {
-		result = pools.poolOfResults.BorrowResult()
+		result = validatorPools.results.Borrow()
 	} else {
 		result = new(Result)
 	}
@@ -137,5 +137,5 @@ func (s *schemaSliceValidator) setPath(path pathSegments) {
 }
 
 func (s *schemaSliceValidator) redeem() {
-	pools.poolOfSliceValidators.RedeemValidator(s)
+	validatorPools.sliceValidators.Redeem(s)
 }

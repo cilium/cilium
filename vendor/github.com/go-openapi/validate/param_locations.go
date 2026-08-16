@@ -59,8 +59,8 @@ func newParamLocations(sp *spec.Swagger) paramLocations {
 //
 // A parameter the operation does not declare itself may come from its path
 // item. When neither knows it, which happens for a parameter too broken to be
-// identified, the name stands in for the index: the location no longer
-// resolves, but it still says what it is about.
+// identified, the pointer stops on the array holding it and the name is kept
+// for the message alone: an index no one could work out would be a guess.
 func (l paramLocations) at(path, method, in, name string) pathSegments {
 	if found, isDeclared := l[paramKey{path: path, method: methodToken(method), in: in, name: name}]; isDeclared {
 		return found
@@ -70,7 +70,7 @@ func (l paramLocations) at(path, method, in, name string) pathSegments {
 		return found
 	}
 
-	return operationPath(path, method).children(swaggerParameters, name)
+	return operationPath(path, method).child(swaggerParameters).cosmeticChild(name)
 }
 
 func (l paramLocations) collect(sp *spec.Swagger, key paramKey, at pathSegments, params []spec.Parameter) {

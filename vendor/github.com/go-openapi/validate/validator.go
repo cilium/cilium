@@ -39,7 +39,7 @@ func newItemsValidator(path pathSegments, in string, items *spec.Items, root any
 
 	var iv *itemsValidator
 	if opts.recycleValidators {
-		iv = pools.poolOfItemsValidators.BorrowValidator()
+		iv = validatorPools.itemsValidators.Borrow()
 	} else {
 		iv = new(itemsValidator)
 	}
@@ -73,7 +73,7 @@ func (i *itemsValidator) Validate(index int, data any) *Result {
 	kind := tpe.Kind()
 	var result *Result
 	if i.Options.recycleResult {
-		result = pools.poolOfResults.BorrowResult()
+		result = validatorPools.results.Borrow()
 	} else {
 		result = new(Result)
 	}
@@ -193,7 +193,7 @@ func (i *itemsValidator) formatValidator() valueValidator {
 }
 
 func (i *itemsValidator) redeem() {
-	pools.poolOfItemsValidators.RedeemValidator(i)
+	validatorPools.itemsValidators.Redeem(i)
 }
 
 func (i *itemsValidator) redeemChildren() {
@@ -226,7 +226,7 @@ func newBasicCommonValidator(path pathSegments, in string, def any, enum []any, 
 
 	var b *basicCommonValidator
 	if opts.recycleValidators {
-		b = pools.poolOfBasicCommonValidators.BorrowValidator()
+		b = validatorPools.basicCommonValidators.Borrow()
 	} else {
 		b = new(basicCommonValidator)
 	}
@@ -282,7 +282,7 @@ func (b *basicCommonValidator) setPath(path pathSegments) {
 }
 
 func (b *basicCommonValidator) redeem() {
-	pools.poolOfBasicCommonValidators.RedeemValidator(b)
+	validatorPools.basicCommonValidators.Redeem(b)
 }
 
 // A HeaderValidator has very limited subset of validations to apply.
@@ -311,7 +311,7 @@ func newHeaderValidator(name string, header *spec.Header, formats strfmt.Registr
 
 	var p *HeaderValidator
 	if opts.recycleValidators {
-		p = pools.poolOfHeaderValidators.BorrowValidator()
+		p = validatorPools.headerValidators.Borrow()
 	} else {
 		p = new(HeaderValidator)
 	}
@@ -354,7 +354,7 @@ func (p *HeaderValidator) Validate(data any) *Result {
 
 	var result *Result
 	if p.Options.recycleResult {
-		result = pools.poolOfResults.BorrowResult()
+		result = validatorPools.results.Borrow()
 	} else {
 		result = new(Result)
 	}
@@ -460,7 +460,7 @@ func (p *HeaderValidator) formatValidator() valueValidator {
 }
 
 func (p *HeaderValidator) redeem() {
-	pools.poolOfHeaderValidators.RedeemValidator(p)
+	validatorPools.headerValidators.Redeem(p)
 }
 
 func (p *HeaderValidator) redeemChildren() {
@@ -503,7 +503,7 @@ func newParamValidator(param *spec.Parameter, formats strfmt.Registry, opts *Sch
 
 	var p *ParamValidator
 	if opts.recycleValidators {
-		p = pools.poolOfParamValidators.BorrowValidator()
+		p = validatorPools.paramValidators.Borrow()
 	} else {
 		p = new(ParamValidator)
 	}
@@ -538,7 +538,7 @@ func (p *ParamValidator) Validate(data any) *Result {
 
 	var result *Result
 	if p.Options.recycleResult {
-		result = pools.poolOfResults.BorrowResult()
+		result = validatorPools.results.Borrow()
 	} else {
 		result = new(Result)
 	}
@@ -652,7 +652,7 @@ func (p *ParamValidator) formatValidator() valueValidator {
 }
 
 func (p *ParamValidator) redeem() {
-	pools.poolOfParamValidators.RedeemValidator(p)
+	validatorPools.paramValidators.Redeem(p)
 }
 
 func (p *ParamValidator) redeemChildren() {
@@ -695,7 +695,7 @@ func newBasicSliceValidator(
 
 	var s *basicSliceValidator
 	if opts.recycleValidators {
-		s = pools.poolOfBasicSliceValidators.BorrowValidator()
+		s = validatorPools.basicSliceValidators.Borrow()
 	} else {
 		s = new(basicSliceValidator)
 	}
@@ -762,7 +762,7 @@ func (s *basicSliceValidator) Validate(data any) *Result {
 				return err
 			}
 			if err.wantsRedeemOnMerge {
-				pools.poolOfResults.RedeemResult(err)
+				redeemResult(err)
 			}
 		}
 	}
@@ -775,7 +775,7 @@ func (s *basicSliceValidator) setPath(path pathSegments) {
 }
 
 func (s *basicSliceValidator) redeem() {
-	pools.poolOfBasicSliceValidators.RedeemValidator(s)
+	validatorPools.basicSliceValidators.Redeem(s)
 }
 
 type numberValidator struct {
@@ -805,7 +805,7 @@ func newNumberValidator(
 
 	var n *numberValidator
 	if opts.recycleValidators {
-		n = pools.poolOfNumberValidators.BorrowValidator()
+		n = validatorPools.numberValidators.Borrow()
 	} else {
 		n = new(numberValidator)
 	}
@@ -866,7 +866,7 @@ func (n *numberValidator) Validate(val any) *Result {
 
 	var res, resMultiple, resMinimum, resMaximum *Result
 	if n.Options.recycleResult {
-		res = pools.poolOfResults.BorrowResult()
+		res = validatorPools.results.Borrow()
 	} else {
 		res = new(Result)
 	}
@@ -879,7 +879,7 @@ func (n *numberValidator) Validate(val any) *Result {
 	res.addErrorsAt(n.Path, IsValueValidAgainstRange(val, n.Type, n.Format, "Checked", n.Path.dotted()))
 
 	if n.MultipleOf != nil {
-		resMultiple = pools.poolOfResults.BorrowResult()
+		resMultiple = validatorPools.results.Borrow()
 
 		// Is the constraint specifier within the range of the specific numeric type and format?
 		resMultiple.addErrorsAt(n.Path, IsValueValidAgainstRange(*n.MultipleOf, n.Type, n.Format, "MultipleOf", n.Path.dotted()))
@@ -897,7 +897,7 @@ func (n *numberValidator) Validate(val any) *Result {
 	}
 
 	if n.Maximum != nil {
-		resMaximum = pools.poolOfResults.BorrowResult()
+		resMaximum = validatorPools.results.Borrow()
 
 		// Is the constraint specifier within the range of the specific numeric type and format?
 		resMaximum.addErrorsAt(n.Path, IsValueValidAgainstRange(*n.Maximum, n.Type, n.Format, "Maximum boundary", n.Path.dotted()))
@@ -915,7 +915,7 @@ func (n *numberValidator) Validate(val any) *Result {
 	}
 
 	if n.Minimum != nil {
-		resMinimum = pools.poolOfResults.BorrowResult()
+		resMinimum = validatorPools.results.Borrow()
 
 		// Is the constraint specifier within the range of the specific numeric type and format?
 		resMinimum.addErrorsAt(n.Path, IsValueValidAgainstRange(*n.Minimum, n.Type, n.Format, "Minimum boundary", n.Path.dotted()))
@@ -942,7 +942,7 @@ func (n *numberValidator) setPath(path pathSegments) {
 }
 
 func (n *numberValidator) redeem() {
-	pools.poolOfNumberValidators.RedeemValidator(n)
+	validatorPools.numberValidators.Redeem(n)
 }
 
 type stringValidator struct {
@@ -968,7 +968,7 @@ func newStringValidator(
 
 	var s *stringValidator
 	if opts.recycleValidators {
-		s = pools.poolOfStringValidators.BorrowValidator()
+		s = validatorPools.stringValidators.Borrow()
 	} else {
 		s = new(stringValidator)
 	}
@@ -1038,5 +1038,5 @@ func (s *stringValidator) setPath(path pathSegments) {
 }
 
 func (s *stringValidator) redeem() {
-	pools.poolOfStringValidators.RedeemValidator(s)
+	validatorPools.stringValidators.Redeem(s)
 }

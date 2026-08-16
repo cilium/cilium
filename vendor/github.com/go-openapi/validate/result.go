@@ -134,7 +134,7 @@ func (r *Result) Merge(others ...*Result) *Result {
 		r.mergeWithoutRootSchemata(other)
 		r.rootObjectSchemata.Append(other.rootObjectSchemata)
 		if other.wantsRedeemOnMerge {
-			pools.poolOfResults.RedeemResult(other)
+			redeemResult(other)
 		}
 	}
 	return r
@@ -201,7 +201,7 @@ func (r *Result) MergeAsErrors(others ...*Result) *Result {
 			r.carryErrors(other.Warnings, other.warningLocations)
 			r.MatchCount += other.MatchCount
 			if other.wantsRedeemOnMerge {
-				pools.poolOfResults.RedeemResult(other)
+				redeemResult(other)
 			}
 		}
 	}
@@ -219,7 +219,7 @@ func (r *Result) MergeAsWarnings(others ...*Result) *Result {
 			r.carryWarnings(other.Warnings, other.warningLocations)
 			r.MatchCount += other.MatchCount
 			if other.wantsRedeemOnMerge {
-				pools.poolOfResults.RedeemResult(other)
+				redeemResult(other)
 			}
 		}
 	}
@@ -362,6 +362,14 @@ func (r *Result) AsError() error {
 	return errors.CompositeValidationError(r.Errors...)
 }
 
+// Reset clears this result so it may be reused, keeping allocated capacity.
+//
+// It implements the hook the pool calls when a result is borrowed and when it
+// is redeemed. Calling it on a result still in use loses its findings.
+func (r *Result) Reset() {
+	_ = r.cleared()
+}
+
 // addErrorsAt adds errors located at the given path.
 func (r *Result) addErrorsAt(at pathSegments, errors ...error) {
 	r.addLocatedErrors(at.pointer(), errors...)
@@ -399,6 +407,43 @@ func (r *Result) addLocatedWarnings(pointer string, warnings ...error) {
 
 		r.Warnings = append(r.Warnings, e)
 		r.warningLocations = appendLocation(r.warningLocations, len(r.Warnings), pointer)
+	}
+}
+
+// relocate rewrites every location this result recorded.
+//
+// The parameter and header validators are the ones a generated client uses at
+// runtime, so they locate a finding by the name of the parameter or header it
+// concerns: a name is all the caller has. When spec validation borrows them to
+// check a default or an example, that name addresses nothing in the document,
+// and the value's own node is the best location available for everything the
+// borrowed validator found.
+func (r *Result) relocate(at pathSegments) {
+	if r == nil {
+		return
+	}
+
+	pointer := at.pointer()
+	r.errorLocations = fillLocations(r.errorLocations[:0], len(r.Errors), pointer)
+	r.warningLocations = fillLocations(r.warningLocations[:0], len(r.Warnings), pointer)
+}
+
+// fillLocations records the same location for a whole run of findings.
+func fillLocations(locations []string, count int, pointer string) []string {
+	for range count {
+		locations = append(locations, pointer)
+	}
+
+	return locations
+}
+
+// redirect rewrites every location this result recorded with the given mapping.
+func (r *Result) redirect(through func(string) string) {
+	for i, pointer := range r.errorLocations {
+		r.errorLocations[i] = through(pointer)
+	}
+	for i, pointer := range r.warningLocations {
+		r.warningLocations[i] = through(pointer)
 	}
 }
 
@@ -443,7 +488,7 @@ func (r *Result) mergeForField(obj map[string]any, field string, other *Result) 
 		})
 	}
 	if other.wantsRedeemOnMerge {
-		pools.poolOfResults.RedeemResult(other)
+		redeemResult(other)
 	}
 
 	return r
@@ -471,7 +516,7 @@ func (r *Result) mergeForSlice(slice reflect.Value, i int, other *Result) *Resul
 	}
 
 	if other.wantsRedeemOnMerge {
-		pools.poolOfResults.RedeemResult(other)
+		redeemResult(other)
 	}
 
 	return r
@@ -574,7 +619,7 @@ func (r *Result) keepRelevantErrors() *Result {
 	}
 	var strippedResult *Result
 	if r.wantsRedeemOnMerge {
-		strippedResult = pools.poolOfResults.BorrowResult()
+		strippedResult = validatorPools.results.Borrow()
 	} else {
 		strippedResult = new(Result)
 	}

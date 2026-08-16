@@ -37,7 +37,7 @@ func newObjectValidator(path pathSegments, in string,
 
 	var v *objectValidator
 	if opts.recycleValidators {
-		v = pools.poolOfObjectValidators.BorrowValidator()
+		v = validatorPools.objectValidators.Borrow()
 	} else {
 		v = new(objectValidator)
 	}
@@ -83,7 +83,7 @@ func (o *objectValidator) Validate(data any) *Result {
 
 	var res *Result
 	if o.Options.recycleResult {
-		res = pools.poolOfResults.BorrowResult()
+		res = validatorPools.results.Borrow()
 	} else {
 		res = new(Result)
 	}
@@ -103,7 +103,8 @@ func (o *objectValidator) Validate(data any) *Result {
 
 	// Check patternProperties
 	// NOTE: it looks like we have done that twice in many cases
-	for key, value := range val {
+	for _, key := range sortedKeys(val) {
+		value := val[key]
 		_, regularProperty := o.Properties[key]
 		matched, _, patterns := o.validatePatternProperty(key, value, res) // applies to regular properties as well
 		if regularProperty || !matched {
@@ -214,7 +215,7 @@ func (o *objectValidator) precheck(res *Result, val map[string]any) {
 }
 
 func (o *objectValidator) validateNoAdditionalProperties(val map[string]any, res *Result) {
-	for k := range val {
+	for _, k := range sortedKeys(val) {
 		if k == "$schema" || k == "id" {
 			// special properties "$schema" and "id" are ignored
 			continue
@@ -263,7 +264,8 @@ func (o *objectValidator) validateNoAdditionalProperties(val map[string]any, res
 			continue
 		}
 
-		for headerKey, headerBody := range headers {
+		for _, headerKey := range sortedKeys(headers) {
+			headerBody := headers[headerKey]
 			if headerBody == nil {
 				continue
 			}
@@ -296,7 +298,8 @@ func (o *objectValidator) validateNoAdditionalProperties(val map[string]any, res
 }
 
 func (o *objectValidator) validateAdditionalProperties(val map[string]any, res *Result) {
-	for key, value := range val {
+	for _, key := range sortedKeys(val) {
+		value := val[key]
 		_, regularProperty := o.Properties[key]
 		if regularProperty {
 			continue
@@ -328,12 +331,12 @@ func (o *objectValidator) validatePropertiesSchema(val map[string]any, res *Resu
 
 	// Property types:
 	// - regular Property
-	pSchema := pools.poolOfSchemas.BorrowSchema() // recycle a spec.Schema object which lifespan extends only to the validation of properties
+	pSchema := validatorPools.schemas.Borrow() // recycle a spec.Schema object which lifespan extends only to the validation of properties
 	defer func() {
-		pools.poolOfSchemas.RedeemSchema(pSchema)
+		validatorPools.schemas.Redeem(pSchema)
 	}()
 
-	for pName := range o.Properties {
+	for _, pName := range sortedKeys(o.Properties) {
 		*pSchema = o.Properties[pName]
 		rName := o.Path.child(pName)
 
@@ -387,12 +390,12 @@ func (o *objectValidator) validatePatternProperty(key string, value any, result 
 	succeededOnce := false
 	patterns := make([]string, 0, len(o.PatternProperties))
 
-	schema := pools.poolOfSchemas.BorrowSchema()
+	schema := validatorPools.schemas.Borrow()
 	defer func() {
-		pools.poolOfSchemas.RedeemSchema(schema)
+		validatorPools.schemas.Redeem(schema)
 	}()
 
-	for k := range o.PatternProperties {
+	for _, k := range sortedKeys(o.PatternProperties) {
 		re, err := compileRegexp(k)
 		if err != nil {
 			continue
@@ -420,5 +423,5 @@ func (o *objectValidator) setPath(path pathSegments) {
 }
 
 func (o *objectValidator) redeem() {
-	pools.poolOfObjectValidators.RedeemValidator(o)
+	validatorPools.objectValidators.Redeem(o)
 }
