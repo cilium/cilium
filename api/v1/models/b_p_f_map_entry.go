@@ -95,7 +95,7 @@ func (m *BPFMapEntry) validateDesiredAction(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this b p f map entry based on context it is used
-func (m *BPFMapEntry) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *BPFMapEntry) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

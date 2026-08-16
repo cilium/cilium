@@ -25,12 +25,12 @@ type CgroupContainerMetadata struct {
 }
 
 // Validate validates this cgroup container metadata
-func (m *CgroupContainerMetadata) Validate(formats strfmt.Registry) error {
+func (m *CgroupContainerMetadata) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this cgroup container metadata based on context it is used
-func (m *CgroupContainerMetadata) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *CgroupContainerMetadata) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

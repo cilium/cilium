@@ -103,7 +103,7 @@ func (m *Port) validateProtocol(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this port based on context it is used
-func (m *Port) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *Port) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

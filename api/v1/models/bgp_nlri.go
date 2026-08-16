@@ -22,12 +22,12 @@ type BgpNlri struct {
 }
 
 // Validate validates this bgp nlri
-func (m *BgpNlri) Validate(formats strfmt.Registry) error {
+func (m *BgpNlri) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this bgp nlri based on context it is used
-func (m *BgpNlri) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *BgpNlri) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

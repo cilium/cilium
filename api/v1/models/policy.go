@@ -28,12 +28,12 @@ type Policy struct {
 }
 
 // Validate validates this policy
-func (m *Policy) Validate(formats strfmt.Registry) error {
+func (m *Policy) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this policy based on context it is used
-func (m *Policy) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *Policy) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

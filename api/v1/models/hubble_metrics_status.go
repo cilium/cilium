@@ -94,7 +94,7 @@ func (m *HubbleMetricsStatus) validateState(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this hubble metrics status based on context it is used
-func (m *HubbleMetricsStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *HubbleMetricsStatus) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

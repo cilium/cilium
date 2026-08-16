@@ -31,12 +31,12 @@ type MessageForwardingStatistics struct {
 }
 
 // Validate validates this message forwarding statistics
-func (m *MessageForwardingStatistics) Validate(formats strfmt.Registry) error {
+func (m *MessageForwardingStatistics) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this message forwarding statistics based on context it is used
-func (m *MessageForwardingStatistics) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *MessageForwardingStatistics) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

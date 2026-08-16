@@ -86,7 +86,7 @@ type ClientService interface {
 // If you need to pass a specific context, use [Client.GetStatusContext] instead.
 func (a *Client) GetStatus(params *GetStatusParams, opts ...ClientOption) (*GetStatusOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -156,7 +156,7 @@ func (a *Client) GetStatusContext(ctx context.Context, params *GetStatusParams, 
 // If you need to pass a specific context, use [Client.PutStatusProbeContext] instead.
 func (a *Client) PutStatusProbe(params *PutStatusProbeParams, opts ...ClientOption) (*PutStatusProbeOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()

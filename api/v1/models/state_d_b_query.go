@@ -31,12 +31,12 @@ type StateDBQuery struct {
 }
 
 // Validate validates this state d b query
-func (m *StateDBQuery) Validate(formats strfmt.Registry) error {
+func (m *StateDBQuery) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this state d b query based on context it is used
-func (m *StateDBQuery) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *StateDBQuery) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

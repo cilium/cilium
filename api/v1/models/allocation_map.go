@@ -17,11 +17,11 @@ import (
 type AllocationMap map[string]string
 
 // Validate validates this allocation map
-func (m AllocationMap) Validate(formats strfmt.Registry) error {
+func (m AllocationMap) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this allocation map based on context it is used
-func (m AllocationMap) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m AllocationMap) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }

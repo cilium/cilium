@@ -266,7 +266,7 @@ func (m *ControllerStatusConfiguration) validateInterval(formats strfmt.Registry
 }
 
 // ContextValidate validates this controller status configuration based on context it is used
-func (m *ControllerStatusConfiguration) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *ControllerStatusConfiguration) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
@@ -359,7 +359,7 @@ func (m *ControllerStatusStatus) validateLastSuccessTimestamp(formats strfmt.Reg
 }
 
 // ContextValidate validates this controller status status based on context it is used
-func (m *ControllerStatusStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *ControllerStatusStatus) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

@@ -131,7 +131,7 @@ type ClientService interface {
 // If you need to pass a specific context, use [Client.GetCgroupDumpMetadataContext] instead.
 func (a *Client) GetCgroupDumpMetadata(params *GetCgroupDumpMetadataParams, opts ...ClientOption) (*GetCgroupDumpMetadataOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -193,7 +193,7 @@ func (a *Client) GetCgroupDumpMetadataContext(ctx context.Context, params *GetCg
 // If you need to pass a specific context, use [Client.GetClusterNodesContext] instead.
 func (a *Client) GetClusterNodes(params *GetClusterNodesParams, opts ...ClientOption) (*GetClusterNodesOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -258,7 +258,7 @@ func (a *Client) GetClusterNodesContext(ctx context.Context, params *GetClusterN
 // If you need to pass a specific context, use [Client.GetConfigContext] instead.
 func (a *Client) GetConfig(params *GetConfigParams, opts ...ClientOption) (*GetConfigOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -323,7 +323,7 @@ func (a *Client) GetConfigContext(ctx context.Context, params *GetConfigParams, 
 // If you need to pass a specific context, use [Client.GetDebuginfoContext] instead.
 func (a *Client) GetDebuginfo(params *GetDebuginfoParams, opts ...ClientOption) (*GetDebuginfoOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -390,7 +390,7 @@ func (a *Client) GetDebuginfoContext(ctx context.Context, params *GetDebuginfoPa
 // If you need to pass a specific context, use [Client.GetHealthzContext] instead.
 func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -457,7 +457,7 @@ func (a *Client) GetHealthzContext(ctx context.Context, params *GetHealthzParams
 // If you need to pass a specific context, use [Client.GetMapContext] instead.
 func (a *Client) GetMap(params *GetMapParams, opts ...ClientOption) (*GetMapOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -519,7 +519,7 @@ func (a *Client) GetMapContext(ctx context.Context, params *GetMapParams, opts .
 // If you need to pass a specific context, use [Client.GetMapNameContext] instead.
 func (a *Client) GetMapName(params *GetMapNameParams, opts ...ClientOption) (*GetMapNameOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -581,7 +581,7 @@ func (a *Client) GetMapNameContext(ctx context.Context, params *GetMapNameParams
 // If you need to pass a specific context, use [Client.GetMapNameEventsContext] instead.
 func (a *Client) GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer, opts ...ClientOption) (*GetMapNameEventsOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -647,7 +647,7 @@ func (a *Client) GetMapNameEventsContext(ctx context.Context, params *GetMapName
 // If you need to pass a specific context, use [Client.GetNodeIdsContext] instead.
 func (a *Client) GetNodeIds(params *GetNodeIdsParams, opts ...ClientOption) (*GetNodeIdsOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -718,7 +718,7 @@ func (a *Client) GetNodeIdsContext(ctx context.Context, params *GetNodeIdsParams
 // If you need to pass a specific context, use [Client.PatchConfigContext] instead.
 func (a *Client) PatchConfig(params *PatchConfigParams, opts ...ClientOption) (*PatchConfigOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()

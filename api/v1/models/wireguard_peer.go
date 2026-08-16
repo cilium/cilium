@@ -69,7 +69,7 @@ func (m *WireguardPeer) validateLastHandshakeTime(formats strfmt.Registry) error
 }
 
 // ContextValidate validates this wireguard peer based on context it is used
-func (m *WireguardPeer) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *WireguardPeer) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

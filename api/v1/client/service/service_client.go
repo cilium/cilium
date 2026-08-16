@@ -82,7 +82,7 @@ type ClientService interface {
 // If you need to pass a specific context, use [Client.GetLrpContext] instead.
 func (a *Client) GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -144,7 +144,7 @@ func (a *Client) GetLrpContext(ctx context.Context, params *GetLrpParams, opts .
 // If you need to pass a specific context, use [Client.GetServiceContext] instead.
 func (a *Client) GetService(params *GetServiceParams, opts ...ClientOption) (*GetServiceOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()

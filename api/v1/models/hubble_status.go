@@ -229,7 +229,7 @@ func (m *HubbleStatusObserver) validateUptime(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this hubble status observer based on context it is used
-func (m *HubbleStatusObserver) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *HubbleStatusObserver) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

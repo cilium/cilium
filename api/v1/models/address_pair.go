@@ -37,12 +37,12 @@ type AddressPair struct {
 }
 
 // Validate validates this address pair
-func (m *AddressPair) Validate(formats strfmt.Registry) error {
+func (m *AddressPair) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this address pair based on context it is used
-func (m *AddressPair) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *AddressPair) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

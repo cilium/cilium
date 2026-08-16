@@ -91,7 +91,7 @@ func (m *BandwidthManager) validateCongestionControl(formats strfmt.Registry) er
 }
 
 // ContextValidate validates this bandwidth manager based on context it is used
-func (m *BandwidthManager) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *BandwidthManager) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

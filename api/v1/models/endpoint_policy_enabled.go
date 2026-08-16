@@ -88,6 +88,6 @@ func (m EndpointPolicyEnabled) Validate(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this endpoint policy enabled based on context it is used
-func (m EndpointPolicyEnabled) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m EndpointPolicyEnabled) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }

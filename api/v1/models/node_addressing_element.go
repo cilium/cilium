@@ -31,12 +31,12 @@ type NodeAddressingElement struct {
 }
 
 // Validate validates this node addressing element
-func (m *NodeAddressingElement) Validate(formats strfmt.Registry) error {
+func (m *NodeAddressingElement) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this node addressing element based on context it is used
-func (m *NodeAddressingElement) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *NodeAddressingElement) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

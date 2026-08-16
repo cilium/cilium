@@ -28,12 +28,12 @@ type ConnectivityStatus struct {
 }
 
 // Validate validates this connectivity status
-func (m *ConnectivityStatus) Validate(formats strfmt.Registry) error {
+func (m *ConnectivityStatus) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this connectivity status based on context it is used
-func (m *ConnectivityStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *ConnectivityStatus) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

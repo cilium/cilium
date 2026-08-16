@@ -28,12 +28,12 @@ type IPV4BigTCP struct {
 }
 
 // Validate validates this IP v4 big TCP
-func (m *IPV4BigTCP) Validate(formats strfmt.Registry) error {
+func (m *IPV4BigTCP) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this IP v4 big TCP based on context it is used
-func (m *IPV4BigTCP) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *IPV4BigTCP) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

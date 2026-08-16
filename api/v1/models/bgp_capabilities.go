@@ -22,12 +22,12 @@ type BgpCapabilities struct {
 }
 
 // Validate validates this bgp capabilities
-func (m *BgpCapabilities) Validate(formats strfmt.Registry) error {
+func (m *BgpCapabilities) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this bgp capabilities based on context it is used
-func (m *BgpCapabilities) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *BgpCapabilities) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

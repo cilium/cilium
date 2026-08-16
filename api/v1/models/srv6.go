@@ -86,7 +86,7 @@ func (m *Srv6) validateSrv6EncapMode(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this srv6 based on context it is used
-func (m *Srv6) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *Srv6) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

@@ -165,7 +165,7 @@ func (m *MapEvent) validateTimestamp(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this map event based on context it is used
-func (m *MapEvent) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *MapEvent) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

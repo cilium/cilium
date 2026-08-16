@@ -25,12 +25,12 @@ type PolicyTraceResult struct {
 }
 
 // Validate validates this policy trace result
-func (m *PolicyTraceResult) Validate(formats strfmt.Registry) error {
+func (m *PolicyTraceResult) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this policy trace result based on context it is used
-func (m *PolicyTraceResult) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *PolicyTraceResult) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

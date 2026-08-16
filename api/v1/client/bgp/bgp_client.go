@@ -94,7 +94,7 @@ type ClientService interface {
 // If you need to pass a specific context, use [Client.GetBgpPeersContext] instead.
 func (a *Client) GetBgpPeers(params *GetBgpPeersParams, opts ...ClientOption) (*GetBgpPeersOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -166,7 +166,7 @@ func (a *Client) GetBgpPeersContext(ctx context.Context, params *GetBgpPeersPara
 // If you need to pass a specific context, use [Client.GetBgpRoutePoliciesContext] instead.
 func (a *Client) GetBgpRoutePolicies(params *GetBgpRoutePoliciesParams, opts ...ClientOption) (*GetBgpRoutePoliciesOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -236,7 +236,7 @@ func (a *Client) GetBgpRoutePoliciesContext(ctx context.Context, params *GetBgpR
 // If you need to pass a specific context, use [Client.GetBgpRoutesContext] instead.
 func (a *Client) GetBgpRoutes(params *GetBgpRoutesParams, opts ...ClientOption) (*GetBgpRoutesOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()

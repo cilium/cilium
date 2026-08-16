@@ -103,7 +103,7 @@ func (m *RemoteClusterConfig) validateEndpointSlicesExportMode(formats strfmt.Re
 }
 
 // ContextValidate validates this remote cluster config based on context it is used
-func (m *RemoteClusterConfig) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *RemoteClusterConfig) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

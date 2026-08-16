@@ -25,12 +25,12 @@ type BgpFamily struct {
 }
 
 // Validate validates this bgp family
-func (m *BgpFamily) Validate(formats strfmt.Registry) error {
+func (m *BgpFamily) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this bgp family based on context it is used
-func (m *BgpFamily) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *BgpFamily) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

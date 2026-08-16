@@ -88,7 +88,7 @@ type ClientService interface {
 // If you need to pass a specific context, use [Client.DeleteIpamIPContext] instead.
 func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) (*DeleteIpamIPOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -150,7 +150,7 @@ func (a *Client) DeleteIpamIPContext(ctx context.Context, params *DeleteIpamIPPa
 // If you need to pass a specific context, use [Client.PostIpamContext] instead.
 func (a *Client) PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIpamCreated, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -212,7 +212,7 @@ func (a *Client) PostIpamContext(ctx context.Context, params *PostIpamParams, op
 // If you need to pass a specific context, use [Client.PostIpamIPContext] instead.
 func (a *Client) PostIpamIP(params *PostIpamIPParams, opts ...ClientOption) (*PostIpamIPOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()

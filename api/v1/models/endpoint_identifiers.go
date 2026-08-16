@@ -45,12 +45,12 @@ type EndpointIdentifiers struct {
 }
 
 // Validate validates this endpoint identifiers
-func (m *EndpointIdentifiers) Validate(formats strfmt.Registry) error {
+func (m *EndpointIdentifiers) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this endpoint identifiers based on context it is used
-func (m *EndpointIdentifiers) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *EndpointIdentifiers) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

@@ -34,12 +34,12 @@ type BgpPeerFamilies struct {
 }
 
 // Validate validates this bgp peer families
-func (m *BgpPeerFamilies) Validate(formats strfmt.Registry) error {
+func (m *BgpPeerFamilies) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this bgp peer families based on context it is used
-func (m *BgpPeerFamilies) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *BgpPeerFamilies) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

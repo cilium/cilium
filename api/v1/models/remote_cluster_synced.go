@@ -42,12 +42,12 @@ type RemoteClusterSynced struct {
 }
 
 // Validate validates this remote cluster synced
-func (m *RemoteClusterSynced) Validate(formats strfmt.Registry) error {
+func (m *RemoteClusterSynced) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this remote cluster synced based on context it is used
-func (m *RemoteClusterSynced) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *RemoteClusterSynced) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

@@ -70,7 +70,7 @@ func (m *IPAMAddressResponse) validateCidrs(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this IP a m address response based on context it is used
-func (m *IPAMAddressResponse) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *IPAMAddressResponse) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

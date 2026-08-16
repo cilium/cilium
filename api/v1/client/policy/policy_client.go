@@ -141,7 +141,7 @@ type ClientService interface {
 // If you need to pass a specific context, use [Client.DeleteFqdnCacheContext] instead.
 func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOption) (*DeleteFqdnCacheOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -212,7 +212,7 @@ func (a *Client) DeleteFqdnCacheContext(ctx context.Context, params *DeleteFqdnC
 // If you need to pass a specific context, use [Client.GetFqdnCacheContext] instead.
 func (a *Client) GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) (*GetFqdnCacheOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -282,7 +282,7 @@ func (a *Client) GetFqdnCacheContext(ctx context.Context, params *GetFqdnCachePa
 // If you need to pass a specific context, use [Client.GetFqdnCacheIDContext] instead.
 func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -352,7 +352,7 @@ func (a *Client) GetFqdnCacheIDContext(ctx context.Context, params *GetFqdnCache
 // If you need to pass a specific context, use [Client.GetFqdnNamesContext] instead.
 func (a *Client) GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) (*GetFqdnNamesOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -423,7 +423,7 @@ func (a *Client) GetFqdnNamesContext(ctx context.Context, params *GetFqdnNamesPa
 // If you need to pass a specific context, use [Client.GetIPContext] instead.
 func (a *Client) GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -493,7 +493,7 @@ func (a *Client) GetIPContext(ctx context.Context, params *GetIPParams, opts ...
 // If you need to pass a specific context, use [Client.GetIdentityContext] instead.
 func (a *Client) GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*GetIdentityOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -558,7 +558,7 @@ func (a *Client) GetIdentityContext(ctx context.Context, params *GetIdentityPara
 // If you need to pass a specific context, use [Client.GetIdentityEndpointsContext] instead.
 func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts ...ClientOption) (*GetIdentityEndpointsOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -620,7 +620,7 @@ func (a *Client) GetIdentityEndpointsContext(ctx context.Context, params *GetIde
 // If you need to pass a specific context, use [Client.GetIdentityIDContext] instead.
 func (a *Client) GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption) (*GetIdentityIDOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -687,7 +687,7 @@ func (a *Client) GetIdentityIDContext(ctx context.Context, params *GetIdentityID
 // If you need to pass a specific context, use [Client.GetPolicyContext] instead.
 func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -754,7 +754,7 @@ func (a *Client) GetPolicyContext(ctx context.Context, params *GetPolicyParams, 
 // If you need to pass a specific context, use [Client.GetPolicySelectorsContext] instead.
 func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -816,7 +816,7 @@ func (a *Client) GetPolicySelectorsContext(ctx context.Context, params *GetPolic
 // If you need to pass a specific context, use [Client.GetPolicySubjectSelectorsContext] instead.
 func (a *Client) GetPolicySubjectSelectors(params *GetPolicySubjectSelectorsParams, opts ...ClientOption) (*GetPolicySubjectSelectorsOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()

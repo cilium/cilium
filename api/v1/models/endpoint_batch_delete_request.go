@@ -22,12 +22,12 @@ type EndpointBatchDeleteRequest struct {
 }
 
 // Validate validates this endpoint batch delete request
-func (m *EndpointBatchDeleteRequest) Validate(formats strfmt.Registry) error {
+func (m *EndpointBatchDeleteRequest) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this endpoint batch delete request based on context it is used
-func (m *EndpointBatchDeleteRequest) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *EndpointBatchDeleteRequest) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

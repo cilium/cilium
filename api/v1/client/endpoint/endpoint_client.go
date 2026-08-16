@@ -145,7 +145,7 @@ type ClientService interface {
 // If you need to pass a specific context, use [Client.DeleteEndpointContext] instead.
 func (a *Client) DeleteEndpoint(params *DeleteEndpointParams, opts ...ClientOption) (*DeleteEndpointOK, *DeleteEndpointErrors, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -221,7 +221,7 @@ func (a *Client) DeleteEndpointContext(ctx context.Context, params *DeleteEndpoi
 // If you need to pass a specific context, use [Client.DeleteEndpointIDContext] instead.
 func (a *Client) DeleteEndpointID(params *DeleteEndpointIDParams, opts ...ClientOption) (*DeleteEndpointIDOK, *DeleteEndpointIDErrors, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -297,7 +297,7 @@ func (a *Client) DeleteEndpointIDContext(ctx context.Context, params *DeleteEndp
 // If you need to pass a specific context, use [Client.GetEndpointContext] instead.
 func (a *Client) GetEndpoint(params *GetEndpointParams, opts ...ClientOption) (*GetEndpointOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -365,7 +365,7 @@ func (a *Client) GetEndpointContext(ctx context.Context, params *GetEndpointPara
 // If you need to pass a specific context, use [Client.GetEndpointIDContext] instead.
 func (a *Client) GetEndpointID(params *GetEndpointIDParams, opts ...ClientOption) (*GetEndpointIDOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -433,7 +433,7 @@ func (a *Client) GetEndpointIDContext(ctx context.Context, params *GetEndpointID
 // If you need to pass a specific context, use [Client.GetEndpointIDConfigContext] instead.
 func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams, opts ...ClientOption) (*GetEndpointIDConfigOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -498,7 +498,7 @@ func (a *Client) GetEndpointIDConfigContext(ctx context.Context, params *GetEndp
 // If you need to pass a specific context, use [Client.GetEndpointIDHealthzContext] instead.
 func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams, opts ...ClientOption) (*GetEndpointIDHealthzOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -560,7 +560,7 @@ func (a *Client) GetEndpointIDHealthzContext(ctx context.Context, params *GetEnd
 // If you need to pass a specific context, use [Client.GetEndpointIDLabelsContext] instead.
 func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams, opts ...ClientOption) (*GetEndpointIDLabelsOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -622,7 +622,7 @@ func (a *Client) GetEndpointIDLabelsContext(ctx context.Context, params *GetEndp
 // If you need to pass a specific context, use [Client.GetEndpointIDLogContext] instead.
 func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams, opts ...ClientOption) (*GetEndpointIDLogOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -687,7 +687,7 @@ func (a *Client) GetEndpointIDLogContext(ctx context.Context, params *GetEndpoin
 // If you need to pass a specific context, use [Client.PatchEndpointIDContext] instead.
 func (a *Client) PatchEndpointID(params *PatchEndpointIDParams, opts ...ClientOption) (*PatchEndpointIDOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -756,7 +756,7 @@ func (a *Client) PatchEndpointIDContext(ctx context.Context, params *PatchEndpoi
 // If you need to pass a specific context, use [Client.PatchEndpointIDConfigContext] instead.
 func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams, opts ...ClientOption) (*PatchEndpointIDConfigOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -826,7 +826,7 @@ func (a *Client) PatchEndpointIDConfigContext(ctx context.Context, params *Patch
 // If you need to pass a specific context, use [Client.PatchEndpointIDLabelsContext] instead.
 func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams, opts ...ClientOption) (*PatchEndpointIDLabelsOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -895,7 +895,7 @@ func (a *Client) PatchEndpointIDLabelsContext(ctx context.Context, params *Patch
 // If you need to pass a specific context, use [Client.PutEndpointIDContext] instead.
 func (a *Client) PutEndpointID(params *PutEndpointIDParams, opts ...ClientOption) (*PutEndpointIDCreated, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()

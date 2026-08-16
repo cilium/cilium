@@ -28,12 +28,12 @@ type Label struct {
 }
 
 // Validate validates this label
-func (m *Label) Validate(formats strfmt.Registry) error {
+func (m *Label) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this label based on context it is used
-func (m *Label) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *Label) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
