@@ -44,6 +44,9 @@ const (
 	jsonDefault           = "default"
 
 	jsonAllOf                = "allOf"
+	jsonAnyOf                = "anyOf"
+	jsonOneOf                = "oneOf"
+	jsonNot                  = "not"
 	jsonAdditionalItems      = "additionalItems"
 	jsonAdditionalProperties = "additionalProperties"
 
@@ -52,6 +55,7 @@ const (
 	swaggerResponses   = "responses"
 	swaggerParameters  = "parameters"
 	swaggerHeaders     = "headers"
+	swaggerOperationID = "operationId"
 
 	jsonMimeApplicationJSON = "application/json"
 )
@@ -160,7 +164,7 @@ func (h *errorHelper) sErr(err errors.Error, recycle bool) *Result {
 func (h *errorHelper) sErrAt(at pathSegments, err errors.Error, recycle bool) *Result {
 	var result *Result
 	if recycle {
-		result = pools.poolOfResults.BorrowResult()
+		result = validatorPools.results.Borrow()
 	} else {
 		result = new(Result)
 	}
@@ -293,15 +297,19 @@ func (h *paramHelper) safeExpandedParamsFor(path, method, operationID string, re
 		// remove params with invalid expansion from Slice
 		operation.Parameters = resolvedParams
 
-		for _, ppr := range s.expandedAnalyzer().SafeParamsFor(method, path,
+		// the analyzer keys parameters by name and location: walk those keys in
+		// order, so that findings about an operation's parameters come out the
+		// same way on every run
+		safeParams := s.expandedAnalyzer().SafeParamsFor(method, path,
 			func(_ spec.Parameter, err error) bool {
 				// since params have already been expanded, there are few causes for error
 				res.addErrorsAt(operationPath(path, method), someParametersBrokenMsg(path, method, operationID))
 				// original error from analyzer
 				res.addErrorsAt(operationPath(path, method), err)
 				return true
-			}) {
-			params = append(params, ppr)
+			})
+		for _, k := range sortedKeys(safeParams) {
+			params = append(params, safeParams[k])
 		}
 	}
 	return
@@ -361,7 +369,7 @@ type responseHelper struct {
 
 func (r *responseHelper) expandResponseRef(
 	response *spec.Response,
-	path string, s *SpecValidator,
+	path string, at pathSegments, s *SpecValidator,
 ) (*spec.Response, *Result) {
 	// Ensure response is expanded
 	var err error
@@ -374,7 +382,7 @@ func (r *responseHelper) expandResponseRef(
 	}
 	if err != nil { // Safeguard
 		// NOTE: we may enter here when the whole response is an unresolved $ref.
-		errorHelp.addPointerError(res, err, response.Ref.String(), path)
+		errorHelp.addPointerErrorAt(res, at, err, response.Ref.String(), path)
 		return nil, res
 	}
 
