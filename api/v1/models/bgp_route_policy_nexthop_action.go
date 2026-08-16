@@ -25,12 +25,12 @@ type BgpRoutePolicyNexthopAction struct {
 }
 
 // Validate validates this bgp route policy nexthop action
-func (m *BgpRoutePolicyNexthopAction) Validate(formats strfmt.Registry) error {
+func (m *BgpRoutePolicyNexthopAction) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this bgp route policy nexthop action based on context it is used
-func (m *BgpRoutePolicyNexthopAction) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *BgpRoutePolicyNexthopAction) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

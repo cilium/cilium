@@ -92,7 +92,7 @@ func (m *Status) validateState(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this status based on context it is used
-func (m *Status) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *Status) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

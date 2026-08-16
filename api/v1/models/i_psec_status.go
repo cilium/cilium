@@ -36,12 +36,12 @@ type IPsecStatus struct {
 }
 
 // Validate validates this i psec status
-func (m *IPsecStatus) Validate(formats strfmt.Registry) error {
+func (m *IPsecStatus) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this i psec status based on context it is used
-func (m *IPsecStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *IPsecStatus) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

@@ -268,12 +268,12 @@ type KubeProxyReplacementDeviceListItems0 struct {
 }
 
 // Validate validates this kube proxy replacement device list items0
-func (m *KubeProxyReplacementDeviceListItems0) Validate(formats strfmt.Registry) error {
+func (m *KubeProxyReplacementDeviceListItems0) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this kube proxy replacement device list items0 based on context it is used
-func (m *KubeProxyReplacementDeviceListItems0) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KubeProxyReplacementDeviceListItems0) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
@@ -888,12 +888,12 @@ type KubeProxyReplacementFeaturesExternalIPs struct {
 }
 
 // Validate validates this kube proxy replacement features external IPs
-func (m *KubeProxyReplacementFeaturesExternalIPs) Validate(formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesExternalIPs) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this kube proxy replacement features external IPs based on context it is used
-func (m *KubeProxyReplacementFeaturesExternalIPs) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesExternalIPs) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
@@ -925,12 +925,12 @@ type KubeProxyReplacementFeaturesGracefulTermination struct {
 }
 
 // Validate validates this kube proxy replacement features graceful termination
-func (m *KubeProxyReplacementFeaturesGracefulTermination) Validate(formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesGracefulTermination) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this kube proxy replacement features graceful termination based on context it is used
-func (m *KubeProxyReplacementFeaturesGracefulTermination) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesGracefulTermination) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
@@ -962,12 +962,12 @@ type KubeProxyReplacementFeaturesHostPort struct {
 }
 
 // Validate validates this kube proxy replacement features host port
-func (m *KubeProxyReplacementFeaturesHostPort) Validate(formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesHostPort) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this kube proxy replacement features host port based on context it is used
-func (m *KubeProxyReplacementFeaturesHostPort) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesHostPort) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
@@ -1004,12 +1004,12 @@ type KubeProxyReplacementFeaturesHostReachableServices struct {
 }
 
 // Validate validates this kube proxy replacement features host reachable services
-func (m *KubeProxyReplacementFeaturesHostReachableServices) Validate(formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesHostReachableServices) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this kube proxy replacement features host reachable services based on context it is used
-func (m *KubeProxyReplacementFeaturesHostReachableServices) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesHostReachableServices) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
@@ -1213,12 +1213,12 @@ type KubeProxyReplacementFeaturesNat46X64Gateway struct {
 }
 
 // Validate validates this kube proxy replacement features nat46 x64 gateway
-func (m *KubeProxyReplacementFeaturesNat46X64Gateway) Validate(formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesNat46X64Gateway) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this kube proxy replacement features nat46 x64 gateway based on context it is used
-func (m *KubeProxyReplacementFeaturesNat46X64Gateway) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesNat46X64Gateway) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
@@ -1250,12 +1250,12 @@ type KubeProxyReplacementFeaturesNat46X64Service struct {
 }
 
 // Validate validates this kube proxy replacement features nat46 x64 service
-func (m *KubeProxyReplacementFeaturesNat46X64Service) Validate(formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesNat46X64Service) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this kube proxy replacement features nat46 x64 service based on context it is used
-func (m *KubeProxyReplacementFeaturesNat46X64Service) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesNat46X64Service) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
@@ -1518,7 +1518,7 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateMode(formats strfmt.Regis
 }
 
 // ContextValidate validates this kube proxy replacement features node port based on context it is used
-func (m *KubeProxyReplacementFeaturesNodePort) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesNodePort) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
@@ -1550,12 +1550,12 @@ type KubeProxyReplacementFeaturesSessionAffinity struct {
 }
 
 // Validate validates this kube proxy replacement features session affinity
-func (m *KubeProxyReplacementFeaturesSessionAffinity) Validate(formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesSessionAffinity) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this kube proxy replacement features session affinity based on context it is used
-func (m *KubeProxyReplacementFeaturesSessionAffinity) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesSessionAffinity) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
@@ -1587,12 +1587,12 @@ type KubeProxyReplacementFeaturesSocketLB struct {
 }
 
 // Validate validates this kube proxy replacement features socket l b
-func (m *KubeProxyReplacementFeaturesSocketLB) Validate(formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesSocketLB) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this kube proxy replacement features socket l b based on context it is used
-func (m *KubeProxyReplacementFeaturesSocketLB) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesSocketLB) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
@@ -1624,12 +1624,12 @@ type KubeProxyReplacementFeaturesSocketLBTracing struct {
 }
 
 // Validate validates this kube proxy replacement features socket l b tracing
-func (m *KubeProxyReplacementFeaturesSocketLBTracing) Validate(formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesSocketLBTracing) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this kube proxy replacement features socket l b tracing based on context it is used
-func (m *KubeProxyReplacementFeaturesSocketLBTracing) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesSocketLBTracing) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

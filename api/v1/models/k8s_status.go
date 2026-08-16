@@ -97,7 +97,7 @@ func (m *K8sStatus) validateState(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this k8s status based on context it is used
-func (m *K8sStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *K8sStatus) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

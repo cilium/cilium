@@ -28,12 +28,12 @@ type BgpGracefulRestart struct {
 }
 
 // Validate validates this bgp graceful restart
-func (m *BgpGracefulRestart) Validate(formats strfmt.Registry) error {
+func (m *BgpGracefulRestart) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this bgp graceful restart based on context it is used
-func (m *BgpGracefulRestart) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *BgpGracefulRestart) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

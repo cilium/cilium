@@ -550,7 +550,7 @@ func (m *ServiceSpecFlags) validateType(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this service spec flags based on context it is used
-func (m *ServiceSpecFlags) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *ServiceSpecFlags) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

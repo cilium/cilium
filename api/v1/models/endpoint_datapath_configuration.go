@@ -42,12 +42,12 @@ type EndpointDatapathConfiguration struct {
 }
 
 // Validate validates this endpoint datapath configuration
-func (m *EndpointDatapathConfiguration) Validate(formats strfmt.Registry) error {
+func (m *EndpointDatapathConfiguration) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this endpoint datapath configuration based on context it is used
-func (m *EndpointDatapathConfiguration) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *EndpointDatapathConfiguration) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

@@ -88,7 +88,7 @@ type ClientService interface {
 // If you need to pass a specific context, use [Client.DeletePrefilterContext] instead.
 func (a *Client) DeletePrefilter(params *DeletePrefilterParams, opts ...ClientOption) (*DeletePrefilterOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -150,7 +150,7 @@ func (a *Client) DeletePrefilterContext(ctx context.Context, params *DeletePrefi
 // If you need to pass a specific context, use [Client.GetPrefilterContext] instead.
 func (a *Client) GetPrefilter(params *GetPrefilterParams, opts ...ClientOption) (*GetPrefilterOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()
@@ -212,7 +212,7 @@ func (a *Client) GetPrefilterContext(ctx context.Context, params *GetPrefilterPa
 // If you need to pass a specific context, use [Client.PatchPrefilterContext] instead.
 func (a *Client) PatchPrefilter(params *PatchPrefilterParams, opts ...ClientOption) (*PatchPrefilterOK, error) {
 	var ctx context.Context
-	if params.inner.ctx != nil {
+	if params != nil && params.inner.ctx != nil {
 		ctx = params.inner.ctx
 	} else {
 		ctx = context.Background()

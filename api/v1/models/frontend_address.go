@@ -144,7 +144,7 @@ func (m *FrontendAddress) validateScope(formats strfmt.Registry) error {
 }
 
 // ContextValidate validates this frontend address based on context it is used
-func (m *FrontendAddress) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *FrontendAddress) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 

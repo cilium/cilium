@@ -25,12 +25,12 @@ type BPFMapProperties struct {
 }
 
 // Validate validates this b p f map properties
-func (m *BPFMapProperties) Validate(formats strfmt.Registry) error {
+func (m *BPFMapProperties) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
 // ContextValidate validates this b p f map properties based on context it is used
-func (m *BPFMapProperties) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+func (m *BPFMapProperties) ContextValidate(_ context.Context, _ strfmt.Registry) error {
 	return nil
 }
 
