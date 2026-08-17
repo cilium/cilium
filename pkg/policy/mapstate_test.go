@@ -3440,7 +3440,7 @@ func TestMapState_passValidation(t *testing.T) {
 }
 
 func emptyMapState(logger *slog.Logger) mapState {
-	return newMapState(logger, nil, 0, cmtypes.ClusterInfo{MaxConnectedClusters: defaults.MaxConnectedClusters})
+	return newMapState(logger, MapStateSizes{}, 0, cmtypes.ClusterInfo{MaxConnectedClusters: defaults.MaxConnectedClusters})
 }
 
 func permutations(arr []int) [][]int {
@@ -3467,4 +3467,23 @@ func permutations(arr []int) [][]int {
 	}
 	helper(arr, len(arr))
 	return res
+}
+
+// TestNewMapStatePreallocation checks that a map state sized after another one preallocates a
+// distinct keyset per identity in the id index, as upsert reuses non-nil preallocated keysets.
+func TestNewMapStatePreallocation(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	key := EgressKey().WithTCPPort(80)
+	entry := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, 0, 0, types.Allow, NoAuthRequirement)
+
+	old := newMapState(logger, MapStateSizes{}, namedPortRules, cmtypes.DefaultClusterInfo)
+	old.upsert(key.WithIdentity(1000), entry)
+	old.upsert(key.WithIdentity(1001), entry)
+
+	ms := newMapState(logger, old.Sizes(), namedPortRules, cmtypes.DefaultClusterInfo)
+	require.Len(t, ms.byId, 2)
+	ms.upsert(key.WithIdentity(1000), entry)
+	require.Len(t, ms.byId[identity.NumericIdentity(1000)], 1)
+	require.Empty(t, ms.byId[identity.NumericIdentity(1001)])
 }
