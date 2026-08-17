@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/mac"
@@ -145,7 +146,7 @@ type Config struct {
 	//
 	// This field is mutable. The implementation of
 	// NodeConfigurationChanged() must adjust the routes accordingly.
-	AuxiliaryPrefixes []*cidr.CIDR
+	AuxiliaryPrefixes []ip.Prefix
 
 	// EnableIPv4 enables use of IPv4. Routing to the IPv4 allocation CIDR
 	// of other nodes must be enabled.
