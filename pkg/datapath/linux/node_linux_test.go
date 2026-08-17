@@ -217,30 +217,24 @@ func mustValidateNodeImplementation(tb testing.TB, ns *netns.NetNS, lnh *linuxNo
 	}))
 }
 
-func mustUpdateNodeRoute(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, cidr *cidr.CIDR) {
+func mustUpdateNodeRoute(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, prefix netip.Prefix) {
 	tb.Helper()
-	prefix, ok := netipx.FromStdIPNet(cidr.IPNet)
-	require.True(tb, ok)
 	require.NoError(tb, ns.Do(func() error {
 		return lnh.updateNodeRoute(prefix, true, false)
 	}))
 }
 
-func mustDeleteNodeRoute(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, cidr *cidr.CIDR) {
+func mustDeleteNodeRoute(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, prefix netip.Prefix) {
 	tb.Helper()
-	prefix, ok := netipx.FromStdIPNet(cidr.IPNet)
-	require.True(tb, ok)
 	require.NoError(tb, ns.Do(func() error {
 		return lnh.deleteNodeRoute(prefix, false)
 	}))
 }
 
-// mustGetNodeRoute looks up a node route for the given CIDR in the given namespace and returns it.
-func mustGetNodeRoute(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, cidr *cidr.CIDR) *route.Route {
+// mustGetNodeRoute looks up a node route for the given prefix in the given namespace and returns it.
+func mustGetNodeRoute(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, prefix netip.Prefix) *route.Route {
 	tb.Helper()
 
-	prefix, ok := netipx.FromStdIPNet(cidr.IPNet)
-	require.True(tb, ok)
 	var r *route.Route
 	require.NoError(tb, ns.Do(func() error {
 		var err error
@@ -269,11 +263,8 @@ func TestPrivilegedUpdateNodeRoute(t *testing.T) {
 func testUpdateNodeRoute(t *testing.T, family string) {
 	s := setup(t, family)
 
-	ip4CIDR := cidr.MustParseCIDR("254.254.254.0/24")
-	require.NotNil(t, ip4CIDR)
-
-	ip6CIDR := cidr.MustParseCIDR("cafe:cafe:cafe:cafe::/96")
-	require.NotNil(t, ip6CIDR)
+	ip4CIDR := netip.MustParsePrefix("254.254.254.0/24")
+	ip6CIDR := netip.MustParsePrefix("cafe:cafe:cafe:cafe::/96")
 
 	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
 	log := hivetest.Logger(t)
@@ -317,8 +308,8 @@ func TestPrivilegedAuxiliaryPrefixes(t *testing.T) {
 func testAuxiliaryPrefixes(t *testing.T, family string) {
 	s := setup(t, family)
 
-	net1 := cidr.MustParseCIDR("30.30.0.0/24")
-	net2 := cidr.MustParseCIDR("cafe:f00d::/112")
+	net1 := netip.MustParsePrefix("30.30.0.0/24")
+	net2 := netip.MustParsePrefix("cafe:f00d::/112")
 
 	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
 	log := hivetest.Logger(t)
@@ -328,7 +319,7 @@ func testAuxiliaryPrefixes(t *testing.T, family string) {
 
 	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
 	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.AuxiliaryPrefixes = []*cidr.CIDR{net1, net2}
+	nodeConfig.AuxiliaryPrefixes = []ip.Prefix{ip.PrefixFrom(net1), ip.PrefixFrom(net2)}
 	mustConfigureNode(t, s.ns, lnh, nodeConfig)
 
 	if s.enableIPv4 {
@@ -342,7 +333,7 @@ func testAuxiliaryPrefixes(t *testing.T, family string) {
 	}
 
 	// remove aux prefix net2
-	nodeConfig.AuxiliaryPrefixes = []*cidr.CIDR{net1}
+	nodeConfig.AuxiliaryPrefixes = []ip.Prefix{ip.PrefixFrom(net1)}
 	mustConfigureNode(t, s.ns, lnh, nodeConfig)
 
 	if s.enableIPv4 {
@@ -356,7 +347,7 @@ func testAuxiliaryPrefixes(t *testing.T, family string) {
 	}
 
 	// remove aux prefix net1, re-add net2
-	nodeConfig.AuxiliaryPrefixes = []*cidr.CIDR{net2}
+	nodeConfig.AuxiliaryPrefixes = []ip.Prefix{ip.PrefixFrom(net2)}
 	mustConfigureNode(t, s.ns, lnh, nodeConfig)
 
 	if s.enableIPv4 {
@@ -393,10 +384,10 @@ func testNodeUpdateEncapsulationWithOverride(t *testing.T, family string) {
 func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, override func(*nodeTypes.Node) bool) {
 	s := setup(t, family)
 
-	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
-	ip4Alloc2 := cidr.MustParseCIDR("6.6.6.0/24")
-	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
-	ip6Alloc2 := cidr.MustParseCIDR("2001:bbbb::/96")
+	ip4Alloc1 := netip.MustParsePrefix("5.5.5.0/24")
+	ip4Alloc2 := netip.MustParsePrefix("6.6.6.0/24")
+	ip6Alloc1 := netip.MustParsePrefix("2001:aaaa::/96")
+	ip6Alloc2 := netip.MustParsePrefix("2001:bbbb::/96")
 
 	externalNodeIP1 := net.ParseIP("4.4.4.4")
 
@@ -423,10 +414,10 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 	}
 
 	if s.enableIPv4 {
-		nodev1.IPv4AllocCIDR = cidrToNodePrefix(ip4Alloc1)
+		nodev1.IPv4AllocCIDR = nodeTypes.PrefixFrom(ip4Alloc1)
 	}
 	if s.enableIPv6 {
-		nodev1.IPv6AllocCIDR = cidrToNodePrefix(ip6Alloc1)
+		nodev1.IPv6AllocCIDR = nodeTypes.PrefixFrom(ip6Alloc1)
 	}
 
 	mustAddNode(t, s.ns, lnh, nodev1)
@@ -451,10 +442,10 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 	}
 
 	if s.enableIPv4 {
-		nodev2.IPv4AllocCIDR = cidrToNodePrefix(ip4Alloc2)
+		nodev2.IPv4AllocCIDR = nodeTypes.PrefixFrom(ip4Alloc2)
 	}
 	if s.enableIPv6 {
-		nodev2.IPv6AllocCIDR = cidrToNodePrefix(ip6Alloc2)
+		nodev2.IPv6AllocCIDR = nodeTypes.PrefixFrom(ip6Alloc2)
 	}
 
 	mustUpdateNode(t, s.ns, lnh, nodev1, nodev2)
@@ -511,10 +502,10 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 	}
 
 	if s.enableIPv4 {
-		nodev4.IPv4AllocCIDR = cidrToNodePrefix(ip4Alloc2)
+		nodev4.IPv4AllocCIDR = nodeTypes.PrefixFrom(ip4Alloc2)
 	}
 	if s.enableIPv6 {
-		nodev4.IPv6AllocCIDR = cidrToNodePrefix(ip6Alloc2)
+		nodev4.IPv6AllocCIDR = nodeTypes.PrefixFrom(ip6Alloc2)
 	}
 
 	mustUpdateNode(t, s.ns, lnh, nodev3, nodev4)

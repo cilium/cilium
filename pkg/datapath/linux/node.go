@@ -30,6 +30,7 @@ import (
 	dpTunnel "github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/idpool"
+	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lock"
@@ -39,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	cslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -443,21 +445,6 @@ func (n *linuxNodeHandler) deleteNodeRoute(prefix netip.Prefix, isLocalNode bool
 	return nil
 }
 
-// cidrsToPrefixes converts a slice of *cidr.CIDR to a slice of netip.Prefix,
-// skipping nil or invalid entries.
-func cidrsToPrefixes(cidrs []*cidr.CIDR) []netip.Prefix {
-	prefixes := make([]netip.Prefix, 0, len(cidrs))
-	for _, c := range cidrs {
-		if c == nil {
-			continue
-		}
-		if prefix, ok := netipx.FromStdIPNet(c.IPNet); ok {
-			prefixes = append(prefixes, prefix)
-		}
-	}
-	return prefixes
-}
-
 func (n *linuxNodeHandler) familyEnabled(prefix netip.Prefix) bool {
 	return (prefix.Addr().Is4() && n.nodeConfig.EnableIPv4) || (prefix.Addr().Is6() && n.nodeConfig.EnableIPv6)
 }
@@ -724,7 +711,12 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 		n.enableEncapsulation = func(*nodeTypes.Node) bool { return n.nodeConfig.EnableEncapsulation }
 	}
 
-	if err := n.updateOrRemoveNodeRoutes(cidrsToPrefixes(prevConfig.AuxiliaryPrefixes), cidrsToPrefixes(newConfig.AuxiliaryPrefixes), true); err != nil {
+	unwrapPrefix := func(prefix ip.Prefix) netip.Prefix { return prefix.Prefix }
+	if err := n.updateOrRemoveNodeRoutes(
+		cslices.Map(prevConfig.AuxiliaryPrefixes, unwrapPrefix),
+		cslices.Map(newConfig.AuxiliaryPrefixes, unwrapPrefix),
+		true,
+	); err != nil {
 		return fmt.Errorf("failed to update or remove node routes: %w", err)
 	}
 
