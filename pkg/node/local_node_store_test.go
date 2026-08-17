@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -115,6 +116,53 @@ func TestLocalNodeStore(t *testing.T) {
 	// states may get skipped.
 	assert.NotEmpty(t, observed)
 	assert.Subset(t, expected, observed)
+}
+
+func TestLocalNodeStoreUpdateMarksStatusesPending(t *testing.T) {
+	var (
+		store *LocalNodeStore
+		db    *statedb.DB
+		nodes statedb.Table[*Node]
+	)
+	hive := hive.New(
+		LocalNodeStoreTestCell,
+		cell.Provide(func() cmtypes.ClusterInfo {
+			return cmtypes.ClusterInfo{Name: "test"}
+		}),
+		cell.Invoke(func(s *LocalNodeStore, d *statedb.DB, ns statedb.Table[*Node]) {
+			store, db, nodes = s, d, ns
+		}),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	tlog := hivetest.Logger(t)
+	require.NoError(t, hive.Start(tlog, ctx))
+	t.Cleanup(func() {
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Minute)
+		defer stopCancel()
+		require.NoError(t, hive.Stop(tlog, stopCtx))
+	})
+
+	rwNodes := nodes.(statedb.RWTable[*Node])
+	txn := db.WriteTxn(rwNodes)
+	local, _, found := rwNodes.Get(txn, LocalNodeQuery)
+	require.True(t, found)
+	local = local.DeepCopy()
+	local.Statuses = local.Statuses.Set("test", reconciler.StatusDone())
+	_, _, err := rwNodes.Insert(txn, local)
+	require.NoError(t, err)
+	txn.Commit()
+
+	store.Update(func(*LocalNode) {})
+	local, _, found = nodes.Get(db.ReadTxn(), LocalNodeQuery)
+	require.True(t, found)
+	require.Equal(t, reconciler.StatusKindDone, local.Statuses.Get("test").Kind)
+
+	store.Update(func(n *LocalNode) { n.ClusterID++ })
+	local, _, found = nodes.Get(db.ReadTxn(), LocalNodeQuery)
+	require.True(t, found)
+	require.Equal(t, reconciler.StatusKindPending, local.Statuses.Get("test").Kind)
 }
 
 func TestWaitForLocalNodeInit(t *testing.T) {

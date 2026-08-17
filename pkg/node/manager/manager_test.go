@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -1665,7 +1666,8 @@ func TestNodeTableMirroring(t *testing.T) {
 	requireNode := func(t *testing.T, n nodeTypes.Node) {
 		stored, _, found := nodeTable.Get(db.ReadTxn(), node.NodeByName(n.Fullname()))
 		require.True(t, found)
-		require.Equal(t, node.Node{Node: n}, *stored)
+		require.Equal(t, n, stored.Node)
+		require.Nil(t, stored.Local)
 	}
 	requireNoNode := func(t *testing.T, n nodeTypes.Node) {
 		_, _, found := nodeTable.Get(db.ReadTxn(), node.NodeByName(n.Fullname()))
@@ -1675,9 +1677,21 @@ func TestNodeTableMirroring(t *testing.T) {
 	mngr.NodeUpdated(n1)
 	requireNode(t, n1)
 
+	txn := db.WriteTxn(nodeTable)
+	stored, _, found := nodeTable.Get(txn, node.NodeByName(n1.Fullname()))
+	require.True(t, found)
+	stored = stored.DeepCopy()
+	stored.Statuses = stored.Statuses.Set("test", reconciler.StatusDone())
+	_, _, err = nodeTable.Insert(txn, stored)
+	require.NoError(t, err)
+	txn.Commit()
+
 	n1.EncryptionKey = 42
 	mngr.NodeUpdated(n1)
 	requireNode(t, n1)
+	stored, _, found = nodeTable.Get(db.ReadTxn(), node.NodeByName(n1.Fullname()))
+	require.True(t, found)
+	require.Equal(t, reconciler.StatusKindPending, stored.Statuses.Get("test").Kind)
 
 	mngr.NodeUpdated(n2)
 	requireNode(t, n1)
