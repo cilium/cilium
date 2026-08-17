@@ -32,6 +32,12 @@ type idAllocator[ID idConstraint] struct {
 
 	// initMaxID is the initial maxID
 	initMaxID ID
+
+	// Metrics is the metrics package
+	metrics Metrics
+
+	// metricsTypeLabel is the label to attach to the metrics
+	metricsTypeLabel TypeLabel
 }
 
 const (
@@ -51,20 +57,42 @@ const (
 	maxSetOfBackendID = loadbalancer.BackendID(0xFFFFFFFF)
 )
 
-func newIDAllocator[ID idConstraint](nextID ID, maxID ID) idAllocator[ID] {
-	return idAllocator[ID]{
+func newIDAllocator[ID idConstraint](nextID ID, maxID ID, metrics Metrics, metricsTypeLabel TypeLabel) idAllocator[ID] {
+	allocator := idAllocator[ID]{
 		idToAddr:   map[ID]loadbalancer.L3n4Addr{},
 		addrToId:   map[loadbalancer.L3n4Addr]ID{},
 		nextID:     nextID,
 		maxID:      maxID,
 		initNextID: nextID,
 		initMaxID:  maxID,
+
+		metrics:           metrics,
+		metricsTypeLabel:  metricsTypeLabel,
+	}
+	allocator.updateIDMetrics()
+	return allocator
+}
+
+func (alloc *idAllocator[ID]) updateIDMetrics() {
+	limit := alloc.maxID-alloc.initNextID;
+	allocated := len(alloc.idToAddr);
+	alloc.metrics.SetKeysLimit(alloc.metricsTypeLabel, uint32(limit));
+	alloc.metrics.SetKeysAllocated(alloc.metricsTypeLabel, uint32(allocated));
+	if limit <= 0 {
+		// If the limit of the keyspace is not positive, just set the pressure to 1.0
+		// (maximum pressure). Technically it's undefined, but this way we'll still
+		// trigger monitoring alerts that are looking at keyspace pressure even if the
+		// keyspace is configured to be zero or negitive and no IDs can be assigned.
+		alloc.metrics.SetKeyspacePressure(alloc.metricsTypeLabel, 1.0)
+	} else {
+		alloc.metrics.SetKeyspacePressure(alloc.metricsTypeLabel, float64(allocated)/float64(limit))
 	}
 }
 
 func (alloc *idAllocator[ID]) addID(addr loadbalancer.L3n4Addr, id ID) ID {
 	alloc.idToAddr[id] = addr
 	alloc.addrToId[addr] = id
+	alloc.updateIDMetrics()
 	return id
 }
 
@@ -99,6 +127,7 @@ func (alloc *idAllocator[ID]) deleteLocalID(id ID) {
 	if addr, ok := alloc.idToAddr[id]; ok {
 		delete(alloc.idToAddr, id)
 		delete(alloc.addrToId, addr)
+		alloc.updateIDMetrics()
 	}
 }
 

@@ -113,6 +113,7 @@ type BPFOps struct {
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
 	frontends statedb.Table[*loadbalancer.Frontend]
+	metrics   Metrics
 
 	cfg           loadbalancer.Config
 	extCfg        loadbalancer.ExternalConfig
@@ -188,6 +189,7 @@ type bpfOpsParams struct {
 	DB             *statedb.DB
 	NodeAddresses  statedb.Table[tables.NodeAddress]
 	Frontends      statedb.Table[*loadbalancer.Frontend]
+	Metrics        *LBMetrics
 }
 
 const (
@@ -206,6 +208,7 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 		db:        p.DB,
 		nodeAddrs: p.NodeAddresses,
 		frontends: p.Frontends,
+		metrics:   p.Metrics,
 	}
 	ops.setLastUpdatedAt()
 
@@ -230,9 +233,9 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.mu.Lock()
 	defer ops.mu.Unlock()
 
-	ops.serviceIDAlloc = newIDAllocator(firstFreeServiceID, maxSetOfServiceID)
+	ops.serviceIDAlloc = newIDAllocator(firstFreeServiceID, maxSetOfServiceID, ops.metrics, TypeLabelService)
 	ops.restoredServiceIDs = map[loadbalancer.L3n4Addr]loadbalancer.ServiceID{}
-	ops.backendIDAlloc = newIDAllocator(firstFreeBackendID, maxSetOfBackendID)
+	ops.backendIDAlloc = newIDAllocator(firstFreeBackendID, maxSetOfBackendID, ops.metrics, TypeLabelBackend)
 	ops.restoredBackendIDs = map[loadbalancer.L3n4Addr]loadbalancer.BackendID{}
 	ops.backendStates = map[loadbalancer.L3n4Addr]backendState{}
 	ops.backendReferences = map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{}

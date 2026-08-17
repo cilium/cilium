@@ -817,6 +817,19 @@ Name                                                 Labels                     
 
 All metrics are enabled only when the BGP Control Plane is enabled.
 
+.. _metrics_load_balancer:
+
+Load Balancer
+~~~~~~~~~~~~~
+
+==================================================== ======== ======== ===================================================================
+Name                                                 Labels   Default  Description
+==================================================== ======== ======== ===================================================================
+``cilium_loadbalancer_id_keys_allocated``            ``type`` Enabled  Number of internal IDs allocated for a particular type of internal ID
+``cilium_loadbalancer_id_keys_limit``                ``type`` Enabled  Total number of keys available for a particular type of internal ID
+``cilium_loadbalancer_id_keyspace_pressure``         ``type`` Enabled  Proportion of the keyspace used for a particular type of itnernal ID
+==================================================== ======== ======== ===================================================================
+
 cilium-operator
 ---------------
 
