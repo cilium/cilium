@@ -157,7 +157,7 @@ run_linter() {
     ignored_messages="${ignored_messages}bpf/.*\.rst:.*: \(INFO/1\) Enumerated list start value not ordinal"
     ignored_messages="${ignored_messages}|Hyperlink target .*is not referenced\."
     ignored_messages="${ignored_messages}|Duplicate implicit target name:"
-    ignored_messages="${ignored_messages}|\(ERROR/3\) Indirect hyperlink target \".*\"  refers to target \"${CONF_PY_TARGET_NAMES}\", which does not exist."
+    ignored_messages="${ignored_messages}|\(ERROR/3\) Indirect hyperlink target \".*\".*refers to target \"${CONF_PY_TARGET_NAMES}\", which does not exist."
     ignored_messages="${ignored_messages}|\(ERROR/3\) Unknown target name: \"${CONF_PY_TARGET_NAMES}\"."
     ignored_messages="${ignored_messages}|.*expected a single document in the stream.*"
     ignored_messages="${ignored_messages})"
