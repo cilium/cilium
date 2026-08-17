@@ -21,6 +21,15 @@ Informational Notes
   where they have no effect, to preserve Gateway API infrastructure metadata
   propagation. This prevents user-controlled infrastructure metadata from
   changing proxy and policy behavior.
+* The following ``CiliumNode`` fields are deprecated and will be removed in a
+  future release:
+
+  * ``status.eni.enis[].vpc.id``, superseded by ``spec.eni.vpc-id``
+  * ``status.eni.enis[].vpc.primary-cidr``, now read from IMDS by the agent
+  * ``status.eni.enis[].vpc.cidrs``, now read from IMDS by the agent
+
+  The operator still populates them, so agent and operator rolling upgrades
+  work in either order.
 
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~
