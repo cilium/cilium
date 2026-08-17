@@ -153,7 +153,7 @@ func (eps *ClusterEndpointSlice) validate() error {
 				}
 			case slim_discovery_v1.AddressTypeIPv6:
 				addr, err := netip.ParseAddr(address)
-				if err != nil || !addr.Is6() {
+				if err != nil || !addr.Is6() || addr.Zone() != "" {
 					return fmt.Errorf("invalid IPv6 endpoint address: %s", address)
 				}
 			}
