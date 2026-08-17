@@ -100,7 +100,11 @@ spec:
             tlsParams:
               tlsMaximumProtocolVersion: TLSv1_3
             combinedValidationContext:
-              defaultValidationContext: {}
+              defaultValidationContext:
+                match_typed_subject_alt_names:
+                - san_type: DNS
+                  matcher:
+                    exact: "abc.example.com"
               validationContextSdsSecretConfig:
                 name: cilium-secrets/cilium-sync-cfgmap-f3757660099595ce0587b4d45f08d43da98e3f80d7c9fa16d991dbd0946ee01b
           sni: abc.example.com
