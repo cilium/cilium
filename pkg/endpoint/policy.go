@@ -48,9 +48,21 @@ var (
 	errPolicyComputationNotFound      = errors.New("policy computation result not found in statedb")
 )
 
-// PreviousMapState returns an empty policy.MapState with preallocated map sizes from the current one.
-func (e *Endpoint) PreviousMapState() *policy.MapState {
-	return e.desiredPolicy.GetMapState()
+// PreviousMapStateSizes returns the map sizes of the endpoint's current desired policy map state,
+// used as capacity hints when computing a new policy.
+//
+// The endpoint lock must not be held, as it is taken here to synchronize with the incremental
+// updates ApplyPolicyMapChanges applies to the current map state.
+func (e *Endpoint) PreviousMapStateSizes() policy.MapStateSizes {
+	if err := e.rlockAlive(); err != nil {
+		return policy.MapStateSizes{}
+	}
+	defer e.runlock()
+
+	if e.desiredPolicy == nil {
+		return policy.MapStateSizes{}
+	}
+	return e.desiredPolicy.GetMapState().Sizes()
 }
 
 // GetIngressNamedPort returns one port for the given name.
