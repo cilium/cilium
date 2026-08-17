@@ -81,14 +81,14 @@ func newLocalNodeConfig(
 	connectorConfig connector.Config,
 	plugins plugin.Plugins,
 ) (config.Config, <-chan struct{}, error) {
-	auxPrefixes := []*cidr.CIDR{}
+	auxPrefixes := []ip.Prefix{}
 
 	if daemon.IPv4ServiceRange.IsValid() {
-		auxPrefixes = append(auxPrefixes, prefixToCIDR(daemon.IPv4ServiceRange))
+		auxPrefixes = append(auxPrefixes, ip.PrefixFrom(daemon.IPv4ServiceRange))
 	}
 
 	if daemon.IPv6ServiceRange.IsValid() {
-		auxPrefixes = append(auxPrefixes, prefixToCIDR(daemon.IPv6ServiceRange))
+		auxPrefixes = append(auxPrefixes, ip.PrefixFrom(daemon.IPv6ServiceRange))
 	}
 
 	nativeDevices, devsWatch := tables.SelectedDevices(devices, txn)
