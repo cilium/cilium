@@ -336,7 +336,11 @@ type PolicyOwner interface {
 	GetIngressNamedPort(name string, proto u8proto.U8proto) uint16
 	PolicyDebug(msg string, attrs ...any)
 	IsHost() bool
-	PreviousMapState() *MapState
+	// PreviousMapStateSizes returns the map sizes of the owner's current policy map state, to
+	// be used as capacity hints for the map state of a new policy. It is called with the
+	// PolicyOwner unlocked, so that it may take the owner's lock to synchronize against the
+	// incremental updates applied to the current map state.
+	PreviousMapStateSizes() MapStateSizes
 	RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool
 }
 
@@ -399,6 +403,13 @@ func (p *selectorPolicy) Detach() {
 func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOwner, redirects map[string]uint16) *EndpointPolicy {
 	var calculatedPolicy *EndpointPolicy
 
+	// Size the new map state after the owner's current one. This must be done before taking
+	// the selector cache read lock below: the accessor takes the PolicyOwner's (endpoint)
+	// lock, and the established lock order is endpoint lock first, selector cache lock second
+	// (e.g. Detach takes the selector cache write lock while the endpoint lock is held).
+	// Taking the endpoint lock inside 'WithRLock' would invert that order and deadlock.
+	sizes := policyOwner.PreviousMapStateSizes()
+
 	// EndpointPolicy is initialized while 'WithRLock' keeps the selector cache read
 	// locked. This syncronizes the selector snapshot creation and the registration of the new
 	// EndpointPolicy as a user of the selectorPolicy 'p' before any new incremental updated can
@@ -418,7 +429,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 		calculatedPolicy = &EndpointPolicy{
 			SelectorPolicy: p,
 			selectors:      selectors,
-			policyMapState: newMapState(logger, policyOwner.PreviousMapState(), features, p.localClusterID),
+			policyMapState: newMapState(logger, sizes, features, p.localClusterID),
 			policyMapChanges: MapChanges{
 				logger:   logger,
 				firstRev: selectors.Revision,
