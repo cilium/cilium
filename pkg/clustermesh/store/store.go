@@ -143,14 +143,18 @@ func (s *ClusterService) validate() error {
 	}
 
 	for address := range s.Frontends {
-		if _, err := netip.ParseAddr(address); err != nil {
+		if parsed, err := netip.ParseAddr(address); err != nil {
 			return err
+		} else if parsed.Zone() != "" {
+			return fmt.Errorf("unsupported IPv6 zone in address %s", address)
 		}
 	}
 
 	for address := range s.Backends {
-		if _, err := netip.ParseAddr(address); err != nil {
+		if parsed, err := netip.ParseAddr(address); err != nil {
 			return err
+		} else if parsed.Zone() != "" {
+			return fmt.Errorf("unsupported IPv6 zone in address %s", address)
 		}
 	}
 
