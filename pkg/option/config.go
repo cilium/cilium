@@ -160,6 +160,9 @@ const (
 	// IPv6ServiceRange is the Kubernetes IPv6 services CIDR if not inside cluster prefix
 	IPv6ServiceRange = "ipv6-service-range"
 
+	// AutoCIDR indicates that a CIDR should be allocated
+	AutoCIDR = "auto"
+
 	// IPv6ClusterAllocCIDRName is the name of the IPv6ClusterAllocCIDR option
 	IPv6ClusterAllocCIDRName = "ipv6-cluster-alloc-cidr"
 
@@ -1449,8 +1452,8 @@ type DaemonConfig struct {
 	FixedZoneMappingValidator     Validator `json:"-"`
 	IPv4Range                     string
 	IPv6Range                     string
-	IPv4ServiceRange              string
-	IPv6ServiceRange              string
+	IPv4ServiceRange              netip.Prefix // zero value: inside the cluster prefix (AutoCIDR)
+	IPv6ServiceRange              netip.Prefix // zero value: inside the cluster prefix (AutoCIDR)
 	K8sSyncTimeout                time.Duration
 	AllocatorListTimeout          time.Duration
 	LabelPrefixFile               string
@@ -2480,11 +2483,9 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.IPAMDefaultIPPool = vp.GetString(IPAMDefaultIPPool)
 	c.IPv4Range = vp.GetString(IPv4Range)
 	c.IPv4NodeAddr = vp.GetString(IPv4NodeAddr)
-	c.IPv4ServiceRange = vp.GetString(IPv4ServiceRange)
 	c.IPv6ClusterAllocCIDR = vp.GetString(IPv6ClusterAllocCIDRName)
 	c.IPv6NodeAddr = vp.GetString(IPv6NodeAddr)
 	c.IPv6Range = vp.GetString(IPv6Range)
-	c.IPv6ServiceRange = vp.GetString(IPv6ServiceRange)
 	c.K8sRequireIPv4PodCIDR = vp.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = vp.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sSyncTimeout = vp.GetDuration(K8sSyncTimeoutName)
@@ -2628,6 +2629,33 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	}
 
 	c.EnableEncryptionStrictModeIngress = vp.GetBool(EnableEncryptionStrictModeIngress)
+
+	// The service ranges are optional: the AutoCIDR sentinel (the flag
+	// default) means the services CIDR is inside the cluster prefix, and is
+	// represented by the zero Prefix.
+	if ipv4ServiceRange := vp.GetString(IPv4ServiceRange); ipv4ServiceRange != AutoCIDR && ipv4ServiceRange != "" {
+		prefix, err := netip.ParsePrefix(ipv4ServiceRange)
+		if err != nil {
+			logging.Fatal(logger, fmt.Sprintf("Unable to parse CIDR '%s'", ipv4ServiceRange), logfields.Error, err)
+		}
+		c.IPv4ServiceRange = prefix.Masked()
+
+		if !c.IPv4ServiceRange.Addr().Is4() {
+			logging.Fatal(logger, fmt.Sprintf("%s must be an IPv4 CIDR", IPv4ServiceRange))
+		}
+	}
+
+	if ipv6ServiceRange := vp.GetString(IPv6ServiceRange); ipv6ServiceRange != AutoCIDR && ipv6ServiceRange != "" {
+		prefix, err := netip.ParsePrefix(ipv6ServiceRange)
+		if err != nil {
+			logging.Fatal(logger, fmt.Sprintf("Unable to parse CIDR '%s'", ipv6ServiceRange), logfields.Error, err)
+		}
+		c.IPv6ServiceRange = prefix.Masked()
+
+		if !c.IPv6ServiceRange.Addr().Is6() {
+			logging.Fatal(logger, fmt.Sprintf("%s must be an IPv6 CIDR", IPv6ServiceRange))
+		}
+	}
 
 	ipv4NativeRoutingCIDR := vp.GetString(IPv4NativeRoutingCIDR)
 

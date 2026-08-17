@@ -34,9 +34,6 @@ var fakeConfig = &option.DaemonConfig{
 
 func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
 	logger := hivetest.Logger(tb)
-	option.Config.IPv4ServiceRange = "auto"
-	option.Config.IPv6ServiceRange = "auto"
-
 	h, _ := cell.NewSimpleHealth()
 	nm, err := New(logger, fakeConfig, cmtypes.DefaultClusterInfo, tunnel.Config{}, nil, &fakeipset.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, node.NewTestLocalNodeStore(node.LocalNode{}))
 	require.NoError(tb, err)

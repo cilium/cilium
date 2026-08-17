@@ -38,11 +38,6 @@ import (
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-const (
-	// AutoCIDR indicates that a CIDR should be allocated
-	AutoCIDR = "auto"
-)
-
 // prefixToCIDR converts a netip.Prefix to the legacy *cidr.CIDR representation,
 // returning nil for the zero/invalid prefix. It is a transitional boundary
 // helper: the datapath LocalNodeConfiguration still carries *cidr.CIDR fields.
@@ -88,22 +83,12 @@ func newLocalNodeConfig(
 ) (config.Config, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
-	if daemon.IPv4ServiceRange != AutoCIDR {
-		serviceCIDR, err := cidr.ParseCIDR(daemon.IPv4ServiceRange)
-		if err != nil {
-			return config.Config{}, nil, fmt.Errorf("Invalid IPv4 service prefix %q: %w", daemon.IPv4ServiceRange, err)
-		}
-
-		auxPrefixes = append(auxPrefixes, serviceCIDR)
+	if daemon.IPv4ServiceRange.IsValid() {
+		auxPrefixes = append(auxPrefixes, prefixToCIDR(daemon.IPv4ServiceRange))
 	}
 
-	if daemon.IPv6ServiceRange != AutoCIDR {
-		serviceCIDR, err := cidr.ParseCIDR(daemon.IPv6ServiceRange)
-		if err != nil {
-			return config.Config{}, nil, fmt.Errorf("Invalid IPv6 service prefix %q: %w", daemon.IPv6ServiceRange, err)
-		}
-
-		auxPrefixes = append(auxPrefixes, serviceCIDR)
+	if daemon.IPv6ServiceRange.IsValid() {
+		auxPrefixes = append(auxPrefixes, prefixToCIDR(daemon.IPv6ServiceRange))
 	}
 
 	nativeDevices, devsWatch := tables.SelectedDevices(devices, txn)

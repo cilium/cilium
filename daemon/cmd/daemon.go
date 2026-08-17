@@ -20,11 +20,6 @@ import (
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-const (
-	// AutoCIDR indicates that a CIDR should be allocated
-	AutoCIDR = "auto"
-)
-
 func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	// WireGuard and IPSec are mutually exclusive.
 	if params.IPSecConfig.Enabled() && params.WireguardConfig.Enabled() {
