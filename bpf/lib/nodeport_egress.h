@@ -123,11 +123,13 @@ out:
 	return ret;
 }
 
+DEFINE_AUX(union v6addr, snat_fwd_saddr);
+
 __declare_tail(CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
-	union v6addr saddr __align_stack_8 = {};
+	union v6addr *saddr = AUX(snat_fwd_saddr);
 	int ret;
 	__s8 ext_err = 0;
 	struct snat_v6_args *args = AUX(snat_v6_args);
@@ -138,7 +140,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 		.monitor = 0,
 	};
 
-	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &ext_err, args);
+	ret = nodeport_snat_fwd_ipv6(ctx, saddr, &ext_err, args);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
 
@@ -149,7 +151,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 */
 	if (ret == CTX_ACT_OK)
 		send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   &saddr, TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
+				   saddr, TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				   args->trace.reason, args->trace.monitor);
 
 	return ret;
