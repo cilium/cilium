@@ -166,10 +166,11 @@ func TestRegisterControllerNoCEPs(t *testing.T) {
 	fakeClient, pod, ciliumEndpointSlice, namespace, ciliumNode, ciliumIdentity, _, hive := initHiveTest(t, true, true)
 
 	tlog := hivetest.Logger(t)
+	labelsfilter.ParseLabelPrefixCfg(tlog, nil, nil, "")
+
 	if err := hive.Start(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
-	labelsfilter.ParseLabelPrefixCfg(tlog, nil, nil, "")
 
 	cesCreated, err := createPodandVerifyCESCreated(t, fakeClient, pod, ciliumEndpointSlice, namespace, ciliumIdentity, ciliumNode)
 
