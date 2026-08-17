@@ -1,0 +1,57 @@
+{{$image := .image}}
+{{$ciliumNamespace := .ciliumNamespace}}
+{{$svcAccountRefName := .svcAccountRefName}}
+{{$configMapRefName := .configMapRefName}}
+{{$tickInterval := .tickInterval}}
+{{$clientTuningSet := .clientTuningSet}}
+{{$clientQPS := .clientQPS}}
+{{$clientBurstSize := .clientBurstSize}}
+{{$clientStepDelay := .clientStepDelay}}
+{{$terminationGracePeriodSeconds := .terminationGracePeriodSeconds}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  namespace: {{$ciliumNamespace}}
+  labels:
+    app.kubernetes.io/name: kfuzz
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kfuzz
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kfuzz
+    spec:
+      serviceAccountName: {{$svcAccountRefName}}
+      nodeSelector:
+        role.scaffolding/test-infra: "true"
+      containers:
+      - name: kfuzz
+        image: {{$image}}
+        command: ["/usr/local/bin/kfuzz"]
+        args:
+        - --config-file=/etc/kfuzz/config.json
+        - --tick-interval={{$tickInterval}}
+        - --seed=42
+        - --client-tuning-set={{$clientTuningSet}}
+        - --client-qps={{$clientQPS}}
+        - --client-burst-size={{$clientBurstSize}}
+        - --client-step-delay={{$clientStepDelay}}
+        volumeMounts:
+        - name: kfuzz-config
+          mountPath: /etc/kfuzz
+          readOnly: true
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+      terminationGracePeriodSeconds: {{$terminationGracePeriodSeconds}}
+      volumes:
+      - name: kfuzz-config
+        configMap:
+          name: {{$configMapRefName}}
+

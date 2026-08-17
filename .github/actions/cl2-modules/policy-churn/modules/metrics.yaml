@@ -1,0 +1,348 @@
+{{$action := .action}}
+{{$testNodeName := .testNodeName}}
+
+{{$ENABLE_VIOLATIONS := DefaultParam .enableViolations true}}
+
+{{$TEST_NODE_FILTER := print `{node="` $testNodeName `"}`}}
+
+# Metrics measurements threshold.
+{{$METRICS_CARDINALITY_THRESHOLD := DefaultParam .CL2_METRICS_CARDINALITY_THRESHOLD 270000}}
+
+{{$MEDIAN_CILIUM_AGENT_CPU_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_AGENT_MEDIAN_CPU_USAGE_THRESHOLD 0.5}}
+{{$MEDIAN_CILIUM_AGENT_MEM_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_AGENT_MEDIAN_MEM_USAGE_THRESHOLD 1000}}
+
+{{$MEDIAN_CILIUM_ENVOY_CPU_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_ENVOY_MEDIAN_CPU_USAGE_THRESHOLD 0.5}}
+{{$MEDIAN_CILIUM_ENVOY_MEM_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_ENVOY_MEDIAN_MEM_USAGE_THRESHOLD 1000}}
+
+{{$MEDIAN_CILIUM_OPERATOR_CPU_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_OPERATOR_MEDIAN_CPU_USAGE_THRESHOLD 0.5}}
+{{$MEDIAN_CILIUM_OPERATOR_MEM_USAGE_THRESHOLD := DefaultParam .CL2_CILIUM_OPERATOR_MEDIAN_MEM_USAGE_THRESHOLD 500}}
+
+steps:
+- name: {{$action}} Cilium scale/churn measurements
+  measurements:
+  - identifier: CiliumControlPlaneObjectCount
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Control Plane Objects Count (Max)
+      metricVersion: v1
+      unit: count
+      enableViolations: false
+      queries:
+      - name: CiliumNodes
+        query: max_over_time(apiserver_storage_objects{resource="ciliumnodes.cilium.io"}[%v])
+      - name: CiliumIdentities
+        query: max_over_time(apiserver_storage_objects{resource="ciliumidentities.cilium.io"}[%v])
+      - name: CiliumEndpoints
+        query: max_over_time(apiserver_storage_objects{resource=~"ciliumendpoints.cilium.io|ciliumendpointslices.cilium.io"}[%v])
+      - name: CiliumNetworkPolicies
+        query: max_over_time(apiserver_storage_objects{resource="ciliumnetworkpolicies.cilium.io"}[%v])
+      - name: CiliumCIDRGroups
+        query: max_over_time(apiserver_storage_objects{resource="ciliumcidrgroups.cilium.io"}[%v])
+
+  - identifier: CiliumMetricsCardinality
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Agent Metrics Cardinality
+      metricVersion: v1
+      unit: count
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: Max
+        query: max_over_time(count({__name__=~"cilium_.+"})[%v:])
+        threshold: {{$METRICS_CARDINALITY_THRESHOLD}}
+
+  - identifier: CiliumAgentCPUUsage
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Agent Average CPU Usage
+      metricVersion: v1
+      unit: cpu
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: quantile(0.99, avg_over_time(rate(cilium_process_cpu_seconds_total{{$TEST_NODE_FILTER}}[1m])[%v:10s]))
+      - name: P90
+        query: quantile(0.90, avg_over_time(rate(cilium_process_cpu_seconds_total{{$TEST_NODE_FILTER}}[1m])[%v:10s]))
+      - name: P50
+        query: quantile(0.50, avg_over_time(rate(cilium_process_cpu_seconds_total{{$TEST_NODE_FILTER}}[1m])[%v:10s]))
+        threshold: {{$MEDIAN_CILIUM_AGENT_CPU_USAGE_THRESHOLD}}
+
+  - identifier: CiliumAgentMemUsage
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Agent Max Memory Usage
+      metricVersion: v1
+      unit: MB
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: quantile(0.99, max_over_time(cilium_process_resident_memory_bytes{{$TEST_NODE_FILTER}}[%v]) / 1024 / 1024)
+      - name: P90
+        query: quantile(0.90, max_over_time(cilium_process_resident_memory_bytes{{$TEST_NODE_FILTER}}[%v]) / 1024 / 1024)
+      - name: P50
+        query: quantile(0.5, max_over_time(cilium_process_resident_memory_bytes{{$TEST_NODE_FILTER}}[%v]) / 1024 / 1024)
+        threshold: {{$MEDIAN_CILIUM_AGENT_MEM_USAGE_THRESHOLD}}
+
+  - identifier: CiliumErrorsAndWarnings
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Agent Errors and Warnings
+      metricVersion: v1
+      unit: qps
+      enableViolations: false
+      queries:
+      - name: Warnings
+        query: sum(rate(cilium_errors_warnings_total{level="WARN", node="{{$testNodeName}}"}[%v]))
+      - name: Errors
+        query: sum(rate(cilium_errors_warnings_total{level="ERROR", node="{{$testNodeName}}"}[%v]))
+
+  - identifier: CiliumControllersFailing
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Agent Controllers Failing
+      metricVersion: v1
+      unit: count
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: Max
+        query: max_over_time(cilium_controllers_failing{{$TEST_NODE_FILTER}}[%v])
+        threshold: 0
+
+  - identifier: CiliumOperatorCPUUsage
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Operator Average CPU Usage
+      metricVersion: v1
+      unit: cpu
+      # TODO: Operator process is not isolated during the test so just record the metrics.
+      enableViolations: false
+      queries:
+      - name: P99
+        query: quantile(0.99, avg_over_time(rate(cilium_operator_process_cpu_seconds_total[1m])[%v:10s]))
+      - name: P90
+        query: quantile(0.90, avg_over_time(rate(cilium_operator_process_cpu_seconds_total[1m])[%v:10s]))
+      - name: P50
+        query: quantile(0.50, avg_over_time(rate(cilium_operator_process_cpu_seconds_total[1m])[%v:10s]))
+        threshold: {{$MEDIAN_CILIUM_OPERATOR_CPU_USAGE_THRESHOLD}}
+
+  - identifier: CiliumOperatorMemUsage
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Operator Max Memory Usage
+      metricVersion: v1
+      unit: MB
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: quantile(0.99, max_over_time(cilium_operator_process_resident_memory_bytes[%v]) / 1024 / 1024)
+      - name: P90
+        query: quantile(0.90, max_over_time(cilium_operator_process_resident_memory_bytes[%v]) / 1024 / 1024)
+      - name: P50
+        query: quantile(0.5, max_over_time(cilium_operator_process_resident_memory_bytes[%v]) / 1024 / 1024)
+        threshold: {{$MEDIAN_CILIUM_OPERATOR_MEM_USAGE_THRESHOLD}}
+
+  - identifier: CiliumEnvoyCPUUsage
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Envoy Average CPU Usage
+      metricVersion: v1
+      unit: cpu
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: quantile(0.99, avg_over_time(rate(container_cpu_usage_seconds_total{container="cilium-envoy", node="{{$testNodeName}}"}[1m])[%v:10s]))
+      - name: P90
+        query: quantile(0.90, avg_over_time(rate(container_cpu_usage_seconds_total{container="cilium-envoy", node="{{$testNodeName}}"}[1m])[%v:10s]))
+      - name: P50
+        query: quantile(0.50, avg_over_time(rate(container_cpu_usage_seconds_total{container="cilium-envoy", node="{{$testNodeName}}"}[1m])[%v:10s]))
+        threshold: {{$MEDIAN_CILIUM_ENVOY_CPU_USAGE_THRESHOLD}}
+
+  - identifier: CiliumEnvoyMemUsage
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Envoy Max Memory Usage
+      metricVersion: v1
+      unit: MB
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: quantile(0.99, max_over_time(envoy_server_memory_physical_size{{$TEST_NODE_FILTER}}[%v]) / 1024 / 1024)
+      - name: P90
+        query: quantile(0.90, max_over_time(envoy_server_memory_physical_size{{$TEST_NODE_FILTER}}[%v]) / 1024 / 1024)
+      - name: P50
+        query: quantile(0.5, max_over_time(envoy_server_memory_physical_size{{$TEST_NODE_FILTER}}[%v]) / 1024 / 1024)
+        threshold: {{$MEDIAN_CILIUM_ENVOY_MEM_USAGE_THRESHOLD}}
+
+  - identifier: EndpointRegenerationLatency
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Endpoint regeneration latency
+      metricVersion: v1
+      unit: s
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: histogram_quantile(0.99, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="total", node="{{$testNodeName}}"}[%v])) by (le))
+      - name: P90
+        query: histogram_quantile(0.90, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="total", node="{{$testNodeName}}"}[%v])) by (le))
+        threshold: 30
+      - name: P50
+        query: histogram_quantile(0.50, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="total", node="{{$testNodeName}}"}[%v])) by (le))
+        threshold: 10
+
+  - identifier: EndpointPolicyComputeDelay
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Delay in endpoint regeneration due to policy computation
+      metricVersion: v1
+      unit: s
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: histogram_quantile(0.99, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="waitForPolicyCompute", node="{{$testNodeName}}"}[%v])) by (le))
+      - name: P90
+        query: histogram_quantile(0.90, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="waitForPolicyCompute", node="{{$testNodeName}}"}[%v])) by (le))
+        threshold: 5
+      - name: P50
+        query: histogram_quantile(0.50, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="waitForPolicyCompute", node="{{$testNodeName}}"}[%v])) by (le))
+        threshold: 1
+
+  - identifier: EndpointPolicyProxyACKDelay
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Delay in endpoint regeneration due to cilium-envoy ACK
+      metricVersion: v1
+      unit: s
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: histogram_quantile(0.99, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="proxyWaitForAck", node="{{$testNodeName}}"}[%v])) by (le))
+      - name: P90
+        query: histogram_quantile(0.90, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="proxyWaitForAck", node="{{$testNodeName}}"}[%v])) by (le))
+        threshold: 10
+      - name: P50
+        query: histogram_quantile(0.50, sum(rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{scope="proxyWaitForAck", node="{{$testNodeName}}"}[%v])) by (le))
+        threshold: 1
+
+  - identifier: CiliumPolicySelectorCacheOperationLatency
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Latency of cilium-agent policy selector cache operations
+      metricVersion: v1
+      unit: s
+      enableViolations: false
+      queries:
+      - name: SelectorAdd P90
+        query: histogram_quantile(0.90, sum(rate(cilium_policy_selector_cache_operation_duration_seconds_bucket{operation="add_selector", node="{{$testNodeName}}"}[%v])) by (le))
+      - name: SelectorAdd P50
+        query: histogram_quantile(0.50, sum(rate(cilium_policy_selector_cache_operation_duration_seconds_bucket{operation="add_selector", node="{{$testNodeName}}"}[%v])) by (le))
+      - name: IdentityUpdate P90
+        query: histogram_quantile(0.90, sum(rate(cilium_policy_selector_cache_operation_duration_seconds_bucket{operation="identity_updates", node="{{$testNodeName}}"}[%v])) by (le))
+      - name: IdentityUpdate P50
+        query: histogram_quantile(0.50, sum(rate(cilium_policy_selector_cache_operation_duration_seconds_bucket{operation="identity_updates", node="{{$testNodeName}}"}[%v])) by (le))
+      - name: SelectorRemove P90
+        query: histogram_quantile(0.90, sum(rate(cilium_policy_selector_cache_operation_duration_seconds_bucket{operation="remove_selector", node="{{$testNodeName}}"}[%v])) by (le))
+      - name: SelectorRemove P50
+        query: histogram_quantile(0.50, sum(rate(cilium_policy_selector_cache_operation_duration_seconds_bucket{operation="remove_selector", node="{{$testNodeName}}"}[%v])) by (le))
+
+  - identifier: PolicyImplementationDelay
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Policy Implementation Delay
+      metricVersion: v1
+      unit: s
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: histogram_quantile(0.99, sum(rate(cilium_policy_implementation_delay_bucket{{$TEST_NODE_FILTER}}[%v])) by (le))
+      - name: P90
+        query: histogram_quantile(0.90, sum(rate(cilium_policy_implementation_delay_bucket{{$TEST_NODE_FILTER}}[%v])) by (le))
+        threshold: 30
+      - name: P50
+        query: histogram_quantile(0.50, sum(rate(cilium_policy_implementation_delay_bucket{{$TEST_NODE_FILTER}}[%v])) by (le))
+        threshold: 10
+
+  - identifier: PolicyIncrementalUpdateLatency
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Policy Incremental Update Latency
+      metricVersion: v1
+      unit: s
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: histogram_quantile(0.99, sum(rate(cilium_policy_incremental_update_duration_bucket{{$TEST_NODE_FILTER}}[%v])) by (le))
+      - name: P90
+        query: histogram_quantile(0.90, sum(rate(cilium_policy_incremental_update_duration_bucket{{$TEST_NODE_FILTER}}[%v])) by (le))
+        threshold: 10
+      - name: P50
+        query: histogram_quantile(0.50, sum(rate(cilium_policy_incremental_update_duration_bucket{{$TEST_NODE_FILTER}}[%v])) by (le))
+        threshold: 5
+
+  - identifier: CiliumAgentPolicyProcessing
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Agent Policy Processing Rate
+      metricVersion: v1
+      unit: qps
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: Failure
+        query: sum(rate(cilium_policy_change_total{node="{{$testNodeName}}", outcome="failure"}[%v]))
+        threshold: 0
+      - name: Total
+        query: sum(rate(cilium_policy_change_total{{$TEST_NODE_FILTER}}[%v]))
+
+  - identifier: CiliumEnvoyNPDSUpdateLatency
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Envoy NPDS Update Latency
+      metricVersion: v1
+      unit: ms
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: P99
+        query: histogram_quantile(0.99, sum(rate(envoy_cilium_npds_update_duration_bucket{{$TEST_NODE_FILTER}}[%v])) by (le))
+      - name: P90
+        query: histogram_quantile(0.90, sum(rate(envoy_cilium_npds_update_duration_bucket{{$TEST_NODE_FILTER}}[%v])) by (le))
+        threshold: 10000
+      - name: P50
+        query: histogram_quantile(0.50, sum(rate(envoy_cilium_npds_update_duration_bucket{{$TEST_NODE_FILTER}}[%v])) by (le))
+        threshold: 1000
+
+  - identifier: CiliumEnvoyNPDSUpdateProcessing
+    method: GenericPrometheusQuery
+    params:
+      action: {{$action}}
+      metricName: Cilium Envoy NPDS update Processing Rate
+      metricVersion: v1
+      unit: qps
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+      queries:
+      - name: Success
+        query: sum(rate(envoy_cilium_npds_update_success{{$TEST_NODE_FILTER}}[%v]))
+      - name: Failures
+        query: sum(rate(envoy_cilium_npds_update_failure{{$TEST_NODE_FILTER}}[%v]))
+        threshold: 0
+      - name: Rejected
+        query: sum(rate(envoy_cilium_npds_update_rejected{{$TEST_NODE_FILTER}}[%v]))
+        threshold: 0
+

@@ -1,0 +1,138 @@
+{{$TEST_NODE_NAME := .CL2_TEST_NODE_NAME}}
+
+{{$NUM_FAKE_NODES := DefaultParam .CL2_NUM_FAKE_NODES 64}}
+{{$FAKE_NODES_READY_TIMEOUT := DefaultParam .CL2_FAKE_NODES_READY_TIMEOUT "1m"}}
+
+{{$CILIUM_NAMESPACE := DefaultParam .CL2_CILIUM_NAMESPACE "kube-system"}}
+{{$CILIUM_CONFIGMAP_NAME := DefaultParam .CL2_CILIUM_CONFIGMAP_NAME "cilium-config"}}
+
+{{$KWOK_DOCKER_IMAGE := DefaultParam .CL2_KWOK_DOCKER_IMAGE "fristonio/kwok:latest"}}
+{{$KFUZZ_DOCKER_IMAGE := DefaultParam .CL2_KFUZZ_DOCKER_IMAGE "fristonio/kfuzz:latest"}}
+
+{{$SCENARIO := DefaultParam .CL2_TEST_SCENARIO "policy-selectors-churn"}}
+{{$TEST_DURATION := DefaultParam .CL2_TEST_DURATION "15m"}}
+
+{{$KFUZZ_TICK_INTERVAL := DefaultParam .CL2_KFUZZ_TICK_INTERVAL "5s"}}
+{{$KFUZZ_CLIENT_TUNING_SET := DefaultParam .CL2_KFUZZ_CLIENT_TUNING_SET "qps"}}
+{{$KFUZZ_CLIENT_QPS := DefaultParam .CL2_KFUZZ_CLIENT_QPS 64}}
+{{$KFUZZ_CLIENT_BURST_SIZE := DefaultParam .CL2_KFUZZ_CLIENT_BURST_SIZE 128}}
+{{$KFUZZ_CLIENT_STEP_DELAY := DefaultParam .CL2_KFUZZ_CLIENT_STEP_DELAY "1s"}}
+{{$KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS := DefaultParam .CL2_KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS 600}}
+
+{{$ENABLE_VIOLATIONS := DefaultParam .CL2_ENABLE_VIOLATIONS false}}
+
+name: cilium-scale-churn
+namespace:
+  number: 0
+tuningSets:
+- name: Default
+  globalQPSLoad:
+    qps: 5
+    burst: 10
+- name: Sequential
+  parallelismLimitedLoad:
+    parallelismLimit: 1
+
+steps:
+- name: Create fake nodes
+  phases:
+  - replicasPerNamespace: {{$NUM_FAKE_NODES}}
+    tuningSet: Sequential
+    objectBundle:
+    - basename: fake-node
+      objectTemplatePath: ./manifests/node.yaml
+
+# TODO: Create kfuzz namespace required for churn.
+
+- module:
+    path: ./modules/kwok.yaml
+    params:
+      actionName: "create"
+      tuningSet: Sequential
+      image: {{$KWOK_DOCKER_IMAGE}}
+      ciliumNamespace: {{$CILIUM_NAMESPACE}}
+      ciliumConfigMapName: {{$CILIUM_CONFIGMAP_NAME}}
+
+{{if gt $NUM_FAKE_NODES 0}}
+- name: Waiting for fake nodes to be Ready
+  measurements:
+  - identifier: WaitForFakeNodesReady
+    method: WaitForNodes
+    params:
+      labelSelector: "kfuzz.cilium.io/fake-node=true"
+      minDesiredNodeCount: {{$NUM_FAKE_NODES}}
+      maxDesiredNodeCount: {{$NUM_FAKE_NODES}}
+      timeout: {{$FAKE_NODES_READY_TIMEOUT}}
+{{end}}
+
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: start
+      testNodeName: {{$TEST_NODE_NAME}}
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+
+- module:
+    path: ./modules/kfuzz.yaml
+    params:
+      actionName: "create"
+      tuningSet: Sequential
+      image: {{$KFUZZ_DOCKER_IMAGE}}
+      ciliumNamespace: {{$CILIUM_NAMESPACE}}
+      testNodeName: {{$TEST_NODE_NAME}}
+      scenario: {{$SCENARIO}}
+      tickInterval: {{$KFUZZ_TICK_INTERVAL}}
+      clientTuningSet: {{$KFUZZ_CLIENT_TUNING_SET}}
+      clientQPS: {{$KFUZZ_CLIENT_QPS}}
+      clientBurstSize: {{$KFUZZ_CLIENT_BURST_SIZE}}
+      clientStepDelay: {{$KFUZZ_CLIENT_STEP_DELAY}}
+      terminationGracePeriodSeconds: {{$KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS}}
+
+- name: Waiting for KFuzz to churn test resources.
+  measurements:
+  - identifier: Sleep
+    method: Sleep
+    params:
+      duration: {{$TEST_DURATION}}
+
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: gather
+      testNodeName: {{$TEST_NODE_NAME}}
+      enableViolations: {{$ENABLE_VIOLATIONS}}
+
+- module:
+    path: ./modules/kfuzz.yaml
+    params:
+      actionName: "delete"
+      replicas: 0
+      tuningSet: Sequential
+      image: {{$KFUZZ_DOCKER_IMAGE}}
+      testNodeName: {{$TEST_NODE_NAME}}
+      scenario: {{$SCENARIO}}
+      tickInterval: {{$KFUZZ_TICK_INTERVAL}}
+      clientTuningSet: {{$KFUZZ_CLIENT_TUNING_SET}}
+      clientQPS: {{$KFUZZ_CLIENT_QPS}}
+      clientBurstSize: {{$KFUZZ_CLIENT_BURST_SIZE}}
+      clientStepDelay: {{$KFUZZ_CLIENT_STEP_DELAY}}
+      terminationGracePeriodSeconds: {{$KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS}}
+
+
+- name: Delete fake nodes
+  phases:
+  - replicasPerNamespace: 0
+    tuningSet: Sequential
+    objectBundle:
+    - basename: fake-node
+      objectTemplatePath: ./manifests/node.yaml
+
+- module:
+    path: ./modules/kwok.yaml
+    params:
+      actionName: "delete"
+      replicas: 0
+      tuningSet: Sequential
+      image: {{$KWOK_DOCKER_IMAGE}}
+      ciliumNamespace: {{$CILIUM_NAMESPACE}}
+      ciliumConfigMapName: {{$CILIUM_CONFIGMAP_NAME}}

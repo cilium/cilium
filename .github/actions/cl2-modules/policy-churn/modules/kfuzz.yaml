@@ -1,0 +1,142 @@
+{{$replicas := DefaultParam .replicas 1}}
+{{$actionName := .actionName}}
+{{$tuningSet := .tuningSet}}
+
+{{$ciliumNamespace := .ciliumNamespace}}
+
+{{$image := .image}}
+{{$testNodeName := .testNodeName}}
+{{$scenario := .scenario}}
+{{$tickInterval := .tickInterval}}
+{{$clientTuningSet := .clientTuningSet}}
+{{$clientQPS := .clientQPS}}
+{{$clientBurstSize := .clientBurstSize}}
+{{$clientStepDelay := .clientStepDelay}}
+{{$terminationGracePeriodSeconds := .terminationGracePeriodSeconds}}
+
+steps:
+
+{{if eq $actionName "create"}}
+- name: create kfuzz RBAC and config
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz-sa
+      objectTemplatePath: ./manifests/service-account.yaml
+      templateFillMap:
+        targetNamespace: {{$ciliumNamespace}}
+
+  - replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz-crb
+      objectTemplatePath: ./manifests/admin-role.yaml
+      templateFillMap:
+        svcAccountRefName: kfuzz-sa-0
+        targetNamespace: {{$ciliumNamespace}}
+
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz-config
+      objectTemplatePath: ./scenarios/{{$scenario}}.yaml
+      templateFillMap:
+        testNodeName: {{$testNodeName}}
+        kfuzzNamespace: {{$ciliumNamespace}}
+
+- name: Starting measurement for kfuzz to be running
+  measurements:
+  - identifier: WaitForKfuzzRunning
+    method: WaitForControlledPodsRunning
+    params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      namespace: {{$ciliumNamespace}}
+      labelSelector: app.kubernetes.io/name=kfuzz
+      operationTimeout: 1m
+{{end}}
+
+- name: {{$actionName}} kfuzz
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz-deployment
+      objectTemplatePath: ./manifests/kfuzz-deployment.yaml
+      templateFillMap:
+        image: {{$image}}
+        ciliumNamespace: {{$ciliumNamespace}}
+        svcAccountRefName: kfuzz-sa-0
+        configMapRefName: kfuzz-config-0
+        tickInterval: {{$tickInterval}}
+        clientTuningSet: {{$clientTuningSet}}
+        clientQPS: {{$clientQPS}}
+        clientBurstSize: {{$clientBurstSize}}
+        clientStepDelay: {{$clientStepDelay}}
+        terminationGracePeriodSeconds: {{$terminationGracePeriodSeconds}}
+
+{{if eq $actionName "create"}}
+
+- name: Waiting for kfuzz to be running
+  measurements:
+  - identifier: WaitForKfuzzRunning
+    method: WaitForControlledPodsRunning
+    params:
+      action: gather
+
+{{else}}
+
+- name: Waiting for kfuzz pod to terminate
+  measurements:
+  - identifier: WaitForKfuzzPodGone
+    method: Exec
+    params:
+      timeout: {{AddInt $terminationGracePeriodSeconds 30}}s
+      command:
+      - kubectl
+      - wait
+      - --for=delete
+      - pod
+      - -n
+      - {{$ciliumNamespace}}
+      - -l
+      - app.kubernetes.io/name=kfuzz
+      - --timeout={{$terminationGracePeriodSeconds}}s
+
+- name: Delete kfuzz RBAC and config
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz-sa
+      objectTemplatePath: ./manifests/service-account.yaml
+      templateFillMap:
+        targetNamespace: {{$ciliumNamespace}}
+
+  - replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz-crb
+      objectTemplatePath: ./manifests/admin-role.yaml
+      templateFillMap:
+        svcAccountRefName: kfuzz-sa-0
+        targetNamespace: {{$ciliumNamespace}}
+
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz-config
+      objectTemplatePath: ./scenarios/{{$scenario}}.yaml
+      templateFillMap:
+        testNodeName: {{$testNodeName}}
+        kfuzzNamespace: {{$ciliumNamespace}}
+
+{{end}}
+

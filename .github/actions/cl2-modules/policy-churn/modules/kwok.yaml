@@ -1,0 +1,66 @@
+{{$replicas := DefaultParam .replicas 1}}
+
+{{$actionName := .actionName}}
+{{$tuningSet := .tuningSet}}
+
+{{$image := .image}}
+{{$ciliumNamespace := .ciliumNamespace}}
+{{$ciliumConfigMapName := .ciliumConfigMapName}}
+
+steps:
+- name: {{$actionName}} kwok-controller RBAC
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kwok-controller-sa
+      objectTemplatePath: ./manifests/service-account.yaml
+      templateFillMap:
+        targetNamespace: {{$ciliumNamespace}}
+  - replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kwok-controller-crb
+      objectTemplatePath: ./manifests/admin-role.yaml
+      templateFillMap:
+        svcAccountRefName: kwok-controller-sa-0
+        targetNamespace: {{$ciliumNamespace}}
+
+{{if eq $actionName "create"}}
+- name: Starting measurement for kwok-controller to be running
+  measurements:
+  - identifier: WaitForKwokControllerRunning
+    method: WaitForControlledPodsRunning
+    params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      namespace: {{$ciliumNamespace}}
+      labelSelector: app.kubernetes.io/name=kwok-controller
+      operationTimeout: 1m
+{{end}}
+
+- name: {{$actionName}} kwok-controller
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kwok-controller-deployment
+      objectTemplatePath: ./manifests/kwok-deployment.yaml
+      templateFillMap:
+        image: {{$image}}
+        ciliumNamespace: {{$ciliumNamespace}}
+        ciliumConfigMapName: {{$ciliumConfigMapName}}
+        svcAccountRefName: kwok-controller-sa-0
+
+{{if eq $actionName "create"}}
+- name: Waiting for kwok-controller to be running
+  measurements:
+  - identifier: WaitForKwokControllerRunning
+    method: WaitForControlledPodsRunning
+    params:
+      action: gather
+{{end}}
+
