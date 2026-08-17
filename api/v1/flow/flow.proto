@@ -20,6 +20,13 @@ message Flow {
     // emitter identifies the source that emitted the flow.
     Emitter emitter = 41;
 
+    // source_node_labels are the labels of the node hosting the source endpoint,
+    // formatted as "key=value".
+    repeated string source_node_labels = 42;
+    // destination_node_labels are the labels of the node hosting the destination
+    // endpoint, formatted as "key=value".
+    repeated string destination_node_labels = 43;
+
     Verdict verdict = 2;
     // only applicable to Verdict = DROPPED.
     // deprecated in favor of drop_reason_desc.
@@ -685,6 +692,10 @@ message FlowFilter {
     // node_labels filters on a list of node label selectors. Selectors support
     // the full Kubernetes label selector syntax.
     repeated string node_labels = 36;
+    // source_node_labels filters on source node label selectors.
+    repeated string source_node_labels = 41;
+    // destination_node_labels filters on destination node label selectors.
+    repeated string destination_node_labels = 42;
 
     // filter based on IP version (ipv4 or ipv6)
     repeated IPVersion ip_version = 25;

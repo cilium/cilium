@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/namespace"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
+	"github.com/cilium/cilium/pkg/hubble/parser/nodes"
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
@@ -72,7 +73,8 @@ type hubbleIntegration struct {
 	dropEventEmitter dropeventemitter.FlowProcessor
 
 	// payloadParser is used to decode monitor events into Hubble events.
-	payloadParser parser.Decoder
+	payloadParser         parser.Decoder
+	directionalNodeLabels nodes.DirectionalNodeLabelsLifecycle
 	// nsManager is used to monitor the namespaces seen in Hubble flows.
 	nsManager namespace.Manager
 
@@ -99,6 +101,7 @@ func createHubbleIntegration(
 	exporterBuilders []*exportercell.FlowLogExporterBuilder,
 	dropEventEmitter dropeventemitter.FlowProcessor,
 	payloadParser parser.Decoder,
+	directionalNodeLabels nodes.DirectionalNodeLabelsLifecycle,
 	nsManager namespace.Manager,
 	grpcMetrics *grpc_prometheus.ServerMetrics,
 	metricsFlowProcessor metrics.FlowProcessor,
@@ -118,24 +121,25 @@ func createHubbleIntegration(
 	}
 
 	hi := &hubbleIntegration{
-		identityAllocator:    identityAllocator,
-		endpointManager:      endpointManager,
-		ipcache:              ipcache,
-		cgroupManager:        cgroupManager,
-		nodeManager:          nodeManager,
-		nodeLocalStore:       nodeLocalStore,
-		monitorAgent:         monitorAgent,
-		tlsConfigPromise:     tlsConfigPromise,
-		observerOptions:      observerOptions,
-		exporters:            exporters,
-		dropEventEmitter:     dropEventEmitter,
-		payloadParser:        payloadParser,
-		nsManager:            nsManager,
-		grpcMetrics:          grpcMetrics,
-		metricsFlowProcessor: metricsFlowProcessor,
-		peerService:          peerService,
-		config:               config,
-		log:                  log,
+		identityAllocator:     identityAllocator,
+		endpointManager:       endpointManager,
+		ipcache:               ipcache,
+		cgroupManager:         cgroupManager,
+		nodeManager:           nodeManager,
+		nodeLocalStore:        nodeLocalStore,
+		monitorAgent:          monitorAgent,
+		tlsConfigPromise:      tlsConfigPromise,
+		observerOptions:       observerOptions,
+		exporters:             exporters,
+		dropEventEmitter:      dropEventEmitter,
+		payloadParser:         payloadParser,
+		directionalNodeLabels: directionalNodeLabels,
+		nsManager:             nsManager,
+		grpcMetrics:           grpcMetrics,
+		metricsFlowProcessor:  metricsFlowProcessor,
+		peerService:           peerService,
+		config:                config,
+		log:                   log,
 	}
 
 	return hi, nil
@@ -206,6 +210,16 @@ func (h *hubbleIntegration) Status(ctx context.Context) *models.HubbleStatus {
 }
 
 func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserverServer, error) {
+	if err := h.directionalNodeLabels.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start directional node labels resolver: %w", err)
+	}
+	launchComplete := false
+	defer func() {
+		if !launchComplete {
+			h.directionalNodeLabels.Stop()
+		}
+	}()
+
 	var (
 		observerOpts []observeroption.Option
 		localSrvOpts []serveroption.Option
@@ -373,6 +387,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		}()
 	}
 
+	launchComplete = true
 	return hubbleObserver, nil
 }
 

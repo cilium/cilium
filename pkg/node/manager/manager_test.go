@@ -56,7 +56,9 @@ type nodeEvent struct {
 }
 
 type ipcacheMock struct {
-	events chan nodeEvent
+	events         chan nodeEvent
+	metadataSource source.Source
+	onRemove       func()
 }
 
 func newIPcacheMock() *ipcacheMock {
@@ -99,7 +101,7 @@ func (i *ipcacheMock) Delete(ip string, source source.Source, aux ...ipcache.IPM
 }
 
 func (i *ipcacheMock) GetMetadataSourceByPrefix(prefix cmtypes.PrefixCluster) source.Source {
-	return source.Unspec
+	return i.metadataSource
 }
 
 func (i *ipcacheMock) UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
@@ -107,6 +109,9 @@ func (i *ipcacheMock) UpsertMetadata(prefix cmtypes.PrefixCluster, src source.So
 }
 
 func (i *ipcacheMock) RemoveMetadata(prefix cmtypes.PrefixCluster, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
+	if i.onRemove != nil {
+		i.onRemove()
+	}
 	i.Delete(prefix.String(), source.CustomResource, aux...)
 }
 
@@ -240,6 +245,429 @@ func (n *signalNodeHandler) NodeValidateImplementation(node nodeTypes.Node) erro
 		}
 	}
 	return n.NodeValidateImplementationEventError
+}
+
+type nodeStateTestEvent struct {
+	kind string
+	node nodeTypes.Node
+}
+
+type testNodeStateObserver struct {
+	mutex   sync.Mutex
+	events  []nodeStateTestEvent
+	entered chan nodeStateTestEvent
+	release <-chan struct{}
+}
+
+func (o *testNodeStateObserver) NodeUpsert(n nodeTypes.Node) {
+	o.record("upsert", n)
+}
+
+func (o *testNodeStateObserver) NodeDelete(n nodeTypes.Node) {
+	o.record("delete", n)
+}
+
+func (o *testNodeStateObserver) record(kind string, n nodeTypes.Node) {
+	event := nodeStateTestEvent{kind: kind, node: *n.DeepCopy()}
+	if o.entered != nil {
+		o.entered <- event
+	}
+	if o.release != nil {
+		<-o.release
+	}
+
+	o.mutex.Lock()
+	o.events = append(o.events, event)
+	o.mutex.Unlock()
+}
+
+func (o *testNodeStateObserver) recordedEvents() []nodeStateTestEvent {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
+	events := make([]nodeStateTestEvent, len(o.events))
+	for i := range o.events {
+		events[i] = nodeStateTestEvent{
+			kind: o.events[i].kind,
+			node: *o.events[i].node.DeepCopy(),
+		}
+	}
+	return events
+}
+
+func newNodeStateTestManager(t *testing.T) (*manager, *ipcacheMock) {
+	t.Helper()
+
+	ipcache := newIPcacheMock()
+	health, _ := cell.NewSimpleHealth()
+	mngr, err := New(
+		hivetest.Logger(t),
+		&option.DaemonConfig{},
+		tunnel.Config{},
+		ipcache,
+		newIPSetMock(),
+		nil,
+		NewNodeMetrics(),
+		health,
+		nil,
+		nil,
+		nil,
+		fakewireguard.Config{},
+		node.NewTestLocalNodeStore(node.LocalNode{}),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, mngr.Stop(context.Background()))
+	})
+	return mngr, ipcache
+}
+
+func receiveNodeStateTestEvent(t *testing.T, events <-chan nodeStateTestEvent) nodeStateTestEvent {
+	t.Helper()
+	select {
+	case event := <-events:
+		return event
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for node state observer callback")
+		return nodeStateTestEvent{}
+	}
+}
+
+func waitForNodeStateTestOperation(t *testing.T, done <-chan struct{}, operation string) {
+	t.Helper()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for %s", operation)
+	}
+}
+
+func requireNodeStateTestLockHeld(t *testing.T, tryLock func() bool, unlock func(), lockBoundary string) {
+	t.Helper()
+
+	if tryLock() {
+		unlock()
+		t.Fatalf("%s was not locked", lockBoundary)
+	}
+}
+
+// startNodeStateTestManagerLockContender proves that the goroutine has reached
+// the manager-lock boundary with a failed TryLock before it runs operation.
+func startNodeStateTestManagerLockContender(t *testing.T, mngr *manager, operation func()) <-chan struct{} {
+	t.Helper()
+
+	done := make(chan struct{})
+	managerLockContended := make(chan bool, 1)
+	go func() {
+		if mngr.mutex.TryLock() {
+			mngr.mutex.Unlock()
+			managerLockContended <- false
+			close(done)
+			return
+		}
+		managerLockContended <- true
+		operation()
+		close(done)
+	}()
+
+	select {
+	case contended := <-managerLockContended:
+		require.True(t, contended, "operation reached an unlocked manager-lock boundary")
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for operation to contend on the manager lock")
+	}
+	return done
+}
+
+// waitForNodeStateTestLockHeld waits only for eventual progress. The failed
+// TryLock, rather than the timeout or scheduling, proves that the lock is held.
+func waitForNodeStateTestLockHeld(t *testing.T, tryLock func() bool, unlock func(), lockBoundary string) {
+	t.Helper()
+
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	for {
+		if !tryLock() {
+			return
+		}
+		unlock()
+
+		select {
+		case <-timer.C:
+			t.Fatalf("timed out waiting for %s to become locked", lockBoundary)
+		default:
+		}
+	}
+}
+
+func TestNodeStateSubscriptionReplaysCurrentNodes(t *testing.T) {
+	mngr, _ := newNodeStateTestManager(t)
+	node1 := nodeTypes.Node{Name: "node-1", Cluster: "cluster-1", Source: source.Kubernetes}
+	node2 := nodeTypes.Node{Name: "node-2", Cluster: "cluster-1", Source: source.Kubernetes}
+	mngr.NodeUpdated(node1)
+	mngr.NodeUpdated(node2)
+
+	observer := &testNodeStateObserver{}
+	mngr.SubscribeNodeState(observer)
+
+	replayed := observer.recordedEvents()
+	require.Len(t, replayed, 2)
+	require.ElementsMatch(t, []nodeStateTestEvent{
+		{kind: "upsert", node: node1},
+		{kind: "upsert", node: node2},
+	}, replayed)
+}
+
+func TestNodeStateSubscriptionSerializesReplayBeforeUpdate(t *testing.T) {
+	mngr, _ := newNodeStateTestManager(t)
+	current := nodeTypes.Node{Name: "node-1", Cluster: "cluster-1", Source: source.Kubernetes, Labels: map[string]string{"version": "old"}}
+	mngr.NodeUpdated(current)
+
+	releaseReplay := make(chan struct{})
+	var releaseReplayOnce sync.Once
+	defer releaseReplayOnce.Do(func() { close(releaseReplay) })
+	observer := &testNodeStateObserver{
+		entered: make(chan nodeStateTestEvent, 2),
+		release: releaseReplay,
+	}
+	subscribeDone := make(chan struct{})
+	go func() {
+		mngr.SubscribeNodeState(observer)
+		close(subscribeDone)
+	}()
+	require.Equal(t, current, receiveNodeStateTestEvent(t, observer.entered).node)
+	requireNodeStateTestLockHeld(t, mngr.mutex.TryLock, mngr.mutex.Unlock, "manager lock during subscription replay")
+
+	updated := *current.DeepCopy()
+	updated.Labels["version"] = "new"
+	updateDone := startNodeStateTestManagerLockContender(t, mngr, func() {
+		mngr.updateNodeState(
+			updated,
+			updated.Identity(),
+			true,
+			ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", updated.Name),
+			nil, nil, nil, nil, nil,
+		)
+	})
+	releaseReplayOnce.Do(func() { close(releaseReplay) })
+	waitForNodeStateTestOperation(t, subscribeDone, "subscription replay")
+	waitForNodeStateTestOperation(t, updateDone, "concurrent node update")
+
+	require.Equal(t, []nodeStateTestEvent{
+		{kind: "upsert", node: current},
+		{kind: "upsert", node: updated},
+	}, observer.recordedEvents())
+}
+
+func TestNodeStateAcceptedUpdatesIgnoreDatapathSuppression(t *testing.T) {
+	mngr, ipcache := newNodeStateTestManager(t)
+	ipcache.metadataSource = source.Local
+
+	dp := newSignalNodeHandler()
+	dp.EnableNodeAddEvent = true
+	dp.EnableNodeUpdateEvent = true
+	mngr.Subscribe(dp)
+	observer := &testNodeStateObserver{}
+	mngr.SubscribeNodeState(observer)
+
+	added := nodeTypes.Node{
+		Name: "node-1", Cluster: "cluster-1", Source: source.Kubernetes,
+		IPAddresses: []nodeTypes.Address{{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.1")}},
+	}
+	mngr.NodeUpdated(added)
+	updated := *added.DeepCopy()
+	updated.Labels = map[string]string{"version": "new"}
+	mngr.NodeUpdated(updated)
+
+	require.Equal(t, []nodeStateTestEvent{
+		{kind: "upsert", node: added},
+		{kind: "upsert", node: updated},
+	}, observer.recordedEvents())
+	require.Empty(t, dp.NodeAddEvent)
+	require.Empty(t, dp.NodeUpdateEvent)
+}
+
+func TestNodeStateRejectedUpdateEmitsNothing(t *testing.T) {
+	mngr, _ := newNodeStateTestManager(t)
+	observer := &testNodeStateObserver{}
+	mngr.SubscribeNodeState(observer)
+
+	current := nodeTypes.Node{Name: "node-1", Cluster: "cluster-1", Source: source.Local}
+	mngr.NodeUpdated(current)
+	rejected := *current.DeepCopy()
+	rejected.Source = source.Kubernetes
+	rejected.Labels = map[string]string{"rejected": "true"}
+	mngr.NodeUpdated(rejected)
+
+	require.Equal(t, []nodeStateTestEvent{{kind: "upsert", node: current}}, observer.recordedEvents())
+	require.Equal(t, current, mngr.GetNodes()[current.Identity()])
+}
+
+func TestNodeStateDeleteUsesLatestStoredSnapshot(t *testing.T) {
+	mngr, ipcache := newNodeStateTestManager(t)
+	observer := &testNodeStateObserver{}
+	mngr.SubscribeNodeState(observer)
+
+	stale := nodeTypes.Node{
+		Name: "node-1", Cluster: "cluster-1", Source: source.Kubernetes,
+		IPAddresses: []nodeTypes.Address{{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.1")}},
+		Labels:      map[string]string{"version": "old"},
+	}
+	mngr.NodeUpdated(stale)
+	latest := *stale.DeepCopy()
+	latest.IPAddresses[0].IP = net.ParseIP("10.0.0.2")
+	latest.Labels["version"] = "new"
+	mngr.NodeUpdated(latest)
+	for len(ipcache.events) > 0 {
+		<-ipcache.events
+	}
+
+	mngr.NodeDeleted(stale)
+
+	require.Equal(t, []nodeStateTestEvent{
+		{kind: "upsert", node: stale},
+		{kind: "upsert", node: latest},
+		{kind: "delete", node: latest},
+	}, observer.recordedEvents())
+	require.NotContains(t, mngr.GetNodes(), stale.Identity())
+	select {
+	case event := <-ipcache.events:
+		require.Equal(t, "delete", event.event)
+		require.Equal(t, netip.MustParsePrefix("10.0.0.2/32"), event.prefix)
+	default:
+		t.Fatal("latest stored node address was not removed from IPCache")
+	}
+	require.Empty(t, ipcache.events, "stale caller payload drove additional IPCache cleanup")
+}
+
+func TestNodeStateSourceMismatchedDeleteEmitsNothing(t *testing.T) {
+	mngr, _ := newNodeStateTestManager(t)
+	observer := &testNodeStateObserver{}
+	mngr.SubscribeNodeState(observer)
+
+	current := nodeTypes.Node{Name: "node-1", Cluster: "cluster-1", Source: source.Local}
+	mngr.NodeUpdated(current)
+	mismatched := current
+	mismatched.Source = source.Kubernetes
+	mngr.NodeDeleted(mismatched)
+
+	require.Equal(t, []nodeStateTestEvent{{kind: "upsert", node: current}}, observer.recordedEvents())
+	require.Equal(t, current, mngr.GetNodes()[current.Identity()])
+}
+
+func TestNodeStateSyntheticRestoredDeleteEmitsNothing(t *testing.T) {
+	mngr, _ := newNodeStateTestManager(t)
+	observer := &testNodeStateObserver{}
+	mngr.SubscribeNodeState(observer)
+
+	mngr.NodeDeleted(nodeTypes.Node{Name: "stale-node", Cluster: "cluster-1", Source: source.Restored})
+
+	require.Empty(t, observer.recordedEvents())
+}
+
+func TestNodeStateUnsubscribeWaitsForCallbackAndPreventsLaterCallbacks(t *testing.T) {
+	mngr, _ := newNodeStateTestManager(t)
+	releaseCallback := make(chan struct{})
+	var releaseCallbackOnce sync.Once
+	defer releaseCallbackOnce.Do(func() { close(releaseCallback) })
+	observer := &testNodeStateObserver{
+		entered: make(chan nodeStateTestEvent, 1),
+		release: releaseCallback,
+	}
+	mngr.SubscribeNodeState(observer)
+
+	first := nodeTypes.Node{Name: "node-1", Cluster: "cluster-1", Source: source.Kubernetes}
+	updateDone := make(chan struct{})
+	go func() {
+		mngr.NodeUpdated(first)
+		close(updateDone)
+	}()
+	require.Equal(t, first, receiveNodeStateTestEvent(t, observer.entered).node)
+	requireNodeStateTestLockHeld(t, mngr.mutex.TryLock, mngr.mutex.Unlock, "manager lock during observer callback")
+
+	unsubscribeDone := startNodeStateTestManagerLockContender(t, mngr, func() {
+		mngr.UnsubscribeNodeState(observer)
+	})
+
+	releaseCallbackOnce.Do(func() { close(releaseCallback) })
+	waitForNodeStateTestOperation(t, updateDone, "blocked observer callback")
+	waitForNodeStateTestOperation(t, unsubscribeDone, "observer unsubscription")
+
+	mngr.NodeUpdated(nodeTypes.Node{Name: "node-2", Cluster: "cluster-1", Source: source.Kubernetes})
+	require.Equal(t, []nodeStateTestEvent{{kind: "upsert", node: first}}, observer.recordedEvents())
+}
+
+func TestNodeStateOrderingAndManagerEntryLockOrder(t *testing.T) {
+	t.Run("callbacks preserve add update delete ordering", func(t *testing.T) {
+		mngr, _ := newNodeStateTestManager(t)
+		observer := &testNodeStateObserver{}
+		mngr.SubscribeNodeState(observer)
+
+		added := nodeTypes.Node{Name: "node-1", Cluster: "cluster-1", Source: source.Kubernetes}
+		updated := added
+		updated.Labels = map[string]string{"version": "new"}
+		mngr.NodeUpdated(added)
+		mngr.NodeUpdated(updated)
+		mngr.NodeDeleted(updated)
+
+		require.Equal(t, []nodeStateTestEvent{
+			{kind: "upsert", node: added},
+			{kind: "upsert", node: updated},
+			{kind: "delete", node: updated},
+		}, observer.recordedEvents())
+	})
+
+	t.Run("delete follows manager then entry lock order without deadlock", func(t *testing.T) {
+		mngr, ipcache := newNodeStateTestManager(t)
+		current := nodeTypes.Node{
+			Name: "node-1", Cluster: "cluster-1", Source: source.Kubernetes,
+			IPAddresses: []nodeTypes.Address{{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.1")}},
+		}
+		mngr.NodeUpdated(current)
+		for len(ipcache.events) > 0 {
+			<-ipcache.events
+		}
+
+		// Holding the entry lock forces deletion to retain the manager lock while
+		// it waits. Cleanup then pauses so both retained locks can be probed at
+		// the actual IPCache removal boundary.
+		mngr.mutex.Lock()
+		entry := mngr.nodes[current.Identity()]
+		entry.mutex.Lock()
+		var unlockEntryOnce sync.Once
+		defer unlockEntryOnce.Do(entry.mutex.Unlock)
+		mngr.mutex.Unlock()
+
+		cleanupEntered := make(chan struct{})
+		cleanupRelease := make(chan struct{})
+		var cleanupReleaseOnce sync.Once
+		defer cleanupReleaseOnce.Do(func() { close(cleanupRelease) })
+		var cleanupOnce sync.Once
+		ipcache.onRemove = func() {
+			cleanupOnce.Do(func() {
+				close(cleanupEntered)
+				<-cleanupRelease
+			})
+		}
+
+		deleteStarted := make(chan struct{})
+		deleteDone := make(chan struct{})
+		go func() {
+			close(deleteStarted)
+			mngr.deleteNodeState(current, current.Identity())
+			close(deleteDone)
+		}()
+		waitForNodeStateTestOperation(t, deleteStarted, "node deletion start")
+		waitForNodeStateTestLockHeld(t, mngr.mutex.TryLock, mngr.mutex.Unlock, "manager lock retained while delete waits for entry lock")
+
+		unlockEntryOnce.Do(entry.mutex.Unlock)
+		waitForNodeStateTestOperation(t, cleanupEntered, "IPCache cleanup boundary")
+		requireNodeStateTestLockHeld(t, mngr.mutex.TryLock, mngr.mutex.Unlock, "manager lock during IPCache cleanup")
+		requireNodeStateTestLockHeld(t, entry.mutex.TryLock, entry.mutex.Unlock, "entry lock during IPCache cleanup")
+		cleanupReleaseOnce.Do(func() { close(cleanupRelease) })
+		waitForNodeStateTestOperation(t, deleteDone, "node deletion after releasing entry lock")
+		require.NotContains(t, mngr.GetNodes(), current.Identity())
+	})
 }
 
 func TestNodeLifecycle(t *testing.T) {

@@ -62,6 +62,195 @@ func setupIPCacheTestSuite(tb testing.TB) *IPCacheTestSuite {
 	return s
 }
 
+func TestGetHostIP(t *testing.T) {
+	t.Parallel()
+
+	type cacheEntry struct {
+		key    string
+		hostIP net.IP
+	}
+
+	tests := []struct {
+		name       string
+		entries    []cacheEntry
+		addr       cmtypes.AddrCluster
+		want       netip.Addr
+		wantStatus HostIPLookupStatus
+		wantOK     bool
+	}{
+		{
+			name:       "local IPv4 endpoint",
+			entries:    []cacheEntry{{key: "10.0.0.1", hostIP: net.ParseIP("192.0.2.1")}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.1"),
+			want:       netip.MustParseAddr("192.0.2.1"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
+		},
+		{
+			name: "remote IPv4 endpoint selects same ClusterID",
+			entries: []cacheEntry{
+				{key: "10.0.0.1", hostIP: net.ParseIP("192.0.2.1")},
+				{key: "10.0.0.1@42", hostIP: net.ParseIP("192.0.2.42")},
+			},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.1@42"),
+			want:       netip.MustParseAddr("192.0.2.42"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
+		},
+		{
+			name: "local IPv4 endpoint does not select remote ClusterID",
+			entries: []cacheEntry{
+				{key: "10.0.0.1", hostIP: net.ParseIP("192.0.2.1")},
+				{key: "10.0.0.1@42", hostIP: net.ParseIP("192.0.2.42")},
+			},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.1"),
+			want:       netip.MustParseAddr("192.0.2.1"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
+		},
+		{
+			name:       "remote IPv4 endpoint does not fall back to local scope",
+			entries:    []cacheEntry{{key: "10.0.0.1", hostIP: net.ParseIP("192.0.2.1")}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.1@42"),
+			wantStatus: HostIPLookupAbsent,
+		},
+		{
+			name:       "exact IPv4 host prefix",
+			entries:    []cacheEntry{{key: "10.0.0.2/32@42", hostIP: net.ParseIP("192.0.2.2")}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.2@42"),
+			want:       netip.MustParseAddr("192.0.2.2"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
+		},
+		{
+			name: "matching IPv4 endpoint and host prefix",
+			entries: []cacheEntry{
+				{key: "10.0.0.3@42", hostIP: net.ParseIP("192.0.2.3")},
+				{key: "10.0.0.3/32@42", hostIP: net.ParseIP("192.0.2.3")},
+			},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.3@42"),
+			want:       netip.MustParseAddr("192.0.2.3"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
+		},
+		{
+			name:       "IPv6 endpoint",
+			entries:    []cacheEntry{{key: "fd00::1@42", hostIP: net.ParseIP("2001:db8::1")}},
+			addr:       cmtypes.MustParseAddrCluster("fd00::1@42"),
+			want:       netip.MustParseAddr("2001:db8::1"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
+		},
+		{
+			name:       "exact IPv6 host prefix",
+			entries:    []cacheEntry{{key: "fd00::2/128@42", hostIP: net.ParseIP("2001:db8::2")}},
+			addr:       cmtypes.MustParseAddrCluster("fd00::2@42"),
+			want:       netip.MustParseAddr("2001:db8::2"),
+			wantStatus: HostIPLookupResolved,
+			wantOK:     true,
+		},
+		{
+			name: "conflicting exact representations",
+			entries: []cacheEntry{
+				{key: "10.0.0.4@42", hostIP: net.ParseIP("192.0.2.4")},
+				{key: "10.0.0.4/32@42", hostIP: net.ParseIP("192.0.2.44")},
+			},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.4@42"),
+			wantStatus: HostIPLookupInvalid,
+		},
+		{
+			name: "valid endpoint and missing host prefix",
+			entries: []cacheEntry{
+				{key: "10.0.0.5@42", hostIP: net.ParseIP("192.0.2.5")},
+				{key: "10.0.0.5/32@42"},
+			},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.5@42"),
+			wantStatus: HostIPLookupInvalid,
+		},
+		{
+			name: "missing endpoint host and valid prefix",
+			entries: []cacheEntry{
+				{key: "10.0.0.6@42"},
+				{key: "10.0.0.6/32@42", hostIP: net.ParseIP("192.0.2.6")},
+			},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.6@42"),
+			wantStatus: HostIPLookupInvalid,
+		},
+		{
+			name:       "broader prefix is not an exact host match",
+			entries:    []cacheEntry{{key: "10.0.0.0/24@42", hostIP: net.ParseIP("192.0.2.5")}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.6@42"),
+			wantStatus: HostIPLookupAbsent,
+		},
+		{
+			name:       "nil host IP",
+			entries:    []cacheEntry{{key: "10.0.0.7@42"}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.7@42"),
+			wantStatus: HostIPLookupInvalid,
+		},
+		{
+			name:       "invalid host IP",
+			entries:    []cacheEntry{{key: "10.0.0.8@42", hostIP: net.IP{1, 2, 3}}},
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.8@42"),
+			wantStatus: HostIPLookupInvalid,
+		},
+		{
+			name:       "invalid address",
+			addr:       cmtypes.AddrCluster{},
+			wantStatus: HostIPLookupInvalid,
+		},
+		{
+			name:       "absent address",
+			addr:       cmtypes.MustParseAddrCluster("10.0.0.9@42"),
+			wantStatus: HostIPLookupAbsent,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := setupIPCacheTestSuite(t)
+			for _, entry := range tt.entries {
+				_, err := s.IPIdentityCache.Upsert(entry.key, entry.hostIP, 0, nil, Identity{
+					ID:     1234,
+					Source: source.KVStore,
+				})
+				require.NoError(t, err)
+			}
+
+			got, status := s.IPIdentityCache.LookupHostIP(tt.addr)
+			require.Equal(t, tt.wantStatus, status)
+			require.Equal(t, tt.want, got)
+
+			got, ok := s.IPIdentityCache.GetHostIP(tt.addr)
+			require.Equal(t, tt.wantOK, ok)
+			require.Equal(t, tt.want, got)
+		})
+	}
+
+	t.Run("upsert update and delete", func(t *testing.T) {
+		s := setupIPCacheTestSuite(t)
+		addr := cmtypes.MustParseAddrCluster("10.0.0.9@42")
+		identity := Identity{ID: 1234, Source: source.KVStore}
+
+		_, err := s.IPIdentityCache.Upsert(addr.String(), net.ParseIP("192.0.2.9"), 0, nil, identity)
+		require.NoError(t, err)
+		got, ok := s.IPIdentityCache.GetHostIP(addr)
+		require.True(t, ok)
+		require.Equal(t, netip.MustParseAddr("192.0.2.9"), got)
+
+		_, err = s.IPIdentityCache.Upsert(addr.String(), net.ParseIP("192.0.2.99"), 0, nil, identity)
+		require.NoError(t, err)
+		got, ok = s.IPIdentityCache.GetHostIP(addr)
+		require.True(t, ok)
+		require.Equal(t, netip.MustParseAddr("192.0.2.99"), got)
+
+		s.IPIdentityCache.Delete(addr.String(), source.KVStore)
+		got, ok = s.IPIdentityCache.GetHostIP(addr)
+		require.False(t, ok)
+		require.Equal(t, netip.Addr{}, got)
+	})
+}
+
 func TestIPCache(t *testing.T) {
 	s := setupIPCacheTestSuite(t)
 	t.Parallel()
