@@ -31,6 +31,8 @@ const (
 	gatewayNameLabel   = "gateway.networking.k8s.io/gateway-name"
 
 	lastTransitionTime = "LastTransitionTime"
+
+	hostNetworkTCPUDPRouteUnsupportedReason = "Gateway API Host Network mode is enabled"
 )
 
 // gatewayReconciler reconciles a Gateway object
@@ -39,28 +41,45 @@ type gatewayReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
-	inputLoader        *loading.TranslationInputLoader
-	logger             *slog.Logger
-	controllerName     string
-	hostNetworkEnabled bool
+	inputLoader             *loading.TranslationInputLoader
+	routeStatusManager      *RouteStatusManager
+	logger                  *slog.Logger
+	controllerName          string
+	tcpUDPRouteSupport      bool
+	tcpUDPUnsupportedReason string
 }
 
 func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
+	includeTCPRoutes := helpers.HasTCPRouteSupport(mgr.GetScheme())
+	includeUDPRoutes := helpers.HasUDPRouteSupport(mgr.GetScheme())
+	tcpUDPRouteSupport := !hostNetworkEnabled
 
 	return &gatewayReconciler{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
 		translator: translator,
 		inputLoader: loading.NewTranslationInputLoader(mgr.GetClient(), scopedLog, controllerName, loading.TranslationInputLoaderConfig{
-			IncludeTCPRoutes:      helpers.HasTCPRouteSupport(mgr.GetScheme()),
-			IncludeUDPRoutes:      helpers.HasUDPRouteSupport(mgr.GetScheme()),
+			IncludeTCPRoutes:      includeTCPRoutes,
+			IncludeUDPRoutes:      includeUDPRoutes,
 			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
 			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
 		}),
-		logger:             scopedLog,
-		controllerName:     controllerName,
-		hostNetworkEnabled: hostNetworkEnabled,
+		routeStatusManager: NewRouteStatusManager(
+			mgr.GetClient(),
+			scopedLog,
+			controllerName,
+			RouteStatusManagerConfig{
+				IncludeTCPRoutes:        includeTCPRoutes,
+				IncludeUDPRoutes:        includeUDPRoutes,
+				TCPUDPRouteSupport:      tcpUDPRouteSupport,
+				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+			},
+		),
+		logger:                  scopedLog,
+		controllerName:          controllerName,
+		tcpUDPRouteSupport:      tcpUDPRouteSupport,
+		tcpUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 	}
 }
 
