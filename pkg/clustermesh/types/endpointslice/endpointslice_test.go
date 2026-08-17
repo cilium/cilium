@@ -116,6 +116,19 @@ func TestClusterEndpointSliceValidate(t *testing.T) {
 			},
 			errstr: "invalid IPv6 endpoint address: 10.1.2.3",
 		},
+		{
+			name: "IPv6 endpoint address with zone",
+			eps: ClusterEndpointSlice{
+				Cluster:     "foo",
+				Namespace:   "bar",
+				Name:        "qux",
+				AddressType: slim_discovery_v1.AddressTypeIPv6,
+				Endpoints: []slim_discovery_v1.Endpoint{{
+					Addresses: []string{"fd10::1234%zone"},
+				}},
+			},
+			errstr: "invalid IPv6 endpoint address: fd10::1234%zone",
+		},
 	}
 
 	for _, tt := range tests {
