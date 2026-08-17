@@ -1,0 +1,151 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: session-persistence-http
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: /exact
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+      sessionPersistence:
+        type: Cookie
+        sessionName: exact-session
+        cookieConfig:
+          lifetimeType: Session
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /prefix
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+      sessionPersistence: {}
+    - backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+      sessionPersistence:
+        sessionName: fallback-session
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /same
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+      sessionPersistence:
+        sessionName: same-session-a
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /same
+      backendRefs:
+        - name: infra-backend-v2
+          port: 8080
+      sessionPersistence:
+        sessionName: same-session-b
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /plain
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /redirect
+      filters:
+        - type: RequestRedirect
+          requestRedirect: {}
+      sessionPersistence: {}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /direct
+      sessionPersistence: {}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: session-persistence-grpc
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - matches:
+        - method:
+            service: persistence.Session
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8081
+      sessionPersistence:
+        sessionName: grpc-session
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: session-persistence-header
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - backendRefs:
+        - name: infra-backend-v1
+          port: 8081
+      sessionPersistence:
+        type: Header
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: session-persistence-permanent
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+      sessionPersistence:
+        cookieConfig:
+          lifetimeType: Permanent
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: session-persistence-absolute-timeout
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+      sessionPersistence:
+        absoluteTimeout: 1h
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: session-persistence-empty-name
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+      sessionPersistence:
+        sessionName: ""
