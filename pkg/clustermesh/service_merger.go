@@ -92,7 +92,13 @@ func (sm *serviceMerger) MergeExternalServiceUpdate(service *serviceStore.Cluste
 
 func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []loadbalancer.BackendParams) {
 	for ipString, portConfig := range service.Backends {
-		addrCluster := cmtypes.MustParseAddrCluster(ipString)
+		addrCluster, err := cmtypes.ParseAddrCluster(ipString)
+		if err != nil {
+			// Errors are never expected to happen, as the addresses are already
+			// validated upon reception. Still, let's lean on the safe side.
+			continue
+		}
+
 		currentIdx := len(beps)
 		for name, l4 := range portConfig {
 			currentBeps := beps[currentIdx:]
