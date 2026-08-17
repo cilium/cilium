@@ -25,7 +25,7 @@ status:
   listeners:
     - attachedRoutes: 0
       conditions:
-        - message: Listener not valid. UDP listeners are not supported when Gateway API Host Network mode is enabled
+        - message: "Listener not valid. UDP listeners are not supported: Gateway API Host Network mode is enabled"
           reason: UnsupportedProtocol
           status: "False"
           type: Accepted

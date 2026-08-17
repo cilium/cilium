@@ -114,7 +114,7 @@ func TestPruneRouteParentStatuses(t *testing.T) {
 	require.Equal(t, gatewayv1.GatewayController(defaultControllerName), route.Status.Parents[1].ControllerName, "prune removes only the detached Cilium-owned status")
 }
 
-func TestSetTCPRouteStatusesPrunesDetachedParents(t *testing.T) {
+func Test_setTCPRouteStatusesPrunesDetachedParents(t *testing.T) {
 	route := &gatewayv1.TCPRoute{
 		ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "default"},
 		Status: gatewayv1.TCPRouteStatus{RouteStatus: gatewayv1.RouteStatus{Parents: []gatewayv1.RouteParentStatus{{
@@ -130,15 +130,20 @@ func TestSetTCPRouteStatusesPrunesDetachedParents(t *testing.T) {
 	routes := &gatewayv1.TCPRouteList{}
 	require.NoError(t, c.List(t.Context(), routes))
 
-	r := &gatewayReconciler{Client: c, controllerName: defaultControllerName}
-	require.NoError(t, r.setTCPRouteStatuses(slog.Default(), t.Context(), routes.Items, nil))
+	m := NewRouteStatusManager(c, slog.Default(), defaultControllerName, RouteStatusManagerConfig{
+		IncludeTCPRoutes:        true,
+		IncludeUDPRoutes:        true,
+		TCPUDPRouteSupport:      true,
+		TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+	})
+	require.NoError(t, m.setTCPRouteStatuses(slog.Default(), t.Context(), routes.Items, nil))
 
 	updated := &gatewayv1.TCPRoute{}
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), updated))
 	require.Empty(t, updated.Status.Parents)
 }
 
-func TestSetUDPRouteStatusesPrunesDetachedParents(t *testing.T) {
+func Test_setUDPRouteStatusesPrunesDetachedParents(t *testing.T) {
 	route := &gatewayv1.UDPRoute{
 		ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "default"},
 		Status: gatewayv1.UDPRouteStatus{RouteStatus: gatewayv1.RouteStatus{Parents: []gatewayv1.RouteParentStatus{{
@@ -154,8 +159,13 @@ func TestSetUDPRouteStatusesPrunesDetachedParents(t *testing.T) {
 	routes := &gatewayv1.UDPRouteList{}
 	require.NoError(t, c.List(t.Context(), routes))
 
-	r := &gatewayReconciler{Client: c, controllerName: defaultControllerName}
-	require.NoError(t, r.setUDPRouteStatuses(slog.Default(), t.Context(), routes.Items, nil))
+	m := NewRouteStatusManager(c, slog.Default(), defaultControllerName, RouteStatusManagerConfig{
+		IncludeTCPRoutes:        true,
+		IncludeUDPRoutes:        true,
+		TCPUDPRouteSupport:      true,
+		TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+	})
+	require.NoError(t, m.setUDPRouteStatuses(slog.Default(), t.Context(), routes.Items, nil))
 
 	updated := &gatewayv1.UDPRoute{}
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), updated))
