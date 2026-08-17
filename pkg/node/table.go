@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/reconciler"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -29,6 +30,11 @@ type Node struct {
 	// Local is non-nil if this is the local node. This carries additional
 	// information about the local node that is not shared outside.
 	Local *LocalNodeInfo
+
+	// Statuses for reconcilers acting on this object.
+	// DeepEqual is reserved for comparing the desired node data.
+	// +deepequal-gen=false
+	Statuses reconciler.StatusSet
 }
 
 // DeepCopy returns a deep copy of the node.

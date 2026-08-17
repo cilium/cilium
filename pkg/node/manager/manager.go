@@ -958,13 +958,18 @@ func (m *manager) upsertToNodeTable(n *nodeTypes.Node) {
 		return
 	}
 	txn := m.db.WriteTxn(m.nodeTable)
-	old, found, _ := m.nodeTable.Insert(txn, &node.Node{Node: *n})
+	old, _, found := m.nodeTable.Get(txn, node.NodeByName(n.Fullname()))
 	if found && old.Local != nil {
 		// Never touch the local node.
 		txn.Abort()
-	} else {
-		txn.Commit()
+		return
 	}
+	obj := &node.Node{Node: *n}
+	if found {
+		obj.Statuses = old.Statuses.Pending()
+	}
+	m.nodeTable.Insert(txn, obj)
+	txn.Commit()
 }
 
 func (m *manager) deleteFromNodeTable(nodeId nodeTypes.Identity) {
