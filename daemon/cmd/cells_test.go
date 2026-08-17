@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -37,10 +36,6 @@ func TestAgentCell(t *testing.T) {
 	defer metrics.Reinitialize()
 
 	logging.SetLogLevel(slog.LevelDebug)
-
-	// Populate config with default values normally set by Viper flag defaults
-	option.Config.IPv4ServiceRange = AutoCIDR
-	option.Config.IPv6ServiceRange = AutoCIDR
 
 	err := hive.New(Agent).Populate(hivetest.Logger(t))
 	assert.NoError(t, err, "Populate()")
