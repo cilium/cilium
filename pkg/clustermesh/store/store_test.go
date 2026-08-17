@@ -154,6 +154,16 @@ func TestClusterServiceValidate(t *testing.T) {
 			},
 			assert: assert.Error,
 		},
+		{
+			name: "backend IP with IPv6 zone",
+			svc: ClusterService{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				Backends:  map[string]PortConfiguration{"dcba::0001%zone": {}},
+				Zones:     map[string]BackendZone{},
+				Hostnames: map[string]string{},
+			},
+			assert: assert.Error,
+		},
 	}
 
 	for _, tt := range tests {
