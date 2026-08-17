@@ -461,9 +461,16 @@ func Test_Conformance(t *testing.T) {
 					IncludeServiceImports: helpers.HasServiceImportSupport(c.Scheme()),
 					IncludeListenerSets:   helpers.HasListenerSetSupport(c.Scheme()),
 				}),
-				logger:             logger,
-				controllerName:     defaultControllerName,
-				hostNetworkEnabled: tt.hostNetwork,
+				routeStatusManager: NewRouteStatusManager(c, logger, defaultControllerName, RouteStatusManagerConfig{
+					IncludeTCPRoutes:        !tt.disableTCPRoute,
+					IncludeUDPRoutes:        !tt.disableUDPRoute,
+					TCPUDPRouteSupport:      !tt.hostNetwork,
+					TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+				}),
+				logger:                  logger,
+				controllerName:          defaultControllerName,
+				tcpUDPRouteSupport:      !tt.hostNetwork,
+				tcpUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 			}
 
 			// Reconcile all related HTTPRoute objects
@@ -1422,9 +1429,17 @@ func testReconciler(t *testing.T, obj ...client.Object) (*gatewayReconciler, cli
 		Build()
 
 	reconciler := &gatewayReconciler{
-		Client:         fakeClient,
-		logger:         logger,
-		controllerName: defaultControllerName,
+		Client:                  fakeClient,
+		logger:                  logger,
+		controllerName:          defaultControllerName,
+		tcpUDPRouteSupport:      true,
+		tcpUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+		routeStatusManager: NewRouteStatusManager(fakeClient, logger, defaultControllerName, RouteStatusManagerConfig{
+			IncludeTCPRoutes:        true,
+			IncludeUDPRoutes:        true,
+			TCPUDPRouteSupport:      true,
+			TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+		}),
 	}
 
 	return reconciler, fakeClient
@@ -1514,7 +1529,7 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 
 		hrList := &gatewayv1.HTTPRouteList{}
 		require.NoError(t, c.List(ctx, hrList))
-		require.NoError(t, r.setHTTPRouteStatuses(r.logger, ctx, hrList.Items, nil))
+		require.NoError(t, r.routeStatusManager.setHTTPRouteStatuses(r.logger, ctx, hrList.Items, nil))
 
 		var updatedValidRoute, updatedInvalidRoute gatewayv1.HTTPRoute
 		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: validRoute.Name, Namespace: validRoute.Namespace}, &updatedValidRoute))
@@ -1582,7 +1597,7 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 
 		hrList := &gatewayv1.GRPCRouteList{}
 		require.NoError(t, c.List(ctx, hrList))
-		require.NoError(t, r.setGRPCRouteStatuses(r.logger, ctx, hrList.Items, nil))
+		require.NoError(t, r.routeStatusManager.setGRPCRouteStatuses(r.logger, ctx, hrList.Items, nil))
 
 		var updatedValidRoute, updatedInvalidRoute gatewayv1.GRPCRoute
 		require.NoError(t, c.Get(ctx, types.NamespacedName{Name: validRoute.Name, Namespace: validRoute.Namespace}, &updatedValidRoute))
