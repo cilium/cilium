@@ -16,6 +16,7 @@ import (
 	grpcStatsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcWebv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
 	httpRouterv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	statefulsessionv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	httpConnectionManagerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -116,6 +117,15 @@ func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*h
 			Name: "envoy.filters.http.cors",
 			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
 				TypedConfig: toAny(&httpCorsv3.Cors{}),
+			},
+		})
+	}
+
+	if m.IsSessionPersistenceConfigured() {
+		hf = append(hf, &httpConnectionManagerv3.HttpFilter{
+			Name: "envoy.filters.http.stateful_session",
+			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+				TypedConfig: toAny(&statefulsessionv3.StatefulSession{}),
 			},
 		})
 	}
