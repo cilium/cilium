@@ -232,6 +232,7 @@ func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 		// No changes.
 		return
 	}
+	ln.Statuses = orig.Statuses.Pending()
 
 	if orig.Fullname() != ln.Fullname() {
 		// Name or cluster has changed, delete first to remove it from the name index.
