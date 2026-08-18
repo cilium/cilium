@@ -288,7 +288,7 @@ staticResources:
     connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
     edsClusterConfig:
       edsConfig:
-        {{- if or (eq $envoyXdsMode "ads") (eq $envoyXdsMode "strict-ads") }}
+        {{- if or (eq $envoyXdsMode "ads") (hasSuffix "-ads" $envoyXdsMode) }}
         ads: {}
         resourceApiVersion: "V3"
         {{- else }}

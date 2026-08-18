@@ -34,7 +34,7 @@ func (cb LoggingCallbacks) OnStreamDeltaRequest(streamID int64, req *discovery.D
 		logfields.XDSTypeURL, req.GetTypeUrl(),
 		logfields.XDSNonce, req.GetResponseNonce(),
 		logfields.XDSResourceNames, req.GetResourceNamesSubscribe(),
-		"xdsResourceNamesUnsubscribe", req.GetResourceNamesUnsubscribe(),
+		logfields.XDSResourceNamesUnsubscribe, req.GetResourceNamesUnsubscribe(),
 	}
 	if req.GetErrorDetail() != nil {
 		args = append(args, logfields.Error, req.GetErrorDetail().GetMessage())
@@ -51,7 +51,7 @@ func (cb LoggingCallbacks) OnStreamDeltaResponse(streamID int64, req *discovery.
 		logfields.XDSTypeURL, resp.GetTypeUrl(),
 		logfields.XDSNonce, resp.GetNonce(),
 		logfields.XDSNumResources, len(resp.GetResources()),
-		"xdsRemovedResources", resp.GetRemovedResources())
+		logfields.XDSRemovedResources, resp.GetRemovedResources())
 }
 
 var _ envoy_xds.Callbacks = LoggingCallbacks{}

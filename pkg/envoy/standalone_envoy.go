@@ -460,7 +460,7 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 	}
 
 	if config.xdsMode.IsADS() {
-		dynamicResources.AdsConfig = CiliumAdsConfigSource
+		dynamicResources.AdsConfig = CiliumADSConfigSource(config.xdsMode)
 	}
 
 	bs := &envoy_config_bootstrap.Bootstrap{
