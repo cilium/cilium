@@ -351,6 +351,53 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 				"cidr:192.168.1.10/32;reserved:host",
 			},
 		},
+		{
+			// Regression test for a bug where a 0.0.0.0/0 CIDRRule (which
+			// expands to a wildcard requirement on reserved:world/world-ipv4,
+			// see resolveLabels() in pkg/ipcache/metadata.go) would never
+			// match host/remote-node identities even with
+			// policyCIDRMatchMode=nodes enabled, because
+			// matchesCIDRWildcard() only consulted PolicyCIDRMatchesPods().
+			// See cilium/cilium#48034.
+			name: "world v4 wildcard matching nodes enabled, matches host and remote-node",
+			rule: api.CIDRRule{Cidr: "0.0.0.0/0"},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:0.0.0.0/0",
+				requirements: Requirements{
+					NewExistRequirement(labels.WorldLabelV4),
+				},
+			}},
+			enableIPv4: true, enableIPv6: true,
+			policyCIDRMatchesNodes: true,
+			matchesLabels: []string{
+				"cidr:1.1.1.1/32;reserved:world-ipv4",
+				"cidr:192.168.1.10/32;reserved:host",
+				"cidr:192.168.1.10/32;reserved:remote-node",
+			},
+			notMatchesLabels: []string{
+				"cidr:::/0;reserved:world-ipv6",
+				"cidr:::1/128;reserved:world-ipv6",
+			},
+		},
+		{
+			name: "world v4 wildcard matching nodes disabled, does not match host or remote-node",
+			rule: api.CIDRRule{Cidr: "0.0.0.0/0"},
+			expected: Selectors{&CIDRSelector{
+				key: "cidr:0.0.0.0/0",
+				requirements: Requirements{
+					NewExistRequirement(labels.WorldLabelV4),
+				},
+			}},
+			enableIPv4: true, enableIPv6: true,
+			policyCIDRMatchesNodes: false,
+			matchesLabels: []string{
+				"cidr:1.1.1.1/32;reserved:world-ipv4",
+			},
+			notMatchesLabels: []string{
+				"cidr:192.168.1.10/32;reserved:host",
+				"cidr:192.168.1.10/32;reserved:remote-node",
+			},
+		},
 	}
 
 	for _, test := range tt {
