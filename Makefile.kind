@@ -14,6 +14,34 @@ kind-egressgw: ## Create a kind cluster for egress gateway Cilium development.
 	$(QUIET)SED=$(SED) WORKERS=3 ./contrib/scripts/kind.sh
 	kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
+.PHONY: kind-topology
+kind-topology: ## Create a kind cluster for topology aware routing development. Needs a node image with Kubernetes 1.34 or newer.
+	$(QUIET)SED=$(SED) WORKERS=3 ./contrib/scripts/kind.sh
+	# Workers can still be registering with the API server when kind.sh returns,
+	# so wait for them before labeling. Waiting for Ready is not an option here:
+	# kind.sh disables the default CNI, so nodes stay NotReady until Cilium is
+	# installed.
+	$(QUIET)for node in kind-worker kind-worker2 kind-worker3; do \
+		for i in $$(seq 1 60); do \
+			kubectl get node $$node >/dev/null 2>&1 && break; \
+			if [ $$i -eq 60 ]; then \
+				echo "timed out waiting for $$node to register with the API server" >&2; \
+				exit 1; \
+			fi; \
+			sleep 2; \
+		done; \
+	done
+	# zone-a spans two nodes so that a backend can sit in the client's zone but
+	# on a different node. That is the case which tells zone based selection
+	# apart from node local selection.
+	kubectl label node kind-worker topology.kubernetes.io/zone=zone-a --overwrite
+	kubectl label node kind-worker3 topology.kubernetes.io/zone=zone-a --overwrite
+	kubectl label node kind-worker2 topology.kubernetes.io/zone=zone-b --overwrite
+	# kind.sh untaints the control plane, so it is schedulable too. An unlabeled
+	# node runs an agent without a zone, and a Pod landing there would carry no
+	# zone hint and switch topology filtering off for the whole Service.
+	kubectl label node kind-control-plane topology.kubernetes.io/zone=zone-c --overwrite
+
 .PHONY: kind-down
 kind-down: ## Destroy a kind cluster for Cilium development.
 	$(QUIET)./contrib/scripts/kind-down.sh
@@ -497,6 +525,35 @@ kind-egressgw-install-cilium: check_deps kind-ready ## Install a local Cilium ve
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-egressgw-values.yaml \
 		--nodes-without-cilium \
 		--version=
+
+.PHONY: kind-topology-install-cilium
+kind-topology-install-cilium: check_deps kind-ready ## Install a local Cilium version into the cluster for topology aware routing development.
+	@echo "  INSTALL cilium"
+	# kind-ready only checks that some kind cluster exists. Installing onto a
+	# cluster that kind-topology did not create enables the feature on nodes
+	# that carry no zone, which leaves it silently inert.
+	$(QUIET)if [ -z "$$(kubectl get nodes -l topology.kubernetes.io/zone -o name)" ]; then \
+		echo "No node carries topology.kubernetes.io/zone, run 'make kind-topology' first"; \
+		exit 1; \
+	fi
+	# cilium-cli doesn't support idempotent installs, so we uninstall and
+	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
+
+	$(CILIUM_CLI) install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		$(KIND_VALUES_FILES) \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-topology-values.yaml \
+		--version=
+
+	# The workloads below need CNI on the nodes they land on, so wait for the
+	# agent DaemonSet. Not `cilium status --wait`, which also waits for Envoy and
+	# Hubble: topology aware routing uses neither, and a cold install needs more
+	# than the 30s WAIT_DURATION default anyway.
+	kubectl -n kube-system rollout status ds/cilium --timeout=5m
+
+	@echo "Deploying topology test workloads..."
+	kubectl apply -f $(ROOT_DIR)/contrib/testing/topology/
 
 KVSTORE_POD_NAME ?= "kvstore"
 KVSTORE_POD_PORT ?= "2378"

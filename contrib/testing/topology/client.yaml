@@ -1,0 +1,15 @@
+# Client pod pinned to zone-a. Traffic to the echo Service should only
+# reach zone-a backends while topology aware routing is engaged.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client
+  labels:
+    app: echo-client
+spec:
+  nodeSelector:
+    topology.kubernetes.io/zone: zone-a
+  containers:
+  - name: client
+    image: curlimages/curl:8.16.0
+    command: ["sleep", "infinity"]
