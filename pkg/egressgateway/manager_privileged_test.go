@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/google/uuid"
 	"github.com/spf13/afero"
@@ -169,19 +170,24 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	var (
 		db          *statedb.DB
 		deviceTable statedb.RWTable[*tables.Device]
+		jobGroup    job.Group
 	)
 
 	// create a hive to provide statedb
 	h := hive.New(
-		cell.Provide(
-			tables.NewDeviceTable,
-		),
+		cell.Module("egressgateway-test-fixtures", "egress gateway test fixtures",
+			cell.Provide(
+				tables.NewDeviceTable,
+			),
 
-		cell.Invoke(func(db_ *statedb.DB,
-			dT statedb.RWTable[*tables.Device]) {
-			db = db_
-			deviceTable = dT
-		}),
+			cell.Invoke(func(db_ *statedb.DB,
+				dT statedb.RWTable[*tables.Device],
+				jg job.Group) {
+				db = db_
+				deviceTable = dT
+				jobGroup = jg
+			}),
+		),
 	)
 
 	require.NoError(t, h.Start(logger, context.TODO()))
@@ -207,6 +213,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		Sysctl:            k.sysctl,
 		DB:                db,
 		DeviceTable:       deviceTable,
+		JobGroup:          jobGroup,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, k.manager)
