@@ -8,7 +8,6 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
-	resourceapi "k8s.io/api/resource/v1"
 	kube_types "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/networkdriver/types"
@@ -20,15 +19,15 @@ import (
 // The table is populated by device manager goroutines via onDevices and
 // reflects both discovery state and allocation state:
 //
-//   - Discovery fields (Name, Manager, Dev, Pool, Attrs) are always populated
-//     by onDevices whenever the device manager reports a device.
+//   - Discovery fields (Name, Manager, Dev) are always populated by onDevices
+//     whenever the device manager reports a device.
 //
-//   - Allocation fields (PodUID, ClaimUID, Config) are set by commitAllocation
+//   - Allocation fields (PodUID, ClaimUID, Config) are set by setAllocationInTable
 //     when the kubelet calls PrepareResourceClaims, and cleared by
 //     unprepareResourceClaim when the kubelet calls UnprepareResourceClaims.
-//     On agent restart, onDevices repopulates the allocation fields from the
-//     in-memory allocations map (which was itself restored from ResourceClaim
-//     status by restoreDevices).
+//     On agent restart, restoreDevices repopulates these fields (and the Dev
+//     handle) directly from ResourceClaim status before any device manager
+//     has run.
 //
 // The table is therefore the single observable source of truth for "which pod
 // holds which device" and is visible via `cilium-dbg statedb dump`.
@@ -36,13 +35,11 @@ import (
 
 const DevicesTableName = "networkdriver-dra-devices"
 
-// deviceByKey is the single primary index, keyed as "<pool>/<name>".
-// This allows O(log n) prefix scans over all devices in a pool via
-// DevicesByPool, without any secondary indices.
-var deviceByKey = statedb.Index[*DRADevice, string]{
+// deviceByName is the single primary index, keyed by device name.
+var deviceByName = statedb.Index[*DRADevice, string]{
 	Name: "id",
 	FromObject: func(d *DRADevice) index.KeySet {
-		return index.NewKeySet(index.String(DeviceKey(d.Pool, d.Name)))
+		return index.NewKeySet(index.String(d.Name))
 	},
 	FromKey:    index.String,
 	FromString: index.FromString,
@@ -67,22 +64,27 @@ func DevicesByClaimUID(tbl statedb.Table[*DRADevice], txn statedb.ReadTxn, claim
 	return tbl.List(txn, deviceByClaimUID.Query(string(claimUID)))
 }
 
-// DeviceKey returns the primary key for a device.
-func DeviceKey(pool, name string) string { return pool + "/" + name }
-
-// DevicesByPool returns an iterator over all devices in the given pool.
-func DevicesByPool(tbl statedb.Table[*DRADevice], txn statedb.ReadTxn, pool string) iter.Seq2[*DRADevice, statedb.Revision] {
-	return tbl.Prefix(txn, deviceByKey.Query(DeviceKey(pool, "")))
+// allocationFromRow projects a statedb row into an allocation. Returns the
+// zero allocation and ok=false if the row has no live device handle.
+func allocationFromRow(row *DRADevice) (allocation, bool) {
+	if row.Dev == nil {
+		return allocation{}, false
+	}
+	return allocation{
+		Device:  row.Dev,
+		Config:  row.Config,
+		Manager: row.Manager,
+	}, true
 }
 
 // DRADevice represents a device known to the network driver.
 //
-// Discovery fields (Name, Manager, Dev, Pool, Attrs) are always present.
+// Discovery fields (Name, Manager, Dev) are always present.
+//
 // Allocation fields (PodUID, ClaimUID, Config) are non-zero when the device
 // has been prepared for a pod via PrepareResourceClaims, and are cleared by
 // UnprepareResourceClaims. On agent restart they are restored from the
-// ResourceClaim status via restoreDevices, then written back to the table
-// when the device manager goroutine calls onDevices for the first time.
+// ResourceClaim status via restoreDevices.
 type DRADevice struct {
 	// Name is the device name assigned by the device manager.
 	// It is the primary key and the name used in ResourceSlice advertisements.
@@ -90,22 +92,11 @@ type DRADevice struct {
 	Name    string
 	Manager types.DeviceManagerType
 	Dev     types.Device
-	Pool    string
-	Attrs   map[string]resourceapi.DeviceAttribute
 
 	// Allocation fields — non-zero when the device is prepared for a pod.
 	PodUID   kube_types.UID
 	ClaimUID kube_types.UID
 	Config   types.DeviceConfig
-}
-
-// IsAllocated reports whether the device has been prepared for a pod.
-func (d *DRADevice) IsAllocated() bool { return d.PodUID != "" }
-
-// GetAttr returns the attribute value for the given key and whether it was found.
-func (d *DRADevice) GetAttr(key string) (resourceapi.DeviceAttribute, bool) {
-	v, ok := d.Attrs[key]
-	return v, ok
 }
 
 func (d *DRADevice) Clone() *DRADevice {
@@ -114,12 +105,12 @@ func (d *DRADevice) Clone() *DRADevice {
 }
 
 func (d *DRADevice) TableHeader() []string {
-	return []string{"Name", "Manager", "Pool", "PodUID", "ClaimUID", "PodIfName"}
+	return []string{"Name", "Manager", "PodUID", "ClaimUID", "PodIfName"}
 }
 
 func (d *DRADevice) TableRow() []string {
 	return []string{
-		d.Name, d.Manager.String(), d.Pool,
+		d.Name, d.Manager.String(),
 		string(d.PodUID), string(d.ClaimUID), d.Config.PodIfName,
 	}
 }
@@ -128,20 +119,7 @@ func newDeviceTable(db *statedb.DB) (statedb.RWTable[*DRADevice], error) {
 	return statedb.NewTable(
 		db,
 		DevicesTableName,
-		deviceByKey,
+		deviceByName,
 		deviceByClaimUID,
 	)
-}
-
-// attrsToMap converts a device attribute map keyed by QualifiedName to a plain
-// string-keyed map for storage in DRADevice.Attrs.
-func attrsToMap(attrs map[resourceapi.QualifiedName]resourceapi.DeviceAttribute) map[string]resourceapi.DeviceAttribute {
-	if len(attrs) == 0 {
-		return nil
-	}
-	m := make(map[string]resourceapi.DeviceAttribute, len(attrs))
-	for k, v := range attrs {
-		m[string(k)] = v
-	}
-	return m
 }
