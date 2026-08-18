@@ -368,6 +368,9 @@ func (driver *Driver) onDevices(mgrType types.DeviceManagerType, devices []types
 			// update the live device handle and attributes, but preserve allocation state.
 			updated := old.Clone()
 			updated.Dev = dev
+			if old.Dev != nil {
+				updated.Dev.Merge(old.Dev)
+			}
 			updated.Attrs = attrs
 			return updated
 		})

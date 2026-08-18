@@ -99,10 +99,31 @@ type trackedDevice struct {
 	setupCalls atomic.Int32
 	freeCalls  atomic.Int32
 	setupCfgs  []types.DeviceConfig
+
+	// kernelIfName backs KernelIfName(). When empty, KernelIfName() falls back
+	// to name so existing tests that never set it keep their prior behavior.
+	// Merge copies this field forward from an old device when a fresh scan
+	// left it empty, mirroring how a real device manager can lose the kernel
+	// interface name once a device has moved into a pod's network namespace.
+	kernelIfName string
 }
 
-func (d *trackedDevice) IfName() string       { return d.name }
-func (d *trackedDevice) KernelIfName() string { return d.name }
+func (d *trackedDevice) IfName() string { return d.name }
+
+func (d *trackedDevice) KernelIfName() string {
+	if d.kernelIfName != "" {
+		return d.kernelIfName
+	}
+	return d.name
+}
+
+// Merge copies KernelIfName forward from old if this device's fresh scan did
+// not determine one.
+func (d *trackedDevice) Merge(old types.Device) {
+	if d.kernelIfName == "" {
+		d.kernelIfName = old.KernelIfName()
+	}
+}
 
 // GetAttrs intentionally returns nil — these tests do not exercise device
 // attributes, and attrsToPartMap handles a nil map safely.
