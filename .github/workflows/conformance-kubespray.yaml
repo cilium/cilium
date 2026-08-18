@@ -172,6 +172,7 @@ jobs:
           EOF
 
       - name: Deploy Kubernetes cluster
+        id: deploy-cluster
         run: |
           source kubespray-venv/bin/activate
           cd kubespray/
@@ -183,7 +184,23 @@ jobs:
           sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
           sudo chown "$(id -u)":"$(id -g)" $HOME/.kube/config
 
-          kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s
+          # There is no pod network until Cilium is installed, so only the
+          # host-network control plane can be Ready here.
+          kubectl wait --for=condition=Ready pod -n kube-system \
+            -l tier=control-plane --timeout=300s
+          kubectl get --raw='/readyz?verbose' > /dev/null
+
+      - name: Gather cluster state on bring-up failure
+        if: ${{ failure() && steps.deploy-cluster.conclusion == 'failure' }}
+        run: |
+          kubectl get nodes -o wide || true
+          kubectl get pods -A -o wide || true
+          kubectl describe nodes || true
+          kubectl describe pods -n kube-system || true
+          kubectl get events -A --sort-by=.metadata.creationTimestamp || true
+          # A missing CNI configuration is the usual reason pods get no sandbox.
+          sudo ls -l /etc/cni/net.d /opt/cni/bin || true
+          sudo journalctl --no-pager -u kubelet -u cri-dockerd -u docker -n 500 || true
 
       - name: Set up job variables
         id: vars
@@ -228,6 +245,9 @@ jobs:
       - name: Wait for Cilium to be ready
         run: |
           cilium status --wait --interactive=false --wait-duration=2m
+          # Cilium provides the pod network now, so CoreDNS has to converge.
+          kubectl wait --for=condition=Ready node --all --timeout=5m
+          kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=5m
           kubectl get pods --all-namespaces -o wide
 
       - name: Make JUnit report directory
