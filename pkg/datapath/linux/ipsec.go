@@ -110,9 +110,9 @@ func (n *linuxNodeHandler) registerIpsecMetricOnce() {
 	})
 }
 
-func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) error {
+func (n *linuxNodeHandler) enableSubnetIPsec(v4Prefixes, v6Prefixes []netip.Prefix) error {
 	errs := n.replaceHostRules()
-	for _, cidr := range v4CIDR {
+	for cidr := range prefixesToIPNets(v4Prefixes) {
 		if !option.Config.EnableEndpointRoutes {
 			if err := n.replaceNodeIPSecInRoute(cidr); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec IN (%q): %w", cidr.IP, err))
@@ -123,7 +123,7 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) error 
 		}
 	}
 
-	for _, cidr := range v6CIDR {
+	for cidr := range prefixesToIPNets(v6Prefixes) {
 		if err := n.replaceNodeIPSecInRoute(cidr); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec IN (%q): %w", cidr.IP, err))
 		}
@@ -225,7 +225,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 		ZeroOutputMark: zeroMark,
 	}
 
-	for _, cidr := range n.nodeConfig.GetIPv4PodSubnets() {
+	for cidr := range prefixesToIPNets(n.nodeConfig.GetIPv4PodSubnets()) {
 		params := ipsecTypes.NewParameters(template)
 		params.Dir = ipsec.IPSecDirOut
 		params.SourceSubnet = wildcardCIDR
@@ -511,7 +511,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 		ZeroOutputMark: zeroMark,
 	}
 
-	for _, cidr := range n.nodeConfig.GetIPv6PodSubnets() {
+	for cidr := range prefixesToIPNets(n.nodeConfig.GetIPv6PodSubnets()) {
 		params := ipsecTypes.NewParameters(template)
 		params.Dir = ipsec.IPSecDirOut
 		params.SourceSubnet = wildcardCIDR6

@@ -28,6 +28,9 @@ type Addr struct {
 // AddrFrom wraps a netip.Addr.
 func AddrFrom(a netip.Addr) Addr { return Addr{Addr: a} }
 
+// Unwrap returns the wrapped netip.Addr.
+func (a Addr) Unwrap() netip.Addr { return a.Addr }
+
 // DeepCopyInto is a manual copy: netip.Addr's hidden zone pointer references
 // interned, immutable data, so a value copy is safe.
 func (in *Addr) DeepCopyInto(out *Addr) { *out = *in }
@@ -65,6 +68,9 @@ type Prefix struct {
 
 // PrefixFrom wraps a netip.Prefix.
 func PrefixFrom(p netip.Prefix) Prefix { return Prefix{Prefix: p} }
+
+// Unwrap returns the wrapped netip.Prefix.
+func (p Prefix) Unwrap() netip.Prefix { return p.Prefix }
 
 func (in *Prefix) DeepCopyInto(out *Prefix) { *out = *in }
 

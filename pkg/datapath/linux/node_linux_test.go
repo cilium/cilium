@@ -702,14 +702,8 @@ func testNodeChurnXFRMLeaksSubnetMode(t *testing.T, family string) {
 	option.Config.RoutingMode = option.RoutingModeNative
 
 	// Cover the XFRM configuration for subnet encryption: IPAM modes AKS and EKS.
-	ipv4PodSubnets, err := cidr.ParseCIDR("4.4.0.0/16")
-	require.NoError(t, err)
-	require.NotNil(t, ipv4PodSubnets)
-	config.IPv4PodSubnets = []*cidr.CIDR{ipv4PodSubnets}
-	ipv6PodSubnets, err := cidr.ParseCIDR("2001:aaaa::/64")
-	require.NoError(t, err)
-	require.NotNil(t, ipv6PodSubnets)
-	config.IPv6PodSubnets = []*cidr.CIDR{ipv6PodSubnets}
+	config.IPv4PodSubnets = []ip.Prefix{ip.PrefixFrom(netip.MustParsePrefix("4.4.0.0/16"))}
+	config.IPv6PodSubnets = []ip.Prefix{ip.PrefixFrom(netip.MustParsePrefix("2001:aaaa::/64"))}
 	option.Config.BootIDFile = "/proc/sys/kernel/random/boot_id"
 	testNodeChurnXFRMLeaksWithConfig(t, s, config)
 }

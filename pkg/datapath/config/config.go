@@ -4,7 +4,6 @@
 package config
 
 import (
-	"net"
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -17,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
@@ -245,12 +245,12 @@ type Config struct {
 	// IPv4PodSubnets is a list of IPv4 subnets that pod IPs are assigned from
 	// these are then used when encryption is enabled to configure the node
 	// for encryption over these subnets at node initialization.
-	IPv4PodSubnets []*cidr.CIDR
+	IPv4PodSubnets []ip.Prefix
 
 	// IPv6PodSubnets is a list of IPv6 subnets that pod IPs are assigned from
 	// these are then used when encryption is enabled to configure the node
 	// for encryption over these subnets at node initialization.
-	IPv6PodSubnets []*cidr.CIDR
+	IPv6PodSubnets []ip.Prefix
 
 	// XDPConfig holds configuration options to determine how the node should
 	// handle XDP programs.
@@ -308,10 +308,10 @@ func (cfg *Config) DeviceNames() []string {
 	return tables.DeviceNames(cfg.Devices)
 }
 
-func (cfg *Config) GetIPv4PodSubnets() []*net.IPNet {
-	return cidr.CIDRsToIPNets(cfg.IPv4PodSubnets)
+func (cfg *Config) GetIPv4PodSubnets() []netip.Prefix {
+	return slices.Map(cfg.IPv4PodSubnets, ip.Prefix.Unwrap)
 }
 
-func (cfg *Config) GetIPv6PodSubnets() []*net.IPNet {
-	return cidr.CIDRsToIPNets(cfg.IPv6PodSubnets)
+func (cfg *Config) GetIPv6PodSubnets() []netip.Prefix {
+	return slices.Map(cfg.IPv6PodSubnets, ip.Prefix.Unwrap)
 }

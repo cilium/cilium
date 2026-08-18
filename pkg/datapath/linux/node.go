@@ -19,7 +19,6 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
@@ -711,10 +710,9 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 		n.enableEncapsulation = func(*nodeTypes.Node) bool { return n.nodeConfig.EnableEncapsulation }
 	}
 
-	unwrapPrefix := func(prefix ip.Prefix) netip.Prefix { return prefix.Prefix }
 	if err := n.updateOrRemoveNodeRoutes(
-		cslices.Map(prevConfig.AuxiliaryPrefixes, unwrapPrefix),
-		cslices.Map(newConfig.AuxiliaryPrefixes, unwrapPrefix),
+		cslices.Map(prevConfig.AuxiliaryPrefixes, ip.Prefix.Unwrap),
+		cslices.Map(newConfig.AuxiliaryPrefixes, ip.Prefix.Unwrap),
 		true,
 	); err != nil {
 		return fmt.Errorf("failed to update or remove node routes: %w", err)
@@ -725,12 +723,12 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 		// the router (cilium_host) IP is associated to.
 		if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure {
 			if info := node.GetRouterInfo(); info != nil {
-				var ipv4PodSubnets, ipv6PodSubnets []*cidr.CIDR
+				var ipv4PodSubnets, ipv6PodSubnets []ip.Prefix
 				for _, c := range info.GetCIDRs() {
 					if c.Addr().Is4() {
-						ipv4PodSubnets = append(ipv4PodSubnets, cidr.NewCIDR(netipx.PrefixIPNet(c)))
+						ipv4PodSubnets = append(ipv4PodSubnets, ip.PrefixFrom(c))
 					} else {
-						ipv6PodSubnets = append(ipv6PodSubnets, cidr.NewCIDR(netipx.PrefixIPNet(c)))
+						ipv6PodSubnets = append(ipv6PodSubnets, ip.PrefixFrom(c))
 					}
 				}
 				// Only derive the pod subnets which have not been explicitly
