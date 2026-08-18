@@ -2717,7 +2717,7 @@ int tail_policy_denied_ipv4(struct __ctx_buff *ctx)
 	int ret;
 	__u32 verdict = ctx_load_meta(ctx, CB_VERDICT);
 
-	ret = generate_icmp4_reply(ctx, ICMP_DEST_UNREACH, ICMP_PKT_FILTERED);
+	ret = generate_icmp4_reply(ctx, ICMP_DEST_UNREACH, ICMP_PKT_FILTERED, 0);
 	if (!ret) {
 		cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL_IPV4);
 		ret = redirect_self(ctx);
@@ -2752,7 +2752,7 @@ int tail_policy_denied_ipv6(struct __ctx_buff *ctx)
 	if (!ratelimit_check_and_take(&rkey, &settings))
 		goto drop_err;
 
-	ret = generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_ADM_PROHIBITED);
+	ret = generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_ADM_PROHIBITED, 0);
 	if (!ret) {
 		cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL_IPV6);
 		ret = redirect_self(ctx);

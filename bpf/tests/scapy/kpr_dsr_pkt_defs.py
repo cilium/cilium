@@ -206,6 +206,27 @@ kpr_v4_dsr_lb2_data2_post_geneve_xdp = (
     b"foobar"
 )
 
+kpr_v4_dsr_lb3_mtu = (
+    Ether(src=host_mac_addr, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_svc_one) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_three, flags="") /
+    Raw(load=b'\x00' * 200)
+)
+
+kpr_v4_dsr_lb3_mtu_post_option = (
+    Ether(src=mac_one, dst=host_mac_addr) /
+    IP(src=v4_svc_one, dst=v4_ext_one, id=0) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=192) /
+    IPerror(bytes(kpr_v4_dsr_lb3_mtu[IP])[:28])
+)
+
+kpr_v4_dsr_lb3_mtu_post_geneve = (
+    Ether(src=mac_one, dst=host_mac_addr) /
+    IP(src=v4_svc_one, dst=v4_ext_one, id=0) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=138) /
+    IPerror(bytes(kpr_v4_dsr_lb3_mtu[IP])[:28])
+)
+
 kpr_v4_dsr_remote_node_reply = (
     Ether(src=mac_two, dst=mac_one) /
     IP(src=v4_pod_one, dst=v4_ext_one) /
@@ -371,6 +392,27 @@ kpr_v6_dsr_lb2_data2_post_geneve_xdp = (
     IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
     TCP(sport=tcp_src_one, dport=tcp_dst_two, flags="") /
     b"foobar"
+)
+
+kpr_v6_dsr_lb3_mtu = (
+    Ether(src=host_mac_addr, dst=mac_one) /
+    IPv6(src=v6_ext_node_one, dst=v6_svc_one) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_three, flags="") /
+    Raw(load=b'\x00' * 200)
+)
+
+kpr_v6_dsr_lb3_mtu_post_option = (
+    Ether(src=mac_one, dst=host_mac_addr) /
+    IPv6(src=v6_svc_one, dst=v6_ext_node_one) /
+    ICMPv6PacketTooBig(mtu=176) /
+    IPerror6(bytes(kpr_v6_dsr_lb3_mtu[IPv6]))
+)
+
+kpr_v6_dsr_lb3_mtu_post_geneve = (
+    Ether(src=mac_one, dst=host_mac_addr) /
+    IPv6(src=v6_svc_one, dst=v6_ext_node_one) /
+    ICMPv6PacketTooBig(mtu=106) /
+    IPerror6(bytes(kpr_v6_dsr_lb3_mtu[IPv6]))
 )
 
 kpr_v6_dsr_remote_node_reply = (
