@@ -24,7 +24,7 @@ data:
             "sliceAddCount": "2-4",
             "sliceDeleteChance": 0.05,
             "sliceDeleteCount": "2-4",
-            "sliceSize": "16-128",
+            "sliceSize": "64-256",
             "sliceUpdateChance": 0
         },
         "LocalEndpoints": {
@@ -142,9 +142,9 @@ data:
             "sliceAddCount": "1-4",
             "sliceDeleteChance": 0.1,
             "sliceDeleteCount": "1-4",
-            "sliceSize": "32-128",
+            "sliceSize": "64-256",
             "sliceUpdateChance": 0.25,
-            "sliceUpdateCount": "2-8"
+            "sliceUpdateCount": "4-32"
         },
         "RemoteEndpoints": {
             "Replicas": {
@@ -161,7 +161,7 @@ data:
             "sliceAddCount": "2-4",
             "sliceDeleteChance": 0.05,
             "sliceDeleteCount": "2-4",
-            "sliceSize": "16-128",
+            "sliceSize": "64-256",
             "sliceUpdateChance": 0
         }
     }

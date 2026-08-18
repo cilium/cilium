@@ -109,6 +109,7 @@ steps:
       replicas: 0
       tuningSet: Sequential
       image: {{$KFUZZ_DOCKER_IMAGE}}
+      ciliumNamespace: {{$CILIUM_NAMESPACE}}
       testNodeName: {{$TEST_NODE_NAME}}
       scenario: {{$SCENARIO}}
       tickInterval: {{$KFUZZ_TICK_INTERVAL}}

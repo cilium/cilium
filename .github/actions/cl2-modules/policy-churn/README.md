@@ -187,6 +187,10 @@ datasources:
       isDefault: true
 EOF
 
+kubectl create configmap --namespace monitoring \
+  scale-test-dashboard --from-file=dashboard/cilium-scale.json
+kubectl label --namespace monitoring configmap scale-test-dashboard grafana_dashboard="1"
+
 # USERNAME: admin
 GRAFANA_PASSWORD=$(kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo)
 echo $GRAFANA_PASSWORD
