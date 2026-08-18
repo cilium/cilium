@@ -12,6 +12,8 @@
 #include "pktgen.h"
 #include "scapy.h"
 
+#define ENABLE_DSR_ICMP_ERRORS		1
+
 #define IPV4_DIRECT_ROUTING		v4_node_one
 
 #define fib_lookup mock_fib_lookup
@@ -100,6 +102,8 @@ ASSIGN_CONFIG(__u16, tunnel_port, 6081)
 ASSIGN_CONFIG(__u32, hash_init4_seed, 0xcafe)
 ASSIGN_CONFIG(__u32, hash_init6_seed, 0xeb9f)
 
+ASSIGN_CONFIG(__u16, device_mtu, 200);
+
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
@@ -175,6 +179,18 @@ const __u8 kpr_v4_dsr_lb2_data2_post_geneve_xdp[] = {
 	SCAPY_BUF_BYTES(kpr_v4_dsr_lb2_data2_post_geneve_xdp)
 };
 
+const __u8 kpr_v4_dsr_lb3_mtu[] = {
+       SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu)
+};
+
+const __u8 kpr_v4_dsr_lb3_mtu_post_option[] = {
+       SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_option)
+};
+
+const __u8 kpr_v4_dsr_lb3_mtu_post_geneve[] = {
+       SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_geneve)
+};
+
 const __u8 kpr_v6_dsr_lb1_syn[] = {
 	SCAPY_BUF_BYTES(kpr_v6_dsr_lb1_syn)
 };
@@ -245,6 +261,18 @@ const __u8 kpr_v6_dsr_lb2_data2_post_option_xdp[] = {
 
 const __u8 kpr_v6_dsr_lb2_data2_post_geneve_xdp[] = {
 	SCAPY_BUF_BYTES(kpr_v6_dsr_lb2_data2_post_geneve_xdp)
+};
+
+const __u8 kpr_v6_dsr_lb3_mtu[] = {
+       SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu)
+};
+
+const __u8 kpr_v6_dsr_lb3_mtu_post_option[] = {
+       SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu_post_option)
+};
+
+const __u8 kpr_v6_dsr_lb3_mtu_post_geneve[] = {
+       SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu_post_geneve)
 };
 
 #ifdef ENABLE_IPV4
@@ -645,6 +673,66 @@ int kpr_v4_dsr_lb2_data2_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+PKTGEN(PROG_TYPE, "kpr_v4_dsr_lb3_mtu")
+int kpr_v4_dsr_lb3_mtu_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	scapy_push_data(&builder, kpr_v4_dsr_lb3_mtu,
+			sizeof(kpr_v4_dsr_lb3_mtu));
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "kpr_v4_dsr_lb3_mtu")
+int kpr_v4_dsr_lb3_mtu_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 3;
+
+	lb_v4_add_service(v4_svc_one, tcp_svc_three, IPPROTO_TCP, 1, revnat_id);
+	lb_v4_add_backend(v4_svc_one, tcp_svc_three, 1, 124,
+			  v4_pod_one, tcp_dst_three, IPPROTO_TCP, 0);
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "kpr_v4_dsr_lb3_mtu")
+int kpr_v4_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_TX);
+
+#if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu_post_geneve",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb3_mtu_post_geneve,
+			   sizeof(kpr_v4_dsr_lb3_mtu_post_geneve));
+#else
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu_post_option",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb3_mtu_post_option,
+			   sizeof(kpr_v4_dsr_lb3_mtu_post_option));
+#endif
+
+	test_finish();
+}
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
@@ -1038,6 +1126,69 @@ int kpr_v6_dsr_lb2_data2_check(__maybe_unused const struct __ctx_buff *ctx)
 			   kpr_v6_dsr_lb2_data2_post_option,
 			   sizeof(kpr_v6_dsr_lb2_data2_post_option));
 # endif
+#endif
+
+	test_finish();
+}
+
+PKTGEN(PROG_TYPE, "kpr_v6_dsr_lb3_mtu")
+int kpr_v6_dsr_lb3_mtu_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	scapy_push_data(&builder, kpr_v6_dsr_lb3_mtu,
+			sizeof(kpr_v6_dsr_lb3_mtu));
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "kpr_v6_dsr_lb3_mtu")
+int kpr_v6_dsr_lb3_mtu_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 3;
+
+	union v6addr frontend_ip = { v6_svc_one_addr };
+	union v6addr backend_ip = { v6_pod_one_addr };
+
+	lb_v6_add_service(&frontend_ip, tcp_svc_three, IPPROTO_TCP, 1, revnat_id);
+	lb_v6_add_backend(&frontend_ip, tcp_svc_three, 1, 124,
+			  &backend_ip, tcp_dst_three, IPPROTO_TCP, 0);
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "kpr_v6_dsr_lb3_mtu")
+int kpr_v6_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_TX);
+
+#if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu_post_geneve",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v6_dsr_lb3_mtu_post_geneve,
+			   sizeof(kpr_v6_dsr_lb3_mtu_post_geneve));
+#else
+	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu_post_option",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v6_dsr_lb3_mtu_post_option,
+			   sizeof(kpr_v6_dsr_lb3_mtu_post_option));
 #endif
 
 	test_finish();

@@ -588,7 +588,8 @@ struct ipv6_pseudo_header_t {
 };
 
 static __always_inline
-int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
+int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
+			 __u32 icmp_data)
 {
 	__u64 full_len = ctx_full_len(ctx);
 	__u64 new_len, sample_len;
@@ -691,8 +692,10 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
 	icmphdr->icmp6_cksum = 0;
 	icmphdr->icmp6_dataun.un_data32[0] = 0;
 
-	/* Add the ICMP header to the checksum (only type and code are non-zero) */
-	csum += ((__u16)icmphdr->icmp6_code) << 8 | (__u16)icmphdr->icmp6_type;
+	if (icmp_type == ICMPV6_PKT_TOOBIG)
+		icmphdr->icmp6_mtu = icmp_data;
+
+	csum += csum_diff(icmphdr, 0, icmphdr, sizeof(*icmphdr), 0);
 
 	/* Fill pseudo header */
 	memcpy(&pseudo_header.fields.src_ip, &ip6->saddr, sizeof(struct in6_addr));

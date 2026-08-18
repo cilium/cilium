@@ -17,7 +17,8 @@
 #define ICMP_PACKET_MAX_SAMPLE_SIZE 8
 
 static __always_inline
-int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
+int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
+			 __u32 icmp_data)
 {
 	__u64 full_len = ctx_full_len(ctx);
 	__u64 new_len, sample_len;
@@ -121,6 +122,9 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
 	icmphdr->code = icmp_code;
 	icmphdr->checksum = 0;
 	icmphdr->un.gateway = 0;
+
+	if (icmp_type == ICMP_DEST_UNREACH && icmp_code == ICMP_FRAG_NEEDED)
+		icmphdr->un.frag.mtu = (__be16)icmp_data;
 
 	/* Add ICMP header checksum to sum of its body */
 	csum += csum_diff(icmphdr, 0, icmphdr, sizeof(struct icmphdr), 0);
