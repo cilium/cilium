@@ -275,9 +275,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		if option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
-		if option.Config.EnableMKE && h.kprCfg.EnableSocketLB {
-			cDefinesMap["ENABLE_MKE"] = "1"
-		}
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
 
 		if option.Config.EnableNat46X64Gateway {

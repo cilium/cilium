@@ -98,7 +98,7 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
 
-	if option.Config.EnableMKE {
+	if option.Config.EnableMKE && lnc.KPRConfig.KubeProxyReplacement {
 		cfg.MKEHost = option.HostExtensionMKE
 	}
 
