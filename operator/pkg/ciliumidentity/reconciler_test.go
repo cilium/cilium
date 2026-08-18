@@ -480,7 +480,7 @@ func TestReconcileNS(t *testing.T) {
 	}
 }
 
-func TestGetRelevantLabelsForPodDoesNotIncludeGeneratedNamedPorts(t *testing.T) {
+func TestGetCIDKeyForPodIncludesNamedPorts(t *testing.T) {
 	ctx := t.Context()
 	reconciler, _, _, cleanupFunc := testNewReconciler(t, ctx, false)
 	defer cleanupFunc()
@@ -491,15 +491,18 @@ func TestGetRelevantLabelsForPodDoesNotIncludeGeneratedNamedPorts(t *testing.T) 
 	pod := cidtest.NewPod("pod1", ns.Name, testLbsA, "node1")
 	pod.Spec.Containers = []slim_corev1.Container{{
 		Ports: []slim_corev1.ContainerPort{{
-			Name:          "http",
-			ContainerPort: 8080,
+			Name:          "grpc",
+			ContainerPort: 4245,
 			Protocol:      slim_corev1.ProtocolTCP,
 		}},
 	}}
 
-	k8sLabels, err := GetRelevantLabelsForPod(hivetest.Logger(t), pod, reconciler.nsStore, reconciler.clusterInfo)
+	cidKey, err := GetCIDKeyForPod(hivetest.Logger(t), pod, reconciler.nsStore, reconciler.clusterInfo)
 	require.NoError(t, err)
-	require.NotContains(t, k8sLabels, ciliumio.NamedPortsIdentityLabelName)
+
+	keyMap := cidKey.GetAsMap()
+	require.Contains(t, keyMap, labels.LabelSourceGenerated+":"+ciliumio.NamedPortsIdentityLabelName)
+	require.Equal(t, "grpc.TCP.4245", keyMap[labels.LabelSourceGenerated+":"+ciliumio.NamedPortsIdentityLabelName])
 }
 
 func TestHandleStoreCIDMatch(t *testing.T) {
