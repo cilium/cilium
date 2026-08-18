@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"path"
 	"slices"
 
@@ -76,6 +75,7 @@ type allocation struct {
 	Device  types.Device
 	Config  types.DeviceConfig
 	Manager types.DeviceManagerType
+	Pool    string
 }
 
 // watchConfig blocks until the first configuration is found (from the CRD). Update attempts are logged but not passed
@@ -330,12 +330,6 @@ func (driver *Driver) onDevices(mgrType types.DeviceManagerType, devices []types
 	wtxn := driver.db.WriteTxn(driver.deviceTable)
 	defer wtxn.Commit()
 
-	// Resolve pool assignment for each device.
-	sortedPools := slices.Clone(driver.config.Pools)
-	slices.SortFunc(sortedPools, func(a, b v2alpha1.CiliumNetworkDriverDevicePoolConfig) int {
-		return cmp.Compare(a.PoolName, b.PoolName)
-	})
-
 	seen := make(map[string]struct{}, len(devices))
 
 	for _, dev := range devices {
@@ -347,31 +341,20 @@ func (driver *Driver) onDevices(mgrType types.DeviceManagerType, devices []types
 		}
 		seen[ifname] = struct{}{}
 
-		pool := driver.resolvePool(dev, sortedPools)
-		if pool == "" {
-			// Device matches no pool — skip advertising it.
-			continue
-		}
-
-		attrs := attrsToMap(dev.GetAttrs())
-
 		row := &DRADevice{
 			Name:    ifname,
 			Manager: mgrType,
 			Dev:     dev,
-			Pool:    pool,
-			Attrs:   attrs,
 		}
 
 		_, _, err := driver.deviceTable.Modify(wtxn, row, func(old, _ *DRADevice) *DRADevice {
 			// Row already exists (written by restoreDevices or a prior onDevices call):
-			// update the live device handle and attributes, but preserve allocation state.
+			// update the live device handle, but preserve allocation state.
 			updated := old.Clone()
 			updated.Dev = dev
 			if old.Dev != nil {
 				updated.Dev.Merge(old.Dev)
 			}
-			updated.Attrs = attrs
 			return updated
 		})
 
@@ -403,52 +386,22 @@ func (driver *Driver) allocationsForPod(podUID kube_types.UID) []allocation {
 	txn := driver.db.ReadTxn()
 	var result []allocation
 	for row := range driver.deviceTable.All(txn) {
-		if row.PodUID == podUID && row.Dev != nil {
-			result = append(result, allocation{
-				Device:  row.Dev,
-				Config:  row.Config,
-				Manager: row.Manager,
-			})
+		if row.PodUID == podUID {
+			if a, ok := allocationFromRow(row); ok {
+				result = append(result, a)
+			}
 		}
 	}
 	return result
 }
 
 // setAllocationInTable updates the statedb row for each device in allocs with
-// the given podUID and claimUID, or clears those fields when clearing is true.
-func (driver *Driver) setAllocationInTable(allocs []allocation, podUID, claimUID kube_types.UID, clearing bool) {
+// the given podUID and claimUID.
+func (driver *Driver) setAllocationInTable(allocs []allocation, podUID, claimUID kube_types.UID) {
+	byName := allocationsByName(allocs)
+
 	wtxn := driver.db.WriteTxn(driver.deviceTable)
 	defer wtxn.Commit()
-
-	if clearing {
-		// Clear by iterating the provided allocs list (by device name).
-		for d := range driver.deviceTable.All(wtxn) {
-			found := false
-			for _, a := range allocs {
-				if a.Device != nil && a.Device.IfName() == d.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				continue
-			}
-			row := d.Clone()
-			row.PodUID = ""
-			row.ClaimUID = ""
-			row.Config = types.DeviceConfig{}
-			driver.deviceTable.Insert(wtxn, row)
-		}
-		return
-	}
-
-	// Build a name→allocation index so each row lookup is O(1).
-	byName := make(map[string]allocation, len(allocs))
-	for _, a := range allocs {
-		if a.Device != nil {
-			byName[a.Device.IfName()] = a
-		}
-	}
 
 	for d := range driver.deviceTable.All(wtxn) {
 		a, ok := byName[d.Name]
@@ -460,8 +413,42 @@ func (driver *Driver) setAllocationInTable(allocs []allocation, podUID, claimUID
 		row.PodUID = podUID
 		row.ClaimUID = claimUID
 		row.Config = a.Config
+		row.Pool = a.Pool
 		driver.deviceTable.Insert(wtxn, row)
 	}
+}
+
+// clearAllocationInTable clears the PodUID/ClaimUID/Config fields for each
+// device in allocs.
+func (driver *Driver) clearAllocationInTable(allocs []allocation) {
+	byName := allocationsByName(allocs)
+
+	wtxn := driver.db.WriteTxn(driver.deviceTable)
+	defer wtxn.Commit()
+
+	for d := range driver.deviceTable.All(wtxn) {
+		if _, ok := byName[d.Name]; !ok {
+			continue
+		}
+
+		row := d.Clone()
+		row.PodUID = ""
+		row.ClaimUID = ""
+		row.Config = types.DeviceConfig{}
+		driver.deviceTable.Insert(wtxn, row)
+	}
+}
+
+// allocationsByName builds a device-name→allocation index
+// for more convenient lookups.
+func allocationsByName(allocs []allocation) map[string]allocation {
+	byName := make(map[string]allocation, len(allocs))
+	for _, a := range allocs {
+		if a.Device != nil {
+			byName[a.Device.IfName()] = a
+		}
+	}
+	return byName
 }
 
 // resolvePool returns the single pool name the device should be assigned to.
@@ -495,9 +482,16 @@ func (driver *Driver) resolvePool(dev types.Device, sortedPools []v2alpha1.Ciliu
 
 // buildPoolsFromTable constructs the ResourceSlice pool map from the current
 // table snapshot. It pre-populates every configured pool (with a valid filter)
-// so pools with no devices are still published as empty slices.
+// so pools with no devices are still published as empty slices. Pool
+// membership and device attributes are resolved here, on demand,
+// using the latest information present in statedb.
 func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 	txn := driver.db.ReadTxn()
+
+	sortedPools := slices.Clone(driver.config.Pools)
+	slices.SortFunc(sortedPools, func(a, b v2alpha1.CiliumNetworkDriverDevicePoolConfig) int {
+		return cmp.Compare(a.PoolName, b.PoolName)
+	})
 
 	pools := make(map[string]resourceslice.Pool, len(driver.config.Pools))
 	for _, p := range driver.config.Pools {
@@ -507,27 +501,50 @@ func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 	}
 
 	for d := range driver.deviceTable.All(txn) {
-		entry, ok := pools[d.Pool]
-		if !ok {
+		if d.Dev == nil {
 			continue
 		}
 
-		attrs := maps.Clone(d.Attrs)
-		if attrs == nil {
-			attrs = make(map[string]resourceapi.DeviceAttribute)
-		}
-		attrs[string(types.PoolNameLabel)] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.Pool)}
+		var pool string
 
-		qualAttrs := make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute, len(attrs))
-		for k, v := range attrs {
-			qualAttrs[resourceapi.QualifiedName(k)] = v
+		// if an allocation exists, the device was allocated
+		// from a pool on a previous run.
+		// we should stick with that pool
+		// until the device is eventually unallocated
+		if d.ClaimUID != "" && d.PodUID != "" {
+			if d.Pool == "" {
+				// pool is empty while we have allocation
+				// state for this device. this shouldn't happen
+				// (devices should always belong to a pool)
+				// skip advertising this device to prevent
+				// double allocation.
+				continue
+			}
+
+			pool = d.Pool
+		} else {
+			pool = driver.resolvePool(d.Dev, sortedPools)
 		}
+
+		entry, ok := pools[pool]
+		if !ok {
+			// pool does not exist in the current configuration
+			// dont advertise the device
+			continue
+		}
+
+		attrs := d.Dev.GetAttrs()
+		if attrs == nil {
+			attrs = make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
+		}
+		attrs[resourceapi.QualifiedName(types.PoolNameLabel)] = resourceapi.DeviceAttribute{StringValue: ptr.To(pool)}
+		attrs[resourceapi.QualifiedName(types.DeviceManagerLabel)] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.Manager.String())}
 
 		entry.Slices[0].Devices = append(entry.Slices[0].Devices, resourceapi.Device{
 			Name:       d.Name,
-			Attributes: qualAttrs,
+			Attributes: attrs,
 		})
-		pools[d.Pool] = entry
+		pools[pool] = entry
 	}
 
 	return pools
@@ -553,6 +570,7 @@ func (driver *Driver) deviceFromClaim(devStatus resourceapi.AllocatedDeviceStatu
 		Device:  dev,
 		Config:  devCfg,
 		Manager: devMgrType,
+		Pool:    devStatus.Pool,
 	}, nil
 }
 
@@ -592,20 +610,20 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, 
 		podUID := claim.Status.ReservedFor[0].UID
 
 		ifname := alloc.Device.IfName()
-		pool := driver.resolvePoolForRestore(devStatus.Pool)
 
-		// Write a placeholder row with allocation state. The live Dev field will
-		// be updated (and attrs populated) when onDevices is called by the device
-		// manager. The row must exist before DRA/NRI callbacks can arrive so they
-		// can look up the device by ClaimUID.
+		// Write a row with allocation state and a fully restored Dev handle.
+		// The row must exist before DRA/NRI callbacks can arrive so they
+		// can look up the device by ClaimUID. A later onDevices call from
+		// the device manager will merge in any live-scan updates
+		// without touching allocation state.
 		row := &DRADevice{
 			Name:     ifname,
 			Manager:  alloc.Manager,
 			Dev:      alloc.Device,
-			Pool:     pool,
 			PodUID:   podUID,
 			ClaimUID: claim.UID,
 			Config:   alloc.Config,
+			Pool:     alloc.Pool,
 		}
 		driver.deviceTable.Insert(wtxn, row)
 
@@ -618,13 +636,6 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, 
 	}
 
 	return errors.Join(errs...)
-}
-
-// resolvePoolForRestore returns the pool name for a device being restored from
-// a ResourceClaim status. It uses the pool recorded in the claim status directly
-// since driver.config may not be available at restore time.
-func (driver *Driver) resolvePoolForRestore(pool string) string {
-	return pool
 }
 
 func (driver *Driver) restoreDevices(ctx context.Context, markRestoreDone func(statedb.WriteTxn)) error {

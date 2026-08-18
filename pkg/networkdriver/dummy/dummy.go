@@ -96,9 +96,6 @@ type DummyDevice struct {
 	Flags  string
 }
 
-func (d DummyDevice) Merge(types.Device) {
-}
-
 func (d DummyDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	result := make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
 	result[types.IfNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.IfName())}
@@ -207,6 +204,10 @@ func (d DummyDevice) IfName() string {
 func (d DummyDevice) KernelIfName() string {
 	return d.Name
 }
+
+// Merge is a no-op for DummyDevice: its KernelIfName always mirrors Name and
+// is never derived from live host state, so nothing can be lost on rescan.
+func (d DummyDevice) Merge(_ types.Device) {}
 
 func (d DummyDevice) MarshalBinary() (data []byte, err error) {
 	return json.Marshal(d)

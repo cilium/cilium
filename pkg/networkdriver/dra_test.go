@@ -188,7 +188,6 @@ func TestPrepareResourceClaim(t *testing.T) {
 			Name:    dev.IfName(),
 			Manager: types.DeviceManagerTypeMock,
 			Dev:     dev,
-			Pool:    prepTestPool,
 		})
 		wtxn.Commit()
 
@@ -245,7 +244,6 @@ func TestPrepareResourceClaim(t *testing.T) {
 		wtxn := driver.db.WriteTxn(driver.deviceTable)
 		driver.deviceTable.Insert(wtxn, &DRADevice{
 			Name:     "existing-device",
-			Pool:     prepTestPool,
 			Manager:  types.DeviceManagerTypeMock,
 			PodUID:   podUID,
 			ClaimUID: claimUID,
