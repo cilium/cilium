@@ -150,6 +150,7 @@ type Device interface {
 	Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
 	IfName() string
 	KernelIfName() string
+	Merge(Device)
 }
 
 type DeviceManager interface {

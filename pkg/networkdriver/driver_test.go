@@ -221,6 +221,32 @@ func TestOnDevices(t *testing.T) {
 		require.True(t, inAlpha, "eth0 must be in alpha (first alphabetically)")
 		require.False(t, inBeta, "eth0 must not be in beta")
 	})
+
+	t.Run("Merge carries KernelIfName forward when a rescan cannot determine one", func(t *testing.T) {
+		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
+		})
+
+		// First scan: device manager reports a live kernel interface name.
+		dev1 := &matchingDevice{trackedDevice: trackedDevice{name: "eth0", kernelIfName: "keth0"}, matches: true}
+		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev1}, func(statedb.WriteTxn) {})
+
+		txn := driver.db.ReadTxn()
+		row, _, found := driver.deviceTable.Get(txn, deviceByKey.Query(DeviceKey("pool-a", "eth0")))
+		require.True(t, found)
+		require.Equal(t, "keth0", row.Dev.KernelIfName())
+
+		// Second scan: the device has moved into a pod's netns, so the fresh
+		// scan can no longer determine a kernel interface name.
+		dev2 := &matchingDevice{trackedDevice: trackedDevice{name: "eth0"}, matches: true}
+		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev2}, func(statedb.WriteTxn) {})
+
+		txn = driver.db.ReadTxn()
+		row, _, found = driver.deviceTable.Get(txn, deviceByKey.Query(DeviceKey("pool-a", "eth0")))
+		require.True(t, found)
+		require.Equal(t, "keth0", row.Dev.KernelIfName(),
+			"Merge must carry the previous KernelIfName forward when the fresh scan has none")
+	})
 }
 
 func TestResolvePool(t *testing.T) {

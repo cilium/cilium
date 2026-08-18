@@ -96,6 +96,9 @@ type DummyDevice struct {
 	Flags  string
 }
 
+func (d DummyDevice) Merge(types.Device) {
+}
+
 func (d DummyDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	result := make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
 	result[types.IfNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.IfName())}
