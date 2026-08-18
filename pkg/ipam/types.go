@@ -151,6 +151,10 @@ type IPAM struct {
 	podIPPools statedb.Table[podippool.LocalPodIPPool]
 
 	onlyMasqueradeDefaultPool bool
+
+	// cloudProviders holds the registered cloud providers, keyed by the IPAM
+	// mode each one handles.
+	cloudProviders map[string]CloudProvider
 }
 
 func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}

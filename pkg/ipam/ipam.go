@@ -90,6 +90,10 @@ type NewIPAMParams struct {
 	DB                        *statedb.DB
 	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
 	OnlyMasqueradeDefaultPool bool
+
+	// CloudProviders holds the registered cloud providers, keyed by the IPAM
+	// mode each one handles.
+	CloudProviders map[string]CloudProvider
 }
 
 // NewIPAM returns a new IP address manager
@@ -114,6 +118,7 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 		db:                        params.DB,
 		podIPPools:                params.PodIPPools,
 		onlyMasqueradeDefaultPool: params.OnlyMasqueradeDefaultPool,
+		cloudProviders:            params.CloudProviders,
 	}
 }
 
@@ -121,6 +126,39 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 // As a precondition, the NodeAddressing must be fully initialized - therefore the method
 // must be called after Daemon.WaitForNodeInformation.
 func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
+	// Cloud-provider backed modes are dispatched by the provider registered for
+	// the configured mode, ahead of the switch below: which modes those are is a
+	// property of the registered providers, not of this package.
+	if provider, ok := ipam.cloudProviders[ipam.config.IPAMMode()]; ok {
+		ipam.logger.Info(
+			"Initializing cloud multi-pool IPAM",
+			logfields.Mode, provider.Mode(),
+		)
+
+		v4Allocator, v6Allocator, err := newCloudMultiPoolAllocators(ctx, cloudMultiPoolParams{
+			Logger:               ipam.logger,
+			IPv4Enabled:          ipam.config.IPv4Enabled(),
+			IPv6Enabled:          ipam.config.IPv6Enabled(),
+			CiliumNodeUpdateRate: ipam.config.IPAMCiliumNodeUpdateRate,
+			Node:                 ipam.nodeResource,
+			LocalNodeStore:       ipam.localNodeStore,
+			CNClient:             ipam.clientset.CiliumV2().CiliumNodes(),
+			JobGroup:             ipam.jg,
+			Provider:             provider,
+		})
+		if err != nil {
+			return fmt.Errorf("unable to initialize %s multi-pool IPAM: %w", provider.Mode(), err)
+		}
+		if ipam.config.IPv6Enabled() {
+			ipam.ipv6Allocator = v6Allocator
+		}
+		if ipam.config.IPv4Enabled() {
+			ipam.ipv4Allocator = v4Allocator
+		}
+
+		return nil
+	}
+
 	switch ipam.config.IPAMMode() {
 	case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool:
 		ipam.logger.Info(
