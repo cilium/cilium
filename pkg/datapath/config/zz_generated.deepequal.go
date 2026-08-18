@@ -186,7 +186,7 @@ func (in *Config) deepEqual(other *Config) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
@@ -203,7 +203,7 @@ func (in *Config) deepEqual(other *Config) bool {
 			return false
 		} else {
 			for i, inElement := range *in {
-				if !inElement.DeepEqual((*other)[i]) {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
 				}
 			}
