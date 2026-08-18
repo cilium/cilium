@@ -118,23 +118,17 @@ func (d DeviceManagerType) String() string {
 func (d DeviceManagerType) MarshalText() (text []byte, err error) {
 	switch d {
 	case DeviceManagerTypeMock:
-		return json.Marshal(deviceManagerTypeMockStr)
+		return []byte(deviceManagerTypeMockStr), nil
 
 	case DeviceManagerTypeDummy:
-		return json.Marshal(dummyDeviceManagerStr)
+		return []byte(dummyDeviceManagerStr), nil
 	}
 
 	return nil, errUnknownDeviceManagerType
 }
 
 func (d *DeviceManagerType) UnmarshalText(text []byte) error {
-	var s string
-	err := json.Unmarshal(text, &s)
-	if err != nil {
-		return err
-	}
-
-	switch strings.ToLower(s) {
+	switch strings.ToLower(string(text)) {
 	case deviceManagerTypeMockStr:
 		*d = DeviceManagerTypeMock
 	case dummyDeviceManagerStr:
