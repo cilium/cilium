@@ -5,6 +5,7 @@ package linuxrouting
 
 import (
 	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -17,17 +18,16 @@ import (
 func TestPrivilegedParse(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
-	_, fakeCIDR, err := net.ParseCIDR("192.168.0.0/16")
-	require.NoError(t, err)
+	fakeCIDR := netip.MustParsePrefix("192.168.0.0/16")
 
 	fakeMAC := mac.MustParseMAC("11:22:33:44:55:66")
 
-	validCIDRs := []net.IPNet{*fakeCIDR}
+	validCIDRs := []netip.Prefix{fakeCIDR}
 
 	tests := []struct {
 		name      string
 		gateway   string
-		cidrs     []string
+		cidrs     []netip.Prefix
 		macAddr   mac.MAC
 		masq      bool
 		ifaceNum  string
@@ -37,16 +37,7 @@ func TestPrivilegedParse(t *testing.T) {
 		{
 			name:      "invalid gateway",
 			gateway:   "",
-			cidrs:     []string{"192.168.0.0/16"},
-			macAddr:   fakeMAC,
-			masq:      true,
-			wantRInfo: nil,
-			wantErr:   true,
-		},
-		{
-			name:      "invalid cidr",
-			gateway:   "192.168.1.1",
-			cidrs:     []string{"192.168.0.0/16", "192.168.0.0/33"},
+			cidrs:     []netip.Prefix{fakeCIDR},
 			macAddr:   fakeMAC,
 			masq:      true,
 			wantRInfo: nil,
@@ -55,7 +46,7 @@ func TestPrivilegedParse(t *testing.T) {
 		{
 			name:      "empty cidr",
 			gateway:   "192.168.1.1",
-			cidrs:     []string{},
+			cidrs:     []netip.Prefix{},
 			macAddr:   fakeMAC,
 			masq:      true,
 			wantRInfo: nil,
@@ -73,7 +64,7 @@ func TestPrivilegedParse(t *testing.T) {
 		{
 			name:      "empty mac address",
 			gateway:   "192.168.1.1",
-			cidrs:     []string{"192.168.0.0/16"},
+			cidrs:     []netip.Prefix{fakeCIDR},
 			macAddr:   mac.MAC{},
 			masq:      true,
 			wantRInfo: nil,
@@ -82,7 +73,7 @@ func TestPrivilegedParse(t *testing.T) {
 		{
 			name:      "invalid interface number",
 			gateway:   "192.168.1.1",
-			cidrs:     []string{"192.168.0.0/16"},
+			cidrs:     []netip.Prefix{fakeCIDR},
 			macAddr:   fakeMAC,
 			ifaceNum:  "a",
 			wantRInfo: nil,
@@ -91,7 +82,7 @@ func TestPrivilegedParse(t *testing.T) {
 		{
 			name:     "valid IPv4 input",
 			gateway:  "192.168.1.1",
-			cidrs:    []string{"192.168.0.0/16"},
+			cidrs:    []netip.Prefix{fakeCIDR},
 			macAddr:  fakeMAC,
 			ifaceNum: "1",
 			wantRInfo: &RoutingInfo{
@@ -106,13 +97,13 @@ func TestPrivilegedParse(t *testing.T) {
 		{
 			name:     "disabled masquerade",
 			gateway:  "192.168.1.1",
-			cidrs:    []string{},
+			cidrs:    []netip.Prefix{},
 			macAddr:  fakeMAC,
 			masq:     false,
 			ifaceNum: "0",
 			wantRInfo: &RoutingInfo{
 				Gateway:     net.ParseIP("192.168.1.1"),
-				CIDRs:       []net.IPNet{},
+				CIDRs:       []netip.Prefix{},
 				MasterIfMAC: fakeMAC,
 				IpamMode:    ipamOption.IPAMENI,
 			},
@@ -121,7 +112,7 @@ func TestPrivilegedParse(t *testing.T) {
 		{
 			name:      "masquerade lacking cidrs",
 			gateway:   "192.168.1.1",
-			cidrs:     []string{},
+			cidrs:     []netip.Prefix{},
 			macAddr:   fakeMAC,
 			masq:      true,
 			wantRInfo: nil,

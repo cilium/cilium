@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/resiliency"
-	cslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -339,7 +338,7 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 		r.daemonConfig.IPAM == ipamOption.IPAMAlibabaCloud ||
 		r.daemonConfig.IPAM == ipamOption.IPAMAzure) && result != nil {
 		var routingInfo *linuxrouting.RoutingInfo
-		routingInfo, err = linuxrouting.NewRoutingInfo(r.logger, result.GatewayIP.String(), prefixesToStrings(result.CIDRs),
+		routingInfo, err = linuxrouting.NewRoutingInfo(r.logger, result.GatewayIP.String(), result.CIDRs,
 			result.PrimaryMAC, result.InterfaceNumber, r.daemonConfig.IPAM,
 			masq)
 		if err != nil {
@@ -769,7 +768,7 @@ func (r *infraIPAllocator) parseRoutingInfo(result *ipam.AllocationResult) (*lin
 		return linuxrouting.NewRoutingInfo(
 			r.logger,
 			result.GatewayIP.String(),
-			prefixesToStrings(result.CIDRs),
+			result.CIDRs,
 			result.PrimaryMAC,
 			result.InterfaceNumber,
 			r.daemonConfig.IPAM,
@@ -779,17 +778,13 @@ func (r *infraIPAllocator) parseRoutingInfo(result *ipam.AllocationResult) (*lin
 		return linuxrouting.NewRoutingInfo(
 			r.logger,
 			result.GatewayIP.String(),
-			prefixesToStrings(result.CIDRs),
+			result.CIDRs,
 			result.PrimaryMAC,
 			result.InterfaceNumber,
 			r.daemonConfig.IPAM,
 			r.daemonConfig.EnableIPv6Masquerade,
 		)
 	}
-}
-
-func prefixesToStrings(prefixes []netip.Prefix) []string {
-	return cslices.Map(prefixes, func(p netip.Prefix) string { return p.String() })
 }
 
 // removeOldCiliumHostIPs calls removeOldRouterState() for both IPv4 and IPv6
