@@ -72,12 +72,12 @@ void ctx_set_port(struct bpf_sock_addr *ctx, __be16 dport)
 
 static __always_inline __maybe_unused bool task_in_extended_hostns(void)
 {
-#ifdef ENABLE_MKE
+	__u32 classid = CONFIG(mke_host);
+
+	if (!classid)
+		return false;
 	/* Extension for non-Cilium managed containers on MKE. */
-	return get_cgroup_classid() == CONFIG(mke_host);
-#else
-	return false;
-#endif
+	return get_cgroup_classid() == classid;
 }
 
 static __always_inline __maybe_unused bool
