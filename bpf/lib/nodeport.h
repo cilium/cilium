@@ -10,6 +10,8 @@
 #include "tailcall.h"
 #include "nat.h"
 #include "edt.h"
+#include "icmp.h"
+#include "icmp6.h"
 #include "l3.h"
 #include "lb.h"
 #include "common.h"
@@ -590,95 +592,37 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 					   int code, int ohead __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
-	const __s32 orig_dgram = 64, off = ETH_HLEN;
-	__u8 orig_ipv6_hdr[orig_dgram];
-	__u64 len_new = off + sizeof(*ip6) + orig_dgram;
-	__u64 len_old = ctx_full_len(ctx);
-	void *data_end = ctx_data_end(ctx);
-	void *data = ctx_data(ctx);
 	__u8 reason = (__u8)-code;
-	__wsum wsum;
-	union macaddr smac, dmac;
-	struct icmp6hdr icmp __align_stack_8 = {
-		.icmp6_type	= ICMPV6_PKT_TOOBIG,
-		.icmp6_mtu	= bpf_htonl(CONFIG(device_mtu) - ohead),
-	};
-	__u64 payload_len = sizeof(*ip6) + sizeof(icmp) + orig_dgram;
-	struct ipv6hdr ip __align_stack_8 = {
-		.version	= 6,
-		.priority	= ip6->priority,
-		.flow_lbl[0]	= ip6->flow_lbl[0],
-		.flow_lbl[1]	= ip6->flow_lbl[1],
-		.flow_lbl[2]	= ip6->flow_lbl[2],
-		.nexthdr	= IPPROTO_ICMPV6,
-		.hop_limit	= IPDEFTTL,
-		.saddr		= ip6->daddr,
-		.daddr		= ip6->saddr,
-		.payload_len	= bpf_htons((__u16)payload_len),
-	};
-	struct ipv6hdr inner_ipv6_hdr __align_stack_8 = *ip6;
-	__s32 l4_dport_offset;
+# if DSR_ENCAP_MODE == DSR_ENCAP_NONE || DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
+	int l3_off = ETH_HLEN;
+	fraginfo_t fraginfo = 0;
+	int ret, l4_off;
 
-	/* DSR changes the destination address from service ip to pod ip and
-	 * destination port from service port to pod port. While resppnding
-	 * back with ICMP error, it is necessary to set it to original ip and
-	 * port.
-	 */
-	ipv6_addr_copy((union v6addr *)&inner_ipv6_hdr.daddr, svc_addr);
-
-	if (inner_ipv6_hdr.nexthdr == IPPROTO_UDP)
-		l4_dport_offset = UDP_DPORT_OFF;
-	else if (inner_ipv6_hdr.nexthdr == IPPROTO_TCP)
-		l4_dport_offset = TCP_DPORT_OFF;
-	else
+	tuple.nexthdr = ip6->nexthdr;
+	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+	if (ret < 0)
 		goto drop_err;
 
-	if (ctx_load_bytes(ctx, off + sizeof(inner_ipv6_hdr), orig_ipv6_hdr,
-			   (__u32)sizeof(orig_ipv6_hdr)) < 0)
+	l4_off = ETH_HLEN + ret;
+
+	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
+	if (IS_ERR(ret))
 		goto drop_err;
-	memcpy(orig_ipv6_hdr + l4_dport_offset, &dport, sizeof(dport));
+
+	/* Packet was DNATed from Service IP/Port to backend. Revert this again. */
+	ret = snat_v6_rewrite_headers(ctx, tuple.nexthdr, l3_off,
+				      ipfrag_has_l4_header(fraginfo), l4_off,
+				      &tuple.daddr, svc_addr, IPV6_DADDR_OFF,
+				      tuple.sport, dport, TCP_DPORT_OFF);
+	if (IS_ERR(ret))
+		goto drop_err;
+# endif
 
 	update_metrics(ctx_full_len(ctx), METRIC_EGRESS, reason);
 
-	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
-		goto drop_err;
-	if (eth_load_daddr(ctx, dmac.addr, 0) < 0)
-		goto drop_err;
-	if (unlikely(data + len_new > data_end))
-		goto drop_err;
-
-	wsum = ipv6_pseudohdr_checksum(&ip, IPPROTO_ICMPV6,
-				       bpf_ntohs(ip.payload_len), 0);
-	icmp.icmp6_cksum = csum_fold(csum_diff(NULL, 0, orig_ipv6_hdr, (__u32)sizeof(orig_ipv6_hdr),
-					       csum_diff(NULL, 0, &inner_ipv6_hdr,
-							 sizeof(inner_ipv6_hdr),
-							 csum_diff(NULL, 0, &icmp,
-								   sizeof(icmp), wsum))));
-
-	if (ctx_adjust_troom(ctx, -(__s32)(len_old - len_new)) < 0)
-		goto drop_err;
-	if (ctx_adjust_hroom(ctx, sizeof(ip) + sizeof(icmp),
-			     BPF_ADJ_ROOM_NET,
-			     ctx_adjust_hroom_flags()) < 0)
-		goto drop_err;
-
-	if (eth_store_daddr(ctx, smac.addr, 0) < 0)
-		goto drop_err;
-	if (eth_store_saddr(ctx, dmac.addr, 0) < 0)
-		goto drop_err;
-	if (eth_store_proto(ctx, bpf_htons(ETH_P_IPV6), 0) < 0)
-		goto drop_err;
-	if (ctx_store_bytes(ctx, off, &ip, sizeof(ip), 0) < 0)
-		goto drop_err;
-	if (ctx_store_bytes(ctx, off + sizeof(ip), &icmp,
-			    sizeof(icmp), 0) < 0)
-		goto drop_err;
-	if (ctx_store_bytes(ctx, off + sizeof(ip) + sizeof(icmp), &inner_ipv6_hdr,
-			    sizeof(inner_ipv6_hdr), 0) < 0)
-		goto drop_err;
-	if (ctx_store_bytes(ctx, off + sizeof(ip) + sizeof(icmp) +
-			    sizeof(inner_ipv6_hdr) + l4_dport_offset,
-			    &dport, sizeof(dport), 0) < 0)
+	if (generate_icmp6_reply(ctx, ICMPV6_PKT_TOOBIG, 0,
+				 bpf_htonl(CONFIG(device_mtu) - ohead)))
 		goto drop_err;
 
 	return redirect_self(ctx);
@@ -1974,105 +1918,33 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 					   int code, __be16 ohead __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
-	const __s32 orig_dgram = 8, off = ETH_HLEN;
-	__u8 tmp[MAX_IPOPTLEN + sizeof(*ip4) + orig_dgram];
-	__s32 len_new = off + ipv4_hdrlen(ip4) + orig_dgram;
-	__s32 len_old = (__s32)ctx_full_len(ctx);
 	__u8 reason = (__u8)-code;
-	union macaddr smac, dmac;
-	struct icmphdr icmp __align_stack_8 = {
-		.type		= ICMP_DEST_UNREACH,
-		.code		= ICMP_FRAG_NEEDED,
-		.un = {
-			.frag = {
-				.mtu = bpf_htons(CONFIG(device_mtu) - ohead),
-			},
-		},
-	};
-	__u64 tot_len = sizeof(struct iphdr) + ipv4_hdrlen(ip4) + sizeof(icmp) + orig_dgram;
-	struct iphdr ip __align_stack_8 = {
-		.ihl		= sizeof(ip) >> 2,
-		.version	= IPVERSION,
-		.ttl		= IPDEFTTL,
-		.tos		= ip4->tos,
-		.id		= ip4->id,
-		.protocol	= IPPROTO_ICMP,
-		.saddr		= ip4->daddr,
-		.daddr		= ip4->saddr,
-		.frag_off	= bpf_htons(IP_DF),
-		.tot_len	= bpf_htons((__u16)tot_len),
-	};
+# if DSR_ENCAP_MODE == DSR_ENCAP_NONE || DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	struct ipv4_ct_tuple tuple = {};
+	int l3_off = ETH_HLEN;
+	fraginfo_t fraginfo;
+	int ret, l4_off;
 
-	struct iphdr inner_ip_hdr __align_stack_8 = *ip4;
-	__s32 l4_dport_offset;
+	fraginfo = ipfrag_encode_ipv4(ip4);
+	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-	/* DSR changes the destination address from service ip to pod ip and
-	 * destination port from service port to pod port. While resppnding
-	 * back with ICMP error, it is necessary to set it to original ip and
-	 * port.
-	 * We do recompute the whole checksum here. Another way would be to
-	 * unfold checksum and then do the math adding the diff.
-	 */
-	inner_ip_hdr.daddr = svc_addr;
-	inner_ip_hdr.check = 0;
-	inner_ip_hdr.check = csum_fold(csum_diff(NULL, 0, &inner_ip_hdr,
-						 sizeof(inner_ip_hdr), 0));
+	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
+	if (IS_ERR(ret))
+		goto drop_err;
 
-	if (inner_ip_hdr.protocol == IPPROTO_UDP)
-		l4_dport_offset = UDP_DPORT_OFF;
-	else if (inner_ip_hdr.protocol == IPPROTO_TCP)
-		l4_dport_offset = TCP_DPORT_OFF;
+	/* Packet was DNATed from Service IP/Port to backend. Revert this again. */
+	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, l3_off,
+				      ipfrag_has_l4_header(fraginfo), l4_off,
+				      ip4->daddr, svc_addr, IPV4_DADDR_OFF,
+				      tuple.sport, dport, TCP_DPORT_OFF, 0);
+	if (IS_ERR(ret))
+		goto drop_err;
+# endif
 
 	update_metrics(ctx_full_len(ctx), METRIC_EGRESS, reason);
 
-	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
-		goto drop_err;
-	if (eth_load_daddr(ctx, dmac.addr, 0) < 0)
-		goto drop_err;
-
-	ip.check = csum_fold(csum_diff(NULL, 0, &ip, sizeof(ip), 0));
-
-	/* We use a workaround here in that we push zero-bytes into the
-	 * payload in order to support dynamic IPv4 header size. This
-	 * works given one's complement sum does not change.
-	 */
-	memset(tmp, 0, MAX_IPOPTLEN);
-	if (ctx_store_bytes(ctx, len_new, tmp, MAX_IPOPTLEN, 0) < 0)
-		goto drop_err;
-	if (ctx_load_bytes(ctx, off, tmp, (__u32)sizeof(tmp)) < 0)
-		goto drop_err;
-
-	memcpy(tmp, &inner_ip_hdr, sizeof(inner_ip_hdr));
-	memcpy(tmp + sizeof(inner_ip_hdr) + l4_dport_offset, &dport, sizeof(dport));
-
-	icmp.checksum = csum_fold(csum_diff(NULL, 0, tmp, (__u32)sizeof(tmp),
-					    csum_diff(NULL, 0, &icmp,
-						      sizeof(icmp), 0)));
-
-	if (ctx_adjust_troom(ctx, -(len_old - len_new)) < 0)
-		goto drop_err;
-	if (ctx_adjust_hroom(ctx, sizeof(ip) + sizeof(icmp),
-			     BPF_ADJ_ROOM_NET,
-			     ctx_adjust_hroom_flags()) < 0)
-		goto drop_err;
-
-	if (eth_store_daddr(ctx, smac.addr, 0) < 0)
-		goto drop_err;
-	if (eth_store_saddr(ctx, dmac.addr, 0) < 0)
-		goto drop_err;
-	if (eth_store_proto(ctx, bpf_htons(ETH_P_IP), 0) < 0)
-		goto drop_err;
-	if (ctx_store_bytes(ctx, off, &ip, sizeof(ip), 0) < 0)
-		goto drop_err;
-	if (ctx_store_bytes(ctx, off + sizeof(ip), &icmp,
-			    sizeof(icmp), 0) < 0)
-		goto drop_err;
-	if (ctx_store_bytes(ctx, off + sizeof(ip) + sizeof(icmp),
-			    &inner_ip_hdr, sizeof(inner_ip_hdr), 0) < 0)
-		goto drop_err;
-	if (ctx_store_bytes(ctx, off + sizeof(ip) + sizeof(icmp)
-			    + sizeof(inner_ip_hdr) + l4_dport_offset,
-			    &dport, sizeof(dport), 0) < 0)
+	if (generate_icmp4_reply(ctx, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
+				 bpf_htons(CONFIG(device_mtu) - ohead)))
 		goto drop_err;
 
 	return redirect_self(ctx);
