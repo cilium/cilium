@@ -333,9 +333,7 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 		r.daemonConfig.IPAM == ipamOption.IPAMAlibabaCloud ||
 		r.daemonConfig.IPAM == ipamOption.IPAMAzure) && result != nil {
 		var routingInfo *linuxrouting.RoutingInfo
-		routingInfo, err = linuxrouting.NewRoutingInfo(r.logger, result.GatewayIP.String(), prefixesToStrings(result.CIDRs),
-			result.PrimaryMAC, result.InterfaceNumber, r.daemonConfig.IPAM,
-			masq)
+		routingInfo, err = r.newRoutingInfo(result, masq)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create router info: %w", err)
 		}
@@ -352,7 +350,6 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 
 		if err = routingInfo.Configure(
 			result.IP,
-			r.mtuManager.GetDeviceMTU(),
 			true,
 		); err != nil {
 			return nil, fmt.Errorf("failed to configure router IP rules and routes: %w", err)
@@ -368,7 +365,6 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 
 			for {
 				watchSet, err := routingInfo.ReconcileGatewayRoutes(
-					r.mtuManager.GetDeviceMTU(),
 					r.db.ReadTxn(),
 					r.routes,
 				)
@@ -533,7 +529,6 @@ func (r *infraIPAllocator) allocateIngressIPs(ctx context.Context, oldV4IngressI
 
 				if err := ingressRouting.Configure(
 					result.IP,
-					r.mtuManager.GetDeviceMTU(),
 					false,
 				); err != nil {
 					r.logger.Warn("Error while configuring ingress IP rules and routes.", logfields.Error, err)
@@ -715,27 +710,33 @@ func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouter
 }
 
 func (r *infraIPAllocator) parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
+	masquerade := r.daemonConfig.EnableIPv6Masquerade
 	if result.IP.Is4() {
-		return linuxrouting.NewRoutingInfo(
-			r.logger,
-			result.GatewayIP.String(),
-			prefixesToStrings(result.CIDRs),
-			result.PrimaryMAC,
-			result.InterfaceNumber,
-			r.daemonConfig.IPAM,
-			r.daemonConfig.EnableIPv4Masquerade,
-		)
-	} else {
-		return linuxrouting.NewRoutingInfo(
-			r.logger,
-			result.GatewayIP.String(),
-			prefixesToStrings(result.CIDRs),
-			result.PrimaryMAC,
-			result.InterfaceNumber,
-			r.daemonConfig.IPAM,
-			r.daemonConfig.EnableIPv6Masquerade,
+		masquerade = r.daemonConfig.EnableIPv4Masquerade
+	}
+	return r.newRoutingInfo(result, masquerade)
+}
+
+func (r *infraIPAllocator) newRoutingInfo(result *ipam.AllocationResult, masquerade bool) (*linuxrouting.RoutingInfo, error) {
+	options := []linuxrouting.RoutingInfoOption{
+		linuxrouting.WithCIDRsAndMasquerade(prefixesToStrings(result.CIDRs), masquerade),
+	}
+	if r.daemonConfig.IPAM != ipamOption.IPAMENI {
+		options = append(options,
+			linuxrouting.WithMTU(r.mtuManager.GetDeviceMTU()),
+			linuxrouting.WithLinkState(true),
 		)
 	}
+	if r.daemonConfig.IPAM == ipamOption.IPAMAzure {
+		options = append(options, linuxrouting.WithCompatEgressPriority())
+	}
+
+	return linuxrouting.NewRoutingInfo(
+		result.GatewayIP.String(),
+		result.PrimaryMAC,
+		result.InterfaceNumber,
+		options...,
+	)
 }
 
 func prefixesToStrings(prefixes []netip.Prefix) []string {

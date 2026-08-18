@@ -4,8 +4,10 @@
 package ipam
 
 import (
+	"context"
 	"log/slog"
 	"net/netip"
+	"sync"
 
 	"github.com/davecgh/go-spew/spew"
 
@@ -104,6 +106,9 @@ type IPAM struct {
 	ipv6Allocator Allocator
 	ipv4Allocator Allocator
 
+	ipv6RoutingMetadataResolver routingMetadataResolver
+	ipv4RoutingMetadataResolver routingMetadataResolver
+
 	// metadata provides information about a particular IP owner.
 	metadata Metadata
 
@@ -137,6 +142,9 @@ type IPAM struct {
 	podIPPools statedb.Table[podippool.LocalPodIPPool]
 
 	onlyMasqueradeDefaultPool bool
+
+	restoreFinished     chan struct{}
+	restoreFinishedOnce sync.Once
 }
 
 func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}
@@ -165,6 +173,18 @@ func (ipam *IPAM) RestoreFinished() {
 	}
 	if ipam.config.EnableIPv4 {
 		ipam.ipv4Allocator.RestoreFinished()
+	}
+	ipam.restoreFinishedOnce.Do(func() { close(ipam.restoreFinished) })
+}
+
+// WaitForRestoreFinished waits until endpoint restoration and infrastructure
+// address allocation have completed.
+func (ipam *IPAM) WaitForRestoreFinished(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ipam.restoreFinished:
+		return nil
 	}
 }
 

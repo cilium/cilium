@@ -671,6 +671,11 @@ func TestENIMultiPoolAllocator(t *testing.T) {
 				ENIs: map[string]awsTypes.ENI{
 					"eni-1": {
 						Addresses: addrs(eniCIDR1.Addr().String(), eniCIDR2.Addr().String()),
+						MAC:       "aa:bb:cc:dd:ee:01",
+						Number:    1,
+						Subnet: awsTypes.AwsSubnet{
+							CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.0.10.0/24")),
+						},
 						VPC: awsTypes.AwsVPC{
 							PrimaryCIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/16")),
 						},
@@ -737,6 +742,13 @@ func TestENIMultiPoolAllocator(t *testing.T) {
 			iputil.PrefixFrom(eniCIDR2),
 		}, alloc[0].CIDRs)
 	}, 5*time.Second, 10*time.Millisecond)
+
+	result, err := ipv4Allocator.ResolveRoutingMetadata(eniCIDR1.Addr(), PoolDefault())
+	require.NoError(t, err)
+	require.Equal(t, eniCIDR1.Addr(), result.IP)
+	require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
+	require.Equal(t, "1", result.InterfaceNumber)
+	require.Equal(t, netip.MustParseAddr("10.0.10.1"), result.GatewayIP)
 }
 
 func TestDeriveENIVpcCIDRs(t *testing.T) {

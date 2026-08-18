@@ -430,6 +430,7 @@ func waitForNetlinkDevices(logger *slog.Logger, configByMac configMap) (linkByMa
 	return linkByMac, errors.New("timed out waiting for ENIs to be attached")
 }
 
+// configureENINetlinkDevice owns the MTU and up-state of ENI links.
 func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sysctl.Sysctl) error {
 	if err := netlink.LinkSetMTU(link, cfg.mtu); err != nil {
 		return fmt.Errorf("failed to change MTU of link %s to %d: %w", link.Attrs().Name, cfg.mtu, err)
@@ -662,11 +663,7 @@ type eniMultiPoolAllocator struct {
 	ipMasqAgent *ipmasq.IPMasqAgent
 }
 
-func (a *eniMultiPoolAllocator) enrichResult(result *AllocationResult, err error) (*AllocationResult, error) {
-	if err != nil || result == nil {
-		return result, err
-	}
-
+func (a *eniMultiPoolAllocator) ResolveRoutingMetadata(addr netip.Addr, pool Pool) (*AllocationResult, error) {
 	// Take a DeepCopy of the ENIs map under the lock so buildENIAllocationResult
 	// can safely iterate it without holding the mutex. Scoped to Status.ENI
 	// since that's all buildENIAllocationResult reads.
@@ -677,7 +674,15 @@ func (a *eniMultiPoolAllocator) enrichResult(result *AllocationResult, err error
 	}
 	a.manager.nodeMutex.Unlock()
 
-	enriched, enrichErr := buildENIAllocationResult(a.logger, result.IP, result.IPPoolName, enis, a.conf, a.ipMasqAgent)
+	return buildENIAllocationResult(a.logger, addr, pool, enis, a.conf, a.ipMasqAgent)
+}
+
+func (a *eniMultiPoolAllocator) enrichResult(result *AllocationResult, err error) (*AllocationResult, error) {
+	if err != nil || result == nil {
+		return result, err
+	}
+
+	enriched, enrichErr := a.ResolveRoutingMetadata(result.IP, result.IPPoolName)
 	if enrichErr != nil {
 		// The underlying Allocate* call already reserved the IP in the
 		// allocator. Release it to avoid leaking the reservation when the
@@ -724,7 +729,7 @@ type ENIMultiPoolAllocatorParams struct {
 	IPMasqAgent *ipmasq.IPMasqAgent
 }
 
-func newENIMultiPoolAllocators(p ENIMultiPoolAllocatorParams) (Allocator, Allocator) {
+func newENIMultiPoolAllocators(p ENIMultiPoolAllocatorParams) (*eniMultiPoolAllocator, *eniMultiPoolAllocator) {
 	preallocMap := preAllocatePerPool{
 		Pool(defaults.IPAMDefaultIPPool): defaults.IPAMPreAllocation,
 	}

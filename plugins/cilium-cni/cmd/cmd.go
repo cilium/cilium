@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -648,17 +649,51 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			args.IfName, args.Netns, err)
 	}
 
-	var ipam *models.IPAMResponse
-	var releaseIPsFunc func(context.Context)
+	var (
+		ipam                        *models.IPAMResponse
+		releaseIPsFunc              func(context.Context)
+		endpointRoutingIPsToCleanup []netip.Addr
+		endpointCreated             bool
+	)
 	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
 		ipam, releaseIPsFunc, err = allocateIPsWithDelegatedPlugin(context.TODO(), conf, n, args.StdinData)
 	} else {
 		ipam, releaseIPsFunc, err = allocateIPsWithCiliumAgent(scopedLogger, c, cniArgs)
 	}
 
-	// release addresses on failure
+	// Roll back CNI-owned state on failure. Once the endpoint has been created,
+	// its deletion owns the cleanup of Cilium-managed IPs and routing rules.
 	defer func() {
-		if err != nil && releaseIPsFunc != nil {
+		if err == nil {
+			return
+		}
+
+		if endpointCreated {
+			if cleanupErr := c.EndpointDelete(endpointid.NewCNIAttachmentID(args.ContainerID, args.IfName)); cleanupErr != nil {
+				scopedLogger.Warn(
+					"Failed to delete endpoint after CNI ADD failure",
+					logfields.Error, cleanupErr,
+					logfields.ContainerID, args.ContainerID,
+				)
+			}
+
+			// Cilium does not own addresses allocated by a delegated IPAM plugin.
+			if conf.IpamMode == ipamOption.IPAMDelegatedPlugin && releaseIPsFunc != nil {
+				releaseIPsFunc(context.TODO())
+			}
+			return
+		}
+
+		for _, addr := range endpointRoutingIPsToCleanup {
+			if cleanupErr := linuxrouting.DeleteRulesIfExists(scopedLogger, addr); cleanupErr != nil {
+				scopedLogger.Warn(
+					"Failed to clean up endpoint routing rules",
+					logfields.Error, cleanupErr,
+					logfields.IPAddr, addr,
+				)
+			}
+		}
+		if releaseIPsFunc != nil {
 			releaseIPsFunc(context.TODO())
 		}
 	}()
@@ -817,14 +852,20 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 	if needsEndpointRoutingOnHost(conf) {
 		if ipam.IPv4 != nil && ipConfig != nil {
-			err = interfaceAdd(scopedLogger, ipConfig, ipam.IPv4, conf)
+			if addr, ok := netipx.FromStdIP(ipConfig.Address.IP); ok {
+				endpointRoutingIPsToCleanup = append(endpointRoutingIPsToCleanup, addr)
+			}
+			err = interfaceAdd(ipConfig, ipam.IPv4, conf)
 			if err != nil {
 				return fmt.Errorf("unable to setup interface datapath: %w", err)
 			}
 		}
 
 		if ipam.IPv6 != nil && ipv6Config != nil {
-			err = interfaceAdd(scopedLogger, ipv6Config, ipam.IPv6, conf)
+			if addr, ok := netipx.FromStdIP(ipv6Config.Address.IP); ok {
+				endpointRoutingIPsToCleanup = append(endpointRoutingIPsToCleanup, addr)
+			}
+			err = interfaceAdd(ipv6Config, ipam.IPv6, conf)
 			if err != nil {
 				return fmt.Errorf("unable to setup interface datapath: %w", err)
 			}
@@ -891,6 +932,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		)
 		return fmt.Errorf("unable to create endpoint: %w", err)
 	}
+	endpointCreated = true
 	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
 		// Set the MAC address on the interface in the container namespace
 		if isLayer2 {

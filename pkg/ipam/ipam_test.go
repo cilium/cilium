@@ -4,6 +4,7 @@
 package ipam
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"net/netip"
@@ -39,6 +40,12 @@ type fakeMetadataFunc func(owner string, family Family) (pool string, err error)
 
 func (f fakeMetadataFunc) GetIPPoolForPod(owner string, family Family) (pool string, err error) {
 	return f(owner, family)
+}
+
+type fakeRoutingMetadataResolver func(netip.Addr, Pool) (*AllocationResult, error)
+
+func (f fakeRoutingMetadataResolver) ResolveRoutingMetadata(addr netip.Addr, pool Pool) (*AllocationResult, error) {
+	return f(addr, pool)
 }
 
 type fakePoolAllocator struct {
@@ -190,6 +197,71 @@ func TestExcludeIP(t *testing.T) {
 func TestDeriveFamily(t *testing.T) {
 	require.Equal(t, IPv4, DeriveFamily(netip.MustParseAddr("1.1.1.1")))
 	require.Equal(t, IPv6, DeriveFamily(netip.MustParseAddr("f00d::1")))
+}
+
+func TestRestoreReadiness(t *testing.T) {
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:      hivetest.Logger(t),
+		AgentConfig: &option.DaemonConfig{},
+	})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	require.ErrorIs(t, ipam.WaitForRestoreFinished(ctx), context.Canceled)
+
+	ipam.RestoreFinished()
+	require.NoError(t, ipam.WaitForRestoreFinished(t.Context()))
+	// RestoreFinished may be reported by more than one shutdown/restoration path.
+	require.NotPanics(t, ipam.RestoreFinished)
+}
+
+func TestIsAllocatedIP(t *testing.T) {
+	fakeAddressing := fakenode.NewAddressing()
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:         hivetest.Logger(t),
+		NodeAddressing: fakeAddressing,
+		AgentConfig:    testConfiguration,
+		NodeDiscovery:  &ownerMock{},
+		LocalNodeStore: node.NewTestLocalNodeStore(node.LocalNode{}),
+		K8sEventReg:    &ownerMock{},
+		NodeResource:   &resourceMock{},
+		MTUConfig:      &mtuMock,
+	})
+	ipam.ConfigureAllocator()
+
+	addr := fakeIPv4AllocCIDRIP(fakeAddressing).Next()
+	_, err := ipam.AllocateIPWithoutSyncUpstream(addr, "test-owner", PoolDefault())
+	require.NoError(t, err)
+	require.True(t, ipam.IsAllocatedIP(addr))
+	require.True(t, ipam.IsAllocatedIP(netip.MustParseAddr("::ffff:"+addr.String())))
+	require.False(t, ipam.IsAllocatedIP(netip.Addr{}))
+	require.False(t, ipam.IsAllocatedIP(addr.Next()))
+}
+
+func TestResolveRoutingMetadata(t *testing.T) {
+	ipv4 := netip.MustParseAddr("10.0.0.1")
+	ipv6 := netip.MustParseAddr("2001:db8::1")
+
+	ipam := &IPAM{
+		ipv4RoutingMetadataResolver: fakeRoutingMetadataResolver(func(addr netip.Addr, pool Pool) (*AllocationResult, error) {
+			require.Equal(t, ipv4, addr)
+			require.Equal(t, PoolDefault(), pool)
+			return &AllocationResult{IP: addr}, nil
+		}),
+		ipv6RoutingMetadataResolver: fakeRoutingMetadataResolver(func(addr netip.Addr, pool Pool) (*AllocationResult, error) {
+			require.Equal(t, ipv6, addr)
+			require.Equal(t, Pool("pool-v6"), pool)
+			return &AllocationResult{IP: addr}, nil
+		}),
+	}
+
+	result, err := ipam.ResolveRoutingMetadata(netip.MustParseAddr("::ffff:10.0.0.1"), "")
+	require.NoError(t, err)
+	require.Equal(t, ipv4, result.IP)
+
+	result, err = ipam.ResolveRoutingMetadata(ipv6, Pool("pool-v6"))
+	require.NoError(t, err)
+	require.Equal(t, ipv6, result.IP)
 }
 
 func TestIPAMMetadata(t *testing.T) {

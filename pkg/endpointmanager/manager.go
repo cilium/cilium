@@ -514,13 +514,20 @@ func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 		_ = mgr.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.EndpointDeleteMessage(ep))
 	}
 
-	mgr.mutex.RLock()
-	for s := range mgr.subscribers {
-		s.EndpointDeleted(ep, conf)
-	}
-	mgr.mutex.RUnlock()
+	mgr.notifyEndpointDeleted(ep, conf)
 
 	return result
+}
+
+func (mgr *endpointManager) notifyEndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
+	mgr.mutex.RLock()
+	// Invoke subscribers without holding the endpoint-manager lock. Deletion
+	// callbacks may use EndpointOwnsIP, which performs an endpoint lookup.
+	subscribers := maps.Clone(mgr.subscribers)
+	mgr.mutex.RUnlock()
+	for s := range subscribers {
+		s.EndpointDeleted(ep, conf)
+	}
 }
 
 // RemoveEndpoint stops the active handling of events by the specified endpoint,
@@ -803,10 +810,11 @@ func (mgr *endpointManager) AddEndpoint(ep *endpoint.Endpoint) (err error) {
 	}
 
 	mgr.mutex.RLock()
-	for s := range mgr.subscribers {
+	subscribers := maps.Clone(mgr.subscribers)
+	mgr.mutex.RUnlock()
+	for s := range subscribers {
 		s.EndpointCreated(ep)
 	}
-	mgr.mutex.RUnlock()
 
 	return nil
 }

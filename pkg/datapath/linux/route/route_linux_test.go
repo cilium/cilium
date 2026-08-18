@@ -23,6 +23,19 @@ func setup(tb testing.TB) {
 	testutils.PrivilegedTest(tb)
 }
 
+func TestRuleSelectorEqual(t *testing.T) {
+	_, cidr, err := net.ParseCIDR("10.0.0.0/8")
+	require.NoError(t, err)
+	_, otherCIDR, err := net.ParseCIDR("192.0.2.0/24")
+	require.NoError(t, err)
+
+	require.True(t, ruleSelectorEqual(nil, nil))
+	require.True(t, ruleSelectorEqual(cidr, cidr))
+	require.False(t, ruleSelectorEqual(nil, cidr))
+	require.False(t, ruleSelectorEqual(cidr, nil))
+	require.False(t, ruleSelectorEqual(cidr, otherCIDR))
+}
+
 func testReplaceNexthopRoute(t *testing.T, link netlink.Link, routerNet *net.IPNet) {
 	route := Route{
 		Table: 10,
