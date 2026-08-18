@@ -14,11 +14,13 @@
 #include "overloadable.h"
 #ifdef ENABLE_IPV4
 
-#define ICMP_PACKET_MAX_SAMPLE_SIZE 64
+#define ICMP_PACKET_MAX_SAMPLE_SIZE 8
 
 static __always_inline
 int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
 {
+	__u64 full_len = ctx_full_len(ctx);
+	__u64 new_len, sample_len;
 	void *data, *data_end;
 	struct ethhdr *ethhdr;
 	struct iphdr *ip4;
@@ -29,7 +31,6 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
 	__be32	daddr;
 	__u8	tos;
 	__wsum csum;
-	int sample_len;
 	int ret;
 	const int inner_offset = sizeof(struct ethhdr) + sizeof(struct iphdr) +
 		sizeof(struct icmphdr);
@@ -51,17 +52,24 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
 	daddr = ip4->daddr;
 	tos = ip4->tos;
 
-	/* Resize to ethernet header + 64 bytes or less */
-	sample_len = (int)ctx_full_len(ctx);
-	if (sample_len > ICMP_PACKET_MAX_SAMPLE_SIZE)
-		sample_len = ICMP_PACKET_MAX_SAMPLE_SIZE;
-	ctx_adjust_troom(ctx, (__s32)(sample_len + sizeof(struct ethhdr) - ctx_full_len(ctx)));
+	/* Trim down to sample size (IPv4 header + 8 bytes datagram) */
+	if (full_len < sizeof(struct ethhdr))
+		return DROP_INVALID;
+
+	sample_len = ipv4_hdrlen(ip4) + ICMP_PACKET_MAX_SAMPLE_SIZE;
+	new_len = sizeof(struct ethhdr) + sample_len;
+	if (new_len > full_len) {
+		new_len = full_len;
+		sample_len = full_len - sizeof(struct ethhdr);
+	}
+
+	ctx_adjust_troom(ctx, (__s32)(new_len - full_len));
 
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
 
 	/* Calculate the checksum of the ICMP sample */
-	csum = icmp_wsum_accumulate(data + sizeof(struct ethhdr), data_end, sample_len);
+	csum = icmp_wsum_accumulate(data + sizeof(struct ethhdr), data_end, (int)sample_len);
 
 	/* We need to insert a IPv4 and ICMP header before the original packet.
 	 * Make that room.
