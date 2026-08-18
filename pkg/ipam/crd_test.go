@@ -116,7 +116,7 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 		NodeResource:   &resourceMock{},
 		MTUConfig:      &mtuMock,
 	})
-	ipam.ConfigureAllocator()
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
 	sharedNodeStore.updateLocalNodeResource(cn)
 
 	// Allocate the first 3 IPs
@@ -244,7 +244,7 @@ func TestAzureIPMasq(t *testing.T) {
 		MTUConfig:      &mtuMock,
 		IPMasqAgent:    ipMasqAgent,
 	})
-	ipam.ConfigureAllocator()
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
 
 	epipv4 := netip.MustParseAddr("10.10.1.5")
 	result, err := ipam.ipv4Allocator.Allocate(epipv4, "test1", PoolDefault())

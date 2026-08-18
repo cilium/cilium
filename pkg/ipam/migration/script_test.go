@@ -143,8 +143,7 @@ func commands(initializer *ipamcell.IPAMInitializer, manager *ipam.IPAM) map[str
 				if len(args) != 0 {
 					return nil, script.ErrUsage
 				}
-				initializer.ConfigureAndStartIPAM(state.Context())
-				return nil, nil
+				return nil, initializer.ConfigureAndStartIPAM(state.Context())
 			},
 		),
 		"ipam/restore-endpoint": script.Command(
