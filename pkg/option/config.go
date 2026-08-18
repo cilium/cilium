@@ -1667,10 +1667,10 @@ type DaemonConfig struct {
 	ExcludeLocalAddresses []netip.Prefix
 
 	// IPv4PodSubnets available subnets to be assign IPv4 addresses to pods from
-	IPv4PodSubnets []*net.IPNet
+	IPv4PodSubnets []netip.Prefix
 
 	// IPv6PodSubnets available subnets to be assign IPv6 addresses to pods from
-	IPv6PodSubnets []*net.IPNet
+	IPv6PodSubnets []netip.Prefix
 
 	// IPAM is the IPAM method to use
 	IPAM string
@@ -2723,19 +2723,18 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.DNSProxySocketLingerTimeout = vp.GetInt(DNSProxySocketLingerTimeout)
 	c.FQDNRejectResponse = vp.GetString(FQDNRejectResponseCode)
 
-	// Convert IP strings into net.IPNet types
-	subnets, invalid := ip.ParseCIDRs(vp.GetStringSlice(IPv4PodSubnets))
-	if len(invalid) > 0 {
+	subnets, err := ip.ParsePrefixes(vp.GetStringSlice(IPv4PodSubnets))
+	if err != nil {
 		logger.Warn("IPv4PodSubnets parameter can not be parsed.",
-			logfields.Subnets, invalid,
+			logfields.Error, err,
 		)
 	}
 	c.IPv4PodSubnets = subnets
 
-	subnets, invalid = ip.ParseCIDRs(vp.GetStringSlice(IPv6PodSubnets))
-	if len(invalid) > 0 {
+	subnets, err = ip.ParsePrefixes(vp.GetStringSlice(IPv6PodSubnets))
+	if err != nil {
 		logger.Warn("IPv6PodSubnets parameter can not be parsed.",
-			logfields.Subnets, invalid,
+			logfields.Error, err,
 		)
 	}
 	c.IPv6PodSubnets = subnets

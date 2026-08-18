@@ -4,59 +4,41 @@
 package ip
 
 import (
+	"errors"
 	"net"
 	"net/netip"
+	"strings"
 
 	"go4.org/netipx"
 )
 
-// ParseCIDRs fetches all CIDRs referred to by the specified slice and returns
-// them as regular golang CIDR objects.
-//
-// Deprecated. Consider using ParsePrefixes() instead.
-func ParseCIDRs(cidrs []string) (valid []*net.IPNet, invalid []string) {
-	valid = make([]*net.IPNet, 0, len(cidrs))
-	invalid = make([]string, 0, len(cidrs))
-	for _, cidr := range cidrs {
-		_, prefix, err := net.ParseCIDR(cidr)
-		if err != nil {
-			// Likely the CIDR is specified in host format.
-			ip := net.ParseIP(cidr)
-			if ip == nil {
-				invalid = append(invalid, cidr)
-				continue
-			} else {
-				prefix = IPToPrefix(ip)
-			}
-		}
-		if prefix != nil {
-			valid = append(valid, prefix)
-		}
-	}
-	return valid, invalid
-}
-
 // ParsePrefixes parses all CIDRs referred to by the specified slice and
-// returns them as regular golang netip.Prefix objects.
-func ParsePrefixes(cidrs []string) (valid []netip.Prefix, invalid []string, errors []error) {
-	valid = make([]netip.Prefix, 0, len(cidrs))
-	invalid = make([]string, 0, len(cidrs))
-	errors = make([]error, 0, len(cidrs))
+// returns them as regular golang netip.Prefix objects. A CIDR may also be
+// given in host format, in which case it is parsed as a single-address
+// prefix.
+func ParsePrefixes(cidrs []string) ([]netip.Prefix, error) {
+	prefixes := make([]netip.Prefix, 0, len(cidrs))
+	var errs []error
 	for _, cidr := range cidrs {
+		if !strings.ContainsRune(cidr, '/') {
+			addr, err := netip.ParseAddr(cidr)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
+			continue
+		}
+
 		prefix, err := netip.ParsePrefix(cidr)
 		if err != nil {
-			ip, err2 := netip.ParseAddr(cidr)
-			if err2 != nil {
-				invalid = append(invalid, cidr)
-				errors = append(errors, err2)
-				continue
-			}
-			prefix = netip.PrefixFrom(ip, ip.BitLen())
+			errs = append(errs, err)
+			continue
 		}
-		valid = append(valid, prefix.Masked())
+		prefixes = append(prefixes, prefix.Masked())
 	}
 
-	return valid, invalid, errors
+	return prefixes, errors.Join(errs...)
 }
 
 // IPToNetPrefix is a convenience helper for migrating from the older 'net'
