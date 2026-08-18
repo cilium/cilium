@@ -88,12 +88,30 @@ type ipamParams struct {
 	JobGroup   job.Group
 	DB         *statedb.DB
 	PodIPPools statedb.Table[podippool.LocalPodIPPool]
+
+	// CloudProviders are the cloud-specific customizations of the multi-pool
+	// allocator, contributed by the pkg/{cloud}/agent cells. All of them are
+	// registered unconditionally; at most one matches the configured IPAM mode.
+	CloudProviders []ipam.CloudProvider `group:"ipam-cloud-providers"`
 }
 
 func newIPAddressManager(params ipamParams, c ipamConfig) (*ipam.IPAM, error) {
 	if c.OnlyMasqueradeDefaultPool && !params.AgentConfig.EnableBPFMasquerade {
 		return nil, fmt.Errorf("--only-masquerade-default-pool requires --enable-bpf-masquerade to be enabled")
 	}
+
+	cloudProviders := make(map[string]ipam.CloudProvider, len(params.CloudProviders))
+	for _, provider := range params.CloudProviders {
+		if provider == nil {
+			continue
+		}
+		if existing, ok := cloudProviders[provider.Mode()]; ok {
+			return nil, fmt.Errorf("IPAM mode %s is claimed by two cloud providers, %T and %T",
+				provider.Mode(), existing, provider)
+		}
+		cloudProviders[provider.Mode()] = provider
+	}
+
 	ipam := ipam.NewIPAM(ipam.NewIPAMParams{
 		Logger:                    params.Logger,
 		NodeAddressing:            params.NodeAddressing,
@@ -111,6 +129,7 @@ func newIPAddressManager(params ipamParams, c ipamConfig) (*ipam.IPAM, error) {
 		JobGroup:                  params.JobGroup,
 		PodIPPools:                params.PodIPPools,
 		OnlyMasqueradeDefaultPool: c.OnlyMasqueradeDefaultPool,
+		CloudProviders:            cloudProviders,
 	})
 
 	debug.RegisterStatusObject("ipam", ipam)
