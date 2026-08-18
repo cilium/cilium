@@ -247,11 +247,11 @@ image:
   # @schema
   override: ~
   repository: "quay.io/cilium/cilium"
-  tag: "v1.20.0"
+  tag: "v1.20.1"
   pullPolicy: "IfNotPresent"
   # cilium-digest
-  digest: "sha256:383968cd5e8873f7976fa76aa6196045643558f4cc9518a207b9335cb24a0e93"
-  useDigest: true
+  digest: ""
+  useDigest: false
 # -- Scheduling configurations for cilium pods
 scheduling:
   # @schema
@@ -1766,10 +1766,10 @@ hubble:
       # @schema
       override: ~
       repository: "quay.io/cilium/hubble-relay"
-      tag: "v1.20.0"
+      tag: "v1.20.1"
       # hubble-relay-digest
-      digest: "sha256:2ca16981c7eb98df0ba9c9d18896bb9ca628b5cbd40dc9801339f4741f91ee94"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: "IfNotPresent"
     # -- Specifies the resources for the hubble-relay pods
     resources: {}
@@ -3240,16 +3240,16 @@ operator:
     # @schema
     override: ~
     repository: "quay.io/cilium/operator"
-    tag: "v1.20.0"
+    tag: "v1.20.1"
     # operator-generic-digest
-    genericDigest: "sha256:80744a8cc7c91c2f9e6347629406844eb35d79b30a732c6d41c15b17232a74f3"
+    genericDigest: ""
     # operator-azure-digest
-    azureDigest: "sha256:4506f8d0c9f2dd187313f71b37a789986c1c1699f59c52973941df9eb5ccae0c"
+    azureDigest: ""
     # operator-aws-digest
-    awsDigest: "sha256:a0e50fa611fa3e2e8b1c9521a3e813576034a0b3d626e9c128ac01f8f7dfd0fa"
+    awsDigest: ""
     # operator-alibabacloud-digest
-    alibabacloudDigest: "sha256:52535dba067abf5b1cce2a666ee3f9430a1682ade3bf11db5f118436e84ad2e9"
-    useDigest: true
+    alibabacloudDigest: ""
+    useDigest: false
     pullPolicy: "IfNotPresent"
     suffix: ""
   # -- Number of replicas to run for the cilium-operator deployment
@@ -3580,10 +3580,10 @@ preflight:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium"
-    tag: "v1.20.0"
+    tag: "v1.20.1"
     # cilium-digest
-    digest: "sha256:383968cd5e8873f7976fa76aa6196045643558f4cc9518a207b9335cb24a0e93"
-    useDigest: true
+    digest: ""
+    useDigest: false
     pullPolicy: "IfNotPresent"
   envoy:
     # -- Envoy pre-flight image.
@@ -3862,10 +3862,10 @@ clustermesh:
       # @schema
       override: ~
       repository: "quay.io/cilium/clustermesh-apiserver"
-      tag: "v1.20.0"
+      tag: "v1.20.1"
       # clustermesh-apiserver-digest
-      digest: "sha256:c791d0c334d4515d40041b2660d50a1b94b0179ef1d3c120bd350aebc9115e92"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: "IfNotPresent"
     # -- TCP port for the clustermesh-apiserver health API.
     healthPort: 9880
@@ -4587,5 +4587,5 @@ standaloneDnsProxy:
     repository: ""
     tag: ""
     digest: ""
-    useDigest: true
+    useDigest: false
     pullPolicy: "IfNotPresent"
