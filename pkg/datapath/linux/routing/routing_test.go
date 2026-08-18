@@ -299,15 +299,15 @@ func getFakes(t *testing.T, ipamMode string, masquerade bool, withZeroCIDR bool)
 	logger := hivetest.Logger(t)
 
 	fakeGateway := "192.168.2.1"
-	fakeSubnet1CIDR := "192.168.0.0/16"
-	fakeSubnet2CIDR := "192.170.0.0/16"
+	fakeSubnet1CIDR := netip.MustParsePrefix("192.168.0.0/16")
+	fakeSubnet2CIDR := netip.MustParsePrefix("192.170.0.0/16")
 	fakeMAC := mac.MustParseMAC("00:11:22:33:44:55")
 
-	var cidrs []string
+	var cidrs []netip.Prefix
 	if masquerade {
-		cidrs = []string{fakeSubnet1CIDR, fakeSubnet2CIDR}
+		cidrs = []netip.Prefix{fakeSubnet1CIDR, fakeSubnet2CIDR}
 		if withZeroCIDR {
-			cidrs = []string{"0.0.0.0/0"}
+			cidrs = []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}
 		}
 	}
 

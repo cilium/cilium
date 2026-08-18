@@ -725,13 +725,12 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 		// the router (cilium_host) IP is associated to.
 		if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure {
 			if info := node.GetRouterInfo(); info != nil {
-				cidrs := info.GetCIDRs()
 				var ipv4PodSubnets, ipv6PodSubnets []*cidr.CIDR
-				for _, c := range cidrs {
-					if c.IP.To4() != nil {
-						ipv4PodSubnets = append(ipv4PodSubnets, cidr.NewCIDR(&c))
+				for _, c := range info.GetCIDRs() {
+					if c.Addr().Is4() {
+						ipv4PodSubnets = append(ipv4PodSubnets, cidr.NewCIDR(netipx.PrefixIPNet(c)))
 					} else {
-						ipv6PodSubnets = append(ipv6PodSubnets, cidr.NewCIDR(&c))
+						ipv6PodSubnets = append(ipv6PodSubnets, cidr.NewCIDR(netipx.PrefixIPNet(c)))
 					}
 				}
 				// Only derive the pod subnets which have not been explicitly

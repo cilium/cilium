@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
 // RoutingInfo represents information that's required to enable
@@ -28,7 +30,7 @@ type RoutingInfo struct {
 
 	// CIDRs is a list of CIDRs which the interface has access to. In most
 	// cases, it'll at least contain the CIDR of the IPv4Gateway IP address.
-	CIDRs []net.IPNet
+	CIDRs []netip.Prefix
 
 	// MasterIfMAC is the MAC address of the master interface that egress
 	// traffic is directed to. This is the MAC of the interface itself which
@@ -47,18 +49,18 @@ type RoutingInfo struct {
 	IpamMode string
 }
 
-func (info *RoutingInfo) GetCIDRs() []net.IPNet {
+func (info *RoutingInfo) GetCIDRs() []netip.Prefix {
 	return info.CIDRs
 }
 
 // NewRoutingInfo creates a new RoutingInfo struct, from data that will be
 // parsed and validated. Note, this code assumes IPv4 values because IPv4
 // (on either ENI or Azure interface) is the only supported path currently.
-func NewRoutingInfo(logger *slog.Logger, gateway string, cidrs []string, masterIfMAC mac.MAC, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
+func NewRoutingInfo(logger *slog.Logger, gateway string, cidrs []netip.Prefix, masterIfMAC mac.MAC, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
 	return parse(logger, gateway, cidrs, masterIfMAC, ifaceNum, ipamMode, masquerade)
 }
 
-func parse(logger *slog.Logger, gateway string, cidrs []string, masterIfMAC mac.MAC, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
+func parse(logger *slog.Logger, gateway string, cidrs []netip.Prefix, masterIfMAC mac.MAC, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
 	ip := net.ParseIP(gateway)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid gateway: %s", gateway)
@@ -66,15 +68,6 @@ func parse(logger *slog.Logger, gateway string, cidrs []string, masterIfMAC mac.
 
 	if len(cidrs) == 0 && masquerade {
 		return nil, errors.New("empty cidrs")
-	}
-
-	parsedCIDRs := make([]net.IPNet, 0, len(cidrs))
-	for _, cidr := range cidrs {
-		_, c, err := net.ParseCIDR(cidr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid cidr: %s", cidr)
-		}
-		parsedCIDRs = append(parsedCIDRs, *c)
 	}
 
 	// The MAC of the master interface is what the routes and rules are keyed
@@ -91,7 +84,7 @@ func parse(logger *slog.Logger, gateway string, cidrs []string, masterIfMAC mac.
 	return &RoutingInfo{
 		logger:          logger.With(logfields.LogSubsys, "linux-routing"),
 		Gateway:         ip,
-		CIDRs:           parsedCIDRs,
+		CIDRs:           cslices.Map(cidrs, netip.Prefix.Masked),
 		MasterIfMAC:     masterIfMAC,
 		Masquerade:      masquerade,
 		InterfaceNumber: parsedIfaceNum,

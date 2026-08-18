@@ -4,7 +4,7 @@
 package node
 
 import (
-	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/lock"
@@ -20,7 +20,7 @@ type addresses struct {
 }
 
 type RouterInfo interface {
-	GetCIDRs() []net.IPNet
+	GetCIDRs() []netip.Prefix
 }
 
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints

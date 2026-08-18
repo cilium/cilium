@@ -6,7 +6,8 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
-	"net"
+	"net/netip"
+	"slices"
 
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"go4.org/netipx"
@@ -25,42 +26,44 @@ func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.
 		return nil
 	}
 
-	var allCIDRs []*net.IPNet
+	// The set merges the CIDRs that cover a contiguous range and drops those
+	// contained in another one, so that the prefixes it decomposes back into
+	// are the minimum set needed for the route rules.
+	var builder netipx.IPSetBuilder
 
 	for _, cidr := range ipam.Cidrs {
 		if !cidr.IsValid() {
 			return fmt.Errorf("invalid CIDR '%s'", cidr)
 		}
-		// Mask explicitly: net.ParseCIDR, which this loop replaces, returned
-		// the masked network, and ip.CoalesceCIDRs below expects that shape.
-		allCIDRs = append(allCIDRs, netipx.PrefixIPNet(cidr.Masked()))
+		builder.AddPrefix(cidr.Prefix)
 	}
 
-	// Coalesce CIDRs into minimum set needed for route rules
+	cidrs, err := builder.IPSet()
+	if err != nil {
+		return fmt.Errorf("failed to build CIDR set: %w", err)
+	}
+
+	isIPv4 := ipConfig.Address.IP.To4() != nil
+
+	// Keep only the address family of the endpoint, which is the one routed
+	// through this interface. Ranges of different families are never
+	// contiguous, so the two families coalesced independently above.
 	// The routes set up here will be cleaned up by linuxrouting.Delete.
 	// Therefor the code here should be kept in sync with the deletion code.
-	ipv4CIDRs, ipv6CIDRs := ip.CoalesceCIDRs(allCIDRs)
-	coalescedCIDRs := make([]string, 0, len(allCIDRs))
-	var masq bool
+	coalescedPrefixes := slices.DeleteFunc(
+		cidrs.Prefixes(),
+		func(prefix netip.Prefix) bool { return prefix.Addr().Is4() != isIPv4 },
+	)
 
-	if ipConfig.Address.IP.To4() != nil {
-		for _, cidr := range ipv4CIDRs {
-			coalescedCIDRs = append(coalescedCIDRs, cidr.String())
-		}
-
+	masq := conf.MasqueradeProtocols.IPv6
+	if isIPv4 {
 		masq = conf.MasqueradeProtocols.IPv4
-	} else {
-		for _, cidr := range ipv6CIDRs {
-			coalescedCIDRs = append(coalescedCIDRs, cidr.String())
-		}
-
-		masq = conf.MasqueradeProtocols.IPv6
 	}
 
 	routingInfo, err := linuxrouting.NewRoutingInfo(
 		logger,
 		ipam.Gateway.String(),
-		coalescedCIDRs,
+		coalescedPrefixes,
 		ipam.MasterMac,
 		ipam.InterfaceNumber,
 		conf.IpamMode,
