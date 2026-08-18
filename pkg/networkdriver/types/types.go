@@ -29,8 +29,6 @@ const (
 	// as assigned by the device managers.
 	// must be unique across all devices on the node.
 	IfNameLabel = "ifName"
-	// HWAddrLabel contains the MAC address of the device.
-	HWAddrLabel = "macAddress"
 	// DeviceManagerLabel identifies which Device Manager
 	// published the device.
 	DeviceManagerLabel = "deviceManager"
@@ -162,10 +160,6 @@ type DeviceManager interface {
 	// updated set.
 	Run(ctx context.Context, publish func([]Device)) error
 	RestoreDevice([]byte) (Device, error)
-}
-
-type DeviceManagerConfig interface {
-	IsEnabled() bool
 }
 
 type DeviceConfig struct {

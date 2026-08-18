@@ -80,9 +80,10 @@ func (driver *Driver) startNRI(ctx context.Context) error {
 // Synchronize is invoked by the runtime when the NRI plugin (re)connects — notably right
 // after an agent restart — with every running pod. The sandbox tasks are alive here, so
 // the netns is populated; we capture it so a later StopPodSandbox can recover the netns
-// on containerd < 2.1 even across an agent restart. This mirrors how driver.allocations
-// is rebuilt from ResourceClaims on restart: node-local runtime state reconstructed from
-// a durable source rather than persisted to disk. We request no container updates.
+// on containerd < 2.1 even across an agent restart. This mirrors how the statedb
+// device table is rebuilt from ResourceClaims on restart: node-local runtime state
+// reconstructed from a durable source rather than persisted to disk. We request no
+// container updates.
 func (driver *Driver) Synchronize(ctx context.Context, pods []*api.PodSandbox, _ []*api.Container) ([]*api.ContainerUpdate, error) {
 	err := driver.withLock(func() error {
 		n := 0
