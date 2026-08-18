@@ -116,3 +116,13 @@ static __always_inline int eth_store_proto(struct __ctx_buff *ctx,
 	return ctx_store_bytes(ctx, off + ETH_ALEN + ETH_ALEN,
 			       &proto, sizeof(proto), 0);
 }
+
+static __always_inline void eth_flip_addrs(struct ethhdr *eth)
+{
+	union macaddr tmp = {};
+
+	memcpy(tmp.addr, eth->h_dest, ETH_ALEN);
+
+	memcpy(eth->h_dest, eth->h_source, ETH_ALEN);
+	memcpy(eth->h_source, tmp.addr, ETH_ALEN);
+}
