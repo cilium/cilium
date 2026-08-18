@@ -1,0 +1,87 @@
+# Echo servers for topology aware routing testing.
+#
+# Two Deployments back the same Service (app=echo), pinned per zone:
+#   - echo-zone-a: 2 replicas, forced onto different zone-a nodes. Without that
+#     spread the zone-a backends and the client would share a node, and zone
+#     based selection would be indistinguishable from node local selection.
+#   - echo-zone-b: 1 replica in zone-b.
+#
+# netexec keeps serving for --delay-shutdown seconds after SIGTERM, so a
+# terminating endpoint stays observable while it drains.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-zone-a
+  labels:
+    app: echo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: echo
+      zone: zone-a
+  template:
+    metadata:
+      labels:
+        app: echo
+        zone: zone-a
+    spec:
+      nodeSelector:
+        topology.kubernetes.io/zone: zone-a
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: echo
+                zone: zone-a
+            topologyKey: kubernetes.io/hostname
+      terminationGracePeriodSeconds: 120
+      containers:
+      - name: echo
+        image: registry.k8s.io/e2e-test-images/agnhost:2.45
+        args:
+        - netexec
+        - --http-port=8080
+        - --delay-shutdown=90
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /hostname
+            port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-zone-b
+  labels:
+    app: echo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echo
+      zone: zone-b
+  template:
+    metadata:
+      labels:
+        app: echo
+        zone: zone-b
+    spec:
+      nodeSelector:
+        topology.kubernetes.io/zone: zone-b
+      terminationGracePeriodSeconds: 120
+      containers:
+      - name: echo
+        image: registry.k8s.io/e2e-test-images/agnhost:2.45
+        args:
+        - netexec
+        - --http-port=8080
+        - --delay-shutdown=90
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /hostname
+            port: 8080
