@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	cslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -194,8 +195,8 @@ func newLocalNodeConfig(
 		EnableIPSec:                  ipsecCfg.Enabled(),
 		EncryptNode:                  daemon.EncryptNode,
 		EnableConntrackAccounting:    daemon.BPFConntrackAccounting,
-		IPv4PodSubnets:               cidr.NewCIDRSlice(daemon.IPv4PodSubnets),
-		IPv6PodSubnets:               cidr.NewCIDRSlice(daemon.IPv6PodSubnets),
+		IPv4PodSubnets:               cslices.Map(daemon.IPv4PodSubnets, prefixToCIDR),
+		IPv6PodSubnets:               cslices.Map(daemon.IPv6PodSubnets, prefixToCIDR),
 		XDPConfig:                    xdpConfig,
 		LBConfig:                     lbConfig,
 		KPRConfig:                    kprCfg,

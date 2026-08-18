@@ -10,7 +10,42 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestParsePrefixes(t *testing.T) {
+	valid, err := ParsePrefixes([]string{
+		"10.0.0.0/8",
+		"10.0.0.1",
+		"2001:db8::/32",
+		"2001:db8::1",
+		"10.1.2.3/8", // not masked
+		"10.0.0.0/33",
+		"10.0.0/8",
+		"not-an-ip",
+	})
+
+	// Every entry that parses is returned, even though others did not.
+	assert.Equal(t, []netip.Prefix{
+		netip.MustParsePrefix("10.0.0.0/8"),
+		netip.MustParsePrefix("10.0.0.1/32"),
+		netip.MustParsePrefix("2001:db8::/32"),
+		netip.MustParsePrefix("2001:db8::1/128"),
+		netip.MustParsePrefix("10.0.0.0/8"), // got masked
+	}, valid)
+
+	// The joined error names every rejected entry, and describes the parse the
+	// input asked for: the prefix parse for an entry carrying a '/', the
+	// address parse for one without.
+	require.Error(t, err)
+	assert.ErrorContains(t, err, `netip.ParsePrefix("10.0.0.0/33"): prefix length out of range`)
+	assert.ErrorContains(t, err, `netip.ParsePrefix("10.0.0/8"): ParseAddr("10.0.0"): IPv4 address too short`)
+	assert.ErrorContains(t, err, `ParseAddr("not-an-ip"): unable to parse IP`)
+
+	valid, err = ParsePrefixes(nil)
+	assert.NoError(t, err)
+	assert.Empty(t, valid)
+}
 
 func TestIPToNetPrefix(t *testing.T) {
 	v4, _, err := net.ParseCIDR("1.1.1.1/32")
