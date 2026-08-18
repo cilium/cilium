@@ -713,7 +713,7 @@ func TestENIMultiPoolAllocator(t *testing.T) {
 	_, err := clientset.CiliumV2().CiliumNodes().Create(t.Context(), initialNode, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	ipv4Allocator, ipv6Allocator := newENIMultiPoolAllocators(ENIMultiPoolAllocatorParams{
+	ipv4Allocator, ipv6Allocator, err := newENIMultiPoolAllocators(t.Context(), ENIMultiPoolAllocatorParams{
 		Logger:               hivetest.Logger(t),
 		IPv4Enabled:          true,
 		IPv6Enabled:          false,
@@ -724,6 +724,7 @@ func TestENIMultiPoolAllocator(t *testing.T) {
 		JobGroup:             jg,
 		Conf:                 &option.DaemonConfig{},
 	})
+	require.NoError(t, err)
 	require.NotNil(t, ipv4Allocator)
 	require.NotNil(t, ipv6Allocator)
 
