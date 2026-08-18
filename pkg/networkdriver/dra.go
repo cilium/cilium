@@ -187,12 +187,8 @@ func (d *Driver) unprepareResourceClaim(ctx context.Context, claim kubeletplugin
 	txn := d.db.ReadTxn()
 	var devices []allocation
 	for row := range DevicesByClaimUID(d.deviceTable, txn, claim.UID) {
-		if row.Dev != nil {
-			devices = append(devices, allocation{
-				Device:  row.Dev,
-				Config:  row.Config,
-				Manager: row.Manager,
-			})
+		if a, ok := allocationFromRow(row); ok {
+			devices = append(devices, a)
 		}
 	}
 
@@ -208,7 +204,7 @@ func (d *Driver) unprepareResourceClaim(ctx context.Context, claim kubeletplugin
 
 	// Clear allocation state from the statedb table before freeing devices so
 	// the table reflects reality even on partial failure.
-	d.setAllocationInTable(devices, "", "", true)
+	d.clearAllocationInTable(devices)
 
 	var errs []error
 	for _, dev := range devices {
@@ -302,7 +298,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
-	driver.setAllocationInTable(alloc, pod.UID, claim.UID, false)
+	driver.setAllocationInTable(alloc, pod.UID, claim.UID)
 
 	// we dont need to return anything here.
 	return kubeletplugin.PrepareResult{}
@@ -385,11 +381,9 @@ func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerRef
 	existingByDevice := make(map[string]allocation)
 	txn := driver.db.ReadTxn()
 	for row := range DevicesByClaimUID(driver.deviceTable, txn, claim.UID) {
-		if row.PodUID == pod.UID && row.Dev != nil {
-			existingByDevice[row.Name] = allocation{
-				Device:  row.Dev,
-				Config:  row.Config,
-				Manager: row.Manager,
+		if row.PodUID == pod.UID {
+			if a, ok := allocationFromRow(row); ok {
+				existingByDevice[row.Name] = a
 			}
 		}
 	}
@@ -497,11 +491,10 @@ func (driver *Driver) prepareClaimDevice(
 }
 
 func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string, result resourceapi.DeviceRequestAllocationResult, cfg types.DeviceConfig) (allocation, error) {
-	alloc := allocation{Config: cfg}
+	alloc := allocation{Config: cfg, Pool: result.Pool}
 
 	txn := driver.db.ReadTxn()
-	key := DeviceKey(result.Pool, result.Device)
-	row, _, found := driver.deviceTable.Get(txn, deviceByKey.Query(key))
+	row, _, found := driver.deviceTable.Get(txn, deviceByName.Query(result.Device))
 	if !found {
 		return alloc, fmt.Errorf("%w with ifname %s for %s", errDeviceNotFound, result.Device, claim)
 	}
