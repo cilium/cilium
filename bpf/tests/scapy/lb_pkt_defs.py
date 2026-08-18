@@ -21,6 +21,20 @@ lb4_clusterip_post_dnat = (
     Raw("S"*1)
 )
 
+lb4_udp_clusterip = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_svc_one) /
+    UDP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw(b"X" * 100)
+)
+
+lb4_udp_clusterip_icmp_unreach = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_svc_one, dst=v4_ext_one, id=0) /
+    ICMP(type="dest-unreach", code="port-unreachable") /
+    IPerror(bytes(lb4_udp_clusterip[IP])[:28])
+)
+
 lb6_clusterip = (
     Ether(src=mac_one, dst=mac_two) /
     IPv6(src=v6_ext_node_one, dst=v6_svc_one) /
@@ -33,6 +47,20 @@ lb6_clusterip_post_dnat = (
     IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
     TCP(sport=tcp_src_one, dport=tcp_dst_one) /
     Raw("S"*1)
+)
+
+lb6_udp_clusterip = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_ext_node_one, dst=v6_svc_one) /
+    UDP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw(b"X" * 100)
+)
+
+lb6_udp_clusterip_icmp_unreach = (
+    Ether(src=mac_two, dst=mac_one) /
+    IPv6(src=v6_svc_one, dst=v6_ext_node_one) /
+    ICMPv6DestUnreach(code=4, cksum=58197) /
+    IPerror6(bytes(lb6_udp_clusterip[IPv6]))
 )
 
 # Packets for testing N/S LB path with ExternalIPs.
@@ -184,6 +212,20 @@ lb4_ew_nodeport_fragment2_post_dnat = (
     Raw(load="S" * 1)
 )
 
+lb4_ew_udp_nodeport = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_svc_one) /
+    UDP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw(b"X" * 100)
+)
+
+lb4_ew_udp_nodeport_icmp_unreach = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_svc_one, dst=v4_pod_one, id=0) /
+    ICMP(type="dest-unreach", code="port-unreachable") /
+    IPerror(bytes(lb4_ew_udp_nodeport[IP])[:28])
+)
+
 lb6_ew_nodeport_fragment1 = (
     Ether(src=mac_one, dst=mac_two) /
     IPv6(src=v6_pod_two, dst=v6_svc_one, nh=44) /
@@ -214,3 +256,16 @@ lb6_ew_nodeport_fragment2_post_dnat = (
     Raw(load="S" * 1)
 )
 
+lb6_ew_udp_nodeport = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_one, dst=v6_svc_one) /
+    UDP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw(b"X" * 100)
+)
+
+lb6_ew_udp_nodeport_icmp_unreach = (
+    Ether(src=mac_two, dst=mac_one) /
+    IPv6(src=v6_svc_one, dst=v6_pod_one) /
+    ICMPv6DestUnreach(code=4, cksum=1618) /
+    IPerror6(bytes(lb6_ew_udp_nodeport[IPv6]))
+)

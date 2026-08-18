@@ -9,6 +9,7 @@ from pkt_defs_common import *
 from selftest_pkt_defs import *
 from ipsec_from_netdev_pkt_defs import *
 from ipv6_ndp_pkt_defs import *
+from lxc_policy_reject_defs import *
 from tc_l2_announce_pkt_defs import *
 from tc_l2_announce6_pkt_defs import *
 from wg_from_netdev_pkt_defs import *

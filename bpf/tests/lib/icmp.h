@@ -5,13 +5,8 @@
 
 struct validate_icmpv6_reply_args {
 	const struct __ctx_buff *ctx;
-	const __u8 *src_mac;
-	const __u8 *dst_mac;
-	const __u8 *src_ip;
-	const __u8 *dst_ip;
-	__u8 icmp_type;
-	__u8 icmp_code;
-	__u16 checksum;
+	const __u8 *buf_expected;
+	__u16 buf_len;
 	__u32 dst_idx;
 	__u32 retval;
 };
@@ -21,9 +16,6 @@ validate_icmpv6_reply(const struct validate_icmpv6_reply_args *args)
 {
 	void *data, *data_end;
 	__u32 *status_code;
-	struct ethhdr *l2;
-	struct ipv6hdr *l3;
-	struct icmp6hdr *l4;
 	struct ratelimit_value *value;
 
 	test_init();
@@ -39,33 +31,12 @@ validate_icmpv6_reply(const struct validate_icmpv6_reply_args *args)
 	test_log("Status code: %d", *status_code);
 	assert(*status_code == args->retval);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 header out of bounds");
-
-	assert(memcmp(l2->h_dest, args->dst_mac, ETH_ALEN) == 0);
-	assert(memcmp(l2->h_source, args->src_mac, ETH_ALEN) == 0);
-	assert(l2->h_proto == __bpf_htons(ETH_P_IPV6));
-
-	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
-	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
-		test_fatal("l3 header out of bounds");
-
-	assert(!memcmp(&l3->saddr, args->src_ip, sizeof(l3->saddr)));
-	assert(!memcmp(&l3->daddr, args->dst_ip, sizeof(l3->daddr)));
-
-	assert(l3->hop_limit == 64);
-	assert(l3->version == 6);
-	assert(l3->nexthdr == IPPROTO_ICMPV6);
-
-	l4 = data + sizeof(__u32) + sizeof(struct ethhdr) +
-	     sizeof(struct ipv6hdr);
-	if ((void *)l4 + sizeof(struct icmp6hdr) > data_end)
-		test_fatal("l4 header out of bounds");
-
-	assert(l4->icmp6_type == args->icmp_type);
-	assert(l4->icmp6_code == args->icmp_code);
-	assert(l4->icmp6_cksum == bpf_htons(args->checksum));
+	ASSERT_CTX_BUF_OFF2("icmpv6_reply",
+			    "Ether", args->ctx, sizeof(__u32),
+			    "icmpv6_reply",
+			    args->buf_expected,
+			    args->buf_len,
+			    args->buf_len);
 
 	struct ratelimit_key key = {
 		.usage = RATELIMIT_USAGE_ICMPV6,
