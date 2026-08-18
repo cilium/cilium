@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -94,7 +93,7 @@ func (ops *ops) bondSlaves(bond netlink.Link, txn statedb.ReadTxn) []*tables.Dev
 }
 
 func (ops *ops) ensureNoqueue(link netlink.Link) error {
-	qdiscs, err := safenetlink.QdiscList(link)
+	qdiscs, err := netlink.QdiscList(link)
 	if err != nil {
 		return fmt.Errorf("QdiscList for %s: %w", link.Attrs().Name, err)
 	}
@@ -122,7 +121,7 @@ func (ops *ops) setupFQOnLink(link netlink.Link, q *tables.BandwidthQDisc) error
 	device := link.Attrs().Name
 
 	// Check if the qdiscs are already set up as expected.
-	qdiscs, err := safenetlink.QdiscList(link)
+	qdiscs, err := netlink.QdiscList(link)
 	if err != nil {
 		return fmt.Errorf("QdiscList: %w", err)
 	}
@@ -200,7 +199,7 @@ func (ops *ops) setupFQOnLink(link netlink.Link, q *tables.BandwidthQDisc) error
 		logfields.Device, device)
 
 	// Set the fq parameters
-	qdiscs, err = safenetlink.QdiscList(link)
+	qdiscs, err = netlink.QdiscList(link)
 	if err != nil {
 		return fmt.Errorf("QdiscList: %w", err)
 	}

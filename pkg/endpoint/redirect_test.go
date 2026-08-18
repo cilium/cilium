@@ -285,7 +285,7 @@ func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
 	return result
 }
 
-func (s *RedirectSuite) computePolicyForTest(t *testing.T, ep *Endpoint, cmp *completion.WaitGroup) {
+func (s *RedirectSuite) computePolicyForTest(t *testing.T, ep *Endpoint) {
 	err := ep.regeneratePolicy(s.stats, s.datapathRegenCtxt)
 	require.NoError(t, err)
 	res := s.datapathRegenCtxt.policyResult
@@ -378,8 +378,7 @@ func TestRedirectWithDeny(t *testing.T) {
 		ruleL4L7Allow.WithEndpointSelector(selectBar_),
 	})
 
-	cmp := completion.NewWaitGroup(t.Context())
-	s.computePolicyForTest(t, ep, cmp)
+	s.computePolicyForTest(t, ep)
 
 	// Redirect is still created, even if all MapState entries may have been overridden by a
 	// deny entry.  A new FQDN redirect may have no MapState entries as the associated CIDR
@@ -508,8 +507,7 @@ func TestRedirectWithPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	cmp := completion.NewWaitGroup(t.Context())
-	s.computePolicyForTest(t, ep, cmp)
+	s.computePolicyForTest(t, ep)
 
 	// Check that all redirects have been created.
 	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec2/listener2"])
@@ -561,8 +559,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	cmp := completion.NewWaitGroup(t.Context())
-	s.computePolicyForTest(t, ep, cmp)
+	s.computePolicyForTest(t, ep)
 
 	// Check that all redirects have been created.
 	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec2/listener2"])

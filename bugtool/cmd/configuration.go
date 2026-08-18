@@ -10,8 +10,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/components"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/mountinfo"
 )
@@ -314,7 +315,7 @@ func loadConfigFile(path string) (*BugtoolConfiguration, error) {
 // Listing tc filter/chain/classes requires specific interface names.
 // Commands are generated per-interface.
 func tcInterfaceCommands() []string {
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to generate per interface tc commands: %s\n", fmt.Errorf("could not list network interfaces: %w", err))
 		return nil

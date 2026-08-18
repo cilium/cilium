@@ -16,7 +16,6 @@ import (
 	"github.com/vishvananda/netlink"
 	kube_types "k8s.io/apimachinery/pkg/types"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
@@ -152,7 +151,7 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 		}
 
 		for _, a := range podAllocations {
-			l, err := safenetlink.LinkByName(a.Device.KernelIfName())
+			l, err := netlink.LinkByName(a.Device.KernelIfName())
 			if err != nil {
 				// The kernel link can be absent here when the node
 				// rebooted: the reboot reaped the pod netns (and with
@@ -182,7 +181,7 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 					return fmt.Errorf("failed to re-create device %s on demand: %w", a.Device.KernelIfName(), setupErr)
 				}
 
-				l, err = safenetlink.LinkByName(a.Device.KernelIfName())
+				l, err = netlink.LinkByName(a.Device.KernelIfName())
 				if err != nil {
 					return fmt.Errorf("device %s still not found after re-creating it on demand: %w", a.Device.KernelIfName(), err)
 				}
@@ -281,7 +280,7 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 					ifName = a.Config.PodIfName
 				}
 
-				l, err := safenetlink.LinkByName(ifName)
+				l, err := netlink.LinkByName(ifName)
 				if err != nil {
 					return err
 				}
@@ -373,7 +372,7 @@ func configureIfName(l netlink.Link, newIfName string) (netlink.Link, error) {
 	}
 
 	// Refresh link reference after rename
-	l, err := safenetlink.LinkByName(newIfName)
+	l, err := netlink.LinkByName(newIfName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get link after rename: %w", err)
 	}
@@ -384,7 +383,7 @@ func configureIfName(l netlink.Link, newIfName string) (netlink.Link, error) {
 // validateInterfaceNames checks if a pod's set of allocated devices
 // contain valid interface names, that dont collide with interfaces in the pod namespace.
 func validateInterfaceNames(alloc []allocation) error {
-	existingLinks, err := safenetlink.LinkList()
+	existingLinks, err := netlink.LinkList()
 	if err != nil {
 		return fmt.Errorf("failed to list existing interfaces in pod netns: %w", err)
 	}

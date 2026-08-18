@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/netns"
 )
 
@@ -35,7 +34,7 @@ func MustLinkByName(tb testing.TB, ns *netns.NetNS, name string) netlink.Link {
 	var link netlink.Link
 	require.NoError(tb, ns.Do(func() error {
 		var err error
-		link, err = safenetlink.LinkByName(name)
+		link, err = netlink.LinkByName(name)
 		return err
 	}))
 	return link
@@ -55,7 +54,7 @@ func MustRouteListFiltered(tb testing.TB, ns *netns.NetNS, family int, filter *n
 	var routes []netlink.Route
 	require.NoError(tb, ns.Do(func() error {
 		var err error
-		routes, err = safenetlink.RouteListFiltered(family, filter, filterMask)
+		routes, err = netlink.RouteListFiltered(family, filter, filterMask)
 		return err
 	}))
 	return routes
@@ -67,7 +66,7 @@ func MustXfrmStateList(tb testing.TB, ns *netns.NetNS, family int) []netlink.Xfr
 	var states []netlink.XfrmState
 	require.NoError(tb, ns.Do(func() error {
 		var err error
-		states, err = safenetlink.XfrmStateList(family)
+		states, err = netlink.XfrmStateList(family)
 		return err
 	}))
 	return states
@@ -91,7 +90,7 @@ func MustXfrmPolicyList(tb testing.TB, ns *netns.NetNS, family int) []netlink.Xf
 	var policies []netlink.XfrmPolicy
 	require.NoError(tb, ns.Do(func() error {
 		var err error
-		policies, err = safenetlink.XfrmPolicyList(family)
+		policies, err = netlink.XfrmPolicyList(family)
 		return err
 	}))
 	return policies

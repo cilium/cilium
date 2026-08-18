@@ -9,17 +9,15 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
-
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
 
 func GetIfaceFirstIPv4Address(ifaceName string) (netip.Addr, error) {
-	dev, err := safenetlink.LinkByName(ifaceName)
+	dev, err := netlink.LinkByName(ifaceName)
 	if err != nil {
 		return netip.Addr{}, err
 	}
 
-	addrs, err := safenetlink.AddrList(dev, netlink.FAMILY_V4)
+	addrs, err := netlink.AddrList(dev, netlink.FAMILY_V4)
 	if err != nil {
 		return netip.Addr{}, err
 	}
@@ -47,13 +45,13 @@ func GetIfaceWithIPv4Address(ip netip.Addr) (string, error) {
 }
 
 func getIfaceWithIPv4Address(ip netip.Addr) (string, error) {
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return "", err
 	}
 
 	for _, l := range links {
-		addrs, err := safenetlink.AddrList(l, netlink.FAMILY_V4)
+		addrs, err := netlink.AddrList(l, netlink.FAMILY_V4)
 		if err != nil {
 			return "", err
 		}
@@ -73,12 +71,12 @@ func getIfaceWithIPv4Address(ip netip.Addr) (string, error) {
 }
 
 func GetIfaceFirstIPv6Address(ifaceName string) (netip.Addr, error) {
-	dev, err := safenetlink.LinkByName(ifaceName)
+	dev, err := netlink.LinkByName(ifaceName)
 	if err != nil {
 		return netip.Addr{}, err
 	}
 
-	addrs, err := safenetlink.AddrList(dev, netlink.FAMILY_V6)
+	addrs, err := netlink.AddrList(dev, netlink.FAMILY_V6)
 	if err != nil {
 		return netip.Addr{}, err
 	}
@@ -100,13 +98,13 @@ func GetIfaceFirstIPv6Address(ifaceName string) (netip.Addr, error) {
 }
 
 func GetIfaceWithIPv6Address(ip netip.Addr) (string, error) {
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return "", err
 	}
 
 	for _, l := range links {
-		addrs, err := safenetlink.AddrList(l, netlink.FAMILY_V6)
+		addrs, err := netlink.AddrList(l, netlink.FAMILY_V6)
 		if err != nil {
 			return "", err
 		}

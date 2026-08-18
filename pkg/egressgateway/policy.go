@@ -12,9 +12,10 @@ import (
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/netdevice"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -231,7 +232,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 				return fmt.Errorf("failed to retrieve IPv6 address for egress interface")
 			}
 		} else {
-			iface, err := safenetlink.LinkByName(gwc.ifaceName)
+			iface, err := netlink.LinkByName(gwc.ifaceName)
 			if err != nil {
 				return fmt.Errorf("failed to retrieve egress interface %s: %w", gc.iface, err)
 			}
