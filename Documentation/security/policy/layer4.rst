@@ -245,8 +245,9 @@ works the same way in a CiliumClusterwideNetworkPolicy.
 .. note::
 
    A ``listener`` redirect cannot be combined with Layer 7 ``rules`` (HTTP or
-   DNS) in the same ``toPorts`` entry. Use the Envoy listener itself to express
-   any application-layer behavior.
+   DNS) in the same ``toPorts`` entry, or any other ``toPorts`` entry for the
+   same port. Use the Envoy listener itself to express any application-layer
+   behavior.
 
 For how to define the listener and the supporting Envoy resources, see
 :ref:`gs_l7_traffic_management` and :ref:`gs_envoy_custom_listener`.
@@ -282,19 +283,29 @@ The names in the policy must match the names in the CiliumClusterwideEnvoyConfig
   listener resource inside that CiliumClusterwideEnvoyConfig.
 
 The config sets the annotation
-``cec.cilium.io/use-original-source-address: "false"``. This annotation controls
-the source address Envoy uses for the upstream connection. For a hand-written
-CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig, the annotation defaults to
-``"true"``, which keeps the original pod source address (transparent proxy). For
-pod-originated egress redirects like this example, set it to
-``"false"`` so that Envoy uses its own source address. With the
-default ``"true"``, Cilium binds the upstream socket to the intercepted
-connection's source IP and port, then connects to the same destination via the
-``ORIGINAL_DST`` cluster. The resulting upstream 5-tuple (source IP, source
-port, destination IP, destination port, protocol) is identical to the
-intercepted downstream connection that is still open. The kernel rejects the
-duplicate and the connection fails. Setting ``"false"`` lets Envoy pick a fresh
-source address for the upstream connection, which keeps every 5-tuple unique.
+``cec.cilium.io/use-original-source-address: "false"``. This annotation
+controls whether Envoy keeps the pod's real source IP and port on the
+upstream connection. For a hand-written CiliumEnvoyConfig or
+CiliumClusterwideEnvoyConfig, it defaults to ``"true"``.
+
+Cilium intercepts the pod's connection to ``example.com`` transparently. The
+socket Cilium Envoy accepts still carries the pod's real source IP:port and
+the real destination, ``example.com:80``, even though the traffic actually
+landed on Envoy. With the default ``"true"``, Envoy reuses that same source
+IP:port when it opens its own, separate upstream connection to
+``example.com`` through the ``ORIGINAL_DST`` cluster. The pod's original
+connection to ``example.com`` is still open, so Envoy's new upstream
+connection ends up with the exact same source IP, source port, destination
+IP, destination port, and protocol. The kernel refuses to open a second
+connection with that same 5-tuple, so the upstream connection fails. Setting
+the annotation to ``"false"`` avoids this by letting Envoy pick a different
+source port for its upstream connection.
+
+Outside of this kind of collision, setting ``"false"`` is rarely needed. It
+hides the pod's real source address from the destination, so a Layer 7
+ingress policy on the destination pod can no longer match against the
+source pod's labels. Redirects to a destination pod on the same node never
+need it, since Cilium avoids the collision for those automatically.
 
 .. note::
 

@@ -3,8 +3,8 @@ kind: CiliumClusterwideEnvoyConfig
 metadata:
   name: add-header-config
   annotations:
-    # For pod-originated egress redirects: Envoy uses its own source address
-    # for the upstream connection instead of the pod's source address.
+    # Avoids a 5-tuple collision with the pod's still-open original
+    # connection to the same destination.
     cec.cilium.io/use-original-source-address: "false"
 spec:
   resources:
