@@ -30,7 +30,6 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -142,27 +141,21 @@ func startENINativeRoutingCIDRSync(
 }
 
 // waitForENINativeRoutingCIDR blocks until the eni-native-routing-cidr-sync
-// observer has determined the native routing CIDR. Aborts the agent with a
-// fatal log if the operator has not reported the VPC CIDR within
-// waitForENINativeRoutingCIDRTimeout.
-func waitForENINativeRoutingCIDR(logger *slog.Logger, ready <-chan struct{}) {
-	deadline := time.After(waitForENINativeRoutingCIDRTimeout)
+// observer has determined the native routing CIDR. It returns an error if ctx
+// is cancelled before that. ctx is the hive start-hook context, whose timeout
+// bounds the wait.
+func waitForENINativeRoutingCIDR(ctx context.Context, logger *slog.Logger, ready <-chan struct{}) error {
 	for {
 		select {
 		case <-ready:
-			return
-		case <-deadline:
-			logging.Fatal(logger,
-				"Timed out waiting for ENI VPC CIDR to be reported in CiliumNode status",
-				logfields.Duration, waitForENINativeRoutingCIDRTimeout,
-			)
+			return nil
+		case <-ctx.Done():
+			return fmt.Errorf("waiting for ENI VPC CIDR to be reported in CiliumNode status: %w", ctx.Err())
 		case <-time.After(5 * time.Second):
 			logger.Info("Waiting for ENI VPC CIDR to be reported in CiliumNode status")
 		}
 	}
 }
-
-const waitForENINativeRoutingCIDRTimeout = 5 * time.Minute
 
 // autoDetectENINativeRoutingCIDR either validates an existing native routing
 // CIDR configuration against the given VPC CIDRs, or uses the VPC primary CIDR
@@ -729,7 +722,7 @@ type ENIMultiPoolAllocatorParams struct {
 	IPMasqAgent *ipmasq.IPMasqAgent
 }
 
-func newENIMultiPoolAllocators(p ENIMultiPoolAllocatorParams) (Allocator, Allocator) {
+func newENIMultiPoolAllocators(ctx context.Context, p ENIMultiPoolAllocatorParams) (Allocator, Allocator, error) {
 	preallocMap := preAllocatePerPool{
 		Pool(defaults.IPAMDefaultIPPool): defaults.IPAMPreAllocation,
 	}
@@ -751,12 +744,18 @@ func newENIMultiPoolAllocators(p ENIMultiPoolAllocatorParams) (Allocator, Alloca
 	nativeRoutingCIDRReady := startENINativeRoutingCIDRSync(p.Logger, p.JobGroup, p.Node, p.LocalNodeStore, p.Conf)
 
 	// Wait for local node to be updated to avoid propagating spurious updates.
-	waitForLocalNodeUpdate(p.Logger, mgr)
+	if err := waitForLocalNodeUpdate(ctx, p.Logger, mgr); err != nil {
+		return nil, nil, err
+	}
 	// Independently wait for the alloc-CIDR and native-routing-CIDR observers:
 	// they run in separate jobs from the multi-pool manager and are not
 	// synchronized with mgr.localNodeUpdated().
-	waitForLocalNodeAllocCIDRs(p.Logger, allocCIDRsReady)
-	waitForENINativeRoutingCIDR(p.Logger, nativeRoutingCIDRReady)
+	if err := waitForLocalNodeAllocCIDRs(ctx, p.Logger, allocCIDRsReady); err != nil {
+		return nil, nil, err
+	}
+	if err := waitForENINativeRoutingCIDR(ctx, p.Logger, nativeRoutingCIDRReady); err != nil {
+		return nil, nil, err
+	}
 
 	newAllocator := func(family Family) *eniMultiPoolAllocator {
 		return &eniMultiPoolAllocator{
@@ -766,5 +765,5 @@ func newENIMultiPoolAllocators(p ENIMultiPoolAllocatorParams) (Allocator, Alloca
 			ipMasqAgent:        p.IPMasqAgent,
 		}
 	}
-	return newAllocator(IPv4), newAllocator(IPv6)
+	return newAllocator(IPv4), newAllocator(IPv6), nil
 }
