@@ -2388,7 +2388,7 @@ int tail_no_service_ipv4(struct __ctx_buff *ctx)
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	int ret;
 
-	ret = generate_icmp4_reply(ctx, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH);
+	ret = generate_icmp4_reply(ctx, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
 	if (!ret) {
 		/* Redirect ICMP to the interface we received it on. */
 		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
@@ -2426,7 +2426,7 @@ int tail_no_service_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ret = generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH);
+	ret = generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
 	if (!ret) {
 		/* Redirect ICMP to the interface we received it on. */
 		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
