@@ -100,6 +100,11 @@ func baseSockPermutations() *loadPermutationBuilder {
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
 		}),
+		Increment(func(t *config.BPFSock, v bool) {
+			if v {
+				t.MKEHost = option.HostExtensionMKE
+			}
+		}),
 		IncrementOrPermute(func(t *config.BPFSock, v bool) { t.EnableLRP = v }),
 	)
 	return b
