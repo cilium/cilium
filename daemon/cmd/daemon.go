@@ -193,7 +193,9 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	params.K8sWatcher.InitK8sSubsystem(ctx)
 
 	// Configure and start IPAM without using the configuration yet.
-	params.IPAMInitializer.ConfigureAndStartIPAM(ctx)
+	if err := params.IPAMInitializer.ConfigureAndStartIPAM(ctx); err != nil {
+		return err
+	}
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the

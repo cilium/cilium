@@ -130,7 +130,7 @@ func TestLock(t *testing.T) {
 		NodeResource:   &resourceMock{},
 		MTUConfig:      &mtuMock,
 	})
-	ipam.ConfigureAllocator()
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
 
 	// Since the IPs we have allocated to the endpoints might or might not
 	// be in the allocrange specified in cilium, we need to specify them
@@ -163,7 +163,7 @@ func TestExcludeIP(t *testing.T) {
 		NodeResource:   &resourceMock{},
 		MTUConfig:      &mtuMock,
 	})
-	ipam.ConfigureAllocator()
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	ipv4 = ipv4.Next()
@@ -221,7 +221,7 @@ func TestIPAMMetadata(t *testing.T) {
 		MTUConfig:      &mtuMock,
 		Metadata:       fakeMetadata,
 	})
-	ipam.ConfigureAllocator()
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
 	ipam.ipv4Allocator = newFakePoolAllocator(map[string]string{
 		"default": "10.10.0.0/16",
 		"test":    "192.168.178.0/24",
@@ -290,7 +290,7 @@ func TestLegacyAllocatorIPAMMetadata(t *testing.T) {
 		MTUConfig:      &mtuMock,
 		Metadata:       fakeMetadata,
 	})
-	ipam.ConfigureAllocator()
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
 
 	// AllocateIP requires explicit pool
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
