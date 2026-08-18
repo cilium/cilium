@@ -21,16 +21,13 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 			 __u32 icmp_data)
 {
 	__u64 full_len = ctx_full_len(ctx);
+	struct iphdr *ip4, *inner_ip4;
 	__u64 new_len, sample_len;
 	void *data, *data_end;
 	struct ethhdr *ethhdr;
-	struct iphdr *ip4;
 	struct icmphdr *icmphdr;
 	union macaddr smac = {};
 	union macaddr dmac = {};
-	__be32	saddr;
-	__be32	daddr;
-	__u8	tos;
 	__wsum csum;
 	int ret;
 
@@ -46,10 +43,6 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 
 	if (eth_load_daddr(ctx, dmac.addr, 0) < 0)
 		return DROP_INVALID;
-
-	saddr = ip4->saddr;
-	daddr = ip4->daddr;
-	tos = ip4->tos;
 
 	/* Trim down to sample size (IPv4 header + 8 bytes datagram) */
 	if (full_len < sizeof(struct ethhdr))
@@ -83,11 +76,12 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
 
-	/* Bound check all 3 headers at once. */
+	/* Bound check all headers at once. */
 	ethhdr = data;
 	ip4 = (void *)ethhdr + sizeof(*ethhdr);
 	icmphdr = (void *)ip4 + sizeof(*ip4);
-	if ((void *)icmphdr + sizeof(*icmphdr) > data_end)
+	inner_ip4 = (void *)icmphdr + sizeof(*icmphdr);
+	if ((void *)inner_ip4 + sizeof(*inner_ip4) > data_end)
 		return DROP_INVALID;
 
 	/* Write reversed eth header, ready for egress */
@@ -98,7 +92,7 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	/* Write reversed ip header, ready for egress */
 	ip4->version = 4;
 	ip4->ihl = sizeof(struct iphdr) >> 2;
-	ip4->tos = tos;
+	ip4->tos = inner_ip4->tos;
 	ip4->tot_len = bpf_htons(sizeof(struct iphdr) + sizeof(struct icmphdr) +
 		       (__u16)sample_len);
 	ip4->id = 0;
@@ -106,8 +100,8 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	ip4->ttl = IPDEFTTL;
 	ip4->protocol = IPPROTO_ICMP;
 	ip4->check = 0;
-	ip4->daddr = saddr;
-	ip4->saddr = daddr;
+	ip4->daddr = inner_ip4->saddr;
+	ip4->saddr = inner_ip4->daddr;
 	ip4->check = csum_fold(csum_diff(ip4, 0, ip4, sizeof(struct iphdr), 0));
 
 	/* Write reversed icmp header */
