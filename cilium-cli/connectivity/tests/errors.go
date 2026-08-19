@@ -102,7 +102,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock, failedToRetrieveLock, leaderElectionReadTimeout,
 		failedToListCRDs, knownIssueWireguardCollision, nilDetailsForService, gobgpFailedCloseTCP,
-		vendoredLeaderElectionLeaseLockError}
+		vendoredLeaderElectionLeaseLockError, lbMapCannotAllocateMemory}
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
@@ -605,4 +605,6 @@ var (
 	linkNotFound = regexMatcher{regexp.MustCompile(`retrieving device .+\: Link not found`)}
 	// Client-go counterpart of failedToRetrieveLock, scoped to the cancelled read. cf. https://github.com/cilium/cilium/issues/45426
 	leaderElectionReadTimeout = regexMatcher{regexp.MustCompile(`Unexpected error when reading response body.*request canceled \(Client\.Timeout or context cancellation while reading body\)`)}
+	// it can happen under memory pressure if the Kernel cannot allocate a new chunk of memory at that point in time, and it is automatically retried.
+	lbMapCannotAllocateMemory = regexMatcher{regexp.MustCompile(`Updating frontend failed.*update: cannot allocate memory`)}
 )
