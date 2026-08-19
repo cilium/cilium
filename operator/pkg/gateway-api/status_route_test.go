@@ -136,7 +136,7 @@ func Test_setTCPRouteStatusesPrunesDetachedParents(t *testing.T) {
 		TCPUDPRouteSupport:      true,
 		TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 	})
-	require.NoError(t, m.setTCPRouteStatuses(slog.Default(), t.Context(), routes.Items, nil))
+	require.NoError(t, m.setTCPRouteStatuses(t.Context(), slog.Default(), routes.Items, nil))
 
 	updated := &gatewayv1.TCPRoute{}
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), updated))
@@ -165,7 +165,7 @@ func Test_setUDPRouteStatusesPrunesDetachedParents(t *testing.T) {
 		TCPUDPRouteSupport:      true,
 		TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 	})
-	require.NoError(t, m.setUDPRouteStatuses(slog.Default(), t.Context(), routes.Items, nil))
+	require.NoError(t, m.setUDPRouteStatuses(t.Context(), slog.Default(), routes.Items, nil))
 
 	updated := &gatewayv1.UDPRoute{}
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), updated))
