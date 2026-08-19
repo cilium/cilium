@@ -209,30 +209,6 @@ func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
 		if ipam.config.IPv4Enabled() {
 			ipam.ipv4Allocator = v4Allocator
 		}
-	case ipamOption.IPAMENI:
-		ipam.logger.Info("Initializing ENI multi-pool IPAM")
-		startENIDeviceConfigurator(ipam.logger, ipam.jg, ipam.nodeResource, ipam.mtuConfig, ipam.sysctl)
-		v4Allocator, v6Allocator, err := newENIMultiPoolAllocators(ctx, ENIMultiPoolAllocatorParams{
-			Logger:               ipam.logger,
-			IPv4Enabled:          ipam.config.IPv4Enabled(),
-			IPv6Enabled:          ipam.config.IPv6Enabled(),
-			CiliumNodeUpdateRate: ipam.config.IPAMCiliumNodeUpdateRate,
-			Node:                 ipam.nodeResource,
-			LocalNodeStore:       ipam.localNodeStore,
-			CNClient:             ipam.clientset.CiliumV2().CiliumNodes(),
-			JobGroup:             ipam.jg,
-			Conf:                 ipam.config,
-			IPMasqAgent:          ipam.ipMasqAgent,
-		})
-		if err != nil {
-			return fmt.Errorf("unable to initialize ENI multi-pool IPAM: %w", err)
-		}
-		if ipam.config.IPv6Enabled() {
-			ipam.ipv6Allocator = v6Allocator
-		}
-		if ipam.config.IPv4Enabled() {
-			ipam.ipv4Allocator = v4Allocator
-		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		ipam.logger.Info("Initializing CRD-based IPAM")
 		if ipam.config.IPv6Enabled() {

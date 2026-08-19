@@ -63,18 +63,6 @@ type AllocationResult struct {
 	SkipMasquerade bool
 }
 
-// parsePrimaryMAC parses the MAC address of a master interface as reported by
-// the cloud provider in the CiliumNode status. An empty value is not an error:
-// the IPAM modes without a master interface never set one, and the ENI status
-// is accepted without a MAC (see validateENIConfig). Routing rejects an unset
-// MAC when it actually needs one.
-func parsePrimaryMAC(macAddr string) (mac.MAC, error) {
-	if macAddr == "" {
-		return nil, nil
-	}
-	return mac.ParseMAC(macAddr)
-}
-
 // Allocator is the interface for an IP allocator implementation
 type Allocator interface {
 	// Allocate allocates a specific IP or fails
