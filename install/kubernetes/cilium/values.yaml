@@ -2513,8 +2513,12 @@ maglev: {}
 # -- (bool) Enables masquerading of IPv4 traffic leaving the node from endpoints.
 # @default -- `true` unless ipam eni mode is active
 enableIPv4Masquerade: ~
-# -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
-enableIPv6Masquerade: true
+# @schema
+# type: [null, boolean]
+# @schema
+# -- (bool) Enables masquerading of IPv6 traffic leaving the node from endpoints.
+# @default -- `true` unless ipam eni mode is active
+enableIPv6Masquerade: ~
 # -- Enables masquerading to the source of the route for traffic leaving the node from endpoints.
 enableMasqueradeRouteSource: false
 # -- Enables IPv4 BIG TCP support which increases maximum IPv4 GSO/GRO limits for nodes and pods
