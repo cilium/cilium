@@ -2545,7 +2545,7 @@ skip_source_lookup:
 		goto drop_err;
 
 	ret = __snat_v4_nat(ctx, &tuple, state, fraginfo, l4_off, true,
-			    &target, TCP_SPORT_OFF, &trace, &ext_err);
+			    &target, TCP_SPORT_OFF, 0, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 
