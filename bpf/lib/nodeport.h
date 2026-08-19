@@ -48,8 +48,8 @@ DECLARE_CONFIG(__u8, ipv6_rss_prefix_bits,
 /* Define dummy values to make bpf_{lxc,overlay}.c to compile */
 #ifdef ENABLE_NODEPORT
 # ifndef DSR_ENCAP_MODE
-#  define DSR_ENCAP_MODE 0
-#  define DSR_ENCAP_IPIP 2
+#  define DSR_ENCAP_MODE   0
+#  define DSR_ENCAP_IPIP   2
 #  define DSR_ENCAP_GENEVE 3
 # endif
 #endif
@@ -2500,7 +2500,7 @@ skip_source_lookup:
 
 	ret = __snat_v4_nat(
 		ctx, &tuple, state, fraginfo, l4_off, true, &target,
-		TCP_SPORT_OFF, &trace, &ext_err);
+		TCP_SPORT_OFF, 0, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 

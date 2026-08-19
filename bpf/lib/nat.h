@@ -813,7 +813,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off
 #ifdef ENABLE_SNAT_ICMPV4
 static __always_inline __maybe_unused int
 snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
-			      struct ipv4_nat_entry **state)
+			      struct ipv4_nat_entry **state,
+			      __wsum *outer_csum_diff)
 {
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmphdr));
 	struct ipv4_ct_tuple tuple = {};
@@ -823,6 +824,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	__u8 type;
 	int ret;
 	bool icmp_has_inner_l4_csum = true;
+	bool is_inner_l4_csum_enabled = true;
 	__u32 total_inner_len = (__u32)ctx_full_len(ctx) - inner_l3_off;
 
 	/* According to the RFC 5508, any networking equipment that is
@@ -886,6 +888,24 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	    total_inner_len < ipv4_hdrlen(&iphdr) + TCP_CSUM_OFF + TCP_CSUM_SIZE)
 		icmp_has_inner_l4_csum = false;
 
+	/* For UDP, a checksum value of zero means that no checksum */
+	if (tuple.nexthdr == IPPROTO_UDP) {
+		__be16 l4_csum_be = 0;
+
+		if (ctx_load_bytes(ctx, inner_l4_off + offsetof(struct udphdr, check),
+				   &l4_csum_be, sizeof(l4_csum_be)) < 0)
+			return DROP_INVALID;
+		if (l4_csum_be == 0)
+			is_inner_l4_csum_enabled = false;
+	}
+
+	/* Calculate the diff for the outer ICMP checksum. */
+	snat_v4_calc_icmp_error_csum_diff(tuple.saddr, (*state)->to_saddr,
+					  tuple.sport, (*state)->to_sport,
+					  icmp_has_inner_l4_csum &&
+					  is_inner_l4_csum_enabled,
+					  outer_csum_diff);
+
 	/* We found SNAT entry to NAT embedded packet. The destination addr
 	 * should be NATed according to the entry.
 	 */
@@ -906,7 +926,8 @@ static __always_inline int
 __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	      struct ipv4_nat_entry *state, fraginfo_t fraginfo,
 	      int l4_off, bool update_tuple, const struct ipv4_nat_target *target,
-	      __u16 port_off, struct trace_ctx *trace, __s8 *ext_err)
+	      __u16 port_off, __wsum outer_csum_diff,
+	      struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ipv4_nat_entry tmp;
 	__be16 to_sport = 0;
@@ -927,7 +948,7 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	ret = snat_v4_rewrite_headers(ctx, tuple->nexthdr, ETH_HLEN,
 				      ipfrag_has_l4_header(fraginfo), l4_off,
 				      tuple->saddr, state->to_saddr, IPV4_SADDR_OFF,
-				      tuple->sport, to_sport, port_off, 0);
+				      tuple->sport, to_sport, port_off, outer_csum_diff);
 
 	if (update_tuple) {
 		tuple->saddr = state->to_saddr;
@@ -944,6 +965,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ipv4_nat_entry *state = NULL;
+	__wsum outer_csum_diff = 0;
 	__u16 port_off = 0;
 	int ret;
 
@@ -1017,7 +1039,8 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			}
 
 nat_icmp_v4:
-			ret = snat_v4_nat_handle_icmp_error(ctx, off, &state);
+			ret = snat_v4_nat_handle_icmp_error(ctx, off, &state,
+							    &outer_csum_diff);
 			if (IS_ERR(ret))
 				return ret;
 
@@ -1033,7 +1056,7 @@ nat_icmp_v4:
 	};
 
 	return __snat_v4_nat(ctx, tuple, state, fraginfo, off, false, target,
-			     port_off, trace, ext_err);
+			     port_off, outer_csum_diff, trace, ext_err);
 }
 
 #ifdef ENABLE_SNAT_ICMPV4
