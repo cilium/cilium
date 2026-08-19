@@ -589,15 +589,14 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 	return 0;
 }
 
-static __always_inline void
+static __always_inline __wsum
 snat_v4_calc_icmp_error_csum_diff(__be32 old_addr, __be32 new_addr,
 				  __be16 old_port, __be16 new_port,
-				  bool inner_has_l4_csum, __wsum *diff_for_csum)
+				  bool inner_has_l4_csum)
 {
 	__be32 old_port32 = (__be32)old_port;
 	__be32 new_port32 = (__be32)new_port;
-
-	*diff_for_csum = 0;
+	__wsum sum = 0;
 
 	if (inner_has_l4_csum) {
 		/* Calculate diff value for checksum.
@@ -606,15 +605,17 @@ snat_v4_calc_icmp_error_csum_diff(__be32 old_addr, __be32 new_addr,
 		 * All the other changes in inner packet cancel each other out.
 		 */
 		if (old_addr != new_addr)
-			*diff_for_csum = csum_diff(&new_addr, 4, &old_addr, 4, 0);
+			sum = csum_diff(&new_addr, 4, &old_addr, 4, 0);
 	} else {
 		/* Calculate diff value for checksum.
 		 * If the inner L4 header does not include the L4 checksum,
 		 * only the port is modified within the inner L4 header.
 		 */
 		if (old_port != new_port)
-			*diff_for_csum = csum_diff(&old_port32, 4, &new_port32, 4, 0);
+			sum = csum_diff(&old_port32, 4, &new_port32, 4, 0);
 	}
+
+	return sum;
 }
 
 static __always_inline bool
@@ -929,11 +930,10 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	}
 
 	/* Calculate the diff for the outer ICMP checksum. */
-	snat_v4_calc_icmp_error_csum_diff(tuple.saddr, (*state)->to_saddr,
-					  tuple.sport, (*state)->to_sport,
-					  icmp_has_inner_l4_csum &&
-					  is_inner_l4_csum_enabled,
-					  outer_csum_diff);
+	*outer_csum_diff = snat_v4_calc_icmp_error_csum_diff(tuple.saddr, (*state)->to_saddr,
+							     tuple.sport, (*state)->to_sport,
+							     icmp_has_inner_l4_csum &&
+							     is_inner_l4_csum_enabled);
 
 	/* We found SNAT entry to NAT embedded packet. The destination addr
 	 * should be NATed according to the entry.
@@ -1181,11 +1181,10 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	}
 
 	/* Calculate the diff for the outer ICMP checksum. */
-	snat_v4_calc_icmp_error_csum_diff(tuple.daddr, (*state)->to_daddr,
-					  tuple.dport, (*state)->to_dport,
-					  icmp_has_inner_l4_csum &&
-					  is_inner_l4_csum_enabled,
-					  outer_csum_diff);
+	*outer_csum_diff = snat_v4_calc_icmp_error_csum_diff(tuple.daddr, (*state)->to_daddr,
+							     tuple.dport, (*state)->to_dport,
+							     icmp_has_inner_l4_csum &&
+							     is_inner_l4_csum_enabled);
 
 	/* The embedded packet was SNATed on egress. Reverse it again: */
 	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, (int)inner_l3_off,
