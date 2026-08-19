@@ -15,6 +15,9 @@ cilium-operator-azure [flags]
       --azure-subscription-id string                               Subscription ID to access Azure API
       --azure-use-primary-address                                  Use Azure IP address from interface's primary IPConfigurations
       --azure-user-assigned-identity-id string                     Client ID (UUID) of the user-assigned managed identity used to auth with the Azure API
+      --bgp-router-id-allocation-ip-pool string                    IP pool to allocate the BGP router-id from when the mode is 'ip-pool'
+      --bgp-router-id-allocation-mode string                       BGP router-id allocation mode. Currently supported values: 'default' or 'ip-pool' (default "default")
+      --bgp-secrets-namespace string                               Kubernetes namespace to get BGP control plane secrets from
       --ces-max-ciliumendpoints-per-ces int                        Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                                     Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
       --cilium-endpoint-gc-interval duration                       GC interval for cilium endpoints (default 5m0s)
@@ -38,6 +41,9 @@ cilium-operator-azure [flags]
   -D, --debug                                                      Enable debugging mode
       --default-lb-service-ipam string                             Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
       --double-write-metric-reporter-interval duration             Refresh interval for the Double Write Metric Reporter (default 1m0s)
+      --enable-bgp-control-plane                                   Enable the BGP control plane
+      --enable-bgp-control-plane-status-report                     Enable the BGP control plane status reporting (default true)
+      --enable-bgp-legacy-origin-attribute                         Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-cilium-endpoint-slice                               If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.
       --enable-cilium-operator-server-access strings               List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-gateway-api-alpn                                    Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API
