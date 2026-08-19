@@ -13,6 +13,7 @@
 
 #include "endian.h"
 #include "eth.h"
+#include "ipv4_core.h"
 #include "ipv6_core.h"
 #include "map_defs.h"
 #include "config.h"
@@ -61,11 +62,6 @@ enum {
 #define BPF_FIB_MAP_NO_NEIGH	100
 
 typedef __u64 mac_t;
-
-union v4addr {
-	__u8 addr[4];
-	__be32 be32;
-};
 
 #define THIS_IS_L3_DEV		(ETH_HLEN == 0)
 
