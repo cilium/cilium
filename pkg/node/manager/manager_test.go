@@ -1014,6 +1014,7 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 		cell.Provide(tables.NewDeviceTable),
 		cell.Provide(statedb.RWTable[*tables.Device].ToTable),
 		cell.Provide(node.NewNodeTable),
+		cell.Provide(node.NewWriter),
 		cell.Provide(func() node.ClusterSizeDependantIntervalFunc {
 			return func(interval time.Duration) time.Duration { return interval }
 		}),
@@ -1403,10 +1404,25 @@ func TestNodeTableMirroring(t *testing.T) {
 	db := statedb.New()
 	nodeTable, err := node.NewNodeTable(db)
 	require.NoError(t, err)
+	writer := node.NewWriter(logger, db, nodeTable)
 
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.ClusterInfo{Name: "c1"}, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, nodeTable, testClusterSizeDependantInterval)
+	mngr, err := New(
+		logger,
+		&option.DaemonConfig{},
+		cmtypes.ClusterInfo{Name: "c1"},
+		tunnel.Config{},
+		ipcacheMock,
+		NewNodeMetrics(),
+		h,
+		nil,
+		db,
+		nil,
+		fakewireguard.Config{},
+		writer,
+		testClusterSizeDependantInterval,
+	)
 	require.NoError(t, err)
 
 	initialized, initWatch := nodeTable.Initialized(db.ReadTxn())
@@ -1469,6 +1485,25 @@ func TestNodeTableMirroring(t *testing.T) {
 	requireNode(t, n1)
 	requireNode(t, n2)
 
+	// NodeManager delegates table conflict resolution to node.Writer. For
+	// equal-priority address owners the latest update wins.
+	n3 := n2.DeepCopy()
+	n3.Name = "node3"
+	mngr.NodeUpdated(*n3)
+	requireNode(t, n1)
+	requireNoNode(t, n2)
+	requireNode(t, *n3)
+
+	// Deleting the displaced node must not delete the current address owner.
+	mngr.NodeDeleted(n2)
+	requireNoNode(t, n2)
+	requireNode(t, *n3)
+
+	mngr.NodeUpdated(n2)
+	requireNode(t, n1)
+	requireNode(t, n2)
+	requireNoNode(t, *n3)
+
 	select {
 	case <-initWatch:
 		t.Fatal("node table initialized before NodeSync")
@@ -1514,6 +1549,7 @@ func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
 			db := statedb.New()
 			nodeTable, err := node.NewNodeTable(db)
 			require.NoError(t, err)
+			writer := node.NewWriter(hivetest.Logger(t), db, nodeTable)
 
 			health, _ := cell.NewSimpleHealth()
 			mngr, err := New(
@@ -1528,7 +1564,7 @@ func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
 				db,
 				nil,
 				fakewireguard.Config{},
-				nodeTable,
+				writer,
 				testClusterSizeDependantInterval,
 			)
 			require.NoError(t, err)
