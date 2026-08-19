@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -27,9 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var (
-	TestTimeout = 5 * time.Second
-)
+var TestTimeout = 5 * time.Second
 
 type fixture struct {
 	hive          *hive.Hive
@@ -43,7 +42,7 @@ type fixture struct {
 	bgpnClient cilium_client_v2.CiliumBGPNodeConfigInterface
 }
 
-func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, dc *option.DaemonConfig) (*fixture, func()) {
+func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, bgpCfg config.BGPConfig) (*fixture, func()) {
 	rws := map[string]*struct {
 		once    sync.Once
 		watchCh chan any
@@ -141,7 +140,9 @@ func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, dc *
 		}),
 
 		cell.Provide(func() *option.DaemonConfig {
-			return dc
+			return &option.DaemonConfig{
+				Debug: true,
+			}
 		}),
 
 		cell.Provide(func() k8sClient.Clientset {
@@ -150,6 +151,15 @@ func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, dc *
 
 		Cell,
 	)
+
+	hive.AddConfigOverride(f.hive, func(dst *config.BGPConfig) {
+		dst.EnableLegacyOriginAttribute = bgpCfg.EnableLegacyOriginAttribute
+		dst.SecretsNamespace = bgpCfg.SecretsNamespace
+		dst.Enable = bgpCfg.Enable
+		dst.EnableStatusReport = bgpCfg.EnableStatusReport
+		dst.RouterIDAllocationMode = bgpCfg.RouterIDAllocationMode
+		dst.RouterIDAllocationIPPool = bgpCfg.RouterIDAllocationIPPool
+	})
 
 	return f, watchersReadyFn
 }

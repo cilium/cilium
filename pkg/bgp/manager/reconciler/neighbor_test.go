@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
@@ -22,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -228,11 +228,10 @@ func TestNeighborReconciler_StaticPeer(t *testing.T) {
 			// setup initial neighbors
 			neighborReconciler := NeighborReconcilerOut{
 				Reconciler: &NeighborReconciler{
-					logger:       params.Logger,
-					SecretStore:  params.SecretStore,
-					PeerConfig:   params.PeerConfig,
-					DaemonConfig: params.DaemonConfig,
-					metadata:     make(map[string]NeighborReconcilerMetadata),
+					logger:      params.Logger,
+					SecretStore: params.SecretStore,
+					PeerConfig:  params.PeerConfig,
+					metadata:    make(map[string]NeighborReconcilerMetadata),
 				},
 			}.Reconciler
 			neighborReconciler.Init(testInstance)
@@ -411,12 +410,11 @@ func TestNeighborReconciler_SourceInterfaceAddress(t *testing.T) {
 	peerConfigStore := store.NewMockBGPCPResourceStore[*v2.CiliumBGPPeerConfig]()
 
 	neighborReconciler := NewNeighborReconciler(NeighborReconcilerIn{
-		Logger:       hivetest.Logger(t),
-		SecretStore:  nil,
-		PeerConfig:   peerConfigStore,
-		DaemonConfig: &option.DaemonConfig{},
-		DB:           db,
-		DeviceTable:  deviceTable,
+		Logger:      hivetest.Logger(t),
+		SecretStore: nil,
+		PeerConfig:  peerConfigStore,
+		DB:          db,
+		DeviceTable: deviceTable,
 	}).Reconciler.(*NeighborReconciler)
 
 	// initialize test instance
@@ -526,10 +524,10 @@ func setupNeighbors(t *testing.T, peers []PeerData) (NeighborReconcilerIn, *v2.C
 	secretStore := store.InitMockStore[*slim_corev1.Secret](secretObjs)
 
 	return NeighborReconcilerIn{
-		Logger:       hivetest.Logger(t),
-		SecretStore:  secretStore,
-		PeerConfig:   peerConfigStore,
-		DaemonConfig: &option.DaemonConfig{BGPSecretsNamespace: "bgp-secrets"},
+		Logger:      hivetest.Logger(t),
+		SecretStore: secretStore,
+		PeerConfig:  peerConfigStore,
+		BGPConfig:   config.BGPConfig{SecretsNamespace: "bgp-secrets"},
 	}, nodeConfig
 }
 
