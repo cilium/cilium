@@ -1919,7 +1919,10 @@
       "type": "boolean"
     },
     "enableIPv6Masquerade": {
-      "type": "boolean"
+      "type": [
+        "null",
+        "boolean"
+      ]
     },
     "enableInternalTrafficPolicy": {
       "type": "boolean"

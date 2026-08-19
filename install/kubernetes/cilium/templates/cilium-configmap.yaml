@@ -14,6 +14,7 @@
 {{- $defaultK8sClientBurst := 10 -}}
 {{- $defaultDNSProxyEnableTransparentMode := "false" -}}
 {{- $defaultEnableIPv4Masquerade := "true" -}}
+{{- $defaultEnableIPv6Masquerade := "true" -}}
 {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
 {{- $readSecretsOnlyFromSecretsNamespace := eq (include "readSecretsOnlyFromSecretsNamespace" .) "true" -}}
 {{- $secretSyncEnabled := eq (include "secretSyncEnabled" .) "true" -}}
@@ -58,9 +59,27 @@
   {{- /* defaultIPv4Masquerad in ENI mode for 1.18 needed to override earlier version defaults set above when upgradeCompatibility is not specified */ -}}
   {{- if .Values.eni.enabled }}
     {{- $defaultEnableIPv4Masquerade = "false" -}}
-    # Will also do this for ipv6 when ENI mode works with ipv6.
   {{- end }}
 {{- end -}}
+
+{{- /* Default values when 1.21 was initially deployed */ -}}
+{{- if semverCompare ">=1.21" (default "1.21" .Values.upgradeCompatibility) -}}
+  {{- /* IPv6 counterpart of the ENI IPv4 masquerading default set above. */ -}}
+  {{- if .Values.eni.enabled }}
+    {{- $defaultEnableIPv6Masquerade = "false" -}}
+  {{- end }}
+{{- end -}}
+
+{{- /* Effective masquerading settings */ -}}
+{{- $enableIPv4Masquerade := $defaultEnableIPv4Masquerade -}}
+{{- if not (kindIs "invalid" .Values.enableIPv4Masquerade) -}}
+  {{- $enableIPv4Masquerade = toString .Values.enableIPv4Masquerade -}}
+{{- end -}}
+{{- $enableIPv6Masquerade := $defaultEnableIPv6Masquerade -}}
+{{- if not (kindIs "invalid" .Values.enableIPv6Masquerade) -}}
+  {{- $enableIPv6Masquerade = toString .Values.enableIPv6Masquerade -}}
+{{- end -}}
+
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- if .Values.eni.enabled }}
   {{- $ipam = "eni" -}}
@@ -558,14 +577,14 @@ data:
   tunnel-protocol: {{ .Values.tunnelProtocol | default "vxlan" | quote }}
 
 {{- if eq .Values.routingMode "native" }}
-  {{- if and .Values.ipv4.enabled .Values.enableIPv4Masquerade (not .Values.ipMasqAgent.enabled) }}
+  {{- if and .Values.ipv4.enabled (eq $enableIPv4Masquerade "true") (not .Values.ipMasqAgent.enabled) }}
     {{- if and (ne $ipam "eni") (ne $ipam "alibabacloud") }}
       {{- if and (not .Values.ipv4NativeRoutingCIDR) (not (and (eq $ipam "cluster-pool") .Values.nativeRoutingCIDRFromClusterPool)) }}
         {{- fail " ipv4NativeRoutingCIDR must be set when routingMode is native"}}
       {{- end }}
     {{- end }}
   {{- end }}
-  {{- if and .Values.ipv6.enabled .Values.enableIPv6Masquerade (not .Values.ipMasqAgent.enabled) }}
+  {{- if and .Values.ipv6.enabled (eq $enableIPv6Masquerade "true") (not .Values.ipMasqAgent.enabled) }}
     {{- if and (not .Values.ipv6NativeRoutingCIDR) (not (and (eq $ipam "cluster-pool") .Values.nativeRoutingCIDRFromClusterPool)) }}
       {{- fail "ipv6NativeRoutingCIDR must be set when routingMode is native"  }}
     {{- end }}
@@ -717,14 +736,10 @@ data:
   enable-identity-mark: {{ .Values.enableIdentityMark | quote }}
 {{- end }}
 
-{{- if (not (kindIs "invalid" .Values.enableIPv4Masquerade)) }}
-  enable-ipv4-masquerade: {{.Values.enableIPv4Masquerade | quote }}
-{{- else }}
-  enable-ipv4-masquerade: {{ $defaultEnableIPv4Masquerade | quote }}
-{{- end }}
+  enable-ipv4-masquerade: {{ $enableIPv4Masquerade | quote }}
   enable-ipv4-big-tcp: {{ .Values.enableIPv4BIGTCP | quote }}
   enable-ipv6-big-tcp: {{ .Values.enableIPv6BIGTCP | quote }}
-  enable-ipv6-masquerade: {{ .Values.enableIPv6Masquerade | quote }}
+  enable-ipv6-masquerade: {{ $enableIPv6Masquerade | quote }}
 
 {{- if hasKey .Values.bpf "enableTCX" }}
   enable-tcx: {{ .Values.bpf.enableTCX | quote }}
