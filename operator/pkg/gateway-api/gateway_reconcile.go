@@ -160,22 +160,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	mergedListeners := filterOutConflictedListeners(inputs.MergedListeners, conflictedListeners)
 	mergedListeners = r.filterOutInvalidListeners(ctx, mergedListeners, inputs.ReferenceGrants)
 
-	m := ingestion.GatewayAPI(scopedLog, ingestion.Input{
-		GatewayClass:        *gwc,
-		GatewayClassConfig:  inputs.GatewayClassConfig,
-		Gateway:             *gw,
-		HTTPRoutes:          inputs.AttachedHTTPRoutes(gw),
-		TLSRoutes:           inputs.AttachedTLSRoutes(gw),
-		GRPCRoutes:          inputs.AttachedGRPCRoutes(gw),
-		TCPRoutes:           inputs.AttachedTCPRoutes(gw),
-		UDPRoutes:           inputs.AttachedUDPRoutes(gw),
-		Services:            inputs.Services,
-		ServiceImports:      inputs.ServiceImports,
-		ReferenceGrants:     inputs.ReferenceGrants,
-		BackendTLSPolicyMap: btlspMap,
-		MergedListeners:     mergedListeners,
-	})
-
 	namespaceLabels := helpers.NewNamespaceLabelIndex(inputs.Namespaces)
 
 	listenersStatus, err := r.setListenerStatus(
@@ -229,8 +213,25 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		namespaceLabels,
 	)
 
-	// Step 3: Translate the listeners into Cilium model
-	cec, svc, eps, err := r.translator.Translate(m)
+	// Step 3: Ingest loaded and validated resources into internal model
+	ingestionModel := ingestion.GatewayAPI(scopedLog, ingestion.Input{
+		GatewayClass:        *gwc,
+		GatewayClassConfig:  inputs.GatewayClassConfig,
+		Gateway:             *gw,
+		HTTPRoutes:          inputs.AttachedHTTPRoutes(gw),
+		TLSRoutes:           inputs.AttachedTLSRoutes(gw),
+		GRPCRoutes:          inputs.AttachedGRPCRoutes(gw),
+		TCPRoutes:           inputs.AttachedTCPRoutes(gw),
+		UDPRoutes:           inputs.AttachedUDPRoutes(gw),
+		Services:            inputs.Services,
+		ServiceImports:      inputs.ServiceImports,
+		ReferenceGrants:     inputs.ReferenceGrants,
+		BackendTLSPolicyMap: btlspMap,
+		MergedListeners:     mergedListeners,
+	})
+
+	// Step 4: Translate the listeners into Cilium model
+	cec, svc, eps, err := r.translator.Translate(ingestionModel)
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to translate resources", gatewayv1.GatewayReasonNoResources)
@@ -266,7 +267,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	setGatewayProgrammed(gw, metav1.ConditionFalse, "Gateway waiting for address", gatewayv1.GatewayReasonAddressNotAssigned)
 
-	// Step 4: Update the status of the Gateway
+	// Step 5: Update the status of the Gateway
 	if err = r.setAddressStatus(ctx, gw); err != nil {
 		scopedLog.ErrorContext(ctx, "Address is not ready", logfields.Error, err)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, "+err.Error(), gatewayv1.GatewayReasonAddressNotAssigned)
