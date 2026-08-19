@@ -15,20 +15,18 @@ import (
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var (
-	// ErrBGPControlPlaneDisabled is set when the BGP control plane is disabled
-	ErrBGPControlPlaneDisabled = fmt.Errorf("BGP control plane is disabled")
-)
+// ErrBGPControlPlaneDisabled is set when the BGP control plane is disabled
+var ErrBGPControlPlaneDisabled = fmt.Errorf("BGP control plane is disabled")
 
 // Controller is the agent side BGP Control Plane controller.
 //
@@ -71,7 +69,7 @@ type ControllerParams struct {
 	Sig                     *signaler.BGPCPSignaler
 	RouteMgr                BGPRouterManager
 	BGPNodeConfigStore      store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig]
-	DaemonConfig            *option.DaemonConfig
+	BGPConfig               config.BGPConfig
 	LocalCiliumNodeResource daemon_k8s.LocalCiliumNodeResource
 }
 
@@ -86,7 +84,7 @@ type ControllerParams struct {
 func NewController(params ControllerParams) (*Controller, error) {
 	// If the BGP control plane is disabled, just return nil. This way the hive dependency graph is always static
 	// regardless of config. The lifecycle has not been appended so no work will be done.
-	if !params.DaemonConfig.BGPControlPlaneEnabled() {
+	if !params.BGPConfig.BGPControlPlaneEnabled() {
 		return nil, nil
 	}
 

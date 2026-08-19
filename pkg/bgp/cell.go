@@ -81,9 +81,9 @@ var Cell = cell.Module(
 	cell.Provide(
 		tables.NewBGPReconcileErrorTable,
 		tables.NewDesiredRoutePoliciesTable,
-		func(t statedb.RWTable[*tables.DesiredRoutePolicy], dc *option.DaemonConfig) statedb.Table[*tables.DesiredRoutePolicy] {
+		func(t statedb.RWTable[*tables.DesiredRoutePolicy], bc config.BGPConfig) statedb.Table[*tables.DesiredRoutePolicy] {
 			// Do not create this resource if BGP Control Plane is disabled.
-			if !dc.BGPControlPlaneEnabled() {
+			if !bc.BGPControlPlaneEnabled() {
 				return nil
 			}
 
@@ -115,12 +115,12 @@ var Cell = cell.Module(
 	metrics.Metric(manager.NewBGPManagerMetrics),
 )
 
-func newCiliumPodIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig, mp workqueue.MetricsProvider) resource.Resource[*v2.CiliumPodIPPool] {
+func newCiliumPodIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig, bc config.BGPConfig, mp workqueue.MetricsProvider) resource.Resource[*v2.CiliumPodIPPool] {
 	// Do not create this resource if:
 	//   1. The BGP Control Plane is disabled.
 	//   2. Kubernetes support is disabled and the clientset cannot be used.
 	//   3. Multi-pool IPAM is disabled.
-	if !dc.BGPControlPlaneEnabled() || !c.IsEnabled() || dc.IPAM != ipam_option.IPAMMultiPool {
+	if !bc.BGPControlPlaneEnabled() || !c.IsEnabled() || dc.IPAM != ipam_option.IPAMMultiPool {
 		return nil
 	}
 
@@ -130,9 +130,9 @@ func newCiliumPodIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *optio
 		), mp, resource.WithMetric("CiliumPodIPPool"))
 }
 
-func newSecretResource(logger *slog.Logger, lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig, mp workqueue.MetricsProvider) resource.Resource[*slim_core_v1.Secret] {
+func newSecretResource(logger *slog.Logger, lc cell.Lifecycle, c client.Clientset, bc config.BGPConfig, mp workqueue.MetricsProvider) resource.Resource[*slim_core_v1.Secret] {
 	// Do not create this resource if the BGP Control Plane is disabled
-	if !dc.BGPControlPlaneEnabled() {
+	if !bc.BGPControlPlaneEnabled() {
 		return nil
 	}
 
@@ -141,20 +141,20 @@ func newSecretResource(logger *slog.Logger, lc cell.Lifecycle, c client.Clientse
 	}
 
 	// Do not create this resource if the BGP namespace is not set
-	if dc.BGPSecretsNamespace == "" {
+	if bc.SecretsNamespace == "" {
 		logger.Warn("bgp-secrets-namespace not set, will not be able to use BGP control plane auth secrets")
 		return nil
 	}
 
 	return resource.New[*slim_core_v1.Secret](
 		lc, utils.ListerWatcherFromTyped[*slim_core_v1.SecretList](
-			c.Slim().CoreV1().Secrets(dc.BGPSecretsNamespace),
+			c.Slim().CoreV1().Secrets(bc.SecretsNamespace),
 		), mp)
 }
 
-func newBGPNodeConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig, mp workqueue.MetricsProvider) resource.Resource[*v2.CiliumBGPNodeConfig] {
+func newBGPNodeConfigResource(lc cell.Lifecycle, c client.Clientset, bc config.BGPConfig, mp workqueue.MetricsProvider) resource.Resource[*v2.CiliumBGPNodeConfig] {
 	// Do not create this resource if the BGP Control Plane is disabled
-	if !dc.BGPControlPlaneEnabled() {
+	if !bc.BGPControlPlaneEnabled() {
 		return nil
 	}
 
@@ -168,9 +168,9 @@ func newBGPNodeConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.
 		), mp, resource.WithMetric("CiliumBGPNodeConfig"))
 }
 
-func newBGPPeerConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig, mp workqueue.MetricsProvider) resource.Resource[*v2.CiliumBGPPeerConfig] {
+func newBGPPeerConfigResource(lc cell.Lifecycle, c client.Clientset, bc config.BGPConfig, mp workqueue.MetricsProvider) resource.Resource[*v2.CiliumBGPPeerConfig] {
 	// Do not create this resource if the BGP Control Plane is disabled
-	if !dc.BGPControlPlaneEnabled() {
+	if !bc.BGPControlPlaneEnabled() {
 		return nil
 	}
 
@@ -184,9 +184,9 @@ func newBGPPeerConfigResource(lc cell.Lifecycle, c client.Clientset, dc *option.
 		), mp, resource.WithMetric("CiliumBGPPeerConfig"))
 }
 
-func newBGPAdvertisementResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig, mp workqueue.MetricsProvider) resource.Resource[*v2.CiliumBGPAdvertisement] {
+func newBGPAdvertisementResource(lc cell.Lifecycle, c client.Clientset, bc config.BGPConfig, mp workqueue.MetricsProvider) resource.Resource[*v2.CiliumBGPAdvertisement] {
 	// Do not create this resource if the BGP Control Plane is disabled
-	if !dc.BGPControlPlaneEnabled() {
+	if !bc.BGPControlPlaneEnabled() {
 		return nil
 	}
 

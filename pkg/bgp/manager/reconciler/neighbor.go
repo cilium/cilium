@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/statedb"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
@@ -22,19 +23,18 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // NeighborReconciler is a ConfigReconciler which reconciles the peers of the
 // provided BGP server with the provided CiliumBGPVirtualRouter.
 type NeighborReconciler struct {
-	logger       *slog.Logger
-	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
-	PeerConfig   store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
-	DB           *statedb.DB
-	DeviceTable  statedb.Table[*tables.Device]
-	DaemonConfig *option.DaemonConfig
-	metadata     map[string]NeighborReconcilerMetadata
+	logger      *slog.Logger
+	SecretStore store.BGPCPResourceStore[*slim_corev1.Secret]
+	PeerConfig  store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
+	DB          *statedb.DB
+	DeviceTable statedb.Table[*tables.Device]
+	BGPConfig   config.BGPConfig
+	metadata    map[string]NeighborReconcilerMetadata
 }
 
 type NeighborReconcilerOut struct {
@@ -45,12 +45,12 @@ type NeighborReconcilerOut struct {
 
 type NeighborReconcilerIn struct {
 	cell.In
-	Logger       *slog.Logger
-	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
-	PeerConfig   store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
-	DB           *statedb.DB
-	DeviceTable  statedb.Table[*tables.Device]
-	DaemonConfig *option.DaemonConfig
+	Logger      *slog.Logger
+	SecretStore store.BGPCPResourceStore[*slim_corev1.Secret]
+	PeerConfig  store.BGPCPResourceStore[*v2.CiliumBGPPeerConfig]
+	DB          *statedb.DB
+	DeviceTable statedb.Table[*tables.Device]
+	BGPConfig   config.BGPConfig
 }
 
 func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
@@ -58,13 +58,13 @@ func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 
 	return NeighborReconcilerOut{
 		Reconciler: &NeighborReconciler{
-			logger:       logger,
-			SecretStore:  params.SecretStore,
-			PeerConfig:   params.PeerConfig,
-			DaemonConfig: params.DaemonConfig,
-			DB:           params.DB,
-			DeviceTable:  params.DeviceTable,
-			metadata:     make(map[string]NeighborReconcilerMetadata),
+			logger:      logger,
+			SecretStore: params.SecretStore,
+			PeerConfig:  params.PeerConfig,
+			BGPConfig:   params.BGPConfig,
+			DB:          params.DB,
+			DeviceTable: params.DeviceTable,
+			metadata:    make(map[string]NeighborReconcilerMetadata),
 		},
 	}
 	// NOTE: there is no need to trigger reconciliation upon Device table changes,
@@ -353,7 +353,7 @@ func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, 
 	if r.SecretStore == nil {
 		return nil, false, fmt.Errorf("SecretsNamespace not configured")
 	}
-	item, ok, err := r.SecretStore.GetByKey(resource.Key{Namespace: r.DaemonConfig.BGPSecretsNamespace, Name: name})
+	item, ok, err := r.SecretStore.GetByKey(resource.Key{Namespace: r.BGPConfig.SecretsNamespace, Name: name})
 	if err != nil || !ok {
 		if errors.Is(err, store.ErrStoreUninitialized) {
 			err = errors.Join(err, ErrAbortReconcile)
