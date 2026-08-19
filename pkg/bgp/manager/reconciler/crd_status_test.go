@@ -22,6 +22,7 @@ import (
 	k8sTesting "k8s.io/client-go/testing"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/manager/tables"
 	"github.com/cilium/cilium/pkg/hive"
@@ -30,7 +31,6 @@ import (
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -97,10 +97,10 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 	f.hive = hive.New(
 		daemon_k8s.ResourcesCell,
 		cell.Provide(
-			func() *option.DaemonConfig {
-				return &option.DaemonConfig{
-					EnableBGPControlPlane:             true,
-					EnableBGPControlPlaneStatusReport: true,
+			func() config.BGPConfig {
+				return config.BGPConfig{
+					Enable:             true,
+					EnableStatusReport: true,
 				}
 			},
 			tables.NewBGPReconcileErrorTable,
@@ -129,7 +129,7 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 }
 
 func TestCRDConditions(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name               string
 		statedbData        []*tables.BGPReconcileError
 		initNodeConfig     *v2.CiliumBGPNodeConfig
@@ -353,10 +353,10 @@ func TestDisableStatusReport(t *testing.T) {
 	hive := hive.New(
 		daemon_k8s.ResourcesCell,
 		cell.Provide(
-			func() *option.DaemonConfig {
-				return &option.DaemonConfig{
-					EnableBGPControlPlane:             true,
-					EnableBGPControlPlaneStatusReport: false,
+			func() config.BGPConfig {
+				return config.BGPConfig{
+					Enable:             true,
+					EnableStatusReport: false,
 				}
 			},
 			k8sFakeClient.NewFakeClientset,
