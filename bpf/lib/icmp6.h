@@ -648,13 +648,8 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	 * Make that room.
 	 */
 
-#if __ctx_is == __ctx_xdp
-	ret = xdp_adjust_head(ctx, 0 - (int)(sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr)));
-#else
-	ret = skb_adjust_room(ctx, sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr),
-			      BPF_ADJ_ROOM_MAC, 0);
-#endif
-
+	ret = ctx_adjust_hroom(ctx, sizeof(*ip6) + sizeof(*icmphdr),
+			       BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags());
 	if (ret < 0)
 		return DROP_INVALID;
 
