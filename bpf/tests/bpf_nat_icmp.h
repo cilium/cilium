@@ -56,6 +56,22 @@ const __u8 icmp4_err_revnat_min_tcp_after[] = {
 	SCAPY_BUF_BYTES(icmp4_err_revnat_min_tcp_after)
 };
 
+const __u8 icmp4_tcp_ingress[] = {
+	SCAPY_BUF_BYTES(icmp4_tcp_ingress)
+};
+
+const __u8 icmp4_tcp_ingress_post_revnat[] = {
+	SCAPY_BUF_BYTES(icmp4_tcp_ingress_post_revnat)
+};
+
+const __u8 icmp4_err_nat_full_tcp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_full_tcp)
+};
+
+const __u8 icmp4_err_nat_full_tcp_after[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_full_tcp_after)
+};
+
 /*
  * Push an egressing pod->external TCP packet through to-netdev and let the
  * datapath set up nat mappings due to node ip masquerading. 
@@ -182,6 +198,72 @@ int snat_v4_pmtu_min_hdr_check(const struct __ctx_buff *ctx)
 	ASSERT_CTX_BUF_OFF("snat_v4_tcp_pmtu_min_hdr", "Ether", ctx, sizeof(__u32),
 			   icmp4_err_revnat_min_tcp_after,
 			   sizeof(icmp4_err_revnat_min_tcp_after));
+	test_finish();
+
+	return 0;
+}
+
+/*
+ * Receive a packet and forward it to the pod. The pod rejects it, sends an ICMP error,
+ * ICMP error is fully NATed on the way out.
+ */
+PKTGEN(PROG_TYPE, "snat_v4_tcp_unreach_1")
+int snat_v4_tcp_unreach_1_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_tcp_ingress,
+			sizeof(icmp4_tcp_ingress));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v4_tcp_unreach_1")
+int snat_v4_tcp_unreach_1_setup(struct __ctx_buff *ctx)
+{
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v4_tcp_unreach_1")
+int snat_v4_tcp_unreach_1_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_tcp_unreach_1", "Ether", ctx, sizeof(__u32),
+			   icmp4_tcp_ingress_post_revnat,
+			   sizeof(icmp4_tcp_ingress_post_revnat));
+	test_finish();
+
+	return 0;
+}
+
+PKTGEN(PROG_TYPE, "snat_v4_tcp_unreach_2")
+int snat_v4_tcp_unreach_2_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_nat_full_tcp,
+			sizeof(icmp4_err_nat_full_tcp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v4_tcp_unreach_2")
+int snat_v4_tcp_unreach_2_setup(struct __ctx_buff *ctx)
+{
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v4_tcp_unreach_2")
+int snat_v4_tcp_unreach_2_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_tcp_unreach_2", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_nat_full_tcp_after,
+			   sizeof(icmp4_err_nat_full_tcp_after));
 	test_finish();
 
 	return 0;
