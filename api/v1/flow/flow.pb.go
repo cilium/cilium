@@ -3970,16 +3970,13 @@ type DNS struct {
 	// List of CNames in the DNS response.
 	Cnames []string `protobuf:"bytes,4,rep,name=cnames,proto3" json:"cnames,omitempty"`
 	// Corresponds to DNSDataSource defined in:
-	//
-	//	https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L253
+	//   https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L253
 	ObservationSource string `protobuf:"bytes,5,opt,name=observation_source,json=observationSource,proto3" json:"observation_source,omitempty"`
 	// Return code of the DNS request defined in:
-	//
-	//	https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
+	//   https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
 	Rcode uint32 `protobuf:"varint,6,opt,name=rcode,proto3" json:"rcode,omitempty"`
 	// String representation of qtypes defined in:
-	//
-	//	https://tools.ietf.org/html/rfc1035#section-3.2.3
+	//   https://tools.ietf.org/html/rfc1035#section-3.2.3
 	Qtypes []string `protobuf:"bytes,7,rep,name=qtypes,proto3" json:"qtypes,omitempty"`
 	// String representation of rrtypes defined in:
 	// https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
