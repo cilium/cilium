@@ -74,24 +74,24 @@ func NewRouteStatusManager(client client.Client, logger *slog.Logger, controller
 	}
 }
 
-func (m *RouteStatusManager) SetRouteStatuses(scopedLog *slog.Logger, ctx context.Context, inputs RouteStatusInputs) error {
-	if err := m.setHTTPRouteStatuses(scopedLog, ctx, inputs.HTTPRoutes, inputs.ReferenceGrants); err != nil {
+func (m *RouteStatusManager) SetRouteStatuses(ctx context.Context, scopedLog *slog.Logger, inputs RouteStatusInputs) error {
+	if err := m.setHTTPRouteStatuses(ctx, scopedLog, inputs.HTTPRoutes, inputs.ReferenceGrants); err != nil {
 		return err
 	}
-	if err := m.setTLSRouteStatuses(scopedLog, ctx, inputs.TLSRoutes, inputs.ReferenceGrants); err != nil {
+	if err := m.setTLSRouteStatuses(ctx, scopedLog, inputs.TLSRoutes, inputs.ReferenceGrants); err != nil {
 		return err
 	}
 	if m.includeTCPRoutes {
-		if err := m.setTCPRouteStatuses(scopedLog, ctx, inputs.TCPRoutes, inputs.ReferenceGrants); err != nil {
+		if err := m.setTCPRouteStatuses(ctx, scopedLog, inputs.TCPRoutes, inputs.ReferenceGrants); err != nil {
 			return err
 		}
 	}
 	if m.includeUDPRoutes {
-		if err := m.setUDPRouteStatuses(scopedLog, ctx, inputs.UDPRoutes, inputs.ReferenceGrants); err != nil {
+		if err := m.setUDPRouteStatuses(ctx, scopedLog, inputs.UDPRoutes, inputs.ReferenceGrants); err != nil {
 			return err
 		}
 	}
-	if err := m.setGRPCRouteStatuses(scopedLog, ctx, inputs.GRPCRoutes, inputs.ReferenceGrants); err != nil {
+	if err := m.setGRPCRouteStatuses(ctx, scopedLog, inputs.GRPCRoutes, inputs.ReferenceGrants); err != nil {
 		return err
 	}
 
@@ -255,7 +255,7 @@ func (m *RouteStatusManager) parentIsMatchingGateway(ctx context.Context, parent
 	return hasMatchingControllerFn(gw)
 }
 
-func (m *RouteStatusManager) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx context.Context, httpRoutes []gatewayv1.HTTPRoute, grants []gatewayv1.ReferenceGrant) error {
+func (m *RouteStatusManager) setHTTPRouteStatuses(ctx context.Context, scopedLog *slog.Logger, httpRoutes []gatewayv1.HTTPRoute, grants []gatewayv1.ReferenceGrant) error {
 	scopedLog.DebugContext(ctx, "Updating HTTPRoute statuses for Gateway", numRoutes, len(httpRoutes))
 	for httpRouteIndex, original := range httpRoutes {
 		hr := original.DeepCopy()
@@ -295,7 +295,7 @@ func (m *RouteStatusManager) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx co
 	return nil
 }
 
-func (m *RouteStatusManager) setTLSRouteStatuses(scopedLog *slog.Logger, ctx context.Context, tlsRoutes []gatewayv1.TLSRoute, grants []gatewayv1.ReferenceGrant) error {
+func (m *RouteStatusManager) setTLSRouteStatuses(ctx context.Context, scopedLog *slog.Logger, tlsRoutes []gatewayv1.TLSRoute, grants []gatewayv1.ReferenceGrant) error {
 	scopedLog.Debug("Updating TLSRoute statuses for Gateway", numRoutes, len(tlsRoutes))
 	for tlsRouteIndex, original := range tlsRoutes {
 		tlsr := original.DeepCopy()
@@ -324,7 +324,7 @@ func (m *RouteStatusManager) setTLSRouteStatuses(scopedLog *slog.Logger, ctx con
 	return nil
 }
 
-func (m *RouteStatusManager) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx context.Context, grpcRoutes []gatewayv1.GRPCRoute, grants []gatewayv1.ReferenceGrant) error {
+func (m *RouteStatusManager) setGRPCRouteStatuses(ctx context.Context, scopedLog *slog.Logger, grpcRoutes []gatewayv1.GRPCRoute, grants []gatewayv1.ReferenceGrant) error {
 	scopedLog.Debug("Updating GRPCRoute statuses for Gateway", numRoutes, len(grpcRoutes))
 	for grpcRouteIndex, original := range grpcRoutes {
 		grpcr := original.DeepCopy()
@@ -364,7 +364,7 @@ func (m *RouteStatusManager) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx co
 	return nil
 }
 
-func (m *RouteStatusManager) setTCPRouteStatuses(scopedLog *slog.Logger, ctx context.Context, tcpRoutes []gatewayv1.TCPRoute, grants []gatewayv1.ReferenceGrant) error {
+func (m *RouteStatusManager) setTCPRouteStatuses(ctx context.Context, scopedLog *slog.Logger, tcpRoutes []gatewayv1.TCPRoute, grants []gatewayv1.ReferenceGrant) error {
 	scopedLog.Debug("Updating TCPRoute statuses for Gateway", numRoutes, len(tcpRoutes))
 	for tcpRouteIndex, original := range tcpRoutes {
 		tcpr := original.DeepCopy()
@@ -393,7 +393,7 @@ func (m *RouteStatusManager) setTCPRouteStatuses(scopedLog *slog.Logger, ctx con
 	return nil
 }
 
-func (m *RouteStatusManager) setUDPRouteStatuses(scopedLog *slog.Logger, ctx context.Context, udpRoutes []gatewayv1.UDPRoute, grants []gatewayv1.ReferenceGrant) error {
+func (m *RouteStatusManager) setUDPRouteStatuses(ctx context.Context, scopedLog *slog.Logger, udpRoutes []gatewayv1.UDPRoute, grants []gatewayv1.ReferenceGrant) error {
 	scopedLog.Debug("Updating UDPRoute statuses for Gateway", numRoutes, len(udpRoutes))
 	for udpRouteIndex, original := range udpRoutes {
 		udpr := original.DeepCopy()
