@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
+	awsAgent "github.com/cilium/cilium/pkg/aws/agent"
 	"github.com/cilium/cilium/pkg/bgp"
 	"github.com/cilium/cilium/pkg/bpf/stats"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
@@ -304,6 +305,9 @@ var (
 
 		// IPAM provides IP address management.
 		ipamcell.Cell,
+
+		// Provides the AWS ENI customization of the multi-pool IPAM allocator.
+		awsAgent.Cell,
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
