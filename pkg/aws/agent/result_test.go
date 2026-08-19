@@ -23,7 +23,7 @@ func TestAllocationResult(t *testing.T) {
 	node.Status.ENI.ENIs = map[string]awsTypes.ENI{
 		"eni-1": {
 			ID:  "eni-1",
-			MAC: "aa:bb:cc:dd:ee:01",
+			MAC: mac.MustParseMAC("aa:bb:cc:dd:ee:01"),
 			Addresses: addrs(
 				"10.1.1.10",
 				"10.1.1.11",
@@ -39,7 +39,7 @@ func TestAllocationResult(t *testing.T) {
 		},
 		"eni-2": {
 			ID:  "eni-2",
-			MAC: "aa:bb:cc:dd:ee:02",
+			MAC: mac.MustParseMAC("aa:bb:cc:dd:ee:02"),
 			Addresses: addrs(
 				"10.3.1.20",
 			),
@@ -106,7 +106,7 @@ func TestAllocationResultPrefixDelegation(t *testing.T) {
 	node.Status.ENI.ENIs = map[string]awsTypes.ENI{
 		"eni-1": {
 			ID:  "eni-1",
-			MAC: "aa:bb:cc:dd:ee:01",
+			MAC: mac.MustParseMAC("aa:bb:cc:dd:ee:01"),
 			Prefixes: prefixes(
 				"10.1.1.0/28",
 				"10.1.1.16/28",

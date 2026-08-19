@@ -453,6 +453,7 @@ spec:
                           type: string
                         mac-address:
                           description: MACAddress is the mac address of the ENI
+                          format: mac
                           type: string
                         network-interface-id:
                           description: NetworkInterfaceID is the ENI id
@@ -570,6 +571,7 @@ spec:
                           type: string
                         mac:
                           description: MAC is the mac address
+                          format: mac
                           type: string
                         name:
                           description: Name is the name of the interface
@@ -637,6 +639,7 @@ spec:
                           type: array
                         mac:
                           description: MAC is the mac address of the ENI
+                          format: mac
                           type: string
                         number:
                           description: |-

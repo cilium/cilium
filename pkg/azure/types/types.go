@@ -6,6 +6,7 @@ package types
 import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/mac"
 )
 
 const (
@@ -98,7 +99,7 @@ type AzureInterface struct {
 	// MAC is the mac address
 	//
 	// +optional
-	MAC string `json:"mac,omitempty"`
+	MAC mac.MAC `json:"mac,omitzero"`
 
 	// State is the provisioning state
 	//

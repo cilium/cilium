@@ -6,6 +6,7 @@ package types
 import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/mac"
 )
 
 // SecurityGroup is the representation of an AlibabaCloud Security Group
@@ -94,7 +95,7 @@ type ENI struct {
 	// MACAddress is the mac address of the ENI
 	//
 	// +optional
-	MACAddress string `json:"mac-address,omitempty"`
+	MACAddress mac.MAC `json:"mac-address,omitzero"`
 
 	// Type is the ENI type Primary or Secondary
 	//

@@ -22,6 +22,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/option"
@@ -208,7 +209,7 @@ func TestAzureIPMasq(t *testing.T) {
 		{
 			ID:      "azure-interface-1",
 			Name:    "eth0",
-			MAC:     "00:00:5e:00:53:01",
+			MAC:     mac.MustParseMAC("00:00:5e:00:53:01"),
 			Gateway: iputil.AddrFrom(netip.MustParseAddr("10.10.1.1")),
 			Subnet: azureTypes.AzureSubnet{
 				ID:   "subnet-1",

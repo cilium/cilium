@@ -4,7 +4,6 @@
 package mtu
 
 import (
-	"net"
 	"net/netip"
 	"testing"
 
@@ -17,20 +16,18 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-const (
-	primaryMAC   = "0a:00:00:00:00:01"
-	secondaryMAC = "0a:00:00:00:00:02"
+var (
+	primaryMAC   = mac.MustParseMAC("0a:00:00:00:00:01")
+	secondaryMAC = mac.MustParseMAC("0a:00:00:00:00:02")
 )
 
-func mustParseMAC(t *testing.T, s string) tables.HardwareAddr {
-	t.Helper()
-	mac, err := net.ParseMAC(s)
-	require.NoError(t, err)
-	return tables.HardwareAddr(mac)
+func hwAddr(m mac.MAC) tables.HardwareAddr {
+	return tables.HardwareAddr(m.HardwareAddr())
 }
 
 func mustParseAddr(t *testing.T, s string) iputil.Addr {
@@ -84,8 +81,8 @@ func TestConsideredDevices(t *testing.T) {
 			localNode: eniNode,
 			devices: func(t *testing.T) []*tables.Device {
 				return []*tables.Device{
-					{Name: "eth0", MTU: 9001, HardwareAddr: mustParseMAC(t, primaryMAC)},
-					{Name: "eth1", MTU: 9001, HardwareAddr: mustParseMAC(t, secondaryMAC)},
+					{Name: "eth0", MTU: 9001, HardwareAddr: hwAddr(primaryMAC)},
+					{Name: "eth1", MTU: 9001, HardwareAddr: hwAddr(secondaryMAC)},
 				}
 			},
 			wantDevice: []string{"eth0"},
@@ -96,8 +93,8 @@ func TestConsideredDevices(t *testing.T) {
 			localNode: func(*testing.T) *v2.CiliumNode { return nil },
 			devices: func(t *testing.T) []*tables.Device {
 				return []*tables.Device{
-					{Name: "eth0", MTU: 9001, HardwareAddr: mustParseMAC(t, primaryMAC)},
-					{Name: "eth1", MTU: 9001, HardwareAddr: mustParseMAC(t, secondaryMAC)},
+					{Name: "eth0", MTU: 9001, HardwareAddr: hwAddr(primaryMAC)},
+					{Name: "eth1", MTU: 9001, HardwareAddr: hwAddr(secondaryMAC)},
 				}
 			},
 			wantDevice: []string{"eth0", "eth1"},
@@ -108,7 +105,7 @@ func TestConsideredDevices(t *testing.T) {
 			localNode: eniNode,
 			devices: func(t *testing.T) []*tables.Device {
 				return []*tables.Device{
-					{Name: "eth0", MTU: 9001, HardwareAddr: mustParseMAC(t, primaryMAC)},
+					{Name: "eth0", MTU: 9001, HardwareAddr: hwAddr(primaryMAC)},
 					{Name: defaults.VxlanDevice, MTU: 8951},
 					{Name: defaults.GeneveDevice, MTU: 8951},
 					{Name: defaults.IPIPv4Device, MTU: 8981},
@@ -124,8 +121,8 @@ func TestConsideredDevices(t *testing.T) {
 			localNode: func(*testing.T) *v2.CiliumNode { return nil },
 			devices: func(t *testing.T) []*tables.Device {
 				return []*tables.Device{
-					{Name: "eth0", MTU: 9001, HardwareAddr: mustParseMAC(t, primaryMAC)},
-					{Name: "eth1", MTU: 1500, HardwareAddr: mustParseMAC(t, secondaryMAC)},
+					{Name: "eth0", MTU: 9001, HardwareAddr: hwAddr(primaryMAC)},
+					{Name: "eth1", MTU: 1500, HardwareAddr: hwAddr(secondaryMAC)},
 					{Name: defaults.VxlanDevice, MTU: 8951},
 				}
 			},

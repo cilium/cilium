@@ -30,6 +30,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -473,9 +474,9 @@ retry:
 // parseENI parses a ec2.NetworkInterface as returned by the EC2 service API,
 // converts it into a types.ENI object.
 //
-// Returns an error on any malformed IP/CIDR string. AWS uses string pointers
-// for these fields, so unset values are nil and any non-nil string is expected
-// to be a valid IP or CIDR.
+// Returns an error on any malformed IP/CIDR/MAC string. AWS uses string
+// pointers for these fields, so unset values are nil and any non-nil string is
+// expected to be a valid IP, CIDR or MAC.
 func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (instanceID string, eni *types.ENI, err error) {
 	if iface.PrivateIpAddress == nil {
 		return "", nil, fmt.Errorf("ENI has no IP address")
@@ -492,7 +493,10 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 	}
 
 	if iface.MacAddress != nil {
-		eni.MAC = aws.ToString(iface.MacAddress)
+		eni.MAC, err = mac.ParseMACOrUnset(aws.ToString(iface.MacAddress))
+		if err != nil {
+			return "", nil, fmt.Errorf("unable to parse ENI MAC %q: %w", aws.ToString(iface.MacAddress), err)
+		}
 	}
 
 	if iface.NetworkInterfaceId != nil {

@@ -76,6 +76,7 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 	if in.MAC != other.MAC {
 		return false
 	}
+
 	if in.AvailabilityZone != other.AvailabilityZone {
 		return false
 	}

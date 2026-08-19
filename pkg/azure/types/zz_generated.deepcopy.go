@@ -29,6 +29,7 @@ func (in *AzureAddress) DeepCopy() *AzureAddress {
 func (in *AzureInterface) DeepCopyInto(out *AzureInterface) {
 	*out = *in
 	in.IP.DeepCopyInto(&out.IP)
+	out.MAC = in.MAC
 	if in.Addresses != nil {
 		in, out := &in.Addresses, &out.Addresses
 		*out = make([]AzureAddress, len(*in))

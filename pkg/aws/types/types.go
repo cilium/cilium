@@ -6,6 +6,7 @@ package types
 import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/mac"
 )
 
 // SecurityGroup is the representation of an AWS Security Group
@@ -132,7 +133,7 @@ type ENI struct {
 	// MAC is the mac address of the ENI
 	//
 	// +optional
-	MAC string `json:"mac,omitempty"`
+	MAC mac.MAC `json:"mac,omitzero"`
 
 	// AvailabilityZone is the availability zone of the ENI
 	//

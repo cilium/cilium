@@ -21,6 +21,7 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 	if in.MACAddress != other.MACAddress {
 		return false
 	}
+
 	if in.Type != other.Type {
 		return false
 	}
