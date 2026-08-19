@@ -604,7 +604,7 @@ var (
 	// For https://github.com/cilium/cilium/issues/39370: Fixed only in cilium version >= 1.18
 	linkNotFound = regexMatcher{regexp.MustCompile(`retrieving device .+\: Link not found`)}
 	// Client-go counterpart of failedToRetrieveLock, scoped to the cancelled read. cf. https://github.com/cilium/cilium/issues/45426
-	leaderElectionReadTimeout = regexMatcher{regexp.MustCompile(`Unexpected error when reading response body.*request canceled \(Client\.Timeout or context cancellation while reading body\)`)}
+	leaderElectionReadTimeout = regexMatcher{regexp.MustCompile(`Unexpected error when reading response body.*(request canceled|context deadline exceeded) \(Client\.Timeout or context cancellation while reading body\)`)}
 	// it can happen under memory pressure if the Kernel cannot allocate a new chunk of memory at that point in time, and it is automatically retried.
 	lbMapCannotAllocateMemory = regexMatcher{regexp.MustCompile(`Updating frontend failed.*update: cannot allocate memory`)}
 )
