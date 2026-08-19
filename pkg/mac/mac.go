@@ -32,6 +32,12 @@ func (m Uint64MAC) String() string {
 // It is a comparable value type: two MACs may be compared with == and a MAC may
 // be used as a map key. Its zero value means "unset", which is how a device
 // carrying no layer 2 address, such as an L3/NOARP device, is represented.
+//
+// MAC can also be used in CRD-embedded structs. It is serialized as a string
+// and validated by the API server on admission.
+//
+// +kubebuilder:validation:Type=string
+// +kubebuilder:validation:Format=mac
 type MAC [6]byte
 
 // String returns the string representation of m, or the empty string if m is

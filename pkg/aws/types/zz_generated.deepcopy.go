@@ -58,6 +58,7 @@ func (in *AwsVPC) DeepCopy() *AwsVPC {
 func (in *ENI) DeepCopyInto(out *ENI) {
 	*out = *in
 	in.IP.DeepCopyInto(&out.IP)
+	out.MAC = in.MAC
 	in.Subnet.DeepCopyInto(&out.Subnet)
 	in.VPC.DeepCopyInto(&out.VPC)
 	if in.Addresses != nil {
