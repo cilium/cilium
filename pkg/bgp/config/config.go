@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package option
+package config
 
 import "github.com/spf13/pflag"
 
@@ -14,13 +14,13 @@ const (
 
 type BGPConfig struct {
 	// Enables LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
-	EnableBGPLegacyOriginAttribute bool
+	EnableLegacyOriginAttribute bool `mapstructure:"enable-bgp-legacy-origin-attribute"`
 }
 
 var DefaultConfig = BGPConfig{
-	EnableBGPLegacyOriginAttribute: false,
+	EnableLegacyOriginAttribute: false,
 }
 
 func (def BGPConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool(EnableBGPLegacyOriginAttribute, def.EnableBGPLegacyOriginAttribute, "Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE")
+	flags.Bool(EnableBGPLegacyOriginAttribute, def.EnableLegacyOriginAttribute, "Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE")
 }

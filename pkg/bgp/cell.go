@@ -15,13 +15,13 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/api"
 	"github.com/cilium/cilium/pkg/bgp/commands"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/gobgp"
 	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/manager/tables"
 	bgp_metrics "github.com/cilium/cilium/pkg/bgp/metrics"
-	bgp_option "github.com/cilium/cilium/pkg/bgp/option"
 	ipam_option "github.com/cilium/cilium/pkg/ipam/option"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -37,7 +37,7 @@ var Cell = cell.Module(
 	"BGP Control Plane",
 
 	// Provide config so that other cells can access it
-	cell.Config(bgp_option.DefaultConfig),
+	cell.Config(config.DefaultConfig),
 
 	// Main BGP CP components
 	cell.Provide(
