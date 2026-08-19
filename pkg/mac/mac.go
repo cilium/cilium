@@ -78,6 +78,20 @@ func ParseMAC(s string) (MAC, error) {
 	return MAC(ha), nil
 }
 
+// ParseMACOrUnset is [ParseMAC] with the empty string parsed as an unset MAC
+// rather than as an error, matching [MAC.UnmarshalText].
+//
+// It is meant for the sources which report a MAC address optionally, such as
+// the cloud provider interface and statuses in a CiliumNode: an absent value
+// is legitimate there, and only a malformed one is rejected. Consumers which
+// do require a MAC must reject the unset one themselves.
+func ParseMACOrUnset(s string) (MAC, error) {
+	if s == "" {
+		return MAC{}, nil
+	}
+	return ParseMAC(s)
+}
+
 // FromHardwareAddr converts ha to a MAC. Like [ParseMAC] it only accepts an
 // IEEE 802 MAC-48 address, so a device carrying no layer 2 address, such as an
 // L3/NOARP device, yields an error rather than an unset MAC.

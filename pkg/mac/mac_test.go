@@ -60,6 +60,26 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestParseMACOrUnset(t *testing.T) {
+	t.Run("unset", func(t *testing.T) {
+		out, err := ParseMACOrUnset("")
+		require.NoError(t, err)
+		require.Empty(t, out)
+	})
+
+	t.Run("valid", func(t *testing.T) {
+		out, err := ParseMACOrUnset("00:00:5e:00:53:01")
+		require.NoError(t, err)
+		require.Equal(t, MAC{0x00, 0x00, 0x5e, 0x00, 0x53, 0x01}, out)
+	})
+
+	t.Run("malformed", func(t *testing.T) {
+		out, err := ParseMACOrUnset("01.02.03.04.05.06")
+		require.ErrorContains(t, err, "invalid MAC address")
+		require.Empty(t, out)
+	})
+}
+
 func TestIsValid(t *testing.T) {
 	tests := []struct {
 		name  string
