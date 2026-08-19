@@ -244,22 +244,13 @@ func (b *Block) iterateLocal(insns asm.Instructions) *BlockIterator {
 		insns:  insns,
 		index:  b.start,
 		offset: b.raw,
-		local:  true,
 	}
 }
 
 func (b *Block) iterateGlobal(blocks Blocks, insns asm.Instructions) *BlockIterator {
-	if b.start < 0 || b.end < 0 || b.start >= len(insns) || b.end >= len(insns) {
-		return nil
-	}
-	return &BlockIterator{
-		blocks: blocks,
-		block:  b,
-		insns:  insns,
-		index:  b.start,
-		offset: b.raw,
-		local:  false,
-	}
+	i := b.iterateLocal(insns)
+	i.blocks = blocks
+	return i
 }
 
 // backtrack returns a Backtracker starting at the end of the block.
@@ -363,8 +354,6 @@ type BlockIterator struct {
 	// offset is zero when backtracking to predecessors or when iterating
 	// backwards from the end of a block (e.g. with a new iterator).
 	offset asm.RawInstructionOffset
-
-	local bool
 }
 
 func (i *BlockIterator) Instruction() *asm.Instruction {
@@ -416,13 +405,9 @@ func (i *BlockIterator) Next() bool {
 	}
 
 	if i.index+1 > i.block.end {
-		if !i.local {
-			// Iterating globally, roll over to the next block if it exists.
-			return i.nextBlock()
-		}
-
-		// Iterating locally, stop here.
-		return false
+		// Roll over to the next block if iterating globally and there is a next
+		// block. False if iterating locally or there's no next block.
+		return i.nextBlock()
 	}
 
 	i.index++
