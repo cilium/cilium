@@ -1,0 +1,147 @@
+#! --block-lb-init-wait --test-peering-ips=10.99.8.101,10.99.8.102
+
+# Tests that BGP route announcements are gated on load-balancing state initialization.
+# The BGP controller must not advertise routes until the LB BPF maps are ready.
+
+# Start the hive. The BGP controller will block on LBInitWait.
+hive start
+
+# Configure gobgp server
+gobgp/add-server test gobgp-server.toml
+
+# Add k8s service with a LoadBalancer IP
+k8s/add service.yaml
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+
+# While LBInitWait is blocking, the BGP controller has not started yet.
+# GoBGP should have no routes since Cilium BGP has not connected or announced anything.
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Release the LBInitWait gate, simulating the LB BPF state becoming ready.
+lb/set-ready
+
+# Wait for the BGP session to be established now that the gate is released.
+gobgp/wait-state 10.99.8.102 ESTABLISHED
+
+# Validate that the LB IP is now advertised.
+gobgp/routes -o routes.actual
+* cmp gobgp-routes.expected routes.actual
+
+#####
+
+-- gobgp-server.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.8.101"
+  local-address-list = ["10.99.8.101"]
+  port = 1790
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.8.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.8.102
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.8.101
+      localAddress: 10.99.8.102
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: services
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: services
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  labels:
+    bgp: advertise
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- gobgp-routes-empty.expected --
+Prefix   NextHop   Attrs
+-- gobgp-routes.expected --
+Prefix          NextHop       Attrs
+172.16.1.1/32   10.99.8.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.8.102}]
