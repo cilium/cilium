@@ -17,9 +17,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	bgpTables "github.com/cilium/cilium/pkg/bgp/manager/tables"
-	"github.com/cilium/cilium/pkg/bgp/option"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -45,7 +45,7 @@ type ServiceReconcilerIn struct {
 	JobGroup job.Group
 
 	PeerAdvert   *CiliumPeerAdvertisement
-	Config       option.BGPConfig
+	Config       config.BGPConfig
 	DaemonConfig *ciliumoption.DaemonConfig
 	Signaler     *signaler.BGPCPSignaler
 
@@ -86,7 +86,7 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 	r := &ServiceReconciler{
 		logger:                       in.Logger,
 		peerAdvert:                   in.PeerAdvert,
-		legacyOriginAttributeEnabled: in.Config.EnableBGPLegacyOriginAttribute,
+		legacyOriginAttributeEnabled: in.Config.EnableLegacyOriginAttribute,
 		signaler:                     in.Signaler,
 		db:                           in.DB,
 		frontends:                    in.Frontends,
