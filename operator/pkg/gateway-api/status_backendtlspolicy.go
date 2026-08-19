@@ -43,11 +43,11 @@ func NewBackendTLSPolicyStatusManager(client client.Client, controllerName strin
 // Policies that fail spec validation are moved from Valid to Invalid so
 // ingestion can distinguish a broken policy from the absence of a policy.
 func (m *BackendTLSPolicyStatusManager) SetBackendTLSPolicyStatuses(
-	scopedLog *slog.Logger,
 	ctx context.Context,
-	httpRoutes []gatewayv1.HTTPRoute,
-	btlspolicies []gatewayv1.BackendTLSPolicy,
+	scopedLog *slog.Logger,
 	gatewayName types.NamespacedName,
+	btlspolicies []gatewayv1.BackendTLSPolicy,
+	httpRoutes []gatewayv1.HTTPRoute,
 ) (helpers.BackendTLSPolicyServiceMap, error) {
 	btlspMap := helpers.BuildBackendTLSPolicyLookup(&gatewayv1.BackendTLSPolicyList{
 		Items: btlspolicies,
