@@ -146,11 +146,11 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// computed for this reconciliation.
 
 	btlspStatusMap, err := r.backendTLSPolicyStatusManager.SetBackendTLSPolicyStatuses(
-		scopedLog,
 		ctx,
-		inputs.AttachedHTTPRoutes(gw),
-		inputs.BackendTLSPolicies,
+		scopedLog,
 		req.NamespacedName,
+		inputs.BackendTLSPolicies,
+		inputs.AttachedHTTPRoutes(gw),
 	)
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update BackendTLSPolicy Status", logfields.Error, err)
