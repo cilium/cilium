@@ -157,6 +157,7 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 	wtxn := l2a.params.StateDB.WriteTxn(l2a.params.Services)
 	svcChangeIter, err := l2a.params.Services.Changes(wtxn)
 	if err != nil {
+		wtxn.Abort()
 		return err
 	}
 	wtxn.Commit()
@@ -164,6 +165,7 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 	wtxn = l2a.params.StateDB.WriteTxn(l2a.params.Frontends)
 	frontendChangeIter, err := l2a.params.Frontends.Changes(wtxn)
 	if err != nil {
+		wtxn.Abort()
 		return err
 	}
 	wtxn.Commit()
@@ -172,6 +174,7 @@ func (l2a *L2Announcer) run(ctx context.Context, health cell.Health) error {
 	wtxn = l2a.params.StateDB.WriteTxn(l2a.params.Backends)
 	beChangeIter, err := l2a.params.Backends.Changes(wtxn)
 	if err != nil {
+		wtxn.Abort()
 		return err
 	}
 	wtxn.Commit()
