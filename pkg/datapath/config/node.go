@@ -103,5 +103,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
 
+	node.EnableBandwidthManager = lnc.EnableBandwidthManager
+
 	return node
 }

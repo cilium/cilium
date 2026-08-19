@@ -45,6 +45,8 @@ func baseLXCPermutations() *loadPermutationBuilder {
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
 		Increment(func(t *config.BPFLXC, v bool) { t.HybridRoutingEnabled = v }),
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFLXC, v bool) { t.Node.EnableBandwidthManager = v }),
+		Increment(func(t *config.BPFLXC, v bool) { t.CniChainingGenericVeth = v }),
 		IncrementOrPermute(func(t *config.BPFLXC, v bool) { t.EnableLRP = v }),
 	)
 	return b
@@ -75,6 +77,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 		}),
 		Increment(func(t *config.BPFHost, v bool) { t.HybridRoutingEnabled = v }),
 		Increment(func(t *config.BPFHost, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFHost, v bool) { t.Node.EnableBandwidthManager = v }),
 	)
 	return b
 }
@@ -88,6 +91,7 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 			t.EnableConntrackAccounting = true
 		}),
 		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableBandwidthManager = v }),
 	)
 	return b
 }
