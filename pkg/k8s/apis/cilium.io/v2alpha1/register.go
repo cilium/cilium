@@ -144,6 +144,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumL2AnnouncementPolicyList{},
 		&CiliumPodIPPool{},
 		&CiliumPodIPPoolList{},
+		&CiliumNodeConfig{},
+		&CiliumNodeConfigList{},
+
 		// new BGP types
 		&CiliumBGPClusterConfig{},
 		&CiliumBGPClusterConfigList{},
