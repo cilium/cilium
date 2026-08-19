@@ -89,18 +89,11 @@ func newAllNodeManager(in struct {
 	DB                           *statedb.DB
 	Devices                      statedb.Table[*tables.Device]
 	WGConfig                     wgTypes.Config
-	Nodes                        statedb.Table[*node.Node]
+	Writer                       *node.Writer
 	ClusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc
 },
 ) (NodeManager, error) {
-
-	// We want to restrict access to RWTable[*Node] until the
-	// migration away from NodeManager is complete (#41744),
-	// hence we only have access to Table[*Node] and cast it
-	// here.
-	nodeTable := in.Nodes.(statedb.RWTable[*node.Node])
-
-	mngr, err := New(in.Logger, option.Config, in.ClusterInfo, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, nodeTable, in.ClusterSizeDependantInterval)
+	mngr, err := New(in.Logger, option.Config, in.ClusterInfo, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, in.Writer, in.ClusterSizeDependantInterval)
 	if err != nil {
 		return nil, err
 	}

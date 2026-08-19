@@ -178,8 +178,8 @@ type manager struct {
 	// The devices table
 	devices statedb.Table[*tables.Device]
 
-	// nodeTable holds the nodes
-	nodeTable statedb.RWTable[*node.Node]
+	// writer owns all remote-node table access.
+	writer *node.Writer
 
 	// clusterNodeTableInit and meshNodeTableInit mark their respective node
 	// sources initialized. The node table is initialized after both complete.
@@ -289,7 +289,7 @@ func New(
 	db *statedb.DB,
 	devices statedb.Table[*tables.Device],
 	wgCfg types.Config,
-	nodeTable statedb.RWTable[*node.Node],
+	writer *node.Writer,
 	clusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc,
 ) (*manager, error) {
 	if ipsetFilter == nil {
@@ -299,7 +299,7 @@ func New(
 	m := &manager{
 		logger:                       logger,
 		nodes:                        map[nodeTypes.Identity]*nodeEntry{},
-		nodeTable:                    nodeTable,
+		writer:                       writer,
 		restoredNodes:                map[nodeTypes.Identity]*nodeTypes.Node{},
 		conf:                         c,
 		clusterInfo:                  clusterInfo,
@@ -320,13 +320,14 @@ func New(
 		wgConfig:                     wgCfg,
 	}
 
-	if nodeTable != nil {
+	if writer != nil {
+		nodeTable := writer.Table()
 		wtxn := db.WriteTxn(nodeTable)
-		clusterInitDone := nodeTable.RegisterInitializer(
+		clusterInitDone := m.writer.RegisterInitializer(
 			wtxn,
 			ClusterNodeTableInitializerName,
 		)
-		meshInitDone := nodeTable.RegisterInitializer(
+		meshInitDone := m.writer.RegisterInitializer(
 			wtxn,
 			MeshNodeTableInitializerName,
 		)
@@ -593,8 +594,8 @@ func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 
 func (m *manager) nodeAddressHasEncryptKey() bool {
 	optOut := false
-	if m.nodeTable != nil && m.db != nil {
-		if localNode, _, found := m.nodeTable.Get(m.db.ReadTxn(), node.LocalNodeQuery); found {
+	if m.writer != nil && m.db != nil {
+		if localNode, _, found := m.writer.Table().Get(m.db.ReadTxn(), node.LocalNodeQuery); found {
 			optOut = localNode.Local.OptOutNodeEncryption
 		}
 	}
@@ -922,39 +923,21 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 }
 
 func (m *manager) upsertToNodeTable(n *nodeTypes.Node) {
-	if n.IsLocal() || m.nodeTable == nil {
+	if n.IsLocal() || m.writer == nil {
 		return
 	}
-	txn := m.db.WriteTxn(m.nodeTable)
-	old, _, found := m.nodeTable.Get(txn, node.NodeByName(n.Fullname()))
-	if found && old.Local != nil {
-		// Never touch the local node.
-		txn.Abort()
-		return
-	}
-	obj := &node.Node{Node: *n}
-	if found {
-		obj.Statuses = old.Statuses.Pending()
-	}
-	m.nodeTable.Insert(txn, obj)
+	txn := m.db.WriteTxn(m.writer.Table())
+	m.writer.Upsert(txn, n)
 	txn.Commit()
 }
 
-func (m *manager) deleteFromNodeTable(nodeId nodeTypes.Identity) {
-	if m.nodeTable == nil {
+func (m *manager) deleteFromNodeTable(src source.Source, nodeID nodeTypes.Identity) {
+	if m.writer == nil {
 		return
 	}
-	var n node.Node
-	n.Name = nodeId.Name
-	n.Cluster = nodeId.Cluster
-	txn := m.db.WriteTxn(m.nodeTable)
-	old, found, _ := m.nodeTable.Delete(txn, &n)
-	if found && old.Local != nil {
-		// Never touch the local node.
-		txn.Abort()
-	} else {
-		txn.Commit()
-	}
+	txn := m.db.WriteTxn(m.writer.Table())
+	m.writer.Delete(txn, src, nodeID)
+	txn.Commit()
 }
 
 func (m *manager) cidrsToPrefixesCluster(n *nodeTypes.Node, prefixes ...netip.Prefix) iter.Seq[cmtypes.PrefixCluster] {
@@ -1188,7 +1171,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
-	m.deleteFromNodeTable(nodeIdentifier)
+	m.deleteFromNodeTable(n.Source, nodeIdentifier)
 	if m.nodeCheckpointer != nil {
 		m.nodeCheckpointer.TriggerWithReason("NodeDeleted")
 	}
