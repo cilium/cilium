@@ -132,6 +132,10 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		warningLogExceptions = append(warningLogExceptions, linkNotFound, removeInexistentID)
 	}
 
+	if ciliumVersion.LT(semver.MustParse("1.19.0")) {
+		warningLogExceptions = append(warningLogExceptions, kvstoreNodesGCWarn)
+	}
+
 	for _, exception := range extraExceptions {
 		errorLogExceptions = append(errorLogExceptions, stringMatcher(exception))
 		warningLogExceptions = append(warningLogExceptions, stringMatcher(exception))
@@ -559,6 +563,7 @@ const (
 	k8sClientNetworkStatusError      stringMatcher = "Network status error received, restarting client connections"          // cf. https://github.com/cilium/cilium/issues/37712
 	localKeyAlreadyAllocated         stringMatcher = "local key already allocated with different value"                      // cf. https://github.com/cilium/cilium/issues/41280
 	eniIPv6BetaWarn                  stringMatcher = "(ipam.mode=eni, ipv6.enabled=true) is a beta feature"                  // Expected when running with IPv6 enabled in ENI IPAM mode.
+	kvstoreNodesGCWarn               stringMatcher = "Preventing GC of nodes in the KVStore due the nonexistence of"         // Fixed in v1.19 and later by https://github.com/cilium/cilium/pull/41712
 
 	k8sEndpointDeprecatedWarn stringMatcher = "v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice" // cf. https://github.com/cilium/cilium/issues/39105
 	proxylibDeprecatedWarn    stringMatcher = "The support for Envoy Go Extensions (proxylib) has been deprecated"          // cf. https://github.com/cilium/cilium/issues/38224
