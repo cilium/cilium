@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -719,7 +720,7 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 	case ipamOption.IPAMAzure:
 		for _, iface := range a.store.ownNode.Status.Azure.Interfaces {
 			if iface.ID == ipInfo.Resource {
-				result.PrimaryMAC, err = parsePrimaryMAC(iface.MAC)
+				result.PrimaryMAC, err = mac.ParseMACOrUnset(iface.MAC)
 				if err != nil {
 					return nil, fmt.Errorf("invalid MAC address %q reported for Azure interface %s: %w", iface.MAC, iface.ID, err)
 				}
@@ -770,7 +771,7 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 			if eni.NetworkInterfaceID != ipInfo.Resource {
 				continue
 			}
-			result.PrimaryMAC, err = parsePrimaryMAC(eni.MACAddress)
+			result.PrimaryMAC, err = mac.ParseMACOrUnset(eni.MACAddress)
 			if err != nil {
 				return nil, fmt.Errorf("invalid MAC address %q reported for ENI %s: %w", eni.MACAddress, eni.NetworkInterfaceID, err)
 			}
