@@ -32,7 +32,6 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -45,7 +44,7 @@ type bgpRouterManagerParams struct {
 	Logger              *slog.Logger
 	Lifecycle           cell.Lifecycle
 	JobGroup            job.Group
-	DaemonConfig        *option.DaemonConfig
+	BGPConfig           config.BGPConfig
 	Metrics             *BGPManagerMetrics
 	DB                  *statedb.DB
 	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
@@ -122,7 +121,7 @@ type BGPRouterManager struct {
 	DB                  *statedb.DB
 	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
 
-	BGPRouterIDAllocationMode config.BGPRouterIDAllocationModeType
+	BGPConfig config.BGPConfig
 
 	// running is set when the manager is running, and unset when it is stopped.
 	running bool
@@ -140,7 +139,7 @@ type BGPRouterManager struct {
 
 // NewBGPRouterManager constructs a new BGPRouterManager.
 func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
-	if !params.DaemonConfig.BGPControlPlaneEnabled() {
+	if !params.BGPConfig.BGPControlPlaneEnabled() {
 		return &BGPRouterManager{}
 	}
 
@@ -158,7 +157,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 		DB:                  params.DB,
 		ReconcileErrorTable: params.ReconcileErrorTable,
 
-		BGPRouterIDAllocationMode: config.BGPRouterIDAllocationModeType(params.DaemonConfig.BGPRouterIDAllocationMode),
+		BGPConfig: params.BGPConfig,
 
 		// By default, do not destroy the GobGP router on Stop() as that causes sending Cease notification to peers,
 		// which terminates Graceful Restart progress. We set this to true only for tests, where GR is not needed
@@ -506,7 +505,7 @@ func (m *BGPRouterManager) ReconcileInstances(ctx context.Context,
 
 	// use a reconcileDiff to compute which BgpServers must be created, removed
 	// and reconciled.
-	rd := newReconcileDiff(ciliumNode, m.BGPRouterIDAllocationMode)
+	rd := newReconcileDiff(ciliumNode, m.BGPConfig)
 
 	if nodeObj == nil {
 		m.withdrawAll(ctx, rd)
@@ -591,7 +590,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	routerID, err := getRouterID(c, ciliumNode, m.BGPRouterIDAllocationMode)
+	routerID, err := getRouterID(c, ciliumNode, m.BGPConfig)
 	if err != nil {
 		return err
 	}
@@ -932,13 +931,13 @@ func calcRouterIDFromMacAddress() (string, error) {
 // be returned. Otherwise, the router ID will be resolved from the ciliumnode annotations. If the router ID is not
 // defined in the annotations, the node IP from cilium node will be returned. If the node IP is not available, the
 // router ID will be calculated from the MAC address.
-func getRouterID(cfg *v2.CiliumBGPNodeInstance, ciliumNode *v2.CiliumNode, mode config.BGPRouterIDAllocationModeType) (string, error) {
+func getRouterID(cfg *v2.CiliumBGPNodeInstance, ciliumNode *v2.CiliumNode, bgpCfg config.BGPConfig) (string, error) {
 	if cfg.RouterID != nil {
 		return *cfg.RouterID, nil
 	}
 
 	// If there are no annotations about router-id, router-id will be allocated based on the allocation mode
-	switch mode {
+	switch bgpCfg.RouterIDAllocationMode {
 	case config.BGPRouterIDAllocationModeDefault:
 		if nodeIP := ciliumNode.GetIP(false); nodeIP != nil {
 			return nodeIP.String(), nil
@@ -955,7 +954,7 @@ func getRouterID(cfg *v2.CiliumBGPNodeInstance, ciliumNode *v2.CiliumNode, mode 
 		}
 		return routerID, nil
 	default:
-		return "", fmt.Errorf("invalid router-id allocation mode: %s (supported modes: %s, %s)", mode, config.BGPRouterIDAllocationModeDefault, config.BGPRouterIDAllocationModeIPPool)
+		return "", fmt.Errorf("invalid router-id allocation mode: %s (supported modes: %s, %s)", bgpCfg.RouterIDAllocationMode, config.BGPRouterIDAllocationModeDefault, config.BGPRouterIDAllocationModeIPPool)
 	}
 }
 

@@ -54,10 +54,10 @@ const (
 	RuntimePath = "/var/run/cilium"
 
 	// RuntimePathRights are the default access rights of the RuntimePath directory
-	RuntimePathRights = 0775
+	RuntimePathRights = 0o775
 
 	// StateDirRights are the default access rights of the state directory
-	StateDirRights = 0770
+	StateDirRights = 0o770
 
 	// StateDir is the default path for the state directory relative to RuntimePath
 	StateDir = "state"
@@ -475,9 +475,6 @@ const (
 	// EnableVTEP enables VXLAN Tunnel Endpoint (VTEP) Integration
 	EnableVTEP     = false
 	MaxVTEPDevices = 8
-
-	// Enable BGP control plane features.
-	EnableBGPControlPlane = false
 
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy = true

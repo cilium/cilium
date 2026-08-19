@@ -16,11 +16,11 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/resiliency"
 )
 
@@ -38,27 +38,27 @@ type peerConfigStatusReconciler struct {
 type peerConfigStatusReconcilerIn struct {
 	cell.In
 
-	Clientset    k8s_client.Clientset
-	DaemonConfig *option.DaemonConfig
-	JobGroup     job.Group
+	Clientset k8s_client.Clientset
+	BGPConfig config.BGPConfig
+	JobGroup  job.Group
 
 	SecretResource     resource.Resource[*slim_core_v1.Secret]
 	PeerConfigResource resource.Resource[*v2.CiliumBGPPeerConfig]
 }
 
 func registerPeerConfigStatusReconciler(in peerConfigStatusReconcilerIn) {
-	if !in.DaemonConfig.BGPControlPlaneEnabled() {
+	if !in.BGPConfig.BGPControlPlaneEnabled() {
 		return
 	}
 
 	u := &peerConfigStatusReconciler{
 		cs:                 in.Clientset,
-		secretNamespace:    in.DaemonConfig.BGPSecretsNamespace,
+		secretNamespace:    in.BGPConfig.SecretsNamespace,
 		secretResource:     in.SecretResource,
 		peerConfigResource: in.PeerConfigResource,
 	}
 
-	if !in.DaemonConfig.EnableBGPControlPlaneStatusReport {
+	if !in.BGPConfig.EnableStatusReport {
 		// Register a job to cleanup the conditions from the existing
 		// PeerConfig resources. This is needed for the case that the
 		// status report was enabled previously and some conditions

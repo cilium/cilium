@@ -16,31 +16,29 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/operator/pkg/lbipam"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/ipalloc"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var (
-	// maxErrorLen is the maximum length of error message to be logged.
-	maxErrorLen = 140
-)
+// maxErrorLen is the maximum length of error message to be logged.
+var maxErrorLen = 140
 
 type BGPParams struct {
 	cell.In
 
-	Logger       *slog.Logger
-	LC           cell.Lifecycle
-	Clientset    k8s_client.Clientset
-	DaemonConfig *option.DaemonConfig
-	JobGroup     job.Group
-	Health       cell.Health
-	Metrics      *BGPOperatorMetrics
+	Logger    *slog.Logger
+	LC        cell.Lifecycle
+	Clientset k8s_client.Clientset
+	BGPConfig config.BGPConfig
+	JobGroup  job.Group
+	Health    cell.Health
+	Metrics   *BGPOperatorMetrics
 
 	// resource tracking
 	ClusterConfigResource      resource.Resource[*v2.CiliumBGPClusterConfig]
@@ -86,7 +84,7 @@ type BGPResourceManager struct {
 
 // registerBGPResourceManager creates a new BGPResourceManager operator instance.
 func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
-	if !p.DaemonConfig.BGPControlPlaneEnabled() {
+	if !p.BGPConfig.BGPControlPlaneEnabled() {
 		return nil
 	}
 
@@ -106,10 +104,10 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 		nodeConfig:            p.NodeConfigResource,
 		peerConfig:            p.PeerConfigResource,
 		ciliumNode:            p.NodeResource,
-		enableStatusReporting: p.DaemonConfig.EnableBGPControlPlaneStatusReport,
+		enableStatusReporting: p.BGPConfig.EnableStatusReport,
 	}
-	if p.DaemonConfig.BGPRouterIDAllocationMode == option.BGPRouterIDAllocationModeIPPool {
-		ipnet, err := netip.ParsePrefix(p.DaemonConfig.BGPRouterIDAllocationIPPool)
+	if p.BGPConfig.RouterIDAllocationMode == config.BGPRouterIDAllocationModeIPPool {
+		ipnet, err := netip.ParsePrefix(p.BGPConfig.RouterIDAllocationIPPool)
 		if err != nil {
 			err = fmt.Errorf("failed to parse BGP router ID IP pool: %w", err)
 			b.logger.Error(err.Error())
@@ -123,7 +121,7 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 
 		from, to := lbipam.RangeFromPrefix(ipnet)
 		// 50 router IDs as the initial size is enough for hash map since we don't expect more than too many nodes
-		//to run BGP with upstream routers and it can still grow if needed.
+		// to run BGP with upstream routers and it can still grow if needed.
 		b.bgpRouterIDIPPool, err = ipalloc.NewHashAllocator[string](from, to, 50)
 		if err != nil {
 			err = fmt.Errorf("failed to create router ID IP pool: %w", err)

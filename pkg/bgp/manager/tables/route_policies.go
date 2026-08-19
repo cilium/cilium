@@ -9,9 +9,9 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -230,9 +230,9 @@ func DesiredRoutePoliciesByInstanceOwnerResource(instance string, owner string, 
 	})
 }
 
-func NewDesiredRoutePoliciesTable(db *statedb.DB, dc *option.DaemonConfig) (statedb.RWTable[*DesiredRoutePolicy], error) {
+func NewDesiredRoutePoliciesTable(db *statedb.DB, bc config.BGPConfig) (statedb.RWTable[*DesiredRoutePolicy], error) {
 	// Do not create this resource if BGP Control Plane is disabled.
-	if !dc.BGPControlPlaneEnabled() {
+	if !bc.BGPControlPlaneEnabled() {
 		return nil, nil
 	}
 
