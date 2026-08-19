@@ -15,9 +15,9 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
-	resourceapi "k8s.io/api/resource/v1"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
 
 // withNetlinkOps replaces all netlink operations with the provided implementation.
@@ -68,6 +68,22 @@ func newFakeLink(name, parentDev string, vfs []netlink.VfInfo) *fakeLink {
 type fakeNetlinkOps struct {
 	// links is the set of links returned by LinkList / LinkByName.
 	links []netlink.Link
+
+	// vlanCalls records every LinkSetVfVlan invocation, in order, so tests
+	// can assert exactly which VF/VLAN combination Setup/Free requested.
+	vlanCalls []vlanCall
+
+	// linkSetVfVlanErr, if set, is returned by every LinkSetVfVlan call.
+	linkSetVfVlanErr error
+	// linkByNameErr, if set, is returned by every LinkByName call.
+	linkByNameErr error
+}
+
+// vlanCall records a single LinkSetVfVlan invocation.
+type vlanCall struct {
+	linkName string
+	vf       int
+	vlan     int
 }
 
 func newFakeNetlink() *fakeNetlinkOps {
@@ -84,6 +100,10 @@ func (f *fakeNetlinkOps) LinkList() ([]netlink.Link, error) {
 }
 
 func (f *fakeNetlinkOps) LinkByName(name string) (netlink.Link, error) {
+	if f.linkByNameErr != nil {
+		return nil, f.linkByNameErr
+	}
+
 	for _, l := range f.links {
 		if l.Attrs().Name == name {
 			return l, nil
@@ -94,6 +114,10 @@ func (f *fakeNetlinkOps) LinkByName(name string) (netlink.Link, error) {
 }
 
 func (f *fakeNetlinkOps) LinkSetVfVlan(link netlink.Link, vf, vlan int) error {
+	f.vlanCalls = append(f.vlanCalls, vlanCall{linkName: link.Attrs().Name, vf: vf, vlan: vlan})
+	if f.linkSetVfVlanErr != nil {
+		return f.linkSetVfVlanErr
+	}
 	return nil
 }
 
@@ -208,17 +232,6 @@ func (fs *fakeSysfs) newManager(t testing.TB, cfg *v2alpha1.SRIOVDeviceManagerCo
 	return mgr
 }
 
-func compareAttrs(t *testing.T, one, two map[resourceapi.QualifiedName]resourceapi.DeviceAttribute) {
-	require.NotEmpty(t, one)
-	require.ElementsMatch(t, slices.Collect(maps.Keys(one)), slices.Collect(maps.Keys(two)))
-
-	for k, v := range one {
-		require.NotEmpty(t, v.String())
-		other := two[k]
-		require.Equal(t, v.String(), other.String())
-	}
-}
-
 func TestSriov(t *testing.T) {
 	// Build a fake sysfs with one PF (0000:02:00.0) and one VF (0000:02:00.1, vfID=1).
 	// The netlink layer reports the PF as "mypf" and the VF as "myvf".
@@ -287,7 +300,10 @@ func TestSriov(t *testing.T) {
 		}
 
 		require.Equal(t, expectedDevice, *device)
-		compareAttrs(t, device.GetAttrs(), expectedDevice.GetAttrs())
+		require.ElementsMatch(t, slices.Collect(maps.Keys(expectedDevice.GetAttrs())), slices.Collect(maps.Keys(device.GetAttrs())))
+		for k, v := range expectedDevice.GetAttrs() {
+			require.Equal(t, v, device.GetAttrs()[k])
+		}
 	})
 }
 
@@ -497,4 +513,291 @@ func TestPciDevice_Match(t *testing.T) {
 			require.Equal(t, tt.want, tt.dev.Match(tt.filter))
 		})
 	}
+}
+
+// ----------------------------------------------------------------------------
+// TestPciDevice_SetupFree — covers VLAN configuration on Setup/Free, and the
+// not-a-VF guard when PFName is empty. This is the unit-testable equivalent
+// of sriov-test.sh's TC-4 (VLAN set on Setup, reset to 0 on Free), without
+// requiring real hardware: fakeNetlinkOps.LinkSetVfVlan records every call so
+// we can assert exactly which VF/VLAN combination was requested.
+// ----------------------------------------------------------------------------
+
+func TestPciDevice_SetupFree(t *testing.T) {
+	newDev := func() (PciDevice, *fakeNetlinkOps) {
+		nl := newFakeNetlink()
+		nl.addLink(newFakeLink("ens1f0", "0000:03:00.0", nil))
+		dev := PciDevice{
+			Addr:            "0000:03:00.1",
+			PFName:          "ens1f0",
+			VFID:            2,
+			KernelIfaceName: "ens1f0v2",
+			nl:              nl,
+		}
+		return dev, nl
+	}
+
+	t.Run("Setup with vlan set calls LinkSetVfVlan with the configured vlan", func(t *testing.T) {
+		dev, nl := newDev()
+
+		err := dev.Setup(types.DeviceConfig{Vlan: 100})
+		require.NoError(t, err)
+
+		require.Equal(t, []vlanCall{{linkName: "ens1f0", vf: 2, vlan: 100}}, nl.vlanCalls)
+	})
+
+	t.Run("Setup with vlan zero does not call LinkSetVfVlan", func(t *testing.T) {
+		dev, nl := newDev()
+
+		err := dev.Setup(types.DeviceConfig{Vlan: 0})
+		require.NoError(t, err)
+
+		require.Empty(t, nl.vlanCalls)
+	})
+
+	t.Run("Free with vlan previously set resets vlan to 0", func(t *testing.T) {
+		dev, nl := newDev()
+
+		// Free is called with the same config the claim requested (vlan=100);
+		// the driver must reset the VF's VLAN to 0 regardless.
+		err := dev.Free(types.DeviceConfig{Vlan: 100})
+		require.NoError(t, err)
+
+		require.Equal(t, []vlanCall{{linkName: "ens1f0", vf: 2, vlan: 0}}, nl.vlanCalls)
+	})
+
+	t.Run("Free with vlan zero does not call LinkSetVfVlan", func(t *testing.T) {
+		dev, nl := newDev()
+
+		err := dev.Free(types.DeviceConfig{Vlan: 0})
+		require.NoError(t, err)
+
+		require.Empty(t, nl.vlanCalls)
+	})
+
+	t.Run("Setup fails fast when PFName is empty (not a VF)", func(t *testing.T) {
+		dev, nl := newDev()
+		dev.PFName = ""
+
+		err := dev.Setup(types.DeviceConfig{Vlan: 100})
+		require.ErrorIs(t, err, errNotAVF)
+		require.Empty(t, nl.vlanCalls)
+	})
+
+	t.Run("Free fails fast when PFName is empty (not a VF)", func(t *testing.T) {
+		dev, nl := newDev()
+		dev.PFName = ""
+
+		err := dev.Free(types.DeviceConfig{Vlan: 100})
+		require.ErrorIs(t, err, errNotAVF)
+		require.Empty(t, nl.vlanCalls)
+	})
+
+	t.Run("Setup propagates LinkByName error", func(t *testing.T) {
+		dev, nl := newDev()
+		nl.linkByNameErr = fmt.Errorf("boom")
+
+		err := dev.Setup(types.DeviceConfig{Vlan: 100})
+		require.Error(t, err)
+	})
+
+	t.Run("Setup propagates LinkSetVfVlan error", func(t *testing.T) {
+		dev, nl := newDev()
+		nl.linkSetVfVlanErr = fmt.Errorf("boom")
+
+		err := dev.Setup(types.DeviceConfig{Vlan: 100})
+		require.Error(t, err)
+	})
+
+	t.Run("Free propagates LinkByName error", func(t *testing.T) {
+		dev, nl := newDev()
+		nl.linkByNameErr = fmt.Errorf("boom")
+
+		err := dev.Free(types.DeviceConfig{Vlan: 100})
+		require.Error(t, err)
+	})
+
+	t.Run("Free propagates LinkSetVfVlan error", func(t *testing.T) {
+		dev, nl := newDev()
+		nl.linkSetVfVlanErr = fmt.Errorf("boom")
+
+		err := dev.Free(types.DeviceConfig{Vlan: 100})
+		require.Error(t, err)
+	})
+}
+
+// ----------------------------------------------------------------------------
+// TestPciDevice_Merge — covers carrying KernelIfName forward across a rescan
+// that cannot determine one (e.g. the VF has moved into a pod's netns and its
+// sysfs net/ entry is gone). This is the unit-testable equivalent of
+// sriov-test.sh's TC-8.
+// ----------------------------------------------------------------------------
+
+func TestPciDevice_Merge(t *testing.T) {
+	t.Run("carries KernelIfName forward when fresh scan found none", func(t *testing.T) {
+		old := &PciDevice{KernelIfaceName: "ens1f1v0"}
+		fresh := &PciDevice{}
+
+		fresh.Merge(old)
+
+		require.Equal(t, "ens1f1v0", fresh.KernelIfName())
+	})
+
+	t.Run("overwrites KernelIfName on update, updates driver", func(t *testing.T) {
+		old := &PciDevice{
+			KernelIfaceName: "ens1f1v0",
+			Driver:          "iavf",
+		}
+
+		fresh := &PciDevice{
+			KernelIfaceName: "ens1f1v0-renamed",
+			Driver:          "mlx5_core",
+		}
+
+		fresh.Merge(old)
+
+		require.Equal(t, "ens1f1v0-renamed", fresh.KernelIfName())
+		require.Equal(t, "mlx5_core", fresh.Driver)
+	})
+}
+
+// ----------------------------------------------------------------------------
+// TestPciDevice_MarshalUnmarshalRoundTrip — guards against the class of bug
+// where a custom (Un)MarshalBinary/TextMarshaler double-encodes or otherwise
+// loses data. PciDevice's Marshal/UnmarshalBinary are the wire format used to
+// persist allocations across an agent restart (see RestoreDevice), so a
+// silent round-trip failure here would manifest as sriov-test.sh's TC-7/TC-8
+// restore-from-claim checks failing on real hardware.
+// ----------------------------------------------------------------------------
+
+func TestPciDevice_MarshalUnmarshalRoundTrip(t *testing.T) {
+	orig := PciDevice{
+		Addr:            "0000:03:00.1",
+		Driver:          "mlx5_core",
+		Vendor:          "0x15b3",
+		DeviceID:        "0x1018",
+		PFName:          "ens1f0",
+		VFID:            2,
+		KernelIfaceName: "ens1f0v2",
+	}
+
+	data, err := orig.MarshalBinary()
+	require.NoError(t, err)
+
+	var got PciDevice
+	require.NoError(t, got.UnmarshalBinary(data))
+
+	require.Equal(t, orig, got)
+}
+
+// ----------------------------------------------------------------------------
+// TestSetupVFs — covers setupVFs' branches beyond the happy path already
+// exercised by TestSriov's "setup on startup" subtest: too-many-VFs,
+// interface-not-found, and the already-configured skip path (both matching
+// and differing VF counts). All pure logic against fakeSysfs — no hardware.
+// ----------------------------------------------------------------------------
+
+func TestSetupVFs(t *testing.T) {
+	t.Run("no ifaces is a no-op", func(t *testing.T) {
+		fs := newFakeSysfs(t)
+		nl := newFakeNetlink()
+		mgr := fs.newManager(t, &v2alpha1.SRIOVDeviceManagerConfig{}, nl)
+
+		require.NoError(t, mgr.setupVFs(nil))
+	})
+
+	t.Run("interface not found in netlink returns errInterfaceNotFound", func(t *testing.T) {
+		fs := newFakeSysfs(t)
+		nl := newFakeNetlink() // no links registered
+
+		mgr := fs.newManager(t, &v2alpha1.SRIOVDeviceManagerConfig{}, nl)
+		err := mgr.setupVFs([]v2alpha1.SRIOVDeviceConfig{{IfName: "ens1f0", VFCount: 1}})
+		require.ErrorIs(t, err, errInterfaceNotFound)
+	})
+
+	t.Run("requested VFCount exceeds sriov_totalvfs returns errTooManyVFs", func(t *testing.T) {
+		fs := newFakeSysfs(t)
+		nl := newFakeNetlink()
+		fs.addPF("0000:02:00.0", "ens1f0") // sriov_totalvfs defaults to 4
+		nl.addLink(newFakeLink("ens1f0", "0000:02:00.0", nil))
+
+		mgr := fs.newManager(t, &v2alpha1.SRIOVDeviceManagerConfig{}, nl)
+		err := mgr.setupVFs([]v2alpha1.SRIOVDeviceConfig{{IfName: "ens1f0", VFCount: 5}})
+		require.ErrorIs(t, err, errTooManyVFs)
+
+		// sriov_numvfs must remain untouched (still 0).
+		numVfs, rerr := os.ReadFile(filepath.Join(mgr.pciDevicesPath(), "0000:02:00.0", "sriov_numvfs"))
+		require.NoError(t, rerr)
+		require.Equal(t, "0", strings.TrimSpace(string(numVfs)))
+	})
+
+	t.Run("already configured with matching VFCount is left untouched", func(t *testing.T) {
+		fs := newFakeSysfs(t)
+		nl := newFakeNetlink()
+		fs.addPF("0000:02:00.0", "ens1f0")
+		fs.writeFile(filepath.Join(fs.deviceDir("0000:02:00.0"), "sriov_numvfs"), "2\n")
+		nl.addLink(newFakeLink("ens1f0", "0000:02:00.0", nil))
+
+		mgr := fs.newManager(t, &v2alpha1.SRIOVDeviceManagerConfig{}, nl)
+		require.NoError(t, mgr.setupVFs([]v2alpha1.SRIOVDeviceConfig{{IfName: "ens1f0", VFCount: 2}}))
+
+		numVfs, err := os.ReadFile(filepath.Join(mgr.pciDevicesPath(), "0000:02:00.0", "sriov_numvfs"))
+		require.NoError(t, err)
+		require.Equal(t, "2", strings.TrimSpace(string(numVfs)))
+	})
+
+	t.Run("already configured with differing VFCount logs a warning but is left untouched", func(t *testing.T) {
+		fs := newFakeSysfs(t)
+		nl := newFakeNetlink()
+		fs.addPF("0000:02:00.0", "ens1f0")
+		fs.writeFile(filepath.Join(fs.deviceDir("0000:02:00.0"), "sriov_numvfs"), "2\n")
+		nl.addLink(newFakeLink("ens1f0", "0000:02:00.0", nil))
+
+		mgr := fs.newManager(t, &v2alpha1.SRIOVDeviceManagerConfig{}, nl)
+		// VFCount=3 differs from the already-configured 2; setupVFs must not
+		// error and must not touch sriov_numvfs (existing VFs are never disrupted).
+		require.NoError(t, mgr.setupVFs([]v2alpha1.SRIOVDeviceConfig{{IfName: "ens1f0", VFCount: 3}}))
+
+		numVfs, err := os.ReadFile(filepath.Join(mgr.pciDevicesPath(), "0000:02:00.0", "sriov_numvfs"))
+		require.NoError(t, err)
+		require.Equal(t, "2", strings.TrimSpace(string(numVfs)))
+	})
+
+	t.Run("fresh PF gets sriov_numvfs written", func(t *testing.T) {
+		fs := newFakeSysfs(t)
+		nl := newFakeNetlink()
+		fs.addPF("0000:02:00.0", "ens1f0") // sriov_numvfs defaults to 0
+		nl.addLink(newFakeLink("ens1f0", "0000:02:00.0", nil))
+
+		mgr := fs.newManager(t, &v2alpha1.SRIOVDeviceManagerConfig{}, nl)
+		require.NoError(t, mgr.setupVFs([]v2alpha1.SRIOVDeviceConfig{{IfName: "ens1f0", VFCount: 3}}))
+
+		numVfs, err := os.ReadFile(filepath.Join(mgr.pciDevicesPath(), "0000:02:00.0", "sriov_numvfs"))
+		require.NoError(t, err)
+		require.Equal(t, "3", strings.TrimSpace(string(numVfs)))
+	})
+
+	t.Run("multiple ifaces: one fails with errTooManyVFs, other still gets configured", func(t *testing.T) {
+		fs := newFakeSysfs(t)
+		nl := newFakeNetlink()
+		fs.addPF("0000:02:00.0", "ens1f0")
+		fs.addPF("0000:03:00.0", "ens1f1")
+		nl.addLink(newFakeLink("ens1f0", "0000:02:00.0", nil))
+		nl.addLink(newFakeLink("ens1f1", "0000:03:00.0", nil))
+
+		mgr := fs.newManager(t, &v2alpha1.SRIOVDeviceManagerConfig{}, nl)
+		err := mgr.setupVFs([]v2alpha1.SRIOVDeviceConfig{
+			{IfName: "ens1f0", VFCount: 100}, // exceeds totalvfs=4
+			{IfName: "ens1f1", VFCount: 2},
+		})
+		require.ErrorIs(t, err, errTooManyVFs)
+
+		numVfs0, rerr := os.ReadFile(filepath.Join(mgr.pciDevicesPath(), "0000:02:00.0", "sriov_numvfs"))
+		require.NoError(t, rerr)
+		require.Equal(t, "0", strings.TrimSpace(string(numVfs0)))
+
+		numVfs1, rerr := os.ReadFile(filepath.Join(mgr.pciDevicesPath(), "0000:03:00.0", "sriov_numvfs"))
+		require.NoError(t, rerr)
+		require.Equal(t, "2", strings.TrimSpace(string(numVfs1)))
+	})
 }
