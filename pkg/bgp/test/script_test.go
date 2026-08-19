@@ -26,6 +26,7 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgp"
 	"github.com/cilium/cilium/pkg/bgp/agent"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -144,12 +145,9 @@ func TestPrivilegedScript(t *testing.T) {
 			cell.Provide(
 				func() *option.DaemonConfig {
 					option.Config = &option.DaemonConfig{
-						EnableBGPControlPlane:     true,
-						BGPSecretsNamespace:       testSecretsNamespace,
-						BGPRouterIDAllocationMode: option.BGPRouterIDAllocationModeDefault,
-						IPAM:                      *ipam,
-						EnableIPv4:                true,
-						EnableIPv6:                true,
+						IPAM:       *ipam,
+						EnableIPv4: true,
+						EnableIPv6: true,
 					}
 					return option.Config
 				},
@@ -169,6 +167,14 @@ func TestPrivilegedScript(t *testing.T) {
 				lbWriter = w
 			}),
 		)
+
+		hive.AddConfigOverride(
+			h,
+			func(cfg *config.BGPConfig) {
+				cfg.Enable = true
+				cfg.SecretsNamespace = testSecretsNamespace
+				cfg.RouterIDAllocationMode = config.BGPRouterIDAllocationModeDefault
+			})
 
 		hive.AddConfigOverride(
 			h,
