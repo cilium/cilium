@@ -467,10 +467,11 @@ func Test_Conformance(t *testing.T) {
 					TCPUDPRouteSupport:      !tt.hostNetwork,
 					TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 				}),
-				logger:                  logger,
-				controllerName:          defaultControllerName,
-				tcpUDPRouteSupport:      !tt.hostNetwork,
-				tcpUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+				backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(c, defaultControllerName),
+				logger:                        logger,
+				controllerName:                defaultControllerName,
+				tcpUDPRouteSupport:            !tt.hostNetwork,
+				tcpUDPUnsupportedReason:       hostNetworkTCPUDPRouteUnsupportedReason,
 			}
 
 			// Reconcile all related HTTPRoute objects
@@ -1440,6 +1441,7 @@ func testReconciler(t *testing.T, obj ...client.Object) (*gatewayReconciler, cli
 			TCPUDPRouteSupport:      true,
 			TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 		}),
+		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(fakeClient, defaultControllerName),
 	}
 
 	return reconciler, fakeClient

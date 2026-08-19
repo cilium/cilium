@@ -41,12 +41,13 @@ type gatewayReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
-	inputLoader             *loading.TranslationInputLoader
-	routeStatusManager      *RouteStatusManager
-	logger                  *slog.Logger
-	controllerName          string
-	tcpUDPRouteSupport      bool
-	tcpUDPUnsupportedReason string
+	inputLoader                   *loading.TranslationInputLoader
+	routeStatusManager            *RouteStatusManager
+	backendTLSPolicyStatusManager *BackendTLSPolicyStatusManager
+	logger                        *slog.Logger
+	controllerName                string
+	tcpUDPRouteSupport            bool
+	tcpUDPUnsupportedReason       string
 }
 
 func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool) *gatewayReconciler {
@@ -76,10 +77,11 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 			},
 		),
-		logger:                  scopedLog,
-		controllerName:          controllerName,
-		tcpUDPRouteSupport:      tcpUDPRouteSupport,
-		tcpUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(mgr.GetClient(), controllerName),
+		logger:                        scopedLog,
+		controllerName:                controllerName,
+		tcpUDPRouteSupport:            tcpUDPRouteSupport,
+		tcpUDPUnsupportedReason:       hostNetworkTCPUDPRouteUnsupportedReason,
 	}
 }
 
