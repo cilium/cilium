@@ -134,7 +134,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			" At a future date this annotation will be removed if no spec.addresses are set.", gw.GetNamespace(), gw.GetName(), annotation.LBIPAMIPKeyAlias))
 	}
 
-	if err := r.routeStatusManager.SetRouteStatuses(scopedLog, ctx, RouteStatusInputs{
+	if err := r.routeStatusManager.SetRouteStatuses(ctx, scopedLog, RouteStatusInputs{
 		HTTPRoutes:      inputs.HTTPRoutes,
 		TLSRoutes:       inputs.TLSRoutes,
 		GRPCRoutes:      inputs.GRPCRoutes,
