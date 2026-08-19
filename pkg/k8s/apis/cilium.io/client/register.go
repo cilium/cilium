@@ -350,6 +350,7 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 	case LBIPPoolCRDName:
 		crdBytes = crdsv2Ciliumloadbalancerippools
 	case CNCCRDName:
+		// Contains both v2 and v2alpha1 versions
 		crdBytes = crdsv2CiliumNodeConfigs
 	case CCGCRDName:
 		crdBytes = crdsv2CiliumCIDRGroups
