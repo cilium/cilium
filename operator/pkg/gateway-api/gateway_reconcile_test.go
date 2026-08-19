@@ -1081,7 +1081,7 @@ func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				helpers.NewNamespaceLabelIndex(nil),
+				nil,
 			)
 			require.NoError(t, err)
 			require.Equal(t, tt.wantStatus, gotStatus)

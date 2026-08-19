@@ -176,8 +176,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		MergedListeners:     mergedListeners,
 	})
 
-	namespaceLabels := helpers.NewNamespaceLabelIndex(inputs.Namespaces)
-
 	listenersStatus, err := r.setListenerStatus(
 		ctx,
 		gw,
@@ -188,7 +186,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		inputs.TCPRoutes,
 		inputs.UDPRoutes,
 		inputs.ReferenceGrants,
-		namespaceLabels,
+		inputs.NamespaceLabels,
 	)
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to set listener status", logfields.Error, err)
@@ -226,7 +224,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		inputs.TCPRoutes,
 		inputs.UDPRoutes,
 		inputs.ReferenceGrants,
-		namespaceLabels,
+		inputs.NamespaceLabels,
 	)
 
 	// Step 3: Translate the listeners into Cilium model

@@ -38,7 +38,7 @@ type TranslationInputs struct {
 	TCPRoutes              []gatewayv1.TCPRoute
 	UDPRoutes              []gatewayv1.UDPRoute
 	ReferenceGrants        []gatewayv1.ReferenceGrant
-	Namespaces             []corev1.Namespace
+	NamespaceLabels        helpers.NamespaceLabelIndex
 	BackendTLSPolicies     []gatewayv1.BackendTLSPolicy
 	Services               []corev1.Service
 	ServiceImports         []mcsapiv1beta1.ServiceImport
@@ -325,7 +325,6 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		}
 		namespaces = namespaceList.Items
 	}
-
 	servicesList := &corev1.ServiceList{}
 	if err := l.client.List(ctx, servicesList); err != nil {
 		return TranslationInputs{}, fmt.Errorf("failed to list Services: %w", err)
@@ -355,7 +354,7 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		TCPRoutes:              routeCollections.tcpRoutes,
 		UDPRoutes:              routeCollections.udpRoutes,
 		ReferenceGrants:        grants.Items,
-		Namespaces:             namespaces,
+		NamespaceLabels:        helpers.NewNamespaceLabelIndex(namespaces),
 		BackendTLSPolicies:     btlspList.Items,
 		Services:               servicesList.Items,
 		ServiceImports:         serviceImportsList.Items,
