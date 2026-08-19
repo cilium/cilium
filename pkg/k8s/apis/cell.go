@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
@@ -86,8 +87,10 @@ type RegisterCRDsFuncOut struct {
 	Func RegisterCRDsFunc `group:"register-crd-funcs"`
 }
 
-func newCiliumGroupCRDs() RegisterCRDsFuncOut {
+func newCiliumGroupCRDs(bc config.BGPConfig) RegisterCRDsFuncOut {
 	return RegisterCRDsFuncOut{
-		Func: client.RegisterCRDs,
+		Func: func(l *slog.Logger, c k8sClient.Clientset) error {
+			return client.RegisterCRDs(l, c, bc)
+		},
 	}
 }

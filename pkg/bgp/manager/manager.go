@@ -32,7 +32,6 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -45,7 +44,7 @@ type bgpRouterManagerParams struct {
 	Logger              *slog.Logger
 	Lifecycle           cell.Lifecycle
 	JobGroup            job.Group
-	DaemonConfig        *option.DaemonConfig
+	BGPConfig           config.BGPConfig
 	Metrics             *BGPManagerMetrics
 	DB                  *statedb.DB
 	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
@@ -140,7 +139,7 @@ type BGPRouterManager struct {
 
 // NewBGPRouterManager constructs a new BGPRouterManager.
 func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
-	if !params.DaemonConfig.BGPControlPlaneEnabled() {
+	if !params.BGPConfig.BGPControlPlaneEnabled() {
 		return &BGPRouterManager{}
 	}
 
@@ -158,7 +157,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 		DB:                  params.DB,
 		ReconcileErrorTable: params.ReconcileErrorTable,
 
-		BGPRouterIDAllocationMode: config.BGPRouterIDAllocationModeType(params.DaemonConfig.BGPRouterIDAllocationMode),
+		BGPRouterIDAllocationMode: params.BGPConfig.RouterIDAllocationMode,
 
 		// By default, do not destroy the GobGP router on Stop() as that causes sending Cease notification to peers,
 		// which terminates Graceful Restart progress. We set this to true only for tests, where GR is not needed
