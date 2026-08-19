@@ -4,7 +4,11 @@
   "workspaceFolder": "/go/src/github.com/cilium/cilium",
   "workspaceMount": "source=${localWorkspaceFolder},target=/go/src/github.com/cilium/cilium,type=bind",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker": {}
+    // Ubuntu 26.04 (resolute) has no moby-* packages, so install Docker CE
+    // instead: the feature hard-fails with moby enabled on that distribution.
+    "ghcr.io/devcontainers/features/docker-in-docker": {
+      "moby": false
+    }
   },
   "mounts": [
     // To enable kernel modules for devcontainer
