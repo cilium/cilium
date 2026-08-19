@@ -3,6 +3,11 @@
   "image": "quay.io/cilium/cilium-builder:fa71c96d5e3c13fadd0d322c0b4b85a942c83b78@sha256:56e3145069ede13479ede95ef6aa68f28088fb5f4e6645ecb705c66c16afdc98",
   "workspaceFolder": "/go/src/github.com/cilium/cilium",
   "workspaceMount": "source=${localWorkspaceFolder},target=/go/src/github.com/cilium/cilium,type=bind",
+  // This container is based on the cilium-builder image, so contrib/scripts/builder.sh can run commands
+  // in place instead of spawning another builder nested container.
+  "containerEnv": {
+    "IN_CILIUM_BUILDER_CONTAINER": "1"
+  },
   "features": {
     // Ubuntu 26.04 (resolute) has no moby-* packages, so install Docker CE
     // instead: the feature hard-fails with moby enabled on that distribution.
