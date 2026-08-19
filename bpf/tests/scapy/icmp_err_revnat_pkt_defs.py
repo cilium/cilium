@@ -75,6 +75,34 @@ icmp4_err_revnat_min_tcp_after = (
     Raw(_tcp_hdr_min_after)
 )
 
+icmp4_tcp_ingress = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_node_one) /
+    TCP(sport=tcp_dst_one, dport=tcp_src_two) /
+    Raw(default_data)
+)
+
+icmp4_tcp_ingress_post_revnat = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    TCP(sport=tcp_dst_one, dport=tcp_src_two) /
+    Raw(default_data)
+)
+
+icmp4_err_nat_full_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    IPerror(bytes(icmp4_tcp_ingress_post_revnat[IP]))
+)
+
+icmp4_err_nat_full_tcp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    IPerror(bytes(icmp4_tcp_ingress[IP]))
+)
+
 # Shared header layers for the IPv6 egress flow, pre- and post-masquerade.
 _ip6_hdr_egress = IPv6(src=v6_pod_one, dst=v6_ext_node_one)
 _udp_hdr_egress = UDP(sport=tcp_src_two, dport=tcp_dst_one)
