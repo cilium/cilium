@@ -70,6 +70,7 @@ Cilium's Gateway API features:
    https
    grpc
    splitting
+   session-persistence
    header
    parameterized-gatewayclass
    default-tls-certificate
