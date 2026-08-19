@@ -39,16 +39,19 @@ func NewBackendTLSPolicyStatusManager(client client.Client, controllerName strin
 }
 
 // SetBackendTLSPolicyStatuses updates BackendTLSPolicy status for the current
-// Gateway and mutates btlspMap to reflect validation results. Policies that
-// fail spec validation are moved from Valid to Invalid so later ingestion can
-// distinguish a broken policy from the absence of a policy.
+// Gateway and returns the processed lookup map used by later ingestion.
+// Policies that fail spec validation are moved from Valid to Invalid so
+// ingestion can distinguish a broken policy from the absence of a policy.
 func (m *BackendTLSPolicyStatusManager) SetBackendTLSPolicyStatuses(
 	scopedLog *slog.Logger,
 	ctx context.Context,
 	httpRoutes []gatewayv1.HTTPRoute,
-	btlspMap helpers.BackendTLSPolicyServiceMap,
+	btlspolicies []gatewayv1.BackendTLSPolicy,
 	gatewayName types.NamespacedName,
-) error {
+) (helpers.BackendTLSPolicyServiceMap, error) {
+	btlspMap := helpers.BuildBackendTLSPolicyLookup(&gatewayv1.BackendTLSPolicyList{
+		Items: btlspolicies,
+	})
 	scopedLog.Debug("Updating BackendTLSPolicy statuses for Gateway", policies, len(btlspMap))
 
 	currentGatewayRef := gatewayv1.ParentReference{
@@ -97,14 +100,14 @@ func (m *BackendTLSPolicyStatusManager) SetBackendTLSPolicyStatuses(
 			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceHTTPRouteIndex, svcName.String()),
 		}); err != nil {
 			scopedLog.ErrorContext(ctx, "Failed to get related HTTPRoutes", logfields.Error, err)
-			return err
+			return nil, err
 		}
 
 		found, err := helpers.ContainsCommonHTTPRoute(hrList.Items, httpRoutes)
 		if err != nil {
 			// There was a common HTTPRoute found, but the generation was different, error out from this.
 			scopedLog.ErrorContext(ctx, "Different generation comparing a HTTPRoute, re-reconciling", logfields.Error, err)
-			return err
+			return nil, err
 		}
 		// The BackendServiceHTTPRouteIndex only covers backendRefs; ext_authz
 		// backends are checked directly from the already loaded HTTPRoutes.
@@ -135,7 +138,7 @@ func (m *BackendTLSPolicyStatusManager) SetBackendTLSPolicyStatuses(
 		if err != nil {
 			if !k8serrors.IsNotFound(err) {
 				// if it is not just a not found error, we should return the error as something is bad
-				return fmt.Errorf("error while checking Backend Service: %w", err)
+				return nil, fmt.Errorf("error while checking Backend Service: %w", err)
 			}
 			// If the Service does not exist, all referenced BackendTLSPolicies must be
 			// Accepted: False, with reason Conflicted.
@@ -170,7 +173,7 @@ func (m *BackendTLSPolicyStatusManager) SetBackendTLSPolicyStatuses(
 				})
 				// Checks finished, apply the status to the actual objects.
 				if err := m.updateBackendTLSPolicyStatus(ctx, scopedLog, original, btlsp); err != nil {
-					return fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
+					return nil, fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
 				}
 				// Update the original with the updated status
 				original.Status = btlsp.Status
@@ -211,7 +214,7 @@ func (m *BackendTLSPolicyStatusManager) SetBackendTLSPolicyStatuses(
 				})
 				// Checks finished, apply the status to the actual objects.
 				if err := m.updateBackendTLSPolicyStatus(ctx, scopedLog, original, btlsp); err != nil {
-					return fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
+					return nil, fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
 				}
 				// Update the original with the updated status
 				original.Status = btlsp.Status
@@ -257,7 +260,7 @@ func (m *BackendTLSPolicyStatusManager) SetBackendTLSPolicyStatuses(
 			inputLogger.Debug("Validating BackendTLSPolicy spec")
 			valid, err := input.ValidateSpec(ctx, inputLogger, currentGatewayRef)
 			if err != nil {
-				return fmt.Errorf("failed to validate BackendTLSPolicy spec: %w", err)
+				return nil, fmt.Errorf("failed to validate BackendTLSPolicy spec: %w", err)
 			}
 			if valid {
 				// This BackendTLSPolicy is valid, so we can add the original status to the btlspStatus
@@ -276,7 +279,7 @@ func (m *BackendTLSPolicyStatusManager) SetBackendTLSPolicyStatuses(
 
 			// Checks finished, apply the status to the actual objects.
 			if err := m.updateBackendTLSPolicyStatus(ctx, scopedLog, original, btlsp); err != nil {
-				return fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
+				return nil, fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
 			}
 			// Update the original with the updated status
 			original.Status = btlsp.Status
@@ -302,14 +305,14 @@ func (m *BackendTLSPolicyStatusManager) SetBackendTLSPolicyStatuses(
 			})
 			// Checks finished, apply the status to the actual objects.
 			if err := m.updateBackendTLSPolicyStatus(ctx, scopedLog, original, btlsp); err != nil {
-				return fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
+				return nil, fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
 			}
 			// Update the original with the updated status
 			original.Status = btlsp.Status
 		}
 	}
 
-	return nil
+	return btlspMap, nil
 }
 
 func (m *BackendTLSPolicyStatusManager) updateBackendTLSPolicyStatus(ctx context.Context, scopedLog *slog.Logger, original *gatewayv1.BackendTLSPolicy, new *gatewayv1.BackendTLSPolicy) error {
