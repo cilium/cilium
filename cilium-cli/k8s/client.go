@@ -180,9 +180,22 @@ func (c *Client) GetAPIServerHostAndPort() (string, string) {
 	if context, ok := c.RawConfig.Contexts[c.ContextName()]; ok {
 		addr := c.RawConfig.Clusters[context.Cluster].Server
 		if addr != "" {
-			url, err := url.Parse(addr)
+			parsedURL, err := url.Parse(addr)
 			if err == nil {
-				host, port, _ := net.SplitHostPort(url.Host)
+				host := parsedURL.Hostname()
+				port := parsedURL.Port()
+				if port == "" {
+					switch parsedURL.Scheme {
+					case "https":
+						port = "443"
+					case "http":
+						port = "80"
+					}
+				}
+				if host != "" && port != "" {
+					return host, port
+				}
+				host, port, _ = net.SplitHostPort(parsedURL.Host)
 				return host, port
 			}
 		}
