@@ -1323,9 +1323,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
 
-	if !e.isPropertyLocked(endpoint.PropertyFakeEndpoint) {
-		e.scrubIPsInConntrackTableLocked()
-	}
+	e.scrubIPsInConntrackTableLocked()
 
 	e.setState(StateDisconnected, "Endpoint removed")
 
