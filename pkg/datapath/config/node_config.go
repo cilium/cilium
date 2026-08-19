@@ -45,6 +45,8 @@ type Node struct {
 	EnableJiffies bool `config:"enable_jiffies"`
 	// Enable dynamic source IP resolution for SNAT via linux's routing table.
 	EnableNodeportSourceLookup bool `config:"enable_nodeport_source_lookup"`
+	// Enable node-scoped shared policy LPM trie map lookup path.
+	EnableSharedPolicy bool `config:"enable_shared_policy"`
 	// Enable BPF-based proxy redirection.
 	EnableTproxy bool `config:"enable_tproxy"`
 	// Enable strict encryption for ingress traffic.
@@ -101,7 +103,7 @@ func NewNode() *Node {
 		0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x8, false, 0x0, false, false, false, false, false, false,
-		false, false, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, false, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x1, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x0, false,
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

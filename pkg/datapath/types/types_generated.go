@@ -871,6 +871,21 @@ type RemoteEndpointInfo struct {
 	_   [1]byte
 }
 
+// SharedPolicyKey is generated from the BPF C type shared_policy_key.
+type SharedPolicyKey struct {
+	_      structs.HostLayout
+	LPMKey struct {
+		_         structs.HostLayout
+		Prefixlen uint32
+		Data      [0]uint8
+	}
+	RuleSetID uint32
+	SecLabel  uint32
+	Egress    uint8
+	Protocol  uint8
+	DPort     uint16
+}
+
 // SkipLB4Key is generated from the BPF C type skip_lb4_key.
 type SkipLB4Key struct {
 	_           structs.HostLayout
