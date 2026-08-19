@@ -145,8 +145,14 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// update helpers above, so it must only be used after route status has been
 	// computed for this reconciliation.
 
-	btlspMap := helpers.BuildBackendTLSPolicyLookup(&gatewayv1.BackendTLSPolicyList{Items: inputs.BackendTLSPolicies})
-	if err := r.backendTLSPolicyStatusManager.SetBackendTLSPolicyStatuses(scopedLog, ctx, inputs.AttachedHTTPRoutes(gw), btlspMap, req.NamespacedName); err != nil {
+	btlspStatusMap, err := r.backendTLSPolicyStatusManager.SetBackendTLSPolicyStatuses(
+		scopedLog,
+		ctx,
+		inputs.AttachedHTTPRoutes(gw),
+		inputs.BackendTLSPolicies,
+		req.NamespacedName,
+	)
+	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update BackendTLSPolicy Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
@@ -167,7 +173,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Services:            inputs.Services,
 		ServiceImports:      inputs.ServiceImports,
 		ReferenceGrants:     inputs.ReferenceGrants,
-		BackendTLSPolicyMap: btlspMap,
+		BackendTLSPolicyMap: btlspStatusMap,
 		MergedListeners:     mergedListeners,
 	})
 
