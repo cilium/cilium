@@ -104,6 +104,19 @@ func NodeConfig(lnc *Config) Node {
 		node.IPv4InterClusterSNAT.Addr = lnc.NodeIPv4.As4()
 	}
 
+	if option.Config.EnableBPFMasquerade && option.Config.EnableIPv4Masquerade {
+		excludeCIDR := lnc.NativeRoutingCIDRIPv4
+		if option.Config.EnableIPMasqAgent {
+			excludeCIDR = option.Config.IPv4NativeRoutingCIDR
+		}
+
+		if excludeCIDR.IsValid() {
+			node.IPv4SNATExclusion.DstAddr.Addr = excludeCIDR.Addr().As4()
+			node.IPv4SNATExclusion.Bits = uint8(excludeCIDR.Bits())
+			node.IPv4SNATExclusion.Enabled = true
+		}
+	}
+
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
 	node.KernelHz = uint32(option.Config.KernelHz)
 
