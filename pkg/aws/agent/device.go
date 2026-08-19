@@ -26,6 +26,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -123,8 +124,8 @@ type eniDeviceConfig struct {
 	usePrimaryIP bool
 }
 
-type configMap map[string]eniDeviceConfig // by MAC addr
-type linkMap map[string]netlink.Link      // by MAC addr
+type configMap map[mac.MAC]eniDeviceConfig
+type linkMap map[mac.MAC]netlink.Link
 
 func configureENIDevices(logger *slog.Logger, oldNode, newNode *ciliumv2.CiliumNode, mtuConfig mtu.MTU, sysctl sysctl.Sysctl) {
 	var (
@@ -164,13 +165,13 @@ func setupENIDevices(logger *slog.Logger, eniConfigByMac configMap, sysctl sysct
 	// Wait for the interfaces to be attached to the local node
 	eniLinkByMac, err := waitForNetlinkDevicesWithRefetch(logger, eniConfigByMac)
 	if err != nil {
-		attachedENIByMac := make(map[string]string, len(eniLinkByMac))
-		for mac, link := range eniLinkByMac {
-			attachedENIByMac[mac] = link.Attrs().Name
+		attachedENIByMac := make(map[mac.MAC]string, len(eniLinkByMac))
+		for m, link := range eniLinkByMac {
+			attachedENIByMac[m] = link.Attrs().Name
 		}
-		requiredENIByMac := make(map[string]string, len(eniConfigByMac))
-		for mac, eni := range eniConfigByMac {
-			requiredENIByMac[mac] = eni.name
+		requiredENIByMac := make(map[mac.MAC]string, len(eniConfigByMac))
+		for m, eni := range eniConfigByMac {
+			requiredENIByMac[m] = eni.name
 		}
 
 		logger.Error(
@@ -182,12 +183,12 @@ func setupENIDevices(logger *slog.Logger, eniConfigByMac configMap, sysctl sysct
 	}
 
 	// Configure new interfaces.
-	for mac, link := range eniLinkByMac {
-		cfg, ok := eniConfigByMac[mac]
+	for m, link := range eniLinkByMac {
+		cfg, ok := eniConfigByMac[m]
 		if !ok {
 			logger.Warn(
 				"No configuration found for ENI device",
-				logfields.MACAddr, mac,
+				logfields.MACAddr, m,
 			)
 			continue
 		}
@@ -196,7 +197,7 @@ func setupENIDevices(logger *slog.Logger, eniConfigByMac configMap, sysctl sysct
 			logger.Error(
 				"Failed to configure ENI device",
 				logfields.Error, err,
-				logfields.MACAddr, mac,
+				logfields.MACAddr, m,
 				logfields.Resource, cfg.name,
 			)
 		}
@@ -242,9 +243,14 @@ func waitForNetlinkDevices(logger *slog.Logger, configByMac configMap) (linkByMa
 		} else {
 			linkByMac = linkMap{}
 			for _, link := range links {
-				mac := link.Attrs().HardwareAddr.String()
-				if _, ok := configByMac[mac]; ok {
-					linkByMac[mac] = link
+				m, err := mac.FromHardwareAddr(link.Attrs().HardwareAddr)
+				if err != nil {
+					// An ENI always has a MAC, so a device without
+					// one cannot be the device we are waiting for.
+					continue
+				}
+				if _, ok := configByMac[m]; ok {
+					linkByMac[m] = link
 				}
 			}
 

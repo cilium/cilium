@@ -46,6 +46,7 @@ func (in *AzureInterface) DeepEqual(other *AzureInterface) bool {
 	if in.MAC != other.MAC {
 		return false
 	}
+
 	if in.State != other.State {
 		return false
 	}

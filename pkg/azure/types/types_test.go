@@ -15,6 +15,7 @@ import (
 	// Register the Azure resource-ID parser used by TestExtractIDs.
 	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/mac"
 )
 
 // State that does not serialize forces a /status write on every IPAM sync.
@@ -48,7 +49,7 @@ func TestAzureInterfaceJSONRoundTrip(t *testing.T) {
 		ID:            "/subscriptions/xxx/resourceGroups/rg1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss1/virtualMachines/0/networkInterfaces/vmss1",
 		IP:            iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 		Name:          "eth0",
-		MAC:           "aa:bb:cc:dd:ee:ff",
+		MAC:           mac.MustParseMAC("aa:bb:cc:dd:ee:ff"),
 		State:         "succeeded",
 		SecurityGroup: "sg1",
 		Addresses: []types.AzureAddress{

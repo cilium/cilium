@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net"
 	"slices"
 	"sync/atomic"
 
@@ -175,16 +174,15 @@ func (m *MTUManager) consideredDevices(devs []*tables.Device) []*tables.Device {
 			}
 
 			// Names of ENIs and actual device doesn't match, use MAC address to match
-			// secondary ENIs to the actual device
-			mac, err := net.ParseMAC(eni.MAC)
-			if err != nil {
-				m.Log.Error("Failed to parse MAC address", logfields.Error, err)
+			// secondary ENIs to the actual device. An ENI reported without a
+			// MAC cannot be matched to a device.
+			if !eni.MAC.IsValid() {
 				continue
 			}
 
 			// Remove the device with the MAC address of the secondary ENI
 			devs = slices.DeleteFunc(devs, func(dev *tables.Device) bool {
-				return bytes.Equal(dev.HardwareAddr, mac)
+				return bytes.Equal(dev.HardwareAddr, eni.MAC.HardwareAddr())
 			})
 		}
 	}

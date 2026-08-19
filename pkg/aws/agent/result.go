@@ -14,7 +14,6 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipmasq"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -34,15 +33,10 @@ func allocationResult(
 			continue
 		}
 
-		primaryMAC, err := mac.ParseMACOrUnset(eni.MAC)
-		if err != nil {
-			return nil, fmt.Errorf("invalid MAC address %q reported for ENI %s: %w", eni.MAC, eni.ID, err)
-		}
-
 		result := &ipam.AllocationResult{
 			IP:         allocatedAddr,
 			IPPoolName: pool,
-			PrimaryMAC: primaryMAC,
+			PrimaryMAC: eni.MAC,
 		}
 		if eni.VPC.PrimaryCIDR.IsValid() {
 			result.CIDRs = append(result.CIDRs, eni.VPC.PrimaryCIDR.Prefix)
