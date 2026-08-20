@@ -38,7 +38,7 @@ func symbols(insns asm.Instructions) map[string]struct{} {
 
 // eachLiveRef calls fn for each live symbol reference appearing in r.
 func eachLiveRef(r *Reachable, fn func(ref string)) {
-	for iter, live := range r.Iterate() {
+	for iter, live := range r.Instructions() {
 		if !live {
 			continue
 		}
@@ -50,6 +50,18 @@ func eachLiveRef(r *Reachable, fn func(ref string)) {
 			fn(ref)
 		}
 	}
+}
+
+func isLive(r *Reachable, id uint64) bool {
+	return r.l.Get(id)
+}
+
+func countAll(r *Reachable) uint64 {
+	return r.blocks.count()
+}
+
+func countLive(r *Reachable) uint64 {
+	return r.l.Popcount()
 }
 
 // allUnreachable asserts that all symbols appearing in insns are marked
@@ -179,13 +191,13 @@ func TestReachabilityBacktrackBlock(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.EqualValues(t, 5, r.countAll())
-	assert.NotEqual(t, r.countAll(), r.countLive())
-	assert.True(t, r.isLive(0))
-	assert.True(t, r.isLive(1))
-	assert.False(t, r.isLive(2))
-	assert.True(t, r.isLive(3))
-	assert.True(t, r.isLive(4))
+	assert.EqualValues(t, 5, countAll(r))
+	assert.NotEqual(t, countAll(r), countLive(r))
+	assert.True(t, isLive(r, 0))
+	assert.True(t, isLive(r, 1))
+	assert.False(t, isLive(r, 2))
+	assert.True(t, isLive(r, 3))
+	assert.True(t, isLive(r, 4))
 }
 
 // This tests asserts that we do basic block analysis and dead code elimination
@@ -230,11 +242,11 @@ func TestReachabilityLongJump(t *testing.T) {
 	// 1: dead, since it is skipped by the first branch
 	// 2: live, we've determined the first branch is always taken
 	// 3: dead, since it's the target of the long jump that is never taken
-	assert.NotEqual(t, disabled.countAll(), disabled.countLive())
-	assert.True(t, disabled.isLive(0))
-	assert.False(t, disabled.isLive(1))
-	assert.True(t, disabled.isLive(2))
-	assert.False(t, disabled.isLive(3))
+	assert.NotEqual(t, countAll(disabled), countLive(disabled))
+	assert.True(t, isLive(disabled, 0))
+	assert.False(t, isLive(disabled, 1))
+	assert.True(t, isLive(disabled, 2))
+	assert.False(t, isLive(disabled, 3))
 
 	enabled, err := Reachability(blocks, insns, map[string]*ebpf.VariableSpec{
 		"enable_a": {SectionName: ".rodata", Offset: 0, Value: []byte{1}},
@@ -246,11 +258,11 @@ func TestReachabilityLongJump(t *testing.T) {
 	// 1: live, we've determined the first branch insn is never taken
 	// 2: dead, the long jump is taken
 	// 3: live, target of the long jump
-	assert.NotEqual(t, enabled.countAll(), enabled.countLive())
-	assert.True(t, enabled.isLive(0))
-	assert.True(t, enabled.isLive(1))
-	assert.False(t, enabled.isLive(2))
-	assert.True(t, enabled.isLive(3))
+	assert.NotEqual(t, countAll(enabled), countLive(enabled))
+	assert.True(t, isLive(enabled, 0))
+	assert.True(t, isLive(enabled, 1))
+	assert.False(t, isLive(enabled, 2))
+	assert.True(t, isLive(enabled, 3))
 }
 
 // Test that Reachability can be called concurrently. This is a regression test
