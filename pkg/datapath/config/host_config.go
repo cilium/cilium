@@ -46,6 +46,9 @@ type BPFHost struct {
 	HostEPID uint16 `config:"host_ep_id"`
 	// Enable hybrid mode routing based on subnet IDs.
 	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
+	// Primary node IPv4 address allowed as a source in strict egress encryption
+	// mode.
+	IPv4EncryptIface types.V4Addr `config:"ipv4_encrypt_iface"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
@@ -80,7 +83,8 @@ type BPFHost struct {
 
 func NewBPFHost(node Node) *BPFHost {
 	return &BPFHost{false, 0x0, false, false, false, false, false, false, false, false,
-		false, false, 0x0, 0xe, 0x0, false, 0x0,
+		false, false, 0x0, 0xe, 0x0, false, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

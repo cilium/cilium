@@ -212,8 +212,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 	if option.Config.EnableEncryptionStrictModeEgress {
 		cDefinesMap["ENCRYPTION_STRICT_MODE_EGRESS"] = "1"
 
-		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(cfg.NodeIPv4))
-
 		if !cfg.NodeIPv4.IsValid() {
 			return fmt.Errorf("unable to parse node IPv4 address %s", cfg.NodeIPv4)
 		}

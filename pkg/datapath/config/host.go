@@ -51,6 +51,9 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	if option.Config.EnableEncryptionStrictModeEgress {
 		cfg.StrictIPv4Net.Addr = option.Config.EncryptionStrictEgressCIDR.Addr().As4()
 		cfg.StrictIPv4NetSize = uint8(option.Config.EncryptionStrictEgressCIDR.Bits())
+		if lnc.NodeIPv4.Is4() {
+			cfg.IPv4EncryptIface.Addr = lnc.NodeIPv4.As4()
+		}
 	}
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
@@ -105,6 +108,9 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	if option.Config.EnableEncryptionStrictModeEgress {
 		cfg.StrictIPv4Net.Addr = option.Config.EncryptionStrictEgressCIDR.Addr().As4()
 		cfg.StrictIPv4NetSize = uint8(option.Config.EncryptionStrictEgressCIDR.Bits())
+		if lnc.NodeIPv4.Is4() {
+			cfg.IPv4EncryptIface.Addr = lnc.NodeIPv4.As4()
+		}
 	}
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
@@ -179,6 +185,9 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	if option.Config.EnableEncryptionStrictModeEgress {
 		cfg.StrictIPv4Net.Addr = option.Config.EncryptionStrictEgressCIDR.Addr().As4()
 		cfg.StrictIPv4NetSize = uint8(option.Config.EncryptionStrictEgressCIDR.Bits())
+		if lnc.NodeIPv4.Is4() {
+			cfg.IPv4EncryptIface.Addr = lnc.NodeIPv4.As4()
+		}
 	}
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded

@@ -18,6 +18,8 @@ DECLARE_CONFIG(union v4addr, strict_ipv4_net,
 	       "IPv4 network where strict egress encryption is enforced.")
 DECLARE_CONFIG(__u8, strict_ipv4_net_size,
 	       "Prefix length of the strict egress encryption IPv4 network.")
+DECLARE_CONFIG(union v4addr, ipv4_encrypt_iface,
+	       "Primary node IPv4 address allowed as a source in strict egress encryption mode.")
 #endif
 
 static __always_inline void
@@ -46,7 +48,7 @@ strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 		 * (1) When encapsulation is used and the destination is a remote pod.
 		 * (2) When the destination is a remote-node.
 		 */
-		if (ip4->saddr == IPV4_GATEWAY || ip4->saddr == IPV4_ENCRYPT_IFACE)
+		if (ip4->saddr == IPV4_GATEWAY || ip4->saddr == CONFIG(ipv4_encrypt_iface).be32)
 			return true;
 
 		in_strict_cidr = ipv4_is_in_subnet(ip4->daddr,
