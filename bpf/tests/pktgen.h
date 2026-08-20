@@ -126,6 +126,11 @@ volatile const __u8 v6_node_three[] = v6_node_three_addr;
 
 volatile const __u8 v6_svc_one[] = v6_svc_one_addr;
 
+/* IPv6 address for world. */
+#define v6_world_addr {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+volatile const __u8 v6_world[] = v6_world_addr;
+
 /* Source port to be used by a client */
 #define tcp_src_one	__bpf_htons(22330)
 #define tcp_src_two	__bpf_htons(33440)
