@@ -111,6 +111,7 @@ type standaloneEnvoyConfig struct {
 	baseID                         uint64
 	keepCapNetBindService          bool
 	connectTimeout                 int64
+	drainTimeSeconds               uint32
 	maxActiveDownstreamConnections int64
 	maxRequestsPerConnection       uint32
 	maxConnectionDuration          time.Duration
@@ -198,6 +199,9 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 		defer logWriter.Close()
 
 		envoyArgs := []string{"-l", mapLogLevel(logging.GetSlogLevel(o.logger), config.defaultLogLevel), "-c", bootstrapFilePath, "--base-id", strconv.FormatUint(config.baseID, 10), "--log-format", logFormat}
+		if config.drainTimeSeconds > 0 {
+			envoyArgs = append(envoyArgs, "--drain-time-s", strconv.FormatUint(uint64(config.drainTimeSeconds), 10))
+		}
 		envoyStarterArgs := []string{}
 		if config.keepCapNetBindService {
 			envoyStarterArgs = append(envoyStarterArgs, "--keep-cap-net-bind-service", "--")
