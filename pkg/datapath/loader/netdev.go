@@ -4,10 +4,12 @@
 package loader
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -19,7 +21,84 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/callsmap"
 )
+
+func staleNetdevs(previous, current []*tables.Device) []*tables.Device {
+	var stale []*tables.Device
+	for _, previousDevice := range previous {
+		currentIndex := slices.IndexFunc(current, func(currentDevice *tables.Device) bool {
+			return currentDevice.Name == previousDevice.Name
+		})
+		if currentIndex >= 0 && current[currentIndex].Index == previousDevice.Index {
+			continue
+		}
+		stale = append(stale, previousDevice)
+	}
+	return stale
+}
+
+// removeStaleNetdevPins removes the pins which can keep a netdev BPF program
+// generation alive after its device has disappeared. Remove the entrypoint
+// links before plugin pins to avoid detaching freplace programs while their
+// targets are still attached.
+func removeStaleNetdevPins(bpffsBase, mapsDir, name string, ifindex int) error {
+	deviceDir := bpffsDeviceNameDir(bpffsBase, name)
+	linksDir := filepath.Join(deviceDir, "links")
+
+	var errs error
+	if err := bpf.Remove(linksDir); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("removing device links at %s: %w", linksDir, err))
+	} else if err := bpf.Remove(deviceDir); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("removing device pins at %s: %w", deviceDir, err))
+	}
+
+	callsMapPath := filepath.Join(mapsDir, bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)))
+	if err := os.Remove(callsMapPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		errs = errors.Join(errs, fmt.Errorf("removing netdev calls map at %s: %w", callsMapPath, err))
+	}
+
+	return errs
+}
+
+// cleanupChangedNetdevs detects devices which disappeared or were recreated
+// since the previous successful reinitialization and removes only the BPF
+// state associated with those device identities. A nil previous configuration
+// on startup deliberately does not garbage-collect state inherited from an
+// earlier agent process.
+func (l *loader) cleanupChangedNetdevs(previousLNC, currentLNC *config.Config) error {
+	if previousLNC == nil {
+		return nil
+	}
+
+	return l.cleanupChangedNetdevsWithCleanup(previousLNC.Devices, currentLNC.Devices, func(stale *tables.Device) error {
+		return removeStaleNetdevPins(bpf.CiliumPath(), bpf.TCGlobalsPath(), stale.Name, stale.Index)
+	})
+}
+
+func (l *loader) cleanupChangedNetdevsWithCleanup(previousDevices, currentDevices []*tables.Device, cleanup func(*tables.Device) error) error {
+	var errs error
+	for _, stale := range staleNetdevs(previousDevices, currentDevices) {
+		if err := cleanup(stale); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("device %s with ifindex %d: %w", stale.Name, stale.Index, err))
+			continue
+		}
+
+		reason := "removed"
+		if slices.ContainsFunc(currentDevices, func(currentDevice *tables.Device) bool {
+			return currentDevice.Name == stale.Name
+		}) {
+			reason = "recreated"
+		}
+		l.logger.Info("Cleaned BPF state for changed device",
+			logfields.Device, stale.Name,
+			logfields.LinkIndex, stale.Index,
+			logfields.Reason, reason,
+		)
+	}
+
+	return errs
+}
 
 // bpfMasqAddrs returns the IPv4 and IPv6 masquerade addresses to be used for
 // the given interface name according to the provided LocalNodeConfiguration.

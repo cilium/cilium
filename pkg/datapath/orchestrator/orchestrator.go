@@ -247,7 +247,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			// Reinitializing is expensive, only do so if the configuration has changed.
 			prevConfig := o.latestLocalNodeConfig.Load()
 			if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
-				err = o.reinitialize(request.ctx, &localNodeConfig)
+				err = o.reinitialize(request.ctx, prevConfig, &localNodeConfig)
 				if err != nil {
 					o.params.Log.Warn("Failed to initialize datapath, retrying later",
 						logfields.Error, err,
@@ -327,9 +327,10 @@ func (o *orchestrator) Reinitialize(ctx context.Context) error {
 	return <-errChan
 }
 
-func (o *orchestrator) reinitialize(ctx context.Context, localNodeConfig *config.Config) error {
+func (o *orchestrator) reinitialize(ctx context.Context, previousLocalNodeConfig, localNodeConfig *config.Config) error {
 	err := o.params.Loader.Reinitialize(
 		ctx,
+		previousLocalNodeConfig,
 		localNodeConfig,
 		o.params.TunnelConfig,
 		o.params.IPTablesManager,

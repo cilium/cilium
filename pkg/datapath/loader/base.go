@@ -295,7 +295,7 @@ func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelConfig tunnel.Config, iptMgr iptables.Manager, p proxy.Proxy, bigtcp bigtcp.Config) error {
+func (l *loader) Reinitialize(ctx context.Context, previousLNC, lnc *config.Config, tunnelConfig tunnel.Config, iptMgr iptables.Manager, p proxy.Proxy, bigtcp bigtcp.Config) error {
 	sysSettings := []tables.Sysctl{
 		{Name: []string{"net", "core", "bpf_jit_enable"}, Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: []string{"net", "ipv4", "conf", "all", "rp_filter"}, Val: "0", IgnoreErr: false},
@@ -328,6 +328,9 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	// BPF file system setup.
 	if err := bpf.MkdirBPF(bpf.TCGlobalsPath()); err != nil {
 		return fmt.Errorf("failed to create bpffs directory: %w", err)
+	}
+	if err := l.cleanupChangedNetdevs(previousLNC, lnc); err != nil {
+		return fmt.Errorf("cleaning up BPF state for changed devices: %w", err)
 	}
 
 	// Datapath initialization

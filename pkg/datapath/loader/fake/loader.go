@@ -43,7 +43,7 @@ func (f *Loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 }
 
 // Reinitialize does nothing.
-func (f *Loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelConfig tunnel.Config, iptMgr iptables.Manager, p proxy.Proxy, bigtcp bigtcp.Config) error {
+func (f *Loader) Reinitialize(ctx context.Context, previousLNC, lnc *config.Config, tunnelConfig tunnel.Config, iptMgr iptables.Manager, p proxy.Proxy, bigtcp bigtcp.Config) error {
 	return nil
 }
 
