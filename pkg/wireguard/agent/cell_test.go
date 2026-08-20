@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -126,7 +125,6 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			reflectors.K8sReflectorCell,
 			clustermesh.Cell,
 			writer.Cell,
-			ipset.Cell,
 			k8s.ResourcesCell,
 			k8sTables.PodTableCell,
 			cell.Config(envoyCfg.SecretSyncConfig{}),

@@ -38,13 +38,6 @@ const (
 
 type AddrSet = sets.Set[netip.Addr]
 
-// Manager handles the kernel IP sets configuration
-type Manager interface {
-	NewInitializer() Initializer
-	AddToIPSet(name string, family Family, addrs ...netip.Addr)
-	RemoveFromIPSet(name string, addrs ...netip.Addr)
-}
-
 type Initializer interface {
 	InitDone()
 }
@@ -147,7 +140,7 @@ func newIPSetManager(
 	ipset *ipset,
 	reconciler reconciler.Reconciler[*tables.IPSetEntry],
 	ops *ops,
-) Manager {
+) *manager {
 	mgr := &manager{
 		logger:     logger,
 		enabled:    cfg.NodeIPSetNeeded,

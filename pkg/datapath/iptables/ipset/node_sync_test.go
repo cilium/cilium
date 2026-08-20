@@ -157,7 +157,7 @@ func TestNodeIPSetSync(t *testing.T) {
 	deleteNode(t, db, nodes, n2)
 	require.Eventually(t, func() bool {
 		return manager.has(nil, nil)
-	}, time.Second, 10*time.Millisecond)
+	}, 2*nodeIPSetSyncInterval, 10*time.Millisecond)
 
 	cancel()
 	require.NoError(t, <-done)

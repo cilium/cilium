@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/dial"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
@@ -95,7 +94,6 @@ func TestScript(t *testing.T) {
 			nodeipamconfig.Cell,
 			node.LocalNodeStoreTestCell,
 			cni.Cell,
-			ipset.Cell,
 			dial.ServiceResolverCell,
 			metrics.Cell,
 
