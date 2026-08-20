@@ -36,7 +36,7 @@ var (
 )
 
 func (Result) TableHeader() []string {
-	return []string{"Identity", "NewPolicy", "OldPolicy", "Revision", "Err"}
+	return []string{"Identity", "NewPolicy", "OldPolicy", "Revision", "CurrentAtRevision", "Err"}
 }
 
 func (r Result) TableRow() []string {
@@ -57,6 +57,7 @@ func (r Result) TableRow() []string {
 		strconv.FormatUint(newRev, 10),
 		strconv.FormatUint(oldRev, 10),
 		strconv.FormatUint(r.Revision, 10),
+		strconv.FormatUint(r.CurrentAtRevision, 10),
 		serr,
 	}
 }
