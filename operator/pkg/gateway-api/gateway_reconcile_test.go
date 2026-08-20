@@ -461,6 +461,10 @@ func Test_Conformance(t *testing.T) {
 					IncludeServiceImports: helpers.HasServiceImportSupport(c.Scheme()),
 					IncludeListenerSets:   helpers.HasListenerSetSupport(c.Scheme()),
 				}),
+				listenerStatusManager: NewListenerStatusManager(c, logger, ListenerStatusManagerConfig{
+					TCPUDPRouteSupport:      !tt.hostNetwork,
+					TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+				}),
 				routeStatusManager: NewRouteStatusManager(c, logger, defaultControllerName, RouteStatusManagerConfig{
 					IncludeTCPRoutes:        !tt.disableTCPRoute,
 					IncludeUDPRoutes:        !tt.disableUDPRoute,
@@ -830,6 +834,10 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 					IncludeServiceImports: helpers.HasServiceImportSupport(c.Scheme()),
 					IncludeListenerSets:   helpers.HasListenerSetSupport(c.Scheme()),
 				}),
+				listenerStatusManager: NewListenerStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), ListenerStatusManagerConfig{
+					TCPUDPRouteSupport:      true,
+					TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+				}),
 				logger:         hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 				controllerName: defaultControllerName,
 			}
@@ -1068,11 +1076,17 @@ func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
 			}
 
 			r := &gatewayReconciler{
-				Client: fake.NewClientBuilder().
-					WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
-					Build(),
+				Client: func() client.WithWatch {
+					return fake.NewClientBuilder().
+						WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+						Build()
+				}(),
 			}
-			gotStatus, err := r.setListenerStatus(
+			r.listenerStatusManager = NewListenerStatusManager(r.Client, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), ListenerStatusManagerConfig{
+				TCPUDPRouteSupport:      true,
+				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+			})
+			gotStatus, err := r.listenerStatusManager.SetGatewayListenerStatus(
 				t.Context(),
 				gw,
 				nil,
@@ -1435,6 +1449,10 @@ func testReconciler(t *testing.T, obj ...client.Object) (*gatewayReconciler, cli
 		controllerName:          defaultControllerName,
 		tcpUDPRouteSupport:      true,
 		tcpUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+		listenerStatusManager: NewListenerStatusManager(fakeClient, logger, ListenerStatusManagerConfig{
+			TCPUDPRouteSupport:      true,
+			TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+		}),
 		routeStatusManager: NewRouteStatusManager(fakeClient, logger, defaultControllerName, RouteStatusManagerConfig{
 			IncludeTCPRoutes:        true,
 			IncludeUDPRoutes:        true,
