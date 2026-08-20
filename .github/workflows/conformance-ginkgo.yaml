@@ -106,6 +106,8 @@ jobs:
     runs-on: ubuntu-24.04
     name: Build Ginkgo E2E
     timeout-minutes: 30
+    outputs:
+      ginkgo-cache-key: ${{ steps.cache-key.outputs.key }}
     steps:
       # If any of these steps are modified, please update the copy of these
       # steps further down under the 'setup-and-test' jobs.
@@ -120,13 +122,19 @@ jobs:
           # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
           allow-unsafe-pr-checkout: true
 
+      - name: Compute Ginkgo build cache key
+        id: cache-key
+        shell: bash
+        run: |
+          echo "key=${{ runner.os }}-ginkgo-e2e-${{ hashFiles('**/*.go') }}" >> $GITHUB_OUTPUT
+
       # Load Ginkgo build from GitHub
       - name: Load ginkgo E2E from GH cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: cache
         with:
           path: /tmp/.ginkgo-build/
-          key: ${{ runner.os }}-ginkgo-e2e-${{ hashFiles('**/*.go') }}
+          key: ${{ steps.cache-key.outputs.key }}
 
       - name: Install Go
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -352,7 +360,7 @@ jobs:
         id: cache
         with:
           path: /tmp/.ginkgo-build/
-          key: ${{ runner.os }}-ginkgo-e2e-${{ hashFiles('**/*.go') }}
+          key: ${{ needs.build-ginkgo-binary.outputs.ginkgo-cache-key }}
 
       # Re-build the tests if it was a cache miss.
       - name: Install Go
