@@ -43,11 +43,11 @@ func tailCallSlots(reach reachables) (map[uint32]*reachableSpec, error) {
 	// Build a map of tail call slots to reachableSpecs.
 	tails := make(map[uint32]*reachableSpec)
 	for _, r := range reach {
-		if !IsTailCall(r.ProgramSpec) {
+		if !IsTailCall(r.prog) {
 			continue
 		}
 
-		slot, err := tailCallSlot(r.ProgramSpec)
+		slot, err := tailCallSlot(r.prog)
 		if err != nil {
 			return nil, err
 		}
@@ -62,7 +62,7 @@ func tailCallSlots(reach reachables) (map[uint32]*reachableSpec, error) {
 func livePrograms(reach reachables, tails map[uint32]*reachableSpec, logger *slog.Logger) (*set.Set[*ebpf.ProgramSpec], error) {
 	visited := &set.Set[*ebpf.ProgramSpec]{}
 	for _, r := range reach {
-		if !isEntrypoint(r.ProgramSpec) {
+		if !isEntrypoint(r.prog) {
 			continue
 		}
 
@@ -75,12 +75,12 @@ func livePrograms(reach reachables, tails map[uint32]*reachableSpec, logger *slo
 }
 
 func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *set.Set[*ebpf.ProgramSpec], logger *slog.Logger) error {
-	if visited.Has(r.ProgramSpec) {
+	if visited.Has(r.prog) {
 		return nil
 	}
-	visited.Insert(r.ProgramSpec)
+	visited.Insert(r.prog)
 
-	for iter, live := range r.Iterate() {
+	for iter, live := range r.Instructions() {
 		if !live {
 			continue
 		}
@@ -131,7 +131,7 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 		if ref != callsMap {
 			logger.Debug("Ignoring tail call into map",
 				logfields.Reference, ref,
-				logfields.Prog, r.ProgramSpec.Name,
+				logfields.Prog, r.prog.Name,
 			)
 			continue
 		}
@@ -141,7 +141,7 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 				return err
 			}
 		} else {
-			return fmt.Errorf("missed tail call in program %s to slot %d at insn %d", r.ProgramSpec.Name, slot, iter.Index())
+			return fmt.Errorf("missed tail call in program %s to slot %d at insn %d", r.prog.Name, slot, iter.Index())
 		}
 	}
 

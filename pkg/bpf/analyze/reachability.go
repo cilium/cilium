@@ -83,21 +83,6 @@ type Reachable struct {
 	j Bitmap
 }
 
-func (r *Reachable) isLive(id uint64) bool {
-	if id >= r.blocks.count() {
-		return false
-	}
-	return r.l.Get(id)
-}
-
-func (r *Reachable) countAll() uint64 {
-	return r.blocks.count()
-}
-
-func (r *Reachable) countLive() uint64 {
-	return r.l.Popcount()
-}
-
 // Reachability determines whether or not each Block in blocks is reachable
 // given the variables.
 //
@@ -164,13 +149,13 @@ func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]*e
 	return r, nil
 }
 
-// Iterate returns an iterator that wraps an internal BlockIterator. The
+// Instructions iterates instructions by wrapping an internal BlockIterator. The
 // internal iterator is yielded along with a bool indicating whether the current
 // instruction is reachable.
 //
-// The BlockIterator itself is yielded so it can be cloned to start a
-// backtracking session.
-func (r *Reachable) Iterate() iter.Seq2[*BlockIterator, bool] {
+// The BlockIterator itself is yielded so it can be used to start a backtracking
+// session.
+func (r *Reachable) Instructions() iter.Seq2[*BlockIterator, bool] {
 	return func(yield func(*BlockIterator, bool) bool) {
 		iter := r.blocks.iterate(r.insns)
 		for iter.Next() {
