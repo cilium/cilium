@@ -256,6 +256,25 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				// such restart, but only on GKE where it has been observed.
 				ignore = ignore || (isGKE && restarts == 1 && container == "config")
 
+				// Each pod is associated with a single /etc/hosts file that is
+				// mounted inside each container of the pod, and the kubelet
+				// enforces its content again every time that a container is
+				// started, through [os.WriteFile] [1]. However, this leaves a
+				// tiny race condition window in which an already started
+				// container may observe a truncated version of the hosts file.
+				// No race condition is small enough to escape our CI, and we
+				// witnessed the etcd container fail to resolve the localhost
+				// hostname when configuring the peer listeners, and exit [2],
+				// eventually tripping this restart check. Ideally, we'd not
+				// rely on a hostname there, but that's easier said than done,
+				// because a direct use of either 127.0.0.1 or [::1] would not
+				// work if the corresponding IP family is disabled. For the
+				// moment, let's tolerate a possible restart of this container.
+				//
+				// [1]: https://github.com/kubernetes/kubernetes/blob/65bca7cd12f0/pkg/kubelet/kubelet_pods.go#L491-L515
+				// [2]: [...] "msg":"creating peer listener failed","error":"listen tcp: lookup localhost on 10.245.0.10:53: no such host"
+				ignore = ignore || (restarts == 1 && container == "etcd")
+
 				var logs bytes.Buffer
 				err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs)
 				if err != nil {
