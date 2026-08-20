@@ -4,13 +4,16 @@
 package identitygc
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/cilium/cilium/operator/k8s"
 	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
@@ -20,6 +23,43 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/testutils"
 )
+
+func TestIsIdentityUpdateRace(t *testing.T) {
+	resource := schema.GroupResource{
+		Group:    "cilium.io",
+		Resource: "ciliumidentities",
+	}
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "conflict",
+			err:  k8serrors.NewConflict(resource, "1234", errors.New("identity was replaced")),
+			want: true,
+		},
+		{
+			name: "not found",
+			err:  k8serrors.NewNotFound(resource, "1234"),
+			want: true,
+		},
+		{
+			name: "other API error",
+			err:  k8serrors.NewInternalError(errors.New("API unavailable")),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isIdentityUpdateRace(tt.err); got != tt.want {
+				t.Fatalf("isIdentityUpdateRace() = %t, want %t", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestUsedIdentitiesInCESs(t *testing.T) {
 	var fakeClient *k8sClient.FakeClientset
