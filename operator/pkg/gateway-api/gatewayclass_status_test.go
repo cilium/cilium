@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func Test_gatewayClassAcceptedCondition(t *testing.T) {
@@ -66,4 +67,10 @@ func Test_gatewayClassAcceptedCondition(t *testing.T) {
 			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "httpRouteAcceptedCondition() = %v, want %v", got, tt.want)
 		})
 	}
+}
+
+func Test_gatewayClassAdvertisesFrontendClientCertificateValidation(t *testing.T) {
+	assert.Contains(t, gatewayClassSupportedFeatures, gatewayv1.SupportedFeature{
+		Name: gatewayv1.FeatureName(features.SupportGatewayFrontendClientCertificateValidation),
+	})
 }
