@@ -39,9 +39,9 @@ DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 t
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
 DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimun")
 
-/* We only need to SNAT ICMPv4 traffic if BPF masquerading or inter-cluster
- * SNAT are enabled. If they are disabled, we only SNAT replies from service
- * backends and we do not currently support ICMP replies from service backends.
+/* We only need to SNAT ICMPv4 echo/echoreply traffic if BPF masquerading or
+ * inter-cluster SNAT are enabled. If they are disabled, we only SNAT replies
+ * from service backends.
  */
 #if defined(ENABLE_MASQUERADE_IPV4) || defined(ENABLE_INTER_CLUSTER_SNAT)
 # define ENABLE_SNAT_ICMPV4 1
@@ -1037,7 +1037,6 @@ nat_icmp_v4:
 			     port_off, trace, ext_err);
 }
 
-#ifdef ENABLE_SNAT_ICMPV4
 static __always_inline __maybe_unused int
 snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 				  __u64 inner_l3_off,
@@ -1148,7 +1147,6 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 		ret = 0;
 	return ret;
 }
-#endif /* ENABLE_SNAT_ICMPV4 */
 
 static __always_inline __maybe_unused int
 snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
@@ -1193,7 +1191,6 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 			return NAT_PUNT_TO_STACK;
 
 		break;
-#ifdef ENABLE_SNAT_ICMPV4
 	case IPPROTO_ICMP: {
 		struct icmphdr icmphdr __align_stack_8;
 		__u64 inner_l3_off;
@@ -1209,11 +1206,13 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 			return DROP_INVALID;
 
 		switch (icmphdr.type) {
+#ifdef ENABLE_SNAT_ICMPV4
 		case ICMP_ECHOREPLY:
 			tuple.dport = icmphdr.un.echo.id;
 			tuple.sport = 0;
 			port_off = offsetof(struct icmphdr, un.echo.id);
 			break;
+#endif /* ENABLE_SNAT_ICMPV4 */
 		case ICMP_DEST_UNREACH:
 			if (icmphdr.code > NR_ICMP_UNREACH)
 				return NAT_PUNT_TO_STACK;
@@ -1242,7 +1241,6 @@ rev_nat_icmp_v4:
 		}
 		break;
 	}
-#endif /* ENABLE_SNAT_ICMPV4 */
 	default:
 		return NAT_PUNT_TO_STACK;
 	};

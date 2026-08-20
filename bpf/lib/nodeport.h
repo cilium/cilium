@@ -2175,7 +2175,7 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		},
 	};
 	const struct remote_endpoint_info *info __maybe_unused = NULL;
-	int ifindex = 0, ret, l3_off = ETH_HLEN, l4_off;
+	int ifindex = 0, ret, l3_off = ETH_HLEN, l4_off, inner_l3_off = 0;
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
@@ -2187,6 +2187,7 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	fraginfo_t fraginfo;
 	const __u32 *vrf_id __maybe_unused = NULL;
 	__u32 monitor = 0;
+	bool is_icmp_error = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -2197,10 +2198,17 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
+		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
+			ret = lb4_extract_icmp4_error_tuple(ctx, ip4, l4_off,
+							    &tuple, &inner_l3_off);
+			if (ret == CTX_ACT_OK)
+				is_icmp_error = true;
+		}
 		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			goto skip_revdnat;
 
-		return ret;
+		if (ret < 0)
+			return ret;
 	}
 
 #if defined(ENABLE_SRV6) && defined(IS_BPF_LXC)
@@ -2221,15 +2229,31 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	else if (ret == CTX_ACT_REDIRECT)
 		goto redirect;
 
-	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, fraginfo,
-			      l4_off, CT_INGRESS, SCOPE_REVERSE,
-			      CT_ENTRY_NODEPORT, &ct_state, &monitor);
+	if (is_icmp_error)
+		ret = ct_lazy_lookup4_icmp_error(get_ct_map4(&tuple), &tuple, ctx, fraginfo,
+						 l4_off, CT_INGRESS, SCOPE_REVERSE,
+						 CT_ENTRY_NODEPORT, &ct_state, &monitor);
+	else
+		ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, fraginfo,
+				      l4_off, CT_INGRESS, SCOPE_REVERSE,
+				      CT_ENTRY_NODEPORT, &ct_state, &monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		trace->monitor = monitor;
-		ret = lb4_rev_nat(ctx, l3_off, l4_off,
-				  ct_state.rev_nat_index, 0, 0,
-				  false, &tuple, ipfrag_has_l4_header(fraginfo));
+		if (!is_icmp_error) {
+			ret = lb4_rev_nat(ctx, l3_off, l4_off,
+					  ct_state.rev_nat_index, 0, 0,
+					  false, &tuple, ipfrag_has_l4_header(fraginfo));
+		} else {
+			const struct lb4_reverse_nat *nat;
+
+			nat = lb4_lookup_rev_nat_entry(ctx, ct_state.rev_nat_index);
+			if (!nat)
+				ret = 0;
+			else
+				ret = lb4_rev_nat_icmp4_error(ctx, l3_off, inner_l3_off,
+							      nat, ip4);
+		}
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -2811,6 +2835,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	fraginfo_t fraginfo;
 	struct ipv4_ct_tuple tuple = {};
 	bool is_svc_proto = true;
+	bool is_icmp_error = false;
 	const struct lb4_service *svc;
 	struct lb4_key key = {};
 	int l3_off = ETH_HLEN;
@@ -2822,7 +2847,12 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
+			int inner_l3_off;
+
 			is_svc_proto = false;
+			if (lb4_extract_icmp4_error_tuple(ctx, ip4, l4_off,
+							  &tuple, &inner_l3_off) == CTX_ACT_OK)
+				is_icmp_error = true;
 			goto skip_service_lookup;
 		}
 		if (ret == DROP_UNKNOWN_L4) {
@@ -2897,9 +2927,10 @@ skip_service_lookup:
 	}
 
 	/* Check for RevSNAT. When BPF-Masquerading is off, we only need to
-	 * handle SVC replies:
+	 * handle SVC replies and ICMP errors (so that RevDNAT for the
+	 * embedded SVC reply can still happen):
 	 */
-	if (is_defined(ENABLE_MASQUERADE_IPV4) || is_svc_proto)
+	if (is_defined(ENABLE_MASQUERADE_IPV4) || is_svc_proto || is_icmp_error)
 		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS, ext_err);
 
 	return CTX_ACT_OK;
