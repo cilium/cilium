@@ -20,10 +20,16 @@ import (
 
 const nodeIPSetSyncInterval = time.Second
 
+type nodeIPSetManager interface {
+	NewInitializer() Initializer
+	AddToIPSet(name string, family Family, addrs ...netip.Addr)
+	RemoveFromIPSet(name string, addrs ...netip.Addr)
+}
+
 type nodeIPSetSync struct {
 	db          *statedb.DB
 	nodes       statedb.Table[*node.Node]
-	manager     Manager
+	manager     nodeIPSetManager
 	initializer Initializer
 	v4          AddrSet
 	v6          AddrSet
@@ -33,7 +39,7 @@ func registerNodeIPSetSync(
 	jobs job.Group,
 	db *statedb.DB,
 	nodes statedb.Table[*node.Node],
-	manager Manager,
+	manager *manager,
 	config config,
 ) {
 	if !config.NodeIPSetNeeded {
