@@ -7,6 +7,7 @@ package node
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -66,16 +68,129 @@ func TestPrivilegedFirstGlobalV4Addr(t *testing.T) {
 	}
 }
 
-func TestAddrUsableAsNodeIP(t *testing.T) {
+// setupDeprecatedAddr adds addr to the device as a deprecated address, i.e.
+// one whose preferred lifetime has expired but whose valid lifetime has not.
+// This is what `ip addr add <addr> preferred_lft 0` produces, and what
+// kube-vip in ARP mode configures for a VIP.
+func setupDeprecatedAddr(name, ipStr string) error {
+	link, err := safenetlink.LinkByName(name)
+	if err != nil {
+		return err
+	}
+	ip := net.ParseIP(ipStr)
+	if ip == nil || ip.To4() == nil {
+		return fmt.Errorf("invalid ipv4 IP: %v", ipStr)
+	}
+	return netlink.AddrAdd(link, &netlink.Addr{
+		IPNet:       &net.IPNet{IP: ip, Mask: net.CIDRMask(32, 32)},
+		ValidLft:    math.MaxUint32, // forever
+		PreferedLft: 0,              // already expired => IFA_F_DEPRECATED
+	})
+}
+
+func TestPrivilegedFirstGlobalV4AddrDeprecated(t *testing.T) {
+	setUpSuite(t)
+
+	const ifName = "dummy_iface"
+
 	testCases := []struct {
 		name          string
-		addr          netlink.Addr
-		isPreferredIP bool
-		ipsToExclude  []net.IP
-		linkScopeMax  int
-		ipLen         int
-		want          bool
+		ips           []string
+		deprecatedIPs []string
+		want          string
 	}{
+		{
+			// Without filtering, the deprecated public IP wins because
+			// public addresses are preferred over private ones.
+			name:          "deprecated IP skipped when a usable one exists",
+			ips:           []string{"192.168.0.1"},
+			deprecatedIPs: []string{"21.0.0.1"},
+			want:          "192.168.0.1",
+		},
+		{
+			// Falling back is better than failing to select any node
+			// address at all.
+			name:          "deprecated IP used when it is the only one",
+			deprecatedIPs: []string{"21.0.0.1"},
+			want:          "21.0.0.1",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Run in a fresh netns so that the fallback to "any address on
+			// any interface" cannot pick up an address of the host.
+			var got net.IP
+			// pkg/testutils/netns cannot be used here, it would introduce
+			// an import cycle back into pkg/node.
+			ns, err := netns.New()
+			require.NoError(t, err)
+			t.Cleanup(func() { ns.Close() })
+			// Assertions are done outside of Do, as it runs f on its own
+			// goroutine and require would call FailNow on the wrong one.
+			require.NoError(t, ns.Do(func() error {
+				if err := setupDummyDevice(ifName, tc.ips...); err != nil {
+					return err
+				}
+				defer removeDevice(ifName)
+
+				for _, ipStr := range tc.deprecatedIPs {
+					if err := setupDeprecatedAddr(ifName, ipStr); err != nil {
+						return err
+					}
+				}
+
+				var err error
+				got, err = FirstGlobalV4Addr(ifName, nil)
+				return err
+			}))
+			require.Equal(t, tc.want, got.String())
+		})
+	}
+}
+
+func TestAddrUsableAsNodeIP(t *testing.T) {
+	testCases := []struct {
+		name            string
+		addr            netlink.Addr
+		isPreferredIP   bool
+		ipsToExclude    []net.IP
+		linkScopeMax    int
+		ipLen           int
+		allowDeprecated bool
+		want            bool
+	}{
+		{
+			name:         "deprecated IPv4 is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED},
+			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:        4,
+			want:         false,
+		},
+		{
+			name:         "deprecated IPv6 is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::4"), Mask: net.CIDRMask(64, 128)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED},
+			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:        16,
+			want:         false,
+		},
+		{
+			name:            "deprecated IPv4 is accepted when deprecated addresses are allowed",
+			addr:            netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED},
+			linkScopeMax:    int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:           4,
+			allowDeprecated: true,
+			want:            true,
+		},
+		{
+			// Allowing deprecated addresses must not weaken the other filters.
+			name:            "tentative IPv6 is rejected even when deprecated addresses are allowed",
+			addr:            netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::5"), Mask: net.CIDRMask(64, 128)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED | unix.IFA_F_TENTATIVE},
+			linkScopeMax:    int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:           16,
+			allowDeprecated: true,
+			want:            false,
+		},
 		{
 			name:         "plain IPv4 is usable",
 			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE)},
@@ -145,7 +260,7 @@ func TestAddrUsableAsNodeIP(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := addrUsableAsNodeIP(tc.addr, tc.isPreferredIP, tc.ipsToExclude, tc.linkScopeMax, tc.ipLen)
+			got := addrUsableAsNodeIP(tc.addr, tc.isPreferredIP, tc.ipsToExclude, tc.linkScopeMax, tc.ipLen, tc.allowDeprecated)
 			require.Equal(t, tc.want, got)
 		})
 	}
