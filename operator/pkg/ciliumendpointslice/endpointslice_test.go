@@ -65,7 +65,7 @@ func TestFCFSModeSyncCESsInLocalCacheDefault(t *testing.T) {
 	cesController := &DefaultController{
 		Controller: &Controller{
 			logger:              log,
-			clientset:           fakeClient.Clientset,
+			clientset:           fakeClient,
 			ciliumEndpointSlice: ciliumEndpointSlice,
 			rateLimit:           rateLimitConfig,
 			enqueuedAt:          make(map[CESKey]time.Time),
@@ -161,7 +161,7 @@ func TestDifferentSpeedQueuesDefault(t *testing.T) {
 	cesController := &DefaultController{
 		Controller: &Controller{
 			logger:              log,
-			clientset:           fakeClient.Clientset,
+			clientset:           fakeClient,
 			ciliumEndpointSlice: ciliumEndpointSlice,
 			rateLimit:           rateLimitConfig,
 			enqueuedAt:          make(map[CESKey]time.Time),
@@ -266,7 +266,7 @@ func TestCESManagementDefault(t *testing.T) {
 	cesController := &DefaultController{
 		Controller: &Controller{
 			logger:              log,
-			clientset:           fakeClient.Clientset,
+			clientset:           fakeClient,
 			ciliumEndpointSlice: ciliumEndpointSlice,
 			rateLimit:           rateLimitConfig,
 			enqueuedAt:          make(map[CESKey]time.Time),
@@ -360,7 +360,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	cesController := &SlimController{
 		Controller: &Controller{
 			logger:              log,
-			clientset:           fakeClient.Clientset,
+			clientset:           fakeClient,
 			ciliumEndpointSlice: ciliumEndpointSlice,
 			ciliumNodes:         ciliumNode,
 			namespace:           namespace,
@@ -489,7 +489,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 	cesController := &SlimController{
 		Controller: &Controller{
 			logger:              log,
-			clientset:           fakeClient.Clientset,
+			clientset:           fakeClient,
 			ciliumEndpointSlice: ciliumEndpointSlice,
 			ciliumNodes:         ciliumNode,
 			namespace:           namespace,
@@ -614,7 +614,7 @@ func TestCESManagement(t *testing.T) {
 	cesController := &SlimController{
 		Controller: &Controller{
 			logger:              log,
-			clientset:           fakeClient.Clientset,
+			clientset:           fakeClient,
 			ciliumEndpointSlice: ciliumEndpointSlice,
 			ciliumNodes:         ciliumNode,
 			namespace:           namespace,
@@ -738,7 +738,7 @@ func TestSyncCESsInLocalCacheOperatorDowntime(t *testing.T) {
 	cesController := &SlimController{
 		Controller: &Controller{
 			logger:              log,
-			clientset:           fakeClient.Clientset,
+			clientset:           fakeClient,
 			ciliumEndpointSlice: ciliumEndpointSlice,
 			ciliumNodes:         ciliumNode,
 			namespace:           namespace,

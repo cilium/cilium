@@ -86,7 +86,7 @@ func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reco
 		ctx,
 		tlog,
 		cmtypes.DefaultClusterInfo,
-		fakeClient.Clientset,
+		fakeClient,
 		namespace,
 		pod,
 		ciliumIdentity,

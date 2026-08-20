@@ -20,6 +20,7 @@ import (
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/connrotation"
@@ -82,6 +83,7 @@ type Clientset interface {
 	apiext_clientset.Interface
 	cilium_clientset.Interface
 	policy_clientset.Interface
+	dynamic.Interface
 	Getters
 
 	// Slim returns the slim client, which contains some of the same APIs as the
@@ -107,6 +109,7 @@ type compositeClientset struct {
 	*APIExtClientset
 	*CiliumClientset
 	*PolicyClientset
+	*dynamic.DynamicClient
 	ClientsetGetters
 
 	controller        *controller.Manager
@@ -116,6 +119,8 @@ type compositeClientset struct {
 	closeAllConns     func()
 	restConfigManager *restConfigManager
 }
+
+var _ Clientset = (*compositeClientset)(nil)
 
 // ConfigureK8sClientsetDialer provides an optional extension point
 // to configure the dialer used by the clientset.
@@ -172,12 +177,19 @@ func newClientsetForUserAgent(params compositeClientsetParams, name string) (Cli
 		}
 	}
 
+	client.ClientsetGetters = ClientsetGetters{Client: &client}
+
 	// Slim and K8s clients use protobuf marshalling.
 	rc.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
 
 	client.slim, err = slim_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create slim k8s client: %w", err)
+	}
+
+	client.DynamicClient, err = dynamic.NewForConfigAndClient(rc, httpClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create k8s dynamic client: %w", err)
 	}
 
 	client.APIExtClientset, err = apiext_clientset.NewForConfigAndClient(rc, httpClient)
@@ -199,8 +211,6 @@ func newClientsetForUserAgent(params compositeClientsetParams, name string) (Cli
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create policy k8s client: %w", err)
 	}
-
-	client.ClientsetGetters = ClientsetGetters{&client}
 
 	// The cilium client uses JSON marshalling.
 	rc.ContentConfig.ContentType = `application/json`

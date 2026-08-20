@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
+	dynamic_fake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	k8sTesting "k8s.io/client-go/testing"
@@ -79,6 +80,7 @@ type FakeClientset struct {
 	*CiliumFakeClientset
 	*APIExtFakeClientset
 	*PolicyFakeClientset
+	*dynamic_fake.FakeDynamicClient
 	k8sclient.ClientsetGetters
 
 	ot *statedbObjectTracker
@@ -161,6 +163,7 @@ func NewFakeClientsetWithVersion(log *slog.Logger, ot *statedbObjectTracker, ver
 		MCSAPIFakeClientset:     mcsapi_fake.NewSimpleClientset(),
 		PolicyFakeClientset:     policy_fake.NewSimpleClientset(),
 		KubernetesFakeClientset: fake.NewSimpleClientset(),
+		FakeDynamicClient:       dynamic_fake.NewSimpleDynamicClient(testutils.Scheme),
 	}
 	client.KubernetesFakeClientset.Resources = resources
 	client.SlimFakeClientset.Resources = resources
@@ -194,7 +197,7 @@ func NewFakeClientsetWithVersion(log *slog.Logger, ot *statedbObjectTracker, ver
 	fd := client.KubernetesFakeClientset.Discovery().(*fakediscovery.FakeDiscovery)
 	fd.FakedServerVersion = toVersionInfo(version)
 
-	client.ClientsetGetters = k8sclient.ClientsetGetters{Clientset: &client}
+	client.ClientsetGetters = k8sclient.ClientsetGetters{Client: &client}
 	return &client, &client
 }
 
