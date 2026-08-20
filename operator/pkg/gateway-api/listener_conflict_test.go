@@ -305,7 +305,7 @@ func Test_setListenerStatus_usesCrossSourceConflicts(t *testing.T) {
 		},
 	}
 
-	status, err := reconciler.setListenerStatus(
+	status, err := reconciler.listenerStatusManager.SetGatewayListenerStatus(
 		t.Context(),
 		gw,
 		conflicts,

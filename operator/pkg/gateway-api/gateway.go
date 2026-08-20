@@ -42,6 +42,7 @@ type gatewayReconciler struct {
 	translator translation.Translator
 
 	inputLoader                   *loading.TranslationInputLoader
+	listenerStatusManager         *ListenerStatusManager
 	routeStatusManager            *RouteStatusManager
 	backendTLSPolicyStatusManager *BackendTLSPolicyStatusManager
 	logger                        *slog.Logger
@@ -66,6 +67,14 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
 			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
 		}),
+		listenerStatusManager: NewListenerStatusManager(
+			mgr.GetClient(),
+			scopedLog,
+			ListenerStatusManagerConfig{
+				TCPUDPRouteSupport:      tcpUDPRouteSupport,
+				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+			},
+		),
 		routeStatusManager: NewRouteStatusManager(
 			mgr.GetClient(),
 			scopedLog,
