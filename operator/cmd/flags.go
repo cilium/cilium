@@ -55,6 +55,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableSRv6)
 	option.BindEnv(vp, option.EnableSRv6)
 
+	flags.Bool(option.EnableQoS, defaults.EnableQoS, "")
+	flags.MarkHidden(option.EnableQoS)
+	option.BindEnv(vp, option.EnableQoS)
+
 	// Logging flags
 	flags.StringSlice(option.LogDriver, []string{}, "Logging endpoints to use for example syslog")
 	option.BindEnv(vp, option.LogDriver)

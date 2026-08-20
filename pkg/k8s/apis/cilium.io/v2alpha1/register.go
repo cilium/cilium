@@ -112,6 +112,21 @@ const (
 	CRIPPluralName     = "ciliumresourceippools"
 	CRIPKindDefinition = "CiliumResourceIPPool"
 	CRIPName           = CRIPPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumQoSMechanism (CQM)
+	CQMPluralName     = "ciliumqosmechanisms"
+	CQMKindDefinition = "CiliumQoSMechanism"
+	CQMName           = CQMPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumQoSClass (CQC)
+	CQCPluralName     = "ciliumqosclasses"
+	CQCKindDefinition = "CiliumQoSClass"
+	CQCName           = CQCPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumQoSPolicy (CQP)
+	CQPPluralName     = "ciliumqospolicies"
+	CQPKindDefinition = "CiliumQoSPolicy"
+	CQPName           = CQPPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -188,6 +203,14 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNetworkDriverNodeConfigList{},
 		&CiliumResourceIPPool{},
 		&CiliumResourceIPPoolList{},
+
+		// QoS types
+		&CiliumQoSMechanism{},
+		&CiliumQoSMechanismList{},
+		&CiliumQoSClass{},
+		&CiliumQoSClassList{},
+		&CiliumQoSPolicy{},
+		&CiliumQoSPolicyList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

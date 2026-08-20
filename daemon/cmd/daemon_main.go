@@ -823,6 +823,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableDatapathPlugins)
 	option.BindEnv(vp, option.EnableDatapathPlugins)
 
+	flags.Bool(option.EnableQoS, defaults.EnableQoS, "Enable the QoS API and the CiliumQoSMechanism, CiliumQoSClass and CiliumQoSPolicy CRDs")
+	option.BindEnv(vp, option.EnableQoS)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		logging.Fatal(logger, "BindPFlags failed", logfields.Error, err)
 	}

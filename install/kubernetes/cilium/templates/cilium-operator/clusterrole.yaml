@@ -286,6 +286,11 @@ rules:
   - ciliumnetworkdriverclusterconfigs.cilium.io
   - ciliumresourceippools.cilium.io
 {{- end }}
+{{- if .Values.qos.enabled }}
+  - ciliumqosmechanisms.cilium.io
+  - ciliumqosclasses.cilium.io
+  - ciliumqospolicies.cilium.io
+{{- end }}
 - apiGroups:
   - cilium.io
   resources:
@@ -501,5 +506,26 @@ rules:
   - create
   - update
   - delete
+{{- end }}
+{{- if .Values.qos.enabled }}
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumqosmechanisms
+  - ciliumqosclasses
+  - ciliumqospolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumqosmechanisms/status
+  - ciliumqosclasses/status
+  - ciliumqospolicies/status
+  verbs:
+  - update
+  - patch
 {{- end }}
 {{- end }}
