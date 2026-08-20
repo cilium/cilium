@@ -130,6 +130,16 @@ jobs:
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
+      - name: Set clang directory
+        id: set_clang_dir
+        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+
+      - name: Install LLVM and Clang
+        uses: ./.github/actions/install-llvm
+        with:
+          version: "19.1.7"
+          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -156,16 +166,6 @@ jobs:
           key: ${{ runner.os }}-go-integration-test-cache-${{ runner.arch }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-integration-test-cache-${{ runner.arch }}-
-
-      - name: Set clang directory
-        id: set_clang_dir
-        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
-
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0 # v2.0.9
-        with:
-          version: "19.1.7"
-          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
 
       - name: Create cache directories if they don't exist
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}

@@ -1,0 +1,50 @@
+name: Install LLVM and Clang
+description: Download and configure an official LLVM release without a JavaScript action runtime.
+
+inputs:
+  version:
+    description: LLVM release version to install.
+    required: true
+  directory:
+    description: Directory where LLVM will be installed.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Download and install LLVM and Clang
+      shell: bash
+      env:
+        LLVM_VERSION: ${{ inputs.version }}
+        LLVM_INSTALL_PATH: ${{ inputs.directory }}
+      run: |
+        set -euo pipefail
+
+        case "${RUNNER_ARCH}" in
+          X64)
+            asset="LLVM-${LLVM_VERSION}-Linux-X64.tar.xz"
+            ;;
+          ARM64)
+            asset="clang%2Bllvm-${LLVM_VERSION}-aarch64-linux-gnu.tar.xz"
+            ;;
+          *)
+            echo "Unsupported runner architecture: ${RUNNER_ARCH}" >&2
+            exit 1
+            ;;
+        esac
+
+        download_dir="$(mktemp -d "${RUNNER_TEMP}/llvm.XXXXXX")"
+        trap 'rm -rf -- "${download_dir}"' EXIT
+        archive="${download_dir}/llvm-${LLVM_VERSION}.tar.xz"
+        curl --fail --location --retry 3 --retry-all-errors \
+          --output "${archive}" \
+          "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/${asset}"
+        mkdir -p "${LLVM_INSTALL_PATH}"
+        tar --extract --xz --file "${archive}" --strip-components=1 --directory "${LLVM_INSTALL_PATH}"
+
+        echo "${LLVM_INSTALL_PATH}/bin" >> "${GITHUB_PATH}"
+        {
+          echo "LLVM_PATH=${LLVM_INSTALL_PATH}"
+          echo "LD_LIBRARY_PATH=${LLVM_INSTALL_PATH}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+        } >> "${GITHUB_ENV}"
+        "${LLVM_INSTALL_PATH}/bin/clang" --version
