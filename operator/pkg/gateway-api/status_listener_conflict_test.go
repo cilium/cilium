@@ -59,6 +59,8 @@ func l4Listener(
 }
 
 func Test_listenerPairConflict(t *testing.T) {
+	manager := &ListenerStatusManager{}
+
 	tests := []struct {
 		name       string
 		first      *gatewayv1.Listener
@@ -149,11 +151,11 @@ func Test_listenerPairConflict(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reason, ok := listenerPairConflict(tt.first, tt.second)
+			reason, ok := manager.listenerPairConflict(tt.first, tt.second)
 			assert.Equal(t, tt.wantOK, ok)
 			assert.Equal(t, tt.wantReason, reason)
 
-			reasonSwapped, okSwapped := listenerPairConflict(tt.second, tt.first)
+			reasonSwapped, okSwapped := manager.listenerPairConflict(tt.second, tt.first)
 			assert.Equal(t, ok, okSwapped, "conflict detection must be symmetric")
 			assert.Equal(t, reason, reasonSwapped, "conflict reason must be symmetric")
 		})
@@ -169,12 +171,14 @@ func gatewayWithConflictListeners(listeners ...*gatewayv1.Listener) *gatewayv1.G
 }
 
 func Test_conflictsWithinSource(t *testing.T) {
+	manager := &ListenerStatusManager{}
+
 	t.Run("non-conflicting listeners produce no entries", func(t *testing.T) {
 		gw := gatewayWithConflictListeners(
 			muxedListener("a", gatewayv1.HTTPProtocolType, 80, "foo.example.com"),
 			muxedListener("b", gatewayv1.HTTPProtocolType, 80, "bar.example.com"),
 		)
-		assert.Empty(t, conflictsWithinSource(gw.Spec.Listeners))
+		assert.Empty(t, manager.conflictsWithinSource(gw.Spec.Listeners))
 	})
 
 	t.Run("identical hostname duplicate marks both listeners", func(t *testing.T) {
@@ -182,7 +186,7 @@ func Test_conflictsWithinSource(t *testing.T) {
 			muxedListener("a", gatewayv1.HTTPSProtocolType, 443, "foo.example.com"),
 			muxedListener("b", gatewayv1.HTTPSProtocolType, 443, "foo.example.com"),
 		)
-		conflicts := conflictsWithinSource(gw.Spec.Listeners)
+		conflicts := manager.conflictsWithinSource(gw.Spec.Listeners)
 		assert.Equal(t, gatewayv1.ListenerReasonHostnameConflict, conflicts["a"].reason)
 		assert.Equal(t, gatewayv1.ListenerReasonHostnameConflict, conflicts["b"].reason)
 		assert.Contains(t, conflicts["a"].message, `listener "b"`)
@@ -194,7 +198,7 @@ func Test_conflictsWithinSource(t *testing.T) {
 			l4Listener("a", gatewayv1.TCPProtocolType, 80),
 			muxedListener("b", gatewayv1.HTTPProtocolType, 80, "foo.example.com"),
 		)
-		conflicts := conflictsWithinSource(gw.Spec.Listeners)
+		conflicts := manager.conflictsWithinSource(gw.Spec.Listeners)
 		assert.Equal(t, gatewayv1.ListenerReasonProtocolConflict, conflicts["a"].reason)
 		assert.Equal(t, gatewayv1.ListenerReasonProtocolConflict, conflicts["b"].reason)
 	})
@@ -204,7 +208,7 @@ func Test_conflictsWithinSource(t *testing.T) {
 			muxedListener("https", gatewayv1.HTTPSProtocolType, 443, "api.example.test"),
 			tlsPassthroughListener("tls-passthrough", 443, "api.example.test"),
 		)
-		conflicts := conflictsWithinSource(gw.Spec.Listeners)
+		conflicts := manager.conflictsWithinSource(gw.Spec.Listeners)
 		assert.Equal(t, gatewayv1.ListenerReasonProtocolConflict, conflicts["https"].reason)
 		assert.Equal(t,
 			`Listener conflicts with listener "tls-passthrough": same port 443 has overlapping HTTPS and TLS passthrough hostnames.`,
@@ -236,7 +240,8 @@ func Test_filterOutConflictedListeners_gatewayListeners(t *testing.T) {
 		{Listener: *tlsPassthroughListener("tls", 443, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "Gateway"}},
 	}
 
-	filtered := filterOutConflictedListeners(listeners, conflictsAcrossSources(listeners))
+	manager := &ListenerStatusManager{}
+	filtered := manager.filterOutConflictedListeners(listeners, manager.conflictsAcrossSources(listeners))
 	assert.Empty(t, filtered)
 }
 
@@ -246,7 +251,8 @@ func Test_filterOutConflictedListeners_listenerSetListeners(t *testing.T) {
 		{Listener: *tlsPassthroughListener("tls", 443, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "ListenerSet", Name: "one"}},
 	}
 
-	filtered := filterOutConflictedListeners(listeners, conflictsAcrossSources(listeners))
+	manager := &ListenerStatusManager{}
+	filtered := manager.filterOutConflictedListeners(listeners, manager.conflictsAcrossSources(listeners))
 	assert.Empty(t, filtered)
 }
 
@@ -256,7 +262,8 @@ func Test_filterOutConflictedListeners_gatewayPrecedence(t *testing.T) {
 		{Listener: *tlsPassthroughListener("listenerset", 443, "api.example.test"), Source: model.FullyQualifiedResource{Kind: "ListenerSet", Name: "one"}},
 	}
 
-	filtered := filterOutConflictedListeners(listeners, conflictsAcrossSources(listeners))
+	manager := &ListenerStatusManager{}
+	filtered := manager.filterOutConflictedListeners(listeners, manager.conflictsAcrossSources(listeners))
 	assert.Len(t, filtered, 1)
 	assert.Equal(t, gatewayv1.SectionName("gateway"), filtered[0].Name)
 }
@@ -273,7 +280,8 @@ func Test_filterOutConflictedListeners_listenerSetPrecedence(t *testing.T) {
 		},
 	}
 
-	filtered := filterOutConflictedListeners(listeners, conflictsAcrossSources(listeners))
+	manager := &ListenerStatusManager{}
+	filtered := manager.filterOutConflictedListeners(listeners, manager.conflictsAcrossSources(listeners))
 	assert.Len(t, filtered, 1)
 	assert.Equal(t, gatewayv1.SectionName("older"), filtered[0].Name)
 }
@@ -305,7 +313,7 @@ func Test_setListenerStatus_usesCrossSourceConflicts(t *testing.T) {
 		},
 	}
 
-	status, err := reconciler.listenerStatusManager.SetGatewayListenerStatus(
+	status, err := reconciler.listenerStatusManager.setGatewayListenerStatus(
 		t.Context(),
 		gw,
 		conflicts,
