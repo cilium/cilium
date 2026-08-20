@@ -26,6 +26,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
@@ -52,6 +53,7 @@ var Cell = cell.Module(
 		EnableGatewayAPIProxyProtocol:          false,
 		EnableGatewayAPIAppProtocol:            false,
 		EnableGatewayAPIAlpn:                   false,
+		EnableGatewayAPIExtensionRefFilters:    false,
 		GatewayAPIServiceExternalTrafficPolicy: "Cluster",
 		GatewayAPISecretsNamespace:             "cilium-secrets",
 		GatewayAPIXffNumTrustedHops:            0,
@@ -191,6 +193,7 @@ type gatewayApiConfig struct {
 	EnableGatewayAPIProxyProtocol          bool
 	EnableGatewayAPIAppProtocol            bool
 	EnableGatewayAPIAlpn                   bool
+	EnableGatewayAPIExtensionRefFilters    bool
 	GatewayAPIServiceExternalTrafficPolicy string
 	GatewayAPISecretsNamespace             string
 	GatewayAPIXffNumTrustedHops            uint32
@@ -205,6 +208,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-gateway-api-proxy-protocol", r.EnableGatewayAPIProxyProtocol, "Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
 	flags.Bool("enable-gateway-api-app-protocol", r.EnableGatewayAPIAppProtocol, "Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol")
 	flags.Bool("enable-gateway-api-alpn", r.EnableGatewayAPIAlpn, "Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API")
+	flags.Bool("enable-gateway-api-extension-ref-filters", r.EnableGatewayAPIExtensionRefFilters, "Enable ExtensionRef support for ext_proc filters in Gateway API HTTPRoute and GRPCRoute resources")
 	flags.Uint32("gateway-api-xff-num-trusted-hops", r.GatewayAPIXffNumTrustedHops, "The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 	flags.String("gateway-api-service-externaltrafficpolicy", r.GatewayAPIServiceExternalTrafficPolicy, "Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
@@ -292,6 +296,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		defaultControllerName,
 		installedOptionalKinds,
 		cfg.HostNetworkConfig.Enabled,
+		params.GatewayApiConfig.EnableGatewayAPIExtensionRefFilters,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -422,13 +427,20 @@ func registerReconcilers(
 	controllerName string,
 	installedOptionalCRDs []schema.GroupVersionKind,
 	hostNetworkEnabled bool,
+	enableExtensionRefFilters bool,
 ) error {
+	if enableExtensionRefFilters {
+		if err := registerExtensionRefFilterIndexes(mgr); err != nil {
+			return err
+		}
+	}
+
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger, controllerName),
-		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled),
-		newGammaReconciler(mgr, translator, logger, controllerName),
+		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled, enableExtensionRefFilters),
+		newGammaReconciler(mgr, translator, logger, controllerName, enableExtensionRefFilters),
 		newGatewayClassConfigReconciler(mgr, logger),
 		newEndpointSliceReconciler(mgr, logger),
 	}
@@ -464,6 +476,20 @@ func registerReconcilers(
 		default:
 			panic(fmt.Sprintf("No reconciler available for GVK %s", gvk))
 		}
+	}
+	return nil
+}
+
+// registerExtensionRefFilterIndexes registers the shared HTTPRoute and GRPCRoute
+// indexes used to find routes that reference a CiliumEnvoyExtProcFilter. The
+// indexes must be registered centrally because Gateway and GAMMA share the
+// manager cache.
+func registerExtensionRefFilterIndexes(mgr ctrlRuntime.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexers.ExtProcFilterHTTPRouteIndex, indexers.IndexHTTPRouteByExtProcFilter); err != nil {
+		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ExtProcFilterHTTPRouteIndex, err)
+	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexers.ExtProcFilterGRPCRouteIndex, indexers.IndexGRPCRouteByExtProcFilter); err != nil {
+		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ExtProcFilterGRPCRouteIndex, err)
 	}
 	return nil
 }

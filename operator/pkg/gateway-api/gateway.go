@@ -22,6 +22,7 @@ import (
 	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -41,15 +42,16 @@ type gatewayReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
-	inputLoader             *loading.TranslationInputLoader
-	routeStatusManager      *RouteStatusManager
-	logger                  *slog.Logger
-	controllerName          string
-	tcpUDPRouteSupport      bool
-	tcpUDPUnsupportedReason string
+	inputLoader               *loading.TranslationInputLoader
+	routeStatusManager        *RouteStatusManager
+	logger                    *slog.Logger
+	controllerName            string
+	tcpUDPRouteSupport        bool
+	tcpUDPUnsupportedReason   string
+	enableExtensionRefFilters bool
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, enableExtensionRefFilters bool) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 	includeTCPRoutes := helpers.HasTCPRouteSupport(mgr.GetScheme())
 	includeUDPRoutes := helpers.HasUDPRouteSupport(mgr.GetScheme())
@@ -76,10 +78,11 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 			},
 		),
-		logger:                  scopedLog,
-		controllerName:          controllerName,
-		tcpUDPRouteSupport:      tcpUDPRouteSupport,
-		tcpUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+		logger:                    scopedLog,
+		controllerName:            controllerName,
+		tcpUDPRouteSupport:        tcpUDPRouteSupport,
+		tcpUDPUnsupportedReason:   hostNetworkTCPUDPRouteUnsupportedReason,
+		enableExtensionRefFilters: enableExtensionRefFilters,
 	}
 }
 
@@ -152,6 +155,13 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if serviceImportEnabled {
 		// Watch for changes to Backend Service Imports
 		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1beta1.ServiceImport{}, watchhandlers.EnqueueRequestForBackendServiceImport(r.Client, *r.logger, r.controllerName))
+	}
+
+	if r.enableExtensionRefFilters {
+		gatewayBuilder = gatewayBuilder.Watches(
+			&v2alpha1.CiliumEnvoyExtProcFilter{},
+			watchhandlers.EnqueueRequestForExtProcFilter(r.Client, r.logger, r.controllerName),
+		)
 	}
 
 	return gatewayBuilder.Complete(r)

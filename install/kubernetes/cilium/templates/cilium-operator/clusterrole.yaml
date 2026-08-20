@@ -286,6 +286,7 @@ rules:
   - ciliumnetworkdriverclusterconfigs.cilium.io
   - ciliumresourceippools.cilium.io
 {{- end }}
+  - ciliumenvoyextprocfilters.cilium.io
 - apiGroups:
   - cilium.io
   resources:
@@ -295,6 +296,7 @@ rules:
   - ciliumbgpnodeconfigoverrides
   - ciliumbgppeerconfigs
   - ciliumdatapathplugins
+  - ciliumenvoyextprocfilters
   verbs:
   - get
   - list
@@ -408,7 +410,7 @@ rules:
   verbs:
   - get
   - list
-  - watch  
+  - watch
 {{- end }}
 {{- if or .Values.gatewayAPI.enabled .Values.clustermesh.mcsapi.enabled }}
 - apiGroups:

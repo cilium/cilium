@@ -53,7 +53,8 @@ func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string, tl
 }
 
 func (i *cecTranslator) tcpClusterMutators(mutationFunc ...ClusterMutator) []ClusterMutator {
-	return append(mutationFunc,
+	return append(
+		mutationFunc,
 		withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
 		withOutlierDetection(true),
 	)
@@ -90,6 +91,16 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResou
 	for _, be := range getGRPCExtAuthBackends(m) {
 		port := be.Port.GetPort()
 		clusterName := getGRPCExtAuthClusterName(be.Namespace, be.Name, port)
+		clusterServiceName := getClusterServiceName(be.Namespace, be.Name, port)
+		if _, exists := envoyClusters[clusterName]; !exists {
+			sortedClusterNames = append(sortedClusterNames, clusterName)
+			envoyClusters[clusterName], _ = i.httpCluster(clusterName, clusterServiceName, true, "", getTLSOrigination(m, be.Namespace, be.Name, port))
+		}
+	}
+
+	for _, be := range getExtProcBackends(m) {
+		port := be.Port.GetPort()
+		clusterName := getExtProcClusterName(be.Namespace, be.Name, port)
 		clusterServiceName := getClusterServiceName(be.Namespace, be.Name, port)
 		if _, exists := envoyClusters[clusterName]; !exists {
 			sortedClusterNames = append(sortedClusterNames, clusterName)
@@ -188,6 +199,13 @@ func getHTTPExtAuthClusterName(ns, name, port string) string {
 	return "http:" + getClusterName(ns, name, port)
 }
 
+// getExtProcClusterName returns the cluster name for an ext_proc backend.
+// The dedicated "grpc:" cluster keeps an ext_proc backend isolated from a regular
+// HTTP cluster for the same Service port and forces the required HTTP/2 protocol.
+func getExtProcClusterName(ns, name, port string) string {
+	return "grpc:" + getClusterName(ns, name, port)
+}
+
 func getClusterServiceName(ns, name, port string) string {
 	// the name is having the format of "namespace/name:port"
 	return fmt.Sprintf("%s/%s:%s", ns, name, port)
@@ -209,6 +227,28 @@ func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]str
 		}
 	}
 	return namespaceNamePortMap
+}
+
+// getExtProcBackends returns deduplicated backends used as ext_proc services.
+func getExtProcBackends(m *model.Model) []model.Backend {
+	seen := map[string]bool{}
+	var result []model.Backend
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			for _, filter := range r.ExtensionRefFilters {
+				if filter.Backend == nil {
+					continue
+				}
+				be := *filter.Backend
+				key := getExtProcClusterName(be.Namespace, be.Name, be.Port.GetPort())
+				if !seen[key] {
+					seen[key] = true
+					result = append(result, be)
+				}
+			}
+		}
+	}
+	return result
 }
 
 // getHTTPExtAuthBackends returns deduplicated backends used as HTTP ext_authz services.

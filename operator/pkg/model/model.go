@@ -495,6 +495,27 @@ type HTTPCORSFilter struct {
 	MaxAge int32 `json:"maxAge,omitempty"`
 }
 
+// ExtensionRefFilter holds a resolved Gateway API ExtensionRef filter.
+type ExtensionRefFilter struct {
+	// Name is the Envoy filter instance name.
+	Name string `json:"name"`
+	// TypeURL is the protobuf type URL for the filter config.
+	TypeURL string `json:"type_url"`
+	// Config is the serialized protobuf config for the filter.
+	Config []byte `json:"config,omitempty"`
+	// Backend is the filter's backend service.
+	Backend *Backend `json:"backend,omitempty"`
+
+	// The following fields carry per-route provenance used for listener-wide
+	// conflict resolution. They are intentionally excluded from JSON/CEC output
+	// so that golden fixtures remain stable. SourceRouteRule is the canonical
+	// route identity and rule position; the remaining fields identify the filter
+	// position and route creation time.
+	SourceRouteRule              *HTTPRouteRule `json:"-"`
+	SourceRouteCreationTimestamp time.Time      `json:"-"`
+	SourceRouteFilterIndex       int            `json:"-"`
+}
+
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
@@ -538,6 +559,9 @@ type HTTPRoute struct {
 
 	// ExternalAuth configures external authorization for this route.
 	ExternalAuth *HTTPExternalAuthFilter `json:"external_auth,omitempty"`
+
+	// ExtensionRefFilters are filters resolved from Gateway API ExtensionRef filters.
+	ExtensionRefFilters []ExtensionRefFilter `json:"extension_ref_filters,omitempty"`
 
 	// IsGRPC is an indicator if this route is related to GRPC
 	IsGRPC bool `json:"is_grpc,omitempty"`
@@ -624,6 +648,20 @@ func (r *HTTPRoute) GetMatchKey() string {
 		if r.ExternalAuth.Backend.Port != nil {
 			sb.WriteString(":")
 			sb.WriteString(r.ExternalAuth.Backend.Port.GetPort())
+		}
+		sb.WriteString("|")
+	}
+
+	if len(r.ExtensionRefFilters) > 0 {
+		names := make([]string, len(r.ExtensionRefFilters))
+		for i, f := range r.ExtensionRefFilters {
+			names[i] = f.Name
+		}
+		sort.Strings(names)
+		sb.WriteString("extproc:")
+		for _, n := range names {
+			sb.WriteString(n)
+			sb.WriteString(",")
 		}
 		sb.WriteString("|")
 	}
