@@ -2002,13 +2002,6 @@ snat_v6_nat(struct __ctx_buff *ctx, fraginfo_t fraginfo, int off, __s8 *ext_err)
 		switch (icmp6hdr.icmp6_type) {
 		case ICMPV6_ECHO_REPLY:
 		case ICMPV6_REDIRECT:
-		/* Neighbor Discovery is link-local by definition and must never
-		 * be masqueraded. Router Solicitations/Advertisements matter as
-		 * much as NS/NA here: BGP-unnumbered peering has the agent emit
-		 * RAs out a Cilium-managed native device, and the peer will not
-		 * accept an unnumbered neighbor whose link-local it has not
-		 * learned from those RAs.
-		 */
 		case ICMP6_RS_MSG_TYPE:
 		case ICMP6_RA_MSG_TYPE:
 		case ICMP6_NS_MSG_TYPE:
