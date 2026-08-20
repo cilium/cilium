@@ -1270,6 +1270,20 @@ func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.T
 type PrefixMatcherFunc func(ip netip.Addr) bool
 type NameMatcherFunc func(name string) bool
 
+// LookupIP returns the names of the zombie for ip, if it is still alive. It
+// returns nil when ip is unknown or its zombie is eligible for deletion.
+func (zombies *DNSZombieMappings) LookupIP(ip netip.Addr) (names []string) {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	zombie, ok := zombies.deletes[ip]
+	if !ok || !zombies.isConnectionAlive(zombie) {
+		return nil
+	}
+
+	return slices.Clone(zombie.Names)
+}
+
 // DumpAlive returns copies of still-alive zombies matching prefixMatcher.
 func (zombies *DNSZombieMappings) DumpAlive(prefixMatcher PrefixMatcherFunc) (alive []*DNSZombieMapping) {
 	zombies.Lock()
