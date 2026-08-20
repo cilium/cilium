@@ -11,19 +11,20 @@ data:
     {
         "CIDRGroups": {
             "CIDRs": {
+                "Config": {},
                 "fuzzChance": 0,
                 "sliceAddChance": 0,
                 "sliceDeleteChance": 0,
                 "sliceUpdateChance": 0,
-                "sliceSize": "2-8"
+                "sliceSize": "1-2"
             },
             "labelScope": "cidr_groups",
             "metaUpdateChance": 0,
             "sliceAddChance": 0.25,
-            "sliceAddCount": "4-32",
+            "sliceAddCount": "4-16",
             "sliceDeleteChance": 0.25,
-            "sliceDeleteCount": "4-32",
-            "sliceSize": "1024-4096",
+            "sliceDeleteCount": "4-16",
+            "sliceSize": "1024-2048",
             "sliceUpdateChance": 0
         },
         "LocalEndpoints": {
@@ -37,11 +38,9 @@ data:
             "metaUpdateChance": 0,
             "node": "{{$testNodeName}}",
             "nodeSelector": "",
-            "sliceAddChance": 0.05,
-            "sliceAddCount": "1-1",
-            "sliceDeleteChance": 0.05,
-            "sliceDeleteCount": "1-1",
-            "sliceSize": "4-16",
+            "sliceAddChance": 0,
+            "sliceDeleteChance": 0.0,
+            "sliceSize": "4",
             "sliceUpdateChance": 0
         },
         "Policies": {
@@ -60,19 +59,22 @@ data:
                         "sliceAddCount": "1-2",
                         "sliceDeleteChance": 0.5,
                         "sliceDeleteCount": "1-2",
+                        "sliceSize": "2-8",
                         "sliceUpdateChance": 0.5,
                         "sliceUpdateCount": "1-2",
-                        "sliceSize": "2-8",
-                        "weight": 1
+                        "weight": 0.5
                     },
                     "Endpoints": {
                         "labelScope": "remote_endpoints",
                         "reallocateChance": 0,
-                        "sliceAddChance": 0,
-                        "sliceDeleteChance": 0,
-                        "sliceUpdateChance": 0,
-                        "sliceSize": "0",
-                        "weight": 0
+                        "sliceAddChance": 0.5,
+                        "sliceAddCount": "1-2",
+                        "sliceDeleteChance": 0.5,
+                        "sliceDeleteCount": "1-2",
+                        "sliceSize": "2-8",
+                        "sliceUpdateChance": 0.5,
+                        "sliceUpdateCount": "1-2",
+                        "weight": 0.5
                     }
                 },
                 "L4": {
@@ -92,7 +94,7 @@ data:
                         "sliceAddChance": 0,
                         "sliceDeleteChance": 0,
                         "sliceUpdateChance": 0,
-                        "sliceSize": "1-2"
+                        "sliceSize": "1-1"
                     }
                 },
                 "L7": {
@@ -100,14 +102,14 @@ data:
                         "sliceAddChance": 0,
                         "sliceDeleteChance": 0,
                         "sliceUpdateChance": 0,
-                        "sliceSize": "0"
+                        "sliceSize": "0-0"
                     }
                 },
-                "sliceAddChance": 0.05,
+                "sliceAddChance": 0.1,
                 "sliceAddCount": "2-4",
-                "sliceDeleteChance": 0.05,
+                "sliceDeleteChance": 0.1,
                 "sliceDeleteCount": "2-4",
-                "sliceSize": "2-16",
+                "sliceSize": "4-16",
                 "sliceUpdateChance": 0.5,
                 "sliceUpdateCount": "2-4"
             },
@@ -117,16 +119,16 @@ data:
                 "sliceAddChance": 0,
                 "sliceDeleteChance": 0,
                 "sliceUpdateChance": 0,
-                "sliceSize": "2-8"
+                "sliceSize": "1-4"
             },
             "metaUpdateChance": 0,
-            "sliceAddChance": 0.05,
-            "sliceAddCount": "1-4",
-            "sliceDeleteChance": 0.05,
-            "sliceDeleteCount": "1-4",
-            "sliceSize": "32-256",
-            "sliceUpdateChance": 0.25,
-            "sliceUpdateCount": "2-8"
+            "sliceAddChance": 0.1,
+            "sliceAddCount": "2-4",
+            "sliceDeleteChance": 0.1,
+            "sliceDeleteCount": "2-4",
+            "sliceSize": "128-256",
+            "sliceUpdateChance": 0.5,
+            "sliceUpdateCount": "4-16"
         },
         "RemoteEndpoints": {
             "Replicas": {
@@ -139,9 +141,11 @@ data:
             "metaUpdateChance": 0,
             "node": "",
             "nodeSelector": "kfuzz.cilium.io/fake-node=true",
-            "sliceAddChance": 0,
-            "sliceDeleteChance": 0,
-            "sliceUpdateChance": 0,
-            "sliceSize": "0"
+            "sliceAddChance": 0.25,
+            "sliceAddCount": "4-16",
+            "sliceDeleteChance": 0.25,
+            "sliceDeleteCount": "4-16",
+            "sliceSize": "1024-2048",
+            "sliceUpdateChance": 0
         }
     }

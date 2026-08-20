@@ -8,5 +8,5 @@ roleRef:
   name: cluster-admin
 subjects:
 - kind: ServiceAccount
-  name: {{.svcAccountRefName}}
+  name: "{{.Name}}"
   namespace: {{.targetNamespace}}

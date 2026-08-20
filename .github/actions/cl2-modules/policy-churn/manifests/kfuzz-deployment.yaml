@@ -1,19 +1,20 @@
 {{$image := .image}}
-{{$ciliumNamespace := .ciliumNamespace}}
-{{$svcAccountRefName := .svcAccountRefName}}
-{{$configMapRefName := .configMapRefName}}
+
+{{$svcAccountRefName := printf "%s-%d" .svcAccountRefName .Index}}
+{{$configMapRefName := printf "%s-%d" .configMapRefName .Index}}
+
 {{$tickInterval := .tickInterval}}
 {{$clientTuningSet := .clientTuningSet}}
 {{$clientQPS := .clientQPS}}
 {{$clientBurstSize := .clientBurstSize}}
 {{$clientStepDelay := .clientStepDelay}}
 {{$terminationGracePeriodSeconds := .terminationGracePeriodSeconds}}
+{{$skipCleanup := .skipResourceCleanup}}
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{.Name}}
-  namespace: {{$ciliumNamespace}}
   labels:
     app.kubernetes.io/name: kfuzz
 spec:
@@ -41,6 +42,7 @@ spec:
         - --client-qps={{$clientQPS}}
         - --client-burst-size={{$clientBurstSize}}
         - --client-step-delay={{$clientStepDelay}}
+        - --skip-cleanup={{$skipCleanup}}
         volumeMounts:
         - name: kfuzz-config
           mountPath: /etc/kfuzz
@@ -54,4 +56,3 @@ spec:
       - name: kfuzz-config
         configMap:
           name: {{$configMapRefName}}
-

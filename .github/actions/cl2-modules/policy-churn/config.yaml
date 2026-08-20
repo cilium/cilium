@@ -17,7 +17,8 @@
 {{$KFUZZ_CLIENT_QPS := DefaultParam .CL2_KFUZZ_CLIENT_QPS 64}}
 {{$KFUZZ_CLIENT_BURST_SIZE := DefaultParam .CL2_KFUZZ_CLIENT_BURST_SIZE 128}}
 {{$KFUZZ_CLIENT_STEP_DELAY := DefaultParam .CL2_KFUZZ_CLIENT_STEP_DELAY "1s"}}
-{{$KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS := DefaultParam .CL2_KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS 600}}
+{{$KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS := DefaultParam .CL2_KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS 900}}
+{{$KFUZZ_SKIP_RESOURCE_CLEANUP := DefaultParam .CL2_KFUZZ_SKIP_RESOURCE_CLEANUP false}}
 
 {{$ENABLE_VIOLATIONS := DefaultParam .CL2_ENABLE_VIOLATIONS false}}
 
@@ -37,12 +38,10 @@ steps:
 - name: Create fake nodes
   phases:
   - replicasPerNamespace: {{$NUM_FAKE_NODES}}
-    tuningSet: Sequential
+    tuningSet: Default
     objectBundle:
     - basename: fake-node
       objectTemplatePath: ./manifests/node.yaml
-
-# TODO: Create kfuzz namespace required for churn.
 
 - module:
     path: ./modules/kwok.yaml
@@ -87,6 +86,7 @@ steps:
       clientBurstSize: {{$KFUZZ_CLIENT_BURST_SIZE}}
       clientStepDelay: {{$KFUZZ_CLIENT_STEP_DELAY}}
       terminationGracePeriodSeconds: {{$KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS}}
+      skipResourceCleanup: {{$KFUZZ_SKIP_RESOURCE_CLEANUP}}
 
 - name: Waiting for KFuzz to churn test resources.
   measurements:
@@ -106,7 +106,6 @@ steps:
     path: ./modules/kfuzz.yaml
     params:
       actionName: "delete"
-      replicas: 0
       tuningSet: Sequential
       image: {{$KFUZZ_DOCKER_IMAGE}}
       ciliumNamespace: {{$CILIUM_NAMESPACE}}
@@ -118,8 +117,9 @@ steps:
       clientBurstSize: {{$KFUZZ_CLIENT_BURST_SIZE}}
       clientStepDelay: {{$KFUZZ_CLIENT_STEP_DELAY}}
       terminationGracePeriodSeconds: {{$KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS}}
+      skipResourceCleanup: {{$KFUZZ_SKIP_RESOURCE_CLEANUP}}
 
-
+{{if not $KFUZZ_SKIP_RESOURCE_CLEANUP}}
 - name: Delete fake nodes
   phases:
   - replicasPerNamespace: 0
@@ -132,8 +132,8 @@ steps:
     path: ./modules/kwok.yaml
     params:
       actionName: "delete"
-      replicas: 0
       tuningSet: Sequential
       image: {{$KWOK_DOCKER_IMAGE}}
       ciliumNamespace: {{$CILIUM_NAMESPACE}}
       ciliumConfigMapName: {{$CILIUM_CONFIGMAP_NAME}}
+{{end}}

@@ -30,17 +30,9 @@ Create cluster with 3 node roles:
 | `CL2_KFUZZ_CLIENT_QPS`                       | `64`                     | kfuzz `--client-qps`.                                                                                                               |
 | `CL2_KFUZZ_CLIENT_BURST_SIZE`                | `128`                    | kfuzz `--client-burst-size`.                                                                                                        |
 | `CL2_KFUZZ_CLIENT_STEP_DELAY`                | `1s`                     | kfuzz `--client-step-delay` (only used by the `stepped` tuning set).                                                                |
-| `CL2_KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS` | `600`                    | Pod-level grace period for kfuzz's cleanup-on-delete hook; Time to wait for the pod to actually terminate before deleting its RBAC. |
+| `CL2_KFUZZ_SKIP_RESOURCE_CLEANUP`            | `false`                  | Skips cleanup of resources created by kfuzz(useful for debugging).                                                                  |
+| `CL2_KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS` | `900`                    | Pod-level grace period for kfuzz's cleanup-on-delete hook; Time to wait for the pod to actually terminate before deleting its RBAC. |
 | `CL2_ENABLE_VIOLATIONS`                      | `false`                  | Whether threshold breaches in `metrics.yaml` fail the test.                                                                         |
-
-### Test Validation
-
-Test validation is done using metrics measurements. The following metrics are measured:
-
-| Metric                                             | Threshold          | Description                                                            |
-| -------------------------------------------------- | ------------------ | ---------------------------------------------------------------------- |
-| `cilium_policy_implementation_delay_bucket`        | P90 < 5s, P50 < 1s | Latency between receiving a policy update and its datapth plumbing     |
-| `cilium_policy_incremental_update_duration_bucket` | P90 < 5s, P50 < 1s | Latency between receiving an identity update and its datapath plumbing |
 
 ## Running Locally
 
@@ -62,7 +54,7 @@ kubectl create namespace kfuzz
 
 cat <<EOF > /tmp/policy-churn-test-values.yaml
 debug:
-  enabled: true
+  enabled: false
 pprof:
   enabled: true
 
@@ -71,6 +63,9 @@ prometheus:
 operator:
   prometheus:
     enabled: true
+
+bpf:
+  policyMapMax: 65536
 
 healthChecking: false
 affinity:
@@ -85,7 +80,7 @@ affinity:
 envoy:
   enabled: true
   debug:
-    enabled: true
+    enabled: false
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:

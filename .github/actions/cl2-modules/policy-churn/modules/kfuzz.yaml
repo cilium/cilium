@@ -1,4 +1,3 @@
-{{$replicas := DefaultParam .replicas 1}}
 {{$actionName := .actionName}}
 {{$tuningSet := .tuningSet}}
 
@@ -13,30 +12,17 @@
 {{$clientBurstSize := .clientBurstSize}}
 {{$clientStepDelay := .clientStepDelay}}
 {{$terminationGracePeriodSeconds := .terminationGracePeriodSeconds}}
+{{$skipResourceCleanup := .skipResourceCleanup}}
+
+{{$replicas := 0}}
+{{if eq $actionName "create"}}
+{{$replicas = 1}}
+{{end}}
 
 steps:
 
-{{if eq $actionName "create"}}
-- name: create kfuzz RBAC and config
+- name: {{$actionName}} kfuzz scenario configmap {{$scenario}}
   phases:
-  - namespaceList: [{{$ciliumNamespace}}]
-    replicasPerNamespace: {{$replicas}}
-    tuningSet: {{$tuningSet}}
-    objectBundle:
-    - basename: kfuzz-sa
-      objectTemplatePath: ./manifests/service-account.yaml
-      templateFillMap:
-        targetNamespace: {{$ciliumNamespace}}
-
-  - replicasPerNamespace: {{$replicas}}
-    tuningSet: {{$tuningSet}}
-    objectBundle:
-    - basename: kfuzz-crb
-      objectTemplatePath: ./manifests/admin-role.yaml
-      templateFillMap:
-        svcAccountRefName: kfuzz-sa-0
-        targetNamespace: {{$ciliumNamespace}}
-
   - namespaceList: [{{$ciliumNamespace}}]
     replicasPerNamespace: {{$replicas}}
     tuningSet: {{$tuningSet}}
@@ -46,6 +32,17 @@ steps:
       templateFillMap:
         testNodeName: {{$testNodeName}}
         kfuzzNamespace: {{$ciliumNamespace}}
+
+{{if eq $actionName "create"}}
+
+- module:
+    path: ./modules/rbac.yaml
+    params:
+      replicas: 1
+      actionName: create
+      tuningSet: {{$tuningSet}}
+      serviceAccountName: kfuzz
+      serviceAccountNamespace: {{$ciliumNamespace}}
 
 - name: Starting measurement for kfuzz to be running
   measurements:
@@ -58,27 +55,28 @@ steps:
       namespace: {{$ciliumNamespace}}
       labelSelector: app.kubernetes.io/name=kfuzz
       operationTimeout: 1m
+
 {{end}}
 
-- name: {{$actionName}} kfuzz
+- name: {{$actionName}} kfuzz deployment
   phases:
   - namespaceList: [{{$ciliumNamespace}}]
     replicasPerNamespace: {{$replicas}}
     tuningSet: {{$tuningSet}}
     objectBundle:
-    - basename: kfuzz-deployment
+    - basename: kfuzz
       objectTemplatePath: ./manifests/kfuzz-deployment.yaml
       templateFillMap:
         image: {{$image}}
-        ciliumNamespace: {{$ciliumNamespace}}
-        svcAccountRefName: kfuzz-sa-0
-        configMapRefName: kfuzz-config-0
+        svcAccountRefName: kfuzz
+        configMapRefName: kfuzz-config
         tickInterval: {{$tickInterval}}
         clientTuningSet: {{$clientTuningSet}}
         clientQPS: {{$clientQPS}}
         clientBurstSize: {{$clientBurstSize}}
         clientStepDelay: {{$clientStepDelay}}
         terminationGracePeriodSeconds: {{$terminationGracePeriodSeconds}}
+        skipResourceCleanup: {{$skipResourceCleanup}}
 
 {{if eq $actionName "create"}}
 
@@ -108,35 +106,13 @@ steps:
       - app.kubernetes.io/name=kfuzz
       - --timeout={{$terminationGracePeriodSeconds}}s
 
-- name: Delete kfuzz RBAC and config
-  phases:
-  - namespaceList: [{{$ciliumNamespace}}]
-    replicasPerNamespace: {{$replicas}}
-    tuningSet: {{$tuningSet}}
-    objectBundle:
-    - basename: kfuzz-sa
-      objectTemplatePath: ./manifests/service-account.yaml
-      templateFillMap:
-        targetNamespace: {{$ciliumNamespace}}
-
-  - replicasPerNamespace: {{$replicas}}
-    tuningSet: {{$tuningSet}}
-    objectBundle:
-    - basename: kfuzz-crb
-      objectTemplatePath: ./manifests/admin-role.yaml
-      templateFillMap:
-        svcAccountRefName: kfuzz-sa-0
-        targetNamespace: {{$ciliumNamespace}}
-
-  - namespaceList: [{{$ciliumNamespace}}]
-    replicasPerNamespace: {{$replicas}}
-    tuningSet: {{$tuningSet}}
-    objectBundle:
-    - basename: kfuzz-config
-      objectTemplatePath: ./scenarios/{{$scenario}}.yaml
-      templateFillMap:
-        testNodeName: {{$testNodeName}}
-        kfuzzNamespace: {{$ciliumNamespace}}
+- module:
+    path: ./modules/rbac.yaml
+    params:
+      replicas: 0
+      actionName: delete
+      tuningSet: {{$tuningSet}}
+      serviceAccountName: kfuzz
+      serviceAccountNamespace: {{$ciliumNamespace}}
 
 {{end}}
-

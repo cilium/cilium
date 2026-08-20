@@ -1,13 +1,14 @@
 {{$image := .image}}
+
 {{$ciliumNamespace := .ciliumNamespace}}
 {{$ciliumConfigMapName := .ciliumConfigMapName}}
-{{$svcAccountRefName := .svcAccountRefName}}
+
+{{$svcAccountRefName := printf "%s-%d" .svcAccountRefName .Index}}
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{.Name}}
-  namespace: {{$ciliumNamespace}}
   labels:
     app.kubernetes.io/name: kwok-controller
 spec:
