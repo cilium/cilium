@@ -12,8 +12,9 @@ import (
 )
 
 type reachableSpec struct {
-	*ebpf.ProgramSpec
 	*analyze.Reachable
+
+	prog *ebpf.ProgramSpec
 }
 
 type reachables map[string]*reachableSpec
@@ -33,7 +34,7 @@ func computeReachability(spec *ebpf.CollectionSpec) (reachables, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
 		}
-		out[name] = &reachableSpec{prog, r}
+		out[name] = &reachableSpec{r, prog}
 	}
 
 	return out, nil
