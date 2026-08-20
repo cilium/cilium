@@ -163,23 +163,15 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 			return ret;
 	}
 
-	/* When BPF host routing is enabled we need to check policies at source, as in
-	 * this case the skb is delivered directly to pod's namespace and the ingress
-	 * policy (the cil_to_container BPF program) is bypassed.
+	/* Exactly one program enforces ingress policy per delivery. With
+	 * endpoint routes a plain redirect() runs cil_to_container, which
+	 * enforces, so don't evaluate here - only set the identity mark it
+	 * reads. redirect_peer() skips cil_to_container, so those fall through
+	 * to the tail-call. Keep this the exact inverse of
+	 * should_redirect_peer().
 	 */
 	use_redirect_peer = should_redirect_peer(ctx, from_host);
-	if (CONFIG(enable_endpoint_routes) && !use_redirect_peer &&
-	    /* We need to enforce policies at the source in case of netkit
-	     * devices because we can't redirect to proxy from bpf_lxc. That
-	     * needs a fix upstream. This must stay in sync with the predicate
-	     * in should_redirect_peer(): whenever we fall through to the policy
-	     * tail-call below and then do a plain redirect() into the lxc device
-	     * (should_redirect_peer() == false), endpoint routes would enforce
-	     * ingress policy a second time. On netkit that case is phys/host
-	     * ingress (ingress_ifindex > 0); there we must enforce at the source
-	     * here instead.
-	     */
-	    (!CONFIG(enable_netkit) || ctx_get_ingress_ifindex(ctx) > 0)) {
+	if (CONFIG(enable_endpoint_routes) && !use_redirect_peer) {
 		set_identity_mark(ctx, seclabel, magic);
 
 # if !defined(ENABLE_NODEPORT)
