@@ -65,7 +65,7 @@ type nodePortAddrReconciler struct {
 }
 
 func (r *nodePortAddrReconciler) getAddrs(txn statedb.ReadTxn) ([]netip.Addr, <-chan struct{}) {
-	iter, watch := r.nodeAddrs.ListWatch(txn, tables.NodeAddressNodePortIndex.Query(true))
+	iter, watch := r.nodeAddrs.ListWatch(txn, tables.NodeAddressesByNodePort(true))
 	return statedb.Collect(
 		statedb.Map(iter, func(addr tables.NodeAddress) netip.Addr { return addr.Addr }),
 	), watch
