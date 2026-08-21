@@ -4,7 +4,7 @@
 package api
 
 import (
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -59,13 +59,21 @@ func TestContainsSubnet(t *testing.T) {
 			args: args{"::/0", "f00d::a10:0:0:1234/64"},
 			want: true,
 		},
+		{
+			args: args{"10.10.0.0/16", "f00d::a10:0:0:1234/64"},
+			want: false,
+		},
+		{
+			args: args{"f00d::a10:0:0:0/64", "10.10.0.0/16"},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
-		_, outer, err := net.ParseCIDR(tt.args.outer)
+		outer, err := netip.ParsePrefix(tt.args.outer)
 		require.NoError(t, err)
-		_, inner, err := net.ParseCIDR(tt.args.inner)
+		inner, err := netip.ParsePrefix(tt.args.inner)
 		require.NoError(t, err)
-		got := containsSubnet(*outer, *inner)
+		got := containsSubnet(outer, inner)
 		require.Equalf(t, tt.want, got, "expected containsSubnet(%q, %q) = %t, got %t", tt.args.outer, tt.args.inner, tt.want, got)
 	}
 }
