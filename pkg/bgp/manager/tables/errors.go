@@ -59,7 +59,7 @@ func (k BGPReconcileErrorKey) Key() index.Key {
 }
 
 var (
-	BGPReconcileErrorIndex = statedb.Index[*BGPReconcileError, BGPReconcileErrorKey]{
+	bgpReconcileErrorIndex = statedb.Index[*BGPReconcileError, BGPReconcileErrorKey]{
 		Name: "key",
 		FromObject: func(obj *BGPReconcileError) index.KeySet {
 			return index.NewKeySet(
@@ -72,7 +72,7 @@ var (
 		FromKey: BGPReconcileErrorKey.Key,
 		Unique:  true,
 	}
-	BGPReconcileErrorInstance = statedb.Index[*BGPReconcileError, string]{
+	bgpReconcileErrorInstanceIndex = statedb.Index[*BGPReconcileError, string]{
 		Name: "Instance",
 		FromObject: func(obj *BGPReconcileError) index.KeySet {
 			return index.NewKeySet(index.String(obj.Instance))
@@ -81,13 +81,16 @@ var (
 		FromString: index.FromString,
 		Unique:     false,
 	}
+
+	// BGPReconcileErrorsByInstance queries the BGP reconcile error table by instance.
+	BGPReconcileErrorsByInstance = bgpReconcileErrorInstanceIndex.Query
 )
 
 func NewBGPReconcileErrorTable(db *statedb.DB) (statedb.RWTable[*BGPReconcileError], error) {
 	return statedb.NewTable(
 		db,
 		"bgp-reconcile-errors",
-		BGPReconcileErrorIndex,
-		BGPReconcileErrorInstance,
+		bgpReconcileErrorIndex,
+		bgpReconcileErrorInstanceIndex,
 	)
 }
