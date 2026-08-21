@@ -113,11 +113,8 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if err := r.gatewayAddressStatusManager.VerifyGatewayStaticAddresses(gw); err != nil {
-		scopedLog.ErrorContext(ctx, "Unsupported Gateway address", logfields.Error, err)
-		setGatewayAccepted(gw, false, "Unsupported Gateway address, "+err.Error(), gatewayv1.GatewayReasonUnsupportedAddress)
-		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	if !r.gatewayAddressStatusManager.ValidateStaticAddresses(gw) {
+		return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid Gateway static addresses"), original, gw)
 	}
 
 	inputs, err := r.inputLoader.Load(ctx, scopedLog, gw, gwc)
