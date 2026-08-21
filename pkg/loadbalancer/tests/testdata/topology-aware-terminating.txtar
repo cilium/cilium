@@ -32,7 +32,7 @@ db/cmp frontends frontends-both.table
 cp endpointslice2.yaml endpointslice2-terminating.yaml
 sed 'ready: true' 'ready: false' endpointslice2-terminating.yaml
 sed 'terminating: false' 'terminating: true' endpointslice2-terminating.yaml
-sed 'forZones:' 'notForZones:' endpointslice2-terminating.yaml
+sed '- name: foo' '' endpointslice2-terminating.yaml
 k8s/update endpointslice2-terminating.yaml
 db/cmp backends backends-one-terminating.table
 db/cmp frontends frontends-only-eps1.table
@@ -44,7 +44,7 @@ db/cmp frontends frontends-only-eps1.table
 cp endpointslice1.yaml endpointslice1-terminating.yaml
 sed 'ready: true' 'ready: false' endpointslice1-terminating.yaml
 sed 'terminating: false' 'terminating: true' endpointslice1-terminating.yaml
-sed 'forZones:' 'notForZones:' endpointslice1-terminating.yaml
+sed '- name: foo' '' endpointslice1-terminating.yaml
 k8s/update endpointslice1-terminating.yaml
 db/cmp backends backends-both-terminating.table
 db/cmp frontends frontends-both-terminating.table
