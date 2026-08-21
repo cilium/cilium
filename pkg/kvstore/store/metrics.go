@@ -4,14 +4,16 @@
 package store
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 type Metrics struct {
-	KVStoreSyncQueueSize        metric.Vec[metric.Gauge]
-	KVStoreSyncErrors           metric.Vec[metric.Counter]
-	KVStoreInitialSyncCompleted metric.Vec[metric.Gauge]
+	KVStoreSyncQueueSize        metric.DeletableVec[metric.Gauge]
+	KVStoreSyncErrors           metric.DeletableVec[metric.Counter]
+	KVStoreInitialSyncCompleted metric.DeletableVec[metric.Gauge]
 }
 
 func MetricsProvider() *Metrics {
@@ -35,4 +37,10 @@ func MetricsProvider() *Metrics {
 			Help:      "Whether the initial synchronization from/to the kvstore has completed",
 		}, []string{metrics.LabelScope, metrics.LabelSourceCluster, metrics.LabelAction}),
 	}
+}
+
+func (m *Metrics) DeRegister(sourceCluster string) {
+	m.KVStoreSyncQueueSize.DeletePartialMatch(prometheus.Labels{metrics.LabelSourceCluster: sourceCluster})
+	m.KVStoreSyncErrors.DeletePartialMatch(prometheus.Labels{metrics.LabelSourceCluster: sourceCluster})
+	m.KVStoreInitialSyncCompleted.DeletePartialMatch(prometheus.Labels{metrics.LabelSourceCluster: sourceCluster})
 }
