@@ -120,6 +120,7 @@ jobs:
           registry_organization: ${{ vars.DOCKER_READ_ORG }}
           chart-dir: ./untrusted/install/kubernetes/cilium
           image-pull-secret: "cilium-registry"
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       - name: Get connectivity test flags
         id: e2e_config

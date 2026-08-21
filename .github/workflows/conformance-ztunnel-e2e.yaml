@@ -162,6 +162,7 @@ jobs:
           encryption: 'ztunnel'
           mutual-auth: false
           image-pull-secret: "cilium-registry"
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       - name: Set Kind params
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}

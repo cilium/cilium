@@ -184,6 +184,7 @@ jobs:
           registry_host: ${{ vars.DOCKER_READ_HOST }}
           registry_organization: ${{ vars.DOCKER_READ_ORG }}
           image-pull-secret: "cilium-registry"
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       - name: Get connectivity test flags
         id: e2e_config
@@ -448,6 +449,7 @@ jobs:
           registry_host: ${{ vars.DOCKER_READ_HOST }}
           registry_organization: ${{ env.ORGANIZATION_STAGING }}
           image-pull-secret: "cilium-registry"
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       - name: Wait for images to be available (downgrade)
         timeout-minutes: 10

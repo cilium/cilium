@@ -362,9 +362,14 @@ jobs:
             --query 'Subnets[*].CidrBlock' --output text)
           echo "Retrieved native routing CIDR: '${NATIVE_CIDR_BLOCK}'"
 
+          PULL_SECRET=""
+          if [ "${{ vars.DOCKER_AUTH_REQUIRED }}" == "true" ]; then
+            PULL_SECRET="--helm-set=imagePullSecrets[0].name=cilium-registry"
+          fi
+
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
             --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443 \
-            --helm-set=imagePullSecrets[0].name=cilium-registry \
+            $PULL_SECRET \
             --set=ipv4NativeRoutingCIDR="${NATIVE_CIDR_BLOCK}"
 
       - name: Delete context ref

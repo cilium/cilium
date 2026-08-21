@@ -173,6 +173,7 @@ jobs:
           mutual-auth: false
           misc: 'bpfClockProbe=false,cni.uninstall=false'
           image-pull-secret: "cilium-registry"
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       - name: Install Cilium CLI
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}

@@ -70,6 +70,9 @@ inputs:
   image-pull-secret:
     description: 'Image pull secret to access Cilium images'
     default: ''
+  auth-required:
+    description: 'Variable setting up if auth is required or not. Can be found in the repository variable under DOCKER_AUTH_REQUIRED name'
+    default: 'true'
   registry_host:
     description: 'Registry host for Cilium images'
     default: 'quay.io'
@@ -230,7 +233,7 @@ runs:
           fi
 
           PULL_SECRET=""
-          if [ "${{ inputs.image-pull-secret }}" != "" ]; then
+          if [ "${{ inputs.auth-required }}" == "true" ] && [ "${{ inputs.image-pull-secret }}" != "" ]; then
             PULL_SECRET=" --helm-set=imagePullSecrets[0].name=${{ inputs.image-pull-secret }}"
           fi
 

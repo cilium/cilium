@@ -359,6 +359,7 @@ jobs:
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
           bgp-control-plane: ${{ matrix.bgp-control-plane }}
           image-pull-secret: "cilium-registry"
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       - name: Derive newest Cilium installation config
         id: cilium-newest-config
@@ -390,6 +391,7 @@ jobs:
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
           bgp-control-plane: ${{ matrix.bgp-control-plane }}
           image-pull-secret: "cilium-registry"
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       - name: Set Kind params
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
