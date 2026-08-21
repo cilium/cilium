@@ -26,7 +26,6 @@
 #include "trace.h"
 #include "ghash.h"
 #include "host_firewall.h"
-#include "stubs.h"
 #include "proxy_hairpin.h"
 #include "fib.h"
 #include "srv6.h"
@@ -44,6 +43,15 @@ DECLARE_CONFIG(union v6addr, ipv6_rss_prefix,
 	       "IPv6 source prefix used for DSR IPIP RSS")
 DECLARE_CONFIG(__u8, ipv6_rss_prefix_bits,
 	       "Prefix length of the IPv6 DSR IPIP RSS source prefix")
+#endif
+
+/* Define dummy values to make bpf_{lxc,overlay}.c to compile */
+#ifdef ENABLE_NODEPORT
+# ifndef DSR_ENCAP_MODE
+#  define DSR_ENCAP_MODE 0
+#  define DSR_ENCAP_IPIP 2
+#  define DSR_ENCAP_GENEVE 3
+# endif
 #endif
 
 /* Evaluate the input values for detecting compilation errors.
