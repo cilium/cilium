@@ -977,7 +977,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 
 	svcKey := serviceKey(ss.svc)
 
-	entriesIter := tbl.List(txn, tables.L2AnnounceOriginIndex.Query(svcKey))
+	entriesIter := tbl.List(txn, tables.L2AnnouncesByOrigin(svcKey))
 
 	// If we are not the leader, we should not have any proxy entries for the service.
 	if !ss.currentlyLeader {
@@ -1056,7 +1056,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 		}
 
 		entry := desiredEntries[key]
-		existing, _, _ := tbl.Get(txn, tables.L2AnnounceIDIndex.Query(tables.L2AnnounceKey{
+		existing, _, _ := tbl.Get(txn, tables.L2AnnounceByID(tables.L2AnnounceKey{
 			IP:               entry.IP,
 			NetworkInterface: entry.NetworkInterface,
 		}))

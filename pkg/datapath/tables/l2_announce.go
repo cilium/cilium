@@ -41,7 +41,7 @@ func (pne *L2AnnounceEntry) DeepCopy() *L2AnnounceEntry {
 }
 
 var (
-	L2AnnounceIDIndex = statedb.Index[*L2AnnounceEntry, L2AnnounceKey]{
+	l2AnnounceIDIndex = statedb.Index[*L2AnnounceEntry, L2AnnounceKey]{
 		Name: "id",
 		FromObject: func(b *L2AnnounceEntry) index.KeySet {
 			return index.NewKeySet(b.Key())
@@ -58,7 +58,7 @@ var (
 		Unique: true,
 	}
 
-	L2AnnounceOriginIndex = statedb.Index[*L2AnnounceEntry, types.NamespacedName]{
+	l2AnnounceOriginIndex = statedb.Index[*L2AnnounceEntry, types.NamespacedName]{
 		Name: "origin",
 		FromObject: func(b *L2AnnounceEntry) index.KeySet {
 			return index.StringerSlice(b.Origins)
@@ -66,14 +66,20 @@ var (
 		FromKey:    index.Stringer[types.NamespacedName],
 		FromString: index.FromString,
 	}
+
+	// L2AnnounceByID queries the L2 announce table by entry key.
+	L2AnnounceByID = l2AnnounceIDIndex.Query
+
+	// L2AnnouncesByOrigin queries the L2 announce table by origin.
+	L2AnnouncesByOrigin = l2AnnounceOriginIndex.Query
 )
 
 func NewL2AnnounceTable(db *statedb.DB) (statedb.RWTable[*L2AnnounceEntry], error) {
 	return statedb.NewTable(
 		db,
 		"l2-announce",
-		L2AnnounceIDIndex,
-		L2AnnounceOriginIndex,
+		l2AnnounceIDIndex,
+		l2AnnounceOriginIndex,
 	)
 }
 
