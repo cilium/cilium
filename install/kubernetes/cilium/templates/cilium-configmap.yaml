@@ -1420,7 +1420,7 @@ data:
 {{- end }}
 
 {{- if ne .Values.operator.unmanagedPodWatcher.selector nil }}
-  pod-restart-selector: {{ .Values.operator.unmanagedPodWatcher.selector }}
+  pod-restart-selector: {{ .Values.operator.unmanagedPodWatcher.selector | quote }}
 {{- end }}
 
 {{- if .Values.dnsProxy }}
