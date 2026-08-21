@@ -1,17 +1,23 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#pragma once
+
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_SCTP
-#define ENABLE_IPV4
-#define ENABLE_IPV6
-#define ENABLE_NODEPORT
+#define ENABLE_SCTP			1
+#define ENABLE_IPV4			1
+#define ENABLE_IPV6			1
+#define ENABLE_NODEPORT			1
 #define ENABLE_MASQUERADE_IPV6		1
 
-#include "lib/bpf_host.h"
+#define NODE_ONE6 { .addr = v6_node_one_addr }
+#define EXT_IP6 { .addr = v6_ext_node_one_addr }
+#define POD_IP6 { .addr = v6_pod_one_addr }
+
+#define POD6_SEC_IDENTITY 112244
 
 #include <bpf/config/node.h>
 
@@ -22,25 +28,13 @@
 #include <lib/nat.h>
 #include <lib/time.h>
 
-#include <bpf/helpers.h>
-#include <bpf/api.h>
+ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, { .addr = v6_node_one_addr })
 
-#include <bpf/ctx/skb.h>
-#include <bpf/api.h>
-#include <bpf/config/node.h>
-
-#define DEBUG
-
-#include <lib/dbg.h>
-#include <lib/eps.h>
-#include <lib/nat.h>
-#include <lib/time.h>
+#include "scapy.h"
 
 #include "bpf_nat_tuples.h"
 
-#define NODE_ONE { .addr = v6_node_one_addr }
-#define EXT_IP { .addr = v6_ext_node_one_addr }
-#define POD_IP { .addr = v6_pod_one_addr }
+#include "lib/endpoint.h"
 
 /*
  * Input packet represents a device sending a PKT_TOO_BIG response ICMPv6
@@ -87,124 +81,144 @@
  *
  * Ref: https://datatracker.ietf.org/doc/html/rfc4443#section-3.2
  */
-__always_inline int gen_pmtu_pkt(struct pktgen *builder, int l4_type)
+const __u8 icmp6_err_revnat_egress_tcp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_egress_tcp)
+};
+const __u8 icmp6_err_revnat_egress_post_tcp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_egress_post_tcp)
+};
+const __u8 icmp6_err_revnat_egress_udp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_egress_udp)
+};
+const __u8 icmp6_err_revnat_egress_post_udp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_egress_post_udp)
+};
+const __u8 icmp6_err_revnat_full_tcp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_full_tcp)
+};
+const __u8 icmp6_err_revnat_full_tcp_after[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_full_tcp_after)
+};
+const __u8 icmp6_err_revnat_full_udp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_full_udp)
+};
+const __u8 icmp6_err_revnat_full_udp_after[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_full_udp_after)
+};
+
+/*
+ * Push an egressing pod->external TCP packet through to-netdev and let the
+ * datapath set up nat mappings due to node ip masquerading. 
+ * Exploit the fact that tests are run in alphabetical order to ensure this
+ * happens before we check the icmp pmtud revSNAT mappings.
+ */
+PKTGEN(PROG_TYPE, "00_snat_v6_tcp_egress")
+int snat_v6_egress_pktgen(struct __ctx_buff *ctx)
 {
-	struct ipv6hdr *inner_l3 = NULL;
-	struct icmp6hdr *l4 = NULL;
-	struct tcphdr *inner_l4 = NULL;
-	struct udphdr *inner_l4_udp = NULL; /* compiler complains if this isn't init to null? */
-	struct sctphdr *inner_l4_sctp = NULL;
-	void *data = NULL;
+	struct pktgen builder;
 
-	l4 = pktgen__push_ipv6_icmp6_packet(builder,
-					    (__u8 *)mac_one,
-					    (__u8 *)mac_two,
-					    (__u8 *)v6_ext_node_one,
-					    (__u8 *)v6_node_one,
-					    ICMPV6_PKT_TOOBIG);
-	if (!l4)
-		return TEST_FAIL;
-
-	inner_l3 = pktgen__push_default_ipv6hdr(builder);
-	if (!inner_l3)
-		return TEST_FAIL;
-
-	inner_l3->nexthdr = (__u8)l4_type;
-	ipv6hdr__set_addrs(inner_l3, (__u8 *)v6_node_one, (__u8 *)v6_ext_node_one);
-
-	switch (l4_type) {
-	case IPPROTO_TCP:
-		inner_l4 = pktgen__push_default_tcphdr(builder);
-		if (!inner_l4)
-			return TEST_FAIL;
-		/* original source */
-		inner_l4->dest = 1234;
-		inner_l4->source = 30001;
-		break;
-	case IPPROTO_UDP:
-		inner_l4_udp = pktgen__push_default_udphdr(builder);
-		if (!inner_l4_udp)
-			return TEST_FAIL;
-		inner_l4_udp->dest = 1234;
-		inner_l4_udp->source = 30001;
-		break;
-	case IPPROTO_SCTP:
-		inner_l4_sctp = pktgen__push_default_sctphdr(builder);
-		if (!inner_l4_udp)
-			return TEST_FAIL;
-		inner_l4_sctp->dest = 1234;
-		inner_l4_sctp->source = 30001;
-		break;
-	default:
-		return TEST_FAIL;
-	}
-
-	data = pktgen__push_data(builder, default_data, sizeof(default_data));
-	if (!data)
-		return TEST_FAIL;
-
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp6_err_revnat_egress_tcp,
+			sizeof(icmp6_err_revnat_egress_tcp));
+	pktgen__finish(&builder);
 	return TEST_PASS;
 }
 
-int snat_v6_insert_ct_nat(__u8 proto)
+SETUP(PROG_TYPE, "00_snat_v6_tcp_egress")
+int snat_v6_egress_setup(struct __ctx_buff *ctx)
 {
-	struct ipv6_nat_entry entry = {
-		.to_daddr = POD_IP,
-	};
-	entry.to_sport = 0;
-	entry.to_dport = 20;
-	struct ipv6_ct_tuple tuple = {
-		.daddr   = NODE_ONE,
-		.saddr   = EXT_IP,
-		.dport   = 30001, /* SNAT remapped port */
-		.sport   = 1234,
-		.nexthdr = proto,
-		.flags = TUPLE_F_IN,
-	};
-	return map_update_elem(&cilium_snat_v6_external, &tuple, &entry, BPF_ANY);
+	union v6addr pod_ip = POD_IP6;
+
+	endpoint_v6_add_entry(&pod_ip, 0, 0, 0, POD6_SEC_IDENTITY,
+			      (__u8 *)mac_one, (__u8 *)mac_one);
+
+	return netdev_send_packet(ctx);
 }
 
-int do_icmp6_pkt_too_big_check(const struct __ctx_buff *ctx)
+/*
+ * Add a check prior to moving onto actual icmp pmtu icmp testing
+ * to quickly fail if priror steps did not setup expected nat state
+ */
+CHECK(PROG_TYPE, "00_snat_v6_tcp_egress")
+int snat_v6_egress_check(const struct __ctx_buff *ctx)
 {
-	struct ipv6hdr *l3 = NULL;
-	struct ipv6hdr *inner_l3 = NULL;
-	void *l4 = NULL;
-	void *data = (void *)(long)ctx->data;
-	void *data_end = (void *)(long)ctx->data_end;
+	test_init();
 
-	if (data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr) +
-		2 * sizeof(__u16) > data_end)
-		return TEST_FAIL;
+	ASSERT_CTX_BUF_OFF("snat_v6_egress", "Ether", ctx, sizeof(__u32),
+			   icmp6_err_revnat_egress_post_tcp,
+			   sizeof(icmp6_err_revnat_egress_post_tcp));
 
-	l3 = (struct ipv6hdr *)(data + sizeof(__u32) + sizeof(struct ethhdr));
-	if (memcmp(&l3->daddr, (void *)v6_pod_one, 16) > 0)
-		return TEST_FAIL;
+	union v6addr pod_ip = POD_IP6;
+	struct ipv6_ct_tuple tuple = {
+		.daddr   = NODE_ONE6,
+		.saddr   = EXT_IP6,
+		.dport   = tcp_src_two,
+		.sport   = tcp_dst_one,
+		.nexthdr = IPPROTO_TCP,
+		.flags   = NAT_DIR_INGRESS,
+	};
+	struct ipv6_nat_entry *entry = map_lookup_elem(&cilium_snat_v6_external,
+						      &tuple);
 
-	if (memcmp(&l3->saddr, (void *)v6_ext_node_one, 16) > 0)
-		return TEST_FAIL;
+	if (!entry)
+		test_fatal("no revSNAT entry created by to-netdev");
+	if (!ipv6_addr_equals(&entry->to_daddr, &pod_ip))
+		test_fatal("revSNAT entry to_daddr is not the pod IP");
+	if (entry->to_dport != tcp_src_two)
+		test_fatal("revSNAT entry to_dport is not the pod source port");
 
-	if (l3->nexthdr != IPPROTO_ICMPV6)
-		return TEST_FAIL;
+	test_finish();
+}
 
-	inner_l3 = (struct ipv6hdr *)(data + sizeof(__u32) +
-		sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct icmp6hdr));
+PKTGEN(PROG_TYPE, "01_snat_v6_udp_egress")
+int snat_v6_egress_udp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
 
-	if (memcmp(&inner_l3->daddr, (void *)v6_ext_node_one, 16) > 0)
-		return TEST_FAIL;
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp6_err_revnat_egress_udp,
+			sizeof(icmp6_err_revnat_egress_udp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
 
-	if (memcmp(&inner_l3->saddr, (void *)v6_pod_one, 16) > 0)
-		return TEST_FAIL;
+SETUP(PROG_TYPE, "01_snat_v6_udp_egress")
+int snat_v6_egress_udp_setup(struct __ctx_buff *ctx)
+{
+	return netdev_send_packet(ctx);
+}
 
-	l4 = (void *)(data + sizeof(__u32) +
-		sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
-		sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr));
-	if (*((__u16 *)l4) != 20)
-		return TEST_FAIL;
-	if (*((__u16 *)(l4 + sizeof(__u16))) != 1234)
-		return TEST_FAIL;
-	return 0;
+CHECK(PROG_TYPE, "01_snat_v6_udp_egress")
+int snat_v6_egress_udp_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+
+	ASSERT_CTX_BUF_OFF("snat_v6_egress_udp", "Ether", ctx, sizeof(__u32),
+			   icmp6_err_revnat_egress_post_udp,
+			   sizeof(icmp6_err_revnat_egress_post_udp));
+
+	union v6addr pod_ip = POD_IP6;
+	struct ipv6_ct_tuple tuple = {
+		.daddr   = NODE_ONE6,
+		.saddr   = EXT_IP6,
+		.dport   = tcp_src_two,
+		.sport   = tcp_dst_one,
+		.nexthdr = IPPROTO_UDP,
+		.flags   = NAT_DIR_INGRESS,
+	};
+	struct ipv6_nat_entry *entry = map_lookup_elem(&cilium_snat_v6_external,
+						      &tuple);
+
+	if (!entry)
+		test_fatal("no revSNAT entry created by to-netdev");
+	if (!ipv6_addr_equals(&entry->to_daddr, &pod_ip))
+		test_fatal("revSNAT entry to_daddr is not the pod IP");
+	if (entry->to_dport != tcp_src_two)
+		test_fatal("revSNAT entry to_dport is not the pod source port");
+
+	test_finish();
 }
 
 PKTGEN("tc", "snat_v6_tcp_pmtu")
@@ -213,7 +227,9 @@ int snat_v6_pmtu_pktgen(struct __ctx_buff *ctx)
 	struct pktgen builder;
 
 	pktgen__init(&builder, ctx);
-	gen_pmtu_pkt(&builder, IPPROTO_TCP);
+	scapy_push_data(&builder,
+			icmp6_err_revnat_full_tcp,
+			sizeof(icmp6_err_revnat_full_tcp));
 	pktgen__finish(&builder);
 	return TEST_PASS;
 }
@@ -221,12 +237,6 @@ int snat_v6_pmtu_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "snat_v6_tcp_pmtu")
 int snat_v6_pmtu_setup(struct __ctx_buff *ctx)
 {
-	int ret;
-
-	ret = snat_v6_insert_ct_nat(IPPROTO_TCP);
-	if (ret < 0)
-		return TEST_FAIL;
-
 	return netdev_receive_packet(ctx);
 }
 
@@ -234,7 +244,9 @@ CHECK("tc", "snat_v6_tcp_pmtu")
 int snat_v6_pmtu_check(const struct __ctx_buff *ctx)
 {
 	test_init();
-	assert(do_icmp6_pkt_too_big_check(ctx) == 0);
+	ASSERT_CTX_BUF_OFF("snat_v6_tcp_pmtu", "Ether", ctx, sizeof(__u32),
+			   icmp6_err_revnat_full_tcp_after,
+			   sizeof(icmp6_err_revnat_full_tcp_after));
 	test_finish();
 
 	return 0;
@@ -246,7 +258,9 @@ int snat_v6_pmtu_udp_pktgen(struct __ctx_buff *ctx)
 	struct pktgen builder;
 
 	pktgen__init(&builder, ctx);
-	gen_pmtu_pkt(&builder, IPPROTO_UDP);
+	scapy_push_data(&builder,
+			icmp6_err_revnat_full_udp,
+			sizeof(icmp6_err_revnat_full_udp));
 	pktgen__finish(&builder);
 	return TEST_PASS;
 }
@@ -254,12 +268,6 @@ int snat_v6_pmtu_udp_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "snat_v6_udp_pmtu")
 int snat_v6_pmtu_udp_setup(struct __ctx_buff *ctx)
 {
-	int ret;
-
-	ret = snat_v6_insert_ct_nat(IPPROTO_UDP);
-	if (ret < 0)
-		return TEST_FAIL;
-
 	return netdev_receive_packet(ctx);
 }
 
@@ -267,7 +275,9 @@ CHECK("tc", "snat_v6_udp_pmtu")
 int snat_v6_pmtu_udp_check(const struct __ctx_buff *ctx)
 {
 	test_init();
-	assert(do_icmp6_pkt_too_big_check(ctx) == 0);
+	ASSERT_CTX_BUF_OFF("snat_v6_udp_pmtu", "Ether", ctx, sizeof(__u32),
+			   icmp6_err_revnat_full_udp_after,
+			   sizeof(icmp6_err_revnat_full_udp_after));
 	test_finish();
 
 	return 0;
