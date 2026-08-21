@@ -47,21 +47,25 @@ func (ns *EnrolledNamespace) Clone() *EnrolledNamespace {
 	return &e
 }
 
-// EnrolledNamespacesNameIndex allows looking up EnrolledNamespace by its name.
-var EnrolledNamespacesNameIndex = statedb.Index[*EnrolledNamespace, string]{
-	Name: "name",
-	FromObject: func(ns *EnrolledNamespace) index.KeySet {
-		return index.NewKeySet(index.String(ns.Name))
-	},
-	FromKey: index.String,
-	Unique:  true,
-}
+var (
+	enrolledNamespacesNameIndex = statedb.Index[*EnrolledNamespace, string]{
+		Name: "name",
+		FromObject: func(ns *EnrolledNamespace) index.KeySet {
+			return index.NewKeySet(index.String(ns.Name))
+		},
+		FromKey: index.String,
+		Unique:  true,
+	}
+
+	// EnrolledNamespaceByName queries the enrolled namespaces table by name.
+	EnrolledNamespaceByName = enrolledNamespacesNameIndex.Query
+)
 
 func NewEnrolledNamespacesTable(db *statedb.DB) (statedb.RWTable[*EnrolledNamespace], error) {
 	return statedb.NewTable(
 		db,
 		"mtls-enrolled-namespaces",
-		EnrolledNamespacesNameIndex,
+		enrolledNamespacesNameIndex,
 	)
 }
 

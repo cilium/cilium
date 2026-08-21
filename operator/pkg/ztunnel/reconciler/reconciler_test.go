@@ -428,7 +428,7 @@ func TestEnrollmentReconciler_Start_ErrorMetricsAndRequeue(t *testing.T) {
 
 		// Verify the namespace was requeued to pending for re-reconciliation.
 		require.Eventually(t, func() bool {
-			ns, _, found := enrolledTbl.Get(db.ReadTxn(), table.EnrolledNamespacesNameIndex.Query("enrolled-ns"))
+			ns, _, found := enrolledTbl.Get(db.ReadTxn(), table.EnrolledNamespaceByName("enrolled-ns"))
 			return found && ns.Status.Kind == reconciler.StatusKindPending
 		}, 5*time.Second, 10*time.Millisecond)
 	case <-time.After(5 * time.Second):
