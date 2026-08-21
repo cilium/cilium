@@ -62,10 +62,7 @@ type GC struct {
 	clusterInfo    cmtypes.ClusterInfo
 	allocationMode string
 
-	gcInterval       time.Duration
-	heartbeatTimeout time.Duration
-	gcRateInterval   time.Duration
-	gcRateLimit      int64
+	gcInterval time.Duration
 
 	wp             *workerpool.WorkerPool
 	heartbeatStore *heartbeatStore
@@ -105,9 +102,6 @@ func registerGC(p params) {
 		clusterInfo:         p.ClusterInfo,
 		allocationMode:      p.SharedCfg.IdentityAllocationMode,
 		gcInterval:          p.Cfg.Interval,
-		heartbeatTimeout:    p.Cfg.HeartbeatTimeout,
-		gcRateInterval:      p.Cfg.RateInterval,
-		gcRateLimit:         p.Cfg.RateLimit,
 		heartbeatStore: newHeartbeatStore(
 			p.Cfg.HeartbeatTimeout,
 			p.Logger,
