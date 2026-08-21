@@ -49,7 +49,6 @@ type DaemonConfigForFeatDetection struct {
 	EnableICMPRules                  bool
 	EnableHealthChecking             bool
 	EnableEndpointHealthChecking     bool
-	EncryptNode                      bool
 	NodeEncryptionOptOutLabelsString string
 	EnableK8sNetworkPolicy           bool
 	EnableK8sClusterNetworkPolicy    bool
@@ -81,15 +80,6 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 
 	result[features.HealthChecking] = features.Status{
 		Enabled: cfg.EnableHealthChecking && cfg.EnableEndpointHealthChecking,
-	}
-
-	// Before v1.19, NodeEncryptionOptOutLabels are stored in DaemonConfig.
-	// See [extractFeaturesFromCiliumStatus] for above versions.
-	if ct.CiliumVersion.LT(semver.MustParse("1.19.0")) {
-		result[features.EncryptionNode] = features.Status{
-			Enabled: cfg.EncryptNode,
-			Mode:    cfg.NodeEncryptionOptOutLabelsString,
-		}
 	}
 
 	result[features.KNP] = features.Status{
@@ -192,18 +182,6 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	mode = "disabled"
 	if enc := st.Encryption; enc != nil {
 		mode = strings.ToLower(enc.Mode)
-
-		// After v1.19, NodeEncryptionOptOutLabels are stored in the Wireguard Agent config.
-		// See [extractFeaturesFromRuntimeConfig] for below versions.
-		if ct.CiliumVersion.GE(semver.MustParse("1.19.0")) {
-			// Node-to-node encryption applies only to WireGuard.
-			if wg := enc.Wireguard; wg != nil {
-				result[features.EncryptionNode] = features.Status{
-					Enabled: wg.NodeEncryption != "Disabled",
-					Mode:    wg.NodeEncryptOptOutLabels,
-				}
-			}
-		}
 	}
 	result[features.EncryptionPod] = features.Status{
 		Enabled: mode != "disabled",
