@@ -590,7 +590,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 			}
 			// Remove all neighbors for the device. For a deleted device netlink does not
 			// always send complete set of neighbor delete messages.
-			neighbors := dc.params.NeighborTable.List(txn, tables.NeighborLinkIndex.Query(d.Index))
+			neighbors := dc.params.NeighborTable.List(txn, tables.NeighborsByLinkIndex(d.Index))
 			for n := range neighbors {
 				dc.params.NeighborTable.Delete(txn, n)
 			}
