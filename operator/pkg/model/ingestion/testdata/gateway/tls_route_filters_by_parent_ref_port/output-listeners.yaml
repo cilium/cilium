@@ -1,0 +1,24 @@
+- hostname: "*"
+  name: tls-443
+  port: 443
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: platform
+    namespace: gateway-ns
+    version: v1
+- hostname: "*"
+  name: tls-8443
+  port: 8443
+  routes:
+  - backends:
+    - name: podinfo
+      namespace: gateway-ns
+      port:
+        port: 9898
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: platform
+    namespace: gateway-ns
+    version: v1

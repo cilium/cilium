@@ -1,0 +1,17 @@
+- hostname: "*"
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: main
+      namespace: app-ns
+      port:
+        port: 8080
+    path_match: {}
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: platform
+    namespace: app-ns
+    version: v1
