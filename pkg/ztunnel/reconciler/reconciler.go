@@ -228,7 +228,7 @@ func (ops *EnrollmentReconciler) Start(ctx cell.HookContext) error {
 		}
 		// Check if namespace is enrolled
 		txn := ops.db.ReadTxn()
-		_, _, found := ops.enrolledNamespaceTable.Get(txn, table.EnrolledNamespacesNameIndex.Query(epNamespace))
+		_, _, found := ops.enrolledNamespaceTable.Get(txn, table.EnrolledNamespaceByName(epNamespace))
 		if !found {
 			ops.logger.Info("Skipping enrollment of endpoint in unenrolled namespace",
 				logfields.K8sNamespace, epNamespace,
@@ -257,7 +257,7 @@ func (ops *EnrollmentReconciler) EndpointCreated(ep *endpoint.Endpoint) {
 	}
 	// Check if namespace is enrolled
 	txn := ops.db.ReadTxn()
-	_, _, found := ops.enrolledNamespaceTable.Get(txn, table.EnrolledNamespacesNameIndex.Query(epNamespace))
+	_, _, found := ops.enrolledNamespaceTable.Get(txn, table.EnrolledNamespaceByName(epNamespace))
 	if !found {
 		ops.logger.Debug("Skipping enrollment of endpoint in unenrolled namespace",
 			logfields.K8sNamespace, epNamespace,
@@ -283,7 +283,7 @@ func (ops *EnrollmentReconciler) EndpointDeleted(ep *endpoint.Endpoint, _ endpoi
 	}
 	// Check if namespace is enrolled
 	txn := ops.db.ReadTxn()
-	_, _, found := ops.enrolledNamespaceTable.Get(txn, table.EnrolledNamespacesNameIndex.Query(epNamespace))
+	_, _, found := ops.enrolledNamespaceTable.Get(txn, table.EnrolledNamespaceByName(epNamespace))
 	if !found {
 		ops.logger.Debug("Skipping disenrollment of endpoint in unenrolled namespace",
 			logfields.K8sNamespace, epNamespace,
