@@ -38,6 +38,7 @@ type params struct {
 	Log            *slog.Logger
 	JobGroup       job.Group
 	LocalNodeStore *node.LocalNodeStore
+	NodeWriter     *node.Writer
 	Config         config
 	EncryptMap     encrypt.EncryptMap
 }
@@ -49,7 +50,7 @@ func newIPsecAgent(p params) (out struct {
 	types.Agent
 	defines.NodeOut
 }) {
-	out.Agent = newAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore, p.Config, p.EncryptMap)
+	out.Agent = newAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore, p.NodeWriter, p.Config, p.EncryptMap)
 	if out.Agent.Enabled() {
 		out.NodeDefines = map[string]string{
 			"ENABLE_IPSEC": "1",

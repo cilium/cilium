@@ -1197,7 +1197,6 @@ type daemonParams struct {
 	WGAgent             wgTypes.Agent
 	LocalNodeStore      *node.LocalNodeStore
 	K8sWatcher          *watchers.K8sWatcher
-	NodeHandler         node.Handler
 	EndpointManager     endpointmanager.EndpointManager
 	EndpointRestorer    *endpointRestorer
 	IdentityAllocator   identitycell.CachingIdentityAllocator
