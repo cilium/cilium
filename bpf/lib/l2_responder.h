@@ -47,11 +47,11 @@ DECLARE_CONFIG(__u64, l2_announcements_max_liveness,
 static __always_inline
 int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 {
+	union v6addr __maybe_unused tip6 __align_stack_8;
 	union macaddr mac = CONFIG(interface_mac);
 	union macaddr smac;
 	__be32 __maybe_unused sip;
 	__be32 __maybe_unused tip;
-	union v6addr __maybe_unused tip6;
 	struct l2_responder_stats *stats;
 	int ret;
 	__u64 time;
@@ -89,7 +89,7 @@ int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 		struct l2_responder_v6_key key6;
 		int l3_off;
 
-		if (!icmp6_ndisc_validate(ctx, ip6, &mac, &tip6))
+		if (!icmp6_ndisc_validate(ctx, ip6->nexthdr, &mac, &tip6))
 			return CTX_ACT_OK;
 
 		key6.ip6 = tip6;
