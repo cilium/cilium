@@ -16,6 +16,11 @@ on:
         type: string
         required: false
         default: "{}"
+    secrets:
+      QUAY_CHARTS_DEV_USERNAME:
+        required: true
+      QUAY_CHARTS_DEV_PASSWORD:
+        required: true
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
