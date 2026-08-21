@@ -35,6 +35,10 @@ func TestValidateLabels(t *testing.T) {
 		{"k8s:app.kubernetes.io": "value"},
 		{"k8s:app.k8s.io/name": "value"},
 		{"reserved:k8s-app": "foo"},
+		{"k8s:" + strings.Repeat("a", 63): "foo"},
+		{"k8s:io.cilium.k8s.namespace.labels." + strings.Repeat("a", 63): "foo"},
+		{"k8s:" + strings.Repeat("a", 253) + "/" + strings.Repeat("b", 63): "test"},
+		{"k8s:io.cilium.k8s.namespace.labels." + strings.Repeat("a", 253) + "/" + strings.Repeat("b", 63): "test"},
 	}
 	for i := range successCases {
 		errs := ValidateLabels(successCases[i], field.NewPath("field"))
@@ -55,7 +59,12 @@ func TestValidateLabels(t *testing.T) {
 		{map[string]string{"nospecialchars^=@": "bar"}, namePartErrMsg},
 		{map[string]string{"cantendwithadash-": "bar"}, namePartErrMsg},
 		{map[string]string{"only/one/slash": "bar"}, nameErrMsg},
-		{map[string]string{strings.Repeat("a", 254): "bar"}, maxLengthErrMsg},
+		{map[string]string{strings.Repeat("a", 64): "bar"}, maxLengthErrMsg},
+		{map[string]string{"src:" + strings.Repeat("a", 64): "bar"}, maxLengthErrMsg},
+		{map[string]string{"k8s:test.com/" + strings.Repeat("a", 64): "bar"}, maxLengthErrMsg},
+		{map[string]string{"k8s:" + strings.Repeat("a", 254) + "/test": "bar"}, maxLengthErrMsg},
+		{map[string]string{"k8s:io.cilium.k8s.namespace.labels." + strings.Repeat("a", 254) + "/test": "bar"}, maxLengthErrMsg},
+		{map[string]string{"k8s:io.cilium.k8s.namespace.labels." + strings.Repeat("a", 64): "bar"}, maxLengthErrMsg},
 		{map[string]string{":empty-source": "bar"}, labelSourceRegexErrMsg},
 		{map[string]string{"k8s:empty:source": "bar"}, labelKeyErrMultipleSourceDelimiter},
 	}
