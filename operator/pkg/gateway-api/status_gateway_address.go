@@ -31,25 +31,32 @@ func NewGatewayAddressStatusManager(client client.Client, logger *slog.Logger) *
 	}
 }
 
-// VerifyGatewayStaticAddresses validates spec.addresses before resource
+// ValidateStaticAddresses validates spec.addresses before resource
 // reconciliation continues. It only checks the requested static address shape;
-// it does not look at assigned Service status.
-func (m *GatewayAddressStatusManager) VerifyGatewayStaticAddresses(gw *gatewayv1.Gateway) error {
+// it does not look at assigned Service status. Invalid addresses are surfaced
+// through Gateway conditions and reported as not valid.
+func (m *GatewayAddressStatusManager) ValidateStaticAddresses(gw *gatewayv1.Gateway) bool {
 	if len(gw.Spec.Addresses) == 0 {
-		return nil
+		return true
 	}
 	for _, address := range gw.Spec.Addresses {
 		if address.Type != nil && *address.Type != gatewayv1.IPAddressType {
-			return fmt.Errorf("address type is not supported")
+			setGatewayAccepted(gw, false, "Unsupported Gateway address, address type is not supported", gatewayv1.GatewayReasonUnsupportedAddress)
+			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+			return false
 		}
 		if address.Value == "" {
-			return fmt.Errorf("address value is not set")
+			setGatewayAccepted(gw, false, "Unsupported Gateway address, address value is not set", gatewayv1.GatewayReasonUnsupportedAddress)
+			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+			return false
 		}
 		if _, err := netip.ParseAddr(address.Value); err != nil {
-			return fmt.Errorf("invalid ip address")
+			setGatewayAccepted(gw, false, "Unsupported Gateway address, invalid ip address", gatewayv1.GatewayReasonUnsupportedAddress)
+			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+			return false
 		}
 	}
-	return nil
+	return true
 }
 
 // SetAddressStatus reads the managed frontend Service and projects its observed
