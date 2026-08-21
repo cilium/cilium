@@ -39,10 +39,13 @@ DECLARE_CONFIG(union v4addr, ipv4_rss_prefix,
 	       "IPv4 source prefix used for DSR IPIP RSS")
 DECLARE_CONFIG(__u8, ipv4_rss_prefix_bits,
 	       "Prefix length of the IPv4 DSR IPIP RSS source prefix")
+ASSIGN_CONFIG(__u8, ipv4_rss_prefix_bits, 32)
+
 DECLARE_CONFIG(union v6addr, ipv6_rss_prefix,
 	       "IPv6 source prefix used for DSR IPIP RSS")
 DECLARE_CONFIG(__u8, ipv6_rss_prefix_bits,
 	       "Prefix length of the IPv6 DSR IPIP RSS source prefix")
+ASSIGN_CONFIG(__u8, ipv6_rss_prefix_bits, 128)
 #endif
 
 /* Define dummy values to make bpf_{lxc,overlay}.c to compile */

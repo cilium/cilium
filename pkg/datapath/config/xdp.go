@@ -6,6 +6,7 @@ package config
 import (
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -29,39 +30,27 @@ func XDP(lnc *Config, link netlink.Link) any {
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
 
 	if option.Config.EnableIPv4 {
-		if option.Config.LoadBalancerRSSv4CIDR != "" {
-			copy(cfg.IPv4RSSPrefix.Addr[:], option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4.IP.To4())
-			ones, _ := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4.Mask.Size()
-			cfg.IPv4RSSPrefixBits = uint8(ones)
-		} else {
-			cfg.IPv4RSSPrefixBits = 32
-			if lnc.DirectRoutingDevice != nil {
-				for _, addr := range lnc.DirectRoutingDevice.Addrs {
-					if addr.Addr.Is4() {
-						cfg.IPv4RSSPrefix.Addr = addr.Addr.As4()
-						break
-					}
-				}
+		rssPrefix := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4
+		if rssPrefix.IsValid() {
+			cfg.IPv4RSSPrefix.Addr = rssPrefix.Addr().As4()
+			cfg.IPv4RSSPrefixBits = uint8(rssPrefix.Bits())
+		} else if lnc.DirectRoutingDevice != nil {
+			addr := tables.PreferredIPv4Address(lnc.DirectRoutingDevice.Addrs)
+			if addr.IsValid() {
+				cfg.IPv4RSSPrefix.Addr = addr.As4()
 			}
 		}
 	}
 
 	if option.Config.EnableIPv6 {
-		if option.Config.LoadBalancerRSSv6CIDR != "" {
-			copy(cfg.IPv6RSSPrefix.Addr[:], option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6.IP.To16())
-			ones, _ := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6.Mask.Size()
-			cfg.IPv6RSSPrefixBits = uint8(ones)
-		} else {
-			cfg.IPv6RSSPrefixBits = 128
-			if lnc.DirectRoutingDevice != nil {
-				for _, addr := range lnc.DirectRoutingDevice.Addrs {
-					if addr.Addr.Is6() {
-						cfg.IPv6RSSPrefix.Addr = addr.Addr.As16()
-						if !addr.Addr.IsLinkLocalUnicast() {
-							break
-						}
-					}
-				}
+		rssPrefix := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6
+		if rssPrefix.IsValid() {
+			cfg.IPv6RSSPrefix.Addr = rssPrefix.Addr().As16()
+			cfg.IPv6RSSPrefixBits = uint8(rssPrefix.Bits())
+		} else if lnc.DirectRoutingDevice != nil {
+			addr := tables.PreferredIPv6Address(lnc.DirectRoutingDevice.Addrs)
+			if addr.IsValid() {
+				cfg.IPv6RSSPrefix.Addr = addr.As16()
 			}
 		}
 	}
