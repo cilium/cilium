@@ -36,7 +36,7 @@ func Test_Metrics(t *testing.T) {
 		statedb.Cell,
 		job.Cell,
 
-		cell.ProvidePrivate(newTablesPrivate),
+		cell.ProvidePrivate(NewTable),
 		cell.Provide(
 			newHealthHistory,
 			func() HistoryDir {

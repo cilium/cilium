@@ -50,26 +50,31 @@ func (k EdtIDKey) Key() index.Key {
 	return key
 }
 
-var EdtIDIndex = statedb.Index[Edt, EdtIDKey]{
-	Name: "endpoint-id",
-	FromObject: func(t Edt) index.KeySet {
-		return index.NewKeySet(t.Key())
-	},
-	FromKey: EdtIDKey.Key,
-	FromString: func(key string) (index.Key, error) {
-		epS, directionS, _ := strings.Cut(key, "+")
-		ep, err := strconv.ParseUint(epS, 10, 16)
-		if err != nil {
-			return index.Key{}, err
-		}
-		direction, err := strconv.ParseUint(directionS, 10, 16)
-		if err != nil {
-			return index.Key{}, err
-		}
-		return EdtIDKey{EndpointID: uint16(ep), Direction: uint8(direction)}.Key(), nil
-	},
-	Unique: true,
-}
+var (
+	edtIDIndex = statedb.Index[Edt, EdtIDKey]{
+		Name: "endpoint-id",
+		FromObject: func(t Edt) index.KeySet {
+			return index.NewKeySet(t.Key())
+		},
+		FromKey: EdtIDKey.Key,
+		FromString: func(key string) (index.Key, error) {
+			epS, directionS, _ := strings.Cut(key, "+")
+			ep, err := strconv.ParseUint(epS, 10, 16)
+			if err != nil {
+				return index.Key{}, err
+			}
+			direction, err := strconv.ParseUint(directionS, 10, 16)
+			if err != nil {
+				return index.Key{}, err
+			}
+			return EdtIDKey{EndpointID: uint16(ep), Direction: uint8(direction)}.Key(), nil
+		},
+		Unique: true,
+	}
+
+	// EDTByID queries the EDT table by endpoint ID and direction.
+	EDTByID = edtIDIndex.Query
+)
 
 func NewEdt(endpointID uint16, direction uint8, bytesPerSecond uint64, prio uint32) Edt {
 	return Edt{
@@ -88,7 +93,7 @@ func NewEdtTable(db *statedb.DB) (statedb.RWTable[Edt], error) {
 	return statedb.NewTable(
 		db,
 		EdtTableName,
-		EdtIDIndex,
+		edtIDIndex,
 	)
 }
 

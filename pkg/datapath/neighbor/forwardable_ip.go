@@ -82,7 +82,7 @@ func (fip *ForwardableIP) TableRow() []string {
 }
 
 var (
-	ForwardableIPIndex = statedb.Index[*ForwardableIP, netip.Addr]{
+	forwardableIPIndex = statedb.Index[*ForwardableIP, netip.Addr]{
 		Name: "id",
 		FromObject: func(d *ForwardableIP) index.KeySet {
 			return index.NewKeySet(index.NetIPAddr(d.IP))
@@ -108,7 +108,7 @@ func newForwardableIPTable(db *statedb.DB, config *CommonConfig) (*ForwardableIP
 	tbl, err := statedb.NewTable(
 		db,
 		"forwardable-ip",
-		ForwardableIPIndex,
+		forwardableIPIndex,
 		forwardableIPOwnerIndex,
 	)
 	if err != nil {
@@ -206,7 +206,7 @@ func (fim *ForwardableIPManager) Delete(ip netip.Addr, owner ForwardableIPOwner)
 	tx := fim.db.WriteTxn(fim.table)
 	defer tx.Abort()
 
-	fi, _, found := fim.table.Get(tx, ForwardableIPIndex.Query(ip))
+	fi, _, found := fim.table.Get(tx, forwardableIPIndex.Query(ip))
 	if !found {
 		return nil
 	}

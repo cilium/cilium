@@ -23,7 +23,7 @@ func (k IPSetEntryKey) Key() index.Key {
 	return append(index.NetIPAddr(k.Addr), []byte(k.Name)...)
 }
 
-var IPSetEntryIndex = statedb.Index[*IPSetEntry, IPSetEntryKey]{
+var ipSetEntryIndex = statedb.Index[*IPSetEntry, IPSetEntryKey]{
 	Name: IPSetsTableName,
 	FromObject: func(s *IPSetEntry) index.KeySet {
 		return index.NewKeySet(IPSetEntryKey{s.Name, s.Addr}.Key())
@@ -44,11 +44,14 @@ var IPSetEntryIndex = statedb.Index[*IPSetEntry, IPSetEntryKey]{
 	Unique: true,
 }
 
+// IPSetEntryByKey queries the ipsets table by name and address.
+var IPSetEntryByKey = ipSetEntryIndex.Query
+
 func NewIPSetTable(db *statedb.DB) (statedb.RWTable[*IPSetEntry], error) {
 	return statedb.NewTable(
 		db,
 		IPSetsTableName,
-		IPSetEntryIndex,
+		ipSetEntryIndex,
 	)
 }
 

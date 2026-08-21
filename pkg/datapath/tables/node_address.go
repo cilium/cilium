@@ -107,11 +107,7 @@ func (k NodeAddressKey) Key() index.Key {
 }
 
 var (
-	// NodeAddressIndex is the primary index for node addresses:
-	//
-	//   var nodeAddresses Table[NodeAddress]
-	//   nodeAddresses.First(txn, NodeAddressIndex.Query(netip.MustParseAddr("1.2.3.4")))
-	NodeAddressIndex = statedb.Index[NodeAddress, NodeAddressKey]{
+	nodeAddressIndex = statedb.Index[NodeAddress, NodeAddressKey]{
 		Name: "id",
 		FromObject: func(a NodeAddress) index.KeySet {
 			return index.NewKeySet(NodeAddressKey{a.Addr, a.DeviceName}.Key())
@@ -128,7 +124,7 @@ var (
 		Unique: true,
 	}
 
-	NodeAddressDeviceNameIndex = statedb.Index[NodeAddress, string]{
+	nodeAddressDeviceNameIndex = statedb.Index[NodeAddress, string]{
 		Name: "name",
 		FromObject: func(a NodeAddress) index.KeySet {
 			return index.NewKeySet(index.String(a.DeviceName))
@@ -138,7 +134,7 @@ var (
 		Unique:     false,
 	}
 
-	NodeAddressNodePortIndex = statedb.Index[NodeAddress, bool]{
+	nodeAddressNodePortIndex = statedb.Index[NodeAddress, bool]{
 		Name: "node-port",
 		FromObject: func(a NodeAddress) index.KeySet {
 			return index.NewKeySet(index.Bool(a.NodePort))
@@ -147,6 +143,15 @@ var (
 		FromString: index.BoolString,
 		Unique:     false,
 	}
+
+	// NodeAddressByKey queries the node addresses table by address and device.
+	NodeAddressByKey = nodeAddressIndex.Query
+
+	// NodeAddressesByDeviceName queries the node addresses table by device name.
+	NodeAddressesByDeviceName = nodeAddressDeviceNameIndex.Query
+
+	// NodeAddressesByNodePort queries the node addresses table by NodePort eligibility.
+	NodeAddressesByNodePort = nodeAddressNodePortIndex.Query
 
 	NodeAddressTableName statedb.TableName = "node-addresses"
 
@@ -173,9 +178,9 @@ func NewNodeAddressTable(db *statedb.DB) (statedb.RWTable[NodeAddress], error) {
 	return statedb.NewTable(
 		db,
 		NodeAddressTableName,
-		NodeAddressIndex,
-		NodeAddressDeviceNameIndex,
-		NodeAddressNodePortIndex,
+		nodeAddressIndex,
+		nodeAddressDeviceNameIndex,
+		nodeAddressNodePortIndex,
 	)
 }
 
@@ -285,7 +290,7 @@ func (n *nodeAddressController) reconcile(health cell.Health) *statedb.WatchSet 
 	// Get iterators for the current state and new watch channels.
 	allDevices, devicesWatch := n.Devices.AllWatch(rtxn)
 	ws.Add(devicesWatch)
-	localRoutes, routesWatch := n.Routes.PrefixWatch(rtxn, RouteIDIndex.Query(RouteID{Table: RT_TABLE_LOCAL}))
+	localRoutes, routesWatch := n.Routes.PrefixWatch(rtxn, RouteByID(RouteID{Table: RT_TABLE_LOCAL}))
 	ws.Add(routesWatch)
 
 	// A map to hold the desired state of node addresses, keyed by device name.
@@ -409,7 +414,7 @@ func (n *nodeAddressController) update(txn statedb.WriteTxn, new []NodeAddress, 
 	// Gather the set of currently existing addresses for this device.
 	current := sets.New(statedb.Collect(
 		statedb.Map(
-			n.NodeAddresses.List(txn, NodeAddressDeviceNameIndex.Query(device)),
+			n.NodeAddresses.List(txn, NodeAddressesByDeviceName(device)),
 			func(addr NodeAddress) netip.Addr {
 				return addr.Addr
 			}))...)
@@ -417,7 +422,7 @@ func (n *nodeAddressController) update(txn statedb.WriteTxn, new []NodeAddress, 
 	// Update the new set of addresses for this device. We try to avoid insertions when nothing has changed
 	// to avoid unnecessary wakeups to watchers of the table.
 	for _, addr := range new {
-		old, _, hadOld := n.NodeAddresses.Get(txn, NodeAddressIndex.Query(NodeAddressKey{Addr: addr.Addr, DeviceName: device}))
+		old, _, hadOld := n.NodeAddresses.Get(txn, NodeAddressByKey(NodeAddressKey{Addr: addr.Addr, DeviceName: device}))
 		if !hadOld || old != addr {
 			updated = true
 			n.NodeAddresses.Insert(txn, addr)
