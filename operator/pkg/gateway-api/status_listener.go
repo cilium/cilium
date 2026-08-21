@@ -324,7 +324,7 @@ func (m *ListenerStatusManager) setGatewayListenerStatus(
 		var conds []metav1.Condition
 
 		if conflict, ok := conflictedGatewayListeners[l.Name]; ok {
-			conds = merge(conds, listenerConflictedCondition(gw.GetGeneration(), conflict.reason, conflict.message))
+			conds = helpers.MergeConditions(conds, listenerConflictedCondition(gw.GetGeneration(), conflict.reason, conflict.message))
 			invalidMessages = append(invalidMessages, conflict.message)
 			isValid = false
 		}
@@ -341,18 +341,18 @@ func (m *ListenerStatusManager) setGatewayListenerStatus(
 		}
 		isValid = isValid && res.isValid
 		invalidMessages = append(invalidMessages, res.invalidMessages...)
-		conds = merge(conds, res.conds...)
+		conds = helpers.MergeConditions(conds, res.conds...)
 		supportedKinds := res.supportedKinds
 
 		if !isValid {
 			invalidListeners++
-			conds = merge(conds,
+			conds = helpers.MergeConditions(conds,
 				listenerAcceptedCondition(gw.GetGeneration(), false, res.invalidReason, "Listener not valid. "+strings.Join(invalidMessages, " ")),
 				listenerProgrammedCondition(gw.GetGeneration(), false, gatewayv1.ListenerReasonPending, "Address not ready yet"))
 		} else {
 			validListeners++
 			if !helpers.IsConditionPresent(conds, string(gatewayv1.ListenerConditionResolvedRefs)) {
-				conds = merge(conds, metav1.Condition{
+				conds = helpers.MergeConditions(conds, metav1.Condition{
 					Type:               string(gatewayv1.ListenerConditionResolvedRefs),
 					Status:             metav1.ConditionTrue,
 					Reason:             string(gatewayv1.ListenerReasonResolvedRefs),
@@ -361,7 +361,7 @@ func (m *ListenerStatusManager) setGatewayListenerStatus(
 					LastTransitionTime: metav1.Now(),
 				})
 			}
-			conds = merge(conds,
+			conds = helpers.MergeConditions(conds,
 				listenerAcceptedCondition(gw.GetGeneration(), true, gatewayv1.ListenerReasonAccepted, "Listener Accepted"),
 				listenerProgrammedCondition(gw.GetGeneration(), false, gatewayv1.ListenerReasonPending, "Address not ready yet"))
 		}
@@ -455,7 +455,7 @@ func (m *ListenerStatusManager) setListenerSetStatuses(
 			conflict, isConflicted := conflictedListeners[lsSource][l.Name]
 
 			if isConflicted {
-				conds = merge(conds,
+				conds = helpers.MergeConditions(conds,
 					listenerAcceptedCondition(ls.GetGeneration(), false, conflict.reason, "Listener has a conflict"),
 					listenerProgrammedCondition(ls.GetGeneration(), false, conflict.reason, "Listener has a conflict"),
 					listenerConflictedCondition(ls.GetGeneration(), conflict.reason, "Listener has a conflict"),
@@ -481,10 +481,10 @@ func (m *ListenerStatusManager) setListenerSetStatuses(
 				})
 				isValid := res.isValid
 				supportedKinds = res.supportedKinds
-				conds = merge(conds, res.conds...)
+				conds = helpers.MergeConditions(conds, res.conds...)
 
 				if !isValid {
-					conds = merge(
+					conds = helpers.MergeConditions(
 						conds,
 						listenerAcceptedCondition(ls.GetGeneration(), false, res.invalidReason, "Listener not valid. "+strings.Join(res.invalidMessages, " ")),
 						listenerProgrammedCondition(ls.GetGeneration(), false, res.invalidReason, "Listener not valid"),
@@ -493,7 +493,7 @@ func (m *ListenerStatusManager) setListenerSetStatuses(
 					oneValidListener = true
 
 					if !helpers.IsConditionPresent(conds, string(gatewayv1.ListenerConditionResolvedRefs)) {
-						conds = merge(conds, metav1.Condition{
+						conds = helpers.MergeConditions(conds, metav1.Condition{
 							Type:               string(gatewayv1.ListenerConditionResolvedRefs),
 							Status:             metav1.ConditionTrue,
 							Reason:             string(gatewayv1.ListenerReasonResolvedRefs),
@@ -502,7 +502,7 @@ func (m *ListenerStatusManager) setListenerSetStatuses(
 							LastTransitionTime: metav1.Now(),
 						})
 					}
-					conds = merge(
+					conds = helpers.MergeConditions(
 						conds,
 						listenerAcceptedCondition(ls.GetGeneration(), true, gatewayv1.ListenerReasonAccepted, "Listener Accepted"),
 						listenerProgrammedCondition(ls.GetGeneration(), true, gatewayv1.ListenerConditionReason(gatewayv1.ListenerConditionProgrammed), "Listener Programmed"),
@@ -585,7 +585,7 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 		}
 
 		if len(res.supportedKinds) != len(l.AllowedRoutes.Kinds) {
-			res.conds = merge(res.conds, listenerInvalidRouteKinds(params.generation, "Unsupported Route Kinds in allowedRoutes.kinds"))
+			res.conds = helpers.MergeConditions(res.conds, listenerInvalidRouteKinds(params.generation, "Unsupported Route Kinds in allowedRoutes.kinds"))
 
 			if len(res.supportedKinds) == 0 {
 				res.invalidMessages = append(res.invalidMessages, "None of the Allowed Route Kinds are supported.")
@@ -600,7 +600,7 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 		ownerGVK := helpers.GatewayV1GVK(params.ownerKind)
 		for _, cert := range l.TLS.CertificateRefs {
 			if !helpers.IsSecret(cert) {
-				res.conds = merge(res.conds, metav1.Condition{
+				res.conds = helpers.MergeConditions(res.conds, metav1.Condition{
 					Type:               string(gatewayv1.ListenerConditionResolvedRefs),
 					Status:             metav1.ConditionFalse,
 					Reason:             string(gatewayv1.ListenerReasonInvalidCertificateRef),
@@ -614,7 +614,7 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 			}
 
 			if !helpers.IsSecretReferenceAllowed(params.ownerNamespace, cert, ownerGVK, params.grants) {
-				res.conds = merge(res.conds, metav1.Condition{
+				res.conds = helpers.MergeConditions(res.conds, metav1.Condition{
 					Type:               string(gatewayv1.ListenerConditionResolvedRefs),
 					Status:             metav1.ConditionFalse,
 					Reason:             string(gatewayv1.ListenerReasonRefNotPermitted),
@@ -631,7 +631,7 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 				m.logger.InfoContext(ctx, "Found an invalid TLS Secret",
 					logfields.Error, err.Error(),
 					logfields.Resource, params.ownerRef)
-				res.conds = merge(res.conds, metav1.Condition{
+				res.conds = helpers.MergeConditions(res.conds, metav1.Condition{
 					Type:               string(gatewayv1.ListenerConditionResolvedRefs),
 					Status:             metav1.ConditionFalse,
 					Reason:             string(gatewayv1.ListenerReasonInvalidCertificateRef),

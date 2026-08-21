@@ -8,6 +8,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/pkg/features"
@@ -53,7 +55,7 @@ func getSupportedFeatures() []gatewayv1.SupportedFeature {
 // setGatewayClassAccepted inserts or updates the Accepted condition
 // for the provided GatewayClass.
 func setGatewayClassAccepted(gwc *gatewayv1.GatewayClass, accepted bool) *gatewayv1.GatewayClass {
-	gwc.Status.Conditions = merge(gwc.Status.Conditions, gatewayClassAcceptedCondition(gwc, accepted))
+	gwc.Status.Conditions = helpers.MergeConditions(gwc.Status.Conditions, gatewayClassAcceptedCondition(gwc, accepted))
 	return gwc
 }
 
