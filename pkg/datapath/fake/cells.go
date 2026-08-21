@@ -18,8 +18,6 @@ import (
 	fakegneigh "github.com/cilium/cilium/pkg/datapath/gneigh/fake"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	fakeiptables "github.com/cilium/cilium/pkg/datapath/iptables/fake"
-	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
-	fakeipset "github.com/cilium/cilium/pkg/datapath/iptables/ipset/fake"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	fakebandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/fake"
@@ -77,7 +75,6 @@ var Cell = cell.Module(
 		func() lxcmap.Map { return nil },
 		func() bigtcp.Config { return &fakebigtcp.Config{} },
 		func() iptables.Manager { return fakeiptables.NewManager() },
-		func() ipset.Manager { return &fakeipset.IPSet{} },
 		func() bandwidth.Manager { return &fakebandwidth.Manager{} },
 		func() ipsec.Agent { return &fakeipsec.Agent{} },
 		func() ipsec.Config { return &fakeipsec.Config{} },
