@@ -314,23 +314,32 @@ func (n *Node) GetAttachedCIDRs() []netip.Prefix {
 
 	var attached []netip.Prefix
 	for _, eni := range n.enis {
+		prefixes := make([]netip.Prefix, 0, len(eni.Prefixes)+len(eni.IPv6Prefixes))
 		for _, prefix := range eni.Prefixes {
 			if prefix.IsValid() {
-				attached = append(attached, prefix.Prefix)
+				prefixes = append(prefixes, prefix.Prefix)
 			}
 		}
 		for _, prefix := range eni.IPv6Prefixes {
 			if prefix.IsValid() {
-				attached = append(attached, prefix.Prefix)
+				prefixes = append(prefixes, prefix.Prefix)
 			}
 		}
+		attached = append(attached, prefixes...)
+
 		for _, addr := range eni.Addresses {
-			if addr.IsValid() {
-				attached = append(attached, netip.PrefixFrom(addr.Addr, addr.BitLen()))
+			if !addr.IsValid() || prefixContains(prefixes, addr.Addr) {
+				continue
 			}
+			attached = append(attached, netip.PrefixFrom(addr.Addr, addr.BitLen()))
 		}
 	}
 	return attached
+}
+
+// prefixContains reports whether addr falls inside any of the prefixes.
+func prefixContains(prefixes []netip.Prefix, addr netip.Addr) bool {
+	return slices.ContainsFunc(prefixes, func(p netip.Prefix) bool { return p.Contains(addr) })
 }
 
 // PrepareCIDRRelease maps released CIDRs back to their source ENIs
