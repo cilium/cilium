@@ -378,7 +378,7 @@ func TestOpsPruneEnabled(t *testing.T) {
 	fakeLogger := slog.New(slog.DiscardHandler)
 
 	db := statedb.New()
-	table, _ := statedb.NewTable(db, "ipsets", tables.IPSetEntryIndex)
+	table, _ := tables.NewIPSetTable(db)
 
 	txn := db.WriteTxn(table)
 	table.Insert(txn, &tables.IPSetEntry{
@@ -487,7 +487,7 @@ func TestOpsRetry(t *testing.T) {
 	txn.Commit()
 
 	for {
-		queryObj, _, watch, found := table.GetWatch(db.ReadTxn(), tables.IPSetEntryIndex.QueryFromObject(obj))
+		queryObj, _, watch, found := table.GetWatch(db.ReadTxn(), tables.IPSetEntryByKey(tables.IPSetEntryKey{Name: obj.Name, Addr: obj.Addr}))
 		require.True(t, found)
 
 		if queryObj.Status.Kind == reconciler.StatusKindDone {

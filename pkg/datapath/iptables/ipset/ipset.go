@@ -91,7 +91,7 @@ func (m *manager) AddToIPSet(name string, family Family, addrs ...netip.Addr) {
 			Name: name,
 			Addr: addr,
 		}
-		if _, _, found := m.table.Get(txn, tables.IPSetEntryIndex.Query(key)); found {
+		if _, _, found := m.table.Get(txn, tables.IPSetEntryByKey(key)); found {
 			continue
 		}
 		_, _, _ = m.table.Insert(txn, &tables.IPSetEntry{
@@ -119,7 +119,7 @@ func (m *manager) RemoveFromIPSet(name string, addrs ...netip.Addr) {
 			Name: name,
 			Addr: addr,
 		}
-		obj, _, found := m.table.Get(txn, tables.IPSetEntryIndex.Query(key))
+		obj, _, found := m.table.Get(txn, tables.IPSetEntryByKey(key))
 		if !found {
 			continue
 		}
