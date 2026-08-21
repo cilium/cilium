@@ -95,7 +95,7 @@ Validate installation
        mars      7s
 
 #. Create two deployments with two pods each. One allocating from the ``default`` pool and one
-   allocating from the ``mars`` pool by way of the ``ipam.cilium.io/ipam-pool: mars`` annotation:
+   allocating from the ``mars`` pool by way of the ``ipam.cilium.io/ip-pool: mars`` annotation:
 
    .. code-block:: shell-session
 
@@ -162,7 +162,7 @@ Validate installation
        $ kubectl exec pod/nginx-default-79885c7f58-fdfgf -- curl -s -o /dev/null -w "%{http_code}" http://10.20.0.37
        200
 
-#. Alternatively, the ``ipam.cilium.io/ipam-pool`` annotation can also be applied to a namespace:
+#. Alternatively, the ``ipam.cilium.io/ip-pool`` annotation can also be applied to a namespace:
 
    .. code-block:: shell-session
 
