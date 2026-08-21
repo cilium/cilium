@@ -170,6 +170,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		errorMsgsWithExceptions: errorMsgsWithExceptions,
 		thresholdExceptions:     warningThresholdExceptions,
 		ScenarioBase:            check.NewScenarioBase(),
+		ciliumVersion:           ciliumVersion,
 		startTime:               startTime,
 	}
 }
@@ -179,6 +180,7 @@ type noErrorsInLogs struct {
 
 	errorMsgsWithExceptions map[string][]logMatcher
 	thresholdExceptions     thresholdExceptions
+	ciliumVersion           semver.Version
 	mostCommonFailureLog    string
 	mostCommonFailureCount  int
 	startTime               time.Time
@@ -234,7 +236,8 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 		for container, restarts := range info.containers {
 			id := fmt.Sprintf("%s/%s/%s (%s)", pod.Cluster, pod.Namespace, pod.Name, container)
 			t.NewGenericAction(n, id).Run(func(a *check.Action) {
-				var ignore bool
+				// Do not check for container restarts for Cilium v1.16 and earlier.
+				ignore := n.ciliumVersion.LT(semver.MustParse("1.17.0"))
 
 				// Ignore Cilium operator restarts for the moment, as they can
 				// legitimately happen in case it loses the leader election due
