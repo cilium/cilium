@@ -105,7 +105,7 @@ func TestWaitForReconciliation(t *testing.T) {
 
 	// fake a successful reconciliation
 	txn := db.WriteTxn(settings)
-	old, _, found := settings.Get(txn, tables.SysctlNameIndex.Query(paramName))
+	old, _, found := settings.Get(txn, tables.SysctlByName(paramName))
 	_, exist, err := settings.Insert(txn, old.Clone().SetStatus(reconciler.StatusDone()))
 	txn.Commit()
 
