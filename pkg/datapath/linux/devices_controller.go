@@ -584,7 +584,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 
 			// Remove all routes for the device. For a deleted device netlink does not
 			// send complete set of route delete messages.
-			routes := dc.params.RouteTable.List(txn, tables.RouteLinkIndex.Query(d.Index))
+			routes := dc.params.RouteTable.List(txn, tables.RoutesByLinkIndex(d.Index))
 			for r := range routes {
 				dc.params.RouteTable.Delete(txn, r)
 			}
@@ -715,7 +715,7 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 }
 
 func hasGlobalRoute(devIndex int, tbl statedb.Table[*tables.Route], rxn statedb.ReadTxn) bool {
-	routes := tbl.List(rxn, tables.RouteLinkIndex.Query(devIndex))
+	routes := tbl.List(rxn, tables.RoutesByLinkIndex(devIndex))
 	hasGlobal := false
 	for r := range routes {
 		if r.Dst.Addr().IsGlobalUnicast() {
