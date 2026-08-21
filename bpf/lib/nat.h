@@ -510,7 +510,7 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 		return DROP_CSUM_L3;
 
 	if (has_l4_header) {
-		struct csum_offset csum = {};
+		struct csum_offset csum;
 
 		csum_l4_offset_and_flags(nexthdr, &csum);
 
@@ -1616,7 +1616,7 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 			const union v6addr *new_addr, __u16 addr_off,
 			__be16 old_port, __be16 new_port, __u16 port_off)
 {
-	struct csum_offset csum = {};
+	struct csum_offset csum;
 	__wsum sum;
 
 	/* No change needed: */
