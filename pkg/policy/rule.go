@@ -471,7 +471,7 @@ func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
 	// Fall back to explicit label matching for the local node
 	// because local node has mutable labels, which are applied asynchronously to the SelectorCache.
 	if r.subjectSelector == nil || ruleSelectsNode {
-		return r.Subject.Matches(securityIdentity.LabelArray)
+		return r.Subject.Matches(securityIdentity.Labels)
 	}
 
 	return r.subjectSelector.Selects(securityIdentity.ID)

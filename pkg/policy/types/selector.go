@@ -41,7 +41,7 @@ var (
 // Selectors is a slice of Selectors.
 type Selectors []Selector
 
-func (ps Selectors) Matches(lbls labels.LabelArray) bool {
+func (ps Selectors) Matches(lbls labels.Labels) bool {
 	for i := range ps {
 		if ps[i].Matches(lbls) {
 			return true
@@ -255,7 +255,7 @@ type Selector interface {
 
 	SelectedNamespaces() []string // allowed namespaces, or nil for no requirement
 
-	Matches(labels labels.LabelArray) bool
+	Matches(labels labels.Labels) bool
 
 	GetFQDNSelector() (*api.FQDNSelector, bool)
 
@@ -333,7 +333,7 @@ func (p *LabelSelector) SelectedNamespaces() []string {
 }
 
 // matchesLabels returns true if the CachedSelector matches given labels.
-func (p *LabelSelector) Matches(lbls labels.LabelArray) bool {
+func (p *LabelSelector) Matches(lbls labels.Labels) bool {
 	return MatchesRequirements(p.requirements, lbls)
 }
 
@@ -417,8 +417,8 @@ func (p *FQDNSelector) GetCIDRPrefixes() []netip.Prefix {
 
 // matches returns true if the identity contains at least one label
 // that matches the FQDNSelector's IdentityLabel string
-func (p *FQDNSelector) Matches(lbls labels.LabelArray) bool {
-	return lbls.IntersectsLabel(p.label)
+func (p *FQDNSelector) Matches(lbls labels.Labels) bool {
+	return lbls.HasLabel(p.label)
 }
 
 func (p *FQDNSelector) MetricsClass() string {
@@ -514,8 +514,7 @@ func hasCIDRLabel(lbls labels.Labels, is4 bool) bool {
 	return false
 }
 
-func (p *CIDRSelector) Matches(ls labels.LabelArray) bool {
-	lbls := ls.Labels()
+func (p *CIDRSelector) Matches(lbls labels.Labels) bool {
 	isWorld := lbls.HasWorldLabel()
 	isNode := lbls.HasHostLabel() || lbls.HasRemoteNodeLabel()
 	allowed := isWorld ||
@@ -527,7 +526,7 @@ func (p *CIDRSelector) Matches(ls labels.LabelArray) bool {
 	}
 
 	if p.encoded {
-		return matchesEncodedRequirements(p.requirements, ls)
+		return matchesEncodedRequirements(p.requirements, lbls)
 	}
 
 	for i := range p.requirements {
@@ -535,7 +534,7 @@ func (p *CIDRSelector) Matches(ls labels.LabelArray) bool {
 		if matchesCIDRWildcard(req, lbls) {
 			continue // Wildcard requirement satisfied.
 		}
-		if !MatchesRequirement(req, ls) {
+		if !MatchesRequirement(req, lbls) {
 			return false
 		}
 	}

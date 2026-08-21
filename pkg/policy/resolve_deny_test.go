@@ -57,7 +57,7 @@ func generateCIDRIdentities(rules api.Rules) identity.IdentityMap {
 		if _, exists := prefixes[prefix]; !exists {
 			lbls := labels.GetCIDRLabels(netip.MustParsePrefix(prefix))
 			id++
-			c[id] = lbls.LabelArray()
+			c[id] = lbls
 			prefixes[prefix] = id
 		}
 	}
@@ -447,7 +447,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 
 	// Add new identity to test accumulation of MapChanges
 	added1 := identity.IdentityMap{
-		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
+		identity.NumericIdentity(192): labels.ParseSelectLabels("id=resolve_test_1"),
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
@@ -523,9 +523,9 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 
 	// Add new identity to test accumulation of MapChanges
 	added1 := identity.IdentityMap{
-		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1", "num=1"),
-		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
-		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
+		identity.NumericIdentity(192): labels.ParseSelectLabels("id=resolve_test_1", "num=1"),
+		identity.NumericIdentity(193): labels.ParseSelectLabels("id=resolve_test_1", "num=2"),
+		identity.NumericIdentity(194): labels.ParseSelectLabels("id=resolve_test_1", "num=3"),
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
@@ -533,7 +533,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	require.Len(t, policy.policyMapChanges.synced, 3)
 
 	deleted1 := identity.IdentityMap{
-		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
+		identity.NumericIdentity(193): labels.ParseSelectLabels("id=resolve_test_1", "num=2"),
 	}
 	wg = &sync.WaitGroup{}
 	td.sc.UpdateIdentities(nil, deleted1, wg)
