@@ -1032,7 +1032,7 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 		}
 
 		rx := db.ReadTxn()
-		ss, _, watch, found := statusTable.GetWatch(rx, health.PrimaryIndex.Query(id.HealthID()))
+		ss, _, watch, found := statusTable.GetWatch(rx, health.StatusByID(id.HealthID()))
 		if !found {
 			_, watch = statusTable.AllWatch(rx)
 		}

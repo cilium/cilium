@@ -105,7 +105,7 @@ func healthTreeCommand(db *statedb.DB, table statedb.Table[types.Status]) script
 
 func getHealth(db *statedb.DB, table statedb.Table[types.Status], prefix, match string, levels []string) []types.Status {
 	tx := db.ReadTxn()
-	results := table.Prefix(tx, PrimaryIndex.Query(types.HealthID(prefix)))
+	results := table.Prefix(tx, StatusByID(types.HealthID(prefix)))
 	ss := []types.Status{}
 	for status := range results {
 		if match != "" && !strings.Contains(status.ID.String(), match) {

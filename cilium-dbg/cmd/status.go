@@ -119,7 +119,7 @@ func statusDaemon() {
 		}
 		if healthEnabled {
 			table := newRemoteTable[types.Status]("health")
-			iter, errChan := table.LowerBound(context.Background(), health.PrimaryIndex.Query("agent"))
+			iter, errChan := table.LowerBound(context.Background(), health.StatusByID("agent"))
 			ss := statedb.Collect(iter)
 			if err := <-errChan; err != nil {
 				Fatalf("Failed while streaming remote health data table: %s", err)

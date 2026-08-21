@@ -15,7 +15,7 @@ import (
 var Cell = cell.Module(
 	"health",
 	"Modular Health Provider V2",
-	cell.ProvidePrivate(newTablesPrivate),
+	cell.ProvidePrivate(NewTable),
 	cell.Provide(
 		newHealthV2Provider,
 		statedb.RWTable[types.Status].ToTable,
@@ -32,7 +32,7 @@ var Cell = cell.Module(
 var HistoryCell = cell.Provide(newHealthHistory)
 
 var (
-	PrimaryIndex = statedb.Index[types.Status, types.HealthID]{
+	primaryIndex = statedb.Index[types.Status, types.HealthID]{
 		Name: "identifier",
 		FromObject: func(s types.Status) index.KeySet {
 			return index.NewKeySet([]byte(s.ID.String()))
@@ -41,7 +41,7 @@ var (
 		FromString: index.FromString,
 		Unique:     true,
 	}
-	LevelIndex = statedb.Index[types.Status, types.Level]{
+	levelIndex = statedb.Index[types.Status, types.Level]{
 		Name: "level",
 		FromObject: func(s types.Status) index.KeySet {
 			return index.NewKeySet(index.Stringer(s.Level))
@@ -50,12 +50,19 @@ var (
 		FromString: index.FromString,
 		Unique:     false,
 	}
+
+	// StatusByID queries the health status table by reporter ID.
+	StatusByID = primaryIndex.Query
+
+	// StatusByLevel queries the health status table by health level.
+	StatusByLevel = levelIndex.Query
 )
 
-func newTablesPrivate(db *statedb.DB) (statedb.RWTable[types.Status], error) {
+// NewTable creates the health status table.
+func NewTable(db *statedb.DB) (statedb.RWTable[types.Status], error) {
 	return statedb.NewTable(
 		db,
 		TableName,
-		PrimaryIndex,
-		LevelIndex)
+		primaryIndex,
+		levelIndex)
 }

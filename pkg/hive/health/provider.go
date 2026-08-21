@@ -68,7 +68,7 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 			}
 			tx := p.db.WriteTxn(p.statusTable)
 			defer tx.Abort()
-			old, _, found := p.statusTable.Get(tx, PrimaryIndex.QueryFromObject(s))
+			old, _, found := p.statusTable.Get(tx, StatusByID(s.ID.HealthID()))
 			if found && !old.Stopped.IsZero() {
 				return fmt.Errorf("reporting for %q has been stopped", s.ID)
 			}
@@ -107,7 +107,7 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 
 			tx := p.db.WriteTxn(p.statusTable)
 			defer tx.Abort()
-			q := PrimaryIndex.Query(types.HealthID(i.String()))
+			q := StatusByID(i.HealthID())
 			iter := p.statusTable.Prefix(tx, q)
 			numDeleted := 0
 			for o := range iter {
@@ -136,7 +136,7 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 			}
 			tx := p.db.WriteTxn(p.statusTable)
 			defer tx.Abort()
-			old, _, found := p.statusTable.Get(tx, PrimaryIndex.Query(i.HealthID()))
+			old, _, found := p.statusTable.Get(tx, StatusByID(i.HealthID()))
 			if !found {
 				// Nothing to do.
 				return nil
