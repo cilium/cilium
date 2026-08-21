@@ -461,6 +461,7 @@ func Test_Conformance(t *testing.T) {
 					IncludeServiceImports: helpers.HasServiceImportSupport(c.Scheme()),
 					IncludeListenerSets:   helpers.HasListenerSetSupport(c.Scheme()),
 				}),
+				gatewayAddressStatusManager: NewGatewayAddressStatusManager(c, logger),
 				listenerStatusManager: NewListenerStatusManager(c, logger, ListenerStatusManagerConfig{
 					TCPUDPRouteSupport:      !tt.hostNetwork,
 					TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
@@ -834,6 +835,7 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 					IncludeServiceImports: helpers.HasServiceImportSupport(c.Scheme()),
 					IncludeListenerSets:   helpers.HasListenerSetSupport(c.Scheme()),
 				}),
+				gatewayAddressStatusManager: NewGatewayAddressStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))),
 				listenerStatusManager: NewListenerStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), ListenerStatusManagerConfig{
 					TCPUDPRouteSupport:      true,
 					TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
@@ -1159,12 +1161,7 @@ func Test_gatewayReconciler_setAddressStatus_updatesAcceptedListenerProgrammedCo
 		WithObjects(svc).
 		Build()
 
-	r := &gatewayReconciler{
-		Client: c,
-		logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
-	}
-
-	require.NoError(t, r.setAddressStatus(t.Context(), gw))
+	require.NoError(t, NewGatewayAddressStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))).SetAddressStatus(t.Context(), gw))
 
 	require.Len(t, gw.Status.Addresses, 1)
 	require.Equal(t, "192.0.2.10", gw.Status.Addresses[0].Value)
@@ -1285,11 +1282,12 @@ func testReconciler(t *testing.T, obj ...client.Object) (*gatewayReconciler, cli
 		Build()
 
 	reconciler := &gatewayReconciler{
-		Client:                  fakeClient,
-		logger:                  logger,
-		controllerName:          defaultControllerName,
-		tcpUDPRouteSupport:      true,
-		tcpUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+		Client:                      fakeClient,
+		logger:                      logger,
+		controllerName:              defaultControllerName,
+		tcpUDPRouteSupport:          true,
+		tcpUDPUnsupportedReason:     hostNetworkTCPUDPRouteUnsupportedReason,
+		gatewayAddressStatusManager: NewGatewayAddressStatusManager(fakeClient, logger),
 		listenerStatusManager: NewListenerStatusManager(fakeClient, logger, ListenerStatusManagerConfig{
 			TCPUDPRouteSupport:      true,
 			TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
@@ -1480,7 +1478,7 @@ func TestGatewayReconciler_statuses(t *testing.T) {
 	})
 }
 
-func Test_gatewayReconciler_setStaticAddressStatus(t *testing.T) {
+func Test_gatewayAddressStatusManager_SetStaticAddressStatus(t *testing.T) {
 	t.Parallel()
 
 	gateway := func(addr string) *gatewayv1.Gateway {
@@ -1579,12 +1577,7 @@ func Test_gatewayReconciler_setStaticAddressStatus(t *testing.T) {
 				WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 				WithObjects(gw, service(tc.ingress...)).
 				Build()
-			r := &gatewayReconciler{
-				Client: c,
-				logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
-			}
-
-			err := r.setStaticAddressStatus(t.Context(), gw)
+			err := NewGatewayAddressStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))).SetStaticAddressStatus(t.Context(), gw)
 			if tc.wantError {
 				require.ErrorContains(t, err, "can't be used")
 				return
