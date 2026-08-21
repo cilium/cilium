@@ -14,6 +14,10 @@ inputs:
   kind-config:
     required: false
     description: 'Optional Kind configuration'
+  service-subnet:
+    required: false
+    description: 'Optional service subnet passed to kind.sh'
+    default: ''
   port-forward:
     required: false
     description: 'Optional list of ports to forward'
@@ -78,6 +82,8 @@ runs:
         lvh: 'true'
 
     - name: Create K8s cluster
+      env:
+        KIND_SERVICE_SUBNET: ${{ inputs.service-subnet }}
       uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
       with:
         provision: 'false'
@@ -90,6 +96,7 @@ runs:
           # in order to include them into the enviroment of kind.sh called
           # below, they also need to be set inside the ssh session.
           export KIND_EXPERIMENTAL_DOCKER_NETWORK=${KIND_EXPERIMENTAL_DOCKER_NETWORK@Q}
+          export SERVICESUBNET=${KIND_SERVICE_SUBNET@Q}
 
           if [ "${{ inputs.kind-config }}" != "" ]; then
             kind create cluster --config ${{ inputs.kind-config }} --image ${{ inputs.kind-image }}
