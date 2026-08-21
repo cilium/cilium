@@ -2,7 +2,7 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
@@ -22,8 +22,6 @@ on:
 permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
-  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
-  id-token: write
   # To be able to check if base images were built
   actions: read
 
@@ -114,7 +112,6 @@ jobs:
         run: |
           mkdir -p ../cilium-base-branch/.github/actions
           cp -r .github/actions/set-runtime-image ../cilium-base-branch/.github/actions/
-          cp -r .github/actions/cosign ../cilium-base-branch/.github/actions/
 
       - name: Check for disk usage and cleanup /mnt
         shell: bash
@@ -367,6 +364,98 @@ jobs:
             MODIFIERS="NOSTRIP=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
+      - name: CI Image Releases digests
+        shell: bash
+        if: ${{ steps.check.outputs.build != '' }}
+        env:
+          OUTPUT_FOLDER: ${{ runner.temp }}/image-digest
+        run: |
+          mkdir -p $OUTPUT_FOLDER
+          # shellcheck disable=SC2078
+          if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
+            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest }}" > $OUTPUT_FOLDER/${{ matrix.name }}.txt
+          fi
+          echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci.outputs.digest }}" >> $OUTPUT_FOLDER/${{ matrix.name }}.txt
+          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
+            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}" >> $OUTPUT_FOLDER/${{ matrix.name }}.txt
+          fi
+          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
+            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_unstripped.outputs.digest }}" >> $OUTPUT_FOLDER/${{ matrix.name }}.txt
+          fi
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ steps.check.outputs.build != '' }}
+        with:
+          name: image-digest ${{ matrix.name }}
+          path: $OUTPUT_FOLDER
+          retention-days: 1
+
+      - name: Check for disk usage
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          df -h
+
+  cosign:
+    if: ${{ always() }}
+    name: Generate SBOMs and attest images
+    runs-on: ubuntu-24.04
+    needs: build-and-push-prs
+    permissions:
+      # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: cilium
+            dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
+            require-dir: cilium-cli
+
+          - name: operator-aws
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-azure
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-alibabacloud
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: operator-generic
+            dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: hubble-relay
+            dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: clustermesh-apiserver
+            dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+    steps:
+      - name: Checkout base or default branch (trusted)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # We first check if base_ref exist, meaning we're in pull_request_target context, and if not we just use default_branch
+          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Copy scripts to trusted directory
+        run: |
+          mkdir -p ../cilium-base-branch/.github/actions
+          cp -r .github/actions/cosign ../cilium-base-branch/.github/actions/
+
       - name: Generate SBOM, Sign, and Attest Main CI Image
         if: ${{ matrix.name != 'cilium-cli' && steps.check.outputs.build != '' }}
         uses: ./../cilium-base-branch/.github/actions/cosign
@@ -392,38 +481,6 @@ jobs:
           image_tag: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped"
           sbom_name: "ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
           install_cosign: 'false'
-
-      - name: CI Image Releases digests
-        shell: bash
-        if: ${{ steps.check.outputs.build != '' }}
-        run: |
-          mkdir -p image-digest/
-          # shellcheck disable=SC2078
-          if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
-            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          fi
-          echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
-            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          fi
-          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
-            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          fi
-
-      # Upload artifact digests
-      - name: Upload artifact digests
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ steps.check.outputs.build != '' }}
-        with:
-          name: image-digest ${{ matrix.name }}
-          path: image-digest
-          retention-days: 1
-
-      - name: Check for disk usage
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          df -h
 
   image-digests:
     if: ${{ always() }}
@@ -459,7 +516,9 @@ jobs:
     with:
       checkout_ref: ${{ needs.build-and-push-prs.outputs.sha }}
       image_tag: ${{ needs.build-and-push-prs.outputs.sha }}
-    secrets: inherit
+    secrets:
+      QUAY_CHARTS_DEV_USERNAME: ${{ secrets.QUAY_CHARTS_DEV_USERNAME }}
+      QUAY_CHARTS_DEV_PASSWORD: ${{ secrets.QUAY_CHARTS_DEV_PASSWORD }}
 
   pre-comment:
     # Avoid running the "Trigger CI from renovate PRs" environment if we don't need to.
