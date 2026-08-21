@@ -172,7 +172,7 @@ run_linter() {
         --ignore-roles "${CONF_PY_ROLES},spelling:ignore,spelling:word" \
         --ignore-substitutions "${CONF_PY_SUBSTITUTIONS}" \
        -r . ../README.rst 2>&1 | \
-       grep -v 'WARNING:rstcheck_core.checker:An `AttributeError` error occurred. This is most probably due to a code block directive (code/code-block/sourcecode) without a specified language.'
+       grep -v 'WARNING:rstcheck_core.checker:An `AttributeError` error .* This is most probably due to a code block directive (code/code-block/sourcecode) without a specified language.'
 }
 
 read_all_opt=""
@@ -221,7 +221,7 @@ fi
 
 echo "Building documentation (${target})..."
 sphinx-build -M "${target}" "${script_dir}" "${build_dir}" $@ \
-    ${read_all_opt} -n --color -w "${warnings}" 2>/dev/null
+    ${read_all_opt} -n --color -w "${warnings}"
 
 # We can have warnings but no errors here, or sphinx-build would return non-0
 # and we would have exited because of "set -o errexit".
