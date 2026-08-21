@@ -754,7 +754,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 	if isDatapathCandidate {
 		isLocalAddr := func(addr netip.Addr) bool {
 			k := tables.NodeAddressKey{Addr: addr}
-			for range ops.nodeAddrs.Prefix(txn, tables.NodeAddressIndex.Query(k)) {
+			for range ops.nodeAddrs.Prefix(txn, tables.NodeAddressByKey(k)) {
 				return true
 			}
 			return false
@@ -791,7 +791,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 		// empty so any previously expanded frontends are withdrawn below.
 		var nodePortAddrs []netip.Addr
 		if isDatapathCandidate {
-			for na := range ops.nodeAddrs.List(txn, tables.NodeAddressNodePortIndex.Query(true)) {
+			for na := range ops.nodeAddrs.List(txn, tables.NodeAddressesByNodePort(true)) {
 				if na.Addr.Is6() != fe.Address.IsIPv6() {
 					continue
 				}

@@ -200,7 +200,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 					if !is4 {
 						beAddr = netip.IPv6Unspecified()
 					}
-					for addr := range s.params.NodeAddresses.List(wtxn, tables.NodeAddressNodePortIndex.Query(true)) {
+					for addr := range s.params.NodeAddresses.List(wtxn, tables.NodeAddressesByNodePort(true)) {
 						if is4 && addr.Addr.Is4() {
 							beAddr = addr.Addr
 							break
