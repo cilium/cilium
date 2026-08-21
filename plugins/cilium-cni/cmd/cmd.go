@@ -240,10 +240,12 @@ func allocateIPsWithDelegatedPlugin(
 				masterMac = ifMac
 			}
 		} else if iface.Name != "" {
-			if uplink, err := safenetlink.LinkByName(iface.Name); err != nil {
+			uplink, err := safenetlink.LinkByName(iface.Name)
+			if err != nil {
 				return nil, releaseFunc, fmt.Errorf("failed to get uplink %q: %w", iface.Name, err)
-			} else {
-				masterMac = mac.MAC(uplink.Attrs().HardwareAddr)
+			}
+			if masterMac, err = mac.FromHardwareAddr(uplink.Attrs().HardwareAddr); err != nil {
+				return nil, releaseFunc, fmt.Errorf("failed to parse uplink %q MAC: %w", iface.Name, err)
 			}
 		}
 		break
@@ -524,7 +526,7 @@ func ifindexFromMac(m mac.MAC) (int64, error) {
 		if l.Attrs().RawFlags&unix.IFF_SLAVE != 0 {
 			continue
 		}
-		if bytes.Equal(l.Attrs().HardwareAddr, net.HardwareAddr(m)) {
+		if bytes.Equal(l.Attrs().HardwareAddr, m.HardwareAddr()) {
 			if iface != nil {
 				return -1, fmt.Errorf("several interfaces found with MAC %s: %s and %s", m, iface.Attrs().Name, l.Attrs().Name)
 			}
@@ -769,8 +771,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	res.Interfaces = append(res.Interfaces, iface)
 
 	if isLayer2 {
-		ep.Mac = mac.MAC(peerLinkAttrs.HardwareAddr)
-		ep.HostMac = mac.MAC(hostLinkAttrs.HardwareAddr)
+		if ep.Mac, err = mac.FromHardwareAddr(peerLinkAttrs.HardwareAddr); err != nil {
+			return fmt.Errorf("invalid MAC address for %s: %w", peerLinkAttrs.Name, err)
+		}
+		if ep.HostMac, err = mac.FromHardwareAddr(hostLinkAttrs.HardwareAddr); err != nil {
+			return fmt.Errorf("invalid MAC address for %s: %w", hostLinkAttrs.Name, err)
+		}
 	}
 	ep.InterfaceIndex = int64(hostLinkAttrs.Index)
 	ep.InterfaceName = hostLinkAttrs.Name
@@ -892,7 +898,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		)
 		return fmt.Errorf("unable to create endpoint: %w", err)
 	}
-	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && len(newEp.Status.Networking.Mac) > 0 {
+	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac.IsValid() {
 		// Set the MAC address on the interface in the container namespace
 		if isLayer2 {
 			err = ns.Do(func() error {

@@ -27,32 +27,66 @@ func (m Uint64MAC) String() string {
 	)
 }
 
-// MAC address is an net.HardwareAddr encapsulation to force cilium to only use MAC-48.
-type MAC net.HardwareAddr
+// MAC is an IEEE 802 MAC-48 address.
+//
+// It is a comparable value type: two MACs may be compared with == and a MAC may
+// be used as a map key. Its zero value means "unset", which is how a device
+// carrying no layer 2 address, such as an L3/NOARP device, is represented.
+type MAC [6]byte
 
-// String returns the string representation of m.
+// String returns the string representation of m, or the empty string if m is
+// unset.
 func (m MAC) String() string {
-	return net.HardwareAddr(m).String()
+	if !m.IsValid() {
+		return ""
+	}
+	return m.HardwareAddr().String()
 }
 
-// As6 returns the MAC as an array of 6 bytes for use in datapath configuration
-// structs.
-func (m MAC) As6() [6]byte {
-	var res [6]byte
-	copy(res[:], m)
-	return res
+// IsValid reports whether m is set. Devices without a layer 2 address, such as
+// L3/NOARP devices, carry an invalid MAC.
+func (m MAC) IsValid() bool {
+	return m != MAC{}
+}
+
+// HardwareAddr returns m as a [net.HardwareAddr], or nil if m is unset. The
+// result is a copy and does not alias m.
+//
+// Unset must map to nil rather than to six zero bytes: consumers such as
+// netlink treat a nil [net.HardwareAddr] as "no address requested" and a
+// non-nil one as an explicit address to set, which the kernel rejects for
+// devices that carry no layer 2 address.
+func (m MAC) HardwareAddr() net.HardwareAddr {
+	if !m.IsValid() {
+		return nil
+	}
+	return net.HardwareAddr(m[:])
 }
 
 // ParseMAC parses s only as an IEEE 802 MAC-48.
 func ParseMAC(s string) (MAC, error) {
 	ha, err := net.ParseMAC(s)
 	if err != nil {
-		return nil, err
+		return MAC{}, err
 	}
 	// MAC only supports the IEEE 802 MAC-48 address format while [net.HardwareAddress]
 	// supports several other formats, see [net.ParseMAC].
 	if len(ha) != 6 {
-		return nil, fmt.Errorf("invalid MAC address %s", s)
+		return MAC{}, fmt.Errorf("invalid MAC address %s", s)
+	}
+
+	return MAC(ha), nil
+}
+
+// FromHardwareAddr converts ha to a MAC. Like [ParseMAC] it only accepts an
+// IEEE 802 MAC-48 address, so a device carrying no layer 2 address, such as an
+// L3/NOARP device, yields an error rather than an unset MAC.
+//
+// Prefer this over a plain MAC(ha) conversion, which panics at run time on a
+// [net.HardwareAddr] shorter than 6 bytes.
+func FromHardwareAddr(ha net.HardwareAddr) (MAC, error) {
+	if len(ha) != 6 {
+		return MAC{}, fmt.Errorf("invalid MAC address %q", ha)
 	}
 
 	return MAC(ha), nil
@@ -72,17 +106,12 @@ func MustParseMAC(s string) MAC {
 // the returned value.
 // Example:
 //
-//	m := MAC([]{0x11, 0x12, 0x23, 0x34, 0x45, 0x56})
-//	v, err := m.Uint64()
-//	fmt.Printf("0x%X", v) // 0x564534231211
-func (m MAC) Uint64() (Uint64MAC, error) {
-	if len(m) != 6 {
-		return 0, fmt.Errorf("invalid MAC address %s", m.String())
-	}
-
+//	m := MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}
+//	fmt.Printf("0x%X", m.Uint64()) // 0x564534231211
+func (m MAC) Uint64() Uint64MAC {
 	res := uint64(m[5])<<40 | uint64(m[4])<<32 | uint64(m[3])<<24 |
 		uint64(m[2])<<16 | uint64(m[1])<<8 | uint64(m[0])
-	return Uint64MAC(res), nil
+	return Uint64MAC(res)
 }
 
 // MarshalText implements the [encoding.TextMarshaler] interface.
@@ -99,20 +128,20 @@ func (m *MAC) UnmarshalText(data []byte) error {
 	}
 	hw, err := ParseMAC(string(data))
 	if err == nil {
-		*m = MAC(hw)
+		*m = hw
 	}
 	return err
 }
 
 // GenerateRandMAC generates a random unicast and locally administered MAC address.
 func GenerateRandMAC() (MAC, error) {
-	buf := make([]byte, 6)
-	if _, err := rand.Read(buf); err != nil {
-		return nil, fmt.Errorf("Unable to retrieve 6 rnd bytes: %w", err)
+	var m MAC
+	if _, err := rand.Read(m[:]); err != nil {
+		return MAC{}, fmt.Errorf("Unable to retrieve 6 rnd bytes: %w", err)
 	}
 
 	// Set locally administered addresses bit and reset multicast bit
-	buf[0] = (buf[0] | 0x02) & 0xfe
+	m[0] = (m[0] | 0x02) & 0xfe
 
-	return buf, nil
+	return m, nil
 }

@@ -33,7 +33,7 @@ type EndpointNetworking struct {
 	HostAddressing *NodeAddressing `json:"host-addressing,omitempty"`
 
 	// MAC address
-	HostMac mac.MAC `json:"host-mac,omitempty"`
+	HostMac mac.MAC `json:"host-mac,omitzero"`
 
 	// Index of network device in host netns
 	InterfaceIndex int64 `json:"interface-index,omitempty"`
@@ -42,7 +42,7 @@ type EndpointNetworking struct {
 	InterfaceName string `json:"interface-name,omitempty"`
 
 	// MAC address
-	Mac mac.MAC `json:"mac,omitempty"`
+	Mac mac.MAC `json:"mac,omitzero"`
 }
 
 // Validate validates this endpoint networking

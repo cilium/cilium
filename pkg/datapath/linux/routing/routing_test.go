@@ -276,7 +276,7 @@ func createDummyDevice(t *testing.T, macAddr mac.MAC) func() {
 			// NOTE: This name must be less than 16 chars, source:
 			// https://elixir.bootlin.com/linux/v5.6/source/include/uapi/linux/if.h#L33
 			Name:         "linuxrout-test",
-			HardwareAddr: net.HardwareAddr(macAddr),
+			HardwareAddr: macAddr.HardwareAddr(),
 		},
 	}
 	err := netlink.LinkAdd(dummy)

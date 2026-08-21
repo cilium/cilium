@@ -4,7 +4,6 @@
 package genericveth
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -83,7 +82,9 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 				continue
 			}
 
-			vethLXCMac = mac.MAC(link.Attrs().HardwareAddr)
+			// A link with no usable MAC leaves vethLXCMac unset; it is
+			// reported along with the other missing attributes below.
+			vethLXCMac, _ = mac.FromHardwareAddr(link.Attrs().HardwareAddr)
 			vethLXCName = link.Attrs().Name
 
 			veth, ok := link.(*netlink.Veth)
@@ -180,7 +181,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		return
 	}
 
-	hostMac = mac.MAC(peer.Attrs().HardwareAddr)
+	hostMac, _ = mac.FromHardwareAddr(peer.Attrs().HardwareAddr)
 	vethHostName = peer.Attrs().Name
 	vethHostIdx = peer.Attrs().Index
 
@@ -188,7 +189,10 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 	case vethHostName == "":
 		err = errors.New("unable to determine name of veth pair on the host side")
 		return
-	case len(vethLXCMac) == 0:
+	case !hostMac.IsValid():
+		err = errors.New("unable to determine MAC address of veth pair on the host side")
+		return
+	case !vethLXCMac.IsValid():
 		err = errors.New("unable to determine MAC address of veth pair on the container side")
 		return
 	case vethIP == "" && vethIPv6 == "":
@@ -246,8 +250,8 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		err = fmt.Errorf("unable to create endpoint: %w", err)
 		return
 	}
-	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && len(newEp.Status.Networking.Mac) > 0 &&
-		!bytes.Equal(newEp.Status.Networking.Mac, vethLXCMac) {
+	if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac.IsValid() &&
+		newEp.Status.Networking.Mac != vethLXCMac {
 
 		err = ns.Do(func() error {
 			return link.SetHardwareAddr(vethLXCName, newEp.Status.Networking.Mac)

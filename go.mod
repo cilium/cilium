@@ -178,7 +178,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.45.6 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62 // indirect
+	github.com/cilium/deepequal-gen v0.0.0-20260817061921-e5a8128944c9 // indirect
 	github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba // indirect
 	github.com/cilium/linters v0.4.0 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
@@ -316,7 +316,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiserver v0.36.3 // indirect
 	k8s.io/code-generator v0.36.3 // indirect
-	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
+	k8s.io/gengo/v2 v2.0.0-20260408192533-25e2208e0dc3 // indirect
 	k8s.io/kube-openapi v0.0.0-20260501160325-927ab1f70cd6 // indirect
 	k8s.io/kubelet v0.36.3 // indirect
 	k8s.io/streaming v0.36.3 // indirect

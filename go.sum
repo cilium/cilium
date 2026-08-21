@@ -123,8 +123,8 @@ github.com/cilium/controller-tools v0.21.0-1 h1:QPXGloay87zKwbZZp5kWoK3yOzI3Q6z5
 github.com/cilium/controller-tools v0.21.0-1/go.mod h1:DLIypi3Q2+azVAP8jr/mHXJgveYYHFjhnNOUuBJ10JE=
 github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce h1:gqzXY3NuHllVVDw9vD49mlXx+9bYFPlg23rdrkQNFDM=
 github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce/go.mod h1:6RGqSqaXtkBGjm7na2bKFi52BeeGUuiT3178zeje4Ik=
-github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62 h1:MOWY9eqnrrQx6s8WMuDBasD6zxUDgTqxXD/qYniupG4=
-github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62/go.mod h1:9EU8oWNwEP6f98xJz/YjWw7yOLHK7p90MKmaPu1wBcE=
+github.com/cilium/deepequal-gen v0.0.0-20260817061921-e5a8128944c9 h1:Enfrr4QL9Rvax1FyZjvzoEdd/amroaHrwhJGTGBx0UQ=
+github.com/cilium/deepequal-gen v0.0.0-20260817061921-e5a8128944c9/go.mod h1:7Rb+zWuJOR4oUpbNafd0qgr433SoE533AFhWZ5dt96k=
 github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a h1:PRGN7B+72mj3OtLL2DM3F/9jp+ItgqgNS7mecgCmwsQ=
 github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a/go.mod h1:/7LC2GOgyXJ7maupZlaVIumYQiGPIgllSf6mA9sg6RU=
 github.com/cilium/ebpf v0.22.0 h1:v2ktp0roffpMOj2MMf3idtCQZOsAoC4BJbAJN+ke2bY=
@@ -1042,8 +1042,8 @@ k8s.io/dynamic-resource-allocation v0.36.3 h1:5cDyWiGhqJMrp8UwdgAqHcDkZHQ7wFhIK4
 k8s.io/dynamic-resource-allocation v0.36.3/go.mod h1:jt+LtmnMqIqV7lG4PznEtuhPy+fHipfAD0Q+biKszAg=
 k8s.io/endpointslice v0.36.3 h1:5q2Vn5IP9yDCFIb0zNaRWXV59srZbqzhhUxf3qkcL+E=
 k8s.io/endpointslice v0.36.3/go.mod h1:IqqIGV1fIEdiI6V/IzH2InMbk6N4OH1nYjWx4RC1GKw=
-k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b h1:gMplByicHV/TJBizHd9aVEsTYoJBnnUAT5MHlTkbjhQ=
-k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b/go.mod h1:CgujABENc3KuTrcsdpGmrrASjtQsWCT7R99mEV4U/fM=
+k8s.io/gengo/v2 v2.0.0-20260408192533-25e2208e0dc3 h1:3L6PNkMLXkU/pz3jWzaaIUz0Rs2V9h+5O51AeRC7poc=
+k8s.io/gengo/v2 v2.0.0-20260408192533-25e2208e0dc3/go.mod h1:yvyl3l9E+UxlqOMUULdKTAYB0rEhsmjr7+2Vb/1pCSo=
 k8s.io/klog/v2 v2.140.0 h1:Tf+J3AH7xnUzZyVVXhTgGhEKnFqye14aadWv7bzXdzc=
 k8s.io/klog/v2 v2.140.0/go.mod h1:o+/RWfJ6PwpnFn7OyAG3QnO47BFsymfEfrz6XyYSSp0=
 k8s.io/kube-openapi v0.0.0-20260501160325-927ab1f70cd6 h1:ngxu1nL4SbFuXwu1EY7cSKcVqSjTQPVbYQT6WNjTXaU=
