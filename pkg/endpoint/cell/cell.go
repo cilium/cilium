@@ -10,6 +10,7 @@ import (
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
+	endpointtables "github.com/cilium/cilium/pkg/endpoint/tables"
 	"github.com/cilium/cilium/pkg/endpoint/watchdog"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -36,6 +37,9 @@ var Cell = cell.Group(
 
 	// RegeneratorCell provides extra options and utilities for endpoints regeneration.
 	endpoint.RegeneratorCell,
+
+	// EndpointTables exposes Cilium-managed endpoint metadata through StateDB.
+	endpointtables.Cell,
 
 	// Cell triggers a job to ensure device tc programs remain loaded.
 	watchdog.Cell,
