@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"slices"
 	"strconv"
 
 	"github.com/cilium/ebpf"
@@ -201,21 +200,20 @@ func (gm *perClusterCTMaps) GetAllClusterCTMaps() []MapPair {
 	gm.Lock()
 	defer gm.Unlock()
 
-	var maps []*Map
+	var pairs []MapPair
 	for clusterID := range gm.clusterIDs {
-		gm.foreach(func(om *PerClusterCTMap) error {
-			maps = append(maps, om.newInnerMap(clusterID))
-			return nil
-		})
-	}
-
-	// Split into pairs
-	pairs := make([]MapPair, 0, len(maps)/2)
-	for p := range slices.Chunk(maps, 2) {
-		pairs = append(pairs, MapPair{
-			TCP: p[0],
-			Any: p[1],
-		})
+		if gm.tcp4 != nil {
+			pairs = append(pairs, MapPair{
+				TCP: gm.tcp4.newInnerMap(clusterID),
+				Any: gm.any4.newInnerMap(clusterID),
+			})
+		}
+		if gm.tcp6 != nil {
+			pairs = append(pairs, MapPair{
+				TCP: gm.tcp6.newInnerMap(clusterID),
+				Any: gm.any6.newInnerMap(clusterID),
+			})
+		}
 	}
 
 	return pairs
