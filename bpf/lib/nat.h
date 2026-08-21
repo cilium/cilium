@@ -25,6 +25,7 @@
 #include "nat_46x64.h"
 #include "signal.h"
 #include "stubs.h"
+#include "subnet.h"
 #include "trace.h"
 
 /* Nodeport NAT minimum port value */
@@ -774,6 +775,14 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		 * by the remote node if its native dev's
 		 * rp_filter=1.
 		 */
+
+		/* In hybrid routing mode, skip SNAT for traffic within the same
+		 * subnet group. These packets are natively routed and don't need
+		 * masquerading.
+		 */
+		if (CONFIG(hybrid_routing_enabled) &&
+		    is_subnet_same_id4(tuple->saddr, tuple->daddr))
+			return NAT_PUNT_TO_STACK;
 
 		if (remote_ep->flag_skip_tunnel)
 			return NAT_PUNT_TO_STACK;
@@ -1800,6 +1809,14 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 			return NAT_NEEDED;
 		}
 		if (!is_defined(TUNNEL_MODE))
+			return NAT_PUNT_TO_STACK;
+
+		/* In hybrid routing mode, skip SNAT for traffic within the same
+		 * subnet group. These packets are natively routed and don't need
+		 * masquerading.
+		 */
+		if (CONFIG(hybrid_routing_enabled) &&
+		    is_subnet_same_id6(&tuple->saddr, &tuple->daddr))
 			return NAT_PUNT_TO_STACK;
 
 		if (remote_ep->flag_skip_tunnel)
