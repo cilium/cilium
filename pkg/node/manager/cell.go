@@ -28,7 +28,6 @@ var Cell = cell.Module(
 	"node-manager",
 	"Manages the collection of Cilium nodes",
 	cell.Provide(newAllNodeManager),
-	cell.Provide(newGetClusterNodesRestAPIHandler),
 	cell.Provide(newNodeConfigNotifier),
 	metrics.Metric(NewNodeMetrics),
 )
@@ -49,9 +48,6 @@ type Notifier interface {
 
 type NodeManager interface {
 	Notifier
-
-	// GetNodes returns a copy of all the nodes as a map from Identity to Node.
-	GetNodes() map[types.Identity]types.Node
 
 	// GetNodeIdentities returns a list of all node identities store in node
 	// manager.
