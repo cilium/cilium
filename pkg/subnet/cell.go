@@ -56,7 +56,7 @@ func registerSubnetWatcher(cfg *option.DaemonConfig, fence regeneration.Fence, s
 			entry, found, w := dynamicconfig.WatchKey(sw.db.ReadTxn(), sw.dynamicConfigTable, SubnetTopologyConfigKey)
 			if found {
 				sw.logger.Info("Detected change in subnet-topology dynamic config")
-				if err := sw.processSubnetConfigEntry(entry); err != nil {
+				if err := sw.processSubnetConfigEntry(ctx, entry); err != nil {
 					sw.logger.Error("Failed to process subnet-topology dynamic config", logfields.Error, err)
 					health.Degraded("Failed to process subnet-topology dynamic config", err)
 				} else {

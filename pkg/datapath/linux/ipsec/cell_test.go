@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
@@ -45,7 +46,6 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -85,8 +85,39 @@ type paramsOut struct {
 	RemoteIdentityWatcher clustermesh.RemoteIdentityWatcher
 	CacheStatus           k8sSynced.CacheStatus
 	ClusterInfo           cmtypes.ClusterInfo
-	NodeHandler           node.Handler
 	SecretSyncConfig      envoy.SecretSyncConfig
+}
+
+func completeNextLinuxNodeReconciliation(
+	t *testing.T,
+	db *statedb.DB,
+	writer *node.Writer,
+) {
+	t.Helper()
+	nodes := writer.Table().(statedb.RWTable[*node.Node])
+	require.Eventually(t, func() bool {
+		txn := db.WriteTxn(nodes)
+		defer txn.Abort()
+
+		found := false
+		for n := range nodes.All(txn) {
+			if n.Statuses.Get(node.LinuxNodeReconciler.String()).Kind !=
+				reconciler.StatusKindPending {
+				continue
+			}
+			found = true
+			updated := *n
+			updated.Statuses = updated.Statuses.Set(
+				node.LinuxNodeReconciler.String(),
+				reconciler.StatusDone(),
+			)
+			nodes.Insert(txn, &updated)
+		}
+		if found {
+			txn.Commit()
+		}
+		return found
+	}, TestTimeout, 10*time.Millisecond)
 }
 
 func TestPrivileged_TestIPSecCell(t *testing.T) {
@@ -107,11 +138,12 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 	var (
 		// Local references are updated when starting the Hive.
-		ipsecAgent  *agent
-		nodeStore   *node.LocalNodeStore
-		mtuConfig   mtu.MTU
-		encryptMap  encrypt.EncryptMap
-		nodeHandler node.Handler
+		ipsecAgent *agent
+		nodeStore  *node.LocalNodeStore
+		mtuConfig  mtu.MTU
+		encryptMap encrypt.EncryptMap
+		nodeWriter *node.Writer
+		db         *statedb.DB
 
 		ctx = t.Context()
 		ns  = netns.NewNetNS(t)
@@ -202,18 +234,21 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 						RemoteIdentityWatcher: nil,
 						CacheStatus:           make(k8sSynced.CacheStatus),
 						ClusterInfo:           cmtypes.DefaultClusterInfo,
-						NodeHandler:           fakenode.NewHandler(),
 						SecretSyncConfig:      envoy.SecretSyncConfig{},
 					}
 				},
 			),
 
 			cell.Invoke(
-				func(a types.Agent, s *node.LocalNodeStore, m mtu.MTU, e encrypt.EncryptMap, n node.Handler) {
+				func(w *node.Writer, statedbDB *statedb.DB) {
+					w.RegisterReconciler(node.LinuxNodeReconciler)
+					nodeWriter = w
+					db = statedbDB
+				},
+				func(a types.Agent, s *node.LocalNodeStore, m mtu.MTU, e encrypt.EncryptMap) {
 					ipsecAgent = a.(*agent)
 					nodeStore = s
 					mtuConfig = m
-					nodeHandler = n
 					if a.Enabled() {
 						encryptMap = e
 					}
@@ -238,6 +273,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 			// 2. Start the hive.
 			require.NoError(t, hive.Start(log, ctx))
+			completeNextLinuxNodeReconciliation(t, db, nodeWriter)
 
 			// 3. Ensure the ipsec agent is enabled.
 			require.True(t, ipsecAgent.Enabled())
@@ -250,7 +286,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			}, TestTimeout, 50*time.Millisecond)
 
 			// 5. Start background ipsec jobs (publishes SPI to local node and encrypt map).
-			require.NoError(t, ipsecAgent.StartBackgroundJobs(nodeHandler, nil))
+			require.NoError(t, ipsecAgent.StartBackgroundJobs(nil))
 
 			// 6. Ensure local node has been updated.
 			localNode, err := nodeStore.Get(ctx)
@@ -265,6 +301,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 			// 8. Dump another valid IPSec key to file.
 			require.NoError(t, os.WriteFile(keyFile, validKeySPI5, 0644))
+			completeNextLinuxNodeReconciliation(t, db, nodeWriter)
 
 			// 9. Ensure the ipsec agent updated the spi accordingly.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -303,6 +340,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			// 1. Create and start a hive with IPSec enabled.
 			hive := getHive(true)
 			require.NoError(t, hive.Start(log, ctx))
+			completeNextLinuxNodeReconciliation(t, db, nodeWriter)
 
 			// 2. Verify rotation detected: agent keeps old SPI from BPF map,
 			// defers new SPI publication.
@@ -320,7 +358,8 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			// waits for dpInitialized, then publishes the new SPI.
 			dpInitialized := make(chan struct{})
 			close(dpInitialized)
-			require.NoError(t, ipsecAgent.StartBackgroundJobs(nodeHandler, dpInitialized))
+			require.NoError(t, ipsecAgent.StartBackgroundJobs(dpInitialized))
+			completeNextLinuxNodeReconciliation(t, db, nodeWriter)
 
 			// 5. Verify that after dpInitialized, the new SPI is published everywhere.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
