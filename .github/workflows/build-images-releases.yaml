@@ -16,6 +16,9 @@ jobs:
   build-and-push:
     timeout-minutes: 45
     name: Build and Push Images
+    # Pins the OIDC token subject to
+    # repo:cilium/cilium:environment:release, which is the identity federated
+    # with the Quay robot account.
     environment:
       name: release
       deployment: false
@@ -68,19 +71,48 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
+      # Docker Hub trades the OIDC token for an access token on its own
+      # identity endpoint, which the action does for us as long as no password
+      # is given. The connection ID selects the trust configured on the
+      # organization and is not a secret on its own.
       - name: Login to DockerHub
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         if: ${{ env.PUSH_TO_DOCKER_HUB == 'true' }}
+        env:
+          DOCKERHUB_OIDC_CONNECTIONID: 7cde8f4a-b905-4e33-b315-97637346ee98
         with:
-          username: ${{ secrets.DOCKER_HUB_RELEASE_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_RELEASE_PASSWORD }}
+          username: cilium
+
+      # Quay's registry endpoint only accepts credentials or a JWT signed by
+      # Quay itself, so the GitHub OIDC token cannot be used as the registry
+      # password directly. Trade it for a short lived robot token first.
+      - name: Get a ${{ env.REGISTRY }} robot token via OIDC
+        id: registry-token
+        env:
+          ROBOT: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
+        run: |
+          oidc_token="$(curl -sSf --retry 3 --retry-all-errors \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=quay.io" \
+            | jq -er '.value')"
+          echo "::add-mask::${oidc_token}"
+
+          # Pass the credentials on stdin so that the OIDC token is not visible
+          # in the process list of the runner.
+          robot_token="$(printf 'user = "%s:%s"\n' "${ROBOT}" "${oidc_token}" \
+            | curl -sSf --retry 3 --retry-all-errors -K - \
+              "https://quay.io/oauth2/federation/robot/token" \
+            | jq -er '.token')"
+          echo "::add-mask::${robot_token}"
+
+          echo "token=${robot_token}" >> "$GITHUB_OUTPUT"
 
       - name: Login to ${{ env.REGISTRY }}
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+          password: ${{ steps.registry-token.outputs.token }}
 
       - name: Getting image tag
         id: tag
