@@ -92,6 +92,56 @@ func getRandomEndpoint() *testutils.FakeEndpointInfo {
 	return nil
 }
 
+func TestServerStopReturnsServe(t *testing.T) {
+	freeTCPAddress := func() string {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		defer l.Close()
+		return l.Addr().String()
+	}
+
+	listenAddress := freeTCPAddress()
+	healthListenAddress := freeTCPAddress()
+
+	srv, err := New(
+		WithInsecureClient(),
+		WithInsecureServer(),
+		WithPeerTarget("unix://"+filepath.Join(t.TempDir(), "peer.sock")),
+		WithListenAddress(listenAddress),
+		WithHealthListenAddress(healthListenAddress),
+		WithRetryTimeout(10*time.Millisecond),
+		WithLogger(log),
+	)
+	require.NoError(t, err)
+
+	serveDone := make(chan error, 1)
+	go func() {
+		serveDone <- srv.Serve()
+	}()
+
+	canDial := func(address string) bool {
+		conn, err := net.DialTimeout("tcp", address, 10*time.Millisecond)
+		if err != nil {
+			return false
+		}
+		conn.Close()
+		return true
+	}
+
+	require.Eventually(t, func() bool {
+		return canDial(listenAddress) && canDial(healthListenAddress)
+	}, time.Second, 10*time.Millisecond)
+
+	srv.Stop()
+
+	select {
+	case err := <-serveDone:
+		require.NoError(t, err)
+	case <-time.After(15 * time.Second):
+		t.Fatal("Serve did not return after Stop")
+	}
+}
+
 func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.LocalObserverServer {
 	queueSize := numFlows
 
