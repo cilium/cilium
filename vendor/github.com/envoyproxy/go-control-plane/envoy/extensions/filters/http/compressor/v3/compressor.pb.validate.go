@@ -1123,6 +1123,8 @@ func (m *Compressor_ResponseDirectionConfig) validate(all bool) error {
 
 	// no validation rules for DisableOnEtagHeader
 
+	// no validation rules for WeakenEtagOnCompress
+
 	// no validation rules for RemoveAcceptEncodingHeader
 
 	_Compressor_ResponseDirectionConfig_UncompressibleResponseCodes_Unique := make(map[uint32]struct{}, len(m.GetUncompressibleResponseCodes()))

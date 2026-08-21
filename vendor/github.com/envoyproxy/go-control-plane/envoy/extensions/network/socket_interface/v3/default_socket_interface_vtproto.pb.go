@@ -92,6 +92,36 @@ func (m *IoUringOptions) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) 
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.EnableMultishotReceive {
+		i--
+		if m.EnableMultishotReceive {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x38
+	}
+	if m.WriteLowWatermarkBytes != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.WriteLowWatermarkBytes).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.WriteHighWatermarkBytes != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.WriteHighWatermarkBytes).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x2a
+	}
 	if m.WriteTimeoutMs != nil {
 		size, err := (*wrapperspb.UInt32Value)(m.WriteTimeoutMs).MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -169,6 +199,17 @@ func (m *IoUringOptions) SizeVT() (n int) {
 	if m.WriteTimeoutMs != nil {
 		l = (*wrapperspb.UInt32Value)(m.WriteTimeoutMs).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.WriteHighWatermarkBytes != nil {
+		l = (*wrapperspb.UInt32Value)(m.WriteHighWatermarkBytes).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.WriteLowWatermarkBytes != nil {
+		l = (*wrapperspb.UInt32Value)(m.WriteLowWatermarkBytes).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.EnableMultishotReceive {
+		n += 2
 	}
 	n += len(m.unknownFields)
 	return n

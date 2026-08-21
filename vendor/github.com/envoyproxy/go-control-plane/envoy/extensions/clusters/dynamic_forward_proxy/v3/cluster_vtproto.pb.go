@@ -176,6 +176,28 @@ func (m *SubClustersConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, erro
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.DnsClusterConfig != nil {
+		if vtmsg, ok := interface{}(m.DnsClusterConfig).(interface {
+			MarshalToSizedBufferVTStrict([]byte) (int, error)
+		}); ok {
+			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		} else {
+			encoded, err := proto.Marshal(m.DnsClusterConfig)
+			if err != nil {
+				return 0, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
 	if len(m.PreresolveClusters) > 0 {
 		for iNdEx := len(m.PreresolveClusters) - 1; iNdEx >= 0; iNdEx-- {
 			if vtmsg, ok := interface{}(m.PreresolveClusters[iNdEx]).(interface {
@@ -309,6 +331,16 @@ func (m *SubClustersConfig) SizeVT() (n int) {
 			}
 			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
+	}
+	if m.DnsClusterConfig != nil {
+		if size, ok := interface{}(m.DnsClusterConfig).(interface {
+			SizeVT() int
+		}); ok {
+			l = size.SizeVT()
+		} else {
+			l = proto.Size(m.DnsClusterConfig)
+		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

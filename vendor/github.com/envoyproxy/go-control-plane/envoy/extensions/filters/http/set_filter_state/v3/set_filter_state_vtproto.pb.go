@@ -49,6 +49,16 @@ func (m *Config) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.ClearRouteCache {
+		i--
+		if m.ClearRouteCache {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x10
+	}
 	if len(m.OnRequestHeaders) > 0 {
 		for iNdEx := len(m.OnRequestHeaders) - 1; iNdEx >= 0; iNdEx-- {
 			if vtmsg, ok := interface{}(m.OnRequestHeaders[iNdEx]).(interface {
@@ -93,6 +103,9 @@ func (m *Config) SizeVT() (n int) {
 			}
 			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
+	}
+	if m.ClearRouteCache {
+		n += 2
 	}
 	n += len(m.unknownFields)
 	return n

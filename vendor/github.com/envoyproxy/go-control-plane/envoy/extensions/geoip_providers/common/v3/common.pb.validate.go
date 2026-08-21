@@ -280,6 +280,21 @@ func (m *CommonGeoipProviderConfig_GeolocationHeadersToAdd) validate(all bool) e
 
 	}
 
+	if m.GetAsnOrg() != "" {
+
+		if !_CommonGeoipProviderConfig_GeolocationHeadersToAdd_AsnOrg_Pattern.MatchString(m.GetAsnOrg()) {
+			err := CommonGeoipProviderConfig_GeolocationHeadersToAddValidationError{
+				field:  "AsnOrg",
+				reason: "value does not match regex pattern \"^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if m.GetIsAnon() != "" {
 
 		if !_CommonGeoipProviderConfig_GeolocationHeadersToAdd_IsAnon_Pattern.MatchString(m.GetIsAnon()) {
@@ -497,6 +512,8 @@ var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_Region_Pattern = regexp.M
 
 var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_Asn_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
 
+var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_AsnOrg_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
+
 var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_IsAnon_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
 
 var _CommonGeoipProviderConfig_GeolocationHeadersToAdd_Anon_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
@@ -544,6 +561,8 @@ func (m *CommonGeoipProviderConfig_GeolocationFieldKeys) validate(all bool) erro
 	// no validation rules for Region
 
 	// no validation rules for Asn
+
+	// no validation rules for AsnOrg
 
 	// no validation rules for Anon
 

@@ -49,6 +49,11 @@ func (m *StatefulSession) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error)
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.StatusOnStrictDestinationNotFound != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.StatusOnStrictDestinationNotFound))
+		i--
+		dAtA[i] = 0x20
+	}
 	if len(m.StatPrefix) > 0 {
 		i -= len(m.StatPrefix)
 		copy(dAtA[i:], m.StatPrefix)
@@ -200,6 +205,9 @@ func (m *StatefulSession) SizeVT() (n int) {
 	l = len(m.StatPrefix)
 	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.StatusOnStrictDestinationNotFound != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.StatusOnStrictDestinationNotFound))
 	}
 	n += len(m.unknownFields)
 	return n

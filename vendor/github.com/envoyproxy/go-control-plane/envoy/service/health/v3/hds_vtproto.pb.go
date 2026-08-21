@@ -9,6 +9,7 @@ package healthv3
 import (
 	protohelpers "github.com/planetscale/vtprotobuf/protohelpers"
 	durationpb "github.com/planetscale/vtprotobuf/types/known/durationpb"
+	structpb "github.com/planetscale/vtprotobuf/types/known/structpb"
 	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
@@ -168,6 +169,16 @@ func (m *EndpointHealth) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) 
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.HealthMetadata != nil {
+		size, err := (*structpb.Struct)(m.HealthMetadata).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1a
 	}
 	if m.HealthStatus != 0 {
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.HealthStatus))
@@ -816,6 +827,10 @@ func (m *EndpointHealth) SizeVT() (n int) {
 	}
 	if m.HealthStatus != 0 {
 		n += 1 + protohelpers.SizeOfVarint(uint64(m.HealthStatus))
+	}
+	if m.HealthMetadata != nil {
+		l = (*structpb.Struct)(m.HealthMetadata).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

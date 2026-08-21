@@ -520,6 +520,17 @@ func (m *TcpProxy) validate(all bool) error {
 
 	}
 
+	if _, ok := ProxyProtocolTlvMergePolicy_name[int32(m.GetProxyProtocolTlvMergePolicy())]; !ok {
+		err := TcpProxyValidationError{
+			field:  "ProxyProtocolTlvMergePolicy",
+			reason: "value must be one of the defined enum values",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if _, ok := UpstreamConnectMode_name[int32(m.GetUpstreamConnectMode())]; !ok {
 		err := TcpProxyValidationError{
 			field:  "UpstreamConnectMode",
@@ -544,6 +555,35 @@ func (m *TcpProxy) validate(all bool) error {
 			errors = append(errors, err)
 		}
 
+	}
+
+	if all {
+		switch v := interface{}(m.GetCheckDrainClose()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TcpProxyValidationError{
+					field:  "CheckDrainClose",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TcpProxyValidationError{
+					field:  "CheckDrainClose",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCheckDrainClose()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TcpProxyValidationError{
+				field:  "CheckDrainClose",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
 	}
 
 	oneofClusterSpecifierPresent := false
@@ -960,6 +1000,40 @@ func (m *TcpProxy_TunnelingConfig) validate(all bool) error {
 
 	// no validation rules for RequestIdMetadataKey
 
+	for idx, item := range m.GetFormatters() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, TcpProxy_TunnelingConfigValidationError{
+						field:  fmt.Sprintf("Formatters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, TcpProxy_TunnelingConfigValidationError{
+						field:  fmt.Sprintf("Formatters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return TcpProxy_TunnelingConfigValidationError{
+					field:  fmt.Sprintf("Formatters[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return TcpProxy_TunnelingConfigMultiError(errors)
 	}
@@ -1255,6 +1329,8 @@ func (m *TcpProxy_TcpAccessLogOptions) validate(all bool) error {
 	}
 
 	// no validation rules for FlushAccessLogOnConnected
+
+	// no validation rules for FlushAccessLogOnStart
 
 	if len(errors) > 0 {
 		return TcpProxy_TcpAccessLogOptionsMultiError(errors)

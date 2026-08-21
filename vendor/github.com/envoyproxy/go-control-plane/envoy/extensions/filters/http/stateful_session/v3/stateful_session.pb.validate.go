@@ -91,6 +91,8 @@ func (m *StatefulSession) validate(all bool) error {
 
 	// no validation rules for StatPrefix
 
+	// no validation rules for StatusOnStrictDestinationNotFound
+
 	if len(errors) > 0 {
 		return StatefulSessionMultiError(errors)
 	}

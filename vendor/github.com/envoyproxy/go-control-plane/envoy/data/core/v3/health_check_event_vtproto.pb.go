@@ -351,6 +351,11 @@ func (m *HealthCheckEjectUnhealthy) MarshalToSizedBufferVTStrict(dAtA []byte) (i
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.HttpStatusCode != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.HttpStatusCode))
+		i--
+		dAtA[i] = 0x10
+	}
 	if m.FailureType != 0 {
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.FailureType))
 		i--
@@ -464,6 +469,11 @@ func (m *HealthCheckFailure) MarshalToSizedBufferVTStrict(dAtA []byte) (int, err
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.HttpStatusCode != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.HttpStatusCode))
+		i--
+		dAtA[i] = 0x18
 	}
 	if m.FirstCheck {
 		i--
@@ -696,6 +706,9 @@ func (m *HealthCheckEjectUnhealthy) SizeVT() (n int) {
 	if m.FailureType != 0 {
 		n += 1 + protohelpers.SizeOfVarint(uint64(m.FailureType))
 	}
+	if m.HttpStatusCode != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.HttpStatusCode))
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -734,6 +747,9 @@ func (m *HealthCheckFailure) SizeVT() (n int) {
 	}
 	if m.FirstCheck {
 		n += 2
+	}
+	if m.HttpStatusCode != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.HttpStatusCode))
 	}
 	n += len(m.unknownFields)
 	return n
