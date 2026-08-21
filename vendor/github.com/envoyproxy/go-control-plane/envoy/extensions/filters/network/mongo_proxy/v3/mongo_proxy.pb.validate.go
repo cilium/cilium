@@ -102,6 +102,21 @@ func (m *MongoProxy) validate(all bool) error {
 
 	// no validation rules for EmitDynamicMetadata
 
+	if wrapper := m.GetMaxBsonDepth(); wrapper != nil {
+
+		if wrapper.GetValue() <= 0 {
+			err := MongoProxyValidationError{
+				field:  "MaxBsonDepth",
+				reason: "value must be greater than 0",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return MongoProxyMultiError(errors)
 	}

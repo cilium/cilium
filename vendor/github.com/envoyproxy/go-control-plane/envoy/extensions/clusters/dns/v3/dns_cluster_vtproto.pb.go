@@ -103,6 +103,16 @@ func (m *DnsCluster) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.DnsMinRefreshRate != nil {
+		size, err := (*durationpb.Duration)(m.DnsMinRefreshRate).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x52
+	}
 	if m.AllAddressesInSingleEndpoint {
 		i--
 		if m.AllAddressesInSingleEndpoint {
@@ -237,6 +247,10 @@ func (m *DnsCluster) SizeVT() (n int) {
 	}
 	if m.AllAddressesInSingleEndpoint {
 		n += 2
+	}
+	if m.DnsMinRefreshRate != nil {
+		l = (*durationpb.Duration)(m.DnsMinRefreshRate).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

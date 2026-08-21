@@ -1538,6 +1538,8 @@ func (m *ExtractOnlyWithoutValidation) validate(all bool) error {
 
 	var errors []error
 
+	// no validation rules for VerificationStatusHeader
+
 	if len(errors) > 0 {
 		return ExtractOnlyWithoutValidationMultiError(errors)
 	}

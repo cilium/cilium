@@ -49,6 +49,26 @@ func (m *BasicAuth) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.EmitDynamicMetadata {
+		i--
+		if m.EmitDynamicMetadata {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.AllowMissing {
+		i--
+		if m.AllowMissing {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x20
+	}
 	if len(m.AuthenticationHeader) > 0 {
 		i -= len(m.AuthenticationHeader)
 		copy(dAtA[i:], m.AuthenticationHeader)
@@ -166,6 +186,12 @@ func (m *BasicAuth) SizeVT() (n int) {
 	l = len(m.AuthenticationHeader)
 	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.AllowMissing {
+		n += 2
+	}
+	if m.EmitDynamicMetadata {
+		n += 2
 	}
 	n += len(m.unknownFields)
 	return n
