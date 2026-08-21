@@ -285,7 +285,7 @@ func (n *nodeAddressController) reconcile(health cell.Health) *statedb.WatchSet 
 	// Get iterators for the current state and new watch channels.
 	allDevices, devicesWatch := n.Devices.AllWatch(rtxn)
 	ws.Add(devicesWatch)
-	localRoutes, routesWatch := n.Routes.PrefixWatch(rtxn, RouteIDIndex.Query(RouteID{Table: RT_TABLE_LOCAL}))
+	localRoutes, routesWatch := n.Routes.PrefixWatch(rtxn, RouteByID(RouteID{Table: RT_TABLE_LOCAL}))
 	ws.Add(routesWatch)
 
 	// A map to hold the desired state of node addresses, keyed by device name.

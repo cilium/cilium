@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	RouteIDIndex = statedb.Index[*Route, RouteID]{
+	routeIDIndex = statedb.Index[*Route, RouteID]{
 		Name: "id",
 		FromObject: func(r *Route) index.KeySet {
 			return index.NewKeySet(
@@ -57,7 +57,7 @@ var (
 		Unique: true,
 	}
 
-	RouteLinkIndex = statedb.Index[*Route, int]{
+	routeLinkIndex = statedb.Index[*Route, int]{
 		Name: "LinkIndex",
 		FromObject: func(r *Route) index.KeySet {
 			return index.NewKeySet(index.Int(r.LinkIndex))
@@ -65,14 +65,20 @@ var (
 		FromKey:    index.Int,
 		FromString: index.IntString,
 	}
+
+	// RouteByID queries the routes table by route ID.
+	RouteByID = routeIDIndex.Query
+
+	// RoutesByLinkIndex queries the routes table by link index.
+	RoutesByLinkIndex = routeLinkIndex.Query
 )
 
 func NewRouteTable(db *statedb.DB) (statedb.RWTable[*Route], error) {
 	return statedb.NewTable(
 		db,
 		"routes",
-		RouteIDIndex,
-		RouteLinkIndex,
+		routeIDIndex,
+		routeLinkIndex,
 	)
 }
 
@@ -170,7 +176,7 @@ func HasDefaultRoute(tbl statedb.Table[*Route], rxn statedb.ReadTxn, linkIndex i
 	// Device has a default route when a route exists in the main table
 	// with a zero destination.
 	for _, prefix := range []netip.Prefix{zeroPrefixV4, zeroPrefixV6} {
-		r, _, _ := tbl.Get(rxn, RouteIDIndex.Query(RouteID{
+		r, _, _ := tbl.Get(rxn, RouteByID(RouteID{
 			RT_TABLE_MAIN,
 			linkIndex,
 			prefix,
