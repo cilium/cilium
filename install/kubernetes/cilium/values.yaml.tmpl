@@ -2862,6 +2862,8 @@ envoy:
   maxGlobalDownstreamConnections: 50000
   # -- Maximum number of retries for each HTTP request
   httpRetryCount: 3
+  # -- Time in seconds after which a forwarded but uncompleted HTTP request is retried. Default 0 (never).
+  httpRetryTimeout: 0
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
   maxRequestsPerConnection: 0
   # -- Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)

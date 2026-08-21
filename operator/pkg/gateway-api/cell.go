@@ -224,7 +224,7 @@ type gatewayAPIParams struct {
 	OperatorConfig   *operatorOption.OperatorConfig
 	MCSAPIConfig     mcsapitypes.MCSAPIConfig
 	GatewayApiConfig gatewayApiConfig
-	ProxyTimeouts    ciliumenvoyconfig.EnvoyProxyTimeouts
+	ProxyConfig      ciliumenvoyconfig.EnvoyProxyConfig
 
 	// Preconditions is injected from private provider
 	Preconditions *gatewayAPIPreconditions
@@ -267,11 +267,12 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		ListenerConfig: translation.ListenerConfig{
 			UseProxyProtocol:         params.GatewayApiConfig.EnableGatewayAPIProxyProtocol,
 			UseAlpn:                  params.GatewayApiConfig.EnableGatewayAPIAlpn,
-			StreamIdleTimeoutSeconds: params.ProxyTimeouts.ProxyStreamIdleTimeoutSeconds,
+			StreamIdleTimeoutSeconds: params.ProxyConfig.ProxyStreamIdleTimeoutSeconds,
 		},
 		ClusterConfig: translation.ClusterConfig{
-			IdleTimeoutSeconds: params.ProxyTimeouts.ProxyIdleTimeoutSeconds,
-			UseAppProtocol:     params.GatewayApiConfig.EnableGatewayAPIAppProtocol,
+			IdleTimeoutSeconds:       params.ProxyConfig.ProxyIdleTimeoutSeconds,
+			MaxRequestsPerConnection: params.ProxyConfig.ProxyMaxRequestsPerConnection,
+			UseAppProtocol:           params.GatewayApiConfig.EnableGatewayAPIAppProtocol,
 		},
 		RouteConfig: translation.RouteConfig{
 			HostNameSuffixMatch: true,

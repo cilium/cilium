@@ -80,15 +80,19 @@ func (r *ciliumEnvoyConfigReconciler) getClusterResources(svc *corev1.Service) (
 	if !ok {
 		lbPolicy = int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)
 	}
+	commonHTTPProtocolOptions := &envoy_config_core_v3.HttpProtocolOptions{
+		IdleTimeout: &durationpb.Duration{Seconds: int64(r.idleTimeoutSeconds)},
+	}
+	if r.maxRequestsPerConnection > 0 {
+		commonHTTPProtocolOptions.MaxRequestsPerConnection = wrapperspb.UInt32(uint32(r.maxRequestsPerConnection))
+	}
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name:           getName(svc),
 		ConnectTimeout: &durationpb.Duration{Seconds: 5},
 		LbPolicy:       envoy_config_cluster_v3.Cluster_LbPolicy(lbPolicy),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": r.toAny(&envoy_config_upstream.HttpProtocolOptions{
-				CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
-					IdleTimeout: &durationpb.Duration{Seconds: int64(r.idleTimeoutSeconds)},
-				},
+				CommonHttpProtocolOptions: commonHTTPProtocolOptions,
 				UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{
 					UseDownstreamProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamHttpConfig{
 						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},
@@ -266,6 +270,7 @@ func (r *ciliumEnvoyConfigReconciler) getVirtualHost(svc *corev1.Service) *envoy
 						Seconds: 0,
 					},
 				},
+				RetryPolicy: envoy.GetHTTPRetryPolicy(r.httpRetryCount, r.httpRetryTimeout),
 			},
 		},
 	}
