@@ -7,8 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/netip"
-	"slices"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -115,7 +113,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if err := r.verifyGatewayStaticAddresses(gw); err != nil {
+	if err := r.gatewayAddressStatusManager.VerifyGatewayStaticAddresses(gw); err != nil {
 		scopedLog.ErrorContext(ctx, "Unsupported Gateway address", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unsupported Gateway address, "+err.Error(), gatewayv1.GatewayReasonUnsupportedAddress)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
@@ -244,13 +242,13 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	setGatewayProgrammed(gw, metav1.ConditionFalse, "Gateway waiting for address", gatewayv1.GatewayReasonAddressNotAssigned)
 
 	// Step 5: Update the status of the Gateway
-	if err = r.setAddressStatus(ctx, gw); err != nil {
+	if err = r.gatewayAddressStatusManager.SetAddressStatus(ctx, gw); err != nil {
 		scopedLog.ErrorContext(ctx, "Address is not ready", logfields.Error, err)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, "+err.Error(), gatewayv1.GatewayReasonAddressNotAssigned)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	if err = r.setStaticAddressStatus(ctx, gw); err != nil {
+	if err = r.gatewayAddressStatusManager.SetStaticAddressStatus(ctx, gw); err != nil {
 		scopedLog.ErrorContext(ctx, "StaticAddress can't be used", logfields.Error, err)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "StaticAddress can't be used", gatewayv1.GatewayReasonAddressNotUsable)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
@@ -520,182 +518,10 @@ func (r *gatewayReconciler) updateStatus(ctx context.Context, original *gatewayv
 	return r.Client.Status().Update(ctx, new)
 }
 
-func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
-	r.logger.InfoContext(ctx, "Checking address status for Gateway", logfields.Resource, client.ObjectKeyFromObject(gw).String())
-	svcList := &corev1.ServiceList{}
-	if err := r.Client.List(ctx, svcList, client.MatchingLabels{
-		owningGatewayLabel: shortener.ShortenK8sResourceName(gw.GetName()),
-	}, client.InNamespace(gw.GetNamespace())); err != nil {
-		return err
-	}
-
-	if len(svcList.Items) == 0 {
-		return fmt.Errorf("no service found")
-	}
-	svc := svcList.Items[0]
-
-	var addresses []gatewayv1.GatewayStatusAddress
-	// Check the svc type
-	switch svc.Spec.Type {
-	case corev1.ServiceTypeNodePort:
-		// NodePort service gets as many Node
-		// IP addresses as we can fit into Status
-		nodes := &corev1.NodeList{}
-		if err := r.Client.List(ctx, nodes); err != nil {
-			return fmt.Errorf("unable to list nodes")
-		}
-
-		ips := make([]netip.Addr, 0)
-		for _, node := range nodes.Items {
-			if len(node.Status.Addresses) == 0 {
-				continue
-			}
-			nodeAddress := node.Status.Addresses[0]
-			ip, err := netip.ParseAddr(nodeAddress.Address)
-			if err != nil {
-				// the first address is not an IP address (e.g. a hostname),
-				// skip the node instead of reporting an invalid address.
-				continue
-			}
-			ips = append(ips, ip.Unmap())
-		}
-
-		// sort the addresses for consistent ip addresses assigned
-		slices.SortFunc(ips, netip.Addr.Compare)
-
-		// allows for only a max of 16 addresses
-		if len(ips) > 16 {
-			ips = ips[:16]
-		}
-		for _, ipAddress := range ips {
-			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
-				Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
-				Value: ipAddress.String(),
-			})
-		}
-	case corev1.ServiceTypeLoadBalancer:
-		if len(svc.Status.LoadBalancer.Ingress) == 0 {
-			// Potential loadbalancer service isn't ready yet. No need to report as an error, because
-			// reconciliation should be triggered when the loadbalancer services gets updated.
-			return nil
-		}
-		for _, s := range svc.Status.LoadBalancer.Ingress {
-			if len(s.IP) != 0 {
-				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
-					Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
-					Value: s.IP,
-				})
-			}
-			if len(s.Hostname) != 0 {
-				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
-					Type:  GatewayAddressTypePtr(gatewayv1.HostnameAddressType),
-					Value: s.Hostname,
-				})
-			}
-		}
-	default:
-		return fmt.Errorf("Invalid service type for gateway")
-	}
-
-	if len(addresses) > 0 {
-		r.logger.InfoContext(ctx, "At least one valid address, marking gateway programmed", logfields.Resource, client.ObjectKeyFromObject(gw).String())
-		setGatewayProgrammed(gw, metav1.ConditionTrue, "Gateway Programmed", gatewayv1.GatewayReasonProgrammed)
-		for i := range gw.Status.Listeners {
-			l := &gw.Status.Listeners[i]
-			// Is Listener Accepted?
-			accepted := false
-
-			for _, cond := range l.Conditions {
-				if cond.Type == string(gatewayv1.GatewayConditionAccepted) &&
-					cond.Status == metav1.ConditionTrue {
-					accepted = true
-					break
-				}
-			}
-			if accepted {
-				l.Conditions = merge(l.Conditions, metav1.Condition{
-					Type:               string(gatewayv1.ListenerConditionProgrammed),
-					Status:             metav1.ConditionTrue,
-					Reason:             string(gatewayv1.ListenerReasonProgrammed),
-					Message:            "Listener Programmed",
-					ObservedGeneration: gw.Generation,
-					LastTransitionTime: metav1.Now(),
-				})
-			}
-		}
-	}
-	gw.Status.Addresses = addresses
-	return nil
-}
-
-func (r *gatewayReconciler) setStaticAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
-	if len(gw.Spec.Addresses) == 0 {
-		return nil
-	}
-	svcList := &corev1.ServiceList{}
-	if err := r.Client.List(ctx, svcList, client.MatchingLabels{
-		owningGatewayLabel: shortener.ShortenK8sResourceName(gw.GetName()),
-	}, client.InNamespace(gw.GetNamespace())); err != nil {
-		return err
-	}
-
-	if len(svcList.Items) == 0 {
-		return fmt.Errorf("no service found")
-	}
-
-	svc := svcList.Items[0]
-	if len(svc.Status.LoadBalancer.Ingress) == 0 {
-		// Potential loadbalancer service isn't ready yet. No need to report as an error, because
-		// reconciliation should be triggered when the loadbalancer services gets updated.
-		return nil
-	}
-	// Compare parsed addresses because the same IP address can have multiple
-	// textual representations.
-	addresses := make(map[netip.Addr]struct{}, len(svc.Status.LoadBalancer.Ingress))
-	for _, addr := range svc.Status.LoadBalancer.Ingress {
-		ip, err := netip.ParseAddr(addr.IP)
-		if err != nil {
-			// Ignore hostname-only ingress entries.
-			continue
-		}
-		addresses[ip] = struct{}{}
-	}
-
-	for _, addr := range gw.Spec.Addresses {
-		ip, err := netip.ParseAddr(addr.Value)
-		if err != nil {
-			return fmt.Errorf("static address %q can't be used", addr.Value)
-		}
-		if _, ok := addresses[ip]; !ok {
-			return fmt.Errorf("static address %q can't be used", addr.Value)
-		}
-	}
-
-	return nil
-}
-
 func (r *gatewayReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.Gateway, modified *gatewayv1.Gateway) (ctrl.Result, error) {
 	if err := r.updateStatus(ctx, original, modified); err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err))
 	}
 
 	return controllerruntime.Fail(reconcileErr)
-}
-
-func (r *gatewayReconciler) verifyGatewayStaticAddresses(gw *gatewayv1.Gateway) error {
-	if len(gw.Spec.Addresses) == 0 {
-		return nil
-	}
-	for _, address := range gw.Spec.Addresses {
-		if address.Type != nil && *address.Type != gatewayv1.IPAddressType {
-			return fmt.Errorf("address type is not supported")
-		}
-		if address.Value == "" {
-			return fmt.Errorf("address value is not set")
-		}
-		if _, err := netip.ParseAddr(address.Value); err != nil {
-			return fmt.Errorf("invalid ip address")
-		}
-	}
-	return nil
 }
