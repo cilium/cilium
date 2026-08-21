@@ -1,5 +1,6 @@
-# Terminating backends should be synced towards Envoy only when no active backends
-# are available.
+# Terminating backends are synced towards Envoy with DRAINING health status when
+# active backends exist so in-flight connections drain gracefully. When no active
+# backends are available terminating backends are used as fallbacks without DRAINING.
 
 # Start the hive and wait for tables to be synchronized before adding k8s objects.
 hive start
@@ -21,8 +22,8 @@ db/cmp envoy-resources envoy-resources.table
 db/cmp services services_redirected.table
 db/cmp frontends frontends.table
 
-# Mark one backend as terminating. Only 10.244.1.2 should now be
-# pushed to Envoy.
+# Mark one backend as terminating. Both backends should still be pushed to
+# Envoy, with the terminating one marked as DRAINING.
 k8s/update endpointslice-1-terminating.yaml
 db/cmp backends backends-1-terminating.table
 db/cmp envoy-resources envoy-resources-1-terminating.table
@@ -73,9 +74,9 @@ cec:test/envoy-lb-listener      test/envoy-lb-listener/envoy-lb-listener        
 
 
 -- envoy-resources-1-terminating.table --
-Name                            Listeners                                  Endpoints                    References             Status   Error
-backendsync:test/echo                                                      test/echo:80: 10.244.1.2     test/envoy-lb-listener Done     
-cec:test/envoy-lb-listener      test/envoy-lb-listener/envoy-lb-listener                                                       Done     
+Name                            Listeners                                  Endpoints                            References             Status   Error
+backendsync:test/echo                                                      test/echo:80: 10.244.1.1, 10.244.1.2 test/envoy-lb-listener Done
+cec:test/envoy-lb-listener      test/envoy-lb-listener/envoy-lb-listener                                                               Done
 
 -- cec.yaml --
 apiVersion: cilium.io/v2
