@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package gateway_api
+package helpers
 
 import (
 	"testing"
@@ -12,7 +12,18 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func Test_merge(t *testing.T) {
+func testCondition(conditionType string, status metav1.ConditionStatus, reason, msg string, lastTransitionTime time.Time, observedGeneration int64) metav1.Condition {
+	return metav1.Condition{
+		Type:               conditionType,
+		Status:             status,
+		Reason:             reason,
+		Message:            msg,
+		LastTransitionTime: metav1.NewTime(lastTransitionTime),
+		ObservedGeneration: observedGeneration,
+	}
+}
+
+func TestMergeConditions(t *testing.T) {
 	now := time.Now()
 	later := time.Now()
 
@@ -25,65 +36,65 @@ func Test_merge(t *testing.T) {
 		{
 			name: "status updated",
 			current: []metav1.Condition{
-				newCondition("Ready", metav1.ConditionFalse, "Reason", "Message", now, 1),
+				testCondition("Ready", metav1.ConditionFalse, "Reason", "Message", now, 1),
 			},
 			updates: []metav1.Condition{
-				newCondition("Ready", metav1.ConditionTrue, "Reason", "Message", later, 1),
+				testCondition("Ready", metav1.ConditionTrue, "Reason", "Message", later, 1),
 			},
 			expected: []metav1.Condition{
-				newCondition("Ready", metav1.ConditionTrue, "Reason", "Message", later, 1),
+				testCondition("Ready", metav1.ConditionTrue, "Reason", "Message", later, 1),
 			},
 		},
 		{
 			name: "reason updated",
 			current: []metav1.Condition{
-				newCondition("Ready", metav1.ConditionFalse, "Reason", "Message", now, 1),
+				testCondition("Ready", metav1.ConditionFalse, "Reason", "Message", now, 1),
 			},
 			updates: []metav1.Condition{
-				newCondition("Ready", metav1.ConditionFalse, "New Reason", "Message", now, 1),
+				testCondition("Ready", metav1.ConditionFalse, "New Reason", "Message", now, 1),
 			},
 			expected: []metav1.Condition{
-				newCondition("Ready", metav1.ConditionFalse, "New Reason", "Message", now, 1),
+				testCondition("Ready", metav1.ConditionFalse, "New Reason", "Message", now, 1),
 			},
 		},
 		{
 			name: "message updated",
 			current: []metav1.Condition{
-				newCondition("Ready", metav1.ConditionFalse, "Reason", "Message", now, 1),
+				testCondition("Ready", metav1.ConditionFalse, "Reason", "Message", now, 1),
 			},
 			updates: []metav1.Condition{
-				newCondition("Ready", metav1.ConditionFalse, "Reason", "New Message", now, 1),
+				testCondition("Ready", metav1.ConditionFalse, "Reason", "New Message", now, 1),
 			},
 			expected: []metav1.Condition{
-				newCondition("Ready", metav1.ConditionFalse, "Reason", "New Message", now, 1),
+				testCondition("Ready", metav1.ConditionFalse, "Reason", "New Message", now, 1),
 			},
 		},
 		{
 			name: "new condition",
 			current: []metav1.Condition{
-				newCondition("Ready", metav1.ConditionFalse, "Reason", "Message", now, 1),
+				testCondition("Ready", metav1.ConditionFalse, "Reason", "Message", now, 1),
 			},
 			updates: []metav1.Condition{
-				newCondition("Accepted", metav1.ConditionTrue, "Reason", "Another Message", now, 1),
+				testCondition("Accepted", metav1.ConditionTrue, "Reason", "Another Message", now, 1),
 			},
 			expected: []metav1.Condition{
-				newCondition("Ready", metav1.ConditionFalse, "Reason", "Message", now, 1),
-				newCondition("Accepted", metav1.ConditionTrue, "Reason", "Another Message", now, 1),
+				testCondition("Ready", metav1.ConditionFalse, "Reason", "Message", now, 1),
+				testCondition("Accepted", metav1.ConditionTrue, "Reason", "Another Message", now, 1),
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := merge(tc.current, tc.updates...)
-			if conditionChanged(tc.expected[0], got[0]) {
+			got := MergeConditions(tc.current, tc.updates...)
+			if ConditionChanged(tc.expected[0], got[0]) {
 				assert.Equal(t, tc.expected, got, tc.name)
 			}
 		})
 	}
 }
 
-func Test_conditionChanged(t *testing.T) {
+func TestConditionChanged(t *testing.T) {
 	testCases := []struct {
 		name     string
 		expected bool
@@ -156,7 +167,7 @@ func Test_conditionChanged(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			res := conditionChanged(tc.a, tc.b)
+			res := ConditionChanged(tc.a, tc.b)
 			assert.Equal(t, tc.expected, res)
 		})
 	}
