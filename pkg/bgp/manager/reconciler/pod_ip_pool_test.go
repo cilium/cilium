@@ -14,6 +14,7 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	bgpTables "github.com/cilium/cilium/pkg/bgp/manager/tables"
@@ -24,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -604,10 +604,8 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
 			db := statedb.New()
-			dc := &option.DaemonConfig{
-				EnableBGPControlPlane: true,
-			}
-			desiredRoutePolicyTable, err := bgpTables.NewDesiredRoutePoliciesTable(db, dc)
+			bgpCfg := config.BGPConfig{Enable: true}
+			desiredRoutePolicyTable, err := bgpTables.NewDesiredRoutePoliciesTable(db, bgpCfg)
 			req.NoError(err)
 
 			params := PodIPPoolReconcilerIn{

@@ -16,12 +16,12 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // DefaultGatewayReconciler is a ConfigReconciler which handles auto-discovery
@@ -43,13 +43,13 @@ type DefaultGatewayReconcilerOut struct {
 type DefaultGatewayReconcilerIn struct {
 	cell.In
 
-	Logger       *slog.Logger
-	DaemonConfig *option.DaemonConfig
-	DB           *statedb.DB
-	JobGroup     job.Group
-	Signaler     *signaler.BGPCPSignaler
-	RouteTable   statedb.Table[*tables.Route]
-	DeviceTable  statedb.Table[*tables.Device]
+	Logger      *slog.Logger
+	BGPConfig   config.BGPConfig
+	DB          *statedb.DB
+	JobGroup    job.Group
+	Signaler    *signaler.BGPCPSignaler
+	RouteTable  statedb.Table[*tables.Route]
+	DeviceTable statedb.Table[*tables.Device]
 }
 
 var (
@@ -58,7 +58,7 @@ var (
 )
 
 func NewDefaultGatewayReconciler(p DefaultGatewayReconcilerIn) DefaultGatewayReconcilerOut {
-	if !p.DaemonConfig.BGPControlPlaneEnabled() {
+	if !p.BGPConfig.BGPControlPlaneEnabled() {
 		return DefaultGatewayReconcilerOut{}
 	}
 

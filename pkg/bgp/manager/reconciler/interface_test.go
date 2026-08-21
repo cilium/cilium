@@ -16,13 +16,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	bgpTables "github.com/cilium/cilium/pkg/bgp/manager/tables"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 func Test_InterfaceAdvertisement(t *testing.T) {
@@ -423,10 +423,8 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 	db := statedb.New()
 	deviceTable, err := tables.NewDeviceTable(db)
 	req.NoError(err)
-	dc := &option.DaemonConfig{
-		EnableBGPControlPlane: true,
-	}
-	desiredRoutePolicyTable, err := bgpTables.NewDesiredRoutePoliciesTable(db, dc)
+	bgpCfg := config.BGPConfig{Enable: true}
+	desiredRoutePolicyTable, err := bgpTables.NewDesiredRoutePoliciesTable(db, bgpCfg)
 	req.NoError(err)
 
 	// initialize reconciler

@@ -12,6 +12,9 @@ cilium-operator-generic hive [flags]
 
 ```
       --auto-create-cilium-pod-ip-pools stringToString             Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size>[;allow-first-ip:<bool>][;allow-last-ip:<bool>] (multiple pools can also be passed by repeating the CLI flag) (default [])
+      --bgp-router-id-allocation-ip-pool string                    IP pool to allocate the BGP router-id from when the mode is 'ip-pool'
+      --bgp-router-id-allocation-mode string                       BGP router-id allocation mode. Currently supported values: 'default' or 'ip-pool' (default "default")
+      --bgp-secrets-namespace string                               Kubernetes namespace to get BGP control plane secrets from
       --ces-max-ciliumendpoints-per-ces int                        Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                                     Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
       --cilium-endpoint-gc-interval duration                       GC interval for cilium endpoints (default 5m0s)
@@ -36,6 +39,9 @@ cilium-operator-generic hive [flags]
       --controller-group-metrics strings                           List of controller group names for which to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --default-lb-service-ipam string                             Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
       --double-write-metric-reporter-interval duration             Refresh interval for the Double Write Metric Reporter (default 1m0s)
+      --enable-bgp-control-plane                                   Enable the BGP control plane
+      --enable-bgp-control-plane-status-report                     Enable the BGP control plane status reporting (default true)
+      --enable-bgp-legacy-origin-attribute                         Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-cilium-operator-server-access strings               List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cluster-pool-to-multi-pool-migration                Enable the migration of all nodes from cluster-pool IPAM to multi-pool IPAM
       --enable-gateway-api-alpn                                    Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API

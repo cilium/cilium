@@ -13,10 +13,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/bgp/agent"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -32,7 +32,7 @@ type collectorIn struct {
 	cell.In
 
 	Logger        *slog.Logger
-	DaemonConfig  *option.DaemonConfig
+	BGPConfig     config.BGPConfig
 	Registry      *metrics.Registry
 	RouterManager agent.BGPRouterManager
 }
@@ -47,7 +47,7 @@ type collectorIn struct {
 // MustRegister interface. We may want to revisit this in the future.
 func RegisterCollector(in collectorIn) {
 	// Don't provide the collector if BGP control plane is disabled
-	if !in.DaemonConfig.EnableBGPControlPlane {
+	if !in.BGPConfig.Enable {
 		return
 	}
 	in.Registry.MustRegister(&collector{

@@ -14,10 +14,10 @@ import (
 	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/tables"
 	"github.com/cilium/cilium/pkg/bgp/types"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 type RoutePolicyReconcilerOut struct {
@@ -32,7 +32,7 @@ type RoutePolicyReconcilerIn struct {
 	Logger                  *slog.Logger
 	DB                      *statedb.DB
 	DesiredRoutePolicyTable statedb.Table[*tables.DesiredRoutePolicy]
-	DaemonConfig            *option.DaemonConfig
+	BGPConfig               config.BGPConfig
 }
 
 type RoutePolicyReconciler struct {
@@ -51,7 +51,7 @@ type RoutePolicyReconcilerMetadata struct {
 
 func NewRoutePolicyReconciler(params RoutePolicyReconcilerIn) RoutePolicyReconcilerOut {
 	// Do not create this resource if BGP Control Plane is disabled.
-	if !params.DaemonConfig.BGPControlPlaneEnabled() {
+	if !params.BGPConfig.BGPControlPlaneEnabled() {
 		return RoutePolicyReconcilerOut{}
 	}
 

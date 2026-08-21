@@ -17,9 +17,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	bgpTables "github.com/cilium/cilium/pkg/bgp/manager/tables"
-	"github.com/cilium/cilium/pkg/bgp/option"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -27,7 +27,6 @@ import (
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	ciliumoption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
 	"github.com/cilium/cilium/pkg/time"
@@ -44,10 +43,9 @@ type ServiceReconcilerIn struct {
 	Logger   *slog.Logger
 	JobGroup job.Group
 
-	PeerAdvert   *CiliumPeerAdvertisement
-	Config       option.BGPConfig
-	DaemonConfig *ciliumoption.DaemonConfig
-	Signaler     *signaler.BGPCPSignaler
+	PeerAdvert *CiliumPeerAdvertisement
+	Config     config.BGPConfig
+	Signaler   *signaler.BGPCPSignaler
 
 	DB                      *statedb.DB
 	Frontends               statedb.Table[*loadbalancer.Frontend]
@@ -80,13 +78,13 @@ type ServiceReconcilerMetadata struct {
 }
 
 func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
-	if !in.DaemonConfig.BGPControlPlaneEnabled() {
+	if !in.Config.BGPControlPlaneEnabled() {
 		return ServiceReconcilerOut{}
 	}
 	r := &ServiceReconciler{
 		logger:                       in.Logger,
 		peerAdvert:                   in.PeerAdvert,
-		legacyOriginAttributeEnabled: in.Config.EnableBGPLegacyOriginAttribute,
+		legacyOriginAttributeEnabled: in.Config.EnableLegacyOriginAttribute,
 		signaler:                     in.Signaler,
 		db:                           in.DB,
 		frontends:                    in.Frontends,
