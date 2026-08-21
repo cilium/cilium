@@ -1,0 +1,63 @@
+# Tests for CRD validation on k8s/add and k8s/update.
+#
+# This checks that schema validation is on by default and can be turned off with
+# --validate-schema=false, and that unknown fields are rejected either way. The
+# validation itself is tested by TestValidateCRD in pkg/k8s/testutils.
+
+hive/start
+
+# A well-formed CNP is accepted on both add and update.
+k8s/add good-cnp.yaml
+k8s/update good-cnp.yaml
+
+# An object missing a field the CRD marks as required is rejected, and accepted
+# with --validate-schema=false.
+! k8s/add no-spec-cn.yaml
+k8s/add --validate-schema=false no-spec-cn.yaml
+
+# A CNP with an unknown field is rejected regardless of --validate-schema, since
+# the typed decode would silently drop the field.
+! k8s/add unknown-field-cnp.yaml
+! k8s/update unknown-field-cnp.yaml
+! k8s/add --validate-schema=false unknown-field-cnp.yaml
+
+# Deletes are not validated, so the object added above without a spec can be
+# deleted again.
+k8s/delete no-spec-cn.yaml
+
+-- good-cnp.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: good
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      app: foo
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: bar
+
+-- unknown-field-cnp.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: unknown-field
+  namespace: default
+spec:
+  endpointSelector:
+    matchLabels:
+      app: foo
+  totallyBogusUnknownField: true
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: bar
+
+-- no-spec-cn.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: no-spec

@@ -37,11 +37,17 @@ var (
 
 	kubernetesDecoderOnce sync.Once
 	kubernetesDecoder     runtime.Decoder
+
+	strictDecoderOnce sync.Once
+	strictDecoder     runtime.Decoder
 )
 
 // Decoder returns an object decoder for Cilium and Slim objects.
 // The [DecodeObject] and [DecodeFile] functions are provided as
 // shorthands for decoding from bytes and files respectively.
+//
+// Not strict, as the slim types leave out fields that are valid in the full
+// Kubernetes ones. See [StrictDecoder].
 func Decoder() runtime.Decoder {
 	decoderOnce.Do(func() {
 		decoder = serializer.NewCodecFactory(Scheme).UniversalDeserializer()
@@ -49,11 +55,23 @@ func Decoder() runtime.Decoder {
 	return decoder
 }
 
+// KubernetesDecoder returns a decoder for the core Kubernetes objects. Unlike
+// [Decoder] it rejects unknown fields, which the full types can afford as they
+// are not trimmed the way the slim ones are.
 func KubernetesDecoder() runtime.Decoder {
 	kubernetesDecoderOnce.Do(func() {
-		kubernetesDecoder = serializer.NewCodecFactory(KubernetesScheme).UniversalDeserializer()
+		kubernetesDecoder = serializer.NewCodecFactory(KubernetesScheme, serializer.EnableStrict).UniversalDeserializer()
 	})
 	return kubernetesDecoder
+}
+
+// StrictDecoder is like [Decoder], but rejects unknown fields instead of
+// dropping them.
+func StrictDecoder() runtime.Decoder {
+	strictDecoderOnce.Do(func() {
+		strictDecoder = serializer.NewCodecFactory(Scheme, serializer.EnableStrict).UniversalDeserializer()
+	})
+	return strictDecoder
 }
 
 func init() {

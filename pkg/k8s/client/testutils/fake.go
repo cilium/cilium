@@ -343,6 +343,16 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 		return b, nil
 	}
 
+	// Kinds outside the Kubernetes scheme decode to a nil object, any other
+	// error is a real one.
+	decodeKubernetesObject := func(b []byte) (runtime.Object, error) {
+		kobj, _, err := testutils.DecodeKubernetesObject(b)
+		if err != nil && !runtime.IsNotRegisteredError(err) {
+			return nil, fmt.Errorf("decode: %w", err)
+		}
+		return kobj, nil
+	}
+
 	decodeTrackerObjects := func(s *script.State, file string) ([]object, schema.GroupVersionResource, error) {
 		b, err := readInputFile(s, file)
 		if err != nil {
@@ -353,7 +363,10 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 		if err != nil {
 			return nil, schema.GroupVersionResource{}, fmt.Errorf("decode: %w", err)
 		}
-		kobj, _, _ := testutils.DecodeKubernetesObject(b)
+		kobj, err := decodeKubernetesObject(b)
+		if err != nil {
+			return nil, schema.GroupVersionResource{}, err
+		}
 		gvr, _ := meta.UnsafeGuessKindToResource(*gvk)
 
 		toObject := func(domain string, obj runtime.Object) (object, error) {
@@ -392,11 +405,27 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 			if err != nil {
 				return err
 			}
+
+			if action != "delete" {
+				schemaValidation, err := s.Flags.GetBool("validate-schema")
+				if err != nil {
+					return err
+				}
+				// Validate the raw bytes and not the typed object below,
+				// since the decode drops the unknown fields.
+				if err := testutils.ValidateCRD(fc.ot.log, b, schemaValidation); err != nil {
+					return fmt.Errorf("validate %s: %w", file, err)
+				}
+			}
+
 			obj, gvk, err := testutils.DecodeObjectGVK(b)
 			if err != nil {
 				return fmt.Errorf("decode: %w", err)
 			}
-			kobj, _, _ := testutils.DecodeKubernetesObject(b)
+			kobj, err := decodeKubernetesObject(b)
+			if err != nil {
+				return err
+			}
 			gvr, _ := meta.UnsafeGuessKindToResource(*gvk)
 			objMeta, err := meta.Accessor(obj)
 			if err != nil {
@@ -453,6 +482,11 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 		return nil
 	}
 
+	validateFlag := func(fs *pflag.FlagSet) {
+		fs.Bool("validate-schema", true,
+			"Validate objects against their CRD OpenAPI schema, as the kube-apiserver would. Kinds without a known CRD schema are accepted as-is. Pass --validate-schema=false for objects that are deliberately incomplete, e.g. to leave out required fields the test does not care about. Unknown fields are rejected either way.")
+	}
+
 	return map[string]script.Cmd{
 		"k8s/add": script.Command(
 			script.CmdUsage{
@@ -461,13 +495,13 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 					"The files should be YAML, e.g. in the format produced by",
 					"'kubectl get -o yaml'",
 				},
-				Args: "files...",
+				Args:  "files...",
+				Flags: validateFlag,
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
 				if len(args) == 0 {
 					return nil, script.ErrUsage
 				}
-
 				return nil, addUpdateOrDelete(s, "add", args)
 			},
 		),
@@ -479,6 +513,7 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 				Flags: func(fs *pflag.FlagSet) {
 					fs.Bool("strict", false,
 						"Enable strict optimistic concurrency control")
+					validateFlag(fs)
 				},
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {

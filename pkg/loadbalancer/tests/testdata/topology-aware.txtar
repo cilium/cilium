@@ -35,7 +35,7 @@ db/cmp frontends frontends-foo.table
 # fall back to selecting all backends.
 # (safeguard #4 at https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/#safeguards)
 cp endpointslice2.yaml endpointslice2-no-hints.yaml
-sed 'forZones:' 'notForZones:' endpointslice2-no-hints.yaml
+sed '- name: quux' '' endpointslice2-no-hints.yaml
 k8s/update endpointslice2-no-hints.yaml
 db/cmp frontends frontends-all.table
 
