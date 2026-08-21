@@ -554,6 +554,15 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 				if !candidatesFound && slices.Contains(be.Zone.ForZones, *thisZone) {
 					candidatesFound = true
 				}
+			} else if be.State == loadbalancer.BackendStateMaintenance {
+				// Maintenance with no hint is either a brand-new Pod never yet
+				// hinted, or a flapping Pod that lost its hint before its first
+				// Ready cycle. Neither carries zone information to trust or
+				// distrust — skip it rather than treating the whole Service as
+				// hint-incomplete. A Maintenance backend that DOES carry a
+				// stale hint from a prior Ready cycle still hits the branch
+				// above, unaffected by this change.
+				continue
 			} else {
 				missingHints = true
 				break
