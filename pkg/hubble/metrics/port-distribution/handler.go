@@ -16,6 +16,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )
 
@@ -62,12 +63,10 @@ func (h *portDistributionHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{h.portDistribution.MetricVec}
 }
 
-func (h *portDistributionHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+func (h *portDistributionHandler) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
 	// if we are not certain if a flow is a reply (i.e. flow.GetIsReply() == nil)
 	// we do not want to consider its destination port for the metric
-	skipReply := flow.GetIsReply() == nil || flow.GetIsReply().GetValue()
-	if (flow.GetVerdict() != flowpb.Verdict_FORWARDED && flow.GetVerdict() != flowpb.Verdict_REDIRECTED) ||
-		flow.GetL4() == nil || skipReply {
+	if (flow.Verdict != flowpb.Verdict_FORWARDED && flow.Verdict != flowpb.Verdict_REDIRECTED) || flow.L4.IsEmpty() || flow.IsReply() {
 		return nil
 	}
 
@@ -80,37 +79,42 @@ func (h *portDistributionHandler) ProcessFlow(ctx context.Context, flow *flowpb.
 		return err
 	}
 
-	if tcp := flow.GetL4().GetTCP(); tcp != nil {
+	if tcp := flow.L4.TCP; !tcp.IsEmpty() {
 		labels := append([]string{"TCP", fmt.Sprintf("%d", tcp.DestinationPort)}, labelValues...)
 		h.portDistribution.WithLabelValues(labels...).Inc()
 	}
 
-	if udp := flow.GetL4().GetUDP(); udp != nil {
+	if udp := flow.L4.UDP; !udp.IsEmpty() {
 		labels := append([]string{"UDP", fmt.Sprintf("%d", udp.DestinationPort)}, labelValues...)
 		h.portDistribution.WithLabelValues(labels...).Inc()
 	}
 
-	if sctp := flow.GetL4().GetSCTP(); sctp != nil {
+	if sctp := flow.L4.SCTP; !sctp.IsEmpty() {
 		labels := append([]string{"SCTP", fmt.Sprintf("%d", sctp.DestinationPort)}, labelValues...)
 		h.portDistribution.WithLabelValues(labels...).Inc()
 	}
 
-	if flow.GetL4().GetICMPv4() != nil {
+	if !flow.L4.ICMPv4.IsEmpty() {
 		labels := append([]string{"ICMPv4", "0"}, labelValues...)
 		h.portDistribution.WithLabelValues(labels...).Inc()
 	}
 
-	if flow.GetL4().GetICMPv6() != nil {
+	if !flow.L4.ICMPv6.IsEmpty() {
 		labels := append([]string{"ICMPv6", "0"}, labelValues...)
 		h.portDistribution.WithLabelValues(labels...).Inc()
 	}
 
-	if flow.GetL4().GetVRRP() != nil {
+	if !flow.L4.ICMPv6.IsEmpty() {
+		labels := append([]string{"ICMPv6", "0"}, labelValues...)
+		h.portDistribution.WithLabelValues(labels...).Inc()
+	}
+
+	if !flow.L4.VRRP.IsEmpty() {
 		labels := append([]string{"VRRP", "0"}, labelValues...)
 		h.portDistribution.WithLabelValues(labels...).Inc()
 	}
 
-	if flow.GetL4().GetIGMP() != nil {
+	if !flow.L4.IGMP.IsEmpty() {
 		labels := append([]string{"IGMP", "0"}, labelValues...)
 		h.portDistribution.WithLabelValues(labels...).Inc()
 	}

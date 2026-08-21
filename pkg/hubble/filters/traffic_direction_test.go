@@ -10,6 +10,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestTrafficDirectionFilter(t *testing.T) {
@@ -42,7 +43,7 @@ func TestTrafficDirectionFilter(t *testing.T) {
 						flowpb.TrafficDirection_INGRESS,
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
+				ev: &v1.Event{Event: &ir.Flow{
 					TrafficDirection: flowpb.TrafficDirection_INGRESS,
 				}},
 			},
@@ -56,7 +57,7 @@ func TestTrafficDirectionFilter(t *testing.T) {
 						flowpb.TrafficDirection_INGRESS,
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
+				ev: &v1.Event{Event: &ir.Flow{
 					TrafficDirection: flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN,
 				}},
 			},

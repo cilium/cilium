@@ -13,7 +13,14 @@ import (
 
 func filterByTraceID(tids []string) FilterFunc {
 	return func(ev *v1.Event) bool {
-		return slices.Contains(tids, ev.GetFlow().GetTraceContext().GetParent().GetTraceId())
+		if ev == nil {
+			return false
+		}
+		fl := ev.GetFlow()
+		if fl == nil {
+			return false
+		}
+		return slices.Contains(tids, fl.TraceContext.Parent.TraceID)
 	}
 }
 
