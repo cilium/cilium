@@ -47,24 +47,9 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 
 	// Test data
 	defaultRouteTable := []*tables.Route{
-		{
-			Dst:       netip.MustParsePrefix("0.0.0.0/0"),
-			Gw:        netip.MustParseAddr("192.168.0.3"),
-			LinkIndex: 123,
-			Priority:  100,
-		},
-		{
-			Dst:       netip.MustParsePrefix("0.0.0.0/0"),
-			Gw:        netip.MustParseAddr("192.168.0.4"),
-			LinkIndex: 124,
-			Priority:  200,
-		},
-		{
-			Dst:       netip.MustParsePrefix("::/0"),
-			Gw:        netip.MustParseAddr("fd00:10:0:1::1"),
-			LinkIndex: 124,
-			Priority:  200,
-		},
+		defaultRouteEntry("192.168.0.3", 123, 100),
+		defaultRouteEntry("192.168.0.4", 124, 200),
+		defaultRouteEntry("fd00:10:0:1::1", 124, 200),
 	}
 
 	table := []struct {
@@ -249,18 +234,8 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 				},
 			},
 			newRoutes: []*tables.Route{
-				{
-					Dst:       netip.MustParsePrefix("0.0.0.0/0"),
-					Gw:        netip.MustParseAddr("192.168.0.3"),
-					LinkIndex: 123,
-					Priority:  200,
-				},
-				{
-					Dst:       netip.MustParsePrefix("0.0.0.0/0"),
-					Gw:        netip.MustParseAddr("192.168.0.4"),
-					LinkIndex: 124,
-					Priority:  100,
-				},
+				defaultRouteEntry("192.168.0.3", 123, 200),
+				defaultRouteEntry("192.168.0.4", 124, 100),
 			},
 			newPeers: []v2.CiliumBGPNodePeer{
 				{
@@ -278,6 +253,60 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 				{
 					Name:        "peer-3",
 					PeerAddress: ptr.To[string]("192.168.0.4"),
+					AutoDiscovery: &v2.BGPAutoDiscovery{
+						Mode: v2.BGPDefaultGatewayMode,
+						DefaultGateway: &v2.DefaultGateway{
+							AddressFamily: "ipv4",
+						},
+					},
+					PeerASN: ptr.To[int64](64124),
+				},
+			},
+			err: nil,
+		},
+		{
+			// A node runs default routes in tables other than main - Cilium installs one
+			// by way of cilium_host, and a local table holds a metric-0 "default dev lo".
+			// Neither is the way off the node, so with no main-table unicast default
+			// route there is nothing to discover at all.
+			name: "ignores default routes outside the main table",
+			routes: []*tables.Route{
+				{
+					// local table: "local default dev lo" with the best metric
+					Table:     2004,
+					Type:      tables.RTN_LOCAL,
+					Scope:     tables.RT_SCOPE_HOST,
+					Dst:       ipv4Default,
+					Gw:        netip.MustParseAddr("192.168.0.9"),
+					LinkIndex: 123,
+					Priority:  0,
+				},
+				{
+					// Cilium's own table: a default route by way of cilium_host
+					Table:     2005,
+					Type:      tables.RTN_UNICAST,
+					Dst:       ipv4Default,
+					Gw:        netip.MustParseAddr("10.0.5.160"),
+					LinkIndex: 124,
+					Priority:  0,
+				},
+			},
+			peers: []v2.CiliumBGPNodePeer{
+				{
+					Name: "peer-tables",
+					AutoDiscovery: &v2.BGPAutoDiscovery{
+						Mode: v2.BGPDefaultGatewayMode,
+						DefaultGateway: &v2.DefaultGateway{
+							AddressFamily: "ipv4",
+						},
+					},
+					PeerASN: ptr.To[int64](64124),
+				},
+			},
+			// A nil PeerAddress: no gateway was discovered.
+			expectedPeers: []v2.CiliumBGPNodePeer{
+				{
+					Name: "peer-tables",
 					AutoDiscovery: &v2.BGPAutoDiscovery{
 						Mode: v2.BGPDefaultGatewayMode,
 						DefaultGateway: &v2.DefaultGateway{
@@ -524,6 +553,24 @@ func setupBGPInstance(logger *slog.Logger) (*instance.BGPInstance, error) {
 	return testInstance, err
 }
 
+// defaultRouteEntry builds a main-table unicast default route, the shape the reconciler
+// selects from. The default route it covers follows the family of the gateway.
+func defaultRouteEntry(gw string, linkIndex, priority int) *tables.Route {
+	addr := netip.MustParseAddr(gw)
+	dst := ipv6Default
+	if addr.Is4() {
+		dst = ipv4Default
+	}
+	return &tables.Route{
+		Table:     tables.RT_TABLE_MAIN,
+		Type:      tables.RTN_UNICAST,
+		Dst:       dst,
+		Gw:        addr,
+		LinkIndex: linkIndex,
+		Priority:  priority,
+	}
+}
+
 func setupStateDB(routes []*tables.Route) (*statedb.DB, error) {
 	// create a test statedb
 	db := statedb.New()
@@ -570,6 +617,8 @@ func validatePeers(req *require.Assertions, expected, actual []v2.CiliumBGPNodeP
 				if expPeer.PeerAddress != nil {
 					req.NotNil(actPeer.PeerAddress)
 					req.Equal(*expPeer.PeerAddress, *actPeer.PeerAddress)
+				} else {
+					req.Nil(actPeer.PeerAddress)
 				}
 				if expPeer.PeerASN != nil {
 					req.NotNil(actPeer.PeerASN)
