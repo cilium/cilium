@@ -9,15 +9,9 @@
 #define DEFINE_AUX(typ, name) \
 	__section(".data.aux") typ __aux_##name;
 
-volatile const __section(".rodata.aux") __u64 _aux_stride;
-volatile const __section(".rodata.aux") __u64 _aux_max_off;
+volatile const __section(".rodata.aux") __u64 _aux_cpu_mask;
+volatile const __section(".rodata.aux") __u64 _aux_stride_shift;
 
-#define AUX(name) ({ \
-	__u32 cpuid = get_smp_processor_id(); \
-	void *aux_addr = (void *)&__aux_##name; \
-	__u64 offset = (_aux_stride * cpuid); \
-	if (offset > _aux_max_off) \
-		offset = _aux_max_off; \
-	aux_addr += offset; \
-	(__typeof__(__aux_##name) *)(aux_addr); \
-})
+#define AUX(name) \
+	((__typeof__(__aux_##name) *)((void *)&__aux_##name + \
+	 ((get_smp_processor_id() & _aux_cpu_mask) << _aux_stride_shift)))

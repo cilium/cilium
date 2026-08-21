@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/bits"
 	"os"
 	"path"
 	"strings"
@@ -447,42 +448,53 @@ func modifyAuxData(spec *ebpf.CollectionSpec) error {
 		return nil
 	}
 
-	// Make collections of per-CPU values cache line aligned to prevent false sharing between CPUs.
+	// Round the per-CPU slot size up to a power of two (at least one cache line).
 	cacheLineSize := uint64(unsafe.Sizeof(cpu.CacheLinePad{}))
-	stride := uint64(auxData.ValueSize)
-	if stride%cacheLineSize != 0 {
-		stride += cacheLineSize - (stride % cacheLineSize)
+	strideShift := uint64(bits.Len64(uint64(auxData.ValueSize) - 1))
+	if minShift := uint64(bits.Len64(cacheLineSize - 1)); strideShift < minShift {
+		strideShift = minShift
 	}
+	stride := uint64(1) << strideShift
 
-	// Communicate the stride to the BPF programs so it can calculate the offset from any variable in the map
-	// to the value for the current CPU.
-	auxStride, found := spec.Variables["_aux_stride"]
+	// Communicate the shift to the BPF programs so it can calculate the offset from any
+	// variable in the map to the value for the current CPU.
+	auxStrideShift, found := spec.Variables["_aux_stride_shift"]
 	if !found {
-		return fmt.Errorf("missing _aux_stride variable for .data.aux map")
+		return fmt.Errorf("missing _aux_stride_shift variable for .data.aux map")
 	}
-	err := auxStride.Set(stride)
+	err := auxStrideShift.Set(strideShift)
 	if err != nil {
-		return fmt.Errorf("setting _aux_stride: %w", err)
+		return fmt.Errorf("setting _aux_stride_shift: %w", err)
 	}
 
-	// Resize the map so it has a copy of the values for each possible CPU.
+	// Resize the map so it has a copy of the values for each possible CPU, rounded
+	// up to the next power of two.
 	cpus := ebpf.MustPossibleCPU()
-	valueSize := uint32(cpus) * uint32(stride)
+	cpuSlots := nextPow2(uint64(cpus))
+	valueSize := uint32(cpuSlots) * uint32(stride)
 	auxData.Contents[0] = ebpf.MapKV{Key: uint32(0), Value: make([]byte, valueSize)}
 	auxData.ValueSize = valueSize
 
-	// Communicate the maximum offset of any variable in the map, used to make the verifier happy that we will never
-	// read or write past the end of the map value.
-	auxMaxOff, found := spec.Variables["_aux_max_off"]
+	// Communicate the CPU mask to the BPF programs, used to bound the per-CPU offset
+	// without a branch in the BPF code.
+	auxCPUMask, found := spec.Variables["_aux_cpu_mask"]
 	if !found {
-		return fmt.Errorf("missing _aux_max_off variable for .data.aux map")
+		return fmt.Errorf("missing _aux_cpu_mask variable for .data.aux map")
 	}
-	err = auxMaxOff.Set(uint64(valueSize) - stride)
+	err = auxCPUMask.Set(cpuSlots - 1)
 	if err != nil {
-		return fmt.Errorf("setting _aux_max_off: %w", err)
+		return fmt.Errorf("setting _aux_cpu_mask: %w", err)
 	}
 
 	return nil
+}
+
+// nextPow2 returns the smallest power of two that is >= n, or 1 if n == 0.
+func nextPow2(n uint64) uint64 {
+	if n <= 1 {
+		return 1
+	}
+	return 1 << bits.Len64(n-1)
 }
 
 func patchPrograms(coll *ebpf.CollectionSpec, patches map[string]func(asm.Instructions) (asm.Instructions, error)) error {
