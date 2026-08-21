@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -55,7 +57,7 @@ func (r *gatewayClassConfigReconciler) ensureStatus(ctx context.Context, gwc *v2
 func setGatewayClassConfigAccepted(gwcc *v2alpha1.CiliumGatewayClassConfig, accepted bool) *v2alpha1.CiliumGatewayClassConfig {
 	switch accepted {
 	case true:
-		gwcc.Status.Conditions = merge(gwcc.Status.Conditions, metav1.Condition{
+		gwcc.Status.Conditions = helpers.MergeConditions(gwcc.Status.Conditions, metav1.Condition{
 			Type:               "Accepted",
 			Status:             metav1.ConditionTrue,
 			Reason:             "Accepted",
@@ -64,7 +66,7 @@ func setGatewayClassConfigAccepted(gwcc *v2alpha1.CiliumGatewayClassConfig, acce
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		})
 	case false:
-		gwcc.Status.Conditions = merge(gwcc.Status.Conditions, metav1.Condition{
+		gwcc.Status.Conditions = helpers.MergeConditions(gwcc.Status.Conditions, metav1.Condition{
 			Type:               "Accepted",
 			Status:             metav1.ConditionFalse,
 			Reason:             "Accepted",
