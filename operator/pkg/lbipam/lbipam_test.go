@@ -4,6 +4,8 @@
 package lbipam
 
 import (
+	"bytes"
+	"log/slog"
 	"net"
 	"net/netip"
 	"strconv"
@@ -818,6 +820,306 @@ func TestSharingCrossNamespace(t *testing.T) {
 	fixture.DeleteSvc(t, svcA)
 	fixture.DeleteSvc(t, svcB)
 	fixture.DeleteSvc(t, svcC)
+}
+
+// TestSharingPermitDifferentPods tests the sharing-permit-different-pods opt-in. With
+// externalTrafficPolicy=Local, the default same-selector check rejects services that select
+// different pods. The opt-in must be present on both services for them to share an IP. The
+// opt-in only relaxes the same-selector requirement; it does not allow sharing for services
+// that lack a selector (Endpoints-based), since LB IPAM cannot reason about endpoints.
+func TestSharingPermitDifferentPods(t *testing.T) {
+	mkSvc := func(name string, uid types.UID, selector map[string]string, annotations map[string]string) *slim_core_v1.Service {
+		etp := slim_core_v1.ServiceExternalTrafficPolicyLocal
+		return &slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
+				Name:        name,
+				Namespace:   "default",
+				UID:         uid,
+				Annotations: annotations,
+			},
+			Spec: slim_core_v1.ServiceSpec{
+				Type:                  slim_core_v1.ServiceTypeLoadBalancer,
+				ExternalTrafficPolicy: etp,
+				Selector:              selector,
+				IPFamilies:            []slim_core_v1.IPFamily{slim_core_v1.IPv4Protocol},
+			},
+		}
+	}
+
+	t.Run("rejects different selectors without opt-in", func(t *testing.T) {
+		fixture := mkTestFixture(t, true, true)
+		fixture.UpsertPool(t, mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}))
+
+		svcA := mkSvc("service-a", serviceAUID, map[string]string{"app": "a"}, map[string]string{
+			annotation.LBIPAMSharingKey: "key-a",
+		})
+		fixture.UpsertSvc(t, svcA)
+		svcA = fixture.GetSvc("default", "service-a")
+		require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+		ipA := svcA.Status.LoadBalancer.Ingress[0].IP
+
+		svcB := mkSvc("service-b", serviceBUID, map[string]string{"app": "b"}, map[string]string{
+			annotation.LBIPAMSharingKey: "key-a",
+		})
+		fixture.UpsertSvc(t, svcB)
+		svcB = fixture.GetSvc("default", "service-b")
+		require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+		assert.NotEqual(t, ipA, svcB.Status.LoadBalancer.Ingress[0].IP, "without opt-in, services with different selectors must not share an IP")
+	})
+
+	t.Run("rejects when only one service opts in (A then B)", func(t *testing.T) {
+		fixture := mkTestFixture(t, true, true)
+		fixture.UpsertPool(t, mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}))
+
+		svcA := mkSvc("service-a", serviceAUID, map[string]string{"app": "a"}, map[string]string{
+			annotation.LBIPAMSharingKey:                 "key-a",
+			annotation.LBIPAMSharingPermitDifferentPods: "true",
+		})
+		fixture.UpsertSvc(t, svcA)
+		svcA = fixture.GetSvc("default", "service-a")
+		require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+		ipA := svcA.Status.LoadBalancer.Ingress[0].IP
+
+		svcB := mkSvc("service-b", serviceBUID, map[string]string{"app": "b"}, map[string]string{
+			annotation.LBIPAMSharingKey: "key-a",
+		})
+		fixture.UpsertSvc(t, svcB)
+		svcB = fixture.GetSvc("default", "service-b")
+		require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+		assert.NotEqual(t, ipA, svcB.Status.LoadBalancer.Ingress[0].IP, "opt-in must be symmetric; one-sided opt-in must not share an IP")
+	})
+
+	t.Run("rejects when only one service opts in (B then A)", func(t *testing.T) {
+		fixture := mkTestFixture(t, true, true)
+		fixture.UpsertPool(t, mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}))
+
+		svcB := mkSvc("service-b", serviceBUID, map[string]string{"app": "b"}, map[string]string{
+			annotation.LBIPAMSharingKey:                 "key-a",
+			annotation.LBIPAMSharingPermitDifferentPods: "true",
+		})
+		fixture.UpsertSvc(t, svcB)
+		svcB = fixture.GetSvc("default", "service-b")
+		require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+		ipB := svcB.Status.LoadBalancer.Ingress[0].IP
+
+		svcA := mkSvc("service-a", serviceAUID, map[string]string{"app": "a"}, map[string]string{
+			annotation.LBIPAMSharingKey: "key-a",
+		})
+		fixture.UpsertSvc(t, svcA)
+		svcA = fixture.GetSvc("default", "service-a")
+		require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+		assert.NotEqual(t, ipB, svcA.Status.LoadBalancer.Ingress[0].IP, "opt-in symmetry must hold regardless of upsert order")
+	})
+
+	t.Run("allows different selectors when both services opt in", func(t *testing.T) {
+		fixture := mkTestFixture(t, true, true)
+		fixture.UpsertPool(t, mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}))
+
+		svcA := mkSvc("service-a", serviceAUID, map[string]string{"app": "a"}, map[string]string{
+			annotation.LBIPAMSharingKey:                 "key-a",
+			annotation.LBIPAMSharingPermitDifferentPods: "true",
+		})
+		fixture.UpsertSvc(t, svcA)
+		svcA = fixture.GetSvc("default", "service-a")
+		require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+		ipA := svcA.Status.LoadBalancer.Ingress[0].IP
+
+		svcB := mkSvc("service-b", serviceBUID, map[string]string{"app": "b"}, map[string]string{
+			annotation.LBIPAMSharingKey:                 "key-a",
+			annotation.LBIPAMSharingPermitDifferentPods: "true",
+		})
+		fixture.UpsertSvc(t, svcB)
+		svcB = fixture.GetSvc("default", "service-b")
+		require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+		assert.Equal(t, ipA, svcB.Status.LoadBalancer.Ingress[0].IP, "with both opt-ins, services must share an IP")
+	})
+
+	t.Run("alias annotation enables opt-in", func(t *testing.T) {
+		fixture := mkTestFixture(t, true, true)
+		fixture.UpsertPool(t, mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}))
+
+		svcA := mkSvc("service-a", serviceAUID, map[string]string{"app": "a"}, map[string]string{
+			annotation.LBIPAMSharingKeyAlias:                 "key-a",
+			annotation.LBIPAMSharingPermitDifferentPodsAlias: "true",
+		})
+		fixture.UpsertSvc(t, svcA)
+		svcA = fixture.GetSvc("default", "service-a")
+		require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+		ipA := svcA.Status.LoadBalancer.Ingress[0].IP
+
+		svcB := mkSvc("service-b", serviceBUID, map[string]string{"app": "b"}, map[string]string{
+			annotation.LBIPAMSharingKeyAlias:                 "key-a",
+			annotation.LBIPAMSharingPermitDifferentPodsAlias: "true",
+		})
+		fixture.UpsertSvc(t, svcB)
+		svcB = fixture.GetSvc("default", "service-b")
+		require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+		assert.Equal(t, ipA, svcB.Status.LoadBalancer.Ingress[0].IP, "alias annotation must enable the opt-in")
+	})
+
+	t.Run("rejects empty selectors even with opt-in (Endpoints-based services)", func(t *testing.T) {
+		fixture := mkTestFixture(t, true, true)
+		fixture.UpsertPool(t, mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}))
+
+		svcA := mkSvc("service-a", serviceAUID, nil, map[string]string{
+			annotation.LBIPAMSharingKey:                 "key-a",
+			annotation.LBIPAMSharingPermitDifferentPods: "true",
+		})
+		fixture.UpsertSvc(t, svcA)
+		svcA = fixture.GetSvc("default", "service-a")
+		require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+		ipA := svcA.Status.LoadBalancer.Ingress[0].IP
+
+		svcB := mkSvc("service-b", serviceBUID, nil, map[string]string{
+			annotation.LBIPAMSharingKey:                 "key-a",
+			annotation.LBIPAMSharingPermitDifferentPods: "true",
+		})
+		fixture.UpsertSvc(t, svcB)
+		svcB = fixture.GetSvc("default", "service-b")
+		require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+		assert.NotEqual(t, ipA, svcB.Status.LoadBalancer.Ingress[0].IP, "opt-in must not enable sharing for services without a selector; LB IPAM cannot reason about endpoints")
+	})
+
+	// Each value is fed to strconv.ParseBool. Values it accepts as truthy enable the opt-in;
+	// everything else (including empty, "yes", "no", "on", "off", garbage) leaves it disabled.
+	parseBoolCases := []struct {
+		name      string
+		value     string
+		shouldOpt bool
+	}{
+		{"true lower", "true", true},
+		{"True mixed", "True", true},
+		{"TRUE upper", "TRUE", true},
+		{"1", "1", true},
+		{"t", "t", true},
+		{"false lower", "false", false},
+		{"FALSE upper", "FALSE", false},
+		{"0", "0", false},
+		{"empty", "", false},
+		{"yes (not parsed)", "yes", false},
+		{"garbage", "definitely-not-a-bool", false},
+	}
+	for _, tc := range parseBoolCases {
+		t.Run("ParseBool/"+tc.name, func(t *testing.T) {
+			fixture := mkTestFixture(t, true, true)
+			fixture.UpsertPool(t, mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}))
+
+			svcA := mkSvc("service-a", serviceAUID, map[string]string{"app": "a"}, map[string]string{
+				annotation.LBIPAMSharingKey:                 "key-a",
+				annotation.LBIPAMSharingPermitDifferentPods: tc.value,
+			})
+			fixture.UpsertSvc(t, svcA)
+			svcA = fixture.GetSvc("default", "service-a")
+			require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+			ipA := svcA.Status.LoadBalancer.Ingress[0].IP
+
+			svcB := mkSvc("service-b", serviceBUID, map[string]string{"app": "b"}, map[string]string{
+				annotation.LBIPAMSharingKey:                 "key-a",
+				annotation.LBIPAMSharingPermitDifferentPods: tc.value,
+			})
+			fixture.UpsertSvc(t, svcB)
+			svcB = fixture.GetSvc("default", "service-b")
+			require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+
+			if tc.shouldOpt {
+				assert.Equal(t, ipA, svcB.Status.LoadBalancer.Ingress[0].IP, "value %q must enable the opt-in", tc.value)
+			} else {
+				assert.NotEqual(t, ipA, svcB.Status.LoadBalancer.Ingress[0].IP, "value %q must not enable the opt-in", tc.value)
+			}
+		})
+	}
+
+	t.Run("invalid value logs a warning", func(t *testing.T) {
+		var buf bytes.Buffer
+		logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		svc := &slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
+				Annotations: map[string]string{
+					annotation.LBIPAMSharingPermitDifferentPods: "yes",
+				},
+			},
+		}
+		assert.False(t, getSVCSharingPermitDifferentPods(logger, svc), "unparseable value must default to disabled")
+		assert.Contains(t, buf.String(), "sharing-permit-different-pods", "an invalid value must surface in the log so users can debug typos")
+	})
+
+	t.Run("opt-in is a no-op when externalTrafficPolicy is Cluster", func(t *testing.T) {
+		fixture := mkTestFixture(t, true, true)
+		fixture.UpsertPool(t, mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}))
+
+		// Both services have ETP=Cluster and different selectors. The opt-in is irrelevant
+		// because the same-selector check only applies to ETP=Local; both services must share
+		// the IP regardless.
+		mkClusterSvc := func(name string, uid types.UID, selector map[string]string) *slim_core_v1.Service {
+			return &slim_core_v1.Service{
+				ObjectMeta: slim_meta_v1.ObjectMeta{
+					Name:      name,
+					Namespace: "default",
+					UID:       uid,
+					Annotations: map[string]string{
+						annotation.LBIPAMSharingKey: "key-a",
+					},
+				},
+				Spec: slim_core_v1.ServiceSpec{
+					Type:                  slim_core_v1.ServiceTypeLoadBalancer,
+					ExternalTrafficPolicy: slim_core_v1.ServiceExternalTrafficPolicyCluster,
+					Selector:              selector,
+					IPFamilies:            []slim_core_v1.IPFamily{slim_core_v1.IPv4Protocol},
+				},
+			}
+		}
+
+		svcA := mkClusterSvc("service-a", serviceAUID, map[string]string{"app": "a"})
+		fixture.UpsertSvc(t, svcA)
+		svcA = fixture.GetSvc("default", "service-a")
+		require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+		ipA := svcA.Status.LoadBalancer.Ingress[0].IP
+
+		svcB := mkClusterSvc("service-b", serviceBUID, map[string]string{"app": "b"})
+		fixture.UpsertSvc(t, svcB)
+		svcB = fixture.GetSvc("default", "service-b")
+		require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+		assert.Equal(t, ipA, svcB.Status.LoadBalancer.Ingress[0].IP, "ETP=Cluster services with the same sharing key must share an IP regardless of selector or opt-in")
+	})
+
+	t.Run("removing opt-in releases the shared IP", func(t *testing.T) {
+		fixture := mkTestFixture(t, true, true)
+		fixture.UpsertPool(t, mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}))
+
+		svcA := mkSvc("service-a", serviceAUID, map[string]string{"app": "a"}, map[string]string{
+			annotation.LBIPAMSharingKey:                 "key-a",
+			annotation.LBIPAMSharingPermitDifferentPods: "true",
+		})
+		fixture.UpsertSvc(t, svcA)
+		svcA = fixture.GetSvc("default", "service-a")
+		require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+		ipA := svcA.Status.LoadBalancer.Ingress[0].IP
+
+		svcB := mkSvc("service-b", serviceBUID, map[string]string{"app": "b"}, map[string]string{
+			annotation.LBIPAMSharingKey:                 "key-a",
+			annotation.LBIPAMSharingPermitDifferentPods: "true",
+		})
+		fixture.UpsertSvc(t, svcB)
+		svcB = fixture.GetSvc("default", "service-b")
+		require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+		require.Equal(t, ipA, svcB.Status.LoadBalancer.Ingress[0].IP, "precondition: services share an IP")
+
+		// Remove the opt-in from service-b. The same-selector check now rejects sharing,
+		// so service-b must be re-allocated a different IP and the shared IP must be released
+		// from service-b's allocation.
+		svcB.Annotations = map[string]string{
+			annotation.LBIPAMSharingKey: "key-a",
+		}
+		fixture.UpsertSvc(t, svcB)
+		svcB = fixture.GetSvc("default", "service-b")
+		require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+		assert.NotEqual(t, ipA, svcB.Status.LoadBalancer.Ingress[0].IP, "removing the opt-in must release the shared IP from service-b")
+
+		// service-a keeps its IP (it is still satisfied; only the no-longer-compatible peer is moved).
+		svcA = fixture.GetSvc("default", "service-a")
+		require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+		assert.Equal(t, ipA, svcA.Status.LoadBalancer.Ingress[0].IP, "service-a must keep its IP")
+	})
 }
 
 // TestServiceDelete tests the service deletion logic. It makes sure that the IP that was assigned to the service is

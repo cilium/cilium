@@ -87,6 +87,13 @@ Informational Notes
   to flag early situations in which the CA certificates need to be manually
   regenerated, before they actually expire. This validation can be disabled
   setting ``certgen.enforceCAValidityThroughoutLeavesDuration=false``.
+* LB IPAM now supports an opt-in
+  ``lbipam.cilium.io/sharing-permit-different-pods`` annotation that,
+  when set to ``"true"`` on all services in a sharing group, allows
+  services with ``externalTrafficPolicy: Local`` to share an IP even
+  when they select different pods. The default same-selector
+  requirement is unchanged.
+  See :ref:`lb_ipam` for the safety trade-off.
 
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~
