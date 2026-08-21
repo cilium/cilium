@@ -204,13 +204,13 @@ type LatestMTUGetter struct {
 
 func (m *LatestMTUGetter) GetDeviceMTU() int {
 	rtx := m.db.ReadTxn()
-	mtu, _, _ := m.tbl.Get(rtx, MTURouteIndex.Query(DefaultPrefixV4))
+	mtu, _, _ := m.tbl.Get(rtx, MTURouteByPrefix(DefaultPrefixV4))
 	return mtu.DeviceMTU
 }
 
 func (m *LatestMTUGetter) GetRouteMTU() int {
 	rtx := m.db.ReadTxn()
-	mtu, _, _ := m.tbl.Get(rtx, MTURouteIndex.Query(DefaultPrefixV4))
+	mtu, _, _ := m.tbl.Get(rtx, MTURouteByPrefix(DefaultPrefixV4))
 	return mtu.RouteMTU
 }
 

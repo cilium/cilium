@@ -138,7 +138,7 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 		OnStart: func(ctx cell.HookContext) error {
 			for {
 				rxt := params.DB.ReadTxn()
-				mtuRoute, _, watch, found := params.MTU.GetWatch(rxt, mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
+				mtuRoute, _, watch, found := params.MTU.GetWatch(rxt, mtu.MTURouteByPrefix(mtu.DefaultPrefixV4))
 				if !found {
 					select {
 					case <-ctx.Done():
