@@ -1,0 +1,135 @@
+#! --enable-service-topology --lb-test-fault-probability=0.0
+#
+# Regression test for the startup-side of PreferSameNode topology preference.
+#
+# A same-node backend that is present but NOT actively serving (a starting Pod,
+# programmed in BackendStateMaintenance; also applies to Quarantined) must NOT
+# win the same-node preference. Otherwise PreferSameNode commits to "same-node
+# only" and pins traffic to a backend that cannot serve, instead of falling back
+# to a ready remote backend.
+#
+# This is the startup-side analogue of the Terminating fix in #46339.
+#
+# NOTE: the expected tables below encode the POST-FIX behaviour. Before the fix
+# (topologyPreferenceCandidate accepting non-Active states), the first
+# `db/cmp frontends frontends-remote.table` selects the local (non-serving)
+# backend instead and this test fails -- which is the bug being fixed.
+#
+
+# Start and wait for watchers
+hive start
+
+# Local-node backend (10.244.1.1 on 'testnode') is starting: ready=false,
+# serving=false, terminating=false -> maps to a non-Active backend state.
+# Remote backend (10.244.2.1 on 'other-node') is ready and serving.
+k8s/add service.yaml
+k8s/add endpointslice.yaml endpointslice2.yaml
+
+# The non-serving local backend must not drive same-node preference: fall back
+# to the ready remote backend.
+db/cmp frontends frontends-remote.table
+
+# Once the local backend becomes ready/serving (Active), PreferSameNode snaps
+# back to it.
+k8s/update endpointslice-ready.yaml
+db/cmp frontends frontends-local.table
+
+#####
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy  Flags
+test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferSameNode
+
+-- frontends-local.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP
+
+-- frontends-remote.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.2.1:80/TCP
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+  trafficDistribution: PreferSameNode
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: false
+    serving: false
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice-ready.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice2.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.2.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: other-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP
