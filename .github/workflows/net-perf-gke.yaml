@@ -345,12 +345,22 @@ jobs:
       - name: Clean up GKE
         if: ${{ always() }}
         env:
-          cluster_zone: ${{ steps.create-cluster.outputs.zone || env.gcp_zone }}
+          CLUSTER: ${{ env.clusterName }}-${{ matrix.index }}
+          # Every zone the cluster could have been created in, not just the one
+          # it ended up in: a creation attempt that was abandoned because it was
+          # too slow keeps provisioning on the GKE side.
+          ZONES: ${{ env.gcp_zone }} ${{ env.gcp_fallback_zones }}
         run: |
-          while [ "$(gcloud container operations list --zone ${cluster_zone} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-${{ matrix.index }}" --format="value(name)")" ];do
-            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
+          for zone in ${ZONES}; do
+            while [ "$(gcloud container operations list --zone "${zone}" --filter="status=RUNNING AND targetLink~${CLUSTER}" --format="value(name)")" ];do
+              echo "cluster has an ongoing operation in ${zone}, waiting for all operations to finish"; sleep 15
+            done
+            gcloud container clusters describe "${CLUSTER}" --zone "${zone}" --format 'value(name)' > /dev/null 2>&1 || continue
+            for i in 1 2 3; do
+              gcloud container clusters delete "${CLUSTER}" --zone "${zone}" --quiet --async && break
+              echo "delete of ${CLUSTER} in ${zone} failed (attempt ${i}/3), retrying in 15s"; sleep 15
+            done
           done
-          gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.index }} --zone ${cluster_zone} --quiet --async
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
       # We needed to configure a unique suffix to ensure that the artifacts can

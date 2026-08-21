@@ -575,12 +575,23 @@ jobs:
         if: ${{ always() }}
         env:
           CLUSTER: ${{ env.clusterName }}-${{ matrix.config.index }}
-          ZONE: ${{ steps.create-cluster.outputs.zone || matrix.k8s.zone }}
+          # Every zone the cluster could have been created in, not just the one
+          # it ended up in: a creation attempt that was abandoned because it was
+          # too slow keeps provisioning on the GKE side. The cluster name is
+          # unique to this leg, so deleting it by name in each candidate zone
+          # cannot touch another leg's cluster.
+          ZONES: ${{ steps.fallback-zones.outputs.candidates || matrix.k8s.zone }}
         run: |
-          while [ "$(gcloud container operations list --zone ${ZONE} --filter="status=RUNNING AND targetLink~${CLUSTER}" --format="value(name)")" ];do
-            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
+          for zone in ${ZONES}; do
+            while [ "$(gcloud container operations list --zone "${zone}" --filter="status=RUNNING AND targetLink~${CLUSTER}" --format="value(name)")" ];do
+              echo "cluster has an ongoing operation in ${zone}, waiting for all operations to finish"; sleep 15
+            done
+            gcloud container clusters describe "${CLUSTER}" --zone "${zone}" --format 'value(name)' > /dev/null 2>&1 || continue
+            for i in 1 2 3; do
+              gcloud container clusters delete "${CLUSTER}" --zone "${zone}" --quiet --async && break
+              echo "delete of ${CLUSTER} in ${zone} failed (attempt ${i}/3), retrying in 15s"; sleep 15
+            done
           done
-          gcloud container clusters delete ${CLUSTER} --zone ${ZONE} --quiet --async
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
   merge-upload-and-status:
