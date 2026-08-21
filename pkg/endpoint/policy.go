@@ -1207,6 +1207,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
 				k8sPodName := e.K8sPodName
+				k8sPodUID := e.GetK8sPodUID()
 
 				k8sServiceAccount := ""
 				if pod := e.GetPod(); pod != nil {
@@ -1225,6 +1226,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					Metadata:          metadata,
 					K8sNamespace:      k8sNamespace,
 					K8sPodName:        k8sPodName,
+					K8sPodUID:         k8sPodUID,
 					K8sServiceAccount: k8sServiceAccount,
 					NPM:               e.GetK8sPorts(),
 				}

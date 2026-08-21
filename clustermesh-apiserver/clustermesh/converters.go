@@ -265,6 +265,7 @@ func ciliumEndpointMapper(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
 						HostIP:            net.ParseIP(n.NodeIP),
 						K8sNamespace:      endpoint.Namespace,
 						K8sPodName:        endpoint.Name,
+						K8sPodUID:         endpoint.GetPodUID(),
 						K8sServiceAccount: endpoint.ServiceAccount,
 						NamedPorts:        namedPortsToIPIdentity(endpoint.NamedPorts),
 					}
@@ -315,6 +316,7 @@ func ciliumEndpointSliceMapper(endpointslice *cilium_api_v2a1.CiliumEndpointSlic
 							HostIP:            net.ParseIP(n.NodeIP),
 							K8sNamespace:      endpointslice.Namespace,
 							K8sPodName:        endpoint.Name,
+							K8sPodUID:         endpoint.PodUID,
 							ID:                identity.NumericIdentity(endpoint.IdentityID),
 							Key:               uint8(endpoint.Encryption.Key),
 							K8sServiceAccount: endpoint.ServiceAccount,

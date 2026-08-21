@@ -163,13 +163,13 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 					}
 				}
 				if !v4Added {
-					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
+					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV4, source.CustomResource, oldEndpoint.Namespace, oldEndpoint.Name, oldEndpoint.GetPodUID())
 					if portsChanged {
 						namedPortsChanged = true
 					}
 				}
 				if !v6Added {
-					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
+					portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV6, source.CustomResource, oldEndpoint.Namespace, oldEndpoint.Name, oldEndpoint.GetPodUID())
 					if portsChanged {
 						namedPortsChanged = true
 					}
@@ -215,6 +215,7 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace:  endpoint.Namespace,
 		PodName:    endpoint.Name,
+		PodUID:     endpoint.GetPodUID(),
 		NamedPorts: make(ciliumTypes.NamedPortMap, len(endpoint.NamedPorts)),
 	}
 	for _, port := range endpoint.NamedPorts {
@@ -254,14 +255,14 @@ func (k *K8sCiliumEndpointsWatcher) endpointDeleted(endpoint *types.CiliumEndpoi
 		namedPortsChanged := false
 		for _, pair := range endpoint.Networking.Addressing {
 			if pair.IPV4 != "" {
-				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
+				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name, endpoint.GetPodUID())
 				if portsChanged {
 					namedPortsChanged = true
 				}
 			}
 
 			if pair.IPV6 != "" {
-				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
+				portsChanged := k.ipcache.DeleteOnMetadataMatch(pair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name, endpoint.GetPodUID())
 				if portsChanged {
 					namedPortsChanged = true
 				}

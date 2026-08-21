@@ -72,6 +72,7 @@ type UpsertParams struct {
 	Metadata          string
 	K8sNamespace      string
 	K8sPodName        string
+	K8sPodUID         string
 	K8sServiceAccount string
 	NPM               types.NamedPortMap
 }
@@ -100,6 +101,7 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, params *UpsertParam
 		Key:               params.Key,
 		K8sNamespace:      params.K8sNamespace,
 		K8sPodName:        params.K8sPodName,
+		K8sPodUID:         params.K8sPodUID,
 		K8sServiceAccount: params.K8sServiceAccount,
 		NamedPorts:        namedPorts,
 	}
@@ -399,10 +401,11 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 	}
 
 	var k8sMeta *K8sMetadata
-	if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" || len(ipIDPair.NamedPorts) > 0 {
+	if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" || ipIDPair.K8sPodUID != "" || len(ipIDPair.NamedPorts) > 0 {
 		k8sMeta = &K8sMetadata{
 			Namespace:  ipIDPair.K8sNamespace,
 			PodName:    ipIDPair.K8sPodName,
+			PodUID:     ipIDPair.K8sPodUID,
 			NamedPorts: make(types.NamedPortMap, len(ipIDPair.NamedPorts)),
 		}
 		for _, np := range ipIDPair.NamedPorts {

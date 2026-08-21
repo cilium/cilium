@@ -15,15 +15,13 @@ import (
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
 	fakePodName = "pod"
-	fakePodUid  = "79f04581-a0e7-4a42-a020-db51cf21a605"
+	fakePodUID  = "79f04581-a0e7-4a42-a020-db51cf21a605"
 )
 
 func TestEndpointToString(t *testing.T) {
@@ -107,12 +105,41 @@ func TestProcessFlowRateLimitChargedOnlyToEvents(t *testing.T) {
 
 func TestProcessFlow(t *testing.T) {
 	tests := []struct {
-		name   string
-		flow   *flowpb.Flow
-		expect string
+		name         string
+		flow         *flowpb.Flow
+		expect       string
+		expectPodUID string
 	}{
 		{
-			name: "valid ingress drop event",
+			name: "valid ingress drop event with pod UID",
+			flow: &flowpb.Flow{
+				Verdict:          flowpb.Verdict_DROPPED,
+				DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
+				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+				IP:               &flowpb.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
+				Source:           &flowpb.Endpoint{},
+				Destination:      &flowpb.Endpoint{Namespace: "namespace", PodName: fakePodName, PodUid: fakePodUID},
+				L4:               &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{DestinationPort: 443}}},
+			},
+			expect:       "Incoming packet dropped (policy_denied) from unknown (1.2.3.4) TCP/443",
+			expectPodUID: fakePodUID,
+		},
+		{
+			name: "valid egress drop event with pod UID",
+			flow: &flowpb.Flow{
+				Verdict:          flowpb.Verdict_DROPPED,
+				DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
+				TrafficDirection: flowpb.TrafficDirection_EGRESS,
+				IP:               &flowpb.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
+				Source:           &flowpb.Endpoint{Namespace: "namespace", PodName: fakePodName, PodUid: fakePodUID},
+				Destination:      &flowpb.Endpoint{Identity: identity.ReservedIdentityRemoteNode.Uint32()},
+				L4:               &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{DestinationPort: 512}}},
+			},
+			expect:       "Outgoing packet dropped (policy_denied) to remote-node (5.6.7.8) UDP/512",
+			expectPodUID: fakePodUID,
+		},
+		{
+			name: "valid ingress drop event without pod UID",
 			flow: &flowpb.Flow{
 				Verdict:          flowpb.Verdict_DROPPED,
 				DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
@@ -125,7 +152,7 @@ func TestProcessFlow(t *testing.T) {
 			expect: "Incoming packet dropped (policy_denied) from unknown (1.2.3.4) TCP/443",
 		},
 		{
-			name: "valid egress drop event to node",
+			name: "valid egress drop event without pod UID",
 			flow: &flowpb.Flow{
 				Verdict:          flowpb.Verdict_DROPPED,
 				DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
@@ -197,9 +224,8 @@ func TestProcessFlow(t *testing.T) {
 				IncludeObject: true,
 			}
 			e := &dropEventEmitter{
-				reasons:    []flowpb.DropReason{flowpb.DropReason_POLICY_DENIED},
-				recorder:   fakeRecorder,
-				k8sWatcher: &fakeK8SWatcher{},
+				reasons:  []flowpb.DropReason{flowpb.DropReason_POLICY_DENIED},
+				recorder: fakeRecorder,
 			}
 			if err := e.ProcessFlow(t.Context(), tt.flow); err != nil {
 				t.Errorf("DropEventEmitter.ProcessFlow() error = %v", err)
@@ -210,9 +236,7 @@ func TestProcessFlow(t *testing.T) {
 				assert.Len(t, fakeRecorder.Events, 1)
 				event := <-fakeRecorder.Events
 				assert.Contains(t, event, tt.expect)
-				if tt.flow.Destination.PodName == fakePodName && tt.flow.TrafficDirection == flowpb.TrafficDirection_EGRESS {
-					assert.Contains(t, event, fakePodUid)
-				}
+				assert.Contains(t, event, "uid="+tt.expectPodUID+"}")
 			}
 		})
 	}
@@ -451,23 +475,6 @@ func TestParsePolicyCorrelation(t *testing.T) {
 			assert.Equal(t, tt.expectClusterPolicies, actualClusterPolicies)
 		})
 	}
-}
-
-type fakeK8SWatcher struct{}
-
-func (k *fakeK8SWatcher) GetCachedNamespace(namespace string) (*slim_corev1.Namespace, error) {
-	return nil, nil
-}
-func (k *fakeK8SWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
-	if name == fakePodName {
-		return &slim_corev1.Pod{
-			ObjectMeta: slim_metav1.ObjectMeta{
-				Name: fakePodName,
-				UID:  fakePodUid,
-			},
-		}, nil
-	}
-	return nil, fmt.Errorf("pod not found in cache : %s", name)
 }
 
 type fakeEndpointsLookup struct{}

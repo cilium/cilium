@@ -172,12 +172,18 @@ func (k *K8sPodWatcher) podsInit(ctx context.Context) {
 				name := types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}
 				if !change.Deleted {
 					oldPod := pods[name]
-					if oldPod == nil {
+					switch {
+					case oldPod == nil:
 						k.addK8sPodV1(ctx, pod)
-					} else {
-						k.updateK8sPodV1(ctx, oldPod, pod)
+					case oldPod.UID != pod.UID:
+						k.replaceK8sPodV1(ctx, oldPod, pod)
+					default:
+						k.updateExistingK8sPodV1(ctx, oldPod, pod)
 					}
 					k.k8sResourceSynced.SetEventTimestamp(podApiGroup)
+					// Track the latest observed Pod rather than the last fully
+					// reconciled transition. Handlers can partially apply an event,
+					// so retaining the old object could replay stale replacement work.
 					pods[name] = pod
 				} else {
 					k.deleteK8sPodV1(pod)
@@ -254,7 +260,7 @@ func (k *K8sPodWatcher) addK8sPodV1(ctx context.Context, pod *slim_corev1.Pod) e
 		k.hostNetworkManager.AddNoTrackHostPorts(pod.Namespace, pod.Name, strings.Split(hostPorts, ","))
 	}
 
-	if pod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy {
+	if shouldSkipHostNetworkPod(pod) {
 		scopedLog.Debug("Skip pod event using host networking")
 		return err
 	}
@@ -274,7 +280,86 @@ func (k *K8sPodWatcher) addK8sPodV1(ctx context.Context, pod *slim_corev1.Pod) e
 	return err
 }
 
-func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod *slim_corev1.Pod) error {
+func (k *K8sPodWatcher) replaceK8sPodV1(ctx context.Context, oldPod, newPod *slim_corev1.Pod) error {
+	scopedLog := k.logger.With(
+		logfields.K8sPodName, newPod.ObjectMeta.Name,
+		logfields.K8sNamespace, newPod.ObjectMeta.Namespace,
+	)
+	if !k8sUtils.IsPodRunning(newPod.Status) {
+		return k.deleteK8sPodV1(oldPod)
+	}
+
+	k.replaceHostNetworkState(oldPod, newPod)
+	if !shouldSkipHostNetworkPod(newPod) {
+		k.cgroupManager.OnUpdatePod(oldPod, newPod)
+	}
+
+	var ipcacheErr error
+	if newPod.Spec.HostNetwork {
+		if !oldPod.Spec.HostNetwork {
+			k.deletePodIPCacheMetadata(oldPod)
+		}
+	} else {
+		var oldPodIPs k8sTypes.IPSlice
+		if !oldPod.Spec.HostNetwork {
+			oldPodIPs = k8sUtils.ValidIPs(oldPod.Status)
+		}
+		newPodIPs := k8sUtils.ValidIPs(newPod.Status)
+		if len(oldPodIPs) != 0 || len(newPodIPs) != 0 {
+			ipcacheErr = k.replacePodHostData(ctx, oldPod, newPod, oldPodIPs, newPodIPs)
+		}
+	}
+	if ipcacheErr != nil {
+		scopedLog.Warn("Unable to replace ipcache map entry on pod replacement", logfields.Error, ipcacheErr)
+	}
+
+	var endpointErr error
+	if !shouldSkipHostNetworkPod(newPod) {
+		endpointErr = k.reconcilePodEndpoints(oldPod, newPod, true)
+	}
+	return errors.Join(ipcacheErr, endpointErr)
+}
+
+func (k *K8sPodWatcher) replaceHostNetworkState(oldPod, newPod *slim_corev1.Pod) {
+	scopedLog := k.logger.With(
+		logfields.K8sPodName, newPod.ObjectMeta.Name,
+		logfields.K8sNamespace, newPod.ObjectMeta.Namespace,
+	)
+	hostPorts, ok := annotation.Get(newPod, annotation.NoTrackHostPorts)
+	if ok && !newPod.Spec.HostNetwork {
+		scopedLog.Warn(fmt.Sprintf("%s annotation present but pod does not have hostNetwork: true. ignoring", annotation.NoTrackHostPorts))
+	}
+
+	switch {
+	case newPod.Spec.HostNetwork:
+		hostPorts = strings.ReplaceAll(hostPorts, " ", "")
+		ports := strings.Split(hostPorts, ",")
+		if oldPod.Spec.HostNetwork && !validNoTrackHostPorts(ports) {
+			// The host-network manager leaves its existing desired state in place
+			// when parsing fails. A replacement must not retain rules owned by the
+			// old Pod in that case.
+			k.hostNetworkManager.RemoveNoTrackHostPorts(oldPod.Namespace, oldPod.Name)
+		}
+		k.hostNetworkManager.AddNoTrackHostPorts(newPod.Namespace, newPod.Name, ports)
+	case oldPod.Spec.HostNetwork:
+		k.hostNetworkManager.RemoveNoTrackHostPorts(oldPod.Namespace, oldPod.Name)
+	}
+}
+
+func validNoTrackHostPorts(ports []string) bool {
+	for _, port := range ports {
+		if port == "" {
+			continue
+		}
+		parsed, err := loadbalancer.L4AddrFromString(port)
+		if err != nil || parsed.Protocol != loadbalancer.TCP && parsed.Protocol != loadbalancer.UDP {
+			return false
+		}
+	}
+	return true
+}
+
+func (k *K8sPodWatcher) updateExistingK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod *slim_corev1.Pod) error {
 	var err error
 
 	if oldK8sPod == nil || newK8sPod == nil {
@@ -291,7 +376,6 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 		logfields.OldPodIPs, oldK8sPod.Status.PodIPs,
 		logfields.OldHostIP, oldK8sPod.Status.HostIP,
 	)
-
 	// In Kubernetes Jobs, Pods can be left in Kubernetes until the Job
 	// is deleted. If the Job is never deleted, Cilium will never receive a Pod
 	// delete event, causing the IP to be left in the ipcache.
@@ -313,8 +397,7 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 		k.hostNetworkManager.AddNoTrackHostPorts(newK8sPod.Namespace, newK8sPod.Name, strings.Split(hostPorts, ","))
 	}
 
-	if newK8sPod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy &&
-		!option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing {
+	if shouldSkipHostNetworkPod(newK8sPod) {
 		scopedLog.Debug("Skip pod event using host networking")
 		return err
 	}
@@ -329,6 +412,17 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 			scopedLog.Warn("Unable to update ipcache map entry on pod update", logfields.Error, err)
 		}
 	}
+	if endpointErr := k.reconcilePodEndpoints(oldK8sPod, newK8sPod, false); endpointErr != nil {
+		return endpointErr
+	}
+	return err
+}
+
+func (k *K8sPodWatcher) reconcilePodEndpoints(oldK8sPod, newK8sPod *slim_corev1.Pod, forceLabels bool) error {
+	scopedLog := k.logger.With(
+		logfields.K8sPodName, newK8sPod.ObjectMeta.Name,
+		logfields.K8sNamespace, newK8sPod.ObjectMeta.Namespace,
+	)
 
 	// Check annotation updates.
 	oldAnno := oldK8sPod.ObjectMeta.Annotations
@@ -351,18 +445,17 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 	newK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(strippedNewLabels, labels.LabelSourceK8s))
 	newPodLabels := newK8sPodLabels.K8sStringMap()
 	labelsChanged := !maps.Equal(oldPodLabels, newPodLabels)
-	uidChanged := oldK8sPod.UID != newK8sPod.UID
 
 	// Nothing changed.
-	if !annotationsChanged && !labelsChanged {
+	if !annotationsChanged && !labelsChanged && !forceLabels {
 		scopedLog.Debug(
-			"Pod does not have any annotations nor labels changed",
+			"Pod does not have any relevant changes",
 			logfields.OldLabels, oldK8sPod.GetObjectMeta().GetLabels(),
 			logfields.OldAnnotations, oldK8sPod.GetObjectMeta().GetAnnotations(),
 			logfields.NewLabels, newK8sPod.GetObjectMeta().GetLabels(),
 			logfields.NewAnnotations, newK8sPod.GetObjectMeta().GetAnnotations(),
 		)
-		return err
+		return nil
 	}
 
 	podNSName := k8sUtils.GetObjNamespaceName(&newK8sPod.ObjectMeta)
@@ -373,14 +466,13 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 			"Endpoint not found running for the given pod",
 			logfields.Pod, podNSName,
 		)
-		return err
+		return nil
 	}
 
 	for _, podEP := range podEPs {
-		if labelsChanged || uidChanged {
-			// Consider a UID change the same as a label change in case the pod's
-			// identity needs to be updated, see GH-30409. Annotations are not
-			// checked for because annotations don't impact identities.
+		if labelsChanged || forceLabels {
+			// A replacement needs the same forced label refresh as an observed UID
+			// change, even when the old and new label maps are equal. See GH-30409.
 			err := podEP.UpdateLabelsFrom(oldPodLabels, newPodLabels, labels.LabelSourceK8s)
 			if err != nil {
 				scopedLog.Warn(
@@ -460,7 +552,12 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 		}
 	}
 
-	return err
+	return nil
+}
+
+func shouldSkipHostNetworkPod(pod *slim_corev1.Pod) bool {
+	return pod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy &&
+		!option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing
 }
 
 func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
@@ -596,6 +693,14 @@ func (k *K8sPodWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 }
 
 func (k *K8sPodWatcher) updatePodHostData(ctx context.Context, oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs k8sTypes.IPSlice) error {
+	return k.upsertPodHostData(ctx, oldPod, newPod, oldPodIPs, newPodIPs, false)
+}
+
+func (k *K8sPodWatcher) replacePodHostData(ctx context.Context, oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs k8sTypes.IPSlice) error {
+	return k.upsertPodHostData(ctx, oldPod, newPod, oldPodIPs, newPodIPs, true)
+}
+
+func (k *K8sPodWatcher) upsertPodHostData(ctx context.Context, oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs k8sTypes.IPSlice, replace bool) error {
 	if newPod.Spec.HostNetwork {
 		k.logger.Debug("Pod is using host networking",
 			logfields.K8sPodName, newPod.ObjectMeta.Name,
@@ -609,18 +714,18 @@ func (k *K8sPodWatcher) updatePodHostData(ctx context.Context, oldPod, newPod *s
 	ipSliceEqual := oldPodIPs != nil && oldPodIPs.DeepEqual(&newPodIPs)
 
 	defer func() {
-		if !ipSliceEqual {
-			// delete all IPs that were not added regardless if the insertion of the
-			// entry in the ipcache map was successful or not because we will not
-			// receive any other event with these old IP addresses.
+		if oldPod != nil && (!ipSliceEqual || replace) {
+			// Delete IPs that the old Pod no longer owns after attempting the new
+			// insertion.
 			for _, oldPodIP := range oldPodIPs {
-				var found bool
-				if slices.Contains(newPodIPs, oldPodIP) {
-					found = true
-				}
-				if !found {
-					npc := k.ipcache.Delete(oldPodIP, source.Kubernetes)
-					if npc {
+				if replace || !slices.Contains(newPodIPs, oldPodIP) {
+					if k.ipcache.DeleteOnMetadataMatch(
+						oldPodIP,
+						source.Kubernetes,
+						oldPod.Namespace,
+						oldPod.Name,
+						string(oldPod.UID),
+					) {
 						namedPortsChanged = true
 					}
 				}
@@ -629,7 +734,7 @@ func (k *K8sPodWatcher) updatePodHostData(ctx context.Context, oldPod, newPod *s
 
 		// This happens at most once due to k8sMeta being the same for all podIPs in this loop
 		if namedPortsChanged {
-			k.policyManager.TriggerPolicyUpdates("Named ports added or updated")
+			k.policyManager.TriggerPolicyUpdates("Named ports added, updated or deleted")
 		}
 	}()
 
@@ -638,7 +743,7 @@ func (k *K8sPodWatcher) updatePodHostData(ctx context.Context, oldPod, newPod *s
 
 	// if spec, host IPs, and pod IPs are the same there no need to perform the remaining
 	// operations
-	if specEqual && hostIPEqual && ipSliceEqual {
+	if specEqual && hostIPEqual && ipSliceEqual && !replace {
 		return nil
 	}
 
@@ -657,6 +762,7 @@ func (k *K8sPodWatcher) updatePodHostData(ctx context.Context, oldPod, newPod *s
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,
 		PodName:   newPod.Name,
+		PodUID:    string(newPod.UID),
 	}
 
 	// Store Named ports, if any.
@@ -726,8 +832,9 @@ func (k *K8sPodWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 	}
 
 	var (
-		errs    []string
-		skipped bool
+		errs              []string
+		skipped           bool
+		namedPortsChanged bool
 	)
 
 	for _, podIP := range podIPs {
@@ -747,7 +854,13 @@ func (k *K8sPodWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 			continue
 		}
 
-		k.ipcache.DeleteOnMetadataMatch(podIP, source.Kubernetes, pod.Namespace, pod.Name)
+		if k.ipcache.DeleteOnMetadataMatch(podIP, source.Kubernetes, pod.Namespace, pod.Name, string(pod.UID)) {
+			namedPortsChanged = true
+		}
+	}
+
+	if namedPortsChanged {
+		k.policyManager.TriggerPolicyUpdates("Named ports deleted")
 	}
 
 	if len(errs) != 0 {
@@ -755,6 +868,28 @@ func (k *K8sPodWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 	}
 
 	return skipped, nil
+}
+
+func (k *K8sPodWatcher) deletePodIPCacheMetadata(pod *slim_corev1.Pod) {
+	if pod.Spec.HostNetwork {
+		return
+	}
+
+	var namedPortsChanged bool
+	for _, podIP := range k8sUtils.ValidIPs(pod.Status) {
+		if k.ipcache.DeleteOnMetadataMatch(
+			podIP,
+			source.Kubernetes,
+			pod.Namespace,
+			pod.Name,
+			string(pod.UID),
+		) {
+			namedPortsChanged = true
+		}
+	}
+	if namedPortsChanged {
+		k.policyManager.TriggerPolicyUpdates("Named ports deleted")
+	}
 }
 
 // GetCachedPod returns a pod from the local store.
