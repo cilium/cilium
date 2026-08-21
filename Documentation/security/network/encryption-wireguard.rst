@@ -313,7 +313,7 @@ table are not subject to encryption with WireGuard and therefore assumed to be u
 | Pod            | remote Pod via    | any                  | default         |
 |                | ClusterIP Service |                      |                 |
 +----------------+-------------------+----------------------+-----------------+
-| Pod            | remote Pod via    | Socket LB            | default         |
+| Pod            | remote Pod via    | KPR                  | default         |
 |                | non ClusterIP     |                      |                 |
 |                | Service (e.g.,    |                      |                 |
 |                | NodePort)         |                      |                 |
