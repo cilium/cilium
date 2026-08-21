@@ -57,15 +57,19 @@ func (m *GatewayAddressStatusManager) VerifyGatewayStaticAddresses(gw *gatewayv1
 // it also marks the Gateway and accepted listeners as Programmed.
 func (m *GatewayAddressStatusManager) SetAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
 	m.logger.InfoContext(ctx, "Checking address status for Gateway", logfields.Resource, client.ObjectKeyFromObject(gw).String())
+	setGatewayProgrammed(gw, metav1.ConditionFalse, "Gateway waiting for address", gatewayv1.GatewayReasonAddressNotAssigned)
+
 	svcList := &corev1.ServiceList{}
 	if err := m.client.List(ctx, svcList, client.MatchingLabels{
 		owningGatewayLabel: shortener.ShortenK8sResourceName(gw.GetName()),
 	}, client.InNamespace(gw.GetNamespace())); err != nil {
-		return err
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, failed to load services", gatewayv1.GatewayReasonAddressNotAssigned)
+		return fmt.Errorf("failed to load services: %w", err)
 	}
 
 	if len(svcList.Items) == 0 {
-		return fmt.Errorf("no service found")
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, failed to load services: no service found", gatewayv1.GatewayReasonAddressNotAssigned)
+		return fmt.Errorf("failed to load services: no service found")
 	}
 	svc := svcList.Items[0]
 
@@ -77,7 +81,8 @@ func (m *GatewayAddressStatusManager) SetAddressStatus(ctx context.Context, gw *
 		// IP addresses as we can fit into Status
 		nodes := &corev1.NodeList{}
 		if err := m.client.List(ctx, nodes); err != nil {
-			return fmt.Errorf("unable to list nodes")
+			setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, failed to load nodes", gatewayv1.GatewayReasonAddressNotAssigned)
+			return fmt.Errorf("failed to load nodes: %w", err)
 		}
 
 		ips := make([]netip.Addr, 0)
@@ -128,7 +133,8 @@ func (m *GatewayAddressStatusManager) SetAddressStatus(ctx context.Context, gw *
 			}
 		}
 	default:
-		return fmt.Errorf("Invalid service type for gateway")
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, failed to load services: invalid service type for gateway", gatewayv1.GatewayReasonAddressNotAssigned)
+		return fmt.Errorf("failed to load services: invalid service type for gateway")
 	}
 
 	if len(addresses) > 0 {
@@ -174,11 +180,11 @@ func (m *GatewayAddressStatusManager) SetStaticAddressStatus(ctx context.Context
 	if err := m.client.List(ctx, svcList, client.MatchingLabels{
 		owningGatewayLabel: shortener.ShortenK8sResourceName(gw.GetName()),
 	}, client.InNamespace(gw.GetNamespace())); err != nil {
-		return err
+		return fmt.Errorf("failed to load services: %w", err)
 	}
 
 	if len(svcList.Items) == 0 {
-		return fmt.Errorf("no service found")
+		return fmt.Errorf("failed to load services: no service found")
 	}
 
 	svc := svcList.Items[0]
@@ -203,10 +209,12 @@ func (m *GatewayAddressStatusManager) SetStaticAddressStatus(ctx context.Context
 	for _, addr := range gw.Spec.Addresses {
 		ip, err := netip.ParseAddr(addr.Value)
 		if err != nil {
-			return fmt.Errorf("static address %q can't be used", addr.Value)
+			setGatewayProgrammed(gw, metav1.ConditionFalse, fmt.Sprintf("StaticAddress %q can't be used", addr.Value), gatewayv1.GatewayReasonAddressNotUsable)
+			return nil
 		}
 		if _, ok := addresses[ip]; !ok {
-			return fmt.Errorf("static address %q can't be used", addr.Value)
+			setGatewayProgrammed(gw, metav1.ConditionFalse, fmt.Sprintf("StaticAddress %q can't be used", addr.Value), gatewayv1.GatewayReasonAddressNotUsable)
+			return nil
 		}
 	}
 
