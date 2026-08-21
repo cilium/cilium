@@ -26,8 +26,7 @@ type SignalType uint32
 const (
 	// SignalNatFillUp denotes potential congestion on the NAT table
 	SignalNatFillUp SignalType = iota
-	// SignalCTFillUp denotes potential congestion on the CT table
-	SignalCTFillUp
+	Unused
 	// SignalAuthRequired denotes a connection dropped due to missing authentication
 	SignalAuthRequired
 	SignalTypeMax
@@ -35,7 +34,7 @@ const (
 
 var signalName = [SignalTypeMax]string{
 	SignalNatFillUp:    "nat_fill_up",
-	SignalCTFillUp:     "ct_fill_up",
+	Unused:             "unused",
 	SignalAuthRequired: "auth_required",
 }
 

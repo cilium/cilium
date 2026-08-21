@@ -60,7 +60,6 @@ func TestSignalSet(t *testing.T) {
 	sm := &signalManager{events: events}
 	require.True(t, sm.isMuted())
 	require.True(t, sm.isSignalMuted(SignalNatFillUp))
-	require.True(t, sm.isSignalMuted(SignalCTFillUp))
 	require.True(t, sm.isSignalMuted(SignalAuthRequired))
 
 	// invalid signal, nothing changes
@@ -69,73 +68,56 @@ func TestSignalSet(t *testing.T) {
 	require.ErrorContains(t, err, "signal number not supported: 16")
 	require.True(t, sm.isMuted())
 	require.True(t, sm.isSignalMuted(SignalNatFillUp))
-	require.True(t, sm.isSignalMuted(SignalCTFillUp))
 	require.True(t, sm.isSignalMuted(SignalAuthRequired))
 
-	// 2 active signals
-	err = sm.UnmuteSignals(SignalNatFillUp, SignalCTFillUp)
+	// 1 active signal
+	err = sm.UnmuteSignals(SignalNatFillUp)
 	require.NoError(t, err)
 	require.False(t, sm.isMuted())
 	require.False(t, sm.isSignalMuted(SignalNatFillUp))
-	require.False(t, sm.isSignalMuted(SignalCTFillUp))
 	require.True(t, sm.isSignalMuted(SignalAuthRequired))
 
 	require.False(t, events.paused)
 	require.False(t, events.closed)
 
-	// Mute one, one still active
+	// Mute it again
 	err = sm.MuteSignals(SignalNatFillUp)
-	require.NoError(t, err)
-	require.False(t, sm.isMuted())
-	require.True(t, sm.isSignalMuted(SignalNatFillUp))
-	require.False(t, sm.isSignalMuted(SignalCTFillUp))
-	require.True(t, sm.isSignalMuted(SignalAuthRequired))
-
-	require.False(t, events.paused)
-	require.False(t, events.closed)
-
-	// Nothing happens if the signal is already muted
-	err = sm.MuteSignals(SignalNatFillUp)
-	require.NoError(t, err)
-	require.False(t, sm.isMuted())
-	require.True(t, sm.isSignalMuted(SignalNatFillUp))
-	require.False(t, sm.isSignalMuted(SignalCTFillUp))
-	require.True(t, sm.isSignalMuted(SignalAuthRequired))
-
-	require.False(t, events.paused)
-	require.False(t, events.closed)
-
-	// Unmute one more
-	err = sm.UnmuteSignals(SignalAuthRequired)
-	require.NoError(t, err)
-	require.False(t, sm.isMuted())
-	require.True(t, sm.isSignalMuted(SignalNatFillUp))
-	require.False(t, sm.isSignalMuted(SignalCTFillUp))
-	require.False(t, sm.isSignalMuted(SignalAuthRequired))
-
-	require.False(t, events.paused)
-	require.False(t, events.closed)
-
-	// Last signala are muted
-	err = sm.MuteSignals(SignalCTFillUp, SignalAuthRequired)
 	require.NoError(t, err)
 	require.True(t, sm.isMuted())
 	require.True(t, sm.isSignalMuted(SignalNatFillUp))
-	require.True(t, sm.isSignalMuted(SignalCTFillUp))
 	require.True(t, sm.isSignalMuted(SignalAuthRequired))
 
 	require.True(t, events.paused)
 	require.False(t, events.closed)
 
-	// A signal is unmuted again
-	err = sm.UnmuteSignals(SignalCTFillUp)
+	// Nothing happens if the signal is already muted
+	err = sm.MuteSignals(SignalNatFillUp)
+	require.NoError(t, err)
+	require.True(t, sm.isMuted())
+	require.True(t, sm.isSignalMuted(SignalNatFillUp))
+	require.True(t, sm.isSignalMuted(SignalAuthRequired))
+
+	require.True(t, events.paused)
+	require.False(t, events.closed)
+
+	// Unmute one
+	err = sm.UnmuteSignals(SignalAuthRequired)
 	require.NoError(t, err)
 	require.False(t, sm.isMuted())
 	require.True(t, sm.isSignalMuted(SignalNatFillUp))
-	require.False(t, sm.isSignalMuted(SignalCTFillUp))
-	require.True(t, sm.isSignalMuted(SignalAuthRequired))
+	require.False(t, sm.isSignalMuted(SignalAuthRequired))
 
 	require.False(t, events.paused)
+	require.False(t, events.closed)
+
+	// Mute it again
+	err = sm.MuteSignals(SignalAuthRequired)
+	require.NoError(t, err)
+	require.True(t, sm.isMuted())
+	require.True(t, sm.isSignalMuted(SignalNatFillUp))
+	require.True(t, sm.isSignalMuted(SignalAuthRequired))
+
+	require.True(t, events.paused)
 	require.False(t, events.closed)
 }
 
@@ -168,7 +150,6 @@ func TestLifeCycle(t *testing.T) {
 	binary.Write(buf1, binary.NativeEndian, SignalProtoV4)
 
 	buf2 := new(bytes.Buffer)
-	binary.Write(buf2, binary.NativeEndian, SignalCTFillUp)
 	binary.Write(buf2, binary.NativeEndian, SignalProtoV4)
 
 	messages := [][]byte{buf1.Bytes(), buf2.Bytes()}
@@ -177,7 +158,7 @@ func TestLifeCycle(t *testing.T) {
 	require.True(t, sm.isMuted())
 
 	wakeup := make(chan SignalData, 1024)
-	err := sm.RegisterHandler(ChannelHandler(wakeup), SignalNatFillUp, SignalCTFillUp)
+	err := sm.RegisterHandler(ChannelHandler(wakeup), SignalNatFillUp)
 	require.NoError(t, err)
 	require.False(t, sm.isMuted())
 
@@ -186,7 +167,7 @@ func TestLifeCycle(t *testing.T) {
 
 	select {
 	case x := <-wakeup:
-		sm.MuteSignals(SignalNatFillUp, SignalCTFillUp)
+		sm.MuteSignals(SignalNatFillUp)
 		require.True(t, sm.isMuted())
 
 		ipv4 := false
@@ -211,7 +192,7 @@ func TestLifeCycle(t *testing.T) {
 		require.False(t, ipv6)
 
 	case <-time.After(5 * time.Second):
-		sm.MuteSignals(SignalNatFillUp, SignalCTFillUp)
+		sm.MuteSignals(SignalNatFillUp)
 		require.True(t, sm.isMuted())
 
 		t.Fatal("No signals received on time.")
