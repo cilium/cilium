@@ -327,7 +327,7 @@ func (sysctl *reconcilingSysctl) waitForReconciliation(name []string) error {
 
 	var err error
 	for {
-		obj, _, watch, _ := sysctl.settings.GetWatch(sysctl.db.ReadTxn(), tables.SysctlNameIndex.Query(strings.Join(name, ".")))
+		obj, _, watch, _ := sysctl.settings.GetWatch(sysctl.db.ReadTxn(), tables.SysctlByName(strings.Join(name, ".")))
 		if obj.Status.Kind == reconciler.StatusKindDone {
 			// already reconciled
 			return nil

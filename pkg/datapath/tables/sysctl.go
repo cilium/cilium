@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	SysctlNameIndex = statedb.Index[*Sysctl, string]{
+	sysctlNameIndex = statedb.Index[*Sysctl, string]{
 		Name: "name",
 		FromObject: func(s *Sysctl) index.KeySet {
 			return index.NewKeySet(index.String(strings.Join(s.Name, ".")))
@@ -22,6 +22,9 @@ var (
 		Unique:     true,
 	}
 
+	// SysctlByName queries the sysctl table by parameter name.
+	SysctlByName = sysctlNameIndex.Query
+
 	SysctlTableName = "sysctl"
 )
 
@@ -29,7 +32,7 @@ func NewSysctlTable(db *statedb.DB) (statedb.RWTable[*Sysctl], error) {
 	tbl, err := statedb.NewTable(
 		db,
 		SysctlTableName,
-		SysctlNameIndex,
+		sysctlNameIndex,
 	)
 	return tbl, err
 }
