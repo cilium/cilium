@@ -1264,6 +1264,18 @@
      - DNS response code for rejecting DNS requests, available options are '[nameError refused]'.
      - string
      - ``"refused"``
+   * - :spelling:ignore:`dnsProxy.dnsServerIPs`
+     - IP addresses of DNS servers for FQDN policy resolution.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`dnsProxy.dnsServerPort`
+     - Port of DNS server pods for FQDN policy resolution.
+     - int
+     - ``53``
+   * - :spelling:ignore:`dnsProxy.dnsServerService`
+     - K8s service (namespace/name) of DNS servers for FQDN policy resolution.
+     - string
+     - ``""``
    * - :spelling:ignore:`dnsProxy.enableDnsCompression`
      - Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
      - bool

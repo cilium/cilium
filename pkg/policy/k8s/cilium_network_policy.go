@@ -153,7 +153,7 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 		}
 	}
 	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
-		Rules:               policyutils.RulesToPolicyEntries(rules),
+		Rules:               policyutils.RulesToPolicyEntries(rules, policyutils.WithFQDNPolicyDNSServerConfig(p.fqdnPolicyDNSServerConfig)),
 		Source:              source.CustomResource,
 		ProcessingStartTime: initialRecvTime,
 		Resource:            resourceID,

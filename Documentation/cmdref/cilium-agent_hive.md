@@ -132,6 +132,9 @@ cilium-agent hive [flags]
       --envoy-secrets-namespace string                            EnvoySecretsNamespace is the namespace having secrets used by CEC
       --envoy-xds-mode string                                     xDS server operating mode for Envoy proxy configuration. Valid values are "split" for the existing per-resource-type xDS, "delta-split" for incremental per-resource-type xDS, "ads" for Aggregated Discovery Service, or "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks (default "split")
       --force-device-detection                                    Forces the auto-detection of devices, even if specific devices are explicitly listed
+      --fqdn-policy-dns-server-ips strings                        Comma-separated list of IP addresses of DNS servers for FQDN policy resolution
+      --fqdn-policy-dns-server-port int                           Port of DNS server pods for FQDN policy resolution (default 53)
+      --fqdn-policy-dns-server-service string                     K8s service (namespace/name) of DNS servers for FQDN policy resolution
       --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
   -h, --help                                                      help for hive
