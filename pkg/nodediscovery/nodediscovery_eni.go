@@ -5,6 +5,7 @@ package nodediscovery
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -18,6 +19,7 @@ import (
 // pkg/nodediscovery/eni, is what links against the AWS SDK and the EC2 IMDS
 // client.
 type ENIMutateInputs struct {
+	Logger                  *slog.Logger
 	FirstInterfaceIndex     int
 	UsePrimaryAddress       bool
 	DisablePrefixDelegation bool
@@ -58,6 +60,7 @@ func (n *NodeDiscovery) mutateENINodeResource(ctx context.Context, nodeResource 
 		return nil
 	}
 	return eniMutator(ctx, ENIMutateInputs{
+		Logger:                  n.logger,
 		FirstInterfaceIndex:     n.config.ENIFirstInterfaceIndex,
 		UsePrimaryAddress:       n.config.ENIUsePrimaryAddress,
 		DisablePrefixDelegation: n.config.ENIDisablePrefixDelegation,
