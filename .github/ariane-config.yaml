@@ -258,7 +258,7 @@ workflows:
   cilium-cli.yaml:
     paths-ignore-regex: (Documentation/|test/)
   conformance-kind-proxy-embedded.yaml:
-    paths-ignore-regex: (Documentation/|test/)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   tests-cifuzz.yaml:
     paths-regex: (\.github/workflows/tests-cifuzz\.yaml|fuzz_test.go|test/fuzzing/)
   k8s-kind-network-policies-e2e.yaml:
