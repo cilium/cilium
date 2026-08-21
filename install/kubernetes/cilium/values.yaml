@@ -3243,6 +3243,10 @@ tunnelSourcePortRange: 0-0
 #  - reject (default)
 #  - drop
 serviceNoBackendResponse: reject
+# -- Reply to ICMP echo (ping) requests addressed to a service (LoadBalancer/
+# ClusterIP) VIP, so the VIP is pingable like it is under kube-proxy/IPVS.
+# Opt-in; the reply is stateless and rate-limited per VIP. IPv4 and IPv6.
+enableSvcICMPEchoResponder: false
 # -- Configure what the response should be to pod egress traffic denied by network policy.
 # Possible values:
 #  - none (default)

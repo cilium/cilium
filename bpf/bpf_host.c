@@ -1016,6 +1016,36 @@ int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 	return tail_handle_ipv4(ctx, 0, false);
 }
 
+#if defined(ENABLE_SVC_ICMP_ECHO_RESPONDER) && !defined(IS_BPF_XDP)
+/* Craft and reflect the reply to an ICMP echo-request addressed to a service
+ * VIP. nodeport_lb4()/lb6() detect the target with a reads-only probe and
+ * tail-call here, so all the packet writes stay out of the shared from-netdev
+ * path (which keeps its ip4/ip6 pointer valid for the verifier). */
+#ifdef ENABLE_IPV4
+__declare_tail(CILIUM_CALL_IPV4_SVC_ICMP_ECHO)
+int tail_svc_icmp_echo_reply_v4(struct __ctx_buff *ctx)
+{
+	int ret = svc_icmp_echo_send_reply_v4(ctx);
+
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_INGRESS);
+	return ret;
+}
+#endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+__declare_tail(CILIUM_CALL_IPV6_SVC_ICMP_ECHO)
+int tail_svc_icmp_echo_reply_v6(struct __ctx_buff *ctx)
+{
+	int ret = svc_icmp_echo_send_reply_v6(ctx);
+
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_INGRESS);
+	return ret;
+}
+#endif /* ENABLE_IPV6 */
+#endif /* ENABLE_SVC_ICMP_ECHO_RESPONDER && !IS_BPF_XDP */
+
 #ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
 handle_to_netdev_ipv4(struct __ctx_buff *ctx, bool is_from_proxy, __u32 src_sec_identity,
