@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
+	"github.com/cilium/cilium/pkg/networkdriver/eswitch_sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
@@ -35,6 +36,15 @@ func InitManagers(logger *slog.Logger, managerConfigs *v2alpha1.CiliumNetworkDri
 		}
 
 		result[types.DeviceManagerTypeSRIOV] = sriovMgr
+	}
+
+	if managerConfigs.EswitchSRIOV != nil && managerConfigs.EswitchSRIOV.Enabled {
+		eswitchMgr, err := eswitch_sriov.NewManager(logger, managerConfigs.EswitchSRIOV)
+		if err != nil {
+			return nil, err
+		}
+
+		result[types.DeviceManagerTypeEswitchSRIOV] = eswitchMgr
 	}
 
 	return result, nil
