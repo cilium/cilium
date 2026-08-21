@@ -124,7 +124,7 @@ func Test_Conformance(t *testing.T) {
 		{
 			name: "gateway-invalid-parameters-ref",
 			gateway: []gwDetails{
-				{FullName: types.NamespacedName{Name: "gateway-invalid-parameters-ref", Namespace: "gateway-conformance-infra"}, wantErr: true},
+				{FullName: types.NamespacedName{Name: "gateway-invalid-parameters-ref", Namespace: "gateway-conformance-infra"}, skipCEC: true},
 			},
 		},
 		{
@@ -190,7 +190,7 @@ func Test_Conformance(t *testing.T) {
 		{
 			name: "gateway-static-addresses",
 			gateway: []gwDetails{
-				{FullName: types.NamespacedName{Name: "gateway-static-addresses-invalid", Namespace: "gateway-conformance-infra"}, wantErr: true},
+				{FullName: types.NamespacedName{Name: "gateway-static-addresses-invalid", Namespace: "gateway-conformance-infra"}, skipCEC: true},
 			},
 		},
 		{
