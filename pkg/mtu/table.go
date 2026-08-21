@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	MTURouteIndex = statedb.Index[RouteMTU, netip.Prefix]{
+	mtuRouteIndex = statedb.Index[RouteMTU, netip.Prefix]{
 		Name: "cidr",
 		FromObject: func(rm RouteMTU) index.KeySet {
 			return index.NewKeySet(index.NetIPPrefix(rm.Prefix))
@@ -21,13 +21,16 @@ var (
 		FromString: index.NetIPPrefixString,
 		Unique:     true,
 	}
+
+	// MTURouteByPrefix queries the MTU table by route prefix.
+	MTURouteByPrefix = mtuRouteIndex.Query
 )
 
 func NewMTUTable(db *statedb.DB) (statedb.RWTable[RouteMTU], error) {
 	return statedb.NewTable(
 		db,
 		"mtu",
-		MTURouteIndex,
+		mtuRouteIndex,
 	)
 }
 
