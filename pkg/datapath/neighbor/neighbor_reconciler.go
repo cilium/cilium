@@ -92,7 +92,7 @@ type ops struct {
 func (ops *ops) Update(ctx context.Context, rx statedb.ReadTxn, _ statedb.Revision, neighbor *DesiredNeighbor) error {
 	ops.metrics.NeighborEntryInsertCount.Inc()
 
-	_, _, isNew := ops.neighbors.Get(rx, tables.NeighborIDIndex.Query(tables.NeighborID{
+	_, _, isNew := ops.neighbors.Get(rx, tables.NeighborByID(tables.NeighborID{
 		IPAddr:    neighbor.IP,
 		LinkIndex: neighbor.IfIndex,
 	}))
@@ -158,7 +158,7 @@ func (ops *ops) Update(ctx context.Context, rx statedb.ReadTxn, _ statedb.Revisi
 
 // Delete gets called with a deleted desired neighbor.
 func (ops *ops) Delete(ctx context.Context, rx statedb.ReadTxn, _ statedb.Revision, neighbor *DesiredNeighbor) error {
-	neigh, _, found := ops.neighbors.Get(rx, tables.NeighborIDIndex.Query(tables.NeighborID{
+	neigh, _, found := ops.neighbors.Get(rx, tables.NeighborByID(tables.NeighborID{
 		IPAddr:    neighbor.IP,
 		LinkIndex: neighbor.IfIndex,
 	}))

@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	NeighborIDIndex = statedb.Index[*Neighbor, NeighborID]{
+	neighborIDIndex = statedb.Index[*Neighbor, NeighborID]{
 		Name: "ID",
 		FromObject: func(n *Neighbor) index.KeySet {
 			return index.NewKeySet(
@@ -56,7 +56,7 @@ var (
 		Unique: true,
 	}
 
-	NeighborLinkIndex = statedb.Index[*Neighbor, int]{
+	neighborLinkIndex = statedb.Index[*Neighbor, int]{
 		Name: "LinkIndex",
 		FromObject: func(n *Neighbor) index.KeySet {
 			return index.NewKeySet(index.Int(n.LinkIndex))
@@ -65,7 +65,7 @@ var (
 		FromString: index.IntString,
 	}
 
-	NeighborIPAddrIndex = statedb.Index[*Neighbor, netip.Addr]{
+	neighborIPAddrIndex = statedb.Index[*Neighbor, netip.Addr]{
 		Name: "IPAddr",
 		FromObject: func(n *Neighbor) index.KeySet {
 			return index.NewKeySet(index.NetIPAddr(n.IPAddr))
@@ -73,15 +73,24 @@ var (
 		FromKey:    index.NetIPAddr,
 		FromString: index.NetIPAddrString,
 	}
+
+	// NeighborByID queries the neighbors table by neighbor ID.
+	NeighborByID = neighborIDIndex.Query
+
+	// NeighborsByLinkIndex queries the neighbors table by link index.
+	NeighborsByLinkIndex = neighborLinkIndex.Query
+
+	// NeighborByIPAddr queries the neighbors table by IP address.
+	NeighborByIPAddr = neighborIPAddrIndex.Query
 )
 
 func NewNeighborTable(db *statedb.DB) (statedb.RWTable[*Neighbor], error) {
 	return statedb.NewTable(
 		db,
 		"neighbors",
-		NeighborIDIndex,
-		NeighborLinkIndex,
-		NeighborIPAddrIndex,
+		neighborIDIndex,
+		neighborLinkIndex,
+		neighborIPAddrIndex,
 	)
 }
 
