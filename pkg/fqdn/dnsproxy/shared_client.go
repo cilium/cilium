@@ -101,7 +101,7 @@ func (s *SharedClients) GetSharedClient(key string, conf *dns.Client, serverAddr
 			client.Unlock()
 			break
 		}
-		// client was closed while we waited for it's lock, discard and try again
+		// client was closed while we waited for its lock, discard and try again
 		client.Unlock()
 		client = nil
 	}
@@ -115,6 +115,16 @@ func (s *SharedClients) GetSharedClient(key string, conf *dns.Client, serverAddr
 		client.Lock()
 		defer client.Unlock()
 		client.refcount--
+		if client.conn == nil {
+			// DialContext never succeeded — evict from map immediately so no new
+			// caller can grab this broken client. Any concurrent holder that already
+			// has a reference will also fail on dial and evict again (idempotent).
+			s.lock.Lock()
+			if s.clients[key] == client {
+				delete(s.clients, key)
+			}
+			s.lock.Unlock()
+		}
 		if client.refcount == 0 {
 			// connection close must be completed while holding the client's lock to
 			// avoid a race where a new client dials using the same 5-tuple and gets a
@@ -122,10 +132,12 @@ func (s *SharedClients) GetSharedClient(key string, conf *dns.Client, serverAddr
 			// The client remains findable so that new users with the same key may wait
 			// for this closing to be done with.
 			client.close()
-			// Make client unreachable
+			// Make client unreachable (no-op if already deleted above).
 			// Must take s.lock for this.
 			s.lock.Lock()
-			delete(s.clients, key)
+			if s.clients[key] == client {
+				delete(s.clients, key)
+			}
 			s.lock.Unlock()
 		}
 	}
