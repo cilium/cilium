@@ -59,6 +59,10 @@ func CheckRequirements(log *slog.Logger) error {
 			}
 		}
 
+		if probes.HaveGlobalFunctions() != nil {
+			return errors.New("WIP")
+		}
+
 		if probes.HaveProgramHelper(log, ebpf.SchedCLS, asm.FnSkbChangeTail) != nil {
 			return errors.New("Require support for bpf_skb_change_tail() (Linux 4.9.0 or newer)")
 		}
