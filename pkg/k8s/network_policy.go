@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/utils"
 )
 
 const (
@@ -74,6 +75,9 @@ func isPodSelectorSelectingCluster(podSelector *slim_metav1.LabelSelector) bool 
 }
 
 func processNamespaceSelector(ns *slim_metav1.LabelSelector) *slim_metav1.LabelSelector {
+	if ns == nil {
+		return nil
+	}
 	namespaceSelector := &slim_metav1.LabelSelector{
 		MatchLabels: make(map[string]string, len(ns.MatchLabels)),
 	}
@@ -131,14 +135,10 @@ func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networking
 		podSelector.MatchLabels[k8sConst.PolicyLabelCluster] = clusterName
 	}
 
-	if peer.NamespaceSelector != nil {
-		namespaceSelector := processNamespaceSelector(peer.NamespaceSelector)
-		es := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, namespaceSelector, podSelector)
-		return types.Selectors{types.NewLabelSelector(es)}
-	}
-
-	podSelector = parsePodSelector(podSelector, namespace)
-	es := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector)
+	namespaceSelector := processNamespaceSelector(peer.NamespaceSelector)
+	es := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector, namespaceSelector)
+	utils.EnsureClusterSelector(&es, clusterName)
+	utils.EnsureNamespaceSelector(&es, namespace)
 	return types.Selectors{types.NewLabelSelector(es)}
 }
 
