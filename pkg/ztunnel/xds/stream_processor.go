@@ -82,7 +82,7 @@ func NewEndpointSource(k *watchers.K8sCiliumEndpointsWatcher, sp *StreamProcesso
 // isNamespaceEnrolled checks if the given namespace is enrolled for ztunnel processing.
 func (es *EndpointSource) isNamespaceEnrolled(namespace string) bool {
 	txn := es.sp.db.ReadTxn()
-	_, _, found := es.sp.enrolledNamespaceTable.Get(txn, table.EnrolledNamespacesNameIndex.Query(namespace))
+	_, _, found := es.sp.enrolledNamespaceTable.Get(txn, table.EnrolledNamespaceByName(namespace))
 	return found
 }
 
