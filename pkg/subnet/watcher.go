@@ -4,6 +4,7 @@
 package subnet
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -25,7 +26,7 @@ type watcherParams struct {
 	SubnetTable        statedb.RWTable[subnetTable.SubnetTableEntry]
 	DB                 *statedb.DB
 	JobGroup           job.Group
-	NodeHandler        node.Handler `optional:"true"`
+	NodeWriter         *node.Writer `optional:"true"`
 }
 
 type SubnetWatcher struct {
@@ -34,7 +35,7 @@ type SubnetWatcher struct {
 	subnetTable        statedb.RWTable[subnetTable.SubnetTableEntry]
 	db                 *statedb.DB
 	jobGroup           job.Group
-	nodeHandler        node.Handler
+	nodeWriter         *node.Writer
 }
 
 func newSubnetWatcher(params watcherParams) *SubnetWatcher {
@@ -44,11 +45,11 @@ func newSubnetWatcher(params watcherParams) *SubnetWatcher {
 		subnetTable:        params.SubnetTable,
 		db:                 params.DB,
 		jobGroup:           params.JobGroup,
-		nodeHandler:        params.NodeHandler,
+		nodeWriter:         params.NodeWriter,
 	}
 }
 
-func (w *SubnetWatcher) processSubnetConfigEntry(entry dynamicconfig.DynamicConfig) error {
+func (w *SubnetWatcher) processSubnetConfigEntry(ctx context.Context, entry dynamicconfig.DynamicConfig) error {
 	decoded, err := topology.Decode(entry.Value)
 	if err != nil {
 		return fmt.Errorf("failed to decode subnet-topology dynamic config value: %w", err)
@@ -70,9 +71,11 @@ func (w *SubnetWatcher) processSubnetConfigEntry(entry dynamicconfig.DynamicConf
 	}
 	wTx.Commit()
 
-	// Trigger re-evaluation of all node routes based on new topology
-	if w.nodeHandler != nil {
-		w.nodeHandler.AllNodeValidateImplementation()
+	// Trigger re-evaluation of all node routes based on new topology.
+	if w.nodeWriter != nil {
+		if err := w.nodeWriter.Refresh(ctx, node.LinuxNodeReconciler); err != nil {
+			return fmt.Errorf("refreshing nodes after subnet topology change: %w", err)
+		}
 	}
 
 	return nil

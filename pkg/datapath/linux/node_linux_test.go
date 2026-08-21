@@ -217,10 +217,12 @@ func mustConfigureNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, no
 	}))
 }
 
-func mustValidateNodeImplementation(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, node nodeTypes.Node) {
+func mustRefreshNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, node nodeTypes.Node) {
 	tb.Helper()
 	require.NoError(tb, ns.Do(func() error {
-		return lnh.NodeValidateImplementation(node)
+		lnh.mutex.Lock()
+		defer lnh.mutex.Unlock()
+		return lnh.nodeUpdate(nil, &node, false)
 	}))
 }
 
@@ -1098,7 +1100,7 @@ func testNodeValidationDirectRouting(t *testing.T, family string) {
 	}
 
 	mustAddNode(t, s.ns, lnh, nodev1)
-	mustValidateNodeImplementation(t, s.ns, lnh, nodev1)
+	mustRefreshNode(t, s.ns, lnh, nodev1)
 
 	if s.enableIPv4 {
 		require.True(t, mustLookupRoute(t, s.ns, lnh, ip4Alloc1))

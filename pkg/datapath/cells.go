@@ -142,7 +142,7 @@ var Cell = cell.Module(
 
 	vtep.Cell,
 
-	// Provides the Linux node reconciler and legacy node ID and validation APIs.
+	// Provides the Linux node reconciler and node ID API.
 	cell.Provide(linuxdatapath.NewNodeHandler),
 	cell.Invoke(linuxdatapath.RegisterNodeReconciler),
 	cell.Provide(node.NewNodeIDApiHandler),

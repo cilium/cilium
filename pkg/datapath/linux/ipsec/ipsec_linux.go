@@ -144,6 +144,7 @@ type agent struct {
 	// These are provided in [newAgent].
 	log        *slog.Logger
 	localNode  *node.LocalNodeStore
+	nodeWriter *node.Writer
 	jobs       job.Group
 	config     config
 	encryptMap encrypt.EncryptMap
@@ -166,10 +167,11 @@ type agent struct {
 }
 
 // newAgent creates a new IPSec agent.
-func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.LocalNodeStore, c config, em encrypt.EncryptMap) *agent {
+func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.LocalNodeStore, nw *node.Writer, c config, em encrypt.EncryptMap) *agent {
 	ipsec := &agent{
 		log:        log,
 		localNode:  lns,
+		nodeWriter: nw,
 		jobs:       jg,
 		config:     c,
 		encryptMap: em,
@@ -225,7 +227,7 @@ func (a *agent) Start(cell.HookContext) error {
 // StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
 // dpInitialized is closed when the datapath has been initialized and XFRM
 // states are ready. It is used to defer the new SPI publication during key rotation.
-func (a *agent) StartBackgroundJobs(handler node.Handler, dpInitialized <-chan struct{}) error {
+func (a *agent) StartBackgroundJobs(dpInitialized <-chan struct{}) error {
 	if !a.Enabled() {
 		return nil
 	}
@@ -251,16 +253,16 @@ func (a *agent) StartBackgroundJobs(handler node.Handler, dpInitialized <-chan s
 				logfields.OldSPI, activeSPI,
 				logfields.SPI, currentSPI,
 			)
-			if err := a.publishCurrentSPI(handler, currentSPI); err != nil {
+			if err := a.publishCurrentSPI(ctx, currentSPI); err != nil {
 				return err
 			}
-			if err := a.startKeyfileWatcher(handler); err != nil {
+			if err := a.startKeyfileWatcher(); err != nil {
 				return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
 			}
 			return nil
 		}))
 	} else {
-		if err := a.startKeyfileWatcher(handler); err != nil {
+		if err := a.startKeyfileWatcher(); err != nil {
 			return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
 		}
 	}
@@ -1259,19 +1261,20 @@ func ongoingRotation(activeSPI, currentSPI uint8) bool {
 
 // publishCurrentSPI publishes the current key SPI to the datapath and CiliumNode.
 //
-//  1. AllNodeValidateImplementation will eventually call nodeUpdate(), which is
-//     responsible for updating the IPSec policies and states for all the different
-//     EPs with ipsec.UpsertIPsecEndpoint(). We do this before advertising the new
-//     SPI to ensure our ingress XFRM states are ready before peers start sending
-//     traffic encrypted with the new key.
+//  1. Refresh datapath node reconciliation to update the IPSec policies and
+//     states for all endpoints. We do this before advertising the new SPI to
+//     ensure our ingress XFRM states are ready before peers start sending traffic
+//     encrypted with the new key.
 //
 //  2. Update the IPSec key identity in the local node. This will set
 //     addrs.ipsecKeyIdentity in the node package, and eventually trigger an
 //     update to publish the updated information to k8s/kvstore.
 //
 //  3. Push SPI update into BPF datapath now that XFRM state is configured.
-func (a *agent) publishCurrentSPI(handler node.Handler, currentSPI uint8) error {
-	handler.AllNodeValidateImplementation()
+func (a *agent) publishCurrentSPI(ctx context.Context, currentSPI uint8) error {
+	if err := a.nodeWriter.Refresh(ctx, node.LinuxNodeReconciler); err != nil {
+		return fmt.Errorf("refreshing nodes before publishing IPsec SPI: %w", err)
+	}
 
 	a.localNode.Update(func(n *node.LocalNode) {
 		n.EncryptionKey = currentSPI
@@ -1309,7 +1312,7 @@ func (a *agent) deleteIPsecEncryptRoute() {
 	}
 }
 
-func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler node.Handler, health cell.Health) (err error) {
+func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, health cell.Health) (err error) {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -1347,7 +1350,7 @@ func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				logfields.Path, keyfilePath,
 			)
 
-			if err := a.publishCurrentSPI(nodeHandler, currentSPI); err != nil {
+			if err := a.publishCurrentSPI(ctx, currentSPI); err != nil {
 				health.Degraded("Failed to publish current SPI", err)
 				a.log.Error("Failed to publish current SPI", logfields.Error, err)
 				continue
@@ -1367,7 +1370,7 @@ func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 	}
 }
 
-func (a *agent) startKeyfileWatcher(nodeHandler node.Handler) error {
+func (a *agent) startKeyfileWatcher() error {
 	if !a.config.EnableIPsecKeyWatcher {
 		return nil
 	}
@@ -1379,7 +1382,7 @@ func (a *agent) startKeyfileWatcher(nodeHandler node.Handler) error {
 	}
 
 	a.jobs.Add(job.OneShot("keyfile-watcher", func(ctx context.Context, health cell.Health) error {
-		return a.keyfileWatcher(ctx, watcher, keyfilePath, nodeHandler, health)
+		return a.keyfileWatcher(ctx, watcher, keyfilePath, health)
 	}))
 
 	return nil

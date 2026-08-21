@@ -7,7 +7,6 @@ import (
 	"net"
 
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
-	"github.com/cilium/cilium/pkg/node"
 )
 
 var (
@@ -23,7 +22,7 @@ func (*Agent) AuthKeySize() int {
 	return 16
 }
 
-func (*Agent) StartBackgroundJobs(node.Handler, <-chan struct{}) error {
+func (*Agent) StartBackgroundJobs(<-chan struct{}) error {
 	return nil
 }
 
