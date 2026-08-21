@@ -4,14 +4,14 @@
 package peer
 
 import (
-	"net"
-	"strconv"
+	"net/netip"
 	"strings"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -63,7 +63,7 @@ func (h *handler) NodeAdd(n types.Node) error {
 func (h *handler) NodeUpdate(o, n types.Node) error {
 	oAddr, nAddr := nodeAddress(o, h.addressPref), nodeAddress(n, h.addressPref)
 	if o.Fullname() == n.Fullname() {
-		if oAddr.String() == nAddr.String() {
+		if oAddr == nAddr {
 			// this corresponds to the same peer
 			// => no need to send a notification
 			return nil
@@ -129,10 +129,10 @@ func (h *handler) newChangeNotification(n types.Node, t peerpb.ChangeNotificatio
 	}
 
 	addr := ""
-	if ip := nodeAddress(n, h.addressPref); ip != nil {
-		addr = ip.String()
+	if nodeAddr := nodeAddress(n, h.addressPref); nodeAddr.IsValid() {
+		addr = nodeAddr.String()
 		if h.hubblePort != 0 {
-			addr = net.JoinHostPort(addr, strconv.Itoa(h.hubblePort))
+			addr = netip.AddrPortFrom(nodeAddr, uint16(h.hubblePort)).String()
 		}
 	}
 
@@ -145,21 +145,22 @@ func (h *handler) newChangeNotification(n types.Node, t peerpb.ChangeNotificatio
 }
 
 // nodeAddress returns the node's address. If the node has both IPv4 and IPv6
-// addresses, pref controls which address type is returned.
-func nodeAddress(n types.Node, pref serviceoption.AddressFamilyPreference) net.IP {
+// addresses, pref controls which address type is returned. The zero
+// netip.Addr{} is returned if the node has no address of the preferred families.
+func nodeAddress(n types.Node, pref serviceoption.AddressFamilyPreference) netip.Addr {
 	for _, family := range pref {
 		switch family {
 		case serviceoption.AddressFamilyIPv4:
-			if addr := n.GetNodeIP(false); addr.To4() != nil {
+			if addr := ip.AddrFromIP(n.GetNodeIP(false)); addr.Is4() {
 				return addr
 			}
 		case serviceoption.AddressFamilyIPv6:
-			if addr := n.GetNodeIP(true); addr.To4() == nil {
+			if addr := ip.AddrFromIP(n.GetNodeIP(true)); addr.Is6() {
 				return addr
 			}
 		}
 	}
-	return nil
+	return netip.Addr{}
 }
 
 // TLSServerName constructs a server name to be used as the TLS server name.
