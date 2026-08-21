@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/go-openapi/strfmt"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
@@ -45,13 +46,14 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var wgDummyPeerKey = wgtypes.Key{}
+
+const wireGuardNodeReconcilerName = "wireguard"
 
 // wireguardClient is an interface to mock wgctrl.Client
 type wireguardClient interface {
@@ -64,8 +66,8 @@ type wireguardClient interface {
 // Upon starting, the agent will create the WireGuard tunnel
 // device and the proper routes set. Once restoreFinished() is
 // called, obsolete keys and peers, as well as stale AllowedIPs are removed.
-// updatePeer() inserts or updates the public key of peers discovered via the
-// node manager.
+// updatePeer() inserts or updates the public key of peers reconciled from the
+// node table.
 type Agent struct {
 	lock.RWMutex
 
@@ -75,10 +77,11 @@ type Agent struct {
 	ipCache           *ipcache.IPCache
 	sysctl            sysctl.Sysctl
 	jobGroup          job.Group
+	reconcilerParams  reconciler.Params
 	db                *statedb.DB
 	mtuTable          statedb.Table[mtu.RouteMTU]
+	nodes             statedb.Table[*node.Node]
 	localNode         *node.LocalNodeStore
-	nodeManager       nodeManager.NodeManager
 	nodeDiscovery     *nodediscovery.NodeDiscovery
 	ipIdentityWatcher *ipcache.LocalIPIdentityWatcher
 	clustermesh       *clustermesh.ClusterMesh
@@ -95,6 +98,8 @@ type Agent struct {
 	optOut   bool
 	privKey  wgtypes.Key
 	wgClient wireguardClient
+
+	stopping bool
 }
 
 // Agent parameters.
@@ -107,10 +112,11 @@ type params struct {
 	Config            Config
 	DB                *statedb.DB
 	MTUTable          statedb.Table[mtu.RouteMTU]
+	Nodes             statedb.Table[*node.Node]
 	JobGroup          job.Group
+	ReconcilerParams  reconciler.Params
 	Sysctl            sysctl.Sysctl
 	LocalNode         *node.LocalNodeStore
-	NodeManager       nodeManager.NodeManager
 	NodeDiscovery     *nodediscovery.NodeDiscovery
 	IPIdentityWatcher *ipcache.LocalIPIdentityWatcher
 	Clustermesh       *clustermesh.ClusterMesh
@@ -125,10 +131,11 @@ func newAgent(p params) *Agent {
 		config:            p.Config,
 		db:                p.DB,
 		mtuTable:          p.MTUTable,
+		nodes:             p.Nodes,
 		jobGroup:          p.JobGroup,
+		reconcilerParams:  p.ReconcilerParams,
 		sysctl:            p.Sysctl,
 		localNode:         p.LocalNode,
-		nodeManager:       p.NodeManager,
 		nodeDiscovery:     p.NodeDiscovery,
 		ipIdentityWatcher: p.IPIdentityWatcher,
 		clustermesh:       p.Clustermesh,
@@ -176,10 +183,24 @@ func (a *Agent) Start(cell.HookContext) error {
 		a.ipCache.AddListener(a)
 	}
 
-	// Subscribe the agent to node events. The agent is instantly notified of
-	// all node events in the cluster.
-	a.nodeManager.Subscribe(a)
-
+	_, err = reconciler.Register(
+		a.reconcilerParams,
+		a.nodes.(statedb.RWTable[*node.Node]),
+		(*node.Node).DeepCopy,
+		func(n *node.Node, status reconciler.Status) *node.Node {
+			n.Statuses = n.Statuses.Set(wireGuardNodeReconcilerName, status)
+			return n
+		},
+		func(n *node.Node) reconciler.Status {
+			return n.Statuses.Get(wireGuardNodeReconcilerName)
+		},
+		a,
+		nil,
+		reconciler.WithoutPruning(),
+	)
+	if err != nil {
+		return fmt.Errorf("registering WireGuard node reconciler: %w", err)
+	}
 	a.jobGroup.Add(
 		// mtu-reconciler updates the link MTU.
 		job.OneShot("mtu-reconciler", a.mtuReconciler),
@@ -197,24 +218,11 @@ func (a *Agent) Stop(cell.HookContext) error {
 		return nil
 	}
 
-	// Unsubscribe from node events before tearing down the WireGuard client.
-	// Unsubscribe blocks until any in-flight backgroundSync iteration in the
-	// node manager completes and guarantees the handler is not invoked again,
-	// so NodeValidateImplementation (and the other node handler callbacks) can
-	// no longer call ConfigureDevice on the closed wgClient. This must run
-	// before acquiring a.RLock() to avoid deadlocking with an in-flight handler
-	// that takes a.Lock().
-	a.nodeManager.Unsubscribe(a)
-
-	a.RLock()
-	defer a.RUnlock()
+	a.Lock()
+	defer a.Unlock()
+	a.stopping = true
 
 	return a.wgClient.Close()
-}
-
-// Name implements node.Handler.
-func (a *Agent) Name() string {
-	return "wireguard-agent"
 }
 
 // Returns true when enabled. Implements [types.Agent].
@@ -432,6 +440,19 @@ func (a *Agent) peerGarbageCollector(ctx context.Context, _ cell.Health) error {
 			return nil
 		}
 	}
+	_, initWatch := a.nodes.Initialized(a.db.ReadTxn())
+	select {
+	case <-initWatch:
+	case <-ctx.Done():
+		return nil
+	}
+
+	// Check object statuses instead of waiting for the table revision. Completing
+	// an initializer may advance the table revision without producing an object
+	// change for the reconciler to observe.
+	if err := a.waitForNodeReconciliation(ctx); err != nil {
+		return nil
+	}
 	if err := a.restoreFinished(); err != nil {
 		a.logger.Error("Failed to set up WireGuard peers", logfields.Error, err)
 		return fmt.Errorf("Failed to set up WireGuard peers: %w", err)
@@ -439,9 +460,37 @@ func (a *Agent) peerGarbageCollector(ctx context.Context, _ cell.Health) error {
 	return nil
 }
 
+func (a *Agent) waitForNodeReconciliation(
+	ctx context.Context,
+) error {
+	for {
+		nodes, watch := a.nodes.AllWatch(a.db.ReadTxn())
+		allDone := true
+		for n := range nodes {
+			status := n.Statuses.Get(wireGuardNodeReconcilerName)
+			if status.Kind != reconciler.StatusKindDone {
+				allDone = false
+				break
+			}
+		}
+		if allDone {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-watch:
+		}
+	}
+}
+
 func (a *Agent) restoreFinished() error {
 	a.Lock()
 	defer a.Unlock()
+	if a.stopping {
+		return nil
+	}
 
 	// Delete obsolete peers
 	pubKeyToPeerConfig := make(map[wgtypes.Key]*peerConfig)
@@ -620,10 +669,13 @@ func (a *Agent) updatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 func (a *Agent) deletePeer(nodeName string) error {
 	a.Lock()
 	defer a.Unlock()
+	if a.stopping {
+		return nil
+	}
 
 	peer := a.peerByNodeName[nodeName]
 	if peer == nil {
-		return fmt.Errorf("cannot find peer for %q node", nodeName)
+		return nil
 	}
 
 	if err := a.deletePeerByPubKey(peer.pubKey); err != nil {
@@ -644,6 +696,9 @@ func (a *Agent) deletePeer(nodeName string) error {
 }
 
 func (a *Agent) deletePeerByPubKey(pubKey wgtypes.Key) error {
+	if a.stopping {
+		return nil
+	}
 	a.logger.Debug(
 		"Removing peer",
 		logfields.PubKey, pubKey,
@@ -670,6 +725,9 @@ func (a *Agent) deletePeerByPubKey(pubKey wgtypes.Key) error {
 
 // updatePeerByConfig updates the WireGuard kernel peer config based on peerConfig p
 func (a *Agent) updatePeerByConfig(p *peerConfig) error {
+	if a.stopping {
+		return nil
+	}
 	addedIPs, removedIPs := p.queuedAllowedIPUpdates()
 	peer := wgtypes.PeerConfig{
 		PublicKey:  p.pubKey,
