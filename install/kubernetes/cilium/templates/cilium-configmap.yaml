@@ -910,6 +910,9 @@ data:
 {{- if hasKey .Values.loadBalancer "algorithm" }}
   bpf-lb-algorithm: {{ .Values.loadBalancer.algorithm | quote }}
 {{- end }}
+{{- if hasKey .Values.loadBalancer "leastConnectionChoiceCount" }}
+  bpf-lb-least-connection-choices: {{ .Values.loadBalancer.leastConnectionChoiceCount | quote }}
+{{- end }}
 {{- if hasKey .Values.loadBalancer "acceleration" }}
   bpf-lb-acceleration: {{ .Values.loadBalancer.acceleration | quote }}
 {{- end }}

@@ -22,6 +22,7 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -33,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/lbconn"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -120,6 +122,7 @@ type BPFOps struct {
 	lastUpdatedAt atomic.Pointer[time.Time]
 	pruneCount    atomic.Int32
 	metrics       *reconcilerMetrics
+	lbConn        lbconn.Map
 
 	// mu protects the state below. The reconciler itself is single-threaded, but we need
 	// to protect the state in order to be able to ResetAndRestore() in tests.
@@ -190,6 +193,7 @@ type bpfOpsParams struct {
 	NodeAddresses  statedb.Table[tables.NodeAddress]
 	Frontends      statedb.Table[*loadbalancer.Frontend]
 	Metrics        *reconcilerMetrics
+	LBConn         bpf.MaybeMap[lbconn.Map]
 }
 
 const (
@@ -210,6 +214,7 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 		frontends: p.Frontends,
 		metrics:   p.Metrics,
 	}
+	ops.lbConn, _ = p.LBConn.Get()
 	ops.setLastUpdatedAt()
 
 	p.Lifecycle.Append(cell.Hook{OnStart: ops.start})
@@ -448,6 +453,12 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		logfields.ID, feID,
 		logfields.Address, fe.Address,
 	)
+	if ops.lbConn != nil {
+		if err := ops.lbConn.DeleteService(uint16(feID)); err != nil {
+			return fmt.Errorf("delete least-connection state for service %d: %w",
+				feID, err)
+		}
+	}
 
 	// Drop any restored quarantine state
 	ops.deleteRestoredQuarantinedBackends(fe.Address)

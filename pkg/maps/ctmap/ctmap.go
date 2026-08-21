@@ -190,6 +190,7 @@ type PurgeHook interface {
 }
 
 var ACT PurgeHook
+var LBConn PurgeHook
 
 type GCEvent struct {
 	Key    CtKey
@@ -453,7 +454,7 @@ func (m *Map) doGCForFamily(filter GCFilter, next4, next6 func(GCEvent), ipv6 bo
 	return stats
 }
 
-func (m *Map) purgeCtEntry(key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
+func (m *Map) purgeCtEntry(key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent), ipv6 bool) error {
 	err := m.DeleteLocked(key)
 	if err != nil {
 		return err
@@ -462,8 +463,23 @@ func (m *Map) purgeCtEntry(key CtKey, entry *CtEntry, natMap *nat.Map, next func
 	t := key.GetTupleKey()
 	tupleType := t.GetFlags()
 
-	if tupleType == tuple.TUPLE_F_SERVICE && ACT != nil {
-		actCountFailed(entry.RevNAT, uint32(entry.Union0[1]))
+	if tupleType == tuple.TUPLE_F_SERVICE {
+		if ACT != nil {
+			if ipv6 {
+				ACT.CountFailed6(entry.RevNAT, uint32(entry.Union0[1]))
+			} else {
+				ACT.CountFailed4(entry.RevNAT, uint32(entry.Union0[1]))
+			}
+		}
+		// Least-connection accounting observes graceful TCP closes in the
+		// datapath. GC correction is only needed when no close was observed.
+		if LBConn != nil && entry.Flags&(RxClosing|TxClosing) == 0 {
+			if ipv6 {
+				LBConn.CountFailed6(entry.RevNAT, uint32(entry.Union0[1]))
+			} else {
+				LBConn.CountFailed4(entry.RevNAT, uint32(entry.Union0[1]))
+			}
+		}
 	}
 
 	next(GCEvent{
@@ -499,13 +515,6 @@ type tupleKeyAccessor interface {
 }
 
 func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next func(GCEvent), ipv6 bool) func(key bpf.MapKey, value bpf.MapValue) {
-	var countFailedFn func(uint16, uint32)
-	if ACT != nil {
-		countFailedFn = ACT.CountFailed4
-		if ipv6 {
-			countFailedFn = ACT.CountFailed6
-		}
-	}
 	return func(key bpf.MapKey, value bpf.MapValue) {
 		// TODO: These type assertions are a bit dangerous, make more of this well typed
 		// to avoid having to make these assertions.
@@ -524,7 +533,7 @@ func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next fun
 
 		switch action {
 		case deleteEntry:
-			err := m.purgeCtEntry(ctKey, entry, natMap, next, countFailedFn)
+			err := m.purgeCtEntry(ctKey, entry, natMap, next, ipv6)
 			if err != nil {
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
 					m.Logger.Debug("key is missing, likely due to lru eviction - skipping",

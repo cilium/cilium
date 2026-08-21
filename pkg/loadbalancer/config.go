@@ -58,6 +58,8 @@ const (
 
 	LBAlgorithmName = "bpf-lb-algorithm"
 
+	LBLeastConnectionChoicesName = "bpf-lb-least-connection-choices"
+
 	// LoadBalancerMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
 	LoadBalancerModeName = "bpf-lb-mode"
@@ -107,6 +109,10 @@ const (
 
 	// NodePortMaxDefault is the maximum port to listen for NodePort requests
 	NodePortMaxDefault = 32767
+
+	LBLeastConnectionChoicesMin     = 2
+	LBLeastConnectionChoicesMax     = 4
+	LBLeastConnectionChoicesDefault = 2
 )
 
 const (
@@ -115,6 +121,9 @@ const (
 
 	// LBAlgorithmMaglev is for using maglev consistent hashing for backend selection
 	LBAlgorithmMaglev = "maglev"
+
+	// LBAlgorithmLeastConnection selects the less-loaded of two sampled backends.
+	LBAlgorithmLeastConnection = "least-connection"
 
 	// LBModeSNAT is for SNATing requests to remote nodes
 	LBModeSNAT = "snat"
@@ -184,6 +193,10 @@ type UserConfig struct {
 	// LoadBalancerAlgorithm indicates which backend selection algorithm is used
 	// ("random" or "maglev")
 	LBAlgorithm string `mapstructure:"bpf-lb-algorithm"`
+
+	// LBLeastConnectionChoices is the number of backends sampled by the
+	// least-connection algorithm.
+	LBLeastConnectionChoices int `mapstructure:"bpf-lb-least-connection-choices"`
 
 	// DSRDispatch indicates the method for pushing packets to
 	// backends under DSR ("opt", "ipip", "geneve")
@@ -325,6 +338,10 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.String(LBAlgorithmName, def.LBAlgorithm, "BPF load balancing algorithm (\"random\", \"maglev\")")
 
+	flags.Int(LBLeastConnectionChoicesName, def.LBLeastConnectionChoices,
+		fmt.Sprintf("Number of backends sampled by least-connection load balancing (%d-%d)",
+			LBLeastConnectionChoicesMin, LBLeastConnectionChoicesMax))
+
 	flags.Bool(LoadBalancerModeAnnotationName, false, "Enable service-level annotation for configuring BPF load balancing mode")
 
 	flags.String(LoadBalancerModeName, def.LBMode, "BPF load balancing mode (\"snat\", \"dsr\", \"hybrid\")")
@@ -453,6 +470,13 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 		return Config{}, fmt.Errorf("Invalid value for --%s: %s", LBAlgorithmName, cfg.LBAlgorithm)
 	}
 
+	if cfg.LBLeastConnectionChoices < LBLeastConnectionChoicesMin ||
+		cfg.LBLeastConnectionChoices > LBLeastConnectionChoicesMax {
+		return Config{}, fmt.Errorf("Invalid value for --%s: %d (must be between %d and %d)",
+			LBLeastConnectionChoicesName, cfg.LBLeastConnectionChoices,
+			LBLeastConnectionChoicesMin, LBLeastConnectionChoicesMax)
+	}
+
 	if cfg.LBMode != LBModeSNAT && cfg.LBMode != LBModeDSR && cfg.LBMode != LBModeHybrid {
 		return Config{}, fmt.Errorf("Invalid value for --%s: %s", LoadBalancerModeName, cfg.LBMode)
 	}
@@ -493,8 +517,9 @@ var DefaultUserConfig = UserConfig{
 	LBSourceRangeAllTypes:    false,
 	LBSockTerminateAllProtos: false,
 
-	NodePortRange: []string{},
-	LBAlgorithm:   LBAlgorithmRandom,
+	NodePortRange:            []string{},
+	LBAlgorithm:              LBAlgorithmRandom,
+	LBLeastConnectionChoices: LBLeastConnectionChoicesDefault,
 
 	LBMode: LBModeSNAT,
 

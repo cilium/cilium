@@ -82,6 +82,9 @@ const (
 	CiliumLB6SourceRange                = "cilium_lb6_source_range"
 	CiliumLBACT                         = "cilium_lb_act"
 	CiliumLBAffinityMatch               = "cilium_lb_affinity_match"
+	CiliumLBLc                          = "cilium_lb_lc"
+	CiliumLBLcGc                        = "cilium_lb_lc_gc"
+	CiliumLBLcSock                      = "cilium_lb_lc_sock"
 	CiliumLXC                           = "cilium_lxc"
 	CiliumMcastGroupOuterV4Map          = "cilium_mcast_group_outer_v4_map"
 	CiliumMcastGroupOuterV4MapInner     = "cilium_mcast_group_outer_v4_map_inner"
@@ -734,6 +737,48 @@ func newCiliumLBAffinityMatchSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
+func newCiliumLBLcSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumLBLc,
+		Type:       ebpf.Hash,
+		KeySize:    8,
+		Key:        anyTypeByName(btf, "lb_lc_key"),
+		ValueSize:  8,
+		Value:      anyTypeByName(btf, "lb_lc_value"),
+		MaxEntries: 65536,
+		Flags:      0,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumLBLcGcSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumLBLcGc,
+		Type:       ebpf.Hash,
+		KeySize:    8,
+		Key:        anyTypeByName(btf, "lb_lc_key"),
+		ValueSize:  4,
+		Value:      anyTypeByName(btf, "__u32"),
+		MaxEntries: 65536,
+		Flags:      0,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumLBLcSockSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumLBLcSock,
+		Type:       ebpf.Hash,
+		KeySize:    8,
+		Key:        anyTypeByName(btf, "__u64"),
+		ValueSize:  8,
+		Value:      anyTypeByName(btf, "lb_lc_sock_value"),
+		MaxEntries: 262144,
+		Flags:      0,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
 func newCiliumLXCSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       CiliumLXC,
@@ -1338,6 +1383,9 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumLB6SourceRangeSpec,
 	newCiliumLBACTSpec,
 	newCiliumLBAffinityMatchSpec,
+	newCiliumLBLcSpec,
+	newCiliumLBLcGcSpec,
+	newCiliumLBLcSockSpec,
 	newCiliumLXCSpec,
 	newCiliumMcastGroupOuterV4MapSpec,
 	newCiliumMetricsSpec,

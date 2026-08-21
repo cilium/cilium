@@ -2584,6 +2584,10 @@ loadBalancer:
   # selection e.g. random or maglev
   # algorithm: random
 
+  # -- Number of backends sampled by the least-connection algorithm.
+  # Valid values are 2 through 4.
+  leastConnectionChoiceCount: 2
+
   # -- mode is the operation mode of load balancing for remote backends
   # e.g. snat, dsr, hybrid
   # mode: snat

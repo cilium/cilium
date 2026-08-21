@@ -80,6 +80,17 @@ func TestL4Addr_Equals(t *testing.T) {
 	}
 }
 
+func TestLeastConnectionLoadBalancingAlgorithm(t *testing.T) {
+	spec, ok := svcLoadBalancingAlgorithms[LBAlgorithmLeastConnection]
+	require.True(t, ok)
+	assert.Equal(t, LBAlgorithmLeastConnection, spec.Name)
+	assert.Equal(t, SVCLoadBalancingAlgorithmLeastConnection.String(),
+		LBAlgorithmLeastConnection)
+	assert.Equal(t, SVCLoadBalancingAlgorithmLeastConnection,
+		ToSVCLoadBalancingAlgorithm(LBAlgorithmLeastConnection))
+	assert.False(t, SVCLoadBalancingAlgorithmLeastConnection.UseMaglev())
+}
+
 func TestL3n4Addr_DeepEqual(t *testing.T) {
 	var v4, v6 L3n4Addr
 	require.NoError(t, v4.ParseFromString("1.1.1.1:80/TCP"))

@@ -4,6 +4,7 @@
 package loadbalancer
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -18,6 +19,7 @@ func TestNewConfig_NodePortRange(t *testing.T) {
 		wantMax uint16
 		wantErr bool
 	}
+
 	tests := []struct {
 		name    string
 		want    want
@@ -101,6 +103,30 @@ func TestNewConfig_NodePortRange(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want.wantMin, cfg.NodePortMin, "min mismatch")
 				assert.Equal(t, tt.want.wantMax, cfg.NodePortMax, "max mismatch")
+			}
+		})
+	}
+}
+
+func TestNewConfig_LeastConnectionChoices(t *testing.T) {
+	for _, test := range []struct {
+		choices int
+		wantErr bool
+	}{
+		{choices: 1, wantErr: true},
+		{choices: 2},
+		{choices: 3},
+		{choices: 4},
+		{choices: 5, wantErr: true},
+	} {
+		t.Run(fmt.Sprintf("choices=%d", test.choices), func(t *testing.T) {
+			ucfg := DefaultUserConfig
+			ucfg.LBLeastConnectionChoices = test.choices
+			_, err := NewConfig(hivetest.Logger(t), ucfg, &option.DaemonConfig{})
+			if test.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

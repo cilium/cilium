@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
+	"github.com/cilium/cilium/pkg/maps/lbconn"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/multicast"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -92,6 +93,9 @@ var Cell = cell.Module(
 
 	// Provides access to ActiveConnectionTracking map.
 	act.Cell,
+
+	// Provides backend connection counters for least-connection selection.
+	lbconn.Cell,
 
 	// Provides access to NAT maps.
 	nat.Cell,

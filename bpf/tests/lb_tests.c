@@ -9,6 +9,8 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4					1
+#define ENABLE_LB_LEAST_CONNECTION			1
+#define LB_LEAST_CONNECTION_CHOICES			2
 
 #define FRONTEND_IP	v4_svc_one
 #define FRONTEND_PORT	tcp_svc_one
@@ -18,6 +20,72 @@
 #include <lib/lb.h>
 
 #include "lib/lb.h"
+
+CHECK(PROG_TYPE, "lb4_least_connection")
+int test_lb4_least_connection(struct __ctx_buff *ctx)
+{
+	const __u32 backend_one = 1;
+	const __u32 backend_two = 2;
+	struct lb_lc_key lc_one = {
+		.backend_id = backend_one,
+		.svc_id = REVNAT_INDEX,
+	};
+	struct lb_lc_key lc_two = {
+		.backend_id = backend_two,
+		.svc_id = REVNAT_INDEX,
+	};
+	struct lb_lc_value busy = {
+		.opened = 10,
+		.closed = 1,
+	};
+	struct lb_lc_value idle = {
+		.opened = 2,
+		.closed = 1,
+	};
+	struct ipv4_ct_tuple tuple = {
+		.nexthdr = IPPROTO_TCP,
+	};
+	struct lb4_key key = {
+		.address = FRONTEND_IP,
+		.dport = FRONTEND_PORT,
+		.proto = IPPROTO_TCP,
+	};
+	const struct lb4_service *service;
+	__u32 gc_closed = 1;
+	__u32 selected;
+
+	test_init();
+
+	__lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 2,
+			    REVNAT_INDEX, SVC_FLAG_ROUTABLE, 0, false,
+			    LB_SELECTION_LEAST_CONNECTION <<
+			    LB_ALGORITHM_SHIFT);
+	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, backend_one,
+			  v4_pod_one, tcp_svc_one, IPPROTO_TCP, 0);
+	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 2, backend_two,
+			  v4_pod_two, tcp_svc_one, IPPROTO_TCP, 0);
+	map_update_elem(&cilium_lb_lc, &lc_one, &busy, BPF_ANY);
+	map_update_elem(&cilium_lb_lc, &lc_two, &idle, BPF_ANY);
+
+	service = lb4_lookup_service(&key, true);
+	assert(service);
+	selected = lb4_select_backend_id(ctx, &key, &tuple, service);
+	assert(selected == backend_two);
+
+	lb_lc_conn_open(REVNAT_INDEX, backend_two);
+	assert(lb_lc_active_connections(REVNAT_INDEX, backend_two) == 2);
+	lb_lc_conn_closed(REVNAT_INDEX, backend_two);
+	assert(lb_lc_active_connections(REVNAT_INDEX, backend_two) == 1);
+	map_update_elem(&cilium_lb_lc_gc, &lc_two, &gc_closed, BPF_ANY);
+	assert(lb_lc_active_connections(REVNAT_INDEX, backend_two) == 0);
+
+	map_delete_elem(&cilium_lb_lc, &lc_one);
+	map_delete_elem(&cilium_lb_lc, &lc_two);
+	map_delete_elem(&cilium_lb_lc_gc, &lc_two);
+	lb_v4_delete_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP);
+
+	test_finish();
+}
 
 /* TCP Service, single-scope */
 CHECK(PROG_TYPE, "lb4_tcp_single_scope")
