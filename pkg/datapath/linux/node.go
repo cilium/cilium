@@ -104,7 +104,6 @@ type linuxNodeHandler struct {
 }
 
 var (
-	_ node.Handler                      = (*linuxNodeHandler)(nil)
 	_ config.ChangeHandler              = (*linuxNodeHandler)(nil)
 	_ node.IDHandler                    = (*linuxNodeHandler)(nil)
 	_ reconciler.Operations[*node.Node] = (*linuxNodeOps)(nil)
@@ -135,7 +134,7 @@ func NewNodeHandler(
 	nodes statedb.Table[*node.Node],
 	health cell.Health,
 	daemonConfig *option.DaemonConfig,
-) (node.Handler, node.IDHandler) {
+) node.IDHandler {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
@@ -232,7 +231,7 @@ func NewNodeHandler(
 		},
 	))
 
-	return handler, handler
+	return handler
 }
 
 // refreshLinuxNodes periodically refreshes reconciled nodes. This is done
@@ -445,10 +444,6 @@ func (n *linuxNodeHandler) waitForConfig(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-func (l *linuxNodeHandler) Name() string {
-	return "linux-node-datapath"
 }
 
 func createDirectRouteSpec(log *slog.Logger, prefix netip.Prefix, nodeIP net.IP, skipUnreachable bool) (routeSpec *netlink.Route, addRoute bool, err error) {
@@ -766,17 +761,6 @@ func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []netip.Prefix, isL
 	return errs
 }
 
-func (n *linuxNodeHandler) NodeAdd(nodeTypes.Node) error {
-	// Node events are consumed through linuxNodeOps. Keep the legacy callback
-	// inert while node.Handler is still provided for explicit validation.
-	return nil
-}
-
-func (n *linuxNodeHandler) NodeUpdate(nodeTypes.Node, nodeTypes.Node) error {
-	// Node events are consumed through linuxNodeOps.
-	return nil
-}
-
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAddition bool) error {
 	var (
@@ -870,11 +854,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	return errs
-}
-
-func (n *linuxNodeHandler) NodeDelete(nodeTypes.Node) error {
-	// Node events are consumed through linuxNodeOps.
-	return nil
 }
 
 // Must be called with linuxNodeHandler.mutex held.
@@ -1032,40 +1011,6 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 	}
 
 	return nil
-}
-
-// NodeValidateImplementation is called to validate the implementation of the
-// node in the datapath
-func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.Node) error {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	if !n.isInitialized {
-		return nil
-	}
-
-	return n.nodeUpdate(nil, &nodeToValidate, false)
-}
-
-// AllNodeValidateImplementation is called to validate the implementation of the
-// node in the datapath for all existing nodes
-func (n *linuxNodeHandler) AllNodeValidateImplementation() {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	if !n.isInitialized {
-		return
-	}
-
-	var errs error
-	for _, updateNode := range n.nodes {
-		if err := n.nodeUpdate(nil, updateNode, false); err != nil {
-			errs = errors.Join(errs, err)
-		}
-	}
-	if errs != nil {
-		n.log.Warn("Node update failed during datapath node validation", logfields.Error, errs)
-	}
 }
 
 // NodeDeviceNameWithDefaultRoute returns the node's device name which
