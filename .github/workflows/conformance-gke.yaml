@@ -368,11 +368,11 @@ jobs:
         uses: ./.github/actions/gke-create-esp-rule
         with:
           cluster_name: ${{ env.clusterName }}-${{ matrix.config.index }}
-          cluster_zone: ${{ matrix.k8s.zone }}
+          cluster_zone: ${{ steps.create-cluster.outputs.zone }}
 
       - name: Get cluster credentials
         run: |
-          gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }}
+          gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ steps.create-cluster.outputs.zone }}
 
       - name: Generate cilium-cli kubeconfig
         id: gen-kubeconfig
@@ -451,15 +451,18 @@ jobs:
         uses: ./.github/actions/gke-clean-esp-rule
         with:
           cluster_name: ${{ env.clusterName }}-${{ matrix.config.index }}
-          cluster_zone: ${{ matrix.k8s.zone }}
+          cluster_zone: ${{ steps.create-cluster.outputs.zone || matrix.k8s.zone }}
 
       - name: Clean up GKE
         if: ${{ always() }}
+        env:
+          CLUSTER: ${{ env.clusterName }}-${{ matrix.config.index }}
+          ZONE: ${{ steps.create-cluster.outputs.zone || matrix.k8s.zone }}
         run: |
-          while [ "$(gcloud container operations list --zone ${{ matrix.k8s.zone }} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-${{ matrix.config.index }}" --format="value(name)")" ];do
+          while [ "$(gcloud container operations list --zone ${ZONE} --filter="status=RUNNING AND targetLink~${CLUSTER}" --format="value(name)")" ];do
             echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
           done
-          gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }} --quiet --async
+          gcloud container clusters delete ${CLUSTER} --zone ${ZONE} --quiet --async
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
   merge-upload-and-status:
