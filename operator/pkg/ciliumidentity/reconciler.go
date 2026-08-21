@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -282,11 +283,10 @@ func (r *reconciler) cidIsUsedInCEPOrCES(cidName string) bool {
 // 1. CID exists: No action.
 // 2. CID doesn't exist: Create CID.
 func (r *reconciler) allocateCIDForPod(pod *slim_corev1.Pod) error {
-	k8sLabels, err := GetRelevantLabelsForPod(r.logger, pod, r.nsStore, r.clusterInfo)
+	cidKey, err := GetCIDKeyForPod(r.logger, pod, r.nsStore, r.clusterInfo)
 	if err != nil {
-		return fmt.Errorf("failed to get relevant labels for pod: %w", err)
+		return fmt.Errorf("failed to get CID key for pod: %w", err)
 	}
-	cidKey := key.GetCIDKeyFromLabels(k8sLabels, labels.LabelSourceK8s)
 
 	r.cidCreateLock.Lock()
 	defer r.cidCreateLock.Unlock()
@@ -306,7 +306,7 @@ func (r *reconciler) allocateCIDForPod(pod *slim_corev1.Pod) error {
 			logfields.K8sPodName, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name),
 			logfields.CIDName, cidName,
 			logfields.IdentityOld, prevCIDName,
-			logfields.Labels, k8sLabels)
+			logfields.Labels, cidKey.GetAsMap())
 	}
 
 	if isNewCID {
@@ -348,15 +348,21 @@ func (r *reconciler) allocateCID(cidKey *key.GlobalIdentity) (string, bool, erro
 	return allocatedID.String(), true, nil
 }
 
-// GetRelevantLabelsForPod returns the pod and namespace labels for a given pod
-func GetRelevantLabelsForPod(logger *slog.Logger, pod *slim_corev1.Pod, nsStore resource.Store[*slim_corev1.Namespace], clusterInfo cmtypes.ClusterInfo) (map[string]string, error) {
+// GetCIDKeyForPod returns the GlobalIdentity key for a pod, including
+// named-port identity labels derived from the pod's container ports.
+func GetCIDKeyForPod(logger *slog.Logger, pod *slim_corev1.Pod, nsStore resource.Store[*slim_corev1.Namespace], clusterInfo cmtypes.ClusterInfo) (*key.GlobalIdentity, error) {
 	ns, err := getNamespace(pod.Namespace, nsStore)
 	if err != nil {
 		return nil, err
 	}
 
-	_, labelsMap := k8s.GetPodMetadata(logger, clusterInfo, ns, pod)
-	return labelsMap, nil
+	namedPorts, labelsMap := k8s.GetPodMetadata(logger, clusterInfo, ns, pod)
+	lbs := labels.Map2Labels(labelsMap, labels.LabelSourceK8s)
+	for _, lbl := range k8s.NamedPortsIdentityLabels(namedPorts) {
+		lbs[lbl.Key] = lbl
+	}
+	idLabels, _ := labelsfilter.Filter(lbs)
+	return &key.GlobalIdentity{LabelArray: idLabels.LabelArray()}, nil
 }
 
 func getNamespace(namespace string, nsStore resource.Store[*slim_corev1.Namespace]) (*slim_corev1.Namespace, error) {
