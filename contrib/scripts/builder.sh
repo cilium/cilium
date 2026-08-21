@@ -9,6 +9,11 @@ fi
 
 cd "$(dirname "$0")/../.."
 
+# Don't spawn a nested cilium-builder container if we're already running in one.
+if [ "${IN_CILIUM_BUILDER_CONTAINER:-}" = "1" ]; then
+	exec "$@"
+fi
+
 CILIUM_BUILDER_IMAGE=$(cat images/cilium/Dockerfile | grep '^ARG CILIUM_BUILDER_IMAGE=' | cut -d '=' -f 2)
 
 GO="$(which go 2> /dev/null || :)"
