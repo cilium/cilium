@@ -1716,6 +1716,7 @@ lb4_extract_tuple(const struct __ctx_buff *ctx, const struct iphdr *ip4, fraginf
 	tuple->nexthdr = ip4->protocol;
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
+	union ports_ret ports;
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
@@ -1723,8 +1724,10 @@ lb4_extract_tuple(const struct __ctx_buff *ctx, const struct iphdr *ip4, fraginf
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		return ipv4_load_l4_ports(ctx, ip4, fraginfo, l4_off,
-					  CT_EGRESS, &tuple->dport);
+		ports.val = ipv4_load_l4_ports(ctx, fraginfo, l4_off, CT_EGRESS);
+		tuple->dport = ports.src;
+		tuple->sport = ports.dst;
+		return ports.ret;
 	case IPPROTO_ICMP:
 		return DROP_UNSUPP_SERVICE_PROTO;
 	default:

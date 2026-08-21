@@ -361,8 +361,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 			 * Check if its a reply packet, if it is, redirect it to the
 			 * parent interface.
 			 */
-			ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
-						CT_EGRESS, &args->tuple);
+			ret = ct_extract_ports4(ctx, fraginfo, l4_off, CT_EGRESS, &args->tuple);
 			if (ret < 0 && ret != DROP_CT_UNKNOWN_PROTO)
 				return ret;
 
@@ -419,8 +418,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 apply_snat:
 	*saddr = args->tuple.saddr;
-	ret = snat_v4_nat(ctx, &args->tuple, ip4, fraginfo, l4_off,
-			  &args->target, trace, ext_err);
+	ret = snat_v4_nat(ctx, &args->tuple, fraginfo, l4_off, &args->target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;
 
