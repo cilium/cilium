@@ -94,6 +94,30 @@ func (m *DnsCacheConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) 
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.ResolvedAddressFilter != nil {
+		if vtmsg, ok := interface{}(m.ResolvedAddressFilter).(interface {
+			MarshalToSizedBufferVTStrict([]byte) (int, error)
+		}); ok {
+			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		} else {
+			encoded, err := proto.Marshal(m.ResolvedAddressFilter)
+			if err != nil {
+				return 0, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x82
+	}
 	if m.DisableDnsRefreshOnFailure {
 		i--
 		if m.DisableDnsRefreshOnFailure {
@@ -409,6 +433,16 @@ func (m *DnsCacheConfig) SizeVT() (n int) {
 	}
 	if m.DisableDnsRefreshOnFailure {
 		n += 2
+	}
+	if m.ResolvedAddressFilter != nil {
+		if size, ok := interface{}(m.ResolvedAddressFilter).(interface {
+			SizeVT() int
+		}); ok {
+			l = size.SizeVT()
+		} else {
+			l = proto.Size(m.ResolvedAddressFilter)
+		}
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

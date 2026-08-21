@@ -233,6 +233,21 @@ func (m *CaresDnsResolverConfig) validate(all bool) error {
 
 	// no validation rules for ReinitChannelOnTimeout
 
+	if wrapper := m.GetQcacheMaxTtl(); wrapper != nil {
+
+		if wrapper.GetValue() < 0 {
+			err := CaresDnsResolverConfigValidationError{
+				field:  "QcacheMaxTtl",
+				reason: "value must be greater than or equal to 0",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return CaresDnsResolverConfigMultiError(errors)
 	}

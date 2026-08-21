@@ -494,8 +494,8 @@ github.com/envoyproxy/go-control-plane/pkg/server/rest/v3
 github.com/envoyproxy/go-control-plane/pkg/server/sotw/v3
 github.com/envoyproxy/go-control-plane/pkg/server/stream/v3
 github.com/envoyproxy/go-control-plane/pkg/server/v3
-# github.com/envoyproxy/go-control-plane/envoy v1.37.0
-## explicit; go 1.24.0
+# github.com/envoyproxy/go-control-plane/envoy v1.39.0
+## explicit; go 1.25.0
 github.com/envoyproxy/go-control-plane/envoy/admin/v3
 github.com/envoyproxy/go-control-plane/envoy/annotations
 github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3
@@ -1510,13 +1510,15 @@ github.com/spiffe/go-spiffe/v2/workloadapi
 github.com/spiffe/spire-api-sdk/proto/spire/api/agent/delegatedidentity/v1
 github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1
 github.com/spiffe/spire-api-sdk/proto/spire/api/types
-# github.com/stretchr/objx v0.5.2
+# github.com/stretchr/objx v0.5.3
 ## explicit; go 1.20
 github.com/stretchr/objx
-# github.com/stretchr/testify v1.11.1
+# github.com/stretchr/testify v1.12.0
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
+github.com/stretchr/testify/internal/difflib
+github.com/stretchr/testify/internal/spew
 github.com/stretchr/testify/mock
 github.com/stretchr/testify/require
 # github.com/subosito/gotenv v1.6.0

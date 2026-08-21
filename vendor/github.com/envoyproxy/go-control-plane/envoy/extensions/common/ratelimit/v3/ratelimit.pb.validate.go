@@ -165,6 +165,8 @@ func (m *RateLimitDescriptor) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for IsNegativeHits
+
 	if len(errors) > 0 {
 		return RateLimitDescriptorMultiError(errors)
 	}
@@ -351,6 +353,8 @@ func (m *LocalRateLimitDescriptor) validate(all bool) error {
 			}
 		}
 	}
+
+	// no validation rules for ShadowMode
 
 	if len(errors) > 0 {
 		return LocalRateLimitDescriptorMultiError(errors)
