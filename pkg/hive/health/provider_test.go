@@ -21,7 +21,7 @@ func allStatus(db *statedb.DB, statusTable statedb.RWTable[types.Status]) []type
 }
 
 func byLevel(db *statedb.DB, statusTable statedb.RWTable[types.Status], l types.Level) []types.Status {
-	return statedb.Collect(statusTable.List(db.ReadTxn(), LevelIndex.Query(l)))
+	return statedb.Collect(statusTable.List(db.ReadTxn(), StatusByLevel(l)))
 }
 
 func TestProvider(t *testing.T) {
@@ -30,7 +30,7 @@ func TestProvider(t *testing.T) {
 		statedb.Cell,
 		cell.Provide(newHealthV2Provider),
 		cell.Provide(newHealthHistory),
-		cell.ProvidePrivate(newTablesPrivate),
+		cell.ProvidePrivate(NewTable),
 		cell.Provide(func() HistoryDir {
 			return HistoryDir(t.TempDir())
 		}),
