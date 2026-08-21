@@ -6,6 +6,8 @@ package gateway_api
 import (
 	"time"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -28,13 +30,13 @@ const (
 
 // setGatewayAccepted inserts or updates the Accepted condition for the provided Gateway resource.
 func setGammaServiceAccepted(svc *corev1.Service, accepted bool, msg string, reason string) *corev1.Service {
-	svc.Status.Conditions = merge(svc.Status.Conditions, gammaServiceStatusAcceptedCondition(svc, accepted, msg, reason))
+	svc.Status.Conditions = helpers.MergeConditions(svc.Status.Conditions, gammaServiceStatusAcceptedCondition(svc, accepted, msg, reason))
 	return svc
 }
 
 // setGatewayProgrammed inserts or updates the Programmed condition for the provided Gateway resource.
 func setGammaServiceProgrammed(svc *corev1.Service, ready bool, msg string, reason string) *corev1.Service {
-	svc.Status.Conditions = merge(svc.Status.Conditions, gammaServiceStatusProgrammedCondition(svc, ready, msg, reason))
+	svc.Status.Conditions = helpers.MergeConditions(svc.Status.Conditions, gammaServiceStatusProgrammedCondition(svc, ready, msg, reason))
 	return svc
 }
 

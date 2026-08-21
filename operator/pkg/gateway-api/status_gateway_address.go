@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/shortener"
 )
@@ -160,7 +161,7 @@ func (m *GatewayAddressStatusManager) SetAddressStatus(ctx context.Context, gw *
 				}
 			}
 			if accepted {
-				l.Conditions = merge(l.Conditions, metav1.Condition{
+				l.Conditions = helpers.MergeConditions(l.Conditions, metav1.Condition{
 					Type:               string(gatewayv1.ListenerConditionProgrammed),
 					Status:             metav1.ConditionTrue,
 					Reason:             string(gatewayv1.ListenerReasonProgrammed),
