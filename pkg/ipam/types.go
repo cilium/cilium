@@ -151,6 +151,9 @@ type IPAM struct {
 	podIPPools statedb.Table[podippool.LocalPodIPPool]
 
 	onlyMasqueradeDefaultPool bool
+
+	// multiPoolMetrics is used only in multi-pool IPAM mode.
+	multiPoolMetrics MultiPoolMetrics
 }
 
 func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}

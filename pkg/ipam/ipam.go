@@ -89,6 +89,8 @@ type NewIPAMParams struct {
 	DB                        *statedb.DB
 	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
 	OnlyMasqueradeDefaultPool bool
+
+	MultiPoolMetrics MultiPoolMetrics
 }
 
 // NewIPAM returns a new IP address manager
@@ -113,6 +115,7 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 		db:                        params.DB,
 		podIPPools:                params.PodIPPools,
 		onlyMasqueradeDefaultPool: params.OnlyMasqueradeDefaultPool,
+		multiPoolMetrics:          params.MultiPoolMetrics,
 	}
 }
 
@@ -159,6 +162,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 			DB:                        ipam.db,
 			PodIPPools:                ipam.podIPPools,
 			OnlyMasqueradeDefaultPool: ipam.onlyMasqueradeDefaultPool,
+			Metrics:                   ipam.multiPoolMetrics,
 		})
 
 		if ipam.config.IPv6Enabled() {
