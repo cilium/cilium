@@ -4475,6 +4475,9 @@
           },
           "type": "array"
         },
+        "loadBalancerMode": {
+          "type": "string"
+        },
         "loadbalancerMode": {
           "type": "string"
         },
