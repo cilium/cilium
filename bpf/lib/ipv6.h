@@ -208,7 +208,9 @@ void ipv6_sol_mc_mac_set(const union v6addr *addr, union macaddr *mac)
 	mac->addr[0] = 0x33;
 	mac->addr[1] = 0x33;
 	mac->addr[2] = 0xFF;
-	memcpy((__u8 *)mac + 3, (__u8 *)addr + 13, 3);
+	mac->addr[3] = addr->addr[13];
+	mac->addr[4] = addr->addr[14];
+	mac->addr[5] = addr->addr[15];
 }
 
 static __always_inline

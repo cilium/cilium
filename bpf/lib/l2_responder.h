@@ -49,9 +49,6 @@ int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 {
 	union macaddr mac = CONFIG(interface_mac);
 	union macaddr smac;
-	__be32 __maybe_unused sip;
-	__be32 __maybe_unused tip;
-	union v6addr __maybe_unused tip6;
 	struct l2_responder_stats *stats;
 	int ret;
 	__u64 time;
@@ -73,26 +70,25 @@ int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 
 	if (!ip6) {
 		struct l2_responder_v4_key key;
+		__be32 sip;
 
-		if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
+		if (!arp_validate(ctx, &mac, &smac, &sip, &key.ip4.be32))
 			return CTX_ACT_OK;
 
-		key.ip4.be32 = tip;
 		key.ifindex = ctx->ingress_ifindex;
 		stats = map_lookup_elem(&cilium_l2_responder_v4, &key);
 		if (!stats)
 			return CTX_ACT_OK;
 
-		ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+		ret = arp_respond(ctx, &mac, key.ip4.be32, &smac, sip, 0);
 	} else {
 #ifdef ENABLE_IPV6
-		struct l2_responder_v6_key key6;
+		struct l2_responder_v6_key key6 __align_stack_8;
 		int l3_off;
 
-		if (!icmp6_ndisc_validate(ctx, ip6, &mac, &tip6))
+		if (!icmp6_ndisc_validate(ctx, ip6, &mac, &key6.ip6))
 			return CTX_ACT_OK;
 
-		key6.ip6 = tip6;
 		key6.ifindex = ctx->ingress_ifindex;
 		key6.pad = 0;
 		stats = map_lookup_elem(&cilium_l2_responder_v6, &key6);
