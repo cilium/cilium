@@ -21,6 +21,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -283,9 +284,8 @@ func eventSendCmd(state *testState) script.Cmd {
 			if err := json.Unmarshal(data, &flow); err != nil {
 				return nil, fmt.Errorf("failed to parse event: %w", err)
 			}
-
 			ev := &v1.Event{
-				Event: &flow,
+				Event: ir.ProtoToFlow(&flow),
 			}
 
 			state.mu.Lock()

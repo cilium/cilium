@@ -10,6 +10,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestUUIDFilter(t *testing.T) {
@@ -44,8 +45,8 @@ func TestUUIDFilter(t *testing.T) {
 						"e3549e80-6216-4179-93ed-b00d33b939ff",
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Uuid: "a82c2c32-f410-47fb-9343-7788ea734c79",
+				ev: &v1.Event{Event: &ir.Flow{
+					UUID: "a82c2c32-f410-47fb-9343-7788ea734c79",
 				}},
 			},
 			want: true,
@@ -61,8 +62,8 @@ func TestUUIDFilter(t *testing.T) {
 						"e3549e80-6216-4179-93ed-b00d33b939ff",
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Uuid: "a82c2c32-f410-47fb-9343-7788ea734c79",
+				ev: &v1.Event{Event: &ir.Flow{
+					UUID: "a82c2c32-f410-47fb-9343-7788ea734c79",
 				}},
 			},
 			want: false,

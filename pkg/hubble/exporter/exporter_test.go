@@ -18,6 +18,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -49,11 +50,14 @@ func TestExporter(t *testing.T) {
 	defer func() {
 		nodeTypes.SetName(nodeName)
 	}()
+
+	t1 := timestamp.Timestamp{Seconds: 1}
+
 	events := []*v1.Event{
 		{
-			Event: &observerpb.Flow{
+			Event: &ir.Flow{
 				NodeName: newNodeName,
-				Time:     &timestamp.Timestamp{Seconds: 1},
+				Time:     t1.AsTime(),
 			},
 		},
 		{Timestamp: &timestamp.Timestamp{Seconds: 2}, Event: &observerpb.AgentEvent{}},
@@ -89,6 +93,12 @@ func TestExporterWithFilters(t *testing.T) {
 	denyFilterPod := &flowpb.FlowFilter{SourcePod: []string{"namespace-b/"}}
 	denyFilterNamespace := &flowpb.FlowFilter{NodeName: []string{"bad/node"}}
 
+	t1, t2, t3, t4, t5 := timestamp.Timestamp{Seconds: 12},
+		timestamp.Timestamp{Seconds: 13},
+		timestamp.Timestamp{Seconds: 14},
+		timestamp.Timestamp{Seconds: 15},
+		timestamp.Timestamp{Seconds: 16}
+
 	events := []*v1.Event{
 		// Non-flow events will not be processed when filters are set
 		{Timestamp: &timestamp.Timestamp{Seconds: 2}, Event: &observerpb.AgentEvent{}},
@@ -96,37 +106,37 @@ func TestExporterWithFilters(t *testing.T) {
 		{Timestamp: &timestamp.Timestamp{Seconds: 4}, Event: &observerpb.LostEvent{}},
 		// Does not match allowFilter.
 		{
-			Event: &observerpb.Flow{
-				Time: &timestamp.Timestamp{Seconds: 12},
+			Event: &ir.Flow{
+				Time: t1.AsTime(),
 			},
 		},
 		// Matches allowFilter.
 		{
-			Event: &observerpb.Flow{
-				Source: &flowpb.Endpoint{Namespace: "namespace-a", PodName: "x"},
-				Time:   &timestamp.Timestamp{Seconds: 13},
+			Event: &ir.Flow{
+				Source: ir.Endpoint{Namespace: "namespace-a", PodName: "x"},
+				Time:   t2.AsTime(),
 			},
 		},
 		// Matches denyFilter.
 		{
-			Event: &observerpb.Flow{
-				Source: &flowpb.Endpoint{Namespace: "namespace-b", PodName: "y"},
-				Time:   &timestamp.Timestamp{Seconds: 14},
+			Event: &ir.Flow{
+				Source: ir.Endpoint{Namespace: "namespace-b", PodName: "y"},
+				Time:   t3.AsTime(),
 			},
 		},
 		// Matches allowFilter, but also denyFilter - not processed.
 		{
-			Event: &observerpb.Flow{
-				Source:   &flowpb.Endpoint{Namespace: "namespace-a", PodName: "v"},
+			Event: &ir.Flow{
+				Source:   ir.Endpoint{Namespace: "namespace-a", PodName: "v"},
 				NodeName: "bad/node",
-				Time:     &timestamp.Timestamp{Seconds: 15},
+				Time:     t4.AsTime(),
 			},
 		},
 		// Matches allowFilter, but the context gets canceled below before it is processed.
 		{
-			Event: &observerpb.Flow{
-				Source: &flowpb.Endpoint{Namespace: "namespace-a", PodName: "z"},
-				Time:   &timestamp.Timestamp{Seconds: 16},
+			Event: &ir.Flow{
+				Source: ir.Endpoint{Namespace: "namespace-a", PodName: "z"},
+				Time:   t5.AsTime(),
 			},
 		},
 	}
@@ -166,9 +176,11 @@ func TestExporterWithFilters(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}
-	assert.JSONEq(t,
-		`{"flow":{"time":"1970-01-01T00:00:13Z","source":{"namespace":"namespace-a","pod_name":"x"}},"time":"1970-01-01T00:00:13Z"}
-`, buf.String())
+	assert.JSONEq(
+		t,
+		`{"flow":{"source":{"namespace":"namespace-a","pod_name":"x"}, "time":"1970-01-01T00:00:13Z"}, "time":"1970-01-01T00:00:13Z"}`,
+		buf.String(),
+	)
 }
 
 func TestEventToExportEvent_DefaultCase(t *testing.T) {
@@ -214,16 +226,16 @@ func TestEventToExportEvent(t *testing.T) {
 
 	// flow
 	ev := v1.Event{
-		Event: &observerpb.Flow{
+		Event: &ir.Flow{
 			NodeName: newNodeName,
-			Time:     &timestamp.Timestamp{Seconds: 1},
+			Time:     time.Now(),
 		},
 	}
 	res := exporter.eventToExportEvent(&ev)
 	expected := &observerpb.ExportEvent{
-		ResponseTypes: &observerpb.ExportEvent_Flow{Flow: ev.Event.(*flowpb.Flow)},
+		ResponseTypes: &observerpb.ExportEvent_Flow{Flow: ev.Event.(*ir.Flow).ToProto()},
 		NodeName:      newNodeName,
-		Time:          ev.GetFlow().Time,
+		Time:          timestamp.New(ev.GetFlow().Time),
 	}
 	assert.Equal(t, expected, res)
 
@@ -270,17 +282,17 @@ func TestEventToExportEvent(t *testing.T) {
 func TestExporterWithFieldMask(t *testing.T) {
 	events := []*v1.Event{
 		{
-			Event: &observerpb.Flow{
+			Event: &ir.Flow{
 				NodeName: "nodeName",
-				Time:     &timestamp.Timestamp{Seconds: 12},
-				Source:   &flowpb.Endpoint{PodName: "podA", Namespace: "nsA"},
+				Time:     time.Now(),
+				Source:   ir.Endpoint{PodName: "podA", Namespace: "nsA"},
 			},
 		},
 		{
-			Event: &observerpb.Flow{
+			Event: &ir.Flow{
 				NodeName:    "nodeName",
-				Time:        &timestamp.Timestamp{Seconds: 13},
-				Destination: &flowpb.Endpoint{PodName: "podB", Namespace: "nsB"}},
+				Time:        time.Now(),
+				Destination: ir.Endpoint{PodName: "podB", Namespace: "nsB"}},
 		},
 	}
 	buf := &bytesWriteCloser{bytes.Buffer{}}
@@ -327,11 +339,12 @@ func TestExporterOnExportEvent(t *testing.T) {
 		nodeTypes.SetName(nodeName)
 	}()
 
+	t1 := timestamp.Timestamp{Seconds: 1}
 	events := []*v1.Event{
 		{
-			Event: &observerpb.Flow{
+			Event: &ir.Flow{
 				NodeName: newNodeName,
-				Time:     &timestamp.Timestamp{Seconds: 1},
+				Time:     t1.AsTime(),
 			},
 		},
 		{Timestamp: &timestamp.Timestamp{Seconds: 2}, Event: &observerpb.DebugEvent{}},
@@ -513,7 +526,7 @@ func TestExporterAggregationDisabledWhenIntervalZero(t *testing.T) {
 
 	// Send two flow events that would otherwise aggregate.
 	for range 2 {
-		err := exporter.Export(t.Context(), &v1.Event{Event: &flowpb.Flow{Verdict: flowpb.Verdict_FORWARDED}})
+		err := exporter.Export(t.Context(), &v1.Event{Event: &ir.Flow{Verdict: flowpb.Verdict_FORWARDED}})
 		assert.NoError(t, err)
 	}
 
@@ -594,7 +607,7 @@ func TestExporterAggregationEventRouting(t *testing.T) {
 		assert.NoError(t, err)
 		defer exporter.Stop()
 
-		flowEvent := &v1.Event{Event: &flowpb.Flow{Verdict: flowpb.Verdict_DROPPED}}
+		flowEvent := &v1.Event{Event: &ir.Flow{Verdict: flowpb.Verdict_DROPPED}}
 		err = exporter.Export(t.Context(), flowEvent)
 		assert.NoError(t, err)
 
@@ -628,9 +641,9 @@ func TestProcessedFlowToAggregatedExportEvent(t *testing.T) {
 	defer exporter.Stop()
 
 	// Create a pre-processed flow.
-	processedFlow := &flowpb.Flow{
+	processedFlow := &ir.Flow{
 		Verdict: flowpb.Verdict_FORWARDED,
-		Source: &flowpb.Endpoint{
+		Source: ir.Endpoint{
 			PodName: "test-pod", // Only pod_name should be present as defined in FieldAggregate.
 
 		},
@@ -644,7 +657,7 @@ func TestProcessedFlowToAggregatedExportEvent(t *testing.T) {
 	flow := result.GetFlow()
 	assert.NotNil(t, flow)
 
-	aggregate := flow.GetAggregate()
+	aggregate := flow.Aggregate
 	assert.NotNil(t, aggregate)
 	assert.Equal(t, uint32(ingressCount), aggregate.IngressFlowCount)
 	assert.Equal(t, uint32(egressCount), aggregate.EgressFlowCount)
@@ -653,8 +666,8 @@ func TestProcessedFlowToAggregatedExportEvent(t *testing.T) {
 	assert.Equal(t, processedFlow.Verdict, flow.Verdict)
 	assert.Equal(t, "test-pod", flow.Source.PodName)
 	assert.Nil(t, flow.Destination) // Should not have any fields not defined in FieldAggregate.
-	assert.Empty(t, flow.GetNodeName())
-	assert.Nil(t, flow.GetTime())
+	assert.Empty(t, flow.NodeName)
+	assert.Nil(t, flow.Time)
 }
 
 func BenchmarkExporter(b *testing.B) {
