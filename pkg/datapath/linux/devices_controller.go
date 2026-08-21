@@ -66,6 +66,8 @@ func (c DevicesConfig) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'; support '!' to exclude devices, e.g. '!eth+' excludes any device with prefix 'eth'. Note '!' says nothing about which ones to include. A device must match other criteria to be selected; The filters are matched in order and whatever matched first wins.")
 
 	flags.Bool(option.ForceDeviceDetection, false, "Forces the auto-detection of devices, even if specific devices are explicitly listed")
+
+	flags.Int(option.NetlinkBufferSize, defaults.NetlinkBufferSize, "Size in bytes of the devices controller's netlink receive buffers, capped by net.core.rmem_max")
 }
 
 var (
@@ -93,6 +95,9 @@ type DevicesConfig struct {
 	// ForceDeviceDetection forces the auto-detection of devices,
 	// even if user-specific devices are explicitly listed.
 	ForceDeviceDetection bool
+	// NetlinkBufferSize is the receive buffer size in bytes requested for
+	// the controller's netlink subscription sockets.
+	NetlinkBufferSize int
 }
 
 type devicesControllerParams struct {
@@ -141,7 +146,7 @@ func newDevicesController(lc cell.Lifecycle, p devicesControllerParams) (*device
 func (dc *devicesController) Start(startCtx cell.HookContext) error {
 	if dc.params.NetlinkFuncs == nil {
 		var err error
-		dc.params.NetlinkFuncs, err = makeNetlinkFuncs()
+		dc.params.NetlinkFuncs, err = makeNetlinkFuncs(dc.params.Config.NetlinkBufferSize)
 		if err != nil {
 			return err
 		}
@@ -743,7 +748,7 @@ type netlinkFuncs struct {
 
 // makeNetlinkFuncs returns a *netlinkFuncs containing netlink accessors to the
 // network namespace of the calling goroutine's OS thread.
-func makeNetlinkFuncs() (*netlinkFuncs, error) {
+func makeNetlinkFuncs(netlinkBufferSize int) (*netlinkFuncs, error) {
 	netlinkHandle, err := safenetlink.NewHandle(&safenetlink.HandleConfig{NLFamilies: []int{unix.NETLINK_ROUTE}})
 	if err != nil {
 		return nil, fmt.Errorf("creating netlink handle: %w", err)
@@ -759,36 +764,40 @@ func makeNetlinkFuncs() (*netlinkFuncs, error) {
 			h := vns.NsHandle(cur.FD())
 			return safenetlink.RouteSubscribeWithOptions(ch, done,
 				netlink.RouteSubscribeOptions{
-					ListExisting:  false,
-					ErrorCallback: errorCallback,
-					Namespace:     &h,
+					ListExisting:      false,
+					ErrorCallback:     errorCallback,
+					Namespace:         &h,
+					ReceiveBufferSize: netlinkBufferSize,
 				})
 		},
 		AddrSubscribe: func(ch chan<- netlink.AddrUpdate, done <-chan struct{}, errorCallback func(error)) error {
 			h := vns.NsHandle(cur.FD())
 			return netlink.AddrSubscribeWithOptions(ch, done,
 				netlink.AddrSubscribeOptions{
-					ListExisting:  false,
-					ErrorCallback: errorCallback,
-					Namespace:     &h,
+					ListExisting:      false,
+					ErrorCallback:     errorCallback,
+					Namespace:         &h,
+					ReceiveBufferSize: netlinkBufferSize,
 				})
 		},
 		LinkSubscribe: func(ch chan<- netlink.LinkUpdate, done <-chan struct{}, errorCallback func(error)) error {
 			h := vns.NsHandle(cur.FD())
 			return safenetlink.LinkSubscribeWithOptions(ch, done,
 				netlink.LinkSubscribeOptions{
-					ListExisting:  false,
-					ErrorCallback: errorCallback,
-					Namespace:     &h,
+					ListExisting:      false,
+					ErrorCallback:     errorCallback,
+					Namespace:         &h,
+					ReceiveBufferSize: netlinkBufferSize,
 				})
 		},
 		NeighSubscribe: func(ch chan<- netlink.NeighUpdate, done <-chan struct{}, errorCallback func(error)) error {
 			h := vns.NsHandle(cur.FD())
 			return safenetlink.NeighSubscribeWithOptions(ch, done,
 				netlink.NeighSubscribeOptions{
-					ListExisting:  false,
-					ErrorCallback: errorCallback,
-					Namespace:     &h,
+					ListExisting:      false,
+					ErrorCallback:     errorCallback,
+					Namespace:         &h,
+					ReceiveBufferSize: netlinkBufferSize,
 				})
 		},
 		LinkList: func() ([]netlink.Link, error) {
