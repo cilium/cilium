@@ -1,0 +1,151 @@
+{{$testNodeName := .testNodeName}}
+{{$kfuzzNamespace := .kfuzzNamespace}}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Name}}
+  namespace: {{$kfuzzNamespace}}
+data:
+  config.json: |
+    {
+        "CIDRGroups": {
+            "CIDRs": {
+                "Config": {},
+                "fuzzChance": 0,
+                "sliceAddChance": 0,
+                "sliceDeleteChance": 0,
+                "sliceUpdateChance": 0,
+                "sliceSize": "1-2"
+            },
+            "labelScope": "cidr_groups",
+            "metaUpdateChance": 0,
+            "sliceAddChance": 0.25,
+            "sliceAddCount": "4-16",
+            "sliceDeleteChance": 0.25,
+            "sliceDeleteCount": "4-16",
+            "sliceSize": "1024-2048",
+            "sliceUpdateChance": 0
+        },
+        "LocalEndpoints": {
+            "Replicas": {
+                "fuzzChance": 0,
+                "Config": {
+                    "range": "1-1"
+                }
+            },
+            "labelScope": "local_endpoints",
+            "metaUpdateChance": 0,
+            "node": "{{$testNodeName}}",
+            "nodeSelector": "",
+            "sliceAddChance": 0,
+            "sliceDeleteChance": 0.0,
+            "sliceSize": "4",
+            "sliceUpdateChance": 0
+        },
+        "Policies": {
+            "Rules": {
+                "Ingress": {
+                    "fuzzChance": 0,
+                    "Config": {
+                        "trueChance": 0.5
+                    }
+                },
+                "L3": {
+                    "CIDRGroups": {
+                        "labelScope": "cidr_groups",
+                        "reallocateChance": 0,
+                        "sliceAddChance": 0.5,
+                        "sliceAddCount": "1-2",
+                        "sliceDeleteChance": 0.5,
+                        "sliceDeleteCount": "1-2",
+                        "sliceSize": "2-8",
+                        "sliceUpdateChance": 0.5,
+                        "sliceUpdateCount": "1-2",
+                        "weight": 0.5
+                    },
+                    "Endpoints": {
+                        "labelScope": "remote_endpoints",
+                        "reallocateChance": 0,
+                        "sliceAddChance": 0.5,
+                        "sliceAddCount": "1-2",
+                        "sliceDeleteChance": 0.5,
+                        "sliceDeleteCount": "1-2",
+                        "sliceSize": "2-8",
+                        "sliceUpdateChance": 0.5,
+                        "sliceUpdateCount": "1-2",
+                        "weight": 0.5
+                    }
+                },
+                "L4": {
+                    "Ports": {
+                        "Port": {
+                            "fuzzChance": 0,
+                            "Config": {
+                                "range": "20000-20005"
+                            }
+                        },
+                        "Protocol": {
+                            "fuzzChance": 0,
+                            "Config": {
+                                "oneOf": ["TCP"]
+                            }
+                        },
+                        "sliceAddChance": 0,
+                        "sliceDeleteChance": 0,
+                        "sliceUpdateChance": 0,
+                        "sliceSize": "1-1"
+                    }
+                },
+                "L7": {
+                    "HTTPRules": {
+                        "sliceAddChance": 0,
+                        "sliceDeleteChance": 0,
+                        "sliceUpdateChance": 0,
+                        "sliceSize": "0-0"
+                    }
+                },
+                "sliceAddChance": 0.1,
+                "sliceAddCount": "2-4",
+                "sliceDeleteChance": 0.1,
+                "sliceDeleteCount": "2-4",
+                "sliceSize": "4-16",
+                "sliceUpdateChance": 0.5,
+                "sliceUpdateCount": "2-4"
+            },
+            "Subjects": {
+                "labelScope": "local_endpoints",
+                "reallocateChance": 0,
+                "sliceAddChance": 0,
+                "sliceDeleteChance": 0,
+                "sliceUpdateChance": 0,
+                "sliceSize": "1-4"
+            },
+            "metaUpdateChance": 0,
+            "sliceAddChance": 0.1,
+            "sliceAddCount": "2-4",
+            "sliceDeleteChance": 0.1,
+            "sliceDeleteCount": "2-4",
+            "sliceSize": "128-256",
+            "sliceUpdateChance": 0.5,
+            "sliceUpdateCount": "4-16"
+        },
+        "RemoteEndpoints": {
+            "Replicas": {
+                "fuzzChance": 0,
+                "Config": {
+                    "range": "1-2"
+                }
+            },
+            "labelScope": "remote_endpoints",
+            "metaUpdateChance": 0,
+            "node": "",
+            "nodeSelector": "kfuzz.cilium.io/fake-node=true",
+            "sliceAddChance": 0.25,
+            "sliceAddCount": "4-16",
+            "sliceDeleteChance": 0.25,
+            "sliceDeleteCount": "4-16",
+            "sliceSize": "1024-2048",
+            "sliceUpdateChance": 0
+        }
+    }
