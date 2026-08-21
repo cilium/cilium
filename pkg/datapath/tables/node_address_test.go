@@ -766,7 +766,7 @@ func TestNodeAddressNodeIPChange(t *testing.T) {
 	txn.Commit()
 	<-watch // wait for propagation
 
-	iter, watch := nodeAddrs.ListWatch(db.ReadTxn(), NodeAddressNodePortIndex.Query(true))
+	iter, watch := nodeAddrs.ListWatch(db.ReadTxn(), NodeAddressesByNodePort(true))
 	addrs := statedb.Collect(iter)
 	if assert.Len(t, addrs, 1) {
 		assert.Equal(t, testNodeIPv4, addrs[0].Addr)
@@ -780,7 +780,7 @@ func TestNodeAddressNodeIPChange(t *testing.T) {
 	<-watch
 
 	// The new node IP should now be preferred for NodePort.
-	iter = nodeAddrs.List(db.ReadTxn(), NodeAddressNodePortIndex.Query(true))
+	iter = nodeAddrs.List(db.ReadTxn(), NodeAddressesByNodePort(true))
 	addrs = statedb.Collect(iter)
 	if assert.Len(t, addrs, 1) {
 		assert.Equal(t, "10.0.0.1", addrs[0].Addr.String())

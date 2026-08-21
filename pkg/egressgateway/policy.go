@@ -176,7 +176,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 func deviceGetPrimaryAddresses(manager *Manager, iface string) (netip.Addr, netip.Addr) {
 	var primaryIP4, primaryIP6 netip.Addr
 
-	addrs := manager.nodeAddrTable.List(manager.db.ReadTxn(), tables.NodeAddressDeviceNameIndex.Query(iface))
+	addrs := manager.nodeAddrTable.List(manager.db.ReadTxn(), tables.NodeAddressesByDeviceName(iface))
 	for addr := range addrs {
 		if !addr.Primary {
 			continue

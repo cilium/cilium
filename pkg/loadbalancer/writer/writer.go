@@ -300,7 +300,7 @@ func (w *Writer) isNodePortConflict(txn statedb.ReadTxn, addr loadbalancer.L3n4A
 		return false
 	}
 	ip := addr.AddrCluster().Addr()
-	for na := range w.nodeAddrs.List(txn, tables.NodeAddressNodePortIndex.Query(true)) {
+	for na := range w.nodeAddrs.List(txn, tables.NodeAddressesByNodePort(true)) {
 		if na.Addr == ip {
 			return true
 		}
