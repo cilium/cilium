@@ -78,7 +78,7 @@ func (m *MTUManager) Updater(ctx context.Context, health cell.Health) error {
 		changed := false
 
 		// Update the IPv4 default route MTU if it has changed
-		existing, _, found := m.MTUTable.Get(txn, MTURouteIndex.Query(DefaultPrefixV4))
+		existing, _, found := m.MTUTable.Get(txn, MTURouteByPrefix(DefaultPrefixV4))
 		if !found || existing.DeviceMTU != routeMTU.DeviceMTU {
 			routeMTU.Prefix = DefaultPrefixV4
 			_, _, err := m.MTUTable.Insert(txn, routeMTU)
@@ -90,7 +90,7 @@ func (m *MTUManager) Updater(ctx context.Context, health cell.Health) error {
 		}
 
 		// Update the IPv6 default route MTU if it has changed
-		existing, _, found = m.MTUTable.Get(txn, MTURouteIndex.Query(DefaultPrefixV6))
+		existing, _, found = m.MTUTable.Get(txn, MTURouteByPrefix(DefaultPrefixV6))
 		if !found || existing.DeviceMTU != routeMTU.DeviceMTU {
 			routeMTU.Prefix = DefaultPrefixV6
 			_, _, err := m.MTUTable.Insert(txn, routeMTU)

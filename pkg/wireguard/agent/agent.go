@@ -290,7 +290,7 @@ func (a *Agent) init() error {
 	// Without this, the kernel defaults to 1500 - 80 = 1420, ignoring alignment padding.
 	// Worst case we set 1500 - 95 = 1405; the mtuReconciler will adjust once the MTU table is populated.
 	deviceMTU := mtu.EthernetMTU
-	if mtuRoute, _, _, found := a.mtuTable.GetWatch(a.db.ReadTxn(), mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4)); found {
+	if mtuRoute, _, _, found := a.mtuTable.GetWatch(a.db.ReadTxn(), mtu.MTURouteByPrefix(mtu.DefaultPrefixV4)); found {
 		deviceMTU = mtuRoute.DeviceMTU
 	}
 	linkMTU := deviceMTU - mtu.WireguardOverhead
@@ -349,7 +349,7 @@ func (a *Agent) mtuReconciler(ctx context.Context, health cell.Health) error {
 	retryTimer := backoff.Exponential{Logger: a.logger, Min: 100 * time.Millisecond, Max: 1 * time.Minute}
 	retry := false
 	for {
-		mtuRoute, _, watch, found := a.mtuTable.GetWatch(a.db.ReadTxn(), mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
+		mtuRoute, _, watch, found := a.mtuTable.GetWatch(a.db.ReadTxn(), mtu.MTURouteByPrefix(mtu.DefaultPrefixV4))
 		if found {
 			link, err := safenetlink.LinkByName(types.IfaceName)
 			if err != nil {
