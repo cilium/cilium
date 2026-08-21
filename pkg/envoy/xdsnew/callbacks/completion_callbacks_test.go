@@ -69,6 +69,30 @@ func ackTypeVersionResponse(t *testing.T, cb *CompletionCallbacks, typeURL, vers
 	}))
 }
 
+func sendDeltaTypeVersionResponse(cb *CompletionCallbacks, streamID int64, typeURL, version, nonce, nodeID string) {
+	req := &discovery.DeltaDiscoveryRequest{TypeUrl: typeURL}
+	if nodeID != "" {
+		req.Node = &core.Node{Id: nodeID}
+	}
+	cb.OnStreamDeltaResponse(streamID, req, &discovery.DeltaDiscoveryResponse{
+		SystemVersionInfo: version,
+		TypeUrl:           typeURL,
+		Nonce:             nonce,
+	})
+}
+
+func ackDeltaTypeVersionResponse(t *testing.T, cb *CompletionCallbacks, streamID int64, typeURL, nonce, nodeID string) {
+	t.Helper()
+	req := &discovery.DeltaDiscoveryRequest{
+		TypeUrl:       typeURL,
+		ResponseNonce: nonce,
+	}
+	if nodeID != "" {
+		req.Node = &core.Node{Id: nodeID}
+	}
+	require.NoError(t, cb.OnStreamDeltaRequest(streamID, req))
+}
+
 func requireCompletionPending(t *testing.T, comp *completion.Completion) {
 	t.Helper()
 	select {
@@ -501,4 +525,177 @@ func TestResponseUsesLastMatchingVersion(t *testing.T) {
 			require.NoError(t, wgA2.Wait())
 		})
 	}
+}
+
+func TestDeltaCompletionUsesNonceAndRememberedNodeID(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+
+	require.NoError(t, cb.OnDeltaStreamOpen(context.Background(), 1, ""))
+	require.NoError(t, cb.OnStreamDeltaRequest(1, &discovery.DeltaDiscoveryRequest{
+		Node:    &core.Node{Id: "node-1"},
+		TypeUrl: listenerTypeURL,
+	}))
+	registerTypeVersionCompletion(t, cb, comp, listenerTypeURL, "version-1")
+
+	sendDeltaTypeVersionResponse(cb, 1, listenerTypeURL, "version-1", "nonce-1", "")
+	ackDeltaTypeVersionResponse(t, cb, 1, listenerTypeURL, "nonce-1", "")
+
+	require.NoError(t, wg.Wait())
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestDeltaSubscriptionRequestDoesNotCompleteUpdate(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+	registerTypeVersionCompletion(t, cb, comp, listenerTypeURL, "version-1")
+	sendDeltaTypeVersionResponse(cb, 1, listenerTypeURL, "version-1", "nonce-1", "node-1")
+
+	require.NoError(t, cb.OnStreamDeltaRequest(1, &discovery.DeltaDiscoveryRequest{
+		TypeUrl:                listenerTypeURL,
+		ResourceNamesSubscribe: []string{"listener-2"},
+	}))
+	requireCompletionPending(t, comp)
+
+	ackDeltaTypeVersionResponse(t, cb, 1, listenerTypeURL, "nonce-1", "")
+	require.NoError(t, wg.Wait())
+}
+
+func TestDeltaUnknownNonceDoesNotCompleteUpdate(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+	registerTypeVersionCompletion(t, cb, comp, listenerTypeURL, "version-1")
+	sendDeltaTypeVersionResponse(cb, 1, listenerTypeURL, "version-1", "nonce-2", "node-1")
+
+	ackDeltaTypeVersionResponse(t, cb, 1, listenerTypeURL, "nonce-1", "")
+	requireCompletionPending(t, comp)
+
+	ackDeltaTypeVersionResponse(t, cb, 1, listenerTypeURL, "nonce-2", "")
+	require.NoError(t, wg.Wait())
+}
+
+func TestDeltaNewerResponseSupersedesOlderNonce(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg1, comp1 := newTestCompletion(t)
+	wg2, comp2 := newTestCompletion(t)
+
+	registerTypeVersionCompletion(t, cb, comp1, listenerTypeURL, "version-1")
+	sendDeltaTypeVersionResponse(cb, 1, listenerTypeURL, "version-1", "nonce-1", "node-1")
+	registerTypeVersionCompletion(t, cb, comp2, listenerTypeURL, "version-2")
+	sendDeltaTypeVersionResponse(cb, 1, listenerTypeURL, "version-2", "nonce-2", "")
+
+	// Once version-2 has been sent, its response represents both pending
+	// updates. A stale ACK for version-1 must not complete either one.
+	ackDeltaTypeVersionResponse(t, cb, 1, listenerTypeURL, "nonce-1", "")
+	requireCompletionPending(t, comp1)
+	requireCompletionPending(t, comp2)
+
+	ackDeltaTypeVersionResponse(t, cb, 1, listenerTypeURL, "nonce-2", "")
+	require.NoError(t, wg1.Wait())
+	require.NoError(t, wg2.Wait())
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestDeltaNACKRevertsOnlyRepresentedUpdates(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	reverted := make([]string, 0, 3)
+
+	for _, version := range []string{"version-1", "version-2"} {
+		_, comp := newTestCompletion(t)
+		registered, err := cb.AddTypeVersionCompletion(
+			comp,
+			version,
+			listenerTypeURL,
+			"node-1",
+			true,
+			func() { reverted = append(reverted, version) },
+		)
+		require.NoError(t, err)
+		require.True(t, registered)
+	}
+	sendDeltaTypeVersionResponse(cb, 1, listenerTypeURL, "version-2", "nonce-1", "node-1")
+
+	wg3, comp3 := newTestCompletion(t)
+	registered, err := cb.AddTypeVersionCompletion(
+		comp3,
+		"version-3",
+		listenerTypeURL,
+		"node-1",
+		true,
+		func() { reverted = append(reverted, "version-3") },
+	)
+	require.NoError(t, err)
+	require.True(t, registered)
+
+	require.NoError(t, cb.OnStreamDeltaRequest(1, &discovery.DeltaDiscoveryRequest{
+		TypeUrl:       listenerTypeURL,
+		ResponseNonce: "nonce-1",
+		ErrorDetail:   &status.Status{Message: "rejected listener"},
+	}))
+	require.Equal(t, []string{"version-2", "version-1"}, reverted)
+	require.Equal(t, 1, cb.PendingCompletionCount())
+	requireCompletionPending(t, comp3)
+
+	sendDeltaTypeVersionResponse(cb, 1, listenerTypeURL, "version-3", "nonce-2", "")
+	ackDeltaTypeVersionResponse(t, cb, 1, listenerTypeURL, "nonce-2", "")
+	require.NoError(t, wg3.Wait())
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestDeltaStreamCloseReassociatesPendingUpdate(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+	registerTypeVersionCompletion(t, cb, comp, listenerTypeURL, "version-1")
+
+	sendDeltaTypeVersionResponse(cb, 1, listenerTypeURL, "version-1", "nonce-1", "node-1")
+	cb.OnDeltaStreamClosed(1, &core.Node{Id: "node-1"})
+	require.Empty(t, cb.deltaResponses)
+	requireCompletionPending(t, comp)
+
+	sendDeltaTypeVersionResponse(cb, 2, listenerTypeURL, "version-1", "nonce-1", "node-1")
+	ackDeltaTypeVersionResponse(t, cb, 2, listenerTypeURL, "nonce-1", "")
+	require.NoError(t, wg.Wait())
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestAddTypeVersionCompletionCompletesDeltaAckedVersion(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg1, comp1 := newTestCompletion(t)
+	registerTypeVersionCompletion(t, cb, comp1, listenerTypeURL, "version-1")
+	sendDeltaTypeVersionResponse(cb, 1, listenerTypeURL, "version-1", "nonce-1", "node-1")
+	ackDeltaTypeVersionResponse(t, cb, 1, listenerTypeURL, "nonce-1", "")
+	require.NoError(t, wg1.Wait())
+
+	_, comp2 := newTestCompletion(t)
+	registered, err := cb.AddTypeVersionCompletion(comp2, "version-1", listenerTypeURL, "node-1", false, nil)
+	require.NoError(t, err)
+	require.False(t, registered)
+	comp2.Complete(nil)
+}
+
+func TestAddTypeVersionCompletionReturnsDeltaNACKForUnchangedVersion(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+	registerTypeVersionCompletion(t, cb, comp, listenerTypeURL, "version-1")
+	sendDeltaTypeVersionResponse(cb, 1, listenerTypeURL, "version-1", "nonce-1", "node-1")
+
+	require.NoError(t, cb.OnStreamDeltaRequest(1, &discovery.DeltaDiscoveryRequest{
+		TypeUrl:       listenerTypeURL,
+		ResponseNonce: "nonce-1",
+		ErrorDetail:   &status.Status{Message: "rejected listener"},
+	}))
+	require.ErrorContains(t, wg.Wait(), "rejected listener")
+
+	_, retryComp := newTestCompletion(t)
+	registered, err := cb.AddTypeVersionCompletion(
+		retryComp,
+		"version-1",
+		listenerTypeURL,
+		"node-1",
+		false,
+		nil,
+	)
+	require.False(t, registered)
+	require.ErrorContains(t, err, "rejected listener")
+	retryComp.Complete(err)
 }

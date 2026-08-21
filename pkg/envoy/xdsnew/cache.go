@@ -226,8 +226,11 @@ func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 	}
 }
 
-func NewCache(logger *slog.Logger, strictAdsMode bool) Cache {
-	snapshotCache := cache.NewSnapshotCache(strictAdsMode, cache.IDHash{}, snapshotCacheLogger(logger))
+// NewCache creates the Cilium snapshot cache. orderedADS enables dependency
+// ordering for both SotW and delta watches; snapshot consistency validation is
+// configured separately by the ADS server.
+func NewCache(logger *slog.Logger, orderedADS bool) Cache {
+	snapshotCache := cache.NewSnapshotCache(orderedADS, cache.IDHash{}, snapshotCacheLogger(logger))
 
 	return &cacheImpl{
 		SnapshotCache:       snapshotCache,
