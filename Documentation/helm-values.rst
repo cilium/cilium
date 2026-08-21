@@ -1331,7 +1331,7 @@
    * - :spelling:ignore:`enableIPv6Masquerade`
      - Enables masquerading of IPv6 traffic leaving the node from endpoints.
      - bool
-     - ``true``
+     - ``true`` unless ipam eni mode is active
    * - :spelling:ignore:`enableInternalTrafficPolicy`
      - Enable Internal Traffic Policy
      - bool
