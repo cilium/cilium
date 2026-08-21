@@ -4,8 +4,10 @@
 package linux
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net"
 	"net/netip"
@@ -13,12 +15,17 @@ import (
 	"syscall"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
+	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -41,12 +48,14 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	cslices "github.com/cilium/cilium/pkg/slices"
-	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
-	wildcardIPv4 = "0.0.0.0"
-	wildcardIPv6 = "0::0"
+	wildcardIPv4             = "0.0.0.0"
+	wildcardIPv6             = "0::0"
+	linuxNodeReconcilerName  = "linux-node"
+	linuxNodeRefreshInterval = time.Minute
 )
 
 // NeighLink contains the details of a NeighLink
@@ -57,11 +66,18 @@ type NeighLink struct {
 type linuxNodeHandler struct {
 	log *slog.Logger
 
-	mutex             lock.RWMutex
-	isInitialized     bool
-	nodeConfig        config.Config
-	datapathConfig    DatapathConfiguration
-	nodes             map[nodeTypes.Identity]*nodeTypes.Node
+	mutex          lock.RWMutex
+	isInitialized  bool
+	nodeConfig     config.Config
+	datapathConfig DatapathConfiguration
+	// nodes contains the last successfully reconciled node version. This cannot
+	// be recovered from the node table, which only contains the latest desired
+	// version, while nodeUpdate needs the previous realized version to remove
+	// obsolete datapath state.
+	nodes map[nodeTypes.Identity]*nodeTypes.Node
+	// pendingNodes contains versions that may have been partially realized by
+	// a failed update and therefore also need cleanup if the object is deleted.
+	pendingNodes      map[nodeTypes.Identity]*nodeTypes.Node
 	ipsecUpdateNeeded map[nodeTypes.Identity]bool
 
 	localNodeStore *node.LocalNodeStore
@@ -82,53 +98,228 @@ type linuxNodeHandler struct {
 	kprCfg kpr.KPRConfig
 
 	ipsecCfg ipsecTypes.Config
+
+	// configReady is closed after the first NodeConfigurationChanged call. Node
+	// reconciliation must not run before the feature configuration it consumes
+	// is available.
+	configReady chan struct{}
 }
 
 var (
-	_ node.Handler         = (*linuxNodeHandler)(nil)
-	_ config.ChangeHandler = (*linuxNodeHandler)(nil)
-	_ node.IDHandler       = (*linuxNodeHandler)(nil)
+	_ config.ChangeHandler              = (*linuxNodeHandler)(nil)
+	_ node.IDHandler                    = (*linuxNodeHandler)(nil)
+	_ reconciler.Operations[*node.Node] = (*linuxNodeOps)(nil)
 )
 
-// NewNodeHandler returns a new node handler to handle node events and
-// implement the implications in the Linux datapath
+type linuxNodeOps struct {
+	handler *linuxNodeHandler
+}
+
+// NewNodeHandler constructs the Linux node datapath and registers its node
+// table reconciler. It continues to expose the legacy handler interfaces for
+// node ID lookups and explicit datapath validation while those APIs remain.
 func NewNodeHandler(
 	lifecycle cell.Lifecycle,
 	log *slog.Logger,
 	tunnelConfig dpTunnel.Config,
 	nodeMap nodemap.MapV2,
-	nodeManager manager.NodeManager,
 	nodeConfigNotifier *manager.NodeConfigNotifier,
 	kprCfg kpr.KPRConfig,
 	ipsecAgent ipsecTypes.Agent,
 	localNodeStore *node.LocalNodeStore,
-) (node.Handler, node.IDHandler) {
+	params reconciler.Params,
+	nodes statedb.Table[*node.Node],
+	health cell.Health,
+	daemonConfig *option.DaemonConfig,
+) node.IDHandler {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
 	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeipsec.Config{}, localNodeStore)
+	checkpoint := newLinuxNodeCheckpoint(
+		log,
+		health,
+		params.DB,
+		nodes,
+		func(ctx context.Context, restored nodeTypes.Node) error {
+			// Pruning may start as soon as the node table is initialized, but the
+			// datapath configuration is needed to determine which restored state to
+			// remove.
+			if err := handler.waitForConfig(ctx); err != nil {
+				return err
+			}
 
-	nodeManager.Subscribe(handler)
+			handler.mutex.Lock()
+			defer handler.mutex.Unlock()
+			return handler.nodeDelete(&restored)
+		},
+		daemonConfig.StateDir,
+	)
+	nodeTable := nodes.(statedb.RWTable[*node.Node])
+
 	nodeConfigNotifier.Subscribe(handler)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
 			handler.RestoreNodeIDs()
+			if err := checkpoint.start(); err != nil {
+				return fmt.Errorf("starting Linux node checkpoint: %w", err)
+			}
+
+			_, err := reconciler.Register(
+				params,
+				nodeTable,
+				(*node.Node).DeepCopy,
+				func(n *node.Node, status reconciler.Status) *node.Node {
+					n.Statuses = n.Statuses.Set(linuxNodeReconcilerName, status)
+					return n
+				},
+				func(n *node.Node) reconciler.Status {
+					return n.Statuses.Get(linuxNodeReconcilerName)
+				},
+				&linuxNodeOps{handler: handler},
+				nil,
+				reconciler.WithName(linuxNodeReconcilerName),
+				reconciler.WithoutPruning(),
+			)
+			if err != nil {
+				return fmt.Errorf("registering Linux node reconciler: %w", err)
+			}
+			params.JobGroup.Add(
+				job.OneShot(
+					"linux-node-refresh",
+					func(ctx context.Context, health cell.Health) error {
+						return refreshLinuxNodes(ctx, health, params.DB, nodeTable)
+					},
+				),
+				job.OneShot("linux-node-checkpoint-writer", checkpoint.watch),
+				job.OneShot(
+					"linux-node-restored-pruning",
+					checkpoint.prune,
+					job.WithRetry(-1, &job.ExponentialBackoff{
+						Min: nodeCheckpointCleanupRetryMin,
+						Max: nodeCheckpointCleanupRetryMax,
+					}),
+				),
+			)
 			return nil
 		},
 		OnStop: func(_ cell.HookContext) error {
-			nodeManager.Unsubscribe(handler)
+			if err := checkpoint.stop(); err != nil {
+				log.Error("Failed to write final Linux node checkpoint",
+					logfields.Error, err,
+				)
+			}
 			return nil
 		},
 	})
 
-	return handler, handler
+	return handler
 }
 
-// newNodeHandler returns a new node handler to handle node events and
-// implement the implications in the Linux datapath
+// refreshLinuxNodes periodically refreshes reconciled nodes. This is done
+// explicitly instead of with reconciler.WithRefreshing so that the refresh
+// interval can grow with the cluster size and nodes can be paced across it.
+func refreshLinuxNodes(
+	ctx context.Context,
+	health cell.Health,
+	db *statedb.DB,
+	nodes statedb.RWTable[*node.Node],
+) error {
+	for {
+		interval := backoff.ClusterSizeDependantInterval(
+			linuxNodeRefreshInterval,
+			nodes.NumObjects(db.ReadTxn()),
+		)
+		startWaiting := time.After(interval)
+		refreshLinuxNodesOnce(ctx, db, nodes, interval)
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-startWaiting:
+		}
+		health.OK("Node refresh complete")
+	}
+}
+
+func refreshLinuxNodesOnce(
+	ctx context.Context,
+	db *statedb.DB,
+	nodes statedb.RWTable[*node.Node],
+	interval time.Duration,
+) {
+	targets := []string{}
+	for n := range nodes.All(db.ReadTxn()) {
+		targets = append(targets, n.Fullname())
+	}
+	if len(targets) == 0 {
+		return
+	}
+
+	limiter := rate.NewLimiter(
+		rate.Limit(float64(len(targets))/interval.Seconds()),
+		1,
+	)
+	for _, fullname := range targets {
+		if limiter.Wait(ctx) != nil {
+			return
+		}
+		refreshLinuxNode(ctx, db, nodes, fullname)
+	}
+}
+
+func refreshLinuxNode(
+	ctx context.Context,
+	db *statedb.DB,
+	nodes statedb.RWTable[*node.Node],
+	fullname string,
+) {
+	marked := false
+	for {
+		n, _, watch, found := nodes.GetWatch(db.ReadTxn(), node.NodeByName(fullname))
+		if !found {
+			return
+		}
+
+		kind := n.Statuses.Get(linuxNodeReconcilerName).Kind
+		if marked && (kind == reconciler.StatusKindDone || kind == reconciler.StatusKindError) {
+			return
+		}
+		if !marked && kind == reconciler.StatusKindError {
+			// Failed objects are already retried by the reconciler.
+			return
+		}
+		if !marked && kind == reconciler.StatusKindDone {
+			wtxn := db.WriteTxn(nodes)
+			current, _, found := nodes.Get(wtxn, node.NodeByName(fullname))
+			if found && current.Statuses.Get(linuxNodeReconcilerName).Kind == reconciler.StatusKindDone {
+				current = current.DeepCopy()
+				current.Statuses = current.Statuses.Set(
+					linuxNodeReconcilerName,
+					reconciler.StatusRefreshing(),
+				)
+				nodes.Insert(wtxn, current)
+				wtxn.Commit()
+				marked = true
+			} else {
+				wtxn.Abort()
+			}
+			continue
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-watch:
+		}
+	}
+}
+
+// newNodeHandler constructs the implementation of Linux node datapath
+// operations.
 func newNodeHandler(
 	log *slog.Logger,
 	datapathConfig DatapathConfiguration,
@@ -143,6 +334,7 @@ func newNodeHandler(
 		datapathConfig:       datapathConfig,
 		nodeConfig:           config.Config{},
 		nodes:                map[nodeTypes.Identity]*nodeTypes.Node{},
+		pendingNodes:         map[nodeTypes.Identity]*nodeTypes.Node{},
 		localNodeStore:       localNodeStore,
 		nodeMap:              nodeMap,
 		nodeIDs:              idpool.NewIDPool(minNodeID, maxNodeID),
@@ -153,11 +345,100 @@ func newNodeHandler(
 		kprCfg:               kprCfg,
 		ipsecAgent:           ipsecAgent,
 		ipsecCfg:             ipsecCfg,
+		configReady:          make(chan struct{}),
 	}
 }
 
-func (l *linuxNodeHandler) Name() string {
-	return "linux-node-datapath"
+func (ops *linuxNodeOps) Update(
+	ctx context.Context,
+	_ statedb.ReadTxn,
+	_ statedb.Revision,
+	desired *node.Node,
+) error {
+	// NodeConfigurationChanged supplies the feature configuration used to
+	// decide which routes and encryption state should be realized.
+	if err := ops.handler.waitForConfig(ctx); err != nil {
+		return err
+	}
+
+	n := desired.Node.DeepCopy()
+	ops.handler.mutex.Lock()
+	defer ops.handler.mutex.Unlock()
+
+	old, found := ops.handler.nodes[n.Identity()]
+	if pending, pendingFound := ops.handler.pendingNodes[n.Identity()]; pendingFound && !pending.DeepEqual(n) {
+		// NodeManager used the last attempted version as old when a newer update
+		// superseded a failed one. Do the same so state partially realized by the
+		// failed version is removed. Retries of the same version still use the
+		// last successful version and can reattempt every operation.
+		old = pending
+		found = true
+	}
+	if err := ops.handler.nodeUpdate(old, n, !found); err != nil {
+		ops.handler.pendingNodes[n.Identity()] = n
+		return err
+	}
+	ops.handler.nodes[n.Identity()] = n
+	delete(ops.handler.pendingNodes, n.Identity())
+	return nil
+}
+
+func (ops *linuxNodeOps) Delete(
+	ctx context.Context,
+	_ statedb.ReadTxn,
+	_ statedb.Revision,
+	deleted *node.Node,
+) error {
+	// Deletion needs the same configuration as update to identify all datapath
+	// state that belongs to the node.
+	if err := ops.handler.waitForConfig(ctx); err != nil {
+		return err
+	}
+
+	ops.handler.mutex.Lock()
+	defer ops.handler.mutex.Unlock()
+
+	identity := deleted.Identity()
+	old, found := ops.handler.nodes[identity]
+	pending, pendingFound := ops.handler.pendingNodes[identity]
+	if !found && !pendingFound {
+		return nil
+	}
+
+	var errs error
+	if pendingFound {
+		errs = errors.Join(errs, ops.handler.nodeDelete(pending))
+	}
+	if found && (!pendingFound || !old.DeepEqual(pending)) {
+		errs = errors.Join(errs, ops.handler.nodeDelete(old))
+	}
+	if errs != nil {
+		return errs
+	}
+	delete(ops.handler.nodes, identity)
+	delete(ops.handler.pendingNodes, identity)
+	return nil
+}
+
+func (*linuxNodeOps) Prune(
+	context.Context,
+	statedb.ReadTxn,
+	iter.Seq2[*node.Node, statedb.Revision],
+) error {
+	// Deletions are handled incrementally. State restored from nodes.json is
+	// pruned separately by linuxNodeCheckpoint once the node table is initialized.
+	return nil
+}
+
+// waitForConfig prevents reconciliation from running before the datapath
+// feature configuration used by nodeUpdate and nodeDelete is available.
+func (n *linuxNodeHandler) waitForConfig(ctx context.Context) error {
+	select {
+	case <-n.configReady:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func createDirectRouteSpec(log *slog.Logger, prefix netip.Prefix, nodeIP net.IP, skipUnreachable bool) (routeSpec *netlink.Route, addRoute bool, err error) {
@@ -469,32 +750,6 @@ func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []netip.Prefix, isL
 	return errs
 }
 
-func (n *linuxNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	n.nodes[newNode.Identity()] = &newNode
-
-	if n.isInitialized {
-		return n.nodeUpdate(nil, &newNode, true)
-	}
-
-	return nil
-}
-
-func (n *linuxNodeHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	n.nodes[newNode.Identity()] = &newNode
-
-	if n.isInitialized {
-		return n.nodeUpdate(&oldNode, &newNode, false)
-	}
-
-	return nil
-}
-
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAddition bool) error {
 	var (
@@ -588,26 +843,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	return errs
-}
-
-func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	nodeIdentity := oldNode.Identity()
-	if oldCachedNode, nodeExists := n.nodes[nodeIdentity]; nodeExists || oldNode.Source == source.Restored {
-		delete(n.nodes, nodeIdentity)
-
-		if oldNode.Source == source.Restored {
-			oldCachedNode = &oldNode
-		}
-
-		if n.isInitialized {
-			return n.nodeDelete(oldCachedNode)
-		}
-	}
-
-	return nil
 }
 
 // Must be called with linuxNodeHandler.mutex held.
@@ -750,52 +985,15 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 		}
 	}
 
-	var errs error
 	if !n.isInitialized {
 		n.isInitialized = true
-
-		for _, unlinkedNode := range n.nodes {
-			if err := n.nodeUpdate(nil, unlinkedNode, true); err != nil {
-				errs = errors.Join(errs, err)
-			}
-		}
+		// The reconciler may have observed nodes before the datapath was
+		// initialized. Release those operations now that their configuration is
+		// available.
+		close(n.configReady)
 	}
 
-	return errs
-}
-
-// NodeValidateImplementation is called to validate the implementation of the
-// node in the datapath
-func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.Node) error {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	if !n.isInitialized {
-		return nil
-	}
-
-	return n.nodeUpdate(nil, &nodeToValidate, false)
-}
-
-// AllNodeValidateImplementation is called to validate the implementation of the
-// node in the datapath for all existing nodes
-func (n *linuxNodeHandler) AllNodeValidateImplementation() {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	if !n.isInitialized {
-		return
-	}
-
-	var errs error
-	for _, updateNode := range n.nodes {
-		if err := n.nodeUpdate(nil, updateNode, false); err != nil {
-			errs = errors.Join(errs, err)
-		}
-	}
-	if errs != nil {
-		n.log.Warn("Node update failed during datapath node validation", logfields.Error, errs)
-	}
+	return nil
 }
 
 // NodeDeviceNameWithDefaultRoute returns the node's device name which

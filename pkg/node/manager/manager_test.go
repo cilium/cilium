@@ -4,15 +4,11 @@
 package manager
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/netip"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -1072,6 +1068,7 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 		cell.Provide(tables.NewDeviceTable),
 		cell.Provide(statedb.RWTable[*tables.Device].ToTable),
 		cell.Provide(node.NewNodeTable),
+		cell.Provide(node.NewWriter),
 		cell.Provide(func() node.ClusterSizeDependantIntervalFunc {
 			return func(interval time.Duration) time.Duration { return interval }
 		}),
@@ -1417,205 +1414,16 @@ func TestNodeIpset(t *testing.T) {
 	ipsetExpect(mngr.ipsetMgr.(*ipsetMock), "2001:ABCD::1", false)
 }
 
-// Tests that the node manager calls delete on nodes to be pruned.
-func TestNodesStartupPruning(t *testing.T) {
-	c1Node1 := nodeTypes.Node{Name: "node1", Cluster: "c1", IPAddresses: []nodeTypes.Address{
-		{
-			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.1"),
-		},
-	}}
-
-	c1Node2 := nodeTypes.Node{Name: "node2", Cluster: "c1", IPAddresses: []nodeTypes.Address{
-		{
-			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.2"),
-		},
-	}}
-
-	c1StaleNode := nodeTypes.Node{Name: "node3", Cluster: "c1", IPAddresses: []nodeTypes.Address{
-		{
-			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.3"),
-		},
-	}}
-
-	c2Node1 := nodeTypes.Node{Name: "node1", Cluster: "c2", IPAddresses: []nodeTypes.Address{
-		{
-			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.4"),
-		},
-	}}
-
-	c2StaleNode := nodeTypes.Node{Name: "node2", Cluster: "c2", IPAddresses: []nodeTypes.Address{
-		{
-			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("10.0.0.5"),
-		},
-	}}
-
-	setupManager := func(t *testing.T, stateDir string) (*manager, *signalNodeHandler) {
-		logger := hivetest.Logger(t)
-
-		// Create a nodes.json file from the above two nodes, simulating a previous instance of the agent.
-		nodesFilePath := filepath.Join(stateDir, nodesFilename)
-		nf, err := os.Create(nodesFilePath)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			nf.Close()
-			os.Remove(nodesFilePath)
-		})
-		e := json.NewEncoder(nf)
-		require.NoError(t, e.Encode([]nodeTypes.Node{
-			c1Node1, c1Node2, c1StaleNode, c2Node1, c2StaleNode,
-		}))
-		require.NoError(t, nf.Sync())
-		require.NoError(t, nf.Close())
-
-		// Create a node manager and add only c1-node1 (local).
-		ipcacheMock := newIPcacheMock()
-		dp := newSignalNodeHandler()
-		dp.EnableNodeDeleteEvent = true
-		h, _ := cell.NewSimpleHealth()
-		mngr, err := New(logger, &option.DaemonConfig{
-			StateDir: stateDir,
-		}, cmtypes.ClusterInfo{Name: "c1"}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil, testClusterSizeDependantInterval)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			mngr.Stop(context.TODO())
-		})
-		mngr.Subscribe(dp)
-		mngr.NodeUpdated(c1Node1)
-
-		// Load the nodes from disk.
-		mngr.restoreNodeCheckpoint()
-		require.NoError(t, mngr.initNodeCheckpointer(time.Microsecond))
-		// We remove our test file here to be able to tell once the nodemanager has
-		// written one itself.
-		require.NoError(t, os.Remove(nodesFilePath))
-
-		return mngr, dp
-	}
-
-	checkNodeFileMatches := func(t *testing.T, stateDir string, nodes ...nodeTypes.Node) {
-		path := filepath.Join(stateDir, nodesFilename)
-
-		var prevBytes []byte
-
-		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			checkpointBytes, err := os.ReadFile(path)
-			assert.NoError(c, err)
-
-			if bytes.Equal(checkpointBytes, prevBytes) {
-				c.FailNow()
-			}
-
-			prevBytes = checkpointBytes
-
-			var nl []nodeTypes.Node
-			assert.NoError(c, json.Unmarshal(checkpointBytes, &nl))
-			assert.ElementsMatch(c, nodes, nl)
-		}, time.Second*2, 100*time.Millisecond)
-	}
-
-	t.Run("cluster nodes synced first", func(t *testing.T) {
-		stateDir := t.TempDir()
-		mngr, dp := setupManager(t, stateDir)
-
-		// Simulate cluster initial listing.
-		// Add c1 node2 and declare cluster nodes synced.
-		// This should prune c1 node3 (since it's present in the file but not in our
-		// current view).
-		mngr.NodeUpdated(c1Node2)
-		mngr.NodeSync()
-
-		select {
-		case dn := <-dp.NodeDeleteEvent:
-			expectedNode := c1StaleNode
-			expectedNode.Source = source.Restored
-			assert.Equal(t, expectedNode, dn, "should have deleted stale node c1 node3 (with source=Restored)")
-		case <-time.After(time.Second * 5):
-			t.Fatal("should have received a node deletion event for stale node c1 node3")
-		}
-
-		checkNodeFileMatches(t, stateDir, c1Node1, c1Node2)
-
-		// Simulate initial cluster mesh sync. This should prune c2 node2 (since
-		// it's present in the file but not in our current view).
-		mngr.NodeUpdated(c2Node1)
-		mngr.MeshNodeSync()
-
-		select {
-		case dn := <-dp.NodeDeleteEvent:
-			expectedNode := c2StaleNode
-			expectedNode.Source = source.Restored
-			assert.Equal(t, expectedNode, dn, "should have deleted stale node c2 node2 (with source=Restored)")
-		case <-time.After(time.Second * 5):
-			t.Fatal("should have received a node deletion event for stale node c2 node2")
-		}
-
-		checkNodeFileMatches(t, stateDir, c1Node1, c1Node2, c2Node1)
-
-		assert.Equal(t, float64(2), mngr.metrics.EventsReceived.WithLabelValues("delete", string(source.Restored)).Get())
-		assert.Equal(t, float64(3), mngr.metrics.NumNodes.Get())
-	})
-
-	t.Run("meshed nodes synced first", func(t *testing.T) {
-		stateDir := t.TempDir()
-		mngr, dp := setupManager(t, stateDir)
-
-		// Simulate clustermesh initial sync before cluster nodes are finished listing.
-		// Add c2 node1 and declare clustermesh nodes synced (but not cluster nodes).
-		// This should prune c2 node2 (since it's present in the file but not in our
-		// current view).
-		// Restored cluster nodes should not be pruned yet.
-		mngr.NodeUpdated(c2Node1)
-		mngr.MeshNodeSync()
-
-		select {
-		case dn := <-dp.NodeDeleteEvent:
-			expectedNode := c2StaleNode
-			expectedNode.Source = source.Restored
-			assert.Equal(t, expectedNode, dn, "should have deleted stale node c2 node2 (with source=Restored)")
-		case <-time.After(time.Second * 5):
-			t.Fatal("should have received a node deletion event for stale node c2 node2")
-		}
-
-		// Checkpoint should have c1 node1 (local) and c2 node1 (meshed).
-		checkNodeFileMatches(t, stateDir, c1Node1, c2Node1)
-
-		// Simulate cluster initial listing.
-		// Add c1 node2 and declare cluster nodes synced.
-		// This should prune c1 node3 (since it's present in the file but not in our
-		// current view).
-		mngr.NodeUpdated(c1Node2)
-		mngr.NodeSync()
-
-		select {
-		case dn := <-dp.NodeDeleteEvent:
-			expectedNode := c1StaleNode
-			expectedNode.Source = source.Restored
-			assert.Equal(t, expectedNode, dn, "should have deleted stale node c1 node3 (with source=Restored)")
-		case <-time.After(time.Second * 5):
-			t.Fatal("should have received a node deletion event for stale node c1 node3")
-		}
-
-		checkNodeFileMatches(t, stateDir, c1Node1, c1Node2, c2Node1)
-
-		assert.Equal(t, float64(2), mngr.metrics.EventsReceived.WithLabelValues("delete", string(source.Restored)).Get())
-		assert.Equal(t, float64(3), mngr.metrics.NumNodes.Get())
-	})
-}
-
 func TestNodeTableMirroring(t *testing.T) {
 	logger := hivetest.Logger(t)
 	db := statedb.New()
 	nodeTable, err := node.NewNodeTable(db)
 	require.NoError(t, err)
+	writer := node.NewWriter(logger, db, nodeTable)
 
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.ClusterInfo{Name: "c1"}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, nodeTable, testClusterSizeDependantInterval)
+	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.ClusterInfo{Name: "c1"}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, writer, testClusterSizeDependantInterval)
 	require.NoError(t, err)
 
 	initialized, initWatch := nodeTable.Initialized(db.ReadTxn())
@@ -1678,6 +1486,25 @@ func TestNodeTableMirroring(t *testing.T) {
 	requireNode(t, n1)
 	requireNode(t, n2)
 
+	// NodeManager delegates table conflict resolution to node.Writer. For
+	// equal-priority address owners the latest update wins.
+	n3 := n2.DeepCopy()
+	n3.Name = "node3"
+	mngr.NodeUpdated(*n3)
+	requireNode(t, n1)
+	requireNoNode(t, n2)
+	requireNode(t, *n3)
+
+	// Deleting the displaced node must not delete the current address owner.
+	mngr.NodeDeleted(n2)
+	requireNoNode(t, n2)
+	requireNode(t, *n3)
+
+	mngr.NodeUpdated(n2)
+	requireNode(t, n1)
+	requireNode(t, n2)
+	requireNoNode(t, *n3)
+
 	select {
 	case <-initWatch:
 		t.Fatal("node table initialized before NodeSync")
@@ -1723,6 +1550,7 @@ func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
 			db := statedb.New()
 			nodeTable, err := node.NewNodeTable(db)
 			require.NoError(t, err)
+			writer := node.NewWriter(hivetest.Logger(t), db, nodeTable)
 
 			health, _ := cell.NewSimpleHealth()
 			mngr, err := New(
@@ -1739,7 +1567,7 @@ func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
 				db,
 				nil,
 				fakewireguard.Config{},
-				nodeTable,
+				writer,
 				testClusterSizeDependantInterval,
 			)
 			require.NoError(t, err)

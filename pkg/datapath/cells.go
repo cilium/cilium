@@ -142,7 +142,7 @@ var Cell = cell.Module(
 
 	vtep.Cell,
 
-	// Provides node handler, which handles node events.
+	// Provides the Linux node reconciler and node ID API.
 	cell.Provide(linuxdatapath.NewNodeHandler),
 	cell.Provide(node.NewNodeIDApiHandler),
 
