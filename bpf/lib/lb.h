@@ -83,6 +83,7 @@ struct lb4_service {
 		 *                  values:
 		 *                     1 - random
 		 *                     2 - maglev
+		 *                     4 - round-robin
 		 * - Lower 24 bits: timeout in seconds
 		 * Note: We don't use bitfield here given storage is
 		 * compiler implementation dependent and the map needs
@@ -340,6 +341,15 @@ struct {
 	});
 } cilium_lb4_maglev __section_maps_btf;
 #endif /* OVERWRITE_MAGLEV_MAP_FROM_TEST */
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, __u16);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_SERVICE_MAP_MAX_ENTRIES);
+	__uint(map_flags, LRU_MEM_FLAVOR);
+} cilium_lb_round_robin __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -734,6 +744,30 @@ static __always_inline __u32 lb_default_algorithm(void)
 		return LB_SELECTION_RANDOM;
 
 	return CONFIG(lb_default_alg);
+}
+
+static __always_inline __u16
+lb_select_backend_slot_round_robin(__u16 rev_nat_index, __u16 count)
+{
+	__u32 initial = 0;
+	__u32 *cursor;
+	__u32 slot;
+
+	if (unlikely(count == 0))
+		return 0;
+
+	cursor = map_lookup_elem(&cilium_lb_round_robin, &rev_nat_index);
+	if (unlikely(!cursor)) {
+		map_update_elem(&cilium_lb_round_robin, &rev_nat_index, &initial,
+				BPF_NOEXIST);
+		cursor = map_lookup_elem(&cilium_lb_round_robin, &rev_nat_index);
+	}
+
+	if (unlikely(!cursor))
+		return (get_prandom_u32() % count) + 1;
+
+	slot = __sync_fetch_and_add(cursor, 1);
+	return (slot % count) + 1;
 }
 
 #ifdef ENABLE_IPV6
@@ -1156,6 +1190,19 @@ lb6_select_backend_id_maglev(const struct __ctx_buff *ctx __maybe_unused,
 	return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
 
+static __always_inline __u32
+lb6_select_backend_id_round_robin(const struct __ctx_buff *ctx,
+				  struct lb6_key *key,
+				  const struct ipv6_ct_tuple *tuple __maybe_unused,
+				  const struct lb6_service *svc)
+{
+	__u16 slot = lb_select_backend_slot_round_robin(svc->rev_nat_index,
+							svc->count);
+	const struct lb6_service *be = lb6_lookup_backend_slot(ctx, key, slot);
+
+	return be ? be->backend_id : 0;
+}
+
 /* Backend selection for unit tests that always chooses first slot. This
  * part is unreachable from agent code enablement.
  */
@@ -1195,6 +1242,7 @@ lb6_select_backend_id(const struct __ctx_buff *ctx, struct lb6_key *key,
 	switch (alg) {
 	case LB_SELECTION_MAGLEV:
 	case LB_SELECTION_RANDOM:
+	case LB_SELECTION_ROUND_ROBIN:
 	case LB_SELECTION_FIRST:
 		break;
 	default:
@@ -1211,6 +1259,8 @@ lb6_select_backend_id(const struct __ctx_buff *ctx, struct lb6_key *key,
 		return lb6_select_backend_id_maglev(ctx, key, tuple, svc);
 	case LB_SELECTION_RANDOM:
 		return lb6_select_backend_id_random(ctx, key, tuple, svc);
+	case LB_SELECTION_ROUND_ROBIN:
+		return lb6_select_backend_id_round_robin(ctx, key, tuple, svc);
 	case LB_SELECTION_FIRST:
 		return lb6_select_backend_id_first(ctx, key, tuple, svc);
 	}
@@ -1980,6 +2030,19 @@ lb4_select_backend_id_maglev(const struct __ctx_buff *ctx __maybe_unused,
 	return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
 
+static __always_inline __u32
+lb4_select_backend_id_round_robin(const struct __ctx_buff *ctx,
+				  struct lb4_key *key,
+				  const struct ipv4_ct_tuple *tuple __maybe_unused,
+				  const struct lb4_service *svc)
+{
+	__u16 slot = lb_select_backend_slot_round_robin(svc->rev_nat_index,
+							svc->count);
+	const struct lb4_service *be = lb4_lookup_backend_slot(ctx, key, slot);
+
+	return be ? be->backend_id : 0;
+}
+
 /*
  * Backend selection for unit tests that always chooses first slot.
  * This part is unreachable from agent code enablement.
@@ -2020,6 +2083,7 @@ lb4_select_backend_id(const struct __ctx_buff *ctx, struct lb4_key *key,
 	switch (alg) {
 	case LB_SELECTION_MAGLEV:
 	case LB_SELECTION_RANDOM:
+	case LB_SELECTION_ROUND_ROBIN:
 	case LB_SELECTION_FIRST:
 		break;
 	default:
@@ -2036,6 +2100,8 @@ lb4_select_backend_id(const struct __ctx_buff *ctx, struct lb4_key *key,
 		return lb4_select_backend_id_maglev(ctx, key, tuple, svc);
 	case LB_SELECTION_RANDOM:
 		return lb4_select_backend_id_random(ctx, key, tuple, svc);
+	case LB_SELECTION_ROUND_ROBIN:
+		return lb4_select_backend_id_round_robin(ctx, key, tuple, svc);
 	case LB_SELECTION_FIRST:
 		return lb4_select_backend_id_first(ctx, key, tuple, svc);
 	}
