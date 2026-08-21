@@ -117,8 +117,8 @@ func addClusterFilterByDefault(es *api.EndpointSelector, clusterName string) {
 // this is when translating selectors for CiliumClusterwideNetworkPolicy.
 // If a clusterName is provided then is assumed that the selector is scoped to the local
 // cluster by default in a ClusterMesh environment.
-func getEndpointSelector(clusterName, namespace string, labelSelector *slim_metav1.LabelSelector, matchesInit bool) api.EndpointSelector {
-	es := api.NewESFromK8sLabelSelector("", labelSelector)
+func getEndpointSelector(clusterName, namespace string, sel *api.EndpointSelector, matchesInit bool) api.EndpointSelector {
+	es := api.NewEndpointSelector("", sel)
 
 	// The k8s prefix must not be added to reserved labels.
 	if es.HasKeyPrefix(labels.LabelSourceReservedKeyPrefix) {
@@ -156,6 +156,13 @@ func getEndpointSelector(clusterName, namespace string, labelSelector *slim_meta
 	return es
 }
 
+func getNodeSelector(clusterName string, sel *api.EndpointSelector) api.EndpointSelector {
+	ns := api.NewEndpointSelector("", sel)
+	ns.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
+	addClusterFilterByDefault(&ns, clusterName)
+	return ns
+}
+
 func parseToCiliumIngressCommonRule(clusterName, namespace string, es api.EndpointSelector, ing api.IngressCommonRule) api.IngressCommonRule {
 	matchesInit := matchesPodInit(es)
 	var retRule api.IngressCommonRule
@@ -163,17 +170,14 @@ func parseToCiliumIngressCommonRule(clusterName, namespace string, es api.Endpoi
 	if ing.FromEndpoints != nil {
 		retRule.FromEndpoints = make([]api.EndpointSelector, len(ing.FromEndpoints))
 		for j, ep := range ing.FromEndpoints {
-			retRule.FromEndpoints[j] = getEndpointSelector(clusterName, namespace, ep.LabelSelector, matchesInit)
+			retRule.FromEndpoints[j] = getEndpointSelector(clusterName, namespace, &ep, matchesInit)
 		}
 	}
 
 	if ing.FromNodes != nil {
 		retRule.FromNodes = make([]api.EndpointSelector, len(ing.FromNodes))
 		for j, node := range ing.FromNodes {
-			es = api.NewESFromK8sLabelSelector("", node.LabelSelector)
-			es.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
-			addClusterFilterByDefault(&es, clusterName)
-			retRule.FromNodes[j] = es
+			retRule.FromNodes[j] = getNodeSelector(clusterName, &node)
 		}
 	}
 
@@ -247,7 +251,7 @@ func parseToCiliumEgressCommonRule(clusterName, namespace string, es api.Endpoin
 	if egr.ToEndpoints != nil {
 		retRule.ToEndpoints = make([]api.EndpointSelector, len(egr.ToEndpoints))
 		for j, ep := range egr.ToEndpoints {
-			endpointSelector := getEndpointSelector(clusterName, namespace, ep.LabelSelector, matchesInit)
+			endpointSelector := getEndpointSelector(clusterName, namespace, &ep, matchesInit)
 			endpointSelector.Generated = ep.Generated
 			retRule.ToEndpoints[j] = endpointSelector
 		}
@@ -276,10 +280,7 @@ func parseToCiliumEgressCommonRule(clusterName, namespace string, es api.Endpoin
 	if egr.ToNodes != nil {
 		retRule.ToNodes = make([]api.EndpointSelector, len(egr.ToNodes))
 		for j, node := range egr.ToNodes {
-			es = api.NewESFromK8sLabelSelector("", node.LabelSelector)
-			es.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
-			addClusterFilterByDefault(&es, clusterName)
-			retRule.ToNodes[j] = es
+			retRule.ToNodes[j] = getNodeSelector(clusterName, &node)
 		}
 	}
 
@@ -363,8 +364,8 @@ func namespacesAreValid(namespace string, userNamespaces []string) bool {
 // policy is scoped to the local cluster in a ClusterMesh environment.
 func ParseToCiliumRule(logger *slog.Logger, clusterName, namespace, name string, uid types.UID, r *api.Rule) *api.Rule {
 	retRule := &api.Rule{}
-	if r.EndpointSelector.LabelSelector != nil {
-		retRule.EndpointSelector = api.NewESFromK8sLabelSelector("", r.EndpointSelector.LabelSelector)
+	if !r.EndpointSelector.IsZero() {
+		retRule.EndpointSelector = api.NewEndpointSelector("", &r.EndpointSelector)
 		// The PodSelector should only reflect to the same namespace
 		// the policy is being stored, thus we add the namespace to
 		// the MatchLabels map. Additionally, Policy repository relies
@@ -387,8 +388,8 @@ func ParseToCiliumRule(logger *slog.Logger, clusterName, namespace, name string,
 			}
 			retRule.EndpointSelector.AddMatch(podPrefixLbl, namespace)
 		}
-	} else if r.NodeSelector.LabelSelector != nil {
-		retRule.NodeSelector = api.NewESFromK8sLabelSelector("", r.NodeSelector.LabelSelector)
+	} else if !r.NodeSelector.IsZero() {
+		retRule.NodeSelector = api.NewEndpointSelector("", &r.NodeSelector)
 	}
 
 	retRule.Ingress = parseToCiliumIngressRule(clusterName, namespace, r.EndpointSelector, r.Ingress)

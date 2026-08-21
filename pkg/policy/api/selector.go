@@ -8,63 +8,119 @@ import (
 	"fmt"
 	"strings"
 
+	ciliumcel "github.com/cilium/cilium/pkg/cel"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 )
+
+// CELExpression is a CEL (Common Expression Language) boolean expression string.
+// An empty CELExpression is considered as no-op requirement.
+type CELExpression string
+
+// IsZero reports whether the CEL expression is empty.
+func (c CELExpression) IsZero() bool { return len(c) == 0 }
+
+// SelectorKey returns the internal representation of the CEL expression.
+func (c CELExpression) SelectorKey() string {
+	return fmt.Sprintf("CEL{%s}", c)
+}
 
 // EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {
 	*slim_metav1.LabelSelector `json:",inline"`
 
-	// cachedLabelSelectorString is the cached representation of the
-	// LabelSelector for this EndpointSelector. It is populated when
-	// EndpointSelectors are created via `NewESFromMatchRequirements`. It is
-	// immutable after its creation.
-	cachedLabelSelectorString string `json:"-"`
+	// MatchCELExpression is an optional, serialized, boolean CEL expression
+	// that provides additional label match conditions for this selector.
+	// When set, an endpoint must satisfy this expression **AND** the
+	// k8s LabelSelector constraints.
+	// The environment for CEL expression provides a 'label(<key>)' macro
+	// to lookup value of key(with source prefix) against the Label being
+	// evaluated for selection.
+	// The return type of this macro is the label value wrapped in an optional type:
+	// https://pkg.go.dev/github.com/google/cel-go/cel#OptionalTypes
+	//
+	// Example Usage:
+	//
+	// * Check if a key exist in the input Labels:
+	// 		* label("k8s:app").hasValue()
+	// 		* label("any:missing") == optional.none()
+	// * Get value of a known existing key:
+	// 		* label("k8s:app").value()
+	// 		* Note: Unwrapping a non existing key through `value()` will cause evaluation error.
+	// * Get value of an unknown key:
+	// 		* label("k8s:app").orValue("")
+	// * Compare value of an unknown key:
+	// 		* label("k8s:app") == optional.of("myapp")
+	// * Set membership for a label value:
+	// 		* label("k8s:env").value() in ["prod", "staging", "dev"]
+	// * Common string operations on label values:
+	// 		* label("k8s:env").orValue("").startsWith("prod")
+	// 		* label("k8s:env").orValue("").endsWith("-us-east")
+	// 		* label("k8s:env").orValue("").contains("db-staging")
+	// * Boolean composition:
+	// 		* label("k8s:env").value() == "dev" || label("k8s:env").value() == "staging"
+	// 		* label("k8s:env") == optional.of("prod") && label("k8s:app") == optional.of("myapp")
+	// 		* label("k8s:env") != optional.of("prod")
+	// * Iterators:
+	// 		* ["k8s:app", "k8s:env"].all(k, label(k).hasValue())
+	// 		* ["k8s:app", "k8s:env"].map(k, label(k).orValue("")) == ["myapp", "prod"]
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxLength=4096
+	MatchCELExpression CELExpression `json:"matchCELExpression,omitzero"`
+
+	// cachedSelectorKey is the cached representation of this EndpointSelector.
+	cachedSelectorKey string `json:"-"`
 
 	// Generated indicates whether the rule was generated based on other rules
 	// or provided by user
 	Generated bool `json:"-"`
 }
 
+func (n EndpointSelector) buildSelectorKey() string {
+	if n.MatchCELExpression.IsZero() {
+		return n.LabelSelector.String()
+	}
+	return fmt.Sprintf("%s && %s", n.LabelSelector.String(), n.MatchCELExpression.SelectorKey())
+}
+
 func (n EndpointSelector) SelectorKey() string {
 	// Use pre-computed string when available
-	if n.cachedLabelSelectorString != "" {
-		return n.cachedLabelSelectorString
+	if n.cachedSelectorKey != "" {
+		return n.cachedSelectorKey
 	}
-	return n.LabelSelector.String()
+	return n.buildSelectorKey()
 }
 
 // Used for `omitzero` json tag.
 func (n *EndpointSelector) IsZero() bool {
-	return n.LabelSelector == nil
-}
-
-// LabelSelectorString returns a user-friendly string representation of
-// EndpointSelector.
-func (n *EndpointSelector) LabelSelectorString() string {
-	if n != nil && n.LabelSelector == nil {
-		return "<all>"
-	}
-	return slim_metav1.FormatLabelSelector(n.LabelSelector)
+	return n.LabelSelector == nil && n.MatchCELExpression.IsZero()
 }
 
 // String returns a string representation of EndpointSelector.
 func (n EndpointSelector) String() string {
-	j, _ := json.Marshal(n.LabelSelector)
+	j, _ := json.Marshal(n)
 	return string(j)
 }
 
 // CachedString returns the cached string representation of the LabelSelector
 // for this EndpointSelector.
 func (n EndpointSelector) CachedString() string {
-	return n.cachedLabelSelectorString
+	return n.cachedSelectorKey
 }
 
 // UnmarshalJSON unmarshals the endpoint selector from the byte array.
 func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
+	// Always initialize LabelSelector to distinguish an empty selector
+	// (matches all endpoints) from an absent selector, matching historical
+	// behavior relied on by policyapi.Rule field disambiguation.
 	n.LabelSelector = &slim_metav1.LabelSelector{}
-	return json.Unmarshal(b, n.LabelSelector)
+	// Use a type alias to invoke standard JSON unmarshaling without triggering
+	// this method recursively. The embedded *LabelSelector fields are inlined
+	// at the JSON level (json:",inline"), and MatchCELExpression carries its
+	// own tag, so the standard decoder handles everything correctly.
+	type plain EndpointSelector
+	return json.Unmarshal(b, (*plain)(n))
 }
 
 // HasKeyPrefix checks if the endpoint selector contains the given key prefix in
@@ -128,14 +184,14 @@ func NewESFromLabels(lbls ...labels.Label) EndpointSelector {
 // If the caller intends to reuse 'matchLabels' or 'reqs' after creating the
 // EndpointSelector, they must make a copy of the parameter.
 func NewESFromMatchRequirements(matchLabels map[string]string, reqs []slim_metav1.LabelSelectorRequirement) EndpointSelector {
-	labelSelector := &slim_metav1.LabelSelector{
-		MatchLabels:      matchLabels,
-		MatchExpressions: reqs,
+	es := EndpointSelector{
+		LabelSelector: &slim_metav1.LabelSelector{
+			MatchLabels:      matchLabels,
+			MatchExpressions: reqs,
+		},
 	}
-	return EndpointSelector{
-		LabelSelector:             labelSelector,
-		cachedLabelSelectorString: labelSelector.String(),
-	}
+	es.cachedSelectorKey = es.SelectorKey()
+	return es
 }
 
 // newReservedEndpointSelector returns a selector that matches on all
@@ -160,6 +216,14 @@ var (
 		labels.IDNameWorldIPv6:  newReservedEndpointSelector(labels.IDNameWorldIPv6),
 	}
 )
+
+// NewEndpointSelector returns a new endpoint selector from the provided selector.
+func NewEndpointSelector(srcPrefix string, src *EndpointSelector) EndpointSelector {
+	es := NewESFromK8sLabelSelector(srcPrefix, src.LabelSelector)
+	es.MatchCELExpression = src.MatchCELExpression
+	es.cachedSelectorKey = es.buildSelectorKey()
+	return es
+}
 
 // NewESFromK8sLabelSelector returns a new endpoint selector from the label
 // where it the given srcPrefix will be encoded in the label's keys.
@@ -199,7 +263,7 @@ func (n *EndpointSelector) AddMatch(key, value string) {
 		n.MatchLabels = map[string]string{}
 	}
 	n.MatchLabels[key] = value
-	n.cachedLabelSelectorString = n.LabelSelector.String()
+	n.cachedSelectorKey = n.buildSelectorKey()
 }
 
 // AddMatchExpression adds a match expression to label selector of the endpoint selector.
@@ -209,13 +273,14 @@ func (n *EndpointSelector) AddMatchExpression(key string, op slim_metav1.LabelSe
 		Operator: op,
 		Values:   values,
 	})
-	n.cachedLabelSelectorString = n.LabelSelector.String()
+	n.cachedSelectorKey = n.buildSelectorKey()
 }
 
 // IsWildcard returns true if the endpoint selector selects all endpoints.
 func (n *EndpointSelector) IsWildcard() bool {
 	return n.LabelSelector != nil &&
-		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0
+		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0 &&
+		n.MatchCELExpression.IsZero()
 }
 
 func (n *EndpointSelector) Sanitize() error {
@@ -224,9 +289,16 @@ func (n *EndpointSelector) Sanitize() error {
 		return fmt.Errorf("invalid label selector: %w", errList.ToAggregate())
 	}
 
+	if !n.MatchCELExpression.IsZero() {
+		res := ciliumcel.Env.Compile(ciliumcel.EnvTypeLabelSelector, string(n.MatchCELExpression))
+		if res.Error != nil {
+			return fmt.Errorf("failed to compile CEL expression: %w", res.Error)
+		}
+	}
+
 	es := NewESFromK8sLabelSelector(labels.LabelSourceAnyKeyPrefix, n.LabelSelector)
-	n.cachedLabelSelectorString = es.cachedLabelSelectorString
 	n.LabelSelector = es.LabelSelector
+	n.cachedSelectorKey = n.buildSelectorKey()
 
 	return nil
 }
@@ -238,8 +310,8 @@ func (s EndpointSelectorSlice) Len() int      { return len(s) }
 func (s EndpointSelectorSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 func (s EndpointSelectorSlice) Less(i, j int) bool {
-	strI := s[i].LabelSelectorString()
-	strJ := s[j].LabelSelectorString()
+	strI := s[i].SelectorKey()
+	strJ := s[j].SelectorKey()
 
 	return strings.Compare(strI, strJ) < 0
 }

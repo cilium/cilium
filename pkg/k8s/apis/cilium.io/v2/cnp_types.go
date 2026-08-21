@@ -196,7 +196,7 @@ func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (ap
 		if err := r.Spec.Sanitize(); err != nil {
 			return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
 		}
-		if r.Spec.NodeSelector.LabelSelector != nil {
+		if !r.Spec.NodeSelector.IsZero() {
 			return nil, NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
 		}
 		cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, r.Spec)
@@ -207,7 +207,7 @@ func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (ap
 			if err := rule.Sanitize(); err != nil {
 				return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
 			}
-			if rule.NodeSelector.LabelSelector != nil {
+			if !rule.NodeSelector.IsZero() {
 				return nil, NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
 			}
 			cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, rule)
