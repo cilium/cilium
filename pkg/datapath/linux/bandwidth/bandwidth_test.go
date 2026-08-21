@@ -38,14 +38,14 @@ func TestEnsureHostEndpointQoS(t *testing.T) {
 
 		// Verify host endpoint was NOT inserted (template ID should be skipped)
 		txn := db.ReadTxn()
-		_, _, found := edtTable.Get(txn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+		_, _, found := edtTable.Get(txn, bwmap.EDTByID(bwmap.EdtIDKey{
 			EndpointID: 0xffff,
 			Direction:  DirectionEgress,
 		}))
 		assert.False(t, found, "Host endpoint with template ID should not be inserted")
 
 		// Verify the pod entry was still inserted
-		_, _, found = edtTable.Get(txn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+		_, _, found = edtTable.Get(txn, bwmap.EDTByID(bwmap.EdtIDKey{
 			EndpointID: 100,
 			Direction:  DirectionEgress,
 		}))
@@ -67,7 +67,7 @@ func TestEnsureHostEndpointQoS(t *testing.T) {
 
 		// Verify host endpoint was inserted with Guaranteed QoS
 		txn := db.ReadTxn()
-		hostEntry, _, found := edtTable.Get(txn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+		hostEntry, _, found := edtTable.Get(txn, bwmap.EDTByID(bwmap.EdtIDKey{
 			EndpointID: 42,
 			Direction:  DirectionEgress,
 		}))
@@ -76,7 +76,7 @@ func TestEnsureHostEndpointQoS(t *testing.T) {
 		assert.Equal(t, uint64(0), hostEntry.BytesPerSecond, "Host endpoint should have no bandwidth limit")
 
 		// Verify the pod entry was also inserted
-		podEntry, _, found := edtTable.Get(txn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+		podEntry, _, found := edtTable.Get(txn, bwmap.EDTByID(bwmap.EdtIDKey{
 			EndpointID: 100,
 			Direction:  DirectionEgress,
 		}))
@@ -100,7 +100,7 @@ func TestEnsureHostEndpointQoS(t *testing.T) {
 
 		// Manually delete the host endpoint entry to verify it's not re-added
 		wtxn := db.WriteTxn(edtTable)
-		hostEntry, _, found := edtTable.Get(wtxn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+		hostEntry, _, found := edtTable.Get(wtxn, bwmap.EDTByID(bwmap.EdtIDKey{
 			EndpointID: 42,
 			Direction:  DirectionEgress,
 		}))
@@ -110,7 +110,7 @@ func TestEnsureHostEndpointQoS(t *testing.T) {
 
 		// Verify host endpoint is deleted
 		rtxn := db.ReadTxn()
-		_, _, found = edtTable.Get(rtxn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+		_, _, found = edtTable.Get(rtxn, bwmap.EDTByID(bwmap.EdtIDKey{
 			EndpointID: 42,
 			Direction:  DirectionEgress,
 		}))
@@ -121,14 +121,14 @@ func TestEnsureHostEndpointQoS(t *testing.T) {
 
 		// Verify host endpoint is still NOT present (proves we skipped setup)
 		rtxn2 := db.ReadTxn()
-		_, _, found = edtTable.Get(rtxn2, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+		_, _, found = edtTable.Get(rtxn2, bwmap.EDTByID(bwmap.EdtIDKey{
 			EndpointID: 42,
 			Direction:  DirectionEgress,
 		}))
 		assert.False(t, found, "Host endpoint should NOT be re-added on subsequent calls")
 
 		// Verify the second pod entry was inserted
-		_, _, found = edtTable.Get(rtxn2, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+		_, _, found = edtTable.Get(rtxn2, bwmap.EDTByID(bwmap.EdtIDKey{
 			EndpointID: 101,
 			Direction:  DirectionEgress,
 		}))
@@ -155,7 +155,7 @@ func TestEnsureHostEndpointQoS(t *testing.T) {
 
 		// Verify host endpoint was inserted
 		txn := db.ReadTxn()
-		hostEntry, _, found := edtTable.Get(txn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+		hostEntry, _, found := edtTable.Get(txn, bwmap.EDTByID(bwmap.EdtIDKey{
 			EndpointID: 42,
 			Direction:  DirectionEgress,
 		}))

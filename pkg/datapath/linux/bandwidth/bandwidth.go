@@ -154,7 +154,7 @@ func (m *manager) ensureHostEndpointQoS(txn statedb.WriteTxn) {
 func (m *manager) DeleteBandwidthLimit(epID uint16) {
 	if m.enabled {
 		txn := m.params.DB.WriteTxn(m.params.EdtTable)
-		obj, _, found := m.params.EdtTable.Get(txn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+		obj, _, found := m.params.EdtTable.Get(txn, bwmap.EDTByID(bwmap.EdtIDKey{
 			EndpointID: epID,
 			Direction:  DirectionEgress,
 		}))
@@ -179,7 +179,7 @@ func (m *manager) UpdateIngressBandwidthLimit(epID uint16, bytesPerSecond uint64
 func (m *manager) DeleteIngressBandwidthLimit(epID uint16) {
 	if m.enabled {
 		txn := m.params.DB.WriteTxn(m.params.EdtTable)
-		obj, _, found := m.params.EdtTable.Get(txn, bwmap.EdtIDIndex.Query(bwmap.EdtIDKey{
+		obj, _, found := m.params.EdtTable.Get(txn, bwmap.EDTByID(bwmap.EdtIDKey{
 			EndpointID: epID,
 			Direction:  DirectionIngress,
 		}))
