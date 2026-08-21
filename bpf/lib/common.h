@@ -188,6 +188,7 @@ struct auth_info {
 #define REASON_ENCRYPTING			13
 #define REASON_LB_REVNAT_DELETE		14
 #define REASON_MTU_ERROR_MSG			15
+#define REASON_LB_REVNAT_SKIP_STALE		16
 
 /* Cilium metrics direction for dropping/forwarding packet */
 enum metric_dir {

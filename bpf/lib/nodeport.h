@@ -829,6 +829,18 @@ nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 		return false;
 
 	if (entry->node_port) {
+		/* A finished NodePort/HostPort flow leaves a closed CT_EGRESS
+		 * entry whose post-DNAT 5-tuple can collide with a new direct
+		 * connection to the same backend, which keys CT_INGRESS. Prefer
+		 * the live entry and let the stale one expire: see issue 47396.
+		 */
+		if (!ct_entry_alive(entry) &&
+		    ct_has_live_ingress_entry6(get_ct_map6(tuple), tuple)) {
+			update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+				       REASON_LB_REVNAT_SKIP_STALE);
+			return false;
+		}
+
 		if (entry->rev_nat_index) {
 			__u16 rev_nat_index = entry->rev_nat_index;
 			const struct lb6_reverse_nat *tmp;
@@ -2120,6 +2132,14 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 		return false;
 
 	if (entry->node_port) {
+		/* See the v6 twin, and issue 47396. */
+		if (!ct_entry_alive(entry) &&
+		    ct_has_live_ingress_entry4(get_ct_map4(tuple), tuple)) {
+			update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+				       REASON_LB_REVNAT_SKIP_STALE);
+			return false;
+		}
+
 		if (entry->rev_nat_index) {
 			__u16 rev_nat_index = entry->rev_nat_index;
 			const struct lb4_reverse_nat *tmp;
