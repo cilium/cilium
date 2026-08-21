@@ -12,7 +12,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	sotw "github.com/envoyproxy/go-control-plane/pkg/server/sotw/v3"
+	envoy_xds "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/container/set"
@@ -171,6 +171,29 @@ func (cb *CompletionCallbacks) nodeIDForRequest(streamID int64, req *discovery.D
 	return cb.streamNodeIDs[streamID]
 }
 
+// nodeIDForDeltaRequest returns the request node ID, falling back to the node ID
+// remembered from the first request on the delta stream. Delta and SotW stream
+// IDs come from independent counters, so their node maps must remain separate.
+// cb.mutex must be held.
+func (cb *CompletionCallbacks) nodeIDForDeltaRequest(streamID int64, req *discovery.DeltaDiscoveryRequest) string {
+	if nodeID := req.GetNode().GetId(); nodeID != "" {
+		cb.deltaStreamNodeIDs[streamID] = nodeID
+		return nodeID
+	}
+	return cb.deltaStreamNodeIDs[streamID]
+}
+
+type deltaResponseKey struct {
+	streamID int64
+	typeURL  string
+	nonce    string
+}
+
+type deltaResponseState struct {
+	nodeID  string
+	version string
+}
+
 type CompletionCallbacks struct {
 	Log *slog.Logger
 
@@ -199,6 +222,13 @@ type CompletionCallbacks struct {
 	// stream. Envoy is configured with SetNodeOnFirstMessageOnly, so subsequent
 	// ACK/NACK requests can omit Node even though completions are keyed by node ID.
 	streamNodeIDs map[int64]string
+	// deltaStreamNodeIDs is separate from streamNodeIDs because go-control-plane
+	// allocates SotW and delta stream IDs independently.
+	deltaStreamNodeIDs map[int64]string
+	// deltaResponses maps a response nonce to the snapshot version represented by
+	// that response. Delta ACK/NACK requests identify responses by nonce and do
+	// not echo system_version_info.
+	deltaResponses map[deltaResponseKey]deltaResponseState
 }
 
 func NewCompletionCallbacks(logger *slog.Logger) *CompletionCallbacks {
@@ -208,6 +238,8 @@ func NewCompletionCallbacks(logger *slog.Logger) *CompletionCallbacks {
 		completionsOrders:  make(map[string]*orderedCompletions),
 		responseStates:     make(map[string]responseState),
 		streamNodeIDs:      make(map[int64]string),
+		deltaStreamNodeIDs: make(map[int64]string),
+		deltaResponses:     make(map[deltaResponseKey]deltaResponseState),
 	}
 }
 
@@ -215,12 +247,39 @@ type responseState struct {
 	// pendingVersion is the version in the most recent response for which we have
 	// not yet observed an ACK or NACK.
 	pendingVersion string
+	// pendingDeltaVersions counts in-flight delta responses by their snapshot
+	// version. Multiple nonces can refer to the same version after subscription
+	// changes, so this cannot be represented by a single pending version.
+	pendingDeltaVersions map[string]int
 	// acceptedVersion is the version Envoy most recently ACKed for this type.
 	acceptedVersion string
 	// rejectedVersion/rejectedErr remember the latest NACKed version so a
 	// no-change update for that same cache state can fail immediately.
 	rejectedVersion string
 	rejectedErr     error
+}
+
+func (s *responseState) hasPendingVersion(version string) bool {
+	return s.pendingVersion == version || s.pendingDeltaVersions[version] > 0
+}
+
+func (s *responseState) hasPending() bool {
+	return s.pendingVersion != "" || len(s.pendingDeltaVersions) > 0
+}
+
+func (s *responseState) addPendingDeltaVersion(version string) {
+	if s.pendingDeltaVersions == nil {
+		s.pendingDeltaVersions = make(map[string]int)
+	}
+	s.pendingDeltaVersions[version]++
+}
+
+func (s *responseState) removePendingDeltaVersion(version string) {
+	if s.pendingDeltaVersions[version] <= 1 {
+		delete(s.pendingDeltaVersions, version)
+		return
+	}
+	s.pendingDeltaVersions[version]--
 }
 
 // pendingCompletion is an update that is pending completion.
@@ -383,7 +442,7 @@ func (cb *CompletionCallbacks) AddTypeVersionCompletion(c *completion.Completion
 	key := completionsOrderKey(nodeID, typeURL)
 	state := cb.responseStates[key]
 
-	if version != "" && state.pendingVersion == version {
+	if version != "" && state.hasPendingVersion(version) {
 		// The response was already sent, but the ACK/NACK has not arrived yet.
 		// Add the completion directly to that response's order so the in-flight
 		// ACK can complete it.
@@ -392,13 +451,13 @@ func (cb *CompletionCallbacks) AddTypeVersionCompletion(c *completion.Completion
 		return true, nil
 	}
 
-	if version != "" && state.pendingVersion == "" && state.acceptedVersion == version {
+	if version != "" && !state.hasPending() && state.acceptedVersion == version {
 		// Envoy is already at the final desired version. This covers both the
 		// simple no-change case and A->B->A coalescing where B was never sent.
 		return false, nil
 	}
 
-	if version != "" && state.pendingVersion == "" && !versionChanged && state.rejectedVersion == version {
+	if version != "" && !state.hasPending() && !versionChanged && state.rejectedVersion == version {
 		return false, state.rejectedErr
 	}
 
@@ -420,16 +479,168 @@ func (cb *CompletionCallbacks) OnFetchRequest(context.Context, *discovery.Discov
 func (cb *CompletionCallbacks) OnFetchResponse(*discovery.DiscoveryRequest, *discovery.DiscoveryResponse) {
 }
 
-// OnStreamDeltaRequest implements server.Callbacks.
-func (cb *CompletionCallbacks) OnStreamDeltaRequest(int64, *discovery.DeltaDiscoveryRequest) error {
+// OnStreamDeltaRequest handles a delta ACK or NACK. Subscription-only requests
+// have no response nonce and do not complete any pending Cilium update.
+func (cb *CompletionCallbacks) OnStreamDeltaRequest(streamID int64, req *discovery.DeltaDiscoveryRequest) error {
+	cb.mutex.Lock()
+	cb.nodeIDForDeltaRequest(streamID, req)
+
+	nonce := req.GetResponseNonce()
+	if nonce == "" {
+		cb.mutex.Unlock()
+		return nil
+	}
+
+	responseKey := deltaResponseKey{
+		streamID: streamID,
+		typeURL:  req.GetTypeUrl(),
+		nonce:    nonce,
+	}
+	response, ok := cb.deltaResponses[responseKey]
+	if !ok {
+		cb.mutex.Unlock()
+		cb.Log.Debug("Ignoring delta ACK/NACK for unknown response nonce",
+			logfields.XDSStreamID, streamID,
+			logfields.XDSTypeURL, req.GetTypeUrl(),
+			logfields.XDSNonce, nonce)
+		return nil
+	}
+	delete(cb.deltaResponses, responseKey)
+
+	typeURL := req.GetTypeUrl()
+	version := response.version
+	key := completionsOrderKey(response.nodeID, typeURL)
+	state := cb.responseStates[key]
+	state.removePendingDeltaVersion(version)
+
+	var completed []*completion.Completion
+	var completeErr error
+	var revertFunc func()
+
+	if req.GetErrorDetail() != nil {
+		nackErr := fmt.Errorf("NACK from %s for %s version %s nonce %s: %s",
+			response.nodeID, typeURL, version, nonce, req.GetErrorDetail().GetMessage())
+		state.rejectedVersion = version
+		state.rejectedErr = nackErr
+		cb.responseStates[key] = state
+
+		// Only roll back the snapshot prefix still associated with this exact
+		// response. A newer response may already have superseded an older nonce.
+		if vo, ok := cb.completionsOrders[key]; ok {
+			revertFunc = vo.rollbackFor(version)
+			completed = vo.completeUpTo(version)
+			for _, c := range completed {
+				delete(cb.pendingCompletions, c)
+			}
+			if len(*vo) == 0 {
+				delete(cb.completionsOrders, key)
+			}
+		}
+
+		if len(completed) > 0 {
+			cb.Log.Warn("Delta NACK received, reverting resource changes",
+				logfields.XDSTypeURL, typeURL,
+				logfields.Version, version,
+				logfields.NodeID, response.nodeID,
+				logfields.XDSNonce, nonce,
+				logfields.Error, req.GetErrorDetail().GetMessage())
+			completeErr = nackErr
+		}
+		cb.mutex.Unlock()
+		if revertFunc != nil {
+			revertFunc()
+		}
+		for _, c := range completed {
+			c.Complete(completeErr)
+		}
+		return nil
+	}
+
+	state.acceptedVersion = version
+	state.rejectedVersion = ""
+	state.rejectedErr = nil
+	cb.responseStates[key] = state
+
+	if vo, ok := cb.completionsOrders[key]; ok {
+		completed = vo.completeUpTo(version)
+		for _, c := range completed {
+			delete(cb.pendingCompletions, c)
+			cb.Log.Debug("Completed completion for delta type URL and version",
+				logfields.XDSTypeURL, typeURL,
+				logfields.Version, version,
+				logfields.XDSNonce, nonce)
+		}
+		if len(*vo) == 0 {
+			delete(cb.completionsOrders, key)
+		}
+	}
+	cb.mutex.Unlock()
+
+	for _, c := range completed {
+		c.Complete(nil)
+	}
 	return nil
 }
 
-// OnStreamDeltaResponse implements server.Callbacks.
-func (cb *CompletionCallbacks) OnStreamDeltaResponse(int64, *discovery.DeltaDiscoveryRequest, *discovery.DeltaDiscoveryResponse) {
+// OnStreamDeltaResponse associates all pending updates represented by a delta
+// response with its nonce before go-control-plane sends it to Envoy.
+func (cb *CompletionCallbacks) OnStreamDeltaResponse(streamID int64, req *discovery.DeltaDiscoveryRequest, resp *discovery.DeltaDiscoveryResponse) {
+	version := resp.GetSystemVersionInfo()
+	typeURL := resp.GetTypeUrl()
+	nonce := resp.GetNonce()
+
+	cb.mutex.Lock()
+	nodeID := cb.nodeIDForDeltaRequest(streamID, req)
+	key := completionsOrderKey(nodeID, typeURL)
+
+	// A response represents its snapshot and all snapshots before it, but must
+	// not claim completions registered for snapshots after it.
+	if vo, ok := cb.completionsOrders[key]; ok {
+		for c := range vo.updateUpTo(version) {
+			pc, ok := cb.pendingCompletions[c]
+			if !ok {
+				continue
+			}
+			cb.Log.Debug("Updating delta version completion for type URL and version",
+				logfields.XDSTypeURL, pc.typeURL,
+				logfields.Version, version,
+				logfields.NodeID, nodeID,
+				logfields.XDSNonce, nonce)
+			pc.version = version
+		}
+	}
+
+	if version == "" || nonce == "" {
+		cb.mutex.Unlock()
+		return
+	}
+
+	state := cb.responseStates[key]
+	state.addPendingDeltaVersion(version)
+	if state.rejectedVersion == version {
+		state.rejectedVersion = ""
+		state.rejectedErr = nil
+	}
+	cb.responseStates[key] = state
+	cb.deltaResponses[deltaResponseKey{
+		streamID: streamID,
+		typeURL:  typeURL,
+		nonce:    nonce,
+	}] = deltaResponseState{
+		nodeID:  nodeID,
+		version: version,
+	}
+
+	for c, pc := range cb.pendingCompletions {
+		if pc.typeURL == typeURL && pc.nodeID == nodeID && !pc.inCompletionsOrder {
+			cb.addToCompletionsOrder(c, pc, version, false)
+			pc.version = version
+		}
+	}
+	cb.mutex.Unlock()
 }
 
-var _ sotw.Callbacks = (*CompletionCallbacks)(nil)
+var _ envoy_xds.Callbacks = (*CompletionCallbacks)(nil)
 
 // OnStreamOpen is called once an xDS stream is open with a stream ID and the type URL (or "" for ADS).
 // Returning an error will end processing and close the stream. OnStreamClosed will still be called.
@@ -573,7 +784,7 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	}
 
 	state := cb.responseStates[key]
-	if state.pendingVersion == "" && state.acceptedVersion == version {
+	if !state.hasPending() && state.acceptedVersion == version {
 		state.rejectedVersion = ""
 		state.rejectedErr = nil
 		cb.responseStates[key] = state
@@ -619,10 +830,24 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 }
 
 func (cb *CompletionCallbacks) OnDeltaStreamOpen(ctx context.Context, streamID int64, typeURL string) error {
-	panic("unimplemented")
+	return nil
 }
 
 // OnDeltaStreamClosed invokes DeltaStreamClosedFunc.
 func (cb *CompletionCallbacks) OnDeltaStreamClosed(streamID int64, node *core.Node) {
-	panic("unimplemented")
+	cb.mutex.Lock()
+	delete(cb.deltaStreamNodeIDs, streamID)
+	for key, response := range cb.deltaResponses {
+		if key.streamID != streamID {
+			continue
+		}
+		stateKey := completionsOrderKey(response.nodeID, key.typeURL)
+		state := cb.responseStates[stateKey]
+		state.removePendingDeltaVersion(response.version)
+		cb.responseStates[stateKey] = state
+		delete(cb.deltaResponses, key)
+	}
+	cb.mutex.Unlock()
+
+	cb.Log.Info("OnDeltaStreamClosed", logfields.XDSStreamID, streamID)
 }

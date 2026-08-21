@@ -1054,6 +1054,81 @@ func TestCreateDeltaWatch_DelegatesToSnapshotCache(t *testing.T) {
 	assert.Equal(t, 1, mock.createDeltaCalls)
 }
 
+func TestCreateDeltaWatch_WildcardReportsUpdatesAndRemovals(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	c := NewCache(logger, true)
+	node := &envoy_config_core.Node{Id: "node1"}
+
+	resources := emptyResources()
+	resources.Listeners["listener1"] = &envoy_config_listener.Listener{Name: "listener1"}
+	resources.Listeners["listener2"] = &envoy_config_listener.Listener{Name: "listener2"}
+	snapshot, err := c.GenerateSnapshot(resources, logger)
+	require.NoError(t, err)
+	require.NoError(t, c.SetSnapshot(context.Background(), node.GetId(), snapshot))
+
+	req := &cache.DeltaRequest{Node: node, TypeUrl: envoy_resource.ListenerType}
+	subscription := stream.NewDeltaSubscription(nil, nil, nil, true)
+	respChan := make(chan cache.DeltaResponse, 1)
+	_, err = c.CreateDeltaWatch(req, &subscription, respChan)
+	require.NoError(t, err)
+	firstResponse := <-respChan
+	firstDeltaResponse, err := firstResponse.GetDeltaDiscoveryResponse()
+	require.NoError(t, err)
+	require.Len(t, firstDeltaResponse.Resources, 2)
+	subscription.SetReturnedResources(firstResponse.GetReturnedResources())
+
+	updatedResources := emptyResources()
+	updatedResources.Listeners["listener1"] = &envoy_config_listener.Listener{
+		Name:             "listener1",
+		TrafficDirection: envoy_config_core.TrafficDirection_INBOUND,
+	}
+	updatedResources.Listeners["listener3"] = &envoy_config_listener.Listener{Name: "listener3"}
+	updatedSnapshot, err := c.GenerateSnapshot(updatedResources, logger)
+	require.NoError(t, err)
+	require.NoError(t, c.SetSnapshot(context.Background(), node.GetId(), updatedSnapshot))
+
+	req.ResponseNonce = "nonce-1"
+	respChan = make(chan cache.DeltaResponse, 1)
+	_, err = c.CreateDeltaWatch(req, &subscription, respChan)
+	require.NoError(t, err)
+	secondResponse := <-respChan
+	secondDeltaResponse, err := secondResponse.GetDeltaDiscoveryResponse()
+	require.NoError(t, err)
+
+	updatedNames := make([]string, 0, len(secondDeltaResponse.Resources))
+	for _, resource := range secondDeltaResponse.Resources {
+		updatedNames = append(updatedNames, resource.GetName())
+	}
+	require.ElementsMatch(t, []string{"listener1", "listener3"}, updatedNames)
+	require.Equal(t, []string{"listener2"}, secondDeltaResponse.RemovedResources)
+}
+
+func TestCreateDeltaWatch_EmptySDSSubscriptionDoesNotRespond(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	c := NewCache(logger, true)
+	node := &envoy_config_core.Node{Id: "node1"}
+
+	resources := emptyResources()
+	resources.Secrets["secret1"] = &envoy_config_tls.Secret{Name: "secret1"}
+	snapshot, err := c.GenerateSnapshot(resources, logger)
+	require.NoError(t, err)
+	require.NoError(t, c.SetSnapshot(context.Background(), node.GetId(), snapshot))
+
+	req := &cache.DeltaRequest{Node: node, TypeUrl: envoy_resource.SecretType}
+	subscription := stream.NewDeltaSubscription(nil, nil, nil, false)
+	respChan := make(chan cache.DeltaResponse, 1)
+	cancel, err := c.CreateDeltaWatch(req, &subscription, respChan)
+	require.NoError(t, err)
+	require.NotNil(t, cancel)
+	defer cancel()
+
+	select {
+	case resp := <-respChan:
+		t.Fatalf("unexpected empty delta SDS subscription response: %#v", resp.GetReturnedResources())
+	default:
+	}
+}
+
 // --- Fetch ---
 
 func TestFetch_DelegatesToSnapshotCache(t *testing.T) {

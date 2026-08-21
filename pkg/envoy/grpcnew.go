@@ -29,12 +29,13 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 		return fmt.Errorf("failed to create socket listener: %w", err)
 	}
 
-	callbacks := callbacks.ChainedCallbacks{
+	serverCallbacks := callbacks.ChainedCallbacks{
 		callbacks.LoggingCallbacks{Log: s.logger},
+		callbacks.NewMetricsCallbacks(s.config.envoyXDSMode.String(), s.config.metrics),
 		s.cache.GetCompletionCallbacks(),
 		newNPHDSIPCacheListenerCallbacks(s.logger, s.ipCache, s),
 	}
-	server := envoy_server.NewServer(context.Background(), s.cache, callbacks,
+	server := envoy_server.NewServer(context.Background(), s.cache, serverCallbacks,
 		sotw.WithOrderedADS(),
 		sotw.DeactivateLegacyWildcardForTypes([]string{SecretTypeURL}),
 	)

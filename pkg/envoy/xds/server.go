@@ -14,9 +14,11 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/cilium/cilium/pkg/container/set"
@@ -84,6 +86,16 @@ type Server struct {
 	lastStreamID atomic.Uint64
 
 	metrics Metrics
+	mode    string
+}
+
+type ServerOption func(*Server)
+
+// WithMode labels server telemetry with the configured xDS mode.
+func WithMode(mode string) ServerOption {
+	return func(server *Server) {
+		server.mode = mode
+	}
 }
 
 // ResourceTypeConfiguration is the configuration of the XDS server for a
@@ -101,7 +113,7 @@ type ResourceTypeConfiguration struct {
 // sources.
 // types maps each supported resource type URL to its corresponding resource
 // source and ACK observer.
-func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfiguration, restorerPromise promise.Promise[endpointstate.Restorer], metrics Metrics) *Server {
+func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfiguration, restorerPromise promise.Promise[endpointstate.Restorer], metrics Metrics, opts ...ServerOption) *Server {
 	sources := make(map[string]ResourceSource, len(resourceTypes))
 	ackObservers := make(map[string]ResourceVersionAckObserver, len(resourceTypes))
 	for typeURL, resType := range resourceTypes {
@@ -115,7 +127,11 @@ func NewServer(logger *slog.Logger, resourceTypes map[string]*ResourceTypeConfig
 		}
 	}
 
-	return &Server{logger: logger, sources: sources, ackObservers: ackObservers, metrics: metrics}
+	server := &Server{logger: logger, sources: sources, ackObservers: ackObservers, metrics: metrics, mode: "unknown"}
+	for _, opt := range opts {
+		opt(server)
+	}
+	return server
 }
 
 func (s *Server) RestoreCompleted() {
@@ -136,6 +152,8 @@ func getXDSRequestFields(req *envoy_service_discovery.DiscoveryRequest) []any {
 func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, defaultTypeURL, afterTypeURL string) error {
 	// increment stream count
 	streamID := s.lastStreamID.Add(1)
+	IncreaseStream(s.metrics, s.mode)
+	defer DecreaseStream(s.metrics, s.mode)
 
 	reqStreamLog := s.logger.With(logfields.XDSStreamID, streamID)
 
@@ -194,6 +212,11 @@ type perTypeStreamState struct {
 	// pendingWatchCancel is a pending watch on this resource type.
 	// If nil, no watch is pending.
 	pendingWatchCancel context.CancelFunc
+
+	// responseNonce and responseSentAt identify the latest response awaiting
+	// acknowledgement and provide the start time for ACK latency telemetry.
+	responseNonce  string
+	responseSentAt time.Time
 
 	// pendingWatchDone is closed when the pending watch has finished.
 	pendingWatchDone <-chan struct{}
@@ -464,6 +487,12 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				return ErrInvalidResponseNonce
 			}
 
+			if req.GetResponseNonce() == state.responseNonce && !state.responseSentAt.IsZero() {
+				ObserveAcknowledgement(s.metrics, s.mode, typeURL, isNACK, time.Since(state.responseSentAt))
+				state.responseNonce = ""
+				state.responseSentAt = time.Time{}
+			}
+
 			// We want to trigger HandleResourceVersionAck even for NACKs
 			if state.clientReceivedFirstResponse {
 				ackObserver := s.ackObservers[typeURL]
@@ -589,10 +618,14 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				TypeUrl:     state.typeURL,
 				Nonce:       versionStr,
 			}
+			responseSize := proto.Size(out)
 			err := stream.Send(out)
 			if err != nil {
 				return err
 			}
+			ObserveResponse(s.metrics, s.mode, state.typeURL, responseSize, len(resources), 0)
+			state.responseNonce = out.GetNonce()
+			state.responseSentAt = time.Now()
 
 			names := make([]string, 0, len(resp.VersionedResources))
 			for _, vr := range resp.VersionedResources {
@@ -608,6 +641,8 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 func (s *Server) HandleDeltaRequestStream(ctx context.Context, stream DeltaStream, defaultTypeURL, afterTypeURL string) error {
 	// increment stream count
 	streamID := s.lastStreamID.Add(1)
+	IncreaseStream(s.metrics, s.mode)
+	defer DecreaseStream(s.metrics, s.mode)
 
 	reqStreamLog := s.logger.With(logfields.XDSStreamID, streamID)
 
@@ -955,6 +990,10 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 						state.ackedResourceNames.Insert(vr.Name)
 					}
 				}
+				if !state.responseSentAt.IsZero() {
+					ObserveAcknowledgement(s.metrics, s.mode, typeURL, errorDetail != nil, time.Since(state.responseSentAt))
+					state.responseSentAt = time.Time{}
+				}
 
 				// response is now accepted, a new request may be sent
 				state.nonce = ""
@@ -1100,10 +1139,13 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 				Nonce:             state.nonce,
 				SystemVersionInfo: versionStr,
 			}
+			responseSize := proto.Size(out)
 			err := stream.Send(out)
 			if err != nil {
 				return err
 			}
+			ObserveResponse(s.metrics, s.mode, state.typeURL, responseSize, len(resources), len(resp.RemovedNames))
+			state.responseSentAt = time.Now()
 
 			state.pendingResponse = resp
 		}

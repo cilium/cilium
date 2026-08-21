@@ -136,7 +136,7 @@ cilium-agent hive dot-graph [flags]
       --envoy-node-locality-enabled                               Enable Envoy node-locality support for zone-aware routing
       --envoy-policy-restore-timeout duration                     Maximum time to wait for endpoint policy restoration before starting serving resources to Envoy (default 3m0s)
       --envoy-secrets-namespace string                            EnvoySecretsNamespace is the namespace having secrets used by CEC
-      --envoy-xds-mode string                                     xDS server operating mode for Envoy proxy configuration. Valid values are "split" for the existing per-resource-type xDS, "delta-split" for incremental per-resource-type xDS, "ads" for Aggregated Discovery Service, or "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks (default "split")
+      --envoy-xds-mode string                                     xDS server operating mode for Envoy proxy configuration. Valid values are "split" for State-of-the-World per-resource-type xDS, "delta-split" for Delta per-resource-type xDS, "ads" for State-of-the-World ADS, "delta-ads" for Delta ADS, "strict-ads" for State-of-the-World ADS with snapshot validation, or "strict-delta-ads" for Delta ADS with snapshot validation (default "split")
       --force-device-detection                                    Forces the auto-detection of devices, even if specific devices are explicitly listed
       --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API
       --gops-port uint16                                          Port for gops server to listen on (default 9890)

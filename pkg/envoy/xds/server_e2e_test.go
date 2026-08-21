@@ -6,7 +6,6 @@ package xds
 import (
 	"context"
 	"log/slog"
-	"reflect"
 	"sort"
 	"strconv"
 	"testing"
@@ -74,7 +73,11 @@ func responseCheck(response *envoy_service_discovery.DiscoveryResponse,
 			sort.Slice(resourcesAny, func(i, j int) bool {
 				return resourcesAny[i].String() < resourcesAny[j].String()
 			})
-			result = reflect.DeepEqual(response.Resources, resourcesAny)
+			for i := range resourcesAny {
+				if !proto.Equal(response.Resources[i], resourcesAny[i]) {
+					return false
+				}
+			}
 		}
 
 		return result
