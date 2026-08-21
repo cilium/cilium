@@ -5,7 +5,6 @@ package gateway_api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -96,25 +95,25 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if ref := gw.Spec.Infrastructure; ref != nil && ref.ParametersRef != nil {
 		setGatewayAccepted(gw, false, "Invalid Gateway parameters: spec.infrastructure.parametersRef is not supported", gatewayv1.GatewayReasonInvalidParameters)
 		setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
-		return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid Gateway"), original, gw)
+		return r.updateStatusAndSuccess(ctx, original, gw)
 	}
 
 	if ref := gwc.Spec.ParametersRef; ref != nil {
 		if !isParameterRefSupported(ref) {
 			setGatewayAccepted(gw, false, "Invalid GatewayClass parameters: spec.parametersRef.kind must be CiliumGatewayClassConfig", gatewayv1.GatewayReasonInvalidParameters)
 			setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
-			return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid GatewayClass"), original, gw)
+			return r.updateStatusAndSuccess(ctx, original, gw)
 		}
 
 		if !hasNamespacedName(ref) {
 			setGatewayAccepted(gw, false, "Invalid GatewayClass parametersRef: both name and namespace are required", gatewayv1.GatewayReasonInvalidParameters)
 			setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
-			return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid GatewayClass"), original, gw)
+			return r.updateStatusAndSuccess(ctx, original, gw)
 		}
 	}
 
 	if !r.gatewayAddressStatusManager.ValidateStaticAddresses(gw) {
-		return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid Gateway static addresses"), original, gw)
+		return r.updateStatusAndSuccess(ctx, original, gw)
 	}
 
 	inputs, err := r.inputLoader.Load(ctx, scopedLog, gw, gwc)
@@ -515,4 +514,16 @@ func (r *gatewayReconciler) handleReconcileErrorWithStatus(ctx context.Context, 
 	}
 
 	return controllerruntime.Fail(reconcileErr)
+}
+
+// updateStatusAndSuccess persists status for terminal validation failures where
+// progress requires a user or config change rather than a controller retry.
+// Use this for rejected Gateway states that should be surfaced via status
+// conditions and then wait for a resource update to trigger reconciliation.
+func (r *gatewayReconciler) updateStatusAndSuccess(ctx context.Context, original *gatewayv1.Gateway, modified *gatewayv1.Gateway) (ctrl.Result, error) {
+	if err := r.updateStatus(ctx, original, modified); err != nil {
+		return controllerruntime.Fail(fmt.Errorf("failed to update Gateway status: %w", err))
+	}
+
+	return controllerruntime.Success()
 }
