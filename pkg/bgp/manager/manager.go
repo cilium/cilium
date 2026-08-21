@@ -726,7 +726,7 @@ func (m *BGPRouterManager) updateReconcilerErrors(instance string, newErrors []e
 func (m *BGPRouterManager) getErrorsFromTable(txn statedb.WriteTxn, instance string) []error {
 	// get existing errors for this instance from the table
 	var reconcileErrs []*tables.BGPReconcileError
-	iter := m.ReconcileErrorTable.List(txn, tables.BGPReconcileErrorInstance.Query(instance))
+	iter := m.ReconcileErrorTable.List(txn, tables.BGPReconcileErrorsByInstance(instance))
 	for instanceErr := range iter {
 		reconcileErrs = append(reconcileErrs, instanceErr.DeepCopy())
 	}
@@ -742,7 +742,7 @@ func (m *BGPRouterManager) getErrorsFromTable(txn statedb.WriteTxn, instance str
 }
 
 func (m *BGPRouterManager) deleteErrorsFromTable(txn statedb.WriteTxn, instance string) error {
-	iter := m.ReconcileErrorTable.List(txn, tables.BGPReconcileErrorInstance.Query(instance))
+	iter := m.ReconcileErrorTable.List(txn, tables.BGPReconcileErrorsByInstance(instance))
 	for instanceErr := range iter {
 		_, _, err := m.ReconcileErrorTable.Delete(txn, instanceErr)
 		if err != nil {
