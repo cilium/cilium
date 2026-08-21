@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/cilium/hive/cell"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -132,7 +134,16 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	return nil
 }
 
-func configureDaemon(ctx context.Context, params daemonParams) error {
+// configureDaemon performs the agent's start-up initialization.
+//
+// ctx is the daemon-wide context, cancelled when the agent stops. It is the one
+// to hand to the background work started here, which outlives initialization.
+//
+// startCtx is the hive start-hook context. It carries the --hive-start-timeout
+// deadline and is cancelled once all start hooks have returned, so it bounds the
+// waits that must complete before the agent can serve traffic, and must not be
+// retained past this function.
+func configureDaemon(ctx context.Context, startCtx cell.HookContext, params daemonParams) error {
 	if params.Clientset.IsEnabled() {
 		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
 		// context deadline or if the context has been cancelled, the context's
@@ -192,8 +203,11 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	// are set.
 	params.K8sWatcher.InitK8sSubsystem(ctx)
 
-	// Configure and start IPAM without using the configuration yet.
-	params.IPAMInitializer.ConfigureAndStartIPAM(ctx)
+	// Configure and start IPAM without using the configuration yet. This blocks
+	// until IPAM is ready and is bounded by the start-hook context.
+	if err := params.IPAMInitializer.ConfigureAndStartIPAM(startCtx); err != nil {
+		return err
+	}
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the

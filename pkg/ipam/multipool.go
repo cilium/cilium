@@ -22,7 +22,6 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -69,10 +68,10 @@ type multiPoolAllocator struct {
 	family  Family
 }
 
-func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
+func newMultiPoolAllocators(ctx context.Context, p MultiPoolAllocatorParams) (Allocator, Allocator, error) {
 	preallocMap, err := ParseMultiPoolPreAllocMap(p.PreAllocPools)
 	if err != nil {
-		logging.Fatal(p.Logger, fmt.Sprintf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation), logfields.Error, err)
+		return nil, nil, fmt.Errorf("invalid --%s flag value: %w", option.IPAMMultiPoolPreAllocation, err)
 	}
 
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
@@ -93,10 +92,14 @@ func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
 	allocCIDRsReady := startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)
 
 	// wait for local node to be updated to avoid propagating spurious updates.
-	waitForLocalNodeUpdate(p.Logger, mgr)
+	if err := waitForLocalNodeUpdate(ctx, p.Logger, mgr); err != nil {
+		return nil, nil, err
+	}
 	// Independently wait for the alloc-CIDR observer: it runs in its own job
 	// and is not synchronized with mgr.localNodeUpdated().
-	waitForLocalNodeAllocCIDRs(p.Logger, allocCIDRsReady)
+	if err := waitForLocalNodeAllocCIDRs(ctx, p.Logger, allocCIDRsReady); err != nil {
+		return nil, nil, err
+	}
 
 	return &multiPoolAllocator{
 			manager: mgr,
@@ -104,7 +107,7 @@ func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
 		}, &multiPoolAllocator{
 			manager: mgr,
 			family:  IPv6,
-		}
+		}, nil
 }
 
 func (c *multiPoolAllocator) Allocate(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
@@ -191,11 +194,16 @@ func waitForPool(logger *slog.Logger, db *statedb.DB, podIPPools statedb.Table[p
 	}
 }
 
-func waitForLocalNodeUpdate(logger *slog.Logger, mgr *multiPoolManager) {
+// waitForLocalNodeUpdate blocks until the multi-pool manager has synchronized
+// the local node store with the CiliumNode resource. It returns an error if ctx
+// is cancelled before that.
+func waitForLocalNodeUpdate(ctx context.Context, logger *slog.Logger, mgr *multiPoolManager) error {
 	for {
 		select {
 		case <-mgr.localNodeUpdated():
-			return
+			return nil
+		case <-ctx.Done():
+			return fmt.Errorf("waiting for the local CiliumNode resource to synchronize the local node store: %w", ctx.Err())
 		case <-time.After(5 * time.Second):
 			logger.Info("Waiting for local CiliumNode resource to synchronize local node store")
 		}
@@ -208,26 +216,20 @@ func waitForLocalNodeUpdate(logger *slog.Logger, mgr *multiPoolManager) {
 // that subsequently read the local node store see state derived from at least
 // the same first event the manager saw.
 //
-// Aborts the agent with a fatal log if no CiliumNode event is received within
-// waitForLocalNodeAllocCIDRsTimeout.
-func waitForLocalNodeAllocCIDRs(logger *slog.Logger, ready <-chan struct{}) {
-	deadline := time.After(waitForLocalNodeAllocCIDRsTimeout)
+// It returns an error if ctx is cancelled before that. ctx is the hive
+// start-hook context, whose timeout bounds the wait.
+func waitForLocalNodeAllocCIDRs(ctx context.Context, logger *slog.Logger, ready <-chan struct{}) error {
 	for {
 		select {
 		case <-ready:
-			return
-		case <-deadline:
-			logging.Fatal(logger,
-				"Timed out waiting for the multi-pool local node syncer to process the first CiliumNode event",
-				logfields.Duration, waitForLocalNodeAllocCIDRsTimeout,
-			)
+			return nil
+		case <-ctx.Done():
+			return fmt.Errorf("waiting for the multi-pool local node syncer to process the first CiliumNode event: %w", ctx.Err())
 		case <-time.After(5 * time.Second):
 			logger.Info("Waiting for the multi-pool local node syncer to process the first CiliumNode event")
 		}
 	}
 }
-
-const waitForLocalNodeAllocCIDRsTimeout = 5 * time.Minute
 
 // startLocalNodeAllocCIDRsSync starts a CiliumNode observer that mirrors the
 // alloc CIDRs (Spec.IPAM.PodCIDRs / Spec.IPAM.Pools.Allocated) into the local
