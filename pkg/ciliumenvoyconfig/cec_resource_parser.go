@@ -143,6 +143,7 @@ func newCECResourceParser(params parserParams) *CECResourceParser {
 }
 
 type PortAllocator interface {
+	RestoreComplete() <-chan struct{}
 	AllocateCRDProxyPort(name string) (uint16, error)
 	ReallocateCRDProxyPort(name string) (uint16, error)
 	AckProxyPortWithReference(ctx context.Context, name string) error

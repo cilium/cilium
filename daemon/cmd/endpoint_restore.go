@@ -303,21 +303,19 @@ func (r *endpointRestorer) validateEndpoint(ep *endpoint.Endpoint) (valid bool, 
 		return true, nil
 	}
 
-	// On each restart, the health endpoint is supposed to be recreated.
-	// Hence we need to clean health endpoint state unconditionally.
-	if ep.HasLabels(labels.LabelHealth) {
-		// Ignore health endpoint and don't report
-		// it as not restored. But we need to clean up the old
-		// state files, so do this now.
-		healthStateDir := ep.StateDirectoryPath()
-		r.logger.Debug("Removing old health endpoint state directory",
+	// On each restart, the health and ingress endpoints are supposed to be recreated.
+	// Hence we need to clean endpoint state unconditionally and skip restore.
+	if ep.HasLabels(labels.LabelHealth) || ep.HasLabels(labels.LabelIngress) {
+		epStateDir := ep.StateDirectoryPath()
+		r.logger.Debug("Removing old endpoint state directory",
 			logfields.EndpointID, ep.ID,
-			logfields.Path, healthStateDir,
+			logfields.Labels, ep.GetLabels(),
+			logfields.Path, epStateDir,
 		)
-		if err := os.RemoveAll(healthStateDir); err != nil {
-			r.logger.Warn("Cannot clean up old health state directory",
+		if err := os.RemoveAll(epStateDir); err != nil {
+			r.logger.Warn("Cannot clean up old endpoint state directory",
 				logfields.EndpointID, ep.ID,
-				logfields.Path, healthStateDir,
+				logfields.Path, epStateDir,
 			)
 		}
 		return false, nil
@@ -473,7 +471,9 @@ func (r *endpointRestorer) RestoreOldEndpoints() error {
 			// Disconnected EPs are not failures, clean them silently below
 			if !ep.IsDisconnecting() {
 				r.endpointManager.DeleteK8sCiliumEndpointSync(ep)
-				scopedLog.Warn("Unable to restore endpoint, ignoring", logfields.Error, err)
+				scopedLog.Warn("Unable to restore endpoint, ignoring",
+					logfields.Labels, ep.GetLabels(),
+					logfields.Error, err)
 				failed++
 			} else {
 				skipped++
