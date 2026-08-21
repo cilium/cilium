@@ -1516,10 +1516,10 @@ func Test_gatewayAddressStatusManager_SetStaticAddressStatus(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		specAddr  string
-		ingress   []corev1.LoadBalancerIngress
-		wantError bool
+		name                string
+		specAddr            string
+		ingress             []corev1.LoadBalancerIngress
+		wantProgrammedFalse bool
 	}{
 		{
 			name:     "IPv6 spelled with :: matches the canonical status address",
@@ -1545,44 +1545,50 @@ func Test_gatewayAddressStatusManager_SetStaticAddressStatus(t *testing.T) {
 			},
 		},
 		{
-			name:      "a different address is still rejected",
-			specAddr:  "2001:db8::1",
-			ingress:   []corev1.LoadBalancerIngress{{IP: "2001:db8::2"}},
-			wantError: true,
+			name:                "a different address is reflected in status",
+			specAddr:            "2001:db8::1",
+			ingress:             []corev1.LoadBalancerIngress{{IP: "2001:db8::2"}},
+			wantProgrammedFalse: true,
 		},
 		{
-			name:      "hostname-only ingress is rejected",
-			specAddr:  "2001:db8::1",
-			ingress:   []corev1.LoadBalancerIngress{{Hostname: "gateway.example.com"}},
-			wantError: true,
+			name:                "hostname-only ingress is reflected in status",
+			specAddr:            "2001:db8::1",
+			ingress:             []corev1.LoadBalancerIngress{{Hostname: "gateway.example.com"}},
+			wantProgrammedFalse: true,
 		},
 		{
-			name:      "invalid ingress IP is rejected",
-			specAddr:  "2001:db8::1",
-			ingress:   []corev1.LoadBalancerIngress{{IP: "not-an-ip"}},
-			wantError: true,
+			name:                "invalid ingress IP is reflected in status",
+			specAddr:            "2001:db8::1",
+			ingress:             []corev1.LoadBalancerIngress{{IP: "not-an-ip"}},
+			wantProgrammedFalse: true,
 		},
 		{
-			name:      "invalid Gateway spec address is rejected",
-			specAddr:  "not-an-ip",
-			ingress:   []corev1.LoadBalancerIngress{{IP: "2001:db8::1"}},
-			wantError: true,
+			name:                "invalid Gateway spec address is reflected in status",
+			specAddr:            "not-an-ip",
+			ingress:             []corev1.LoadBalancerIngress{{IP: "2001:db8::1"}},
+			wantProgrammedFalse: true,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			gw := gateway(tc.specAddr)
+			setGatewayProgrammed(gw, metav1.ConditionTrue, "Gateway Programmed", gatewayv1.GatewayReasonProgrammed)
 			c := fake.NewClientBuilder().
 				WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 				WithObjects(gw, service(tc.ingress...)).
 				Build()
 			err := NewGatewayAddressStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))).SetStaticAddressStatus(t.Context(), gw)
-			if tc.wantError {
-				require.ErrorContains(t, err, "can't be used")
+			require.NoError(t, err)
+			programmed := meta.FindStatusCondition(gw.Status.Conditions, string(gatewayv1.GatewayConditionProgrammed))
+			require.NotNil(t, programmed)
+			if tc.wantProgrammedFalse {
+				require.Equal(t, metav1.ConditionFalse, programmed.Status)
+				require.Equal(t, string(gatewayv1.GatewayReasonAddressNotUsable), programmed.Reason)
+				require.Contains(t, programmed.Message, "can't be used")
 				return
 			}
-			require.NoError(t, err)
+			require.Equal(t, metav1.ConditionTrue, programmed.Status)
 		})
 	}
 }
