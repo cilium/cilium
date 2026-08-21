@@ -1835,12 +1835,14 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	return __snat_v6_needs_masquerade(ctx, &args->tuple, fraginfo, l4_off, &args->target);
 }
 
+DEFINE_AUX(struct ipv6_ct_tuple, snat_v6_nat_icmp_tuple)
+
 static __always_inline __maybe_unused int
 snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			      struct ipv6_nat_entry **state)
 {
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmp6hdr));
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple *tuple = AUX(snat_v6_nat_icmp_tuple);
 	__u16 port_off;
 	__u32 inner_l4_off;
 	int hdrlen;
@@ -1851,22 +1853,22 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	 * the NAT session.
 	 */
 	if (ctx_load_bytes(ctx, inner_l3_off + offsetof(struct ipv6hdr, nexthdr),
-			   &tuple.nexthdr, sizeof(tuple.nexthdr)) < 0)
+			   &tuple->nexthdr, sizeof(tuple->nexthdr)) < 0)
 		return DROP_INVALID;
 
 	if (ctx_load_bytes(ctx, inner_l3_off + offsetof(struct ipv6hdr, saddr),
-			   &tuple.daddr, 2 * sizeof(tuple.saddr)) < 0)
+			   &tuple->daddr, 2 * sizeof(tuple->saddr)) < 0)
 		return DROP_INVALID;
 
-	tuple.flags = NAT_DIR_EGRESS;
+	tuple->flags = NAT_DIR_EGRESS;
 
-	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, NULL);
+	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple->nexthdr, NULL);
 	if (hdrlen < 0)
 		return hdrlen;
 
 	inner_l4_off = inner_l3_off + hdrlen;
 
-	switch (tuple.nexthdr) {
+	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 #ifdef ENABLE_SCTP
@@ -1875,7 +1877,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 		/* No reasons to handle IP fragmentation for this case as it is
 		 * expected that DF isn't set for this particular context.
 		 */
-		if (l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
+		if (l4_load_ports(ctx, inner_l4_off, &tuple->dport) < 0)
 			return DROP_INVALID;
 
 		port_off = TCP_DPORT_OFF;
@@ -1895,21 +1897,21 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 		}
 
 		if (ctx_load_bytes(ctx, inner_l4_off + port_off,
-				   &tuple.sport, sizeof(tuple.sport)) < 0)
+				   &tuple->sport, sizeof(tuple->sport)) < 0)
 			return DROP_INVALID;
 		break;
 	default:
 		return DROP_UNKNOWN_L4;
 	}
 
-	*state = snat_v6_lookup(&tuple);
+	*state = snat_v6_lookup(tuple);
 	if (!*state)
 		return NAT_PUNT_TO_STACK;
 
 	/* The embedded packet was RevSNATed on ingress. Reverse it again: */
-	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, inner_l4_off,
-				       &tuple.saddr, &(*state)->to_saddr, IPV6_DADDR_OFF,
-				       tuple.sport, (*state)->to_sport, port_off);
+	return snat_v6_rewrite_headers(ctx, tuple->nexthdr, inner_l3_off, true, inner_l4_off,
+				       &tuple->saddr, &(*state)->to_saddr, IPV6_DADDR_OFF,
+				       tuple->sport, (*state)->to_sport, port_off);
 }
 
 static __always_inline int
