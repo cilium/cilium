@@ -180,7 +180,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 		return err
 	}
 
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2.BGPServiceAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, p.ResolvedPeerAddresses, v2.BGPServiceAdvert)
 	if err != nil {
 		return err
 	}

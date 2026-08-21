@@ -8,7 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
+	"net/netip"
 	"sort"
 	"strings"
 
@@ -17,10 +19,12 @@ import (
 	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/pkg/bgp/agent"
+	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/api"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
@@ -49,6 +53,7 @@ type bgpRouterManagerParams struct {
 	DB                  *statedb.DB
 	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
 	RouterProvider      types.RouterProvider
+	Signaler            *signaler.BGPCPSignaler
 	Reconcilers         []reconciler.ConfigReconciler `group:"bgp-config-reconciler"`
 	StateReconcilers    []reconciler.StateReconciler  `group:"bgp-state-reconciler"`
 }
@@ -113,6 +118,10 @@ type BGPRouterManager struct {
 	// BGP router provider
 	routerProvider types.RouterProvider
 
+	// signaler is used to request another reconciliation round, e.g. once the
+	// router has resolved the address of an unnumbered peer.
+	signaler *signaler.BGPCPSignaler
+
 	// BGP instances and reconcilers
 	BGPInstances      LocalInstanceMap
 	ConfigReconcilers []reconciler.ConfigReconciler
@@ -146,6 +155,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 	m := &BGPRouterManager{
 		logger:         params.Logger,
 		routerProvider: params.RouterProvider,
+		signaler:       params.Signaler,
 		running:        true, // start with running state set
 
 		BGPInstances:      make(LocalInstanceMap),
@@ -278,6 +288,11 @@ func (m *BGPRouterManager) GetRoutes(ctx context.Context, req *agent.GetRoutesRe
 				return nil, err
 			}
 			for _, peer := range peerState.Peers {
+				if !peer.Address.IsValid() {
+					// Unnumbered peer not resolved by the router yet, it has no
+					// adj-RIB to retrieve.
+					continue
+				}
 				rs, err := i.Router.GetRoutes(ctx, &types.GetRoutesRequest{
 					TableType: req.TableType,
 					Family:    req.Family,
@@ -346,6 +361,11 @@ func (m *BGPRouterManager) GetRoutesLegacy(ctx context.Context, params restapi.G
 				return nil, err
 			}
 			for _, peer := range getPeerResp.Peers {
+				if _, err := netip.ParseAddr(peer.PeerAddress); err != nil {
+					// Unnumbered peer not resolved by the router yet, it is
+					// listed by interface name and has no adj-RIB to retrieve.
+					continue
+				}
 				params.Neighbor = &peer.PeerAddress
 				routes, err := m.getRoutesFromInstanceLegacy(ctx, i, params)
 				if err != nil {
@@ -648,12 +668,18 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context,
 
 	reconcileStart := time.Now()
 
+	// Addresses the router resolved for peers that are configured without one
+	// (BGP unnumbered). Reconcilers keying anything on the peer address - route
+	// policies in particular - need them.
+	resolvedPeers := m.resolvedPeerAddresses(ctx, i, newc)
+
 	var reconcileErrs []error
 	for _, r := range m.ConfigReconcilers {
 		if rErr := r.Reconcile(ctx, reconciler.ReconcileParams{
-			BGPInstance:   i,
-			DesiredConfig: newc,
-			CiliumNode:    ciliumNode,
+			BGPInstance:           i,
+			DesiredConfig:         newc,
+			CiliumNode:            ciliumNode,
+			ResolvedPeerAddresses: resolvedPeers,
 		}); rErr != nil {
 			m.metrics.ReconcileErrorsTotal.WithLabelValues(newc.Name).Inc()
 			reconcileErrs = append(reconcileErrs, rErr)
@@ -679,10 +705,73 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context,
 		}
 	}
 
+	// The neighbor reconciler runs last, so a peer added in this round has only
+	// just been resolved by the router. Request another round to let the
+	// reconcilers pick the addresses up. The same applies if the router
+	// re-resolved a peer to a different address in the meantime.
+	if !maps.Equal(resolvedPeers, m.resolvedPeerAddresses(ctx, i, newc)) && m.signaler != nil {
+		m.signaler.Event(struct{}{})
+	}
+
 	reconcileErrs = append(reconcileErrs, m.updateReconcilerErrors(newc.Name, reconcileErrs))
 	m.metrics.ReconcileRunDuration.WithLabelValues(newc.Name).Observe(time.Since(reconcileStart).Seconds())
 	i.Config = newc
 	return errors.Join(reconcileErrs...)
+}
+
+// resolvedPeerAddresses returns the addresses the router resolved for the peers of the
+// provided config that are configured without an address (BGP unnumbered), keyed by peer
+// name. Peers not resolved (yet) are absent from the map.
+//
+// It returns nil without querying the router if the config has no such peer, which is the
+// case for all conventional configurations.
+func (m *BGPRouterManager) resolvedPeerAddresses(ctx context.Context, i *instance.BGPInstance, newc *v2.CiliumBGPNodeInstance) map[string]netip.Addr {
+	unnumbered := sets.New[string]()
+	for _, peer := range newc.Peers {
+		if peer.PeerAddress == nil && isUnnumbered(peer) {
+			unnumbered.Insert(peer.Name)
+		}
+	}
+	if unnumbered.Len() == 0 {
+		return nil
+	}
+
+	peerState, err := i.Router.GetPeerState(ctx, &types.GetPeerStateRequest{})
+	if err != nil {
+		m.logger.Debug(
+			"Failed to retrieve peer state, unnumbered peer addresses are unknown for this round",
+			types.InstanceLogField, newc.Name,
+			logfields.Error, err,
+		)
+		return nil
+	}
+
+	resolved := make(map[string]netip.Addr)
+	for _, peer := range peerState.Peers {
+		if unnumbered.Has(peer.Name) && peer.Address.IsValid() {
+			resolved[peer.Name] = peer.Address
+		}
+	}
+	return resolved
+}
+
+// isUnnumbered reports whether the peer is an addressless (BGP unnumbered) peer.
+//
+// PeerInterface alone is not sufficient: a peer configured with autoDiscovery mode
+// Unnumbered has its interface under AutoDiscovery (named explicitly, or to be derived
+// from the default route), and PeerInterface is filled in from it by the
+// DefaultGatewayReconciler - which runs *inside* the reconciler loop, after
+// resolvedPeerAddresses has already been snapshotted for the round. Keying off the
+// derived field alone therefore never classifies such a peer as unnumbered, so it never
+// gets a resolved address, no route policy matches it, and nothing is ever advertised to
+// it (see GetConfiguredAdvertisements). Recognize the declared intent instead: the mode
+// alone decides, the mode-specific configuration below it is not inspected.
+func isUnnumbered(peer v2.CiliumBGPNodePeer) bool {
+	if ptr.Deref(peer.PeerInterface, "") != "" {
+		return true
+	}
+	return peer.AutoDiscovery != nil &&
+		peer.AutoDiscovery.Mode == v2.BGPUnnumberedMode
 }
 
 func (m *BGPRouterManager) updateReconcilerErrors(instance string, newErrors []error) error {

@@ -87,7 +87,7 @@ Cilium BGP Control Plane also supports automatic discovery of BGP peers.
 
 When enabled, the auto-discovery feature self-configures the BGP peer's IP address automatically. Selection of the specific address is dependent on the ``mode`` enabled.
 
-Cilium BGP Control Plane currently supports ``DefaultGateway`` mode for auto-discovery under ``autoDiscovery`` field in ``CiliumBGPClusterConfig``.
+Cilium BGP Control Plane supports the ``DefaultGateway`` and ``Unnumbered`` modes for auto-discovery under ``autoDiscovery`` field in ``CiliumBGPClusterConfig``.
 
 Default Gateway Auto-Discovery
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -134,6 +134,12 @@ Once this configuration is applied:
 
    Link-local address as default gateway is not supported.
 
+.. note::
+
+   Only unicast default routes in the ``main`` routing table are considered. A node commonly
+   carries default routes in other tables - Cilium installs one by way of ``cilium_host`` -
+   which are not the way off the node even though they often have a better metric.
+
 Multi-homing with Default Gateway Auto-Discovery
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -175,6 +181,89 @@ Limitations
 ~~~~~~~~~~~
 Auto Discovery with ``DefaultGateway`` mode in multi-homing setup can not be used to create multiple BGP sessions for the same address family.
 Currently, the only workaround is to configure the peer address manually for each peer.
+
+Unnumbered Auto-Discovery
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``Unnumbered`` mode establishes a BGP unnumbered session: the peer has no configured
+address at all. Cilium peers over an interface, and the peer's IPv6 link-local address is
+discovered on that interface with IPv6 Neighbor Discovery. This is the usual way to peer
+with a Top-of-Rack (ToR) switch over a point-to-point link that carries no addressing other
+than link-local ones.
+
+The interface can either be named explicitly:
+
+.. code-block:: yaml
+
+    peers:
+    - name: "tor-switch"
+      peerASN: 65000
+      autoDiscovery:
+        mode: "Unnumbered"
+        unnumbered:
+          interface: "eth1"
+      peerConfigRef:
+        name: "cilium-peer"
+
+or, when interface names are not the same on every node - predictable names such as
+``enp193s0np0`` encode the hardware location and change with the hardware model and the
+driver - discovered per node as the interface the default route egresses:
+
+.. code-block:: yaml
+
+    peers:
+    - name: "tor-switch"
+      peerASN: 65000
+      autoDiscovery:
+        mode: "Unnumbered"
+        defaultGateway:
+          addressFamily: ipv4  # Can be "ipv4" or "ipv6"
+      peerConfigRef:
+        name: "cilium-peer"
+
+Exactly one of ``unnumbered`` and ``defaultGateway`` must be set when ``mode`` is
+``Unnumbered``.
+
+With ``defaultGateway``, ``addressFamily`` selects which default route is followed, not the
+address family the session runs over: only the interface the route egresses is taken from
+it, and the session is always established over IPv6 link-local addressing. Following the
+IPv4 default route is therefore a valid way to discover the interface of an unnumbered
+session. If the node has several default routes in that family, the one with the lowest
+metric is used, and Cilium reconciles the session onto another interface if that changes.
+As with ``DefaultGateway`` mode, this creates a single session at a time, and only unicast
+default routes in the ``main`` routing table are considered. A default route over the
+loopback is never followed.
+
+Unlike ``DefaultGateway`` mode, a default route whose gateway is a link-local address -
+which is what an unnumbered peer usually advertises, for example ``default via fe80::1`` or
+``default via 169.254.100.0`` - is usable here, as the gateway address itself is not used.
+The default route does have to exist for the interface to be discovered: it is normally
+installed by the peer's Router Advertisements or by DHCP. Until then the peer is left
+unconfigured, and Cilium logs a warning naming the peer.
+
+Here are the peer BGP configuration requirements:
+
+* The peer must accept unnumbered neighbors on the interface. With FRR, that is
+  ``neighbor <interface> interface remote-as <asn>``.
+
+* The peer must be able to learn Cilium's IPv6 link-local address. Cilium sends Router
+  Advertisements on every unnumbered interface for this purpose, so no separate ``radvd`` is
+  required on the node.
+
+* To exchange IPv4 prefixes over the IPv6 link-local session, the peer must support the
+  extended next hop capability (:rfc:`8950`). Cilium advertises it for every configured
+  address family other than IPv6 unicast, so no extra configuration is needed on its side.
+  FRR enables it by default on unnumbered neighbors.
+
+To verify the session, use the ``cilium bgp peers`` command. An unnumbered peer is
+identified by its interface until the router has resolved its address:
+
+.. code-block:: shell-session
+
+    $ cilium bgp peers
+    Local AS   Peer AS   Peer Address                        Session       Uptime   Family         Received   Advertised
+    65001      65000     fe80::43:57ff:fec5:c00b%eth1:179    established   21m55s   ipv4/unicast   2          2
+                                                                                   ipv6/unicast   2          2
 
 .. _bgp_peer_configuration:
 
