@@ -30,6 +30,8 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	fakeloader "github.com/cilium/cilium/pkg/datapath/loader/fake"
+	loadertypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
@@ -67,6 +69,7 @@ const (
 	ipamFlag                      = "ipam"
 	probeTCPMD5Flag               = "probe-tcp-md5"
 	kubeProxyReplacementFlag      = "kube-proxy-replacement"
+	blockLBInitWaitFlag           = "block-lb-init-wait"
 )
 
 func TestPrivilegedScript(t *testing.T) {
@@ -97,7 +100,16 @@ func TestPrivilegedScript(t *testing.T) {
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
 		kubeProxyReplacement := flags.Bool(kubeProxyReplacementFlag, true, "")
 		noEndpointsRoutable := flags.Bool(enableNoEndpointsRoutableFlag, true, "")
+		blockLBInitWait := flags.Bool(blockLBInitWaitFlag, false, "Block LBInitWait until lb/set-ready is called")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
+
+		// Create the LB init wait controller before the hive so it can be
+		// passed to both the hive (as InitWaitFunc) and the script commands.
+		lbInitWaitCtrl := commands.NewControllableLBInitWait()
+		if !*blockLBInitWait {
+			// Unblock immediately so existing tests are not gated.
+			lbInitWaitCtrl.SetReady()
+		}
 
 		if *probeTCPMD5 {
 			available, err := TCPMD5SigAvailable()
@@ -137,6 +149,16 @@ func TestPrivilegedScript(t *testing.T) {
 			reflectors.Cell,
 			lbipamconfig.Cell,
 			nodeipamconfig.Cell,
+
+			// Stub dependencies added by the BGP announcement gating:
+			// - Loader: signal host datapath as immediately ready so tests are not gated.
+			// - InitWaitFunc: controlled by ControllableLBInitWait; immediately ready
+			//   unless --block-lb-init-wait is set, in which case the test must call
+			//   lb/set-ready to unblock.
+			cell.Provide(func() loadertypes.Loader { return fakeloader.NewInitializedLoader() }),
+			cell.Provide(func() loadbalancer.InitWaitFunc {
+				return lbInitWaitCtrl.WaitFunc()
+			}),
 
 			// Provide source.Sources for loadbalancer writer
 			cell.Provide(func() source.Sources { return source.Sources{} }),
@@ -208,6 +230,7 @@ func TestPrivilegedScript(t *testing.T) {
 		maps.Insert(cmds, maps.All(script.DefaultCmds()))
 		maps.Insert(cmds, maps.All(commands.GoBGPScriptCmds(gobgpCmdCtx)))
 		maps.Insert(cmds, maps.All(commands.SvcScriptCmds(lbWriter)))
+		maps.Insert(cmds, maps.All(commands.LBScriptCmds(lbInitWaitCtrl)))
 
 		return &script.Engine{
 			Cmds: cmds,

@@ -17,7 +17,19 @@ import (
 )
 
 // Loader is an interface to abstract out loading of datapath programs.
-type Loader struct{}
+type Loader struct {
+	initialized <-chan struct{}
+}
+
+// NewInitializedLoader returns a Loader whose HostDatapathInitialized channel is
+// already closed, so callers waiting on it will proceed immediately. This is
+// appropriate for tests that do not exercise the host datapath initialization
+// sequence itself.
+func NewInitializedLoader() *Loader {
+	ch := make(chan struct{})
+	close(ch)
+	return &Loader{initialized: ch}
+}
 
 func (f *Loader) CompileOrLoad(ctx context.Context, ep endpoint.Endpoint, stats *metrics.SpanStat) error {
 	panic("implement me")
@@ -48,7 +60,7 @@ func (f *Loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 }
 
 func (f *Loader) HostDatapathInitialized() <-chan struct{} {
-	return nil
+	return f.initialized
 }
 
 func (f *Loader) DetachXDP(ifaceName string, bpffsBase, progName string) error {
