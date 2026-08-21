@@ -1563,6 +1563,9 @@ snat_v6_nat_handle_mapping(const struct __ctx_buff *ctx,
 	return snat_v6_new_mapping(ctx, tuple, *state, target, needs_ct, ext_err);
 }
 
+DEFINE_AUX(struct ipv6_nat_entry, snat_v6_rnhm_nat_entry)
+DEFINE_AUX(struct ipv6_ct_tuple, snat_v6_rnhm_tuple)
+
 static __always_inline int
 snat_v6_rev_nat_handle_mapping(const struct __ctx_buff *ctx,
 			       const struct ipv6_ct_tuple *tuple,
@@ -1574,49 +1577,50 @@ snat_v6_rev_nat_handle_mapping(const struct __ctx_buff *ctx,
 	*state = snat_v6_lookup(tuple);
 
 	if (*state) {
+		struct ipv6_ct_tuple *otuple = AUX(snat_v6_rnhm_tuple);
 		struct ipv6_nat_entry *lookup_result;
-		struct ipv6_nat_entry ostate;
-		struct ipv6_ct_tuple otuple = {};
 		int ret;
 
 		/* Check for the original SNAT entry. If it is missing (e.g. due to LRU
 		 * eviction), it must be restored before returning.
 		 */
-		otuple.saddr = (*state)->to_daddr;
-		otuple.sport = (*state)->to_dport;
-		otuple.daddr = tuple->saddr;
-		otuple.dport = tuple->sport;
-		otuple.nexthdr = tuple->nexthdr;
-		otuple.flags = TUPLE_F_OUT;
+		otuple->saddr = (*state)->to_daddr;
+		otuple->sport = (*state)->to_dport;
+		otuple->daddr = tuple->saddr;
+		otuple->dport = tuple->sport;
+		otuple->nexthdr = tuple->nexthdr;
+		otuple->flags = TUPLE_F_OUT;
 
-		lookup_result = snat_v6_lookup(&otuple);
+		lookup_result = snat_v6_lookup(otuple);
 		if (!lookup_result) {
-			memset(&ostate, 0, sizeof(ostate));
-			ostate.to_saddr = tuple->daddr;
-			ostate.to_sport = tuple->dport;
-			ostate.common.needs_ct = (*state)->common.needs_ct;
-			ostate.common.created = bpf_mono_now();
+			struct ipv6_nat_entry *ostate = AUX(snat_v6_rnhm_nat_entry);
 
-			ret = __snat_create(&cilium_snat_v6_external, &otuple, &ostate, false);
+			memset(ostate, 0, sizeof(*ostate));
+			ostate->to_saddr = tuple->daddr;
+			ostate->to_sport = tuple->dport;
+			ostate->common.needs_ct = (*state)->common.needs_ct;
+			ostate->common.created = bpf_mono_now();
+
+			ret = __snat_create(&cilium_snat_v6_external, otuple, ostate, false);
 			if (ret < 0)
 				return DROP_NAT_NO_MAPPING;
 		}
 	}
 
 	if (*state && (*state)->common.needs_ct) {
-		struct ipv6_ct_tuple tuple_revsnat;
+		struct ipv6_ct_tuple *tuple_revsnat = AUX(snat_v6_rnhm_tuple);
 		int ret;
 
-		memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
-		ipv6_addr_copy(&tuple_revsnat.daddr, &(*state)->to_daddr);
-		tuple_revsnat.dport = (*state)->to_dport;
+		memcpy(tuple_revsnat, tuple, sizeof(*tuple_revsnat));
+		ipv6_addr_copy(&tuple_revsnat->daddr, &(*state)->to_daddr);
+		tuple_revsnat->dport = (*state)->to_dport;
 
 		/* CT expects a tuple with the source and destination ports reversed,
 		 * while NAT uses normal tuples that match packet headers.
 		 */
-		ipv6_ct_tuple_swap_ports(&tuple_revsnat);
+		ipv6_ct_tuple_swap_ports(tuple_revsnat);
 
-		ret = ct_lazy_lookup6(get_ct_map6(&tuple_revsnat), &tuple_revsnat, ctx,
+		ret = ct_lazy_lookup6(get_ct_map6(tuple_revsnat), tuple_revsnat, ctx,
 				      fraginfo, off, CT_INGRESS, SCOPE_REVERSE,
 				      CT_ENTRY_ANY, NULL, &trace->monitor);
 		if (ret < 0)
@@ -2072,44 +2076,42 @@ nat_icmp_v6:
 			     port_off, &args->trace, ext_err);
 }
 
+DEFINE_AUX(struct ipv6_ct_tuple, snat_v6_revnat_icmp_tuple)
+
 static __always_inline __maybe_unused int
 snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 				       __u32 inner_l3_off,
 				       struct ipv6_nat_entry **state)
 {
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple *tuple = AUX(snat_v6_revnat_icmp_tuple);
 	__u16 port_off;
 	__u32 inner_l4_off;
 	__u8 type;
 	int hdrlen;
+
+	memset(tuple, 0, sizeof(*tuple));
 
 	/* From the embedded IP headers we should be able
 	 * to determine corresponding protocol, IP src/dst
 	 * of the packet sent to resolve the NAT session.
 	 */
 	if (ctx_load_bytes(ctx, inner_l3_off + offsetof(struct ipv6hdr, nexthdr),
-			   &tuple.nexthdr, sizeof(tuple.nexthdr)) < 0)
+			   &tuple->nexthdr, sizeof(tuple->nexthdr)) < 0)
 		return DROP_INVALID;
 
 	if (ctx_load_bytes(ctx, inner_l3_off + offsetof(struct ipv6hdr, saddr),
-			   &tuple.daddr, 2 * sizeof(tuple.saddr)) < 0)
+			   &tuple->daddr, 2 * sizeof(tuple->saddr)) < 0)
 		return DROP_INVALID;
 
-	tuple.flags = NAT_DIR_INGRESS;
+	tuple->flags = NAT_DIR_INGRESS;
 
-	/* Force tuple to be on the stack, a fix for a odd compiler bug
-	 * where the above assignment would be optimized to be reads
-	 * from the ctx->data pointer instead.
-	 */
-	asm volatile ("" ::"r"(&tuple));
-
-	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, NULL);
+	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple->nexthdr, NULL);
 	if (hdrlen < 0)
 		return hdrlen;
 
 	inner_l4_off = inner_l3_off + hdrlen;
 
-	switch (tuple.nexthdr) {
+	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 #ifdef ENABLE_SCTP
@@ -2119,7 +2121,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 		 * as it is expected that DF isn't set for this particular
 		 * context.
 		 */
-		if (l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
+		if (l4_load_ports(ctx, inner_l4_off, &tuple->dport) < 0)
 			return DROP_INVALID;
 
 		port_off = TCP_SPORT_OFF;
@@ -2136,29 +2138,31 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 				    icmp6_dataun.u_echo.identifier);
 
 		if (ctx_load_bytes(ctx, inner_l4_off + port_off,
-				   &tuple.dport, sizeof(tuple.dport)) < 0)
+				   &tuple->dport, sizeof(tuple->dport)) < 0)
 			return DROP_INVALID;
 		break;
 	default:
 		return NAT_PUNT_TO_STACK;
 	}
 
-	*state = snat_v6_lookup(&tuple);
+	*state = snat_v6_lookup(tuple);
 	if (!*state)
 		return NAT_PUNT_TO_STACK;
 
 	/* The embedded packet was SNATed on egress. Reverse it again: */
-	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, inner_l4_off,
-				       &tuple.daddr, &(*state)->to_daddr, IPV6_SADDR_OFF,
-				       tuple.dport, (*state)->to_dport, port_off);
+	return snat_v6_rewrite_headers(ctx, tuple->nexthdr, inner_l3_off, true, inner_l4_off,
+				       &tuple->daddr, &(*state)->to_daddr, IPV6_SADDR_OFF,
+				       tuple->dport, (*state)->to_dport, port_off);
 }
+
+DEFINE_AUX(struct ipv6_ct_tuple, snat_v6_revnat_tuple)
 
 static __always_inline __maybe_unused int
 snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
+	struct ipv6_ct_tuple *tuple = AUX(snat_v6_revnat_tuple);
 	struct ipv6_nat_entry *state = NULL;
-	struct ipv6_ct_tuple tuple = {};
 	__u32 off, inner_l3_off;
 	fraginfo_t fraginfo = 0;
 	void *data, *data_end;
@@ -2167,34 +2171,36 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	__u16 port_off = 0;
 	int ret, hdrlen;
 
+	memset(tuple, 0, sizeof(*tuple));
+
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	tuple.nexthdr = ip6->nexthdr;
-	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+	tuple->nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr, &fraginfo);
 	if (hdrlen < 0)
 		return hdrlen;
 
-	snat_v6_init_tuple(ip6, NAT_DIR_INGRESS, &tuple);
+	snat_v6_init_tuple(ip6, NAT_DIR_INGRESS, tuple);
 
 	off = (__u32)(((void *)ip6 - data) + hdrlen);
-	switch (tuple.nexthdr) {
+	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
 		ret = ipv6_load_l4_ports(ctx, ip6, fraginfo, (int)off,
-					 CT_INGRESS, &tuple.dport);
+					 CT_INGRESS, &tuple->dport);
 		if (ret < 0)
 			return ret;
 
-		ipv6_ct_tuple_swap_ports(&tuple);
+		ipv6_ct_tuple_swap_ports(tuple);
 		port_off = TCP_DPORT_OFF;
 
-		if (snat_v6_rev_nat_can_skip(target, &tuple))
+		if (snat_v6_rev_nat_can_skip(target, tuple))
 			return NAT_PUNT_TO_STACK;
 
 		break;
@@ -2208,8 +2214,8 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 
 		switch (icmp6hdr.icmp6_type) {
 		case ICMPV6_ECHO_REPLY:
-			tuple.dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
-			tuple.sport = 0;
+			tuple->dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
+			tuple->sport = 0;
 			port_off = offsetof(struct icmp6hdr,
 					    icmp6_dataun.u_echo.identifier);
 			break;
@@ -2237,7 +2243,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		return NAT_PUNT_TO_STACK;
 	};
 
-	ret = snat_v6_rev_nat_handle_mapping(ctx, &tuple, fraginfo, &state, off, trace);
+	ret = snat_v6_rev_nat_handle_mapping(ctx, tuple, fraginfo, &state, off, trace);
 	if (ret < 0)
 		return ret;
 
@@ -2245,10 +2251,10 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	to_dport = state->to_dport;
 
 rewrite:
-	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, ETH_HLEN,
+	return snat_v6_rewrite_headers(ctx, tuple->nexthdr, ETH_HLEN,
 				       ipfrag_has_l4_header(fraginfo), off,
-				       &tuple.daddr, &state->to_daddr, IPV6_DADDR_OFF,
-				       tuple.dport, to_dport, port_off);
+				       &tuple->daddr, &state->to_daddr, IPV6_DADDR_OFF,
+				       tuple->dport, to_dport, port_off);
 }
 #else /* defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT) */
 static __always_inline __maybe_unused
