@@ -62,7 +62,7 @@ const __u8 lb6_clusterip_post_dnat[] = {
  * leading to the datapath dropping the packet with the reason code
  * DROP_IS_CLUSTER_IP, and the respective BPF metric updated accordingly.
  */
-PKTGEN("tc", "tc_lb4_nonroutable_clusterip")
+PKTGEN(PROG_TYPE, "tc_lb4_nonroutable_clusterip")
 int lb4_nonroutable_clusterip_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -76,7 +76,7 @@ int lb4_nonroutable_clusterip_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lb4_nonroutable_clusterip")
+SETUP(PROG_TYPE, "tc_lb4_nonroutable_clusterip")
 int lb4_nonroutable_clusterip_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0, 0,
@@ -90,7 +90,7 @@ int lb4_nonroutable_clusterip_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_lb4_nonroutable_clusterip")
+CHECK(PROG_TYPE, "tc_lb4_nonroutable_clusterip")
 int lb4_nonroutable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -127,7 +127,7 @@ int lb4_nonroutable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
  * is allowed. The reason is due to the SVC being created with the SVC_FLAG_ROUTABLE
  * flag set, leading to the datapath correctly accepting and DNAT the packet.
  */
-PKTGEN("tc", "tc_lb4_routable_clusterip")
+PKTGEN(PROG_TYPE, "tc_lb4_routable_clusterip")
 int lb4_routable_clusterip_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -141,7 +141,7 @@ int lb4_routable_clusterip_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lb4_routable_clusterip")
+SETUP(PROG_TYPE, "tc_lb4_routable_clusterip")
 int lb4_routable_clusterip_setup(struct __ctx_buff *ctx)
 {
 	/* Endpoint and backend added in previous setup, simply change SVC flags. */
@@ -152,7 +152,7 @@ int lb4_routable_clusterip_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_lb4_routable_clusterip")
+CHECK(PROG_TYPE, "tc_lb4_routable_clusterip")
 int lb4_routable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -195,7 +195,7 @@ int lb4_routable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
  * leading to the datapath dropping the packet with the reason code
  * DROP_IS_CLUSTER_IP, and the respective BPF metric updated accordingly.
  */
-PKTGEN("tc", "tc_lb6_nonroutable_clusterip")
+PKTGEN(PROG_TYPE, "tc_lb6_nonroutable_clusterip")
 int lb6_nonroutable_clusterip_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -209,7 +209,7 @@ int lb6_nonroutable_clusterip_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lb6_nonroutable_clusterip")
+SETUP(PROG_TYPE, "tc_lb6_nonroutable_clusterip")
 int lb6_nonroutable_clusterip_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v6_add_entry((union v6addr *)BACKEND_IPV6, BACKEND_IFINDEX, 0, 0, 0,
@@ -223,7 +223,7 @@ int lb6_nonroutable_clusterip_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_lb6_nonroutable_clusterip")
+CHECK(PROG_TYPE, "tc_lb6_nonroutable_clusterip")
 int lb6_nonroutable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -260,7 +260,7 @@ int lb6_nonroutable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
  * is allowed. The reason is due to the SVC being created with the SVC_FLAG_ROUTABLE
  * flag set, leading to the datapath correctly accepting and DNAT the packet.
  */
-PKTGEN("tc", "tc_lb6_routable_clusterip")
+PKTGEN(PROG_TYPE, "tc_lb6_routable_clusterip")
 int lb6_routable_clusterip_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -274,7 +274,7 @@ int lb6_routable_clusterip_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_lb6_routable_clusterip")
+SETUP(PROG_TYPE, "tc_lb6_routable_clusterip")
 int lb6_routable_clusterip_setup(struct __ctx_buff *ctx)
 {
 	/* Endpoint and backend added in previous setup, simply change SVC flags. */
@@ -285,7 +285,7 @@ int lb6_routable_clusterip_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_lb6_routable_clusterip")
+CHECK(PROG_TYPE, "tc_lb6_routable_clusterip")
 int lb6_routable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

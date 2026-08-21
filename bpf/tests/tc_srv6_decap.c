@@ -37,7 +37,7 @@ ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 #define CLIENT_PORT __bpf_htons(12345)
 #define SERVICE_PORT __bpf_htons(80)
 
-PKTGEN("tc", "tc_srv6_decap_to_pod_ipv4")
+PKTGEN(PROG_TYPE, "tc_srv6_decap_to_pod_ipv4")
 int srv6_decap_to_pod_ipv4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -101,7 +101,7 @@ int srv6_decap_to_pod_ipv4_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-SETUP("tc", "tc_srv6_decap_to_pod_ipv4")
+SETUP(PROG_TYPE, "tc_srv6_decap_to_pod_ipv4")
 int srv6_decap_to_pod_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 {
 	union v6addr sid __align_stack_8;
@@ -117,7 +117,7 @@ int srv6_decap_to_pod_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_srv6_decap_to_pod_ipv4")
+CHECK(PROG_TYPE, "tc_srv6_decap_to_pod_ipv4")
 int srv6_decap_to_pod_ipv4_check(const struct __ctx_buff *ctx __maybe_unused)
 {
 	void *data;
@@ -175,7 +175,7 @@ int srv6_decap_to_pod_ipv4_check(const struct __ctx_buff *ctx __maybe_unused)
 	return TEST_PASS;
 }
 
-PKTGEN("tc", "tc_srv6_decap_to_pod_ipv6")
+PKTGEN(PROG_TYPE, "tc_srv6_decap_to_pod_ipv6")
 int srv6_decap_to_pod_ipv6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -239,7 +239,7 @@ int srv6_decap_to_pod_ipv6_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-SETUP("tc", "tc_srv6_decap_to_pod_ipv6")
+SETUP(PROG_TYPE, "tc_srv6_decap_to_pod_ipv6")
 int srv6_decap_to_pod_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 {
 	union v6addr sid;
@@ -255,7 +255,7 @@ int srv6_decap_to_pod_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_srv6_decap_to_pod_ipv6")
+CHECK(PROG_TYPE, "tc_srv6_decap_to_pod_ipv6")
 int srv6_decap_to_pod_ipv6_check(const struct __ctx_buff *ctx __maybe_unused)
 {
 	void *data;
@@ -313,7 +313,7 @@ int srv6_decap_to_pod_ipv6_check(const struct __ctx_buff *ctx __maybe_unused)
 	return TEST_PASS;
 }
 
-PKTGEN("tc", "tc_srv6_decap_to_service_ipv4")
+PKTGEN(PROG_TYPE, "tc_srv6_decap_to_service_ipv4")
 int srv6_decap_to_service_ipv4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -378,7 +378,7 @@ int srv6_decap_to_service_ipv4_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-SETUP("tc", "tc_srv6_decap_to_service_ipv4")
+SETUP(PROG_TYPE, "tc_srv6_decap_to_service_ipv4")
 int srv6_decap_to_service_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 {
 	union v6addr sid __align_stack_8;
@@ -398,7 +398,7 @@ int srv6_decap_to_service_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_srv6_decap_to_service_ipv4")
+CHECK(PROG_TYPE, "tc_srv6_decap_to_service_ipv4")
 int srv6_decap_to_service_ipv4_check(const struct __ctx_buff *ctx __maybe_unused)
 {
 	void *data;
@@ -456,7 +456,7 @@ int srv6_decap_to_service_ipv4_check(const struct __ctx_buff *ctx __maybe_unused
 	return TEST_PASS;
 }
 
-PKTGEN("tc", "tc_srv6_decap_to_service_ipv6")
+PKTGEN(PROG_TYPE, "tc_srv6_decap_to_service_ipv6")
 int srv6_decap_to_service_ipv6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -521,7 +521,7 @@ int srv6_decap_to_service_ipv6_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-SETUP("tc", "tc_srv6_decap_to_service_ipv6")
+SETUP(PROG_TYPE, "tc_srv6_decap_to_service_ipv6")
 int srv6_decap_to_service_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 {
 	union v6addr sid;
@@ -541,7 +541,7 @@ int srv6_decap_to_service_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_srv6_decap_to_service_ipv6")
+CHECK(PROG_TYPE, "tc_srv6_decap_to_service_ipv6")
 int srv6_decap_to_service_ipv6_check(const struct __ctx_buff *ctx __maybe_unused)
 {
 	void *data;

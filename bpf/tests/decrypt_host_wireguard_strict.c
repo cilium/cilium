@@ -129,43 +129,43 @@ check(const struct __ctx_buff *ctx, __u32 expected_status)
 	test_finish();
 }
 
-PKTGEN("tc", "ipv4_strict_ingress_from_netdev")
+PKTGEN(PROG_TYPE, "ipv4_strict_ingress_from_netdev")
 int ipv4_strict_ingress_from_netdev_pktgen(struct __ctx_buff *ctx)
 {
 	return build_packet(ctx, true);
 }
 
-SETUP("tc", "ipv4_strict_ingress_from_netdev")
+SETUP(PROG_TYPE, "ipv4_strict_ingress_from_netdev")
 int ipv4_strict_ingress_from_netdev_setup(struct __ctx_buff *ctx)
 {
 	return setup(ctx, true);
 }
 
-CHECK("tc", "ipv4_strict_ingress_from_netdev")
+CHECK(PROG_TYPE, "ipv4_strict_ingress_from_netdev")
 int ipv4_strict_ingress_from_netdev_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_DROP);
 }
 
-PKTGEN("tc", "ipv6_strict_ingress_from_netdev")
+PKTGEN(PROG_TYPE, "ipv6_strict_ingress_from_netdev")
 int ipv6_strict_ingress_from_netdev_pktgen(struct __ctx_buff *ctx)
 {
 	return build_packet(ctx, false);
 }
 
-SETUP("tc", "ipv6_strict_ingress_from_netdev")
+SETUP(PROG_TYPE, "ipv6_strict_ingress_from_netdev")
 int ipv6_strict_ingress_from_netdev_setup(struct __ctx_buff *ctx)
 {
 	return setup(ctx, false);
 }
 
-CHECK("tc", "ipv6_strict_ingress_from_netdev")
+CHECK(PROG_TYPE, "ipv6_strict_ingress_from_netdev")
 int ipv6_strict_ingress_from_netdev_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_DROP);
 }
 
-PKTGEN("tc", "ipv4_strict_ingress_hostport_from_netdev")
+PKTGEN(PROG_TYPE, "ipv4_strict_ingress_hostport_from_netdev")
 int ipv4_strict_ingress_hostport_from_netdev_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -184,7 +184,7 @@ int ipv4_strict_ingress_hostport_from_netdev_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv4_strict_ingress_hostport_from_netdev")
+SETUP(PROG_TYPE, "ipv4_strict_ingress_hostport_from_netdev")
 int ipv4_strict_ingress_hostport_from_netdev_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -211,7 +211,7 @@ int ipv4_strict_ingress_hostport_from_netdev_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "ipv4_strict_ingress_hostport_from_netdev")
+CHECK(PROG_TYPE, "ipv4_strict_ingress_hostport_from_netdev")
 int ipv4_strict_ingress_hostport_from_netdev_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_OK);

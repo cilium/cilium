@@ -84,7 +84,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
  * - keeps the inner destination as the service IP,
  * - gets redirected back out by XDP
  */
-PKTGEN("xdp", "xdp_nodeport_dsr_ipip4_fwd")
+PKTGEN(PROG_TYPE, "xdp_nodeport_dsr_ipip4_fwd")
 int nodeport_dsr_ipip4_fwd_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -111,7 +111,7 @@ int nodeport_dsr_ipip4_fwd_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "xdp_nodeport_dsr_ipip4_fwd")
+SETUP(PROG_TYPE, "xdp_nodeport_dsr_ipip4_fwd")
 int nodeport_dsr_ipip4_fwd_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -125,7 +125,7 @@ int nodeport_dsr_ipip4_fwd_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_nodeport_dsr_ipip4_fwd")
+CHECK(PROG_TYPE, "xdp_nodeport_dsr_ipip4_fwd")
 int nodeport_dsr_ipip4_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -210,7 +210,7 @@ int nodeport_dsr_ipip4_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
  * - keeps the inner destination as the service IP,
  * - gets redirected back out by XDP
  */
-PKTGEN("xdp", "xdp_nodeport_dsr_ipip6_fwd")
+PKTGEN(PROG_TYPE, "xdp_nodeport_dsr_ipip6_fwd")
 int nodeport_dsr_ipip6_fwd_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IPV6;
@@ -239,7 +239,7 @@ int nodeport_dsr_ipip6_fwd_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "xdp_nodeport_dsr_ipip6_fwd")
+SETUP(PROG_TYPE, "xdp_nodeport_dsr_ipip6_fwd")
 int nodeport_dsr_ipip6_fwd_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IPV6;
@@ -255,7 +255,7 @@ int nodeport_dsr_ipip6_fwd_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "xdp_nodeport_dsr_ipip6_fwd")
+CHECK(PROG_TYPE, "xdp_nodeport_dsr_ipip6_fwd")
 int nodeport_dsr_ipip6_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IPV6;

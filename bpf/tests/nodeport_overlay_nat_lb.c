@@ -106,7 +106,7 @@ ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
  * and flows back out on the overlay interface to a remote backend
  * (with WORLD_ID security identity).
  */
-PKTGEN("tc", "nodeport_overlay_nat_1_fwd")
+PKTGEN(PROG_TYPE, "nodeport_overlay_nat_1_fwd")
 int nodeport_overlay_nat_1_fwd_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -133,7 +133,7 @@ int nodeport_overlay_nat_1_fwd_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "nodeport_overlay_nat_1_fwd")
+SETUP(PROG_TYPE, "nodeport_overlay_nat_1_fwd")
 int nodeport_overlay_nat_1_fwd_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -148,7 +148,7 @@ int nodeport_overlay_nat_1_fwd_setup(struct __ctx_buff *ctx)
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "nodeport_overlay_nat_1_fwd")
+CHECK(PROG_TYPE, "nodeport_overlay_nat_1_fwd")
 int nodeport_overlay_nat_1_fwd_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -210,7 +210,7 @@ int nodeport_overlay_nat_1_fwd_check(const struct __ctx_buff *ctx)
  * and flows back out on the overlay interface to the client
  * (preserving the backend's security identity).
  */
-PKTGEN("tc", "nodeport_overlay_nat_2_reply")
+PKTGEN(PROG_TYPE, "nodeport_overlay_nat_2_reply")
 int nodeport_overlay_nat_2_reply_pktgen(struct __ctx_buff *ctx)
 {
 	__be16 nat_source_port = 0;
@@ -244,7 +244,7 @@ int nodeport_overlay_nat_2_reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "nodeport_overlay_nat_2_reply")
+SETUP(PROG_TYPE, "nodeport_overlay_nat_2_reply")
 int nodeport_overlay_nat_2_reply_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry(CLIENT_IP, 0, CLIENT_SEC_IDENTITY,
@@ -253,7 +253,7 @@ int nodeport_overlay_nat_2_reply_setup(struct __ctx_buff *ctx)
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "nodeport_overlay_nat_2_reply")
+CHECK(PROG_TYPE, "nodeport_overlay_nat_2_reply")
 int nodeport_overlay_nat_2_reply_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

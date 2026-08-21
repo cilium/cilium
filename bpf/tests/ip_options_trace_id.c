@@ -77,7 +77,7 @@ gen_packet_with_options(struct __sk_buff *ctx,
  */
 
 /* Test packet with no l3 header should return TRACE_ID_ERROR. */
-PKTGEN("tc", "extract_trace_id_with_no_l3_header_error")
+PKTGEN(PROG_TYPE, "extract_trace_id_with_no_l3_header_error")
 int test_extract_trace_id_with_no_l3_header_error_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -91,7 +91,7 @@ int test_extract_trace_id_with_no_l3_header_error_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-CHECK("tc", "extract_trace_id_with_no_l3_header_error")
+CHECK(PROG_TYPE, "extract_trace_id_with_no_l3_header_error")
 int test_extract_trace_id_with_no_l3_header_error_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -109,7 +109,7 @@ int test_extract_trace_id_with_no_l3_header_error_check(struct __ctx_buff *ctx)
 }
 
 /* Test packet with no eth header should return TRACE_ID_NO_FAMILY. */
-PKTGEN("tc", "extract_trace_id_with_no_eth_header_no_family")
+PKTGEN(PROG_TYPE, "extract_trace_id_with_no_eth_header_no_family")
 int test_extract_trace_id_with_no_eth_header_no_family_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -121,7 +121,7 @@ int test_extract_trace_id_with_no_eth_header_no_family_pktgen(struct __ctx_buff 
 	return TEST_PASS;
 }
 
-CHECK("tc", "extract_trace_id_with_no_eth_header_no_family")
+CHECK(PROG_TYPE, "extract_trace_id_with_no_eth_header_no_family")
 int test_extract_trace_id_with_no_eth_header_no_family_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -139,7 +139,7 @@ int test_extract_trace_id_with_no_eth_header_no_family_check(struct __ctx_buff *
 }
 
 /* Test packet with IPv6 header should return TRACE_ID_SKIP_IPV6. */
-PKTGEN("tc", "extract_trace_id_no_ipv6_options")
+PKTGEN(PROG_TYPE, "extract_trace_id_no_ipv6_options")
 int test_extract_trace_id_no_ipv6_options_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -156,7 +156,7 @@ int test_extract_trace_id_no_ipv6_options_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-CHECK("tc", "extract_trace_id_no_ipv6_options")
+CHECK(PROG_TYPE, "extract_trace_id_no_ipv6_options")
 int test_extract_trace_id_no_ipv6_options_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -174,7 +174,7 @@ int test_extract_trace_id_no_ipv6_options_check(struct __ctx_buff *ctx)
 }
 
 /* Test a single option specifying the trace ID with no special cases. */
-PKTGEN("tc", "extract_trace_id_solo")
+PKTGEN(PROG_TYPE, "extract_trace_id_solo")
 int test_extract_trace_id_solo_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -188,7 +188,7 @@ int test_extract_trace_id_solo_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 1, 4);
 }
 
-CHECK("tc", "extract_trace_id_solo")
+CHECK(PROG_TYPE, "extract_trace_id_solo")
 int test_extract_trace_id_solo_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -206,7 +206,7 @@ int test_extract_trace_id_solo_check(struct __ctx_buff *ctx)
 }
 
 /* Test packet with IPv4 header should return TRACE_ID_NOT_FOUND. */
-PKTGEN("tc", "extract_trace_id_no_ipv4_options")
+PKTGEN(PROG_TYPE, "extract_trace_id_no_ipv4_options")
 int test_extract_trace_id_no_options_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -223,7 +223,7 @@ int test_extract_trace_id_no_options_pktgen(struct __ctx_buff *ctx)
 	return TEST_PASS;
 }
 
-CHECK("tc", "extract_trace_id_no_ipv4_options")
+CHECK(PROG_TYPE, "extract_trace_id_no_ipv4_options")
 int test_extract_trace_id_no_options_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -241,7 +241,7 @@ int test_extract_trace_id_no_options_check(struct __ctx_buff *ctx)
 }
 
 /* Test trace ID after END should return TRACE_ID_NOT_FOUND. */
-PKTGEN("tc", "extract_trace_id_after_ipopt_end_not_found")
+PKTGEN(PROG_TYPE, "extract_trace_id_after_ipopt_end_not_found")
 int test_extract_trace_id_after_ipopt_end_not_found_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -276,7 +276,7 @@ int test_extract_trace_id_after_ipopt_end_not_found_pktgen(struct __ctx_buff *ct
 	return gen_packet_with_options(ctx, opts, 5, 8);
 }
 
-CHECK("tc", "extract_trace_id_after_ipopt_end_not_found")
+CHECK(PROG_TYPE, "extract_trace_id_after_ipopt_end_not_found")
 int test_extract_trace_id_after_ipopt_end_not_found_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -294,7 +294,7 @@ int test_extract_trace_id_after_ipopt_end_not_found_check(struct __ctx_buff *ctx
 }
 
 /* Test trace ID comes after loop limit should return TRACE_ID_NOT_FOUND. */
-PKTGEN("tc", "extract_trace_id_after_loop_limit_not_found")
+PKTGEN(PROG_TYPE, "extract_trace_id_after_loop_limit_not_found")
 int test_extract_trace_id_after_loop_limit_not_found_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -329,7 +329,7 @@ int test_extract_trace_id_after_loop_limit_not_found_pktgen(struct __ctx_buff *c
 	return gen_packet_with_options(ctx, opts, 5, 8);
 }
 
-CHECK("tc", "extract_trace_id_after_loop_limit_not_found")
+CHECK(PROG_TYPE, "extract_trace_id_after_loop_limit_not_found")
 int test_extract_trace_id_after_loop_limit_not_found_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -347,7 +347,7 @@ int test_extract_trace_id_after_loop_limit_not_found_check(struct __ctx_buff *ct
 }
 
 /* Test three options with the trace ID option being first. */
-PKTGEN("tc", "extract_trace_id_first_of_three")
+PKTGEN(PROG_TYPE, "extract_trace_id_first_of_three")
 int test_extract_trace_id_first_of_three_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -373,7 +373,7 @@ int test_extract_trace_id_first_of_three_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 3, 12);
 }
 
-CHECK("tc", "extract_trace_id_first_of_three")
+CHECK(PROG_TYPE, "extract_trace_id_first_of_three")
 int test_extract_trace_id_first_of_three_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -391,7 +391,7 @@ int test_extract_trace_id_first_of_three_check(struct __ctx_buff *ctx)
 }
 
 /* Test three options with the trace ID option being between the other two. */
-PKTGEN("tc", "extract_trace_id_middle_of_three")
+PKTGEN(PROG_TYPE, "extract_trace_id_middle_of_three")
 int test_extract_trace_id_middle_of_three_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -417,7 +417,7 @@ int test_extract_trace_id_middle_of_three_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 3, 12);
 }
 
-CHECK("tc", "extract_trace_id_middle_of_three")
+CHECK(PROG_TYPE, "extract_trace_id_middle_of_three")
 int test_extract_trace_id_middle_of_three_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -435,7 +435,7 @@ int test_extract_trace_id_middle_of_three_check(struct __ctx_buff *ctx)
 }
 
 /* Test three options with the trace ID option being last of the three. */
-PKTGEN("tc", "extract_trace_id_last_of_three")
+PKTGEN(PROG_TYPE, "extract_trace_id_last_of_three")
 int test_extract_trace_id_last_of_three_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -462,7 +462,7 @@ int test_extract_trace_id_last_of_three_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 3, 12);
 }
 
-CHECK("tc", "extract_trace_id_last_of_three")
+CHECK(PROG_TYPE, "extract_trace_id_last_of_three")
 int test_extract_trace_id_last_of_three_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -480,7 +480,7 @@ int test_extract_trace_id_last_of_three_check(struct __ctx_buff *ctx)
 }
 
 /* Test multiple options with the trace ID coming after a NOOP option. */
-PKTGEN("tc", "extract_trace_id_after_ipopt_noop")
+PKTGEN(PROG_TYPE, "extract_trace_id_after_ipopt_noop")
 int test_extract_trace_id_after_ipopt_noop_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -514,7 +514,7 @@ int test_extract_trace_id_after_ipopt_noop_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 5, 8);
 }
 
-CHECK("tc", "extract_trace_id_after_ipopt_noop")
+CHECK(PROG_TYPE, "extract_trace_id_after_ipopt_noop")
 int test_extract_trace_id_after_ipopt_noop_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -532,7 +532,7 @@ int test_extract_trace_id_after_ipopt_noop_check(struct __ctx_buff *ctx)
 }
 
 /* Test multiple options with the trace ID not present should return TRACE_ID_NOT_FOUND. */
-PKTGEN("tc", "extract_trace_id_not_found_with_other_options")
+PKTGEN(PROG_TYPE, "extract_trace_id_not_found_with_other_options")
 int test_extract_trace_id__not_found_with_other_options_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -553,7 +553,7 @@ int test_extract_trace_id__not_found_with_other_options_pktgen(struct __ctx_buff
 	return gen_packet_with_options(ctx, opts, 2, 8);
 }
 
-CHECK("tc", "extract_trace_id_not_found_with_other_options")
+CHECK(PROG_TYPE, "extract_trace_id_not_found_with_other_options")
 int test_extract_trace_id_not_found_with_other_options_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -571,7 +571,7 @@ int test_extract_trace_id_not_found_with_other_options_check(struct __ctx_buff *
 }
 
 /* Test trace ID with incorrect length field should return INVALID. */
-PKTGEN("tc", "extract_trace_id_wrong_len_invalid")
+PKTGEN(PROG_TYPE, "extract_trace_id_wrong_len_invalid")
 int test_extract_trace_id_wrong_len_invalid_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -586,7 +586,7 @@ int test_extract_trace_id_wrong_len_invalid_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 1, 4);
 }
 
-CHECK("tc", "extract_trace_id_wrong_len_invalid")
+CHECK(PROG_TYPE, "extract_trace_id_wrong_len_invalid")
 int test_extract_trace_id_wrong_len_invalid_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -604,7 +604,7 @@ int test_extract_trace_id_wrong_len_invalid_check(struct __ctx_buff *ctx)
 }
 
 /* Test trace ID with negative value should return TRACE_ID_INVALID. */
-PKTGEN("tc", "extract_trace_id_negative")
+PKTGEN(PROG_TYPE, "extract_trace_id_negative")
 int test_extract_trace_id_negative_invalid_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -619,7 +619,7 @@ int test_extract_trace_id_negative_invalid_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 1, 4);
 }
 
-CHECK("tc", "extract_trace_id_negative")
+CHECK(PROG_TYPE, "extract_trace_id_negative")
 int test_extract_trace_id_negative_invalid_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -638,7 +638,7 @@ int test_extract_trace_id_negative_invalid_check(struct __ctx_buff *ctx)
 }
 
 /* Store and read trace ID to different option than stream ID with 2 bytes of data. */
-PKTGEN("tc", "extract_trace_id_different_option_type")
+PKTGEN(PROG_TYPE, "extract_trace_id_different_option_type")
 int test_extract_trace_id_different_option_type_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -653,7 +653,7 @@ int test_extract_trace_id_different_option_type_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 1, 4);
 }
 
-CHECK("tc", "extract_trace_id_different_option_type")
+CHECK(PROG_TYPE, "extract_trace_id_different_option_type")
 int test_extract_trace_id_different_option_type_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -671,7 +671,7 @@ int test_extract_trace_id_different_option_type_check(struct __ctx_buff *ctx)
 }
 
 /* Read trace ID from wrong IP option. */
-PKTGEN("tc", "extract_read_trace_id_wrong_option_type")
+PKTGEN(PROG_TYPE, "extract_read_trace_id_wrong_option_type")
 int test_extract_read_trace_id_wrong_option_type_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -686,7 +686,7 @@ int test_extract_read_trace_id_wrong_option_type_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 1, 4);
 }
 
-CHECK("tc", "extract_read_trace_id_wrong_option_type")
+CHECK(PROG_TYPE, "extract_read_trace_id_wrong_option_type")
 int test_extract_read_trace_id_wrong_option_type_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -704,7 +704,7 @@ int test_extract_read_trace_id_wrong_option_type_check(struct __ctx_buff *ctx)
 }
 
 /* Test a valid 4-byte trace ID. */
-PKTGEN("tc", "extract_trace_id_4_bytes_valid")
+PKTGEN(PROG_TYPE, "extract_trace_id_4_bytes_valid")
 int test_extract_trace_id_4_bytes_valid_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -719,7 +719,7 @@ int test_extract_trace_id_4_bytes_valid_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 1, 8);
 }
 
-CHECK("tc", "extract_trace_id_4_bytes_valid")
+CHECK(PROG_TYPE, "extract_trace_id_4_bytes_valid")
 int test_extract_trace_id_4_bytes_valid_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -737,7 +737,7 @@ int test_extract_trace_id_4_bytes_valid_check(struct __ctx_buff *ctx)
 }
 
 /* Test negative trace id should return valid. */
-PKTGEN("tc", "extract_trace_id_negative_4_bytes")
+PKTGEN(PROG_TYPE, "extract_trace_id_negative_4_bytes")
 int test_extract_trace_id_negative_4_bytes_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -752,7 +752,7 @@ int test_extract_trace_id_negative_4_bytes_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 1, 8);
 }
 
-CHECK("tc", "extract_trace_id_negative_4_bytes")
+CHECK(PROG_TYPE, "extract_trace_id_negative_4_bytes")
 int test_extract_trace_id_negative_4_bytes_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -770,7 +770,7 @@ int test_extract_trace_id_negative_4_bytes_check(struct __ctx_buff *ctx)
 }
 
 /* Test a 4-byte trace ID with incorrect length. */
-PKTGEN("tc", "extract_trace_id_4_bytes_wrong_length")
+PKTGEN(PROG_TYPE, "extract_trace_id_4_bytes_wrong_length")
 int test_extract_trace_id_4_bytes_wrong_length_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -784,7 +784,7 @@ int test_extract_trace_id_4_bytes_wrong_length_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 1, 8);
 }
 
-CHECK("tc", "extract_trace_id_4_bytes_wrong_length")
+CHECK(PROG_TYPE, "extract_trace_id_4_bytes_wrong_length")
 int test_extract_trace_id_4_bytes_wrong_length_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -802,7 +802,7 @@ int test_extract_trace_id_4_bytes_wrong_length_check(struct __ctx_buff *ctx)
 }
 
 /* Test a 4-byte trace ID before the end of option list. */
-PKTGEN("tc", "extract_trace_id_4_bytes_before_end")
+PKTGEN(PROG_TYPE, "extract_trace_id_4_bytes_before_end")
 int test_extract_trace_id_4_bytes_before_end_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -821,7 +821,7 @@ int test_extract_trace_id_4_bytes_before_end_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 2, 8);
 }
 
-CHECK("tc", "extract_trace_id_4_bytes_before_end")
+CHECK(PROG_TYPE, "extract_trace_id_4_bytes_before_end")
 int test_extract_trace_id_4_bytes_before_end_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -839,7 +839,7 @@ int test_extract_trace_id_4_bytes_before_end_check(struct __ctx_buff *ctx)
 }
 
 /* Test a valid 8-byte trace ID should return TRACE_ID_ERROR. */
-PKTGEN("tc", "extract_trace_id_8_bytes_valid")
+PKTGEN(PROG_TYPE, "extract_trace_id_8_bytes_valid")
 int test_extract_trace_id_8_bytes_valid_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -853,7 +853,7 @@ int test_extract_trace_id_8_bytes_valid_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 1, 12);
 }
 
-CHECK("tc", "extract_trace_id_8_bytes_valid")
+CHECK(PROG_TYPE, "extract_trace_id_8_bytes_valid")
 int test_extract_trace_id_8_bytes_valid_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -871,7 +871,7 @@ int test_extract_trace_id_8_bytes_valid_check(struct __ctx_buff *ctx)
 }
 
 /* Test an 8-byte trace ID followed by padding. */
-PKTGEN("tc", "extract_trace_id_8_bytes_with_padding")
+PKTGEN(PROG_TYPE, "extract_trace_id_8_bytes_with_padding")
 int test_extract_trace_id_8_bytes_with_padding_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -891,7 +891,7 @@ int test_extract_trace_id_8_bytes_with_padding_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 2, 12);
 }
 
-CHECK("tc", "extract_trace_id_8_bytes_with_padding")
+CHECK(PROG_TYPE, "extract_trace_id_8_bytes_with_padding")
 int test_extract_trace_id_8_bytes_with_padding_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -909,7 +909,7 @@ int test_extract_trace_id_8_bytes_with_padding_check(struct __ctx_buff *ctx)
 }
 
 /* Test an 8-byte trace ID that represents a negative value. */
-PKTGEN("tc", "extract_trace_id_8_bytes_negative")
+PKTGEN(PROG_TYPE, "extract_trace_id_8_bytes_negative")
 int test_extract_trace_id_8_bytes_negative_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -924,7 +924,7 @@ int test_extract_trace_id_8_bytes_negative_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 1, 12);
 }
 
-CHECK("tc", "extract_trace_id_8_bytes_negative")
+CHECK(PROG_TYPE, "extract_trace_id_8_bytes_negative")
 int test_extract_trace_id_8_bytes_negative_check(struct __ctx_buff *ctx)
 {
 	test_init();
@@ -943,7 +943,7 @@ int test_extract_trace_id_8_bytes_negative_check(struct __ctx_buff *ctx)
 }
 
 /* Test an 8-byte trace ID with an invalid option length. */
-PKTGEN("tc", "extract_trace_id_8_bytes_invalid_length")
+PKTGEN(PROG_TYPE, "extract_trace_id_8_bytes_invalid_length")
 int test_extract_trace_id_8_bytes_invalid_length_pktgen(struct __ctx_buff *ctx)
 {
 	struct ipopthdr opts[] = {
@@ -957,7 +957,7 @@ int test_extract_trace_id_8_bytes_invalid_length_pktgen(struct __ctx_buff *ctx)
 	return gen_packet_with_options(ctx, opts, 1, 12);
 }
 
-CHECK("tc", "extract_trace_id_8_bytes_invalid_length")
+CHECK(PROG_TYPE, "extract_trace_id_8_bytes_invalid_length")
 int test_extract_trace_id_8_bytes_invalid_length_check(struct __ctx_buff *ctx)
 {
 	test_init();

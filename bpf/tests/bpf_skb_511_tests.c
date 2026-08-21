@@ -13,7 +13,7 @@
 #define TEST_CLUSTER_ID 0x1FFu
 #define IDENTITY (0x00000000u | (TEST_CLUSTER_ID << IDENTITY_LOCAL_BITS) | CLUSTER_LOCAL_IDENTITY)
 
-CHECK("tc", "set_and_get_identity")
+CHECK(PROG_TYPE, "set_and_get_identity")
 int check_get_identity(struct __ctx_buff *ctx)
 {
 	__u32 identity;
@@ -33,7 +33,7 @@ int check_get_identity(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "set_and_get_cluster_id")
+CHECK(PROG_TYPE, "set_and_get_cluster_id")
 int check_ctx_get_cluster_id_mark(struct __ctx_buff *ctx)
 {
 	__u32 cluster_id;

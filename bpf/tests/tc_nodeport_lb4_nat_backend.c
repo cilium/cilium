@@ -63,7 +63,7 @@ ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
  * - doesn't touch a NATed request,
  * - redirects it to the pod (as BPF Host Routing is enabled)
  */
-PKTGEN("tc", "tc_nodeport_nat_backend")
+PKTGEN(PROG_TYPE, "tc_nodeport_nat_backend")
 int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 {
 	volatile const __u8 *src = mac_one;
@@ -92,7 +92,7 @@ int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_nat_backend")
+SETUP(PROG_TYPE, "tc_nodeport_nat_backend")
 int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 {
 	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
@@ -107,7 +107,7 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_nat_backend")
+CHECK(PROG_TYPE, "tc_nodeport_nat_backend")
 int nodeport_nat_backend_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

@@ -78,7 +78,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
  * - has IP Option inserted,
  * - gets redirected back out by TC
  */
-PKTGEN("tc", "tc_nodeport_dsr_fwd4")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_fwd4")
 int nodeport_dsr_fwd4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -105,7 +105,7 @@ int nodeport_dsr_fwd4_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_dsr_fwd4")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_fwd4")
 int nodeport_dsr_fwd4_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -119,7 +119,7 @@ int nodeport_dsr_fwd4_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_dsr_fwd4")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_fwd4")
 int nodeport_dsr_fwd4_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	struct dsr_opt_v4 *opt;
@@ -187,7 +187,7 @@ int nodeport_dsr_fwd4_check(__maybe_unused const struct __ctx_buff *ctx)
  * - has IPv6 Extension inserted,
  * - gets redirected back out by TC
  */
-PKTGEN("tc", "tc_nodeport_dsr_fwd6")
+PKTGEN(PROG_TYPE, "tc_nodeport_dsr_fwd6")
 int nodeport_dsr_fwd6_pktgen(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IPV6;
@@ -216,7 +216,7 @@ int nodeport_dsr_fwd6_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_dsr_fwd6")
+SETUP(PROG_TYPE, "tc_nodeport_dsr_fwd6")
 int nodeport_dsr_fwd6_setup(struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IPV6;
@@ -232,7 +232,7 @@ int nodeport_dsr_fwd6_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_dsr_fwd6")
+CHECK(PROG_TYPE, "tc_nodeport_dsr_fwd6")
 int nodeport_dsr_fwd6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IPV6;

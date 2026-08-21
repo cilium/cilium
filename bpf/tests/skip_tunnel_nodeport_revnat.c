@@ -369,73 +369,73 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 	test_finish();
 }
 
-PKTGEN("tc", "01_ipv4_nodeport_ingress_no_flags")
+PKTGEN(PROG_TYPE, "01_ipv4_nodeport_ingress_no_flags")
 int ipv4_nodeport_ingress_no_flags_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, true);
 }
 
-SETUP("tc", "01_ipv4_nodeport_ingress_no_flags")
+SETUP(PROG_TYPE, "01_ipv4_nodeport_ingress_no_flags")
 int ipv4_nodeport_ingress_no_flags_setup(struct __ctx_buff *ctx)
 {
 	return setup(ctx, true, false);
 }
 
-CHECK("tc", "01_ipv4_nodeport_ingress_no_flags")
+CHECK(PROG_TYPE, "01_ipv4_nodeport_ingress_no_flags")
 int ipv4_nodeport_ingress_no_flags_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, true, CTX_ACT_REDIRECT);
 }
 
-PKTGEN("tc", "02_ipv4_nodeport_ingress_skip_tunnel")
+PKTGEN(PROG_TYPE, "02_ipv4_nodeport_ingress_skip_tunnel")
 int ipv4_nodeport_ingress_skip_tunnel_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, true);
 }
 
-SETUP("tc", "02_ipv4_nodeport_ingress_skip_tunnel")
+SETUP(PROG_TYPE, "02_ipv4_nodeport_ingress_skip_tunnel")
 int ipv4_nodeport_ingress_skip_tunnel_setup(struct __ctx_buff *ctx)
 {
 	return setup(ctx, true, true);
 }
 
-CHECK("tc", "02_ipv4_nodeport_ingress_skip_tunnel")
+CHECK(PROG_TYPE, "02_ipv4_nodeport_ingress_skip_tunnel")
 int ipv4_nodeport_ingress_skip_tunnel_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, true, CTX_ACT_DROP);
 }
 
-PKTGEN("tc", "03_ipv6_nodeport_ingress_no_flags")
+PKTGEN(PROG_TYPE, "03_ipv6_nodeport_ingress_no_flags")
 int ipv6_nodeport_ingress_no_flags_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, false);
 }
 
-SETUP("tc", "03_ipv6_nodeport_ingress_no_flags")
+SETUP(PROG_TYPE, "03_ipv6_nodeport_ingress_no_flags")
 int ipv6_nodeport_ingress_no_flags_setup(struct __ctx_buff *ctx)
 {
 	return setup(ctx, false, false);
 }
 
-CHECK("tc", "03_ipv6_nodeport_ingress_no_flags")
+CHECK(PROG_TYPE, "03_ipv6_nodeport_ingress_no_flags")
 int ipv6_nodeport_ingress_no_flags_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, false, CTX_ACT_REDIRECT);
 }
 
-PKTGEN("tc", "04_ipv6_nodeport_ingress_skip_tunnel")
+PKTGEN(PROG_TYPE, "04_ipv6_nodeport_ingress_skip_tunnel")
 int ipv6_nodeport_ingress_skip_tunnel_pktgen(struct __ctx_buff *ctx)
 {
 	return pktgen(ctx, false);
 }
 
-SETUP("tc", "04_ipv6_nodeport_ingress_skip_tunnel")
+SETUP(PROG_TYPE, "04_ipv6_nodeport_ingress_skip_tunnel")
 int ipv6_nodeport_ingress_skip_tunnel_setup(struct __ctx_buff *ctx)
 {
 	return setup(ctx, false, true);
 }
 
-CHECK("tc", "04_ipv6_nodeport_ingress_skip_tunnel")
+CHECK(PROG_TYPE, "04_ipv6_nodeport_ingress_skip_tunnel")
 int ipv6_nodeport_ingress_skip_tunnel_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, false, CTX_ACT_DROP);

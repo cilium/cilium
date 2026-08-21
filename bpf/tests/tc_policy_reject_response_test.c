@@ -4,6 +4,7 @@
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
+#include "scapy.h"
 
 /* Enable code paths under test */
 #define ENABLE_IPV4
@@ -21,34 +22,39 @@ ASSIGN_CONFIG(bool, policy_deny_response_enabled, true)
 #define CLIENT_IP v4_pod_one
 #define TARGET_IP v4_ext_one
 
-PKTGEN("tc", "policy_reject_response_v4")
+const __u8 v4_lxc_to_external[] = {
+	SCAPY_BUF_BYTES(v4_lxc_to_external)
+};
+
+const __u8 v4_lxc_to_external_icmp_unreach[] = {
+	SCAPY_BUF_BYTES(v4_lxc_to_external_icmp_unreach)
+};
+
+const __u8 v6_lxc_to_external[] = {
+	SCAPY_BUF_BYTES(v6_lxc_to_external)
+};
+
+const __u8 v6_lxc_to_external_icmp_unreach[] = {
+	SCAPY_BUF_BYTES(v6_lxc_to_external_icmp_unreach)
+};
+
+PKTGEN(PROG_TYPE, "policy_reject_response_v4")
 int policy_reject_response_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct tcphdr *l4;
-	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)mac_one, (__u8 *)mac_two,
-					  CLIENT_IP, TARGET_IP,
-					  tcp_src_one, tcp_dst_one);
-	if (!l4)
-		return TEST_ERROR;
+	scapy_push_data(&builder, v4_lxc_to_external,
+			sizeof(v4_lxc_to_external));
 
-	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
-	if (!data)
-		return TEST_ERROR;
-
-	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
 
 	return 0;
 }
 
-SETUP("tc", "policy_reject_response_v4")
+SETUP(PROG_TYPE, "policy_reject_response_v4")
 int policy_reject_response_setup(struct __ctx_buff *ctx)
 {
 	/* Add endpoint for source */
@@ -64,13 +70,11 @@ int policy_reject_response_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "policy_reject_response_v4")
+CHECK(PROG_TYPE, "policy_reject_response_v4")
 int policy_reject_response_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;
-	struct iphdr *l3;
-	struct icmphdr *icmp;
 
 	test_init();
 
@@ -87,33 +91,10 @@ int policy_reject_response_check(const struct __ctx_buff *ctx)
 	/* Should redirect ICMP response back to interface */
 	assert(*status_code == TC_ACT_REDIRECT);
 
-	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
-
-	if ((void *)l3 + sizeof(struct iphdr) > data_end)
-		test_fatal("l3 out of bounds");
-
-	/* Verify this is an ICMP response packet */
-	if (l3->protocol != IPPROTO_ICMP)
-		test_fatal("expected ICMP protocol, got %d", l3->protocol);
-
-	/* Source should be swapped to target, destination should be client */
-	if (l3->saddr != TARGET_IP)
-		test_fatal("ICMP src should be target IP");
-
-	if (l3->daddr != CLIENT_IP)
-		test_fatal("ICMP dst should be client IP");
-
-	icmp = (void *)l3 + sizeof(struct iphdr);
-
-	if ((void *)icmp + sizeof(struct icmphdr) > data_end)
-		test_fatal("ICMP header out of bounds");
-
-	/* Verify ICMP error type and code for policy rejection */
-	if (icmp->type != ICMP_DEST_UNREACH)
-		test_fatal("expected ICMP_DEST_UNREACH, got type %d", icmp->type);
-
-	if (icmp->code != ICMP_PKT_FILTERED)
-		test_fatal("expected ICMP_PKT_FILTERED, got code %d", icmp->code);
+	ASSERT_CTX_BUF_OFF("v4_lxc_to_external_icmp_unreach",
+			   "Ether", ctx, sizeof(__u32),
+			   v4_lxc_to_external_icmp_unreach,
+			   sizeof(v4_lxc_to_external_icmp_unreach));
 
 	test_finish();
 }
@@ -129,48 +110,31 @@ validate_icmpv6_reply_return(const struct __ctx_buff *ctx, __u32 retval)
 {
 	struct validate_icmpv6_reply_args args = {
 		.ctx = ctx,
-		.src_mac = (__u8 *)mac_two,
-		.dst_mac = (__u8 *)mac_one,
-		.src_ip = (__u8 *)TARGET_IPv6,
-		.dst_ip = (__u8 *)CLIENT_IPv6,
-		.icmp_type = ICMPV6_DEST_UNREACH,
-		.icmp_code = ICMPV6_ADM_PROHIBITED,
-		.checksum = 0x9e17,
+		.buf_expected = v6_lxc_to_external_icmp_unreach,
+		.buf_len = sizeof(v6_lxc_to_external_icmp_unreach),
 		.dst_idx = 1,
 		.retval = retval,
 	};
 	return validate_icmpv6_reply(&args);
 }
 
-PKTGEN("tc", "policy_reject_response_v6")
+PKTGEN(PROG_TYPE, "policy_reject_response_v6")
 int policy_reject_response_v6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct tcphdr *l4;
-	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_tcp_packet(&builder,
-					  (__u8 *)mac_one, (__u8 *)mac_two,
-					  (__u8 *)CLIENT_IPv6,
-					  (__u8 *)TARGET_IPv6,
-					  tcp_src_one, tcp_dst_one);
-	if (!l4)
-		return TEST_ERROR;
+	scapy_push_data(&builder, v6_lxc_to_external,
+			sizeof(v6_lxc_to_external));
 
-	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
-	if (!data)
-		return TEST_ERROR;
-
-	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
 
 	return 0;
 }
 
-SETUP("tc", "policy_reject_response_v6")
+SETUP(PROG_TYPE, "policy_reject_response_v6")
 int policy_reject_response_v6_setup(struct __ctx_buff *ctx)
 {
 	/* Add endpoint for source */
@@ -186,7 +150,7 @@ int policy_reject_response_v6_setup(struct __ctx_buff *ctx)
 	return pod_send_packet(ctx);
 }
 
-CHECK("tc", "policy_reject_response_v6")
+CHECK(PROG_TYPE, "policy_reject_response_v6")
 int policy_reject_response_v6_check(const struct __ctx_buff *ctx)
 {
 	/* we should have a redirect of the packet on the same interface. */
@@ -196,23 +160,29 @@ int policy_reject_response_v6_check(const struct __ctx_buff *ctx)
 /*
  * Test that the ICMP error message goes back into the pod
  */
-PKTGEN("tc", "policy_reject_response_v6_ingress")
+PKTGEN(PROG_TYPE, "policy_reject_response_v6_ingress")
 int policy_reject_response_v6_ingress_pktgen(struct __ctx_buff *ctx)
 {
-	/* Start with the initial request, and let SETUP() below rebuild it. */
-	return policy_reject_response_v6_pktgen(ctx);
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	scapy_push_data(&builder, v6_lxc_to_external_icmp_unreach,
+			sizeof(v6_lxc_to_external_icmp_unreach));
+
+	pktgen__finish(&builder);
+
+	return 0;
 }
 
-SETUP("tc", "policy_reject_response_v6_ingress")
+SETUP(PROG_TYPE, "policy_reject_response_v6_ingress")
 int policy_reject_response_v6_ingress_setup(struct __ctx_buff *ctx)
 {
-	if (generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_ADM_PROHIBITED))
-		return TEST_ERROR;
 	/* we have no allow policy for this packet so we expect it to be dropped. */
 	return pod_receive_packet(ctx);
 }
 
-CHECK("tc", "policy_reject_response_v6_ingress")
+CHECK(PROG_TYPE, "policy_reject_response_v6_ingress")
 int policy_reject_response_v6_ingress_check(const struct __ctx_buff *ctx)
 {
 	return validate_icmpv6_reply_return(ctx, TC_ACT_SHOT);

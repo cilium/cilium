@@ -89,7 +89,7 @@ ASSIGN_CONFIG(__u32, interface_ifindex, 12)
  * Given we cannot import both bpf_host and bpf_lxc, in our SETUP functions
  * we will simulate hitting the `tail_call_egress_policy(ctx, lxc_id)` codepath.
  */
-PKTGEN("tc", "l7_lb_local_backend_v4")
+PKTGEN(PROG_TYPE, "l7_lb_local_backend_v4")
 int l7_lb_local_backend_v4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -108,7 +108,7 @@ int l7_lb_local_backend_v4_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "l7_lb_local_backend_v4")
+SETUP(PROG_TYPE, "l7_lb_local_backend_v4")
 int l7_lb_local_backend_v4_setup(struct __ctx_buff *ctx)
 {
 	/* We need this to allow the packet proceeding. */
@@ -118,7 +118,7 @@ int l7_lb_local_backend_v4_setup(struct __ctx_buff *ctx)
 	return tail_call_egress_policy(ctx, CLIENT_EP_ID);
 }
 
-CHECK("tc", "l7_lb_local_backend_v4")
+CHECK(PROG_TYPE, "l7_lb_local_backend_v4")
 int l7_lb_local_backend_v4_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -146,7 +146,7 @@ int l7_lb_local_backend_v4_check(const struct __ctx_buff *ctx)
 }
 
 /* See IPv4 test for comments. */
-PKTGEN("tc", "l7_lb_local_backend_v6")
+PKTGEN(PROG_TYPE, "l7_lb_local_backend_v6")
 int l7_lb_local_backend_v6_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -165,7 +165,7 @@ int l7_lb_local_backend_v6_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "l7_lb_local_backend_v6")
+SETUP(PROG_TYPE, "l7_lb_local_backend_v6")
 int l7_lb_local_backend_v6_setup(struct __ctx_buff *ctx)
 {
 	/* We need this to allow the packet proceeding. */
@@ -175,7 +175,7 @@ int l7_lb_local_backend_v6_setup(struct __ctx_buff *ctx)
 	return tail_call_egress_policy(ctx, CLIENT_EP_ID);
 }
 
-CHECK("tc", "l7_lb_local_backend_v6")
+CHECK(PROG_TYPE, "l7_lb_local_backend_v6")
 int l7_lb_local_backend_v6_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

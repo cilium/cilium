@@ -4,6 +4,7 @@
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
+#include "scapy.h"
 
 /* Enable code paths under test */
 #define ENABLE_IPV4			1
@@ -13,20 +14,9 @@
 #define ENABLE_MASQUERADE_IPV4		1
 #define ENABLE_MASQUERADE_IPV6		1
 
-#define CLIENT_IP		v4_ext_one
-#define CLIENT_IPV6		v6_pod_one
-#define CLIENT_PORT		__bpf_htons(111)
-
 #define FRONTEND_IP		v4_svc_one
-#define FRONTEND_IPV6		v6_pod_two
+#define FRONTEND_IPV6		v6_svc_one
 #define FRONTEND_PORT		tcp_svc_one
-
-#define BACKEND_IP		v4_pod_two
-#define BACKEND_IPV6		v6_node_two
-#define BACKEND_PORT		__bpf_htons(8080)
-
-static volatile const __u8 *client_mac = mac_one;
-static volatile const __u8 *lb_mac = mac_host;
 
 #include "lib/bpf_host.h"
 
@@ -37,42 +27,45 @@ ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
-/* Test that a SVC without backends returns a TCP RST or ICMP error */
-PKTGEN("tc", "tc_nodeport_no_backend4")
+const __u8 lb4_udp_clusterip[] = {
+	SCAPY_BUF_BYTES(lb4_udp_clusterip)
+};
+
+const __u8 lb4_udp_clusterip_icmp_unreach[] = {
+	SCAPY_BUF_BYTES(lb4_udp_clusterip_icmp_unreach)
+};
+
+const __u8 lb6_udp_clusterip[] = {
+	SCAPY_BUF_BYTES(lb6_udp_clusterip)
+};
+
+const __u8 lb6_udp_clusterip_icmp_unreach[] = {
+	SCAPY_BUF_BYTES(lb6_udp_clusterip_icmp_unreach)
+};
+
+/* Test that a SVC without backends returns an ICMP error */
+PKTGEN(PROG_TYPE, "tc_nodeport_no_backend4")
 int nodeport_no_backend4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct tcphdr *l4;
-	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)lb_mac,
-					  CLIENT_IP, FRONTEND_IP,
-					  CLIENT_PORT, FRONTEND_PORT);
-	if (!l4)
-		return TEST_ERROR;
+	scapy_push_data(&builder, lb4_udp_clusterip,
+			sizeof(lb4_udp_clusterip));
 
-	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
-	if (!data)
-		return TEST_ERROR;
-
-	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
 
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_no_backend4")
+SETUP(PROG_TYPE, "tc_nodeport_no_backend4")
 int nodeport_no_backend4_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
 
-	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
-
-	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_UDP, 0, revnat_id);
 
 	return netdev_receive_packet(ctx);
 }
@@ -82,9 +75,6 @@ validate_icmp_reply(const struct __ctx_buff *ctx, __u32 retval)
 {
 	void *data, *data_end;
 	__u32 *status_code;
-	struct ethhdr *l2;
-	struct iphdr *l3;
-	struct icmphdr *l4;
 
 	test_init();
 
@@ -99,106 +89,66 @@ validate_icmp_reply(const struct __ctx_buff *ctx, __u32 retval)
 	test_log("Status code: %d", *status_code);
 	assert(*status_code == retval);
 
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 header out of bounds");
-
-	assert(memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) == 0);
-	assert(memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) == 0);
-	assert(l2->h_proto == __bpf_htons(ETH_P_IP));
-
-	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
-	if ((void *)l3 + sizeof(struct iphdr) > data_end)
-		test_fatal("l3 header out of bounds");
-
-	assert(l3->saddr == FRONTEND_IP);
-	assert(l3->daddr == CLIENT_IP);
-
-	assert(l3->ihl == 5);
-	assert(l3->version == 4);
-	assert(l3->tos == 0);
-	assert(l3->ttl == 64);
-	assert(l3->protocol == IPPROTO_ICMP);
-
-	if (l3->check != bpf_htons(0x4b8f))
-		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
-
-	l4 = data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct iphdr);
-	if ((void *) l4 + sizeof(struct icmphdr) > data_end)
-		test_fatal("l4 header out of bounds");
-
-	assert(l4->type == ICMP_DEST_UNREACH);
-	assert(l4->code == ICMP_PORT_UNREACH);
-
-	/* reference checksum is calculated with wireshark by dumping the
-	 * context with the runner option and importing the packet into
-	 * wireshark
-	 */
-	if (l4->checksum != bpf_htons(0x2c3e))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->checksum));
+	ASSERT_CTX_BUF_OFF("lb4_udp_clusterip_icmp_unreach",
+			   "Ether", ctx, sizeof(__u32),
+			   lb4_udp_clusterip_icmp_unreach,
+			   sizeof(lb4_udp_clusterip_icmp_unreach));
 
 	test_finish();
 }
 
-CHECK("tc", "tc_nodeport_no_backend4")
+CHECK(PROG_TYPE, "tc_nodeport_no_backend4")
 int nodeport_no_backend4_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return validate_icmp_reply(ctx, CTX_ACT_REDIRECT);
 }
 
 /* Test that the ICMP error message leaves the node */
-PKTGEN("tc", "tc_nodeport_no_backend4_2_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_no_backend4_2_reply")
 int nodeport_no_backend4_2_reply_pktgen(struct __ctx_buff *ctx)
 {
-	/* Start with the initial request, and let SETUP() below rebuild it. */
-	return nodeport_no_backend4_pktgen(ctx);
-}
-
-SETUP("tc", "tc_nodeport_no_backend4_2_reply")
-int nodeport_no_backend4_2_reply_setup(struct __ctx_buff *ctx)
-{
-	if (tail_no_service_ipv4(ctx) != CTX_ACT_REDIRECT)
-		return TEST_ERROR;
-
-	return netdev_send_packet(ctx);
-}
-
-CHECK("tc", "tc_nodeport_no_backend4_2_reply")
-int nodeport_no_backend4_2_reply_check(__maybe_unused const struct __ctx_buff *ctx)
-{
-	return validate_icmp_reply(ctx, CTX_ACT_OK);
-}
-
-/* Test that a SVC without backends returns a TCP RST or ICMP error */
-PKTGEN("tc", "tc_nodeport_no_backend6")
-int nodeport_no_backend6_pktgen(struct __ctx_buff *ctx)
-{
 	struct pktgen builder;
-	struct tcphdr *l4;
-	void *data;
 
-	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_tcp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)lb_mac,
-					  (__u8 *)CLIENT_IPV6,
-					  (__u8 *)FRONTEND_IPV6,
-					  tcp_src_one, tcp_svc_one);
-	if (!l4)
-		return TEST_ERROR;
+	scapy_push_data(&builder, lb4_udp_clusterip_icmp_unreach,
+			sizeof(lb4_udp_clusterip_icmp_unreach));
 
-	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
-	if (!data)
-		return TEST_ERROR;
-
-	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
 
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_no_backend6")
+SETUP(PROG_TYPE, "tc_nodeport_no_backend4_2_reply")
+int nodeport_no_backend4_2_reply_setup(struct __ctx_buff *ctx)
+{
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "tc_nodeport_no_backend4_2_reply")
+int nodeport_no_backend4_2_reply_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	return validate_icmp_reply(ctx, CTX_ACT_OK);
+}
+
+/* Test that a SVC without backends returns an ICMP error */
+PKTGEN(PROG_TYPE, "tc_nodeport_no_backend6")
+int nodeport_no_backend6_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	scapy_push_data(&builder, lb6_udp_clusterip,
+			sizeof(lb6_udp_clusterip));
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "tc_nodeport_no_backend6")
 int nodeport_no_backend6_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
@@ -207,58 +157,53 @@ int nodeport_no_backend6_setup(struct __ctx_buff *ctx)
 
 	memcpy(frontend_ip.addr, (void *)FRONTEND_IPV6, 16);
 
-	lb_v6_add_service(&frontend_ip, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
-
-	union v6addr backend_ip = {};
-
-	memcpy(backend_ip.addr, (void *)BACKEND_IPV6, 16);
-
-	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);
+	lb_v6_add_service(&frontend_ip, FRONTEND_PORT, IPPROTO_UDP, 0, revnat_id);
 
 	return netdev_receive_packet(ctx);
 }
 
 static __always_inline int
-validate_icmpv6_reply_return(const struct __ctx_buff *ctx, __u32 retval) {
+validate_icmpv6_reply_return(const struct __ctx_buff *ctx, __u32 retval)
+{
 	struct validate_icmpv6_reply_args args = {
 		.ctx = ctx,
-		.src_mac = (__u8 *)lb_mac,
-		.dst_mac = (__u8 *)client_mac,
-		.src_ip = (__u8 *)FRONTEND_IPV6,
-		.dst_ip = (__u8 *)CLIENT_IPV6,
-		.icmp_type = ICMPV6_DEST_UNREACH,
-		.icmp_code = ICMPV6_PORT_UNREACH,
-		.checksum = 0x9e14,
+		.buf_expected = lb6_udp_clusterip_icmp_unreach,
+		.buf_len = sizeof(lb6_udp_clusterip_icmp_unreach),
 		.dst_idx = 1,
 		.retval = retval,
 	};
 	return validate_icmpv6_reply(&args);
 }
 
-CHECK("tc", "tc_nodeport_no_backend6")
+CHECK(PROG_TYPE, "tc_nodeport_no_backend6")
 int nodeport_no_backend6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return validate_icmpv6_reply_return(ctx, CTX_ACT_REDIRECT);
 }
 
 /* Test that the ICMP error message leaves the node */
-PKTGEN("tc", "tc_nodeport_no_backend6_2_reply")
+PKTGEN(PROG_TYPE, "tc_nodeport_no_backend6_2_reply")
 int nodeport_no_backend6_2_reply_pktgen(struct __ctx_buff *ctx)
 {
-	/* Start with the initial request, and let SETUP() below rebuild it. */
-	return nodeport_no_backend6_pktgen(ctx);
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	scapy_push_data(&builder, lb6_udp_clusterip_icmp_unreach,
+			sizeof(lb6_udp_clusterip_icmp_unreach));
+
+	pktgen__finish(&builder);
+
+	return 0;
 }
 
-SETUP("tc", "tc_nodeport_no_backend6_2_reply")
+SETUP(PROG_TYPE, "tc_nodeport_no_backend6_2_reply")
 int nodeport_no_backend6_2_reply_setup(struct __ctx_buff *ctx)
 {
-	if (generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH))
-		return TEST_ERROR;
-
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_no_backend6_2_reply")
+CHECK(PROG_TYPE, "tc_nodeport_no_backend6_2_reply")
 int nodeport_no_backend6_2_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return validate_icmpv6_reply_return(ctx, CTX_ACT_OK);

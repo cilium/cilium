@@ -7,7 +7,7 @@
 
 #include "builtin_test.h"
 
-CHECK("tc", "builtin_memzero")
+CHECK(PROG_TYPE, "builtin_memzero")
 int test_builtin_memzero(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();
@@ -18,7 +18,7 @@ int test_builtin_memzero(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "builtin_memcpy")
+CHECK(PROG_TYPE, "builtin_memcpy")
 int test_builtin_memcpy(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();
@@ -29,7 +29,7 @@ int test_builtin_memcpy(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "builtin_memcmp")
+CHECK(PROG_TYPE, "builtin_memcmp")
 int test_builtin_memcmp(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();
@@ -49,7 +49,7 @@ int test_builtin_memcmp(__maybe_unused struct __ctx_buff *ctx)
  * bug (possibly out of jump labels), see commit history and
  * PR#41017 for more details.
  */
-CHECK("tc", "builtin_memmove")
+CHECK(PROG_TYPE, "builtin_memmove")
 int test_builtin_memmove(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();
@@ -62,7 +62,7 @@ int test_builtin_memmove(__maybe_unused struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "builtin_memmove2")
+CHECK(PROG_TYPE, "builtin_memmove2")
 int test_builtin_memmove2(__maybe_unused struct __ctx_buff *ctx)
 {
 	test_init();

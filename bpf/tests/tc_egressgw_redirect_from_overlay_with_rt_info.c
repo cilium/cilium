@@ -83,7 +83,7 @@ mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_
 /* Test that a packet matching an egress gateway policy on the from-overlay program
  * gets correctly redirected to the target netdev.
  */
-PKTGEN("tc", "tc_egressgw_redirect_from_overlay_with_rt_info")
+PKTGEN(PROG_TYPE, "tc_egressgw_redirect_from_overlay_with_rt_info")
 int egressgw_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
@@ -92,7 +92,7 @@ int egressgw_redirect_pktgen(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_redirect_from_overlay_with_rt_info")
+SETUP(PROG_TYPE, "tc_egressgw_redirect_from_overlay_with_rt_info")
 int egressgw_redirect_setup(struct __ctx_buff *ctx)
 {
 	__u32 key = 0;
@@ -109,7 +109,7 @@ int egressgw_redirect_setup(struct __ctx_buff *ctx)
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_redirect_from_overlay_with_rt_info")
+CHECK(PROG_TYPE, "tc_egressgw_redirect_from_overlay_with_rt_info")
 int egressgw_redirect_check(const struct __ctx_buff *ctx)
 {
 	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
@@ -130,7 +130,7 @@ int egressgw_redirect_check(const struct __ctx_buff *ctx)
 /* Test that a packet matching an egress gateway policy on the from-overlay program
  * gets correctly redirected to the target netdev for IPv6.
  */
-PKTGEN("tc", "tc_egressgw_redirect_from_overlay_with_rt_info_v6")
+PKTGEN(PROG_TYPE, "tc_egressgw_redirect_from_overlay_with_rt_info_v6")
 int egressgw_redirect_pktgen_v6(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen_v6(ctx, (struct egressgw_test_ctx) {
@@ -139,7 +139,7 @@ int egressgw_redirect_pktgen_v6(struct __ctx_buff *ctx)
 		});
 }
 
-SETUP("tc", "tc_egressgw_redirect_from_overlay_with_rt_info_v6")
+SETUP(PROG_TYPE, "tc_egressgw_redirect_from_overlay_with_rt_info_v6")
 int egressgw_redirect_setup_v6(struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
@@ -160,7 +160,7 @@ int egressgw_redirect_setup_v6(struct __ctx_buff *ctx)
 	return overlay_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_egressgw_redirect_from_overlay_with_rt_info_v6")
+CHECK(PROG_TYPE, "tc_egressgw_redirect_from_overlay_with_rt_info_v6")
 int egressgw_redirect_check_v6(const struct __ctx_buff *ctx)
 {
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;

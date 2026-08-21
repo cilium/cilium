@@ -571,7 +571,7 @@ bool icmp6_ndisc_validate(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 	return true;
 }
 
-#define ICMPV6_PACKET_MAX_SAMPLE_SIZE 1280 - sizeof(struct ipv6hdr) - sizeof(struct icmp6hdr)
+#define ICMPV6_PACKET_MAX_SAMPLE_SIZE (IPV6_MIN_MTU - sizeof(struct ipv6hdr) - sizeof(struct icmp6hdr))
 
 /* The IPv6 pseudo-header */
 struct ipv6_pseudo_header_t {
@@ -588,8 +588,11 @@ struct ipv6_pseudo_header_t {
 };
 
 static __always_inline
-int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
+int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
+			 __u32 icmp_data)
 {
+	__u64 full_len = ctx_full_len(ctx);
+	__u64 new_len, sample_len;
 	void *data, *data_end;
 	struct ethhdr *ethhdr;
 	struct ipv6hdr *ip6;
@@ -600,7 +603,6 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
 	struct in6_addr saddr;
 	struct in6_addr daddr;
 	__wsum csum;
-	__u64 sample_len;
 	int i;
 	int ret;
 	const int inner_offset = sizeof(struct ethhdr) + sizeof(struct ipv6hdr) +
@@ -622,11 +624,19 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
 	memcpy(&saddr, &ip6->saddr, sizeof(struct in6_addr));
 	memcpy(&daddr, &ip6->daddr, sizeof(struct in6_addr));
 
-	/* Resize to min MTU - IPv6 hdr + ICMPv6 hdr */
-	sample_len = ctx_full_len(ctx);
-	if (sample_len > (__u64)ICMPV6_PACKET_MAX_SAMPLE_SIZE)
-		sample_len = ICMPV6_PACKET_MAX_SAMPLE_SIZE;
-	ctx_adjust_troom(ctx, (__s32)(sample_len + sizeof(struct ethhdr) - ctx_full_len(ctx)));
+	/* Trim down to sample size */
+	if (full_len < sizeof(struct ethhdr))
+		return DROP_INVALID;
+
+	sample_len = ICMPV6_PACKET_MAX_SAMPLE_SIZE;
+	new_len = sizeof(struct ethhdr) + sample_len;
+	if (new_len > full_len) {
+		new_len = full_len;
+		sample_len = full_len - sizeof(struct ethhdr);
+	}
+
+	ctx_adjust_troom(ctx, (__s32)(new_len - full_len));
+
 
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
@@ -682,8 +692,10 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
 	icmphdr->icmp6_cksum = 0;
 	icmphdr->icmp6_dataun.un_data32[0] = 0;
 
-	/* Add the ICMP header to the checksum (only type and code are non-zero) */
-	csum += ((__u16)icmphdr->icmp6_code) << 8 | (__u16)icmphdr->icmp6_type;
+	if (icmp_type == ICMPV6_PKT_TOOBIG)
+		icmphdr->icmp6_mtu = icmp_data;
+
+	csum += csum_diff(icmphdr, 0, icmphdr, sizeof(*icmphdr), 0);
 
 	/* Fill pseudo header */
 	memcpy(&pseudo_header.fields.src_ip, &ip6->saddr, sizeof(struct in6_addr));

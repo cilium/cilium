@@ -2,10 +2,8 @@
 /* Copyright Authors of Cilium */
 
 #ifdef ATTACHMENT_XDP
-# define ATTACH "xdp"
 # include <bpf/ctx/xdp.h>
 #else
-# define ATTACH "tc"
 # include <bpf/ctx/skb.h>
 #endif
 
@@ -91,7 +89,7 @@ const __u8 kpr_v6_dsr_remote_node_reply2_post[] = {
  * Then we receive a second packet without DSR-info. Replies can still be
  * RevDNATed.
  */
-PKTGEN(ATTACH, "kpr_v4_dsr_remote_node_1syn")
+PKTGEN(PROG_TYPE, "kpr_v4_dsr_remote_node_1syn")
 int kpr_v4_dsr_remote_node_1syn_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -106,7 +104,7 @@ int kpr_v4_dsr_remote_node_1syn_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v4_dsr_remote_node_1syn")
+SETUP(PROG_TYPE, "kpr_v4_dsr_remote_node_1syn")
 int kpr_v4_dsr_remote_node_1syn_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(v4_pod_one, 123, BACKEND_EP_ID, 0, 0, 0, NULL, NULL);
@@ -114,7 +112,7 @@ int kpr_v4_dsr_remote_node_1syn_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v4_dsr_remote_node_1syn")
+CHECK(PROG_TYPE, "kpr_v4_dsr_remote_node_1syn")
 int kpr_v4_dsr_remote_node_1syn_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	__u32 pkt_offset = sizeof(__u32);
@@ -167,7 +165,7 @@ int kpr_v4_dsr_remote_node_1syn_check(__maybe_unused const struct __ctx_buff *ct
 }
 
 #ifdef CHECK_REPLY
-PKTGEN(ATTACH, "kpr_v4_dsr_remote_node_2reply")
+PKTGEN(PROG_TYPE, "kpr_v4_dsr_remote_node_2reply")
 int kpr_v4_dsr_remote_node_2reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -182,13 +180,13 @@ int kpr_v4_dsr_remote_node_2reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v4_dsr_remote_node_2reply")
+SETUP(PROG_TYPE, "kpr_v4_dsr_remote_node_2reply")
 int kpr_v4_dsr_remote_node_2reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v4_dsr_remote_node_2reply")
+CHECK(PROG_TYPE, "kpr_v4_dsr_remote_node_2reply")
 int kpr_v4_dsr_remote_node_2reply_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -215,7 +213,7 @@ int kpr_v4_dsr_remote_node_2reply_check(__maybe_unused const struct __ctx_buff *
 }
 #endif
 
-PKTGEN(ATTACH, "kpr_v4_dsr_remote_node_3synack")
+PKTGEN(PROG_TYPE, "kpr_v4_dsr_remote_node_3synack")
 int kpr_v4_dsr_remote_node_3synack_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -230,13 +228,13 @@ int kpr_v4_dsr_remote_node_3synack_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v4_dsr_remote_node_3synack")
+SETUP(PROG_TYPE, "kpr_v4_dsr_remote_node_3synack")
 int kpr_v4_dsr_remote_node_3synack_setup(struct __ctx_buff *ctx)
 {
 	return netdev_receive_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v4_dsr_remote_node_3synack")
+CHECK(PROG_TYPE, "kpr_v4_dsr_remote_node_3synack")
 int kpr_v4_dsr_remote_node_3synack_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	__u32 pkt_offset = sizeof(__u32);
@@ -289,7 +287,7 @@ int kpr_v4_dsr_remote_node_3synack_check(__maybe_unused const struct __ctx_buff 
 }
 
 #ifdef CHECK_REPLY
-PKTGEN(ATTACH, "kpr_v4_dsr_remote_node_4reply")
+PKTGEN(PROG_TYPE, "kpr_v4_dsr_remote_node_4reply")
 int kpr_v4_dsr_remote_node_4reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -304,13 +302,13 @@ int kpr_v4_dsr_remote_node_4reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v4_dsr_remote_node_4reply")
+SETUP(PROG_TYPE, "kpr_v4_dsr_remote_node_4reply")
 int kpr_v4_dsr_remote_node_4reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v4_dsr_remote_node_4reply")
+CHECK(PROG_TYPE, "kpr_v4_dsr_remote_node_4reply")
 int kpr_v4_dsr_remote_node_4reply_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -340,7 +338,7 @@ int kpr_v4_dsr_remote_node_4reply_check(__maybe_unused const struct __ctx_buff *
 /* Now receive a non-SYN with different DSR-info.
  * The RevDNAT follows accordingly.
  */
-PKTGEN(ATTACH, "kpr_v4_dsr_remote_node_5data_dsr_info")
+PKTGEN(PROG_TYPE, "kpr_v4_dsr_remote_node_5data_dsr_info")
 int kpr_v4_dsr_remote_node_5data_dsr_info_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -355,13 +353,13 @@ int kpr_v4_dsr_remote_node_5data_dsr_info_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v4_dsr_remote_node_5data_dsr_info")
+SETUP(PROG_TYPE, "kpr_v4_dsr_remote_node_5data_dsr_info")
 int kpr_v4_dsr_remote_node_5data_dsr_info_setup(struct __ctx_buff *ctx)
 {
 	return netdev_receive_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v4_dsr_remote_node_5data_dsr_info")
+CHECK(PROG_TYPE, "kpr_v4_dsr_remote_node_5data_dsr_info")
 int kpr_v4_dsr_remote_node_5data_dsr_info_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	__u32 pkt_offset = sizeof(__u32);
@@ -414,7 +412,7 @@ int kpr_v4_dsr_remote_node_5data_dsr_info_check(__maybe_unused const struct __ct
 }
 
 #ifdef CHECK_REPLY
-PKTGEN(ATTACH, "kpr_v4_dsr_remote_node_6reply")
+PKTGEN(PROG_TYPE, "kpr_v4_dsr_remote_node_6reply")
 int kpr_v4_dsr_remote_node_6reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -429,13 +427,13 @@ int kpr_v4_dsr_remote_node_6reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v4_dsr_remote_node_6reply")
+SETUP(PROG_TYPE, "kpr_v4_dsr_remote_node_6reply")
 int kpr_v4_dsr_remote_node_6reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v4_dsr_remote_node_6reply")
+CHECK(PROG_TYPE, "kpr_v4_dsr_remote_node_6reply")
 int kpr_v4_dsr_remote_node_6reply_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -464,7 +462,7 @@ int kpr_v4_dsr_remote_node_6reply_check(__maybe_unused const struct __ctx_buff *
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-PKTGEN(ATTACH, "kpr_v6_dsr_remote_node_1syn")
+PKTGEN(PROG_TYPE, "kpr_v6_dsr_remote_node_1syn")
 int kpr_v6_dsr_remote_node_1syn_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -479,7 +477,7 @@ int kpr_v6_dsr_remote_node_1syn_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v6_dsr_remote_node_1syn")
+SETUP(PROG_TYPE, "kpr_v6_dsr_remote_node_1syn")
 int kpr_v6_dsr_remote_node_1syn_setup(struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip = { v6_pod_one_addr };
@@ -489,7 +487,7 @@ int kpr_v6_dsr_remote_node_1syn_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v6_dsr_remote_node_1syn")
+CHECK(PROG_TYPE, "kpr_v6_dsr_remote_node_1syn")
 int kpr_v6_dsr_remote_node_1syn_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	__u32 pkt_offset = sizeof(__u32);
@@ -545,7 +543,7 @@ int kpr_v6_dsr_remote_node_1syn_check(__maybe_unused const struct __ctx_buff *ct
 }
 
 #ifdef CHECK_REPLY
-PKTGEN(ATTACH, "kpr_v6_dsr_remote_node_2reply")
+PKTGEN(PROG_TYPE, "kpr_v6_dsr_remote_node_2reply")
 int kpr_v6_dsr_remote_node_2reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -560,13 +558,13 @@ int kpr_v6_dsr_remote_node_2reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v6_dsr_remote_node_2reply")
+SETUP(PROG_TYPE, "kpr_v6_dsr_remote_node_2reply")
 int kpr_v6_dsr_remote_node_2reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v6_dsr_remote_node_2reply")
+CHECK(PROG_TYPE, "kpr_v6_dsr_remote_node_2reply")
 int kpr_v6_dsr_remote_node_2reply_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -593,7 +591,7 @@ int kpr_v6_dsr_remote_node_2reply_check(__maybe_unused const struct __ctx_buff *
 }
 #endif
 
-PKTGEN(ATTACH, "kpr_v6_dsr_remote_node_3synack")
+PKTGEN(PROG_TYPE, "kpr_v6_dsr_remote_node_3synack")
 int kpr_v6_dsr_remote_node_3synack_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -608,13 +606,13 @@ int kpr_v6_dsr_remote_node_3synack_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v6_dsr_remote_node_3synack")
+SETUP(PROG_TYPE, "kpr_v6_dsr_remote_node_3synack")
 int kpr_v6_dsr_remote_node_3synack_setup(struct __ctx_buff *ctx)
 {
 	return netdev_receive_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v6_dsr_remote_node_3synack")
+CHECK(PROG_TYPE, "kpr_v6_dsr_remote_node_3synack")
 int kpr_v6_dsr_remote_node_3synack_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	__u32 pkt_offset = sizeof(__u32);
@@ -670,7 +668,7 @@ int kpr_v6_dsr_remote_node_3synack_check(__maybe_unused const struct __ctx_buff 
 }
 
 #ifdef CHECK_REPLY
-PKTGEN(ATTACH, "kpr_v6_dsr_remote_node_4reply")
+PKTGEN(PROG_TYPE, "kpr_v6_dsr_remote_node_4reply")
 int kpr_v6_dsr_remote_node_4reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -685,13 +683,13 @@ int kpr_v6_dsr_remote_node_4reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v6_dsr_remote_node_4reply")
+SETUP(PROG_TYPE, "kpr_v6_dsr_remote_node_4reply")
 int kpr_v6_dsr_remote_node_4reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v6_dsr_remote_node_4reply")
+CHECK(PROG_TYPE, "kpr_v6_dsr_remote_node_4reply")
 int kpr_v6_dsr_remote_node_4reply_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -718,7 +716,7 @@ int kpr_v6_dsr_remote_node_4reply_check(__maybe_unused const struct __ctx_buff *
 }
 #endif
 
-PKTGEN(ATTACH, "kpr_v6_dsr_remote_node_5data_dsr_info")
+PKTGEN(PROG_TYPE, "kpr_v6_dsr_remote_node_5data_dsr_info")
 int kpr_v6_dsr_remote_node_5data_dsr_info_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -733,13 +731,13 @@ int kpr_v6_dsr_remote_node_5data_dsr_info_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v6_dsr_remote_node_5data_dsr_info")
+SETUP(PROG_TYPE, "kpr_v6_dsr_remote_node_5data_dsr_info")
 int kpr_v6_dsr_remote_node_5data_dsr_info_setup(struct __ctx_buff *ctx)
 {
 	return netdev_receive_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v6_dsr_remote_node_5data_dsr_info")
+CHECK(PROG_TYPE, "kpr_v6_dsr_remote_node_5data_dsr_info")
 int kpr_v6_dsr_remote_node_5data_dsr_info_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	__u32 pkt_offset = sizeof(__u32);
@@ -795,7 +793,7 @@ int kpr_v6_dsr_remote_node_5data_dsr_info_check(__maybe_unused const struct __ct
 }
 
 #ifdef CHECK_REPLY
-PKTGEN(ATTACH, "kpr_v6_dsr_remote_node_6reply")
+PKTGEN(PROG_TYPE, "kpr_v6_dsr_remote_node_6reply")
 int kpr_v6_dsr_remote_node_6reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -810,13 +808,13 @@ int kpr_v6_dsr_remote_node_6reply_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(ATTACH, "kpr_v6_dsr_remote_node_6reply")
+SETUP(PROG_TYPE, "kpr_v6_dsr_remote_node_6reply")
 int kpr_v6_dsr_remote_node_6reply_setup(struct __ctx_buff *ctx)
 {
 	return netdev_send_packet(ctx);
 }
 
-CHECK(ATTACH, "kpr_v6_dsr_remote_node_6reply")
+CHECK(PROG_TYPE, "kpr_v6_dsr_remote_node_6reply")
 int kpr_v6_dsr_remote_node_6reply_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;

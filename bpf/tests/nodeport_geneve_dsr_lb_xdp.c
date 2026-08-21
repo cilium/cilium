@@ -87,7 +87,7 @@ ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
  * - gets DNATed (but not SNATed)
  * - gets passed up from XDP to TC
  */
-PKTGEN("xdp", "nodeport_geneve_dsr_lb_xdp1_local_backend")
+PKTGEN(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp1_local_backend")
 int nodeport_geneve_dsr_lb_xdp1_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -114,7 +114,7 @@ int nodeport_geneve_dsr_lb_xdp1_local_backend_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "nodeport_geneve_dsr_lb_xdp1_local_backend")
+SETUP(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp1_local_backend")
 int nodeport_geneve_dsr_lb_xdp1_local_backend_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
@@ -132,7 +132,7 @@ int nodeport_geneve_dsr_lb_xdp1_local_backend_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "nodeport_geneve_dsr_lb_xdp1_local_backend")
+CHECK(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp1_local_backend")
 int nodeport_geneve_dsr_lb_xdp1_local_backend_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
@@ -204,7 +204,7 @@ int nodeport_geneve_dsr_lb_xdp1_local_backend_check(const struct __ctx_buff *ctx
  * - has tunnel encapsulation header added,
  * - has DSR option inserted
  */
-PKTGEN("xdp", "nodeport_geneve_dsr_lb_xdp2_fwd")
+PKTGEN(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp2_fwd")
 int nodeport_geneve_dsr_lb_xdp2_fwd_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -231,7 +231,7 @@ int nodeport_geneve_dsr_lb_xdp2_fwd_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("xdp", "nodeport_geneve_dsr_lb_xdp2_fwd")
+SETUP(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp2_fwd")
 int nodeport_geneve_dsr_lb_xdp2_fwd_setup(struct __ctx_buff *ctx)
 {
 	__u32 backend_id = 125;
@@ -246,7 +246,7 @@ int nodeport_geneve_dsr_lb_xdp2_fwd_setup(struct __ctx_buff *ctx)
 	return xdp_receive_packet(ctx);
 }
 
-CHECK("xdp", "nodeport_geneve_dsr_lb_xdp2_fwd")
+CHECK(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp2_fwd")
 int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	struct geneve_dsr_opt4 *dsr_opt;

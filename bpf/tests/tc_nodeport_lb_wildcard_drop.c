@@ -203,14 +203,14 @@ static __always_inline int validate_packet(const struct __ctx_buff *ctx,
 
 /* Test wildcard drop for unknown destination port on TCP */
 
-PKTGEN("tc", "tc_nodeport_lb4_wildcard_drop_unknown_dport")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_unknown_dport")
 int tc_nodeport_lb4_wildcard_drop_unknown_dport_pktgen(struct __ctx_buff *ctx)
 {
 	/* Generate a packet to the Frontend IP, but to an unknown TCP dest port. */
 	return build_packet(ctx, UNKNOWN_PORT, IPPROTO_TCP);
 }
 
-SETUP("tc", "tc_nodeport_lb4_wildcard_drop_unknown_dport")
+SETUP(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_unknown_dport")
 int tc_nodeport_lb4_wildcard_drop_unknown_dport_setup(struct __ctx_buff *ctx)
 {
 	setup_services(ctx);
@@ -218,7 +218,7 @@ int tc_nodeport_lb4_wildcard_drop_unknown_dport_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb4_wildcard_drop_unknown_dport")
+CHECK(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_unknown_dport")
 int tc_nodeport_lb4_wildcard_drop_unknown_dport_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return validate_packet(ctx, (__u8 *)client_mac, (__u8 *)lb_mac, CLIENT_IP, FRONTEND_IP,
@@ -227,14 +227,14 @@ int tc_nodeport_lb4_wildcard_drop_unknown_dport_check(__maybe_unused const struc
 
 /* Test wildcard drop for unknown protocol on a valid destination port */
 
-PKTGEN("tc", "tc_nodeport_lb4_wildcard_drop_unknown_proto")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_unknown_proto")
 int tc_nodeport_lb4_wildcard_drop_unknown_proto_pktgen(struct __ctx_buff *ctx)
 {
 	/* Generate a packet to the Frontend IP and port, but on an unknown protocol */
 	return build_packet(ctx, FRONTEND_PORT, IPPROTO_UDP);
 }
 
-SETUP("tc", "tc_nodeport_lb4_wildcard_drop_unknown_proto")
+SETUP(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_unknown_proto")
 int tc_nodeport_lb4_wildcard_drop_unknown_proto_setup(struct __ctx_buff *ctx)
 {
 	setup_services(ctx);
@@ -242,7 +242,7 @@ int tc_nodeport_lb4_wildcard_drop_unknown_proto_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb4_wildcard_drop_unknown_proto")
+CHECK(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_unknown_proto")
 int tc_nodeport_lb4_wildcard_drop_unknown_proto_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return validate_packet(ctx,
@@ -256,14 +256,14 @@ int tc_nodeport_lb4_wildcard_drop_unknown_proto_check(__maybe_unused const struc
  * per lbXX_no_backend testing.
  */
 
-PKTGEN("tc", "tc_nodeport_lb4_wildcard_drop_not_unknown")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_not_unknown")
 int tc_nodeport_lb4_wildcard_drop_not_unknown_pktgen(struct __ctx_buff *ctx)
 {
 	/* Generate a packet to the Frontend IP and port, on TCP */
 	return build_packet(ctx, FRONTEND_PORT, IPPROTO_TCP);
 }
 
-SETUP("tc", "tc_nodeport_lb4_wildcard_drop_not_unknown")
+SETUP(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_not_unknown")
 int tc_nodeport_lb4_wildcard_drop_not_unknown_setup(struct __ctx_buff *ctx)
 {
 	setup_services(ctx);
@@ -271,7 +271,7 @@ int tc_nodeport_lb4_wildcard_drop_not_unknown_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb4_wildcard_drop_not_unknown")
+CHECK(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_not_unknown")
 int tc_nodeport_lb4_wildcard_drop_not_unknown_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	/* We should receive an ICMP Unreachable */
@@ -279,14 +279,14 @@ int tc_nodeport_lb4_wildcard_drop_not_unknown_check(__maybe_unused const struct 
 			       FRONTEND_PORT, IPPROTO_ICMP, CTX_ACT_REDIRECT);
 }
 
-PKTGEN("tc", "tc_nodeport_lb4_wildcard_drop_not_unknown2")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_not_unknown2")
 int tc_nodeport_lb4_wildcard_drop_not_unknown2_pktgen(struct __ctx_buff *ctx)
 {
 	/* Generate a packet to the Frontend IP and port, on TCP */
 	return build_packet(ctx, FRONTEND_PORT, IPPROTO_TCP);
 }
 
-SETUP("tc", "tc_nodeport_lb4_wildcard_drop_not_unknown2")
+SETUP(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_not_unknown2")
 int tc_nodeport_lb4_wildcard_drop_not_unknown2_setup(struct __ctx_buff *ctx)
 {
 	if (tail_no_service_ipv4(ctx) != CTX_ACT_REDIRECT)
@@ -297,7 +297,7 @@ int tc_nodeport_lb4_wildcard_drop_not_unknown2_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb4_wildcard_drop_not_unknown2")
+CHECK(PROG_TYPE, "tc_nodeport_lb4_wildcard_drop_not_unknown2")
 int tc_nodeport_lb4_wildcard_drop_not_unknown2_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	/* We should receive an ICMP Unreachable */
@@ -472,14 +472,14 @@ static __always_inline int validate_packet6(const struct __ctx_buff *ctx,
 
 /* Test wildcard drop for unknown destination port on TCP */
 
-PKTGEN("tc", "tc_nodeport_lb6_wildcard_drop_unknown_dport")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_unknown_dport")
 int tc_nodeport_lb6_wildcard_drop_unknown_dport_pktgen(struct __ctx_buff *ctx)
 {
 	/* Generate a packet to the Frontend IP, but to an unknown TCP dest port. */
 	return build_packet6(ctx, UNKNOWN_PORT, IPPROTO_TCP);
 }
 
-SETUP("tc", "tc_nodeport_lb6_wildcard_drop_unknown_dport")
+SETUP(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_unknown_dport")
 int tc_nodeport_lb6_wildcard_drop_unknown_dport_setup(struct __ctx_buff *ctx)
 {
 	setup_services6(ctx);
@@ -487,7 +487,7 @@ int tc_nodeport_lb6_wildcard_drop_unknown_dport_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb6_wildcard_drop_unknown_dport")
+CHECK(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_unknown_dport")
 int tc_nodeport_lb6_wildcard_drop_unknown_dport_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return validate_packet6(ctx, (__u8 *)client_mac, (__u8 *)lb_mac, client_ip6.addr,
@@ -496,14 +496,14 @@ int tc_nodeport_lb6_wildcard_drop_unknown_dport_check(__maybe_unused const struc
 
 /* Test wildcard drop for unknown protocol on a valid destination port */
 
-PKTGEN("tc", "tc_nodeport_lb6_wildcard_drop_unknown_proto")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_unknown_proto")
 int tc_nodeport_lb6_wildcard_drop_unknown_proto_pktgen(struct __ctx_buff *ctx)
 {
 	/* Generate a packet to the Frontend IP and port, but on an unknown protocol */
 	return build_packet6(ctx, FRONTEND_PORT, IPPROTO_UDP);
 }
 
-SETUP("tc", "tc_nodeport_lb6_wildcard_drop_unknown_proto")
+SETUP(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_unknown_proto")
 int tc_nodeport_lb6_wildcard_drop_unknown_proto_setup(struct __ctx_buff *ctx)
 {
 	setup_services6(ctx);
@@ -511,7 +511,7 @@ int tc_nodeport_lb6_wildcard_drop_unknown_proto_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb6_wildcard_drop_unknown_proto")
+CHECK(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_unknown_proto")
 int tc_nodeport_lb6_wildcard_drop_unknown_proto_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	return validate_packet6(ctx, (__u8 *)client_mac, (__u8 *)lb_mac, client_ip6.addr,
@@ -523,14 +523,14 @@ int tc_nodeport_lb6_wildcard_drop_unknown_proto_check(__maybe_unused const struc
  * per lbXX_no_backend testing.
  */
 
-PKTGEN("tc", "tc_nodeport_lb6_wildcard_drop_not_unknown")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_not_unknown")
 int tc_nodeport_lb6_wildcard_drop_not_unknown_pktgen(struct __ctx_buff *ctx)
 {
 	/* Generate a packet to the Frontend IP and port, on TCP */
 	return build_packet6(ctx, FRONTEND_PORT, IPPROTO_TCP);
 }
 
-SETUP("tc", "tc_nodeport_lb6_wildcard_drop_not_unknown")
+SETUP(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_not_unknown")
 int tc_nodeport_lb6_wildcard_drop_not_unknown_setup(struct __ctx_buff *ctx)
 {
 	setup_services6(ctx);
@@ -538,7 +538,7 @@ int tc_nodeport_lb6_wildcard_drop_not_unknown_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb6_wildcard_drop_not_unknown")
+CHECK(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_not_unknown")
 int tc_nodeport_lb6_wildcard_drop_not_unknown_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	/* We should receive an ICMP Unreachable */
@@ -546,17 +546,17 @@ int tc_nodeport_lb6_wildcard_drop_not_unknown_check(__maybe_unused const struct 
 				client_ip6.addr, FRONTEND_PORT, IPPROTO_ICMPV6, CTX_ACT_REDIRECT);
 }
 
-PKTGEN("tc", "tc_nodeport_lb6_wildcard_drop_not_unknown2")
+PKTGEN(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_not_unknown2")
 int tc_nodeport_lb6_wildcard_drop_not_unknown2_pktgen(struct __ctx_buff *ctx)
 {
 	/* Generate a packet to the Frontend IP and port, on TCP */
 	return build_packet6(ctx, FRONTEND_PORT, IPPROTO_TCP);
 }
 
-SETUP("tc", "tc_nodeport_lb6_wildcard_drop_not_unknown2")
+SETUP(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_not_unknown2")
 int tc_nodeport_lb6_wildcard_drop_not_unknown2_setup(struct __ctx_buff *ctx)
 {
-	if (generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH))
+	if (generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0))
 		return TEST_ERROR;
 
 	setup_services6(ctx);
@@ -564,7 +564,7 @@ int tc_nodeport_lb6_wildcard_drop_not_unknown2_setup(struct __ctx_buff *ctx)
 	return netdev_send_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb6_wildcard_drop_not_unknown2")
+CHECK(PROG_TYPE, "tc_nodeport_lb6_wildcard_drop_not_unknown2")
 int tc_nodeport_lb6_wildcard_drop_not_unknown2_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	/* We should receive an ICMP Unreachable */
