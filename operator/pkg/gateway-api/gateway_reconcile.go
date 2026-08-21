@@ -94,12 +94,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Success()
 	}
 
-	inputs, err := r.inputLoader.Load(ctx, scopedLog, gw, gwc)
-	if err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to load translation inputs", logfields.Error, err)
-		return controllerruntime.Fail(err)
-	}
-
 	// At this point, the GatewayClass is managed by Cilium, so Gateway-level validations are safe to run.
 	if ref := gw.Spec.Infrastructure; ref != nil && ref.ParametersRef != nil {
 		setGatewayAccepted(gw, false, "Invalid Gateway parameters: spec.infrastructure.parametersRef is not supported", gatewayv1.GatewayReasonInvalidParameters)
@@ -119,6 +113,19 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
 			return r.handleReconcileErrorWithStatus(ctx, errors.New("Invalid GatewayClass"), original, gw)
 		}
+	}
+
+	if err := r.verifyGatewayStaticAddresses(gw); err != nil {
+		scopedLog.ErrorContext(ctx, "Unsupported Gateway address", logfields.Error, err)
+		setGatewayAccepted(gw, false, "Unsupported Gateway address, "+err.Error(), gatewayv1.GatewayReasonUnsupportedAddress)
+		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	}
+
+	inputs, err := r.inputLoader.Load(ctx, scopedLog, gw, gwc)
+	if err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to load translation inputs", logfields.Error, err)
+		return controllerruntime.Fail(err)
 	}
 
 	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.Annotations[annotation.LBIPAMIPKeyAlias] != "" {
@@ -212,12 +219,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to translate resources", gatewayv1.GatewayReasonListenersNotValid)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
-	if err = r.verifyGatewayStaticAddresses(gw); err != nil {
-		scopedLog.ErrorContext(ctx, "Unsupported Gateway address", logfields.Error, err)
-		setGatewayAccepted(gw, false, "Unsupported Gateway address, "+err.Error(), gatewayv1.GatewayReasonUnsupportedAddress)
-		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready", gatewayv1.GatewayReasonListenersNotReady)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
-	}
+
 	if err = r.ensureService(ctx, svc); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to create Service", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to create Service resource", gatewayv1.GatewayReasonNoResources)
