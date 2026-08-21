@@ -129,7 +129,7 @@ func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, rx statedb.ReadTxn, rou
 	for _, r := range gwRoutes {
 		// See if they already exist.
 		cidr, _ := r.Dst.Mask.Size()
-		_, _, watch, found := routes.GetWatch(rx, tables.RouteIDIndex.Query(tables.RouteID{
+		_, _, watch, found := routes.GetWatch(rx, tables.RouteByID(tables.RouteID{
 			Table:     tables.RouteTable(r.Table),
 			LinkIndex: r.LinkIndex,
 			Dst:       netip.PrefixFrom(netipx.MustFromStdIP(r.Dst.IP), cidr),
