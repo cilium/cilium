@@ -343,6 +343,16 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 		return b, nil
 	}
 
+	// Kinds outside the Kubernetes scheme decode to a nil object, any other
+	// error is a real one.
+	decodeKubernetesObject := func(b []byte) (runtime.Object, error) {
+		kobj, _, err := testutils.DecodeKubernetesObject(b)
+		if err != nil && !runtime.IsNotRegisteredError(err) {
+			return nil, fmt.Errorf("decode: %w", err)
+		}
+		return kobj, nil
+	}
+
 	decodeTrackerObjects := func(s *script.State, file string) ([]object, schema.GroupVersionResource, error) {
 		b, err := readInputFile(s, file)
 		if err != nil {
@@ -353,7 +363,10 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 		if err != nil {
 			return nil, schema.GroupVersionResource{}, fmt.Errorf("decode: %w", err)
 		}
-		kobj, _, _ := testutils.DecodeKubernetesObject(b)
+		kobj, err := decodeKubernetesObject(b)
+		if err != nil {
+			return nil, schema.GroupVersionResource{}, err
+		}
 		gvr, _ := meta.UnsafeGuessKindToResource(*gvk)
 
 		toObject := func(domain string, obj runtime.Object) (object, error) {
@@ -409,7 +422,10 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 			if err != nil {
 				return fmt.Errorf("decode: %w", err)
 			}
-			kobj, _, _ := testutils.DecodeKubernetesObject(b)
+			kobj, err := decodeKubernetesObject(b)
+			if err != nil {
+				return err
+			}
 			gvr, _ := meta.UnsafeGuessKindToResource(*gvk)
 			objMeta, err := meta.Accessor(obj)
 			if err != nil {
