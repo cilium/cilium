@@ -5,9 +5,9 @@ package networkdriver
 
 // Tests for prepareResourceClaim covering:
 //
-//   - driver.allocations is written only after UpdateStatus
-//     succeeds; if UpdateStatus fails the map stays empty.
-//     this avoids keeping a local map entry that does not have a
+//   - the statedb device table's allocation fields are written only after
+//     UpdateStatus succeeds; if UpdateStatus fails the table stays unallocated.
+//     this avoids keeping a row with allocation state that does not have a
 //     persistent reference in kubernetes
 //
 //   - when any step inside the device loop fails, rollback
@@ -99,13 +99,34 @@ type trackedDevice struct {
 	setupCalls atomic.Int32
 	freeCalls  atomic.Int32
 	setupCfgs  []types.DeviceConfig
+
+	// kernelIfName backs KernelIfName(). When empty, KernelIfName() falls back
+	// to name so existing tests that never set it keep their prior behavior.
+	// Merge copies this field forward from an old device when a fresh scan
+	// left it empty, mirroring how a real device manager can lose the kernel
+	// interface name once a device has moved into a pod's network namespace.
+	kernelIfName string
 }
 
-func (d *trackedDevice) IfName() string       { return d.name }
-func (d *trackedDevice) KernelIfName() string { return d.name }
+func (d *trackedDevice) IfName() string { return d.name }
+
+func (d *trackedDevice) KernelIfName() string {
+	if d.kernelIfName != "" {
+		return d.kernelIfName
+	}
+	return d.name
+}
+
+// Merge copies KernelIfName forward from old if this device's fresh scan did
+// not determine one.
+func (d *trackedDevice) Merge(old types.Device) {
+	if d.kernelIfName == "" {
+		d.kernelIfName = old.KernelIfName()
+	}
+}
 
 // GetAttrs intentionally returns nil — these tests do not exercise device
-// attributes, and attrsToPartMap handles a nil map safely.
+// attributes, and buildPoolsFromTable handles a nil map safely.
 func (d *trackedDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	return nil
 }
@@ -267,7 +288,6 @@ func buildPrepDriver(t *testing.T, cs *k8sClient.FakeClientset, devs ...*tracked
 				Name:    dev.IfName(),
 				Manager: types.DeviceManagerTypeMock,
 				Dev:     dev,
-				Pool:    prepTestPool,
 			})
 		}
 		wtxn.Commit()
@@ -334,7 +354,7 @@ func TestPrepare(t *testing.T) {
 		require.NotEmpty(t, allocatedRowsForPod(t, driver, prepTestPodUID), "must have allocations for pod")
 		require.Len(t, allocatedRowsForClaim(t, driver, prepTestClaimUID), 1)
 		txn := driver.db.ReadTxn()
-		row, _, found := driver.deviceTable.Get(txn, deviceByKey.Query(DeviceKey(prepTestPool, prepTestDev0)))
+		row, _, found := driver.deviceTable.Get(txn, deviceByName.Query(prepTestDev0))
 		require.True(t, found, "device row must exist in statedb")
 		require.Equal(t, prepTestPodUID, row.PodUID, "statedb row must have PodUID set after prepare")
 		require.Equal(t, prepTestClaimUID, row.ClaimUID, "statedb row must have ClaimUID set after prepare")
@@ -651,7 +671,7 @@ func TestUnprepare(t *testing.T) {
 
 		// Statedb row must still exist but have allocation fields cleared.
 		txn := driver.db.ReadTxn()
-		row, _, found := driver.deviceTable.Get(txn, deviceByKey.Query(DeviceKey(prepTestPool, prepTestDev0)))
+		row, _, found := driver.deviceTable.Get(txn, deviceByName.Query(prepTestDev0))
 		require.True(t, found, "device row must still exist after unprepare")
 		require.Empty(t, row.PodUID, "PodUID must be cleared in statedb row after unprepare")
 		require.Empty(t, row.ClaimUID, "ClaimUID must be cleared in statedb row after unprepare")

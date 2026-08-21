@@ -29,8 +29,6 @@ const (
 	// as assigned by the device managers.
 	// must be unique across all devices on the node.
 	IfNameLabel = "ifName"
-	// HWAddrLabel contains the MAC address of the device.
-	HWAddrLabel = "macAddress"
 	// DeviceManagerLabel identifies which Device Manager
 	// published the device.
 	DeviceManagerLabel = "deviceManager"
@@ -118,23 +116,17 @@ func (d DeviceManagerType) String() string {
 func (d DeviceManagerType) MarshalText() (text []byte, err error) {
 	switch d {
 	case DeviceManagerTypeMock:
-		return json.Marshal(deviceManagerTypeMockStr)
+		return []byte(deviceManagerTypeMockStr), nil
 
 	case DeviceManagerTypeDummy:
-		return json.Marshal(dummyDeviceManagerStr)
+		return []byte(dummyDeviceManagerStr), nil
 	}
 
 	return nil, errUnknownDeviceManagerType
 }
 
 func (d *DeviceManagerType) UnmarshalText(text []byte) error {
-	var s string
-	err := json.Unmarshal(text, &s)
-	if err != nil {
-		return err
-	}
-
-	switch strings.ToLower(s) {
+	switch strings.ToLower(string(text)) {
 	case deviceManagerTypeMockStr:
 		*d = DeviceManagerTypeMock
 	case dummyDeviceManagerStr:
@@ -156,6 +148,7 @@ type Device interface {
 	Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
 	IfName() string
 	KernelIfName() string
+	Merge(Device)
 }
 
 type DeviceManager interface {
@@ -167,10 +160,6 @@ type DeviceManager interface {
 	// updated set.
 	Run(ctx context.Context, publish func([]Device)) error
 	RestoreDevice([]byte) (Device, error)
-}
-
-type DeviceManagerConfig interface {
-	IsEnabled() bool
 }
 
 type DeviceConfig struct {

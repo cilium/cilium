@@ -205,6 +205,10 @@ func (d DummyDevice) KernelIfName() string {
 	return d.Name
 }
 
+// Merge is a no-op for DummyDevice: its KernelIfName always mirrors Name and
+// is never derived from live host state, so nothing can be lost on rescan.
+func (d DummyDevice) Merge(_ types.Device) {}
+
 func (d DummyDevice) MarshalBinary() (data []byte, err error) {
 	return json.Marshal(d)
 }
