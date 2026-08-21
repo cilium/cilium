@@ -118,7 +118,7 @@ func (m *ListenerStatusManager) SetListenerStatuses(ctx context.Context, gw *gat
 	}
 
 	if gatewayStatus != ListenersStatusNoneValid {
-		m.setListenerSetStatuses(
+		if err := m.setListenerSetStatuses(
 			ctx,
 			gw,
 			inputs.AttachedListenerSets,
@@ -131,7 +131,9 @@ func (m *ListenerStatusManager) SetListenerStatuses(ctx context.Context, gw *gat
 			inputs.UDPRoutes,
 			inputs.ReferenceGrants,
 			namespaceLabels,
-		)
+		); err != nil {
+			return nil, err
+		}
 	}
 
 	return &ListenerStatusResult{
@@ -424,7 +426,7 @@ func (m *ListenerStatusManager) setListenerSetStatuses(
 	udpRoutes []gatewayv1.UDPRoute,
 	grants []gatewayv1.ReferenceGrant,
 	namespaceLabels helpers.NamespaceLabelIndex,
-) {
+) error {
 	gw.Status.AttachedListenerSets = nil
 
 	for i := range disallowedListenerSets {
@@ -435,8 +437,7 @@ func (m *ListenerStatusManager) setListenerSetStatuses(
 		setListenerSetProgrammed(ls, false, "ListenerSet is not allowed by the Gateway's allowedListeners policy", gatewayv1.ListenerSetReasonNotAllowed)
 
 		if err := m.updateListenerSetStatus(ctx, original, ls); err != nil {
-			m.logger.ErrorContext(ctx, "Unable to update ListenerSet status", logfields.Error, err,
-				logfields.Resource, client.ObjectKeyFromObject(ls).String())
+			return fmt.Errorf("failed to update ListenerSet status for %s: %w", client.ObjectKeyFromObject(ls).String(), err)
 		}
 	}
 	var validAttachedCount int32
@@ -531,14 +532,14 @@ func (m *ListenerStatusManager) setListenerSetStatuses(
 		}
 
 		if err := m.updateListenerSetStatus(ctx, original, ls); err != nil {
-			m.logger.ErrorContext(ctx, "Unable to update ListenerSet status", logfields.Error, err,
-				logfields.Resource, client.ObjectKeyFromObject(ls).String())
+			return fmt.Errorf("failed to update ListenerSet status for %s: %w", client.ObjectKeyFromObject(ls).String(), err)
 		}
 	}
 
 	if validAttachedCount > 0 {
 		gw.Status.AttachedListenerSets = &validAttachedCount
 	}
+	return nil
 }
 
 func (m *ListenerStatusManager) updateListenerSetStatus(ctx context.Context, original *gatewayv1.ListenerSet, new *gatewayv1.ListenerSet) error {
