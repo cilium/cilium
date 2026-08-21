@@ -15,7 +15,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumpodippool",path="ciliumpodippools",scope="Cluster",shortName={cpip}
 // +kubebuilder:object:root=true
-// +kubebuilder:unservedversion
+// +kubebuilder:storageversion
 
 // CiliumPodIPPool defines an IP pool that can be used for pooled IPAM (i.e. the multi-pool IPAM
 // mode).

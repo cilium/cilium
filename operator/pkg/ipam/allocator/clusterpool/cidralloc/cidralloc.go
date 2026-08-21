@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/netip"
 
+	"go4.org/netipx"
+
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
 )
 
@@ -21,6 +23,7 @@ type CIDRAllocator interface {
 	InRange(prefix netip.Prefix) bool
 	IsClusterCIDR(prefix netip.Prefix) bool
 	Prefix() netip.Prefix
+	SetReservedRanges(ranges []netipx.IPRange) error
 }
 
 type ErrCIDRCollision struct {

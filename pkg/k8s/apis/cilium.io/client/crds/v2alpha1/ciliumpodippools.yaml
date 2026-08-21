@@ -325,9 +325,12 @@ spec:
         required:
         - spec
         type: object
-    served: false
-    storage: false
-  - name: v2alpha1
+    served: true
+    storage: true
+  - deprecated: true
+    deprecationWarning: cilium.io/v2alpha1 CiliumPodIPPool is deprecated; use cilium.io/v2
+      CiliumPodIPPool
+    name: v2alpha1
     schema:
       openAPIV3Schema:
         description: |-
@@ -555,4 +558,4 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false

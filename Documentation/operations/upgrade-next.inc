@@ -30,7 +30,11 @@ New Options
 
 The following options have been introduced in this version of Cilium:
 
-* TODO
+* ``CiliumPodIPPool`` gained the ``spec.ipv4.pool`` and ``spec.ipv6.pool``
+  fields, which carry per-CIDR configuration. Each entry references a CIDR from
+  ``cidrs`` and may set ``reservedRanges`` to exclude IP ranges from allocation.
+  These fields are only available in ``cilium.io/v2``. See
+  :ref:`update_existing_ciliumpodippools_with_reservedranges`.
 
 Changed Options
 ###############
@@ -50,6 +54,11 @@ you may need to take action to migrate to an alternative.
 * Node encryption, enabled with ``encryption.nodeEncryption`` and only
   compatible with WireGuard, is deprecated and will be removed in v1.22. Please
   reach out if you are interested to maintain this feature.
+
+* The ``cilium.io/v2alpha1`` API version of ``CiliumPodIPPool`` is deprecated
+  and will be removed in a future release. ``cilium.io/v2`` is now the storage
+  version. Update existing manifests or tooling that references
+  ``cilium.io/v2alpha1`` to use ``cilium.io/v2`` instead.
 
 Removed Options
 ###############
