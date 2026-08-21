@@ -239,18 +239,12 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	setGatewayProgrammed(gw, metav1.ConditionFalse, "Gateway waiting for address", gatewayv1.GatewayReasonAddressNotAssigned)
-
 	// Step 5: Update the status of the Gateway
 	if err = r.gatewayAddressStatusManager.SetAddressStatus(ctx, gw); err != nil {
-		scopedLog.ErrorContext(ctx, "Address is not ready", logfields.Error, err)
-		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, "+err.Error(), gatewayv1.GatewayReasonAddressNotAssigned)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
 	if err = r.gatewayAddressStatusManager.SetStaticAddressStatus(ctx, gw); err != nil {
-		scopedLog.ErrorContext(ctx, "StaticAddress can't be used", logfields.Error, err)
-		setGatewayProgrammed(gw, metav1.ConditionFalse, "StaticAddress can't be used", gatewayv1.GatewayReasonAddressNotUsable)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
