@@ -242,15 +242,15 @@ var (
 		1001: labels.LabelArray{
 			labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
-		},
+		}.Labels(),
 		1002: labels.LabelArray{
 			labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 			labels.NewLabel("version", "v2", labels.LabelSourceK8s),
-		},
+		}.Labels(),
 		1003: labels.LabelArray{
 			labels.NewLabel("app", "cassandra", labels.LabelSourceK8s),
 			labels.NewLabel("version", "v1", labels.LabelSourceK8s),
-		},
+		}.Labels(),
 	}
 	// slogloggercheck: the default logger is enough for tests.
 	testSelectorCache = policy.NewSelectorCache(logging.DefaultSlogLogger, IdentityCache)
@@ -1452,7 +1452,7 @@ func TestCNPWildcardPortListenerRedirectToEnvoy(t *testing.T) {
 	idMgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(
 		logger,
-		identity.IdentityMap{localIdentity.ID: localIdentity.LabelArray},
+		identity.IdentityMap{localIdentity.ID: localIdentity.Labels},
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()),
 		idMgr,
@@ -2580,7 +2580,7 @@ func newTestEndpointPolicy(t *testing.T, ep *listenerProxyUpdaterMock) (*policy.
 	idMgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(
 		logger,
-		identity.IdentityMap{localIdentity.ID: localIdentity.LabelArray},
+		identity.IdentityMap{localIdentity.ID: localIdentity.Labels},
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()),
 		idMgr,

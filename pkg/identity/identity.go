@@ -56,7 +56,7 @@ type IPIdentityPair struct {
 	NamedPorts        []NamedPort     `json:"NamedPorts,omitempty"`
 }
 
-type IdentityMap map[NumericIdentity]labels.LabelArray
+type IdentityMap map[NumericIdentity]labels.Labels
 
 // GetKeyName returns the kvstore key to be used for the IPIdentityPair
 func (pair *IPIdentityPair) GetKeyName() string { return pair.IP.String() }
