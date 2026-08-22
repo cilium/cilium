@@ -173,18 +173,20 @@ func (d *Device) TableRow() []string {
 
 // NOTE: Update DeepEqual() when changing this struct.
 type DeviceAddress struct {
-	Addr      netip.Addr
-	Secondary bool
-	Scope     RouteScope // Address scope, e.g. RT_SCOPE_LINK, RT_SCOPE_HOST etc.
+	Addr       netip.Addr
+	Secondary  bool
+	Deprecated bool // Address is deprecated (preferred_lft == 0); not preferred for new connections
+	Scope      RouteScope // Address scope, e.g. RT_SCOPE_LINK, RT_SCOPE_HOST etc.
 }
 
 func (d *DeviceAddress) String() string {
-	return fmt.Sprintf("%s (secondary=%v, scope=%d)", d.Addr, d.Secondary, d.Scope)
+	return fmt.Sprintf("%s (secondary=%v, deprecated=%v, scope=%d)", d.Addr, d.Secondary, d.Deprecated, d.Scope)
 }
 
 func (d *DeviceAddress) DeepEqual(other *DeviceAddress) bool {
 	return d.Addr == other.Addr &&
 		d.Secondary == other.Secondary &&
+		d.Deprecated == other.Deprecated &&
 		d.Scope == other.Scope
 }
 
