@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/idpool"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -50,20 +51,23 @@ func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
 	return ""
 }
 
-func (n *linuxNodeHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
+func (n *linuxNodeHandler) GetNodeID(nodeIP netip.Addr) (uint16, bool) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
 	return n.getNodeIDForIP(nodeIP)
 }
 
-func (n *linuxNodeHandler) getNodeIDForIP(nodeIP net.IP) (uint16, bool) {
+func (n *linuxNodeHandler) getNodeIDForIP(nodeIP netip.Addr) (uint16, bool) {
+	if !nodeIP.IsValid() {
+		return 0, false
+	}
 	ln, err := n.localNodeStore.Get(context.Background())
 	if err != nil {
 		logging.Fatal(n.log, "failed to retrieve local node")
 	}
 
-	if ln.GetNodeIP(false).Equal(nodeIP) || ln.GetNodeIP(true).Equal(nodeIP) {
+	if ip.AddrFromIP(ln.GetNodeIP(false)) == nodeIP || ip.AddrFromIP(ln.GetNodeIP(true)) == nodeIP {
 		return 0, true
 	}
 
