@@ -609,17 +609,39 @@ func showAddresses(addrs []NodeAddress) string {
 
 // PreferredIPv6Address returns a non-link-local IPv6 address,
 // falling back to a link-local address when necessary.
+// Deprecated addresses (preferred_lft == 0) are only selected
+// when no non-deprecated global address is available.
 func PreferredIPv6Address(addrs []DeviceAddress) netip.Addr {
-	var ip netip.Addr
+	var global, globalDeprecated, linkLocal netip.Addr
 	for _, addr := range addrs {
-		if addr.Addr.Is6() && !addr.Addr.IsUnspecified() {
-			ip = addr.Addr
-			if !ip.IsLinkLocalUnicast() {
-				break
+		if !addr.Addr.Is6() || addr.Addr.IsUnspecified() {
+			continue
+		}
+		if addr.Addr.IsLinkLocalUnicast() {
+			if !linkLocal.IsValid() {
+				linkLocal = addr.Addr
 			}
+			continue
+		}
+		// Global (non-link-local) address.
+		if addr.Deprecated {
+			if !globalDeprecated.IsValid() {
+				globalDeprecated = addr.Addr
+			}
+			continue
+		}
+		// Non-deprecated global address - prefer this.
+		if !global.IsValid() {
+			global = addr.Addr
 		}
 	}
-	return ip
+	if global.IsValid() {
+		return global
+	}
+	if globalDeprecated.IsValid() {
+		return globalDeprecated
+	}
+	return linkLocal
 }
 
 // PreferredIPv4Address returns the first usable IPv4 address ordered by SortedAddresses.
