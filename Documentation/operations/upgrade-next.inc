@@ -10,7 +10,14 @@ If you are using the following features in your environment, then you may need
 to take action because of changes to the behavior of these features. Read the
 notes carefully below to understand what to do during upgrade.
 
-* TODO
+* The ``clustermesh.apiserver.tls.authMode`` option is now set by default to
+  ``cluster``. If you are using ``clustermesh.useAPIServer=true`` and
+  ``clustermesh.apiserver.tls.auto.enabled=false``, you should replace the remote
+  certificate in each cluster with a ``remote-<cluster-name>`` Common Name
+  instead of ``remote`` or set ``clustermesh.apiserver.tls.authMode`` back to
+  ``migration`` or ``legacy``. If you have a different configuration, you are
+  not expected to take any action and the transition to
+  ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
