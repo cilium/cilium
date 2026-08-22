@@ -1055,6 +1055,7 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
+	fraginfo_t __maybe_unused fraginfo = 0;
 	__u32 __maybe_unused ipcache_srcid = 0;
 	enum metric_dir dir = METRIC_INGRESS;
 	void __maybe_unused *data, *data_end;
@@ -1140,9 +1141,10 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 # ifdef ENABLE_WIREGUARD
 		if (!from_host) {
 			next_proto = ip6->nexthdr;
-			hdrlen = ipv6_hdrlen(ctx, &next_proto);
+			hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &next_proto, &fraginfo);
 			if (likely(hdrlen > 0) &&
-			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity)) {
+			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, fraginfo,
+					     identity)) {
 				trace.reason = TRACE_REASON_ENCRYPTED;
 			}
 		}
@@ -1234,7 +1236,9 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		if (!from_host) {
 			next_proto = ip4->protocol;
 			hdrlen = ipv4_hdrlen(ip4);
-			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity)) {
+			fraginfo = ipfrag_encode_ipv4(ip4);
+			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, fraginfo,
+					     identity)) {
 				trace.reason = TRACE_REASON_ENCRYPTED;
 			}
 		}
