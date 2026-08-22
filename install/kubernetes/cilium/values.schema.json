@@ -6593,6 +6593,9 @@
       },
       "type": "object"
     },
+    "subnetTopology": {
+      "type": "string"
+    },
     "synchronizeK8sNodes": {
       "type": "boolean"
     },
