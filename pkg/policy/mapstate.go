@@ -620,7 +620,7 @@ func (old *passMetas) MergeClone(other *passMetas) *passMetas {
 	return &new
 }
 
-// mapStateEntry is the entry type with additional internal bookkeping of the relation between
+// mapStateEntry is the entry type with additional internal bookkeeping of the relation between
 // explicitly and implicitly added entries.
 type mapStateEntry struct {
 	MapStateEntry
@@ -630,7 +630,7 @@ type mapStateEntry struct {
 	passes *passMetas
 
 	// derivedFromRules tracks the policy rules this entry derives from.
-	// Must be initialized explicitly, zero-intialization does not work with unique.Handle[].
+	// Must be initialized explicitly, zero-initialization does not work with unique.Handle[].
 	derivedFromRules ruleOrigin
 }
 
