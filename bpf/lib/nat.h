@@ -879,10 +879,8 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 # ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 # endif /* ENABLE_SCTP */
-		/* No reasons to handle IP fragmentation for this case as it is
-		 * expected that DF isn't set for this particular context.
-		 */
-		if (l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
+		if (!ipfrag_has_l4_header(ipfrag_encode_ipv4(&iphdr)) ||
+		    l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
 
 		port_off = TCP_DPORT_OFF;
@@ -1130,10 +1128,8 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		/* No reasons to handle IP fragmentation for this case as it is
-		 * expected that DF isn't set for this particular context.
-		 */
-		if (l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
+		if (!ipfrag_has_l4_header(ipfrag_encode_ipv4(&iphdr)) ||
+		    l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
 
 		port_off = TCP_SPORT_OFF;
@@ -1888,6 +1884,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 {
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmp6hdr));
 	struct ipv6_ct_tuple tuple = {};
+	fraginfo_t fraginfo = 0;
 	__u16 port_off;
 	__u32 inner_l4_off;
 	int hdrlen;
@@ -1907,7 +1904,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 
 	tuple.flags = NAT_DIR_EGRESS;
 
-	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, NULL);
+	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, &fraginfo);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -1919,10 +1916,8 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif /* ENABLE_SCTP */
-		/* No reasons to handle IP fragmentation for this case as it is
-		 * expected that DF isn't set for this particular context.
-		 */
-		if (l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
+		if (!ipfrag_has_l4_header(fraginfo) ||
+		    l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
 
 		port_off = TCP_DPORT_OFF;
@@ -2109,6 +2104,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 				       struct ipv6_nat_entry **state)
 {
 	struct ipv6_ct_tuple tuple = {};
+	fraginfo_t fraginfo = 0;
 	__u16 port_off;
 	__u32 inner_l4_off;
 	__u8 type;
@@ -2134,7 +2130,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 	 */
 	asm volatile ("" ::"r"(&tuple));
 
-	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, NULL);
+	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, &fraginfo);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -2146,11 +2142,8 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		/* No reasons to handle IP fragmentation for this case
-		 * as it is expected that DF isn't set for this particular
-		 * context.
-		 */
-		if (l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
+		if (!ipfrag_has_l4_header(fraginfo) ||
+		    l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
 
 		port_off = TCP_SPORT_OFF;
