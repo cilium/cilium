@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -78,7 +79,8 @@ func initConfig() {
 	vp.SetEnvPrefix("cilium")
 	vp.SetConfigName(".cilium") // name of config file (without extension)
 	vp.AddConfigPath("$HOME")   // adding home directory as first search path
-	vp.AutomaticEnv()           // read in environment variables that match
+	vp.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	vp.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
 	if err := vp.ReadInConfig(); err == nil {
