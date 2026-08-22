@@ -42,12 +42,6 @@ type remoteCluster struct {
 	// clusterID is the clusterID advertized by the remote cluster
 	clusterID uint32
 
-	// clusterConfigValidator validates the cluster configuration advertised
-	// by remote clusters.
-	clusterConfigValidator func(cmtypes.CiliumClusterConfig) error
-
-	usedIDs ClusterIDsManager
-
 	// mutex protects the following variables:
 	// - remoteIdentityCache
 	mutex lock.RWMutex
@@ -99,17 +93,7 @@ type remoteCluster struct {
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config cmtypes.CiliumClusterConfig, ready chan<- error) {
-	if err := rc.clusterConfigValidator(config); err != nil {
-		ready <- err
-		close(ready)
-		return
-	}
-
-	if err := rc.onUpdateConfig(config); err != nil {
-		ready <- err
-		close(ready)
-		return
-	}
+	rc.clusterID = config.ID
 
 	rc.featureMetrics.AddClusterMeshConfig(ClusterMeshMode(config, option.Config.IdentityAllocationMode), rc.featureMetricMaxClusters)
 
@@ -205,8 +189,6 @@ func (rc *remoteCluster) Remove(context.Context) {
 	for _, obs := range rc.observers {
 		obs.Drain()
 	}
-
-	rc.usedIDs.ReleaseClusterID(rc.clusterID)
 }
 
 func (rc *remoteCluster) Status() *models.RemoteCluster {
@@ -257,41 +239,22 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 	return status
 }
 
-func (rc *remoteCluster) onUpdateConfig(newConfig cmtypes.CiliumClusterConfig) error {
-	if newConfig.ID == rc.clusterID {
-		return nil
-	}
-
-	// Let's fully drain all previously known entries if the remote cluster changed
-	// the cluster ID. Although synthetic deletion events would be generated in any
-	// case upon initial listing (as the entries with the incorrect ID would not pass
-	// validation), that would leave a window of time in which there would still be
-	// stale entries for a Cluster ID that has already been released, potentially
-	// leading to inconsistencies if the same ID is acquired again in the meanwhile.
+func (rc *remoteCluster) OnClusterIDChange(ctx context.Context, newID uint32) {
 	if rc.clusterID != cmtypes.ClusterIDUnset {
 		rc.log.Info(
 			"Remote Cluster ID changed: draining all known entries before reconnecting. "+
 				"Expect connectivity disruption towards this cluster",
-			logfields.ClusterID, newConfig.ID,
+			logfields.ClusterID, newID,
 		)
-		rc.remoteNodes.Drain()
-		rc.remoteServices.Drain()
-		rc.ipCacheWatcher.Drain()
-		rc.remoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
-
-		for _, obs := range rc.observers {
-			obs.Drain()
-		}
+		// Let's fully drain all previously known entries by calling [Remove] if the
+		// remote cluster changed the cluster ID. Although synthetic deletion events
+		// would be generated in any case upon initial listing (as the entries with
+		// the incorrect ID would not pass validation), that would leave a window of
+		// time in which there would still be stale entries for a Cluster ID that has
+		// already been released, potentially leading to inconsistencies if the same
+		// ID is acquired again in the meanwhile.
+		rc.Remove(ctx)
 	}
-
-	if err := rc.usedIDs.ReserveClusterID(newConfig.ID); err != nil {
-		return err
-	}
-
-	rc.usedIDs.ReleaseClusterID(rc.clusterID)
-	rc.clusterID = newConfig.ID
-
-	return nil
 }
 
 func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig) []ipcache.IWOpt {

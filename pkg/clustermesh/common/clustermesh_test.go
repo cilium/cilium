@@ -19,13 +19,17 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-type fakeRemoteCluster struct{ onRun, onStop, onRemove, onRevokeCache func(ctx context.Context) }
+type fakeRemoteCluster struct {
+	onRun, onStop, onRemove, onRevokeCache func(ctx context.Context)
+	onClusterIDChange                      func(ctx context.Context, id uint32)
+}
 
 func (f *fakeRemoteCluster) Run(ctx context.Context, _ kvstore.BackendOperations, _ types.CiliumClusterConfig, ready chan<- error) {
 	if f.onRun != nil {
@@ -33,6 +37,12 @@ func (f *fakeRemoteCluster) Run(ctx context.Context, _ kvstore.BackendOperations
 	}
 	close(ready)
 	<-ctx.Done()
+}
+
+func (f *fakeRemoteCluster) OnClusterIDChange(ctx context.Context, id uint32) {
+	if f.onClusterIDChange != nil {
+		f.onClusterIDChange(ctx, id)
+	}
 }
 
 func (f *fakeRemoteCluster) Stop() {
@@ -55,6 +65,60 @@ func (f *fakeRemoteCluster) Remove(ctx context.Context) {
 
 func TestMain(m *testing.M) {
 	testutils.GoleakVerifyTestMain(m)
+}
+
+func TestRemoteClusterIDLifecycle(t *testing.T) {
+	manager := NewClusterIDsManager(types.ClusterInfo{ID: 1})
+	var clusterIDChanges []uint32
+	rc := &remoteCluster{
+		RemoteCluster: &fakeRemoteCluster{
+			onClusterIDChange: func(_ context.Context, id uint32) {
+				clusterIDChanges = append(clusterIDChanges, id)
+			},
+		},
+		localClusterInfo:  types.ClusterInfo{ID: 1},
+		clusterIDsManager: manager,
+		controllers:       controller.NewManager(),
+		ttlChecker:        newTTLChecker(hivetest.Logger(t), 0, nil),
+		logger:            hivetest.Logger(t),
+	}
+
+	require.NoError(t, rc.onClusterConfigUpdate(t.Context(), types.CiliumClusterConfig{ID: 2}))
+	require.Equal(t, []uint32{2}, clusterIDChanges)
+	require.Error(t, manager.ReserveClusterID(2), "cluster ID should have been reserved")
+
+	// Don't trigger the onClusterIDChange if the cluster ID doesn't change
+	require.NoError(t, rc.onClusterConfigUpdate(t.Context(), types.CiliumClusterConfig{ID: 2}))
+	require.Equal(t, []uint32{2}, clusterIDChanges)
+
+	// Change the cluster ID
+	require.NoError(t, rc.onClusterConfigUpdate(t.Context(), types.CiliumClusterConfig{ID: 3}))
+	require.Equal(t, []uint32{2, 3}, clusterIDChanges)
+	require.NoError(t, manager.ReserveClusterID(2), "Previous cluster ID should have been released")
+	manager.ReleaseClusterID(2)
+
+	// Reserving a conflicting cluster ID should fail and release the old ID
+	require.NoError(t, manager.ReserveClusterID(4))
+	require.Error(t, rc.onClusterConfigUpdate(t.Context(), types.CiliumClusterConfig{ID: 4}))
+	require.Equal(t, []uint32{2, 3, types.ClusterIDUnset}, clusterIDChanges)
+	require.NoError(t, manager.ReserveClusterID(3), "Previous cluster ID should have been released")
+	manager.ReleaseClusterID(3)
+
+	// Reconnecting with an available cluster ID reserves it again.
+	manager.ReleaseClusterID(4)
+	require.NoError(t, rc.onClusterConfigUpdate(t.Context(), types.CiliumClusterConfig{ID: 4}))
+	require.Equal(t, []uint32{2, 3, types.ClusterIDUnset, 4}, clusterIDChanges)
+
+	// Reject a new cluster with a conflicting cluster ID
+	other := &remoteCluster{
+		RemoteCluster:     &fakeRemoteCluster{},
+		localClusterInfo:  types.ClusterInfo{ID: 1},
+		clusterIDsManager: manager,
+	}
+	require.Error(t, other.onClusterConfigUpdate(t.Context(), types.CiliumClusterConfig{ID: 4}))
+
+	rc.onRemove(t.Context())
+	require.NoError(t, manager.ReserveClusterID(4), "cluster ID should have been released")
 }
 
 func TestClusterMesh(t *testing.T) {
@@ -102,7 +166,8 @@ func TestClusterMesh(t *testing.T) {
 	cm := NewClusterMesh(Configuration{
 		Logger:              hivetest.Logger(t),
 		Config:              Config{ClusterMeshConfig: baseDir},
-		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local"},
+		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local", MaxConnectedClusters: 511},
+		ClusterIDsManager:   NewClusterIDsManager(types.ClusterInfo{ID: 255}),
 		RemoteClientFactory: DefaultRemoteClientFactory(kvstore.Config{}),
 		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
 			statuses.Store(name, sf)
@@ -230,6 +295,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 		Logger:              hivetest.Logger(t),
 		Config:              Config{ClusterMeshConfig: baseDir},
 		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local"},
+		ClusterIDsManager:   NewClusterIDsManager(types.ClusterInfo{ID: 255}),
 		RemoteClientFactory: fakeRemoteClusterFactory(client),
 		NewRemoteCluster: func(name string, _ StatusFunc) RemoteCluster {
 			return &fakeRemoteCluster{

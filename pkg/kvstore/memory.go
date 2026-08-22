@@ -155,7 +155,8 @@ func (c *inMemoryClient) GetIfLocked(ctx context.Context, key string, lock KVLoc
 }
 
 // ListAndWatch implements BackendOperations.
-func (c *inMemoryClient) ListAndWatch(ctx context.Context, prefix string) EventChan {
+func (c *inMemoryClient) ListAndWatch(ctx context.Context, prefix string, opts ...ListAndWatchOption) EventChan {
+	options := applyListAndWatchOptions(opts...)
 	wtxn := c.db.WriteTxn(c.table)
 	changeIter, err := c.table.Changes(wtxn)
 	wtxn.Commit()
@@ -165,6 +166,7 @@ func (c *inMemoryClient) ListAndWatch(ctx context.Context, prefix string) EventC
 	events := make(chan KeyValueEvent)
 
 	go func() {
+		defer changeIter.Close()
 		defer close(events)
 		initDone := false
 		exists := sets.New[string]()
@@ -172,7 +174,8 @@ func (c *inMemoryClient) ListAndWatch(ctx context.Context, prefix string) EventC
 			changes, watch := changeIter.Next(c.db.ReadTxn())
 			for change := range changes {
 				obj := change.Object
-				if !strings.HasPrefix(obj.key, prefix) {
+				if (options.exactKey && obj.key != prefix) ||
+					(!options.exactKey && !strings.HasPrefix(obj.key, prefix)) {
 					continue
 				}
 				var typ EventType
@@ -186,15 +189,24 @@ func (c *inMemoryClient) ListAndWatch(ctx context.Context, prefix string) EventC
 					typ = EventTypeCreate
 					exists.Insert(obj.key)
 				}
-				events <- KeyValueEvent{
+				event := KeyValueEvent{
 					Typ:   typ,
 					Key:   obj.key,
 					Value: obj.value,
 				}
+				select {
+				case events <- event:
+				case <-ctx.Done():
+					return
+				}
 			}
 
 			if !initDone {
-				events <- KeyValueEvent{Typ: EventTypeListDone}
+				select {
+				case events <- KeyValueEvent{Typ: EventTypeListDone}:
+				case <-ctx.Done():
+					return
+				}
 				initDone = true
 			}
 
