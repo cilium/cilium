@@ -1129,6 +1129,12 @@ const (
 
 	Link = "link"
 
+	// LinkID is the ID of a BPF link.
+	LinkID = "linkID"
+
+	// BPFProgID is the ID of a BPF program.
+	BPFProgID = "progID"
+
 	LinkConfig = "linkConfig"
 
 	Hook = "hook"
