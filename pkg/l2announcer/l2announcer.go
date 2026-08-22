@@ -850,7 +850,7 @@ func (l2a *L2Announcer) newLeaseLock(svc *loadbalancer.Service) *resourcelock.Le
 	return &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
 			Namespace: l2a.leaseNamespace(),
-			Name:      fmt.Sprintf("%s-%s-%s", leasePrefix, svc.Name.Namespace(), svc.Name.Name()),
+			Name:      fmt.Sprintf("%s-%s.%s", leasePrefix, svc.Name.Namespace(), svc.Name.Name()),
 		},
 		Client: l2a.params.Clientset.CoordinationV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
