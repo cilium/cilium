@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakebandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/fake"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
@@ -73,7 +74,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	logger := hivetest.Logger(tb)
 
 	idmgr := identitymanager.NewIDManager(logger)
-	repo := policy.NewPolicyRepository(logger, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 	s := &EndpointSuite{
 		orchestrator: &fakeendpoint.FakeOrchestrator{},
 		repo:         repo,
@@ -548,7 +549,7 @@ func TestInitialNamedPortsIdentityLabel(t *testing.T) {
 		model := newTestEndpointModel(100, StateWaitingForIdentity)
 		logger := hivetest.Logger(t)
 		idmgr := identitymanager.NewIDManager(logger)
-		repo := policy.NewPolicyRepository(logger, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
+		repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 		fetcher := testcompute.InstantiateCellForTesting(t, logger, "endpoint", "TestInitialNamedPortsIdentityLabel", repo, idmgr)
 		p := createEndpointParams(
 			t,

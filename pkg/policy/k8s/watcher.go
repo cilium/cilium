@@ -32,6 +32,7 @@ import (
 type policyWatcher struct {
 	log                     *slog.Logger
 	config                  *option.DaemonConfig
+	clusterInfo             cmtypes.ClusterInfo
 	clusterMeshPolicyConfig cmtypes.PolicyConfig
 
 	k8sResourceSynced *k8sSynced.Resources
@@ -187,7 +188,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				case resource.Upsert:
 					err = p.addK8sNetworkPolicyV1(
 						event.Object, k8sAPIGroupNetworkingV1Core, knpDone,
-						cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.config.ClusterName),
+						cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.clusterInfo.Name),
 					)
 				case resource.Delete:
 					err = p.deleteK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core, knpDone)
@@ -211,7 +212,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				case resource.Upsert:
 					err = p.addK8sClusterNetworkPolicy(
 						event.Object, k8sAPIGroupPolicyNetworkingV1Alpha2, kcnpDone,
-						cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.config.ClusterName),
+						cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.clusterInfo.Name),
 					)
 				case resource.Delete:
 					err = p.deleteK8sClusterNetworkPolicy(event.Object, k8sAPIGroupPolicyNetworkingV1Alpha2, kcnpDone)

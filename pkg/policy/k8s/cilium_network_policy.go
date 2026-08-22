@@ -137,7 +137,7 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 		p.metricsManager.AddCNP(cnp.CiliumNetworkPolicy)
 	}
 
-	rules, err := cnp.Parse(scopedLog, cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.config.ClusterName))
+	rules, err := cnp.Parse(scopedLog, cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.clusterInfo.Name))
 	if err != nil {
 		scopedLog.Warn(
 			"Unable to add CiliumNetworkPolicy",
