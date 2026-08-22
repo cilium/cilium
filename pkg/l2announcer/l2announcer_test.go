@@ -1191,3 +1191,34 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 		assert.NoError(t, err)
 	}
 }
+
+// TestLeaseNameNoCollision verifies that leaseName maps distinct
+// (namespace, name) pairs onto distinct Lease names, in particular the
+// hyphen-boundary collision from GitHub issue #48084: namespace "foo" +
+// Service "bar-baz" and namespace "foo-bar" + Service "baz" both used to
+// render as "cilium-l2announce-foo-bar-baz" and share a single leader
+// election.
+func TestLeaseNameNoCollision(t *testing.T) {
+	a := leaseName("foo", "bar-baz")
+	b := leaseName("foo-bar", "baz")
+
+	// The two previously-colliding Services must now get different Leases.
+	assert.NotEqual(t, a, b, "distinct (namespace, name) pairs must not collide onto one Lease")
+
+	// leaseGC scans by prefix, so every name must keep leasePrefix at the
+	// start for both new and pre-upgrade Leases to be collectable.
+	assert.True(t, strings.HasPrefix(a, leasePrefix), "%q must start with %q", a, leasePrefix)
+	assert.True(t, strings.HasPrefix(b, leasePrefix), "%q must start with %q", b, leasePrefix)
+
+	// The readable "<prefix>-<namespace>-<name>" part is retained.
+	assert.True(t, strings.HasPrefix(a, leasePrefix+"-foo-bar-baz-"), "unexpected name %q", a)
+	assert.True(t, strings.HasPrefix(b, leasePrefix+"-foo-bar-baz-"), "unexpected name %q", b)
+
+	// The function is deterministic for a given pair.
+	assert.Equal(t, a, leaseName("foo", "bar-baz"), "leaseName must be deterministic")
+
+	// Stay within the Kubernetes 253-char object-name limit even for the
+	// maximum-length namespace and Service name (63 chars each).
+	long := leaseName(strings.Repeat("n", 63), strings.Repeat("s", 63))
+	assert.LessOrEqual(t, len(long), 253, "lease name %q exceeds the 253-char limit", long)
+}

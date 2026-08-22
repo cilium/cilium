@@ -5,6 +5,8 @@ package l2announcer
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -290,6 +292,10 @@ func (l2a *L2Announcer) leaseGC(ctx context.Context, health cell.Health) error {
 	}
 
 	for _, lease := range list.Items {
+		// leaseName keeps leasePrefix at the start of every Lease name, so this
+		// prefix scan matches Leases created under both the current hashed
+		// scheme and the older "<prefix>-<namespace>-<name>" scheme, letting
+		// orphaned pre-upgrade Leases get collected here as well.
 		if !strings.HasPrefix(lease.Name, leasePrefix) {
 			continue
 		}
@@ -846,11 +852,35 @@ func (l2a *L2Announcer) leaseNamespace() string {
 
 const leasePrefix = "cilium-l2announce"
 
+// leaseName returns the leader-election Lease name for a Service.
+//
+// The namespace and Service name cannot simply be concatenated with a hyphen:
+// '-' is legal inside both a namespace (a DNS-1123 label) and a Service name (a
+// DNS-1035 label), so distinct pairs collapse onto the same string. Namespace
+// "foo" + Service "bar-baz" and namespace "foo-bar" + Service "baz" would both
+// render as "cilium-l2announce-foo-bar-baz" and share a single leader election.
+//
+// To make the mapping injective we append a short deterministic hash of the
+// canonical "namespace/name" key. Neither half may contain '/', so that key is
+// itself unambiguous, and the hash therefore differs for any distinct pair even
+// when the readable "<namespace>-<name>" part collides.
+//
+// The readable part is retained so the Lease stays recognisable in
+// `kubectl get leases`, and the name still begins with leasePrefix so the
+// leaseGC prefix scan keeps matching both new Leases and pre-upgrade Leases
+// created under the old scheme. The result stays a valid DNS-1123 subdomain and
+// well within the 253-character limit (namespace + name are each <= 63 chars).
+func leaseName(namespace, name string) string {
+	sum := sha256.Sum256([]byte(namespace + "/" + name))
+	hash := hex.EncodeToString(sum[:8])
+	return fmt.Sprintf("%s-%s-%s-%s", leasePrefix, namespace, name, hash)
+}
+
 func (l2a *L2Announcer) newLeaseLock(svc *loadbalancer.Service) *resourcelock.LeaseLock {
 	return &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
 			Namespace: l2a.leaseNamespace(),
-			Name:      fmt.Sprintf("%s-%s-%s", leasePrefix, svc.Name.Namespace(), svc.Name.Name()),
+			Name:      leaseName(svc.Name.Namespace(), svc.Name.Name()),
 		},
 		Client: l2a.params.Clientset.CoordinationV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
