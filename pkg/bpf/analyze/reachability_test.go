@@ -53,16 +53,13 @@ func eachLiveRef(r *Reachable, fn func(ref string)) {
 }
 
 // allUnreachable asserts that all symbols appearing in insns are marked
-// unreachable in r, except for sym_i, which should never be marked
-// unreachable.
+// unreachable in r.
 func allUnreachable(t *testing.T, insns asm.Instructions, r *Reachable) {
 	t.Helper()
 
 	syms := symbols(insns)
 	eachLiveRef(r, func(ref string) {
-		if ref != "sym_i" {
-			assert.Nil(t, syms[ref], "symbol %q should be unreachable", ref)
-		}
+		assert.Nil(t, syms[ref], "symbol %q should be unreachable", ref)
 	})
 }
 
