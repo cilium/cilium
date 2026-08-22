@@ -259,10 +259,6 @@ func init() {
       "description": "Status of Cilium daemon",
       "type": "object",
       "x-go-type": {
-        "hint": {
-          "kind": "object",
-          "nullable": true
-        },
         "import": {
           "alias": "ciliumModels",
           "package": "github.com/cilium/cilium/api/v1/models"
@@ -517,10 +513,6 @@ func init() {
       "description": "Status of Cilium daemon",
       "type": "object",
       "x-go-type": {
-        "hint": {
-          "kind": "object",
-          "nullable": true
-        },
         "import": {
           "alias": "ciliumModels",
           "package": "github.com/cilium/cilium/api/v1/models"
