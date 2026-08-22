@@ -697,9 +697,9 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 	/* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed.
 	 *
-	 * This check must happen before the IPV4_SNAT_EXCLUSION_DST_CIDR check below as
-	 * the destination may be in the SNAT exclusion CIDR but regardless of that we
-	 * always want to SNAT a packet if it's matched by an egress NAT policy.
+	 * This check must happen before the IPv4 SNAT exclusion check below.
+	 * The destination may be in the SNAT exclusion CIDR but regardless of
+	 * that we always want to SNAT a packet if it's matched by an egress NAT policy.
 	 */
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr,
@@ -722,11 +722,11 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	/* Do not MASQ if a dst IP belongs to a pods CIDR
 	 * (ipv4-native-routing-cidr if specified, otherwise local pod CIDR).
 	 */
-#ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
-	if (ipv4_is_in_subnet(tuple->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
-			      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
+	if (CONFIG(ipv4_snat_exclusion).enabled &&
+	    ipv4_is_in_subnet(tuple->daddr,
+			      CONFIG(ipv4_snat_exclusion).dst_addr.be32,
+			      CONFIG(ipv4_snat_exclusion).bits))
 		return NAT_PUNT_TO_STACK;
-#endif
 
 	/* Do not SNAT if this is a localhost endpoint or
 	 * endpoint explicitly disallows it (normally multi-pool IPAM endpoints)
