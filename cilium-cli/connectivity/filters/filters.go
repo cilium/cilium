@@ -485,6 +485,10 @@ func TCP(srcPort, dstPort uint32) FlowFilterImplementation {
 type dnsFilter struct {
 	query string
 	rcode uint32
+	// observationSource, when non-empty, requires the DNS flow to have been
+	// produced by the given source, e.g. "standalone-proxy" for the Standalone
+	// DNS Proxy or "proxy" for the in-agent DNS proxy.
+	observationSource string
 }
 
 func (d *dnsFilter) Match(flow *flowpb.Flow, _ *FlowContext) bool {
@@ -506,6 +510,10 @@ func (d *dnsFilter) Match(flow *flowpb.Flow, _ *FlowContext) bool {
 		return false
 	}
 
+	if d.observationSource != "" && dns.GetObservationSource() != d.observationSource {
+		return false
+	}
+
 	return true
 }
 
@@ -517,12 +525,22 @@ func (d *dnsFilter) String(_ *FlowContext) string {
 	if d.rcode != math.MaxUint32 {
 		s = append(s, fmt.Sprintf("rcode=%d", d.rcode))
 	}
+	if d.observationSource != "" {
+		s = append(s, fmt.Sprintf("observationSource=%s", d.observationSource))
+	}
 	return "dns(" + strings.Join(s, ",") + ")"
 }
 
 // DNS matches on proxied DNS packets containing a specific value, if any
 func DNS(query string, rcode uint32) FlowFilterImplementation {
 	return &dnsFilter{query: query, rcode: rcode}
+}
+
+// DNSObservationSource matches proxied DNS packets produced by a specific
+// observation source (e.g. "standalone-proxy"). A rcode of math.MaxUint32
+// matches any response code, and an empty query matches any name.
+func DNSObservationSource(query string, rcode uint32, observationSource string) FlowFilterImplementation {
+	return &dnsFilter{query: query, rcode: rcode, observationSource: observationSource}
 }
 
 type httpFilter struct {
