@@ -101,7 +101,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	}
 	proxy := NewDNSProxy(dnsProxyConfig,
 		s,
-		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr netip.AddrPort, details *MsgDetails, protocol string, allowed bool, stat *ProxyRequestContext) error {
+		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID *identity.Identity, dstAddr netip.AddrPort, details *MsgDetails, protocol string, allowed bool, stat *ProxyRequestContext) error {
 			return nil
 		},
 	)
@@ -156,6 +156,10 @@ func (s *DNSProxyTestSuite) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identi
 		}
 		return ident, true
 	}
+}
+
+func (s *DNSProxyTestSuite) LookupIdentityByID(ctx context.Context, nid identity.NumericIdentity) *identity.Identity {
+	return &identity.Identity{ID: nid}
 }
 
 func (s *DNSProxyTestSuite) LookupByIdentity(nid identity.NumericIdentity) []string {
