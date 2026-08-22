@@ -406,8 +406,9 @@ func (dc *devicesController) processUpdates(
 
 func deviceAddressFromAddrUpdate(upd netlink.AddrUpdate) tables.DeviceAddress {
 	return tables.DeviceAddress{
-		Addr:      netipx.MustFromStdIP(upd.LinkAddress.IP),
-		Secondary: upd.Flags&unix.IFA_F_SECONDARY != 0,
+		Addr:       netipx.MustFromStdIP(upd.LinkAddress.IP),
+		Secondary:  upd.Flags&unix.IFA_F_SECONDARY != 0,
+		Deprecated: upd.Flags&0x20 != 0, // IFA_F_DEPRECATED (not exposed by golang.org/x/sys/unix)
 
 		// ifaddrmsg.ifa_scope is uint8, vishvananda/netlink has wrong type
 		Scope: tables.RouteScope(upd.Scope),
