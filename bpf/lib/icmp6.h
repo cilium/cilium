@@ -17,10 +17,16 @@
 #define ICMP6_ND_OPTS (sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr))
 #define ICMP6_ND_OPT_LEN 8
 
+#define ICMP6_MLD_QUERY_MSG_TYPE	130
+#define ICMP6_MLD_REPORT_MSG_TYPE	131
+#define ICMP6_MLD_DONE_MSG_TYPE		132
+#define ICMP6_RS_MSG_TYPE		133
+#define ICMP6_RA_MSG_TYPE		134
 #define ICMP6_NS_MSG_TYPE		135
 #define ICMP6_NA_MSG_TYPE		136
 #define ICMP6_RR_MSG_TYPE		138
 #define ICMP6_INV_NS_MSG_TYPE		141
+#define ICMP6_MLD2_REPORT_MSG_TYPE	143
 #define ICMP6_SEND_NS_MSG_TYPE		148
 #define ICMP6_SEND_NA_MSG_TYPE		149
 #define ICMP6_MULT_RT_MSG_TYPE		153
@@ -442,6 +448,56 @@ is_icmp6_ndp(struct __ctx_buff *ctx, const struct ipv6hdr *ip6, int nh_off)
 		return false;
 
 	return (type == ICMP6_NS_MSG_TYPE || type == ICMP6_NA_MSG_TYPE);
+}
+
+static __always_inline bool
+is_icmp6_link_local_ctrl(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
+			 int nh_off)
+{
+	const union v6addr ll_net = { .addr = { 0xfe, 0x80 } };
+	const union v6addr ll_mask = { .addr = { 0xff, 0xc0 } };
+	const union v6addr mc_net = { .addr = { 0xff, 0x02 } };
+	const union v6addr mc_mask = { .addr = { 0xff, 0xff } };
+	const union v6addr *saddr = (const union v6addr *)&ip6->saddr;
+	const union v6addr *daddr = (const union v6addr *)&ip6->daddr;
+	int l4_off = nh_off + sizeof(struct ipv6hdr);
+	__u8 nexthdr = ip6->nexthdr;
+	__u8 type;
+
+	if (nexthdr == NEXTHDR_HOP) {
+		struct ipv6_opt_hdr opt __align_stack_8;
+
+		if (ctx_load_bytes(ctx, l4_off, &opt, sizeof(opt)) < 0)
+			return false;
+
+		nexthdr = opt.nexthdr;
+		l4_off += ipv6_optlen(&opt);
+	}
+
+	if (nexthdr != IPPROTO_ICMPV6)
+		return false;
+
+	if (icmp6_load_type(ctx, l4_off, &type) < 0)
+		return false;
+
+	switch (type) {
+	case ICMP6_MLD_QUERY_MSG_TYPE:
+	case ICMP6_MLD_REPORT_MSG_TYPE:
+	case ICMP6_MLD_DONE_MSG_TYPE:
+	case ICMP6_RS_MSG_TYPE:
+	case ICMP6_MLD2_REPORT_MSG_TYPE:
+		break;
+	default:
+		return false;
+	}
+
+	if (!ipv6_addr_in_net(daddr, &mc_net, &mc_mask))
+		return false;
+
+	if (!(saddr->d1 | saddr->d2))
+		return true;
+
+	return ipv6_addr_in_net(saddr, &ll_net, &ll_mask);
 }
 
 static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
