@@ -1281,9 +1281,9 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
+		OnStart: func(startCtx cell.HookContext) error {
 			params.Logger.Info("Initializing daemon")
-			if err := configureDaemon(daemonCtx, params); err != nil {
+			if err := configureDaemon(daemonCtx, startCtx, params); err != nil {
 				cancelDaemonCtx()
 				return fmt.Errorf("daemon configuration failed: %w", err)
 			}

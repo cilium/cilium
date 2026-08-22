@@ -58,6 +58,18 @@ func ParseMAC(s string) (MAC, error) {
 	return MAC(ha), nil
 }
 
+// ParseMACOrUnset calls [ParseMAC], treating an empty s as an unset MAC rather
+// than as an error. It is meant for the sources which report a MAC address
+// optionally, such as the interface and ENI statuses in a CiliumNode: an absent
+// value is legitimate there, and only a malformed one is rejected. Consumers
+// which do require a MAC must reject the unset one themselves.
+func ParseMACOrUnset(s string) (MAC, error) {
+	if s == "" {
+		return nil, nil
+	}
+	return ParseMAC(s)
+}
+
 // MustParseMAC calls [ParseMAC] and panics on error. It is intended for use in tests with
 // hard-coded strings.
 func MustParseMAC(s string) MAC {

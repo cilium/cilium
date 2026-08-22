@@ -1648,7 +1648,7 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 	_, err := clientset.CiliumV2().CiliumNodes().Create(t.Context(), initialNode, metav1.CreateOptions{})
 	assert.NoError(t, err)
 
-	v4Alloc, _ := newMultiPoolAllocators(MultiPoolAllocatorParams{
+	v4Alloc, _, err := newMultiPoolAllocators(t.Context(), MultiPoolAllocatorParams{
 		Logger:                    hivetest.Logger(t),
 		IPv4Enabled:               fakeConfig.EnableIPv4,
 		IPv6Enabled:               fakeConfig.EnableIPv6,
@@ -1662,6 +1662,7 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 		PodIPPools:                pools,
 		OnlyMasqueradeDefaultPool: onlyMasqDefault,
 	})
+	require.NoError(t, err)
 
 	return v4Alloc
 }

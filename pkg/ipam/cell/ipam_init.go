@@ -59,7 +59,7 @@ func newIPAMInitializer(params ipamInitializerParams) *IPAMInitializer {
 	}
 }
 
-func (r *IPAMInitializer) ConfigureAndStartIPAM(ctx context.Context) {
+func (r *IPAMInitializer) ConfigureAndStartIPAM(ctx context.Context) error {
 	// If the device has been specified, the IPv4AllocPrefix and the
 	// IPv6AllocPrefix were already allocated before the k8s.Init().
 	//
@@ -75,12 +75,8 @@ func (r *IPAMInitializer) ConfigureAndStartIPAM(ctx context.Context) {
 	if r.daemonConfig.IPv4Range != autoCIDR {
 		allocCIDR, err := netip.ParsePrefix(r.daemonConfig.IPv4Range)
 		if err != nil {
-			logging.Fatal(
-				r.logger,
-				"Invalid IPv4 allocation prefix",
-				logfields.Error, err,
-				logfields.V4Prefix, r.daemonConfig.IPv4Range,
-			)
+			return fmt.Errorf("invalid IPv4 allocation prefix --%s %q: %w",
+				option.IPv4Range, r.daemonConfig.IPv4Range, err)
 		}
 
 		r.localNodeStore.Update(func(n *node.LocalNode) {
@@ -91,12 +87,8 @@ func (r *IPAMInitializer) ConfigureAndStartIPAM(ctx context.Context) {
 	if r.daemonConfig.IPv6Range != autoCIDR {
 		allocCIDR, err := netip.ParsePrefix(r.daemonConfig.IPv6Range)
 		if err != nil {
-			logging.Fatal(
-				r.logger,
-				"Invalid IPv6 allocation prefix",
-				logfields.Error, err,
-				logfields.V6Prefix, r.daemonConfig.IPv6Range,
-			)
+			return fmt.Errorf("invalid IPv6 allocation prefix --%s %q: %w",
+				option.IPv6Range, r.daemonConfig.IPv6Range, err)
 		}
 
 		r.localNodeStore.Update(func(n *node.LocalNode) {
@@ -105,13 +97,13 @@ func (r *IPAMInitializer) ConfigureAndStartIPAM(ctx context.Context) {
 	}
 
 	if err := r.AutoComplete(ctx); err != nil {
-		logging.Fatal(r.logger, "Cannot autocomplete node addresses", logfields.Error, err)
+		return fmt.Errorf("cannot autocomplete node addresses: %w", err)
 	}
 
 	// start
 	r.logger.Info("Initializing node addressing")
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
-	r.ipam.ConfigureAllocator()
+	return r.ipam.ConfigureAllocator(ctx)
 }
 
 func (r *IPAMInitializer) RestoreFinished() {
