@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -77,6 +79,7 @@ func newViper() *viper.Viper {
 	vp := viper.New()
 	vp.SetEnvPrefix("relay")
 	vp.SetConfigFile(configFilePath)
+	vp.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	vp.AutomaticEnv()
 	return vp
 }
