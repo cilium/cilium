@@ -3147,6 +3147,9 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 					(addrFamily == features.IPFamilyV6 && !ct.Features[features.IPv6].Enabled) {
 					continue
 				}
+				if !slices.Contains(features.GetIPFamilies(ct.Params().IPFamilies), addrFamily) {
+					continue
+				}
 
 				// On GKE, ExternalIP is not reachable from inside a cluster.
 				// Skip validation for external IPs in GKE to match the actual test behavior.
@@ -3194,7 +3197,8 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			ct.hostNetNSPodsByNode[pod.Spec.NodeName] = p
 
 			if iface := ct.params.SecondaryNetworkIface; iface != "" {
-				if ct.Features[features.IPv4].Enabled {
+				ipFams := features.GetIPFamilies(ct.Params().IPFamilies)
+				if slices.Contains(ipFams, features.IPFamilyV4) && ct.Features[features.IPv4].Enabled {
 					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
 					addr, err := ct.execInPodWithTransportRetry(ctx, client, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd)
 					if err != nil {
@@ -3202,7 +3206,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 					}
 					ct.secondaryNetworkNodeIPv4[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
 				}
-				if ct.Features[features.IPv6].Enabled {
+				if slices.Contains(ipFams, features.IPFamilyV6) && ct.Features[features.IPv6].Enabled {
 					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
 					addr, err := ct.execInPodWithTransportRetry(ctx, client, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd)
 					if err != nil {
