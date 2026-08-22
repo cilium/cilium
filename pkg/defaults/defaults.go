@@ -546,6 +546,9 @@ const (
 
 	// EnableDatapathPlugins is the default value for option.EnableDatapathPlugins
 	EnableDatapathPlugins = false
+
+	// EnableQoS is the default value for option.EnableQoS
+	EnableQoS = false
 )
 
 var (
