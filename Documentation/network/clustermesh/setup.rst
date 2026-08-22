@@ -280,8 +280,8 @@ a common root CA, or configure ``tls.caBundle`` with every trusted CA certificat
           ``*.mesh.cilium.io``, ``127.0.0.1``, ``::1``, and every DNS name
           through which remote clusters reach the Cluster Mesh API Service
         * Admin: CN ``admin-<cluster-name>``
-        * Remote: CN ``remote`` with the default ``migration`` authentication
-          mode
+        * Remote: CN ``remote-<cluster-name>`` with the default ``cluster``
+          authentication mode
         * Local: CN ``local-<cluster-name>``
 
         Once the certificates have been issued, create the following Secrets in
