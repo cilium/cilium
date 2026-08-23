@@ -12,6 +12,7 @@
 
 #include <bpf/lb_selection.h>
 #include <lib/ipv4_core.h>
+#include <lib/ipv6_core.h>
 #include <lib/static_data.h>
 
 /* Legacy node config rendered at agent runtime. */
@@ -150,3 +151,12 @@ struct ipv4_snat_exclusion_prefix {
 
 NODE_CONFIG(struct ipv4_snat_exclusion_prefix, ipv4_snat_exclusion,
 	    "IPv4 destination prefix excluded from SNAT")
+
+struct ipv6_snat_exclusion_prefix {
+	union v6addr dst_addr;
+	union v6addr dst_mask;
+	bool enabled;
+};
+
+NODE_CONFIG(struct ipv6_snat_exclusion_prefix, ipv6_snat_exclusion,
+	    "IPv6 destination prefix excluded from SNAT")
