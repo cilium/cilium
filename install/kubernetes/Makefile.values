@@ -32,8 +32,8 @@ endif
 
 # renovate: datasource=docker
 export CERTGEN_REPO?=quay.io/cilium/certgen
-export CERTGEN_VERSION?=v0.4.9
-export CERTGEN_DIGEST?=sha256:6213a4c54a1f36e14a9280765f058aaa2017550c28bc122f5b09ad146fd0da2b
+export CERTGEN_VERSION?=v0.4.11
+export CERTGEN_DIGEST?=sha256:14d29a176fc96d15b154559ce1a5baf01367c10baabfa7bb8028b72f087a56f0
 
 # renovate: datasource=docker
 export CILIUM_NODEINIT_REPO?=quay.io/cilium/startup-script
@@ -62,13 +62,13 @@ export SPIRE_INIT_DIGEST?=sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d
 
 # renovate: datasource=docker
 export SPIRE_SERVER_REPO?=ghcr.io/spiffe/spire-server
-export SPIRE_SERVER_VERSION?=1.15.2
-export SPIRE_SERVER_DIGEST?=sha256:aa74ef1be86bc8e0684007d84a4d9859d294384d842c30425048d73429f3216e
+export SPIRE_SERVER_VERSION?=1.15.3
+export SPIRE_SERVER_DIGEST?=sha256:4082f30d3e0ddc4000a171392c4ea174345ee44d161ee917c70b97b2ecfba141
 
 # renovate: datasource=docker
 export SPIRE_AGENT_REPO?=ghcr.io/spiffe/spire-agent
-export SPIRE_AGENT_VERSION?=1.15.2
-export SPIRE_AGENT_DIGEST?=sha256:1d042e4040466686e0ee46f74981ff2167c86adfadca19b3835946f4d6047536
+export SPIRE_AGENT_VERSION?=1.15.3
+export SPIRE_AGENT_DIGEST?=sha256:41b0dcd8b258a69db9e2768292a060766fb76fd866e4bc925849981ea1b825ff
 
 # renovate: datasource=docker
 export ZTUNNEL_REPO?=quay.io/cilium/ztunnel
