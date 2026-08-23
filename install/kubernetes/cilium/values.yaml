@@ -1410,8 +1410,8 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.4.10"
-    digest: "sha256:d507ee2160af548e9811fff802f956ba40fd650cab509e02bf21778d383930b7"
+    tag: "v0.4.11"
+    digest: "sha256:14d29a176fc96d15b154559ce1a5baf01367c10baabfa7bb8028b72f087a56f0"
     useDigest: true
     pullPolicy: "Always"
   # @schema
@@ -4458,8 +4458,8 @@ authentication:
             # @schema
             override: ~
             repository: "ghcr.io/spiffe/spire-agent"
-            tag: "1.15.2"
-            digest: "sha256:1d042e4040466686e0ee46f74981ff2167c86adfadca19b3835946f4d6047536"
+            tag: "1.15.3"
+            digest: "sha256:41b0dcd8b258a69db9e2768292a060766fb76fd866e4bc925849981ea1b825ff"
             useDigest: true
             pullPolicy: "Always"
           # -- SPIRE agent service account
@@ -4513,8 +4513,8 @@ authentication:
             # @schema
             override: ~
             repository: "ghcr.io/spiffe/spire-server"
-            tag: "1.15.2"
-            digest: "sha256:aa74ef1be86bc8e0684007d84a4d9859d294384d842c30425048d73429f3216e"
+            tag: "1.15.3"
+            digest: "sha256:4082f30d3e0ddc4000a171392c4ea174345ee44d161ee917c70b97b2ecfba141"
             useDigest: true
             pullPolicy: "Always"
           # -- SPIRE server service account
