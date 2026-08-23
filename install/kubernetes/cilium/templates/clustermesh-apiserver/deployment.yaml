@@ -1,6 +1,6 @@
 {{- if .Values.clustermesh.useAPIServer }}
-{{- if not (list "legacy" "migration" "cluster" | has .Values.clustermesh.apiserver.tls.authMode) -}}
-{{- fail ".Values.clustermesh.apiserver.tls.authMode must be one of legacy, migration, cluster" -}}
+{{- if not (list "legacy" "migration" "cluster" "cluster-strict" | has .Values.clustermesh.apiserver.tls.authMode) -}}
+{{- fail ".Values.clustermesh.apiserver.tls.authMode must be one of legacy, migration, cluster, cluster-strict" -}}
 {{- end -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -78,6 +78,7 @@ spec:
         - --etcd-cluster-name=clustermesh-apiserver
         - --etcd-initial-cluster-token=$(INITIAL_CLUSTER_TOKEN)
         - --etcd-data-dir=/var/run/etcd
+        - --etcd-create-shared-remote-user={{ ne .Values.clustermesh.apiserver.tls.authMode "cluster-strict" }}
         {{- with .Values.clustermesh.apiserver.etcd.init.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}

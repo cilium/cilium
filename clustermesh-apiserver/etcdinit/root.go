@@ -64,6 +64,7 @@ func NewCmd() *cobra.Command {
 	rootCmd.Flags().String("etcd-initial-cluster-token", "clustermesh-apiserver", "Etcd initial cluster token. Used to prevent accidentally joining other etcd clusters that are reachable on the same L2 network domain.")
 	rootCmd.Flags().String("etcd-cluster-name", "clustermesh-apiserver", "Name of the etcd cluster. Must match what etcd is later started with.")
 	rootCmd.Flags().String("cluster-name", defaults.ClusterName, "Name of the Cilium cluster, used to set the username of the admin user in etcd. This is distinct from the etcd cluster's name.")
+	rootCmd.Flags().Bool("etcd-create-shared-remote-user", true, "Create the shared remote etcd user.")
 	rootCmd.Flags().Duration("timeout", time.Minute*2, "How long to wait for operations before exiting.")
 	rootCmd.Flags().Bool(option.DebugArg, false, "Debug log output.")
 	// Use Viper for configuration so that we can parse both command line flags and environment variables
@@ -269,7 +270,10 @@ func InitEtcdLocal(log *slog.Logger) (returnErr error) {
 		"Starting etcd init",
 		logfields.ClusterName, ciliumClusterName,
 	)
-	err = kvstoreEtcdInit.ClusterMeshEtcdInit(ctx, log, etcdClient, ciliumClusterName)
+	err = kvstoreEtcdInit.ClusterMeshEtcdInit(
+		ctx, log, etcdClient,
+		ciliumClusterName, vp.GetBool("etcd-create-shared-remote-user"),
+	)
 	if err != nil {
 		log.Error(
 			"Failed to initialise etcd",
