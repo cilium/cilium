@@ -61,55 +61,69 @@ func (client *SoftDeletedResourceClient) NewListByArtifactNamePager(resourceGrou
 			if page != nil {
 				nextLink = *page.NextLink
 			}
-			resp, err := runtime.FetcherForNextLink(ctx, client.internal.Pipeline(), nextLink, func(ctx context.Context) (*policy.Request, error) {
-				return client.listByArtifactNameCreateRequest(ctx, resourceGroupName, galleryName, artifactType, artifactName, options)
-			}, nil)
+			req, err := client.listByArtifactNameCreateRequest(ctx, resourceGroupName, galleryName, artifactType, artifactName, nextLink, options)
 			if err != nil {
 				return SoftDeletedResourceClientListByArtifactNameResponse{}, err
 			}
-			return client.listByArtifactNameHandleResponse(resp)
+			resp, err := client.internal.Pipeline().Do(req)
+			if err != nil {
+				return SoftDeletedResourceClientListByArtifactNameResponse{}, err
+			}
+			return client.listByArtifactNameHandleResponse(resp, http.StatusOK)
 		},
 		Tracer: client.internal.Tracer(),
 	})
 }
 
 // listByArtifactNameCreateRequest creates the ListByArtifactName request.
-func (client *SoftDeletedResourceClient) listByArtifactNameCreateRequest(ctx context.Context, resourceGroupName string, galleryName string, artifactType string, artifactName string, _ *SoftDeletedResourceClientListByArtifactNameOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/galleries/{galleryName}/softdeletedartifacttypes/{artifactType}/artifacts/{artifactName}/versions"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+func (client *SoftDeletedResourceClient) listByArtifactNameCreateRequest(ctx context.Context, resourceGroupName string, galleryName string, artifactType string, artifactName string, nextLink string, _ *SoftDeletedResourceClientListByArtifactNameOptions) (*policy.Request, error) {
+	firstPage := nextLink == ""
+	var req *policy.Request
+	var err error
+	if firstPage {
+		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/galleries/{galleryName}/softdeletedartifacttypes/{artifactType}/artifacts/{artifactName}/versions"
+		if client.subscriptionID == "" {
+			return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+		if resourceGroupName == "" {
+			return nil, errors.New("parameter resourceGroupName cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+		if galleryName == "" {
+			return nil, errors.New("parameter galleryName cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{galleryName}", url.PathEscape(galleryName))
+		if artifactType == "" {
+			return nil, errors.New("parameter artifactType cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{artifactType}", url.PathEscape(artifactType))
+		if artifactName == "" {
+			return nil, errors.New("parameter artifactName cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{artifactName}", url.PathEscape(artifactName))
+		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	} else {
+		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
 	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if galleryName == "" {
-		return nil, errors.New("parameter galleryName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{galleryName}", url.PathEscape(galleryName))
-	if artifactType == "" {
-		return nil, errors.New("parameter artifactType cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{artifactType}", url.PathEscape(artifactType))
-	if artifactName == "" {
-		return nil, errors.New("parameter artifactName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{artifactName}", url.PathEscape(artifactName))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
 	if err != nil {
 		return nil, err
 	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20251203)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
+	if firstPage {
+		reqQP := req.Raw().URL.Query()
+		reqQP.Set("api-version", version20251203)
+		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+		req.Raw().Header["Accept"] = []string{"application/json"}
+	}
 	return req, nil
 }
 
 // listByArtifactNameHandleResponse handles the ListByArtifactName response.
-func (client *SoftDeletedResourceClient) listByArtifactNameHandleResponse(resp *http.Response) (SoftDeletedResourceClientListByArtifactNameResponse, error) {
+func (client *SoftDeletedResourceClient) listByArtifactNameHandleResponse(resp *http.Response, successCodes ...int) (SoftDeletedResourceClientListByArtifactNameResponse, error) {
 	result := SoftDeletedResourceClientListByArtifactNameResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.GallerySoftDeletedResourceList); err != nil {
 		return SoftDeletedResourceClientListByArtifactNameResponse{}, err
 	}

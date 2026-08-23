@@ -1,5 +1,66 @@
 # Release History
 
+## 8.3.0 (2026-08-12)
+### Features Added
+
+- New value `ReservationTypeOpen` added to enum type `ReservationType`
+- New value `VirtualMachinePriorityTypesSpotPlus` added to enum type `VirtualMachinePriorityTypes`
+- New enum type `CapacityReservationType` with values `CapacityReservationTypeBlock`, `CapacityReservationTypeDisabled`, `CapacityReservationTypeNotEligible`, `CapacityReservationTypeOpen`, `CapacityReservationTypeTargeted`
+- New enum type `DiskAPIVersion` with values `DiskAPIVersion20250102`, `DiskAPIVersion20260302`
+- New enum type `ListVersionsExpandOptions` with values `ListVersionsExpandOptionsProperties`
+- New enum type `ProcessorMode` with values `ProcessorModeDeterministic`, `ProcessorModeOpportunistic`
+- New enum type `ReleaseCategory` with values `ReleaseCategoryBugFix`, `ReleaseCategoryCompatibilityUpdate`, `ReleaseCategoryNewFeature`, `ReleaseCategoryOther`, `ReleaseCategorySecurityFix`
+- New enum type `ReservationState` with values `ReservationStateApproved`, `ReservationStateCommitted`, `ReservationStateDeclined`, `ReservationStateFulfillmentFailed`, `ReservationStateLive`, `ReservationStatePartiallyFulfilled`, `ReservationStatePending`
+- New enum type `RunProfile` with values `RunProfileHybrid`, `RunProfileLongRunning`, `RunProfileOther`, `RunProfileRunOnce`
+- New enum type `UrgencyLevel` with values `UrgencyLevelEmergency`, `UrgencyLevelExpedited`, `UrgencyLevelRegular`
+- New enum type `VirtualMachineDiskDelayAction` with values `VirtualMachineDiskDelayActionAutomaticReattach`, `VirtualMachineDiskDelayActionNone`
+- New enum type `VirtualMachineDiskNetworkAccessPolicy` with values `VirtualMachineDiskNetworkAccessPolicyAllowAll`, `VirtualMachineDiskNetworkAccessPolicyAllowPrivate`, `VirtualMachineDiskNetworkAccessPolicyDenyAll`
+- New function `*ClientFactory.NewVirtualMachineDiagnosticRunCommandsClient() *VirtualMachineDiagnosticRunCommandsClient`
+- New function `*ClientFactory.NewVirtualMachineScaleSetVMDiagnosticRunCommandsClient() *VirtualMachineScaleSetVMDiagnosticRunCommandsClient`
+- New function `NewVirtualMachineDiagnosticRunCommandsClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*VirtualMachineDiagnosticRunCommandsClient, error)`
+- New function `*VirtualMachineDiagnosticRunCommandsClient.BeginCreateOrUpdate(ctx context.Context, resourceGroupName string, vmName string, runCommandName string, runCommand VirtualMachineDiagnosticRunCommand, options *VirtualMachineDiagnosticRunCommandsClientBeginCreateOrUpdateOptions) (*runtime.Poller[VirtualMachineDiagnosticRunCommandsClientCreateOrUpdateResponse], error)`
+- New function `*VirtualMachineDiagnosticRunCommandsClient.BeginDelete(ctx context.Context, resourceGroupName string, vmName string, runCommandName string, options *VirtualMachineDiagnosticRunCommandsClientBeginDeleteOptions) (*runtime.Poller[VirtualMachineDiagnosticRunCommandsClientDeleteResponse], error)`
+- New function `*VirtualMachineDiagnosticRunCommandsClient.NewDiagnosticListByVirtualMachinePager(resourceGroupName string, vmName string, options *VirtualMachineDiagnosticRunCommandsClientDiagnosticListByVirtualMachineOptions) *runtime.Pager[VirtualMachineDiagnosticRunCommandsClientDiagnosticListByVirtualMachineResponse]`
+- New function `*VirtualMachineDiagnosticRunCommandsClient.GetByVirtualMachine(ctx context.Context, resourceGroupName string, vmName string, runCommandName string, options *VirtualMachineDiagnosticRunCommandsClientGetByVirtualMachineOptions) (VirtualMachineDiagnosticRunCommandsClientGetByVirtualMachineResponse, error)`
+- New function `*VirtualMachineDiagnosticRunCommandsClient.BeginUpdate(ctx context.Context, resourceGroupName string, vmName string, runCommandName string, runCommand VirtualMachineRunCommandUpdate, options *VirtualMachineDiagnosticRunCommandsClientBeginUpdateOptions) (*runtime.Poller[VirtualMachineDiagnosticRunCommandsClientUpdateResponse], error)`
+- New function `NewVirtualMachineScaleSetVMDiagnosticRunCommandsClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*VirtualMachineScaleSetVMDiagnosticRunCommandsClient, error)`
+- New function `*VirtualMachineScaleSetVMDiagnosticRunCommandsClient.BeginCreateOrUpdate(ctx context.Context, resourceGroupName string, vmScaleSetName string, instanceID string, runCommandName string, runCommand VirtualMachineDiagnosticRunCommand, options *VirtualMachineScaleSetVMDiagnosticRunCommandsClientBeginCreateOrUpdateOptions) (*runtime.Poller[VirtualMachineScaleSetVMDiagnosticRunCommandsClientCreateOrUpdateResponse], error)`
+- New function `*VirtualMachineScaleSetVMDiagnosticRunCommandsClient.BeginDelete(ctx context.Context, resourceGroupName string, vmScaleSetName string, instanceID string, runCommandName string, options *VirtualMachineScaleSetVMDiagnosticRunCommandsClientBeginDeleteOptions) (*runtime.Poller[VirtualMachineScaleSetVMDiagnosticRunCommandsClientDeleteResponse], error)`
+- New function `*VirtualMachineScaleSetVMDiagnosticRunCommandsClient.NewDiagnosticListPager(resourceGroupName string, vmScaleSetName string, instanceID string, options *VirtualMachineScaleSetVMDiagnosticRunCommandsClientDiagnosticListOptions) *runtime.Pager[VirtualMachineScaleSetVMDiagnosticRunCommandsClientDiagnosticListResponse]`
+- New function `*VirtualMachineScaleSetVMDiagnosticRunCommandsClient.Get(ctx context.Context, resourceGroupName string, vmScaleSetName string, instanceID string, runCommandName string, options *VirtualMachineScaleSetVMDiagnosticRunCommandsClientGetOptions) (VirtualMachineScaleSetVMDiagnosticRunCommandsClientGetResponse, error)`
+- New function `*VirtualMachineScaleSetVMDiagnosticRunCommandsClient.BeginUpdate(ctx context.Context, resourceGroupName string, vmScaleSetName string, instanceID string, runCommandName string, runCommand VirtualMachineRunCommandUpdate, options *VirtualMachineScaleSetVMDiagnosticRunCommandsClientBeginUpdateOptions) (*runtime.Poller[VirtualMachineScaleSetVMDiagnosticRunCommandsClientUpdateResponse], error)`
+- New function `*VirtualMachineScaleSetsClient.BeginMigrateVMAvailabilityZone(ctx context.Context, resourceGroupName string, vmScaleSetName string, body MigrateVMAvailabilityZoneInput, options *VirtualMachineScaleSetsClientBeginMigrateVMAvailabilityZoneOptions) (*runtime.Poller[VirtualMachineScaleSetsClientMigrateVMAvailabilityZoneResponse], error)`
+- New struct `AdditionalDiskProperties`
+- New struct `CapacityReservationStateInfo`
+- New struct `DiskAvailabilityPolicy`
+- New struct `ExtensionFeatureMetadata`
+- New struct `ExtensionFeatureTag`
+- New struct `MigrateVMAvailabilityZoneInput`
+- New struct `VirtualMachineDiagnosticRunCommand`
+- New struct `VirtualMachineDiagnosticRunCommandsListResult`
+- New struct `VirtualMachineDiskProperties`
+- New field `ReservationStateInfo` in struct `CapacityReservationInstanceView`
+- New field `ReservationStateInfo` in struct `CapacityReservationInstanceViewWithName`
+- New field `DisableCapacityReservationAssignment` in struct `CapacityReservationProfile`
+- New field `UsedReservedCountBySubscription` in struct `CapacityReservationUtilization`
+- New field `ProcessorMode` in struct `HardwareProfile`
+- New field `UseLocalFileRules` in struct `HostEndpointSettings`
+- New field `AdditionalDiskProperties` in struct `ManagedDiskParameters`
+- New field `MinimumCommitmentDays`, `ModifiableUntil` in struct `ScheduleProfile`
+- New field `DiskAPIVersion` in struct `StorageProfile`
+- New field `ExtensionFeatureMetadata`, `ReleaseCategory`, `ReleaseNotes`, `RunProfile`, `UrgencyLevel` in struct `VirtualMachineExtensionImageProperties`
+- New field `Expand` in struct `VirtualMachineExtensionImagesClientListVersionsOptions`
+- New field `FirstPartyServiceTagID` in struct `VirtualMachineIPTag`
+- New field `CapacityReservationType` in struct `VirtualMachineInstanceView`
+- New field `ProcessorMode` in struct `VirtualMachineScaleSetHardwareProfile`
+- New field `FirstPartyServiceTagID` in struct `VirtualMachineScaleSetIPTag`
+- New field `AdditionalDiskProperties` in struct `VirtualMachineScaleSetManagedDiskParameters`
+- New field `DiskAPIVersion` in struct `VirtualMachineScaleSetStorageProfile`
+- New field `DiskAPIVersion` in struct `VirtualMachineScaleSetUpdateStorageProfile`
+- New field `CapacityReservationType` in struct `VirtualMachineScaleSetVMInstanceView`
+- New field `CapacityReservation` in struct `VirtualMachineScaleSetVMProperties`
+
+
 ## 8.2.0 (2026-07-15)
 ### Features Added
 

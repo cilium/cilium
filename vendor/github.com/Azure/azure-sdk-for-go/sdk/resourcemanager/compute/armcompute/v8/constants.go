@@ -7,8 +7,8 @@ package armcompute
 const (
 	version20210701 string = "2021-07-01"
 	version20251203 string = "2025-12-03"
-	version20260301 string = "2026-03-01"
 	version20260302 string = "2026-03-02"
+	version20260401 string = "2026-04-01"
 )
 
 // AccessControlRulesMode - This property allows you to specify whether the access control rules are in Audit mode, in Enforce
@@ -217,6 +217,44 @@ func PossibleCapacityReservationInstanceViewTypesValues() []CapacityReservationI
 	}
 }
 
+// CapacityReservationType - Specifies which type of capacity reservation the virtual machine will consume capacity from if
+// eligible or whether it is explicitly opted out from being associated and consuming capacity from any reserved capacity
+// available in the subscription. Minimum api-version: 2026-04-01.
+type CapacityReservationType string
+
+const (
+	// CapacityReservationTypeBlock - The virtual machine consumes capacity from a specific matching capacity reservation when
+	// associated with a capacity reservation group resource of type block, and will hit capacity failures if there is no available
+	// capacity in the block reservation.
+	CapacityReservationTypeBlock CapacityReservationType = "Block"
+	// CapacityReservationTypeDisabled - The virtual machine has capacity reservation assignment disabled and will not be allowed
+	// to implicitly or explicitly associate with any type of capacity reservation.
+	CapacityReservationTypeDisabled CapacityReservationType = "Disabled"
+	// CapacityReservationTypeNotEligible - The virtual machine is not eligible to be implicitly associated with an open capacity
+	// reservation and is not explicitly associated with any capacity reservation group, so it will consume capacity from the
+	// publicly available capacity.
+	CapacityReservationTypeNotEligible CapacityReservationType = "NotEligible"
+	// CapacityReservationTypeOpen - The virtual machine if eligible will implicitly associate and consume any available capacity
+	// from a matching open capacity reservation created or shared in the subscription. **Note:** The VM should not be explicitly
+	// associated with the open capacity reservation group resource containing the matching reservation.
+	CapacityReservationTypeOpen CapacityReservationType = "Open"
+	// CapacityReservationTypeTargeted - The virtual machine will consume capacity from a specific matching capacity reservation
+	// when associated with a capacity reservation group resource of type targeted, but can fall back to consume capacity from
+	// the publicly available capacity if there is no capacity available in the targeted reservation.
+	CapacityReservationTypeTargeted CapacityReservationType = "Targeted"
+)
+
+// PossibleCapacityReservationTypeValues returns the possible values for the CapacityReservationType const type.
+func PossibleCapacityReservationTypeValues() []CapacityReservationType {
+	return []CapacityReservationType{
+		CapacityReservationTypeBlock,
+		CapacityReservationTypeDisabled,
+		CapacityReservationTypeNotEligible,
+		CapacityReservationTypeOpen,
+		CapacityReservationTypeTargeted,
+	}
+}
+
 // ConfidentialVMEncryptionType - confidential VM encryption types
 type ConfidentialVMEncryptionType string
 
@@ -402,6 +440,25 @@ func PossibleDiffDiskPlacementValues() []DiffDiskPlacement {
 		DiffDiskPlacementCacheDisk,
 		DiffDiskPlacementNvmeDisk,
 		DiffDiskPlacementResourceDisk,
+	}
+}
+
+// DiskAPIVersion - Specifies the Disk API version used when applying additionalDiskProperties to managed disks. The value
+// must be in the format YYYY-MM-DD.
+type DiskAPIVersion string
+
+const (
+	// DiskAPIVersion20250102 - The 2025-01-02 Disk RP API version.
+	DiskAPIVersion20250102 DiskAPIVersion = "2025-01-02"
+	// DiskAPIVersion20260302 - The 2026-03-02 Disk RP API version.
+	DiskAPIVersion20260302 DiskAPIVersion = "2026-03-02"
+)
+
+// PossibleDiskAPIVersionValues returns the possible values for the DiskAPIVersion const type.
+func PossibleDiskAPIVersionValues() []DiskAPIVersion {
+	return []DiskAPIVersion{
+		DiskAPIVersion20250102,
+		DiskAPIVersion20260302,
 	}
 }
 
@@ -1366,6 +1423,21 @@ func PossibleLinuxVMGuestPatchModeValues() []LinuxVMGuestPatchMode {
 	}
 }
 
+// ListVersionsExpandOptions - Defines the allowed values for the $expand query parameter on the ListVersions operation.
+type ListVersionsExpandOptions string
+
+const (
+	// ListVersionsExpandOptionsProperties - Expand to include all properties in the response.
+	ListVersionsExpandOptionsProperties ListVersionsExpandOptions = "properties"
+)
+
+// PossibleListVersionsExpandOptionsValues returns the possible values for the ListVersionsExpandOptions const type.
+func PossibleListVersionsExpandOptionsValues() []ListVersionsExpandOptions {
+	return []ListVersionsExpandOptions{
+		ListVersionsExpandOptionsProperties,
+	}
+}
+
 // MaintenanceOperationResultCodeTypes - The Last Maintenance Operation Result Code.
 type MaintenanceOperationResultCodeTypes string
 
@@ -1781,6 +1853,26 @@ func PossiblePrivateEndpointServiceConnectionStatusValues() []PrivateEndpointSer
 	}
 }
 
+// ProcessorMode - Specifies the processor frequency behavior for the virtual machine. See each member for the behavior it
+// controls.
+type ProcessorMode string
+
+const (
+	// ProcessorModeDeterministic - Ensures predictable and consistent processor frequency at the base/nominal level. Turbo/Boost
+	// is disabled.
+	ProcessorModeDeterministic ProcessorMode = "Deterministic"
+	// ProcessorModeOpportunistic - Allows higher frequency bursts when thermal and power headroom permits.
+	ProcessorModeOpportunistic ProcessorMode = "Opportunistic"
+)
+
+// PossibleProcessorModeValues returns the possible values for the ProcessorMode const type.
+func PossibleProcessorModeValues() []ProcessorMode {
+	return []ProcessorMode{
+		ProcessorModeDeterministic,
+		ProcessorModeOpportunistic,
+	}
+}
+
 // ProtocolTypes - Specifies the protocol of WinRM listener. Possible values are: **http,** **https.**
 type ProtocolTypes string
 
@@ -1931,6 +2023,33 @@ func PossibleRebalanceStrategyValues() []RebalanceStrategy {
 	}
 }
 
+// ReleaseCategory - Enumerates the type of change introduced in the extension version.
+type ReleaseCategory string
+
+const (
+	// ReleaseCategoryBugFix - Bug fix change.
+	ReleaseCategoryBugFix ReleaseCategory = "BugFix"
+	// ReleaseCategoryCompatibilityUpdate - Compatibility update change.
+	ReleaseCategoryCompatibilityUpdate ReleaseCategory = "CompatibilityUpdate"
+	// ReleaseCategoryNewFeature - New feature change.
+	ReleaseCategoryNewFeature ReleaseCategory = "NewFeature"
+	// ReleaseCategoryOther - Other type of change.
+	ReleaseCategoryOther ReleaseCategory = "Other"
+	// ReleaseCategorySecurityFix - Security fix change.
+	ReleaseCategorySecurityFix ReleaseCategory = "SecurityFix"
+)
+
+// PossibleReleaseCategoryValues returns the possible values for the ReleaseCategory const type.
+func PossibleReleaseCategoryValues() []ReleaseCategory {
+	return []ReleaseCategory{
+		ReleaseCategoryBugFix,
+		ReleaseCategoryCompatibilityUpdate,
+		ReleaseCategoryNewFeature,
+		ReleaseCategoryOther,
+		ReleaseCategorySecurityFix,
+	}
+}
+
 // RepairAction - Type of repair action (replace, restart, reimage) that will be used for repairing unhealthy virtual machines
 // in the scale set. Default value is replace.
 type RepairAction string
@@ -2001,15 +2120,62 @@ func PossibleReplicationStatusTypesValues() []ReplicationStatusTypes {
 	}
 }
 
+// ReservationState - The current state of a Future capacity reservation.
+type ReservationState string
+
+const (
+	// ReservationStateApproved - The capacity reservation request has been approved by Azure and is awaiting fulfillment.
+	ReservationStateApproved ReservationState = "Approved"
+	// ReservationStateCommitted - The capacity reservation is locked and cannot be updated or deleted prior to going live.
+	ReservationStateCommitted ReservationState = "Committed"
+	// ReservationStateDeclined - The capacity reservation request was rejected, and will not change again without user action.
+	ReservationStateDeclined ReservationState = "Declined"
+	// ReservationStateFulfillmentFailed - A failure occurred while attempting to fulfill the capacity reservation request.
+	ReservationStateFulfillmentFailed ReservationState = "FulfillmentFailed"
+	// ReservationStateLive - The capacity reservation is active and available for use, and cannot be modified or deleted until
+	// the minimum commitment period has elapsed.
+	ReservationStateLive ReservationState = "Live"
+	// ReservationStatePartiallyFulfilled - Azure was only able to deliver a portion of the requested capacity. The capacity reservation
+	// cannot be modified or deleted until the minimum commitment period has elapsed. The portion of fulfilled capacity can be
+	// viewed by inspecting the capacity reservation's instance view, displayed as currentCapacity within the utilizationInfo.
+	ReservationStatePartiallyFulfilled ReservationState = "PartiallyFulfilled"
+	// ReservationStatePending - The capacity reservation request has been submitted and is awaiting evaluation.
+	ReservationStatePending ReservationState = "Pending"
+)
+
+// PossibleReservationStateValues returns the possible values for the ReservationState const type.
+func PossibleReservationStateValues() []ReservationState {
+	return []ReservationState{
+		ReservationStateApproved,
+		ReservationStateCommitted,
+		ReservationStateDeclined,
+		ReservationStateFulfillmentFailed,
+		ReservationStateLive,
+		ReservationStatePartiallyFulfilled,
+		ReservationStatePending,
+	}
+}
+
 // ReservationType - Indicates the type of capacity reservation. Allowed values are 'Block' for block capacity reservations
-// and 'Targeted' for reservations that enable a VM to consume a specific capacity reservation when a capacity reservation
-// group is provided. The reservation type is immutable and cannot be changed after it is assigned.
+// that enable a VM to consume capacity only from this capacity block when it is associated using a capacity reservation group,
+// 'Targeted' for reservations that enable a VM to consume capacity from an explicitly associated capacity reservation group
+// and fall back to the publicly available capacity if the reservation is full, and 'Open' for reservations that a VM consumes
+// when it is eligible from an implicitly associated capacity reservation group with the matching VM size and zone without
+// associating that capacity reservation group and fall back to the publicly available capacity if the reservation is full.
+// Future capacity reservations can be created in 'Targeted' or 'Open' capacity reservation groups. The reservation type is
+// immutable and cannot be changed after the capacity reservation group is created.
 type ReservationType string
 
 const (
-	// ReservationTypeBlock - To consume scheduled allocated block capacity reservation when a capacity reservation group is provided.
+	// ReservationTypeBlock - Block capacity reservations that enable a VM to consume capacity only from this capacity block when
+	// it is associated using a capacity reservation group.
 	ReservationTypeBlock ReservationType = "Block"
-	// ReservationTypeTargeted - To consume on demand allocated capacity reservation when a capacity reservation group is provided.
+	// ReservationTypeOpen - Reservations that a VM consumes when it is eligible from an implicitly associated capacity reservation
+	// group with the matching VM size and zone without associating that capacity reservation group, and fall back to the publicly
+	// available capacity if the reservation is full. Minimum api-version: 2026-04-01.
+	ReservationTypeOpen ReservationType = "Open"
+	// ReservationTypeTargeted - Reservations that enable a VM to consume capacity from an explicitly associated capacity reservation
+	// group and fall back to the publicly available capacity if the reservation is full.
 	ReservationTypeTargeted ReservationType = "Targeted"
 )
 
@@ -2017,6 +2183,7 @@ const (
 func PossibleReservationTypeValues() []ReservationType {
 	return []ReservationType{
 		ReservationTypeBlock,
+		ReservationTypeOpen,
 		ReservationTypeTargeted,
 	}
 }
@@ -2215,6 +2382,30 @@ func PossibleRollingUpgradeStatusCodeValues() []RollingUpgradeStatusCode {
 		RollingUpgradeStatusCodeFaulted,
 		RollingUpgradeStatusCodeRollingBack,
 		RollingUpgradeStatusCodeRollingForward,
+	}
+}
+
+// RunProfile - Specifies the execution profile for the extension.
+type RunProfile string
+
+const (
+	// RunProfileHybrid - Hybrid execution profile.
+	RunProfileHybrid RunProfile = "Hybrid"
+	// RunProfileLongRunning - Long running execution profile.
+	RunProfileLongRunning RunProfile = "LongRunning"
+	// RunProfileOther - Other execution profile.
+	RunProfileOther RunProfile = "Other"
+	// RunProfileRunOnce - Run once execution profile.
+	RunProfileRunOnce RunProfile = "RunOnce"
+)
+
+// PossibleRunProfileValues returns the possible values for the RunProfile const type.
+func PossibleRunProfileValues() []RunProfile {
+	return []RunProfile{
+		RunProfileHybrid,
+		RunProfileLongRunning,
+		RunProfileOther,
+		RunProfileRunOnce,
 	}
 }
 
@@ -2723,6 +2914,27 @@ func PossibleUpgradeStateValues() []UpgradeState {
 	}
 }
 
+// UrgencyLevel - Defines urgency levels for extension updates.
+type UrgencyLevel string
+
+const (
+	// UrgencyLevelEmergency - Emergency urgency level.
+	UrgencyLevelEmergency UrgencyLevel = "Emergency"
+	// UrgencyLevelExpedited - Expedited urgency level.
+	UrgencyLevelExpedited UrgencyLevel = "Expedited"
+	// UrgencyLevelRegular - Regular urgency level.
+	UrgencyLevelRegular UrgencyLevel = "Regular"
+)
+
+// PossibleUrgencyLevelValues returns the possible values for the UrgencyLevel const type.
+func PossibleUrgencyLevelValues() []UrgencyLevel {
+	return []UrgencyLevel{
+		UrgencyLevelEmergency,
+		UrgencyLevelExpedited,
+		UrgencyLevelRegular,
+	}
+}
+
 // VMDiskTypes - VM disk types which are disallowed.
 type VMDiskTypes string
 
@@ -2904,6 +3116,48 @@ func PossibleValidationStatusValues() []ValidationStatus {
 	}
 }
 
+// VirtualMachineDiskDelayAction - Determines how to handle disks with slow I/O.
+type VirtualMachineDiskDelayAction string
+
+const (
+	// VirtualMachineDiskDelayActionAutomaticReattach - Upon a disk I/O failure or slow response, try detaching then reattaching
+	// the disk.
+	VirtualMachineDiskDelayActionAutomaticReattach VirtualMachineDiskDelayAction = "AutomaticReattach"
+	// VirtualMachineDiskDelayActionNone - Defaults to behavior without availability policy specified, which is VM restart upon
+	// slow disk I/O.
+	VirtualMachineDiskDelayActionNone VirtualMachineDiskDelayAction = "None"
+)
+
+// PossibleVirtualMachineDiskDelayActionValues returns the possible values for the VirtualMachineDiskDelayAction const type.
+func PossibleVirtualMachineDiskDelayActionValues() []VirtualMachineDiskDelayAction {
+	return []VirtualMachineDiskDelayAction{
+		VirtualMachineDiskDelayActionAutomaticReattach,
+		VirtualMachineDiskDelayActionNone,
+	}
+}
+
+// VirtualMachineDiskNetworkAccessPolicy - Policy for accessing the disk via network.
+type VirtualMachineDiskNetworkAccessPolicy string
+
+const (
+	// VirtualMachineDiskNetworkAccessPolicyAllowAll - The disk can be exported or uploaded from any network.
+	VirtualMachineDiskNetworkAccessPolicyAllowAll VirtualMachineDiskNetworkAccessPolicy = "AllowAll"
+	// VirtualMachineDiskNetworkAccessPolicyAllowPrivate - The disk can be exported or uploaded using a DiskAccess resource's
+	// private endpoints.
+	VirtualMachineDiskNetworkAccessPolicyAllowPrivate VirtualMachineDiskNetworkAccessPolicy = "AllowPrivate"
+	// VirtualMachineDiskNetworkAccessPolicyDenyAll - The disk cannot be exported.
+	VirtualMachineDiskNetworkAccessPolicyDenyAll VirtualMachineDiskNetworkAccessPolicy = "DenyAll"
+)
+
+// PossibleVirtualMachineDiskNetworkAccessPolicyValues returns the possible values for the VirtualMachineDiskNetworkAccessPolicy const type.
+func PossibleVirtualMachineDiskNetworkAccessPolicyValues() []VirtualMachineDiskNetworkAccessPolicy {
+	return []VirtualMachineDiskNetworkAccessPolicy{
+		VirtualMachineDiskNetworkAccessPolicyAllowAll,
+		VirtualMachineDiskNetworkAccessPolicyAllowPrivate,
+		VirtualMachineDiskNetworkAccessPolicyDenyAll,
+	}
+}
+
 // VirtualMachineEvictionPolicyTypes - Specifies the eviction policy for the Azure Spot VM/VMSS
 type VirtualMachineEvictionPolicyTypes string
 
@@ -2921,13 +3175,24 @@ func PossibleVirtualMachineEvictionPolicyTypesValues() []VirtualMachineEvictionP
 }
 
 // VirtualMachinePriorityTypes - Specifies the priority for a standalone virtual machine or the virtual machines in the scale
-// set. 'Low' enum will be deprecated in the future, please use 'Spot' as the enum to deploy Azure Spot VM/VMSS.
+// set.
 type VirtualMachinePriorityTypes string
 
 const (
-	VirtualMachinePriorityTypesLow     VirtualMachinePriorityTypes = "Low"
+	// VirtualMachinePriorityTypesLow - Low priority for a standalone virtual machine or the virtual machines in the scale set.
+	// Will be Deprecated, use Spot instead.
+	VirtualMachinePriorityTypesLow VirtualMachinePriorityTypes = "Low"
+	// VirtualMachinePriorityTypesRegular - Regular Priority for a standalone virtual machine or the virtual machines in the scale
+	// set.
+	// This is the default priority and it will be used to deploy regular VM/VMSS.
 	VirtualMachinePriorityTypesRegular VirtualMachinePriorityTypes = "Regular"
-	VirtualMachinePriorityTypesSpot    VirtualMachinePriorityTypes = "Spot"
+	// VirtualMachinePriorityTypesSpot - Spot priority for a standalone virtual machine or the virtual machines in the scale set.
+	VirtualMachinePriorityTypesSpot VirtualMachinePriorityTypes = "Spot"
+	// VirtualMachinePriorityTypesSpotPlus - SpotPlus priority for a standalone virtual machine or the virtual machines in the
+	// scale set.
+	// This is an enum value that will be used to deploy Azure Spot Plus VM/VMSS, which is the next
+	// generation of Azure Spot VM/VMSS with more reliability and longer running time.
+	VirtualMachinePriorityTypesSpotPlus VirtualMachinePriorityTypes = "SpotPlus"
 )
 
 // PossibleVirtualMachinePriorityTypesValues returns the possible values for the VirtualMachinePriorityTypes const type.
@@ -2936,6 +3201,7 @@ func PossibleVirtualMachinePriorityTypesValues() []VirtualMachinePriorityTypes {
 		VirtualMachinePriorityTypesLow,
 		VirtualMachinePriorityTypesRegular,
 		VirtualMachinePriorityTypesSpot,
+		VirtualMachinePriorityTypesSpotPlus,
 	}
 }
 
