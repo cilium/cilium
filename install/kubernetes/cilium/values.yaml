@@ -4184,6 +4184,9 @@ clustermesh:
       #               The "remote" certificate must be generated with CN=remote-<cluster-name>
       #               if provided manually. Cluster mode is meaningful only when the same
       #               CA is shared across all clusters part of the mesh.
+      # - cluster-strict:
+      #               Same as cluster, but does not create the shared remote username.
+      #               Enable only after all clusters in the mesh use cluster mode.
       authMode: cluster
       # -- Configure automatic TLS certificates generation.
       # A Kubernetes CronJob is used the generate any

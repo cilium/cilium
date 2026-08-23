@@ -7,7 +7,7 @@ local-{{ .Values.cluster.name }}
 {{- end -}}
 
 {{- define "clustermesh-apiserver-generate-certs.remote-common-name" -}}
-{{- if eq .Values.clustermesh.apiserver.tls.authMode "cluster" -}}
+{{- if has .Values.clustermesh.apiserver.tls.authMode (list "cluster" "cluster-strict") -}}
 remote-{{ .Values.cluster.name }}
 {{- else -}}
 remote
