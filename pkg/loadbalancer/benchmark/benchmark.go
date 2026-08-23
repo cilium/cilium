@@ -39,6 +39,8 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/scaletozero"
+	scaletozerofake "github.com/cilium/cilium/pkg/maps/scaletozero/fake"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -581,6 +583,7 @@ func testHive(maps lbmaps.LBMaps,
 
 			// Reconcile tables to BPF maps
 			lbreconciler.Cell,
+			cell.Provide(func() scaletozero.Map { return scaletozerofake.NewFakeScaleToZeroMap() }),
 
 			cell.Provide(reflectors.NetnsCookieSupportFunc),
 
