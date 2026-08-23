@@ -97,8 +97,8 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/spiffe/go-spiffe/v2 v2.8.1
-	github.com/spiffe/spire-api-sdk v1.15.2
-	github.com/stretchr/testify v1.12.0
+	github.com/spiffe/spire-api-sdk v1.15.3
+	github.com/stretchr/testify v1.12.1
 	github.com/tidwall/gjson v1.19.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/vishvananda/netlink v1.3.2-0.20260803231012-156a440d85e5
@@ -178,7 +178,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.45.6 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62 // indirect
+	github.com/cilium/deepequal-gen v0.0.0-20260817061921-e5a8128944c9 // indirect
 	github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba // indirect
 	github.com/cilium/linters v0.4.0 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect

@@ -292,8 +292,8 @@ github.com/cilium/charts
 github.com/cilium/coverbee
 github.com/cilium/coverbee/pkg/cparser
 github.com/cilium/coverbee/pkg/verifierlog
-# github.com/cilium/deepequal-gen v0.0.0-20241016021505-f57df2fe2e62
-## explicit; go 1.20
+# github.com/cilium/deepequal-gen v0.0.0-20260817061921-e5a8128944c9
+## explicit; go 1.22.0
 github.com/cilium/deepequal-gen
 github.com/cilium/deepequal-gen/args
 github.com/cilium/deepequal-gen/generators
@@ -1505,7 +1505,7 @@ github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig
 github.com/spiffe/go-spiffe/v2/svid/jwtsvid
 github.com/spiffe/go-spiffe/v2/svid/x509svid
 github.com/spiffe/go-spiffe/v2/workloadapi
-# github.com/spiffe/spire-api-sdk v1.15.2
+# github.com/spiffe/spire-api-sdk v1.15.3
 ## explicit; go 1.23.0
 github.com/spiffe/spire-api-sdk/proto/spire/api/agent/delegatedidentity/v1
 github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1
@@ -1513,7 +1513,7 @@ github.com/spiffe/spire-api-sdk/proto/spire/api/types
 # github.com/stretchr/objx v0.5.3
 ## explicit; go 1.20
 github.com/stretchr/objx
-# github.com/stretchr/testify v1.12.0
+# github.com/stretchr/testify v1.12.1
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
