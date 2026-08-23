@@ -443,6 +443,20 @@ type IPv6RevNATTuple struct {
 	_    [4]byte
 }
 
+// IPv6SNATExclusionPrefix is generated from the BPF C type ipv6_snat_exclusion_prefix.
+type IPv6SNATExclusionPrefix struct {
+	_       structs.HostLayout
+	DstAddr struct {
+		_    structs.HostLayout
+		Addr [16]uint8
+	}
+	DstMask struct {
+		_    structs.HostLayout
+		Addr [16]uint8
+	}
+	Enabled bool
+}
+
 // L2ResponderStats is generated from the BPF C type l2_responder_stats.
 type L2ResponderStats struct {
 	_             structs.HostLayout
