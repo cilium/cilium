@@ -26,7 +26,11 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func TestIsTransientError(t *testing.T) {
+func TestIsPermanentError(t *testing.T) {
+	notFound := k8serrors.NewNotFound(schema.GroupResource{Group: "gateway.networking.k8s.io", Resource: "gatewayclasses"}, "cilium")
+	otherNotFound := k8serrors.NewNotFound(schema.GroupResource{Group: "gateway.networking.k8s.io", Resource: "grpcroutes"}, "cilium")
+	internalErr := k8serrors.NewInternalError(errors.New("etcdserver: leader changed"))
+
 	tests := []struct {
 		name     string
 		err      error
@@ -38,66 +42,87 @@ func TestIsTransientError(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "connection refused",
+			name:     "not found is the only permanent error",
+			err:      notFound,
+			expected: true,
+		},
+		{
+			name:     "connection refused is retried, not permanent",
 			err:      syscall.ECONNREFUSED,
-			expected: true,
-		},
-		{
-			name:     "connection reset",
-			err:      syscall.ECONNRESET,
-			expected: true,
-		},
-		{
-			name:     "no route to host",
-			err:      syscall.EHOSTUNREACH,
-			expected: true,
-		},
-		{
-			name:     "network unreachable",
-			err:      syscall.ENETUNREACH,
-			expected: true,
-		},
-		{
-			name:     "server timeout",
-			err:      k8serrors.NewServerTimeout(schema.GroupResource{Group: "gateway.networking.k8s.io", Resource: "gatewayclasses"}, "get", 5),
-			expected: true,
-		},
-		{
-			name:     "service unavailable",
-			err:      k8serrors.NewServiceUnavailable("API server is shutting down"),
-			expected: true,
-		},
-		{
-			name:     "too many requests",
-			err:      k8serrors.NewTooManyRequests("rate limited", 5),
-			expected: true,
-		},
-		{
-			name:     "timeout",
-			err:      k8serrors.NewTimeoutError("request timed out", 30),
-			expected: true,
-		},
-		{
-			name:     "not found - permanent error",
-			err:      k8serrors.NewNotFound(schema.GroupResource{Group: "gateway.networking.k8s.io", Resource: "gatewayclasses"}, "cilium"),
 			expected: false,
 		},
 		{
-			name:     "generic error - not transient",
+			name:     "connection reset is retried, not permanent",
+			err:      syscall.ECONNRESET,
+			expected: false,
+		},
+		{
+			name:     "no route to host is retried, not permanent",
+			err:      syscall.EHOSTUNREACH,
+			expected: false,
+		},
+		{
+			name:     "network unreachable is retried, not permanent",
+			err:      syscall.ENETUNREACH,
+			expected: false,
+		},
+		{
+			name:     "server timeout is retried, not permanent",
+			err:      k8serrors.NewServerTimeout(schema.GroupResource{Group: "gateway.networking.k8s.io", Resource: "gatewayclasses"}, "get", 5),
+			expected: false,
+		},
+		{
+			name:     "service unavailable is retried, not permanent",
+			err:      k8serrors.NewServiceUnavailable("API server is shutting down"),
+			expected: false,
+		},
+		{
+			name:     "too many requests is retried, not permanent",
+			err:      k8serrors.NewTooManyRequests("rate limited", 5),
+			expected: false,
+		},
+		{
+			name:     "timeout is retried, not permanent",
+			err:      k8serrors.NewTimeoutError("request timed out", 30),
+			expected: false,
+		},
+		{
+			// The regression this guards against: cilium/cilium#48083. A 500 from
+			// the apiserver (e.g. etcd losing its leader) must not be treated the
+			// same as a genuine "the CRD is absent" NotFound answer.
+			name:     "internal server error is retried, not permanent",
+			err:      internalErr,
+			expected: false,
+		},
+		{
+			name:     "unrecognized error is retried, not permanent",
 			err:      errors.New("some random error"),
 			expected: false,
 		},
 		{
-			name:     "wrapped connection refused",
+			name:     "wrapped connection refused is retried, not permanent",
 			err:      errors.New("dial tcp: connect: " + syscall.ECONNREFUSED.Error()),
-			expected: false, // string matching won't work, only errors.As
+			expected: false,
+		},
+		{
+			name:     "all joined errors not found is permanent",
+			err:      errors.Join(notFound, otherNotFound),
+			expected: true,
+		},
+		{
+			name: "one transient error among joined not-found errors is retried, not permanent",
+			// checkCRDs joins one error per missing required GVK. A single 500
+			// among several otherwise-genuine NotFound answers must not be
+			// masked into a permanent "CRDs not installed" verdict.
+			err:      errors.Join(notFound, internalErr),
+			expected: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isTransientError(tt.err)
-			assert.Equal(t, tt.expected, result, "isTransientError(%v) should return %v", tt.err, tt.expected)
+			result := isPermanentError(tt.err)
+			assert.Equal(t, tt.expected, result, "isPermanentError(%v) should return %v", tt.err, tt.expected)
 		})
 	}
 }
@@ -192,6 +217,38 @@ func TestDiscoverCRDsWithRetry_TransientErrorThenSuccess(t *testing.T) {
 	assert.Greater(t, int(callCount.Load()), len(helpers.RequiredGVKs))
 }
 
+// TestDiscoverCRDsWithRetry_InternalServerErrorThenSuccess reproduces the
+// exact scenario in cilium/cilium#48083: the apiserver answers with a 500
+// (e.g. etcd losing its leader) during CRD discovery, which must be retried
+// rather than immediately and permanently disabling Gateway API.
+func TestDiscoverCRDsWithRetry_InternalServerErrorThenSuccess(t *testing.T) {
+	logger := hivetest.Logger(t)
+	fcs, cs := k8sClient.NewFakeClientset(logger)
+	health, simpleHealth := cell.NewSimpleHealth()
+
+	installRequiredCRDs(t, fcs)
+
+	var callCount atomic.Int32
+	fcs.APIExtFakeClientset.PrependReactor("get", "customresourcedefinitions",
+		func(action k8sTesting.Action) (bool, runtime.Object, error) {
+			if callCount.Add(1) <= int32(len(helpers.RequiredGVKs)) {
+				return true, nil, k8serrors.NewInternalError(errors.New("etcdserver: leader changed"))
+			}
+			return false, nil, nil
+		},
+	)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	result, err := discoverCRDsWithRetry(ctx, cs, logger, health)
+
+	require.NoError(t, err)
+	require.True(t, result.Enabled)
+	assert.Equal(t, cell.StatusOK, simpleHealth.Level)
+	assert.Greater(t, int(callCount.Load()), len(helpers.RequiredGVKs))
+}
+
 func TestDiscoverCRDsWithRetry_TransientErrorUntilTimeout(t *testing.T) {
 	logger := hivetest.Logger(t)
 	fcs, cs := k8sClient.NewFakeClientset(logger)
@@ -218,7 +275,7 @@ func TestDiscoverCRDsWithRetry_TransientErrorUntilTimeout(t *testing.T) {
 }
 
 // TestDiscoverCRDsWithRetry_ContextAlreadyCancelled tests the race condition fix:
-// when the retry context expires and checkCRDs returns an error that isTransientError
+// when the retry context expires and checkCRDs returns an error that isPermanentError
 // doesn't recognize, the function must return a fatal error instead of silently
 // disabling Gateway API by treating it as "CRDs not installed".
 func TestDiscoverCRDsWithRetry_ContextAlreadyCancelled(t *testing.T) {
