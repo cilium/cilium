@@ -6,3 +6,7 @@ plugins:
 - module: 'sigs.k8s.io/kube-api-linter'
   # renovate: datasource=go depName=sigs.k8s.io/kube-api-linter
   version: 'v0.0.0-20260716143926-092fe0c72997'
+- module: 'github.com/sanbricio/goconcurrencylint'
+  import: 'github.com/sanbricio/goconcurrencylint/pkg/golangci'
+  # renovate: datasource=go depName=github.com/sanbricio/goconcurrencylint
+  version: 'v0.5.1'
