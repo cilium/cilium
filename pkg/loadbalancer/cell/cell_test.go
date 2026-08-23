@@ -20,6 +20,7 @@ import (
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -46,6 +47,8 @@ func TestCell(t *testing.T) {
 		Cell,
 		cell.Provide(
 			func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
+			// Selects the in-memory BPF maps: this hive has no datapath.
+			func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
 			source.NewSources,
 			tables.NewNodeAddressTable,
 			statedb.RWTable[tables.NodeAddress].ToTable,
