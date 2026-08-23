@@ -87,12 +87,19 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
  * in bpf_sock, so we must check for those via per packet LB as well.
  * Furthermore, since SCTP cannot be handled as part of bpf_sock, also
  * enable per-packet LB is SCTP is enabled.
+ * Scale-to-zero needs it too: a connection held while the service had no
+ * backends keeps the service address for its whole lifetime, because bpf_sock
+ * let it through untranslated, so the DNAT has to happen per packet once the
+ * backends show up. This one has to be a compile-time define rather than
+ * datapath config because it decides which tail call programs exist in the
+ * object at all.
  */
 #if !defined(ENABLE_SOCKET_LB_FULL) || \
     defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
     defined(ENABLE_L7_LB)               || \
     defined(ENABLE_SCTP)                || \
-    defined(ENABLE_CLUSTER_AWARE_ADDRESSING)
+    defined(ENABLE_CLUSTER_AWARE_ADDRESSING) || \
+    defined(ENABLE_SCALE_TO_ZERO)
 # define ENABLE_PER_PACKET_LB 1
 #endif
 

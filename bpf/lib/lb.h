@@ -14,6 +14,7 @@
 #include "identity.h"
 #include "nat_46x64.h"
 #include "ratelimit.h"
+#include "scale_to_zero.h"
 
 #ifndef SKIP_CALLS_MAP
 #include "drop.h"
@@ -1482,6 +1483,12 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (unlikely(svc->count == 0))
 			goto no_service;
 
+		/* Per-packet LB never sees a connect(), a new CT entry is the
+		 * equivalent event. Keep signalling demand while the service has
+		 * backends so that it is not scaled back down under us.
+		 */
+		scale_to_zero_wake(ctx, svc->rev_nat_index);
+
 		if (lb6_svc_is_affinity(svc)) {
 			backend_id = lb6_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
@@ -1574,7 +1581,15 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	return CTX_ACT_OK;
 
 no_service:
+	/* A service that opted into scale-to-zero is held instead of rejected:
+	 * the wake asks the agent to scale it up and the client's retransmit
+	 * finds a backend. Reporting a distinct drop reason is what makes the
+	 * callers skip the no-backend response and the nonroutable handling,
+	 * both of which only react to DROP_NO_SERVICE.
+	 */
 	ret = DROP_NO_SERVICE;
+	if (scale_to_zero_wake(ctx, svc->rev_nat_index))
+		ret = DROP_SERVICE_SCALED_TO_ZERO;
 drop_err:
 	tuple->flags = flags;
 	return ret;
@@ -2320,6 +2335,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (unlikely(svc->count == 0))
 			goto no_service;
 
+		/* Per-packet LB never sees a connect(), a new CT entry is the
+		 * equivalent event. Keep signalling demand while the service has
+		 * backends so that it is not scaled back down under us.
+		 */
+		scale_to_zero_wake(ctx, svc->rev_nat_index);
+
 		if (lb4_svc_is_affinity(svc)) {
 			backend_id = lb4_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
@@ -2412,7 +2433,15 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	return CTX_ACT_OK;
 
 no_service:
+	/* A service that opted into scale-to-zero is held instead of rejected:
+	 * the wake asks the agent to scale it up and the client's retransmit
+	 * finds a backend. Reporting a distinct drop reason is what makes the
+	 * callers skip the no-backend response and the nonroutable handling,
+	 * both of which only react to DROP_NO_SERVICE.
+	 */
 	ret = DROP_NO_SERVICE;
+	if (scale_to_zero_wake(ctx, svc->rev_nat_index))
+		ret = DROP_SERVICE_SCALED_TO_ZERO;
 drop_err:
 	tuple->flags = flags;
 	return ret;

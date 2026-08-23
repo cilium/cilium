@@ -136,6 +136,7 @@ volatile const __u8 v6_all_routers_mcast[] = v6_all_routers_mcast_addr;
 #define v6_svc_three_addr {0xfd, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3}
 
 volatile const __u8 v6_svc_one[] = v6_svc_one_addr;
+volatile const __u8 v6_svc_two[] = v6_svc_two_addr;
 
 /* Source port to be used by a client */
 #define tcp_src_one	__bpf_htons(22330)

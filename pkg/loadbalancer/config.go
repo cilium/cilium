@@ -97,6 +97,14 @@ const (
 	// EnableWildcardEntries controls whether the load balancer datapath should
 	// program wildcard service entries into the BPF datapath.
 	EnableWildcardEntries = "bpf-lb-enable-wildcard-entries"
+
+	// EnableScaleToZeroName is the name of the option enabling the scale-to-zero
+	// support in the datapath.
+	EnableScaleToZeroName = "enable-scale-to-zero"
+
+	// ScaleToZeroIdleTimeoutName is the name of the option setting for how long
+	// a scale-to-zero service stays in demand after a new connection to it.
+	ScaleToZeroIdleTimeoutName = "scale-to-zero-idle-timeout"
 )
 
 // Configuration option defaults
@@ -252,6 +260,18 @@ type UserConfig struct {
 	// EnableWildcardEntries controls whether the load balancer datapath should
 	// program wildcard service entries into the BPF datapath.
 	EnableWildcardEntries bool `mapstructure:"bpf-lb-enable-wildcard-entries"`
+
+	// EnableScaleToZero enables the datapath support for services annotated with
+	// "service.cilium.io/scale-to-zero": new connections to such a service are
+	// held while it has no backends and the demand for it is published as the
+	// cilium_scale_to_zero_service_demand metric.
+	EnableScaleToZero bool `mapstructure:"enable-scale-to-zero"`
+
+	// ScaleToZeroIdleTimeout is how long a scale-to-zero service is reported as
+	// being in demand after the datapath last saw a new connection to it. As the
+	// autoscaler scales the service back down once the demand drops, this is
+	// effectively the idle timeout of a scale-to-zero service.
+	ScaleToZeroIdleTimeout time.Duration `mapstructure:"scale-to-zero-idle-timeout"`
 }
 
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
@@ -372,6 +392,10 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool(EnableWildcardEntries, def.EnableWildcardEntries, "Enable service load balancer wildcard entries.")
 	flags.MarkHidden(EnableWildcardEntries)
+
+	flags.Bool(EnableScaleToZeroName, def.EnableScaleToZero, "Enable holding new connections to backend-less services annotated with \"service.cilium.io/scale-to-zero\"")
+
+	flags.Duration(ScaleToZeroIdleTimeoutName, def.ScaleToZeroIdleTimeout, "Time a scale-to-zero service is reported as being in demand after a new connection to it")
 }
 
 // parsePortRange parses a "min,max" port range.
@@ -507,6 +531,10 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 		return Config{}, fmt.Errorf("Invalid value for --%s: %s", LoadBalancerDSRDispatchName, cfg.DSRDispatch)
 	}
 
+	if cfg.EnableScaleToZero && cfg.ScaleToZeroIdleTimeout <= 0 {
+		return Config{}, fmt.Errorf("--%s must be greater than 0, got %s", ScaleToZeroIdleTimeoutName, cfg.ScaleToZeroIdleTimeout)
+	}
+
 	return
 }
 
@@ -551,6 +579,12 @@ var DefaultUserConfig = UserConfig{
 
 	// Enable service wildcard entries by default.
 	EnableWildcardEntries: true,
+
+	EnableScaleToZero: false,
+	// The window a single wake signal keeps a service in demand. 30s of it is
+	// spent by the datapath's per-service signal rate limit, the rest decides
+	// how long an idle service stays scaled up.
+	ScaleToZeroIdleTimeout: 5 * time.Minute,
 }
 
 var DefaultConfig = Config{
