@@ -695,6 +695,10 @@ func IsComparable(t *types.Type) bool {
 		}
 		return true
 	}
+	if t.Kind == types.Array {
+		// An array is comparable if and only if its element type is.
+		return IsComparable(t.Elem)
+	}
 	return false
 }
 
@@ -764,6 +768,17 @@ func (g *genDeepEqual) doStruct(t *types.Type, sw *generator.SnippetWriter, topL
 			sw.Do("((in.$.name$ == nil) != (other.$.name$ == nil)) {\n", typeArgs)
 			sw.Do("in, other := &in.$.name$, &other.$.name$\n", typeArgs)
 			g.generateFor(ft, sw, false)
+			sw.Do("}\n\n", nil)
+
+		case uft.Kind == types.Array:
+			if !IsComparable(uft) {
+				// TODO: arrays of non-comparable elements (e.g. [3][]byte)
+				//  would need an element-by-element comparison.  Nothing needs
+				//  it so far, so keep it unsupported rather than untested.
+				klog.Fatalf("Hit an unsupported non-comparable array type %v for %v, from %v", uft, ft, t)
+			}
+			sw.Do("if in.$.name$ != other.$.name$ {\n", typeArgs)
+			sw.Do("return false\n", nil)
 			sw.Do("}\n\n", nil)
 
 		case uft.Kind == types.Struct:
