@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -37,65 +38,79 @@ func pruneRouteParentStatuses(parents []gatewayv1.RouteParentStatus, currentPare
 }
 
 type RouteStatusManager struct {
-	client                  client.Client
-	logger                  *slog.Logger
-	controllerName          string
-	includeTCPRoutes        bool
-	includeUDPRoutes        bool
-	tcpUDPRouteSupport      bool
-	tcpUDPUnsupportedReason string
+	client                     client.Client
+	logger                     *slog.Logger
+	controllerName             string
+	includeTCPRoutes           bool
+	includeUDPRoutes           bool
+	tcpUDPRouteSupport         bool
+	tcpUDPUnsupportedReason    string
+	extensionRefFiltersEnabled bool
 }
 
 type RouteStatusInputs struct {
-	HTTPRoutes      []gatewayv1.HTTPRoute
-	TLSRoutes       []gatewayv1.TLSRoute
-	GRPCRoutes      []gatewayv1.GRPCRoute
-	TCPRoutes       []gatewayv1.TCPRoute
-	UDPRoutes       []gatewayv1.UDPRoute
-	ReferenceGrants []gatewayv1.ReferenceGrant
+	HTTPRoutes          []gatewayv1.HTTPRoute
+	TLSRoutes           []gatewayv1.TLSRoute
+	GRPCRoutes          []gatewayv1.GRPCRoute
+	TCPRoutes           []gatewayv1.TCPRoute
+	UDPRoutes           []gatewayv1.UDPRoute
+	ReferenceGrants     []gatewayv1.ReferenceGrant
+	ExtensionRefFilters []v2alpha1.CiliumEnvoyExtProcFilter
+}
+
+type RouteStatusResult struct {
+	HTTPRoutes []gatewayv1.HTTPRoute
+	GRPCRoutes []gatewayv1.GRPCRoute
 }
 
 type RouteStatusManagerConfig struct {
-	IncludeTCPRoutes        bool
-	IncludeUDPRoutes        bool
-	TCPUDPRouteSupport      bool
-	TCPUDPUnsupportedReason string
+	IncludeTCPRoutes           bool
+	IncludeUDPRoutes           bool
+	TCPUDPRouteSupport         bool
+	TCPUDPUnsupportedReason    string
+	ExtensionRefFiltersEnabled bool
 }
 
 func NewRouteStatusManager(client client.Client, logger *slog.Logger, controllerName string, cfg RouteStatusManagerConfig) *RouteStatusManager {
 	return &RouteStatusManager{
-		client:                  client,
-		logger:                  logger,
-		controllerName:          controllerName,
-		includeTCPRoutes:        cfg.IncludeTCPRoutes,
-		includeUDPRoutes:        cfg.IncludeUDPRoutes,
-		tcpUDPRouteSupport:      cfg.TCPUDPRouteSupport,
-		tcpUDPUnsupportedReason: cfg.TCPUDPUnsupportedReason,
+		client:                     client,
+		logger:                     logger,
+		controllerName:             controllerName,
+		includeTCPRoutes:           cfg.IncludeTCPRoutes,
+		includeUDPRoutes:           cfg.IncludeUDPRoutes,
+		tcpUDPRouteSupport:         cfg.TCPUDPRouteSupport,
+		tcpUDPUnsupportedReason:    cfg.TCPUDPUnsupportedReason,
+		extensionRefFiltersEnabled: cfg.ExtensionRefFiltersEnabled,
 	}
 }
 
-func (m *RouteStatusManager) SetRouteStatuses(ctx context.Context, scopedLog *slog.Logger, inputs RouteStatusInputs) error {
-	if err := m.setHTTPRouteStatuses(ctx, scopedLog, inputs.HTTPRoutes, inputs.ReferenceGrants); err != nil {
-		return err
+func (m *RouteStatusManager) SetRouteStatuses(ctx context.Context, scopedLog *slog.Logger, inputs RouteStatusInputs) (*RouteStatusResult, error) {
+	httpRoutes, err := m.setHTTPRouteStatuses(ctx, scopedLog, inputs.HTTPRoutes, inputs.ReferenceGrants, inputs.ExtensionRefFilters)
+	if err != nil {
+		return nil, err
 	}
 	if err := m.setTLSRouteStatuses(ctx, scopedLog, inputs.TLSRoutes, inputs.ReferenceGrants); err != nil {
-		return err
+		return nil, err
 	}
 	if m.includeTCPRoutes {
 		if err := m.setTCPRouteStatuses(ctx, scopedLog, inputs.TCPRoutes, inputs.ReferenceGrants); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if m.includeUDPRoutes {
 		if err := m.setUDPRouteStatuses(ctx, scopedLog, inputs.UDPRoutes, inputs.ReferenceGrants); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	if err := m.setGRPCRouteStatuses(ctx, scopedLog, inputs.GRPCRoutes, inputs.ReferenceGrants); err != nil {
-		return err
+	grpcRoutes, err := m.setGRPCRouteStatuses(ctx, scopedLog, inputs.GRPCRoutes, inputs.ReferenceGrants, inputs.ExtensionRefFilters)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return &RouteStatusResult{
+		HTTPRoutes: httpRoutes,
+		GRPCRoutes: grpcRoutes,
+	}, nil
 }
 
 // runCommonRouteChecks runs all the checks that are common across all supported Route types.
@@ -155,6 +170,7 @@ var backendCheckFuncs = []routechecks.CheckWithParentFunc{
 	routechecks.CheckBackend,
 	routechecks.CheckHasServiceImportSupport,
 	routechecks.CheckBackendIsExistingService,
+	routechecks.CheckExtensionRefs,
 }
 
 func runCheckFuncs(
@@ -255,23 +271,26 @@ func (m *RouteStatusManager) parentIsMatchingGateway(ctx context.Context, parent
 	return hasMatchingControllerFn(gw)
 }
 
-func (m *RouteStatusManager) setHTTPRouteStatuses(ctx context.Context, scopedLog *slog.Logger, httpRoutes []gatewayv1.HTTPRoute, grants []gatewayv1.ReferenceGrant) error {
+func (m *RouteStatusManager) setHTTPRouteStatuses(ctx context.Context, scopedLog *slog.Logger, httpRoutes []gatewayv1.HTTPRoute, grants []gatewayv1.ReferenceGrant, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) ([]gatewayv1.HTTPRoute, error) {
 	scopedLog.DebugContext(ctx, "Updating HTTPRoute statuses for Gateway", numRoutes, len(httpRoutes))
+	desiredRoutes := make([]gatewayv1.HTTPRoute, len(httpRoutes))
 	for httpRouteIndex, original := range httpRoutes {
 		hr := original.DeepCopy()
 		hr.Status.Parents = pruneRouteParentStatuses(hr.Status.Parents, hr.Spec.ParentRefs, m.controllerName)
 
 		i := &routechecks.HTTPRouteInput{
-			Ctx:            ctx,
-			Logger:         scopedLog.With(logfields.HTTPRoute, hr),
-			Client:         m.client,
-			Grants:         grants,
-			HTTPRoute:      hr,
-			ControllerName: m.controllerName,
+			Ctx:                        ctx,
+			Logger:                     scopedLog.With(logfields.HTTPRoute, hr),
+			Client:                     m.client,
+			Grants:                     grants,
+			ExtensionRefFilters:        extProcFilters,
+			ExtensionRefFiltersEnabled: m.extensionRefFiltersEnabled,
+			HTTPRoute:                  hr,
+			ControllerName:             m.controllerName,
 		}
 
 		if err := m.runCommonRouteChecks(ctx, i, hr.Spec.ParentRefs, hr.Namespace); err != nil {
-			return fmt.Errorf("failure during HTTPRoute checks: %w", err)
+			return nil, fmt.Errorf("failure during HTTPRoute checks: %w", err)
 		}
 
 		for _, validate := range []func() (metav1.Condition, bool){
@@ -285,14 +304,10 @@ func (m *RouteStatusManager) setHTTPRouteStatuses(ctx context.Context, scopedLog
 			}
 		}
 
-		if err := m.updateHTTPRouteStatus(ctx, scopedLog, &original, hr); err != nil {
-			return fmt.Errorf("failed to update HTTPRoute status: %w", err)
-		}
-
-		httpRoutes[httpRouteIndex].Status = hr.Status
+		desiredRoutes[httpRouteIndex] = *hr
 	}
 
-	return nil
+	return desiredRoutes, nil
 }
 
 func (m *RouteStatusManager) setTLSRouteStatuses(ctx context.Context, scopedLog *slog.Logger, tlsRoutes []gatewayv1.TLSRoute, grants []gatewayv1.ReferenceGrant) error {
@@ -324,23 +339,26 @@ func (m *RouteStatusManager) setTLSRouteStatuses(ctx context.Context, scopedLog 
 	return nil
 }
 
-func (m *RouteStatusManager) setGRPCRouteStatuses(ctx context.Context, scopedLog *slog.Logger, grpcRoutes []gatewayv1.GRPCRoute, grants []gatewayv1.ReferenceGrant) error {
+func (m *RouteStatusManager) setGRPCRouteStatuses(ctx context.Context, scopedLog *slog.Logger, grpcRoutes []gatewayv1.GRPCRoute, grants []gatewayv1.ReferenceGrant, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) ([]gatewayv1.GRPCRoute, error) {
 	scopedLog.Debug("Updating GRPCRoute statuses for Gateway", numRoutes, len(grpcRoutes))
+	desiredRoutes := make([]gatewayv1.GRPCRoute, len(grpcRoutes))
 	for grpcRouteIndex, original := range grpcRoutes {
 		grpcr := original.DeepCopy()
 		grpcr.Status.Parents = pruneRouteParentStatuses(grpcr.Status.Parents, grpcr.Spec.ParentRefs, m.controllerName)
 
 		i := &routechecks.GRPCRouteInput{
-			Ctx:            ctx,
-			Logger:         scopedLog.With(logfields.GRPCRoute, grpcr),
-			Client:         m.client,
-			Grants:         grants,
-			GRPCRoute:      grpcr,
-			ControllerName: m.controllerName,
+			Ctx:                        ctx,
+			Logger:                     scopedLog.With(logfields.GRPCRoute, grpcr),
+			Client:                     m.client,
+			Grants:                     grants,
+			ExtensionRefFilters:        extProcFilters,
+			ExtensionRefFiltersEnabled: m.extensionRefFiltersEnabled,
+			GRPCRoute:                  grpcr,
+			ControllerName:             m.controllerName,
 		}
 
 		if err := m.runCommonRouteChecks(ctx, i, grpcr.Spec.ParentRefs, grpcr.Namespace); err != nil {
-			return fmt.Errorf("failure during GRPCRoute checks: %w", err)
+			return nil, fmt.Errorf("failure during GRPCRoute checks: %w", err)
 		}
 
 		for _, validate := range []func() (metav1.Condition, bool){
@@ -354,14 +372,10 @@ func (m *RouteStatusManager) setGRPCRouteStatuses(ctx context.Context, scopedLog
 			}
 		}
 
-		if err := m.updateGRPCRouteStatus(ctx, scopedLog, &original, grpcr); err != nil {
-			return fmt.Errorf("failed to update GRPCRoute status: %w", err)
-		}
-
-		grpcRoutes[grpcRouteIndex].Status = grpcr.Status
+		desiredRoutes[grpcRouteIndex] = *grpcr
 	}
 
-	return nil
+	return desiredRoutes, nil
 }
 
 func (m *RouteStatusManager) setTCPRouteStatuses(ctx context.Context, scopedLog *slog.Logger, tcpRoutes []gatewayv1.TCPRoute, grants []gatewayv1.ReferenceGrant) error {

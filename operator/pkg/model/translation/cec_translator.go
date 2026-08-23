@@ -405,6 +405,25 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 		}
 	}
 
+	// Also include ExtensionRef filter backends (e.g. ext_proc services)
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			for _, cf := range r.ExtensionRefFilters {
+				if cf.Backend != nil {
+					namePortMap, exist := namespaceNamePortMap[cf.Backend.Namespace]
+					if exist {
+						namePortMap[cf.Backend.Name] = slices.SortedUnique(append(namePortMap[cf.Backend.Name], cf.Backend.Port.GetPort()))
+					} else {
+						namePortMap = map[string][]string{
+							cf.Backend.Name: {cf.Backend.Port.GetPort()},
+						}
+						namespaceNamePortMap[cf.Backend.Namespace] = namePortMap
+					}
+				}
+			}
+		}
+	}
+
 	return namespaceNamePortMap
 }
 
@@ -428,6 +447,13 @@ func (i *cecTranslator) getUniqueAuthFilters(m *model.Model) []*model.HTTPExtern
 		}
 	}
 	return result
+}
+
+// getUniqueExtProcFilters returns the deterministic HCM filter chain resolved
+// from all routes in the model. Ordering and conflict handling are shared with
+// status reconciliation through model.AnalyzeExtProcOrder.
+func (i *cecTranslator) getUniqueExtProcFilters(m *model.Model) []model.ExtensionRefFilter {
+	return model.AnalyzeExtProcOrder(m).Filters
 }
 
 func mergeBackendsInNamespaceNamePortMap(backends []model.Backend, namespaceNamePortMap map[string]map[string][]string) {

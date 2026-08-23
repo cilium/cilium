@@ -71,6 +71,7 @@ Cilium's Gateway API features:
    grpc
    splitting
    header
+   ext-proc
    parameterized-gatewayclass
    default-tls-certificate
    backendtlspolicy

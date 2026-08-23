@@ -1,0 +1,756 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package ingestion
+
+import (
+	"log/slog"
+	"testing"
+	"time"
+
+	ext_procv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/hive/hivetest"
+
+	"github.com/cilium/cilium/operator/pkg/model"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+)
+
+func Test_resolveExtensionRef(t *testing.T) {
+	extProcFilters := []v2alpha1.CiliumEnvoyExtProcFilter{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-ext-proc",
+				Namespace: "default",
+			},
+			Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+				BackendRef: v2alpha1.ExtProcBackendRef{
+					Name: "ext-proc-service",
+					Port: 9001,
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cross-ns-ext-proc",
+				Namespace: "default",
+			},
+			Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+				BackendRef: v2alpha1.ExtProcBackendRef{
+					Name:      "ext-proc-service",
+					Namespace: ptr.To("other-namespace"),
+					Port:      9002,
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		enableExtensionRefFilters bool
+		namespace                 string
+		ref                       *gatewayv1.LocalObjectReference
+		grants                    []gatewayv1.ReferenceGrant
+		expectedName              string
+		expectedBackendName       string
+		expectedBackendNamespace  string
+		expectedBackendPort       uint32
+		expectedOK                bool
+	}{
+		"feature disabled": {
+			enableExtensionRefFilters: false,
+			namespace:                 "default",
+			ref: &gatewayv1.LocalObjectReference{
+				Group: gatewayv1.Group("cilium.io"),
+				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+				Name:  "my-ext-proc",
+			},
+			expectedOK: false,
+		},
+		"wrong group": {
+			enableExtensionRefFilters: true,
+			namespace:                 "default",
+			ref: &gatewayv1.LocalObjectReference{
+				Group: gatewayv1.Group("wrong.io"),
+				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+				Name:  "my-ext-proc",
+			},
+			expectedOK: false,
+		},
+		"wrong kind": {
+			enableExtensionRefFilters: true,
+			namespace:                 "default",
+			ref: &gatewayv1.LocalObjectReference{
+				Group: gatewayv1.Group("cilium.io"),
+				Kind:  gatewayv1.Kind("WrongKind"),
+				Name:  "my-ext-proc",
+			},
+			expectedOK: false,
+		},
+		"CRD not found": {
+			enableExtensionRefFilters: true,
+			namespace:                 "default",
+			ref: &gatewayv1.LocalObjectReference{
+				Group: gatewayv1.Group("cilium.io"),
+				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+				Name:  "nonexistent",
+			},
+			expectedOK: false,
+		},
+		"wrong namespace": {
+			enableExtensionRefFilters: true,
+			namespace:                 "kube-system",
+			ref: &gatewayv1.LocalObjectReference{
+				Group: gatewayv1.Group("cilium.io"),
+				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+				Name:  "my-ext-proc",
+			},
+			expectedOK: false,
+		},
+		"success": {
+			enableExtensionRefFilters: true,
+			namespace:                 "default",
+			ref: &gatewayv1.LocalObjectReference{
+				Group: gatewayv1.Group("cilium.io"),
+				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+				Name:  "my-ext-proc",
+			},
+			expectedName:             "envoy.filters.http.ext_proc/default/my-ext-proc",
+			expectedBackendName:      "ext-proc-service",
+			expectedBackendNamespace: "default",
+			expectedBackendPort:      9001,
+			expectedOK:               true,
+		},
+		"cross-namespace backendRef without ReferenceGrant": {
+			enableExtensionRefFilters: true,
+			namespace:                 "default",
+			ref: &gatewayv1.LocalObjectReference{
+				Group: gatewayv1.Group("cilium.io"),
+				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+				Name:  "cross-ns-ext-proc",
+			},
+			expectedOK: false,
+		},
+		"cross-namespace backendRef with ReferenceGrant": {
+			enableExtensionRefFilters: true,
+			namespace:                 "default",
+			ref: &gatewayv1.LocalObjectReference{
+				Group: gatewayv1.Group("cilium.io"),
+				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+				Name:  "cross-ns-ext-proc",
+			},
+			grants:                   []gatewayv1.ReferenceGrant{extProcServiceReferenceGrant("other-namespace", "default", "ext-proc-service")},
+			expectedName:             "envoy.filters.http.ext_proc/default/cross-ns-ext-proc",
+			expectedBackendName:      "ext-proc-service",
+			expectedBackendNamespace: "other-namespace",
+			expectedBackendPort:      9002,
+			expectedOK:               true,
+		},
+		"cross-namespace backendRef with ReferenceGrant for different service": {
+			enableExtensionRefFilters: true,
+			namespace:                 "default",
+			ref: &gatewayv1.LocalObjectReference{
+				Group: gatewayv1.Group("cilium.io"),
+				Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+				Name:  "cross-ns-ext-proc",
+			},
+			grants:     []gatewayv1.ReferenceGrant{extProcServiceReferenceGrant("other-namespace", "default", "different-service")},
+			expectedOK: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+			filter, ok := resolveExtensionRef(logger, tc.enableExtensionRefFilters, tc.namespace, tc.ref, extProcFilters, tc.grants)
+			assert.Equal(t, tc.expectedOK, ok)
+
+			if !tc.expectedOK {
+				assert.Nil(t, filter)
+				return
+			}
+
+			require.NotNil(t, filter)
+			assert.Equal(t, tc.expectedName, filter.Name)
+			assert.Equal(t, model.ExtProcExternalProcessorTypeURL, filter.TypeURL)
+			require.NotNil(t, filter.Backend)
+			assert.Equal(t, tc.expectedBackendName, filter.Backend.Name)
+			assert.Equal(t, tc.expectedBackendNamespace, filter.Backend.Namespace)
+			require.NotNil(t, filter.Backend.Port)
+			assert.Equal(t, tc.expectedBackendPort, filter.Backend.Port.Port)
+		})
+	}
+}
+
+func extProcServiceReferenceGrant(targetNamespace, fromNamespace, serviceName string) gatewayv1.ReferenceGrant {
+	return gatewayv1.ReferenceGrant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "allow-ext-proc",
+			Namespace: targetNamespace,
+		},
+		Spec: gatewayv1.ReferenceGrantSpec{
+			From: []gatewayv1.ReferenceGrantFrom{
+				{
+					Group:     gatewayv1.Group("cilium.io"),
+					Kind:      gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+					Namespace: gatewayv1.Namespace(fromNamespace),
+				},
+			},
+			To: []gatewayv1.ReferenceGrantTo{
+				{
+					Group: gatewayv1.Group(""),
+					Kind:  gatewayv1.Kind("Service"),
+					Name:  ptr.To(gatewayv1.ObjectName(serviceName)),
+				},
+			},
+		},
+	}
+}
+
+func Test_crdToExtensionRefFilter(t *testing.T) {
+	tests := map[string]struct {
+		crd       *v2alpha1.CiliumEnvoyExtProcFilter
+		grants    []gatewayv1.ReferenceGrant
+		checkFunc func(t *testing.T, filter *model.ExtensionRefFilter)
+		expectOK  bool
+	}{
+		"basic": {
+			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "basic-filter",
+					Namespace: "default",
+				},
+				Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+					BackendRef: v2alpha1.ExtProcBackendRef{
+						Name: "my-grpc-service",
+						Port: 50051,
+					},
+				},
+			},
+			expectOK: true,
+			checkFunc: func(t *testing.T, filter *model.ExtensionRefFilter) {
+				assert.Equal(t, "envoy.filters.http.ext_proc/default/basic-filter", filter.Name)
+				assert.Equal(t, model.ExtProcExternalProcessorTypeURL, filter.TypeURL)
+
+				require.NotNil(t, filter.Backend)
+				assert.Equal(t, "my-grpc-service", filter.Backend.Name)
+				assert.Equal(t, "default", filter.Backend.Namespace)
+				require.NotNil(t, filter.Backend.Port)
+				assert.Equal(t, uint32(50051), filter.Backend.Port.Port)
+
+				// Verify the protobuf config unmarshals correctly
+				extProc := &ext_procv3.ExternalProcessor{}
+				require.NoError(t, proto.Unmarshal(filter.Config, extProc))
+				require.NotNil(t, extProc.GrpcService)
+				require.NotNil(t, extProc.GrpcService.GetEnvoyGrpc())
+				assert.Equal(t, "grpc:default:my-grpc-service:50051", extProc.GrpcService.GetEnvoyGrpc().ClusterName)
+				assert.Equal(t, "my-grpc-service:50051", extProc.GrpcService.GetEnvoyGrpc().Authority)
+				assert.Equal(t, "ceepf.default.basic_2dfilter.", extProc.StatPrefix)
+				assert.False(t, extProc.GetFailureModeAllow())
+			},
+		},
+		"with processing mode": {
+			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "proc-mode-filter",
+					Namespace: "default",
+				},
+				Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+					BackendRef: v2alpha1.ExtProcBackendRef{
+						Name: "ext-proc-svc",
+						Port: 50051,
+					},
+					ProcessingMode: &v2alpha1.ExtProcProcessingMode{
+						RequestHeaderMode:  ptr.To(v2alpha1.ExtProcHeaderModeSend),
+						ResponseHeaderMode: ptr.To(v2alpha1.ExtProcHeaderModeSkip),
+						RequestBodyMode:    ptr.To(v2alpha1.ExtProcBodyModeBuffered),
+						ResponseBodyMode:   ptr.To(v2alpha1.ExtProcBodyModeStreamed),
+					},
+				},
+			},
+			expectOK: true,
+			checkFunc: func(t *testing.T, filter *model.ExtensionRefFilter) {
+				extProc := &ext_procv3.ExternalProcessor{}
+				require.NoError(t, proto.Unmarshal(filter.Config, extProc))
+				require.NotNil(t, extProc.ProcessingMode)
+				assert.Equal(t, ext_procv3.ProcessingMode_SEND, extProc.ProcessingMode.RequestHeaderMode)
+				assert.Equal(t, ext_procv3.ProcessingMode_SKIP, extProc.ProcessingMode.ResponseHeaderMode)
+				assert.Equal(t, ext_procv3.ProcessingMode_BUFFERED, extProc.ProcessingMode.RequestBodyMode)
+				assert.Equal(t, ext_procv3.ProcessingMode_STREAMED, extProc.ProcessingMode.ResponseBodyMode)
+			},
+		},
+		"with message timeout": {
+			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "timeout-filter",
+					Namespace: "default",
+				},
+				Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+					BackendRef: v2alpha1.ExtProcBackendRef{
+						Name: "ext-proc-svc",
+						Port: 50051,
+					},
+					MessageTimeout: &v2alpha1.ExtProcMessageTimeout{Duration: 10 * time.Second},
+				},
+			},
+			expectOK: true,
+			checkFunc: func(t *testing.T, filter *model.ExtensionRefFilter) {
+				extProc := &ext_procv3.ExternalProcessor{}
+				require.NoError(t, proto.Unmarshal(filter.Config, extProc))
+				require.NotNil(t, extProc.MessageTimeout)
+				assert.Equal(t, 10*time.Second, extProc.MessageTimeout.AsDuration())
+			},
+		},
+		"message timeout above Envoy maximum": {
+			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "invalid-timeout-filter",
+					Namespace: "default",
+				},
+				Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+					BackendRef: v2alpha1.ExtProcBackendRef{
+						Name: "ext-proc-svc",
+						Port: 50051,
+					},
+					MessageTimeout: &v2alpha1.ExtProcMessageTimeout{Duration: time.Hour + time.Nanosecond},
+				},
+			},
+			expectOK: false,
+		},
+		"message timeout negative": {
+			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "negative-timeout-filter",
+					Namespace: "default",
+				},
+				Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+					BackendRef: v2alpha1.ExtProcBackendRef{
+						Name: "ext-proc-svc",
+						Port: 50051,
+					},
+					MessageTimeout: &v2alpha1.ExtProcMessageTimeout{Duration: -1 * time.Second},
+				},
+			},
+			expectOK: false,
+		},
+
+		"cross-namespace backendRef without ReferenceGrant": {
+			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cross-ns-filter",
+					Namespace: "default",
+				},
+				Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+					BackendRef: v2alpha1.ExtProcBackendRef{
+						Name:      "ext-proc-svc",
+						Namespace: ptr.To("other-namespace"),
+						Port:      50051,
+					},
+				},
+			},
+			expectOK: false,
+		},
+		"cross-namespace backendRef with ReferenceGrant": {
+			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cross-ns-filter",
+					Namespace: "default",
+				},
+				Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+					BackendRef: v2alpha1.ExtProcBackendRef{
+						Name:      "ext-proc-svc",
+						Namespace: ptr.To("other-namespace"),
+						Port:      50051,
+					},
+				},
+			},
+			grants:   []gatewayv1.ReferenceGrant{extProcServiceReferenceGrant("other-namespace", "default", "ext-proc-svc")},
+			expectOK: true,
+			checkFunc: func(t *testing.T, filter *model.ExtensionRefFilter) {
+				assert.Equal(t, "envoy.filters.http.ext_proc/default/cross-ns-filter", filter.Name)
+				require.NotNil(t, filter.Backend)
+				assert.Equal(t, "ext-proc-svc", filter.Backend.Name)
+				assert.Equal(t, "other-namespace", filter.Backend.Namespace)
+
+				extProc := &ext_procv3.ExternalProcessor{}
+				require.NoError(t, proto.Unmarshal(filter.Config, extProc))
+				require.NotNil(t, extProc.GrpcService)
+				require.NotNil(t, extProc.GrpcService.GetEnvoyGrpc())
+				assert.Equal(t, "grpc:other-namespace:ext-proc-svc:50051", extProc.GrpcService.GetEnvoyGrpc().ClusterName)
+				assert.Equal(t, "ext-proc-svc:50051", extProc.GrpcService.GetEnvoyGrpc().Authority)
+				assert.Equal(t, "ceepf.default.cross_2dns_2dfilter.", extProc.StatPrefix)
+			},
+		},
+		"stat prefix sanitizes resource identity": {
+			crd: &v2alpha1.CiliumEnvoyExtProcFilter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dotted.ext-proc-filter",
+					Namespace: "default",
+				},
+				Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+					BackendRef: v2alpha1.ExtProcBackendRef{
+						Name: "ext-proc-svc",
+						Port: 50051,
+					},
+				},
+			},
+			expectOK: true,
+			checkFunc: func(t *testing.T, filter *model.ExtensionRefFilter) {
+				extProc := &ext_procv3.ExternalProcessor{}
+				require.NoError(t, proto.Unmarshal(filter.Config, extProc))
+				assert.Equal(t, "ceepf.default.dotted_2eext_2dproc_2dfilter.", extProc.StatPrefix)
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+			filter, ok := crdToExtensionRefFilter(logger, tc.crd, tc.grants)
+			assert.Equal(t, tc.expectOK, ok)
+
+			if !tc.expectOK {
+				assert.Nil(t, filter)
+				return
+			}
+
+			require.NotNil(t, filter)
+			tc.checkFunc(t, filter)
+		})
+	}
+}
+
+func Test_extProcStatPrefix(t *testing.T) {
+	tests := map[string]struct {
+		namespace string
+		name      string
+		expected  string
+	}{
+		"normal resource identity": {
+			namespace: "default",
+			name:      "my-ext-proc",
+			expected:  "ceepf.default.my_2dext_2dproc.",
+		},
+		"cross-namespace resource identity": {
+			namespace: "other-namespace",
+			name:      "cross.ns-ext-proc",
+			expected:  "ceepf.other_2dnamespace.cross_2ens_2dext_2dproc.",
+		},
+		"hyphenated identity": {
+			namespace: "default",
+			name:      "foo-bar",
+			expected:  "ceepf.default.foo_2dbar.",
+		},
+		"dotted identity": {
+			namespace: "default",
+			name:      "foo.bar",
+			expected:  "ceepf.default.foo_2ebar.",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, extProcStatPrefix(tc.namespace, tc.name))
+		})
+	}
+
+	assert.NotEqual(
+		t,
+		extProcStatPrefix("default", "foo-bar"),
+		extProcStatPrefix("default", "foo.bar"),
+	)
+}
+
+func Test_convertProcessingMode(t *testing.T) {
+	tests := map[string]struct {
+		input    *v2alpha1.ExtProcProcessingMode
+		expected *ext_procv3.ProcessingMode
+	}{
+		"nil fields": {
+			input:    &v2alpha1.ExtProcProcessingMode{},
+			expected: &ext_procv3.ProcessingMode{},
+		},
+		"all fields set": {
+			input: &v2alpha1.ExtProcProcessingMode{
+				RequestHeaderMode:   ptr.To(v2alpha1.ExtProcHeaderModeSend),
+				ResponseHeaderMode:  ptr.To(v2alpha1.ExtProcHeaderModeSkip),
+				RequestBodyMode:     ptr.To(v2alpha1.ExtProcBodyModeBuffered),
+				ResponseBodyMode:    ptr.To(v2alpha1.ExtProcBodyModeStreamed),
+				RequestTrailerMode:  ptr.To(v2alpha1.ExtProcHeaderModeSend),
+				ResponseTrailerMode: ptr.To(v2alpha1.ExtProcHeaderModeSkip),
+			},
+			expected: &ext_procv3.ProcessingMode{
+				RequestHeaderMode:   ext_procv3.ProcessingMode_SEND,
+				ResponseHeaderMode:  ext_procv3.ProcessingMode_SKIP,
+				RequestBodyMode:     ext_procv3.ProcessingMode_BUFFERED,
+				ResponseBodyMode:    ext_procv3.ProcessingMode_STREAMED,
+				RequestTrailerMode:  ext_procv3.ProcessingMode_SEND,
+				ResponseTrailerMode: ext_procv3.ProcessingMode_SKIP,
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := convertProcessingMode(tc.input)
+			assert.Equal(t, tc.expected.RequestHeaderMode, result.RequestHeaderMode)
+			assert.Equal(t, tc.expected.ResponseHeaderMode, result.ResponseHeaderMode)
+			assert.Equal(t, tc.expected.RequestBodyMode, result.RequestBodyMode)
+			assert.Equal(t, tc.expected.ResponseBodyMode, result.ResponseBodyMode)
+			assert.Equal(t, tc.expected.RequestTrailerMode, result.RequestTrailerMode)
+			assert.Equal(t, tc.expected.ResponseTrailerMode, result.ResponseTrailerMode)
+		})
+	}
+}
+
+func Test_toHeaderSendMode(t *testing.T) {
+	tests := map[string]struct {
+		input    v2alpha1.ExtProcHeaderMode
+		expected ext_procv3.ProcessingMode_HeaderSendMode
+	}{
+		"SEND": {
+			input:    v2alpha1.ExtProcHeaderModeSend,
+			expected: ext_procv3.ProcessingMode_SEND,
+		},
+		"SKIP": {
+			input:    v2alpha1.ExtProcHeaderModeSkip,
+			expected: ext_procv3.ProcessingMode_SKIP,
+		},
+		"DEFAULT": {
+			input:    v2alpha1.ExtProcHeaderMode("DEFAULT"),
+			expected: ext_procv3.ProcessingMode_DEFAULT,
+		},
+		"unknown": {
+			input:    v2alpha1.ExtProcHeaderMode("something-else"),
+			expected: ext_procv3.ProcessingMode_DEFAULT,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := toHeaderSendMode(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func Test_toBodySendMode(t *testing.T) {
+	tests := map[string]struct {
+		input    v2alpha1.ExtProcBodyMode
+		expected ext_procv3.ProcessingMode_BodySendMode
+	}{
+		"NONE": {
+			input:    v2alpha1.ExtProcBodyModeNone,
+			expected: ext_procv3.ProcessingMode_NONE,
+		},
+		"STREAMED": {
+			input:    v2alpha1.ExtProcBodyModeStreamed,
+			expected: ext_procv3.ProcessingMode_STREAMED,
+		},
+		"BUFFERED": {
+			input:    v2alpha1.ExtProcBodyModeBuffered,
+			expected: ext_procv3.ProcessingMode_BUFFERED,
+		},
+		"BUFFERED_PARTIAL": {
+			input:    v2alpha1.ExtProcBodyModeBufferedPartial,
+			expected: ext_procv3.ProcessingMode_BUFFERED_PARTIAL,
+		},
+		"unknown": {
+			input:    v2alpha1.ExtProcBodyMode("something-else"),
+			expected: ext_procv3.ProcessingMode_NONE,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := toBodySendMode(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func Test_extractRoutes_invalidExtensionRefPreservesValidExternalAuth(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	hr := gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "invalid-ext-proc-with-auth",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.HTTPRouteSpec{
+			Rules: []gatewayv1.HTTPRouteRule{
+				{
+					BackendRefs: []gatewayv1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1.BackendRef{
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Name: "backend",
+									Port: ptr.To(gatewayv1.PortNumber(8080)),
+								},
+							},
+						},
+					},
+					Filters: []gatewayv1.HTTPRouteFilter{
+						{
+							Type: gatewayv1.HTTPRouteFilterExternalAuth,
+							ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{
+								BackendRef: gatewayv1.BackendObjectReference{
+									Name: "auth-backend",
+									Port: ptr.To(gatewayv1.PortNumber(9000)),
+								},
+							},
+						},
+						{
+							Type: gatewayv1.HTTPRouteFilterExtensionRef,
+							ExtensionRef: &gatewayv1.LocalObjectReference{
+								Group: gatewayv1.Group("cilium.io"),
+								Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+								Name:  "missing-ext-proc",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	routes := extractRoutes(logger, 80, []string{"*"}, hr, []corev1.Service{
+		testService("default", "backend", 8080),
+		testService("default", "auth-backend", 9000),
+	}, nil, nil, nil, true, nil)
+
+	require.Len(t, routes, 1)
+	require.NotNil(t, routes[0].DirectResponse)
+	assert.Equal(t, 500, routes[0].DirectResponse.StatusCode)
+	assert.Nil(t, routes[0].Backends)
+	assert.Nil(t, routes[0].ExtensionRefFilters)
+	require.NotNil(t, routes[0].ExternalAuth)
+	assert.Equal(t, "auth-backend", routes[0].ExternalAuth.Backend.Name)
+	assert.Equal(t, "default", routes[0].ExternalAuth.Backend.Namespace)
+	assert.Equal(t, uint32(9000), routes[0].ExternalAuth.Backend.Port.Port)
+}
+
+func Test_extractRoutes_multipleExtensionRefFilters(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	extProcFilters := []v2alpha1.CiliumEnvoyExtProcFilter{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "filter-a",
+				Namespace: "default",
+			},
+			Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+				BackendRef: v2alpha1.ExtProcBackendRef{
+					Name: "svc-a",
+					Port: 9001,
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "filter-b",
+				Namespace: "default",
+			},
+			Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{
+				BackendRef: v2alpha1.ExtProcBackendRef{
+					Name: "svc-b",
+					Port: 9002,
+				},
+			},
+		},
+	}
+
+	t.Run("two extension ref filters preserved in declaration order", func(t *testing.T) {
+		hr := gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-route",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.HTTPRouteSpec{
+				Rules: []gatewayv1.HTTPRouteRule{
+					{
+						Filters: []gatewayv1.HTTPRouteFilter{
+							{
+								Type: gatewayv1.HTTPRouteFilterExtensionRef,
+								ExtensionRef: &gatewayv1.LocalObjectReference{
+									Group: gatewayv1.Group("cilium.io"),
+									Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+									Name:  "filter-a",
+								},
+							},
+							{
+								Type: gatewayv1.HTTPRouteFilterExtensionRef,
+								ExtensionRef: &gatewayv1.LocalObjectReference{
+									Group: gatewayv1.Group("cilium.io"),
+									Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+									Name:  "filter-b",
+								},
+							},
+						},
+						BackendRefs: []gatewayv1.HTTPBackendRef{
+							{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
+										Name: "backend",
+										Port: ptr.To(gatewayv1.PortNumber(8080)),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		services := []corev1.Service{testService("default", "backend", 8080)}
+		routes := extractRoutes(logger, 80, []string{"*"}, hr, services, nil, nil, nil, true, extProcFilters)
+		require.Len(t, routes, 1)
+		assert.Len(t, routes[0].ExtensionRefFilters, 2)
+		assert.Equal(t, "envoy.filters.http.ext_proc/default/filter-a", routes[0].ExtensionRefFilters[0].Name)
+		assert.Equal(t, "envoy.filters.http.ext_proc/default/filter-b", routes[0].ExtensionRefFilters[1].Name)
+	})
+
+	t.Run("invalid extension ref clears all filters and produces 500 response", func(t *testing.T) {
+		hr := gatewayv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-route",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.HTTPRouteSpec{
+				Rules: []gatewayv1.HTTPRouteRule{
+					{
+						Filters: []gatewayv1.HTTPRouteFilter{
+							{
+								Type: gatewayv1.HTTPRouteFilterExtensionRef,
+								ExtensionRef: &gatewayv1.LocalObjectReference{
+									Group: gatewayv1.Group("cilium.io"),
+									Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+									Name:  "filter-a",
+								},
+							},
+							{
+								Type: gatewayv1.HTTPRouteFilterExtensionRef,
+								ExtensionRef: &gatewayv1.LocalObjectReference{
+									Group: gatewayv1.Group("cilium.io"),
+									Kind:  gatewayv1.Kind("CiliumEnvoyExtProcFilter"),
+									Name:  "nonexistent",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		routes := extractRoutes(logger, 80, []string{"*"}, hr, nil, nil, nil, nil, true, extProcFilters)
+		require.Len(t, routes, 1)
+		assert.Empty(t, routes[0].ExtensionRefFilters)
+		require.NotNil(t, routes[0].DirectResponse)
+		assert.Equal(t, 500, routes[0].DirectResponse.StatusCode)
+	})
+}

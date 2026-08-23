@@ -28,6 +28,7 @@ import (
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/shortener"
 )
@@ -121,23 +122,48 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
+	var extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter
+	if r.enableExtensionRefFilters {
+		extProcFilterList := &v2alpha1.CiliumEnvoyExtProcFilterList{}
+		if err := r.Client.List(ctx, extProcFilterList); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list CiliumEnvoyExtProcFilters", logfields.Error, err)
+			return controllerruntime.Fail(err)
+		}
+		extProcFilters = extProcFilterList.Items
+	}
+
 	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.Annotations[annotation.LBIPAMIPKeyAlias] != "" {
 		scopedLog.WarnContext(ctx, fmt.Sprintf("DEPRECATED: The Gateway <%s/%s> is setting an IP address using the infrastructure annotations <%s>."+
 			" These should be set using the spec.addresses field in Gateway objects instead."+
 			" At a future date this annotation will be removed if no spec.addresses are set.", gw.GetNamespace(), gw.GetName(), annotation.LBIPAMIPKeyAlias))
 	}
 
-	if err := r.routeStatusManager.SetRouteStatuses(ctx, scopedLog, RouteStatusInputs{
-		HTTPRoutes:      inputs.HTTPRoutes,
-		TLSRoutes:       inputs.TLSRoutes,
-		GRPCRoutes:      inputs.GRPCRoutes,
-		TCPRoutes:       inputs.TCPRoutes,
-		UDPRoutes:       inputs.UDPRoutes,
-		ReferenceGrants: inputs.ReferenceGrants,
-	}); err != nil {
+	originalHTTPRoutes := inputs.HTTPRoutes
+	originalGRPCRoutes := inputs.GRPCRoutes
+
+	routeStatusResult, err := r.routeStatusManager.SetRouteStatuses(ctx, scopedLog, RouteStatusInputs{
+		HTTPRoutes:          inputs.HTTPRoutes,
+		TLSRoutes:           inputs.TLSRoutes,
+		GRPCRoutes:          inputs.GRPCRoutes,
+		TCPRoutes:           inputs.TCPRoutes,
+		UDPRoutes:           inputs.UDPRoutes,
+		ReferenceGrants:     inputs.ReferenceGrants,
+		ExtensionRefFilters: extProcFilters,
+	})
+	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to update route status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
+	r.preserveExtProcOrderingConflictsOutsideGateway(
+		gw,
+		inputs.AttachedListenerSets,
+		originalHTTPRoutes,
+		routeStatusResult.HTTPRoutes,
+		originalGRPCRoutes,
+		routeStatusResult.GRPCRoutes,
+	)
+	inputs.HTTPRoutes = routeStatusResult.HTTPRoutes
+	inputs.GRPCRoutes = routeStatusResult.GRPCRoutes
 
 	// Attached*Routes() relies on route status parents populated by the status
 	// update helpers above, so it must only be used after route status has been
@@ -176,6 +202,10 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	switch listenerStatusResult.GatewayStatus {
 	case ListenersStatusNoneValid:
+		if err := r.routeStatusManager.persistGatewayRouteStatuses(ctx, scopedLog, originalHTTPRoutes, inputs.HTTPRoutes, originalGRPCRoutes, inputs.GRPCRoutes); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to update Route status", logfields.Error, err)
+			return controllerruntime.Fail(err)
+		}
 		err := fmt.Errorf("No Accepted Listeners for Gateway")
 		scopedLog.ErrorContext(ctx, "No Accepted Listeners for Gateway", logfields.Error, err)
 		setGatewayAccepted(gw, false, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
@@ -189,20 +219,28 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Step 3: Ingest loaded and validated resources into internal model
 	m := ingestion.GatewayAPI(scopedLog, ingestion.Input{
-		GatewayClass:        *gwc,
-		GatewayClassConfig:  inputs.GatewayClassConfig,
-		Gateway:             *gw,
-		HTTPRoutes:          inputs.AttachedHTTPRoutes(gw),
-		TLSRoutes:           inputs.AttachedTLSRoutes(gw),
-		GRPCRoutes:          inputs.AttachedGRPCRoutes(gw),
-		TCPRoutes:           inputs.AttachedTCPRoutes(gw),
-		UDPRoutes:           inputs.AttachedUDPRoutes(gw),
-		Services:            inputs.Services,
-		ServiceImports:      inputs.ServiceImports,
-		ReferenceGrants:     inputs.ReferenceGrants,
-		BackendTLSPolicyMap: btlspStatusMap,
-		MergedListeners:     listenerStatusResult.MergedAndValidListeners,
+		GatewayClass:              *gwc,
+		GatewayClassConfig:        inputs.GatewayClassConfig,
+		Gateway:                   *gw,
+		HTTPRoutes:                inputs.AttachedHTTPRoutes(gw),
+		TLSRoutes:                 inputs.AttachedTLSRoutes(gw),
+		GRPCRoutes:                inputs.AttachedGRPCRoutes(gw),
+		TCPRoutes:                 inputs.AttachedTCPRoutes(gw),
+		UDPRoutes:                 inputs.AttachedUDPRoutes(gw),
+		Services:                  inputs.Services,
+		ServiceImports:            inputs.ServiceImports,
+		ReferenceGrants:           inputs.ReferenceGrants,
+		BackendTLSPolicyMap:       btlspStatusMap,
+		MergedListeners:           listenerStatusResult.MergedAndValidListeners,
+		EnableExtensionRefFilters: r.enableExtensionRefFilters,
+		CiliumEnvoyExtProcFilters: extProcFilters,
 	})
+
+	r.overlayExtProcOrderingConflictsInMemory(m, inputs.HTTPRoutes, inputs.GRPCRoutes)
+	if err := r.routeStatusManager.persistGatewayRouteStatuses(ctx, scopedLog, originalHTTPRoutes, inputs.HTTPRoutes, originalGRPCRoutes, inputs.GRPCRoutes); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to update Route status", logfields.Error, err)
+		return controllerruntime.Fail(err)
+	}
 
 	// Step 4: Translate the listeners into Cilium model
 	cec, svc, eps, err := r.translator.Translate(m)

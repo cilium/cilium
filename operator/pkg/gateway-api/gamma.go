@@ -17,6 +17,7 @@ import (
 	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -26,11 +27,12 @@ type gammaReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
-	logger         *slog.Logger
-	controllerName string
+	logger                    *slog.Logger
+	controllerName            string
+	enableExtensionRefFilters bool
 }
 
-func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string) *gammaReconciler {
+func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, enableExtensionRefFilters bool) *gammaReconciler {
 	return &gammaReconciler{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
@@ -38,7 +40,8 @@ func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, log
 		logger: logger.With(
 			logfields.Controller, gamma,
 		),
-		controllerName: controllerName,
+		controllerName:            controllerName,
+		enableExtensionRefFilters: enableExtensionRefFilters,
 	}
 }
 
@@ -69,6 +72,13 @@ func (r *gammaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1.ReferenceGrant{}, watchhandlers.EnqueueRequestForGAMMAReferenceGrant(r.Client, r.logger)).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{})
+
+	if r.enableExtensionRefFilters {
+		gammaBuilder = gammaBuilder.Watches(
+			&v2alpha1.CiliumEnvoyExtProcFilter{},
+			watchhandlers.EnqueueRequestForExtProcFilterGAMMA(r.Client, r.logger),
+		)
+	}
 
 	return gammaBuilder.Complete(r)
 }

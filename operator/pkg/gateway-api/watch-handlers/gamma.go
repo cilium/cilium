@@ -6,10 +6,13 @@ package watchhandlers
 import (
 	"context"
 	"log/slog"
+	"maps"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -17,6 +20,8 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -58,7 +63,7 @@ func getGammaReconcileRequestsForRoute(ctx context.Context, c client.Client, obj
 	)
 
 	for _, parent := range route.ParentRefs {
-		if helpers.IsGateway(parent) {
+		if !helpers.IsGammaService(parent) {
 			continue
 		}
 
@@ -128,4 +133,46 @@ func enqueueAllServices(c client.Client, logger *slog.Logger) handler.MapFunc {
 		}
 		return requests
 	}
+}
+
+// EnqueueRequestForExtProcFilterGAMMA returns an event handler that, when passed a
+// CiliumEnvoyExtProcFilter, returns reconcile.Requests for all GAMMA Services whose
+// HTTPRoutes/GRPCRoutes reference that filter via an ExtensionRef filter.
+func EnqueueRequestForExtProcFilterGAMMA(c client.Client, logger *slog.Logger) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+		filter, ok := o.(*v2alpha1.CiliumEnvoyExtProcFilter)
+		if !ok {
+			return nil
+		}
+		key := client.ObjectKeyFromObject(filter).String()
+
+		hrList := &gatewayv1.HTTPRouteList{}
+		if err := c.List(ctx, hrList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.ExtProcFilterHTTPRouteIndex, key),
+		}); err != nil {
+			logger.ErrorContext(ctx, "Failed to get related HTTPRoutes", logfields.Error, err)
+			return nil
+		}
+
+		grpcRouteList := &gatewayv1.GRPCRouteList{}
+		if err := c.List(ctx, grpcRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.ExtProcFilterGRPCRouteIndex, key),
+		}); err != nil {
+			logger.ErrorContext(ctx, "Failed to get related GRPCRoutes", logfields.Error, err)
+			return nil
+		}
+
+		seen := make(map[reconcile.Request]struct{})
+		for _, hr := range hrList.Items {
+			for _, r := range getGammaReconcileRequestsForRoute(ctx, c, &hr, hr.Spec.CommonRouteSpec, logger, hr.Kind) {
+				seen[r] = struct{}{}
+			}
+		}
+		for _, gr := range grpcRouteList.Items {
+			for _, r := range getGammaReconcileRequestsForRoute(ctx, c, &gr, gr.Spec.CommonRouteSpec, logger, gr.Kind) {
+				seen[r] = struct{}{}
+			}
+		}
+		return slices.Collect(maps.Keys(seen))
+	})
 }
