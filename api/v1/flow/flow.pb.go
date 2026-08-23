@@ -657,6 +657,11 @@ const (
 	// be evaluated. Split from DROP_FRAG_NOT_FOUND to distinguish ambient
 	// external fragments from in-cluster fragment-tracking bugs.
 	DropReason_DROP_FRAG_NOT_FOUND_WORLD DropReason = 207
+	// A new connection to a service that opted into scale-to-zero was held
+	// while the service has no backends, so that the client's retransmit can
+	// reach a backend once the service has been scaled up. Held packets are
+	// dropped instead of being answered with the no-backend response.
+	DropReason_DROP_SERVICE_SCALED_TO_ZERO DropReason = 208
 )
 
 // Enum value maps for DropReason.
@@ -739,6 +744,7 @@ var (
 		204: "DROP_NO_EGRESS_IP",
 		205: "DROP_PUNT_PROXY",
 		207: "DROP_FRAG_NOT_FOUND_WORLD",
+		208: "DROP_SERVICE_SCALED_TO_ZERO",
 	}
 	DropReason_value = map[string]int32{
 		"DROP_REASON_UNKNOWN":                                   0,
@@ -818,6 +824,7 @@ var (
 		"DROP_NO_EGRESS_IP":                                     204,
 		"DROP_PUNT_PROXY":                                       205,
 		"DROP_FRAG_NOT_FOUND_WORLD":                             207,
+		"DROP_SERVICE_SCALED_TO_ZERO":                           208,
 	}
 )
 
@@ -5957,7 +5964,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"\x06TRACED\x10\x06\x12\x0e\n" +
 	"\n" +
-	"TRANSLATED\x10\a*\xe5\x11\n" +
+	"TRANSLATED\x10\a*\x87\x12\n" +
 	"\n" +
 	"DropReason\x12\x17\n" +
 	"\x13DROP_REASON_UNKNOWN\x10\x00\x12\x1b\n" +
@@ -6039,7 +6046,8 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x11DROP_EP_NOT_READY\x10\xcb\x01\x12\x16\n" +
 	"\x11DROP_NO_EGRESS_IP\x10\xcc\x01\x12\x14\n" +
 	"\x0fDROP_PUNT_PROXY\x10\xcd\x01\x12\x1e\n" +
-	"\x19DROP_FRAG_NOT_FOUND_WORLD\x10\xcf\x01*J\n" +
+	"\x19DROP_FRAG_NOT_FOUND_WORLD\x10\xcf\x01\x12 \n" +
+	"\x1bDROP_SERVICE_SCALED_TO_ZERO\x10\xd0\x01*J\n" +
 	"\x10TrafficDirection\x12\x1d\n" +
 	"\x19TRAFFIC_DIRECTION_UNKNOWN\x10\x00\x12\v\n" +
 	"\aINGRESS\x10\x01\x12\n" +

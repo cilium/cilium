@@ -107,6 +107,7 @@ var errors = map[uint8]string{
 	205: "Punt to proxy",
 	206: "No device",
 	207: "First logical datagram fragment not found from world",
+	208: "Service scaled to zero",
 }
 
 func extendedReason(extError int8) string {
