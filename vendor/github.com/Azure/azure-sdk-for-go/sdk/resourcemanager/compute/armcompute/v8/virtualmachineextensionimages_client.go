@@ -20,7 +20,7 @@ import (
 // VirtualMachineExtensionImagesClient contains the methods for the VirtualMachineExtensionImages group.
 // Don't use this type directly, use NewVirtualMachineExtensionImagesClient() instead.
 //
-// Generated from API version 2026-03-01
+// Generated from API version 2026-04-01
 type VirtualMachineExtensionImagesClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -61,12 +61,7 @@ func (client *VirtualMachineExtensionImagesClient) Get(ctx context.Context, loca
 	if err != nil {
 		return VirtualMachineExtensionImagesClientGetResponse{}, err
 	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
-		err = runtime.NewResponseError(httpResp)
-		return VirtualMachineExtensionImagesClientGetResponse{}, err
-	}
-	resp, err := client.getHandleResponse(httpResp)
-	return resp, err
+	return client.getHandleResponse(httpResp, http.StatusOK)
 }
 
 // getCreateRequest creates the Get request.
@@ -97,15 +92,18 @@ func (client *VirtualMachineExtensionImagesClient) getCreateRequest(ctx context.
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260301)
+	reqQP.Set("api-version", version20260401)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 
 // getHandleResponse handles the Get response.
-func (client *VirtualMachineExtensionImagesClient) getHandleResponse(resp *http.Response) (VirtualMachineExtensionImagesClientGetResponse, error) {
+func (client *VirtualMachineExtensionImagesClient) getHandleResponse(resp *http.Response, successCodes ...int) (VirtualMachineExtensionImagesClientGetResponse, error) {
 	result := VirtualMachineExtensionImagesClientGetResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.VirtualMachineExtensionImage); err != nil {
 		return VirtualMachineExtensionImagesClientGetResponse{}, err
 	}
@@ -131,12 +129,7 @@ func (client *VirtualMachineExtensionImagesClient) ListTypes(ctx context.Context
 	if err != nil {
 		return VirtualMachineExtensionImagesClientListTypesResponse{}, err
 	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
-		err = runtime.NewResponseError(httpResp)
-		return VirtualMachineExtensionImagesClientListTypesResponse{}, err
-	}
-	resp, err := client.listTypesHandleResponse(httpResp)
-	return resp, err
+	return client.listTypesHandleResponse(httpResp, http.StatusOK)
 }
 
 // listTypesCreateRequest creates the ListTypes request.
@@ -159,15 +152,18 @@ func (client *VirtualMachineExtensionImagesClient) listTypesCreateRequest(ctx co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260301)
+	reqQP.Set("api-version", version20260401)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 
 // listTypesHandleResponse handles the ListTypes response.
-func (client *VirtualMachineExtensionImagesClient) listTypesHandleResponse(resp *http.Response) (VirtualMachineExtensionImagesClientListTypesResponse, error) {
+func (client *VirtualMachineExtensionImagesClient) listTypesHandleResponse(resp *http.Response, successCodes ...int) (VirtualMachineExtensionImagesClientListTypesResponse, error) {
 	result := VirtualMachineExtensionImagesClientListTypesResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.VirtualMachineExtensionImageArray); err != nil {
 		return VirtualMachineExtensionImagesClientListTypesResponse{}, err
 	}
@@ -193,12 +189,7 @@ func (client *VirtualMachineExtensionImagesClient) ListVersions(ctx context.Cont
 	if err != nil {
 		return VirtualMachineExtensionImagesClientListVersionsResponse{}, err
 	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
-		err = runtime.NewResponseError(httpResp)
-		return VirtualMachineExtensionImagesClientListVersionsResponse{}, err
-	}
-	resp, err := client.listVersionsHandleResponse(httpResp)
-	return resp, err
+	return client.listVersionsHandleResponse(httpResp, http.StatusOK)
 }
 
 // listVersionsCreateRequest creates the ListVersions request.
@@ -225,6 +216,9 @@ func (client *VirtualMachineExtensionImagesClient) listVersionsCreateRequest(ctx
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
+	if options != nil && options.Expand != nil {
+		reqQP.Set("$expand", string(*options.Expand))
+	}
 	if options != nil && options.Filter != nil {
 		reqQP.Set("$filter", *options.Filter)
 	}
@@ -234,15 +228,18 @@ func (client *VirtualMachineExtensionImagesClient) listVersionsCreateRequest(ctx
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", version20260301)
+	reqQP.Set("api-version", version20260401)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 
 // listVersionsHandleResponse handles the ListVersions response.
-func (client *VirtualMachineExtensionImagesClient) listVersionsHandleResponse(resp *http.Response) (VirtualMachineExtensionImagesClientListVersionsResponse, error) {
+func (client *VirtualMachineExtensionImagesClient) listVersionsHandleResponse(resp *http.Response, successCodes ...int) (VirtualMachineExtensionImagesClientListVersionsResponse, error) {
 	result := VirtualMachineExtensionImagesClientListVersionsResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.VirtualMachineExtensionImageArray); err != nil {
 		return VirtualMachineExtensionImagesClientListVersionsResponse{}, err
 	}
