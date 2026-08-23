@@ -28,7 +28,7 @@ cilium connectivity test [flags]
       --curl-insecure                                              Pass --insecure to curl
       --curl-parallel uint                                         Number of parallel requests in curl commands (0 to disable)
   -d, --debug                                                      Show debug messages
-      --dns-test-server-image string                               Image path to use for CoreDNS (default "registry.k8s.io/coredns/coredns:v1.14.6@sha256:900f9c109f7a33545d3c811516e8376df9019147b750f5ce3e254468769176ea")
+      --dns-test-server-image string                               Image path to use for CoreDNS (default "registry.k8s.io/coredns/coredns:v1.14.7@sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286")
       --echo-image string                                          Image path to use for echo server (default "gcr.io/k8s-staging-gateway-api/echo-advanced:v20251204-v1.4.1")
       --exit-zero-on-failure                                       Exit with zero return code even when test failures are detected
       --external-cidr string                                       IPv4 CIDR to use as external target in connectivity tests (default "1.0.0.0/8")
@@ -74,7 +74,7 @@ cilium connectivity test [flags]
       --secondary-network-iface string                             Secondary network iface name (e.g., to test NodePort BPF on multiple networks)
       --service-type string                                        Type of Kubernetes Services created for connectivity tests (default "NodePort")
       --single-node                                                Limit to tests able to run on a single node
-      --socat-image string                                         Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.1.3@sha256:3ed1cd38741bd445ebffa3aecb9d80c46a83db45f5b5ef03332976c7ca9814af")
+      --socat-image string                                         Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.1.3@sha256:3d9e7966201dd3a065df591020a09fd3c70845de7e7086e3531ea69db774406b")
       --sysdump-cilium-bugtool-flags stringArray                   Optional set of flags to pass to cilium-bugtool command.
       --sysdump-cilium-daemon-set-label-selector string            The labels used to target Cilium daemon set (default "k8s-app=cilium")
       --sysdump-cilium-envoy-label-selector string                 The labels used to target Cilium Envoy pods (default "k8s-app=cilium-envoy")
