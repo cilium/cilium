@@ -4,6 +4,8 @@
 package config
 
 import (
+	"net"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -106,16 +108,32 @@ func NodeConfig(lnc *Config) Node {
 		node.IPv4InterClusterSNAT.Addr = lnc.NodeIPv4.As4()
 	}
 
-	if option.Config.EnableBPFMasquerade && option.Config.EnableIPv4Masquerade {
-		excludeCIDR := lnc.NativeRoutingCIDRIPv4
-		if option.Config.EnableIPMasqAgent {
-			excludeCIDR = option.Config.IPv4NativeRoutingCIDR
+	if option.Config.EnableBPFMasquerade {
+		if option.Config.EnableIPv4Masquerade {
+			excludeCIDR := lnc.NativeRoutingCIDRIPv4
+			if option.Config.EnableIPMasqAgent {
+				excludeCIDR = option.Config.IPv4NativeRoutingCIDR
+			}
+
+			if excludeCIDR.IsValid() {
+				node.IPv4SNATExclusion.DstAddr.Addr = excludeCIDR.Addr().As4()
+				node.IPv4SNATExclusion.Bits = uint8(excludeCIDR.Bits())
+				node.IPv4SNATExclusion.Enabled = true
+			}
 		}
 
-		if excludeCIDR.IsValid() {
-			node.IPv4SNATExclusion.DstAddr.Addr = excludeCIDR.Addr().As4()
-			node.IPv4SNATExclusion.Bits = uint8(excludeCIDR.Bits())
-			node.IPv4SNATExclusion.Enabled = true
+		if option.Config.EnableIPv6Masquerade {
+			excludeCIDR := lnc.NativeRoutingCIDRIPv6
+			if option.Config.EnableIPMasqAgent {
+				excludeCIDR = option.Config.IPv6NativeRoutingCIDR
+			}
+
+			if excludeCIDR.IsValid() {
+				node.IPv6SNATExclusion.DstAddr.Addr = excludeCIDR.Addr().As16()
+				mask := net.CIDRMask(excludeCIDR.Bits(), excludeCIDR.Addr().BitLen())
+				copy(node.IPv6SNATExclusion.DstMask.Addr[:], mask)
+				node.IPv6SNATExclusion.Enabled = true
+			}
 		}
 	}
 
