@@ -232,7 +232,7 @@ jobs:
             mode: 'clustermesh'
             tls-auto-method: certmanager
             cm-auth-mode-1: 'cluster'
-            cm-auth-mode-2: 'cluster'
+            cm-auth-mode-2: 'cluster-strict'
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: false
@@ -246,8 +246,8 @@ jobs:
             kube-proxy: 'none'
             mode: 'kvstoremesh'
             tls-auto-method: certmanager
-            cm-auth-mode-1: 'cluster'
-            cm-auth-mode-2: 'cluster'
+            cm-auth-mode-1: 'cluster-strict'
+            cm-auth-mode-2: 'cluster-strict'
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'enabled'
             policy-default-local-cluster: true
