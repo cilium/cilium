@@ -20,7 +20,7 @@ import (
 // group.
 // Don't use this type directly, use NewVirtualMachineScaleSetLifeCycleHookEventsClient() instead.
 //
-// Generated from API version 2026-03-01
+// Generated from API version 2026-04-01
 type VirtualMachineScaleSetLifeCycleHookEventsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -63,12 +63,7 @@ func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) Get(ctx context.C
 	if err != nil {
 		return VirtualMachineScaleSetLifeCycleHookEventsClientGetResponse{}, err
 	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
-		err = runtime.NewResponseError(httpResp)
-		return VirtualMachineScaleSetLifeCycleHookEventsClientGetResponse{}, err
-	}
-	resp, err := client.getHandleResponse(httpResp)
-	return resp, err
+	return client.getHandleResponse(httpResp, http.StatusOK)
 }
 
 // getCreateRequest creates the Get request.
@@ -95,15 +90,18 @@ func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) getCreateRequest(
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260301)
+	reqQP.Set("api-version", version20260401)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 
 // getHandleResponse handles the Get response.
-func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) getHandleResponse(resp *http.Response) (VirtualMachineScaleSetLifeCycleHookEventsClientGetResponse, error) {
+func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) getHandleResponse(resp *http.Response, successCodes ...int) (VirtualMachineScaleSetLifeCycleHookEventsClientGetResponse, error) {
 	result := VirtualMachineScaleSetLifeCycleHookEventsClientGetResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.VMScaleSetLifecycleHookEvent); err != nil {
 		return VirtualMachineScaleSetLifeCycleHookEventsClientGetResponse{}, err
 	}
@@ -126,47 +124,61 @@ func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) NewListPager(reso
 			if page != nil {
 				nextLink = *page.NextLink
 			}
-			resp, err := runtime.FetcherForNextLink(ctx, client.internal.Pipeline(), nextLink, func(ctx context.Context) (*policy.Request, error) {
-				return client.listCreateRequest(ctx, resourceGroupName, vmScaleSetName, options)
-			}, nil)
+			req, err := client.listCreateRequest(ctx, resourceGroupName, vmScaleSetName, nextLink, options)
 			if err != nil {
 				return VirtualMachineScaleSetLifeCycleHookEventsClientListResponse{}, err
 			}
-			return client.listHandleResponse(resp)
+			resp, err := client.internal.Pipeline().Do(req)
+			if err != nil {
+				return VirtualMachineScaleSetLifeCycleHookEventsClientListResponse{}, err
+			}
+			return client.listHandleResponse(resp, http.StatusOK)
 		},
 		Tracer: client.internal.Tracer(),
 	})
 }
 
 // listCreateRequest creates the List request.
-func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) listCreateRequest(ctx context.Context, resourceGroupName string, vmScaleSetName string, _ *VirtualMachineScaleSetLifeCycleHookEventsClientListOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachineScaleSets/{vmScaleSetName}/lifecycleHookEvents"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) listCreateRequest(ctx context.Context, resourceGroupName string, vmScaleSetName string, nextLink string, _ *VirtualMachineScaleSetLifeCycleHookEventsClientListOptions) (*policy.Request, error) {
+	firstPage := nextLink == ""
+	var req *policy.Request
+	var err error
+	if firstPage {
+		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachineScaleSets/{vmScaleSetName}/lifecycleHookEvents"
+		if client.subscriptionID == "" {
+			return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+		if resourceGroupName == "" {
+			return nil, errors.New("parameter resourceGroupName cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+		if vmScaleSetName == "" {
+			return nil, errors.New("parameter vmScaleSetName cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{vmScaleSetName}", url.PathEscape(vmScaleSetName))
+		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	} else {
+		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
 	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if vmScaleSetName == "" {
-		return nil, errors.New("parameter vmScaleSetName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{vmScaleSetName}", url.PathEscape(vmScaleSetName))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
 	if err != nil {
 		return nil, err
 	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260301)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
+	if firstPage {
+		reqQP := req.Raw().URL.Query()
+		reqQP.Set("api-version", version20260401)
+		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+		req.Raw().Header["Accept"] = []string{"application/json"}
+	}
 	return req, nil
 }
 
 // listHandleResponse handles the List response.
-func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) listHandleResponse(resp *http.Response) (VirtualMachineScaleSetLifeCycleHookEventsClientListResponse, error) {
+func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) listHandleResponse(resp *http.Response, successCodes ...int) (VirtualMachineScaleSetLifeCycleHookEventsClientListResponse, error) {
 	result := VirtualMachineScaleSetLifeCycleHookEventsClientListResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.VMScaleSetLifecycleHookEventListResult); err != nil {
 		return VirtualMachineScaleSetLifeCycleHookEventsClientListResponse{}, err
 	}
@@ -195,12 +207,7 @@ func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) Update(ctx contex
 	if err != nil {
 		return VirtualMachineScaleSetLifeCycleHookEventsClientUpdateResponse{}, err
 	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
-		err = runtime.NewResponseError(httpResp)
-		return VirtualMachineScaleSetLifeCycleHookEventsClientUpdateResponse{}, err
-	}
-	resp, err := client.updateHandleResponse(httpResp)
-	return resp, err
+	return client.updateHandleResponse(httpResp, http.StatusOK)
 }
 
 // updateCreateRequest creates the Update request.
@@ -227,7 +234,7 @@ func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) updateCreateReque
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260301)
+	reqQP.Set("api-version", version20260401)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -238,8 +245,11 @@ func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) updateCreateReque
 }
 
 // updateHandleResponse handles the Update response.
-func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) updateHandleResponse(resp *http.Response) (VirtualMachineScaleSetLifeCycleHookEventsClientUpdateResponse, error) {
+func (client *VirtualMachineScaleSetLifeCycleHookEventsClient) updateHandleResponse(resp *http.Response, successCodes ...int) (VirtualMachineScaleSetLifeCycleHookEventsClientUpdateResponse, error) {
 	result := VirtualMachineScaleSetLifeCycleHookEventsClientUpdateResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.VMScaleSetLifecycleHookEvent); err != nil {
 		return VirtualMachineScaleSetLifeCycleHookEventsClientUpdateResponse{}, err
 	}

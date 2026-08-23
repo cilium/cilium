@@ -342,6 +342,14 @@ func (c *ClientFactory) NewUsageClient() *UsageClient {
 	}
 }
 
+// NewVirtualMachineDiagnosticRunCommandsClient creates a new instance of VirtualMachineDiagnosticRunCommandsClient.
+func (c *ClientFactory) NewVirtualMachineDiagnosticRunCommandsClient() *VirtualMachineDiagnosticRunCommandsClient {
+	return &VirtualMachineDiagnosticRunCommandsClient{
+		subscriptionID: c.subscriptionID,
+		internal:       c.internal,
+	}
+}
+
 // NewVirtualMachineExtensionImagesClient creates a new instance of VirtualMachineExtensionImagesClient.
 func (c *ClientFactory) NewVirtualMachineExtensionImagesClient() *VirtualMachineExtensionImagesClient {
 	return &VirtualMachineExtensionImagesClient{
@@ -401,6 +409,14 @@ func (c *ClientFactory) NewVirtualMachineScaleSetLifeCycleHookEventsClient() *Vi
 // NewVirtualMachineScaleSetRollingUpgradesClient creates a new instance of VirtualMachineScaleSetRollingUpgradesClient.
 func (c *ClientFactory) NewVirtualMachineScaleSetRollingUpgradesClient() *VirtualMachineScaleSetRollingUpgradesClient {
 	return &VirtualMachineScaleSetRollingUpgradesClient{
+		subscriptionID: c.subscriptionID,
+		internal:       c.internal,
+	}
+}
+
+// NewVirtualMachineScaleSetVMDiagnosticRunCommandsClient creates a new instance of VirtualMachineScaleSetVMDiagnosticRunCommandsClient.
+func (c *ClientFactory) NewVirtualMachineScaleSetVMDiagnosticRunCommandsClient() *VirtualMachineScaleSetVMDiagnosticRunCommandsClient {
+	return &VirtualMachineScaleSetVMDiagnosticRunCommandsClient{
 		subscriptionID: c.subscriptionID,
 		internal:       c.internal,
 	}
