@@ -32,6 +32,16 @@ static __always_inline bool eth_is_bcast(const union macaddr *a)
 	return !eth_addrcmp(a, &bcast);
 }
 
+/* Returns true if a carries no address, which is how an unset MAC is
+ * represented.
+ */
+static __always_inline bool eth_is_zero(const union macaddr *a)
+{
+	union macaddr zero = {};
+
+	return !eth_addrcmp(a, &zero);
+}
+
 static __always_inline bool eth_is_supported_ethertype(__be16 proto)
 {
 	/* non-Ethernet II unsupported */

@@ -1275,8 +1275,8 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		const struct vtep_value *vtep;
 
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
-		if (vtep && vtep->vtep_mac && vtep->tunnel_endpoint) {
-			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
+		if (vtep && !eth_is_zero(&vtep->vtep_mac) && vtep->tunnel_endpoint) {
+			if (eth_store_daddr(ctx, vtep->vtep_mac.addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 			fake_info.tunnel_endpoint.ip4.be32 = vtep->tunnel_endpoint;
 			fake_info.flag_has_tunnel_ep = true;

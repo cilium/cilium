@@ -216,8 +216,8 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       __u8 direction, bool from_host,
 					       bool from_tunnel)
 {
-	mac_t router_mac = ep->node_mac;
-	mac_t lxc_mac = ep->mac;
+	union macaddr router_mac = ep->node_mac;
+	union macaddr lxc_mac = ep->mac;
 	int ret;
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
@@ -242,8 +242,8 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       __u8 direction, bool from_host,
 					       bool from_tunnel, __u32 cluster_id)
 {
-	mac_t router_mac = ep->node_mac;
-	mac_t lxc_mac = ep->mac;
+	union macaddr router_mac = ep->node_mac;
+	union macaddr lxc_mac = ep->mac;
 	int ret;
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);

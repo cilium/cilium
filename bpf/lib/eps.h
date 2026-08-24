@@ -6,6 +6,7 @@
 #include "common.h"
 
 #include <linux/ip.h>
+#include "eth.h"
 #include "ipv6.h"
 
 #define ENDPOINT_KEY_IPV4 1
@@ -39,8 +40,8 @@ struct endpoint_info {
 	__u16		lxc_id;
 	__u32		flags;
 	__u32		rt_info;
-	mac_t		mac;
-	mac_t		node_mac;
+	union macaddr	mac;
+	union macaddr	node_mac;
 	__u32		sec_id;
 	__u32		parent_ifindex;
 	__u32		pad[2];
