@@ -449,6 +449,7 @@ jobs:
           external-target-ca-name: custom-ca
           external-target-fake-dns: true
           hubble: false
+          include-unsafe-tests: true
 
       - name: Set up job variables for connectivity tests
         id: vars-conn
@@ -468,6 +469,24 @@ jobs:
           --test-concurrency=${{ env.test_concurrency }} \
           --junit-file "cilium-junits/${{ env.job_name }}-concurrent-clear (${{ join(matrix.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
+
+      - name: Debug steps
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          echo "Pods:"
+          kubectl get pods -o wide --all-namespaces || :
+          echo "External pods:"
+          kubectl get pods -o wide -l app=nginx --all-namespaces || :
+          echo "All nodes:"
+          kubectl get nodes -o wide || :
+          echo "Services:"
+          kubectl get services -o wide --all-namespaces || :
+          echo "Endpoints of the headless service:"
+          kubectl -n external get endpoints nginx -o wide || :
+          NODE=$(kubectl get nodes -o name | sed 's@.*/@@' | head -n 3 | tail -n 1)
+          echo "ipcache:"
+          CILIUM_POD=$(kubectl -n kube-system get pod -l k8s-app=cilium --field-selector spec.nodeName="$NODE" -o jsonpath='{.items[0].metadata.name}')
+          kubectl -n kube-system exec "$CILIUM_POD" -- cilium-dbg bpf ipcache list
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
