@@ -837,7 +837,20 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 	// Otherwise, bump the policy revision directly.
 	if !idsToRegen.Has(secID) {
 		if e.policyRevision == 0 {
-			// We are deferring to the upcoming regen since the endpoint is new.
+			// Unaffected identities are not normally recomputed at toRev. Schedule
+			// this one before making the upcoming regeneration wait for it.
+			if toRev > e.skippedPolicyRevision {
+				if _, err := e.policyFetcher.RecomputeIdentityPolicy(e.SecurityIdentity, toRev); err != nil {
+					e.getLogger().Warn(
+						"Failed to recompute policy for initializing endpoint",
+						logfields.Error, err,
+						logfields.PolicyRevision, toRev,
+					)
+					unlock()
+					return
+				}
+				e.skippedPolicyRevision = toRev
+			}
 			unlock()
 			return
 		}

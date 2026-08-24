@@ -400,10 +400,9 @@ type Endpoint struct {
 	// skipped regeneration levels.
 	skippedRegenerationLevel regeneration.DatapathRegenerationLevel
 
-	// skippedPolicyRevision is the highest PolicyRevisionToWaitFor from a regeneration
-	// event that was skipped because the endpoint was already in StateWaitingToRegenerate.
-	// The queued regeneration is bumped to wait for this revision so it doesn't complete
-	// at an older one.
+	// skippedPolicyRevision is the highest PolicyRevisionToWaitFor deferred to an already
+	// queued or upcoming regeneration. The regeneration is bumped to wait for this revision
+	// so it doesn't complete at an older one.
 	skippedPolicyRevision uint64
 
 	// DatapathConfiguration is the endpoint's datapath configuration as
