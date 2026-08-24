@@ -74,11 +74,27 @@ runs:
         # long provisioning wait. Only capacity errors trigger a fallback: any
         # other failure (bad flag, quota, config) is not zone-specific, so we
         # fail fast and surface the real error rather than retrying blindly.
+        # An attempt that is still not done after this long is not worth waiting
+        # for: the median creation takes under 5 minutes, while capacity
+        # starvation can sit in the GCE instance group manager for 35 minutes
+        # before it is reported as one. gcloud cannot cancel the operation it
+        # submitted, so an abandoned attempt keeps provisioning server side and
+        # is left to the teardown step of the caller.
+        attempt_minutes=12
+        # Bound all the attempts together as well, so that a job cannot spend
+        # its whole budget on getting a cluster.
+        budget_deadline=$(( SECONDS + 30 * 60 ))
+
         created_zone=""
         for zone in "${{ inputs.zone }}" ${{ inputs.fallback-zones }}; do
+          if (( SECONDS >= budget_deadline )); then
+            echo "::warning::Ran out of time to create cluster ${{ inputs.cluster-name }}"
+            break
+          fi
+
           echo "Attempting to create cluster in zone ${zone}"
           set +e
-          create_out=$(gcloud container clusters create "${{ inputs.cluster-name }}" \
+          create_out=$(timeout --kill-after=1m "${attempt_minutes}m" gcloud container clusters create "${{ inputs.cluster-name }}" \
             --zone "${zone}" \
             --enable-ip-alias \
             --create-subnetwork="range=/26" \
@@ -102,6 +118,14 @@ runs:
           if [[ ${create_rc} -eq 0 ]]; then
             created_zone="${zone}"
             break
+          fi
+
+          # 124 and 137 are timeout(1) giving up on gcloud. Do not delete the
+          # cluster here: GKE refuses a delete while the creation operation is
+          # still running, and that operation cannot be cancelled.
+          if [[ ${create_rc} -eq 124 || ${create_rc} -eq 137 ]]; then
+            echo "::warning::Cluster creation in zone ${zone} is still not done after ${attempt_minutes}m; abandoning that zone"
+            continue
           fi
 
           if ! echo "${create_out}" | grep -qiE 'does not have enough resources|ZONE_RESOURCE_POOL_EXHAUSTED|STOCKOUT'; then
