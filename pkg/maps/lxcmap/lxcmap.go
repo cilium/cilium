@@ -156,8 +156,8 @@ func (m *lxcMap) getBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 	info := &EndpointInfo{
 		IfIndex:       uint32(e.GetIfIndex()),
 		LxcID:         uint16(e.GetID()),
-		MAC:           e.LXCMac().Uint64(),
-		NodeMAC:       e.GetNodeMAC().Uint64(),
+		MAC:           e.LXCMac(),
+		NodeMAC:       e.GetNodeMAC(),
 		SecID:         e.GetIdentity().Uint32(), // Host byte-order
 		ParentIfIndex: uint32(e.GetParentIfIndex()),
 		RTInfo:        rtInfo,
@@ -182,16 +182,18 @@ type pad2uint32 [2]uint32
 //
 // Must be in sync with struct endpoint_info in <bpf/lib/eps.h>
 type EndpointInfo struct {
-	IfIndex       uint32        `align:"ifindex"`
-	Unused        uint16        `align:"unused"`
-	LxcID         uint16        `align:"lxc_id"`
-	Flags         uint32        `align:"flags"`
-	RTInfo        uint32        `align:"rt_info"`
-	MAC           mac.Uint64MAC `align:"mac"`
-	NodeMAC       mac.Uint64MAC `align:"node_mac"`
-	SecID         uint32        `align:"sec_id"`
-	ParentIfIndex uint32        `align:"parent_ifindex"`
-	Pad           pad2uint32    `align:"pad"`
+	IfIndex       uint32  `align:"ifindex"`
+	Unused        uint16  `align:"unused"`
+	LxcID         uint16  `align:"lxc_id"`
+	Flags         uint32  `align:"flags"`
+	RTInfo        uint32  `align:"rt_info"`
+	MAC           mac.MAC `align:"mac"`
+	_             [2]byte
+	NodeMAC       mac.MAC `align:"node_mac"`
+	_             [2]byte
+	SecID         uint32     `align:"sec_id"`
+	ParentIfIndex uint32     `align:"parent_ifindex"`
+	Pad           pad2uint32 `align:"pad"`
 }
 
 type EndpointKey struct {
