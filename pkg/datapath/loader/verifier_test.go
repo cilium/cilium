@@ -362,6 +362,7 @@ func loadAndRecordComplexity(
 			_, err := fmt.Sscanf(p.VerifierLog[lastOff:], "processed %d insns (limit %d) max_states_per_insn %d total_states %d peak_states %d mark_read %d",
 				&r.InsnsProcessed, &r.InsnsLimit, &r.MaxStatesPerInsn, &r.TotalStates, &r.PeakStates, &r.MarkRead)
 			if err != nil {
+				t.Logf("Verifier log line: %s", strings.TrimSpace(p.VerifierLog[lastOff:]))
 				t.Fatalf("Failed to parse verifier log for program %s: %v", n, err)
 			}
 
@@ -372,7 +373,7 @@ func loadAndRecordComplexity(
 			// anyway.
 			if kv == kernelVersionNetNext {
 				var stackDepth int
-				stackDepth, stackDepthIndex, err = parseStackDepth(s, p.VerifierLog, lastLineIndex, lastOff)
+				stackDepth, stackDepthIndex, err = parseStackDepth(t, s, p.VerifierLog, lastLineIndex, lastOff)
 				if err != nil {
 					t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
 				}
@@ -385,6 +386,7 @@ func loadAndRecordComplexity(
 			verificationTimeIndex := strings.LastIndex(p.VerifierLog[:stackDepthIndex], "\n")
 			_, err = fmt.Sscanf(p.VerifierLog[verificationTimeIndex+1:stackDepthIndex], "verification time %d usec", &r.VerificationTimeMicroseconds)
 			if err != nil {
+				t.Logf("Verifier log line: %s", strings.TrimSpace(p.VerifierLog[verificationTimeIndex+1:stackDepthIndex]))
 				t.Fatalf("Failed to parse verification time for program %s: %v", n, err)
 			}
 
@@ -403,18 +405,19 @@ func loadAndRecordComplexity(
 // Extract the second to last line, which looks like:
 //
 //	stack depth 144+280+120
-func parseStackDepth(s *ebpf.ProgramSpec, verifierLogs string, lastLineIndex, lastOff int) (int, int, error) {
+func parseStackDepth(t *testing.T, s *ebpf.ProgramSpec, verifierLogs string, lastLineIndex, lastOff int) (int, int, error) {
 	stackDepthIndex := strings.LastIndex(verifierLogs[:lastLineIndex], "\n")
-	stackDepthLine := verifierLogs[stackDepthIndex+1 : lastOff]
+	stackDepthLine := strings.TrimSpace(verifierLogs[stackDepthIndex+1 : lastOff])
 	if !strings.Contains(stackDepthLine, "stack depth ") {
 		lastOff = stackDepthIndex + 1
 		stackDepthIndex = strings.LastIndex(verifierLogs[:stackDepthIndex], "\n")
-		stackDepthLine = verifierLogs[stackDepthIndex+1 : lastOff]
+		stackDepthLine = strings.TrimSpace(verifierLogs[stackDepthIndex+1 : lastOff])
 		if !strings.Contains(stackDepthLine, "stack depth ") {
+			t.Logf("Verifier log line: %s", stackDepthLine)
 			return 0, stackDepthIndex, fmt.Errorf("Couldn't find stack depths line in verifier logs")
 		}
 	}
-	stackDepthLine = strings.TrimPrefix(strings.TrimSpace(stackDepthLine), "stack depth ")
+	stackDepthLine = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(stackDepthLine), "stack depth "))
 	// On newer kernels, the stack depth line may look as follows, so we need
 	// to remove the max info at the end.
 	//   stack depth 144+255 max 400
@@ -422,11 +425,13 @@ func parseStackDepth(s *ebpf.ProgramSpec, verifierLogs string, lastLineIndex, la
 
 	// The max field isn't reported on older kernels.
 	if len(stackDepthInfo) != 2 {
+		t.Logf("Verifier log line: %s", stackDepthLine)
 		return 0, stackDepthIndex, fmt.Errorf("Couldn't find max stack depth value in verifier logs")
 	}
 
 	maxDepth, err := strconv.Atoi(stackDepthInfo[1])
 	if err != nil {
+		t.Logf("Verifier log line: %s", stackDepthLine)
 		return 0, stackDepthIndex, err
 	}
 	return maxDepth, stackDepthIndex, nil
