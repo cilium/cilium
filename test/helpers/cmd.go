@@ -449,8 +449,10 @@ func (res *CmdRes) WaitUntilMatchFilterLineTimeout(filter, expected string, time
 	body := func() bool {
 		lines, err := res.FilterLinesJSONPath(parsedFilter)
 		if err != nil {
-			if errors.Is(err, &JSONParseError{}) {
-				// We might have read a partial line; continue
+			// The command is still writing, so the last line of its output
+			// may be a partial read; try again.
+			var jsonParseError *JSONParseError
+			if errors.As(err, &jsonParseError) {
 				return false
 			}
 			errChan <- err
