@@ -12,21 +12,6 @@ import (
 // Untagged ethernet (IEEE 802.3) frame header len
 const EthHdrLen = 14
 
-// Uint64MAC is the __u64 representation of a MAC address.
-// It corresponds to the C mac_t type used in bpf/.
-type Uint64MAC uint64
-
-func (m Uint64MAC) String() string {
-	return fmt.Sprintf("%02X:%02X:%02X:%02X:%02X:%02X",
-		uint64((m & 0x0000000000FF)),
-		uint64((m&0x00000000FF00)>>8),
-		uint64((m&0x000000FF0000)>>16),
-		uint64((m&0x0000FF000000)>>24),
-		uint64((m&0x00FF00000000)>>32),
-		uint64((m&0xFF0000000000)>>40),
-	)
-}
-
 // MAC is an IEEE 802 MAC-48 address.
 //
 // It is a comparable value type: two MACs may be compared with == and a MAC may
@@ -114,18 +99,6 @@ func MustParseMAC(s string) MAC {
 		panic(err)
 	}
 	return mac
-}
-
-// Uint64 returns the MAC in uint64 format. The MAC is represented as little-endian in
-// the returned value.
-// Example:
-//
-//	m := MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}
-//	fmt.Printf("0x%X", m.Uint64()) // 0x564534231211
-func (m MAC) Uint64() Uint64MAC {
-	res := uint64(m[5])<<40 | uint64(m[4])<<32 | uint64(m[3])<<24 |
-		uint64(m[2])<<16 | uint64(m[1])<<8 | uint64(m[0])
-	return Uint64MAC(res)
 }
 
 // MarshalText implements the [encoding.TextMarshaler] interface.
