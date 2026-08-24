@@ -37,6 +37,13 @@ static __always_inline bool tcp_is_syn(union tcp_flags flags)
 }
 
 static __always_inline int
+udp_load_csum(const struct __ctx_buff *ctx, int l4_off, __be16 *csum)
+{
+	return ctx_load_bytes(ctx, l4_off + offsetof(struct udphdr, check),
+			      csum, field_sizeof(struct udphdr, check));
+}
+
+static __always_inline int
 l4_store_port(struct __ctx_buff *ctx, int l4_off, int port_off, __be16 port)
 {
 	return ctx_store_bytes(ctx, l4_off + port_off, &port, sizeof(port), 0);
