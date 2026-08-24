@@ -851,8 +851,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			return DROP_UNKNOWN_ICMP4_CODE;
 		}
 
-		if (ctx_load_bytes(ctx, inner_l4_off + port_off,
-				   &tuple.sport, sizeof(tuple.sport)) < 0)
+		if (l4_load_port(ctx, inner_l4_off + port_off, &tuple.sport) < 0)
 			return DROP_INVALID;
 		break;
 	default:
@@ -1100,8 +1099,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 			return DROP_UNKNOWN_ICMP4_CODE;
 		}
 
-		if (ctx_load_bytes(ctx, inner_l4_off + port_off,
-				   &tuple.dport, sizeof(tuple.dport)) < 0)
+		if (l4_load_port(ctx, inner_l4_off + port_off, &tuple.dport) < 0)
 			return DROP_INVALID;
 		break;
 	default:
@@ -1861,8 +1859,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			return DROP_UNKNOWN_ICMP6_CODE;
 		}
 
-		if (ctx_load_bytes(ctx, inner_l4_off + port_off,
-				   &tuple.sport, sizeof(tuple.sport)) < 0)
+		if (l4_load_port(ctx, inner_l4_off + port_off, &tuple.sport) < 0)
 			return DROP_INVALID;
 		break;
 	default:
@@ -2084,8 +2081,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 		port_off = offsetof(struct icmp6hdr,
 				    icmp6_dataun.u_echo.identifier);
 
-		if (ctx_load_bytes(ctx, inner_l4_off + port_off,
-				   &tuple.dport, sizeof(tuple.dport)) < 0)
+		if (l4_load_port(ctx, inner_l4_off + port_off, &tuple.dport) < 0)
 			return DROP_INVALID;
 		break;
 	default:
