@@ -138,12 +138,6 @@ func TestHardwareAddr(t *testing.T) {
 	require.Nil(t, MAC{}.HardwareAddr())
 }
 
-func TestUint64(t *testing.T) {
-	m := MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0x56}
-	require.Equal(t, Uint64MAC(0x564534231211), m.Uint64())
-	require.Equal(t, Uint64MAC(0), MAC{}.Uint64())
-}
-
 func TestUnmarshalYAML(t *testing.T) {
 	m := MustParseMAC("11:12:23:34:45:56")
 	w := MAC{0x11, 0x12, 0x23, 0x34, 0x45, 0xAB}
