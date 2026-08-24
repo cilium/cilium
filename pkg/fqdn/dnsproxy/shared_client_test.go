@@ -11,7 +11,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/cilium/dns"
@@ -655,4 +658,105 @@ func (c *connWrapper) Write(p []byte) (int, error) {
 
 func (c *connWrapper) RemoteAddr() net.Addr {
 	return c.PacketConn.(net.Conn).RemoteAddr()
+}
+
+// TestDNSOverTCPIsSerial exists solely to "document" the assumption that the
+// shared client code makes, namely that there are _not_ multiple goroutines
+// handling multiple DNS over TCP queries.
+//
+// The background is that there otherwise exists a race condition which can
+// cause an agent panic caused by a delayed write to a closed requests channel.
+// The problem comes up during shutdown of a TCP connection, causing the shared
+// client's requests channel to be closed while there's the potential that a
+// query is about to be written into it/blocked on writing into it.
+func TestDNSOverTCPIsSerial(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		// Anything which is not a PacketConn gets treated like TCP by miekg/dns.
+		clientConn, serverConn := net.Pipe()
+		if _, ok := clientConn.(net.PacketConn); ok {
+			t.Fatalf("net.Pipe unexpectedly implements net.PacketConn")
+		}
+
+		listener := &singleConnListener{conn: serverConn, closed: make(chan struct{})}
+
+		var handlerCalls atomic.Int32
+		firstStarted := make(chan struct{})
+		releaseFirst := make(chan struct{})
+		server := &dns.Server{
+			Listener: listener,
+			Handler: dns.HandlerFunc(func(dns.ResponseWriter, *dns.Msg) {
+				if handlerCalls.Add(1) == 1 {
+					close(firstStarted)
+					<-releaseFirst
+				}
+			}),
+		}
+		serverDone := make(chan error, 1)
+		go func() {
+			serverDone <- server.ActivateAndServe()
+		}()
+
+		conn := &dns.Conn{Conn: clientConn}
+		request := new(dns.Msg)
+		request.SetQuestion("miek.nl.", dns.TypeSOA)
+		if err := conn.WriteMsg(request); err != nil {
+			t.Fatalf("writing first request: %v", err)
+		}
+		<-firstStarted
+
+		request.Id++
+		secondWriteDone := make(chan error, 1)
+		go func() {
+			secondWriteDone <- conn.WriteMsg(request)
+		}()
+		synctest.Wait()
+
+		if got := handlerCalls.Load(); got != 1 {
+			t.Fatalf("got %d concurrent handler calls, want 1", got)
+		}
+
+		close(releaseFirst)
+		if err := <-secondWriteDone; err != nil {
+			t.Fatalf("writing second request: %v", err)
+		}
+		synctest.Wait()
+		if got := handlerCalls.Load(); got != 2 {
+			t.Fatalf("got %d handler calls after releasing the first, want 2", got)
+		}
+
+		if err := server.Shutdown(); err != nil {
+			t.Fatalf("shutting down server: %v", err)
+		}
+		if err := <-serverDone; err != nil {
+			t.Fatalf("serving DNS: %v", err)
+		}
+		if err := clientConn.Close(); err != nil {
+			t.Fatalf("closing client connection: %v", err)
+		}
+	})
+}
+
+type singleConnListener struct {
+	conn     net.Conn
+	accepted bool
+	closed   chan struct{}
+	once     sync.Once
+}
+
+func (l *singleConnListener) Accept() (net.Conn, error) {
+	if !l.accepted {
+		l.accepted = true
+		return l.conn, nil
+	}
+	<-l.closed
+	return nil, net.ErrClosed
+}
+
+func (l *singleConnListener) Close() error {
+	l.once.Do(func() { close(l.closed) })
+	return nil
+}
+
+func (l *singleConnListener) Addr() net.Addr {
+	return l.conn.LocalAddr()
 }
