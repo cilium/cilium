@@ -88,7 +88,8 @@ func TestCreateUpdateCRD(t *testing.T) {
 				crd := getV1TestCRD()
 				client := fake.NewSimpleClientset()
 				require.NoError(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
-				return CreateUpdateCRD(t.Context(), hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
+				_, err := CreateUpdateCRD(t.Context(), hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
+				return err
 			},
 			wantErr: false,
 		},
@@ -99,7 +100,8 @@ func TestCreateUpdateCRD(t *testing.T) {
 				crd := getV1TestCRD()
 				client := fake.NewSimpleClientset()
 				require.NoError(t, k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor))
-				return CreateUpdateCRD(t.Context(), hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
+				_, err := CreateUpdateCRD(t.Context(), hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
+				return err
 			},
 			wantErr: false,
 		},
@@ -126,7 +128,8 @@ func TestCreateUpdateCRD(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				return CreateUpdateCRD(t.Context(), hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
+				_, err = CreateUpdateCRD(t.Context(), hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
+				return err
 			},
 			wantErr: false,
 		},
@@ -166,7 +169,8 @@ func TestCreateUpdateCRD(t *testing.T) {
 				crd := getV1TestCRD()
 				crd.ObjectMeta.Name = crdToInstall.ObjectMeta.Name
 
-				return CreateUpdateCRD(t.Context(), hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
+				_, err = CreateUpdateCRD(t.Context(), hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
+				return err
 			},
 			wantErr: false,
 		},

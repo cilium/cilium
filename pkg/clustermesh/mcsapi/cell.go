@@ -144,13 +144,10 @@ func registerMCSAPIController(params mcsAPIParams) error {
 }
 
 func newMCSAPICRDs(cfg mcsapitypes.MCSAPIConfig) apis.RegisterCRDsFuncOut {
+	if !cfg.ShouldInstallMCSAPICrds() {
+		return apis.RegisterCRDsFuncOut{}
+	}
 	return apis.RegisterCRDsFuncOut{
-		Func: func(ctx context.Context, logger *slog.Logger, client k8sClient.Clientset) error {
-			if !cfg.ShouldInstallMCSAPICrds() {
-				return nil
-			}
-
-			return createCustomResourceDefinitions(ctx, logger, client)
-		},
+		Func: createCustomResourceDefinitions,
 	}
 }

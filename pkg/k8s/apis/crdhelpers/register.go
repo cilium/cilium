@@ -5,7 +5,7 @@ package crdhelpers
 
 import (
 	"context"
-	goerrors "errors"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -13,7 +13,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	v1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -27,6 +27,8 @@ type NeedUpdateCRDFunc func(targetCRD, currentCRD *apiextensionsv1.CustomResourc
 // CreateUpdateCRD ensures the CRD object is installed into the K8s cluster. It
 // will create or update the CRD and its validation schema as necessary. This
 // function only accepts v1 CRD objects.
+//
+// Returns the created object
 func CreateUpdateCRD(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -34,7 +36,7 @@ func CreateUpdateCRD(
 	targetCRD *apiextensionsv1.CustomResourceDefinition,
 	poller poller,
 	needsUpdateCRDFunc NeedUpdateCRDFunc,
-) error {
+) (*apiextensionsv1.CustomResourceDefinition, error) {
 	scopedLog := logger.With(logfields.Name, targetCRD.Name)
 
 	v1CRDClient := clientset.ApiextensionsV1()
@@ -42,8 +44,9 @@ func CreateUpdateCRD(
 		ctx,
 		targetCRD.ObjectMeta.Name,
 		metav1.GetOptions{})
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		scopedLog.Info("Creating CRD (CustomResourceDefinition)...")
+		prev := currentCRD
 
 		currentCRD, err = v1CRDClient.CustomResourceDefinitions().Create(
 			context.TODO(),
@@ -51,24 +54,26 @@ func CreateUpdateCRD(
 			metav1.CreateOptions{})
 		// This occurs when multiple agents race to create the CRD. Since another has
 		// created it, it will also update it, hence the non-error return.
-		if errors.IsAlreadyExists(err) {
-			return nil
+		if apierrors.IsAlreadyExists(err) {
+			return prev, nil
 		}
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := updateV1CRD(ctx, scopedLog, targetCRD, currentCRD, v1CRDClient, poller, needsUpdateCRDFunc); err != nil {
-		return err
+	currentCRD, err = updateV1CRD(ctx, scopedLog, targetCRD, currentCRD, v1CRDClient, poller, needsUpdateCRDFunc)
+	if err != nil {
+		return nil, err
 	}
-	if err := waitForV1CRD(ctx, scopedLog, currentCRD, v1CRDClient, poller); err != nil {
-		return err
+	currentCRD, err = waitForV1CRD(ctx, scopedLog, currentCRD, v1CRDClient, poller)
+	if err != nil {
+		return nil, err
 	}
 
 	scopedLog.Info("CRD (CustomResourceDefinition) is installed and up-to-date")
 
-	return nil
+	return currentCRD, nil
 }
 
 func NeedsUpdateV1Factory(
@@ -103,11 +108,11 @@ func updateV1CRD(
 	client v1client.CustomResourceDefinitionsGetter,
 	poller poller,
 	needsUpdateCRDFunc NeedUpdateCRDFunc,
-) error {
+) (*apiextensionsv1.CustomResourceDefinition, error) {
 	scopedLog.Debug("Checking if CRD (CustomResourceDefinition) needs update...")
 	needsUpdate, err := needsUpdateCRDFunc(targetCRD, currentCRD)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if targetCRD.Spec.Versions[0].Schema != nil && needsUpdate {
@@ -148,7 +153,7 @@ func updateV1CRD(
 					currentCRD,
 					metav1.UpdateOptions{})
 				switch {
-				case errors.IsConflict(err): // Occurs as Operators race to update CRDs.
+				case apierrors.IsConflict(err): // Occurs as Operators race to update CRDs.
 					scopedLog.Debug(
 						"The CRD update was based on an older version, retrying...",
 						logfields.Error, err,
@@ -171,11 +176,11 @@ func updateV1CRD(
 			scopedLog.Error("Unable to update CRD",
 				logfields.Error, err,
 			)
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return currentCRD, nil
 }
 
 func waitForV1CRD(
@@ -184,7 +189,7 @@ func waitForV1CRD(
 	crd *apiextensionsv1.CustomResourceDefinition,
 	client v1client.CustomResourceDefinitionsGetter,
 	poller poller,
-) error {
+) (*apiextensionsv1.CustomResourceDefinition, error) {
 	scopedLog.Debug("Waiting for CRD (CustomResourceDefinition) to be available...")
 
 	err := poller.Poll(ctx, 500*time.Millisecond, 60*time.Second, func(ctx context.Context) (bool, error) {
@@ -196,7 +201,7 @@ func waitForV1CRD(
 				}
 			case apiextensionsv1.NamesAccepted:
 				if cond.Status == apiextensionsv1.ConditionFalse {
-					err := goerrors.New(cond.Reason)
+					err := errors.New(cond.Reason)
 					scopedLog.Error("Name conflict for CRD",
 						logfields.Error, err,
 					)
@@ -215,10 +220,10 @@ func waitForV1CRD(
 		return false, err
 	})
 	if err != nil {
-		return fmt.Errorf("error occurred waiting for CRD: %w", err)
+		return nil, fmt.Errorf("error occurred waiting for CRD: %w", err)
 	}
 
-	return nil
+	return crd, nil
 }
 
 // poller is an interface that abstracts the polling logic when dealing with

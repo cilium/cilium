@@ -252,6 +252,7 @@ rules:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
+  - customresourcedefinitions/status
   verbs:
   - update
   resourceNames:
@@ -286,6 +287,17 @@ rules:
   - ciliumnetworkdriverclusterconfigs.cilium.io
   - ciliumresourceippools.cilium.io
 {{- end }}
+# The operator will migrate any custom resources that have "upgraded" storage versions.
+# To do this, it must be allowed to list and patch the resource. (This triggers a storage migration
+# on the apiserver.)
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnodeconfigs
+  - ciliumcidrgroups
+  verbs:
+  - list
+  - patch
 - apiGroups:
   - cilium.io
   resources:

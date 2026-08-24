@@ -14,13 +14,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
-	"github.com/cilium/cilium/pkg/bgp/config"
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/apis/crdhelpers"
-	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -216,20 +214,24 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 
 // CreateCustomResourceDefinitions creates our CRD objects in the Kubernetes
 // cluster.
-func CreateCustomResourceDefinitions(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, bgpCfg bgpConfig.BGPConfig) error {
+func CreateCustomResourceDefinitions(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, bgpCfg bgpConfig.BGPConfig) (
+	needsMigration []*apiextensionsv1.CustomResourceDefinition, err error) {
 	crds := CustomResourceDefinitionList()
 
 	for _, r := range synced.AllCiliumCRDResourceNames(bgpCfg) {
 		if crd, ok := crds[r]; ok {
-			if err := createCRD(ctx, logger, clientset, crd.Name, crd.FullName); err != nil {
-				return err
+			obj, err := createCRD(ctx, logger, clientset, crd.Name, crd.FullName)
+			if err != nil {
+				return nil, fmt.Errorf("Unable to create custom resource definition %s: %w", crd.FullName, err)
+			}
+			if crdhelpers.CRDNeedsMigration(obj) {
+				needsMigration = append(needsMigration, obj)
 			}
 		} else {
 			logging.Fatal(logger, fmt.Sprintf("Unknown resource %s. Please update pkg/k8s/apis/cilium.io/client to understand this type.", r))
 		}
 	}
-
-	return nil
+	return
 }
 
 var (
@@ -391,7 +393,7 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 
 // createCRD creates and updates a CRD.
 // It should be called on agent startup but is idempotent and safe to call again.
-func createCRD(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, crdVersionedName string, crdMetaName string) error {
+func createCRD(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, crdVersionedName string, crdMetaName string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	ciliumCRD := GetPregeneratedCRD(logger, crdVersionedName)
 
 	return crdhelpers.CreateUpdateCRD(
@@ -432,13 +434,4 @@ func constructV1CRD(
 			Conversion: template.Spec.Conversion, // conversion strategy is needed to support several versions of a same CRD
 		},
 	}
-}
-
-// RegisterCRDs registers all CRDs with the K8s apiserver.
-func RegisterCRDs(ctx context.Context, logger *slog.Logger, clientset client.Clientset, bgpCfg config.BGPConfig) error {
-	if err := CreateCustomResourceDefinitions(ctx, logger, clientset, bgpCfg); err != nil {
-		return fmt.Errorf("Unable to create custom resource definition: %w", err)
-	}
-
-	return nil
 }
