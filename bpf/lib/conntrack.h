@@ -53,7 +53,8 @@ struct ct_state {
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 	      closing:1,
-	      reserved:7;
+	      need_dsr_info:1,
+	      reserved:6;
 	__u32 src_sec_id;
 	__u32 backend_id;	/* Backend ID in lb4_backends */
 };
@@ -99,7 +100,7 @@ struct ct_entry {
 	__u32 lifetime;
 	__u16 rx_closing:1,
 	      tx_closing:1,
-	      reserved1:1,	/* unused since v1.12 */
+	      need_dsr_info:1,
 	      lb_loopback:1,
 	      seen_non_syn:1,
 	      node_port:1,
@@ -268,6 +269,7 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 	state->rev_nat_index = entry->rev_nat_index;
 	if (dir == CT_SERVICE) {
 		state->backend_id = (__u32)entry->backend_id;
+		state->need_dsr_info = entry->need_dsr_info;
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
 #ifdef USE_LOOPBACK_LB
 		state->loopback = entry->lb_loopback;
@@ -1392,4 +1394,16 @@ ct_update_dsr(const void *map, const void *tuple, const bool dsr)
 		return;
 
 	entry->dsr_internal = dsr;
+}
+
+static __always_inline void
+ct_update_need_dsr_info(const void *map, const void *tuple, const bool need_dsr_info)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->need_dsr_info = need_dsr_info;
 }
