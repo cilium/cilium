@@ -74,6 +74,13 @@ runs:
         # long provisioning wait. Only capacity errors trigger a fallback: any
         # other failure (bad flag, quota, config) is not zone-specific, so we
         # fail fast and surface the real error rather than retrying blindly.
+        #
+        # The fallback zones are shuffled because several matrix legs share a
+        # zone and stock out together, so a fixed order would send all of them
+        # to the same next zone.
+        fallback_zones=$(tr ' ' '\n' <<< "${{ inputs.fallback-zones }}" | grep -v '^$' | shuf | tr '\n' ' ')
+        echo "Zone candidates: ${{ inputs.zone }} ${fallback_zones}"
+
         # An attempt that is still not done after this long is not worth waiting
         # for: the median creation takes under 5 minutes, while capacity
         # starvation can sit in the GCE instance group manager for 35 minutes
@@ -86,7 +93,7 @@ runs:
         budget_deadline=$(( SECONDS + 30 * 60 ))
 
         created_zone=""
-        for zone in "${{ inputs.zone }}" ${{ inputs.fallback-zones }}; do
+        for zone in "${{ inputs.zone }}" ${fallback_zones}; do
           if (( SECONDS >= budget_deadline )); then
             echo "::warning::Ran out of time to create cluster ${{ inputs.cluster-name }}"
             break
@@ -128,6 +135,13 @@ runs:
             continue
           fi
 
+          # GKE stages version rollouts per zone, and the matrix only checks
+          # the zone it asks for, so a fallback zone may not offer the version.
+          if echo "${create_out}" | grep -qiE 'No valid versions|version is unsupported'; then
+            echo "::warning::Zone ${zone} does not offer GKE version ${{ inputs.cluster-version }}; trying the next zone"
+            continue
+          fi
+
           if ! echo "${create_out}" | grep -qiE 'does not have enough resources|ZONE_RESOURCE_POOL_EXHAUSTED|STOCKOUT'; then
             echo "::error::Cluster creation in zone ${zone} failed for a non-capacity reason; not retrying in other zones"
             exit ${create_rc}
@@ -140,7 +154,7 @@ runs:
         done
 
         if [[ -z "${created_zone}" ]]; then
-          echo "::error::All requested zones (${{ inputs.zone }} ${{ inputs.fallback-zones }}) are out of capacity for cluster ${{ inputs.cluster-name }}"
+          echo "::error::Could not create cluster ${{ inputs.cluster-name }} in any of the zones ${{ inputs.zone }} ${fallback_zones}"
           exit 1
         fi
 
