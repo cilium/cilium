@@ -123,6 +123,15 @@
     "^go mod tidy$",
     "^go mod vendor$"
   ],
+  // The gomod manager runs 'mod upgrade' (the gomodUpdateImportPaths step)
+  // before 'go mod vendor', so its 'go list' honours the default -mod=vendor
+  // and trips over the not-yet-synced vendor/modules.txt. '-mod=mod' makes it
+  // ignore the vendor directory. '-modcacherw' has to be repeated because this
+  // replaces the value the manager sets itself.
+  // See https://github.com/renovatebot/renovate/issues/21010
+  "customEnvVariables": {
+    "GOFLAGS": "-modcacherw -mod=mod"
+  },
   "assignAutomerge": true,
   "packageRules": [
     {
@@ -286,15 +295,12 @@
         "go.mod",
         "go.sum"
       ],
-      // Separate major upgrades from minor/patch. Renovate does not support
-      // major upgrades of vendored Go modules: the 'gomodUpdateImportPaths'
-      // 'mod upgrade' step runs before 'go mod vendor' re-syncs
-      // vendor/modules.txt and fails with "inconsistent vendoring", which
-      // aborts the whole grouped artifact update and blocks every minor/patch
-      // update sharing the branch. Separating majors keeps this group flowing.
-      // With this set, a dependency that has both a minor and a major available
-      // still gets its minor update here (and its major in the group below).
-      // See https://github.com/renovatebot/renovate/issues/21010
+      // Separate major upgrades from minor/patch. A major upgrade rewrites
+      // import paths across the tree and can still need manual work when the
+      // new major breaks API, so it must not be able to hold up the minor/patch
+      // updates sharing a branch. With this set, a dependency that has both a
+      // minor and a major available still gets its minor update here (and its
+      // major in the group below).
       "separateMajorMinor": true,
       "postUpdateOptions": [
         // update source import paths on major updates
@@ -312,10 +318,8 @@
       ]
     },
     {
-      // Go module major upgrades, isolated into their own PR. These are expected
-      // to fail the automated artifact update for vendored modules (see the
-      // comment on the group above) and require manual intervention by
-      // maintainers, so they must not share a branch with the minor/patch group.
+      // Go module major upgrades, isolated into their own PR so that a major
+      // needing manual work does not sit on the minor/patch group's branch.
       "groupName": "all go dependencies main (major)",
       "groupSlug": "all-go-deps-major-main",
       "matchFileNames": [
