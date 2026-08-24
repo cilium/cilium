@@ -543,6 +543,7 @@ jobs:
           name: cilium-junits
           pattern: cilium-junits-*
           token: ${{ secrets.GITHUB_TOKEN }}
+          separate-directories: true
       - name: Merge Features tested
         uses: ./.github/actions/merge-artifacts
         with:
