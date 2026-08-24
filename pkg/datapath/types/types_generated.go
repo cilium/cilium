@@ -698,7 +698,7 @@ type LPMV4Key struct {
 		Prefixlen uint32
 		Data      [0]uint8
 	}
-	Addr [4]uint8
+	Addr uint32
 }
 
 // LPMV6Key is generated from the BPF C type lpm_v6_key.
@@ -709,7 +709,13 @@ type LPMV6Key struct {
 		Prefixlen uint32
 		Data      [0]uint8
 	}
-	Addr [16]uint8
+	Addr struct {
+		_    structs.HostLayout
+		In6U struct {
+			_       structs.HostLayout
+			U6Addr8 [16]uint8
+		}
+	}
 }
 
 // LPMVal is generated from the BPF C type lpm_val.

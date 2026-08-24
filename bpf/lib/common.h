@@ -353,21 +353,6 @@ struct lb4_reverse_nat {
 	__be16 port;
 } __packed;
 
-struct lpm_v4_key {
-	struct bpf_lpm_trie_key lpm;
-	__u8 addr[4];
-};
-
-struct lpm_v6_key {
-	struct bpf_lpm_trie_key lpm;
-	__u8 addr[16];
-};
-
-struct lpm_val {
-	/* Just dummy for now. */
-	__u8 flags;
-};
-
 /* Older kernels don't support the larger tunnel key structure and we don't
  * need it since we only want to retrieve the tunnel ID anyway.
  */
