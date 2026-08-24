@@ -28,6 +28,7 @@ type NeedUpdateCRDFunc func(targetCRD, currentCRD *apiextensionsv1.CustomResourc
 // will create or update the CRD and its validation schema as necessary. This
 // function only accepts v1 CRD objects.
 func CreateUpdateCRD(
+	ctx context.Context,
 	logger *slog.Logger,
 	clientset apiextensionsclient.Interface,
 	targetCRD *apiextensionsv1.CustomResourceDefinition,
@@ -38,7 +39,7 @@ func CreateUpdateCRD(
 
 	v1CRDClient := clientset.ApiextensionsV1()
 	currentCRD, err := v1CRDClient.CustomResourceDefinitions().Get(
-		context.TODO(),
+		ctx,
 		targetCRD.ObjectMeta.Name,
 		metav1.GetOptions{})
 	if errors.IsNotFound(err) {
@@ -58,10 +59,10 @@ func CreateUpdateCRD(
 		return err
 	}
 
-	if err := updateV1CRD(scopedLog, targetCRD, currentCRD, v1CRDClient, poller, needsUpdateCRDFunc); err != nil {
+	if err := updateV1CRD(ctx, scopedLog, targetCRD, currentCRD, v1CRDClient, poller, needsUpdateCRDFunc); err != nil {
 		return err
 	}
-	if err := waitForV1CRD(scopedLog, currentCRD, v1CRDClient, poller); err != nil {
+	if err := waitForV1CRD(ctx, scopedLog, currentCRD, v1CRDClient, poller); err != nil {
 		return err
 	}
 
@@ -96,6 +97,7 @@ func NeedsUpdateV1Factory(
 }
 
 func updateV1CRD(
+	ctx context.Context,
 	scopedLog *slog.Logger,
 	targetCRD, currentCRD *apiextensionsv1.CustomResourceDefinition,
 	client v1client.CustomResourceDefinitionsGetter,
@@ -112,10 +114,10 @@ func updateV1CRD(
 		scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
 
 		// Update the CRD with the validation schema.
-		err := poller.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+		err := poller.Poll(ctx, 500*time.Millisecond, 60*time.Second, func(ctx context.Context) (bool, error) {
 			var err error
 			currentCRD, err = client.CustomResourceDefinitions().Get(
-				context.TODO(),
+				ctx,
 				targetCRD.ObjectMeta.Name,
 				metav1.GetOptions{})
 			if err != nil {
@@ -142,7 +144,7 @@ func updateV1CRD(
 				currentCRD.Spec.PreserveUnknownFields = false
 
 				_, err := client.CustomResourceDefinitions().Update(
-					context.TODO(),
+					ctx,
 					currentCRD,
 					metav1.UpdateOptions{})
 				switch {
@@ -177,6 +179,7 @@ func updateV1CRD(
 }
 
 func waitForV1CRD(
+	ctx context.Context,
 	scopedLog *slog.Logger,
 	crd *apiextensionsv1.CustomResourceDefinition,
 	client v1client.CustomResourceDefinitionsGetter,
@@ -184,7 +187,7 @@ func waitForV1CRD(
 ) error {
 	scopedLog.Debug("Waiting for CRD (CustomResourceDefinition) to be available...")
 
-	err := poller.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+	err := poller.Poll(ctx, 500*time.Millisecond, 60*time.Second, func(ctx context.Context) (bool, error) {
 		for _, cond := range crd.Status.Conditions {
 			switch cond.Type {
 			case apiextensionsv1.Established:
@@ -204,7 +207,7 @@ func waitForV1CRD(
 
 		var err error
 		if crd, err = client.CustomResourceDefinitions().Get(
-			context.TODO(),
+			ctx,
 			crd.ObjectMeta.Name,
 			metav1.GetOptions{}); err != nil {
 			return false, err
@@ -222,18 +225,19 @@ func waitForV1CRD(
 // CRD changes / updates to the apiserver. The reason this exists is mainly for
 // unit-testing.
 type poller interface {
-	Poll(interval, duration time.Duration, conditionFn func() (bool, error)) error
+	Poll(ctx context.Context, interval, duration time.Duration, conditionFn func(context.Context) (bool, error)) error
 }
 
-func NewDefaultPoller() defaultPoll {
+func NewDefaultPoller() poller {
 	return defaultPoll{}
 }
 
 type defaultPoll struct{}
 
 func (p defaultPoll) Poll(
+	ctx context.Context,
 	interval, duration time.Duration,
-	conditionFn func() (bool, error),
+	conditionFn func(context.Context) (bool, error),
 ) error {
-	return wait.Poll(interval, duration, conditionFn)
+	return wait.PollUntilContextTimeout(ctx, interval, duration, false, conditionFn)
 }
