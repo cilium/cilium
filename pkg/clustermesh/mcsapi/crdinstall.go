@@ -4,6 +4,7 @@
 package mcsapi
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -22,9 +23,9 @@ import (
 
 // createCustomResourceDefinitions creates our CRD objects in the Kubernetes
 // cluster.
-func createCustomResourceDefinitions(logger *slog.Logger, clientset apiextensionsclient.Interface) error {
+func createCustomResourceDefinitions(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface) error {
 	for _, crdName := range []string{mcsapiv1beta1.ServiceImportVersionedName, mcsapiv1beta1.ServiceExportVersionedName} {
-		if err := createCRD(logger, clientset, crdName); err != nil {
+		if err := createCRD(ctx, logger, clientset, crdName); err != nil {
 			return fmt.Errorf("Unable to create custom resource definition: %w", err)
 		}
 	}
@@ -64,10 +65,11 @@ func getPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 
 // createCRD creates and updates a CRD.
 // It should be called on operator startup but is idempotent and safe to call again.
-func createCRD(logger *slog.Logger, clientset apiextensionsclient.Interface, crdVersionedName string) error {
+func createCRD(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, crdVersionedName string) error {
 	crd := getPregeneratedCRD(logger, crdVersionedName)
 
 	return crdhelpers.CreateUpdateCRD(
+		ctx,
 		logger,
 		clientset,
 		&crd,

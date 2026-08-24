@@ -213,7 +213,7 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset, bgpCfg bgpConfi
 	log.Info("Setting up kubernetes client")
 
 	// Update CRDs to ensure ciliumIdentity is present
-	ciliumClient.RegisterCRDs(log, clientset, bgpCfg)
+	ciliumClient.RegisterCRDs(ctx, log, clientset, bgpCfg)
 
 	// Create a CRD Backend
 	crdBackend, err := identitybackend.NewCRDBackend(log, identitybackend.CRDBackendConfiguration{

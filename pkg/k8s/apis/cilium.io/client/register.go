@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"log/slog"
@@ -215,12 +216,12 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 
 // CreateCustomResourceDefinitions creates our CRD objects in the Kubernetes
 // cluster.
-func CreateCustomResourceDefinitions(logger *slog.Logger, clientset apiextensionsclient.Interface, bgpCfg bgpConfig.BGPConfig) error {
+func CreateCustomResourceDefinitions(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, bgpCfg bgpConfig.BGPConfig) error {
 	crds := CustomResourceDefinitionList()
 
 	for _, r := range synced.AllCiliumCRDResourceNames(bgpCfg) {
 		if crd, ok := crds[r]; ok {
-			if err := createCRD(logger, clientset, crd.Name, crd.FullName); err != nil {
+			if err := createCRD(ctx, logger, clientset, crd.Name, crd.FullName); err != nil {
 				return err
 			}
 		} else {
@@ -390,10 +391,11 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 
 // createCRD creates and updates a CRD.
 // It should be called on agent startup but is idempotent and safe to call again.
-func createCRD(logger *slog.Logger, clientset apiextensionsclient.Interface, crdVersionedName string, crdMetaName string) error {
+func createCRD(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, crdVersionedName string, crdMetaName string) error {
 	ciliumCRD := GetPregeneratedCRD(logger, crdVersionedName)
 
 	return crdhelpers.CreateUpdateCRD(
+		ctx,
 		logger,
 		clientset,
 		constructV1CRD(crdMetaName, ciliumCRD),
@@ -433,8 +435,8 @@ func constructV1CRD(
 }
 
 // RegisterCRDs registers all CRDs with the K8s apiserver.
-func RegisterCRDs(logger *slog.Logger, clientset client.Clientset, bgpCfg config.BGPConfig) error {
-	if err := CreateCustomResourceDefinitions(logger, clientset, bgpCfg); err != nil {
+func RegisterCRDs(ctx context.Context, logger *slog.Logger, clientset client.Clientset, bgpCfg config.BGPConfig) error {
+	if err := CreateCustomResourceDefinitions(ctx, logger, clientset, bgpCfg); err != nil {
 		return fmt.Errorf("Unable to create custom resource definition: %w", err)
 	}
 
