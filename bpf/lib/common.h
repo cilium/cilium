@@ -60,8 +60,6 @@ enum {
 /* FIB errors from BPF neighbor map. */
 #define BPF_FIB_MAP_NO_NEIGH	100
 
-typedef __u64 mac_t;
-
 union v4addr {
 	__u8 addr[4];
 	__be32 be32;
