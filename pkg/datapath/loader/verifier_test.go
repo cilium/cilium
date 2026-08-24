@@ -320,22 +320,9 @@ func loadAndRecordComplexity(
 		defer coll.Close()
 
 		for _, n := range slices.Sorted(maps.Keys(coll.Programs)) {
+			fullLogFile := path.Join(*flagResultDir, fmt.Sprintf("%s_%d_%d_%s_verifier.log", collection, build, load, n))
 			p := coll.Programs[n]
 			s := spec.Programs[n]
-
-			if *flagFullLog {
-				fullLogFile := path.Join(*flagResultDir, fmt.Sprintf("%s_%d_%d_%s_verifier.log", collection, build, load, n))
-				f, err := os.Create(fullLogFile)
-				if err != nil {
-					t.Fatalf("Failed to create full verifier log file: %v", err)
-				}
-				if _, err := io.Copy(f, strings.NewReader(p.VerifierLog)); err != nil {
-					t.Fatalf("Failed to write full verifier log: %v", err)
-				}
-				if err := f.Close(); err != nil {
-					t.Fatalf("Failed to close full verifier log file: %v", err)
-				}
-			}
 
 			// The part of the log we are interested in is at the end. And looks like this:
 			//   verification time 355643 usec
@@ -363,6 +350,7 @@ func loadAndRecordComplexity(
 				&r.InsnsProcessed, &r.InsnsLimit, &r.MaxStatesPerInsn, &r.TotalStates, &r.PeakStates, &r.MarkRead)
 			if err != nil {
 				t.Logf("Verifier log line: %s", strings.TrimSpace(p.VerifierLog[lastOff:]))
+				dumpVerifierLogs(t, fullLogFile, p.VerifierLog)
 				t.Fatalf("Failed to parse verifier log for program %s: %v", n, err)
 			}
 
@@ -375,6 +363,7 @@ func loadAndRecordComplexity(
 				var stackDepth int
 				stackDepth, stackDepthIndex, err = parseStackDepth(t, s, p.VerifierLog, lastLineIndex, lastOff)
 				if err != nil {
+					dumpVerifierLogs(t, fullLogFile, p.VerifierLog)
 					t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
 				}
 				r.StackDepth = stackDepth
@@ -387,7 +376,12 @@ func loadAndRecordComplexity(
 			_, err = fmt.Sscanf(p.VerifierLog[verificationTimeIndex+1:stackDepthIndex], "verification time %d usec", &r.VerificationTimeMicroseconds)
 			if err != nil {
 				t.Logf("Verifier log line: %s", strings.TrimSpace(p.VerifierLog[verificationTimeIndex+1:stackDepthIndex]))
+				dumpVerifierLogs(t, fullLogFile, p.VerifierLog)
 				t.Fatalf("Failed to parse verification time for program %s: %v", n, err)
+			}
+
+			if *flagFullLog {
+				dumpVerifierLogs(t, fullLogFile, p.VerifierLog)
 			}
 
 			progInfo, err := p.Info()
@@ -399,6 +393,19 @@ func loadAndRecordComplexity(
 
 			records.Add(r)
 		}
+	}
+}
+
+func dumpVerifierLogs(t *testing.T, fullLogFile, verifierLogs string) {
+	f, err := os.Create(fullLogFile)
+	if err != nil {
+		t.Fatalf("Failed to create full verifier log file: %v", err)
+	}
+	if _, err := io.Copy(f, strings.NewReader(verifierLogs)); err != nil {
+		t.Fatalf("Failed to write full verifier log: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("Failed to close full verifier log file: %v", err)
 	}
 }
 
