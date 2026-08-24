@@ -21,6 +21,7 @@
 #include "drop_reasons.h"
 #include "egress_gateway.h"
 #include "eps.h"
+#include "icmp.h"
 #include "icmp6.h"
 #include "nat_46x64.h"
 #include "signal.h"
@@ -838,7 +839,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 		port_off = TCP_DPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
-		if (ctx_load_bytes(ctx, inner_l4_off, &type, sizeof(type)) < 0)
+		if (icmp_load_type(ctx, inner_l4_off, &type) < 0)
 			return DROP_INVALID;
 
 		switch (type) {
@@ -1086,7 +1087,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 		port_off = TCP_SPORT_OFF;
 		break;
 	case IPPROTO_ICMP:
-		if (ctx_load_bytes(ctx, inner_l4_off, &type, sizeof(type)) < 0)
+		if (icmp_load_type(ctx, inner_l4_off, &type) < 0)
 			return DROP_INVALID;
 
 		switch (type) {
