@@ -5,8 +5,10 @@ package logging
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -166,6 +168,51 @@ func TestKlogBridgeErrPredicate(t *testing.T) {
 			assert.Equal(t, "info", level, "conflict should be downgraded, got line: %s", line)
 		default:
 			assert.Equal(t, "error", level, "non-conflict should stay error, got line: %s", line)
+		}
+	}
+}
+
+func TestKlogBridgeBodyReadCanceled(t *testing.T) {
+	var out bytes.Buffer
+	logger := slog.New(
+		slog.NewJSONHandler(&out,
+			&slog.HandlerOptions{
+				ReplaceAttr: ReplaceAttrFnWithoutTimestamp,
+			},
+		),
+	)
+	log := logger.With(logfields.LogSubsys, "klog")
+
+	// Exercise the overrides we ship, not a test-local copy.
+	handler := &klogOverrideHandler{
+		inner:     log.Handler(),
+		overrides: klogOverrides,
+	}
+	klog.SetSlogLogger(slog.New(handler))
+
+	const bodyRead = "Unexpected error when reading response body"
+
+	klog.ErrorS(context.Canceled, bodyRead)
+	klog.ErrorS(fmt.Errorf("read body: %w", context.Canceled), bodyRead)
+	klog.ErrorS(context.DeadlineExceeded, bodyRead)
+	klog.ErrorS(io.ErrUnexpectedEOF, bodyRead)
+	klog.ErrorS(context.Canceled, "Unable to decode response body")
+	klog.Flush()
+
+	logout := strings.Trim(out.String(), "\n")
+	lines := strings.Split(logout, "\n")
+	require.Len(t, lines, 5)
+
+	for i, line := range lines {
+		var entry map[string]any
+		require.NoError(t, json.Unmarshal([]byte(line), &entry))
+
+		level, _ := entry["level"].(string)
+		switch i {
+		case 0, 1:
+			assert.Equal(t, "info", level, "cancellation should be downgraded, got line: %s", line)
+		default:
+			assert.Equal(t, "error", level, "should stay error, got line: %s", line)
 		}
 	}
 }

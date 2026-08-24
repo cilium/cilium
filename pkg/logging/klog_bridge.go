@@ -5,6 +5,7 @@ package logging
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"regexp"
 
@@ -22,6 +23,16 @@ var klogOverrides = []logLevelOverride{
 		// failures still surface at error. See GH-45426.
 		matcher:      regexp.MustCompile("Failed to update lease"),
 		errPredicate: apierrors.IsConflict,
+		targetLevel:  slog.LevelInfo,
+	},
+	{
+		// client-go logs every response-body read failure at error, including a
+		// plain cancellation, which happens whenever the caller's context goes
+		// away mid-read. Our own callers already treat that as a non-event, so
+		// downgrade only the cancellation and leave genuine read failures at
+		// error.
+		matcher:      regexp.MustCompile("Unexpected error when reading response body"),
+		errPredicate: func(err error) bool { return errors.Is(err, context.Canceled) },
 		targetLevel:  slog.LevelInfo,
 	},
 }
