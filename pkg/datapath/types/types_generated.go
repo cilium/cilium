@@ -217,14 +217,22 @@ type EncryptConfig struct {
 
 // EndpointInfo is generated from the BPF C type endpoint_info.
 type EndpointInfo struct {
-	_             structs.HostLayout
-	IfIndex       uint32
-	Unused        uint16
-	LXCID         uint16
-	Flags         uint32
-	RtInfo        uint32
-	MAC           uint64
-	NodeMAC       uint64
+	_       structs.HostLayout
+	IfIndex uint32
+	Unused  uint16
+	LXCID   uint16
+	Flags   uint32
+	RtInfo  uint32
+	MAC     struct {
+		_    structs.HostLayout
+		Addr [6]uint8
+		_    [2]byte
+	}
+	NodeMAC struct {
+		_    structs.HostLayout
+		Addr [6]uint8
+		_    [2]byte
+	}
 	SecID         uint32
 	ParentIfIndex uint32
 	Pad           [2]uint32
@@ -1040,8 +1048,12 @@ type VTEPKey struct {
 
 // VTEPValue is generated from the BPF C type vtep_value.
 type VTEPValue struct {
-	_              structs.HostLayout
-	VTEPMAC        uint64
+	_       structs.HostLayout
+	VTEPMAC struct {
+		_    structs.HostLayout
+		Addr [6]uint8
+		_    [2]byte
+	}
 	TunnelEndpoint uint32
 	_              [4]byte
 }
