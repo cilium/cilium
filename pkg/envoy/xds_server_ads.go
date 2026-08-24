@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -114,7 +115,8 @@ func newADSServerWithCache(cache xdsnew.Cache, logger *slog.Logger, ipCache IPCa
 
 // newADSServer creates a new ADS GRPC server.
 func newADSServer(logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) *adsServer {
-	return newADSServerWithCache(xdsnew.NewCache(logger, config.envoyXDSMode.IsStrictADS()), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
+	orderedADS := config.envoyXDSMode.IsStrictADS() || config.envoyXDSMode.IsDeltaADS()
+	return newADSServerWithCache(xdsnew.NewCache(logger, orderedADS), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
 }
 
 func (s *adsServer) run(ctx context.Context) error {
@@ -1030,7 +1032,9 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		}
 		completionTypeURLs = callbackTypeURLs
 	}
+	snapshotStart := time.Now()
 	newSnapshot, err := s.cache.GenerateSnapshot(resources, s.logger)
+	xds.ObserveSnapshotGeneration(s.config.metrics, s.config.envoyXDSMode.String(), time.Since(snapshotStart))
 	if err != nil {
 		s.logger.Error("Failed to generate ADS snapshot",
 			logfields.NodeID, nodeId,
@@ -1098,6 +1102,11 @@ func (s *adsServer) syncNPDSListeners(resources *xds.Resources) {
 }
 
 func (s *adsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, wg *completion.WaitGroup) error {
+	start := time.Now()
+	defer func() {
+		xds.ObserveUpdate(s.config.metrics, s.config.envoyXDSMode.String(), xdsOperationUpsert, time.Since(start))
+	}()
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -1116,6 +1125,11 @@ func (s *adsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Reso
 }
 
 func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newResources xds.Resources, waitGroup *completion.WaitGroup) error {
+	start := time.Now()
+	defer func() {
+		xds.ObserveUpdate(s.config.metrics, s.config.envoyXDSMode.String(), xdsOperationUpdate, time.Since(start))
+	}()
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -1164,6 +1178,11 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 }
 
 func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+	start := time.Now()
+	defer func() {
+		xds.ObserveUpdate(s.config.metrics, s.config.envoyXDSMode.String(), xdsOperationDelete, time.Since(start))
+	}()
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.logger.Debug(

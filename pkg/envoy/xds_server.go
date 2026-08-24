@@ -53,6 +53,9 @@ const (
 	ingressTLSClusterName = "ingress-cluster-tls"
 	metricsListenerName   = "envoy-prometheus-metrics-listener"
 	adminListenerName     = "envoy-admin-listener"
+	xdsOperationUpsert    = "upsert"
+	xdsOperationUpdate    = "update"
+	xdsOperationDelete    = "delete"
 )
 
 type xdsServer struct {
@@ -833,6 +836,11 @@ func (s *xdsServer) RemoveAllNetworkPolicies() {
 }
 
 func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+	start := time.Now()
+	defer func() {
+		xds.ObserveUpdate(s.config.metrics, s.config.envoyXDSMode.String(), xdsOperationUpsert, time.Since(start))
+	}()
+
 	if option.Config.Debug {
 		msg := ""
 		sep := ""
@@ -969,6 +977,11 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Reso
 // includes listeners the caller MUST pass a context with a timeout to prevent indefinite blocking
 // in case Envoy never responds.
 func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources, waitGroup *completion.WaitGroup) error {
+	start := time.Now()
+	defer func() {
+		xds.ObserveUpdate(s.config.metrics, s.config.envoyXDSMode.String(), xdsOperationUpdate, time.Since(start))
+	}()
+
 	waitForDelete := false
 	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
@@ -1203,6 +1216,11 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 // resources includes listeners the caller MUST pass a context with a timeout to prevent indefinite
 // blocking in case Envoy never responds.
 func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+	start := time.Now()
+	defer func() {
+		xds.ObserveUpdate(s.config.metrics, s.config.envoyXDSMode.String(), xdsOperationDelete, time.Since(start))
+	}()
+
 	s.logger.Debug("DeleteEnvoyResources: Deleting Envoy resources",
 		logfields.ResourceListeners, len(resources.Listeners),
 		logfields.ResourceRoutes, len(resources.Routes),

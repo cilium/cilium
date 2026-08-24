@@ -779,6 +779,18 @@ func newStandaloneTestEndpointPolicy(t *testing.T, logger *slog.Logger, repo pol
 }
 
 func TestEnvoyDelta(t *testing.T) {
+	for _, mode := range []config.XDSMode{
+		config.EnvoyXDSModeDeltaSplit,
+		config.EnvoyXDSModeDeltaADS,
+		config.EnvoyXDSModeStrictDeltaADS,
+	} {
+		t.Run(mode.String(), func(t *testing.T) {
+			testEnvoyDelta(t, mode)
+		})
+	}
+}
+
+func testEnvoyDelta(t *testing.T, mode config.XDSMode) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -804,19 +816,26 @@ func TestEnvoyDelta(t *testing.T) {
 	repo, localIdentity := newStandaloneTestPolicyRepo(t, logger, secretManager, true)
 	policyOwner, epp := newStandaloneTestEndpointPolicy(t, logger, repo, localIdentity)
 
-	xdsServer := newXDSServer(logger, nil, testipcache.NewMockIPCache(), localEndpointStore,
-		xdsServerConfig{
-			envoySocketDir:    util.GetSocketDir(testRunDir),
-			proxyGID:          1337,
-			httpNormalizePath: true,
-			metrics:           xds.NewXDSMetric(),
-			useNPHDS:          true,
-			useSDS:            true,
-			envoyXDSMode:      config.EnvoyXDSModeDeltaSplit,
-		},
-		secretManager)
+	xdsConfig := xdsServerConfig{
+		envoySocketDir:    util.GetSocketDir(testRunDir),
+		proxyGID:          1337,
+		httpNormalizePath: true,
+		metrics:           xds.NewXDSMetric(),
+		useNPHDS:          true,
+		useSDS:            true,
+		envoyXDSMode:      mode,
+	}
+	var xdsServer runnableXDSServer
+	if mode.IsADS() {
+		server := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore, xdsConfig, secretManager, nil)
+		server.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
+		xdsServer = server
+	} else {
+		server := newXDSServer(logger, nil, testipcache.NewMockIPCache(), localEndpointStore, xdsConfig, secretManager)
+		server.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
+		xdsServer = server
+	}
 	require.NotNil(t, xdsServer)
-	xdsServer.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
 
 	go func() {
 		err = xdsServer.run(ctx)
@@ -843,7 +862,7 @@ func TestEnvoyDelta(t *testing.T) {
 		maxConnections:                 1024,
 		maxRequests:                    1024,
 		maxPendingRequests:             1024,
-		xdsMode:                        config.EnvoyXDSModeDeltaSplit,
+		xdsMode:                        mode,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)

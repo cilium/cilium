@@ -1,0 +1,216 @@
+name: xDS Performance Test (GCE)
+
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: false
+      context-ref:
+        description: "Trusted ref containing the workflow definition."
+        required: false
+      SHA:
+        description: "Commit to benchmark. Defaults to the selected workflow ref."
+        required: false
+      machine_type:
+        description: "GCE machine type used by the benchmark host."
+        required: false
+        default: n2-standard-8
+      zone:
+        description: "GCE zone used by the benchmark host."
+        required: false
+        default: us-west1-b
+      benchmark_time:
+        description: "Go benchmark duration for each sub-benchmark."
+        required: false
+        default: 2s
+      benchmark_count:
+        description: "Number of samples collected for each sub-benchmark."
+        required: false
+        default: "5"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.PR-number || inputs.SHA || github.sha }}
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=golang-version depName=go
+  GO_VERSION: 1.26.5
+  # renovate: datasource=docker depName=google/cloud-sdk
+  GCLOUD_VERSION: 580.0.0
+  INSTANCE_NAME: xds-perf-${{ github.run_id }}-${{ github.run_attempt }}
+
+jobs:
+  benchmark:
+    name: Sparse EDS and reconnect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      # The selected source is copied to a credential-free VM and is never
+      # executed on the GitHub-hosted runner.
+      - name: Checkout source under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.SHA || github.sha }}
+          path: source
+          persist-credentials: false
+
+      - name: Package source
+        id: source
+        run: |
+          echo "sha=$(git -C source rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+          tar -C source -czf "${RUNNER_TEMP}/cilium-source.tar.gz" .
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PERF_SA }}
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          version: ${{ env.GCLOUD_VERSION }}
+
+      - name: Create benchmark VM
+        id: create-vm
+        env:
+          MACHINE_TYPE: ${{ inputs.machine_type }}
+          ZONE: ${{ inputs.zone }}
+        run: |
+          gcloud compute instances create "${INSTANCE_NAME}" \
+            --project "${{ secrets.GCP_PERF_PROJECT_ID }}" \
+            --zone "${ZONE}" \
+            --machine-type "${MACHINE_TYPE}" \
+            --min-cpu-platform "Intel Cascade Lake" \
+            --image-family ubuntu-2404-lts-amd64 \
+            --image-project ubuntu-os-cloud \
+            --boot-disk-size 100GB \
+            --boot-disk-type pd-balanced \
+            --no-service-account \
+            --no-scopes \
+            --labels purpose=xds-performance,github-run-id=${{ github.run_id }}
+
+      - name: Wait for SSH
+        env:
+          ZONE: ${{ inputs.zone }}
+        run: |
+          for attempt in $(seq 1 30); do
+            if gcloud compute ssh "${INSTANCE_NAME}" \
+              --project "${{ secrets.GCP_PERF_PROJECT_ID }}" \
+              --zone "${ZONE}" \
+              --quiet \
+              --command true; then
+              exit 0
+            fi
+            echo "SSH is not ready (attempt ${attempt}/30)"
+            sleep 10
+          done
+          exit 1
+
+      - name: Copy source to benchmark VM
+        env:
+          ZONE: ${{ inputs.zone }}
+        run: |
+          gcloud compute scp "${RUNNER_TEMP}/cilium-source.tar.gz" \
+            "${INSTANCE_NAME}:~/cilium-source.tar.gz" \
+            --project "${{ secrets.GCP_PERF_PROJECT_ID }}" \
+            --zone "${ZONE}" \
+            --quiet
+
+      - name: Run benchmarks
+        env:
+          ZONE: ${{ inputs.zone }}
+          XDS_BENCHTIME: ${{ inputs.benchmark_time }}
+          XDS_BENCH_COUNT: ${{ inputs.benchmark_count }}
+        run: |
+          if [[ ! "${XDS_BENCHTIME}" =~ ^([0-9]+([.][0-9]+)?(ns|us|ms|s|m|h)|[0-9]+x)$ ]]; then
+            echo "Invalid benchmark_time: ${XDS_BENCHTIME}" >&2
+            exit 1
+          fi
+          if [[ ! "${XDS_BENCH_COUNT}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Invalid benchmark_count: ${XDS_BENCH_COUNT}" >&2
+            exit 1
+          fi
+
+          gcloud compute ssh "${INSTANCE_NAME}" \
+            --project "${{ secrets.GCP_PERF_PROJECT_ID }}" \
+            --zone "${ZONE}" \
+            --quiet \
+            --command "GO_VERSION='${GO_VERSION}' XDS_BENCHTIME='${XDS_BENCHTIME}' XDS_BENCH_COUNT='${XDS_BENCH_COUNT}' bash -s" <<'BENCHMARK'
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes \
+            build-essential ca-certificates curl docker.io git libatomic1 \
+            libcap2-bin procps util-linux
+
+          curl --fail --location --silent --show-error \
+            --output /tmp/go.tar.gz \
+            "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"
+          sudo mkdir --parents "/opt/go-${GO_VERSION}"
+          sudo tar --extract --gzip --file /tmp/go.tar.gz \
+            --directory "/opt/go-${GO_VERSION}" --strip-components 1
+
+          mkdir --parents "${HOME}/cilium" "${HOME}/xds-performance-results"
+          tar --extract --gzip --file "${HOME}/cilium-source.tar.gz" \
+            --directory "${HOME}/cilium"
+          cd "${HOME}/cilium"
+
+          cilium_envoy_image=$(sed -n 's/^ARG CILIUM_ENVOY_IMAGE=//p' images/cilium/Dockerfile)
+          test -n "${cilium_envoy_image}"
+          sudo systemctl start docker
+          sudo docker pull "${cilium_envoy_image}"
+          container_id=$(sudo docker create "${cilium_envoy_image}")
+          sudo docker cp "${container_id}:/usr/bin/cilium-envoy" /usr/local/bin/cilium-envoy
+          sudo docker cp "${container_id}:/usr/bin/cilium-envoy-starter" /usr/local/bin/cilium-envoy-starter
+          sudo docker rm "${container_id}"
+          sudo chmod 0755 /usr/local/bin/cilium-envoy /usr/local/bin/cilium-envoy-starter
+          sudo setcap 'cap_net_admin,cap_bpf+pe' /usr/local/bin/cilium-envoy-starter
+
+          export PATH="/opt/go-${GO_VERSION}/bin:/usr/local/bin:${PATH}"
+          export GOMAXPROCS=1
+          export RESULTS_DIR="${HOME}/xds-performance-results"
+          export XDS_BENCHTIME XDS_BENCH_COUNT
+          ./contrib/scripts/run-xds-performance-tests.sh
+          BENCHMARK
+
+      - name: Collect benchmark results
+        if: ${{ always() && steps.create-vm.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          ZONE: ${{ inputs.zone }}
+        run: |
+          mkdir --parents xds-performance-results
+          gcloud compute scp --recurse \
+            "${INSTANCE_NAME}:~/xds-performance-results/." \
+            xds-performance-results \
+            --project "${{ secrets.GCP_PERF_PROJECT_ID }}" \
+            --zone "${ZONE}" \
+            --quiet
+
+      - name: Upload benchmark results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: xds-performance-${{ steps.source.outputs.sha }}
+          path: xds-performance-results
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Delete benchmark VM
+        if: ${{ always() }}
+        env:
+          ZONE: ${{ inputs.zone }}
+        run: |
+          gcloud compute instances delete "${INSTANCE_NAME}" \
+            --project "${{ secrets.GCP_PERF_PROJECT_ID }}" \
+            --zone "${ZONE}" \
+            --quiet || true

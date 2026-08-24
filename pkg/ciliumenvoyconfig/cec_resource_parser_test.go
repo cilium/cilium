@@ -1244,13 +1244,21 @@ func checkCiliumADS(t *testing.T, cs *envoy_config_core.ConfigSource) {
 }
 
 func checkCiliumXDS(t *testing.T, cs *envoy_config_core.ConfigSource) {
+	checkCiliumGRPC(t, cs, envoy_config_core.ApiConfigSource_GRPC)
+}
+
+func checkCiliumDeltaXDS(t *testing.T, cs *envoy_config_core.ConfigSource) {
+	checkCiliumGRPC(t, cs, envoy_config_core.ApiConfigSource_DELTA_GRPC)
+}
+
+func checkCiliumGRPC(t *testing.T, cs *envoy_config_core.ConfigSource, apiType envoy_config_core.ApiConfigSource_ApiType) {
 	t.Helper()
 	require.NotNil(t, cs)
 	assert.Equal(t, envoy_config_core.ApiVersion_V3, cs.ResourceApiVersion)
 	assert.Equal(t, int64(30), cs.InitialFetchTimeout.Seconds)
 	acs := cs.GetApiConfigSource()
 	assert.NotNil(t, acs)
-	assert.Equal(t, envoy_config_core.ApiConfigSource_GRPC, acs.ApiType)
+	assert.Equal(t, apiType, acs.ApiType)
 	assert.Equal(t, envoy_config_core.ApiVersion_V3, acs.TransportApiVersion)
 	assert.True(t, acs.SetNodeOnFirstMessageOnly)
 	assert.Len(t, acs.GrpcServices, 1)
@@ -2038,7 +2046,7 @@ func TestParseResourcesNormalizesExistingEDSConfigSourceInADSMode(t *testing.T) 
 		portAllocator: NewMockPortAllocator(),
 	}
 
-	parse := func(t *testing.T, mode envoyconfig.XDSMode) *envoy_config_core.ConfigSource {
+	parse := func(t *testing.T, mode envoyconfig.XDSMode, source *envoy_config_core.ConfigSource) *envoy_config_core.ConfigSource {
 		t.Helper()
 
 		parser.xdsMode = mode
@@ -2050,7 +2058,7 @@ func TestParseResourcesNormalizesExistingEDSConfigSourceInADSMode(t *testing.T) 
 			},
 			EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{
 				ServiceName: "backend",
-				EdsConfig:   envoy.CiliumXDSConfigSource,
+				EdsConfig:   source,
 			},
 		}
 
@@ -2070,12 +2078,23 @@ func TestParseResourcesNormalizesExistingEDSConfigSourceInADSMode(t *testing.T) 
 	}
 
 	t.Run("split preserves existing xDS config source", func(t *testing.T) {
-		checkCiliumXDS(t, parse(t, envoyconfig.EnvoyXDSModeSplit))
+		checkCiliumXDS(t, parse(t, envoyconfig.EnvoyXDSModeSplit, envoy.CiliumXDSConfigSource))
 	})
 
-	t.Run("ADS replaces existing xDS config source", func(t *testing.T) {
-		checkCiliumADS(t, parse(t, envoyconfig.EnvoyXDSModeADS))
+	t.Run("delta split fills in delta xDS config source", func(t *testing.T) {
+		checkCiliumDeltaXDS(t, parse(t, envoyconfig.EnvoyXDSModeDeltaSplit, nil))
 	})
+
+	for _, mode := range []envoyconfig.XDSMode{
+		envoyconfig.EnvoyXDSModeADS,
+		envoyconfig.EnvoyXDSModeDeltaADS,
+		envoyconfig.EnvoyXDSModeStrictADS,
+		envoyconfig.EnvoyXDSModeStrictDeltaADS,
+	} {
+		t.Run(mode.String()+" replaces existing xDS config source", func(t *testing.T) {
+			checkCiliumADS(t, parse(t, mode, envoy.CiliumXDSConfigSource))
+		})
+	}
 }
 
 func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
@@ -2107,5 +2126,27 @@ func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
 		require.NotNil(t, meta.CiliumConfigSource)
 		assert.NotNil(t, meta.CiliumConfigSource.GetAds(), "CiliumConfigSource should use ADS aggregated source")
 		assert.Equal(t, envoy_config_core.ApiVersion_V3, meta.CiliumConfigSource.ResourceApiVersion)
+	})
+
+	t.Run("delta split: CiliumConfigSource uses Delta gRPC", func(t *testing.T) {
+		parser.xdsMode = envoyconfig.EnvoyXDSModeDeltaSplit
+		lf := parser.getBPFMetadataListenerFilter(true, false, 1234, false)
+		require.NotNil(t, lf)
+		msg, err := lf.GetTypedConfig().UnmarshalNew()
+		require.NoError(t, err)
+		meta, ok := msg.(*cilium.BpfMetadata)
+		require.True(t, ok)
+		checkCiliumDeltaXDS(t, meta.CiliumConfigSource)
+	})
+
+	t.Run("delta ADS: CiliumConfigSource uses ADS", func(t *testing.T) {
+		parser.xdsMode = envoyconfig.EnvoyXDSModeDeltaADS
+		lf := parser.getBPFMetadataListenerFilter(true, false, 1234, false)
+		require.NotNil(t, lf)
+		msg, err := lf.GetTypedConfig().UnmarshalNew()
+		require.NoError(t, err)
+		meta, ok := msg.(*cilium.BpfMetadata)
+		require.True(t, ok)
+		checkCiliumADS(t, meta.CiliumConfigSource)
 	})
 }

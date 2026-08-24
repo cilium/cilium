@@ -87,6 +87,8 @@ jobs:
           extra-helm-set: "--helm-set=envoy.xdsMode=split"
         - name: delta-split
           extra-helm-set: "--helm-set=envoy.xdsMode=delta-split"
+        - name: delta-ads
+          extra-helm-set: "--helm-set=envoy.xdsMode=delta-ads"
     env:
       job_name: "Installation and Connectivity Test (${{ matrix.name }})"
       ENABLE_CLUSTERNETWORKPOLICY: "true"

@@ -61,21 +61,27 @@ const (
 	DownstreamTlsContextURL = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext"
 )
 
-// CiliumAdsConfigSource is the ApiConfigSource for the State-of-the-World ADS stream
-var CiliumAdsConfigSource = &envoy_config_core.ApiConfigSource{
-	RequestTimeout:            &durationpb.Duration{Seconds: 30},
-	ApiType:                   envoy_config_core.ApiConfigSource_GRPC,
-	TransportApiVersion:       envoy_config_core.ApiVersion_V3,
-	SetNodeOnFirstMessageOnly: true,
-	GrpcServices: []*envoy_config_core.GrpcService{
-		{
-			TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
-				EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
-					ClusterName: CiliumXDSClusterName,
+// CiliumADSConfigSource returns the ApiConfigSource for the ADS stream.
+func CiliumADSConfigSource(mode config.XDSMode) *envoy_config_core.ApiConfigSource {
+	apiType := envoy_config_core.ApiConfigSource_GRPC
+	if mode.IsDelta() {
+		apiType = envoy_config_core.ApiConfigSource_DELTA_GRPC
+	}
+	return &envoy_config_core.ApiConfigSource{
+		RequestTimeout:            &durationpb.Duration{Seconds: 30},
+		ApiType:                   apiType,
+		TransportApiVersion:       envoy_config_core.ApiVersion_V3,
+		SetNodeOnFirstMessageOnly: true,
+		GrpcServices: []*envoy_config_core.GrpcService{
+			{
+				TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
+						ClusterName: CiliumXDSClusterName,
+					},
 				},
 			},
 		},
-	},
+	}
 }
 
 // CiliumConfigSource returns the config source to be used for xDS resource config source
@@ -84,11 +90,9 @@ func CiliumConfigSource(mode config.XDSMode) *envoy_config_core.ConfigSource {
 	switch mode {
 	case config.EnvoyXDSModeDeltaSplit:
 		return CiliumDeltaXDSConfigSource
-	case config.EnvoyXDSModeADS, config.EnvoyXDSModeStrictADS:
+	case config.EnvoyXDSModeADS, config.EnvoyXDSModeDeltaADS,
+		config.EnvoyXDSModeStrictADS, config.EnvoyXDSModeStrictDeltaADS:
 		return CiliumXdsWithAdsConfigSource
-	case config.EnvoyXDSModeDeltaADS, config.EnvoyXDSModeStrictDeltaADS:
-		// Delta ADS mode not supported yet
-		return nil
 	}
 	return CiliumXDSConfigSource
 }
