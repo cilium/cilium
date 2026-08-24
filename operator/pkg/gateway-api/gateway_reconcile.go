@@ -46,8 +46,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if k8serrors.IsNotFound(err) {
 			return controllerruntime.Success()
 		}
-		scopedLog.ErrorContext(ctx, "Unable to get Gateway", logfields.Error, err)
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to get Gateway: %w", err))
 	}
 
 	// Ignore deleting Gateway, this can happen when foregroundDeletion is enabled
@@ -67,8 +66,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				gatewayClass, gw.Spec.GatewayClassName)
 
 			if err := r.cleanupOwnedResources(ctx, gw); err != nil {
-				scopedLog.ErrorContext(ctx, "Unable to cleanup managed Gateway resources", logfields.Error, err)
-				return controllerruntime.Fail(err)
+				return controllerruntime.Fail(fmt.Errorf("failed to cleanup managed Gateway resources: %w", err))
 			}
 
 			return controllerruntime.Success()
@@ -85,8 +83,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			gatewayClass, gw.Spec.GatewayClassName,
 			logfields.Controller, gwc.Spec.ControllerName)
 		if err := r.cleanupOwnedResources(ctx, gw); err != nil {
-			scopedLog.ErrorContext(ctx, "Unable to cleanup managed Gateway resources", logfields.Error, err)
-			return controllerruntime.Fail(err)
+			return controllerruntime.Fail(fmt.Errorf("failed to cleanup managed Gateway resources: %w", err))
 		}
 		return controllerruntime.Success()
 	}
@@ -118,8 +115,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	inputs, err := r.inputLoader.Load(ctx, scopedLog, gw, gwc)
 	if err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to load translation inputs", logfields.Error, err)
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to load translation inputs: %w", err))
 	}
 
 	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.Annotations[annotation.LBIPAMIPKeyAlias] != "" {
@@ -136,8 +132,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		UDPRoutes:       inputs.UDPRoutes,
 		ReferenceGrants: inputs.ReferenceGrants,
 	}); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to update route status", logfields.Error, err)
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to update route status: %w", err))
 	}
 
 	// Attached*Routes() relies on route status parents populated by the status
@@ -152,8 +147,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		inputs.AttachedHTTPRoutes(gw),
 	)
 	if err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to update BackendTLSPolicy Status", logfields.Error, err)
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to update BackendTLSPolicy status: %w", err))
 	}
 
 	listenerStatusResult, err := r.listenerStatusManager.SetListenerStatuses(ctx, gw, ListenerStatusInputs{
@@ -169,19 +163,16 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ReferenceGrants:        inputs.ReferenceGrants,
 	})
 	if err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to set listener status", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to set listener status", gatewayv1.GatewayReasonNoResources)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to set listener status", gatewayv1.GatewayReasonListenersNotValid)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to set listener status: %w", err), original, gw)
 	}
 
 	switch listenerStatusResult.GatewayStatus {
 	case ListenersStatusNoneValid:
-		err := fmt.Errorf("No Accepted Listeners for Gateway")
-		scopedLog.ErrorContext(ctx, "No Accepted Listeners for Gateway", logfields.Error, err)
 		setGatewayAccepted(gw, false, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("no Accepted Listeners for Gateway"), original, gw)
 	case ListenersStatusValidWithUnsupportedProtocol:
 		setGatewayAccepted(gw, true, "Gateway has unsupported listeners", gatewayv1.GatewayReasonListenersNotValid)
 	case ListenersStatusSomeInvalid, ListenersStatusAllValid:
@@ -208,40 +199,36 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// Step 4: Translate the listeners into Cilium model
 	cec, svc, eps, err := r.translator.Translate(m)
 	if err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to translate resources", gatewayv1.GatewayReasonNoResources)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to translate resources", gatewayv1.GatewayReasonListenersNotValid)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to translate resources: %w", err), original, gw)
 	}
 
 	if err = r.ensureService(ctx, svc); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to create Service", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to create Service resource", gatewayv1.GatewayReasonNoResources)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to create Service resource", gatewayv1.GatewayReasonNoResources)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to create Service resource: %w", err), original, gw)
 	}
 
 	if err = r.reconcileEndpointSlices(ctx, gw, svc, eps); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to reconcile EndpointSlices", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to reconcile EndpointSlices", gatewayv1.GatewayReasonNoResources)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to reconcile EndpointSlices", gatewayv1.GatewayReasonNoResources)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to reconcile EndpointSlices: %w", err), original, gw)
 	}
 
 	if err = r.ensureEnvoyConfig(ctx, gw, cec); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to ensure CEC resource", gatewayv1.GatewayReasonNoResources)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Unable to create CEC resource", gatewayv1.GatewayReasonNoResources)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to ensure CEC resource: %w", err), original, gw)
 	}
 
 	// Step 5: Update the status of the Gateway
 	if err = r.gatewayAddressStatusManager.SetAddressStatus(ctx, gw); err != nil {
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to set address status: %w", err), original, gw)
 	}
 
 	if err = r.gatewayAddressStatusManager.SetStaticAddressStatus(ctx, gw); err != nil {
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to set static address status: %w", err), original, gw)
 	}
 
 	if err := r.updateStatus(ctx, original, gw); err != nil {
