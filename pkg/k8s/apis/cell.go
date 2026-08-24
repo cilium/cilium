@@ -9,10 +9,13 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
+	"github.com/cilium/cilium/pkg/k8s/apis/crdhelpers"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
 
@@ -47,13 +50,14 @@ func (c RegisterCRDsConfig) Flags(flags *pflag.FlagSet) {
 }
 
 // RegisterCRDsFunc is a function that register all the CRDs for a k8s group
-type RegisterCRDsFunc func(context.Context, *slog.Logger, k8sClient.Clientset) error
+type RegisterCRDsFunc func(ctx context.Context, log *slog.Logger, clientset k8sClient.Clientset) (needsMigration []*apiextensionsv1.CustomResourceDefinition, err error)
 
 type params struct {
 	cell.In
 
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
+	JG        job.Group
 
 	Clientset k8sClient.Clientset
 
@@ -71,12 +75,35 @@ func createCRDs(p params) {
 				return nil
 			}
 
+			// gather CRDs that need storage version migration
+			migrateCRDs := []*apiextensionsv1.CustomResourceDefinition{}
+
 			for _, f := range p.RegisterCRDsFuncs {
-				if err := f(ctx, p.Logger, p.Clientset); err != nil {
+				if f == nil {
+					continue
+				}
+				m, err := f(ctx, p.Logger, p.Clientset)
+				if err != nil {
 					return fmt.Errorf("unable to create CRDs: %w", err)
 				}
+				migrateCRDs = append(migrateCRDs, m...)
 			}
 
+			// If migration was requested, then schedule a separate job
+			// for each requested CRD.
+			for _, crd := range migrateCRDs {
+				if crd == nil {
+					continue
+				}
+				jobname := "crd-migrate-" + crd.Spec.Names.Plural
+				log := p.Logger.WithGroup(jobname)
+				p.JG.Add(job.OneShot(
+					jobname,
+					func(ctx context.Context, _ cell.Health) error {
+						return crdhelpers.MigrateStorageVersion(ctx, log, p.Clientset, crd.Name)
+					},
+				))
+			}
 			return nil
 		},
 	})
@@ -90,8 +117,8 @@ type RegisterCRDsFuncOut struct {
 
 func newCiliumGroupCRDs(bc bgpConfig.BGPConfig) RegisterCRDsFuncOut {
 	return RegisterCRDsFuncOut{
-		Func: func(ctx context.Context, l *slog.Logger, c k8sClient.Clientset) error {
-			return client.RegisterCRDs(ctx, l, c, bc)
+		Func: func(ctx context.Context, l *slog.Logger, c k8sClient.Clientset) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+			return client.CreateCustomResourceDefinitions(ctx, l, c, bc)
 		},
 	}
 }

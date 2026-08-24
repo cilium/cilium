@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/crdhelpers"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -23,14 +24,20 @@ import (
 
 // createCustomResourceDefinitions creates our CRD objects in the Kubernetes
 // cluster.
-func createCustomResourceDefinitions(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface) error {
+func createCustomResourceDefinitions(ctx context.Context, logger *slog.Logger, clientset k8sClient.Clientset) (
+	needsMigration []*apiextensionsv1.CustomResourceDefinition,
+	err error) {
+
 	for _, crdName := range []string{mcsapiv1beta1.ServiceImportVersionedName, mcsapiv1beta1.ServiceExportVersionedName} {
-		if err := createCRD(ctx, logger, clientset, crdName); err != nil {
-			return fmt.Errorf("Unable to create custom resource definition: %w", err)
+		crd, err := createCRD(ctx, logger, clientset, crdName)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to create custom resource definition: %w", err)
+		}
+		if crdhelpers.CRDNeedsMigration(crd) {
+			needsMigration = append(needsMigration, crd)
 		}
 	}
-
-	return nil
+	return
 }
 
 // getPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -65,7 +72,7 @@ func getPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 
 // createCRD creates and updates a CRD.
 // It should be called on operator startup but is idempotent and safe to call again.
-func createCRD(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, crdVersionedName string) error {
+func createCRD(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, crdVersionedName string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	crd := getPregeneratedCRD(logger, crdVersionedName)
 
 	return crdhelpers.CreateUpdateCRD(
