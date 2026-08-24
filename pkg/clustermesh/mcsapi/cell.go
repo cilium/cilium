@@ -65,7 +65,7 @@ type mcsAPIParams struct {
 	Logger          *slog.Logger
 	JobGroup        job.Group
 	MetricsRegistry *metrics.Registry
-	Cache           *globalServiceExportCache
+	Cache           *operator.CacheStore[*mcsapitypes.MCSAPIServiceSpec]
 	Source          *operator.RemoteObjectSource[*mcsapitypes.MCSAPIServiceSpec]
 
 	NamespaceConfig cmnamespace.Config

@@ -5,10 +5,12 @@ package mcsapi
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
+	"k8s.io/client-go/tools/cache"
 
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/observer"
@@ -26,8 +28,29 @@ type paramsObserver struct {
 	StoreFactory store.Factory
 	Metrics      Metrics
 	CfgMCSAPI    mcsapitypes.MCSAPIConfig
-	Cache        *globalServiceExportCache
+	Cache        *operator.CacheStore[*mcsapitypes.MCSAPIServiceSpec]
 	Source       *operator.RemoteObjectSource[*mcsapitypes.MCSAPIServiceSpec]
+}
+
+func newGlobalServiceExportCache() *operator.CacheStore[*mcsapitypes.MCSAPIServiceSpec] {
+	return operator.NewCacheStore[*mcsapitypes.MCSAPIServiceSpec](
+		cache.Indexers{
+			serviceExportIndex: func(obj any) ([]string, error) {
+				svcExport, ok := obj.(*mcsapitypes.MCSAPIServiceSpec)
+				if !ok {
+					return nil, fmt.Errorf("unexpected object type: %T", obj)
+				}
+				return []string{svcExport.NamespacedName().String()}, nil
+			},
+			cache.NamespaceIndex: func(obj any) ([]string, error) {
+				svcExport, ok := obj.(*mcsapitypes.MCSAPIServiceSpec)
+				if !ok {
+					return nil, fmt.Errorf("unexpected object type: %T", obj)
+				}
+				return []string{svcExport.Namespace}, nil
+			},
+		},
+	)
 }
 
 func newFactory(params paramsObserver) observer.Factory {
@@ -46,11 +69,11 @@ func newFactory(params paramsObserver) observer.Factory {
 			),
 			&store.FuncObserver[*mcsapitypes.ValidatingMCSAPIServiceSpec]{
 				OnUpdateFunc: func(obj *mcsapitypes.ValidatingMCSAPIServiceSpec) {
-					params.Cache.OnUpdate(&obj.MCSAPIServiceSpec)
+					params.Cache.Update(&obj.MCSAPIServiceSpec)
 					params.Source.OnEvent(&obj.MCSAPIServiceSpec)
 				},
 				OnDeleteFunc: func(obj *mcsapitypes.ValidatingMCSAPIServiceSpec) {
-					params.Cache.OnDelete(&obj.MCSAPIServiceSpec)
+					params.Cache.Delete(&obj.MCSAPIServiceSpec)
 					params.Source.OnEvent(&obj.MCSAPIServiceSpec)
 				},
 			},
