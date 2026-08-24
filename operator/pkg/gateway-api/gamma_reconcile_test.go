@@ -108,7 +108,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 						Build()
 
 					r := &gammaReconciler{
-						Client:         c,
+						client:         c,
 						translator:     gatewayAPITranslator,
 						logger:         logger,
 						controllerName: defaultControllerName,
@@ -214,7 +214,7 @@ func Test_gammaReconciler_Reconcile_BackendRequestHeaderModifier(t *testing.T) {
 		Build()
 
 	r := &gammaReconciler{
-		Client:         c,
+		client:         c,
 		translator:     gatewayAPITranslator,
 		logger:         logger,
 		controllerName: defaultControllerName,
@@ -317,7 +317,7 @@ func Test_gammaReconciler_Reconcile_ReplacesOwnerReferencesForRecreatedRoute(t *
 		Build()
 
 	r := &gammaReconciler{
-		Client:         c,
+		client:         c,
 		translator:     gatewayAPITranslator,
 		logger:         logger,
 		controllerName: defaultControllerName,

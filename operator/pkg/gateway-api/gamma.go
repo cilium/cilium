@@ -22,8 +22,8 @@ import (
 
 // gammaReconciler reconciles a Gateway object
 type gammaReconciler struct {
-	client.Client
-	Scheme     *runtime.Scheme
+	client     client.Client
+	scheme     *runtime.Scheme
 	translator translation.Translator
 
 	logger         *slog.Logger
@@ -32,8 +32,8 @@ type gammaReconciler struct {
 
 func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string) *gammaReconciler {
 	return &gammaReconciler{
-		Client:     mgr.GetClient(),
-		Scheme:     mgr.GetScheme(),
+		client:     mgr.GetClient(),
+		scheme:     mgr.GetScheme(),
 		translator: translator,
 		logger: logger.With(
 			logfields.Controller, gamma,
@@ -62,11 +62,11 @@ func (r *gammaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch its own resource
 		For(&corev1.Service{}).
 		// Watch HTTPRoute linked to Service
-		Watches(&gatewayv1.HTTPRoute{}, watchhandlers.EnqueueRequestForGAMMAHTTPRoute(r.Client, r.logger)).
+		Watches(&gatewayv1.HTTPRoute{}, watchhandlers.EnqueueRequestForGAMMAHTTPRoute(r.client, r.logger)).
 		// Watch GRPCRoute linked to Service
-		Watches(&gatewayv1.GRPCRoute{}, watchhandlers.EnqueueRequestForGAMMAGRPCRoute(r.Client, r.logger)).
+		Watches(&gatewayv1.GRPCRoute{}, watchhandlers.EnqueueRequestForGAMMAGRPCRoute(r.client, r.logger)).
 		// Watch for changes to Reference Grants
-		Watches(&gatewayv1.ReferenceGrant{}, watchhandlers.EnqueueRequestForGAMMAReferenceGrant(r.Client, r.logger)).
+		Watches(&gatewayv1.ReferenceGrant{}, watchhandlers.EnqueueRequestForGAMMAReferenceGrant(r.client, r.logger)).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{})
 

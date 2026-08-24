@@ -37,8 +37,8 @@ const (
 
 // gatewayReconciler reconciles a Gateway object
 type gatewayReconciler struct {
-	client.Client
-	Scheme     *runtime.Scheme
+	client     client.Client
+	scheme     *runtime.Scheme
 	translator translation.Translator
 
 	inputLoader                   *loading.TranslationInputLoader
@@ -59,8 +59,8 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 	tcpUDPRouteSupport := !hostNetworkEnabled
 
 	return &gatewayReconciler{
-		Client:     mgr.GetClient(),
-		Scheme:     mgr.GetScheme(),
+		client:     mgr.GetClient(),
+		scheme:     mgr.GetScheme(),
 		translator: translator,
 		inputLoader: loading.NewTranslationInputLoader(mgr.GetClient(), scopedLog, controllerName, loading.TranslationInputLoaderConfig{
 			IncludeTCPRoutes:      includeTCPRoutes,
@@ -101,7 +101,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Determine which optional CRDs are enabled. The scheme is registered from
 	// the autodetected CRDs, so Recognizes() reflects what is installed.
-	scheme := r.Client.Scheme()
+	scheme := r.client.Scheme()
 	tcpRouteEnabled := helpers.HasTCPRouteSupport(scheme)
 	udpRouteEnabled := helpers.HasUDPRouteSupport(scheme)
 	serviceImportEnabled := helpers.HasServiceImportSupport(scheme)
@@ -111,37 +111,37 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	hasMatchingControllerFn := helpers.GatewayHasMatchingControllerFn(context.Background(), r.Client, r.controllerName, r.logger)
+	hasMatchingControllerFn := helpers.GatewayHasMatchingControllerFn(context.Background(), r.client, r.controllerName, r.logger)
 	gatewayBuilder := ctrl.NewControllerManagedBy(mgr).
 		// Watch its own resource
 		For(&gatewayv1.Gateway{},
 			builder.WithPredicates(predicates.GatewayOwnedByController(hasMatchingControllerFn))).
 		// Watch GatewayClass resources, which are linked to Gateway
 		Watches(&gatewayv1.GatewayClass{},
-			watchhandlers.EnqueueRequestForOwningGatewayClass(r.Client, *r.logger),
+			watchhandlers.EnqueueRequestForOwningGatewayClass(r.client, *r.logger),
 			builder.WithPredicates(predicates.GatewayClassOwnedByController(r.controllerName))).
 		// Watch related backend Service for status
 		// LB Services are handled by the Owns call later.
-		Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForBackendService(r.Client, r.Scheme, *r.logger, r.controllerName)).
+		Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForBackendService(r.client, r.scheme, *r.logger, r.controllerName)).
 		// Watch HTTPRoute linked to Gateway
-		Watches(&gatewayv1.HTTPRoute{}, watchhandlers.EnqueueRequestForOwningHTTPRoute(r.Client, r.logger, r.controllerName)).
+		Watches(&gatewayv1.HTTPRoute{}, watchhandlers.EnqueueRequestForOwningHTTPRoute(r.client, r.logger, r.controllerName)).
 		// Watch GRPCRoute linked to Gateway
-		Watches(&gatewayv1.GRPCRoute{}, watchhandlers.EnqueueRequestForOwningGRPCRoute(r.Client, r.logger, r.controllerName)).
+		Watches(&gatewayv1.GRPCRoute{}, watchhandlers.EnqueueRequestForOwningGRPCRoute(r.client, r.logger, r.controllerName)).
 		// Watch TLSRoute linked to Gateway
-		Watches(&gatewayv1.TLSRoute{}, watchhandlers.EnqueueRequestForOwningTLSRoute(r.Client, r.logger, r.controllerName)).
+		Watches(&gatewayv1.TLSRoute{}, watchhandlers.EnqueueRequestForOwningTLSRoute(r.client, r.logger, r.controllerName)).
 		// Watch related secrets used to configure TLS
 		Watches(&corev1.Secret{},
-			watchhandlers.EnqueueRequestForTLSSecret(r.Client, r.controllerName, r.logger)).
+			watchhandlers.EnqueueRequestForTLSSecret(r.client, r.controllerName, r.logger)).
 		// Watch related namespace in allowed namespaces
 		Watches(&corev1.Namespace{},
-			watchhandlers.EnqueueRequestForAllowedNamespace(r.Client, r.logger)).
+			watchhandlers.EnqueueRequestForAllowedNamespace(r.client, r.logger)).
 		// Watch for changes to Reference Grants
-		Watches(&gatewayv1.ReferenceGrant{}, watchhandlers.EnqueueRequestForReferenceGrant(r.Client, r.logger)).
+		Watches(&gatewayv1.ReferenceGrant{}, watchhandlers.EnqueueRequestForReferenceGrant(r.client, r.logger)).
 		// Watch for changes to BackendTLSPolicy
-		Watches(&gatewayv1.BackendTLSPolicy{}, watchhandlers.EnqueueRequestForBackendTLSPolicy(r.Client, r.logger, r.controllerName)).
-		Watches(&corev1.ConfigMap{}, watchhandlers.EnqueueRequestForBackendTLSPolicyConfigMap(r.Client, r.logger, r.controllerName)).
+		Watches(&gatewayv1.BackendTLSPolicy{}, watchhandlers.EnqueueRequestForBackendTLSPolicy(r.client, r.logger, r.controllerName)).
+		Watches(&corev1.ConfigMap{}, watchhandlers.EnqueueRequestForBackendTLSPolicyConfigMap(r.client, r.logger, r.controllerName)).
 		// Watch for changes to node in order to populate gateway ip addresses if svc of type NodePort
-		Watches(&corev1.Node{}, watchhandlers.EnqueueRequestForNodes(r.Client, r.logger, owningGatewayLabel, r.controllerName)).
+		Watches(&corev1.Node{}, watchhandlers.EnqueueRequestForNodes(r.client, r.logger, owningGatewayLabel, r.controllerName)).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		Owns(&corev1.Service{}).
@@ -149,22 +149,22 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if tcpRouteEnabled {
 		// Watch TCPRoute linked to Gateway
-		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.TCPRoute{}, watchhandlers.EnqueueRequestForOwningTCPRoute(r.Client, r.logger, r.controllerName))
+		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.TCPRoute{}, watchhandlers.EnqueueRequestForOwningTCPRoute(r.client, r.logger, r.controllerName))
 	}
 
 	if udpRouteEnabled {
 		// Watch UDPRoute linked to Gateway
-		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.UDPRoute{}, watchhandlers.EnqueueRequestForOwningUDPRoute(r.Client, r.logger, r.controllerName))
+		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.UDPRoute{}, watchhandlers.EnqueueRequestForOwningUDPRoute(r.client, r.logger, r.controllerName))
 	}
 
 	if listenerSetEnabled {
 		// Watch ListenerSet linked to Gateway
-		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.ListenerSet{}, watchhandlers.EnqueueRequestForListenerSetOwner(r.Client, r.logger, r.controllerName))
+		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1.ListenerSet{}, watchhandlers.EnqueueRequestForListenerSetOwner(r.client, r.logger, r.controllerName))
 	}
 
 	if serviceImportEnabled {
 		// Watch for changes to Backend Service Imports
-		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1beta1.ServiceImport{}, watchhandlers.EnqueueRequestForBackendServiceImport(r.Client, *r.logger, r.controllerName))
+		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1beta1.ServiceImport{}, watchhandlers.EnqueueRequestForBackendServiceImport(r.client, *r.logger, r.controllerName))
 	}
 
 	return gatewayBuilder.Complete(r)
