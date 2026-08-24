@@ -41,7 +41,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Step 1: Retrieve the Gateway
 	original := &gatewayv1.Gateway{}
-	if err := r.Client.Get(ctx, req.NamespacedName, original); err != nil {
+	if err := r.client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return controllerruntime.Success()
 		}
@@ -59,7 +59,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Step 2: Gather all required information for the ingestion model
 	gwc := &gatewayv1.GatewayClass{}
-	if err := r.Client.Get(ctx, client.ObjectKey{Name: string(gw.Spec.GatewayClassName)}, gwc); err != nil {
+	if err := r.client.Get(ctx, client.ObjectKey{Name: string(gw.Spec.GatewayClassName)}, gwc); err != nil {
 		if k8serrors.IsNotFound(err) {
 			scopedLog.InfoContext(ctx, "GatewayClass no longer exists, cleaning up previously managed resources",
 				gatewayClass, gw.Spec.GatewayClassName)
@@ -234,7 +234,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.Service) error {
 	svc := desired.DeepCopy()
-	_, err := controllerutil.CreateOrPatch(ctx, r.Client, svc, func() error {
+	_, err := controllerutil.CreateOrPatch(ctx, r.client, svc, func() error {
 		// Save and restore loadBalancerClass
 		// e.g. if a mutating webhook writes this field
 		lbClass := svc.Spec.LoadBalancerClass
@@ -259,7 +259,7 @@ func (r *gatewayReconciler) ensureEndpointSlice(ctx context.Context, desired *di
 			Namespace: desired.Namespace,
 		},
 	}
-	_, err := controllerutil.CreateOrPatch(ctx, r.Client, eps, func() error {
+	_, err := controllerutil.CreateOrPatch(ctx, r.client, eps, func() error {
 		if eps.ResourceVersion == "" {
 			eps.AddressType = desired.AddressType
 			eps.Endpoints = desired.Endpoints
@@ -300,7 +300,7 @@ func (r *gatewayReconciler) ensureEnvoyConfig(ctx context.Context, gw *gatewayv1
 		return r.ensureOwnedEnvoyConfigDeleted(ctx, gw)
 	}
 	cec := desired.DeepCopy()
-	_, err := controllerutil.CreateOrPatch(ctx, r.Client, cec, func() error {
+	_, err := controllerutil.CreateOrPatch(ctx, r.client, cec, func() error {
 		cec.Spec = desired.Spec
 		setMergedLabelsAndAnnotations(cec, desired)
 		return nil
@@ -327,7 +327,7 @@ func (r *gatewayReconciler) reconcileEndpointSlices(ctx context.Context, gw *gat
 	}
 
 	existing := &discoveryv1.EndpointSliceList{}
-	if err := r.Client.List(
+	if err := r.client.List(
 		ctx, existing,
 		client.InNamespace(gw.Namespace),
 		client.MatchingLabels{
@@ -346,7 +346,7 @@ func (r *gatewayReconciler) reconcileEndpointSlices(ctx context.Context, gw *gat
 		if _, ok := desiredByName[eps.Name]; ok {
 			continue
 		}
-		if err := client.IgnoreNotFound(r.Client.Delete(ctx, &eps)); err != nil {
+		if err := client.IgnoreNotFound(r.client.Delete(ctx, &eps)); err != nil {
 			return fmt.Errorf("failed to delete stale EndpointSlice %s/%s: %w", eps.Namespace, eps.Name, err)
 		}
 	}
@@ -375,7 +375,7 @@ func (r *gatewayReconciler) filterEndpointSlicesByBackendFamilies(ctx context.Co
 		fams, cached := cache[key]
 		if !cached {
 			be := &corev1.Service{}
-			if err := r.Client.Get(ctx, types.NamespacedName{Namespace: ns, Name: name}, be); err != nil {
+			if err := r.client.Get(ctx, types.NamespacedName{Namespace: ns, Name: name}, be); err != nil {
 				cache[key] = nil
 				out = append(out, s)
 				continue
@@ -427,14 +427,14 @@ func (r *gatewayReconciler) ensureOwnedServiceDeleted(ctx context.Context, gw *g
 		Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
 	}
 
-	if err := r.Client.Get(ctx, key, svc); err != nil {
+	if err := r.client.Get(ctx, key, svc); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 	if !metav1.IsControlledBy(svc, gw) {
 		return nil
 	}
 
-	return client.IgnoreNotFound(r.Client.Delete(ctx, svc))
+	return client.IgnoreNotFound(r.client.Delete(ctx, svc))
 }
 
 func (r *gatewayReconciler) ensureOwnedEndpointSlicesDeleted(ctx context.Context, gw *gatewayv1.Gateway) error {
@@ -445,7 +445,7 @@ func (r *gatewayReconciler) ensureOwnedEndpointSlicesDeleted(ctx context.Context
 		),
 	}
 
-	if err := r.Client.List(ctx, eps, client.InNamespace(gw.Namespace), matchingLabels); err != nil {
+	if err := r.client.List(ctx, eps, client.InNamespace(gw.Namespace), matchingLabels); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 
@@ -453,7 +453,7 @@ func (r *gatewayReconciler) ensureOwnedEndpointSlicesDeleted(ctx context.Context
 		if !metav1.IsControlledBy(&ep, gw) {
 			continue
 		}
-		if err := client.IgnoreNotFound(r.Client.Delete(ctx, &ep)); err != nil {
+		if err := client.IgnoreNotFound(r.client.Delete(ctx, &ep)); err != nil {
 			return err
 		}
 	}
@@ -468,14 +468,14 @@ func (r *gatewayReconciler) ensureOwnedEnvoyConfigDeleted(ctx context.Context, g
 		Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
 	}
 
-	if err := r.Client.Get(ctx, key, cec); err != nil {
+	if err := r.client.Get(ctx, key, cec); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 	if !metav1.IsControlledBy(cec, gw) {
 		return nil
 	}
 
-	return client.IgnoreNotFound(r.Client.Delete(ctx, cec))
+	return client.IgnoreNotFound(r.client.Delete(ctx, cec))
 }
 
 func (r *gatewayReconciler) updateStatus(ctx context.Context, original *gatewayv1.Gateway, new *gatewayv1.Gateway) error {
@@ -485,7 +485,7 @@ func (r *gatewayReconciler) updateStatus(ctx context.Context, original *gatewayv
 	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
 		return nil
 	}
-	return r.Client.Status().Update(ctx, new)
+	return r.client.Status().Update(ctx, new)
 }
 func (r *gatewayReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.Gateway, modified *gatewayv1.Gateway) (ctrl.Result, error) {
 	if err := r.updateStatus(ctx, original, modified); err != nil {

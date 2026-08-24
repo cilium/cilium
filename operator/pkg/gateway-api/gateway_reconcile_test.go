@@ -452,8 +452,8 @@ func Test_Conformance(t *testing.T) {
 			})
 
 			r := &gatewayReconciler{
-				Client:     c,
-				Scheme:     c.Scheme(),
+				client:     c,
+				scheme:     c.Scheme(),
 				translator: gatewayAPITranslator,
 				inputLoader: loading.NewTranslationInputLoader(c, logger, defaultControllerName, loading.TranslationInputLoaderConfig{
 					IncludeTCPRoutes:      !tt.disableTCPRoute,
@@ -827,8 +827,8 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 				Build()
 
 			r := &gatewayReconciler{
-				Client: c,
-				Scheme: c.Scheme(),
+				client: c,
+				scheme: c.Scheme(),
 				inputLoader: loading.NewTranslationInputLoader(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), defaultControllerName, loading.TranslationInputLoaderConfig{
 					IncludeTCPRoutes:      helpers.HasTCPRouteSupport(c.Scheme()),
 					IncludeUDPRoutes:      helpers.HasUDPRouteSupport(c.Scheme()),
@@ -904,7 +904,7 @@ func Test_gatewayReconciler_ensureEnvoyConfig_deletesStaleCEC(t *testing.T) {
 			WithObjects(gw, ownedCEC()).
 			Build()
 		r := &gatewayReconciler{
-			Client: c,
+			client: c,
 			logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 		}
 
@@ -923,7 +923,7 @@ func Test_gatewayReconciler_ensureEnvoyConfig_deletesStaleCEC(t *testing.T) {
 			WithObjects(gw, foreign).
 			Build()
 		r := &gatewayReconciler{
-			Client: c,
+			client: c,
 			logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 		}
 
@@ -938,7 +938,7 @@ func Test_gatewayReconciler_ensureEnvoyConfig_deletesStaleCEC(t *testing.T) {
 			WithObjects(gw).
 			Build()
 		r := &gatewayReconciler{
-			Client: c,
+			client: c,
 			logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 		}
 
@@ -1078,13 +1078,13 @@ func Test_gatewayReconciler_setListenerStatus(t *testing.T) {
 			}
 
 			r := &gatewayReconciler{
-				Client: func() client.WithWatch {
+				client: func() client.WithWatch {
 					return fake.NewClientBuilder().
 						WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 						Build()
 				}(),
 			}
-			r.listenerStatusManager = NewListenerStatusManager(r.Client, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), ListenerStatusManagerConfig{
+			r.listenerStatusManager = NewListenerStatusManager(r.client, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), ListenerStatusManagerConfig{
 				TCPUDPRouteSupport:      true,
 				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 			})
@@ -1282,7 +1282,7 @@ func testReconciler(t *testing.T, obj ...client.Object) (*gatewayReconciler, cli
 		Build()
 
 	reconciler := &gatewayReconciler{
-		Client:                      fakeClient,
+		client:                      fakeClient,
 		logger:                      logger,
 		controllerName:              defaultControllerName,
 		tcpUDPRouteSupport:          true,
