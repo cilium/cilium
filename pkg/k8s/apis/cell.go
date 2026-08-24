@@ -4,6 +4,7 @@
 package apis
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -46,7 +47,7 @@ func (c RegisterCRDsConfig) Flags(flags *pflag.FlagSet) {
 }
 
 // RegisterCRDsFunc is a function that register all the CRDs for a k8s group
-type RegisterCRDsFunc func(*slog.Logger, k8sClient.Clientset) error
+type RegisterCRDsFunc func(context.Context, *slog.Logger, k8sClient.Clientset) error
 
 type params struct {
 	cell.In
@@ -71,7 +72,7 @@ func createCRDs(p params) {
 			}
 
 			for _, f := range p.RegisterCRDsFuncs {
-				if err := f(p.Logger, p.Clientset); err != nil {
+				if err := f(ctx, p.Logger, p.Clientset); err != nil {
 					return fmt.Errorf("unable to create CRDs: %w", err)
 				}
 			}
@@ -89,8 +90,8 @@ type RegisterCRDsFuncOut struct {
 
 func newCiliumGroupCRDs(bc bgpConfig.BGPConfig) RegisterCRDsFuncOut {
 	return RegisterCRDsFuncOut{
-		Func: func(l *slog.Logger, c k8sClient.Clientset) error {
-			return client.RegisterCRDs(l, c, bc)
+		Func: func(ctx context.Context, l *slog.Logger, c k8sClient.Clientset) error {
+			return client.RegisterCRDs(ctx, l, c, bc)
 		},
 	}
 }
