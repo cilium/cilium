@@ -14,8 +14,6 @@
 
 #define ENABLE_DSR_ICMP_ERRORS		1
 
-#define IPV4_DIRECT_ROUTING		v4_node_one
-
 #define fib_lookup mock_fib_lookup
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		     __maybe_unused int plen, __maybe_unused __u32 flags)
