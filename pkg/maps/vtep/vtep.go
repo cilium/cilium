@@ -68,8 +68,9 @@ func newKey(addr netip.Addr) Key {
 // VtepEndpointInfo implements the bpf.MapValue interface. It contains the
 // VTEP endpoint MAC and IP.
 type VtepEndpointInfo struct {
-	VtepMAC        mac.Uint64MAC `align:"vtep_mac"`
-	TunnelEndpoint types.IPv4    `align:"tunnel_endpoint"`
+	VtepMAC        mac.MAC `align:"vtep_mac"`
+	_              [2]byte
+	TunnelEndpoint types.IPv4 `align:"tunnel_endpoint"`
 	_              [4]byte
 }
 
@@ -107,7 +108,7 @@ func (m *vtepMap) Update(newCIDR netip.Prefix, newTunnelEndpoint netip.Addr, vte
 	key := newKey(newCIDR.Addr())
 
 	value := VtepEndpointInfo{
-		VtepMAC:        vtepMAC.Uint64(),
+		VtepMAC:        vtepMAC,
 		TunnelEndpoint: newTunnelEndpoint.As4(),
 	}
 
