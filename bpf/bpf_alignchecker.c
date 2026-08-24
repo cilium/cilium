@@ -101,7 +101,7 @@ add_type(struct egress_gw_policy_entry6);
 add_type(struct vtep_key);
 add_type(struct vtep_value);
 
-#include "lib/srv6.h"
+#include "lib/srv6_maps.h"
 add_type(struct srv6_vrf_key4);
 add_type(struct srv6_vrf_key6);
 add_type(struct srv6_policy_key4);
