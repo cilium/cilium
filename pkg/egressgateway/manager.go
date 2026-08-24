@@ -152,6 +152,11 @@ type Manager struct {
 	db            *statedb.DB
 	deviceTable   statedb.Table[*tables.Device]
 	nodeAddrTable statedb.Table[tables.NodeAddress]
+
+	// v4Enabled tracks whether this agent supports IPv4 EGW policies
+	v4Enabled bool
+	// v6Enabled tracks whether this agent supports IPv6 EGW policies
+	v6Enabled bool
 }
 
 type Params struct {
@@ -198,21 +203,30 @@ func NewEgressGatewayManager(p Params) (out struct {
 		return out, errors.New("egress gateway is not supported in combination with the CiliumEndpointSlice feature")
 	}
 
-	// TODO: refactor config checks for both ipv4 and ipv6, and derive whether the environment supports egress gateway policies for either protocol
-	// We need to make sure that ipv4/v6 only environments only create the necessary resources and don't fail if unneeded features are missing.
-	if !dcfg.EnableIPv4Masquerade || !dcfg.EnableBPFMasquerade {
-		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+	if !dcfg.EnableBPFMasquerade {
+		return out, fmt.Errorf("egress gateway requires --%s=\"true\"", option.EnableBPFMasquerade)
 	}
 
 	if p.TunnelConfig.UnderlayProtocol() != tunnel.IPv4 {
 		return out, errors.New("egress gateway requires an IPv4 underlay")
 	}
 
-	if !dcfg.EnableIPv6Masquerade {
-		p.Logger.Info(fmt.Sprintf("egress gateway ipv6 policies require --%s=\"true\"", option.EnableIPv6Masquerade))
+	v4Enabled := dcfg.EnableIPv4 && dcfg.EnableIPv4Masquerade
+	v6Enabled := dcfg.EnableIPv6 && dcfg.EnableIPv6Masquerade
+
+	if !v4Enabled {
+		p.Logger.Info(fmt.Sprintf("egress gateway ipv4 policies require --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Name, option.EnableIPv4Masquerade))
 	}
 
-	out.Manager, err = newEgressGatewayManager(p)
+	if !v6Enabled {
+		p.Logger.Info(fmt.Sprintf("egress gateway ipv6 policies require --%s=\"true\" and --%s=\"true\"", option.EnableIPv6Name, option.EnableIPv6Masquerade))
+	}
+
+	if !v4Enabled && !v6Enabled {
+		return out, errors.New("Missing required config options for IPv4 and IPv6 Egress Gateway policies")
+	}
+
+	out.Manager, err = newEgressGatewayManager(p, v4Enabled, v6Enabled)
 	if err != nil {
 		return out, err
 	}
@@ -224,7 +238,7 @@ func NewEgressGatewayManager(p Params) (out struct {
 	return out, nil
 }
 
-func newEgressGatewayManager(p Params) (*Manager, error) {
+func newEgressGatewayManager(p Params, v4Enabled bool, v6Enabled bool) (*Manager, error) {
 	manager := &Manager{
 		logger:                        p.Logger,
 		clusterInfo:                   p.ClusterInfo,
@@ -242,6 +256,8 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		deviceTable:                   p.DeviceTable,
 		nodeAddrTable:                 p.NodeAddrTable,
 		nodesAddresses2Labels:         make(map[string]map[string]string),
+		v4Enabled:                     v4Enabled,
+		v6Enabled:                     v6Enabled,
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -420,6 +436,24 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 			logfields.CiliumEgressGatewayPolicyName, policy.Name,
 		)
 		return err
+	}
+
+	// clear the invalid address-family flags, so that lower-level code doesn't
+	// act upon it (eg. attempting to select an egressIP for this family).
+	if config.v4Needed && !manager.v4Enabled {
+		manager.logger.Warn(
+			"CiliumEgressGatewayPolicy selects IPv4 traffic, but IPv4 support is disabled",
+			logfields.CiliumEgressGatewayPolicyName, policy.Name,
+		)
+		config.v4Needed = false
+	}
+
+	if config.v6Needed && !manager.v6Enabled {
+		manager.logger.Warn(
+			"CiliumEgressGatewayPolicy selects IPv6 traffic, but IPv6 support is disabled",
+			logfields.CiliumEgressGatewayPolicyName, policy.Name,
+		)
+		config.v6Needed = false
 	}
 
 	manager.Lock()
@@ -639,7 +673,7 @@ func (manager *Manager) relaxRPFilter() error {
 }
 
 func (manager *Manager) updateEgressRules4() {
-	if manager.policyMap4V2 == nil {
+	if !manager.v4Enabled {
 		return
 	}
 
@@ -719,7 +753,7 @@ func (manager *Manager) updateEgressRules4() {
 }
 
 func (manager *Manager) updateEgressRules6() {
-	if manager.policyMap6 == nil {
+	if !manager.v6Enabled {
 		return
 	}
 
