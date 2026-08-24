@@ -125,33 +125,7 @@ struct dsr_opt_v4 {
 #define DSR_IPV6_OPT_LEN	(sizeof(struct dsr_opt_v6) - 4)
 #define DSR_IPV6_EXT_LEN	((sizeof(struct dsr_opt_v6) - 8) / 8)
 
-static __always_inline bool nodeport_uses_dsr(bool flip __maybe_unused)
-{
-#ifdef ENABLE_DSR
-# ifdef ENABLE_DSR_BYUSER
-	return flip;
-# else
-	return true;
-# endif
-#else
-	return false;
-#endif
-}
-
 #define NEED_DSR_INFO	(1 << 16)
-
-static __always_inline bool
-nodeport_need_dsr_info(__u8 nexthdr, bool syn, bool new_backend)
-{
-	/* We only need to embed the DSR info into the first packet of a connection
-	 * (since it will then be cached on the backend node).
-	 * Doing so for the TCP-SYN avoids MTU troubles.
-	 *
-	 * We also send DSR info for the first TCP packet towards a new backend,
-	 * so that it can at least RevDNAT its RST reply.
-	 */
-	return (nexthdr != IPPROTO_TCP) || syn || new_backend;
-}
 
 #if defined(ENABLE_IPV4)
 static __always_inline struct ipv4_nat_entry *
@@ -319,7 +293,7 @@ void select_nat_port_range_ipv6(struct ipv6_nat_target *target)
 
 static __always_inline bool nodeport_uses_dsr6(const struct lb6_service *svc)
 {
-	return nodeport_uses_dsr(svc->flags2 & SVC_FLAG_FWD_MODE_DSR);
+	return lb6_svc_uses_dsr(svc);
 }
 
 static __always_inline bool nodeport_skip_xlate6(const struct lb6_service *svc,
@@ -1388,11 +1362,11 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 					    bool *punt_to_stack __maybe_unused,
 					    __s8 *ext_err)
 {
-	bool new_backend __maybe_unused = false;
 	struct ct_state ct_state_svc = {};
 	const struct lb6_backend *backend;
 	const struct lb6_backend *forced_be_p __maybe_unused = NULL;
 	struct lb6_backend forced_be __maybe_unused = {};
+	bool need_dsr_info = false;
 	bool backend_local;
 	__u32 monitor = 0;
 	int ret;
@@ -1434,7 +1408,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		}
 	}
 	ret = lb6_local(get_ct_map6(tuple), ctx, fraginfo, l4_off,
-			key, tuple, svc, &ct_state_svc, &backend, &new_backend,
+			key, tuple, svc, &ct_state_svc, &backend, &need_dsr_info,
 			ext_err, forced_be_p);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE) {
@@ -1523,9 +1497,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		__u32 port = key->dport;
 
-		if (nodeport_need_dsr_info(tuple->nexthdr,
-					   ct_state_svc.syn,
-					   new_backend))
+		if (need_dsr_info)
 			port |= NEED_DSR_INFO;
 
 		ctx_store_meta(ctx, CB_PORT, port);
@@ -1652,7 +1624,7 @@ void select_nat_port_range_ipv4(struct ipv4_nat_target *target)
 
 static __always_inline bool nodeport_uses_dsr4(const struct lb4_service *svc)
 {
-	return nodeport_uses_dsr(svc->flags2 & SVC_FLAG_FWD_MODE_DSR);
+	return lb4_svc_uses_dsr(svc);
 }
 
 static __always_inline bool nodeport_skip_xlate4(const struct lb4_service *svc,
@@ -2640,9 +2612,9 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 					    bool *punt_to_stack __maybe_unused,
 					    __s8 *ext_err)
 {
-	bool new_backend __maybe_unused = false;
 	const struct lb4_backend *backend;
 	struct ct_state ct_state_svc = {};
+	bool need_dsr_info = false;
 	__u32 cluster_id = 0;
 	bool backend_local;
 	__u32 monitor = 0;
@@ -2700,7 +2672,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		}
 		ret = lb4_local(get_ct_map4(tuple), ctx, fraginfo, l4_off,
 				key, tuple, svc, &ct_state_svc, &backend,
-				&new_backend, ext_err, tmp);
+				&need_dsr_info, ext_err, tmp);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
 				if (!CONFIG(enable_no_service_endpoints_routable))
@@ -2815,9 +2787,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		__u32 port = key->dport;
 
-		if (nodeport_need_dsr_info(tuple->nexthdr,
-					   ct_state_svc.syn,
-					   new_backend))
+		if (need_dsr_info)
 			port |= NEED_DSR_INFO;
 
 		ctx_store_meta(ctx, CB_PORT, port);
