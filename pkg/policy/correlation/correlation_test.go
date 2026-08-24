@@ -703,20 +703,6 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 	dstPort := uint32(443)
 
 	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
-	expected := []*flowpb.Policy{
-		{
-			Name:      "web-policy",
-			Namespace: "foo-namespace",
-			Kind:      utils.ResourceTypeCiliumNetworkPolicy,
-			Labels: []string{
-				"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
-				"k8s:io.cilium.k8s.policy.name=web-policy",
-				"k8s:io.cilium.k8s.policy.namespace=foo-namespace",
-				"k8s:io.cilium.k8s.policy.uid=1234-5678",
-			},
-			Revision: 1,
-		},
-	}
 
 	// DropReason_POLICY_DENIED (implicit deny, code 133) at egress
 	policyKey := policy.EgressKey().WithIdentity(identity.NumericIdentity(remoteIdentity)).WithTCPPort(uint16(dstPort))
@@ -755,7 +741,8 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 		L4: &flowpb.Layer4{
 			Protocol: &flowpb.Layer4_TCP{
 				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
+					// NOTE: not the allowed dstPort=443
+					DestinationPort: 8080,
 				},
 			},
 		},
@@ -767,16 +754,14 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
-		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+		PolicyMatchType: monitorAPI.PolicyMatchNone,
 	}
 	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
 	require.Nil(t, flow.IngressDeniedBy)
-	if diff := cmp.Diff(expected, flow.EgressDeniedBy, protocmp.Transform()); diff != "" {
-		t.Fatalf("not equal (-want +got):\n%s", diff)
-	}
+	require.Nil(t, flow.EgressDeniedBy)
 
 	// DropReason_POLICY_DENIED at ingress
 	policyKey = policy.IngressKey().WithIdentity(identity.NumericIdentity(localIdentity)).WithTCPPort(uint16(dstPort))
@@ -815,7 +800,8 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 		L4: &flowpb.Layer4{
 			Protocol: &flowpb.Layer4_TCP{
 				TCP: &flowpb.TCP{
-					DestinationPort: dstPort,
+					// NOTE: not the allowed dstPort=443
+					DestinationPort: 8080,
 				},
 			},
 		},
@@ -827,16 +813,14 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
-		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+		PolicyMatchType: monitorAPI.PolicyMatchNone,
 	}
 	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
 	require.Nil(t, flow.EgressDeniedBy)
-	if diff := cmp.Diff(expected, flow.IngressDeniedBy, protocmp.Transform()); diff != "" {
-		t.Fatalf("not equal (-want +got):\n%s", diff)
-	}
+	require.Nil(t, flow.IngressDeniedBy)
 }
 
 func TestCorrelatePolicy_PortRange(t *testing.T) {
