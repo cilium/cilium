@@ -61,8 +61,6 @@ enum {
 /* FIB errors from BPF neighbor map. */
 #define BPF_FIB_MAP_NO_NEIGH	100
 
-typedef __u64 mac_t;
-
 #define THIS_IS_L3_DEV		(ETH_HLEN == 0)
 
 static __always_inline bool validate_ethertype(const struct __ctx_buff *ctx,

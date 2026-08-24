@@ -8,12 +8,14 @@
 #include <bpf/loader.h>
 #include <lib/static_data.h>
 
+#include "eth.h"
+
 struct vtep_key {
 	__u32 vtep_ip;
 };
 
 struct vtep_value {
-	__u64 vtep_mac;
+	union macaddr vtep_mac;
 	__u32 tunnel_endpoint;
 };
 
