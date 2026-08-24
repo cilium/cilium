@@ -872,8 +872,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	if (tuple.nexthdr == IPPROTO_UDP) {
 		__be16 l4_csum_be = 0;
 
-		if (ctx_load_bytes(ctx, inner_l4_off + offsetof(struct udphdr, check),
-				   &l4_csum_be, sizeof(l4_csum_be)) < 0)
+		if (udp_load_csum(ctx, inner_l4_off, &l4_csum_be) < 0)
 			return DROP_INVALID;
 		if (l4_csum_be == 0)
 			is_inner_l4_csum_enabled = false;
@@ -1120,8 +1119,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	if (tuple.nexthdr == IPPROTO_UDP) {
 		__be16 l4_csum_be = 0;
 
-		if (ctx_load_bytes(ctx, inner_l4_off + offsetof(struct udphdr, check),
-				   &l4_csum_be, sizeof(l4_csum_be)) < 0)
+		if (udp_load_csum(ctx, inner_l4_off, &l4_csum_be) < 0)
 			return DROP_INVALID;
 		if (l4_csum_be == 0)
 			is_inner_l4_csum_enabled = false;
