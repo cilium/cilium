@@ -679,7 +679,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		operator.NewEnqueueRequestForNamespacedNameFunc[*mcsapitypes.MCSAPIServiceSpec](),
 	)
 	for _, svcExport := range remoteSvcImportTestFixtures {
-		globalServiceExports.OnUpdate(svcExport)
+		globalServiceExports.Update(svcExport)
 	}
 
 	r := &mcsAPIServiceImportReconciler{
@@ -870,8 +870,10 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svcImport)
 
-		remoteSvcExport := globalServiceExports.GetServiceExportByCluster(key)[remoteClusterName]
-		globalServiceExports.OnDelete(remoteSvcExport)
+		remoteSvcExports := globalServiceExports.MustByIndex(serviceExportIndex, key.String())
+		require.Len(t, remoteSvcExports, 1)
+		remoteSvcExport := remoteSvcExports[0]
+		globalServiceExports.Delete(remoteSvcExport)
 
 		result, err = r.Reconcile(context.Background(), ctrl.Request{
 			NamespacedName: key,
@@ -905,7 +907,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		require.True(t, meta.IsStatusConditionFalse(svcImport.Status.Conditions, string(mcsapiv1beta1.ServiceImportConditionReady)))
 		require.Equal(t, remoteClusterName, svcImport.Status.Clusters[0].Cluster)
 
-		globalServiceExports.OnUpdate(&mcsapitypes.MCSAPIServiceSpec{
+		globalServiceExports.Update(&mcsapitypes.MCSAPIServiceSpec{
 			Cluster:                 otherClusterName,
 			Name:                    "multiple-clusters",
 			Namespace:               "default",
@@ -985,7 +987,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1beta1.ServiceExportConditionValid)))
 		require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1beta1.ServiceExportConditionConflict)))
 
-		globalServiceExports.OnUpdate(&mcsapitypes.MCSAPIServiceSpec{
+		globalServiceExports.Update(&mcsapitypes.MCSAPIServiceSpec{
 			Cluster:                 remoteClusterName,
 			Name:                    "conflict-type-remove",
 			Namespace:               "default",
