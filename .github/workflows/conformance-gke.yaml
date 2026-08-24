@@ -291,7 +291,8 @@ jobs:
     needs: [generate-matrix, wait-for-images]
     if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    # Enough headroom for the cluster creation to fall back to another zone.
+    timeout-minutes: 90
     env:
       job_name: "Installation and Connectivity Test"
     strategy:
@@ -398,12 +399,30 @@ jobs:
         run: |
           gcloud info
 
+      - name: Determine fallback zones
+        id: fallback-zones
+        env:
+          ZONE: ${{ matrix.k8s.zone }}
+        run: |
+          # The other zones of the same region, so that a zone which is out of
+          # capacity does not fail the whole job. Same region only, because
+          # cluster names encode just the config index, so legs of different
+          # k8s versions share a name and must not meet in one zone, and each
+          # version is pinned to its own region.
+          region="${ZONE%-?}"
+          zones=$(gcloud compute zones list --filter="status=UP" --format='value(name)' \
+            | grep "^${region}-" | grep -v "^${ZONE}$" | tr '\n' ' ')
+          echo "Fallback zones for ${ZONE}: ${zones}"
+          echo "zones=${zones}" >> $GITHUB_OUTPUT
+          echo "candidates=${ZONE} ${zones}" >> $GITHUB_OUTPUT
+
       - name: Create GKE cluster
         id: create-cluster
         uses: ./.github/actions/setup-gke-cluster
         with:
           cluster-name: ${{ env.clusterName }}-${{ matrix.config.index }}
           zone: ${{ matrix.k8s.zone }}
+          fallback-zones: ${{ steps.fallback-zones.outputs.zones }}
           cluster-version: ${{ matrix.k8s.version }}
           nodes: ${{ matrix.config.nodes || 2 }}
           machine-type: e2-custom-2-4096
