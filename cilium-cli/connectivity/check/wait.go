@@ -38,7 +38,52 @@ const (
 	// rejected before running. kubelet's rejection backoff reaches roughly four
 	// minutes, so this has to cover one burst plus the scheduling that follows.
 	daemonSetRejectionGrace = 5 * time.Minute
+
+	// execProxyTimeout bounds how long pollExecProbe keeps retrying while the
+	// only thing failing is the exec proxy itself, not the probe. The
+	// kube-apiserver -> kubelet exec proxy on managed clusters (seen on AKS) can
+	// be unreachable for tens of seconds at a time, longer than ShortTimeout, so
+	// these failures get their own generous allowance instead of consuming the
+	// readiness budget of whatever is being waited for.
+	execProxyTimeout = 3 * time.Minute
 )
+
+// pollExecProbe polls probe until it succeeds or its deadline is reached.
+//
+// The readiness deadline governs how long we wait for whatever the probe
+// measures to become ready. A transient exec-proxy failure is not a verdict on
+// that, so it is bounded by the generous execProxyTimeout instead and must not
+// count against readiness. Any other error means the probe actually ran and
+// reported not-ready, so it is bounded by readiness as usual.
+//
+// Probes must exec against the parent context, never against a context derived
+// from the readiness deadline: the exec dial has no timeout of its own, so a
+// blackholed connection to the apiserver burns the entire readiness budget on a
+// single attempt and leaves the loop with no retry at all.
+func pollExecProbe(parentCtx context.Context, readiness time.Duration, probe func() error) error {
+	readinessDeadline := time.Now().Add(readiness)
+	execProxyDeadline := time.Now().Add(execProxyTimeout)
+	for {
+		err := probe()
+		if err == nil {
+			return nil
+		}
+
+		deadline := readinessDeadline
+		if k8s.IsTransientExecError(err) {
+			deadline = execProxyDeadline
+		}
+		if time.Now().After(deadline) {
+			return err
+		}
+
+		select {
+		case <-time.After(PollInterval):
+		case <-parentCtx.Done():
+			return err
+		}
+	}
+}
 
 // WaitForDeployment waits until the specified deployment becomes ready.
 func WaitForDeployment(ctx context.Context, log Logger, client *k8s.Client, namespace string, name string) error {
@@ -143,63 +188,54 @@ func supersededDaemonSetPods(ctx context.Context, client *k8s.Client, namespace,
 }
 
 // WaitForPodDNS waits until src can query the DNS server on dst successfully.
-func WaitForPodDNS(ctx context.Context, log Logger, src, dst Pod) error {
+func WaitForPodDNS(parentCtx context.Context, log Logger, src, dst Pod) error {
 	log.Logf("⌛ [%s] Waiting for pod %s to reach DNS server on %s pod...",
 		src.K8sClient.ClusterName(), src.Name(), dst.Name())
 
-	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
-	defer cancel()
-	for {
-		// We don't care about the actual response content, we just want to check the DNS operativity.
-		// Since the coreDNS test server has been deployed with the "local" plugin enabled,
-		// we query it with a so-called "local request" (e.g. "localhost") to get a response.
-		// See https://coredns.io/plugins/local/ for more info.
-		target := "localhost"
-		stdout, err := src.K8sClient.ExecInPod(ctx, src.Namespace(), src.NameWithoutNamespace(),
+	// We don't care about the actual response content, we just want to check the DNS operativity.
+	// Since the coreDNS test server has been deployed with the "local" plugin enabled,
+	// we query it with a so-called "local request" (e.g. "localhost") to get a response.
+	// See https://coredns.io/plugins/local/ for more info.
+	target := "localhost"
+	err := pollExecProbe(parentCtx, ShortTimeout, func() error {
+		stdout, err := src.K8sClient.ExecInPod(parentCtx, src.Namespace(), src.NameWithoutNamespace(),
 			src.Pod.Spec.Containers[0].Name, []string{"nslookup", target, dst.Address(features.IPFamilyAny)})
-
-		if err == nil {
-			return nil
+		if err != nil {
+			log.Debugf("[%s] Error looking up %s from pod %s to server on pod %s: %s: %s",
+				src.K8sClient.ClusterName(), target, src.Name(), dst.Name(), err, stdout.String())
 		}
-
-		log.Debugf("[%s] Error looking up %s from pod %s to server on pod %s: %s: %s",
-			src.K8sClient.ClusterName(), target, src.Name(), dst.Name(), err, stdout.String())
-
-		select {
-		case <-time.After(PollInterval):
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for lookup for %s from pod %s to server on pod %s to succeed (last error: %w)",
-				target, src.Name(), dst.Name(), err,
-			)
-		}
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("timeout reached waiting for lookup for %s from pod %s to server on pod %s to succeed (last error: %w)",
+			target, src.Name(), dst.Name(), err,
+		)
 	}
+
+	return nil
 }
 
 // WaitForCoreDNS waits until the client pod can reach coredns.
-func WaitForCoreDNS(ctx context.Context, log Logger, client Pod) error {
+func WaitForCoreDNS(parentCtx context.Context, log Logger, client Pod) error {
 	log.Logf("⌛ [%s] Waiting for pod %s to reach default/kubernetes service...",
 		client.K8sClient.ClusterName(), client.Name())
 
-	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
-	defer cancel()
-	for {
-		target := "kubernetes.default"
-		stdout, err := client.K8sClient.ExecInPod(ctx, client.Namespace(), client.NameWithoutNamespace(),
+	target := "kubernetes.default"
+	err := pollExecProbe(parentCtx, ShortTimeout, func() error {
+		stdout, err := client.K8sClient.ExecInPod(parentCtx, client.Namespace(), client.NameWithoutNamespace(),
 			client.Pod.Spec.Containers[0].Name, []string{"nslookup", target})
-		if err == nil {
-			return nil
+		if err != nil {
+			log.Debugf("[%s] Error looking up %s from pod %s: %s: %s",
+				client.K8sClient.ClusterName(), target, client.Name(), err, stdout.String())
 		}
-
-		log.Debugf("[%s] Error looking up %s from pod %s: %s: %s",
-			client.K8sClient.ClusterName(), target, client.Name(), err, stdout.String())
-
-		select {
-		case <-time.After(PollInterval):
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for lookup for %s from pod %s to succeed (last error: %w)",
-				target, client.Name(), err)
-		}
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("timeout reached waiting for lookup for %s from pod %s to succeed (last error: %w)",
+			target, client.Name(), err)
 	}
+
+	return nil
 }
 
 // Service waits until the specified service is created and can be retrieved.
@@ -226,19 +262,16 @@ func WaitForServiceRetrieval(ctx context.Context, log Logger, client *k8s.Client
 }
 
 // WaitForService waits until the given service is synchronized in CoreDNS.
-func WaitForService(ctx context.Context, log Logger, client Pod, service Service) error {
+func WaitForService(parentCtx context.Context, log Logger, client Pod, service Service) error {
 	log.Logf("⌛ [%s] Waiting for Service %s to become ready...", client.K8sClient.ClusterName(), service.Name())
-
-	ctx, cancel := context.WithTimeout(ctx, 2*ShortTimeout)
-	defer cancel()
 
 	if service.Service.Spec.ClusterIP == corev1.ClusterIPNone {
 		// If the cluster is headless there is nothing to wait for here
 		return nil
 	}
 
-	for {
-		stdout, err := client.K8sClient.ExecInPod(ctx,
+	err := pollExecProbe(parentCtx, 2*ShortTimeout, func() error {
+		stdout, err := client.K8sClient.ExecInPod(parentCtx,
 			client.Namespace(), client.NameWithoutNamespace(), client.Pod.Spec.Containers[0].Name,
 			[]string{"nslookup", service.Service.Name}) // BusyBox nslookup doesn't support any arguments.
 
@@ -259,47 +292,43 @@ func WaitForService(ctx context.Context, log Logger, client Pod, service Service
 		log.Debugf("[%s] Error checking service %s: %s: %s",
 			client.K8sClient.ClusterName(), service.Name(), err, stdout.String())
 
-		select {
-		case <-time.After(PollInterval):
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for service %s (last error: %w)", service.Name(), err)
-		}
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("timeout reached waiting for service %s (last error: %w)", service.Name(), err)
 	}
+
+	return nil
 }
 
 // WaitForServiceEndpoints waits until the expected number of service backends
 // are reported by the given agent.
-func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service Service, backends uint, families []features.IPFamily) error {
+func WaitForServiceEndpoints(parentCtx context.Context, log Logger, agent Pod, service Service, backends uint, families []features.IPFamily) error {
 	log.Logf("⌛ [%s] Waiting for Service %s to be synchronized by Cilium pod %s",
 		agent.K8sClient.ClusterName(), service.Name(), agent.Name())
-
-	// Use the same timeout as WaitForService above: with concurrent tests it
-	// takes a little bit more time for all the services to be synchronized by
-	// every agent, and 30 seconds occasionally isn't enough.
-	ctx, cancel := context.WithTimeout(ctx, 2*ShortTimeout)
-	defer cancel()
 
 	if service.Service.Spec.ClusterIP == corev1.ClusterIPNone {
 		// If the cluster is headless there is nothing to wait for here
 		return nil
 	}
 
-	for {
-		err := checkServiceEndpoints(ctx, agent, service, backends, families)
-		if err == nil {
-			return nil
+	// Use the same timeout as WaitForService above: with concurrent tests it
+	// takes a little bit more time for all the services to be synchronized by
+	// every agent, and 30 seconds occasionally isn't enough.
+	err := pollExecProbe(parentCtx, 2*ShortTimeout, func() error {
+		err := checkServiceEndpoints(parentCtx, agent, service, backends, families)
+		if err != nil {
+			log.Debugf("[%s] Service %s not yet correctly synchronized by Cilium pod %s: %s",
+				agent.K8sClient.ClusterName(), service.Name(), agent.Name(), err)
 		}
-
-		log.Debugf("[%s] Service %s not yet correctly synchronized by Cilium pod %s: %s",
-			agent.K8sClient.ClusterName(), service.Name(), agent.Name(), err)
-
-		select {
-		case <-time.After(PollInterval):
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for service %s to appear in Cilium pod %s (last error: %w)",
-				service.Name(), agent.Name(), err)
-		}
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("timeout reached waiting for service %s to appear in Cilium pod %s (last error: %w)",
+			service.Name(), agent.Name(), err)
 	}
+
+	return nil
 }
 
 func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, backends uint, families []features.IPFamily) error {
@@ -349,14 +378,6 @@ func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, back
 	return nil
 }
 
-// nodePortExecProxyTimeout bounds how long we keep retrying a single NodePort
-// probe while the only thing failing is the exec proxy itself (not the probe).
-// The kube-apiserver -> kubelet exec proxy on managed clusters (seen on AKS)
-// can be unreachable for tens of seconds at a time, longer than ShortTimeout,
-// so these failures get their own generous allowance instead of consuming the
-// NodePort readiness budget.
-const nodePortExecProxyTimeout = 3 * time.Minute
-
 // WaitForNodePorts waits until all the nodeports in a service are available on a given node.
 func WaitForNodePorts(parentCtx context.Context, log Logger, client Pod, nodeIP string, service Service) error {
 	for _, port := range service.Service.Spec.Ports {
@@ -368,44 +389,19 @@ func WaitForNodePorts(parentCtx context.Context, log Logger, client Pod, nodeIP 
 		log.Logf("⌛ [%s] Waiting for NodePort %s:%d (%s) to become ready...",
 			client.K8sClient.ClusterName(), nodeIP, nodePort, service.Name())
 
-		// The readiness deadline governs how long we wait for the NodePort
-		// itself to come up. Transient exec-proxy failures are tracked
-		// separately (execProxyDeadline) so a proxy outage does not eat into
-		// it; the exec below always runs against parentCtx, not a deadline that
-		// a proxy blip could expire.
-		readinessDeadline := time.Now().Add(ShortTimeout)
-		execProxyDeadline := time.Now().Add(nodePortExecProxyTimeout)
-		for {
+		err := pollExecProbe(parentCtx, ShortTimeout, func() error {
 			stdout, err := client.K8sClient.ExecInPod(parentCtx,
 				client.Namespace(), client.NameWithoutNamespace(), client.Pod.Spec.Containers[0].Name,
 				[]string{"nc", "-w", "3", "-z", nodeIP, strconv.Itoa(int(nodePort))})
-			if err == nil {
-				break
+			if err != nil {
+				log.Debugf("[%s] Error checking NodePort %s:%d (%s): %s: %s",
+					client.K8sClient.ClusterName(), nodeIP, nodePort, service.Name(), err, stdout.String())
 			}
-
-			log.Debugf("[%s] Error checking NodePort %s:%d (%s): %s: %s",
-				client.K8sClient.ClusterName(), nodeIP, nodePort, service.Name(), err, stdout.String())
-
-			// A transient exec-proxy failure is not a verdict on whether the
-			// NodePort is up, so it is bounded by the generous execProxyDeadline
-			// and must not count against the fixed readinessDeadline. Any other
-			// error means the probe actually ran and the NodePort is not ready
-			// yet, so it is bounded by readinessDeadline as before.
-			deadline := readinessDeadline
-			if k8s.IsTransientExecError(err) {
-				deadline = execProxyDeadline
-			}
-			if time.Now().After(deadline) {
-				return fmt.Errorf("timeout reached waiting for NodePort %s:%d (%s) (last error: %w)",
-					nodeIP, nodePort, service.Name(), err)
-			}
-
-			select {
-			case <-time.After(PollInterval):
-			case <-parentCtx.Done():
-				return fmt.Errorf("timeout reached waiting for NodePort %s:%d (%s) (last error: %w)",
-					nodeIP, nodePort, service.Name(), err)
-			}
+			return err
+		})
+		if err != nil {
+			return fmt.Errorf("timeout reached waiting for NodePort %s:%d (%s) (last error: %w)",
+				nodeIP, nodePort, service.Name(), err)
 		}
 	}
 
