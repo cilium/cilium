@@ -49,8 +49,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		if k8serrors.IsNotFound(err) {
 			return controllerruntime.Success()
 		}
-		scopedLog.ErrorContext(ctx, "Unable to get Service for GAMMA checks", logfields.Error, err)
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to get Service for GAMMA checks: %w", err))
 	}
 
 	// Ignore deleting Service, this can happen when foregroundDeletion is enabled
@@ -70,8 +69,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err := r.Client.List(ctx, httpRouteList, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexers.GammaHTTPRouteParentRefsIndex, client.ObjectKeyFromObject(svc).String()),
 	}); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to list HTTPRoutes", logfields.Error, err)
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to list HTTPRoutes: %w", err))
 	}
 
 	if len(httpRouteList.Items) != 0 {
@@ -83,8 +81,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err := r.Client.List(ctx, grpcRouteList, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexers.GammaGRPCRouteParentRefsIndex, client.ObjectKeyFromObject(svc).String()),
 	}); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to list GRPCRoutes", logfields.Error, err)
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to list GRPCRoutes: %w", err))
 	}
 
 	if len(grpcRouteList.Items) != 0 {
@@ -101,26 +98,22 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
 	servicesList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, servicesList); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to list Services", logfields.Error, err)
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to list Services: %w", err))
 	}
 
 	grants := &gatewayv1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to list ReferenceGrants", logfields.Error, err)
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to list ReferenceGrants: %w", err))
 	}
 
 	// Run the HTTPRoute route checks here and update the status accordingly.
 	if err := r.setHTTPRouteStatuses(scopedLog, ctx, originalSvc, httpRouteList, grants); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to update HTTPRoute Status", logfields.Error, err)
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to update HTTPRoute status: %w", err))
 	}
 
 	// Run the GRPCRoute route checks here and update the status accordingly.
 	if err := r.setGRPCRouteStatuses(scopedLog, ctx, originalSvc, grpcRouteList, grants); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to update GRPCRoute Status", logfields.Error, err)
-		return controllerruntime.Fail(err)
+		return controllerruntime.Fail(fmt.Errorf("failed to update GRPCRoute status: %w", err))
 	}
 
 	httpRoutes := r.filterHTTPRoutesByService(originalSvc, httpRouteList.Items)
@@ -139,21 +132,18 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	cec, _, ceps, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
 	if err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to translate resources: %w", err), originalSvc, svc)
 	}
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
+		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to ensure CiliumEnvoyConfig: %w", err), originalSvc, svc)
 	}
 
 	// GAMMA only ever produces a single dummy EndpointSlice; unwrap from the
 	// shared Translator interface that returns a list to support gateway-api L4.
 	if len(ceps) > 0 {
 		if err = r.ensureEndpointSlice(ctx, ceps[0]); err != nil {
-			scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
-			return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
+			return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to ensure Endpoints: %w", err), originalSvc, svc)
 		}
 	}
 
