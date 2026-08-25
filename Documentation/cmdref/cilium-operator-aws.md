@@ -49,6 +49,7 @@ cilium-operator-aws [flags]
       --enable-extended-ip-protocols[=true|false]                  Enable traffic with extended IP protocols in datapath
       --enable-gateway-api-alpn[=true|false]                       Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API
       --enable-gateway-api-app-protocol[=true|false]               Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol
+      --enable-gateway-api-extension-ref-filters[=true|false]      Enable ExtensionRef support for ext_proc filters in Gateway API HTTPRoute and GRPCRoute resources
       --enable-gateway-api-proxy-protocol[=true|false]             Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
       --enable-gateway-api-secrets-sync[=true|false]               Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag) (default true)
       --enable-gops[=true|false]                                   Enable gops server (default true)
