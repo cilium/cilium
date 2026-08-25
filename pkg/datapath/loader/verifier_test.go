@@ -443,10 +443,11 @@ func parseStackDepth(t *testing.T, s *ebpf.ProgramSpec, verifierLogs string, las
 	}
 
 	stackDepthLine = strings.TrimPrefix(strings.TrimSpace(stackDepthLine), "stack depth ")
-	// On newer kernels, the stack depth line may look as follows, so we need
-	// to remove the max info at the end.
+	// On newer kernels, the stack depth line may look as one of the following options and we need
+	// to extract the max info at the end.
 	//   stack depth 144+255 max 400
-	stackDepthInfo := strings.Split(stackDepthLine, " max ")
+	//   stack depth max 400
+	stackDepthInfo := strings.Split(stackDepthLine, "max ")
 
 	// The max field isn't reported on older kernels.
 	if len(stackDepthInfo) != 2 {
