@@ -1,0 +1,68 @@
+name: Backport merged pull requests
+on:
+  pull_request_target:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number to backport'
+        required: true
+
+permissions: {}
+
+jobs:
+  backport:
+    name: Backport pull request
+    runs-on: ubuntu-24.04
+
+    environment:
+      name: backport
+      deployment: false
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    timeout-minutes: 10
+    # Don't run on closed unmerged pull requests
+    if: ${{ github.event.pull_request.merged || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Get token
+        id: generate-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.CILIUM_BACKPORTER_CLIENT_ID }}
+          private-key: ${{ secrets.CILIUM_BACKPORTER_APP_PEM }}
+
+      - name: Checkout Repository
+        id: checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Create backport pull requests
+        id: backport
+        uses: korthout/backport-action@2e830a1d0b8269505846ddd407a70876913ad1f8 # v4.6.0
+        with:
+          github_token: ${{ steps.generate-token.outputs.token }}
+          branch_name: backport/${target_branch}/${pull_number}
+          copy_assignees: true
+          copy_labels_pattern: '^(kind|area|release-note)\/.*$'
+          copy_milestone: false # Reviewer should set this manually
+          copy_requested_reviewers: false # Previous reviewers may not be available for review
+          label_pattern: '^needs-backport\/(v[\w\.\-]+)$'
+          pull_title: '[${target_branch} Backport]: ${pull_title}'
+          pull_description: |
+            Backport of #${pull_number} to `${target_branch}`.
+            * [x] #${pull_number}
+
+            ## Upstream pull request description:
+
+            ${pull_description}
+
+            Once this PR is merged, a GitHub action will update the labels of these PRs:
+            ```upstream-prs
+            ${pull_number}
+            ```
+          add_labels: 'kind/backports'
+          source_pr_number: ${{ inputs.pr_number }}
