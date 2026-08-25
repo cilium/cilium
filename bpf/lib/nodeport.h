@@ -1567,7 +1567,6 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
-	const struct lb6_service *svc;
 	fraginfo_t fraginfo = 0;
 	struct lb6_key key = {};
 
@@ -1593,11 +1592,14 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	lb6_fill_key(&key, &tuple);
 
-	svc = lb6_lookup_service(&key, false);
-	if (svc)
-		return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
-					fraginfo, l4_off, src_sec_identity,
-					punt_to_stack, ext_err);
+	{
+		const struct lb6_service *svc = lb6_lookup_service(&key, false);
+
+		if (svc)
+			return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
+						fraginfo, l4_off, src_sec_identity,
+						punt_to_stack, ext_err);
+	}
 
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
@@ -2865,7 +2867,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	fraginfo_t fraginfo;
 	struct ipv4_ct_tuple tuple = {};
 	bool is_svc_proto = true;
-	const struct lb4_service *svc;
 	struct lb4_key key = {};
 	int l3_off = ETH_HLEN;
 	int ret, l4_off;
@@ -2888,11 +2889,14 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	lb4_fill_key(&key, &tuple);
 
-	svc = lb4_lookup_service(&key, false);
-	if (svc)
-		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
-					fraginfo, l4_off, src_sec_identity,
-					punt_to_stack, ext_err);
+	{
+		const struct lb4_service *svc = lb4_lookup_service(&key, false);
+
+		if (svc)
+			return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
+						fraginfo, l4_off, src_sec_identity,
+						punt_to_stack, ext_err);
+	}
 
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
