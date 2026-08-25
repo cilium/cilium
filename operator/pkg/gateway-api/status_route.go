@@ -158,6 +158,7 @@ var backendCheckFuncs = []routechecks.CheckWithParentFunc{
 	routechecks.CheckHasInferencePoolSupport,
 	routechecks.CheckBackendIsExistingInferencePool,
 	routechecks.CheckBackendIsExistingService,
+	routechecks.CheckExtensionRefs,
 }
 
 func runCheckFuncs(
