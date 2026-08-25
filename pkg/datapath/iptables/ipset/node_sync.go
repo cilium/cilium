@@ -14,9 +14,15 @@ import (
 
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+// IPSetFilterFn is a function allowing to optionally filter out the insertion
+// of IPSet entries based on node characteristics. The insertion is performed
+// if the function returns false, and skipped otherwise.
+type IPSetFilterFn func(*nodeTypes.Node) bool
 
 const nodeIPSetSyncInterval = time.Second
 
@@ -33,28 +39,35 @@ type nodeIPSetSync struct {
 	initializer Initializer
 	v4          AddrSet
 	v6          AddrSet
+	filterFn    IPSetFilterFn
 }
 
-func registerNodeIPSetSync(
-	jobs job.Group,
-	db *statedb.DB,
-	nodes statedb.Table[*node.Node],
-	manager *manager,
-	config config,
-) {
-	if !config.NodeIPSetNeeded {
+type nodeIPSetSyncParams struct {
+	cell.In
+
+	Jobs     job.Group
+	DB       *statedb.DB
+	Nodes    statedb.Table[*node.Node]
+	Manager  *manager
+	Config   config
+	FilterFn IPSetFilterFn `optional:"true"`
+}
+
+func registerNodeIPSetSync(p nodeIPSetSyncParams) {
+	if !p.Config.NodeIPSetNeeded {
 		return
 	}
 
 	sync := &nodeIPSetSync{
-		db:          db,
-		nodes:       nodes,
-		manager:     manager,
-		initializer: manager.NewInitializer(),
+		db:          p.DB,
+		nodes:       p.Nodes,
+		manager:     p.Manager,
+		initializer: p.Manager.NewInitializer(),
 		v4:          AddrSet{},
 		v6:          AddrSet{},
+		filterFn:    p.FilterFn,
 	}
-	jobs.Add(job.OneShot("node-ipset-sync", sync.run))
+	p.Jobs.Add(job.OneShot("node-ipset-sync", sync.run))
 }
 
 func (s *nodeIPSetSync) run(ctx context.Context, health cell.Health) error {
@@ -92,7 +105,7 @@ func (s *nodeIPSetSync) run(ctx context.Context, health cell.Health) error {
 }
 
 func (s *nodeIPSetSync) update(nodes iter.Seq2[*node.Node, statedb.Revision]) {
-	v4, v6 := nodeIPSets(nodes)
+	v4, v6 := nodeIPSets(nodes, s.filterFn)
 
 	s.manager.AddToIPSet(
 		CiliumNodeIPSetV4,
@@ -119,10 +132,14 @@ func (s *nodeIPSetSync) update(nodes iter.Seq2[*node.Node, statedb.Revision]) {
 
 func nodeIPSets(
 	nodes iter.Seq2[*node.Node, statedb.Revision],
+	filterFn IPSetFilterFn,
 ) (v4, v6 AddrSet) {
 	v4 = AddrSet{}
 	v6 = AddrSet{}
 	for n := range nodes {
+		if filterFn != nil && filterFn(&n.Node) {
+			continue
+		}
 		for _, address := range n.IPAddresses {
 			if address.Type != addressing.NodeInternalIP {
 				continue
