@@ -612,7 +612,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}-precheck
+          job-name: cilium-upgrade-${{ matrix.name }}-${{ matrix.mode }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
           skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
@@ -629,7 +629,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}-sequential
+          job-name: cilium-upgrade-${{ matrix.name }}-${{ matrix.mode }}-sequential
           tests: ${{ steps.vars.outputs.sequential_connectivity_tests }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
@@ -637,7 +637,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}-concurrent
+          job-name: cilium-upgrade-${{ matrix.name }}-${{ matrix.mode }}-concurrent
           tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
@@ -646,7 +646,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}-postcheck
+          job-name: cilium-upgrade-${{ matrix.name }}-${{ matrix.mode }}-postcheck
           tests: 'no-unexpected-packet-drops'
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
@@ -684,7 +684,7 @@ jobs:
         continue-on-error: true
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-restart-${{ matrix.name }}-precheck
+          job-name: cilium-restart-${{ matrix.name }}-${{ matrix.mode }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
           skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
           include-conn-disrupt-test-l7-traffic: ${{ steps.vars-conn.outputs.include_conn_disrupt_test_l7_traffic }}
@@ -730,7 +730,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}-precheck
+          job-name: cilium-downgrade-${{ matrix.name }}-${{ matrix.mode }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
           skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
@@ -746,7 +746,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}-sequential
+          job-name: cilium-downgrade-${{ matrix.name }}-${{ matrix.mode }}-sequential
           tests: ${{ steps.vars.outputs.sequential_connectivity_tests }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
@@ -754,7 +754,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-downgrade-${{ matrix.name }}-concurrent
+          job-name: cilium-downgrade-${{ matrix.name }}-${{ matrix.mode }}-concurrent
           tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
@@ -763,7 +763,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          job-name: cilium-upgrade-${{ matrix.name }}-postcheck
+          job-name: cilium-downgrade-${{ matrix.name }}-${{ matrix.mode }}-postcheck
           tests: 'no-unexpected-packet-drops'
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
