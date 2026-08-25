@@ -163,6 +163,37 @@ func TestNodeIPSetSync(t *testing.T) {
 	require.NoError(t, <-done)
 }
 
+func TestNodeIPSetSyncFilter(t *testing.T) {
+	db := statedb.New()
+	nodes, err := node.NewNodeTable(db)
+	require.NoError(t, err)
+
+	insertNode(t, db, nodes, testNode("included",
+		testAddress(addressing.NodeInternalIP, "10.0.0.1"),
+		testAddress(addressing.NodeInternalIP, "2001:db8::1"),
+	))
+	insertNode(t, db, nodes, testNode("excluded",
+		testAddress(addressing.NodeInternalIP, "10.0.0.2"),
+		testAddress(addressing.NodeInternalIP, "2001:db8::2"),
+	))
+
+	manager := newFakeNodeIPSetManager()
+	syncer := &nodeIPSetSync{
+		manager: manager,
+		v4:      AddrSet{},
+		v6:      AddrSet{},
+		filterFn: func(n *nodeTypes.Node) bool {
+			return n.Name == "excluded"
+		},
+	}
+	syncer.update(nodes.All(db.ReadTxn()))
+
+	require.True(t, manager.has(
+		[]netip.Addr{netip.MustParseAddr("10.0.0.1")},
+		[]netip.Addr{netip.MustParseAddr("2001:db8::1")},
+	))
+}
+
 func testNode(name string, addresses ...nodeTypes.Address) *node.Node {
 	return &node.Node{Node: nodeTypes.Node{
 		Name:        name,
