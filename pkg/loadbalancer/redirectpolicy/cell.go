@@ -8,12 +8,13 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // Cell implements the processing of the CiliumLocalRedirectPolicy CRD.
@@ -25,15 +26,14 @@ var Cell = cell.Module(
 	"local-redirect-policies",
 	"Controller for CiliumLocalRedirectPolicy",
 
-	cell.Config(DefaultConfig),
+	ConfigCell,
 
 	cell.Provide(
 		// Provide Table[*LocalRedirectPolicy]. Used from replaceAPI.
 		statedb.RWTable[*LocalRedirectPolicy].ToTable,
 
-		// Provide the lrpIsEnabled value. Provided globally as it is
-		// used by replaceAPI (DecorateAll runs in root scope).
-		newLRPIsEnabled,
+		// Wait for the CiliumLocalRedirectPolicy CRD when LRP is enabled.
+		lrpCRDSyncResourceNames,
 
 		// Provide the [lbmap.SkipLBMap]. Provided globally to register it.
 		newSkipLBMap,
@@ -66,20 +66,24 @@ var Cell = cell.Module(
 	cell.Provide(lrpAPI),
 )
 
+// lrpCRDSyncResourceNames makes the agent wait for the CiliumLocalRedirectPolicy
+// CRD to synchronise when LRP is enabled.
+func lrpCRDSyncResourceNames(cfg Config) k8sSynced.CRDSyncResourceNamesOut {
+	if !cfg.IsEnabled() {
+		return k8sSynced.CRDSyncResourceNamesOut{}
+	}
+	return k8sSynced.NewCRDSyncResourceNamesOut(
+		k8sSynced.CRDResourceName(ciliumv2.CLRPName),
+	)
+}
+
 func lrpAPI(
-	enabled lrpIsEnabled,
 	db *statedb.DB,
 	lrps statedb.Table[*LocalRedirectPolicy],
 	backends statedb.Table[*lb.Backend],
 	pods statedb.Table[k8sTables.LocalPod],
 ) service.GetLrpHandler {
 	return &getLrpHandler{db, lrps, backends, pods}
-}
-
-type lrpIsEnabled bool
-
-func newLRPIsEnabled(expConfig loadbalancer.Config, daemonConfig *option.DaemonConfig) lrpIsEnabled {
-	return lrpIsEnabled(daemonConfig.EnableLocalRedirectPolicy)
 }
 
 type controllerMetrics struct {

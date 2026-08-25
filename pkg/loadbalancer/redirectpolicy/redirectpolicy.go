@@ -209,7 +209,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 			return nil, fmt.Errorf("invalid address matcher IP %v: %w", addrMatcher.IP, err)
 		}
 
-		if !cfg.addressAllowed(addrCluster.Addr()) {
+		if !cfg.AddressAllowed(addrCluster.Addr()) {
 			return nil, fmt.Errorf("address %q in AddressMatcher disallowed by --"+AddressMatcherCIDRsName, addrMatcher.IP)
 		}
 
