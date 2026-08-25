@@ -89,9 +89,8 @@ func TestScript(t *testing.T) {
 					statedb.RWTable[tables.NodeAddress].ToTable,
 					func() *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:                true,
-							EnableIPv6:                true,
-							EnableLocalRedirectPolicy: true,
+							EnableIPv4: true,
+							EnableIPv6: true,
 						}
 					},
 					func() kpr.KPRConfig {
@@ -111,6 +110,9 @@ func TestScript(t *testing.T) {
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 			h.RegisterFlags(flags)
+
+			// Forcibly enable LRP.
+			require.NoError(t, flags.Set(redirectpolicy.EnableLocalRedirectPolicyName, "true"))
 
 			// Set some defaults
 			require.NoError(t, flags.Parse(args), "flags.Parse")

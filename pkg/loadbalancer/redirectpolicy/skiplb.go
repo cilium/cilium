@@ -39,7 +39,7 @@ type skiplbParams struct {
 	cell.In
 
 	Log                *slog.Logger
-	IsEnabled          lrpIsEnabled
+	Config             Config
 	DB                 *statedb.DB
 	Lifecycle          cell.Lifecycle
 	DesiredSkipLB      statedb.RWTable[*desiredSkipLB]
@@ -49,7 +49,7 @@ type skiplbParams struct {
 }
 
 func registerSkipLBReconciler(p skiplbParams, rp reconciler.Params) {
-	if !p.IsEnabled {
+	if !p.Config.IsEnabled() {
 		return
 	}
 

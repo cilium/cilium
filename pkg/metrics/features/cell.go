@@ -92,6 +92,7 @@ type featuresParams struct {
 	Metrics       featureMetrics
 
 	LBConfig            loadbalancer.Config
+	LRPConfig           redirectpolicy.Config
 	KPRConfig           kpr.KPRConfig
 	TunnelConfig        tunnel.Config
 	CNIConfigManager    cni.CNIConfigManager
@@ -111,6 +112,10 @@ func (fp *featuresParams) TunnelProtocol() tunnel.EncapProtocol {
 
 func (fp *featuresParams) GetChainingMode() string {
 	return fp.CNIConfigManager.GetChainingMode()
+}
+
+func (fp *featuresParams) IsLocalRedirectPolicyEnabled() bool {
+	return fp.LRPConfig.IsEnabled()
 }
 
 func (fp *featuresParams) IsBandwidthManagerEnabled() bool {
@@ -148,6 +153,7 @@ func (fp *featuresParams) KernelVersion() string {
 type enabledFeatures interface {
 	TunnelProtocol() tunnel.EncapProtocol
 	GetChainingMode() string
+	IsLocalRedirectPolicyEnabled() bool
 	IsBandwidthManagerEnabled() bool
 	BigTCPFeatures() bigtcp.Features
 	IsL2PodAnnouncementEnabled() bool

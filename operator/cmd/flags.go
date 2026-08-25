@@ -47,10 +47,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableEgressGateway)
 	option.BindEnv(vp, option.EnableEgressGateway)
 
-	flags.Bool(option.EnableLocalRedirectPolicy, false, "")
-	flags.MarkHidden(option.EnableLocalRedirectPolicy)
-	option.BindEnv(vp, option.EnableLocalRedirectPolicy)
-
 	flags.Bool(option.EnableSRv6, false, "")
 	flags.MarkHidden(option.EnableSRv6)
 	option.BindEnv(vp, option.EnableSRv6)
