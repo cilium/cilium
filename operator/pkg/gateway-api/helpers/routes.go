@@ -16,12 +16,19 @@ const ExtProcConditionMessagePrefix = "ext_proc: "
 // controller because an ext_proc filter declaration was rejected. It lets
 // aggregate-scoped status handling recognise its own conditions without
 // disturbing conditions that another aggregate or another feature produced.
+//
+// The message carries the marker either bare, when the whole Route was
+// rejected, or behind the Gateway API rule prefixes used when only some rules
+// were dropped.
 func IsExtProcInvalidCondition(condition metav1.Condition) bool {
 	if condition.Reason != "OrderingConflict" && condition.Reason != string(gatewayv1.RouteReasonIncompatibleFilters) {
 		return false
 	}
 
-	return strings.HasPrefix(condition.Message, ExtProcConditionMessagePrefix)
+	message := condition.Message
+	return strings.HasPrefix(message, ExtProcConditionMessagePrefix) ||
+		strings.HasPrefix(message, "Dropped Rule: "+ExtProcConditionMessagePrefix) ||
+		strings.HasPrefix(message, "Rejected Rule: "+ExtProcConditionMessagePrefix)
 }
 
 func IsParentAttachable(
