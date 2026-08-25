@@ -20,6 +20,7 @@ import (
 	statefulsessionv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	httpConnectionManagerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -116,14 +117,26 @@ func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*h
 		},
 	})
 
+	// ExtensionRef processors run before authorization so auth sees their header
+	// mutations. Preserve the existing authorization-before-inference-EPP order.
+	for _, f := range i.getUniqueExtProcFilters(m) {
+		hf = append(hf, &httpConnectionManagerv3.HttpFilter{
+			Name: f.Name,
+			ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+				TypedConfig: &anypb.Any{
+					TypeUrl: f.TypeURL,
+					Value:   f.Config,
+				},
+			},
+		})
+	}
+
 	for _, af := range i.getUniqueAuthFilters(m) {
 		hf = append(hf, buildExtAuthzHTTPFilter(af))
 	}
 
-	if epps := getUniqueEPPs(m); len(epps) > 0 {
-		for _, epp := range epps {
-			hf = append(hf, buildExtProcHTTPFilter(epp))
-		}
+	for _, epp := range getUniqueEPPs(m) {
+		hf = append(hf, buildExtProcHTTPFilter(epp))
 	}
 
 	// HTTP filter order matters. When CORS is enabled,
@@ -289,7 +302,7 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) *httpConnectionMa
 
 // buildExtProcHTTPFilter creates one named ext_proc HCM HTTPFilter for an InferencePool's
 // EPP. Similar to ext_authz, these filters are placed before the terminal router filter so
-// that the per-route TypedPerFilterConfgi can enable or disable each instance.
+// that the per-route TypedPerFilterConfig can enable or disable each instance.
 func buildExtProcHTTPFilter(epp *model.EndpointPicker) *httpConnectionManagerv3.HttpFilter {
 	port := strconv.Itoa(int(epp.Port))
 	clusterName := getEPPClusterName(epp)
