@@ -577,8 +577,7 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	revision, err = e.regenerateBPF(ctx)
 
 	// Write full verifier log to the endpoint directory.
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
+	if ve, ok := errors.AsType[*ebpf.VerifierError](err); ok {
 		p := path.Join(tmpDir, "verifier.log")
 		f, err := os.Create(p)
 		if err != nil {
@@ -712,8 +711,7 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 			scopedLog.Warn("Regeneration of endpoint failed", logAttrs...)
 		}
 
-		var regenErr *regenerationError
-		if errors.As(err, &regenErr) {
+		if regenErr, ok := errors.AsType[*regenerationError](err); ok {
 			stats.regenFailureReason = regenErr.GetReason()
 		} else {
 			stats.regenFailureReason = regenerationFailureReasonUnknown

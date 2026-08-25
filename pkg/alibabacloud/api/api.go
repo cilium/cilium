@@ -648,8 +648,7 @@ func (c *Client) EcsListTagResources(ctx context.Context, tags map[string]string
 // the AlibabaCloud API server. If no specific status is provided, either "OK" or
 // "Failed" is returned based on the error variable.
 func deriveStatus(err error) string {
-	var respErr httperr.Error
-	if errors.As(err, &respErr) {
+	if respErr, ok := errors.AsType[httperr.Error](err); ok {
 		return respErr.ErrorCode()
 	}
 

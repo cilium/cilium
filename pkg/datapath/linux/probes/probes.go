@@ -562,8 +562,7 @@ func loadProbesObjects() (*bpfgen.ProbesObjects, error) {
 	objs := &bpfgen.ProbesObjects{}
 
 	err := bpfgen.LoadProbesObjects(objs, &ebpf.CollectionOptions{})
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
+	if ve, ok := errors.AsType[*ebpf.VerifierError](err); ok {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
 			return nil, fmt.Errorf("writing verifier log to stderr: %w", err)
 		}

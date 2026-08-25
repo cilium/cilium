@@ -110,8 +110,7 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 		},
 		ConfigDumpPath: configDumpPath,
 	}, lnc, attachmentContextSocket(), cgroupPluginsLinkPath())
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
+	if ve, ok := errors.AsType[*ebpf.VerifierError](err); ok {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
 			return fmt.Errorf("writing verifier log to stderr: %w", err)
 		}

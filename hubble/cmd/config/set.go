@@ -126,8 +126,7 @@ func newFileOnlyViper(configPath string) (*viper.Viper, error) {
 	if err := vp.ReadInConfig(); err != nil {
 		// it's OK so long as the failure is ConfigFileNotFound
 		// for all other cases, failing to read the config should be an error
-		var configFileNotFoundError viper.ConfigFileNotFoundError
-		if !errors.As(err, &configFileNotFoundError) {
+		if _, ok := errors.AsType[viper.ConfigFileNotFoundError](err); !ok {
 			return nil, err
 		}
 	}
