@@ -386,6 +386,20 @@ int kpr_v4_dsr_lb1_syn_check(__maybe_unused const struct __ctx_buff *ctx)
 # endif
 #endif
 
+	struct ipv4_ct_tuple tuple;
+	struct ct_entry *ct_entry;
+
+	tuple.flags = TUPLE_F_SERVICE;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.daddr = v4_svc_one;
+	tuple.saddr = v4_ext_one;
+	tuple.sport = tcp_svc_one;
+	tuple.dport = tcp_src_one;
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR connection found");
+
 	test_finish();
 }
 
@@ -584,6 +598,20 @@ int kpr_v4_dsr_lb2_data_check(__maybe_unused const struct __ctx_buff *ctx)
 # endif
 #endif
 
+	struct ipv4_ct_tuple tuple;
+	struct ct_entry *ct_entry;
+
+	tuple.flags = TUPLE_F_SERVICE;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.daddr = v4_svc_one;
+	tuple.saddr = v4_ext_one;
+	tuple.sport = tcp_svc_two;
+	tuple.dport = tcp_src_one;
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR connection found");
+
 	test_finish();
 }
 
@@ -731,6 +759,20 @@ int kpr_v4_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
 			   sizeof(kpr_v4_dsr_lb3_mtu_post_option));
 #endif
 
+	struct ipv4_ct_tuple tuple;
+	struct ct_entry *ct_entry;
+
+	tuple.flags = TUPLE_F_SERVICE;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.daddr = v4_svc_one;
+	tuple.saddr = v4_ext_one;
+	tuple.sport = tcp_svc_three;
+	tuple.dport = tcp_src_one;
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR connection found");
+
 	test_finish();
 }
 #endif /* ENABLE_IPV4 */
@@ -773,6 +815,7 @@ int kpr_v6_dsr_lb1_syn_setup(struct __ctx_buff *ctx)
 CHECK(PROG_TYPE, "kpr_v6_dsr_lb1_syn")
 int kpr_v6_dsr_lb1_syn_check(__maybe_unused const struct __ctx_buff *ctx)
 {
+	union v6addr frontend_ip = { v6_svc_one_addr };
 	void *data, *data_end;
 	__u32 *status_code;
 
@@ -800,7 +843,6 @@ int kpr_v6_dsr_lb1_syn_check(__maybe_unused const struct __ctx_buff *ctx)
 			   kpr_v6_dsr_lb1_syn_post_geneve,
 			   sizeof(kpr_v6_dsr_lb1_syn_post_geneve));
 
-	union v6addr frontend_ip = { v6_svc_one_addr };
 	struct bpf_tunnel_key *tunnel_key;
 	struct geneve_dsr_opt6 *dsr_opt;
 	__u32 key = 0;
@@ -844,6 +886,22 @@ int kpr_v6_dsr_lb1_syn_check(__maybe_unused const struct __ctx_buff *ctx)
 			   sizeof(kpr_v6_dsr_lb1_syn_post_option));
 # endif
 #endif
+
+	struct ipv6_ct_tuple tuple __align_stack_8;
+	struct ct_entry *ct_entry;
+	union v6addr client_ip = { v6_ext_node_one_addr };
+
+	tuple.flags = TUPLE_F_SERVICE;
+	tuple.nexthdr = IPPROTO_TCP;
+	ipv6_addr_copy(&tuple.daddr, &frontend_ip);
+	ipv6_addr_copy(&tuple.saddr, &client_ip);
+	tuple.sport = tcp_svc_one;
+	tuple.dport = tcp_src_one;
+
+	ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR connection found");
+
 	test_finish();
 }
 
@@ -969,6 +1027,7 @@ int kpr_v6_dsr_lb2_data_setup(struct __ctx_buff *ctx)
 CHECK(PROG_TYPE, "kpr_v6_dsr_lb2_data")
 int kpr_v6_dsr_lb2_data_check(__maybe_unused const struct __ctx_buff *ctx)
 {
+	union v6addr frontend_ip = { v6_svc_one_addr };
 	void *data, *data_end;
 	__u32 *status_code;
 
@@ -996,7 +1055,6 @@ int kpr_v6_dsr_lb2_data_check(__maybe_unused const struct __ctx_buff *ctx)
 			   kpr_v6_dsr_lb2_data_post_geneve,
 			   sizeof(kpr_v6_dsr_lb2_data_post_geneve));
 
-	union v6addr frontend_ip = { v6_svc_one_addr };
 	struct bpf_tunnel_key *tunnel_key;
 	struct geneve_dsr_opt6 *dsr_opt;
 	__u32 key = 0;
@@ -1040,6 +1098,21 @@ int kpr_v6_dsr_lb2_data_check(__maybe_unused const struct __ctx_buff *ctx)
 			   sizeof(kpr_v6_dsr_lb2_data_post_option));
 # endif
 #endif
+
+	struct ipv6_ct_tuple tuple __align_stack_8;
+	struct ct_entry *ct_entry;
+	union v6addr client_ip = { v6_ext_node_one_addr };
+
+	tuple.flags = TUPLE_F_SERVICE;
+	tuple.nexthdr = IPPROTO_TCP;
+	ipv6_addr_copy(&tuple.daddr, &frontend_ip);
+	ipv6_addr_copy(&tuple.saddr, &client_ip);
+	tuple.sport = tcp_svc_two;
+	tuple.dport = tcp_src_one;
+
+	ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR connection found");
 
 	test_finish();
 }
@@ -1190,6 +1263,22 @@ int kpr_v6_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
 			   kpr_v6_dsr_lb3_mtu_post_option,
 			   sizeof(kpr_v6_dsr_lb3_mtu_post_option));
 #endif
+
+	struct ipv6_ct_tuple tuple __align_stack_8;
+	struct ct_entry *ct_entry;
+	union v6addr frontend_ip = { v6_svc_one_addr };
+	union v6addr client_ip = { v6_ext_node_one_addr };
+
+	tuple.flags = TUPLE_F_SERVICE;
+	tuple.nexthdr = IPPROTO_TCP;
+	ipv6_addr_copy(&tuple.daddr, &frontend_ip);
+	ipv6_addr_copy(&tuple.saddr, &client_ip);
+	tuple.sport = tcp_svc_three;
+	tuple.dport = tcp_src_one;
+
+	ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR connection found");
 
 	test_finish();
 }
