@@ -303,3 +303,59 @@ func TestRingReader_NextFollow_WithEmptyRing(t *testing.T) {
 	<-done
 	assert.NoError(t, reader.Close())
 }
+
+func TestRingReader_NextFollow_ContextRotation(t *testing.T) {
+	defer testutils.GoleakVerifyNone(
+		t,
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
+		testutils.GoleakIgnoreTopFunction("io.(*pipe).read"))
+
+	ring := NewRing(Capacity15)
+	// Write initial events (0 and 1)
+	ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 0}})
+	ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 1}})
+
+	reader := NewRingReader(ring, 0)
+
+	// Step 1: Read event 0 with ctx1.
+	ctx1, cancel1 := context.WithCancel(t.Context())
+	ev0 := reader.NextFollow(ctx1)
+	if assert.NotNil(t, ev0) {
+		assert.Equal(t, int64(0), ev0.Timestamp.Seconds)
+	}
+
+	// Step 2: Switch to ctx2 and read event 1.
+	ctx2, cancel2 := context.WithCancel(t.Context())
+	ev1 := reader.NextFollow(ctx2)
+	if assert.NotNil(t, ev1) {
+		assert.Equal(t, int64(1), ev1.Timestamp.Seconds)
+	}
+
+	// Step 3: Cancel ctx1.
+	cancel1()
+
+	// Step 4: Write subsequent events (2, 3, 4) to ring.
+	ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 2}})
+	ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 3}})
+	ring.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: 4}})
+
+	// Step 5: Verify ctx2 reader sequentially receives events 2, 3, 4.
+	ev2 := reader.NextFollow(ctx2)
+	if assert.NotNil(t, ev2) {
+		assert.Equal(t, int64(2), ev2.Timestamp.Seconds)
+	}
+
+	ev3 := reader.NextFollow(ctx2)
+	if assert.NotNil(t, ev3) {
+		assert.Equal(t, int64(3), ev3.Timestamp.Seconds)
+	}
+
+	ev4 := reader.NextFollow(ctx2)
+	if assert.NotNil(t, ev4) {
+		assert.Equal(t, int64(4), ev4.Timestamp.Seconds)
+	}
+
+	cancel2()
+	assert.NoError(t, reader.Close())
+}

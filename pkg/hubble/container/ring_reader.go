@@ -19,6 +19,7 @@ type RingReader struct {
 	ring          *Ring
 	idx           uint64
 	ctx           context.Context
+	cancel        context.CancelFunc
 	mutex         lock.Mutex // protects writes to followChan
 	followChan    chan *v1.Event
 	followChanLen int
@@ -84,28 +85,34 @@ func (r *RingReader) NextFollow(ctx context.Context) *v1.Event {
 	// if the context changed between invocations, we also have to restart
 	// readFrom, as the old readFrom instance will be using the old context.
 	if r.ctx != ctx {
-		r.mutex.Lock()
-		if r.followChan == nil {
-			r.followChan = make(chan *v1.Event, r.followChanLen)
+		if r.cancel != nil {
+			r.cancel()
 		}
+		readerCtx, cancel := context.WithCancel(ctx)
+		r.cancel = cancel
+
+		followChan := make(chan *v1.Event, r.followChanLen)
+		r.mutex.Lock()
+		r.followChan = followChan
 		r.mutex.Unlock()
 
 		r.wg.Add(1)
-		go func(ctx context.Context) {
-			r.ring.readFrom(ctx, r.idx, r.followChan)
+		go func(c context.Context, ch chan *v1.Event) {
+			defer r.wg.Done()
+			defer close(ch)
+			r.ring.readFrom(c, r.idx, ch)
 			r.mutex.Lock()
-			if ctx.Err() != nil && r.followChan != nil { // context is done
-				close(r.followChan)
+			if r.followChan == ch {
 				r.followChan = nil
 			}
 			r.mutex.Unlock()
-			r.wg.Done()
-		}(ctx)
+		}(readerCtx, followChan)
 		r.ctx = ctx
 	}
 	defer func() {
 		if ctx.Err() != nil { // context is done
 			r.ctx = nil
+			r.cancel = nil
 		}
 	}()
 
@@ -137,6 +144,11 @@ func (r *RingReader) NextFollow(ctx context.Context) *v1.Event {
 // situations such as testing. Must not be called concurrently with NextFollow,
 // as otherwise NextFollow spawns new goroutines that are not waited on.
 func (r *RingReader) Close() error {
+	if r.cancel != nil {
+		r.cancel()
+		r.cancel = nil
+	}
+	r.ctx = nil
 	r.wg.Wait()
 	return nil
 }
