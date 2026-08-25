@@ -434,7 +434,7 @@ func writeCmdToFile(cmdDir, prompt string, enableMarkdown bool, postProcess func
 	}
 	defer f.Close()
 
-	cmd := strings.Split(prompt, " ")[0]
+	cmd, _, _ := strings.Cut(prompt, " ")
 
 	// The command does not exist, abort.
 	if _, err := exec.LookPath(cmd); err != nil {
