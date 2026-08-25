@@ -88,4 +88,12 @@ const (
 
 	// Indexes HTTPRoutes by InferencePools that are referenced by the object.
 	InferencePoolHTTPRouteIndex = "inferencePoolHTTPRouteIndex"
+
+	// Indexes HTTPRoutes by all the CiliumEnvoyExtProcFilters referenced via
+	// ExtensionRef filters.
+	ExtProcFilterHTTPRouteIndex = "extProcFilterHTTPRouteIndex"
+
+	// Indexes GRPCRoutes by all the CiliumEnvoyExtProcFilters referenced via
+	// ExtensionRef filters.
+	ExtProcFilterGRPCRouteIndex = "extProcFilterGRPCRouteIndex"
 )
