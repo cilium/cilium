@@ -32,6 +32,14 @@ import (
 // ConflictedRoutes and ConflictedRules carry the losers to the Gateway API status
 // layer, which maps them onto Route conditions.
 
+const (
+	// ExtProcRouteInvalidDuplicate marks a rule with a repeated ext_proc ref.
+	ExtProcRouteInvalidDuplicate = "IncompatibleFilters"
+	// ExtProcRouteInvalidDeclarationOrder marks unsupported external-callout
+	// declaration order within a rule.
+	ExtProcRouteInvalidDeclarationOrder = "IncompatibleFilters"
+)
+
 // ExtProcOrderAnalysis is the result of analyzing ExtensionRef filter ordering
 // across all HTTP routes in a model.
 type ExtProcOrderAnalysis struct {

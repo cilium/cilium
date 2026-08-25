@@ -17,8 +17,75 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 
+	"github.com/cilium/cilium/operator/pkg/model"
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
+
+func TestExtractRoutesRejectsExtProcAfterExternalAuth(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	filters := []v2alpha1.CiliumEnvoyExtProcFilter{
+		extProcTestCRD("filter-a", "ext-proc", 9001),
+		extProcTestCRD("filter-b", "ext-proc", 9001),
+	}
+	services := []corev1.Service{
+		testService("default", "backend", 8080),
+		testService("default", "auth", 9000),
+		// testService intentionally has no EndpointSlices. Endpoint readiness is
+		// not part of ExtensionRef reference resolution.
+		testService("default", "ext-proc", 9001),
+	}
+
+	tests := map[string]struct {
+		filters  []gatewayv1.HTTPRouteFilter
+		wantFail bool
+	}{
+		"ext_proc sequence then ExternalAuth is accepted": {
+			filters: []gatewayv1.HTTPRouteFilter{
+				extProcHTTPFilter("filter-a"),
+				extProcHTTPFilter("filter-b"),
+				externalAuthHTTPFilter("auth"),
+			},
+		},
+		"ExternalAuth then ext_proc is rejected": {
+			filters: []gatewayv1.HTTPRouteFilter{
+				externalAuthHTTPFilter("auth"),
+				extProcHTTPFilter("filter-a"),
+			},
+			wantFail: true,
+		},
+		"interleaved ext_proc and ExternalAuth is rejected": {
+			filters: []gatewayv1.HTTPRouteFilter{
+				extProcHTTPFilter("filter-a"),
+				externalAuthHTTPFilter("auth"),
+				extProcHTTPFilter("filter-b"),
+			},
+			wantFail: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			route := testHTTPRoute(tc.filters)
+			routes := extractRoutes(logger, 80, []string{"*"}, route, services, nil, nil, nil, nil, true, filters)
+			require.Len(t, routes, 1)
+
+			if tc.wantFail {
+				require.NotNil(t, routes[0].DirectResponse)
+				require.Equal(t, 500, routes[0].DirectResponse.StatusCode)
+				assert.Nil(t, routes[0].Backends)
+				assert.Empty(t, routes[0].ExtensionRefFilters)
+				assert.NotNil(t, routes[0].SourceRule)
+				return
+			}
+
+			assert.Nil(t, routes[0].DirectResponse)
+			assert.Len(t, routes[0].ExtensionRefFilters, 2)
+			assert.Equal(t, "envoy.filters.http.ext_proc/default/filter-a", routes[0].ExtensionRefFilters[0].Name)
+			assert.Equal(t, "envoy.filters.http.ext_proc/default/filter-b", routes[0].ExtensionRefFilters[1].Name)
+			require.NotNil(t, routes[0].ExternalAuth)
+		})
+	}
+}
 
 func TestGammaHTTPRoutesResolvesExtProcService(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
@@ -74,6 +141,48 @@ func TestGammaHTTPRoutesResolvesExtProcService(t *testing.T) {
 	}
 }
 
+func TestExtractRoutesRejectsSameRuleExtProcDuplicates(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	filters := []v2alpha1.CiliumEnvoyExtProcFilter{
+		extProcTestCRD("filter-a", "ext-proc", 9001),
+		extProcTestCRD("filter-b", "ext-proc", 9001),
+	}
+	services := []corev1.Service{
+		testService("default", "backend", 8080),
+		testService("default", "ext-proc", 9001),
+	}
+
+	tests := map[string][]gatewayv1.HTTPRouteFilter{
+		"adjacent duplicate": {
+			extProcHTTPFilter("filter-a"),
+			extProcHTTPFilter("filter-a"),
+		},
+		"non-adjacent duplicate": {
+			extProcHTTPFilter("filter-a"),
+			extProcHTTPFilter("filter-b"),
+			extProcHTTPFilter("filter-a"),
+		},
+		"duplicate unresolved filter": {
+			extProcHTTPFilter("filter-a"),
+			extProcHTTPFilter("filter-c"),
+			extProcHTTPFilter("filter-c"),
+		},
+	}
+
+	for name, ruleFilters := range tests {
+		t.Run(name, func(t *testing.T) {
+			routes := extractRoutes(logger, 80, []string{"*"}, testHTTPRoute(ruleFilters), services, nil, nil, nil, nil, true, filters)
+			require.Len(t, routes, 1)
+			require.NotNil(t, routes[0].DirectResponse)
+			assert.Equal(t, 500, routes[0].DirectResponse.StatusCode)
+			assert.Nil(t, routes[0].Backends)
+			assert.Empty(t, routes[0].ExtensionRefFilters)
+			assert.NotNil(t, routes[0].SourceRule)
+			assert.Equal(t, model.ExtProcRouteInvalidDuplicate, routes[0].ExtProcInvalidReason)
+		})
+	}
+}
+
 func TestExtractRoutesAllowsCrossRuleReuseAndSharedBackend(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	filters := []v2alpha1.CiliumEnvoyExtProcFilter{
@@ -119,6 +228,45 @@ func TestExtractRoutesAllowsCrossRuleReuseAndSharedBackend(t *testing.T) {
 	assert.Equal(t, routes[0].ExtensionRefFilters[0].Backend, routes[2].ExtensionRefFilters[0].Backend)
 }
 
+func TestExtractGRPCRoutesRejectsSameRuleExtProcDuplicates(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	filters := []v2alpha1.CiliumEnvoyExtProcFilter{
+		extProcTestCRD("filter-a", "ext-proc", 9001),
+		extProcTestCRD("filter-b", "ext-proc", 9001),
+	}
+	services := []corev1.Service{
+		testService("default", "backend", 8080),
+		testService("default", "ext-proc", 9001),
+	}
+
+	tests := map[string][]gatewayv1.GRPCRouteFilter{
+		"non-adjacent duplicate": {
+			extProcGRPCFilter("filter-a"),
+			extProcGRPCFilter("filter-b"),
+			extProcGRPCFilter("filter-a"),
+		},
+		"duplicate unresolved filter": {
+			extProcGRPCFilter("filter-a"),
+			extProcGRPCFilter("filter-c"),
+			extProcGRPCFilter("filter-c"),
+		},
+	}
+
+	for name, ruleFilters := range tests {
+		t.Run(name, func(t *testing.T) {
+			routes := extractGRPCRoutes(logger, []string{"*"}, testGRPCRoute(ruleFilters), services, nil, nil, nil, true, filters)
+			require.Len(t, routes, 1)
+			require.NotNil(t, routes[0].DirectResponse)
+			assert.Equal(t, 500, routes[0].DirectResponse.StatusCode)
+			assert.Nil(t, routes[0].Backends)
+			assert.Empty(t, routes[0].ExtensionRefFilters)
+			require.NotNil(t, routes[0].SourceRule)
+			assert.Equal(t, "GRPCRoute", routes[0].SourceRule.Source.Kind)
+			assert.Equal(t, model.ExtProcRouteInvalidDuplicate, routes[0].ExtProcInvalidReason)
+		})
+	}
+}
+
 func TestExtractRoutesRejectsMissingExtProcServiceOrPort(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	filter := extProcTestCRD("filter-a", "ext-proc", 9001)
@@ -162,8 +310,34 @@ func extProcHTTPFilter(name string) gatewayv1.HTTPRouteFilter {
 	}
 }
 
+func extProcGRPCFilter(name string) gatewayv1.GRPCRouteFilter {
+	return gatewayv1.GRPCRouteFilter{
+		Type:         gatewayv1.GRPCRouteFilterExtensionRef,
+		ExtensionRef: ptr.To(gatewayv1.LocalObjectReference{Group: "cilium.io", Kind: "CiliumEnvoyExtProcFilter", Name: gatewayv1.ObjectName(name)}),
+	}
+}
+
+func externalAuthHTTPFilter(name string) gatewayv1.HTTPRouteFilter {
+	return gatewayv1.HTTPRouteFilter{
+		Type: gatewayv1.HTTPRouteFilterExternalAuth,
+		ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{
+			BackendRef: gatewayv1.BackendObjectReference{
+				Name: gatewayv1.ObjectName(name),
+				Port: ptr.To(gatewayv1.PortNumber(9000)),
+			},
+		},
+	}
+}
+
 func testHTTPBackendRef() gatewayv1.HTTPBackendRef {
 	return gatewayv1.HTTPBackendRef{BackendRef: gatewayv1.BackendRef{BackendObjectReference: gatewayv1.BackendObjectReference{
+		Name: "backend",
+		Port: ptr.To(gatewayv1.PortNumber(8080)),
+	}}}
+}
+
+func testGRPCBackendRef() gatewayv1.GRPCBackendRef {
+	return gatewayv1.GRPCBackendRef{BackendRef: gatewayv1.BackendRef{BackendObjectReference: gatewayv1.BackendObjectReference{
 		Name: "backend",
 		Port: ptr.To(gatewayv1.PortNumber(8080)),
 	}}}
@@ -174,6 +348,16 @@ func testHTTPRoute(filters []gatewayv1.HTTPRouteFilter) gatewayv1.HTTPRoute {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "default"},
 		Spec: gatewayv1.HTTPRouteSpec{Rules: []gatewayv1.HTTPRouteRule{{
 			BackendRefs: []gatewayv1.HTTPBackendRef{testHTTPBackendRef()},
+			Filters:     filters,
+		}}},
+	}
+}
+
+func testGRPCRoute(filters []gatewayv1.GRPCRouteFilter) gatewayv1.GRPCRoute {
+	return gatewayv1.GRPCRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "default"},
+		Spec: gatewayv1.GRPCRouteSpec{Rules: []gatewayv1.GRPCRouteRule{{
+			BackendRefs: []gatewayv1.GRPCBackendRef{testGRPCBackendRef()},
 			Filters:     filters,
 		}}},
 	}
