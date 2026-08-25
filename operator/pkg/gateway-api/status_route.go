@@ -156,6 +156,7 @@ var backendCheckFuncs = []routechecks.CheckWithParentFunc{
 	routechecks.CheckBackend,
 	routechecks.CheckHasServiceImportSupport,
 	routechecks.CheckBackendIsExistingService,
+	routechecks.CheckExtensionRefs,
 }
 
 func runCheckFuncs(

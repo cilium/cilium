@@ -220,6 +220,7 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 				routechecks.CheckAgainstCrossNamespaceBackendReferences,
 				routechecks.CheckBackend,
 				routechecks.CheckBackendIsExistingService,
+				routechecks.CheckExtensionRefs,
 			} {
 				continueCheck, err := fn(i, parent)
 				if err != nil {
@@ -331,6 +332,7 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 				routechecks.CheckAgainstCrossNamespaceBackendReferences,
 				routechecks.CheckBackend,
 				routechecks.CheckBackendIsExistingService,
+				routechecks.CheckExtensionRefs,
 			} {
 				continueCheck, err := fn(i, parent)
 				if err != nil {
