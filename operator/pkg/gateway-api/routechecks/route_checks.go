@@ -6,6 +6,7 @@ package routechecks
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -86,14 +87,23 @@ func CheckExtensionRefs(input Input, parentRef gatewayv1.ParentReference) (bool,
 	}
 
 	continueChecks := true
+	var incompatibleFilters []string
 
-	for _, rule := range input.GetRules() {
+	for ruleIndex, rule := range input.GetRules() {
 		ruleWithExtensionRefs, ok := rule.(extensionRefRule)
 		if !ok {
 			continue
 		}
 
-		for _, ref := range ruleWithExtensionRefs.GetExtensionRefs() {
+		refs := ruleWithExtensionRefs.GetExtensionRefs()
+		incompatibleFilters = append(incompatibleFilters, duplicateExtProcRefMessages(refs, ruleIndex)...)
+		if httpRule, ok := rule.(*HTTPRouteRule); ok {
+			if message := httpExtProcOrderViolation(httpRule, ruleIndex); message != "" {
+				incompatibleFilters = append(incompatibleFilters, message)
+			}
+		}
+
+		for _, ref := range refs {
 			if !extRefInput.GetExtensionRefFiltersEnabled() {
 				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionResolvedRefs),
@@ -138,11 +148,59 @@ func CheckExtensionRefs(input Input, parentRef gatewayv1.ParentReference) (bool,
 		}
 	}
 
+	if len(incompatibleFilters) > 0 {
+		input.SetParentCondition(parentRef, metav1.Condition{
+			Type:    string(gatewayv1.RouteConditionAccepted),
+			Status:  metav1.ConditionFalse,
+			Reason:  string(gatewayv1.RouteReasonIncompatibleFilters),
+			Message: helpers.ExtProcConditionMessagePrefix + strings.Join(incompatibleFilters, "; "),
+		})
+		continueChecks = false
+	}
+
 	return continueChecks, nil
 }
 
 func isExtProcExtensionRef(ref gatewayv1.LocalObjectReference) bool {
 	return string(ref.Group) == v2alpha1.CustomResourceDefinitionGroup && string(ref.Kind) == v2alpha1.CEEPFKindDefinition
+}
+
+// duplicateExtProcRefMessages reports rules that reference the same ext_proc
+// filter more than once. Envoy aggregates identical ext_proc filters into one
+// HTTP filter, so a repeated reference cannot mean what it appears to mean.
+func duplicateExtProcRefMessages(refs []gatewayv1.LocalObjectReference, ruleIndex int) []string {
+	seen := make(map[string]struct{})
+	var messages []string
+	for _, ref := range refs {
+		if !isExtProcExtensionRef(ref) {
+			continue
+		}
+		key := fmt.Sprintf("%s/%s/%s", ref.Group, ref.Kind, ref.Name)
+		if _, exists := seen[key]; exists {
+			messages = append(messages, fmt.Sprintf("rule %d references ext_proc filter %q more than once; each filter may be referenced only once per rule", ruleIndex, key))
+			continue
+		}
+		seen[key] = struct{}{}
+	}
+	return messages
+}
+
+// httpExtProcOrderViolation reports a rule that declares an ext_proc filter
+// after ExternalAuth. Cilium emits ext_proc ahead of ext_authz in the Envoy
+// filter chain, so it cannot honour that declaration order.
+func httpExtProcOrderViolation(rule *HTTPRouteRule, ruleIndex int) string {
+	externalAuthSeen := false
+	for _, filter := range rule.Rule.Filters {
+		if filter.Type == gatewayv1.HTTPRouteFilterExternalAuth {
+			externalAuthSeen = true
+			continue
+		}
+		if !externalAuthSeen || filter.Type != gatewayv1.HTTPRouteFilterExtensionRef || filter.ExtensionRef == nil || !isExtProcExtensionRef(*filter.ExtensionRef) {
+			continue
+		}
+		return fmt.Sprintf("rule %d declares ext_proc filter %q after ExternalAuth; all ext_proc filters must be declared before ExternalAuth", ruleIndex, filter.ExtensionRef.Name)
+	}
+	return ""
 }
 
 func checkExtProcBackendService(input Input, parentRef gatewayv1.ParentReference, filter *v2alpha1.CiliumEnvoyExtProcFilter) (bool, error) {

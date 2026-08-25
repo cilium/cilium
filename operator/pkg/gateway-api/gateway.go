@@ -53,6 +53,7 @@ type gatewayReconciler struct {
 	tcpUDPUnsupportedReason       string
 	hostNetworkEnabled            bool
 	hostNetworkLabel              metav1.LabelSelector
+	enableExtensionRefFilters     bool
 }
 
 func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector) *gatewayReconciler {

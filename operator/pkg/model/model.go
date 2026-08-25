@@ -549,9 +549,18 @@ type ExtensionRefFilter struct {
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
-	// SourceRule identifies the Gateway API HTTPRoute rule and match that
-	// produced this route when rule identity must be preserved internally.
+	// SourceRoute identifies the source Gateway API Route for every emitted
+	// model route. It is internal provenance used to scope fail-closed status
+	// and is not part of the CEC output.
+	SourceRoute *FullyQualifiedResource `json:"-"`
+	// SourceRule identifies the Gateway API HTTPRoute or GRPCRoute rule and
+	// match that produced this route. It is preserved only where rule identity
+	// affects aggregation or fail-closed handling.
 	SourceRule *HTTPRouteRule `json:"-"`
+	// ExtProcInvalidReason marks a rule rejected before translation. It is
+	// internal provenance for parent-scoped PartiallyInvalid status.
+	ExtProcInvalidReason  string `json:"-"`
+	ExtProcInvalidMessage string `json:"-"`
 	// Hostnames that the route should match
 	Hostnames []string `json:"hostnames,omitempty"`
 	// PathMatch specifies that the HTTPRoute should match a path.

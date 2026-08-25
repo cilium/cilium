@@ -183,6 +183,78 @@ func TestCheckExtensionRefsResolvesNestedBackendService(t *testing.T) {
 	}
 }
 
+func TestCheckExtensionRefsRejectsDuplicateExtProcFilterInRule(t *testing.T) {
+	parentRef := gatewayv1.ParentReference{Name: "gateway"}
+	filter := extProcFilter("default", "ext-proc", "ext-proc-service", nil)
+	input := &HTTPRouteInput{
+		Ctx:                        context.Background(),
+		Logger:                     slog.New(slog.DiscardHandler),
+		Client:                     extProcBackendClient([]v2alpha1.CiliumEnvoyExtProcFilter{filter}),
+		ExtensionRefFilters:        []v2alpha1.CiliumEnvoyExtProcFilter{filter},
+		ExtensionRefFiltersEnabled: true,
+		HTTPRoute: &gatewayv1.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Namespace: "default"}, Spec: gatewayv1.HTTPRouteSpec{
+			Rules: []gatewayv1.HTTPRouteRule{{Filters: []gatewayv1.HTTPRouteFilter{
+				{Type: gatewayv1.HTTPRouteFilterExtensionRef, ExtensionRef: ptr.To(extensionRef("ext-proc"))},
+				{Type: gatewayv1.HTTPRouteFilterExtensionRef, ExtensionRef: ptr.To(extensionRef("ext-proc"))},
+			}}},
+		}},
+	}
+
+	gotResult, err := CheckExtensionRefs(input, parentRef)
+	require.NoError(t, err)
+	require.False(t, gotResult)
+	require.Len(t, input.HTTPRoute.Status.Parents, 1)
+	condition := input.HTTPRoute.Status.Parents[0].Conditions[0]
+	require.Equal(t, string(gatewayv1.RouteConditionAccepted), condition.Type)
+	require.Equal(t, metav1.ConditionFalse, condition.Status)
+	require.Equal(t, string(gatewayv1.RouteReasonIncompatibleFilters), condition.Reason)
+	require.True(t, helpers.IsExtProcInvalidCondition(condition))
+	require.Contains(t, condition.Message, "cilium.io/CiliumEnvoyExtProcFilter/ext-proc")
+	require.Contains(t, condition.Message, "more than once")
+}
+
+func TestCheckExtensionRefsRequiresExtProcBeforeExternalAuth(t *testing.T) {
+	parentRef := gatewayv1.ParentReference{Name: "gateway"}
+	filter := extProcFilter("default", "ext-proc", "ext-proc-service", nil)
+	input := httpRouteInputWithExtensionRef("default", parentRef, extensionRef("ext-proc"), true, []v2alpha1.CiliumEnvoyExtProcFilter{filter}, nil)
+	input.HTTPRoute.Spec.Rules[0].Filters = []gatewayv1.HTTPRouteFilter{
+		{
+			Type:         gatewayv1.HTTPRouteFilterExternalAuth,
+			ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{BackendRef: gatewayv1.BackendObjectReference{Name: "auth-service", Port: ptr.To(gatewayv1.PortNumber(9000))}},
+		},
+		{Type: gatewayv1.HTTPRouteFilterExtensionRef, ExtensionRef: ptr.To(extensionRef("ext-proc"))},
+	}
+
+	gotResult, err := CheckExtensionRefs(input, parentRef)
+	require.NoError(t, err)
+	require.False(t, gotResult)
+	require.Len(t, input.HTTPRoute.Status.Parents, 1)
+	condition := input.HTTPRoute.Status.Parents[0].Conditions[0]
+	require.Equal(t, string(gatewayv1.RouteConditionAccepted), condition.Type)
+	require.Equal(t, metav1.ConditionFalse, condition.Status)
+	require.Equal(t, string(gatewayv1.RouteReasonIncompatibleFilters), condition.Reason)
+	require.True(t, helpers.IsExtProcInvalidCondition(condition))
+	require.Contains(t, condition.Message, "after ExternalAuth")
+}
+
+func TestCheckExtensionRefsAllowsExtProcBeforeExternalAuth(t *testing.T) {
+	parentRef := gatewayv1.ParentReference{Name: "gateway"}
+	filter := extProcFilter("default", "ext-proc", "ext-proc-service", nil)
+	input := httpRouteInputWithExtensionRef("default", parentRef, extensionRef("ext-proc"), true, []v2alpha1.CiliumEnvoyExtProcFilter{filter}, nil)
+	input.HTTPRoute.Spec.Rules[0].Filters = []gatewayv1.HTTPRouteFilter{
+		{Type: gatewayv1.HTTPRouteFilterExtensionRef, ExtensionRef: ptr.To(extensionRef("ext-proc"))},
+		{
+			Type:         gatewayv1.HTTPRouteFilterExternalAuth,
+			ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{BackendRef: gatewayv1.BackendObjectReference{Name: "auth-service", Port: ptr.To(gatewayv1.PortNumber(9000))}},
+		},
+	}
+
+	gotResult, err := CheckExtensionRefs(input, parentRef)
+	require.NoError(t, err)
+	require.True(t, gotResult)
+	require.Empty(t, input.HTTPRoute.Status.Parents)
+}
+
 func TestCheckExtensionRefs_GRPCRouteNilGrants(t *testing.T) {
 	parentRef := gatewayv1.ParentReference{Name: "gateway"}
 	input := &GRPCRouteInput{

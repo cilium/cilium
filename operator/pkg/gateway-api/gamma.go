@@ -26,8 +26,9 @@ type gammaReconciler struct {
 	scheme     *runtime.Scheme
 	translator translation.Translator
 
-	logger         *slog.Logger
-	controllerName string
+	logger                    *slog.Logger
+	controllerName            string
+	enableExtensionRefFilters bool
 }
 
 func newGammaReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string) *gammaReconciler {

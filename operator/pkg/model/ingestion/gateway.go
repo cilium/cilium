@@ -354,6 +354,14 @@ func extractRoutes(logger *slog.Logger,
 	extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter,
 ) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
+	routeUsesExtProc := false
+	for _, rule := range hr.Spec.Rules {
+		for _, filter := range rule.Filters {
+			if filter.ExtensionRef != nil && isExtProcExtensionRef(filter.ExtensionRef) {
+				routeUsesExtProc = true
+			}
+		}
+	}
 	for ruleIndex, rule := range hr.Spec.Rules {
 		var backendHTTPFilters []*model.BackendHTTPFilter
 		bes := make([]model.Backend, 0, len(rule.BackendRefs))
@@ -402,6 +410,11 @@ func extractRoutes(logger *slog.Logger,
 		var requestCORS *model.HTTPCORSFilter
 		var extensionRefFilters []model.ExtensionRefFilter
 		var dr *model.DirectResponse
+		externalAuthSeen := false
+		extProcOrderInvalid := false
+		extProcInvalidReason := ""
+		extProcInvalidMessage := ""
+		seenExtProcRefs := map[string]struct{}{}
 
 		for _, f := range rule.Filters {
 			switch f.Type {
@@ -434,6 +447,7 @@ func extractRoutes(logger *slog.Logger,
 				if f.ExternalAuth == nil {
 					continue
 				}
+				externalAuthSeen = true
 
 				beRef := gatewayv1.BackendRef{BackendObjectReference: f.ExternalAuth.BackendRef}
 				if !helpers.IsBackendReferenceAllowed(hr.GetNamespace(), beRef, helpers.GatewayV1GVK("HTTPRoute"), grants) {
@@ -462,6 +476,24 @@ func extractRoutes(logger *slog.Logger,
 				}
 			case gatewayv1.HTTPRouteFilterExtensionRef:
 				if f.ExtensionRef != nil {
+					if isExtProcExtensionRef(f.ExtensionRef) {
+						if externalAuthSeen {
+							extProcOrderInvalid = true
+							if extProcInvalidReason == "" {
+								extProcInvalidReason = model.ExtProcRouteInvalidDeclarationOrder
+								extProcInvalidMessage = fmt.Sprintf("declares ext_proc filter %q after ExternalAuth; all ext_proc filters must be declared before ExternalAuth", f.ExtensionRef.Name)
+							}
+						}
+						if _, duplicate := seenExtProcRefs[extensionRefKey(f.ExtensionRef)]; duplicate {
+							extProcOrderInvalid = true
+							if extProcInvalidReason == "" || extProcInvalidReason == model.ExtProcRouteInvalidDeclarationOrder {
+								extProcInvalidReason = model.ExtProcRouteInvalidDuplicate
+								extProcInvalidMessage = fmt.Sprintf("references ext_proc filter %q more than once", extensionRefKey(f.ExtensionRef))
+							}
+						}
+						seenExtProcRefs[extensionRefKey(f.ExtensionRef)] = struct{}{}
+					}
+
 					extensionRefFilter, ok := resolveExtensionRef(
 						logger,
 						enableExtensionRefFilters,
@@ -475,6 +507,9 @@ func extractRoutes(logger *slog.Logger,
 						extensionRefFilter.SourceRouteRule = sourceHTTPRouteRule(hr, ruleIndex, 0)
 						extensionRefFilter.SourceRouteCreationTimestamp = hr.CreationTimestamp.Time
 						extensionRefFilters = append(extensionRefFilters, *extensionRefFilter)
+						if model.HasDuplicateExtProcFilters(extensionRefFilters) {
+							extProcOrderInvalid = true
+						}
 					} else {
 						logger.Debug(
 							"ExtensionRef resolution failed; route will return 500",
@@ -496,9 +531,12 @@ func extractRoutes(logger *slog.Logger,
 			}
 		}
 
-		if externalAuthInvalid {
+		if externalAuthInvalid || extProcOrderInvalid {
 			dr = &model.DirectResponse{
 				StatusCode: 500,
+			}
+			if extProcOrderInvalid && extProcInvalidReason == "" {
+				extProcInvalidReason = model.ExtProcRouteInvalidDeclarationOrder
 			}
 		}
 
@@ -509,9 +547,17 @@ func extractRoutes(logger *slog.Logger,
 			extensionRefFilters = nil
 		}
 
+		var sourceRoute *model.FullyQualifiedResource
+		if routeUsesExtProc {
+			source := sourceHTTPRouteRule(hr, ruleIndex, 0).Source
+			sourceRoute = &source
+		}
 		if len(rule.Matches) == 0 {
 			httpRoutes = append(httpRoutes, model.HTTPRoute{
+				SourceRoute:            sourceRoute,
 				SourceRule:             sourceHTTPRouteRule(hr, ruleIndex, 0),
+				ExtProcInvalidReason:   extProcInvalidReason,
+				ExtProcInvalidMessage:  extProcInvalidMessage,
 				Hostnames:              hostnames,
 				Backends:               bes,
 				BackendHTTPFilters:     backendHTTPFilters,
@@ -533,7 +579,10 @@ func extractRoutes(logger *slog.Logger,
 		for matchIndex, match := range rule.Matches {
 			pathMatch := toPathMatch(match)
 			httpRoutes = append(httpRoutes, model.HTTPRoute{
+				SourceRoute:            sourceRoute,
 				SourceRule:             sourceHTTPRouteRule(hr, ruleIndex, matchIndex),
+				ExtProcInvalidReason:   extProcInvalidReason,
+				ExtProcInvalidMessage:  extProcInvalidMessage,
 				Hostnames:              hostnames,
 				PathMatch:              pathMatch,
 				HeadersMatch:           toHeaderMatch(match),
@@ -617,7 +666,9 @@ func retainDuplicateRuleSources(routes []model.HTTPRoute) {
 			continue
 		}
 		key := routes[i].GetMatchKey()
-		if len(ruleIndexesByMatch[key]) < 2 {
+		// Keep provenance on synthetic ext_proc-invalid routes so downstream
+		// status handling can identify the whole source rule that was rejected.
+		if len(ruleIndexesByMatch[key]) < 2 && routes[i].ExtProcInvalidReason == "" {
 			routes[i].SourceRule = nil
 		}
 	}
@@ -798,6 +849,14 @@ func toGRPCRoutes(log *slog.Logger,
 
 func extractGRPCRoutes(logger *slog.Logger, hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant, enableExtensionRefFilters bool, extProcFilters []v2alpha1.CiliumEnvoyExtProcFilter) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
+	routeUsesExtProc := false
+	for _, rule := range grpcr.Spec.Rules {
+		for _, filter := range rule.Filters {
+			if filter.ExtensionRef != nil && isExtProcExtensionRef(filter.ExtensionRef) {
+				routeUsesExtProc = true
+			}
+		}
+	}
 	for ruleIndex, rule := range grpcr.Spec.Rules {
 		bes := make([]model.Backend, 0, len(rule.BackendRefs))
 		for _, be := range rule.BackendRefs {
@@ -817,6 +876,10 @@ func extractGRPCRoutes(logger *slog.Logger, hostnames []string, grpcr gatewayv1.
 		var responseHeaderFilter *model.HTTPHeaderFilter
 		var requestMirrors []*model.HTTPRequestMirror
 		var extensionRefFilters []model.ExtensionRefFilter
+		extProcDuplicate := false
+		extProcInvalidReason := ""
+		extProcInvalidMessage := ""
+		seenExtProcRefs := map[string]struct{}{}
 
 		for _, f := range rule.Filters {
 			switch f.Type {
@@ -843,6 +906,15 @@ func extractGRPCRoutes(logger *slog.Logger, hostnames []string, grpcr gatewayv1.
 				}
 			case gatewayv1.GRPCRouteFilterExtensionRef:
 				if f.ExtensionRef != nil {
+					if isExtProcExtensionRef(f.ExtensionRef) {
+						if _, duplicate := seenExtProcRefs[extensionRefKey(f.ExtensionRef)]; duplicate {
+							extProcDuplicate = true
+							extProcInvalidReason = model.ExtProcRouteInvalidDuplicate
+							extProcInvalidMessage = fmt.Sprintf("references ext_proc filter %q more than once", extensionRefKey(f.ExtensionRef))
+						}
+						seenExtProcRefs[extensionRefKey(f.ExtensionRef)] = struct{}{}
+					}
+
 					extensionRefFilter, ok := resolveExtensionRef(
 						logger,
 						enableExtensionRefFilters,
@@ -856,6 +928,9 @@ func extractGRPCRoutes(logger *slog.Logger, hostnames []string, grpcr gatewayv1.
 						extensionRefFilter.SourceRouteRule = sourceGRPCRouteRule(grpcr, ruleIndex, 0)
 						extensionRefFilter.SourceRouteCreationTimestamp = grpcr.CreationTimestamp.Time
 						extensionRefFilters = append(extensionRefFilters, *extensionRefFilter)
+						if model.HasDuplicateExtProcFilters(extensionRefFilters) {
+							extProcDuplicate = true
+						}
 					} else {
 						logger.Debug(
 							"ExtensionRef resolution failed; route will return 500",
@@ -871,6 +946,10 @@ func extractGRPCRoutes(logger *slog.Logger, hostnames []string, grpcr gatewayv1.
 			}
 		}
 
+		if extProcDuplicate {
+			dr = &model.DirectResponse{StatusCode: 500}
+		}
+
 		// Fail-closed: if any filter failed, clear backends and extensionRefFilters
 		// to ensure the route carries no backends or ext_proc filters.
 		if dr != nil && dr.StatusCode == 500 {
@@ -878,8 +957,17 @@ func extractGRPCRoutes(logger *slog.Logger, hostnames []string, grpcr gatewayv1.
 			extensionRefFilters = nil
 		}
 
+		var sourceRoute *model.FullyQualifiedResource
+		if routeUsesExtProc {
+			source := sourceGRPCRouteRule(grpcr, ruleIndex, 0).Source
+			sourceRoute = &source
+		}
 		if len(rule.Matches) == 0 {
 			grpcRoutes = append(grpcRoutes, model.HTTPRoute{
+				SourceRoute:            sourceRoute,
+				SourceRule:             sourceGRPCRouteRule(grpcr, ruleIndex, 0),
+				ExtProcInvalidReason:   extProcInvalidReason,
+				ExtProcInvalidMessage:  extProcInvalidMessage,
 				Hostnames:              hostnames,
 				Backends:               bes,
 				DirectResponse:         dr,
@@ -891,9 +979,13 @@ func extractGRPCRoutes(logger *slog.Logger, hostnames []string, grpcr gatewayv1.
 			})
 		}
 
-		for _, match := range rule.Matches {
+		for matchIndex, match := range rule.Matches {
 			pathMatch := toGRPCPathMatch(match)
 			grpcRoutes = append(grpcRoutes, model.HTTPRoute{
+				SourceRoute:            sourceRoute,
+				SourceRule:             sourceGRPCRouteRule(grpcr, ruleIndex, matchIndex),
+				ExtProcInvalidReason:   extProcInvalidReason,
+				ExtProcInvalidMessage:  extProcInvalidMessage,
 				Hostnames:              hostnames,
 				PathMatch:              pathMatch,
 				HeadersMatch:           toGRPCHeaderMatch(match),
@@ -908,7 +1000,7 @@ func extractGRPCRoutes(logger *slog.Logger, hostnames []string, grpcr gatewayv1.
 			})
 		}
 	}
-
+	retainDuplicateRuleSources(grpcRoutes)
 	return grpcRoutes
 }
 
@@ -1337,6 +1429,14 @@ func crdToExtensionRefFilter(log *slog.Logger, crd *v2alpha1.CiliumEnvoyExtProcF
 		Config:  config,
 		Backend: backend,
 	}, true
+}
+
+func isExtProcExtensionRef(ref *gatewayv1.LocalObjectReference) bool {
+	return ref != nil && ref.Group == v2alpha1.CustomResourceDefinitionGroup && ref.Kind == v2alpha1.CEEPFKindDefinition
+}
+
+func extensionRefKey(ref *gatewayv1.LocalObjectReference) string {
+	return string(ref.Group) + "/" + string(ref.Kind) + "/" + string(ref.Name)
 }
 
 func serviceHasPort(service *corev1.Service, port int32) bool {

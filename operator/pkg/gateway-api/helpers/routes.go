@@ -4,15 +4,54 @@
 package helpers
 
 import (
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+const ExtProcConditionMessagePrefix = "ext_proc: "
+
+// IsExtProcInvalidCondition reports whether a Route condition was set by this
+// controller because an ext_proc filter declaration was rejected. It lets
+// aggregate-scoped status handling recognise its own conditions without
+// disturbing conditions that another aggregate or another feature produced.
+func IsExtProcInvalidCondition(condition metav1.Condition) bool {
+	if condition.Reason != "OrderingConflict" && condition.Reason != string(gatewayv1.RouteReasonIncompatibleFilters) {
+		return false
+	}
+
+	return strings.HasPrefix(condition.Message, ExtProcConditionMessagePrefix)
+}
 
 func IsParentAttachable(
 	reconcileParent metav1.Object,
 	route metav1.Object,
 	parents []gatewayv1.RouteParentStatus,
 	attachedListenerSets []gatewayv1.ListenerSet,
+) bool {
+	return isParentAttachable(reconcileParent, route, parents, attachedListenerSets, false)
+}
+
+// IsParentAttachableIncludingExtProcFailures keeps an ext_proc route in the
+// translation model after validation marks its parent rejected. The route must
+// remain present so translation can emit a fail-closed response instead of
+// allowing a lower-precedence route to handle the request.
+func IsParentAttachableIncludingExtProcFailures(
+	reconcileParent metav1.Object,
+	route metav1.Object,
+	parents []gatewayv1.RouteParentStatus,
+	attachedListenerSets []gatewayv1.ListenerSet,
+) bool {
+	return isParentAttachable(reconcileParent, route, parents, attachedListenerSets, true)
+}
+
+func isParentAttachable(
+	reconcileParent metav1.Object,
+	route metav1.Object,
+	parents []gatewayv1.RouteParentStatus,
+	attachedListenerSets []gatewayv1.ListenerSet,
+	includeExtProcFailures bool,
 ) bool {
 	for _, rps := range parents {
 		parentNS := NamespaceDerefOr(rps.ParentRef.Namespace, route.GetNamespace())
@@ -44,7 +83,13 @@ func IsParentAttachable(
 		// should be more than implicitly related, such that this type of
 		// function is not needed.
 		for _, cond := range rps.Conditions {
-			if cond.Type == string(gatewayv1.RouteConditionAccepted) && cond.Status == metav1.ConditionTrue {
+			if cond.Type != string(gatewayv1.RouteConditionAccepted) {
+				continue
+			}
+			if cond.Status == metav1.ConditionTrue {
+				return true
+			}
+			if includeExtProcFailures && IsExtProcInvalidCondition(cond) {
 				return true
 			}
 		}
