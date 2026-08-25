@@ -30,6 +30,10 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
+const (
+	MAX_GLOBAL_FUNC_PER_PROG = 10
+)
+
 var (
 	flagCiliumBasePath = flag.String("cilium-base-path", "", "Cilium checkout base path")
 	flagKernelName     = flag.String("kernel-name", "netnext", "Name of the kernel under test")
@@ -326,8 +330,10 @@ func loadAndRecordComplexity(
 
 			// The part of the log we are interested in is at the end. And looks like this:
 			//   verification time 355643 usec
-			//   stack depth 144+280+120
-			//   insns processed 12591+75421+455  <-- only on newer kernels
+			//   stack depth 144+280+120 [max 430] <-- only on newer kernels
+			//   ... |
+			//   ... | <-- only on newer kernels
+			//   ... |
 			//   processed 88467 insns (limit 1000000) max_states_per_insn 44 total_states 4141 peak_states 1137 mark_read 56
 
 			// Remove trailing newline so strings.LastIndex finds the newline ahead of the last log line.
@@ -411,20 +417,32 @@ func dumpVerifierLogs(t *testing.T, fullLogFile, verifierLogs string) {
 
 // Extract the second to last line, which looks like:
 //
-//	stack depth 144+280+120
+//	stack depth 144+280+120 max 430
+//
+// or:
+//
+//	stack depth max 430
+//
+// and may be preceded by multiple lines we don't care about for now.
 func parseStackDepth(t *testing.T, s *ebpf.ProgramSpec, verifierLogs string, lastLineIndex, lastOff int) (int, int, error) {
 	stackDepthIndex := strings.LastIndex(verifierLogs[:lastLineIndex], "\n")
 	stackDepthLine := strings.TrimSpace(verifierLogs[stackDepthIndex+1 : lastOff])
-	if !strings.Contains(stackDepthLine, "stack depth ") {
+
+	// On newer kernels, there may be multiple lines with the per-global function complexity
+	// between the "stack depth" line and the "processed insns" line. This loop skips over up to
+	// MAX_GLOBAL_FUNC_PER_PROG lines.
+	i := 0
+	for ; i < MAX_GLOBAL_FUNC_PER_PROG && !strings.Contains(stackDepthLine, "stack depth "); i++ {
 		lastOff = stackDepthIndex + 1
 		stackDepthIndex = strings.LastIndex(verifierLogs[:stackDepthIndex], "\n")
 		stackDepthLine = strings.TrimSpace(verifierLogs[stackDepthIndex+1 : lastOff])
-		if !strings.Contains(stackDepthLine, "stack depth ") {
-			t.Logf("Verifier log line: %s", stackDepthLine)
-			return 0, stackDepthIndex, fmt.Errorf("Couldn't find stack depths line in verifier logs")
-		}
 	}
-	stackDepthLine = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(stackDepthLine), "stack depth "))
+	if i == MAX_GLOBAL_FUNC_PER_PROG+1 && !strings.Contains(stackDepthLine, "stack depth ") {
+		t.Logf("Verifier log line: %s", stackDepthLine)
+		return 0, stackDepthIndex, fmt.Errorf("Couldn't find stack depths line in verifier logs")
+	}
+
+	stackDepthLine = strings.TrimPrefix(strings.TrimSpace(stackDepthLine), "stack depth ")
 	// On newer kernels, the stack depth line may look as follows, so we need
 	// to remove the max info at the end.
 	//   stack depth 144+255 max 400
