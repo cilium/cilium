@@ -632,9 +632,11 @@ func testPrivilegedHooksSpec(t *testing.T, loadBase func() (*ebpf.CollectionSpec
 			for _, patch := range opts.CollectionPatches {
 				require.NoError(t, patch(baseSpec))
 			}
-			for program, patch := range opts.ProgramPatches {
-				baseSpec.Programs[program].Instructions, err = patch(baseSpec.Programs[program].Instructions)
-				require.NoError(t, err)
+			for program, patches := range opts.ProgramPatches {
+				for _, patch := range patches {
+					baseSpec.Programs[program].Instructions, err = patch(baseSpec.Programs[program].Instructions)
+					require.NoError(t, err)
+				}
 			}
 			if diff := cmp.Diff(
 				tc.expectedInstrumentCollectionRequests,
