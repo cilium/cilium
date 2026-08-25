@@ -196,6 +196,16 @@ func TestIsExtProcInvalidCondition(t *testing.T) {
 			want:      true,
 		},
 		{
+			name:      "dropped rule condition",
+			condition: metav1.Condition{Reason: string(gatewayv1.RouteReasonIncompatibleFilters), Message: "Dropped Rule: " + ExtProcConditionMessagePrefix + "rule 1"},
+			want:      true,
+		},
+		{
+			name:      "rejected rule condition",
+			condition: metav1.Condition{Reason: string(gatewayv1.RouteReasonIncompatibleFilters), Message: "Rejected Rule: " + ExtProcConditionMessagePrefix + "rule 1"},
+			want:      true,
+		},
+		{
 			name:      "unrelated condition",
 			condition: metav1.Condition{Reason: string(gatewayv1.RouteReasonIncompatibleFilters), Message: "unrelated"},
 			want:      false,

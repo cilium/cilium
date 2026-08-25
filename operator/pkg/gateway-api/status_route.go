@@ -281,6 +281,7 @@ func (m *RouteStatusManager) setHTTPRouteStatuses(ctx context.Context, scopedLog
 	for httpRouteIndex, original := range httpRoutes {
 		hr := original.DeepCopy()
 		hr.Status.Parents = pruneRouteParentStatuses(hr.Status.Parents, hr.Spec.ParentRefs, m.controllerName)
+		clearExtProcPartiallyInvalidConditions(hr.Status.Parents, m.controllerName)
 
 		i := &routechecks.HTTPRouteInput{
 			Ctx:                        ctx,
@@ -349,6 +350,7 @@ func (m *RouteStatusManager) setGRPCRouteStatuses(ctx context.Context, scopedLog
 	for grpcRouteIndex, original := range grpcRoutes {
 		grpcr := original.DeepCopy()
 		grpcr.Status.Parents = pruneRouteParentStatuses(grpcr.Status.Parents, grpcr.Spec.ParentRefs, m.controllerName)
+		clearExtProcPartiallyInvalidConditions(grpcr.Status.Parents, m.controllerName)
 
 		i := &routechecks.GRPCRouteInput{
 			Ctx:                        ctx,

@@ -42,6 +42,9 @@ type ExtProcOrderAnalysis struct {
 	// added without introducing a cycle. Routes without provenance are not
 	// included because they cannot be mapped back to Kubernetes status.
 	ConflictedRoutes []FullyQualifiedResource
+	// ConflictedRules retains the source rule identity for refinement that can
+	// reject only the invalid rule while keeping valid siblings active.
+	ConflictedRules []HTTPRouteRule
 }
 
 type extProcRuleSequence struct {
@@ -121,6 +124,8 @@ func AnalyzeExtProcOrder(m *Model) ExtProcOrderAnalysis {
 
 	var conflicts []FullyQualifiedResource
 	seenConflicts := map[FullyQualifiedResource]struct{}{}
+	var conflictRules []HTTPRouteRule
+	seenConflictRules := map[extProcRuleKey]struct{}{}
 	for _, sequence := range sequences {
 		candidate := adjacentExtProcEdges(sequence.filters)
 		if len(candidate) == 0 {
@@ -143,6 +148,13 @@ func AnalyzeExtProcOrder(m *Model) ExtProcOrderAnalysis {
 					seenConflicts[sequence.source] = struct{}{}
 					conflicts = append(conflicts, sequence.source)
 				}
+				if len(sequence.filters) > 0 && sequence.filters[0].SourceRouteRule != nil {
+					key := extProcRuleKey{source: sequence.source, ruleIndex: sequence.ruleIndex}
+					if _, seen := seenConflictRules[key]; !seen {
+						seenConflictRules[key] = struct{}{}
+						conflictRules = append(conflictRules, *sequence.filters[0].SourceRouteRule)
+					}
+				}
 			}
 			continue
 		}
@@ -157,6 +169,7 @@ func AnalyzeExtProcOrder(m *Model) ExtProcOrderAnalysis {
 	return ExtProcOrderAnalysis{
 		Filters:          orderedFilters,
 		ConflictedRoutes: conflicts,
+		ConflictedRules:  conflictRules,
 	}
 }
 

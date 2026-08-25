@@ -31,6 +31,7 @@ func TestAnalyzeExtProcOrderReportsLosingRouteAndKeepsUniqueFilters(t *testing.T
 		analysis.Filters[2].Name,
 	})
 	require.Equal(t, []FullyQualifiedResource{{Name: "new", Namespace: "default", Kind: "HTTPRoute", UID: "new"}}, analysis.ConflictedRoutes)
+	require.Equal(t, []HTTPRouteRule{{Source: FullyQualifiedResource{Name: "new", Namespace: "default", Kind: "HTTPRoute", UID: "new"}, RuleIndex: 0}}, analysis.ConflictedRules)
 }
 
 func TestAnalyzeExtProcOrderKeepsRepeatedMatchesTogether(t *testing.T) {

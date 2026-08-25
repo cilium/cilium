@@ -172,7 +172,7 @@ func TestOverlayExtProcOrderingConflicts(t *testing.T) {
 	newCondition := routes[1].Status.Parents[0].Conditions[0]
 	require.Equal(t, metav1.ConditionFalse, newCondition.Status)
 	require.Equal(t, "OrderingConflict", newCondition.Reason)
-	require.True(t, strings.HasPrefix(newCondition.Message, helpers.ExtProcConditionMessagePrefix))
+	require.True(t, strings.HasPrefix(newCondition.Message, "Rejected Rule:"))
 	require.Contains(t, newCondition.Message, routeOrderingConflictMessage)
 
 	require.Nil(t, m.HTTP[0].Routes[0].DirectResponse)
@@ -182,6 +182,136 @@ func TestOverlayExtProcOrderingConflicts(t *testing.T) {
 	require.Nil(t, m.HTTP[0].Routes[1].Backends)
 	require.Nil(t, m.HTTP[0].Routes[1].ExternalAuth)
 	require.Empty(t, m.HTTP[0].Routes[1].ExtensionRefFilters)
+}
+
+func TestOverlayExtProcOrderingConflictPreservesValidSiblingRule(t *testing.T) {
+	old := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	newer := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	parentRef := extProcGatewayParent("gateway", "http", 80)
+	parent := model.FullyQualifiedResource{Name: "gateway", Namespace: "default", Kind: "Gateway"}
+	peerSource := model.FullyQualifiedResource{Name: "peer", Namespace: "default", Kind: "HTTPRoute", UID: "peer-uid"}
+	targetSource := model.FullyQualifiedResource{Name: "target", Namespace: "default", Kind: "HTTPRoute", UID: "target-uid"}
+	validRule := &model.HTTPRouteRule{Source: targetSource, RuleIndex: 0}
+	invalidRule := &model.HTTPRouteRule{Source: targetSource, RuleIndex: 1}
+
+	m := &model.Model{HTTP: []model.HTTPListener{{
+		Name: "http", Port: 80, Sources: []model.FullyQualifiedResource{parent},
+		Routes: []model.HTTPRoute{
+			{SourceRoute: &peerSource, SourceRule: &model.HTTPRouteRule{Source: peerSource, RuleIndex: 0}, ExtensionRefFilters: []model.ExtensionRefFilter{
+				extProcStatusFilterWithRule("alpha", peerSource, old, 0),
+				extProcStatusFilterWithRule("beta", peerSource, old, 0),
+			}},
+			{SourceRoute: &targetSource, SourceRule: validRule},
+			{SourceRoute: &targetSource, SourceRule: invalidRule, ExtensionRefFilters: []model.ExtensionRefFilter{
+				extProcStatusFilterWithRule("beta", targetSource, newer, 1),
+				extProcStatusFilterWithRule("alpha", targetSource, newer, 1),
+			}},
+		},
+	}}}
+	routes := []gatewayv1.HTTPRoute{{
+		ObjectMeta: metav1.ObjectMeta{Name: "target", Namespace: "default", UID: "target-uid", Generation: 1},
+		Status: gatewayv1.HTTPRouteStatus{RouteStatus: gatewayv1.RouteStatus{Parents: []gatewayv1.RouteParentStatus{
+			extProcStatusParent(parentRef, metav1.ConditionTrue, gatewayv1.RouteReasonAccepted),
+		}}},
+	}}
+
+	(&gatewayReconciler{}).overlayExtProcOrderingConflictsInMemory(m, routes, nil)
+
+	accepted := findRouteAcceptedCondition(routes[0].Status.Parents[0].Conditions)
+	require.NotNil(t, accepted)
+	require.Equal(t, metav1.ConditionTrue, accepted.Status)
+	require.Equal(t, string(gatewayv1.RouteReasonAccepted), accepted.Reason)
+	partial := findRouteCondition(routes[0].Status.Parents[0].Conditions, gatewayv1.RouteConditionPartiallyInvalid)
+	require.NotNil(t, partial)
+	require.Equal(t, metav1.ConditionTrue, partial.Status)
+	require.Equal(t, string(routeReasonOrderingConflict), partial.Reason)
+	require.True(t, strings.HasPrefix(partial.Message, "Dropped Rule"))
+	require.Nil(t, m.HTTP[0].Routes[1].DirectResponse)
+	require.NotNil(t, m.HTTP[0].Routes[2].DirectResponse)
+	require.Equal(t, 500, m.HTTP[0].Routes[2].DirectResponse.StatusCode)
+}
+
+func TestOverlayExtProcStaticInvalidityPreservesValidSiblingRule(t *testing.T) {
+	parentRef := extProcGatewayParent("gateway", "http", 80)
+	parent := model.FullyQualifiedResource{Name: "gateway", Namespace: "default", Kind: "Gateway"}
+
+	tests := []struct {
+		name           string
+		routeKind      string
+		invalidMessage string
+	}{
+		{name: "HTTPRoute declaration order", routeKind: "HTTPRoute", invalidMessage: "declares ext_proc filter \"filter-a\" after ExternalAuth"},
+		{name: "HTTPRoute duplicate", routeKind: "HTTPRoute", invalidMessage: "references ext_proc filter \"filter-a\" more than once"},
+		{name: "GRPCRoute duplicate", routeKind: "GRPCRoute", invalidMessage: "references ext_proc filter \"filter-a\" more than once"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source := model.FullyQualifiedResource{Name: "target", Namespace: "default", Kind: tt.routeKind, UID: "target-uid"}
+			validRule := &model.HTTPRouteRule{Source: source, RuleIndex: 0}
+			invalidRule := &model.HTTPRouteRule{Source: source, RuleIndex: 1}
+			m := &model.Model{HTTP: []model.HTTPListener{{
+				Name: "http", Port: 80, Sources: []model.FullyQualifiedResource{parent},
+				Routes: []model.HTTPRoute{
+					{SourceRoute: &source, SourceRule: validRule},
+					{SourceRoute: &source, SourceRule: invalidRule, ExtProcInvalidReason: model.ExtProcRouteInvalidDuplicate, ExtProcInvalidMessage: tt.invalidMessage},
+				},
+			}}}
+
+			statusParent := extProcStatusParent(parentRef, metav1.ConditionTrue, gatewayv1.RouteReasonAccepted)
+			var conditions []metav1.Condition
+			if tt.routeKind == "HTTPRoute" {
+				routes := []gatewayv1.HTTPRoute{{
+					ObjectMeta: metav1.ObjectMeta{Name: "target", Namespace: "default", UID: "target-uid", Generation: 1},
+					Status:     gatewayv1.HTTPRouteStatus{RouteStatus: gatewayv1.RouteStatus{Parents: []gatewayv1.RouteParentStatus{statusParent}}},
+				}}
+				(&gatewayReconciler{}).overlayExtProcOrderingConflictsInMemory(m, routes, nil)
+				conditions = routes[0].Status.Parents[0].Conditions
+			} else {
+				routes := []gatewayv1.GRPCRoute{{
+					ObjectMeta: metav1.ObjectMeta{Name: "target", Namespace: "default", UID: "target-uid", Generation: 1},
+					Status:     gatewayv1.GRPCRouteStatus{RouteStatus: gatewayv1.RouteStatus{Parents: []gatewayv1.RouteParentStatus{statusParent}}},
+				}}
+				(&gatewayReconciler{}).overlayExtProcOrderingConflictsInMemory(m, nil, routes)
+				conditions = routes[0].Status.Parents[0].Conditions
+			}
+
+			accepted := findRouteAcceptedCondition(conditions)
+			require.NotNil(t, accepted)
+			require.Equal(t, metav1.ConditionTrue, accepted.Status)
+			require.Equal(t, string(gatewayv1.RouteReasonAccepted), accepted.Reason)
+			partial := findRouteCondition(conditions, gatewayv1.RouteConditionPartiallyInvalid)
+			require.NotNil(t, partial)
+			require.Equal(t, string(gatewayv1.RouteReasonIncompatibleFilters), partial.Reason)
+			require.Equal(t, "Dropped Rule: "+helpers.ExtProcConditionMessagePrefix+"rule 1: "+tt.invalidMessage, partial.Message)
+			require.Nil(t, m.HTTP[0].Routes[0].DirectResponse)
+			require.NotNil(t, m.HTTP[0].Routes[1].DirectResponse)
+			require.Equal(t, 500, m.HTTP[0].Routes[1].DirectResponse.StatusCode)
+		})
+	}
+}
+
+func TestClearExtProcPartiallyInvalidConditionsScopesOwnership(t *testing.T) {
+	ciliumController := gatewayv1.GatewayController(defaultControllerName)
+	otherController := gatewayv1.GatewayController("example.com/other")
+	extProcPartial := metav1.Condition{
+		Type: string(gatewayv1.RouteConditionPartiallyInvalid), Status: metav1.ConditionTrue,
+		Reason:  string(gatewayv1.RouteReasonIncompatibleFilters),
+		Message: "Dropped Rule: " + helpers.ExtProcConditionMessagePrefix + "rule 1: invalid",
+	}
+	unrelatedPartial := metav1.Condition{
+		Type: string(gatewayv1.RouteConditionPartiallyInvalid), Status: metav1.ConditionTrue,
+		Reason: string(gatewayv1.RouteReasonIncompatibleFilters), Message: "Dropped Rule: unrelated",
+	}
+	parents := []gatewayv1.RouteParentStatus{
+		{ControllerName: ciliumController, Conditions: []metav1.Condition{extProcPartial, unrelatedPartial}},
+		{ControllerName: otherController, Conditions: []metav1.Condition{extProcPartial}},
+	}
+
+	clearExtProcPartiallyInvalidConditions(parents, defaultControllerName)
+
+	require.Equal(t, []metav1.Condition{unrelatedPartial}, parents[0].Conditions)
+	require.Equal(t, []metav1.Condition{extProcPartial}, parents[1].Conditions)
 }
 
 func TestPreserveExtProcConditionsIgnoresUnrelatedIncompatibleFilters(t *testing.T) {
