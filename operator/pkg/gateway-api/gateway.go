@@ -56,6 +56,7 @@ type gatewayReconciler struct {
 	hostNetworkEnabled                  bool
 	hostNetworkLabel                    metav1.LabelSelector
 	gatewayAPIInferenceExtensionEnabled bool
+	enableExtensionRefFilters           bool
 }
 
 func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector, gatewayAPIInferenceExtensionEnabled bool) *gatewayReconciler {
@@ -187,7 +188,6 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			Watches(&discoveryv1.EndpointSlice{}, watchhandlers.EnqueueRequestForOwningEndpointSlice(r.client, r.logger, r.controllerName)).
 			// watch shadow service owned by an InferencePool
 			Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForOwningShadowService(r.client, r.logger, r.controllerName))
-
 	}
 	return gatewayBuilder.Complete(r)
 }
