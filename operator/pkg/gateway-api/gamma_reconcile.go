@@ -193,6 +193,7 @@ func (r *gammaReconciler) setHTTPRouteStatuses(ctx context.Context, gammaLogger 
 	for httpRouteIndex, original := range httpRoutes {
 		hr := original.DeepCopy()
 		hr.Status.Parents = pruneRouteParentStatuses(hr.Status.Parents, hr.Spec.ParentRefs, r.controllerName)
+		clearExtProcPartiallyInvalidConditions(hr.Status.Parents, r.controllerName)
 
 		hrName := types.NamespacedName{
 			Name:      hr.Name,
@@ -295,6 +296,7 @@ func (r *gammaReconciler) setGRPCRouteStatuses(ctx context.Context, gammaLogger 
 	for grpcRouteIndex, original := range grpcRoutes {
 		grpc := original.DeepCopy()
 		grpc.Status.Parents = pruneRouteParentStatuses(grpc.Status.Parents, grpc.Spec.ParentRefs, r.controllerName)
+		clearExtProcPartiallyInvalidConditions(grpc.Status.Parents, r.controllerName)
 
 		grpcName := types.NamespacedName{
 			Name:      grpc.Name,
