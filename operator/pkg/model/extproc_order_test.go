@@ -32,6 +32,7 @@ func TestAnalyzeExtProcOrderReportsLosingRouteAndKeepsUniqueFilters(t *testing.T
 		analysis.Filters[2].Name,
 	})
 	require.Equal(t, []FullyQualifiedResource{{Name: "new", Namespace: "default", Kind: "HTTPRoute", UID: "new"}}, analysis.ConflictedRoutes)
+	require.Equal(t, []HTTPRouteRule{{Source: FullyQualifiedResource{Name: "new", Namespace: "default", Kind: "HTTPRoute", UID: "new"}, RuleIndex: 0}}, analysis.ConflictedRules)
 }
 
 func TestAnalyzeExtProcOrderKeepsRepeatedMatchesTogether(t *testing.T) {
@@ -157,6 +158,7 @@ func TestAnalyzeExtProcOrderEqualTimestampTies(t *testing.T) {
 			}
 			require.Equal(t, expected, names)
 			require.Empty(t, analysis.ConflictedRoutes)
+			require.Empty(t, analysis.ConflictedRules)
 		})
 	}
 }
@@ -267,8 +269,10 @@ func TestAnalyzeExtProcOrderComparisonTails(t *testing.T) {
 			require.Equal(t, winner.TypeURL, analysis.Filters[1].TypeURL)
 			if loser.SourceRouteRule == nil {
 				require.Empty(t, analysis.ConflictedRoutes)
+				require.Empty(t, analysis.ConflictedRules)
 			} else {
 				require.Equal(t, []FullyQualifiedResource{loser.SourceRouteRule.Source}, analysis.ConflictedRoutes)
+				require.Equal(t, []HTTPRouteRule{*loser.SourceRouteRule}, analysis.ConflictedRules)
 			}
 		})
 	}
