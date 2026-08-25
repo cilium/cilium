@@ -145,7 +145,7 @@ func provideMetrics[S any](metricSet S) hiveMetricOut {
 	}
 
 	for i := range typ.NumField() {
-		if withMeta, ok := value.Field(i).Interface().(pkgmetric.WithMetadata); ok {
+		if withMeta, ok := reflect.TypeAssert[pkgmetric.WithMetadata](value.Field(i)); ok {
 			metrics = append(metrics, withMeta)
 		}
 	}

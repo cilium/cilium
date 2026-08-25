@@ -118,7 +118,7 @@ func (m Metrics) toGatherer() (prometheus.Gatherer, error) {
 		if !f.CanInterface() {
 			continue
 		}
-		c, ok := f.Interface().(prometheus.Collector)
+		c, ok := reflect.TypeAssert[prometheus.Collector](f)
 		if !ok {
 			continue
 		}
