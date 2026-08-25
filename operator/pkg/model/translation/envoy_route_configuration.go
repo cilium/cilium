@@ -25,6 +25,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 	var res []ciliumv2.XDSResource
 	allAuthFilters := i.getUniqueAuthFilters(m)
 	statefulSessionFilterEnabled := m.IsSessionPersistenceConfigured()
+	allExtProcFilters := i.getUniqueExtProcFilters(m)
 
 	type hostnameRedirect struct {
 		hostname string
@@ -144,6 +145,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 							HTTPSRedirect:                true,
 							ListenerPort:                 m.HTTP[0].Port,
 							AllAuthFilters:               allAuthFilters,
+							AllExtProcFilters:            allExtProcFilters,
 							StatefulSessionFilterEnabled: statefulSessionFilterEnabled,
 						})
 						virtualhosts = append(virtualhosts, vhs)
@@ -166,6 +168,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 				HTTPSRedirect:                false,
 				ListenerPort:                 m.HTTP[0].Port,
 				AllAuthFilters:               allAuthFilters,
+				AllExtProcFilters:            allExtProcFilters,
 				StatefulSessionFilterEnabled: statefulSessionFilterEnabled,
 			})
 			virtualhosts = append(virtualhosts, vhs)

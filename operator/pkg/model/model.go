@@ -534,6 +534,16 @@ type ExtensionRefFilter struct {
 	TypeURL string `json:"type_url"`
 	// Config is the serialized protobuf config for the filter.
 	Config []byte `json:"config,omitempty"`
+	// Backend is the filter's backend service.
+	Backend *Backend `json:"backend,omitempty"`
+
+	// The following fields carry per-route provenance used for listener-wide
+	// conflict resolution. They are intentionally excluded from JSON/CEC output
+	// so that golden fixtures remain stable. SourceRouteRule is the canonical
+	// route identity and rule position; the remaining fields identify the filter
+	// position and route creation time.
+	SourceRouteRule              *HTTPRouteRule `json:"-"`
+	SourceRouteCreationTimestamp time.Time      `json:"-"`
 }
 
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
@@ -678,6 +688,20 @@ func (r *HTTPRoute) GetMatchKey() string {
 	if r.SessionPersistence != nil {
 		sb.WriteString("session:")
 		sb.WriteString(r.SessionPersistence.String())
+		sb.WriteString("|")
+	}
+
+	if len(r.ExtensionRefFilters) > 0 {
+		names := make([]string, len(r.ExtensionRefFilters))
+		for i, f := range r.ExtensionRefFilters {
+			names[i] = f.Name
+		}
+		sort.Strings(names)
+		sb.WriteString("extproc:")
+		for _, n := range names {
+			sb.WriteString(n)
+			sb.WriteString(",")
+		}
 		sb.WriteString("|")
 	}
 

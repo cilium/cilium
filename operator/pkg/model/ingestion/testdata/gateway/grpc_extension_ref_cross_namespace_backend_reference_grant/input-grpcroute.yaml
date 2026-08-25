@@ -1,0 +1,38 @@
+- metadata:
+    creationTimestamp: null
+    name: grpc-route
+    namespace: default
+  spec:
+    parentRefs:
+      - name: my-gateway
+    rules:
+      - backendRefs:
+          - name: grpc-service
+            port: 8080
+        filters:
+          - type: ExtensionRef
+            extensionRef:
+              group: cilium.io
+              kind: CiliumEnvoyExtProcFilter
+              name: permitted-ext-proc
+        matches:
+          - method:
+              type: Exact
+              service: service.Echo
+              method: Permitted
+      - backendRefs:
+          - name: grpc-service
+            port: 8080
+        filters:
+          - type: ExtensionRef
+            extensionRef:
+              group: cilium.io
+              kind: CiliumEnvoyExtProcFilter
+              name: denied-ext-proc
+        matches:
+          - method:
+              type: Exact
+              service: service.Echo
+              method: Denied
+  status:
+    parents: null

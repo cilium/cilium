@@ -10,6 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	envoy_config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	ext_procv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
+	envoy_http_connection_manager_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -88,6 +92,12 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "server_header_append_if_absent"},
 		{name: "server_header_pass_through"},
 		{name: "server_header_overwrite"},
+
+		// ExtensionRef ext_proc filter tests
+		{name: "httproute_ext_proc_filter"},
+		{name: "grpcroute_ext_proc_filter"},
+		{name: "httproute_ext_proc_with_ext_authz"},
+		{name: "httproute_multi_ext_proc"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -118,6 +128,8 @@ func Test_translator_Translate(t *testing.T) {
 			for i, ep := range eps {
 				require.Equal(t, svc.Name, ep.Labels[discoveryv1.LabelServiceName], "EndpointSlice[%d] must carry the Service association label", i)
 			}
+
+			requireExtProcClusterReferencesResolve(t, cec)
 
 			diffOutput := cmp.Diff(wantCEC, cec, protocmp.Transform())
 			if len(diffOutput) != 0 {
@@ -842,6 +854,54 @@ func Test_translator_Translate_ShortensCECName(t *testing.T) {
 	require.Equal(t, shortener.ShortenK8sResourceName(CiliumGatewayPrefix+longName), cec.Name)
 	require.Equal(t, svc.Name, cec.Name)
 	require.LessOrEqual(t, len(cec.Name), 63, "CiliumEnvoyConfig name is too long")
+}
+
+func requireExtProcClusterReferencesResolve(t *testing.T, cec *ciliumv2.CiliumEnvoyConfig) {
+	t.Helper()
+	if cec == nil {
+		return
+	}
+
+	clusters := map[string]struct{}{}
+	var extProcClusterReferences []string
+	for _, resource := range cec.Spec.Resources {
+		switch resource.GetTypeUrl() {
+		case "type.googleapis.com/envoy.config.cluster.v3.Cluster":
+			cluster := &envoy_config_cluster_v3.Cluster{}
+			require.NoError(t, resource.UnmarshalTo(cluster))
+			clusters[cluster.GetName()] = struct{}{}
+
+		case "type.googleapis.com/envoy.config.listener.v3.Listener":
+			listener := &envoy_config_listener_v3.Listener{}
+			require.NoError(t, resource.UnmarshalTo(listener))
+			for _, filterChain := range listener.GetFilterChains() {
+				for _, filter := range filterChain.GetFilters() {
+					if filter.GetName() != "envoy.filters.network.http_connection_manager" {
+						continue
+					}
+
+					hcm := &envoy_http_connection_manager_v3.HttpConnectionManager{}
+					require.NoError(t, filter.GetTypedConfig().UnmarshalTo(hcm))
+					for _, httpFilter := range hcm.GetHttpFilters() {
+						if !strings.HasPrefix(httpFilter.GetName(), model.ExtProcFilterNamePrefix+"/") {
+							continue
+						}
+
+						extProc := &ext_procv3.ExternalProcessor{}
+						require.NoError(t, httpFilter.GetTypedConfig().UnmarshalTo(extProc))
+						envoyGrpc := extProc.GetGrpcService().GetEnvoyGrpc()
+						require.NotNil(t, envoyGrpc, "ext_proc filter %q must use Envoy gRPC", httpFilter.GetName())
+						extProcClusterReferences = append(extProcClusterReferences, envoyGrpc.GetClusterName())
+					}
+				}
+			}
+		}
+	}
+
+	for _, clusterName := range extProcClusterReferences {
+		_, ok := clusters[clusterName]
+		require.True(t, ok, "ext_proc cluster reference %q must resolve to an emitted CEC cluster", clusterName)
+	}
 }
 
 func readInput(t *testing.T, file string, obj any) {
