@@ -164,8 +164,7 @@ func isPortBindingError(err error) bool {
 		return false
 	}
 
-	var proxyErr *xds.ProxyError
-	if errors.As(err, &proxyErr) {
+	if proxyErr, ok := errors.AsType[*xds.ProxyError](err); ok {
 		// Check ProxyError.Detail field which contains the actual Envoy error message
 		detail := strings.ToLower(proxyErr.Detail)
 		if strings.Contains(detail, "cannot bind") ||

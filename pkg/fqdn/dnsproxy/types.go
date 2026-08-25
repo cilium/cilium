@@ -88,8 +88,7 @@ type ProxyRequestContext struct {
 
 // IsTimeout return true if the ProxyRequest timeout
 func (proxyStat *ProxyRequestContext) IsTimeout() bool {
-	var neterr net.Error
-	if errors.As(proxyStat.Err, &neterr) {
+	if neterr, ok := errors.AsType[net.Error](proxyStat.Err); ok {
 		return neterr.Timeout()
 	}
 	return false

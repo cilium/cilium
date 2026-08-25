@@ -55,8 +55,7 @@ func (r *Registry) ConfigureHandlers(logger *slog.Logger, registry *prometheus.R
 	for _, metricsConfig := range enabled.Metrics {
 		h, err := r.validateAndCreateHandlerLocked(metricsConfig, &metricNames)
 		if err != nil {
-			var errM *errMetricNotExist
-			if errors.As(err, &errM) {
+			if errM, ok := errors.AsType[*errMetricNotExist](err); ok {
 				logger.Warn("Skipping unknown hubble metric", logfields.Name, errM.name)
 				continue
 			}

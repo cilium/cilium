@@ -268,8 +268,7 @@ func loadAndRecordComplexity(
 			break
 		}
 
-		var ve *ebpf.VerifierError
-		if errors.As(err, &ve) {
+		if ve, ok := errors.AsType[*ebpf.VerifierError](err); ok {
 			// Write full verifier log to a path on disk for offline analysis.
 			var buf bytes.Buffer
 			fmt.Fprintf(&buf, "%+v", ve)

@@ -219,8 +219,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer, testNet
 		instrLog.Write(localBuf.Bytes())
 	}
 
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
+	if ve, ok := errors.AsType[*ebpf.VerifierError](err); ok {
 		t.Fatalf("verifier error: %+v", ve)
 	}
 	if err != nil {

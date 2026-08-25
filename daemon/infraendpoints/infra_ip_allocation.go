@@ -233,8 +233,7 @@ func (r *infraIPAllocator) allocateNextFromPool(ctx context.Context, family ipam
 		return result, nil
 	}
 
-	var poolErr *ipam.ErrPoolNotReadyYet
-	if !errors.As(err, &poolErr) {
+	if _, ok := errors.AsType[*ipam.ErrPoolNotReadyYet](err); !ok {
 		return nil, err
 	}
 
@@ -256,8 +255,7 @@ func (r *infraIPAllocator) allocateNextFromPool(ctx context.Context, family ipam
 			return true, nil
 		}
 
-		var poolErr *ipam.ErrPoolNotReadyYet
-		if errors.As(allocErr, &poolErr) {
+		if _, ok := errors.AsType[*ipam.ErrPoolNotReadyYet](allocErr); ok {
 			lastErr = allocErr
 			return false, nil
 		}

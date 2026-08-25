@@ -45,8 +45,7 @@ func ToStringMapStringE(data any) (map[string]string, error) {
 
 	v, err := cast.ToStringMapStringE(data)
 	if err != nil {
-		var syntaxErr *json.SyntaxError
-		if !errors.As(err, &syntaxErr) {
+		if _, ok := errors.AsType[*json.SyntaxError](err); !ok {
 			return v, err
 		}
 

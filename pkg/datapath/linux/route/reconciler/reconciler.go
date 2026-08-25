@@ -259,8 +259,7 @@ func (ops *ops) UpdateBatch(ctx context.Context, txn statedb.ReadTxn, batch []re
 	// Write all events to the WAL first, then process the updates.
 	if err := ops.wal.Write(events...); err != nil {
 		// If we failed to write individual entries, mark them as failed.
-		var ba wal.BatchErrors
-		if errors.As(err, &ba) {
+		if ba, ok := errors.AsType[wal.BatchErrors](err); ok {
 			for _, e := range ba {
 				selected[e.Index].Result = e.Err
 			}
@@ -325,8 +324,7 @@ func (ops *ops) DeleteBatch(ctx context.Context, txn statedb.ReadTxn, batch []re
 	// Write all events to the WAL first, then process the updates.
 	if err := ops.wal.Write(events...); err != nil {
 		// If we failed to write individual entries, mark them as failed.
-		var ba wal.BatchErrors
-		if errors.As(err, &ba) {
+		if ba, ok := errors.AsType[wal.BatchErrors](err); ok {
 			for _, e := range ba {
 				toDelete[e.Index].Result = e.Err
 			}

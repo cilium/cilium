@@ -56,8 +56,7 @@ func output(ctx context.Context, cmd *exec.Cmd, scopedLog *slog.Logger, verbose 
 		return nil, fmt.Errorf("Command execution failed for %s: %w", cmd.Args, ctx.Err())
 	}
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			err = fmt.Errorf("%w stderr=%q", exitErr, exitErr.Stderr)
 		}
 		if verbose {

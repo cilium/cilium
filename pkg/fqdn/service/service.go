@@ -712,8 +712,7 @@ func (s *FQDNDataServer) UpdateMappingRequest(ctx context.Context, mappings *pb.
 }
 
 func responseCodeFromError(err error) pb.ResponseCode {
-	var noEp dnsproxy.ErrDNSRequestNoEndpoint
-	if errors.As(err, &noEp) {
+	if _, ok := errors.AsType[dnsproxy.ErrDNSRequestNoEndpoint](err); ok {
 		return pb.ResponseCode_RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND
 	}
 	return pb.ResponseCode_RESPONSE_CODE_SERVER_FAILURE

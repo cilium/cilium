@@ -20,8 +20,7 @@ import (
 func mustNewCollection(t *testing.T, spec *ebpf.CollectionSpec) *ebpf.Collection {
 	t.Helper()
 	coll, err := ebpf.NewCollection(spec)
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
+	if ve, ok := errors.AsType[*ebpf.VerifierError](err); ok {
 		require.NoError(t, ve)
 	}
 	require.NoError(t, err)

@@ -1634,8 +1634,7 @@ func CheckHealth(ep *Endpoint) error {
 		return nil
 	}
 	_, err := safenetlink.LinkByName(iface)
-	var linkNotFoundError netlink.LinkNotFoundError
-	if errors.As(err, &linkNotFoundError) {
+	if _, ok := errors.AsType[netlink.LinkNotFoundError](err); ok {
 		return fmt.Errorf("Endpoint is invalid: %w", err)
 	}
 	if err != nil {

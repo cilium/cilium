@@ -376,8 +376,7 @@ func isTransientError(err error) bool {
 	}
 
 	// Check for network-level errors (connection refused, reset, host unreachable)
-	var errno syscall.Errno
-	if errors.As(err, &errno) {
+	if errno, ok := errors.AsType[syscall.Errno](err); ok {
 		switch errno {
 		case syscall.ECONNREFUSED, syscall.ECONNRESET, syscall.EHOSTUNREACH, syscall.ENETUNREACH:
 			return true
