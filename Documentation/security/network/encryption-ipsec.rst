@@ -20,37 +20,6 @@ Packets are not encrypted when they are destined to the same node from which
 they were sent. This behavior is intended. Encryption would provide no benefits
 in that case, given that the raw traffic can be observed on the node anyway.
 
-v1.18 Encrypted Overlay
-=========================
-Prior to v1.18, IPsec encryption was performed before tunnel encapsulation.
-From Cilium v1.18 and forward, Cilium's IPsec encryption datapath will send
-traffic for overlay encapsulation prior to IPsec encryption when tunnel mode is
-enabled.
-
-With this change, the security identities used for policy enforcement are
-encrypted on the wire. This is a security benefit.
-
-A disruption-less upgrade from v1.17 to v1.18 can only be achieved by fully
-patching v1.17 to its latest version. Migration specific code was added to
-newer v1.17 releases to support a disruption-less upgrade to v1.18.
-
-Once patched to the newest v1.17 stable release, a normal upgrade to v1.18 can
-be performed.
-
-.. note::
-
-   Because VXLAN is encrypted before being sent, operators see ESP
-   traffic between Kubernetes nodes.
-
-   This may result in the need to update firewall rules to allow ESP traffic
-   between nodes.
-   This is also important for cloud environments where security groups (or VPC firewall rules)
-   are used to control traffic between nodes. In such cases, ensure that the
-   security groups allow ESP traffic between the nodes in the cluster. 
-   This applies to AWS, Azure and GCP.
-   The default firewall rules for the cluster's subnet may not allow ESP.
-
-
 Generate & Import the PSK
 =========================
 
