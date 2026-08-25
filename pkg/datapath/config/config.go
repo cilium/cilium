@@ -259,6 +259,9 @@ type Config struct {
 	// LBConfig holds the configuration options for load-balancing
 	LBConfig loadbalancer.Config
 
+	// EnableLocalRedirectPolicy enables redirect policies to redirect traffic within nodes.
+	EnableLocalRedirectPolicy bool
+
 	// Maglev configuration provides the maglev table sizes and seeds for
 	// the BPF programs.
 	MaglevConfig maglev.Config

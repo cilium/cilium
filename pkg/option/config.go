@@ -253,9 +253,6 @@ const (
 	// considered local ones with HOST_ID in the ipcache
 	AddressScopeMax = "local-max-addr-scope"
 
-	// EnableLocalRedirectPolicy enables support for local redirect policy
-	EnableLocalRedirectPolicy = "enable-local-redirect-policy"
-
 	// EnableMKE enables MKE specific 'chaining' for kube-proxy replacement
 	EnableMKE = "enable-mke"
 
@@ -1625,9 +1622,6 @@ type DaemonConfig struct {
 	// EnableHostFirewall enables network policies for the host
 	EnableHostFirewall bool
 
-	// EnableLocalRedirectPolicy enables redirect policies to redirect traffic within nodes
-	EnableLocalRedirectPolicy bool
-
 	// Selection of BPF main clock source (ktime vs jiffies)
 	ClockSource BPFClockSource
 
@@ -2433,7 +2427,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableMKE = vp.GetBool(EnableMKE)
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)
 	c.EnableHostFirewall = vp.GetBool(EnableHostFirewall)
-	c.EnableLocalRedirectPolicy = vp.GetBool(EnableLocalRedirectPolicy)
 	c.EncryptNode = vp.GetBool(EncryptNode)
 	c.IdentityChangeGracePeriod = vp.GetDuration(IdentityChangeGracePeriod)
 	c.CiliumIdentityMaxJitter = vp.GetDuration(CiliumIdentityMaxJitter)

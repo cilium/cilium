@@ -33,7 +33,7 @@ import (
 const lrpControllerInitName = "lrp-controller"
 
 func registerLRPController(g job.Group, p lrpControllerParams) {
-	if !p.Enabled {
+	if !p.Config.IsEnabled() {
 		return
 	}
 
@@ -54,7 +54,7 @@ func registerLRPController(g job.Group, p lrpControllerParams) {
 type lrpControllerParams struct {
 	cell.In
 
-	Enabled            lrpIsEnabled
+	Config             Config
 	Log                *slog.Logger
 	DB                 *statedb.DB
 	LRPs               statedb.Table[*LocalRedirectPolicy]
