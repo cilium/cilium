@@ -18,6 +18,8 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -129,6 +131,80 @@ func EnqueueRequestForBackendService(c client.Client, scheme *runtime.Scheme, lo
 		// return the keys of the set, since that's the actual reconcile.Requests.
 		return slices.Collect(maps.Keys(reconcileRequests))
 	})
+}
+
+// EnqueueRequestForExtProcFilterBackendService returns an event handler that
+// enqueues Gateways for Routes using an ext_proc filter whose backend Service
+// changed. ListenerSet parents are resolved to their owning Gateway by the
+// existing Route parent mapping.
+func EnqueueRequestForExtProcFilterBackendService(c client.Client, logger *slog.Logger, controllerName string) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+		if _, ok := o.(*corev1.Service); !ok {
+			return nil
+		}
+
+		scopedLog := logger.With(logfields.LogSubsys, "queue-gw-from-ext-proc-backend-svc")
+		httpRoutes, grpcRoutes, err := getExtProcFilterUsersForService(ctx, c, client.ObjectKeyFromObject(o), scopedLog)
+		if err != nil {
+			return nil
+		}
+
+		reconcileRequests := make(map[reconcile.Request]struct{})
+		for i := range httpRoutes {
+			for _, req := range getGatewayReconcileRequestsForRoute(ctx, c, &httpRoutes[i], httpRoutes[i].Spec.CommonRouteSpec, scopedLog, controllerName) {
+				reconcileRequests[req] = struct{}{}
+			}
+		}
+		for i := range grpcRoutes {
+			for _, req := range getGatewayReconcileRequestsForRoute(ctx, c, &grpcRoutes[i], grpcRoutes[i].Spec.CommonRouteSpec, scopedLog, controllerName) {
+				reconcileRequests[req] = struct{}{}
+			}
+		}
+		return slices.Collect(maps.Keys(reconcileRequests))
+	})
+}
+
+func getExtProcFilterUsersForService(ctx context.Context, c client.Client, serviceKey client.ObjectKey, logger *slog.Logger) ([]gatewayv1.HTTPRoute, []gatewayv1.GRPCRoute, error) {
+	filterList := &v2alpha1.CiliumEnvoyExtProcFilterList{}
+	if err := c.List(ctx, filterList); err != nil {
+		logger.ErrorContext(ctx, "Failed to get ext_proc filters for backend Service", logfields.Error, err)
+		return nil, nil, err
+	}
+
+	var httpRoutes []gatewayv1.HTTPRoute
+	var grpcRoutes []gatewayv1.GRPCRoute
+	for i := range filterList.Items {
+		filter := &filterList.Items[i]
+		backendNamespace := filter.Namespace
+		if filter.Spec.BackendRef.Namespace != nil {
+			backendNamespace = *filter.Spec.BackendRef.Namespace
+		}
+		if (client.ObjectKey{Namespace: backendNamespace, Name: filter.Spec.BackendRef.Name}) != serviceKey {
+			continue
+		}
+
+		filterKey := client.ObjectKeyFromObject(filter).String()
+
+		httpRouteList := &gatewayv1.HTTPRouteList{}
+		if err := c.List(ctx, httpRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.ExtProcFilterHTTPRouteIndex, filterKey),
+		}); err != nil {
+			logger.ErrorContext(ctx, "Failed to get HTTPRoutes for ext_proc filter", logfields.Error, err)
+			return nil, nil, err
+		}
+		httpRoutes = append(httpRoutes, httpRouteList.Items...)
+
+		grpcRouteList := &gatewayv1.GRPCRouteList{}
+		if err := c.List(ctx, grpcRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.ExtProcFilterGRPCRouteIndex, filterKey),
+		}); err != nil {
+			logger.ErrorContext(ctx, "Failed to get GRPCRoutes for ext_proc filter", logfields.Error, err)
+			return nil, nil, err
+		}
+		grpcRoutes = append(grpcRoutes, grpcRouteList.Items...)
+	}
+
+	return httpRoutes, grpcRoutes, nil
 }
 
 // EnqueueRequestForBackendServiceImport makes sure that Gateways are reconciled
