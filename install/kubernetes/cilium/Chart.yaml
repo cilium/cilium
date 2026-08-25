@@ -193,3 +193,10 @@ annotations:
       displayName: Cilium Resource IP Pool
       description: |
         CiliumResourceIPPool defines an IP pool that can be used for pooled DRA resources IPAM (i.e. the multi-pool resource IPAM mode).
+    - kind: CiliumEnvoyExtProcFilter
+      version: v2alpha1
+      name: ciliumenvoyextprocfilters.cilium.io
+      displayName: Cilium Envoy ExtProc Filter
+      description: |
+        CiliumEnvoyExtProcFilter configures an Envoy ext_proc filter that can be
+        referenced from Gateway API HTTPRoute and GRPCRoute ExtensionRef filters.
