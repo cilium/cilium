@@ -103,6 +103,10 @@ jobs:
           - kernel: '6.18'
             kernel-name: 'v6.18'
             ci-kernel: '61'
+          - kernel: '7.2'
+            kernel-name: 'v7.2'
+            ci-kernel: 'netnext'
+
     timeout-minutes: 60
     steps:
       - name: Set commit status to pending
@@ -155,6 +159,8 @@ jobs:
             "6.12") FULL_KERNEL="6.12-20260817.013106" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
             "6.18") FULL_KERNEL="6.18-20260817.013106" ;;
+            # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
+            "7.2") FULL_KERNEL="7.2-20260824.055245" ;;
             *) FULL_KERNEL="$KERNEL" ;;
           esac
           echo "full=${FULL_KERNEL}" >> $GITHUB_OUTPUT
