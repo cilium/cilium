@@ -1,0 +1,21 @@
+# The GRPCRoute is parented by both echo-v2 and the shared echo Service.
+# Reconciling echo-v2 must only program the echo-v2 parent.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: mesh-multi-parent-grpc
+  namespace: gateway-conformance-mesh
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: echo-v2
+      port: 7070
+    - group: ""
+      kind: Service
+      name: echo
+      port: 7070
+  rules:
+    - backendRefs:
+        - name: echo-v2
+          port: 7070
