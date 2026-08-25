@@ -73,9 +73,6 @@ func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
 	if option.Config.EnableEgressGateway {
 		result = append(result, CRDResourceName(v2.CEGPName))
 	}
-	if option.Config.EnableLocalRedirectPolicy {
-		result = append(result, CRDResourceName(v2.CLRPName))
-	}
 	if option.Config.EnableEnvoyConfig {
 		result = append(result, CRDResourceName(v2.CCECName))
 		result = append(result, CRDResourceName(v2.CECName))

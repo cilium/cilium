@@ -33,6 +33,6 @@ func TestParseLRPRejectsEmptyBackendPorts(t *testing.T) {
 		},
 	}
 
-	_, err := parseLRP(DefaultConfig, nil, lrp)
+	_, err := parseLRP(newLRPAgentConfig(defaultLRPUserConfig), nil, lrp)
 	require.Error(t, err)
 }
