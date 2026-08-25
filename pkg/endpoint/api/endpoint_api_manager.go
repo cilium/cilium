@@ -499,8 +499,7 @@ func (m *endpointAPIManager) EndpointUpdate(id string, cfg *models.EndpointConfi
 	}
 
 	if err := ep.Update(cfg); err != nil {
-		var updateValidationError endpoint.UpdateValidationError
-		if errors.As(err, &updateValidationError) {
+		if _, ok := errors.AsType[endpoint.UpdateValidationError](err); ok {
 			return api.Error(PatchEndpointIDConfigInvalidCode, err)
 		}
 		return api.Error(PatchEndpointIDConfigFailedCode, err)

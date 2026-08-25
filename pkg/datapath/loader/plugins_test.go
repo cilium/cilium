@@ -284,8 +284,7 @@ func runTestProgs(t *testing.T, inputValues inputValues, baseObjs *ebpf.Collecti
 }
 
 func maybeReportVerifierError(err error) error {
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
+	if ve, ok := errors.AsType[*ebpf.VerifierError](err); ok {
 		fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve)
 	}
 

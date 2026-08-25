@@ -350,8 +350,7 @@ func (c *controller) runController() {
 				err = NewExitReason("controller context canceled")
 			}
 
-			var exitReason ExitReason
-			if errors.As(err, &exitReason) {
+			if exitReason, ok := errors.AsType[ExitReason](err); ok {
 				// This is actually not an error case, but it causes an exit
 				c.recordSuccess(params.Health)
 				c.lastError = exitReason // This will be shown in the controller status

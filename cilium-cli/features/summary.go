@@ -483,8 +483,7 @@ func loadWorkflowData(directory string) (perWorkflowMetrics, error) {
 				// Because the runtime tests are running on a single node,
 				// they will only have a list of metrics stored on each .json
 				// file
-				var errUTE *json.UnmarshalTypeError
-				if !errors.As(err, &errUTE) {
+				if _, ok := errors.AsType[*json.UnmarshalTypeError](err); !ok {
 					return fmt.Errorf("error unmarshalling file %q: %w", path, err)
 				}
 				var metrics []*models.Metric

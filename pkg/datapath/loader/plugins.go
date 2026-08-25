@@ -194,8 +194,7 @@ func (l *bpfCollectionLoader) LoadAndAssign(ctx context.Context, logger *slog.Lo
 	opts.Keep = keep
 
 	coll, commit, cleanupLinks, err := l.Load(ctx, logger, spec, opts, lnc, attachmentContext, pinsDir)
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
+	if ve, ok := errors.AsType[*ebpf.VerifierError](err); ok {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
 			return nil, nil, fmt.Errorf("writing verifier log to stderr: %w", err)
 		}
