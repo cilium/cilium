@@ -23,6 +23,13 @@ type GammaInput struct {
 	GRPCRoutes      []gatewayv1.GRPCRoute
 	ReferenceGrants []gatewayv1.ReferenceGrant
 	Services        []corev1.Service
+	// SourceService is the GAMMA Service being reconciled. Only route parents
+	// matching it contribute Listeners, so a Route parented by several Services
+	// cannot leak another Service's configuration into this reconciliation.
+	//
+	// The reconciler always sets this; nil is a test-only convenience that
+	// processes every Service parent.
+	SourceService *corev1.Service
 }
 
 // GammaHTTPRoutes takes a GammaInput and gives back the associated HTTP Listeners
@@ -48,8 +55,8 @@ func GammaHTTPRoutes(log *slog.Logger, input GammaInput) []model.HTTPListener {
 	// Set of services that will be parents for these HTTPRoutes
 	parentServices := make(map[types.NamespacedName]model.FullyQualifiedResource)
 
-	resHTTP = append(resHTTP, toGammaHTTPRoutes(log, parentServices, input.HTTPRoutes, input.Services, input.ReferenceGrants)...)
-	resHTTP = append(resHTTP, toGammaGRPCRoutes(log, parentServices, input.GRPCRoutes, input.Services, input.ReferenceGrants)...)
+	resHTTP = append(resHTTP, toGammaHTTPRoutes(log, parentServices, input.HTTPRoutes, input.Services, input.SourceService, input.ReferenceGrants)...)
+	resHTTP = append(resHTTP, toGammaGRPCRoutes(log, parentServices, input.GRPCRoutes, input.Services, input.SourceService, input.ReferenceGrants)...)
 	return resHTTP
 }
 
@@ -58,6 +65,7 @@ func toGammaHTTPRoutes(
 	parentServices map[types.NamespacedName]model.FullyQualifiedResource,
 	input []gatewayv1.HTTPRoute,
 	services []corev1.Service,
+	sourceService *corev1.Service,
 	grants []gatewayv1.ReferenceGrant,
 ) []model.HTTPListener {
 	var resHTTP []model.HTTPListener
@@ -67,7 +75,7 @@ func toGammaHTTPRoutes(
 		// route rules to Listeners for those Services.
 		var gammaParents []gatewayv1.ParentReference
 		for _, parent := range hr.Spec.ParentRefs {
-			if helpers.IsGammaService(parent) {
+			if helpers.IsGammaService(parent) && (sourceService == nil || helpers.IsGammaServiceEqual(parent, sourceService, hr.Namespace)) {
 				gammaParents = append(gammaParents, parent)
 			}
 		}
@@ -202,6 +210,7 @@ func toGammaGRPCRoutes(
 	parentServices map[types.NamespacedName]model.FullyQualifiedResource,
 	input []gatewayv1.GRPCRoute,
 	services []corev1.Service,
+	sourceService *corev1.Service,
 	grants []gatewayv1.ReferenceGrant,
 ) []model.HTTPListener {
 	var resGRPC []model.HTTPListener
@@ -211,7 +220,7 @@ func toGammaGRPCRoutes(
 		// route rules to Listeners for those Services.
 		var gammaParents []gatewayv1.ParentReference
 		for _, parent := range grpcr.Spec.ParentRefs {
-			if helpers.IsGammaService(parent) {
+			if helpers.IsGammaService(parent) && (sourceService == nil || helpers.IsGammaServiceEqual(parent, sourceService, grpcr.Namespace)) {
 				gammaParents = append(gammaParents, parent)
 			}
 		}
