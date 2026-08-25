@@ -11,6 +11,7 @@
 - :ref:`CiliumEndpoint<CiliumEndpoint>`
 - :ref:`CiliumEndpointSlice<CiliumEndpointSlice>`
 - CiliumEnvoyConfig
+- CiliumEnvoyExtProcFilter
 - CiliumGatewayClassConfig
 - CiliumIdentity
 - CiliumL2AnnouncementPolicy

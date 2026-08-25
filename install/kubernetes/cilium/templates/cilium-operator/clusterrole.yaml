@@ -287,6 +287,7 @@ rules:
   - ciliumnetworkdriverclusterconfigs.cilium.io
   - ciliumresourceippools.cilium.io
 {{- end }}
+  - ciliumenvoyextprocfilters.cilium.io
 # The operator will migrate any custom resources that have "upgraded" storage versions.
 # To do this, it must be allowed to list and patch the resource. (This triggers a storage migration
 # on the apiserver.)
@@ -403,6 +404,7 @@ rules:
   - cilium.io
   resources:
   - ciliumgatewayclassconfigs
+  - ciliumenvoyextprocfilters
   verbs:
   - get
   - list
