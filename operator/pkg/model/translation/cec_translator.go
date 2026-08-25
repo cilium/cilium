@@ -369,17 +369,6 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 	namespaceNamePortMap := map[string]map[string][]string{}
 	for _, l := range m.HTTP {
 		for _, r := range l.Routes {
-			for _, be := range r.Backends {
-				namePortMap, exist := namespaceNamePortMap[be.Namespace]
-				if exist {
-					namePortMap[be.Name] = slices.SortedUnique(append(namePortMap[be.Name], be.Port.GetPort()))
-				} else {
-					namePortMap = map[string][]string{
-						be.Name: {be.Port.GetPort()},
-					}
-				}
-				namespaceNamePortMap[be.Namespace] = namePortMap
-			}
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
 
 			for _, rm := range r.RequestMirrors {
@@ -390,6 +379,11 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 			}
 			if r.ExternalAuth != nil {
 				mergeBackendsInNamespaceNamePortMap([]model.Backend{r.ExternalAuth.Backend}, namespaceNamePortMap)
+			}
+			for _, filter := range r.ExtensionRefFilters {
+				if filter.Backend != nil {
+					mergeBackendsInNamespaceNamePortMap([]model.Backend{*filter.Backend}, namespaceNamePortMap)
+				}
 			}
 			for _, be := range r.Backends {
 				if be.EndpointPicker == nil {
@@ -451,6 +445,13 @@ func (i *cecTranslator) getUniqueAuthFilters(m *model.Model) []*model.HTTPExtern
 		}
 	}
 	return result
+}
+
+// getUniqueExtProcFilters returns the deterministic HCM filter chain resolved
+// from all routes in the model. Ordering and conflict handling are shared with
+// status reconciliation through model.AnalyzeExtProcOrder.
+func (i *cecTranslator) getUniqueExtProcFilters(m *model.Model) []model.ExtensionRefFilter {
+	return model.AnalyzeExtProcOrder(m).Filters
 }
 
 func mergeBackendsInNamespaceNamePortMap(backends []model.Backend, namespaceNamePortMap map[string]map[string][]string) {
