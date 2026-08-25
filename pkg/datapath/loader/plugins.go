@@ -698,7 +698,7 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec, opts *bpf.Col
 
 	hooks := make(map[string]*datapathplugins.InstrumentCollectionRequest)
 	hookSlots := make(map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32)
-	opts.ProgramPatches = make(map[string]func(asm.Instructions) (asm.Instructions, error))
+	opts.ProgramPatches = make(map[string][]func(asm.Instructions) (asm.Instructions, error))
 	opts.CollectionPatches = make([]func(*ebpf.CollectionSpec) error, 0)
 	if opts.Keep == nil {
 		opts.Keep = &set.Set[string]{}
@@ -1210,9 +1210,9 @@ func (hs *hooksSpec) instrumentEntrypointProgram(ps *ebpf.ProgramSpec, pre []str
 		epilogue = append(epilogue, freplaceSubProg(hookName, &postHookProto, ps)...)
 	}
 
-	opts.ProgramPatches[ps.Name] = func(insns asm.Instructions) (asm.Instructions, error) {
+	opts.ProgramPatches[ps.Name] = append(opts.ProgramPatches[ps.Name], func(insns asm.Instructions) (asm.Instructions, error) {
 		return append(prologue, append(insns, epilogue...)...), nil
-	}
+	})
 
 	return nil
 }

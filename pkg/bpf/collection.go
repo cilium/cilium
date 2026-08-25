@@ -184,7 +184,7 @@ type CollectionOptions struct {
 
 	// ProgramPatches transform the instructions in a program after
 	// reachability pruning.
-	ProgramPatches map[string]func(asm.Instructions) (asm.Instructions, error)
+	ProgramPatches map[string][]func(asm.Instructions) (asm.Instructions, error)
 
 	// CollectionPatches transform the CollectionSpec structure (maps, programs, BTF tags)
 	// after LoadCollection makes its internal copy, before reachability pruning.
@@ -526,18 +526,20 @@ func nextPow2(n uint64) uint64 {
 	return 1 << bits.Len64(n-1)
 }
 
-func patchPrograms(coll *ebpf.CollectionSpec, patches map[string]func(asm.Instructions) (asm.Instructions, error)) error {
-	for name, patch := range patches {
+func patchPrograms(coll *ebpf.CollectionSpec, patches map[string][]func(asm.Instructions) (asm.Instructions, error)) error {
+	var err error
+	for name, patchList := range patches {
 		prog := coll.Programs[name]
 		if prog == nil {
 			continue
 		}
 
-		newInstructions, err := patch(prog.Instructions)
-		if err != nil {
-			return fmt.Errorf("patching %s: %w", name, err)
+		for _, patch := range patchList {
+			prog.Instructions, err = patch(prog.Instructions)
+			if err != nil {
+				return fmt.Errorf("patching %s: %w", name, err)
+			}
 		}
-		prog.Instructions = newInstructions
 	}
 
 	return nil
