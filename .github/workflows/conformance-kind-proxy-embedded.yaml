@@ -142,6 +142,9 @@ jobs:
           external-other-ipv6: ${{ steps.external_network.outputs.ipv6_other_external_target }}
           external-other-target: ${{ steps.external_targets.outputs.other_external_target_name }}
           external-target: ${{ steps.external_targets.outputs.external_target_name }}
+          external-target-ca-namespace: external-target-secrets
+          external-target-ca-name: custom-ca
+          external-target-ipv6-capable: true
 
       - name: Set up job variables
         id: vars
@@ -158,9 +161,7 @@ jobs:
             --helm-set=envoy.enabled=false \
             --helm-set=ipv6.enabled=true \
             --wait=false"
-          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
-            --external-target-ca-namespace=external-target-secrets --external-target-ca-name=custom-ca \
-            --external-target-ipv6-capable"
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
