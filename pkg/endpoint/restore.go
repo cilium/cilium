@@ -394,7 +394,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		ContainerIfName:       e.containerIfName,
 		IsSecondaryInterface:  e.isSecondaryInterface,
 		Labels:                e.labels,
-		LXCMAC:                e.mac,
+		MAC:                   e.mac,
 		IPv6:                  e.IPv6,
 		IPv6IPAMPool:          e.IPv6IPAMPool,
 		IPv4:                  e.IPv4,
@@ -458,10 +458,9 @@ type serializableEndpoint struct {
 	// Labels is the endpoint's label configuration
 	Labels labels.OpLabels `json:"OpLabels"`
 
-	// mac is the MAC address of the endpoint
-	//
-	// FIXME: Rename this field to MAC
-	LXCMAC mac.MAC // Container MAC address.
+	// MAC is the MAC address of the endpoint (container facing interface).
+	// Note: The JSON tag was kept for backward compatibility.
+	MAC mac.MAC `json:"LXCMAC"`
 
 	// IPv6 is the IPv6 address of the endpoint
 	IPv6 netip.Addr
@@ -571,7 +570,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.containerIfName = r.ContainerIfName
 	ep.isSecondaryInterface = r.IsSecondaryInterface
 	ep.labels = r.Labels
-	ep.mac = r.LXCMAC
+	ep.mac = r.MAC
 	ep.IPv6 = r.IPv6
 	ep.IPv6IPAMPool = r.IPv6IPAMPool
 	ep.IPv4 = r.IPv4
