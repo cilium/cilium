@@ -97,6 +97,10 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context, req *types.GetPeerStateR
 			}
 		}
 
+		if peer.Bfd != nil && peer.Bfd.Enabled && peer.State != nil {
+			state.BFD = toAgentBFDState(peer.State.BfdState)
+		}
+
 		for _, afiSafi := range peer.AfiSafis {
 			if afiSafi.State == nil || afiSafi.State.Family == nil {
 				continue

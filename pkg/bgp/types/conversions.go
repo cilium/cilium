@@ -52,6 +52,40 @@ func (s SessionState) MarshalYAML() (any, error) {
 	return s.String(), nil
 }
 
+// BFDSessionState is the operational state of a BFD session.
+type BFDSessionState uint32
+
+const (
+	BFDSessionUnknown BFDSessionState = iota
+	BFDSessionUp
+	BFDSessionDown
+	BFDSessionAdminDown
+	BFDSessionInit
+)
+
+func (s BFDSessionState) String() string {
+	switch s {
+	case BFDSessionUp:
+		return "up"
+	case BFDSessionDown:
+		return "down"
+	case BFDSessionAdminDown:
+		return "admin_down"
+	case BFDSessionInit:
+		return "init"
+	default:
+		return "unknown"
+	}
+}
+
+func (s BFDSessionState) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + s.String() + "\""), nil
+}
+
+func (s BFDSessionState) MarshalYAML() (any, error) {
+	return s.String(), nil
+}
+
 // Afi is address family identifier
 type Afi uint32
 
