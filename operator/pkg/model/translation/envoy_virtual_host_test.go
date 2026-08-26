@@ -1198,6 +1198,67 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 	})
 }
 
+// Test_envoyHTTPRoutes_disablesExtAuthzOnNoBackendResponse verifies that the
+// synthetic 500 generated for a rule with no resolvable backend does not invoke
+// the external authorization service, even though the rule declares one.
+func Test_envoyHTTPRoutes_disablesExtAuthzOnNoBackendResponse(t *testing.T) {
+	auth := &model.HTTPExternalAuthFilter{
+		Backend:  model.Backend{Name: "authz", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
+		Protocol: model.ExternalAuthProtocolGRPC,
+	}
+	filterName := ExtAuthzFilterName(extAuthzFilterKey(auth))
+
+	t.Run("auth filter is disabled on the synthetic response", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{
+			{
+				PathMatch:      model.StringMatch{Prefix: "/"},
+				ExternalAuth:   auth,
+				DirectResponse: &model.DirectResponse{StatusCode: 500},
+			},
+		}
+
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, false)
+		require.Len(t, res, 1)
+		require.Equal(t, uint32(500), res[0].GetDirectResponse().GetStatus())
+
+		entry, ok := res[0].TypedPerFilterConfig[filterName]
+		require.True(t, ok, "auth filter must be explicitly disabled on the synthetic response")
+		perRoute := &extauthzv3.ExtAuthzPerRoute{}
+		require.NoError(t, proto.Unmarshal(entry.Value, perRoute))
+		require.True(t, perRoute.GetDisabled())
+	})
+
+	t.Run("non-external per-route config is retained", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{
+			{
+				PathMatch:      model.StringMatch{Prefix: "/"},
+				ExternalAuth:   auth,
+				CORS:           &model.HTTPCORSFilter{AllowOrigins: []string{"https://example.com"}},
+				DirectResponse: &model.DirectResponse{StatusCode: 500},
+			},
+		}
+
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, false)
+		require.Len(t, res, 1)
+		require.Contains(t, res[0].TypedPerFilterConfig, "envoy.filters.http.cors")
+	})
+
+	t.Run("routes that do serve a backend keep their auth filter", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{
+			{
+				PathMatch:    model.StringMatch{Prefix: "/"},
+				ExternalAuth: auth,
+				Backends:     []model.Backend{{Name: "backend-v1", Namespace: "default", Port: &model.BackendPort{Port: 8080}}},
+			},
+		}
+
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, false)
+		require.Len(t, res, 1)
+		require.NotContains(t, res[0].TypedPerFilterConfig, filterName,
+			"auth filter must stay enabled on a route that reaches a backend")
+	})
+}
+
 // Test_envoyHTTPSRoutes_disablesExtAuthzFilters verifies that HTTPS redirect routes
 // explicitly disable any ext_authz filters present on the listener. Without this,
 // redirect routes on a mixed listener inherit auth enforcement, which is incorrect.
