@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"slices"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -199,6 +201,88 @@ func TestWriterAddressConflicts(t *testing.T) {
 	requireNode("mesh-2")
 	requireNode("kvstore")
 	requireNoNode("mixed")
+}
+
+func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+	w.isStaticLocalRouterIP = func(ip string) bool {
+		return ip == "169.254.23.0" || ip == "fe80::"
+	}
+
+	routerAddresses := []types.Address{
+		{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("169.254.23.0")},
+		{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("fe80::")},
+	}
+	localAddresses := append(slices.Clone(routerAddresses), types.Address{
+		Type: addressing.NodeInternalIP,
+		IP:   net.ParseIP("10.0.0.1"),
+	})
+	local := &Node{
+		Node: types.Node{
+			Name:        "local",
+			Source:      source.Local,
+			IPAddresses: localAddresses,
+		},
+		Local: &LocalNodeInfo{},
+	}
+	txn := db.WriteTxn(nodes)
+	_, _, err = nodes.Insert(txn, local)
+	require.NoError(t, err)
+	txn.Commit()
+
+	for _, name := range []string{"remote-1", "remote-2"} {
+		txn = db.WriteTxn(nodes)
+		require.True(t, w.Upsert(txn, &types.Node{
+			Name:        name,
+			Source:      source.CustomResource,
+			IPAddresses: slices.Clone(routerAddresses),
+		}))
+		txn.Commit()
+	}
+
+	for _, name := range []string{"local", "remote-1", "remote-2"} {
+		_, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
+		require.True(t, found, name)
+	}
+	for _, address := range []netip.Addr{
+		netip.MustParseAddr("169.254.23.0"),
+		netip.MustParseAddr("fe80::"),
+	} {
+		var owners []string
+		for n := range nodes.List(db.ReadTxn(), NodeByAddress(address)) {
+			owners = append(owners, n.Name)
+		}
+		require.ElementsMatch(t, []string{"local", "remote-1", "remote-2"}, owners)
+	}
+
+	// Matching a local node address alone is not enough: only the configured
+	// Cilium internal router addresses may be shared.
+	txn = db.WriteTxn(nodes)
+	require.False(t, w.Upsert(txn, &types.Node{
+		Name:   "conflict",
+		Source: source.CustomResource,
+		IPAddresses: []types.Address{{
+			Type: addressing.NodeCiliumInternalIP,
+			IP:   net.ParseIP("10.0.0.1"),
+		}},
+	}))
+	txn.Commit()
+
+	// The configured address remains conflicting when it is not advertised as
+	// a Cilium internal IP.
+	txn = db.WriteTxn(nodes)
+	require.False(t, w.Upsert(txn, &types.Node{
+		Name:   "wrong-type",
+		Source: source.CustomResource,
+		IPAddresses: []types.Address{{
+			Type: addressing.NodeInternalIP,
+			IP:   net.ParseIP("169.254.23.0"),
+		}},
+	}))
+	txn.Commit()
 }
 
 func TestWriterRefresh(t *testing.T) {
