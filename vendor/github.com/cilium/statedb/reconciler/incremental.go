@@ -249,7 +249,7 @@ func (incr *incremental[Obj]) commitStatus() (numErrors int) {
 			if currentStatus.Kind == StatusKindPending && currentStatus.ID == result.id {
 				current = incr.config.CloneObject(current)
 				current = incr.config.SetObjectStatus(current, status)
-				incr.table.Insert(wtxn, current)
+				_, _, err = incr.table.Insert(wtxn, current)
 			}
 		}
 
