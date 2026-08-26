@@ -1495,6 +1495,34 @@ func isDefaultRoutePrefix(p netip.Prefix) bool {
 	return p.Addr().IsUnspecified() && p.Bits() == 0
 }
 
+// isCorruptedDst reports whether dst Prefix is a corrupted destination where
+// the IPv4 address bytes decode to printable ASCII matching a device name.
+// For example, 101.110.115.57 decodes to "ens9" (0x65 0x6e 0x73 0x39).
+// Such corruption can occur when a device name is misinterpreted as an IP
+// during route reconciliation for OLD_CILIUM_POST_nat.
+func isCorruptedDst(dst netip.Prefix, devices []string, linkName string) bool {
+	if !dst.IsValid() || !dst.Addr().Is4() {
+		return false
+	}
+	b := dst.Addr().As4()
+	for _, c := range b {
+		if c < 32 || c > 126 {
+			return false
+		}
+	}
+	decoded := string(b[:])
+	// Exact match against known device names
+	if linkName != "" && decoded == linkName {
+		return true
+	}
+	for _, d := range devices {
+		if decoded == d {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *manager) installMasqueradeRules(
 	prog iptablesInterface, nativeDevices []string,
 	localDeliveryInterface string, snatDstExclusionCIDR netip.Prefix,
@@ -1703,6 +1731,18 @@ func (m *manager) installMasqueradeRouteSourceRules(
 		}
 		if !match || r.Src == nil || (dst.IsValid() && dst == snatDstExclusionCIDR) {
 			continue
+		}
+		// Validate dst Prefix before use. Reject corrupted destinations where
+		// the IP decodes to printable ASCII matching a device name, e.g.,
+		// 101.110.115.57 (ASCII "ens9") seen in OLD_CILIUM_POST_nat reconciliation.
+		if dst.IsValid() {
+			linkName := ""
+			if link != nil {
+				linkName = link.Attrs().Name
+			}
+			if isCorruptedDst(dst, devices, linkName) {
+				continue
+			}
 		}
 		progArgs := []string{
 			"-t", "nat",
