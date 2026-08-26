@@ -191,6 +191,7 @@ The ``CiliumBGPPeerConfig`` resource contains configuration options for:
 - :ref:`Timers <bgp_peer_configuration_timers>`
 - :ref:`EBGP Multihop <bgp_ebgp_multihop>`
 - :ref:`Graceful Restart <bgp_peer_configuration_graceful_restart>`
+- :ref:`Bidirectional Forwarding Detection (BFD) <bgp_peer_configuration_bfd>`
 - :ref:`Transport <bgp_peer_configuration_transport>`
 - :ref:`Address Families <bgp_peer_configuration_afi>`
 
@@ -312,6 +313,38 @@ As random jitter is applied to the configured value internally, the actual value
         connectRetryTimeSeconds: 5
         holdTimeSeconds: 9
         keepAliveTimeSeconds: 3
+
+.. _bgp_peer_configuration_bfd:
+
+Bidirectional Forwarding Detection
+----------------------------------
+
+Bidirectional Forwarding Detection (BFD) detects forwarding path failures
+faster than the BGP hold timer. BFD must be enabled on both sides of the BGP
+session and is supported only for single-hop peers.
+
+GoBGP creates a BFD server for each BGP instance, and each server uses the
+same UDP listener on port 3784. Configure BFD on only one BGP instance per
+node; that instance can have multiple BFD-enabled peers.
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2
+    kind: CiliumBGPPeerConfig
+    metadata:
+      name: cilium-peer
+    spec:
+      bfd:
+        enabled: true
+        transmitIntervalMilliseconds: 300
+        receiveIntervalMilliseconds: 300
+        detectionMultiplier: 3
+
+The interval fields are specified in milliseconds. Values below 10 milliseconds
+are not supported; 100 milliseconds is the recommended value. If the interval
+fields are omitted, both default to 100 milliseconds. The default detection
+multiplier is three. The network must allow single-hop BFD control packets on
+UDP port 3784.
 
 .. _bgp_ebgp_multihop:
 

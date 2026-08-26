@@ -22,6 +22,7 @@ import (
 
 type collector struct {
 	SessionState          *prometheus.Desc
+	BFDSessionState       *prometheus.Desc
 	TotalAdvertisedRoutes *prometheus.Desc
 	TotalReceivedRoutes   *prometheus.Desc
 
@@ -56,6 +57,11 @@ func RegisterCollector(in collectorIn) {
 			"Current state of the BGP session with the peer, Up = 1 or Down = 0",
 			[]string{types.LabelName, types.LabelLocalAsn, types.LabelNeighbor, types.LabelNeighborAsn}, nil,
 		),
+		BFDSessionState: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, types.MetricsSubsystem, types.MetricBFDSessionState),
+			"Current state of the BFD session with the peer, Up = 1 or Down = 0",
+			[]string{types.LabelName, types.LabelLocalAsn, types.LabelNeighbor, types.LabelNeighborAsn}, nil,
+		),
 		TotalAdvertisedRoutes: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, types.MetricsSubsystem, "advertised_routes"),
 			"Number of routes advertised to the peer",
@@ -72,6 +78,7 @@ func RegisterCollector(in collectorIn) {
 
 func (c *collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.SessionState
+	ch <- c.BFDSessionState
 	ch <- c.TotalAdvertisedRoutes
 	ch <- c.TotalReceivedRoutes
 }
@@ -112,6 +119,22 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 				neighborLabel,
 				neighborAsnLabel,
 			)
+
+			if peer.BFD != nil {
+				bfdUp := float64(0)
+				if peer.BFD.SessionState == types.BFDSessionUp {
+					bfdUp = 1
+				}
+				ch <- prometheus.MustNewConstMetric(
+					c.BFDSessionState,
+					prometheus.GaugeValue,
+					bfdUp,
+					instance.Name,
+					localAsnLabel,
+					neighborLabel,
+					neighborAsnLabel,
+				)
+			}
 
 			// Collect route metrics per address family
 			if up == 1 {
