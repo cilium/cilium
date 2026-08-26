@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
+	bgptestutils "github.com/cilium/cilium/pkg/bgp/testutils"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -71,6 +72,7 @@ const (
 
 func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	bgptestutils.LockBFDIntegrationTests(t)
 	slog.SetLogLoggerLevel(slog.LevelDebug) // used by test GoBGP instances
 
 	types.SetName(testNodeName)
@@ -202,11 +204,14 @@ func TestPrivilegedScript(t *testing.T) {
 		// set up GoBGP command
 		gobgpCmdCtx := commands.NewGoBGPCmdContext()
 		t.Cleanup(gobgpCmdCtx.Cleanup)
+		bfdCmdCtx := commands.NewBFDPeerCmdContext()
+		t.Cleanup(bfdCmdCtx.Cleanup)
 
 		cmds, err := h.ScriptCommands(hiveLog)
 		require.NoError(t, err, "ScriptCommands")
 		maps.Insert(cmds, maps.All(script.DefaultCmds()))
 		maps.Insert(cmds, maps.All(commands.GoBGPScriptCmds(gobgpCmdCtx)))
+		maps.Insert(cmds, maps.All(commands.BFDPeerScriptCmds(bfdCmdCtx, t)))
 		maps.Insert(cmds, maps.All(commands.SvcScriptCmds(lbWriter)))
 
 		return &script.Engine{

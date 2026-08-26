@@ -55,6 +55,52 @@ spec:
 
                   If not specified, no authentication is used.
                 type: string
+              bfd:
+                description: |-
+                  BFD defines Bidirectional Forwarding Detection parameters for this peer.
+                  BFD is only supported for single-hop BGP peers.
+
+                  If not specified, BFD is disabled.
+                properties:
+                  detectionMultiplier:
+                    default: 3
+                    description: |-
+                      DetectionMultiplier determines the number of consecutive missed BFD
+                      control packets required to declare the session down.
+
+                      If not specified, defaults to 3.
+                    format: int32
+                    maximum: 255
+                    minimum: 1
+                    type: integer
+                  enabled:
+                    description: Enabled controls whether BFD is enabled for the peer.
+                    type: boolean
+                  receiveIntervalMilliseconds:
+                    default: 100
+                    description: |-
+                      ReceiveIntervalMilliseconds is the interval between received
+                      BFD control packets that this system is capable of supporting.
+
+                      If not specified, defaults to 100 milliseconds.
+                    format: int32
+                    maximum: 4294967
+                    minimum: 10
+                    type: integer
+                  transmitIntervalMilliseconds:
+                    default: 100
+                    description: |-
+                      TransmitIntervalMilliseconds is the interval between
+                      transmitted BFD control packets.
+
+                      If not specified, defaults to 100 milliseconds.
+                    format: int32
+                    maximum: 4294967
+                    minimum: 10
+                    type: integer
+                required:
+                - enabled
+                type: object
               ebgpMultihop:
                 default: 1
                 description: |-
@@ -263,6 +309,10 @@ spec:
                     type: string
                 type: object
             type: object
+            x-kubernetes-validations:
+            - message: BFD is only supported for single-hop BGP peers
+              rule: '!has(self.bfd) || !self.bfd.enabled || !has(self.ebgpMultihop)
+                || self.ebgpMultihop <= 1'
           status:
             description: Status is the running status of the CiliumBGPPeerConfig
             properties:

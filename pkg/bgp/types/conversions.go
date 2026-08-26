@@ -339,6 +339,7 @@ func ToNeighborV2(np *v2.CiliumBGPNodePeer, pc *v2.CiliumBGPPeerConfigSpec, pass
 	neighbor.Timers = toNeighborTimersV2(pc.Timers)
 	neighbor.Transport = toNeighborTransportV2(np.LocalAddress, pc.Transport)
 	neighbor.GracefulRestart = toNeighborGracefulRestartV2(pc.GracefulRestart)
+	neighbor.BFD = toNeighborBFDV2(pc.BFD)
 	neighbor.AfiSafis = toNeighborAfiSafisV2(pc.Families)
 
 	return neighbor
@@ -411,6 +412,21 @@ func toNeighborGracefulRestartV2(apiGR *v2.CiliumBGPNeighborGracefulRestart) *Ne
 		Enabled:     apiGR.Enabled,
 		RestartTime: uint32(*apiGR.RestartTimeSeconds),
 	}
+}
+
+func toNeighborBFDV2(apiBFD *v2.CiliumBGPNeighborBFD) *NeighborBFD {
+	if apiBFD == nil || !apiBFD.Enabled {
+		return nil
+	}
+
+	bfd := &NeighborBFD{
+		DesiredMinTxInterval:  apiBFD.TransmitIntervalMilliseconds * 1000,
+		RequiredMinRxInterval: apiBFD.ReceiveIntervalMilliseconds * 1000,
+	}
+	if apiBFD.DetectionMultiplier != nil {
+		bfd.DetectionMultiplier = uint8(*apiBFD.DetectionMultiplier)
+	}
+	return bfd
 }
 
 func toNeighborAfiSafisV2(families []v2.CiliumBGPFamilyWithAdverts) []*Family {
