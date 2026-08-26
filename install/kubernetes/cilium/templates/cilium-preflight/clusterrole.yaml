@@ -112,6 +112,11 @@ rules:
   - ciliuml2announcementpolicies
   - ciliumpodippools
   - ciliumdatapathplugins
+{{- if .Values.qos.enabled }}
+  - ciliumqosmechanisms
+  - ciliumqosclasses
+  - ciliumqospolicies
+{{- end }}
   verbs:
   - list
   - watch

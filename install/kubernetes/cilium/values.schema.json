@@ -6065,6 +6065,14 @@
       },
       "type": "object"
     },
+    "qos": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "rbac": {
       "properties": {
         "create": {

@@ -89,6 +89,13 @@ func agentCRDResourceNames() []string {
 	if option.Config.EnableDatapathPlugins {
 		result = append(result, CRDResourceName(v2alpha1.CDPPName))
 	}
+	if option.Config.EnableQoS {
+		result = append(result,
+			CRDResourceName(v2alpha1.CQMName),
+			CRDResourceName(v2alpha1.CQCName),
+			CRDResourceName(v2alpha1.CQPName),
+		)
+	}
 
 	result = append(result,
 		CRDResourceName(v2.LBIPPoolName),
