@@ -863,14 +863,19 @@ func (m *manager) installStaticProxyRules(ifName, localDeliveryInterface string)
 		}
 
 		// No conntrack for proxy return traffic that is heading to host interface(cilium_host).
-		if err := m.ip4tables.runProg([]string{
-			"-t", "raw",
-			"-A", ciliumOutputRawChain,
-			"-o", ifName,
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
-			"-j", "CT", "--notrack"}); err != nil {
-			return err
+		// With kube-proxy (non-KPR mode), iptables conntrack must see the proxy return
+		// traffic so it can reverse the kube-proxy MASQUERADE NAT; skipping NOTRACK here
+		// lets the conntrack reply-direction un-NAT run and route the response correctly.
+		if m.sharedCfg.KubeProxyReplacement {
+			if err := m.ip4tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", ifName,
+				"-m", "mark", "--mark", matchProxyReply,
+				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+				"-j", "CT", "--notrack"}); err != nil {
+				return err
+			}
 		}
 
 		// No conntrack for proxy upstream traffic that is heading to host interface(cilium_host).
@@ -974,14 +979,17 @@ func (m *manager) installStaticProxyRules(ifName, localDeliveryInterface string)
 		}
 
 		// No conntrack for proxy return traffic that is heading to host interface(cilium_host).
-		if err := m.ip6tables.runProg([]string{
-			"-t", "raw",
-			"-A", ciliumOutputRawChain,
-			"-o", ifName,
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
-			"-j", "CT", "--notrack"}); err != nil {
-			return err
+		// See the IPv4 sibling block for the KubeProxyReplacement rationale.
+		if m.sharedCfg.KubeProxyReplacement {
+			if err := m.ip6tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", ifName,
+				"-m", "mark", "--mark", matchProxyReply,
+				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+				"-j", "CT", "--notrack"}); err != nil {
+				return err
+			}
 		}
 
 		// No conntrack for proxy upstream traffic that is heading to host interface(cilium_host).
@@ -2158,22 +2166,20 @@ func (m *manager) addCiliumENIRules() error {
 			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
 			return err
 		}
-		// Force L7 proxy NodePort replies from cilium_net onto the primary ENI.
-		// cil_to_host (TC INGRESS on cilium_net) sets MARK_MAGIC_SKIP_TPROXY (0x0800)
-		// on all mark=0 packets, which covers Envoy's reply after cil_from_host clears
-		// it. Adding bit 0x80 here makes ip rule 109 (fwmark 0x80 → main table) fire
-		// before ip rule 111 (from PodIP → secondary ENI table), so the reply exits via
-		// the primary ENI where cil_to_netdev's handle_nat_fwd() applies BPF NodePort
-		// reverse DNAT (src=PodIP → NodeIP:NodePort). Without this, non-PD mode replies
-		// exit the secondary ENI without revDNAT and are dropped by the client.
-		matchSkipTProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
+		// Restore the primary-ENI mark for L7 proxy return traffic that
+		// loops back via cilium_net. When a NodePort SYN arrives on the
+		// primary ENI, the CONNMARK is set to 0x80 (above). The L7 hairpin
+		// path routes Envoy's reply through cilium_host → cilium_net;
+		// restoring the mark on cilium_net fires ip rule 109 (fwmark 0x80
+		// → main table) before ip rule 111 (from PodIP → secondary ENI),
+		// so the reply exits via the primary ENI and satisfies the AWS VPC
+		// source/destination check.
 		if err := m.ip4tables.runProg([]string{
 			"-t", "mangle",
 			"-A", ciliumPreMangleChain,
 			"-i", defaults.SecondHostDevice,
-			"-m", "mark", "--mark", matchSkipTProxy,
-			"-m", "comment", "--comment", "cilium: primary ENI for L7 proxy NodePort replies",
-			"-j", "MARK", "--or-mark", nfmask}); err != nil {
+			"-m", "comment", "--comment", "cilium: primary ENI",
+			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
 			return err
 		}
 	}
@@ -2201,14 +2207,12 @@ func (m *manager) addCiliumENIRules() error {
 			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
 			return err
 		}
-		matchSkipTProxy6 := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
 		if err := m.ip6tables.runProg([]string{
 			"-t", "mangle",
 			"-A", ciliumPreMangleChain,
 			"-i", defaults.SecondHostDevice,
-			"-m", "mark", "--mark", matchSkipTProxy6,
-			"-m", "comment", "--comment", "cilium: primary ENI for L7 proxy NodePort replies",
-			"-j", "MARK", "--or-mark", nfmask}); err != nil {
+			"-m", "comment", "--comment", "cilium: primary ENI",
+			"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask}); err != nil {
 			return err
 		}
 	}
