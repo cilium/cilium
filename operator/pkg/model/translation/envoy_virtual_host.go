@@ -315,6 +315,17 @@ func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFil
 	return config
 }
 
+// getTypedPerFilterConfigForSyntheticRoute returns the TypedPerFilterConfig map
+// for a route Cilium generates itself rather than one backed by a Service, such
+// as an HTTPS redirect or the 500 served when a rule has no resolvable backend.
+// External authorization is disabled on these routes: the request never reaches
+// a backend, so calling the authorization service is wasted work and exposes it
+// to traffic for a route that cannot be served. Non-external per-route
+// configuration such as CORS and session persistence is retained.
+func getTypedPerFilterConfigForSyntheticRoute(route model.HTTPRoute, allAuthFilters []*model.HTTPExternalAuthFilter, statefulSessionFilterEnabled bool) map[string]*anypb.Any {
+	return getTypedPerFilterConfig(nil, allAuthFilters, route, statefulSessionFilterEnabled)
+}
+
 func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter, statefulSessionFilterEnabled bool) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
@@ -348,7 +359,7 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 				hRoutes[0].HeadersMatch,
 				hRoutes[0].Method),
 			Action:               rRedirect,
-			TypedPerFilterConfig: getTypedPerFilterConfig(nil, allAuthFilters, r, statefulSessionFilterEnabled),
+			TypedPerFilterConfig: getTypedPerFilterConfigForSyntheticRoute(r, allAuthFilters, statefulSessionFilterEnabled),
 		}
 		routes = append(routes, &route)
 		delete(matchBackendMap, key)
@@ -719,7 +730,7 @@ func envoyHTTPRouteDirectResponse(route model.HTTPRoute, hostnames []string, hos
 				},
 			},
 		},
-		TypedPerFilterConfig: getTypedPerFilterConfig(route.ExternalAuth, allAuthFilters, route, statefulSessionFilterEnabled),
+		TypedPerFilterConfig: getTypedPerFilterConfigForSyntheticRoute(route, allAuthFilters, statefulSessionFilterEnabled),
 	}
 }
 
