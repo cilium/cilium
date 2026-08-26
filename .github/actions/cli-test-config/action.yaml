@@ -38,6 +38,10 @@ inputs:
   external-target-fake-dns:
     description: "Use DNS override for external targets in wildcard tests"
     required: false
+  external-target-ipv6-capable:
+    description: "Whether the external target is IPv6 capable"
+    required: false
+    default: "false"
   flow-validation:
     default: false
     description: "Enable flow validation in the connectivity test"
@@ -76,6 +80,7 @@ runs:
           "--external-cidr=${{ inputs.external-cidr }}" \
           "--external-ip=${{ inputs.external-ip }}" \
           "--external-other-ip=${{ inputs.external-other-ip }}" \
+          "--external-target-ipv6-capable=${{ inputs.external-target-ipv6-capable }}" \
           "--hubble=${{ inputs.hubble }}" \
         )
 
