@@ -199,6 +199,11 @@ func (t *genTable[Obj]) released() {
 }
 
 func (t *genTable[Obj]) indexPos(name string) int {
+	// An empty index name refers to the primary index, matching getIndexer.
+	if name == "" {
+		return PrimaryIndexPos
+	}
+
 	// By default don't consider the internal indexes.
 	start := PrimaryIndexPos
 

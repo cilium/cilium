@@ -75,8 +75,9 @@ func (ws *WatchSet) Merge(other *WatchSet) {
 }
 
 // Wait for channels in the watch set to close or the context is cancelled.
-// After the first closed channel is seen Wait will wait [settleTime] for
-// more closed channels.
+// If [settleTime] is >0 the method waits for an additional [settleTime]
+// duration to collect further closed channels. The wait is performed
+// even when all channels in the set are closed.
 // If [settleTime] is 0 waits until [ctx] cancelled or any channel closes.
 // Returns the closed channels and removes them from the set.
 func (ws *WatchSet) Wait(ctx context.Context, settleTime time.Duration) ([]<-chan struct{}, error) {
@@ -118,7 +119,7 @@ func (ws *WatchSet) Wait(ctx context.Context, settleTime time.Duration) ([]<-cha
 		}
 	}()
 
-	// Wait for the first channel to close and shift it out from [cases]
+	// Wait for any channel to close and shift it out from [cases]
 	chosen, _, _ := reflect.Select(cases)
 	if chosen == 0 {
 		return nil, ctx.Err()
@@ -127,9 +128,8 @@ func (ws *WatchSet) Wait(ctx context.Context, settleTime time.Duration) ([]<-cha
 	cases[chosen] = cases[len(cases)-1]
 	cases = cases[:len(cases)-1]
 
-	// If nothing else than context channel remains or we don't want to wait for further channels
-	// to close then we're done.
-	if len(cases) == 1 || settleTime == 0 {
+	// Stop here if no additional wait requested
+	if settleTime == 0 {
 		return closedChannels, nil
 	}
 
@@ -138,7 +138,7 @@ func (ws *WatchSet) Wait(ctx context.Context, settleTime time.Duration) ([]<-cha
 	defer cancel()
 	cases[0].Chan = reflect.ValueOf(settleCtx.Done())
 
-	for len(cases) > 1 {
+	for len(cases) >= 1 {
 		chosen, _, _ := reflect.Select(cases)
 		if chosen == 0 /* settleCtx.Done() */ {
 			break
