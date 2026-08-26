@@ -162,3 +162,8 @@ struct ipv6_snat_exclusion_prefix {
 
 NODE_CONFIG(struct ipv6_snat_exclusion_prefix, ipv6_snat_exclusion,
 	    "IPv6 destination prefix excluded from SNAT")
+
+NODE_CONFIG(__u32, encap4_ifindex,
+	    "Interface index of the IPv4 IPIP encapsulation device")
+NODE_CONFIG(__u32, encap6_ifindex,
+	    "Interface index of the IPv6 IPIP encapsulation device")

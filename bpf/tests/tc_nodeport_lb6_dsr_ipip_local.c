@@ -24,8 +24,6 @@
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
-#define ENCAP6_IFINDEX		42
-
 #define CLIENT_PORT		__bpf_htons(111)
 #define FRONTEND_PORT		tcp_svc_one
 
@@ -61,14 +59,7 @@ mock_ctx_redirect_peer(const struct __ctx_buff *ctx __maybe_unused,
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused,
-		  __u32 flags __maybe_unused)
-{
-	if (ifindex == ENCAP6_IFINDEX)
-		num_calls[RECORD_ENCAP_REDIRECT]++;
-	else
-		num_calls[RECORD_REDIRECT]++;
-	return CTX_ACT_REDIRECT;
-}
+		  __u32 flags __maybe_unused);
 
 /* The DNAT'ed packet is delivered to the local backend Pod via
  * ipv6_local_delivery() -> local_delivery(). With BPF host routing on a
@@ -124,6 +115,20 @@ mock_ctx_get_ingress_ifindex(const struct __sk_buff *ctx __maybe_unused)
 }
 
 #include "lib/bpf_host.h"
+
+ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
+
+static __always_inline __maybe_unused int
+mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused,
+		  int ifindex __maybe_unused,
+		  __u32 flags __maybe_unused)
+{
+	if (ifindex == (int)CONFIG(encap6_ifindex))
+		num_calls[RECORD_ENCAP_REDIRECT]++;
+	else
+		num_calls[RECORD_REDIRECT]++;
+	return CTX_ACT_REDIRECT;
+}
 
 /* Stands in for bpf_lxc's tail_ipv6_policy program: reads the calling-convention
  * meta that local_delivery_fill_meta() set and performs the redirect_ep() with
@@ -243,7 +248,7 @@ int nodeport_dsr_ipip_lb_local_pod_v6_check(struct __ctx_buff *ctx)
 		test_fatal("expected one ctx_redirect_peer, got %u",
 			   num_calls[RECORD_REDIRECT_PEER]);
 	if (num_calls[RECORD_ENCAP_REDIRECT] != 0)
-		test_fatal("packet was IPIP-encapped for a local backend (got %u redirects to ENCAP6_IFINDEX)",
+		test_fatal("local backend was IPIP-encapped: %u redirects to encap6_ifindex",
 			   num_calls[RECORD_ENCAP_REDIRECT]);
 	if (num_calls[RECORD_REDIRECT] != 0)
 		test_fatal("did not expect plain ctx_redirect, got %u",

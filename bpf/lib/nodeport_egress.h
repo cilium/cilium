@@ -658,7 +658,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 			ctx->tc_index |= TC_INDEX_F_SKIP_HEALTH_CHECK;
 		}
 
-		return ctx_redirect(ctx, ENCAP4_IFINDEX, flags);
+		return ctx_redirect(ctx, CONFIG(encap4_ifindex), flags);
 	}
 #endif
 #if defined(ENABLE_IPV6) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
@@ -684,7 +684,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 			ctx->tc_index |= TC_INDEX_F_SKIP_HEALTH_CHECK;
 		}
 
-		return ctx_redirect(ctx, ENCAP6_IFINDEX, flags);
+		return ctx_redirect(ctx, CONFIG(encap6_ifindex), flags);
 	}
 #endif
 	default:

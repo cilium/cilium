@@ -33,12 +33,6 @@
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
-/* nodeport_lb4 references this for DSR_ENCAP_IPIP egress (TX side). The
- * remote-encap test exercises it; here we only ever pick local backends
- * so it shouldn't get used, but the symbol must resolve at compile time.
- */
-#define ENCAP4_IFINDEX		42
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -64,7 +58,7 @@ static volatile const __u8 *backend_mac = mac_four;
 enum {
 	RECORD_REDIRECT_PEER = 0,
 	RECORD_REDIRECT,
-	RECORD_ENCAP_REDIRECT,	/* redirect to ENCAP4_IFINDEX = IPIP encap egress */
+	RECORD_ENCAP_REDIRECT,	/* redirect to encap4_ifindex = IPIP encap egress */
 	RECORD_TAILCALL,
 	RECORD_MAX,
 };
@@ -85,14 +79,7 @@ mock_ctx_redirect_peer(const struct __ctx_buff *ctx __maybe_unused,
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused,
-		  __u32 flags __maybe_unused)
-{
-	if (ifindex == ENCAP4_IFINDEX)
-		num_calls[RECORD_ENCAP_REDIRECT]++;
-	else
-		num_calls[RECORD_REDIRECT]++;
-	return CTX_ACT_REDIRECT;
-}
+		  __u32 flags __maybe_unused);
 
 /* The DNAT'ed packet is delivered to the local backend Pod via
  * ipv4_local_delivery() -> local_delivery(). With BPF host routing on a
@@ -170,10 +157,28 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
+/* nodeport_lb4 references this for DSR_ENCAP_IPIP egress (TX side). The
+ * remote-encap test exercises it; here we only ever pick local backends
+ * so it shouldn't get used, but the dummy runtime-config value is required.
+ */
+ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
+
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_netkit, true)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_NODE_IP })
+
+static __always_inline __maybe_unused int
+mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused,
+		  int ifindex __maybe_unused,
+		  __u32 flags __maybe_unused)
+{
+	if (ifindex == (int)CONFIG(encap4_ifindex))
+		num_calls[RECORD_ENCAP_REDIRECT]++;
+	else
+		num_calls[RECORD_REDIRECT]++;
+	return CTX_ACT_REDIRECT;
+}
 
 /* Build a plain client -> svc TCP SYN. No IPIP wrapping - this is the first
  * hop into the LB node from the external client.
@@ -271,7 +276,7 @@ int nodeport_dsr_ipip_lb_local_pod_check(struct __ctx_buff *ctx)
 		test_fatal("expected one ctx_redirect_peer, got %u",
 			   num_calls[RECORD_REDIRECT_PEER]);
 	if (num_calls[RECORD_ENCAP_REDIRECT] != 0)
-		test_fatal("packet was IPIP-encapped for a local backend (got %u redirects to ENCAP4_IFINDEX)",
+		test_fatal("local backend was IPIP-encapped: %u redirects to encap4_ifindex",
 			   num_calls[RECORD_ENCAP_REDIRECT]);
 	if (num_calls[RECORD_REDIRECT] != 0)
 		test_fatal("did not expect plain ctx_redirect, got %u",

@@ -33,11 +33,6 @@
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
-/* nodeport_lb4 references this for DSR_ENCAP_IPIP egress (TX side). We only
- * exercise the RX/decap side here, but the symbol needs to resolve.
- */
-#define ENCAP4_IFINDEX		42
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 
@@ -199,6 +194,11 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+
+/* nodeport_lb4 references this for DSR_ENCAP_IPIP egress (TX side). We only
+ * exercise the RX/decap side here, but the dummy runtime-config value is required.
+ */
+ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
 
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
