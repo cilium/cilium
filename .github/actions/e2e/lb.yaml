@@ -39,9 +39,6 @@
   ingress-controller: 'true'
   local-redirect-policy: 'true'
   node-local-dns: 'true'
-  # Make IPv6 the primary service address family by listing its CIDR first.
-  # This should give the kube-dns service an IPv6 ClusterIP.
-  service-subnet: 'fd00:10:96::/112,10.96.0.0/16'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
   # L7 testing: SNAT load balancer + Ingress controller + node local DNS requires DNS proxy
   test-l7: 'true'
