@@ -863,19 +863,14 @@ func (m *manager) installStaticProxyRules(ifName, localDeliveryInterface string)
 		}
 
 		// No conntrack for proxy return traffic that is heading to host interface(cilium_host).
-		// With kube-proxy (non-KPR mode), iptables conntrack must see the proxy return
-		// traffic so it can reverse the kube-proxy MASQUERADE NAT; skipping NOTRACK here
-		// lets the conntrack reply-direction un-NAT run and route the response correctly.
-		if m.sharedCfg.KubeProxyReplacement {
-			if err := m.ip4tables.runProg([]string{
-				"-t", "raw",
-				"-A", ciliumOutputRawChain,
-				"-o", ifName,
-				"-m", "mark", "--mark", matchProxyReply,
-				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
-				"-j", "CT", "--notrack"}); err != nil {
-				return err
-			}
+		if err := m.ip4tables.runProg([]string{
+			"-t", "raw",
+			"-A", ciliumOutputRawChain,
+			"-o", ifName,
+			"-m", "mark", "--mark", matchProxyReply,
+			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+			"-j", "CT", "--notrack"}); err != nil {
+			return err
 		}
 
 		// No conntrack for proxy upstream traffic that is heading to host interface(cilium_host).
@@ -979,17 +974,14 @@ func (m *manager) installStaticProxyRules(ifName, localDeliveryInterface string)
 		}
 
 		// No conntrack for proxy return traffic that is heading to host interface(cilium_host).
-		// See the IPv4 sibling block for the KubeProxyReplacement rationale.
-		if m.sharedCfg.KubeProxyReplacement {
-			if err := m.ip6tables.runProg([]string{
-				"-t", "raw",
-				"-A", ciliumOutputRawChain,
-				"-o", ifName,
-				"-m", "mark", "--mark", matchProxyReply,
-				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
-				"-j", "CT", "--notrack"}); err != nil {
-				return err
-			}
+		if err := m.ip6tables.runProg([]string{
+			"-t", "raw",
+			"-A", ciliumOutputRawChain,
+			"-o", ifName,
+			"-m", "mark", "--mark", matchProxyReply,
+			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+			"-j", "CT", "--notrack"}); err != nil {
+			return err
 		}
 
 		// No conntrack for proxy upstream traffic that is heading to host interface(cilium_host).
