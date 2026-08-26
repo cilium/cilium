@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/cilium/statedb/index"
@@ -87,6 +88,11 @@ func (h dbHandler) query(w http.ResponseWriter, r *http.Request) {
 	if table == nil {
 		w.WriteHeader(http.StatusNotFound)
 		enc.Encode(QueryResponse{Err: fmt.Sprintf("Table %q not found", req.Table)})
+		return
+	}
+	if req.Index != "" && req.Index != RevisionIndex && !slices.Contains(table.Indexes(), req.Index) {
+		w.WriteHeader(http.StatusBadRequest)
+		enc.Encode(QueryResponse{Err: fmt.Sprintf("Index %q not found", req.Index)})
 		return
 	}
 
