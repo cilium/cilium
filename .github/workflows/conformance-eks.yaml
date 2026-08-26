@@ -558,6 +558,15 @@ jobs:
           # Supposed to be one subnet and one CIDR with the default setup-eks-nodegroup config.
           CIDRV4=$(echo "$CIDRS" | awk '{print $1}')
           echo "ipv4_external_cidr=$CIDRV4" >> $GITHUB_OUTPUT
+          echo "External CIDR: $CIDRV4"
+          echo "All pods:"
+          kubectl get pods -o wide --all-namespaces || :
+          echo "All nodes:"
+          kubectl get nodes -o wide || :
+          echo "External nodes:"
+          kubectl get nodes -o wide -l cilium.io/no-schedule=true || :
+          echo "All services:"
+          kubectl get services -o wide --all-namespaces || :
 
       - name: Get connectivity test flags
         id: e2e_config
@@ -632,6 +641,18 @@ jobs:
           --test-concurrency=${{ env.test_concurrency }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
+
+      - name: Debug steps
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          echo "All pods:"
+          kubectl get pods -o wide --all-namespaces || :
+          echo "All nodes:"
+          kubectl get nodes -o wide || :
+          echo "External nodes:"
+          kubectl get nodes -o wide -l cilium.io/no-schedule=true || :
+          echo "All services:"
+          kubectl get services -o wide --all-namespaces || :
 
       # Re-run the tests quarantined above (see the quarantine list in the job
       # variables step) in one tolerated step, so they keep running and
