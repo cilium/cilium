@@ -58,7 +58,7 @@ func getGammaReconcileRequestsForRoute(ctx context.Context, c client.Client, obj
 	)
 
 	for _, parent := range route.ParentRefs {
-		if helpers.IsGateway(parent) {
+		if !helpers.IsGammaService(parent) {
 			continue
 		}
 
