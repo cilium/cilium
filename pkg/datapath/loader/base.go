@@ -336,19 +336,6 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
 
-	if option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices {
-		// This setting needs to be applied before creating the IPIP devices.
-		sysIPIP := []tables.Sysctl{
-			{Name: []string{"net", "core", "fb_tunnels_only_for_init_net"}, Val: "2", IgnoreErr: true},
-		}
-		if err := l.sysctl.ApplySettings(sysIPIP); err != nil {
-			return err
-		}
-		if err := setupIPIPDevices(l.logger, l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled(), lnc.DeviceMTU); err != nil {
-			return fmt.Errorf("unable to create ipip devices: %w", err)
-		}
-	}
-
 	if err := setupTunnelDevice(l.logger, l.sysctl, tunnelConfig.EncapProtocol(), tunnelConfig.Port(),
 		tunnelConfig.SrcPortLow(), tunnelConfig.SrcPortHigh(), lnc.DeviceMTU, bigtcp); err != nil {
 		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.EncapProtocol(), err)
