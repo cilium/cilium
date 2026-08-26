@@ -213,6 +213,8 @@ The following kernel configuration options are required for proper operation:
    The kernel build system uses ``Kconfig`` logic to validate and manage dependencies, 
    so direct edits to ``.config`` may be ignored or silently overridden.
 
+.. _l7_proxy_requirements:
+
 Requirements for L7 and FQDN Policies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
