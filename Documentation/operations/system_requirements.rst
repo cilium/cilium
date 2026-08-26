@@ -195,6 +195,8 @@ The following kernel configuration options are required for proper operation:
         CONFIG_GENEVE=y
         CONFIG_FIB_RULES=y
 
+.. _l7_proxy_requirements:
+
 Requirements for L7 and FQDN Policies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
