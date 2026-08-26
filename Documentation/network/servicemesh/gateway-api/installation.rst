@@ -36,6 +36,13 @@ Prerequisites
 
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.4.1/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 
+* Traffic arriving at the Gateway's Service is transparently forwarded to Envoy
+  using the ``TPROXY`` kernel facility. With the default ``bpf.tproxy=false``,
+  ``TPROXY`` is implemented with iptables, so nodes must provide iptables along
+  with the netfilter modules listed in the :ref:`L7 proxy system requirements
+  <l7_proxy_requirements>`. Some distributions do not ship these by default, in
+  which case connections to the Gateway time out without ever reaching Envoy.
+  The eBPF-based ``bpf.tproxy=true`` (beta) removes this iptables dependency.
 * By default, the Gateway API controller creates a service of LoadBalancer type,
   so your environment will need to support this. Alternatively, since Cilium 1.16+,
   you can directly expose the Cilium L7 proxy on the :ref:`host network <gs_gateway_host_network_mode>`.
