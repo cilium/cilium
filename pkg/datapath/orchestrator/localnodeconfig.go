@@ -153,6 +153,26 @@ func newLocalNodeConfig(
 		return config.Config{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.SecondHostDevice, err)
 	}
 
+	var encap4IfIndex, encap6IfIndex uint32
+	if daemon.UnsafeDaemonConfigOption.EnableIPIPDevices {
+		if daemon.EnableIPv4 {
+			dev, _, watch, ok := devices.GetWatch(txn, tables.DeviceByName(defaults.IPIPv4Device))
+			if !ok {
+				return config.Config{}, watch, fmt.Errorf("failed to look up IPv4 IPIP device '%s'", defaults.IPIPv4Device)
+			}
+			watchChans = append(watchChans, watch)
+			encap4IfIndex = uint32(dev.Index)
+		}
+		if daemon.EnableIPv6 {
+			dev, _, watch, ok := devices.GetWatch(txn, tables.DeviceByName(defaults.IPIPv6Device))
+			if !ok {
+				return config.Config{}, watch, fmt.Errorf("failed to look up IPv6 IPIP device '%s'", defaults.IPIPv6Device)
+			}
+			watchChans = append(watchChans, watch)
+			encap6IfIndex = uint32(dev.Index)
+		}
+	}
+
 	return config.Config{
 		ClusterID:                    localNode.ClusterID,
 		NodeIPv4:                     ip.AddrFromIP(localNode.GetNodeIP(false)),
@@ -181,6 +201,8 @@ func newLocalNodeConfig(
 		EnableIPv4:                   daemon.EnableIPv4,
 		EnableIPv6:                   daemon.EnableIPv6,
 		EnableEncapsulation:          daemon.TunnelingEnabled(),
+		Encap4IfIndex:                encap4IfIndex,
+		Encap6IfIndex:                encap6IfIndex,
 		RequiresNativeRouting:        daemon.RequiresNativeRouting(),
 		TunnelProtocol:               tunnelCfg.EncapProtocol().ToDpID(),
 		TunnelPort:                   tunnelCfg.Port(),

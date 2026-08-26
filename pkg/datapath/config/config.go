@@ -169,6 +169,12 @@ type Config struct {
 	// subsequent calls to NodeConfigurationChanged().
 	EnableEncapsulation bool
 
+	// Interface index of the IPv4 IPIP encapsulation device.
+	Encap4IfIndex uint32
+
+	// Interface index of the IPv6 IPIP encapsulation device.
+	Encap6IfIndex uint32
+
 	// RequiresNativeRouting returns true if the node requires native routing to setup.
 	RequiresNativeRouting bool
 
