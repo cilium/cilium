@@ -415,7 +415,6 @@ jobs:
           kernel: ${{ steps.kernel-version.outputs.full }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
-          service-subnet: ${{ matrix.service-subnet }}
 
       - name: Create imagePullSecret
         if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' && steps.vars.outputs.downgrade_version != '' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
