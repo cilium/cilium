@@ -388,26 +388,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		}
 	}
 
-	if option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices {
-		if option.Config.IPv4Enabled() {
-			ipip4, err := safenetlink.LinkByName(defaults.IPIPv4Device)
-			if err != nil {
-				return fmt.Errorf("looking up link %s: %w", defaults.IPIPv4Device, err)
-			}
-			cDefinesMap["ENCAP4_IFINDEX"] = fmt.Sprintf("%d", ipip4.Attrs().Index)
-		}
-		if option.Config.IPv6Enabled() {
-			ipip6, err := safenetlink.LinkByName(defaults.IPIPv6Device)
-			if err != nil {
-				return fmt.Errorf("looking up link %s: %w", defaults.IPIPv6Device, err)
-			}
-			cDefinesMap["ENCAP6_IFINDEX"] = fmt.Sprintf("%d", ipip6.Attrs().Index)
-		}
-	} else {
-		cDefinesMap["ENCAP4_IFINDEX"] = "0"
-		cDefinesMap["ENCAP6_IFINDEX"] = "0"
-	}
-
 	fmt.Fprint(fw, declareConfig("interface_ifindex", uint32(0), "ifindex of the interface the bpf program is attached to"))
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
