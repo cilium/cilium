@@ -48,9 +48,10 @@ type verifierComplexityRecord struct {
 	PeakStates         int `json:"peak_states"`
 	MarkRead           int `json:"mark_read"`
 
-	VerificationTimeMicroseconds int `json:"verification_time_microseconds"`
-	StackDepth                   int `json:"stack_depth"`
-	OrigStackDepth               int `json:"orig_stack_depth"`
+	VerificationTimeMicroseconds int  `json:"verification_time_microseconds"`
+	StackDepth                   int  `json:"stack_depth"`
+	OrigStackDepth               int  `json:"orig_stack_depth"`
+	HasStackDepth                bool `json:"has_stack_depth"`
 
 	MapCount     int `json:"map_count"`
 	OrigMapCount int `json:"orig_map_count"`
@@ -112,7 +113,7 @@ func printDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord
 	printTopMinMax("largest differences by instructions processed", minMaxInsnsProcessed, percentInsnsProcessedDiff, colorRelativeChange)
 
 	minMaxStackDepth := calcMinMax(diffRecords, func(r verifierComplexityRecord) (int, int) {
-		if r.Kernel != "bpf-next" {
+		if !r.HasStackDepth {
 			return math.MinInt, math.MinInt
 		}
 		return r.StackDepth, r.OrigStackDepth
@@ -142,7 +143,7 @@ func printCurrentState(newRecords map[string]verifierComplexityRecord) []error {
 	}
 
 	minMaxStackDepth := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) (int, int) {
-		if r.Kernel != "bpf-next" {
+		if !r.HasStackDepth {
 			return math.MinInt, math.MinInt
 		}
 		return r.StackDepth, r.OrigStackDepth
@@ -405,6 +406,7 @@ func calcDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord,
 
 			VerificationTimeMicroseconds: newRecord.VerificationTimeMicroseconds - oldRecord.VerificationTimeMicroseconds,
 			StackDepth:                   newRecord.StackDepth - oldRecord.StackDepth,
+			HasStackDepth:                newRecord.HasStackDepth && oldRecord.HasStackDepth,
 			OrigStackDepth:               oldRecord.StackDepth,
 
 			MapCount:     newRecord.MapCount - oldRecord.MapCount,
@@ -431,6 +433,7 @@ func calcDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord,
 
 					VerificationTimeMicroseconds: -oldRecord.VerificationTimeMicroseconds,
 					StackDepth:                   -oldRecord.StackDepth,
+					HasStackDepth:                oldRecord.HasStackDepth,
 
 					MapCount: -oldRecord.MapCount,
 				})
