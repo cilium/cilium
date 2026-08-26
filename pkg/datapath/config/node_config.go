@@ -47,6 +47,10 @@ type Node struct {
 	EnableNodeportSourceLookup bool `config:"enable_nodeport_source_lookup"`
 	// Enable BPF-based proxy redirection.
 	EnableTproxy bool `config:"enable_tproxy"`
+	// Interface index of the IPv4 IPIP encapsulation device.
+	Encap4IfIndex uint32 `config:"encap4_ifindex"`
+	// Interface index of the IPv6 IPIP encapsulation device.
+	Encap6IfIndex uint32 `config:"encap6_ifindex"`
 	// Enable strict encryption for ingress traffic.
 	EncryptionStrictIngress bool `config:"encryption_strict_ingress"`
 	// Maximum number of messages that can be written to BPF events map in 1
@@ -115,7 +119,7 @@ func NewNode() *Node {
 		0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x8, false, 0x0, false, false, false, false, false, false,
-		false, false, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.IPv4SNATExclusionPrefix]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

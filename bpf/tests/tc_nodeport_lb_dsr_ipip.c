@@ -14,10 +14,6 @@
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
-#define ENCAP_IFINDEX		42
-#define ENCAP4_IFINDEX		ENCAP_IFINDEX
-#define ENCAP6_IFINDEX		ENCAP_IFINDEX
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_IPV6		{ .addr = { 0x1 } }
 #define CLIENT_PORT		__bpf_htons(111)
@@ -42,13 +38,7 @@ static volatile const __u8 *remote_backend_mac = mac_five;
 #define ctx_redirect mock_ctx_redirect
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
-		  __u32 flags __maybe_unused)
-{
-	if (ifindex != ENCAP_IFINDEX)
-		return CTX_ACT_DROP;
-
-	return CTX_ACT_REDIRECT;
-}
+		  __u32 flags __maybe_unused);
 
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
@@ -82,6 +72,20 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 ASSIGN_CONFIG(union v6addr, ipv6_direct_routing, LB_IPV6)
+
+ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
+ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
+
+static __always_inline __maybe_unused int
+mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
+		  __u32 flags __maybe_unused)
+{
+	if (ifindex != (int)CONFIG(encap4_ifindex) &&
+	    ifindex != (int)CONFIG(encap6_ifindex))
+		return CTX_ACT_DROP;
+
+	return CTX_ACT_REDIRECT;
+}
 
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		     __maybe_unused int plen, __maybe_unused __u32 flags)

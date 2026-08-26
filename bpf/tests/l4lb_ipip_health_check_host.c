@@ -25,9 +25,6 @@
 #define BACKEND_IP		v4_pod_two
 #define BACKEND_PORT		__bpf_htons(8080)
 
-#define ENCAP4_IFINDEX		42
-#define ENCAP6_IFINDEX		42
-
 #define SOCKET_COOKIE		1
 
 static volatile const __u8 *client_mac = mac_one;
@@ -44,13 +41,7 @@ __u64 mock_get_socket_cookie(const struct __sk_buff *ctx __maybe_unused)
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
-{
-	if (ifindex == ENCAP4_IFINDEX)
-		return CTX_ACT_REDIRECT;
-
-	return CTX_ACT_DROP;
-}
+		  int ifindex __maybe_unused, __u32 flags __maybe_unused);
 
 #define skb_set_tunnel_key mock_skb_set_tunnel_key
 
@@ -69,6 +60,19 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 }
 
 #include "lib/bpf_host.h"
+
+ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
+ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
+
+static __always_inline __maybe_unused int
+mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
+		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
+{
+	if (ifindex == (int)CONFIG(encap4_ifindex))
+		return CTX_ACT_REDIRECT;
+
+	return CTX_ACT_DROP;
+}
 
 /* Test that a health-check request to a remote backend is IPIP-encapsulated. */
 PKTGEN(PROG_TYPE, "l4lb_health_check_host")

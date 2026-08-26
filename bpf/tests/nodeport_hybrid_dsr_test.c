@@ -12,12 +12,12 @@
 #define DSR_ENCAP_MODE DSR_ENCAP_IPIP
 #define DSR_ENCAP_IPIP 1
 
-#define ENCAP4_IFINDEX		42
-#define ENCAP6_IFINDEX		42
-
 #include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
+
+ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
+ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
 
 CHECK(PROG_TYPE, "test_nodeport_uses_dsr_ipv4_with_flag")
 int test_nodeport_uses_dsr_ipv4_with_flag(__maybe_unused struct __ctx_buff *ctx)

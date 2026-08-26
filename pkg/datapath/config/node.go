@@ -141,6 +141,9 @@ func NodeConfig(lnc *Config) Node {
 		}
 	}
 
+	node.Encap4IfIndex = lnc.Encap4IfIndex
+	node.Encap6IfIndex = lnc.Encap6IfIndex
+
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
 	node.KernelHz = uint32(option.Config.KernelHz)
 

@@ -25,8 +25,6 @@
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
-#define ENCAP6_IFINDEX		42
-
 #define CLIENT_PORT		__bpf_htons(111)
 
 #define FRONTEND_PORT		tcp_svc_one
@@ -162,6 +160,7 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 #include "lib/lb.h"
 
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
+ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
