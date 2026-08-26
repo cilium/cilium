@@ -59,7 +59,11 @@ var (
 	}.ToConfig()
 )
 
-func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bool) {
+func RunBenchmark(testSize int, iterations int, reflectorWaitTime time.Duration, loglevel slog.Level, validate bool) {
+	if reflectorWaitTime <= 0 {
+		panic("reflector wait time must be greater than 0")
+	}
+
 	option.Config.EnableIPv4 = true
 	option.Config.EnableIPv6 = true
 
@@ -111,7 +115,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		db     *statedb.DB
 		bo     *lbreconciler.BPFOps
 	)
-	h := testHive(maps, services, endpoints, &writer, &db, &bo)
+	h := testHive(maps, services, endpoints, reflectorWaitTime, &writer, &db, &bo)
 
 	if err := h.Start(log, context.TODO()); err != nil {
 		panic(err)
@@ -515,10 +519,14 @@ var (
 func testHive(maps lbmaps.LBMaps,
 	services chan resource.Event[*slim_corev1.Service],
 	endpoints chan resource.Event[*k8s.Endpoints],
+	reflectorWaitTime time.Duration,
 	writerPtr **writer.Writer,
 	db **statedb.DB,
 	bo **lbreconciler.BPFOps,
 ) *hive.Hive {
+	lbConfig := loadbalancer.DefaultConfig
+	lbConfig.ReflectorWaitTime = reflectorWaitTime
+
 	extConfig := loadbalancer.ExternalConfig{
 		ZoneMapper: &option.DaemonConfig{},
 		EnableIPv4: true,
@@ -538,11 +546,7 @@ func testHive(maps lbmaps.LBMaps,
 					return cmtypes.ClusterInfo{}
 				},
 				func() loadbalancer.Config {
-					return loadbalancer.Config{
-						UserConfig:  loadbalancer.DefaultUserConfig,
-						NodePortMin: loadbalancer.NodePortMinDefault,
-						NodePortMax: loadbalancer.NodePortMaxDefault,
-					}
+					return lbConfig
 				},
 				func() loadbalancer.ExternalConfig { return extConfig },
 
