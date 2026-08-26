@@ -142,9 +142,10 @@ var (
 	}
 	NodeByName = NodeNameIndex.Query
 
-	// NodeAddressIndex indexes every address of the node. Writer enforces single
-	// ownership and resolves conflicts prior to insertion according to source
-	// priority.
+	// NodeAddressIndex indexes every address of the node. The index is non-unique
+	// because configured Cilium internal router addresses may legitimately be
+	// shared by every node. Writer resolves all other conflicts according to
+	// source priority.
 	NodeAddressIndex = statedb.Index[*Node, netip.Addr]{
 		Name: "address",
 		FromObject: func(obj *Node) index.KeySet {
@@ -167,7 +168,7 @@ var (
 		},
 		FromKey:    index.NetIPAddr,
 		FromString: index.NetIPAddrString,
-		Unique:     true,
+		Unique:     false,
 	}
 	NodeByAddress = NodeAddressIndex.Query
 

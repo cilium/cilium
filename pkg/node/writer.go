@@ -10,11 +10,14 @@ import (
 	"net/netip"
 	"slices"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -23,11 +26,30 @@ type Writer struct {
 	log   *slog.Logger
 	db    *statedb.DB
 	nodes statedb.RWTable[*Node]
+
+	isStaticLocalRouterIP func(string) bool
 }
 
 // NewWriter constructs a node table writer.
 func NewWriter(log *slog.Logger, db *statedb.DB, nodes statedb.RWTable[*Node]) *Writer {
 	return &Writer{log: log, db: db, nodes: nodes}
+}
+
+type writerParams struct {
+	cell.In
+
+	Log          *slog.Logger
+	DB           *statedb.DB
+	Nodes        statedb.RWTable[*Node]
+	DaemonConfig *option.DaemonConfig `optional:"true"`
+}
+
+func provideWriter(p writerParams) *Writer {
+	w := NewWriter(p.Log, p.DB, p.Nodes)
+	if p.DaemonConfig != nil {
+		w.isStaticLocalRouterIP = p.DaemonConfig.IsLocalRouterIP
+	}
+	return w
 }
 
 // Table returns read-only access to the node table.
@@ -113,19 +135,20 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 	// operation atomic when an incoming node overlaps multiple existing nodes:
 	// a single stronger owner rejects the update without deleting weaker ones.
 	conflicts := map[string]*Node{}
-	for _, addr := range conflictAddresses(n) {
-		candidate, _, found := w.nodes.Get(txn, NodeByAddress(addr))
-		if !found || candidate.Fullname() == obj.Fullname() {
-			continue
+	for _, addr := range w.conflictAddresses(n) {
+		for candidate := range w.nodes.List(txn, NodeByAddress(addr)) {
+			if candidate.Fullname() == obj.Fullname() {
+				continue
+			}
+			w.log.Warn("Node address conflicts with another node",
+				logfields.IPAddr, addr,
+				logfields.Node, obj.Fullname(),
+				logfields.Source, obj.Source,
+				logfields.ConflictingResource, candidate.Fullname(),
+				logfields.NodeOwner, candidate.Source,
+			)
+			conflicts[candidate.Fullname()] = candidate
 		}
-		w.log.Warn("Node address conflicts with another node",
-			logfields.IPAddr, addr,
-			logfields.Node, obj.Fullname(),
-			logfields.Source, obj.Source,
-			logfields.ConflictingResource, candidate.Fullname(),
-			logfields.NodeOwner, candidate.Source,
-		)
-		conflicts[candidate.Fullname()] = candidate
 	}
 	for _, candidate := range conflicts {
 		if candidate.Local != nil || !source.AllowOverwrite(candidate.Source, obj.Source) {
@@ -160,9 +183,11 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 }
 
 // conflictAddresses returns the normalized addresses whose ownership used to
-// gate NodeManager datapath updates. IPv4-mapped IPv6 addresses are normalized
-// to IPv4 so both representations conflict with one another.
-func conflictAddresses(n *nodeTypes.Node) []netip.Addr {
+// gate NodeManager datapath updates. Configured Cilium internal router IPs are
+// omitted because they may intentionally be shared by every node. IPv4-mapped
+// IPv6 addresses are normalized to IPv4 so both representations conflict with
+// one another.
+func (w *Writer) conflictAddresses(n *nodeTypes.Node) []netip.Addr {
 	addrs := make([]netip.Addr, 0, len(n.IPAddresses)+4)
 	appendAddr := func(addr netip.Addr) {
 		if addr.IsValid() {
@@ -171,6 +196,13 @@ func conflictAddresses(n *nodeTypes.Node) []netip.Addr {
 	}
 
 	for _, address := range n.IPAddresses {
+		// In delegated IPAM mode the local router IP is configured statically and is the same
+		// on all nodes. Exempt the conflict in those cases.
+		if address.Type == addressing.NodeCiliumInternalIP &&
+			w.isStaticLocalRouterIP != nil &&
+			w.isStaticLocalRouterIP(address.ToString()) {
+			continue
+		}
 		if addr, ok := netip.AddrFromSlice(address.IP); ok {
 			appendAddr(addr)
 		}
