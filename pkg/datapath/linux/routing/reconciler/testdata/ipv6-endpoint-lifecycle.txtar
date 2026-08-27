@@ -1,0 +1,72 @@
+#! --family=ipv6
+
+# Configure one ENI with an IPv6 delegated prefix as the operator would report it.
+k8s/add cilium-node.yaml
+link/add cilium-rr-test dummy
+link/set cilium-rr-test hwaddr=02:ca:fe:00:00:01 mtu=1400
+
+hive start
+ipam/start
+
+# Wait for the production ENI device configurator before reconciling routing.
+link/list
+* stdout 'addr: 192[.]0[.]2[.]5/24'
+stdout 'cilium-rr-test dummy <up[|>]'
+stdout 'mtu: 1500'
+
+ipam/restore-finished
+
+# Endpoint creation installs IPv6 endpoint rules and routes through the AWS
+# link-local gateway.
+endpoint/add pod-a 2001:db8:1::/80
+stdout --count=1 '^2001:db8:1:[0-9a-f:]+$'
+
+rule/list --family=ipv6 --priority=20 --protocol=kernel
+stdout --count=1 '^priority 20 from all to 2001:db8:1:[0-9a-f:]+/128 table main protocol kernel$'
+
+rule/list --family=ipv6 --priority=111 --protocol=kernel
+stdout --count=1 '^priority 111 from 2001:db8:1:[0-9a-f:]+/128 to all table 11 protocol kernel$'
+
+route/list --table=11
+stdout 'fe80:ec2::1/128.*dev cilium-rr-test.*scope universe.*table 11'
+stdout '::/0.*via fe80:ec2::1.*dev cilium-rr-test.*table 11'
+
+# Endpoint deletion removes its rules but leaves routes shared by the ENI.
+endpoint/del pod-a
+
+# Wait for asynchronous rule deletion without replaying endpoint/del.
+rule/list --family=ipv6 --priority=20 --protocol=kernel
+* empty stdout
+
+rule/list --family=ipv6 --priority=111 --protocol=kernel
+* empty stdout
+
+route/list --table=11
+stdout 'fe80:ec2::1/128.*dev cilium-rr-test.*scope universe.*table 11'
+stdout '::/0.*via fe80:ec2::1.*dev cilium-rr-test.*table 11'
+
+hive stop
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  eni: {}
+status:
+  eni:
+    enis:
+      eni-1:
+        id: eni-1
+        ip: 192.0.2.5
+        mac: 02:ca:fe:00:00:01
+        number: 1
+        ipv6-prefixes:
+        - 2001:db8:1::/80
+        subnet:
+          id: subnet-1
+          cidr: 192.0.2.0/24
+        vpc:
+          id: vpc-1
+          primary-cidr: 192.0.2.0/24
