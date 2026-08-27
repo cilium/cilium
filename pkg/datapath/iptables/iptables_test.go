@@ -147,12 +147,14 @@ func TestCopyProxyRulesv4(t *testing.T) {
 		}, {
 			args: "-t mangle -A CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment cilium: TPROXY to host cilium-dns-egress proxy -j TPROXY --on-port 43477 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff",
 		}, {
+			args: "-t mangle -A CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment cilium: TPROXY to host cilium-random-proxy proxy -j TPROXY --on-port 43499 --on-ip 0.0.0.0 --tproxy-mark 0x200/0xffffffff",
+		}, {
 			args: "-t mangle -A CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment cilium: TPROXY to host cilium-dns-egress proxy -j TPROXY --on-port 43477 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff",
 		},
 	}
 
-	// Copies DNS proxy rules from OLD_CILIUM_PRE_mangle to CILIUM_PRE_mangle
-	mockManager.doCopyProxyRules(mockIp4tables, "mangle", tproxyMatch, "cilium-dns-egress", "OLD_"+ciliumPreMangleChain, ciliumPreMangleChain)
+	// Copies every proxy rule from OLD_CILIUM_PRE_mangle to CILIUM_PRE_mangle
+	mockManager.doCopyProxyRules(mockIp4tables, "mangle", tproxyMatch, "OLD_"+ciliumPreMangleChain, ciliumPreMangleChain)
 	err := mockIp4tables.checkExpectations()
 	if err != nil {
 		t.Fatal(err)
@@ -184,12 +186,14 @@ func TestCopyProxyRulesv6(t *testing.T) {
 		}, {
 			args: "-t mangle -A CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment cilium: TPROXY to host cilium-dns-egress proxy -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff",
 		}, {
+			args: "-t mangle -A CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment cilium: TPROXY to host cilium-random-proxy proxy -j TPROXY --on-port 43499 --on-ip :: --tproxy-mark 0x200/0xffffffff",
+		}, {
 			args: "-t mangle -A CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment cilium: TPROXY to host cilium-dns-egress proxy -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff",
 		},
 	}
 
-	// Copies DNS proxy rules from OLD_CILIUM_PRE_mangle to CILIUM_PRE_mangle
-	mockManager.doCopyProxyRules(mockIp6tables, "mangle", tproxyMatch, "cilium-dns-egress", "OLD_"+ciliumPreMangleChain, ciliumPreMangleChain)
+	// Copies every proxy rule from OLD_CILIUM_PRE_mangle to CILIUM_PRE_mangle
+	mockManager.doCopyProxyRules(mockIp6tables, "mangle", tproxyMatch, "OLD_"+ciliumPreMangleChain, ciliumPreMangleChain)
 	err := mockIp6tables.checkExpectations()
 	if err != nil {
 		t.Fatal(err)
