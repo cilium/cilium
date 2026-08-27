@@ -818,6 +818,7 @@ func WatchCmd(db *DB) script.Cmd {
 			if err != nil {
 				return nil, err
 			}
+			defer iter.Close()
 
 			header := tbl.TableHeader()
 			if header == nil {

@@ -10,12 +10,12 @@ func Set[T any](s part.Set[T]) KeySet {
 	toBytes := s.ToBytesFunc()
 	switch s.Len() {
 	case 0:
-		return NewKeySet()
+		return KeySet{}
 	case 1:
-		for v := range s.All() {
-			return NewKeySet(toBytes(v))
+		if v, ok := s.First(); ok {
+			return KeySet{head: toBytes(v)}
 		}
-		panic("BUG: Set.Len() == 1, but ranging returned nothing")
+		panic("BUG: Set.Len() == 1, but First returned nothing")
 	default:
 		keys := make([]Key, 0, s.Len())
 		for v := range s.All() {

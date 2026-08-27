@@ -63,7 +63,7 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 			// to the low watermark.
 			indexTree := rtxn.mustIndexReadTxn(table.meta, GraveyardRevisionIndexPos)
 
-			iter, _ := indexTree.all()
+			iter := indexTree.allNoWatch()
 			for key, obj := range iter.All {
 				if obj.revision > lowWatermark {
 					break

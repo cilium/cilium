@@ -232,9 +232,13 @@ func (txn *Txn[T]) Insert(key index.Key, value T) error {
 	// We found a [node] with which we matched fewer bits than are in the [key].
 	// As they can't exist in the same location we'll need to fork the tree
 	// with an imaginary node at the point where their prefixes diverge.
+	imaginaryKey, err := EncodeLPMKey(node.key, matchLen)
+	if err != nil {
+		return err
+	}
 	txn.size++
 	imaginary := &lpmNode[T]{
-		key:       EncodeLPMKey(node.key, matchLen),
+		key:       imaginaryKey,
 		imaginary: true,
 		txnID:     txn.txnID,
 	}
@@ -394,15 +398,15 @@ func (txn *Txn[T]) Prefix(key index.Key) *Iterator[T] {
 	var matchLen PrefixLen
 	for node != nil {
 		matchLen = longestMatch(matchLen, node, data, prefixLen)
-		if matchLen == prefixLen || matchLen < node.prefixLen() {
-			break
+		if matchLen == prefixLen {
+			return &Iterator[T]{start: node}
+		}
+		if matchLen < node.prefixLen() {
+			return nil
 		}
 		node = node.children[getBitAt(data, node.prefixLen())]
 	}
-	if node == nil {
-		return nil
-	}
-	return &Iterator[T]{start: node}
+	return nil
 }
 
 func (txn *Txn[T]) LowerBound(key index.Key) *Iterator[T] {
@@ -477,7 +481,10 @@ func lpmLookup[T any](root *lpmNode[T], key index.Key) (value T, ok bool) {
 		nodePrefixLen := node.prefixLen()
 		matchLen := longestMatch(currentLen, node, keyData, keyPrefixLen)
 		if matchLen == keyPrefixLen {
-			return node.value, !node.imaginary
+			if matchLen == nodePrefixLen && !node.imaginary {
+				return node.value, true
+			}
+			break
 		}
 		if matchLen < nodePrefixLen {
 			break

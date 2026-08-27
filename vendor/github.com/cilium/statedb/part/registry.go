@@ -10,12 +10,15 @@ import (
 	"reflect"
 	"sync"
 	"unicode/utf8"
+	"unsafe"
 )
 
 // keyTypeRegistry is a registry of functions to convert to/from keys (of type K).
 // This mechanism enables use of zero value and JSON marshalling and unmarshalling
 // with Map and Set.
 var keyTypeRegistry sync.Map // map[reflect.Type]func(K) []byte
+
+var emptyStringKey = []byte{}
 
 // RegisterKeyType registers a new key type to be used with the Map and Set types.
 // Intended to be called from init() functions.
@@ -39,7 +42,13 @@ func lookupKeyType[K any]() func(K) []byte {
 
 func init() {
 	// Register common key types.
-	RegisterKeyType[string](func(s string) []byte { return []byte(s) })
+	RegisterKeyType[string](func(s string) []byte {
+		// Keys are immutable, so it is safe to avoid copying the string.
+		if len(s) == 0 {
+			return emptyStringKey
+		}
+		return unsafe.Slice(unsafe.StringData(s), len(s))
+	})
 	RegisterKeyType[[]byte](func(b []byte) []byte { return b })
 	RegisterKeyType[byte](func(b byte) []byte { return []byte{b} })
 	RegisterKeyType[rune](func(r rune) []byte { return utf8.AppendRune(nil, r) })

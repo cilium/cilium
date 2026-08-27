@@ -22,8 +22,13 @@ func (t AnyTable) NumObjects(txn ReadTxn) int {
 }
 
 func (t AnyTable) All(txn ReadTxn) iter.Seq2[any, Revision] {
-	all, _ := t.AllWatch(txn)
-	return all
+	indexTxn := txn.mustIndexReadTxn(t.Meta, PrimaryIndexPos)
+	all := indexTxn.allNoWatch()
+	return func(yield func(any, Revision) bool) {
+		all.All(func(_ []byte, iobj object) bool {
+			return yield(iobj.data, iobj.revision)
+		})
+	}
 }
 
 func (t AnyTable) AllWatch(txn ReadTxn) (iter.Seq2[any, Revision], <-chan struct{}) {
@@ -42,7 +47,7 @@ func (t AnyTable) UnmarshalYAML(data []byte) (any, error) {
 
 func (t AnyTable) Insert(txn WriteTxn, obj any) (old any, hadOld bool, err error) {
 	var iobj object
-	iobj, hadOld, _, err = txn.unwrap().insert(t.Meta, Revision(0), obj)
+	iobj, hadOld, _, err = txn.unwrap().insert(t.Meta, Revision(0), obj, false)
 	if hadOld {
 		old = iobj.data
 	}
@@ -63,7 +68,7 @@ func (t AnyTable) Get(txn ReadTxn, index string, key string) (any, Revision, boo
 	if err != nil {
 		return nil, 0, false, err
 	}
-	obj, _, found := itxn.get(rawKey)
+	obj, found := itxn.getNoWatch(rawKey)
 	if found {
 		return obj.data, obj.revision, found, nil
 	}
@@ -75,7 +80,7 @@ func (t AnyTable) Prefix(txn ReadTxn, index string, key string) (iter.Seq2[any, 
 	if err != nil {
 		return nil, err
 	}
-	iter, _ := itxn.prefix(rawKey)
+	iter := itxn.prefixNoWatch(rawKey)
 	return objSeq[any](iter), nil
 }
 
@@ -84,7 +89,7 @@ func (t AnyTable) LowerBound(txn ReadTxn, index string, key string) (iter.Seq2[a
 	if err != nil {
 		return nil, err
 	}
-	iter, _ := itxn.lowerBound(rawKey)
+	iter := itxn.lowerBoundNoWatch(rawKey)
 	return objSeq[any](iter), nil
 }
 
@@ -93,7 +98,7 @@ func (t AnyTable) List(txn ReadTxn, index string, key string) (iter.Seq2[any, Re
 	if err != nil {
 		return nil, err
 	}
-	iter, _ := itxn.list(rawKey)
+	iter := itxn.listNoWatch(rawKey)
 	return objSeq[any](iter), nil
 }
 

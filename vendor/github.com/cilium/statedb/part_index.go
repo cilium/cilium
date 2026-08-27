@@ -118,13 +118,17 @@ func (r *partIndex) list(key index.Key) (tableIndexIterator, <-chan struct{}) {
 	return partList(r.unique, &r.tree, key)
 }
 
+func (r *partIndex) listNoWatch(key index.Key) tableIndexIterator {
+	return partListNoWatch(r.unique, &r.tree, key)
+}
+
 var emptyTableIndexIterator = &singletonTableIndexIterator{}
 
 func partList(unique bool, tree part.Ops[object], key index.Key) (tableIndexIterator, <-chan struct{}) {
 	if unique {
 		// Unique index means that there can be only a single matching object.
 		// Doing a Get() is more efficient than constructing an iterator.
-		obj, watch, ok := tree.Get(key)
+		obj, watch, ok := tree.GetWatch(key)
 		if ok {
 			return &singletonTableIndexIterator{key, obj}, watch
 		}
@@ -137,8 +141,22 @@ func partList(unique bool, tree part.Ops[object], key index.Key) (tableIndexIter
 	// form <secondary key><primary key><secondary key length>, and thus the
 	// iteration will continue until key length mismatches, e.g. we hit a
 	// longer key sharing the same prefix.
-	iter, watch := tree.Prefix(key)
+	iter, watch := tree.PrefixWatch(key)
 	return newNonUniquePartIterator(iter, false, key), watch
+}
+
+func partListNoWatch(unique bool, tree part.Ops[object], key index.Key) tableIndexIterator {
+	if unique {
+		obj, ok := tree.Get(key)
+		if ok {
+			return &singletonTableIndexIterator{key, obj}
+		}
+		return emptyTableIndexIterator
+	}
+
+	key = encodeNonUniqueBytes(key)
+	iter := tree.Prefix(key)
+	return newNonUniquePartIterator(iter, false, key)
 }
 
 // rootWatch implements tableIndex.
@@ -159,17 +177,21 @@ func (r *partIndex) get(ikey index.Key) (iobj object, watch <-chan struct{}, fou
 	return partGet(r.unique, &r.tree, ikey)
 }
 
+func (r *partIndex) getNoWatch(ikey index.Key) (iobj object, found bool) {
+	return partGetNoWatch(r.unique, &r.tree, ikey)
+}
+
 func partGet(unique bool, tree part.Ops[object], ikey index.Key) (iobj object, watch <-chan struct{}, found bool) {
 	searchKey := ikey
 	if unique {
 		// On a unique index we can do a direct get rather than a prefix search.
-		return tree.Get(searchKey)
+		return tree.GetWatch(searchKey)
 	}
 
 	searchKey = encodeNonUniqueBytes(searchKey)
 
 	// For a non-unique index we need to do a prefix search.
-	iter, watch := tree.Prefix(searchKey)
+	iter, watch := tree.PrefixWatch(searchKey)
 	for {
 		var key []byte
 		key, iobj, found = iter.Next()
@@ -185,6 +207,23 @@ func partGet(unique bool, tree part.Ops[object], ikey index.Key) (iobj object, w
 	return iobj, watch, found
 }
 
+func partGetNoWatch(unique bool, tree part.Ops[object], ikey index.Key) (iobj object, found bool) {
+	searchKey := ikey
+	if unique {
+		return tree.Get(searchKey)
+	}
+
+	searchKey = encodeNonUniqueBytes(searchKey)
+	iter := tree.Prefix(searchKey)
+	for {
+		var key []byte
+		key, iobj, found = iter.Next()
+		if !found || nonUniqueKey(key).secondaryLen() == len(searchKey) {
+			return
+		}
+	}
+}
+
 // len implements tableIndex.
 func (r *partIndex) len() int {
 	return r.tree.Len()
@@ -194,25 +233,48 @@ func (r *partIndex) all() (tableIndexIterator, <-chan struct{}) {
 	return &r.tree, r.rootWatch()
 }
 
+func (r *partIndex) allNoWatch() tableIndexIterator {
+	return &r.tree
+}
+
 // prefix implements tableIndex.
 func (r *partIndex) prefix(ikey index.Key) (tableIndexIterator, <-chan struct{}) {
 	return partPrefix(r.unique, &r.tree, ikey)
+}
+
+func (r *partIndex) prefixNoWatch(ikey index.Key) tableIndexIterator {
+	return partPrefixNoWatch(r.unique, &r.tree, ikey)
 }
 
 func partPrefix(unique bool, tree part.Ops[object], key index.Key) (tableIndexIterator, <-chan struct{}) {
 	if !unique {
 		key = encodeNonUniqueBytes(key)
 	}
-	iter, watch := tree.Prefix(key)
+	iter, watch := tree.PrefixWatch(key)
 	if unique {
 		return iter, watch
 	}
 	return newNonUniquePartIterator(iter, true, key), watch
 }
 
+func partPrefixNoWatch(unique bool, tree part.Ops[object], key index.Key) tableIndexIterator {
+	if !unique {
+		key = encodeNonUniqueBytes(key)
+	}
+	iter := tree.Prefix(key)
+	if unique {
+		return &iter
+	}
+	return newNonUniquePartIterator(iter, true, key)
+}
+
 // lowerBound implements tableIndexTxn.
 func (r *partIndex) lowerBound(ikey index.Key) (tableIndexIterator, <-chan struct{}) {
 	return partLowerBound(r.unique, &r.tree, ikey), r.rootWatch()
+}
+
+func (r *partIndex) lowerBoundNoWatch(ikey index.Key) tableIndexIterator {
+	return partLowerBound(r.unique, &r.tree, ikey)
 }
 
 // lowerBoundNext implements tableIndexTxn.
@@ -225,6 +287,17 @@ func (r *partIndex) lowerBoundNext(key index.Key) (func() ([]byte, object, bool)
 		return iter.Next, r.rootWatch()
 	}
 	return newNonUniqueLowerBoundPartIterator(iter, key).Next, r.rootWatch()
+}
+
+func (r *partIndex) lowerBoundNextNoWatch(key index.Key) func() ([]byte, object, bool) {
+	if !r.unique {
+		key = encodeNonUniqueBytes(key)
+	}
+	iter := r.tree.LowerBound(key)
+	if r.unique {
+		return iter.Next
+	}
+	return newNonUniqueLowerBoundPartIterator(iter, key).Next
 }
 
 func partLowerBound(unique bool, tree part.Ops[object], key index.Key) tableIndexIterator {
@@ -259,16 +332,31 @@ func (r *partIndexTxn) all() (tableIndexIterator, <-chan struct{}) {
 	return &snapshot, r.rootWatch()
 }
 
+func (r *partIndexTxn) allNoWatch() tableIndexIterator {
+	snapshot := r.tx.Clone()
+	return &snapshot
+}
+
 // list implements tableIndexTxn.
 func (r *partIndexTxn) list(ikey index.Key) (tableIndexIterator, <-chan struct{}) {
 	snapshot := r.tx.Clone()
 	return partList(r.unique, &snapshot, ikey)
 }
 
+func (r *partIndexTxn) listNoWatch(ikey index.Key) tableIndexIterator {
+	snapshot := r.tx.Clone()
+	return partListNoWatch(r.unique, &snapshot, ikey)
+}
+
 // lowerBound implements tableIndexTxn.
 func (r *partIndexTxn) lowerBound(ikey index.Key) (tableIndexIterator, <-chan struct{}) {
 	snapshot := r.tx.Clone()
 	return partLowerBound(r.unique, &snapshot, ikey), r.rootWatch()
+}
+
+func (r *partIndexTxn) lowerBoundNoWatch(ikey index.Key) tableIndexIterator {
+	snapshot := r.tx.Clone()
+	return partLowerBound(r.unique, &snapshot, ikey)
 }
 
 // lowerBoundNext implements tableIndexTxn.
@@ -282,6 +370,18 @@ func (r *partIndexTxn) lowerBoundNext(key index.Key) (func() ([]byte, object, bo
 		return iter.Next, r.rootWatch()
 	}
 	return newNonUniqueLowerBoundPartIterator(iter, key).Next, r.rootWatch()
+}
+
+func (r *partIndexTxn) lowerBoundNextNoWatch(key index.Key) func() ([]byte, object, bool) {
+	if !r.unique {
+		key = encodeNonUniqueBytes(key)
+	}
+	snapshot := r.tx.Clone()
+	iter := snapshot.LowerBound(key)
+	if r.unique {
+		return iter.Next
+	}
+	return newNonUniqueLowerBoundPartIterator(iter, key).Next
 }
 
 // rootWatch implements tableIndexTxn.
@@ -310,9 +410,17 @@ func (r *partIndexTxn) get(key index.Key) (iobj object, watch <-chan struct{}, o
 	return partGet(r.unique, r.tx, key)
 }
 
+func (r *partIndexTxn) getNoWatch(key index.Key) (iobj object, ok bool) {
+	return partGetNoWatch(r.unique, r.tx, key)
+}
+
 // insert implements tableIndexTxn.
 func (r *partIndexTxn) insert(key index.Key, obj object) (old object, hadOld bool, watch <-chan struct{}) {
 	return r.tx.InsertWatch(key, obj)
+}
+
+func (r *partIndexTxn) insertNoWatch(key index.Key, obj object) (old object, hadOld bool) {
+	return r.tx.Insert(key, obj)
 }
 
 // len implements tableIndexTxn.
@@ -323,6 +431,10 @@ func (r *partIndexTxn) len() int {
 // modify implements tableIndexTxn.
 func (r *partIndexTxn) modify(key index.Key, obj object, mod func(old, new object) object) (old object, newObj object, hadOld bool, watch <-chan struct{}) {
 	return r.tx.ModifyWatch(key, obj, mod)
+}
+
+func (r *partIndexTxn) modifyNoWatch(key index.Key, obj object, mod func(old, new object) object) (old object, newObj object, hadOld bool) {
+	return r.tx.Modify(key, obj, mod)
 }
 
 // notify implements tableIndexTxn.
@@ -337,6 +449,11 @@ func (r *partIndexTxn) notify() {
 func (r *partIndexTxn) prefix(ikey index.Key) (tableIndexIterator, <-chan struct{}) {
 	snapshot := r.tx.Clone()
 	return partPrefix(r.unique, &snapshot, ikey)
+}
+
+func (r *partIndexTxn) prefixNoWatch(ikey index.Key) tableIndexIterator {
+	snapshot := r.tx.Clone()
+	return partPrefixNoWatch(r.unique, &snapshot, ikey)
 }
 
 func (r *partIndexTxn) objectToKey(obj object) index.Key {

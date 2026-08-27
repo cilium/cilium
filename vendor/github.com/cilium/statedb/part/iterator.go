@@ -138,7 +138,7 @@ func newIterator[T any](start *header[T]) Iterator[T] {
 	return Iterator[T]{start: start}
 }
 
-func prefixSearch[T any](root *header[T], rootWatch <-chan struct{}, prefix []byte) (Iterator[T], <-chan struct{}) {
+func prefixSearch[T any](root *header[T], rootWatch *watchState, prefix []byte) (Iterator[T], *watchState) {
 	if root == nil {
 		return newIterator[T](nil), rootWatch
 	}

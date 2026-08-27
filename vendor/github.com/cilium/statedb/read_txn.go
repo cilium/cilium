@@ -88,7 +88,7 @@ func marshalJSON(data any) (out []byte) {
 
 func writeTableAsJSON(buf *bufio.Writer, txn ReadTxn, table *tableEntry) (err error) {
 	indexTxn := txn.mustIndexReadTxn(table.meta, PrimaryIndexPos)
-	iter, _ := indexTxn.all()
+	iter := indexTxn.allNoWatch()
 
 	writeString := func(s string) {
 		if err != nil {

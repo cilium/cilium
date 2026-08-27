@@ -13,8 +13,8 @@ import (
 	"github.com/cilium/statedb/lpm"
 )
 
-// NetIPPrefixIndex indexes objects with a [netip.Prefix] in a LPM
-// index.
+// NetIPPrefixIndex indexes objects with a [netip.Prefix] in a LPM index.
+// IPv4-mapped IPv6 addresses and prefixes are canonicalized to IPv4.
 type NetIPPrefixIndex[Obj any] struct {
 	// Name of the index
 	Name string
@@ -29,10 +29,9 @@ type NetIPPrefixIndex[Obj any] struct {
 }
 
 func (a NetIPPrefixIndex[Obj]) Query(addr netip.Addr) Query[Obj] {
-	addr16 := addr.As16()
 	return Query[Obj]{
 		index: a.Name,
-		key:   lpm.EncodeLPMKey(addr16[:], 128),
+		key:   lpm.NetIPPrefixToIndexKey(netip.PrefixFrom(addr, addr.BitLen())),
 	}
 }
 
@@ -85,6 +84,8 @@ func (a NetIPPrefixIndex[Obj]) isIndexerOf(Obj) {
 	panic("isIndexerOf")
 }
 
+func (a NetIPPrefixIndex[Obj]) secondaryOnly() {}
+
 func (i NetIPPrefixIndex[Obj]) isUnique() bool {
 	return i.Unique
 }
@@ -128,13 +129,15 @@ func (l LPMIndex[Obj]) isIndexerOf(Obj) {
 	panic("isIndexerOf")
 }
 
+func (l LPMIndex[Obj]) secondaryOnly() {}
+
 // fromString implements Indexer.
 func (l LPMIndex[Obj]) fromString(s string) (index.Key, error) {
 	data, plen, err := l.FromString(s)
 	if err != nil {
 		return index.Key{}, err
 	}
-	return lpm.EncodeLPMKey(data, plen), nil
+	return lpm.EncodeLPMKey(data, plen)
 }
 
 // indexName implements Indexer.
@@ -149,19 +152,24 @@ func (l LPMIndex[Obj]) ObjectToKey(obj Obj) index.Key {
 	return nil
 }
 
-// Query constructs a query against the index with the given prefix.
-func (l LPMIndex[Obj]) Query(data []byte, prefixLen lpm.PrefixLen) Query[Obj] {
+// Query constructs a query against the index with the given prefix. It returns
+// an error if data does not contain enough bits for prefixLen.
+func (l LPMIndex[Obj]) Query(data []byte, prefixLen lpm.PrefixLen) (Query[Obj], error) {
+	key, err := lpm.EncodeLPMKey(data, prefixLen)
+	if err != nil {
+		return Query[Obj]{}, err
+	}
 	return Query[Obj]{
 		index: l.Name,
-		key:   lpm.EncodeLPMKey(data, prefixLen),
-	}
+		key:   key,
+	}, nil
 }
 
 func (l LPMIndex[Obj]) QueryFromObject(obj Obj) Query[Obj] {
 	for key, length := range l.FromObject(obj) {
 		return Query[Obj]{
 			index: l.Name,
-			key:   lpm.EncodeLPMKey(key, length),
+			key:   mustEncodeLPMKey(key, length),
 		}
 	}
 	return Query[Obj]{}
@@ -175,7 +183,7 @@ func (l LPMIndex[Obj]) newTableIndex() tableIndex {
 		objectToKeys: func(obj object) index.KeySet {
 			keys := make([]index.Key, 0, 2)
 			for data, prefixLen := range l.FromObject(obj.data.(Obj)) {
-				keys = append(keys, lpm.EncodeLPMKey(data, prefixLen))
+				keys = append(keys, mustEncodeLPMKey(data, prefixLen))
 			}
 			return index.NewKeySet(keys...)
 		},
@@ -185,6 +193,14 @@ func (l LPMIndex[Obj]) newTableIndex() tableIndex {
 
 func (l LPMIndex[Obj]) isUnique() bool {
 	return l.Unique
+}
+
+func mustEncodeLPMKey(data []byte, prefixLen lpm.PrefixLen) index.Key {
+	key, err := lpm.EncodeLPMKey(data, prefixLen)
+	if err != nil {
+		panic(err)
+	}
+	return key
 }
 
 var _ Indexer[struct{}] = LPMIndex[struct{}]{}
@@ -200,7 +216,11 @@ type lpmIndex struct {
 
 // all implements tableIndex.
 func (l lpmIndex) all() (tableIndexIterator, <-chan struct{}) {
-	return newLPMIterator(l.lpm.All()), l.watch
+	return newLPMIterator(l.lpm.All(), !l.unique), l.watch
+}
+
+func (l lpmIndex) allNoWatch() tableIndexIterator {
+	return newLPMIterator(l.lpm.All(), !l.unique)
 }
 
 // get implements tableIndex.
@@ -213,6 +233,14 @@ func (l lpmIndex) get(ikey index.Key) (object, <-chan struct{}, bool) {
 		return obj, l.watch, true
 	}
 	return object{}, l.watch, false
+}
+
+func (l lpmIndex) getNoWatch(ikey index.Key) (object, bool) {
+	entry, found := l.lpm.Lookup(ikey)
+	if !found {
+		return object{}, false
+	}
+	return entry.first()
 }
 
 // len implements tableIndex.
@@ -229,14 +257,30 @@ func (l lpmIndex) list(key index.Key) (tableIndexIterator, <-chan struct{}) {
 	return &entry, l.watch
 }
 
+func (l lpmIndex) listNoWatch(key index.Key) tableIndexIterator {
+	entry, found := l.lpm.Lookup(key)
+	if !found || entry.len() == 0 {
+		return emptyTableIndexIterator
+	}
+	return &entry
+}
+
 // lowerBound implements tableIndex.
 func (l lpmIndex) lowerBound(key index.Key) (tableIndexIterator, <-chan struct{}) {
-	return newLPMIterator(l.lpm.LowerBound(key)), l.watch
+	return newLPMIterator(l.lpm.LowerBound(key), !l.unique), l.watch
+}
+
+func (l lpmIndex) lowerBoundNoWatch(key index.Key) tableIndexIterator {
+	return newLPMIterator(l.lpm.LowerBound(key), !l.unique)
 }
 
 // lowerBoundNext implements tableIndexTxn.
 func (l lpmIndex) lowerBoundNext(key index.Key) (func() ([]byte, object, bool), <-chan struct{}) {
 	return newLPMNextFunc(l.lpm.LowerBound(key)), l.watch
+}
+
+func (l lpmIndex) lowerBoundNextNoWatch(key index.Key) func() ([]byte, object, bool) {
+	return newLPMNextFunc(l.lpm.LowerBound(key))
 }
 
 // objectToKey implements tableIndex.
@@ -246,7 +290,11 @@ func (l lpmIndex) objectToKey(obj object) index.Key {
 
 // prefix implements tableIndex.
 func (l lpmIndex) prefix(key index.Key) (tableIndexIterator, <-chan struct{}) {
-	return newLPMIterator(l.lpm.Prefix(key)), l.watch
+	return newLPMIterator(l.lpm.Prefix(key), !l.unique), l.watch
+}
+
+func (l lpmIndex) prefixNoWatch(key index.Key) tableIndexIterator {
+	return newLPMIterator(l.lpm.Prefix(key), !l.unique)
 }
 
 // rootWatch implements tableIndex.
@@ -284,7 +332,11 @@ type lpmIndexTxn struct {
 
 // all implements tableIndexTxn.
 func (l *lpmIndexTxn) all() (tableIndexIterator, <-chan struct{}) {
-	return newLPMIterator(l.tx.All()), l.index.watch
+	return newLPMIterator(l.tx.All(), !l.index.unique), l.index.watch
+}
+
+func (l *lpmIndexTxn) allNoWatch() tableIndexIterator {
+	return newLPMIterator(l.tx.All(), !l.index.unique)
 }
 
 // commit implements tableIndexTxn.
@@ -311,8 +363,16 @@ func (l *lpmIndexTxn) insert(key index.Key, obj object) (old object, hadOld bool
 	panic("LPM index cannot be the primary index")
 }
 
+func (l *lpmIndexTxn) insertNoWatch(key index.Key, obj object) (old object, hadOld bool) {
+	panic("LPM index cannot be the primary index")
+}
+
 // modify implements tableIndexTxn.
 func (l *lpmIndexTxn) modify(key index.Key, obj object, mod func(old, new object) object) (old object, newObj object, hadOld bool, watch <-chan struct{}) {
+	panic("LPM index cannot be the primary index")
+}
+
+func (l *lpmIndexTxn) modifyNoWatch(key index.Key, obj object, mod func(old, new object) object) (old object, newObj object, hadOld bool) {
 	panic("LPM index cannot be the primary index")
 }
 
@@ -326,6 +386,14 @@ func (l *lpmIndexTxn) get(key index.Key) (object, <-chan struct{}, bool) {
 		return obj, l.index.watch, true
 	}
 	return object{}, l.index.watch, false
+}
+
+func (l *lpmIndexTxn) getNoWatch(key index.Key) (object, bool) {
+	entry, found := l.tx.Lookup(key)
+	if !found {
+		return object{}, false
+	}
+	return entry.first()
 }
 
 // len implements tableIndexTxn.
@@ -342,14 +410,30 @@ func (l *lpmIndexTxn) list(key index.Key) (tableIndexIterator, <-chan struct{}) 
 	return &entry, l.index.watch
 }
 
+func (l *lpmIndexTxn) listNoWatch(key index.Key) tableIndexIterator {
+	entry, found := l.tx.Lookup(key)
+	if !found || entry.len() == 0 {
+		return emptyTableIndexIterator
+	}
+	return &entry
+}
+
 // lowerBound implements tableIndexTxn.
 func (l *lpmIndexTxn) lowerBound(key index.Key) (tableIndexIterator, <-chan struct{}) {
-	return newLPMIterator(l.tx.LowerBound(key)), l.index.watch
+	return newLPMIterator(l.tx.LowerBound(key), !l.index.unique), l.index.watch
+}
+
+func (l *lpmIndexTxn) lowerBoundNoWatch(key index.Key) tableIndexIterator {
+	return newLPMIterator(l.tx.LowerBound(key), !l.index.unique)
 }
 
 // lowerBoundNext implements tableIndexTxn.
 func (l *lpmIndexTxn) lowerBoundNext(key index.Key) (func() ([]byte, object, bool), <-chan struct{}) {
 	return newLPMNextFunc(l.tx.LowerBound(key)), l.index.watch
+}
+
+func (l *lpmIndexTxn) lowerBoundNextNoWatch(key index.Key) func() ([]byte, object, bool) {
+	return newLPMNextFunc(l.tx.LowerBound(key))
 }
 
 // notify implements tableIndexTxn.
@@ -367,7 +451,11 @@ func (l *lpmIndexTxn) objectToKey(obj object) index.Key {
 
 // prefix implements tableIndexTxn.
 func (l *lpmIndexTxn) prefix(key index.Key) (tableIndexIterator, <-chan struct{}) {
-	return newLPMIterator(l.tx.Prefix(key)), l.index.watch
+	return newLPMIterator(l.tx.Prefix(key), !l.index.unique), l.index.watch
+}
+
+func (l *lpmIndexTxn) prefixNoWatch(key index.Key) tableIndexIterator {
+	return newLPMIterator(l.tx.Prefix(key), !l.index.unique)
 }
 
 // reindex implements tableIndexTxn.
@@ -498,12 +586,14 @@ func (e *lpmEntry) upsert(primaryKey index.Key, obj object) bool {
 	case -1:
 		oldHead := e.head
 		e.head = lpmEntryObject{primary: primaryKey, obj: obj}
+		e.tail = slices.Clone(e.tail)
 		e.tail = append(e.tail, lpmEntryObject{})
 		copy(e.tail[1:], e.tail[:len(e.tail)-1])
 		e.tail[0] = oldHead
 		return true
 	}
 	idx, found := e.searchTail(primaryKey)
+	e.tail = slices.Clone(e.tail)
 	if found {
 		e.tail[idx].obj = obj
 		return false
@@ -583,17 +673,38 @@ func (e *lpmEntry) appendObjects(dst []object) []object {
 }
 
 type lpmIteratorAdapter struct {
-	iter *lpm.Iterator[lpmEntry]
+	iter        *lpm.Iterator[lpmEntry]
+	deduplicate bool
 }
 
-func newLPMIterator(iter *lpm.Iterator[lpmEntry]) tableIndexIterator {
-	return &lpmIteratorAdapter{iter: iter}
+func newLPMIterator(iter *lpm.Iterator[lpmEntry], deduplicate bool) tableIndexIterator {
+	return &lpmIteratorAdapter{iter: iter, deduplicate: deduplicate}
 }
 
 func (l *lpmIteratorAdapter) All(yield func([]byte, object) bool) {
+	var visited map[string]struct{}
+	if l.deduplicate {
+		visited = map[string]struct{}{}
+	}
+	emit := func(key []byte, entry lpmEntryObject) bool {
+		if visited != nil {
+			primary := string(entry.primary)
+			if _, found := visited[primary]; found {
+				return true
+			}
+			visited[primary] = struct{}{}
+		}
+		return yield(key, entry.obj)
+	}
 	l.iter.All(func(key []byte, entry lpmEntry) bool {
-		for _, obj := range entry.All {
-			if !yield(key, obj) {
+		if !entry.used {
+			return true
+		}
+		if !emit(key, entry.head) {
+			return false
+		}
+		for _, obj := range entry.tail {
+			if !emit(key, obj) {
 				return false
 			}
 		}
