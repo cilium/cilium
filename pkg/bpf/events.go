@@ -101,17 +101,8 @@ func newEventsBuffer(logger *slog.Logger, name string, bufSize int, ttl time.Dur
 		mapControllers.UpdateController(
 			fmt.Sprintf("bpf-event-buffer-gc-%s", name),
 			controller.ControllerParams{
-				Group: bpfEventBufferGCControllerGroup,
-				DoFunc: func(_ context.Context) error {
-					logger.Debug(
-						"clearing bpf map events older than TTL",
-						logfields.TTL, b.eventTTL,
-					)
-					b.buffer.Compact(func(event Event) bool {
-						return time.Since(event.Timestamp) < b.eventTTL
-					})
-					return nil
-				},
+				Group:       bpfEventBufferGCControllerGroup,
+				DoFunc:      b.garbageCollect,
 				RunInterval: b.eventTTL,
 			},
 		)
@@ -133,6 +124,17 @@ type eventsBuffer struct {
 	observe stream.Observable[Event]
 	next    func(Event)
 	done    func(error)
+}
+
+func (eb *eventsBuffer) garbageCollect(_ context.Context) error {
+	eb.logger.Debug(
+		"clearing bpf map events older than TTL",
+		logfields.TTL, eb.eventTTL,
+	)
+	eb.buffer.Compact(func(event Event) bool {
+		return time.Since(event.Timestamp) < eb.eventTTL
+	})
+	return nil
 }
 
 func (eb *eventsBuffer) dumpAndSubscribe(ctx context.Context, callback EventCallbackFunc, follow bool) {
