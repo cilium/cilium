@@ -97,22 +97,8 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 		mapControllers.UpdateController(
 			fmt.Sprintf("bpf-event-buffer-gc-%s", m.name),
 			controller.ControllerParams{
-				Group: bpfEventBufferGCControllerGroup,
-				DoFunc: func(_ context.Context) error {
-					m.Logger.Debug(
-						"clearing bpf map events older than TTL",
-						logfields.TTL, b.eventTTL,
-					)
-					b.buffer.Compact(func(e any) bool {
-						event, ok := e.(*Event)
-						if !ok {
-							m.Logger.Error("Failed to compact the event buffer", logfields.Error, wrongObjTypeErr(e))
-							return false
-						}
-						return time.Since(event.Timestamp) < b.eventTTL
-					})
-					return nil
-				},
+				Group:       bpfEventBufferGCControllerGroup,
+				DoFunc:      b.garbageCollect,
 				RunInterval: b.eventTTL,
 			},
 		)
@@ -214,6 +200,23 @@ func (eb *eventsBuffer) dumpAndSubscribe(callback EventCallbackFunc, follow bool
 	defer eb.subsLock.Unlock()
 	eb.subscriptions = append(eb.subscriptions, h)
 	return h, nil
+}
+
+func (eb *eventsBuffer) garbageCollect(_ context.Context) error {
+	eb.logger.Debug(
+		"clearing bpf map events older than TTL",
+		logfields.TTL, eb.eventTTL,
+	)
+
+	eb.buffer.Compact(func(e any) bool {
+		event, ok := e.(*Event)
+		if !ok {
+			eb.logger.Error("Failed to compact the event buffer", logfields.Error, wrongObjTypeErr(e))
+			return false
+		}
+		return time.Since(event.Timestamp) < eb.eventTTL
+	})
+	return nil
 }
 
 // DumpAndSubscribe dumps existing buffer, if callback is not nil. Followed by creating a
