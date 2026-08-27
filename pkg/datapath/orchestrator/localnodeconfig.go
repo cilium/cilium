@@ -7,14 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/netip"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/statedb"
-	"go4.org/netipx"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -38,16 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
-
-// prefixToCIDR converts a netip.Prefix to the legacy *cidr.CIDR representation,
-// returning nil for the zero/invalid prefix. It is a transitional boundary
-// helper: the datapath LocalNodeConfiguration still carries *cidr.CIDR fields.
-func prefixToCIDR(p netip.Prefix) *cidr.CIDR {
-	if !p.IsValid() {
-		return nil
-	}
-	return cidr.NewCIDR(netipx.PrefixIPNet(p))
-}
 
 // newLocalNodeConfig constructs LocalNodeConfiguration from the global agent
 // data sources.
@@ -184,8 +171,6 @@ func newLocalNodeConfig(
 		CiliumNetMAC:                 ciliumNetMAC,
 		CiliumHostIfIndex:            uint32(ciliumHostDevice.Index),
 		CiliumHostMAC:                ciliumHostMAC,
-		AllocCIDRIPv4:                prefixToCIDR(localNode.IPv4AllocCIDR.Prefix.Prefix),
-		AllocCIDRIPv6:                prefixToCIDR(localNode.IPv6AllocCIDR.Prefix.Prefix),
 		NativeRoutingCIDRIPv4:        localNode.RemoteSNATDstAddrExclusionCIDRv4(),
 		NativeRoutingCIDRIPv6:        localNode.RemoteSNATDstAddrExclusionCIDRv6(),
 		ServiceLoopbackIPv4:          localNode.Local.ServiceLoopbackIPv4,

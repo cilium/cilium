@@ -136,8 +136,6 @@ func setupNodeSuite(tb testing.TB, addressing node.Addressing, enableIPv6, enabl
 		NodeIPv6:            ip.AddrFromIP(addressing.IPv6().PrimaryExternal()),
 		CiliumInternalIPv4:  ip.AddrFromIP(addressing.IPv4().Router()),
 		CiliumInternalIPv6:  ip.AddrFromIP(addressing.IPv6().Router()),
-		AllocCIDRIPv4:       cidr.NewCIDR(netipx.PrefixIPNet(addressing.IPv4().AllocationCIDR())),
-		AllocCIDRIPv6:       cidr.NewCIDR(netipx.PrefixIPNet(addressing.IPv6().AllocationCIDR())),
 		EnableIPv4:          s.enableIPv4,
 		EnableIPv6:          s.enableIPv6,
 		DeviceMTU:           s.mtuCalc.DeviceMTU,
