@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,9 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
@@ -140,14 +143,24 @@ func TestEndpointRulesManagerInitialization(t *testing.T) {
 
 	resolver, restorerPromise := promise.New[endpointstate.Restorer]()
 	resolver.Resolve(fakeRestorer{})
-	manager := newEndpointRulesManager(
-		slog.Default(),
-		db,
-		table,
-		ipamManager,
-		endpointManager,
-		restorerPromise,
-	)
+	var jobGroup job.Group
+	require.NoError(t, hive.New(
+		cell.Invoke(func(group job.Group) {
+			jobGroup = group
+		}),
+	).Populate(slog.Default()))
+
+	manager := newEndpointRulesManager(endpointRulesManagerParams{
+		Logger:          slog.Default(),
+		Lifecycle:       cell.NewDefaultLifecycle(nil, 0, 0),
+		JobGroup:        jobGroup,
+		DB:              db,
+		Table:           table,
+		DaemonConfig:    &option.DaemonConfig{IPAM: ipamOption.IPAMENI},
+		IPAM:            ipamManager,
+		EndpointManager: endpointManager,
+		Restorer:        restorerPromise,
+	})
 
 	initialized, _ := table.Initialized(db.ReadTxn())
 	require.False(t, initialized)
