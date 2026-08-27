@@ -6,6 +6,7 @@ package bpf
 import (
 	"fmt"
 	"log/slog"
+	"maps"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -59,7 +60,7 @@ func fixedResources(spec *ebpf.CollectionSpec, opts ...*set.Set[string]) *set.Se
 // removeUnusedMaps analyzes the given spec to detect which parts of the code
 // will be unreachable given the VariableSpecs. It then removes any MapSpecs
 // that are not used by any Program.
-func removeUnusedMaps(spec *ebpf.CollectionSpec, fixed *set.Set[string], reach reachables, logger *slog.Logger) error {
+func removeUnusedMaps(spec *ebpf.CollectionSpec, fixed *set.Set[string], reach reachables, opts *CollectionOptions, logger *slog.Logger) error {
 	if reach == nil {
 		return fmt.Errorf("reachability information is required")
 	}
@@ -113,6 +114,15 @@ func removeUnusedMaps(spec *ebpf.CollectionSpec, fixed *set.Set[string], reach r
 	}
 	if logger != nil && len(deleted) > 0 {
 		logger.Debug("Removed unused maps from CollectionSpec", logfields.Maps, deleted)
+	}
+
+	// Clean up MapReplacements for maps that were pruned to prevent ebpf-go
+	// from failing with "replacement map not found in CollectionSpec".
+	if opts != nil {
+		maps.DeleteFunc(opts.CollectionOptions.MapReplacements, func(key string, _ *ebpf.Map) bool {
+			_, ok := spec.Maps[key]
+			return !ok
+		})
 	}
 
 	return nil
