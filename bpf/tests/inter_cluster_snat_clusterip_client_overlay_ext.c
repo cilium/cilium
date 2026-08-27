@@ -1,0 +1,203 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* Copyright Authors of Cilium */
+
+#include <bpf/ctx/skb.h>
+#include "common.h"
+#include "mock_skb_metadata.h"
+#include "pktgen.h"
+
+#define ENCAP_IFINDEX 1
+#define ENABLE_IPV4
+#define TUNNEL_MODE
+#define ENABLE_NODEPORT
+#define ENABLE_CLUSTER_AWARE_ADDRESSING
+#define ENABLE_INTER_CLUSTER_SNAT
+
+#define NODEPORT_PORT_MAX_NAT 32768
+#include "nodeport_defaults.h"
+
+#define NODEPORT_PORT_MIN_NAT_EXT 32767
+ASSIGN_CONFIG(__u16, nodeport_port_min_nat_ext, NODEPORT_PORT_MIN_NAT_EXT)
+ASSIGN_CONFIG(__u16, nodeport_port_max_nat_ext, NODEPORT_PORT_MIN_NAT_EXT)
+
+#define CLIENT_IFINDEX		12345
+#define CLIENT_MAC		mac_one
+#define CLIENT_ROUTER_MAC	mac_two
+#define BACKEND_ROUTER_MAC	mac_three
+#define CLIENT_IP		v4_pod_one
+#define BACKEND_IP		v4_pod_two
+#define CLIENT_NODE_IP		v4_ext_one
+#define BACKEND_NODE_IP		v4_ext_two
+#define CLIENT_PORT		__bpf_htons(NODEPORT_PORT_MAX_NAT + 1)
+#define BACKEND_PORT		tcp_svc_one
+#define BACKEND_CLUSTER_ID	2
+#define BACKEND_IDENTITY	(0x00000000 | (BACKEND_CLUSTER_ID << 16) | 0xff01)
+#define CLIENT_INTER_CLUSTER_SNAT_PORT __bpf_htons(NODEPORT_PORT_MIN_NAT_EXT)
+
+#define skb_get_tunnel_key mock_skb_get_tunnel_key
+
+static __always_inline
+int mock_skb_get_tunnel_key(struct __ctx_buff *ctx __maybe_unused, struct bpf_tunnel_key *to,
+			    __u32 size __maybe_unused, __u32 flags __maybe_unused)
+{
+	to->remote_ipv4 = BACKEND_NODE_IP;
+	to->tunnel_id = BACKEND_IDENTITY;
+	return 0;
+}
+
+#define DEBUG
+#include <lib/drop.h>
+
+#define _send_drop_notify mock_send_drop_notify
+
+static __always_inline
+int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
+			  struct __ctx_buff *ctx, __u32 src __maybe_unused,
+			  __u32 dst __maybe_unused, __u32 dst_id __maybe_unused,
+			  __u32 reason, __u32 exitcode, enum metric_dir direction)
+{
+	cilium_dbg3(ctx, DBG_GENERIC, reason, exitcode, direction);
+	return exitcode;
+}
+
+#include "lib/bpf_overlay.h"
+
+ASSIGN_CONFIG(union v4addr, ipv4_inter_cluster_snat, { .be32 = CLIENT_NODE_IP })
+ASSIGN_CONFIG(__u32, cluster_id, 1)
+
+#include "lib/endpoint.h"
+
+PKTGEN(PROG_TYPE, "from_overlay_ext_synack")
+int from_overlay_ext_synack_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)BACKEND_ROUTER_MAC,
+					  (__u8 *)CLIENT_ROUTER_MAC,
+					  BACKEND_IP, CONFIG(ipv4_inter_cluster_snat).be32,
+					  BACKEND_PORT, CLIENT_INTER_CLUSTER_SNAT_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->syn = 1;
+	l4->ack = 1;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "from_overlay_ext_synack")
+int from_overlay_ext_synack_setup(struct __ctx_buff *ctx)
+{
+	struct ipv4_ct_tuple tuple = {
+		.daddr = CONFIG(ipv4_inter_cluster_snat).be32,
+		.saddr = BACKEND_IP,
+		.dport = CLIENT_INTER_CLUSTER_SNAT_PORT,
+		.sport = BACKEND_PORT,
+		.nexthdr = IPPROTO_TCP,
+		.flags = TUPLE_F_IN,
+	};
+	struct ipv4_nat_entry entry = {
+		.to_daddr = CLIENT_IP,
+		.to_dport = CLIENT_PORT,
+	};
+
+	if (map_update_elem(&per_cluster_snat_mapping_ipv4_2, &tuple, &entry, BPF_ANY) < 0)
+		return TEST_ERROR;
+
+	endpoint_v4_add_entry(CLIENT_IP, CLIENT_IFINDEX, 0, 0, 0, 0,
+			      (__u8 *)CLIENT_MAC, (__u8 *)CLIENT_ROUTER_MAC);
+
+	return overlay_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "from_overlay_ext_synack")
+int from_overlay_ext_synack_check(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__s32 *status_code;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	__u32 meta;
+
+	test_init();
+
+	endpoint_v4_del_entry(CLIENT_IP);
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	if (*status_code != CTX_ACT_DROP)
+		test_fatal("unexpected status code %d, want %d", *status_code, CTX_ACT_DROP);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (memcmp(l2->h_source, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) != 0)
+		test_fatal("src MAC is not client router MAC");
+
+	if (memcmp(l2->h_dest, (__u8 *)CLIENT_MAC, ETH_ALEN) != 0)
+		test_fatal("dst MAC is not client MAC");
+
+	if (l3->saddr != BACKEND_IP)
+		test_fatal("src IP has changed");
+
+	if (l3->daddr != CLIENT_IP)
+		test_fatal("dst IP hasn't been RevSNATed to client IP");
+
+	if (l3->check != bpf_htons(0xfa68))
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+
+	if (l4->source != BACKEND_PORT)
+		test_fatal("src port has changed");
+
+	if (l4->dest != CLIENT_PORT)
+		test_fatal("dst port hasn't been RevSNATed to client port");
+
+	if (l4->check != bpf_htons(0x8f65))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x8f65));
+
+	meta = ctx_load_meta(ctx, CB_DELIVERY_FLAGS);
+	if (!(meta & CB_DELIVERY_FLAGS_REDIRECT))
+		test_fatal("skb->cb[CB_DELIVERY_FLAGS] should have CB_DELIVERY_FLAGS_REDIRECT");
+	if (meta & CB_DELIVERY_FLAGS_FROM_HOST)
+		test_fatal("skb->cb[CB_DELIVERY_FLAGS] has CB_DELIVERY_FLAGS_FROM_HOST");
+	if (!(meta & CB_DELIVERY_FLAGS_FROM_TUNNEL))
+		test_fatal("skb->cb[CB_DELIVERY_FLAGS] should have CB_DELIVERY_FLAGS_FROM_TUNNEL");
+
+	meta = ctx_load_meta(ctx, CB_SRC_LABEL);
+	if (meta != BACKEND_IDENTITY)
+		test_fatal("skb->cb[CB_SRC_LABEL] should be %d, got %d", BACKEND_IDENTITY, meta);
+
+	meta = ctx_load_meta(ctx, CB_CLUSTER_ID_INGRESS);
+	if (meta != BACKEND_CLUSTER_ID)
+		test_fatal("skb->cb[CB_CLUSTER_ID_INGRESS] should be %u, got %d",
+			   BACKEND_CLUSTER_ID, meta);
+
+	test_finish();
+}
