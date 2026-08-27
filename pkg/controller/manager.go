@@ -267,10 +267,15 @@ func (m *Manager) GetStatusModel() models.ControllerStatuses {
 
 // TriggerController triggers the controller with the specified name.
 func (m *Manager) TriggerController(name string) {
-	ctrl := m.lookup(name)
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	ctrl := m.lookupLocked(name)
 	if ctrl == nil {
 		return
 	}
+
+	ctrl.MaybeResetContext()
 
 	select {
 	case ctrl.trigger <- struct{}{}:
