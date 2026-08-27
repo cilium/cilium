@@ -172,7 +172,7 @@ func (it *changeIterator[Obj]) refresh(txn ReadTxn) {
 		panic(fmt.Sprintf("Table[%T].Changes().Next() called with the target table locked. This is not supported.", obj))
 	}
 	indexEntry := tableEntry.indexes[RevisionIndexPos]
-	updated, _ := indexEntry.lowerBoundNext(index.Uint64(it.revision + 1))
+	updated := indexEntry.lowerBoundNextNoWatch(index.Uint64(it.revision + 1))
 	updateIter := &iterator[Obj]{updated}
 	deleteIter := it.dt.deleted(txn, it.deleteRevision+1)
 	it.iter = newDualIterator(deleteIter, updateIter)
@@ -261,4 +261,5 @@ func (it *changeIterator[Obj]) Close() {
 
 type anyChangeIterator interface {
 	nextAny(ReadTxn) (iter.Seq2[Change[any], Revision], <-chan struct{})
+	Close()
 }

@@ -183,6 +183,10 @@ func (rq *retries) Add(obj any, rev statedb.Revision, origRev statedb.Revision, 
 }
 
 func (rq *retries) Clear(obj any) {
+	if len(rq.items) == 0 {
+		return
+	}
+
 	key := rq.objectToKey(obj)
 	if item, ok := rq.items[string(key)]; ok {
 		// Remove the object from the queue if it is still there.

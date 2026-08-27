@@ -10,15 +10,19 @@ type Ops[T any] interface {
 	Len() int
 
 	// Get fetches the value associated with the given key.
-	// Returns the value, a watch channel (which is closed on
-	// modification to the key) and boolean which is true if
-	// value was found.
-	Get(key []byte) (T, <-chan struct{}, bool)
+	Get(key []byte) (T, bool)
 
-	// Prefix returns an iterator for all objects that starts with the
-	// given prefix, and a channel that closes when any objects matching
-	// the given prefix are upserted or deleted.
-	Prefix(key []byte) (Iterator[T], <-chan struct{})
+	// GetWatch fetches the value and returns a channel that closes when the
+	// key is modified.
+	GetWatch(key []byte) (T, <-chan struct{}, bool)
+
+	// Prefix returns an iterator for all objects that start with the given
+	// prefix.
+	Prefix(key []byte) Iterator[T]
+
+	// PrefixWatch returns matching objects and a channel that closes when any
+	// matching object is upserted or deleted.
+	PrefixWatch(key []byte) (Iterator[T], <-chan struct{})
 
 	// LowerBound returns an iterator for all objects that have a
 	// key equal or higher than the given 'key'.

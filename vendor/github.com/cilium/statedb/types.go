@@ -322,6 +322,12 @@ type Indexer[Obj any] interface {
 	newTableIndex() tableIndex
 }
 
+// secondaryOnlyIndexer marks index implementations that cannot be used as a
+// table's primary index.
+type secondaryOnlyIndexer interface {
+	secondaryOnly()
+}
+
 // TableWritable is a constraint for objects that implement tabular
 // pretty-printing. Used by the "db" script commands to render a table.
 type TableWritable interface {
@@ -410,11 +416,17 @@ type tableIndexIterator interface {
 type tableIndexReader interface {
 	len() int
 	get(key index.Key) (object, <-chan struct{}, bool)
+	getNoWatch(key index.Key) (object, bool)
 	prefix(key index.Key) (tableIndexIterator, <-chan struct{})
+	prefixNoWatch(key index.Key) tableIndexIterator
 	lowerBound(key index.Key) (tableIndexIterator, <-chan struct{})
+	lowerBoundNoWatch(key index.Key) tableIndexIterator
 	lowerBoundNext(key index.Key) (func() ([]byte, object, bool), <-chan struct{})
+	lowerBoundNextNoWatch(key index.Key) func() ([]byte, object, bool)
 	list(key index.Key) (tableIndexIterator, <-chan struct{})
+	listNoWatch(key index.Key) tableIndexIterator
 	all() (tableIndexIterator, <-chan struct{})
+	allNoWatch() tableIndexIterator
 	rootWatch() <-chan struct{}
 	objectToKey(obj object) index.Key
 }
@@ -429,7 +441,9 @@ type tableIndexTxn interface {
 	tableIndex
 
 	insert(key index.Key, obj object) (old object, hadOld bool, watch <-chan struct{})
+	insertNoWatch(key index.Key, obj object) (old object, hadOld bool)
 	modify(key index.Key, obj object, mod func(old, new object) object) (old object, new object, hadOld bool, watch <-chan struct{})
+	modifyNoWatch(key index.Key, obj object, mod func(old, new object) object) (old object, new object, hadOld bool)
 	delete(key index.Key) (old object, hadOld bool)
 	reindex(primaryKey index.Key, old object, new object)
 }

@@ -43,7 +43,7 @@ func validateTrie[T any](node *lpmNode[T], parents []*lpmNode[T], maxTxnID uint6
 	}
 
 	data, prefixLen := DecodeLPMKey(node.key)
-	dataLen := int((prefixLen + 7) / 8)
+	dataLen := lpmDataLen(prefixLen)
 	assert(len(node.key) == dataLen+2, "key length mismatch for %s", showKey(node.key))
 	assert(len(data) == dataLen, "key data length mismatch for %s", showKey(node.key))
 
