@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -104,11 +103,11 @@ func TestCoalesceCIDRs(t *testing.T) {
 }
 
 type mockIPAllocator struct {
-	allocCIDR *cidr.CIDR
+	allocCIDR netip.Prefix
 }
 
 func (m *mockIPAllocator) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
-	if !m.allocCIDR.Contains(ip.AsSlice()) {
+	if !m.allocCIDR.Contains(ip) {
 		return nil, fmt.Errorf("cannot allocate IP %s", ip)
 	}
 	return &ipam.AllocationResult{IP: ip}, nil
@@ -168,7 +167,7 @@ func TestDaemon_reallocateDatapathIPs(t *testing.T) {
 	infraIPAllocator := &infraIPAllocator{
 		logger: hivetest.Logger(t),
 		ipAllocator: &mockIPAllocator{
-			allocCIDR: cidr.MustParseCIDR("10.20.30.0/24"),
+			allocCIDR: netip.MustParsePrefix("10.20.30.0/24"),
 		},
 	}
 

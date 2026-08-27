@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"iter"
 	"log/slog"
@@ -18,7 +19,6 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -182,7 +182,7 @@ var (
 
 func containsIP(allowedIPs iter.Seq[net.IPNet], ipnet *net.IPNet) bool {
 	for allowedIP := range allowedIPs {
-		if cidr.Equal(&allowedIP, ipnet) {
+		if allowedIP.IP.Equal(ipnet.IP) && bytes.Equal(allowedIP.Mask, ipnet.Mask) {
 			return true
 		}
 	}
