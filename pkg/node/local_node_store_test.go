@@ -119,6 +119,8 @@ func TestLocalNodeStore(t *testing.T) {
 }
 
 func TestLocalNodeStoreUpdateMarksStatusesPending(t *testing.T) {
+	const requiredReconciler = "required"
+
 	var (
 		store *LocalNodeStore
 		db    *statedb.DB
@@ -129,8 +131,14 @@ func TestLocalNodeStoreUpdateMarksStatusesPending(t *testing.T) {
 		cell.Provide(func() cmtypes.ClusterInfo {
 			return cmtypes.ClusterInfo{Name: "test"}
 		}),
-		cell.Invoke(func(s *LocalNodeStore, d *statedb.DB, ns statedb.Table[*Node]) {
+		cell.Invoke(func(
+			s *LocalNodeStore,
+			d *statedb.DB,
+			ns statedb.Table[*Node],
+			writer *Writer,
+		) {
 			store, db, nodes = s, d, ns
+			writer.RegisterReconciler(requiredReconciler)
 		}),
 	)
 
@@ -150,6 +158,10 @@ func TestLocalNodeStoreUpdateMarksStatusesPending(t *testing.T) {
 	require.True(t, found)
 	local = local.DeepCopy()
 	local.Statuses = local.Statuses.Set("test", reconciler.StatusDone())
+	local.Statuses = local.Statuses.Set(
+		requiredReconciler,
+		reconciler.StatusDone(),
+	)
 	_, _, err := rwNodes.Insert(txn, local)
 	require.NoError(t, err)
 	txn.Commit()
@@ -158,11 +170,19 @@ func TestLocalNodeStoreUpdateMarksStatusesPending(t *testing.T) {
 	local, _, found = nodes.Get(db.ReadTxn(), LocalNodeQuery)
 	require.True(t, found)
 	require.Equal(t, reconciler.StatusKindDone, local.Statuses.Get("test").Kind)
+	require.Equal(t,
+		reconciler.StatusKindDone,
+		local.Statuses.Get(requiredReconciler).Kind,
+	)
 
 	store.Update(func(n *LocalNode) { n.ClusterID++ })
 	local, _, found = nodes.Get(db.ReadTxn(), LocalNodeQuery)
 	require.True(t, found)
 	require.Equal(t, reconciler.StatusKindPending, local.Statuses.Get("test").Kind)
+	require.Equal(t,
+		reconciler.StatusKindPending,
+		local.Statuses.Get(requiredReconciler).Kind,
+	)
 }
 
 func TestWaitForLocalNodeInit(t *testing.T) {
