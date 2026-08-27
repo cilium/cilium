@@ -1687,7 +1687,12 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 	// detached policy.
 	if l4.users != nil {
 		l4.users[user] = struct{}{}
-	} else {
+	}
+	// A hold taken before Supersede keeps 'users' non-nil, so an endpoint can
+	// reach this point holding a policy that a newer one has already replaced.
+	// Its content is stale, so it must be regenerated to pick up the
+	// replacement, the same as when the policy was detached.
+	if l4.users == nil || l4.superseded {
 		go user.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
 			Reason:            regeneration.ReasonSelectorPolicyStale,
 			Message:           "selector policy has changed because of another endpoint with the same identity",
