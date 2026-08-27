@@ -34,11 +34,10 @@ func PrefixFrom(p netip.Prefix) Prefix {
 }
 
 // legacyCIDR is a frozen copy of the on-wire shape that *cidr.CIDR produced
-// (which embeds *net.IPNet, promoting these two fields in this order). We are
-// intentionally not directly using pkg/cidr.CIDR: this wire contract must stay
-// stable and independent of pkg/cidr. This will allow us to fully deprecate and
-// remove pkg/cidr.CIDR as soon as it is no longer used, while this legacyCIDR will
-// have to remain at least until the 1.23 release (see timeline on the #46924 issue)
+// (which embedded *net.IPNet, promoting these two fields in this order). Keeping
+// this copy independent of pkg/cidr is what allowed that package to be deleted
+// while the wire contract stayed stable. legacyCIDR itself has to remain at
+// least until the 1.23 release (see timeline on the #46924 issue)
 type legacyCIDR struct {
 	IP   net.IP
 	Mask net.IPMask

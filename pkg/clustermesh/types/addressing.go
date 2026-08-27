@@ -14,8 +14,6 @@ import (
 	"strings"
 
 	"go4.org/netipx"
-
-	"github.com/cilium/cilium/pkg/cidr"
 )
 
 //
@@ -353,20 +351,6 @@ func PrefixClusterFrom(prefix netip.Prefix, opts ...PrefixClusterOpts) PrefixClu
 		opt(&pc)
 	}
 	return pc
-}
-
-func PrefixClusterFromCIDR(c *cidr.CIDR, opts ...PrefixClusterOpts) PrefixCluster {
-	if c == nil {
-		return PrefixCluster{}
-	}
-
-	addr, ok := netipx.FromStdIP(c.IP)
-	if !ok {
-		return PrefixCluster{}
-	}
-	ones, _ := c.Mask.Size()
-
-	return PrefixClusterFrom(netip.PrefixFrom(addr, ones), opts...)
 }
 
 func (pc0 PrefixCluster) Equal(pc1 PrefixCluster) bool {
