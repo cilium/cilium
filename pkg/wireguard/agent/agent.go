@@ -81,6 +81,7 @@ type Agent struct {
 	db                *statedb.DB
 	mtuTable          statedb.Table[mtu.RouteMTU]
 	nodes             statedb.Table[*node.Node]
+	nodeWriter        *node.Writer
 	nodesReconciler   reconciler.Reconciler[*node.Node]
 	localNode         *node.LocalNodeStore
 	nodeDiscovery     *nodediscovery.NodeDiscovery
@@ -111,7 +112,7 @@ type params struct {
 	Config            Config
 	DB                *statedb.DB
 	MTUTable          statedb.Table[mtu.RouteMTU]
-	Nodes             statedb.Table[*node.Node]
+	NodeWriter        *node.Writer
 	JobGroup          job.Group
 	ReconcilerParams  reconciler.Params
 	Sysctl            sysctl.Sysctl
@@ -130,7 +131,8 @@ func newAgent(p params) *Agent {
 		config:            p.Config,
 		db:                p.DB,
 		mtuTable:          p.MTUTable,
-		nodes:             p.Nodes,
+		nodeWriter:        p.NodeWriter,
+		nodes:             p.NodeWriter.Table(),
 		jobGroup:          p.JobGroup,
 		reconcilerParams:  p.ReconcilerParams,
 		sysctl:            p.Sysctl,
@@ -182,6 +184,7 @@ func (a *Agent) Start(cell.HookContext) error {
 		a.ipCache.AddListener(a)
 	}
 
+	a.nodeWriter.RegisterReconciler(wireGuardNodeReconcilerName)
 	a.nodesReconciler, err = reconciler.Register(
 		a.reconcilerParams,
 		a.nodes.(statedb.RWTable[*node.Node]),
@@ -198,6 +201,7 @@ func (a *Agent) Start(cell.HookContext) error {
 		reconciler.WithoutPruning(),
 	)
 	if err != nil {
+		a.nodeWriter.UnregisterReconciler(wireGuardNodeReconcilerName)
 		return fmt.Errorf("registering WireGuard node reconciler: %w", err)
 	}
 	a.jobGroup.Add(
@@ -224,6 +228,8 @@ func (a *Agent) Stop(cell.HookContext) error {
 
 	// Set [wgClient] to nil to prevent further use.
 	a.wgClient = nil
+
+	a.nodeWriter.UnregisterReconciler(wireGuardNodeReconcilerName)
 
 	return err
 }
