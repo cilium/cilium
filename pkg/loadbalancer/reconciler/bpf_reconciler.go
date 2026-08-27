@@ -1044,10 +1044,14 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		}
 
 		state := be.State
-		if be.Unhealthy {
-			// We only care about [be.Unhealthy] for the Count/QCount and not for
-			// the state in the backend maps as the backend might be healthy for some
-			// service and unhealthy for another.
+		if be.Unhealthy || be.TopologyDemoted {
+			// We only care about [be.Unhealthy] and [be.TopologyDemoted] for
+			// the Count/QCount and not for the state in the backend maps as
+			// the backend might be healthy for some service and unhealthy for
+			// another, or demoted for this node's topology only. Counting a
+			// demoted backend as quarantined keeps it in the maps (slots
+			// beyond Count) so established connections drain, while new
+			// connections only pick from slots 1..Count.
 			state = loadbalancer.BackendStateQuarantined
 		}
 
@@ -1626,10 +1630,14 @@ func (ops *BPFOps) sortedBackends(fe *loadbalancer.Frontend) []backendWithRevisi
 	}
 	sort.Slice(bes, func(i, j int) bool {
 		a, b := bes[i], bes[j]
+		// Demoted backends sort last together with unhealthy ones so that
+		// slots 1..Count only contain selectable backends.
+		aInactive := a.Unhealthy || a.TopologyDemoted
+		bInactive := b.Unhealthy || b.TopologyDemoted
 		switch {
-		case !a.Unhealthy && b.Unhealthy:
+		case !aInactive && bInactive:
 			return true
-		case a.Unhealthy && !b.Unhealthy:
+		case aInactive && !bInactive:
 			return false
 		case a.State < b.State:
 			return true

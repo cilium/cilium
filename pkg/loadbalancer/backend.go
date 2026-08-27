@@ -65,6 +65,15 @@ type Backend struct {
 	// +deepequal-gen=false
 	UnhealthyUpdatedAt *time.Time
 
+	// TopologyDemoted marks a backend that was de-preferred by topology-aware
+	// selection (trafficDistribution / topology hints) on this node. A demoted
+	// backend is kept in the datapath maps so that its established connections
+	// keep working, but it is placed outside the new-connection selection
+	// range (slots beyond Count, like quarantined backends).
+	// This field is only set on the per-frontend copies yielded by
+	// [writer.Writer]'s backend selection, never on the backends table itself.
+	TopologyDemoted bool `json:",omitempty" yaml:",omitempty"`
+
 	// sourcePriority is the priority of [Source]. Filled in by the [writer.Writer].
 	// This along with [ServiceName] and [Address] form the unique primary key ([BackendKey])
 	// for the backends table.

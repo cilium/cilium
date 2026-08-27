@@ -72,7 +72,7 @@ test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferClose
 
 -- frontends-foo.table --
 Address               Type        ServiceName   PortName   Status  Backends
-10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP, 10.244.2.1:80/TCP (demoted)
 
 -- frontends-none.table --
 Address               Type        ServiceName   PortName   Status   Backends

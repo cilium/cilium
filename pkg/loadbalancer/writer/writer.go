@@ -499,14 +499,18 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 		if candidatesFound {
 			return func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
 				for be, rev := range bes {
-					if be.NodeName != w.nodeName {
-						continue
-					}
 					if !matchesFrontend(be, fe) {
 						continue
 					}
-					if !w.topologyPreferenceCandidate(svc, be) {
-						continue
+					if be.NodeName != w.nodeName ||
+						!w.topologyPreferenceCandidate(svc, be) {
+						// Demote instead of drop: dropping the backend would
+						// remove it from the datapath maps and reset its
+						// established connections. Keep it selected but
+						// outside the new-connection range (see the Count
+						// handling in the BPF reconciler).
+						be = be.Clone()
+						be.TopologyDemoted = true
 					}
 					if !yield(be, rev) {
 						return
@@ -580,7 +584,9 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 			if checkZoneHints {
 				if be.Zone == nil ||
 					!slices.Contains(be.Zone.ForZones, *thisZone) {
-					continue
+					// Demote instead of drop, see above.
+					be = be.Clone()
+					be.TopologyDemoted = true
 				}
 			}
 			if !yield(be, rev) {

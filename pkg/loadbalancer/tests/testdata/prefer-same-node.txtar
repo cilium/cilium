@@ -12,7 +12,9 @@ hive start
 k8s/add service.yaml
 k8s/add endpointslice.yaml endpointslice2.yaml
 
-# With PreferSameNode, only the local-node backend should be selected.
+# With PreferSameNode, only the local-node backend is a new-connection
+# candidate; the remote backend stays selected but demoted (kept in the maps
+# outside the new-connection range so established connections can drain).
 db/cmp backends backends.table
 db/cmp frontends frontends-local.table
 
@@ -49,7 +51,7 @@ test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferSameNod
 
 -- frontends-local.table --
 Address               Type        ServiceName   PortName   Status  Backends
-10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP, 10.244.2.1:80/TCP (demoted)
 
 -- frontends-remote.table --
 Address               Type        ServiceName   PortName   Status  Backends

@@ -989,10 +989,17 @@ func TestWriter_SelectBackends_PreferCloseIgnoresTerminatingForMissingHints(t *t
 	selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
 
 	// Topology safeguard must remain engaged: only the zone-a Active backend
-	// should be selected. Terminating backends are filtered from primary traffic
-	// because their (possibly empty / nil) ForZones cannot match the local zone.
-	require.Len(t, selected, 1)
-	assert.Equal(t, activeLocalAddr.String(), selected[0].Address.String())
+	// is a new-connection candidate. All other backends stay selected but
+	// demoted so that they remain in the datapath maps (outside the
+	// new-connection range) and their established connections can drain.
+	require.Len(t, selected, 4)
+	for _, be := range selected {
+		if be.Address == activeLocalAddr {
+			assert.False(t, be.TopologyDemoted, "local-zone active backend must not be demoted")
+		} else {
+			assert.True(t, be.TopologyDemoted, "backend %s must be demoted", be.Address.String())
+		}
+	}
 }
 
 // TestWriter_SelectBackends_PreferCloseFallsBackWhenOnlyTerminating verifies that
@@ -1103,8 +1110,15 @@ func TestWriter_SelectBackends_PreferSameNodeIgnoresTerminating(t *testing.T) {
 
 	selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
 
-	// Only the active local backend should be selected.
-	// Terminating local backend must be filtered out.
-	require.Len(t, selected, 1)
-	assert.Equal(t, activeLocalAddr.String(), selected[0].Address.String())
+	// Only the active local backend is a new-connection candidate. The
+	// terminating local backend stays selected but demoted so that it remains
+	// in the datapath maps and its established connections can drain.
+	require.Len(t, selected, 2)
+	for _, be := range selected {
+		if be.Address == activeLocalAddr {
+			assert.False(t, be.TopologyDemoted, "active local backend must not be demoted")
+		} else {
+			assert.True(t, be.TopologyDemoted, "backend %s must be demoted", be.Address.String())
+		}
+	}
 }

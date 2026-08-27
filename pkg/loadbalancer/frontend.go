@@ -230,6 +230,9 @@ func showBackends(bes BackendsSeq2) string {
 	for be := range bes {
 		if count < maxToShow {
 			b.WriteString(be.Address.String())
+			if be.TopologyDemoted {
+				b.WriteString(" (demoted)")
+			}
 			b.WriteString(", ")
 		}
 		count++
