@@ -22,6 +22,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	ciliumLabels "github.com/cilium/cilium/pkg/labels"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	lrpTypes "github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy/types"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -206,7 +207,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 
 	c.p.Log.Debug("Processing local redirect policy",
 		logfields.LRPName, lrpID,
-		logfields.LRPType, lrpConfigTypeString(lrp.LRPType),
+		logfields.LRPType, lrp.LRPType,
 		logfields.LRPFrontends, lrp.FrontendMappings,
 		logfields.LRPLocalEndpointSelector, lrp.BackendSelector,
 		logfields.LRPBackendPorts, lrp.BackendPorts,
@@ -220,7 +221,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 
 	cleanup := func(wtxn writer.WriteTxn) {
 		// Unset the redirect on all frontends.
-		if lrp.LRPType == lrpConfigTypeSvc {
+		if lrp.LRPType == lrpTypes.LRPTypeServiceMatcher {
 			targetName := lrp.ServiceID
 			for fe := range c.p.Writer.Frontends().List(wtxn, lb.FrontendByServiceName(targetName)) {
 				c.p.Writer.SetRedirectTo(wtxn, fe, nil)
@@ -294,7 +295,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchSet, cleanup func(writer.WriteTxn), lrp *LocalRedirectPolicy, pods []podInfo) func(writer.WriteTxn) {
 	lrpServiceName := lrp.RedirectServiceName()
 	switch lrp.LRPType {
-	case lrpConfigTypeSvc:
+	case lrpTypes.LRPTypeServiceMatcher:
 		// Find frontends associated with the target service that match the redirection criteria and
 		// redirect them to the LRP "pseudo-service".
 		targetName := lrp.ServiceID
@@ -318,7 +319,7 @@ func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchS
 			}
 		}
 
-	case lrpConfigTypeAddr:
+	case lrpTypes.LRPTypeAddressMatcher:
 		// In address-based mode there is no existing service/frontend to match against and
 		// instead the frontend is created here.
 		for _, feM := range lrp.FrontendMappings {
@@ -364,7 +365,7 @@ func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchS
 				}
 			}
 		}
-	case lrpConfigTypeNone:
+	case lrpTypes.LRPTypeNone:
 		cleanup(wtxn)
 		return func(writer.WriteTxn) {}
 	}
@@ -510,7 +511,7 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 	//
 	// If the LRP is an address matcher, then lrpServiceName == targetName and we already
 	// refreshed the frontend via SetBackends() above.
-	if lrp.LRPType == lrpConfigTypeSvc {
+	if lrp.LRPType == lrpTypes.LRPTypeServiceMatcher {
 		targetName := lrp.ServiceID
 		c.p.Writer.RefreshFrontends(wtxn, targetName)
 	}
@@ -524,7 +525,7 @@ func shouldRedirectFrontend(log *slog.Logger, lrp *LocalRedirectPolicy, fe *lb.F
 
 	// 1. First match the frontend based on "RedirectFrontend.ToPorts"
 	// 1.1. All frontends match only when no ports were specified in redirectFrontend.
-	match := lrp.FrontendType == svcFrontendAll
+	match := lrp.FrontendType == lrpTypes.FrontendTypeServiceAll
 
 	// 1.2. Frontend matches if the port number matches
 	if !match {
@@ -673,7 +674,7 @@ func (c *lrpController) frontendsToSkip(txn statedb.ReadTxn, ws *statedb.WatchSe
 	}
 
 	var targetName lb.ServiceName
-	if lrp.LRPType == lrpConfigTypeAddr {
+	if lrp.LRPType == lrpTypes.LRPTypeAddressMatcher {
 		// For address-based matching we created the frontends, so we look up from the pseudo-service
 		targetName = lrp.RedirectServiceName()
 	} else {
@@ -685,7 +686,7 @@ func (c *lrpController) frontendsToSkip(txn statedb.ReadTxn, ws *statedb.WatchSe
 	ws.Add(watch)
 
 	for fe := range fes {
-		if lrp.LRPType == lrpConfigTypeAddr || fe.RedirectTo != nil {
+		if lrp.LRPType == lrpTypes.LRPTypeAddressMatcher || fe.RedirectTo != nil {
 			feAddrs = append(feAddrs, fe.Address)
 		}
 	}
