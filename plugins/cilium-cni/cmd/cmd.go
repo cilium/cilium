@@ -513,12 +513,12 @@ func configureCongestionControl(conf *models.DaemonConfigurationStatus, sysctl s
 	})
 }
 
-func ifindexFromMac(m mac.MAC) (int64, error) {
+func linkFromMac(m mac.MAC) (netlink.Link, error) {
 	var iface netlink.Link
 
 	links, err := safenetlink.LinkList()
 	if err != nil {
-		return -1, fmt.Errorf("unable to list interfaces: %w", err)
+		return nil, fmt.Errorf("unable to list interfaces: %w", err)
 	}
 
 	for _, l := range links {
@@ -529,16 +529,24 @@ func ifindexFromMac(m mac.MAC) (int64, error) {
 		}
 		if bytes.Equal(l.Attrs().HardwareAddr, m.HardwareAddr()) {
 			if iface != nil {
-				return -1, fmt.Errorf("several interfaces found with MAC %s: %s and %s", m, iface.Attrs().Name, l.Attrs().Name)
+				return nil, fmt.Errorf("several interfaces found with MAC %s: %s and %s", m, iface.Attrs().Name, l.Attrs().Name)
 			}
 			iface = l
 		}
 	}
 
 	if iface == nil {
-		return -1, fmt.Errorf("no interface found with MAC %s", m)
+		return nil, fmt.Errorf("no interface found with MAC %s", m)
 	}
 
+	return iface, nil
+}
+
+func ifindexFromMac(m mac.MAC) (int64, error) {
+	iface, err := linkFromMac(m)
+	if err != nil {
+		return -1, err
+	}
 	return int64(iface.Attrs().Index), nil
 }
 
@@ -860,6 +868,17 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		res.Routes = append(res.Routes, routes...)
 	}
 
+	// Keep parent-interface MTU and up-state preparation synchronous for cloud
+	// IPAM. Endpoint routes and rules are installed exclusively by the agent.
+	if needsCloudInterfaceConfiguration(conf) {
+		if err := configureCloudInterfaces(ipam, int(conf.DeviceMTU)); err != nil {
+			return fmt.Errorf("unable to configure cloud interface: %w", err)
+		}
+	}
+
+	// Cloud IPAM endpoint rules and routes are installed by the agent after
+	// endpoint creation. Delegated IPAM remains CNI-local because the agent
+	// cannot resolve its externally supplied routing metadata.
 	if needsEndpointRoutingOnHost(conf) {
 		if ipam.IPv4 != nil && ipConfig != nil {
 			if addr, ok := netipx.FromStdIP(ipConfig.Address.IP); ok {
@@ -1423,18 +1442,19 @@ func buildLogAttrsWithCNIArgs(logger *slog.Logger, cniArgs *types.ArgsSpec) *slo
 	)
 }
 
-// needsEndpointRoutingOnHost returns true if extra routes/rules need to be installed
-// on host for the Pod. This is needed for following IPAM modes:
-// - Cloud ENI IPAM modes.
-// - DelegatedPlugin mode with InstallUplinkRoutesForDelegatedIPAM set to true.
+// needsEndpointRoutingOnHost returns true if delegated IPAM requires extra
+// routes/rules to be installed on the host for the Pod.
 func needsEndpointRoutingOnHost(conf *models.DaemonConfigurationStatus) bool {
+	return conf.IpamMode == ipamOption.IPAMDelegatedPlugin && conf.InstallUplinkRoutesForDelegatedIPAM
+}
+
+func needsCloudInterfaceConfiguration(conf *models.DaemonConfigurationStatus) bool {
 	switch conf.IpamMode {
 	case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		return true
-	case ipamOption.IPAMDelegatedPlugin:
-		return conf.InstallUplinkRoutesForDelegatedIPAM
+	default:
+		return false
 	}
-	return false
 }
 
 const (
