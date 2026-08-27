@@ -344,6 +344,21 @@ func (in *Limits) DeepEqual(other *Limits) bool {
 	if in.IsBareMetal != other.IsBareMetal {
 		return false
 	}
+	if in.VCpus != other.VCpus {
+		return false
+	}
+	if in.SupportsFlexibleENAQueues != other.SupportsFlexibleENAQueues {
+		return false
+	}
+	if in.MaxENAQueueCount != other.MaxENAQueueCount {
+		return false
+	}
+	if in.MaxENAQueueCountPerInterface != other.MaxENAQueueCountPerInterface {
+		return false
+	}
+	if in.DefaultENAQueueCountPerInterface != other.DefaultENAQueueCountPerInterface {
+		return false
+	}
 
 	return true
 }

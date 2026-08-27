@@ -99,6 +99,52 @@ func (l *LimitsGetter) Get(instanceType string) (ipamTypes.Limits, bool) {
 	}
 }
 
+// enaQueueLimit holds the ENA queue limits of an instance type, as reported by
+// the EC2 API for the network card Cilium attaches ENIs to.
+type enaQueueLimit struct {
+	supported           bool
+	maxTotal            int32
+	maxPerInterface     int32
+	defaultPerInterface int32
+}
+
+// enaQueueLimits extracts the ENA queue limits of an instance type. The limits
+// are reported per network card rather than per instance, so they are read from
+// network card 0, which is the card Cilium attaches ENIs to (see the hardcoded
+// NetworkCardIndex in pkg/aws/api.Client.AttachNetworkInterface).
+//
+// The zero value is returned for instance types which do not support choosing
+// the queue count of an interface, and for instance types for which the EC2 API
+// does not report the limits.
+func enaQueueLimits(networkInfo *ec2_types.NetworkInfo) (l enaQueueLimit) {
+	if networkInfo == nil {
+		return l
+	}
+
+	for _, card := range networkInfo.NetworkCards {
+		if aws.ToInt32(card.NetworkCardIndex) != 0 {
+			continue
+		}
+
+		l.maxTotal = aws.ToInt32(card.MaximumEnaQueueCount)
+		l.maxPerInterface = aws.ToInt32(card.MaximumEnaQueueCountPerInterface)
+		// The default is reported for every instance type, including the ones
+		// which do not allow the queue count of an interface to be chosen, so
+		// it is read regardless of support in order to report the number of
+		// queues an interface runs with.
+		l.defaultPerInterface = aws.ToInt32(card.DefaultEnaQueueCountPerInterface)
+		// Choosing the queue count additionally requires the instance type to
+		// support it, and requires both a total budget and a per interface
+		// maximum: without them there is nothing to distribute.
+		l.supported = networkInfo.FlexibleEnaQueuesSupport == ec2_types.FlexibleEnaQueuesSupportSupported &&
+			l.maxTotal > 0 && l.maxPerInterface > 0
+
+		return l
+	}
+
+	return l
+}
+
 // updateFromEC2API updates limits from the EC2 API via calling
 // https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypes.html.
 func (l *LimitsGetter) updateFromEC2API(ctx context.Context, api ec2API) error {
@@ -117,6 +163,11 @@ func (l *LimitsGetter) updateFromEC2API(ctx context.Context, api ec2API) error {
 		ipv6PerAdapter := aws.ToInt32(instanceTypeInfo.NetworkInfo.Ipv6AddressesPerInterface)
 		hypervisorType := instanceTypeInfo.Hypervisor
 		isBareMetal := aws.ToBool(instanceTypeInfo.BareMetal)
+		vCpus := int32(0)
+		if instanceTypeInfo.VCpuInfo != nil {
+			vCpus = aws.ToInt32(instanceTypeInfo.VCpuInfo.DefaultVCpus)
+		}
+		enaQueues := enaQueueLimits(instanceTypeInfo.NetworkInfo)
 
 		l.m[instanceType] = ipamTypes.Limits{
 			Adapters:       int(adapterLimit),
@@ -124,6 +175,12 @@ func (l *LimitsGetter) updateFromEC2API(ctx context.Context, api ec2API) error {
 			IPv6:           int(ipv6PerAdapter),
 			HypervisorType: string(hypervisorType),
 			IsBareMetal:    isBareMetal,
+			VCpus:          int(vCpus),
+
+			SupportsFlexibleENAQueues:        enaQueues.supported,
+			MaxENAQueueCount:                 int(enaQueues.maxTotal),
+			MaxENAQueueCountPerInterface:     int(enaQueues.maxPerInterface),
+			DefaultENAQueueCountPerInterface: int(enaQueues.defaultPerInterface),
 		}
 	}
 	l.lastUpdate = time.Now()

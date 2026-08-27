@@ -114,6 +114,30 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 			BareMetal:  aws.Bool(false),
 		},
 		{
+			// c8i.8xlarge supports flexible ENA queues. The queue limits are
+			// reported per network card, and are the values the EC2 API returns
+			// for this instance type.
+			InstanceType: "c8i.8xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(10),
+				Ipv4AddressesPerInterface: aws.Int32(50),
+				Ipv6AddressesPerInterface: aws.Int32(50),
+				FlexibleEnaQueuesSupport:  ec2_types.FlexibleEnaQueuesSupportSupported,
+				NetworkCards: []ec2_types.NetworkCardInfo{
+					{
+						NetworkCardIndex:                 aws.Int32(0),
+						MaximumNetworkInterfaces:         aws.Int32(10),
+						MaximumEnaQueueCount:             aws.Int32(128),
+						MaximumEnaQueueCountPerInterface: aws.Int32(32),
+						DefaultEnaQueueCountPerInterface: aws.Int32(8),
+					},
+				},
+			},
+			VCpuInfo:   &ec2_types.VCpuInfo{DefaultVCpus: aws.Int32(32)},
+			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+			BareMetal:  aws.Bool(false),
+		},
+		{
 			InstanceType: "m3.large",
 			NetworkInfo: &ec2_types.NetworkInfo{
 				MaximumNetworkInterfaces:  aws.Int32(3),
