@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"slices"
 
@@ -19,6 +20,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Writer provides source-aware write access to the node table.
@@ -142,14 +144,72 @@ func (w *Writer) getRequiredReconcilers(_ statedb.WriteTxn) []string {
 	return slices.Clone(w.requiredReconcilers)
 }
 
+// WaitUntilReconciled waits until all nodes present in txn have been
+// reconciled. When requireDone is false, both done and error statuses are
+// considered finished. When it is true, every status must be done.
+func (w *Writer) WaitUntilReconciled(
+	ctx context.Context,
+	txn statedb.ReadTxn,
+	requireDone bool,
+) error {
+	const settleTime = 10 * time.Millisecond
+
+	targets := map[string]statedb.Revision{}
+	for n := range w.nodes.All(txn) {
+		targets[n.Fullname()] = 0
+	}
+
+	ws := statedb.NewWatchSet()
+	for {
+		// Iteration is faster than individual lookups and we assume that the set
+		// of nodes in [targets] is mostly the same as what we see in later
+		// transactions.
+		allNodes, watch := w.nodes.AllWatch(txn)
+		rev := w.nodes.Revision(txn)
+
+		for node := range allNodes {
+			if _, found := targets[node.Fullname()]; found {
+				finished := true
+				for _, status := range node.Statuses.All() {
+					if status.Kind != reconciler.StatusKindDone &&
+						(requireDone || status.Kind != reconciler.StatusKindError) {
+						finished = false
+						break
+					}
+				}
+				if finished {
+					delete(targets, node.Fullname())
+				} else {
+					targets[node.Fullname()] = rev
+				}
+			}
+		}
+
+		// Remove targets that have disappeared
+		maps.DeleteFunc(targets, func(_ string, targetRev statedb.Revision) bool {
+			return targetRev != rev
+		})
+
+		if len(targets) == 0 {
+			break
+		}
+
+		ws.Add(watch)
+		if _, err := ws.Wait(ctx, settleTime); err != nil {
+			return err
+		}
+		txn = w.db.ReadTxn()
+	}
+	return nil
+}
+
 // Refresh marks every node pending and waits for all currently known node
-// reconcilers to successfully process them.
+// reconcilers have attempted to process them (status is either Done or Error).
+// The error is [ctx.Err()] if context is cancelled.
 func (w *Writer) Refresh(ctx context.Context) error {
 	txn := w.db.WriteTxn(w.nodes)
-	targets := []string{}
 	reconcilers := w.getRequiredReconcilers(txn)
 	for n := range w.nodes.All(txn) {
-		targets = append(targets, n.Fullname())
 		updated := *n
 		updated.Statuses = updated.Statuses.Pending(reconcilers...)
 		if _, _, err := w.nodes.Insert(txn, &updated); err != nil {
@@ -157,37 +217,10 @@ func (w *Writer) Refresh(ctx context.Context) error {
 			return fmt.Errorf("marking node %s pending: %w", updated.Fullname(), err)
 		}
 	}
-	txn.Commit()
+	rtxn := txn.Commit()
 
-	rtxn := w.db.ReadTxn()
-	for _, fullname := range targets {
-		for {
-			n, _, watch, found := w.nodes.GetWatch(rtxn, NodeByName(fullname))
-			if !found {
-				break
-			}
-
-			finished := true
-			for _, status := range n.Statuses.All() {
-				if status.Kind != reconciler.StatusKindDone &&
-					status.Kind != reconciler.StatusKindError {
-					finished = false
-					break
-				}
-			}
-			if finished {
-				break
-			}
-
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-watch:
-				rtxn = w.db.ReadTxn()
-			}
-		}
-	}
-	return nil
+	// Wait until refresh of all nodes has been attempted.
+	return w.WaitUntilReconciled(ctx, rtxn, false)
 }
 
 // Upsert takes ownership of n and inserts or updates it if its source is
