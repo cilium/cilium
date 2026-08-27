@@ -1563,7 +1563,7 @@
    * - :spelling:ignore:`eni.nodeSpec`
      - NodeSpec configuration for the ENI
      - object
-     - ``{"deleteOnTermination":null,"disablePrefixDelegation":false,"excludeInterfaceTags":[],"firstInterfaceIndex":null,"securityGroupTags":[],"securityGroups":[],"subnetIDs":[],"subnetTags":[],"usePrimaryAddress":false}``
+     - ``{"deleteOnTermination":null,"disablePrefixDelegation":false,"enaQueueCount":"","excludeInterfaceTags":[],"firstInterfaceIndex":null,"securityGroupTags":[],"securityGroups":[],"subnetIDs":[],"subnetTags":[],"usePrimaryAddress":false}``
    * - :spelling:ignore:`eni.nodeSpec.deleteOnTermination`
      - Delete ENI on termination @schema type: [null, boolean] @schema
      - string
@@ -1572,6 +1572,10 @@
      - Disable prefix delegation for IP allocation
      - bool
      - ``false``
+   * - :spelling:ignore:`eni.nodeSpec.enaQueueCount`
+     - Number of ENA queues to request for each ENI attached by Cilium: "auto" for as many as the interface can use, or a number of queues, which AWS requires to be a power of two. Empty leaves the number of queues to AWS, as does "default". ENA queues are a budget shared by all interfaces of an instance, so a high number of queues per ENI may reduce the number of ENIs, and therefore the number of pods, that fit on a node.
+     - string
+     - ``""``
    * - :spelling:ignore:`eni.nodeSpec.excludeInterfaceTags`
      - Exclude interface tags to use for IP allocation
      - list

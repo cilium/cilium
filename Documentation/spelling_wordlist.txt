@@ -902,6 +902,7 @@ userInfo
 userspace
 uuid
 vCPU
+vCPUs
 vSphere
 validator
 vendored

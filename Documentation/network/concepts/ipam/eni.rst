@@ -315,6 +315,122 @@ allocation:
 
   If unspecified, this option is enabled.
 
+``spec.eni.ena-queue-count``
+  The number of ENA queues to request for each ENI that Cilium attaches to the
+  node: ``default``, ``auto`` or a positive number of queues. See
+  :ref:`ipam_eni_ena_queues`.
+
+  If unspecified, the agent writes ``default``, which leaves the number of
+  queues to AWS.
+
+.. _ipam_eni_ena_queues:
+
+****************
+ENA queue counts
+****************
+
+On instance types which support flexible ENA queues, the number of ENA queues
+of a network interface can be chosen when the interface is attached. Cilium can
+request a queue count for the ENIs it attaches, which is useful on nodes where
+the number of queues AWS assigns by default is lower than the number of vCPUs.
+
+Set the queue count with the ``eni.nodeSpec.enaQueueCount`` Helm value, which
+maps to the ``--eni-ena-queue-count`` agent flag and to
+``spec.eni.ena-queue-count`` of the ``CiliumNode`` resource:
+
+.. code-block:: shell-session
+
+    helm upgrade cilium |CHART_RELEASE| \
+      --namespace kube-system \
+      --reuse-values \
+      --set eni.nodeSpec.enaQueueCount=auto
+
+``auto`` requests one queue per vCPU, capped by the maximum number of queues per
+interface of the instance type. More queues than vCPUs do not help, as network
+drivers do not create more queues than there are CPUs.
+
+AWS only accepts a power of two as the number of queues of an attachment, while
+the vCPU count of an instance is not necessarily one, so ``auto`` rounds **up**:
+on an instance type with 12 vCPUs and a maximum of 16 queues per interface it
+requests 16, which yields one queue per CPU, where 8 would leave four CPUs
+without one. The surplus counts against the queue budget of the instance even
+though the driver does not create it.
+
+An explicit count is rounded **down** instead, as it is an upper bound the
+configuration asked for. So is a count reduced to what the budget has left.
+
+Should AWS reject the number of queues regardless, the ENI is attached with the
+default of the instance type: a queue count is a tuning knob, and IP allocation
+on a node never stops because of one.
+
+``default`` leaves the number of queues to AWS. It is the value the agent writes
+when nothing is configured, so the setting in effect can always be read off the
+node, and it is also the way to opt a single node or node pool out where a
+broader configuration applies:
+
+.. code-block:: shell-session
+
+    $ kubectl get ciliumnodes -o custom-columns='NODE:.metadata.name,ENA_QUEUE_COUNT:.spec.eni.ena-queue-count'
+    NODE                             ENA_QUEUE_COUNT
+    ip-10-0-1-10.ec2.internal        auto
+    ip-10-0-1-11.ec2.internal        default
+
+To tune node pools independently, for example because they run different
+instance types, set the flag per pool with a ``CiliumNodeConfig`` resource
+rather than cluster wide.
+
+Interfaces which Cilium does not attach
+=======================================
+
+The queue count only applies to ENIs which Cilium creates and attaches. The
+primary interface, and any interface attached before Cilium runs, keep the
+number of queues they were attached with, typically the one set by the launch
+template. Changing the setting does not change ENIs which are already attached
+either: it takes effect on the next ENI Cilium attaches.
+
+.. _ipam_eni_ena_queue_budget:
+
+ENA queues limit the number of ENIs
+===================================
+
+ENA queues are a budget shared by all interfaces of an instance, including the
+primary interface and interfaces Cilium does not manage. A high number of queues
+per ENI therefore reduces the number of ENIs, and with it the number of pods,
+which fit on the node.
+
+Cilium accounts for the budget as follows:
+
+#. The requested queue count is reduced to the maximum number of queues the
+   instance type allows per interface.
+#. It is then reduced to the number of queues left in the budget of the
+   instance. Cilium logs a warning when it does so, as the ENI is attached with
+   fewer queues than requested.
+#. Once the budget is exhausted, Cilium stops attaching ENIs to the node and
+   logs a warning. Pods which need an IP address from an additional ENI stay
+   pending until the queue count is lowered, or until IP addresses become
+   available on the ENIs already attached.
+
+With prefix delegation enabled (``eni.awsEnablePrefixDelegation``), a single ENI
+holds enough IP addresses for a typical node, so the budget is rarely reached.
+It becomes relevant on nodes which need many ENIs: when prefix delegation is
+disabled, and when Cilium falls back to individual IP addresses because the
+subnet has run out of contiguous ``/28`` prefixes. On such nodes, consider a
+lower queue count or an ``ipam-max-allocate`` bounding the ENIs a node needs.
+
+The number of queues each ENI runs with is reported per ENI in the
+``CiliumNode`` resource, which makes the consumption of the budget visible:
+
+.. code-block:: shell-session
+
+    $ kubectl get ciliumnode ip-10-0-1-10 -o json | jq -r '.status.eni.enis[] | "\(.id)\t\(.number)\t\(.["ena-queue-count"])"'
+    eni-0a1b2c3d4e5f60718     0       8
+    eni-0a1b2c3d4e5f60719     1       32
+
+The AWS API only reports a queue count for interfaces attached with a requested
+count, so interfaces Cilium did not attach, the primary one among them, are
+reported with the default of the instance type. That is the number they run
+with, and the number counted against the budget.
+
 .. _ipam_eni_ipv6:
 
 **********
