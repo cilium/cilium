@@ -18,7 +18,6 @@ import (
 	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/spf13/afero"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	fakebigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/fake"
@@ -40,7 +39,6 @@ var (
 	localNodeConfig = config.Config{
 		NodeIPv4:            netip.AddrFrom4([4]byte(templateIPv4)),
 		CiliumInternalIPv4:  netip.AddrFrom4([4]byte(templateIPv4)),
-		AllocCIDRIPv4:       cidr.MustParseCIDR("10.147.0.0/16"),
 		ServiceLoopbackIPv4: netip.AddrFrom4(templateIPv4),
 		ServiceLoopbackIPv6: netip.AddrFrom16(templateIPv6),
 		HostEndpointID:      1,

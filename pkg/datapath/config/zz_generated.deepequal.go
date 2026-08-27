@@ -32,22 +32,6 @@ func (in *Config) deepEqual(other *Config) bool {
 		return false
 	}
 
-	if (in.AllocCIDRIPv4 == nil) != (other.AllocCIDRIPv4 == nil) {
-		return false
-	} else if in.AllocCIDRIPv4 != nil {
-		if !in.AllocCIDRIPv4.DeepEqual(other.AllocCIDRIPv4) {
-			return false
-		}
-	}
-
-	if (in.AllocCIDRIPv6 == nil) != (other.AllocCIDRIPv6 == nil) {
-		return false
-	} else if in.AllocCIDRIPv6 != nil {
-		if !in.AllocCIDRIPv6.DeepEqual(other.AllocCIDRIPv6) {
-			return false
-		}
-	}
-
 	if ((in.Devices != nil) && (other.Devices != nil)) || ((in.Devices == nil) != (other.Devices == nil)) {
 		in, other := &in.Devices, &other.Devices
 		if other == nil {

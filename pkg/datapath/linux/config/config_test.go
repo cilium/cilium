@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
@@ -46,7 +45,6 @@ var (
 		NodeIPv6:            ipv6DummyAddr,
 		CiliumInternalIPv4:  ipv4DummyAddr,
 		CiliumInternalIPv6:  ipv6DummyAddr,
-		AllocCIDRIPv4:       cidr.MustParseCIDR("10.147.0.0/16"),
 		ServiceLoopbackIPv4: ipv4DummyAddr,
 		ServiceLoopbackIPv6: ipv6DummyAddr,
 		Devices:             []*tables.Device{},
