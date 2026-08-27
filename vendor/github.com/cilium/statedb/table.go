@@ -80,6 +80,20 @@ func NewTableAny[Obj any](
 		return nil, err
 	}
 
+	// Index name must be non-empty
+	if primaryIndexer.indexName() == "" {
+		return nil, tableError(tableName, ErrEmptyIndexName)
+	}
+
+	if _, secondaryOnly := primaryIndexer.(secondaryOnlyIndexer); secondaryOnly {
+		return nil, tableError(tableName, ErrPrimaryIndexNotSupported)
+	}
+
+	// Primary index must always be unique
+	if !primaryIndexer.isUnique() {
+		return nil, tableError(tableName, ErrPrimaryIndexNotUnique)
+	}
+
 	toAnyIndexer := func(idx Indexer[Obj], pos int) anyIndexer {
 		return anyIndexer{
 			name:          idx.indexName(),
@@ -111,15 +125,14 @@ func NewTableAny[Obj any](
 	indexPos := SecondaryIndexStartPos
 	for _, indexer := range secondaryIndexers {
 		name := indexer.indexName()
+		// Index name must be non-empty
+		if name == "" {
+			return nil, tableError(tableName, ErrEmptyIndexName)
+		}
 		anyIndexer := toAnyIndexer(indexer, indexPos)
 		table.secondaryAnyIndexers = append(table.secondaryAnyIndexers, anyIndexer)
 		table.indexPositions[indexPos] = name
 		indexPos++
-	}
-
-	// Primary index must always be unique
-	if !primaryIndexer.isUnique() {
-		return nil, tableError(tableName, ErrPrimaryIndexNotUnique)
 	}
 
 	// Validate that indexes have unique ids.
@@ -413,7 +426,12 @@ func (t *genTable[Obj]) numDeletedObjects(txn ReadTxn) int {
 }
 
 func (t *genTable[Obj]) Get(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint64, ok bool) {
-	obj, revision, _, ok = t.GetWatch(txn, q)
+	index := txn.root()[t.pos].indexes[t.indexPos(q.index)]
+	iobj, ok := index.getNoWatch(q.key)
+	if ok {
+		obj = iobj.data.(Obj)
+		revision = iobj.revision
+	}
 	return
 }
 
@@ -428,8 +446,8 @@ func (t *genTable[Obj]) GetWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision u
 }
 
 func (t *genTable[Obj]) LowerBound(txn ReadTxn, q Query[Obj]) iter.Seq2[Obj, Revision] {
-	iter, _ := t.LowerBoundWatch(txn, q)
-	return iter
+	indexTxn := txn.mustIndexReadTxn(t, t.indexPos(q.index))
+	return objSeq[Obj](indexTxn.lowerBoundNoWatch(q.key))
 }
 
 func (t *genTable[Obj]) LowerBoundWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan struct{}) {
@@ -439,8 +457,8 @@ func (t *genTable[Obj]) LowerBoundWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Ob
 }
 
 func (t *genTable[Obj]) Prefix(txn ReadTxn, q Query[Obj]) iter.Seq2[Obj, Revision] {
-	iter, _ := t.PrefixWatch(txn, q)
-	return iter
+	indexTxn := txn.mustIndexReadTxn(t, t.indexPos(q.index))
+	return objSeq[Obj](indexTxn.prefixNoWatch(q.key))
 }
 
 func (t *genTable[Obj]) PrefixWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan struct{}) {
@@ -450,8 +468,13 @@ func (t *genTable[Obj]) PrefixWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, R
 }
 
 func (t *genTable[Obj]) All(txn ReadTxn) iter.Seq2[Obj, Revision] {
-	iter, _ := t.AllWatch(txn)
-	return iter
+	indexTxn := txn.mustIndexReadTxn(t, PrimaryIndexPos)
+	iter := indexTxn.allNoWatch()
+	return func(yield func(Obj, Revision) bool) {
+		iter.All(func(_ []byte, obj object) bool {
+			return yield(obj.data.(Obj), obj.revision)
+		})
+	}
 }
 
 func (t *genTable[Obj]) AllWatch(txn ReadTxn) (iter.Seq2[Obj, Revision], <-chan struct{}) {
@@ -465,8 +488,8 @@ func (t *genTable[Obj]) AllWatch(txn ReadTxn) (iter.Seq2[Obj, Revision], <-chan 
 }
 
 func (t *genTable[Obj]) List(txn ReadTxn, q Query[Obj]) iter.Seq2[Obj, Revision] {
-	iter, _ := t.ListWatch(txn, q)
-	return iter
+	indexTxn := txn.mustIndexReadTxn(t, t.indexPos(q.index))
+	return objSeq[Obj](indexTxn.listNoWatch(q.key))
 }
 
 func (t *genTable[Obj]) ListWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan struct{}) {
@@ -476,13 +499,17 @@ func (t *genTable[Obj]) ListWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Rev
 }
 
 func (t *genTable[Obj]) Insert(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, err error) {
-	oldObj, hadOld, _, err = t.InsertWatch(txn, obj)
+	var old object
+	old, hadOld, _, err = txn.unwrap().insert(t, Revision(0), obj, false)
+	if hadOld {
+		oldObj = old.data.(Obj)
+	}
 	return
 }
 
 func (t *genTable[Obj]) InsertWatch(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, watch <-chan struct{}, err error) {
 	var old object
-	old, hadOld, watch, err = txn.unwrap().insert(t, Revision(0), obj)
+	old, hadOld, watch, err = txn.unwrap().insert(t, Revision(0), obj, true)
 	if hadOld {
 		oldObj = old.data.(Obj)
 	}
@@ -495,7 +522,7 @@ func (t *genTable[Obj]) Modify(txn WriteTxn, obj Obj, merge func(old, new Obj) O
 		return new
 	}
 	var old object
-	old, hadOld, _, err = txn.unwrap().modify(t, Revision(0), obj, mergeObjects)
+	old, hadOld, _, err = txn.unwrap().modify(t, Revision(0), obj, mergeObjects, false)
 	if hadOld {
 		oldObj = old.data.(Obj)
 	}
@@ -504,7 +531,7 @@ func (t *genTable[Obj]) Modify(txn WriteTxn, obj Obj, merge func(old, new Obj) O
 
 func (t *genTable[Obj]) CompareAndSwap(txn WriteTxn, rev Revision, obj Obj) (oldObj Obj, hadOld bool, err error) {
 	var old object
-	old, hadOld, _, err = txn.unwrap().insert(t, rev, obj)
+	old, hadOld, _, err = txn.unwrap().insert(t, rev, obj, false)
 	if hadOld {
 		oldObj = old.data.(Obj)
 	}

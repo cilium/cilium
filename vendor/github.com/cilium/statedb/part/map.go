@@ -75,7 +75,7 @@ func (m Map[K, V]) Get(key K) (value V, found bool) {
 	if !m.hasTree {
 		return
 	}
-	kv, _, found := m.tree.Get(m.keyToBytes(key))
+	kv, found := m.tree.Get(m.keyToBytes(key))
 	return kv.Value, found
 }
 
@@ -178,7 +178,7 @@ func (m Map[K, V]) Prefix(prefix K) iter.Seq2[K, V] {
 	if !m.hasTree {
 		return toSeq2[K, V](Iterator[mapKVPair[K, V]]{})
 	}
-	iter, _ := m.tree.Prefix(m.keyToBytes(prefix))
+	iter := m.tree.Prefix(m.keyToBytes(prefix))
 	return toSeq2(iter)
 }
 
@@ -442,14 +442,14 @@ func (txn MapTxn[K, V]) Delete(key K) bool {
 
 // Get a value from the map by its key.
 func (txn MapTxn[K, V]) Get(key K) (value V, found bool) {
-	kv, _, found := txn.txn.Get(txn.bytesFromKeyFunc(key))
+	kv, found := txn.txn.Get(txn.bytesFromKeyFunc(key))
 	return kv.Value, found
 }
 
 // Prefix iterates in order over all keys that start with
 // the given prefix.
 func (txn MapTxn[K, V]) Prefix(prefix K) iter.Seq2[K, V] {
-	iter, _ := txn.txn.Prefix(txn.bytesFromKeyFunc(prefix))
+	iter := txn.txn.Prefix(txn.bytesFromKeyFunc(prefix))
 	return toSeq2(iter)
 }
 

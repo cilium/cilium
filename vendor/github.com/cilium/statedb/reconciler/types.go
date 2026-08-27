@@ -285,12 +285,12 @@ func StatusError(err error) Status {
 	}
 }
 
-// StatusSet is a set of named statuses. This allows for the use of
-// multiple reconcilers per object when the reconcilers are not known
+// StatusSet is a set of named statuses. This allows an object to be
+// reconciled by multiple reconcilers, whether or not their names are known
 // up front.
 type StatusSet struct {
 	id        uint64
-	createdAt time.Time
+	updatedAt time.Time
 	statuses  []namedStatus
 }
 
@@ -299,30 +299,54 @@ type namedStatus struct {
 	name string
 }
 
+func (s StatusSet) find(name string) (int, bool) {
+	return slices.BinarySearchFunc(
+		s.statuses,
+		name,
+		func(status namedStatus, name string) int {
+			return cmp.Compare(status.name, name)
+		})
+}
+
 func NewStatusSet() StatusSet {
 	return StatusSet{
 		id:        nextID(),
-		createdAt: time.Now(),
+		updatedAt: time.Now(),
 		statuses:  nil,
 	}
 }
 
-// Pending returns a new pending status set.
-// The names of reconcilers are reused to be able to show which
-// are still pending.
-func (s StatusSet) Pending() StatusSet {
+// Pending returns a new pending status set with an optional default set of
+// reconciler names.
+//
+// Reconciler names from previous statuses are merged with the
+// given optional set of names.
+func (s StatusSet) Pending(names ...string) StatusSet {
 	// Generate a new id. This lets an individual reconciler
 	// differentiate between the status changing in an object
 	// versus the data itself, which is needed when the reconciler
 	// writes back the reconciliation status and the object has
 	// changed.
 	s.id = nextID()
-	s.createdAt = time.Now()
+	s.updatedAt = time.Now()
+
+	pending := Status{
+		Kind:      StatusKindPending,
+		UpdatedAt: s.updatedAt,
+		ID:        s.id,
+	}
 
 	s.statuses = slices.Clone(s.statuses)
 	for i := range s.statuses {
-		s.statuses[i].Kind = StatusKindPending
-		s.statuses[i].ID = s.id
+		s.statuses[i].Status = pending
+	}
+
+	for _, name := range names {
+		i, found := s.find(name)
+		if !found {
+			s.statuses = slices.Insert(
+				s.statuses, i, namedStatus{Status: pending, name: name})
+		}
 	}
 	return s
 }
@@ -375,20 +399,19 @@ func (s StatusSet) String() string {
 	return b.String()
 }
 
-// Set the reconcilation status of the named reconciler.
+// Set the reconciliation status of the named reconciler.
 // Use this to implement 'SetObjectStatus' for your reconciler.
 func (s StatusSet) Set(name string, status Status) StatusSet {
-	idx := slices.IndexFunc(
-		s.statuses,
-		func(st namedStatus) bool { return st.name == name })
-
-	s.statuses = slices.Clone(s.statuses)
-	if idx >= 0 {
-		s.statuses[idx] = namedStatus{status, name}
+	i, found := s.find(name)
+	if found {
+		s.statuses = slices.Clone(s.statuses)
+		s.statuses[i].Status = status
 	} else {
-		s.statuses = append(s.statuses, namedStatus{status, name})
-		slices.SortFunc(s.statuses,
-			func(a, b namedStatus) int { return cmp.Compare(a.name, b.name) })
+		statuses := make([]namedStatus, len(s.statuses)+1)
+		copy(statuses, s.statuses[:i])
+		statuses[i] = namedStatus{Status: status, name: name}
+		copy(statuses[i+1:], s.statuses[i:])
+		s.statuses = statuses
 	}
 	return s
 }
@@ -397,17 +420,31 @@ func (s StatusSet) Set(name string, status Status) StatusSet {
 // Use this to implement 'GetObjectStatus' for your reconciler.
 // If this reconciler is new the status is pending.
 func (s StatusSet) Get(name string) Status {
-	idx := slices.IndexFunc(
-		s.statuses,
-		func(st namedStatus) bool { return st.name == name })
-	if idx < 0 {
+	i, found := s.find(name)
+	if !found {
 		return Status{
 			Kind:      StatusKindPending,
-			UpdatedAt: s.createdAt,
+			UpdatedAt: s.updatedAt,
 			ID:        s.id,
 		}
 	}
-	return s.statuses[idx].Status
+	return s.statuses[i].Status
+}
+
+// Delete returns a new status set without the named reconciler.
+// A subsequent Pending call will not mark the reconciler pending unless its
+// name is passed to Pending again.
+func (s StatusSet) Delete(name string) StatusSet {
+	i, found := s.find(name)
+	if !found {
+		return s
+	}
+
+	statuses := make([]namedStatus, len(s.statuses)-1)
+	copy(statuses, s.statuses[:i])
+	copy(statuses[i:], s.statuses[i+1:])
+	s.statuses = statuses
+	return s
 }
 
 func (s StatusSet) All() map[string]Status {
