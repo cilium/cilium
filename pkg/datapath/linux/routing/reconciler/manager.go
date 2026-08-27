@@ -55,6 +55,7 @@ type pendingEndpointRules struct {
 }
 
 var _ endpointmanager.Subscriber = (*endpointRulesManager)(nil)
+var _ endpointmanager.EndpointRoutingWaiter = (*endpointRulesManager)(nil)
 
 type endpointRulesManagerParams struct {
 	cell.In
@@ -188,6 +189,62 @@ func (mgr *endpointRulesManager) EndpointRestored(ep *endpoint.Endpoint) {
 		return
 	}
 	mgr.handleEvent(endpointAddrs(ep), endpointRulesOwner(ep), ep.GetLifecycleGeneration(), false)
+}
+
+// WaitForEndpointRouting blocks endpoint creation until all desired routing
+// objects for the endpoint have reached a terminal status in the reconciler.
+func (mgr *endpointRulesManager) WaitForEndpointRouting(ctx context.Context, ep *endpoint.Endpoint) error {
+	if !mgr.enabled || !endpointRulesRequired(ep) {
+		return nil
+	}
+
+	owner := endpointRulesOwner(ep)
+	generation := ep.GetLifecycleGeneration()
+	for _, address := range endpointAddrs(ep) {
+		if err := mgr.waitForRules(ctx, address, owner, generation); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (mgr *endpointRulesManager) waitForRules(
+	ctx context.Context,
+	address netip.Addr,
+	owner string,
+	generation uint64,
+) error {
+	for {
+		rules, _, watch, found := mgr.table.GetWatch(
+			mgr.db.ReadTxn(), endpointRulesAddressIndex.Query(address),
+		)
+		if !found {
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("wait for endpoint routing rules for %s: %w", address, ctx.Err())
+			case <-watch:
+				continue
+			}
+		}
+
+		if rules.Owner != owner || rules.Generation != generation {
+			return fmt.Errorf("endpoint routing rules for %s belong to owner %q generation %d, want owner %q generation %d",
+				address, rules.Owner, rules.Generation, owner, generation)
+		}
+
+		switch rules.Status.Kind {
+		case statedbReconciler.StatusKindDone:
+			return nil
+		case statedbReconciler.StatusKindError:
+			return fmt.Errorf("reconcile endpoint routing rules for %s: %w", address, errors.New(rules.Status.GetError()))
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for endpoint routing rules for %s: %w", address, ctx.Err())
+		case <-watch:
+		}
+	}
 }
 
 func (mgr *endpointRulesManager) handleEvent(
