@@ -261,7 +261,8 @@ jobs:
             --node-count 2 \
             --ip-families ipv4,ipv6 \
             ${{ env.cost_reduction }} \
-            --generate-ssh-keys
+            --generate-ssh-keys \
+            --disable-local-accounts
 
       - name: Get cluster credentials
         run: |
