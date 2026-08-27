@@ -83,6 +83,129 @@ func TestSourceWriter(t *testing.T) {
 	require.False(t, found)
 }
 
+func TestWriterReconcilerRegistration(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+
+	upsert := func(n *types.Node) bool {
+		txn := db.WriteTxn(nodes)
+		defer txn.Commit()
+		return w.Upsert(txn, n)
+	}
+	get := func(name string) *Node {
+		n, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
+		require.True(t, found)
+		return n
+	}
+
+	// Registration also adds a pending status to nodes that already exist.
+	require.True(t, upsert(&types.Node{
+		Name:   "existing",
+		Source: source.Kubernetes,
+	}))
+	require.Empty(t, get("existing").Statuses.All())
+	existing := get("existing").DeepCopy()
+	existing.Statuses = existing.Statuses.Set("already-done", reconciler.StatusDone())
+	txn := db.WriteTxn(nodes)
+	_, _, err = nodes.Insert(txn, existing)
+	require.NoError(t, err)
+	txn.Commit()
+
+	w.RegisterReconciler("wireguard")
+	existing = get("existing")
+	require.Equal(t,
+		reconciler.StatusKindPending,
+		existing.Statuses.Get("wireguard").Kind,
+	)
+	require.Contains(t, existing.Statuses.All(), "wireguard")
+	require.Equal(t,
+		reconciler.StatusKindDone,
+		existing.Statuses.Get("already-done").Kind,
+	)
+	require.Equal(t, []string{"wireguard"}, requiredReconcilers(db, nodes, w))
+
+	// Required reconcilers are materialized on newly inserted nodes. Seeing one
+	// completed status therefore cannot hide another required pending status.
+	w.RegisterReconciler("ipset")
+	require.Equal(t,
+		[]string{"ipset", "wireguard"},
+		requiredReconcilers(db, nodes, w),
+	)
+	require.True(t, upsert(&types.Node{
+		Name:   "new",
+		Source: source.Kubernetes,
+	}))
+
+	// Duplicate registration panics
+	require.Panics(t,
+		func() {
+			w.RegisterReconciler("ipset")
+		})
+
+	newNode := get("new").DeepCopy()
+	require.Len(t, newNode.Statuses.All(), 2)
+	newNode.Statuses = newNode.Statuses.Set("ipset", reconciler.StatusDone())
+	txn = db.WriteTxn(nodes)
+	_, _, err = nodes.Insert(txn, newNode)
+	require.NoError(t, err)
+	txn.Commit()
+
+	newNode = get("new")
+	require.Equal(t,
+		reconciler.StatusKindDone,
+		newNode.Statuses.Get("ipset").Kind,
+	)
+	require.Equal(t,
+		reconciler.StatusKindPending,
+		newNode.Statuses.Get("wireguard").Kind,
+	)
+
+	w.UnregisterReconciler("wireguard")
+	require.Equal(t, []string{"ipset"}, requiredReconcilers(db, nodes, w))
+	existing = get("existing")
+	newNode = get("new")
+	require.NotContains(t, existing.Statuses.All(), "wireguard")
+	require.NotContains(t, newNode.Statuses.All(), "wireguard")
+	require.Equal(t,
+		reconciler.StatusKindDone,
+		existing.Statuses.Get("already-done").Kind,
+	)
+	require.Equal(t,
+		reconciler.StatusKindDone,
+		newNode.Statuses.Get("ipset").Kind,
+	)
+
+	// Duplicate unregistration does not rewrite the nodes.
+	revision := nodes.Revision(db.ReadTxn())
+	w.UnregisterReconciler("wireguard")
+	require.Equal(t, revision, nodes.Revision(db.ReadTxn()))
+
+	// Re-registering materializes a fresh pending status on all nodes.
+	w.RegisterReconciler("wireguard")
+	require.Contains(t, get("existing").Statuses.All(), "wireguard")
+	require.Contains(t, get("new").Statuses.All(), "wireguard")
+	require.Equal(t,
+		reconciler.StatusKindPending,
+		get("existing").Statuses.Get("wireguard").Kind,
+	)
+	require.Equal(t,
+		reconciler.StatusKindPending,
+		get("new").Statuses.Get("wireguard").Kind,
+	)
+}
+
+func requiredReconcilers(
+	db *statedb.DB,
+	nodes statedb.RWTable[*Node],
+	w *Writer,
+) []string {
+	txn := db.WriteTxn(nodes)
+	defer txn.Abort()
+	return w.getRequiredReconcilers(txn)
+}
+
 func TestSourceWriterDoesNotOverwriteLocalNode(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
