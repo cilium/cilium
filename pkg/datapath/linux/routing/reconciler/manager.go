@@ -5,6 +5,7 @@ package reconciler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -53,6 +54,7 @@ type pendingEndpointRules struct {
 }
 
 var _ endpointmanager.Subscriber = (*endpointRulesManager)(nil)
+var _ endpointmanager.EndpointRoutingWaiter = (*endpointRulesManager)(nil)
 
 type endpointRulesManagerParams struct {
 	cell.In
@@ -179,6 +181,59 @@ func (mgr *endpointRulesManager) EndpointRestored(ep *endpoint.Endpoint) {
 		return
 	}
 	mgr.handleEvent(endpointAddrs(ep), endpointRulesOwner(ep), false)
+}
+
+// WaitForEndpointRouting blocks endpoint creation until all desired routing
+// objects for the endpoint have reached a terminal status in the reconciler.
+func (mgr *endpointRulesManager) WaitForEndpointRouting(ctx context.Context, ep *endpoint.Endpoint) error {
+	if !mgr.enabled || !endpointRulesRequired(ep) {
+		return nil
+	}
+
+	owner := endpointRulesOwner(ep)
+	for _, address := range endpointAddrs(ep) {
+		if err := mgr.waitForRules(ctx, address, owner); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (mgr *endpointRulesManager) waitForRules(
+	ctx context.Context,
+	address netip.Addr,
+	owner string,
+) error {
+	var lastErr error
+
+	for {
+		rules, _, watch, found := mgr.table.GetWatch(
+			mgr.db.ReadTxn(), endpointRulesAddressIndex.Query(address),
+		)
+		if found {
+			if rules.Owner != owner {
+				return fmt.Errorf("endpoint routing rules for %s belong to owner %q, not owner %q",
+					address, rules.Owner, owner)
+			}
+
+			switch rules.Status.Kind {
+			case statedbReconciler.StatusKindDone:
+				return nil
+			case statedbReconciler.StatusKindError:
+				lastErr = errors.New(rules.Status.GetError())
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			if lastErr != nil {
+				return fmt.Errorf("wait for endpoint routing rules for %s timed out: %w; last reconciliation error: %w",
+					address, ctx.Err(), lastErr)
+			}
+			return fmt.Errorf("wait for endpoint routing rules %s timed out: %w", address, ctx.Err())
+		case <-watch:
+		}
+	}
 }
 
 func (mgr *endpointRulesManager) handleEvent(
