@@ -76,6 +76,42 @@ func TestEndpointRulesManager(t *testing.T) {
 	require.False(t, found)
 }
 
+func TestEndpointRulesManagerAlibabaCloudIPv6(t *testing.T) {
+	db := statedb.New()
+	table, err := newEndpointRulesTable(db)
+	require.NoError(t, err)
+
+	manager := &endpointRulesManager{
+		enabled:      true,
+		ipamMode:     ipamOption.IPAMAlibabaCloud,
+		logger:       slog.Default(),
+		db:           db,
+		table:        table,
+		initializing: false,
+	}
+	ep := newTestEndpoint(t, 1, "container-a", "192.0.2.10", "2001:db8::10")
+
+	manager.EndpointCreated(ep)
+
+	v4, _, found := table.Get(db.ReadTxn(), endpointRulesAddressIndex.Query(ep.IPv4Address()))
+	require.True(t, found)
+	_, _, found = table.Get(db.ReadTxn(), endpointRulesAddressIndex.Query(ep.IPv6Address()))
+	require.False(t, found)
+
+	txn := db.WriteTxn(table)
+	v4 = v4.Clone().SetStatus(statedbReconciler.StatusDone())
+	_, _, err = table.Insert(txn, v4)
+	require.NoError(t, err)
+	txn.Commit()
+
+	err = manager.WaitForEndpointRouting(t.Context(), ep)
+	require.ErrorContains(t, err, "AlibabaCloud IPAM does not support IPv6 endpoint routing")
+
+	manager.EndpointDeleted(ep, endpoint.DeleteConfig{})
+	_, _, found = table.Get(db.ReadTxn(), endpointRulesAddressIndex.Query(ep.IPv4Address()))
+	require.False(t, found)
+}
+
 func TestEndpointRulesManagerFencesStaleEndpointDeletion(t *testing.T) {
 	db := statedb.New()
 	table, err := newEndpointRulesTable(db)
