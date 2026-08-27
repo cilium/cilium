@@ -26,13 +26,13 @@ func TestMock(t *testing.T) {
 	eniID2, _, err := api.CreateNetworkInterface(t.Context(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
 
-	_, err = api.AttachNetworkInterface(t.Context(), 0, "i-1", eniID1)
+	_, err = api.AttachNetworkInterface(t.Context(), 0, "i-1", eniID1, 0)
 	require.NoError(t, err)
 
 	_, ok := api.enis["i-1"][eniID1]
 	require.True(t, ok)
 
-	_, err = api.AttachNetworkInterface(t.Context(), 1, "i-1", eniID2)
+	_, err = api.AttachNetworkInterface(t.Context(), 1, "i-1", eniID2, 0)
 	require.NoError(t, err)
 
 	_, ok = api.enis["i-1"][eniID1]
@@ -93,7 +93,7 @@ func TestSetMockError(t *testing.T) {
 	require.Equal(t, mockError, err)
 
 	api.SetMockError(AttachNetworkInterface, mockError)
-	_, err = api.AttachNetworkInterface(t.Context(), 0, "i-1", "e-1")
+	_, err = api.AttachNetworkInterface(t.Context(), 0, "i-1", "e-1", 0)
 	require.Equal(t, mockError, err)
 
 	api.SetMockError(DeleteNetworkInterface, mockError)

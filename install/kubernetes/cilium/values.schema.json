@@ -2269,6 +2269,9 @@
             "disablePrefixDelegation": {
               "type": "boolean"
             },
+            "enaQueueCount": {
+              "type": "string"
+            },
             "excludeInterfaceTags": {
               "items": {},
               "type": "array"

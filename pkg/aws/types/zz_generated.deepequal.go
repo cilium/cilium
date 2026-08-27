@@ -186,6 +186,10 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 		return false
 	}
 
+	if in.ENAQueueCount != other.ENAQueueCount {
+		return false
+	}
+
 	return true
 }
 
@@ -335,6 +339,10 @@ func (in *ENISpec) DeepEqual(other *ENISpec) bool {
 		if *in.DisablePrefixDelegation != *other.DisablePrefixDelegation {
 			return false
 		}
+	}
+
+	if in.ENAQueueCount != other.ENAQueueCount {
+		return false
 	}
 
 	return true

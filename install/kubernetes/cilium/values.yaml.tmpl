@@ -1373,6 +1373,13 @@ eni:
     # type: [null, boolean]
     # @schema
     deleteOnTermination: ~
+    # -- Number of ENA queues to request for each ENI attached by Cilium:
+    # "auto" for as many as the interface can use, or a number of queues, which
+    # AWS requires to be a power of two. Empty leaves the number of queues to
+    # AWS, as does "default". ENA queues are a budget shared by all interfaces of an instance,
+    # so a high number of queues per ENI may reduce the number of ENIs, and
+    # therefore the number of pods, that fit on a node.
+    enaQueueCount: ""
 
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true

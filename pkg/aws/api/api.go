@@ -505,6 +505,7 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 
 	if iface.Attachment != nil {
 		eni.Number = int(aws.ToInt32(iface.Attachment.DeviceIndex))
+		eni.ENAQueueCount = aws.ToInt32(iface.Attachment.EnaQueueCount)
 
 		if iface.Attachment.InstanceId != nil {
 			instanceID = aws.ToString(iface.Attachment.InstanceId)
@@ -900,8 +901,15 @@ func (c *Client) DeleteNetworkInterface(ctx context.Context, eniID string) error
 	return err
 }
 
-// AttachNetworkInterface attaches a previously created ENI to an instance
-func (c *Client) AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error) {
+// AttachNetworkInterface attaches a previously created ENI to an instance.
+//
+// enaQueueCount is the number of ENA queues to request for the attachment. A
+// value of zero leaves the number of queues to AWS. The caller is responsible
+// for keeping the requested count within the limits of the instance type: AWS
+// rejects the attachment if the count exceeds the maximum number of queues per
+// interface, or if it exceeds the queue budget left by the interfaces which are
+// already attached.
+func (c *Client) AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string, enaQueueCount int32) (string, error) {
 	input := &ec2.AttachNetworkInterfaceInput{
 		DeviceIndex:        aws.Int32(index),
 		InstanceId:         aws.String(instanceID),
@@ -918,6 +926,10 @@ func (c *Client) AttachNetworkInterface(ctx context.Context, index int32, instan
 		//
 		// See https://github.com/cilium/cilium/pull/42512
 		NetworkCardIndex: aws.Int32(0),
+	}
+
+	if enaQueueCount > 0 {
+		input.EnaQueueCount = aws.Int32(enaQueueCount)
 	}
 
 	c.limiter.Limit(ctx, AttachNetworkInterface)

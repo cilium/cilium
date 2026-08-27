@@ -104,7 +104,7 @@ func TestStartENIGarbageCollector(t *testing.T) {
 	}
 
 	// Attach newENI, this means it can no longer be garbage collected
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, "i-1", newENI)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, "i-1", newENI, 0)
 	require.NoError(t, err)
 
 	controllerManager.TriggerController(gcENIControllerName)
