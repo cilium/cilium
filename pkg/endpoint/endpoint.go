@@ -1260,12 +1260,10 @@ type DeleteConfig struct {
 	NoIdentityRelease bool
 
 	// EndpointOwnsIP reports whether the given IP is still owned by the
-	// endpoint being deleted. It guards the per-endpoint routing rule
-	// teardown against a stale delete: in ENI/Azure IPAM mode the rules are
-	// keyed solely by IP address, so a late teardown for an IP that has since
-	// been reused by another endpoint would otherwise strip the live owner's
-	// rules, silently breaking its egress. When nil, the check is skipped and
-	// rules are always deleted.
+	// endpoint being deleted. It guards synchronous endpoint routing cleanup
+	// against a stale delete after IP reuse. Cloud IPAM uses it before replacing
+	// the endpoint route with an unreachable route, while delegated IPAM also
+	// uses it before deleting endpoint rules. When nil, the check is skipped.
 	EndpointOwnsIP func(ip netip.Addr) bool
 }
 
@@ -2746,39 +2744,46 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	}
 	e.setState(StateDisconnecting, "Deleting endpoint")
 
-	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure || option.Config.IPAM == ipamOption.IPAMAlibabaCloud ||
-		(option.Config.IPAM == ipamOption.IPAMDelegatedPlugin && option.Config.InstallUplinkRoutesForDelegatedIPAM) {
+	cloudIPAM := option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure || option.Config.IPAM == ipamOption.IPAMAlibabaCloud
+	delegatedRouting := option.Config.IPAM == ipamOption.IPAMDelegatedPlugin && option.Config.InstallUplinkRoutesForDelegatedIPAM
+	if (cloudIPAM && option.Config.EnableUnreachableRoutes) || delegatedRouting {
 		e.getLogger().Debug(
-			"Deleting endpoint routing rules",
+			"Cleaning up endpoint routing",
 		)
 
-		// This is a best-effort attempt to cleanup. We expect there to be one
-		// ingress rule and multiple egress rules. If we find more rules than
-		// expected, we delete all rules referring to a per-ENI routing table ID.
-		//
-		// The routing rules are keyed solely by IP address, so a stale teardown
-		// for an IP that has since been reused by another endpoint would strip
-		// the live owner's rules. Guard against that by only deleting the rules
-		// if this endpoint still owns the IP.
-		deleteRoutingRules := func(ip netip.Addr) {
+		// Endpoint routing is keyed solely by IP address. Guard synchronous
+		// cleanup so that a stale teardown cannot alter routing for a new endpoint
+		// which has reused the address.
+		cleanupEndpointRouting := func(ip netip.Addr) {
 			if conf.EndpointOwnsIP != nil && !conf.EndpointOwnsIP(ip) {
 				e.getLogger().Info(
-					"Skipping deletion of endpoint routing rules: IP is no longer owned by this endpoint",
+					"Skipping endpoint routing cleanup: IP is no longer owned by this endpoint",
 					logfields.IPAddr, ip,
 				)
 				return
 			}
-			if err := linuxrouting.Delete(e.getLogger(), ip); err != nil {
-				errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
+
+			var err error
+			if cloudIPAM {
+				// The reconciler owns cloud routing rules. Keep the unreachable
+				// route synchronous so the endpoint IP is blocked before release.
+				err = linuxrouting.InstallUnreachableRoute(ip)
+			} else {
+				// Delegated routing metadata is unavailable to the reconciler, so
+				// its rules and unreachable route remain synchronously managed.
+				err = linuxrouting.Delete(e.getLogger(), ip)
+			}
+			if err != nil {
+				errs = append(errs, fmt.Errorf("unable to clean up endpoint routing: %w", err))
 			}
 		}
 
 		if e.IPv4.IsValid() {
-			deleteRoutingRules(e.IPv4)
+			cleanupEndpointRouting(e.IPv4)
 		}
 
 		if e.IPv6.IsValid() {
-			deleteRoutingRules(e.IPv6)
+			cleanupEndpointRouting(e.IPv6)
 		}
 	}
 

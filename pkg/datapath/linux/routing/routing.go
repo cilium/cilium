@@ -308,24 +308,32 @@ func Delete(logger *slog.Logger, ip netip.Addr) error {
 	}
 
 	if option.Config.EnableUnreachableRoutes {
-		ipWithMask := netipx.AddrIPNet(ip)
-
-		// Replace route to old IP with an unreachable route. This will
-		//   - trigger ICMP error messages for clients attempting to connect to the stale IP
-		//   - avoid hitting rp_filter and getting Martian packet warning
-		// When the IP is reused, the unreachable route will be replaced to target the new pod veth
-		// In CRD-based IPAM, when an IP is unassigned from the CiliumNode, we delete this route
-		// to avoid blackholing traffic to this IP if it gets reassigned to another node
-		if err := netlink.RouteReplace(&netlink.Route{
-			Dst:      ipWithMask,
-			Table:    route.MainTable,
-			Type:     unix.RTN_UNREACHABLE,
-			Protocol: linux_defaults.RTProto,
-		}); err != nil {
-			return fmt.Errorf("unable to add unreachable route for ip %s: %w", ipWithMask.String(), err)
-		}
+		return InstallUnreachableRoute(ip)
 	}
 
+	return nil
+}
+
+// InstallUnreachableRoute replaces the route to an old endpoint IP with an
+// unreachable route. This triggers ICMP errors for clients attempting to reach
+// the stale IP and avoids rp_filter producing martian packet warnings. A new
+// endpoint route replaces it when the IP is reused. In CRD-based IPAM, the
+// route is removed when the IP is unassigned from the CiliumNode to avoid
+// blackholing traffic if the IP is reassigned to another node.
+func InstallUnreachableRoute(ip netip.Addr) error {
+	if !ip.IsValid() {
+		return fmt.Errorf("invalid IP address %s", ip)
+	}
+
+	ipWithMask := netipx.AddrIPNet(ip)
+	if err := netlink.RouteReplace(&netlink.Route{
+		Dst:      ipWithMask,
+		Table:    route.MainTable,
+		Type:     unix.RTN_UNREACHABLE,
+		Protocol: linux_defaults.RTProto,
+	}); err != nil {
+		return fmt.Errorf("unable to add unreachable route for ip %s: %w", ipWithMask.String(), err)
+	}
 	return nil
 }
 
