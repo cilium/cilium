@@ -958,7 +958,6 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		// See comment in NodeUpdated().
 		oldNodeIP, _ = netipx.FromStdIP(nIP)
 	}
-	oldNodeLabels := m.nodeIdentityLabels(oldNode)
 
 	// Delete the old node IP addresses if they have changed in this node.
 	for _, address := range oldNode.IPAddresses {
@@ -974,26 +973,8 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			oldPrefixCluster = cmtypes.NewLocalPrefixCluster(prefix)
 		}
 
-		var oldTunnelIP netip.Addr
-		if m.nodeAddressHasTunnelIP(address) {
-			oldTunnelIP = oldNodeIP
-		}
+		m.ipcache.RemoveMetadata(oldPrefixCluster, resource, ipcacheTypes.AllMetadata{})
 
-		var oldKey uint8
-		if m.nodeAddressHasEncryptKey() {
-			oldKey = oldNode.EncryptionKey
-		}
-
-		oldEndpointFlags := ipcacheTypes.EndpointFlags{}
-		if oldNode.Cluster != m.clusterInfo.Name {
-			oldEndpointFlags.SetRemoteCluster(true)
-		}
-
-		m.ipcache.RemoveMetadata(oldPrefixCluster, resource,
-			oldNodeLabels,
-			ipcacheTypes.TunnelPeer{Addr: oldTunnelIP},
-			ipcacheTypes.EncryptKey(oldKey),
-			oldEndpointFlags)
 	}
 
 	// Remove old pod CIDR fallback entries from IPCache
@@ -1028,8 +1009,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 
 		m.ipcache.RemoveMetadata(prefixCluster, resource,
 			labels.LabelHealth,
-			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
-			m.endpointEncryptionKey(&oldNode))
+			ipcacheTypes.AllMetadata{})
 	}
 
 	// Delete the old ingress IP addresses if they have changed in this node.
@@ -1043,8 +1023,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 
 		m.ipcache.RemoveMetadata(prefixCluster, resource,
 			labels.LabelIngress,
-			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
-			m.endpointEncryptionKey(&oldNode))
+			ipcacheTypes.AllMetadata{})
 	}
 }
 

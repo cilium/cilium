@@ -157,3 +157,7 @@ func (e EndpointFlags) Uint8() uint8 {
 	}
 	return flags
 }
+
+// AllMetadata is a placeholder metadata type for when all metadata
+// for a given ip + resource should be deleted.
+type AllMetadata struct{}

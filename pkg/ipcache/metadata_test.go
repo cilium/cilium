@@ -22,6 +22,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache/types"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -671,6 +672,203 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 	ip, key = s.IPIdentityCache.getHostIPCacheRLocked(inClusterPrefix.String())
 	assert.Equal(t, "192.168.1.101", ip.String())
 	assert.Equal(t, uint8(6), key)
+}
+
+// TestAllMetadata tests inserting and removing all kinds of metadata
+func TestAllMetadata(t *testing.T) {
+	s := setupIPCacheTestSuite(t)
+
+	tp1 := ipcachetypes.TunnelPeer{Addr: netip.MustParseAddr("1.1.1.1")}
+	tp2 := ipcachetypes.TunnelPeer{Addr: netip.MustParseAddr("1.1.1.2")}
+
+	ec1 := ipcachetypes.EncryptKey(1)
+	ec2 := ipcachetypes.EncryptKey(2)
+
+	ri1 := ipcachetypes.RequestedIdentity(1)
+	ri2 := ipcachetypes.RequestedIdentity(2)
+
+	epf1 := ipcachetypes.EndpointFlags{}
+	epf1.SetRemoteCluster(true)
+
+	epf2 := ipcachetypes.EndpointFlags{}
+	epf2.SetSkipTunnel(true)
+
+	steps := []struct {
+		add    IPMetadata
+		del    IPMetadata
+		result *resourceInfo
+	}{
+		{
+			add: labels.LabelIngress,
+			result: &resourceInfo{
+				labels: labels.LabelIngress,
+			},
+		},
+		{
+			add: labels.LabelHealth,
+			result: &resourceInfo{
+				labels: labels.LabelHealth,
+			},
+		},
+		{
+			add: overrideIdentity(true),
+			result: &resourceInfo{
+				labels:           labels.LabelHealth,
+				identityOverride: true,
+			},
+		},
+		{
+			add: tp1,
+			result: &resourceInfo{
+				labels:           labels.LabelHealth,
+				identityOverride: true,
+				tunnelPeer:       tp1,
+			},
+		}, {
+			add: tp2,
+			result: &resourceInfo{
+				labels:           labels.LabelHealth,
+				identityOverride: true,
+				tunnelPeer:       tp2,
+			},
+		}, {
+			add: ec1,
+			result: &resourceInfo{
+				labels:           labels.LabelHealth,
+				identityOverride: true,
+				tunnelPeer:       tp2,
+				encryptKey:       ec1,
+			},
+		}, {
+			add: ec2,
+			result: &resourceInfo{
+				labels:           labels.LabelHealth,
+				identityOverride: true,
+				tunnelPeer:       tp2,
+				encryptKey:       ec2,
+			},
+		}, {
+			add: ri1,
+			result: &resourceInfo{
+				labels:            labels.LabelHealth,
+				identityOverride:  true,
+				tunnelPeer:        tp2,
+				encryptKey:        ec2,
+				requestedIdentity: ri1,
+			},
+		}, {
+			add: ri2,
+			result: &resourceInfo{
+				labels:            labels.LabelHealth,
+				identityOverride:  true,
+				tunnelPeer:        tp2,
+				encryptKey:        ec2,
+				requestedIdentity: ri2,
+			},
+		}, {
+			add: epf1,
+			result: &resourceInfo{
+				labels:            labels.LabelHealth,
+				identityOverride:  true,
+				tunnelPeer:        tp2,
+				encryptKey:        ec2,
+				endpointFlags:     epf1,
+				requestedIdentity: ri2,
+			},
+		}, {
+			add: epf2,
+			result: &resourceInfo{
+				labels:            labels.LabelHealth,
+				identityOverride:  true,
+				tunnelPeer:        tp2,
+				encryptKey:        ec2,
+				endpointFlags:     epf2,
+				requestedIdentity: ri2,
+			},
+		},
+		{
+			del: epf2,
+			result: &resourceInfo{
+				labels:            labels.LabelHealth,
+				identityOverride:  true,
+				tunnelPeer:        tp2,
+				encryptKey:        ec2,
+				requestedIdentity: ri2,
+			},
+		},
+		{
+			del: ri2,
+			result: &resourceInfo{
+				labels:           labels.LabelHealth,
+				identityOverride: true,
+				tunnelPeer:       tp2,
+				encryptKey:       ec2,
+			},
+		},
+		{
+			del: ec2,
+			result: &resourceInfo{
+				labels:           labels.LabelHealth,
+				identityOverride: true,
+				tunnelPeer:       tp2,
+			},
+		},
+		{
+			del: tp2,
+			result: &resourceInfo{
+				labels:           labels.LabelHealth,
+				identityOverride: true,
+			},
+		},
+		{
+			del: overrideIdentity(false),
+			result: &resourceInfo{
+				labels: labels.LabelHealth,
+			},
+		},
+		{
+			del:    labels.LabelHealth,
+			result: nil,
+		},
+		{
+			add: labels.LabelHealth,
+			result: &resourceInfo{
+				labels: labels.LabelHealth,
+			},
+		},
+		{
+			add: overrideIdentity(true),
+			result: &resourceInfo{
+				labels:           labels.LabelHealth,
+				identityOverride: true,
+			},
+		},
+		{
+			add: tp1,
+			result: &resourceInfo{
+				labels:           labels.LabelHealth,
+				identityOverride: true,
+				tunnelPeer:       tp1,
+			},
+		},
+		{
+			del:    ipcachetypes.AllMetadata{},
+			result: nil,
+		},
+	}
+	for i, step := range steps {
+		if step.add != nil {
+			s.IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "test", step.add)
+		}
+		if step.del != nil {
+			s.IPIdentityCache.metadata.remove(inClusterPrefix, "test", step.del)
+		}
+		if step.result != nil {
+			step.result.source = source.CustomResource
+		}
+		require.Equal(t, step.result, s.IPIdentityCache.metadata.getLocked(inClusterPrefix), "step %d", i)
+	}
+
 }
 
 // TestRequestIdentity checks that the identity restoration mechanism works as expected:
