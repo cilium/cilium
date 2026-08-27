@@ -61,14 +61,16 @@ type LocalNodeStoreParams struct {
 	Jobs        job.Group
 	ClusterInfo cmtypes.ClusterInfo
 	Nodes       statedb.RWTable[*LocalNode]
+	NodeWriter  *Writer
 }
 
 // LocalNodeStore is the canonical owner for the local node object and provides
 // a reactive API for observing and updating the state.
 type LocalNodeStore struct {
-	db    *statedb.DB
-	nodes statedb.RWTable[*LocalNode]
-	sync  LocalNodeSynchronizer
+	db     *statedb.DB
+	nodes  statedb.RWTable[*LocalNode]
+	sync   LocalNodeSynchronizer
+	writer *Writer
 }
 
 // NewNodeTableAndLocalNodeStore constructs [LocalNodeStore] and the node table.
@@ -100,7 +102,7 @@ func NewNodeTableAndLocalNodeStore(params LocalNodeStoreParams) (
 		})
 	wtxn.Commit()
 
-	s := &LocalNodeStore{params.DB, nodeTable, params.Sync}
+	s := &LocalNodeStore{params.DB, nodeTable, params.Sync, params.NodeWriter}
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
@@ -111,6 +113,7 @@ func NewNodeTableAndLocalNodeStore(params LocalNodeStoreParams) (
 
 			n = n.DeepCopy()
 			err := params.Sync.InitLocalNode(ctx, n)
+			n.Statuses = n.Statuses.Pending(s.writer.getRequiredReconcilers(wtxn)...)
 			nodeTable.Insert(wtxn, n)
 			initDone(wtxn)
 			wtxn.Commit()
@@ -234,7 +237,7 @@ func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 		// No changes.
 		return
 	}
-	ln.Statuses = orig.Statuses.Pending()
+	ln.Statuses = orig.Statuses.Pending(s.writer.getRequiredReconcilers(txn)...)
 
 	if orig.Fullname() != ln.Fullname() {
 		// Name or cluster has changed, delete first to remove it from the name index.
@@ -261,7 +264,7 @@ func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
 	txn := db.WriteTxn(tbl)
 	tbl.Insert(txn, &mockNode)
 	txn.Commit()
-	return &LocalNodeStore{db, tbl, nil}
+	return &LocalNodeStore{db, tbl, nil, nil}
 }
 
 // LocalNodeStoreTestCell is a convenience for tests that provides a no-op
