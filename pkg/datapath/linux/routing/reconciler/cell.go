@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/statedb"
 	statedbReconciler "github.com/cilium/statedb/reconciler"
 
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -23,11 +24,16 @@ var Cell = cell.Module(
 	),
 	cell.Provide(
 		statedb.RWTable[*EndpointRules].ToTable,
+		asEndpointRoutingWaiter,
 	),
 	cell.Invoke(
 		registerEndpointRulesReconciler,
 	),
 )
+
+func asEndpointRoutingWaiter(manager *endpointRulesManager) endpointmanager.EndpointRoutingWaiter {
+	return manager
+}
 
 type endpointRulesReconcilerParams struct {
 	cell.In
