@@ -262,6 +262,14 @@ func (rc *remoteCluster) restartRemoteConnection() {
 }
 
 func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOperations, clusterLock *clusterLock) {
+	restart := func() {
+		// Let's manually trigger the controller, instead of directly calling
+		// restartRemoteConnection, to prevent the risk of a race condition if
+		// the watchdog triggers at the same time of the cluster removal, which
+		// would otherwise resurrect an already stopped connection.
+		rc.controllers.TriggerController(rc.remoteConnectionControllerName)
+	}
+
 	handleErr := func(err error) {
 		rc.logger.Warn("Error observed on etcd connection, reconnecting etcd", logfields.Error, err)
 		rc.mutex.Lock()
@@ -272,7 +280,7 @@ func (rc *remoteCluster) watchdog(ctx context.Context, backend kvstore.BackendOp
 		rc.metricReadinessStatus.Set(metrics.BoolToFloat64(rc.isReadyLocked()))
 		rc.mutex.Unlock()
 
-		rc.restartRemoteConnection()
+		restart()
 	}
 
 	select {
@@ -419,8 +427,7 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 	rc.mutex.RLock()
 	defer rc.mutex.RUnlock()
 
-	// This can happen when the controller in restartRemoteConnection is waiting
-	// for the first connection to succeed.
+	// This can happen when the first connection has not succeeded yet.
 	var backendStatus = "Waiting for initial connection to be established"
 	if rc.backend != nil {
 		backendStatus = rc.backend.Status().Msg
