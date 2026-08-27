@@ -344,6 +344,20 @@ static __always_inline bool identity_is_local(__u32 identity)
 
 static __always_inline __u32 get_tunnel_id(__u32 identity)
 {
+	/* The tunnel id is only 24 bits wide, so a node-local identity would
+	 * lose its scope byte on the wire and the peer would decode an
+	 * unrelated identity. Collapse it into the identity the peer can
+	 * actually act on.
+	 */
+	switch (identity & IDENTITY_LOCAL_SCOPE_MASK) {
+	case 0:
+		break;
+	case IDENTITY_LOCAL_SCOPE_REMOTE_NODE:
+		return REMOTE_NODE_ID;
+	default:
+		return WORLD_ID;
+	}
+
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
 	if (identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
 		return WORLD_ID;
