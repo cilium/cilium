@@ -2,6 +2,7 @@ allowed-teams:
   - organization-members
 
 triggers:
+  # These workflows should be duplicated between /default and /test triggers.
   /default:
     workflows:
     - tests-smoke-conformance.yaml
@@ -12,6 +13,8 @@ triggers:
   # This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
   /test\s*:
     workflows:
+    - lint-ariane-config.yaml
+    - lint-images-base.yaml
     - conformance-aws-cni.yaml
     - conformance-clustermesh.yaml
     - conformance-delegated-ipam.yaml
@@ -33,8 +36,11 @@ triggers:
     - conformance-race.yaml
     - conformance-runtime.yaml
     - integration-test.yaml
+    - tests-cifuzz.yaml
     - tests-clustermesh-upgrade.yaml
     - tests-datapath-verifier.yaml
+    - tests-smoke-conformance.yaml
+    - tests-smoke-ipv6.yaml
     - hubble-cli-integration-test.yaml
     - k8s-kind-network-e2e.yaml
     - k8s-kind-network-policies-e2e.yaml
