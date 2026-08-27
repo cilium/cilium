@@ -1,0 +1,55 @@
+#! --family=ipv4
+
+# Configure one ENI as the operator would report it to the agent.
+k8s/add cilium-node.yaml
+link/add cilium-rr-test dummy
+link/set cilium-rr-test hwaddr=02:ca:fe:00:00:01 mtu=1400
+
+hive start
+ipam/start
+
+# Wait for the production ENI device configurator before reconciling routing.
+link/list
+* stdout 'addr: 192[.]0[.]2[.]5/24'
+stdout 'cilium-rr-test dummy <up[|>]'
+stdout 'mtu: 1500'
+
+ipam/restore-finished
+
+# Losing the parent ENI makes reconciliation fail. Because endpoint/add waits
+# for terminal StateDB status, the simulated agent request reports the error
+# instead of returning a partially configured endpoint.
+link/del cilium-rr-test
+! endpoint/add pod-a 192.0.2.10
+
+rule/list --family=ipv4 --priority=20 --protocol=kernel
+empty stdout
+
+rule/list --family=ipv4 --priority=111 --protocol=kernel
+empty stdout
+
+hive stop
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  eni: {}
+status:
+  eni:
+    enis:
+      eni-1:
+        id: eni-1
+        ip: 192.0.2.5
+        mac: 02:ca:fe:00:00:01
+        number: 1
+        addresses:
+        - 192.0.2.10
+        subnet:
+          id: subnet-1
+          cidr: 192.0.2.0/24
+        vpc:
+          id: vpc-1
+          primary-cidr: 192.0.2.0/24
