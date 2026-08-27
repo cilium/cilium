@@ -15,6 +15,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	lrpTypes "github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy/types"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 )
@@ -28,62 +29,6 @@ func lrpServiceName(lrpID lb.ServiceName) lb.ServiceName {
 	return lrpID.AppendSuffix(localRedirectServiceSuffix)
 }
 
-type lrpConfigType = int
-
-const (
-	lrpConfigTypeNone = iota
-	// LRP config is specified using IP/port tuple.
-	lrpConfigTypeAddr
-	// LRP config is specified using Kubernetes service name and namespace.
-	lrpConfigTypeSvc
-)
-
-func lrpConfigTypeString(t lrpConfigType) string {
-	switch t {
-	case lrpConfigTypeNone:
-		return "none"
-	case lrpConfigTypeAddr:
-		return "address"
-	case lrpConfigTypeSvc:
-		return "service"
-	default:
-		return "unknown"
-	}
-}
-
-type frontendConfigType = int
-
-const (
-	frontendTypeUnknown = iota
-	// Get frontends for service with clusterIP and all service ports.
-	svcFrontendAll
-	// Get frontends for service with clusterIP and parsed config named ports.
-	svcFrontendNamedPorts
-	// Get a frontend for service with clusterIP and parsed config port.
-	svcFrontendSinglePort
-	// Get a frontend with parsed config frontend IP and port.
-	addrFrontendSinglePort
-	// Get frontends with parsed config frontend IPs and named ports.
-	addrFrontendNamedPorts
-)
-
-func frontendConfigTypeString(t frontendConfigType) string {
-	switch t {
-	case svcFrontendAll:
-		return "all"
-	case svcFrontendNamedPorts:
-		return "named-ports"
-	case svcFrontendSinglePort:
-		return "svc-single-port"
-	case addrFrontendSinglePort:
-		return "addr-single-port"
-	case addrFrontendNamedPorts:
-		return "addr-named-ports"
-	default:
-		return "unknown"
-	}
-}
-
 // LocalRedirectPolicy is the internal representation of Cilium Local Redirect Policy.
 type LocalRedirectPolicy struct {
 	// ID is the parsed config name and namespace
@@ -91,9 +36,9 @@ type LocalRedirectPolicy struct {
 	// UID is the unique identifier assigned by Kubernetes
 	UID types.UID
 	// LRPType is the type of either address matcher or service matcher policy
-	LRPType lrpConfigType
+	LRPType lrpTypes.LRPType
 	// FrontendType is the type for the parsed config frontend.
-	FrontendType frontendConfigType
+	FrontendType lrpTypes.FrontendType
 	// FrontendMappings is a slice of policy config frontend mappings that include
 	// frontend address, frontend port name, and a slice of its associated backends
 	FrontendMappings []feMapping
@@ -129,9 +74,9 @@ func (lrp *LocalRedirectPolicy) TableRow() []string {
 	}
 	return []string{
 		lrp.ID.String(),
-		lrpConfigTypeString(lrp.LRPType),
+		lrp.LRPType.String(),
 		lrp.ServiceID.String(),
-		frontendConfigTypeString(lrp.FrontendType),
+		lrp.FrontendType.String(),
 		strings.Join(mappings, ", "),
 		lrp.BackendSelector.Key(),
 	}
@@ -145,14 +90,14 @@ func (lrp *LocalRedirectPolicy) RedirectServiceName() lb.ServiceName {
 // BackendPorts, as well as a Service and Pod spec.
 func (lrp *LocalRedirectPolicy) requiresPortNameMatch() bool {
 	switch lrp.FrontendType {
-	case svcFrontendAll:
-		// svcFrontendAll tells us there's no ports in the serviceMatcher, but there
+	case lrpTypes.FrontendTypeServiceAll:
+		// FrontendTypeServiceAll tells us there's no ports in the serviceMatcher, but there
 		// may be multiple ports in the redirectBackend. Where only one backend port
 		// exists, we can skip name checks.
 		if len(lrp.BackendPorts) <= 1 {
 			return false
 		}
-	case svcFrontendSinglePort, addrFrontendSinglePort:
+	case lrpTypes.FrontendTypeServiceSinglePort, lrpTypes.FrontendTypeAddressSinglePort:
 		// In the case of single port redirects, we can skip name checks.
 		return false
 	}
@@ -162,10 +107,10 @@ func (lrp *LocalRedirectPolicy) requiresPortNameMatch() bool {
 
 // Returns true if an LRP is a single-port variant, which is a subtle variation on the
 // requirement to match named ports. Unlike requirePortNameMatch(), this will return false
-// with svcFrontendAll with a single back-end port.
+// with FrontendTypeServiceAll with a single back-end port.
 func (lrp *LocalRedirectPolicy) isSinglePort() bool {
 	switch lrp.FrontendType {
-	case svcFrontendSinglePort, addrFrontendSinglePort:
+	case lrpTypes.FrontendTypeServiceSinglePort, lrpTypes.FrontendTypeAddressSinglePort:
 		return true
 	}
 
@@ -215,9 +160,9 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		addrMatcher    = spec.RedirectFrontend.AddressMatcher
 		svcMatcher     = spec.RedirectFrontend.ServiceMatcher
 		redirectTo     = spec.RedirectBackend
-		frontendType   = frontendTypeUnknown
+		frontendType   = lrpTypes.FrontendTypeUnknown
 		checkNamedPort = false
-		lrpType        lrpConfigType
+		lrpType        lrpTypes.LRPType
 		k8sSvc         lb.ServiceName
 		fe             lb.L3n4Addr
 		feMappings     []feMapping
@@ -247,9 +192,9 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		if len(addrMatcher.ToPorts) > 1 {
 			// If there are multiple ports, then the ports must be named.
 			checkNamedPort = true
-			frontendType = addrFrontendNamedPorts
+			frontendType = lrpTypes.FrontendTypeAddressNamedPorts
 		} else if len(addrMatcher.ToPorts) == 1 {
-			frontendType = addrFrontendSinglePort
+			frontendType = lrpTypes.FrontendTypeAddressSinglePort
 		}
 		feMappings = make([]feMapping, len(addrMatcher.ToPorts))
 		for i, portInfo := range addrMatcher.ToPorts {
@@ -264,7 +209,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 				fePort: lb.FEPortName(pName),
 			}
 		}
-		lrpType = lrpConfigTypeAddr
+		lrpType = lrpTypes.LRPTypeAddressMatcher
 	case svcMatcher != nil:
 		// LRP specifies service config for traffic that needs to be redirected.
 		k8sSvc = lb.NewServiceName(svcMatcher.Namespace, svcMatcher.Name)
@@ -278,11 +223,11 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		}
 		switch len(svcMatcher.ToPorts) {
 		case 0:
-			frontendType = svcFrontendAll
+			frontendType = lrpTypes.FrontendTypeServiceAll
 		case 1:
-			frontendType = svcFrontendSinglePort
+			frontendType = lrpTypes.FrontendTypeServiceSinglePort
 		default:
-			frontendType = svcFrontendNamedPorts
+			frontendType = lrpTypes.FrontendTypeServiceNamedPorts
 			checkNamedPort = true
 		}
 		feMappings = make([]feMapping, len(svcMatcher.ToPorts))
@@ -299,12 +244,12 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 				fePort: lb.FEPortName(pName),
 			}
 		}
-		lrpType = lrpConfigTypeSvc
+		lrpType = lrpTypes.LRPTypeServiceMatcher
 	default:
 		return nil, fmt.Errorf("invalid local redirect policy %v", spec)
 	}
 
-	if lrpType == lrpConfigTypeNone || frontendType == frontendTypeUnknown {
+	if lrpType == lrpTypes.LRPTypeNone || frontendType == lrpTypes.FrontendTypeUnknown {
 		return nil, fmt.Errorf("invalid local redirect policy %v", spec)
 	}
 
