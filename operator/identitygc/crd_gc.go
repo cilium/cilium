@@ -134,6 +134,17 @@ func (igc *GC) gc(ctx context.Context) error {
 
 				identity.Annotations[identitybackend.HeartBeatAnnotation] = timeNow.Format(time.RFC3339Nano)
 				if err := igc.updateIdentity(ctx, identity); err != nil {
+					if isIdentityUpdateRace(err) {
+						// The identity was updated, deleted, or replaced after
+						// it was read from the local store. Defer it to the
+						// next run instead of aborting this GC pass.
+						igc.logger.WarnContext(ctx,
+							"Could not mark CRD identity for later deletion due to concurrent update",
+							logfields.Identity, identity.Name,
+							logfields.K8sUID, identity.UID)
+						continue
+					}
+
 					igc.logger.ErrorContext(ctx,
 						"Marking CRD identity for later deletion",
 						logfields.Identity, identity,
@@ -193,6 +204,10 @@ func (igc *GC) gc(ctx context.Context) error {
 	igc.heartbeatStore.gc()
 
 	return nil
+}
+
+func isIdentityUpdateRace(err error) bool {
+	return k8serrors.IsConflict(err) || k8serrors.IsNotFound(err)
 }
 
 // deleteIdentity deletes an identity. It includes the resource version and
