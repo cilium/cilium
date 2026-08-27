@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	lrpTypes "github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -46,7 +47,7 @@ var (
 	lrpAddressIndex = statedb.Index[*LocalRedirectPolicy, lb.L3n4Addr]{
 		Name: "address",
 		FromObject: func(lrp *LocalRedirectPolicy) index.KeySet {
-			if lrp.LRPType != lrpConfigTypeAddr || len(lrp.FrontendMappings) == 0 {
+			if lrp.LRPType != lrpTypes.LRPTypeAddressMatcher || len(lrp.FrontendMappings) == 0 {
 				return index.EmptyKeySet
 			}
 			keys := make([]index.Key, len(lrp.FrontendMappings))
