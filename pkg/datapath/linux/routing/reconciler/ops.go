@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type endpointRulesOperations struct {
@@ -28,6 +29,22 @@ type endpointRulesOperations struct {
 	ipamMode        string
 	endpointManager endpointmanager.EndpointManager
 	localNodeStore  *node.LocalNodeStore
+}
+
+func newEndpointRulesOperations(
+	logger *slog.Logger,
+	ipamManager *ipam.IPAM,
+	daemonConfig *option.DaemonConfig,
+	endpointManager endpointmanager.EndpointManager,
+	localNodeStore *node.LocalNodeStore,
+) *endpointRulesOperations {
+	return &endpointRulesOperations{
+		logger:          logger,
+		ipam:            ipamManager,
+		ipamMode:        daemonConfig.IPAMMode(),
+		endpointManager: endpointManager,
+		localNodeStore:  localNodeStore,
+	}
 }
 
 var _ statedbReconciler.Operations[*EndpointRules] = (*endpointRulesOperations)(nil)
