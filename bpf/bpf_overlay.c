@@ -192,7 +192,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	const struct endpoint_info *ep;
 	__u32 cluster_id_from_identity =
 		extract_cluster_id_from_identity(src_sec_identity);
-	const struct ipv4_nat_target target = {
+	struct ipv4_nat_target target = {
 	       .min_port = NODEPORT_PORT_MIN_NAT,
 	       .max_port = NODEPORT_PORT_MAX_NAT,
 	       .cluster_id = cluster_id_from_identity,
@@ -200,6 +200,10 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	struct trace_ctx trace;
 
 	ret = snat_v4_rev_nat(ctx, &target, &trace);
+	if (CONFIG(nodeport_port_max_nat_ext) && ret == NAT_PUNT_TO_STACK) {
+		swap_nat_port_range_ipv4(&target);
+		ret = snat_v4_rev_nat(ctx, &target, &trace);
+	}
 	if (ret != NAT_PUNT_TO_STACK && ret != DROP_NAT_NO_MAPPING) {
 		if (IS_ERR(ret))
 			return ret;
