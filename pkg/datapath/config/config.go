@@ -6,7 +6,6 @@ package config
 import (
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -71,16 +70,6 @@ type Config struct {
 
 	// MAC address of the cilium_net device.
 	CiliumNetMAC mac.MAC
-
-	// AllocCIDRIPv4 is the IPv4 allocation CIDR from which IP addresses for
-	// endpoints are allocated from.
-	// Immutable at runtime.
-	AllocCIDRIPv4 *cidr.CIDR
-
-	// AllocCIDRIPv6 is the IPv6 allocation CIDR from which IP addresses for
-	// endpoints are allocated from.
-	// Immutable at runtime.
-	AllocCIDRIPv6 *cidr.CIDR
 
 	// NativeRoutingCIDRIPv4 is the v4 CIDR in which pod IPs are routable.
 	// +deepequal-gen=false
