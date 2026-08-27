@@ -131,6 +131,8 @@ func (m *resourceInfo) unmerge(logger *slog.Logger, info IPMetadata) {
 		m.requestedIdentity = ipcachetypes.RequestedIdentity(identity.IdentityUnknown)
 	case ipcachetypes.EndpointFlags:
 		m.endpointFlags = ipcachetypes.EndpointFlags{}
+	case ipcachetypes.AllMetadata:
+		*m = resourceInfo{}
 	default:
 		logger.Error(
 			"BUG: Invalid IPMetadata passed to ipinfo.unmerge()",
