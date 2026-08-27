@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/cilium/hive/cell"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_service_cluster "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -31,7 +32,7 @@ var ErrNotImplemented = errors.New("not implemented")
 // runXDSGRPCServer runs a gRPC server to serve xDS APIs using the given
 // resource watcher and network listener. Returns on error or when [ctx]
 // is cancelled.
-func (s *xdsServer) runXDSGRPCServer(ctx context.Context, config map[string]*xds.ResourceTypeConfiguration) error {
+func (s *xdsServer) runXDSGRPCServer(ctx context.Context, health cell.Health, config map[string]*xds.ResourceTypeConfiguration) error {
 	listener, err := s.newSocketListener()
 	if err != nil {
 		return fmt.Errorf("failed to create socket listener: %w", err)
@@ -58,7 +59,7 @@ func (s *xdsServer) runXDSGRPCServer(ctx context.Context, config map[string]*xds
 
 	s.stopFunc = grpcServer.Stop
 
-	if err := awaitEndpointPolicyRestoration(ctx, s.logger, s.restorerPromise,
+	if err := awaitEndpointPolicyRestoration(ctx, health, s.logger, s.restorerPromise,
 		s.config.policyRestoreTimeout); err != nil {
 		s.logger.Debug("Envoy: xDS server stopped before started serving")
 		return err

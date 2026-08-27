@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/cilium/hive/cell"
 	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/sotw/v3"
 	envoy_server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
@@ -23,7 +24,7 @@ import (
 
 // startAdsGRPCServer runs a gRPC server to serve ADS APIs. Returns on error or
 // when ctx is cancelled.
-func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
+func (s *adsServer) startAdsGRPCServer(ctx context.Context, health cell.Health) error {
 	listener, err := s.newSocketListener()
 	if err != nil {
 		return fmt.Errorf("failed to create socket listener: %w", err)
@@ -46,7 +47,7 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 
 	s.stopFunc = grpcServer.Stop
 
-	if err := awaitEndpointPolicyRestoration(ctx, s.logger, s.restorerPromise,
+	if err := awaitEndpointPolicyRestoration(ctx, health, s.logger, s.restorerPromise,
 		s.config.policyRestoreTimeout); err != nil {
 		s.logger.Debug("Envoy: xDS server stopped before started serving")
 		return err

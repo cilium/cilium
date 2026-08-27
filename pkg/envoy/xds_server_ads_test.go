@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/hive/cell"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"google.golang.org/protobuf/proto"
 
@@ -1032,6 +1033,9 @@ func (m *testableEndpointUpdater) GetListenerProxyPort(string) uint16 { return 0
 // mockRestorer implements endpointstate.Restorer for testing.
 type mockRestorer struct {
 	waitErr error
+	// block makes WaitForInitialPolicy wait for the context instead of
+	// returning immediately, as the real restorer does.
+	block bool
 }
 
 func (m *mockRestorer) WaitForEndpointRestore(ctx context.Context) error {
@@ -1043,6 +1047,10 @@ func (m *mockRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Con
 }
 
 func (m *mockRestorer) WaitForInitialPolicy(ctx context.Context) error {
+	if m.block {
+		<-ctx.Done()
+		return ctx.Err()
+	}
 	return m.waitErr
 }
 
@@ -1060,7 +1068,7 @@ func TestStartAdsGRPCServerWithRestorerSuccess(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- server.startAdsGRPCServer(ctx)
+		errCh <- server.startAdsGRPCServer(ctx, testHealth())
 	}()
 
 	// Resolve the promise with a restorer that succeeds.
@@ -1077,34 +1085,45 @@ func TestStartAdsGRPCServerWithRestorerSuccess(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestStartAdsGRPCServerWithRestorerDeadlineExceeded(t *testing.T) {
+func TestStartAdsGRPCServerWaitsForRestorationPastTheReportInterval(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
-		policyRestoreTimeout: 5 * time.Second,
+		policyRestoreTimeout: 50 * time.Millisecond,
 	}
 
 	resolver, restorerPromise := promise.New[endpointstate.Restorer]()
 	server := newADSServer(logger, nil, nil, config, nil, restorerPromise)
 
-	ctx := t.Context()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	health, simpleHealth := cell.NewSimpleHealth()
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- server.startAdsGRPCServer(ctx)
+		errCh <- server.startAdsGRPCServer(ctx, health)
 	}()
 
-	// Resolve with a restorer that returns DeadlineExceeded.
-	resolver.Resolve(&mockRestorer{waitErr: context.DeadlineExceeded})
+	// Restoration never completes, so the server must keep waiting rather than
+	// serve a state of the world with no listeners and no policies.
+	resolver.Resolve(&mockRestorer{block: true})
 
-	// Server should still start serving despite the deadline exceeded.
-	time.Sleep(200 * time.Millisecond)
+	select {
+	case err := <-errCh:
+		t.Fatalf("server returned while restoration was incomplete: %v", err)
+	case <-time.After(300 * time.Millisecond):
+	}
 
-	require.NotNil(t, server.stopFunc, "stopFunc should be set even after deadline exceeded")
-	server.stopFunc()
+	// And it reports that it is waiting rather than doing so silently.
+	require.Eventually(t, func() bool {
+		return simpleHealth.Level == cell.StatusDegraded
+	}, time.Second, 20*time.Millisecond, "expected a degraded report while waiting")
+
+	cancel()
 
 	err := <-errCh
-	assert.NoError(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestStartAdsGRPCServerWithRestorerCanceled(t *testing.T) {
@@ -1121,7 +1140,7 @@ func TestStartAdsGRPCServerWithRestorerCanceled(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- server.startAdsGRPCServer(ctx)
+		errCh <- server.startAdsGRPCServer(ctx, testHealth())
 	}()
 
 	// Resolve with a restorer that returns context.Canceled.
@@ -1144,7 +1163,7 @@ func TestStartAdsGRPCServerWithNilRestorerPromise(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- server.startAdsGRPCServer(ctx)
+		errCh <- server.startAdsGRPCServer(ctx, testHealth())
 	}()
 
 	// With nil restorerPromise, server should start immediately.
@@ -1171,7 +1190,7 @@ func TestStartAdsGRPCServerContextCanceledBeforeResolve(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- server.startAdsGRPCServer(ctx)
+		errCh <- server.startAdsGRPCServer(ctx, testHealth())
 	}()
 
 	// Cancel context before resolving the promise — simulates shutdown during startup.
@@ -1180,4 +1199,10 @@ func TestStartAdsGRPCServerContextCanceledBeforeResolve(t *testing.T) {
 
 	err := <-errCh
 	assert.ErrorIs(t, err, context.Canceled)
+}
+
+// testHealth returns a throwaway health handle for the xDS server under test.
+func testHealth() cell.Health {
+	h, _ := cell.NewSimpleHealth()
+	return h
 }

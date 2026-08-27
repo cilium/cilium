@@ -25,7 +25,7 @@ func TestADSGRPCServerStopsOnContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		done <- server.run(ctx)
+		done <- server.run(ctx, testHealth())
 	}()
 
 	require.Eventually(t, func() bool {

@@ -291,7 +291,7 @@ func TestEnvoyAds(t *testing.T) {
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
+		err = xdsServer.run(t.Context(), testHealth())
 		require.NoError(t, err)
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
@@ -422,7 +422,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
+		err = xdsServer.run(t.Context(), testHealth())
 		require.NoError(t, err)
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
@@ -528,7 +528,7 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
+		err = xdsServer.run(t.Context(), testHealth())
 		require.NoError(t, err)
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
@@ -821,7 +821,7 @@ func TestEnvoyDelta(t *testing.T) {
 	xdsServer.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
 
 	go func() {
-		err = xdsServer.run(ctx)
+		err = xdsServer.run(ctx, testHealth())
 		require.NoError(t, err)
 	}()
 
@@ -978,7 +978,7 @@ func TestEnvoy(t *testing.T) {
 	xdsServer.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
 
 	go func() {
-		err = xdsServer.run(ctx)
+		err = xdsServer.run(ctx, testHealth())
 		require.NoError(t, err)
 	}()
 
@@ -1129,7 +1129,7 @@ func TestEnvoyNACK(t *testing.T) {
 	xdsServer.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager)
 
 	go func() {
-		err = xdsServer.run(ctx)
+		err = xdsServer.run(ctx, testHealth())
 		require.NoError(t, err)
 	}()
 
@@ -1223,7 +1223,7 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
+		err = xdsServer.run(t.Context(), testHealth())
 		require.NoError(t, err)
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
@@ -1345,7 +1345,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
+		err = xdsServer.run(t.Context(), testHealth())
 		require.NoError(t, err)
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
@@ -1443,7 +1443,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
+		err = xdsServer.run(t.Context(), testHealth())
 		require.NoError(t, err)
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
@@ -1546,7 +1546,7 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
+		err = xdsServer.run(t.Context(), testHealth())
 		require.NoError(t, err)
 	}()
 

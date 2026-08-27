@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/cilium/hive/cell"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -203,8 +204,8 @@ func newXDSServer(logger *slog.Logger, restorerPromise promise.Promise[endpoints
 	return xdsServer
 }
 
-func (s *xdsServer) run(ctx context.Context) error {
-	return s.runXDSGRPCServer(ctx, s.resourceConfig)
+func (s *xdsServer) run(ctx context.Context, health cell.Health) error {
+	return s.runXDSGRPCServer(ctx, health, s.resourceConfig)
 }
 
 func (s *xdsServer) initializeXdsConfigs() {
