@@ -5,6 +5,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/netip"
 	"slices"
@@ -204,6 +205,110 @@ func requiredReconcilers(
 	txn := db.WriteTxn(nodes)
 	defer txn.Abort()
 	return w.getRequiredReconcilers(txn)
+}
+
+func TestWriterWaitUntilReconciled(t *testing.T) {
+	newWriter := func(t *testing.T) (*statedb.DB, statedb.RWTable[*Node], *Writer) {
+		t.Helper()
+		db := statedb.New()
+		nodes, err := NewNodeTable(db)
+		require.NoError(t, err)
+		return db, nodes, NewWriter(hivetest.Logger(t), db, nodes)
+	}
+	upsert := func(
+		t *testing.T,
+		db *statedb.DB,
+		nodes statedb.RWTable[*Node],
+		w *Writer,
+		name string,
+	) {
+		t.Helper()
+		txn := db.WriteTxn(nodes)
+		require.True(t, w.Upsert(txn, &types.Node{
+			Name:   name,
+			Source: source.Kubernetes,
+		}))
+		txn.Commit()
+	}
+	setStatus := func(
+		t *testing.T,
+		db *statedb.DB,
+		nodes statedb.RWTable[*Node],
+		nodeName, reconcilerName string,
+		status reconciler.Status,
+	) {
+		t.Helper()
+		txn := db.WriteTxn(nodes)
+		n, _, found := nodes.Get(txn, NodeByName(nodeName))
+		require.True(t, found)
+		updated := *n
+		updated.Statuses = updated.Statuses.Set(reconcilerName, status)
+		_, _, err := nodes.Insert(txn, &updated)
+		require.NoError(t, err)
+		txn.Commit()
+	}
+	waitUntilReconciled := func(
+		t *testing.T,
+		w *Writer,
+		txn statedb.ReadTxn,
+		requireDone bool,
+	) {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		require.NoError(t, w.WaitUntilReconciled(ctx, txn, requireDone))
+	}
+
+	t.Run("all statuses must finish", func(t *testing.T) {
+		db, nodes, w := newWriter(t)
+		w.RegisterReconciler("ipset")
+		w.RegisterReconciler("wireguard")
+		upsert(t, db, nodes, w, "node-1")
+		setStatus(t, db, nodes, "node-1", "ipset", reconciler.StatusDone())
+
+		ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+		defer cancel()
+		err := w.WaitUntilReconciled(ctx, db.ReadTxn(), false)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+
+		setStatus(t, db, nodes, "node-1", "wireguard", reconciler.StatusError(errors.New("failed")))
+		waitUntilReconciled(t, w, db.ReadTxn(), false)
+
+		ctx, cancel = context.WithTimeout(t.Context(), 20*time.Millisecond)
+		defer cancel()
+		err = w.WaitUntilReconciled(ctx, db.ReadTxn(), true)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+
+		setStatus(t, db, nodes, "node-1", "wireguard", reconciler.StatusDone())
+		waitUntilReconciled(t, w, db.ReadTxn(), true)
+	})
+
+	t.Run("deleted target is finished", func(t *testing.T) {
+		db, nodes, w := newWriter(t)
+		w.RegisterReconciler("wireguard")
+		upsert(t, db, nodes, w, "node-1")
+		txn := db.ReadTxn()
+
+		wtxn := db.WriteTxn(nodes)
+		n, _, found := nodes.Get(wtxn, NodeByName("node-1"))
+		require.True(t, found)
+		_, _, err := nodes.Delete(wtxn, n)
+		require.NoError(t, err)
+		wtxn.Commit()
+
+		waitUntilReconciled(t, w, txn, false)
+	})
+
+	t.Run("new nodes are not included", func(t *testing.T) {
+		db, nodes, w := newWriter(t)
+		w.RegisterReconciler("wireguard")
+		upsert(t, db, nodes, w, "initial")
+		setStatus(t, db, nodes, "initial", "wireguard", reconciler.StatusDone())
+		txn := db.ReadTxn()
+
+		upsert(t, db, nodes, w, "later")
+		waitUntilReconciled(t, w, txn, true)
+	})
 }
 
 func TestSourceWriterDoesNotOverwriteLocalNode(t *testing.T) {
