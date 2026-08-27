@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -393,4 +394,57 @@ func TestControllerUpdateDuringJitter(t *testing.T) {
 
 	// Cleanup
 	require.NoError(t, mngr.RemoveControllerAndWait("test-jitter"))
+}
+
+func TestTriggerControllerContext(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var (
+			mgr  = NewManager()
+			cnt  [2]uint
+			stop = make(chan struct{})
+
+			do = func(idx int) ControllerFunc {
+				return func(ctx context.Context) error {
+					cnt[idx]++
+					select {
+					case <-ctx.Done():
+					case <-stop:
+					}
+					return nil
+				}
+			}
+		)
+
+		mgr.CreateController("with-cancel", ControllerParams{
+			DoFunc:               do(0),
+			CancelDoFuncOnUpdate: true,
+		})
+
+		mgr.CreateController("without-cancel", ControllerParams{
+			DoFunc: do(1),
+		})
+
+		t.Cleanup(func() {
+			require.NoError(t, mgr.RemoveControllerAndWait("with-cancel"), "mgr.RemoveControllerAndWait")
+			require.NoError(t, mgr.RemoveControllerAndWait("without-cancel"), "mgr.RemoveControllerAndWait")
+		})
+
+		synctest.Wait()
+		require.EqualValues(t, 1, cnt[0], "Both controllers should have been triggered once")
+		require.EqualValues(t, 1, cnt[1], "Both controllers should have been triggered once")
+
+		mgr.TriggerController("with-cancel")
+		mgr.TriggerController("without-cancel")
+
+		synctest.Wait()
+		require.EqualValues(t, 2, cnt[0], "The controller with CancelDoFuncOnUpdate should have been triggered twice")
+		require.EqualValues(t, 1, cnt[1], "The controller without CancelDoFuncOnUpdate should not have been retriggered")
+
+		close(stop)
+		stop = nil
+
+		synctest.Wait()
+		require.EqualValues(t, 2, cnt[0], "The controller with CancelDoFuncOnUpdate should not have been automatically retriggered")
+		require.EqualValues(t, 2, cnt[1], "The controller without CancelDoFuncOnUpdate should have been retriggered by the queued trigger")
+	})
 }
