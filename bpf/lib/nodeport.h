@@ -2438,7 +2438,7 @@ __declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS) static __always_inline
 		tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
 		dst_sec_identity = info->sec_identity;
 
-		target.addr = IPV4_GATEWAY;
+		target.addr = CONFIG(router_ipv4).be32;
 #   if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && \
 	   defined(ENABLE_INTER_CLUSTER_SNAT)
 		if (cluster_id && cluster_id != CONFIG(cluster_id))

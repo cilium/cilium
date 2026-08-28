@@ -301,8 +301,8 @@ nodeport_has_nat_conflict_ipv4(const struct __ctx_buff *ctx __maybe_unused,
 			       struct ipv4_nat_target *target __maybe_unused)
 {
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
-	if (ip4->saddr == IPV4_GATEWAY) {
-		target->addr = IPV4_GATEWAY;
+	if (ip4->saddr == CONFIG(router_ipv4).be32) {
+		target->addr = ip4->saddr;
 		target->needs_ct = true;
 
 		return true;

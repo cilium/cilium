@@ -88,6 +88,8 @@ long mock_fib_lookup(const __maybe_unused void *ctx, const struct bpf_fib_lookup
 #include "lib/nat.h"
 #include "lib/nodeport.h"
 
+ASSIGN_CONFIG(union v4addr, router_ipv4, { .be32 = 0xfffff50a })
+
 static __always_inline int
 pktgen(struct __ctx_buff *ctx, bool v4)
 {
@@ -256,8 +258,9 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 		 * through a tunnel.
 		 */
 
-		if (expected_result == CTX_ACT_REDIRECT && l3->saddr != IPV4_GATEWAY)
-			test_fatal("src IP was not changed to IPV4_GATEWAY");
+		if (expected_result == CTX_ACT_REDIRECT &&
+		    l3->saddr != CONFIG(router_ipv4).be32)
+			test_fatal("src IP was not changed to router_ipv4");
 
 		if (expected_result == CTX_ACT_DROP &&
 		    l3->saddr != CONFIG(ipv4_direct_routing).be32)
