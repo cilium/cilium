@@ -1086,8 +1086,6 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	union tcp_flags seen_flags = { .value = 0 };
 	int err;
 
-	memset(entry, 0, sizeof(*entry));
-
 	if (ct_state)
 		ct_create_fill_entry(entry, ct_state, dir);
 
@@ -1101,7 +1099,6 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 		/* Create an ICMPv6 entry to relate errors */
 		struct ipv6_ct_tuple *icmp_tuple = AUX(ct_create6_tuple);
 
-		memset(icmp_tuple, 0, sizeof(*icmp_tuple));
 		*icmp_tuple = (struct ipv6_ct_tuple) {
 			.nexthdr = IPPROTO_ICMPV6,
 			.sport = 0,
@@ -1150,8 +1147,6 @@ static __always_inline int ct_create4(const void *map_main,
 	union tcp_flags seen_flags = { .value = 0 };
 	int err;
 
-	memset(entry, 0, sizeof(*entry));
-
 	if (ct_state)
 		ct_create_fill_entry(entry, ct_state, dir);
 
@@ -1165,7 +1160,6 @@ static __always_inline int ct_create4(const void *map_main,
 		/* Create an ICMP entry to relate errors */
 		struct ipv4_ct_tuple *icmp_tuple = AUX(ct_create4_tuple);
 
-		memset(icmp_tuple, 0, sizeof(*icmp_tuple));
 		*icmp_tuple = (struct ipv4_ct_tuple) {
 			.daddr = tuple->daddr,
 			.saddr = tuple->saddr,

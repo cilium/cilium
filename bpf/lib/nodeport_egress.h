@@ -138,7 +138,6 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	struct snat_v6_args *args = AUX(snat_v6_args);
 
-	memset(args, 0, sizeof(*args));
 	args->trace = (struct trace_ctx){
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -347,7 +346,6 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	fraginfo = ipfrag_encode_ipv4(ip4);
 
 	args = AUX(snat_v4_args);
-	memset(args, 0, sizeof(*args));
 	select_nat_port_range_ipv4(&args->target);
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 	args->target.cluster_id = cluster_id,
