@@ -1735,7 +1735,7 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 
 /*
  * ARP responder for ARP requests from container
- * Respond to IPV4_GATEWAY with CONFIG(interface_mac)
+ * Respond to router_ipv4 with interface_mac
  */
 __declare_tail(CILIUM_CALL_ARP)
 int tail_handle_arp(struct __ctx_buff *ctx)
@@ -1752,8 +1752,8 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	/*
 	 * The endpoint is expected to make ARP requests for its gateway IP.
-	 * Most of the time, the gateway IP configured on the endpoint is
-	 * IPV4_GATEWAY but it may not be the case if after cilium agent reload
+	 * Most of the time, the gateway IP configured on the endpoint is current
+	 * IPv4 router address but it may not be the case if after cilium agent reload
 	 * a different gateway is chosen. In such a case, existing endpoints
 	 * will have an old gateway configured. Since we don't know the IP of
 	 * previous gateways, we answer requests for all IPs with the exception

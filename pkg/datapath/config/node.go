@@ -37,6 +37,10 @@ func NodeConfig(lnc *Config) Node {
 		node.ServiceLoopbackIPv4.Addr = lnc.ServiceLoopbackIPv4.As4()
 	}
 
+	if lnc.CiliumInternalIPv4.IsValid() {
+		node.RouterIPv4.Addr = lnc.CiliumInternalIPv4.As4()
+	}
+
 	if lnc.ServiceLoopbackIPv6.IsValid() {
 		node.ServiceLoopbackIPv6.Addr = lnc.ServiceLoopbackIPv6.As16()
 	}
