@@ -180,15 +180,15 @@ const __u8 kpr_v4_dsr_lb2_data2_post_geneve_xdp[] = {
 };
 
 const __u8 kpr_v4_dsr_lb3_mtu[] = {
-       SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu)
+	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu)
 };
 
 const __u8 kpr_v4_dsr_lb3_mtu_post_option[] = {
-       SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_option)
+	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_option)
 };
 
 const __u8 kpr_v4_dsr_lb3_mtu_post_geneve[] = {
-       SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_geneve)
+	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_geneve)
 };
 
 const __u8 kpr_v6_dsr_lb1_syn[] = {
@@ -264,15 +264,15 @@ const __u8 kpr_v6_dsr_lb2_data2_post_geneve_xdp[] = {
 };
 
 const __u8 kpr_v6_dsr_lb3_mtu[] = {
-       SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu)
+	SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu)
 };
 
 const __u8 kpr_v6_dsr_lb3_mtu_post_option[] = {
-       SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu_post_option)
+	SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu_post_option)
 };
 
 const __u8 kpr_v6_dsr_lb3_mtu_post_geneve[] = {
-       SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu_post_geneve)
+	SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu_post_geneve)
 };
 
 #ifdef ENABLE_IPV4

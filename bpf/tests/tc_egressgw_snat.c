@@ -289,7 +289,6 @@ int egressgw_skip_excluded_cidr_snat_pktgen(struct __ctx_buff *ctx)
 SETUP(PROG_TYPE, "tc_egressgw_skip_excluded_cidr_snat")
 int egressgw_skip_excluded_cidr_snat_setup(struct __ctx_buff *ctx)
 {
-
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
 				  GATEWAY_NODE_IP, 0, 0);
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32,

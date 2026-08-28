@@ -86,8 +86,7 @@ int tc_lxc_policy_drop_check(const struct __ctx_buff *ctx)
 	key.reason = (__u8)-DROP_POLICY_DENY;
 	key.dir = METRIC_EGRESS;
 
-	__u64 count = 1;
-	assert_metrics_count(key, count);
+	assert_metrics_count(key, 1);
 
 	test_finish();
 }
