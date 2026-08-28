@@ -9,15 +9,18 @@
 #define DEFINE_AUX(typ, name) \
 	__section(".data.aux") typ __aux_##name;
 
-volatile const __section(".rodata.aux") __u64 _aux_stride;
-volatile const __section(".rodata.aux") __u64 _aux_max_off;
+volatile const __section(".rodata.aux") __u64 _aux_cpu_mask;
+volatile const __section(".rodata.aux") __u64 _aux_stride_shift;
 
-#define AUX(name) ({ \
-	__u32 cpuid = get_smp_processor_id(); \
-	void *aux_addr = (void *)&__aux_##name; \
-	__u64 offset = (_aux_stride * cpuid); \
-	if (offset > _aux_max_off) \
-		offset = _aux_max_off; \
-	aux_addr += offset; \
-	(__typeof__(__aux_##name) *)(aux_addr); \
-})
+/*
+ * The AUX macro is used to access per-CPU auxiliary variables. It calculates
+ * the address of the variable for the current CPU by adding an offset based on
+ * the CPU ID and a stride shift value.
+ *
+ * Once the minimum kernel version supported is v6.6, let's replace this and
+ * switch back to the previous implementation to avoid the memory overhead.
+ * (see https://github.com/cilium/cilium/issues/48301)
+ */
+#define AUX(name) \
+	((__typeof__(__aux_##name) *)((void *)&__aux_##name + \
+	 ((get_smp_processor_id() & _aux_cpu_mask) << _aux_stride_shift)))
