@@ -1313,20 +1313,6 @@ rewrite: __maybe_unused
 				       tuple.dport, to_dport, port_off,
 				       outer_csum_diff);
 }
-#else /* defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT) */
-static __always_inline __maybe_unused
-int snat_v4_nat(struct __ctx_buff *ctx __maybe_unused,
-		const struct ipv4_nat_target *target __maybe_unused)
-{
-	return CTX_ACT_OK;
-}
-
-static __always_inline __maybe_unused
-int snat_v4_rev_nat(struct __ctx_buff *ctx __maybe_unused,
-		    const struct ipv4_nat_target *target __maybe_unused)
-{
-	return CTX_ACT_OK;
-}
 #endif /* defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT) */
 
 struct ipv6_nat_entry {
@@ -2297,20 +2283,6 @@ rewrite: __maybe_unused
 				       ipfrag_has_l4_header(fraginfo), off,
 				       &tuple.daddr, &state->to_daddr, IPV6_DADDR_OFF,
 				       tuple.dport, to_dport, port_off);
-}
-#else /* defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT) */
-static __always_inline __maybe_unused
-int snat_v6_nat(struct __ctx_buff *ctx __maybe_unused,
-		const struct ipv6_nat_target *target __maybe_unused)
-{
-	return CTX_ACT_OK;
-}
-
-static __always_inline __maybe_unused
-int snat_v6_rev_nat(struct __ctx_buff *ctx __maybe_unused,
-		    const struct ipv6_nat_target *target __maybe_unused)
-{
-	return CTX_ACT_OK;
 }
 #endif /* defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT) */
 
