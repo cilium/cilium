@@ -220,8 +220,6 @@ __send_trace_notify(const struct __ctx_buff *ctx, enum trace_point obs_point,
 {
 	struct trace_notify_vars *vars = AUX(trace_notify_vars);
 
-	memset(vars, 0, sizeof(*vars));
-
 	_update_trace_metrics(ctx, obs_point, reason, line, file);
 
 	if (!emit_trace_notify(obs_point, monitor))
