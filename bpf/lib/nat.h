@@ -366,7 +366,7 @@ snat_v4_nat_handle_mapping(const struct __ctx_buff *ctx,
 	*state = __snat_lookup(map, tuple);
 
 	if (needs_ct) {
-		struct ipv4_ct_tuple tuple_snat;
+		struct ipv4_ct_tuple tuple_snat __align_stack_8;
 		int ret;
 
 		memcpy(&tuple_snat, tuple, sizeof(tuple_snat));
