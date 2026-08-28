@@ -782,7 +782,7 @@ DEFINE_AUX(struct snat_v4_args, snat_v4_args);
 __noinline __weak int
 snat_v4_needs_masquerade(struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off)
 {
-	struct snat_v4_args *args = AUX(snat_v4_args);
+	struct snat_v4_args *args = AUX_REUSE(snat_v4_args);
 	void *data, *data_end;
 	struct iphdr *ip4;
 
@@ -1383,7 +1383,6 @@ static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
 	int ret;
 	__u16 port;
 
-	memset(rstate, 0, sizeof(*rstate));
 	memset(ostate, 0, sizeof(*ostate));
 
 	rstate->to_daddr = otuple->saddr;
@@ -1503,7 +1502,6 @@ snat_v6_nat_handle_mapping(const struct __ctx_buff *ctx,
 			if (!lookup_result) {
 				struct ipv6_nat_entry *rstate = AUX(snat_v6_nhm_nat_entry);
 
-				memset(rstate, 0, sizeof(*rstate));
 				rstate->to_daddr = tuple->saddr;
 				rstate->to_dport = tuple->sport;
 				rstate->common.needs_ct = needs_ct;
@@ -1530,7 +1528,7 @@ snat_v6_nat_handle_mapping(const struct __ctx_buff *ctx,
 			__snat_delete(&cilium_snat_v6_external, rtuple);
 	}
 
-	*state = AUX(snat_v6_nhm_nat_entry);
+	*state = AUX_REUSE(snat_v6_nhm_nat_entry);
 	return snat_v6_new_mapping(ctx, tuple, *state, target, needs_ct, ext_err);
 }
 
@@ -1794,7 +1792,7 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 fraginfo_t fraginfo __maybe_unused,
 			 int l4_off __maybe_unused)
 {
-	struct snat_v6_args *args = AUX(snat_v6_args);
+	struct snat_v6_args *args = AUX_REUSE(snat_v6_args);
 
 	return __snat_v6_needs_masquerade(ctx, &args->tuple, fraginfo, l4_off, &args->target);
 }
@@ -1917,7 +1915,7 @@ __noinline __weak int
 snat_v6_nat(struct __ctx_buff *ctx, fraginfo_t fraginfo, int off, __s8 *ext_err)
 {
 	struct ipv6_nat_entry *state = NULL;
-	struct snat_v6_args *args = AUX(snat_v6_args);
+	struct snat_v6_args *args = AUX_REUSE(snat_v6_args);
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__u16 port_off = 0;

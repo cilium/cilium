@@ -173,7 +173,7 @@ DEFINE_AUX(struct ipv6_hdrlen_arg, ipv6_hdrlen_arg);
 __noinline __weak
 int ipv6_hdrlen_with_fraginfo_weak(const struct __ctx_buff *ctx)
 {
-	struct ipv6_hdrlen_arg *arg = AUX(ipv6_hdrlen_arg);
+	struct ipv6_hdrlen_arg *arg = AUX_REUSE(ipv6_hdrlen_arg);
 
 	return ipv6_hdrlen_offset(ctx, ETH_HLEN, &arg->nexthdr, &arg->fraginfo);
 }
