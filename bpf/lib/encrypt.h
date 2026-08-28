@@ -46,7 +46,8 @@ strict_allow(struct __ctx_buff *ctx, __be16 proto) {
 		 * (1) When encapsulation is used and the destination is a remote pod.
 		 * (2) When the destination is a remote-node.
 		 */
-		if (ip4->saddr == IPV4_GATEWAY || ip4->saddr == IPV4_ENCRYPT_IFACE)
+		if (ip4->saddr == CONFIG(router_ipv4).be32 ||
+		    ip4->saddr == IPV4_ENCRYPT_IFACE)
 			return true;
 
 		in_strict_cidr = ipv4_is_in_subnet(ip4->daddr,

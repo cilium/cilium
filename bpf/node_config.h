@@ -22,7 +22,6 @@
 #endif
 
 #ifdef ENABLE_IPV4
-#define IPV4_GATEWAY 0xfffff50a
 #define IPV4_ENCRYPT_IFACE 0xfffff50a
 #endif /* ENABLE_IPV4 */
 
