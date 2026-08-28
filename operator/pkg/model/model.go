@@ -506,15 +506,15 @@ func (s *HTTPSessionPersistence) String() string {
 
 	sb := strings.Builder{}
 	sb.WriteString("cookie:")
-	sb.WriteString(s.Cookie.Name)
+	sb.WriteString(strconv.Quote(s.Cookie.Name))
 	sb.WriteString(":")
-	sb.WriteString(s.Cookie.Path)
+	sb.WriteString(strconv.Quote(s.Cookie.Path))
 	sb.WriteString(":")
 	sb.WriteString(strconv.FormatBool(s.Cookie.Secure))
 	sb.WriteString(":")
 	sb.WriteString(strconv.FormatBool(s.Cookie.HTTPOnly))
 	sb.WriteString(":")
-	sb.WriteString(s.Cookie.SameSite)
+	sb.WriteString(strconv.Quote(s.Cookie.SameSite))
 	return sb.String()
 }
 

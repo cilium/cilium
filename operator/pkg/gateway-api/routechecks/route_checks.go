@@ -5,6 +5,7 @@ package routechecks
 
 import (
 	"fmt"
+	"net/http"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -197,6 +198,12 @@ func CheckSessionPersistence(input Input, parentRef gatewayv1.ParentReference) (
 			continue
 		}
 
+		if sp.SessionName != nil && !isValidCookieName(*sp.SessionName) {
+			setUnsupportedValue(input, parentRef, "Session name must be a valid HTTP cookie name")
+			continueChecks = false
+			continue
+		}
+
 		if sp.AbsoluteTimeout != nil {
 			setUnsupportedValue(input, parentRef, "Unsupported session persistence field AbsoluteTimeout")
 			continueChecks = false
@@ -213,6 +220,10 @@ func CheckSessionPersistence(input Input, parentRef gatewayv1.ParentReference) (
 	}
 
 	return continueChecks, nil
+}
+
+func isValidCookieName(name string) bool {
+	return (&http.Cookie{Name: name}).Valid() == nil
 }
 
 func setUnsupportedValue(input Input, parentRef gatewayv1.ParentReference, message string) {
