@@ -1123,3 +1123,17 @@ func TestHTTPRouteSessionPersistenceMatchKey(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPSessionPersistenceString(t *testing.T) {
+	persistence := &HTTPSessionPersistence{
+		Cookie: &HTTPCookieSessionPersistence{
+			Name:     "session|name",
+			Path:     "/tenant:v1",
+			Secure:   true,
+			HTTPOnly: true,
+			SameSite: "Strict",
+		},
+	}
+
+	assert.Equal(t, `cookie:"session|name":"/tenant:v1":true:true:"Strict"`, persistence.String())
+}
