@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"syscall"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -148,7 +147,7 @@ func discoverCRDsWithRetry(ctx context.Context, client k8sClient.Clientset, logg
 			}, nil
 		}
 
-		// Context expiry errors from checkCRDs bypass isTransientError, silently
+		// Context expiry errors from checkCRDs bypass isPermanentError, silently
 		// disabling Gateway API. Catch them here to trigger an operator restart.
 		if ctx.Err() != nil {
 			logger.Error(
@@ -159,7 +158,7 @@ func discoverCRDsWithRetry(ctx context.Context, client k8sClient.Clientset, logg
 			return nil, fmt.Errorf("gateway API CRD discovery timed out: %w", err)
 		}
 
-		if !isTransientError(err) {
+		if isPermanentError(err) {
 			logger.Error(
 				"Required GatewayAPI resources are not found, please refer to docs for installation instructions",
 				logfields.Error, err,
@@ -359,32 +358,31 @@ func validateExternalTrafficPolicy(cfg gatewayApiConfig, logger *slog.Logger) er
 	return fmt.Errorf("invalid externalTrafficPolicy: %s", cfg.GatewayAPIServiceExternalTrafficPolicy)
 }
 
-// isTransientError returns true if the error is temporary and retryable
-// (network issues, API server overload), vs permanent errors (CRD not installed).
-// This is used to determine whether to retry Gateway API CRD discovery.
-func isTransientError(err error) bool {
+// isPermanentError returns true only if err (and, if it wraps multiple
+// errors via errors.Join, every one of them) unambiguously means "the CRD
+// does not exist" per the Kubernetes API. Anything else - a transient
+// network error, a 5xx, an unrecognized error shape - is treated as
+// retryable rather than permanent, since misclassifying a transient
+// failure as permanent silently and permanently disables Gateway API.
+//
+// checkCRDs joins one error per missing required GVK, so a single
+// genuinely-transient failure among several results must not be masked by
+// also finding a NotFound error elsewhere in the tree.
+func isPermanentError(err error) bool {
 	if err == nil {
 		return false
 	}
 
-	// Check for Kubernetes API server errors that are transient
-	if k8serrors.IsServerTimeout(err) ||
-		k8serrors.IsServiceUnavailable(err) ||
-		k8serrors.IsTooManyRequests(err) ||
-		k8serrors.IsTimeout(err) {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		for _, sub := range joined.Unwrap() {
+			if !isPermanentError(sub) {
+				return false
+			}
+		}
 		return true
 	}
 
-	// Check for network-level errors (connection refused, reset, host unreachable)
-	var errno syscall.Errno
-	if errors.As(err, &errno) {
-		switch errno {
-		case syscall.ECONNREFUSED, syscall.ECONNRESET, syscall.EHOSTUNREACH, syscall.ENETUNREACH:
-			return true
-		}
-	}
-
-	return false
+	return k8serrors.IsNotFound(err)
 }
 
 // checkCRDs checks if required and optional CRDs are present in the cluster,
