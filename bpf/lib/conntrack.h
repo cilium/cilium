@@ -650,9 +650,8 @@ ct_extract_ports6(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6, fragi
 		tuple->sport = 0;
 		tuple->dport = 0;
 		/* See comment in ct_extract_ports4. */
-		if (CONFIG(enable_extended_ip_protocols)) {
+		if (CONFIG(enable_extended_ip_protocols))
 			break;
-		}
 		/* Unsupported L4 protocol */
 		return DROP_CT_UNKNOWN_PROTO;
 	}
@@ -911,9 +910,8 @@ ct_extract_ports4(const struct __ctx_buff *ctx, const struct iphdr *ip4, fraginf
 		tuple->sport = 0;
 		tuple->dport = 0;
 		/* Traffic is allowed/dropped based on user-defined policies. */
-		if (CONFIG(enable_extended_ip_protocols)) {
+		if (CONFIG(enable_extended_ip_protocols))
 			break;
-		}
 		/* Unsupported L4 protocol */
 		return DROP_CT_UNKNOWN_PROTO;
 	}
@@ -1095,7 +1093,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	cilium_dbg3(ctx, DBG_CT_CREATED6, entry->rev_nat_index,
 		    entry->src_sec_id, 0);
 
-	if (map_related != NULL) {
+	if (map_related) {
 		/* Create an ICMPv6 entry to relate errors */
 		struct ipv6_ct_tuple *icmp_tuple = AUX(ct_create6_tuple);
 
@@ -1156,7 +1154,7 @@ static __always_inline int ct_create4(const void *map_main,
 	cilium_dbg3(ctx, DBG_CT_CREATED4, entry->rev_nat_index,
 		    entry->src_sec_id, 0);
 
-	if (map_related != NULL) {
+	if (map_related) {
 		/* Create an ICMP entry to relate errors */
 		struct ipv4_ct_tuple *icmp_tuple = AUX(ct_create4_tuple);
 

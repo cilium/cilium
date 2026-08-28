@@ -181,7 +181,9 @@ ctx_is_encrypted_by_point(const struct __ctx_buff *ctx __maybe_unused,
 #if __ctx_is == __ctx_skb
 	if (is_defined(IS_BPF_HOST) &&
 	    (is_defined(ENABLE_IPSEC) || is_defined(ENABLE_WIREGUARD)) &&
-	    (obs_point == TRACE_FROM_NETWORK || obs_point == TRACE_TO_NETWORK || obs_point == TRACE_POINT_UNKNOWN))
+	    (obs_point == TRACE_FROM_NETWORK ||
+	     obs_point == TRACE_TO_NETWORK ||
+	     obs_point == TRACE_POINT_UNKNOWN))
 		return ctx_is_decrypt(ctx);
 
 	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_IPSEC) &&

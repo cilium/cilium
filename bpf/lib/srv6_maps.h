@@ -50,12 +50,12 @@ struct {
 } cilium_srv6_policy_v6 __section_maps_btf;
 
 struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, union v6addr); /* SID */
-    __type(value, __u32);      /* VRF ID */
-    __uint(pinning, LIBBPF_PIN_BY_NAME);
-    __uint(max_entries, SRV6_SID_MAP_SIZE);
-    __uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, union v6addr); /* SID */
+	__type(value, __u32);      /* VRF ID */
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, SRV6_SID_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_srv6_sid __section_maps_btf;
 
 struct srv6_srh {
@@ -63,7 +63,7 @@ struct srv6_srh {
 	__u8 first_segment;
 	__u8 flags;
 	__u16 reserved;
-	struct in6_addr segments[0];
+	struct in6_addr segments[];
 };
 
 struct {

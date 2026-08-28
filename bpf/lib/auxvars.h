@@ -7,7 +7,7 @@
 #include <bpf/helpers.h>
 
 #define DEFINE_AUX(typ, name) \
-	__section(".data.aux") typ __aux_##name;
+	__section(".data.aux") typ __aux_##name
 
 volatile const __section(".rodata.aux") __u64 _aux_cpu_mask;
 volatile const __section(".rodata.aux") __u64 _aux_stride_shift;

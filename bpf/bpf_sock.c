@@ -181,15 +181,15 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 static __always_inline int sock4_delete_revnat(const struct bpf_sock *ctx,
 					       struct bpf_sock *ctx_full)
 {
-    struct ipv4_revnat_tuple key = {};
-    int ret = 0;
+	struct ipv4_revnat_tuple key = {};
+	int ret = 0;
 
-    key.cookie = get_socket_cookie(ctx_full);
-    key.address = (__u32)ctx->dst_ip4;
-    key.port = (__u16)ctx->dst_port;
+	key.cookie = get_socket_cookie(ctx_full);
+	key.address = (__u32)ctx->dst_ip4;
+	key.port = (__u16)ctx->dst_port;
 
-    ret = map_delete_elem(&cilium_lb4_reverse_sk, &key);
-    return ret;
+	ret = map_delete_elem(&cilium_lb4_reverse_sk, &key);
+	return ret;
 }
 
 static __always_inline bool
@@ -612,7 +612,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 		svc = lb4_lookup_service(&svc_key, true);
 		if (!svc) {
 			svc = sock4_wildcard_lookup_full(&svc_key,
-						ctx_in_hostns(ctx_full, NULL));
+							 ctx_in_hostns(ctx_full, NULL));
 		}
 		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
 		    (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc))) {
@@ -714,15 +714,15 @@ static __always_inline void ctx_get_v6_dst_address(const struct bpf_sock *ctx,
 
 static __always_inline int sock6_delete_revnat(struct bpf_sock *ctx)
 {
-    struct ipv6_revnat_tuple key = {};
-    int ret = 0;
+	struct ipv6_revnat_tuple key = {};
+	int ret = 0;
 
-    key.cookie = get_socket_cookie(ctx);
-    ctx_get_v6_dst_address(ctx, &key.address);
-    key.port = (__u16)ctx->dst_port;
+	key.cookie = get_socket_cookie(ctx);
+	ctx_get_v6_dst_address(ctx, &key.address);
+	key.port = (__u16)ctx->dst_port;
 
-    ret = map_delete_elem(&cilium_lb6_reverse_sk, &key);
-    return ret;
+	ret = map_delete_elem(&cilium_lb6_reverse_sk, &key);
+	return ret;
 }
 #endif /* ENABLE_IPV6 */
 
@@ -1250,7 +1250,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 		svc = lb6_lookup_service(&svc_key, true);
 		if (!svc) {
 			svc = sock6_wildcard_lookup_full(&svc_key,
-						ctx_in_hostns(ctx, NULL));
+							 ctx_in_hostns(ctx, NULL));
 		}
 		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
 		    (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc))) {

@@ -26,7 +26,7 @@
 static __always_inline
 char __hexdump_nibble_to_char(__u8 nib)
 {
-    return nib < 10 ? (nib + HD_ASCII_NUM0) : (nib - 10 + HD_ASCII_LOWA);
+	return nib < 10 ? (nib + HD_ASCII_NUM0) : (nib - 10 + HD_ASCII_LOWA);
 }
 
 /**

@@ -70,6 +70,7 @@ struct trace_sock_notify {
 	__u64 sock_cookie;
 	__u64 cgroup_id;
 	struct ip dst_ip;
+
 	TRACE_SOCK_EXTENSION
 };
 

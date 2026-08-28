@@ -1282,7 +1282,7 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 		ipv6_addr_copy_unaligned(&key.client_id.client_ip, &id->client_ip);
 
 	val = map_lookup_elem(&cilium_lb6_affinity, &key);
-	if (val != NULL) {
+	if (val) {
 		__u32 now = (__u32)bpf_mono_now();
 		struct lb_affinity_match match = {
 			.rev_nat_id	= svc->rev_nat_index,
@@ -1432,7 +1432,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			backend_id = lb6_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
 				backend = lb6_lookup_backend(ctx, backend_id);
-				if (backend == NULL)
+				if (!backend)
 					backend_id = 0;
 			}
 		}
@@ -1440,7 +1440,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			/* No CT entry has been found, so select a svc endpoint */
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			backend = lb6_lookup_backend(ctx, backend_id);
-			if (backend == NULL)
+			if (!backend)
 				goto no_service;
 
 			*new_backend = true;
@@ -2106,7 +2106,7 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 	struct lb_affinity_val *val;
 
 	val = map_lookup_elem(&cilium_lb4_affinity, &key);
-	if (val != NULL) {
+	if (val) {
 		__u32 now = (__u32)bpf_mono_now();
 		struct lb_affinity_match match = {
 			.rev_nat_id	= svc->rev_nat_index,
@@ -2263,7 +2263,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			backend_id = lb4_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
 				backend = lb4_lookup_backend(ctx, backend_id);
-				if (backend == NULL)
+				if (!backend)
 					backend_id = 0;
 			}
 		}
@@ -2271,7 +2271,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			/* No CT entry has been found, so select a svc endpoint */
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 			backend = lb4_lookup_backend(ctx, backend_id);
-			if (backend == NULL)
+			if (!backend)
 				goto no_service;
 
 			*new_backend = true;
