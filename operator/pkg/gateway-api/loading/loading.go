@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/manager"
+	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -43,6 +44,7 @@ type TranslationInputs struct {
 	BackendTLSPolicies     []gatewayv1.BackendTLSPolicy
 	Services               []corev1.Service
 	ServiceImports         []mcsapiv1beta1.ServiceImport
+	InferencePools         []gateway_inf_ext.InferencePool
 }
 
 // The Gateway-level filters only select Routes with an accepted parent belonging
@@ -101,10 +103,11 @@ func (r *TranslationInputs) AttachedUDPRoutes(gw *gatewayv1.Gateway) []gatewayv1
 }
 
 type TranslationInputLoaderConfig struct {
-	IncludeTCPRoutes      bool
-	IncludeUDPRoutes      bool
-	IncludeServiceImports bool
-	IncludeListenerSets   bool
+	IncludeTCPRoutes       bool
+	IncludeUDPRoutes       bool
+	IncludeServiceImports  bool
+	IncludeListenerSets    bool
+	IncludesInferencePools bool
 }
 
 type TranslationInputLoader struct {
@@ -127,6 +130,7 @@ func (l *TranslationInputLoader) SetupIndexes(mgr ctrl.Manager) error {
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
 		indexers.BackendServiceHTTPRouteIndex: indexers.GenerateIndexerHTTPRouteByBackendService(l.client, l.logger),
 		indexers.GatewayHTTPRouteIndex:        indexers.IndexHTTPRouteByGateway,
+		indexers.InferencePoolHTTPRouteIndex:  indexers.GenerateIndexerHTTPRouteByInferencePool,
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
@@ -344,6 +348,13 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		return TranslationInputs{}, fmt.Errorf("failed to list ReferenceGrants: %w", err)
 	}
 
+	inferencePoolList := &gateway_inf_ext.InferencePoolList{}
+	if l.config.IncludesInferencePools {
+		if err := l.client.List(ctx, inferencePoolList); err != nil {
+			return TranslationInputs{}, fmt.Errorf("failed to list Inference Pools: %w", err)
+		}
+	}
+
 	return TranslationInputs{
 		GatewayClass:           *gatewayClass,
 		GatewayClassConfig:     gatewayClassConfig,
@@ -360,6 +371,7 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		BackendTLSPolicies:     btlspList.Items,
 		Services:               services,
 		ServiceImports:         serviceImports,
+		InferencePools:         inferencePoolList.Items,
 	}, nil
 }
 

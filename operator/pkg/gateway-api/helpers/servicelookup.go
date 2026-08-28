@@ -34,7 +34,7 @@ func GetBackendServiceName(k8sclient ClientReader, namespace string, backendObje
 		}
 	
 	case HasInferencePoolSupport(k8sclient.Scheme()) && IsInferencePool(backendObjectReference):
-		return string(backendObjectReference.Name),nil	
+		return ShadowServiceName(string(backendObjectReference.Name)),nil	
 
 
 	default:
