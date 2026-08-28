@@ -1203,7 +1203,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 
 static __always_inline __maybe_unused int
 snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
-		struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
+		struct trace_ctx *trace)
 {
 	struct ipv4_nat_entry *state = NULL;
 	struct ipv4_ct_tuple tuple __align_stack_8 = {};
@@ -2186,7 +2186,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 
 static __always_inline __maybe_unused int
 snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
-		struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
+		struct trace_ctx *trace)
 {
 	struct ipv6_nat_entry *state = NULL;
 	struct ipv6_ct_tuple tuple = {};
