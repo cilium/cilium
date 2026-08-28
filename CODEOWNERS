@@ -748,6 +748,7 @@ Makefile* @cilium/build
 /test/k8s/config.go @cilium/sig-k8s
 /test/k8s/pod_mac_address.go @cilium/sig-k8s
 /tools/ @cilium/contributing
+/tools/ci-validation @cilium/github-sec @cilium/ci-structure
 /tools/complexity-diff @cilium/loader
 /tools/dpgen @cilium/loader
 /tools/envoy-bootstrap-locality @cilium/envoy
