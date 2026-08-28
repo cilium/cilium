@@ -163,6 +163,7 @@ struct trace_notify {
 		union v6addr	orig_ip6;
 	};
 	__u64		ip_trace_id;
+
 	TRACE_EXTENSION
 } __align_stack_8;
 

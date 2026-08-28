@@ -45,7 +45,7 @@ type BPFLXC struct {
 	EndpointIPv6 types.V6Addr `config:"endpoint_ipv6"`
 	// The endpoint's network namespace cookie.
 	EndpointNetNSCookie uint64 `config:"endpoint_netns_cookie"`
-	// Ephemeral port range minimun.
+	// Ephemeral port range minimum.
 	EphemeralMin uint16 `config:"ephemeral_min"`
 	// The host endpoint ID.
 	HostEPID uint16 `config:"host_ep_id"`

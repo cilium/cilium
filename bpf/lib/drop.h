@@ -45,6 +45,7 @@ struct drop_notify {
 				*/
 	__u8		pad2[3];
 	__u64		ip_trace_id;
+
 	DROP_EXTENSION
 };
 

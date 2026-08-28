@@ -21,7 +21,7 @@
 #define ACTION_UNKNOWN_ICMP6_NS CTX_ACT_OK
 
 #ifndef VLAN_FILTER
-# define VLAN_FILTER(ifindex, vlan_id) return false;
+#define VLAN_FILTER(ifindex, vlan_id) return false
 #endif
 
 #define	NODEPORT_USE_NAT_46x64		1
@@ -72,7 +72,8 @@
 #define FROM_HOST_FLAG_NEED_HOSTFW (1 << 1)
 #define FROM_HOST_FLAG_HOST_ID (1 << 2)
 
-static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __maybe_unused vlan_id) {
+static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __maybe_unused vlan_id)
+{
 	VLAN_FILTER(ifindex, vlan_id);
 }
 
@@ -100,7 +101,7 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 	union macaddr cilium_net_mac = CONFIG(cilium_net_mac);
 
 	/* Rewrite to destination MAC of cilium_net (remote peer) */
-	if (eth_store_daddr(ctx, (__u8 *) &cilium_net_mac.addr, 0) < 0)
+	if (eth_store_daddr(ctx, (__u8 *)&cilium_net_mac.addr, 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	return CTX_ACT_OK;
@@ -381,7 +382,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	if (!from_host)
 		return CTX_ACT_OK;
 
-	dst = (union v6addr *) &ip6->daddr;
+	dst = (union v6addr *)&ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
 
 #ifdef TUNNEL_MODE
@@ -585,7 +586,7 @@ resolve_srcid_ipv4(const struct __ctx_buff *ctx, const struct iphdr *ip4,
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(real_sec_identity)) {
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-		if (info != NULL) {
+		if (info) {
 			*ipcache_sec_identity = info->sec_identity;
 
 			/* When SNAT is enabled on traffic ingressing
@@ -892,7 +893,7 @@ skip_tunnel:
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
 		 *
-		 * The info == NULL test is soley to satisfy verifier requirements
+		 * The info == NULL test is solely to satisfy verifier requirements
 		 * as in Cilium case we'll always hit the 0.0.0.0/32 catch-all
 		 * entry. Therefore we need to test for WORLD_ID. It is clearly
 		 * wrong to route a ctx to cilium_host for which we don't know

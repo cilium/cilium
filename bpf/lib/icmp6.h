@@ -357,9 +357,8 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 
 	cilium_dbg(ctx, DBG_ICMP6_NS, target.p3, target.p4);
 
-	if (ipv6_addr_equals(&target, &router)) {
+	if (ipv6_addr_equals(&target, &router))
 		return icmp6_send_ndisc_adv(ctx, nh_off, &router_mac, true);
-	}
 
 #ifdef USE_LOOPBACK_LB
 	union v6addr service_loopback = CONFIG(service_loopback_ipv6);
@@ -573,7 +572,9 @@ bool icmp6_ndisc_validate(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 	return true;
 }
 
-#define ICMPV6_PACKET_MAX_SAMPLE_SIZE (IPV6_MIN_MTU - sizeof(struct ipv6hdr) - sizeof(struct icmp6hdr))
+#define ICMPV6_PACKET_MAX_SAMPLE_SIZE (IPV6_MIN_MTU \
+				       - sizeof(struct ipv6hdr) \
+				       - sizeof(struct icmp6hdr))
 
 /* The IPv6 pseudo-header */
 struct ipv6_pseudo_header_t {
@@ -628,7 +629,6 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	}
 
 	ctx_adjust_troom(ctx, (__s32)(new_len - full_len));
-
 
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);

@@ -26,7 +26,7 @@ type BPFXDP struct {
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// Enable XDP Prefilter.
 	EnableXDPPrefilter bool `config:"enable_xdp_prefilter"`
-	// Ephemeral port range minimun.
+	// Ephemeral port range minimum.
 	EphemeralMin uint16 `config:"ephemeral_min"`
 	// IPv4 source prefix used for DSR IPIP RSS.
 	IPv4RSSPrefix types.V4Addr `config:"ipv4_rss_prefix"`
