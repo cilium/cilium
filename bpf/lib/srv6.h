@@ -220,8 +220,7 @@ srv6_decapsulation(struct __ctx_buff *ctx, __u8 *nexthdr)
 parse_outer_ipv4: __maybe_unused;
 		if (ctx_change_proto(ctx, new_proto, 0) < 0)
 			return DROP_WRITE_ERROR;
-		if (ctx_store_bytes(ctx, offsetof(struct ethhdr, h_proto),
-				    &new_proto, sizeof(new_proto), 0) < 0)
+		if (eth_store_proto(ctx, new_proto, 0) < 0)
 			return DROP_WRITE_ERROR;
 		/* ctx_change_proto above shrinks the packet from IPv6 header
 		 * length to IPv4 header length. It removes that space from the
@@ -269,8 +268,7 @@ srv6_handling4(struct __ctx_buff *ctx, union v6addr *src_sid,
 	 */
 	new_payload_len = bpf_ntohs(ip4->tot_len) - (__u16)(ip4->ihl << 2) + sizeof(struct iphdr);
 
-	if (ctx_store_bytes(ctx, offsetof(struct ethhdr, h_proto),
-			    &outer_proto, sizeof(outer_proto), 0) < 0)
+	if (eth_store_proto(ctx, outer_proto, 0) < 0)
 		return DROP_WRITE_ERROR;
 
 #ifdef ENABLE_SRV6_SRH_ENCAP
