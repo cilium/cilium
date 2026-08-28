@@ -30,7 +30,6 @@
 #define EXT_HOP_IP v4_ext_two
 #define POD_IP v4_pod_one
 
-
 __always_inline int gen_pmtu_pkt(struct pktgen *builder, __u8 l4_type)
 {
 	struct ethhdr *l2 = NULL;

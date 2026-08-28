@@ -86,11 +86,10 @@ static __always_inline int egressgw_pktgen(struct __ctx_buff *ctx,
 
 	if (test_ctx.dir == CT_INGRESS) {
 		l3->saddr = EXTERNAL_SVC_IP;
-		if (test_ctx.tuple_collision) {
+		if (test_ctx.tuple_collision)
 			l3->daddr = EGRESS_IP3;
-		} else {
+		else
 			l3->daddr = EGRESS_IP;
-		}
 	} else { /* CT_EGRESS */
 		l3->saddr = CLIENT_IP;
 		l3->daddr = EXTERNAL_SVC_IP;
