@@ -1135,10 +1135,10 @@ __declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS) static __always_inline
 	__s8 ext_err = 0;
 	int ret;
 
-	ret = snat_v6_rev_nat(ctx, &target, &trace, &ext_err);
+	ret = snat_v6_rev_nat(ctx, &target, &trace);
 	if (CONFIG(nodeport_port_max_nat_ext) && ret == NAT_PUNT_TO_STACK) {
 		swap_nat_port_range_ipv6(&target);
-		ret = snat_v6_rev_nat(ctx, &target, &trace, &ext_err);
+		ret = snat_v6_rev_nat(ctx, &target, &trace);
 	}
 	if (IS_ERR(ret)) {
 		if (ret == NAT_PUNT_TO_STACK ||
@@ -2357,10 +2357,10 @@ __declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS) static __always_inline
 	__s8 ext_err = 0;
 	int ret;
 
-	ret = snat_v4_rev_nat(ctx, &target, &trace, &ext_err);
+	ret = snat_v4_rev_nat(ctx, &target, &trace);
 	if (CONFIG(nodeport_port_max_nat_ext) && ret == NAT_PUNT_TO_STACK) {
 		swap_nat_port_range_ipv4(&target);
-		ret = snat_v4_rev_nat(ctx, &target, &trace, &ext_err);
+		ret = snat_v4_rev_nat(ctx, &target, &trace);
 	}
 	if (IS_ERR(ret)) {
 		if (ret == NAT_PUNT_TO_STACK ||

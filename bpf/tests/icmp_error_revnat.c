@@ -114,7 +114,7 @@ int nat4_icmp_error_tcp_snat_revnat_setup(struct __ctx_buff *ctx)
 	 * 2. Reverse NAT the embedded IP src: pod -> endpoint
 	 * 3. Restore the embedded TCP sport: NODEPORT_PORT_MIN_NAT -> 3030
 	 */
-	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
+	ret = snat_v4_rev_nat(ctx, &target, &trace);
 	if (ret != 0)
 		return TEST_ERROR;
 
