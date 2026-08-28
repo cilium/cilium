@@ -182,8 +182,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
-							__u32 src_sec_identity,
-							__s8 *ext_err)
+							__u32 src_sec_identity)
 {
 	int ret;
 	struct iphdr *ip4;
@@ -199,7 +198,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	};
 	struct trace_ctx trace;
 
-	ret = snat_v4_rev_nat(ctx, &target, &trace, ext_err);
+	ret = snat_v4_rev_nat(ctx, &target, &trace);
 	if (ret != NAT_PUNT_TO_STACK && ret != DROP_NAT_NO_MAPPING) {
 		if (IS_ERR(ret))
 			return ret;
@@ -241,11 +240,10 @@ int tail_handle_inter_cluster_revsnat(struct __ctx_buff *ctx)
 {
 	int ret;
 	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
-	__s8 ext_err = 0;
 
-	ret = handle_inter_cluster_revsnat(ctx, src_sec_identity, &ext_err);
+	ret = handle_inter_cluster_revsnat(ctx, src_sec_identity);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
+		return send_drop_notify_error(ctx, src_sec_identity, ret,
 						  METRIC_INGRESS);
 	return ret;
 }
