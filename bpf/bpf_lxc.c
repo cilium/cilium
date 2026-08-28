@@ -2008,7 +2008,7 @@ __declare_tail(CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
 static __always_inline
 int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	__u32 delivery_flags = ctx_load_meta(ctx, CB_DELIVERY_FLAGS);
 	bool do_redirect = delivery_flags & CB_DELIVERY_FLAGS_REDIRECT;
 	__u32 src_label = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);

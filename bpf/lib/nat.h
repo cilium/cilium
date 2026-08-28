@@ -1645,7 +1645,7 @@ snat_v6_rev_nat_handle_mapping(const struct __ctx_buff *ctx,
 	}
 
 	if (*state && (*state)->common.needs_ct) {
-		struct ipv6_ct_tuple tuple_revsnat;
+		struct ipv6_ct_tuple tuple_revsnat __align_stack_8;
 		int ret;
 
 		memcpy(&tuple_revsnat, tuple, sizeof(tuple_revsnat));
@@ -2203,7 +2203,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
 	struct ipv6_nat_entry *state = NULL;
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	fraginfo_t fraginfo = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
