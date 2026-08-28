@@ -365,7 +365,7 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 	if (ipv6_addr_equals(&target, &service_loopback)) {
 		union macaddr source_mac;
 
-		if (ctx_load_bytes(ctx, ETH_ALEN, source_mac.addr, ETH_ALEN) < 0)
+		if (eth_load_saddr(ctx, source_mac.addr, 0) < 0)
 			return DROP_INVALID;
 		return icmp6_send_ndisc_adv(ctx, nh_off, &source_mac, false);
 	}
