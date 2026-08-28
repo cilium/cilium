@@ -1324,6 +1324,41 @@ var perServiceAlgorithmCases = []setWithAlgo{
 		},
 		algo: loadbalancer.LBAlgorithmMaglev,
 	},
+	{
+		testCaseSet: []testCase{
+			newTestCase(
+				"NodePort_1_backend_explicitRoundRobin",
+				func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+					fe.Type = NodePort
+					fe.Address = zeroAddr
+					if svc.Annotations == nil {
+						svc.Annotations = make(map[string]string)
+					}
+					svc.Annotations[annotation.ServiceLoadBalancingAlgorithm] = loadbalancer.LBAlgorithmRoundRobin
+					return false, []loadbalancer.Backend{baseBackend}
+				},
+				[]maps.MapDump{
+					"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+					"REV: ID=1 ADDR=<zero>",
+					"REV: ID=2 ADDR=<nodePort>",
+					"SVC: ID=1 ADDR=<zero>/TCP SLOT=0 LBALG=round-robin AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
+					"SVC: ID=1 ADDR=<zero>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal+non-routable",
+					"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=0 LBALG=round-robin AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
+					"SVC: ID=2 ADDR=<nodePort>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+InternalLocal",
+				},
+				nil,
+				false,
+			),
+			newTestCase(
+				"NodePorts_explicitRoundRobin_cleanup",
+				deleteFrontend(zeroAddr, NodePort),
+				[]maps.MapDump{},
+				nil,
+				false,
+			),
+		},
+		algo: loadbalancer.LBAlgorithmRandom,
+	},
 }
 
 func TestBPFOps(t *testing.T) {
