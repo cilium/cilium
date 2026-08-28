@@ -142,8 +142,9 @@ Cilium supports the following Gateway API fields and values:
      - ``Cookie`` (default)
      - ``Header``
    * - ``sessionName``
-     - A non-empty string, or omitted to let Cilium generate a name
-     - An empty string
+     - A valid, non-empty HTTP cookie name, or omitted to let Cilium generate
+       a name
+     - An empty or invalid HTTP cookie name
    * - ``cookieConfig.lifetimeType``
      - ``Session`` (default)
      - ``Permanent``
