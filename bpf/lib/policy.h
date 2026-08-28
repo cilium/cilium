@@ -16,7 +16,6 @@ DECLARE_CONFIG(bool, enable_icmp_rule, "Apply Network Policy for ICMP packets")
 DECLARE_CONFIG(bool, enable_policy_accounting,
 	       "Maintain packet and byte counters for every policy entry")
 
-
 #ifndef EFFECTIVE_EP_ID
 #define EFFECTIVE_EP_ID 0
 #endif
@@ -65,8 +64,8 @@ struct policy_key {
 };
 
 /* POLICY_FULL_PREFIX gets full prefix length of policy_key */
-#define POLICY_FULL_PREFIX						\
-  (8 * (sizeof(struct policy_key) - sizeof(struct bpf_lpm_trie_key)))
+#define POLICY_FULL_PREFIX	(8 * (sizeof(struct policy_key) \
+				      - sizeof(struct bpf_lpm_trie_key)))
 
 struct policy_entry {
 	__be16		proxy_port;
@@ -225,7 +224,9 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 		    __u32 *cookie)
 {
 	/*
-	 * perform two policy lookups: that with the specific ID, and that with the aggregated (wildcard) ID.
+	 * Perform two policy lookups:
+	 * - with the specific ID, and
+	 * - with the aggregated (wildcard) ID.
 	 * Select the entry with the highest precedence or longest match.
 	 */
 
@@ -280,31 +281,37 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 		}
 	}
 
-	/* Policy match precedence when both specific and aggregated lookups find a matching policy:
+	/* Policy match precedence when both specific and aggregated lookups
+	 * find a matching policy:
 	 *
-	 * 1. Policy with the higher precedence value is selected. This includes giving precedence
-	 *    to deny over allow, proxy redirect over non-proxy redirect, and proxy port priority.
-	 * 2. The entry with longer prefix length is selected out of the two entries with the same
-	 *    precedence.
+	 * 1. Policy with the higher precedence value is selected. This
+	 *    includes giving precedence to deny over allow, proxy redirect
+	 *    over non-proxy redirect, and proxy port priority.
+	 * 2. The entry with longer prefix length is selected out of the two
+	 *    entries with the same precedence.
 	 * 3. Otherwise the allow entry with non-aggregate ID is chosen.
 	 */
 
-	/* Note: Untracked fragments always have zero ports in the tuple so they can
-	 * only match entries that have fully wildcarded ports.
+	/* Note: Untracked fragments always have zero ports in the tuple so
+	 * they can only match entries that have fully wildcarded ports.
 	 */
 
-	/* Specific lookup: an exact match on L3 identity and LPM match on L4 proto and port. */
+	/* Specific lookup: an exact match on L3 identity and LPM match on
+	 * L4 proto and port.
+	 */
 	policy = map_lookup_elem(map, &key);
 
-	/* Specific-ID policy can be chosen without the 2nd lookup if it has the highest possible precedence
-	 * value (which implies that it is a deny).
+	/* Specific-ID policy can be chosen without the 2nd lookup if it has the
+	 * highest possible precedence value (which implies that it is a deny).
 	 */
 	if (likely(policy && policy->precedence == MAX_PRECEDENCE)) {
 		agg_policy = NULL;
 		goto check_policy;
 	}
 
-	/* Aggregate lookup: an aggregate match on L3 identity and LPM match on L4 proto and port. */
+	/* Aggregate lookup: an aggregate match on L3 identity and
+	 * LPM match on L4 proto and port.
+	 */
 	key.sec_label = aggregate_for_identity(remote_id);
 	if (likely(key.sec_label != remote_id))
 		agg_policy = map_lookup_elem(map, &key);

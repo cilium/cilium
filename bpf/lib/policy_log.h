@@ -40,6 +40,7 @@ struct policy_verdict_notify {
 	__u8	pad1[3]; /* align with 64 bits */
 	__u32	cookie;
 	__u32	pad2; /* align with 64 bits */
+
 	POLICY_VERDICT_EXTENSION
 };
 

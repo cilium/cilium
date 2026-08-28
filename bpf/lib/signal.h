@@ -40,14 +40,14 @@ struct signal_msg {
  * uninitialized memory if trying to send the whole msg.
  */
 #define SEND_SIGNAL(CTX, SIGNAL, MEMBER, VALUE)				\
-  {									\
+{									\
 	struct signal_msg msg = {					\
 		.signal_nr	= (SIGNAL),				\
 		.MEMBER		= (VALUE),				\
 	};								\
 	ctx_event_output((CTX), &cilium_signals, BPF_F_CURRENT_CPU, &msg,	\
 			 sizeof(msg.signal_nr) + sizeof(msg.MEMBER));	\
-  }
+}
 
 static __always_inline void send_signal_nat_fill_up(const struct __ctx_buff *ctx,
 						    __u32 proto)

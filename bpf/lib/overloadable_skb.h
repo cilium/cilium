@@ -96,6 +96,7 @@ ctx_skip_nodeport(struct __sk_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	volatile __u32 tc_index = ctx->tc_index;
+
 	ctx->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
 	return tc_index & TC_INDEX_F_SKIP_NODEPORT;
 #else

@@ -164,6 +164,7 @@ struct debug_msg {
 	__u32		arg1;
 	__u32		arg2;
 	__u32		arg3;
+
 	DBG_EXTENSION
 };
 
@@ -171,6 +172,7 @@ struct debug_capture_msg {
 	NOTIFY_CAPTURE_HDR
 	__u32		arg1;
 	__u32		arg2;
+
 	DBG_CAPTURE_EXTENSION
 };
 
@@ -219,7 +221,6 @@ static __always_inline void cilium_dbg3(const struct __ctx_buff *ctx, __u8 type,
 	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
-
 
 static __always_inline void
 cilium_dbg(const struct __ctx_buff *ctx, __u8 type, __u32 arg1, __u32 arg2)

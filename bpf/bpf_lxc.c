@@ -795,7 +795,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 					  trace->reason, trace->monitor, bpf_htons(ETH_P_IPV6));
 			return ret;
 		case DROP_NO_FIB:
-			/* Error handling for local routes - just pass the packet to the kernel stack */
+			/* Error handling for local routes. Pass to stack. */
 			if (*ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
 				break;
 
@@ -1359,7 +1359,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 					  trace->reason, trace->monitor, bpf_htons(ETH_P_IP));
 			return ret;
 		case DROP_NO_FIB:
-			/* Error handling for local routes - just pass the packet to the kernel stack */
+			/* Error handling for local routes. Pass to stack. */
 			if (*ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
 				break;
 
@@ -2103,7 +2103,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 		const struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint(src, 0);
-		if (info != NULL) {
+		if (info) {
 			__u32 sec_identity = info->sec_identity;
 
 			/* When SNAT is enabled on traffic ingressing
@@ -2430,7 +2430,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 		const struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-		if (info != NULL) {
+		if (info) {
 			__u32 sec_identity = info->sec_identity;
 
 			/* When SNAT is enabled on traffic ingressing
@@ -2671,7 +2671,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 					DROP_HOST_NOT_READY, METRIC_INGRESS);
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
-
 
 	ret = pull_l3_hdr(ctx, proto);
 	if (ret < 0)

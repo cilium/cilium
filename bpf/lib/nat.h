@@ -37,7 +37,7 @@
 DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
-DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimun")
+DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimum")
 
 /* We only need to SNAT ICMPv4 traffic if BPF masquerading or inter-cluster
  * SNAT are enabled. If they are disabled, we only SNAT replies from service
@@ -734,8 +734,9 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	 */
 	remote_ep = lookup_ip4_remote_endpoint(tuple->daddr, 0);
 	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
-		/* SNAT the packet to remote node if enable-remote-node-masquerade flag is set to true.
-		 * This is a feature flag that can be enabled in BPF masquerading mode.
+		/* SNAT the packet to remote node if enable-remote-node-masquerade
+		 * flag is set to true. This is a feature flag that can be enabled
+		 * in BPF masquerading mode.
 		 */
 		if (CONFIG(enable_remote_node_masquerade) == true) {
 			target->addr = CONFIG(nat_ipv4_masquerade).be32;
@@ -1053,7 +1054,6 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	bool is_inner_l4_csum_enabled = true;
 	int ret;
 	__u32 total_inner_len = (__u32)(ctx_full_len(ctx) - inner_l3_off);
-
 
 	/* According to the RFC 5508, any networking equipment that is
 	 * responding with an ICMP Error packet should embed the original
@@ -1445,8 +1445,8 @@ out:
 	return ret;
 }
 
-DEFINE_AUX(struct ipv6_nat_entry, snat_v6_nhm_nat_entry)
-DEFINE_AUX(struct ipv6_ct_tuple, snat_v6_nhm_tuple)
+DEFINE_AUX(struct ipv6_nat_entry, snat_v6_nhm_nat_entry);
+DEFINE_AUX(struct ipv6_ct_tuple, snat_v6_nhm_tuple);
 
 static __always_inline int
 snat_v6_nat_handle_mapping(const struct __ctx_buff *ctx,
