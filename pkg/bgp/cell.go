@@ -6,6 +6,8 @@ package bgp
 import (
 	"log/slog"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/hive/cell"
@@ -29,6 +31,7 @@ import (
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/metrics"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -163,9 +166,14 @@ func newBGPNodeConfigResource(lc cell.Lifecycle, c client.Clientset, bc config.B
 	}
 
 	return resource.New[*v2.CiliumBGPNodeConfig](
-		lc, utils.ListerWatcherFromTyped[*v2.CiliumBGPNodeConfigList](
-			c.CiliumV2().CiliumBGPNodeConfigs(),
-		), mp, resource.WithMetric("CiliumBGPNodeConfig"))
+		lc, utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*v2.CiliumBGPNodeConfigList](
+				c.CiliumV2().CiliumBGPNodeConfigs(),
+			),
+			func(opts *metav1.ListOptions) {
+				opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
+			}),
+		mp, resource.WithMetric("CiliumBGPNodeConfig"))
 }
 
 func newBGPPeerConfigResource(lc cell.Lifecycle, c client.Clientset, bc config.BGPConfig, mp workqueue.MetricsProvider) resource.Resource[*v2.CiliumBGPPeerConfig] {
