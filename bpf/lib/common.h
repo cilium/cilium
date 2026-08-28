@@ -641,7 +641,6 @@ struct encrypt_config {
 #define TC_INDEX_F_FROM_EGRESS_PROXY	2
 #define TC_INDEX_F_SKIP_NODEPORT	4
 #define TC_INDEX_F_UNUSED		8
-#define TC_INDEX_F_SKIP_HOST_FIREWALL	16
 
 #define CB_NAT_FLAGS_REVDNAT_ONLY	(1 << 0)
 
