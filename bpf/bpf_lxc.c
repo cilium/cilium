@@ -668,7 +668,6 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			    struct trace_ctx *trace,
 			    __s8 *ext_err)
 {
-	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	int ret;
 
 #ifdef ENABLE_SRV6
@@ -1154,7 +1153,6 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 			    struct trace_ctx *trace,
 			    __s8 *ext_err)
 {
-	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
 	int ret;
 
