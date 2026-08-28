@@ -1258,6 +1258,17 @@ static __always_inline bool
 __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
 			       __u16 *rev_nat_index, bool check_dsr)
 {
+	/* A fully-closed egress entry belongs to a terminated connection.
+	 * When the same CT_EGRESS tuple is reused by a new, non-service
+	 * flow(eg. a direct client-to-backend connection), driving reverse
+	 * NAT from the stale entry would incorrectly rewrite the new flow's
+	 * replies to the old service/hostPort frontend and break the
+	 * connection. Skip processing nodeport egress CT entry corresponding
+	 * to a closed connection.
+	 */
+	if (!ct_entry_alive(entry))
+		return false;
+
 	if (entry->node_port) {
 		if (rev_nat_index)
 			*rev_nat_index = entry->rev_nat_index;
