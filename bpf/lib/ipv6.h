@@ -118,8 +118,8 @@ static __always_inline int ipv6_skip_exthdr(const struct __ctx_buff *ctx, __u8 *
 	}
 }
 
-static __always_inline int ipv6_hdrlen_offset(const struct __ctx_buff *ctx, int l3_off,
-					      __u8 *nexthdr, fraginfo_t *fraginfo)
+static __always_inline int ipv6_walk_exthdrs(const struct __ctx_buff *ctx, int l3_off,
+					     __u8 *nexthdr, fraginfo_t *fraginfo)
 {
 	int i, len = sizeof(struct ipv6hdr);
 	__u8 nh = *nexthdr;
@@ -171,15 +171,16 @@ struct ipv6_hdrlen_arg {
 DEFINE_AUX(struct ipv6_hdrlen_arg, ipv6_hdrlen_arg);
 
 __noinline __weak
-int ipv6_hdrlen_with_fraginfo_weak(const struct __ctx_buff *ctx)
+int ipv6_walk_exthdrs_weak(const struct __ctx_buff *ctx, int l3_off)
 {
 	struct ipv6_hdrlen_arg *arg = AUX(ipv6_hdrlen_arg);
 
-	return ipv6_hdrlen_offset(ctx, ETH_HLEN, &arg->nexthdr, &arg->fraginfo);
+	return ipv6_walk_exthdrs(ctx, l3_off, &arg->nexthdr, &arg->fraginfo);
 }
 
 static __always_inline
-int ipv6_hdrlen_with_fraginfo(const struct __ctx_buff *ctx, __u8 *nexthdr, fraginfo_t *fraginfo)
+int ipv6_hdrlen_offset(const struct __ctx_buff *ctx, int l3_off, __u8 *nexthdr,
+		       fraginfo_t *fraginfo)
 {
 	struct ipv6_hdrlen_arg *arg = AUX(ipv6_hdrlen_arg);
 	int ret;
@@ -190,11 +191,18 @@ int ipv6_hdrlen_with_fraginfo(const struct __ctx_buff *ctx, __u8 *nexthdr, fragi
 	arg->fraginfo = 0;
 	arg->nexthdr = *nexthdr;
 
-	ret = ipv6_hdrlen_with_fraginfo_weak(ctx);
+	ret = ipv6_walk_exthdrs_weak(ctx, l3_off);
 	*nexthdr = arg->nexthdr;
-	*fraginfo = arg->fraginfo;
+	if (fraginfo)
+		*fraginfo = arg->fraginfo;
 
 	return ret;
+}
+
+static __always_inline
+int ipv6_hdrlen_with_fraginfo(const struct __ctx_buff *ctx, __u8 *nexthdr, fraginfo_t *fraginfo)
+{
+	return ipv6_hdrlen_offset(ctx, ETH_HLEN, nexthdr, fraginfo);
 }
 
 static __always_inline int ipv6_hdrlen(const struct __ctx_buff *ctx, __u8 *nexthdr)
@@ -208,7 +216,9 @@ void ipv6_sol_mc_mac_set(const union v6addr *addr, union macaddr *mac)
 	mac->addr[0] = 0x33;
 	mac->addr[1] = 0x33;
 	mac->addr[2] = 0xFF;
-	memcpy((__u8 *)mac + 3, (__u8 *)addr + 13, 3);
+	mac->addr[3] = addr->addr[13];
+	mac->addr[4] = addr->addr[14];
+	mac->addr[5] = addr->addr[15];
 }
 
 static __always_inline
