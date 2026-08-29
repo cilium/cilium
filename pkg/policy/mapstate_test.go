@@ -6,6 +6,7 @@ package policy
 import (
 	"fmt"
 	"iter"
+	"log/slog"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -15,6 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -3434,6 +3437,10 @@ func TestMapState_passValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func emptyMapState(logger *slog.Logger) mapState {
+	return newMapState(logger, nil, 0, cmtypes.ClusterInfo{MaxConnectedClusters: defaults.MaxConnectedClusters})
 }
 
 func permutations(arr []int) [][]int {

@@ -209,7 +209,7 @@ func newUpdatePolicyMapsTestRepo(t *testing.T, withL7Rules bool) (*policy.Reposi
 	idmgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(
 		logger,
-		cmtypes.DefaultClusterInfo.ID,
+		cmtypes.DefaultClusterInfo,
 		nil,
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()),

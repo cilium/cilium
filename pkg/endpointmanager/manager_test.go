@@ -89,7 +89,7 @@ func setupEndpointManagerSuite(tb testing.TB) *EndpointManagerSuite {
 	logger := hivetest.Logger(tb)
 	s := &EndpointManagerSuite{}
 	s.idmgr = identitymanager.NewIDManager(logger)
-	s.repo = policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, s.idmgr, testpolicy.NewPolicyMetricsNoop())
+	s.repo = policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, s.idmgr, testpolicy.NewPolicyMetricsNoop())
 	s.fetcher = testcompute.InstantiateCellForTesting(tb, logger, "endpointmanager", tb.Name(), s.repo, s.idmgr)
 	s.kvstoreSync = ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(tb, kvstore.DisabledBackendName))
 

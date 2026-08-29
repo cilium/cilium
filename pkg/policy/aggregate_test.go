@@ -10,14 +10,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 )
 
 func TestAllAggregates(t *testing.T) {
 	// Validate that the aggregates evaluate to themselves:
+	cinfo := cmtypes.ClusterInfo{MaxConnectedClusters: defaults.MaxConnectedClusters}
 
 	for _, nid := range AllAggregates {
-		require.True(t, isAggregate(nid, 0))
+		require.True(t, isAggregate(nid, cinfo))
 	}
 
 	c := identity.ReservedIdentityAggregateCluster
@@ -35,14 +38,14 @@ func TestAllAggregates(t *testing.T) {
 		// duplicate of AllAggregates for efficiency.
 		switch nid {
 		case 0, c, m, n, w:
-			require.True(t, isAggregate(nid, 0))
+			require.True(t, isAggregate(nid, cinfo))
 		default:
-			require.False(t, isAggregate(nid, 0))
+			require.False(t, isAggregate(nid, cinfo))
 		}
 
 		if writeOutput {
 			expectedIn = append(expectedIn, nid)
-			expectedOut = append(expectedOut, aggregateFor(nid, 0))
+			expectedOut = append(expectedOut, aggregateFor(nid, cinfo))
 		}
 	}
 
@@ -95,6 +98,7 @@ func TestIsAggregate(t *testing.T) {
 	// save typing
 	w := identity.ReservedIdentityAggregateWorld
 	n := identity.ReservedIdentityAggregateRemoteNode
+	cinfo := cmtypes.ClusterInfo{MaxConnectedClusters: defaults.MaxConnectedClusters}
 
 	for i, tc := range []struct {
 		in, out identity.NumericIdentity
@@ -115,9 +119,10 @@ func TestIsAggregate(t *testing.T) {
 		{identity.IdentityScopeRemoteNode, n},
 		{identity.IdentityScopeRemoteNode + 100, n},
 	} {
-		require.Equal(t, tc.out, aggregateFor(tc.in, 0), "index %d ID %d", i, tc.in)
+		require.Equal(t, tc.out, aggregateFor(tc.in, cinfo), "index %d ID %d", i, tc.in)
 	}
 
+	cinfo.ID = 1
 	for i, tc := range []struct {
 		in, out identity.NumericIdentity
 	}{
@@ -137,6 +142,6 @@ func TestIsAggregate(t *testing.T) {
 		{identity.IdentityScopeRemoteNode, n},
 		{identity.IdentityScopeRemoteNode + 100, n},
 	} {
-		require.Equal(t, tc.out, aggregateFor(tc.in, 1), "cluster ID 1, index %d ID %d", i, tc.in)
+		require.Equal(t, tc.out, aggregateFor(tc.in, cinfo), "cluster ID 1, index %d ID %d", i, tc.in)
 	}
 }

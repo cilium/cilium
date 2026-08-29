@@ -306,7 +306,7 @@ type policyDistillery struct {
 func newPolicyDistillery(t testing.TB, selectorCache *SelectorCache) *policyDistillery {
 	idMgr := identitymanager.NewIDManager(hivetest.Logger(t))
 	ret := &policyDistillery{
-		Repository: NewPolicyRepository(hivetest.Logger(t), cmtypes.DefaultClusterInfo.ID, nil, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(t), certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
+		Repository: NewPolicyRepository(hivetest.Logger(t), cmtypes.DefaultClusterInfo, nil, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(t), certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
 		idMgr:      idMgr,
 	}
 	ret.selectorCache = selectorCache

@@ -68,7 +68,7 @@ func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string, _ ...kvs
 	}
 
 	id := func(clusterID, localID uint32) identity.NumericIdentity {
-		return identity.NumericIdentity(clusterID<<identity.GetClusterIDShift() | localID)
+		return identity.NumericIdentity(clusterID<<cmtypes.DefaultClusterInfo.GetClusterIDShift() | localID)
 	}
 
 	fb.prefix = prefix

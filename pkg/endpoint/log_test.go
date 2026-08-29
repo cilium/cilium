@@ -29,7 +29,7 @@ func TestPolicyLog(t *testing.T) {
 	require.NoError(t, err)
 
 	logger := hivetest.Logger(t)
-	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
+	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
 
 	model := newTestEndpointModel(12345, StateReady)
 	p := createEndpointParams(t, nil, do.repo, do.fetcher)
@@ -74,7 +74,7 @@ func TestPolicyLog(t *testing.T) {
 
 func TestPolicyLogAfterEndpointRestore(t *testing.T) {
 	logger := hivetest.Logger(t)
-	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
+	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
 	p := createEndpointParams(t, nil, do.repo, do.fetcher)
 	model := newTestEndpointModel(12345, StateReady)
 

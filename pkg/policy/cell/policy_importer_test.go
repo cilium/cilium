@@ -100,7 +100,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 	idmgr := identitymanager.NewIDManager(logger)
-	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, ids, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, ids, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 	polComputer := testcompute.InstantiateCellForTesting(t, logger, "policy-cell", "TestAddReplaceRemoveRule", repo, idmgr)
 
 	pi := &Importer{

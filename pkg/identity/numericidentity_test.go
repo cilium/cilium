@@ -24,29 +24,45 @@ func TestLocalIdentity(t *testing.T) {
 func TestClusterID(t *testing.T) {
 	tests := []struct {
 		name      string
+		cinfo     cmtypes.ClusterInfo
 		identity  NumericIdentity
 		clusterID uint32
 	}{
 		{
-			name:      "zero",
+			name:      "255-cluster layout zero",
+			cinfo:     cmtypes.ClusterInfo{MaxConnectedClusters: 255},
 			identity:  NumericIdentity(0x000000),
 			clusterID: 0,
 		},
 		{
-			name:      "regular value",
+			name:      "255-cluster layout regular value",
+			cinfo:     cmtypes.ClusterInfo{MaxConnectedClusters: 255},
 			identity:  NumericIdentity(42 << 16),
 			clusterID: 42,
 		},
 		{
-			name:      "max value",
+			name:      "255-cluster layout max value",
+			cinfo:     cmtypes.ClusterInfo{MaxConnectedClusters: 255},
 			identity:  NumericIdentity(255 << 16),
 			clusterID: 255,
+		},
+		{
+			name:      "511-cluster layout regular value",
+			cinfo:     cmtypes.ClusterInfo{MaxConnectedClusters: 511},
+			identity:  NumericIdentity(42 << 15),
+			clusterID: 42,
+		},
+		{
+			name:      "511-cluster layout max value",
+			cinfo:     cmtypes.ClusterInfo{MaxConnectedClusters: 511},
+			identity:  NumericIdentity(511 << 15),
+			clusterID: 511,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.clusterID, tt.identity.ClusterID())
+			require.Equal(t, tt.clusterID, tt.identity.ClusterID(tt.cinfo))
 		})
 	}
 }

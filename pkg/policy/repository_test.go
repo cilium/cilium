@@ -1334,7 +1334,7 @@ func TestDefaultAllow(t *testing.T) {
 func TestReplaceByResource(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
-	repo := NewPolicyRepository(hivetest.Logger(t), cmtypes.DefaultClusterInfo.ID, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	repo := NewPolicyRepository(hivetest.Logger(t), cmtypes.DefaultClusterInfo, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(t, hivetest.Logger(t), nil)
 	assert.True(t, sc.selectors.Empty())
 	repo.subjectSelectorCache = sc
