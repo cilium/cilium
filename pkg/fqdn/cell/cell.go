@@ -5,7 +5,9 @@ package cell
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/fqdn/lookup"
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
@@ -20,6 +22,7 @@ var Cell = cell.Module(
 	"Cell provides the FQDN proxy controlplane functionality",
 
 	// The FQDN NameManager stores DNS mappings.
+	cell.ProvidePrivate(fqdnStateTables),
 	namemanager.Cell,
 
 	lookup.Cell,
@@ -41,3 +44,19 @@ var Cell = cell.Module(
 
 	cell.Provide(rules.NewDNSRulesService),
 )
+
+func fqdnStateTables(db *statedb.DB) (
+	statedb.RWTable[fqdn.FQDNMapping],
+	statedb.RWTable[fqdn.EndpointFQDNMapping],
+	error,
+) {
+	global, err := fqdn.NewFQDNStateTable(db)
+	if err != nil {
+		return nil, nil, err
+	}
+	endpoint, err := fqdn.NewEndpointFQDNStateTable(db)
+	if err != nil {
+		return nil, nil, err
+	}
+	return global, endpoint, nil
+}

@@ -8,6 +8,8 @@ import (
 	"hash/fnv"
 	"log/slog"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"regexp"
 
 	"github.com/cilium/hive/cell"
@@ -29,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/wal"
 )
 
 // The implementation of the NameManager interface.
@@ -57,6 +60,7 @@ type manager struct {
 	selectorChanges chan selectorChange
 	// Any pre-allocated identities for selectors -- used for possible release.
 	selectorIDs map[api.FQDNSelector][]identity.NumericIdentity
+	stateWAL    *wal.Writer[fqdn.FQDNStateEvent]
 }
 
 type selectorChange struct {
@@ -79,6 +83,22 @@ func New(params ManagerParams) *manager {
 		selectorIDs:  make(map[api.FQDNSelector][]identity.NumericIdentity),
 		cache:        cache,
 		nameLocks:    make([]*lock.Mutex, params.Config.DNSProxyLockCount),
+	}
+	if params.Config.StateDir != "" {
+		if err := os.MkdirAll(params.Config.StateDir, 0o755); err != nil {
+			params.Logger.Warn("Unable to create FQDN state directory", logfields.Error, err)
+		} else if stateWAL, err := wal.NewWriter[fqdn.FQDNStateEvent](filepath.Join(params.Config.StateDir, "fqdn_state.wal")); err != nil {
+			params.Logger.Warn("Unable to open FQDN state WAL", logfields.Error, err)
+		} else {
+			n.stateWAL = stateWAL
+			if params.Lifecycle != nil {
+				params.Lifecycle.Append(cell.Hook{
+					OnStop: func(_ cell.HookContext) error {
+						return n.stateWAL.Close()
+					},
+				})
+			}
+		}
 	}
 
 	for i := range n.nameLocks {
@@ -247,6 +267,7 @@ func (n *manager) waitForEndpointRestore(ctx context.Context) error {
 
 	n.Lock()
 	defer n.Unlock()
+	n.restoreFQDNState()
 
 	n.bootstrapCompleted = true
 	return nil
@@ -303,7 +324,123 @@ func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *
 // newIPs.
 // upserted is true when the new IPs differ from the old IPs
 func (n *manager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int, caches ...*fqdn.DNSCache) fqdn.UpdateStatus {
-	return n.cache.Update(lookupTime, dnsName, newIPs, ttl, caches...)
+	res := n.cache.Update(lookupTime, dnsName, newIPs, ttl, caches...)
+	n.updateFQDNState(lookupTime, dnsName, newIPs, ttl)
+	return res
+}
+
+func (n *manager) updateFQDNState(lookupTime time.Time, name string, ips []netip.Addr, ttl int) {
+	if n.params.DB == nil || n.params.FQDNTable == nil || name == "" || ttl < 0 {
+		return
+	}
+	if n.params.Config.MinTTL > ttl {
+		ttl = n.params.Config.MinTTL
+	}
+
+	txn := n.params.DB.WriteTxn(n.params.FQDNTable)
+	expirationTime := lookupTime.Add(time.Duration(ttl) * time.Second)
+	for _, ip := range ips {
+		mapping := fqdn.FQDNMapping{
+			Name:           name,
+			IP:             ip.Unmap(),
+			LookupTime:     lookupTime,
+			TTL:            uint32(ttl),
+			ExpirationTime: expirationTime,
+		}
+		_, _, err := n.params.FQDNTable.Modify(txn, mapping, func(old, new fqdn.FQDNMapping) fqdn.FQDNMapping {
+			if old.ExpirationTime.After(new.ExpirationTime) {
+				return old
+			}
+			return new
+		})
+		if err != nil {
+			n.logger.Warn("Unable to persist global FQDN mapping", logfields.Error, err,
+				logfields.DNSName, name, logfields.IPAddr, ip)
+		}
+	}
+	txn.Commit()
+}
+
+func (n *manager) syncFQDNStateFromCache() {
+	if n.params.DB == nil || n.params.FQDNTable == nil {
+		return
+	}
+	txn := n.params.DB.WriteTxn(n.params.FQDNTable)
+	if err := n.params.FQDNTable.DeleteAll(txn); err != nil {
+		n.logger.Warn("Unable to clear global FQDN StateDB table", logfields.Error, err)
+		txn.Abort()
+		return
+	}
+	for _, entry := range n.cache.Dump() {
+		for _, ip := range entry.IPs {
+			mapping := fqdn.FQDNMapping{
+				Name:           entry.Name,
+				IP:             ip.Unmap(),
+				LookupTime:     entry.LookupTime,
+				TTL:            uint32(entry.TTL),
+				ExpirationTime: entry.ExpirationTime,
+			}
+			if _, _, err := n.params.FQDNTable.Insert(txn, mapping); err != nil {
+				n.logger.Warn("Unable to restore global FQDN mapping", logfields.Error, err,
+					logfields.DNSName, entry.Name, logfields.IPAddr, ip)
+			}
+		}
+	}
+	txn.Commit()
+}
+
+func (n *manager) restoreFQDNState() {
+	if n.params.DB == nil || n.params.FQDNTable == nil || n.params.Config.StateDir == "" {
+		return
+	}
+	path := filepath.Join(n.params.Config.StateDir, "fqdn_state.json")
+	rows, err := n.readFQDNStateWAL()
+	if err == nil && len(rows) == 0 {
+		rows, err = fqdn.ReadFQDNStateFile(path)
+	}
+	if err != nil {
+		n.logger.Warn("Unable to restore global FQDN StateDB table", logfields.Error, err, logfields.Path, path)
+		return
+	}
+	if len(rows) == 0 {
+		n.syncFQDNStateFromCache()
+		return
+	}
+	txn := n.params.DB.WriteTxn(n.params.FQDNTable)
+	for _, row := range rows {
+		if row.Name == "" || !row.IP.IsValid() {
+			continue
+		}
+		if _, _, err := n.params.FQDNTable.Insert(txn, row); err != nil {
+			n.logger.Warn("Unable to restore global FQDN mapping", logfields.Error, err,
+				logfields.DNSName, row.Name, logfields.IPAddr, row.IP)
+			continue
+		}
+		n.cache.Update(row.LookupTime, row.Name, []netip.Addr{row.IP}, int(row.TTL))
+	}
+	txn.Commit()
+}
+
+func (n *manager) readFQDNStateWAL() ([]fqdn.FQDNMapping, error) {
+	if n.params.Config.StateDir == "" {
+		return nil, nil
+	}
+	walPath := filepath.Join(n.params.Config.StateDir, "fqdn_state.wal")
+	events, err := wal.Read(walPath, fqdn.UnmarshalFQDNStateEvent)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var rows []fqdn.FQDNMapping
+	for event, eventErr := range events {
+		if eventErr != nil {
+			return nil, eventErr
+		}
+		rows = event.Rows
+	}
+	return rows, nil
 }
 
 func ipcacheResource(dnsName string) ipcacheTypes.ResourceID {
