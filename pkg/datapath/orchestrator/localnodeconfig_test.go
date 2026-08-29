@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 
 	fakeconnector "github.com/cilium/cilium/pkg/datapath/connector/fake"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
@@ -124,9 +123,11 @@ func TestDirectRoutingDeviceHasAddr(t *testing.T) {
 }
 
 // TestNewLocalNodeConfigNoGoroutineLeak is a regression test for
-// https://github.com/cilium/cilium/issues/46254: the watch channel returned by
-// newLocalNodeConfig is backed by a common.MergeChannels goroutine that must be
-// reclaimed when the caller cancels the context, even if no input ever fires.
+// https://github.com/cilium/cilium/issues/46254. newLocalNodeConfig must return
+// its watch channels directly rather than merging them with a helper goroutine:
+// the reconciler abandons the watch set whenever it wakes up via another event
+// source, so any goroutine tied to it would leak. This test guards against a
+// merge helper being reintroduced.
 func TestNewLocalNodeConfigNoGoroutineLeak(t *testing.T) {
 	// Save and restore the global config touched below.
 	savedHostLegacy := option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting
@@ -140,8 +141,8 @@ func TestNewLocalNodeConfigNoGoroutineLeak(t *testing.T) {
 	// KPR + BPF host routing + Wireguard disabled => DirectRoutingDeviceRequired
 	// is false, so newLocalNodeConfig skips the direct routing device branch.
 	option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting = true
-	option.Config.IPv4ServiceRange = AutoCIDR
-	option.Config.IPv6ServiceRange = AutoCIDR
+	option.Config.IPv4ServiceRange = netip.Prefix{}
+	option.Config.IPv6ServiceRange = netip.Prefix{}
 
 	db := statedb.New()
 	devices, err := tables.NewDeviceTable(db)
@@ -152,7 +153,7 @@ func TestNewLocalNodeConfigNoGoroutineLeak(t *testing.T) {
 	require.NoError(t, err)
 
 	// Seed cilium_host and cilium_net so newLocalNodeConfig reaches the success
-	// path that builds the merged watch channel.
+	// path that returns the full watch channel set.
 	wtxn := db.WriteTxn(devices)
 	for i, name := range []string{defaults.HostDevice, defaults.SecondHostDevice} {
 		_, _, err = devices.Insert(wtxn, &tables.Device{
@@ -173,8 +174,8 @@ func TestNewLocalNodeConfigNoGoroutineLeak(t *testing.T) {
 
 	wgAgent := wgfake.NewTestAgent(wgfake.Config{EnableWireguard: false})
 
-	call := func(ctx context.Context) error {
-		_, _, err := newLocalNodeConfig(
+	call := func(ctx context.Context) ([]<-chan struct{}, error) {
+		_, watches, err := newLocalNodeConfig(
 			ctx,
 			option.Config,
 			node.LocalNode{Local: &node.LocalNodeInfo{}},
@@ -196,18 +197,18 @@ func TestNewLocalNodeConfigNoGoroutineLeak(t *testing.T) {
 			fakeconnector.NewVeth(),
 			nil,
 		)
-		return err
+		return watches, err
 	}
 
 	// Baseline goroutines after setup so statedb's etc. are not counted.
-	defer testutils.GoleakVerifyNone(t, goleak.IgnoreCurrent())
+	defer testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
 
-	// Emulate the reconciler loop: create a watch, abandon it (as when the loop
-	// wakes via another event source), then cancel the per-iteration context.
-	// Without the fix the merge goroutines block forever in reflect.Select.
+	// Emulate the reconciler loop rebuilding and abandoning its watch set when
+	// another event source wakes it. No goroutine should be created for the
+	// watch channels.
 	for range 1000 {
-		watchCtx, cancelWatch := context.WithCancel(context.Background())
-		require.NoError(t, call(watchCtx))
-		cancelWatch()
+		watches, err := call(context.Background())
+		require.NoError(t, err)
+		require.NotEmpty(t, watches)
 	}
 }

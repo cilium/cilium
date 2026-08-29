@@ -15,7 +15,6 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
@@ -57,8 +56,10 @@ func prefixToCIDR(p netip.Prefix) *cidr.CIDR {
 // LocalNodeConfiguration instance is generated. Previous LocalNodeConfiguration
 // is never mutated in-place.
 //
-// The returned channel will be closed for recoverable errors once the state of
-// failing condition changes.
+// Each returned watch channel is closed when the piece of state it tracks
+// changes; the caller should wait on all of them. For recoverable errors, a
+// single watch channel is returned that is closed once the failing condition
+// changes.
 func newLocalNodeConfig(
 	ctx context.Context,
 	daemon *option.DaemonConfig,
@@ -80,7 +81,7 @@ func newLocalNodeConfig(
 	ipsecCfg ipsec.Config,
 	connectorConfig connector.Config,
 	plugins plugin.Plugins,
-) (config.Config, <-chan struct{}, error) {
+) (config.Config, []<-chan struct{}, error) {
 	auxPrefixes := []ip.Prefix{}
 
 	if daemon.IPv4ServiceRange.IsValid() {
@@ -102,14 +103,14 @@ func newLocalNodeConfig(
 		if drd == nil {
 			// If the direct routing device is not present return the watch channel along with an error.
 			// Watch channel will be closed when there is an update to the DirectRouting device configuration.
-			return config.Config{}, directRoutingDevWatch, errors.New("direct routing device required but not configured")
+			return config.Config{}, []<-chan struct{}{directRoutingDevWatch}, errors.New("direct routing device required but not configured")
 		}
 
 		// Ensure the device has at least one usable address for the enabled
 		// address families. If not, return the watch channel so we retry as
 		// soon as the device's addresses change.
 		if !directRoutingDeviceHasAddr(drd) {
-			return config.Config{}, directRoutingDevWatch,
+			return config.Config{}, []<-chan struct{}{directRoutingDevWatch},
 				fmt.Errorf("direct routing device %s has no usable addresses", drd.Name)
 		}
 
@@ -135,7 +136,7 @@ func newLocalNodeConfig(
 
 	ciliumHostDevice, _, hostWatch, ok := devices.GetWatch(txn, tables.DeviceByName(defaults.HostDevice))
 	if !ok {
-		return config.Config{}, hostWatch, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
+		return config.Config{}, []<-chan struct{}{hostWatch}, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
 	}
 	watchChans = append(watchChans, hostWatch)
 	ciliumHostMAC, err := mac.ParseMAC(ciliumHostDevice.HardwareAddr.String())
@@ -145,7 +146,7 @@ func newLocalNodeConfig(
 
 	ciliumNetDevice, _, netWatch, ok := devices.GetWatch(txn, tables.DeviceByName(defaults.SecondHostDevice))
 	if !ok {
-		return config.Config{}, netWatch, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
+		return config.Config{}, []<-chan struct{}{netWatch}, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
 	}
 	watchChans = append(watchChans, netWatch)
 	ciliumNetMAC, err := mac.ParseMAC(ciliumNetDevice.HardwareAddr.String())
@@ -204,7 +205,7 @@ func newLocalNodeConfig(
 		DatapathIsLayer2:             connectorConfig.GetOperationalMode().IsLayer2(),
 		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 		Plugins:                      plugins,
-	}, common.MergeChannels(ctx, watchChans...), nil
+	}, watchChans, nil
 }
 
 // getEphemeralPortRangeMin returns the minimum ephemeral port from
