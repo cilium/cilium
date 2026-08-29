@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	storepkg "github.com/cilium/cilium/pkg/kvstore/store"
@@ -197,7 +198,7 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.Equal(t, NewEvent("delete", "10.0.0.1", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164", src), eventually(ipcache.events))
 		require.True(t, synced, "The on-sync callback should have been executed")
-	}, "cilium/state/ip/v1/default/", WithIdentityValidator(10)))
+	}, "cilium/state/ip/v1/default/", WithIdentityValidator(cmtypes.ClusterInfo{MaxConnectedClusters: 255}, 10)))
 }
 
 func TestIdentityValidator(t *testing.T) {
@@ -208,7 +209,7 @@ func TestIdentityValidator(t *testing.T) {
 	)
 
 	var opts iwOpts
-	WithIdentityValidator(cid)(&opts)
+	WithIdentityValidator(cmtypes.ClusterInfo{MaxConnectedClusters: 255}, cid)(&opts)
 
 	require.Len(t, opts.validators, 1, "The validator should have been configured")
 	validator := opts.validators[0]

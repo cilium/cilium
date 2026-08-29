@@ -221,8 +221,8 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 	m.logger.Info("Initializing identity allocator")
 
-	minID := idpool.ID(identity.GetMinimalAllocationIdentity(m.clusterInfo.ID))
-	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(m.clusterInfo.ID))
+	minID := idpool.ID(m.clusterInfo.MinimalAllocationIdentity())
+	maxID := idpool.ID(m.clusterInfo.MaximumAllocationIdentity())
 
 	m.logger.Info(
 		"Allocating identities between range",
@@ -309,7 +309,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		allocOptions := []allocator.AllocatorOption{
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithEvents(events), allocator.WithSyncInterval(m.syncInterval),
-			allocator.WithPrefixMask(idpool.ID(m.clusterInfo.ID << identity.GetClusterIDShift())),
+			allocator.WithPrefixMask(idpool.ID(m.clusterInfo.ID << m.clusterInfo.GetClusterIDShift())),
 		}
 		if m.operatorIDManagement {
 			allocOptions = append(allocOptions, allocator.WithOperatorIDManagement())
@@ -942,7 +942,7 @@ func (m *CachingIdentityAllocator) WatchRemoteIdentities(remoteName string, remo
 	remoteAlloc, err := allocator.NewAllocator(m.logger,
 		&key.GlobalIdentity{}, remoteAllocatorBackend,
 		allocator.WithEvents(m.IdentityAllocator.GetEvents()), allocator.WithoutGC(), allocator.WithoutAutostart(),
-		allocator.WithCacheValidator(clusterIDValidator(remoteID)),
+		allocator.WithCacheValidator(clusterIDValidator(m.clusterInfo, remoteID)),
 		allocator.WithCacheValidator(clusterNameValidator(remoteName)),
 	)
 	if err != nil {
@@ -1029,9 +1029,9 @@ func (m *CachingIdentityAllocator) LocalIdentityChanges() stream.Observable[Iden
 
 // clusterIDValidator returns a validator ensuring that the identity ID belongs
 // to the ClusterID range.
-func clusterIDValidator(clusterID uint32) allocator.CacheValidator {
-	min := idpool.ID(identity.GetMinimalAllocationIdentity(clusterID))
-	max := idpool.ID(identity.GetMaximumAllocationIdentity(clusterID))
+func clusterIDValidator(cinfo cmtypes.ClusterInfo, clusterID uint32) allocator.CacheValidator {
+	min := idpool.ID(cinfo.MinimalAllocationIdentityFor(clusterID))
+	max := idpool.ID(cinfo.MaximumAllocationIdentityFor(clusterID))
 
 	return func(_ allocator.AllocatorChangeKind, id idpool.ID, _ allocator.AllocatorKey) error {
 		if id < min || id > max {

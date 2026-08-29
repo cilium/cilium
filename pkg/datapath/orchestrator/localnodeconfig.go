@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/statedb"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -52,6 +53,7 @@ func newLocalNodeConfig(
 	daemon *option.DaemonConfig,
 	localNode node.LocalNode,
 	sysctlOps sysctl.Sysctl,
+	clusterInfo cmtypes.ClusterInfo,
 	tunnelCfg tunnel.Config,
 	txn statedb.ReadTxn,
 	directRoutingDevTbl tables.DirectRoutingDevice,
@@ -163,6 +165,7 @@ func newLocalNodeConfig(
 
 	return config.Config{
 		ClusterID:                    localNode.ClusterID,
+		ClusterIDBits:                clusterInfo.GetClusterIDBits(),
 		NodeIPv4:                     ip.AddrFromIP(localNode.GetNodeIP(false)),
 		NodeIPv6:                     ip.AddrFromIP(localNode.GetNodeIP(true)),
 		CiliumInternalIPv4:           ip.AddrFromIP(localNode.GetCiliumInternalIP(false)),
