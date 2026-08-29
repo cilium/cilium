@@ -18,7 +18,6 @@ import (
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -231,8 +230,8 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset, bgpCfg bgpConfi
 	//
 	// FIXME: add options to handle clustermesh with this constructor parameter:
 	//    allocator.WithPrefixMask(idpool.ID(clusterID<<identity.ClusterIDShift)))
-	minID := idpool.ID(identity.GetMinimalAllocationIdentity(cmtypes.DefaultClusterInfo.ID))
-	maxID := idpool.ID(identity.GetMaximumAllocationIdentity(cmtypes.DefaultClusterInfo.ID))
+	minID := idpool.ID(cmtypes.DefaultClusterInfo.MinimalAllocationIdentity())
+	maxID := idpool.ID(cmtypes.DefaultClusterInfo.MaximumAllocationIdentity())
 	crdAllocator, err = allocator.NewAllocator(log, &cacheKey.GlobalIdentity{}, crdBackend, allocator.WithMax(maxID), allocator.WithMin(minID))
 	if err != nil {
 		logging.Fatal(log, "Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs", logfields.Error, err)

@@ -18,6 +18,9 @@ func (in *Config) deepEqual(other *Config) bool {
 	if in.ClusterID != other.ClusterID {
 		return false
 	}
+	if in.ClusterIDBits != other.ClusterIDBits {
+		return false
+	}
 	if in.CiliumHostIfIndex != other.CiliumHostIfIndex {
 		return false
 	}

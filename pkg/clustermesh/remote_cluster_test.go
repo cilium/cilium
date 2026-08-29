@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -589,7 +590,7 @@ func TestIPCacheWatcherOpts(t *testing.T) {
 		{
 			name: "with extra opts",
 			extra: func(config *types.CiliumClusterConfig) []ipcache.IWOpt {
-				return []ipcache.IWOpt{ipcache.WithClusterID(10), ipcache.WithIdentityValidator(25)}
+				return []ipcache.IWOpt{ipcache.WithClusterID(10), ipcache.WithIdentityValidator(cmtypes.ClusterInfo{MaxConnectedClusters: 255}, 25)}
 			},
 			expected: 2,
 		},

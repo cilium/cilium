@@ -37,6 +37,9 @@ type Config struct {
 	// ClusterID is the immutable identifier of the local cluster.
 	ClusterID uint32
 
+	// Number of bits of the identity reserved for the Cluster ID.
+	ClusterIDBits uint32
+
 	// NodeIPv4 is the primary IPv4 address of this node.
 	// Mutable at runtime.
 	// +deepequal-gen=false

@@ -171,6 +171,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 	rc := &remoteCluster{
 		name:                     name,
 		clusterID:                cmtypes.ClusterIDUnset,
+		localClusterInfo:         cm.conf.ClusterInfo,
 		serviceModeV2:            cm.conf.ServiceModeV2,
 		status:                   status,
 		storeFactory:             cm.conf.StoreFactory,
