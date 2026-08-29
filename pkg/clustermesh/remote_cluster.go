@@ -42,6 +42,10 @@ type remoteCluster struct {
 	// clusterID is the clusterID advertized by the remote cluster
 	clusterID uint32
 
+	// localClusterInfo is the local cluster configuration, used for local
+	// interpretation of remote identity layout
+	localClusterInfo cmtypes.ClusterInfo
+
 	// mutex protects the following variables:
 	// - remoteIdentityCache
 	mutex lock.RWMutex
@@ -262,7 +266,7 @@ func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig)
 
 	if config != nil {
 		opts = append(opts, ipcache.WithCachedPrefix(config.Capabilities.Cached))
-		opts = append(opts, ipcache.WithIdentityValidator(config.ID))
+		opts = append(opts, ipcache.WithIdentityValidator(rc.localClusterInfo, config.ID))
 	}
 
 	if rc.ipCacheWatcherExtraOpts != nil {

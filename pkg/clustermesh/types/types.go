@@ -6,11 +6,13 @@ package types
 import (
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	identity "github.com/cilium/cilium/pkg/identity/numericidentity"
 )
 
 const (
@@ -46,6 +48,47 @@ func (c ClusterInfo) InitClusterIDMax() error {
 		return fmt.Errorf("--%s=%d is invalid; supported values are [%d, %d]", OptMaxConnectedClusters, c.MaxConnectedClusters, defaults.MaxConnectedClusters, ClusterIDExt511)
 	}
 	return nil
+}
+
+// GetClusterIDBits returns the number of bits that represent a cluster ID in a
+// numeric identity for this cluster configuration.
+func (c ClusterInfo) GetClusterIDBits() uint32 {
+	return uint32(math.Log2(float64(c.MaxConnectedClusters + 1)))
+}
+
+// GetClusterIDShift returns the number of bits to shift a cluster ID in a
+// numeric identity for this cluster configuration.
+func (c ClusterInfo) GetClusterIDShift() uint32 {
+	return identity.Bitlength - c.GetClusterIDBits()
+}
+
+// MinimalAllocationIdentity returns the minimal numeric identity not used for
+// reserved purposes for this cluster configuration.
+func (c ClusterInfo) MinimalAllocationIdentity() uint32 {
+	return c.MinimalAllocationIdentityFor(c.ID)
+}
+
+// MinimalAllocationIdentityFor returns the minimal numeric identity assigned
+// to the given cluster ID for this cluster configuration.
+func (c ClusterInfo) MinimalAllocationIdentityFor(clusterID uint32) uint32 {
+	if clusterID > 0 {
+		// For ClusterID > 0, the identity range just starts from cluster shift,
+		// no well-known-identities need to be reserved from the range.
+		return (1 << c.GetClusterIDShift()) * clusterID
+	}
+	return identity.MinimalIdentity
+}
+
+// MaximumAllocationIdentity returns the maximum numeric identity that should be
+// handed out by the identity allocator for this cluster configuration.
+func (c ClusterInfo) MaximumAllocationIdentity() uint32 {
+	return c.MaximumAllocationIdentityFor(c.ID)
+}
+
+// MaximumAllocationIdentityFor returns the maximum numeric identity assigned
+// to the given cluster ID for this cluster configuration.
+func (c ClusterInfo) MaximumAllocationIdentityFor(clusterID uint32) uint32 {
+	return (1<<c.GetClusterIDShift())*(clusterID+1) - 1
 }
 
 // ValidateClusterID ensures that the given clusterID is within the configured

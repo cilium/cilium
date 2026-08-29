@@ -713,7 +713,7 @@ func TestClusterIDValidator(t *testing.T) {
 	)
 
 	var (
-		validator = clusterIDValidator(cid)
+		validator = clusterIDValidator(cmtypes.ClusterInfo{ID: cid, MaxConnectedClusters: 255}, cid)
 		key       = &cacheKey.GlobalIdentity{}
 	)
 

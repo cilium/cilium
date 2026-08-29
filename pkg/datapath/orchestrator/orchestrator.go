@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
@@ -100,6 +101,7 @@ type orchestratorParams struct {
 	Config              Config
 	Log                 *slog.Logger
 	Loader              loader.Loader
+	ClusterInfo         cmtypes.ClusterInfo
 	TunnelConfig        tunnel.Config
 	OldMTU              mtu.MTU
 	MTU                 statedb.Table[mtu.RouteMTU]
@@ -240,6 +242,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 				option.Config,
 				localNode,
 				o.params.Sysctl,
+				o.params.ClusterInfo,
 				o.params.TunnelConfig,
 				o.params.DB.ReadTxn(),
 				o.params.DirectRoutingDevice,

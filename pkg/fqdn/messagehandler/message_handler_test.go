@@ -123,7 +123,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 			ID:   uint16(i),
 			IPv4: netip.MustParseAddr(fmt.Sprintf("10.96.%d.%d", i/256, i%256)),
 			SecurityIdentity: &identity.Identity{
-				ID: identity.NumericIdentity(i % int(identity.GetMaximumAllocationIdentity(cmtypes.DefaultClusterInfo.ID))),
+				ID: identity.NumericIdentity(i % int(cmtypes.DefaultClusterInfo.MaximumAllocationIdentity())),
 			},
 			DNSZombies: &fqdn.DNSZombieMappings{
 				Mutex: lock.Mutex{},

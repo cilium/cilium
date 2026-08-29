@@ -15,7 +15,6 @@ import (
 
 	operator_k8s "github.com/cilium/cilium/operator/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/basicallocator"
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -68,8 +67,8 @@ func newReconciler(
 ) (*reconciler, error) {
 	logger.InfoContext(ctx, "Creating CID controller Operator reconciler")
 
-	minIDValue := idpool.ID(identity.GetMinimalAllocationIdentity(clusterInfo.ID))
-	maxIDValue := idpool.ID(identity.GetMaximumAllocationIdentity(clusterInfo.ID))
+	minIDValue := idpool.ID(clusterInfo.MinimalAllocationIdentity())
+	maxIDValue := idpool.ID(clusterInfo.MaximumAllocationIdentity())
 	idAllocator := basicallocator.NewBasicIDAllocator(minIDValue, maxIDValue)
 
 	nsStore, err := namespace.Store(ctx)
