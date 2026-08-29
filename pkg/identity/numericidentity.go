@@ -10,7 +10,6 @@ import (
 	"net/netip"
 	"sort"
 	"strconv"
-	"sync"
 	"unsafe"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -83,16 +82,6 @@ const (
 	// InvalidIdentity is the identity assigned if the identity is invalid
 	// or not determined yet
 	InvalidIdentity = NumericIdentity(0)
-)
-
-var (
-	// clusterIDInit ensures that clusterIDShift can only be set once, and only if
-	// we haven't used the value elsewhere already.
-	clusterIDInit sync.Once
-
-	// clusterIDShift is the number of bits to shift a cluster ID in a numeric
-	// identity and is equal to the number of bits that represent a cluster-local identity.
-	clusterIDShift uint32
 )
 
 const (
@@ -338,23 +327,6 @@ func InitWellKnownIdentities(ciliumNS string, cinfo cmtypes.ClusterInfo) int {
 	return len(WellKnown)
 }
 
-// GetClusterIDShift returns the number of bits to shift a cluster ID in a numeric
-// identity and is equal to the number of bits that represent a cluster-local identity.
-// A sync.Once is used to ensure we only initialize clusterIDShift once.
-func GetClusterIDShift() uint32 {
-	clusterIDInit.Do(initClusterIDShift)
-	return clusterIDShift
-}
-
-// initClusterIDShift sets variables that control the bit allocation of cluster
-// ID in a numeric identity.
-func initClusterIDShift() {
-	// ClusterIDLen is the number of bits that represent a cluster ID in a numeric identity
-	clusterIDBits := uint32(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
-	// ClusterIDShift is the number of bits to shift a cluster ID in a numeric identity
-	clusterIDShift = NumericIdentityBitlength - clusterIDBits
-}
-
 var (
 	reservedIdentities = map[string]NumericIdentity{
 		labels.IDNameHost:          ReservedIdentityHost,
@@ -450,10 +422,6 @@ func AddUserDefinedNumericIdentity(identity NumericIdentity, label string) error
 //	   24: LocalIdentityFlag: Indicates that the identity has a local scope
 type NumericIdentity uint32
 
-// NumericIdentityBitlength is the number of bits used on the wire for a
-// NumericIdentity
-const NumericIdentityBitlength = 24
-
 // MaxNumericIdentity is the maximum value of a NumericIdentity.
 const MaxNumericIdentity = math.MaxUint32
 
@@ -509,9 +477,10 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 	return isReservedIdentity
 }
 
-// ClusterID returns the cluster ID associated with the identity
-func (id NumericIdentity) ClusterID() uint32 {
-	return (uint32(id) >> uint32(GetClusterIDShift())) & cmtypes.ClusterIDMax
+// ClusterID returns the cluster ID associated with the identity for the given
+// cluster configuration.
+func (id NumericIdentity) ClusterID(cinfo cmtypes.ClusterInfo) uint32 {
+	return (uint32(id) >> cinfo.GetClusterIDShift()) & cinfo.MaxConnectedClusters
 }
 
 // GetAllReservedIdentities returns a list of all reserved numeric identities

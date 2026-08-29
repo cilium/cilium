@@ -33,14 +33,17 @@
 
 package policy
 
-import "github.com/cilium/cilium/pkg/identity"
+import (
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/identity"
+)
 
 // aggregateFor returns the numeric identity that aggregates the
 // given nid. If the supplied `nid` is already a wildcard,
 // then it returns itself.
 //
 // THIS MUST!!! MATCH THE IMPLEMENTATION in bpf/lib/identity.h
-func aggregateFor(nid identity.NumericIdentity, localClusterID uint32) identity.NumericIdentity {
+func aggregateFor(nid identity.NumericIdentity, cinfo cmtypes.ClusterInfo) identity.NumericIdentity {
 	// all aggregates must aggregate to themselves
 	switch nid {
 	case identity.IdentityUnknown, identity.ReservedIdentityAggregateCluster, identity.ReservedIdentityAggregateClusterMesh, identity.ReservedIdentityAggregateWorld, identity.ReservedIdentityAggregateRemoteNode:
@@ -62,21 +65,20 @@ func aggregateFor(nid identity.NumericIdentity, localClusterID uint32) identity.
 
 	// NID is global scope and > 100.
 	// Determine if nid is in-cluster.
-	cid := nid.ClusterID()
-	if cid == localClusterID {
+	if nid.ClusterID(cinfo) == cinfo.ID {
 		return identity.ReservedIdentityAggregateCluster
 	}
 	return identity.ReservedIdentityAggregateClusterMesh
 }
 
 // aggregates returns true if child is a child of the wildcard.
-func aggregates(agg, child identity.NumericIdentity, localClusterID uint32) bool {
-	return agg != child && aggregateFor(child, localClusterID) == agg
+func aggregates(agg, child identity.NumericIdentity, cinfo cmtypes.ClusterInfo) bool {
+	return agg != child && aggregateFor(child, cinfo) == agg
 }
 
 // isAggregate returns true if th
-func isAggregate(nid identity.NumericIdentity, localClusterID uint32) bool {
-	return nid == aggregateFor(nid, localClusterID)
+func isAggregate(nid identity.NumericIdentity, cinfo cmtypes.ClusterInfo) bool {
+	return nid == aggregateFor(nid, cinfo)
 }
 
 // AllAggregates is the list of all identities that do not aggregate further.

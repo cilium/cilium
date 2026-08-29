@@ -14,6 +14,7 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -189,7 +190,7 @@ type NamedPortsGetter interface {
 // particular Identity across all layers (L3, L4, and L7), with the policy
 // still determined in terms of EndpointSelectors.
 type selectorPolicy struct {
-	localClusterID uint32
+	clusterInfo cmtypes.ClusterInfo
 
 	// Revision is the revision of the policy repository used to generate
 	// this selectorPolicy.
@@ -341,8 +342,9 @@ type PolicyOwner interface {
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
-func newSelectorPolicy(selectorCache *SelectorCache) *selectorPolicy {
+func newSelectorPolicy(selectorCache *SelectorCache, clusterInfo cmtypes.ClusterInfo) *selectorPolicy {
 	return &selectorPolicy{
+		clusterInfo:   clusterInfo,
 		Revision:      0,
 		SelectorCache: selectorCache,
 		L4Policy:      NewL4Policy(0),
@@ -418,7 +420,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 		calculatedPolicy = &EndpointPolicy{
 			SelectorPolicy: p,
 			selectors:      selectors,
-			policyMapState: newMapState(logger, policyOwner.PreviousMapState(), features, p.localClusterID),
+			policyMapState: newMapState(logger, policyOwner.PreviousMapState(), features, p.clusterInfo),
 			policyMapChanges: MapChanges{
 				logger:   logger,
 				firstRev: selectors.Revision,
@@ -715,8 +717,8 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 // PolicyOwner is left as nil
 func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
-		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
-		policyMapState: emptyMapState(logger),
+		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache(), repo.GetClusterInfo()),
+		policyMapState: newMapState(logger, nil, 0, repo.GetClusterInfo()),
 	}
 }
 

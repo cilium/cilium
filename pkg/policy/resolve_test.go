@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -400,7 +401,7 @@ func TestGetEgressNamedPorts(t *testing.T) {
 		"http": pkgTypes.PortProto{Port: 9090, Proto: u8proto.TCP},
 	}))
 
-	sp := newSelectorPolicy(testNewSelectorCache(t, hivetest.Logger(t), nil))
+	sp := newSelectorPolicy(testNewSelectorCache(t, hivetest.Logger(t), nil), cmtypes.ClusterInfo{MaxConnectedClusters: 255})
 	sp.namedPortsGetter = testNamedPortsGetter{npm: namedPorts}
 
 	portsByNID := map[identity.NumericIdentity]uint16{}

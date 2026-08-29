@@ -70,7 +70,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	}
 
 	s.do.idmgr = identitymanager.NewIDManager(logger)
-	s.do.repo = policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, testpolicy.NewPolicyMetricsNoop())
+	s.do.repo = policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, identityCache, nil, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), s.do.idmgr, testpolicy.NewPolicyMetricsNoop())
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	s.do.fetcher = testcompute.InstantiateCellForTesting(tb, logger, "endpoint", "setupRedirectSuite", s.do.repo, s.do.idmgr)
 

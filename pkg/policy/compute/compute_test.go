@@ -341,7 +341,7 @@ func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomput
 
 	logger := hivetest.Logger(t)
 	idmgr := identitymanager.NewIDManager(logger)
-	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 
 	var (
 		db       *statedb.DB

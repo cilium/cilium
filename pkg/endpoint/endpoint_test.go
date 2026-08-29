@@ -74,7 +74,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	logger := hivetest.Logger(tb)
 
 	idmgr := identitymanager.NewIDManager(logger)
-	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 	s := &EndpointSuite{
 		orchestrator: &fakeendpoint.FakeOrchestrator{},
 		repo:         repo,
@@ -549,7 +549,7 @@ func TestInitialNamedPortsIdentityLabel(t *testing.T) {
 		model := newTestEndpointModel(100, StateWaitingForIdentity)
 		logger := hivetest.Logger(t)
 		idmgr := identitymanager.NewIDManager(logger)
-		repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
+		repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
 		fetcher := testcompute.InstantiateCellForTesting(t, logger, "endpoint", "TestInitialNamedPortsIdentityLabel", repo, idmgr)
 		p := createEndpointParams(
 			t,
@@ -1658,7 +1658,7 @@ func TestComputeCIDRLabelsAfterRestore(t *testing.T) {
 	option.Config.PolicyCIDRMatchMode = []string{"pods"}
 
 	logger := hivetest.Logger(t)
-	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
+	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
 	p := createEndpointParams(t, nil, do.repo, do.fetcher)
 
 	podIP := netip.MustParseAddr("10.244.1.7")
