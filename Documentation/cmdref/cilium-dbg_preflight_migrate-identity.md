@@ -25,6 +25,8 @@ cilium-dbg preflight migrate-identity [flags]
       --bgp-router-id-allocation-ip-pool string     IP pool to allocate the BGP router-id from when the mode is 'ip-pool'
       --bgp-router-id-allocation-mode string        BGP router-id allocation mode. Currently supported values: 'default' or 'ip-pool' (default "default")
       --bgp-secrets-namespace string                Kubernetes namespace to get BGP control plane secrets from
+      --cluster-id uint32                           Unique identifier of the cluster
+      --cluster-name string                         Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")
       --enable-bgp-control-plane                    Enable the BGP control plane
       --enable-bgp-control-plane-status-report      Enable the BGP control plane status reporting (default true)
       --enable-bgp-legacy-origin-attribute          Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
@@ -40,6 +42,7 @@ cilium-dbg preflight migrate-identity [flags]
       --k8s-kubeconfig-path string                  Absolute path of the kubernetes kubeconfig file
       --kvstore string                              Key-value store type
       --kvstore-opt map                             Key-value store options e.g. etcd.address=127.0.0.1:4001
+      --max-connected-clusters uint32               Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
 ```
 
 ### Options inherited from parent commands
