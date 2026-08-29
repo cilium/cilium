@@ -673,7 +673,7 @@ func newStandaloneTestPolicyRepo(t *testing.T, logger *slog.Logger, secretManage
 	idMgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(
 		logger,
-		cmtypes.DefaultClusterInfo.ID,
+		cmtypes.DefaultClusterInfo,
 		idCache,
 		nil,
 		envoypolicy.NewEnvoyL7RulesTranslator(logger, secretManager),

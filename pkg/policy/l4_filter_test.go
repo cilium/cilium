@@ -80,7 +80,7 @@ func newTestData(tb testing.TB, logger *slog.Logger) *testData {
 		identityManager:   idMgr,
 		sc:                testNewSelectorCache(tb, logger, nil),
 		subjectSc:         testNewSelectorCache(tb, logger, nil),
-		repo:              NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, &testcertificatemanager.Fake{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
+		repo:              NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, &testcertificatemanager.Fake{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
 		idSet:             set.NewSet[identity.NumericIdentity](),
 		testPolicyContext: &testPolicyContextType{logger: logger},
 	}

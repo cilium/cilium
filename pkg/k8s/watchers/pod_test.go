@@ -548,7 +548,7 @@ func TestReplaceK8sPodV1ReconcilesEndpointLabels(t *testing.T) {
 	require.NoError(t, labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, ""))
 	repo := policy.NewPolicyRepository(
 		logger,
-		cmtypes.DefaultClusterInfo.ID,
+		cmtypes.DefaultClusterInfo,
 		nil,
 		nil,
 		nil,
