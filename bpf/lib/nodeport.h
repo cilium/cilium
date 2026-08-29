@@ -689,7 +689,7 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 	ret = snat_v6_rewrite_headers(ctx, tuple.nexthdr, l3_off,
 				      ipfrag_has_l4_header(fraginfo), l4_off,
 				      &tuple.daddr, svc_addr, IPV6_DADDR_OFF,
-				      tuple.sport, dport, TCP_DPORT_OFF);
+				      tuple.sport, dport, TCP_DPORT_OFF, 0);
 	if (IS_ERR(ret))
 		goto drop_err;
 # endif
@@ -1300,12 +1300,12 @@ skip_source_lookup:
 		goto drop_err;
 
 	ret = __snat_v6_nat(ctx, &tuple, state, fraginfo, l4_off, true,
-			    &target, TCP_SPORT_OFF, &trace, &ext_err);
+			    &target, TCP_SPORT_OFF, 0, &trace, &ext_err);
 	if (CONFIG(nodeport_port_max_nat_ext) &&
 	    ret == DROP_NAT_NO_MAPPING) {
 		swap_nat_port_range_ipv6(&target);
 		ret = __snat_v6_nat(ctx, &tuple, state, fraginfo, l4_off, true,
-				    &target, TCP_SPORT_OFF, &trace, &ext_err);
+				    &target, TCP_SPORT_OFF, 0, &trace, &ext_err);
 	}
 	if (IS_ERR(ret))
 		goto drop_err;

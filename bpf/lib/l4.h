@@ -136,8 +136,10 @@ l4_rewrite_port_and_csum(struct __ctx_buff *ctx, __u8 nexthdr, int l4_off, int p
 		return DROP_CSUM_L4;
 
 	/* Apply additional L4 checksum diff if provided (for ICMP error messages). */
-	if (l4_csum_diff_from_inner && !csum.offset) {
-		csum.offset = offsetof(struct icmphdr, checksum);
+	if (l4_csum_diff_from_inner) {
+		/* ICMPv4 leaves the checksum offset unset; ICMPv6 already provides it. */
+		if (!csum.offset)
+			csum.offset = offsetof(struct icmphdr, checksum);
 		if (csum_l4_replace(ctx, l4_off, &csum, 0, l4_csum_diff_from_inner, 0) < 0)
 			return DROP_CSUM_L4;
 	}

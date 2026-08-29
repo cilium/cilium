@@ -1610,13 +1610,15 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 			bool has_l4_header, int l4_off,
 			const union v6addr *old_addr,
 			const union v6addr *new_addr, __u16 addr_off,
-			__be16 old_port, __be16 new_port, __u16 port_off)
+			__be16 old_port, __be16 new_port, __u16 port_off,
+			__wsum l4_csum_diff_from_inner)
 {
 	__wsum sum;
 	int err;
 
 	/* No change needed: */
-	if (ipv6_addr_equals(old_addr, new_addr) && old_port == new_port)
+	if (ipv6_addr_equals(old_addr, new_addr) && old_port == new_port &&
+	    !l4_csum_diff_from_inner)
 		return 0;
 
 	err = ipv6_l3_rewrite_addr(ctx, l3_off, addr_off, old_addr, new_addr, &sum);
@@ -1625,9 +1627,29 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 
 	if (has_l4_header)
 		return l4_rewrite_port_and_csum(ctx, nexthdr, l4_off, port_off,
-						old_port, new_port, sum, 0);
+						old_port, new_port, sum,
+						l4_csum_diff_from_inner);
 
 	return 0;
+}
+
+/* TCP, UDP and ICMPv6 checksums cover the IPv6 pseudo-header, so their
+ * checksum update cancels the embedded address change from the outer ICMPv6
+ * checksum's perspective. SCTP CRC32c does not, so propagate that address
+ * change to the outer checksum.
+ */
+static __always_inline __wsum
+snat_v6_calc_icmp_error_csum_diff(__u8 nexthdr,
+				  const union v6addr *old_addr,
+				  const union v6addr *new_addr)
+{
+	struct csum_offset csum = {};
+
+	csum_l4_offset_and_flags(nexthdr, &csum);
+	if (csum.offset)
+		return 0;
+
+	return csum_diff(old_addr, 16, new_addr, 16, 0);
 }
 
 static __always_inline bool
@@ -1805,7 +1827,8 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #ifdef ENABLE_SNAT_ICMPV6
 static __always_inline __maybe_unused int
 snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
-			      struct ipv6_nat_entry **state)
+			      struct ipv6_nat_entry **state,
+			      __wsum *outer_csum_diff)
 {
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmp6hdr));
 	struct ipv6_ct_tuple tuple = {};
@@ -1873,10 +1896,14 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	if (!*state)
 		return NAT_PUNT_TO_STACK;
 
+	/* Calculate the diff for the outer ICMPv6 checksum. */
+	*outer_csum_diff = snat_v6_calc_icmp_error_csum_diff(tuple.nexthdr, &tuple.saddr,
+							     &(*state)->to_saddr);
+
 	/* The embedded packet was RevSNATed on ingress. Reverse it again: */
 	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, inner_l4_off,
 				       &tuple.saddr, &(*state)->to_saddr, IPV6_DADDR_OFF,
-				       tuple.sport, (*state)->to_sport, port_off);
+				       tuple.sport, (*state)->to_sport, port_off, 0);
 }
 #endif /* ENABLE_SNAT_ICMPV6 */
 
@@ -1884,7 +1911,8 @@ static __always_inline int
 __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	      struct ipv6_nat_entry *state, fraginfo_t fraginfo,
 	      int l4_off, bool update_tuple, const struct ipv6_nat_target *target,
-	      __u16 port_off, struct trace_ctx *trace, __s8 *ext_err)
+	      __u16 port_off, __wsum outer_csum_diff,
+	      struct trace_ctx *trace, __s8 *ext_err)
 {
 	__be16 to_sport = 0;
 	int ret;
@@ -1907,7 +1935,7 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	ret = snat_v6_rewrite_headers(ctx, tuple->nexthdr, ETH_HLEN,
 				      ipfrag_has_l4_header(fraginfo), l4_off,
 				      &tuple->saddr, &state->to_saddr, IPV6_SADDR_OFF,
-				      tuple->sport, to_sport, port_off);
+				      tuple->sport, to_sport, port_off, outer_csum_diff);
 
 	if (update_tuple) {
 		ipv6_addr_copy(&tuple->saddr, &state->to_saddr);
@@ -1924,6 +1952,7 @@ snat_v6_nat(struct __ctx_buff *ctx, fraginfo_t fraginfo, int off, __s8 *ext_err)
 	struct snat_v6_args *args = AUX(snat_v6_args);
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	__wsum outer_csum_diff = 0;
 	__u16 port_off = 0;
 	int ret;
 
@@ -2003,7 +2032,8 @@ snat_v6_nat(struct __ctx_buff *ctx, fraginfo_t fraginfo, int off, __s8 *ext_err)
 			}
 
 nat_icmp_v6:
-			ret = snat_v6_nat_handle_icmp_error(ctx, off, &state);
+			ret = snat_v6_nat_handle_icmp_error(ctx, off, &state,
+							    &outer_csum_diff);
 			if (IS_ERR(ret))
 				return ret;
 
@@ -2019,14 +2049,15 @@ nat_icmp_v6:
 	};
 
 	return __snat_v6_nat(ctx, &args->tuple, state, fraginfo, off, false, &args->target,
-			     port_off, &args->trace, ext_err);
+			     port_off, outer_csum_diff, &args->trace, ext_err);
 }
 
 #ifdef ENABLE_SNAT_ICMPV6
 static __always_inline __maybe_unused int
 snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 				       __u32 inner_l3_off,
-				       struct ipv6_nat_entry **state)
+				       struct ipv6_nat_entry **state,
+				       __wsum *outer_csum_diff)
 {
 	struct ipv6_ct_tuple tuple = {};
 	fraginfo_t fraginfo = 0;
@@ -2096,10 +2127,14 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 	if (!*state)
 		return NAT_PUNT_TO_STACK;
 
+	/* Calculate the diff for the outer ICMPv6 checksum. */
+	*outer_csum_diff = snat_v6_calc_icmp_error_csum_diff(tuple.nexthdr, &tuple.daddr,
+							     &(*state)->to_daddr);
+
 	/* The embedded packet was SNATed on egress. Reverse it again: */
 	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, inner_l4_off,
 				       &tuple.daddr, &(*state)->to_daddr, IPV6_SADDR_OFF,
-				       tuple.dport, (*state)->to_dport, port_off);
+				       tuple.dport, (*state)->to_dport, port_off, 0);
 }
 #endif /* ENABLE_SNAT_ICMPV6 */
 
@@ -2112,6 +2147,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	fraginfo_t fraginfo = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	__wsum outer_csum_diff = 0;
 	__be16 to_dport = 0;
 	__u16 port_off = 0;
 	int ret, hdrlen;
@@ -2175,7 +2211,8 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 
 			ret = snat_v6_rev_nat_handle_icmp_pkt_toobig(ctx,
 								     inner_l3_off,
-								     &state);
+								     &state,
+								     &outer_csum_diff);
 			if (IS_ERR(ret))
 				return ret;
 
@@ -2201,7 +2238,7 @@ rewrite: __maybe_unused
 	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, ETH_HLEN,
 				       ipfrag_has_l4_header(fraginfo), off,
 				       &tuple.daddr, &state->to_daddr, IPV6_DADDR_OFF,
-				       tuple.dport, to_dport, port_off);
+				       tuple.dport, to_dport, port_off, outer_csum_diff);
 }
 #endif /* defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT) */
 
