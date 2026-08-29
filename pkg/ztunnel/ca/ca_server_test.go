@@ -22,6 +22,48 @@ import (
 	"github.com/cilium/cilium/pkg/ztunnel/pb"
 )
 
+// TestParseCAPrivateKey covers the two PEM encodings ztunnel's CA private key
+// is expected to support: PKCS#8 ("PRIVATE KEY") and PKCS#1 ("RSA PRIVATE
+// KEY"). See https://github.com/cilium/cilium/issues/48274.
+func TestParseCAPrivateKey(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate RSA key: %v", err)
+	}
+
+	pkcs8DER, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		t.Fatalf("failed to marshal PKCS#8 key: %v", err)
+	}
+	pkcs1DER := x509.MarshalPKCS1PrivateKey(key)
+
+	tests := []struct {
+		name  string
+		block *pem.Block
+	}{
+		{
+			name:  "PKCS#8 PRIVATE KEY",
+			block: &pem.Block{Type: "PRIVATE KEY", Bytes: pkcs8DER},
+		},
+		{
+			name:  "PKCS#1 RSA PRIVATE KEY",
+			block: &pem.Block{Type: "RSA PRIVATE KEY", Bytes: pkcs1DER},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsed, err := parseCAPrivateKey(tt.block)
+			if err != nil {
+				t.Fatalf("failed to parse CA private key: %v", err)
+			}
+			if !parsed.Equal(key) {
+				t.Fatalf("parsed key does not match the generated key")
+			}
+		})
+	}
+}
+
 // fakeEndpointManager wraps the shared panic-by-default mock and supplies the
 // single method exercised by the CA server test.
 type fakeEndpointManager struct {
