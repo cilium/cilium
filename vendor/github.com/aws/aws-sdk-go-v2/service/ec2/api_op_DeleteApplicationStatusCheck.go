@@ -36,8 +36,10 @@ type DeleteApplicationStatusCheckInput struct {
 	// This member is required.
 	ApplicationStatusCheckId *string
 
-	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see [Ensuring idempotency].
+	// A unique, case-sensitive identifier that you provide to ensure that the
+	// operation completes no more than one time. If you retry a request with the same
+	// token, the service ignores the request but does not return an error. For more
+	// information, see [Ensuring idempotency].
 	//
 	// [Ensuring idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string

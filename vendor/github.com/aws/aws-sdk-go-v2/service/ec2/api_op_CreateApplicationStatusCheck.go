@@ -13,21 +13,22 @@ import (
 // running on your instances. You can configure the protocol, port, path, and
 // thresholds for the health check. The following rules apply:
 //
-//   - You can create a maximum of 50 application status checks per account.
+//   - You can create a maximum of 50 application status checks for each account.
 //
-//   - Health checks do not start until you associate the check with instances or
-//     tags using AssociateApplicationStatusCheck .
+//   - You must associate the check with instances or tags using
+//     AssociateApplicationStatusCheck before health checks start.
 //
-//   - The Timeout value must be less than the Interval value.
+//   - You must set the Timeout value to less than the Interval value.
 //
-//   - The Path must start with a forward slash ( / ). Default: / .
+//   - You must start the Path with a forward slash ( / ). Default: / .
 //
-//   - If you do not specify Aggregation , it defaults to included , which means
-//     the check contributes to the instance-level application status.
+//   - You can specify Aggregation as included or excluded . If you do not specify
+//     a value, it defaults to included , which means the check contributes to the
+//     instance-level application status.
 //
-//   - Default values: Interval is 60 seconds, Timeout is 6 seconds,
-//     FailureThreshold is 2, SuccessThreshold is 2, StatusCodeMatcher is 200 ,
-//     InitializationGracePeriodSeconds is 300 seconds.
+//   - You can use the following default values: Interval is 60 seconds, Timeout is
+//     6 seconds, FailureThreshold is 2, SuccessThreshold is 2, StatusCodeMatcher is
+//     200 , InitializationGracePeriodSeconds is 300 seconds.
 //
 //   - You can tag the application status check during creation. For more
 //     information, see [Tag your Amazon EC2 resources].
@@ -67,8 +68,10 @@ type CreateApplicationStatusCheckInput struct {
 	// included | excluded .
 	Aggregation types.AggregationStatusEnum
 
-	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see [Ensuring idempotency].
+	// A unique, case-sensitive identifier that you provide to ensure that the
+	// operation completes no more than one time. If you retry a request with the same
+	// token, the service ignores the request but does not return an error. For more
+	// information, see [Ensuring idempotency].
 	//
 	// [Ensuring idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
 	ClientToken *string

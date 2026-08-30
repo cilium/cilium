@@ -89,9 +89,14 @@ func (c *registry) Start(cell.HookContext) error {
 }
 
 func (c *registry) Stop(ctx cell.HookContext) error {
+	// Do not hold the registry mutex while waiting for jobs to stop. A runtime
+	// job may call Group.Add while handling cancellation, which also needs this
+	// mutex. The runtime lifecycle rejects additions once stopping has begun.
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	if !c.started {
+	started := c.started
+	c.mu.Unlock()
+
+	if !started {
 		return nil
 	}
 	return c.runtimeLifecycle.stop(ctx, c.logger)

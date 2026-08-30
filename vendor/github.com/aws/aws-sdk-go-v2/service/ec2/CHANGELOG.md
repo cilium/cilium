@@ -1,3 +1,8 @@
+# v1.322.0 (2026-08-20)
+
+* **Feature**: EC2 marks UEFI instance metadata field as sensitive.
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.321.3 (2026-08-18)
 
 * **Documentation**: Doc release for CreateImage support for instances with local snapshots in Outpost
