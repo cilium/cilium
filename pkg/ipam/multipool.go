@@ -102,12 +102,12 @@ func newMultiPoolAllocators(ctx context.Context, p MultiPoolAllocatorParams) (Al
 	}
 
 	return &multiPoolAllocator{
-			manager: mgr,
-			family:  IPv4,
-		}, &multiPoolAllocator{
-			manager: mgr,
-			family:  IPv6,
-		}, nil
+		manager: mgr,
+		family:  IPv4,
+	}, &multiPoolAllocator{
+		manager: mgr,
+		family:  IPv6,
+	}, nil
 }
 
 func (c *multiPoolAllocator) Allocate(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
