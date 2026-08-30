@@ -1,3 +1,28 @@
+# cel.dev/cel-go v0.32.0
+## explicit; go 1.23.0
+cel.dev/cel-go/cel
+cel.dev/cel-go/cel/async
+cel.dev/cel-go/checker
+cel.dev/cel-go/checker/decls
+cel.dev/cel-go/common
+cel.dev/cel-go/common/ast
+cel.dev/cel-go/common/containers
+cel.dev/cel-go/common/cost
+cel.dev/cel-go/common/debug
+cel.dev/cel-go/common/decls
+cel.dev/cel-go/common/env
+cel.dev/cel-go/common/functions
+cel.dev/cel-go/common/operators
+cel.dev/cel-go/common/overloads
+cel.dev/cel-go/common/runes
+cel.dev/cel-go/common/stdlib
+cel.dev/cel-go/common/types
+cel.dev/cel-go/common/types/pb
+cel.dev/cel-go/common/types/ref
+cel.dev/cel-go/common/types/traits
+cel.dev/cel-go/interpreter
+cel.dev/cel-go/parser
+cel.dev/cel-go/parser/gen
 # cel.dev/expr v0.25.2
 ## explicit; go 1.23.0
 cel.dev/expr

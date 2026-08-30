@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"reflect"
 
-	"github.com/google/cel-go/cel"
+	"cel.dev/cel-go/cel"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -46,7 +46,7 @@ func init() {
 // environment `env` and determine whether the resulting type of the expression
 // matches the `exprType` provided as input.
 // Copied from
-// https://github.com/google/cel-go/blob/338b3c80e688f7f44661d163c0dbc02eb120dcb7/codelab/solution/codelab.go#LL385C1-L399C2
+// https://github.com/cel-expr/cel-go/blob/338b3c80e688f7f44661d163c0dbc02eb120dcb7/codelab/solution/codelab.go#LL385C1-L399C2
 // with modifications
 func compile(env *cel.Env, expr string, celType *cel.Type) (*cel.Ast, error) {
 	ast, iss := env.Compile(expr)
