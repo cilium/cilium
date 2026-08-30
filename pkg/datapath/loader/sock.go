@@ -78,17 +78,17 @@ func LoadSockTerm(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfgen.So
 	}
 
 	return &bpfgen.SockTermPrograms{
-			CilSockUdpDestroyV4: coll.Programs[v4UDPProgName],
-			CilSockTcpDestroyV4: coll.Programs[v4TCPProgName],
-			CilSockUdpDestroyV6: coll.Programs[v6UDPProgName],
-			CilSockTcpDestroyV6: coll.Programs[v6TCPProgName],
-		}, func(af uint8, addr netip.Addr, port uint16) error {
-			var value bpfgen.SockTermSockTermFilter
-			value.AddressFamily = af
-			value.Port = port
-			a16 := addr.As16()
-			copy(value.Address.Addr6.Addr[:], a16[:])
+		CilSockUdpDestroyV4: coll.Programs[v4UDPProgName],
+		CilSockTcpDestroyV4: coll.Programs[v4TCPProgName],
+		CilSockUdpDestroyV6: coll.Programs[v6UDPProgName],
+		CilSockTcpDestroyV6: coll.Programs[v6TCPProgName],
+	}, func(af uint8, addr netip.Addr, port uint16) error {
+		var value bpfgen.SockTermSockTermFilter
+		value.AddressFamily = af
+		value.Port = port
+		a16 := addr.As16()
+		copy(value.Address.Addr6.Addr[:], a16[:])
 
-			return coll.Variables[filterVarName].Set(&value)
-		}, nil
+		return coll.Variables[filterVarName].Set(&value)
+	}, nil
 }

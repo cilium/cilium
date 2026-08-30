@@ -617,15 +617,15 @@ func TestInitialNamedPortsIdentityLabel(t *testing.T) {
 				}
 			}
 			return &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: ns,
-						Name:      podName,
-						UID:       k8sTypes.UID(uid),
-					},
-				}, &K8sMetadata{
-					IdentityLabels: lbls,
-					NamedPorts:     namedPorts,
-				}, nil
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: ns,
+					Name:      podName,
+					UID:       k8sTypes.UID(uid),
+				},
+			}, &K8sMetadata{
+				IdentityLabels: lbls,
+				NamedPorts:     namedPorts,
+			}, nil
 		}
 	}
 	resolvePodMetadata := func(t *testing.T, e *Endpoint, restored bool, namedPorts ciliumTypes.NamedPortMap) {
