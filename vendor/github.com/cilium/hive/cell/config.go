@@ -103,6 +103,14 @@ func provideConfig[Cfg Flagger](defaultConfig Cfg, flags *pflag.FlagSet) func(p 
 
 func decoderConfig(target any, extraHooks DecodeHooks) *mapstructure.DecoderConfig {
 	decodeHooks := []mapstructure.DecodeHookFunc{
+		// Decode a string into any type implementing encoding.TextUnmarshaler, e.g.
+		// netip.Addr, netip.Prefix or time.Time.
+		//
+		// This must come before the slice hooks below: StringToSliceHookFunc matches on
+		// the target's reflect.Kind, so it would otherwise comma-split types that are
+		// themselves slices, such as net.IP ([]byte), before this hook ever sees them.
+		mapstructure.TextUnmarshallerHookFunc(),
+
 		// To unify the splitting of fields of a []string field across the input coming
 		// from environment, configmap and pflag (command-line), we first split a string
 		// (env/configmap) by comma, and then for all input methods we split a single
