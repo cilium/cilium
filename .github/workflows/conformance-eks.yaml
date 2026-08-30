@@ -113,7 +113,7 @@ env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.230.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.36.3
+  kubectl_version: v1.36.4
 
 jobs:
   echo-inputs:
