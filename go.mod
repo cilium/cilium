@@ -3,6 +3,7 @@ module github.com/cilium/cilium
 go 1.26.0
 
 require (
+	cel.dev/cel-go v0.32.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.0
@@ -52,7 +53,6 @@ require (
 	github.com/go-openapi/swag/netutils v0.28.0
 	github.com/go-openapi/swag/typeutils v0.28.0
 	github.com/go-openapi/validate v0.26.3
-	github.com/google/cel-go v0.31.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-github/v90 v90.0.0
 	github.com/google/go-licenses/v2 v2.0.1
@@ -227,6 +227,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
+	github.com/google/cel-go v0.31.0 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
