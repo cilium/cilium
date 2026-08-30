@@ -6,7 +6,7 @@
 package node
 
 import (
-	"fmt"
+	"errors"
 	"net"
 	"sort"
 
@@ -17,7 +17,24 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 )
 
+// errNoAddressFound is returned when no usable address could be selected. It
+// is a sentinel so that firstGlobalAddr can tell "nothing matched" apart from
+// a netlink failure, and only retry in the former case.
+var errNoAddressFound = errors.New("No address found")
+
 func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error) {
+	// Deprecated addresses (RFC 4862, e.g., kube-vip VIP with preferred_lft=0)
+	// cannot be used for new communication. Unlike tentative/dadfailed addresses,
+	// they can still carry traffic, so use as fallback only when no other
+	// address is available.
+	addr, err := selectFirstGlobalAddr(intf, preferredIP, family, false)
+	if !errors.Is(err, errNoAddressFound) {
+		return addr, err
+	}
+	return selectFirstGlobalAddr(intf, preferredIP, family, true)
+}
+
+func selectFirstGlobalAddr(intf string, preferredIP net.IP, family int, allowDeprecated bool) (net.IP, error) {
 	var link netlink.Link
 	var ipLen int
 	var err error
@@ -52,7 +69,7 @@ retryScope:
 
 	for _, a := range addr {
 		isPreferredIP := a.IP.Equal(preferredIP)
-		if !addrUsableAsNodeIP(a, isPreferredIP, ipsToExclude, linkScopeMax, ipLen) {
+		if !addrUsableAsNodeIP(a, isPreferredIP, ipsToExclude, linkScopeMax, ipLen, allowDeprecated) {
 			continue
 		}
 
@@ -113,10 +130,10 @@ retryScope:
 		goto retryInterface
 	}
 
-	return nil, fmt.Errorf("No address found")
+	return nil, errNoAddressFound
 }
 
-func addrUsableAsNodeIP(a netlink.Addr, isPreferredIP bool, ipsToExclude []net.IP, linkScopeMax, ipLen int) bool {
+func addrUsableAsNodeIP(a netlink.Addr, isPreferredIP bool, ipsToExclude []net.IP, linkScopeMax, ipLen int, allowDeprecated bool) bool {
 	if a.Scope > linkScopeMax {
 		return false
 	}
@@ -130,6 +147,9 @@ func addrUsableAsNodeIP(a netlink.Addr, isPreferredIP bool, ipsToExclude []net.I
 		return false
 	}
 	if a.Flags&(unix.IFA_F_TENTATIVE|unix.IFA_F_DADFAILED) != 0 {
+		return false
+	}
+	if !allowDeprecated && a.Flags&unix.IFA_F_DEPRECATED != 0 {
 		return false
 	}
 	return true
@@ -157,6 +177,9 @@ func addrUsableAsNodeIP(a netlink.Addr, isPreferredIP bool, ipsToExclude []net.I
 //
 // If the latter fails as well, we retry on all interfaces beginning with
 // universe scope again (and then falling back to reduced scope).
+//
+// If still no address was found, the whole search is repeated while also
+// considering deprecated addresses, which are otherwise filtered out.
 //
 // In case none of the above helped, we bail out with error.
 func FirstGlobalV4Addr(intf string, preferredIP net.IP) (net.IP, error) {
