@@ -228,6 +228,7 @@ func Chmod() Cmd {
 
 func compareFlags(fs *pflag.FlagSet) {
 	fs.BoolP("quiet", "q", false, "Suppress printing of diff")
+	fs.BoolP("ignore-whitespace", "w", false, "Ignore differences in whitespace")
 }
 
 // Cmp compares the contents of two files, or the contents of either the
@@ -243,6 +244,8 @@ func Cmp() Cmd {
 				"By convention, file1 is the actual data and file2 is the expected data.",
 				"The command succeeds if the file contents are identical.",
 				"File1 can be 'stdout' or 'stderr' to compare the stdout or stderr buffer from the most recent command.",
+				"With -w, each line is trimmed and interior runs of whitespace are collapsed to a single",
+				"space before comparing, so that lines differing only in spacing compare equal.",
 			},
 			AutocompleteArgs: func(state *State, before []string, cur string) []string {
 				if len(before) > 2 {
@@ -270,6 +273,8 @@ func Cmpenv() Cmd {
 				"By convention, file1 is the actual data and file2 is the expected data.",
 				"The command succeeds if the file contents are identical after substituting variables from the script environment.",
 				"File1 can be 'stdout' or 'stderr' to compare the script's stdout or stderr buffer.",
+				"With -w, each line is trimmed and interior runs of whitespace are collapsed to a single",
+				"space before comparing, so that lines differing only in spacing compare equal.",
 			},
 			AutocompleteArgs: func(state *State, before []string, cur string) []string {
 				if len(before) > 2 {
@@ -287,6 +292,10 @@ func Cmpenv() Cmd {
 
 func doCompare(s *State, env bool, args ...string) error {
 	quiet, err := s.Flags.GetBool("quiet")
+	if err != nil {
+		return err
+	}
+	ignoreWhitespace, err := s.Flags.GetBool("ignore-whitespace")
 	if err != nil {
 		return err
 	}
@@ -313,7 +322,13 @@ func doCompare(s *State, env bool, args ...string) error {
 		text2 = s.ExpandEnv(text2, false)
 	}
 
-	if text1 != text2 {
+	cmp1, cmp2 := text1, text2
+	if ignoreWhitespace {
+		cmp1 = normalizeWhitespace(text1)
+		cmp2 = normalizeWhitespace(text2)
+	}
+
+	if cmp1 != cmp2 {
 		if s.DoUpdate {
 			switch {
 			case len(text1) == 0 || len(text2) == 0:
@@ -324,7 +339,9 @@ func doCompare(s *State, env bool, args ...string) error {
 			case s.retriesRequested && s.RetryCount >= 2:
 				// Updates requested and we've already retried at least twice
 				// (and given time for things to settle down).
-				// Store the file contents and ignore the mismatch.
+				// Store the file contents and ignore the mismatch. Store the
+				// raw text, not the normalized form, so -w does not strip the
+				// updated file's alignment.
 				s.FileUpdates[name1] = text2
 				s.FileUpdates[name2] = text1
 				return nil
@@ -332,12 +349,23 @@ func doCompare(s *State, env bool, args ...string) error {
 		}
 
 		if !quiet {
-			diffText := diff.Diff(name1, []byte(text1), name2, []byte(text2))
+			diffText := diff.Diff(name1, []byte(cmp1), name2, []byte(cmp2))
 			s.Logf("%s\n", diffText)
 		}
 		return fmt.Errorf("%s and %s differ", name1, name2)
 	}
 	return nil
+}
+
+// normalizeWhitespace trims each line and collapses interior runs of whitespace
+// to a single space, so lines differing only in spacing compare equal. Line
+// structure is preserved.
+func normalizeWhitespace(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = strings.Join(strings.Fields(line), " ")
+	}
+	return strings.Join(lines, "\n")
 }
 
 // Cp copies one or more files to a new location.

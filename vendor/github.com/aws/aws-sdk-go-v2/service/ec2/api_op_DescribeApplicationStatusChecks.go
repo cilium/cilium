@@ -8,9 +8,10 @@ import (
 	"github.com/aws/smithy-go/middleware"
 )
 
-// Describes one or more application status checks. Returns configuration details
-// for your application status checks, including protocol, port, path, thresholds,
-// and associations. The following rules apply:
+// Describes application status checks, including configuration details such as
+// protocol, port, path, thresholds, and associations. Results are paginated. Use
+// the NextToken parameter to retrieve additional results. The following rules
+// apply:
 //
 //   - If you do not specify any application status check IDs, all checks in your
 //     account are returned.
