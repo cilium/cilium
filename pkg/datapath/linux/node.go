@@ -92,7 +92,7 @@ type linuxNodeHandler struct {
 	ipsecMetricOnce      sync.Once
 	ipsecAgent           ipsecTypes.Agent
 
-	enableEncapsulation func(node *nodeTypes.Node) bool
+	nodePolicy *NodePolicy
 
 	kprCfg kpr.KPRConfig
 
@@ -125,6 +125,7 @@ func NewNodeHandler(
 	kprCfg kpr.KPRConfig,
 	ipsecAgent ipsecTypes.Agent,
 	localNodeStore *node.LocalNodeStore,
+	nodePolicy *NodePolicy,
 	nodeWriter *node.Writer,
 	params reconciler.Params,
 	nodes statedb.Table[*node.Node],
@@ -136,7 +137,16 @@ func NewNodeHandler(
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeipsec.Config{}, localNodeStore)
+	handler := newNodeHandler(
+		log,
+		datapathConfig,
+		nodeMap,
+		kprCfg,
+		ipsecAgent,
+		fakeipsec.Config{},
+		localNodeStore,
+		nodePolicy,
+	)
 	checkpoint := newLinuxNodeCheckpoint(
 		log,
 		health,
@@ -332,6 +342,7 @@ func newNodeHandler(
 	ipsecAgent ipsecTypes.Agent,
 	ipsecCfg ipsecTypes.Config,
 	localNodeStore *node.LocalNodeStore,
+	nodePolicy *NodePolicy,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                  log,
@@ -349,6 +360,7 @@ func newNodeHandler(
 		kprCfg:               kprCfg,
 		ipsecAgent:           ipsecAgent,
 		ipsecCfg:             ipsecCfg,
+		nodePolicy:           nodePolicy,
 		configReady:          make(chan struct{}),
 	}
 }
@@ -952,10 +964,6 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 	prevConfig := n.nodeConfig
 	n.nodeConfig = newConfig
 
-	if n.enableEncapsulation == nil {
-		n.enableEncapsulation = func(*nodeTypes.Node) bool { return n.nodeConfig.EnableEncapsulation }
-	}
-
 	unwrapPrefix := func(prefix ip.Prefix) netip.Prefix { return prefix.Prefix }
 	if err := n.updateOrRemoveNodeRoutes(
 		cslices.Map(prevConfig.AuxiliaryPrefixes, unwrapPrefix),
@@ -1080,6 +1088,6 @@ func deleteDefaultLocalRule(family int) error {
 	return nil
 }
 
-func (n *linuxNodeHandler) OverrideEnableEncapsulation(fn func(*nodeTypes.Node) bool) {
-	n.enableEncapsulation = fn
+func (n *linuxNodeHandler) enableEncapsulation(node *nodeTypes.Node) bool {
+	return n.nodePolicy.EnableEncapsulation(node, n.nodeConfig.EnableEncapsulation)
 }

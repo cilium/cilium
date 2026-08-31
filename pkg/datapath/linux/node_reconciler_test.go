@@ -62,8 +62,8 @@ func newTestLinuxNodeOps(t *testing.T) (*linuxNodeHandler, *linuxNodeOps) {
 		&fakeipsec.Agent{},
 		fakeipsec.Config{},
 		node.NewTestLocalNodeStore(node.LocalNode{}),
+		newNodePolicy(),
 	)
-	handler.enableEncapsulation = func(*nodeTypes.Node) bool { return false }
 	return handler, &linuxNodeOps{handler: handler}
 }
 
