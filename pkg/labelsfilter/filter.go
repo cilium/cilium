@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -21,11 +22,15 @@ var (
 	validLabelPrefixesMU   lock.RWMutex
 	validLabelPrefixes     *labelPrefixCfg // Label prefixes used to filter from all labels
 	validNodeLabelPrefixes *labelPrefixCfg
+
+	// validCfgVersions contains all the config versions currently supported
+	validCfgVersions = []int{LPCfgFileVersion, LPCfgFileVersionRegex}
 )
 
 const (
 	// LPCfgFileVersion represents the version of a Label Prefix Configuration File
-	LPCfgFileVersion = 1
+	LPCfgFileVersion      = 1 // literal prefix matching
+	LPCfgFileVersionRegex = 2 // prefixes are regexps, as with --labels
 
 	// reservedLabelsPattern is the prefix pattern for all reserved labels
 	reservedLabelsPattern = labels.LabelSourceReserved + ":.*"
@@ -277,7 +282,7 @@ func readLabelPrefixCfgFrom(fileName string) (*labelPrefixCfg, error) {
 	if err != nil {
 		return nil, err
 	}
-	if lpc.Version != LPCfgFileVersion {
+	if !slices.Contains(validCfgVersions, lpc.Version) {
 		return nil, fmt.Errorf("unsupported version %d", lpc.Version)
 	}
 	for _, lp := range lpc.LabelPrefixes {
@@ -287,6 +292,17 @@ func readLabelPrefixCfgFrom(fileName string) (*labelPrefixCfg, error) {
 		if lp.Source == "" {
 			return nil, fmt.Errorf("invalid label prefix file: source was empty")
 		}
+
+		// If using version 2 of the config we enable regex matching
+		// This follows the same approach as with --label-prefix-filter
+		if lpc.Version == LPCfgFileVersionRegex {
+			r, err := regexp.Compile(lp.Prefix)
+			if err != nil {
+				return nil, fmt.Errorf("invalid label prefix file: unable to compile regexp %q: %w", lp.Prefix, err)
+			}
+			lp.expr = r
+		}
+
 		if !lp.Ignore {
 			lpc.whitelist = true
 		}
