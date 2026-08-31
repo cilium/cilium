@@ -216,7 +216,7 @@ const (
 	EnableL7Proxy = true
 
 	// EnableHostLegacyRouting is the default value for using the old routing path via stack.
-	EnableHostLegacyRouting = false
+	EnableHostLegacyRouting = true
 
 	// PreAllocateMaps is the default value for BPF map preallocation
 	PreAllocateMaps = true
