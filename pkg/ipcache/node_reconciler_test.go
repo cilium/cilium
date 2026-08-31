@@ -77,6 +77,14 @@ func updatesByPrefix(updates []MU) map[netip.Prefix]MU {
 	return byPrefix
 }
 
+func updatesByPrefixCluster(updates []MU) map[cmtypes.PrefixCluster]MU {
+	byPrefix := make(map[cmtypes.PrefixCluster]MU, len(updates))
+	for _, update := range updates {
+		byPrefix[update.Prefix] = update
+	}
+	return byPrefix
+}
+
 func metadataValue[T any](t *testing.T, update MU) T {
 	t.Helper()
 	for _, metadata := range update.Metadata {
@@ -183,6 +191,86 @@ func TestNodeReconcilerMetadataLifecycle(t *testing.T) {
 		mapKeys(updatesByPrefix(metadata.upserts[1])),
 		mapKeys(updatesByPrefix(metadata.removals[1])),
 	)
+}
+
+func TestNodeReconcilerClusterAwarePrefixes(t *testing.T) {
+	ops, metadata, db, nodes := newTestNodeReconcilerOps(
+		t,
+		&option.DaemonConfig{},
+		fakewireguard.Config{},
+	)
+	writer := node.NewWriter(hivetest.Logger(t), db, nodes)
+	writer.SetPrefixClusterMutatorFn(func(n *nodeTypes.Node) []cmtypes.PrefixClusterOpts {
+		return []cmtypes.PrefixClusterOpts{cmtypes.WithClusterID(n.ClusterID)}
+	})
+
+	n := &nodeTypes.Node{
+		Name:      "node1",
+		Cluster:   "cluster1",
+		ClusterID: 10,
+		Source:    source.Kubernetes,
+		IPAddresses: []nodeTypes.Address{
+			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("10.0.0.1")},
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+		},
+		IPv4AllocCIDR: nodeTypes.PrefixFrom(
+			netip.MustParsePrefix("10.1.0.0/24"),
+		),
+		IPv4HealthIP:  ip.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+		IPv4IngressIP: ip.AddrFrom(netip.MustParseAddr("10.0.0.3")),
+	}
+	txn := db.WriteTxn(nodes)
+	require.True(t, writer.Upsert(txn, n))
+	txn.Commit()
+	stored, _, found := nodes.Get(db.ReadTxn(), node.NodeByName(n.Identity().String()))
+	require.True(t, found)
+
+	require.NoError(t, ops.Update(t.Context(), db.ReadTxn(), 0, stored))
+	require.Len(t, metadata.upserts, 1)
+	upserts := updatesByPrefixCluster(metadata.upserts[0])
+	for _, prefix := range []netip.Prefix{
+		netip.MustParsePrefix("10.0.0.1/32"),
+		netip.MustParsePrefix("10.1.0.0/24"),
+		netip.MustParsePrefix("10.0.0.2/32"),
+		netip.MustParsePrefix("10.0.0.3/32"),
+	} {
+		require.Contains(t, upserts, cmtypes.PrefixClusterFrom(
+			prefix,
+			cmtypes.WithClusterID(10),
+		))
+	}
+	require.Contains(t, upserts, cmtypes.NewLocalPrefixCluster(
+		netip.MustParsePrefix("192.0.2.1/32"),
+	))
+
+	updated := n.DeepCopy()
+	updated.ClusterID = 20
+	txn = db.WriteTxn(nodes)
+	require.True(t, writer.Upsert(txn, updated))
+	txn.Commit()
+	stored, _, found = nodes.Get(db.ReadTxn(), node.NodeByName(updated.Identity().String()))
+	require.True(t, found)
+	require.NoError(t, ops.Update(t.Context(), db.ReadTxn(), 0, stored))
+	require.Len(t, metadata.upserts, 2)
+	require.Len(t, metadata.removals, 1)
+
+	upserts = updatesByPrefixCluster(metadata.upserts[1])
+	removals := updatesByPrefixCluster(metadata.removals[0])
+	for _, prefix := range []netip.Prefix{
+		netip.MustParsePrefix("10.0.0.1/32"),
+		netip.MustParsePrefix("10.1.0.0/24"),
+		netip.MustParsePrefix("10.0.0.2/32"),
+		netip.MustParsePrefix("10.0.0.3/32"),
+	} {
+		require.Contains(t, upserts, cmtypes.PrefixClusterFrom(
+			prefix,
+			cmtypes.WithClusterID(20),
+		))
+		require.Contains(t, removals, cmtypes.PrefixClusterFrom(
+			prefix,
+			cmtypes.WithClusterID(10),
+		))
+	}
 }
 
 func mapKeys(entries map[netip.Prefix]MU) []netip.Prefix {

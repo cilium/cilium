@@ -53,6 +53,10 @@ func (n *Node) DeepCopy() *Node {
 	return &n2
 }
 
+// AddressClusterID returns the cluster address space assigned to cluster-scoped
+// addresses when the node was written to the table.
+func (n *Node) AddressClusterID() uint32 { return n.addressClusterID }
+
 // TableHeader implements statedb.TableWritable.
 func (n *Node) TableHeader() []string {
 	return []string{
