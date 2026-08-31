@@ -241,7 +241,7 @@ parse_outer_ipv6: __maybe_unused;
 
 	/* Remove the outer IPv6 header. */
 	if (ctx_adjust_hroom(ctx, -shrink, BPF_ADJ_ROOM_MAC,
-			     ctx_adjust_hroom_flags()))
+			     BPF_F_ADJ_ROOM_NO_CSUM_RESET))
 		return DROP_INVALID;
 	return 0;
 }
