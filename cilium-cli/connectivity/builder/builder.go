@@ -315,6 +315,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		egressGatewayWithL7Policy{},
 		podToNodeCidrpolicy{},
 		northSouthLoadbalancingWithL7Policy{},
+		eastWestLoadbalancingWithL7Policy{},
 		echoIngressL7{},
 		echoIngressL7NamedPort{},
 		clientEgressL7Method{},
