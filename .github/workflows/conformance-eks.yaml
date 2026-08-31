@@ -582,7 +582,7 @@ jobs:
           # legs a node attaches several secondary ENIs and pod IPs spread over
           # them, which these tests do not cope with:
           #
-          #   north-south-loadbalancing-with-l7-policy: the outside-to-nodeport
+          #   north-south-loadbalancing-with-l7-ingress-policy: the outside-to-nodeport
           #     reply egresses a secondary ENI while carrying the primary ENI's
           #     source IP, so the VPC source/destination check drops it and the
           #     client times out (curl 28). Issue 47391.
@@ -596,7 +596,7 @@ jobs:
           # IPs on the primary ENI, so they run and gate on them as usual. To
           # quarantine another test add it to this list; to re-arm one, drop it.
           QUARANTINED_TESTS=(
-            north-south-loadbalancing-with-l7-policy
+            north-south-loadbalancing-with-l7-ingress-policy
             egress-gateway-excluded-cidrs
           )
 
