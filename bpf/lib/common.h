@@ -370,11 +370,6 @@ struct lb4_reverse_nat {
 	__be16 port;
 } __packed;
 
-static __always_inline __u64 ctx_adjust_hroom_flags(void)
-{
-	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;
-}
-
 struct lpm_v4_key {
 	struct bpf_lpm_trie_key lpm;
 	__u8 addr[4];

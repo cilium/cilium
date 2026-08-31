@@ -1113,7 +1113,7 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 
 				if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip6),
 						     BPF_ADJ_ROOM_MAC,
-						     ctx_adjust_hroom_flags())) {
+						     BPF_F_ADJ_ROOM_NO_CSUM_RESET)) {
 					ret = DROP_INVALID;
 					goto drop_err_ingress;
 				}
@@ -1200,7 +1200,7 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 
 				if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip4),
 						     BPF_ADJ_ROOM_MAC,
-						     ctx_adjust_hroom_flags())) {
+						     BPF_F_ADJ_ROOM_NO_CSUM_RESET)) {
 					ret = DROP_INVALID;
 					goto drop_err_ingress;
 				}

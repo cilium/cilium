@@ -412,8 +412,8 @@ static __always_inline int dsr_set_ipip6(
 
 	rss_gen_src6(&saddr, (union v6addr *)&ip6->saddr, l4_hint);
 
-	if (ctx_adjust_hroom(
-		    ctx, sizeof(*ip6), BPF_ADJ_ROOM_NET, ctx_adjust_hroom_flags()))
+	if (ctx_adjust_hroom(ctx, sizeof(*ip6), BPF_ADJ_ROOM_NET,
+			     BPF_F_ADJ_ROOM_NO_CSUM_RESET))
 		return DROP_INVALID;
 	if (ctx_store_bytes(ctx, l3_off + offsetof(struct ipv6hdr, payload_len),
 			    &tp_new.payload_len, 4, 0) < 0)
@@ -463,8 +463,8 @@ static __always_inline int dsr_set_ext6(
 	ipv6_addr_copy_unaligned(&opt.addr, svc_addr);
 	opt.port = svc_port;
 
-	if (ctx_adjust_hroom(
-		    ctx, sizeof(opt), BPF_ADJ_ROOM_NET, ctx_adjust_hroom_flags()))
+	if (ctx_adjust_hroom(ctx, sizeof(opt), BPF_ADJ_ROOM_NET,
+			     BPF_F_ADJ_ROOM_NO_CSUM_RESET))
 		return DROP_INVALID;
 	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip6), &opt, sizeof(opt), 0) <
 	    0)
@@ -1713,8 +1713,8 @@ static __always_inline int dsr_set_ipip4(
 		return DROP_FRAG_NEEDED;
 	}
 
-	if (ctx_adjust_hroom(
-		    ctx, sizeof(*ip4), BPF_ADJ_ROOM_NET, ctx_adjust_hroom_flags()))
+	if (ctx_adjust_hroom(ctx, sizeof(*ip4), BPF_ADJ_ROOM_NET,
+			     BPF_F_ADJ_ROOM_NO_CSUM_RESET))
 		return DROP_INVALID;
 	sum = csum_diff(&tp_old, 16, &tp_new, 16, 0);
 	if (ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, tot_len),
@@ -1779,8 +1779,8 @@ dsr_set_opt4(struct __ctx_buff *ctx, struct iphdr *ip4, __be32 svc_addr,
 	sum = csum_diff(&iph_old, 4, &iph_new, 4, 0);
 	sum = csum_diff(NULL, 0, &opt, sizeof(opt), sum);
 
-	if (ctx_adjust_hroom(
-		    ctx, sizeof(opt), BPF_ADJ_ROOM_NET, ctx_adjust_hroom_flags()))
+	if (ctx_adjust_hroom(ctx, sizeof(opt), BPF_ADJ_ROOM_NET,
+			     BPF_F_ADJ_ROOM_NO_CSUM_RESET))
 		return DROP_INVALID;
 
 	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip4), &opt, sizeof(opt), 0) <

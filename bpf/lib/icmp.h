@@ -68,7 +68,7 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	 */
 
 	ret = ctx_adjust_hroom(ctx, sizeof(*ip4) + sizeof(*icmphdr),
-			       BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags());
+			       BPF_ADJ_ROOM_MAC, BPF_F_ADJ_ROOM_NO_CSUM_RESET);
 	if (ret < 0)
 		return DROP_INVALID;
 
