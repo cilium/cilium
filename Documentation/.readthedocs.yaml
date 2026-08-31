@@ -21,3 +21,23 @@ sphinx:
 python:
   install:
   - requirements: Documentation/requirements.txt
+
+search:
+   ignore:
+     - '*.inc'
+     - 'alpha.rst'
+     - 'beta.rst'
+     - 'installation/cli-download.rst'
+     - 'installation/cli-status.rst'
+     - 'installation/cni-chaining-limitations.rst'
+     - 'installation/k8s-install-download-release.rst'
+     - 'installation/k8s-install-validate.rst'
+     - 'installation/next-steps.rst'
+     - 'installation/requirements-*.rst'
+     - 'network/kubernetes/compatibility-table.rst'
+     - 'network/servicemesh/gateway-api/demo-app.rst'
+     - 'network/servicemesh/gateway-api/tls-cert.rst'
+     - 'network/servicemesh/installation.rst'
+     - 'network/servicemesh/warning.rst'
+     - 'security/gsg_requirements.rst'
+     - 'security/gsg_sw_demo.rst'
