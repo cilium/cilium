@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/cilium/hive/cell"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -117,8 +118,8 @@ func newADSServer(logger *slog.Logger, ipCache IPCacheEventSource, localEndpoint
 	return newADSServerWithCache(xdsnew.NewCache(logger, config.envoyXDSMode.IsStrictADS()), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
 }
 
-func (s *adsServer) run(ctx context.Context) error {
-	return s.startAdsGRPCServer(ctx)
+func (s *adsServer) run(ctx context.Context, health cell.Health) error {
+	return s.startAdsGRPCServer(ctx, health)
 }
 
 func (s *adsServer) newSocketListener() (*net.UnixListener, error) {

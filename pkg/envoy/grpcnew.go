@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/cilium/hive/cell"
 	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/sotw/v3"
 	envoy_server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
@@ -23,7 +24,7 @@ import (
 
 // startAdsGRPCServer runs a gRPC server to serve ADS APIs. Returns on error or
 // when ctx is cancelled.
-func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
+func (s *adsServer) startAdsGRPCServer(ctx context.Context, health cell.Health) error {
 	listener, err := s.newSocketListener()
 	if err != nil {
 		return fmt.Errorf("failed to create socket listener: %w", err)
@@ -44,33 +45,19 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 
 	reflection.Register(grpcServer)
 
-	restoreCtx, cancel := context.WithTimeout(ctx, s.config.policyRestoreTimeout)
-	defer cancel()
 	s.stopFunc = grpcServer.Stop
 
-	if s.restorerPromise != nil {
-		s.logger.Info("Envoy: Waiting for endpoint restorer before serving xDS resources...")
-		restorer, err := s.restorerPromise.Await(restoreCtx)
-		if err == nil && restorer != nil {
-			s.logger.Info("Envoy: Waiting for endpoint restoration before serving xDS resources...")
-			err = restorer.WaitForInitialPolicy(restoreCtx)
-		}
-		if errors.Is(err, context.Canceled) {
-			s.logger.Debug("Envoy: xDS server stopped before started serving")
-			return err
-		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			s.logger.Warn("Envoy: Endpoint policy restoration took longer than configured restore timeout, starting serving resources to Envoy",
-				logfields.Duration, s.config.policyRestoreTimeout,
-			)
-		}
+	if err := awaitEndpointPolicyRestoration(ctx, health, s.logger, s.restorerPromise,
+		s.config.policyRestoreTimeout); err != nil {
+		s.logger.Debug("Envoy: xDS server stopped before started serving")
+		return err
 	}
 
 	s.logger.Info("Envoy: Starting xDS gRPC server listening",
 		logfields.Address, listener.Addr(),
 	)
 
-	ctx, cancel = context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
 		<-ctx.Done()

@@ -85,7 +85,7 @@ type xdsServerParams struct {
 // runnableXDSServer extends XDSServer with the lifecycle method used internally by the cell.
 type runnableXDSServer interface {
 	XDSServer
-	run(ctx context.Context) error
+	run(ctx context.Context, health cell.Health) error
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
@@ -144,8 +144,8 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		return xdsServer, nil
 	}
 
-	params.JobGroup.Add(job.OneShot("xds-server", func(ctx context.Context, _ cell.Health) error {
-		return xdsServer.run(ctx)
+	params.JobGroup.Add(job.OneShot("xds-server", func(ctx context.Context, health cell.Health) error {
+		return xdsServer.run(ctx, health)
 	}, job.WithShutdown()))
 
 	if !option.Config.ExternalEnvoyProxy {
