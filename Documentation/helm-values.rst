@@ -1925,7 +1925,7 @@
      - object
      - ``{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}``
    * - :spelling:ignore:`envoy.useOriginalSourceAddress`
-     - For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway), configures Cilium BPF Metadata listener filter to use the original source address when extracting the metadata for a request.
+     - For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway), configures Cilium BPF Metadata listener filter to use the original source address when extracting the metadata for a request. Controls ``proxy-use-original-source-address`` in the ConfigMap (the ``--proxy-use-original-source-address`` agent option).
      - bool
      - ``true``
    * - :spelling:ignore:`envoy.xdsMode`
