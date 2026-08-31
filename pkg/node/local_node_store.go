@@ -113,7 +113,9 @@ func NewNodeTableAndLocalNodeStore(params LocalNodeStoreParams) (
 
 			n = n.DeepCopy()
 			err := params.Sync.InitLocalNode(ctx, n)
-			n.Statuses = n.Statuses.Pending(s.writer.getRequiredReconcilers(wtxn)...)
+			n.Statuses = n.Statuses.Pending(
+				reconcilerNames(s.writer.getRequiredReconcilers(wtxn))...,
+			)
 			nodeTable.Insert(wtxn, n)
 			initDone(wtxn)
 			wtxn.Commit()
@@ -237,7 +239,9 @@ func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 		// No changes.
 		return
 	}
-	ln.Statuses = orig.Statuses.Pending(s.writer.getRequiredReconcilers(txn)...)
+	ln.Statuses = orig.Statuses.Pending(
+		reconcilerNames(s.writer.getRequiredReconcilers(txn))...,
+	)
 
 	if orig.Fullname() != ln.Fullname() {
 		// Name or cluster has changed, delete first to remove it from the name index.

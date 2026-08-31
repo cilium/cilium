@@ -32,12 +32,24 @@ type Writer struct {
 	isStaticLocalRouterIP  func(string) bool
 	prefixClusterMutatorFn PrefixClusterMutatorFn
 
-	requiredReconcilers []string
+	requiredReconcilers []NodeReconciler
 }
 
 // PrefixClusterMutatorFn derives cluster-aware addressing options from a
 // serialized node.
 type PrefixClusterMutatorFn = func(*nodeTypes.Node) []cmtypes.PrefixClusterOpts
+
+// NodeReconciler identifies a reconciler operating on the node table.
+type NodeReconciler string
+
+func (r NodeReconciler) String() string { return string(r) }
+
+const (
+	// LinuxNodeReconciler realizes nodes in the Linux datapath.
+	LinuxNodeReconciler NodeReconciler = "linux"
+	// WireGuardNodeReconciler realizes nodes in the WireGuard datapath.
+	WireGuardNodeReconciler NodeReconciler = "wireguard"
+)
 
 // NewWriter constructs a node table writer.
 func NewWriter(log *slog.Logger, db *statedb.DB, nodes statedb.RWTable[*Node]) *Writer {
@@ -89,10 +101,11 @@ func (w *Writer) RegisterInitializer(txn statedb.WriteTxn, name string) func(sta
 // reconcilers and marks existing nodes pending for it. This list is passed to
 // [reconciler.StatusSet.Pending] when nodes are created or updated.
 // Panics if the reconciler has already been registered.
-func (w *Writer) RegisterReconciler(name string) {
+func (w *Writer) RegisterReconciler(name NodeReconciler) {
 	txn := w.db.WriteTxn(w.nodes)
 	defer txn.Abort()
 
+	nameString := name.String()
 	i, found := slices.BinarySearch(w.requiredReconcilers, name)
 	if found {
 		panic(fmt.Sprintf("Reconciler %q already registered", name))
@@ -108,7 +121,7 @@ func (w *Writer) RegisterReconciler(name string) {
 	// cannot mistake another reconciler completing for full reconciliation.
 	for n := range w.nodes.All(txn) {
 		updated := *n
-		updated.Statuses = updated.Statuses.Set(name, reconciler.StatusPending())
+		updated.Statuses = updated.Statuses.Set(nameString, reconciler.StatusPending())
 		if _, _, err := w.nodes.Insert(txn, &updated); err != nil {
 			w.log.Error("Failed to register node reconciler status",
 				logfields.Error, err,
@@ -124,10 +137,11 @@ func (w *Writer) RegisterReconciler(name string) {
 // UnregisterReconciler removes the reconciler from the list of required
 // reconcilers and removes its status from every node. The reconciler must be
 // stopped before it is unregistered so it cannot write its status back.
-func (w *Writer) UnregisterReconciler(name string) {
+func (w *Writer) UnregisterReconciler(name NodeReconciler) {
 	txn := w.db.WriteTxn(w.nodes)
 	defer txn.Abort()
 
+	nameString := name.String()
 	i, found := slices.BinarySearch(w.requiredReconcilers, name)
 	if !found {
 		return
@@ -141,7 +155,7 @@ func (w *Writer) UnregisterReconciler(name string) {
 	// Remove the reconciler from the nodes so it will no longer be waited for.
 	for n := range w.nodes.All(txn) {
 		updated := *n
-		updated.Statuses = updated.Statuses.Delete(name)
+		updated.Statuses = updated.Statuses.Delete(nameString)
 		if _, _, err := w.nodes.Insert(txn, &updated); err != nil {
 			w.log.Error("Failed to unregister node reconciler",
 				logfields.Error, err,
@@ -157,11 +171,19 @@ func (w *Writer) UnregisterReconciler(name string) {
 
 // getRequiredReconcilers must only be called while holding a write transaction
 // for the node table. The transaction serializes access to the registry.
-func (w *Writer) getRequiredReconcilers(_ statedb.WriteTxn) []string {
+func (w *Writer) getRequiredReconcilers(_ statedb.WriteTxn) []NodeReconciler {
 	if w == nil {
 		return nil
 	}
 	return slices.Clone(w.requiredReconcilers)
+}
+
+func reconcilerNames(reconcilers []NodeReconciler) []string {
+	names := make([]string, len(reconcilers))
+	for i, reconciler := range reconcilers {
+		names[i] = reconciler.String()
+	}
+	return names
 }
 
 // WaitUntilReconciled waits until all nodes present in txn have been
@@ -228,7 +250,7 @@ func (w *Writer) WaitUntilReconciled(
 // The error is [ctx.Err()] if context is cancelled.
 func (w *Writer) Refresh(ctx context.Context) error {
 	txn := w.db.WriteTxn(w.nodes)
-	reconcilers := w.getRequiredReconcilers(txn)
+	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
 	for n := range w.nodes.All(txn) {
 		updated := *n
 		updated.Statuses = updated.Statuses.Pending(reconcilers...)
@@ -249,7 +271,7 @@ func (w *Writer) Refresh(ctx context.Context) error {
 // objects are not retained, so their producer must upsert them again if the
 // winning object is later deleted.
 func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
-	reconcilers := w.getRequiredReconcilers(txn)
+	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
 	obj := &Node{
 		Node:             *n,
 		addressClusterID: deriveAddressClusterID(w.prefixClusterMutatorFn, n),
