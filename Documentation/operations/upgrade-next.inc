@@ -49,7 +49,7 @@ Changed Options
 The following options have been modified in this version of Cilium to behave
 differently than in prior releases:
 
-* TODO
+* ``bpf.hostLegacyRouting`` now defaults to true on new Cilium deployments.
 
 Deprecated Options
 ##################
