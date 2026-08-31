@@ -27,10 +27,10 @@ func (t northSouthLoadbalancingWithL7Policy) build(ct *check.ConnectivityTest, _
 }
 
 func northSouthLoadbalancingWithL7PolicyTest(ct *check.ConnectivityTest, portRanges bool) {
-	testName := "north-south-loadbalancing-with-l7-policy"
+	testName := "north-south-loadbalancing-with-l7-ingress-policy"
 	policyYAML := echoIngressL7HTTPFromAnywherePolicyYAML
 	if portRanges {
-		testName = "north-south-loadbalancing-with-l7-policy-port-range"
+		testName = "north-south-loadbalancing-with-l7-ingress-policy-port-range"
 		policyYAML = echoIngressL7HTTPFromAnywherePolicyPortRangeYAML
 	}
 	// The following tests have DNS redirect policies. They should be executed last.
