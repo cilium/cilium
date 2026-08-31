@@ -127,13 +127,13 @@ func TestWriterReconcilerRegistration(t *testing.T) {
 		reconciler.StatusKindDone,
 		existing.Statuses.Get("already-done").Kind,
 	)
-	require.Equal(t, []string{"wireguard"}, requiredReconcilers(db, nodes, w))
+	require.Equal(t, []NodeReconciler{"wireguard"}, requiredReconcilers(db, nodes, w))
 
 	// Required reconcilers are materialized on newly inserted nodes. Seeing one
 	// completed status therefore cannot hide another required pending status.
 	w.RegisterReconciler("ipset")
 	require.Equal(t,
-		[]string{"ipset", "wireguard"},
+		[]NodeReconciler{"ipset", "wireguard"},
 		requiredReconcilers(db, nodes, w),
 	)
 	require.True(t, upsert(&types.Node{
@@ -166,7 +166,7 @@ func TestWriterReconcilerRegistration(t *testing.T) {
 	)
 
 	w.UnregisterReconciler("wireguard")
-	require.Equal(t, []string{"ipset"}, requiredReconcilers(db, nodes, w))
+	require.Equal(t, []NodeReconciler{"ipset"}, requiredReconcilers(db, nodes, w))
 	existing = get("existing")
 	newNode = get("new")
 	require.NotContains(t, maps.Collect(existing.Statuses.All()), "wireguard")
@@ -203,7 +203,7 @@ func requiredReconcilers(
 	db *statedb.DB,
 	nodes statedb.RWTable[*Node],
 	w *Writer,
-) []string {
+) []NodeReconciler {
 	txn := db.WriteTxn(nodes)
 	defer txn.Abort()
 	return w.getRequiredReconcilers(txn)

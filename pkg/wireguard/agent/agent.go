@@ -53,8 +53,6 @@ import (
 
 var wgDummyPeerKey = wgtypes.Key{}
 
-const wireGuardNodeReconcilerName = "wireguard"
-
 // wireguardClient is an interface to mock wgctrl.Client
 type wireguardClient interface {
 	io.Closer
@@ -184,24 +182,24 @@ func (a *Agent) Start(cell.HookContext) error {
 		a.ipCache.AddListener(a)
 	}
 
-	a.nodeWriter.RegisterReconciler(wireGuardNodeReconcilerName)
+	a.nodeWriter.RegisterReconciler(node.WireGuardNodeReconciler)
 	a.nodesReconciler, err = reconciler.Register(
 		a.reconcilerParams,
 		a.nodes.(statedb.RWTable[*node.Node]),
 		(*node.Node).DeepCopy,
 		func(n *node.Node, status reconciler.Status) *node.Node {
-			n.Statuses = n.Statuses.Set(wireGuardNodeReconcilerName, status)
+			n.Statuses = n.Statuses.Set(node.WireGuardNodeReconciler.String(), status)
 			return n
 		},
 		func(n *node.Node) reconciler.Status {
-			return n.Statuses.Get(wireGuardNodeReconcilerName)
+			return n.Statuses.Get(node.WireGuardNodeReconciler.String())
 		},
 		a,
 		nil,
 		reconciler.WithoutPruning(),
 	)
 	if err != nil {
-		a.nodeWriter.UnregisterReconciler(wireGuardNodeReconcilerName)
+		a.nodeWriter.UnregisterReconciler(node.WireGuardNodeReconciler)
 		return fmt.Errorf("registering WireGuard node reconciler: %w", err)
 	}
 	a.jobGroup.Add(
@@ -229,7 +227,7 @@ func (a *Agent) Stop(cell.HookContext) error {
 	// Set [wgClient] to nil to prevent further use.
 	a.wgClient = nil
 
-	a.nodeWriter.UnregisterReconciler(wireGuardNodeReconcilerName)
+	a.nodeWriter.UnregisterReconciler(node.WireGuardNodeReconciler)
 
 	return err
 }
