@@ -612,6 +612,26 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 				"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
 				logfields.Node, n.k8sObj.Name,
 			)
+			// If subnet is out of prefixes, re-calculate maximum allocatable IPs
+			limits, limitsAvailable := n.getLimits()
+			if !limitsAvailable {
+				return errors.New(errUnableToDetermineLimits)
+			}
+			n.mutex.RLock()
+			e, ok := n.enis[a.InterfaceID]
+			usePrimary := n.usePrimaryAddress()
+			n.mutex.RUnlock()
+			if !ok {
+				return fmt.Errorf("%s: %s", errENINotFound, a.InterfaceID)
+			}
+			maxAllocatableIPs := limits.IPv4
+			if !usePrimary {
+				// TODO: In v1.21 following #46987, e.Addresses always contains the primary IP and
+				// this accounting stops being necessary.
+				maxAllocatableIPs--
+			}
+			maxAllocatableIPs -= len(e.Addresses) - len(e.Prefixes)*(option.ENIPDBlockSizeIPv4-1)
+			a.IPv4.AvailableForAllocation = min(a.IPv4.AvailableForAllocation, maxAllocatableIPs)
 		}
 		assignedIPs, err := n.manager.ec2api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.IPv4.AvailableForAllocation))
 		if err != nil {
@@ -735,6 +755,7 @@ func (n *Node) findNextIndex(index int32) int32 {
 // usable for metrics accounting purposes.
 const (
 	errUnableToDetermineLimits   = "unable to determine limits"
+	errENINotFound               = "unable to find ENI"
 	unableToDetermineLimits      = "unableToDetermineLimits"
 	errUnableToGetSecurityGroups = "unable to get security groups"
 	unableToGetSecurityGroups    = "unableToGetSecurityGroups"
@@ -823,6 +844,8 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 				"Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore",
 				logfields.Node, n.k8sObj.Name,
 			)
+			// If subnet is out of prefixes, re-calculate maximum allocatable IPs
+			toAllocate = min(allocation.IPv4.MaxIPsToAllocate, limits.IPv4-1)
 			eniID, eni, err = n.manager.ec2api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false, allocateIPv6)
 		}
 		if err != nil {
@@ -976,7 +999,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 		return nil, stats, fmt.Errorf("unable to retrieve ENIs")
 	}
 
-	stats.RemainingAvailableInterfaceCount += limits.Adapters - len(n.enis)
+	stats.RemainingAvailableInterfaceCount += limits.Adapters - enis
 	return available, stats, nil
 }
 
