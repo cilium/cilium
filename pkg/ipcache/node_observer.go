@@ -180,7 +180,7 @@ func (o *nodeObserver) metadataForNode(n *node.Node) map[cmtypes.PrefixCluster]M
 		prefix := ip.IPToNetPrefix(address.IP)
 		prefixCluster := cmtypes.NewLocalPrefixCluster(prefix)
 		if address.Type == addressing.NodeCiliumInternalIP {
-			prefixCluster = cmtypes.PrefixClusterFrom(prefix)
+			prefixCluster = nodePrefixCluster(n, prefix)
 		}
 
 		var tunnelIP netip.Addr
@@ -217,7 +217,7 @@ func (o *nodeObserver) metadataForNode(n *node.Node) map[cmtypes.PrefixCluster]M
 				if !prefix.IsValid() {
 					continue
 				}
-				prefixCluster := cmtypes.PrefixClusterFrom(prefix)
+				prefixCluster := nodePrefixCluster(n, prefix)
 				add(prefixCluster,
 					worldLabelForPrefix(prefix),
 					ipcacheTypes.TunnelPeer{Addr: nodeIP},
@@ -230,7 +230,7 @@ func (o *nodeObserver) metadataForNode(n *node.Node) map[cmtypes.PrefixCluster]M
 	for _, address := range []netip.Addr{n.IPv4HealthIP.Addr, n.IPv6HealthIP.Addr} {
 		prefix := netip.PrefixFrom(address, address.BitLen())
 		if prefix.IsValid() {
-			add(cmtypes.PrefixClusterFrom(prefix),
+			add(nodePrefixCluster(n, prefix),
 				labels.LabelHealth,
 				ipcacheTypes.TunnelPeer{Addr: nodeIP},
 				o.endpointEncryptionKey(n),
@@ -241,7 +241,7 @@ func (o *nodeObserver) metadataForNode(n *node.Node) map[cmtypes.PrefixCluster]M
 	for _, address := range []netip.Addr{n.IPv4IngressIP.Addr, n.IPv6IngressIP.Addr} {
 		prefix := netip.PrefixFrom(address, address.BitLen())
 		if prefix.IsValid() {
-			add(cmtypes.PrefixClusterFrom(prefix),
+			add(nodePrefixCluster(n, prefix),
 				labels.LabelIngress,
 				ipcacheTypes.TunnelPeer{Addr: nodeIP},
 				o.endpointEncryptionKey(n),
@@ -249,6 +249,10 @@ func (o *nodeObserver) metadataForNode(n *node.Node) map[cmtypes.PrefixCluster]M
 		}
 	}
 	return metadata
+}
+
+func nodePrefixCluster(n *node.Node, prefix netip.Prefix) cmtypes.PrefixCluster {
+	return cmtypes.NewPrefixCluster(prefix, n.AddressClusterID())
 }
 
 func (o *nodeObserver) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
