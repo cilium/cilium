@@ -155,6 +155,8 @@ var backendCheckFuncs = []routechecks.CheckWithParentFunc{
 	routechecks.CheckAgainstCrossNamespaceBackendReferences,
 	routechecks.CheckBackend,
 	routechecks.CheckHasServiceImportSupport,
+	routechecks.CheckHasInferencePoolSupport,
+	routechecks.CheckBackendIsExistingInferencePool,
 	routechecks.CheckBackendIsExistingService,
 }
 
