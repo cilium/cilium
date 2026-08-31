@@ -46,6 +46,8 @@ type NodeReconciler string
 func (r NodeReconciler) String() string { return string(r) }
 
 const (
+	// IPCacheNodeReconciler derives node metadata in IPCache.
+	IPCacheNodeReconciler NodeReconciler = "ipcache"
 	// LinuxNodeReconciler realizes nodes in the Linux datapath.
 	LinuxNodeReconciler NodeReconciler = "linux"
 	// WireGuardNodeReconciler realizes nodes in the WireGuard datapath.
