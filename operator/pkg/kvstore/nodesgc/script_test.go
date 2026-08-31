@@ -52,7 +52,7 @@ func TestScript(t *testing.T) {
 
 	setup := func(t testing.TB, args []string) *script.Engine {
 		h := hive.New(
-			cell.Config(cmtypes.DefaultClusterInfo),
+			cmtypes.ClusterInfoCell,
 
 			cell.Provide(
 				func() store.Factory { return store.NewFactory(hivetest.Logger(t), store.MetricsProvider()) },
