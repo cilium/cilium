@@ -85,9 +85,6 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
-#ifdef TEST_EXTENDED_PROTOCOLS
-	assert(*status_code == CTX_ACT_OK);
-
 	/* Check for egress CT entry */
 	struct ipv4_ct_tuple tuple = {
 		.daddr   = NODE_IP,
@@ -99,12 +96,26 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 	};
 	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
+#ifdef TEST_EXTENDED_PROTOCOLS
+	assert(*status_code == CTX_ACT_OK);
+
 	if (!ct_entry)
 		test_fatal("no CT entry found");
 
 	assert(ct_entry->packets == 1);
 #else
 	assert(*status_code == CTX_ACT_DROP);
+
+	if (ct_entry)
+		test_fatal("CT entry found");
+
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_CT_UNKNOWN_PROTO,
+		.dir = METRIC_EGRESS,
+	};
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 #endif
 
 	policy_delete_egress_all_entry();
@@ -160,9 +171,6 @@ int hostfw_igmp_ingress_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
-#ifdef TEST_EXTENDED_PROTOCOLS
-	assert(*status_code == CTX_ACT_OK);
-
 	/* Check whether this packet hits the existing egress entry */
 	struct ipv4_ct_tuple tuple = {
 		.daddr   = NODE_IP,
@@ -174,12 +182,26 @@ int hostfw_igmp_ingress_check(const struct __ctx_buff *ctx)
 	};
 	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
+#ifdef TEST_EXTENDED_PROTOCOLS
+	assert(*status_code == CTX_ACT_OK);
+
 	if (!ct_entry)
 		test_fatal("no CT entry found");
 
 	assert(ct_entry->packets == 2);
 #else
 	assert(*status_code == CTX_ACT_DROP);
+
+	if (ct_entry)
+		test_fatal("CT entry found");
+
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_CT_UNKNOWN_PROTO,
+		.dir = METRIC_INGRESS,
+	};
+	__u64 count = 1;
+
+	assert_metrics_count(key, count);
 #endif
 
 	test_finish();
@@ -240,9 +262,6 @@ int hostfw_igmp_egress_policy_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
-#ifdef TEST_EXTENDED_PROTOCOLS
-	assert(*status_code == CTX_ACT_OK);
-
 	/* Check for egress CT entry */
 	struct ipv4_ct_tuple tuple = {
 		.daddr   = NODE_IP2,
@@ -254,10 +273,24 @@ int hostfw_igmp_egress_policy_check(const struct __ctx_buff *ctx)
 	};
 	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
+#ifdef TEST_EXTENDED_PROTOCOLS
+	assert(*status_code == CTX_ACT_OK);
+
 	if (!ct_entry)
 		test_fatal("no CT entry found");
 #else
 	assert(*status_code == CTX_ACT_DROP);
+
+	if (ct_entry)
+		test_fatal("CT entry found");
+
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_CT_UNKNOWN_PROTO,
+		.dir = METRIC_EGRESS,
+	};
+	__u64 count = 2;
+
+	assert_metrics_count(key, count);
 #endif
 
 	policy_delete_egress_all_entry();
@@ -316,6 +349,20 @@ int hostfw_igmp_ingress_policy_check(const struct __ctx_buff *ctx)
 	status_code = data;
 
 	assert(*status_code == CTX_ACT_DROP);
+
+	struct metrics_key key = {
+		.reason = (__u8)-DROP_CT_UNKNOWN_PROTO,
+		.dir = METRIC_INGRESS,
+	};
+#ifdef TEST_EXTENDED_PROTOCOLS
+	/* Packet being dropped per-policy, counter not updated */
+	__u64 count = 0;
+#else
+	/* Packet being dropped per CT lookup, counter updated */
+	__u64 count = 2;
+#endif
+
+	assert_metrics_count(key, count);
 
 	test_finish();
 }
