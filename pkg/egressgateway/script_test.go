@@ -87,7 +87,7 @@ func TestPrivilegedScripts(t *testing.T) {
 				testCell,
 
 				cell.Config(metrics.RegistryConfig{}),
-				cell.Config(cmtypes.DefaultClusterInfo),
+				cmtypes.ClusterInfoCell,
 				cell.Provide(
 					metrics.NewRegistry,
 					// LocalNodeSynchronizer syncs via apiserver, after the node is initialized, generally

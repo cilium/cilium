@@ -39,7 +39,7 @@ func TestIdentitiesGC(t *testing.T) {
 	var authIdentityClient authIdentity.Provider
 
 	hive := hive.New(
-		cell.Config(cmtypes.DefaultClusterInfo),
+		cmtypes.ClusterInfoCell,
 		metrics.Metric(NewMetrics),
 
 		// provide a fake clientset
@@ -154,7 +154,7 @@ func TestIdentitiesGC_Disabled(t *testing.T) {
 	)
 
 	hive := hive.New(
-		cell.Config(cmtypes.DefaultClusterInfo),
+		cmtypes.ClusterInfoCell,
 		metrics.Metric(NewMetrics),
 
 		k8sFakeClient.FakeClientCell(),

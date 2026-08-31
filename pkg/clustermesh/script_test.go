@@ -97,8 +97,7 @@ func TestScript(t *testing.T) {
 			dial.ServiceResolverCell,
 			metrics.Cell,
 
-			cell.Config(cmtypes.DefaultClusterInfo),
-			cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax, cmtypes.ClusterInfo.Validate),
+			cmtypes.ClusterInfoCell,
 
 			cell.Provide(
 				tables.NewNodeAddressTable,
