@@ -52,13 +52,17 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 
 		addVisibilityPolicy := func(ns string) {
 			By("Applying L7 visibility policy")
-			res := kubectl.Apply(helpers.ApplyOptions{FilePath: visibilityPolicyPath, Namespace: ns})
-			res.ExpectSuccess("could not create L7 visibility policy")
+			// Wait for the realized revision so the L7 redirect is live before we curl.
+			_, err := kubectl.CiliumPolicyAction(ns, visibilityPolicyPath,
+				helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).To(BeNil(), "could not create L7 visibility policy")
 		}
 
 		removeVisibilityPolicy := func(ns string) {
 			By("Removing L7 visibility policy")
-			kubectl.DeleteInNamespace(ns, visibilityPolicyPath)
+			_, err := kubectl.CiliumPolicyAction(ns, visibilityPolicyPath,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).To(BeNil(), "could not delete L7 visibility policy")
 		}
 
 		getFlowsFromRelay := func(args string) []*observerpb.GetFlowsResponse {
