@@ -86,7 +86,14 @@
     // 'google/oss-fuzz' is ignored from the updates because it's currently
     // unversioned and it would be receiving an update every time the upstream
     // repository would receive a new commit.
-    "google/oss-fuzz"
+    "google/oss-fuzz",
+    // 'google-github-actions/auth' is deliberately pinned a few commits ahead
+    // of the newest tag, to a commit that carries the STS token exchange retry
+    // fix (google-github-actions/auth#532). 'pinDigests' plus the
+    // 'auto-merge-trusted-deps' membership below would otherwise re-pin the
+    // digest back to v3.0.0 and silently revert it. Drop this entry once
+    // upstream tags a release above v3.0.0 containing that fix.
+    "google-github-actions/auth"
   ],
   "pinDigests": true,
   // We don't want to separate major and minor upgrades in separate PRs since
