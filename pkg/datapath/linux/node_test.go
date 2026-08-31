@@ -57,7 +57,7 @@ func TestCreateNodeRoute(t *testing.T) {
 	log := hivetest.Logger(t)
 
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	nodeHandler := newNodeHandler(log, dpConfig, nil, kpr.KPRConfig{}, &fakeipsec.Agent{}, fakeipsec.Config{}, lns)
+	nodeHandler := newNodeHandler(log, dpConfig, nil, kpr.KPRConfig{}, &fakeipsec.Agent{}, fakeipsec.Config{}, lns, newNodePolicy())
 	nodeHandler.NodeConfigurationChanged(nodeConfig)
 
 	c1 := netip.MustParsePrefix("10.10.0.0/16")
