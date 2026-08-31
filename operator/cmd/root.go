@@ -136,10 +136,8 @@ var (
 	}
 
 	ControlPlaneCells = []cell.Cell{
-		cell.Config(cmtypes.DefaultClusterInfo),
-		cell.Config(cmtypes.DefaultPolicyConfig),
-		cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax),
-		cell.Invoke(cmtypes.ClusterInfo.Validate),
+		cmtypes.ClusterInfoCell,
+		cmtypes.PolicyConfigCell,
 
 		cell.Provide(func() *option.DaemonConfig {
 			return option.Config

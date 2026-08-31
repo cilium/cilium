@@ -24,8 +24,8 @@ var Cell = cell.Module(
 	"clustermesh-common",
 	"Common Cilium ClusterMesh modules",
 
+	cmtypes.ClusterInfoCell,
 	cell.Config(option.DefaultLegacyClusterMeshConfig),
-	cell.Config(cmtypes.DefaultClusterInfo),
 	cell.Invoke(cmtypes.RegisterClusterInfoValidator),
 	cell.Config(cmtypes.DefaultServiceModeV2Config),
 	cell.Invoke(cmtypes.ServiceModeV2Config.Validate),

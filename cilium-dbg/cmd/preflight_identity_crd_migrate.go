@@ -51,10 +51,8 @@ func migrateIdentityCmd() *cobra.Command {
 
 	hive := hive.New(
 		k8sClient.Cell,
+		cmtypes.ClusterInfoCell,
 		cell.Config(bgpConfig.DefaultConfig),
-		cell.Config(cmtypes.DefaultClusterInfo),
-		cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax),
-		cell.Invoke(cmtypes.ClusterInfo.Validate),
 		cell.Invoke(func(
 			lc cell.Lifecycle,
 			clientset k8sClient.Clientset,
