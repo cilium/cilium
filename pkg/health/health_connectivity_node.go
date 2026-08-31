@@ -59,12 +59,7 @@ func (h *ciliumHealthManager) launchCiliumNodeHealth(ctx context.Context, spec *
 		HealthAPISpec: spec,
 	}
 
-	ln, err := h.localNodeStore.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get local node: %w", err)
-	}
-
-	ch.server, err = server.NewServer(h.logger, config, h.healthConfig.IsActiveHealthCheckingEnabled(), ln)
+	ch.server, err = server.NewServer(h.logger, config, h.healthConfig.IsActiveHealthCheckingEnabled(), h.localNodeStore)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate cilium-health server: %w", err)
 	}
