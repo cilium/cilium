@@ -482,6 +482,12 @@ func (w *Writer) topologyPreferenceCandidate(svc *loadbalancer.Service, be *load
 		be.UnhealthyUpdatedAt != nil
 }
 
+// backendTerminating reports whether the backend is in a terminating state.
+func backendTerminating(be *loadbalancer.Backend) bool {
+	return be.State == loadbalancer.BackendStateTerminating ||
+		be.State == loadbalancer.BackendStateTerminatingNotServing
+}
+
 func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadbalancer.Backend, statedb.Revision], svc *loadbalancer.Service, fe *loadbalancer.Frontend) iter.Seq2[*loadbalancer.Backend, statedb.Revision] {
 	onlyLocal := false
 	isLocalProxyDelegation := func(loadbalancer.L3n4Addr) bool { return true }
@@ -521,14 +527,19 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 		if candidatesFound {
 			return func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
 				for be, rev := range bes {
-					if be.NodeName != w.nodeName {
-						continue
-					}
 					if !matchesFrontend(be, fe) {
 						continue
 					}
-					if !w.topologyPreferenceCandidate(svc, be) {
-						continue
+					// Keep terminating backends selected regardless of the
+					// same-node preference so that their established
+					// connections can drain.
+					if !backendTerminating(be) {
+						if be.NodeName != w.nodeName {
+							continue
+						}
+						if !w.topologyPreferenceCandidate(svc, be) {
+							continue
+						}
 					}
 					if !yield(be, rev) {
 						return
@@ -602,7 +613,12 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 			if checkZoneHints {
 				if be.Zone == nil ||
 					!slices.Contains(be.Zone.ForZones, *thisZone) {
-					continue
+					// A terminating backend has no zone hints. Keep it
+					// selected so that it stays in the datapath maps and
+					// its established connections can drain.
+					if !backendTerminating(be) {
+						continue
+					}
 				}
 			}
 			if !yield(be, rev) {
