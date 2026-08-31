@@ -353,7 +353,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	lbls := securityIdentity.LabelArray
 
 	// Check if policy enforcement should be enabled at the daemon level.
-	if lbls.Has(labels.IDNameHost) && !option.Config.EnableHostFirewall {
+	if securityIdentity.ID == identity.ReservedIdentityHost && !option.Config.EnableHostFirewall {
 		return false, false, false, false, nil
 	}
 
