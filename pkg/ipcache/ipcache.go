@@ -538,7 +538,6 @@ func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
 type MetadataBatchAPI interface {
 	UpsertMetadataBatch(updates ...MU) (revision uint64)
 	RemoveMetadataBatch(updates ...MU) (revision uint64)
-	WaitForRevision(ctx context.Context, rev uint64) error
 }
 
 var _ MetadataBatchAPI = &IPCache{}
