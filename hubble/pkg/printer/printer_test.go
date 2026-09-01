@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -462,6 +463,123 @@ DESTINATION: 2.2.2.2:8080
 			require.Equal(t, strings.TrimSpace(tt.expected), strings.TrimSpace(buf.String()))
 		})
 	}
+}
+
+func TestPrinter_WriteProtoFlowExtensions(t *testing.T) {
+	buf := bytes.Buffer{}
+
+	// Use a service reference as a "known" extension
+	knownExt, err := anypb.New(
+		&flowpb.Service{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+	)
+	require.NoError(t, err)
+
+	for _, tt := range []struct {
+		name     string
+		ext      *anypb.Any
+		options  []Option
+		wantErr  bool
+		expected string
+	}{
+		{
+			name: "json - known extension",
+			options: []Option{
+				JSONLegacy(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			ext:     knownExt,
+			wantErr: false,
+			expected: `{"time":"1970-01-01T00:20:34.567800Z",` +
+				`"verdict":"DROPPED",` +
+				`"IP":{"source":"1.1.1.1","destination":"2.2.2.2"},` +
+				`"l4":{"TCP":{"source_port":31793,"destination_port":8080}},` +
+				`"source":{"identity":4},"destination":{"identity":12345},` +
+				`"Type":"L3_L4","node_name":"k8s1",` +
+				`"event_type":{"type":1,"sub_type":133},` +
+				`"is_reply":false,"Summary":"TCP Flags: SYN",` +
+				`"extensions":{"@type":"type.googleapis.com/flow.Service","name":"foo","namespace":"bar"}}`,
+		},
+		{
+			name: "json - unknown extension",
+			options: []Option{
+				JSONLegacy(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			ext: &anypb.Any{
+				TypeUrl: "example.com/unknown-extension",
+				Value:   []byte{0xde, 0xad, 0xbe, 0xef},
+			},
+			wantErr: false,
+			expected: `{"time":"1970-01-01T00:20:34.567800Z",` +
+				`"verdict":"DROPPED",` +
+				`"IP":{"source":"1.1.1.1","destination":"2.2.2.2"},` +
+				`"l4":{"TCP":{"source_port":31793,"destination_port":8080}},` +
+				`"source":{"identity":4},"destination":{"identity":12345},` +
+				`"Type":"L3_L4","node_name":"k8s1",` +
+				`"event_type":{"type":1,"sub_type":133},` +
+				`"is_reply":false,"Summary":"TCP Flags: SYN"}`,
+		},
+		{
+			name: "jsonpb - known extension",
+			options: []Option{
+				JSONPB(),
+				Writer(&buf),
+			},
+			ext:     knownExt,
+			wantErr: false,
+			expected: `{"flow":{"time":"1970-01-01T00:20:34.567800Z",` +
+				`"verdict":"DROPPED",` +
+				`"IP":{"source":"1.1.1.1","destination":"2.2.2.2"},` +
+				`"l4":{"TCP":{"source_port":31793,"destination_port":8080}},` +
+				`"source":{"identity":4},"destination":{"identity":12345},` +
+				`"Type":"L3_L4","node_name":"k8s1",` +
+				`"event_type":{"type":1,"sub_type":133},` +
+				`"is_reply":false,"Summary":"TCP Flags: SYN",` +
+				`"extensions":{"@type":"type.googleapis.com/flow.Service","name":"foo","namespace":"bar"}}}`,
+		},
+		{
+			name: "jsonpb - unknown extension",
+			options: []Option{
+				JSONPB(),
+				Writer(&buf),
+			},
+			ext: &anypb.Any{
+				TypeUrl: "example.com/unknown-extension",
+				Value:   []byte{0xde, 0xad, 0xbe, 0xef},
+			},
+			wantErr: false,
+			expected: `{"flow":{"time":"1970-01-01T00:20:34.567800Z",` +
+				`"verdict":"DROPPED",` +
+				`"IP":{"source":"1.1.1.1","destination":"2.2.2.2"},` +
+				`"l4":{"TCP":{"source_port":31793,"destination_port":8080}},` +
+				`"source":{"identity":4},"destination":{"identity":12345},` +
+				`"Type":"L3_L4","node_name":"k8s1",` +
+				`"event_type":{"type":1,"sub_type":133},` +
+				`"is_reply":false,"Summary":"TCP Flags: SYN"}}`,
+		},
+	} {
+		buf.Reset()
+		t.Run(tt.name, func(t *testing.T) {
+			f := proto.Clone(&f).(*flowpb.Flow)
+			f.Extensions = tt.ext
+			p := New(tt.options...)
+			res := &observerpb.GetFlowsResponse{
+				ResponseTypes: &observerpb.GetFlowsResponse_Flow{Flow: f},
+			}
+
+			if err := p.WriteProtoFlow(res); (err != nil) != tt.wantErr {
+				t.Errorf("WriteProtoFlow() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			require.NoError(t, p.Close())
+			require.Equal(t, strings.TrimSpace(tt.expected), strings.TrimSpace(buf.String()))
+		})
+	}
+
 }
 
 func Test_getHostNames(t *testing.T) {
