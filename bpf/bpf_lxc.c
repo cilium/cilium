@@ -1761,7 +1761,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (tip == CONFIG(endpoint_ipv4).be32)
 		return CTX_ACT_OK;
 
-	ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+	ret = arp_respond(ctx, &mac, tip, &smac, sip);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
 

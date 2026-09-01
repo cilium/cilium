@@ -72,7 +72,7 @@ arp_validate(const struct __ctx_buff *ctx, union macaddr *mac,
 
 static __always_inline int
 arp_respond(struct __ctx_buff *ctx, union macaddr *smac, __be32 sip,
-	    union macaddr *dmac, __be32 tip, int direction)
+	    union macaddr *dmac, __be32 tip)
 {
 	int ret = arp_prepare_response(ctx, smac, sip, dmac, tip);
 
@@ -81,5 +81,5 @@ arp_respond(struct __ctx_buff *ctx, union macaddr *smac, __be32 sip,
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
 			   ctx_get_ifindex(ctx));
-	return ctx_redirect(ctx, ctx_get_ifindex(ctx), direction);
+	return redirect_self(ctx);
 }
