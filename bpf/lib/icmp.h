@@ -14,7 +14,8 @@
 #include "overloadable.h"
 #ifdef ENABLE_IPV4
 
-static __always_inline int icmp_load_type(struct __ctx_buff *ctx, int l4_off, __u8 *type)
+static __always_inline int icmp_load_type(const struct __ctx_buff *ctx, int l4_off,
+					  __u8 *type)
 {
 	return ctx_load_bytes(ctx, l4_off + offsetof(struct icmphdr, type),
 			      type, sizeof(*type));
