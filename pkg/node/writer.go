@@ -195,6 +195,15 @@ func (w *Writer) WaitUntilReconciled(
 	txn statedb.ReadTxn,
 	requireDone bool,
 ) error {
+	return w.waitUntilReconciled(ctx, txn, requireDone, nil)
+}
+
+func (w *Writer) waitUntilReconciled(
+	ctx context.Context,
+	txn statedb.ReadTxn,
+	requireDone bool,
+	reconcilers []NodeReconciler,
+) error {
 	const settleTime = 10 * time.Millisecond
 
 	targets := map[string]statedb.Revision{}
@@ -213,11 +222,22 @@ func (w *Writer) WaitUntilReconciled(
 		for node := range allNodes {
 			if _, found := targets[node.Fullname()]; found {
 				finished := true
-				for _, status := range node.Statuses.All() {
-					if status.Kind != reconciler.StatusKindDone &&
-						(requireDone || status.Kind != reconciler.StatusKindError) {
-						finished = false
-						break
+				if reconcilers == nil {
+					for _, status := range node.Statuses.All() {
+						if status.Kind != reconciler.StatusKindDone &&
+							(requireDone || status.Kind != reconciler.StatusKindError) {
+							finished = false
+							break
+						}
+					}
+				} else {
+					for _, name := range reconcilers {
+						status := node.Statuses.Get(name.String())
+						if status.Kind != reconciler.StatusKindDone &&
+							(requireDone || status.Kind != reconciler.StatusKindError) {
+							finished = false
+							break
+						}
 					}
 				}
 				if finished {
@@ -246,15 +266,32 @@ func (w *Writer) WaitUntilReconciled(
 	return nil
 }
 
-// Refresh marks every node pending and waits for all currently known node
-// reconcilers have attempted to process them (status is either Done or Error).
-// The error is [ctx.Err()] if context is cancelled.
-func (w *Writer) Refresh(ctx context.Context) error {
+// Refresh marks the selected reconcilers pending for every node and waits for
+// them to attempt processing the nodes (status is either Done or Error). If no
+// reconcilers are specified, all registered reconcilers are refreshed. The
+// error is [ctx.Err()] if context is cancelled.
+func (w *Writer) Refresh(ctx context.Context, reconcilers ...NodeReconciler) error {
 	txn := w.db.WriteTxn(w.nodes)
-	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
+	registered := w.getRequiredReconcilers(txn)
+	if len(reconcilers) == 0 {
+		reconcilers = registered
+	} else {
+		for _, name := range reconcilers {
+			if _, found := slices.BinarySearch(registered, name); !found {
+				txn.Abort()
+				return fmt.Errorf("node reconciler %q is not registered", name)
+			}
+		}
+	}
+	if len(reconcilers) == 0 {
+		txn.Abort()
+		return nil
+	}
 	for n := range w.nodes.All(txn) {
 		updated := *n
-		updated.Statuses = updated.Statuses.Pending(reconcilers...)
+		for _, name := range reconcilers {
+			updated.Statuses = updated.Statuses.Set(name.String(), reconciler.StatusPending())
+		}
 		if _, _, err := w.nodes.Insert(txn, &updated); err != nil {
 			txn.Abort()
 			return fmt.Errorf("marking node %s pending: %w", updated.Fullname(), err)
@@ -263,7 +300,7 @@ func (w *Writer) Refresh(ctx context.Context) error {
 	rtxn := txn.Commit()
 
 	// Wait until refresh of all nodes has been attempted.
-	return w.WaitUntilReconciled(ctx, rtxn, false)
+	return w.waitUntilReconciled(ctx, rtxn, false, reconcilers)
 }
 
 // Upsert takes ownership of n and inserts or updates it if its source is
