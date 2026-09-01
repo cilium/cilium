@@ -91,7 +91,10 @@ func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
 // node IPs receive the same. This might happen if we allocated a node ID from
 // the ipcache, where we don't have all node IPs but only one.
 func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *nodeTypes.Node) (uint16, error) {
-	var errs error
+	var (
+		errs           error
+		newlyAllocated bool
+	)
 
 	// Did we already allocate a node ID for any IP of that node?
 	nodeID := n.getNodeIDForNode(node)
@@ -115,6 +118,7 @@ func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *node
 			// so we make early return here.
 			return nodeID, fmt.Errorf("no available node ID %q", node.Name)
 		} else {
+			newlyAllocated = true
 			n.log.Debug("Allocated new node ID for node",
 				logfields.NodeID, nodeID,
 				logfields.NodeName, node.Name,
@@ -153,6 +157,14 @@ func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *node
 			)
 			errs = errors.Join(errs,
 				fmt.Errorf("failed to map IP %s with node ID %d: %w", ip, nodeID, err))
+		}
+	}
+	// Return a new ID to the pool when every map update failed. If at least one
+	// update succeeded, the ID belongs to partially realized state that a retry
+	// must reuse or clean up.
+	if newlyAllocated && errs != nil {
+		if _, mapped := n.nodeIPsByIDs[nodeID]; !mapped {
+			n.nodeIDs.Insert(idpool.ID(nodeID))
 		}
 	}
 	return nodeID, errs
@@ -213,9 +225,8 @@ func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16, nodeIPs map[str
 	return errs
 }
 
-// mapNodeID adds a node ID <> IP mapping into the local in-memory map of the
-// Node Manager and in the corresponding BPF map. If any of those map updates
-// fail, both are cancelled and the function returns an error.
+// mapNodeID adds a node ID <> IP mapping to the local in-memory indexes and the
+// corresponding BPF map. If the BPF update fails, the indexes remain unchanged.
 func (n *linuxNodeHandler) mapNodeID(ip string, id uint16, SPI uint8) error {
 	nodeIP, err := netip.ParseAddr(ip)
 	if err != nil {
@@ -234,9 +245,9 @@ func (n *linuxNodeHandler) mapNodeID(ip string, id uint16, SPI uint8) error {
 	return nil
 }
 
-// unmapNodeID removes a node ID <> IP mapping from the local in-memory map of
-// the Node Manager and from the corresponding BPF map. If any of those map
-// updates fail, it returns an error; in such a case, both are cancelled.
+// unmapNodeID removes a node ID <> IP mapping from the local in-memory indexes
+// and the corresponding BPF map. If the BPF update fails, the indexes remain
+// unchanged.
 func (n *linuxNodeHandler) unmapNodeID(ip string) error {
 	// Check error cases first, to avoid having to cancel anything.
 	if _, exists := n.nodeIDsByIPs[ip]; !exists {
@@ -358,11 +369,11 @@ func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string
 	if len(n.nodeIDsByIPs) > 0 {
 		// If this happens, we likely have a bug in the startup logic and
 		// restored node IDs too late (after new node IDs were allocated).
-		n.log.Error("The node manager already contains node IDs")
+		n.log.Error("The node ID indexes already contain mappings")
 	}
 
-	// The node manager holds both a map of nodeIP=>nodeID and a pool of ID for
-	// the allocation of node IDs. Not only do we need to update the map,
+	// The handler holds both nodeIP=>nodeID indexes and a pool for allocating
+	// node IDs. Not only do we need to update the indexes,
 	nodeIDs := make(map[uint16]struct{})
 	IDsByIPs := make(map[string]uint16)
 	IPsByIDs := make(map[uint16]sets.Set[string])

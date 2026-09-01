@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
-	"github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -310,7 +309,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
-	template := &types.Parameters{
+	template := &ipsecTypes.Parameters{
 		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
@@ -502,7 +501,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
-	template := &types.Parameters{
+	template := &ipsecTypes.Parameters{
 		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
@@ -596,7 +595,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
-	template := &types.Parameters{
+	template := &ipsecTypes.Parameters{
 		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
