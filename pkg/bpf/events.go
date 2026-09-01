@@ -109,8 +109,11 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 // eventsBuffer stores a buffer of events for auditing and debugging
 // purposes.
 type eventsBuffer struct {
-	logger        *slog.Logger
-	buffer        *container.RingBuffer
+	logger *slog.Logger
+
+	mutex  lock.Mutex // protect 'buffer' only.
+	buffer *container.RingBuffer
+
 	eventTTL      time.Duration
 	subsLock      lock.RWMutex
 	subscriptions []*Handle
@@ -203,6 +206,9 @@ func (eb *eventsBuffer) dumpAndSubscribe(callback EventCallbackFunc, follow bool
 }
 
 func (eb *eventsBuffer) garbageCollect(_ context.Context) error {
+	eb.mutex.Lock()
+	defer eb.mutex.Unlock()
+
 	eb.logger.Debug(
 		"clearing bpf map events older than TTL",
 		logfields.TTL, eb.eventTTL,
@@ -289,6 +295,8 @@ func (eb *eventsBuffer) eventIsValid(e any) bool {
 type EventCallbackFunc func(*Event)
 
 func (eb *eventsBuffer) dumpWithCallback(callback EventCallbackFunc) {
+	eb.mutex.Lock()
+	defer eb.mutex.Unlock()
 	eb.buffer.IterateValid(eb.eventIsValid, func(e any) {
 		event, ok := e.(*Event)
 		if !ok {
