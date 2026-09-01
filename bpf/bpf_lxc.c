@@ -807,7 +807,7 @@ pass_to_stack: __maybe_unused
 #ifndef ENABLE_ROUTING
 	/* See IPv4 path for comments. */
 	if (from_l7lb && ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
-		return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+		return redirect_self(ctx);
 #endif /* !ENABLE_ROUTING */
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, dst_sec_identity,
@@ -1379,7 +1379,7 @@ pass_to_stack: __maybe_unused
 	 * checked via tail call from bpf_host.
 	 */
 	if (from_l7lb && ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
-		return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+		return redirect_self(ctx);
 #endif /* !ENABLE_ROUTING */
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, dst_sec_identity,
