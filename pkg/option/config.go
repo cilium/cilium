@@ -2781,6 +2781,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
 	c.EnableNodeSelectorLabels = vp.GetBool(EnableNodeSelectorLabels)
 	c.NodeLabels = vp.GetStringSlice(NodeLabels)
+	c.EnableNonDefaultDenyPolicies = vp.GetBool(EnableNonDefaultDenyPolicies)
 
 	c.EnableCiliumNetworkPolicy = vp.GetBool(EnableCiliumNetworkPolicy)
 	c.EnableCiliumClusterwideNetworkPolicy = vp.GetBool(EnableCiliumClusterwideNetworkPolicy)
