@@ -355,6 +355,7 @@ jobs:
           # * Increase the KVStoreMesh QPS to match the ones of the cmapisrv-mock,
           #   as not a problem considering the limited number of watchers.
           # * Store etcd data directly in memory, for improved performance.
+          # * Set authentication mode to legacy, for simplicity.
           cilium upgrade --reuse-values \
             --chart-directory=untrusted/install/kubernetes/cilium \
             --set clustermesh.useAPIServer=true \
@@ -365,6 +366,7 @@ jobs:
             --set clustermesh.apiserver.tolerations[0].key=node-role.kubernetes.io/control-plane \
             --set clustermesh.apiserver.tolerations[0].operator=Exists \
             --set clustermesh.apiserver.metrics.serviceMonitor.enabled=true \
+            --set clustermesh.apiserver.tls.authMode=legacy \
             --values values-clustermesh-config.yaml
 
           cilium status --wait --interactive=false
