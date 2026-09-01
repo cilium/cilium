@@ -361,7 +361,6 @@ int tail_srv6_encap(struct __ctx_buff *ctx)
 {
 	struct in6_addr dst_sid;
 	int ret = 0;
-	int __maybe_unused ext_err = 0;
 
 	srv6_load_meta_sid(ctx, &dst_sid);
 	ret = srv6_handling(ctx, &dst_sid);
