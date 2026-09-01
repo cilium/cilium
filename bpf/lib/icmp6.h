@@ -36,7 +36,8 @@
 #define ACTION_UNKNOWN_ICMP6_NS DROP_UNKNOWN_TARGET
 #endif
 
-static __always_inline int icmp6_load_type(struct __ctx_buff *ctx, int l4_off, __u8 *type)
+static __always_inline int icmp6_load_type(const struct __ctx_buff *ctx, int l4_off,
+					   __u8 *type)
 {
 	return ctx_load_bytes(ctx, l4_off + ICMP6_TYPE_OFFSET, type, sizeof(*type));
 }
