@@ -607,9 +607,55 @@ func TestWriterRefresh(t *testing.T) {
 	nodes, err := NewNodeTable(db)
 	require.NoError(t, err)
 	w := NewWriter(hivetest.Logger(t), db, nodes)
+	w.RegisterReconciler("other")
+	w.RegisterReconciler("test")
 
 	n := &Node{Node: types.Node{Name: "node-1", Source: source.Kubernetes}}
+	n.Statuses = n.Statuses.Set("other", reconciler.StatusPending())
 	n.Statuses = n.Statuses.Set("test", reconciler.StatusDone())
+	txn := db.WriteTxn(nodes)
+	_, _, err = nodes.Insert(txn, n)
+	require.NoError(t, err)
+	txn.Commit()
+
+	done := make(chan error, 1)
+	go func() { done <- w.Refresh(context.Background(), "test") }()
+
+	require.Eventually(t, func() bool {
+		n, _, found := nodes.Get(db.ReadTxn(), NodeByName("node-1"))
+		return found &&
+			n.Statuses.Get("test").Kind == reconciler.StatusKindPending &&
+			n.Statuses.Get("other").Kind == reconciler.StatusKindPending
+	}, time.Second, 10*time.Millisecond)
+
+	txn = db.WriteTxn(nodes)
+	n, _, found := nodes.Get(txn, NodeByName("node-1"))
+	require.True(t, found)
+	n = n.DeepCopy()
+	n.Statuses = n.Statuses.Set("test", reconciler.StatusDone())
+	_, _, err = nodes.Insert(txn, n)
+	require.NoError(t, err)
+	txn.Commit()
+	require.NoError(t, <-done)
+
+	require.ErrorContains(
+		t,
+		w.Refresh(context.Background(), "not-registered"),
+		`node reconciler "not-registered" is not registered`,
+	)
+}
+
+func TestWriterRefreshAll(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+	w.RegisterReconciler("first")
+	w.RegisterReconciler("second")
+
+	n := &Node{Node: types.Node{Name: "node-1", Source: source.Kubernetes}}
+	n.Statuses = n.Statuses.Set("first", reconciler.StatusDone())
+	n.Statuses = n.Statuses.Set("second", reconciler.StatusDone())
 	txn := db.WriteTxn(nodes)
 	_, _, err = nodes.Insert(txn, n)
 	require.NoError(t, err)
@@ -620,14 +666,17 @@ func TestWriterRefresh(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		n, _, found := nodes.Get(db.ReadTxn(), NodeByName("node-1"))
-		return found && n.Statuses.Get("test").Kind == reconciler.StatusKindPending
+		return found &&
+			n.Statuses.Get("first").Kind == reconciler.StatusKindPending &&
+			n.Statuses.Get("second").Kind == reconciler.StatusKindPending
 	}, time.Second, 10*time.Millisecond)
 
 	txn = db.WriteTxn(nodes)
 	n, _, found := nodes.Get(txn, NodeByName("node-1"))
 	require.True(t, found)
 	n = n.DeepCopy()
-	n.Statuses = n.Statuses.Set("test", reconciler.StatusDone())
+	n.Statuses = n.Statuses.Set("first", reconciler.StatusDone())
+	n.Statuses = n.Statuses.Set("second", reconciler.StatusDone())
 	_, _, err = nodes.Insert(txn, n)
 	require.NoError(t, err)
 	txn.Commit()
