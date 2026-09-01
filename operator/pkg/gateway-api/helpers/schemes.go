@@ -6,17 +6,11 @@ package helpers
 import (
 	"fmt"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
-
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 var RequiredGVKs = []schema.GroupVersionKind{
@@ -43,19 +37,6 @@ func GatewayV1GVK(kind string) schema.GroupVersionKind {
 		Version: gatewayv1.GroupVersion.Version,
 		Kind:    kind,
 	}
-}
-
-func TestScheme(optionalKinds []schema.GroupVersionKind) *runtime.Scheme {
-	scheme := runtime.NewScheme()
-
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(ciliumv2.AddToScheme(scheme))
-	utilruntime.Must(ciliumv2alpha1.AddToScheme(scheme))
-	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
-
-	RegisterGatewayAPITypesToScheme(scheme, optionalKinds)
-
-	return scheme
 }
 
 func RegisterGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []schema.GroupVersionKind) error {
