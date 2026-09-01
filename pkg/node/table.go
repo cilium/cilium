@@ -4,6 +4,7 @@
 package node
 
 import (
+	"iter"
 	"net/netip"
 	"slices"
 	"strings"
@@ -77,6 +78,52 @@ func (n *Node) TableRow() []string {
 }
 
 var _ statedb.TableWritable = &Node{}
+
+// addressClusters returns the normalized, cluster-aware addresses associated
+// with the node. The optional predicate omits configured Cilium internal
+// router addresses that may intentionally be shared by every node.
+func (n *Node) addressClusters(
+	omitStaticLocalRouterIP func(string) bool,
+) iter.Seq[cmtypes.AddrCluster] {
+	return func(yield func(cmtypes.AddrCluster) bool) {
+		yieldAddr := func(addr netip.Addr, clusterID uint32) bool {
+			if !addr.IsValid() {
+				return true
+			}
+			return yield(cmtypes.AddrClusterFrom(addr.Unmap(), clusterID))
+		}
+
+		for _, address := range n.IPAddresses {
+			if address.Type == addressing.NodeCiliumInternalIP &&
+				omitStaticLocalRouterIP != nil &&
+				omitStaticLocalRouterIP(address.ToString()) {
+				continue
+			}
+			addr, ok := netip.AddrFromSlice(address.IP)
+			if !ok {
+				continue
+			}
+			clusterID := uint32(0)
+			if address.Type == addressing.NodeCiliumInternalIP {
+				clusterID = n.addressClusterID
+			}
+			if !yieldAddr(addr, clusterID) {
+				return
+			}
+		}
+
+		for _, addr := range []netip.Addr{
+			n.IPv4HealthIP.Addr,
+			n.IPv6HealthIP.Addr,
+			n.IPv4IngressIP.Addr,
+			n.IPv6IngressIP.Addr,
+		} {
+			if !yieldAddr(addr, n.addressClusterID) {
+				return
+			}
+		}
+	}
+}
 
 // LocalNodeInfo is the additional information about the local node that
 // is only used internally.
@@ -158,25 +205,9 @@ var (
 		Name: "address",
 		FromObject: func(obj *Node) index.KeySet {
 			keys := make([]index.Key, 0, len(obj.IPAddresses)+4)
-			appendAddr := func(addr netip.Addr, clusterID uint32) {
-				if addr.IsValid() {
-					addrCluster := cmtypes.AddrClusterFrom(addr.Unmap(), clusterID)
-					keys = append(keys, nodeAddressKey(addrCluster))
-				}
+			for addr := range obj.addressClusters(nil) {
+				keys = append(keys, nodeAddressKey(addr))
 			}
-			for _, address := range obj.IPAddresses {
-				if addr, ok := netip.AddrFromSlice(address.IP); ok {
-					clusterID := uint32(0)
-					if address.Type == addressing.NodeCiliumInternalIP {
-						clusterID = obj.addressClusterID
-					}
-					appendAddr(addr, clusterID)
-				}
-			}
-			appendAddr(obj.IPv4HealthIP.Addr, obj.addressClusterID)
-			appendAddr(obj.IPv6HealthIP.Addr, obj.addressClusterID)
-			appendAddr(obj.IPv4IngressIP.Addr, obj.addressClusterID)
-			appendAddr(obj.IPv6IngressIP.Addr, obj.addressClusterID)
 			return index.NewKeySet(keys...)
 		},
 		FromKey:    nodeAddressKey,

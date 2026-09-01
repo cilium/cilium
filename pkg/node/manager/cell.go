@@ -69,7 +69,7 @@ type NodeManager interface {
 
 	// SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
 	// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom.
-	SetPrefixClusterMutatorFn(mutator func(*types.Node) []cmtypes.PrefixClusterOpts)
+	SetPrefixClusterMutatorFn(mutator node.PrefixClusterMutatorFn)
 }
 
 func newAllNodeManager(in struct {

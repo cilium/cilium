@@ -176,7 +176,7 @@ type manager struct {
 	meshNodeTableInit    func()
 
 	// custom mutator function to enrich prefixCluster(s) from node objects.
-	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
+	prefixClusterMutatorFn node.PrefixClusterMutatorFn
 
 	// wireguard configuration used when calling endpointEncryptionKey.
 	wgConfig types.Config
@@ -1300,6 +1300,9 @@ func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 
 // SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
 // The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom.
-func (m *manager) SetPrefixClusterMutatorFn(mutator func(*nodeTypes.Node) []cmtypes.PrefixClusterOpts) {
+func (m *manager) SetPrefixClusterMutatorFn(mutator node.PrefixClusterMutatorFn) {
 	m.prefixClusterMutatorFn = mutator
+	if m.writer != nil {
+		m.writer.SetPrefixClusterMutatorFn(mutator)
+	}
 }
