@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -110,6 +111,23 @@ func TestMain(m *testing.M) {
 	time.Local = time.UTC
 
 	os.Exit(m.Run())
+}
+
+func TestNeedsCiliumNodeBeforeIPAM(t *testing.T) {
+	for mode, want := range map[string]bool{
+		ipamOption.IPAMClusterPool:     true,
+		ipamOption.IPAMMultiPool:       true,
+		ipamOption.IPAMENI:             true,
+		ipamOption.IPAMAzure:           true,
+		ipamOption.IPAMAlibabaCloud:    false,
+		ipamOption.IPAMCRD:             false,
+		ipamOption.IPAMDelegatedPlugin: false,
+		ipamOption.IPAMKubernetes:      false,
+	} {
+		t.Run(mode, func(t *testing.T) {
+			require.Equal(t, want, needsCiliumNodeBeforeIPAM(mode))
+		})
+	}
 }
 
 func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
