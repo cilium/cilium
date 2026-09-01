@@ -1858,54 +1858,57 @@ func PolicyDefaultLocalClusterInspect(ctx context.Context, logger *slog.Logger, 
 
 	nps, err := k8sClient.ListSlimNetworkPolicies(ctx, namespace, metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Error listing network policies: %w", err)
+		return nil, fmt.Errorf("error listing network policies: %w", err)
 	}
 	for _, np := range nps.Items {
+		npKey := client.ObjectKeyFromObject(&np).String()
 		rulesAny, err := cmk8s.ParseNetworkPolicy(logger, cmtypes.PolicyAnyCluster, &np)
 		if err != nil {
-			return nil, fmt.Errorf("Error parsing network policies: %w", err)
+			return nil, fmt.Errorf("error parsing network policy(%s): %w", npKey, err)
 		}
 		rulesLocal, err := cmk8s.ParseNetworkPolicy(logger, "some-cluster", &np)
 		if err != nil {
-			return nil, fmt.Errorf("Error parsing network policies: %w", err)
+			return nil, fmt.Errorf("error parsing network policy(%s): %w", npKey, err)
 		}
 
-		res.NetworkPolicies[client.ObjectKeyFromObject(&np).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *types.PolicyEntry) bool { return a.DeepEqual(b) })
+		res.NetworkPolicies[npKey] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *types.PolicyEntry) bool { return a.DeepEqual(b) })
 	}
 
 	cnps, err := k8sClient.ListCiliumNetworkPolicies(ctx, namespace, metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Error listing Cilium network policies: %w", err)
+		return nil, fmt.Errorf("error listing Cilium network policies: %w", err)
 	}
 	for _, cnp := range cnps.Items {
+		cnpKey := client.ObjectKeyFromObject(&cnp).String()
 		rulesAny, err := cnp.Parse(logger, cmtypes.PolicyAnyCluster)
 		if err != nil {
-			return nil, fmt.Errorf("Error parsing Cilium network policies: %w", err)
+			return nil, fmt.Errorf("error parsing Cilium network policy(%s): %w", cnpKey, err)
 		}
 		rulesLocal, err := cnp.Parse(logger, "some-cluster")
 		if err != nil {
-			return nil, fmt.Errorf("Error parsing Cilium network policies: %w", err)
+			return nil, fmt.Errorf("error parsing Cilium network policy(%s): %w", cnpKey, err)
 		}
 
-		res.CiliumNetworkPolicies[client.ObjectKeyFromObject(&cnp).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *api.Rule) bool { return a.DeepEqual(b) })
+		res.CiliumNetworkPolicies[cnpKey] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *api.Rule) bool { return a.DeepEqual(b) })
 	}
 
 	if namespace == corev1.NamespaceAll {
 		ccnps, err := k8sClient.ListCiliumClusterwideNetworkPolicies(ctx, metav1.ListOptions{})
 		if err != nil {
-			return nil, fmt.Errorf("Error listing Cilium Cluster Wide network policies: %w", err)
+			return nil, fmt.Errorf("error listing Cilium Cluster Wide network policies: %w", err)
 		}
 		for _, ccnp := range ccnps.Items {
+			ccnpKey := client.ObjectKeyFromObject(&ccnp).String()
 			rulesAny, err := ccnp.Parse(logger, cmtypes.PolicyAnyCluster)
 			if err != nil {
-				return nil, fmt.Errorf("Error parsing Cilium Cluster Wide network policies: %w", err)
+				return nil, fmt.Errorf("error parsing Cilium Cluster Wide network policy(%s): %w", ccnpKey, err)
 			}
 			rulesLocal, err := ccnp.Parse(logger, "some-cluster")
 			if err != nil {
-				return nil, fmt.Errorf("Error parsing Cilium Cluster Wide network policies: %w", err)
+				return nil, fmt.Errorf("error parsing Cilium Cluster Wide network policy(%s): %w", ccnpKey, err)
 			}
 
-			res.CiliumClusterWideNetworkPolicies[client.ObjectKeyFromObject(&ccnp).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *api.Rule) bool { return a.DeepEqual(b) })
+			res.CiliumClusterWideNetworkPolicies[ccnpKey] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *api.Rule) bool { return a.DeepEqual(b) })
 		}
 	}
 
