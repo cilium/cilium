@@ -142,8 +142,9 @@ var Cell = cell.Module(
 
 	vtep.Cell,
 
-	// Provides node handler, which handles node events.
+	// Provides the Linux node reconciler and legacy node ID and validation APIs.
 	cell.Provide(linuxdatapath.NewNodeHandler),
+	cell.Invoke(linuxdatapath.RegisterNodeReconciler),
 	cell.Provide(node.NewNodeIDApiHandler),
 
 	// Provides Active Connection Tracking metrics based on counts of
