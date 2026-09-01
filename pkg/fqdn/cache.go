@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/netip"
 	"regexp"
 	"slices"
@@ -394,10 +393,24 @@ func (c *DNSCache) UpdateFromCache(update *DNSCache) {
 	}
 }
 
+type ipName struct {
+	ip   netip.Addr
+	name string
+}
+
+// oldEntryIndex is the pre-expiry IP -> names snapshot as a set of pairs.
+// Scanning the slice form instead is O(N^2) when many names share an address.
+type oldEntryIndex map[ipName]struct{}
+
+func (i oldEntryIndex) contains(ip netip.Addr, name string) bool {
+	_, ok := i[ipName{ip: ip, name: name}]
+	return ok
+}
+
 // partialRestoreFromCache is a utility function that upserts the entries of one DNSCache into another.
 // It takes a set of existing entries to ensure that it will only upsert IPs and IP->name mappings that is
 // part of that mapping.
-func (c *DNSCache) partialRestoreFromCache(update *DNSCache, namesToUpdate []string, oldEntries map[netip.Addr][]string) {
+func (c *DNSCache) partialRestoreFromCache(update *DNSCache, namesToUpdate []string, oldEntries oldEntryIndex) {
 	update.mu.RLock()
 	defer update.mu.RUnlock()
 
@@ -409,7 +422,7 @@ func (c *DNSCache) partialRestoreFromCache(update *DNSCache, namesToUpdate []str
 		for _, newEntry := range newEntries {
 			newIps := make([]netip.Addr, 0, len(newEntry.IPs))
 			for _, ip := range newEntry.IPs {
-				if names, found := oldEntries[ip]; found && slices.Contains(names, newEntry.Name) {
+				if oldEntries.contains(ip, newEntry.Name) {
 					newIps = append(newIps, ip)
 				}
 			}
@@ -448,13 +461,19 @@ func (c *DNSCache) ReplaceFromCacheByNames(namesToUpdate []string, updates ...*D
 	// Dump the existing IP->[names...] mapping that can be used to decide
 	// what information should be restored from the local caches.
 	oldEntries := c.getIPsLocked()
+	oldIndex := make(oldEntryIndex)
+	for ip, names := range oldEntries {
+		for _, name := range names {
+			oldIndex[ipName{ip: ip, name: name}] = struct{}{}
+		}
+	}
 
 	// Remove any DNS name in namesToUpdate with a lookup before "now". This
 	// effectively deletes all lookups because we're holding the lock.
 	c.forceExpireByNames(time.Now(), namesToUpdate)
 
 	for update := range c.updated {
-		c.partialRestoreFromCache(update, namesToUpdate, oldEntries)
+		c.partialRestoreFromCache(update, namesToUpdate, oldIndex)
 	}
 
 	c.updated.Clear()
@@ -673,7 +692,11 @@ func (c *DNSCache) getIPsLocked() map[netip.Addr][]string {
 	out := make(map[netip.Addr][]string, len(c.reverse))
 
 	for ip, names := range c.reverse {
-		out[ip] = slices.Collect(maps.Keys(names))
+		slice := make([]string, 0, len(names))
+		for name := range names {
+			slice = append(slice, name)
+		}
+		out[ip] = slice
 	}
 
 	return out
