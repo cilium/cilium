@@ -4,6 +4,7 @@
 package linux
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,6 +14,8 @@ import (
 	"syscall"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
@@ -81,6 +84,11 @@ type linuxNodeHandler struct {
 	kprCfg kpr.KPRConfig
 
 	ipsecCfg ipsecTypes.Config
+
+	// configReady is closed after the first NodeConfigurationChanged call.
+	// Restored state must not be pruned before datapath configuration is
+	// available.
+	configReady chan struct{}
 }
 
 var (
@@ -101,6 +109,11 @@ func NewNodeHandler(
 	kprCfg kpr.KPRConfig,
 	ipsecAgent ipsecTypes.Agent,
 	localNodeStore *node.LocalNodeStore,
+	db *statedb.DB,
+	jobs job.Group,
+	nodes statedb.Table[*node.Node],
+	health cell.Health,
+	daemonConfig *option.DaemonConfig,
 ) (node.Handler, node.IDHandler) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
@@ -108,6 +121,21 @@ func NewNodeHandler(
 	}
 
 	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeipsec.Config{}, localNodeStore)
+	checkpoint := newLinuxNodeCheckpoint(
+		log,
+		health,
+		db,
+		nodes,
+		func(ctx context.Context, restored nodeTypes.Node) error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-handler.configReady:
+			}
+			return handler.NodeDelete(restored)
+		},
+		daemonConfig.StateDir,
+	)
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
@@ -115,10 +143,29 @@ func NewNodeHandler(
 	lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
 			handler.RestoreNodeIDs()
+			if err := checkpoint.start(); err != nil {
+				return fmt.Errorf("starting Linux node checkpoint: %w", err)
+			}
+			jobs.Add(
+				job.OneShot("linux-node-checkpoint-writer", checkpoint.watch),
+				job.OneShot(
+					"linux-node-restored-pruning",
+					checkpoint.prune,
+					job.WithRetry(-1, &job.ExponentialBackoff{
+						Min: nodeCheckpointCleanupRetryMin,
+						Max: nodeCheckpointCleanupRetryMax,
+					}),
+				),
+			)
 			return nil
 		},
 		OnStop: func(_ cell.HookContext) error {
 			nodeManager.Unsubscribe(handler)
+			if err := checkpoint.stop(); err != nil {
+				log.Error("Failed to write final Linux node checkpoint",
+					logfields.Error, err,
+				)
+			}
 			return nil
 		},
 	})
@@ -152,6 +199,7 @@ func newNodeHandler(
 		kprCfg:               kprCfg,
 		ipsecAgent:           ipsecAgent,
 		ipsecCfg:             ipsecCfg,
+		configReady:          make(chan struct{}),
 	}
 }
 
@@ -758,6 +806,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 	var errs error
 	if !n.isInitialized {
 		n.isInitialized = true
+		close(n.configReady)
 
 		for _, unlinkedNode := range n.nodes {
 			if err := n.nodeUpdate(nil, unlinkedNode, true); err != nil {
