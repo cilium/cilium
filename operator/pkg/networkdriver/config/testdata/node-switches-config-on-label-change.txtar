@@ -1,0 +1,145 @@
+hive start
+
+# Add two nodes and two cluster configs, each matching one of the nodes.
+
+k8s/add kind-worker-node.yaml
+k8s/add kind-worker-2-node.yaml
+k8s/add driver-cluster-config-a.yaml
+k8s/add driver-cluster-config-b.yaml
+
+# Verify kind-worker got config-a and kind-worker-2 got config-b.
+
+* db/cmp netdriver-node-config node-config-initial.table
+
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-worker -o kind-worker-config-actual.yaml
+* cmp kind-worker-config-expected-a.yaml kind-worker-config-actual.yaml
+
+# Change kind-worker's labels so it now matches driver-cluster-config-b instead
+# of driver-cluster-config-a.
+
+k8s/add kind-worker-node-2.yaml
+
+# kind-worker's NodeConfig must now be derived from driver-cluster-config-b.
+
+* db/cmp netdriver-node-config node-config-switched.table
+
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-worker -o kind-worker-config-actual-2.yaml
+* cmp kind-worker-config-expected-b.yaml kind-worker-config-actual-2.yaml
+
+hive stop
+
+# ----
+
+-- kind-worker-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker
+    config: a
+  name: kind-worker
+spec: {}
+-- kind-worker-2-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker-2
+    config: b
+  name: kind-worker-2
+spec: {}
+-- driver-cluster-config-a.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config-a
+spec:
+  nodeSelector:
+    matchLabels:
+      config: a
+  spec:
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool-a"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- driver-cluster-config-b.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config-b
+spec:
+  nodeSelector:
+    matchLabels:
+      config: b
+  spec:
+    draRegistrationRetryInterval: 2
+    draRegistrationTimeout: 600
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool-b"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- kind-worker-node-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker
+    config: b
+  name: kind-worker
+spec: {}
+-- node-config-initial.table --
+Node             ClusterConfig             Config                                                                                                                                                                                                                                           Status  Error
+kind-worker      driver-cluster-config-a   {"draRegistrationRetryInterval":1,"draRegistrationTimeout":600,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool-a","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}                     Done    
+kind-worker-2    driver-cluster-config-b   {"draRegistrationRetryInterval":2,"draRegistrationTimeout":600,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool-b","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}                     Done    
+-- node-config-switched.table --
+Node             ClusterConfig             Config                                                                                                                                                                                                                                           Status  Error
+kind-worker      driver-cluster-config-b   {"draRegistrationRetryInterval":2,"draRegistrationTimeout":600,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool-b","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}                     Done    
+kind-worker-2    driver-cluster-config-b   {"draRegistrationRetryInterval":2,"draRegistrationTimeout":600,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool-b","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}                     Done    
+-- kind-worker-config-expected-a.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: kind-worker
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 1
+  draRegistrationTimeout: 600
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool-a
+-- kind-worker-config-expected-b.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: kind-worker
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 2
+  draRegistrationTimeout: 600
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool-b
