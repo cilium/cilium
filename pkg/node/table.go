@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -146,13 +147,14 @@ var (
 	// because configured Cilium internal router addresses may legitimately be
 	// shared by every node. Writer resolves all other conflicts according to
 	// source priority.
-	NodeAddressIndex = statedb.Index[*Node, netip.Addr]{
+	NodeAddressIndex = statedb.Index[*Node, cmtypes.AddrCluster]{
 		Name: "address",
 		FromObject: func(obj *Node) index.KeySet {
 			keys := make([]index.Key, 0, len(obj.IPAddresses)+4)
 			appendAddr := func(addr netip.Addr) {
 				if addr.IsValid() {
-					keys = append(keys, index.NetIPAddr(addr.Unmap()))
+					addrCluster := cmtypes.AddrClusterFrom(addr.Unmap(), 0)
+					keys = append(keys, nodeAddressKey(addrCluster))
 				}
 			}
 			for _, address := range obj.IPAddresses {
@@ -166,8 +168,8 @@ var (
 			appendAddr(obj.IPv6IngressIP.Addr)
 			return index.NewKeySet(keys...)
 		},
-		FromKey:    index.NetIPAddr,
-		FromString: index.NetIPAddrString,
+		FromKey:    nodeAddressKey,
+		FromString: nodeAddressKeyString,
 		Unique:     false,
 	}
 	NodeByAddress = NodeAddressIndex.Query
@@ -189,6 +191,19 @@ var (
 	NodeByLocal    = NodeLocalIndex.Query
 	LocalNodeQuery = NodeByLocal(true)
 )
+
+func nodeAddressKey(addr cmtypes.AddrCluster) index.Key {
+	key := addr.As20()
+	return key[:]
+}
+
+func nodeAddressKeyString(s string) (index.Key, error) {
+	addr, err := cmtypes.ParseAddrCluster(s)
+	if err != nil {
+		return nil, err
+	}
+	return nodeAddressKey(addr), nil
+}
 
 func NewNodeTable(db *statedb.DB) (statedb.RWTable[*Node], error) {
 	return statedb.NewTable(

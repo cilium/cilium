@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -255,7 +256,8 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 	// a single stronger owner rejects the update without deleting weaker ones.
 	conflicts := map[string]*Node{}
 	for _, addr := range w.conflictAddresses(n) {
-		for candidate := range w.nodes.List(txn, NodeByAddress(addr)) {
+		addrCluster := cmtypes.AddrClusterFrom(addr, 0)
+		for candidate := range w.nodes.List(txn, NodeByAddress(addrCluster)) {
 			if candidate.Fullname() == obj.Fullname() {
 				continue
 			}
