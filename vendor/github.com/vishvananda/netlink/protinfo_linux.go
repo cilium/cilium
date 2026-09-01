@@ -12,7 +12,7 @@ import (
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func LinkGetProtinfo(link Link) (Protinfo, error) {
-	return pkgHandle.LinkGetProtinfo(link)
+	return pkgHandle().LinkGetProtinfo(link)
 }
 
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent

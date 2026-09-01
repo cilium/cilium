@@ -15,7 +15,7 @@ const FibRuleInvert = 0x2
 // RuleAdd adds a rule to the system.
 // Equivalent to: ip rule add
 func RuleAdd(rule *Rule) error {
-	return pkgHandle.RuleAdd(rule)
+	return pkgHandle().RuleAdd(rule)
 }
 
 // RuleAdd adds a rule to the system.
@@ -28,7 +28,7 @@ func (h *Handle) RuleAdd(rule *Rule) error {
 // RuleDel deletes a rule from the system.
 // Equivalent to: ip rule del
 func RuleDel(rule *Rule) error {
-	return pkgHandle.RuleDel(rule)
+	return pkgHandle().RuleDel(rule)
 }
 
 // RuleDel deletes a rule from the system.
@@ -188,7 +188,7 @@ func ruleHandle(rule *Rule, req *nl.NetlinkRequest) error {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func RuleList(family int) ([]Rule, error) {
-	return pkgHandle.RuleList(family)
+	return pkgHandle().RuleList(family)
 }
 
 // RuleList lists rules in the system.
@@ -207,7 +207,7 @@ func (h *Handle) RuleList(family int) ([]Rule, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func RuleListFiltered(family int, filter *Rule, filterMask uint64) ([]Rule, error) {
-	return pkgHandle.RuleListFiltered(family, filter, filterMask)
+	return pkgHandle().RuleListFiltered(family, filter, filterMask)
 }
 
 // RuleListFiltered lists rules in the system.
