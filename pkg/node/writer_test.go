@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -480,7 +481,8 @@ func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
 		netip.MustParseAddr("fe80::"),
 	} {
 		var owners []string
-		for n := range nodes.List(db.ReadTxn(), NodeByAddress(address)) {
+		addrCluster := cmtypes.AddrClusterFrom(address, 0)
+		for n := range nodes.List(db.ReadTxn(), NodeByAddress(addrCluster)) {
 			owners = append(owners, n.Name)
 		}
 		require.ElementsMatch(t, []string{"local", "remote-1", "remote-2"}, owners)
