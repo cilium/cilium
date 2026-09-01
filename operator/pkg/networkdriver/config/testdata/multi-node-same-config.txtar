@@ -1,0 +1,114 @@
+hive start
+
+# Add three nodes, two of which share a common label
+
+k8s/add kind-worker-1-node.yaml
+k8s/add kind-worker-2-node.yaml
+k8s/add kind-control-plane-node.yaml
+
+# Add a cluster configuration matching both workers via a shared label
+
+k8s/add driver-cluster-config.yaml
+
+# Verify that the same cluster config has been applied to both worker nodes,
+# and not to the control-plane node.
+
+* db/cmp netdriver-node-config node-config.table
+
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-worker-1 -o kind-worker-1-config-actual.yaml
+* cmp kind-worker-1-config-expected.yaml kind-worker-1-config-actual.yaml
+
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-worker-2 -o kind-worker-2-config-actual.yaml
+* cmp kind-worker-2-config-expected.yaml kind-worker-2-config-actual.yaml
+
+hive stop
+
+# ----
+
+-- kind-worker-1-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker-1
+    role: worker
+  name: kind-worker-1
+spec: {}
+-- kind-worker-2-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker-2
+    role: worker
+  name: kind-worker-2
+spec: {}
+-- kind-control-plane-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-control-plane
+    role: control-plane
+  name: kind-control-plane
+spec: {}
+-- driver-cluster-config.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config
+spec:
+  nodeSelector:
+    matchLabels:
+      role: worker
+  spec:
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- node-config.table --
+Node             ClusterConfig          Config                                                                                                                                                                                                                                           Status  Error
+kind-worker-1    driver-cluster-config  {"draRegistrationRetryInterval":1,"draRegistrationTimeout":600,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}                       Done    
+kind-worker-2    driver-cluster-config  {"draRegistrationRetryInterval":1,"draRegistrationTimeout":600,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}                       Done    
+-- kind-worker-1-config-expected.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: kind-worker-1
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 1
+  draRegistrationTimeout: 600
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool
+-- kind-worker-2-config-expected.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: kind-worker-2
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 1
+  draRegistrationTimeout: 600
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool
