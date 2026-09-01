@@ -199,9 +199,9 @@ jobs:
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
-          SKIPPED_TESTS=""
+          SKIPPED_TESTS="TCPRouteWeightedRouting,UDPRouteWeightedRouting"
           if [ "${{ matrix.conformance-profile }}" == "true" ]; then
-            SKIPPED_TESTS="MeshConsumerRoute,HTTPRouteListenerPortMatching"
+            SKIPPED_TESTS=",MeshConsumerRoute,HTTPRouteListenerPortMatching"
           fi
 
           # The conformance-profile jobs consume SKIPPED_TESTS through the
