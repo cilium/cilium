@@ -50,9 +50,7 @@ jobs:
     timeout-minutes: 45
     name: Build and Push Images
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
-    # Pins the OIDC token subject to
-    # repo:cilium/cilium:environment:publish-ci-images, which is the identity
-    # federated with the Quay robot account.
+    # Also decides the subject of the OIDC token, see the login step below.
     environment:
       name: publish-ci-images
       deployment: false
@@ -156,6 +154,12 @@ jobs:
       # Quay's registry endpoint only accepts credentials or a JWT signed by
       # Quay itself, so the GitHub OIDC token cannot be used as the registry
       # password directly. Trade it for a short lived robot token first.
+      #
+      # Because the job references an environment, the subject of the token is
+      # repo:cilium@21054566/cilium@48109239:environment:publish-ci-images, the
+      # immutable form that carries the owner and repository ids. That is the
+      # identity federated with the robot account on the Quay side, so renaming
+      # the environment breaks the login.
       - name: Get a quay.io robot token via OIDC
         id: registry-token
         env:
