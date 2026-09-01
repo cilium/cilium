@@ -71,8 +71,8 @@ func NewInstancesManager(logger *slog.Logger, api AzureAPI, usePrimary bool) *In
 }
 
 // CreateNode is called on discovery of a new node
-func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *nodemanager.Node) nodemanager.NodeOperations {
-	return &Node{manager: m, node: n}
+func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, _ *nodemanager.Node) nodemanager.NodeOperations {
+	return &Node{manager: m, instanceID: obj.InstanceID()}
 }
 
 // HasInstance returns whether the instance is in instances

@@ -23,19 +23,20 @@ func newCapacityTestNode(t *testing.T, ifaces []*types.AzureInterface, usePrimar
 	for _, iface := range ifaces {
 		m.Update("vm1", iface.DeepCopy())
 	}
-	return &Node{
-		node: mockIPAMNode("vm1"),
-		manager: &InstancesManager{
-			instances:  m,
-			api:        apimock.NewAPI(nil),
-			usePrimary: usePrimary,
-		},
-		k8sObj: &v2.CiliumNode{
-			Spec: v2.NodeSpec{
-				Azure: types.AzureSpec{InterfaceName: "eth0"},
-			},
+	manager := &InstancesManager{
+		instances:  m,
+		api:        apimock.NewAPI(nil),
+		usePrimary: usePrimary,
+	}
+	obj := &v2.CiliumNode{
+		Spec: v2.NodeSpec{
+			InstanceID: "vm1",
+			Azure:      types.AzureSpec{InterfaceName: "eth0"},
 		},
 	}
+	node := manager.CreateNode(obj, nil).(*Node)
+	node.UpdatedNode(obj)
+	return node
 }
 
 func newCapacityTestInterface(name, id, primaryIP string, secondaryIPs ...string) *types.AzureInterface {
@@ -120,10 +121,4 @@ func TestENIIPAMCapacityAccountingMultiNICUsePrimary(t *testing.T) {
 	_, stats, err := n.ResyncInterfacesAndIPs(t.Context(), hivetest.Logger(t))
 	assert.NoError(err)
 	assert.Equal(256, stats.NodeCapacity)
-}
-
-type mockIPAMNode string
-
-func (m mockIPAMNode) InstanceID() string {
-	return string(m)
 }
