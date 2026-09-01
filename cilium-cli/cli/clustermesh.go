@@ -6,16 +6,21 @@ package cli
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/cilium-cli/clustermesh"
+	"github.com/cilium/cilium/cilium-cli/config"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/status"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func newCmdClusterMesh() *cobra.Command {
@@ -190,6 +195,12 @@ func newCmdClusterMeshPolicyDefaultClusterInspect() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var err error
+
+			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+			if err = populatePolicyOptionsFromConfigMap(cmd.Context(), logger); err != nil {
+				fatalf("Unable to parse Cilium configuration: %s", err)
+			}
+
 			if namespace == "" {
 				if namespace, _, err = RootK8sClient.RESTClientGetter.ToRawKubeConfigLoader().Namespace(); err != nil {
 					namespace = metav1.NamespaceDefault
@@ -198,7 +209,7 @@ func newCmdClusterMeshPolicyDefaultClusterInspect() *cobra.Command {
 			if allNamespaces {
 				namespace = corev1.NamespaceAll
 			}
-			res, err := clustermesh.PolicyDefaultLocalClusterInspect(cmd.Context(), RootK8sClient, namespace)
+			res, err := clustermesh.PolicyDefaultLocalClusterInspect(cmd.Context(), logger, RootK8sClient, namespace)
 			if err != nil {
 				fatalf("Unable to inspect policy default local cluster: %s", err)
 			}
@@ -214,6 +225,30 @@ func newCmdClusterMeshPolicyDefaultClusterInspect() *cobra.Command {
 	cmd.Flags().StringVarP(&output, "output", "o", output, "Output format. One of: json, summary")
 
 	return cmd
+}
+
+func populatePolicyOptionsFromConfigMap(ctx context.Context, logger *slog.Logger) error {
+	vp := viper.New()
+	flags := pflag.NewFlagSet("cm-policy", pflag.ContinueOnError)
+
+	clusterConfig := config.NewK8sConfig(RootK8sClient, config.Parameters{
+		Namespace: RootParams.Namespace,
+	})
+	configMap, err := clusterConfig.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to get Cilium configuration: %w", err)
+	}
+
+	option.RegisterCommonPolicyFlags(vp, flags)
+	if err := vp.BindPFlags(flags); err != nil {
+		return fmt.Errorf("unable to bind policy validation flags: %w", err)
+	}
+	for key, value := range configMap {
+		vp.Set(key, value)
+	}
+
+	option.Config.Populate(logger, vp)
+	return nil
 }
 
 func addCommonConnectFlags(cmd *cobra.Command, params *clustermesh.Parameters) {
