@@ -73,18 +73,27 @@ func (k *K8sConfig) Delete(ctx context.Context, key string, params Parameters) e
 	return k.restartPodsUponConfigChange(ctx, params)
 }
 
+func (k *K8sConfig) Get(ctx context.Context) (map[string]string, error) {
+	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+
+	return cm.Data, nil
+}
+
 func (k *K8sConfig) View(ctx context.Context) (string, error) {
 	var buf bytes.Buffer
 
 	w := tabwriter.NewWriter(&buf, 0, 0, 4, ' ', 0)
 
-	cm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	data, err := k.Get(ctx)
 	if err != nil {
-		return "", fmt.Errorf("unable get ConfigMap %q: %w", defaults.ConfigMapName, err)
+		return "", err
 	}
 
-	for _, key := range slices.Sorted(maps.Keys(cm.Data)) {
-		fmt.Fprintf(w, "%s\t%s\n", key, cm.Data[key])
+	for _, key := range slices.Sorted(maps.Keys(data)) {
+		fmt.Fprintf(w, "%s\t%s\n", key, data[key])
 	}
 
 	w.Flush()
