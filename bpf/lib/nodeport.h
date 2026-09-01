@@ -400,11 +400,9 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 	if (ctx_store_bytes(ctx, l3_off + offsetof(struct ipv6hdr, payload_len),
 			    &tp_new.payload_len, 4, 0) < 0)
 		return DROP_WRITE_ERROR;
-	if (ctx_store_bytes(ctx, l3_off + offsetof(struct ipv6hdr, daddr),
-			    backend_addr, sizeof(ip6->daddr), 0) < 0)
+	if (ipv6_store_daddr(ctx, backend_addr->addr, l3_off) < 0)
 		return DROP_WRITE_ERROR;
-	if (ctx_store_bytes(ctx, l3_off + offsetof(struct ipv6hdr, saddr),
-			    &saddr, sizeof(ip6->saddr), 0) < 0)
+	if (ipv6_store_saddr(ctx, saddr.addr, l3_off) < 0)
 		return DROP_WRITE_ERROR;
 	return 0;
 #  else /* __ctx_is == __ctx_xdp */
