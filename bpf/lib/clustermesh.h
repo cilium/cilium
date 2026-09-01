@@ -37,12 +37,6 @@ get_cluster_id_upper_mask()
 }
 
 static __always_inline __maybe_unused __u32
-get_mark_magic_cluster_id_mask()
-{
-	return CLUSTER_ID_LOWER_MASK | get_cluster_id_upper_mask();
-}
-
-static __always_inline __maybe_unused __u32
 ctx_get_cluster_id_mark(const struct __ctx_buff *ctx __maybe_unused)
 {
 /* ctx->mark not available in XDP. */
