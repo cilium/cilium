@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -171,29 +173,23 @@ func (c *linuxNodeCheckpoint) prune(ctx context.Context, _ cell.Health) error {
 		txn = c.db.ReadTxn()
 	}
 
-	desired := make(map[nodeTypes.Identity]struct{})
-	for n := range c.nodes.All(txn) {
-		desired[n.Identity()] = struct{}{}
-	}
-
 	c.mutex.Lock()
-	for identity := range desired {
-		delete(c.restoredNodes, identity)
+	for n := range c.nodes.All(txn) {
+		delete(c.restoredNodes, n.Identity())
 	}
-	toDelete := make([]nodeTypes.Node, 0, len(c.restoredNodes))
-	for _, n := range c.restoredNodes {
-		toDelete = append(toDelete, *n)
-	}
+	toDelete := slices.Collect(maps.Values(c.restoredNodes))
 	c.mutex.Unlock()
 
 	var errs error
 	for _, n := range toDelete {
-		if err := c.cleaner(ctx, n); err != nil {
+		if err := c.cleaner(ctx, *n); err != nil {
 			errs = errors.Join(errs, fmt.Errorf(
 				"cleaning restored node %s: %w",
 				n.Identity(),
 				err,
 			))
+			// Keep failed entries so the pruning job retries them and a later
+			// checkpoint preserves them across another restart.
 			continue
 		}
 		c.mutex.Lock()
@@ -223,10 +219,7 @@ func (c *linuxNodeCheckpoint) checkpoint() error {
 		}
 	}
 
-	nodes := make([]nodeTypes.Node, 0, len(nodesByIdentity))
-	for _, n := range nodesByIdentity {
-		nodes = append(nodes, n)
-	}
+	nodes := slices.Collect(maps.Values(nodesByIdentity))
 
 	path := filepath.Join(c.stateDir, nodesFilename)
 	file, err := renameio.TempFile(c.stateDir, path)
