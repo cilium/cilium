@@ -166,6 +166,10 @@ func validateLeafCertificate(leaf *x509.Certificate) (*spiffeid.ID, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get leaf certificate SPIFFE ID: %v", err)
 	}
+
+	if leafID.Path() == "" {
+		return nil, errors.New("leaf certificate SPIFFE ID must have a non-root path")
+	}
 	if leaf.IsCA {
 		return nil, errors.New("leaf certificate must not have CA flag set to true")
 	}

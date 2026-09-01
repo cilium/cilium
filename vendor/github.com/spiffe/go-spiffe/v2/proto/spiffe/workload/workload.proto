@@ -36,6 +36,20 @@ service SpiffeWorkloadAPI {
     // Validates a JWT-SVID against the requested audience. Returns the SPIFFE
     // ID of the JWT-SVID and JWT claims.
     rpc ValidateJWTSVID(ValidateJWTSVIDRequest) returns (ValidateJWTSVIDResponse);
+
+    /////////////////////////////////////////////////////////////////////////
+    // WIT-SVID Profile
+    /////////////////////////////////////////////////////////////////////////
+
+    // Fetch WIT-SVIDs for all SPIFFE identities the workload is entitled to.
+    // As this information changes, subsequent messages will be streamed from
+    // the server.
+    rpc FetchWITSVID(WITSVIDRequest) returns (stream WITSVIDResponse);
+
+    // Fetch WIT bundles, formatted as JWKS documents, keyed by the SPIFFE ID
+    // of the trust domain. As this information changes, subsequent messages
+    // will be streamed from the server.
+    rpc FetchWITBundles(WITBundlesRequest) returns (stream WITBundlesResponse);
 }
 
 // The X509SVIDRequest message conveys parameters for requesting an X.509-SVID.
@@ -161,6 +175,47 @@ message ValidateJWTSVIDResponse {
     // Optional. Arbitrary claims contained within the payload of the validated
     // JWT-SVID.
     google.protobuf.Struct claims = 2;
+}
+
+// WITSVIDRequest conveys parameters for requesting WIT-SVIDs.
+message WITSVIDRequest {
+    // Optional. The requested SPIFFE ID for the WIT-SVID. If unset, all
+    // WIT-SVIDs to which the workload is entitled are requested.
+    string spiffe_id = 1;
+}
+
+// WITSVIDResponse conveys WIT-SVIDs.
+message WITSVIDResponse {
+    // Required. The list of returned WIT-SVIDs.
+    repeated WITSVID svids = 1;
+}
+
+// WITSVID carries a single WIT-SVID and associated metadata.
+message WITSVID {
+    // Required. The SPIFFE ID of the WIT-SVID.
+    string spiffe_id = 1;
+
+    // Required. Encoded WIT-SVID using JWS Compact Serialization.
+    string wit_svid = 2;
+
+    // Required. JWK-encoded private key bound to this WIT-SVID.
+    string wit_svid_key = 3;
+
+    // Optional. An operator-specified string used to provide guidance on how
+    // this identity should be used by a workload when more than one SVID is
+    // returned.
+    string hint = 4;
+}
+
+// WITBundlesRequest conveys parameters for requesting WIT bundles.
+// There are currently no such parameters.
+message WITBundlesRequest { }
+
+// WITBundlesResponse conveys WIT bundles.
+message WITBundlesResponse {
+    // Required. JWK encoded WIT bundles, keyed by the SPIFFE ID of the trust
+    // domain.
+    map<string, string> bundles = 1;
 }
 
 option go_package = "github.com/spiffe/go-spiffe/v2/proto/spiffe/workload;workload";
