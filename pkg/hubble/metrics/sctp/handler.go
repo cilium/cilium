@@ -15,6 +15,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )
 
@@ -61,14 +62,12 @@ func (h *sctpHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{h.sctpChunkTypes.MetricVec}
 }
 
-func (h *sctpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
-	if (flow.GetVerdict() != flowpb.Verdict_FORWARDED && flow.GetVerdict() != flowpb.Verdict_REDIRECTED) ||
-		flow.GetL4() == nil {
+func (h *sctpHandler) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
+	if (flow.Verdict != flowpb.Verdict_FORWARDED && flow.Verdict != flowpb.Verdict_REDIRECTED) || flow.L4.IsEmpty() {
 		return nil
 	}
-	ip := flow.GetIP()
-	sctp := flow.GetL4().GetSCTP()
-	if ip == nil || sctp == nil {
+
+	if flow.IP.IsEmpty() || flow.L4.SCTP.IsEmpty() {
 		return nil
 	}
 
@@ -80,10 +79,10 @@ func (h *sctpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 	if err != nil {
 		return err
 	}
-	labels := append([]string{"", ip.IpVersion.String()}, contextLabels...)
+	labels := append([]string{"", flow.IP.IPVersion.String()}, contextLabels...)
 
-	if sctp.ChunkType != flowpb.SCTPChunkType_UNSUPPORTED {
-		labels[0] = sctp.ChunkType.String()
+	if flow.L4.SCTP.ChunkType != flowpb.SCTPChunkType_UNSUPPORTED {
+		labels[0] = flow.L4.SCTP.ChunkType.String()
 		h.sctpChunkTypes.WithLabelValues(labels...).Inc()
 	}
 

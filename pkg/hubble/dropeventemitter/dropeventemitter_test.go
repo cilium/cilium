@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
@@ -28,25 +29,25 @@ func TestEndpointToString(t *testing.T) {
 	tests := []struct {
 		name     string
 		ip       string
-		endpoint *flowpb.Endpoint
+		endpoint ir.Endpoint
 		expect   string
 	}{
 		{
 			name:     fakePodName,
 			ip:       "1.2.3.4",
-			endpoint: &flowpb.Endpoint{PodName: fakePodName, Namespace: "namespace"},
+			endpoint: ir.Endpoint{PodName: fakePodName, Namespace: "namespace"},
 			expect:   "namespace/pod (1.2.3.4)",
 		},
 		{
 			name:     "node",
 			ip:       "1.2.3.4",
-			endpoint: &flowpb.Endpoint{Identity: identity.ReservedIdentityRemoteNode.Uint32()},
+			endpoint: ir.Endpoint{Identity: identity.ReservedIdentityRemoteNode.Uint32()},
 			expect:   identity.ReservedIdentityRemoteNode.String() + " (1.2.3.4)",
 		},
 		{
 			name:     "unknown",
 			ip:       "1.2.3.4",
-			endpoint: &flowpb.Endpoint{Identity: identity.MaxLocalIdentity.Uint32() + 1},
+			endpoint: ir.Endpoint{Identity: identity.MaxLocalIdentity.Uint32() + 1},
 			expect:   "1.2.3.4",
 		},
 	}
@@ -61,22 +62,22 @@ func TestEndpointToString(t *testing.T) {
 func TestL4protocolToString(t *testing.T) {
 	tests := []struct {
 		name   string
-		l4     *flowpb.Layer4
+		l4     ir.Layer4
 		expect string
 	}{
 		{
 			name:   "udp/512",
-			l4:     &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{DestinationPort: 512}}},
+			l4:     ir.Layer4{UDP: ir.UDP{DestinationPort: 512}},
 			expect: "UDP/512",
 		},
 		{
 			name:   "tcp/443",
-			l4:     &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{DestinationPort: 443}}},
+			l4:     ir.Layer4{TCP: ir.TCP{DestinationPort: 443}},
 			expect: "TCP/443",
 		},
 		{
 			name:   "unknown",
-			l4:     &flowpb.Layer4{},
+			l4:     ir.Layer4{},
 			expect: "",
 		},
 	}
@@ -94,9 +95,9 @@ func TestProcessFlowRateLimitChargedOnlyToEvents(t *testing.T) {
 		rateLimiter: rate.NewLimiter(time.Second, 1),
 	}
 
-	forwarded := &flowpb.Flow{Verdict: flowpb.Verdict_FORWARDED}
+	forwarded := ir.Flow{Verdict: flowpb.Verdict_FORWARDED}
 	for range 100 {
-		assert.NoError(t, e.ProcessFlow(context.Background(), forwarded))
+		assert.NoError(t, e.ProcessFlow(context.Background(), &forwarded))
 	}
 
 	assert.True(t, e.rateLimiter.Allow(),
@@ -106,113 +107,106 @@ func TestProcessFlowRateLimitChargedOnlyToEvents(t *testing.T) {
 func TestProcessFlow(t *testing.T) {
 	tests := []struct {
 		name         string
-		flow         *flowpb.Flow
+		flow         *ir.Flow
 		expect       string
 		expectPodUID string
 	}{
 		{
 			name: "valid ingress drop event with pod UID",
-			flow: &flowpb.Flow{
+			flow: &ir.Flow{
 				Verdict:          flowpb.Verdict_DROPPED,
 				DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
-				IP:               &flowpb.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
-				Source:           &flowpb.Endpoint{},
-				Destination:      &flowpb.Endpoint{Namespace: "namespace", PodName: fakePodName, PodUid: fakePodUID},
-				L4:               &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{DestinationPort: 443}}},
+				IP:               ir.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
+				Destination:      ir.Endpoint{Namespace: "namespace", PodName: fakePodName, PodUID: fakePodUID},
+				L4:               ir.Layer4{TCP: ir.TCP{DestinationPort: 443}},
 			},
 			expect:       "Incoming packet dropped (policy_denied) from unknown (1.2.3.4) TCP/443",
 			expectPodUID: fakePodUID,
 		},
 		{
 			name: "valid egress drop event with pod UID",
-			flow: &flowpb.Flow{
+			flow: &ir.Flow{
 				Verdict:          flowpb.Verdict_DROPPED,
 				DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
 				TrafficDirection: flowpb.TrafficDirection_EGRESS,
-				IP:               &flowpb.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
-				Source:           &flowpb.Endpoint{Namespace: "namespace", PodName: fakePodName, PodUid: fakePodUID},
-				Destination:      &flowpb.Endpoint{Identity: identity.ReservedIdentityRemoteNode.Uint32()},
-				L4:               &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{DestinationPort: 512}}},
+				IP:               ir.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
+				Source:           ir.Endpoint{Namespace: "namespace", PodName: fakePodName, PodUID: fakePodUID},
+				Destination:      ir.Endpoint{Identity: identity.ReservedIdentityRemoteNode.Uint32()},
+				L4:               ir.Layer4{UDP: ir.UDP{DestinationPort: 512}},
 			},
 			expect:       "Outgoing packet dropped (policy_denied) to remote-node (5.6.7.8) UDP/512",
 			expectPodUID: fakePodUID,
 		},
 		{
 			name: "valid ingress drop event without pod UID",
-			flow: &flowpb.Flow{
+			flow: &ir.Flow{
 				Verdict:          flowpb.Verdict_DROPPED,
 				DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
-				IP:               &flowpb.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
-				Source:           &flowpb.Endpoint{},
-				Destination:      &flowpb.Endpoint{Namespace: "namespace", PodName: fakePodName},
-				L4:               &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{DestinationPort: 443}}},
+				IP:               ir.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
+				Destination:      ir.Endpoint{Namespace: "namespace", PodName: fakePodName},
+				L4:               ir.Layer4{TCP: ir.TCP{DestinationPort: 443}},
 			},
 			expect: "Incoming packet dropped (policy_denied) from unknown (1.2.3.4) TCP/443",
 		},
 		{
-			name: "valid egress drop event without pod UID",
-			flow: &flowpb.Flow{
+			name: "valid egress drop event to node",
+			flow: &ir.Flow{
 				Verdict:          flowpb.Verdict_DROPPED,
 				DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
 				TrafficDirection: flowpb.TrafficDirection_EGRESS,
-				IP:               &flowpb.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
-				Source:           &flowpb.Endpoint{Namespace: "namespace", PodName: fakePodName},
-				Destination:      &flowpb.Endpoint{Identity: identity.ReservedIdentityRemoteNode.Uint32()},
-				L4:               &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{DestinationPort: 512}}},
+				IP:               ir.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
+				Source:           ir.Endpoint{Namespace: "namespace", PodName: fakePodName},
+				Destination:      ir.Endpoint{Identity: identity.ReservedIdentityRemoteNode.Uint32()},
+				L4:               ir.Layer4{UDP: ir.UDP{DestinationPort: 512}},
 			},
 			expect: "Outgoing packet dropped (policy_denied) to remote-node (5.6.7.8) UDP/512",
 		},
 		{
 			name: "ingress drop event not matching reason",
-			flow: &flowpb.Flow{
+			flow: &ir.Flow{
 				Verdict:          flowpb.Verdict_DROPPED,
 				DropReasonDesc:   flowpb.DropReason_AUTH_REQUIRED,
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
-				IP:               &flowpb.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
-				Source:           &flowpb.Endpoint{},
-				Destination:      &flowpb.Endpoint{Namespace: "namespace", PodName: fakePodName},
-				L4:               &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{DestinationPort: 443}}},
+				IP:               ir.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
+				Destination:      ir.Endpoint{Namespace: "namespace", PodName: fakePodName},
+				L4:               ir.Layer4{TCP: ir.TCP{DestinationPort: 443}},
 			},
 			expect: "",
 		},
 		{
 			name: "ingress verdict is not dropped",
-			flow: &flowpb.Flow{
+			flow: &ir.Flow{
 				Verdict:          flowpb.Verdict_ERROR,
 				DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
-				IP:               &flowpb.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
-				Source:           &flowpb.Endpoint{},
-				Destination:      &flowpb.Endpoint{Namespace: "namespace", PodName: fakePodName},
-				L4:               &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{DestinationPort: 443}}},
+				IP:               ir.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
+				Destination:      ir.Endpoint{Namespace: "namespace", PodName: fakePodName},
+				L4:               ir.Layer4{TCP: ir.TCP{DestinationPort: 443}},
 			},
 			expect: "",
 		},
 		{
 			name: "ingress but no destination pod",
-			flow: &flowpb.Flow{
+			flow: &ir.Flow{
 				Verdict:          flowpb.Verdict_DROPPED,
 				DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
-				IP:               &flowpb.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
-				Source:           &flowpb.Endpoint{Namespace: "namespace", PodName: fakePodName},
-				Destination:      &flowpb.Endpoint{},
-				L4:               &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{DestinationPort: 443}}},
+				IP:               ir.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
+				Source:           ir.Endpoint{Namespace: "namespace", PodName: fakePodName},
+				L4:               ir.Layer4{TCP: ir.TCP{DestinationPort: 443}},
 			},
 			expect: "",
 		},
 		{
 			name: "egress but no source pod",
-			flow: &flowpb.Flow{
+			flow: &ir.Flow{
 				Verdict:          flowpb.Verdict_DROPPED,
 				DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
 				TrafficDirection: flowpb.TrafficDirection_EGRESS,
-				IP:               &flowpb.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
-				Source:           &flowpb.Endpoint{},
-				Destination:      &flowpb.Endpoint{},
-				L4:               &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{DestinationPort: 443}}},
+				IP:               ir.IP{Source: "1.2.3.4", Destination: "5.6.7.8"},
+				L4:               ir.Layer4{TCP: ir.TCP{DestinationPort: 443}},
 			},
 			expect: "",
 		},
@@ -245,22 +239,22 @@ func TestProcessFlow(t *testing.T) {
 func TestGetLocalEndpoint(t *testing.T) {
 	tests := []struct {
 		name   string
-		flow   *flowpb.Flow
+		flow   ir.Flow
 		expect *endpoint.Endpoint
 	}{
 		{
 			name: "ingress",
-			flow: &flowpb.Flow{
+			flow: ir.Flow{
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
-				Destination:      &flowpb.Endpoint{ID: 1},
+				Destination:      ir.Endpoint{ID: 1},
 			},
 			expect: &endpoint.Endpoint{ID: 1},
 		},
 		{
 			name: "egress",
-			flow: &flowpb.Flow{
+			flow: ir.Flow{
 				TrafficDirection: flowpb.TrafficDirection_EGRESS,
-				Source:           &flowpb.Endpoint{ID: 2},
+				Source:           ir.Endpoint{ID: 2},
 			},
 			expect: &endpoint.Endpoint{ID: 2},
 		},
@@ -270,7 +264,7 @@ func TestGetLocalEndpoint(t *testing.T) {
 			e := &dropEventEmitter{
 				endpointsLookup: &fakeEndpointsLookup{},
 			}
-			ep := e.getLocalEndpoint(tt.flow)
+			ep := e.getLocalEndpoint(&tt.flow)
 			assert.Equal(t, tt.expect, ep)
 		})
 	}
@@ -410,15 +404,15 @@ func TestParsePolicyCorrelation(t *testing.T) {
 	tests := []struct {
 		name                  string
 		direction             flowpb.TrafficDirection
-		ingressDeniedBy       []*flowpb.Policy
-		egressDeniedBy        []*flowpb.Policy
+		ingressDeniedBy       []ir.Policy
+		egressDeniedBy        []ir.Policy
 		expectPolicies        set.Set[string]
 		expectClusterPolicies set.Set[string]
 	}{
 		{
 			name:      "Egress with network policy",
 			direction: flowpb.TrafficDirection_EGRESS,
-			egressDeniedBy: []*flowpb.Policy{
+			egressDeniedBy: []ir.Policy{
 				{
 					Name:      "foo",
 					Namespace: "bar",
@@ -430,7 +424,7 @@ func TestParsePolicyCorrelation(t *testing.T) {
 		{
 			name:      "Ingress with network policy",
 			direction: flowpb.TrafficDirection_INGRESS,
-			ingressDeniedBy: []*flowpb.Policy{
+			ingressDeniedBy: []ir.Policy{
 				{
 					Name:      "foo",
 					Namespace: "bar",
@@ -442,7 +436,7 @@ func TestParsePolicyCorrelation(t *testing.T) {
 		{
 			name:      "Egress with clusterwide network policy",
 			direction: flowpb.TrafficDirection_EGRESS,
-			egressDeniedBy: []*flowpb.Policy{
+			egressDeniedBy: []ir.Policy{
 				{
 					Name: "foo",
 					Kind: "CiliumClusterwideNetworkPolicy",
@@ -453,7 +447,7 @@ func TestParsePolicyCorrelation(t *testing.T) {
 		{
 			name:      "Egress with both namespaced and clusterwide network policies",
 			direction: flowpb.TrafficDirection_EGRESS,
-			egressDeniedBy: []*flowpb.Policy{
+			egressDeniedBy: []ir.Policy{
 				{
 					Name: "foowide",
 					Kind: "CiliumClusterwideNetworkPolicy",

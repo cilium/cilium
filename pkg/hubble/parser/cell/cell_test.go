@@ -32,18 +32,18 @@ func TestPayloadGetters_GetServiceByAddr(t *testing.T) {
 
 	pg := payloadGetters{db: db, frontends: fes}
 
-	svc := pg.GetServiceByAddr(addrTCP.Addr(), 80)
-	require.NotNil(t, svc)
-	require.Equal(t, svcNameTCP.Namespace(), svc.Namespace)
-	require.Equal(t, svcNameTCP.Name(), svc.Name)
+	fqn := pg.GetServiceByAddr(addrTCP.Addr(), 80)
+	require.False(t, fqn.IsBlank())
+	require.Equal(t, svcNameTCP.Namespace(), fqn.Namespace)
+	require.Equal(t, svcNameTCP.Name(), fqn.Name)
 
-	svc = pg.GetServiceByAddr(addrUDP.Addr(), 80)
-	require.NotNil(t, svc)
-	require.Equal(t, svcNameUDP.Namespace(), svc.Namespace)
-	require.Equal(t, svcNameUDP.Name(), svc.Name)
+	fqn = pg.GetServiceByAddr(addrUDP.Addr(), 80)
+	require.False(t, fqn.IsBlank())
+	require.Equal(t, svcNameUDP.Namespace(), fqn.Namespace)
+	require.Equal(t, svcNameUDP.Name(), fqn.Name)
 
-	svc = pg.GetServiceByAddr(addrUDP.Addr(), 81)
-	require.Nil(t, svc)
+	fqn = pg.GetServiceByAddr(addrUDP.Addr(), 81)
+	require.True(t, fqn.IsBlank())
 }
 
 func BenchmarkGetServiceByAddr(b *testing.B) {
@@ -55,9 +55,9 @@ func BenchmarkGetServiceByAddr(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		addr, port := randomAddrPort()
-		svc := pg.GetServiceByAddr(addr, port)
-		if svc != nil {
-			b.Fatal("non-nil svc")
+		fqn := pg.GetServiceByAddr(addr, port)
+		if !fqn.IsBlank() {
+			b.Fatal("non-empty fqn")
 		}
 	}
 

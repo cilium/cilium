@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
@@ -32,26 +33,28 @@ func TestCorrelatePolicy(t *testing.T) {
 	remoteID := uint32(56)
 	dstPort := uint32(443)
 
-	flow := ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow := &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -83,7 +86,8 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR := ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
 	expected := []ir.Policy{
 		{
@@ -103,67 +107,72 @@ func TestCorrelatePolicy(t *testing.T) {
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
 	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
 	// check same flow at egress with deny
-	flow = ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_DROPPED,
 		DropReasonDesc:   flowpb.DropReason_POLICY_DENY,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
 	require.Nil(t, flow.EgressAllowedBy)
 	require.Nil(t, flow.IngressAllowedBy)
 	require.Nil(t, flow.IngressDeniedBy)
-	if diff := cmp.Diff(expected, flow.EgressDeniedBy, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(expected, flowIR.EgressDeniedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
 	// check port+proto rule.
-	flow = ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -183,12 +192,13 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
 	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -206,36 +216,39 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
 	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
 	// check protocol-only rule.
-	flow = ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -255,36 +268,39 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
 	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
 	// check identity and protocol-only rule.
-	flow = ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -304,36 +320,39 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
 	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
 	// check allow-all rule.
-	flow = ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -353,36 +372,39 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
 	require.Nil(t, flow.EgressDeniedBy)
 	require.Nil(t, flow.IngressDeniedBy)
 	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
 	// check same flow at ingress
-	flow = ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_INGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -411,72 +433,79 @@ func TestCorrelatePolicy(t *testing.T) {
 			return nil, false
 		},
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
 
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	require.Nil(t, flow.EgressAllowedBy)
-	if diff := cmp.Diff(expected, flow.IngressAllowedBy, protocmp.Transform()); diff != "" {
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
+
+	require.Empty(t, flowIR.EgressDeniedBy)
+	require.Empty(t, flowIR.IngressDeniedBy)
+	require.Empty(t, flowIR.EgressAllowedBy)
+	if diff := cmp.Diff(expected, flowIR.IngressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
 	// check same flow at ingress with deny
-	flow = ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_DROPPED,
 		DropReasonDesc:   flowpb.DropReason_POLICY_DENY,
 		TrafficDirection: flowpb.TrafficDirection_INGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3Only,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
-	require.Nil(t, flow.EgressAllowedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	require.Nil(t, flow.EgressDeniedBy)
-	if diff := cmp.Diff(expected, flow.IngressDeniedBy, protocmp.Transform()); diff != "" {
+	require.Empty(t, flowIR.EgressAllowedBy)
+	require.Empty(t, flowIR.IngressAllowedBy)
+	require.Empty(t, flowIR.EgressDeniedBy)
+	if diff := cmp.Diff(expected, flowIR.IngressDeniedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
 	// match ccnp
-	flow = ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
@@ -508,7 +537,8 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
 	expected = []ir.Policy{
 		{
@@ -523,10 +553,10 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	require.Empty(t, flowIR.EgressDeniedBy)
+	require.Empty(t, flowIR.IngressDeniedBy)
+	require.Empty(t, flowIR.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 }
@@ -579,37 +609,40 @@ func TestCorrelatePolicyAudit(t *testing.T) {
 	}
 
 	// Verdict_AUDIT at egress should populate EgressDeniedBy
-	flow := &ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow := &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_AUDIT,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR := ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
-	require.Nil(t, flow.EgressAllowedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	if diff := cmp.Diff(expected, flow.EgressDeniedBy, protocmp.Transform()); diff != "" {
+	require.Empty(t, flowIR.EgressAllowedBy)
+	require.Empty(t, flowIR.IngressAllowedBy)
+	require.Empty(t, flowIR.IngressDeniedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressDeniedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -636,37 +669,40 @@ func TestCorrelatePolicyAudit(t *testing.T) {
 		},
 	}
 
-	flow = &ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_AUDIT,
 		TrafficDirection: flowpb.TrafficDirection_INGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
-	require.Nil(t, flow.EgressAllowedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	require.Nil(t, flow.EgressDeniedBy)
-	if diff := cmp.Diff(expected, flow.IngressDeniedBy, protocmp.Transform()); diff != "" {
+	require.Empty(t, flowIR.EgressAllowedBy)
+	require.Empty(t, flowIR.IngressAllowedBy)
+	require.Empty(t, flowIR.EgressDeniedBy)
+	if diff := cmp.Diff(expected, flowIR.IngressDeniedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 }
@@ -719,38 +755,41 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 		},
 	}
 
-	flow := ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow := &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_DROPPED,
 		DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR := ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
-	require.Nil(t, flow.EgressAllowedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	if diff := cmp.Diff(expected, flow.EgressDeniedBy, protocmp.Transform()); diff != "" {
+	require.Empty(t, flowIR.EgressAllowedBy)
+	require.Empty(t, flowIR.IngressAllowedBy)
+	require.Empty(t, flowIR.IngressDeniedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressDeniedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -777,38 +816,41 @@ func TestCorrelatePolicyImplicitDeny(t *testing.T) {
 		},
 	}
 
-	flow = ir.Flow{
-		EventType: ir.CiliumEventType{
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
 			Type: monitorAPI.MessageTypePolicyVerdict,
 		},
 		Verdict:          flowpb.Verdict_DROPPED,
 		DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
 		TrafficDirection: flowpb.TrafficDirection_INGRESS,
-		IP: ir.IP{
+		IP: &flowpb.IP{
 			Source:      localIP,
 			Destination: remoteIP,
 		},
-		L4: ir.Layer4{
-			TCP: ir.TCP{
-				DestinationPort: dstPort,
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
 			},
 		},
-		Source: ir.Endpoint{
+		Source: &flowpb.Endpoint{
 			ID:       localID,
 			Identity: localIdentity,
 		},
-		Destination: ir.Endpoint{
+		Destination: &flowpb.Endpoint{
 			ID:       remoteID,
 			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
-	require.Nil(t, flow.EgressAllowedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	require.Nil(t, flow.EgressDeniedBy)
-	if diff := cmp.Diff(expected, flow.IngressDeniedBy, protocmp.Transform()); diff != "" {
+	require.Empty(t, flowIR.EgressAllowedBy)
+	require.Empty(t, flowIR.IngressAllowedBy)
+	require.Empty(t, flowIR.EgressDeniedBy)
+	if diff := cmp.Diff(expected, flowIR.IngressDeniedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 }
@@ -822,16 +864,18 @@ func TestCorrelatePolicy_PortRange(t *testing.T) {
 	remoteID := uint32(56)
 	dstPort := uint32(80) // inside [64, 127]
 
-	flow := ir.Flow{
-		EventType:        ir.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
+	flow := &flowpb.Flow{
+		EventType:        &flowpb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
-		IP:               ir.IP{Source: localIP, Destination: remoteIP},
-		L4: ir.Layer4{
-			TCP: ir.TCP{DestinationPort: dstPort},
+		IP:               &flowpb.IP{Source: localIP, Destination: remoteIP},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{DestinationPort: dstPort},
+			},
 		},
-		Source:          ir.Endpoint{ID: localID, Identity: localIdentity},
-		Destination:     ir.Endpoint{ID: remoteID, Identity: remoteIdentity},
+		Source:          &flowpb.Endpoint{ID: localID, Identity: localIdentity},
+		Destination:     &flowpb.Endpoint{ID: remoteID, Identity: remoteIdentity},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
 
@@ -862,7 +906,8 @@ func TestCorrelatePolicy_PortRange(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, 0)
+	flowIR := ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, 0)
 
 	expected := []ir.Policy{
 		{
@@ -879,10 +924,10 @@ func TestCorrelatePolicy_PortRange(t *testing.T) {
 		},
 	}
 
-	require.Nil(t, flow.IngressAllowedBy)
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	require.Empty(t, flowIR.IngressAllowedBy)
+	require.Empty(t, flowIR.EgressDeniedBy)
+	require.Empty(t, flowIR.IngressDeniedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 }
@@ -894,7 +939,7 @@ func TestCorrelatePolicy_NotifyEndpointID(t *testing.T) {
 	hostEPID := uint16(1092)
 	dstPort := uint32(22)
 
-	flow := &flowpb.Flow{
+	flow := flowpb.Flow{
 		EventType:        &flowpb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
 		Verdict:          flowpb.Verdict_FORWARDED,
 		TrafficDirection: flowpb.TrafficDirection_INGRESS,
@@ -928,9 +973,10 @@ func TestCorrelatePolicy_NotifyEndpointID(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow, hostEPID)
+	flowIR := ir.ProtoToFlow(&flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR, hostEPID)
 
-	expected := []*flowpb.Policy{
+	expected := []ir.Policy{
 		{
 			Name: "host-fw",
 			Kind: utils.ResourceTypeCiliumClusterwideNetworkPolicy,
@@ -943,8 +989,8 @@ func TestCorrelatePolicy_NotifyEndpointID(t *testing.T) {
 		},
 	}
 
-	require.Nil(t, flow.EgressAllowedBy)
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	testutils.AssertProtoEqual(t, expected, flow.IngressAllowedBy)
+	require.Empty(t, flowIR.EgressAllowedBy)
+	require.Empty(t, flowIR.EgressDeniedBy)
+	require.Empty(t, flowIR.IngressDeniedBy)
+	testutils.AssertProtoEqual(t, expected, flowIR.IngressAllowedBy)
 }
