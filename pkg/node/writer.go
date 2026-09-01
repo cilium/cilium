@@ -30,10 +30,15 @@ type Writer struct {
 	db    *statedb.DB
 	nodes statedb.RWTable[*Node]
 
-	isStaticLocalRouterIP func(string) bool
+	isStaticLocalRouterIP  func(string) bool
+	prefixClusterMutatorFn PrefixClusterMutatorFn
 
 	requiredReconcilers []string
 }
+
+// PrefixClusterMutatorFn derives cluster-aware addressing options from a
+// serialized node.
+type PrefixClusterMutatorFn = func(*nodeTypes.Node) []cmtypes.PrefixClusterOpts
 
 // NewWriter constructs a node table writer.
 func NewWriter(log *slog.Logger, db *statedb.DB, nodes statedb.RWTable[*Node]) *Writer {
@@ -59,6 +64,21 @@ func provideWriter(p writerParams) *Writer {
 
 // Table returns read-only access to the node table.
 func (w *Writer) Table() statedb.Table[*Node] { return w.nodes }
+
+// SetPrefixClusterMutatorFn installs the cluster-address qualification hook.
+// This hook must be set during Hive invoke time.
+func (w *Writer) SetPrefixClusterMutatorFn(mutator PrefixClusterMutatorFn) {
+	w.prefixClusterMutatorFn = mutator
+}
+
+func deriveAddressClusterID(mutator PrefixClusterMutatorFn, n *nodeTypes.Node) uint32 {
+	if mutator == nil {
+		return 0
+	}
+	// The mutator only enriches PrefixCluster metadata. The prefix itself is
+	// irrelevant when extracting the derived cluster ID.
+	return cmtypes.PrefixClusterFrom(netip.Prefix{}, mutator(n)...).ClusterID()
+}
 
 // RegisterInitializer registers a producer that must finish its initial node
 // listing before the table is considered initialized.
@@ -232,8 +252,9 @@ func (w *Writer) Refresh(ctx context.Context) error {
 func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 	reconcilers := w.getRequiredReconcilers(txn)
 	obj := &Node{
-		Node:     *n,
-		Statuses: reconciler.NewStatusSet().Pending(reconcilers...),
+		Node:             *n,
+		addressClusterID: deriveAddressClusterID(w.prefixClusterMutatorFn, n),
+		Statuses:         reconciler.NewStatusSet().Pending(reconcilers...),
 	}
 
 	old, _, found := w.nodes.Get(txn, NodeByName(obj.Fullname()))
@@ -246,7 +267,8 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 			)
 			return false
 		}
-		if old.Node.DeepEqual(&obj.Node) {
+		if old.Node.DeepEqual(&obj.Node) &&
+			old.addressClusterID == obj.addressClusterID {
 			return false
 		}
 	}
@@ -255,14 +277,16 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 	// operation atomic when an incoming node overlaps multiple existing nodes:
 	// a single stronger owner rejects the update without deleting weaker ones.
 	conflicts := map[string]*Node{}
-	for _, addr := range w.conflictAddresses(n) {
-		addrCluster := cmtypes.AddrClusterFrom(addr, 0)
+	for _, addrCluster := range w.conflictAddresses(obj) {
 		for candidate := range w.nodes.List(txn, NodeByAddress(addrCluster)) {
 			if candidate.Fullname() == obj.Fullname() {
 				continue
 			}
+			if _, found := conflicts[candidate.Fullname()]; found {
+				continue
+			}
 			w.log.Warn("Node address conflicts with another node",
-				logfields.IPAddr, addr,
+				logfields.IPAddr, addrCluster,
 				logfields.Node, obj.Fullname(),
 				logfields.Source, obj.Source,
 				logfields.ConflictingResource, candidate.Fullname(),
@@ -303,16 +327,15 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 	return true
 }
 
-// conflictAddresses returns the normalized addresses whose ownership used to
-// gate NodeManager datapath updates. Configured Cilium internal router IPs are
-// omitted because they may intentionally be shared by every node. IPv4-mapped
-// IPv6 addresses are normalized to IPv4 so both representations conflict with
-// one another.
-func (w *Writer) conflictAddresses(n *nodeTypes.Node) []netip.Addr {
-	addrs := make([]netip.Addr, 0, len(n.IPAddresses)+4)
-	appendAddr := func(addr netip.Addr) {
+// conflictAddresses returns the normalized, cluster-aware address keys whose
+// ownership is exclusive. Configured Cilium internal router IPs are omitted
+// because they may intentionally be shared by every node. IPv4-mapped IPv6
+// addresses are normalized to IPv4 so both representations conflict.
+func (w *Writer) conflictAddresses(n *Node) []cmtypes.AddrCluster {
+	addrs := make([]cmtypes.AddrCluster, 0, len(n.IPAddresses)+4)
+	appendAddr := func(addr netip.Addr, clusterID uint32) {
 		if addr.IsValid() {
-			addrs = append(addrs, addr.Unmap())
+			addrs = append(addrs, cmtypes.AddrClusterFrom(addr.Unmap(), clusterID))
 		}
 	}
 
@@ -325,16 +348,19 @@ func (w *Writer) conflictAddresses(n *nodeTypes.Node) []netip.Addr {
 			continue
 		}
 		if addr, ok := netip.AddrFromSlice(address.IP); ok {
-			appendAddr(addr)
+			clusterID := uint32(0)
+			if address.Type == addressing.NodeCiliumInternalIP {
+				clusterID = n.addressClusterID
+			}
+			appendAddr(addr, clusterID)
 		}
 	}
-	appendAddr(n.IPv4HealthIP.Addr)
-	appendAddr(n.IPv6HealthIP.Addr)
-	appendAddr(n.IPv4IngressIP.Addr)
-	appendAddr(n.IPv6IngressIP.Addr)
+	appendAddr(n.IPv4HealthIP.Addr, n.addressClusterID)
+	appendAddr(n.IPv6HealthIP.Addr, n.addressClusterID)
+	appendAddr(n.IPv4IngressIP.Addr, n.addressClusterID)
+	appendAddr(n.IPv6IngressIP.Addr, n.addressClusterID)
 
-	slices.SortFunc(addrs, netip.Addr.Compare)
-	return slices.Compact(addrs)
+	return addrs
 }
 
 // Delete removes a remote node if this writer's source still owns it. It

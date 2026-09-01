@@ -1539,6 +1539,57 @@ func TestNodeTableMirroring(t *testing.T) {
 	requireNode(t, n2)
 }
 
+func TestPrefixClusterMutatorPropagatesToWriter(t *testing.T) {
+	logger := hivetest.Logger(t)
+	db := statedb.New()
+	nodeTable, err := node.NewNodeTable(db)
+	require.NoError(t, err)
+	writer := node.NewWriter(logger, db, nodeTable)
+
+	health, _ := cell.NewSimpleHealth()
+	mngr, err := New(
+		logger,
+		&option.DaemonConfig{},
+		cmtypes.ClusterInfo{Name: "local"},
+		tunnel.Config{},
+		newIPcacheMock(),
+		NewNodeMetrics(),
+		health,
+		nil,
+		db,
+		nil,
+		fakewireguard.Config{},
+		writer,
+		testClusterSizeDependantInterval,
+	)
+	require.NoError(t, err)
+
+	mngr.SetPrefixClusterMutatorFn(func(n *nodeTypes.Node) []cmtypes.PrefixClusterOpts {
+		clusterIDs := map[string]uint32{"cluster-1": 1, "cluster-2": 2}
+		return []cmtypes.PrefixClusterOpts{cmtypes.WithClusterID(clusterIDs[n.Cluster])}
+	})
+
+	for _, cluster := range []string{"cluster-1", "cluster-2"} {
+		mngr.NodeUpdated(nodeTypes.Node{
+			Name:    "node-1",
+			Cluster: cluster,
+			Source:  source.Kubernetes,
+			IPAddresses: []nodeTypes.Address{{
+				Type: addressing.NodeCiliumInternalIP,
+				IP:   net.ParseIP("10.0.0.1"),
+			}},
+		})
+	}
+
+	for _, cluster := range []string{"cluster-1", "cluster-2"} {
+		_, _, found := nodeTable.Get(
+			db.ReadTxn(),
+			node.NodeByName(nodeTypes.Identity{Name: "node-1", Cluster: cluster}.String()),
+		)
+		require.True(t, found, cluster)
+	}
+}
+
 func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
 	for _, meshFirst := range []bool{false, true} {
 		name := "cluster-first"
