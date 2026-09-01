@@ -19,7 +19,7 @@ struct {
 } cilium_nodeport_neigh6 __section_maps_btf;
 
 #if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV6)
-static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
+static __always_inline int neigh_record_ip6(const struct __ctx_buff *ctx)
 {
 	union macaddr smac = {}, *mac;
 	void *data, *data_end;
@@ -64,7 +64,7 @@ struct {
 } cilium_nodeport_neigh4 __section_maps_btf;
 
 #if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV4)
-static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)
+static __always_inline int neigh_record_ip4(const struct __ctx_buff *ctx)
 {
 	union macaddr smac = {}, *mac;
 	void *data, *data_end;
