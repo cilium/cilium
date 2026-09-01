@@ -46,9 +46,17 @@ func filterByHTTPStatusCode(statusCodePrefixes []string) (FilterFunc, error) {
 	}
 
 	return func(ev *v1.Event) bool {
-		http := ev.GetFlow().GetL7().GetHttp()
+		if ev == nil {
+			return false
+		}
+		fl := ev.GetFlow()
+		if fl == nil {
+			return false
+		}
+
+		http := fl.L7.HTTP
 		// Not an HTTP response record
-		if http == nil || http.Code == 0 {
+		if http.IsEmpty() {
 			return false
 		}
 
@@ -65,9 +73,15 @@ func filterByHTTPStatusCode(statusCodePrefixes []string) (FilterFunc, error) {
 
 func filterByHTTPMethods(methods []string) FilterFunc {
 	return func(ev *v1.Event) bool {
-		http := ev.GetFlow().GetL7().GetHttp()
-
-		if http == nil || http.Method == "" {
+		if ev == nil {
+			return false
+		}
+		fl := ev.GetFlow()
+		if fl == nil {
+			return false
+		}
+		http := fl.L7.HTTP
+		if http.IsEmpty() {
 			// Not an HTTP or method is missing
 			return false
 		}
@@ -89,28 +103,40 @@ func filterByHTTPUrls(urlRegexpStrs []string) (FilterFunc, error) {
 	}
 
 	return func(ev *v1.Event) bool {
-		http := ev.GetFlow().GetL7().GetHttp()
-
-		if http == nil || http.Url == "" {
+		if ev == nil {
+			return false
+		}
+		fl := ev.GetFlow()
+		if fl == nil {
+			return false
+		}
+		http := fl.L7.HTTP
+		if http.IsEmpty() {
 			return false
 		}
 
 		return slices.ContainsFunc(urlRegexps, func(urlRegexp *regexp.Regexp) bool {
-			return urlRegexp.MatchString(http.Url)
+			return urlRegexp.MatchString(http.URL)
 		})
 	}, nil
 }
 
 func filterByHTTPHeaders(headers []*flowpb.HTTPHeader) FilterFunc {
 	return func(ev *v1.Event) bool {
-		http := ev.GetFlow().GetL7().GetHttp()
-
-		if http == nil || http.GetHeaders() == nil {
+		if ev == nil {
+			return false
+		}
+		fl := ev.GetFlow()
+		if fl == nil {
+			return false
+		}
+		http := fl.L7.HTTP
+		if http.IsEmpty() {
 			// Not an HTTP or headers are missing
 			return false
 		}
 
-		for _, httpHeader := range http.GetHeaders() {
+		for _, httpHeader := range http.Headers {
 			if slices.ContainsFunc(headers, func(header *flowpb.HTTPHeader) bool {
 				return header.Key == httpHeader.Key && header.Value == httpHeader.Value
 			}) {
@@ -133,13 +159,20 @@ func filterByHTTPPaths(pathRegexpStrs []string) (FilterFunc, error) {
 	}
 
 	return func(ev *v1.Event) bool {
-		http := ev.GetFlow().GetL7().GetHttp()
-
-		if http == nil || http.Url == "" {
+		if ev == nil {
+			return false
+		}
+		fl := ev.GetFlow()
+		if fl == nil {
 			return false
 		}
 
-		uri, err := url.ParseRequestURI(http.Url)
+		http := fl.L7.HTTP
+		if http.IsEmpty() {
+			return false
+		}
+
+		uri, err := url.ParseRequestURI(http.URL)
 		if err != nil {
 			// Silently drop all invalid URIs as there is nothing else we can
 			// do.

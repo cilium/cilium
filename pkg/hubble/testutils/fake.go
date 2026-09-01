@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
@@ -374,11 +373,11 @@ var NoopIPGetter = FakeIPGetter{
 
 // FakeServiceGetter is used for unit tests that need ServiceGetter.
 type FakeServiceGetter struct {
-	OnGetServiceByAddr func(ip netip.Addr, port uint16) *flowpb.Service
+	OnGetServiceByAddr func(ip netip.Addr, port uint16) getters.FQN
 }
 
 // GetServiceByAddr implements FakeServiceGetter.GetServiceByAddr.
-func (f *FakeServiceGetter) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
+func (f *FakeServiceGetter) GetServiceByAddr(ip netip.Addr, port uint16) getters.FQN {
 	if f.OnGetServiceByAddr != nil {
 		return f.OnGetServiceByAddr(ip, port)
 	}
@@ -387,8 +386,8 @@ func (f *FakeServiceGetter) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb
 
 // NoopServiceGetter always returns an empty response.
 var NoopServiceGetter = FakeServiceGetter{
-	OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
-		return nil
+	OnGetServiceByAddr: func(ip netip.Addr, port uint16) getters.FQN {
+		return getters.BlankFQN
 	},
 }
 
