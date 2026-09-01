@@ -16,7 +16,6 @@ import (
 	"log/slog"
 	"maps"
 	"net"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -1850,8 +1849,7 @@ type PolicyDefaultLocalClusterInspectResult struct {
 	NetworkPolicies                  map[string]bool `json:"networkPolicies,omitempty"`
 }
 
-func PolicyDefaultLocalClusterInspect(ctx context.Context, k8sClient *k8s.Client, namespace string) (*PolicyDefaultLocalClusterInspectResult, error) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+func PolicyDefaultLocalClusterInspect(ctx context.Context, logger *slog.Logger, k8sClient *k8s.Client, namespace string) (*PolicyDefaultLocalClusterInspectResult, error) {
 	res := PolicyDefaultLocalClusterInspectResult{
 		CiliumNetworkPolicies:            map[string]bool{},
 		CiliumClusterWideNetworkPolicies: map[string]bool{},
