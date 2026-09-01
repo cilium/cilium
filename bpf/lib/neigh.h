@@ -19,20 +19,17 @@ struct {
 } cilium_nodeport_neigh6 __section_maps_btf;
 
 #if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV6)
-static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
+static __always_inline int
+neigh_record_ip6(struct __ctx_buff *ctx, union v6addr *saddr)
 {
 	union macaddr smac = {}, *mac;
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
 		return DROP_INVALID;
 
-	mac = map_lookup_elem(&cilium_nodeport_neigh6, &ip6->saddr);
+	mac = map_lookup_elem(&cilium_nodeport_neigh6, saddr);
 	if (!mac || eth_addrcmp(mac, &smac)) {
-		int ret = map_update_elem(&cilium_nodeport_neigh6, &ip6->saddr,
+		int ret = map_update_elem(&cilium_nodeport_neigh6, saddr,
 					  &smac, 0);
 		if (ret < 0)
 			return ret;
@@ -64,20 +61,17 @@ struct {
 } cilium_nodeport_neigh4 __section_maps_btf;
 
 #if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV4)
-static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)
+static __always_inline int
+neigh_record_ip4(struct __ctx_buff *ctx, __be32 saddr)
 {
 	union macaddr smac = {}, *mac;
-	void *data, *data_end;
-	struct iphdr *ip4;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
 	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
 		return DROP_INVALID;
 
-	mac = map_lookup_elem(&cilium_nodeport_neigh4, &ip4->saddr);
+	mac = map_lookup_elem(&cilium_nodeport_neigh4, &saddr);
 	if (!mac || eth_addrcmp(mac, &smac)) {
-		int ret = map_update_elem(&cilium_nodeport_neigh4, &ip4->saddr,
+		int ret = map_update_elem(&cilium_nodeport_neigh4, &saddr,
 					  &smac, 0);
 		if (ret < 0)
 			return ret;
