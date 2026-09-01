@@ -432,6 +432,92 @@ func TestWriterAddressConflicts(t *testing.T) {
 	requireNoNode("mixed")
 }
 
+func TestWriterClusterAwareAddressConflicts(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+
+	upsert := func(n *types.Node) bool {
+		txn := db.WriteTxn(nodes)
+		defer txn.Commit()
+		return w.Upsert(txn, n)
+	}
+	requireNode := func(name string) *Node {
+		n, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
+		require.True(t, found, name)
+		return n
+	}
+	requireNoNode := func(name string) {
+		_, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
+		require.False(t, found, name)
+	}
+	newNode := func(
+		name, cluster string,
+		addressType addressing.AddressType,
+		address string,
+	) *types.Node {
+		return &types.Node{
+			Name:      name,
+			Cluster:   cluster,
+			ClusterID: 99,
+			Source:    source.Kubernetes,
+			IPAddresses: []types.Address{{
+				Type: addressType,
+				IP:   net.ParseIP(address),
+			}},
+		}
+	}
+
+	// The hook is installed during Hive invoke time, before producers write to
+	// the table.
+	w.SetPrefixClusterMutatorFn(func(n *types.Node) []cmtypes.PrefixClusterOpts {
+		clusterIDs := map[string]uint32{"cluster-1": 1, "cluster-2": 2}
+		return []cmtypes.PrefixClusterOpts{cmtypes.WithClusterID(clusterIDs[n.Cluster])}
+	})
+
+	// The serialized ClusterID is deliberately unrelated to address-space
+	// qualification and must not affect the index.
+	require.True(t, upsert(newNode(
+		"node-1", "cluster-1", addressing.NodeCiliumInternalIP, "10.0.0.1",
+	)))
+	_, _, found := nodes.Get(
+		db.ReadTxn(),
+		NodeByAddress(cmtypes.AddrClusterFrom(netip.MustParseAddr("10.0.0.1"), 0)),
+	)
+	require.False(t, found)
+	_, _, found = nodes.Get(
+		db.ReadTxn(),
+		NodeByAddress(cmtypes.AddrClusterFrom(netip.MustParseAddr("10.0.0.1"), 1)),
+	)
+	require.True(t, found)
+
+	// Cluster-scoped Cilium internal addresses may overlap across clusters.
+	require.True(t, upsert(newNode(
+		"node-2", "cluster-2", addressing.NodeCiliumInternalIP, "10.0.0.1",
+	)))
+	requireNode("cluster-1/node-1")
+	requireNode("cluster-2/node-2")
+
+	// The same address in the same cluster still follows normal ownership rules.
+	require.True(t, upsert(newNode(
+		"latest", "cluster-1", addressing.NodeCiliumInternalIP, "10.0.0.1",
+	)))
+	requireNoNode("cluster-1/node-1")
+	requireNode("cluster-1/latest")
+	requireNode("cluster-2/node-2")
+
+	// Underlay addresses remain globally scoped and conflict across clusters.
+	require.True(t, upsert(newNode(
+		"underlay-1", "cluster-1", addressing.NodeInternalIP, "192.0.2.1",
+	)))
+	require.True(t, upsert(newNode(
+		"underlay-2", "cluster-2", addressing.NodeInternalIP, "192.0.2.1",
+	)))
+	requireNoNode("cluster-1/underlay-1")
+	requireNode("cluster-2/underlay-2")
+}
+
 func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
