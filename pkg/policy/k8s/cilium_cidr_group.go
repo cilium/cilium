@@ -20,6 +20,18 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
+var (
+	splitV4 = []netip.Prefix{
+		netip.MustParsePrefix("0.0.0.0/1"),
+		netip.MustParsePrefix("128.0.0.0/1"),
+	}
+
+	splitV6 = []netip.Prefix{
+		netip.MustParsePrefix("::/1"),
+		netip.MustParsePrefix("8000::/1"),
+	}
+)
+
 // onUpsertCIDRGroup updates the internal cache and,
 // if this CIDRGroup is referenced by any policies,
 // applies it to the IPCache.
@@ -63,6 +75,16 @@ func (p *policyWatcher) cidrsAndLabelsForCIDRGroup(name string) (sets.Set[netip.
 					logfields.Index, i,
 				)
 				continue
+			}
+			// workaround for GH-39688: identity 2 (world) doesn't have any CIDR labels,
+			// so we can't select zero-length (0.0.0.0/0) prefixes directly. Split it additionally in to
+			// two /1 prefixes
+			if pfx.Bits() == 0 {
+				if pfx.Addr().Is4() {
+					newCIDRs.Insert(splitV4...)
+				} else {
+					newCIDRs.Insert(splitV6...)
+				}
 			}
 			newCIDRs.Insert(pfx)
 		}
