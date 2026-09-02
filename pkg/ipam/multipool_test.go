@@ -1162,7 +1162,7 @@ func Test_MultiPoolManager_UpdateNodeRetries(t *testing.T) {
 			Status: ciliumv2.NodeStatus{
 				IPAM: types.IPAMStatus{
 					Used: types.AllocationMap{
-						"10.0.0.1": types.AllocationIP{Resource: "pod-a"},
+						iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")): types.AllocationIP{Resource: "pod-a"},
 					},
 				},
 			},
