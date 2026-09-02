@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumLocalRedirectPolicyInformer provides access to a shared informer and lister for
-// CiliumLocalRedirectPolicies.
+// CiliumLocalRedirectPolicies. Prefer using the type-safe variant (see [TypedCiliumLocalRedirectPolicyInformer]).
 type CiliumLocalRedirectPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2.CiliumLocalRedirectPolicyLister
 }
+
+// TypedCiliumLocalRedirectPolicyInformer provides access to a shared informer and lister for
+// CiliumLocalRedirectPolicies, including the type-safe TypedInformer variant.
+// It is a superset of CiliumLocalRedirectPolicyInformer.
+type TypedCiliumLocalRedirectPolicyInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumLocalRedirectPolicyIndexInformer
+	Lister() ciliumiov2.CiliumLocalRedirectPolicyLister
+}
+
+// CiliumLocalRedirectPolicyIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumLocalRedirectPolicyIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2.CiliumLocalRedirectPolicy]
+
+// CiliumLocalRedirectPolicyHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumLocalRedirectPolicy.
+type CiliumLocalRedirectPolicyHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2.CiliumLocalRedirectPolicy]
+
+// CiliumLocalRedirectPolicyDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumLocalRedirectPolicy.
+type CiliumLocalRedirectPolicyDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2.CiliumLocalRedirectPolicy]
+
+// CiliumLocalRedirectPolicyFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumLocalRedirectPolicy.
+type CiliumLocalRedirectPolicyFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2.CiliumLocalRedirectPolicy]
+
+// CiliumLocalRedirectPolicyIndexers is a specialization of [cache.TypedIndexers] for CiliumLocalRedirectPolicy.
+type CiliumLocalRedirectPolicyIndexers = cache.TypedIndexers[*apisciliumiov2.CiliumLocalRedirectPolicy]
+
+// DeletedCiliumLocalRedirectPolicy is a specialization of [cache.DeletedObject] for CiliumLocalRedirectPolicy.
+type DeletedCiliumLocalRedirectPolicy = cache.DeletedObject[*apisciliumiov2.CiliumLocalRedirectPolicy]
 
 type ciliumLocalRedirectPolicyInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -36,25 +64,49 @@ type ciliumLocalRedirectPolicyInformer struct {
 // NewCiliumLocalRedirectPolicyInformer constructs a new informer for CiliumLocalRedirectPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumLocalRedirectPolicyInformer]).
 func NewCiliumLocalRedirectPolicyInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumLocalRedirectPolicyInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumLocalRedirectPolicyInformer constructs a new informer for CiliumLocalRedirectPolicy type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumLocalRedirectPolicyInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers CiliumLocalRedirectPolicyIndexers) CiliumLocalRedirectPolicyIndexInformer {
+	return NewTypedCiliumLocalRedirectPolicyInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumLocalRedirectPolicyInformer constructs a new informer for CiliumLocalRedirectPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumLocalRedirectPolicyInformer]).
 func NewFilteredCiliumLocalRedirectPolicyInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumLocalRedirectPolicyInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumLocalRedirectPolicyInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumLocalRedirectPolicyInformer constructs a new informer for CiliumLocalRedirectPolicy type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumLocalRedirectPolicyInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers CiliumLocalRedirectPolicyIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumLocalRedirectPolicyIndexInformer {
+	return NewTypedCiliumLocalRedirectPolicyInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumLocalRedirectPolicyInformerWithOptions constructs a new informer for CiliumLocalRedirectPolicy type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumLocalRedirectPolicyInformerWithOptions]).
 func NewCiliumLocalRedirectPolicyInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumLocalRedirectPolicyInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedCiliumLocalRedirectPolicyInformerWithOptions constructs a new informer for CiliumLocalRedirectPolicy type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumLocalRedirectPolicyInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) CiliumLocalRedirectPolicyIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumlocalredirectpolicys"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumLocalRedirectPolicy](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -87,17 +139,57 @@ func NewCiliumLocalRedirectPolicyInformerWithOptions(client versioned.Interface,
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumLocalRedirectPolicyInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumLocalRedirectPolicyInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumLocalRedirectPolicyInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumLocalRedirectPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2.CiliumLocalRedirectPolicy{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumLocalRedirectPolicyInformer) TypedInformer() CiliumLocalRedirectPolicyIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumLocalRedirectPolicy](f.factory.InformerFor(&apisciliumiov2.CiliumLocalRedirectPolicy{}, f.defaultInformer))
 }
 
 func (f *ciliumLocalRedirectPolicyInformer) Lister() ciliumiov2.CiliumLocalRedirectPolicyLister {
 	return ciliumiov2.NewCiliumLocalRedirectPolicyLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumLocalRedirectPolicyInformer converts an untyped informer into a TypedCiliumLocalRedirectPolicyInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumLocalRedirectPolicy. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumLocalRedirectPolicyInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumLocalRedirectPolicyInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumLocalRedirectPolicyInformer(informer CiliumLocalRedirectPolicyInformer) TypedCiliumLocalRedirectPolicyInformer {
+	if informer, ok := informer.(TypedCiliumLocalRedirectPolicyInformer); ok {
+		return informer
+	}
+	return &ciliumLocalRedirectPolicyTypedInformerAdapter{informer}
+}
+
+type ciliumLocalRedirectPolicyTypedInformerAdapter struct {
+	CiliumLocalRedirectPolicyInformer
+}
+
+func (a *ciliumLocalRedirectPolicyTypedInformerAdapter) TypedInformer() CiliumLocalRedirectPolicyIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumLocalRedirectPolicy](a.Informer())
+}
+
+// ToCiliumLocalRedirectPolicyIndexInformer converts an untyped informer into a CiliumLocalRedirectPolicyIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumLocalRedirectPolicy. If that is not the case, calling type-safe methods of the returned
+// CiliumLocalRedirectPolicyIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumLocalRedirectPolicyIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumLocalRedirectPolicyIndexInformer(informer cache.SharedIndexInformer) CiliumLocalRedirectPolicyIndexInformer {
+	if informer, ok := informer.(CiliumLocalRedirectPolicyIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumLocalRedirectPolicy](informer)
 }

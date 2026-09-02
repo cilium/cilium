@@ -12,41 +12,41 @@ import (
 // Interface provides access to all the informers in this group version.
 type Interface interface {
 	// CiliumBGPAdvertisements returns a CiliumBGPAdvertisementInformer.
-	CiliumBGPAdvertisements() CiliumBGPAdvertisementInformer
+	CiliumBGPAdvertisements() TypedCiliumBGPAdvertisementInformer
 	// CiliumBGPClusterConfigs returns a CiliumBGPClusterConfigInformer.
-	CiliumBGPClusterConfigs() CiliumBGPClusterConfigInformer
+	CiliumBGPClusterConfigs() TypedCiliumBGPClusterConfigInformer
 	// CiliumBGPNodeConfigs returns a CiliumBGPNodeConfigInformer.
-	CiliumBGPNodeConfigs() CiliumBGPNodeConfigInformer
+	CiliumBGPNodeConfigs() TypedCiliumBGPNodeConfigInformer
 	// CiliumBGPNodeConfigOverrides returns a CiliumBGPNodeConfigOverrideInformer.
-	CiliumBGPNodeConfigOverrides() CiliumBGPNodeConfigOverrideInformer
+	CiliumBGPNodeConfigOverrides() TypedCiliumBGPNodeConfigOverrideInformer
 	// CiliumBGPPeerConfigs returns a CiliumBGPPeerConfigInformer.
-	CiliumBGPPeerConfigs() CiliumBGPPeerConfigInformer
+	CiliumBGPPeerConfigs() TypedCiliumBGPPeerConfigInformer
 	// CiliumCIDRGroups returns a CiliumCIDRGroupInformer.
-	CiliumCIDRGroups() CiliumCIDRGroupInformer
+	CiliumCIDRGroups() TypedCiliumCIDRGroupInformer
 	// CiliumClusterwideEnvoyConfigs returns a CiliumClusterwideEnvoyConfigInformer.
-	CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInformer
+	CiliumClusterwideEnvoyConfigs() TypedCiliumClusterwideEnvoyConfigInformer
 	// CiliumClusterwideNetworkPolicies returns a CiliumClusterwideNetworkPolicyInformer.
-	CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInformer
+	CiliumClusterwideNetworkPolicies() TypedCiliumClusterwideNetworkPolicyInformer
 	// CiliumEgressGatewayPolicies returns a CiliumEgressGatewayPolicyInformer.
-	CiliumEgressGatewayPolicies() CiliumEgressGatewayPolicyInformer
+	CiliumEgressGatewayPolicies() TypedCiliumEgressGatewayPolicyInformer
 	// CiliumEndpoints returns a CiliumEndpointInformer.
-	CiliumEndpoints() CiliumEndpointInformer
+	CiliumEndpoints() TypedCiliumEndpointInformer
 	// CiliumEnvoyConfigs returns a CiliumEnvoyConfigInformer.
-	CiliumEnvoyConfigs() CiliumEnvoyConfigInformer
+	CiliumEnvoyConfigs() TypedCiliumEnvoyConfigInformer
 	// CiliumIdentities returns a CiliumIdentityInformer.
-	CiliumIdentities() CiliumIdentityInformer
+	CiliumIdentities() TypedCiliumIdentityInformer
 	// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
-	CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer
+	CiliumLoadBalancerIPPools() TypedCiliumLoadBalancerIPPoolInformer
 	// CiliumLocalRedirectPolicies returns a CiliumLocalRedirectPolicyInformer.
-	CiliumLocalRedirectPolicies() CiliumLocalRedirectPolicyInformer
+	CiliumLocalRedirectPolicies() TypedCiliumLocalRedirectPolicyInformer
 	// CiliumNetworkPolicies returns a CiliumNetworkPolicyInformer.
-	CiliumNetworkPolicies() CiliumNetworkPolicyInformer
+	CiliumNetworkPolicies() TypedCiliumNetworkPolicyInformer
 	// CiliumNodes returns a CiliumNodeInformer.
-	CiliumNodes() CiliumNodeInformer
+	CiliumNodes() TypedCiliumNodeInformer
 	// CiliumNodeConfigs returns a CiliumNodeConfigInformer.
-	CiliumNodeConfigs() CiliumNodeConfigInformer
+	CiliumNodeConfigs() TypedCiliumNodeConfigInformer
 	// CiliumPodIPPools returns a CiliumPodIPPoolInformer.
-	CiliumPodIPPools() CiliumPodIPPoolInformer
+	CiliumPodIPPools() TypedCiliumPodIPPoolInformer
 }
 
 type version struct {
@@ -60,92 +60,92 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// CiliumBGPAdvertisements returns a CiliumBGPAdvertisementInformer.
-func (v *version) CiliumBGPAdvertisements() CiliumBGPAdvertisementInformer {
+// CiliumBGPAdvertisements returns a TypedCiliumBGPAdvertisementInformer.
+func (v *version) CiliumBGPAdvertisements() TypedCiliumBGPAdvertisementInformer {
 	return &ciliumBGPAdvertisementInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumBGPClusterConfigs returns a CiliumBGPClusterConfigInformer.
-func (v *version) CiliumBGPClusterConfigs() CiliumBGPClusterConfigInformer {
+// CiliumBGPClusterConfigs returns a TypedCiliumBGPClusterConfigInformer.
+func (v *version) CiliumBGPClusterConfigs() TypedCiliumBGPClusterConfigInformer {
 	return &ciliumBGPClusterConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumBGPNodeConfigs returns a CiliumBGPNodeConfigInformer.
-func (v *version) CiliumBGPNodeConfigs() CiliumBGPNodeConfigInformer {
+// CiliumBGPNodeConfigs returns a TypedCiliumBGPNodeConfigInformer.
+func (v *version) CiliumBGPNodeConfigs() TypedCiliumBGPNodeConfigInformer {
 	return &ciliumBGPNodeConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumBGPNodeConfigOverrides returns a CiliumBGPNodeConfigOverrideInformer.
-func (v *version) CiliumBGPNodeConfigOverrides() CiliumBGPNodeConfigOverrideInformer {
+// CiliumBGPNodeConfigOverrides returns a TypedCiliumBGPNodeConfigOverrideInformer.
+func (v *version) CiliumBGPNodeConfigOverrides() TypedCiliumBGPNodeConfigOverrideInformer {
 	return &ciliumBGPNodeConfigOverrideInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumBGPPeerConfigs returns a CiliumBGPPeerConfigInformer.
-func (v *version) CiliumBGPPeerConfigs() CiliumBGPPeerConfigInformer {
+// CiliumBGPPeerConfigs returns a TypedCiliumBGPPeerConfigInformer.
+func (v *version) CiliumBGPPeerConfigs() TypedCiliumBGPPeerConfigInformer {
 	return &ciliumBGPPeerConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumCIDRGroups returns a CiliumCIDRGroupInformer.
-func (v *version) CiliumCIDRGroups() CiliumCIDRGroupInformer {
+// CiliumCIDRGroups returns a TypedCiliumCIDRGroupInformer.
+func (v *version) CiliumCIDRGroups() TypedCiliumCIDRGroupInformer {
 	return &ciliumCIDRGroupInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumClusterwideEnvoyConfigs returns a CiliumClusterwideEnvoyConfigInformer.
-func (v *version) CiliumClusterwideEnvoyConfigs() CiliumClusterwideEnvoyConfigInformer {
+// CiliumClusterwideEnvoyConfigs returns a TypedCiliumClusterwideEnvoyConfigInformer.
+func (v *version) CiliumClusterwideEnvoyConfigs() TypedCiliumClusterwideEnvoyConfigInformer {
 	return &ciliumClusterwideEnvoyConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumClusterwideNetworkPolicies returns a CiliumClusterwideNetworkPolicyInformer.
-func (v *version) CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInformer {
+// CiliumClusterwideNetworkPolicies returns a TypedCiliumClusterwideNetworkPolicyInformer.
+func (v *version) CiliumClusterwideNetworkPolicies() TypedCiliumClusterwideNetworkPolicyInformer {
 	return &ciliumClusterwideNetworkPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumEgressGatewayPolicies returns a CiliumEgressGatewayPolicyInformer.
-func (v *version) CiliumEgressGatewayPolicies() CiliumEgressGatewayPolicyInformer {
+// CiliumEgressGatewayPolicies returns a TypedCiliumEgressGatewayPolicyInformer.
+func (v *version) CiliumEgressGatewayPolicies() TypedCiliumEgressGatewayPolicyInformer {
 	return &ciliumEgressGatewayPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumEndpoints returns a CiliumEndpointInformer.
-func (v *version) CiliumEndpoints() CiliumEndpointInformer {
+// CiliumEndpoints returns a TypedCiliumEndpointInformer.
+func (v *version) CiliumEndpoints() TypedCiliumEndpointInformer {
 	return &ciliumEndpointInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumEnvoyConfigs returns a CiliumEnvoyConfigInformer.
-func (v *version) CiliumEnvoyConfigs() CiliumEnvoyConfigInformer {
+// CiliumEnvoyConfigs returns a TypedCiliumEnvoyConfigInformer.
+func (v *version) CiliumEnvoyConfigs() TypedCiliumEnvoyConfigInformer {
 	return &ciliumEnvoyConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumIdentities returns a CiliumIdentityInformer.
-func (v *version) CiliumIdentities() CiliumIdentityInformer {
+// CiliumIdentities returns a TypedCiliumIdentityInformer.
+func (v *version) CiliumIdentities() TypedCiliumIdentityInformer {
 	return &ciliumIdentityInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
-func (v *version) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer {
+// CiliumLoadBalancerIPPools returns a TypedCiliumLoadBalancerIPPoolInformer.
+func (v *version) CiliumLoadBalancerIPPools() TypedCiliumLoadBalancerIPPoolInformer {
 	return &ciliumLoadBalancerIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumLocalRedirectPolicies returns a CiliumLocalRedirectPolicyInformer.
-func (v *version) CiliumLocalRedirectPolicies() CiliumLocalRedirectPolicyInformer {
+// CiliumLocalRedirectPolicies returns a TypedCiliumLocalRedirectPolicyInformer.
+func (v *version) CiliumLocalRedirectPolicies() TypedCiliumLocalRedirectPolicyInformer {
 	return &ciliumLocalRedirectPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumNetworkPolicies returns a CiliumNetworkPolicyInformer.
-func (v *version) CiliumNetworkPolicies() CiliumNetworkPolicyInformer {
+// CiliumNetworkPolicies returns a TypedCiliumNetworkPolicyInformer.
+func (v *version) CiliumNetworkPolicies() TypedCiliumNetworkPolicyInformer {
 	return &ciliumNetworkPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumNodes returns a CiliumNodeInformer.
-func (v *version) CiliumNodes() CiliumNodeInformer {
+// CiliumNodes returns a TypedCiliumNodeInformer.
+func (v *version) CiliumNodes() TypedCiliumNodeInformer {
 	return &ciliumNodeInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumNodeConfigs returns a CiliumNodeConfigInformer.
-func (v *version) CiliumNodeConfigs() CiliumNodeConfigInformer {
+// CiliumNodeConfigs returns a TypedCiliumNodeConfigInformer.
+func (v *version) CiliumNodeConfigs() TypedCiliumNodeConfigInformer {
 	return &ciliumNodeConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumPodIPPools returns a CiliumPodIPPoolInformer.
-func (v *version) CiliumPodIPPools() CiliumPodIPPoolInformer {
+// CiliumPodIPPools returns a TypedCiliumPodIPPoolInformer.
+func (v *version) CiliumPodIPPools() TypedCiliumPodIPPoolInformer {
 	return &ciliumPodIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

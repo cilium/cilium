@@ -35,7 +35,7 @@ var log = logf.RuntimeLog.WithName("source").WithName("EventHandler")
 var _ cache.ResourceEventHandler = &EventHandler[client.Object, any]{}
 
 // NewEventHandler creates a new EventHandler.
-func NewEventHandler[object client.Object, request comparable](
+func NewEventHandler[object any, request comparable](
 	ctx context.Context,
 	queue workqueue.TypedRateLimitingInterface[request],
 	handler handler.TypedEventHandler[object, request],
@@ -49,7 +49,7 @@ func NewEventHandler[object client.Object, request comparable](
 }
 
 // EventHandler adapts a handler.EventHandler interface to a cache.ResourceEventHandler interface.
-type EventHandler[object client.Object, request comparable] struct {
+type EventHandler[object any, request comparable] struct {
 	// ctx stores the context that created the event handler
 	// that is used to propagate cancellation signals to each handler function.
 	ctx context.Context

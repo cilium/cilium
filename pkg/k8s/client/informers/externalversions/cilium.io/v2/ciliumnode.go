@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumNodeInformer provides access to a shared informer and lister for
-// CiliumNodes.
+// CiliumNodes. Prefer using the type-safe variant (see [TypedCiliumNodeInformer]).
 type CiliumNodeInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2.CiliumNodeLister
 }
+
+// TypedCiliumNodeInformer provides access to a shared informer and lister for
+// CiliumNodes, including the type-safe TypedInformer variant.
+// It is a superset of CiliumNodeInformer.
+type TypedCiliumNodeInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumNodeIndexInformer
+	Lister() ciliumiov2.CiliumNodeLister
+}
+
+// CiliumNodeIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumNodeIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2.CiliumNode]
+
+// CiliumNodeHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumNode.
+type CiliumNodeHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2.CiliumNode]
+
+// CiliumNodeDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumNode.
+type CiliumNodeDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2.CiliumNode]
+
+// CiliumNodeFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumNode.
+type CiliumNodeFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2.CiliumNode]
+
+// CiliumNodeIndexers is a specialization of [cache.TypedIndexers] for CiliumNode.
+type CiliumNodeIndexers = cache.TypedIndexers[*apisciliumiov2.CiliumNode]
+
+// DeletedCiliumNode is a specialization of [cache.DeletedObject] for CiliumNode.
+type DeletedCiliumNode = cache.DeletedObject[*apisciliumiov2.CiliumNode]
 
 type ciliumNodeInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumNodeInformer struct {
 // NewCiliumNodeInformer constructs a new informer for CiliumNode type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumNodeInformer]).
 func NewCiliumNodeInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumNodeInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumNodeInformer constructs a new informer for CiliumNode type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumNodeInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumNodeIndexers) CiliumNodeIndexInformer {
+	return NewTypedCiliumNodeInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumNodeInformer constructs a new informer for CiliumNode type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumNodeInformer]).
 func NewFilteredCiliumNodeInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumNodeInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumNodeInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumNodeInformer constructs a new informer for CiliumNode type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumNodeInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumNodeIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumNodeIndexInformer {
+	return NewTypedCiliumNodeInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumNodeInformerWithOptions constructs a new informer for CiliumNode type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumNodeInformerWithOptions]).
 func NewCiliumNodeInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumNodeInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumNodeInformerWithOptions constructs a new informer for CiliumNode type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumNodeInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumNodeIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumnodes"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumNode](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumNodeInformerWithOptions(client versioned.Interface, options intern
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumNodeInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumNodeInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumNodeInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumNodeInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2.CiliumNode{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumNodeInformer) TypedInformer() CiliumNodeIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumNode](f.factory.InformerFor(&apisciliumiov2.CiliumNode{}, f.defaultInformer))
 }
 
 func (f *ciliumNodeInformer) Lister() ciliumiov2.CiliumNodeLister {
 	return ciliumiov2.NewCiliumNodeLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumNodeInformer converts an untyped informer into a TypedCiliumNodeInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumNode. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumNodeInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumNodeInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumNodeInformer(informer CiliumNodeInformer) TypedCiliumNodeInformer {
+	if informer, ok := informer.(TypedCiliumNodeInformer); ok {
+		return informer
+	}
+	return &ciliumNodeTypedInformerAdapter{informer}
+}
+
+type ciliumNodeTypedInformerAdapter struct {
+	CiliumNodeInformer
+}
+
+func (a *ciliumNodeTypedInformerAdapter) TypedInformer() CiliumNodeIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumNode](a.Informer())
+}
+
+// ToCiliumNodeIndexInformer converts an untyped informer into a CiliumNodeIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumNode. If that is not the case, calling type-safe methods of the returned
+// CiliumNodeIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumNodeIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumNodeIndexInformer(informer cache.SharedIndexInformer) CiliumNodeIndexInformer {
+	if informer, ok := informer.(CiliumNodeIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumNode](informer)
 }

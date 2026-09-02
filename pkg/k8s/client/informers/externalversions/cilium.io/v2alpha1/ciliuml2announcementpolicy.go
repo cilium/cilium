@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumL2AnnouncementPolicyInformer provides access to a shared informer and lister for
-// CiliumL2AnnouncementPolicies.
+// CiliumL2AnnouncementPolicies. Prefer using the type-safe variant (see [TypedCiliumL2AnnouncementPolicyInformer]).
 type CiliumL2AnnouncementPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2alpha1.CiliumL2AnnouncementPolicyLister
 }
+
+// TypedCiliumL2AnnouncementPolicyInformer provides access to a shared informer and lister for
+// CiliumL2AnnouncementPolicies, including the type-safe TypedInformer variant.
+// It is a superset of CiliumL2AnnouncementPolicyInformer.
+type TypedCiliumL2AnnouncementPolicyInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumL2AnnouncementPolicyIndexInformer
+	Lister() ciliumiov2alpha1.CiliumL2AnnouncementPolicyLister
+}
+
+// CiliumL2AnnouncementPolicyIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumL2AnnouncementPolicyIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumL2AnnouncementPolicy]
+
+// CiliumL2AnnouncementPolicyHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumL2AnnouncementPolicy.
+type CiliumL2AnnouncementPolicyHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2alpha1.CiliumL2AnnouncementPolicy]
+
+// CiliumL2AnnouncementPolicyDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumL2AnnouncementPolicy.
+type CiliumL2AnnouncementPolicyDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2alpha1.CiliumL2AnnouncementPolicy]
+
+// CiliumL2AnnouncementPolicyFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumL2AnnouncementPolicy.
+type CiliumL2AnnouncementPolicyFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2alpha1.CiliumL2AnnouncementPolicy]
+
+// CiliumL2AnnouncementPolicyIndexers is a specialization of [cache.TypedIndexers] for CiliumL2AnnouncementPolicy.
+type CiliumL2AnnouncementPolicyIndexers = cache.TypedIndexers[*apisciliumiov2alpha1.CiliumL2AnnouncementPolicy]
+
+// DeletedCiliumL2AnnouncementPolicy is a specialization of [cache.DeletedObject] for CiliumL2AnnouncementPolicy.
+type DeletedCiliumL2AnnouncementPolicy = cache.DeletedObject[*apisciliumiov2alpha1.CiliumL2AnnouncementPolicy]
 
 type ciliumL2AnnouncementPolicyInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumL2AnnouncementPolicyInformer struct {
 // NewCiliumL2AnnouncementPolicyInformer constructs a new informer for CiliumL2AnnouncementPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumL2AnnouncementPolicyInformer]).
 func NewCiliumL2AnnouncementPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumL2AnnouncementPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumL2AnnouncementPolicyInformer constructs a new informer for CiliumL2AnnouncementPolicy type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumL2AnnouncementPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumL2AnnouncementPolicyIndexers) CiliumL2AnnouncementPolicyIndexInformer {
+	return NewTypedCiliumL2AnnouncementPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumL2AnnouncementPolicyInformer constructs a new informer for CiliumL2AnnouncementPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumL2AnnouncementPolicyInformer]).
 func NewFilteredCiliumL2AnnouncementPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumL2AnnouncementPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumL2AnnouncementPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumL2AnnouncementPolicyInformer constructs a new informer for CiliumL2AnnouncementPolicy type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumL2AnnouncementPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumL2AnnouncementPolicyIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumL2AnnouncementPolicyIndexInformer {
+	return NewTypedCiliumL2AnnouncementPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumL2AnnouncementPolicyInformerWithOptions constructs a new informer for CiliumL2AnnouncementPolicy type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumL2AnnouncementPolicyInformerWithOptions]).
 func NewCiliumL2AnnouncementPolicyInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumL2AnnouncementPolicyInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumL2AnnouncementPolicyInformerWithOptions constructs a new informer for CiliumL2AnnouncementPolicy type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumL2AnnouncementPolicyInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumL2AnnouncementPolicyIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliuml2announcementpolicys"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumL2AnnouncementPolicy](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumL2AnnouncementPolicyInformerWithOptions(client versioned.Interface
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumL2AnnouncementPolicyInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumL2AnnouncementPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumL2AnnouncementPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumL2AnnouncementPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2alpha1.CiliumL2AnnouncementPolicy{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumL2AnnouncementPolicyInformer) TypedInformer() CiliumL2AnnouncementPolicyIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumL2AnnouncementPolicy](f.factory.InformerFor(&apisciliumiov2alpha1.CiliumL2AnnouncementPolicy{}, f.defaultInformer))
 }
 
 func (f *ciliumL2AnnouncementPolicyInformer) Lister() ciliumiov2alpha1.CiliumL2AnnouncementPolicyLister {
 	return ciliumiov2alpha1.NewCiliumL2AnnouncementPolicyLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumL2AnnouncementPolicyInformer converts an untyped informer into a TypedCiliumL2AnnouncementPolicyInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumL2AnnouncementPolicy. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumL2AnnouncementPolicyInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumL2AnnouncementPolicyInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumL2AnnouncementPolicyInformer(informer CiliumL2AnnouncementPolicyInformer) TypedCiliumL2AnnouncementPolicyInformer {
+	if informer, ok := informer.(TypedCiliumL2AnnouncementPolicyInformer); ok {
+		return informer
+	}
+	return &ciliumL2AnnouncementPolicyTypedInformerAdapter{informer}
+}
+
+type ciliumL2AnnouncementPolicyTypedInformerAdapter struct {
+	CiliumL2AnnouncementPolicyInformer
+}
+
+func (a *ciliumL2AnnouncementPolicyTypedInformerAdapter) TypedInformer() CiliumL2AnnouncementPolicyIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumL2AnnouncementPolicy](a.Informer())
+}
+
+// ToCiliumL2AnnouncementPolicyIndexInformer converts an untyped informer into a CiliumL2AnnouncementPolicyIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumL2AnnouncementPolicy. If that is not the case, calling type-safe methods of the returned
+// CiliumL2AnnouncementPolicyIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumL2AnnouncementPolicyIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumL2AnnouncementPolicyIndexInformer(informer cache.SharedIndexInformer) CiliumL2AnnouncementPolicyIndexInformer {
+	if informer, ok := informer.(CiliumL2AnnouncementPolicyIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumL2AnnouncementPolicy](informer)
 }

@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumBGPPeerConfigInformer provides access to a shared informer and lister for
-// CiliumBGPPeerConfigs.
+// CiliumBGPPeerConfigs. Prefer using the type-safe variant (see [TypedCiliumBGPPeerConfigInformer]).
 type CiliumBGPPeerConfigInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2.CiliumBGPPeerConfigLister
 }
+
+// TypedCiliumBGPPeerConfigInformer provides access to a shared informer and lister for
+// CiliumBGPPeerConfigs, including the type-safe TypedInformer variant.
+// It is a superset of CiliumBGPPeerConfigInformer.
+type TypedCiliumBGPPeerConfigInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumBGPPeerConfigIndexInformer
+	Lister() ciliumiov2.CiliumBGPPeerConfigLister
+}
+
+// CiliumBGPPeerConfigIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumBGPPeerConfigIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2.CiliumBGPPeerConfig]
+
+// CiliumBGPPeerConfigHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumBGPPeerConfig.
+type CiliumBGPPeerConfigHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2.CiliumBGPPeerConfig]
+
+// CiliumBGPPeerConfigDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumBGPPeerConfig.
+type CiliumBGPPeerConfigDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2.CiliumBGPPeerConfig]
+
+// CiliumBGPPeerConfigFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumBGPPeerConfig.
+type CiliumBGPPeerConfigFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2.CiliumBGPPeerConfig]
+
+// CiliumBGPPeerConfigIndexers is a specialization of [cache.TypedIndexers] for CiliumBGPPeerConfig.
+type CiliumBGPPeerConfigIndexers = cache.TypedIndexers[*apisciliumiov2.CiliumBGPPeerConfig]
+
+// DeletedCiliumBGPPeerConfig is a specialization of [cache.DeletedObject] for CiliumBGPPeerConfig.
+type DeletedCiliumBGPPeerConfig = cache.DeletedObject[*apisciliumiov2.CiliumBGPPeerConfig]
 
 type ciliumBGPPeerConfigInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumBGPPeerConfigInformer struct {
 // NewCiliumBGPPeerConfigInformer constructs a new informer for CiliumBGPPeerConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumBGPPeerConfigInformer]).
 func NewCiliumBGPPeerConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumBGPPeerConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumBGPPeerConfigInformer constructs a new informer for CiliumBGPPeerConfig type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumBGPPeerConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumBGPPeerConfigIndexers) CiliumBGPPeerConfigIndexInformer {
+	return NewTypedCiliumBGPPeerConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumBGPPeerConfigInformer constructs a new informer for CiliumBGPPeerConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumBGPPeerConfigInformer]).
 func NewFilteredCiliumBGPPeerConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumBGPPeerConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumBGPPeerConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumBGPPeerConfigInformer constructs a new informer for CiliumBGPPeerConfig type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumBGPPeerConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumBGPPeerConfigIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumBGPPeerConfigIndexInformer {
+	return NewTypedCiliumBGPPeerConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumBGPPeerConfigInformerWithOptions constructs a new informer for CiliumBGPPeerConfig type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumBGPPeerConfigInformerWithOptions]).
 func NewCiliumBGPPeerConfigInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumBGPPeerConfigInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumBGPPeerConfigInformerWithOptions constructs a new informer for CiliumBGPPeerConfig type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumBGPPeerConfigInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumBGPPeerConfigIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumbgppeerconfigs"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumBGPPeerConfig](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumBGPPeerConfigInformerWithOptions(client versioned.Interface, optio
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumBGPPeerConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumBGPPeerConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumBGPPeerConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumBGPPeerConfigInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2.CiliumBGPPeerConfig{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumBGPPeerConfigInformer) TypedInformer() CiliumBGPPeerConfigIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumBGPPeerConfig](f.factory.InformerFor(&apisciliumiov2.CiliumBGPPeerConfig{}, f.defaultInformer))
 }
 
 func (f *ciliumBGPPeerConfigInformer) Lister() ciliumiov2.CiliumBGPPeerConfigLister {
 	return ciliumiov2.NewCiliumBGPPeerConfigLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumBGPPeerConfigInformer converts an untyped informer into a TypedCiliumBGPPeerConfigInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumBGPPeerConfig. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumBGPPeerConfigInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumBGPPeerConfigInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumBGPPeerConfigInformer(informer CiliumBGPPeerConfigInformer) TypedCiliumBGPPeerConfigInformer {
+	if informer, ok := informer.(TypedCiliumBGPPeerConfigInformer); ok {
+		return informer
+	}
+	return &ciliumBGPPeerConfigTypedInformerAdapter{informer}
+}
+
+type ciliumBGPPeerConfigTypedInformerAdapter struct {
+	CiliumBGPPeerConfigInformer
+}
+
+func (a *ciliumBGPPeerConfigTypedInformerAdapter) TypedInformer() CiliumBGPPeerConfigIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumBGPPeerConfig](a.Informer())
+}
+
+// ToCiliumBGPPeerConfigIndexInformer converts an untyped informer into a CiliumBGPPeerConfigIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumBGPPeerConfig. If that is not the case, calling type-safe methods of the returned
+// CiliumBGPPeerConfigIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumBGPPeerConfigIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumBGPPeerConfigIndexInformer(informer cache.SharedIndexInformer) CiliumBGPPeerConfigIndexInformer {
+	if informer, ok := informer.(CiliumBGPPeerConfigIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumBGPPeerConfig](informer)
 }

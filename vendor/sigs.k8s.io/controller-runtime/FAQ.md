@@ -14,7 +14,7 @@ attempt to reconcile *all* state for that given root objects.
 should always reconcile state by reading all the state it needs, then
 writing updates.  This allows your reconciler to correctly respond to
 generic events, adjust to skipped or coalesced events, and easily deal
-with application startup.  The controller will enqueue reconcile requests
+with application startup. The controller will enqueue reconcile requests
 for both old and new objects if a mapping changes, but it's your
 responsibility to make sure you have enough information to be able clean
 up state that's no longer referenced.
@@ -40,10 +40,7 @@ on your situation.
 In general, write your controller with the assumption that information
 will eventually be correct, but may be slightly out of date. Make sure
 that your reconcile function enforces the entire state of the world each
-time it runs.  If none of this works for you, you can always construct
-a client that reads directly from the API server, but this is generally
-considered to be a last resort, and the two approaches above should
-generally cover most circumstances.
+time it runs.
 
 ### Q: Where's the fake client?  How do I use it?
 

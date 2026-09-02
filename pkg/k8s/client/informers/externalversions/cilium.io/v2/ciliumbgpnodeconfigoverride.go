@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumBGPNodeConfigOverrideInformer provides access to a shared informer and lister for
-// CiliumBGPNodeConfigOverrides.
+// CiliumBGPNodeConfigOverrides. Prefer using the type-safe variant (see [TypedCiliumBGPNodeConfigOverrideInformer]).
 type CiliumBGPNodeConfigOverrideInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2.CiliumBGPNodeConfigOverrideLister
 }
+
+// TypedCiliumBGPNodeConfigOverrideInformer provides access to a shared informer and lister for
+// CiliumBGPNodeConfigOverrides, including the type-safe TypedInformer variant.
+// It is a superset of CiliumBGPNodeConfigOverrideInformer.
+type TypedCiliumBGPNodeConfigOverrideInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumBGPNodeConfigOverrideIndexInformer
+	Lister() ciliumiov2.CiliumBGPNodeConfigOverrideLister
+}
+
+// CiliumBGPNodeConfigOverrideIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumBGPNodeConfigOverrideIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2.CiliumBGPNodeConfigOverride]
+
+// CiliumBGPNodeConfigOverrideHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumBGPNodeConfigOverride.
+type CiliumBGPNodeConfigOverrideHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2.CiliumBGPNodeConfigOverride]
+
+// CiliumBGPNodeConfigOverrideDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumBGPNodeConfigOverride.
+type CiliumBGPNodeConfigOverrideDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2.CiliumBGPNodeConfigOverride]
+
+// CiliumBGPNodeConfigOverrideFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumBGPNodeConfigOverride.
+type CiliumBGPNodeConfigOverrideFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2.CiliumBGPNodeConfigOverride]
+
+// CiliumBGPNodeConfigOverrideIndexers is a specialization of [cache.TypedIndexers] for CiliumBGPNodeConfigOverride.
+type CiliumBGPNodeConfigOverrideIndexers = cache.TypedIndexers[*apisciliumiov2.CiliumBGPNodeConfigOverride]
+
+// DeletedCiliumBGPNodeConfigOverride is a specialization of [cache.DeletedObject] for CiliumBGPNodeConfigOverride.
+type DeletedCiliumBGPNodeConfigOverride = cache.DeletedObject[*apisciliumiov2.CiliumBGPNodeConfigOverride]
 
 type ciliumBGPNodeConfigOverrideInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumBGPNodeConfigOverrideInformer struct {
 // NewCiliumBGPNodeConfigOverrideInformer constructs a new informer for CiliumBGPNodeConfigOverride type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumBGPNodeConfigOverrideInformer]).
 func NewCiliumBGPNodeConfigOverrideInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumBGPNodeConfigOverrideInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumBGPNodeConfigOverrideInformer constructs a new informer for CiliumBGPNodeConfigOverride type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumBGPNodeConfigOverrideInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumBGPNodeConfigOverrideIndexers) CiliumBGPNodeConfigOverrideIndexInformer {
+	return NewTypedCiliumBGPNodeConfigOverrideInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumBGPNodeConfigOverrideInformer constructs a new informer for CiliumBGPNodeConfigOverride type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumBGPNodeConfigOverrideInformer]).
 func NewFilteredCiliumBGPNodeConfigOverrideInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumBGPNodeConfigOverrideInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumBGPNodeConfigOverrideInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumBGPNodeConfigOverrideInformer constructs a new informer for CiliumBGPNodeConfigOverride type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumBGPNodeConfigOverrideInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumBGPNodeConfigOverrideIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumBGPNodeConfigOverrideIndexInformer {
+	return NewTypedCiliumBGPNodeConfigOverrideInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumBGPNodeConfigOverrideInformerWithOptions constructs a new informer for CiliumBGPNodeConfigOverride type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumBGPNodeConfigOverrideInformerWithOptions]).
 func NewCiliumBGPNodeConfigOverrideInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumBGPNodeConfigOverrideInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumBGPNodeConfigOverrideInformerWithOptions constructs a new informer for CiliumBGPNodeConfigOverride type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumBGPNodeConfigOverrideInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumBGPNodeConfigOverrideIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumbgpnodeconfigoverrides"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumBGPNodeConfigOverride](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumBGPNodeConfigOverrideInformerWithOptions(client versioned.Interfac
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumBGPNodeConfigOverrideInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumBGPNodeConfigOverrideInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumBGPNodeConfigOverrideInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumBGPNodeConfigOverrideInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2.CiliumBGPNodeConfigOverride{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumBGPNodeConfigOverrideInformer) TypedInformer() CiliumBGPNodeConfigOverrideIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumBGPNodeConfigOverride](f.factory.InformerFor(&apisciliumiov2.CiliumBGPNodeConfigOverride{}, f.defaultInformer))
 }
 
 func (f *ciliumBGPNodeConfigOverrideInformer) Lister() ciliumiov2.CiliumBGPNodeConfigOverrideLister {
 	return ciliumiov2.NewCiliumBGPNodeConfigOverrideLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumBGPNodeConfigOverrideInformer converts an untyped informer into a TypedCiliumBGPNodeConfigOverrideInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumBGPNodeConfigOverride. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumBGPNodeConfigOverrideInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumBGPNodeConfigOverrideInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumBGPNodeConfigOverrideInformer(informer CiliumBGPNodeConfigOverrideInformer) TypedCiliumBGPNodeConfigOverrideInformer {
+	if informer, ok := informer.(TypedCiliumBGPNodeConfigOverrideInformer); ok {
+		return informer
+	}
+	return &ciliumBGPNodeConfigOverrideTypedInformerAdapter{informer}
+}
+
+type ciliumBGPNodeConfigOverrideTypedInformerAdapter struct {
+	CiliumBGPNodeConfigOverrideInformer
+}
+
+func (a *ciliumBGPNodeConfigOverrideTypedInformerAdapter) TypedInformer() CiliumBGPNodeConfigOverrideIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumBGPNodeConfigOverride](a.Informer())
+}
+
+// ToCiliumBGPNodeConfigOverrideIndexInformer converts an untyped informer into a CiliumBGPNodeConfigOverrideIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumBGPNodeConfigOverride. If that is not the case, calling type-safe methods of the returned
+// CiliumBGPNodeConfigOverrideIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumBGPNodeConfigOverrideIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumBGPNodeConfigOverrideIndexInformer(informer cache.SharedIndexInformer) CiliumBGPNodeConfigOverrideIndexInformer {
+	if informer, ok := informer.(CiliumBGPNodeConfigOverrideIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumBGPNodeConfigOverride](informer)
 }
