@@ -61,7 +61,7 @@ func validateNodes(store *fakenode.Store) error {
 }
 
 func init() {
-	suite.AddTestCase("NodeHandler", func(t *testing.T) {
+	suite.AddTestCase("NodeTable", func(t *testing.T) {
 		k8sVersions := controlplane.K8sVersions()
 		// We only need to test the last k8s version
 		test := suite.NewControlPlaneTest(t, "minimal", k8sVersions[len(k8sVersions)-1])

@@ -5,7 +5,6 @@ package manager
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -13,9 +12,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"golang.org/x/time/rate"
 
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -24,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -35,8 +31,6 @@ const (
 	// nodes in remote clusters has been received.
 	MeshNodeTableInitializerName = "node-manager-mesh"
 )
-
-var baseBackgroundSyncInterval = time.Minute
 
 type nodeEntry struct {
 	// mutex serves two purposes:
@@ -50,8 +44,6 @@ type nodeEntry struct {
 	mutex lock.Mutex
 	node  nodeTypes.Node
 }
-
-var _ Notifier = (*manager)(nil)
 
 // manager is the entity that manages a collection of nodes
 type manager struct {
@@ -78,27 +70,8 @@ type manager struct {
 	// nodes is the list of nodes. Access must be protected via mutex.
 	nodes map[nodeTypes.Identity]*nodeEntry
 
-	// nodeHandlersMu protects the nodeHandlers map against concurrent access.
-	nodeHandlersMu lock.RWMutex
-	// nodeHandlers has a slice containing all node handlers subscribed to node
-	// events.
-	nodeHandlers map[node.Handler]struct{}
-
-	// group of jobs, tied to the lifecycle of the manager
-	jobGroup job.Group
-	// clusterSizeDependantInterval computes background sync intervals from the
-	// current size of the node table.
-	clusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc
-
 	// metrics to track information about the node manager
 	metrics *nodeMetrics
-
-	// controllerManager manages the controllers that are launched within the
-	// Manager.
-	controllerManager *controller.Manager
-
-	// health reports on the current health status of the node manager module.
-	health cell.Health
 
 	// Reference to the StateDB
 	db *statedb.DB
@@ -113,45 +86,6 @@ type manager struct {
 	// sources initialized. The node table is initialized after both complete.
 	clusterNodeTableInit func()
 	meshNodeTableInit    func()
-}
-
-// Subscribe subscribes the given node handler to node events.
-func (m *manager) Subscribe(nh node.Handler) {
-	m.nodeHandlersMu.Lock()
-	m.nodeHandlers[nh] = struct{}{}
-	m.nodeHandlersMu.Unlock()
-	// Add all nodes already received by the manager.
-	m.mutex.RLock()
-	for _, v := range m.nodes {
-		v.mutex.Lock()
-		if err := nh.NodeAdd(v.node); err != nil {
-			m.logger.Error(
-				"Failed applying node handler following initial subscribe. Cilium may have degraded functionality. See error message for more details.",
-				logfields.Error, err,
-				logfields.Handler, nh.Name(),
-				logfields.Node, v.node.Name,
-			)
-		}
-		v.mutex.Unlock()
-	}
-	m.mutex.RUnlock()
-}
-
-// Unsubscribe unsubscribes the given node handler with node events.
-func (m *manager) Unsubscribe(nh node.Handler) {
-	m.nodeHandlersMu.Lock()
-	delete(m.nodeHandlers, nh)
-	m.nodeHandlersMu.Unlock()
-}
-
-// Iter executes the given function in all subscribed node handlers.
-func (m *manager) Iter(f func(nh node.Handler)) {
-	m.nodeHandlersMu.RLock()
-	defer m.nodeHandlersMu.RUnlock()
-
-	for nh := range m.nodeHandlers {
-		f(nh)
-	}
 }
 
 type nodeMetrics struct {
@@ -208,17 +142,12 @@ func New(
 	clusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc,
 ) (*manager, error) {
 	m := &manager{
-		logger:                       logger,
-		nodes:                        map[nodeTypes.Identity]*nodeEntry{},
-		writer:                       writer,
-		controllerManager:            controller.NewManager(),
-		nodeHandlers:                 map[node.Handler]struct{}{},
-		metrics:                      nodeMetrics,
-		health:                       health,
-		jobGroup:                     jobGroup,
-		clusterSizeDependantInterval: clusterSizeDependantInterval,
-		db:                           db,
-		devices:                      devices,
+		logger:  logger,
+		nodes:   map[nodeTypes.Identity]*nodeEntry{},
+		writer:  writer,
+		metrics: nodeMetrics,
+		db:      db,
+		devices: devices,
 	}
 
 	if writer != nil {
@@ -248,106 +177,9 @@ func New(
 	return m, nil
 }
 
-func (m *manager) Start(cell.HookContext) error {
-	m.jobGroup.Add(job.OneShot("backgroundSync", m.backgroundSync))
-
-	return nil
-}
-
-// Stop shuts down a node manager
-func (m *manager) Stop(cell.HookContext) error {
-	return nil
-}
-
-// backgroundSync ensures that local node has a valid datapath in-place for
-// each node in the cluster. See NodeValidateImplementation().
-func (m *manager) backgroundSync(ctx context.Context, health cell.Health) error {
-	for {
-		syncInterval := m.clusterSizeDependantInterval(baseBackgroundSyncInterval)
-		startWaiting := time.After(syncInterval)
-		m.logger.Debug(
-			"Starting new iteration of background sync",
-			logfields.SyncInterval, syncInterval,
-		)
-		err := m.singleBackgroundLoop(ctx, syncInterval)
-		m.logger.Debug(
-			"Finished iteration of background sync",
-			logfields.SyncInterval, syncInterval,
-		)
-
-		select {
-		case <-ctx.Done():
-			return nil
-		// This handles cases when we didn't fetch nodes yet (e.g. on bootstrap)
-		// but also case when we have 1 node, in which case rate.Limiter doesn't
-		// throttle anything.
-		case <-startWaiting:
-		}
-
-		if err != nil {
-			health.Degraded("Failed to apply node validation", err)
-		} else {
-			health.OK("Node validation successful")
-		}
-	}
-}
-
-func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime time.Duration) error {
-	var errs error
-	// get a copy of the node identities to avoid locking the entire manager
-	// throughout the process of running the datapath validation.
-	nodes := m.GetNodeIdentities()
-	limiter := rate.NewLimiter(
-		rate.Limit(float64(len(nodes))/float64(expectedLoopTime.Seconds())),
-		1, // One token in bucket to amortize for latency of the operation
-	)
-	for _, nodeIdentity := range nodes {
-		if err := limiter.Wait(ctx); err != nil {
-			m.logger.Debug(
-				"Error while rate limiting backgroundSync updates",
-				logfields.Error, err,
-			)
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-		// Retrieve latest node information in case any event
-		// changed the node since the call to GetNodes()
-		m.mutex.RLock()
-		entry, ok := m.nodes[nodeIdentity]
-		if !ok {
-			m.mutex.RUnlock()
-			continue
-		}
-		entry.mutex.Lock()
-		m.mutex.RUnlock()
-		{
-			m.Iter(func(nh node.Handler) {
-				if err := nh.NodeValidateImplementation(entry.node); err != nil {
-					m.logger.Error(
-						"Failed to apply node handler during background sync. Cilium may have degraded functionality. See error message for details.",
-						logfields.Error, err,
-						logfields.Handler, nh.Name(),
-						logfields.Node, entry.node.Name,
-					)
-					errs = errors.Join(errs, fmt.Errorf("failed while handling %s on node %s: %w", nh.Name(), entry.node.Name, err))
-				}
-			})
-		}
-		entry.mutex.Unlock()
-
-		m.metrics.DatapathValidations.Inc()
-	}
-	return errs
-}
-
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
-// the node. If an update or addition has occurred, NodeUpdate() of the datapath
-// interface is invoked.
+// the node.
 func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	m.logger.Info(
 		"Node updated",
@@ -375,29 +207,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 
 		entry.mutex.Lock()
 		m.mutex.Unlock()
-		oldNode := entry.node
 		entry.node = n
 		m.upsertToNodeTable(&entry.node)
-
-		var errs error
-		m.Iter(func(nh node.Handler) {
-			if err := nh.NodeUpdate(oldNode, entry.node); err != nil {
-				m.logger.Error(
-					"Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.",
-					logfields.Error, err,
-					logfields.Handler, nh.Name(),
-					logfields.Node, entry.node.Name,
-				)
-				errs = errors.Join(errs, err)
-			}
-		})
-
-		hr := m.health.NewScope("nodes-update")
-		if errs != nil {
-			hr.Degraded("Failed to update nodes", errs)
-		} else {
-			hr.OK("Node updates successful")
-		}
 		entry.mutex.Unlock()
 	} else {
 		m.metrics.EventsReceived.WithLabelValues("add", string(n.Source)).Inc()
@@ -409,26 +220,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.upsertToNodeTable(&entry.node)
 		m.mutex.Unlock()
 
-		var errs error
-		m.Iter(func(nh node.Handler) {
-			if err := nh.NodeAdd(entry.node); err != nil {
-				m.logger.Error(
-					"Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.",
-					logfields.Error, err,
-					logfields.Handler, nh.Name(),
-					logfields.Node, entry.node.Name,
-				)
-				errs = errors.Join(errs, err)
-			}
-		})
 		entry.mutex.Unlock()
-
-		hr := m.health.NewScope("nodes-add")
-		if errs != nil {
-			hr.Degraded("Failed to add nodes", errs)
-		} else {
-			hr.OK("Node adds successful")
-		}
 	}
 }
 
@@ -450,10 +242,8 @@ func (m *manager) deleteFromNodeTable(src source.Source, nodeID nodeTypes.Identi
 	txn.Commit()
 }
 
-// NodeDeleted is called after a node has been deleted. It removes the node
-// from the manager if the node is still owned by the source of which the event
-// origins from. If the node was removed, NodeDelete() is invoked of the
-// datapath interface.
+// NodeDeleted removes a node if it is still owned by the source that emitted
+// the event.
 func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	m.logger.Info(
 		"Node deleted",
@@ -481,24 +271,14 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		return
 	}
 
-	// If the source is Kubernetes and the node is the node we are running on
-	// Kubernetes is giving us a hint it is about to delete our node. Close down
-	// the agent gracefully in this case.
 	if n.Source != entry.node.Source {
 		m.mutex.Unlock()
-		if n.IsLocal() && n.Source == source.Kubernetes {
-			m.logger.Debug(
-				"Kubernetes is deleting local node, close manager",
-			)
-			m.Stop(context.Background())
-		} else {
-			m.logger.Debug(
-				"Ignoring delete event of node",
-				logfields.Name, n.Name,
-				logfields.Source, n.Source,
-				logfields.NodeOwner, entry.node.Source,
-			)
-		}
+		m.logger.Debug(
+			"Ignoring delete event of node",
+			logfields.Name, n.Name,
+			logfields.Source, n.Source,
+			logfields.NodeOwner, entry.node.Source,
+		)
 		return
 	}
 
@@ -508,30 +288,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	delete(m.nodes, nodeIdentifier)
 	m.deleteFromNodeTable(n.Source, nodeIdentifier)
 	m.mutex.Unlock()
-	var errs error
-	m.Iter(func(nh node.Handler) {
-		if err := nh.NodeDelete(n); err != nil {
-			// For now we log the error and continue. Eventually we will want to encorporate
-			// this into the node managers health status.
-			// However this is a bit tricky - as leftover node deletes are not retries so this will
-			// need to be accompanied by some kind of retry mechanism.
-			m.logger.Error(
-				"Failed to handle node delete event while applying handler. Cilium may be have degraded functionality.",
-				logfields.Error, err,
-				logfields.Handler, nh.Name(),
-				logfields.Node, n.Name,
-			)
-			errs = errors.Join(errs, err)
-		}
-	})
 	entry.mutex.Unlock()
-
-	hr := m.health.NewScope("nodes-delete")
-	if errs != nil {
-		hr.Degraded("Failed to delete nodes", errs)
-	} else {
-		hr.OK("Node deletions successful")
-	}
 }
 
 // NodeSync signals that the initial local-cluster node listing is complete.
