@@ -1889,7 +1889,7 @@ var Config = &DaemonConfig{
 	DatapathMode:                    defaults.DatapathMode,
 
 	EnableVTEP:                           defaults.EnableVTEP,
-	EnableSharedPolicy:                   false,
+	EnableSharedPolicy:                   true,
 	EnableK8sNetworkPolicy:               defaults.EnableK8sNetworkPolicy,
 	EnableK8sClusterNetworkPolicy:        defaults.EnableK8sClusterNetworkPolicy,
 	EnableCiliumNetworkPolicy:            defaults.EnableCiliumNetworkPolicy,
