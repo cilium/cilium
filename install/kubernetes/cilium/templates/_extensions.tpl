@@ -104,6 +104,39 @@ Allow packagers to add extra arguments to the clustermesh-apiserver kvstoremesh 
 {{- end }}
 
 {{/*
+Allow packagers to define the startup probe handler for the cilium-envoy container.
+*/}}
+{{- define "envoy.startupProbe" -}}
+httpGet:
+  host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+  path: /healthz
+  port: {{ .Values.envoy.healthPort }}
+  scheme: HTTP
+{{- end }}
+
+{{/*
+Allow packagers to define the liveness probe handler for the cilium-envoy container.
+*/}}
+{{- define "envoy.livenessProbe" -}}
+httpGet:
+  host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+  path: /healthz
+  port: {{ .Values.envoy.healthPort }}
+  scheme: HTTP
+{{- end }}
+
+{{/*
+Allow packagers to define the readiness probe handler for the cilium-envoy container.
+*/}}
+{{- define "envoy.readinessProbe" -}}
+httpGet:
+  host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+  path: /healthz
+  port: {{ .Values.envoy.healthPort }}
+  scheme: HTTP
+{{- end }}
+
+{{/*
 Allow packagers to add lifecycle hooks to the cilium-envoy container.
 */}}
 {{- define "envoy.lifecycle" -}}
