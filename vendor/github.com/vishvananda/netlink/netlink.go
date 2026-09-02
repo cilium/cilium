@@ -1,11 +1,11 @@
 // Package netlink provides a simple library for netlink. Netlink is
-// the interface a user-space program in linux uses to communicate with
-// the kernel. It can be used to add and remove interfaces, set up ip
-// addresses and routes, and confiugre ipsec. Netlink communication
+// the interface a user-space program in Linux uses to communicate with
+// the kernel. It can be used to add and remove interfaces, set up IP
+// addresses and routes, and configure ipsec. Netlink communication
 // requires elevated privileges, so in most cases this code needs to
 // be run as root. The low level primitives for netlink are contained
 // in the nl subpackage. This package attempts to provide a high-level
-// interface that is loosly modeled on the iproute2 cli.
+// interface that is loosely modeled on the iproute2 CLI.
 package netlink
 
 import (

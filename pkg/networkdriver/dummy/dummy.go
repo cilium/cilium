@@ -16,7 +16,6 @@ import (
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
@@ -34,7 +33,7 @@ const dummyIfNamePrefix = "dummy"
 // therefore cannot reach the manager's state, so the primitives they need live
 // as package-level vars that tests can override.
 var (
-	netlinkLinkByName = safenetlink.LinkByName
+	netlinkLinkByName = netlink.LinkByName
 	netlinkLinkAdd    = netlink.LinkAdd
 	netlinkLinkDel    = netlink.LinkDel
 )

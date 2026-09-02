@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -109,7 +108,7 @@ func (c *config) GetGSOIPv4MaxSize() int {
 // If an error is returned the caller is responsible for rolling back
 // any partial changes.
 func SetGROGSOIPv6MaxSize(log *slog.Logger, device string, GROMaxSize, GSOMaxSize int) error {
-	link, err := safenetlink.LinkByName(device)
+	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.Warn("Link does not exist",
 			logfields.Device, device,
@@ -136,7 +135,7 @@ func SetGROGSOIPv6MaxSize(log *slog.Logger, device string, GROMaxSize, GSOMaxSiz
 // If an error is returned the caller is responsible for rolling back
 // any partial changes.
 func SetGROGSOIPv4MaxSize(log *slog.Logger, device string, GROMaxSize, GSOMaxSize int) error {
-	link, err := safenetlink.LinkByName(device)
+	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.Warn("Link does not exist",
 			logfields.Device, device,
@@ -198,7 +197,7 @@ func supportsBIGTCPTunnel(log *slog.Logger) bool {
 // If gso_ipv4_max_size is not supported, fall back to gso_max_size.
 // If tso_max_size is not supported, fall back to GSO_LEGACY_MAX_SIZE = 65536.
 func getGSOMaxSize(log *slog.Logger, device string) (int, int, int) {
-	link, err := safenetlink.LinkByName(device)
+	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.Warn("Failed to probe gso_max_size and tso_max_size",
 			logfields.Device, device,
@@ -224,7 +223,7 @@ func getGSOMaxSize(log *slog.Logger, device string) (int, int, int) {
 // limit for device.
 // If gro_ipv4_max_size is not supported, fall back to gro_ipv4_max_size.
 func getGROMaxSize(log *slog.Logger, device string) (int, int, int) {
-	link, err := safenetlink.LinkByName(device)
+	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.Warn("Failed to probe gro_max_size",
 			logfields.Device, device,

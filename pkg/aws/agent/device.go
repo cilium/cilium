@@ -19,7 +19,6 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -237,7 +236,7 @@ const (
 
 func waitForNetlinkDevices(logger *slog.Logger, configByMac configMap) (linkByMac linkMap, err error) {
 	for try := range waitForNetlinkDevicesMaxTries {
-		links, err := safenetlink.LinkList()
+		links, err := netlink.LinkList()
 		if err != nil {
 			logger.Warn("failed to obtain eni link list - retrying", logfields.Error, err)
 		} else {

@@ -7,7 +7,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"k8s.io/utils/clock"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -33,7 +32,7 @@ func (c *xfrmStateListCache) XfrmStateList() ([]netlink.XfrmState, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if c.isExpired() {
-		result, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+		result, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 		if err != nil {
 			return nil, err
 		}

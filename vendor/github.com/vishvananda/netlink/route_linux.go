@@ -821,7 +821,7 @@ func (v *Via) Decode(b []byte) error {
 // RouteAdd will add a route to the system.
 // Equivalent to: `ip route add $route`
 func RouteAdd(route *Route) error {
-	return pkgHandle.RouteAdd(route)
+	return pkgHandle().RouteAdd(route)
 }
 
 // RouteAdd will add a route to the system.
@@ -836,7 +836,7 @@ func (h *Handle) RouteAdd(route *Route) error {
 // RouteAppend will append a route to the system.
 // Equivalent to: `ip route append $route`
 func RouteAppend(route *Route) error {
-	return pkgHandle.RouteAppend(route)
+	return pkgHandle().RouteAppend(route)
 }
 
 // RouteAppend will append a route to the system.
@@ -850,7 +850,7 @@ func (h *Handle) RouteAppend(route *Route) error {
 
 // RouteAddEcmp will add a route to the system.
 func RouteAddEcmp(route *Route) error {
-	return pkgHandle.RouteAddEcmp(route)
+	return pkgHandle().RouteAddEcmp(route)
 }
 
 // RouteAddEcmp will add a route to the system.
@@ -864,7 +864,7 @@ func (h *Handle) RouteAddEcmp(route *Route) error {
 // RouteChange will change an existing route in the system.
 // Equivalent to: `ip route change $route`
 func RouteChange(route *Route) error {
-	return pkgHandle.RouteChange(route)
+	return pkgHandle().RouteChange(route)
 }
 
 // RouteChange will change an existing route in the system.
@@ -879,7 +879,7 @@ func (h *Handle) RouteChange(route *Route) error {
 // RouteReplace will add a route to the system.
 // Equivalent to: `ip route replace $route`
 func RouteReplace(route *Route) error {
-	return pkgHandle.RouteReplace(route)
+	return pkgHandle().RouteReplace(route)
 }
 
 // RouteReplace will add a route to the system.
@@ -894,7 +894,7 @@ func (h *Handle) RouteReplace(route *Route) error {
 // RouteDel will delete a route from the system.
 // Equivalent to: `ip route del $route`
 func RouteDel(route *Route) error {
-	return pkgHandle.RouteDel(route)
+	return pkgHandle().RouteDel(route)
 }
 
 // RouteDel will delete a route from the system.
@@ -919,12 +919,33 @@ func (h *Handle) routeHandleIter(route *Route, req *nl.NetlinkRequest, msg *nl.R
 	return req.ExecuteIter(unix.NETLINK_ROUTE, 0, f)
 }
 
+// gwIPFamily returns the IP family to use for a gateway address on the given
+// route. A v4-mapped IPv6 gateway (::ffff:a.b.c.d, 16 bytes) reports FAMILY_V4
+// but is a valid V6 nexthop, so it is conformed to V6 only when the caller
+// explicitly requested a V6 route via route.Family. This makes the behavior
+// opt-in rather than silently reinterpreting an ambiguous address, and
+// requiring 16 bytes leaves an explicit 4-byte IPv4 gateway reporting V4.
+func gwIPFamily(route *Route, gw net.IP) int {
+	gwFamily := nl.GetIPFamily(gw)
+	if route.Family == FAMILY_V6 && gwFamily == FAMILY_V4 && len(gw) == net.IPv6len {
+		return FAMILY_V6
+	}
+	return gwFamily
+}
+
 func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.RtMsg) error {
 	if req.NlMsghdr.Type != unix.RTM_GETROUTE && (route.Dst == nil || route.Dst.IP == nil) && route.Src == nil && route.Gw == nil && route.MPLSDst == nil {
 		return fmt.Errorf("either Dst.IP, Src.IP or Gw must be set")
 	}
 
 	family := -1
+	if route.Family != 0 {
+		// AF_UNSPEC (0) means unset. Honor an explicitly requested family so
+		// that ambiguous addresses (e.g. a v4-mapped IPv6 gateway, which is
+		// byte-identical to its IPv4 form as a net.IP) are encoded for the
+		// intended family even when no destination pins it down.
+		family = route.Family
+	}
 	var rtAttrs []*nl.RtAttr
 
 	if route.Dst != nil && route.Dst.IP != nil {
@@ -996,7 +1017,7 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 	}
 
 	if route.Gw != nil {
-		gwFamily := nl.GetIPFamily(route.Gw)
+		gwFamily := gwIPFamily(route, route.Gw)
 		if family != -1 && family != gwFamily {
 			return fmt.Errorf("gateway, source, and destination ip are not the same IP family")
 		}
@@ -1030,7 +1051,7 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 			}
 			children := []nl.NetlinkRequestData{}
 			if nh.Gw != nil {
-				gwFamily := nl.GetIPFamily(nh.Gw)
+				gwFamily := gwIPFamily(route, nh.Gw)
 				if family != -1 && family != gwFamily {
 					return fmt.Errorf("gateway, source, and destination ip are not the same IP family")
 				}
@@ -1223,7 +1244,7 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func RouteList(link Link, family int) ([]Route, error) {
-	return pkgHandle.RouteList(link, family)
+	return pkgHandle().RouteList(link, family)
 }
 
 // RouteList gets a list of routes in the system.
@@ -1245,7 +1266,7 @@ func (h *Handle) RouteList(link Link, family int) ([]Route, error) {
 // RouteListFiltered gets a list of routes in the system filtered with specified rules.
 // All rules must be defined in RouteFilter struct
 func RouteListFiltered(family int, filter *Route, filterMask uint64) ([]Route, error) {
-	return pkgHandle.RouteListFiltered(family, filter, filterMask)
+	return pkgHandle().RouteListFiltered(family, filter, filterMask)
 }
 
 // RouteListFiltered gets a list of routes in the system filtered with specified rules.
@@ -1271,7 +1292,7 @@ func (h *Handle) RouteListFiltered(family int, filter *Route, filterMask uint64)
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func RouteListFilteredIter(family int, filter *Route, filterMask uint64, f func(Route) (cont bool)) error {
-	return pkgHandle.RouteListFilteredIter(family, filter, filterMask, f)
+	return pkgHandle().RouteListFilteredIter(family, filter, filterMask, f)
 }
 
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
@@ -1634,13 +1655,13 @@ type RouteGetOptions struct {
 // RouteGetWithOptions gets a route to a specific destination from the host system.
 // Equivalent to: 'ip route get <> vrf <VrfName>'.
 func RouteGetWithOptions(destination net.IP, options *RouteGetOptions) ([]Route, error) {
-	return pkgHandle.RouteGetWithOptions(destination, options)
+	return pkgHandle().RouteGetWithOptions(destination, options)
 }
 
 // RouteGet gets a route to a specific destination from the host system.
 // Equivalent to: 'ip route get'.
 func RouteGet(destination net.IP) ([]Route, error) {
-	return pkgHandle.RouteGet(destination)
+	return pkgHandle().RouteGet(destination)
 }
 
 // RouteGetWithOptions gets a route to a specific destination from the host system.
@@ -1833,7 +1854,7 @@ func routeSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- RouteUpdate, done <
 		}()
 	}
 	if listExisting {
-		req := pkgHandle.newNetlinkRequest(unix.RTM_GETROUTE,
+		req := pkgHandle().newNetlinkRequest(unix.RTM_GETROUTE,
 			unix.NLM_F_DUMP)
 		infmsg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 		req.AddData(infmsg)

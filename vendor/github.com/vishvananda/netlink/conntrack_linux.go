@@ -49,32 +49,32 @@ type InetFamily uint8
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func ConntrackTableList(table ConntrackTableType, family InetFamily) ([]*ConntrackFlow, error) {
-	return pkgHandle.ConntrackTableList(table, family)
+	return pkgHandle().ConntrackTableList(table, family)
 }
 
 // ConntrackTableFlush flushes all the flows of a specified table
 // conntrack -F [table]            Flush table
 // The flush operation applies to all the family types
 func ConntrackTableFlush(table ConntrackTableType) error {
-	return pkgHandle.ConntrackTableFlush(table)
+	return pkgHandle().ConntrackTableFlush(table)
 }
 
 // ConntrackCreate creates a new conntrack flow in the desired table
 // conntrack -I [table]		Create a conntrack or expectation
 func ConntrackCreate(table ConntrackTableType, family InetFamily, flow *ConntrackFlow) error {
-	return pkgHandle.ConntrackCreate(table, family, flow)
+	return pkgHandle().ConntrackCreate(table, family, flow)
 }
 
 // ConntrackUpdate updates an existing conntrack flow in the desired table using the handle
 // conntrack -U [table]		Update a conntrack
 func ConntrackUpdate(table ConntrackTableType, family InetFamily, flow *ConntrackFlow) error {
-	return pkgHandle.ConntrackUpdate(table, family, flow)
+	return pkgHandle().ConntrackUpdate(table, family, flow)
 }
 
 // ConntrackDelete deletes an existing conntrack flow in the desired table
 // conntrack -D [table]		Delete conntrack flow
 func ConntrackDelete(table ConntrackTableType, family InetFamily, flow *ConntrackFlow) error {
-	return pkgHandle.ConntrackDelete(table, family, flow)
+	return pkgHandle().ConntrackDelete(table, family, flow)
 }
 
 // ConntrackDeleteFilter deletes entries on the specified table on the base of the filter
@@ -82,13 +82,13 @@ func ConntrackDelete(table ConntrackTableType, family InetFamily, flow *Conntrac
 //
 // Deprecated: use [ConntrackDeleteFilters] instead.
 func ConntrackDeleteFilter(table ConntrackTableType, family InetFamily, filter CustomConntrackFilter) (uint, error) {
-	return pkgHandle.ConntrackDeleteFilters(table, family, filter)
+	return pkgHandle().ConntrackDeleteFilters(table, family, filter)
 }
 
 // ConntrackDeleteFilters deletes entries on the specified table matching any of the specified filters
 // conntrack -D [table] parameters         Delete conntrack or expectation
 func ConntrackDeleteFilters(table ConntrackTableType, family InetFamily, filters ...CustomConntrackFilter) (uint, error) {
-	return pkgHandle.ConntrackDeleteFilters(table, family, filters...)
+	return pkgHandle().ConntrackDeleteFilters(table, family, filters...)
 }
 
 // ConntrackTableList returns the flow list of a table of a specific family using the netlink handle passed
