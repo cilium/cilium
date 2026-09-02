@@ -37,8 +37,8 @@ var (
 	}
 )
 
-func validateNodes(fnh *fakenode.Handler) error {
-	nodes := fnh.Nodes
+func validateNodes(store *fakenode.Store) error {
+	nodes := store.Nodes()
 
 	if len(nodes) != 1 {
 		return fmt.Errorf("expected 1 node, found %d (%v)", len(nodes), nodes)
@@ -70,7 +70,7 @@ func init() {
 			UpdateObjects(minimalNode).
 			SetupEnvironment().
 			StartAgent(func(*option.DaemonConfig) {}).
-			Eventually(func() error { return validateNodes(test.FakeNodeHandler) }).
+			Eventually(func() error { return validateNodes(test.FakeNodeStore) }).
 			StopAgent().
 			ClearEnvironment()
 	})

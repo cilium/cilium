@@ -56,7 +56,7 @@ type ControlPlaneTest struct {
 	clients             *k8sClient.FakeClientset
 	trackers            []trackerAndDecoder
 	agentHandle         *agentHandle
-	FakeNodeHandler     *fakenode.Handler
+	FakeNodeStore       *fakenode.Store
 	establishedWatchers *lock.Map[string, struct{}]
 }
 
@@ -139,7 +139,7 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 	if err := cpt.agentHandle.hive.Start(cpt.agentHandle.log, context.TODO()); err != nil {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
-	cpt.FakeNodeHandler = cpt.agentHandle.fnh
+	cpt.FakeNodeStore = cpt.agentHandle.nodeStore
 
 	return cpt
 }
@@ -147,7 +147,7 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 func (cpt *ControlPlaneTest) StopAgent() *ControlPlaneTest {
 	cpt.agentHandle.tearDown()
 	cpt.agentHandle = nil
-	cpt.FakeNodeHandler = nil
+	cpt.FakeNodeStore = nil
 
 	return cpt
 }
