@@ -4376,6 +4376,8 @@ agentNotReadyTaintKey: "node.cilium.io/agent-not-ready"
 dnsProxy:
   # -- Timeout (in seconds) when closing the connection between the DNS proxy and the upstream server. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.
   socketLingerTimeout: 10
+  # -- DNS zones whose names expire on their TTL instead of being deferred as zombies. An entry covers the zone and every name under it. Connections outliving the DNS TTL may be dropped.
+  ttlBoundZones: []
   # -- DNS response code for rejecting DNS requests, available options are '[nameError refused]'.
   dnsRejectResponseCode: refused
   # -- Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present.

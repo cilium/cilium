@@ -1888,6 +1888,10 @@
         },
         "socketLingerTimeout": {
           "type": "integer"
+        },
+        "ttlBoundZones": {
+          "items": {},
+          "type": "array"
         }
       },
       "type": "object"

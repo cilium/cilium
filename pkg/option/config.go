@@ -366,6 +366,10 @@ const (
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = "tofqdns-endpoint-max-ip-per-hostname"
 
+	// ToFQDNsTTLBoundZones names the zones whose names expire on their
+	// TTL rather than being deferred as DNS zombies.
+	ToFQDNsTTLBoundZones = "tofqdns-ttl-bound-zones"
+
 	// ToFQDNsMaxDeferredConnectionDeletes defines the maximum number of IPs to
 	// retain for expired DNS lookups with still-active connections"
 	ToFQDNsMaxDeferredConnectionDeletes = "tofqdns-max-deferred-connection-deletes"
@@ -1474,6 +1478,10 @@ type DaemonConfig struct {
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost int
+
+	// ToFQDNsTTLBoundZones names the zones whose names expire on their
+	// TTL instead of being deferred as zombies.
+	ToFQDNsTTLBoundZones []string
 
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to retain for
 	// expired DNS lookups with still-active connections
@@ -2658,6 +2666,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.DNSPolicyUnloadOnShutdown = vp.GetBool(DNSPolicyUnloadOnShutdown)
 	c.FQDNRegexCompileLRUSize = vp.GetUint(FQDNRegexCompileLRUSize)
 	c.ToFQDNsMaxIPsPerHost = vp.GetInt(ToFQDNsMaxIPsPerHost)
+	c.ToFQDNsTTLBoundZones = vp.GetStringSlice(ToFQDNsTTLBoundZones)
 	if maxZombies := vp.GetInt(ToFQDNsMaxDeferredConnectionDeletes); maxZombies >= 0 {
 		c.ToFQDNsMaxDeferredConnectionDeletes = vp.GetInt(ToFQDNsMaxDeferredConnectionDeletes)
 	} else {
