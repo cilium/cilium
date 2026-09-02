@@ -102,7 +102,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock, failedToRetrieveLock, leaderElectionReadTimeout,
 		failedToListCRDs, knownIssueWireguardCollision, nilDetailsForService, gobgpFailedCloseTCP,
-		vendoredLeaderElectionLeaseLockError, lbMapCannotAllocateMemory}
+		vendoredLeaderElectionLeaseLockError}
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
@@ -119,7 +119,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		envoyExternalTargetTLSWarning, envoyExternalOtherTargetTLSWarning,
 		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation, ccgAlphaResourceDeprecation,
 		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn, certloaderInitialLoadWarn, localKeyAlreadyAllocated,
-		getSecurityGroupsForVpcUnauthorized, eniIPv6BetaWarn}
+		getSecurityGroupsForVpcUnauthorized, eniIPv6BetaWarn, lbMapCannotAllocateMemory}
 
 	warningThresholdExceptions := thresholdExceptions{
 		// Benign for one node at ENI capacity, a real IP-starvation signal for
