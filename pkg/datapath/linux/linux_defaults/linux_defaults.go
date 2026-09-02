@@ -110,6 +110,13 @@ const (
 	// RulePriorityVtep is the priority of the rule used for routing packets to VTEP device
 	RulePriorityVtep = 112
 
+	// RulePriorityEgressMasqueradeBridge is a transient priority used while
+	// migrating an endpoint's egress rules between per-CIDR and catch-all
+	// in ENI mode when masquerade configuration changes.
+	// This priority should be higher than the default(32767) and main(32766)
+	// table lookup rules.
+	RulePriorityEgressMasqueradeBridge = 32765
+
 	// IPSec offset value for node rules
 	IPsecMaxKeyVersion = 15
 
