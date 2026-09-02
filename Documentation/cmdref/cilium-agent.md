@@ -190,7 +190,7 @@ cilium-agent [flags]
       --enable-route-mtu-for-cni-chaining[=true|false]                       Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp[=true|false]                                             Enable SCTP support (beta)
       --enable-service-topology[=true|false]                                 Enable support for service topology aware hints
-      --enable-shared-policy[=true|false]                                    Enable shared policy map
+      --enable-shared-policy[=true|false]                                    Enable shared policy map (default true)
       --enable-standalone-dns-proxy[=true|false]                             Enables standalone DNS proxy
       --enable-tcx[=true|false]                                              Attach endpoint programs using tcx if supported by the kernel (default true)
       --enable-tracing[=true|false]                                          Enable tracing while determining policy (debugging)
