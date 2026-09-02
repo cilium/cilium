@@ -86,7 +86,7 @@ int sock_udp_destroy_v4(struct bpf_iter__udp *ctx)
 }
 
 static __always_inline
-int sock_tcp_destroy_v4(struct bpf_iter__tcp *ctx __maybe_unused)
+int sock_tcp_destroy_v4(struct bpf_iter__tcp *ctx)
 {
 	void *sk = ctx->tcp_sk;
 	__sock_cookie cookie;
@@ -126,7 +126,7 @@ int sock_udp_destroy_v6(struct bpf_iter__udp *ctx)
 }
 
 static __always_inline
-int sock_tcp_destroy_v6(struct bpf_iter__tcp *ctx __maybe_unused)
+int sock_tcp_destroy_v6(struct bpf_iter__tcp *ctx)
 {
 	void *sk = ctx->tcp_sk;
 	__sock_cookie cookie;
