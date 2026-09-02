@@ -5,6 +5,7 @@ package linux
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -182,24 +183,30 @@ func mustSetupDevice(tb testing.TB, ns *netns.NetNS, name string, ips ...net.IP)
 	}
 }
 
-func mustAddNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, node nodeTypes.Node) {
+func mustAddNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, n nodeTypes.Node) {
 	tb.Helper()
 	require.NoError(tb, ns.Do(func() error {
-		return lnh.NodeAdd(node)
+		return (&linuxNodeOps{handler: lnh}).Update(
+			context.Background(), nil, 0, &node.Node{Node: n},
+		)
 	}))
 }
 
-func mustUpdateNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, old, new nodeTypes.Node) {
+func mustUpdateNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, _, new nodeTypes.Node) {
 	tb.Helper()
 	require.NoError(tb, ns.Do(func() error {
-		return lnh.NodeUpdate(old, new)
+		return (&linuxNodeOps{handler: lnh}).Update(
+			context.Background(), nil, 0, &node.Node{Node: new},
+		)
 	}))
 }
 
-func mustDeleteNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, node nodeTypes.Node) {
+func mustDeleteNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, n nodeTypes.Node) {
 	tb.Helper()
 	require.NoError(tb, ns.Do(func() error {
-		return lnh.NodeDelete(node)
+		return (&linuxNodeOps{handler: lnh}).Delete(
+			context.Background(), nil, 0, &node.Node{Node: n},
+		)
 	}))
 }
 
@@ -210,10 +217,12 @@ func mustConfigureNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, no
 	}))
 }
 
-func mustValidateNodeImplementation(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, node nodeTypes.Node) {
+func mustRefreshNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, node nodeTypes.Node) {
 	tb.Helper()
 	require.NoError(tb, ns.Do(func() error {
-		return lnh.NodeValidateImplementation(node)
+		lnh.mutex.Lock()
+		defer lnh.mutex.Unlock()
+		return lnh.nodeUpdate(nil, &node, false)
 	}))
 }
 
@@ -273,7 +282,7 @@ func testUpdateNodeRoute(t *testing.T, family string) {
 	a, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy())
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
 	if s.enableIPv4 {
@@ -285,6 +294,7 @@ func testUpdateNodeRoute(t *testing.T, family string) {
 		mustDeleteNodeRoute(t, s.ns, lnh, ip4CIDR)
 		foundRoute = mustGetNodeRoute(t, s.ns, lnh, ip4CIDR)
 		require.Nil(t, foundRoute)
+		mustDeleteNodeRoute(t, s.ns, lnh, ip4CIDR)
 	}
 
 	if s.enableIPv6 {
@@ -296,6 +306,7 @@ func testUpdateNodeRoute(t *testing.T, family string) {
 		mustDeleteNodeRoute(t, s.ns, lnh, ip6CIDR)
 		foundRoute = mustGetNodeRoute(t, s.ns, lnh, ip6CIDR)
 		require.Nil(t, foundRoute)
+		mustDeleteNodeRoute(t, s.ns, lnh, ip6CIDR)
 	}
 }
 
@@ -317,7 +328,7 @@ func testAuxiliaryPrefixes(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy())
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.AuxiliaryPrefixes = []ip.Prefix{ip.PrefixFrom(net1), ip.PrefixFrom(net2)}
 	mustConfigureNode(t, s.ns, lnh, nodeConfig)
@@ -396,9 +407,9 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
-
-	lnh.OverrideEnableEncapsulation(override)
+	policy := newNodePolicy()
+	policy.SetEnableEncapsulation(override)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, policy)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = encap
@@ -561,7 +572,7 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy())
 
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
@@ -721,7 +732,7 @@ func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.
 
 	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy())
 
 	mustConfigureNode(t, s.ns, lnh, config)
 
@@ -817,7 +828,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy())
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
@@ -1057,7 +1068,7 @@ func testNodeValidationDirectRouting(t *testing.T, family string) {
 	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
 	require.NoError(t, err)
 
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy())
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = false
@@ -1095,7 +1106,7 @@ func testNodeValidationDirectRouting(t *testing.T, family string) {
 	}
 
 	mustAddNode(t, s.ns, lnh, nodev1)
-	mustValidateNodeImplementation(t, s.ns, lnh, nodev1)
+	mustRefreshNode(t, s.ns, lnh, nodev1)
 
 	if s.enableIPv4 {
 		require.True(t, mustLookupRoute(t, s.ns, lnh, ip4Alloc1))
@@ -1202,7 +1213,7 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 	a, err := ipsec.NewTestIPsecAgent(t, bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")))
 	require.NoError(t, err)
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy())
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)

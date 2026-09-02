@@ -13,7 +13,9 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -26,6 +28,12 @@ type LocalNode = Node
 // +deepequal-gen=true
 type Node struct {
 	types.Node
+
+	// addressClusterID identifies the cluster address space used by
+	// cluster-scoped node addresses. It is derived when the node is written and
+	// is not part of the externally serialized node data.
+	// +deepequal-gen=false
+	addressClusterID uint32
 
 	// Local is non-nil if this is the local node. This carries additional
 	// information about the local node that is not shared outside.
@@ -44,6 +52,10 @@ func (n *Node) DeepCopy() *Node {
 	n2.Local = n2.Local.DeepCopy()
 	return &n2
 }
+
+// AddressClusterID returns the cluster address space assigned to cluster-scoped
+// addresses when the node was written to the table.
+func (n *Node) AddressClusterID() uint32 { return n.addressClusterID }
 
 // TableHeader implements statedb.TableWritable.
 func (n *Node) TableHeader() []string {
@@ -146,28 +158,33 @@ var (
 	// because configured Cilium internal router addresses may legitimately be
 	// shared by every node. Writer resolves all other conflicts according to
 	// source priority.
-	NodeAddressIndex = statedb.Index[*Node, netip.Addr]{
+	NodeAddressIndex = statedb.Index[*Node, cmtypes.AddrCluster]{
 		Name: "address",
 		FromObject: func(obj *Node) index.KeySet {
 			keys := make([]index.Key, 0, len(obj.IPAddresses)+4)
-			appendAddr := func(addr netip.Addr) {
+			appendAddr := func(addr netip.Addr, clusterID uint32) {
 				if addr.IsValid() {
-					keys = append(keys, index.NetIPAddr(addr.Unmap()))
+					addrCluster := cmtypes.AddrClusterFrom(addr.Unmap(), clusterID)
+					keys = append(keys, nodeAddressKey(addrCluster))
 				}
 			}
 			for _, address := range obj.IPAddresses {
 				if addr, ok := netip.AddrFromSlice(address.IP); ok {
-					appendAddr(addr)
+					clusterID := uint32(0)
+					if address.Type == addressing.NodeCiliumInternalIP {
+						clusterID = obj.addressClusterID
+					}
+					appendAddr(addr, clusterID)
 				}
 			}
-			appendAddr(obj.IPv4HealthIP.Addr)
-			appendAddr(obj.IPv6HealthIP.Addr)
-			appendAddr(obj.IPv4IngressIP.Addr)
-			appendAddr(obj.IPv6IngressIP.Addr)
+			appendAddr(obj.IPv4HealthIP.Addr, obj.addressClusterID)
+			appendAddr(obj.IPv6HealthIP.Addr, obj.addressClusterID)
+			appendAddr(obj.IPv4IngressIP.Addr, obj.addressClusterID)
+			appendAddr(obj.IPv6IngressIP.Addr, obj.addressClusterID)
 			return index.NewKeySet(keys...)
 		},
-		FromKey:    index.NetIPAddr,
-		FromString: index.NetIPAddrString,
+		FromKey:    nodeAddressKey,
+		FromString: nodeAddressKeyString,
 		Unique:     false,
 	}
 	NodeByAddress = NodeAddressIndex.Query
@@ -189,6 +206,19 @@ var (
 	NodeByLocal    = NodeLocalIndex.Query
 	LocalNodeQuery = NodeByLocal(true)
 )
+
+func nodeAddressKey(addr cmtypes.AddrCluster) index.Key {
+	key := addr.As20()
+	return key[:]
+}
+
+func nodeAddressKeyString(s string) (index.Key, error) {
+	addr, err := cmtypes.ParseAddrCluster(s)
+	if err != nil {
+		return nil, err
+	}
+	return nodeAddressKey(addr), nil
+}
 
 func NewNodeTable(db *statedb.DB) (statedb.RWTable[*Node], error) {
 	return statedb.NewTable(

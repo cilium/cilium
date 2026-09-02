@@ -247,16 +247,6 @@ func (d dummyNodeManager) NodeUpdated(n nodeTypes.Node) {
 	panic("unimplemented")
 }
 
-// Subscribe implements manager.NodeManager.
-func (d dummyNodeManager) Subscribe(node.Handler) {
-	panic("unimplemented")
-}
-
-// Unsubscribe implements manager.NodeManager.
-func (d dummyNodeManager) Unsubscribe(node.Handler) {
-	panic("unimplemented")
-}
-
 // SetPrefixClusterMutatorFn implements manager.NodeManager
 func (d dummyNodeManager) SetPrefixClusterMutatorFn(mutator func(*nodeTypes.Node) []cmtypes.PrefixClusterOpts) {
 	panic("unimplemented")

@@ -10,15 +10,10 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // Cell provides the NodeManager, which manages information about Cilium nodes
@@ -31,23 +26,7 @@ var Cell = cell.Module(
 	metrics.Metric(NewNodeMetrics),
 )
 
-// Notifier is the interface the wraps Subscribe and Unsubscribe. An
-// implementation of this interface notifies subscribers of nodes being added,
-// updated or deleted.
-type Notifier interface {
-	// Subscribe adds the given NodeHandler to the list of subscribers that are
-	// notified of node changes. Upon call to this method, the NodeHandler is
-	// being notified of all nodes that are already in the cluster by calling
-	// the NodeHandler's NodeAdd callback.
-	Subscribe(node.Handler)
-
-	// Unsubscribe removes the given NodeHandler from the list of subscribers.
-	Unsubscribe(node.Handler)
-}
-
 type NodeManager interface {
-	Notifier
-
 	// GetNodes returns a copy of all the nodes as a map from Identity to Node.
 	GetNodes() map[types.Identity]types.Node
 
@@ -69,44 +48,33 @@ type NodeManager interface {
 
 	// SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
 	// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom.
-	SetPrefixClusterMutatorFn(mutator func(*types.Node) []cmtypes.PrefixClusterOpts)
+	SetPrefixClusterMutatorFn(mutator node.PrefixClusterMutatorFn)
 }
 
 func newAllNodeManager(in struct {
 	cell.In
 	Logger                       *slog.Logger
-	ClusterInfo                  cmtypes.ClusterInfo
-	TunnelConf                   tunnel.Config
-	Lifecycle                    cell.Lifecycle
-	IPCache                      *ipcache.IPCache
 	NodeMetrics                  *nodeMetrics
 	Health                       cell.Health
 	JobGroup                     job.Group
 	DB                           *statedb.DB
 	Devices                      statedb.Table[*tables.Device]
-	WGConfig                     wgTypes.Config
 	Writer                       *node.Writer
 	ClusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc
 },
 ) (NodeManager, error) {
 	mngr, err := New(
 		in.Logger,
-		option.Config,
-		in.ClusterInfo,
-		in.TunnelConf,
-		in.IPCache,
 		in.NodeMetrics,
 		in.Health,
 		in.JobGroup,
 		in.DB,
 		in.Devices,
-		in.WGConfig,
 		in.Writer,
 		in.ClusterSizeDependantInterval,
 	)
 	if err != nil {
 		return nil, err
 	}
-	in.Lifecycle.Append(mngr)
 	return mngr, nil
 }

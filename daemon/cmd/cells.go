@@ -242,7 +242,7 @@ var (
 		// Node REST API serves snapshots and changes from the node table.
 		noderestapi.Cell,
 
-		// NodeNeighborDiscovery is a node handler that subscribes to the NodeManager
+		// NodeNeighborDiscovery observes nodes to manage forwardable IPs.
 		// and ensures node IPs are "forwardable" by adding them to the forwardable IP table.
 		// The neighbor subsystem will create neighbor entries for these forwardable IPs.
 		neighbordiscovery.Cell,
