@@ -5,8 +5,8 @@ link/set eth0 up
 
 hive/start
 
-add-device owner1 eth0.10.yaml
-add-device owner2 eth0.20.yaml
+add-device owner1 vlan eth0.10.yaml
+add-device owner2 vlan eth0.20.yaml
 
 # validate tables are populated correctly
 db/cmp desired-devices desired-device.1.table
@@ -20,7 +20,7 @@ db/cmp desired-devices desired-device.2.table
 db/cmp devices devices.2.table
 
 # update MTU
-add-device owner2 eth0.20-updated.yaml
+add-device owner2 vlan eth0.20-updated.yaml
 
 # revalidate data
 db/cmp desired-devices desired-device.3.table

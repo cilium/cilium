@@ -1,0 +1,54 @@
+# A VRF device is preserved while its routing table is unchanged and recreated
+# when the table-id changes.
+
+hive/start
+
+add-device owner1 vrf vrf-blue-intf.table-1000.yaml
+db/cmp desired-devices desired-device.table-1000.table
+db/cmp devices devices.vrf-table-1000.table
+db/get devices --index=name vrf-blue-intf --columns=Index -o index.created.txt
+
+# Reapplying the same spec must not recreate the device.
+add-device owner1 vrf vrf-blue-intf.table-1000.yaml
+db/get devices --index=name vrf-blue-intf --columns=Index -o index.unchanged.txt
+cmp index.created.txt index.unchanged.txt
+
+# Changing the routing table requires a new VRF link.
+add-device owner1 vrf vrf-blue-intf.table-2000.yaml
+db/cmp desired-devices desired-device.table-2000.table
+db/cmp devices devices.vrf-table-2000.table
+
+remove-owner owner1
+db/cmp devices devices.empty.table
+
+hive/stop
+
+-- vrf-blue-intf.table-1000.yaml --
+name: vrf-blue-intf
+table: 1000
+
+-- vrf-blue-intf.table-2000.yaml --
+name: vrf-blue-intf
+table: 2000
+
+-- desired-device.table-1000.table --
+Owner    Name             Properties
+owner1   vrf-blue-intf    Type=vrf, Table=1000
+
+-- desired-device.table-2000.table --
+Owner    Name             Properties
+owner1   vrf-blue-intf    Type=vrf, Table=2000
+
+-- devices.vrf-table-1000.table --
+Name             Type     VRFTable   OperStatus
+lo               device   0          down
+vrf-blue-intf    vrf      1000       up
+
+-- devices.vrf-table-2000.table --
+Name             Type     VRFTable   OperStatus
+lo               device   0          down
+vrf-blue-intf    vrf      2000       up
+
+-- devices.empty.table --
+Name   Type
+lo     device
