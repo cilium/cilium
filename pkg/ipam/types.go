@@ -115,14 +115,14 @@ type IPAM struct {
 	// expirationTimers is a map of all expiration timers. Each entry
 	// represents a IP allocation which is protected by an expiration
 	// timer.
-	expirationTimers map[timerKey]expirationTimer
+	expirationTimers map[poolIP]expirationTimer
 
 	// mutex covers access to all members of this struct
 	allocatorMutex lock.RWMutex
 
-	// excludedIPs contains excluded IPs and their respective owners per pool. The key is a
-	// combination pool:ip to avoid having to maintain a map of maps.
-	excludedIPs map[string]string
+	// excludedIPs contains excluded IPs and their respective owners, keyed by
+	// pool and IP so no map of maps is needed.
+	excludedIPs map[poolIP]string
 
 	localNodeStore *node.LocalNodeStore
 	k8sEventReg    K8sEventRegister
@@ -194,7 +194,9 @@ func (p Pool) String() string {
 	return string(p)
 }
 
-type timerKey struct {
+// poolIP identifies an IP within a pool. Both members are comparable, so it
+// can be used as a map key.
+type poolIP struct {
 	ip   netip.Addr
 	pool Pool
 }

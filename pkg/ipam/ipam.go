@@ -103,8 +103,8 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 		config:                    params.AgentConfig,
 		nodeAddressing:            params.NodeAddressing,
 		owner:                     map[Pool]map[string]string{},
-		expirationTimers:          map[timerKey]expirationTimer{},
-		excludedIPs:               map[string]string{},
+		expirationTimers:          map[poolIP]expirationTimer{},
+		excludedIPs:               map[poolIP]string{},
 		k8sEventReg:               params.K8sEventReg,
 		localNodeStore:            params.LocalNodeStore,
 		nodeResource:              params.NodeResource,
@@ -269,13 +269,13 @@ func (ipam *IPAM) releaseIPOwner(ip netip.Addr, pool Pool) string {
 // change and suddenly cover the IP to be excluded.
 func (ipam *IPAM) ExcludeIP(ip netip.Addr, owner string, pool Pool) {
 	ipam.allocatorMutex.Lock()
-	ipam.excludedIPs[pool.String()+":"+ip.String()] = owner
+	ipam.excludedIPs[poolIP{ip: ip, pool: pool}] = owner
 	ipam.allocatorMutex.Unlock()
 }
 
 // isIPExcluded is used to check if a particular IP is excluded from being allocated.
 func (ipam *IPAM) isIPExcluded(ip netip.Addr, pool Pool) (string, bool) {
-	owner, ok := ipam.excludedIPs[pool.String()+":"+ip.String()]
+	owner, ok := ipam.excludedIPs[poolIP{ip: ip, pool: pool}]
 	return owner, ok
 }
 
