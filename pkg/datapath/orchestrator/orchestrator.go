@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -117,6 +118,7 @@ type orchestratorParams struct {
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
 	XDPConfig           xdp.Config
 	LBConfig            loadbalancer.Config
+	LRPConfig           redirectpolicy.Config
 	KPRConfig           kpr.KPRConfig
 	SvcRouteConfig      svcrouteconfig.RoutesConfig
 	MaglevConfig        maglev.Config
@@ -231,6 +233,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.Config.DeriveMasqIPAddrFromDevice,
 			o.params.XDPConfig,
 			o.params.LBConfig,
+			o.params.LRPConfig.IsEnabled(),
 			o.params.KPRConfig,
 			o.params.SvcRouteConfig,
 			o.params.MaglevConfig,

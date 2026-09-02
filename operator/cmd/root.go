@@ -76,6 +76,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -210,6 +211,7 @@ var (
 	ControlPlaneLeaderCells = []cell.Cell{
 		// The CRDs registration should be the first operation to be invoked after the operator is elected leader.
 		apis.RegisterCRDsCell,
+		redirectpolicy.OperatorCell,
 		operatorK8s.ResourcesCell,
 
 		// Updates the heartbeat key in the kvstore.

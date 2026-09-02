@@ -105,6 +105,7 @@ cilium-agent hive dot-graph [flags]
       --enable-l2-neigh-discovery                                 Enables L2 neighbor discovery, even when XDP acceleration is disabled
       --enable-l2-pod-announcements                               Enable announcing Pod IPs with Gratuitous ARP and NDP
       --enable-lb-ipam                                            Enable LB IPAM (default true)
+      --enable-local-redirect-policy                              Enable Local Redirect Policy
       --enable-monitor                                            Enable the monitor unix domain socket server (default true)
       --enable-network-driver                                     enable network driver to assign interfaces via Dynamic Resource Allocation
       --enable-no-service-endpoints-routable                      Enable routes when service has 0 endpoints (default true)
