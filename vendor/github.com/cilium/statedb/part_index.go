@@ -20,8 +20,8 @@ type Index[Obj any, Key any] struct {
 	Name string
 
 	// FromObject extracts key(s) from the object. The key set
-	// can contain 0, 1 or more keys. Must contain exactly one
-	// key for primary indices.
+	// can contain 0, 1 or more keys. Primary indices may contain
+	// zero or one key; an object with zero keys is not indexed.
 	FromObject func(obj Obj) index.KeySet
 
 	// FromKey converts the index key into a raw key.
@@ -70,11 +70,15 @@ func (i Index[Obj, Key]) Query(key Key) Query[Obj] {
 	}
 }
 
-func (i Index[Obj, Key]) QueryFromObject(obj Obj) Query[Obj] {
+func (i Index[Obj, Key]) QueryFromObject(obj Obj) (Query[Obj], bool) {
+	key, ok := i.objectToKey(obj)
+	if !ok {
+		return Query[Obj]{}, false
+	}
 	return Query[Obj]{
 		index: i.Name,
-		key:   i.FromObject(obj).First(),
-	}
+		key:   key,
+	}, true
 }
 
 // QueryFromKey constructs a query against the index using the given
@@ -87,8 +91,16 @@ func (i Index[Obj, Key]) QueryFromKey(key index.Key) Query[Obj] {
 	}
 }
 
-func (i Index[Obj, Key]) ObjectToKey(obj Obj) index.Key {
-	return i.FromObject(obj).First()
+func (i Index[Obj, Key]) ObjectToKey(obj Obj) (index.Key, bool) {
+	return i.objectToKey(obj)
+}
+
+func (i Index[Obj, Key]) objectToKey(obj Obj) (index.Key, bool) {
+	keys := i.FromObject(obj)
+	if keys.Len() > 1 {
+		panic("primary index must return at most one key")
+	}
+	return keys.First()
 }
 
 // newTableIndex constructs a new instance of this index type.
@@ -164,8 +176,12 @@ func (r *partIndex) rootWatch() <-chan struct{} {
 	return r.tree.RootWatch()
 }
 
-func (r *partIndex) objectToKey(obj object) index.Key {
-	return r.objectToKeys(obj).First()
+func (r *partIndex) objectToKey(obj object) (index.Key, bool) {
+	keys := r.objectToKeys(obj)
+	if keys.Len() > 1 {
+		panic("primary index must return at most one key")
+	}
+	return keys.First()
 }
 
 func (r *partIndex) commit() (tableIndex, tableIndexTxnNotify) {
@@ -456,8 +472,12 @@ func (r *partIndexTxn) prefixNoWatch(ikey index.Key) tableIndexIterator {
 	return partPrefixNoWatch(r.unique, &snapshot, ikey)
 }
 
-func (r *partIndexTxn) objectToKey(obj object) index.Key {
-	return r.objectToKeys(obj).First()
+func (r *partIndexTxn) objectToKey(obj object) (index.Key, bool) {
+	keys := r.objectToKeys(obj)
+	if keys.Len() > 1 {
+		panic("primary index must return at most one key")
+	}
+	return keys.First()
 }
 
 // reindex implements tableIndexTxn.

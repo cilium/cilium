@@ -128,13 +128,16 @@ func (txn *writeTxnState) modify(meta TableMeta, guardRevision Revision, newData
 		return object{}, false, nil, tableError(tableName, ErrTableNotLockedForWriting)
 	}
 	oldRevision := table.revision
-	table.revision++
-	revision := table.revision
 
 	// Update the primary index first
-	obj := object{data: newData, revision: revision}
+	obj := object{data: newData}
 	idIndexTxn := txn.mustIndexWriteTxn(meta, PrimaryIndexPos)
-	idKey := idIndexTxn.objectToKey(obj)
+	idKey, indexed := idIndexTxn.objectToKey(obj)
+	if !indexed {
+		return object{}, false, nil, nil
+	}
+	table.revision++
+	obj.revision = table.revision
 
 	var (
 		oldObj    object
@@ -254,7 +257,10 @@ func (txn *writeTxnState) delete(meta TableMeta, guardRevision Revision, data an
 	// We assume that "data" has only enough defined fields to
 	// compute the primary key.
 	idIndex := txn.mustIndexWriteTxn(meta, PrimaryIndexPos)
-	idKey := idIndex.objectToKey(object{data: data})
+	idKey, indexed := idIndex.objectToKey(object{data: data})
+	if !indexed {
+		return object{}, false, nil
+	}
 	obj, existed := idIndex.delete(idKey)
 	if !existed {
 		return object{}, false, nil

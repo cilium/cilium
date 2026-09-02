@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -447,12 +448,36 @@ func (s StatusSet) Delete(name string) StatusSet {
 	return s
 }
 
-func (s StatusSet) All() map[string]Status {
-	m := make(map[string]Status, len(s.statuses))
-	for _, ns := range s.statuses {
-		m[ns.name] = ns.Status
+// All returns an iterator for all reconciler statuses.
+func (s *StatusSet) All() iter.Seq2[string, Status] {
+	return func(yield func(name string, status Status) bool) {
+		for _, ns := range s.statuses {
+			if !yield(ns.name, ns.Status) {
+				break
+			}
+		}
 	}
-	return m
+}
+
+// IsPending returns true if any of the reconcilers are still pending
+// or refreshing.
+func (s *StatusSet) IsPendingOrRefreshing() bool {
+	for _, ns := range s.statuses {
+		if ns.Status.IsPendingOrRefreshing() {
+			return true
+		}
+	}
+	return false
+}
+
+// IsDone returns true if all reconcilers are done.
+func (s *StatusSet) IsDone() bool {
+	for _, ns := range s.statuses {
+		if ns.Status.Kind != StatusKindDone {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *StatusSet) UnmarshalJSON(data []byte) error {
@@ -473,5 +498,5 @@ func (s *StatusSet) UnmarshalJSON(data []byte) error {
 // It carries enough information over to be able to implement String()
 // so this can be used to implement the TableRow() method.
 func (s StatusSet) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s.All())
+	return json.Marshal(maps.Collect(s.All()))
 }

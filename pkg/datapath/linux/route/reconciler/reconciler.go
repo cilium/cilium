@@ -289,9 +289,10 @@ func (ops *ops) DeleteBatch(ctx context.Context, txn statedb.ReadTxn, batch []re
 	// replace it instead. Otherwise we briefly have no route installed.
 	toDelete := make([]*reconciler.BatchEntry[*DesiredRoute], 0, len(batch))
 	for i := range batch {
-		_, _, found := ops.tbl.Get(txn, DesiredRouteTablePrefixIndex.QueryFromObject(batch[i].Object))
-		if !found {
-			toDelete = append(toDelete, &batch[i])
+		if query, ok := DesiredRouteTablePrefixIndex.QueryFromObject(batch[i].Object); ok {
+			if _, _, found := ops.tbl.Get(txn, query); !found {
+				toDelete = append(toDelete, &batch[i])
+			}
 		}
 	}
 
