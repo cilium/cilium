@@ -311,19 +311,32 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 		 */
 
 		switch (len_diff) {
+		/* ICMP error reply */
 		case 28: /* struct {iphdr + icmphdr} */
+		case 48: /* struct {ipv6hdr + icmp6hdr} */
 			break;
-		case 20: /* struct iphdr */
-		case 8:  /* struct dsr_opt_v4 */
-			move_len = move_len_v4;
-			break;
+
+		/* IPv4 Overlay encap: */
 		case 50: /* struct {ethhdr + iphdr + udphdr + genevehdr / vxlanhdr} */
+			break;
+
+		/* Geneve DSR: */
 		case 50 + 12: /* geneve with IPv4 DSR option */
 		case 50 + 24: /* geneve with IPv6 DSR option */
 			break;
-		case 48: /* struct {ipv6hdr + icmp6hdr} */
+
+		/* IPIP DSR */
+		case 20: /* struct iphdr */
+			move_len = move_len_v4;
 			break;
 		case 40: /* struct ipv6hdr */
+			move_len = move_len_v6;
+			break;
+
+		/* IP-opt DSR */
+		case 8:  /* struct dsr_opt_v4 */
+			move_len = move_len_v4;
+			break;
 		case 24: /* struct dsr_opt_v6 */
 			move_len = move_len_v6;
 			break;
