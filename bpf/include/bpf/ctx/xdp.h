@@ -311,6 +311,8 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 	 */
 	switch (mode) {
 	case BPF_ADJ_ROOM_MAC:
+		move_len = sizeof(struct ethhdr);
+
 		switch (len_diff) {
 		/* ICMP error reply */
 		case 28: /* struct {iphdr + icmphdr} */
