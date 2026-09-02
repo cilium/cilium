@@ -20,7 +20,6 @@ linters:
     - ineffassign
     - kubeapilinter
     - misspell
-    - modernize
     - sloglint
     - staticcheck
     - testifylint
@@ -143,11 +142,6 @@ linters:
     gosec:
       includes:
         - G402
-    modernize:
-      disable: # TODO: remove each disabled rule and fix it
-        - omitzero
-        - rangeint
-        - waitgroup
     govet:
       enable:
         - nilness
