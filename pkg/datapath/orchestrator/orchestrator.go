@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	bandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -122,6 +123,7 @@ type orchestratorParams struct {
 	MaglevConfig        maglev.Config
 	WgAgent             wgTypes.Agent
 	IPsecConfig         ipsec.Config
+	BandwidthConfig     bandwidth.Config
 	BIGTCPConfig        bigtcp.Config
 	ConnectorConfig     connector.Config
 	PluginRegistry      plugin.Registry
@@ -237,6 +239,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.MTU,
 			o.params.WgAgent,
 			o.params.IPsecConfig,
+			o.params.BandwidthConfig,
 			o.params.ConnectorConfig,
 			o.params.PluginRegistry.Plugins(),
 		)
