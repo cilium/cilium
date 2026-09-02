@@ -482,6 +482,9 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 	}
 
 	progHelpers := []ProgramHelper{
+		// common probes
+		{ebpf.CGroupSock, asm.FnSetRetval},
+
 		// xdp related probes
 		{ebpf.XDP, asm.FnXdpGetBuffLen},
 		{ebpf.XDP, asm.FnXdpLoadBytes},
@@ -496,7 +499,9 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 
 // writeCommonHeader defines macross for bpf/include/bpf/features.h
 func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
-	features := map[string]bool{}
+	features := map[string]bool{
+		"HAVE_SET_RETVAL": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
+	}
 
 	return writeFeatureHeader(writer, features, true)
 }
