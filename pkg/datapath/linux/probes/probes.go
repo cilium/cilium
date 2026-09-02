@@ -12,6 +12,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"text/template"
 
@@ -83,6 +85,74 @@ func HaveProgramHelper(logger *slog.Logger, pt ebpf.ProgramType, helper asm.Buil
 			logfields.Error, err,
 			logfields.ProgType, pt,
 			logfields.Helper, helper,
+		)
+	}
+	return nil
+}
+
+func haveSetRetval() error {
+	if err := features.HaveProgramType(ebpf.CGroupSock); err != nil {
+		return err
+	}
+
+	// Workaround for kernel commit b1f7f67b74c2 ("bpf: Add validation
+	// for bpf_set_retval argument").
+	prog, err := ebpf.NewProgramWithOptions(&ebpf.ProgramSpec{
+		Type: ebpf.CGroupSock,
+		Instructions: asm.Instructions{
+			asm.Mov.Imm(asm.R1, 0),
+			asm.FnSetRetval.Call(),
+			asm.Mov.Imm(asm.R0, 1),
+			asm.Return(),
+		},
+		License: "GPL",
+	}, ebpf.ProgramOptions{
+		LogLevel: 1,
+	})
+	if err == nil {
+		prog.Close()
+		return nil
+	}
+
+	var verr *ebpf.VerifierError
+	if errors.As(err, &verr) && errors.Is(err, unix.EINVAL) {
+		helperTag := fmt.Sprintf("#%d", asm.FnSetRetval)
+		if logContainsAll(verr.Log, "invalid func", helperTag) ||
+			logContainsAll(verr.Log, "program of this type cannot use helper", helperTag) ||
+			// Kernels before 5.2 do not include the helper number.
+			logContainsAll(verr.Log, "unknown func") {
+			return ebpf.ErrNotSupported
+		}
+	}
+
+	return err
+}
+
+func logContainsAll(log []string, needles ...string) bool {
+	first := max(len(log)-5, 0) // Check last 5 lines.
+	return slices.ContainsFunc(log[first:], func(line string) bool {
+		for _, needle := range needles {
+			if !strings.Contains(line, needle) {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// HaveSetRetval is a wrapper around haveSetRetval() to check if cgroup programs
+// may call bpf_set_retval(). On unexpected probe results this function will
+// terminate with log.Fatal().
+func HaveSetRetval(logger *slog.Logger) error {
+	err := haveSetRetval()
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		return err
+	}
+	if err != nil {
+		logging.Fatal(logger, "failed to probe helper",
+			logfields.Error, err,
+			logfields.ProgType, ebpf.CGroupSock,
+			logfields.Helper, asm.FnSetRetval,
 		)
 	}
 	return nil
@@ -482,9 +552,6 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 	}
 
 	progHelpers := []ProgramHelper{
-		// common probes
-		{ebpf.CGroupSock, asm.FnSetRetval},
-
 		// xdp related probes
 		{ebpf.XDP, asm.FnXdpGetBuffLen},
 		{ebpf.XDP, asm.FnXdpLoadBytes},
@@ -493,6 +560,9 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 	for _, ph := range progHelpers {
 		probes.ProgramHelpers[ph] = (HaveProgramHelper(logger, ph.Program, ph.Helper) == nil)
 	}
+
+	setRetval := ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}
+	probes.ProgramHelpers[setRetval] = (HaveSetRetval(logger) == nil)
 
 	return &probes
 }

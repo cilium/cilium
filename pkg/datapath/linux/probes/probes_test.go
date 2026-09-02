@@ -5,9 +5,11 @@ package probes
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
@@ -62,6 +64,25 @@ func TestPrivilegedExecuteHeaderProbes(t *testing.T) {
 	if ExecuteHeaderProbes(hivetest.Logger(t)) == nil {
 		t.Error("expected probes to not be nil")
 	}
+}
+
+func TestPrivilegedHaveSetRetval(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	if err := haveSetRetval(); err != nil && !errors.Is(err, ebpf.ErrNotSupported) {
+		t.Fatalf("unexpected bpf_set_retval probe error: %v", err)
+	}
+}
+
+func TestLogContainsAll(t *testing.T) {
+	log := []string{
+		"0: R1=ctx() R10=fp0",
+		"0: (85) call unknown#187",
+		"invalid func unknown#187",
+	}
+	assert.True(t, logContainsAll(log, "invalid func", "#187"))
+	assert.False(t, logContainsAll(log, "invalid func", "#188"))
+	assert.False(t, logContainsAll(nil, "invalid func"))
 }
 
 func TestPrivilegedSKBAdjustRoomL2RoomMACSupportProbe(t *testing.T) {
