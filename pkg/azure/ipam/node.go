@@ -212,7 +212,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 
 		for _, address := range iface.Addresses {
 			if address.State == types.StateSucceeded {
-				available[address.IP.String()] = ipamTypes.AllocationIP{Resource: interfaceID}
+				available[address.IP] = ipamTypes.AllocationIP{Resource: interfaceID}
 			} else {
 				scopedLog.Warn(
 					"Ignoring potentially available IP due to non-successful state",

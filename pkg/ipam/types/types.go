@@ -53,8 +53,25 @@ type AllocationIP struct {
 	Resource string `json:"resource,omitempty"`
 }
 
-// AllocationMap is a map of allocated IPs indexed by IP
-type AllocationMap map[string]AllocationIP
+// AllocationMap is a map of allocated IPs indexed by IP.
+//
+// +k8s:deepcopy-gen=false
+type AllocationMap map[iputil.Addr]AllocationIP
+
+// DeepCopyInto is a manual copy: both the key and the value are plain
+// assignable values, see the AllocationMap doc comment.
+func (in AllocationMap) DeepCopyInto(out *AllocationMap) {
+	*out = maps.Clone(in)
+}
+
+func (in AllocationMap) DeepCopy() AllocationMap {
+	if in == nil {
+		return nil
+	}
+	out := new(AllocationMap)
+	in.DeepCopyInto(out)
+	return *out
+}
 
 // IPAMPoolAllocation describes an allocation of an IPAM pool from the operator to the
 // node. It contains the assigned PodCIDRs allocated from this pool
@@ -188,6 +205,24 @@ type IPAMSpec struct {
 // +kubebuilder:validation:Enum=marked-for-release;ready-for-release;do-not-release;released
 type IPReleaseStatus string
 
+// IPReleaseStatusMap tracks the IP release handshake state per address.
+//
+// +k8s:deepcopy-gen=false
+type IPReleaseStatusMap map[iputil.Addr]IPReleaseStatus
+
+func (in IPReleaseStatusMap) DeepCopyInto(out *IPReleaseStatusMap) {
+	*out = maps.Clone(in)
+}
+
+func (in IPReleaseStatusMap) DeepCopy() IPReleaseStatusMap {
+	if in == nil {
+		return nil
+	}
+	out := new(IPReleaseStatusMap)
+	in.DeepCopyInto(out)
+	return *out
+}
+
 // IPAMStatus is the IPAM status of a node
 //
 // This structure is embedded into v2.CiliumNode
@@ -222,7 +257,7 @@ type IPAMStatus struct {
 	// * released           : IP successfully released. Set by operator
 	//
 	// +optional
-	ReleaseIPs map[string]IPReleaseStatus `json:"release-ips,omitempty"`
+	ReleaseIPs IPReleaseStatusMap `json:"release-ips,omitempty"`
 
 	// ReleaseIPv6s tracks the state for every IPv6 address considered for release.
 	// The value can be one of the following strings:
@@ -232,7 +267,7 @@ type IPAMStatus struct {
 	// * released           : IP successfully released. Set by operator
 	//
 	// +optional
-	ReleaseIPv6s map[string]IPReleaseStatus `json:"release-ipv6s,omitempty"`
+	ReleaseIPv6s IPReleaseStatusMap `json:"release-ipv6s,omitempty"`
 
 	// AssignedStaticIP is the static IP assigned to the node (ex: public Elastic IP address in AWS)
 	//
@@ -256,7 +291,23 @@ type IPAMPoolDemand struct {
 	IPv6Addrs int `json:"ipv6-addrs,omitempty"`
 }
 
-type PodCIDRMap map[string]PodCIDRMapEntry
+// PodCIDRMap is a map of pod CIDR statuses indexed by CIDR.
+//
+// +k8s:deepcopy-gen=false
+type PodCIDRMap map[iputil.Prefix]PodCIDRMapEntry
+
+func (in PodCIDRMap) DeepCopyInto(out *PodCIDRMap) {
+	*out = maps.Clone(in)
+}
+
+func (in PodCIDRMap) DeepCopy() PodCIDRMap {
+	if in == nil {
+		return nil
+	}
+	out := new(PodCIDRMap)
+	in.DeepCopyInto(out)
+	return *out
+}
 
 // +kubebuilder:validation:Enum=released;depleted;in-use
 type PodCIDRStatus string

@@ -32,7 +32,7 @@ func Test_validateENIConfig(t *testing.T) {
 					Spec: ciliumv2.NodeSpec{
 						IPAM: ipamTypes.IPAMSpec{
 							Pool: ipamTypes.AllocationMap{
-								"10.1.1.226": ipamTypes.AllocationIP{
+								iputil.AddrFrom(netip.MustParseAddr("10.1.1.226")): ipamTypes.AllocationIP{
 									Resource: "eni-1",
 								},
 							},
@@ -73,7 +73,7 @@ func Test_validateENIConfig(t *testing.T) {
 					Spec: ciliumv2.NodeSpec{
 						IPAM: ipamTypes.IPAMSpec{
 							Pool: ipamTypes.AllocationMap{
-								"10.1.1.226": ipamTypes.AllocationIP{
+								iputil.AddrFrom(netip.MustParseAddr("10.1.1.226")): ipamTypes.AllocationIP{
 									Resource: "eni-1",
 								},
 							},
@@ -111,7 +111,7 @@ func Test_validateENIConfig(t *testing.T) {
 					Spec: ciliumv2.NodeSpec{
 						IPAM: ipamTypes.IPAMSpec{
 							Pool: ipamTypes.AllocationMap{
-								"10.1.1.226": ipamTypes.AllocationIP{
+								iputil.AddrFrom(netip.MustParseAddr("10.1.1.226")): ipamTypes.AllocationIP{
 									Resource: "eni-1",
 								},
 							},
@@ -153,7 +153,7 @@ func Test_validateENIConfig(t *testing.T) {
 					Spec: ciliumv2.NodeSpec{
 						IPAM: ipamTypes.IPAMSpec{
 							Pool: ipamTypes.AllocationMap{
-								"10.1.1.226": ipamTypes.AllocationIP{
+								iputil.AddrFrom(netip.MustParseAddr("10.1.1.226")): ipamTypes.AllocationIP{
 									Resource: "eni-1",
 								},
 							},
@@ -196,7 +196,7 @@ func Test_validateENIConfig(t *testing.T) {
 					Spec: ciliumv2.NodeSpec{
 						IPAM: ipamTypes.IPAMSpec{
 							Pool: ipamTypes.AllocationMap{
-								"10.1.1.227": ipamTypes.AllocationIP{
+								iputil.AddrFrom(netip.MustParseAddr("10.1.1.227")): ipamTypes.AllocationIP{
 									Resource: "eni-1",
 								},
 							},

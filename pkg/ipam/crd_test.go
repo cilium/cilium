@@ -97,7 +97,7 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 	cn := newCiliumNode("node1", 4, 4, 0)
 	dummyResource := ipamTypes.AllocationIP{Resource: "foo"}
 	for i := 1; i <= 4; i++ {
-		cn.Spec.IPAM.Pool[fmt.Sprintf("1.1.1.%d", i)] = dummyResource
+		cn.Spec.IPAM.Pool[iputil.AddrFrom(netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i)))] = dummyResource
 	}
 
 	fakeAddressing := fakenode.NewAddressing()
@@ -128,19 +128,19 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 	}
 
 	// Update 1.1.1.4 as marked for release like operator would.
-	cn.Status.IPAM.ReleaseIPs["1.1.1.4"] = ipamOption.IPAMMarkForRelease
+	cn.Status.IPAM.ReleaseIPs[iputil.AddrFrom(netip.MustParseAddr("1.1.1.4"))] = ipamOption.IPAMMarkForRelease
 	// Attempts to allocate 1.1.1.4 should fail, since it's already marked for release
 	epipv4 := netip.MustParseAddr("1.1.1.4")
 	_, err := ipam.ipv4Allocator.Allocate(epipv4, "test", PoolDefault())
 	require.Error(t, err)
 	// Call agent's CRD update function. status for 1.1.1.4 should change from marked for release to ready for release
 	sharedNodeStore.updateLocalNodeResource(cn)
-	require.Equal(t, ipamOption.IPAMReadyForRelease, string(cn.Status.IPAM.ReleaseIPs["1.1.1.4"]))
+	require.Equal(t, ipamOption.IPAMReadyForRelease, string(cn.Status.IPAM.ReleaseIPs[iputil.AddrFrom(netip.MustParseAddr("1.1.1.4"))]))
 
 	// Verify that 1.1.1.3 is denied for release, since it's already in use
-	cn.Status.IPAM.ReleaseIPs["1.1.1.3"] = ipamOption.IPAMMarkForRelease
+	cn.Status.IPAM.ReleaseIPs[iputil.AddrFrom(netip.MustParseAddr("1.1.1.3"))] = ipamOption.IPAMMarkForRelease
 	sharedNodeStore.updateLocalNodeResource(cn)
-	require.Equal(t, ipamOption.IPAMDoNotRelease, string(cn.Status.IPAM.ReleaseIPs["1.1.1.3"]))
+	require.Equal(t, ipamOption.IPAMDoNotRelease, string(cn.Status.IPAM.ReleaseIPs[iputil.AddrFrom(netip.MustParseAddr("1.1.1.3"))]))
 }
 
 func TestNodeStoreStaticIPStatus(t *testing.T) {
@@ -204,7 +204,7 @@ func (m ipMasqMapDummy) Dump() ([]netip.Prefix, error) { return []netip.Prefix{}
 func TestAzureIPMasq(t *testing.T) {
 	cn := newCiliumNode("node1", 4, 4, 0)
 	dummyResource := ipamTypes.AllocationIP{Resource: "azure-interface-1"}
-	cn.Spec.IPAM.Pool["10.10.1.5"] = dummyResource
+	cn.Spec.IPAM.Pool[iputil.AddrFrom(netip.MustParseAddr("10.10.1.5"))] = dummyResource
 	cn.Status.Azure.Interfaces = []azureTypes.AzureInterface{
 		{
 			ID:      "azure-interface-1",
