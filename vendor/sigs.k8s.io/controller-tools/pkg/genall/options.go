@@ -31,9 +31,59 @@ var (
 
 // +controllertools:marker:generateHelp:category=""
 
-// InputPaths represents paths and go-style path patterns to use as package roots.
+// InputPaths represents the package roots that controller-gen uses as input
+// for code generation.
 //
-// Multiple paths can be specified using "{path1, path2, path3}".
+// Multiple paths can be specified using the brace-delimited form or a
+// semicolon-separated list.
+//
+// Each path is classified as either a filesystem path or a Go package/module
+// name, following the same rules used by the "go" command. A path is treated
+// as a filesystem path if it is absolute, or begins with "." or "..". All
+// other paths are treated as Go package or module names. For more information
+// on path classification, run "go help packages".
+//
+// Examples:
+//
+//	// brace-delimited form (preferred when specifying multiple paths)
+//	paths="{./api/..., ./pkg/...}"
+//
+//	// semicolon-separated form
+//	paths=./api/...;./pkg/...
+//
+//	// filesystem paths (absolute or beginning with . or ..)
+//	paths=./...
+//	paths=./api/v1
+//	paths=/home/user/project/api
+//
+//	// Go package or module names
+//	paths=sigs.k8s.io/controller-tools/pkg/...
+//	paths=example.com/myproject/api/v1
+//
+// When a filesystem path ends with "...", controller-gen crosses module
+// boundaries and includes packages from any nested Go modules found in
+// subdirectories (directories that contain their own go.mod file). This is
+// useful when working in a repository with multiple Go modules and you want
+// to run generation across all of them in a single invocation. This behavior
+// does not apply to Go package or module names, which follow standard Go
+// module rules and stay within a single module.
+//
+// Example:
+//
+//	// given this layout:
+//	//   myrepo/go.mod
+//	//   myrepo/api/v1/
+//	//   myrepo/subproject/go.mod  (nested module)
+//	//   myrepo/subproject/api/
+//
+//	// this includes packages from both modules:
+//	paths=./...
+//
+//	// this includes only the root module:
+//	paths=sigs.k8s.io/myrepo/...
+//
+// To limit generation to a single module, use a Go package or module name
+// rather than a filesystem path.
 type InputPaths []string
 
 // RegisterOptionsMarkers registers "mandatory" options markers for FromOptions into the given registry.

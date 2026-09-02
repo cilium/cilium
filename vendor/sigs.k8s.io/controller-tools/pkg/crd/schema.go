@@ -102,14 +102,48 @@ func (c *schemaContext) ForInfo(info *markers.TypeInfo) *schemaContext {
 // requestSchema asks for the schema for a type in the package with the
 // given import path.
 func (c *schemaContext) requestSchema(pkgPath, typeName string) {
+	c.requestSchemaWithPkg(pkgPath, typeName, nil)
+}
+
+func (c *schemaContext) requestSchemaWithPkg(pkgPath, typeName string, typesPkg *types.Package) {
 	pkg := c.pkg
 	if pkgPath != "" {
 		pkg = c.pkg.Imports()[pkgPath]
+		if pkg == nil && typesPkg != nil {
+			pkg = c.findPackageRecursive(typesPkg.Path())
+		}
+		if pkg == nil {
+			c.pkg.AddError(fmt.Errorf("unable to find package %q for type %s (not in direct imports)", pkgPath, typeName))
+			return
+		}
 	}
 	c.schemaRequester.NeedSchemaFor(TypeIdent{
 		Package: pkg,
 		Name:    typeName,
 	})
+}
+
+func (c *schemaContext) findPackageRecursive(pkgPath string) *loader.Package {
+	visited := make(map[*loader.Package]bool)
+	queue := []*loader.Package{c.pkg}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		if visited[current] {
+			continue
+		}
+		visited[current] = true
+
+		for importPath, importPkg := range current.Imports() {
+			if loader.NonVendorPath(importPath) == loader.NonVendorPath(pkgPath) {
+				return importPkg
+			}
+			queue = append(queue, importPkg)
+		}
+	}
+	return nil
 }
 
 // infoToSchema creates a schema for the type in the given set of type information.
@@ -128,6 +162,7 @@ func infoToSchema(ctx *schemaContext) *apiextensionsv1.JSONSchemaProps {
 
 		// If the obj implements a text marshaler, encode it as a string.
 		case implements(obj.Type(), textMarshaler):
+			//nolint:goconst
 			schema := &apiextensionsv1.JSONSchemaProps{Type: "string"}
 			applyMarkers(ctx, ctx.info.Markers, schema, ctx.info.RawSpec.Type)
 			if schema.Type != "string" {
@@ -310,7 +345,7 @@ func localNamedToSchema(ctx *schemaContext, ident *ast.Ident) *apiextensionsv1.J
 		if pkg == ctx.pkg.Types {
 			pkgPath = ""
 		}
-		ctx.requestSchema(pkgPath, typeNameInfo.Name())
+		ctx.requestSchemaWithPkg(pkgPath, typeNameInfo.Name(), pkg)
 		link := TypeRefLink(pkgPath, typeNameInfo.Name())
 
 		// In cases where we have a named type, apply the type and format from the named schema
@@ -352,8 +387,9 @@ func namedToSchema(ctx *schemaContext, named *ast.SelectorExpr) *apiextensionsv1
 	}
 	typeInfo := typeInfoRaw.(interface{ Obj() *types.TypeName })
 	typeNameInfo := typeInfo.Obj()
-	nonVendorPath := loader.NonVendorPath(typeNameInfo.Pkg().Path())
-	ctx.requestSchema(nonVendorPath, typeNameInfo.Name())
+	typesPkg := typeNameInfo.Pkg()
+	nonVendorPath := loader.NonVendorPath(typesPkg.Path())
+	ctx.requestSchemaWithPkg(nonVendorPath, typeNameInfo.Name(), typesPkg)
 	link := TypeRefLink(nonVendorPath, typeNameInfo.Name())
 	return &apiextensionsv1.JSONSchemaProps{
 		Ref: &link,
@@ -385,20 +421,31 @@ func arrayToSchema(ctx *schemaContext, array *ast.ArrayType) *apiextensionsv1.JS
 // mapToSchema creates a schema for items of the given map.  Key types must eventually resolve
 // to string (other types aren't allowed by JSON, and thus the kubernetes API standards).
 func mapToSchema(ctx *schemaContext, mapType *ast.MapType) *apiextensionsv1.JSONSchemaProps {
-	keyInfo := ctx.pkg.TypesInfo.TypeOf(mapType.Key)
-	// check that we've got a type that actually corresponds to a string
+	keyType := ctx.pkg.TypesInfo.TypeOf(mapType.Key)
+	// check that we've got a type that actually corresponds to a string, or that
+	// implements encoding.TextMarshaler (in which case it serializes to a string,
+	// just like text-marshaler-implementing field types do).
+	keyInfo := keyType
 	for keyInfo != nil {
 		switch typedKey := keyInfo.(type) {
 		case *types.Basic:
 			if typedKey.Info()&types.IsString == 0 {
-				ctx.pkg.AddError(loader.ErrFromNode(fmt.Errorf("map keys must be strings, not %s", keyInfo.String()), mapType.Key))
+				if implements(keyType, textMarshaler) {
+					keyInfo = nil // stop iterating
+					break
+				}
+				ctx.pkg.AddError(loader.ErrFromNode(fmt.Errorf("map keys must be strings or implement encoding.TextMarshaler, not %s", keyInfo.String()), mapType.Key))
 				return &apiextensionsv1.JSONSchemaProps{}
 			}
 			keyInfo = nil // stop iterating
 		case *types.Named:
 			keyInfo = typedKey.Underlying()
 		default:
-			ctx.pkg.AddError(loader.ErrFromNode(fmt.Errorf("map keys must be strings, not %s", keyInfo.String()), mapType.Key))
+			if implements(keyType, textMarshaler) {
+				keyInfo = nil // stop iterating
+				break
+			}
+			ctx.pkg.AddError(loader.ErrFromNode(fmt.Errorf("map keys must be strings or implement encoding.TextMarshaler, not %s", keyInfo.String()), mapType.Key))
 			return &apiextensionsv1.JSONSchemaProps{}
 		}
 	}
@@ -424,7 +471,9 @@ func mapToSchema(ctx *schemaContext, mapType *ast.MapType) *apiextensionsv1.JSON
 		return &apiextensionsv1.JSONSchemaProps{}
 	}
 
+	//nolint:goconst
 	return &apiextensionsv1.JSONSchemaProps{
+		//nolint:goconst // this is a constant, but it's more readable to have it here
 		Type: "object",
 		AdditionalProperties: &apiextensionsv1.JSONSchemaPropsOrBool{
 			Schema: valSchema,
@@ -443,6 +492,10 @@ func structToSchema(ctx *schemaContext, structType *ast.StructType) *apiextensio
 		Properties: make(map[string]apiextensionsv1.JSONSchemaProps),
 	}
 
+	if ctx.info.RawSpec == nil {
+		ctx.pkg.AddError(loader.ErrFromNode(fmt.Errorf("inline struct types are not supported, use a named type instead"), structType))
+		return props
+	}
 	if ctx.info.RawSpec.Type != structType {
 		ctx.pkg.AddError(loader.ErrFromNode(fmt.Errorf("encountered non-top-level struct (possibly embedded), those aren't allowed"), structType))
 		return props
@@ -490,7 +543,7 @@ func structToSchema(ctx *schemaContext, structType *ast.StructType) *apiextensio
 			switch opt {
 			case "inline":
 				inline = true
-			case "omitempty":
+			case "omitempty", "omitzero":
 				omitEmpty = true
 			}
 		}
@@ -530,10 +583,10 @@ func structToSchema(ctx *schemaContext, structType *ast.StructType) *apiextensio
 
 		// if this package isn't set to optional default...
 		case defaultMode == "required":
-			// ...everything that's not inline, not omitempty, not part of a oneOf/anyOf group, and not explicitly optional is required
+			// ...everything that's not inline / omitempty / omitzero, not part of a oneOf/anyOf group, and not explicitly optional is required
 			if !inline && !omitEmpty && !fieldMarkedOneOf && !fieldMarkedAnyOf && !fieldMarkedOptional {
 				if exactlyOneOf.Has(fieldName) || atMostOneOf.Has(fieldName) || atLeastOneOf.Has(fieldName) {
-					ctx.pkg.AddError(loader.ErrFromNode(fmt.Errorf("field %s is part of OneOf constraint and must have omitempty tag", fieldName), structType))
+					ctx.pkg.AddError(loader.ErrFromNode(fmt.Errorf("field %s is part of OneOf constraint and must have omitempty or omitzero tag", fieldName), structType))
 					return props
 				}
 				props.Required = append(props.Required, fieldName)

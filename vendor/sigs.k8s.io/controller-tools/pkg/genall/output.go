@@ -130,10 +130,9 @@ func (o outputToStdout) Open(_ *loader.Package, _ string) (io.WriteCloser, error
 // OutputArtifacts outputs artifacts to different locations, depending on
 // whether they're package-associated or not.
 //
-// Non-package associated artifacts
-// are output to the Config directory, while package-associated ones are output
-// to their package's source files' directory, unless an alternate path is
-// specified in Code.
+// Non-package associated artifacts are output to the Config directory,
+// while package-associated ones are output to their package's source
+// files' directory, unless an alternate path is specified in Code.
 type OutputArtifacts struct {
 	// Config points to the directory to which to write configuration.
 	Config OutputToDirectory

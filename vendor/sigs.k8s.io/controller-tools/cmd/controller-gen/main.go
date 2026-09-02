@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package main
 
 import (
@@ -39,7 +40,7 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/webhook"
 )
 
-//go:generate go run ../helpgen/main.go paths=../../pkg/... generate:headerFile=../../boilerplate.go.txt,year=2019
+//go:generate go run ../helpgen/main.go paths=../../pkg/... generate:headerFile=../../hack/boilerplate/boilerplate.go.txt
 
 // Options are specified to controller-gen by turning generators and output rules into
 // markers, and then parsing them using the standard registry logic (without the "+").
@@ -210,8 +211,7 @@ func main() {
 	})
 
 	if err := cmd.Execute(); err != nil {
-		var errNoUsage noUsageError
-		if !errors.As(err, &errNoUsage) {
+		if _, ok := errors.AsType[noUsageError](err); !ok {
 			// print the usage unless we suppressed it
 			if err := cmd.Usage(); err != nil {
 				panic(err)
