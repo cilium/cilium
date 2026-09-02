@@ -71,7 +71,8 @@ func Register[Obj comparable](
 
 	idx := cfg.Table.PrimaryIndexer()
 	objectToKey := func(o any) index.Key {
-		return idx.ObjectToKey(o.(Obj))
+		key, _ := idx.ObjectToKey(o.(Obj))
+		return key
 	}
 	r := &reconciler[Obj]{
 		Params:               params,

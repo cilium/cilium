@@ -530,19 +530,23 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 						}
 
 						numUpserted++
-						inserted.Insert(string(indexer.ObjectToKey(obj)))
+						if key, exists := indexer.ObjectToKey(obj); exists {
+							inserted.Insert(string(key))
+						}
 					}
 				}
 			}
 
 			// Delete the remaining objects that we did not insert.
 			for obj := range queryAll(txn, table) {
-				if !inserted.Has(string(indexer.ObjectToKey(obj))) {
-					if _, _, err := table.Delete(txn, obj); err != nil {
-						r.log.Error("BUG: Delete failed", logfields.Error, err)
-						continue
+				if key, exists := indexer.ObjectToKey(obj); exists {
+					if !inserted.Has(string(key)) {
+						if _, _, err := table.Delete(txn, obj); err != nil {
+							r.log.Error("BUG: Delete failed", logfields.Error, err)
+							continue
+						}
+						numDeleted++
 					}
-					numDeleted++
 				}
 			}
 

@@ -43,22 +43,22 @@ func (a NetIPPrefixIndex[Obj]) QueryPrefix(prefix netip.Prefix) Query[Obj] {
 }
 
 // ObjectToKey implements Indexer.
-func (a NetIPPrefixIndex[Obj]) ObjectToKey(obj Obj) index.Key {
+func (a NetIPPrefixIndex[Obj]) ObjectToKey(obj Obj) (index.Key, bool) {
 	for prefix := range a.FromObject(obj) {
-		return lpm.NetIPPrefixToIndexKey(prefix)
+		return lpm.NetIPPrefixToIndexKey(prefix), true
 	}
-	return nil
+	return nil, false
 }
 
 // QueryFromObject implements Indexer.
-func (a NetIPPrefixIndex[Obj]) QueryFromObject(obj Obj) Query[Obj] {
+func (a NetIPPrefixIndex[Obj]) QueryFromObject(obj Obj) (Query[Obj], bool) {
 	for prefix := range a.FromObject(obj) {
 		return Query[Obj]{
 			index: a.Name,
 			key:   lpm.NetIPPrefixToIndexKey(prefix),
-		}
+		}, true
 	}
-	return Query[Obj]{}
+	return Query[Obj]{}, false
 }
 
 // fromString implements Indexer.
@@ -145,11 +145,11 @@ func (l LPMIndex[Obj]) indexName() string {
 	return l.Name
 }
 
-func (l LPMIndex[Obj]) ObjectToKey(obj Obj) index.Key {
+func (l LPMIndex[Obj]) ObjectToKey(obj Obj) (index.Key, bool) {
 	for key := range l.FromObject(obj) {
-		return key
+		return key, true
 	}
-	return nil
+	return nil, false
 }
 
 // Query constructs a query against the index with the given prefix. It returns
@@ -165,14 +165,14 @@ func (l LPMIndex[Obj]) Query(data []byte, prefixLen lpm.PrefixLen) (Query[Obj], 
 	}, nil
 }
 
-func (l LPMIndex[Obj]) QueryFromObject(obj Obj) Query[Obj] {
+func (l LPMIndex[Obj]) QueryFromObject(obj Obj) (Query[Obj], bool) {
 	for key, length := range l.FromObject(obj) {
 		return Query[Obj]{
 			index: l.Name,
 			key:   mustEncodeLPMKey(key, length),
-		}
+		}, true
 	}
-	return Query[Obj]{}
+	return Query[Obj]{}, false
 }
 
 func (l LPMIndex[Obj]) newTableIndex() tableIndex {
@@ -284,7 +284,7 @@ func (l lpmIndex) lowerBoundNextNoWatch(key index.Key) func() ([]byte, object, b
 }
 
 // objectToKey implements tableIndex.
-func (l lpmIndex) objectToKey(obj object) index.Key {
+func (l lpmIndex) objectToKey(obj object) (index.Key, bool) {
 	return l.objectToKeys(obj).First()
 }
 
@@ -445,7 +445,7 @@ func (l *lpmIndexTxn) notify() {
 }
 
 // objectToKey implements tableIndexTxn.
-func (l *lpmIndexTxn) objectToKey(obj object) index.Key {
+func (l *lpmIndexTxn) objectToKey(obj object) (index.Key, bool) {
 	return l.index.objectToKey(obj)
 }
 

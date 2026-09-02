@@ -294,7 +294,11 @@ func newGraveyardIndex(primaryIndex tableIndex) tableIndex {
 		tree: part.New[object](part.RootOnlyWatch),
 		partIndexTxn: partIndexTxn{
 			objectToKeys: func(obj object) index.KeySet {
-				return index.NewKeySet(primaryIndex.objectToKey(obj))
+				key, ok := primaryIndex.objectToKey(obj)
+				if !ok {
+					return index.KeySet{}
+				}
+				return index.NewKeySet(key)
 			},
 			unique: true,
 		},

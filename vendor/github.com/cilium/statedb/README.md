@@ -70,7 +70,7 @@ func (o *MyObject) TableRow() []string {
 var IDIndex = statedb.Index[*MyObject, uint32]{
   Name: "id",
   FromObject: func(obj *MyObject) index.KeySet {
-    return index.NewKeySet(index.Uint64(obj.ID))
+    return index.NewKeySet(index.Uint32(obj.ID))
   },
   FromKey: func(id uint32) index.Key {
     return index.Uint32(id)

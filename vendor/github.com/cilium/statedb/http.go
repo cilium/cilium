@@ -112,7 +112,9 @@ func (h dbHandler) query(w http.ResponseWriter, r *http.Request) {
 			Obj: obj.data,
 		})
 	}
-	runQuery(indexTxn, req.LowerBound, queryKey, onObject)
+	if err := runQuery(indexTxn, req.LowerBound, queryKey, onObject); err != nil {
+		return
+	}
 }
 
 type QueryRequest struct {
@@ -128,7 +130,7 @@ type QueryResponse struct {
 	Err string `json:"err,omitempty"`
 }
 
-func runQuery(reader tableIndexReader, lowerbound bool, queryKey index.Key, onObject func(object) error) {
+func runQuery(reader tableIndexReader, lowerbound bool, queryKey index.Key, onObject func(object) error) error {
 	var iter tableIndexIterator
 	if lowerbound {
 		iter = reader.lowerBoundNoWatch(queryKey)
@@ -137,9 +139,10 @@ func runQuery(reader tableIndexReader, lowerbound bool, queryKey index.Key, onOb
 	}
 	for _, obj := range iter.All {
 		if err := onObject(obj); err != nil {
-			panic(err)
+			return err
 		}
 	}
+	return nil
 }
 
 func (h dbHandler) changes(w http.ResponseWriter, r *http.Request) {

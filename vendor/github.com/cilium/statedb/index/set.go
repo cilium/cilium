@@ -13,7 +13,7 @@ func Set[T any](s part.Set[T]) KeySet {
 		return KeySet{}
 	case 1:
 		if v, ok := s.First(); ok {
-			return KeySet{head: toBytes(v)}
+			return NewKeySet(toBytes(v))
 		}
 		panic("BUG: Set.Len() == 1, but First returned nothing")
 	default:
