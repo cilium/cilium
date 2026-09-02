@@ -220,8 +220,8 @@ func newCmdClusterMeshPolicyDefaultClusterInspect() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&namespace, "namespace", "n", namespace, "Namespace used for listing resources")
-	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", allNamespaces, "If present, list the resources across all namespace. Namespace in current context or specified with --namespace is ignored.")
+	cmd.Flags().StringVarP(&namespace, "policy-namespace", "p", namespace, "Namespace used for listing policy resources")
+	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", allNamespaces, "If present, list the resources across all namespace. Namespace in current context or specified with --policy-namespace is ignored.")
 	cmd.Flags().StringVarP(&output, "output", "o", output, "Output format. One of: json, summary")
 
 	return cmd
