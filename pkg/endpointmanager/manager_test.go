@@ -126,6 +126,36 @@ func TestWaitForProxyCompletionsReturnsBlockingCompletionDetailsOnTimeout(t *tes
 	require.ErrorContains(t, err, "Waiting on "+blockingCompletionID)
 }
 
+func TestExposeAssignsLifecycleGeneration(t *testing.T) {
+	s := setupEndpointManagerSuite(t)
+	logger := hivetest.Logger(t)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+
+	newEndpoint := func(id int) *endpoint.Endpoint {
+		ep, err := endpoint.NewEndpointFromChangeModel(
+			makeTestEndpointParams(logger, s.repo),
+			nil,
+			&endpoint.FakeEndpointProxy{},
+			newTestEndpointModel(id, endpoint.StateReady),
+			nil,
+		)
+		require.NoError(t, err)
+		t.Cleanup(ep.Stop)
+		return ep
+	}
+
+	first := newEndpoint(1)
+	second := newEndpoint(2)
+	require.Zero(t, first.GetLifecycleGeneration())
+	require.Zero(t, second.GetLifecycleGeneration())
+
+	require.NoError(t, mgr.expose(first))
+	require.NoError(t, mgr.expose(second))
+	require.NotZero(t, first.GetLifecycleGeneration())
+	require.NotZero(t, second.GetLifecycleGeneration())
+	require.NotEqual(t, first.GetLifecycleGeneration(), second.GetLifecycleGeneration())
+}
+
 func TestLookup(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 

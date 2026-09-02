@@ -5,18 +5,58 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 	"net"
 
 	current "github.com/containernetworking/cni/pkg/types/100"
+	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/api/v1/models"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/ip"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/mac"
 )
 
-func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf *models.DaemonConfigurationStatus) error {
+func configureCloudInterfaces(ipam *models.IPAMResponse, mtu int) error {
+	if ipam == nil {
+		return fmt.Errorf("missing IPAM configuration")
+	}
+
+	configured := map[mac.MAC]struct{}{}
+	for _, address := range []*models.IPAMAddressResponse{ipam.IPv4, ipam.IPv6} {
+		// An absent gateway means that this response does not require host-side
+		// interface setup, matching the existing routing setup behavior.
+		if address == nil || !address.Gateway.IsValid() {
+			continue
+		}
+		if _, found := configured[address.MasterMac]; found {
+			continue
+		}
+
+		if err := configureCloudInterface(address.MasterMac, mtu); err != nil {
+			return err
+		}
+		configured[address.MasterMac] = struct{}{}
+	}
+	return nil
+}
+
+func configureCloudInterface(masterMAC mac.MAC, mtu int) error {
+	link, err := linkFromMac(masterMAC)
+	if err != nil {
+		return err
+	}
+	if err := netlink.LinkSetMTU(link, mtu); err != nil {
+		return fmt.Errorf("unable to change MTU of link %s to %d: %w", link.Attrs().Name, mtu, err)
+	}
+	if err := netlink.LinkSetUp(link); err != nil {
+		return fmt.Errorf("unable to set link %s up: %w", link.Attrs().Name, err)
+	}
+	return nil
+}
+
+func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf *models.DaemonConfigurationStatus) error {
 	if ipam == nil {
 		return fmt.Errorf("missing IPAM configuration")
 	}
@@ -57,14 +97,22 @@ func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.
 		masq = conf.MasqueradeProtocols.IPv6
 	}
 
+	options := []linuxrouting.RoutingInfoOption{
+		linuxrouting.WithCIDRsAndMasquerade(coalescedCIDRs, masq),
+		// Ensure CNI ADD can repair interface MTU and state after a transient
+		// setup failure before installing endpoint routing state.
+		linuxrouting.WithMTU(int(conf.DeviceMTU)),
+		linuxrouting.WithLinkState(true),
+	}
+	if conf.IpamMode == ipamOption.IPAMAzure {
+		options = append(options, linuxrouting.WithCompatEgressPriority())
+	}
+
 	routingInfo, err := linuxrouting.NewRoutingInfo(
-		logger,
 		ipam.Gateway.String(),
-		coalescedCIDRs,
 		ipam.MasterMac,
 		ipam.InterfaceNumber,
-		conf.IpamMode,
-		masq,
+		options...,
 	)
 	if err != nil {
 		return fmt.Errorf("unable to parse routing info: %w", err)
@@ -72,7 +120,6 @@ func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.
 
 	if err := routingInfo.Configure(
 		ip.AddrFromIP(ipConfig.Address.IP),
-		int(conf.DeviceMTU),
 		false,
 	); err != nil {
 		return fmt.Errorf("unable to install ip rules and routes: %w", err)

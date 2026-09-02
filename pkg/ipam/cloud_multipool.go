@@ -39,7 +39,7 @@ func (a *cloudMultiPoolAllocator) enrichResult(result *AllocationResult, err err
 	// The node is only read by the resolver, so the pointer is handed over
 	// as-is: the multi-pool manager replaces it wholesale on every update and
 	// deep-copies it before any mutation, so it is effectively immutable.
-	enriched, enrichErr := a.resolver.ResolveRoutingMetadata(a.manager.getNode(), result.IP, result.IPPoolName)
+	enriched, enrichErr := a.ResolveRoutingMetadata(result.IP, result.IPPoolName)
 	if enrichErr != nil {
 		// The underlying Allocate* call already reserved the IP in the
 		// allocator. Release it to avoid leaking the reservation when the
@@ -50,6 +50,10 @@ func (a *cloudMultiPoolAllocator) enrichResult(result *AllocationResult, err err
 		return nil, enrichErr
 	}
 	return enriched, nil
+}
+
+func (a *cloudMultiPoolAllocator) ResolveRoutingMetadata(addr netip.Addr, pool Pool) (*AllocationResult, error) {
+	return a.resolver.ResolveRoutingMetadata(a.manager.getNode(), addr, pool)
 }
 
 func (a *cloudMultiPoolAllocator) Allocate(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error) {

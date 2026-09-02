@@ -119,6 +119,7 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 		podIPPools:                params.PodIPPools,
 		onlyMasqueradeDefaultPool: params.OnlyMasqueradeDefaultPool,
 		cloudProviders:            params.CloudProviders,
+		restoreFinished:           make(chan struct{}),
 	}
 }
 
@@ -151,9 +152,11 @@ func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
 		}
 		if ipam.config.IPv6Enabled() {
 			ipam.ipv6Allocator = v6Allocator
+			ipam.ipv6RoutingMetadataResolver = v6Allocator
 		}
 		if ipam.config.IPv4Enabled() {
 			ipam.ipv4Allocator = v4Allocator
+			ipam.ipv4RoutingMetadataResolver = v4Allocator
 		}
 
 		return nil
@@ -212,11 +215,23 @@ func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
 	case ipamOption.IPAMCRD, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		ipam.logger.Info("Initializing CRD-based IPAM")
 		if ipam.config.IPv6Enabled() {
-			ipam.ipv6Allocator = newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
+			allocator := newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
+			ipam.ipv6Allocator = allocator
+			// Do not register AlibabaCloud as the IPv6 routing metadata resolver:
+			// it only supplies IPv4 metadata, so resolving an IPv6 endpoint for
+			// routing-rule reconciliation would fail.
+			if ipam.config.IPAMMode() == ipamOption.IPAMAzure {
+				ipam.ipv6RoutingMetadataResolver = allocator
+			}
 		}
 
 		if ipam.config.IPv4Enabled() {
-			ipam.ipv4Allocator = newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
+			allocator := newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
+			ipam.ipv4Allocator = allocator
+			if ipam.config.IPAMMode() == ipamOption.IPAMAzure ||
+				ipam.config.IPAMMode() == ipamOption.IPAMAlibabaCloud {
+				ipam.ipv4RoutingMetadataResolver = allocator
+			}
 		}
 	case ipamOption.IPAMDelegatedPlugin:
 		ipam.logger.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")

@@ -123,6 +123,9 @@ func (nsm *NetNSManager) Commands() map[string]script.Cmd {
 		"route/add":     routeAddCmd(nsm),
 		"route/replace": routeReplaceCmd(nsm),
 		"route/del":     routeDelCmd(nsm),
+		"rule/list":     ruleListCmd(nsm),
+		"rule/add":      ruleAddCmd(nsm),
+		"rule/del":      ruleDelCmd(nsm),
 		"sysctl/get":    sysctlGetCmd(nsm),
 		"sysctl/set":    sysctlSetCmd(nsm),
 	}
@@ -588,6 +591,333 @@ func addAddCmd(nsm *NetNSManager) script.Cmd {
 			}, err
 		},
 	)
+}
+
+func ruleFamily(value string, allowAll bool) (int, error) {
+	switch value {
+	case "ipv4":
+		return netlink.FAMILY_V4, nil
+	case "ipv6":
+		return netlink.FAMILY_V6, nil
+	case "all":
+		if allowAll {
+			return netlink.FAMILY_ALL, nil
+		}
+	}
+	valid := "'ipv4', 'ipv6'"
+	if allowAll {
+		valid += ", 'all'"
+	}
+	return 0, fmt.Errorf("invalid family %q: must be one of %s", value, valid)
+}
+
+func ruleTable(value string, allowAll bool) (int, error) {
+	switch value {
+	case "main":
+		return unix.RT_TABLE_MAIN, nil
+	case "local":
+		return unix.RT_TABLE_LOCAL, nil
+	case "default":
+		return unix.RT_TABLE_DEFAULT, nil
+	case "all":
+		if allowAll {
+			return unix.RT_TABLE_UNSPEC, nil
+		}
+	}
+
+	table, err := strconv.Atoi(value)
+	if err != nil {
+		valid := "'main', 'local', 'default'"
+		if allowAll {
+			valid += ", 'all'"
+		}
+		return 0, fmt.Errorf("invalid table %q: must be an integer or one of %s", value, valid)
+	}
+	return table, nil
+}
+
+func ruleProtocol(value string) (uint8, error) {
+	switch value {
+	case "kernel":
+		return unix.RTPROT_KERNEL, nil
+	case "static":
+		return unix.RTPROT_STATIC, nil
+	case "unspec":
+		return unix.RTPROT_UNSPEC, nil
+	}
+
+	protocol, err := strconv.ParseUint(value, 10, 8)
+	if err != nil {
+		return 0, fmt.Errorf("invalid protocol %q: must be an integer or one of 'kernel', 'static', 'unspec'", value)
+	}
+	return uint8(protocol), nil
+}
+
+func rulePrefix(value string) (*net.IPNet, error) {
+	if value == "all" {
+		return nil, nil
+	}
+
+	prefix, err := netlink.ParseIPNet(value)
+	if err != nil {
+		return nil, fmt.Errorf("invalid rule prefix %q: %w", value, err)
+	}
+	return prefix, nil
+}
+
+func ruleFlags(fs *pflag.FlagSet, family, table string) {
+	fs.String("netns", "", "Execute in the specified network namespace")
+	fs.String("family", family, "Address family: ipv4, ipv6, or all")
+	fs.String("from", "all", "Source prefix")
+	fs.String("to", "all", "Destination prefix")
+	fs.Int("priority", -1, "Rule priority")
+	fs.String("table", table, "Routing table")
+	fs.String("protocol", "unspec", "Rule protocol")
+}
+
+func ruleFromFlags(fs *pflag.FlagSet, allowAll bool) (*netlink.Rule, error) {
+	rule := netlink.NewRule()
+
+	family, err := fs.GetString("family")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get family flag: %w", err)
+	}
+	rule.Family, err = ruleFamily(family, allowAll)
+	if err != nil {
+		return nil, err
+	}
+
+	from, err := fs.GetString("from")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get from flag: %w", err)
+	}
+	rule.Src, err = rulePrefix(from)
+	if err != nil {
+		return nil, err
+	}
+
+	to, err := fs.GetString("to")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get to flag: %w", err)
+	}
+	rule.Dst, err = rulePrefix(to)
+	if err != nil {
+		return nil, err
+	}
+
+	rule.Priority, err = fs.GetInt("priority")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get priority flag: %w", err)
+	}
+
+	table, err := fs.GetString("table")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get table flag: %w", err)
+	}
+	rule.Table, err = ruleTable(table, allowAll)
+	if err != nil {
+		return nil, err
+	}
+
+	protocol, err := fs.GetString("protocol")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get protocol flag: %w", err)
+	}
+	rule.Protocol, err = ruleProtocol(protocol)
+	if err != nil {
+		return nil, err
+	}
+
+	return rule, nil
+}
+
+func ruleAddCmd(nsm *NetNSManager) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Add a policy routing rule",
+			Args:    "",
+			Flags: func(fs *pflag.FlagSet) {
+				ruleFlags(fs, "ipv4", "main")
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 0 {
+				return nil, script.ErrUsage
+			}
+
+			rule, err := ruleFromFlags(s.Flags, false)
+			if err != nil {
+				return nil, err
+			}
+
+			nsName, err := s.Flags.GetString("netns")
+			if err != nil {
+				return nil, fmt.Errorf("failed to get netns flag: %w", err)
+			}
+			if nsName == "" {
+				nsName = nsm.currentNamespaceName()
+			}
+
+			err = nsm.exec(nsName, func() error {
+				if err := netlink.RuleAdd(rule); err != nil {
+					return fmt.Errorf("failed to add rule: %w", err)
+				}
+				return nil
+			})
+			return nil, err
+		},
+	)
+}
+
+func ruleDelCmd(nsm *NetNSManager) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Delete a policy routing rule",
+			Args:    "",
+			Flags: func(fs *pflag.FlagSet) {
+				ruleFlags(fs, "ipv4", "main")
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 0 {
+				return nil, script.ErrUsage
+			}
+
+			rule, err := ruleFromFlags(s.Flags, false)
+			if err != nil {
+				return nil, err
+			}
+
+			nsName, err := s.Flags.GetString("netns")
+			if err != nil {
+				return nil, fmt.Errorf("failed to get netns flag: %w", err)
+			}
+			if nsName == "" {
+				nsName = nsm.currentNamespaceName()
+			}
+
+			err = nsm.exec(nsName, func() error {
+				if err := netlink.RuleDel(rule); err != nil {
+					return fmt.Errorf("failed to delete rule: %w", err)
+				}
+				return nil
+			})
+			return nil, err
+		},
+	)
+}
+
+func ruleListCmd(nsm *NetNSManager) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "List policy routing rules",
+			Args:    "",
+			Flags: func(fs *pflag.FlagSet) {
+				ruleFlags(fs, "all", "all")
+			},
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 0 {
+				return nil, script.ErrUsage
+			}
+
+			filter, err := ruleFromFlags(s.Flags, true)
+			if err != nil {
+				return nil, err
+			}
+
+			nsName, err := s.Flags.GetString("netns")
+			if err != nil {
+				return nil, fmt.Errorf("failed to get netns flag: %w", err)
+			}
+			if nsName == "" {
+				nsName = nsm.currentNamespaceName()
+			}
+
+			var output []string
+			err = nsm.exec(nsName, func() error {
+				rules, err := safenetlink.RuleList(filter.Family)
+				if err != nil {
+					return fmt.Errorf("failed to list rules: %w", err)
+				}
+
+				for _, rule := range rules {
+					if s.Flags.Changed("from") && !ruleSelectorEqual(rule.Src, filter.Src) {
+						continue
+					}
+					if s.Flags.Changed("to") && !ruleSelectorEqual(rule.Dst, filter.Dst) {
+						continue
+					}
+					if filter.Priority >= 0 && rule.Priority != filter.Priority {
+						continue
+					}
+					if s.Flags.Changed("table") && filter.Table != unix.RT_TABLE_UNSPEC && rule.Table != filter.Table {
+						continue
+					}
+					if s.Flags.Changed("protocol") && rule.Protocol != filter.Protocol {
+						continue
+					}
+
+					output = append(output, formatRule(rule))
+				}
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			slices.Sort(output)
+			return func(s *script.State) (stdout string, stderr string, err error) {
+				if len(output) == 0 {
+					return "", "", nil
+				}
+				return strings.Join(output, "\n") + "\n", "", nil
+			}, nil
+		},
+	)
+}
+
+func ruleSelectorEqual(a, b *net.IPNet) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.IP.Equal(b.IP) && slices.Equal(a.Mask, b.Mask)
+}
+
+func formatRule(rule netlink.Rule) string {
+	prefix := func(value *net.IPNet) string {
+		if value == nil {
+			return "all"
+		}
+		return value.String()
+	}
+	table := strconv.Itoa(rule.Table)
+	switch rule.Table {
+	case unix.RT_TABLE_MAIN:
+		table = "main"
+	case unix.RT_TABLE_LOCAL:
+		table = "local"
+	case unix.RT_TABLE_DEFAULT:
+		table = "default"
+	}
+	protocol := strconv.Itoa(int(rule.Protocol))
+	switch rule.Protocol {
+	case unix.RTPROT_KERNEL:
+		protocol = "kernel"
+	case unix.RTPROT_STATIC:
+		protocol = "static"
+	case unix.RTPROT_UNSPEC:
+		protocol = "unspec"
+	}
+
+	formatted := fmt.Sprintf("priority %d from %s to %s table %s protocol %s", rule.Priority, prefix(rule.Src), prefix(rule.Dst), table, protocol)
+	if rule.Mark != 0 {
+		formatted += fmt.Sprintf(" mark %#x", rule.Mark)
+	}
+	if rule.Mask != nil {
+		formatted += fmt.Sprintf(" mask %#x", *rule.Mask)
+	}
+	return formatted
 }
 
 func destinationString(via netlink.Destination) string {

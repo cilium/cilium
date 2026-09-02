@@ -56,8 +56,12 @@ type endpointManager struct {
 
 	health cell.Health
 
-	// mutex protects endpoints and endpointsAux
+	// mutex protects endpoints, endpointsAux, and nextLifecycleGeneration.
 	mutex lock.RWMutex
+
+	// nextLifecycleGeneration assigns a unique generation to each endpoint
+	// exposed during this manager's lifetime.
+	nextLifecycleGeneration uint64
 
 	// endpoints is the global list of endpoints indexed by ID. mutex must
 	// be held to read and write.
@@ -493,11 +497,11 @@ func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 
 	mgr.unexpose(ep)
 
-	// Guard the per-endpoint routing rule teardown against a stale delete. By
+	// Guard synchronous endpoint routing cleanup against a stale delete. By
 	// this point unexpose has removed ep from the IP index, so LookupIP returns
-	// nil when no one owns the IP (safe to delete our rules) and the new owner
-	// when the IP has already been reused (skip, deleting would strip its
-	// rules). It can never return ep itself.
+	// nil when no one owns the IP (safe to clean up) and the new owner when the
+	// IP has already been reused (skip, cleanup would disrupt its routing). It
+	// can never return ep itself.
 	conf.EndpointOwnsIP = func(ip netip.Addr) bool {
 		owner := mgr.LookupIP(ip)
 		return owner == nil || owner == ep
@@ -680,6 +684,8 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 	// Get a copy of the identifiers before exposing the endpoint
 	identifiers := ep.Identifiers()
 	ep.PolicyMapPressureUpdater = mgr.policyMapPressure
+	mgr.nextLifecycleGeneration++
+	ep.InitLifecycleGeneration(mgr.nextLifecycleGeneration)
 	ep.Start(newID)
 	mgr.mcastManager.AddAddress(ep.IPv6)
 	mgr.updateIDReferenceLocked(ep)
