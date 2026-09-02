@@ -1452,6 +1452,9 @@ data:
   {{- if (not (kindIs "invalid" .Values.dnsProxy.socketLingerTimeout)) }}
   dnsproxy-socket-linger-timeout: {{ .Values.dnsProxy.socketLingerTimeout | quote }}
   {{- end }}
+  {{- if .Values.dnsProxy.ttlBoundZones }}
+  tofqdns-ttl-bound-zones: {{ join " " .Values.dnsProxy.ttlBoundZones | quote }}
+  {{- end }}
   {{- if .Values.dnsProxy.dnsRejectResponseCode }}
   tofqdns-dns-reject-response-code: {{ .Values.dnsProxy.dnsRejectResponseCode | quote }}
   {{- end }}

@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -630,6 +631,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(option.ToFQDNsMaxIPsPerHost, defaults.ToFQDNsMaxIPsPerHost, "Maximum number of IPs to maintain per FQDN name for each endpoint")
 	option.BindEnv(vp, option.ToFQDNsMaxIPsPerHost)
 
+	flags.StringSlice(option.ToFQDNsTTLBoundZones, []string{}, "DNS zones whose names expire on their TTL instead of being deferred as zombies. An entry covers the zone and every name under it. Connections outliving the DNS TTL may be dropped")
+	option.BindEnv(vp, option.ToFQDNsTTLBoundZones)
+
 	flags.Bool(option.DNSPolicyUnloadOnShutdown, false, "Unload DNS policy rules on graceful shutdown")
 	option.BindEnv(vp, option.DNSPolicyUnloadOnShutdown)
 
@@ -866,6 +870,10 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	var debugDatapath bool
 
 	option.LogRegisteredSlogOptions(vp, logger)
+
+	if _, err := fqdn.ParseTTLBoundZones(option.Config.ToFQDNsTTLBoundZones); err != nil {
+		logging.Fatal(logger, fmt.Sprintf("Invalid --%s", option.ToFQDNsTTLBoundZones), logfields.Error, err)
+	}
 
 	for _, grp := range option.Config.DebugVerbose {
 		switch grp {
