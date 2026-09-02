@@ -56,6 +56,9 @@ linters:
             msg: Use ginkgos SpecContext or go testings t.Context instead
           - pattern: context.TODO
             msg: Use ginkgos SpecContext or go testings t.Context instead
+    goconst:
+      ignore-tests: true
+      min-occurrences: 5
     govet:
       disable:
         - fieldalignment
@@ -77,6 +80,8 @@ linters:
         - pkg: sigs.k8s.io/controller-runtime
           alias: ctrl
       no-unaliased: true
+    misspell:
+      mode: default
     modernize:
       disable:
         - omitzero

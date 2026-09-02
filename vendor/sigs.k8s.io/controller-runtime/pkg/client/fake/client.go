@@ -24,6 +24,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	/*
@@ -130,6 +131,7 @@ type ClientBuilder struct {
 	interceptorFuncs      *interceptor.Funcs
 	typeConverters        []managedfields.TypeConverter
 	returnManagedFields   bool
+	globalRVCounter       bool
 	isBuilt               bool
 
 	// indexes maps each GroupVersionKind (GVK) to the indexes registered for that GVK.
@@ -176,6 +178,15 @@ func (f *ClientBuilder) WithRuntimeObjects(initRuntimeObjs ...runtime.Object) *C
 // tracker.
 func (f *ClientBuilder) WithObjectTracker(ot testing.ObjectTracker) *ClientBuilder {
 	f.objectTracker = ot
+	return f
+}
+
+// WithGlobalResourceVersionCounter makes the client use a global counter for resourceVersions
+// rather than tracking them per object, mimicking what the apiserver does.
+//
+// Disabled by default.
+func (f *ClientBuilder) WithGlobalResourceVersionCounter() *ClientBuilder {
+	f.globalRVCounter = true
 	return f
 }
 
@@ -307,6 +318,9 @@ func (f *ClientBuilder) Build() client.WithWatch {
 		withStatusSubresource:         withStatusSubResource,
 		usesFieldManagedObjectTracker: usesFieldManagedObjectTracker,
 	}
+	if f.globalRVCounter {
+		tracker.resourceVersionCounter = &atomic.Uint64{}
+	}
 
 	for _, obj := range f.initObject {
 		if err := tracker.Add(obj); err != nil {
@@ -343,14 +357,15 @@ func (f *ClientBuilder) Build() client.WithWatch {
 
 const trackerAddResourceVersion = "999"
 
-// convertFromUnstructuredIfNecessary will convert runtime.Unstructured for a GVK that is recognized
-// by the schema into the whatever the schema produces with New() for said GVK.
+// convertFromUnstructuredOrPartialObjectMetaIfNecessary will convert runtime.Unstructured or metav1.PartialObjectMetadata
+// for a GVK that is recognized by the schema into the whatever the schema produces with New() for said GVK.
 // This is required because the tracker unconditionally saves on manipulations, but its List() implementation
 // tries to assign whatever it finds into a ListType it gets from schema.New() - Thus we have to ensure
 // we save as the very same type, otherwise subsequent List requests will fail.
-func convertFromUnstructuredIfNecessary(s *runtime.Scheme, o runtime.Object) (runtime.Object, error) {
-	u, isUnstructured := o.(runtime.Unstructured)
-	if !isUnstructured {
+func convertFromUnstructuredOrPartialObjectMetaIfNecessary(s *runtime.Scheme, o runtime.Object) (runtime.Object, error) {
+	_, isUnstructured := o.(runtime.Unstructured)
+	_, isPartial := o.(*metav1.PartialObjectMetadata)
+	if !isUnstructured && !isPartial {
 		return o, nil
 	}
 	gvk := o.GetObjectKind().GroupVersionKind()
@@ -362,16 +377,17 @@ func convertFromUnstructuredIfNecessary(s *runtime.Scheme, o runtime.Object) (ru
 	if err != nil {
 		return nil, fmt.Errorf("scheme recognizes %s but failed to produce an object for it: %w", gvk, err)
 	}
-	if _, isTypedUnstructured := typed.(runtime.Unstructured); isTypedUnstructured {
+	switch typed.(type) {
+	case runtime.Unstructured, *metav1.PartialObjectMetadata:
 		return o, nil
 	}
 
-	unstructuredSerialized, err := json.Marshal(u)
+	serialized, err := json.Marshal(o)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize %T: %w", unstructuredSerialized, err)
+		return nil, fmt.Errorf("failed to serialize %T: %w", o, err)
 	}
-	if err := json.Unmarshal(unstructuredSerialized, typed); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal the content of %T into %T: %w", u, typed, err)
+	if err := json.Unmarshal(serialized, typed); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal the content of %T into %T: %w", o, typed, err)
 	}
 
 	return typed, nil
@@ -858,7 +874,11 @@ func (c *fakeClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, 
 		return err
 	}
 
-	acJSON, err := json.Marshal(u)
+	return copyIntoApplyConfiguration(u, obj)
+}
+
+func copyIntoApplyConfiguration(from any, obj runtime.ApplyConfiguration) error {
+	acJSON, err := json.Marshal(from)
 	if err != nil {
 		return fmt.Errorf("failed to marshal patched object: %w", err)
 	}
@@ -942,7 +962,11 @@ func (c *fakeClient) patch(obj client.Object, patch client.Patch, opts ...client
 		if isApplyCreate {
 			// Overwrite it unconditionally, this matches the apiserver behavior
 			// which allows to set it on create, but will then ignore it.
-			obj.SetResourceVersion("1")
+			if c.tracker.resourceVersionCounter != nil {
+				obj.SetResourceVersion(c.tracker.nextResourceVersion())
+			} else {
+				obj.SetResourceVersion("1")
+			}
 		} else {
 			// SSA deletionTimestamp updates are silently ignored
 			obj.SetDeletionTimestamp(oldAccessor.GetDeletionTimestamp())
@@ -1331,10 +1355,6 @@ func (sw *fakeSubResourceClient) statusPatch(body client.Object, patch client.Pa
 }
 
 func (sw *fakeSubResourceClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error {
-	if sw.subResource != "status" {
-		return errors.New("fakeSubResourceClient currently only supports Apply for status subresource")
-	}
-
 	applyOpts := &client.SubResourceApplyOptions{}
 	applyOpts.ApplyOpts(opts)
 
@@ -1348,27 +1368,80 @@ func (sw *fakeSubResourceClient) Apply(ctx context.Context, obj runtime.ApplyCon
 		return fmt.Errorf("failed to unmarshal apply configuration: %w", err)
 	}
 
-	patchOpts := &client.SubResourcePatchOptions{}
-	patchOpts.Raw = applyOpts.AsPatchOptions()
-
-	if applyOpts.SubResourceBody != nil {
+	switch sw.subResource {
+	case subResourceScale:
+		if applyOpts.SubResourceBody == nil {
+			return apierrors.NewBadRequest("missing SubResourceBody")
+		}
 		subResourceBodySerialized, err := json.Marshal(applyOpts.SubResourceBody)
 		if err != nil {
 			return fmt.Errorf("failed to serialize subresource body: %w", err)
 		}
-		subResourceBody := &unstructured.Unstructured{}
-		if err := json.Unmarshal(subResourceBodySerialized, subResourceBody); err != nil {
+		scale := &autoscalingv1.Scale{}
+		if err := json.Unmarshal(subResourceBodySerialized, scale); err != nil {
 			return fmt.Errorf("failed to unmarshal subresource body: %w", err)
 		}
-		patchOpts.SubResourceBody = subResourceBody
-	}
 
-	return sw.Patch(ctx, u, &fakeApplyPatch{}, patchOpts)
+		sw.client.schemeLock.RLock()
+		target, err := sw.client.scheme.New(u.GroupVersionKind())
+		sw.client.schemeLock.RUnlock()
+		if err != nil {
+			return err
+		}
+		targetObj, isObject := target.(client.Object)
+		if !isObject {
+			return fmt.Errorf("%T is not a client.Object", target)
+		}
+
+		if err := sw.client.Get(ctx, client.ObjectKeyFromObject(u), targetObj); err != nil {
+			return err
+		}
+		if err := applyScale(targetObj, scale); err != nil {
+			return err
+		}
+		if err := sw.client.update(targetObj, false, &client.UpdateOptions{FieldManager: applyOpts.FieldManager}); err != nil {
+			return err
+		}
+
+		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(targetObj)
+		if err != nil {
+			return fmt.Errorf("failed to convert %T to unstructured: %w", targetObj, err)
+		}
+		result := &unstructured.Unstructured{Object: content}
+		result.SetGroupVersionKind(u.GroupVersionKind())
+
+		return copyIntoApplyConfiguration(result, obj)
+	case "status":
+		patchOpts := &client.SubResourcePatchOptions{}
+		patchOpts.Raw = applyOpts.AsPatchOptions()
+
+		result := u
+		if applyOpts.SubResourceBody != nil {
+			subResourceBodySerialized, err := json.Marshal(applyOpts.SubResourceBody)
+			if err != nil {
+				return fmt.Errorf("failed to serialize subresource body: %w", err)
+			}
+			subResourceBody := &unstructured.Unstructured{}
+			if err := json.Unmarshal(subResourceBodySerialized, subResourceBody); err != nil {
+				return fmt.Errorf("failed to unmarshal subresource body: %w", err)
+			}
+			patchOpts.SubResourceBody = subResourceBody
+			result = subResourceBody
+		}
+
+		if err := sw.Patch(ctx, u, &fakeApplyPatch{}, patchOpts); err != nil {
+			return err
+		}
+
+		return copyIntoApplyConfiguration(result, obj)
+	default:
+		return errors.New("fakeSubResourceClient currently only supports Apply for status and scale subresource")
+	}
 }
 
 func allowsUnconditionalUpdate(gvk schema.GroupVersionKind) bool {
 	switch gvk.Group {
-	case "apps":
+	case "apps": //nolint:goconst
 		switch gvk.Kind {
 		case "ControllerRevision", "DaemonSet", "Deployment", "ReplicaSet", "StatefulSet":
 			return true
@@ -1526,6 +1599,24 @@ func getSingleOrZeroOptions[T any](opts []T) (opt T, err error) {
 
 func extractScale(obj client.Object) (*autoscalingv1.Scale, error) {
 	switch obj := obj.(type) {
+	case *unstructured.Unstructured:
+		var typed client.Object
+		switch obj.GroupVersionKind() {
+		case appsv1.SchemeGroupVersion.WithKind("Deployment"):
+			typed = &appsv1.Deployment{}
+		case appsv1.SchemeGroupVersion.WithKind("ReplicaSet"):
+			typed = &appsv1.ReplicaSet{}
+		case appsv1.SchemeGroupVersion.WithKind("StatefulSet"):
+			typed = &appsv1.StatefulSet{}
+		case corev1.SchemeGroupVersion.WithKind("ReplicationController"):
+			typed = &corev1.ReplicationController{}
+		default:
+			return nil, fmt.Errorf("scale subresource for resource %T is not implemented", obj)
+		}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, typed); err != nil {
+			return nil, err
+		}
+		return extractScale(typed)
 	case *appsv1.Deployment:
 		var replicas int32 = 1
 		if obj.Spec.Replicas != nil {
@@ -1630,6 +1721,16 @@ func extractScale(obj client.Object) (*autoscalingv1.Scale, error) {
 
 func applyScale(obj client.Object, scale *autoscalingv1.Scale) error {
 	switch obj := obj.(type) {
+	case *unstructured.Unstructured:
+		switch obj.GroupVersionKind() {
+		case appsv1.SchemeGroupVersion.WithKind("Deployment"),
+			appsv1.SchemeGroupVersion.WithKind("ReplicaSet"),
+			appsv1.SchemeGroupVersion.WithKind("StatefulSet"),
+			corev1.SchemeGroupVersion.WithKind("ReplicationController"):
+			return unstructured.SetNestedField(obj.Object, int64(scale.Spec.Replicas), "spec", "replicas")
+		default:
+			return fmt.Errorf("scale subresource for resource %T is not implemented", obj)
+		}
 	case *appsv1.Deployment:
 		obj.Spec.Replicas = new(scale.Spec.Replicas)
 	case *appsv1.ReplicaSet:
@@ -1645,12 +1746,13 @@ func applyScale(obj client.Object, scale *autoscalingv1.Scale) error {
 	return nil
 }
 
-// AddIndex adds an index to a fake client. It will panic if used with a client that is not a fake client.
+// AddIndex adds an index to a fake client. It will panic if used with a client that is not a fake client,
+// or a wrapper around one, such as the client returned by ClientBuilder.WithInterceptorFuncs.
 // It will error if there is already an index for given object with the same name as field.
 //
 // It can be used to test code that adds indexes to the cache at runtime.
 func AddIndex(c client.Client, obj runtime.Object, field string, extractValue client.IndexerFunc) error {
-	fakeClient, isFakeClient := c.(*fakeClient)
+	fakeClient, isFakeClient := unwrapFakeClient(c)
 	if !isFakeClient {
 		panic("AddIndex can only be used with a fake client")
 	}
@@ -1677,6 +1779,21 @@ func AddIndex(c client.Client, obj runtime.Object, field string, extractValue cl
 	fakeClient.indexes[gvk][field] = extractValue
 
 	return nil
+}
+
+// unwrapFakeClient returns the *fakeClient backing c, unwrapping any clients that wrap it, such as the
+// interceptor client returned by ClientBuilder.WithInterceptorFuncs.
+func unwrapFakeClient(c client.Client) (*fakeClient, bool) {
+	for {
+		if fc, ok := c.(*fakeClient); ok {
+			return fc, true
+		}
+		unwrapper, ok := c.(interface{ Unwrap() client.WithWatch })
+		if !ok {
+			return nil, false
+		}
+		c = unwrapper.Unwrap()
+	}
 }
 
 func (c *fakeClient) addToSchemeIfUnknownAndUnstructuredOrPartial(obj runtime.Object) error {

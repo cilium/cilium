@@ -328,7 +328,7 @@ const (
 // to get access to a particular ObjectMeta schema without knowing the details of the version.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PartialObjectMetadata struct {
-	TypeMeta `json:",inline"`
+	TypeMeta `json:""`
 	// Standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
@@ -338,7 +338,7 @@ type PartialObjectMetadata struct {
 // PartialObjectMetadataList contains a list of objects containing only their metadata
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PartialObjectMetadataList struct {
-	TypeMeta `json:",inline"`
+	TypeMeta `json:""`
 	// Standard list metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	// +optional

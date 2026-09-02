@@ -24,12 +24,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/tools/record"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	intrec "sigs.k8s.io/controller-runtime/pkg/internal/recorder"
+	"sigs.k8s.io/controller-runtime/pkg/recorder"
 )
 
 type cluster struct {
@@ -88,7 +88,7 @@ func (c *cluster) GetEventRecorderFor(name string) record.EventRecorder {
 	return c.recorderProvider.GetEventRecorderFor(name)
 }
 
-func (c *cluster) GetEventRecorder(name string) events.EventRecorder {
+func (c *cluster) GetEventRecorder(name string) recorder.EventRecorder {
 	return c.recorderProvider.GetEventRecorder(name)
 }
 

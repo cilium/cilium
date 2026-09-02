@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumEgressGatewayPolicyInformer provides access to a shared informer and lister for
-// CiliumEgressGatewayPolicies.
+// CiliumEgressGatewayPolicies. Prefer using the type-safe variant (see [TypedCiliumEgressGatewayPolicyInformer]).
 type CiliumEgressGatewayPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2.CiliumEgressGatewayPolicyLister
 }
+
+// TypedCiliumEgressGatewayPolicyInformer provides access to a shared informer and lister for
+// CiliumEgressGatewayPolicies, including the type-safe TypedInformer variant.
+// It is a superset of CiliumEgressGatewayPolicyInformer.
+type TypedCiliumEgressGatewayPolicyInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumEgressGatewayPolicyIndexInformer
+	Lister() ciliumiov2.CiliumEgressGatewayPolicyLister
+}
+
+// CiliumEgressGatewayPolicyIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumEgressGatewayPolicyIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2.CiliumEgressGatewayPolicy]
+
+// CiliumEgressGatewayPolicyHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumEgressGatewayPolicy.
+type CiliumEgressGatewayPolicyHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2.CiliumEgressGatewayPolicy]
+
+// CiliumEgressGatewayPolicyDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumEgressGatewayPolicy.
+type CiliumEgressGatewayPolicyDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2.CiliumEgressGatewayPolicy]
+
+// CiliumEgressGatewayPolicyFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumEgressGatewayPolicy.
+type CiliumEgressGatewayPolicyFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2.CiliumEgressGatewayPolicy]
+
+// CiliumEgressGatewayPolicyIndexers is a specialization of [cache.TypedIndexers] for CiliumEgressGatewayPolicy.
+type CiliumEgressGatewayPolicyIndexers = cache.TypedIndexers[*apisciliumiov2.CiliumEgressGatewayPolicy]
+
+// DeletedCiliumEgressGatewayPolicy is a specialization of [cache.DeletedObject] for CiliumEgressGatewayPolicy.
+type DeletedCiliumEgressGatewayPolicy = cache.DeletedObject[*apisciliumiov2.CiliumEgressGatewayPolicy]
 
 type ciliumEgressGatewayPolicyInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumEgressGatewayPolicyInformer struct {
 // NewCiliumEgressGatewayPolicyInformer constructs a new informer for CiliumEgressGatewayPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumEgressGatewayPolicyInformer]).
 func NewCiliumEgressGatewayPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumEgressGatewayPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumEgressGatewayPolicyInformer constructs a new informer for CiliumEgressGatewayPolicy type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumEgressGatewayPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumEgressGatewayPolicyIndexers) CiliumEgressGatewayPolicyIndexInformer {
+	return NewTypedCiliumEgressGatewayPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumEgressGatewayPolicyInformer constructs a new informer for CiliumEgressGatewayPolicy type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumEgressGatewayPolicyInformer]).
 func NewFilteredCiliumEgressGatewayPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumEgressGatewayPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumEgressGatewayPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumEgressGatewayPolicyInformer constructs a new informer for CiliumEgressGatewayPolicy type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumEgressGatewayPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumEgressGatewayPolicyIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumEgressGatewayPolicyIndexInformer {
+	return NewTypedCiliumEgressGatewayPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumEgressGatewayPolicyInformerWithOptions constructs a new informer for CiliumEgressGatewayPolicy type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumEgressGatewayPolicyInformerWithOptions]).
 func NewCiliumEgressGatewayPolicyInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumEgressGatewayPolicyInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumEgressGatewayPolicyInformerWithOptions constructs a new informer for CiliumEgressGatewayPolicy type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumEgressGatewayPolicyInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumEgressGatewayPolicyIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumegressgatewaypolicys"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumEgressGatewayPolicy](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumEgressGatewayPolicyInformerWithOptions(client versioned.Interface,
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumEgressGatewayPolicyInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumEgressGatewayPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumEgressGatewayPolicyInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumEgressGatewayPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2.CiliumEgressGatewayPolicy{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumEgressGatewayPolicyInformer) TypedInformer() CiliumEgressGatewayPolicyIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumEgressGatewayPolicy](f.factory.InformerFor(&apisciliumiov2.CiliumEgressGatewayPolicy{}, f.defaultInformer))
 }
 
 func (f *ciliumEgressGatewayPolicyInformer) Lister() ciliumiov2.CiliumEgressGatewayPolicyLister {
 	return ciliumiov2.NewCiliumEgressGatewayPolicyLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumEgressGatewayPolicyInformer converts an untyped informer into a TypedCiliumEgressGatewayPolicyInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumEgressGatewayPolicy. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumEgressGatewayPolicyInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumEgressGatewayPolicyInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumEgressGatewayPolicyInformer(informer CiliumEgressGatewayPolicyInformer) TypedCiliumEgressGatewayPolicyInformer {
+	if informer, ok := informer.(TypedCiliumEgressGatewayPolicyInformer); ok {
+		return informer
+	}
+	return &ciliumEgressGatewayPolicyTypedInformerAdapter{informer}
+}
+
+type ciliumEgressGatewayPolicyTypedInformerAdapter struct {
+	CiliumEgressGatewayPolicyInformer
+}
+
+func (a *ciliumEgressGatewayPolicyTypedInformerAdapter) TypedInformer() CiliumEgressGatewayPolicyIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumEgressGatewayPolicy](a.Informer())
+}
+
+// ToCiliumEgressGatewayPolicyIndexInformer converts an untyped informer into a CiliumEgressGatewayPolicyIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumEgressGatewayPolicy. If that is not the case, calling type-safe methods of the returned
+// CiliumEgressGatewayPolicyIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumEgressGatewayPolicyIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumEgressGatewayPolicyIndexInformer(informer cache.SharedIndexInformer) CiliumEgressGatewayPolicyIndexInformer {
+	if informer, ok := informer.(CiliumEgressGatewayPolicyIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumEgressGatewayPolicy](informer)
 }

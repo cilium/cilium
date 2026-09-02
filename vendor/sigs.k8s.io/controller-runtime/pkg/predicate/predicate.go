@@ -30,6 +30,9 @@ import (
 var log = logf.RuntimeLog.WithName("predicate").WithName("eventFilters")
 
 // Predicate filters events before enqueuing the keys.
+//
+// NOTE: This does not affect what the cache stores. That is configured via
+// cache.Options, which are global to all users of the cache.
 type Predicate = TypedPredicate[client.Object]
 
 // TypedPredicate filters events before enqueuing the keys.
@@ -417,7 +420,7 @@ func LabelSelectorPredicate(s metav1.LabelSelector) (Predicate, error) {
 }
 
 func isNil(arg any) bool {
-	if v := reflect.ValueOf(arg); !v.IsValid() || ((v.Kind() == reflect.Ptr ||
+	if v := reflect.ValueOf(arg); !v.IsValid() || ((v.Kind() == reflect.Pointer ||
 		v.Kind() == reflect.Interface ||
 		v.Kind() == reflect.Slice ||
 		v.Kind() == reflect.Map ||

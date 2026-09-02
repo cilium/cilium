@@ -45,7 +45,26 @@ type TypedOptions[request comparable] struct {
 	// Defaults to false if Controller.SkipNameValidation setting from the Manager is also unset.
 	SkipNameValidation *bool
 
-	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run. Defaults to 1.
+	// MaxConcurrentReconciles is the maximum number of concurrent reconciliations
+	// that can be run. Defaults to 1.
+	//
+	// This value controls the number of worker goroutines that process items from
+	// the controller's workqueue. Increasing it allows different queue items to be
+	// reconciled in parallel, which can improve throughput when a controller manages
+	// many objects or when reconciliation involves slow operations such as external
+	// API calls.
+	//
+	// The workqueue ensures that the same item is not processed by multiple
+	// workers at the same time. If the same item is added again while it is being
+	// processed, it is processed again only after the current reconciliation
+	// finishes. For the default reconcile.Request type, the item key is the object's
+	// namespace/name.
+	//
+	// This option can also be configured at the manager level via
+	// config.Controller.MaxConcurrentReconciles or per GroupKind via
+	// config.Controller.GroupKindConcurrency (applied when using the builder
+	// utilities and no per-controller value is set). Per-controller values
+	// take precedence.
 	MaxConcurrentReconciles int
 
 	// CacheSyncTimeout refers to the time limit set to wait for syncing caches.

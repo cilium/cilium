@@ -48,7 +48,7 @@ var (
 		Subsystem: WorkQueueSubsystem,
 		Name:      DepthKey,
 		Help:      "Current depth of workqueue by workqueue and priority",
-	}, []string{"name", "controller", "priority"})
+	}, []string{"name", "controller", "priority"}) //nolint:goconst
 
 	adds = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Subsystem: WorkQueueSubsystem,

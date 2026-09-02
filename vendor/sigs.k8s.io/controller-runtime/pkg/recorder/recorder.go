@@ -25,12 +25,27 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
+// EventRecorder combines both events.EventRecorder and events.AnnotatedEventRecorder
+// so that callers only need a single recorder to emit both regular and annotated events.
+type EventRecorder interface {
+	events.EventRecorder
+	events.AnnotatedEventRecorder
+}
+
 // Provider knows how to generate new event recorders with given name.
 type Provider interface {
 	// GetEventRecorderFor returns an EventRecorder for the old events API.
 	//
 	// Deprecated: this uses the old events API and will be removed in a future release. Please use GetEventRecorder instead.
 	GetEventRecorderFor(name string) record.EventRecorder
-	// GetEventRecorder returns a EventRecorder with given name.
-	GetEventRecorder(name string) events.EventRecorder
+	// GetEventRecorder returns an EventRecorder with given name.
+	//
+	// The name is used as the reportingController of events.k8s.io/v1 Events
+	// and must be a valid Kubernetes qualified name. client-go derives the
+	// reportingInstance by appending "-" and the current hostname to
+	// reportingController. reportingInstance must be no more than 128
+	// characters, so callers should ensure that len(name) + 1 + len(hostname)
+	// is at most 128.
+	// The returned recorder supports both Eventf and AnnotatedEventf.
+	GetEventRecorder(name string) EventRecorder
 }

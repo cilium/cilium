@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumEndpointSliceInformer provides access to a shared informer and lister for
-// CiliumEndpointSlices.
+// CiliumEndpointSlices. Prefer using the type-safe variant (see [TypedCiliumEndpointSliceInformer]).
 type CiliumEndpointSliceInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2alpha1.CiliumEndpointSliceLister
 }
+
+// TypedCiliumEndpointSliceInformer provides access to a shared informer and lister for
+// CiliumEndpointSlices, including the type-safe TypedInformer variant.
+// It is a superset of CiliumEndpointSliceInformer.
+type TypedCiliumEndpointSliceInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumEndpointSliceIndexInformer
+	Lister() ciliumiov2alpha1.CiliumEndpointSliceLister
+}
+
+// CiliumEndpointSliceIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumEndpointSliceIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumEndpointSlice]
+
+// CiliumEndpointSliceHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumEndpointSlice.
+type CiliumEndpointSliceHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2alpha1.CiliumEndpointSlice]
+
+// CiliumEndpointSliceDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumEndpointSlice.
+type CiliumEndpointSliceDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2alpha1.CiliumEndpointSlice]
+
+// CiliumEndpointSliceFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumEndpointSlice.
+type CiliumEndpointSliceFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2alpha1.CiliumEndpointSlice]
+
+// CiliumEndpointSliceIndexers is a specialization of [cache.TypedIndexers] for CiliumEndpointSlice.
+type CiliumEndpointSliceIndexers = cache.TypedIndexers[*apisciliumiov2alpha1.CiliumEndpointSlice]
+
+// DeletedCiliumEndpointSlice is a specialization of [cache.DeletedObject] for CiliumEndpointSlice.
+type DeletedCiliumEndpointSlice = cache.DeletedObject[*apisciliumiov2alpha1.CiliumEndpointSlice]
 
 type ciliumEndpointSliceInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumEndpointSliceInformer struct {
 // NewCiliumEndpointSliceInformer constructs a new informer for CiliumEndpointSlice type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumEndpointSliceInformer]).
 func NewCiliumEndpointSliceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumEndpointSliceInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumEndpointSliceInformer constructs a new informer for CiliumEndpointSlice type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumEndpointSliceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumEndpointSliceIndexers) CiliumEndpointSliceIndexInformer {
+	return NewTypedCiliumEndpointSliceInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumEndpointSliceInformer constructs a new informer for CiliumEndpointSlice type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumEndpointSliceInformer]).
 func NewFilteredCiliumEndpointSliceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumEndpointSliceInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumEndpointSliceInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumEndpointSliceInformer constructs a new informer for CiliumEndpointSlice type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumEndpointSliceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumEndpointSliceIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumEndpointSliceIndexInformer {
+	return NewTypedCiliumEndpointSliceInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumEndpointSliceInformerWithOptions constructs a new informer for CiliumEndpointSlice type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumEndpointSliceInformerWithOptions]).
 func NewCiliumEndpointSliceInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumEndpointSliceInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumEndpointSliceInformerWithOptions constructs a new informer for CiliumEndpointSlice type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumEndpointSliceInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumEndpointSliceIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliumendpointslices"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumEndpointSlice](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumEndpointSliceInformerWithOptions(client versioned.Interface, optio
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumEndpointSliceInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumEndpointSliceInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumEndpointSliceInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumEndpointSliceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2alpha1.CiliumEndpointSlice{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumEndpointSliceInformer) TypedInformer() CiliumEndpointSliceIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumEndpointSlice](f.factory.InformerFor(&apisciliumiov2alpha1.CiliumEndpointSlice{}, f.defaultInformer))
 }
 
 func (f *ciliumEndpointSliceInformer) Lister() ciliumiov2alpha1.CiliumEndpointSliceLister {
 	return ciliumiov2alpha1.NewCiliumEndpointSliceLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumEndpointSliceInformer converts an untyped informer into a TypedCiliumEndpointSliceInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumEndpointSlice. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumEndpointSliceInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumEndpointSliceInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumEndpointSliceInformer(informer CiliumEndpointSliceInformer) TypedCiliumEndpointSliceInformer {
+	if informer, ok := informer.(TypedCiliumEndpointSliceInformer); ok {
+		return informer
+	}
+	return &ciliumEndpointSliceTypedInformerAdapter{informer}
+}
+
+type ciliumEndpointSliceTypedInformerAdapter struct {
+	CiliumEndpointSliceInformer
+}
+
+func (a *ciliumEndpointSliceTypedInformerAdapter) TypedInformer() CiliumEndpointSliceIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumEndpointSlice](a.Informer())
+}
+
+// ToCiliumEndpointSliceIndexInformer converts an untyped informer into a CiliumEndpointSliceIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumEndpointSlice. If that is not the case, calling type-safe methods of the returned
+// CiliumEndpointSliceIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumEndpointSliceIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumEndpointSliceIndexInformer(informer cache.SharedIndexInformer) CiliumEndpointSliceIndexInformer {
+	if informer, ok := informer.(CiliumEndpointSliceIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumEndpointSlice](informer)
 }

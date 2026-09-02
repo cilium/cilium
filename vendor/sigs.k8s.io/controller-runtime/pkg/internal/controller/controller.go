@@ -58,6 +58,7 @@ type Options[request comparable] struct {
 	NewQueue func(controllerName string, rateLimiter workqueue.TypedRateLimiter[request]) workqueue.TypedRateLimitingInterface[request]
 
 	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run. Defaults to 1.
+	// See controller.TypedOptions.MaxConcurrentReconciles for full documentation.
 	MaxConcurrentReconciles int
 
 	// CacheSyncTimeout refers to the time limit set on waiting for cache to sync
@@ -96,7 +97,8 @@ type Controller[request comparable] struct {
 	// Name is used to uniquely identify a Controller in tracing, logging and monitoring.  Name is required.
 	Name string
 
-	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run. Defaults to 1.
+	// MaxConcurrentReconciles is the number of worker goroutines spawned to process work queue items.
+	// See controller.TypedOptions.MaxConcurrentReconciles for full documentation.
 	MaxConcurrentReconciles int
 
 	// Reconciler is a function that can be called at any time with the Name / Namespace of an object and
@@ -277,6 +279,7 @@ func (c *Controller[request]) Start(ctx context.Context) error {
 	// but lock outside to get proper handling of the queue shutdown
 	c.mu.Lock()
 	if c.Started {
+		c.mu.Unlock()
 		return errors.New("controller was started more than once. This is likely to be caused by being added to a manager multiple times")
 	}
 

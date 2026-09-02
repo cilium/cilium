@@ -25,7 +25,11 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/connrotation"
 	mcsapi_clientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
+	mcsapi_v1alpha1 "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
+	mcsapi_v1beta1 "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1beta1"
 	policy_clientset "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned"
+	policy_v1alpha1 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
+	policy_v1alpha2 "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2"
 
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -76,13 +80,34 @@ type (
 	PolicyClientset     = policy_clientset.Clientset
 )
 
+// mcsAPIInterface and policyInterface mirror the upstream clientset interfaces
+// without their Discovery() method. The mcs-api and network-policy-api clientsets
+// are generated in their own repositories and vendored pre-generated, and their
+// code-generator predates the change that widened Discovery() to return a
+// discovery.DiscoveryInterfaces: they still return a discovery.DiscoveryInterface,
+// while the clientsets generated from this repository do not. Embedding the
+// upstream interfaces as-is would therefore declare Discovery() twice with
+// conflicting signatures. Drop these mirrors once both projects regenerate their
+// clientsets.
+type (
+	mcsAPIInterface interface {
+		MulticlusterV1alpha1() mcsapi_v1alpha1.MulticlusterV1alpha1Interface
+		MulticlusterV1beta1() mcsapi_v1beta1.MulticlusterV1beta1Interface
+	}
+
+	policyInterface interface {
+		PolicyV1alpha1() policy_v1alpha1.PolicyV1alpha1Interface
+		PolicyV1alpha2() policy_v1alpha2.PolicyV1alpha2Interface
+	}
+)
+
 // Clientset is a composition of the different client sets used by Cilium.
 type Clientset interface {
-	mcsapi_clientset.Interface
+	mcsAPIInterface
 	kubernetes.Interface
 	apiext_clientset.Interface
 	cilium_clientset.Interface
-	policy_clientset.Interface
+	policyInterface
 	dynamic.Interface
 	Getters
 
@@ -231,7 +256,7 @@ func (c *compositeClientset) Slim() slim_clientset.Interface {
 	return c.slim
 }
 
-func (c *compositeClientset) Discovery() discovery.DiscoveryInterface {
+func (c *compositeClientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.KubernetesClientset.Discovery()
 }
 

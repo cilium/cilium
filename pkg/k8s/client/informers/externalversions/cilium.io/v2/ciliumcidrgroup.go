@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumCIDRGroupInformer provides access to a shared informer and lister for
-// CiliumCIDRGroups.
+// CiliumCIDRGroups. Prefer using the type-safe variant (see [TypedCiliumCIDRGroupInformer]).
 type CiliumCIDRGroupInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2.CiliumCIDRGroupLister
 }
+
+// TypedCiliumCIDRGroupInformer provides access to a shared informer and lister for
+// CiliumCIDRGroups, including the type-safe TypedInformer variant.
+// It is a superset of CiliumCIDRGroupInformer.
+type TypedCiliumCIDRGroupInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumCIDRGroupIndexInformer
+	Lister() ciliumiov2.CiliumCIDRGroupLister
+}
+
+// CiliumCIDRGroupIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumCIDRGroupIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2.CiliumCIDRGroup]
+
+// CiliumCIDRGroupHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumCIDRGroup.
+type CiliumCIDRGroupHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2.CiliumCIDRGroup]
+
+// CiliumCIDRGroupDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumCIDRGroup.
+type CiliumCIDRGroupDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2.CiliumCIDRGroup]
+
+// CiliumCIDRGroupFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumCIDRGroup.
+type CiliumCIDRGroupFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2.CiliumCIDRGroup]
+
+// CiliumCIDRGroupIndexers is a specialization of [cache.TypedIndexers] for CiliumCIDRGroup.
+type CiliumCIDRGroupIndexers = cache.TypedIndexers[*apisciliumiov2.CiliumCIDRGroup]
+
+// DeletedCiliumCIDRGroup is a specialization of [cache.DeletedObject] for CiliumCIDRGroup.
+type DeletedCiliumCIDRGroup = cache.DeletedObject[*apisciliumiov2.CiliumCIDRGroup]
 
 type ciliumCIDRGroupInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumCIDRGroupInformer struct {
 // NewCiliumCIDRGroupInformer constructs a new informer for CiliumCIDRGroup type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumCIDRGroupInformer]).
 func NewCiliumCIDRGroupInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumCIDRGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumCIDRGroupInformer constructs a new informer for CiliumCIDRGroup type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumCIDRGroupInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumCIDRGroupIndexers) CiliumCIDRGroupIndexInformer {
+	return NewTypedCiliumCIDRGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumCIDRGroupInformer constructs a new informer for CiliumCIDRGroup type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumCIDRGroupInformer]).
 func NewFilteredCiliumCIDRGroupInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumCIDRGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumCIDRGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumCIDRGroupInformer constructs a new informer for CiliumCIDRGroup type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumCIDRGroupInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumCIDRGroupIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumCIDRGroupIndexInformer {
+	return NewTypedCiliumCIDRGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumCIDRGroupInformerWithOptions constructs a new informer for CiliumCIDRGroup type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumCIDRGroupInformerWithOptions]).
 func NewCiliumCIDRGroupInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumCIDRGroupInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumCIDRGroupInformerWithOptions constructs a new informer for CiliumCIDRGroup type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumCIDRGroupInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumCIDRGroupIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumcidrgroups"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumCIDRGroup](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumCIDRGroupInformerWithOptions(client versioned.Interface, options i
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumCIDRGroupInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumCIDRGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumCIDRGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumCIDRGroupInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2.CiliumCIDRGroup{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumCIDRGroupInformer) TypedInformer() CiliumCIDRGroupIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumCIDRGroup](f.factory.InformerFor(&apisciliumiov2.CiliumCIDRGroup{}, f.defaultInformer))
 }
 
 func (f *ciliumCIDRGroupInformer) Lister() ciliumiov2.CiliumCIDRGroupLister {
 	return ciliumiov2.NewCiliumCIDRGroupLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumCIDRGroupInformer converts an untyped informer into a TypedCiliumCIDRGroupInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumCIDRGroup. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumCIDRGroupInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumCIDRGroupInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumCIDRGroupInformer(informer CiliumCIDRGroupInformer) TypedCiliumCIDRGroupInformer {
+	if informer, ok := informer.(TypedCiliumCIDRGroupInformer); ok {
+		return informer
+	}
+	return &ciliumCIDRGroupTypedInformerAdapter{informer}
+}
+
+type ciliumCIDRGroupTypedInformerAdapter struct {
+	CiliumCIDRGroupInformer
+}
+
+func (a *ciliumCIDRGroupTypedInformerAdapter) TypedInformer() CiliumCIDRGroupIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumCIDRGroup](a.Informer())
+}
+
+// ToCiliumCIDRGroupIndexInformer converts an untyped informer into a CiliumCIDRGroupIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumCIDRGroup. If that is not the case, calling type-safe methods of the returned
+// CiliumCIDRGroupIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumCIDRGroupIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumCIDRGroupIndexInformer(informer cache.SharedIndexInformer) CiliumCIDRGroupIndexInformer {
+	if informer, ok := informer.(CiliumCIDRGroupIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumCIDRGroup](informer)
 }

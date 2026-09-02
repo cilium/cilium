@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumIdentityInformer provides access to a shared informer and lister for
-// CiliumIdentities.
+// CiliumIdentities. Prefer using the type-safe variant (see [TypedCiliumIdentityInformer]).
 type CiliumIdentityInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2.CiliumIdentityLister
 }
+
+// TypedCiliumIdentityInformer provides access to a shared informer and lister for
+// CiliumIdentities, including the type-safe TypedInformer variant.
+// It is a superset of CiliumIdentityInformer.
+type TypedCiliumIdentityInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumIdentityIndexInformer
+	Lister() ciliumiov2.CiliumIdentityLister
+}
+
+// CiliumIdentityIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumIdentityIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2.CiliumIdentity]
+
+// CiliumIdentityHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumIdentity.
+type CiliumIdentityHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2.CiliumIdentity]
+
+// CiliumIdentityDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumIdentity.
+type CiliumIdentityDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2.CiliumIdentity]
+
+// CiliumIdentityFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumIdentity.
+type CiliumIdentityFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2.CiliumIdentity]
+
+// CiliumIdentityIndexers is a specialization of [cache.TypedIndexers] for CiliumIdentity.
+type CiliumIdentityIndexers = cache.TypedIndexers[*apisciliumiov2.CiliumIdentity]
+
+// DeletedCiliumIdentity is a specialization of [cache.DeletedObject] for CiliumIdentity.
+type DeletedCiliumIdentity = cache.DeletedObject[*apisciliumiov2.CiliumIdentity]
 
 type ciliumIdentityInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumIdentityInformer struct {
 // NewCiliumIdentityInformer constructs a new informer for CiliumIdentity type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumIdentityInformer]).
 func NewCiliumIdentityInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumIdentityInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumIdentityInformer constructs a new informer for CiliumIdentity type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumIdentityInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumIdentityIndexers) CiliumIdentityIndexInformer {
+	return NewTypedCiliumIdentityInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumIdentityInformer constructs a new informer for CiliumIdentity type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumIdentityInformer]).
 func NewFilteredCiliumIdentityInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumIdentityInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumIdentityInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumIdentityInformer constructs a new informer for CiliumIdentity type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumIdentityInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumIdentityIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumIdentityIndexInformer {
+	return NewTypedCiliumIdentityInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumIdentityInformerWithOptions constructs a new informer for CiliumIdentity type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumIdentityInformerWithOptions]).
 func NewCiliumIdentityInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumIdentityInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumIdentityInformerWithOptions constructs a new informer for CiliumIdentity type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumIdentityInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumIdentityIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumidentitys"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumIdentity](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumIdentityInformerWithOptions(client versioned.Interface, options in
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumIdentityInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumIdentityInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumIdentityInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumIdentityInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2.CiliumIdentity{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumIdentityInformer) TypedInformer() CiliumIdentityIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumIdentity](f.factory.InformerFor(&apisciliumiov2.CiliumIdentity{}, f.defaultInformer))
 }
 
 func (f *ciliumIdentityInformer) Lister() ciliumiov2.CiliumIdentityLister {
 	return ciliumiov2.NewCiliumIdentityLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumIdentityInformer converts an untyped informer into a TypedCiliumIdentityInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumIdentity. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumIdentityInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumIdentityInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumIdentityInformer(informer CiliumIdentityInformer) TypedCiliumIdentityInformer {
+	if informer, ok := informer.(TypedCiliumIdentityInformer); ok {
+		return informer
+	}
+	return &ciliumIdentityTypedInformerAdapter{informer}
+}
+
+type ciliumIdentityTypedInformerAdapter struct {
+	CiliumIdentityInformer
+}
+
+func (a *ciliumIdentityTypedInformerAdapter) TypedInformer() CiliumIdentityIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumIdentity](a.Informer())
+}
+
+// ToCiliumIdentityIndexInformer converts an untyped informer into a CiliumIdentityIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumIdentity. If that is not the case, calling type-safe methods of the returned
+// CiliumIdentityIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumIdentityIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumIdentityIndexInformer(informer cache.SharedIndexInformer) CiliumIdentityIndexInformer {
+	if informer, ok := informer.(CiliumIdentityIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumIdentity](informer)
 }
