@@ -546,7 +546,7 @@ const (
 	EnableDatapathPlugins = false
 
 	// EnableSharedPolicy is the default value for option.EnableSharedPolicy
-	EnableSharedPolicy = false
+	EnableSharedPolicy = true
 )
 
 var (
