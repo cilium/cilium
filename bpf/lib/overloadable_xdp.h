@@ -172,7 +172,7 @@ ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 	/* Add space in front (50 bytes + options) */
 	outer_len = sizeof(*eth) + sizeof(*ip4) + sizeof(*udp) + tunnel_hdr_len + opt_len;
 
-	if (ctx_adjust_hroom(ctx, outer_len, BPF_ADJ_ROOM_NET, BPF_F_ADJ_ROOM_NO_CSUM_RESET))
+	if (ctx_adjust_hroom(ctx, outer_len, BPF_ADJ_ROOM_MAC, BPF_F_ADJ_ROOM_NO_CSUM_RESET))
 		return DROP_INVALID;
 
 	/* validate access to outer headers: */
