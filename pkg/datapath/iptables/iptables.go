@@ -6,6 +6,7 @@ package iptables
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -1138,7 +1139,7 @@ func (m *manager) addProxyRules(prog runnable, ip string, proxyPort uint16, name
 func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, port *lb.L4Addr) error {
 	const noTrackNodeLocalDNS = "node-local-dns"
 
-	var err error
+	var errs []error
 
 	protocol := strings.ToLower(port.Protocol)
 	p := strconv.FormatUint(uint64(port.Port), 10)
@@ -1192,14 +1193,15 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 		{"filter", ciliumOutputChain, fromEndpoint, accept},
 		{"filter", ciliumInputChain, toEndpoint, accept},
 	} {
-		if err = prog.runProg(slices.Concat(
+		if err := prog.runProg(slices.Concat(
 			[]string{"-t", rule.table, cmd, rule.chain, "-p", protocol},
 			rule.match,
 			rule.action)); err != nil {
 			m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
+			errs = append(errs, err)
 		}
 	}
-	return err
+	return errors.Join(errs...)
 }
 
 // InstallNoTrackRules is explicitly called when a pod has valid "policy.cilium.io/no-track-port" annotation.

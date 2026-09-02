@@ -1302,6 +1302,7 @@ func TestEndpointNoTrackRules(t *testing.T) {
 		port      *loadbalancer.L4Addr
 		wantProto string
 		wantPort  string
+		failAt    []int
 	}{
 		{
 			name:      "add rules for a non-default port",
@@ -1321,19 +1322,38 @@ func TestEndpointNoTrackRules(t *testing.T) {
 			wantProto: "udp",
 			wantPort:  "53",
 		},
+		{
+			name:      "every failure is reported",
+			prog:      "iptables",
+			cmd:       "-A",
+			ip:        "10.0.0.1",
+			port:      &loadbalancer.L4Addr{Protocol: loadbalancer.TCP, Port: 53},
+			wantProto: "tcp",
+			wantPort:  "53",
+			failAt:    []int{0, 4},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockProg := &mockIptables{
-				t:            t,
-				prog:         tt.prog,
-				expectations: endpointNoTrackExpectations(tt.cmd, tt.ip, tt.wantProto, tt.wantPort),
+			exp := endpointNoTrackExpectations(tt.cmd, tt.ip, tt.wantProto, tt.wantPort)
+			wantErrs := make([]error, 0, len(tt.failAt))
+			for _, i := range tt.failAt {
+				e := fmt.Errorf("rule %d failed", i)
+				exp[i].err = e
+				wantErrs = append(wantErrs, e)
 			}
 
+			mockProg := &mockIptables{t: t, prog: tt.prog, expectations: exp}
 			testMgr := &manager{logger: hivetest.Logger(t)}
 
-			require.NoError(t, testMgr.endpointNoTrackRules(mockProg, tt.cmd, tt.ip, tt.port))
+			err := testMgr.endpointNoTrackRules(mockProg, tt.cmd, tt.ip, tt.port)
+			if len(wantErrs) == 0 {
+				require.NoError(t, err)
+			}
+			for _, wantErr := range wantErrs {
+				require.ErrorIs(t, err, wantErr)
+			}
 			require.NoError(t, mockProg.checkExpectations())
 		})
 	}
