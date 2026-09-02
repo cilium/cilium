@@ -288,28 +288,29 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 {
 	const __u32 move_len_v4 = 14 + 20;
 	const __u32 move_len_v6 = 14 + 40;
+	__u32 move_len = 0;
 	int ret;
 
 	/* Note: when bumping len_diff, consider headroom on popular NICs. */
 	build_bug_on(len_diff <= 0 || len_diff >= 128);
-	build_bug_on(mode != BPF_ADJ_ROOM_NET);
 
 	ret = xdp_adjust_head(ctx, -len_diff);
+	if (ret)
+		return ret;
 
 	/* XXX: Note, this hack is currently tailored to NodePort DSR
 	 * requirements and not a generic helper. If needed elsewhere,
 	 * this must be made more generic.
 	 */
-	if (!ret) {
-		__u32 move_len = 0;
 
-		/* Based on the specified `len_diff`, we now *guess* at what
-		 * location the free space is needed.
-		 *
-		 * We either want to push some additional headers to the front
-		 * (move_len == 0), or insert headers at an offset (move_len > 0).
-		 */
-
+	/* Based on the specified `mode` and `len_diff`, we now *guess* at what
+	 * location the free space is needed.
+	 *
+	 * We either want to push some additional headers to the front
+	 * (move_len == 0), or insert headers at an offset (move_len > 0).
+	 */
+	switch (mode) {
+	case BPF_ADJ_ROOM_MAC:
 		switch (len_diff) {
 		/* ICMP error reply */
 		case 28: /* struct {iphdr + icmphdr} */
@@ -324,7 +325,12 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 		case 50 + 12: /* geneve with IPv4 DSR option */
 		case 50 + 24: /* geneve with IPv6 DSR option */
 			break;
-
+		default:
+			__throw_build_bug();
+		}
+		break;
+	case BPF_ADJ_ROOM_NET:
+		switch (len_diff) {
 		/* IPIP DSR */
 		case 20: /* struct iphdr */
 			move_len = move_len_v4;
@@ -343,19 +349,22 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 		default:
 			__throw_build_bug();
 		}
+		break;
+	default:
+		__throw_build_bug();
+	}
 
-		/* Move existing headers to the front, to create space for
-		 * inserting additional headers.
-		 */
-		if (move_len) {
-			void *data_end = ctx_data_end(ctx);
-			void *data = ctx_data(ctx);
+	/* Move existing headers to the front, to create space for
+	 * inserting additional headers.
+	 */
+	if (move_len) {
+		void *data_end = ctx_data_end(ctx);
+		void *data = ctx_data(ctx);
 
-			if (data + len_diff + move_len <= data_end)
-				__bpf_memmove_fwd(data, data + len_diff, move_len);
-			else
-				ret = -EFAULT;
-		}
+		if (data + len_diff + move_len <= data_end)
+			__bpf_memmove_fwd(data, data + len_diff, move_len);
+		else
+			ret = -EFAULT;
 	}
 
 	return ret;
