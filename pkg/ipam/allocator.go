@@ -29,7 +29,15 @@ var (
 
 	// ErrIPv6Disabled is returned when Ipv6 allocation is disabled
 	ErrIPv6Disabled = errors.New("IPv6 allocation disabled")
+
+	// ErrRoutingMetadataUnsupported is returned when an allocator cannot
+	// resolve routing metadata for a given address.
+	ErrRoutingMetadataUnsupported = errors.New("routing metadata lookup unsupported")
 )
+
+type routingMetadataResolver interface {
+	ResolveRoutingMetadata(addr netip.Addr, pool Pool) (*AllocationResult, error)
+}
 
 func (ipam *IPAM) determineIPAMPool(owner string, family Family) (Pool, error) {
 	pool, err := ipam.metadata.GetIPPoolForPod(owner, family)
@@ -51,6 +59,44 @@ func (ipam *IPAM) AllocateIP(ip netip.Addr, owner string, pool Pool) error {
 func (ipam *IPAM) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
 	needSyncUpstream := false
 	return ipam.allocateIP(ip, owner, pool, needSyncUpstream)
+}
+
+// ResolveRoutingMetadata returns the routing metadata for an address without
+// changing its allocation or synchronizing any state upstream.
+func (ipam *IPAM) ResolveRoutingMetadata(addr netip.Addr, pool Pool) (*AllocationResult, error) {
+	if !addr.IsValid() {
+		return nil, fmt.Errorf("invalid IP address: %v", addr)
+	}
+	addr = addr.Unmap()
+
+	ipam.allocatorMutex.RLock()
+	resolver := ipam.ipv6RoutingMetadataResolver
+	if addr.Is4() {
+		resolver = ipam.ipv4RoutingMetadataResolver
+	}
+	ipam.allocatorMutex.RUnlock()
+
+	if resolver == nil {
+		return nil, ErrRoutingMetadataUnsupported
+	}
+	return resolver.ResolveRoutingMetadata(addr, PoolOrDefault(string(pool)))
+}
+
+// IsAllocatedIP reports whether addr is currently owned in any IPAM pool.
+func (ipam *IPAM) IsAllocatedIP(addr netip.Addr) bool {
+	if !addr.IsValid() {
+		return false
+	}
+	addr = addr.Unmap()
+
+	ipam.allocatorMutex.RLock()
+	defer ipam.allocatorMutex.RUnlock()
+	for _, owners := range ipam.owner {
+		if _, ok := owners[addr.String()]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // AllocateIPString is identical to AllocateIP but takes a string

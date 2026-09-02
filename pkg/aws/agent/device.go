@@ -272,6 +272,7 @@ func waitForNetlinkDevices(logger *slog.Logger, configByMac configMap) (linkByMa
 	return linkByMac, errors.New("timed out waiting for ENIs to be attached")
 }
 
+// configureENINetlinkDevice owns the MTU and up-state of ENI links.
 func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sysctl.Sysctl) error {
 	if err := netlink.LinkSetMTU(link, cfg.mtu); err != nil {
 		return fmt.Errorf("failed to change MTU of link %s to %d: %w", link.Attrs().Name, cfg.mtu, err)

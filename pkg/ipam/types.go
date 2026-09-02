@@ -4,8 +4,10 @@
 package ipam
 
 import (
+	"context"
 	"log/slog"
 	"net/netip"
+	"sync"
 
 	"github.com/davecgh/go-spew/spew"
 
@@ -55,8 +57,9 @@ type AllocationResult struct {
 	// only set if AllocateNextWithExpiration is used.
 	ExpirationUUID string
 
-	// InterfaceNumber is a field for generically identifying an interface.
-	// This is only useful in ENI mode.
+	// InterfaceNumber identifies a cloud interface using provider-specific
+	// numbering. ENI and AlibabaCloud use it to derive the per-interface
+	// routing table.
 	InterfaceNumber string
 
 	// SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP when the cluster is in tunneling mode.
@@ -106,6 +109,9 @@ type IPAM struct {
 	ipv6Allocator Allocator
 	ipv4Allocator Allocator
 
+	ipv6RoutingMetadataResolver routingMetadataResolver
+	ipv4RoutingMetadataResolver routingMetadataResolver
+
 	// metadata provides information about a particular IP owner.
 	metadata Metadata
 
@@ -143,6 +149,9 @@ type IPAM struct {
 	// cloudProviders holds the registered cloud providers, keyed by the IPAM
 	// mode each one handles.
 	cloudProviders map[string]CloudProvider
+
+	restoreFinished     chan struct{}
+	restoreFinishedOnce sync.Once
 }
 
 func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}
@@ -171,6 +180,18 @@ func (ipam *IPAM) RestoreFinished() {
 	}
 	if ipam.config.EnableIPv4 {
 		ipam.ipv4Allocator.RestoreFinished()
+	}
+	ipam.restoreFinishedOnce.Do(func() { close(ipam.restoreFinished) })
+}
+
+// WaitForRestoreFinished waits until IPAM has restored endpoint allocations and
+// the agent has allocated its infrastructure addresses.
+func (ipam *IPAM) WaitForRestoreFinished(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ipam.restoreFinished:
+		return nil
 	}
 }
 
