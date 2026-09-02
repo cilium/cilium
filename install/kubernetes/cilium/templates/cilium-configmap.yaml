@@ -1430,11 +1430,15 @@ data:
   set-cilium-is-up-condition: "true"
 {{- end }}
 
-{{- if .Values.operator.unmanagedPodWatcher.restart }}
+{{- if or .Values.operator.unmanagedPodWatcher.restart .Values.operator.unmanagedPodWatcher.observeOnly }}
   {{- $interval := .Values.operator.unmanagedPodWatcher.intervalSeconds }}
   unmanaged-pod-watcher-interval: {{ printf "%ds" (int $interval) | quote }}
 {{- else }}
   unmanaged-pod-watcher-interval: "0"
+{{- end }}
+
+{{- if .Values.operator.unmanagedPodWatcher.observeOnly }}
+  enable-unmanaged-pod-observe-only: "true"
 {{- end }}
 
 {{- if ne .Values.operator.unmanagedPodWatcher.selector nil }}
