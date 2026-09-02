@@ -65,13 +65,13 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 	if option.Config.DisableCiliumEndpointCRD {
 		h.Stopped("ciliumendpoint CRD disabled")
-		scopedLog.Debug("Not running controller. CEP CRD synchronization is disabled")
+		scopedLog.Info("Not running controller. CEP CRD synchronization is disabled")
 		return
 	}
 
 	if !epSync.Clientset.IsEnabled() {
 		h.Stopped("k8s client-set disabled")
-		scopedLog.Debug("Not starting controller because k8s is disabled")
+		scopedLog.Info("Not starting controller because k8s is disabled")
 		return
 	}
 
@@ -81,7 +81,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	// arbitrary errors. Disable the controller for these endpoints.
 	if isHealthEP := e.HasLabels(pkgLabels.LabelHealth); isHealthEP {
 		h.Stopped("Cilium health endpoint has no CEP object for k8s sync")
-		scopedLog.Debug("Not starting unnecessary CEP controller for cilium-health endpoint")
+		scopedLog.Info("Not starting unnecessary CEP controller for cilium-health endpoint")
 		return
 	}
 
@@ -90,7 +90,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	cepName := e.GetK8sCEPName()
 	if cepName == "" {
 		h.Stopped("Endpoint synchronizer stopped due to missing CEP metadata")
-		scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s cep name")
+		scopedLog.Info("Skipping CiliumEndpoint update because it has no k8s cep name")
 		return
 	}
 
@@ -123,12 +123,12 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 				cepOwner := e.GetCEPOwner()
 				if cepOwner.IsNil() {
-					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s namespace")
+					scopedLog.Info("Skipping CiliumEndpoint update because it has no k8s namespace")
 					return nil
 				}
 
 				if !e.HaveK8sMetadata() {
-					scopedLog.Debug("Skipping CiliumEndpoint update because k8s metadata is not yet available")
+					scopedLog.Info("Skipping CiliumEndpoint update because k8s metadata is not yet available")
 					return nil
 				}
 
@@ -137,7 +137,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return err
 				}
 				if identity == nil {
-					scopedLog.Debug("Skipping CiliumEndpoint update because security identity is not yet available")
+					scopedLog.Info("Skipping CiliumEndpoint update because security identity is not yet available")
 					return nil
 				}
 
@@ -168,13 +168,13 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 							if epSync.CiliumEndpointSlice != nil {
 								cesStore, err := epSync.CiliumEndpointSlice.Store(ctx)
 								if err != nil {
-									scopedLog.Debug("Error getting CES store", logfields.Error, err)
+									scopedLog.Info("Error getting CES store", logfields.Error, err)
 								} else {
 									nodeIP := node.GetCiliumEndpointNodeIP(scopedLog)
 									// Get all CES objects for this node
 									objs, err := cesStore.ByIndex("localNode", nodeIP)
 									if err != nil {
-										scopedLog.Debug("Error getting indexed CiliumEndpointSlice from store", logfields.Error, err)
+										scopedLog.Info("Error getting indexed CiliumEndpointSlice from store", logfields.Error, err)
 									} else {
 										// Check if our CEP exists in any CES
 										for _, ces := range objs {
@@ -199,12 +199,12 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 							if epSync.CiliumEndpoint != nil {
 								cepStore, err := epSync.CiliumEndpoint.Store(ctx)
 								if err != nil {
-									scopedLog.Debug("Error getting CEP store", logfields.Error, err)
+									scopedLog.Info("Error getting CEP store", logfields.Error, err)
 								} else {
 									nodeIP := node.GetCiliumEndpointNodeIP(scopedLog)
 									objs, err := cepStore.ByIndex("localNode", nodeIP)
 									if err != nil {
-										scopedLog.Debug("Error getting indexed CiliumEndpoint from store", logfields.Error, err)
+										scopedLog.Info("Error getting indexed CiliumEndpoint from store", logfields.Error, err)
 									} else {
 										for _, cep := range objs {
 											if cep.Namespace == cepOwner.GetNamespace() && cep.Name == cepName {
@@ -224,7 +224,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 							return fmt.Errorf("CEP deleted externally or significant informer delay")
 						}
 					}
-					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
+					scopedLog.Info("Skipping CiliumEndpoint update because it has not changed")
 					return nil
 				}
 
@@ -237,7 +237,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						return nil
 					}
 
-					scopedLog.Debug("Getting CEP during an initialization")
+					scopedLog.Info("Getting CEP during an initialization")
 					if firstTry {
 						// First we try getting CEP from the API server cache, as it's cheaper.
 						// If it fails we get it from etcd to be sure to have fresh data.
@@ -288,7 +288,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 							return err
 						}
 
-						scopedLog.Debug("storing CEP UID after create", logfields.CEPUID, localCEP.UID)
+						scopedLog.Info("storing CEP UID after create", logfields.CEPUID, localCEP.UID)
 						e.SetCiliumEndpointUID(localCEP.UID)
 
 						// continue the execution so we update the endpoint
@@ -311,7 +311,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					// We still need to update the CEP if localCEP is out of sync with upstream.
 					// We only return if upstream is NOT out-of-sync here.
 					if mdl.DeepEqual(lastMdl) {
-						scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
+						scopedLog.Info("Skipping CiliumEndpoint update because it has not changed")
 						return nil
 					}
 				}
@@ -482,7 +482,7 @@ func updateCEPUID(scopedLog *slog.Logger, e *endpoint.Endpoint, localCEP *cilium
 	}
 
 	if cepUID := e.GetCiliumEndpointUID(); cepUID == "" {
-		scopedLog.Debug(
+		scopedLog.Info(
 			"updating CEP UID and syncing endpoint header file",
 			logfields.Node, types.GetName(),
 			logfields.CEPUIDOld, cepUID,
@@ -503,7 +503,7 @@ func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endp
 	scopedLog := e.Logger(subsysEndpointSync).With(logfields.Controller, controllerName)
 
 	if !epSync.Clientset.IsEnabled() {
-		scopedLog.Debug("Not starting controller because k8s is disabled")
+		scopedLog.Info("Not starting controller because k8s is disabled")
 		return
 	}
 	ciliumClient := epSync.Clientset.CiliumV2()
@@ -511,7 +511,7 @@ func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endp
 	// The health endpoint doesn't really exist in k8s and updates to it caused
 	// arbitrary errors. Disable the controller for these endpoints.
 	if isHealthEP := e.HasLabels(pkgLabels.LabelHealth); isHealthEP {
-		scopedLog.Debug("Not starting unnecessary CEP controller for cilium-health endpoint")
+		scopedLog.Info("Not starting unnecessary CEP controller for cilium-health endpoint")
 		return
 	}
 
@@ -529,13 +529,13 @@ func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endp
 func deleteCEP(ctx context.Context, scopedLog *slog.Logger, ciliumClient v2.CiliumV2Interface, e *endpoint.Endpoint) error {
 	cepName := e.GetK8sCEPName()
 	if cepName == "" {
-		scopedLog.Debug("Skipping CiliumEndpoint deletion because it has no k8s cep name")
+		scopedLog.Info("Skipping CiliumEndpoint deletion because it has no k8s cep name")
 		return nil
 	}
 
 	cepOwner := e.GetCEPOwner()
 	if cepOwner.IsNil() {
-		scopedLog.Debug("Skipping CiliumEndpoint deletion because owner is nil")
+		scopedLog.Info("Skipping CiliumEndpoint deletion because owner is nil")
 		return nil
 	}
 
@@ -553,11 +553,11 @@ func deleteCEP(ctx context.Context, scopedLog *slog.Logger, ciliumClient v2.Cili
 	// garbage collection to clean up eventually.
 	cepUID := e.GetCiliumEndpointUID()
 	if cepUID == "" {
-		scopedLog.Debug("Skipping CiliumEndpoint deletion because it has no UID")
+		scopedLog.Info("Skipping CiliumEndpoint deletion because it has no UID")
 		return nil
 	}
 
-	scopedLog.Debug("deleting CEP with UID", logfields.CEPUID, cepUID)
+	scopedLog.Info("deleting CEP with UID", logfields.CEPUID, cepUID)
 	if err := ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Delete(ctx, cepName, meta_v1.DeleteOptions{
 		Preconditions: &meta_v1.Preconditions{
 			UID: &cepUID,

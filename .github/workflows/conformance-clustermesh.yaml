@@ -281,6 +281,7 @@ jobs:
         with:
           image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
+          debug: false
 
       - name: Set up job variables for GHA environment
         id: vars
@@ -699,7 +700,7 @@ jobs:
           json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2"
 
       - name: Post-test information gathering
-        if: ${{ !success() && steps.install-cilium-cluster1.outcome != 'skipped' }}
+        if: ${{ always() && steps.install-cilium-cluster1.outcome != 'skipped' }}
         run: |
           cilium --context ${{ env.contextName1 }} status
           cilium --context ${{ env.contextName1 }} clustermesh status
