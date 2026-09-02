@@ -295,6 +295,7 @@ rules:
   resources:
   - ciliumnodeconfigs
   - ciliumcidrgroups
+  - ciliumpodippools
   verbs:
   - list
   - patch
