@@ -844,6 +844,13 @@ type DNSZombieMapping struct {
 	// derive from unrelated DNS lookups. The list is maintained de-duplicated.
 	Names []string `json:"names,omitempty"`
 
+	// nameSet mirrors Names once there are enough of them to be worth indexing.
+	// Without it every Upsert re-scans the whole slice, so accumulating N names
+	// onto one IP costs O(N^2). It is built on demand (see nameSetThreshold)
+	// rather than eagerly, because a zombie can also arrive with Names already
+	// populated and no set, from JSON or DeepCopy.
+	nameSet map[string]struct{}
+
 	// IP is an address that is pending for delete but may be in-use by a
 	// connection.
 	IP netip.Addr `json:"ip,omitempty"`
@@ -868,6 +875,120 @@ type DNSZombieMapping struct {
 	// revisionAddedAt is the GCRevision at which this entry was added.
 	// garbage collection must run 2 times before the zombie is eligible for deletion
 	revisionAddedAt uint64 `json:"-"`
+}
+
+// removeNames drops names from both Names and nameSet. Both must be kept in
+// step: a name left behind in nameSet would cause addNames to treat it as
+// already present and silently refuse to re-add it.
+//
+// Names is compacted in place, so callers must not retain a zombie.Names slice
+// obtained before this call: the backing array is reused and its tail cleared,
+// so an older slice header would observe shifted elements and empty strings.
+//
+// remove is invoked exactly once per name.
+func (zombie *DNSZombieMapping) removeNames(remove func(string) bool) {
+	// Locate the first match before writing anything. ForceExpireByNameIP runs
+	// on every DNS response that upserts and usually matches nothing; without
+	// this the whole slice would be copied over itself on every such call.
+	first := -1
+	for i, n := range zombie.Names {
+		if remove(n) {
+			first = i
+			break
+		}
+	}
+	if first < 0 {
+		return
+	}
+
+	delete(zombie.nameSet, zombie.Names[first])
+	kept := zombie.Names[:first]
+	for _, n := range zombie.Names[first+1:] {
+		if remove(n) {
+			delete(zombie.nameSet, n)
+			continue
+		}
+		kept = append(kept, n)
+	}
+	clear(zombie.Names[len(kept):])
+	zombie.Names = kept
+}
+
+// nameSetThreshold is the number of names at or above which a zombie keeps a
+// membership set. pkg/slices.Unique switches from a linear scan to a map at the
+// same count, for the same reason: below it a linear scan beats a map probe,
+// and a map per zombie would cost far more than it saves. Upsert adds one name
+// at a time, so most zombies hold a handful of names and never allocate a set.
+const nameSetThreshold = 192
+
+// buildNameSet populates nameSet from Names, dropping any duplicates Names
+// already holds.
+//
+// Names is compacted in place, so callers must not retain a zombie.Names slice
+// obtained before this call.
+func (zombie *DNSZombieMapping) buildNameSet() {
+	zombie.nameSet = make(map[string]struct{}, len(zombie.Names))
+	kept := zombie.Names[:0]
+	for _, n := range zombie.Names {
+		if _, ok := zombie.nameSet[n]; ok {
+			continue
+		}
+		zombie.nameSet[n] = struct{}{}
+		kept = append(kept, n)
+	}
+	clear(zombie.Names[len(kept):])
+	zombie.Names = kept
+}
+
+// hasName reports whether name is already recorded, using the set when one
+// exists and a linear scan otherwise.
+func (zombie *DNSZombieMapping) hasName(name string) bool {
+	if zombie.nameSet != nil {
+		_, ok := zombie.nameSet[name]
+		return ok
+	}
+	return slices.Contains(zombie.Names, name)
+}
+
+// addNames appends the not-yet-known names in qnames, keeping Names
+// de-duplicated without re-scanning the whole slice once it reaches
+// nameSetThreshold.
+func (zombie *DNSZombieMapping) addNames(qnames ...string) {
+	// A zombie produced by DeepCopy carries Names but no set. Build it up front
+	// so a large list is not linear-scanned once per name.
+	if zombie.nameSet == nil && len(zombie.Names) >= nameSetThreshold {
+		zombie.buildNameSet()
+	}
+
+	for _, n := range qnames {
+		if zombie.hasName(n) {
+			continue
+		}
+		zombie.Names = append(zombie.Names, n)
+		if zombie.nameSet != nil {
+			zombie.nameSet[n] = struct{}{}
+		} else if len(zombie.Names) >= nameSetThreshold {
+			zombie.buildNameSet()
+		}
+	}
+}
+
+// normalizeNames makes Names satisfy the de-duplicated invariant and builds the
+// membership set if the list is long enough to want one.
+//
+// addNames only guards the names it is asked to insert, so it cannot remove a
+// duplicate that is already present. Names also arrives from JSON, which is not
+// trusted to be unique, so a restored list is normalized once here rather than
+// re-scanned on every later Upsert. Above the threshold buildNameSet already
+// de-duplicates as it indexes, so that costs no extra pass.
+func (zombie *DNSZombieMapping) normalizeNames() {
+	if len(zombie.Names) >= nameSetThreshold {
+		zombie.buildNameSet()
+		return
+	}
+	if len(zombie.Names) > 1 {
+		zombie.Names = ciliumslices.Unique(zombie.Names)
+	}
 }
 
 // DeepCopy returns a copy of zombie that does not share any internal pointers
@@ -923,15 +1044,15 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, addr netip.Addr, 
 	zombie, updatedExisting := zombies.deletes[addr]
 	if !updatedExisting {
 		zombie = &DNSZombieMapping{
-			Names:           ciliumslices.Unique(qname),
 			IP:              addr,
 			AliveAt:         zombies.lastCTGCUpdate,
 			DeletePendingAt: expiryTime,
 			revisionAddedAt: zombies.ctGCRevision,
 		}
+		zombie.addNames(qname...)
 		zombies.deletes[addr] = zombie
 	} else {
-		zombie.Names = ciliumslices.Unique(append(zombie.Names, qname...))
+		zombie.addNames(qname...)
 		// Keep the latest expiry time
 		if expiryTime.After(zombie.DeletePendingAt) {
 			zombie.DeletePendingAt = expiryTime
@@ -1214,17 +1335,15 @@ func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nam
 			continue
 		}
 
-		// A zombie has multiple names, collect the ones that should remain (i.e.
-		// do not match nameMatch)
-		var newNames []string
-		for _, name := range zombie.Names {
+		// A zombie has multiple names, drop the ones matching nameMatch and
+		// keep the rest.
+		zombie.removeNames(func(name string) bool {
 			if nameMatch != nil && !nameMatch.MatchString(name) {
-				newNames = append(newNames, name)
-			} else {
-				namesAffected = append(namesAffected, name)
+				return false
 			}
-		}
-		zombie.Names = newNames
+			namesAffected = append(namesAffected, name)
+			return true
+		})
 
 		// Delete the zombie outright if no names remain
 		if len(zombie.Names) == 0 {
@@ -1258,7 +1377,7 @@ func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.T
 
 		// Remove the specified name (if extant) and, if it was
 		// the last one, delete the entry entirely
-		zombie.Names = slices.DeleteFunc(zombie.Names, func(s string) bool { return s == name })
+		zombie.removeNames(func(s string) bool { return s == name })
 		if len(zombie.Names) == 0 {
 			delete(zombies.deletes, ip)
 		}
@@ -1333,6 +1452,7 @@ func (zombies *DNSZombieMappings) UnmarshalJSON(raw []byte) error {
 	// Reset the conntrack revision to ensure no deletes happen until we run CT GC again
 	for _, zombie := range zombies.deletes {
 		zombie.revisionAddedAt = zombies.ctGCRevision
+		zombie.normalizeNames()
 	}
 	return nil
 }
