@@ -10,7 +10,7 @@ hive/start
 db/cmp devices devices.table
 
 # owner tries to take over same device
-add-device owner1 eth0.10.yaml
+! add-device owner1 vlan eth0.10.yaml
 remove-owner owner1
 
 # make sure reconciler does not cleanup incorrectly

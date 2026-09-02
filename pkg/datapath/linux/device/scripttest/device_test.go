@@ -24,7 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/datapath/linux/device"
 	linuxdevice "github.com/cilium/cilium/pkg/datapath/linux/device"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
@@ -135,37 +134,54 @@ func testDesiredDevicesCmds(db *statedb.DB, dm linuxdevice.ManagerOperations, de
 	addDeviceCmd := script.Command(
 		script.CmdUsage{
 			Summary: "Add a device",
-			Args:    "owner device-file",
+			Args:    "owner type device-file",
 		},
 		func(state *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) != 2 {
+			if len(args) != 3 {
 				return nil, script.ErrUsage
 			}
 
-			owner := dm.GetOrRegisterOwner(args[0])
-
-			deviceFile, err := os.ReadFile(state.Path(args[1]))
+			deviceFile, err := os.ReadFile(state.Path(args[2]))
 			if err != nil {
-				return nil, fmt.Errorf("failed to read device file %q: %w", args[1], err)
+				return nil, fmt.Errorf("failed to read device file %q: %w", args[2], err)
 			}
 
-			var device *device.DesiredVLANDeviceSpec
-			if err := yaml.Unmarshal(deviceFile, &device); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal device file %q: %w", args[1], err)
+			var (
+				deviceName string
+				spec       linuxdevice.DesiredDeviceSpec
+			)
+			switch args[1] {
+			case "vlan":
+				vlan := &linuxdevice.DesiredVLANDeviceSpec{}
+				if err := yaml.Unmarshal(deviceFile, vlan); err != nil {
+					return nil, fmt.Errorf("failed to unmarshal device file %q: %w", args[2], err)
+				}
+
+				parent, _, found := devTbl.Get(db.ReadTxn(), tables.DeviceByName(vlan.ParentName))
+				if !found {
+					return nil, fmt.Errorf("parent device %q not found for VLAN device %q", vlan.ParentName, vlan.Name)
+				}
+				vlan.ParentIndex = parent.Index
+				deviceName, spec = vlan.Name, vlan
+
+			case "vrf":
+				vrf := &linuxdevice.DesiredVRFDeviceSpec{}
+				if err := yaml.Unmarshal(deviceFile, vrf); err != nil {
+					return nil, fmt.Errorf("failed to unmarshal device file %q: %w", args[2], err)
+				}
+				deviceName, spec = vrf.Name, vrf
+
+			default:
+				return nil, fmt.Errorf("unsupported device type %q", args[1])
 			}
 
-			dev, _, found := devTbl.Get(db.ReadTxn(), tables.DeviceByName(device.ParentName))
-			if !found {
-				return nil, fmt.Errorf("parent device %q not found for VLAN device %q", device.ParentName, device.Name)
-			}
-			device.ParentIndex = dev.Index
-
-			if err := dm.UpsertDevice(linuxdevice.DesiredDevice{
+			owner := dm.GetOrRegisterOwner(args[0])
+			if err := dm.UpsertDeviceWait(linuxdevice.DesiredDevice{
 				Owner:      owner,
-				Name:       device.Name,
-				DeviceSpec: device,
-			}); err != nil {
-				return nil, fmt.Errorf("failed to upsert device %q: %w", device.Name, err)
+				Name:       deviceName,
+				DeviceSpec: spec,
+			}, 5*time.Second); err != nil {
+				return nil, fmt.Errorf("failed to upsert device %q: %w", deviceName, err)
 			}
 
 			return nil, nil
