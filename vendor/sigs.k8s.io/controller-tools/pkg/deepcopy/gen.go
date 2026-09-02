@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ func enabledOnPackage(col *markers.Collector, pkg *loader.Package) (bool, error)
 	legacyMarker := pkgMarkers.Get(legacyEnablePkgMarker.Name)
 	if legacyMarker != nil {
 		legacyMarkerVal := string(legacyMarker.(markers.RawArguments))
-		firstArg := strings.Split(legacyMarkerVal, ",")[0]
+		firstArg, _, _ := strings.Cut(legacyMarkerVal, ",")
 		return firstArg == "package", nil
 	}
 
