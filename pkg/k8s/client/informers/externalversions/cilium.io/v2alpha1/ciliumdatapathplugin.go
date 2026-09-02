@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumDatapathPluginInformer provides access to a shared informer and lister for
-// CiliumDatapathPlugins.
+// CiliumDatapathPlugins. Prefer using the type-safe variant (see [TypedCiliumDatapathPluginInformer]).
 type CiliumDatapathPluginInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2alpha1.CiliumDatapathPluginLister
 }
+
+// TypedCiliumDatapathPluginInformer provides access to a shared informer and lister for
+// CiliumDatapathPlugins, including the type-safe TypedInformer variant.
+// It is a superset of CiliumDatapathPluginInformer.
+type TypedCiliumDatapathPluginInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumDatapathPluginIndexInformer
+	Lister() ciliumiov2alpha1.CiliumDatapathPluginLister
+}
+
+// CiliumDatapathPluginIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumDatapathPluginIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumDatapathPlugin]
+
+// CiliumDatapathPluginHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumDatapathPlugin.
+type CiliumDatapathPluginHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2alpha1.CiliumDatapathPlugin]
+
+// CiliumDatapathPluginDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumDatapathPlugin.
+type CiliumDatapathPluginDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2alpha1.CiliumDatapathPlugin]
+
+// CiliumDatapathPluginFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumDatapathPlugin.
+type CiliumDatapathPluginFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2alpha1.CiliumDatapathPlugin]
+
+// CiliumDatapathPluginIndexers is a specialization of [cache.TypedIndexers] for CiliumDatapathPlugin.
+type CiliumDatapathPluginIndexers = cache.TypedIndexers[*apisciliumiov2alpha1.CiliumDatapathPlugin]
+
+// DeletedCiliumDatapathPlugin is a specialization of [cache.DeletedObject] for CiliumDatapathPlugin.
+type DeletedCiliumDatapathPlugin = cache.DeletedObject[*apisciliumiov2alpha1.CiliumDatapathPlugin]
 
 type ciliumDatapathPluginInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumDatapathPluginInformer struct {
 // NewCiliumDatapathPluginInformer constructs a new informer for CiliumDatapathPlugin type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumDatapathPluginInformer]).
 func NewCiliumDatapathPluginInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumDatapathPluginInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumDatapathPluginInformer constructs a new informer for CiliumDatapathPlugin type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumDatapathPluginInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumDatapathPluginIndexers) CiliumDatapathPluginIndexInformer {
+	return NewTypedCiliumDatapathPluginInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumDatapathPluginInformer constructs a new informer for CiliumDatapathPlugin type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumDatapathPluginInformer]).
 func NewFilteredCiliumDatapathPluginInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumDatapathPluginInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumDatapathPluginInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumDatapathPluginInformer constructs a new informer for CiliumDatapathPlugin type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumDatapathPluginInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumDatapathPluginIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumDatapathPluginIndexInformer {
+	return NewTypedCiliumDatapathPluginInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumDatapathPluginInformerWithOptions constructs a new informer for CiliumDatapathPlugin type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumDatapathPluginInformerWithOptions]).
 func NewCiliumDatapathPluginInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumDatapathPluginInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumDatapathPluginInformerWithOptions constructs a new informer for CiliumDatapathPlugin type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumDatapathPluginInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumDatapathPluginIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliumdatapathplugins"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumDatapathPlugin](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumDatapathPluginInformerWithOptions(client versioned.Interface, opti
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumDatapathPluginInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumDatapathPluginInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumDatapathPluginInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumDatapathPluginInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2alpha1.CiliumDatapathPlugin{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumDatapathPluginInformer) TypedInformer() CiliumDatapathPluginIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumDatapathPlugin](f.factory.InformerFor(&apisciliumiov2alpha1.CiliumDatapathPlugin{}, f.defaultInformer))
 }
 
 func (f *ciliumDatapathPluginInformer) Lister() ciliumiov2alpha1.CiliumDatapathPluginLister {
 	return ciliumiov2alpha1.NewCiliumDatapathPluginLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumDatapathPluginInformer converts an untyped informer into a TypedCiliumDatapathPluginInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumDatapathPlugin. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumDatapathPluginInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumDatapathPluginInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumDatapathPluginInformer(informer CiliumDatapathPluginInformer) TypedCiliumDatapathPluginInformer {
+	if informer, ok := informer.(TypedCiliumDatapathPluginInformer); ok {
+		return informer
+	}
+	return &ciliumDatapathPluginTypedInformerAdapter{informer}
+}
+
+type ciliumDatapathPluginTypedInformerAdapter struct {
+	CiliumDatapathPluginInformer
+}
+
+func (a *ciliumDatapathPluginTypedInformerAdapter) TypedInformer() CiliumDatapathPluginIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumDatapathPlugin](a.Informer())
+}
+
+// ToCiliumDatapathPluginIndexInformer converts an untyped informer into a CiliumDatapathPluginIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumDatapathPlugin. If that is not the case, calling type-safe methods of the returned
+// CiliumDatapathPluginIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumDatapathPluginIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumDatapathPluginIndexInformer(informer cache.SharedIndexInformer) CiliumDatapathPluginIndexInformer {
+	if informer, ok := informer.(CiliumDatapathPluginIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumDatapathPlugin](informer)
 }

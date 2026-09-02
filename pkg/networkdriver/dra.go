@@ -120,6 +120,13 @@ func (d *Driver) HandleError(ctx context.Context, err error, msg string) {
 	)
 }
 
+// WatchHealthStatus reports device health to the kubelet. The driver does not
+// track device health, so it declines the service: the kubelet is told the
+// stream is unimplemented and stops watching.
+func (d *Driver) WatchHealthStatus(ctx context.Context, reports chan<- kubeletplugin.DeviceHealthReport) error {
+	return kubeletplugin.ErrHealthNotSupported
+}
+
 // PrepareResourceClaims gets called when we have a request to allocate a resource claim. we also need to have a way to remember
 // the allocations elsewhere so allocation state persist across restarts in the plugin.
 func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceapi.ResourceClaim) (result map[kube_types.UID]kubeletplugin.PrepareResult, err error) {

@@ -99,7 +99,7 @@ func (c *FakeClientset) Slim() slim_clientset.Interface {
 	return c.SlimFakeClientset
 }
 
-func (c *FakeClientset) Discovery() discovery.DiscoveryInterface {
+func (c *FakeClientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.KubernetesFakeClientset.Discovery()
 }
 

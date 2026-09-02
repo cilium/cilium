@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumNetworkDriverNodeConfigInformer provides access to a shared informer and lister for
-// CiliumNetworkDriverNodeConfigs.
+// CiliumNetworkDriverNodeConfigs. Prefer using the type-safe variant (see [TypedCiliumNetworkDriverNodeConfigInformer]).
 type CiliumNetworkDriverNodeConfigInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2alpha1.CiliumNetworkDriverNodeConfigLister
 }
+
+// TypedCiliumNetworkDriverNodeConfigInformer provides access to a shared informer and lister for
+// CiliumNetworkDriverNodeConfigs, including the type-safe TypedInformer variant.
+// It is a superset of CiliumNetworkDriverNodeConfigInformer.
+type TypedCiliumNetworkDriverNodeConfigInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumNetworkDriverNodeConfigIndexInformer
+	Lister() ciliumiov2alpha1.CiliumNetworkDriverNodeConfigLister
+}
+
+// CiliumNetworkDriverNodeConfigIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumNetworkDriverNodeConfigIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig]
+
+// CiliumNetworkDriverNodeConfigHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumNetworkDriverNodeConfig.
+type CiliumNetworkDriverNodeConfigHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig]
+
+// CiliumNetworkDriverNodeConfigDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumNetworkDriverNodeConfig.
+type CiliumNetworkDriverNodeConfigDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig]
+
+// CiliumNetworkDriverNodeConfigFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumNetworkDriverNodeConfig.
+type CiliumNetworkDriverNodeConfigFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig]
+
+// CiliumNetworkDriverNodeConfigIndexers is a specialization of [cache.TypedIndexers] for CiliumNetworkDriverNodeConfig.
+type CiliumNetworkDriverNodeConfigIndexers = cache.TypedIndexers[*apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig]
+
+// DeletedCiliumNetworkDriverNodeConfig is a specialization of [cache.DeletedObject] for CiliumNetworkDriverNodeConfig.
+type DeletedCiliumNetworkDriverNodeConfig = cache.DeletedObject[*apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig]
 
 type ciliumNetworkDriverNodeConfigInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumNetworkDriverNodeConfigInformer struct {
 // NewCiliumNetworkDriverNodeConfigInformer constructs a new informer for CiliumNetworkDriverNodeConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumNetworkDriverNodeConfigInformer]).
 func NewCiliumNetworkDriverNodeConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumNetworkDriverNodeConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumNetworkDriverNodeConfigInformer constructs a new informer for CiliumNetworkDriverNodeConfig type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumNetworkDriverNodeConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumNetworkDriverNodeConfigIndexers) CiliumNetworkDriverNodeConfigIndexInformer {
+	return NewTypedCiliumNetworkDriverNodeConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumNetworkDriverNodeConfigInformer constructs a new informer for CiliumNetworkDriverNodeConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumNetworkDriverNodeConfigInformer]).
 func NewFilteredCiliumNetworkDriverNodeConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumNetworkDriverNodeConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumNetworkDriverNodeConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumNetworkDriverNodeConfigInformer constructs a new informer for CiliumNetworkDriverNodeConfig type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumNetworkDriverNodeConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumNetworkDriverNodeConfigIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumNetworkDriverNodeConfigIndexInformer {
+	return NewTypedCiliumNetworkDriverNodeConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumNetworkDriverNodeConfigInformerWithOptions constructs a new informer for CiliumNetworkDriverNodeConfig type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumNetworkDriverNodeConfigInformerWithOptions]).
 func NewCiliumNetworkDriverNodeConfigInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumNetworkDriverNodeConfigInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumNetworkDriverNodeConfigInformerWithOptions constructs a new informer for CiliumNetworkDriverNodeConfig type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumNetworkDriverNodeConfigInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumNetworkDriverNodeConfigIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliumnetworkdrivernodeconfigs"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumNetworkDriverNodeConfigInformerWithOptions(client versioned.Interf
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumNetworkDriverNodeConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumNetworkDriverNodeConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumNetworkDriverNodeConfigInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumNetworkDriverNodeConfigInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumNetworkDriverNodeConfigInformer) TypedInformer() CiliumNetworkDriverNodeConfigIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig](f.factory.InformerFor(&apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig{}, f.defaultInformer))
 }
 
 func (f *ciliumNetworkDriverNodeConfigInformer) Lister() ciliumiov2alpha1.CiliumNetworkDriverNodeConfigLister {
 	return ciliumiov2alpha1.NewCiliumNetworkDriverNodeConfigLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumNetworkDriverNodeConfigInformer converts an untyped informer into a TypedCiliumNetworkDriverNodeConfigInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumNetworkDriverNodeConfig. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumNetworkDriverNodeConfigInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumNetworkDriverNodeConfigInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumNetworkDriverNodeConfigInformer(informer CiliumNetworkDriverNodeConfigInformer) TypedCiliumNetworkDriverNodeConfigInformer {
+	if informer, ok := informer.(TypedCiliumNetworkDriverNodeConfigInformer); ok {
+		return informer
+	}
+	return &ciliumNetworkDriverNodeConfigTypedInformerAdapter{informer}
+}
+
+type ciliumNetworkDriverNodeConfigTypedInformerAdapter struct {
+	CiliumNetworkDriverNodeConfigInformer
+}
+
+func (a *ciliumNetworkDriverNodeConfigTypedInformerAdapter) TypedInformer() CiliumNetworkDriverNodeConfigIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig](a.Informer())
+}
+
+// ToCiliumNetworkDriverNodeConfigIndexInformer converts an untyped informer into a CiliumNetworkDriverNodeConfigIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumNetworkDriverNodeConfig. If that is not the case, calling type-safe methods of the returned
+// CiliumNetworkDriverNodeConfigIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumNetworkDriverNodeConfigIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumNetworkDriverNodeConfigIndexInformer(informer cache.SharedIndexInformer) CiliumNetworkDriverNodeConfigIndexInformer {
+	if informer, ok := informer.(CiliumNetworkDriverNodeConfigIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumNetworkDriverNodeConfig](informer)
 }

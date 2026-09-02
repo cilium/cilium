@@ -428,7 +428,7 @@ type PodStatus struct {
 // Pod is a collection of containers that can run on a host. This resource is created
 // by clients and scheduled onto hosts.
 type Pod struct {
-	slim_metav1.TypeMeta `json:",inline"`
+	slim_metav1.TypeMeta `json:""`
 	// Standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
@@ -453,7 +453,7 @@ type Pod struct {
 
 // PodList is a list of Pods.
 type PodList struct {
-	slim_metav1.TypeMeta `json:",inline"`
+	slim_metav1.TypeMeta `json:""`
 	// Standard list metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	// +optional
@@ -951,7 +951,7 @@ type ServicePort struct {
 // (for example 3306) that the proxy listens on, and the selector that determines which pods
 // will answer requests sent through the proxy.
 type Service struct {
-	slim_metav1.TypeMeta `json:",inline"`
+	slim_metav1.TypeMeta `json:""`
 	// Standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
@@ -981,7 +981,7 @@ const (
 
 // ServiceList holds a list of services.
 type ServiceList struct {
-	slim_metav1.TypeMeta `json:",inline"`
+	slim_metav1.TypeMeta `json:""`
 	// Standard list metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	// +optional
@@ -1143,7 +1143,7 @@ type NodeAddress struct {
 // Node is a worker node in Kubernetes.
 // Each node will have a unique identifier in the cache (i.e. in etcd).
 type Node struct {
-	slim_metav1.TypeMeta `json:",inline"`
+	slim_metav1.TypeMeta `json:""`
 	// Standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
@@ -1167,7 +1167,7 @@ type Node struct {
 
 // NodeList is the whole list of all Nodes which have been registered with master.
 type NodeList struct {
-	slim_metav1.TypeMeta `json:",inline"`
+	slim_metav1.TypeMeta `json:""`
 	// Standard list metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	// +optional
@@ -1186,7 +1186,7 @@ type NodeList struct {
 // Namespace provides a scope for Names.
 // Use of multiple namespaces is optional.
 type Namespace struct {
-	slim_metav1.TypeMeta `json:",inline"`
+	slim_metav1.TypeMeta `json:""`
 	// Standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
@@ -1198,7 +1198,7 @@ type Namespace struct {
 
 // NamespaceList is a list of Namespaces.
 type NamespaceList struct {
-	slim_metav1.TypeMeta `json:",inline"`
+	slim_metav1.TypeMeta `json:""`
 	// Standard list metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	// +optional
@@ -1220,7 +1220,7 @@ type Bytes []byte
 // Secret holds secret data of a certain type. The total bytes of the values in
 // the Data field must be less than MaxSecretSize bytes.
 type Secret struct {
-	slim_metav1.TypeMeta `json:",inline"`
+	slim_metav1.TypeMeta `json:""`
 	// Standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
@@ -1331,7 +1331,7 @@ const (
 
 // SecretList is a list of Secret.
 type SecretList struct {
-	slim_metav1.TypeMeta `json:",inline"`
+	slim_metav1.TypeMeta `json:""`
 	// Standard list metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	// +optional

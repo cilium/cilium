@@ -78,7 +78,7 @@ require (
 	github.com/mdlayher/packet v1.1.2
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/ginkgo/v2 v2.28.1
+	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.40.0
 	github.com/osrg/gobgp/v4 v4.8.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
@@ -127,17 +127,17 @@ require (
 	google.golang.org/grpc v1.83.0
 	google.golang.org/protobuf v1.36.12
 	helm.sh/helm/v4 v4.2.4
-	k8s.io/api v0.36.3
-	k8s.io/apiextensions-apiserver v0.36.3
-	k8s.io/apimachinery v0.36.3
-	k8s.io/cli-runtime v0.36.3
-	k8s.io/client-go v0.36.3
-	k8s.io/component-base v0.36.3
-	k8s.io/dynamic-resource-allocation v0.36.3
-	k8s.io/endpointslice v0.36.3
+	k8s.io/api v0.37.0
+	k8s.io/apiextensions-apiserver v0.37.0
+	k8s.io/apimachinery v0.37.0
+	k8s.io/cli-runtime v0.37.0
+	k8s.io/client-go v0.37.0
+	k8s.io/component-base v0.37.0
+	k8s.io/dynamic-resource-allocation v0.37.0
+	k8s.io/endpointslice v0.37.0
 	k8s.io/klog/v2 v2.140.0
-	k8s.io/kubectl v0.36.3
-	k8s.io/metrics v0.36.3
+	k8s.io/kubectl v0.37.0
+	k8s.io/metrics v0.37.0
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/gateway-api v1.6.1
@@ -232,7 +232,7 @@ require (
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/licenseclassifier/v2 v2.0.0 // indirect
-	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
+	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
@@ -315,24 +315,28 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.36.3 // indirect
-	k8s.io/code-generator v0.36.3 // indirect
+	k8s.io/apiserver v0.37.0 // indirect
+	k8s.io/code-generator v0.37.0 // indirect
 	k8s.io/gengo/v2 v2.0.0-20260408192533-25e2208e0dc3 // indirect
-	k8s.io/kube-openapi v0.0.0-20260501160325-927ab1f70cd6 // indirect
-	k8s.io/kubelet v0.36.3 // indirect
-	k8s.io/streaming v0.36.3 // indirect
+	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad // indirect
+	k8s.io/kubelet v0.37.0 // indirect
+	k8s.io/streaming v0.37.0 // indirect
 	oras.land/oras-go/v2 v2.6.2 // indirect
 	sigs.k8s.io/controller-tools v0.20.1 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.21.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.4.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
+	tags.cncf.io/container-device-interface/specs-go v1.1.0 // indirect
 )
 
 // Using private fork of controller-tools. See commit msg for more context
 // as to why we are using a private fork.
 replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.21.0-1
+
+// controller-runtime v0.25 (matching k8s.io/* v0.37) is not yet released.
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.24.1-0.20260901001410-dc7618f3b4f6
 
 tool (
 	github.com/cilium/cilium/tools/dpgen

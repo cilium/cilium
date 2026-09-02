@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumPodIPPoolInformer provides access to a shared informer and lister for
-// CiliumPodIPPools.
+// CiliumPodIPPools. Prefer using the type-safe variant (see [TypedCiliumPodIPPoolInformer]).
 type CiliumPodIPPoolInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2alpha1.CiliumPodIPPoolLister
 }
+
+// TypedCiliumPodIPPoolInformer provides access to a shared informer and lister for
+// CiliumPodIPPools, including the type-safe TypedInformer variant.
+// It is a superset of CiliumPodIPPoolInformer.
+type TypedCiliumPodIPPoolInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumPodIPPoolIndexInformer
+	Lister() ciliumiov2alpha1.CiliumPodIPPoolLister
+}
+
+// CiliumPodIPPoolIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumPodIPPoolIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumPodIPPool]
+
+// CiliumPodIPPoolHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumPodIPPool.
+type CiliumPodIPPoolHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2alpha1.CiliumPodIPPool]
+
+// CiliumPodIPPoolDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumPodIPPool.
+type CiliumPodIPPoolDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2alpha1.CiliumPodIPPool]
+
+// CiliumPodIPPoolFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumPodIPPool.
+type CiliumPodIPPoolFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2alpha1.CiliumPodIPPool]
+
+// CiliumPodIPPoolIndexers is a specialization of [cache.TypedIndexers] for CiliumPodIPPool.
+type CiliumPodIPPoolIndexers = cache.TypedIndexers[*apisciliumiov2alpha1.CiliumPodIPPool]
+
+// DeletedCiliumPodIPPool is a specialization of [cache.DeletedObject] for CiliumPodIPPool.
+type DeletedCiliumPodIPPool = cache.DeletedObject[*apisciliumiov2alpha1.CiliumPodIPPool]
 
 type ciliumPodIPPoolInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumPodIPPoolInformer struct {
 // NewCiliumPodIPPoolInformer constructs a new informer for CiliumPodIPPool type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumPodIPPoolInformer]).
 func NewCiliumPodIPPoolInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumPodIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumPodIPPoolInformer constructs a new informer for CiliumPodIPPool type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumPodIPPoolInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumPodIPPoolIndexers) CiliumPodIPPoolIndexInformer {
+	return NewTypedCiliumPodIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumPodIPPoolInformer constructs a new informer for CiliumPodIPPool type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumPodIPPoolInformer]).
 func NewFilteredCiliumPodIPPoolInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumPodIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumPodIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumPodIPPoolInformer constructs a new informer for CiliumPodIPPool type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumPodIPPoolInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumPodIPPoolIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumPodIPPoolIndexInformer {
+	return NewTypedCiliumPodIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumPodIPPoolInformerWithOptions constructs a new informer for CiliumPodIPPool type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumPodIPPoolInformerWithOptions]).
 func NewCiliumPodIPPoolInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumPodIPPoolInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumPodIPPoolInformerWithOptions constructs a new informer for CiliumPodIPPool type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumPodIPPoolInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumPodIPPoolIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliumpodippools"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumPodIPPool](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumPodIPPoolInformerWithOptions(client versioned.Interface, options i
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumPodIPPoolInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumPodIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumPodIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumPodIPPoolInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2alpha1.CiliumPodIPPool{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumPodIPPoolInformer) TypedInformer() CiliumPodIPPoolIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumPodIPPool](f.factory.InformerFor(&apisciliumiov2alpha1.CiliumPodIPPool{}, f.defaultInformer))
 }
 
 func (f *ciliumPodIPPoolInformer) Lister() ciliumiov2alpha1.CiliumPodIPPoolLister {
 	return ciliumiov2alpha1.NewCiliumPodIPPoolLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumPodIPPoolInformer converts an untyped informer into a TypedCiliumPodIPPoolInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumPodIPPool. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumPodIPPoolInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumPodIPPoolInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumPodIPPoolInformer(informer CiliumPodIPPoolInformer) TypedCiliumPodIPPoolInformer {
+	if informer, ok := informer.(TypedCiliumPodIPPoolInformer); ok {
+		return informer
+	}
+	return &ciliumPodIPPoolTypedInformerAdapter{informer}
+}
+
+type ciliumPodIPPoolTypedInformerAdapter struct {
+	CiliumPodIPPoolInformer
+}
+
+func (a *ciliumPodIPPoolTypedInformerAdapter) TypedInformer() CiliumPodIPPoolIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumPodIPPool](a.Informer())
+}
+
+// ToCiliumPodIPPoolIndexInformer converts an untyped informer into a CiliumPodIPPoolIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumPodIPPool. If that is not the case, calling type-safe methods of the returned
+// CiliumPodIPPoolIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumPodIPPoolIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumPodIPPoolIndexInformer(informer cache.SharedIndexInformer) CiliumPodIPPoolIndexInformer {
+	if informer, ok := informer.(CiliumPodIPPoolIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumPodIPPool](informer)
 }

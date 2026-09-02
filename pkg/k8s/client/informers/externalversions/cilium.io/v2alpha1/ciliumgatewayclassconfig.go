@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumGatewayClassConfigInformer provides access to a shared informer and lister for
-// CiliumGatewayClassConfigs.
+// CiliumGatewayClassConfigs. Prefer using the type-safe variant (see [TypedCiliumGatewayClassConfigInformer]).
 type CiliumGatewayClassConfigInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2alpha1.CiliumGatewayClassConfigLister
 }
+
+// TypedCiliumGatewayClassConfigInformer provides access to a shared informer and lister for
+// CiliumGatewayClassConfigs, including the type-safe TypedInformer variant.
+// It is a superset of CiliumGatewayClassConfigInformer.
+type TypedCiliumGatewayClassConfigInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumGatewayClassConfigIndexInformer
+	Lister() ciliumiov2alpha1.CiliumGatewayClassConfigLister
+}
+
+// CiliumGatewayClassConfigIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumGatewayClassConfigIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumGatewayClassConfig]
+
+// CiliumGatewayClassConfigHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumGatewayClassConfig.
+type CiliumGatewayClassConfigHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2alpha1.CiliumGatewayClassConfig]
+
+// CiliumGatewayClassConfigDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumGatewayClassConfig.
+type CiliumGatewayClassConfigDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2alpha1.CiliumGatewayClassConfig]
+
+// CiliumGatewayClassConfigFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumGatewayClassConfig.
+type CiliumGatewayClassConfigFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2alpha1.CiliumGatewayClassConfig]
+
+// CiliumGatewayClassConfigIndexers is a specialization of [cache.TypedIndexers] for CiliumGatewayClassConfig.
+type CiliumGatewayClassConfigIndexers = cache.TypedIndexers[*apisciliumiov2alpha1.CiliumGatewayClassConfig]
+
+// DeletedCiliumGatewayClassConfig is a specialization of [cache.DeletedObject] for CiliumGatewayClassConfig.
+type DeletedCiliumGatewayClassConfig = cache.DeletedObject[*apisciliumiov2alpha1.CiliumGatewayClassConfig]
 
 type ciliumGatewayClassConfigInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -36,25 +64,49 @@ type ciliumGatewayClassConfigInformer struct {
 // NewCiliumGatewayClassConfigInformer constructs a new informer for CiliumGatewayClassConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumGatewayClassConfigInformer]).
 func NewCiliumGatewayClassConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumGatewayClassConfigInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumGatewayClassConfigInformer constructs a new informer for CiliumGatewayClassConfig type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumGatewayClassConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers CiliumGatewayClassConfigIndexers) CiliumGatewayClassConfigIndexInformer {
+	return NewTypedCiliumGatewayClassConfigInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumGatewayClassConfigInformer constructs a new informer for CiliumGatewayClassConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumGatewayClassConfigInformer]).
 func NewFilteredCiliumGatewayClassConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumGatewayClassConfigInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumGatewayClassConfigInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumGatewayClassConfigInformer constructs a new informer for CiliumGatewayClassConfig type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumGatewayClassConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers CiliumGatewayClassConfigIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumGatewayClassConfigIndexInformer {
+	return NewTypedCiliumGatewayClassConfigInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumGatewayClassConfigInformerWithOptions constructs a new informer for CiliumGatewayClassConfig type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumGatewayClassConfigInformerWithOptions]).
 func NewCiliumGatewayClassConfigInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumGatewayClassConfigInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedCiliumGatewayClassConfigInformerWithOptions constructs a new informer for CiliumGatewayClassConfig type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumGatewayClassConfigInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) CiliumGatewayClassConfigIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2alpha1", Resource: "ciliumgatewayclassconfigs"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumGatewayClassConfig](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -87,17 +139,57 @@ func NewCiliumGatewayClassConfigInformerWithOptions(client versioned.Interface, 
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumGatewayClassConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumGatewayClassConfigInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumGatewayClassConfigInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumGatewayClassConfigInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2alpha1.CiliumGatewayClassConfig{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumGatewayClassConfigInformer) TypedInformer() CiliumGatewayClassConfigIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumGatewayClassConfig](f.factory.InformerFor(&apisciliumiov2alpha1.CiliumGatewayClassConfig{}, f.defaultInformer))
 }
 
 func (f *ciliumGatewayClassConfigInformer) Lister() ciliumiov2alpha1.CiliumGatewayClassConfigLister {
 	return ciliumiov2alpha1.NewCiliumGatewayClassConfigLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumGatewayClassConfigInformer converts an untyped informer into a TypedCiliumGatewayClassConfigInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumGatewayClassConfig. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumGatewayClassConfigInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumGatewayClassConfigInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumGatewayClassConfigInformer(informer CiliumGatewayClassConfigInformer) TypedCiliumGatewayClassConfigInformer {
+	if informer, ok := informer.(TypedCiliumGatewayClassConfigInformer); ok {
+		return informer
+	}
+	return &ciliumGatewayClassConfigTypedInformerAdapter{informer}
+}
+
+type ciliumGatewayClassConfigTypedInformerAdapter struct {
+	CiliumGatewayClassConfigInformer
+}
+
+func (a *ciliumGatewayClassConfigTypedInformerAdapter) TypedInformer() CiliumGatewayClassConfigIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumGatewayClassConfig](a.Informer())
+}
+
+// ToCiliumGatewayClassConfigIndexInformer converts an untyped informer into a CiliumGatewayClassConfigIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumGatewayClassConfig. If that is not the case, calling type-safe methods of the returned
+// CiliumGatewayClassConfigIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumGatewayClassConfigIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumGatewayClassConfigIndexInformer(informer cache.SharedIndexInformer) CiliumGatewayClassConfigIndexInformer {
+	if informer, ok := informer.(CiliumGatewayClassConfigIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2alpha1.CiliumGatewayClassConfig](informer)
 }

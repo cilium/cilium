@@ -21,11 +21,39 @@ import (
 )
 
 // CiliumLoadBalancerIPPoolInformer provides access to a shared informer and lister for
-// CiliumLoadBalancerIPPools.
+// CiliumLoadBalancerIPPools. Prefer using the type-safe variant (see [TypedCiliumLoadBalancerIPPoolInformer]).
 type CiliumLoadBalancerIPPoolInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() ciliumiov2.CiliumLoadBalancerIPPoolLister
 }
+
+// TypedCiliumLoadBalancerIPPoolInformer provides access to a shared informer and lister for
+// CiliumLoadBalancerIPPools, including the type-safe TypedInformer variant.
+// It is a superset of CiliumLoadBalancerIPPoolInformer.
+type TypedCiliumLoadBalancerIPPoolInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() CiliumLoadBalancerIPPoolIndexInformer
+	Lister() ciliumiov2.CiliumLoadBalancerIPPoolLister
+}
+
+// CiliumLoadBalancerIPPoolIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type CiliumLoadBalancerIPPoolIndexInformer cache.TypedSharedIndexInformer[*apisciliumiov2.CiliumLoadBalancerIPPool]
+
+// CiliumLoadBalancerIPPoolHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for CiliumLoadBalancerIPPool.
+type CiliumLoadBalancerIPPoolHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisciliumiov2.CiliumLoadBalancerIPPool]
+
+// CiliumLoadBalancerIPPoolDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for CiliumLoadBalancerIPPool.
+type CiliumLoadBalancerIPPoolDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisciliumiov2.CiliumLoadBalancerIPPool]
+
+// CiliumLoadBalancerIPPoolFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for CiliumLoadBalancerIPPool.
+type CiliumLoadBalancerIPPoolFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisciliumiov2.CiliumLoadBalancerIPPool]
+
+// CiliumLoadBalancerIPPoolIndexers is a specialization of [cache.TypedIndexers] for CiliumLoadBalancerIPPool.
+type CiliumLoadBalancerIPPoolIndexers = cache.TypedIndexers[*apisciliumiov2.CiliumLoadBalancerIPPool]
+
+// DeletedCiliumLoadBalancerIPPool is a specialization of [cache.DeletedObject] for CiliumLoadBalancerIPPool.
+type DeletedCiliumLoadBalancerIPPool = cache.DeletedObject[*apisciliumiov2.CiliumLoadBalancerIPPool]
 
 type ciliumLoadBalancerIPPoolInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -35,25 +63,49 @@ type ciliumLoadBalancerIPPoolInformer struct {
 // NewCiliumLoadBalancerIPPoolInformer constructs a new informer for CiliumLoadBalancerIPPool type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumLoadBalancerIPPoolInformer]).
 func NewCiliumLoadBalancerIPPoolInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewCiliumLoadBalancerIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedCiliumLoadBalancerIPPoolInformer constructs a new informer for CiliumLoadBalancerIPPool type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumLoadBalancerIPPoolInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumLoadBalancerIPPoolIndexers) CiliumLoadBalancerIPPoolIndexInformer {
+	return NewTypedCiliumLoadBalancerIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredCiliumLoadBalancerIPPoolInformer constructs a new informer for CiliumLoadBalancerIPPool type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredCiliumLoadBalancerIPPoolInformer]).
 func NewFilteredCiliumLoadBalancerIPPoolInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewCiliumLoadBalancerIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedCiliumLoadBalancerIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredCiliumLoadBalancerIPPoolInformer constructs a new informer for CiliumLoadBalancerIPPool type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredCiliumLoadBalancerIPPoolInformer(client versioned.Interface, resyncPeriod time.Duration, indexers CiliumLoadBalancerIPPoolIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) CiliumLoadBalancerIPPoolIndexInformer {
+	return NewTypedCiliumLoadBalancerIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewCiliumLoadBalancerIPPoolInformerWithOptions constructs a new informer for CiliumLoadBalancerIPPool type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedCiliumLoadBalancerIPPoolInformerWithOptions]).
 func NewCiliumLoadBalancerIPPoolInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedCiliumLoadBalancerIPPoolInformerWithOptions(client, options)
+}
+
+// NewTypedCiliumLoadBalancerIPPoolInformerWithOptions constructs a new informer for CiliumLoadBalancerIPPool type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedCiliumLoadBalancerIPPoolInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) CiliumLoadBalancerIPPoolIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumloadbalancerippools"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumLoadBalancerIPPool](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -86,17 +138,57 @@ func NewCiliumLoadBalancerIPPoolInformerWithOptions(client versioned.Interface, 
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *ciliumLoadBalancerIPPoolInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewCiliumLoadBalancerIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedCiliumLoadBalancerIPPoolInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *ciliumLoadBalancerIPPoolInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisciliumiov2.CiliumLoadBalancerIPPool{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *ciliumLoadBalancerIPPoolInformer) TypedInformer() CiliumLoadBalancerIPPoolIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumLoadBalancerIPPool](f.factory.InformerFor(&apisciliumiov2.CiliumLoadBalancerIPPool{}, f.defaultInformer))
 }
 
 func (f *ciliumLoadBalancerIPPoolInformer) Lister() ciliumiov2.CiliumLoadBalancerIPPoolLister {
 	return ciliumiov2.NewCiliumLoadBalancerIPPoolLister(f.Informer().GetIndexer())
+}
+
+// ToTypedCiliumLoadBalancerIPPoolInformer converts an untyped informer into a TypedCiliumLoadBalancerIPPoolInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumLoadBalancerIPPool. If that is not the case, calling type-safe methods of the returned
+// TypedCiliumLoadBalancerIPPoolInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedCiliumLoadBalancerIPPoolInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedCiliumLoadBalancerIPPoolInformer(informer CiliumLoadBalancerIPPoolInformer) TypedCiliumLoadBalancerIPPoolInformer {
+	if informer, ok := informer.(TypedCiliumLoadBalancerIPPoolInformer); ok {
+		return informer
+	}
+	return &ciliumLoadBalancerIPPoolTypedInformerAdapter{informer}
+}
+
+type ciliumLoadBalancerIPPoolTypedInformerAdapter struct {
+	CiliumLoadBalancerIPPoolInformer
+}
+
+func (a *ciliumLoadBalancerIPPoolTypedInformerAdapter) TypedInformer() CiliumLoadBalancerIPPoolIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumLoadBalancerIPPool](a.Informer())
+}
+
+// ToCiliumLoadBalancerIPPoolIndexInformer converts an untyped informer into a CiliumLoadBalancerIPPoolIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *CiliumLoadBalancerIPPool. If that is not the case, calling type-safe methods of the returned
+// CiliumLoadBalancerIPPoolIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a CiliumLoadBalancerIPPoolIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToCiliumLoadBalancerIPPoolIndexInformer(informer cache.SharedIndexInformer) CiliumLoadBalancerIPPoolIndexInformer {
+	if informer, ok := informer.(CiliumLoadBalancerIPPoolIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisciliumiov2.CiliumLoadBalancerIPPool](informer)
 }

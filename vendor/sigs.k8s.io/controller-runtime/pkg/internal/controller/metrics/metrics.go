@@ -32,7 +32,7 @@ var (
 	ReconcileTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "controller_runtime_reconcile_total",
 		Help: "Total number of reconciliations per controller",
-	}, []string{"controller", "result"})
+	}, []string{"controller", "result"}) //nolint:goconst
 
 	// ReconcileErrors is a prometheus counter metrics which holds the total
 	// number of errors from the Reconciler.
