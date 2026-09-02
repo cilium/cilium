@@ -35,6 +35,11 @@ import (
 // egress priority to consider when deleting the egress rules (see
 // option.Config.EgressMultiHomeIPRuleCompat).
 //
+// RoutingInfo configuration is a one time operation that happens during:
+// * AgentStartup for infra ip components
+// * Endpoint Restore
+// * CNI ADD
+//
 // ip: The endpoint IP address to direct traffic out / from interface.
 // info: The interface routing info used to create rules and routes.
 // mtu: The interface MTU.
@@ -55,15 +60,17 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 	}
 
 	var ipWithMask net.IPNet
+	var family int
 	var replaceRule func(route.Rule) error
-
 	if ip.To4() != nil {
+		family = netlink.FAMILY_V4
 		replaceRule = route.ReplaceRule
 		ipWithMask = net.IPNet{
 			IP:   ip,
 			Mask: net.CIDRMask(32, 32),
 		}
 	} else {
+		family = netlink.FAMILY_V6
 		replaceRule = route.ReplaceRuleIPv6
 		ipWithMask = net.IPNet{
 			IP:   ip,
@@ -96,6 +103,12 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 		ifaceNum = info.InterfaceNumber
 	}
 	tableID = computeTableIDFromIfaceNumber(compat, ifaceNum)
+	ruleFilter := route.Rule{
+		Priority: egressPriority,
+		From:     &ipWithMask,
+		Table:    tableID,
+		Protocol: linux_defaults.RTProto,
+	}
 
 	// The condition here should mirror the condition in Delete.
 	if info.Masquerade && info.IpamMode == ipamOption.IPAMENI {
@@ -103,18 +116,82 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 		// CIDR configured for the VPC on which the endpoint has the IP on.
 		// ReplaceRule function doesn't handle all zeros cidr and return `file exists` error,
 		// so we need to normalize the rule to cidr here and in Delete
+		var installedCatchAllEquivalent bool
 		for _, cidr := range info.CIDRs {
+			to := normalizeRuleToCIDR(&cidr)
+			if to == nil {
+				// A 0.0.0.0/0 (or ::/0) CIDR normalizes to an unconditional
+				// rule identical in shape to the stale catch-all rule we'd
+				// otherwise clean up below. Track this so we don't delete
+				// the rule we just installed.
+				installedCatchAllEquivalent = true
+			}
 			if err := replaceRule(route.Rule{
 				Priority: egressPriority,
 				From:     &ipWithMask,
-				To:       normalizeRuleToCIDR(&cidr),
+				To:       to,
 				Table:    tableID,
 				Protocol: linux_defaults.RTProto,
 			}); err != nil {
 				return fmt.Errorf("unable to install ip rule: %w", err)
 			}
 		}
+
+		// After creating cidr specific rules for ENI remove the catch-all rule if present.
+		// This ensures cleanup of the rule when masquerading configuration changes(best-effort).
+		if !installedCatchAllEquivalent {
+			_ = deleteRulesFiltered(info.logger, ruleFilter, family, deleteRuleFilter{
+				fn: func(r netlink.Rule) bool {
+					return r.Dst == nil
+				},
+			})
+		}
 	} else {
+		// Cleanup CIDR specific rules if present and create catch-all rule.
+		// This cleanup needs to happen before installing the new rule as
+		// creating a catch all rule on top of CIDR specific rule results in
+		// error: RTNETLINK answers: File exists
+		existingRules, err := route.ListRules(family, &ruleFilter)
+		if err != nil {
+			return fmt.Errorf("unable to list existing egress rules: %w", err)
+		}
+		var staleCIDRRules []netlink.Rule
+		for _, r := range existingRules {
+			if r.Dst != nil {
+				staleCIDRRules = append(staleCIDRRules, r)
+			}
+		}
+
+		// Deleting the stale rules first leaves a window with no matching
+		// egress rule for the endpoint. If there's any stale rule to
+		// remove, bridge that window with a rule installed at a transient
+		// priority so the traffic is not impacted.
+		// The transient rule is removed once the catch-all rule is in place.
+		hasStaleCIDRRules := len(staleCIDRRules) > 0
+		tempRule := route.Rule{
+			Priority: linux_defaults.RulePriorityEgressMasqueradeBridge,
+			From:     &ipWithMask,
+			Table:    tableID,
+			Protocol: linux_defaults.RTProto,
+		}
+		if hasStaleCIDRRules {
+			info.logger.Info("Cleaning up stale CIDR specific egress rules",
+				logfields.Count, len(staleCIDRRules),
+			)
+			if err := replaceRule(tempRule); err != nil {
+				return fmt.Errorf("unable to install transient ip rule: %w", err)
+			}
+
+			for i := range staleCIDRRules {
+				if err := netlink.RuleDel(&staleCIDRRules[i]); err != nil {
+					info.logger.Warn("Failed to delete stale egress rule",
+						logfields.Error, err,
+						logfields.Rule, staleCIDRRules[i],
+					)
+				}
+			}
+		}
+
 		// Lookup a VPC specific table for all traffic from an endpoint.
 		if err := replaceRule(route.Rule{
 			Priority: egressPriority,
@@ -123,6 +200,12 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 			Protocol: linux_defaults.RTProto,
 		}); err != nil {
 			return fmt.Errorf("unable to install ip rule: %w", err)
+		}
+
+		if hasStaleCIDRRules {
+			if err := route.DeleteRule(family, tempRule); err != nil {
+				info.logger.Warn("Failed to remove transient egress rule", logfields.Error, err)
+			}
 		}
 	}
 
