@@ -286,7 +286,6 @@ static __always_inline __maybe_unused int
 ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 		 const __u64 flags __maybe_unused)
 {
-	const __u32 move_len_v4_geneve = 14 + 20 + 8 + 8; /* eth, ipv4, udp, geneve */
 	const __u32 move_len_v4 = 14 + 20;
 	const __u32 move_len_v6 = 14 + 40;
 	int ret;
@@ -313,9 +312,6 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 
 		switch (len_diff) {
 		case 28: /* struct {iphdr + icmphdr} */
-			break;
-		case 12: /* struct geneve_dsr_opt4 */
-			move_len = move_len_v4_geneve;
 			break;
 		case 20: /* struct iphdr */
 		case 8:  /* struct dsr_opt_v4 */
