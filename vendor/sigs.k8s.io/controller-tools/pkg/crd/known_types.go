@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,10 +28,10 @@ import (
 var KnownPackages = map[string]PackageOverride{
 	"k8s.io/apimachinery/pkg/apis/meta/v1": func(p *Parser, pkg *loader.Package) {
 		p.Schemata[TypeIdent{Name: "ObjectMeta", Package: pkg}] = apiextensionsv1.JSONSchemaProps{
-			Type: "object",
+			Type: "object", //nolint:goconst
 		}
 		p.Schemata[TypeIdent{Name: "Time", Package: pkg}] = apiextensionsv1.JSONSchemaProps{
-			Type:   "string",
+			Type:   "string", //nolint:goconst
 			Format: "date-time",
 		}
 		p.Schemata[TypeIdent{Name: "MicroTime", Package: pkg}] = apiextensionsv1.JSONSchemaProps{

@@ -40,10 +40,93 @@ type ErrorRecorder interface {
 // it compares val to valInt (which should probably be the zero value).
 func isOrNil(val reflect.Value, valInt any, zeroInt any) bool {
 	switch valKind := val.Kind(); valKind {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
 		return val.IsNil()
 	default:
 		return valInt == zeroInt
+	}
+}
+
+// resolveFieldConflict handles conflicts when both src and dst have values for a field
+func resolveFieldConflict(fieldName string, srcField, dstField reflect.Value, srcInt, dstInt any, errRec ErrorRecorder, srcRemVal, dstRemVal reflect.Value, fieldIndex int) bool {
+	zeroVal := reflect.Zero(srcField.Type())
+
+	switch fieldName {
+	case "Properties":
+		// merge if possible, use all of otherwise
+		srcMap := srcInt.(map[string]apiextensionsv1.JSONSchemaProps)
+		dstMap := dstInt.(map[string]apiextensionsv1.JSONSchemaProps)
+
+		for k, v := range srcMap {
+			dstProp, exists := dstMap[k]
+			if !exists {
+				dstMap[k] = v
+				continue
+			}
+			flattenAllOfInto(&dstProp, v, errRec)
+			dstMap[k] = dstProp
+		}
+		return false
+	case "Required":
+		// merge
+		dstField.Set(reflect.AppendSlice(dstField, srcField))
+		return false
+	case "MinProperties", "MaxProperties":
+		// remove duplicate if values are identical
+		srcPtr := srcInt.(*int64)
+		dstPtr := dstInt.(*int64)
+		if srcPtr != nil && dstPtr != nil && *srcPtr == *dstPtr {
+			// same value, keep destination
+			return false
+		}
+		// different values, keep both in allOf
+		srcRemVal.Field(fieldIndex).Set(srcField)
+		dstRemVal.Field(fieldIndex).Set(dstField)
+		dstField.Set(zeroVal)
+		return true
+	case "Type":
+		if srcInt != dstInt {
+			// TODO(directxman12): figure out how to attach this back to a useful point in the Go source or in the schema
+			errRec.AddError(fmt.Errorf("conflicting types in allOf branches in schema: %s vs %s", dstInt, srcInt))
+		}
+		// keep the destination value, for now
+		return false
+	// TODO(directxman12): Default -- use field?
+	// TODO(directxman12):
+	// - Dependencies: if field x is present, then either schema validates or all props are present
+	// - AdditionalItems: like AdditionalProperties
+	// - Definitions: common named validation sets that can be references (merge, bail if duplicate)
+	case "AdditionalProperties":
+		// as of the time of writing, `allows: false` is not allowed, so we don't have to handle it
+		srcProps := srcInt.(*apiextensionsv1.JSONSchemaPropsOrBool)
+		if srcProps.Schema == nil {
+			// nothing to merge
+			return false
+		}
+		dstProps := dstInt.(*apiextensionsv1.JSONSchemaPropsOrBool)
+		if dstProps.Schema == nil {
+			dstProps.Schema = &apiextensionsv1.JSONSchemaProps{}
+		}
+		flattenAllOfInto(dstProps.Schema, *srcProps.Schema, errRec)
+		return false
+	case "XPreserveUnknownFields":
+		dstField.Set(srcField)
+		return false
+	case "XMapType":
+		dstField.Set(srcField)
+		return false
+	case "XValidations":
+		dstField.Set(reflect.AppendSlice(srcField, dstField))
+		return false
+	// NB(directxman12): no need to explicitly handle nullable -- false is considered to be the zero value
+	// TODO(directxman12): src isn't necessarily the field value -- it's just the most recent allOf entry
+	default:
+		// hoist into allOf...
+		srcRemVal.Field(fieldIndex).Set(srcField)
+		dstRemVal.Field(fieldIndex).Set(dstField)
+		// ...and clear the original
+		dstField.Set(zeroVal)
+		return true
 	}
 }
 
@@ -66,8 +149,8 @@ func flattenAllOfInto(dst *apiextensionsv1.JSONSchemaProps, src apiextensionsv1.
 	dstRemVal := reflect.Indirect(reflect.ValueOf(&dstRemainder))
 	hoisted := false
 
-	for i := 0; i < srcVal.NumField(); i++ {
-		fieldName := typ.Field(i).Name
+	for fieldIndex := 0; fieldIndex < srcVal.NumField(); fieldIndex++ {
+		fieldName := typ.Field(fieldIndex).Name
 		switch fieldName {
 		case "AllOf":
 			// don't merge because we deal with it above
@@ -85,7 +168,7 @@ func flattenAllOfInto(dst *apiextensionsv1.JSONSchemaProps, src apiextensionsv1.
 			}
 			continue
 		}
-		srcField := srcVal.Field(i)
+		srcField := srcVal.Field(fieldIndex)
 		fldTyp := srcField.Type()
 		zeroVal := reflect.Zero(fldTyp)
 		zeroInt := zeroVal.Interface()
@@ -96,7 +179,7 @@ func flattenAllOfInto(dst *apiextensionsv1.JSONSchemaProps, src apiextensionsv1.
 			continue
 		}
 
-		dstField := dstVal.Field(i)
+		dstField := dstVal.Field(fieldIndex)
 		dstInt := dstField.Interface()
 		if isOrNil(dstField, dstInt, zeroInt) {
 			// dst is empty, continue
@@ -110,63 +193,8 @@ func flattenAllOfInto(dst *apiextensionsv1.JSONSchemaProps, src apiextensionsv1.
 		}
 
 		// resolve conflict
-		switch fieldName {
-		case "Properties":
-			// merge if possible, use all of otherwise
-			srcMap := srcInt.(map[string]apiextensionsv1.JSONSchemaProps)
-			dstMap := dstInt.(map[string]apiextensionsv1.JSONSchemaProps)
-
-			for k, v := range srcMap {
-				dstProp, exists := dstMap[k]
-				if !exists {
-					dstMap[k] = v
-					continue
-				}
-				flattenAllOfInto(&dstProp, v, errRec)
-				dstMap[k] = dstProp
-			}
-		case "Required":
-			// merge
-			dstField.Set(reflect.AppendSlice(dstField, srcField))
-		case "Type":
-			if srcInt != dstInt {
-				// TODO(directxman12): figure out how to attach this back to a useful point in the Go source or in the schema
-				errRec.AddError(fmt.Errorf("conflicting types in allOf branches in schema: %s vs %s", dstInt, srcInt))
-			}
-			// keep the destination value, for now
-		// TODO(directxman12): Default -- use field?
-		// TODO(directxman12):
-		// - Dependencies: if field x is present, then either schema validates or all props are present
-		// - AdditionalItems: like AdditionalProperties
-		// - Definitions: common named validation sets that can be references (merge, bail if duplicate)
-		case "AdditionalProperties":
-			// as of the time of writing, `allows: false` is not allowed, so we don't have to handle it
-			srcProps := srcInt.(*apiextensionsv1.JSONSchemaPropsOrBool)
-			if srcProps.Schema == nil {
-				// nothing to merge
-				continue
-			}
-			dstProps := dstInt.(*apiextensionsv1.JSONSchemaPropsOrBool)
-			if dstProps.Schema == nil {
-				dstProps.Schema = &apiextensionsv1.JSONSchemaProps{}
-			}
-			flattenAllOfInto(dstProps.Schema, *srcProps.Schema, errRec)
-		case "XPreserveUnknownFields":
-			dstField.Set(srcField)
-		case "XMapType":
-			dstField.Set(srcField)
-		case "XValidations":
-			dstField.Set(reflect.AppendSlice(srcField, dstField))
-		// NB(directxman12): no need to explicitly handle nullable -- false is considered to be the zero value
-		// TODO(directxman12): src isn't necessarily the field value -- it's just the most recent allOf entry
-		default:
-			// hoist into allOf...
+		if resolveFieldConflict(fieldName, srcField, dstField, srcInt, dstInt, errRec, srcRemVal, dstRemVal, fieldIndex) {
 			hoisted = true
-
-			srcRemVal.Field(i).Set(srcField)
-			dstRemVal.Field(i).Set(dstField)
-			// ...and clear the original
-			dstField.Set(zeroVal)
 		}
 	}
 

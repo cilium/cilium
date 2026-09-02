@@ -17,15 +17,16 @@ limitations under the License.
 package genall
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
 	"golang.org/x/tools/go/packages"
-	rawyaml "gopkg.in/yaml.v2"
 	"sigs.k8s.io/controller-tools/pkg/loader"
 	"sigs.k8s.io/controller-tools/pkg/markers"
+	"sigs.k8s.io/yaml"
 )
 
 // Generators are a list of Generators.
@@ -133,7 +134,10 @@ func WithTransform(transform func(obj map[string]any) error) *WriteYAMLOptions {
 
 // TransformRemoveCreationTimestamp ensures we do not write the metadata.creationTimestamp field.
 func TransformRemoveCreationTimestamp(obj map[string]any) error {
-	metadata := obj["metadata"].(map[any]any)
+	metadata, ok := obj["metadata"].(map[string]any)
+	if !ok {
+		return nil
+	}
 	delete(metadata, "creationTimestamp")
 	return nil
 }
@@ -181,15 +185,16 @@ func yamlMarshal(o any, options ...*WriteYAMLOptions) ([]byte, error) {
 }
 
 // yamlJSONToYAMLWithFilter is based on sigs.k8s.io/yaml.JSONToYAML, but allows for transforming the final data before writing.
+//
+// It does not call JSONToYAML directly because transforms need a map[string]any, and the YAML
+// decoder returns map[any]any for nested maps. Marshalling is still done by sigs.k8s.io/yaml.
 func yamlJSONToYAMLWithFilter(j []byte, options ...*WriteYAMLOptions) ([]byte, error) {
-	// Convert the JSON to an object.
 	var jsonObj map[string]any
-	// We are using yaml.Unmarshal here (instead of json.Unmarshal) because the
-	// Go JSON library doesn't try to pick the right number type (int, float,
-	// etc.) when unmarshalling to any, it just picks float64
-	// universally. go-yaml does go through the effort of picking the right
-	// number type, so we can preserve number type throughout this process.
-	if err := rawyaml.Unmarshal(j, &jsonObj); err != nil {
+	// UseNumber keeps integers exact. Without it every number becomes a float64,
+	// so values above 2^53 lose precision.
+	decoder := json.NewDecoder(bytes.NewReader(j))
+	decoder.UseNumber()
+	if err := decoder.Decode(&jsonObj); err != nil {
 		return nil, err
 	}
 
@@ -201,8 +206,7 @@ func yamlJSONToYAMLWithFilter(j []byte, options ...*WriteYAMLOptions) ([]byte, e
 		}
 	}
 
-	// Marshal this object into YAML.
-	return rawyaml.Marshal(jsonObj)
+	return yaml.Marshal(jsonObj)
 }
 
 // ReadFile reads the given boilerplate artifact using the context's InputRule.

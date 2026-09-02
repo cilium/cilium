@@ -19,7 +19,7 @@ package yaml
 import (
 	"fmt"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // SetNode sets the given path to the given yaml Node, creating mapping nodes along the way.

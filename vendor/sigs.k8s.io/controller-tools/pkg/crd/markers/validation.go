@@ -107,9 +107,9 @@ var TypeOnlyMarkers = []*definitionWithHelp{
 // sense on a type, and thus aren't in ValidationMarkers).
 var FieldOnlyMarkers = []*definitionWithHelp{
 	must(markers.MakeDefinition("kubebuilder:validation:Required", markers.DescribesField, struct{}{})).
-		WithHelp(markers.SimpleHelp("CRD validation", "specifies that this field is required.")),
+		WithHelp(markers.DeprecatedHelp("required", "CRD validation", "specifies that this field is required.")),
 	must(markers.MakeDefinition("kubebuilder:validation:Optional", markers.DescribesField, struct{}{})).
-		WithHelp(markers.SimpleHelp("CRD validation", "specifies that this field is optional.")),
+		WithHelp(markers.DeprecatedHelp("optional", "CRD validation", "specifies that this field is optional.")),
 	must(markers.MakeDefinition("required", markers.DescribesField, struct{}{})).
 		WithHelp(markers.SimpleHelp("CRD validation", "specifies that this field is required.")),
 	must(markers.MakeDefinition("optional", markers.DescribesField, struct{}{})).
@@ -577,8 +577,8 @@ type XIntOrString struct{}
 // Schemaless objects are not introspected, so you must provide
 // any type and validation information yourself. One use for this
 // tag is for embedding fields that hold JSONSchema typed objects.
-// Because this field disables all type checking, it is recommended
-// to be used only as a last resort.
+// Because this field disables all type checking, it is recommended to
+// be used only as a last resort.
 //
 // Example:
 //
@@ -633,25 +633,61 @@ func isIntegral(value float64) bool {
 // This marker may be repeated to specify multiple expressions, all of
 // which must evaluate to true.
 //
+// CEL expressions can use: self (current value) and oldSelf (previous value; only on update, null on create).
+// Rules are scoped to where they appear in the schema; self is that value.
+//
 // Examples:
 //
-//	// Basic field validation
+//	// Basic field validation using self
 //	// +kubebuilder:validation:XValidation:rule="self.minReplicas <= self.replicas && self.replicas <= self.maxReplicas",message="replicas must be between minReplicas and maxReplicas"
 //
 //	// Validation with custom reason
 //	// +kubebuilder:validation:XValidation:rule="self.x <= self.maxX",message="x cannot be greater than maxX",reason="FieldValueInvalid"
 //
-//	// Immutability check
+//	// Immutability check using oldSelf (e.g. on a field so self/oldSelf are that field's value)
 //	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="field is immutable"
+//
+//	// Validation with field path for better error reporting
+//	// +kubebuilder:validation:XValidation:rule="self >= 1",message="value must be at least 1",fieldPath=".spec.replicas"
 //
 // +controllertools:marker:generateHelp:category="CRD validation"
 type XValidation struct {
-	Rule              string
-	Message           string `marker:",optional"`
+	// Rule is the CEL expression that must evaluate to true.
+	// It is scoped to where this XValidation is in the schema; self is that value.
+	// Example: Rule="self.minReplicas <= self.replicas && self.replicas <= self.maxReplicas"
+	Rule string
+
+	// Message is the text shown when validation fails.
+	// If unset, the default is "failed rule: {Rule}".
+	// Must not contain line breaks. The API server limits length (e.g. 256 characters).
+	// See ValidationRule in k8s.io/apiextensions-apiserver for full details.
+	// Example: Message="replicas must be between minReplicas and maxReplicas"
+	Message string `marker:",optional"`
+
+	// MessageExpression is a CEL expression that returns the message shown when validation fails.
+	// You can set Message or MessageExpression, not both. MessageExpression must return a string.
+	// If both are set, MessageExpression is used. If neither is set, a default message is used.
+	// The expression can use the same variables as the Rule (e.g. self, oldSelf).
+	// The result must not contain line breaks and is subject to the same message limits as Message.
+	// Example: MessageExpression="'replicas must be between ' + string(self.minReplicas) + ' and ' + string(self.maxReplicas)"
 	MessageExpression string `marker:"messageExpression,optional"`
-	Reason            string `marker:"reason,optional"`
-	FieldPath         string `marker:"fieldPath,optional"`
-	OptionalOldSelf   *bool  `marker:"optionalOldSelf,optional"`
+
+	// Reason is a short code for why validation failed, returned to API callers.
+	// Supported values: "FieldValueInvalid", "FieldValueForbidden", "FieldValueRequired", "FieldValueDuplicate".
+	// If not set, defaults to "FieldValueInvalid".
+	// Example: Reason="FieldValueInvalid"
+	Reason string `marker:"reason,optional"`
+
+	// FieldPath is the path to the field that failed validation (for clearer error messages).
+	// Example: FieldPath=".spec.replicas"
+	FieldPath string `marker:"fieldPath,optional"`
+
+	// OptionalOldSelf, when true, runs the rule on create and on update (even when there is no old value).
+	// When true, oldSelf may be missing: use oldSelf.hasValue() to check and oldSelf.value() to use it.
+	// The rule always runs; you must check oldSelf.hasValue() in the rule before using oldSelf.
+	// May only be set if the rule uses oldSelf. See ValidationRule in k8s.io/apiextensions-apiserver.
+	// Example: OptionalOldSelf=true
+	OptionalOldSelf *bool `marker:"optionalOldSelf,optional"`
 }
 
 // AtMostOneOf adds a validation constraint that allows at most one of the specified fields.
@@ -993,9 +1029,8 @@ func (fields AtMostOneOf) ApplyToSchema(ctx *SchemaContext, schema *apiextension
 	if len(fields) == 0 {
 		return nil
 	}
-	rule := fieldsToOneOfCelRuleStr(fields)
 	xvalidation := XValidation{
-		Rule:    fmt.Sprintf("%s <= 1", rule),
+		Rule:    fmt.Sprintf("%s <= 1", fieldsToOneOfSumExpr(fields)),
 		Message: fmt.Sprintf("at most one of the fields in %v may be set", fields),
 	}
 	return xvalidation.ApplyToSchema(ctx, schema)
@@ -1010,9 +1045,8 @@ func (fields ExactlyOneOf) ApplyToSchema(ctx *SchemaContext, schema *apiextensio
 	if len(fields) == 0 {
 		return nil
 	}
-	rule := fieldsToOneOfCelRuleStr(fields)
 	xvalidation := XValidation{
-		Rule:    fmt.Sprintf("%s == 1", rule),
+		Rule:    fmt.Sprintf("%s == 1", fieldsToOneOfSumExpr(fields)),
 		Message: fmt.Sprintf("exactly one of the fields in %v must be set", fields),
 	}
 	return xvalidation.ApplyToSchema(ctx, schema)
@@ -1027,9 +1061,8 @@ func (fields AtLeastOneOf) ApplyToSchema(ctx *SchemaContext, schema *apiextensio
 	if len(fields) == 0 {
 		return nil
 	}
-	rule := fieldsToOneOfCelRuleStr(fields)
 	xvalidation := XValidation{
-		Rule:    fmt.Sprintf("%s >= 1", rule),
+		Rule:    fieldsToOneOfOrExpr(fields),
 		Message: fmt.Sprintf("at least one of the fields in %v must be set", fields),
 	}
 	return xvalidation.ApplyToSchema(ctx, schema)
@@ -1040,21 +1073,47 @@ func (AtLeastOneOf) ApplyPriority() ApplyPriority {
 	return ExactlyOneOf{}.ApplyPriority() + 1
 }
 
-// fieldsToOneOfCelRuleStr converts a slice of field names to a string representation
-// [has(self.field1),has(self.field1),...].filter(x, x == true).size()
-func fieldsToOneOfCelRuleStr(fields []string) string {
-	var list strings.Builder
-	list.WriteString("[")
+// fieldsToOneOfSumExpr returns a CEL expression that evaluates to the count of
+// the given fields that are set on self, using ternary-sum form:
+//
+//	(has(self.field1)?1:0) + (has(self.field2)?1:0) + ...
+//
+// The caller compares the result against a constant (== 1, <= 1).
+//
+// This form is preferred over [has(self.f1), has(self.f2), ...].filter(x, x == true).size()
+// because the latter pays for list construction and a comprehension over the list,
+// whereas the sum form is constant-cost scalar arithmetic.
+func fieldsToOneOfSumExpr(fields []string) string {
+	var b strings.Builder
 	for i, f := range fields {
 		if i > 0 {
-			list.WriteString(",")
+			b.WriteString("+")
 		}
-		list.WriteString("has(self.")
-		list.WriteString(f)
-		list.WriteString(")")
+		b.WriteString("(has(self.")
+		b.WriteString(f)
+		b.WriteString(")?1:0)")
 	}
-	list.WriteString("].filter(x,x==true).size()")
-	return list.String()
+	return b.String()
+}
+
+// fieldsToOneOfOrExpr returns a CEL boolean expression that is true when at
+// least one of the given fields is set on self:
+//
+//	has(self.field1) || has(self.field2) || ...
+//
+// This is strictly cheaper than counting and comparing >= 1 because || short-circuits
+// as soon as any field is found.
+func fieldsToOneOfOrExpr(fields []string) string {
+	var b strings.Builder
+	for i, f := range fields {
+		if i > 0 {
+			b.WriteString("||")
+		}
+		b.WriteString("has(self.")
+		b.WriteString(f)
+		b.WriteString(")")
+	}
+	return b.String()
 }
 
 // K8sEnumField exists solely to reject the k8s:enum marker when placed on a

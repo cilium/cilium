@@ -69,7 +69,7 @@ func (ctx *ObjectGenCtx) buildOpenAPISchema(root *loader.Package, gv schema.Grou
 	// $ref references in the schemas.
 	crdTypeSet := make(map[string]bool)
 	if err := markers.EachType(ctx.Collector, root, func(info *markers.TypeInfo) {
-		if !isCRD(info) {
+		if !enabledOnType(info) {
 			return
 		}
 		crdTypeSet[info.Name] = true

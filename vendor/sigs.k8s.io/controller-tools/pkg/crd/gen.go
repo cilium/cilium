@@ -116,7 +116,7 @@ func transformRemoveCRDStatus(obj map[string]any) error {
 // transformPreserveUnknownFields adds spec.preserveUnknownFields=value.
 func transformPreserveUnknownFields(value bool) func(map[string]any) error {
 	return func(obj map[string]any) error {
-		if spec, ok := obj["spec"].(map[any]any); ok {
+		if spec, ok := obj["spec"].(map[string]any); ok {
 			spec["preserveUnknownFields"] = value
 		}
 		return nil
@@ -235,6 +235,7 @@ func FixTopLevelMetadata(crd apiextensionsv1.CustomResourceDefinition) {
 		if v.Schema != nil && v.Schema.OpenAPIV3Schema != nil && v.Schema.OpenAPIV3Schema.Properties != nil {
 			schemaProperties := v.Schema.OpenAPIV3Schema.Properties
 			if _, ok := schemaProperties["metadata"]; ok {
+				//nolint:goconst
 				schemaProperties["metadata"] = apiextensionsv1.JSONSchemaProps{Type: "object"}
 			}
 		}
