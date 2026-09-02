@@ -286,7 +286,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection (beta), if support available")
 	option.BindEnv(vp, option.EnableBPFTProxy)
 
-	flags.Bool(option.EnableSharedPolicy, false, "Enable node-scoped shared policy LPM trie map lookup path")
+	flags.Bool(option.EnableSharedPolicy, true, "Enable node-scoped shared policy LPM trie map lookup path")
 	option.BindEnv(vp, option.EnableSharedPolicy)
 
 	flags.Bool(option.EnableHostLegacyRouting, defaults.EnableHostLegacyRouting, "Enable the legacy host forwarding model which does not bypass upper stack in host namespace")
