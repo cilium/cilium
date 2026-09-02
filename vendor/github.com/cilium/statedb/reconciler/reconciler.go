@@ -192,7 +192,11 @@ func (r *reconciler[Obj]) refreshLoop(ctx context.Context, health cell.Health) e
 				// Mark the object for refreshing. We make the assumption that refreshing is spread over
 				// time enough that batching of the writes is not useful here.
 				wtxn := r.DB.WriteTxn(r.config.Table)
-				obj, newRev, ok := r.config.Table.Get(wtxn, indexer.QueryFromObject(obj))
+				query, hasKey := indexer.QueryFromObject(obj)
+				if !hasKey {
+					continue
+				}
+				obj, newRev, ok := r.config.Table.Get(wtxn, query)
 				if ok && rev == newRev {
 					obj = r.config.SetObjectStatus(r.config.CloneObject(obj), StatusRefreshing())
 					r.config.Table.Insert(wtxn, obj)

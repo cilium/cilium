@@ -6,6 +6,7 @@ package node
 import (
 	"context"
 	"errors"
+	"maps"
 	"net"
 	"net/netip"
 	"slices"
@@ -106,7 +107,7 @@ func TestWriterReconcilerRegistration(t *testing.T) {
 		Name:   "existing",
 		Source: source.Kubernetes,
 	}))
-	require.Empty(t, get("existing").Statuses.All())
+	require.Empty(t, maps.Collect(get("existing").Statuses.All()))
 	existing := get("existing").DeepCopy()
 	existing.Statuses = existing.Statuses.Set("already-done", reconciler.StatusDone())
 	txn := db.WriteTxn(nodes)
@@ -120,7 +121,7 @@ func TestWriterReconcilerRegistration(t *testing.T) {
 		reconciler.StatusKindPending,
 		existing.Statuses.Get("wireguard").Kind,
 	)
-	require.Contains(t, existing.Statuses.All(), "wireguard")
+	require.Contains(t, maps.Collect(existing.Statuses.All()), "wireguard")
 	require.Equal(t,
 		reconciler.StatusKindDone,
 		existing.Statuses.Get("already-done").Kind,
@@ -146,7 +147,7 @@ func TestWriterReconcilerRegistration(t *testing.T) {
 		})
 
 	newNode := get("new").DeepCopy()
-	require.Len(t, newNode.Statuses.All(), 2)
+	require.Len(t, maps.Collect(newNode.Statuses.All()), 2)
 	newNode.Statuses = newNode.Statuses.Set("ipset", reconciler.StatusDone())
 	txn = db.WriteTxn(nodes)
 	_, _, err = nodes.Insert(txn, newNode)
@@ -167,8 +168,8 @@ func TestWriterReconcilerRegistration(t *testing.T) {
 	require.Equal(t, []string{"ipset"}, requiredReconcilers(db, nodes, w))
 	existing = get("existing")
 	newNode = get("new")
-	require.NotContains(t, existing.Statuses.All(), "wireguard")
-	require.NotContains(t, newNode.Statuses.All(), "wireguard")
+	require.NotContains(t, maps.Collect(existing.Statuses.All()), "wireguard")
+	require.NotContains(t, maps.Collect(newNode.Statuses.All()), "wireguard")
 	require.Equal(t,
 		reconciler.StatusKindDone,
 		existing.Statuses.Get("already-done").Kind,
@@ -185,8 +186,8 @@ func TestWriterReconcilerRegistration(t *testing.T) {
 
 	// Re-registering materializes a fresh pending status on all nodes.
 	w.RegisterReconciler("wireguard")
-	require.Contains(t, get("existing").Statuses.All(), "wireguard")
-	require.Contains(t, get("new").Statuses.All(), "wireguard")
+	require.Contains(t, maps.Collect(get("existing").Statuses.All()), "wireguard")
+	require.Contains(t, maps.Collect(get("new").Statuses.All()), "wireguard")
 	require.Equal(t,
 		reconciler.StatusKindPending,
 		get("existing").Statuses.Get("wireguard").Kind,
