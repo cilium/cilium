@@ -702,29 +702,29 @@ func (ct *ConnectivityTest) detectPodCIDRs() {
 		hostIPs := pod.Pod.Status.PodIPs
 
 		for _, cidr := range n.Spec.IPAM.PodCIDRs {
-			ct.params.PodCIDRs = append(ct.params.PodCIDRs, toPodCIDRs(cidr.String(), hostIPs...)...)
+			ct.params.PodCIDRs = append(ct.params.PodCIDRs, toPodCIDRs(cidr.Prefix, hostIPs...)...)
 		}
 
 		// additional IP pools from multi-pool IPAM mode
 		for _, pool := range n.Spec.IPAM.Pools.Allocated {
 			for _, podCIDR := range pool.CIDRs {
-				ct.params.PodCIDRs = append(ct.params.PodCIDRs, toPodCIDRs(podCIDR.String(), hostIPs...)...)
+				ct.params.PodCIDRs = append(ct.params.PodCIDRs, toPodCIDRs(podCIDR.Prefix, hostIPs...)...)
 			}
 		}
 	}
 }
 
-func toPodCIDRs(cidr string, podIPs ...corev1.PodIP) []podCIDRs {
+func toPodCIDRs(prefix netip.Prefix, podIPs ...corev1.PodIP) []podCIDRs {
 	var podCIDRsInfo []podCIDRs
 	for _, ip := range podIPs {
 		f := features.GetIPFamily(ip.IP)
-		if strings.Contains(cidr, ":") != (f == features.IPFamilyV6) {
+		if prefix.Addr().Is6() != (f == features.IPFamilyV6) {
 			// Skip if the host IP of the pod mismatches with pod CIDR.
 			// Cannot create a route with the gateway IP family
 			// mismatching the subnet.
 			continue
 		}
-		podCIDRsInfo = append(podCIDRsInfo, podCIDRs{cidr, ip.IP})
+		podCIDRsInfo = append(podCIDRsInfo, podCIDRs{prefix.String(), ip.IP})
 	}
 	return podCIDRsInfo
 }

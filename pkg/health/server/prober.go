@@ -7,8 +7,8 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"net/netip"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -139,8 +139,8 @@ func (p *prober) getResults() *healthReport {
 }
 
 func isIPv4(ip string) bool {
-	netIP := net.ParseIP(ip)
-	return netIP != nil && !strings.Contains(ip, ":")
+	netIP, err := netip.ParseAddr(ip)
+	return err == nil && netIP.Is4()
 }
 
 func skipAddress(elem *ciliumModels.NodeAddressingElement) bool {
