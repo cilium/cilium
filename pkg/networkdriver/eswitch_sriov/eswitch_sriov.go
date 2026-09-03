@@ -81,6 +81,12 @@ var (
 type netlinkOps interface {
 	// LinkByName returns the link with the given interface name.
 	LinkByName(name string) (netlink.Link, error)
+	// LinkList returns all links on the system. Used to scope
+	// releaseUplinkTrunkVlanIfUnused's "is this VLAN still in use"
+	// scan to only ports enslaved to the same bridge as the uplink,
+	// since BridgeVlanList's table is keyed by ifindex system-wide and
+	// is not scoped to a single bridge.
+	LinkList() ([]netlink.Link, error)
 	// LinkAdd creates a new link (used to create bridges).
 	LinkAdd(link netlink.Link) error
 	// LinkModify updates an existing link's attributes (used to reconcile
@@ -124,6 +130,10 @@ type netlinkImpl struct{}
 
 func (netlinkImpl) LinkByName(name string) (netlink.Link, error) {
 	return safenetlink.LinkByName(name)
+}
+
+func (netlinkImpl) LinkList() ([]netlink.Link, error) {
+	return safenetlink.LinkList()
 }
 
 func (netlinkImpl) LinkAdd(link netlink.Link) error {
@@ -240,58 +250,79 @@ func (d EswitchPciDevice) Setup(config types.DeviceConfig) error {
 		return fmt.Errorf("failed to retrieve representor link %s: %w", d.RepresentorName, err)
 	}
 
-	if bridgeVlanPresent(d.nl, l, uint16(config.Vlan)) {
-		// already configured; idempotent no-op.
-		return nil
-	}
+	if !bridgeVlanPresent(d.nl, l, uint16(config.Vlan)) {
+		// Some NICs' switchdev/e-switch VLAN offload (observed on Mellanox/
+		// ConnectX representors) intermittently rejects BridgeVlanAdd with
+		// EINVAL even though the live bridge VLAN table (as read back via
+		// BridgeVlanList) looks perfectly consistent with the request. The
+		// call reliably succeeds immediately after the port's bridge
+		// enslavement is bounced (NOMASTER then re-MASTER) with no other
+		// change to kernel-visible state — this resets some transient
+		// driver/firmware-side offload context tied to the port's bridge
+		// membership without touching the VLAN table itself. Since this can
+		// happen on any BridgeVlanAdd call, bounce unconditionally before
+		// every one rather than only after a first failure (see
+		// bounceBridgeMembership doc comment).
+		if err := bounceBridgeMembership(d.nl, l, d.BridgeName); err != nil {
+			return fmt.Errorf("failed to bounce bridge membership for representor %s: %w", d.RepresentorName, err)
+		}
 
-	// Some NICs' switchdev/e-switch VLAN offload (observed on Mellanox/
-	// ConnectX representors) intermittently rejects BridgeVlanAdd with
-	// EINVAL even though the live bridge VLAN table (as read back via
-	// BridgeVlanList) looks perfectly consistent with the request. The
-	// call reliably succeeds immediately after the port's bridge
-	// enslavement is bounced (NOMASTER then re-MASTER) with no other
-	// change to kernel-visible state — this resets some transient
-	// driver/firmware-side offload context tied to the port's bridge
-	// membership without touching the VLAN table itself. Since this can
-	// happen on any BridgeVlanAdd call, bounce unconditionally before
-	// every one rather than only after a first failure (see
-	// bounceBridgeMembership doc comment).
-	if err := bounceBridgeMembership(d.nl, l, d.BridgeName); err != nil {
-		return fmt.Errorf("failed to bounce bridge membership for representor %s: %w", d.RepresentorName, err)
-	}
+		// A bridge port can only have one PVID at a time. A freshly-enslaved
+		// port (or one just Free()'d back to its original state) carries
+		// defaultBridgeVID as PVID+untagged; that flag must be cleared before
+		// the requested VLAN can become the new PVID, or the kernel rejects
+		// the add below with EINVAL. Demoting is a no-op if defaultBridgeVID
+		// isn't currently the port's PVID (e.g. a previous Setup call for a
+		// different VLAN never got Free()'d — shouldn't normally happen, but
+		// harmless either way since BridgeVlanAdd here only ever re-asserts
+		// defaultBridgeVID as a plain untagged member).
+		if uint16(config.Vlan) != defaultBridgeVID && bridgeVlanIsPVID(d.nl, l, defaultBridgeVID) {
+			if err := d.nl.BridgeVlanAdd(l, defaultBridgeVID, false, true, false, true); err != nil {
+				return fmt.Errorf(
+					"failed to demote default vlan %d as pvid on representor %s: %w",
+					defaultBridgeVID, d.RepresentorName, err,
+				)
+			}
+		}
 
-	// A bridge port can only have one PVID at a time. A freshly-enslaved
-	// port (or one just Free()'d back to its original state) carries
-	// defaultBridgeVID as PVID+untagged; that flag must be cleared before
-	// the requested VLAN can become the new PVID, or the kernel rejects
-	// the add below with EINVAL. Demoting is a no-op if defaultBridgeVID
-	// isn't currently the port's PVID (e.g. a previous Setup call for a
-	// different VLAN never got Free()'d — shouldn't normally happen, but
-	// harmless either way since BridgeVlanAdd here only ever re-asserts
-	// defaultBridgeVID as a plain untagged member).
-	if uint16(config.Vlan) != defaultBridgeVID && bridgeVlanIsPVID(d.nl, l, defaultBridgeVID) {
-		if err := d.nl.BridgeVlanAdd(l, defaultBridgeVID, false, true, false, true); err != nil {
+		// pvid=true, untagged=true: make config.Vlan this representor port's
+		// PVID and strip the 802.1Q tag on egress — VF traffic enters/exits
+		// untagged and is tagged with this VLAN only inside the bridge, which
+		// is how L2 isolation between VFs on different VLANs is enforced.
+		// self=false, master=true: apply the change to the bridge's per-port
+		// VLAN table (via the port's bridge master), not to the representor
+		// netdevice itself — equivalent to `bridge vlan add ... master` rather
+		// than `... self`.
+		if err := d.nl.BridgeVlanAdd(l, uint16(config.Vlan), true, true, false, true); err != nil {
 			return fmt.Errorf(
-				"failed to demote default vlan %d as pvid on representor %s: %w",
-				defaultBridgeVID, d.RepresentorName, err,
+				"failed to add vlan id %d to representor %s: %w",
+				config.Vlan, d.RepresentorName, err,
 			)
 		}
 	}
+	// else: already configured on the representor; idempotent no-op for
+	// this half. Deliberately falls through to the uplink step below
+	// rather than returning early — the uplink's trunk membership is
+	// tracked independently of the representor's own VLAN state and must
+	// still be (re)checked/added even when the representor side is a
+	// no-op (e.g. on a re-entrant Setup, or one where a prior attempt got
+	// partway through and only the representor side succeeded).
 
-	// pvid=true, untagged=true: make config.Vlan this representor port's
-	// PVID and strip the 802.1Q tag on egress — VF traffic enters/exits
-	// untagged and is tagged with this VLAN only inside the bridge, which
-	// is how L2 isolation between VFs on different VLANs is enforced.
-	// self=false, master=true: apply the change to the bridge's per-port
-	// VLAN table (via the port's bridge master), not to the representor
-	// netdevice itself — equivalent to `bridge vlan add ... master` rather
-	// than `... self`.
-	if err := d.nl.BridgeVlanAdd(l, uint16(config.Vlan), true, true, false, true); err != nil {
-		return fmt.Errorf(
-			"failed to add vlan id %d to representor %s: %w",
-			config.Vlan, d.RepresentorName, err,
-		)
+	// The PF uplink must also carry config.Vlan as a tagged trunk member,
+	// or a vlan_filtering=1 bridge drops the frame the instant it tries to
+	// egress the uplink — meaning this VLAN could reach other representors
+	// on the same bridge but never the external network (nor, via the
+	// physical switch, another PF's uplink). This is the trunk-side
+	// counterpart to the PVID+untagged entry just added on the representor.
+	if d.PFName == "" {
+		return fmt.Errorf("failed to set up vf %s (%s): pf uplink name is empty", d.IfName(), d.KernelIfName())
+	}
+	uplink, err := d.nl.LinkByName(d.PFName)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve pf uplink %s: %w", d.PFName, err)
+	}
+	if err := ensureUplinkTrunkVlan(d.nl, uplink, uint16(config.Vlan)); err != nil {
+		return err
 	}
 
 	return nil
@@ -312,16 +343,29 @@ func (d EswitchPciDevice) Free(config types.DeviceConfig) error {
 		return fmt.Errorf("failed to retrieve representor link %s: %w", d.RepresentorName, err)
 	}
 
-	if !bridgeVlanPresent(d.nl, l, uint16(config.Vlan)) {
-		// already absent; idempotent no-op.
-		return nil
+	if bridgeVlanPresent(d.nl, l, uint16(config.Vlan)) {
+		if err := d.nl.BridgeVlanDel(l, uint16(config.Vlan), true, true, false, true); err != nil {
+			return fmt.Errorf(
+				"failed to remove vlan id %d from representor %s: %w",
+				config.Vlan, d.RepresentorName, err,
+			)
+		}
 	}
+	// else: already absent on the representor; idempotent no-op for this
+	// half. Deliberately falls through to the uplink step below rather
+	// than returning early — see the matching comment in Setup.
 
-	if err := d.nl.BridgeVlanDel(l, uint16(config.Vlan), true, true, false, true); err != nil {
-		return fmt.Errorf(
-			"failed to remove vlan id %d from representor %s: %w",
-			config.Vlan, d.RepresentorName, err,
-		)
+	// Release the uplink's trunk membership for config.Vlan, but only if no
+	// other representor on this PF's bridge still uses it (see
+	// releaseUplinkTrunkVlanIfUnused doc comment). Must run after the
+	// representor's own entry above has already been removed, so this VF's
+	// now-stale membership doesn't make the "still in use" scan see itself.
+	if d.PFName != "" {
+		if uplink, err := d.nl.LinkByName(d.PFName); err != nil {
+			return fmt.Errorf("failed to retrieve pf uplink %s: %w", d.PFName, err)
+		} else if err := releaseUplinkTrunkVlanIfUnused(d.nl, uplink, uint16(config.Vlan)); err != nil {
+			return err
+		}
 	}
 
 	// Restore defaultBridgeVID as this port's PVID so it's back in the

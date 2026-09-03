@@ -175,6 +175,10 @@ func (f *fakeNetlinkOps) addDevlinkPort(pfAddr string, vfID int, repName string)
 	})
 }
 
+func (f *fakeNetlinkOps) LinkList() ([]netlink.Link, error) {
+	return f.links, nil
+}
+
 func (f *fakeNetlinkOps) LinkByName(name string) (netlink.Link, error) {
 	if f.linkByNameErr != nil {
 		return nil, f.linkByNameErr
@@ -730,6 +734,59 @@ func TestEswitchSRIOV_Init(t *testing.T) {
 				require.NotEqual(t, "mypf_0", c.linkName)
 			}
 		})
+
+		// RestartReconciliation verifies that init() (as re-run on an agent
+		// restart) never mutates uplink-trunk VLAN state that Setup already
+		// installed on a prior run for a VF that's still allocated across
+		// the restart. init() only manages bridge existence, PF eswitch
+		// mode, VF count, and enslavement — VLAN membership (both the
+		// representor's PVID+untagged entry and the uplink's tagged trunk
+		// entry) is exclusively Setup/Free's responsibility, invoked only at
+		// claim allocation/free time, never by init() — so kernel VLAN
+		// state must simply persist untouched across a restart, exactly
+		// like the representor-side behavior already covered by the e2e
+		// suite's TC-8.
+		t.Run("restart does not touch pre-existing uplink trunk VLAN state", func(t *testing.T) {
+			fs, nl := setupFakes(t)
+			pf := &pfInfo{pciAddr: "0000:02:00.0", ifname: "mypf"}
+			fs.addVF(pf, "0000:02:00.1", 0, "")
+			nl.addDevlinkPort(pf.pciAddr, 0, "mypf_0")
+			nl.addLink(newFakeLink("mypf_0", "", nil))
+
+			cfg := &v2alpha1.EswitchSRIOVDeviceManagerConfig{
+				Ifaces:  []v2alpha1.EswitchSRIOVDeviceConfig{{IfName: "mypf", VFCount: 1, BridgeName: "br0"}},
+				Bridges: []v2alpha1.EswitchBridgeConfig{{Name: "br0"}},
+			}
+			mgr := fs.newManager(t, cfg, nl)
+			require.NoError(t, mgr.init())
+
+			// Simulate a claim already allocated with vlan=100 before the
+			// restart: its representor and the PF uplink both carry the
+			// live VLAN state that Setup would have installed.
+			uplink, err := nl.LinkByName("mypf")
+			require.NoError(t, err)
+			rep, err := nl.LinkByName("mypf_0")
+			require.NoError(t, err)
+			dev := EswitchPciDevice{RepresentorName: "mypf_0", PFName: "mypf", BridgeName: "br0", nl: nl}
+			require.NoError(t, dev.Setup(types.DeviceConfig{Vlan: 100}))
+			require.True(t, bridgeVlanTaggedPresent(nl, uplink, 100))
+			require.True(t, bridgeVlanPresent(nl, rep, 100))
+
+			preAdds := len(nl.bridgeVlanAdds)
+			preDels := len(nl.bridgeVlanDels)
+
+			// Re-run init(), simulating an agent restart with the pod (and
+			// its VLAN config) still alive.
+			require.NoError(t, mgr.init())
+
+			// VLAN state must be completely untouched: init() doesn't call
+			// BridgeVlanAdd/Del at all, only Setup/Free do, and those are
+			// never invoked by init() itself.
+			require.Equal(t, preAdds, len(nl.bridgeVlanAdds))
+			require.Equal(t, preDels, len(nl.bridgeVlanDels))
+			require.True(t, bridgeVlanTaggedPresent(nl, uplink, 100))
+			require.True(t, bridgeVlanPresent(nl, rep, 100))
+		})
 	})
 
 	t.Run("fault injection: netlinkOps errors", func(t *testing.T) {
@@ -964,36 +1021,207 @@ func TestEswitchPciDevice(t *testing.T) {
 	t.Run("SetupFree", func(t *testing.T) {
 		nl := newFakeNetlink()
 		nl.addLink(newFakeLinkWithIndex("rep0", 42))
+		br0 := newFakeBridgeLink("br0", 7)
+		nl.addLink(br0)
+		pf0 := newFakeLinkWithIndex("pf0", 50)
+		pf0.attrs.MasterIndex = 7
+		nl.addLink(pf0)
 
-		dev := EswitchPciDevice{RepresentorName: "rep0", nl: nl}
+		dev := EswitchPciDevice{RepresentorName: "rep0", PFName: "pf0", nl: nl}
 
 		t.Run("vlan 0 is a no-op", func(t *testing.T) {
 			require.NoError(t, dev.Setup(types.DeviceConfig{Vlan: 0}))
 			require.Empty(t, nl.bridgeVlanAdds)
 		})
 
-		t.Run("setup adds vlan, idempotent on repeat", func(t *testing.T) {
+		t.Run("setup adds vlan on representor and uplink trunk, idempotent on repeat", func(t *testing.T) {
 			require.NoError(t, dev.Setup(types.DeviceConfig{Vlan: 100}))
-			require.Len(t, nl.bridgeVlanAdds, 1)
+			require.Len(t, nl.bridgeVlanAdds, 2)
 			require.Equal(t, bridgeVlanCall{linkName: "rep0", vid: 100, pvid: true, untagged: true}, nl.bridgeVlanAdds[0])
+			require.Equal(t, bridgeVlanCall{linkName: "pf0", vid: 100, pvid: false, untagged: false}, nl.bridgeVlanAdds[1])
 
-			// calling again should be a no-op since the vlan is already present.
+			// calling again should be a no-op since the vlan is already present
+			// on both the representor and the uplink trunk.
 			require.NoError(t, dev.Setup(types.DeviceConfig{Vlan: 100}))
-			require.Len(t, nl.bridgeVlanAdds, 1)
+			require.Len(t, nl.bridgeVlanAdds, 2)
 		})
 
-		t.Run("free removes vlan, idempotent on repeat", func(t *testing.T) {
+		t.Run("free removes vlan from representor and uplink trunk, idempotent on repeat", func(t *testing.T) {
 			require.NoError(t, dev.Free(types.DeviceConfig{Vlan: 100}))
-			require.Len(t, nl.bridgeVlanDels, 1)
+			require.Len(t, nl.bridgeVlanDels, 2)
+			require.Equal(t, bridgeVlanCall{linkName: "rep0", vid: 100, pvid: true, untagged: true}, nl.bridgeVlanDels[0])
+			require.Equal(t, bridgeVlanCall{linkName: "pf0", vid: 100, pvid: false, untagged: false}, nl.bridgeVlanDels[1])
 
 			require.NoError(t, dev.Free(types.DeviceConfig{Vlan: 100}))
-			require.Len(t, nl.bridgeVlanDels, 1)
+			require.Len(t, nl.bridgeVlanDels, 2)
 		})
 
 		t.Run("no representor errors hard, not silent", func(t *testing.T) {
-			d := EswitchPciDevice{nl: nl}
+			d := EswitchPciDevice{PFName: "pf0", nl: nl}
 			require.ErrorIs(t, d.Setup(types.DeviceConfig{Vlan: 5}), errRepresentorNotFound)
 			require.ErrorIs(t, d.Free(types.DeviceConfig{Vlan: 5}), errRepresentorNotFound)
+		})
+
+		t.Run("no pf uplink name errors hard, not silent", func(t *testing.T) {
+			d := EswitchPciDevice{RepresentorName: "rep0", nl: nl}
+			err := d.Setup(types.DeviceConfig{Vlan: 5})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "pf uplink name is empty")
+		})
+	})
+
+	// UplinkTrunkVlan verifies the uplink-side trunk VLAN membership that
+	// Setup/Free manage alongside the representor's own PVID+untagged entry:
+	// without a tagged trunk entry on the PF uplink, a vlan_filtering=1
+	// bridge drops the frame before it can ever reach the external network
+	// (or, via the physical switch, another PF's uplink) — see the doc
+	// comment on ensureUplinkTrunkVlan.
+	t.Run("UplinkTrunkVlan", func(t *testing.T) {
+		t.Run("uplink trunk entry released only after last representor on the SAME bridge frees it", func(t *testing.T) {
+			nl := newFakeNetlink()
+			br0 := newFakeBridgeLink("br0", 7)
+			nl.addLink(br0)
+			pf0 := newFakeLinkWithIndex("pf0", 50)
+			pf0.attrs.MasterIndex = 7
+			nl.addLink(pf0)
+			rep0 := newFakeLinkWithIndex("rep0", 42)
+			rep0.attrs.MasterIndex = 7
+			nl.addLink(rep0)
+			rep1 := newFakeLinkWithIndex("rep1", 43)
+			rep1.attrs.MasterIndex = 7
+			nl.addLink(rep1)
+
+			devA := EswitchPciDevice{RepresentorName: "rep0", PFName: "pf0", BridgeName: "br0", nl: nl}
+			devB := EswitchPciDevice{RepresentorName: "rep1", PFName: "pf0", BridgeName: "br0", nl: nl}
+
+			require.NoError(t, devA.Setup(types.DeviceConfig{Vlan: 100}))
+			require.NoError(t, devB.Setup(types.DeviceConfig{Vlan: 100}))
+			// second Setup call for the same vlan/uplink must not re-add the
+			// trunk entry (idempotent).
+			require.Len(t, nl.bridgeVlanAdds, 3) // rep0, pf0 (once), rep1
+
+			require.NoError(t, devA.Free(types.DeviceConfig{Vlan: 100}))
+			// devB's representor still uses vlan 100 on the SAME bridge: the
+			// uplink's trunk membership must NOT be released yet.
+			require.True(t, bridgeVlanTaggedPresent(nl, pf0, 100))
+
+			require.NoError(t, devB.Free(types.DeviceConfig{Vlan: 100}))
+			// last user freed: uplink trunk entry must now be gone.
+			require.False(t, bridgeVlanTaggedPresent(nl, pf0, 100))
+		})
+
+		t.Run("does not leak: a same-VID PVID on a DIFFERENT bridge must not block release", func(t *testing.T) {
+			// Regression test: BridgeVlanList's table is keyed by ifindex
+			// system-wide, not scoped to a single bridge. An unrelated
+			// representor on a completely different bridge using the same
+			// VLAN ID as a PVID must not be mistaken for "still in use" on
+			// this uplink's own bridge — that would leak the trunk entry
+			// forever, blocking external reachability for anyone who
+			// legitimately frees the VLAN on this PF.
+			nl := newFakeNetlink()
+			br0 := newFakeBridgeLink("br0", 7)
+			nl.addLink(br0)
+			br1 := newFakeBridgeLink("br1", 8)
+			nl.addLink(br1)
+
+			pf0 := newFakeLinkWithIndex("pf0", 50)
+			pf0.attrs.MasterIndex = 7
+			nl.addLink(pf0)
+			rep0 := newFakeLinkWithIndex("rep0", 42)
+			rep0.attrs.MasterIndex = 7
+			nl.addLink(rep0)
+
+			// unrelated representor on a DIFFERENT bridge (br1), same VID.
+			otherRep := newFakeLinkWithIndex("rep-other", 99)
+			otherRep.attrs.MasterIndex = 8
+			nl.addLink(otherRep)
+			otherDev := EswitchPciDevice{RepresentorName: "rep-other", PFName: "pf-other", BridgeName: "br1", nl: nl}
+			nl.addLink(newFakeLinkWithIndex("pf-other", 51))
+			require.NoError(t, otherDev.Setup(types.DeviceConfig{Vlan: 100}))
+
+			dev := EswitchPciDevice{RepresentorName: "rep0", PFName: "pf0", BridgeName: "br0", nl: nl}
+			require.NoError(t, dev.Setup(types.DeviceConfig{Vlan: 100}))
+			require.NoError(t, dev.Free(types.DeviceConfig{Vlan: 100}))
+
+			// dev was the only user of vlan 100 on br0 — its uplink's trunk
+			// entry must be released even though rep-other still uses vlan
+			// 100 as its own PVID, because rep-other is on a different
+			// bridge entirely.
+			require.False(t, bridgeVlanTaggedPresent(nl, pf0, 100))
+			// the unrelated bridge's own state must be completely unaffected.
+			require.True(t, bridgeVlanTaggedPresent(nl, newFakeLinkWithIndex("pf-other", 51), 100) ||
+				bridgeVlanIsPVID(nl, otherRep, 100))
+		})
+
+		t.Run("uplink not enslaved to any bridge: release is a safe no-op", func(t *testing.T) {
+			nl := newFakeNetlink()
+			pf0 := newFakeLinkWithIndex("pf0", 50) // MasterIndex left at 0
+			nl.addLink(pf0)
+			rep0 := newFakeLinkWithIndex("rep0", 42)
+			nl.addLink(rep0)
+
+			dev := EswitchPciDevice{RepresentorName: "rep0", PFName: "pf0", nl: nl}
+			require.NoError(t, dev.Setup(types.DeviceConfig{Vlan: 100}))
+			require.NoError(t, dev.Free(types.DeviceConfig{Vlan: 100}))
+		})
+
+		t.Run("representor already configured (e.g. left over from a prior Setup) must not skip the uplink step", func(t *testing.T) {
+			// Regression test for a real bug: Setup/Free used to gate the
+			// uplink trunk add/release behind a single early return keyed
+			// only on the REPRESENTOR's own VLAN state. If the representor
+			// already carried the PVID+untagged entry (e.g. left over from a
+			// pod that was force-deleted before Free ran), Setup returned
+			// immediately and never reached the uplink step at all — so the
+			// uplink's trunk entry was silently never added, breaking
+			// cross-PF/external reachability with no error logged anywhere.
+			// The representor-side and uplink-side steps must each be
+			// independently idempotent, not short-circuit one another.
+			nl := newFakeNetlink()
+			br0 := newFakeBridgeLink("br0", 7)
+			nl.addLink(br0)
+			pf0 := newFakeLinkWithIndex("pf0", 50)
+			pf0.attrs.MasterIndex = 7
+			nl.addLink(pf0)
+			rep0 := newFakeLinkWithIndex("rep0", 42)
+			rep0.attrs.MasterIndex = 7
+			nl.addLink(rep0)
+
+			// Pre-seed the representor's bridge VLAN table as if a prior
+			// Setup already configured it, WITHOUT going through the uplink
+			// step (simulating the pre-fix bug's end state, or any other
+			// reason the representor got ahead of the uplink).
+			require.NoError(t, nl.BridgeVlanAdd(rep0, 100, true, true, false, true))
+			require.True(t, bridgeVlanPresent(nl, rep0, 100))
+			require.False(t, bridgeVlanTaggedPresent(nl, pf0, 100))
+
+			dev := EswitchPciDevice{RepresentorName: "rep0", PFName: "pf0", BridgeName: "br0", nl: nl}
+			require.NoError(t, dev.Setup(types.DeviceConfig{Vlan: 100}))
+
+			// The representor side was already a no-op, but the uplink must
+			// still have gained its trunk entry.
+			require.True(t, bridgeVlanTaggedPresent(nl, pf0, 100))
+
+			// Symmetric bug in Free: pre-seed the uplink's trunk entry
+			// without the representor carrying the VLAN (simulating a Free
+			// that got partway through on a prior attempt), and verify Free
+			// still releases the uplink's entry rather than returning early
+			// because the representor side was already clean.
+			nl2 := newFakeNetlink()
+			br1 := newFakeBridgeLink("br1", 8)
+			nl2.addLink(br1)
+			pf1 := newFakeLinkWithIndex("pf1", 51)
+			pf1.attrs.MasterIndex = 8
+			nl2.addLink(pf1)
+			rep1 := newFakeLinkWithIndex("rep1", 44)
+			rep1.attrs.MasterIndex = 8
+			nl2.addLink(rep1)
+			require.NoError(t, nl2.BridgeVlanAdd(pf1, 200, false, false, false, true))
+			require.False(t, bridgeVlanPresent(nl2, rep1, 200))
+			require.True(t, bridgeVlanTaggedPresent(nl2, pf1, 200))
+
+			dev2 := EswitchPciDevice{RepresentorName: "rep1", PFName: "pf1", BridgeName: "br1", nl: nl2}
+			require.NoError(t, dev2.Free(types.DeviceConfig{Vlan: 200}))
+			require.False(t, bridgeVlanTaggedPresent(nl2, pf1, 200))
 		})
 	})
 
@@ -1008,14 +1236,15 @@ func TestEswitchPciDevice(t *testing.T) {
 		nl := newFakeNetlink()
 		nl.addLink(newFakeLinkWithIndex("rep0", 42))
 		nl.addLink(newFakeLinkWithIndex("br0", 7))
+		nl.addLink(newFakeLinkWithIndex("pf0", 50))
 
-		dev := EswitchPciDevice{RepresentorName: "rep0", BridgeName: "br0", nl: nl}
+		dev := EswitchPciDevice{RepresentorName: "rep0", BridgeName: "br0", PFName: "pf0", nl: nl}
 
 		t.Run("setup bounces before adding the requested vlan", func(t *testing.T) {
 			require.NoError(t, dev.Setup(types.DeviceConfig{Vlan: 100}))
 			require.Equal(t, []string{"rep0"}, nl.noMasterCalls)
 			require.Equal(t, []masterSetCall{{linkName: "rep0", masterName: "br0"}}, nl.masterSetCalls)
-			require.Len(t, nl.bridgeVlanAdds, 1)
+			require.Len(t, nl.bridgeVlanAdds, 2)
 
 			// idempotent no-op: vlan already present, no additional bounce.
 			require.NoError(t, dev.Setup(types.DeviceConfig{Vlan: 100}))
@@ -1035,7 +1264,8 @@ func TestEswitchPciDevice(t *testing.T) {
 		t.Run("no bounce when BridgeName is empty", func(t *testing.T) {
 			nl2 := newFakeNetlink()
 			nl2.addLink(newFakeLinkWithIndex("rep1", 43))
-			d := EswitchPciDevice{RepresentorName: "rep1", nl: nl2}
+			nl2.addLink(newFakeLinkWithIndex("pf1", 51))
+			d := EswitchPciDevice{RepresentorName: "rep1", PFName: "pf1", nl: nl2}
 
 			require.NoError(t, d.Setup(types.DeviceConfig{Vlan: 200}))
 			require.Empty(t, nl2.noMasterCalls)
@@ -1046,9 +1276,10 @@ func TestEswitchPciDevice(t *testing.T) {
 			nl3 := newFakeNetlink()
 			nl3.addLink(newFakeLinkWithIndex("rep2", 44))
 			nl3.addLink(newFakeLinkWithIndex("br1", 8))
+			nl3.addLink(newFakeLinkWithIndex("pf2", 52))
 			nl3.linkSetNoMasterErr = errors.New("boom")
 
-			d := EswitchPciDevice{RepresentorName: "rep2", BridgeName: "br1", nl: nl3}
+			d := EswitchPciDevice{RepresentorName: "rep2", BridgeName: "br1", PFName: "pf2", nl: nl3}
 			err := d.Setup(types.DeviceConfig{Vlan: 300})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "failed to bounce bridge membership")
