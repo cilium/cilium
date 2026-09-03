@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -169,7 +170,7 @@ func TestPrepareResourceClaim(t *testing.T) {
 
 		hive.AddConfigOverride(
 			h,
-			func(cfg *NetworkDriverConfig) {
+			func(cfg *config.Config) {
 				cfg.Enabled = true
 			})
 

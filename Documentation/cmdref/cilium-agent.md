@@ -176,7 +176,9 @@ cilium-agent [flags]
       --enable-masquerade-to-route-source                         Masquerade packets to the source IP provided from the routing layer rather than interface address
       --enable-monitor                                            Enable the monitor unix domain socket server (default true)
       --enable-nat46x64-gateway                                   Enable NAT46 and NAT64 gateway
-      --enable-network-driver                                     enable network driver to assign interfaces via Dynamic Resource Allocation
+      --enable-network-driver                                     Enable the Cilium Network Driver to assign interfaces via Dynamic Resource Allocation
+      --enable-network-driver-ipv4                                Enable IPv4 address assignment for Cilium Network Driver resources (default true)
+      --enable-network-driver-ipv6                                Enable IPv6 address assignment for Cilium Network Driver resources
       --enable-no-service-endpoints-routable                      Enable routes when service has 0 endpoints (default true)
       --enable-node-ipam                                          Enable Node IPAM
       --enable-node-selector-labels                               Enable use of node label based identity

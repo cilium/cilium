@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/logging"
+	networkdriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
@@ -50,12 +51,13 @@ func TestScript(t *testing.T) {
 					return &option.DaemonConfig{}
 				},
 			),
+			cell.Config(networkdriverConfig.DefaultConfig),
 			Cell,
 		)
 
 		hive.AddConfigOverride(
 			h,
-			func(cfg *NetworkDriverConfig) {
+			func(cfg *networkdriverConfig.Config) {
 				cfg.Enabled = true
 			})
 

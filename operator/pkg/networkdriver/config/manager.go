@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	networkdriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -32,7 +33,7 @@ import (
 type ConfigManagerParams struct {
 	cell.In
 
-	CellCfg             NetworkDriverConfig
+	NetworkDriverConfig networkdriverConfig.Config
 	Logger              *slog.Logger
 	Lifecycle           cell.Lifecycle
 	JobGroup            job.Group
@@ -47,7 +48,7 @@ type ConfigManagerParams struct {
 }
 
 func registerConfigManager(params ConfigManagerParams) error {
-	if !params.Clientset.IsEnabled() || !params.CellCfg.Enabled {
+	if !params.Clientset.IsEnabled() || !params.NetworkDriverConfig.Enabled {
 		return nil
 	}
 

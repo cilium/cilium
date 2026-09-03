@@ -100,7 +100,9 @@ cilium-agent hive [flags]
       --enable-l2-pod-announcements                               Enable announcing Pod IPs with Gratuitous ARP and NDP
       --enable-lb-ipam                                            Enable LB IPAM (default true)
       --enable-monitor                                            Enable the monitor unix domain socket server (default true)
-      --enable-network-driver                                     enable network driver to assign interfaces via Dynamic Resource Allocation
+      --enable-network-driver                                     Enable the Cilium Network Driver to assign interfaces via Dynamic Resource Allocation
+      --enable-network-driver-ipv4                                Enable IPv4 address assignment for Cilium Network Driver resources (default true)
+      --enable-network-driver-ipv6                                Enable IPv6 address assignment for Cilium Network Driver resources
       --enable-no-service-endpoints-routable                      Enable routes when service has 0 endpoints (default true)
       --enable-node-ipam                                          Enable Node IPAM
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
