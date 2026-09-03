@@ -400,7 +400,7 @@ jobs:
       - name: Install LLVM and Clang
         uses: ./.github/actions/install-llvm
         with:
-          version: "19.1.7"
+          version: "21.1.8"
 
       - name: Install ginkgo
         run: |
