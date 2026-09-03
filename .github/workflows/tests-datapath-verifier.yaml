@@ -192,12 +192,6 @@ jobs:
             go clean -cache -modcache
             rm -rf /usr/local/go
 
-            # The LVH image ships with LLVM taken from a release Cilium version.
-            # Replace it with the one extracted from the cilium-llvm image.
-            /host/base/contrib/scripts/extract-llvm.sh /var/tmp/llvm
-            mv /var/tmp/llvm/usr/local/bin/{clang,llc} /bin/
-            rm -r /var/tmp/llvm
-
       - name: Run verifier tests (on PR branch)
         uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
         if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -208,6 +202,14 @@ jobs:
             export TMPDIR=/var/tmp
             export GOCACHE=/host/gocache
             mkdir -p /host/datapath-verifier /host/gocache
+
+            # The LVH image ships with LLVM taken from a release Cilium version.
+            # Replace it with the one pinned by the PR branch, so that a change
+            # to the LLVM version is reflected in the complexity diff.
+            /host/pull/contrib/scripts/extract-llvm.sh /var/tmp/llvm
+            mv /var/tmp/llvm/usr/local/bin/{clang,llc} /bin/
+            rm -r /var/tmp/llvm
+
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=25m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/pull --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
             mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-pull.json
@@ -221,6 +223,13 @@ jobs:
             export TMPDIR=/var/tmp
             export GOCACHE=/host/gocache
             mkdir -p /host/datapath-verifier /host/gocache
+
+            # Use the LLVM version pinned by the base branch, which may differ
+            # from the one used for the PR branch above.
+            /host/base/contrib/scripts/extract-llvm.sh /var/tmp/llvm
+            mv /var/tmp/llvm/usr/local/bin/{clang,llc} /bin/
+            rm -r /var/tmp/llvm
+
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=25m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/base --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
             mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-base.json
