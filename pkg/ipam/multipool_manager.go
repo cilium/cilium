@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/hive/job"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -822,11 +823,11 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []iputil.Prefix
 	}
 }
 
-func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]string, status string) {
+func (m *multiPoolManager) dump(family Family) (allocated map[Pool]sets.Set[netip.Addr], status string) {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
-	allocated = map[Pool]map[string]string{}
+	allocated = map[Pool]sets.Set[netip.Addr]{}
 	for poolName, pool := range m.pools {
 		var p *cidrPool
 		switch family {
@@ -839,7 +840,7 @@ func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]st
 			return nil, fmt.Sprintf("family %q not supported", family)
 		}
 
-		ipToOwner, _, _, _, err := p.dump()
+		poolAllocated, _, _, _, err := p.dump()
 		if err != nil {
 			return nil, fmt.Sprintf("error: %s", err)
 		}
@@ -848,11 +849,9 @@ func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]st
 			poolName = PoolDefault()
 		}
 
-		if _, ok := allocated[poolName]; !ok {
-			allocated[poolName] = map[string]string{}
-		}
-
-		maps.Copy(allocated[poolName], ipToOwner)
+		// A pool named "" and one named "default" both map to PoolDefault(),
+		// so merge rather than overwrite.
+		allocated[poolName] = allocated[poolName].Union(poolAllocated)
 	}
 
 	return allocated, fmt.Sprintf("%d IPAM pool(s) available", len(m.pools))

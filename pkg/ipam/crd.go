@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sys/unix"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
@@ -909,17 +910,17 @@ func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) 
 }
 
 // Dump provides a status report and lists all allocated IP addresses
-func (a *crdAllocator) Dump() (map[Pool]map[string]string, string) {
+func (a *crdAllocator) Dump() (map[Pool]sets.Set[netip.Addr], string) {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
-	allocs := make(map[string]string, len(a.allocated))
+	allocs := make(sets.Set[netip.Addr], len(a.allocated))
 	for addr := range a.allocated {
-		allocs[addr.String()] = ""
+		allocs.Insert(addr.Unwrap())
 	}
 
 	status := fmt.Sprintf("%d/%d allocated", len(allocs), a.store.totalPoolSize(a.family))
-	return map[Pool]map[string]string{PoolDefault(): allocs}, status
+	return map[Pool]sets.Set[netip.Addr]{PoolDefault(): allocs}, status
 }
 
 func (a *crdAllocator) Capacity() uint64 {

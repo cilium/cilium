@@ -8,6 +8,7 @@ import (
 	"net/netip"
 
 	"go4.org/netipx"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
@@ -64,16 +65,16 @@ func (h *hostScopeAllocator) AllocateNextWithoutSyncUpstream(owner string, pool 
 	return &AllocationResult{IP: addr}, nil
 }
 
-func (h *hostScopeAllocator) Dump() (map[Pool]map[string]string, string) {
-	alloc := map[string]string{}
+func (h *hostScopeAllocator) Dump() (map[Pool]sets.Set[netip.Addr], string) {
+	alloc := sets.New[netip.Addr]()
 	h.allocator.ForEach(func(addr netip.Addr) {
-		alloc[addr.String()] = ""
+		alloc.Insert(addr)
 	})
 
 	maxIPs := ip.CountIPsInCIDR(netipx.PrefixIPNet(h.allocCIDR))
 	status := fmt.Sprintf("%d/%s allocated from %s", len(alloc), maxIPs.String(), h.allocCIDR.String())
 
-	return map[Pool]map[string]string{PoolDefault(): alloc}, status
+	return map[Pool]sets.Set[netip.Addr]{PoolDefault(): alloc}, status
 }
 
 func (h *hostScopeAllocator) Capacity() uint64 {

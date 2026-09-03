@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -352,7 +353,7 @@ func (ipam *IPAM) ReleaseIP(ip netip.Addr, pool Pool) error {
 // Dump dumps the list of allocated IP addresses
 func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, status string) {
 	var st4, st6 string
-	var allocPerPool4, allocPerPool6 map[Pool]map[string]string
+	var allocPerPool4, allocPerPool6 map[Pool]sets.Set[netip.Addr]
 
 	allocv4 = make(map[string]string)
 	allocv6 = make(map[string]string)
@@ -364,14 +365,9 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 		allocPerPool4, st4 = ipam.ipv4Allocator.Dump()
 		st4 = "IPv4: " + st4
 		for pool, alloc := range allocPerPool4 {
-			for ip := range alloc {
-				owner := ipam.getIPOwner(ip, pool)
-				ipPrefix := ""
-				if pool != PoolDefault() {
-					ipPrefix = string(pool) + "/"
-				}
+			for addr := range alloc {
 				// If owner is not available, report IP but leave owner empty
-				allocv4[ipPrefix+ip] = owner
+				allocv4[poolIP{ip: addr, pool: pool}.String()] = ipam.getIPOwner(addr, pool)
 			}
 		}
 	}
@@ -380,14 +376,9 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 		allocPerPool6, st6 = ipam.ipv6Allocator.Dump()
 		st6 = "IPv6: " + st6
 		for pool, alloc := range allocPerPool6 {
-			for ip := range alloc {
-				owner := ipam.getIPOwner(ip, pool)
-				ipPrefix := ""
-				if pool != PoolDefault() {
-					ipPrefix = string(pool) + "/"
-				}
+			for addr := range alloc {
 				// If owner is not available, report IP but leave owner empty
-				allocv6[ipPrefix+ip] = owner
+				allocv6[poolIP{ip: addr, pool: pool}.String()] = ipam.getIPOwner(addr, pool)
 			}
 		}
 	}

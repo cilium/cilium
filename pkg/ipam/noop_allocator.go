@@ -6,6 +6,8 @@ package ipam
 import (
 	"errors"
 	"net/netip"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 var errNotSupported = errors.New("Operation not supported")
@@ -35,7 +37,7 @@ func (n *noOpAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool)
 	return nil, errNotSupported
 }
 
-func (n *noOpAllocator) Dump() (map[Pool]map[string]string, string) {
+func (n *noOpAllocator) Dump() (map[Pool]sets.Set[netip.Addr], string) {
 	return nil, "delegated to plugin"
 }
 

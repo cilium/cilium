@@ -5,13 +5,13 @@ package ipam
 
 import (
 	"fmt"
-	"maps"
 	"net/netip"
 	"strings"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/node"
@@ -99,14 +99,11 @@ func (f fakePoolAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Po
 	return f.AllocateNext(owner, pool)
 }
 
-func (f fakePoolAllocator) Dump() (map[Pool]map[string]string, string) {
-	result := map[Pool]map[string]string{}
+func (f fakePoolAllocator) Dump() (map[Pool]sets.Set[netip.Addr], string) {
+	result := map[Pool]sets.Set[netip.Addr]{}
 	for name, alloc := range f.pools {
 		dump, _ := alloc.Dump()
-		if _, ok := result[name]; !ok {
-			result[name] = map[string]string{}
-		}
-		maps.Copy(result[name], dump[name])
+		result[name] = result[name].Union(dump[name])
 	}
 	return result, fmt.Sprintf("%d pools", len(f.pools))
 }

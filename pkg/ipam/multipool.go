@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -130,7 +131,7 @@ func (c *multiPoolAllocator) AllocateNextWithoutSyncUpstream(owner string, pool 
 	return c.manager.allocateNext(owner, pool, c.family, false)
 }
 
-func (c *multiPoolAllocator) Dump() (map[Pool]map[string]string, string) {
+func (c *multiPoolAllocator) Dump() (map[Pool]sets.Set[netip.Addr], string) {
 	return c.manager.dump(c.family)
 }
 
