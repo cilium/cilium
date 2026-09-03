@@ -43,7 +43,7 @@ func TestMarkAndSweep(t *testing.T) {
 	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
 	for _, id := range allEndpointIDs {
 		model := newTestEndpointModel(int(id), endpoint.StateReady)
-		ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, model, nil)
+		ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 		require.NoError(t, err)
 
 		ep.Start(uint16(model.ID))
