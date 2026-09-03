@@ -64,6 +64,10 @@ jobs:
           persist-credentials: false
           # Needed to detect missing redirects
           fetch-depth: 0
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
       - name: Build HTML
         uses: docker://quay.io/cilium/docs-builder:e6773ed21ab03066c0f24e68f342f18804a8ee0a@sha256:d3beff6d6408c09f6e1dbc637f7e98962b7d1fd2a81bf1d2a27ff8817dafb51f
         with:
@@ -81,6 +85,10 @@ jobs:
           persist-credentials: false
           # Needed to detect missing redirects
           fetch-depth: 0
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
       - name: Install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
