@@ -4,11 +4,13 @@
 package eswitch_sriov
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
 
 	"github.com/vishvananda/netlink"
+	vishnetlinknl "github.com/vishvananda/netlink/nl"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -259,4 +261,149 @@ func bridgeVlanPresent(nl netlinkOps, link netlink.Link, vid uint16) bool {
 	}
 
 	return false
+}
+
+// bridgeVlanTaggedPresent queries the live bridge VLAN table and reports
+// whether vid is present on link as a plain tagged trunk member (the state
+// ensureUplinkTrunkVlan installs on PF uplinks — neither PVID nor untagged,
+// so 802.1Q-tagged frames for vid are allowed to egress/ingress this port
+// alongside the port's other VLANs). Any error from the dump is treated as
+// "not present" so callers still attempt the (possibly redundant) mutating
+// call rather than silently skipping it.
+func bridgeVlanTaggedPresent(nl netlinkOps, link netlink.Link, vid uint16) bool {
+	table, err := nl.BridgeVlanList()
+	if err != nil {
+		return false
+	}
+
+	for _, i := range table[int32(link.Attrs().Index)] {
+		if i.Vid == vid {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ensureUplinkTrunkVlan adds vid as a tagged trunk member (pvid=false,
+// untagged=false, master=true) on uplinkLink if not already present. A
+// bridge with vlan_filtering=1 drops any frame tagged with a VLAN the
+// egress port isn't a member of — so without this, a representor's
+// PVID+untagged VLAN (added by EswitchPciDevice.Setup) is reachable only
+// between ports on the same bridge and can never reach the PF uplink (and
+// therefore never reach the external network or another PF via the
+// physical switch), even though the bridge itself has vlan_filtering
+// enabled. This is idempotent and safe to call for every VF Setup sharing
+// the same PF/VLAN — the redundant add for the 2nd..Nth caller becomes a
+// no-op via the bridgeVlanTaggedPresent check above. The caller MUST NOT
+// skip calling this just because the representor's own VLAN state is
+// already configured (e.g. left over from a prior claim on the same
+// representor) — the uplink's trunk membership is tracked independently
+// and must be (re)checked/added on every Setup call regardless of
+// representor state.
+func ensureUplinkTrunkVlan(nl netlinkOps, uplinkLink netlink.Link, vid uint16) error {
+	if bridgeVlanTaggedPresent(nl, uplinkLink, vid) {
+		return nil
+	}
+
+	if err := nl.BridgeVlanAdd(uplinkLink, vid, false, false, false, true); err != nil {
+		return fmt.Errorf(
+			"failed to add vlan %d trunk membership to uplink %s: %w",
+			vid, uplinkLink.Attrs().Name, err,
+		)
+	}
+
+	return nil
+}
+
+// vlanStillUsedByRepresentor reports whether any link in links, other than
+// the one at excludeIdx, is enslaved to bridgeIdx and carries vid as a
+// PVID+untagged member (i.e. is a representor actively using vid on this
+// bridge).
+func vlanStillUsedByRepresentor(links []netlink.Link, table map[int32][]*vishnetlinknl.BridgeVlanInfo, excludeIdx int, bridgeIdx int, vid uint16) bool {
+	for _, other := range links {
+		if other.Attrs().Index == excludeIdx {
+			continue
+		}
+		if other.Attrs().MasterIndex != bridgeIdx {
+			// not a port on the same bridge — its VLAN membership (even if
+			// vid happens to match) is irrelevant.
+			continue
+		}
+		for _, i := range table[int32(other.Attrs().Index)] {
+			if i.Vid == vid && i.PortVID() && i.EngressUntag() {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// releaseUnusedUplinkTrunkVlans re-evaluates EVERY uplink currently enslaved
+// to bridgeIdx that carries vid as a tagged trunk member (see
+// ensureUplinkTrunkVlan), removing it from any uplink no longer backed by at
+// least one representor on the same bridge still using vid as its
+// PVID+untagged member.
+//
+// This must scan every uplink on the bridge, not just the freed device's own
+// PF's uplink: when a bridge is shared by more than one PF, freeing one PF's
+// representor can be the event that makes a DIFFERENT PF's uplink trunk
+// entry releasable (that uplink's entry was being kept alive by THIS
+// representor, on a different PF, still using vid) — nothing else ever
+// revisits that other uplink's earlier "still in use" decision otherwise, so
+// its trunk entry would leak forever once it stops being the last user's
+// own PF.
+//
+// Queried fresh from the live link list and bridge VLAN table (source of
+// truth) on every call, consistent with the rest of this file.
+func releaseUnusedUplinkTrunkVlans(nl netlinkOps, bridgeIdx int, vid uint16) error {
+	if bridgeIdx == 0 {
+		return nil
+	}
+
+	links, err := nl.LinkList()
+	if err != nil {
+		// Can't enumerate uplinks/representors — err on the side of leaving
+		// trunk memberships in place rather than risk cutting off a VLAN
+		// that's still actively in use.
+		return nil
+	}
+
+	table, err := nl.BridgeVlanList()
+	if err != nil {
+		return nil
+	}
+
+	var errs []error
+	for _, link := range links {
+		idx := int32(link.Attrs().Index)
+		if link.Attrs().MasterIndex != bridgeIdx {
+			continue
+		}
+
+		isUplinkTrunkMember := false
+		for _, i := range table[idx] {
+			if i.Vid == vid && !i.PortVID() {
+				isUplinkTrunkMember = true
+				break
+			}
+		}
+		if !isUplinkTrunkMember {
+			continue
+		}
+
+		if vlanStillUsedByRepresentor(links, table, link.Attrs().Index, bridgeIdx, vid) {
+			continue
+		}
+
+		if err := nl.BridgeVlanDel(link, vid, false, false, false, true); err != nil {
+			errs = append(errs, fmt.Errorf(
+				"failed to remove vlan %d trunk membership from uplink %s: %w",
+				vid, link.Attrs().Name, err,
+			))
+		}
+	}
+
+	return errors.Join(errs...)
 }
