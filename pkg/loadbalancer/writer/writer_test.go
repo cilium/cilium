@@ -1053,6 +1053,129 @@ func TestWriter_SelectBackends_PreferCloseFallsBackWhenOnlyTerminating(t *testin
 	assert.Contains(t, addresses, terminatingNoZoneAddr)
 }
 
+// TestWriter_SelectBackends_PreferCloseIgnoresMaintenanceForMissingHints verifies
+// that a Maintenance backend with no ForZones hint (a brand-new, never-yet-Ready
+// Pod) does not trip the missing-hints safeguard for the whole Service.
+func TestWriter_SelectBackends_PreferCloseIgnoresMaintenanceForMissingHints(t *testing.T) {
+	p := fixture(t)
+	p.Writer.config.EnableServiceTopology = true
+	p.LocalNodeStore.Update(func(n *node.LocalNode) {
+		if n.Labels == nil {
+			n.Labels = map[string]string{}
+		}
+		n.Labels[corev1.LabelTopologyZone] = "zone-a"
+	})
+
+	svcName := loadbalancer.NewServiceName("test", "svc")
+	feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1), 80, loadbalancer.ScopeExternal)
+	activeLocalAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(2), 8080, loadbalancer.ScopeExternal)
+	startingAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(3), 8080, loadbalancer.ScopeExternal)
+
+	svc := &loadbalancer.Service{
+		Name:                svcName,
+		Source:              source.Kubernetes,
+		TrafficDistribution: loadbalancer.TrafficDistributionPreferClose,
+	}
+	fe := &loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     feAddr,
+			Type:        loadbalancer.SVCTypeClusterIP,
+			ServicePort: feAddr.Port(),
+		},
+		Service: svc,
+	}
+	backends := iter.Seq2[*loadbalancer.Backend, statedb.Revision](func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
+		for i, be := range []*loadbalancer.Backend{
+			{
+				Address: activeLocalAddr,
+				State:   loadbalancer.BackendStateActive,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-a", ForZones: []string{"zone-a"}},
+			},
+			{
+				// Brand-new Pod, not yet Ready: Maintenance state, no ForZones
+				// hint written yet. Pre-fix this sets missingHints=true and
+				// disables topology routing for the whole Service.
+				Address: startingAddr,
+				State:   loadbalancer.BackendStateMaintenance,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-a"},
+			},
+		} {
+			if !yield(be, statedb.Revision(i+1)) {
+				return
+			}
+		}
+	})
+
+	selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
+
+	// Topology safeguard must remain engaged: only the zone-a Active backend
+	// should be selected.
+	require.Len(t, selected, 1)
+	assert.Equal(t, activeLocalAddr.String(), selected[0].Address.String())
+}
+
+// TestWriter_SelectBackends_PreferCloseStillUsesFlappingBackendWithStaleHint verifies
+// that a Maintenance backend which still carries a stale ForZones hint from its last
+// Ready reconcile (a flapping Pod) remains a valid zone-preferred candidate — the fix
+// must not blanket-exclude Maintenance from candidacy.
+func TestWriter_SelectBackends_PreferCloseStillUsesFlappingBackendWithStaleHint(t *testing.T) {
+	p := fixture(t)
+	p.Writer.config.EnableServiceTopology = true
+	p.LocalNodeStore.Update(func(n *node.LocalNode) {
+		if n.Labels == nil {
+			n.Labels = map[string]string{}
+		}
+		n.Labels[corev1.LabelTopologyZone] = "zone-a"
+	})
+
+	svcName := loadbalancer.NewServiceName("test", "svc")
+	feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1), 80, loadbalancer.ScopeExternal)
+	flappingAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(2), 8080, loadbalancer.ScopeExternal)
+	activeRemoteAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(3), 8080, loadbalancer.ScopeExternal)
+
+	svc := &loadbalancer.Service{
+		Name:                svcName,
+		Source:              source.Kubernetes,
+		TrafficDistribution: loadbalancer.TrafficDistributionPreferClose,
+	}
+	fe := &loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     feAddr,
+			Type:        loadbalancer.SVCTypeClusterIP,
+			ServicePort: feAddr.Port(),
+		},
+		Service: svc,
+	}
+	backends := iter.Seq2[*loadbalancer.Backend, statedb.Revision](func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
+		for i, be := range []*loadbalancer.Backend{
+			{
+				// Flapping Pod: was Ready, probe now failing, still carries the
+				// stale hint from its last Ready reconcile. Must stay a
+				// candidate and stay selectable.
+				Address: flappingAddr,
+				State:   loadbalancer.BackendStateMaintenance,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-a", ForZones: []string{"zone-a"}},
+			},
+			{
+				Address: activeRemoteAddr,
+				State:   loadbalancer.BackendStateActive,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-b", ForZones: []string{"zone-b"}},
+			},
+		} {
+			if !yield(be, statedb.Revision(i+1)) {
+				return
+			}
+		}
+	})
+
+	selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
+
+	require.Len(t, selected, 1)
+	assert.Equal(t, flappingAddr.String(), selected[0].Address.String())
+}
+
 func TestWriter_SelectBackends_PreferSameNodeIgnoresTerminating(t *testing.T) {
 	oldName := nodeTypes.GetName()
 	nodeTypes.SetName("node-a")
