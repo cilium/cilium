@@ -1030,7 +1030,7 @@ func (m *manager) installStaticProxyRules(ifName, localDeliveryInterface string)
 	return nil
 }
 
-func (m *manager) doCopyProxyRules(prog iptablesInterface, table string, re *regexp.Regexp, match, oldChain, newChain string) error {
+func (m *manager) doCopyProxyRules(prog iptablesInterface, table string, re *regexp.Regexp, oldChain, newChain string) error {
 	rules, err := prog.runProgOutput([]string{"-t", table, "-S"})
 	if err != nil {
 		return err
@@ -1039,7 +1039,7 @@ func (m *manager) doCopyProxyRules(prog iptablesInterface, table string, re *reg
 	scanner := bufio.NewScanner(strings.NewReader(rules))
 	for scanner.Scan() {
 		rule := scanner.Text()
-		if !re.MatchString(rule) || !strings.Contains(rule, match) {
+		if !re.MatchString(rule) {
 			continue
 		}
 
@@ -1067,15 +1067,15 @@ func (m *manager) doCopyProxyRules(prog iptablesInterface, table string, re *reg
 var tproxyMatch = regexp.MustCompile("CILIUM_PRE_mangle .*cilium: TPROXY")
 
 // copies old proxy rules
-func (m *manager) copyProxyRules(oldChain string, match string) error {
+func (m *manager) copyProxyRules(oldChain string) error {
 	if m.sharedCfg.EnableIPv4 {
-		if err := m.doCopyProxyRules(m.ip4tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain); err != nil {
+		if err := m.doCopyProxyRules(m.ip4tables, "mangle", tproxyMatch, oldChain, ciliumPreMangleChain); err != nil {
 			return err
 		}
 	}
 
 	if m.sharedCfg.EnableIPv6 {
-		if err := m.doCopyProxyRules(m.ip6tables, "mangle", tproxyMatch, match, oldChain, ciliumPreMangleChain); err != nil {
+		if err := m.doCopyProxyRules(m.ip6tables, "mangle", tproxyMatch, oldChain, ciliumPreMangleChain); err != nil {
 			return err
 		}
 	}
@@ -1801,9 +1801,12 @@ func (m *manager) doInstallRules(state desiredState, firstInit bool) error {
 			return fmt.Errorf("failed to install rules: %w", err)
 		}
 
-		// copy old proxy rules over at initialization
+		// Copy the previous instance's proxy rules over at initialization. The
+		// restored proxy ports are still the ones the BPF policy map redirects
+		// to, so every one of these rules is needed until the corresponding
+		// proxy re-acks its port and reinstalls it.
 		if firstInit {
-			if err := m.copyProxyRules(oldCiliumPrefix+ciliumPreMangleChain, "cilium-dns-egress"); err != nil {
+			if err := m.copyProxyRules(oldCiliumPrefix + ciliumPreMangleChain); err != nil {
 				return fmt.Errorf("cannot copy old proxy rules, disruption to traffic selected by L7 policy possible: %w", err)
 			}
 		}
