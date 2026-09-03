@@ -487,38 +487,47 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// Insert a wildcard rule if there are any ingress rules
 	if len(rulesIngress) > 0 {
 		if !hasIngressDefaultDeny {
-			rulesIngress = rulesIngress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsAllowAnyIngress, types.Allow)
+			rulesIngress = rulesIngress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsAllowAnyIngress, types.Allow, true)
 			p.logger.Debug("Only default-allow policies, synthesizing ingress wildcard-allow rule",
 				logfields.Identity, securityIdentity,
 			)
 		} else {
 			// insert localhost allow for k8s if the policy subject is not the host
 			if option.Config.AlwaysAllowLocalhost() && securityIdentity.ID != identity.ReservedIdentityHost {
-				rulesIngress = rulesIngress.addDefaultRule(securityIdentity, types.HostSelectors, LabelsLocalHostIngress, types.Allow)
+				rulesIngress = rulesIngress.addDefaultRule(securityIdentity, types.HostSelectors, LabelsLocalHostIngress, types.Allow, true)
 				p.logger.Debug("Localhost allowed for k8s, synthesizing ingress host-allow rule",
 					logfields.Identity, securityIdentity,
 				)
 			}
 			if hasIngressPassVerdict {
 				// Explicit default deny is only needed for PASS verdict compatibility
-				rulesIngress = rulesIngress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsDenyAnyIngress, types.Deny)
+				rulesIngress = rulesIngress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsDenyAnyIngress, types.Deny, true)
 				p.logger.Debug("Only default-deny policies, synthesizing ingress wildcard-deny rule",
 					logfields.Identity, securityIdentity,
 				)
 			}
+		}
+	} else if hasIngress && hasIngressDefaultDeny {
+		// When policy enforcement is enabled (e.g. AlwaysEnforce or reserved:init) but no ingress policy rules select the endpoint,
+		// synthesize the host allow rule if AlwaysAllowLocalhost is enabled.
+		if option.Config.AlwaysAllowLocalhost() && securityIdentity.ID != identity.ReservedIdentityHost {
+			rulesIngress = rulesIngress.addDefaultRule(securityIdentity, types.HostSelectors, LabelsLocalHostIngress, types.Allow, true)
+			p.logger.Debug("Localhost allowed for k8s, synthesizing ingress host-allow rule",
+				logfields.Identity, securityIdentity,
+			)
 		}
 	}
 
 	// Same for egress -- synthesize a wildcard rule
 	if len(rulesEgress) > 0 {
 		if !hasEgressDefaultDeny {
-			rulesEgress = rulesEgress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsAllowAnyEgress, types.Allow)
+			rulesEgress = rulesEgress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsAllowAnyEgress, types.Allow, false)
 			p.logger.Debug("Only default-allow policies, synthesizing egress wildcard-allow rule",
 				logfields.Identity, securityIdentity,
 			)
 		} else if hasEgressPassVerdict {
 			// Explicit default deny is only needed for PASS verdict compatibility
-			rulesEgress = rulesEgress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsDenyAnyEgress, types.Deny)
+			rulesEgress = rulesEgress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsDenyAnyEgress, types.Deny, false)
 			p.logger.Debug("Only default-deny policies, synthesizing egress wildcard-deny rule",
 				logfields.Identity, securityIdentity,
 			)
@@ -530,13 +539,14 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 
 // addDefaultRule appends a default policy tier wildcard rule that only selects the given subject
 // identity.
-func (rules ruleSlice) addDefaultRule(subject *identity.Identity, peers types.Selectors, lbls labels.LabelArray, verdict types.Verdict) ruleSlice {
+func (rules ruleSlice) addDefaultRule(subject *identity.Identity, peers types.Selectors, lbls labels.LabelArray, verdict types.Verdict, ingress bool) ruleSlice {
 	var priority float64
-	lastRule := rules[len(rules)-1]
-	if lastRule.Tier == types.DefaultPolicy {
-		priority = lastRule.Priority + 1
+	if len(rules) > 0 {
+		lastRule := rules[len(rules)-1]
+		if lastRule.Tier == types.DefaultPolicy {
+			priority = lastRule.Priority + 1
+		}
 	}
-	ingress := lastRule.Ingress
 
 	return append(rules, &rule{
 		PolicyEntry: types.PolicyEntry{

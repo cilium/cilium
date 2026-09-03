@@ -247,6 +247,47 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 
 }
 
+func TestAlwaysEnforceLocalhost(t *testing.T) {
+	oldPolicyEnable := GetPolicyEnabled()
+	defer SetPolicyEnabled(oldPolicyEnable)
+
+	oldLocalhostOpt := option.Config.UnsafeDaemonConfigOption.AllowLocalhost
+	defer func() { option.Config.UnsafeDaemonConfigOption.AllowLocalhost = oldLocalhostOpt }()
+
+	SetPolicyEnabled(option.AlwaysEnforce)
+	option.Config.UnsafeDaemonConfigOption.AllowLocalhost = option.AllowLocalhostAlways
+
+	td := newTestData(t, hivetest.Logger(t))
+	repo := td.repo
+
+	fooSelectLabel := labels.ParseSelectLabel("foo")
+	fooNumericIdentity := 9001
+	fooIdentity := identity.NewIdentity(identity.NumericIdentity(fooNumericIdentity), labels.Labels{"foo": fooSelectLabel})
+	td.addIdentity(fooIdentity)
+
+	// In AlwaysEnforce mode with no rules added, computePolicyEnforcementAndRules should return hasIngress=true
+	// and synthesize the localhost allow rule.
+	ing, egr, _, _, matchingRulesI, matchingRulesE := repo.computePolicyEnforcementAndRules(fooIdentity)
+	require.True(t, ing, "ingress policy enforcement should apply under AlwaysEnforce")
+	require.True(t, egr, "egress policy enforcement should apply under AlwaysEnforce")
+	require.Len(t, matchingRulesI, 1, "should synthesize localhost allow rule for ingress")
+	require.Equal(t, LabelsLocalHostIngress, matchingRulesI[0].Labels)
+	require.Empty(t, matchingRulesE, "no egress rules synthesized")
+
+	// Resolve policy for fooIdentity and verify that localhost ingress policy is generated
+	selPolicy, err := repo.ResolvePolicy(fooIdentity)
+	require.NoError(t, err)
+	require.NotNil(t, selPolicy)
+
+	sp := selPolicy.(*selectorPolicy)
+	l4Ingress := sp.L4Policy.Ingress
+	require.Equal(t, 1, l4Ingress.PortRules.Len(), "ingress policy should contain 1 rule for localhost allow")
+	require.Contains(t, l4Ingress.PortRules[types.DefaultPolicy].RangePortMap, portProtoKey{Port: 0, EndPort: 0, Proto: 0})
+	filter := l4Ingress.PortRules[types.DefaultPolicy].RangePortMap[portProtoKey{Port: 0, EndPort: 0, Proto: 0}]
+	require.NotNil(t, filter)
+	require.Contains(t, filter.PerSelectorPolicies, td.cachedSelectorHost, "should contain per-selector policy for host selector")
+}
+
 func TestWildcardL3RulesIngress(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t))
 
