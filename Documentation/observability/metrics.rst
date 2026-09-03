@@ -1043,7 +1043,7 @@ Name                                         Labels  Default    Description
 
 "Double Write" Identity Allocation Mode
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-When the ":ref:`Double Write <double_write_migration>`" identity allocation mode is
+When the ":ref:`Double Write <kvstore_to_crd_migration>`" identity allocation mode is
 enabled, the following metrics are available:
 
 ============================================ ======= ========== ============================================================
