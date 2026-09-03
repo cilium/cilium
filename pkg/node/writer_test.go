@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -145,6 +146,79 @@ func TestWriterRestoresSourceFallback(t *testing.T) {
 	_, _, found = nodes.Get(db.ReadTxn(), NodeByName("node-1"))
 	require.False(t, found)
 }
+
+func TestWriterReportsShadowedCandidates(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+	health := &writerHealth{updates: make(chan writerHealthUpdate, 4)}
+	w.health = health
+	readHealth := func() writerHealthUpdate {
+		select {
+		case update := <-health.updates:
+			return update
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for Writer health update")
+			return writerHealthUpdate{}
+		}
+	}
+
+	winner := &types.Node{Name: "node-1", Source: source.Kubernetes}
+	txn := db.WriteTxn(nodes)
+	require.True(t, w.Upsert(txn, winner))
+	txn.Commit()
+	update := readHealth()
+	require.Equal(t, cell.StatusOK, update.level)
+	require.Equal(t, "1 nodes (0 conflicts)", update.reason)
+
+	shadowed := winner.DeepCopy()
+	shadowed.Source = source.ClusterMesh
+	txn = db.WriteTxn(nodes)
+	require.False(t, w.Upsert(txn, shadowed))
+	txn.Commit()
+
+	update = readHealth()
+	require.Equal(t, cell.StatusDegraded, update.level)
+	require.Equal(t, "1 nodes (1 conflicts): node-1", update.reason)
+	require.EqualError(t, update.err, "node conflicts: 1")
+
+	txn = db.WriteTxn(nodes)
+	require.False(t, w.Delete(txn, shadowed.Source, shadowed.Identity()))
+	txn.Commit()
+
+	update = readHealth()
+	require.Equal(t, cell.StatusOK, update.level)
+	require.Equal(t, "1 nodes (0 conflicts)", update.reason)
+}
+
+type writerHealthUpdate struct {
+	level  cell.Level
+	reason string
+	err    error
+}
+
+type writerHealth struct {
+	updates chan writerHealthUpdate
+}
+
+func (h *writerHealth) OK(reason string) {
+	h.updates <- writerHealthUpdate{level: cell.StatusOK, reason: reason}
+}
+
+func (h *writerHealth) Degraded(reason string, err error) {
+	h.updates <- writerHealthUpdate{
+		level:  cell.StatusDegraded,
+		reason: reason,
+		err:    err,
+	}
+}
+
+func (*writerHealth) Stopped(string) {}
+
+func (h *writerHealth) NewScope(string) cell.Health { return h }
+
+func (*writerHealth) Close() {}
 
 func TestWriterReconcilerRegistration(t *testing.T) {
 	db := statedb.New()

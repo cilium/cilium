@@ -11,6 +11,7 @@ import (
 	"maps"
 	"net/netip"
 	"slices"
+	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -26,9 +27,10 @@ import (
 
 // Writer provides source-aware write access to the node table.
 type Writer struct {
-	log   *slog.Logger
-	db    *statedb.DB
-	nodes statedb.RWTable[*Node]
+	log    *slog.Logger
+	db     *statedb.DB
+	nodes  statedb.RWTable[*Node]
+	health cell.Health
 
 	isStaticLocalRouterIP  func(string) bool
 	prefixClusterMutatorFn PrefixClusterMutatorFn
@@ -40,6 +42,7 @@ type Writer struct {
 	// write transaction serializes access to this state.
 	shadowed          map[nodeCandidateKey]nodeCandidate
 	nextPriorityOrder uint64
+	reportedStatus    string
 }
 
 type nodeCandidateKey struct {
@@ -68,6 +71,14 @@ const (
 	WireGuardNodeReconciler NodeReconciler = "wireguard"
 )
 
+// WriterCell provides the node table Writer
+var WriterCell = cell.Module(
+	"node-writer",
+	"Node table writer",
+
+	cell.Provide(provideWriter),
+)
+
 // NewWriter constructs a node table writer.
 func NewWriter(log *slog.Logger, db *statedb.DB, nodes statedb.RWTable[*Node]) *Writer {
 	return &Writer{
@@ -84,15 +95,44 @@ type writerParams struct {
 	Log          *slog.Logger
 	DB           *statedb.DB
 	Nodes        statedb.RWTable[*Node]
+	Health       cell.Health
 	DaemonConfig *option.DaemonConfig `optional:"true"`
 }
 
 func provideWriter(p writerParams) *Writer {
 	w := NewWriter(p.Log, p.DB, p.Nodes)
+	w.health = p.Health
 	if p.DaemonConfig != nil {
 		w.isStaticLocalRouterIP = p.DaemonConfig.IsLocalRouterIP
 	}
 	return w
+}
+
+func (w *Writer) reportHealth(txn statedb.ReadTxn) {
+	if w.health == nil {
+		return
+	}
+	nodeCount := w.nodes.NumObjects(txn)
+	conflictCount := len(w.shadowed)
+	status := fmt.Sprintf("%d nodes (%d conflicts)", nodeCount, conflictCount)
+	if conflictCount > 0 {
+		names := make([]string, 0, conflictCount)
+		for key := range w.shadowed {
+			names = append(names, key.identity.String())
+		}
+		slices.Sort(names)
+		names = slices.Compact(names)
+		status += ": " + strings.Join(names, ", ")
+	}
+	if status == w.reportedStatus {
+		return
+	}
+	w.reportedStatus = status
+	if conflictCount == 0 {
+		w.health.OK(status)
+	} else {
+		w.health.Degraded(status, fmt.Errorf("node conflicts: %d", conflictCount))
+	}
 }
 
 // Table returns read-only access to the node table.
@@ -329,6 +369,8 @@ func (w *Writer) Refresh(ctx context.Context, reconcilers ...NodeReconciler) err
 // calling Upsert. It reports whether the table changed. Conflicting candidates
 // are retained and reconsidered when the active set changes.
 func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
+	defer w.reportHealth(txn)
+
 	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
 	key := nodeCandidateKey{n.Identity(), n.Source}
 	w.nextPriorityOrder++
@@ -419,6 +461,8 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 // Delete removes a remote node if this writer's source still owns it. It
 // reports whether the table changed.
 func (w *Writer) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTypes.Identity) bool {
+	defer w.reportHealth(txn)
+
 	key := nodeCandidateKey{identity, src}
 	_, hadShadowedCandidate := w.shadowed[key]
 	delete(w.shadowed, key)
