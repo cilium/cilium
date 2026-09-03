@@ -337,7 +337,8 @@ var (
 		// is specified.
 		ztunnel.Cell,
 
-		// Manage the Network Driver configuration via custom resources.
+		// Manage the Network Driver configuration via custom resources and
+		// delegate Resource IPAM CIDRs to nodes.
 		networkdriver.Cell,
 	}
 
