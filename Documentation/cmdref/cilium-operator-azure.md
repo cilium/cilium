@@ -11,6 +11,7 @@ cilium-operator-azure [flags]
 ### Options
 
 ```
+      --auto-create-cilium-resource-ip-pools stringToString        Automatically create CiliumResourceIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size>[;allow-first-ip:<bool>][;allow-last-ip:<bool>] (multiple pools can also be passed by repeating the CLI flag) (default [])
       --azure-resource-group string                                Resource group containing the cluster nodes, defaults to cilium operator's own resource group retrieved via Azure Instance Metadata Service (IMDS)
       --azure-subscription-id string                               Subscription ID to access Azure API
       --azure-use-primary-address                                  Use Azure IP address from interface's primary IPConfigurations
@@ -63,6 +64,9 @@ cilium-operator-azure [flags]
       --enable-l7-proxy                                            Enable L7 proxy for L7 policy enforcement (default true)
       --enable-lb-ipam                                             Enable LB IPAM (default true)
       --enable-metrics                                             Enable Prometheus metrics
+      --enable-network-driver                                      Enable the Cilium Network Driver to assign interfaces via Dynamic Resource Allocation
+      --enable-network-driver-ipv4                                 Enable IPv4 address assignment for Cilium Network Driver resources (default true)
+      --enable-network-driver-ipv6                                 Enable IPv6 address assignment for Cilium Network Driver resources
       --enable-node-ipam                                           Enable Node IPAM
       --enable-node-selector-labels                                Enable use of node label based identity
       --enable-policy string                                       Enable policy enforcement (default "default")
