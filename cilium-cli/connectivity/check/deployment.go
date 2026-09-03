@@ -2205,12 +2205,23 @@ func (ct *ConnectivityTest) getBackendNodeAndNonBackendNode(ctx context.Context)
 		return nil, fmt.Errorf("unable to list pods with lable %s: %w", appLabel, err)
 	}
 
+	if len(podList.Items) == 0 {
+		return nil, fmt.Errorf("no pods found with label %s", appLabel)
+	}
+
 	pod := podList.Items[0]
+	if pod.Spec.NodeName == "" {
+		return nil, fmt.Errorf("pod %s is not scheduled on any node yet", pod.Name)
+	}
+	backendNode, ok := ct.nodes[pod.Spec.NodeName]
+	if !ok {
+		return nil, fmt.Errorf("unable to find node %s hosting pod %s", pod.Spec.NodeName, pod.Name)
+	}
 
 	var nodes []nodeWithType
 	nodes = append(nodes, nodeWithType{
 		nodeType: "backend-node",
-		node:     ct.nodes[pod.Spec.NodeName],
+		node:     backendNode,
 	})
 	for name, node := range ct.Nodes() {
 		if name != pod.Spec.NodeName {
