@@ -399,7 +399,7 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 	// operation atomic when an incoming node overlaps multiple existing nodes:
 	// a single stronger owner rejects the update without deleting weaker ones.
 	conflicts := map[string]*Node{}
-	for addrCluster := range obj.addressClusters(w.isStaticLocalRouterIP) {
+	for _, addrCluster := range obj.addresses(w.isStaticLocalRouterIP) {
 		for candidate := range w.nodes.List(txn, NodeByAddress(addrCluster)) {
 			if candidate.Fullname() == obj.Fullname() {
 				continue
@@ -557,7 +557,7 @@ func (w *Writer) restoreShadowed(txn statedb.WriteTxn, reconcilers []string) {
 		if old, _, found := w.nodes.Get(txn, NodeByName(obj.Fullname())); found {
 			conflicts[old.Fullname()] = old
 		}
-		for addrCluster := range obj.addressClusters(w.isStaticLocalRouterIP) {
+		for _, addrCluster := range obj.addresses(w.isStaticLocalRouterIP) {
 			for active := range w.nodes.List(txn, NodeByAddress(addrCluster)) {
 				conflicts[active.Fullname()] = active
 			}
