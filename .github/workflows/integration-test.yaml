@@ -194,7 +194,27 @@ jobs:
           export V=0
           export DOCKER_BUILD_FLAGS=--quiet
           export CFLAGS="-Werror"
+          # Sample load, PSI and free memory so a test killed by its own deadline
+          # can be told apart from a runner that stalled under it.
+          (
+            while true; do
+              printf '=== %s\n' "$(date --rfc-3339=seconds)"
+              cat /proc/loadavg
+              grep -H . /proc/pressure/* 2>/dev/null
+              free -m
+              sleep 5
+            done
+          ) >> "test/${{ env.job_name }}-pressure.log" 2>&1 &
+          sampler_pid=$!
+          trap 'kill "${sampler_pid}" 2>/dev/null || true' EXIT
           make integration-tests LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml"
+
+      - name: Upload resource pressure log
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: resource-pressure-${{ env.job_name }}
+          path: test/*-pressure.log
 
       - name: Fetch JUnits
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
