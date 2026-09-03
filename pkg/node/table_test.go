@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -16,6 +17,39 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
+
+func TestNodeTableRow(t *testing.T) {
+	n := &Node{
+		Node: nodeTypes.Node{
+			Name:   "node-1",
+			Source: "kubernetes",
+			IPAddresses: []nodeTypes.Address{
+				{
+					Type: addressing.NodeInternalIP,
+					IP:   net.ParseIP("192.0.2.1"),
+				},
+			},
+			IPv4HealthIP:  iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+			IPv4IngressIP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.3")),
+		},
+		addressClusterID: 42,
+		Local:            &LocalNodeInfo{},
+		Statuses: reconciler.NewStatusSet().Set(
+			"test-reconciler",
+			reconciler.StatusDone(),
+		),
+	}
+
+	require.Equal(t, []string{"Name", "Source", "Addresses", "Status"}, n.TableHeader())
+	row := n.TableRow()
+	require.Len(t, row, 4)
+	require.Equal(t, "node-1 (local)", row[0])
+	require.Equal(t,
+		"HealthIP:10.0.0.2@42, IngressIP:10.0.0.3@42, InternalIP:192.0.2.1",
+		row[2],
+	)
+	require.Contains(t, row[3], "Done: test-reconciler")
+}
 
 func TestNodeAddressIndexClusterIdentity(t *testing.T) {
 	db := statedb.New()

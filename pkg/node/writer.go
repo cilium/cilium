@@ -420,7 +420,7 @@ func (w *Writer) upsertCandidate(txn *WriteTxn, candidate *nodeCandidate) {
 }
 
 func (w *Writer) prepareCandidate(candidate *nodeCandidate) {
-	for address := range candidate.node.addressClusters(w.isStaticLocalRouterIP) {
+	for _, address := range candidate.node.addresses(w.isStaticLocalRouterIP) {
 		candidate.conflictAddresses = append(candidate.conflictAddresses, address)
 	}
 	slices.SortFunc(candidate.conflictAddresses, func(a, b cmtypes.AddrCluster) int {
