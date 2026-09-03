@@ -547,8 +547,6 @@ snat_v4_calc_icmp_error_csum_diff(__be32 old_addr, __be32 new_addr,
 				  __be16 old_port, __be16 new_port,
 				  bool inner_has_l4_csum)
 {
-	__be32 old_port32 = (__be32)old_port;
-	__be32 new_port32 = (__be32)new_port;
 	__wsum sum = 0;
 
 	if (inner_has_l4_csum) {
@@ -564,8 +562,12 @@ snat_v4_calc_icmp_error_csum_diff(__be32 old_addr, __be32 new_addr,
 		 * If the inner L4 header does not include the L4 checksum,
 		 * only the port is modified within the inner L4 header.
 		 */
-		if (old_port != new_port)
+		if (old_port != new_port) {
+			__be32 old_port32 = (__be32)old_port;
+			__be32 new_port32 = (__be32)new_port;
+
 			sum = csum_diff(&old_port32, 4, &new_port32, 4, 0);
+		}
 	}
 
 	return sum;
