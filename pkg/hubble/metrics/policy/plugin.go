@@ -20,7 +20,11 @@ Reports metrics related to Cilium network policies.
 Metrics:
   hubble_policy_verdicts_total Total number of policy verdict events
 
-Options:` +
+Options:
+ protocol - Include the L4 protocol as label "protocol".
+ destination_port - Include the destination port as label "destination_port".
+                    This may result in high cardinality depending on the traffic
+                    pattern. L7 reply flows are not counted.` +
 		api.ContextOptionsHelp
 }
 
