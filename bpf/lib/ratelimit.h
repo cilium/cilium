@@ -9,6 +9,7 @@
 #define RATELIMIT_USAGE_ICMPV6 1
 #define RATELIMIT_USAGE_EVENTS_MAP 2
 #define RATELIMIT_USAGE_SOCKET_EVENTS_MAP 3
+#define RATELIMIT_USAGE_SVC_ICMP_PMTU_RELAY 4
 
 struct ratelimit_key {
 	__u32 usage;
@@ -16,6 +17,9 @@ struct ratelimit_key {
 		struct {
 			__u32 netdev_idx;
 		} icmpv6;
+		struct {
+			__u32 rev_nat_index;
+		} svc_pmtu_relay;
 	} key;
 };
 

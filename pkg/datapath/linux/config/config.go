@@ -283,6 +283,19 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		cDefinesMap["DSR_ENCAP_IPIP"] = fmt.Sprintf("%d", dsrEncapIPIP)
 		cDefinesMap["DSR_ENCAP_GENEVE"] = fmt.Sprintf("%d", dsrEncapGeneve)
 		cDefinesMap["DSR_ENCAP_NONE"] = fmt.Sprintf("%d", dsrEncapNone)
+
+		// Relay inbound ICMP "fragmentation needed" / "packet too big" errors
+		// addressed to a service VIP to the backend that owns the connection,
+		// so the backend lowers its path MTU. For DSR the backend is
+		// re-derived statelessly via the same Maglev hash the ingress node
+		// used, so the relay works even when BGP/ECMP lands the error on a
+		// node that is not the one holding the flow. For SNAT-mode services it
+		// is best-effort, recovering the backend from the service conntrack
+		// entry when the error returns to the ingress node.
+		if option.Config.EnablePMTUDiscovery {
+			cDefinesMap["ENABLE_SVC_ICMP_PMTU_RELAY"] = "1"
+		}
+
 		if cfg.LBConfig.LoadBalancerUsesDSR() {
 			cDefinesMap["ENABLE_DSR"] = "1"
 			if option.Config.EnablePMTUDiscovery {
