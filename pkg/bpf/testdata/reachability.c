@@ -18,6 +18,7 @@ DECLARE_CONFIG(bool, sym_i, "Make sym_i reachable")
 DECLARE_CONFIG(bool, sym_j, "Make sym_j reachable")
 DECLARE_CONFIG(__s16, sym_k, "Make sym_k reachable if bit 1 is set")
 DECLARE_CONFIG(__u32, sym_l, "Make sym_l reachable if bit 1 is set")
+DECLARE_CONFIG(bool, sym_m, "Make sym_m reachable")
 
 __noinline
 void func_i() {
@@ -29,6 +30,13 @@ void func_j() {
         if CONFIG(sym_j) {
                 SYMBOL(sym_j);
         }
+}
+
+/* Static functions are always considered reachable, even if all their call
+ * sites are dead, since the pre-6.8 verifier needs to be able to verify them. */
+static __noinline
+void func_m() {
+        SYMBOL(sym_m);
 }
 
 __section("tc")
@@ -67,6 +75,9 @@ static int entry() {
 
         if (CONFIG(sym_l) & 1)
                 SYMBOL(sym_l);
+
+        if (CONFIG(sym_m))
+                func_m();
 
         return 0;
 }
