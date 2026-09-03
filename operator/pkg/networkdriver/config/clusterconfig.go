@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	networkdriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
@@ -35,16 +36,16 @@ import (
 type clusterConfigResourceParams struct {
 	cell.In
 
-	CellCfg         NetworkDriverConfig
-	Lifecycle       cell.Lifecycle
-	ClientSet       client.Clientset
-	CRDSyncPromise  promise.Promise[synced.CRDSync] `optional:"true"`
-	MetricsProvider workqueue.MetricsProvider
-	DaemonConfig    *option.DaemonConfig
+	NetworkDriverConfig networkdriverConfig.Config
+	Lifecycle           cell.Lifecycle
+	ClientSet           client.Clientset
+	CRDSyncPromise      promise.Promise[synced.CRDSync] `optional:"true"`
+	MetricsProvider     workqueue.MetricsProvider
+	DaemonConfig        *option.DaemonConfig
 }
 
 func clusterConfigResource(params clusterConfigResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumNetworkDriverClusterConfig], error) {
-	if !params.ClientSet.IsEnabled() || !params.CellCfg.Enabled {
+	if !params.ClientSet.IsEnabled() || !params.NetworkDriverConfig.Enabled {
 		return nil, nil
 	}
 
@@ -193,7 +194,7 @@ func registerDriverClusterConfigReconciler(
 	tbl statedb.RWTable[*driverClusterConfig],
 	daemonCfg *option.DaemonConfig,
 	cs k8sClient.Clientset,
-	cfg NetworkDriverConfig,
+	cfg networkdriverConfig.Config,
 ) error {
 	if !cs.IsEnabled() || !cfg.Enabled {
 		return nil

@@ -18,6 +18,7 @@ import (
 
 	cilium_v2alpha1_api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sTestClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	networkdriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
 )
 
 var errPropagated = errors.New("internal server error")
@@ -161,7 +162,7 @@ func TestRegisterDriverNodeConfigReconciler(t *testing.T) {
 			reconciler.Params{}, nil, nil,
 			nil,
 			cs,
-			NetworkDriverConfig{Enabled: true},
+			networkdriverConfig.Config{Enabled: true},
 		)
 
 		require.NoError(t, err)
@@ -172,7 +173,7 @@ func TestRegisterDriverNodeConfigReconciler(t *testing.T) {
 		err := registerDriverNodeConfigReconciler(
 			reconciler.Params{}, nil, nil,
 			nil, cs,
-			NetworkDriverConfig{Enabled: false},
+			networkdriverConfig.Config{Enabled: false},
 		)
 
 		require.NoError(t, err)

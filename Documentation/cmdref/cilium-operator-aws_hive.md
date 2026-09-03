@@ -55,7 +55,9 @@ cilium-operator-aws hive [flags]
       --enable-k8s-api-discovery                                   Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-lb-ipam                                             Enable LB IPAM (default true)
       --enable-metrics                                             Enable Prometheus metrics
-      --enable-network-driver                                      enable network driver to assign interfaces via Dynamic Resource Allocation
+      --enable-network-driver                                      Enable the Cilium Network Driver to assign interfaces via Dynamic Resource Allocation
+      --enable-network-driver-ipv4                                 Enable IPv4 address assignment for Cilium Network Driver resources (default true)
+      --enable-network-driver-ipv6                                 Enable IPv6 address assignment for Cilium Network Driver resources
       --enable-node-ipam                                           Enable Node IPAM
       --enable-policy-secrets-sync                                 Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
       --enable-wireguard                                           Enable WireGuard
