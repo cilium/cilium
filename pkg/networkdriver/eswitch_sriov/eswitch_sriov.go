@@ -51,11 +51,15 @@ const (
 	// untagged member of the moment it is enslaved to a VLAN-filtering
 	// bridge (kernel default). A bridge port can only ever have one PVID
 	// at a time, so before Setup can install the pod-requested VLAN as
-	// this port's new PVID, defaultBridgeVID's PVID flag must first be
-	// cleared (demoted to a plain untagged member) — the kernel rejects
-	// BridgeVlanAdd for a second PVID with EINVAL otherwise. Free reverses
-	// this: once the pod-requested VLAN is removed, defaultBridgeVID is
-	// restored as PVID+untagged so the port initial state is restored fully.
+	// this port's new PVID, defaultBridgeVID's membership must first be
+	// removed entirely (not merely demoted) — otherwise the representor
+	// is left carrying both defaultBridgeVID (as a plain untagged member)
+	// and the pod-requested VLAN (as PVID) simultaneously, which leaks the
+	// default VLAN's broadcast/multicast traffic onto every VF regardless
+	// of which VLAN it was actually assigned, defeating the VLAN isolation
+	// this whole mechanism exists to enforce. Free reverses this: once the
+	// pod-requested VLAN is removed, defaultBridgeVID is (re-)added as
+	// PVID+untagged so the port's initial state is restored fully.
 	defaultBridgeVID = 1
 )
 
@@ -269,17 +273,19 @@ func (d EswitchPciDevice) Setup(config types.DeviceConfig) error {
 
 		// A bridge port can only have one PVID at a time. A freshly-enslaved
 		// port (or one just Free()'d back to its original state) carries
-		// defaultBridgeVID as PVID+untagged; that flag must be cleared before
-		// the requested VLAN can become the new PVID, or the kernel rejects
-		// the add below with EINVAL. Demoting is a no-op if defaultBridgeVID
-		// isn't currently the port's PVID (e.g. a previous Setup call for a
-		// different VLAN never got Free()'d — shouldn't normally happen, but
-		// harmless either way since BridgeVlanAdd here only ever re-asserts
-		// defaultBridgeVID as a plain untagged member).
-		if uint16(config.Vlan) != defaultBridgeVID && bridgeVlanIsPVID(d.nl, l, defaultBridgeVID) {
-			if err := d.nl.BridgeVlanAdd(l, defaultBridgeVID, false, true, false, true); err != nil {
+		// defaultBridgeVID as PVID+untagged; that membership must be removed
+		// entirely before the requested VLAN can become the new PVID — not
+		// merely demoted to a plain untagged member, since leaving it in
+		// place would keep the representor forwarding defaultBridgeVID's
+		// broadcast/multicast traffic regardless of the VLAN the VF was
+		// actually assigned, undermining VLAN isolation. This is a no-op if
+		// defaultBridgeVID isn't currently present on the port at all (e.g.
+		// a previous Setup call for a different VLAN never got Free()'d —
+		// shouldn't normally happen, but harmless either way).
+		if uint16(config.Vlan) != defaultBridgeVID && bridgeVlanPresent(d.nl, l, defaultBridgeVID) {
+			if err := d.nl.BridgeVlanDel(l, defaultBridgeVID, true, true, false, true); err != nil {
 				return fmt.Errorf(
-					"failed to demote default vlan %d as pvid on representor %s: %w",
+					"failed to remove default vlan %d from representor %s: %w",
 					defaultBridgeVID, d.RepresentorName, err,
 				)
 			}
@@ -370,9 +376,12 @@ func (d EswitchPciDevice) Free(config types.DeviceConfig) error {
 
 	// Restore defaultBridgeVID as this port's PVID so it's back in the
 	// same pristine state a freshly-enslaved port would be in, ready for
-	// a future Setup call (see defaultBridgeVID doc comment). No-op if
-	// it's already the PVID.
-	if uint16(config.Vlan) != defaultBridgeVID && !bridgeVlanIsPVID(d.nl, l, defaultBridgeVID) {
+	// a future Setup call (see defaultBridgeVID doc comment). Checks
+	// presence, not just PVID status, since Setup now removes
+	// defaultBridgeVID's membership entirely rather than merely demoting
+	// it — so after a Setup/Free pair it will genuinely be absent, not
+	// present-but-demoted. No-op if it's already present as PVID.
+	if uint16(config.Vlan) != defaultBridgeVID && !bridgeVlanPresent(d.nl, l, defaultBridgeVID) {
 		// See the matching comment in Setup: bounce bridge membership
 		// unconditionally before this BridgeVlanAdd too, since the same
 		// intermittent EINVAL can happen here.
