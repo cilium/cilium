@@ -36,6 +36,11 @@ type Node struct {
 	// +deepequal-gen=false
 	addressClusterID uint32
 
+	// priorityOrder breaks ties between equal-priority sources. It is assigned
+	// by Writer and is not part of the externally serialized node data.
+	// +deepequal-gen=false
+	priorityOrder uint64
+
 	// Local is non-nil if this is the local node. This carries additional
 	// information about the local node that is not shared outside.
 	Local *LocalNodeInfo

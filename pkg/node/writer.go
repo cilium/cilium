@@ -4,6 +4,7 @@
 package node
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -33,6 +34,22 @@ type Writer struct {
 	prefixClusterMutatorFn PrefixClusterMutatorFn
 
 	requiredReconcilers []NodeReconciler
+
+	// shadowed contains the latest node from each producer that is currently
+	// hidden by a higher-priority node or an address conflict. The node table's
+	// write transaction serializes access to this state.
+	shadowed          map[nodeCandidateKey]nodeCandidate
+	nextPriorityOrder uint64
+}
+
+type nodeCandidateKey struct {
+	identity nodeTypes.Identity
+	source   source.Source
+}
+
+type nodeCandidate struct {
+	node          *nodeTypes.Node
+	priorityOrder uint64
 }
 
 // PrefixClusterMutatorFn derives cluster-aware addressing options from a
@@ -53,7 +70,12 @@ const (
 
 // NewWriter constructs a node table writer.
 func NewWriter(log *slog.Logger, db *statedb.DB, nodes statedb.RWTable[*Node]) *Writer {
-	return &Writer{log: log, db: db, nodes: nodes}
+	return &Writer{
+		log:      log,
+		db:       db,
+		nodes:    nodes,
+		shadowed: map[nodeCandidateKey]nodeCandidate{},
+	}
 }
 
 type writerParams struct {
@@ -304,29 +326,29 @@ func (w *Writer) Refresh(ctx context.Context, reconcilers ...NodeReconciler) err
 
 // Upsert takes ownership of n and inserts or updates it if its source is
 // allowed to overwrite the current owner. The caller must not modify n after
-// calling Upsert. It reports whether the table changed. Conflicting weaker
-// objects are not retained, so their producer must upsert them again if the
-// winning object is later deleted.
+// calling Upsert. It reports whether the table changed. Conflicting candidates
+// are retained and reconsidered when the active set changes.
 func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
-	obj := &Node{
-		Node:             *n,
-		addressClusterID: deriveAddressClusterID(w.prefixClusterMutatorFn, n),
-		Statuses:         reconciler.NewStatusSet().Pending(reconcilers...),
-	}
+	key := nodeCandidateKey{n.Identity(), n.Source}
+	w.nextPriorityOrder++
+	candidate := nodeCandidate{node: n, priorityOrder: w.nextPriorityOrder}
+	obj := w.nodeObject(candidate, reconcilers)
 
 	old, _, found := w.nodes.Get(txn, NodeByName(obj.Fullname()))
 	if found {
-		if old.Local != nil || !source.AllowOverwrite(old.Source, obj.Source) {
+		if !w.candidateCanReplace(candidate, old) {
 			w.log.Warn("Ignoring node update from lower priority source",
 				logfields.Node, obj.Fullname(),
 				logfields.Source, old.Source,
 				logfields.NodeOwner, obj.Source,
 			)
+			w.cacheCandidate(key, candidate)
 			return false
 		}
 		if old.Node.DeepEqual(&obj.Node) &&
 			old.addressClusterID == obj.addressClusterID {
+			delete(w.shadowed, key)
 			return false
 		}
 	}
@@ -353,25 +375,32 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 			conflicts[candidate.Fullname()] = candidate
 		}
 	}
-	for _, candidate := range conflicts {
-		if candidate.Local != nil || !source.AllowOverwrite(candidate.Source, obj.Source) {
+	// Validate every conflict before deleting any of them. An incoming node may
+	// be allowed to replace one owner but still be blocked by another.
+	for _, conflict := range conflicts {
+		if !w.candidateCanReplace(candidate, conflict) {
+			w.cacheCandidate(key, candidate)
 			return false
 		}
 	}
 
-	for _, candidate := range conflicts {
-		if _, _, err := w.nodes.Delete(txn, candidate); err != nil {
+	for _, conflict := range conflicts {
+		if _, _, err := w.nodes.Delete(txn, conflict); err != nil {
 			w.log.Error("Failed to delete node with conflicting address",
 				logfields.Error, err,
-				logfields.Node, candidate.Name,
-				logfields.Source, candidate.Source,
+				logfields.Node, conflict.Name,
+				logfields.Source, conflict.Source,
 			)
 			return false
 		}
+		w.cacheActive(conflict)
 	}
 
 	if found {
 		obj.Statuses = old.Statuses.Pending(reconcilers...)
+		if old.Source != obj.Source {
+			w.cacheActive(old)
+		}
 	}
 
 	if _, _, err := w.nodes.Insert(txn, obj); err != nil {
@@ -382,22 +411,30 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 		)
 		return false
 	}
+	delete(w.shadowed, key)
+	w.restoreShadowed(txn, reconcilers)
 	return true
 }
 
 // Delete removes a remote node if this writer's source still owns it. It
 // reports whether the table changed.
 func (w *Writer) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTypes.Identity) bool {
+	key := nodeCandidateKey{identity, src}
+	_, hadShadowedCandidate := w.shadowed[key]
+	delete(w.shadowed, key)
+
 	old, _, found := w.nodes.Get(txn, NodeByName(identity.String()))
 	if !found {
 		return false
 	}
 	if old.Local != nil || old.Source != src {
-		w.log.Warn("Ignoring node deletion from source that does not own node",
-			logfields.Node, identity.Name,
-			logfields.Source, src,
-			logfields.NodeOwner, old.Source,
-		)
+		if !hadShadowedCandidate {
+			w.log.Warn("Ignoring node deletion from source that does not own node",
+				logfields.Node, identity.Name,
+				logfields.Source, src,
+				logfields.NodeOwner, old.Source,
+			)
+		}
 		return false
 	}
 	if _, _, err := w.nodes.Delete(txn, old); err != nil {
@@ -408,5 +445,117 @@ func (w *Writer) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTy
 		)
 		return false
 	}
+	w.restoreShadowed(txn, reconcilerNames(w.getRequiredReconcilers(txn)))
 	return true
+}
+
+func (w *Writer) nodeObject(candidate nodeCandidate, reconcilers []string) *Node {
+	return &Node{
+		Node:             *candidate.node,
+		addressClusterID: deriveAddressClusterID(w.prefixClusterMutatorFn, candidate.node),
+		priorityOrder:    candidate.priorityOrder,
+		Statuses:         reconciler.NewStatusSet().Pending(reconcilers...),
+	}
+}
+
+func (w *Writer) candidateCanReplace(candidate nodeCandidate, active *Node) bool {
+	if active.Local != nil || !source.AllowOverwrite(active.Source, candidate.node.Source) {
+		return false
+	}
+	if !source.AllowOverwrite(candidate.node.Source, active.Source) {
+		return true
+	}
+
+	return candidate.priorityOrder > active.priorityOrder
+}
+
+func (w *Writer) cacheCandidate(key nodeCandidateKey, candidate nodeCandidate) {
+	if old, found := w.shadowed[key]; !found ||
+		candidate.priorityOrder > old.priorityOrder {
+		w.shadowed[key] = candidate
+	}
+}
+
+func (w *Writer) cacheActive(n *Node) {
+	key := nodeCandidateKey{n.Identity(), n.Source}
+	w.cacheCandidate(key, nodeCandidate{
+		node:          &n.Node,
+		priorityOrder: n.priorityOrder,
+	})
+}
+
+func (w *Writer) restoreShadowed(txn statedb.WriteTxn, reconcilers []string) {
+	candidates := make([]nodeCandidate, 0, len(w.shadowed))
+	for _, candidate := range w.shadowed {
+		candidates = append(candidates, candidate)
+	}
+	slices.SortFunc(candidates, func(a, b nodeCandidate) int {
+		aWins := source.AllowOverwrite(b.node.Source, a.node.Source)
+		bWins := source.AllowOverwrite(a.node.Source, b.node.Source)
+		if aWins != bWins {
+			if aWins {
+				return -1
+			}
+			return 1
+		}
+		return cmp.Compare(b.priorityOrder, a.priorityOrder)
+	})
+
+	for _, candidate := range candidates {
+		key := nodeCandidateKey{candidate.node.Identity(), candidate.node.Source}
+		if current, found := w.shadowed[key]; !found ||
+			current.priorityOrder != candidate.priorityOrder {
+			continue
+		}
+
+		obj := w.nodeObject(candidate, reconcilers)
+		conflicts := map[string]*Node{}
+		if old, _, found := w.nodes.Get(txn, NodeByName(obj.Fullname())); found {
+			conflicts[old.Fullname()] = old
+		}
+		for addrCluster := range obj.addressClusters(w.isStaticLocalRouterIP) {
+			for active := range w.nodes.List(txn, NodeByAddress(addrCluster)) {
+				conflicts[active.Fullname()] = active
+			}
+		}
+
+		// Validate every conflict before deleting any of them. This preserves the
+		// active set when even one owner still outranks the fallback candidate.
+		blocked := false
+		for _, active := range conflicts {
+			if !w.candidateCanReplace(candidate, active) {
+				blocked = true
+				break
+			}
+		}
+		if blocked {
+			continue
+		}
+
+		for _, active := range conflicts {
+			if _, _, err := w.nodes.Delete(txn, active); err != nil {
+				w.log.Error("Failed to delete node while restoring fallback",
+					logfields.Error, err,
+					logfields.Node, active.Fullname(),
+				)
+				return
+			}
+			activeKey := nodeCandidateKey{active.Identity(), active.Source}
+			if activeKey != key {
+				w.cacheActive(active)
+			}
+		}
+
+		if old, found := conflicts[obj.Fullname()]; found {
+			obj.Statuses = old.Statuses.Pending(reconcilers...)
+		}
+		if _, _, err := w.nodes.Insert(txn, obj); err != nil {
+			w.log.Error("Failed to restore fallback node",
+				logfields.Error, err,
+				logfields.Node, obj.Fullname(),
+			)
+			return
+		}
+		delete(w.shadowed, key)
+	}
 }

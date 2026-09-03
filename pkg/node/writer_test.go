@@ -86,6 +86,66 @@ func TestSourceWriter(t *testing.T) {
 	require.False(t, found)
 }
 
+func TestWriterRestoresSourceFallback(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+	w.RegisterReconciler("test")
+
+	upsert := func(n *types.Node) bool {
+		txn := db.WriteTxn(nodes)
+		defer txn.Commit()
+		return w.Upsert(txn, n)
+	}
+	deleteNode := func(src source.Source, identity types.Identity) bool {
+		txn := db.WriteTxn(nodes)
+		defer txn.Commit()
+		return w.Delete(txn, src, identity)
+	}
+	requireSource := func(name string, src source.Source) *Node {
+		n, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
+		require.True(t, found)
+		require.Equal(t, src, n.Source)
+		return n
+	}
+
+	k8s := &types.Node{Name: "node-1", Source: source.Kubernetes}
+	require.True(t, upsert(k8s))
+
+	// Restoring a displaced candidate starts a new reconciliation attempt.
+	txn := db.WriteTxn(nodes)
+	active, _, found := nodes.Get(txn, NodeByName("node-1"))
+	require.True(t, found)
+	updated := active.DeepCopy()
+	updated.Statuses = updated.Statuses.Set("test", reconciler.StatusDone())
+	_, _, err = nodes.Insert(txn, updated)
+	require.NoError(t, err)
+	txn.Commit()
+
+	kvstore := k8s.DeepCopy()
+	kvstore.Source = source.KVStore
+	require.True(t, upsert(kvstore))
+	requireSource("node-1", source.KVStore)
+	require.True(t, deleteNode(source.KVStore, kvstore.Identity()))
+	restored := requireSource("node-1", source.Kubernetes)
+	require.Equal(t, reconciler.StatusKindPending, restored.Statuses.Get("test").Kind)
+
+	// A rejected candidate is also restored after its winner disappears.
+	mesh := k8s.DeepCopy()
+	mesh.Source = source.ClusterMesh
+	require.False(t, upsert(mesh))
+	require.True(t, deleteNode(source.Kubernetes, k8s.Identity()))
+	requireSource("node-1", source.ClusterMesh)
+
+	// Deleting a shadowed candidate prevents it from being restored later.
+	require.True(t, upsert(k8s))
+	require.False(t, deleteNode(source.ClusterMesh, mesh.Identity()))
+	require.True(t, deleteNode(source.Kubernetes, k8s.Identity()))
+	_, _, found = nodes.Get(db.ReadTxn(), NodeByName("node-1"))
+	require.False(t, found)
+}
+
 func TestWriterReconcilerRegistration(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
@@ -365,6 +425,11 @@ func TestWriterAddressConflicts(t *testing.T) {
 		defer txn.Commit()
 		return w.Upsert(txn, n)
 	}
+	deleteNode := func(n *types.Node) bool {
+		txn := db.WriteTxn(nodes)
+		defer txn.Commit()
+		return w.Delete(txn, n.Source, n.Identity())
+	}
 	requireNode := func(name string) *Node {
 		n, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
 		require.True(t, found, name)
@@ -383,20 +448,31 @@ func TestWriterAddressConflicts(t *testing.T) {
 	}
 
 	// A stronger source takes the address and removes the weaker node.
-	require.True(t, upsert(newNode("mesh", source.ClusterMesh, "10.0.0.1")))
-	require.True(t, upsert(newNode("k8s", source.Kubernetes, "10.0.0.1")))
+	mesh := newNode("mesh", source.ClusterMesh, "10.0.0.1")
+	k8s := newNode("k8s", source.Kubernetes, "10.0.0.1")
+	require.True(t, upsert(mesh))
+	require.True(t, upsert(k8s))
 	requireNoNode("mesh")
 	require.Equal(t, source.Kubernetes, requireNode("k8s").Source)
 
 	// A weaker source cannot take an address from its current owner.
-	require.False(t, upsert(newNode("weaker", source.ClusterMesh, "10.0.0.1")))
+	weaker := newNode("weaker", source.ClusterMesh, "10.0.0.1")
+	require.False(t, upsert(weaker))
 	requireNoNode("weaker")
 	requireNode("k8s")
 
 	// At equal priority the latest update wins.
-	require.True(t, upsert(newNode("latest", source.Kubernetes, "10.0.0.1")))
+	latest := newNode("latest", source.Kubernetes, "10.0.0.1")
+	require.True(t, upsert(latest))
 	requireNoNode("k8s")
 	requireNode("latest")
+
+	// Fallback respects source priority first and recency within one priority.
+	require.True(t, deleteNode(latest))
+	requireNode("k8s")
+	require.True(t, deleteNode(k8s))
+	requireNode("weaker")
+	requireNoNode("mesh")
 
 	// Health and ingress addresses participate in the same ownership checks.
 	health := newNode("health", source.Kubernetes)
@@ -424,13 +500,52 @@ func TestWriterAddressConflicts(t *testing.T) {
 	// Check all conflicts before deleting anything. This update could replace
 	// the mesh node, but is rejected because it cannot replace the KVStore node.
 	require.True(t, upsert(newNode("mesh-2", source.ClusterMesh, "10.0.0.2")))
-	require.True(t, upsert(newNode("kvstore", source.KVStore, "10.0.0.3")))
+	kvstore := newNode("kvstore", source.KVStore, "10.0.0.3")
+	require.True(t, upsert(kvstore))
 	require.False(t, upsert(newNode(
 		"mixed", source.Kubernetes, "10.0.0.2", "10.0.0.3",
 	)))
 	requireNode("mesh-2")
 	requireNode("kvstore")
 	requireNoNode("mixed")
+
+	// Removing the blocker restores the mixed candidate, which can then replace
+	// the weaker node that shares its other address.
+	require.True(t, deleteNode(kvstore))
+	requireNoNode("mesh-2")
+	requireNode("mixed")
+}
+
+func TestWriterRestoresFallbackWhenAddressIsReleased(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+
+	upsert := func(n *types.Node) bool {
+		txn := db.WriteTxn(nodes)
+		defer txn.Commit()
+		return w.Upsert(txn, n)
+	}
+	newNode := func(name string, src source.Source, address string) *types.Node {
+		return &types.Node{
+			Name:        name,
+			Source:      src,
+			IPAddresses: []types.Address{{IP: net.ParseIP(address)}},
+		}
+	}
+
+	winner := newNode("winner", source.Kubernetes, "10.0.0.1")
+	fallback := newNode("fallback", source.ClusterMesh, "10.0.0.1")
+	require.True(t, upsert(winner))
+	require.False(t, upsert(fallback))
+
+	winner = newNode("winner", source.Kubernetes, "10.0.0.2")
+	require.True(t, upsert(winner))
+	for _, name := range []string{"winner", "fallback"} {
+		_, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
+		require.True(t, found, name)
+	}
 }
 
 func TestWriterClusterAwareAddressConflicts(t *testing.T) {
