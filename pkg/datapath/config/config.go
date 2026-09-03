@@ -100,6 +100,10 @@ type Config struct {
 	// Mutable at runtime.
 	DirectRoutingDevice *tables.Device
 
+	// LoadBalancerRSS contains the resolved source prefixes used for DSR IPIP RSS.
+	// +deepequal-gen=false
+	LoadBalancerRSS loadbalancer.RSSConfig
+
 	// NodeAddresses are the IP addresses of the local node that are considered
 	// as this node's addresses. From this set we pick the addresses that are
 	// used as NodePort frontends and the addresses to use for BPF masquerading.
@@ -293,6 +297,9 @@ func (cfg *Config) DeepEqual(other *Config) bool {
 		return false
 	}
 	if cfg.NativeRoutingCIDRIPv6 != other.NativeRoutingCIDRIPv6 {
+		return false
+	}
+	if cfg.LoadBalancerRSS != other.LoadBalancerRSS {
 		return false
 	}
 	// Call generated `deepEqual` method which compares all other fields
