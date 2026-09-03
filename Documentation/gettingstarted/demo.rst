@@ -18,9 +18,9 @@ From the perspective of the *deathstar* service, only the ships with label ``org
 
 .. code-block:: shell-session
 
-    $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec xwing -- curl -s -XPOST deathstar/v1/request-landing
     Ship landed
-    $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec tiefighter -- curl -s -XPOST deathstar/v1/request-landing
     Ship landed
 
 Apply an L3/L4 Policy
@@ -63,14 +63,14 @@ Now if we run the landing requests again, only the *tiefighter* pods with the la
 
 .. code-block:: shell-session
 
-    $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec tiefighter -- curl -s -XPOST deathstar/v1/request-landing
     Ship landed
 
 This works as expected. Now the same request run from an *xwing* pod will fail:
 
 .. code-block:: shell-session
 
-    $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec xwing -- curl -s -XPOST deathstar/v1/request-landing
 
 This request will hang, so press Control-C to kill the curl request, or wait for it to time out.
 
@@ -185,7 +185,7 @@ For example, consider that the *deathstar* service exposes some maintenance APIs
 
 .. code-block:: shell-session
 
-    $ kubectl exec tiefighter -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
+    $ kubectl exec tiefighter -- curl -s -XPUT deathstar/v1/exhaust-port
     Panic: deathstar exploded
 
     goroutine 1 [running]:
@@ -224,7 +224,7 @@ We can now re-run the same test as above, but we will see a different outcome:
 
 .. code-block:: shell-session
 
-    $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec tiefighter -- curl -s -XPOST deathstar/v1/request-landing
     Ship landed
 
 
@@ -232,7 +232,7 @@ and
 
 .. code-block:: shell-session
 
-    $ kubectl exec tiefighter -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
+    $ kubectl exec tiefighter -- curl -s -XPUT deathstar/v1/exhaust-port
     Access denied
 
 As this rule builds on the identity-aware rule, traffic from pods without the label
@@ -240,7 +240,7 @@ As this rule builds on the identity-aware rule, traffic from pods without the la
 
 .. code-block:: shell-session
 
-    $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec xwing -- curl -s -XPOST deathstar/v1/request-landing
 
 
 As you can see, with Cilium L7 security policies, we are able to permit
@@ -385,8 +385,8 @@ It is also possible to monitor the HTTP requests live by using ``cilium-dbg moni
 .. code-block:: shell-session
 
     $ kubectl exec -it -n kube-system cilium-kzgdx -- cilium-dbg monitor -v --type l7
-    <- Response http to 0 ([k8s:class=tiefighter k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=empire]) from 2756 ([k8s:io.cilium.k8s.policy.cluster=default k8s:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default]), identity 8876->43854, verdict Forwarded POST http://deathstar.default.svc.cluster.local/v1/request-landing => 200
-    <- Request http from 0 ([k8s:class=tiefighter k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=empire]) to 2756 ([k8s:io.cilium.k8s.policy.cluster=default k8s:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default]), identity 8876->43854, verdict Denied PUT http://deathstar.default.svc.cluster.local/v1/request-landing => 403
+    <- Response http to 0 ([k8s:class=tiefighter k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=empire]) from 2756 ([k8s:io.cilium.k8s.policy.cluster=default k8s:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default]), identity 8876->43854, verdict Forwarded POST http://deathstar/v1/request-landing => 200
+    <- Request http from 0 ([k8s:class=tiefighter k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=empire]) to 2756 ([k8s:io.cilium.k8s.policy.cluster=default k8s:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default]), identity 8876->43854, verdict Denied PUT http://deathstar/v1/request-landing => 403
 
 The above output demonstrates a successful response to a POST request followed by a PUT request that is denied by the L7 policy.
 
