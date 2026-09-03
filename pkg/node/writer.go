@@ -284,12 +284,10 @@ func (w *Writer) waitUntilReconciled(
 			if _, found := targets[node.Fullname()]; found {
 				finished := true
 				if reconcilers == nil {
-					for _, status := range node.Statuses.All() {
-						if status.Kind != reconciler.StatusKindDone &&
-							(requireDone || status.Kind != reconciler.StatusKindError) {
-							finished = false
-							break
-						}
+					if requireDone {
+						finished = node.Statuses.IsDone()
+					} else {
+						finished = !node.Statuses.IsPendingOrRefreshing()
 					}
 				} else {
 					for _, name := range reconcilers {
