@@ -6,7 +6,7 @@
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:1787138071-3b8cd9a@sha256:d460f28d759ec06f5e7fbc9a91ef7f556d84f6e763f8b78ca128907455ffbc7c
 ARG GOLANG_IMAGE=docker.io/library/golang:1.27.0@sha256:0ecdc2a9f6156af6451080bfe3d8382a662fcc4e209608c6f919e643453514c1
-ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:19.1.7-1785833026-d8383c5@sha256:80ae6ceb1a1556d5f65f7a086d873c4706ed548444c4d49d89cbeedf24f817d4
+ARG CILIUM_LLVM_IMAGE=docker.io/sayboras/cilium-llvm:21.1.8-1788171367-63c2639@sha256:af94db3650bc8e7eb7ddd5862bd49e98d79bec6ea8b4252287cc6bed6c5a36b7
 
 FROM ${GOLANG_IMAGE} AS golang-dist
 
