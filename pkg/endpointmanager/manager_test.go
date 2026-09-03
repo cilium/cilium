@@ -30,21 +30,25 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
+	testcompute "github.com/cilium/cilium/pkg/testutils/compute"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 )
 
-func makeTestEndpointParams(logger *slog.Logger, repo policy.PolicyRepository) endpoint.EndpointParams {
+func makeTestEndpointParams(logger *slog.Logger, s *EndpointManagerSuite) endpoint.EndpointParams {
 	return endpoint.EndpointParams{
-		Logger:          logger,
-		EPBuildQueue:    &endpoint.MockEndpointBuildQueue{},
-		PolicyRepo:      repo,
-		IdentityManager: identitymanager.NewIDManager(logger),
-		IPSecConfig:     fakeipsec.Config{},
-		WgConfig:        fakewireguard.Config{},
-		CTMapGC:         ctmap.NewFakeGCRunner(),
-		Allocator:       testidentity.NewMockIdentityAllocator(nil),
+		Logger:              logger,
+		EPBuildQueue:        &endpoint.MockEndpointBuildQueue{},
+		PolicyRepo:          s.repo,
+		PolicyFetcher:       s.fetcher,
+		IdentityManager:     s.idmgr,
+		KVStoreSynchronizer: s.kvstoreSync,
+		IPSecConfig:         fakeipsec.Config{},
+		WgConfig:            fakewireguard.Config{},
+		CTMapGC:             ctmap.NewFakeGCRunner(),
+		Allocator:           testidentity.NewMockIdentityAllocator(nil),
 	}
 }
 
@@ -75,12 +79,19 @@ func (mgr *endpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
 }
 
 type EndpointManagerSuite struct {
-	repo policy.PolicyRepository
+	repo        policy.PolicyRepository
+	idmgr       identitymanager.IDManager
+	fetcher     compute.PolicyRecomputer
+	kvstoreSync *ipcache.IPIdentitySynchronizer
 }
 
 func setupEndpointManagerSuite(tb testing.TB) *EndpointManagerSuite {
+	logger := hivetest.Logger(tb)
 	s := &EndpointManagerSuite{}
-	s.repo = policy.NewPolicyRepository(hivetest.Logger(tb), cmtypes.DefaultClusterInfo.ID, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	s.idmgr = identitymanager.NewIDManager(logger)
+	s.repo = policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo.ID, nil, nil, nil, s.idmgr, testpolicy.NewPolicyMetricsNoop())
+	s.fetcher = testcompute.InstantiateCellForTesting(tb, logger, "endpointmanager", tb.Name(), s.repo, s.idmgr)
+	s.kvstoreSync = ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(tb, kvstore.DisabledBackendName))
 
 	return s
 }
@@ -346,7 +357,7 @@ func TestLookup(t *testing.T) {
 			logger := hivetest.Logger(t)
 			mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
 			if tt.cm != nil {
-				ep, err = endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, tt.cm, nil)
+				ep, err = endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, tt.cm, nil)
 				require.NoErrorf(t, err, "Test Name: %s", tt.name)
 				err = mgr.expose(ep)
 				require.NoErrorf(t, err, "Test Name: %s", tt.name)
@@ -371,7 +382,7 @@ func TestLookupCiliumID(t *testing.T) {
 
 	model := newTestEndpointModel(2, endpoint.StateReady)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
-	ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, model, nil)
+	ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -446,7 +457,7 @@ func TestLookupCNIAttachmentID(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
-	ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, &apiv1.EndpointChangeRequest{
+	ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, &apiv1.EndpointChangeRequest{
 		ContainerID:            "foo",
 		ContainerInterfaceName: "bar",
 	}, nil)
@@ -469,7 +480,7 @@ func TestLookupIPv4(t *testing.T) {
 
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
 	model := newTestEndpointModel(4, endpoint.StateReady)
-	ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, model, nil)
+	ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -622,7 +633,7 @@ func TestLookupCEPName(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, &tt.cm, nil)
+		ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, &tt.cm, nil)
 		require.NoErrorf(t, err, "Test Name: %s", tt.name)
 		tt.preTestRun(ep)
 		args := tt.setupArgs()
@@ -664,7 +675,7 @@ func TestUpdateReferences(t *testing.T) {
 	for _, tt := range tests {
 		logger := hivetest.Logger(t)
 		var err error
-		ep, err = endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, &tt.cm, nil)
+		ep, err = endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, &tt.cm, nil)
 		require.NoErrorf(t, err, "Test Name: %s", tt.name)
 		mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
 
@@ -693,7 +704,7 @@ func TestRemove(t *testing.T) {
 	logger := hivetest.Logger(t)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
 	model := newTestEndpointModel(7, endpoint.StateReady)
-	ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, model, nil)
+	ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -739,7 +750,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 	logger := hivetest.Logger(t)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
 	model := newTestEndpointModel(1, endpoint.StateReady)
-	ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, model, nil)
+	ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -782,7 +793,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
 				model := newTestEndpointModel(1, endpoint.StateReady)
-				ep, err = endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, model, nil)
+				ep, err = endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 				require.NoError(t, err)
 
 				ep.Start(uint16(model.ID))
@@ -813,7 +824,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
 				model := newTestEndpointModel(1, endpoint.StateReady)
-				ep, err = endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, model, nil)
+				ep, err = endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 				require.NoError(t, err)
 
 				ep.Start(uint16(model.ID))
@@ -844,7 +855,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
 				model := newTestEndpointModel(1, endpoint.StateReady)
-				ep, err = endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s.repo), nil, &endpoint.FakeEndpointProxy{}, model, nil)
+				ep, err = endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 				require.NoError(t, err)
 
 				ep.Start(uint16(model.ID))
@@ -883,12 +894,7 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 
 	// Create host endpoint and expose it in the endpoint manager.
 	model := newTestEndpointModel(1, endpoint.StateReady)
-	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
-	ep, err := func() (*endpoint.Endpoint, error) {
-		p := makeTestEndpointParams(logger, s.repo)
-		p.KVStoreSynchronizer = kvstoreSync
-		return endpoint.NewEndpointFromChangeModel(p, nil, &endpoint.FakeEndpointProxy{}, model, nil)
-	}()
+	ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -917,7 +923,6 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 
 func TestUpdateHostEndpointLabels(t *testing.T) {
 	logger := hivetest.Logger(t)
-	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
 	// Initialize label filter config.
 	labelsfilter.ParseLabelPrefixCfg(logger, []string{"k8s:!ignore1", "k8s:!ignore2"}, nil, "")
 	s := setupEndpointManagerSuite(t)
@@ -940,11 +945,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 			name: "Add labels",
 			preTestRun: func() {
 				model := newTestEndpointModel(1, endpoint.StateReady)
-				ep, err := func() (*endpoint.Endpoint, error) {
-					p := makeTestEndpointParams(logger, s.repo)
-					p.KVStoreSynchronizer = kvstoreSync
-					return endpoint.NewEndpointFromChangeModel(p, nil, &endpoint.FakeEndpointProxy{}, model, nil)
-				}()
+				ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 				require.NoError(t, err)
 
 				ep.Start(uint16(model.ID))
@@ -975,11 +976,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 			preTestRun: func() {
 				model := newTestEndpointModel(1, endpoint.StateReady)
 				model.Labels = apiv1.Labels([]string{"k8s:k1=v1"})
-				ep, err := func() (*endpoint.Endpoint, error) {
-					p := makeTestEndpointParams(logger, s.repo)
-					p.KVStoreSynchronizer = kvstoreSync
-					return endpoint.NewEndpointFromChangeModel(p, nil, &endpoint.FakeEndpointProxy{}, model, nil)
-				}()
+				ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 				require.NoError(t, err)
 
 				ep.Start(uint16(model.ID))
@@ -1011,12 +1008,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 			preTestRun: func() {
 				model := newTestEndpointModel(1, endpoint.StateReady)
 				model.Labels = apiv1.Labels([]string{"k8s:k1=v1"})
-				kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
-				ep, err := func() (*endpoint.Endpoint, error) {
-					p := makeTestEndpointParams(logger, s.repo)
-					p.KVStoreSynchronizer = kvstoreSync
-					return endpoint.NewEndpointFromChangeModel(p, nil, &endpoint.FakeEndpointProxy{}, model, nil)
-				}()
+				ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
 				ep.SetIsHost(true)
 				require.NoError(t, err)
 
@@ -1076,15 +1068,9 @@ func TestUpdateCIDRLabelsPrefixScan(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
 
-	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
-
 	// Create and expose two endpoints, one inside the subnet, one outside
 	model1 := newTestEndpointModel(1, endpoint.StateReady)
-	ep1, err := func() (*endpoint.Endpoint, error) {
-		p := makeTestEndpointParams(logger, s.repo)
-		p.KVStoreSynchronizer = kvstoreSync
-		return endpoint.NewEndpointFromChangeModel(p, nil, &endpoint.FakeEndpointProxy{}, model1, nil)
-	}()
+	ep1, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model1, nil)
 	require.NoError(t, err)
 	ep1.IPv4 = netip.MustParseAddr("10.20.30.50")
 	ep1.Start(uint16(model1.ID))
@@ -1093,11 +1079,7 @@ func TestUpdateCIDRLabelsPrefixScan(t *testing.T) {
 	defer mgr.WaitEndpointRemoved(ep1)
 
 	model2 := newTestEndpointModel(2, endpoint.StateReady)
-	ep2, err := func() (*endpoint.Endpoint, error) {
-		p := makeTestEndpointParams(logger, s.repo)
-		p.KVStoreSynchronizer = kvstoreSync
-		return endpoint.NewEndpointFromChangeModel(p, nil, &endpoint.FakeEndpointProxy{}, model2, nil)
-	}()
+	ep2, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model2, nil)
 	require.NoError(t, err)
 	ep2.IPv4 = netip.MustParseAddr("10.30.30.50")
 	ep2.Start(uint16(model2.ID))
