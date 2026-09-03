@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -342,6 +343,113 @@ func requireWriterMatchesReference(t *testing.T, w *Writer, txn statedb.ReadTxn)
 		require.True(t, sameDesiredNode(actual, candidate), name)
 	}
 }
+
+func TestWriterReportsShadowedCandidates(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+	health := &writerHealth{}
+	w.health = health
+
+	winner := &types.Node{Name: "node-1", Source: source.Kubernetes}
+	txn := w.WriteTxn()
+	w.Upsert(txn, winner)
+	txn.Commit()
+	update := health.popUpdate(t)
+	require.Equal(t, cell.StatusOK, update.level)
+	require.Equal(t, "1 nodes (0 conflicts)", update.reason)
+
+	shadowed := winner.DeepCopy()
+	shadowed.Source = source.ClusterMesh
+	txn = w.WriteTxn()
+	w.Upsert(txn, shadowed)
+	txn.Commit()
+
+	update = health.popUpdate(t)
+	require.Equal(t, cell.StatusDegraded, update.level)
+	require.Equal(t, "1 nodes (1 conflicts): node-1", update.reason)
+	require.EqualError(t, update.err, "node conflicts: 1")
+
+	txn = w.WriteTxn()
+	w.Delete(txn, shadowed.Source, shadowed.Identity())
+	txn.Commit()
+
+	update = health.popUpdate(t)
+	require.Equal(t, cell.StatusOK, update.level)
+	require.Equal(t, "1 nodes (0 conflicts)", update.reason)
+
+	addressOwner := &types.Node{
+		Name:        "address-owner",
+		Source:      source.Kubernetes,
+		IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
+	}
+	txn = w.WriteTxn()
+	w.Upsert(txn, addressOwner)
+	txn.Commit()
+	update = health.popUpdate(t)
+	require.Equal(t, cell.StatusOK, update.level)
+	require.Equal(t, "2 nodes (0 conflicts)", update.reason)
+
+	addressShadowed := &types.Node{
+		Name:        "address-shadowed",
+		Source:      source.ClusterMesh,
+		IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
+	}
+	txn = w.WriteTxn()
+	w.Upsert(txn, addressShadowed)
+	txn.Commit()
+	update = health.popUpdate(t)
+	require.Equal(t, cell.StatusDegraded, update.level)
+	require.Equal(t, "2 nodes (1 conflicts): address-shadowed", update.reason)
+	require.EqualError(t, update.err, "node conflicts: 1")
+
+	aborted := &types.Node{Name: "aborted", Source: source.ClusterMesh}
+	txn = w.WriteTxn()
+	w.Upsert(txn, aborted)
+	txn.Abort()
+	require.Empty(t, health.updates)
+
+	txn = w.WriteTxn()
+	txn.Commit()
+	require.Empty(t, health.updates)
+}
+
+type writerHealthUpdate struct {
+	level  cell.Level
+	reason string
+	err    error
+}
+
+type writerHealth struct {
+	updates []writerHealthUpdate
+}
+
+func (h *writerHealth) popUpdate(t *testing.T) writerHealthUpdate {
+	t.Helper()
+	require.NotEmpty(t, h.updates)
+	update := h.updates[0]
+	h.updates = h.updates[1:]
+	return update
+}
+
+func (h *writerHealth) OK(reason string) {
+	h.updates = append(h.updates, writerHealthUpdate{level: cell.StatusOK, reason: reason})
+}
+
+func (h *writerHealth) Degraded(reason string, err error) {
+	h.updates = append(h.updates, writerHealthUpdate{
+		level:  cell.StatusDegraded,
+		reason: reason,
+		err:    err,
+	})
+}
+
+func (*writerHealth) Stopped(string) {}
+
+func (h *writerHealth) NewScope(string) cell.Health { return h }
+
+func (*writerHealth) Close() {}
 
 func TestWriterReconcilerRegistration(t *testing.T) {
 	db := statedb.New()

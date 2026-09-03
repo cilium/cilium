@@ -11,6 +11,7 @@ import (
 	"maps"
 	"net/netip"
 	"slices"
+	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -32,11 +33,13 @@ type Writer struct {
 	db         *statedb.DB
 	nodes      statedb.RWTable[*Node]
 	candidates statedb.RWTable[*nodeCandidate]
+	health     cell.Health
 
 	isStaticLocalRouterIP  func(string) bool
 	prefixClusterMutatorFn PrefixClusterMutatorFn
 
 	requiredReconcilers []NodeReconciler
+	reportedStatus      string
 }
 
 // PrefixClusterMutatorFn derives cluster-aware addressing options from a
@@ -53,6 +56,15 @@ const (
 	LinuxNodeReconciler NodeReconciler = "linux"
 	// WireGuardNodeReconciler realizes nodes in the WireGuard datapath.
 	WireGuardNodeReconciler NodeReconciler = "wireguard"
+)
+
+// WriterCell provides the node table Writer
+var WriterCell = cell.Module(
+	"node-writer",
+	"Node table writer",
+
+	cell.ProvidePrivate(newNodeCandidateTable),
+	cell.Provide(provideWriter),
 )
 
 // NewWriter constructs a node table writer.
@@ -99,6 +111,7 @@ func (txn *WriteTxn) Commit() statedb.ReadTxn {
 		return nil
 	}
 	txn.w.reconcileChanges(txn)
+	txn.w.reportHealth(txn)
 	txn.closed = true
 	return txn.WriteTxn.Commit()
 }
@@ -642,15 +655,47 @@ type writerParams struct {
 	DB           *statedb.DB
 	Nodes        statedb.RWTable[*Node]
 	Candidates   statedb.RWTable[*nodeCandidate]
+	Health       cell.Health
 	DaemonConfig *option.DaemonConfig `optional:"true"`
 }
 
 func provideWriter(p writerParams) *Writer {
 	w := newWriter(p.Log, p.DB, p.Nodes, p.Candidates)
+	w.health = p.Health
 	if p.DaemonConfig != nil {
 		w.isStaticLocalRouterIP = p.DaemonConfig.IsLocalRouterIP
 	}
 	return w
+}
+
+func (w *Writer) reportHealth(txn statedb.ReadTxn) {
+	if w.health == nil {
+		return
+	}
+	nodeCount := w.nodes.NumObjects(txn)
+	conflictCount := w.candidates.NumObjects(txn) - nodeCount
+	status := fmt.Sprintf("%d nodes (%d conflicts)", nodeCount, conflictCount)
+	if conflictCount > 0 {
+		names := make([]string, 0, conflictCount)
+		for candidate := range w.candidates.All(txn) {
+			active, _, found := w.nodes.Get(txn, NodeByName(candidate.node.Fullname()))
+			if !found || active.Source != candidate.node.Source {
+				names = append(names, candidate.node.Fullname())
+			}
+		}
+		slices.Sort(names)
+		names = slices.Compact(names)
+		status += ": " + strings.Join(names, ", ")
+	}
+	if status == w.reportedStatus {
+		return
+	}
+	w.reportedStatus = status
+	if conflictCount == 0 {
+		w.health.OK(status)
+	} else {
+		w.health.Degraded(status, fmt.Errorf("node conflicts: %d", conflictCount))
+	}
 }
 
 func newWriter(
