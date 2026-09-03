@@ -296,7 +296,6 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
       {{- end }}
-      {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
       - name: kvstoremesh
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
@@ -392,7 +391,6 @@ spec:
         lifecycle:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-      {{- end }}
       volumes:
       {{- if (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") }}
       {{- if not .Values.clustermesh.apiserver.tls.disableDefaultVolumes }}
@@ -452,8 +450,7 @@ spec:
         emptyDir:
           medium: {{ ternary "Memory" "" (eq .Values.clustermesh.apiserver.etcd.storageMedium "Memory") | quote }}
       {{- end }}
-      {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
-        # To read the kvstoremesh configuration and TLS certificates
+      # To read the kvstoremesh configuration and TLS certificates
       {{- if not .Values.clustermesh.apiserver.tls.disableDefaultVolumes }}
       - name: kvstoremesh-secrets
         projected:
@@ -495,7 +492,6 @@ spec:
             path: etcd-config.yaml
           name: cilium-config
         name: etcd-config
-      {{- end }}
       {{- end }}
       {{- with .Values.clustermesh.apiserver.extraVolumes }}
       {{- toYaml . | nindent 6 }}

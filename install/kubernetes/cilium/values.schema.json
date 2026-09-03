@@ -1080,9 +1080,6 @@
             },
             "kvstoremesh": {
               "properties": {
-                "enabled": {
-                  "type": "boolean"
-                },
                 "etcdQPS": {
                   "type": "integer"
                 },
