@@ -19,20 +19,3 @@ func FmtDefineAddress(name string, addr []byte) string {
 func dumpRaw(name string, addr []byte) string {
 	return fmt.Sprintf(" %s%s\n", name, common.GoArray2C(addr))
 }
-
-// declareConfig writes the C macro for declaring a global configuration variable that can be
-// modified at runtime.
-func declareConfig(name string, value any, description string) string {
-	var t string
-	switch value.(type) {
-	case uint16:
-		t = "__u16"
-	case uint32:
-		t = "__u32"
-	case uint64:
-		t = "__u64"
-	default:
-		return fmt.Sprintf("/* BUG: %s has invalid type for DECLARE_CONFIG: %T*/\n", name, value)
-	}
-	return fmt.Sprintf("DECLARE_CONFIG(%s, %s, \"%s\");\n", t, name, description)
-}
