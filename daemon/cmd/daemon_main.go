@@ -543,6 +543,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.ServiceNoBackendResponse, defaults.ServiceNoBackendResponse, "Response to traffic for a service without backends")
 	option.BindEnv(vp, option.ServiceNoBackendResponse)
 
+	flags.Bool(option.EnableSvcICMPEchoResponder, false, "Reply to ICMP echo (ping) requests addressed to service (LoadBalancer/ClusterIP) VIPs")
+	option.BindEnv(vp, option.EnableSvcICMPEchoResponder)
+
 	flags.Int(option.TracePayloadlen, defaults.TracePayloadLen, "Length of payload to capture when tracing native packets.")
 
 	flags.String(option.PolicyDenyResponse, defaults.PolicyDenyResponse, "How to handle pod egress traffic dropped by network policy: either drop the packet (\"none\") or reject with an ICMP Destination Unreachable (\"icmp\")")
