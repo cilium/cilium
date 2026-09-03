@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -83,10 +84,10 @@ type Allocator interface {
 	// upstream or fails if no more IPs are available
 	AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error)
 
-	// Dump returns a map of all allocated IPs per pool with the IP represented as key in the
-	// map. Dump must also provide a status one-liner to represent the overall status, e.g.
-	// number of IPs allocated and overall health information if available.
-	Dump() (map[Pool]map[string]string, string)
+	// Dump returns the set of all allocated IPs per pool. Dump must also
+	// provide a status one-liner to represent the overall status, e.g. number
+	// of IPs allocated and overall health information if available.
+	Dump() (map[Pool]sets.Set[netip.Addr], string)
 
 	// Capacity returns the total IPAM allocator capacity (not the current
 	// available).
@@ -109,8 +110,9 @@ type IPAM struct {
 	// metadata provides information about a particular IP owner.
 	metadata Metadata
 
-	// owner maps an IP to the owner per pool.
-	owner map[Pool]map[string]string
+	// owner maps an IP to its owner, keyed by pool and IP so no map of maps
+	// is needed.
+	owner map[poolIP]string
 
 	// expirationTimers is a map of all expiration timers. Each entry
 	// represents a IP allocation which is protected by an expiration
@@ -199,6 +201,16 @@ func (p Pool) String() string {
 type poolIP struct {
 	ip   netip.Addr
 	pool Pool
+}
+
+// String renders the IP the way the API reports it: bare for the default pool,
+// prefixed with the pool name otherwise. The default pool is elided because it
+// is the implied pool wherever no pool is named.
+func (p poolIP) String() string {
+	if p.pool == PoolDefault() {
+		return p.ip.String()
+	}
+	return p.pool.String() + "/" + p.ip.String()
 }
 
 type expirationTimer struct {
