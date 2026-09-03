@@ -279,8 +279,9 @@ at any given time – when updating the version used by a Cilium branch, you sho
 choose the older of the two supported versions.
 
 To update the minor version of Golang used by a release, you will first need to
-update the Renovate configuration found in ``.github/renovate.json5``. For each
-minor release, there will be a section that looks like this:
+update the Renovate configuration found in ``.github/renovate.json5``. Each minor
+release has a bucket of two adjacent entries there. The first holds the Golang
+ceiling for that branch:
 
 .. code-block:: json
 
@@ -289,19 +290,37 @@ minor release, there will be a section that looks like this:
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "<1.21",
+      "allowedVersions": "<1.27",
       "matchBaseBranches": [
-        "v1.14"
+        "v1.20"
+      ]
+    }
+
+The second holds its ``golangci-lint`` ceiling:
+
+.. code-block:: json
+
+    {
+      "matchPackageNames": [
+        "golangci/golangci-lint"
+      ],
+      "allowedVersions": "<2.14",
+      "matchBaseBranches": [
+        "v1.20"
       ]
     }
 
 To allow Renovate to create a pull request that updates the minor Golang version,
-bump the ``allowedVersions`` constraint to include the desired minor version. Once
-this change has been merged, Renovate will create a pull request that updates the
-Golang version. Minor version updates may require further changes to ensure that
-all Cilium features are working correctly – use the CI to identify any issues that
-require further changes, and bring them to the attention of the Cilium maintainers
-in the pull request.
+bump the ``allowedVersions`` constraint of both entries to include the desired
+versions. Once this change has been merged, Renovate will create a pull request
+that updates the Golang version. Minor version updates may require further changes
+to ensure that all Cilium features are working correctly – use the CI to identify
+any issues that require further changes, and bring them to the attention of the
+Cilium maintainers in the pull request.
+
+Raise both ceilings in the same change. ``golangci-lint`` is compiled with the Go
+toolchain the branch installs, so it must not move ahead of the branch's Golang
+version.
 
 Once the CI is passing, the PR will be merged as part of the standard version
 upgrade process.
