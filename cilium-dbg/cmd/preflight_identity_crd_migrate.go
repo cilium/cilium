@@ -48,6 +48,8 @@ func migrateIdentityCmd() *cobra.Command {
 	equivalent between new instances and not-upgraded ones. In cases where the
 	numeric identity is already in-use by a different set of labels, a new
 	numeric identity is created.`,
+		Deprecated: `Deprecated in favor of the "Double Write" identity allocation
+	modes, that support gradual migration in live clusters and rollbacks.`,
 	}
 
 	hive := hive.New(
