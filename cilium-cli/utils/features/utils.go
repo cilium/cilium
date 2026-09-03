@@ -4,7 +4,6 @@
 package features
 
 import (
-	"net"
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/subnet/topology"
@@ -53,14 +52,20 @@ func NewIPFamily(s string) IPFamily {
 	}
 }
 
-func GetIPFamily(addr string) IPFamily {
-	ip := net.ParseIP(addr)
+func GetIPFamily(ip string) IPFamily {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return IPFamilyAny
+	}
 
-	if ip.To4() != nil {
+	// Treat IPv4-mapped IPv6 addresses as IPv4
+	addr = addr.Unmap()
+
+	if addr.Is4() {
 		return IPFamilyV4
 	}
 
-	if ip.To16() != nil {
+	if addr.Is6() {
 		return IPFamilyV6
 	}
 
