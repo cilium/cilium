@@ -20,6 +20,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -141,9 +142,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 	fmt.Fprintf(fw, " cilium.v4.nodeport.str %v\n", ipv4NodePortAddrs)
 	fmt.Fprintf(fw, "\n")
 	if option.Config.EnableIPv6 {
-		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, cfg.CiliumInternalIPv6.AsSlice()))
+		fmt.Fprintf(fw, " %s%s\n", defaults.RestoreV6Addr, common.GoArray2C(cfg.CiliumInternalIPv6.AsSlice()))
 	}
-	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, cfg.CiliumInternalIPv4.AsSlice()))
+	fmt.Fprintf(fw, " %s%s\n", defaults.RestoreV4Addr, common.GoArray2C(cfg.CiliumInternalIPv4.AsSlice()))
 	fmt.Fprintf(fw, " */\n\n")
 
 	cDefinesMap["CILIUM_IPV6_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
