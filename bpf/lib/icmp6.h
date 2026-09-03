@@ -617,7 +617,8 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 		sample_len = full_len - sizeof(struct ethhdr);
 	}
 
-	ctx_adjust_troom(ctx, (__s32)(new_len - full_len));
+	if (ctx_adjust_troom(ctx, (__s32)(new_len - full_len)) < 0)
+		return DROP_INVALID;
 
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
