@@ -68,6 +68,7 @@ const (
 	ipamFlag                      = "ipam"
 	probeTCPMD5Flag               = "probe-tcp-md5"
 	kubeProxyReplacementFlag      = "kube-proxy-replacement"
+	waitDatapathFlag              = "wait-datapath"
 )
 
 func TestPrivilegedScript(t *testing.T) {
@@ -98,7 +99,16 @@ func TestPrivilegedScript(t *testing.T) {
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
 		kubeProxyReplacement := flags.Bool(kubeProxyReplacementFlag, true, "")
 		noEndpointsRoutable := flags.Bool(enableNoEndpointsRoutableFlag, true, "")
+		waitDatapath := flags.Bool(waitDatapathFlag, false, "Block datapath initialization until bgp/datapath-initialized is called")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
+
+		// Create the DatapathWaiter before the hive so it can be passed to
+		// both the hive cells and the script commands.
+		datapathWaiter := commands.NewDatapathWaiter()
+		if !*waitDatapath {
+			// Release immediately so existing tests are not gated.
+			datapathWaiter.Initialize()
+		}
 
 		if *probeTCPMD5 {
 			available, err := TCPMD5SigAvailable()
@@ -138,6 +148,11 @@ func TestPrivilegedScript(t *testing.T) {
 			reflectors.Cell,
 			lbipamconfig.Cell,
 			nodeipamconfig.Cell,
+
+			// Stub dependency added by the BGP announcement gating.
+			// DatapathWaiter is immediately ready unless --wait-datapath is set,
+			// in which case the test must call bgp/datapath-initialized to unblock.
+			cell.Provide(func() agent.DatapathWaiter { return datapathWaiter }),
 
 			// Provide source.Sources for loadbalancer writer
 			cell.Provide(func() source.Sources { return source.Sources{} }),
@@ -214,6 +229,7 @@ func TestPrivilegedScript(t *testing.T) {
 		maps.Insert(cmds, maps.All(script.DefaultCmds()))
 		maps.Insert(cmds, maps.All(commands.GoBGPScriptCmds(gobgpCmdCtx)))
 		maps.Insert(cmds, maps.All(commands.SvcScriptCmds(lbWriter)))
+		maps.Insert(cmds, maps.All(commands.DatapathScriptCmds(datapathWaiter)))
 
 		return &script.Engine{
 			Cmds: cmds,
