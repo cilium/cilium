@@ -60,7 +60,6 @@ spec:
                   - key encipherment
                   - client auth
                   validity: {{ $certValidityStr }}
-                {{- if .Values.clustermesh.useAPIServer }}
                 - name: clustermesh-apiserver-remote-cert
                   namespace: {{ include "cilium.namespace" . }}
                   commonName: {{ include "clustermesh-apiserver-generate-certs.remote-common-name" . | quote }}
@@ -69,8 +68,6 @@ spec:
                   - key encipherment
                   - client auth
                   validity: {{ $certValidityStr }}
-                {{- end }}
-                {{- if .Values.clustermesh.useAPIServer }}
                 - name: clustermesh-apiserver-local-cert
                   namespace: {{ include "cilium.namespace" . }}
                   commonName: {{ include "clustermesh-apiserver-generate-certs.local-common-name" . | quote }}
@@ -79,7 +76,6 @@ spec:
                   - key encipherment
                   - client auth
                   validity: {{ $certValidityStr }}
-                {{- end }}
           {{- with .Values.certgen.extraVolumeMounts }}
           volumeMounts:
           {{- toYaml . | nindent 10 }}
