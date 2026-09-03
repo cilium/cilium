@@ -139,7 +139,7 @@ Now let's send some traffic from the tiefighter to the deathstar:
 
 .. code-block:: shell-session
 
-    $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec tiefighter -- curl -s -XPOST deathstar/v1/request-landing
     Ship landed
 
 We can check the policy verdict from the Cilium Pod:
@@ -187,7 +187,7 @@ Now if we run the landing requests again,
 
 .. code-block:: shell-session
 
-    $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec tiefighter -- curl -s -XPOST deathstar/v1/request-landing
     Ship landed
 
 we can then observe that the traffic which was previously audited to be dropped
@@ -264,7 +264,7 @@ label ``org=empire`` should succeed:
 
 .. code-block:: shell-session
 
-    $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec tiefighter -- curl -s -XPOST deathstar/v1/request-landing
     Ship landed
 
 And we can observe that the traffic was allowed by the policy:
@@ -280,7 +280,7 @@ This works as expected. Now the same request from an *xwing* Pod should fail:
 
 .. code-block:: shell-session
 
-    $ kubectl exec xwing -- curl --connect-timeout 3 -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec xwing -- curl --connect-timeout 3 -s -XPOST deathstar/v1/request-landing
     command terminated with exit code 28
 
 This curl request should timeout after three seconds, we can observe the policy

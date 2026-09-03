@@ -155,9 +155,9 @@ some traffic.
 
 .. code-block:: shell-session
 
-    $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec xwing -- curl -s -XPOST deathstar/v1/request-landing
     Ship landed
-    $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec tiefighter -- curl -s -XPOST deathstar/v1/request-landing
     Ship landed
 
 These requests will then be displayed in the UI as service dependencies between
