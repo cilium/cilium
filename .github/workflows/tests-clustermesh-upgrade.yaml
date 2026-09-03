@@ -603,44 +603,6 @@ jobs:
           kubectl --context ${{ env.contextName1 }} delete -f echo-failover.yaml
           kubectl --context ${{ env.contextName2 }} delete -f echo-failover.yaml
 
-      - name: Disable kvstoremesh on cluster1
-        if: ${{ !matrix.external-kvstore }}
-        env:
-          KVSTORE_ID: 1
-        run: |
-          cilium --context ${{ env.contextName1 }} upgrade --reset-values \
-            ${{ steps.newest-vars.outputs.cilium_install_defaults }} \
-            ${{ steps.vars.outputs.cilium_install_defaults }} \
-            ${{ steps.clustermesh-vars.outputs.cilium_install_cluster1 }} \
-            --set clustermesh.apiserver.kvstoremesh.enabled=false \
-            --nodes-without-cilium
-
-      - name: Wait for cluster mesh status to be ready
-        if: ${{ !matrix.external-kvstore }}
-        run: |
-          cilium --context ${{ env.contextName1 }} status --wait --interactive=false --wait-duration=10m
-          cilium --context ${{ env.contextName2 }} status --wait --interactive=false --wait-duration=10m
-          cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
-          cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
-
-      - name: Restart clustermesh-apiserver and ensure client can connect to new Service
-        if: ${{ !matrix.external-kvstore }}
-        run: |
-          echo "Restarting clustermesh-apiserver deployments"
-          kubectl --context ${{ env.contextName2 }} -n kube-system rollout restart deployment -l k8s-app=clustermesh-apiserver
-          kubectl --context ${{ env.contextName2 }} -n kube-system rollout status deployment -l k8s-app=clustermesh-apiserver
-
-          echo "Deploying a global Service to test failover"
-          kubectl --context ${{ env.contextName1 }} apply -f echo-failover.yaml
-          kubectl --context ${{ env.contextName2 }} apply -f echo-failover.yaml
-
-          echo "Testing client connection to global Service"
-          kubectl --context ${{ env.contextName1 }} -n ${{ steps.cilium-cli.outputs.namespace }} exec deploy/client -i -- curl -s -v --connect-timeout 2 --max-time 5 --retry-max-time 60 --retry-all-errors --retry 10 --output /dev/null --fail echo-other-node-failover
-
-          # Clean up the service so that it can be re-deployed in subsequent steps
-          kubectl --context ${{ env.contextName1 }} delete -f echo-failover.yaml
-          kubectl --context ${{ env.contextName2 }} delete -f echo-failover.yaml
-
       - name: Gather additional troubleshooting information
         run: |
           kubectl --context ${{ env.contextName1 }} get po -n ${{ steps.cilium-cli.outputs.namespace }} -o wide -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)'
@@ -772,7 +734,7 @@ jobs:
           json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2 - stress-test"
 
 
-      - name: Downgrade Cilium in cluster1 to ${{ steps.vars.outputs.downgrade_version }} and enable kvstoremesh again
+      - name: Downgrade Cilium in cluster1 to ${{ steps.vars.outputs.downgrade_version }}
         env:
           KVSTORE_ID: 1
         run: |

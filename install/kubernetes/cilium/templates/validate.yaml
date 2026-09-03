@@ -175,6 +175,10 @@
 {{- end -}}
 
 {{- if .Values.clustermesh.useAPIServer }}
+  {{- if eq (dig "clustermesh" "apiserver" "kvstoremesh" "enabled" "true" .Values.AsMap | toString) "false" }}
+    {{ fail "KVStoreMesh is now unconditionally enabled together with the clustermesh-apiserver, and cannot be disabled. For details please refer to https://docs.cilium.io/en/v1.21/operations/upgrade/#helm-options" }}
+  {{- end }}
+
   {{- if eq "true" (include "identityAllocationCRD" .) }}
     {{/* CRDs are used */}}
     {{- if and .Values.disableEndpointCRD }}
@@ -182,17 +186,14 @@
     {{- end }}
   {{- else }}
     {{/* kvstore is used */}}
-    {{- if not .Values.clustermesh.apiserver.kvstoremesh.enabled }}
-      {{ fail (printf "The kvstoremesh container cannot be disabled in combination with .Values.identityAllocationMode=%s. To establish a Cluster Mesh, directly configure the parameters to access the remote kvstores through .Values.clustermesh.config" .Values.identityAllocationMode ) }}
+    {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal" }}
+      {{ fail (printf "The clustermesh-apiserver cannot be enabled in combination with .Values.identityAllocationMode=%s and kvstore mode internal. To establish a Cluster Mesh, directly configure the parameters to access the remote kvstores through .Values.clustermesh.config" .Values.identityAllocationMode ) }}
     {{- end}}
   {{- end }}
 {{- end }}
 {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external"}}
   {{- if not .Values.clustermesh.useAPIServer }}
     {{- fail "kvstoremesh.kvstoreMode=external can only be used with clustermesh.useAPIServer=true" }}
-  {{- end }}
-  {{- if not .Values.clustermesh.apiserver.kvstoremesh.enabled }}
-    {{- fail "kvstoremesh.kvstoreMode=external can only be used with kvstoremesh.enabled=true" }}
   {{- end }}
   {{- if ne (toString .Values.clustermesh.apiserver.replicas) "1"  }}
     {{- fail "Only single clustermesh-apiserver replica is allowed when kvstoreMode=external" }}

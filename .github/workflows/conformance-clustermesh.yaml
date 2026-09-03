@@ -139,7 +139,7 @@ jobs:
             ipFamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'none'
-            mode: 'clustermesh'
+            mode: 'kvstoremesh'
             tls-auto-method: cronJob
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'migration'
@@ -171,7 +171,7 @@ jobs:
             ipFamily: 'ipv6'
             encryption: 'disabled'
             kube-proxy: 'none'
-            mode: 'clustermesh'
+            mode: 'kvstoremesh'
             tls-auto-method: certmanager
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'migration'
@@ -229,7 +229,7 @@ jobs:
             ipFamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
-            mode: 'clustermesh'
+            mode: 'kvstoremesh'
             tls-auto-method: certmanager
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster-strict'
@@ -323,7 +323,6 @@ jobs:
             --helm-set=hubble.tls.auto.certManagerIssuerRef.name=cilium \
             --helm-set=clustermesh.useAPIServer=${{ matrix.mode != 'external' }} \
             --helm-set=clustermesh.config.enabled=true \
-            --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.mode == 'kvstoremesh' }} \
             --helm-set=clustermesh.maxConnectedClusters=${{ matrix.maxConnectedClusters }} \
             --helm-set=clustermesh.enableEndpointSliceSynchronization=true \
             --helm-set=clustermesh.apiserver.tls.auto.method=${{ matrix.tls-auto-method }} \

@@ -70,7 +70,7 @@ spec:
                   - client auth
                   validity: {{ $certValidityStr }}
                 {{- end }}
-                {{- if and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+                {{- if .Values.clustermesh.useAPIServer }}
                 - name: clustermesh-apiserver-local-cert
                   namespace: {{ include "cilium.namespace" . }}
                   commonName: {{ include "clustermesh-apiserver-generate-certs.local-common-name" . | quote }}
