@@ -85,6 +85,9 @@ from Cilium.
   you passed ``--aws-use-primary-address`` directly on the operator, set
   ``eni.nodeSpec.usePrimaryAddress=true`` (equivalently, the
   ``--eni-use-primary-address`` agent flag) instead to retain the same behavior.
+* The previously deprecated ``clustermesh.apiserver.kvstoremesh.enabled`` helm
+  value has been removed, and KVStoreMesh is now unconditionally enabled when the
+  clustermesh-apiserver is enabled.
 
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~

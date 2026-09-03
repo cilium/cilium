@@ -3967,9 +3967,6 @@ clustermesh:
       # the memory limits of the container.
       storageMedium: Disk
     kvstoremesh:
-      # -- Enable KVStoreMesh. KVStoreMesh caches the information retrieved
-      # from the remote clusters in the local etcd instance (deprecated - KVStoreMesh will always be enabled once the option is removed).
-      enabled: true
       # -- TCP port for the KVStoreMesh health API.
       healthPort: 9881
       # -- Configuration for the KVStoreMesh readiness probe.

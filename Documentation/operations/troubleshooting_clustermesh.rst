@@ -36,8 +36,8 @@ Automatic Verification
     DNS resolution, network connectivity, TLS authentication, etcd authorization
     and more, and reports the output in a user friendly format.
 
-    When KVStoreMesh is enabled, the output of the troubleshoot command refers
-    to the connections from the agents to the local cache, and it is expected to
+    Normally, the output of the troubleshoot command refers to the connections from
+    the agents to the local cache managed by KVStoreMesh, and it is expected to
     be the same for all the clusters they are connected to. Run the troubleshoot
     command inside the clustermesh-apiserver to investigate KVStoreMesh connectivity
     issues towards the ClusterMesh control plane in remote clusters:
@@ -80,11 +80,10 @@ you may perform the following steps to troubleshoot ClusterMesh issues.
         ClusterMesh:   1/1 remote clusters ready
            k8s-c2: ready, 3 nodes, 25 endpoints, 8 identities, 10 services, 0 endpoint slices, 0 MCS-API service exports, 0 reconnections (last: never)
            └  etcd: 1/1 connected, leases=0, lock lease-ID=7c028201b53de662, has-quorum=true: https://k8s-c2.mesh.cilium.io:2379 - 3.5.4 (Leader)
-           └  remote configuration: expected=true, retrieved=true, cluster-id=3, kvstoremesh=false, sync-canaries=true, service-exports=disabled, endpoint-slice-export-mode=services-only
+           └  remote configuration: expected=true, retrieved=true, cluster-id=3, kvstoremesh=true, sync-canaries=true, service-exports=disabled, endpoint-slice-export-mode=services-only
            └  synchronization status: nodes=true, endpoints=true, identities=true, services=true
 
-    When KVStoreMesh is enabled, additionally check its status and validate that
-    it is correctly connected to all remote clusters:
+ #. Check the KVStoreMesh status and validate that it is correctly connected to all remote clusters:
 
     .. code-block:: shell-session
 
@@ -131,17 +130,12 @@ you may perform the following steps to troubleshoot ClusterMesh issues.
 
     If the connection fails, check the following:
 
-    * When KVStoreMesh is disabled, validate that the ``cilium-host-aliases``
-      section in the ``cilium-clustermesh`` secret maps each remote cluster
-      to the IP of the LoadBalancer that makes the remote control plane
-      available; When KVStoreMesh is enabled, validate the
-      ``cilium-host-aliases`` section in the ``cilium-kvstoremesh`` secret.
+    * Validate that the ``cilium-host-aliases`` section in the ``cilium-kvstoremesh``
+      secret maps each remote cluster to the IP of the LoadBalancer that makes the
+      remote control plane available.
 
     * Validate that a local node in the source cluster can reach the IPs
-      specified in the ``cilium-host-aliases`` section. When KVStoreMesh
-      is disabled, those aliases are configured in the ``cilium-clustermesh``
-      secret. When KVStoreMesh is enabled, they are configured in the
-      ``cilium-kvstoremesh`` secret.
+      specified in the ``cilium-host-aliases`` section.
 
       .. code-block:: yaml
 
@@ -164,9 +158,10 @@ State Propagation
 
  #. Run ``cilium-dbg node list`` in one of the Cilium pods and validate that it
     lists both local nodes and nodes from remote clusters. If remote nodes are
-    not present, validate that Cilium agents (or KVStoreMesh, if enabled)
-    are correctly connected to the given remote cluster. Additionally, verify
-    that the initial nodes synchronization from all clusters has completed.
+    not present, validate that Cilium agents are correctly connected to the
+    local KVStoreMesh instance, and KVStoreMesh to the given remote cluster.
+    Additionally, verify that the initial nodes synchronization from all clusters
+    has completed.
 
  #. Validate the connectivity health matrix across clusters by running
     ``cilium-health status`` inside any Cilium pod. It will list the status of
@@ -178,16 +173,18 @@ State Propagation
     identity list`` in one of the Cilium pods. It must list identities from all
     clusters. You can determine what cluster an identity belongs to by looking
     at the label ``io.cilium.k8s.policy.cluster``. If remote identities are
-    not present, validate that Cilium agents (or KVStoreMesh, if enabled)
-    are correctly connected to the given remote cluster. Additionally, verify
-    that the initial identities synchronization from all clusters has completed.
+    not present, validate that Cilium agents are correctly connected to the
+    local KVStoreMesh instance, and KVStoreMesh to the given remote cluster.
+    Additionally, verify that the initial identities synchronization from all
+    clusters has completed.
 
  #. Validate that the IP cache is synchronized correctly by running ``cilium-dbg
     bpf ipcache list`` or ``cilium-dbg map get cilium_ipcache``. The output must
     contain pod IPs from local and remote clusters. If remote IP addresses are
-    not present, validate that Cilium agents (or KVStoreMesh, if enabled)
-    are correctly connected to the given remote cluster. Additionally, verify
-    that the initial IPs synchronization from all clusters has completed.
+    not present, validate that Cilium agents are correctly connected to the
+    local KVStoreMesh instance, and KVStoreMesh to the given remote cluster.
+    Additionally, verify that the initial IPs synchronization from all clusters
+    has completed.
 
  #. When using global services, ensure that global services are configured with
     endpoints from all clusters. Run ``cilium-dbg shell -- db/show backends``
@@ -223,13 +220,11 @@ The following checks apply regardless of the certificate management method:
      containers in the clustermesh-apiserver deployment, to authenticate against the
      sidecar etcd instance. Not applicable if an external etcd cluster is used.
 
-   * ``clustermesh-apiserver-remote-cert``, which is used by Cilium agents, or
-     the kvstoremesh container in the clustermesh-apiserver deployment when
-     KVStoreMesh is enabled, to authenticate against remote etcd instances.
+   * ``clustermesh-apiserver-remote-cert``, which is used by the kvstoremesh container
+     in the clustermesh-apiserver deployment to authenticate against remote etcd instances.
 
    * ``clustermesh-apiserver-local-cert``, which is used by Cilium agents to
-     authenticate against the local etcd instance. Only applicable if KVStoreMesh
-     is enabled.
+     authenticate against the local etcd instance.
 
 The following checks depend on the specific method used to provision the
 certificates:
