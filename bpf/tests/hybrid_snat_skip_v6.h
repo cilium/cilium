@@ -17,12 +17,11 @@
 #define ENABLE_MASQUERADE_IPV6 1
 #define IS_BPF_HOST 1
 
-#define IPV6_MASQUERADE_ADDR { .p1 = bpf_htonl(0x20010db8), .p4 = bpf_htonl(1) }
-#define IPV6_SRC_ADDR { .p1 = bpf_htonl(0x20010db8), .p3 = bpf_htonl(1), .p4 = bpf_htonl(1) }
-#define IPV6_DST_ADDR { .p1 = bpf_htonl(0x20010db8), .p3 = bpf_htonl(2), .p4 = bpf_htonl(1) }
+#define IPV6_MASQUERADE_ADDR { .addr = v6_node_one_addr }
+#define IPV6_SRC_ADDR { .addr = v6_pod_one_addr }
+#define IPV6_DST_ADDR { .addr = v6_node_two_addr }
 
-#include <lib/conntrack.h>
-#include <lib/nat.h>
+#include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, IPV6_MASQUERADE_ADDR)
 ASSIGN_CONFIG(bool, enable_remote_node_masquerade, ENABLE_REMOTE_NODE_MASQUERADE)

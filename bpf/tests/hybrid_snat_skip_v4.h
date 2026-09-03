@@ -18,12 +18,11 @@
 #define ENABLE_MASQUERADE_IPV4 1
 #define IS_BPF_HOST 1
 
-#define IPV4_MASQUERADE bpf_htonl(0x0a000001)
-#define IPV4_SRC bpf_htonl(0xc0a80101)
-#define IPV4_DST bpf_htonl(0xc0a80201)
+#define IPV4_MASQUERADE v4_node_one
+#define IPV4_SRC v4_pod_one
+#define IPV4_DST v4_node_two
 
-#include <lib/conntrack.h>
-#include <lib/nat.h>
+#include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = IPV4_MASQUERADE })
 ASSIGN_CONFIG(bool, enable_remote_node_masquerade, ENABLE_REMOTE_NODE_MASQUERADE)
