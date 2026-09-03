@@ -74,7 +74,7 @@ func (in AllocationMap) DeepCopy() AllocationMap {
 }
 
 // IPAMPoolAllocation describes an allocation of an IPAM pool from the operator to the
-// node. It contains the assigned PodCIDRs allocated from this pool
+// node. It contains the CIDRs delegated from this pool.
 type IPAMPoolAllocation struct {
 	// Pool is the name of the IPAM pool backing this allocation
 	//
@@ -91,7 +91,7 @@ type IPAMPoolAllocation struct {
 	// +optional
 	AllowLastIP bool `json:"allowLastIP,omitempty"`
 
-	// CIDRs contains a list of pod CIDRs currently allocated from this pool
+	// CIDRs contains the CIDRs currently allocated from this pool.
 	//
 	// +optional
 	CIDRs []iputil.Prefix `json:"cidrs,omitempty"`
@@ -105,7 +105,7 @@ type IPAMPoolRequest struct {
 
 	// Needed indicates how many IPs out of the above Pool this node requests
 	// from the operator. The operator runs a reconciliation loop to ensure each
-	// node always has enough PodCIDRs allocated in each pool to fulfill the
+	// node always has enough CIDRs allocated in each pool to fulfill the
 	// requested number of IPs here.
 	//
 	// +optional
@@ -120,9 +120,9 @@ type IPAMPoolSpec struct {
 	// +optional
 	Requested []IPAMPoolRequest `json:"requested,omitempty"`
 
-	// Allocated contains the list of pooled CIDR assigned to this node. The
-	// operator will add new pod CIDRs to this field, whereas the agent will
-	// remove CIDRs it has released.
+	// Allocated contains the list of pooled CIDRs assigned to this node. The
+	// operator adds new CIDRs to this field, whereas the agent removes CIDRs it
+	// has released.
 	//
 	// +optional
 	Allocated []IPAMPoolAllocation `json:"allocated,omitempty"`
@@ -150,6 +150,12 @@ type IPAMSpec struct {
 	//
 	// +optional
 	Pools IPAMPoolSpec `json:"pools,omitempty"`
+
+	// ResourcePools contains the Resource IPAM pools delegated to this node for
+	// use by the Cilium Network Driver.
+	//
+	// +optional
+	ResourcePools IPAMPoolSpec `json:"resourcePools,omitempty"`
 
 	// PodCIDRs is the list of CIDRs available to the node for allocation.
 	// When an IP is used, the IP will be added to Status.IPAM.Used
