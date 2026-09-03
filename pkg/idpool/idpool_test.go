@@ -331,3 +331,50 @@ func testAllocatedID(t *testing.T, nGoRoutines int) {
 		}
 	}
 }
+
+func TestLazyIDPoolAllocation(t *testing.T) {
+	minID, maxID := 1, 1_000_000
+	p := NewIDPool(ID(minID), ID(maxID))
+
+	// Ensure first leased IDs are sequential from minID
+	for i := 1; i <= 10; i++ {
+		id := p.LeaseAvailableID()
+		require.Equal(t, ID(i), id)
+	}
+
+	// Release ID 5 and verify it is reused on next lease
+	require.True(t, p.Release(ID(5)))
+	id := p.LeaseAvailableID()
+	require.Equal(t, ID(5), id)
+
+	// Remove ID 15 before it is reached sequentially
+	require.True(t, p.Remove(ID(15)))
+	require.False(t, p.Remove(ID(15)))
+
+	// Fast-forward to 15 to ensure it is skipped
+	for i := 11; i <= 14; i++ {
+		require.Equal(t, ID(i), p.LeaseAvailableID())
+	}
+	// Next lease should skip 15 and give 16
+	require.Equal(t, ID(16), p.LeaseAvailableID())
+}
+
+func BenchmarkNewIDPool(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		size uint64
+	}{
+		{"Size_100", 100},
+		{"Size_10000", 10000},
+		{"Size_1000000", 1000000},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				_ = NewIDPool(1, ID(bm.size))
+			}
+		})
+	}
+}
