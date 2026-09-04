@@ -97,22 +97,8 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 		mapControllers.UpdateController(
 			fmt.Sprintf("bpf-event-buffer-gc-%s", m.name),
 			controller.ControllerParams{
-				Group: bpfEventBufferGCControllerGroup,
-				DoFunc: func(_ context.Context) error {
-					m.Logger.Debug(
-						"clearing bpf map events older than TTL",
-						logfields.TTL, b.eventTTL,
-					)
-					b.buffer.Compact(func(e any) bool {
-						event, ok := e.(*Event)
-						if !ok {
-							m.Logger.Error("Failed to compact the event buffer", logfields.Error, wrongObjTypeErr(e))
-							return false
-						}
-						return time.Since(event.Timestamp) < b.eventTTL
-					})
-					return nil
-				},
+				Group:       bpfEventBufferGCControllerGroup,
+				DoFunc:      b.garbageCollect,
 				RunInterval: b.eventTTL,
 			},
 		)
@@ -123,8 +109,11 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 // eventsBuffer stores a buffer of events for auditing and debugging
 // purposes.
 type eventsBuffer struct {
-	logger        *slog.Logger
-	buffer        *container.RingBuffer
+	logger *slog.Logger
+
+	mutex  lock.Mutex // protect 'buffer' only.
+	buffer *container.RingBuffer
+
 	eventTTL      time.Duration
 	subsLock      lock.RWMutex
 	subscriptions []*Handle
@@ -216,6 +205,26 @@ func (eb *eventsBuffer) dumpAndSubscribe(callback EventCallbackFunc, follow bool
 	return h, nil
 }
 
+func (eb *eventsBuffer) garbageCollect(_ context.Context) error {
+	eb.mutex.Lock()
+	defer eb.mutex.Unlock()
+
+	eb.logger.Debug(
+		"clearing bpf map events older than TTL",
+		logfields.TTL, eb.eventTTL,
+	)
+
+	eb.buffer.Compact(func(e any) bool {
+		event, ok := e.(*Event)
+		if !ok {
+			eb.logger.Error("Failed to compact the event buffer", logfields.Error, wrongObjTypeErr(e))
+			return false
+		}
+		return time.Since(event.Timestamp) < eb.eventTTL
+	})
+	return nil
+}
+
 // DumpAndSubscribe dumps existing buffer, if callback is not nil. Followed by creating a
 // subscription to the maps events buffer and returning the handle.
 // These actions are done together so as to prevent possible missed events between the handoff
@@ -286,6 +295,8 @@ func (eb *eventsBuffer) eventIsValid(e any) bool {
 type EventCallbackFunc func(*Event)
 
 func (eb *eventsBuffer) dumpWithCallback(callback EventCallbackFunc) {
+	eb.mutex.Lock()
+	defer eb.mutex.Unlock()
 	eb.buffer.IterateValid(eb.eventIsValid, func(e any) {
 		event, ok := e.(*Event)
 		if !ok {
