@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/hive/script"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
@@ -21,7 +22,7 @@ import (
 
 // msEntriesCmd dumps the mapstate entries, rather than the existing
 // BPF policymap.
-func msEntriesCmd(params CmdParams) script.Cmd {
+func msEntriesCmd(epl endpointmanager.EndpointsLookup) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "Display policy map state for a given endpoint",
@@ -36,7 +37,7 @@ func msEntriesCmd(params CmdParams) script.Cmd {
 				}
 				return nil
 			},
-			AutocompleteArgs: autocompleteEndpoints(params),
+			AutocompleteArgs: autocompleteEndpoints(epl),
 			Detail: []string{
 				"List all MapState entries for some or all endpoints.",
 				"The MapState is the *desired* contents of the BPF policy map.",
@@ -56,7 +57,7 @@ func msEntriesCmd(params CmdParams) script.Cmd {
 				}
 
 				// Collect policy from all endpoints
-				eps, err := lookupEPs(params.EPL, args)
+				eps, err := lookupEPs(epl, args)
 				if err != nil {
 					return "", "", err
 				}
