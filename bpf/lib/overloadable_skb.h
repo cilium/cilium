@@ -218,7 +218,7 @@ ctx_set_encap_info4(struct __sk_buff *ctx, __u32 src_ip,
 	key.remote_ipv4 = bpf_ntohl(tunnel_endpoint);
 
 	return ctx_set_encap_info(ctx, &key, key_size, opt, opt_len,
-				  BPF_F_ZERO_CSUM_TX);
+				  BPF_F_ZERO_CSUM_TX | BPF_F_DONT_FRAGMENT);
 }
 
 static __always_inline __maybe_unused int
