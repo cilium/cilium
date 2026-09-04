@@ -70,8 +70,6 @@
     {{- $defaultEnableIPv6Masquerade = "false" -}}
   {{- end }}
   {{- $defaultLegacyHostRouting = "true" -}}
-  {{- /* Needs to be explicitly enabled because it was disabled on all versions >=v1.10 above. */ -}}
-  {{- $defaultBpfMasquerade = "true" -}}
 {{- end -}}
 
 {{- /* Effective masquerading settings */ -}}
@@ -757,7 +755,7 @@ data:
 
 {{- if (not (kindIs "invalid" .Values.bpf.masquerade)) }}
   enable-bpf-masquerade: {{ .Values.bpf.masquerade | quote }}
-{{- else }}
+{{- else if eq $defaultBpfMasquerade "true" }}
   enable-bpf-masquerade: {{ $defaultBpfMasquerade | quote }}
 {{- end }}
   enable-masquerade-to-route-source: {{ .Values.enableMasqueradeRouteSource | quote }}
