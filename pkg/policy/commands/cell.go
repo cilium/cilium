@@ -50,27 +50,26 @@ var Cell = cell.Module(
 	cell.Provide(NewPolicyCommands),
 )
 
-type PolicyCommands map[string]script.Cmd
-
 func NewPolicyCommands(params CmdParams) hive.ScriptCmdsOut {
 	return hive.NewScriptCmds(map[string]script.Cmd{
-		"policy/mapstate/entries": msEntriesCmd(params),
-		"policy/mapstate/topk":    topKCmd(params),
+		"policy/mapstate/entries": msEntriesCmd(params.EPL),
+		"policy/mapstate/topk":    topKCmd(params.EPL),
 		"policy/mapstate/stage":   msStageCmd(params),
+		"policy/policymap":        PolicyMapCmd(params.EPL),
 	})
 }
 
 // autocompleteEndpoints returns a list of Endpoints that match the prefix of the argument.
 //
 // Accepted values are numeric endpoint IDs or <namespace/name>
-func autocompleteEndpoints(params CmdParams) func(_ *script.State, _ []string, cur string) []string {
+func autocompleteEndpoints(epl endpointmanager.EndpointsLookup) func(_ *script.State, _ []string, cur string) []string {
 	return func(_ *script.State, _ []string, cur string) []string {
-		return autocompleteEndpointsImpl(params, cur)
+		return autocompleteEndpointsImpl(epl, cur)
 	}
 }
 
-func autocompleteEndpointsImpl(params CmdParams, cur string) []string {
-	eps := params.EPL.GetEndpoints()
+func autocompleteEndpointsImpl(epl endpointmanager.EndpointsLookup, cur string) []string {
+	eps := epl.GetEndpoints()
 	epNames := make([]string, 0, len(eps)*2)
 	for _, ep := range eps {
 		epNames = append(epNames, fmt.Sprintf("%d", ep.ID))

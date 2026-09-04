@@ -64,7 +64,7 @@ func msStageCmd(params CmdParams) script.Cmd {
 				case "o", "output":
 					return filterPrefix([]string{"table", "json"}, cur)
 				case "e", "endpoint":
-					return autocompleteEndpointsImpl(params, cur)
+					return autocompleteEndpointsImpl(params.EPL, cur)
 				case "f", "filename":
 					return autocompleteFilenameImpl(state, cur)
 				}

@@ -5,11 +5,13 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,7 +19,9 @@ import (
 	apiv1 "github.com/cilium/cilium/api/v1/models"
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	fakeiptables "github.com/cilium/cilium/pkg/datapath/iptables/fake"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	fakeloader "github.com/cilium/cilium/pkg/datapath/loader/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -49,6 +53,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/proxy/proxyports"
+	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
+	"github.com/cilium/cilium/pkg/revert"
 	testcertificatemanager "github.com/cilium/cilium/pkg/testutils/certificatemanager"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testmonitor "github.com/cilium/cilium/pkg/testutils/monitor"
@@ -126,7 +133,7 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 						LxcMap:              &fakeLXCMap{},
 					},
 					&fakeDNSAPI{},
-					&endpoint.FakeEndpointProxy{},
+					newTestProxy(t, log),
 					&apiv1.EndpointChangeRequest{
 						ContainerID:            "foo",
 						ContainerInterfaceName: "bar",
@@ -188,6 +195,60 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 	return f
 }
 
+// staticProxyPorts pins each proxy port so a golden file can name it.
+var staticProxyPorts = []struct {
+	name      string
+	proxyType proxytypes.ProxyType
+	ingress   bool
+	port      uint16
+}{
+	{proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, false, 19002},
+	{"cilium-http-ingress", proxytypes.ProxyTypeHTTP, true, 19001},
+	{"cilium-http-egress", proxytypes.ProxyTypeHTTP, false, 19003},
+}
+
+// newTestProxy returns a proxy that resolves redirects through the real
+// ProxyPorts allocator, the way the agent does once a proxy has registered
+// the port it bound.
+func newTestProxy(t testing.TB, log *slog.Logger) *testProxy {
+	ports := proxyports.NewProxyPorts(log, proxyports.ProxyPortsConfig{}, fakeiptables.NewManager())
+	// ackProxyPort fires this trigger. Nothing consumes it, so the ports file
+	// is never written.
+	ports.Trigger = job.NewTrigger()
+
+	for _, pp := range staticProxyPorts {
+		require.NoError(t, ports.SetProxyPort(pp.name, pp.proxyType, pp.port, pp.ingress))
+	}
+
+	return &testProxy{ports: ports}
+}
+
+// testProxy implements endpoint.EndpointProxy far enough to realize redirects.
+type testProxy struct {
+	endpoint.FakeEndpointProxy
+
+	ports *proxyports.ProxyPorts
+}
+
+// CreateOrUpdateRedirect fails for a parser with no port configured, the way
+// the real proxy does, instead of inventing one.
+func (p *testProxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (uint16, error, revert.RevertFunc) {
+	parser := proxytypes.ProxyType(l4.GetL7Parser())
+	name, pp := p.ports.FindByTypeWithReference(parser, l4.GetListener(), l4.GetIngress())
+	if pp == nil {
+		return 0, fmt.Errorf("no proxy port for %s listener %q", parser, l4.GetListener()), nil
+	}
+	if err := p.ports.AckProxyPort(ctx, name, pp); err != nil {
+		return 0, err, nil
+	}
+	// FindByTypeWithReference took a reference. The real proxy releases it from
+	// the revert func, so do the same or the refcount grows every regeneration.
+	return pp.ProxyPort, nil, func() error {
+		p.ports.ReleaseProxyPort(name)
+		return nil
+	}
+}
+
 type fakeDNSAPI struct{}
 
 func (*fakeDNSAPI) GetDNSRules(epID uint16) restore.DNSRules { return nil }
@@ -198,9 +259,10 @@ type fakePolicyMapFactory struct{}
 func (*fakePolicyMapFactory) OpenEndpoint(id uint16) (policymap.PolicyMap, error) {
 	return fakepolicymap.NewFakePolicyMap(), nil
 }
-func (*fakePolicyMapFactory) RemoveEndpoint(id uint16) error { return nil }
-func (*fakePolicyMapFactory) PolicyMaxEntries() int          { return 0 }
-func (*fakePolicyMapFactory) StatsMaxEntries() int           { return 0 }
+func (*fakePolicyMapFactory) RemoveEndpoint(id uint16) error      { return nil }
+func (*fakePolicyMapFactory) RemoveGlobalMapping(id uint32) error { return nil }
+func (*fakePolicyMapFactory) PolicyMaxEntries() int               { return 0 }
+func (*fakePolicyMapFactory) StatsMaxEntries() int                { return 0 }
 
 type fakeLXCMap struct{}
 
