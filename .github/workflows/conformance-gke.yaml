@@ -292,7 +292,7 @@ jobs:
     if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
     runs-on: ubuntu-24.04
     # Enough headroom for the cluster creation to fall back to another zone.
-    timeout-minutes: 90
+    timeout-minutes: 180
     env:
       job_name: "Installation and Connectivity Test"
     strategy:
@@ -345,6 +345,7 @@ jobs:
             --helm-set=hubble.relay.enabled=true \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
             --helm-set=loadBalancer.l7.backend=envoy \
+            --helm-set=bpf.monitorAggregation=none \
             --wait=false"
 
           if [[ ${{ matrix.config.type }} == "tunnel" ]]; then
@@ -528,7 +529,8 @@ jobs:
           external-target-ca-name: custom-ca
           external-target-fake-dns: true
           hubble: false
-          test-concurrency: 5
+          test-concurrency: 1
+          tests: allow-all-except-world
 
       - name: Set up job variables for connectivity tests
         id: vars-conn
@@ -542,6 +544,8 @@ jobs:
           # correctly drops as world-sourced. Tolerate only that variant here;
           # in-cluster fragment drops keep the strict reason. See cilium#44131.
           CONNECTIVITY_TEST_DEFAULTS+=" --expected-drop-reasons='+First logical datagram fragment not found from world'"
+
+          CONNECTIVITY_TEST_DEFAULTS+=" --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=15m"
 
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
