@@ -14,9 +14,12 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/endpoint"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
@@ -432,9 +435,11 @@ func (d *Daemon) handleRestoredEndpointsRegeneration(endpoints []*endpoint.Endpo
 }
 
 func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
+	var res *ipam.AllocationResult
+
 	if option.Config.EnableIPv6 && ep.IPv6.IsValid() {
 		ipv6Pool := ipam.PoolOrDefault(ep.IPv6IPAMPool)
-		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.AsSlice(), ep.HumanString()+" [restored]", ipv6Pool)
+		res, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.AsSlice(), ep.HumanString()+" [restored]", ipv6Pool)
 		if err != nil {
 			return fmt.Errorf("unable to reallocate %s IPv6 address: %w", ep.IPv6, err)
 		}
@@ -444,11 +449,15 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
 				d.ipam.ReleaseIP(ep.IPv6.AsSlice(), ipv6Pool)
 			}
 		}()
+
+		if err = d.configureRoutingInfo(res); err != nil {
+			return fmt.Errorf("failed to configure routing info: %w", err)
+		}
 	}
 
 	if option.Config.EnableIPv4 && ep.IPv4.IsValid() {
 		ipv4Pool := ipam.PoolOrDefault(ep.IPv4IPAMPool)
-		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv4.AsSlice(), ep.HumanString()+" [restored]", ipv4Pool)
+		res, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv4.AsSlice(), ep.HumanString()+" [restored]", ipv4Pool)
 		switch {
 		// We only check for BypassIPAllocUponRestore for IPv4 because we
 		// assume that this flag is only turned on for IPv4-only IPAM modes
@@ -473,8 +482,93 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
 		case err != nil:
 			return fmt.Errorf("unable to reallocate %s IPv4 address: %w", ep.IPv4, err)
 		}
+
+		if err == nil {
+			if err = d.configureRoutingInfo(res); err != nil {
+				return fmt.Errorf("failed to configure routing info: %w", err)
+			}
+		}
 	}
 
+	return nil
+}
+
+// Should match CNI implementation in: plugins/cilium-cni/cmd/interface.go
+//
+// needsEndpointRoutingOnHost returns true if extra routes/rules need to be installed
+// on host for the Pod. This is needed for following IPAM modes:
+// - Cloud ENI IPAM modes.
+// - DelegatedPlugin mode with InstallUplinkRoutesForDelegatedIPAM set to true.
+func (d *Daemon) needsEndpointRoutingOnHost() bool {
+	switch option.Config.IPAMMode() {
+	case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
+		return true
+	case ipamOption.IPAMDelegatedPlugin:
+		return option.Config.InstallUplinkRoutesForDelegatedIPAM
+	}
+	return false
+}
+
+// configureRoutingInfo configures the routing rules for endpoint's ip allocation result.
+//
+// In endpoint create path, the routing configuration is handled by CNI ADD: plugins/cilium-cni/cmd/interface.go
+// and is not reconciled by cilium-agent. During agent restart its possible that datapath configuration changes
+// (eg. masquerade config), which requires routing rules to be re-configured.
+func (d *Daemon) configureRoutingInfo(result *ipam.AllocationResult) error {
+	if !d.needsEndpointRoutingOnHost() {
+		return nil
+	}
+
+	cidrs := make([]*net.IPNet, 0, len(result.CIDRs))
+	for _, cidrString := range result.CIDRs {
+		_, cidr, err := net.ParseCIDR(cidrString)
+		if err != nil {
+			return fmt.Errorf("invalid CIDR '%s': %w", cidrString, err)
+		}
+		cidrs = append(cidrs, cidr)
+	}
+	ipv4CIDRs, ipv6CIDRs := iputil.CoalesceCIDRs(cidrs)
+
+	var (
+		coalescedCIDRs []string
+		masq           bool
+	)
+
+	if result.IP.To4() != nil {
+		coalescedCIDRs = make([]string, 0, len(ipv4CIDRs))
+		for _, cidr := range ipv4CIDRs {
+			coalescedCIDRs = append(coalescedCIDRs, cidr.String())
+		}
+		masq = option.Config.EnableIPv4Masquerade
+	} else {
+		coalescedCIDRs = make([]string, 0, len(ipv6CIDRs))
+		for _, cidr := range ipv6CIDRs {
+			coalescedCIDRs = append(coalescedCIDRs, cidr.String())
+		}
+		masq = option.Config.EnableIPv6Masquerade
+	}
+
+	routingInfo, err := linuxrouting.NewRoutingInfo(
+		d.logger,
+		result.GatewayIP,
+		coalescedCIDRs,
+		result.PrimaryMAC,
+		result.InterfaceNumber,
+		option.Config.IPAMMode(),
+		masq,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to parse routing info: %w", err)
+	}
+
+	if err := routingInfo.Configure(
+		result.IP,
+		d.mtuConfig.GetDeviceMTU(),
+		option.Config.EgressMultiHomeIPRuleCompat,
+		false,
+	); err != nil {
+		return fmt.Errorf("unable to install ip rules and routes: %w", err)
+	}
 	return nil
 }
 
