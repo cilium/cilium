@@ -83,5 +83,6 @@ if [ "${#IPTARGET[@]}" -ge 2 ] && [ "${#IPOTHERTARGET[@]}" -ge 2 ]; then
 	echo "ipv6_external_target=${IPTARGET[1]}" >> $GITHUB_OUTPUT
 	echo "ipv6_other_external_target=${IPOTHERTARGET[1]}" >> $GITHUB_OUTPUT
 fi
-echo "external_target_name=$TARGETNAME" >> $GITHUB_OUTPUT
-echo "other_external_target_name=$OTHERTARGETNAME" >> $GITHUB_OUTPUT
+# Publish FQDNs, so that pod resolvers don't walk their ndots:5 search list.
+echo "external_target_name=$TARGETNAME." >> $GITHUB_OUTPUT
+echo "other_external_target_name=$OTHERTARGETNAME." >> $GITHUB_OUTPUT

@@ -34,8 +34,9 @@ retry() {
 TARGETNAME=fake.external.service.cilium
 OTHERTARGETNAME=fake.external.service.other.cilium
 
-echo "external_target_name=$TARGETNAME" >> $GITHUB_OUTPUT
-echo "other_external_target_name=$OTHERTARGETNAME" >> $GITHUB_OUTPUT
+# Publish FQDNs, so that pod resolvers don't walk their ndots:5 search list.
+echo "external_target_name=$TARGETNAME." >> $GITHUB_OUTPUT
+echo "other_external_target_name=$OTHERTARGETNAME." >> $GITHUB_OUTPUT
 
 # Create a private key for the self signed CA
 openssl genrsa 2048 > ca-key.pem
