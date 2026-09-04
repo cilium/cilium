@@ -241,8 +241,36 @@ static __always_inline bool dsr_fail_needs_reply(int code __maybe_unused)
 	return false;
 }
 
+static __always_inline __maybe_unused __u32
+dsr_wire_len(struct __ctx_buff *ctx __maybe_unused, __u8 nexthdr __maybe_unused,
+	     __u32 l3_len __maybe_unused, int l4_off __maybe_unused,
+	     __u32 total_len)
+{
+	__u32 gso_size = ctx_gso_size(ctx);
+	__u32 l4_len;
+	__u8 doff;
+
+	if (!gso_size)
+		return total_len;
+
+	switch (nexthdr) {
+	case IPPROTO_TCP:
+		if (ctx_load_bytes(ctx, l4_off + 12, &doff, sizeof(doff)) < 0)
+			return total_len;
+		l4_len = (doff & 0xf0) >> 2;
+		break;
+	case IPPROTO_UDP:
+		l4_len = sizeof(struct udphdr);
+		break;
+	default:
+		return total_len;
+	}
+
+	return l3_len + l4_len + gso_size;
+}
+
 static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused,
-					   __u16 expanded_len __maybe_unused)
+					   __u32 expanded_len __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
 	if (expanded_len > CONFIG(device_mtu))
@@ -421,7 +449,7 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 {
 	struct dsr_opt_v6 opt __align_stack_8 = {};
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(opt);
-	__u16 total_len = bpf_ntohs(ip6->payload_len) + sizeof(struct ipv6hdr) + sizeof(opt);
+	__u32 wire_len;
 
 	/* The IPv6 extension should be 8-bytes aligned */
 	build_bug_on((sizeof(struct dsr_opt_v6) % 8) != 0);
@@ -429,7 +457,11 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 	if (!need_dsr_info)
 		return 0;
 
-	if (dsr_is_too_big(ctx, total_len)) {
+	wire_len = dsr_wire_len(ctx, ip6->nexthdr, sizeof(struct ipv6hdr),
+				ETH_HLEN + sizeof(struct ipv6hdr),
+				bpf_ntohs(ip6->payload_len) + sizeof(struct ipv6hdr));
+
+	if (dsr_is_too_big(ctx, wire_len + sizeof(opt))) {
 		*ohead = sizeof(opt);
 		return DROP_FRAG_NEEDED;
 	}
@@ -468,7 +500,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 		sizeof(struct genevehdr) + ETH_HLEN;
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(*ip6);
 	fraginfo_t fraginfo = 0;
-	__u16 total_len = 0;
+	__u32 total_len = 0;
 	__be16 src_port;
 	int l4_off, ret;
 
@@ -497,7 +529,9 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 		set_geneve_dsr_opt6(svc_port, svc_addr, &gopt);
 	}
 
-	total_len = encap_len + payload_len;
+	total_len = encap_len + dsr_wire_len(ctx, tuple.nexthdr,
+					     l4_off - ETH_HLEN, l4_off,
+					     payload_len);
 
 	if (dsr_is_too_big(ctx, total_len)) {
 		*ohead = encap_len;
@@ -1745,6 +1779,7 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 	__u32 iph_old, iph_new;
 	struct dsr_opt_v4 opt;
 	__u16 tot_len = bpf_ntohs(ip4->tot_len) + sizeof(opt);
+	__u32 wire_len;
 	__be32 sum;
 
 	if (!need_dsr_info)
@@ -1753,7 +1788,11 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 	if (ipv4_hdrlen(ip4) + sizeof(opt) > sizeof(struct iphdr) + MAX_IPOPTLEN)
 		return DROP_CT_INVALID_HDR;
 
-	if (dsr_is_too_big(ctx, tot_len)) {
+	wire_len = dsr_wire_len(ctx, ip4->protocol, ipv4_hdrlen(ip4),
+				ETH_HLEN + ipv4_hdrlen(ip4),
+				bpf_ntohs(ip4->tot_len));
+
+	if (dsr_is_too_big(ctx, wire_len + sizeof(opt))) {
 		*ohead = sizeof(opt);
 		return DROP_FRAG_NEEDED;
 	}
@@ -1828,7 +1867,10 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 		set_geneve_dsr_opt4(svc_port, svc_addr, &gopt);
 	}
 
-	if (dsr_is_too_big(ctx, total_len + encap_len)) {
+	if (dsr_is_too_big(ctx, dsr_wire_len(ctx, ip4->protocol,
+					    ipv4_hdrlen(ip4),
+					    ETH_HLEN + ipv4_hdrlen(ip4),
+					    total_len) + encap_len)) {
 		*ohead = encap_len;
 		return DROP_FRAG_NEEDED;
 	}
