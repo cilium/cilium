@@ -48,6 +48,7 @@ to learn how to level up through the project.
  * [Nirmoy Das] (AMD)
  * [Paul Chaignon] (Isovalent)
  * [Quentin Monnet] (Hedgehog)
+ * [Rastislav Szabo] (Isovalent)
  * [Robin Hahling] (Isovalent)
  * [Sebastian Wicki] (Isovalent)
  * [Simone Magnani] (Isovalent)
@@ -132,6 +133,7 @@ project.
 [Nirmoy Das]: https://github.com/nirmoy
 [Paul Chaignon]: https://github.com/pchaigno
 [Quentin Monnet]: https://github.com/qmonnet
+[Rastislav Szabo]: https://github.com/rastislavs
 [Ray Bejjani]: https://github.com/raybejjani
 [Robin Hahling]: https://github.com/rolinh
 [Sebastian Wicki]: https://github.com/gandro
