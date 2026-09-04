@@ -140,6 +140,16 @@ func TestLoadLoadsOnlyReferencedServices(t *testing.T) {
 		},
 	}
 
+	unrelatedServiceImport := &mcsapiv1beta1.ServiceImport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "unrelated-serviceimport",
+			Namespace: "default",
+			Annotations: map[string]string{
+				mcsapicontrollers.DerivedServiceAnnotation: "unrelated-service",
+			},
+		},
+	}
+
 	c := fake.NewClientBuilder().
 		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 		WithObjects(
@@ -151,6 +161,7 @@ func TestLoadLoadsOnlyReferencedServices(t *testing.T) {
 			mirrorService,
 			unrelatedService,
 			serviceImport,
+			unrelatedServiceImport,
 		).
 		WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway).
 		WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway).
@@ -169,12 +180,23 @@ func TestLoadLoadsOnlyReferencedServices(t *testing.T) {
 		{Namespace: "default", Name: "backend-service"},
 		{Namespace: "default", Name: "mirror-service"},
 	}, serviceKeys(inputs.Services))
+	require.Equal(t, []client.ObjectKey{
+		{Namespace: "default", Name: "mirror-serviceimport"},
+	}, serviceImportKeys(inputs.ServiceImports))
 }
 
 func serviceKeys(services []corev1.Service) []client.ObjectKey {
 	keys := make([]client.ObjectKey, 0, len(services))
 	for _, svc := range services {
 		keys = append(keys, client.ObjectKeyFromObject(&svc))
+	}
+	return keys
+}
+
+func serviceImportKeys(serviceImports []mcsapiv1beta1.ServiceImport) []client.ObjectKey {
+	keys := make([]client.ObjectKey, 0, len(serviceImports))
+	for _, svcImport := range serviceImports {
+		keys = append(keys, client.ObjectKeyFromObject(&svcImport))
 	}
 	return keys
 }
