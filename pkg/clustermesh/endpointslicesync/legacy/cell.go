@@ -21,7 +21,7 @@ import (
 
 // Cell is the cell for the Operator ClusterMesh
 var Cell = cell.Module(
-	"endpointslicesync-clustermesh",
+	"clustermesh-epslicesync-legacy",
 	"EndpointSlice clustermesh synchronization in the Cilium operator",
 	cell.Config(EndpointSliceSyncConfig{}),
 	cell.Invoke(registerEndpointSliceSyncLegacy),
