@@ -124,15 +124,15 @@ func TestInjectLabels(t *testing.T) {
 	assert.NotNil(t, id1)
 	assert.True(t, id1.Labels.HasRemoteNodeLabel())
 	assert.True(t, id1.Labels.HasKubeAPIServerLabel())
-	assert.True(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
-	assert.False(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
+	assert.True(t, id1.Labels.HasLabel(labels.ParseLabel("cidr:10.0.0.4/32")))
+	assert.False(t, id1.Labels.HasLabel(labels.ParseLabel("cidr:10.0.0.5/32")))
 
 	id2 := s.IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, nid2)
 	assert.NotNil(t, id2)
 	assert.True(t, id2.Labels.HasRemoteNodeLabel())
 	assert.False(t, id2.Labels.HasKubeAPIServerLabel())
-	assert.False(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
-	assert.True(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
+	assert.False(t, id2.Labels.HasLabel(labels.ParseLabel("cidr:10.0.0.4/32")))
+	assert.True(t, id2.Labels.HasLabel(labels.ParseLabel("cidr:10.0.0.5/32")))
 
 	// Remove remote-node label, ensure transition to local cidr identity space
 	s.IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid", overrideIdentity(false), labels.LabelRemoteNode)
@@ -150,15 +150,15 @@ func TestInjectLabels(t *testing.T) {
 	assert.NotNil(t, id1)
 	assert.False(t, id1.Labels.HasRemoteNodeLabel())
 	assert.True(t, id1.Labels.HasKubeAPIServerLabel())
-	assert.True(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
-	assert.False(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
+	assert.True(t, id1.Labels.HasLabel(labels.ParseLabel("cidr:10.0.0.4/32")))
+	assert.False(t, id1.Labels.HasLabel(labels.ParseLabel("cidr:10.0.0.5/32")))
 
 	id2 = s.IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, nid2)
 	assert.NotNil(t, id2)
 	assert.False(t, id2.Labels.HasRemoteNodeLabel())
 	assert.False(t, id2.Labels.HasKubeAPIServerLabel())
-	assert.False(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
-	assert.True(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
+	assert.False(t, id2.Labels.HasLabel(labels.ParseLabel("cidr:10.0.0.4/32")))
+	assert.True(t, id2.Labels.HasLabel(labels.ParseLabel("cidr:10.0.0.5/32")))
 
 	// Clean up.
 	s.IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid-cidr", overrideIdentity(false), labels.Labels{})
@@ -267,7 +267,7 @@ func TestUpdateLocalNode(t *testing.T) {
 		t.Helper()
 		id := s.PolicyHandler.identities[identity.ReservedIdentityHost]
 		assert.NotNil(t, id)
-		assert.Equal(t, lbls.LabelArray(), id)
+		assert.Equal(t, lbls, id)
 	}
 
 	injectLabels := func(ip cmtypes.PrefixCluster) {
@@ -380,7 +380,7 @@ func TestInjectExisting(t *testing.T) {
 	// Ensure the SelectorCache has the correct labels
 	selectorID := s.PolicyHandler.identities[id.ID]
 	assert.NotNil(t, selectorID)
-	assert.True(t, selectorID.Contains(labels.LabelKubeAPIServer.LabelArray()))
+	assert.True(t, selectorID.Contains(labels.LabelKubeAPIServer))
 }
 
 func TestFilterMetadataByLabels(t *testing.T) {
@@ -1172,12 +1172,12 @@ func TestUpsertMetadataCIDRGroup(t *testing.T) {
 
 func newMockUpdater() *mockUpdater {
 	return &mockUpdater{
-		identities: make(map[identity.NumericIdentity]labels.LabelArray),
+		identities: make(map[identity.NumericIdentity]labels.Labels),
 	}
 }
 
 type mockUpdater struct {
-	identities map[identity.NumericIdentity]labels.LabelArray
+	identities map[identity.NumericIdentity]labels.Labels
 }
 
 func (m *mockUpdater) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {

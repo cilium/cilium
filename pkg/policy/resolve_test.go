@@ -65,7 +65,7 @@ func generateNumIdentities(numIdentities int) identity.IdentityMap {
 		bumpedIdentity := i + 1000
 		numericIdentity := identity.NumericIdentity(bumpedIdentity)
 
-		c[numericIdentity] = identityLabels.LabelArray()
+		c[numericIdentity] = identityLabels
 	}
 	return c
 }
@@ -213,10 +213,10 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 	wg := &sync.WaitGroup{}
 	// load in standard reserved identities
 	c := identity.IdentityMap{
-		fooIdentity.ID: fooIdentity.LabelArray,
+		fooIdentity.ID: fooIdentity.Labels,
 	}
 	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
-		c[ni] = id.Labels.LabelArray()
+		c[ni] = id.Labels
 	})
 	td.sc.UpdateIdentities(c, nil, wg)
 	td.subjectSc.UpdateIdentities(c, nil, wg)
@@ -771,7 +771,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 
 	// Add new identity to test accumulation of MapChanges
 	added1 := identity.IdentityMap{
-		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
+		identity.NumericIdentity(192): labels.ParseSelectLabels("id=resolve_test_1"),
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
@@ -850,9 +850,9 @@ func TestMapStateWithIngress(t *testing.T) {
 
 	// Add new identity to test accumulation of MapChanges
 	added1 := identity.IdentityMap{
-		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1", "num=1"),
-		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
-		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
+		identity.NumericIdentity(192): labels.ParseSelectLabels("id=resolve_test_1", "num=1"),
+		identity.NumericIdentity(193): labels.ParseSelectLabels("id=resolve_test_1", "num=2"),
+		identity.NumericIdentity(194): labels.ParseSelectLabels("id=resolve_test_1", "num=3"),
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
@@ -860,7 +860,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	require.Len(t, policy.policyMapChanges.synced, 3)
 
 	deleted1 := identity.IdentityMap{
-		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
+		identity.NumericIdentity(193): labels.ParseSelectLabels("id=resolve_test_1", "num=2"),
 	}
 	wg = &sync.WaitGroup{}
 	td.sc.UpdateIdentities(nil, deleted1, wg)

@@ -18,9 +18,9 @@ type SelectorCacheObserver struct {
 }
 
 func (o SelectorCacheObserver) LocalEndpointIdentityAdded(id *identity.Identity) {
-	o.Cache.UpdateIdentities(identity.IdentityMap{id.ID: id.LabelArray}, nil, &sync.WaitGroup{})
+	o.Cache.UpdateIdentities(identity.IdentityMap{id.ID: id.Labels}, nil, &sync.WaitGroup{})
 }
 
 func (o SelectorCacheObserver) LocalEndpointIdentityRemoved(id *identity.Identity) {
-	o.Cache.UpdateIdentities(nil, identity.IdentityMap{id.ID: id.LabelArray}, &sync.WaitGroup{})
+	o.Cache.UpdateIdentities(nil, identity.IdentityMap{id.ID: id.Labels}, &sync.WaitGroup{})
 }
