@@ -327,24 +327,16 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		namespaces = namespaceList.Items
 	}
 
-	serviceImportsList := &mcsapiv1beta1.ServiceImportList{}
-	if l.config.IncludeServiceImports {
-		if err := l.client.List(ctx, serviceImportsList); err != nil {
-			return TranslationInputs{}, fmt.Errorf("failed to list ServiceImports: %w", err)
-		}
-	}
-
-	services, err := l.loadReferencedServices(
+	services, serviceImports, err := l.loadReferencedBackendResources(
 		ctx,
 		routeCollections.httpRoutes,
 		routeCollections.grpcRoutes,
 		routeCollections.tlsRoutes,
 		routeCollections.tcpRoutes,
 		routeCollections.udpRoutes,
-		serviceImportsList.Items,
 	)
 	if err != nil {
-		return TranslationInputs{}, fmt.Errorf("failed to load Services: %w", err)
+		return TranslationInputs{}, fmt.Errorf("failed to load backend resources: %w", err)
 	}
 
 	grants := &gatewayv1.ReferenceGrantList{}
@@ -367,11 +359,23 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		Namespaces:             namespaces,
 		BackendTLSPolicies:     btlspList.Items,
 		Services:               services,
-		ServiceImports:         serviceImportsList.Items,
+		ServiceImports:         serviceImports,
 	}, nil
 }
 
 type serviceImportLookup map[types.NamespacedName]string
+
+type backendReferenceSet struct {
+	serviceKeys       map[types.NamespacedName]struct{}
+	serviceImportKeys map[types.NamespacedName]struct{}
+}
+
+func newBackendReferenceSet() backendReferenceSet {
+	return backendReferenceSet{
+		serviceKeys:       make(map[types.NamespacedName]struct{}),
+		serviceImportKeys: make(map[types.NamespacedName]struct{}),
+	}
+}
 
 func newServiceImportLookup(serviceImports []mcsapiv1beta1.ServiceImport) serviceImportLookup {
 	lookup := make(serviceImportLookup, len(serviceImports))
@@ -385,39 +389,25 @@ func newServiceImportLookup(serviceImports []mcsapiv1beta1.ServiceImport) servic
 	return lookup
 }
 
-func backendRefServiceName(routeNamespace string, backendRef gatewayv1.BackendObjectReference, lookup serviceImportLookup) (string, bool) {
+func appendBackendRef(refs backendReferenceSet, routeNamespace string, backendRef gatewayv1.BackendObjectReference) {
+	backendKey := types.NamespacedName{
+		Namespace: helpers.NamespaceDerefOr(backendRef.Namespace, routeNamespace),
+		Name:      string(backendRef.Name),
+	}
+
 	switch {
 	case helpers.IsService(backendRef):
-		return string(backendRef.Name), true
+		refs.serviceKeys[backendKey] = struct{}{}
 	case helpers.IsServiceImport(backendRef):
-		serviceName, ok := lookup[types.NamespacedName{
-			Namespace: helpers.NamespaceDerefOr(backendRef.Namespace, routeNamespace),
-			Name:      string(backendRef.Name),
-		}]
-		return serviceName, ok
-	default:
-		return "", false
+		refs.serviceImportKeys[backendKey] = struct{}{}
 	}
 }
 
-func appendBackendService(services []types.NamespacedName, routeNamespace string, backendRef gatewayv1.BackendObjectReference, lookup serviceImportLookup) []types.NamespacedName {
-	serviceName, ok := backendRefServiceName(routeNamespace, backendRef, lookup)
-	if !ok {
-		return services
-	}
-
-	return append(services, types.NamespacedName{
-		Namespace: helpers.NamespaceDerefOr(backendRef.Namespace, routeNamespace),
-		Name:      serviceName,
-	})
-}
-
-func (l *TranslationInputLoader) collectBackendServicesFromHTTPRoutes(routes []gatewayv1.HTTPRoute, lookup serviceImportLookup) []types.NamespacedName {
-	var services []types.NamespacedName
+func (l *TranslationInputLoader) collectBackendReferencesFromHTTPRoutes(refs backendReferenceSet, routes []gatewayv1.HTTPRoute) {
 	for _, route := range routes {
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
-				services = appendBackendService(services, route.Namespace, backend.BackendObjectReference, lookup)
+				appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
 			}
 			for _, filter := range rule.Filters {
 				var backendRef gatewayv1.BackendObjectReference
@@ -430,119 +420,123 @@ func (l *TranslationInputLoader) collectBackendServicesFromHTTPRoutes(routes []g
 					continue
 				}
 
-				services = appendBackendService(services, route.Namespace, backendRef, lookup)
+				appendBackendRef(refs, route.Namespace, backendRef)
 			}
 		}
 	}
-	return services
 }
 
-func (l *TranslationInputLoader) collectBackendServicesFromGRPCRoutes(routes []gatewayv1.GRPCRoute, lookup serviceImportLookup) []types.NamespacedName {
-	var services []types.NamespacedName
+func (l *TranslationInputLoader) collectBackendReferencesFromGRPCRoutes(refs backendReferenceSet, routes []gatewayv1.GRPCRoute) {
 	for _, route := range routes {
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
-				services = appendBackendService(services, route.Namespace, backend.BackendObjectReference, lookup)
+				appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
 			}
 			for _, filter := range rule.Filters {
 				if filter.Type != gatewayv1.GRPCRouteFilterRequestMirror || filter.RequestMirror == nil {
 					continue
 				}
 
-				services = appendBackendService(services, route.Namespace, filter.RequestMirror.BackendRef, lookup)
+				appendBackendRef(refs, route.Namespace, filter.RequestMirror.BackendRef)
 			}
 		}
 	}
-	return services
 }
 
-func (l *TranslationInputLoader) collectBackendServicesFromTLSRoutes(routes []gatewayv1.TLSRoute, lookup serviceImportLookup) []types.NamespacedName {
-	var services []types.NamespacedName
+func (l *TranslationInputLoader) collectBackendReferencesFromTLSRoutes(refs backendReferenceSet, routes []gatewayv1.TLSRoute) {
 	for _, route := range routes {
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
-				services = appendBackendService(services, route.Namespace, backend.BackendObjectReference, lookup)
+				appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
 			}
 		}
 	}
-	return services
 }
 
-func (l *TranslationInputLoader) collectBackendServicesFromTCPRoutes(routes []gatewayv1.TCPRoute, lookup serviceImportLookup) []types.NamespacedName {
-	var services []types.NamespacedName
+func (l *TranslationInputLoader) collectBackendReferencesFromTCPRoutes(refs backendReferenceSet, routes []gatewayv1.TCPRoute) {
 	for _, route := range routes {
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
-				services = appendBackendService(services, route.Namespace, backend.BackendObjectReference, lookup)
+				appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
 			}
 		}
 	}
-	return services
 }
 
-func (l *TranslationInputLoader) collectBackendServicesFromUDPRoutes(routes []gatewayv1.UDPRoute, lookup serviceImportLookup) []types.NamespacedName {
-	var services []types.NamespacedName
+func (l *TranslationInputLoader) collectBackendReferencesFromUDPRoutes(refs backendReferenceSet, routes []gatewayv1.UDPRoute) {
 	for _, route := range routes {
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
-				services = appendBackendService(services, route.Namespace, backend.BackendObjectReference, lookup)
+				appendBackendRef(refs, route.Namespace, backend.BackendObjectReference)
 			}
 		}
 	}
-	return services
 }
 
-func (l *TranslationInputLoader) loadReferencedServices(
+func sortedBackendRefKeys(keys map[types.NamespacedName]struct{}) []types.NamespacedName {
+	names := make([]types.NamespacedName, 0, len(keys))
+	for key := range keys {
+		names = append(names, key)
+	}
+	sort.Slice(names, func(i, j int) bool {
+		return names[i].String() < names[j].String()
+	})
+	return names
+}
+
+func (l *TranslationInputLoader) loadReferencedBackendResources(
 	ctx context.Context,
 	httpRoutes []gatewayv1.HTTPRoute,
 	grpcRoutes []gatewayv1.GRPCRoute,
 	tlsRoutes []gatewayv1.TLSRoute,
 	tcpRoutes []gatewayv1.TCPRoute,
 	udpRoutes []gatewayv1.UDPRoute,
-	serviceImports []mcsapiv1beta1.ServiceImport,
-) ([]corev1.Service, error) {
-	// ServiceImport-backed refs still resolve to concrete Services during ingestion,
-	// so we need the imported objects here to map indirect refs to backing Services.
-	serviceKeys := make(map[types.NamespacedName]struct{})
-	serviceImportLookup := newServiceImportLookup(serviceImports)
+) ([]corev1.Service, []mcsapiv1beta1.ServiceImport, error) {
+	refs := newBackendReferenceSet()
+	l.collectBackendReferencesFromHTTPRoutes(refs, httpRoutes)
+	l.collectBackendReferencesFromGRPCRoutes(refs, grpcRoutes)
+	l.collectBackendReferencesFromTLSRoutes(refs, tlsRoutes)
+	l.collectBackendReferencesFromTCPRoutes(refs, tcpRoutes)
+	l.collectBackendReferencesFromUDPRoutes(refs, udpRoutes)
 
-	for _, serviceKey := range l.collectBackendServicesFromHTTPRoutes(httpRoutes, serviceImportLookup) {
-		serviceKeys[serviceKey] = struct{}{}
-	}
-	for _, serviceKey := range l.collectBackendServicesFromGRPCRoutes(grpcRoutes, serviceImportLookup) {
-		serviceKeys[serviceKey] = struct{}{}
-	}
-	for _, serviceKey := range l.collectBackendServicesFromTLSRoutes(tlsRoutes, serviceImportLookup) {
-		serviceKeys[serviceKey] = struct{}{}
-	}
-	for _, serviceKey := range l.collectBackendServicesFromTCPRoutes(tcpRoutes, serviceImportLookup) {
-		serviceKeys[serviceKey] = struct{}{}
-	}
-	for _, serviceKey := range l.collectBackendServicesFromUDPRoutes(udpRoutes, serviceImportLookup) {
-		serviceKeys[serviceKey] = struct{}{}
+	var serviceImports []mcsapiv1beta1.ServiceImport
+	if l.config.IncludeServiceImports {
+		serviceImports = make([]mcsapiv1beta1.ServiceImport, 0, len(refs.serviceImportKeys))
+		for _, serviceImportName := range sortedBackendRefKeys(refs.serviceImportKeys) {
+			var svcImport mcsapiv1beta1.ServiceImport
+			if err := l.client.Get(ctx, serviceImportName, &svcImport); err != nil {
+				if k8serrors.IsNotFound(err) {
+					continue
+				}
+				return nil, nil, err
+			}
+			serviceImports = append(serviceImports, svcImport)
+		}
+
+		// ServiceImport-backed refs still resolve to concrete Services during ingestion,
+		// so add their backing Services to the direct Service set before loading them.
+		serviceImportLookup := newServiceImportLookup(serviceImports)
+		for serviceImportName, serviceName := range serviceImportLookup {
+			refs.serviceKeys[types.NamespacedName{
+				Namespace: serviceImportName.Namespace,
+				Name:      serviceName,
+			}] = struct{}{}
+		}
 	}
 
-	serviceNames := make([]types.NamespacedName, 0, len(serviceKeys))
-	for serviceKey := range serviceKeys {
-		serviceNames = append(serviceNames, serviceKey)
-	}
-	sort.Slice(serviceNames, func(i, j int) bool {
-		return serviceNames[i].String() < serviceNames[j].String()
-	})
-
-	services := make([]corev1.Service, 0, len(serviceNames))
-	for _, serviceName := range serviceNames {
+	services := make([]corev1.Service, 0, len(refs.serviceKeys))
+	for _, serviceName := range sortedBackendRefKeys(refs.serviceKeys) {
 		var svc corev1.Service
 		if err := l.client.Get(ctx, serviceName, &svc); err != nil {
 			if k8serrors.IsNotFound(err) {
 				continue
 			}
-			return nil, err
+			return nil, nil, err
 		}
 		services = append(services, svc)
 	}
 
-	return services, nil
+	return services, serviceImports, nil
 }
 
 func (l *TranslationInputLoader) loadListenerSetRoutes(
@@ -699,6 +693,7 @@ func (l *TranslationInputLoader) resolveAllowedListenersFromListenerSets(
 
 	return listeners, attachedSets, disallowedSets, nil
 }
+
 func isListenerSetAllowed(
 	ctx context.Context,
 	c helpers.ClientReader,
