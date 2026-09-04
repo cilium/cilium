@@ -38,6 +38,9 @@ inputs:
   external-target-fake-dns:
     description: "Use DNS override for external targets in wildcard tests"
     required: false
+  external-target-ipv6-capable:
+    description: "The external target is reachable over IPv6"
+    required: false
   flow-validation:
     default: false
     description: "Enable flow validation in the connectivity test"
@@ -73,12 +76,18 @@ runs:
           "--code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS}" \
           "--exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS}" \
           "--external-target=${{ inputs.external-target }}" \
-          "--external-cidr=${{ inputs.external-cidr }}" \
-          "--external-ip=${{ inputs.external-ip }}" \
-          "--external-other-ip=${{ inputs.external-other-ip }}" \
           "--hubble=${{ inputs.hubble }}" \
         )
 
+        if [ -n "${{ inputs.external-cidr }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-cidr=${{ inputs.external-cidr }}")
+        fi
+        if [ -n "${{ inputs.external-ip }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-ip=${{ inputs.external-ip }}")
+        fi
+        if [ -n "${{ inputs.external-other-ip }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-other-ip=${{ inputs.external-other-ip }}")
+        fi
         if [ -n "${{ inputs.external-cidrv6 }}" ]; then
           CONNECTIVITY_TEST_DEFAULTS+=("--external-cidrv6=${{ inputs.external-cidrv6 }}")
         fi
@@ -101,6 +110,10 @@ runs:
 
         if [ "${{ inputs.external-target-fake-dns }}" == "true" ]; then
           CONNECTIVITY_TEST_DEFAULTS+=("--external-target-fake-dns")
+        fi
+
+        if [ "${{ inputs.external-target-ipv6-capable }}" == "true" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-target-ipv6-capable")
         fi
 
         if [ "${{ inputs.include-unsafe-tests }}" == "true" ]; then
