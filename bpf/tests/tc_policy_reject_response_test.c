@@ -18,6 +18,9 @@ ASSIGN_CONFIG(bool, policy_deny_response_enabled, true)
 #include "lib/ipcache.h"
 #include "lib/policy.h"
 #include "lib/icmp.h"
+#include "lib/metrics.h"
+
+#define DENY_REASON ((__u8)-DROP_POLICY_DENY)
 
 #define CLIENT_IP v4_pod_one
 #define TARGET_IP v4_ext_one
@@ -67,12 +70,21 @@ int policy_reject_response_setup(struct __ctx_buff *ctx)
 	/* Add policy that denies egress to target */
 	policy_add_egress_deny_all_entry();
 
+	/* The v4 and v6 egress cases share this metrics key, clear it so that
+	 * the assertions below hold regardless of test ordering.
+	 */
+	metrics_del_entry(DENY_REASON, METRIC_EGRESS);
+
 	return pod_send_packet(ctx);
 }
 
 CHECK(PROG_TYPE, "policy_reject_response_v4")
 int policy_reject_response_check(const struct __ctx_buff *ctx)
 {
+	struct metrics_key key = {
+		.reason = DENY_REASON,
+		.dir = METRIC_EGRESS,
+	};
 	void *data, *data_end;
 	__u32 *status_code;
 
@@ -96,6 +108,12 @@ int policy_reject_response_check(const struct __ctx_buff *ctx)
 			   v4_lxc_to_external_icmp_unreach,
 			   sizeof(v4_lxc_to_external_icmp_unreach));
 
+	/* The drop must be accounted under the policy-deny reason, and the byte
+	 * counter must reflect the denied packet, not the ICMP error message.
+	 */
+	assert_metrics_count(key, 1);
+	assert_metrics_bytes(key, sizeof(v4_lxc_to_external));
+
 	test_finish();
 }
 
@@ -105,8 +123,10 @@ int policy_reject_response_check(const struct __ctx_buff *ctx)
 #define CLIENT_IPv6 v6_pod_one
 #define TARGET_IPv6 v6_pod_two
 
+/* metrics_reason of 0 skips the metrics map assertions. */
 static __always_inline int
-validate_icmpv6_reply_return(const struct __ctx_buff *ctx, __u32 retval)
+validate_icmpv6_reply_return(const struct __ctx_buff *ctx, __u32 retval,
+			     __u8 metrics_reason)
 {
 	struct validate_icmpv6_reply_args args = {
 		.ctx = ctx,
@@ -114,6 +134,13 @@ validate_icmpv6_reply_return(const struct __ctx_buff *ctx, __u32 retval)
 		.buf_len = sizeof(v6_lxc_to_external_icmp_unreach),
 		.dst_idx = 1,
 		.retval = retval,
+		.metrics_reason = metrics_reason,
+		.metrics_dir = METRIC_EGRESS,
+		.metrics_count = 1,
+		/* The byte counter must reflect the denied packet, not the ICMP
+		 * error message.
+		 */
+		.metrics_bytes = sizeof(v6_lxc_to_external),
 	};
 	return validate_icmpv6_reply(&args);
 }
@@ -147,14 +174,21 @@ int policy_reject_response_v6_setup(struct __ctx_buff *ctx)
 	/* Add policy that denies egress to target */
 	policy_add_egress_deny_all_entry();
 
+	/* The v4 and v6 egress cases share this metrics key, clear it so that
+	 * the assertions below hold regardless of test ordering.
+	 */
+	metrics_del_entry(DENY_REASON, METRIC_EGRESS);
+
 	return pod_send_packet(ctx);
 }
 
 CHECK(PROG_TYPE, "policy_reject_response_v6")
 int policy_reject_response_v6_check(const struct __ctx_buff *ctx)
 {
-	/* we should have a redirect of the packet on the same interface. */
-	return validate_icmpv6_reply_return(ctx, TC_ACT_REDIRECT);
+	/* we should have a redirect of the packet on the same interface, and
+	 * the denied packet accounted under the policy-deny drop reason.
+	 */
+	return validate_icmpv6_reply_return(ctx, TC_ACT_REDIRECT, DENY_REASON);
 }
 
 /*
@@ -185,5 +219,5 @@ int policy_reject_response_v6_ingress_setup(struct __ctx_buff *ctx)
 CHECK(PROG_TYPE, "policy_reject_response_v6_ingress")
 int policy_reject_response_v6_ingress_check(const struct __ctx_buff *ctx)
 {
-	return validate_icmpv6_reply_return(ctx, TC_ACT_SHOT);
+	return validate_icmpv6_reply_return(ctx, TC_ACT_SHOT, 0);
 }
