@@ -25,8 +25,8 @@ func topKCmd(params CmdParams) script.Cmd {
 			Summary: "Determine causes of mapstate entries",
 			Args:    "<pod-or-endpoint>",
 			Flags: func(fs *pflag.FlagSet) {
-				fs.IntP("num", "n", 10, "Maxiumum number of rows per endpoint to display")
-				fs.IntP("count", "c", 0, "Maxiumum number of endpoints to display")
+				fs.IntP("num", "n", 10, "Maximum number of rows per endpoint to display")
+				fs.IntP("count", "c", 0, "Maximum number of endpoints to display")
 				fs.StringP("output", "o", "table", "Format to write in (table, json)")
 			},
 			AutocompleteFlag: func(_ *script.State, _ []string, flag, cur string) []string {
