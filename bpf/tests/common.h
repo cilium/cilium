@@ -279,3 +279,22 @@ test_result_cursor = 0;
 	} \
 	assert(sum == (__count)); \
 })
+
+/* Asserts that the sum of per-cpu metrics map byte counters for a key equals
+ * bytes
+ */
+#define assert_metrics_bytes(key, __bytes) \
+({ \
+	struct metrics_value *__entry = NULL; \
+	__u64 sum = 0; \
+	/* Iterate until lookup encounters null when hitting cpu number */ \
+	/* Assumes at most 128 CPUS */ \
+	for (int i = 0; i < MAX_ASSERT_CPUS; i++) { \
+		__entry = map_lookup_percpu_elem(&cilium_metrics, &(key), i); \
+		if (!__entry) { \
+			break; \
+		} \
+		sum += __entry->bytes; \
+	} \
+	assert(sum == (__bytes)); \
+})
