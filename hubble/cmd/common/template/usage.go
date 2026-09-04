@@ -4,7 +4,8 @@
 package template
 
 import (
-	"strings"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -18,7 +19,8 @@ var (
 )
 
 func init() {
-	cobra.AddTemplateFunc("title", strings.Title)
+	caser := cases.Title(language.English, cases.NoLower)
+	cobra.AddTemplateFunc("title", caser.String)
 	cobra.AddTemplateFunc("getFlagSets", getFlagSets)
 }
 
