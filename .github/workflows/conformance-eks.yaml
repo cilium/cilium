@@ -581,14 +581,18 @@ jobs:
             --output text)
           # Supposed to be one subnet and one CIDR with the default setup-eks-nodegroup config.
           CIDRV4=$(echo "$CIDRS" | awk '{print $1}')
-          echo "ipv4_external_cidr=$CIDRV4" >> $GITHUB_OUTPUT
+          if [ "${{ matrix.ip-family }}" != "IPv6" ]; then
+            echo "ipv4_external_cidr=$CIDRV4" >> $GITHUB_OUTPUT
+          fi
 
           CIDRS6=$(aws ec2 describe-subnets \
             --subnet-ids $SUBNETS \
             --query 'Subnets[].Ipv6CidrBlockAssociationSet[].Ipv6CidrBlock' \
             --output text)
           CIDRV6=$(echo "$CIDRS6" | awk '{print $1}')
-          echo "ipv6_external_cidr=$CIDRV6" >> $GITHUB_OUTPUT
+          if [ "${{ matrix.ip-family }}" = "IPv6" ]; then
+            echo "ipv6_external_cidr=$CIDRV6" >> $GITHUB_OUTPUT
+          fi
 
       - name: Get connectivity test flags
         id: e2e_config
