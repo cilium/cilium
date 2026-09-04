@@ -105,6 +105,18 @@ const __u8 icmp6_err_revnat_full_udp[] = {
 const __u8 icmp6_err_revnat_full_udp_after[] = {
 	SCAPY_BUF_BYTES(icmp6_err_revnat_full_udp_after)
 };
+const __u8 icmp6_err_revnat_egress_sctp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_egress_sctp)
+};
+const __u8 icmp6_err_revnat_egress_post_sctp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_egress_post_sctp)
+};
+const __u8 icmp6_err_revnat_full_sctp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_full_sctp)
+};
+const __u8 icmp6_err_revnat_full_sctp_after[] = {
+	SCAPY_BUF_BYTES(icmp6_err_revnat_full_sctp_after)
+};
 
 /*
  * Push an egressing pod->external TCP packet through to-netdev and let the
@@ -221,6 +233,56 @@ int snat_v6_egress_udp_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
+PKTGEN(PROG_TYPE, "02_snat_v6_sctp_egress")
+int snat_v6_egress_sctp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp6_err_revnat_egress_sctp,
+			sizeof(icmp6_err_revnat_egress_sctp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "02_snat_v6_sctp_egress")
+int snat_v6_egress_sctp_setup(struct __ctx_buff *ctx)
+{
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "02_snat_v6_sctp_egress")
+int snat_v6_egress_sctp_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+
+	ASSERT_CTX_BUF_OFF("snat_v6_egress_sctp", "Ether", ctx, sizeof(__u32),
+			   icmp6_err_revnat_egress_post_sctp,
+			   sizeof(icmp6_err_revnat_egress_post_sctp));
+
+	union v6addr pod_ip = POD_IP6;
+	struct ipv6_ct_tuple tuple = {
+		.daddr   = NODE_ONE6,
+		.saddr   = EXT_IP6,
+		.dport   = tcp_src_two,
+		.sport   = tcp_dst_one,
+		.nexthdr = IPPROTO_SCTP,
+		.flags   = NAT_DIR_INGRESS,
+	};
+	struct ipv6_nat_entry *entry = map_lookup_elem(&cilium_snat_v6_external,
+						      &tuple);
+
+	if (!entry)
+		test_fatal("no revSNAT entry created by to-netdev");
+	if (!ipv6_addr_equals(&entry->to_daddr, &pod_ip))
+		test_fatal("revSNAT entry to_daddr is not the pod IP");
+	if (entry->to_dport != tcp_src_two)
+		test_fatal("revSNAT entry to_dport is not the pod source port");
+
+	test_finish();
+}
+
 PKTGEN(PROG_TYPE, "snat_v6_tcp_pmtu")
 int snat_v6_pmtu_pktgen(struct __ctx_buff *ctx)
 {
@@ -278,6 +340,40 @@ int snat_v6_pmtu_udp_check(const struct __ctx_buff *ctx)
 	ASSERT_CTX_BUF_OFF("snat_v6_udp_pmtu", "Ether", ctx, sizeof(__u32),
 			   icmp6_err_revnat_full_udp_after,
 			   sizeof(icmp6_err_revnat_full_udp_after));
+	test_finish();
+
+	return 0;
+}
+
+/* Verify that RevSNAT of an embedded SCTP packet updates the outer
+ * ICMPv6 checksum for the embedded IPv6 address change.
+ */
+PKTGEN(PROG_TYPE, "snat_v6_sctp_pmtu")
+int snat_v6_pmtu_sctp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp6_err_revnat_full_sctp,
+			sizeof(icmp6_err_revnat_full_sctp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v6_sctp_pmtu")
+int snat_v6_pmtu_sctp_setup(struct __ctx_buff *ctx)
+{
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v6_sctp_pmtu")
+int snat_v6_pmtu_sctp_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v6_sctp_pmtu", "Ether", ctx, sizeof(__u32),
+			   icmp6_err_revnat_full_sctp_after,
+			   sizeof(icmp6_err_revnat_full_sctp_after));
 	test_finish();
 
 	return 0;
