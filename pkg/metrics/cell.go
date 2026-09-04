@@ -52,6 +52,7 @@ var AgentCell = cell.Group(
 			// expensive to sample and currently not terrible useful to keep data on.
 			reg.inner.MustRegister(pkgmetric.EnabledCollector{C: newStatusCollector(logger)})
 			reg.inner.MustRegister(pkgmetric.EnabledCollector{C: newbpfCollector(logger)})
+			reg.inner.MustRegister(pkgmetric.EnabledCollector{C: newAgentMemoryCollector(logger)})
 
 			// Resolve the global registry variable for as long as we still have global functions
 			registryResolver.Resolve(reg)
