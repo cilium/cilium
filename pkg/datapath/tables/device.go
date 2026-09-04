@@ -112,6 +112,7 @@ type Device struct {
 	Addrs        []DeviceAddress // Addresses assigned to the device
 	RawFlags     uint32          // Raw interface flags
 	Type         string          // Device type, e.g. "veth" etc.
+	VRFTable     uint32          // VRF routing table; zero for other device types
 	MasterIndex  int             // Index of the master device (e.g. bridge or bonding device)
 	OperStatus   string          // Operational status, e.g. "up", "lower-layer-down"
 
@@ -141,6 +142,7 @@ func (*Device) TableHeader() []string {
 		"Index",
 		"Selected",
 		"Type",
+		"VRFTable",
 		"MTU",
 		"HWAddr",
 		"Flags",
@@ -163,6 +165,7 @@ func (d *Device) TableRow() []string {
 		fmt.Sprintf("%d", d.Index),
 		fmt.Sprintf("%v", d.Selected),
 		d.Type,
+		fmt.Sprintf("%d", d.VRFTable),
 		fmt.Sprintf("%d", d.MTU),
 		d.HardwareAddr.String(),
 		d.Flags.String(),

@@ -68,6 +68,13 @@ db/cmp devices --grep dummy devices_empty.table
 db/cmp routes routes_empty.table
 db/cmp neighbors neighbors_empty.table
 
+# A VRF exposes its routing table in the devices table.
+exec ip link add vrf-blue-intf type vrf table 1000
+db/cmp --grep='^vrf-blue-intf' devices devices_vrf.table
+
+exec ip link del vrf-blue-intf
+db/cmp --grep='^vrf-blue-intf' devices devices_empty.table
+
 # Add dummy2.
 exec ip link add dummy2 type dummy
 exec ip link set dummy2 addrgenmode none
@@ -192,6 +199,11 @@ dummy2 (longinterfacename)            true       dummy  192.168.2.12  unknown
 -- devices_dummy3_altnames.table --
 Name                                         Selected   Type   Addresses     OperStatus
 dummy3 (altdummy, anotherlonginterfacename)  false      dummy  192.168.3.13  up
+
+-- devices_vrf.table --
+Name             Type   VRFTable
+vrf-blue-intf    vrf    1000
+
 -- devices_placeholder --
 
 
