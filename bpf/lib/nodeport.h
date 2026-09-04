@@ -434,6 +434,15 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 		return DROP_WRITE_ERROR;
 	return 0;
 #  else /* __ctx_is == __ctx_xdp */
+	if (dsr_is_too_big(ctx, dsr_wire_len(ctx, ip6->nexthdr, sizeof(*ip6),
+					     ETH_HLEN + sizeof(*ip6),
+					     bpf_ntohs(ip6->payload_len) +
+					     sizeof(*ip6)) +
+			   sizeof(*ip6))) {
+		*ohead = sizeof(*ip6);
+		return DROP_FRAG_NEEDED;
+	}
+
 	if (dsr_set_ipip6_dev(ctx, backend_addr, 0) < 0)
 		return DROP_NO_TUNNEL_KEY;
 	*oif = ENCAP6_IFINDEX;
@@ -1764,6 +1773,15 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 		return DROP_CSUM_L3;
 	return 0;
 #  else /* __ctx_is == __ctx_xdp */
+	if (dsr_is_too_big(ctx, dsr_wire_len(ctx, ip4->protocol,
+					     ipv4_hdrlen(ip4),
+					     ETH_HLEN + ipv4_hdrlen(ip4),
+					     bpf_ntohs(ip4->tot_len)) +
+			   sizeof(*ip4))) {
+		*ohead = sizeof(*ip4);
+		return DROP_FRAG_NEEDED;
+	}
+
 	if (dsr_set_ipip4_dev(ctx, backend_addr, 0) < 0)
 		return DROP_NO_TUNNEL_KEY;
 	*oif = ENCAP4_IFINDEX;
