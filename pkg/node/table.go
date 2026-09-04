@@ -128,11 +128,14 @@ func (n *Node) addressClusters(
 // LocalNodeInfo is the additional information about the local node that
 // is only used internally.
 //
-// Every field is a comparable value type, which lets DeepCopyInto and
-// DeepEqual below be a plain assignment and a plain comparison.
+// DeepEqual is generated, except for the netip.Addr and netip.Prefix fields:
+// deepequal-gen cannot synthesize a comparison for an external type with
+// unexported pointer fields, so those carry +deepequal-gen=false and are
+// compared by the hand-written prologue in DeepEqual below.
 //
 // +k8s:deepcopy-gen=false
-// +deepequal-gen=false
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type LocalNodeInfo struct {
 	// OptOutNodeEncryption will make the local node opt-out of node-to-node
 	// encryption
@@ -143,14 +146,18 @@ type LocalNodeInfo struct {
 	// ID of the node assigned by the cloud provider.
 	ProviderID string
 	// v4 CIDR in which pod IPs are routable
+	// +deepequal-gen=false
 	IPv4NativeRoutingCIDR netip.Prefix
 	// v6 CIDR in which pod IPs are routable
+	// +deepequal-gen=false
 	IPv6NativeRoutingCIDR netip.Prefix
 	// ServiceLoopbackIPv4 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
+	// +deepequal-gen=false
 	ServiceLoopbackIPv4 netip.Addr
 	// ServiceLoopbackIPv6 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
+	// +deepequal-gen=false
 	ServiceLoopbackIPv6 netip.Addr
 	// IsBeingDeleted indicates that the local node is being deleted.
 	IsBeingDeleted bool
@@ -178,7 +185,22 @@ func (in *LocalNodeInfo) DeepEqual(other *LocalNodeInfo) bool {
 	if other == nil {
 		return false
 	}
-	return *in == *other
+	// Manually compare the netip.Addr and netip.Prefix fields, which
+	// deepequal-gen cannot generate a comparison for.
+	if in.IPv4NativeRoutingCIDR != other.IPv4NativeRoutingCIDR {
+		return false
+	}
+	if in.IPv6NativeRoutingCIDR != other.IPv6NativeRoutingCIDR {
+		return false
+	}
+	if in.ServiceLoopbackIPv4 != other.ServiceLoopbackIPv4 {
+		return false
+	}
+	if in.ServiceLoopbackIPv6 != other.ServiceLoopbackIPv6 {
+		return false
+	}
+	// Call the generated `deepEqual` method, which compares all other fields.
+	return in.deepEqual(other)
 }
 
 const (
