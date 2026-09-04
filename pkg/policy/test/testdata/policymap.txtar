@@ -15,7 +15,8 @@ endpoint/create ${ep2_identity} ${ep2_labels}
 env --from-stdout ep2
 
 # The host is reserved identity 1, which sorts before the dynamically allocated
-# pod identities (>=256).
+# pod identities (>=256). 8080-8095 is aligned to a single LPM prefix, so it
+# lands as one entry rather than several.
 k8s/add policy.yaml
 policy/import policy.yaml
 endpoint/wait-for-policy-revision 2
@@ -33,10 +34,12 @@ policy/policymap ${ep2}
 cmp -w stdout ep2.expected
 
 -- ep1.expected --
-Direction  Identity         PortProto  Action  ProxyPort
-Ingress    ${ep2_identity}  80/TCP     Allow   0
-Egress     1                ANY        Deny    0
-Egress     ${ep2_identity}  ANY        Allow   0
+Direction  Identity         PortProto      Action  ProxyPort
+Ingress    ${ep2_identity}  80/TCP         Allow   19001
+Ingress    ${ep2_identity}  8080-8095/TCP  Allow   19001
+Egress     1                ANY            Deny    0
+Egress     ${ep2_identity}  ANY            Allow   0
+Egress     ${ep2_identity}  53/UDP         Allow   19002
 -- ep2.expected --
 Direction  Identity  PortProto  Action  ProxyPort
 Ingress    0         ANY        Allow   0
@@ -67,10 +70,27 @@ spec:
     - ports:
       - port: "80"
         protocol: TCP
+      - port: "8080"
+        endPort: 8095
+        protocol: TCP
+      rules:
+        http:
+        - method: GET
+          path: "/"
   egress:
   - toEndpoints:
     - matchLabels:
         app: backend
+  - toEndpoints:
+    - matchLabels:
+        app: backend
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      rules:
+        dns:
+        - matchPattern: "*"
   egressDeny:
   - toEntities:
     - host
