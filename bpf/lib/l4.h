@@ -170,6 +170,17 @@ static __always_inline int l4_load_tcp_flags(const struct __ctx_buff *ctx, int l
 	return ctx_load_bytes(ctx, l4_off + 12, flags, 2);
 }
 
+static __always_inline int
+l4_load_tcp_hdrlen(const struct __ctx_buff *ctx, int l4_off, __u32 *hdrlen)
+{
+	__u8 doff;
+
+	if (ctx_load_bytes(ctx, l4_off + 12, &doff, sizeof(doff)) < 0)
+		return DROP_INVALID;
+	*hdrlen = (doff & 0xf0) >> 2;
+	return 0;
+}
+
 /* A non-first fragment from the world whose first fragment (with the L4 ports)
  * was never seen can't be matched against policy, so it's dropped. On public
  * node IPs this is mostly ambient internet noise; report it under a distinct
