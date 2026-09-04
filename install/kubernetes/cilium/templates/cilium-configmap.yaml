@@ -2,7 +2,6 @@
 {{- /*  Default values with backwards compatibility */ -}}
 {{- $defaultBpfMapDynamicSizeRatio := 0.0 -}}
 {{- $defaultBpfMasquerade := "false" -}}
-{{- $defaultLegacyHostRouting := "false" -}}
 {{- $defaultBpfClockProbe := "false" -}}
 {{- $defaultBpfTProxy := "false" -}}
 {{- $defaultIPAM := "cluster-pool" -}}
@@ -69,7 +68,6 @@
   {{- if .Values.eni.enabled }}
     {{- $defaultEnableIPv6Masquerade = "false" -}}
   {{- end }}
-  {{- $defaultLegacyHostRouting = "true" -}}
 {{- end -}}
 
 {{- /* Effective masquerading settings */ -}}
@@ -441,8 +439,6 @@ data:
   # In cni chaining mode, the other chained plugin is responsible for underlying connectivity,
   # so cilium eBPF host routing shoud not work, and let it fall back to the legacy routing mode
   enable-host-legacy-routing: "true"
-{{- else }}
-  enable-host-legacy-routing: {{ $defaultLegacyHostRouting | quote }}
 {{- end }}
 
 {{- if .Values.bpf.nodeMapMax }}
