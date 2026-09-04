@@ -76,7 +76,8 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: 1.26.0
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.27.0
           cache: false
 
       - name: Install Ariane linter
