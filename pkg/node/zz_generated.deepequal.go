@@ -24,6 +24,40 @@ func (in *LocalNodeInfo) deepEqual(other *LocalNodeInfo) bool {
 	if in.ProviderID != other.ProviderID {
 		return false
 	}
+	if ((in.IPv4PodSubnets != nil) && (other.IPv4PodSubnets != nil)) || ((in.IPv4PodSubnets == nil) != (other.IPv4PodSubnets == nil)) {
+		in, other := &in.IPv4PodSubnets, &other.IPv4PodSubnets
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.IPv6PodSubnets != nil) && (other.IPv6PodSubnets != nil)) || ((in.IPv6PodSubnets == nil) != (other.IPv6PodSubnets == nil)) {
+		in, other := &in.IPv6PodSubnets, &other.IPv6PodSubnets
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
 	if in.IsBeingDeleted != other.IsBeingDeleted {
 		return false
 	}

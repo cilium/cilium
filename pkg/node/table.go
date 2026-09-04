@@ -16,6 +16,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -159,6 +160,14 @@ type LocalNodeInfo struct {
 	// itself through a Service.
 	// +deepequal-gen=false
 	ServiceLoopbackIPv6 netip.Addr
+	// IPv4PodSubnets are the v4 subnets pod IPs are allocated from, for IPAM
+	// modes where pods live in cloud provider subnets rather than in a node
+	// PodCIDR. Empty for every other mode.
+	IPv4PodSubnets []ip.Prefix
+	// IPv6PodSubnets are the v6 subnets pod IPs are allocated from, for IPAM
+	// modes where pods live in cloud provider subnets rather than in a node
+	// PodCIDR. Empty for every other mode.
+	IPv6PodSubnets []ip.Prefix
 	// IsBeingDeleted indicates that the local node is being deleted.
 	IsBeingDeleted bool
 	// UnderlayProtocol is the IP family of our underlay.
@@ -168,6 +177,8 @@ type LocalNodeInfo struct {
 // DeepCopyInto copies the receiver into out. in must be non-nil.
 func (in *LocalNodeInfo) DeepCopyInto(out *LocalNodeInfo) {
 	*out = *in
+	out.IPv4PodSubnets = slices.Clone(in.IPv4PodSubnets)
+	out.IPv6PodSubnets = slices.Clone(in.IPv6PodSubnets)
 }
 
 // DeepCopy creates a deep copy of the LocalNodeInfo.
@@ -201,6 +212,23 @@ func (in *LocalNodeInfo) DeepEqual(other *LocalNodeInfo) bool {
 	}
 	// Call the generated `deepEqual` method, which compares all other fields.
 	return in.deepEqual(other)
+}
+
+// SetPodSubnets records the subnets pod IPs are allocated from, coalescing
+// them into the minimal equivalent set and splitting them by address family.
+// It replaces any previously recorded value, so repeated calls with the same
+// input are idempotent and dedup against the previous revision in statedb.
+func (n *LocalNode) SetPodSubnets(prefixes []netip.Prefix) {
+	var v4, v6 []ip.Prefix
+	for _, p := range ip.CoalescePrefixes(prefixes) {
+		if p.Addr().Is4() {
+			v4 = append(v4, ip.PrefixFrom(p))
+		} else {
+			v6 = append(v6, ip.PrefixFrom(p))
+		}
+	}
+	n.Local.IPv4PodSubnets = v4
+	n.Local.IPv6PodSubnets = v6
 }
 
 const (
