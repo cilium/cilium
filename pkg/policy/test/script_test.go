@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
+	"github.com/cilium/cilium/pkg/policy/commands"
 	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
@@ -69,6 +70,7 @@ func TestScript(t *testing.T) {
 			maps.Insert(cmds, maps.All(policycell.PolicyImporterScriptCmds(f.importer.(*policycell.Importer))))
 			maps.Insert(cmds, maps.All(endpointmanager.ScriptCmds(f.epm, f.templateEP)))
 			maps.Insert(cmds, maps.All(policy.LookupFlowScriptCmds(log, f.repo, f.idmgr, f.allocator)))
+			cmds["policy/policymap"] = commands.PolicyMapCmd(f.epm)
 			return &script.Engine{
 				Cmds:          cmds,
 				RetryInterval: 10 * time.Millisecond,

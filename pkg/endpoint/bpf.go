@@ -1527,6 +1527,23 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	return err
 }
 
+// DumpPolicyMap returns the current entries in the endpoint's BPF policymap.
+// Returns nil if the policymap has not been initialized.
+func (e *Endpoint) DumpPolicyMap() (policymap.PolicyEntriesDump, error) {
+	// The policymap is opened, reassigned and closed under the endpoint
+	// mutex, so hold the read lock for the duration of the dump to avoid a
+	// data race on the field and a dump of a closed map.
+	if err := e.rlockAlive(); err != nil {
+		return nil, err
+	}
+	defer e.runlock()
+
+	if e.policyMap == nil {
+		return nil, nil
+	}
+	return e.policyMap.DumpToSlice()
+}
+
 // startSyncPolicyMapController starts the policymap sync controller. Must be called with the endpoint mutex held.
 func (e *Endpoint) startSyncPolicyMapController() {
 	// Skip the controller if the endpoint has no policy map
