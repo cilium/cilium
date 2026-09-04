@@ -17,6 +17,7 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -178,6 +179,7 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 				IPv6ClusterAllocCIDRBase:     "fd00::",
 				EnableIPv4:                   true,
 				EnableIPv6:                   true,
+				EnableEnvoyConfig:            true,
 				EnableHealthChecking:         true,
 				EnableEndpointHealthChecking: true,
 			},
@@ -226,6 +228,10 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 									IPv4: "10.0.0.2",
 									IPv6: "fd00:10:244:1::aaa7",
 								},
+								IngressAddressing: v2.AddressPair{
+									IPV4: "10.0.0.3",
+									IPV6: "fd00:10:244:1::aaa8",
+								},
 							},
 						},
 						Done: func(err error) {},
@@ -246,7 +252,124 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 	assert.Equal(t, "fd00:10:244:1::aaa6", n.GetCiliumInternalIP(true).String())
 	assert.Equal(t, "10.0.0.2", n.IPv4HealthIP.String())
 	assert.Equal(t, "fd00:10:244:1::aaa7", n.IPv6HealthIP.String())
+	assert.Equal(t, "10.0.0.3", n.IPv4IngressIP.String())
+	assert.Equal(t, "fd00:10:244:1::aaa8", n.IPv6IngressIP.String())
 	assert.Equal(t, "test-node", n.Name)
+}
+
+func TestInitLocalNode_initFromK8sIngress(t *testing.T) {
+	oldAnnotateK8sNode := option.Config.AnnotateK8sNode
+	option.Config.AnnotateK8sNode = true
+	t.Cleanup(func() {
+		option.Config.AnnotateK8sNode = oldAnnotateK8sNode
+	})
+
+	tests := []struct {
+		name           string
+		enableEnvoy    bool
+		ciliumNodeIPv4 string
+		ciliumNodeIPv6 string
+		expectedIPv4   string
+		expectedIPv6   string
+	}{
+		{
+			name:           "cilium node takes precedence",
+			enableEnvoy:    true,
+			ciliumNodeIPv4: "10.0.0.3",
+			ciliumNodeIPv6: "fd00:10:244:1::aaa8",
+			expectedIPv4:   "10.0.0.3",
+			expectedIPv6:   "fd00:10:244:1::aaa8",
+		},
+		{
+			name:         "kubernetes node annotation fallback",
+			enableEnvoy:  true,
+			expectedIPv4: "10.0.0.4",
+			expectedIPv6: "fd00:10:244:1::aaa9",
+		},
+		{
+			name:           "invalid cilium node address keeps annotation fallback",
+			enableEnvoy:    true,
+			ciliumNodeIPv4: "not-an-ip",
+			ciliumNodeIPv6: "also-not-an-ip",
+			expectedIPv4:   "10.0.0.4",
+			expectedIPv6:   "fd00:10:244:1::aaa9",
+		},
+		{
+			name:           "envoy disabled",
+			ciliumNodeIPv4: "10.0.0.3",
+			ciliumNodeIPv6: "fd00:10:244:1::aaa8",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lni := newLocalNodeSynchronizer(localNodeSynchronizerParams{
+				Logger: hivetest.Logger(t),
+				Config: &option.DaemonConfig{
+					IPv4NodeAddr:             "auto",
+					IPv6NodeAddr:             "auto",
+					IPv6ClusterAllocCIDRBase: "fd00::",
+					EnableIPv4:               true,
+					EnableIPv6:               true,
+					EnableEnvoyConfig:        tt.enableEnvoy,
+				},
+				K8sLocalNode: &mockResource[*slim_corev1.Node]{
+					items: []resource.Event[*slim_corev1.Node]{
+						{
+							Kind: resource.Upsert,
+							Object: &slim_corev1.Node{
+								ObjectMeta: slim_metav1.ObjectMeta{
+									Name: "test-node",
+									Annotations: map[string]string{
+										annotation.V4IngressName: "10.0.0.4",
+										annotation.V6IngressName: "fd00:10:244:1::aaa9",
+									},
+								},
+							},
+							Done: func(error) {},
+						},
+					},
+				},
+				K8sCiliumLocalNode: &mockResource[*v2.CiliumNode]{
+					items: []resource.Event[*v2.CiliumNode]{
+						{
+							Kind: resource.Upsert,
+							Object: &v2.CiliumNode{
+								Spec: v2.NodeSpec{
+									IngressAddressing: v2.AddressPair{
+										IPV4: tt.ciliumNodeIPv4,
+										IPV6: tt.ciliumNodeIPv6,
+									},
+								},
+							},
+							Done: func(error) {},
+						},
+					},
+				},
+				IPsecConfig: fakeipsec.Config{},
+			})
+
+			n := &node.LocalNode{
+				Node: types.Node{
+					Labels:      map[string]string{},
+					Annotations: map[string]string{},
+				},
+				Local: &node.LocalNodeInfo{},
+			}
+			require.NoError(t, lni.InitLocalNode(t.Context(), n))
+
+			if tt.expectedIPv4 == "" {
+				assert.Nil(t, n.IPv4IngressIP)
+			} else {
+				assert.Equal(t, tt.expectedIPv4, n.IPv4IngressIP.String())
+			}
+			if tt.expectedIPv6 == "" {
+				assert.Nil(t, n.IPv6IngressIP)
+			} else {
+				assert.Equal(t, tt.expectedIPv6, n.IPv6IngressIP.String())
+			}
+		})
+	}
 }
 
 func TestLocalNodeSync_NodeDeletion(t *testing.T) {
