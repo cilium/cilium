@@ -6,6 +6,7 @@
 #include <linux/udp.h>
 #include <linux/ip.h>
 #include "identity.h"
+#include "tunnel.h"
 
 static __always_inline __maybe_unused void
 bpf_clear_meta(struct xdp_md *ctx __maybe_unused)
@@ -158,8 +159,8 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
-		    __u32 daddr, __u32 seclabel __maybe_unused,
-		    __u32 vni __maybe_unused, void *opt, __u32 opt_len)
+		    __u32 daddr, __u32 seclabel, __u32 vni __maybe_unused,
+		    void *opt, __u32 opt_len)
 {
 	__u32 inner_len = (__u32)ctx_full_len(ctx);
 	__u32 tunnel_hdr_len = 8; /* geneve / vxlan */
@@ -199,7 +200,7 @@ ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 			geneve->opt_len = (__u8)(opt_len >> 2);
 			geneve->protocol_type = bpf_htons(ETH_P_TEB);
 
-			seclabel = bpf_htonl(get_tunnel_id(seclabel) << 8);
+			seclabel = sec_identity_to_tunnel_vni(get_tunnel_id(seclabel));
 			memcpy(&geneve->vni, &seclabel, sizeof(__u32));
 		}
 		break;
@@ -212,7 +213,7 @@ ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 
 			vxlan->vx_flags = bpf_htonl(1U << 27);
 
-			seclabel = bpf_htonl(get_tunnel_id(seclabel) << 8);
+			seclabel = sec_identity_to_tunnel_vni(get_tunnel_id(seclabel));
 			memcpy(&vxlan->vx_vni, &seclabel, sizeof(__u32));
 		}
 		break;
