@@ -55,6 +55,7 @@ func NewPolicyCommands(params CmdParams) hive.ScriptCmdsOut {
 		"policy/mapstate/entries": msEntriesCmd(params.EPL),
 		"policy/mapstate/topk":    topKCmd(params.EPL),
 		"policy/mapstate/stage":   msStageCmd(params),
+		"policy/policymap":        PolicyMapCmd(params.EPL),
 	})
 }
 
