@@ -151,6 +151,7 @@ type RedirectBackend struct {
 	// When multiple ports are specified, the ports must be named.
 	//
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
 	ToPorts []PortInfo `json:"toPorts"`
 }
 
