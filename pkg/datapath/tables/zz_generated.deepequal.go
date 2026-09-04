@@ -84,6 +84,9 @@ func (in *Device) DeepEqual(other *Device) bool {
 	if in.Type != other.Type {
 		return false
 	}
+	if in.VRFTable != other.VRFTable {
+		return false
+	}
 	if in.MasterIndex != other.MasterIndex {
 		return false
 	}

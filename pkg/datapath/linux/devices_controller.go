@@ -426,6 +426,11 @@ func populateFromLink(d *tables.Device, link netlink.Link) {
 	d.MasterIndex = a.MasterIndex
 	d.Type = link.Type()
 	d.OperStatus = a.OperState.String()
+
+	// A VRF's routing table is immutable link state.
+	if vrf, ok := link.(*netlink.Vrf); ok {
+		d.VRFTable = vrf.Table
+	}
 }
 
 // processBatch processes a batch of address, link and route updates.
