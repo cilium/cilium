@@ -278,12 +278,17 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 	}
 
 	// Parse backend config
-	bePorts = make([]bePortInfo, len(redirectTo.ToPorts))
-	if len(redirectTo.ToPorts) > 1 {
+	numBePorts := len(redirectTo.ToPorts)
+	if numBePorts == 0 {
+		return nil, fmt.Errorf("backend must specify at least one port")
+	}
+	if numBePorts > 1 {
 		// We check for backend named ports if either frontend/backend have
 		// multiple ports.
 		checkNamedPort = true
 	}
+
+	bePorts = make([]bePortInfo, len(redirectTo.ToPorts))
 	for i, portInfo := range redirectTo.ToPorts {
 		p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
 		if err != nil {
