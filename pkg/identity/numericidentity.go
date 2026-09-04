@@ -51,7 +51,7 @@ const (
 	//
 	// Note that this does not represents the minimal value for a local
 	// identity, as the allocated ID will then be bitwise OR'ed with
-	// LocalIdentityFlag.
+	// IdentityScopeLocal.
 	MinAllocatorLocalIdentity = 1
 
 	// MinLocalIdentity represents the actual minimal numeric identity value
@@ -64,7 +64,7 @@ const (
 	//
 	// Note that this does not represents the maximal value for a local
 	// identity, as the allocated ID will then be bitwise OR'ed with
-	// LocalIdentityFlag.
+	// IdentityScopeLocal.
 	MaxAllocatorLocalIdentity = 0xFFFFFF
 
 	// MaxLocalIdentity represents the actual maximal numeric identity value
@@ -415,11 +415,18 @@ func AddUserDefinedNumericIdentity(identity NumericIdentity, label string) error
 
 // NumericIdentity is the numeric representation of a security identity.
 //
-// Bits:
+// Bits 24-31 encode the identity scope, as defined by the IdentityScope*
+// constants. For allocated global identities,
+// bits 0-23 are divided between the cluster-local identity and cluster ID.
+// The boundary depends on the configured maximum number of clusters:
 //
-//	 0-15: identity identifier
-//	16-23: cluster identifier
-//	   24: LocalIdentityFlag: Indicates that the identity has a local scope
+//	max-connected-clusters=255: bits 0-15 identity, bits 16-23 cluster ID
+//	max-connected-clusters=511: bits 0-14 identity, bits 15-23 cluster ID
+//
+// Reserved identities also have global scope, but use fixed values below
+// MinimalNumericIdentity and do not follow this subdivision.
+//
+// For non-global scopes, bits 0-23 contain the scope-local identifier.
 type NumericIdentity uint32
 
 // MaxNumericIdentity is the maximum value of a NumericIdentity.
