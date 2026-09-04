@@ -65,5 +65,6 @@ runs:
           --ip-families ipv4,ipv6 \
           ${{ inputs.taints }} \
           --generate-ssh-keys \
-          --api-server-authorized-ip-ranges ${{ steps.get-runner-ip.outputs.cidr }}
+          --api-server-authorized-ip-ranges ${{ steps.get-runner-ip.outputs.cidr }} \
+          --disable-local-accounts
 
