@@ -30,10 +30,7 @@ Enable the Hubble UI by running the following command:
 
 .. tabs::
 
-    .. group-tab:: Cilium CLI 
-
-        If Hubble is already enabled with ``cilium hubble enable``, you must first temporarily disable Hubble with ``cilium hubble disable``.
-        This is because the Hubble UI cannot be added at runtime.
+    .. group-tab:: Cilium CLI
 
         .. code-block:: shell-session
 
