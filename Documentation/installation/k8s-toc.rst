@@ -13,6 +13,7 @@ Installation with K8s distributions
    :glob:
 
    k8s-install-external-etcd
+   k8s-install-hetzner
    k8s-install-openshift-okd
    k8s-install-broadcom-vmware-esxi-nsx
    k3s

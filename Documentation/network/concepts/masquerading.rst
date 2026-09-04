@@ -40,7 +40,6 @@ Setting the routable CIDR
   within the same VPC (e.g., virtual machines) will be routed directly without
   masquerading the source IP address.
 
-
 Setting the masquerading interface
   See :ref:`masq_modes` for configuring the masquerading interfaces.
 
