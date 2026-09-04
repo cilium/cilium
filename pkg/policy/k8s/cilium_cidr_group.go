@@ -64,6 +64,22 @@ func (p *policyWatcher) cidrsAndLabelsForCIDRGroup(name string) (sets.Set[netip.
 				)
 				continue
 			}
+			// workaround for GH-39688: identity 2 (world) doesn't have any CIDR labels,
+			// so we can't select zero-length (0.0.0.0/0) prefixes directly. Split it in to
+			// two /1 prefixes
+			if pfx.Bits() == 0 {
+				if pfx.Addr().Is4() {
+					newCIDRs.Insert(
+						netip.MustParsePrefix("0.0.0.0/1"),
+						netip.MustParsePrefix("128.0.0.0/1"),
+					)
+				} else {
+					newCIDRs.Insert(
+						netip.MustParsePrefix("::/1"),
+						netip.MustParsePrefix("8000::/1"),
+					)
+				}
+			}
 			newCIDRs.Insert(pfx)
 		}
 	}
