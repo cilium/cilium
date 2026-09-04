@@ -1,0 +1,79 @@
+name: CI Validation Notice
+
+# Flags pull requests whose CI changes are not exercised by their own CI, so
+# that a reviewer validates them manually before merge. See the "Testing CI
+# workflow changes" section of Documentation/contributing/testing/ci.rst.
+#
+# The logic lives in tools/ci-validation so that it is covered by Go unit tests,
+# which do exercise the code a pull request proposes because /test checks out
+# the branch under test. That is not true of this workflow definition, so the
+# wiring below is deliberately thin: it is the part this job cannot validate.
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      # CI changes are routinely added after a pull request is opened, so
+      # flagging only on 'opened' would miss them. The tool reports a path only
+      # once, which keeps the label a gate a reviewer clears once rather than
+      # one that comes back on every push.
+      - synchronize
+    # Listed positively rather than as a 'branches-ignore' of the stable
+    # branches. 'pull_request_target' loads this file from the base branch, so
+    # the copy that a future stable branch inherits would otherwise start
+    # gating that branch's pull requests until someone added it to the ignore
+    # list. Naming the branches it applies to keeps that a no-op.
+    branches:
+      - main
+      - ft/main/**
+
+permissions: read-all
+
+# Serialize per pull request, so that two pushes in quick succession cannot both
+# observe that no notice has been posted yet and comment twice.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  ci-validation:
+    name: CI Validation Notice
+    # Renovate and Dependabot open their pull requests from trusted branches
+    # within cilium/cilium, where the full CI (including 'pull_request'
+    # workflows) already runs against their changes, so they do not need this
+    # notice.
+    if: |
+      (
+        (github.event.pull_request.user.login != 'cilium-renovate[bot]') &&
+        (github.event.pull_request.user.login != 'renovate[bot]') &&
+        (github.event.pull_request.user.login != 'dependabot[bot]')
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # For 'pull_request_target', GitHub checks out the base branch by
+      # default, which is exactly what must run here: the tool is trusted code
+      # that inspects the pull request through the API, and the pull request
+      # head is never checked out or executed.
+      - name: Checkout base branch (TRUSTED)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          cache-dependency-path: "*.sum"
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.26.6
+
+      - name: Label pull requests with unvalidated CI changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: go run ./tools/ci-validation

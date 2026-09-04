@@ -229,6 +229,237 @@ always be found in the `Cilium CI matrix`_.
 
 .. _Cilium CI matrix: https://docs.google.com/spreadsheets/d/1TThkqvVZxaqLR-Ela4ZrcJ0lrTJByCqrbdCjnI32_X0
 
+.. _testing_ci_workflow_changes:
+
+Testing CI workflow changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+There are six routes to running a CI change, from doing nothing to opening a
+separate test pull request. The notice posted alongside the
+``dont-merge/needs-ci-validation`` label works out the smallest set of actions
+that covers the files it flags, and tags each one with the route it uses, so the
+identifiers below are what a reviewer reads there.
+
+.. list-table:: Validation routes
+   :header-rows: 1
+   :widths: 10 90
+
+   * - Route
+     - What to do
+   * - M0
+     - Nothing. GitHub loads the workflow from the merge ref, so this pull
+       request already runs the version it proposes. These files are not
+       flagged. On a fork, secrets are still withheld, so a step that needs one
+       is not fully exercised.
+   * - M1
+     - Comment ``/test``, or the relevant ``/ci-*`` trigger. This exercises the
+       code under test but not the CI configuration, because for a fork Ariane
+       dispatches the base branch and points ``context-ref`` at the target
+       branch.
+   * - M2
+     - Comment the specific ``/ci-*`` trigger for each changed workflow. From a
+       branch in ``cilium/cilium`` Ariane dispatches that branch, so both the
+       workflow definition and ``context-ref`` come from the pull request.
+       Remember that ``/test`` does not cover every workflow.
+   * - M3
+     - Dispatch each consuming workflow by hand, keeping the definition trusted
+       and overriding ``context-ref`` to the pull request's head SHA. See the
+       command under step 2 below.
+   * - M4
+     - Mirror the branch to ``cilium/cilium`` and dispatch against it with
+       ``gh workflow run <workflow> --ref <branch>``, so that the branch's own
+       definition runs. No pull request is needed for this, only the branch:
+       push it, dispatch, read the run and delete it again. Nothing else reacts
+       to the push, because every ``push`` trigger in this repository is
+       restricted to ``main``, ``ft/main/**``, ``renovate/main-**`` or tags.
+   * - M5
+     - Mirror the branch under ``ft/main/``, then open a test pull request whose
+       *base* is that branch. A ``pull_request_target`` workflow is loaded from
+       the base branch, so pointing the base at the mirror is what makes the
+       proposed definition run, under the real trigger and with no temporary
+       edit to revert. A ``push`` only workflow needs no pull request at all,
+       just the push; a ``workflow_call`` only one runs when any workflow that
+       calls it is dispatched against the mirror, since a local
+       ``./.github/workflows/…`` reference resolves at the caller's commit. Only
+       a ``schedule`` only workflow has no native route, and there a temporary
+       trigger is the fallback; revert it before merge.
+   * - M6
+     - Add the workflow's own path to its ``pull_request`` ``paths`` filter, as
+       ``tests-cifuzz.yaml`` does, or include a file the filter does match in a
+       test pull request. Needed when a workflow is triggered on
+       ``pull_request`` but its filter excludes the workflow file itself, so a
+       change to it looks validated while nothing actually runs.
+
+Which route applies depends on what changed and, just as much, on whether the
+pull request comes from a fork:
+
+.. list-table:: Which route applies
+   :header-rows: 1
+   :widths: 52 24 24
+
+   * - What the pull request changes
+     - From a fork
+     - From a ``cilium/cilium`` branch
+   * - A workflow triggered on ``pull_request`` (``lint-go.yaml``,
+       ``tests-smoke.yaml``, …)
+     - M0
+     - M0
+   * - The same, but its ``paths`` filter excludes the workflow file itself
+     - M6
+     - M6
+   * - Product code (Go, bpf, ``cilium-cli``)
+     - M1
+     - M1
+   * - A composite action or config under ``.github/actions/``
+     - M3
+     - M2
+   * - A workflow body, where the workflow has ``workflow_dispatch``
+     - M4
+     - M2
+   * - A workflow body, where it does not (``pull_request_target``,
+       ``schedule``, ``push``)
+     - M5
+     - M5
+   * - A workflow's ``on:`` block, or a whole new workflow
+     - M5
+     - M5
+   * - ``.github/ariane-config.yaml``
+     - review only
+     - M2
+
+A change to an ``on:`` block is only partly covered, because GitHub evaluates
+triggers and the ``types``, ``branches`` and ``paths`` filters when the real
+event fires, and no route reproduces a cron. A whole new workflow is a special
+case of its own: it is not dispatchable until GitHub has a record for the file,
+which the first run of it on any branch creates, so a push or a test pull request
+has to register it before ``gh workflow run`` will accept it.
+
+Two exceptions are worth knowing. ``common-post-jobs.yaml`` consumes
+``cilium/cilium/.github/actions/merge-artifacts@main``, pinned to ``main``, so a
+change to that action is never exercised before merge even from a branch here.
+And for a pull request from a fork the ``/default`` workflows are not dispatched
+automatically at all, so nothing runs until a reviewer triggers it.
+
+When CI runs on a pull request, only workflows triggered on ``pull_request``
+use the version of the workflow file proposed in that pull request: GitHub
+loads them from the pull request's merge ref. This holds whether the pull
+request is opened from a fork or from a branch in ``cilium/cilium``, so the
+proposed workflow is exercised in both cases. The difference is that, for a
+pull request opened from a fork, GitHub withholds repository secrets and only
+grants a read-only token, and workflows may not run at all until a maintainer
+approves the run for a first-time contributor. So a ``pull_request`` workflow
+change is tested either way, but steps that depend on secrets behave
+differently on a fork.
+
+The other triggers used in this repository do not run the proposed version at
+all, for different reasons:
+
+- ``pull_request_target`` workflows are loaded by GitHub from the base branch,
+  by design, so that untrusted pull request code cannot alter a workflow that
+  runs with elevated permissions.
+- ``workflow_dispatch`` workflows, the ones Ariane runs for ``/test`` and the
+  ``/ci-*`` comments, are loaded from the ref Ariane dispatches against. For a
+  pull request opened from a branch in ``cilium/cilium`` that is the pull
+  request's own branch, so the proposed definition does run, but only for those
+  workflows somebody actually dispatches. For a pull request from a fork the
+  branch does not exist in this repository, so Ariane dispatches the base
+  branch and the proposed definition never runs.
+- ``schedule`` and ``push`` workflows do not run on the pull request at all:
+  they run on ``main`` (on a schedule, or once the change is merged).
+
+Composite actions and configuration under ``.github/actions/`` follow the same
+split, because the consuming workflow checks them out from ``context-ref``,
+which is the pull request's branch when it is not a fork and the target branch
+when it is. ``.github/ariane-config.yaml`` follows the same split, because Ariane
+reads its own configuration at the very ref it dispatches: commenting ``/test``
+on a pull request from a branch here uses the configuration that pull request
+proposes, while for a fork it uses the target branch's.
+
+So whether the pull request comes from a fork matters a great deal here. From a
+branch in ``cilium/cilium``, most changes are exercised as soon as the right
+workflow is dispatched, and the gap is only in remembering to dispatch it. From
+a fork, nothing under ``.github/`` other than a ``pull_request`` workflow is
+exercised, and validating it takes the deliberate steps below.
+
+To make this visible, the ``dont-merge/needs-ci-validation`` label is applied
+automatically when a pull request is opened, reopened or pushed to with changes
+to such files, together with a comment listing the affected paths. The label is
+a manual merge gate that a reviewer clears once the changes are validated, and
+clearing it sticks: each comment records the paths it reported, and the label is
+only applied again when a push adds a CI file that has not been reported yet.
+So a reviewer does not have to clear the label repeatedly, but CI changes added
+later during review still re-arm the gate. Renovate and Dependabot are
+excluded, as they open pull requests from trusted branches within
+``cilium/cilium`` where the full CI already runs against their changes. The
+check itself lives in ``tools/ci-validation``, run from the ``ci-validation``
+workflow; it inspects the pull request through the API and never checks out or
+executes its head.
+
+When a pull request carries this label, the changes should be validated
+manually before merge:
+
+#. A reviewer confirms that the workflow changes are safe to run and will not
+   compromise the repository or leak secrets.
+#. The changes are mirrored to a branch in ``cilium/cilium``, rather than left
+   on a fork, so that the CI has access to secrets and the branch can be
+   dispatched against directly. If the contributor is a reviewer, they are
+   responsible for this step; otherwise the reviewer performs it on the
+   contributor's behalf, which is why the previous step comes first. How to
+   exercise the change depends on what was modified:
+
+   - For a change to a ``workflow_dispatch`` workflow, the kind Ariane runs for
+     ``/test`` or a ``/ci-*`` comment, the mirrored branch is all that is
+     needed: Ariane dispatches against the pull request's branch whenever that
+     branch is in ``cilium/cilium``, so the proposed definition is what runs.
+     What is easy to miss is that only the workflows actually dispatched are
+     covered, and ``/test`` does not cover all of them, so comment the specific
+     ``/ci-*`` trigger for each changed workflow. To dispatch by hand instead,
+     use ``gh workflow run <workflow> --ref <branch>``, since
+     ``workflow_dispatch`` loads the definition from the ref it is dispatched
+     against, passing the inputs Ariane would provide, ``SHA`` and
+     ``context-ref``, as full 40 character SHAs. Apply any additional tweaks the
+     workflow documents (see, e.g., the :ref:`bisect process <ci_gha>` for
+     ``conformance-ginkgo.yaml``).
+   - For a change to a ``pull_request_target``, ``schedule`` or ``push``
+     workflow, there is no dispatch to hijack. Temporarily add a
+     ``pull_request`` trigger to the affected workflow's ``on`` section and open
+     a test pull request from the mirrored branch, so that GitHub runs the
+     branch's version.
+   - For a change to a composite action or config under ``.github/actions/``,
+     the consuming workflows read it from whatever ``context-ref`` points at.
+     For a pull request from a fork Ariane sets that to the target branch, so
+     commenting ``/test`` exercises the base version of the file and says
+     nothing about the change. Mirroring is not needed here: dispatch each
+     consuming workflow yourself, keeping ``--ref`` on the base branch so that a
+     trusted definition runs, and pass ``context-ref`` as the pull request's
+     head SHA so that its version of the file is used::
+
+         gh workflow run tests-e2e-upgrade.yaml --ref main \
+             -f PR-number=<number> \
+             -f SHA=<head SHA> \
+             -f base-SHA=<base SHA> \
+             -f context-ref=<head SHA>
+
+     Identify every workflow that consumes the changed file and dispatch each
+     one: not all of them are in ``/test``, and one behind its own trigger is
+     easy to forget. For example ``.github/actions/e2e/lb.yaml`` is consumed by
+     ``tests-e2e-upgrade.yaml``, which only runs for ``/ci-e2e-upgrade``.
+
+     Note that overriding ``context-ref`` deliberately crosses a security
+     boundary: the files under ``.github/actions/`` become steps that run with
+     the repository's secrets, which is exactly why Ariane does not do this for
+     forks. Only do it once the diff has been reviewed, as the first step
+     above requires.
+
+#. If the test run does not pass, iterate on the change until it does,
+   coordinating with the contributor as needed.
+#. Once the test run passes, link the successful run on the original pull
+   request as a record of the validation.
+#. When the changes are validated, a reviewer removes the
+   ``dont-merge/needs-ci-validation`` label so that the pull request can be
+   merged. Any temporary ``pull_request`` trigger added for testing must be
+   reverted, and a separate test pull request can then be closed.
+
 .. _ci_failure_triage:
 
 CI Failure Triage
