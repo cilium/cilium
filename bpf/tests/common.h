@@ -64,7 +64,7 @@
 #define TEST_SKIP 103
 
 /* Max number of cpus to check when doing percpu hash assertions */
-#define NR_CPUS 128
+#define MAX_ASSERT_CPUS 128
 
 /* Use an array map with 1 key and a large value size as buffer to write results */
 /* into. */
@@ -270,12 +270,12 @@ test_result_cursor = 0;
 	__u64 sum = 0; \
 	/* Iterate until lookup encounters null when hitting cpu number */ \
 	/* Assumes at most 128 CPUS */ \
-	for (int i = 0; i < NR_CPUS; i++) { \
-		__entry = map_lookup_percpu_elem(&cilium_metrics, &key, i); \
+	for (int i = 0; i < MAX_ASSERT_CPUS; i++) { \
+		__entry = map_lookup_percpu_elem(&cilium_metrics, &(key), i); \
 		if (!__entry) { \
 			break; \
 		} \
 		sum += __entry->count; \
 	} \
-	assert(sum == __count); \
+	assert(sum == (__count)); \
 })
