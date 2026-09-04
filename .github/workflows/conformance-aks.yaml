@@ -104,7 +104,7 @@ concurrency:
 
 env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
-  cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
+  cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 64
   test_concurrency: 5
 
 jobs:
