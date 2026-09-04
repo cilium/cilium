@@ -1695,7 +1695,8 @@ dsr_set_ipip4_dev(struct __ctx_buff *ctx, __u32 tunnel_ep, __u32 seclabel)
 	key.tunnel_ttl = IPDEFTTL;
 
 	if (unlikely(ctx_set_tunnel_key(ctx, &key, key_size,
-					BPF_F_ZERO_CSUM_TX) < 0))
+					BPF_F_ZERO_CSUM_TX |
+					BPF_F_DONT_FRAGMENT) < 0))
 		return DROP_WRITE_ERROR;
 	return 0;
 }
