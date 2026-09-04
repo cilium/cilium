@@ -988,11 +988,19 @@ func TestWriter_SelectBackends_PreferCloseIgnoresTerminatingForMissingHints(t *t
 
 	selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
 
-	// Topology safeguard must remain engaged: only the zone-a Active backend
-	// should be selected. Terminating backends are filtered from primary traffic
-	// because their (possibly empty / nil) ForZones cannot match the local zone.
-	require.Len(t, selected, 1)
-	assert.Equal(t, activeLocalAddr.String(), selected[0].Address.String())
+	// Topology safeguard must remain engaged: among the Active backends only
+	// the zone-a one is selected (zone-b is filtered). Terminating backends
+	// are retained in the selection regardless of hints so that they stay in
+	// the datapath maps and their established connections can drain.
+	require.Len(t, selected, 3)
+	addresses := make([]string, 0, len(selected))
+	for _, be := range selected {
+		addresses = append(addresses, be.Address.String())
+	}
+	assert.Contains(t, addresses, activeLocalAddr.String())
+	assert.Contains(t, addresses, terminatingAddr.String())
+	assert.Contains(t, addresses, terminatingNoZoneAddr.String())
+	assert.NotContains(t, addresses, activeRemoteAddr.String())
 }
 
 // TestWriter_SelectBackends_PreferCloseFallsBackWhenOnlyTerminating verifies that
@@ -1103,8 +1111,15 @@ func TestWriter_SelectBackends_PreferSameNodeIgnoresTerminating(t *testing.T) {
 
 	selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
 
-	// Only the active local backend should be selected.
-	// Terminating local backend must be filtered out.
-	require.Len(t, selected, 1)
-	assert.Equal(t, activeLocalAddr.String(), selected[0].Address.String())
+	// The active local backend is selected for new connections. 
+	// The terminating backend is retained in the selection so that it stays in
+	// the datapath maps and its established connections can drain; its state
+	// excludes it from new-connection selection.
+	require.Len(t, selected, 2)
+	addresses := make([]string, 0, len(selected))
+	for _, be := range selected {
+		addresses = append(addresses, be.Address.String())
+	}
+	assert.Contains(t, addresses, activeLocalAddr.String())
+	assert.Contains(t, addresses, terminatingLocalAddr.String())
 }
