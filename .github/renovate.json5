@@ -156,6 +156,14 @@
       "minimumReleaseAgeBehaviour": "timestamp-optional",
     },
     {
+      // No cooldown for the Go toolchain. It is pinned twice, as the golang
+      // image and as the workflow go-version, and the rule above already exempts
+      // the image half, so a fresh Go patch would otherwise land in one half of
+      // the 'base-images' group and not the other.
+      "matchPackageNames": ["docker.io/library/golang", "go"],
+      "minimumReleaseAge": "0 days",
+    },
+    {
       // Do not pin or update digests for self-referenced cilium/cilium GitHub
       // Actions and reusable workflows (e.g.,
       // cilium/cilium/.github/actions/set-commit-status@<sha> # main or
