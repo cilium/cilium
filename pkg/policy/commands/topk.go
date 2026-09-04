@@ -15,11 +15,12 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 )
 
 // topKCmd returns a command that indicates the resources
 // responsible for the most mapstate entries.
-func topKCmd(params CmdParams) script.Cmd {
+func topKCmd(epl endpointmanager.EndpointsLookup) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "Determine causes of mapstate entries",
@@ -36,7 +37,7 @@ func topKCmd(params CmdParams) script.Cmd {
 				}
 				return nil
 			},
-			AutocompleteArgs: autocompleteEndpoints(params),
+			AutocompleteArgs: autocompleteEndpoints(epl),
 			Detail: []string{
 				"List policies and the number of mapstate entries they cause.",
 				"",
@@ -64,7 +65,7 @@ func topKCmd(params CmdParams) script.Cmd {
 					return "", "", fmt.Errorf("unsupported output format %s", output)
 				}
 
-				eps, err := lookupEPs(params.EPL, args)
+				eps, err := lookupEPs(epl, args)
 				if err != nil {
 					return "", "", err
 				}
