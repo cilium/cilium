@@ -143,9 +143,9 @@ func (ei *endpointInfo) IsHost() bool {
 	return false
 }
 
-// PreviousMapState returns an empty mapstate
-func (ei *endpointInfo) PreviousMapState() *MapState {
-	return nil
+// PreviousMapStateSizes returns zero map sizes, as there is no previous map state
+func (ei *endpointInfo) PreviousMapStateSizes() MapStateSizes {
+	return MapStateSizes{}
 }
 
 // RegenerateIfAlive returns immediately as there is nothing to regenerate

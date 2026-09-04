@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -3460,4 +3461,23 @@ func permutations(arr []int) [][]int {
 	}
 	helper(arr, len(arr))
 	return res
+}
+
+// TestNewMapStatePreallocation checks that a map state sized after another one preallocates a
+// distinct keyset per identity in the id index, as upsert reuses non-nil preallocated keysets.
+func TestNewMapStatePreallocation(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	key := EgressKey().WithTCPPort(80)
+	entry := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, 0, 0, types.Allow, NoAuthRequirement)
+
+	old := newMapState(logger, MapStateSizes{}, namedPortRules, cmtypes.DefaultClusterInfo.ID)
+	old.upsert(key.WithIdentity(1000), entry)
+	old.upsert(key.WithIdentity(1001), entry)
+
+	ms := newMapState(logger, old.Sizes(), namedPortRules, cmtypes.DefaultClusterInfo.ID)
+	require.Len(t, ms.byId, 2)
+	ms.upsert(key.WithIdentity(1000), entry)
+	require.Len(t, ms.byId[identity.NumericIdentity(1000)], 1)
+	require.Empty(t, ms.byId[identity.NumericIdentity(1001)])
 }

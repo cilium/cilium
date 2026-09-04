@@ -706,34 +706,54 @@ func NewMapStateEntry(e MapStateEntry) mapStateEntry {
 }
 
 func emptyMapState(logger *slog.Logger) mapState {
-	return newMapState(logger, nil, 0, cmtypes.DefaultClusterInfo.ID)
+	return newMapState(logger, MapStateSizes{}, 0, cmtypes.DefaultClusterInfo.ID)
 }
 
-// newMapState returns a new mapState with capacities from the given old mapState (if non-nil),
-// according to the given policy features.
-func newMapState(logger *slog.Logger, old *mapState, features policyFeatures, localClusterID uint32) mapState {
-	var nEntries int
+// MapStateSizes are the map sizes of a mapState, taken as a value snapshot so that a new mapState
+// can be sized after an existing one without keeping a reference to it. Such a reference would be
+// read without synchronization against the incremental updates applied to the referenced mapState.
+type MapStateSizes struct {
+	// entries is the number of entries.
+	entries int
+	// byId is the number of keys of each identity in the id index. It is only populated when
+	// the id index is in use; consumers must not distinguish nil from empty.
+	byId map[identity.NumericIdentity]int
+}
 
-	if old != nil {
-		nEntries = len(old.entries)
+// Sizes returns the map sizes of 'ms'. The caller must synchronize against any concurrent
+// modification of 'ms'.
+func (ms *mapState) Sizes() MapStateSizes {
+	if ms == nil {
+		return MapStateSizes{}
 	}
 
+	sizes := MapStateSizes{
+		entries: ms.Len(),
+	}
+	if ms.byId != nil {
+		sizes.byId = make(map[identity.NumericIdentity]int, len(ms.byId))
+		for id, keys := range ms.byId {
+			sizes.byId[id] = len(keys)
+		}
+	}
+	return sizes
+}
+
+// newMapState returns a new mapState with capacities from the given map sizes, according to the
+// given policy features.
+func newMapState(logger *slog.Logger, sizes MapStateSizes, features policyFeatures, localClusterID uint32) mapState {
 	ms := mapState{
 		logger:         logger,
 		localClusterID: localClusterID,
-		entries:        make(mapStateMap, nEntries),
+		entries:        make(mapStateMap, sizes.entries),
 		trie:           bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
 
 	if features&(passRules|namedPortRules) != 0 {
-		if old == nil {
-			ms.byId = make(map[identity.NumericIdentity]LPMKeys)
-		} else {
-			ms.byId = make(map[identity.NumericIdentity]LPMKeys, len(old.byId))
-			// preallocate id index keysets to their current sizes, if any
-			for k, v := range old.byId {
-				ms.byId[k] = make(LPMKeys, len(v))
-			}
+		ms.byId = make(map[identity.NumericIdentity]LPMKeys, len(sizes.byId))
+		// preallocate id index keysets to their previous sizes, if any
+		for id, n := range sizes.byId {
+			ms.byId[id] = make(LPMKeys, n)
 		}
 	}
 	return ms

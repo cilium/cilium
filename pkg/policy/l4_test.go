@@ -58,7 +58,7 @@ func TestEgressNamedPortToMapStateUnion(t *testing.T) {
 	epPolicy := &EndpointPolicy{
 		SelectorPolicy: &selectorPolicy{namedPortsGetter: testNamedPortsGetter{npm: namedPorts}},
 		PolicyOwner:    owner,
-		policyMapState: newMapState(logger, nil, namedPortRules, cmtypes.DefaultClusterInfo.ID),
+		policyMapState: newMapState(logger, MapStateSizes{}, namedPortRules, cmtypes.DefaultClusterInfo.ID),
 		selectors:      types.MockSelectorSnapshot(),
 	}
 	filter := &L4Filter{
@@ -114,7 +114,7 @@ func TestEgressNamedPortWildcardOptimization(t *testing.T) {
 		epPolicy := &EndpointPolicy{
 			SelectorPolicy: &selectorPolicy{namedPortsGetter: testNamedPortsGetter{npm: namedPorts}},
 			PolicyOwner:    owner,
-			policyMapState: newMapState(logger, nil, namedPortRules, cmtypes.DefaultClusterInfo.ID),
+			policyMapState: newMapState(logger, MapStateSizes{}, namedPortRules, cmtypes.DefaultClusterInfo.ID),
 			selectors:      types.MockSelectorSnapshot(),
 		}
 
@@ -140,7 +140,7 @@ func TestEgressNamedPortWildcardOptimization(t *testing.T) {
 		epPolicy := &EndpointPolicy{
 			SelectorPolicy: &selectorPolicy{namedPortsGetter: testNamedPortsGetter{npm: namedPorts}},
 			PolicyOwner:    owner,
-			policyMapState: newMapState(logger, nil, namedPortRules, cmtypes.DefaultClusterInfo.ID),
+			policyMapState: newMapState(logger, MapStateSizes{}, namedPortRules, cmtypes.DefaultClusterInfo.ID),
 			selectors:      types.MockSelectorSnapshot(),
 		}
 
@@ -164,7 +164,7 @@ func TestNamedPortRulesDeleteByID(t *testing.T) {
 	logger := hivetest.Logger(t)
 	epPolicy := &EndpointPolicy{
 		PolicyOwner:    DummyOwner{logger: logger},
-		policyMapState: newMapState(logger, nil, namedPortRules, cmtypes.DefaultClusterInfo.ID),
+		policyMapState: newMapState(logger, MapStateSizes{}, namedPortRules, cmtypes.DefaultClusterInfo.ID),
 	}
 	require.NotNil(t, epPolicy.policyMapState.byId)
 

@@ -194,8 +194,8 @@ func (d DummyOwner) IsHost() bool {
 	return false
 }
 
-func (d DummyOwner) PreviousMapState() *MapState {
-	return d.previousMap
+func (d DummyOwner) PreviousMapStateSizes() MapStateSizes {
+	return d.previousMap.Sizes()
 }
 
 func (_ DummyOwner) RegenerateIfAlive(_ *regeneration.ExternalRegenerationMetadata) <-chan bool {
