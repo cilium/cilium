@@ -198,9 +198,10 @@ type fakePolicyMapFactory struct{}
 func (*fakePolicyMapFactory) OpenEndpoint(id uint16) (policymap.PolicyMap, error) {
 	return fakepolicymap.NewFakePolicyMap(), nil
 }
-func (*fakePolicyMapFactory) RemoveEndpoint(id uint16) error { return nil }
-func (*fakePolicyMapFactory) PolicyMaxEntries() int          { return 0 }
-func (*fakePolicyMapFactory) StatsMaxEntries() int           { return 0 }
+func (*fakePolicyMapFactory) RemoveEndpoint(id uint16) error      { return nil }
+func (*fakePolicyMapFactory) RemoveGlobalMapping(id uint32) error { return nil }
+func (*fakePolicyMapFactory) PolicyMaxEntries() int               { return 0 }
+func (*fakePolicyMapFactory) StatsMaxEntries() int                { return 0 }
 
 type fakeLXCMap struct{}
 

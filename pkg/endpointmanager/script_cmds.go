@@ -14,7 +14,6 @@ import (
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -48,11 +47,8 @@ func ScriptCmds(epm EndpointManager, template *endpoint.Endpoint) map[string]scr
 					LabelArray: labels.LabelArray(labelArr),
 				}
 
-				// The following order of steps simulate adding an Endpoint the
-				// way that the Agent does. Mark it fake so teardown skips the
-				// host datapath, which the script harness does not provide.
+				// Simulate adding an Endpoint the way the Agent does.
 				ep := template.CopyFromTemplate()
-				ep.SetPropertyValue(endpointtypes.PropertyFakeEndpoint, true)
 				err = epm.AddEndpoint(ep)
 				if err != nil {
 					return nil, err
