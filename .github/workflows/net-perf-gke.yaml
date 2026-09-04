@@ -67,10 +67,6 @@ env:
   test_name: gke-perf
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
-  # Additional zones to fall back to if the primary zone is out of capacity
-  # (GCE STOCKOUT). All within the same region as gcp_zone to keep perf results
-  # comparable.
-  gcp_fallback_zones: us-east5-b us-east5-c
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 582.0.0
 
@@ -254,13 +250,28 @@ jobs:
         run: |
           gcloud info
 
+      - name: Determine fallback zones
+        id: fallback-zones
+        env:
+          ZONE: ${{ env.gcp_zone }}
+        run: |
+          # The other zones of the same region, so that a zone which is out of
+          # capacity does not fail the whole job. Same region only, to keep the
+          # perf results comparable.
+          region="${ZONE%-?}"
+          zones=$(gcloud compute zones list --filter="status=UP" --format='value(name)' \
+            | grep "^${region}-" | grep -v "^${ZONE}$" | tr '\n' ' ')
+          echo "Fallback zones for ${ZONE}: ${zones}"
+          echo "zones=${zones}" >> $GITHUB_OUTPUT
+          echo "candidates=${ZONE} ${zones}" >> $GITHUB_OUTPUT
+
       - name: Create GKE cluster
         id: create-cluster
         uses: ./.github/actions/setup-gke-cluster
         with:
           cluster-name: ${{ env.clusterName }}-${{ matrix.index }}
           zone: ${{ env.gcp_zone }}
-          fallback-zones: ${{ env.gcp_fallback_zones }}
+          fallback-zones: ${{ steps.fallback-zones.outputs.zones }}
           node-taints: ${{ steps.vars.outputs.node_taints }}
           labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
 
@@ -349,7 +360,7 @@ jobs:
           # Every zone the cluster could have been created in, not just the one
           # it ended up in: a creation attempt that was abandoned because it was
           # too slow keeps provisioning on the GKE side.
-          ZONES: ${{ env.gcp_zone }} ${{ env.gcp_fallback_zones }}
+          ZONES: ${{ steps.fallback-zones.outputs.candidates || env.gcp_zone }}
         run: |
           for zone in ${ZONES}; do
             while [ "$(gcloud container operations list --zone "${zone}" --filter="status=RUNNING AND targetLink~${CLUSTER}" --format="value(name)")" ];do
