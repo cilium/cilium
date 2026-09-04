@@ -369,14 +369,6 @@ static __always_inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,
 	return sum;
 }
 
-/*
- * Ipv4 mapped address - 0:0:0:0:0:FFFF::/96
- */
-static __always_inline int ipv6_addr_is_mapped(const union v6addr *addr)
-{
-	return addr->p1 == 0 && addr->p2 == 0 && addr->p3 == 0xFFFF0000;
-}
-
 /* As opposed to ipfrag_encode_ipv6, this function can return errors. */
 static __always_inline fraginfo_t
 ipv6_get_fraginfo(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
