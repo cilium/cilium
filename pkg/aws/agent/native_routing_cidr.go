@@ -95,6 +95,10 @@ func startNativeRoutingCIDRSync(
 // CIDR configuration against the given VPC CIDRs, or uses the VPC primary CIDR
 // as the autodetected native routing CIDR.
 //
+// On both paths it also records the VPC CIDRs as the subnets pod IPs are
+// allocated from: under ENI there is no node PodCIDR, so this is what IPsec
+// uses to build its XFRM policies.
+//
 // Returns an error if the configured native routing CIDR overlaps no VPC CIDR:
 // see the masquerading note on startNativeRoutingCIDRSync.
 func autoDetectNativeRoutingCIDR(
@@ -104,6 +108,9 @@ func autoDetectNativeRoutingCIDR(
 	localNodeStore *node.LocalNodeStore,
 	conf *option.DaemonConfig,
 ) error {
+	podSubnets := append([]netip.Prefix{primaryCIDR}, secondaryCIDRs...)
+	autodetected := false
+
 	if nativeCIDR := conf.IPv4NativeRoutingCIDR; nativeCIDR.IsValid() {
 		// Accept the configured native routing CIDR as long as it overlaps the
 		// VPC primary CIDR or one of the secondary CIDR associations, i.e. it is
@@ -120,15 +127,27 @@ func autoDetectNativeRoutingCIDR(
 			logfields.VPCCIDR, primaryCIDR,
 			option.IPv4NativeRoutingCIDR, nativeCIDR,
 		)
-		return nil
+		podSubnets = append(podSubnets, nativeCIDR)
+	} else {
+		logger.Info(
+			"Using autodetected VPC primary CIDR as native routing CIDR.",
+			logfields.VPCCIDR, primaryCIDR,
+		)
+		autodetected = true
 	}
 
-	logger.Info(
-		"Using autodetected VPC primary CIDR as native routing CIDR.",
-		logfields.VPCCIDR, primaryCIDR,
-	)
+	// There is no IPv6 VPC CIDR to autodetect: AwsVPC only carries the IPv4
+	// CIDR block associations, so the only IPv6 pod subnet that can ever be
+	// known is the operator-supplied one.
+	if nativeCIDR := conf.IPv6NativeRoutingCIDR; nativeCIDR.IsValid() {
+		podSubnets = append(podSubnets, nativeCIDR)
+	}
+
 	localNodeStore.Update(func(n *node.LocalNode) {
-		n.Local.IPv4NativeRoutingCIDR = primaryCIDR
+		if autodetected {
+			n.Local.IPv4NativeRoutingCIDR = primaryCIDR
+		}
+		n.SetPodSubnets(podSubnets)
 	})
 	return nil
 }

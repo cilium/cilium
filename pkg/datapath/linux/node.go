@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/ip"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -974,29 +973,6 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 	}
 
 	if newConfig.EnableIPSec {
-		// For the ENI ipam mode on EKS, this will be the interface that
-		// the router (cilium_host) IP is associated to.
-		if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure {
-			if info := node.GetRouterInfo(); info != nil {
-				var ipv4PodSubnets, ipv6PodSubnets []ip.Prefix
-				for _, c := range info.GetCIDRs() {
-					if c.Addr().Is4() {
-						ipv4PodSubnets = append(ipv4PodSubnets, ip.PrefixFrom(c))
-					} else {
-						ipv6PodSubnets = append(ipv6PodSubnets, ip.PrefixFrom(c))
-					}
-				}
-				// Only derive the pod subnets which have not been explicitly
-				// configured.
-				if len(option.Config.IPv4PodSubnets) == 0 {
-					n.nodeConfig.IPv4PodSubnets = ipv4PodSubnets
-				}
-				if len(option.Config.IPv6PodSubnets) == 0 {
-					n.nodeConfig.IPv6PodSubnets = ipv6PodSubnets
-				}
-			}
-		}
-
 		if err := n.replaceHostRules(); err != nil {
 			n.log.Warn("Cannot replace Host rules", logfields.Error, err)
 		}
