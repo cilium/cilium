@@ -185,7 +185,9 @@ jobs:
             # The LVH image might ship with an arbitrary Go toolchain version,
             # install the same Go toolchain version as current HEAD.
             CGO_ENABLED=0 GOPROXY=direct GOSUMDB= go install golang.org/dl/go${{ env.go-version }}@latest
-            go${{ env.go-version }} download
+            # dl.google.com resets the transfer mid-download often enough to fail the job.
+            for i in {1..5}; do go${{ env.go-version }} download && break || sleep 5; echo "Retrying the Go toolchain download..."; done
+            go${{ env.go-version }} version
 
             # Free up disk space: remove the pre-installed Go toolchain and
             # build caches, only go${{ env.go-version }} is needed from now on.
