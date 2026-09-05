@@ -4,6 +4,7 @@
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
+#include "scapy.h"
 
 /* Enable code paths under test */
 #define ENABLE_IPV4
@@ -26,6 +27,14 @@
 #define SVC_EGRESS_IFACE	26
 
 #define BACKEND_EP_ID		127
+
+static const __u8 dsr_backend_icmp4_err_before_buf[] = {
+	SCAPY_BUF_BYTES(dsr_backend_icmp4_err_before)
+};
+
+static const __u8 dsr_backend_icmp4_err_after_buf[] = {
+	SCAPY_BUF_BYTES(dsr_backend_icmp4_err_after)
+};
 
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *node_mac = mac_three;
@@ -377,6 +386,87 @@ CHECK(PROG_TYPE, "tc_nodeport_dsr_backend_reply")
 int nodeport_dsr_backend_reply_check(const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
+}
+
+/* Test that the backend node RevDNATs an ICMP error reported by the DSR backend.
+ * The ICMP Frag Needed references the original request (CLIENT_IP -> BACKEND_IP).
+ * After RevDNAT the outer src should be FRONTEND_IP and the embedded tuple should
+ * show client->service addresses/ports.
+ */
+PKTGEN("tc", "tc_nodeport_dsr_backend_icmp_error_revdnat")
+int nodeport_dsr_backend_icmp_error_revdnat_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder, dsr_backend_icmp4_err_before_buf,
+			sizeof(dsr_backend_icmp4_err_before_buf));
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_dsr_backend_icmp_error_revdnat")
+int nodeport_dsr_backend_icmp_error_revdnat_setup(struct __ctx_buff *ctx)
+{
+	/* Initialized in original-direction order; __ipv4_ct_tuple_reverse()
+	 * converts to reply-direction addrs / original-direction ports
+	 * (per ipv4_ct_tuple definition).
+	 */
+	struct ipv4_ct_tuple ct_tuple = {
+		.saddr = CLIENT_IP,
+		.daddr = BACKEND_IP,
+		.sport = BACKEND_PORT,
+		.dport = CLIENT_PORT,
+		.nexthdr = IPPROTO_TCP,
+		.flags = TUPLE_F_OUT,
+	};
+	/* DSR: RevDNAT target is in the CT entry (nat_addr/nat_port),
+	 * not the LB table.
+	 */
+	struct ct_state ct_state_entry = {
+		.dsr_internal = 1,
+		.nat_addr = { .p4 = FRONTEND_IP },
+		.nat_port = FRONTEND_PORT,
+	};
+
+	/* Insert a reply-direction CT entry so the backend's ICMP error
+	 * is recognized.
+	 */
+	__ipv4_ct_tuple_reverse(&ct_tuple);
+	if (ct_create4(get_ct_map4(&ct_tuple), NULL, &ct_tuple, ctx,
+		       CT_EGRESS, &ct_state_entry, NULL) < 0)
+		return TEST_ERROR;
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "tc_nodeport_dsr_backend_icmp_error_revdnat")
+int nodeport_dsr_backend_icmp_error_revdnat_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) + sizeof(struct ethhdr) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	ASSERT_CTX_BUF_OFF("dsr_backend_icmp4_err_after",
+			   "Ether",
+			   ctx,
+			   sizeof(__u32),
+			   dsr_backend_icmp4_err_after_buf,
+			   sizeof(dsr_backend_icmp4_err_after_buf));
+
+	test_finish();
 }
 
 /* Same scenario as above, but for a different CLIENT_IP_2. Here replies
