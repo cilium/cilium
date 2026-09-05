@@ -102,6 +102,10 @@ linters:
         - pattern: ^sync\.(Mutex|RWMutex|Map)$
           pkg: ^sync$
           msg: Use pkg/lock instead to improve deadlock detection.
+        # Only reported in test files, see the forbidigo exclusion rule below.
+        - pattern: ^reflect\.DeepEqual$
+          pkg: ^reflect$
+          msg: Use assert.Equal from github.com/stretchr/testify/assert instead, which reports the differing fields on failure. See https://github.com/cilium/cilium/issues/40562.
       analyze-types: true
     goheader:
       values:
@@ -272,6 +276,13 @@ linters:
           - forbidigo
         path: (pkg|cilium-cli/utils)/lock/.+\.go
         text: sync\.
+      # reflect.DeepEqual is discouraged in test code only: it reports that two
+      # values differ without saying which fields, making failures hard to
+      # debug. Non-test code may use it freely.
+      - linters:
+          - forbidigo
+        path-except: _test\.go$
+        text: reflect\.DeepEqual
     paths:
       - third_party$
       - builtin$

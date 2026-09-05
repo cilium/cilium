@@ -669,8 +669,10 @@ func BenchmarkSpecEquals(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for b.Loop() {
-			reflect.DeepEqual(r.Spec, o.Spec)
-			reflect.DeepEqual(r.Specs, o.Specs)
+			// This benchmark deliberately measures reflect.DeepEqual in order
+			// to compare it against the generated DeepEqual below.
+			reflect.DeepEqual(r.Spec, o.Spec)   //nolint:forbidigo
+			reflect.DeepEqual(r.Specs, o.Specs) //nolint:forbidigo
 		}
 	})
 	b.Run("Generated SpecEquals", func(b *testing.B) {
