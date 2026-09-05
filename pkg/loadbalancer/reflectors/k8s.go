@@ -678,7 +678,32 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, config loadbalancer.Conf
 
 	for serviceName, svc := range servicesForThisPod {
 		err := writer.UpsertServiceAndFrontends(wtxn, &svc.service, svc.fes.UnsortedList()...)
-		if err != nil {
+		if errors.Is(err, loadbalancer.ErrFrontendConflict) {
+			// A pod recreated with a stable name (StatefulSet, static pod)
+			// keeps its name but changes its UID, which mints a NEW HostPort
+			// service name (<prefix>:host-port:<port>:<uid>) claiming the same
+			// frontend the OLD (deleted pod's) service still owns. The upsert
+			// fails with ErrFrontendConflict and previously returned early,
+			// skipping the orphan prune below — so the conflict retried
+			// forever and never self-healed. Break the deadlock by pruning the
+			// stale orphan services under this pod's prefix (anything not in
+			// updatedServices is a leftover from a changed/unset hostPort or a
+			// deleted pod), which releases their frontends, then retry.
+			for p := range writer.Services().Prefix(wtxn, loadbalancer.ServiceByName(serviceNamePrefix)) {
+				if updatedServices.Has(p.Name) {
+					continue
+				}
+				if err := writer.DeleteBackendsOfService(wtxn, p.Name, source.Kubernetes); err != nil {
+					return fmt.Errorf("DeleteBackendsOfService: %w", err)
+				}
+				if _, err := writer.DeleteServiceAndFrontends(wtxn, p.Name); err != nil {
+					return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
+				}
+			}
+			if err := writer.UpsertServiceAndFrontends(wtxn, &svc.service, svc.fes.UnsortedList()...); err != nil {
+				return fmt.Errorf("UpsertServiceAndFrontends: %w", err)
+			}
+		} else if err != nil {
 			return fmt.Errorf("UpsertServiceAndFrontends: %w", err)
 		}
 
