@@ -139,6 +139,30 @@ func TestToNeighbor(t *testing.T) {
 			},
 		},
 		{
+			name: "BFD",
+			nodePeer: &v2.CiliumBGPNodePeer{
+				PeerAddress: ptr.To("fd00::1"),
+				PeerASN:     ptr.To(int64(64512)),
+			},
+			peerConfig: &v2.CiliumBGPPeerConfigSpec{
+				BFD: &v2.CiliumBGPNeighborBFD{
+					Enabled:                      true,
+					TransmitIntervalMilliseconds: 300,
+					ReceiveIntervalMilliseconds:  400,
+					DetectionMultiplier:          ptr.To(int32(5)),
+				},
+			},
+			expected: &Neighbor{
+				Address: netip.MustParseAddr("fd00::1"),
+				ASN:     64512,
+				BFD: &NeighborBFD{
+					DesiredMinTxInterval:  300_000,
+					RequiredMinRxInterval: 400_000,
+					DetectionMultiplier:   5,
+				},
+			},
+		},
+		{
 			name: "EBGPMultihop",
 			nodePeer: &v2.CiliumBGPNodePeer{
 				PeerAddress: ptr.To("fd00::1"),
@@ -153,6 +177,20 @@ func TestToNeighbor(t *testing.T) {
 				EbgpMultihop: &NeighborEbgpMultihop{
 					TTL: 3,
 				},
+			},
+		},
+		{
+			name: "BFD disabled",
+			nodePeer: &v2.CiliumBGPNodePeer{
+				PeerAddress: ptr.To("fd00::1"),
+				PeerASN:     ptr.To(int64(64512)),
+			},
+			peerConfig: &v2.CiliumBGPPeerConfigSpec{
+				BFD: &v2.CiliumBGPNeighborBFD{Enabled: false},
+			},
+			expected: &Neighbor{
+				Address: netip.MustParseAddr("fd00::1"),
+				ASN:     64512,
 			},
 		},
 		{
