@@ -1,0 +1,26 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "redirect-internet-to-forward-proxy"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: myService
+  egress:
+    # Match all destinations except the private (RFC 1918) ranges, so that only
+    # internet-bound traffic is redirected to the external forward proxy.
+    - toCIDRSet:
+        - cidr: 0.0.0.0/0
+          except:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+      toPorts:
+        - ports:
+            - port: "0"
+              protocol: TCP
+          listener:
+            envoyConfig:
+              kind: CiliumClusterwideEnvoyConfig
+              name: forward-proxy-redirect
+            name: forward-proxy-listener

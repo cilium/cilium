@@ -1,0 +1,38 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideEnvoyConfig
+metadata:
+  name: forward-proxy-redirect
+spec:
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: forward-proxy-listener
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.tcp_proxy
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+                stat_prefix: tcp_stats
+                cluster: forward-proxy-cluster
+                tunneling_config:
+                  hostname: "%DOWNSTREAM_LOCAL_ADDRESS%"
+                  headers_to_add:
+                    # Add Basic credentials for the upstream forward proxy.
+                    # echo -n "user:secret" | base64
+                    - header:
+                        key: Proxy-Authorization
+                        value: Basic dXNlcjpzZWNyZXQ=
+                      append_action: OVERWRITE_IF_EXISTS_OR_ADD
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      name: forward-proxy-cluster
+      connect_timeout: 5s
+      type: STATIC
+      load_assignment:
+        cluster_name: forward-proxy-cluster
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      # Address of the external (off-cluster) forward proxy.
+                      address: 10.0.100.10
+                      port_value: 3128
