@@ -29,6 +29,15 @@ var (
 	linkOperStateUnknown = netlink.LinkOperState(netlink.OperUnknown).String()
 )
 
+// deviceUsable reports whether a device can carry traffic, that is whether it is:
+//   - administratively up,
+//   - operationally up or unknown (loopbacks, dummy interfaces and some point-to-point
+//     interfaces never report anything but unknown).
+func deviceUsable(dev *tables.Device) bool {
+	return dev.Flags&net.FlagUp != 0 &&
+		(dev.OperStatus == linkOperStateUp || dev.OperStatus == linkOperStateUnknown)
+}
+
 type InterfaceReconcilerOut struct {
 	cell.Out
 
@@ -110,7 +119,7 @@ func (r *InterfaceReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 		return err
 	}
 
-	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, v2.BGPInterfaceAdvert)
+	desiredPeerAdverts, err := r.peerAdvert.GetConfiguredAdvertisements(p.DesiredConfig, p.ResolvedPeerAddresses, v2.BGPInterfaceAdvert)
 	if err != nil {
 		return err
 	}
@@ -204,11 +213,7 @@ func (r *InterfaceReconciler) getInterfacePrefixes(advert v2.BGPAdvertisement, f
 	if !found {
 		return nil
 	}
-	// Skip devices which are not:
-	// - administratively up,
-	// - operationally up or unknown (loopbacks and dummy interfaces are always unknown).
-	if dev.Flags&net.FlagUp == 0 ||
-		(dev.OperStatus != linkOperStateUp && dev.OperStatus != linkOperStateUnknown) {
+	if !deviceUsable(dev) {
 		return nil
 	}
 	for _, addr := range dev.Addrs {

@@ -6,8 +6,12 @@ package api
 import (
 	"bytes"
 	"testing"
+	"text/tabwriter"
 
 	bgppacket "github.com/osrg/gobgp/v4/pkg/packet/bgp"
+	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 func TestFormatCaps(t *testing.T) {
@@ -225,4 +229,40 @@ func TestFormatCaps(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPrintBGPPeersTable(t *testing.T) {
+	peers := []*models.BgpPeer{
+		{
+			LocalAsn:     64512,
+			PeerAsn:      64513,
+			PeerAddress:  "192.168.0.1", // numbered peer: real IP
+			PeerPort:     179,
+			SessionState: "established",
+			Families: []*models.BgpPeerFamilies{
+				{Afi: "ipv4", Safi: "unicast", Received: 1, Advertised: 2},
+			},
+		},
+		{
+			LocalAsn:     64512,
+			PeerAsn:      64513,
+			PeerAddress:  "net0", // unnumbered peer: interface name, not an IP
+			PeerPort:     179,
+			SessionState: "established",
+			Families: []*models.BgpPeerFamilies{
+				{Afi: "ipv6", Safi: "unicast", Received: 3, Advertised: 4},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	w := tabwriter.NewWriter(&buf, 0, 0, 1, ' ', 0)
+	PrintBGPPeersTable(w, peers, false)
+	out := buf.String()
+
+	// Numbered peer keeps the ":port" suffix.
+	require.Contains(t, out, "192.168.0.1:179")
+	// Unnumbered peer shows the interface name with no ":port" suffix.
+	require.Contains(t, out, "net0")
+	require.NotContains(t, out, "net0:")
 }
