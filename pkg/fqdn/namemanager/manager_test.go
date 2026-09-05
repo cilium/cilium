@@ -242,7 +242,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	ep := &endpoint.Endpoint{ID: uint16(1), IPv4: netip.MustParseAddr("10.96.0.1"), SecurityIdentity: &identity.Identity{
 		ID: identity.NumericIdentity(int(cmtypes.DefaultClusterInfo.MaximumAllocationIdentity())),
 	},
-		DNSZombies: fqdn.NewDNSZombieMappings(logger, 10000, 10000),
+		DNSZombies: fqdn.NewDNSZombieMappings(logger, 10000, 10000, nil),
 		DNSHistory: fqdn.NewDNSCache(1),
 	}
 	ep.UpdateLogger(nil)

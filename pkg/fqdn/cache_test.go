@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -619,7 +620,7 @@ func TestZombiesSiblingsGC(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	now := time.Now()
-	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost, nil)
 
 	// Siblings are IPs that resolve to the same name.
 	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com")
@@ -649,7 +650,7 @@ func TestZombiesGC(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	now := time.Now()
-	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost, nil)
 
 	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com")
 	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "somethingelse.com")
@@ -750,7 +751,7 @@ func TestZombiesGCOverLimit(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	now := time.Now()
-	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, 1)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, 1, nil)
 
 	// Limit the total number of IPs to be associated with a specific host
 	// to 1, but associate 'test.com' with multiple IPs.
@@ -778,7 +779,7 @@ func TestZombiesGCOverLimitWithCTGC(t *testing.T) {
 	now := time.Now()
 	afterNow := now.Add(1 * time.Nanosecond)
 	maxConnections := 3
-	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, maxConnections)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, maxConnections, nil)
 	zombies.SetCTGCTime(now, afterNow)
 
 	// Limit the number of IPs per hostname, but associate 'test.com' with
@@ -813,7 +814,7 @@ func TestZombiesGCDeferredDeletes(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	now := time.Now()
-	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost, nil)
 
 	zombies.Upsert(now.Add(0*time.Second), netip.MustParseAddr("1.1.1.1"), "test.com")
 	zombies.Upsert(now.Add(1*time.Second), netip.MustParseAddr("2.2.2.2"), "somethingelse.com")
@@ -828,7 +829,7 @@ func TestZombiesGCDeferredDeletes(t *testing.T) {
 		"3.3.3.3": {"onemorething.com"},
 	})
 
-	zombies = NewDNSZombieMappings(logger, 2, defaults.ToFQDNsMaxIPsPerHost)
+	zombies = NewDNSZombieMappings(logger, 2, defaults.ToFQDNsMaxIPsPerHost, nil)
 	zombies.Upsert(now.Add(0*time.Second), netip.MustParseAddr("1.1.1.1"), "test.com")
 
 	// No zombies should be evicted because we are below the limit
@@ -874,7 +875,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	now := time.Now()
-	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost, nil)
 
 	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com", "anothertest.com")
 	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "somethingelse.com")
@@ -947,7 +948,7 @@ func TestCacheToZombiesGCCascade(t *testing.T) {
 
 	now := time.Now()
 	cache := NewDNSCache(0)
-	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost, nil)
 
 	// Add entries that should expire at different times
 	cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.2.2.2")}, 3)
@@ -993,7 +994,7 @@ func TestZombiesDumpAlive(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	now := time.Now()
-	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost, nil)
 
 	alive := zombies.DumpAlive(nil)
 	require.Empty(t, alive)
@@ -1074,7 +1075,7 @@ func TestOverlimitPreferNewerEntries(t *testing.T) {
 	cache := NewDNSCacheWithLimit(toFQDNsMinTTL, toFQDNsMaxIPsPerHost)
 
 	toFQDNsMaxDeferredConnectionDeletes := 10
-	zombies := NewDNSZombieMappings(logger, toFQDNsMaxDeferredConnectionDeletes, toFQDNsMaxIPsPerHost)
+	zombies := NewDNSZombieMappings(logger, toFQDNsMaxDeferredConnectionDeletes, toFQDNsMaxIPsPerHost, nil)
 
 	name := "test.com"
 	IPs := []netip.Addr{
@@ -1162,7 +1163,7 @@ func TestPerHostLimitBehaviourForS3(t *testing.T) {
 	dnsTTL := 4 // seconds
 
 	tc := NewDNSCacheWithLimit(0, maxIPs)
-	z := NewDNSZombieMappings(logger, 10000, maxIPs)
+	z := NewDNSZombieMappings(logger, 10000, maxIPs, nil)
 
 	// These are simulated lookup results for someDomain.
 	reallyOldLookup := []netip.Addr{
@@ -1421,6 +1422,220 @@ func Test_sortZombieMappingSlice(t *testing.T) {
 				t.Fatalf("length of slice changed by sorting")
 			}
 			validateZombieSort(t, tt.args.zombies)
+		})
+	}
+}
+
+// TestTTLBoundZones covers which names
+// --tofqdns-ttl-bound-zones selects. An entry names a
+// domain and covers everything below it, and a wildcard is only accepted as a
+// whole leading label: a partial one such as "*abc.test" would also match
+// unrelated domains like "notabc.test", silently withdrawing deferral from
+// names the operator never listed.
+func TestTTLBoundZones(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		entries []string
+		want    map[string]bool
+	}{
+		{
+			name:    "no zones binds nothing",
+			entries: nil,
+			want:    map[string]bool{"a.example.test.": false},
+		},
+		{
+			name:    "zone covers itself and every name below it",
+			entries: []string{"example.test"},
+			want: map[string]bool{
+				"example.test":          true, // trailing dot optional
+				"example.test.":         true, // the apex itself
+				"cdn.example.test.":     true,
+				"x.y.cdn.example.test.": true, // at any depth
+				"CDN.Example.Test.":     true, // case-insensitive
+
+				"notexample.test.":   false, // never a bare suffix match
+				"a.notexample.test.": false,
+				// An escaped dot is part of a label, not a boundary, so this
+				// name's labels are "foo\.example" and "test": not below
+				// example.test at all.
+				`foo\.example.test.`:     false,
+				"example.test.evil.com.": false,
+				"test.":                  false, // nor a parent
+				"":                       false,
+			},
+		},
+		{
+			name:    "star-dot spelling names the same zone",
+			entries: []string{"*.example.test"},
+			want: map[string]bool{
+				"example.test.":         true,
+				"x.y.cdn.example.test.": true,
+				"notexample.test.":      false,
+			},
+		},
+		{
+			name:    "several zones with an optional trailing dot",
+			entries: []string{"a.test", "b.test."},
+			want: map[string]bool{
+				"x.a.test.": true,
+				"y.b.test.": true,
+				"z.c.test.": false,
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ParseTTLBoundZones(tc.entries)
+			require.NoError(t, err)
+			zombies := NewDNSZombieMappings(hivetest.Logger(t), 10000, 10000, tc.entries)
+			for name, want := range tc.want {
+				require.Equalf(t, want, zombies.isTTLBound(name),
+					"entries %v against %q", tc.entries, name)
+			}
+		})
+	}
+
+	// A wildcard that is not a whole label must be rejected, not accepted
+	// literally, and a set with one bad entry must apply none of it.
+	for _, bad := range []string{
+		"*abc.test",   // partial label
+		"abc.test*",   // trailing, same hazard
+		"abc.*",       // wildcard as the last label
+		"a.*.test",    // embedded
+		"**.abc.test", // only a single leading star-dot is meaningful here
+		"*", "*.", "",
+		"abc..test",                       // empty label
+		".abc.test",                       // leading dot
+		"https://abc.test",                // pasted URL
+		"abc.test:443",                    // pasted host:port
+		strings.Repeat("a", 64) + ".test", // label over the 63 byte limit
+	} {
+		_, err := ParseTTLBoundZones([]string{bad})
+		require.Errorf(t, err, "entry %q", bad)
+	}
+
+	// The wildcard rule reports itself, rather than being lumped in with the
+	// character check, because a leading "*." is the one form that is allowed.
+	_, err := ParseTTLBoundZones([]string{"*abc.test"})
+	require.ErrorContains(t, err, "wildcard")
+	partial := NewDNSZombieMappings(hivetest.Logger(t), 10000, 10000,
+		[]string{"ok.test", "*abc.test"})
+	require.False(t, partial.isTTLBound("a.ok.test."))
+	require.False(t, partial.isTTLBound("notabc.test."))
+}
+
+// TestGCTTLBoundZones covers what a TTL-bound zone does during GC: a matching
+// name expires on its TTL instead of being deferred as a zombie, while
+// everything else is deferred as before.
+func TestGCTTLBoundZones(t *testing.T) {
+	var (
+		ipA    = netip.MustParseAddr("10.0.0.1")
+		ipB    = netip.MustParseAddr("10.0.0.2")
+		shared = netip.MustParseAddr("10.0.0.3")
+	)
+	type lookup struct {
+		name string
+		ip   netip.Addr
+		ttl  int
+	}
+
+	for _, tc := range []struct {
+		name    string
+		zones   []string
+		limit   int
+		lookups []lookup
+		gcAfter time.Duration
+		want    map[netip.Addr][]string
+		// Every removed name must still be reported, whether or not it was
+		// TTL-bound: doGC feeds this into namesToClean, which is what clears the
+		// global cache and its ipcache metadata. Withholding a TTL-bound name
+		// here would leak both.
+		wantAffected []string
+	}{
+		{
+			name:    "no zones defers everything",
+			lookups: []lookup{{"a.noisy.test.", ipA, 1}, {"b.quiet.test.", ipB, 1}},
+			gcAfter: 2 * time.Second,
+			want: map[netip.Addr][]string{
+				ipA: {"a.noisy.test."},
+				ipB: {"b.quiet.test."},
+			},
+			wantAffected: []string{"a.noisy.test.", "b.quiet.test."},
+		},
+		{
+			name:         "matching name is not deferred",
+			zones:        []string{"noisy.test"},
+			lookups:      []lookup{{"a.noisy.test.", ipA, 1}, {"b.quiet.test.", ipB, 1}},
+			gcAfter:      2 * time.Second,
+			want:         map[netip.Addr][]string{ipB: {"b.quiet.test."}},
+			wantAffected: []string{"a.noisy.test.", "b.quiet.test."},
+		},
+		{
+			name:    "unrelated zone defers everything",
+			zones:   []string{"other.test"},
+			lookups: []lookup{{"a.noisy.test.", ipA, 1}, {"b.quiet.test.", ipB, 1}},
+			gcAfter: 2 * time.Second,
+			want: map[netip.Addr][]string{
+				ipA: {"a.noisy.test."},
+				ipB: {"b.quiet.test."},
+			},
+			wantAffected: []string{"a.noisy.test.", "b.quiet.test."},
+		},
+		{
+			// One address commonly carries names from several domains. The
+			// lookups are interleaved so that a loop stopping at the first
+			// TTL-bound name, rather than skipping it, would drop what follows.
+			name:  "shared address keeps its non-matching names",
+			zones: []string{"noisy.test"},
+			lookups: []lookup{
+				{"a.noisy.test.", shared, 1}, {"b.quiet.test.", shared, 1},
+				{"c.noisy.test.", shared, 1}, {"d.quiet.test.", shared, 1},
+			},
+			gcAfter: 2 * time.Second,
+			want:    map[netip.Addr][]string{shared: {"b.quiet.test.", "d.quiet.test."}},
+			wantAffected: []string{
+				"a.noisy.test.", "b.quiet.test.", "c.noisy.test.", "d.quiet.test.",
+			},
+		},
+		{
+			// An over-limit eviction removes an entry that is still inside its
+			// TTL, so it must still be deferred: expiring it outright would
+			// drop a connection the TTL considers valid. The TTLs differ
+			// because the victim is chosen by an unstable sort on expiration
+			// time alone.
+			name:  "over-limit eviction inside its TTL is still deferred",
+			zones: []string{"example.test"},
+			limit: 1,
+			lookups: []lookup{
+				{"noisy.example.test.", ipA, 1800},
+				{"noisy.example.test.", ipB, 3600},
+			},
+			gcAfter:      time.Second,
+			want:         map[netip.Addr][]string{ipA: {"noisy.example.test."}},
+			wantAffected: []string{"noisy.example.test."},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			now := time.Now()
+			cache := NewDNSCacheWithLimit(0, tc.limit)
+			zombies := NewDNSZombieMappings(hivetest.Logger(t),
+				defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost,
+				tc.zones)
+
+			for _, l := range tc.lookups {
+				cache.Update(now, l.name, []netip.Addr{l.ip}, l.ttl)
+			}
+			affected := cache.GC(now.Add(tc.gcAfter), zombies)
+			require.ElementsMatch(t, tc.wantAffected, affected.UnsortedList(),
+				"every removed name must be reported so it is cleaned from the global cache")
+
+			zombies.Lock()
+			defer zombies.Unlock()
+			require.Len(t, zombies.deletes, len(tc.want))
+			for ip, wantNames := range tc.want {
+				zombie, ok := zombies.deletes[ip]
+				require.Truef(t, ok, "%s must be deferred", ip)
+				require.ElementsMatch(t, wantNames, zombie.Names)
+			}
 		})
 	}
 }

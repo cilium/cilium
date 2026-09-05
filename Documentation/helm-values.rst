@@ -1304,6 +1304,10 @@
      - Timeout (in seconds) when closing the connection between the DNS proxy and the upstream server. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.
      - int
      - ``10``
+   * - :spelling:ignore:`dnsProxy.ttlBoundZones`
+     - DNS zones whose names expire on their TTL instead of being deferred as zombies. An entry covers the zone and every name under it. Connections outliving the DNS TTL may be dropped.
+     - list
+     - ``[]``
    * - :spelling:ignore:`egressGateway.enabled`
      - Enables egress gateway to redirect and SNAT the traffic that leaves the cluster.
      - bool
