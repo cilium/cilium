@@ -42,14 +42,14 @@ allowed by the policy.
 
 .. code-block:: shell-session
 
-    kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    kubectl exec tiefighter -- curl -s -XPOST deathstar/v1/request-landing
     Ship landed
 
 This next request is accessing an HTTP endpoint which is denied by policy.
 
 .. code-block:: shell-session
 
-    kubectl exec tiefighter -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
+    kubectl exec tiefighter -- curl -s -XPUT deathstar/v1/exhaust-port
     Access denied
 
 Finally, this last request will hang because the ``xwing`` pod does not have
@@ -58,7 +58,7 @@ request, or wait for it to time out.
 
 .. code-block:: shell-session
 
-    kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    kubectl exec xwing -- curl -s -XPOST deathstar/v1/request-landing
     command terminated with exit code 28
 
 Let's now inspect this traffic using the CLI. The command below filters all
@@ -67,9 +67,9 @@ traffic on the application layer (L7, HTTP) to the ``deathstar`` pod:
 .. code-block:: shell-session
 
     hubble observe --pod deathstar --protocol http
-    May  4 13:23:40.501: default/tiefighter:42690 -> default/deathstar-c74d84667-cx5kp:80 http-request FORWARDED (HTTP/1.1 POST http://deathstar.default.svc.cluster.local/v1/request-landing)
-    May  4 13:23:40.502: default/tiefighter:42690 <- default/deathstar-c74d84667-cx5kp:80 http-response FORWARDED (HTTP/1.1 200 0ms (POST http://deathstar.default.svc.cluster.local/v1/request-landing))
-    May  4 13:23:43.791: default/tiefighter:42742 -> default/deathstar-c74d84667-cx5kp:80 http-request DROPPED (HTTP/1.1 PUT http://deathstar.default.svc.cluster.local/v1/exhaust-port)
+    May  4 13:23:40.501: default/tiefighter:42690 -> default/deathstar-c74d84667-cx5kp:80 http-request FORWARDED (HTTP/1.1 POST http://deathstar/v1/request-landing)
+    May  4 13:23:40.502: default/tiefighter:42690 <- default/deathstar-c74d84667-cx5kp:80 http-response FORWARDED (HTTP/1.1 200 0ms (POST http://deathstar/v1/request-landing))
+    May  4 13:23:43.791: default/tiefighter:42742 -> default/deathstar-c74d84667-cx5kp:80 http-request DROPPED (HTTP/1.1 PUT http://deathstar/v1/exhaust-port)
 
 
 
@@ -79,7 +79,7 @@ dropped:
 .. code-block:: shell-session
 
     hubble observe --pod deathstar --verdict DROPPED
-    May  4 13:23:43.791: default/tiefighter:42742 -> default/deathstar-c74d84667-cx5kp:80 http-request DROPPED (HTTP/1.1 PUT http://deathstar.default.svc.cluster.local/v1/exhaust-port)
+    May  4 13:23:43.791: default/tiefighter:42742 -> default/deathstar-c74d84667-cx5kp:80 http-request DROPPED (HTTP/1.1 PUT http://deathstar/v1/exhaust-port)
     May  4 13:23:47.852: default/xwing:42818 <> default/deathstar-c74d84667-cx5kp:80 Policy denied DROPPED (TCP Flags: SYN)
     May  4 13:23:47.852: default/xwing:42818 <> default/deathstar-c74d84667-cx5kp:80 Policy denied DROPPED (TCP Flags: SYN)
     May  4 13:23:48.854: default/xwing:42818 <> default/deathstar-c74d84667-cx5kp:80 Policy denied DROPPED (TCP Flags: SYN)
