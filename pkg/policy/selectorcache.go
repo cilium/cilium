@@ -273,6 +273,9 @@ type SelectorCache struct {
 
 	// userHandlerDone is initialized only in tests to allow termination of the handler
 	userHandlerDone chan struct{}
+
+	// lastSelectorId contains the last used selector cache id and is protected by the selector cache mutex
+	lastSelectorId types.SelectorId
 }
 
 // GetSelectorSnapshot returns a read-only state of the current selectors in the selector cache.
