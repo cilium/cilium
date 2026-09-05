@@ -676,19 +676,13 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, config loadbalancer.Conf
 		}
 	}
 
-	for serviceName, svc := range servicesForThisPod {
-		err := writer.UpsertServiceAndFrontends(wtxn, &svc.service, svc.fes.UnsortedList()...)
-		if err != nil {
-			return fmt.Errorf("UpsertServiceAndFrontends: %w", err)
-		}
-
-		if err := writer.SetBackends(wtxn, serviceName, source.Kubernetes, svc.bes...); err != nil {
-			return fmt.Errorf("SetBackends: %w", err)
-		}
-	}
-
 	// Find and remove orphaned HostPort services, frontends and backends
 	// if 'HostPort' has changed or has been unset.
+	//
+	// This runs before the upsert below: the service name carries the pod's
+	// UID, so a pod recreated under the same name mints a new service that
+	// claims a frontend the previous pod's service still owns. Releasing the
+	// orphans first lets the replacement take the frontend over.
 	for svc := range writer.Services().Prefix(wtxn, loadbalancer.ServiceByName(serviceNamePrefix)) {
 		if updatedServices.Has(svc.Name) {
 			continue
@@ -702,6 +696,17 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, config loadbalancer.Conf
 		_, err = writer.DeleteServiceAndFrontends(wtxn, svc.Name)
 		if err != nil {
 			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
+		}
+	}
+
+	for serviceName, svc := range servicesForThisPod {
+		err := writer.UpsertServiceAndFrontends(wtxn, &svc.service, svc.fes.UnsortedList()...)
+		if err != nil {
+			return fmt.Errorf("UpsertServiceAndFrontends: %w", err)
+		}
+
+		if err := writer.SetBackends(wtxn, serviceName, source.Kubernetes, svc.bes...); err != nil {
+			return fmt.Errorf("SetBackends: %w", err)
 		}
 	}
 
