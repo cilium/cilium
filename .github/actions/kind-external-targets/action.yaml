@@ -3,6 +3,9 @@ description: |
   Add additional containers to the kind network which can be
   used as external targets for cilium-cli connectivity tests.
 inputs:
+  kube_contexts:
+    description: "Space-separated names of kubeconfig contexts of the target clusters. Defaults to the current context if unspecified"
+    required: false
   kind_network:
     description: "Name of the docker network created for kind"
     required: true
@@ -34,6 +37,8 @@ runs:
   steps:
     - id: add_targets
       shell: bash
+      env:
+        KUBE_CONTEXTS: ${{ inputs.kube_contexts }}
       run: |
         bash ./.github/actions/kind-external-targets/action.sh \
           ${{ inputs.lvh }} \
