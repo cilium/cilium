@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"maps"
-	"net"
 	"net/netip"
 	"slices"
 
@@ -54,9 +53,7 @@ func testPingHost(ctx context.Context, t *check.Test, ct *check.ConnectivityTest
 	}
 }
 
-// Test pod to service connectivity by issuing DNS queries. Should not get masqueraded with egress IP
-// This test case fails for ipv6, might need to make changes for this to work with kube-dns or
-// target a different in-cluster service.
+// Test pod to service connectivity by issuing DNS queries. Should not get masqueraded with egress IP.
 func testDNSQuery(ctx context.Context, t *check.Test, ct *check.ConnectivityTest, s check.Scenario) {
 	i := 0
 	for _, client := range ct.ClientPods() {
@@ -65,12 +62,38 @@ func testDNSQuery(ctx context.Context, t *check.Test, ct *check.ConnectivityTest
 			t.Fatal("Cannot get kube-dns service")
 		}
 		kubeDNSServicePeer := check.Service{Service: kubeDNSService}
+		ipFamily := features.GetIPFamily(kubeDNSService.Spec.ClusterIP)
+		if ipFamily == features.IPFamilyAny {
+			t.Fatalf("Cannot determine IP family of kube-dns service ClusterIP %q", kubeDNSService.Spec.ClusterIP)
+		}
 
-		t.NewAction(s, fmt.Sprintf("dig-%d", i), &client, kubeDNSServicePeer, features.IPFamilyV4).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.DigCommand(kubeDNSServicePeer, features.IPFamilyV4))
+		t.NewAction(s, fmt.Sprintf("dig-%d", i), &client, kubeDNSServicePeer, ipFamily).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, ct.DigCommand(kubeDNSServicePeer, ipFamily))
 		})
 		i++
 	}
+}
+
+func egressGatewayPolicyEntriesForPod(pod check.Pod, ipv6Enabled bool, egressIPv4, egressIPv6, gatewayIP string) []check.BPFEgressGatewayPolicyEntry {
+	entries := []check.BPFEgressGatewayPolicyEntry{
+		{
+			SourceIP:  pod.Address(features.IPFamilyV4),
+			DestCIDR:  "0.0.0.0/0",
+			EgressIP:  egressIPv4,
+			GatewayIP: gatewayIP,
+		},
+	}
+
+	if ipv6Enabled {
+		entries = append(entries, check.BPFEgressGatewayPolicyEntry{
+			SourceIP:  pod.Address(features.IPFamilyV6),
+			DestCIDR:  "::/0",
+			EgressIP:  egressIPv6,
+			GatewayIP: gatewayIP,
+		})
+	}
+
+	return entries
 }
 
 // Test connecting from outside of the cluster to a nodeport service whose pods are selected by an
@@ -187,53 +210,13 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		}
 
 		for _, client := range ct.ClientPods() {
-			targetEntries = append(targetEntries,
-				check.BPFEgressGatewayPolicyEntry{
-					SourceIP:  client.Pod.Status.PodIP,
-					DestCIDR:  "0.0.0.0/0",
-					EgressIP:  egressIP,
-					GatewayIP: egressGatewayNodeInternalIP.String(),
-				})
-
-			if ipv6Enabled && client.Pod.Status.PodIPs != nil {
-				for _, podIP := range client.Pod.Status.PodIPs {
-					if net.ParseIP(podIP.IP).To4() == nil {
-						targetEntries = append(targetEntries,
-							check.BPFEgressGatewayPolicyEntry{
-								SourceIP:  podIP.IP,
-								DestCIDR:  "::/0",
-								EgressIP:  egressIPv6,
-								GatewayIP: egressGatewayNodeInternalIP.String(),
-							})
-						break
-					}
-				}
-			}
+			targetEntries = append(targetEntries, egressGatewayPolicyEntriesForPod(
+				client, ipv6Enabled, egressIP, egressIPv6, egressGatewayNodeInternalIP.String())...)
 		}
 
 		for _, echo := range ct.EchoPods() {
-			targetEntries = append(targetEntries,
-				check.BPFEgressGatewayPolicyEntry{
-					SourceIP:  echo.Pod.Status.PodIP,
-					DestCIDR:  "0.0.0.0/0",
-					EgressIP:  egressIP,
-					GatewayIP: egressGatewayNodeInternalIP.String(),
-				})
-
-			if ipv6Enabled && echo.Pod.Status.PodIPs != nil {
-				for _, podIP := range echo.Pod.Status.PodIPs {
-					if net.ParseIP(podIP.IP).To4() == nil {
-						targetEntries = append(targetEntries,
-							check.BPFEgressGatewayPolicyEntry{
-								SourceIP:  podIP.IP,
-								DestCIDR:  "::/0",
-								EgressIP:  egressIPv6,
-								GatewayIP: egressGatewayNodeInternalIP.String(),
-							})
-						break
-					}
-				}
-			}
+			targetEntries = append(targetEntries, egressGatewayPolicyEntriesForPod(
+				echo, ipv6Enabled, egressIP, egressIPv6, egressGatewayNodeInternalIP.String())...)
 		}
 
 		return targetEntries, nil
@@ -458,10 +441,11 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		for _, client := range ct.ClientPods() {
-			assignedGateway := getGatewayForIP(client.Pod.Status.PodIP)
+			clientIPv4 := client.Address(features.IPFamilyV4)
+			assignedGateway := getGatewayForIP(clientIPv4)
 			if assignedGateway == nil {
 				t.Fatalf("Couldn't find gateway for the client pod %s/%s with IP: %s",
-					client.Pod.Namespace, client.Pod.Name, client.Pod.Status.PodIP)
+					client.Pod.Namespace, client.Pod.Name, clientIPv4)
 			}
 
 			// EgressIP is null if the current node is the gateway node.
@@ -474,35 +458,16 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 				egressIPv6 = assignedGateway.internalIPsv6.String()
 			}
 
-			targetEntries = append(targetEntries,
-				check.BPFEgressGatewayPolicyEntry{
-					SourceIP:  client.Pod.Status.PodIP,
-					DestCIDR:  "0.0.0.0/0",
-					EgressIP:  egressIP,
-					GatewayIP: assignedGateway.internalIP.String(),
-				})
-
-			if ipv6Enabled && client.Pod.Status.PodIPs != nil {
-				for _, podIP := range client.Pod.Status.PodIPs {
-					if net.ParseIP(podIP.IP).To4() == nil {
-						targetEntries = append(targetEntries,
-							check.BPFEgressGatewayPolicyEntry{
-								SourceIP:  podIP.IP,
-								DestCIDR:  "::/0",
-								EgressIP:  egressIPv6,
-								GatewayIP: assignedGateway.internalIP.String(),
-							})
-						break
-					}
-				}
-			}
+			targetEntries = append(targetEntries, egressGatewayPolicyEntriesForPod(
+				client, ipv6Enabled, egressIP, egressIPv6, assignedGateway.internalIP.String())...)
 		}
 
 		for _, echo := range ct.EchoPods() {
-			assignedGateway := getGatewayForIP(echo.Pod.Status.PodIP)
+			echoIPv4 := echo.Address(features.IPFamilyV4)
+			assignedGateway := getGatewayForIP(echoIPv4)
 			if assignedGateway == nil {
 				t.Fatalf("Couldn't find gateway for the client pod %s/%s with IP: %s",
-					echo.Pod.Namespace, echo.Pod.Name, echo.Pod.Status.PodIP)
+					echo.Pod.Namespace, echo.Pod.Name, echoIPv4)
 			}
 
 			// EgressIP is null if the current node is the gateway node.
@@ -515,28 +480,8 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 				egressIPv6 = assignedGateway.internalIPsv6.String()
 			}
 
-			targetEntries = append(targetEntries,
-				check.BPFEgressGatewayPolicyEntry{
-					SourceIP:  echo.Pod.Status.PodIP,
-					DestCIDR:  "0.0.0.0/0",
-					EgressIP:  egressIP,
-					GatewayIP: assignedGateway.internalIP.String(),
-				})
-
-			if ipv6Enabled && echo.Pod.Status.PodIPs != nil {
-				for _, podIP := range echo.Pod.Status.PodIPs {
-					if net.ParseIP(podIP.IP).To4() == nil {
-						targetEntries = append(targetEntries,
-							check.BPFEgressGatewayPolicyEntry{
-								SourceIP:  podIP.IP,
-								DestCIDR:  "::/0",
-								EgressIP:  egressIPv6,
-								GatewayIP: assignedGateway.internalIP.String(),
-							})
-						break
-					}
-				}
-			}
+			targetEntries = append(targetEntries, egressGatewayPolicyEntriesForPod(
+				echo, ipv6Enabled, egressIP, egressIPv6, assignedGateway.internalIP.String())...)
 		}
 
 		return targetEntries, nil
@@ -558,10 +503,11 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 	// the egress IP (pod to external service using DNS)
 	i := 0
 	for _, client := range ct.ClientPods() {
-		assignedGateway := getGatewayForIP(client.Pod.Status.PodIP)
+		clientIPv4 := client.Address(features.IPFamilyV4)
+		assignedGateway := getGatewayForIP(clientIPv4)
 		if assignedGateway == nil {
 			t.Fatalf("Couldn't find gateway for the client pod %s/%s with IP: %s",
-				client.Pod.Namespace, client.Pod.Name, client.Pod.Status.PodIP)
+				client.Pod.Namespace, client.Pod.Name, clientIPv4)
 		}
 
 		for _, externalEchoSvc := range ct.EchoExternalServices() {
@@ -593,10 +539,11 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 	// Traffic matching an egress gateway policy should leave the cluster masqueraded with the egress IP (pod to external service)
 	i = 0
 	for _, client := range ct.ClientPods() {
-		assignedGateway := getGatewayForIP(client.Pod.Status.PodIP)
+		clientIPv4 := client.Address(features.IPFamilyV4)
+		assignedGateway := getGatewayForIP(clientIPv4)
 		if assignedGateway == nil {
 			t.Fatalf("Couldn't find gateway for the client pod %s/%s with IP: %s",
-				client.Pod.Namespace, client.Pod.Name, client.Pod.Status.PodIP)
+				client.Pod.Namespace, client.Pod.Name, clientIPv4)
 		}
 
 		for _, externalEcho := range ct.ExternalEchoPods() {
@@ -696,6 +643,8 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		}
 
 		for _, client := range ct.ClientPods() {
+			clientIPv4 := client.Address(features.IPFamilyV4)
+			clientIPv6 := client.Address(features.IPFamilyV6)
 			for _, nodeWithoutCiliumName := range t.NodesWithoutCilium() {
 				nodeWithoutCilium, err := ciliumPod.K8sClient.GetNode(context.Background(), nodeWithoutCiliumName, metav1.GetOptions{})
 				if err != nil {
@@ -705,10 +654,22 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 
 					t.Fatalf("Cannot retrieve external node")
 				}
+				var nodeWithoutCiliumIPv4, nodeWithoutCiliumIPv6 string
+				for _, addr := range nodeWithoutCilium.Status.Addresses {
+					switch features.GetIPFamily(addr.Address) {
+					case features.IPFamilyV4:
+						nodeWithoutCiliumIPv4 = addr.Address
+					case features.IPFamilyV6:
+						nodeWithoutCiliumIPv6 = addr.Address
+					}
+				}
+				if nodeWithoutCiliumIPv4 == "" {
+					t.Fatalf("Cannot find IPv4 address for external node %s", nodeWithoutCiliumName)
+				}
 
 				targetEntries = append(targetEntries,
 					check.BPFEgressGatewayPolicyEntry{
-						SourceIP:  client.Pod.Status.PodIP,
+						SourceIP:  clientIPv4,
 						DestCIDR:  "0.0.0.0/0",
 						EgressIP:  egressIP,
 						GatewayIP: egressGatewayNodeInternalIP.String(),
@@ -716,43 +677,31 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 
 				targetEntries = append(targetEntries,
 					check.BPFEgressGatewayPolicyEntry{
-						SourceIP:  client.Pod.Status.PodIP,
-						DestCIDR:  fmt.Sprintf("%s/32", nodeWithoutCilium.Status.Addresses[0].Address),
+						SourceIP:  clientIPv4,
+						DestCIDR:  fmt.Sprintf("%s/32", nodeWithoutCiliumIPv4),
 						EgressIP:  egressIP,
 						GatewayIP: "Excluded CIDR",
 					})
 
-				if ipv6Enabled && len(client.Pod.Status.PodIPs) > 1 {
-					var clientIPv6 string
-					for _, podIP := range client.Pod.Status.PodIPs {
-						if ip := net.ParseIP(podIP.IP); ip != nil && ip.To4() == nil {
-							clientIPv6 = podIP.IP
-							break
-						}
+				if ipv6Enabled {
+					if nodeWithoutCiliumIPv6 == "" {
+						t.Fatalf("Cannot find IPv6 address for external node %s", nodeWithoutCiliumName)
 					}
+					targetEntries = append(targetEntries,
+						check.BPFEgressGatewayPolicyEntry{
+							SourceIP:  clientIPv6,
+							DestCIDR:  "::/0",
+							EgressIP:  egressIPv6,
+							GatewayIP: egressGatewayNodeInternalIP.String(),
+						})
 
-					if clientIPv6 != "" {
-						targetEntries = append(targetEntries,
-							check.BPFEgressGatewayPolicyEntry{
-								SourceIP:  clientIPv6,
-								DestCIDR:  "::/0",
-								EgressIP:  egressIPv6,
-								GatewayIP: egressGatewayNodeInternalIP.String(),
-							})
-
-						for _, addr := range nodeWithoutCilium.Status.Addresses {
-							if ip := net.ParseIP(addr.Address); ip != nil && ip.To4() == nil {
-								targetEntries = append(targetEntries,
-									check.BPFEgressGatewayPolicyEntry{
-										SourceIP:  clientIPv6,
-										DestCIDR:  fmt.Sprintf("%s/128", addr.Address),
-										EgressIP:  egressIPv6,
-										GatewayIP: "Excluded CIDR",
-									})
-								break
-							}
-						}
-					}
+					targetEntries = append(targetEntries,
+						check.BPFEgressGatewayPolicyEntry{
+							SourceIP:  clientIPv6,
+							DestCIDR:  fmt.Sprintf("%s/128", nodeWithoutCiliumIPv6),
+							EgressIP:  egressIPv6,
+							GatewayIP: "Excluded CIDR",
+						})
 				}
 			}
 		}
@@ -773,18 +722,19 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEcho.ToEchoIPPod()
 
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
-				hostIP, _ := netip.ParseAddr(client.Pod.Status.HostIP)
 				if ipFam == features.IPFamilyV6 {
 					if !ipv6Enabled {
 						return
 					}
-					for _, addr := range client.Pod.Status.HostIPs {
-						ip, err := netip.ParseAddr(addr.IP)
-						if err == nil && ip.Unmap().Is6() {
-							hostIP = ip
-							break
-						}
-					}
+				}
+
+				hostIPString, err := ct.GetPodHostIPByFamily(client, ipFam)
+				if err != nil {
+					t.Fatal(err)
+				}
+				hostIP, err := netip.ParseAddr(hostIPString)
+				if err != nil {
+					t.Fatalf("Cannot parse %s host IP %q for client pod %s: %v", ipFam, hostIPString, client.Name(), err)
 				}
 
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
