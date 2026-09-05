@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
+	k8sconsts "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -105,7 +106,9 @@ func ValidateLabels(labels map[string]string, fldPath *field.Path) field.ErrorLi
 // IsValidCiliumLabelKey tests whether the value passed is a valid cilium's representation of
 // label key.
 // Cilium label key supports an additional optional source prefix along with k8s label key.
-// The label source prefix is delimited with ':'
+// The label source prefix is delimited with ':'. A prefix "io.cilium.k8s.namespace.labels." is also
+// supported and is used when selecting namespace labels. Both these prefixes and the delimiter are not
+// counted when calculating the length of a label key.
 func IsValidCiliumLabelKey(key string) []string {
 	var (
 		source   string
@@ -125,6 +128,12 @@ func IsValidCiliumLabelKey(key string) []string {
 	default:
 		return append(errs, labelKeyErrMultipleSourceDelimiter)
 	}
+
+	// Namespace labels are represented internally by prepending a Cilium-owned
+	// prefix to the original Kubernetes label key. Validate the original key so
+	// the synthetic prefix does not consume either the 63-byte name limit or the
+	// 253-byte DNS prefix limit.
+	labelKey = strings.TrimPrefix(labelKey, k8sconsts.PodNamespaceMetaLabelsPrefix)
 
 	return append(errs, content.IsLabelKey(labelKey)...)
 }
