@@ -61,6 +61,13 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 	}
 	parserOpts = append(
 		parserOpts,
+		parserOptions.WithExcludeHttpHeaders(
+			params.Config.ExcludeHttpHeadersAllow,
+			params.Config.ExcludeHttpHeadersDeny,
+		),
+	)
+	parserOpts = append(
+		parserOpts,
 		parserOptions.WithNetworkPolicyCorrelation(
 			params.Config.EnableNetworkPolicyCorrelation,
 		))
