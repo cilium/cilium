@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/maps/registry"
+	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -100,6 +101,19 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 
 	if option.Config.EnableMKE && lnc.KPRConfig.KubeProxyReplacement {
 		cfg.MKEHost = option.HostExtensionMKE
+	}
+
+	if cookie, err := netns.GetNetNSCookie(); err == nil {
+		// When running in nested environments (e.g. Kind), cilium-agent does
+		// not run in the host netns. So, in such cases the cookie comparison
+		// based on bpf_get_netns_cookie(NULL) for checking whether a socket
+		// belongs to a host netns does not work.
+		//
+		// To fix this, we derive the cookie of the netns in which cilium-agent
+		// runs via getsockopt(...SO_NETNS_COOKIE...) and then use it in
+		// ctx_in_hostns(). This is based on an assumption that cilium-agent
+		// always runs with "hostNetwork: true".
+		cfg.HostNetNSCookie = cookie
 	}
 
 	coll, commit, cleanup, err := collLoader.Load(ctx, logger, spec, &bpf.CollectionOptions{

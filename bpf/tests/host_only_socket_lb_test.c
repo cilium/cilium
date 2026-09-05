@@ -15,16 +15,18 @@
 #define DST_PORT 6000
 #define DST_PORT_HOSTNS 6001
 #define BACKEND_PORT 7000
-
-/* Hardcode the host netns cookie to 0 */
-#define HOST_NETNS_COOKIE 0
+#define HOST_NETNS_COOKIE 42
 
 /* Replace the get_netns_cookie with a version that returns
- * the HOST_NETNS_COOKIE when destination is DST_PORT_HOSTNS
+ * the host_netns_cookie when destination is DST_PORT_HOSTNS
  */
 static __always_inline
 int my_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 {
+	/* ctx_in_hostns() may call this with NULL for its runtime-config fallback. */
+	if (!addr)
+		return HOST_NETNS_COOKIE;
+
 	return addr->user_port == DST_PORT_HOSTNS ? HOST_NETNS_COOKIE : 1;
 }
 
@@ -32,6 +34,8 @@ int my_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 
 #include "bpf_sock.c"
 #include "lib/common.h"
+
+ASSIGN_CONFIG(__u64, host_netns_cookie, HOST_NETNS_COOKIE)
 
 #define SVC_KEY_VALUE(_port, _proto, _beslot, _beid, _scope) { \
 	.key = { \
