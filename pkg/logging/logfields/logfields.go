@@ -1645,7 +1645,32 @@ const (
 
 	Output = "output"
 
-	RssBytes = "rssBytes"
+	// UserTime is the cpu time a child process spent in user mode.
+	UserTime = "userTime"
+
+	// SystemTime is the cpu time a child process spent in the kernel.
+	SystemTime = "systemTime"
+
+	// MaxRSSKBytes is the peak resident set size of a child process, in the kilobytes wait4() reports.
+	MaxRSSKBytes = "maxRssKBytes"
+
+	// MinorFaults is the number of page faults a child process serviced without i/o.
+	MinorFaults = "minorFaults"
+
+	// MajorFaults is the number of page faults a child process serviced with i/o.
+	MajorFaults = "majorFaults"
+
+	// BlockReads is the number of block input operations of a child process.
+	BlockReads = "blockReads"
+
+	// BlockWrites is the number of block output operations of a child process.
+	BlockWrites = "blockWrites"
+
+	// VoluntaryCtxSwitches is the number of times a child process yielded the cpu itself.
+	VoluntaryCtxSwitches = "voluntaryCtxSwitches"
+
+	// InvoluntaryCtxSwitches is the number of times a child process was preempted.
+	InvoluntaryCtxSwitches = "involuntaryCtxSwitches"
 
 	BPFFSPath = "bpffsPath"
 
