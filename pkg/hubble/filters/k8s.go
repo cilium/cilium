@@ -15,23 +15,49 @@ import (
 )
 
 func sourcePod(ev *v1.Event) (ns, pod string) {
-	ep := ev.GetFlow().GetSource()
-	return ep.GetNamespace(), ep.GetPodName()
+	if ev == nil {
+		return "", ""
+	}
+	fl := ev.GetFlow()
+	if fl == nil {
+		return "", ""
+	}
+	return fl.Source.Namespace, fl.Source.PodName
 }
 
 func destinationPod(ev *v1.Event) (ns, pod string) {
-	ep := ev.GetFlow().GetDestination()
-	return ep.GetNamespace(), ep.GetPodName()
+	if ev == nil {
+		return "", ""
+	}
+	fl := ev.GetFlow()
+	if fl == nil {
+		return "", ""
+	}
+
+	return fl.Destination.Namespace, fl.Destination.PodName
 }
 
 func sourceService(ev *v1.Event) (ns, svc string) {
-	s := ev.GetFlow().GetSourceService()
-	return s.GetNamespace(), s.GetName()
+	if ev == nil {
+		return "", ""
+	}
+	fl := ev.GetFlow()
+	if fl == nil {
+		return "", ""
+	}
+
+	return fl.SourceService.Namespace, fl.SourceService.Name
 }
 
 func destinationService(ev *v1.Event) (ns, svc string) {
-	s := ev.GetFlow().GetDestinationService()
-	return s.GetNamespace(), s.GetName()
+	if ev == nil {
+		return "", ""
+	}
+	fl := ev.GetFlow()
+	if fl == nil {
+		return "", ""
+	}
+	return fl.DestinationService.Namespace, fl.DestinationService.Name
 }
 
 func filterByNamespacedName(names []string, getName func(*v1.Event) (ns, name string)) (FilterFunc, error) {

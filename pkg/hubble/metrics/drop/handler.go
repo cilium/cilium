@@ -15,6 +15,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )
 
@@ -61,8 +62,8 @@ func (h *dropHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{h.drops.MetricVec}
 }
 
-func (h *dropHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
-	if flow.GetVerdict() != flowpb.Verdict_DROPPED {
+func (h *dropHandler) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
+	if flow.Verdict != flowpb.Verdict_DROPPED {
 		return nil
 	}
 
@@ -75,7 +76,7 @@ func (h *dropHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 		return err
 	}
 
-	labels := append(contextLabels, flow.GetDropReasonDesc().String(), v1.FlowProtocol(flow))
+	labels := append(contextLabels, flow.DropReasonDesc.String(), v1.FlowProtocol(flow))
 
 	h.drops.WithLabelValues(labels...).Inc()
 	return nil

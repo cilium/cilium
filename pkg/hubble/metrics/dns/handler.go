@@ -17,6 +17,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )
 
@@ -107,13 +108,13 @@ func (h *dnsHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{h.queries.MetricVec, h.responses.MetricVec, h.responseTypes.MetricVec}
 }
 
-func (h *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
-	if flow.GetL7() == nil {
+func (h *dnsHandler) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
+	if flow.L7.IsEmpty() {
 		return nil
 	}
 
-	dns := flow.GetL7().GetDns()
-	if dns == nil {
+	dns := flow.L7.DNS
+	if dns.IsEmpty() {
 		return nil
 	}
 
@@ -135,28 +136,28 @@ func (h *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	ipsReturned := fmt.Sprintf("%d", len(dns.Ips))
 
 	switch {
-	case flow.GetVerdict() == flowpb.Verdict_DROPPED:
+	case flow.Verdict == flowpb.Verdict_DROPPED:
 		rcode = "Policy denied"
 		labels := append(contextLabels, rcode, qtypes, ipsReturned)
 		if h.includeQuery {
 			labels = append(labels, dns.Query)
 		}
 		h.queries.WithLabelValues(labels...).Inc()
-	case !flow.GetIsReply().GetValue(): // dns request
+	case !flow.IsReply(): // dns request
 		labels := append(contextLabels, rcode, qtypes, ipsReturned)
 		if h.includeQuery {
 			labels = append(labels, dns.Query)
 		}
 		h.queries.WithLabelValues(labels...).Inc()
-	case flow.GetIsReply().GetValue(): // dns response
-		rcode = rcodeNames[dns.Rcode]
+	case flow.IsReply(): // dns response
+		rcode = rcodeNames[dns.RCode]
 		labels := append(contextLabels, rcode, qtypes, ipsReturned)
 		if h.includeQuery {
 			labels = append(labels, dns.Query)
 		}
 		h.responses.WithLabelValues(labels...).Inc()
 
-		for _, responseType := range dns.Rrtypes {
+		for _, responseType := range dns.Rtypes {
 			newLabels := append(contextLabels, responseType, qtypes)
 			if h.includeQuery {
 				newLabels = append(newLabels, dns.Query)

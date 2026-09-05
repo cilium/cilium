@@ -31,7 +31,7 @@ func TestResolveEndpointPodUID(t *testing.T) {
 
 		endpoint := resolver.ResolveEndpoint(ip, 0, DatapathContext{})
 
-		assert.Equal(t, "local-pod-uid", endpoint.GetPodUid())
+		assert.Equal(t, "local-pod-uid", endpoint.PodUID)
 	})
 
 	t.Run("local endpoint Pod fallback", func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestResolveEndpointPodUID(t *testing.T) {
 
 		endpoint := resolver.ResolveEndpoint(ip, 0, DatapathContext{})
 
-		assert.Equal(t, "cached-pod-uid", endpoint.GetPodUid())
+		assert.Equal(t, "cached-pod-uid", endpoint.PodUID)
 	})
 
 	t.Run("remote endpoint", func(t *testing.T) {
@@ -64,7 +64,7 @@ func TestResolveEndpointPodUID(t *testing.T) {
 
 		endpoint := resolver.ResolveEndpoint(ip, 0, DatapathContext{})
 
-		assert.Equal(t, "remote-pod-uid", endpoint.GetPodUid())
+		assert.Equal(t, "remote-pod-uid", endpoint.PodUID)
 	})
 
 	t.Run("unknown UID", func(t *testing.T) {
@@ -72,6 +72,6 @@ func TestResolveEndpointPodUID(t *testing.T) {
 
 		endpoint := resolver.ResolveEndpoint(ip, 0, DatapathContext{})
 
-		assert.Empty(t, endpoint.GetPodUid())
+		assert.Empty(t, endpoint.PodUID)
 	})
 }

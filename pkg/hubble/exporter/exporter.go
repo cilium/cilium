@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -21,6 +23,13 @@ const (
 	DefaultFileMaxSizeMB  = 10
 	DefaultFileMaxBackups = 5
 )
+
+// exportEventPool tracks a pool of exported event vs allocating an event for every exported flows.
+// This yields pressure on GC to free all these objects with short lifecycle so instead
+// we propose using an object pool to reduce short allocations.
+var exportEventPool = sync.Pool{
+	New: func() any { return new(observerpb.ExportEvent) },
+}
 
 // FlowLogExporter is represents a type that can export hubble events.
 type FlowLogExporter interface {
@@ -133,7 +142,6 @@ func (e *exporter) Export(ctx context.Context, ev *v1.Event) error {
 	if !filters.Apply(e.opts.AllowFilters(), e.opts.DenyFilters(), ev) {
 		return nil
 	}
-
 	// Process OnExportEvent hooks
 	for _, f := range e.opts.OnExportEvent {
 		stop, err := f.OnExportEvent(ctx, ev, e.encoder)
@@ -150,7 +158,7 @@ func (e *exporter) Export(ctx context.Context, ev *v1.Event) error {
 	// If aggregation enabled, send only flow events to aggregator.
 	// Non-flow events bypass aggregation and are exported directly.
 	if e.aggregator != nil {
-		if _, ok := ev.Event.(*flowpb.Flow); ok {
+		if _, ok := ev.Event.(*ir.Flow); ok {
 			e.aggregator.Add(ev)
 			return nil
 		}
@@ -160,7 +168,12 @@ func (e *exporter) Export(ctx context.Context, ev *v1.Event) error {
 	if res == nil {
 		return nil
 	}
-	return e.encoder.Encode(res)
+	err := e.encoder.Encode(res)
+
+	// Returns to event object to the pool when done.
+	exportEventPool.Put(res)
+
+	return err
 }
 
 // Stop implements FlowLogExporter.
@@ -182,44 +195,40 @@ func (e *exporter) Stop() error {
 
 // eventToExportEvent converts Event to ExportEvent.
 func (e *exporter) eventToExportEvent(event *v1.Event) *observerpb.ExportEvent {
+	// Leverage the export event pool so we don't keep
+	// allocating new event object for every single exported flow.
+	evt := exportEventPool.Get().(*observerpb.ExportEvent)
+
+	evt.NodeName = nodeTypes.GetName()
+	evt.Time = event.Timestamp
+
 	switch ev := event.Event.(type) {
-	case *flowpb.Flow:
+	case *ir.Flow:
+		flow := ev.ToProto()
 		if e.opts.FieldMask.Active() {
-			e.opts.FieldMask.Copy(e.flow.ProtoReflect(), ev.ProtoReflect())
-			ev = e.flow
+			e.opts.FieldMask.Copy(e.flow.ProtoReflect(), flow.ProtoReflect())
+			flow = e.flow
 		}
-		return &observerpb.ExportEvent{
-			Time:     ev.GetTime(),
-			NodeName: ev.GetNodeName(),
-			ResponseTypes: &observerpb.ExportEvent_Flow{
-				Flow: ev,
-			},
+		evt.Time = flow.GetTime()
+		evt.NodeName = flow.GetNodeName()
+		evt.ResponseTypes = &observerpb.ExportEvent_Flow{
+			Flow: flow,
 		}
 	case *flowpb.LostEvent:
-		return &observerpb.ExportEvent{
-			Time:     event.Timestamp,
-			NodeName: nodeTypes.GetName(),
-			ResponseTypes: &observerpb.ExportEvent_LostEvents{
-				LostEvents: ev,
-			},
+		evt.ResponseTypes = &observerpb.ExportEvent_LostEvents{
+			LostEvents: ev,
 		}
 	case *flowpb.AgentEvent:
-		return &observerpb.ExportEvent{
-			Time:     event.Timestamp,
-			NodeName: nodeTypes.GetName(),
-			ResponseTypes: &observerpb.ExportEvent_AgentEvent{
-				AgentEvent: ev,
-			},
+		evt.ResponseTypes = &observerpb.ExportEvent_AgentEvent{
+			AgentEvent: ev,
 		}
 	case *flowpb.DebugEvent:
-		return &observerpb.ExportEvent{
-			Time:     event.Timestamp,
-			NodeName: nodeTypes.GetName(),
-			ResponseTypes: &observerpb.ExportEvent_DebugEvent{
-				DebugEvent: ev,
-			},
+		evt.ResponseTypes = &observerpb.ExportEvent_DebugEvent{
+			DebugEvent: ev,
 		}
 	default:
 		return nil
 	}
+
+	return evt
 }

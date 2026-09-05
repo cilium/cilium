@@ -8,6 +8,7 @@ import (
 	"net/netip"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -48,7 +49,7 @@ func NewEndpointResolver(
 	}
 }
 
-func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdentity uint32, context DatapathContext) *pb.Endpoint {
+func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdentity uint32, context DatapathContext) ir.Endpoint {
 	// The datapathSecurityIdentity parameter is the numeric security identity
 	// obtained from the datapath.
 	// The numeric identity from the datapath can differ from the one we obtain
@@ -140,19 +141,19 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 		if ep, ok := r.endpointGetter.GetEndpointInfo(ip); ok {
 			epIdentity := resolveIdentityConflict(ep.GetIdentity(), true)
 			labels := ep.GetLabels()
-			e := &pb.Endpoint{
+			e := ir.Endpoint{
 				ID:          uint32(ep.GetID()),
 				Identity:    epIdentity,
 				ClusterName: (labels[k8sConst.PolicyLabelCluster]).Value,
 				Namespace:   ep.GetK8sNamespace(),
 				Labels:      SortAndFilterLabels(r.log, labels.GetModel(), identity.NumericIdentity(epIdentity)),
 				PodName:     ep.GetK8sPodName(),
-				PodUid:      ep.GetK8sPodUID(),
+				PodUID:      ep.GetK8sPodUID(),
 			}
 			if pod := ep.GetPod(); pod != nil {
 				workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
 				if ok {
-					e.Workloads = []*pb.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
+					e.Workloads = []ir.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
 				}
 			}
 			return e
@@ -185,12 +186,12 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 		}
 	}
 
-	return &pb.Endpoint{
+	return ir.Endpoint{
 		Identity:    numericIdentity,
 		ClusterName: clusterName,
 		Namespace:   namespace,
 		Labels:      labels,
 		PodName:     podName,
-		PodUid:      podUID,
+		PodUID:      podUID,
 	}
 }

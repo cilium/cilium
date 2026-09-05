@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -44,18 +45,16 @@ func TestDropHandler(t *testing.T) {
 	})
 
 	t.Run("ProcessFlow_ShouldReportNothingForForwardedFlow", func(t *testing.T) {
-		flow := &pb.Flow{
-			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
-			L4: &pb.Layer4{
-				Protocol: &pb.Layer4_TCP{
-					TCP: &pb.TCP{},
-				},
+		flow := ir.Flow{
+			EventType: ir.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
+			L4: ir.Layer4{
+				TCP: ir.TCP{SourcePort: 80},
 			},
-			Source:      &pb.Endpoint{Namespace: "foo"},
-			Destination: &pb.Endpoint{Namespace: "bar"},
+			Source:      ir.Endpoint{Namespace: "foo"},
+			Destination: ir.Endpoint{Namespace: "bar"},
 			Verdict:     pb.Verdict_FORWARDED,
 		}
-		dropHandler.ProcessFlow(t.Context(), flow)
+		dropHandler.ProcessFlow(t.Context(), &flow)
 
 		metricFamilies, err := registry.Gather()
 		require.NoError(t, err)
@@ -64,34 +63,30 @@ func TestDropHandler(t *testing.T) {
 	})
 
 	t.Run("ProcessFlow_ShouldReportDroppedFlow", func(t *testing.T) {
-		flow1 := &pb.Flow{
-			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
-			L4: &pb.Layer4{
-				Protocol: &pb.Layer4_TCP{
-					TCP: &pb.TCP{},
-				},
+		flow1 := ir.Flow{
+			EventType: ir.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
+			L4: ir.Layer4{
+				TCP: ir.TCP{SourcePort: 80},
 			},
-			Source:         &pb.Endpoint{Namespace: "foo"},
-			Destination:    &pb.Endpoint{Namespace: "bar"},
+			Source:         ir.Endpoint{Namespace: "foo"},
+			Destination:    ir.Endpoint{Namespace: "bar"},
 			Verdict:        pb.Verdict_DROPPED,
 			DropReason:     uint32(pb.DropReason_POLICY_DENIED),
 			DropReasonDesc: pb.DropReason_POLICY_DENIED,
 		}
-		flow2 := &pb.Flow{
-			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
-			L4: &pb.Layer4{
-				Protocol: &pb.Layer4_TCP{
-					TCP: &pb.TCP{},
-				},
+		flow2 := ir.Flow{
+			EventType: ir.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
+			L4: ir.Layer4{
+				TCP: ir.TCP{},
 			},
-			Source:         &pb.Endpoint{Namespace: "deny-pod", PodName: "a"},
-			Destination:    &pb.Endpoint{Namespace: "bar"},
+			Source:         ir.Endpoint{Namespace: "deny-pod", PodName: "a"},
+			Destination:    ir.Endpoint{Namespace: "bar"},
 			Verdict:        pb.Verdict_DROPPED,
 			DropReason:     uint32(pb.DropReason_POLICY_DENIED),
 			DropReasonDesc: pb.DropReason_POLICY_DENIED,
 		}
-		dropHandler.ProcessFlow(t.Context(), flow1)
-		dropHandler.ProcessFlow(t.Context(), flow2)
+		dropHandler.ProcessFlow(t.Context(), &flow1)
+		dropHandler.ProcessFlow(t.Context(), &flow2)
 
 		metricFamilies, err := registry.Gather()
 		require.NoError(t, err)
@@ -115,7 +110,7 @@ func TestDropHandler(t *testing.T) {
 		assert.Equal(t, 1., *metric.Counter.Value)
 
 		//send another flow with same labels
-		dropHandler.ProcessFlow(t.Context(), flow1)
+		dropHandler.ProcessFlow(t.Context(), &flow1)
 		metricFamilies, _ = registry.Gather()
 		metric = metricFamilies[0].Metric[0]
 		assert.Equal(t, 2., *metric.Counter.Value)

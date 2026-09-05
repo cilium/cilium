@@ -8,6 +8,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestClusterNameFilter(t *testing.T) {
@@ -24,11 +25,11 @@ func TestClusterNameFilter(t *testing.T) {
 				{SourceClusterName: []string{"aws-south-1", "gke-europe-west1-c"}},
 			},
 			ev: []*v1.Event{
-				{Event: &flowpb.Flow{Source: &flowpb.Endpoint{ClusterName: "aws-south-1"}}},
-				{Event: &flowpb.Flow{Source: &flowpb.Endpoint{ClusterName: "gke-europe-west1-c"}}},
-				{Event: &flowpb.Flow{}},
-				{Event: &flowpb.Flow{Source: &flowpb.Endpoint{ClusterName: "aks-eastus2-1"}}},
-				{Event: &flowpb.Flow{Destination: &flowpb.Endpoint{ClusterName: "gke-europe-west1-c"}}},
+				{Event: &ir.Flow{Source: ir.Endpoint{ClusterName: "aws-south-1"}}},
+				{Event: &ir.Flow{Source: ir.Endpoint{ClusterName: "gke-europe-west1-c"}}},
+				{Event: &ir.Flow{}},
+				{Event: &ir.Flow{Source: ir.Endpoint{ClusterName: "aks-eastus2-1"}}},
+				{Event: &ir.Flow{Destination: ir.Endpoint{ClusterName: "gke-europe-west1-c"}}},
 			},
 			want: []bool{
 				true,
@@ -44,11 +45,11 @@ func TestClusterNameFilter(t *testing.T) {
 				{DestinationClusterName: []string{"aws-south-1", "gke-europe-west1-c"}},
 			},
 			ev: []*v1.Event{
-				{Event: &flowpb.Flow{Destination: &flowpb.Endpoint{ClusterName: "aws-south-1"}}},
-				{Event: &flowpb.Flow{Destination: &flowpb.Endpoint{ClusterName: "gke-europe-west1-c"}}},
-				{Event: &flowpb.Flow{}},
-				{Event: &flowpb.Flow{Destination: &flowpb.Endpoint{ClusterName: "aks-eastus2-1"}}},
-				{Event: &flowpb.Flow{Source: &flowpb.Endpoint{ClusterName: "gke-europe-west1-c"}}},
+				{Event: &ir.Flow{Destination: ir.Endpoint{ClusterName: "aws-south-1"}}},
+				{Event: &ir.Flow{Destination: ir.Endpoint{ClusterName: "gke-europe-west1-c"}}},
+				{Event: &ir.Flow{}},
+				{Event: &ir.Flow{Destination: ir.Endpoint{ClusterName: "aks-eastus2-1"}}},
+				{Event: &ir.Flow{Source: ir.Endpoint{ClusterName: "gke-europe-west1-c"}}},
 			},
 			want: []bool{
 				true,
@@ -67,28 +68,28 @@ func TestClusterNameFilter(t *testing.T) {
 				},
 			},
 			ev: []*v1.Event{
-				{Event: &flowpb.Flow{
-					Source:      &flowpb.Endpoint{ClusterName: "aws-south-1"},
-					Destination: &flowpb.Endpoint{ClusterName: "aks-eastus2-1"},
+				{Event: &ir.Flow{
+					Source:      ir.Endpoint{ClusterName: "aws-south-1"},
+					Destination: ir.Endpoint{ClusterName: "aks-eastus2-1"},
 				}},
-				{Event: &flowpb.Flow{
-					Source:      &flowpb.Endpoint{ClusterName: "gke-europe-west1-c"},
-					Destination: &flowpb.Endpoint{ClusterName: "aks-eastus2-1"},
+				{Event: &ir.Flow{
+					Source:      ir.Endpoint{ClusterName: "gke-europe-west1-c"},
+					Destination: ir.Endpoint{ClusterName: "aks-eastus2-1"},
 				}},
-				{Event: &flowpb.Flow{
-					Source:      &flowpb.Endpoint{ClusterName: "default"},
-					Destination: &flowpb.Endpoint{ClusterName: "aks-eastus2-1"},
+				{Event: &ir.Flow{
+					Source:      ir.Endpoint{ClusterName: "default"},
+					Destination: ir.Endpoint{ClusterName: "aks-eastus2-1"},
 				}},
-				{Event: &flowpb.Flow{
-					Source:      &flowpb.Endpoint{ClusterName: "aks-eastus2-1"},
-					Destination: &flowpb.Endpoint{ClusterName: "aws-south-1"},
+				{Event: &ir.Flow{
+					Source:      ir.Endpoint{ClusterName: "aks-eastus2-1"},
+					Destination: ir.Endpoint{ClusterName: "aws-south-1"},
 				}},
-				{Event: &flowpb.Flow{
-					Source:      &flowpb.Endpoint{ClusterName: "aks-eastus2-1"},
-					Destination: &flowpb.Endpoint{ClusterName: "gke-europe-west1-c"},
+				{Event: &ir.Flow{
+					Source:      ir.Endpoint{ClusterName: "aks-eastus2-1"},
+					Destination: ir.Endpoint{ClusterName: "gke-europe-west1-c"},
 				}},
-				{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{ClusterName: "default"},
+				{Event: &ir.Flow{
+					Destination: ir.Endpoint{ClusterName: "default"},
 				}},
 			},
 			want: []bool{
@@ -107,28 +108,28 @@ func TestClusterNameFilter(t *testing.T) {
 				{DestinationClusterName: []string{"aks-eastus2-1"}},
 			},
 			ev: []*v1.Event{
-				{Event: &flowpb.Flow{
-					Source:      &flowpb.Endpoint{ClusterName: "aws-south-1"},
-					Destination: &flowpb.Endpoint{ClusterName: "default"},
+				{Event: &ir.Flow{
+					Source:      ir.Endpoint{ClusterName: "aws-south-1"},
+					Destination: ir.Endpoint{ClusterName: "default"},
 				}},
-				{Event: &flowpb.Flow{
-					Source:      &flowpb.Endpoint{ClusterName: "gke-europe-west1-c"},
-					Destination: &flowpb.Endpoint{ClusterName: "default"},
+				{Event: &ir.Flow{
+					Source:      ir.Endpoint{ClusterName: "gke-europe-west1-c"},
+					Destination: ir.Endpoint{ClusterName: "default"},
 				}},
-				{Event: &flowpb.Flow{
-					Source:      &flowpb.Endpoint{ClusterName: "default"},
-					Destination: &flowpb.Endpoint{ClusterName: "aks-eastus2-1"},
+				{Event: &ir.Flow{
+					Source:      ir.Endpoint{ClusterName: "default"},
+					Destination: ir.Endpoint{ClusterName: "aks-eastus2-1"},
 				}},
-				{Event: &flowpb.Flow{
-					Source:      &flowpb.Endpoint{ClusterName: "aks-eastus2-1"},
-					Destination: &flowpb.Endpoint{ClusterName: "aws-south-1"},
+				{Event: &ir.Flow{
+					Source:      ir.Endpoint{ClusterName: "aks-eastus2-1"},
+					Destination: ir.Endpoint{ClusterName: "aws-south-1"},
 				}},
-				{Event: &flowpb.Flow{
-					Source:      &flowpb.Endpoint{ClusterName: "aks-eastus2-1"},
-					Destination: &flowpb.Endpoint{ClusterName: "gke-europe-west1-c"},
+				{Event: &ir.Flow{
+					Source:      ir.Endpoint{ClusterName: "aks-eastus2-1"},
+					Destination: ir.Endpoint{ClusterName: "gke-europe-west1-c"},
 				}},
-				{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{ClusterName: "default"},
+				{Event: &ir.Flow{
+					Destination: ir.Endpoint{ClusterName: "default"},
 				}},
 			},
 			want: []bool{
@@ -148,8 +149,8 @@ func TestClusterNameFilter(t *testing.T) {
 			ev: []*v1.Event{
 				nil,
 				{},
-				{Event: &flowpb.Flow{}},
-				{Event: &flowpb.Flow{Source: &flowpb.Endpoint{ClusterName: ""}}},
+				{Event: &ir.Flow{}},
+				{Event: &ir.Flow{Source: ir.Endpoint{ClusterName: ""}}},
 			},
 			want: []bool{
 				false,

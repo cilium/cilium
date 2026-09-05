@@ -9,23 +9,21 @@ import (
 
 	"github.com/gopacket/gopacket/layers"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
-func decodeDNS(flowType accesslog.FlowType, dns *accesslog.LogRecordDNS) *flowpb.Layer7_Dns {
+func decodeDNS(flowType accesslog.FlowType, dns *accesslog.LogRecordDNS) ir.DNS {
 	qtypes := make([]string, 0, len(dns.QTypes))
 	for _, qtype := range dns.QTypes {
 		qtypes = append(qtypes, layers.DNSType(qtype).String())
 	}
 	if flowType == accesslog.TypeRequest {
 		// Set only fields that are relevant for requests.
-		return &flowpb.Layer7_Dns{
-			Dns: &flowpb.DNS{
-				Query:             dns.Query,
-				ObservationSource: string(dns.ObservationSource),
-				Qtypes:            qtypes,
-			},
+		return ir.DNS{
+			Query:             dns.Query,
+			ObservationSource: string(dns.ObservationSource),
+			Qtypes:            qtypes,
 		}
 	}
 	ips := make([]string, 0, len(dns.IPs))
@@ -36,17 +34,15 @@ func decodeDNS(flowType accesslog.FlowType, dns *accesslog.LogRecordDNS) *flowpb
 	for _, rtype := range dns.AnswerTypes {
 		rtypes = append(rtypes, layers.DNSType(rtype).String())
 	}
-	return &flowpb.Layer7_Dns{
-		Dns: &flowpb.DNS{
-			Query:             dns.Query,
-			Ips:               ips,
-			Ttl:               dns.TTL,
-			Cnames:            dns.CNAMEs,
-			ObservationSource: string(dns.ObservationSource),
-			Rcode:             uint32(dns.RCode),
-			Qtypes:            qtypes,
-			Rrtypes:           rtypes,
-		},
+	return ir.DNS{
+		Query:             dns.Query,
+		Ips:               ips,
+		TTL:               dns.TTL,
+		CNames:            dns.CNAMEs,
+		ObservationSource: string(dns.ObservationSource),
+		RCode:             uint32(dns.RCode),
+		Qtypes:            qtypes,
+		Rtypes:            rtypes,
 	}
 }
 
