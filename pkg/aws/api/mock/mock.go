@@ -66,6 +66,18 @@ type API struct {
 	limiter        *rate.Limiter
 	delaySim       *helpers.DelaySimulator
 	pdSubnet       netip.Prefix
+	// rejectENAQueueCount makes AttachNetworkInterface reject any attachment
+	// asking for a specific number of ENA queues, as AWS does when the count
+	// is not one it accepts.
+	rejectENAQueueCount bool
+}
+
+// RejectENAQueueCount makes the mock reject any attachment which asks for a
+// specific number of ENA queues.
+func (e *API) RejectENAQueueCount(reject bool) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+	e.rejectENAQueueCount = reject
 }
 
 // NewAPI returns a new mocked EC2 API
@@ -110,6 +122,30 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 				Ipv4AddressesPerInterface: aws.Int32(30),
 				Ipv6AddressesPerInterface: aws.Int32(30),
 			},
+			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+			BareMetal:  aws.Bool(false),
+		},
+		{
+			// c8i.8xlarge supports flexible ENA queues. The queue limits are
+			// reported per network card, and are the values the EC2 API returns
+			// for this instance type.
+			InstanceType: "c8i.8xlarge",
+			NetworkInfo: &ec2_types.NetworkInfo{
+				MaximumNetworkInterfaces:  aws.Int32(10),
+				Ipv4AddressesPerInterface: aws.Int32(50),
+				Ipv6AddressesPerInterface: aws.Int32(50),
+				FlexibleEnaQueuesSupport:  ec2_types.FlexibleEnaQueuesSupportSupported,
+				NetworkCards: []ec2_types.NetworkCardInfo{
+					{
+						NetworkCardIndex:                 aws.Int32(0),
+						MaximumNetworkInterfaces:         aws.Int32(10),
+						MaximumEnaQueueCount:             aws.Int32(128),
+						MaximumEnaQueueCountPerInterface: aws.Int32(32),
+						DefaultEnaQueueCountPerInterface: aws.Int32(8),
+					},
+				},
+			},
+			VCpuInfo:   &ec2_types.VCpuInfo{DefaultVCpus: aws.Int32(32)},
 			Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
 			BareMetal:  aws.Bool(false),
 		},
@@ -387,7 +423,7 @@ func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 	return fmt.Errorf("ENI ID %s not found", eniID)
 }
 
-func (e *API) AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error) {
+func (e *API) AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string, enaQueueCount int32) (string, error) {
 	e.rateLimit()
 	e.delaySim.Delay(AttachNetworkInterface)
 
@@ -403,6 +439,15 @@ func (e *API) AttachNetworkInterface(ctx context.Context, index int32, instanceI
 		return "", fmt.Errorf("ENI ID %s does not exist", eniID)
 	}
 
+	// AWS only accepts a power of two as the number of ENA queues of an
+	// attachment, and rejects the attachment otherwise.
+	if enaQueueCount > 0 && (e.rejectENAQueueCount || enaQueueCount&(enaQueueCount-1) != 0) {
+		return "", &smithy.GenericAPIError{
+			Code:    api.InvalidParameterValueStr,
+			Message: "The ENA queue count specified must be a power of 2",
+		}
+	}
+
 	delete(e.unattached, eniID)
 
 	if _, ok := e.enis[instanceID]; !ok {
@@ -410,6 +455,7 @@ func (e *API) AttachNetworkInterface(ctx context.Context, index int32, instanceI
 	}
 
 	eni.Number = int(index)
+	eni.ENAQueueCount = enaQueueCount
 
 	e.enis[instanceID][eniID] = eni
 

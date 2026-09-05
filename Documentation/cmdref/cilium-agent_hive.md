@@ -116,6 +116,7 @@ cilium-agent hive [flags]
       --endpoint-regen-interval duration                          Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)
       --eni-delete-on-termination                                 Whether the ENI should be deleted when the associated instance is terminated at the node level (default true)
       --eni-disable-prefix-delegation                             Whether ENI prefix delegation should be disabled on this node at the node level
+      --eni-ena-queue-count string                                Number of ENA queues to request for each ENI attached to the node by Cilium: "default" to leave the number of queues to AWS, "auto" for as many as the interface can use, or a positive number of queues. ENA queues are a budget shared by all interfaces of an instance, so a high number of queues per ENI may reduce the number of ENIs, and therefore the number of pods, that fit on the node (default "default")
       --eni-exclude-interface-tags stringToString                 List of tags to use when excluding ENIs for Cilium IP allocation at the node level (default [])
       --eni-first-interface-index int                             Index of the first ENI to use for IP allocation at the node level
       --eni-security-group-tags stringToString                    List of tags to use when evaluating what AWS security groups to use for the ENI at the node level (default [])

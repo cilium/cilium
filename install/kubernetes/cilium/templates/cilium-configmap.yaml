@@ -651,6 +651,9 @@ data:
   {{- if .Values.eni.nodeSpec.disablePrefixDelegation }}
   eni-disable-prefix-delegation: "true"
   {{- end }}
+  {{- if .Values.eni.nodeSpec.enaQueueCount }}
+  eni-ena-queue-count: {{ .Values.eni.nodeSpec.enaQueueCount | quote }}
+  {{- end }}
   {{- if ne .Values.eni.nodeSpec.deleteOnTermination nil }}
   eni-delete-on-termination: {{ .Values.eni.nodeSpec.deleteOnTermination | quote }}
   {{- end }}
