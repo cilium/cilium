@@ -292,9 +292,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(vp, option.EnablePolicy)
 
-	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
-	option.BindEnv(vp, option.EnableL7Proxy)
-
 	flags.Bool(option.BPFEventsDropEnabled, defaults.BPFEventsDropEnabled, "Expose 'drop' events for Cilium monitor and/or Hubble")
 	option.BindEnv(vp, option.BPFEventsDropEnabled)
 
@@ -727,10 +724,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DisableExternalIPMitigation, false, "Disable ExternalIP mitigation (CVE-2020-8554, default false)")
 	option.BindEnv(vp, option.DisableExternalIPMitigation)
 
-	flags.Bool(option.EnableICMPRules, defaults.EnableICMPRules, "Enable ICMP-based rule support for Cilium Network Policies")
-	flags.MarkHidden(option.EnableICMPRules)
-	option.BindEnv(vp, option.EnableICMPRules)
-
 	flags.Bool(option.BypassIPAvailabilityUponRestore, false, "Bypasses the IP availability error within IPAM upon endpoint restore")
 	flags.MarkHidden(option.BypassIPAvailabilityUponRestore)
 	option.BindEnv(vp, option.BypassIPAvailabilityUponRestore)
@@ -777,15 +770,8 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.MaxInternalTimerDelay)
 	option.BindEnv(vp, option.MaxInternalTimerDelay)
 
-	flags.Bool(option.EnableNodeSelectorLabels, defaults.EnableNodeSelectorLabels, "Enable use of node label based identity")
-	option.BindEnv(vp, option.EnableNodeSelectorLabels)
-
 	flags.StringSlice(option.NodeLabels, []string{}, "List of label prefixes used to determine identity of a node (used only when enable-node-selector-labels is enabled)")
 	option.BindEnv(vp, option.NodeLabels)
-
-	flags.Bool(option.EnableNonDefaultDenyPolicies, defaults.EnableNonDefaultDenyPolicies, "Enable use of non-default-deny policies")
-	flags.MarkHidden(option.EnableNonDefaultDenyPolicies)
-	option.BindEnv(vp, option.EnableNonDefaultDenyPolicies)
 
 	flags.Bool(option.EnableEndpointLockdownOnPolicyOverflow, false, "When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint.")
 	option.BindEnv(vp, option.EnableEndpointLockdownOnPolicyOverflow)
@@ -797,9 +783,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Float64(option.ConnectivityProbeFrequencyRatio, defaults.ConnectivityProbeFrequencyRatio, "Ratio of the connectivity probe frequency vs resource usage, a float in [0, 1]. 0 will give more frequent probing, 1 will give less frequent probing. Probing frequency is dynamically adjusted based on the cluster size.")
 	option.BindEnv(vp, option.ConnectivityProbeFrequencyRatio)
 
-	flags.Bool(option.EnableExtendedIPProtocols, defaults.EnableExtendedIPProtocols, "Enable traffic with extended IP protocols in datapath")
-	option.BindEnv(vp, option.EnableExtendedIPProtocols)
-
 	flags.Uint8(option.IPTracingOptionType, 0, "Specifies what IPv4 option type should be used to extract trace information from a packet; a value of 0 (default) disables IP tracing.")
 	option.BindEnv(vp, option.IPTracingOptionType)
 
@@ -810,6 +793,8 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableDatapathPlugins, defaults.EnableDatapathPlugins, "Enable use of datapath plugins and the CiliumDatapathPlugins CRD")
 	flags.MarkHidden(option.EnableDatapathPlugins)
 	option.BindEnv(vp, option.EnableDatapathPlugins)
+
+	option.RegisterCommonPolicyFlags(vp, flags)
 
 	if err := vp.BindPFlags(flags); err != nil {
 		logging.Fatal(logger, "BindPFlags failed", logfields.Error, err)
