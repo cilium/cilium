@@ -824,14 +824,14 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 	if needsEndpointRoutingOnHost(conf) {
 		if ipam.IPv4 != nil && ipConfig != nil {
-			err = interfaceAdd(scopedLogger, ipConfig, ipam.IPv4, conf)
+			err = interfaceAdd(ipConfig, ipam.IPv4, conf)
 			if err != nil {
 				return fmt.Errorf("unable to setup interface datapath: %w", err)
 			}
 		}
 
 		if ipam.IPv6 != nil && ipv6Config != nil {
-			err = interfaceAdd(scopedLogger, ipv6Config, ipam.IPv6, conf)
+			err = interfaceAdd(ipv6Config, ipam.IPv6, conf)
 			if err != nil {
 				return fmt.Errorf("unable to setup interface datapath: %w", err)
 			}
