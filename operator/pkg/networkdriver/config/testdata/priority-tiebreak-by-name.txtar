@@ -1,0 +1,100 @@
+hive start
+
+# Add a node matched by two cluster configs that share the exact same
+# creationTimestamp. The manager must fall back to a deterministic
+# alphabetical-name tiebreak (cmp.Compare(a.name, b.name)) to decide which
+# one wins, rather than depending on map iteration order.
+
+k8s/add kind-worker-node.yaml
+k8s/add driver-cluster-config-z.yaml
+k8s/add driver-cluster-config-a.yaml
+
+# driver-cluster-config-a (alphabetically first) must win and not be marked
+# conflicting; driver-cluster-config-z must be marked conflicting.
+
+* db/cmp netdriver-cluster-config cluster-config.table
+
+# kind-worker's NodeConfig must be derived from driver-cluster-config-a.
+
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-worker -o kind-worker-config-actual.yaml
+* cmp kind-worker-config-expected.yaml kind-worker-config-actual.yaml
+
+hive stop
+
+# ----
+
+-- kind-worker-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker
+  name: kind-worker
+spec: {}
+-- driver-cluster-config-z.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config-z
+  creationTimestamp: 2026-04-29T14:30:00Z
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: kind-worker
+  spec:
+    draRegistrationRetryInterval: 2
+    draRegistrationTimeout: 500
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool-z"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- driver-cluster-config-a.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config-a
+  creationTimestamp: 2026-04-29T14:30:00Z
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: kind-worker
+  spec:
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool-a"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- cluster-config.table --
+Name                     IsConflicting       Status    Error
+driver-cluster-config-a  false               Done
+driver-cluster-config-z  true                Done
+-- kind-worker-config-expected.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: kind-worker
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 1
+  draRegistrationTimeout: 600
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool-a

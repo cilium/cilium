@@ -95,6 +95,7 @@ func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
 		CRDResourceName(v2.LBIPPoolName),
 		CRDResourceName(v2alpha1.L2AnnouncementName),
 		CRDResourceName(v2alpha1.CiliumNetworkDriverNodeConfigName),
+		CRDResourceName(v2alpha1.CiliumNetworkDriverClusterConfigName),
 	)
 
 	return result
