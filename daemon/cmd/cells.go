@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/auth"
 	awsAgent "github.com/cilium/cilium/pkg/aws/agent"
 	"github.com/cilium/cilium/pkg/bgp"
+	bgpagent "github.com/cilium/cilium/pkg/bgp/agent"
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bpf/stats"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
@@ -292,6 +293,9 @@ var (
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgp.Cell,
+		// Provides the BGP DatapathWaiter that gates route announcements on
+		// host datapath and load-balancing state initialization.
+		cell.Provide(bgpagent.NewDatapathWaiter),
 
 		// The Cilium Network Driver for exposing network devices to workloads via DRA.
 		networkdriver.Cell,

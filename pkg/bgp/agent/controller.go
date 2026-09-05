@@ -55,6 +55,10 @@ type Controller struct {
 	// BGPMgr is an implementation of the BGPRouterManager interface
 	// and provides a declarative API for configuring BGP peers.
 	BGPMgr BGPRouterManager
+
+	// DatapathWaiter is called to wait for the datapath to be ready before
+	// allowing BGP route announcements.
+	DatapathWaiter DatapathWaiter
 }
 
 // ControllerParams contains all parameters needed to construct a Controller
@@ -71,6 +75,7 @@ type ControllerParams struct {
 	BGPNodeConfigStore      store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig]
 	BGPConfig               config.BGPConfig
 	LocalCiliumNodeResource daemon_k8s.LocalCiliumNodeResource
+	DatapathWaiter          DatapathWaiter
 }
 
 // NewController constructs a new BGP Control Plane Controller.
@@ -94,14 +99,14 @@ func NewController(params ControllerParams) (*Controller, error) {
 		BGPMgr:             params.RouteMgr,
 		BGPNodeConfigStore: params.BGPNodeConfigStore,
 		CiliumNodeResource: params.LocalCiliumNodeResource,
+		DatapathWaiter:     params.DatapathWaiter,
 	}
 
 	params.JobGroup.Add(
 		job.OneShot("bgp-controller",
 			func(ctx context.Context, health cell.Health) (err error) {
 				// run the controller
-				c.Run(ctx)
-				return nil
+				return c.Run(ctx)
 			},
 			job.WithRetry(3, &job.ExponentialBackoff{Min: 100 * time.Millisecond, Max: time.Second}),
 			job.WithShutdown()),
@@ -116,17 +121,28 @@ func NewController(params ControllerParams) (*Controller, error) {
 //
 // A cancel of the provided ctx will kill the control loop along with the running
 // informers.
-func (c *Controller) Run(ctx context.Context) {
+func (c *Controller) Run(ctx context.Context) error {
 	scopedLog := c.Logger.With(types.ComponentLogField, "Controller.Run")
 
 	scopedLog.Info("Cilium BGP Control Plane Controller now running...")
+
+	// Wait for the datapath BPF programs to be attached and the load-balancing
+	// state to be reconciled to BPF maps before processing any BGP events.
+	// Without this gate, BGP may advertise routes before the datapath is ready
+	// to handle traffic, causing a "No route to host" window.
+	scopedLog.Info("BGP Control Plane waiting for datapath initialization")
+	if err := c.DatapathWaiter.Wait(ctx); err != nil {
+		return err
+	}
+	scopedLog.Info("BGP Control Plane datapath ready, starting event processing")
+
 	ciliumNodeCh := c.CiliumNodeResource.Events(ctx)
 	for {
 		select {
 		case ev, ok := <-ciliumNodeCh:
 			if !ok {
 				scopedLog.Info("LocalCiliumNode resource channel closed, Cilium BGP Control Plane Controller shut down")
-				return
+				return nil
 			}
 			switch ev.Kind {
 			case resource.Upsert:
@@ -138,7 +154,7 @@ func (c *Controller) Run(ctx context.Context) {
 			ev.Done(nil)
 		case <-ctx.Done():
 			scopedLog.Info("Cilium BGP Control Plane Controller shut down")
-			return
+			return nil
 		case <-c.Sig.Sig:
 			if c.LocalCiliumNode == nil {
 				scopedLog.Debug("localCiliumNode has not been set yet")
