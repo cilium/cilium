@@ -5,9 +5,11 @@ package ipam
 
 import (
 	"fmt"
+	"net/netip"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -25,7 +27,7 @@ func newCiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNo
 		Status: v2.NodeStatus{
 			IPAM: ipamTypes.IPAMStatus{
 				Used:       ipamTypes.AllocationMap{},
-				ReleaseIPs: map[string]ipamTypes.IPReleaseStatus{},
+				ReleaseIPs: ipamTypes.IPReleaseStatusMap{},
 			},
 		},
 	}
@@ -38,7 +40,7 @@ func newCiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNo
 func updateCiliumNode(cn *v2.CiliumNode, used int) *v2.CiliumNode {
 	cn.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
 	for i := 1; i <= used; i++ {
-		cn.Spec.IPAM.Pool[fmt.Sprintf("1.1.1.%d", i)] = ipamTypes.AllocationIP{Resource: "foo"}
+		cn.Spec.IPAM.Pool[iputil.AddrFrom(netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i)))] = ipamTypes.AllocationIP{Resource: "foo"}
 	}
 
 	cn.Status.IPAM.Used = ipamTypes.AllocationMap{}

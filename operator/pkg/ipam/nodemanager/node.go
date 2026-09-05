@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/defaults"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -1050,7 +1051,7 @@ func (n *Node) removeStaleReleaseIPs() {
 		if status != ipamOption.IPAMReleased {
 			continue
 		}
-		if _, ok := n.resource.Status.IPAM.ReleaseIPs[addr.String()]; !ok {
+		if _, ok := n.resource.Status.IPAM.ReleaseIPs[iputil.AddrFrom(addr)]; !ok {
 			delete(n.ipv4Alloc.ipReleaseStatus, addr)
 		}
 	}
@@ -1058,18 +1059,18 @@ func (n *Node) removeStaleReleaseIPs() {
 
 // abortNoLongerExcessIPs allows for aborting release of IP if new allocations on the node result in a change of excess
 // count or the interface selected for release.
-func (n *Node) abortNoLongerExcessIPs(excessMap map[string]bool) {
+func (n *Node) abortNoLongerExcessIPs(excessIPs sets.Set[netip.Addr]) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	if len(n.resource.Status.IPAM.ReleaseIPs) == 0 {
 		return
 	}
-	for ip, status := range n.resource.Status.IPAM.ReleaseIPs {
-		if excessMap[ip] {
+	for key, status := range n.resource.Status.IPAM.ReleaseIPs {
+		if !key.IsValid() {
 			continue
 		}
-		addr, err := netip.ParseAddr(ip)
-		if err != nil {
+		addr := key.Addr
+		if excessIPs.Has(addr) {
 			continue
 		}
 		// Handshake can be aborted from every state except 'released'
@@ -1077,8 +1078,8 @@ func (n *Node) abortNoLongerExcessIPs(excessMap map[string]bool) {
 		// But if the IP is back in the pool, we need to remove it from the release status map.
 		if status == ipamOption.IPAMReleased {
 			// Check if the IP is back in the pool despite being marked as released
-			if _, ok := n.resource.Spec.IPAM.Pool[ip]; ok {
-				delete(n.resource.Status.IPAM.ReleaseIPs, ip)
+			if _, ok := n.resource.Spec.IPAM.Pool[key]; ok {
+				delete(n.resource.Status.IPAM.ReleaseIPs, key)
 				delete(n.ipv4Alloc.ipsMarkedForRelease, addr)
 				delete(n.ipv4Alloc.ipReleaseStatus, addr)
 			}
@@ -1098,7 +1099,7 @@ func (n *Node) abortNoLongerExcessIPs(excessMap map[string]bool) {
 // caller must hold mutex lock
 func (n *Node) handleIPReleaseResponse(markedIP netip.Addr, ipsToRelease *[]netip.Addr) bool {
 	if n.resource.Status.IPAM.ReleaseIPs != nil {
-		if status, ok := n.resource.Status.IPAM.ReleaseIPs[markedIP.String()]; ok {
+		if status, ok := n.resource.Status.IPAM.ReleaseIPs[iputil.AddrFrom(markedIP)]; ok {
 			switch status {
 			case ipamOption.IPAMReadyForRelease:
 				*ipsToRelease = append(*ipsToRelease, markedIP)
@@ -1194,14 +1195,18 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 	n.mutex.Unlock()
 
 	// Abort handshake for IPs that are in the middle of handshake, but are no longer considered excess
-	var excessMap map[string]bool
+	var excessIPs sets.Set[netip.Addr]
 	if a.release != nil && len(a.release.IPsToRelease) > 0 {
-		excessMap = make(map[string]bool, len(a.release.IPsToRelease))
+		excessIPs = make(sets.Set[netip.Addr], len(a.release.IPsToRelease))
 		for _, ip := range a.release.IPsToRelease {
-			excessMap[ip] = true
+			// An unparseable entry simply never matches, exactly as it could
+			// not match a canonical ReleaseIPs key when both were strings.
+			if addr, err := netip.ParseAddr(ip); err == nil {
+				excessIPs.Insert(addr)
+			}
 		}
 	}
-	n.abortNoLongerExcessIPs(excessMap)
+	n.abortNoLongerExcessIPs(excessIPs)
 
 	if len(ipsToRelease) > 0 {
 		a.release.IPsToRelease = cslices.Map(ipsToRelease, netip.Addr.String)
@@ -1456,17 +1461,17 @@ func (n *Node) PopulateIPReleaseStatus(node *v2.CiliumNode) {
 	n.removeStaleReleaseIPs()
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	releaseStatus := make(map[string]ipamTypes.IPReleaseStatus)
+	releaseStatus := make(ipamTypes.IPReleaseStatusMap, len(n.ipv4Alloc.ipReleaseStatus))
 	for addr, status := range n.ipv4Alloc.ipReleaseStatus {
-		ip := addr.String()
-		if existingStatus, ok := node.Status.IPAM.ReleaseIPs[ip]; ok && status == ipamOption.IPAMMarkForRelease {
+		key := iputil.AddrFrom(addr)
+		if existingStatus, ok := node.Status.IPAM.ReleaseIPs[key]; ok && status == ipamOption.IPAMMarkForRelease {
 			// retain status if agent already responded to this IP
 			if existingStatus == ipamOption.IPAMReadyForRelease || existingStatus == ipamOption.IPAMDoNotRelease {
-				releaseStatus[ip] = existingStatus
+				releaseStatus[key] = existingStatus
 				continue
 			}
 		}
-		releaseStatus[ip] = ipamTypes.IPReleaseStatus(status)
+		releaseStatus[key] = ipamTypes.IPReleaseStatus(status)
 	}
 	node.Status.IPAM.ReleaseIPs = releaseStatus
 }

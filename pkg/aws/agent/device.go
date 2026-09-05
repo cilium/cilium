@@ -86,9 +86,9 @@ func validateENIConfig(node *ciliumv2.CiliumNode) error {
 	}
 
 	// Check if all pool resource IPs are present in the status
-	eniIPMap := map[string][]string{}
-	for k, v := range node.Spec.IPAM.Pool {
-		eniIPMap[v.Resource] = append(eniIPMap[v.Resource], k)
+	eniIPMap := map[string][]iputil.Addr{}
+	for addr, v := range node.Spec.IPAM.Pool {
+		eniIPMap[v.Resource] = append(eniIPMap[v.Resource], addr)
 	}
 
 	for eni, addresses := range eniIPMap {
@@ -96,11 +96,12 @@ func validateENIConfig(node *ciliumv2.CiliumNode) error {
 		for _, sENI := range node.Status.ENI.ENIs {
 			if eni == sENI.ID {
 				for _, addr := range addresses {
-					parsed, err := netip.ParseAddr(addr)
-					if err != nil {
-						return fmt.Errorf("invalid address %q in pool for ENI %s: %w", addr, eni, err)
+					// The only invalid key that survives decoding is an empty
+					// one: any other malformed address fails to unmarshal.
+					if !addr.IsValid() {
+						return fmt.Errorf("empty address in pool for ENI %s", eni)
 					}
-					if !slices.ContainsFunc(sENI.Addresses, func(a iputil.Addr) bool { return a.Addr == parsed }) {
+					if !slices.Contains(sENI.Addresses, addr) {
 						return fmt.Errorf("ENI %s does not have address %s", eni, addr)
 					}
 				}

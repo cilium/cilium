@@ -23,6 +23,7 @@ import (
 	metricsmock "github.com/cilium/cilium/operator/pkg/ipam/metrics/mock"
 	ipamStats "github.com/cilium/cilium/operator/pkg/ipam/stats"
 	"github.com/cilium/cilium/pkg/defaults"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -166,7 +167,7 @@ func (n *nodeOperationsMock) ResyncInterfacesAndIPs(ctx context.Context, scopedL
 		return nil, stats, n.resyncErr
 	}
 	for _, ip := range n.allocatedIPs {
-		available[ip] = ipamTypes.AllocationIP{}
+		available[iputil.AddrFrom(netip.MustParseAddr(ip))] = ipamTypes.AllocationIP{}
 	}
 	return available, stats, nil
 }
@@ -589,7 +590,7 @@ func newCiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNo
 		Status: v2.NodeStatus{
 			IPAM: ipamTypes.IPAMStatus{
 				Used:       ipamTypes.AllocationMap{},
-				ReleaseIPs: map[string]ipamTypes.IPReleaseStatus{},
+				ReleaseIPs: ipamTypes.IPReleaseStatusMap{},
 			},
 		},
 	}
@@ -602,7 +603,7 @@ func newCiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNo
 func updateCiliumNode(cn *v2.CiliumNode, used int) *v2.CiliumNode {
 	cn.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
 	for i := 1; i <= used; i++ {
-		cn.Spec.IPAM.Pool[fmt.Sprintf("1.1.1.%d", i)] = ipamTypes.AllocationIP{Resource: "foo"}
+		cn.Spec.IPAM.Pool[iputil.AddrFrom(netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i)))] = ipamTypes.AllocationIP{Resource: "foo"}
 	}
 
 	cn.Status.IPAM.Used = ipamTypes.AllocationMap{}
@@ -965,6 +966,9 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		return releasedIP != ""
 	}, 10*time.Second, time.Second)
 
+	releasedAddr := netip.MustParseAddr(releasedIP)
+	releasedKey := iputil.AddrFrom(releasedAddr)
+
 	// Actually run the IP maintenance process to mark the IP for release
 	err = node.MaintainIPPool(context.Background())
 	require.NoError(t, err)
@@ -974,8 +978,8 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 	node.mutex.Lock()
 
 	// Verify it's marked for release in the CiliumNode resource
-	require.Contains(t, node.resource.Status.IPAM.ReleaseIPs, releasedIP)
-	require.Equal(t, ipamOption.IPAMMarkForRelease, string(node.resource.Status.IPAM.ReleaseIPs[releasedIP]))
+	require.Contains(t, node.resource.Status.IPAM.ReleaseIPs, releasedKey)
+	require.Equal(t, ipamOption.IPAMMarkForRelease, string(node.resource.Status.IPAM.ReleaseIPs[releasedKey]))
 
 	// Fake acknowledge IP for release like agent would
 	testipam.FakeAcknowledgeReleaseIps(node.resource)
@@ -998,18 +1002,17 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		node.mutex.Lock()
 		defer node.mutex.Unlock()
 
-		status, exists := node.resource.Status.IPAM.ReleaseIPs[releasedIP]
+		status, exists := node.resource.Status.IPAM.ReleaseIPs[releasedKey]
 		return exists && string(status) == ipamOption.IPAMReadyForRelease
 	}, 10*time.Second, time.Second)
 
 	node.mutex.Lock()
 
 	// Now simulate the operator releasing the IP and marking it as released
-	delete(node.resource.Spec.IPAM.Pool, releasedIP)
-	node.resource.Status.IPAM.ReleaseIPs[releasedIP] = ipamOption.IPAMReleased
+	delete(node.resource.Spec.IPAM.Pool, releasedKey)
+	node.resource.Status.IPAM.ReleaseIPs[releasedKey] = ipamOption.IPAMReleased
 
 	// Also mark it as released in the internal ipReleaseStatus map
-	releasedAddr := netip.MustParseAddr(releasedIP)
 	node.ipv4Alloc.ipReleaseStatus[releasedAddr] = ipamOption.IPAMReleased
 
 	// Normally at this point, the agent would see the IP is released and remove it from Status.IPAM.ReleaseIPs
@@ -1017,7 +1020,7 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 	if node.resource.Spec.IPAM.Pool == nil {
 		node.resource.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
 	}
-	node.resource.Spec.IPAM.Pool[releasedIP] = ipamTypes.AllocationIP{Resource: "eni-test"}
+	node.resource.Spec.IPAM.Pool[releasedKey] = ipamTypes.AllocationIP{Resource: "eni-test"}
 
 	node.mutex.Unlock()
 
@@ -1038,7 +1041,7 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 
 		_, inReleaseStatus := node.ipv4Alloc.ipReleaseStatus[releasedAddr]
 		_, inMarkedForRelease := node.ipv4Alloc.ipsMarkedForRelease[releasedAddr]
-		_, inReleaseIPs := node.resource.Status.IPAM.ReleaseIPs[releasedIP]
+		_, inReleaseIPs := node.resource.Status.IPAM.ReleaseIPs[releasedKey]
 
 		return !inReleaseStatus && !inMarkedForRelease && !inReleaseIPs
 	}, 10*time.Second, time.Second)

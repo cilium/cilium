@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
 
@@ -501,13 +502,9 @@ func Test_MultiPoolManager(t *testing.T) {
 		}, timeout, tick)
 
 		ipv4Dump, ipv4Summary := mgr.dump(IPv4)
-		assert.Equal(t, map[Pool]map[string]string{
-			PoolDefault(): {
-				defaultAllocation.IP.String(): "",
-			},
-			Pool("mars"): {
-				marsAllocation.IP.String(): "",
-			},
+		assert.Equal(t, map[Pool]sets.Set[netip.Addr]{
+			PoolDefault(): sets.New(defaultAllocation.IP),
+			Pool("mars"):  sets.New(marsAllocation.IP),
 		}, ipv4Dump)
 		assert.Equal(t, "2 IPAM pool(s) available", ipv4Summary)
 	})
@@ -1162,7 +1159,7 @@ func Test_MultiPoolManager_UpdateNodeRetries(t *testing.T) {
 			Status: ciliumv2.NodeStatus{
 				IPAM: types.IPAMStatus{
 					Used: types.AllocationMap{
-						"10.0.0.1": types.AllocationIP{Resource: "pod-a"},
+						iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")): types.AllocationIP{Resource: "pod-a"},
 					},
 				},
 			},
