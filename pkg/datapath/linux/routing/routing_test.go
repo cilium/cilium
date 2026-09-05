@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -324,7 +323,6 @@ func getFakes(t *testing.T, ipamMode string, masquerade bool, withZeroCIDR bool)
 	require.NoError(t, err)
 	require.NotNil(t, fakeRoutingInfo)
 
-	node.SetRouterInfo(fakeRoutingInfo)
 	option.Config.IPAM = fakeRoutingInfo.IpamMode
 	option.Config.EnableIPv4Masquerade = fakeRoutingInfo.Masquerade
 

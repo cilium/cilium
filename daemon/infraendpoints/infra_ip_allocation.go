@@ -361,8 +361,6 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 			return nil, fmt.Errorf("failed to configure router IP rules and routes: %w", err)
 		}
 
-		node.SetRouterInfo(routingInfo)
-
 		r.jobGroup.Add(job.OneShot("egress-route-reconciler", func(ctx context.Context, health cell.Health) error {
 			// Limit the rate of reconciliation if for whatever reason the routes
 			// table is very busy. Once every 30 seconds seems reasonable as a

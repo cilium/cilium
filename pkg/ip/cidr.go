@@ -85,3 +85,26 @@ func PrefixesContains(prefixes []netip.Prefix, addr netip.Addr) bool {
 func LaminarCIDRsOverlap(c1, c2 netip.Prefix) bool {
 	return c1.Contains(c2.Addr()) || c2.Contains(c1.Addr())
 }
+
+// CoalescePrefixes reduces the prefixes to the minimal equivalent set: prefixes
+// contained in another one are dropped, and prefixes that together cover a
+// contiguous range are merged into the shortest prefixes covering that range.
+// The result is sorted by address family, IPv4 prefixes first.
+//
+// Ranges of different address families are never contiguous, so a single set
+// coalesces both families independently.
+//
+// Invalid prefixes are dropped: netipx.IPSetBuilder only reports errors for the
+// invalid inputs it was asked to add, so callers that need to reject them must
+// validate before calling.
+func CoalescePrefixes(prefixes []netip.Prefix) []netip.Prefix {
+	var builder netipx.IPSetBuilder
+
+	for _, prefix := range prefixes {
+		builder.AddPrefix(prefix)
+	}
+
+	set, _ := builder.IPSet()
+
+	return set.Prefixes()
+}

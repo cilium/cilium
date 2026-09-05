@@ -205,8 +205,8 @@ func newLocalNodeConfig(
 		EnableIPSec:                  ipsecCfg.Enabled(),
 		EncryptNode:                  daemon.EncryptNode,
 		EnableConntrackAccounting:    daemon.BPFConntrackAccounting,
-		IPv4PodSubnets:               cslices.Map(daemon.IPv4PodSubnets, ip.PrefixFrom),
-		IPv6PodSubnets:               cslices.Map(daemon.IPv6PodSubnets, ip.PrefixFrom),
+		IPv4PodSubnets:               podSubnets(cslices.Map(daemon.IPv4PodSubnets, ip.PrefixFrom), localNode.Local.IPv4PodSubnets),
+		IPv6PodSubnets:               podSubnets(cslices.Map(daemon.IPv6PodSubnets, ip.PrefixFrom), localNode.Local.IPv6PodSubnets),
 		XDPConfig:                    xdpConfig,
 		LBConfig:                     lbConfig,
 		KPRConfig:                    kprCfg,
@@ -216,6 +216,17 @@ func newLocalNodeConfig(
 		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 		Plugins:                      plugins,
 	}, common.MergeChannels(watchChans...), nil
+}
+
+// podSubnets returns the explicitly configured pod subnets, falling back to
+// the ones derived from the cloud provider. The derived subnets are empty for
+// every IPAM mode that does not allocate pod IPs out of cloud provider
+// subnets, so no mode check is needed here.
+func podSubnets(configured, derived []ip.Prefix) []ip.Prefix {
+	if len(configured) > 0 {
+		return configured
+	}
+	return derived
 }
 
 // getEphemeralPortRangeMin returns the minimum ephemeral port from
