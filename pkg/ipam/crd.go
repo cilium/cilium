@@ -249,12 +249,6 @@ func deriveVpcCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR netip.Prefix, second
 			return
 		}
 	}
-	for _, azif := range node.Status.Azure.Interfaces {
-		if p := azif.Subnet.CIDR.Prefix; p.IsValid() {
-			primaryCIDR = p.Masked()
-			return
-		}
-	}
 	// return AlibabaCloud vpc CIDR
 	if len(node.Status.AlibabaCloud.ENIs) > 0 {
 		if p := node.Spec.AlibabaCloud.CIDRBlock; p.IsValid() {
@@ -349,10 +343,8 @@ func (n *nodeStore) hasMinimumIPsInPool(localNodeStore *node.LocalNodeStore) (mi
 			minimumReached = true
 		}
 
-		if n.conf.IPAMMode() == ipamOption.IPAMAzure || n.conf.IPAMMode() == ipamOption.IPAMAlibabaCloud {
-			if !n.autoDetectIPv4NativeRoutingCIDR(localNodeStore) {
-				minimumReached = false
-			}
+		if n.conf.IPAMMode() == ipamOption.IPAMAlibabaCloud && !n.autoDetectIPv4NativeRoutingCIDR(localNodeStore) {
+			minimumReached = false
 		}
 	}
 
@@ -713,52 +705,6 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 	}
 
 	switch a.conf.IPAMMode() {
-
-	// In Azure mode, the Resource points to the azure interface so we can
-	// derive the master interface
-	case ipamOption.IPAMAzure:
-		for _, iface := range a.store.ownNode.Status.Azure.Interfaces {
-			if iface.ID == ipInfo.Resource {
-				result.PrimaryMAC = iface.MAC
-				if iface.Gateway.IsValid() {
-					result.GatewayIP = iface.Gateway.Addr
-				}
-				if p := iface.Subnet.CIDR.Prefix; p.IsValid() {
-					result.CIDRs = append(result.CIDRs, p)
-				}
-				// Add manually configured Native Routing CIDR
-				if a.conf.IPv4NativeRoutingCIDR.IsValid() {
-					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR)
-				}
-				// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
-				// Note that the resulting ip rules will not be dynamically regenerated if the
-				// ip-masq-agent configuration changes.
-				if a.conf.EnableIPMasqAgent {
-					nonMasqCidrs := a.ipMasqAgent.NonMasqCIDRsFromConfig()
-					for _, prefix := range nonMasqCidrs {
-						if addr.Is4() && prefix.Addr().Is4() {
-							result.CIDRs = append(result.CIDRs, prefix)
-						} else if !addr.Is4() && prefix.Addr().Is6() {
-							result.CIDRs = append(result.CIDRs, prefix)
-						}
-					}
-				}
-
-				// For now, we can hardcode the interface number to a valid
-				// integer because it will not be used in the allocation result
-				// anyway. Azure IPAM does not use the per-interface egress rule
-				// priority meaning that the CNI will not use the interface
-				// number when creating the pod rules and routes. We are hardcoding
-				// simply to bypass the parsing errors when InterfaceNumber
-				// is empty. See https://github.com/cilium/cilium/issues/15496.
-				//
-				// TODO: Once https://github.com/cilium/cilium/issues/14705 is
-				// resolved, then we don't need to hardcode this anymore.
-				result.InterfaceNumber = "0"
-				return
-			}
-		}
-		return nil, fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
 
 	// In AlibabaCloud mode, the Resource points to the ENI so we can derive the
 	// master interface and all CIDRs of the VPC

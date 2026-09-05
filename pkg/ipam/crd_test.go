@@ -14,15 +14,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	azureTypes "github.com/cilium/cilium/pkg/azure/types"
-	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/option"
@@ -191,144 +187,4 @@ func TestNodeStoreStaticIPStatus(t *testing.T) {
 			assert.Equal(t, tt.wantAssignedStaticIP, assigned)
 		})
 	}
-}
-
-type ipMasqMapDummy struct{}
-
-func (m ipMasqMapDummy) Update(netip.Prefix) error { return nil }
-
-func (m ipMasqMapDummy) Delete(netip.Prefix) error { return nil }
-
-func (m ipMasqMapDummy) Dump() ([]netip.Prefix, error) { return []netip.Prefix{}, nil }
-
-func TestAzureIPMasq(t *testing.T) {
-	cn := newCiliumNode("node1", 4, 4, 0)
-	dummyResource := ipamTypes.AllocationIP{Resource: "azure-interface-1"}
-	cn.Spec.IPAM.Pool["10.10.1.5"] = dummyResource
-	cn.Status.Azure.Interfaces = []azureTypes.AzureInterface{
-		{
-			ID:      "azure-interface-1",
-			Name:    "eth0",
-			MAC:     mac.MustParseMAC("00:00:5e:00:53:01"),
-			Gateway: iputil.AddrFrom(netip.MustParseAddr("10.10.1.1")),
-			Subnet: azureTypes.AzureSubnet{
-				ID:   "subnet-1",
-				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.10.1.0/24")),
-			},
-			Addresses: []azureTypes.AzureAddress{
-				{IP: iputil.AddrFrom(netip.MustParseAddr("10.10.1.5")), State: azureTypes.StateSucceeded},
-			},
-		},
-	}
-
-	fakeAddressing := fakenode.NewAddressing()
-	conf := testDaemonConfig()
-	conf.IPAM = ipamOption.IPAMAzure
-	conf.EnableIPMasqAgent = true
-	ipMasqAgent := ipmasq.NewIPMasqAgent(hivetest.Logger(t), "", ipMasqMapDummy{})
-	err := ipMasqAgent.Start()
-	require.NoError(t, err)
-
-	initNodeStore.Do(func() {}) // Ensure the real initNodeStore is not called
-	sharedNodeStore = newFakeNodeStore(conf, t)
-	sharedNodeStore.ownNode = cn
-
-	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(NewIPAMParams{
-		Logger:         hivetest.Logger(t),
-		NodeAddressing: fakeAddressing,
-		AgentConfig:    conf,
-		NodeDiscovery:  &ownerMock{},
-		LocalNodeStore: localNodeStore,
-		K8sEventReg:    &ownerMock{},
-		NodeResource:   &resourceMock{},
-		MTUConfig:      &mtuMock,
-		IPMasqAgent:    ipMasqAgent,
-	})
-	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
-
-	epipv4 := netip.MustParseAddr("10.10.1.5")
-	result, err := ipam.ipv4Allocator.Allocate(epipv4, "test1", PoolDefault())
-	require.NoError(t, err)
-	// The resulting CIDRs should contain the Azure interface CIDR and the default ip-masq-agent CIDRs
-	require.ElementsMatch(
-		t,
-		[]netip.Prefix{
-			// Azure interface CIDR
-			netip.MustParsePrefix("10.10.1.0/24"),
-			// Default ip-masq-agent CIDRs
-			netip.MustParsePrefix("10.0.0.0/8"),
-			netip.MustParsePrefix("172.16.0.0/12"),
-			netip.MustParsePrefix("192.168.0.0/16"),
-			netip.MustParsePrefix("100.64.0.0/10"),
-			netip.MustParsePrefix("192.0.0.0/24"),
-			netip.MustParsePrefix("192.0.2.0/24"),
-			netip.MustParsePrefix("192.88.99.0/24"),
-			netip.MustParsePrefix("198.18.0.0/15"),
-			netip.MustParsePrefix("198.51.100.0/24"),
-			netip.MustParsePrefix("203.0.113.0/24"),
-			netip.MustParsePrefix("240.0.0.0/4"),
-			netip.MustParsePrefix("169.254.0.0/16"),
-		},
-		result.CIDRs,
-	)
-
-	ipMasqAgent.Stop()
-}
-
-func TestAutoDetectIPv4NativeRoutingCIDR(t *testing.T) {
-	newStore := func(t *testing.T, nativeCIDR string) *nodeStore {
-		return &nodeStore{
-			logger: hivetest.Logger(t),
-			conf: &option.DaemonConfig{
-				IPv4NativeRoutingCIDR: netip.MustParsePrefix(nativeCIDR),
-			},
-			ownNode: &ciliumv2.CiliumNode{
-				Status: ciliumv2.NodeStatus{
-					Azure: azureTypes.AzureStatus{
-						Interfaces: []azureTypes.AzureInterface{
-							{
-								ID:   "azure-interface-1",
-								Name: "eth0",
-								Subnet: azureTypes.AzureSubnet{
-									ID:   "subnet-1",
-									CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.10.0.0/16")),
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-	}
-
-	t.Run("accepts a native routing CIDR that is a subnet of the VNet CIDR", func(t *testing.T) {
-		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-		require.True(t, newStore(t, "10.10.64.0/19").autoDetectIPv4NativeRoutingCIDR(localNodeStore))
-
-		localNode, err := localNodeStore.Get(t.Context())
-		require.NoError(t, err)
-		// Should NOT have been written since the config already has a value.
-		require.False(t, localNode.Local.IPv4NativeRoutingCIDR.IsValid())
-	})
-
-	t.Run("accepts a native routing CIDR that is a supernet of the VNet CIDR", func(t *testing.T) {
-		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-		require.True(t, newStore(t, "10.0.0.0/8").autoDetectIPv4NativeRoutingCIDR(localNodeStore))
-
-		localNode, err := localNodeStore.Get(t.Context())
-		require.NoError(t, err)
-		require.False(t, localNode.Local.IPv4NativeRoutingCIDR.IsValid())
-	})
-
-	t.Run("uses the autodetected primary CIDR when unset", func(t *testing.T) {
-		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-		n := newStore(t, "10.10.0.0/16")
-		n.conf.IPv4NativeRoutingCIDR = netip.Prefix{}
-		require.True(t, n.autoDetectIPv4NativeRoutingCIDR(localNodeStore))
-
-		localNode, err := localNodeStore.Get(t.Context())
-		require.NoError(t, err)
-		require.Equal(t, "10.10.0.0/16", localNode.Local.IPv4NativeRoutingCIDR.String())
-	})
 }

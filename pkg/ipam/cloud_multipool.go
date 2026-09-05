@@ -103,9 +103,9 @@ func newCloudMultiPoolAllocators(ctx context.Context, p cloudMultiPoolParams) (i
 		return nil, nil, fmt.Errorf("the %s IPAM provider returned no routing metadata resolver", p.Provider.Mode())
 	}
 
-	// Cloud providers allocate out of a single pool, pre-allocated linearly:
-	// the operator hands out CIDRs carved from the VPC, so there is no
-	// per-pool configuration to parse.
+	// Cloud providers allocate out of a single pool, pre-allocated linearly.
+	// The operator publishes the provider-specific addresses or prefixes, so
+	// there is no per-pool configuration to parse.
 	preallocMap := preAllocatePerPool{
 		Pool(defaults.IPAMDefaultIPPool): defaults.IPAMPreAllocation,
 	}

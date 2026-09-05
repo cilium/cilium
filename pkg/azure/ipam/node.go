@@ -20,17 +20,12 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-type ipamNodeActions interface {
-	InstanceID() string
-}
-
 // Node represents a node representing an Azure instance
 type Node struct {
 	// k8sObj is the CiliumNode custom resource representing the node
 	k8sObj *v2.CiliumNode
 
-	// node contains the general purpose fields of a node
-	node ipamNodeActions
+	instanceID string
 
 	// manager is the Azure node manager responsible for this node
 	manager *InstancesManager
@@ -57,7 +52,7 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 
 	n.manager.mutex.RLock()
 	defer n.manager.mutex.RUnlock()
-	n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
+	n.manager.instances.ForeachInterface(n.instanceID, func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
 		iface, ok := interfaceObj.(*types.AzureInterface)
 		if !ok {
 			return nil
@@ -104,7 +99,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.Alloc
 	n.manager.mutex.RLock()
 	defer n.manager.mutex.RUnlock()
 	usePrimary := n.manager.usePrimary
-	err = n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
+	err = n.manager.instances.ForeachInterface(n.instanceID, func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
 		iface, ok := interfaceObj.(*types.AzureInterface)
 		if !ok {
 			return fmt.Errorf("invalid interface object")
@@ -168,9 +163,9 @@ func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags
 	var addr netip.Addr
 	var err error
 	if n.vmss == "" {
-		addr, err = n.manager.api.AssignPublicIPAddressesVM(ctx, n.node.InstanceID(), staticIPTags)
+		addr, err = n.manager.api.AssignPublicIPAddressesVM(ctx, n.instanceID, staticIPTags)
 	} else {
-		addr, err = n.manager.api.AssignPublicIPAddressesVMSS(ctx, n.node.InstanceID(), n.vmss, staticIPTags)
+		addr, err = n.manager.api.AssignPublicIPAddressesVMSS(ctx, n.instanceID, n.vmss, staticIPTags)
 	}
 	if err != nil {
 		return "", err
@@ -191,7 +186,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 	stats stats.InterfaceStats,
 	err error) {
 
-	if n.node.InstanceID() == "" {
+	if n.instanceID == "" {
 		return nil, stats, nil
 	}
 
@@ -204,7 +199,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 	// and decrement per NIC below for any primary slot we can't allocate.
 	nodeCapacity := types.InterfaceAddressLimit
 	requiredIfaceName := n.k8sObj.Spec.Azure.InterfaceName
-	err = n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
+	err = n.manager.instances.ForeachInterface(n.instanceID, func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
 		iface, ok := interfaceObj.(*types.AzureInterface)
 		if !ok {
 			return fmt.Errorf("invalid interface object")
