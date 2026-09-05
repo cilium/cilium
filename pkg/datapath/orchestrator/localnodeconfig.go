@@ -163,6 +163,12 @@ func newLocalNodeConfig(
 		}
 	}
 
+	lbRSSCfg := loadbalancer.NewRSSConfig(
+		daemon.UnsafeDaemonConfigOption.LoadBalancerRSSv4,
+		daemon.UnsafeDaemonConfigOption.LoadBalancerRSSv6,
+		directRoutingDevice,
+	)
+
 	return config.Config{
 		ClusterID:                    localNode.ClusterID,
 		ClusterIDBits:                clusterInfo.GetClusterIDBits(),
@@ -181,6 +187,7 @@ func newLocalNodeConfig(
 		Devices:                      nativeDevices,
 		NodeAddresses:                statedb.Collect(nodeAddrsIter),
 		DirectRoutingDevice:          directRoutingDevice,
+		LoadBalancerRSS:              lbRSSCfg,
 		DeriveMasqIPAddrFromDevice:   masqInterface,
 		HostEndpointID:               hostEndpointID,
 		DeviceMTU:                    mtuRoute.DeviceMTU,
