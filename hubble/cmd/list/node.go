@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
+
 	"text/tabwriter"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -25,6 +28,8 @@ import (
 )
 
 const notAvailable = "N/A"
+
+var titleCaser = cases.Title(language.English, cases.NoLower)
 
 func newNodeCommand(vp *viper.Viper) *cobra.Command {
 	listCmd := &cobra.Command{
@@ -110,7 +115,7 @@ func nodeTableOutput(buf io.Writer, nodes []*observerpb.Node) error {
 		if v := n.GetVersion(); v != "" {
 			version = v
 		}
-		fmt.Fprint(tw, n.GetName(), "\t", strings.Title(nodeStateToString(n.GetState())), "\t", age, "\t", flowsPerSec, "\t", flowsRatio)
+		fmt.Fprint(tw, n.GetName(), "\t", titleCaser.String(nodeStateToString(n.GetState())), "\t", age, "\t", flowsPerSec, "\t", flowsRatio)
 		if listOpts.output == "wide" {
 			tls := notAvailable
 			if t := n.GetTls(); t != nil {
