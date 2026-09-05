@@ -278,6 +278,7 @@ const (
 	LBIPAMSharingKeyAlias             = Prefix + "/lb-ipam-sharing-key"
 	LBIPAMSharingAcrossNamespace      = LBIPAMPrefix + "/sharing-cross-namespace"
 	LBIPAMSharingAcrossNamespaceAlias = Prefix + "/lb-ipam-sharing-cross-namespace"
+	LBIPAMSharingPermitDifferentPods  = LBIPAMPrefix + "/sharing-permit-different-pods"
 
 	CECInjectCiliumFilters      = CECPrefix + "/inject-cilium-filters"
 	CECIsL7LB                   = CECPrefix + "/is-l7lb"
