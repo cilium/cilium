@@ -133,7 +133,7 @@ jobs:
       - name: Install LLVM and Clang
         uses: ./.github/actions/install-llvm
         with:
-          version: "19.1.7"
+          version: "21.1.8"
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.

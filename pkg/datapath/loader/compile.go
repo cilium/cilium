@@ -167,7 +167,11 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 
 	switch prog.OutputType {
 	case outputSource:
-		compileArgs = append(compileArgs, "-E") // Preprocessor
+		// Preprocessor only. The -c flag appended below is unused in this
+		// mode, and clang >= 20 warns about it, which -Werror turns into a
+		// hard failure. Note the clang driver ignores this -Wno flag when
+		// it directly follows -E, so it must come first.
+		compileArgs = append(compileArgs, "-Wno-unused-command-line-argument", "-E")
 	case outputObject:
 		compileArgs = append(compileArgs, "-g")
 	}

@@ -23,7 +23,7 @@ runs:
             asset="LLVM-${LLVM_VERSION}-Linux-X64.tar.xz"
             ;;
           ARM64)
-            asset="clang%2Bllvm-${LLVM_VERSION}-aarch64-linux-gnu.tar.xz"
+            asset="LLVM-${LLVM_VERSION}-Linux-ARM64.tar.xz"
             ;;
           *)
             echo "Unsupported runner architecture: ${RUNNER_ARCH}" >&2
