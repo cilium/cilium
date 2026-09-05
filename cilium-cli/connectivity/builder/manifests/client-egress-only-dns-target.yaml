@@ -1,0 +1,55 @@
+# Like client-egress-only-dns, but only permits DNS resolution of the allowed
+# external target ({{.ExternalTarget}}). Queries for any other name are refused
+# by the DNS proxy (REFUSED / rule="denied"). This is used to exercise DNS-level
+# deny enforcement, including by the Standalone DNS Proxy.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-only-dns-target
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+      rules:
+        dns:
+        - matchName: "{{.ExternalTarget}}"
+    toEndpoints:
+      - matchExpressions:
+          - { key: 'k8s-app', operator: In, values: [ "kube-dns", "coredns", "node-local-dns", "nodelocaldns" ] }
+          - { key: 'io.kubernetes.pod.namespace', operator: In, values: [ "kube-system" ] }
+          - { key: 'io.cilium.k8s.policy.cluster', operator: In, values: [ "{{.ClusterNameLocal}}" ] }
+# OpenShift runs coreDNS in openshift-dns namespace and uses port 5353
+  - toPorts:
+    - ports:
+      - port: "5353"
+        protocol: UDP
+      - port: "5353"
+        protocol: TCP
+      rules:
+        dns:
+        - matchName: "{{.ExternalTarget}}"
+    toEndpoints:
+    - matchExpressions:
+      - { key: 'dns.operator.openshift.io/daemonset-dns', operator: Exists }
+      - { key: 'io.kubernetes.pod.namespace', operator: In, values: [ "openshift-dns" ] }
+      - { key: 'io.cilium.k8s.policy.cluster', operator: In, values: [ "{{.ClusterNameLocal}}" ] }
+  # For nodelocaldns using a link-local address (the "localip" mode).
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+      rules:
+        dns:
+        - matchName: "{{.ExternalTarget}}"
+    toEntities:
+      - host
+      - world

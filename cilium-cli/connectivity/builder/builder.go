@@ -32,6 +32,9 @@ var (
 	//go:embed manifests/client-egress-only-dns.yaml
 	clientEgressOnlyDNSPolicyYAML string
 
+	//go:embed manifests/client-egress-only-dns-target.yaml
+	clientEgressOnlyDNSTargetPolicyYAML string
+
 	//go:embed manifests/client-egress-only-port-53.yaml
 	clientEgressOnlyPort53PolicyYAML string
 
@@ -332,6 +335,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		dnsOnly{},
 		toFqdns{},
 		toFqdnsWithProxy{},
+		standaloneDnsProxy{},
 		podToControlplaneHost{},
 		podToK8sOnControlplane{},
 		podToControlplaneHostCidr{},
@@ -402,6 +406,7 @@ func renderTemplates(clusterNameLocal, clusterNameRemote string, param check.Par
 		"clientEgressL7HTTPExternalYAML":                             clientEgressL7HTTPExternalYAML,
 		"clientEgressNodeLocalDNSYAML":                               clientEgressNodeLocalDNSYAML,
 		"clientEgressOnlyDNSPolicyYAML":                              clientEgressOnlyDNSPolicyYAML,
+		"clientEgressOnlyDNSTargetPolicyYAML":                        clientEgressOnlyDNSTargetPolicyYAML,
 		"clientEgressOnlyPort53PolicyYAML":                           clientEgressOnlyPort53PolicyYAML,
 		"echoIngressFromCIDRYAML":                                    echoIngressFromCIDRYAML,
 		"denyCIDRPolicyYAML":                                         denyCIDRPolicyYAML,
