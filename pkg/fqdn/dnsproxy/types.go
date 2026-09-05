@@ -22,7 +22,7 @@ type LookupEndpointIDByIPFunc func(ip netip.Addr) (endpoint *endpoint.Endpoint, 
 
 // NotifyOnDNSMsgFunc handles propagating DNS response data
 // See DNSProxy.LookupEndpointIDByIP for usage.
-type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, details *MsgDetails, protocol string, allowed bool, stat *ProxyRequestContext) error
+type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID *identity.Identity, serverAddr netip.AddrPort, details *MsgDetails, protocol string, allowed bool, stat *ProxyRequestContext) error
 
 // ErrFailedAcquireSemaphore is an error representing the DNS proxy's
 // failure to acquire the semaphore. This is error is treated like a timeout.

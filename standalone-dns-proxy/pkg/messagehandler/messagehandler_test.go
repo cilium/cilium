@@ -97,7 +97,7 @@ func TestNotifyOnDNSMsg(t *testing.T) {
 		details   *dnsproxy.MsgDetails
 		epIPPort  string
 		server    string
-		serverID  identity.NumericIdentity
+		serverID  *identity.Identity
 		protocol  string
 		allowed   bool
 		stat      *dnsproxy.ProxyRequestContext
@@ -112,7 +112,7 @@ func TestNotifyOnDNSMsg(t *testing.T) {
 			details:  buildResponseDetails(),
 			epIPPort: "10.1.1.10:5353",
 			server:   "8.8.8.8:53",
-			serverID: identity.NumericIdentity(42),
+			serverID: &identity.Identity{ID: 42},
 			protocol: "tcp",
 			allowed:  false,
 			stat:     buildStatWithTimings(),

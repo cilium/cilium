@@ -31,7 +31,7 @@ type messageHandler struct {
 // This method always sends the gRPC message to the agent, even in error cases
 // (e.g. ep == nil, timeout, proxy errors), so that the agent can emit the
 // corresponding proxy metrics for every DNS event.
-func (m *messageHandler) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddrPort netip.AddrPort, details *dnsproxy.MsgDetails, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+func (m *messageHandler) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID *identity.Identity, serverAddrPort netip.AddrPort, details *dnsproxy.MsgDetails, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
 	var ips [][]byte
 	for _, i := range details.ResponseIPs {
 		ips = append(ips, []byte(i.String()))
@@ -41,6 +41,11 @@ func (m *messageHandler) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpo
 	sourceIdentity := m.getSourceIdentity(ep)
 
 	errorType, errorMessage := classifyProxyError(stat)
+
+	var serverNID identity.NumericIdentity
+	if serverID != nil {
+		serverNID = serverID.ID
+	}
 
 	message := &pb.FQDNMapping{
 		Fqdn:           details.QName,
@@ -65,7 +70,7 @@ func (m *messageHandler) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpo
 			},
 			SourcePort:     sourcePort,
 			ServerAddr:     serverAddrPort.String(),
-			ServerIdentity: serverID.Uint32(),
+			ServerIdentity: serverNID.Uint32(),
 			Protocol:       protocol,
 			Allowed:        allowed,
 			ErrorMessage:   errorMessage,
