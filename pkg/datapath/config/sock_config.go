@@ -20,6 +20,8 @@ type BPFSock struct {
 	EnableLRP bool `config:"enable_lrp"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
+	// Cookie identifying the network namespace treated as the host namespace.
+	HostNetNSCookie uint64 `config:"host_netns_cookie"`
 	// Cgroup class ID identifying MKE containers treated as host-networked.
 	MKEHost uint32 `config:"mke_host"`
 	// Port number used for the overlay network.
@@ -31,5 +33,5 @@ type BPFSock struct {
 }
 
 func NewBPFSock(node Node) *BPFSock {
-	return &BPFSock{false, false, false, false, false, 0x0, 0x0, 0x0, node}
+	return &BPFSock{false, false, false, false, false, 0x0, 0x0, 0x0, 0x0, node}
 }

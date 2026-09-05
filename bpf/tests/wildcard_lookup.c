@@ -16,8 +16,15 @@
 
 #define ENABLE_NODEPORT 1
 
-/* Hardcode the host netns cookie to 0 */
-#define HOST_NETNS_COOKIE 0
+#define HOST_NETNS_COOKIE 42
+
+static __always_inline
+__net_cookie test_get_netns_cookie(__maybe_unused void *ctx)
+{
+	return HOST_NETNS_COOKIE;
+}
+
+#define get_netns_cookie(ctx) test_get_netns_cookie(ctx)
 
 #include "bpf_sock.c"
 #include "lib/common.h"
@@ -26,6 +33,9 @@
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
+
+/* Hardcode the host netns cookie to 42 */
+ASSIGN_CONFIG(__u64, host_netns_cookie, HOST_NETNS_COOKIE)
 
 enum {
 	NODEPORT_LOOKUP = 0,
