@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
-	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
@@ -148,21 +147,21 @@ func (p *Parser) decodeEndpointIP(cgroupId uint64, ipVersion flowpb.IPVersion) n
 	if p.cgroupGetter != nil {
 		if m := p.cgroupGetter.GetPodMetadataForContainer(cgroupId); m != nil {
 			for _, podIP := range m.IPs {
-				isIPv6 := strings.Contains(podIP, ":")
-				if isIPv6 && ipVersion == flowpb.IPVersion_IPv6 ||
-					!isIPv6 && ipVersion == flowpb.IPVersion_IPv4 {
-					ip, err := netip.ParseAddr(podIP)
-					if err != nil {
-						p.log.Debug(
-							"failed to parse pod IP",
-							logfields.Error, err,
-							logfields.CGroupID, cgroupId,
-							logfields.K8sPodName, m.Name,
-							logfields.K8sNamespace, m.Namespace,
-							logfields.IPAddr, podIP,
-						)
-						return netip.Addr{}
-					}
+				ip, err := netip.ParseAddr(podIP)
+				if err != nil {
+					p.log.Debug(
+						"failed to parse pod IP",
+						logfields.Error, err,
+						logfields.CGroupID, cgroupId,
+						logfields.K8sPodName, m.Name,
+						logfields.K8sNamespace, m.Namespace,
+						logfields.IPAddr, podIP,
+					)
+					return netip.Addr{}
+				}
+
+				if ip.Is6() && ipVersion == flowpb.IPVersion_IPv6 ||
+					ip.Is4() && ipVersion == flowpb.IPVersion_IPv4 {
 					return ip
 				}
 			}
