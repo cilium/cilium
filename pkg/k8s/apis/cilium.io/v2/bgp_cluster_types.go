@@ -163,7 +163,6 @@ type CiliumBGPPeer struct {
 // AutoDiscovery is the configuration for auto-discovery of the peer address.
 //
 // +kubebuilder:validation:XValidation:rule="self.mode != 'DefaultGateway' || has(self.defaultGateway)",message="defaultGateway must be set when mode is DefaultGateway"
-// +kubebuilder:validation:XValidation:rule="self.mode != 'Unnumbered' || (has(self.unnumbered) != has(self.defaultGateway))",message="exactly one of unnumbered or defaultGateway must be set when mode is Unnumbered"
 type BGPAutoDiscovery struct {
 	// mode is the mode of the auto-discovery.
 	//
@@ -177,6 +176,7 @@ type BGPAutoDiscovery struct {
 	// used as the peer address. With mode Unnumbered, only the interface the
 	// default route egresses is used - see DefaultGateway.
 	//
+	// +kubebuilder:validation:OneOf
 	// +kubebuilder:validation:Optional
 	DefaultGateway *DefaultGateway `json:"defaultGateway,omitempty"`
 
@@ -184,6 +184,7 @@ type BGPAutoDiscovery struct {
 	// explicitly named interface with no configured peer address. Only valid
 	// with mode Unnumbered, where it is an alternative to defaultGateway.
 	//
+	// +kubebuilder:validation:OneOf
 	// +kubebuilder:validation:Optional
 	Unnumbered *BGPUnnumbered `json:"unnumbered,omitempty"`
 }

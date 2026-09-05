@@ -89,6 +89,15 @@ spec:
                           autoDiscovery:
                             description: AutoDiscovery is the configuration for auto-discovery
                               of the peer address.
+                            oneOf:
+                            - properties:
+                                defaultGateway: {}
+                              required:
+                              - defaultGateway
+                            - properties:
+                                unnumbered: {}
+                              required:
+                              - unnumbered
                             properties:
                               defaultGateway:
                                 description: |-
@@ -146,10 +155,6 @@ spec:
                             x-kubernetes-validations:
                             - message: defaultGateway must be set when mode is DefaultGateway
                               rule: self.mode != 'DefaultGateway' || has(self.defaultGateway)
-                            - message: exactly one of unnumbered or defaultGateway
-                                must be set when mode is Unnumbered
-                              rule: self.mode != 'Unnumbered' || (has(self.unnumbered)
-                                != has(self.defaultGateway))
                           localAddress:
                             description: |-
                               LocalAddress is the IP address of the local interface to use for the peering session.
