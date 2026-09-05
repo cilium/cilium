@@ -6,6 +6,7 @@ package iptables
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -63,6 +64,14 @@ const (
 	feederDescription     = "cilium-feeder:"
 	encryptionDescription = "cilium-encryption-notrack:"
 )
+
+// formatComment returns the iptables match labelling a rule as cilium's, taking
+// action ("NOTRACK", "ACCEPT") on the traffic described by descr. The comment is
+// part of the rule spec, so a rule can only be deleted with the same comment it
+// was inserted with.
+func formatComment(action, descr string) []string {
+	return []string{"-m", "comment", "--comment", fmt.Sprintf("cilium: %s for %s", action, descr)}
+}
 
 // Minimum iptables versions supporting the -w and -w<seconds> flags
 var (
@@ -1128,7 +1137,9 @@ func (m *manager) addProxyRules(prog runnable, ip string, proxyPort uint16, name
 }
 
 func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, port *lb.L4Addr) error {
-	var err error
+	const noTrackNodeLocalDNS = "node-local-dns"
+
+	var errs []error
 
 	protocol := strings.ToLower(port.Protocol)
 	p := strconv.FormatUint(uint64(port.Port), 10)
@@ -1143,125 +1154,54 @@ func (m *manager) endpointNoTrackRules(prog runnable, cmd string, IP string, por
 	// 3. From a hostNetwork pod to the node-local-dns pod
 	// 4. From the node-local-dns pod to a hostNetwork pod
 
-	// 1. The following 2 rules cover packets from non-host pod to node-local-dns
-	if err = prog.runProg([]string{
-		"-t", "raw",
-		cmd, ciliumPreRawChain,
-		"-p", protocol,
-		"-d", IP,
-		"--dport", p,
-		"-m", "comment", "--comment", "cilium: NOTRACK for node-local-dns",
-		"-j", "CT",
-		"--notrack"}); err != nil {
-		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
-	}
-	if err = prog.runProg([]string{
-		"-t", "filter",
-		cmd, ciliumForwardChain,
-		"-p", protocol,
-		"-d", IP,
-		"--dport", p,
-		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
-		"-j", "ACCEPT"}); err != nil {
-		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
-	}
+	toEndpoint := []string{"-d", IP, "--dport", p}
+	fromEndpoint := []string{"-s", IP, "--sport", p}
 
-	// 2. The following 2 rules cover packets from node-local-dns to
-	// non-host pod
-	if err = prog.runProg([]string{
-		"-t", "raw",
-		cmd, ciliumPreRawChain,
-		"-p", protocol,
-		"-s", IP,
-		"--sport", p,
-		"-m", "comment", "--comment", "cilium: NOTRACK for node-local-dns",
-		"-j", "CT",
-		"--notrack"}); err != nil {
-		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
-	}
-	if err = prog.runProg([]string{
-		"-t", "filter",
-		cmd, ciliumForwardChain,
-		"-p", protocol,
-		"-s", IP,
-		"--sport", p,
-		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
-		"-j", "ACCEPT"}); err != nil {
-		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
-	}
+	notrack := slices.Concat(
+		formatComment("NOTRACK", noTrackNodeLocalDNS),
+		[]string{"-j", "CT", "--notrack"})
+	accept := slices.Concat(
+		formatComment("ACCEPT", noTrackNodeLocalDNS),
+		[]string{"-j", "ACCEPT"})
 
-	// 3. The following 2 rules cover packets from host namespaced pod to
-	// node-local-dns
-	if err = prog.runProg([]string{
-		"-t", "raw",
-		cmd, ciliumOutputRawChain,
-		"-p", protocol,
-		"-d", IP,
-		"--dport", p,
-		"-m", "comment", "--comment", "cilium: NOTRACK for node-local-dns",
-		"-j", "CT",
-		"--notrack"}); err != nil {
-		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
-	}
-	if err = prog.runProg([]string{
-		"-t", "filter",
-		cmd, ciliumOutputChain,
-		"-p", protocol,
-		"-d", IP,
-		"--dport", p,
-		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
-		"-j", "ACCEPT"}); err != nil {
-		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
-	}
+	for _, rule := range []struct {
+		table  string
+		chain  string
+		match  []string
+		action []string
+	}{
+		// 1. From a non-host pod to node-local-dns.
+		{"raw", ciliumPreRawChain, toEndpoint, notrack},
+		{"filter", ciliumForwardChain, toEndpoint, accept},
 
-	// 4. The following rule (and the prerouting rule in case 2)
-	// covers packets from node-local-dns to host namespaced pod
-	if err = prog.runProg([]string{
-		"-t", "filter",
-		cmd, ciliumInputChain,
-		"-p", protocol,
-		"-s", IP,
-		"--sport", p,
-		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
-		"-j", "ACCEPT"}); err != nil {
-		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
-	}
+		// 2. From node-local-dns to a non-host pod.
+		{"raw", ciliumPreRawChain, fromEndpoint, notrack},
+		{"filter", ciliumForwardChain, fromEndpoint, accept},
 
-	// The following rules are kept for compatibility with host-namespaced
-	// node-local-dns if user already deploys in the legacy mode without
-	// LRP.
-	if err = prog.runProg([]string{
-		"-t", "raw",
-		cmd, ciliumOutputRawChain,
-		"-p", protocol,
-		"-s", IP,
-		"--sport", p,
-		"-m", "comment", "--comment", "cilium: NOTRACK for node-local-dns",
-		"-j", "CT",
-		"--notrack"}); err != nil {
-		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
+		// 3. From a host namespaced pod to node-local-dns.
+		{"raw", ciliumOutputRawChain, toEndpoint, notrack},
+		{"filter", ciliumOutputChain, toEndpoint, accept},
+
+		// 4. From node-local-dns to a host namespaced pod, together with the
+		// prerouting rule of case 2.
+		{"filter", ciliumInputChain, fromEndpoint, accept},
+
+		// The following rules are kept for compatibility with host-namespaced
+		// node-local-dns if user already deploys in the legacy mode without
+		// LRP.
+		{"raw", ciliumOutputRawChain, fromEndpoint, notrack},
+		{"filter", ciliumOutputChain, fromEndpoint, accept},
+		{"filter", ciliumInputChain, toEndpoint, accept},
+	} {
+		if err := prog.runProg(slices.Concat(
+			[]string{"-t", rule.table, cmd, rule.chain, "-p", protocol},
+			rule.match,
+			rule.action)); err != nil {
+			m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
+			errs = append(errs, err)
+		}
 	}
-	if err = prog.runProg([]string{
-		"-t", "filter",
-		cmd, ciliumOutputChain,
-		"-p", protocol,
-		"-s", IP,
-		"--sport", p,
-		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
-		"-j", "ACCEPT"}); err != nil {
-		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
-	}
-	if err = prog.runProg([]string{
-		"-t", "filter",
-		cmd, ciliumInputChain,
-		"-p", protocol,
-		"-d", IP,
-		"--dport", p,
-		"-m", "comment", "--comment", "cilium: ACCEPT for node-local-dns",
-		"-j", "ACCEPT"}); err != nil {
-		m.logger.Warn("Failed to enforce endpoint notrack", logfields.Error, err)
-	}
-	return err
+	return errors.Join(errs...)
 }
 
 // InstallNoTrackRules is explicitly called when a pod has valid "policy.cilium.io/no-track-port" annotation.
