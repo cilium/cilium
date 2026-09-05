@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/dial"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
@@ -191,6 +192,13 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 			ds.endpointManager = endpointManager
 		}),
 	)
+
+	// We need to explicitly set a direct routing device because, with BPF masquerading
+	// enabled, we will try to find one that matches the k8s node IP and fail because the node
+	// IPs aren't set up. See DirectRoutingDevice.Get().
+	hive.AddConfigOverride(ds.hive, func(c *tables.DirectRoutingDeviceConfig) {
+		c.DirectRoutingDevice = "test0"
+	})
 
 	// bootstrap global config
 	ds.setupConfigOptions()
