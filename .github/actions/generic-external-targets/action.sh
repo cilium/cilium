@@ -32,6 +32,29 @@ IPOTHERTARGET_RAW=$(kubectl get nodes -l cilium.io/no-schedule=true -o jsonpath=
 mapfile -d ' ' -t IPTARGET < <(printf '%s' "$IPTARGET_RAW")
 mapfile -d ' ' -t IPOTHERTARGET < <(printf '%s' "$IPOTHERTARGET_RAW")
 
+# Pick the first address of each family out of a node's InternalIPs, and store
+# them in the ADDR_V4 / ADDR_V6 globals
+split_families() {
+	ADDR_V4=""
+	ADDR_V6=""
+	local addr
+	for addr in "$@"; do
+		if [[ "$addr" == *:* ]]; then
+			[ -n "$ADDR_V6" ] || ADDR_V6="$addr"
+		elif [ -n "$addr" ]; then
+			[ -n "$ADDR_V4" ] || ADDR_V4="$addr"
+		fi
+	done
+}
+
+split_families "${IPTARGET[@]}"
+TARGET_V4="$ADDR_V4"
+TARGET_V6="$ADDR_V6"
+
+split_families "${IPOTHERTARGET[@]}"
+OTHERTARGET_V4="$ADDR_V4"
+OTHERTARGET_V6="$ADDR_V6"
+
 # Create a config file to tell openssl how to turn the signing request into a certificate
 # Make sure the key usage is such that we can use the cert for HTTPS traffic.
 # Also make sure both domain names are in the subjectAltName so the certificate works for
@@ -77,11 +100,13 @@ kubectl -n external-other rollout status daemonset nginx --timeout 60s
 kubectl -n external wait --for=jsonpath='{.status.numberReady}=1' daemonset/nginx --timeout=60s
 kubectl -n external-other wait --for=jsonpath='{.status.numberReady}=1' daemonset/nginx --timeout=60s
 
-echo "ipv4_external_target=${IPTARGET[0]}" >> $GITHUB_OUTPUT
-echo "ipv4_other_external_target=${IPOTHERTARGET[0]}" >> $GITHUB_OUTPUT
-if [ "${#IPTARGET[@]}" -ge 2 ] && [ "${#IPOTHERTARGET[@]}" -ge 2 ]; then
-	echo "ipv6_external_target=${IPTARGET[1]}" >> $GITHUB_OUTPUT
-	echo "ipv6_other_external_target=${IPOTHERTARGET[1]}" >> $GITHUB_OUTPUT
+if [ -n "$TARGET_V4" ] && [ -n "$OTHERTARGET_V4" ]; then
+	echo "ipv4_external_target=$TARGET_V4" >> $GITHUB_OUTPUT
+	echo "ipv4_other_external_target=$OTHERTARGET_V4" >> $GITHUB_OUTPUT
+fi
+if [ -n "$TARGET_V6" ] && [ -n "$OTHERTARGET_V6" ]; then
+	echo "ipv6_external_target=$TARGET_V6" >> $GITHUB_OUTPUT
+	echo "ipv6_other_external_target=$OTHERTARGET_V6" >> $GITHUB_OUTPUT
 fi
 # Publish FQDNs, so that pod resolvers don't walk their ndots:5 search list.
 echo "external_target_name=$TARGETNAME." >> $GITHUB_OUTPUT
