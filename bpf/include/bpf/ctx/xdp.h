@@ -423,6 +423,12 @@ ctx_wire_len(const struct xdp_md *ctx)
 	return (__u32)ctx_full_len(ctx);
 }
 
+static __always_inline __maybe_unused __u32
+ctx_gso_size(const struct xdp_md *ctx __maybe_unused)
+{
+	return 0;
+}
+
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__uint(key_size, sizeof(int));
