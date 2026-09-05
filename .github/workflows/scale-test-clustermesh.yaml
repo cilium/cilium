@@ -350,8 +350,8 @@ jobs:
             printf "      port: 2379\n"
           done >> values-clustermesh-config.yaml
 
-          # * We enable KVStoreMesh only at this point to leverage the bootstrap QPS
-          #   and speed-up the overall bootstrap process.
+          # * We enable the ClusterMesh API server only at this point to leverage
+          #   the bootstrap QPS and speed-up the overall bootstrap process.
           # * Increase the KVStoreMesh QPS to match the ones of the cmapisrv-mock,
           #   as not a problem considering the limited number of watchers.
           # * Store etcd data directly in memory, for improved performance.
@@ -360,7 +360,6 @@ jobs:
             --chart-directory=untrusted/install/kubernetes/cilium \
             --set clustermesh.useAPIServer=true \
             --set clustermesh.apiserver.etcd.storageMedium=Memory \
-            --set clustermesh.apiserver.kvstoremesh.enabled=true \
             --set clustermesh.apiserver.kvstoremesh.extraArgs[0]=--kvstore-opt=etcd.qps=1000 \
             --set clustermesh.apiserver.nodeSelector.node-role\\.kubernetes\\.io/control-plane= \
             --set clustermesh.apiserver.tolerations[0].key=node-role.kubernetes.io/control-plane \

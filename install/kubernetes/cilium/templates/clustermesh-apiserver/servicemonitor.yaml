@@ -1,7 +1,6 @@
-{{- $kvstoreMetricsEnabled := and .Values.clustermesh.apiserver.kvstoremesh.enabled .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled -}}
 {{- if and
   .Values.clustermesh.useAPIServer
-  (or .Values.clustermesh.apiserver.metrics.enabled $kvstoreMetricsEnabled .Values.clustermesh.apiserver.metrics.etcd.enabled)
+  (or .Values.clustermesh.apiserver.metrics.enabled .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled .Values.clustermesh.apiserver.metrics.etcd.enabled)
   .Values.clustermesh.apiserver.metrics.serviceMonitor.enabled }}
 ---
 apiVersion: monitoring.coreos.com/v1
@@ -54,7 +53,7 @@ spec:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- end }}
-  {{- if $kvstoreMetricsEnabled }}
+  {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
   - port: kvmesh-metrics
     interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.interval | quote }}
     {{- if .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.scrapeTimeout }}
