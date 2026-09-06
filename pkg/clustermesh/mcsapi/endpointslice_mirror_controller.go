@@ -7,7 +7,6 @@ import (
 	"context"
 	"log/slog"
 	"maps"
-	"reflect"
 	"slices"
 	"strings"
 
@@ -28,6 +27,7 @@ import (
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/shortener"
@@ -451,26 +451,5 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) needUpdate(
 ) bool {
 	desiredDerivedEndpointSlice := r.newDerivedEndpointSlice(localEpSlice, derivedService, filteredPorts)
 
-	if !maps.Equal(derivedEpSlice.Labels, desiredDerivedEndpointSlice.Labels) {
-		return true
-	}
-	if len(derivedEpSlice.OwnerReferences) != 1 &&
-		derivedEpSlice.OwnerReferences[0].UID != derivedService.UID {
-		return true
-	}
-	if derivedEpSlice.AddressType != desiredDerivedEndpointSlice.AddressType {
-		return true
-	}
-
-	equalsEndpoint := func(a, b discoveryv1.Endpoint) bool {
-		return reflect.DeepEqual(a, b)
-	}
-	if !slices.EqualFunc(derivedEpSlice.Endpoints, desiredDerivedEndpointSlice.Endpoints, equalsEndpoint) {
-		return true
-	}
-
-	equalsEndpointPort := func(a, b discoveryv1.EndpointPort) bool {
-		return reflect.DeepEqual(a, b)
-	}
-	return !slices.EqualFunc(derivedEpSlice.Ports, desiredDerivedEndpointSlice.Ports, equalsEndpointPort)
+	return !operator.EndpointSliceEqualsForMirroring(derivedEpSlice, desiredDerivedEndpointSlice)
 }
