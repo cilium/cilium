@@ -6,6 +6,7 @@ package mcsapi
 import (
 	"fmt"
 	"maps"
+	"strings"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -177,18 +178,6 @@ var (
 			Endpoints:   commonEndpoints,
 			Ports:       commonPorts,
 			AddressType: discoveryv1.AddressTypeIPv6,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
 		},
 		&discoveryv1.EndpointSlice{
 			ObjectMeta: metav1.ObjectMeta{
@@ -557,25 +546,67 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 		})
 	}
 
-	t.Run("Check very long mirrored Endpoint", func(t *testing.T) {
-		key := types.NamespacedName{
-			Name:      "long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing",
-			Namespace: "default",
-		}
-		result, err := r.Reconcile(t.Context(), ctrl.Request{
-			NamespacedName: key,
-		})
-		require.NoError(t, err)
-		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+	for _, tt := range []struct {
+		name        string
+		localName   string
+		derivedName string
+	}{
+		{
+			name:        "long suffix preserved",
+			localName:   "long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing",
+			derivedName: commonDerivedName + "-long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing",
+		},
+		{
+			name:        "at name limit",
+			localName:   strings.Repeat("a", 253-len(commonDerivedName)-1),
+			derivedName: commonDerivedName + "-" + strings.Repeat("a", 253-len(commonDerivedName)-1),
+		},
+		{
+			name:        "over name limit",
+			localName:   strings.Repeat("a", 254-len(commonDerivedName)-1),
+			derivedName: commonDerivedName + "-" + strings.Repeat("a", 223) + "-2bkdbdh4ft",
+		},
+		{
+			name:        "service-prefixed at name limit",
+			localName:   "full-" + strings.Repeat("b", 253-len(commonDerivedName)-1),
+			derivedName: commonDerivedName + "-" + strings.Repeat("b", 253-len(commonDerivedName)-1),
+		},
+		{
+			name:        "service-prefixed over name limit",
+			localName:   "full-" + strings.Repeat("b", 254-len(commonDerivedName)-1),
+			derivedName: commonDerivedName + "-" + strings.Repeat("b", 223) + "-5gt6bkmtcd",
+		},
+	} {
+		t.Run("Check very long mirrored EndpointSlice "+tt.name, func(t *testing.T) {
+			local := &discoveryv1.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tt.localName,
+					Namespace: "default",
+					Labels:    map[string]string{discoveryv1.LabelServiceName: "full"},
+				},
+				Endpoints:   commonEndpoints,
+				Ports:       commonPorts,
+				AddressType: discoveryv1.AddressTypeIPv4,
+			}
+			require.NoError(t, c.Create(t.Context(), local))
+			result, err := r.Reconcile(t.Context(), ctrl.Request{
+				NamespacedName: client.ObjectKeyFromObject(local),
+			})
+			require.NoError(t, err)
+			require.Equal(t, ctrl.Result{}, result)
 
-		keyDerived := types.NamespacedName{
-			Name:      commonDerivedName + "-um-dolor-sit-amet-consectetur-adipiscing",
-			Namespace: "default",
-		}
-		epSlice := &discoveryv1.EndpointSlice{}
-		err = c.Get(t.Context(), keyDerived, epSlice)
-		require.NoError(t, err)
-	})
+			keyDerived := types.NamespacedName{
+				Name:      tt.derivedName,
+				Namespace: "default",
+			}
+			var epSlice discoveryv1.EndpointSlice
+			require.NoError(t, c.Get(t.Context(), keyDerived, &epSlice))
+			require.Equal(t, getExpectedDerivedLabels(tt.localName), epSlice.Labels)
+			require.Equal(t, commonOwnerReferences, epSlice.OwnerReferences)
+			require.Equal(t, commonEndpoints, epSlice.Endpoints)
+			require.Equal(t, commonPorts, epSlice.Ports)
+		})
+	}
 
 	t.Run("Check duplicate derived Endpoint cleanup", func(t *testing.T) {
 		key := types.NamespacedName{
