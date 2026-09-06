@@ -53,7 +53,7 @@ func (t *gatewayAPITranslator) desiredL4EndpointSlices(listeners []model.L4Liste
 		UID:        types.UID(source.UID),
 		Controller: ptr.To(true),
 	}
-	shortGw := shortener.ShortenK8sResourceName(source.Name)
+	shortGw := shortener.ShortenDNSLabelK8sName(source.Name)
 	svcName := lbSvc.Name
 
 	type groupKey struct {
@@ -165,7 +165,7 @@ func buildEndpointSlice(args buildEPSArgs) *discoveryv1.EndpointSlice {
 
 	hash := backendHash(args.backend, args.backendPort, args.protocol)
 	rawName := fmt.Sprintf("%s-%s-%s", args.svcName, hash, familySuffix)
-	name := shortener.ShortenK8sResourceName(rawName)
+	name := shortener.ShortenDNSLabelK8sName(rawName)
 
 	annotations := map[string]string{
 		BackendServiceAnnotation: args.backend.Namespace + "/" + args.backend.Name,

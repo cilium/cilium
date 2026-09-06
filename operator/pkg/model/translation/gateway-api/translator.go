@@ -96,7 +96,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	var cec *ciliumv2.CiliumEnvoyConfig
 	var err error
 	if m.IsHTTPListenerConfigured() || m.IsTLSPassthroughListenerConfigured() {
-		cec, err = t.cecTranslator.Translate(source.Namespace, shortener.ShortenK8sResourceName(generatedName), m)
+		cec, err = t.cecTranslator.Translate(source.Namespace, shortener.ShortenDNSLabelK8sName(generatedName), m)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -156,11 +156,11 @@ func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *mode
 		return nil
 	}
 
-	shortenName := shortener.ShortenK8sResourceName(owner.Name)
+	shortenName := shortener.ShortenDNSLabelK8sName(owner.Name)
 
 	res := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shortener.ShortenK8sResourceName(CiliumGatewayPrefix + owner.Name),
+			Name:      shortener.ShortenDNSLabelK8sName(CiliumGatewayPrefix + owner.Name),
 			Namespace: owner.Namespace,
 			Labels: mergeMap(map[string]string{
 				owningGatewayLabel: shortenName,
@@ -384,17 +384,17 @@ func (t *gatewayAPITranslator) desiredL7DummyEndpointSlice(owner *model.FullyQua
 	if owner == nil {
 		return nil
 	}
-	shortedName := shortener.ShortenK8sResourceName(owner.Name)
+	shortedName := shortener.ShortenDNSLabelK8sName(owner.Name)
 
 	return []*discoveryv1.EndpointSlice{
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      shortener.ShortenK8sResourceName(CiliumGatewayPrefix + owner.Name),
+				Name:      shortener.ShortenDNSLabelK8sName(CiliumGatewayPrefix + owner.Name),
 				Namespace: owner.Namespace,
 				Labels: mergeMap(map[string]string{
 					owningGatewayLabel:           shortedName,
 					gatewayNameLabel:             shortedName,
-					discoveryv1.LabelServiceName: shortener.ShortenK8sResourceName(CiliumGatewayPrefix + owner.Name),
+					discoveryv1.LabelServiceName: shortener.ShortenDNSLabelK8sName(CiliumGatewayPrefix + owner.Name),
 				}, labels),
 				Annotations: annotations,
 				OwnerReferences: []metav1.OwnerReference{
@@ -485,7 +485,7 @@ func decorateCEC(cec *ciliumv2.CiliumEnvoyConfig, resource *model.FullyQualified
 		cec.Labels = make(map[string]string)
 	}
 	cec.Labels = mergeMap(cec.Labels, labels)
-	cec.Labels[gatewayNameLabel] = shortener.ShortenK8sResourceName(resource.Name)
+	cec.Labels[gatewayNameLabel] = shortener.ShortenDNSLabelK8sName(resource.Name)
 
 	// Listener infrastructure annotations originate from user-controlled Gateway
 	// or Service metadata. Do not let them set CEC controls that can change proxy

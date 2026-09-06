@@ -54,13 +54,13 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	var tlsOnly bool
 
 	if len(m.HTTP) == 0 {
-		name = shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.TLSPassthrough[0].Sources[0].Name))
+		name = shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.TLSPassthrough[0].Sources[0].Name))
 		namespace = m.TLSPassthrough[0].Sources[0].Namespace
 		sourceResource = m.TLSPassthrough[0].Sources[0]
 		modelService = m.TLSPassthrough[0].Service
 		tlsOnly = true
 	} else {
-		name = shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.HTTP[0].Sources[0].Name))
+		name = shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.HTTP[0].Sources[0].Name))
 		namespace = m.HTTP[0].Sources[0].Namespace
 		sourceResource = m.HTTP[0].Sources[0]
 		modelService = m.HTTP[0].Service
@@ -74,7 +74,7 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	}
 
 	// Set the name to avoid any breaking change during upgrade.
-	cec.Name = shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, sourceResource.Name))
+	cec.Name = shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, sourceResource.Name))
 
 	dedicatedService := d.getService(sourceResource, modelService, tlsOnly)
 
@@ -134,7 +134,7 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
+			Name:      shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
 			Namespace: resource.Namespace,
 			Labels:    map[string]string{ciliumIngressLabelKey: "true"},
 			OwnerReferences: []metav1.OwnerReference{
@@ -160,11 +160,11 @@ func getEndpointSlice(resource model.FullyQualifiedResource) []*discoveryv1.Endp
 	return []*discoveryv1.EndpointSlice{
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
+				Name:      shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
 				Namespace: resource.Namespace,
 				Labels: map[string]string{
 					ciliumIngressLabelKey:        "true",
-					discoveryv1.LabelServiceName: shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
+					discoveryv1.LabelServiceName: shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name)),
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					{
