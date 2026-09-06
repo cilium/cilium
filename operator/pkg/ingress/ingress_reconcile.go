@@ -175,9 +175,9 @@ func (r *ingressReconciler) createOrUpdateSharedResources(ctx context.Context) e
 
 func (r *ingressReconciler) tryCleanupDedicatedResources(ctx context.Context, ingressNamespacedName types.NamespacedName) error {
 	resources := map[client.Object]types.NamespacedName{
-		&corev1.Service{}:             {Namespace: ingressNamespacedName.Namespace, Name: shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name))},
-		&discoveryv1.EndpointSlice{}:  {Namespace: ingressNamespacedName.Namespace, Name: shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name))},
-		&ciliumv2.CiliumEnvoyConfig{}: {Namespace: ingressNamespacedName.Namespace, Name: shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, ingressNamespacedName.Namespace, ingressNamespacedName.Name))},
+		&corev1.Service{}:             {Namespace: ingressNamespacedName.Namespace, Name: shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name))},
+		&discoveryv1.EndpointSlice{}:  {Namespace: ingressNamespacedName.Namespace, Name: shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name))},
+		&ciliumv2.CiliumEnvoyConfig{}: {Namespace: ingressNamespacedName.Namespace, Name: shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, ingressNamespacedName.Namespace, ingressNamespacedName.Name))},
 	}
 
 	for k, v := range resources {
@@ -446,7 +446,7 @@ func (r *ingressReconciler) updateIngressLoadbalancerStatus(ctx context.Context,
 	serviceNamespacedName := types.NamespacedName{}
 	if r.isEffectiveLoadbalancerModeDedicated(ingress) {
 		serviceNamespacedName.Namespace = ingress.Namespace
-		serviceNamespacedName.Name = shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingress.Name))
+		serviceNamespacedName.Name = shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingress.Name))
 	} else {
 		serviceNamespacedName.Namespace = r.ciliumNamespace
 		serviceNamespacedName.Name = r.sharedResourcesName

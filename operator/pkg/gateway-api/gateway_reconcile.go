@@ -424,7 +424,7 @@ func (r *gatewayReconciler) ensureOwnedServiceDeleted(ctx context.Context, gw *g
 	svc := &corev1.Service{}
 	key := types.NamespacedName{
 		Namespace: gw.Namespace,
-		Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
+		Name:      shortener.ShortenDNSLabelK8sName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
 	}
 
 	if err := r.client.Get(ctx, key, svc); err != nil {
@@ -440,7 +440,7 @@ func (r *gatewayReconciler) ensureOwnedServiceDeleted(ctx context.Context, gw *g
 func (r *gatewayReconciler) ensureOwnedEndpointSlicesDeleted(ctx context.Context, gw *gatewayv1.Gateway) error {
 	eps := &discoveryv1.EndpointSliceList{}
 	matchingLabels := client.MatchingLabels{
-		gatewayApiTranslation.EndpointSliceServiceNameLabel: shortener.ShortenK8sResourceName(
+		gatewayApiTranslation.EndpointSliceServiceNameLabel: shortener.ShortenDNSLabelK8sName(
 			gatewayApiTranslation.CiliumGatewayPrefix + gw.Name,
 		),
 	}
@@ -465,7 +465,7 @@ func (r *gatewayReconciler) ensureOwnedEnvoyConfigDeleted(ctx context.Context, g
 	cec := &ciliumv2.CiliumEnvoyConfig{}
 	key := types.NamespacedName{
 		Namespace: gw.Namespace,
-		Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
+		Name:      shortener.ShortenDNSLabelK8sName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
 	}
 
 	if err := r.client.Get(ctx, key, cec); err != nil {

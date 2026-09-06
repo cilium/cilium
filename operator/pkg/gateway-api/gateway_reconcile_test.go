@@ -543,7 +543,7 @@ func Test_Conformance(t *testing.T) {
 					actualCEC := &ciliumv2.CiliumEnvoyConfig{}
 					err = c.Get(t.Context(), client.ObjectKey{
 						Namespace: gwDetail.FullName.Namespace,
-						Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gwDetail.FullName.Name),
+						Name:      shortener.ShortenDNSLabelK8sName(gatewayApiTranslation.CiliumGatewayPrefix + gwDetail.FullName.Name),
 					}, actualCEC)
 					require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
 					expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
@@ -793,8 +793,8 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 				},
 			}
 
-			serviceName := shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name)
-			shortGatewayName := shortener.ShortenK8sResourceName(gw.Name)
+			serviceName := shortener.ShortenDNSLabelK8sName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name)
+			shortGatewayName := shortener.ShortenDNSLabelK8sName(gw.Name)
 			svc := &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceName,
@@ -816,7 +816,7 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 			}
 			cec := &ciliumv2.CiliumEnvoyConfig{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
+					Name:      shortener.ShortenDNSLabelK8sName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
 					Namespace: gw.Namespace,
 					Labels: map[string]string{
 						"gateway.networking.k8s.io/gateway-name": shortGatewayName,
@@ -890,7 +890,7 @@ func Test_gatewayReconciler_ensureEnvoyConfig_deletesStaleCEC(t *testing.T) {
 
 	cecKey := types.NamespacedName{
 		Namespace: gw.Namespace,
-		Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
+		Name:      shortener.ShortenDNSLabelK8sName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
 	}
 
 	ownedCEC := func() *ciliumv2.CiliumEnvoyConfig {
@@ -1154,7 +1154,7 @@ func Test_gatewayReconciler_setAddressStatus_updatesAcceptedListenerProgrammedCo
 			Name:      "gateway-service",
 			Namespace: gw.Namespace,
 			Labels: map[string]string{
-				owningGatewayLabel: shortener.ShortenK8sResourceName(gw.Name),
+				owningGatewayLabel: shortener.ShortenDNSLabelK8sName(gw.Name),
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -1517,7 +1517,7 @@ func Test_gatewayAddressStatusManager_SetStaticAddressStatus(t *testing.T) {
 				Name:      "cilium-gateway-static-address-gateway",
 				Namespace: "default",
 				Labels: map[string]string{
-					owningGatewayLabel: shortener.ShortenK8sResourceName("static-address-gateway"),
+					owningGatewayLabel: shortener.ShortenDNSLabelK8sName("static-address-gateway"),
 				},
 			},
 			Status: corev1.ServiceStatus{

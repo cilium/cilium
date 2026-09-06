@@ -61,8 +61,8 @@ func TestReconcileDedicatedResourcesUseShortenedNames(t *testing.T) {
 	}
 
 	longIngressName := strings.Repeat("a", 52)
-	svcName := shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, longIngressName))
-	cecName := shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, "test", longIngressName))
+	svcName := shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, longIngressName))
+	cecName := shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, "test", longIngressName))
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(testScheme()).
@@ -767,7 +767,7 @@ func TestReconcile(t *testing.T) {
 
 	t.Run("Reconcile of dedicated Cilium Ingress with long name will update the status according to the IP of the dedicated loadbalancer service using the shortened name", func(t *testing.T) {
 		longIngressName := strings.Repeat("a", 52)
-		svcName := shortener.ShortenK8sResourceName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, longIngressName))
+		svcName := shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, longIngressName))
 
 		fakeClient := fake.NewClientBuilder().
 			WithScheme(testScheme()).

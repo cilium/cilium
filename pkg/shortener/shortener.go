@@ -9,15 +9,27 @@ import (
 )
 
 const (
-	// Maximum characters in a K8s resource name
+	// Maximum characters in a K8s resource name constrained to a DNS label
+	// such as a Service or Namespace name.
 	k8sMaxResourceNameLength = 63
+	// Maximum characters in a K8s resource name constrained to a DNS subdomain
+	// which is the case for most K8s resources.
+	k8sMaxResourceNameDNSSubdomainLength = 253
 
 	// Maximum characters in a Hive job name
 	hiveMaxJobNameLength = 100
 )
 
-func ShortenK8sResourceName(s string) string {
+// ShortenDNSLabelK8sName shortens names longer than 63 characters with a hash
+// suffix. This is useful for Kubernetes resources such as Services and Namespaces.
+func ShortenDNSLabelK8sName(s string) string {
 	return shorten(s, k8sMaxResourceNameLength)
+}
+
+// ShortenDNSSubdomainK8sName shortens names longer than 253 characters with a hash
+// suffix. This is useful for most Kubernetes resources.
+func ShortenDNSSubdomainK8sName(s string) string {
+	return shorten(s, k8sMaxResourceNameDNSSubdomainLength)
 }
 
 func ShortenHiveJobName(s string) string {
