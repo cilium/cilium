@@ -333,7 +333,7 @@ func registerSecretSyncer(params syncerParams) error {
 
 	for ns := range namespaces {
 		params.JobGroup.Add(job.Observer(
-			shortener.ShortenK8sResourceName(fmt.Sprintf("k8s-secrets-resource-events-%s", ns)),
+			shortener.ShortenDNSLabelK8sName(fmt.Sprintf("k8s-secrets-resource-events-%s", ns)),
 			secretSyncer.handleSecretEvent,
 			newK8sSecretResource(params.Lifecycle, params.K8sClientset, params.MetricsProvider, ns),
 		))

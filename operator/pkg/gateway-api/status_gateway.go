@@ -93,7 +93,7 @@ func (m *GatewayStatusManager) SetAddressStatus(ctx context.Context, gw *gateway
 
 	svcList := &corev1.ServiceList{}
 	if err := m.client.List(ctx, svcList, client.MatchingLabels{
-		owningGatewayLabel: shortener.ShortenK8sResourceName(gw.GetName()),
+		owningGatewayLabel: shortener.ShortenDNSLabelK8sName(gw.GetName()),
 	}, client.InNamespace(gw.GetNamespace())); err != nil {
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "Address is not ready, failed to load services", gatewayv1.GatewayReasonAddressNotAssigned)
 		return fmt.Errorf("failed to load services: %w", err)
@@ -220,7 +220,7 @@ func (m *GatewayStatusManager) SetStaticAddressStatus(ctx context.Context, gw *g
 	}
 	svcList := &corev1.ServiceList{}
 	if err := m.client.List(ctx, svcList, client.MatchingLabels{
-		owningGatewayLabel: shortener.ShortenK8sResourceName(gw.GetName()),
+		owningGatewayLabel: shortener.ShortenDNSLabelK8sName(gw.GetName()),
 	}, client.InNamespace(gw.GetNamespace())); err != nil {
 		return fmt.Errorf("failed to load services: %w", err)
 	}
