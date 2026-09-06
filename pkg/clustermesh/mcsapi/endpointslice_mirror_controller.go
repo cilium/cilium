@@ -135,8 +135,8 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) getAndCleanupDerivedEndpointSlice(
 			derivedEpSlice = &epSlice
 			continue
 		}
-		if err := r.Client.Delete(ctx, &epSlice); err != nil {
-			return nil, client.IgnoreNotFound(err)
+		if err := client.IgnoreNotFound(r.Client.Delete(ctx, &epSlice)); err != nil {
+			return nil, err
 		}
 	}
 	return derivedEpSlice, nil
@@ -254,10 +254,6 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) updateDerivedEndpointSlice(
 	derivedEpSlice.Labels[discoveryv1.LabelServiceName] = derivedService.Name
 	derivedEpSlice.Labels[mcsapiv1beta1.LabelSourceCluster] = r.clusterName
 	derivedEpSlice.Labels[discoveryv1.LabelManagedBy] = endpointSliceLocalMCSAPIControllerName
-
-	if derivedEpSlice.Annotations == nil {
-		derivedEpSlice.Annotations = map[string]string{}
-	}
 	derivedEpSlice.Labels[localEndpointSliceLabel] = localEpSlice.Name
 
 	derivedEpSlice.AddressType = localEpSlice.AddressType
