@@ -29,6 +29,12 @@ Informational Notes
   propagation. This prevents user-controlled infrastructure metadata from
   changing proxy and policy behavior.
 
+* Local EndpointSlices mirrored for MCS-API Services may be recreated during
+  upgrade, briefly interrupting access to backends from this cluster. This only
+  affects EndpointSlice names longer than 40 characters after removing the
+  Service name prefix. EndpointSlices generated from Pods by the
+  kube-controller-manager are unaffected.
+
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~
 

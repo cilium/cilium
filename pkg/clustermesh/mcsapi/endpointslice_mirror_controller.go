@@ -30,6 +30,7 @@ import (
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/shortener"
 )
 
 const (
@@ -92,8 +93,15 @@ func getLocalEndpointSliceKey(derivedEpSlice *discoveryv1.EndpointSlice) *types.
 }
 
 func getLocalDerivedEndpointSliceKey(localEpSlice *discoveryv1.EndpointSlice) types.NamespacedName {
-	name := strings.TrimRight(getDerivedServiceName(localEpSlice)+"-"+getSuffix(localEpSlice), "-")
-	return types.NamespacedName{Name: name, Namespace: localEpSlice.Namespace}
+	// get the EndpointSlice name without its Service name prefix
+	suffix := strings.TrimPrefix(localEpSlice.Name, localEpSlice.Labels[discoveryv1.LabelServiceName])
+	suffix = strings.TrimLeft(suffix, "-.")
+
+	name := strings.TrimRight(getDerivedServiceName(localEpSlice)+"-"+suffix, "-")
+	return types.NamespacedName{
+		Name:      shortener.ShortenDNSSubdomainK8sName(name),
+		Namespace: localEpSlice.Namespace,
+	}
 }
 
 func (r *mcsAPIEndpointSliceMirrorReconciler) getLocalEndpointSlice(ctx context.Context, key types.NamespacedName) (*discoveryv1.EndpointSlice, error) {
@@ -435,14 +443,6 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) getEndpointSliceFromServiceRequest
 		requests = append(requests, endpointSliceMirrorRequests(&epSlice)...)
 	}
 	return requests
-}
-
-// getSuffix return the name of the EndpointSlice trimmed by its generatedName
-func getSuffix(endpointSlice *discoveryv1.EndpointSlice) string {
-	suffix := strings.TrimPrefix(endpointSlice.Name, endpointSlice.Labels[discoveryv1.LabelServiceName])
-	suffixLen := min(40, len(suffix))
-	suffix = strings.TrimLeft(suffix[len(suffix)-suffixLen:], "-.")
-	return suffix
 }
 
 func (r *mcsAPIEndpointSliceMirrorReconciler) needUpdate(
