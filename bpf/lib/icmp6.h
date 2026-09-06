@@ -606,8 +606,11 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	int i;
 	int ret;
 
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
 	/* Trim down to sample size */
-	if (full_len < sizeof(struct ethhdr))
+	if (full_len < sizeof(struct ethhdr) + sizeof(struct ipv6hdr))
 		return DROP_INVALID;
 
 	sample_len = ICMPV6_PACKET_MAX_SAMPLE_SIZE;
@@ -617,34 +620,35 @@ int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 		sample_len = full_len - sizeof(struct ethhdr);
 	}
 
-	ctx_adjust_troom(ctx, (__s32)(new_len - full_len));
-
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	/* Calculate the unfolded checksum of the ICMPv6 sample */
-	csum = icmp_wsum_accumulate(data + sizeof(struct ethhdr), data_end, (int)sample_len);
-
-	/* We need to insert a IPv6 and ICMPv6 header before the original packet.
-	 * Make that room.
+	/* Adjust headroom first. If headroom extension fails (e.g. alloc failure),
+	 * ctx remains untouched so drop notifications and metrics remain valid.
 	 */
-
 	ret = ctx_adjust_hroom(ctx, sizeof(*ip6) + sizeof(*icmphdr),
 			       BPF_ADJ_ROOM_MAC, BPF_F_ADJ_ROOM_NO_CSUM_RESET);
 	if (ret < 0)
 		return DROP_INVALID;
 
-	/* changing size invalidates pointers, so we need to re-fetch them. */
+	/* Adjust tailroom to sample size if packet needs trimming. */
+	if (new_len < full_len) {
+		ret = ctx_adjust_troom(ctx, (__s32)(new_len - full_len));
+		if (ret < 0)
+			return DROP_INVALID;
+	}
+
+	/* Changing size invalidates pointers, so we re-fetch them once. */
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
 
-	/* Bound check all headers at once. */
+	/* Bound check all headers and sample payload for the BPF verifier. */
 	ethhdr = data;
 	ip6 = (void *)ethhdr + sizeof(*ethhdr);
 	icmphdr = (void *)ip6 + sizeof(*ip6);
 	inner_ip6 = (void *)icmphdr + sizeof(*icmphdr);
-	if ((void *)inner_ip6 + sizeof(*inner_ip6) > data_end)
+	if ((void *)inner_ip6 + sample_len > data_end)
 		return DROP_INVALID;
+
+	/* Calculate the unfolded checksum of the ICMPv6 sample */
+	csum = icmp_wsum_accumulate((void *)inner_ip6, data_end, (int)sample_len);
 
 	/* Write reversed eth header, ready for egress */
 	eth_flip_addrs(ethhdr);
