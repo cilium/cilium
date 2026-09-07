@@ -917,12 +917,11 @@ func TestWriter_SelectBackends_PreferCloseFallsBackFromUnhealthySameZone(t *test
 	assert.Contains(t, addresses, remoteAddr)
 }
 
-// TestWriter_SelectBackends_PreferCloseIgnoresTerminatingForMissingHints verifies
-// that backends in BackendStateTerminating / BackendStateTerminatingNotServing are
-// excluded from the missing-hints safeguard. The EndpointSlice controller does not
-// compute zone hints for non-Ready endpoints, so without this exclusion a single
-// terminating Pod would disable topology-aware routing for the entire Service.
-func TestWriter_SelectBackends_PreferCloseIgnoresTerminatingForMissingHints(t *testing.T) {
+// TestWriter_SelectBackends_PreferCloseIgnoresNonActiveForMissingHints verifies
+// that non-active backends are excluded from the missing-hints safeguard.
+// Without this exclusion, a non-serving backend without hints could disable
+// topology-aware routing for the entire Service.
+func TestWriter_SelectBackends_PreferCloseIgnoresNonActiveForMissingHints(t *testing.T) {
 	p := fixture(t)
 	p.Writer.config.EnableServiceTopology = true
 	p.LocalNodeStore.Update(func(n *node.LocalNode) {
@@ -938,6 +937,8 @@ func TestWriter_SelectBackends_PreferCloseIgnoresTerminatingForMissingHints(t *t
 	activeRemoteAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(3), 8080, loadbalancer.ScopeExternal)
 	terminatingAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(4), 8080, loadbalancer.ScopeExternal)
 	terminatingNoZoneAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(5), 8080, loadbalancer.ScopeExternal)
+	maintenanceAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(6), 8080, loadbalancer.ScopeExternal)
+	quarantinedAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(7), 8080, loadbalancer.ScopeExternal)
 
 	svc := &loadbalancer.Service{
 		Name:                svcName,
@@ -978,6 +979,20 @@ func TestWriter_SelectBackends_PreferCloseIgnoresTerminatingForMissingHints(t *t
 				// emit loop would have nil-dereferenced be.Zone.ForZones.
 				Address: terminatingNoZoneAddr,
 				State:   loadbalancer.BackendStateTerminatingNotServing,
+			},
+			{
+				// A backend under maintenance similarly must not participate in
+				// topology safeguards if it is missing zone hints.
+				Address: maintenanceAddr,
+				State:   loadbalancer.BackendStateMaintenance,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-d"},
+			},
+			{
+				// Quarantined backends are also non-serving and must be ignored
+				// when evaluating whether topology hints are complete.
+				Address: quarantinedAddr,
+				State:   loadbalancer.BackendStateQuarantined,
+				Zone:    &loadbalancer.BackendZone{Zone: "zone-e"},
 			},
 		} {
 			if !yield(be, statedb.Revision(i+1)) {
@@ -1053,7 +1068,7 @@ func TestWriter_SelectBackends_PreferCloseFallsBackWhenOnlyTerminating(t *testin
 	assert.Contains(t, addresses, terminatingNoZoneAddr)
 }
 
-func TestWriter_SelectBackends_PreferSameNodeIgnoresTerminating(t *testing.T) {
+func TestWriter_SelectBackends_PreferSameNodeIgnoresNonActiveBackends(t *testing.T) {
 	oldName := nodeTypes.GetName()
 	nodeTypes.SetName("node-a")
 	t.Cleanup(func() {
@@ -1067,6 +1082,8 @@ func TestWriter_SelectBackends_PreferSameNodeIgnoresTerminating(t *testing.T) {
 	feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1), 80, loadbalancer.ScopeExternal)
 	activeLocalAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(2), 8080, loadbalancer.ScopeExternal)
 	terminatingLocalAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(3), 8080, loadbalancer.ScopeExternal)
+	maintenanceLocalAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(4), 8080, loadbalancer.ScopeExternal)
+	quarantinedLocalAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(5), 8080, loadbalancer.ScopeExternal)
 
 	svc := &loadbalancer.Service{
 		Name:                svcName,
@@ -1094,6 +1111,16 @@ func TestWriter_SelectBackends_PreferSameNodeIgnoresTerminating(t *testing.T) {
 				State:    loadbalancer.BackendStateTerminating,
 				NodeName: "node-a",
 			},
+			{
+				Address:  maintenanceLocalAddr,
+				State:    loadbalancer.BackendStateMaintenance,
+				NodeName: "node-a",
+			},
+			{
+				Address:  quarantinedLocalAddr,
+				State:    loadbalancer.BackendStateQuarantined,
+				NodeName: "node-a",
+			},
 		} {
 			if !yield(be, statedb.Revision(i+1)) {
 				return
@@ -1104,7 +1131,7 @@ func TestWriter_SelectBackends_PreferSameNodeIgnoresTerminating(t *testing.T) {
 	selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
 
 	// Only the active local backend should be selected.
-	// Terminating local backend must be filtered out.
+	// All other non-active local backends must be filtered out.
 	require.Len(t, selected, 1)
 	assert.Equal(t, activeLocalAddr.String(), selected[0].Address.String())
 }
