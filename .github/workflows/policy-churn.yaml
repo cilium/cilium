@@ -1,13 +1,10 @@
-name: Policy Churn Scale Test (policy-churn)
+name: Policy Churn Scale Test on EKS (policy-churn-eks)
 
 on:
   # For testing uncomment following lines:
   push:
     branches:
       - pr/fristonio/ci/policy-churn
-
-  schedule:
-    - cron: "27 0 * * 1-5"
 
   workflow_dispatch:
     inputs:
@@ -20,6 +17,17 @@ on:
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      control-plane-tier:
+        description: "EKS Provisioned Control Plane scaling tier. See https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html"
+        required: false
+        default: tier-4xl
+        type: choice
+        options:
+          - standard
+          - tier-xl
+          - tier-2xl
+          - tier-4xl
+          - tier-8xl
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
@@ -57,13 +65,25 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # renovate: datasource=github-releases depName=eksctl-io/eksctl
+  eksctl_version: v0.230.0
+  # renovate: datasource=github-releases depName=kubernetes/kubernetes
+  kubectl_version: v1.36.3
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 578.0.0
+  gcloud_version: 580.0.0
 
-  # Node that kfuzz/kwok fake resources must avoid scheduling onto, and the
-  # node where the CL2 module's own test pods (kfuzz, kwok-controller) run.
-  test_node_name: kind-worker
-  test_infra_node_name: kind-worker2
+  test_name: policy-churn-eks
+  cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
+
+  # EKS managed nodegroups: 3 real nodes mirroring the kind cluster's 3-node
+  # setup described in .github/actions/cl2-modules/policy-churn/README.md:
+  # - ng-general:    unlabelled node, mirrors the kind control-plane node
+  #                   which hosts cluster-operations components (eg. coredns).
+  # - ng-test-infra:  role.scaffolding/test-infra=true, hosts kwok, kfuzz and
+  #                   the monitoring stack.
+  # - ng-test-node:   role.scaffolding/test-node=true, cordoned; the node
+  #                   named by CL2_TEST_NODE_NAME.
+  node_instance_type: m5.2xlarge
 
 jobs:
   echo-inputs:
@@ -86,6 +106,8 @@ jobs:
 
   install-and-churn-test:
     permissions:
+      # To be able to trigger eks-cluster-pool-manager.yaml workflow
+      actions: write
       # To be able to access the repository with actions/checkout
       contents: read
       # To be able to request the JWT from GitHub's OIDC provider
@@ -96,7 +118,7 @@ jobs:
       statuses: write
     runs-on: ubuntu-24.04
     name: Install and run Policy Churn Test
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -125,8 +147,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] ; then
             SHA="${{ inputs.SHA }}"
+            CONTROL_PLANE_TIER="${{ inputs.control-plane-tier }}"
           else
             SHA="${{ github.sha }}"
+            CONTROL_PLANE_TIER="tier-4xl"
           fi
 
           # Run test against specific commit SHA if provided
@@ -136,8 +160,26 @@ jobs:
 
           TEST_NAME="${{ matrix.scenario }}"
 
-          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
-          echo "test_name=${TEST_NAME}" >> "$GITHUB_OUTPUT"
+          OWNER="${{ github.ref_name }}"
+          OWNER="${OWNER//[.\/]/-}"
+
+          CLUSTER_NAME="policy-churn-${{ env.cluster_name }}-${{ strategy.job-index }}"
+
+          eks_version_and_region=$(yq '.include | sort_by(.version) | reverse | .[0] | "\(.version),\(.region)"' .github/actions/eks/k8s-versions.yaml)
+          EKS_VERSION=$(echo "$eks_version_and_region" | cut -d',' -f1)
+          EKS_REGION=$(echo "$eks_version_and_region" | cut -d',' -f2)
+
+          {
+            echo "sha=${SHA}"
+            echo "test_name=${TEST_NAME}"
+            echo "owner=${OWNER}"
+            echo "cluster_name=${CLUSTER_NAME}"
+            echo "control_plane_tier=${CONTROL_PLANE_TIER}"
+            echo "eks_version=${EKS_VERSION}"
+            echo "eks_region=${EKS_REGION}"
+            echo "eks_zone_1=${EKS_REGION}b"
+            echo "eks_zone_2=${EKS_REGION}c"
+          } >> "$GITHUB_OUTPUT"
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -182,64 +224,55 @@ jobs:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
 
-      - name: Generate Kind configuration file
+      - name: Install kubectl
         run: |
-          cat <<EOF > ./.github/kind-config-policy-churn.yaml
-          kind: Cluster
-          apiVersion: kind.x-k8s.io/v1alpha4
-          nodes:
-            - role: control-plane
-              kubeadmConfigPatches:
-                - |
-                  apiVersion: kubeadm.k8s.io/v1beta3
-                  kind: InitConfiguration
-                  nodeRegistration:
-                    taints: []
-                - |
-                  apiVersion: kubeadm.k8s.io/v1beta4
-                  kind: InitConfiguration
-                  nodeRegistration:
-                    taints: []
-                - |
-                  kind: ClusterConfiguration
-                  apiServer:
-                    extraArgs:
-                      enable-admission-plugins: NodeRestriction,OwnerReferencesPermissionEnforcement
-            - role: worker
-            - role: worker
-          networking:
-            disableDefaultCNI: true
-            ipFamily: ipv4
-            podSubnet: 10.242.0.0/16
-            serviceSubnet: 10.243.0.0/16
-            kubeProxyMode: none
-          EOF
+          curl -sfL --retry 5 --retry-all-errors --retry-delay 3 -O "https://dl.k8s.io/release/${{ env.kubectl_version }}/bin/linux/amd64/kubectl"
+          curl -sfL --retry 5 --retry-all-errors --retry-delay 3 -O "https://dl.k8s.io/${{ env.kubectl_version }}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          kubectl version --client
 
-      - name: Create kind cluster
-        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+      - name: Install eksctl CLI
+        run: |
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 -O "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
+          rm "eksctl_$(uname -s)_amd64.tar.gz"
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
-          cluster_name: kind
-          version: ${{ env.KIND_VERSION }}
-          node_image: ${{ env.KIND_K8S_IMAGE }}
-          kubectl_version: ${{ env.KIND_K8S_VERSION }}
-          config: ./.github/kind-config-policy-churn.yaml
-          wait: 0 # The control-plane never becomes ready, since no CNI is present
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ steps.vars.outputs.eks_region }}
 
-      - name: Label and prepare test nodes
+      - name: Display version info of installed tools
         run: |
-          # Test infra node hosts kwok, kfuzz and the monitoring stack.
-          kubectl label node ${{ env.test_infra_node_name }} role.scaffolding/test-infra=true
+          echo "--- go ---"
+          go version
+          echo "--- kubectl ---"
+          kubectl version --client
+          echo "--- eksctl ---"
+          eksctl version
+          echo "--- gcloud ---"
+          gcloud version
 
-          # Test node is where the CL2 module expects CL2_TEST_NODE_NAME pods
-          # (kwok-controller, kfuzz) to be explicitly scheduled via nodeName.
-          # Cordon it so only those explicitly-scheduled pods and DaemonSet
-          # pods land there.
-          kubectl label node ${{ env.test_node_name }} role.scaffolding/test-node=true
-          kubectl cordon ${{ env.test_node_name }}
+      - name: Create EKS cluster
+        id: deploy-cluster
+        uses: ./.github/actions/setup-eks-cluster
+        with:
+          create-cluster: "true"
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          region: ${{ steps.vars.outputs.eks_region }}
+          zones: "${{ steps.vars.outputs.eks_zone_1 }} ${{ steps.vars.outputs.eks_zone_2 }}"
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: "${{ steps.vars.outputs.eks_version }}"
+          addons: "coredns"
+          control_plane_scaling_tier: "${{ steps.vars.outputs.control_plane_tier }}"
 
-          kubectl create namespace kfuzz
-
-          kubectl get nodes -o wide --show-labels
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
 
       - name: Create imagePullSecret
         if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
@@ -268,11 +301,21 @@ jobs:
           image-tag: ${{ steps.vars.outputs.sha }}
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
 
+      # This is run before the EKS nodegroups are created (no nodes exist
+      # yet), matching the l7-perf.yaml pattern: nodeGroups are not supported
+      # during cluster creation in a cluster without VPC CNI, and Cilium must
+      # already be installed for that step to succeed.
       - name: Install Cilium
         id: install-cilium
         run: |
+          K8S_API_SRV_ADDR=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' | sed 's|https://||')
+          echo "Retrieved Kubernetes API Server address: '${K8S_API_SRV_ADDR}'"
+
           cat <<EOF > cilium-install-helm-values.yaml
+          debug:
+            enabled: false
           pprof:
             enabled: true
           prometheus:
@@ -293,7 +336,7 @@ jobs:
           envoy:
             enabled: true
             debug:
-              enabled: true
+              enabled: false
             affinity:
               nodeAffinity:
                 requiredDuringSchedulingIgnoredDuringExecution:
@@ -305,9 +348,104 @@ jobs:
                       - kwok
           EOF
 
+          # Tunnel mode (vxlan) with cluster-pool IPAM: no AWS ENI/VPC CNI
+          # involved, so kwok's fake nodes never need real ENI IPs or
+          # instances, and the operator image stays operator-generic (only
+          # eni.enabled would switch it to operator-aws).
           cilium install ${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set=debug.enabled=false \
             --helm-set=kubeProxyReplacement=true \
+            --helm-set=routingMode=tunnel \
+            --helm-set=tunnelProtocol=vxlan \
+            --helm-set=ipam.mode=cluster-pool \
+            --set=k8sServiceHost="${K8S_API_SRV_ADDR}" --set=k8sServicePort=443 \
             --helm-values=cilium-install-helm-values.yaml
+
+      - name: Delete context ref
+        run: |
+          rm -rf untrusted/
+
+      - name: Create EKS nodegroups
+        uses: ./.github/actions/setup-eks-nodegroup
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          region: ${{ steps.vars.outputs.eks_region }}
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: "${{ steps.vars.outputs.eks_version }}"
+          timeout: "15m"
+          node_groups_override: |
+            managedNodeGroups:
+            - name: ng-general
+              instanceTypes:
+              - ${{ env.node_instance_type }}
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: 1
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+
+            - name: ng-test-infra
+              instanceTypes:
+              - ${{ env.node_instance_type }}
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: 1
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+              labels:
+                role.scaffolding/test-infra: "true"
+
+            - name: ng-test-node
+              instanceTypes:
+              - ${{ env.node_instance_type }}
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: 1
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+              labels:
+                role.scaffolding/test-node: "true"
+
+      - name: Discover and prepare test nodes
+        id: test-nodes
+        run: |
+          # EKS node names are the EC2 private DNS names, unlike kind's
+          # deterministic kind-worker/kind-worker2, so discover them via the
+          # nodegroup label that eksctl/EKS sets on every managed node.
+          TEST_NODE_NAME=$(kubectl get nodes -l eks.amazonaws.com/nodegroup=ng-test-node -o jsonpath='{.items[0].metadata.name}')
+          TEST_INFRA_NODE_NAME=$(kubectl get nodes -l eks.amazonaws.com/nodegroup=ng-test-infra -o jsonpath='{.items[0].metadata.name}')
+
+          # Cordon the test node so only pods explicitly targeted using
+          # nodeName (kwok-controller, kfuzz) and DaemonSet pods land there.
+          kubectl cordon "${TEST_NODE_NAME}"
+
+          kubectl create namespace kfuzz
+
+          echo "test_node_name=${TEST_NODE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "test_infra_node_name=${TEST_INFRA_NODE_NAME}" >> "$GITHUB_OUTPUT"
+
+          kubectl get nodes -o wide --show-labels
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -332,6 +470,25 @@ jobs:
           sparse-checkout: clusterloader2
           path: perf-tests
 
+      - name: Patch ClusterLoader2 in-cluster Prometheus client
+        working-directory: ./perf-tests
+        run: |
+          # EKS's managed control plane refuses to proxy the apiserver's
+          # services/proxy subresource to pod IPs outside the cluster's VPC
+          # CIDR (see the "Install Cilium" step: tunnel mode + cluster-pool
+          # IPAM puts every pod on a 10.0.0.0/8 address, which isn't part of
+          # the VPC). That subresource is what CL2 uses, unconditionally, to
+          # reach Prometheus, so this adds an opt-in PROMETHEUS_HOST_OVERRIDE
+          # env var CL2 doesn't otherwise support, used below to route it over
+          # a `kubectl port-forward` instead -- port-forward is unaffected,
+          # since it's dispatched through the pod's node (kubelet) rather than
+          # dialed directly by the apiserver. A no-op on every other provider,
+          # since the new code path is only reachable when the env var is set.
+          git apply ../.github/actions/cl2-modules/policy-churn/add-prometheus-host-override-env-var.patch
+
+          echo "--- Applied patch (for debugging if this step's git apply ever starts failing after a re-pin) ---"
+          git diff --stat || true
+
       - name: Run CL2
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
@@ -347,12 +504,12 @@ jobs:
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "false"
 
-          CL2_TEST_NODE_NAME: ${{ env.test_node_name }}
+          CL2_TEST_NODE_NAME: ${{ steps.test-nodes.outputs.test_node_name }}
           CL2_TEST_SCENARIO: ${{ matrix.scenario }}
           CL2_TEST_DURATION: 30m
 
           # Set to false for testing the workflow.
-          CL2_ENABLE_VIOLATIONS: "true"
+          CL2_ENABLE_VIOLATIONS: "false"
         run: |
           echo "CL2-related environment variables"
           printenv | grep CL2_
@@ -362,16 +519,53 @@ jobs:
           EOF
 
           mkdir ./report
+
+          (
+            waited=0
+            until kubectl get svc -n monitoring prometheus-k8s &> /dev/null; do
+              if [ "${waited}" -ge 300 ]; then
+                echo "$(date -Is) [prometheus-port-forward] prometheus-k8s Service still doesn't exist after 300s, giving up. CL2 likely failed before/while standing up its own Prometheus stack -- check the 'go run' output above/below, not this port-forward."
+                kubectl get pods -n monitoring -o wide || true
+                kubectl get events -n monitoring --sort-by=.lastTimestamp || true
+                exit 1
+              fi
+              sleep 5
+              waited=$((waited + 5))
+            done
+            echo "$(date -Is) [prometheus-port-forward] prometheus-k8s Service found after ${waited}s"
+            kubectl get pods -n monitoring -o wide || true
+            while true; do
+              echo "$(date -Is) [prometheus-port-forward] (re)connecting"
+              kubectl port-forward -n monitoring svc/prometheus-k8s 9090:9090 &
+              KUBECTL_PID=$!
+              for _ in $(seq 1 10); do
+                if curl -sf "http://localhost:9090/-/ready" &> /dev/null; then
+                  echo "$(date -Is) [prometheus-port-forward] confirmed reachable at http://localhost:9090"
+                  break
+                fi
+                sleep 2
+              done
+              wait "${KUBECTL_PID}" || true
+              echo "$(date -Is) [prometheus-port-forward] port-forward exited, reconnecting in 2s"
+              sleep 2
+            done
+          ) &
+          PF_PID=$!
+          trap 'kill "${PF_PID}" 2>/dev/null || true; pkill -f "kubectl port-forward -n monitoring svc/prometheus-k8s" 2>/dev/null || true' EXIT
+
+          export PROMETHEUS_HOST_OVERRIDE="localhost:9090"
+          echo "PROMETHEUS_HOST_OVERRIDE=${PROMETHEUS_HOST_OVERRIDE}"
+
           go run ./cmd/clusterloader.go \
             -v=2 \
             --testconfig=../../.github/actions/cl2-modules/policy-churn/config.yaml \
             --prometheus-additional-monitors-path=../../.github/actions/cl2-modules/policy-churn/monitors \
-            --provider=kind \
+            --provider=aws \
+            --enable-exec-service=false \
             --enable-prometheus-server \
             --report-dir=./report \
             --prometheus-scrape-kube-proxy=false \
             --prometheus-scrape-kubelets=false \
-            --prometheus-apiserver-scrape-port=6443 \
             --kubeconfig="$HOME/.kube/config" \
             --tear-down-prometheus-server=false \
             --experimental-prometheus-snapshot-to-report-dir=true \
@@ -415,6 +609,20 @@ jobs:
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/
           other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
+
+      # Refresh credentials, since the role assumption session from earlier
+      # may have expired during the (potentially long-running) test.
+      - name: Set up AWS CLI credentials
+        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ steps.vars.outputs.eks_region }}
+
+      - name: Cleanup cluster
+        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
+        run: |
+          eksctl delete cluster --name ${{ steps.vars.outputs.cluster_name }} --region ${{ steps.vars.outputs.eks_region }}
 
   merge-upload-and-status:
     name: Merge Upload and Status

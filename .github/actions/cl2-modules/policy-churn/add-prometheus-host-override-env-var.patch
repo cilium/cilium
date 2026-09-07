@@ -1,0 +1,177 @@
+diff --git a/clusterloader2/pkg/prometheus/clients/in_cluster.go b/clusterloader2/pkg/prometheus/clients/in_cluster.go
+index bf243f1bc..941ac59c9 100644
+--- a/clusterloader2/pkg/prometheus/clients/in_cluster.go
++++ b/clusterloader2/pkg/prometheus/clients/in_cluster.go
+@@ -18,11 +18,25 @@ package prom
+ 
+ import (
+ 	"context"
++	"fmt"
++	"io"
++	"net/http"
++	"net/url"
++	"os"
+ 	"time"
+ 
+ 	clientset "k8s.io/client-go/kubernetes"
+ )
+ 
++// prometheusHostOverrideEnv, if set to a "host:port", queries Prometheus with a
++// direct HTTP request to that address instead of going through the apiserver's
++// service-proxy subresource below. Some managed control planes (e.g. EKS) refuse
++// to proxy to pod IPs outside the cluster's VPC CIDR, which breaks ProxyGet for
++// overlay CNIs. Point this at a `kubectl port-forward`'d local port to work
++// around that: port-forward is unaffected, since it's routed through the pod's
++// node (kubelet) rather than dialed directly by the apiserver.
++const prometheusHostOverrideEnv = "PROMETHEUS_HOST_OVERRIDE"
++
+ // inClusterPrometheusClient talks to the Prometheus instance deployed in the test cluster.
+ type inClusterPrometheusClient struct {
+ 	client clientset.Interface
+@@ -33,12 +47,39 @@ func (icpc *inClusterPrometheusClient) Query(query string, queryTime time.Time)
+ 		"query": query,
+ 		"time":  queryTime.Format(time.RFC3339),
+ 	}
++
++	if host := os.Getenv(prometheusHostOverrideEnv); host != "" {
++		return queryOverHTTP(host, params)
++	}
++
+ 	return icpc.client.CoreV1().
+ 		Services("monitoring").
+ 		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/query", params).
+ 		DoRaw(context.TODO())
+ }
+ 
++func queryOverHTTP(host string, params map[string]string) ([]byte, error) {
++	q := url.Values{}
++	for k, v := range params {
++		q.Set(k, v)
++	}
++
++	resp, err := http.Get(fmt.Sprintf("http://%s/api/v1/query?%s", host, q.Encode()))
++	if err != nil {
++		return nil, err
++	}
++	defer resp.Body.Close()
++
++	body, err := io.ReadAll(resp.Body)
++	if err != nil {
++		return nil, err
++	}
++	if resp.StatusCode != http.StatusOK {
++		return nil, fmt.Errorf("prometheus query failed: %s: %s", resp.Status, string(body))
++	}
++	return body, nil
++}
++
+ func NewInClusterPrometheusClient(c clientset.Interface) Client {
+ 	return &inClusterPrometheusClient{client: c}
+ }
+diff --git a/clusterloader2/pkg/prometheus/util.go b/clusterloader2/pkg/prometheus/util.go
+index 4fbea8fcc..276a48420 100644
+--- a/clusterloader2/pkg/prometheus/util.go
++++ b/clusterloader2/pkg/prometheus/util.go
+@@ -20,6 +20,7 @@ import (
+ 	"context"
+ 	"encoding/json"
+ 	"fmt"
++	"io"
+ 	corev1 "k8s.io/api/core/v1"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	"k8s.io/apimachinery/pkg/labels"
+@@ -27,6 +28,7 @@ import (
+ 	"k8s.io/client-go/kubernetes/scheme"
+ 	restclient "k8s.io/client-go/rest"
+ 	"k8s.io/client-go/tools/remotecommand"
++	"net/http"
+ 	"os"
+ 	"regexp"
+ 
+@@ -36,6 +38,38 @@ import (
+ 
+ const allTargets = -1
+ 
++// prometheusHostOverrideEnv, if set to a "host:port", queries Prometheus with a
++// direct HTTP request to that address instead of going through the apiserver's
++// service-proxy subresource below. Some managed control planes (e.g. EKS) refuse
++// to proxy to pod IPs outside the cluster's VPC CIDR, which breaks ProxyGet for
++// overlay CNIs. Point this at a `kubectl port-forward`'d local port to work
++// around that: port-forward is unaffected, since it's routed through the pod's
++// node (kubelet) rather than dialed directly by the apiserver.
++const prometheusHostOverrideEnv = "PROMETHEUS_HOST_OVERRIDE"
++
++func getFromPrometheus(k8sClient kubernetes.Interface, path string) ([]byte, error) {
++	if host := os.Getenv(prometheusHostOverrideEnv); host != "" {
++		resp, err := http.Get(fmt.Sprintf("http://%s/%s", host, path))
++		if err != nil {
++			return nil, err
++		}
++		defer resp.Body.Close()
++		body, err := io.ReadAll(resp.Body)
++		if err != nil {
++			return nil, err
++		}
++		if resp.StatusCode != http.StatusOK {
++			return body, fmt.Errorf("prometheus request failed: %s", resp.Status)
++		}
++		return body, nil
++	}
++
++	return k8sClient.CoreV1().
++		Services(namespace).
++		ProxyGet("http", "prometheus-k8s", "9090", path, nil /*params*/).
++		DoRaw(context.TODO())
++}
++
+ type targetsResponse struct {
+ 	Data targetsData `json:"data"`
+ }
+@@ -59,10 +93,7 @@ func CheckAllTargetsReady(k8sClient kubernetes.Interface, selector func(Target)
+ // CheckTargetsReady returns true iff there is at least minActiveTargets matching the selector and
+ // at least minReadyTargets of them are ready.
+ func CheckTargetsReady(k8sClient kubernetes.Interface, selector func(Target) bool, minActiveTargets, minReadyTargets int) (bool, error) {
+-	raw, err := k8sClient.CoreV1().
+-		Services(namespace).
+-		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/targets", nil /*params*/).
+-		DoRaw(context.TODO())
++	raw, err := getFromPrometheus(k8sClient, "api/v1/targets")
+ 	if err != nil {
+ 		response := "(empty)"
+ 		if raw != nil {
+@@ -114,13 +145,28 @@ type snapshotData struct {
+ }
+ 
+ func makeSnapshot(k8sClient kubernetes.Interface, config *restclient.Config, filePath string) error {
+-	raw, err := k8sClient.CoreV1().RESTClient().Post().
+-		Namespace(namespace).
+-		Resource("services").
+-		SubResource("proxy").
+-		Name(net.JoinSchemeNamePort("http", "prometheus-k8s", "9090")).
+-		Suffix("api/v1/admin/tsdb/snapshot").
+-		DoRaw(context.TODO())
++	var raw []byte
++	var err error
++	if host := os.Getenv(prometheusHostOverrideEnv); host != "" {
++		var resp *http.Response
++		resp, err = http.Post(fmt.Sprintf("http://%s/api/v1/admin/tsdb/snapshot", host), "", nil)
++		if err != nil {
++			return err
++		}
++		defer resp.Body.Close()
++		raw, err = io.ReadAll(resp.Body)
++		if err == nil && resp.StatusCode != http.StatusOK {
++			err = fmt.Errorf("prometheus snapshot request failed: %s: %s", resp.Status, string(raw))
++		}
++	} else {
++		raw, err = k8sClient.CoreV1().RESTClient().Post().
++			Namespace(namespace).
++			Resource("services").
++			SubResource("proxy").
++			Name(net.JoinSchemeNamePort("http", "prometheus-k8s", "9090")).
++			Suffix("api/v1/admin/tsdb/snapshot").
++			DoRaw(context.TODO())
++	}
+ 	if err != nil {
+ 		return err
+ 	}

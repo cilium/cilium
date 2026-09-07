@@ -90,7 +90,7 @@ steps:
       metricName: Cilium Agent Errors and Warnings
       metricVersion: v1
       unit: qps
-      enableViolations: true
+      enableViolations: {{$ENABLE_VIOLATIONS}}
       queries:
       - name: Warnings
         query: sum(rate(cilium_errors_warnings_total{level="WARN", node="{{$testNodeName}}"}[%v]))

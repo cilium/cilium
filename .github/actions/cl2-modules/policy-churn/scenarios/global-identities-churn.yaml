@@ -130,9 +130,9 @@ data:
             "node": "",
             "nodeSelector": "kfuzz.cilium.io/fake-node=true",
             "sliceAddChance": 0.25,
-            "sliceAddCount": "8-32",
+            "sliceAddCount": "16-64",
             "sliceDeleteChance": 0.25,
-            "sliceDeleteCount": "8-32",
+            "sliceDeleteCount": "16-64",
             "sliceSize": "2048-8192",
             "sliceUpdateChance": 0
         }
