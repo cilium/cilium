@@ -325,9 +325,13 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 		return true;
 
 	/* Only match CT entries that were created for the expected service: */
-	if ((ct_entry_types & CT_ENTRY_SVC) &&
-	    entry->rev_nat_index == state->rev_nat_index)
-		return true;
+	if ((ct_entry_types & CT_ENTRY_SVC) && entry->rev_nat_index) {
+		if (!state || !state->rev_nat_index)
+			return true;
+
+		if (entry->rev_nat_index == state->rev_nat_index)
+			return true;
+	}
 
 #ifdef ENABLE_NODEPORT
 	if ((ct_entry_types & CT_ENTRY_NODEPORT) &&
