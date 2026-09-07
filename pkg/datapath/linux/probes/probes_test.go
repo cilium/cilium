@@ -84,6 +84,11 @@ func TestPrivilegedHaveBPFJIT(t *testing.T) {
 	assert.NoError(t, HaveBPFJIT())
 }
 
+func TestPrivilegedHaveGlobalFunctions(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	assert.NoError(t, HaveGlobalFunctions())
+}
+
 func TestPrivilegedHaveDeadCodeElimSupport(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	assert.NoError(t, HaveDeadCodeElim())
