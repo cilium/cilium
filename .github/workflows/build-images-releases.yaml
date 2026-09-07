@@ -82,6 +82,7 @@ jobs:
         if: ${{ env.PUSH_TO_DOCKER_HUB == 'true' }}
         env:
           DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_OIDC_CONNECTIONID }}
+          DOCKERHUB_OIDC_EXPIREIN: 2700
         with:
           username: ${{ vars.DOCKERHUB_ORGANIZATION }}
 
