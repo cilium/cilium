@@ -439,12 +439,13 @@ func matchesFrontend(be *loadbalancer.Backend, fe *loadbalancer.Frontend) bool {
 // same-node and same-zone preference decisions. This mirrors kube-proxy's
 // behaviour where topology hint validation considers Ready endpoints only.
 func (w *Writer) topologyPreferenceCandidate(svc *loadbalancer.Service, be *loadbalancer.Backend) bool {
-	// Terminating backends are excluded from hint computation by the
-	// EndpointSlice controller, so they would always lack hints. Including
-	// them here would either spuriously trip the missing-hints safeguard or
-	// pin traffic to a draining Pod.
-	if be.State == loadbalancer.BackendStateTerminating ||
-		be.State == loadbalancer.BackendStateTerminatingNotServing {
+	// Only backends that are actively serving may drive topology preference.
+	// This excludes terminating, not-yet-serving and quarantined backends so
+	// that a same-node backend which is starting up (or draining) does not win
+	// the preference and pin traffic to a backend that cannot serve, instead
+	// of falling back to ready remote backends. Mirrors kube-proxy, which only
+	// considers Ready endpoints for topology hints.
+	if be.State != loadbalancer.BackendStateActive {
 		return false
 	}
 
@@ -455,9 +456,7 @@ func (w *Writer) topologyPreferenceCandidate(svc *loadbalancer.Service, be *load
 	// Health-checked services should only prefer backends that are currently
 	// usable. Otherwise a quarantined or not-yet-checked local backend would
 	// suppress fallback to healthy remote backends.
-	return be.State == loadbalancer.BackendStateActive &&
-		!be.Unhealthy &&
-		be.UnhealthyUpdatedAt != nil
+	return !be.Unhealthy && be.UnhealthyUpdatedAt != nil
 }
 
 func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadbalancer.Backend, statedb.Revision], svc *loadbalancer.Service, fe *loadbalancer.Frontend) iter.Seq2[*loadbalancer.Backend, statedb.Revision] {
