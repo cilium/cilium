@@ -133,6 +133,15 @@ func Test_withTLSOrigination(t *testing.T) {
 
 		combined := upstreamTLS.CommonTlsContext.GetCombinedValidationContext()
 		require.NotNil(t, combined)
+
+		require.NotNil(t, combined.DefaultValidationContext)
+		matchers := combined.DefaultValidationContext.GetMatchTypedSubjectAltNames()
+		require.Len(t, matchers, 1)
+
+		matcher := matchers[0]
+		require.Equal(t, envoy_config_tls.SubjectAltNameMatcher_DNS, matcher.GetSanType())
+		require.Equal(t, tls.SNI, matcher.GetMatcher().GetExact())
+
 		sdsName := combined.ValidationContextSdsSecretConfig.GetName()
 		require.Equal(t, syncnames.SyncedConfigMapSDSSecretName("my-secrets-ns", types.NamespacedName{Namespace: "my-namespace", Name: "my-ca-configmap"}), sdsName)
 	})
@@ -148,6 +157,15 @@ func Test_withTLSOrigination(t *testing.T) {
 
 		combined := upstreamTLS.CommonTlsContext.GetCombinedValidationContext()
 		require.NotNil(t, combined)
+
+		require.NotNil(t, combined.DefaultValidationContext)
+		matchers := combined.DefaultValidationContext.GetMatchTypedSubjectAltNames()
+		require.Len(t, matchers, 1)
+
+		matcher := matchers[0]
+		require.Equal(t, envoy_config_tls.SubjectAltNameMatcher_DNS, matcher.GetSanType())
+		require.Equal(t, tls.SNI, matcher.GetMatcher().GetExact())
+
 		sdsName := combined.ValidationContextSdsSecretConfig.GetName()
 		require.Equal(t, syncnames.SyncedConfigMapSDSSecretName("cilium-secrets", types.NamespacedName{Namespace: "my-namespace", Name: "my-ca-configmap"}), sdsName)
 	})
