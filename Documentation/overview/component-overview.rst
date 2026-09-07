@@ -41,7 +41,7 @@ Debug Client (CLI)
   .. note::
 
      The in-agent Cilium debug CLI client described here should not be confused
-     with the ```cilium`` command line tool for quick-installing, managing and
+     with the ``cilium`` `command line tool for quick-installing, managing and
      troubleshooting Cilium on Kubernetes clusters
      <https://github.com/cilium/cilium-cli>`_. That tool is typically installed
      remote from the cluster, and uses ``kubeconfig`` information to access
