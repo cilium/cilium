@@ -1,6 +1,6 @@
 {
   "name": "Cilium",
-  "image": "quay.io/cilium/cilium-builder:c7532ca9f45c2905520d5bc92882238e75f6b28b@sha256:e66434016cb094cf680271a40e6aba9072ce88b85885df85c2ecd0028102b688",
+  "image": "quay.io/cilium/cilium-builder:be12da3a6967544fcc0fb0cb3555a2a8670396bc@sha256:969449d0bc3b4b6899dbee3df2a52e39794b7b54044f3bc15c11c360aa17b660",
   "workspaceFolder": "/go/src/github.com/cilium/cilium",
   "workspaceMount": "source=${localWorkspaceFolder},target=/go/src/github.com/cilium/cilium,type=bind",
   // This container is based on the cilium-builder image, so contrib/scripts/builder.sh can run commands
