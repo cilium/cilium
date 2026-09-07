@@ -136,8 +136,14 @@
   // ignore the vendor directory. '-modcacherw' has to be repeated because this
   // replaces the value the manager sets itself.
   // See https://github.com/renovatebot/renovate/issues/21010
+  // builder.sh derives the Go caches from 'go env' and bind-mounts them, but
+  // mount-docker-socket means the runner's daemon resolves the mount, and only
+  // /tmp is shared with the Renovate container. Point them at /tmp so the
+  // builder container gets a directory it can write to.
   "customEnvVariables": {
-    "GOFLAGS": "-modcacherw -mod=mod"
+    "GOFLAGS": "-modcacherw -mod=mod",
+    "BUILDER_GOCACHE_DIR": "/tmp/.cache/go/.cache/go-build",
+    "BUILDER_GOMODCACHE_DIR": "/tmp/.cache/go/pkg"
   },
   "assignAutomerge": true,
   "packageRules": [
