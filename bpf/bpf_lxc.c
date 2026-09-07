@@ -20,6 +20,7 @@
 #define USE_LOOPBACK_LB		1
 
 #include "lib/auth.h"
+#include "lib/auxvars.h"
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/config.h"
@@ -516,14 +517,9 @@ int NAME(struct __ctx_buff *ctx)						\
 	int ret = CTX_ACT_OK;							\
 	struct iphdr *ip4;							\
 	__s8 ext_err = 0;							\
-	__u32 zero = 0;								\
 	void *map;								\
 										\
-	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);		\
-	if (!ct_buffer)								\
-		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER,	\
-					  ext_err);				\
-										\
+	ct_buffer = AUX(cilium_tail_call_buffer4);				\
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;			\
 	tuple = (struct ipv4_ct_tuple *)&ct_buffer->tuple;			\
 										\
@@ -589,13 +585,8 @@ int NAME(struct __ctx_buff *ctx)						\
 	void *data, *data_end;							\
 	struct ipv6hdr *ip6;							\
 	__s8 ext_err = 0;							\
-	__u32 zero = 0;								\
 										\
-	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);		\
-	if (!ct_buffer)								\
-		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER,	\
-					  ext_err);				\
-										\
+	ct_buffer = AUX(cilium_tail_call_buffer6);				\
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;			\
 	tuple = (struct ipv6_ct_tuple *)&ct_buffer->tuple;			\
 										\
@@ -644,12 +635,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	return ret;								\
 }
 
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct ct_buffer6);
-	__uint(max_entries, 1);
-} cilium_tail_call_buffer6 __section_maps_btf;
+DEFINE_AUX(struct ct_buffer6, cilium_tail_call_buffer6);
 
 #ifdef ENABLE_IPV6
 static __always_inline int
@@ -833,13 +819,14 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret, verdict, l4_off, zero = 0;
+	int ret, verdict, l4_off;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
 	struct nodeport_nat_info *nat_info __maybe_unused;
 	bool __maybe_unused skip_tunnel = false;
+	__u32 __maybe_unused zero = 0;
 	bool hairpin_flow = false;
 	enum ct_status ct_status;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -896,9 +883,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 #endif /* ENABLE_NODEPORT */
 #endif /* ENABLE_PER_PACKET_LB */
 
-	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
-	if (!ct_buffer)
-		return DROP_INVALID_TC_BUFFER;
+	ct_buffer = AUX_REUSE(cilium_tail_call_buffer6);
 	if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
@@ -1128,12 +1113,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV6 */
 
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct ct_buffer4);
-	__uint(max_entries, 1);
-} cilium_tail_call_buffer4 __section_maps_btf;
+DEFINE_AUX(struct ct_buffer4, cilium_tail_call_buffer4);
 
 #ifdef ENABLE_IPV4
 static __always_inline int
@@ -1420,7 +1400,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	bool from_l7lb = false;
 	__u32 cluster_id = 0;
 	void *ct_map, *ct_related_map = NULL;
-	__u32 zero = 0;
+	__u32 __maybe_unused zero = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1463,9 +1443,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 		   ip4->daddr, *dst_sec_identity);
 
-	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
-	if (!ct_buffer)
-		return DROP_INVALID_TC_BUFFER;
+	ct_buffer = AUX_REUSE(cilium_tail_call_buffer4);
 	if (ct_buffer->tuple.saddr == 0)
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
@@ -1851,7 +1829,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	struct ipv6_ct_tuple *tuple;
 	bool is_untracked_fragment;
 	fraginfo_t fraginfo;
-	int ret, verdict, l4_off, zero = 0;
+	int ret, verdict, l4_off;
 	struct ct_buffer6 *ct_buffer;
 	struct trace_ctx trace;
 	union v6addr orig_sip __align_stack_8;
@@ -1863,9 +1841,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
 
-	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
-	if (!ct_buffer)
-		return DROP_INVALID_TC_BUFFER;
+	ct_buffer = AUX_REUSE(cilium_tail_call_buffer6);
 	if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
@@ -2172,7 +2148,6 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	__u32 cookie = 0;
-	__u32 zero = 0;
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 
@@ -2183,9 +2158,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	 */
 	is_untracked_fragment = !CONFIG(enable_ipv4_fragments) && ipfrag_is_fragment(fraginfo);
 
-	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
-	if (!ct_buffer)
-		return DROP_INVALID_TC_BUFFER;
+	ct_buffer = AUX_REUSE(cilium_tail_call_buffer4);
 	if (ct_buffer->tuple.saddr == 0)
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
