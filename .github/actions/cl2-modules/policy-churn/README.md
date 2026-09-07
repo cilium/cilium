@@ -52,6 +52,10 @@ kubectl label node kind-worker role.scaffolding/test-node=true
 kubectl cordon kind-worker
 kubectl create namespace kfuzz
 
+# Ensure kwok CRDs and Stages are configured
+kubectl apply -k "https://github.com/kubernetes-sigs/kwok/kustomize/crd?ref=v0.8.0"
+kubectl apply -k "https://github.com/kubernetes-sigs/kwok/kustomize/stage/fast?ref=v0.8.0"
+
 cat <<EOF > /tmp/policy-churn-test-values.yaml
 debug:
   enabled: false
@@ -97,10 +101,6 @@ cilium install --wait \
     --chart-directory=${ROOT_DIR}/install/kubernetes/cilium \
     --helm-values=/tmp/policy-churn-test-values.yaml
 cilium status --wait
-
-# Ensure kwok CRDs and Stages are configured
-kubectl apply -k "https://github.com/kubernetes-sigs/kwok/kustomize/crd?ref=v0.8.0"
-kubectl apply -k "https://github.com/kubernetes-sigs/kwok/kustomize/stage/fast?ref=v0.8.0"
 
 # Setup CL2 Common Environment variables
 export CL2_ENABLE_PVS=false

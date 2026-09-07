@@ -23,7 +23,7 @@ data:
             "sliceAddCount": "2-4",
             "sliceDeleteChance": 0.05,
             "sliceDeleteCount": "2-4",
-            "sliceSize": "512-2048",
+            "sliceSize": "512-1024",
             "sliceUpdateChance": 0
         },
         "LocalEndpoints": {
@@ -146,7 +146,7 @@ data:
             "sliceAddCount": "2-4",
             "sliceDeleteChance": 0.05,
             "sliceDeleteCount": "2-4",
-            "sliceSize": "512-2048",
+            "sliceSize": "512-1024",
             "sliceUpdateChance": 0
         }
     }
