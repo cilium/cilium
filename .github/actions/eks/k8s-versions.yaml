@@ -16,4 +16,5 @@ include:
     aws-eni-pd: true
   - version: "1.36"
     region: us-west-2
+    ip-family: "IPv6"
     default: true
