@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -31,6 +32,9 @@ func GatewayHasMatchingControllerFn(ctx context.Context, c client.Client, contro
 		gwc := &gatewayv1.GatewayClass{}
 		key := types.NamespacedName{Name: string(gw.Spec.GatewayClassName)}
 		if err := c.Get(ctx, key, gwc); err != nil {
+			if k8serrors.IsNotFound(err) {
+				return false
+			}
 			scopedLog.ErrorContext(ctx, "Unable to get GatewayClass", logfields.Error, err)
 			return false
 		}
