@@ -301,6 +301,7 @@ jobs:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
       - name: Create AKS cluster
+        timeout-minutes: 20
         uses: ./.github/actions/setup-aks-cluster
         with:
           cluster_name: ${{ env.name }}
