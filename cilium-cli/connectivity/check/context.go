@@ -31,6 +31,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/tools/testowners/codeowners"
 )
 
@@ -1438,7 +1439,8 @@ func (ct *ConnectivityTest) ShouldRunConnDisruptEgressGateway() bool {
 		ct.params.IncludeConnDisruptTestEgressGateway &&
 		ct.Features[features.EgressGateway].Enabled &&
 		ct.Features[features.NodeWithoutCilium].Enabled &&
-		!ct.Features[features.KPRNodePortAcceleration].Enabled &&
+		(!ct.Features[features.KPRNodePortAcceleration].Enabled ||
+			versioncheck.MustCompile(">=1.20.0")(ct.CiliumVersion)) &&
 		ct.params.MultiCluster == ""
 }
 
