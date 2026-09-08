@@ -6,7 +6,7 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
-	"net"
+	"net/netip"
 	"reflect"
 	"testing"
 
@@ -697,50 +697,43 @@ func TestGetIP(t *testing.T) {
 	}
 	ip := n.GetIP(false)
 	// Return the only IP present
-	require.NotNil(t, ip)
-	require.True(t, ip.Equal(net.ParseIP("192.0.2.3")))
+	require.Equal(t, netip.MustParseAddr("192.0.2.3"), ip)
 
 	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "w.x.y.z", Type: addressing.NodeExternalIP})
 	ip = n.GetIP(false)
 	// Invalid external IPv4 address should return the existing external IPv4 address
-	require.NotNil(t, ip)
-	require.True(t, ip.Equal(net.ParseIP("192.0.2.3")))
+	require.Equal(t, netip.MustParseAddr("192.0.2.3"), ip)
 
 	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "198.51.100.2", Type: addressing.NodeInternalIP})
 	ip = n.GetIP(false)
 	// The next priority should be NodeInternalIP
-	require.NotNil(t, ip)
-	require.True(t, ip.Equal(net.ParseIP("198.51.100.2")))
+	require.Equal(t, netip.MustParseAddr("198.51.100.2"), ip)
 
 	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "2001:DB8::1", Type: addressing.NodeExternalIP})
 	ip = n.GetIP(true)
 	// The next priority should be NodeExternalIP and IPv6
-	require.NotNil(t, ip)
-	require.True(t, ip.Equal(net.ParseIP("2001:DB8::1")))
+	require.Equal(t, netip.MustParseAddr("2001:DB8::1"), ip)
 
 	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "w.x.y.z", Type: addressing.NodeExternalIP})
 	ip = n.GetIP(true)
 	// Invalid external IPv6 address should return the existing external IPv6 address
-	require.NotNil(t, ip)
-	require.True(t, ip.Equal(net.ParseIP("2001:DB8::1")))
+	require.Equal(t, netip.MustParseAddr("2001:DB8::1"), ip)
 
 	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "2001:DB8::2", Type: addressing.NodeInternalIP})
 	ip = n.GetIP(true)
 	// The next priority should be NodeInternalIP and IPv6
-	require.NotNil(t, ip)
-	require.True(t, ip.Equal(net.ParseIP("2001:DB8::2")))
+	require.Equal(t, netip.MustParseAddr("2001:DB8::2"), ip)
 
 	n.Spec.Addresses = append(n.Spec.Addresses, NodeAddress{IP: "198.51.100.2", Type: addressing.NodeInternalIP})
 	ip = n.GetIP(false)
 	// Should still return NodeInternalIP and IPv4
-	require.NotNil(t, ip)
-	require.True(t, ip.Equal(net.ParseIP("198.51.100.2")))
+	require.Equal(t, netip.MustParseAddr("198.51.100.2"), ip)
 
 	n.Spec.Addresses = []NodeAddress{{IP: "w.x.y.z", Type: addressing.NodeExternalIP}}
 	ip = n.GetIP(false)
-	// Return a nil IP when no valid IPv4 addresses exist
-	require.Nil(t, ip)
+	// Return the zero value when no valid IPv4 addresses exist
+	require.False(t, ip.IsValid())
 	ip = n.GetIP(true)
-	// Return a nil IP when no valid IPv6 addresses exist
-	require.Nil(t, ip)
+	// Return the zero value when no valid IPv6 addresses exist
+	require.False(t, ip.IsValid())
 }

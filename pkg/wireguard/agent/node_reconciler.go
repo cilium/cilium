@@ -27,7 +27,7 @@ func (a *Agent) Update(
 	if n.WireguardPubKey == "" {
 		return a.deletePeer(n.Fullname())
 	}
-	return a.updatePeer(n.Fullname(), n.WireguardPubKey, n.GetNodeIP(false), n.GetNodeIP(true))
+	return a.updatePeer(n.Fullname(), n.WireguardPubKey, n.GetNodeIP(false).AsSlice(), n.GetNodeIP(true).AsSlice())
 }
 
 func (a *Agent) Delete(

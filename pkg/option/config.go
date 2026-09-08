@@ -3373,10 +3373,20 @@ func (c *DaemonConfig) IsDualStack() bool {
 	return c.EnableIPv4 && c.EnableIPv6
 }
 
-// IsLocalRouterIP checks if provided IP address matches either LocalRouterIPv4
-// or LocalRouterIPv6
-func (c *DaemonConfig) IsLocalRouterIP(ip string) bool {
-	return ip != "" && (c.LocalRouterIPv4 == ip || c.LocalRouterIPv6 == ip)
+// IsLocalRouterIP checks if the provided address matches either
+// LocalRouterIPv4 or LocalRouterIPv6. Unparsable or unset router addresses
+// never match.
+func (c *DaemonConfig) IsLocalRouterIP(addr netip.Addr) bool {
+	if !addr.IsValid() {
+		return false
+	}
+	addr = addr.Unmap()
+	for _, routerIP := range []string{c.LocalRouterIPv4, c.LocalRouterIPv6} {
+		if routerAddr, err := netip.ParseAddr(routerIP); err == nil && routerAddr.Unmap() == addr {
+			return true
+		}
+	}
+	return false
 }
 
 // StoreViperInFile stores viper's configuration in a the given directory under

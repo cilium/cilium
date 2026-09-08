@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -176,7 +175,7 @@ func (r *authMapGarbageCollector) nodeStateWatch() (
 			if addr.Type != addressing.NodeInternalIP {
 				continue
 			}
-			nodeID, exists := r.nodeIDHandler.GetNodeID(ip.AddrFromIP(addr.IP))
+			nodeID, exists := r.nodeIDHandler.GetNodeID(addr.IP.Addr)
 			if !exists {
 				activeNodeIDsReady = false
 				continue
