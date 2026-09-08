@@ -203,9 +203,6 @@ operators gain the benefits of fine-grained traffic control, encryption, observa
 and access control without the cost and complexity of traditional proxy-based
 designs. Key features include:
 
-* **Mutual authentication** with automatic identity-based encryption between
-  workloads using IPSec or WireGuard.
-
 * **L7-aware policy enforcement** for security and compliance.
 
 * **Deep integration with the Kubernetes Gateway API:** Acts as a
