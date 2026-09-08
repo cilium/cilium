@@ -29,7 +29,7 @@ func TestDecodePolicyVerdicyNotify(t *testing.T) {
 		DstPort:     0x19_1a,
 		Proto:       0x1b,
 		Flags:       0x1c,
-		AuthType:    0x1d,
+		Unused:      0x1d,
 		Cookie:      0x1e_1f_20_21,
 	}
 	buf := bytes.NewBuffer(nil)
@@ -52,7 +52,6 @@ func TestDecodePolicyVerdicyNotify(t *testing.T) {
 	require.Equal(t, input.DstPort, output.DstPort)
 	require.Equal(t, input.Proto, output.Proto)
 	require.Equal(t, input.Flags, output.Flags)
-	require.Equal(t, input.AuthType, output.AuthType)
 	require.Equal(t, input.Cookie, output.Cookie)
 }
 

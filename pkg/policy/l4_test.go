@@ -168,7 +168,7 @@ func TestNamedPortRulesDeleteByID(t *testing.T) {
 	}
 	require.NotNil(t, epPolicy.policyMapState.byId)
 
-	entry := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, 0, 0, types.Allow, NoAuthRequirement)
+	entry := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, 0, 0, types.Allow)
 	for _, key := range []Key{
 		EgressKey().WithIdentity(101).WithTCPPort(8080),
 		EgressKey().WithIdentity(101).WithTCPPort(9090),
@@ -369,9 +369,6 @@ func TestCreateL4Filter(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := getAuthType(sp.Authentication)
-			require.False(t, explicit)
-			require.Equal(t, AuthTypeDisabled, authType)
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 
@@ -380,65 +377,6 @@ func TestCreateL4Filter(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := getAuthType(sp.Authentication)
-			require.False(t, explicit)
-			require.Equal(t, AuthTypeDisabled, authType)
-			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
-		}
-	}
-}
-
-func TestCreateL4FilterAuthRequired(t *testing.T) {
-	// disable allow local host to simplify the this test
-	oldLocalhostOpt := option.Config.UnsafeDaemonConfigOption.AllowLocalhost
-	option.Config.UnsafeDaemonConfigOption.AllowLocalhost = option.AllowLocalhostPolicy
-	defer func() { option.Config.UnsafeDaemonConfigOption.AllowLocalhost = oldLocalhostOpt }()
-
-	td := newTestData(t, hivetest.Logger(t))
-	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
-	portrule := &api.PortRule{
-		Ports: []api.PortProtocol{tuple},
-		Rules: &api.L7Rules{
-			HTTP: []api.PortRuleHTTP{
-				{Path: "/public", Method: "GET"},
-			},
-		},
-	}
-	selectors := []api.EndpointSelector{
-		api.NewESFromLabels(),
-		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-	}
-
-	for _, es := range selectors {
-		eps := types.ToSelectors(es)
-		entry := &types.PolicyEntry{
-			Verdict:        types.Allow,
-			L3:             eps,
-			Ingress:        true,
-			L4:             []api.PortRule{*portrule},
-			Authentication: &api.Authentication{Mode: api.AuthenticationModeDisabled},
-		}
-		// Regardless of ingress/egress, we should end up with
-		// a single L7 rule whether the selector is wildcarded
-		// or if it is based on specific labels.
-		filter, err := createL4Filter(td.testPolicyContext, entry, portrule, tuple)
-		require.NoError(t, err)
-		require.Len(t, filter.PerSelectorPolicies, 1)
-		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := getAuthType(sp.Authentication)
-			require.True(t, explicit)
-			require.Equal(t, AuthTypeDisabled, authType)
-			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
-		}
-
-		entry.Ingress = false
-		filter, err = createL4Filter(td.testPolicyContext, entry, portrule, tuple)
-		require.NoError(t, err)
-		require.Len(t, filter.PerSelectorPolicies, 1)
-		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := getAuthType(sp.Authentication)
-			require.True(t, explicit)
-			require.Equal(t, AuthTypeDisabled, authType)
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 	}

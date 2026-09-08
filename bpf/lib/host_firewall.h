@@ -12,7 +12,6 @@
  */
 #if defined(ENABLE_HOST_FIREWALL)
 
-#include "auth.h"
 #include "eps.h"
 #include "policy.h"
 #include "proxy.h"
@@ -91,7 +90,6 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__u8 auth_type = 0;
 	__u32 dst_sec_identity = 0;
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
@@ -107,26 +105,18 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 	apply_policy = need_apply_host_policy_egress(is_host_id, is_from_proxy);
 	if (apply_policy) {
 		const struct remote_endpoint_info *info;
-		__u32 tunnel_endpoint = 0;
 
 		/* Retrieve destination identity. */
 		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		if (info) {
+		if (info)
 			dst_sec_identity = info->sec_identity;
-			tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
-		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   ip6->daddr.s6_addr32[3], dst_sec_identity);
 
 		/* Perform policy lookup. */
 		verdict = policy_can_egress6(ctx, tuple, ct_buffer->l4_off, HOST_ID,
 					     dst_sec_identity, &policy_match_type,
-					     &audited, ext_err, &proxy_port, &cookie);
-		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			auth_type = (__u8)*ext_err;
-			verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity,
-					      tunnel_endpoint, auth_type);
-		}
+					     &audited, &proxy_port, &cookie);
 	}
 
 	/* Only create CT entry for accepted connections */
@@ -136,12 +126,6 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 		ct_state_new.src_sec_id = is_host_id ? HOST_ID : 0;
 		ct_state_new.proxy_redirect = proxy_port > 0;
 
-		/* ext_err may contain a value from __policy_can_access, and
-		 * ct_create6 overwrites it only if it returns an error itself.
-		 * As the error from __policy_can_access is dropped in that
-		 * case, it's OK to return ext_err from ct_create6 along with
-		 * its error code.
-		 */
 		ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global, tuple,
 				 ctx, CT_EGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
@@ -154,7 +138,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 			send_policy_verdict_notify(ctx, dst_sec_identity, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 1,
 						   verdict, proxy_port, policy_match_type, audited,
-						   auth_type, cookie);
+						   cookie);
 
 		if (proxy_port > 0 && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 			/* Trace the packet before it is forwarded to proxy */
@@ -243,12 +227,10 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 			   struct trace_ctx *trace, __s8 *ext_err)
 {
 	const struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
-	__u32 tunnel_endpoint = 0;
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__u8 auth_type = 0;
 	const struct remote_endpoint_info *info;
 	bool is_untracked_fragment;
 	__u16 proxy_port = 0;
@@ -259,10 +241,8 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 
 	/* Retrieve source identity. */
 	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
-	if (info) {
+	if (info)
 		*src_sec_identity = info->sec_identity;
-		tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
-	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 		   ip6->saddr.s6_addr32[3], *src_sec_identity);
 
@@ -279,12 +259,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 	/* Perform policy lookup */
 	verdict = policy_can_ingress6(ctx, tuple, ct_buffer->l4_off,
 				      is_untracked_fragment, *src_sec_identity, HOST_ID,
-				      &policy_match_type, &audited, ext_err, &proxy_port,
-				      &cookie);
-	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-		auth_type = (__u8)*ext_err;
-		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, tunnel_endpoint, auth_type);
-	}
+				      &policy_match_type, &audited, &proxy_port, &cookie);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
@@ -294,12 +269,6 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 		ct_state_new.src_sec_id = *src_sec_identity;
 		ct_state_new.proxy_redirect = proxy_port > 0;
 
-		/* ext_err may contain a value from __policy_can_access, and
-		 * ct_create6 overwrites it only if it returns an error itself.
-		 * As the error from __policy_can_access is dropped in that
-		 * case, it's OK to return ext_err from ct_create6 along with
-		 * its error code.
-		 */
 		ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global, tuple,
 				 ctx, CT_INGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
@@ -311,7 +280,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 1,
 					   verdict, proxy_port, policy_match_type, audited,
-					   auth_type, cookie);
+					   cookie);
 out:
 	/* This change is necessary for packets redirected from the lxc device to
 	 * the host device.
@@ -383,7 +352,6 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__u8 auth_type = 0;
 	__u32 dst_sec_identity = 0;
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
@@ -399,26 +367,18 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 	apply_policy = need_apply_host_policy_egress(is_host_id, is_from_proxy);
 	if (apply_policy) {
 		const struct remote_endpoint_info *info;
-		__u32 tunnel_endpoint = 0;
 
 		/* Retrieve destination identity. */
 		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (info) {
+		if (info)
 			dst_sec_identity = info->sec_identity;
-			tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
-		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 			   ip4->daddr, dst_sec_identity);
 
 		/* Perform policy lookup. */
 		verdict = policy_can_egress4(ctx, tuple, ct_buffer->l4_off, HOST_ID,
 					     dst_sec_identity, &policy_match_type,
-					     &audited, ext_err, &proxy_port, &cookie);
-		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			auth_type = (__u8)*ext_err;
-			verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity,
-					      tunnel_endpoint, auth_type);
-		}
+					     &audited, &proxy_port, &cookie);
 	}
 
 	/* Only create CT entry for accepted connections */
@@ -428,12 +388,6 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 		ct_state_new.src_sec_id = is_host_id ? HOST_ID : 0;
 		ct_state_new.proxy_redirect = proxy_port > 0;
 
-		/* ext_err may contain a value from __policy_can_access, and
-		 * ct_create4 overwrites it only if it returns an error itself.
-		 * As the error from __policy_can_access is dropped in that
-		 * case, it's OK to return ext_err from ct_create4 along with
-		 * its error code.
-		 */
 		ret = ct_create4(get_ct_map4(tuple), &cilium_ct_any4_global, tuple,
 				 ctx, CT_EGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
@@ -446,7 +400,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id, bool is_from_
 			send_policy_verdict_notify(ctx, dst_sec_identity, tuple->dport,
 						   tuple->nexthdr, POLICY_EGRESS, 0,
 						   verdict, proxy_port, policy_match_type, audited,
-						   auth_type, cookie);
+						   cookie);
 
 		if (proxy_port > 0 && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 			/* Trace the packet before it is forwarded to proxy */
@@ -527,12 +481,10 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, const struct iphdr *ip4,
 			   struct trace_ctx *trace, __s8 *ext_err)
 {
 	const struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
-	__u32 tunnel_endpoint = 0;
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__u8 auth_type = 0;
 	const struct remote_endpoint_info *info;
 	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;
@@ -543,10 +495,8 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, const struct iphdr *ip4,
 
 	/* Retrieve source identity. */
 	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-	if (info) {
+	if (info)
 		*src_sec_identity = info->sec_identity;
-		tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
-	}
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 		   ip4->saddr, *src_sec_identity);
 
@@ -566,12 +516,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, const struct iphdr *ip4,
 	/* Perform policy lookup */
 	verdict = policy_can_ingress4(ctx, tuple, ct_buffer->l4_off,
 				      is_untracked_fragment, *src_sec_identity, HOST_ID,
-				      &policy_match_type, &audited, ext_err, &proxy_port,
-				      &cookie);
-	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-		auth_type = (__u8)*ext_err;
-		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, tunnel_endpoint, auth_type);
-	}
+				      &policy_match_type, &audited, &proxy_port, &cookie);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
@@ -581,12 +526,6 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, const struct iphdr *ip4,
 		ct_state_new.src_sec_id = *src_sec_identity;
 		ct_state_new.proxy_redirect = proxy_port > 0;
 
-		/* ext_err may contain a value from __policy_can_access, and
-		 * ct_create4 overwrites it only if it returns an error itself.
-		 * As the error from __policy_can_access is dropped in that
-		 * case, it's OK to return ext_err from ct_create4 along with
-		 * its error code.
-		 */
 		ret = ct_create4(get_ct_map4(tuple), &cilium_ct_any4_global, tuple,
 				 ctx, CT_INGRESS, &ct_state_new, ext_err);
 		if (IS_ERR(ret))
@@ -598,7 +537,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, const struct iphdr *ip4,
 		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 0,
 					   verdict, proxy_port, policy_match_type, audited,
-					   auth_type, cookie);
+					   cookie);
 out:
 	/* This change is necessary for packets redirected from the lxc device to
 	 * the host device.

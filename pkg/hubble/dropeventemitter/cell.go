@@ -52,7 +52,6 @@ var defaultConfig = config{
 	EnableK8sDropEvents:   false,
 	K8sDropEventsInterval: 2 * time.Minute,
 	K8sDropEventsReasons: []string{
-		strings.ToLower(flowpb.DropReason_AUTH_REQUIRED.String()),
 		strings.ToLower(flowpb.DropReason_POLICY_DENIED.String()),
 	},
 	EnableK8sDropEventsExtended: false,

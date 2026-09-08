@@ -190,7 +190,6 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	var pvn *monitor.PolicyVerdictNotify
 	var dbg *monitor.DebugCapture
 	var eventSubType uint8
-	var authType pb.AuthType
 
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
@@ -223,7 +222,6 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		}
 		eventSubType = pvn.SubType
 		packetOffset = int(pvn.DataOffset())
-		authType = pb.AuthType(pvn.GetAuthType())
 	case monitorAPI.MessageTypeCapture:
 		dbg, err = p.debugCaptureDecoder(data, decoded)
 		if err != nil {
@@ -283,7 +281,6 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	}
 
 	decoded.Verdict = decodeVerdict(dn, tn, pvn)
-	decoded.AuthType = authType
 	decoded.DropReason = decodeDropReason(dn, pvn)
 	decoded.DropReasonDesc = pb.DropReason(decoded.DropReason)
 	decoded.ExtError = decodeExtError(dn)

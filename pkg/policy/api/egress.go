@@ -134,6 +134,8 @@ func (in *EgressCommonRule) DeepEqual(other *EgressCommonRule) bool {
 //   - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
 //     mutually exclusive. Only one of these members may be present within an
 //     individual rule.
+//
+// +kubebuilder:validation:XValidation:rule="!has(self.authentication)",message="authentication is deprecated and must not be set"
 type EgressRule struct {
 	EgressCommonRule `json:",inline"`
 
@@ -175,7 +177,9 @@ type EgressRule struct {
 	// +kubebuilder:validation:Optional
 	ICMPs ICMPRules `json:"icmps,omitempty"`
 
-	// Authentication is the required authentication type for the allowed traffic, if any.
+	// Authentication is the configured authentication type for the allowed traffic, if any.
+	//
+	// Deprecated: Authentication is accepted for compatibility but is currently unused.
 	//
 	// +kubebuilder:validation:Optional
 	Authentication *Authentication `json:"authentication,omitempty"`
