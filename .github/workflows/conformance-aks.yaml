@@ -244,6 +244,7 @@ jobs:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
       - name: Create AKS cluster
+        timeout-minutes: 20
         run: |
           # Create group
           az group create \
