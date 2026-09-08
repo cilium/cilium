@@ -70,11 +70,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 			return controllerruntime.Success()
 		}
-		scopedLog.ErrorContext(ctx, "Unable to get GatewayClass",
-			gatewayClass, gw.Spec.GatewayClassName,
-			logfields.Error, err)
-		// Doing nothing till the GatewayClass is available and matching controller name
-		return controllerruntime.Success()
+		return controllerruntime.Fail(fmt.Errorf("failed to get GatewayClass %q: %w", gw.Spec.GatewayClassName, err))
 	}
 
 	if string(gwc.Spec.ControllerName) != r.controllerName {
