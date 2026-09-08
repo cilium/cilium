@@ -162,12 +162,16 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 	// for remote endpoints, assemble the information via ip and identity
 	numericIdentity := datapathSecurityIdentity
 	var namespace, podName, podUID string
+	var workloads []*pb.Workload
 	if r.ipGetter != nil {
 		if ipIdentity, ok := r.ipGetter.LookupSecIDByIP(ip); ok {
 			numericIdentity = resolveIdentityConflict(ipIdentity.ID, false)
 		}
 		if meta := r.ipGetter.GetK8sMetadata(ip); meta != nil {
 			namespace, podName, podUID = meta.Namespace, meta.PodName, meta.PodUID
+			if meta.Workload != nil {
+				workloads = []*pb.Workload{{Name: meta.Workload.Name, Kind: meta.Workload.Kind}}
+			}
 		}
 	}
 	var labels []string
@@ -192,5 +196,6 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 		Labels:      labels,
 		PodName:     podName,
 		PodUid:      podUID,
+		Workloads:   workloads,
 	}
 }
