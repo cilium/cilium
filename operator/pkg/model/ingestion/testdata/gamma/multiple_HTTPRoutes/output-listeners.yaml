@@ -1,6 +1,7 @@
 - hostname: '*'
   name: gateway-conformance-mesh-echo-80
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - app_protocol: http
@@ -40,6 +41,7 @@
 - hostname: '*'
   name: gateway-conformance-mesh-echo-8080
   port: 8080
+  protocol: HTTP
   routes:
   - backends:
     - app_protocol: http
@@ -79,6 +81,7 @@
 - hostname: '*'
   name: gateway-conformance-mesh-echo-80
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - app_protocol: http
@@ -107,6 +110,7 @@
 - hostname: '*'
   name: gateway-conformance-mesh-echo-8080
   port: 8080
+  protocol: HTTP
   routes:
   - backends:
     - app_protocol: http

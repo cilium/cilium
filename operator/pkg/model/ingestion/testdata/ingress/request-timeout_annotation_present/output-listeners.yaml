@@ -1,5 +1,6 @@
 - hostname: '*'
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - name: default-backend
