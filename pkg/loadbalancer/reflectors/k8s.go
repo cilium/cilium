@@ -676,25 +676,42 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, config loadbalancer.Conf
 		}
 	}
 
-	// Find and remove orphaned HostPort services, frontends and backends
-	// if 'HostPort' has changed or has been unset.
-	//
-	// This runs before the upsert below: the service name carries the pod's
-	// UID, so a pod recreated under the same name mints a new service that
-	// claims a frontend the previous pod's service still owns. Releasing the
-	// orphans first lets the replacement take the frontend over.
+	// The pod's services from a previous revision: same pod, but a HostPort
+	// that has changed or been unset, or a different pod UID after the pod was
+	// recreated under the same name. Their frontends are the pod's to reclaim.
+	orphanedServices := sets.New[loadbalancer.ServiceName]()
 	for svc := range writer.Services().Prefix(wtxn, loadbalancer.ServiceByName(serviceNamePrefix)) {
-		if updatedServices.Has(svc.Name) {
-			continue
+		if !updatedServices.Has(svc.Name) {
+			orphanedServices.Insert(svc.Name)
 		}
+	}
 
-		err := writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
-		if err != nil {
+	// Check the wanted frontends against the ones already in the table before
+	// changing anything. A frontend held by a service that is not one of the
+	// orphans above belongs to some other pod, and taking it would be wrong.
+	// The transaction is committed whether or not this function succeeds, so
+	// bailing out after a prune or an upsert would leave the pod's services
+	// half applied.
+	for _, svc := range servicesForThisPod {
+		for fe := range svc.fes {
+			existing, _, found := writer.Frontends().Get(wtxn, loadbalancer.FrontendByAddress(fe.Address))
+			if !found || existing.ServiceName.Equal(fe.ServiceName) || orphanedServices.Has(existing.ServiceName) {
+				continue
+			}
+			return fmt.Errorf("%w: %s wanted by %s is owned by %s",
+				loadbalancer.ErrFrontendConflict,
+				fe.Address.StringWithProtocol(), fe.ServiceName, existing.ServiceName)
+		}
+	}
+
+	// Release the orphans first, so that a frontend one of them still owns is
+	// free for the service replacing it.
+	for name := range orphanedServices {
+		if err := writer.DeleteBackendsOfService(wtxn, name, source.Kubernetes); err != nil {
 			return fmt.Errorf("DeleteBackendsOfService: %w", err)
 		}
 
-		_, err = writer.DeleteServiceAndFrontends(wtxn, svc.Name)
-		if err != nil {
+		if _, err := writer.DeleteServiceAndFrontends(wtxn, name); err != nil {
 			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
 		}
 	}
