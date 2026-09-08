@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -76,8 +77,15 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 	logger := e.getLogger()
 
 	svcAccount := ""
+	var workload *cilium_v2.EndpointWorkload
 	if pod := e.GetPod(); pod != nil {
 		svcAccount = pod.Spec.ServiceAccountName
+		if workloadMeta, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod); ok {
+			workload = &cilium_v2.EndpointWorkload{
+				Name: workloadMeta.Name,
+				Kind: workloadTypeMeta.Kind,
+			}
+		}
 	}
 
 	ln, err := e.localNodeStore.Get(context.TODO())
@@ -94,6 +102,7 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetEndpointEncryptKeyIndex(ln, e.wgConfig.Enabled(), e.ipsecConfig.Enabled()))},
 		NamedPorts:          e.getNamedPortsModel(),
 		ServiceAccount:      svcAccount,
+		Workload:            workload,
 	}
 
 	return status

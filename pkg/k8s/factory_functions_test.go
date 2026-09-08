@@ -1038,6 +1038,10 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 								},
 							},
 							ServiceAccount: "test-service-account",
+							Workload: &v2.EndpointWorkload{
+								Name: "test-workload",
+								Kind: "Deployment",
+							},
 						},
 					},
 				},
@@ -1095,6 +1099,10 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 						},
 					},
 					ServiceAccount: "test-service-account",
+					Workload: &v2.EndpointWorkload{
+						Name: "test-workload",
+						Kind: "Deployment",
+					},
 				},
 			},
 			expected: true,
@@ -1179,6 +1187,10 @@ func Test_ConvertCEPToCoreCEP(t *testing.T) {
 				},
 			},
 			ServiceAccount: "test-service-account",
+			Workload: &v2.EndpointWorkload{
+				Name: "test-workload",
+				Kind: "Deployment",
+			},
 		},
 	}
 
@@ -1188,6 +1200,7 @@ func Test_ConvertCEPToCoreCEP(t *testing.T) {
 	require.Equal(t, int64(1234), coreCEP.IdentityID)
 	require.Equal(t, "test-pod-uid-1234", coreCEP.PodUID)
 	require.Equal(t, "test-service-account", coreCEP.ServiceAccount)
+	require.Equal(t, &v2.EndpointWorkload{Name: "test-workload", Kind: "Deployment"}, coreCEP.Workload)
 	require.Equal(t, v2.EncryptionSpec{Key: 42}, coreCEP.Encryption)
 	require.NotNil(t, coreCEP.Networking)
 	require.Equal(t, "192.168.1.1", coreCEP.Networking.NodeIP)
@@ -1238,6 +1251,10 @@ func Test_ConvertCoreCiliumEndpointToTypesCiliumEndpoint(t *testing.T) {
 			},
 		},
 		ServiceAccount: "test-service-account",
+		Workload: &v2.EndpointWorkload{
+			Name: "test-workload",
+			Kind: "Deployment",
+		},
 	}
 
 	typesCEP := ConvertCoreCiliumEndpointToTypesCiliumEndpoint(coreCEP, "test-namespace")
@@ -1246,6 +1263,7 @@ func Test_ConvertCoreCiliumEndpointToTypesCiliumEndpoint(t *testing.T) {
 	require.Equal(t, "test-namespace", typesCEP.Namespace)
 	require.Equal(t, int64(5678), typesCEP.Identity.ID)
 	require.Equal(t, "test-service-account", typesCEP.ServiceAccount)
+	require.Equal(t, &v2.EndpointWorkload{Name: "test-workload", Kind: "Deployment"}, typesCEP.Workload)
 	require.Equal(t, v2.EncryptionSpec{Key: 99}, *typesCEP.Encryption)
 	require.NotNil(t, typesCEP.Networking)
 	require.Equal(t, "192.168.1.2", typesCEP.Networking.NodeIP)

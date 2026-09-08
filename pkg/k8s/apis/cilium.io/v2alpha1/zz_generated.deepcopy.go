@@ -2250,6 +2250,11 @@ func (in *CoreCiliumEndpoint) DeepCopyInto(out *CoreCiliumEndpoint) {
 			}
 		}
 	}
+	if in.Workload != nil {
+		in, out := &in.Workload, &out.Workload
+		*out = new(v2.EndpointWorkload)
+		**out = **in
+	}
 	return
 }
 
