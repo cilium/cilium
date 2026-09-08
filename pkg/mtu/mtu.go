@@ -30,10 +30,6 @@ const (
 	TunnelOverheadIPv4 = 50
 	TunnelOverheadIPv6 = 70
 
-	// DsrTunnelOverhead is about the GENEVE DSR option that gets inserted
-	// by the LB, when addressing a Service in hs-ipcache mode
-	DsrTunnelOverhead = 12
-
 	// EncryptionIPsecOverhead is an approximation for bytes used for
 	// encryption. Depending on key size and encryption type the actual
 	// size may vary here we do calculations for 128B keys and Auth. The
