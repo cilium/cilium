@@ -28,6 +28,7 @@ to learn how to level up through the project.
  * [Hemanth Malla] (Microsoft)
  * [Jarno Rajahalme] (Isovalent)
  * [Joe Stringer] (Isovalent)
+ * [Jordan Rife] (Google)
  * [John Fastabend] (Isovalent)
  * [Julian Wiedmann] (Isovalent)
  * [Jussi Mäki] (Isovalent)
@@ -110,6 +111,7 @@ project.
 [Ilya Dmitrichenko]: https://github.com/errordeveloper
 [Jarno Rajahalme]: https://github.com/jrajahalme
 [Joe Stringer]: https://github.com/joestringer
+[Jordan Rife]: https://github.com/jrife
 [John Fastabend]: https://github.com/jrfastab
 [Julian Wiedmann]: https://github.com/julianwiedmann
 [Jussi Mäki]: https://github.com/joamaki
