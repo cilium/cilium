@@ -1842,7 +1842,7 @@ func (c *Collector) Run() error {
 	tasks = append(tasks, helmTasks...)
 	// Append tasks added by AddTasks.
 	tasks = append(tasks, c.additionalTasks...)
-	if c.FeatureSet[features.AuthSpiffe].Enabled {
+	if c.FeatureSet[features.CiliumSpire].Enabled {
 		tasks = append(tasks, c.getSPIRETasks()...)
 	}
 	if c.FeatureSet[features.GatewayAPI].Enabled {
