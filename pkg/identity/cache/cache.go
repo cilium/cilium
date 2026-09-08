@@ -104,7 +104,11 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 type identityWatcher struct {
 	logger *slog.Logger
 	owner  IdentityAllocatorOwner
+}
 
+// identityBatch collects identity changes destined for a single owner update.
+// Added and deleted identities are kept in disjoint sets.
+type identityBatch struct {
 	added, deleted identity.IdentityMap
 	toClose        []chan<- struct{}
 }
@@ -112,9 +116,9 @@ type identityWatcher struct {
 // collectEvent records the 'event' as an added or deleted identity,
 // and makes sure that any identity is present in only one of the sets
 // (added or deleted).
-func (w *identityWatcher) collectEvent(event allocator.AllocatorEvent) {
+func (w *identityWatcher) collectEvent(batch *identityBatch, event allocator.AllocatorEvent) {
 	if event.Done != nil {
-		w.toClose = append(w.toClose, event.Done)
+		batch.toClose = append(batch.toClose, event.Done)
 	}
 
 	if event.Typ == allocator.AllocatorChangeSync {
@@ -128,8 +132,8 @@ func (w *identityWatcher) collectEvent(event allocator.AllocatorEvent) {
 			// Un-delete the added ID if previously
 			// 'deleted' so that collected events can be
 			// processed in any order.
-			delete(w.deleted, id)
-			w.added[id] = gi.LabelArray
+			delete(batch.deleted, id)
+			batch.added[id] = gi.LabelArray
 		} else {
 			w.logger.Warn(
 				"collectEvent: Ignoring unknown identity type",
@@ -140,11 +144,11 @@ func (w *identityWatcher) collectEvent(event allocator.AllocatorEvent) {
 		return
 	}
 	// Reverse an add when subsequently deleted
-	delete(w.added, id)
+	delete(batch.added, id)
 	// record the id deleted even if an add was reversed, as the
 	// id may also have previously existed, in which case the
 	// result is not no-op!
-	w.deleted[id] = labels.LabelArray{}
+	batch.deleted[id] = labels.LabelArray{}
 }
 
 // watch starts the identity watcher
@@ -152,9 +156,10 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 
 	go func() {
 		for {
-			w.added = identity.IdentityMap{}
-			w.deleted = identity.IdentityMap{}
-			w.toClose = nil
+			batch := identityBatch{
+				added:   identity.IdentityMap{},
+				deleted: identity.IdentityMap{},
+			}
 
 			// Consume first event synchronously
 			event, ok := <-events
@@ -164,7 +169,7 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 				return
 			}
 
-			w.collectEvent(event)
+			w.collectEvent(&batch, event)
 
 		More:
 			for {
@@ -176,7 +181,7 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 						break More
 					}
 					// Collect more added and deleted labels
-					w.collectEvent(event)
+					w.collectEvent(&batch, event)
 
 				default:
 					// No more events available without blocking
@@ -184,8 +189,8 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 				}
 			}
 			// Issue collected updates
-			if len(w.added)+len(w.deleted) > 0 {
-				w.owner.UpdateIdentities(w.added, w.deleted) // disjoint sets
+			if len(batch.added)+len(batch.deleted) > 0 {
+				w.owner.UpdateIdentities(batch.added, batch.deleted) // disjoint sets
 			}
 
 			// If requested, inform producers that events have been consumed
@@ -193,7 +198,7 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 			// Note that this does not wait for PolicyMap updates to be distributed
 			// via the SelectorCache. This is curently safe, as it is only used during
 			// initialization, and thus there are no endpoints (and no policymaps).
-			for _, ch := range w.toClose {
+			for _, ch := range batch.toClose {
 				close(ch)
 			}
 		}
