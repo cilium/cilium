@@ -280,6 +280,7 @@ func Test_Conformance(t *testing.T) {
 		{name: "httproute-redirect-port", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-redirect-port-and-scheme", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-redirect-scheme", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-redirect-scheme-https-listener", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "http-and-https", Namespace: "gateway-conformance-infra"}}}},
 		{name: "httproute-reference-grant", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-request-header-modifier", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-request-header-modifier-backend-weights", gateway: []gwDetails{gatewaySameNamespace}},
