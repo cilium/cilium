@@ -94,7 +94,7 @@ const (
 	// Whether or not CIDR selectors can match node IPs
 	CIDRMatchNodes Feature = "cidr-match-nodes"
 
-	AuthSpiffe Feature = "mutual-auth-spiffe"
+	CiliumSpire Feature = "cilium-spire"
 
 	IngressController Feature = "ingress-controller"
 
@@ -342,8 +342,11 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 		Enabled: cm.Data["enable-endpoint-routes"] == "true",
 	}
 
-	fs[AuthSpiffe] = Status{
-		Enabled: cm.Data["mesh-auth-mutual-enabled"] == "true",
+	_, hasSpireAgentSocket := cm.Data["mesh-auth-spire-agent-socket"]
+	_, hasSpireServerAddress := cm.Data["mesh-auth-spire-server-address"]
+	_, hasSpiffeTrustDomain := cm.Data["mesh-auth-spiffe-trust-domain"]
+	fs[CiliumSpire] = Status{
+		Enabled: hasSpireAgentSocket || hasSpireServerAddress || hasSpiffeTrustDomain,
 	}
 
 	fs[IngressController] = Status{

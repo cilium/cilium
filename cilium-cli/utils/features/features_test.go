@@ -124,20 +124,20 @@ func TestFeatureSet_extractFromConfigMap(t *testing.T) {
 	cm := corev1.ConfigMap{}
 	fs.ExtractFromConfigMap(&cm)
 	cm.Data = map[string]string{
-		"enable-ipv4":                  "true",
-		"enable-ipv6":                  "true",
-		"mesh-auth-mutual-enabled":     "true",
-		"enable-egress-gateway":        "true",
-		"ipam":                         "eni",
-		"enable-ipsec":                 "true",
-		"enable-local-redirect-policy": "true",
-		"bpf-lb-external-clusterip":    "true",
-		"enable-bgp-control-plane":     "true",
+		"enable-ipv4":                    "true",
+		"enable-ipv6":                    "true",
+		"mesh-auth-spire-server-address": "spire-server.cilium-spire.svc:8081",
+		"enable-egress-gateway":          "true",
+		"ipam":                           "eni",
+		"enable-ipsec":                   "true",
+		"enable-local-redirect-policy":   "true",
+		"bpf-lb-external-clusterip":      "true",
+		"enable-bgp-control-plane":       "true",
 	}
 	fs.ExtractFromConfigMap(&cm)
 	assert.True(t, fs[IPv4].Enabled)
 	assert.True(t, fs[IPv6].Enabled)
-	assert.True(t, fs[AuthSpiffe].Enabled)
+	assert.True(t, fs[CiliumSpire].Enabled)
 	assert.True(t, fs[EgressGateway].Enabled)
 	assert.True(t, fs[IPsecEnabled].Enabled)
 	assert.True(t, fs[LocalRedirectPolicy].Enabled)
