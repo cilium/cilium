@@ -4,7 +4,6 @@
 package node
 
 import (
-	"net"
 	"net/netip"
 )
 
@@ -14,11 +13,11 @@ type AddressingFamily interface {
 	// Router is the address that will act as the router on each node where
 	// an agent is running on. Endpoints have a default route that points
 	// to this address.
-	Router() net.IP
+	Router() netip.Addr
 
 	// PrimaryExternal is the primary external address of the node. Nodes
 	// must be able to reach each other via this address.
-	PrimaryExternal() net.IP
+	PrimaryExternal() netip.Addr
 
 	// AllocationCIDR is the CIDR used for IP allocation of all endpoints
 	// on the node

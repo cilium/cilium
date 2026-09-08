@@ -5,7 +5,6 @@ package tables
 
 import (
 	"context"
-	"net"
 	"net/netip"
 	"testing"
 
@@ -13,15 +12,15 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
-	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/hive"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
-var testIP = net.ParseIP("192.168.0.1")
+var testIP = iputil.AddrFrom(netip.MustParseAddr("192.168.0.1"))
 
 func TestDirectRoutingDevice(t *testing.T) {
 	var (
@@ -118,7 +117,7 @@ func TestDirectRoutingDevice(t *testing.T) {
 	// If one of the devices matches the K8s Node IP, it is returned.
 	want.Addrs = []DeviceAddress{
 		{
-			Addr: netipx.MustFromStdIP(testIP),
+			Addr: testIP.Addr,
 		},
 	}
 	got, watch = directRoutingDev.Get(tctx, db.ReadTxn())

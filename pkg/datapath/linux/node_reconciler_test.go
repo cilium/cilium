@@ -5,7 +5,6 @@ package linux
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 	"testing"
 
@@ -16,6 +15,7 @@ import (
 
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/idpool"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
@@ -76,7 +76,7 @@ func TestLinuxNodeOpsUpdateAndDelete(t *testing.T) {
 		Cluster: "cluster-1",
 		IPAddresses: []nodeTypes.Address{{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("192.0.2.1"),
+			IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 		}},
 	}}
 
@@ -106,7 +106,7 @@ func TestLinuxNodeOpsRetriesFailedUpdate(t *testing.T) {
 		Cluster: "cluster-1",
 		IPAddresses: []nodeTypes.Address{{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("192.0.2.1"),
+			IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 		}},
 	}}
 
@@ -129,8 +129,8 @@ func TestLinuxNodeOpsSupersedesFailedUpdate(t *testing.T) {
 		Name:    "node-1",
 		Cluster: "cluster-1",
 		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.2")},
+			{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("192.0.2.1"))},
+			{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("192.0.2.2"))},
 		},
 	}}
 	require.Error(t, ops.Update(t.Context(), nil, statedb.Revision(1), n))
@@ -142,7 +142,7 @@ func TestLinuxNodeOpsSupersedesFailedUpdate(t *testing.T) {
 		Cluster: "cluster-1",
 		IPAddresses: []nodeTypes.Address{{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("192.0.2.3"),
+			IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.3")),
 		}},
 	}}
 	require.NoError(t, ops.Update(t.Context(), nil, statedb.Revision(2), n))

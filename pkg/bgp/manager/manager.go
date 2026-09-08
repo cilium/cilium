@@ -939,7 +939,7 @@ func getRouterID(cfg *v2.CiliumBGPNodeInstance, ciliumNode *v2.CiliumNode, bgpCf
 	// If there are no annotations about router-id, router-id will be allocated based on the allocation mode
 	switch bgpCfg.RouterIDAllocationMode {
 	case config.BGPRouterIDAllocationModeDefault:
-		if nodeIP := ciliumNode.GetIP(false); nodeIP != nil {
+		if nodeIP := ciliumNode.GetIP(false); nodeIP.IsValid() {
 			return nodeIP.String(), nil
 		} else {
 			return calcRouterIDFromMacAddress()

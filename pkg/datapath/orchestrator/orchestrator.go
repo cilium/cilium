@@ -184,7 +184,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			func(n node.LocalNode) bool {
 				if agentConfig.EnableIPv4 {
 					loopback := n.Local.ServiceLoopbackIPv4.IsValid()
-					ipv4GW := n.GetCiliumInternalIPv4() != nil
+					ipv4GW := n.GetCiliumInternalIPv4().IsValid()
 					ipv4Range := n.IPv4AllocCIDR.IsValid()
 					if !ipv4GW || !ipv4Range || !loopback {
 						return false
@@ -192,7 +192,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 				}
 				if agentConfig.EnableIPv6 {
 					loopback := n.Local.ServiceLoopbackIPv6.IsValid()
-					ipv6GW := n.GetCiliumInternalIPv6() != nil
+					ipv6GW := n.GetCiliumInternalIPv6().IsValid()
 					if !ipv6GW || !loopback {
 						return false
 					}

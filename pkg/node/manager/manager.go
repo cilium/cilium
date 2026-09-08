@@ -16,14 +16,12 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"go4.org/netipx"
 	"golang.org/x/time/rate"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -491,14 +489,9 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	nodeIdentifier := n.Identity()
 	dpUpdate := true
 	var nodeIP netip.Addr
-	if nIP := n.GetNodeIP(m.underlay == tunnel.IPv6); nIP != nil {
+	if nIP := n.GetNodeIP(m.underlay == tunnel.IPv6); nIP.IsValid() {
 		// GH-24829: Support IPv6-only nodes.
-
-		// Skip returning the error here because at this level, we assume that
-		// the IP is valid as long as it's coming from nodeTypes.Node. This
-		// object is created either from the node discovery (K8s) or from an
-		// event from the kvstore.
-		nodeIP, _ = netipx.FromStdIP(nIP)
+		nodeIP = nIP
 	}
 
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
@@ -507,7 +500,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	var nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix
 
 	for _, address := range n.IPAddresses {
-		prefix := ip.IPToNetPrefix(address.IP)
+		prefix := netip.PrefixFrom(address.IP.Addr, address.IP.BitLen())
 		var prefixCluster cmtypes.PrefixCluster
 		if address.Type == addressing.NodeCiliumInternalIP {
 			prefixCluster = cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&n)...)
@@ -545,7 +538,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		existing := m.ipcache.GetMetadataSourceByPrefix(prefixCluster)
 		overwrite := source.AllowOverwrite(existing, n.Source)
 		if !overwrite && existing != source.KubeAPIServer &&
-			!(address.Type == addressing.NodeCiliumInternalIP && m.conf.IsLocalRouterIP(address.ToString())) {
+			!(address.Type == addressing.NodeCiliumInternalIP && m.conf.IsLocalRouterIP(address.IP.Addr)) {
 			dpUpdate = false
 		}
 
@@ -764,14 +757,13 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 	nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix,
 ) {
 	var oldNodeIP netip.Addr
-	if nIP := oldNode.GetNodeIP(false); nIP != nil {
-		// See comment in NodeUpdated().
-		oldNodeIP, _ = netipx.FromStdIP(nIP)
+	if nIP := oldNode.GetNodeIP(false); nIP.IsValid() {
+		oldNodeIP = nIP
 	}
 
 	// Delete the old node IP addresses if they have changed in this node.
 	for _, address := range oldNode.IPAddresses {
-		prefix := ip.IPToNetPrefix(address.IP)
+		prefix := netip.PrefixFrom(address.IP.Addr, address.IP.BitLen())
 		if slices.Contains(nodeIPsAdded, prefix) {
 			continue
 		}

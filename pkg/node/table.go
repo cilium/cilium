@@ -68,7 +68,7 @@ func (n *Node) TableHeader() []string {
 func (n *Node) TableRow() []string {
 	addrs := make([]string, len(n.IPAddresses))
 	for i := range n.IPAddresses {
-		addrs[i] = string(n.IPAddresses[i].Type) + ":" + n.IPAddresses[i].ToString()
+		addrs[i] = string(n.IPAddresses[i].Type) + ":" + n.IPAddresses[i].IP.String()
 	}
 	slices.Sort(addrs)
 	return []string{
@@ -84,7 +84,7 @@ var _ statedb.TableWritable = &Node{}
 // with the node. The optional predicate omits configured Cilium internal
 // router addresses that may intentionally be shared by every node.
 func (n *Node) addressClusters(
-	omitStaticLocalRouterIP func(string) bool,
+	omitStaticLocalRouterIP func(netip.Addr) bool,
 ) iter.Seq[cmtypes.AddrCluster] {
 	return func(yield func(cmtypes.AddrCluster) bool) {
 		yieldAddr := func(addr netip.Addr, clusterID uint32) bool {
@@ -97,18 +97,14 @@ func (n *Node) addressClusters(
 		for _, address := range n.IPAddresses {
 			if address.Type == addressing.NodeCiliumInternalIP &&
 				omitStaticLocalRouterIP != nil &&
-				omitStaticLocalRouterIP(address.ToString()) {
-				continue
-			}
-			addr, ok := netip.AddrFromSlice(address.IP)
-			if !ok {
+				omitStaticLocalRouterIP(address.IP.Addr) {
 				continue
 			}
 			clusterID := uint32(0)
 			if address.Type == addressing.NodeCiliumInternalIP {
 				clusterID = n.addressClusterID
 			}
-			if !yieldAddr(addr, clusterID) {
+			if !yieldAddr(address.IP.Addr, clusterID) {
 				return
 			}
 		}
