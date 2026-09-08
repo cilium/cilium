@@ -207,11 +207,6 @@ func (igc *GC) deleteIdentity(ctx context.Context, identity *v2.CiliumIdentity) 
 		return err
 	}
 
-	// Delete the identity from the auth identity store
-	if err := igc.authIdentityClient.Delete(ctx, identity.Name); err != nil {
-		return err
-	}
-
 	if err := igc.clientset.Delete(
 		ctx,
 		identity.Name,
