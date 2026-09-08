@@ -586,9 +586,6 @@ jobs:
           #     reply egresses a secondary ENI while carrying the primary ENI's
           #     source IP, so the VPC source/destination check drops it and the
           #     client times out (curl 28). Issue 47391.
-          #   egress-gateway-excluded-cidrs: excluded-CIDR traffic is correctly
-          #     masqueraded to the owning secondary ENI's primary IP, but the
-          #     test asserts the node HostIP. Issue 47530.
           #
           # They are removed from the gating run below and re-run together in a
           # single tolerated step, so they keep running and collecting artifacts
@@ -597,7 +594,6 @@ jobs:
           # quarantine another test add it to this list; to re-arm one, drop it.
           QUARANTINED_TESTS=(
             north-south-loadbalancing-with-l7-policy
-            egress-gateway-excluded-cidrs
           )
 
           QUARANTINED=""
