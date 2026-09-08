@@ -15,27 +15,27 @@ import (
 )
 
 func TestAgentCRDResourceNamesIPAMMode(t *testing.T) {
-	originalIPAM := option.Config.IPAM
-	t.Cleanup(func() { option.Config.IPAM = originalIPAM })
-
 	for _, tc := range []struct {
-		name          string
 		ipam          string
 		expectsIPPool bool
 	}{
 		{
-			name:          "multi-pool",
 			ipam:          ipamOption.IPAMMultiPool,
 			expectsIPPool: true,
 		},
-		{
-			name: "other IPAM modes",
-			ipam: ipamOption.IPAMKubernetes,
-		},
+		{ipam: ipamOption.IPAMKubernetes},
+		{ipam: ipamOption.IPAMCRD},
+		{ipam: ipamOption.IPAMENI},
+		{ipam: ipamOption.IPAMAzure},
+		{ipam: ipamOption.IPAMClusterPool},
+		{ipam: ipamOption.IPAMAlibabaCloud},
+		{ipam: ipamOption.IPAMDelegatedPlugin},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(tc.ipam, func(t *testing.T) {
+			originalIPAM := option.Config.IPAM
+			t.Cleanup(func() { option.Config.IPAM = originalIPAM })
 			option.Config.IPAM = tc.ipam
-			names := agentCRDResourceNames(bgpConfig.BGPConfig{})
+			names := agentCRDResourceNames(bgpConfig.DefaultConfig)
 			if tc.expectsIPPool {
 				require.Contains(t, names, CRDResourceName(v2alpha1.CPIPName))
 			} else {
@@ -46,11 +46,29 @@ func TestAgentCRDResourceNamesIPAMMode(t *testing.T) {
 }
 
 func TestAllCiliumCRDResourceNamesIncludesPodIPPool(t *testing.T) {
-	originalIPAM := option.Config.IPAM
-	t.Cleanup(func() { option.Config.IPAM = originalIPAM })
-
-	for _, ipam := range []string{ipamOption.IPAMKubernetes, ipamOption.IPAMMultiPool} {
-		option.Config.IPAM = ipam
-		require.Contains(t, AllCiliumCRDResourceNames(bgpConfig.BGPConfig{}), CRDResourceName(v2alpha1.CPIPName))
+	for _, ipam := range []string{
+		ipamOption.IPAMKubernetes,
+		ipamOption.IPAMCRD,
+		ipamOption.IPAMENI,
+		ipamOption.IPAMAzure,
+		ipamOption.IPAMClusterPool,
+		ipamOption.IPAMAlibabaCloud,
+		ipamOption.IPAMDelegatedPlugin,
+		ipamOption.IPAMMultiPool,
+	} {
+		t.Run(ipam, func(t *testing.T) {
+			originalIPAM := option.Config.IPAM
+			t.Cleanup(func() { option.Config.IPAM = originalIPAM })
+			option.Config.IPAM = ipam
+			names := AllCiliumCRDResourceNames(bgpConfig.DefaultConfig)
+			require.Contains(t, names, CRDResourceName(v2alpha1.CPIPName))
+			n := 0
+			for _, name := range names {
+				if name == CRDResourceName(v2alpha1.CPIPName) {
+					n++
+				}
+			}
+			require.Equal(t, 1, n)
+		})
 	}
 }
