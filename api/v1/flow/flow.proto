@@ -25,9 +25,8 @@ message Flow {
     // deprecated in favor of drop_reason_desc.
     uint32 drop_reason = 3 [deprecated=true];
 
-    // auth_type is the authentication type specified for the flow in Cilium Network Policy.
-    // Only set on policy verdict events.
-    AuthType auth_type = 35;
+    // auth_type is deprecated and no longer set.
+    AuthType auth_type = 35 [deprecated=true];
 
     // l2
     Ethernet ethernet = 4;
@@ -515,7 +514,7 @@ enum DropReason {
     MISSING_SRV6_STATE = 186 [deprecated = true];
     NAT46 = 187;
     NAT64 = 188;
-    AUTH_REQUIRED = 189;
+    AUTH_REQUIRED = 189 [deprecated = true];
     CT_NO_MAP_FOUND = 190;
     SNAT_NO_MAP_FOUND = 191;
     INVALID_CLUSTER_ID = 192;

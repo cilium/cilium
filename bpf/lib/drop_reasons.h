@@ -69,7 +69,7 @@
 #define DROP_UNUSED8		-186 /* unused */
 #define DROP_NAT46		-187
 #define DROP_NAT64		-188
-#define DROP_POLICY_AUTH_REQUIRED	-189
+#define DROP_UNUSED9		-189 /* unused */
 #define DROP_CT_NO_MAP_FOUND	-190
 #define DROP_SNAT_NO_MAP_FOUND	-191
 #define DROP_INVALID_CLUSTER_ID	-192

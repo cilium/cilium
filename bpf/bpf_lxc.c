@@ -19,7 +19,6 @@
 
 #define USE_LOOPBACK_LB		1
 
-#include "lib/auth.h"
 #include "lib/auxvars.h"
 #include "lib/tailcall.h"
 #include "lib/common.h"
@@ -814,7 +813,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	enum ct_status ct_status;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__u8 auth_type = 0;
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
 	bool from_l7lb = false;
@@ -904,17 +902,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		 */
 		verdict = policy_can_egress6(ctx, tuple, l4_off, SECLABEL_IPV6,
 					     *dst_sec_identity, &policy_match_type, &audited,
-					     ext_err, &proxy_port, &cookie);
-
-		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			__u32 tunnel_endpoint = 0;
-
-			auth_type = (__u8)*ext_err;
-			if (info)
-				tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
-			verdict = auth_lookup(ctx, SECLABEL_IPV6, *dst_sec_identity,
-					      tunnel_endpoint, auth_type);
-		}
+					     &proxy_port, &cookie);
 
 		/* Emit verdict if drop or if allow for CT_NEW. */
 		if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
@@ -922,7 +910,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						   tuple->nexthdr, POLICY_EGRESS, 1,
 						   verdict, proxy_port,
 						   policy_match_type, audited,
-						   auth_type, cookie);
+						   cookie);
 		}
 
 		if (verdict != CTX_ACT_OK) {
@@ -1369,7 +1357,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	struct ct_buffer4 *ct_buffer;
 	__u8 audited = 0;
-	__u8 auth_type = 0;
 	enum ct_status ct_status;
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
@@ -1456,17 +1443,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		 */
 		verdict = policy_can_egress4(ctx, tuple, l4_off, SECLABEL_IPV4,
 					     *dst_sec_identity, &policy_match_type, &audited,
-					     ext_err, &proxy_port, &cookie);
-
-		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			__u32 tunnel_endpoint = 0;
-
-			auth_type = (__u8)*ext_err;
-			if (info)
-				tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
-			verdict = auth_lookup(ctx, SECLABEL_IPV4, *dst_sec_identity,
-					      tunnel_endpoint, auth_type);
-		}
+					     &proxy_port, &cookie);
 
 		/* Emit verdict if drop or if allow for CT_NEW. */
 		if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
@@ -1474,7 +1451,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						   tuple->nexthdr, POLICY_EGRESS, 0,
 						   verdict, proxy_port,
 						   policy_match_type, audited,
-						   auth_type, cookie);
+						   cookie);
 		}
 
 		if (verdict != CTX_ACT_OK) {
@@ -1803,7 +1780,6 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	union v6addr orig_sip __align_stack_8;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__u8 auth_type = 0;
 	__maybe_unused union v6addr loopback_addr;
 	__u32 cookie = 0;
 
@@ -1884,25 +1860,13 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 
 		verdict = policy_can_ingress6(ctx, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV6,
-					      &policy_match_type, &audited, ext_err, proxy_port,
-					      &cookie);
-		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			const struct remote_endpoint_info *sep;
-
-			sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
-			if (sep) {
-				auth_type = (__u8)*ext_err;
-				verdict = auth_lookup(ctx, SECLABEL_IPV6, src_label,
-						      sep->tunnel_endpoint.ip4.be32, auth_type);
-			}
-		}
-
+					      &policy_match_type, &audited, proxy_port, &cookie);
 		/* Emit verdict if drop or if allow for CT_NEW. */
 		if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 			send_policy_verdict_notify(ctx, src_label, tuple->dport,
 						   tuple->nexthdr, POLICY_INGRESS, 1,
 						   verdict, *proxy_port, policy_match_type, audited,
-						   auth_type, cookie);
+						   cookie);
 
 		if (verdict != CTX_ACT_OK)
 			return verdict;
@@ -1915,12 +1879,6 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
 
-		/* ext_err may contain a value from __policy_can_access, and
-		 * ct_create6 overwrites it only if it returns an error itself.
-		 * As the error from __policy_can_access is dropped in that
-		 * case, it's OK to return ext_err from ct_create6 along with
-		 * its error code.
-		 */
 		ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global, tuple, ctx, CT_INGRESS,
 				 &ct_state_new, ext_err);
 		if (IS_ERR(ret))
@@ -2115,7 +2073,6 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__u8 auth_type = 0;
 	__u32 cookie = 0;
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
@@ -2202,24 +2159,13 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 
 		verdict = policy_can_ingress4(ctx, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV4,
-					      &policy_match_type, &audited, ext_err, proxy_port,
-					      &cookie);
-		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			const struct remote_endpoint_info *sep;
-
-			sep = lookup_ip4_remote_endpoint(orig_sip, 0);
-			if (sep) {
-				auth_type = (__u8)*ext_err;
-				verdict = auth_lookup(ctx, SECLABEL_IPV4, src_label,
-						      sep->tunnel_endpoint.ip4.be32, auth_type);
-			}
-		}
+					      &policy_match_type, &audited, proxy_port, &cookie);
 		/* Emit verdict if drop or if allow for CT_NEW. */
 		if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 			send_policy_verdict_notify(ctx, src_label, tuple->dport,
 						   tuple->nexthdr, POLICY_INGRESS, 0,
 						   verdict, *proxy_port, policy_match_type, audited,
-						   auth_type, cookie);
+						   cookie);
 
 		if (verdict != CTX_ACT_OK)
 			return verdict;
@@ -2236,12 +2182,6 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
 
-		/* ext_err may contain a value from __policy_can_access, and
-		 * ct_create4 overwrites it only if it returns an error itself.
-		 * As the error from __policy_can_access is dropped in that
-		 * case, it's OK to return ext_err from ct_create4 along with
-		 * its error code.
-		 */
 		ret = ct_create4(get_ct_map4(tuple), &cilium_ct_any4_global, tuple, ctx, CT_INGRESS,
 				 &ct_state_new, ext_err);
 		if (IS_ERR(ret))

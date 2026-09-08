@@ -72,8 +72,8 @@ struct policy_entry {
 	__u8		deny:1,
 			reserved:2, /* bits used in Cilium 1.16, keep unused for Cilium 1.17 */
 			lpm_prefix_length:5; /* map key protocol and dport prefix length */
-	__u8		auth_type:7,
-			has_explicit_auth_type:1;
+	__u8		reserved_auth_type:7,
+			reserved_has_explicit_auth_type:1;
 	__u32		precedence;
 	__u32		cookie;
 };
@@ -170,22 +170,10 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_policy __section_maps_btf;
 
-/* Return a verdict for the chosen 'policy', possibly propagating the auth type from 'policy2', if
- * non-NULL and of the same precedence.
- *
- * Always called with non-NULL 'policy', while 'policy2' may be NULL.
- * If 'policy2' is non-null, it never has a higher precedence than 'policy'.
- */
+/* Return a verdict for the chosen 'policy'. Always called with non-NULL 'policy'. */
 static __always_inline int
-__policy_check(const struct policy_entry *policy, const struct policy_entry *policy2, __s8 *ext_err,
-	       __u16 *proxy_port, __u32 *cookie)
+__policy_check(const struct policy_entry *policy, __u16 *proxy_port, __u32 *cookie)
 {
-	/* auth_type is derived from the matched policy entry, except if both L3/L4 and L4-only
-	 * match, and the chosen policy has no explicit auth type: in this case the auth type is
-	 * derived from the less specific policy entry.
-	 */
-	__u8 auth_type;
-
 	*cookie = policy->cookie;
 
 	if (unlikely(policy->deny))
@@ -200,18 +188,6 @@ __policy_check(const struct policy_entry *policy, const struct policy_entry *pol
 	 */
 	*proxy_port = policy->proxy_port;
 
-	auth_type = policy->auth_type;
-	/* Propagate the auth type from the same precedence, more general policy2 if needed. */
-	if (unlikely(policy2 && policy2->precedence == policy->precedence &&
-		     !policy->has_explicit_auth_type && policy2->auth_type > auth_type)) {
-		auth_type = policy2->auth_type;
-	}
-
-	if (unlikely(auth_type)) {
-		if (ext_err)
-			*ext_err = (__s8)auth_type;
-		return DROP_POLICY_AUTH_REQUIRED;
-	}
 	return CTX_ACT_OK;
 }
 
@@ -220,8 +196,7 @@ static __always_inline int
 __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_id,
 		    __u32 remote_id, __u16 ethertype, __be16 dport, __u8 proto,
 		    int off, int dir, bool is_untracked_fragment,
-		    __u8 *match_type, __s8 *ext_err, __u16 *proxy_port,
-		    __u32 *cookie)
+		    __u8 *match_type, __u16 *proxy_port, __u32 *cookie)
 {
 	/*
 	 * Perform two policy lookups:
@@ -356,7 +331,7 @@ check_policy:
 		p_len > LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_L3_L4 :	/* 1. id/proto/port */
 		p_len > 0 ? POLICY_MATCH_L3_PROTO :			/* 3. id/proto/ANY */
 		POLICY_MATCH_L3_ONLY;					/* 5. id/ANY/ANY */
-	return __policy_check(policy, agg_policy, ext_err, proxy_port, cookie);
+	return __policy_check(policy, proxy_port, cookie);
 
 check_agg_policy:
 	p_len = agg_policy->lpm_prefix_length;
@@ -367,19 +342,18 @@ check_agg_policy:
 		p_len == 0 ? POLICY_MATCH_ALL :					/* 6. ANY/ANY/ANY */
 		p_len <= LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_PROTO_ONLY :	/* 4. ANY/proto/ANY */
 		POLICY_MATCH_L4_ONLY;						/* 2. ANY/proto/port */
-	return __policy_check(agg_policy, policy, ext_err, proxy_port, cookie);
+	return __policy_check(agg_policy, proxy_port, cookie);
 }
 
 static __always_inline int
 policy_can_access(const struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
 		  __u16 ethertype, __be16 dport, __u8 proto, int off, int dir,
-		  bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
-		  __u16 *proxy_port, __u32 *cookie)
+		  bool is_untracked_fragment, __u8 *match_type, __u16 *proxy_port,
+		  __u32 *cookie)
 {
 	return __policy_can_access(&cilium_policy, ctx, local_id, remote_id,
 				   ethertype, dport, proto, off, dir,
-				   is_untracked_fragment, match_type, ext_err,
-				   proxy_port, cookie);
+				   is_untracked_fragment, match_type, proxy_port, cookie);
 }
 
 /**
@@ -394,7 +368,6 @@ policy_can_access(const struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
  * @arg is_untracked_fragment	True if packet is a TCP/UDP datagram fragment
  *				AND IPv4 fragment tracking is disabled
  * @arg match_type		Pointer to store layers used for policy match
- * @arg ext_err		Pointer to store extended error information if this packet isn't allowed
  * @arg proxy_port	Pointer to store port for proxy redirect
  * @arg cookie		Pointer to store policy log cookie, if any
  *
@@ -407,13 +380,13 @@ static __always_inline int
 policy_can_ingress(const struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 		   __u16 ethertype, __be16 dport, __u8 proto, int l4_off,
 		   bool is_untracked_fragment, __u8 *match_type, __u8 *audited,
-		   __s8 *ext_err, __u16 *proxy_port, __u32 *cookie)
+		   __u16 *proxy_port, __u32 *cookie)
 {
 	int ret;
 
 	ret = policy_can_access(ctx, dst_id, src_id, ethertype, dport,
 				proto, l4_off, CT_INGRESS, is_untracked_fragment,
-				match_type, ext_err, proxy_port, cookie);
+				match_type, proxy_port, cookie);
 	if (ret >= CTX_ACT_OK)
 		return ret;
 
@@ -435,12 +408,11 @@ static __always_inline int policy_can_ingress6(const struct __ctx_buff *ctx,
 					       int l4_off, bool is_untracked_fragment,
 					       __u32 src_id, __u32 dst_id,
 					       __u8 *match_type, __u8 *audited,
-					       __s8 *ext_err, __u16 *proxy_port,
-					       __u32 *cookie)
+					       __u16 *proxy_port, __u32 *cookie)
 {
 	return policy_can_ingress(ctx, src_id, dst_id, ETH_P_IPV6, tuple->dport,
 				 tuple->nexthdr, l4_off, is_untracked_fragment,
-				 match_type, audited, ext_err, proxy_port, cookie);
+				 match_type, audited, proxy_port, cookie);
 }
 
 static __always_inline int policy_can_ingress4(const struct __ctx_buff *ctx,
@@ -448,12 +420,11 @@ static __always_inline int policy_can_ingress4(const struct __ctx_buff *ctx,
 					       int l4_off, bool is_untracked_fragment,
 					       __u32 src_id, __u32 dst_id,
 					       __u8 *match_type, __u8 *audited,
-					       __s8 *ext_err, __u16 *proxy_port,
-					       __u32 *cookie)
+					       __u16 *proxy_port, __u32 *cookie)
 {
 	return policy_can_ingress(ctx, src_id, dst_id, ETH_P_IP, tuple->dport,
 				 tuple->nexthdr, l4_off, is_untracked_fragment,
-				 match_type, audited, ext_err, proxy_port, cookie);
+				 match_type, audited, proxy_port, cookie);
 }
 
 #ifdef HAVE_ENCAP
@@ -466,7 +437,7 @@ static __always_inline bool is_encap(__be16 dport, __u8 proto)
 static __always_inline int
 policy_can_egress(const struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 		  __u16 ethertype, __be16 dport, __u8 proto, int l4_off, __u8 *match_type,
-		  __u8 *audited, __s8 *ext_err, __u16 *proxy_port, __u32 *cookie)
+		  __u8 *audited, __u16 *proxy_port, __u32 *cookie)
 {
 	int ret;
 
@@ -476,7 +447,7 @@ policy_can_egress(const struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 #endif
 	ret = policy_can_access(ctx, src_id, dst_id, ethertype, dport,
 				proto, l4_off, CT_EGRESS, false, match_type,
-				ext_err, proxy_port, cookie);
+				proxy_port, cookie);
 	if (ret >= 0)
 		return ret;
 	cilium_dbg(ctx, DBG_POLICY_DENIED, src_id, dst_id);
@@ -493,21 +464,21 @@ policy_can_egress(const struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 static __always_inline int policy_can_egress6(const struct __ctx_buff *ctx,
 					      const struct ipv6_ct_tuple *tuple,
 					      int l4_off, __u32 src_id, __u32 dst_id,
-					      __u8 *match_type, __u8 *audited, __s8 *ext_err,
+					      __u8 *match_type, __u8 *audited,
 					      __u16 *proxy_port, __u32 *cookie)
 {
 	return policy_can_egress(ctx, src_id, dst_id, ETH_P_IPV6, tuple->dport,
 				 tuple->nexthdr, l4_off, match_type, audited,
-				 ext_err, proxy_port, cookie);
+				 proxy_port, cookie);
 }
 
 static __always_inline int policy_can_egress4(const struct __ctx_buff *ctx,
 					      const struct ipv4_ct_tuple *tuple,
 					      int l4_off, __u32 src_id, __u32 dst_id,
-					      __u8 *match_type, __u8 *audited, __s8 *ext_err,
+					      __u8 *match_type, __u8 *audited,
 					      __u16 *proxy_port, __u32 *cookie)
 {
 	return policy_can_egress(ctx, src_id, dst_id, ETH_P_IP, tuple->dport,
 				 tuple->nexthdr, l4_off, match_type, audited,
-				 ext_err, proxy_port, cookie);
+				 proxy_port, cookie);
 }

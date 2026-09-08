@@ -17,7 +17,6 @@
 #define add_type(TYPE) __expand(TYPE, __COUNTER__)
 
 #include "lib/common.h"
-add_type(struct auth_key);
 add_type(struct ipv4_ct_tuple);
 add_type(struct ipv6_ct_tuple);
 

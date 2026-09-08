@@ -238,15 +238,6 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 				return err
 			}
 
-			if existingPolicy.Authentication == nil || newPolicy.Authentication == nil {
-				if newPolicy.Authentication != nil {
-					existingPolicy.Authentication = newPolicy.Authentication
-				}
-			} else if !newPolicy.Authentication.DeepEqual(existingPolicy.Authentication) {
-				policyCtx.PolicyTrace("   Merge conflict: mismatching auth types %s/%s\n", newPolicy.Authentication.Mode, existingPolicy.Authentication.Mode)
-				return fmt.Errorf("cannot merge conflicting authentication types (%s/%s)", newPolicy.Authentication.Mode, existingPolicy.Authentication.Mode)
-			}
-
 			if existingPolicy.TerminatingTLS == nil || newPolicy.TerminatingTLS == nil {
 				if newPolicy.TerminatingTLS != nil {
 					existingPolicy.TerminatingTLS = newPolicy.TerminatingTLS

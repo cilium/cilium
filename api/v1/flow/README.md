@@ -331,7 +331,7 @@ EventTypeFilter is a filter describing a particular event type.
 | emitter | [Emitter](#flow-Emitter) |  | emitter identifies the source that emitted the flow. |
 | verdict | [Verdict](#flow-Verdict) |  |  |
 | drop_reason | [uint32](#uint32) |  | **Deprecated.** only applicable to Verdict = DROPPED. deprecated in favor of drop_reason_desc. |
-| auth_type | [AuthType](#flow-AuthType) |  | auth_type is the authentication type specified for the flow in Cilium Network Policy. Only set on policy verdict events. |
+| auth_type | [AuthType](#flow-AuthType) |  | **Deprecated.** auth_type is deprecated and no longer set. |
 | ethernet | [Ethernet](#flow-Ethernet) |  | l2 |
 | IP | [IP](#flow-IP) |  | l3 |
 | l4 | [Layer4](#flow-Layer4) |  | l4 |

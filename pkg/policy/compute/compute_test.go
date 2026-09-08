@@ -194,13 +194,12 @@ func computeFor(t *testing.T, computer PolicyRecomputer, idmgr identitymanager.I
 	return id
 }
 
-func TestGetAuthTypesAndSnapshot(t *testing.T) {
+func TestGetPolicySnapshot(t *testing.T) {
 	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
 
 	_, _, computer, idmgr := fixture(t)
 	id := computeFor(t, computer, idmgr, identity.NumericIdentity(42))
 
-	require.Nil(t, computer.GetAuthTypes(id.ID, identity.NumericIdentity(99)))
 	require.Contains(t, computer.GetPolicySnapshot(), id.ID)
 }
 
