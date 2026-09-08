@@ -444,7 +444,7 @@ func getAddresses(localNode node.LocalNode) []string {
 	addresses := make([]string, 0, 2)
 
 	if option.Config.EnableIPv4 {
-		if ip := localNode.GetNodeInternalIPv4(); ip != nil {
+		if ip := localNode.GetNodeInternalIPv4(); ip.IsValid() {
 			addresses = append(addresses, ip.String())
 		} else {
 			// if Get ipv4 fails, then listen on all addresses.
@@ -453,7 +453,7 @@ func getAddresses(localNode node.LocalNode) []string {
 	}
 
 	if option.Config.EnableIPv6 {
-		if ip := localNode.GetNodeInternalIPv6(); ip != nil {
+		if ip := localNode.GetNodeInternalIPv6(); ip.IsValid() {
 			addresses = append(addresses, ip.String())
 		} else {
 			// if Get ipv6 fails, then listen on all addresses.

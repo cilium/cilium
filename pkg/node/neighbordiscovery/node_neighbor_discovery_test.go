@@ -7,7 +7,6 @@ import (
 	"context"
 	"iter"
 	"maps"
-	"net"
 	"net/netip"
 	"sync"
 	"testing"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -108,8 +108,8 @@ func TestNodeNeighborObserver(t *testing.T) {
 			Cluster: "cluster-1",
 			Source:  source.CustomResource,
 			IPAddresses: []nodeTypes.Address{
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.1")},
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::1")},
+				{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))},
+				{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("2001:db8::1"))},
 			},
 		},
 	}
@@ -119,7 +119,7 @@ func TestNodeNeighborObserver(t *testing.T) {
 			Cluster: "cluster-1",
 			Source:  source.Local,
 			IPAddresses: []nodeTypes.Address{
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
+				{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.2"))},
 			},
 		},
 		Local: &node.LocalNodeInfo{},
@@ -178,8 +178,8 @@ func TestNodeNeighborObserver(t *testing.T) {
 			Cluster: n1.Cluster,
 			Source:  n1.Source,
 			IPAddresses: []nodeTypes.Address{
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.3")},
-				{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::1")},
+				{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.3"))},
+				{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("2001:db8::1"))},
 			},
 		},
 	}

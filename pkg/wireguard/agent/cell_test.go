@@ -32,6 +32,7 @@ import (
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
@@ -174,7 +175,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 								IPAddresses: []nodeTypes.Address{
 									{
 										Type: addressing.NodeInternalIP,
-										IP:   k8s1NodeIPv4,
+										IP:   iputil.AddrFrom(iputil.AddrFromIP(k8s1NodeIPv4)),
 									},
 								},
 								Annotations: map[string]string{},
@@ -298,7 +299,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 				IPAddresses: []nodeTypes.Address{
 					{
 						Type: addressing.NodeInternalIP,
-						IP:   k8s2NodeIPv4,
+						IP:   iputil.AddrFrom(iputil.AddrFromIP(k8s2NodeIPv4)),
 					},
 				},
 				Source:          source.Unspec,

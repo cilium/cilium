@@ -6,7 +6,7 @@ package nodediscovery
 import (
 	"encoding/json"
 	"fmt"
-	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -71,7 +71,7 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 		})
 
 	node1Cilium := k8s.ParseNode(logger, toSlimNode(node1.DeepCopy()), source.Unspec, cmtypes.DefaultClusterInfo)
-	node1Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
+	node1Cilium.SetCiliumInternalIP(netip.MustParseAddr("10.254.0.1"))
 
 	n := &NodeDiscovery{logger: logger}
 	n.annotateK8sNode(t.Context(), fakeK8sClient, *node1Cilium)
@@ -123,7 +123,7 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 		})
 
 	node2Cilium := k8s.ParseNode(hivetest.Logger(t), toSlimNode(node2.DeepCopy()), source.Unspec, cmtypes.DefaultClusterInfo)
-	node2Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
+	node2Cilium.SetCiliumInternalIP(netip.MustParseAddr("10.254.0.1"))
 
 	n.annotateK8sNode(t.Context(), fakeK8sClient, *node2Cilium)
 

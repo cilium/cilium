@@ -26,10 +26,19 @@ type RouterInfo interface {
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
 // running on this node.
 func GetCiliumEndpointNodeIP(localNode LocalNode) string {
+	ip := localNode.GetNodeIP(true)
 	if option.Config.EnableIPv4 && localNode.Local.UnderlayProtocol == tunnel.IPv4 {
-		return localNode.GetNodeIP(false).String()
+		ip = localNode.GetNodeIP(false)
 	}
-	return localNode.GetNodeIP(true).String()
+	if !ip.IsValid() {
+		// Reproduce what a nil net.IP formatted to before the netip migration.
+		// This value is persisted in CiliumEndpoint.Status.Networking.NodeIP and
+		// compared against CiliumEndpoints written by agents of other versions
+		// (see pkg/endpointcleanup), so an unset node IP must keep rendering
+		// identically rather than as netip's "invalid IP".
+		return "<nil>"
+	}
+	return ip.String()
 }
 
 // GetRouterInfo returns additional information for the router, the cilium_host interface.

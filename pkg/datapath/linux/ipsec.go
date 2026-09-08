@@ -190,10 +190,11 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	statesUpdated := true
 	var spi uint8
 
-	remoteCiliumInternalIP := newNode.GetCiliumInternalIPv4()
-	if remoteCiliumInternalIP == nil {
+	remoteCiliumInternalAddr := newNode.GetCiliumInternalIPv4()
+	if !remoteCiliumInternalAddr.IsValid() {
 		return false, errs
 	}
+	remoteCiliumInternalIP := net.IP(remoteCiliumInternalAddr.AsSlice())
 	remoteIP := remoteCiliumInternalIP
 
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv4
@@ -205,7 +206,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 		n.log.Error("Failed to get local IPv4 for IPsec configuration", logfields.Error, err)
 		errs = errors.Join(errs, fmt.Errorf("failed to get local ipv4 for ipsec link: %w", err))
 	}
-	remoteNodeInternalIP := newNode.GetNodeIP(false)
+	remoteNodeInternalIP := net.IP(newNode.GetNodeIP(false).AsSlice())
 
 	// Check if we should use the NodeInternalIPs instead of the
 	// CiliumInternalIPs for the IPsec encapsulation.
@@ -279,10 +280,11 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	statesUpdated := true
 	var spi uint8
 
-	remoteCiliumInternalIP := newNode.GetCiliumInternalIPv4()
-	if remoteCiliumInternalIP == nil {
+	remoteCiliumInternalAddr := newNode.GetCiliumInternalIPv4()
+	if !remoteCiliumInternalAddr.IsValid() {
 		return false, errs
 	}
+	remoteCiliumInternalIP := net.IP(remoteCiliumInternalAddr.AsSlice())
 	remoteIP := remoteCiliumInternalIP
 
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv4
@@ -381,11 +383,12 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 		return false, errs
 	}
 	localUnderlayIP := net.IP(n.nodeConfig.NodeIPv4.AsSlice())
-	remoteUnderlayIP := newNode.GetNodeIP(false)
-	if remoteUnderlayIP == nil {
+	remoteUnderlayAddr := newNode.GetNodeIP(false)
+	if !remoteUnderlayAddr.IsValid() {
 		n.log.Warn("unable to enable encrypted overlay IPsec, nil remote internal IP for node", logfields.Node, newNode.Name)
 		return false, errs
 	}
+	remoteUnderlayIP := net.IP(remoteUnderlayAddr.AsSlice())
 
 	localOverlayIPExactMatch := &net.IPNet{IP: localUnderlayIP, Mask: exactMatchMaskIPv4}
 	remoteOverlayIPExactMatch := &net.IPNet{IP: remoteUnderlayIP, Mask: exactMatchMaskIPv4}
@@ -476,10 +479,11 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	statesUpdated := true
 	var spi uint8
 
-	remoteCiliumInternalIP := newNode.GetCiliumInternalIPv6()
-	if remoteCiliumInternalIP == nil {
+	remoteCiliumInternalAddr := newNode.GetCiliumInternalIPv6()
+	if !remoteCiliumInternalAddr.IsValid() {
 		return false, errs
 	}
+	remoteCiliumInternalIP := net.IP(remoteCiliumInternalAddr.AsSlice())
 	remoteIP := remoteCiliumInternalIP
 
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv6
@@ -491,7 +495,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 		n.log.Error("Failed to get local IPv6 for IPsec configuration", logfields.Error, err)
 		errs = errors.Join(errs, fmt.Errorf("failed to get local ipv6 for ipsec link: %w", err))
 	}
-	remoteNodeInternalIP := newNode.GetNodeIP(true)
+	remoteNodeInternalIP := net.IP(newNode.GetNodeIP(true).AsSlice())
 
 	// Check if we should use the NodeInternalIPs instead of the
 	// CiliumInternalIPs for the IPsec encapsulation.
@@ -565,10 +569,11 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	statesUpdated := true
 	var spi uint8
 
-	remoteCiliumInternalIP := newNode.GetCiliumInternalIPv6()
-	if remoteCiliumInternalIP == nil {
+	remoteCiliumInternalAddr := newNode.GetCiliumInternalIPv6()
+	if !remoteCiliumInternalAddr.IsValid() {
 		return false, errs
 	}
+	remoteCiliumInternalIP := net.IP(remoteCiliumInternalAddr.AsSlice())
 	remoteIP := remoteCiliumInternalIP
 
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv6
@@ -670,11 +675,12 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 		return false, errs
 	}
 	localUnderlayIP := net.IP(n.nodeConfig.NodeIPv6.AsSlice())
-	remoteUnderlayIP := newNode.GetNodeIP(true)
-	if remoteUnderlayIP == nil {
+	remoteUnderlayAddr := newNode.GetNodeIP(true)
+	if !remoteUnderlayAddr.IsValid() {
 		n.log.Warn("unable to enable encrypted overlay IPsec, nil remote internal IP for node", logfields.Node, newNode.Name)
 		return false, errs
 	}
+	remoteUnderlayIP := net.IP(remoteUnderlayAddr.AsSlice())
 
 	localOverlayIPExactMatch := &net.IPNet{IP: localUnderlayIP, Mask: exactMatchMaskIPv6}
 	remoteOverlayIPExactMatch := &net.IPNet{IP: remoteUnderlayIP, Mask: exactMatchMaskIPv6}

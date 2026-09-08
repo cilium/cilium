@@ -11,7 +11,6 @@ import (
 	"syscall"
 
 	"github.com/vishvananda/netlink"
-	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -64,7 +63,7 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 			if !hostDeviceFound {
 				return fmt.Errorf("failed to get host device %s", defaults.HostDevice)
 			}
-			internalIP, _ := netipx.FromStdIP(localNode.GetCiliumInternalIPv4())
+			internalIP := localNode.GetCiliumInternalIPv4()
 			if err := installFromProxyRoutesIPv4(p.routeManager, p.routeOwner, internalIP, hostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
 				return err
 			}

@@ -9,7 +9,6 @@ import (
 	"net/netip"
 	"slices"
 
-	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/netdevice"
@@ -135,8 +134,8 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 				continue
 			}
 
-			addr, ok := netipx.FromStdIP(node.GetNodeIP(false))
-			if !ok {
+			addr := node.GetNodeIP(false)
+			if !addr.IsValid() {
 				continue
 			}
 			gwc.gatewayIP = addr

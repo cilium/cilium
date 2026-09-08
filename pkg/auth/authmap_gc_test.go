@@ -5,7 +5,7 @@ package auth
 
 import (
 	"context"
-	"net"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -494,7 +495,7 @@ func ciliumNodeEvent(nodeInternalIP string) nodeTypes.Node {
 		IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP(nodeInternalIP),
+				IP:   iputil.AddrFrom(netip.MustParseAddr(nodeInternalIP)),
 			},
 		},
 	}

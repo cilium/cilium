@@ -784,8 +784,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		newAllIP4AllocCidrs                      = newNode.GetIPv4AllocCIDRs()
 		newAllIP6AllocCidrs                      = newNode.GetIPv6AllocCIDRs()
 		oldIP4, oldIP6                           net.IP
-		newIP4                                   = newNode.GetNodeIP(false)
-		newIP6                                   = newNode.GetNodeIP(true)
+		newIP4                                   = net.IP(newNode.GetNodeIP(false).AsSlice())
+		newIP6                                   = net.IP(newNode.GetNodeIP(true).AsSlice())
 		isLocalNode                              = false
 	)
 	nodeID, err := n.allocateIDForNode(oldNode, newNode)
@@ -796,8 +796,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	if oldNode != nil {
 		oldAllIP4AllocCidrs = oldNode.GetIPv4AllocCIDRs()
 		oldAllIP6AllocCidrs = oldNode.GetIPv6AllocCIDRs()
-		oldIP4 = oldNode.GetNodeIP(false)
-		oldIP6 = oldNode.GetNodeIP(true)
+		oldIP4 = net.IP(oldNode.GetNodeIP(false).AsSlice())
+		oldIP6 = net.IP(oldNode.GetNodeIP(true).AsSlice())
 
 		n.diffAndUnmapNodeIPs(oldNode.IPAddresses, newNode.IPAddresses)
 	}
@@ -874,8 +874,8 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 		return nil
 	}
 
-	oldIP4 := oldNode.GetNodeIP(false)
-	oldIP6 := oldNode.GetNodeIP(true)
+	oldIP4 := net.IP(oldNode.GetNodeIP(false).AsSlice())
+	oldIP6 := net.IP(oldNode.GetNodeIP(true).AsSlice())
 
 	oldAllIP4AllocCidrs := oldNode.GetIPv4AllocCIDRs()
 	oldAllIP6AllocCidrs := oldNode.GetIPv6AllocCIDRs()

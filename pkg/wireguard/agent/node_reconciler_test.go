@@ -4,12 +4,12 @@
 package agent
 
 import (
-	"net"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -31,7 +31,7 @@ func TestNodeReconciler(t *testing.T) {
 		WireguardPubKey: k8s1PubKey,
 		IPAddresses: []nodeTypes.Address{{
 			Type: addressing.NodeInternalIP,
-			IP:   net.IP(k8s1NodeIPv4),
+			IP:   iputil.AddrFrom(iputil.AddrFromIP(k8s1NodeIPv4)),
 		}},
 	}}
 

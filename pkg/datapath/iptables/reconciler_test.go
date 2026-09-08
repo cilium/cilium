@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
@@ -153,7 +154,7 @@ func TestReconciliationLoop(t *testing.T) {
 				store.Update(func(n *node.LocalNode) {
 					n.IPAddresses = []types.Address{
 						{
-							IP:   netip.MustParseAddr("1.1.1.1").AsSlice(),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
 							Type: addressing.NodeCiliumInternalIP,
 						},
 					}
@@ -208,7 +209,7 @@ func TestReconciliationLoop(t *testing.T) {
 				store.Update(func(n *node.LocalNode) {
 					n.IPAddresses = []types.Address{
 						{
-							IP:   netip.MustParseAddr("2.2.2.2").AsSlice(),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("2.2.2.2")),
 							Type: addressing.NodeCiliumInternalIP,
 						},
 					}

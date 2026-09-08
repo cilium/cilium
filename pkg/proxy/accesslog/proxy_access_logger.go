@@ -76,11 +76,11 @@ func (r *proxyAccessLogger) NewLogRecord(ctx context.Context, t FlowType, ingres
 		return nil, fmt.Errorf("failed to get local node: %w", err)
 	}
 
-	if ip := ln.GetNodeIP(false); ip != nil {
+	if ip := ln.GetNodeIP(false); ip.IsValid() {
 		lr.NodeAddressInfo.IPv4 = ip.String()
 	}
 
-	if ip := ln.GetNodeIP(true); ip != nil {
+	if ip := ln.GetNodeIP(true); ip.IsValid() {
 		lr.NodeAddressInfo.IPv6 = ip.String()
 	}
 

@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,16 +24,12 @@ type nodeAnnotation = map[string]string
 var nodeAnnotationControllerGroup = controller.NewGroup("update-k8s-node-annotations")
 
 func (n *NodeDiscovery) prepareNodeAnnotations(localNode nodeTypes.Node) nodeAnnotation {
-	annotationMap := map[string]fmt.Stringer{
-		annotation.CiliumHostIP:   localNode.GetCiliumInternalIPv4(),
-		annotation.CiliumHostIPv6: localNode.GetCiliumInternalIPv6(),
-	}
-
 	annotations := map[string]string{}
-	for k, v := range annotationMap {
-		if !reflect.ValueOf(v).IsNil() {
-			annotations[k] = v.String()
-		}
+	if ip := localNode.GetCiliumInternalIPv4(); ip.IsValid() {
+		annotations[annotation.CiliumHostIP] = ip.String()
+	}
+	if ip := localNode.GetCiliumInternalIPv6(); ip.IsValid() {
+		annotations[annotation.CiliumHostIPv6] = ip.String()
 	}
 	if localNode.IPv4AllocCIDR.IsValid() {
 		annotations[annotation.V4CIDRName] = localNode.IPv4AllocCIDR.String()
