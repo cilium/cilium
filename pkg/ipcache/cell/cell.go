@@ -97,8 +97,8 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 		Logger:            params.Logger,
 		IdentityAllocator: params.CacheIdentityAllocator,
 		IdentityUpdater:   params.IdentityUpdater,
-		CacheStatus:       params.CacheStatus,
 	})
+	ipc.RegisterSync(params.CacheStatus)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {

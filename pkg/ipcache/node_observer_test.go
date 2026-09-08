@@ -33,7 +33,12 @@ import (
 type metadataBatchMock struct {
 	upserts  [][]MU
 	removals [][]MU
+	syncs    []<-chan struct{}
 	notify   chan struct{}
+}
+
+func (m *metadataBatchMock) RegisterSync(ch <-chan struct{}) {
+	m.syncs = append(m.syncs, ch)
 }
 
 func changeSeq(changes []statedb.Change[*node.Node]) iter.Seq2[statedb.Change[*node.Node], statedb.Revision] {
@@ -75,10 +80,12 @@ func TestNodeObserverWaitsForLocalNodeInitialization(t *testing.T) {
 	nodes, err := node.NewNodeTable(db)
 	require.NoError(t, err)
 	metadata := &metadataBatchMock{notify: make(chan struct{}, 1)}
+	synced := make(chan struct{})
 	observer := &nodeObserver{
 		db:          db,
 		nodes:       nodes,
 		ipcache:     metadata,
+		synced:      synced,
 		config:      &option.DaemonConfig{},
 		clusterInfo: cmtypes.DefaultClusterInfo,
 		underlay:    tunnel.IPv4,
@@ -88,6 +95,7 @@ func TestNodeObserverWaitsForLocalNodeInitialization(t *testing.T) {
 
 	txn := db.WriteTxn(nodes)
 	initDone := nodes.RegisterInitializer(txn, node.LocalNodeTableInitializerName)
+	tableInitDone := nodes.RegisterInitializer(txn, "test")
 	_, _, err = nodes.Insert(txn, &node.Node{Node: nodeTypes.Node{
 		Name: "remote",
 		IPAddresses: []nodeTypes.Address{{
@@ -121,6 +129,20 @@ func TestNodeObserverWaitsForLocalNodeInitialization(t *testing.T) {
 	case <-metadata.notify:
 	case <-time.After(time.Second):
 		require.FailNow(t, "observer did not process initial node snapshot")
+	}
+	select {
+	case <-synced:
+		require.FailNow(t, "observer reported synchronization before table initialization")
+	default:
+	}
+
+	txn = db.WriteTxn(nodes)
+	tableInitDone(txn)
+	txn.Commit()
+	select {
+	case <-synced:
+	case <-time.After(time.Second):
+		require.FailNow(t, "observer did not report synchronization after table initialization")
 	}
 	cancel()
 	require.NoError(t, <-done)

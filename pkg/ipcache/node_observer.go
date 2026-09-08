@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -36,6 +37,7 @@ type nodeObserver struct {
 	db          *statedb.DB
 	nodes       statedb.Table[*node.Node]
 	ipcache     MetadataBatchAPI
+	synced      chan struct{}
 	config      *option.DaemonConfig
 	clusterInfo cmtypes.ClusterInfo
 	underlay    tunnel.UnderlayProtocol
@@ -57,11 +59,14 @@ func RegisterNodeObserver(
 	tunnelConfig tunnel.Config,
 	wgConfig wgTypes.Config,
 ) {
+	synced := make(chan struct{})
+	ipcache.RegisterSync(synced)
 	nodeTable := nodeWriter.Table()
 	observer := &nodeObserver{
 		db:          db,
 		nodes:       nodeTable,
 		ipcache:     ipcache,
+		synced:      synced,
 		config:      config,
 		clusterInfo: clusterInfo,
 		underlay:    tunnelConfig.UnderlayProtocol(),
@@ -72,6 +77,8 @@ func RegisterNodeObserver(
 }
 
 func (o *nodeObserver) run(ctx context.Context, health cell.Health) error {
+	const applyInterval = 100 * time.Millisecond
+
 	if _, err := node.WaitForLocalNodeInit(ctx, o.db, o.nodes); err != nil {
 		return nil
 	}
@@ -85,17 +92,26 @@ func (o *nodeObserver) run(ctx context.Context, health cell.Health) error {
 	wtxn.Commit()
 	defer changes.Close()
 
-	txn := o.db.ReadTxn()
 	for {
+		txn := o.db.ReadTxn()
 		seq, watch := changes.Next(txn)
 		o.apply(txn, seq)
 		health.OK("Node changes processed")
 
-		select {
-		case <-ctx.Done():
+		watches := statedb.NewWatchSet()
+		watches.Add(watch)
+		if o.synced != nil {
+			initialized, initWatch := o.nodes.Initialized(txn)
+			if initialized {
+				close(o.synced)
+				o.synced = nil
+			} else {
+				watches.Add(initWatch)
+			}
+		}
+
+		if _, err := watches.Wait(ctx, applyInterval); err != nil {
 			return nil
-		case <-watch:
-			txn = o.db.ReadTxn()
 		}
 	}
 }
