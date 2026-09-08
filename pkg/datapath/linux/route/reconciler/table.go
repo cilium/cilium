@@ -268,7 +268,7 @@ func (dr *DesiredRoute) GetStatus() reconciler.Status {
 	return dr.status
 }
 
-func (dr *DesiredRoute) SetStatus(s reconciler.Status) *DesiredRoute {
+func (dr *DesiredRoute) WithStatus(s reconciler.Status) *DesiredRoute {
 	ndr := dr.Clone()
 	ndr.status = s
 	return ndr

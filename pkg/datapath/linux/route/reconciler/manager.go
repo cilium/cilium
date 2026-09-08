@@ -4,6 +4,7 @@
 package reconciler
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"slices"
@@ -146,9 +147,8 @@ func (m *DesiredRouteManager) UpsertRoute(route DesiredRoute) error {
 	// By default, any new route we add is not selected and does not have to be reconciled.
 	// The [selectRoutes] method will select the best route for each prefix+table.
 	route.selected = false
-	route.SetStatus(reconciler.StatusDone())
 
-	if _, _, err := m.tbl.Insert(txn, &route); err != nil {
+	if _, _, err := m.tbl.Insert(txn, route.WithStatus(reconciler.StatusDone())); err != nil {
 		return err
 	}
 
@@ -233,17 +233,10 @@ func (m *DesiredRouteManager) selectRoutes(txn statedb.WriteTxn, key DesiredRout
 	// Sort routes by admin distance and name, so that the first one is the
 	// one that is selected.
 	slices.SortStableFunc(routes, func(a, b *DesiredRoute) int {
-		adminDiff := int(a.AdminDistance) - int(b.AdminDistance)
-		if adminDiff == 0 {
-			if a.Owner.name < b.Owner.name {
-				return -1
-			}
-			if a.Owner.name > b.Owner.name {
-				return 1
-			}
-		}
-
-		return adminDiff
+		return cmp.Or(
+			cmp.Compare(a.AdminDistance, b.AdminDistance),
+			cmp.Compare(a.Owner.name, b.Owner.name),
+		)
 	})
 
 	// Mark first route as selected, and all others as not selected.
@@ -253,7 +246,7 @@ func (m *DesiredRouteManager) selectRoutes(txn statedb.WriteTxn, key DesiredRout
 			continue
 		}
 
-		changed := route.SetStatus(reconciler.StatusPending())
+		changed := route.WithStatus(reconciler.StatusPending())
 		changed.selected = selected
 		if _, _, err := m.tbl.Insert(txn, changed); err != nil {
 			return err
