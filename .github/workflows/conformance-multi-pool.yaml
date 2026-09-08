@@ -247,6 +247,10 @@ jobs:
             KUBEPROXYMODE=none \
             envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-multi-pool.yaml
 
+      - name: Add external docker network
+        uses: ./.github/actions/kind-external-network
+        id: external_network
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -318,6 +322,18 @@ jobs:
 
           kubectl patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
 
+      # This must run after the step above, which replaces the whole CoreDNS
+      # ConfigMap and would drop the server block appended here.
+      - name: Add external targets to kind cluster
+        uses: ./.github/actions/kind-external-targets
+        id: external_targets
+        with:
+          kind_network: ${{ steps.external_network.outputs.kind_network }}
+          ipv4_external_target: ${{ steps.external_network.outputs.ipv4_external_target }}
+          ipv4_other_external_target: ${{ steps.external_network.outputs.ipv4_other_external_target }}
+          ipv6_external_target: ${{ steps.external_network.outputs.ipv6_external_target }}
+          ipv6_other_external_target: ${{ steps.external_network.outputs.ipv6_other_external_target }}
+
       - name: Get connectivity test flags
         id: e2e_config
         uses: ./.github/actions/cli-test-config
@@ -325,6 +341,16 @@ jobs:
           hubble: false
           include-unsafe-tests: true
           test-concurrency: 5
+          external-cidr: ${{ steps.external_network.outputs.ipv4_external_cidr }}
+          external-cidrv6: ${{ steps.external_network.outputs.ipv6_external_cidr }}
+          external-ip: ${{ steps.external_network.outputs.ipv4_external_target }}
+          external-ipv6: ${{ steps.external_network.outputs.ipv6_external_target }}
+          external-other-ip: ${{ steps.external_network.outputs.ipv4_other_external_target }}
+          external-other-ipv6: ${{ steps.external_network.outputs.ipv6_other_external_target }}
+          external-target: ${{ steps.external_targets.outputs.external_target_name }}
+          external-other-target: ${{ steps.external_targets.outputs.other_external_target_name }}
+          external-target-ca-namespace: external-target-secrets
+          external-target-ca-name: custom-ca
 
       - name: Set up connectivity test variables
         id: conn_vars
