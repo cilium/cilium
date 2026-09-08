@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // mcsAPIServiceReconciler is a controller that creates a derived service from
@@ -82,17 +83,9 @@ func servicePorts(svcImport *mcsapiv1beta1.ServiceImport) []corev1.ServicePort {
 }
 
 // getDesiredIPs returns the IPs of the ServiceImport based on the derived Service
-func getDesiredIPs(svc *corev1.Service) []string {
+func getDesiredIPs(svc *corev1.Service, ipFamilies []corev1.IPFamily) []string {
 	if svc.Spec.ClusterIP == corev1.ClusterIPNone {
 		return []string{}
-	}
-
-	valIPFamilies, ok := svc.Annotations[annotation.SupportedIPFamilies]
-	ipFamilies, err := mcsapitypes.IPFamiliesFromString(valIPFamilies)
-	if !ok || err != nil {
-		// Fallback to all ips if the annotation is not set. This is likely
-		// because we are upgrading to Cilium 1.19
-		return slices.Clone(svc.Spec.ClusterIPs)
 	}
 
 	// get IPs in the order of the supported ip families
@@ -243,10 +236,24 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return controllerruntime.Success()
 	}
 
-	if val, ok := svcImport.Annotations[annotation.SupportedIPFamilies]; val == "" && ok {
-		// If we don't have any supported ip families, we can bail out and cleanup
-		// any existing derived service
+	valIPFamilies, ok := svcImport.Annotations[annotation.SupportedIPFamilies]
+	ipFamilies, err := mcsapitypes.IPFamiliesFromString(valIPFamilies)
+	if !ok || err != nil {
+		r.Logger.Warn(
+			"ServiceImport has no supported ip families annotation or is invalid",
+			logfields.Request, req.NamespacedName,
+			logfields.Error, err,
+		)
+		// Let's just stop if we have on an unexpected case instead of deleting
+		// the derived service. Deleting would be highly disruptive as we would
+		// loose the ClusterIP and delete all the related EndpointSlices.
+		return controllerruntime.Success()
+	}
+	if len(ipFamilies) == 0 {
 		if svcExists {
+			// If we don't have any ip families, the ServiceImport should have
+			// a condition indicating the failure and here we can just bail out
+			// and delete the derived service if it exists
 			return controllerruntime.Fail(client.IgnoreNotFound(r.Client.Delete(ctx, svc)))
 		}
 		return controllerruntime.Success()
@@ -292,7 +299,7 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Update the ServiceImport object after the derived Service creation
-	return controllerruntime.Fail(r.patchServiceImport(ctx, svcImport, derivedServiceName, getDesiredIPs(svc)))
+	return controllerruntime.Fail(r.patchServiceImport(ctx, svcImport, derivedServiceName, getDesiredIPs(svc, ipFamilies)))
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -170,18 +170,17 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) shouldMirrorLocalEndpointSlice(
 		return false, client.IgnoreNotFound(err)
 	}
 
-	// Only mirrors EndpointSlice compatible with the derived Service IP family
 	valIPFamilies, ok := derivedService.Annotations[annotation.SupportedIPFamilies]
 	ipFamilies, err := mcsapitypes.IPFamiliesFromString(valIPFamilies)
 	if !ok || err != nil {
-		// Fallback to service IPFamilies if the annotation is not set.
-		// This is likely because we are upgrading to Cilium 1.19
-		ipFamilies = derivedService.Spec.IPFamilies
-	}
-	if !slices.Contains(ipFamilies, corev1.IPFamily(localEpSlice.AddressType)) {
+		r.Logger.Warn(
+			"Derived Service has no supported ip families annotation or is invalid",
+			logfields.Request, client.ObjectKeyFromObject(localEpSlice),
+			logfields.Error, err,
+		)
 		return false, nil
 	}
-	return true, nil
+	return slices.Contains(ipFamilies, corev1.IPFamily(localEpSlice.AddressType)), nil
 }
 
 // getFilteredPorts returns a filtered version of the local EndpointSlice ports

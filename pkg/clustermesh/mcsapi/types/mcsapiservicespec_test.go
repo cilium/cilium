@@ -27,6 +27,7 @@ func TestMCSAPIServiceSpec(t *testing.T) {
 		Ports:                   []mcsapiv1beta1.ServicePort{},
 		Type:                    mcsapiv1beta1.ClusterSetIP,
 		SessionAffinity:         corev1.ServiceAffinityNone,
+		IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 	}
 	require.Equal(t, "cluster1/bar/foo", mcsAPISvcSpec.GetKeyName())
 
@@ -62,8 +63,41 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 				ExportCreationTimestamp: exportTime,
 				Type:                    mcsapiv1beta1.ClusterSetIP,
 				SessionAffinity:         corev1.ServiceAffinityNone,
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 			},
 			assert: assert.NoError,
+		},
+		{
+			name: "empty IP families",
+			mcsAPISvcSpec: MCSAPIServiceSpec{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				ExportCreationTimestamp: exportTime,
+				Type:                    mcsapiv1beta1.ClusterSetIP,
+				SessionAffinity:         corev1.ServiceAffinityNone,
+			},
+			assert: assert.Error,
+		},
+		{
+			name: "unknown IP family",
+			mcsAPISvcSpec: MCSAPIServiceSpec{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				ExportCreationTimestamp: exportTime,
+				Type:                    mcsapiv1beta1.ClusterSetIP,
+				SessionAffinity:         corev1.ServiceAffinityNone,
+				IPFamilies:              []corev1.IPFamily{"invalid"},
+			},
+			assert: assert.Error,
+		},
+		{
+			name: "duplicated IP family",
+			mcsAPISvcSpec: MCSAPIServiceSpec{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				ExportCreationTimestamp: exportTime,
+				Type:                    mcsapiv1beta1.ClusterSetIP,
+				SessionAffinity:         corev1.ServiceAffinityNone,
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv4Protocol},
+			},
+			assert: assert.Error,
 		},
 		{
 			name: "invalid exportCreationTimestamp",
@@ -141,6 +175,7 @@ func TestValidatingClusterService(t *testing.T) {
 		ExportCreationTimestamp: exportTime,
 		Type:                    mcsapiv1beta1.ClusterSetIP,
 		SessionAffinity:         corev1.ServiceAffinityNone,
+		IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 	}
 	data, err := mcsAPISvcSpec.Marshal()
 	require.NoError(t, err)
