@@ -147,7 +147,7 @@ And then put the two together into a simple application:
      	 exampleHive.RegisterFlags(cmd.Flags())
 
          // Add the "hive" sub-command for inspecting the application. 
-         cmd.AddCommand(exampleHive.Command()))
+         cmd.AddCommand(exampleHive.Command())
 
          // Execute the root command.
          cmd.Execute()
