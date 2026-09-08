@@ -50,6 +50,7 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 	require.Equal(t, models.NamedPorts{}, status.NamedPorts)
 	// ServiceAccount should be empty when no pod is set
 	require.Empty(t, status.ServiceAccount)
+	require.Nil(t, status.Workload)
 }
 
 func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
@@ -74,11 +75,21 @@ func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
 	e, err := NewEndpointFromChangeModel(p, nil, &FakeEndpointProxy{}, m, nil)
 	require.NoError(t, err)
 
-	// Create a mock pod with ServiceAccount
+	controller := true
+	// Create a mock pod with ServiceAccount and workload metadata.
 	pod := &slim_corev1.Pod{
 		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "PodName",
-			Namespace: "Namespace",
+			Name:         "test-workload-7c9f55d4b9-abcde",
+			GenerateName: "test-workload-7c9f55d4b9-",
+			Namespace:    "Namespace",
+			Labels: map[string]string{
+				"pod-template-hash": "7c9f55d4b9",
+			},
+			OwnerReferences: []slim_metav1.OwnerReference{{
+				Kind:       "ReplicaSet",
+				Name:       "test-workload-7c9f55d4b9",
+				Controller: &controller,
+			}},
 		},
 		Spec: slim_corev1.PodSpec{
 			ServiceAccountName: "test-service-account",
@@ -102,4 +113,5 @@ func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
 	require.Equal(t, models.NamedPorts{}, status.NamedPorts)
 	// ServiceAccount should match the pod's ServiceAccountName
 	require.Equal(t, "test-service-account", status.ServiceAccount)
+	require.Equal(t, &v2.EndpointWorkload{Name: "test-workload", Kind: "Deployment"}, status.Workload)
 }

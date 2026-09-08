@@ -29,6 +29,7 @@ type CiliumEndpoint struct {
 	Encryption     *v2.EncryptionSpec
 	NamedPorts     models.NamedPorts
 	ServiceAccount string
+	Workload       *v2.EndpointWorkload
 }
 
 func (in *CiliumEndpoint) DeepEqual(other *CiliumEndpoint) bool {
