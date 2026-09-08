@@ -511,6 +511,8 @@ jobs:
           # Set to false for testing the workflow.
           CL2_ENABLE_VIOLATIONS: "false"
         run: |
+          echo "test_start_ms=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
+
           echo "CL2-related environment variables"
           printenv | grep CL2_
 
@@ -574,6 +576,42 @@ jobs:
 
           # The cilium-cli creates files owned by the root user when run as a container.
           sudo chmod --recursive +r ./report
+
+      - name: Collect dashboard and post to job summary
+        id: post-test-render-dashboard
+        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+        continue-on-error: true
+        timeout-minutes: 10
+        working-directory: ./.github/actions/cl2-modules/policy-churn
+        env:
+          DASHBOARD_FROM_MS: ${{ steps.run-cl2.outputs.test_start_ms }}
+          OUTPUT_PATH: ${{ github.workspace }}/perf-tests/clusterloader2/report/cilium-scale-dashboard.png
+        run: |
+          sudo apt-get install -y imagemagick
+          ./dashboard/render.sh
+
+      - name: Upload test result dashboard
+        id: upload-results-dashboard
+        if: ${{ always() && steps.post-test-render-dashboard.outcome != 'skipped' && steps.post-test-render-dashboard.outcome != 'cancelled' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: result-dashboard-${{ matrix.scenario }}-${{ github.run_attempt }}
+          path: perf-tests/clusterloader2/report/cilium-scale-dashboard.png
+          if-no-files-found: warn
+          retention-days: 7
+          archive: false
+
+      - name: Update result summary with dashboard image
+        if: ${{ always() && steps.post-test-render-dashboard.outcome != 'skipped' && steps.post-test-render-dashboard.outcome != 'cancelled' }}
+        run: |
+          DASHBOARD_IMAGE_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-results-dashboard.outputs.artifact-id }}"
+          {
+            echo "### Dashboard - ${{ matrix.scenario }}"
+            echo ""
+            echo "![Dashboard screenshot](${DASHBOARD_IMAGE_URL})"
+            echo ""
+            echo "Also uploaded as the \`result-dashboard-${{ matrix.scenario }}-${{ github.run_attempt }}\` artifact for this run."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Get sysdump
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
