@@ -29,7 +29,7 @@ type Writer struct {
 	db    *statedb.DB
 	nodes statedb.RWTable[*Node]
 
-	isStaticLocalRouterIP  func(string) bool
+	isStaticLocalRouterIP  func(netip.Addr) bool
 	prefixClusterMutatorFn PrefixClusterMutatorFn
 
 	requiredReconcilers []NodeReconciler

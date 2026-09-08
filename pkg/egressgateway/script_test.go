@@ -7,7 +7,7 @@ import (
 	"context"
 	"log/slog"
 	"maps"
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sFake "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
@@ -178,7 +179,7 @@ func (m *mockNodeSync) InitLocalNode(ctx context.Context, n *node.LocalNode) err
 	n.Node = nodeTypes.Node{
 		Name: "localnode1",
 		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("172.18.0.3")},
+			{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("172.18.0.3"))},
 		},
 	}
 	return nil

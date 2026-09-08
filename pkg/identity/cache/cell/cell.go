@@ -7,7 +7,7 @@ import (
 	"cmp"
 	"context"
 	"log/slog"
-	"net"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/stream"
@@ -169,7 +169,7 @@ type identityAllocatorOwner struct {
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this
 // agent
 func (iao *identityAllocatorOwner) GetNodeSuffix() string {
-	var ip net.IP
+	var ip netip.Addr
 
 	ln, err := iao.localNodeStore.Get(context.Background())
 	if err != nil {
@@ -183,7 +183,7 @@ func (iao *identityAllocatorOwner) GetNodeSuffix() string {
 		ip = ln.GetNodeIP(true)
 	}
 
-	if ip == nil {
+	if !ip.IsValid() {
 		logging.Fatal(iao.logger, "Node IP not available yet")
 	}
 

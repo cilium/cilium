@@ -144,11 +144,10 @@ func nodeIPSets(
 			if address.Type != addressing.NodeInternalIP {
 				continue
 			}
-			addr, ok := netip.AddrFromSlice(address.IP)
-			if !ok {
+			addr := address.IP.Addr
+			if !addr.IsValid() {
 				continue
 			}
-			addr = addr.Unmap()
 			if addr.Is4() {
 				v4.Insert(addr)
 			} else {

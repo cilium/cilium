@@ -123,7 +123,7 @@ func (ini *localNodeSynchronizer) WaitForNodeInformation(ctx context.Context, st
 			logfields.K8sNodeIP, k8sNodeIP,
 		)
 
-		if option.Config.EnableIPv6 && nodeIP6 == nil {
+		if option.Config.EnableIPv6 && !nodeIP6.IsValid() {
 			ini.Logger.Warn("IPv6 is enabled, but Cilium cannot find the IPv6 address for this node. " +
 				"This may cause connectivity disruption for Endpoints that attempt to communicate using IPv6")
 		}

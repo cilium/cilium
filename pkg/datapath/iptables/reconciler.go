@@ -51,12 +51,9 @@ func (lni localNodeInfo) isValid() bool {
 }
 
 func toLocalNodeInfo(n node.LocalNode) localNodeInfo {
-	internalIPv4, _ := netip.AddrFromSlice(n.GetCiliumInternalIPv4().To4())
-	internalIPv6, _ := netip.AddrFromSlice(n.GetCiliumInternalIPv6().To16())
-
 	return localNodeInfo{
-		internalIPv4:          internalIPv4,
-		internalIPv6:          internalIPv6,
+		internalIPv4:          n.GetCiliumInternalIPv4(),
+		internalIPv6:          n.GetCiliumInternalIPv6(),
 		ipv4AllocCIDR:         n.IPv4AllocCIDR.Prefix.Prefix,
 		ipv6AllocCIDR:         n.IPv6AllocCIDR.Prefix.Prefix,
 		ipv4NativeRoutingCIDR: n.Local.IPv4NativeRoutingCIDR,

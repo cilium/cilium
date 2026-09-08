@@ -6,7 +6,6 @@ package k8s
 import (
 	"fmt"
 	"log/slog"
-	"net"
 	"net/netip"
 	"strconv"
 
@@ -68,19 +67,22 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 		addrGroup := nodeAddressGroup{
 			typ: addr.Type,
 		}
-		ip := net.ParseIP(addr.Address)
-		switch {
-		case ip != nil && ip.To4() != nil:
-			addrGroup.family = slim_corev1.IPv4Protocol
-		case ip != nil && ip.To16() != nil:
-			addrGroup.family = slim_corev1.IPv6Protocol
-		default:
+		ip, err := netip.ParseAddr(addr.Address)
+		if err != nil {
 			scopedLog.Warn(
 				"Ignoring invalid node IP",
 				logfields.IPAddr, addr.Address,
 				logfields.Type, addr.Type,
 			)
 			continue
+		}
+		// Unmap before deriving the family, so that an IPv4-mapped IPv6 form
+		// groups with the dotted quad it normalizes to in NewAddress below.
+		ip = ip.Unmap()
+		if ip.Is4() {
+			addrGroup.family = slim_corev1.IPv4Protocol
+		} else {
+			addrGroup.family = slim_corev1.IPv6Protocol
 		}
 		_, groupFound := addrGroups[addrGroup]
 		if groupFound {
@@ -100,11 +102,7 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 			)
 		}
 
-		na := nodeTypes.Address{
-			Type: addressType,
-			IP:   ip,
-		}
-		addrs = append(addrs, na)
+		addrs = append(addrs, nodeTypes.NewAddress(addressType, ip))
 	}
 	newNode := &nodeTypes.Node{
 		Name:        k8sNode.Name,
@@ -177,17 +175,13 @@ func ParseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, source source.Sou
 				logfields.Key, key,
 				logfields.Alias, alias,
 			)
-		} else if ip := net.ParseIP(ciliumInternalIP); ip == nil {
+		} else if ip, err := netip.ParseAddr(ciliumInternalIP); err != nil {
 			scopedLog.Debug(
 				"Parse IP error",
 				logfields.IPAddr, ciliumInternalIP,
 			)
 		} else {
-			na := nodeTypes.Address{
-				Type: addressing.NodeCiliumInternalIP,
-				IP:   ip,
-			}
-			addrs = append(addrs, na)
+			addrs = append(addrs, nodeTypes.NewAddress(addressing.NodeCiliumInternalIP, ip))
 			scopedLog.Debug(
 				"Add NodeCiliumInternalIP",
 				logfields.IPAddr, ip,
@@ -373,8 +367,8 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode, clusterInfo cmtypes.ClusterInfo) (n
 	node.IPv6IngressIP = iputil.AddrFrom(v6IngressIP)
 
 	for _, address := range n.Spec.Addresses {
-		if ip := net.ParseIP(address.IP); ip != nil {
-			node.IPAddresses = append(node.IPAddresses, nodeTypes.Address{Type: address.Type, IP: ip})
+		if ip, err := netip.ParseAddr(address.IP); err == nil {
+			node.IPAddresses = append(node.IPAddresses, nodeTypes.NewAddress(address.Type, ip))
 		}
 	}
 

@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ip"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/kpr"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -93,29 +94,29 @@ func setupNodeSuite(tb testing.TB, addressing node.Addressing, enableIPv6, enabl
 
 	ips := make([]net.IP, 0)
 	if enableIPv6 {
-		ips = append(ips, addressing.IPv6().PrimaryExternal())
+		ips = append(ips, addressing.IPv6().PrimaryExternal().AsSlice())
 	}
 	if enableIPv4 {
-		ips = append(ips, addressing.IPv4().PrimaryExternal())
+		ips = append(ips, addressing.IPv4().PrimaryExternal().AsSlice())
 	}
 	devExt := mustSetupDevice(tb, s.ns, externalDevice, ips...)
 
 	ips = []net.IP{}
 	if enableIPv4 {
-		ips = append(ips, addressing.IPv4().Router())
+		ips = append(ips, addressing.IPv4().Router().AsSlice())
 	}
 	if enableIPv6 {
-		ips = append(ips, addressing.IPv6().Router())
+		ips = append(ips, addressing.IPv6().Router().AsSlice())
 	}
 	devHost := mustSetupDevice(tb, s.ns, hostDevice, ips...)
 
 	s.nodeConfigTemplate = config.Config{
 		Devices:             []*tables.Device{devExt, devHost},
 		DirectRoutingDevice: devHost,
-		NodeIPv4:            ip.AddrFromIP(addressing.IPv4().PrimaryExternal()),
-		NodeIPv6:            ip.AddrFromIP(addressing.IPv6().PrimaryExternal()),
-		CiliumInternalIPv4:  ip.AddrFromIP(addressing.IPv4().Router()),
-		CiliumInternalIPv6:  ip.AddrFromIP(addressing.IPv6().Router()),
+		NodeIPv4:            addressing.IPv4().PrimaryExternal(),
+		NodeIPv6:            addressing.IPv6().PrimaryExternal(),
+		CiliumInternalIPv4:  addressing.IPv4().Router(),
+		CiliumInternalIPv6:  addressing.IPv6().Router(),
 		EnableIPv4:          s.enableIPv4,
 		EnableIPv6:          s.enableIPv6,
 		DeviceMTU:           s.mtuCalc.DeviceMTU,
@@ -397,7 +398,7 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 		Name:      "node1",
 		ClusterID: 11,
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNodeIP1)), Type: nodeaddressing.NodeInternalIP},
 		},
 	}
 
@@ -425,7 +426,7 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 		Name:      "node1",
 		ClusterID: 11,
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNodeIP1)), Type: nodeaddressing.NodeInternalIP},
 		},
 	}
 
@@ -463,7 +464,7 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 		Name:      "node1",
 		ClusterID: 11,
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNodeIP1)), Type: nodeaddressing.NodeInternalIP},
 		},
 	}
 	mustUpdateNode(t, s.ns, lnh, nodev2, nodev3)
@@ -485,7 +486,7 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 		Name:      "node1",
 		ClusterID: 11,
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNodeIP1)), Type: nodeaddressing.NodeInternalIP},
 		},
 	}
 
@@ -557,7 +558,7 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 	node1v1 := nodeTypes.Node{
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: nodeIP1.AsSlice(), Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(nodeIP1), Type: nodeaddressing.NodeInternalIP},
 		},
 	}
 	mustAddNode(t, s.ns, lnh, node1v1)
@@ -570,8 +571,8 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 	node1v2 := nodeTypes.Node{
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: nodeIP1.AsSlice(), Type: nodeaddressing.NodeInternalIP},
-			{IP: nodeIP2.AsSlice(), Type: nodeaddressing.NodeExternalIP},
+			{IP: iputil.AddrFrom(nodeIP1), Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(nodeIP2), Type: nodeaddressing.NodeExternalIP},
 		},
 	}
 	mustUpdateNode(t, s.ns, lnh, node1v1, node1v2)
@@ -586,7 +587,7 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 	node1v3 := nodeTypes.Node{
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: nodeIP2.AsSlice(), Type: nodeaddressing.NodeExternalIP},
+			{IP: iputil.AddrFrom(nodeIP2), Type: nodeaddressing.NodeExternalIP},
 		},
 	}
 	mustUpdateNode(t, s.ns, lnh, node1v2, node1v3)
@@ -601,7 +602,7 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 	node2 := nodeTypes.Node{
 		Name: "node2",
 		IPAddresses: []nodeTypes.Address{
-			{IP: nodeIP1.AsSlice(), Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(nodeIP1), Type: nodeaddressing.NodeInternalIP},
 		},
 	}
 	mustAddNode(t, s.ns, lnh, node2)
@@ -620,8 +621,8 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 	node3 := nodeTypes.Node{
 		Name: "node3",
 		IPAddresses: []nodeTypes.Address{
-			{IP: nodeIP2.AsSlice(), Type: nodeaddressing.NodeInternalIP},
-			{IP: nodeIP3.AsSlice(), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: iputil.AddrFrom(nodeIP2), Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(nodeIP3), Type: nodeaddressing.NodeCiliumInternalIP},
 		},
 	}
 	mustAddNode(t, s.ns, lnh, node3)
@@ -711,10 +712,10 @@ func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.
 	node := nodeTypes.Node{
 		Name: "node",
 		IPAddresses: []nodeTypes.Address{
-			{IP: net.ParseIP("4.4.4.4"), Type: nodeaddressing.NodeCiliumInternalIP},
-			{IP: net.ParseIP("3.3.3.3"), Type: nodeaddressing.NodeInternalIP},
-			{IP: net.ParseIP("2001:aaaa::1"), Type: nodeaddressing.NodeCiliumInternalIP},
-			{IP: net.ParseIP("2001:bbbb::1"), Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(netip.MustParseAddr("4.4.4.4")), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: iputil.AddrFrom(netip.MustParseAddr("3.3.3.3")), Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(netip.MustParseAddr("2001:aaaa::1")), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: iputil.AddrFrom(netip.MustParseAddr("2001:bbbb::1")), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR: nodeTypes.PrefixFrom(netip.MustParsePrefix("4.4.4.0/24")),
 		IPv6AllocCIDR: nodeTypes.PrefixFrom(netip.MustParsePrefix("2001:aaaa::/96")),
@@ -814,7 +815,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	nodev1 := nodeTypes.Node{
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNode1IP4v1, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v1)), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR: nodeTypes.PrefixFrom(ip4Alloc1),
 	}
@@ -827,7 +828,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	nodev2 := nodeTypes.Node{
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNode1IP4v2, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR: nodeTypes.PrefixFrom(ip4Alloc1),
 	}
@@ -840,7 +841,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	nodev3 := nodeTypes.Node{
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNode1IP4v2, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR: nodeTypes.PrefixFrom(ip4Alloc2),
 	}
@@ -856,7 +857,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	nodev4 := nodeTypes.Node{
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNode1IP4v2, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
 		},
 	}
 	mustUpdateNode(t, s.ns, lnh, nodev3, nodev4)
@@ -868,7 +869,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	nodev5 := nodeTypes.Node{
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNode1IP4v2, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR: nodeTypes.PrefixFrom(ip4Alloc2),
 	}
@@ -887,7 +888,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	nodev6 := nodeTypes.Node{
 		Name: "node2",
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNode1IP4v1, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v1)), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR:           nodeTypes.PrefixFrom(ip4Alloc1),
 		IPv4SecondaryAllocCIDRs: cslices.Map([]netip.Prefix{ipv4SecondaryAlloc1, ipv4SecondaryAlloc2}, nodeTypes.PrefixFrom),
@@ -903,7 +904,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	nodev7 := nodeTypes.Node{
 		Name: "node2",
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNode1IP4v1, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v1)), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR:           nodeTypes.PrefixFrom(ip4Alloc1),
 		IPv4SecondaryAllocCIDRs: cslices.Map([]netip.Prefix{ipv4SecondaryAlloc1, ipv4SecondaryAlloc3}, nodeTypes.PrefixFrom),
@@ -921,7 +922,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	nodev8 := nodeTypes.Node{
 		Name: "node2",
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNode1IP4v2, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR:           nodeTypes.PrefixFrom(ip4Alloc1),
 		IPv4SecondaryAllocCIDRs: cslices.Map([]netip.Prefix{ipv4SecondaryAlloc1, ipv4SecondaryAlloc3}, nodeTypes.PrefixFrom),
@@ -941,7 +942,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	nodev9 := nodeTypes.Node{
 		Name: "node2",
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNode1IP4v2, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR:           nodeTypes.PrefixFrom(ip4Alloc2),
 		IPv4SecondaryAllocCIDRs: cslices.Map([]netip.Prefix{}, nodeTypes.PrefixFrom),
@@ -960,7 +961,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	nodev10 := nodeTypes.Node{
 		Name: "node2",
 		IPAddresses: []nodeTypes.Address{
-			{IP: externalNode1IP4v1, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v1)), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR:           nodeTypes.PrefixFrom(ip4Alloc1),
 		IPv4SecondaryAllocCIDRs: cslices.Map([]netip.Prefix{ipv4SecondaryAlloc1, ipv4SecondaryAlloc2}, nodeTypes.PrefixFrom),
@@ -1056,7 +1057,7 @@ func testNodeValidationDirectRouting(t *testing.T, family string) {
 
 	if s.enableIPv4 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   net.IP(nodeConfig.NodeIPv4.AsSlice()),
+			IP:   iputil.AddrFrom(nodeConfig.NodeIPv4),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv4AllocCIDR = nodeTypes.PrefixFrom(ip4Alloc1)
@@ -1064,7 +1065,7 @@ func testNodeValidationDirectRouting(t *testing.T, family string) {
 
 	if s.enableIPv6 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   net.IP(nodeConfig.NodeIPv6.AsSlice()),
+			IP:   iputil.AddrFrom(nodeConfig.NodeIPv6),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv6AllocCIDR = nodeTypes.PrefixFrom(ip6Alloc1)
@@ -1256,10 +1257,10 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 	remoteNode1V1 := nodeTypes.Node{
 		Name: "remote_node_1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: net.ParseIP("1.1.1.1"), Type: nodeaddressing.NodeCiliumInternalIP},
-			{IP: remoteNode1IPv4, Type: nodeaddressing.NodeInternalIP},
-			{IP: net.ParseIP("face::3"), Type: nodeaddressing.NodeCiliumInternalIP},
-			{IP: remoteNode1IPv6, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(remoteNode1IPv4)), Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(netip.MustParseAddr("face::3")), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(remoteNode1IPv6)), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR:           nodeTypes.PrefixFrom(remoteNode1IPv4AllocCIDRsV1[0]),
 		IPv4SecondaryAllocCIDRs: cslices.Map(remoteNode1IPv4AllocCIDRsV1[1:], nodeTypes.PrefixFrom),
@@ -1291,10 +1292,10 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 	remoteNode2V1 := nodeTypes.Node{
 		Name: "remote_node_2",
 		IPAddresses: []nodeTypes.Address{
-			{IP: net.ParseIP("2.2.2.2"), Type: nodeaddressing.NodeCiliumInternalIP},
-			{IP: remoteNode2IPv4, Type: nodeaddressing.NodeInternalIP},
-			{IP: net.ParseIP("face::4"), Type: nodeaddressing.NodeCiliumInternalIP},
-			{IP: remoteNode2IPv6, Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(netip.MustParseAddr("2.2.2.2")), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(remoteNode2IPv4)), Type: nodeaddressing.NodeInternalIP},
+			{IP: iputil.AddrFrom(netip.MustParseAddr("face::4")), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: iputil.AddrFrom(iputil.AddrFromIP(remoteNode2IPv6)), Type: nodeaddressing.NodeInternalIP},
 		},
 		IPv4AllocCIDR:           nodeTypes.PrefixFrom(remoteNode2IPv4AllocCIDRsV1[0]),
 		IPv4SecondaryAllocCIDRs: cslices.Map(remoteNode2IPv4AllocCIDRsV1[1:], nodeTypes.PrefixFrom),

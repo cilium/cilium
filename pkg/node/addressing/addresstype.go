@@ -4,7 +4,7 @@
 package addressing
 
 import (
-	"net"
+	"net/netip"
 )
 
 // AddressType represents a type of IP address for a node. They are copied
@@ -23,23 +23,24 @@ const (
 
 type Address interface {
 	AddrType() AddressType
-	ToString() string
+	// Addr returns the address, or the zero value if it does not hold a
+	// valid IP address.
+	Addr() netip.Addr
 }
 
 // ExtractNodeIP returns one of the provided IP addresses available with the following priority:
 // - NodeInternalIP
 // - NodeExternalIP
 // - other IP address type
-// An error is returned if ExtractNodeIP fails to get an IP based on the provided address family.
-func ExtractNodeIP[T Address](addrs []T, ipv6 bool) net.IP {
-	var backupIP net.IP
+// The zero value is returned if ExtractNodeIP fails to get an IP based on the provided address family.
+func ExtractNodeIP[T Address](addrs []T, ipv6 bool) netip.Addr {
+	var backupIP netip.Addr
 	for _, addr := range addrs {
-		parsed := net.ParseIP(addr.ToString())
-		if parsed == nil {
+		parsed := addr.Addr()
+		if !parsed.IsValid() {
 			continue
 		}
-		if (ipv6 && parsed.To4() != nil) ||
-			(!ipv6 && parsed.To4() == nil) {
+		if ipv6 == parsed.Is4() {
 			continue
 		}
 		switch addr.AddrType() {
@@ -56,7 +57,7 @@ func ExtractNodeIP[T Address](addrs []T, ipv6 bool) net.IP {
 		default:
 			// As a last resort, if no internal or external
 			// IP was found, use any node address available
-			if backupIP == nil {
+			if !backupIP.IsValid() {
 				backupIP = parsed
 			}
 		}
