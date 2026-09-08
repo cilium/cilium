@@ -4761,10 +4761,6 @@ func init() {
           "description": "Status of core datapath attachment mode",
           "$ref": "#/definitions/AttachMode"
         },
-        "auth-certificate-provider": {
-          "description": "Status of Mutual Authentication certificate provider",
-          "$ref": "#/definitions/Status"
-        },
         "bandwidth-manager": {
           "description": "Status of bandwidth manager",
           "$ref": "#/definitions/BandwidthManager"
@@ -10657,10 +10653,6 @@ func init() {
         "attach-mode": {
           "description": "Status of core datapath attachment mode",
           "$ref": "#/definitions/AttachMode"
-        },
-        "auth-certificate-provider": {
-          "description": "Status of Mutual Authentication certificate provider",
-          "$ref": "#/definitions/Status"
         },
         "bandwidth-manager": {
           "description": "Status of bandwidth manager",

@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
-	"github.com/cilium/cilium/pkg/auth"
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -96,7 +95,6 @@ type featuresParams struct {
 	KPRConfig           kpr.KPRConfig
 	TunnelConfig        tunnel.Config
 	CNIConfigManager    cni.CNIConfigManager
-	MutualAuth          auth.MeshAuthConfig
 	BandwidthManager    bandwidth.Manager
 	BigTCP              bigtcp.Features
 	L2PodAnnouncement   gneigh.L2PodAnnouncementConfig
@@ -113,10 +111,6 @@ func (fp *featuresParams) TunnelProtocol() tunnel.EncapProtocol {
 
 func (fp *featuresParams) GetChainingMode() string {
 	return fp.CNIConfigManager.GetChainingMode()
-}
-
-func (fp *featuresParams) IsMutualAuthEnabled() bool {
-	return fp.MutualAuth.IsEnabled()
 }
 
 func (fp *featuresParams) IsBandwidthManagerEnabled() bool {
@@ -154,7 +148,6 @@ func (fp *featuresParams) KernelVersion() string {
 type enabledFeatures interface {
 	TunnelProtocol() tunnel.EncapProtocol
 	GetChainingMode() string
-	IsMutualAuthEnabled() bool
 	IsBandwidthManagerEnabled() bool
 	BigTCPFeatures() bigtcp.Features
 	IsL2PodAnnouncementEnabled() bool

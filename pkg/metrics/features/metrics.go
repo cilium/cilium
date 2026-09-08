@@ -41,7 +41,6 @@ type Metrics struct {
 
 	NPHostFirewallEnabled        metric.Gauge
 	NPLocalRedirectPolicyEnabled metric.Gauge
-	NPMutualAuthEnabled          metric.Gauge
 	NPNonDefaultDenyEnabled      metric.Gauge
 	NPCIDRPoliciesMode           metric.Vec[metric.Gauge]
 
@@ -400,13 +399,6 @@ func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "local_redirect_policy_enabled",
-		}),
-
-		NPMutualAuthEnabled: metric.NewGauge(metric.GaugeOpts{
-			Help:      "Mutual Auth enabled on the agent",
-			Namespace: metrics.Namespace,
-			Subsystem: subsystemNP,
-			Name:      "mutual_auth_enabled",
 		}),
 
 		NPNonDefaultDenyEnabled: metric.NewGauge(metric.GaugeOpts{
@@ -1033,10 +1025,6 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 
 	if config.EnableLocalRedirectPolicy {
 		m.NPLocalRedirectPolicyEnabled.Set(1)
-	}
-
-	if params.IsMutualAuthEnabled() {
-		m.NPMutualAuthEnabled.Set(1)
 	}
 
 	if config.EnableNonDefaultDenyPolicies {
