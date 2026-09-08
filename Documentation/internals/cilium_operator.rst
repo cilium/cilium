@@ -196,15 +196,3 @@ task of parsing Ingress or Gateway API objects and converting them into
 Additionally, Secrets used by Ingress or Gateway API objects will be synced to
 a Cilium-managed namespace that the Cilium Agent is then granted access to. This
 reduces the permissions required of the Cilium Agent.
-
-Mutual Authentication Support
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When Cilium's Mutual Authentication Support is enabled, the Cilium Operator is
-responsible for ensuring that each Cilium Identity has an associated identity
-in the certificate management system. It will create and delete identity
-registrations in the configured certificate management section as required.
-The Cilium Operator does not, however have any to the key material in the
-identities.
-
-That information is only shared with the Cilium Agent via other channels.
