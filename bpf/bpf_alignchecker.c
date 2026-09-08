@@ -18,7 +18,6 @@
 
 #include "lib/common.h"
 add_type(struct auth_key);
-add_type(struct auth_info);
 add_type(struct ipv4_ct_tuple);
 add_type(struct ipv6_ct_tuple);
 

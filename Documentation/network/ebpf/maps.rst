@@ -17,7 +17,6 @@ code. Configuration options will be added on request if demand arises.
 ======================== ================ ================= =====================================================
 Map Name                 Scope            Default Limit     Scale Implications
 ======================== ================ ================= =====================================================
-Auth                     node             512k              Max 512k authenticated relations per node
 Connection Tracking      node             512k TCP/256k UDP Max 512k concurrent TCP connections, max 256k expected UDP answers
 NAT                      node             512k              Max 512k NAT entries
 Neighbor Table           node             512k              Max 512k neighbor entries
@@ -38,7 +37,7 @@ Node                     node             16k               Max 16k distinct nod
 
 For some BPF maps, the upper capacity limit can be overridden using command
 line options for ``cilium-agent``. A given capacity can be set using
-``--bpf-auth-map-max``, ``--bpf-ct-global-tcp-max``, ``--bpf-ct-global-any-max``,
+``--bpf-ct-global-tcp-max``, ``--bpf-ct-global-any-max``,
 ``--bpf-nat-global-max``, ``--bpf-neigh-global-max``, ``--bpf-policy-map-max``,
 ``--bpf-fragments-map-max`` and ``--bpf-lb-map-max``.
 
@@ -120,4 +119,3 @@ Using this, we can roughly the required map size as:
 Once Cilium has created the service LB maps for a Node (i.e. upon first running Cilium agent on a Node), attempting to resize the map size
 parameter and restarting Cilium results in connection disruptions as the new map is repopulated with existing service entries.
 Therefore it is important to carefully consider map requirements prior to installing Cilium if such disruptions are a concern.
-
