@@ -165,6 +165,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 				HostNames:                    []string{h.hostname},
 				HTTPSRedirect:                false,
 				ListenerPort:                 m.HTTP[0].Port,
+				TLSListener:                  port != insecureHost,
 				AllAuthFilters:               allAuthFilters,
 				StatefulSessionFilterEnabled: statefulSessionFilterEnabled,
 			})

@@ -152,6 +152,9 @@ type VirtualHostParameter struct {
 	HTTPSRedirect                bool
 	ListenerPort                 uint32
 	StatefulSessionFilterEnabled bool
+	// TLSListener is true when the virtual host belongs to a listener that
+	// terminates TLS, meaning requests reaching it always arrive over https.
+	TLSListener bool
 	// AllAuthFilters is the deduplicated list of external auth filters active on this listener.
 	// It is used to build per-route TypedPerFilterConfig entries that enable/disable each filter.
 	AllAuthFilters []*model.HTTPExternalAuthFilter
@@ -164,7 +167,11 @@ func (i *cecTranslator) desiredVirtualHost(httpRoutes []model.HTTPRoute, param V
 	if param.HTTPSRedirect {
 		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.AllAuthFilters, param.StatefulSessionFilterEnabled)
 	} else {
-		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.ListenerPort, param.AllAuthFilters, param.StatefulSessionFilterEnabled)
+		listenerScheme := "http"
+		if param.TLSListener {
+			listenerScheme = "https"
+		}
+		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.ListenerPort, listenerScheme, param.AllAuthFilters, param.StatefulSessionFilterEnabled)
 	}
 
 	// This is to make sure that the Exact match is always having higher priority.
@@ -356,7 +363,7 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 	return routes
 }
 
-func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, listenerPort uint32, allAuthFilters []*model.HTTPExternalAuthFilter, statefulSessionFilterEnabled bool) []*envoy_config_route_v3.Route {
+func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, listenerPort uint32, listenerScheme string, allAuthFilters []*model.HTTPExternalAuthFilter, statefulSessionFilterEnabled bool) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
 		key := r.GetBackendAggregationKey()
@@ -402,8 +409,16 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		}
 
 		if hRoutes[0].RequestRedirect != nil {
-			if hRoutes[0].RequestRedirect.Scheme != nil {
-				route.Match.Headers = append(route.Match.Headers, getRouteRedirectMatch(*hRoutes[0].RequestRedirect.Scheme))
+			// The inverted X-Forwarded-Proto match keeps a request that already uses
+			// the target scheme from being redirected again, which would loop when
+			// TLS is terminated by a proxy in front of Envoy.
+			//
+			// It is only meaningful when the redirect actually changes the scheme.
+			// Gateway API defaults Scheme to the scheme of the request, so naming the
+			// scheme the listener already serves is a no-op, and matching on it would
+			// make the route unreachable.
+			if scheme := hRoutes[0].RequestRedirect.Scheme; scheme != nil && !strings.EqualFold(*scheme, listenerScheme) {
+				route.Match.Headers = append(route.Match.Headers, getRouteRedirectMatch(*scheme))
 			}
 			route.Action = getRouteRedirect(hRoutes[0].RequestRedirect, listenerPort)
 		} else {
