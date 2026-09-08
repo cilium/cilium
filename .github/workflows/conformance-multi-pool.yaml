@@ -171,14 +171,6 @@ jobs:
           chart-dir: ./untrusted/install/kubernetes/cilium
           image-pull-secret: "cilium-registry"
 
-      - name: Get connectivity test flags
-        id: e2e_config
-        uses: ./.github/actions/cli-test-config
-        with:
-          hubble: false
-          include-unsafe-tests: true
-          test-concurrency: 5
-
       - name: Set up job variables
         id: vars
         run: |
@@ -244,18 +236,7 @@ jobs:
           CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=true"
           KIND_SVC_CIDR="10.243.0.0/16,fd00:10:243::/112"
 
-          CONNECTIVITY_TEST_DEFAULTS=" ${{ steps.e2e_config.outputs.test_flags }} \
-            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
-            --junit-file \"cilium-junits/${{ env.job_name }} ${{ matrix.name }}.xml\" \
-            --junit-property github_job_step=\"Run tests ${{ matrix.name }}\" \
-            --namespace-annotations=ipam.cilium.io/ip-pool=cilium-test-pool \
-            --deployment-pod-annotations='{ \
-                \"client\":{\"ipam.cilium.io/ip-pool\":\"client-pool\"}, \
-                \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
-            }'"
-
           echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ROUTES} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_MULTIPOOL_IPAM}" >> $GITHUB_OUTPUT
-          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
 
           echo kind_svc_cidr=${KIND_SVC_CIDR} >> $GITHUB_OUTPUT
 
@@ -337,6 +318,29 @@ jobs:
 
           kubectl patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
 
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./.github/actions/cli-test-config
+        with:
+          hubble: false
+          include-unsafe-tests: true
+          test-concurrency: 5
+
+      - name: Set up connectivity test variables
+        id: conn_vars
+        run: |
+          CONNECTIVITY_TEST_DEFAULTS=" ${{ steps.e2e_config.outputs.test_flags }} \
+            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
+            --junit-file \"cilium-junits/${{ env.job_name }} ${{ matrix.name }}.xml\" \
+            --junit-property github_job_step=\"Run tests ${{ matrix.name }}\" \
+            --namespace-annotations=ipam.cilium.io/ip-pool=cilium-test-pool \
+            --deployment-pod-annotations='{ \
+                \"client\":{\"ipam.cilium.io/ip-pool\":\"client-pool\"}, \
+                \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
+            }'"
+
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+
       - name: Create the IPSec secret
         if: matrix.encryption == 'ipsec'
         run: |
@@ -360,7 +364,7 @@ jobs:
       - name: Run connectivity test
         id: run-tests
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+          cilium connectivity test ${{ steps.conn_vars.outputs.connectivity_test_defaults }}
 
       - name: Collect Pod and Pool IPs
         id: ips
