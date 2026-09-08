@@ -568,12 +568,6 @@ bpf:
   stats:
     # -- Enable BPF statistics collection
     enabled: false
-  # @schema
-  # type: [null, integer]
-  # @schema
-  # -- (int) Configure the maximum number of entries in auth map.
-  # @default -- `524288`
-  authMapMax: ~
   # -- Enable CT accounting for packets and bytes
   ctAccounting: false
   # @schema
@@ -4462,8 +4456,6 @@ authentication:
   queueSize: 1024
   # -- Buffer size of the channel Cilium uses to receive certificate expiration events from auth handlers.
   rotatedIdentitiesQueueSize: 1024
-  # -- Interval for garbage collection of auth map entries.
-  gcInterval: "5m0s"
   # Configuration for Cilium's service-to-service mutual authentication using TLS handshakes.
   # Note that this is not full mTLS support without also enabling encryption of some form.
   # Current encryption options are WireGuard or IPsec, configured in encryption block above.

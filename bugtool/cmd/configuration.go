@@ -73,7 +73,6 @@ func cgroup2fsMounts() []string {
 
 // LB and CT map for debugging services; using bpftool for a reliable dump
 var bpfMapsPath = []string{
-	"tc/globals/cilium_auth_map",
 	"tc/globals/cilium_call_policy",
 	"tc/globals/cilium_calls_overlay_2",
 	"tc/globals/cilium_calls_wireguard*",
@@ -418,7 +417,6 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg encrypt status",
 		"cilium-dbg endpoint list",
 		"cilium-dbg endpoint list -o json",
-		"cilium-dbg bpf auth list",
 		"cilium-dbg bpf bandwidth list",
 		"cilium-dbg bpf config list",
 		"cilium-dbg bpf lb list",

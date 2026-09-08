@@ -413,10 +413,6 @@ func (d *statusCollector) getBPFMapStatus() *models.BPFMapStatus {
 		DynamicSizeRatio: d.statusParams.DaemonConfig.BPFMapsDynamicSizeRatio,
 		Maps: []*models.BPFMapProperties{
 			{
-				Name: "Auth",
-				Size: int64(d.statusParams.DaemonConfig.AuthMapEntries),
-			},
-			{
 				Name: "Non-TCP connection tracking",
 				Size: int64(d.statusParams.DaemonConfig.CTMapEntriesGlobalAny),
 			},

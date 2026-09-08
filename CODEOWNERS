@@ -653,7 +653,6 @@ Makefile* @cilium/build
 /pkg/mac @cilium/sig-datapath
 /pkg/maglev @cilium/sig-lb
 /pkg/maps/ @cilium/sig-datapath
-/pkg/maps/authmap @cilium/sig-servicemesh
 /pkg/maps/egressmap @cilium/egress-gateway
 /pkg/maps/encrypt @cilium/ipsec
 /pkg/maps/ipcache @cilium/ipcache

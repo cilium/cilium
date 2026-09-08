@@ -173,12 +173,14 @@ func TestRemoveDisabledMaps(t *testing.T) {
 				"cilium_policy_01234",
 				"cilium_policy_v3_01234",
 				"cilium_policy_v3_reserved_1",
+				"cilium_auth_map",
 			},
 		)
 		depricatedMaps := []string{
 			"cilium_proxy4",
 			"cilium_proxy6",
 			"cilium_policy_01234",
+			"cilium_auth_map",
 		}
 
 		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
