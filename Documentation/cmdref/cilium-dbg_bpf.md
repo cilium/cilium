@@ -23,7 +23,6 @@ Direct access to local BPF maps
 ### SEE ALSO
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
-* [cilium-dbg bpf auth](cilium-dbg_bpf_auth.md)	 - Manage authenticated connections between identities
 * [cilium-dbg bpf bandwidth](cilium-dbg_bpf_bandwidth.md)	 - BPF datapath bandwidth settings
 * [cilium-dbg bpf config](cilium-dbg_bpf_config.md)	 - Manage runtime config
 * [cilium-dbg bpf ct](cilium-dbg_bpf_ct.md)	 - Connection tracking tables

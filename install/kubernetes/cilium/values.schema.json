@@ -100,9 +100,6 @@
         "enabled": {
           "type": "boolean"
         },
-        "gcInterval": {
-          "type": "string"
-        },
         "mutual": {
           "properties": {
             "connectTimeout": {
@@ -535,12 +532,6 @@
     },
     "bpf": {
       "properties": {
-        "authMapMax": {
-          "type": [
-            "null",
-            "integer"
-          ]
-        },
         "autoMount": {
           "properties": {
             "enabled": {

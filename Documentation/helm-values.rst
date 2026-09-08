@@ -68,10 +68,6 @@
      - Enable authentication processing and garbage collection. Note that if disabled, policy enforcement will still block requests that require authentication. But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
      - bool
      - ``false``
-   * - :spelling:ignore:`authentication.gcInterval`
-     - Interval for garbage collection of auth map entries.
-     - string
-     - ``"5m0s"``
    * - :spelling:ignore:`authentication.mutual.connectTimeout`
      - Timeout for connecting to the remote node TCP socket
      - string
@@ -340,10 +336,6 @@
      - Enable/Disable BGP status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false.
      - bool
      - ``true``
-   * - :spelling:ignore:`bpf.authMapMax`
-     - Configure the maximum number of entries in auth map.
-     - int
-     - ``524288``
    * - :spelling:ignore:`bpf.autoMount.enabled`
      - Enable automatic mount of BPF filesystem When ``autoMount`` is enabled, the BPF filesystem is mounted at ``bpf.root`` path on the underlying host and inside the cilium agent pod. If users disable ``autoMount``\ , it's expected that users have mounted bpffs filesystem at the specified ``bpf.root`` volume, and then the volume will be mounted inside the cilium agent pod at the same path.
      - bool

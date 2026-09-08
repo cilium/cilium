@@ -67,7 +67,6 @@ contributors across the globe, there is almost always someone available to help.
 | annotations | object | `{}` | Annotations to be added to all top-level cilium-agent objects (resources under templates/cilium-agent) |
 | apiRateLimit | string | `nil` | The api-rate-limit option can be used to overwrite individual settings of the default configuration for rate limiting calls to the Cilium Agent API |
 | authentication.enabled | bool | `false` | Enable authentication processing and garbage collection. Note that if disabled, policy enforcement will still block requests that require authentication. But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed. |
-| authentication.gcInterval | string | `"5m0s"` | Interval for garbage collection of auth map entries. |
 | authentication.mutual.connectTimeout | string | `"5s"` | Timeout for connecting to the remote node TCP socket |
 | authentication.mutual.port | int | `4250` | Port on the agent where mutual authentication handshakes between agents will be performed |
 | authentication.mutual.spire.adminSocketPath | string | `"/run/spire/sockets/admin.sock"` | SPIRE socket path where the SPIRE delegated api agent is listening |
@@ -135,7 +134,6 @@ contributors across the globe, there is almost always someone available to help.
 | bgpControlPlane.secretsNamespace.name | string | `"kube-system"` | The name of the secret namespace to which Cilium agents are given read access |
 | bgpControlPlane.statusReport | object | `{"enabled":true}` | Status reporting settings |
 | bgpControlPlane.statusReport.enabled | bool | `true` | Enable/Disable BGP status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false. |
-| bpf.authMapMax | int | `524288` | Configure the maximum number of entries in auth map. |
 | bpf.autoMount.enabled | bool | `true` | Enable automatic mount of BPF filesystem When `autoMount` is enabled, the BPF filesystem is mounted at `bpf.root` path on the underlying host and inside the cilium agent pod. If users disable `autoMount`, it's expected that users have mounted bpffs filesystem at the specified `bpf.root` volume, and then the volume will be mounted inside the cilium agent pod at the same path. |
 | bpf.ctAccounting | bool | `false` | Enable CT accounting for packets and bytes |
 | bpf.ctAnyMax | int | `262144` | Configure the maximum number of entries for the non-TCP connection tracking table. |
