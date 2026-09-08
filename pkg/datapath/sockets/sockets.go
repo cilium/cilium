@@ -243,7 +243,7 @@ func newBPFSocketDestroyer(logger *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Ma
 }
 
 // Destroy destroys sockets matching the passed filter parameters using a BPF
-// socket iterator and the cil_sock_udp_destroy program.
+// socket iterator and the cil_sock_*_destroy program.
 //
 // Supported families in the filter: syscall.AF_INET, syscall.AF_INET6
 // Supported protocols in the filter: unix.IPPROTO_UDP, unix.IPPROTO_TCP
@@ -253,6 +253,16 @@ func (sd *bpfSocketDestroyer) Destroy(logger *slog.Logger, f SocketFilter) error
 	}
 	if f.Protocol != unix.IPPROTO_UDP && f.Protocol != unix.IPPROTO_TCP {
 		return fmt.Errorf("unsupported protocol for socket destroy: %d", f.Protocol)
+	}
+
+	// A UDP reverse-NAT entry is also created for an unconnected socket after
+	// sendto(). The BPF iterator only has the socket cookie and reverse-NAT
+	// entry available, so it cannot distinguish that socket from a connected
+	// socket. bpf_sock_destroy() would abort both, while the netlink path also
+	// matches the socket's destination and therefore leaves unconnected sockets
+	// alone.
+	if f.Protocol == unix.IPPROTO_UDP {
+		return (&netlinkSocketDestroyer{}).Destroy(logger, f)
 	}
 
 	sd.destroyMu.Lock()

@@ -84,6 +84,22 @@ func TestSocketReqSerialize(t *testing.T) {
 	}
 }
 
+func TestSocketFilterMatchSocket(t *testing.T) {
+	filter := SocketFilter{
+		DestIp:   netip.MustParseAddr("10.0.0.2"),
+		DestPort: 53,
+	}
+
+	assert.False(t, filter.MatchSocket(netlink.SocketID{
+		Destination:     net.ParseIP("0.0.0.0"),
+		DestinationPort: 0,
+	}))
+	assert.True(t, filter.MatchSocket(netlink.SocketID{
+		Destination:     net.ParseIP("10.0.0.2"),
+		DestinationPort: 53,
+	}))
+}
+
 func TestSocketDeserialize(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -613,6 +629,49 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPrivilegedBPFSocketDestroyerLeavesUnconnectedUDP(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	log := hivetest.Logger(t)
+	bpf.CheckOrMountFS(log, "")
+
+	sockDestroyer := newTestBPFSocketDestroyer(t)
+	server, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	require.NoError(t, err)
+	defer server.Close()
+	client, err := net.ListenUDP("udp4", nil)
+	require.NoError(t, err)
+	defer client.Close()
+
+	sysConn, ok := interface{}(client).(syscall.Conn)
+	require.True(t, ok)
+	rawConn, err := sysConn.SyscallConn()
+	require.NoError(t, err)
+	var cookie uint64
+	rawConn.Control(func(fd uintptr) {
+		cookie, err = unix.GetsockoptUint64(int(fd), unix.SOL_SOCKET, unix.SO_COOKIE)
+	})
+	require.NoError(t, err)
+	require.NoError(t, sockDestroyer.PrepareAddress(cookie, server.LocalAddr().String()))
+
+	serverAddr := server.LocalAddr().(*net.UDPAddr)
+	require.NoError(t, sockDestroyer.Destroy(log, SocketFilter{
+		DestIp:   netip.MustParseAddr(serverAddr.IP.String()),
+		DestPort: uint16(serverAddr.Port),
+		Family:   unix.AF_INET,
+		Protocol: unix.IPPROTO_UDP,
+		States:   StateFilterUDP,
+	}))
+
+	payload := []byte("still open")
+	_, err = client.WriteToUDP(payload, serverAddr)
+	require.NoError(t, err)
+	require.NoError(t, server.SetReadDeadline(time.Now().Add(time.Second)))
+	received := make([]byte, len(payload))
+	n, _, err := server.ReadFromUDP(received)
+	require.NoError(t, err)
+	require.Equal(t, payload, received[:n])
 }
 
 func BenchmarkDestroyers(b *testing.B) {
