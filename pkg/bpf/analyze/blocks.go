@@ -6,10 +6,12 @@ package analyze
 import (
 	"errors"
 	"fmt"
+	"iter"
 	"slices"
 	"strings"
 
 	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/btf"
 )
 
 // leaderKey is used to store the leader metadata in an instruction's metadata.
@@ -213,6 +215,18 @@ func (b *Block) leader(insns asm.Instructions) *leader {
 	return getLeaderMeta(&insns[b.start])
 }
 
+func (b *Block) first(insns asm.Instructions) *asm.Instruction {
+	if len(insns) == 0 {
+		return nil
+	}
+
+	if b.start >= len(insns) {
+		return nil
+	}
+
+	return &insns[b.start]
+}
+
 func (b *Block) last(insns asm.Instructions) *asm.Instruction {
 	if len(insns) == 0 {
 		return nil
@@ -259,6 +273,21 @@ func (b *Block) iterateGlobal(blocks Blocks, insns asm.Instructions) *BlockItera
 // the last instruction in the block.
 func (b *Block) backtrack(insns asm.Instructions) *Backtracker {
 	return newBacktracker(b, insns)
+}
+
+// Func returns the BTF function metadata associated with the block, if any. If
+// the block is not the start of a function, it returns nil.
+func (b *Block) Func(insns asm.Instructions) *btf.Func {
+	if b.sym == "" {
+		return nil
+	}
+
+	first := b.first(insns)
+	if first == nil {
+		return nil
+	}
+
+	return btf.FuncMetadata(first)
 }
 
 func (b *Block) String() string {
@@ -330,29 +359,19 @@ func (b *Block) Dump(insns asm.Instructions) string {
 	return sb.String()
 }
 
-// BlockIterator is an iterator over the instructions in a block or a list of
-// blocks.
-//
-// It can be configured to iterate locally within a block or globally across
-// multiple blocks. When iterating globally, it will roll over to the next or
-// previous block when reaching the end or start of the current block,
-// respectively.
-//
-// The iterator tracks the raw instruction offset of the current instruction
-// when iterating forwards, but not when iterating backwards since that would
-// require summing up instruction sizes from the start of the block. Raw offsets
-// are only used for dumping instructions in forward order.
+// BlockIterator is a linear (meaning ignoring control flow) forward iterator over
+// one or more blocks and the instructions represented by those blocks.
 type BlockIterator struct {
-	blocks Blocks
-	block  *Block
+	// blockIdx is the position of block within blocks. blocks may be a window
+	// of a larger block list, so this doesn't always equal block.id.
+	blockIdx int
+	block    *Block
+	blocks   Blocks
 
-	insns asm.Instructions
-
-	ins   *asm.Instruction
-	index int
-
-	// offset is zero when backtracking to predecessors or when iterating
-	// backwards from the end of a block (e.g. with a new iterator).
+	// index is the index of ins within insns.
+	index  int
+	ins    *asm.Instruction
+	insns  asm.Instructions
 	offset asm.RawInstructionOffset
 }
 
@@ -364,25 +383,28 @@ func (i *BlockIterator) Index() int {
 	return i.index
 }
 
+// Offset returns the raw instruction offset of the instruction within the
+// program.
 func (i *BlockIterator) Offset() asm.RawInstructionOffset {
 	return i.offset
 }
 
-// nextBlock pulls the next block by identifier, if it exists. Otherwise,
-// returns false.
+// NextBlock pulls the next block in the iterator's block list, if it exists.
+// Otherwise, returns false.
 //
 // Positions the iterator at the start of the next block. Offset is updated to
 // the raw offset of the first instruction in the next block.
-func (i *BlockIterator) nextBlock() bool {
+func (i *BlockIterator) NextBlock() bool {
 	if i.block == nil {
 		return false
 	}
 
-	if i.block.id+1 >= i.blocks.count() {
+	if i.blockIdx+1 >= len(i.blocks) {
 		return false
 	}
 
-	i.block = i.blocks[i.block.id+1]
+	i.blockIdx++
+	i.block = i.blocks[i.blockIdx]
 	i.index = i.block.start
 	i.offset = i.block.raw
 	i.ins = &i.insns[i.index]
@@ -407,7 +429,7 @@ func (i *BlockIterator) Next() bool {
 	if i.index+1 > i.block.end {
 		// Roll over to the next block if iterating globally and there is a next
 		// block. False if iterating locally or there's no next block.
-		return i.nextBlock()
+		return i.NextBlock()
 	}
 
 	i.index++
@@ -420,8 +442,8 @@ func (i *BlockIterator) Next() bool {
 // Backtrack returns a Backtracker starting at the current instruction of the
 // BlockIterator.
 //
-// [Backtracker.Instruction] will return the same instruction as the current
-// instruction of the BlockIterator.
+// The first call to [Backtracker.Instruction] will return the same instruction
+// as the current instruction of the BlockIterator.
 //
 // [Backtracker.Previous] will return the instruction preceding the current one,
 // if any.
@@ -593,6 +615,70 @@ func (bl Blocks) iterate(insns asm.Instructions) *BlockIterator {
 		return nil
 	}
 	return bl.first().iterateGlobal(bl, insns)
+}
+
+// Name returns the symbol name of the first block, e.g. the function name if
+// the Blocks make up the start of a function.
+func (bl Blocks) Name() string {
+	if len(bl) == 0 {
+		return ""
+	}
+	return bl.first().sym
+}
+
+// Func returns the BTF function metadata associated with the first block, if
+// any.
+func (bl Blocks) Func(insns asm.Instructions) *btf.Func {
+	if len(bl) == 0 {
+		return nil
+	}
+	return bl.first().Func(insns)
+}
+
+// Instructions yields pointers to the blocks' instructions in order, keyed by
+// an index relative to the first block's first instruction. For a function's
+// Blocks, index 0 is the entry instruction, carrying its symbol and BTF
+// metadata.
+func (bl Blocks) Instructions(insns asm.Instructions) iter.Seq2[int, *asm.Instruction] {
+	return func(yield func(int, *asm.Instruction) bool) {
+		iter := bl.iterate(insns)
+		if iter == nil {
+			return
+		}
+
+		i := 0
+		for iter.Next() {
+			if !yield(i, iter.Instruction()) {
+				return
+			}
+			i++
+		}
+	}
+}
+
+// funcs yields the functions in the block list as subslices. The first block
+// starts the first function, subsequent functions start at blocks carrying BTF
+// func metadata. Blocks with a symbol but no BTF func metadata (e.g. jump
+// labels) don't start a new function.
+func (bl Blocks) funcs(insns asm.Instructions) iter.Seq[Blocks] {
+	return func(yield func(Blocks) bool) {
+		iter := bl.iterate(insns)
+		if iter == nil {
+			return
+		}
+
+		start := 0
+		for iter.NextBlock() {
+			if iter.block.Func(insns) == nil {
+				continue
+			}
+			if !yield(bl[start:iter.blockIdx]) {
+				return
+			}
+			start = iter.blockIdx
+		}
+		yield(bl[start:])
+	}
 }
 
 func (bl Blocks) String() string {
