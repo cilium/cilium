@@ -45,7 +45,7 @@ func registerReconciler(
 		params,
 		tbl,
 		(*DesiredRoute).Clone,
-		(*DesiredRoute).SetStatus,
+		(*DesiredRoute).WithStatus,
 		(*DesiredRoute).GetStatus,
 		ops,
 		ops,
