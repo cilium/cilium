@@ -32,6 +32,7 @@ func testLookupReservedIdentity(t *testing.T, testConfig testConfig, client kvst
 	logger := hivetest.Logger(t)
 	mgr := NewCachingIdentityAllocator(logger, newDummyOwner(logger), testConfig.allocatorConfig)
 	<-mgr.InitIdentityAllocator(nil, client)
+	defer mgr.Close()
 
 	hostID := identity.GetReservedID("host")
 	require.NotNil(t, mgr.LookupIdentityByID(context.TODO(), hostID))
