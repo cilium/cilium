@@ -18,8 +18,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -36,6 +38,9 @@ func TestScript(t *testing.T) {
 		time.Now = now
 		time.Since = since
 	})
+	originalIPAM := option.Config.IPAM
+	option.Config.IPAM = ipamOption.IPAMMultiPool
+	t.Cleanup(func() { option.Config.IPAM = originalIPAM })
 	t.Setenv("TZ", "")
 	nodeTypes.SetName("testnode")
 
