@@ -528,7 +528,6 @@ Makefile* @cilium/build
 /MAINTAINERS.md @cilium/committers
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
-/operator/auth @cilium/sig-servicemesh
 /operator/doublewrite @cilium/metrics
 /operator/endpointgc @cilium/endpoint
 /operator/identitygc @cilium/sig-policy

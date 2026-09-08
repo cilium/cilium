@@ -23,7 +23,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/operator/auth/identity"
 	ztunnel "github.com/cilium/cilium/operator/pkg/ztunnel/config"
 	"github.com/cilium/cilium/pkg/backoff"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -32,35 +31,14 @@ import (
 )
 
 const (
-	notFoundError   = "NotFound"
-	defaultParentID = "/cilium-operator"
-	pathPrefix      = "/identity"
+	notFoundError = "NotFound"
+	parentID      = "/ztunnel"
 )
 
-var defaultSelectors = []*types.Selector{
-	{
-		Type:  "cilium",
-		Value: "mutual-auth",
-	},
-}
-
-// DefaultSpireEntryConfig returns the default SpireEntryConfig for mutual-auth mode.
+// DefaultSpireEntryConfig returns the ztunnel SPIRE entry configuration.
 func DefaultSpireEntryConfig() SpireEntryConfig {
 	return SpireEntryConfig{
-		ParentID:      defaultParentID,
-		PathFunc:      toPath,
-		SelectorsFunc: func(id string) []*types.Selector { return defaultSelectors },
-	}
-}
-
-// ZtunnelSpireEntryConfig returns the SpireEntryConfig for ztunnel mode.
-// In ztunnel mode:
-// - ParentID is "/ztunnel"
-// - Path format is "/ns/{namespace}/sa/{serviceaccount}"
-// - Selectors are k8s namespace and service account selectors
-func ZtunnelSpireEntryConfig() SpireEntryConfig {
-	return SpireEntryConfig{
-		ParentID:      "/ztunnel",
+		ParentID:      parentID,
 		PathFunc:      ztunnel.SpiffeIDPathFunc,
 		SelectorsFunc: ztunnel.SpiffeIDSelectorsFunc,
 	}
@@ -70,42 +48,10 @@ func ZtunnelSpireEntryConfig() SpireEntryConfig {
 var Cell = cell.Module(
 	"spire-client",
 	"Spire Server API Client",
-	cell.Config(defaultMutualAuthConfig),
-	cell.Config(defaultClientConfig),
-	cell.Provide(func(zfg ztunnel.Config) SpireEntryConfig {
-		if zfg.EnableZTunnel {
-			return ZtunnelSpireEntryConfig()
-		}
-		return DefaultSpireEntryConfig()
-	}),
-	cell.Provide(NewClient),
-)
-
-var FakeCellClient = cell.Module(
-	"fake-spire-client",
-	"Fake Spire Server API Client",
-	cell.Config(defaultMutualAuthConfig),
 	cell.Config(defaultClientConfig),
 	cell.Provide(DefaultSpireEntryConfig),
-	cell.Provide(NewFakeClient),
+	cell.Provide(NewClient),
 )
-
-// MutualAuthConfig contains general configuration for mutual authentication.
-type MutualAuthConfig struct {
-	Enabled bool `mapstructure:"mesh-auth-mutual-enabled"`
-}
-
-var defaultMutualAuthConfig = MutualAuthConfig{
-	Enabled: false,
-}
-
-// Flags adds the flags used by ClientConfig.
-func (cfg MutualAuthConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool("mesh-auth-mutual-enabled",
-		cfg.Enabled,
-		"The flag to enable mutual authentication for the SPIRE server (beta).")
-	flags.MarkDeprecated("mesh-auth-mutual-enabled", "Mutual Auth is deprecated as of Cilium v1.20. See https://github.com/cilium/cilium/issues/47132 for details.")
-}
 
 // ClientConfig contains the configuration for the SPIRE client.
 type ClientConfig struct {
@@ -141,29 +87,19 @@ func (cfg ClientConfig) Flags(flags *pflag.FlagSet) {
 type params struct {
 	cell.In
 
-	Logger           *slog.Logger
-	K8sClient        k8sClient.Clientset
-	Lifecycle        cell.Lifecycle
-	MutualAuthConfig MutualAuthConfig
-	ClientConfig     ClientConfig
-	EntryConfig      SpireEntryConfig
-	ZtunnelConfig    ztunnel.Config
+	Logger        *slog.Logger
+	K8sClient     k8sClient.Clientset
+	Lifecycle     cell.Lifecycle
+	ClientConfig  ClientConfig
+	EntryConfig   SpireEntryConfig
+	ZtunnelConfig ztunnel.Config
 }
 
-// SpireEntryConfig contains the configuration for SPIRE entry generation.
-// This allows the SPIRE client to be configured for different use cases
-// such as mutual-auth or ztunnel.
+// SpireEntryConfig contains the configuration for ztunnel SPIRE entry generation.
 type SpireEntryConfig struct {
 	ParentID      string
 	PathFunc      func(string) string
 	SelectorsFunc func(string) []*types.Selector
-}
-
-type out struct {
-	cell.Out
-
-	Provider identity.Provider
-	Client   *Client
 }
 
 type Client struct {
@@ -176,17 +112,10 @@ type Client struct {
 	initialized chan struct{}
 }
 
-// NewClient creates a new SPIRE client.
-// It returns a noop client when neither mutual authentication nor ztunnel-with-SPIRE
-// is enabled. When ztunnel uses SPIRE as its CA, the client is created so that the
-// operator can manage SPIRE entries for enrolled namespaces; the identity.Provider
-// returned in that case is a noop since ztunnel handles identity differently.
-func NewClient(params params) out {
-	if !params.MutualAuthConfig.Enabled && !params.ZtunnelConfig.UseSpireCA() {
-		return out{
-			Provider: &noopClient{},
-			Client:   nil,
-		}
+// NewClient creates a new SPIRE client for ztunnel namespace enrollment.
+func NewClient(params params) *Client {
+	if !params.ZtunnelConfig.UseSpireCA() {
+		return nil
 	}
 
 	client := &Client{
@@ -197,30 +126,11 @@ func NewClient(params params) out {
 		initialized: make(chan struct{}),
 	}
 
-	var provider identity.Provider = client
-	if params.ZtunnelConfig.EnableZTunnel {
-		params.Logger.Debug("Ztunnel-Spire integration enabled, returning noop identity provider")
-		provider = &noopClient{}
-	}
-
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: client.onStart,
 		OnStop:  func(_ cell.HookContext) error { return nil },
 	})
-	return out{
-		Provider: provider,
-		Client:   client,
-	}
-}
-
-// GetSpireEntryConfig returns the SPIRE entry configuration.
-func (c *Client) GetSpireEntryConfig() SpireEntryConfig {
-	return c.entryCfg
-}
-
-// GetSpireTrustDomain returns the SPIFFE trust domain.
-func (c *Client) GetSpireTrustDomain() string {
-	return c.cfg.SpiffeTrustDomain
+	return client
 }
 
 // Initialized returns a channel that is closed when the client is initialized.
@@ -578,43 +488,6 @@ func (c *Client) DeleteBatch(ctx context.Context, ids []string) error {
 	return nil
 }
 
-func (c *Client) List(ctx context.Context) ([]string, error) {
-	c.entryMutex.RLock()
-	defer c.entryMutex.RUnlock()
-
-	filter := &entryv1.ListEntriesRequest_Filter{
-		ByParentId: &types.SPIFFEID{
-			TrustDomain: c.cfg.SpiffeTrustDomain,
-			Path:        c.entryCfg.ParentID,
-		},
-	}
-
-	// Only add selector filter if selectors are provided.
-	// For ztunnel mode, SelectorsFunc("") returns nil since each entry
-	// has unique selectors, so we only filter by ParentID.
-	if selectors := c.entryCfg.SelectorsFunc(""); selectors != nil {
-		filter.BySelectors = &types.SelectorMatch{
-			Selectors: selectors,
-			Match:     types.SelectorMatch_MATCH_EXACT,
-		}
-	}
-
-	entries, err := c.entry.ListEntries(ctx, &entryv1.ListEntriesRequest{
-		Filter: filter,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(entries.Entries) == 0 {
-		return nil, nil
-	}
-	ids := make([]string, 0, len(entries.Entries))
-	for _, e := range entries.Entries {
-		ids = append(ids, e.Id)
-	}
-	return ids, nil
-}
-
 // listEntries returns the list of entries for the given ID.
 // The maximum number of entries returned is 1, so page token can be ignored.
 func (c *Client) listEntries(ctx context.Context, id string) (*entryv1.ListEntriesResponse, error) {
@@ -658,8 +531,4 @@ func resolvedK8sService(ctx context.Context, client k8sClient.Clientset, address
 
 	res := net.JoinHostPort(svc.Spec.ClusterIP, port)
 	return &res, nil
-}
-
-func toPath(id string) string {
-	return fmt.Sprintf("%s/%s", pathPrefix, id)
 }
