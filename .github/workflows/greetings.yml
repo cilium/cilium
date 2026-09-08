@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   greet:
+    name: Greet
     # Only enforce on drive-by / first-time contributors.
     # Regulars (MEMBER, COLLABORATOR, OWNER, CONTRIBUTOR) are skipped entirely.
     if: >
