@@ -16,7 +16,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/operator/auth/spire"
 	"github.com/cilium/cilium/operator/k8s"
 	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/hive"
@@ -153,14 +152,13 @@ func TestHeartbeatUpdater(t *testing.T) {
 		events:   make(chan resource.Event[*cilium_v2.CiliumIdentity]),
 	}
 	igc := &GC{
-		logger:             tlog,
-		clientset:          fakeClient.CiliumV2().CiliumIdentities(),
-		identity:           identity,
-		ciliumEndpoint:     cepRes,
-		authIdentityClient: spire.NewFakeClient(),
-		heartbeatStore:     newHeartbeatStore(time.Hour, tlog),
-		rateLimiter:        rate.NewLimiter(time.Minute, 100),
-		metrics:            NewMetrics(),
+		logger:         tlog,
+		clientset:      fakeClient.CiliumV2().CiliumIdentities(),
+		identity:       identity,
+		ciliumEndpoint: cepRes,
+		heartbeatStore: newHeartbeatStore(time.Hour, tlog),
+		rateLimiter:    rate.NewLimiter(time.Minute, 100),
+		metrics:        NewMetrics(),
 	}
 	t.Cleanup(igc.rateLimiter.Stop)
 	// Pretend the operator has been running longer than the heartbeat timeout
