@@ -137,16 +137,35 @@ func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]*e
 		return nil, fmt.Errorf("predicting blocks: %w", err)
 	}
 
-	// Always visit bpf2bpf callees since they are always reachable, on pre-6.8 kernels
-	for _, block := range blocks {
-		for _, called := range block.calls {
-			if err := r.visitBlock(called, vars); err != nil {
-				return nil, fmt.Errorf("predicting blocks: %w", err)
+	return r, nil
+}
+
+// Blocks returns an iterator over the blocks in the program, yielding each
+// block along with a boolean indicating whether the block is reachable.
+func (r *Reachable) Blocks() iter.Seq2[*Block, bool] {
+	return func(yield func(*Block, bool) bool) {
+		iter := r.blocks.iterate(r.insns)
+		for iter.NextBlock() {
+			live := r.l.Get(iter.block.id)
+			if !yield(iter.block, live) {
+				return
 			}
 		}
 	}
+}
 
-	return r, nil
+// Funcs returns an iterator over the functions in the program, yielding each
+// function's Blocks along with a boolean indicating whether the function is
+// reachable. A function is reachable if and only if its first block is, since
+// functions are only entered through calls to their entry blocks.
+func (r *Reachable) Funcs() iter.Seq2[Blocks, bool] {
+	return func(yield func(Blocks, bool) bool) {
+		for f := range r.blocks.funcs(r.insns) {
+			if !yield(f, r.l.Get(f.first().id)) {
+				return
+			}
+		}
+	}
 }
 
 // Instructions iterates instructions by wrapping an internal BlockIterator. The
