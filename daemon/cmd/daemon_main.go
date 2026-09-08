@@ -1052,8 +1052,9 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, "Option "+option.EnableRemoteNodeMasquerade+" requires BPF masquerade to be enabled ("+option.EnableBPFMasquerade+")")
 	}
 
-	if !option.Config.RequiresNativeRouting() && option.Config.EnableAutoDirectRouting {
-		logging.Fatal(logger, fmt.Sprintf("%s requires native or hybrid routing mode.", option.EnableAutoDirectRoutingName))
+	if option.Config.TunnelingEnabled() &&
+		option.Config.EnableAutoDirectRouting {
+		logging.Fatal(logger, fmt.Sprintf("%s requires native routing mode.", option.EnableAutoDirectRoutingName))
 	}
 
 	initClockSourceOption(logger)
