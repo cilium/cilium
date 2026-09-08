@@ -60,6 +60,7 @@ func TransformToCiliumEndpoint(cep *cilium_v2.CiliumEndpoint) (*types.CiliumEndp
 		Networking:     cep.Status.Networking,
 		NamedPorts:     cep.Status.NamedPorts,
 		ServiceAccount: cep.Status.ServiceAccount,
+		Workload:       cep.Status.Workload,
 	}, nil
 }
 

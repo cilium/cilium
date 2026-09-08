@@ -47,6 +47,19 @@ type CiliumEndpoint struct {
 // EndpointPolicyState defines the state of the Policy mode: "enforcing", "non-enforcing", "disabled"
 type EndpointPolicyState string
 
+// EndpointWorkload identifies the Kubernetes workload which owns an endpoint's Pod.
+type EndpointWorkload struct {
+	// Name is the name of the workload.
+	//
+	// +kubebuilder:validation:Optional
+	Name string `json:"name,omitempty"`
+
+	// Kind is the kind of the workload, such as Deployment or StatefulSet.
+	//
+	// +kubebuilder:validation:Optional
+	Kind string `json:"kind,omitempty"`
+}
+
 // EndpointStatus is the status of a Cilium endpoint.
 type EndpointStatus struct {
 	// ID is the cilium-agent-local ID of the endpoint.
@@ -106,6 +119,11 @@ type EndpointStatus struct {
 	//
 	// +kubebuilder:validation:Optional
 	ServiceAccount string `json:"service-account,omitempty"`
+
+	// Workload identifies the Kubernetes workload which owns the endpoint's Pod.
+	//
+	// +kubebuilder:validation:Optional
+	Workload *EndpointWorkload `json:"workload,omitempty"`
 }
 
 // +k8s:deepcopy-gen=false
