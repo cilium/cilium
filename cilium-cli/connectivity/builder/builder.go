@@ -324,8 +324,6 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		clientEgressL7Connect{},
 		clientEgressTlsSni{},
 		clientEgressL7SetHeader{},
-		echoIngressAuthAlwaysFail{},
-		echoIngressMutualAuthSpiffe{},
 		podToIngressService{},
 		outsideToIngressService{},
 		serviceLoopback{},

@@ -137,12 +137,6 @@ var (
 		DropReasonFunc: defaultDropReason,
 	}
 
-	// ResultDropAuthRequired expects a dropped flow with auth required as reason.
-	ResultDropAuthRequired = Result{
-		Drop:           true,
-		DropReasonFunc: authRequiredDropReason,
-	}
-
 	// ResultAnyReasonEgressDrop expects a dropped flow at Egress and a failed command.
 	ResultAnyReasonEgressDrop = Result{
 		Drop:           true,
