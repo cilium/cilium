@@ -566,7 +566,6 @@ Makefile* @cilium/build
 /pkg/alignchecker/ @cilium/sig-datapath @cilium/loader
 /pkg/allocator/ @cilium/sig-policy
 /pkg/api/ @cilium/api
-/pkg/auth/ @cilium/sig-servicemesh
 /pkg/aws/ @cilium/aws
 /pkg/azure/ @cilium/azure
 /pkg/backoff/ @cilium/sig-agent
