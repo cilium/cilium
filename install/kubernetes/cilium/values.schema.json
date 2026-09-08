@@ -97,17 +97,8 @@
     },
     "authentication": {
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
         "mutual": {
           "properties": {
-            "connectTimeout": {
-              "type": "string"
-            },
-            "port": {
-              "type": "integer"
-            },
             "spire": {
               "properties": {
                 "adminSocketPath": {
@@ -438,12 +429,6 @@
             }
           },
           "type": "object"
-        },
-        "queueSize": {
-          "type": "integer"
-        },
-        "rotatedIdentitiesQueueSize": {
-          "type": "integer"
         }
       },
       "type": "object"
