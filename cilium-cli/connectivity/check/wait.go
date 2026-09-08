@@ -89,10 +89,10 @@ func pollExecProbe(parentCtx context.Context, readiness time.Duration, probe fun
 func WaitForDeployment(ctx context.Context, log Logger, client *k8s.Client, namespace string, name string) error {
 	log.Logf("⌛ [%s] Waiting for deployment %s/%s to become ready...", client.ClusterName(), namespace, name)
 
-	ctx, cancel := context.WithTimeout(ctx, LongTimeout)
+	deadline, cancel := context.WithTimeout(ctx, LongTimeout)
 	defer cancel()
 	for {
-		err := client.CheckDeploymentStatus(ctx, namespace, name)
+		err := client.CheckDeploymentStatus(deadline, namespace, name)
 		if err == nil {
 			return nil
 		}
@@ -101,11 +101,48 @@ func WaitForDeployment(ctx context.Context, log Logger, client *k8s.Client, name
 
 		select {
 		case <-time.After(PollInterval):
-		case <-ctx.Done():
+		case <-deadline.Done():
+			// The parent context, not the expired one, so the diagnostic can still be fetched.
+			if reason := unschedulablePods(ctx, client, namespace, name); reason != "" {
+				return fmt.Errorf("timeout reached waiting for deployment %s/%s to become ready (last error: %w, unschedulable: %s)",
+					namespace, name, err, reason)
+			}
 			return fmt.Errorf("timeout reached waiting for deployment %s/%s to become ready (last error: %w)",
 				namespace, name, err)
 		}
 	}
+}
+
+// unschedulablePods reports the PodScheduled condition of the deployment's pods
+// that the scheduler could not place, so that a readiness timeout names the
+// admission failure instead of only counting the missing replicas.
+func unschedulablePods(ctx context.Context, client *k8s.Client, namespace, name string) string {
+	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
+	defer cancel()
+
+	deploy, err := client.GetDeployment(ctx, namespace, name, metav1.GetOptions{})
+	if err != nil || deploy == nil || deploy.Spec.Selector == nil {
+		return ""
+	}
+	selector, err := metav1.LabelSelectorAsSelector(deploy.Spec.Selector)
+	if err != nil {
+		return ""
+	}
+	pods, err := client.ListPods(ctx, namespace, metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		return ""
+	}
+
+	var reasons []string
+	for _, pod := range pods.Items {
+		for _, cond := range pod.Status.Conditions {
+			if cond.Type == corev1.PodScheduled && cond.Status != corev1.ConditionTrue {
+				reasons = append(reasons, fmt.Sprintf("%s: %s: %s", pod.Name, cond.Reason, cond.Message))
+			}
+		}
+	}
+
+	return strings.Join(reasons, "; ")
 }
 
 // WaitForDaemonSet waits until the specified daemonset becomes ready.
