@@ -184,7 +184,7 @@ jobs:
         run: |
           EXIT=0
           cd src/github.com/cilium/cilium/.github/workflows
-          for FILE in *.yaml;do
+          for FILE in *.yaml *.yml;do
             JOBS=$(yq '.jobs | to_entries | .[] | select(.value.name == null) | "  " + .key' $FILE)
             # shellcheck disable=SC2016
             STEPS=$(yq '.jobs | to_entries | .[] as $job | $job.value.steps[] | {"key": $job.key, "name": .name} | select(.name == null) | "  "+.key' $FILE)
@@ -206,7 +206,7 @@ jobs:
         run: |
           EXIT=0
           cd src/github.com/cilium/cilium/.github/workflows
-          for FILE in *.yaml; do
+          for FILE in *.yaml *.yml; do
             # we only care about workflows that has ariane workflow_dispatch events
             IS_ARIANE_DISPATCH=$(yq '.on.workflow_dispatch.inputs.PR-number' $FILE)
             if [ "$IS_ARIANE_DISPATCH" == "null" ]; then
@@ -246,7 +246,7 @@ jobs:
         run: |
           EXIT=0
           cd src/github.com/cilium/cilium/.github/workflows
-          for FILE in *.yaml;do
+          for FILE in *.yaml *.yml;do
             JOBS=$(yq '.jobs | to_entries | .[] | select(.value.runs-on == "ubuntu-latest") | "  " + .key' $FILE)
             if [[ ${JOBS} =~ [^[:space:]] ]];then
               echo Jobs are using floating runner tag 'ubuntu-latest', in file $FILE
