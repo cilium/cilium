@@ -136,14 +136,6 @@ __revalidate_data_pull(const struct __ctx_buff *ctx, void **data_, void **data_e
 	__revalidate_data_pull(ctx, data, data_end, (void **)arp,	\
 		ETH_HLEN + sizeof(struct arphdr), sizeof(**arp), true)
 
-struct auth_key {
-	__u32       local_sec_label;
-	__u32       remote_sec_label;
-	__u16       remote_node_id; /* zero for local node */
-	__u8        auth_type;
-	__u8        pad;
-};
-
 #ifndef BPF_F_PSEUDO_HDR
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)
 #endif

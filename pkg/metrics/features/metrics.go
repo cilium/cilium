@@ -67,7 +67,6 @@ type Metrics struct {
 	NPHTTPHeaderMatchesIngested metric.Vec[metric.Counter]
 	NPDenyPoliciesIngested      metric.Vec[metric.Counter]
 	NPIngressCIDRGroupIngested  metric.Vec[metric.Counter]
-	NPMutualAuthIngested        metric.Vec[metric.Counter]
 	NPTLSInspectionIngested     metric.Vec[metric.Counter]
 	NPSNIAllowListIngested      metric.Vec[metric.Counter]
 	NPNonDefaultDenyIngested    metric.Vec[metric.Counter]
@@ -741,24 +740,6 @@ func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "ingress_cidr_group_policies_total",
-		}, metric.Labels{
-			{
-				Name: "action", Values: func() metric.Values {
-					if !withDefaults {
-						return nil
-					}
-					return metric.NewValues(
-						defaultActions...,
-					)
-				}(),
-			},
-		}),
-
-		NPMutualAuthIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
-			Help:      "Mutual Auth Policies have been ingested since the agent started",
-			Namespace: metrics.Namespace,
-			Subsystem: subsystemNP,
-			Name:      "mutual_auth_policies_total",
 		}, metric.Labels{
 			{
 				Name: "action", Values: func() metric.Values {

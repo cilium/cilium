@@ -3090,9 +3090,6 @@
                 "anyOf": [
                   {
                     "type": "string"
-                  },
-                  {
-                    "type": "string"
                   }
                 ]
               },

@@ -50,7 +50,7 @@ struct ct_state {
 	      syn:1,		/* Is a TCP SYN */
 	      proxy_redirect:1,	/* Connection is redirected to a proxy */
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
-	      reserved1:1,	/* Was auth_required, not used in production anywhere */
+	      reserved1:1,	/* reserved, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 	      closing:1,
 	      need_dsr_info:1,

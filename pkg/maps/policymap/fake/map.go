@@ -79,10 +79,9 @@ func (pm *fakePolicyMap) DumpToMapStateMap() (MapStateMap, error) {
 
 		// Convert from policymap.PolicyEntry to policyTypes.MapStateEntry.
 		policyVal := types.MapStateEntry{
-			Precedence:      val.Precedence,
-			ProxyPort:       val.GetProxyPort(),
-			AuthRequirement: val.AuthRequirement,
-			Cookie:          val.Cookie,
+			Precedence: val.Precedence,
+			ProxyPort:  val.GetProxyPort(),
+			Cookie:     val.Cookie,
 		}.WithDeny(val.IsDeny())
 		// if policymapEntry has invalid prefix length, force update by storing as an
 		// invalid MapStateEntry

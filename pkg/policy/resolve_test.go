@@ -905,12 +905,7 @@ func TestMapStateWithIngress(t *testing.T) {
 							cachedSelectorWorldV4:        nil,
 							cachedSelectorWorldV6:        nil,
 							cachedSelectorAggregateWorld: nil,
-							cachedSelectorTest: &PerSelectorPolicy{
-								Verdict: types.Allow,
-								Authentication: &api.Authentication{
-									Mode: api.AuthenticationModeDisabled,
-								},
-							},
+							cachedSelectorTest:           nil,
 						},
 						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
 							cachedSelectorWorld:          {ruleLabel},
@@ -933,8 +928,8 @@ func TestMapStateWithIngress(t *testing.T) {
 			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80):      rule1MapStateEntry,
 			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80):      rule1MapStateEntry,
 			IngressKey().WithIdentity(identity.ReservedIdentityAggregateWorld).WithTCPPort(80): rule1MapStateEntry,
-			IngressKey().WithIdentity(192).WithTCPPort(80):                                     rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
-			IngressKey().WithIdentity(194).WithTCPPort(80):                                     rule1MapStateEntry.withExplicitAuth(AuthTypeDisabled),
+			IngressKey().WithIdentity(192).WithTCPPort(80):                                     rule1MapStateEntry,
+			IngressKey().WithIdentity(194).WithTCPPort(80):                                     rule1MapStateEntry,
 		}),
 	}
 
@@ -1175,7 +1170,7 @@ func TestEndpointPolicy_GetRuleMeta(t *testing.T) {
 
 	// test non-empty mapstate
 	p.policyMapState = emptyMapState(log).withState(mapStateMap{
-		key1: newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, logstr), 0, 0, types.Allow, NoAuthRequirement),
+		key1: newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, logstr), 0, 0, types.Allow),
 	})
 
 	rm, err := p.GetRuleMeta(key1)
@@ -1188,7 +1183,7 @@ func TestEndpointPolicy_GetRuleMeta(t *testing.T) {
 
 	// test mapstate from dump
 	msDump := MapStateMap{
-		key1: types.NewMapStateEntry(0, false, 0, 0, NoAuthRequirement),
+		key1: types.NewMapStateEntry(0, false, 0, 0),
 	}
 
 	p = &EndpointPolicy{
@@ -1212,7 +1207,7 @@ func TestEndpointPolicy_Lookup_PortRange(t *testing.T) {
 
 	p := &EndpointPolicy{
 		policyMapState: emptyMapState(log).withState(mapStateMap{
-			rangeEntry: newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, "log"), 0, 0, types.Allow, NoAuthRequirement),
+			rangeEntry: newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, "log"), 0, 0, types.Allow),
 		}),
 	}
 
@@ -1242,7 +1237,7 @@ func TestEndpointPolicy_Lookup_PortRange_L4Only(t *testing.T) {
 
 	p := &EndpointPolicy{
 		policyMapState: emptyMapState(log).withState(mapStateMap{
-			rangeEntry: newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, "log"), 0, 0, types.Allow, NoAuthRequirement),
+			rangeEntry: newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, "log"), 0, 0, types.Allow),
 		}),
 	}
 

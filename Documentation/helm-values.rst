@@ -65,7 +65,7 @@
      - string
      - ``nil``
    * - :spelling:ignore:`authentication.enabled`
-     - Enable authentication processing and garbage collection. Note that if disabled, policy enforcement will still block requests that require authentication. But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
+     - Deprecated: accepted for compatibility. Policy authentication is ignored and no longer blocks traffic.
      - bool
      - ``false``
    * - :spelling:ignore:`authentication.mutual.connectTimeout`
@@ -253,11 +253,11 @@
      - string
      - ``"spiffe.cilium"``
    * - :spelling:ignore:`authentication.queueSize`
-     - Buffer size of the channel Cilium uses to receive authentication events from the signal map.
+     - Deprecated: accepted for compatibility. No longer used by the agent.
      - int
      - ``1024``
    * - :spelling:ignore:`authentication.rotatedIdentitiesQueueSize`
-     - Buffer size of the channel Cilium uses to receive certificate expiration events from auth handlers.
+     - Deprecated: accepted for compatibility. No longer used by the agent.
      - int
      - ``1024``
    * - :spelling:ignore:`autoDirectNodeRoutes`
@@ -2087,7 +2087,7 @@
    * - :spelling:ignore:`hubble.dropEventEmitter`
      - Emit v1.Events related to pods on detection of packet drops.    This feature is alpha, please provide feedback at https://github.com/cilium/cilium/issues/33975.
      - object
-     - ``{"enabled":false,"interval":"2m","reasons":["auth_required","policy_denied"]}``
+     - ``{"enabled":false,"interval":"2m","reasons":["policy_denied"]}``
    * - :spelling:ignore:`hubble.dropEventEmitter.interval`
      - - Minimum time between emitting same events.
      - string
@@ -2095,7 +2095,7 @@
    * - :spelling:ignore:`hubble.dropEventEmitter.reasons`
      - - Drop reasons to emit events for. ref: https://docs.cilium.io/en/stable/_api/v1/flow/README/#dropreason
      - list
-     - ``["auth_required","policy_denied"]``
+     - ``["policy_denied"]``
    * - :spelling:ignore:`hubble.enabled`
      - Enable Hubble (true by default).
      - bool

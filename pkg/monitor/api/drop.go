@@ -88,7 +88,7 @@ var errors = map[uint8]string{
 	186: "SRv6 state was removed during tail call",
 	187: "L3 translation from IPv4 to IPv6 failed (NAT46)",
 	188: "L3 translation from IPv6 to IPv4 failed (NAT64)",
-	189: "Authentication required",
+	189: "Authentication required", // Unused
 	190: "No conntrack map found",
 	191: "No nat map found",
 	192: "Invalid ClusterID",
