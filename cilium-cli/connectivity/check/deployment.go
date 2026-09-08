@@ -1145,6 +1145,57 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	// Deploy test-conn-disrupt actors (only in the first
 	// test namespace in case of tests concurrent run)
 	if ct.params.ConnDisruptTestSetup && ct.params.TestNamespaceIndex == 0 {
+		// The only node-pinned pods here, so admit them before the unpinned ones.
+		if ct.ShouldRunConnDisruptEgressGateway() {
+			gatewayNode, nonGatewayNode, err := ct.getGatewayAndNonGatewayNodes()
+			if err != nil {
+				return err
+			}
+			cegp := newConnDisruptCEGP(ct.params.TestNamespace, gatewayNode)
+			ct.Logf("✨ [%s] Deploying %s CiliumEgressGatewayPolicy...", ct.K8sClient().ClusterName(), cegp.Name)
+			_, err = ct.K8sClient().ApplyGeneric(ctx, cegp)
+			if err != nil {
+				return fmt.Errorf("unable to create CiliumEgressGatewayPolicy %s: %w", cegp.Name, err)
+			}
+
+			if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerEgressGatewayDeploymentName, KindTestConnDisruptEgressGateway, 1,
+				testConnDisruptEgressGatewayServiceName, testConnDisruptServerEgressGatewayAppLabel, true, newConnDisruptCNPForEgressGateway, ""); err != nil {
+				return err
+			}
+
+			if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, KindTestConnDisruptEgressGateway,
+				testConnDisruptClientEgressGatewayOnGatewayNodeAppLabel, fmt.Sprintf("test-conn-disrupt-egw.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
+				1, false, map[string]string{"kubernetes.io/hostname": gatewayNode}, ""); err != nil {
+				return err
+			}
+			if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName, KindTestConnDisruptEgressGateway,
+				testConnDisruptClientEgressGatewayOnNonGatewayNodeAppLabel, fmt.Sprintf("test-conn-disrupt-egw.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
+				1, false, map[string]string{"kubernetes.io/hostname": nonGatewayNode}, ""); err != nil {
+				return err
+			}
+			for _, clientDeploy := range []string{testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName} {
+				err := WaitForDeployment(ctx, ct, ct.clients.dst, ct.params.TestNamespace, clientDeploy)
+				if err != nil {
+					ct.Failf("%s deployment is not ready: %s", clientDeploy, err)
+				}
+			}
+
+			testPods := append(
+				slices.Collect(maps.Values(ct.ClientPods())),
+				slices.Collect(maps.Values(ct.EchoPods()))...)
+
+			if err := WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods,
+				func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
+					return ct.GetConnDisruptEgressPolicyEntries(ctx, ciliumPod)
+				}, func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
+					return nil, nil
+				}); err != nil {
+				ct.Fail(err)
+			}
+		} else {
+			ct.Info("Skipping conn-disrupt-test for Egress Gateway")
+		}
+
 		if ct.params.IncludeConnDisruptTest {
 			if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerDeploymentName, KindTestConnDisrupt, 3,
 				testConnDisruptServiceName, "test-conn-disrupt-server", false, newConnDisruptCNP, ""); err != nil {
@@ -1236,56 +1287,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		} else {
 			ct.Info("Skipping conn-disrupt-test for L7 traffic")
-		}
-
-		if ct.ShouldRunConnDisruptEgressGateway() {
-			gatewayNode, nonGatewayNode, err := ct.getGatewayAndNonGatewayNodes()
-			if err != nil {
-				return err
-			}
-			cegp := newConnDisruptCEGP(ct.params.TestNamespace, gatewayNode)
-			ct.Logf("✨ [%s] Deploying %s CiliumEgressGatewayPolicy...", ct.K8sClient().ClusterName(), cegp.Name)
-			_, err = ct.K8sClient().ApplyGeneric(ctx, cegp)
-			if err != nil {
-				return fmt.Errorf("unable to create CiliumEgressGatewayPolicy %s: %w", cegp.Name, err)
-			}
-
-			if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerEgressGatewayDeploymentName, KindTestConnDisruptEgressGateway, 1,
-				testConnDisruptEgressGatewayServiceName, testConnDisruptServerEgressGatewayAppLabel, true, newConnDisruptCNPForEgressGateway, ""); err != nil {
-				return err
-			}
-
-			if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, KindTestConnDisruptEgressGateway,
-				testConnDisruptClientEgressGatewayOnGatewayNodeAppLabel, fmt.Sprintf("test-conn-disrupt-egw.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
-				1, false, map[string]string{"kubernetes.io/hostname": gatewayNode}, ""); err != nil {
-				return err
-			}
-			if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName, KindTestConnDisruptEgressGateway,
-				testConnDisruptClientEgressGatewayOnNonGatewayNodeAppLabel, fmt.Sprintf("test-conn-disrupt-egw.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
-				1, false, map[string]string{"kubernetes.io/hostname": nonGatewayNode}, ""); err != nil {
-				return err
-			}
-			for _, clientDeploy := range []string{testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName} {
-				err := WaitForDeployment(ctx, ct, ct.clients.dst, ct.params.TestNamespace, clientDeploy)
-				if err != nil {
-					ct.Failf("%s deployment is not ready: %s", clientDeploy, err)
-				}
-			}
-
-			testPods := append(
-				slices.Collect(maps.Values(ct.ClientPods())),
-				slices.Collect(maps.Values(ct.EchoPods()))...)
-
-			if err := WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods,
-				func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
-					return ct.GetConnDisruptEgressPolicyEntries(ctx, ciliumPod)
-				}, func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
-					return nil, nil
-				}); err != nil {
-				ct.Fail(err)
-			}
-		} else {
-			ct.Info("Skipping conn-disrupt-test for Egress Gateway")
 		}
 	}
 
