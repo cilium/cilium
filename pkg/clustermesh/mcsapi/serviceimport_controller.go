@@ -292,10 +292,6 @@ func mergedPortsToMCSPorts(mergedPorts []portMerge) []mcsapiv1beta1.ServicePort 
 // in a situation where we would reach only a subset of "pods" depending on
 // the IP protocol used by the client.
 func intersectIPFamilies(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]corev1.IPFamily, mcsapiv1beta1.ServiceExportConditionReason, string) {
-	// Skip empty IPFamilies to support clusters running Cilium 1.18 or older
-	orderedSvcExports = slices.DeleteFunc(slices.Clone(orderedSvcExports), func(svcExport *mcsapitypes.MCSAPIServiceSpec) bool {
-		return len(svcExport.IPFamilies) == 0
-	})
 	if len(orderedSvcExports) == 0 {
 		return nil, mcsapiv1beta1.ServiceExportReasonNoConflicts, ""
 	}
@@ -336,17 +332,6 @@ func intersectIPFamilies(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]
 
 func (r mcsAPIServiceImportReconciler) filterSupportedIPFamilies(ipfamilies []corev1.IPFamily) []corev1.IPFamily {
 	supportedIPFamilies := make([]corev1.IPFamily, 0, len(ipfamilies))
-	if ipfamilies == nil {
-		// All exported clusters are legacy, fallback to what we locally support
-		if r.enableIPv4 {
-			supportedIPFamilies = append(supportedIPFamilies, corev1.IPv4Protocol)
-		}
-		if r.enableIPv6 {
-			supportedIPFamilies = append(supportedIPFamilies, corev1.IPv6Protocol)
-		}
-		return supportedIPFamilies
-	}
-
 	// preserve the order of the input
 	for _, ipfamily := range ipfamilies {
 		if ipfamily == corev1.IPv4Protocol && !r.enableIPv4 {
