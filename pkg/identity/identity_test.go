@@ -16,28 +16,36 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func TestIPIdentityPairPodUIDJSONCompatibility(t *testing.T) {
+func TestIPIdentityPairK8sMetadataJSONCompatibility(t *testing.T) {
 	pair := IPIdentityPair{
 		IP:           net.ParseIP("10.0.0.1"),
 		K8sNamespace: "default",
 		K8sPodName:   "echo",
 	}
 
-	withoutUID, err := pair.Marshal()
+	withoutPodUIDAndWorkload, err := pair.Marshal()
 	require.NoError(t, err)
-	assert.NotContains(t, string(withoutUID), "K8sPodUID")
+	assert.NotContains(t, string(withoutPodUIDAndWorkload), "K8sPodUID")
+	assert.NotContains(t, string(withoutPodUIDAndWorkload), "K8sWorkloadName")
+	assert.NotContains(t, string(withoutPodUIDAndWorkload), "K8sWorkloadKind")
 
 	var decoded IPIdentityPair
-	require.NoError(t, json.Unmarshal(withoutUID, &decoded))
+	require.NoError(t, json.Unmarshal(withoutPodUIDAndWorkload, &decoded))
 	assert.Empty(t, decoded.K8sPodUID)
 
 	pair.K8sPodUID = "90b3d76d-3c14-42ce-b132-d2aad6789d47"
-	withUID, err := pair.Marshal()
+	pair.K8sWorkloadName = "echo"
+	pair.K8sWorkloadKind = "Deployment"
+	withPodUIDAndWorkload, err := pair.Marshal()
 	require.NoError(t, err)
-	assert.Contains(t, string(withUID), `"K8sPodUID":"90b3d76d-3c14-42ce-b132-d2aad6789d47"`)
+	assert.Contains(t, string(withPodUIDAndWorkload), `"K8sPodUID":"90b3d76d-3c14-42ce-b132-d2aad6789d47"`)
+	assert.Contains(t, string(withPodUIDAndWorkload), `"K8sWorkloadName":"echo"`)
+	assert.Contains(t, string(withPodUIDAndWorkload), `"K8sWorkloadKind":"Deployment"`)
 
-	require.NoError(t, json.Unmarshal(withUID, &decoded))
+	require.NoError(t, json.Unmarshal(withPodUIDAndWorkload, &decoded))
 	assert.Equal(t, pair.K8sPodUID, decoded.K8sPodUID)
+	assert.Equal(t, pair.K8sWorkloadName, decoded.K8sWorkloadName)
+	assert.Equal(t, pair.K8sWorkloadKind, decoded.K8sWorkloadKind)
 }
 
 func TestReservedID(t *testing.T) {
