@@ -1,0 +1,84 @@
+#! --routing-mode=hybrid
+
+hive start
+db/initialized
+
+# The remote node is reachable on the same L2 network.
+db/insert routes direct-route.yaml
+
+# Hybrid routing uses subnet groups to select only direct-eligible PodCIDRs.
+db/insert subnet-identities subnet-identities.yaml
+db/insert nodes local-node.yaml remote-node.yaml
+db/cmp desired-routes expected-routes.table
+
+# Updating the remote node replaces its direct routes with its new matching CIDRs.
+db/insert nodes remote-node-updated.yaml
+db/cmp desired-routes expected-updated-routes.table
+
+hive/stop
+
+-- direct-route.yaml --
+table: 254
+dst: "192.0.1.0/24"
+---
+table: 254
+dst: "fd00::/64"
+
+-- subnet-identities.yaml --
+key: "10.244.0.0/16"
+value: 1
+---
+key: "10.245.0.0/16"
+value: 2
+---
+key: "fd00:244::/32"
+value: 1
+---
+key: "fd00:245::/32"
+value: 2
+
+-- local-node.yaml --
+node:
+  name: local-node
+  ipv4alloccidr: "10.244.0.0/24"
+  ipv6alloccidr: "fd00:244::/64"
+local: {}
+
+-- remote-node.yaml --
+node:
+  name: remote-node
+  ipaddresses:
+    - type: InternalIP
+      ip: "192.0.1.11"
+    - type: InternalIP
+      ip: "fd00::11"
+  ipv4alloccidr: "10.244.1.0/24"
+  ipv4secondaryalloccidrs:
+    - "10.245.1.0/24"
+  ipv6alloccidr: "fd00:244:1::/64"
+  ipv6secondaryalloccidrs:
+    - "fd00:245:1::/64"
+
+-- remote-node-updated.yaml --
+node:
+  name: remote-node
+  ipaddresses:
+    - type: InternalIP
+      ip: "192.0.1.11"
+    - type: InternalIP
+      ip: "fd00::11"
+  ipv4alloccidr: "10.244.2.0/24"
+  ipv4secondaryalloccidrs:
+    - "10.245.2.0/24"
+  ipv6alloccidr: "fd00:246:2::/64"
+  ipv6secondaryalloccidrs:
+    - "fd00:245:2::/64"
+
+-- expected-routes.table --
+Owner              Table            Prefix                         AD   Selected   Nexthop        Scope      Type
+adnr/remote-node   main (254)       10.244.1.0/24                  100  true       192.0.1.11     universe   unspec
+adnr/remote-node   main (254)       fd00:244:1::/64                100  true       fd00::11       universe   unspec
+
+-- expected-updated-routes.table --
+Owner              Table            Prefix                         AD   Selected   Nexthop        Scope      Type
+adnr/remote-node   main (254)       10.244.2.0/24                  100  true       192.0.1.11     universe   unspec
