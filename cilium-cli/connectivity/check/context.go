@@ -1440,7 +1440,8 @@ func (ct *ConnectivityTest) ShouldRunConnDisruptEgressGateway() bool {
 		ct.params.IncludeConnDisruptTestEgressGateway &&
 		ct.Features[features.EgressGateway].Enabled &&
 		ct.Features[features.NodeWithoutCilium].Enabled &&
-		!ct.Features[features.KPRNodePortAcceleration].Enabled &&
+		(!ct.Features[features.KPRNodePortAcceleration].Enabled ||
+			versioncheck.MustCompile(">=1.20.0")(ct.CiliumVersion)) &&
 		ct.params.MultiCluster == ""
 }
 
