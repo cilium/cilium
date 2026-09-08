@@ -1,0 +1,99 @@
+hive start
+db/initialized
+
+# A direct route makes the two remote nodes reachable on the same L2.
+db/insert routes direct-route.yaml
+
+# The local node must not get an ADNR route.
+db/insert nodes local-node.yaml
+db/cmp desired-routes expected-empty.table
+
+# Reachable nodes get one route per PodCIDR.
+db/insert nodes remote-node-1.yaml remote-node-2.yaml
+db/cmp desired-routes expected-two-routes.table
+db/cmp --grep=^auto-direct-node-routes health expected-health-ok.table
+
+# changing the IP and prefix of a node updates its route.
+db/insert nodes remote-node-1-updated.yaml
+db/cmp desired-routes expected-updated-route.table
+
+# Deleting a node removes its routes.
+db/delete nodes remote-node-2.yaml
+db/cmp desired-routes expected-delete-route.table
+
+hive/stop
+
+-- direct-route.yaml --
+table: 254
+dst: "192.0.1.0/24"
+---
+table: 254
+dst: "fd00::/64"
+
+-- local-node.yaml --
+node:
+  name: local-node
+  ipaddresses:
+    - type: InternalIP
+      ip: "192.0.1.10"
+    - type: InternalIP
+      ip: "fd00::10"
+  ipv4alloccidr: "10.0.1.0/24"
+  ipv6alloccidr: "fd00:10:0:1::/64"
+
+-- remote-node-1.yaml --
+node:
+  name: remote-node-1
+  ipaddresses:
+    - type: InternalIP
+      ip: "192.0.1.11"
+    - type: InternalIP
+      ip: "fd00::11"
+  ipv4alloccidr: "10.0.2.0/24"
+  ipv6alloccidr: "fd00:10:0:2::/64"
+
+-- remote-node-1-updated.yaml --
+node:
+  name: remote-node-1
+  ipaddresses:
+    - type: InternalIP
+      ip: "192.0.1.13"
+    - type: InternalIP
+      ip: "fd00::13"
+  ipv4alloccidr: "10.0.5.0/24"
+  ipv6alloccidr: "fd00:10:0:5::/64"
+
+-- remote-node-2.yaml --
+node:
+  name: remote-node-2
+  ipaddresses:
+    - type: InternalIP
+      ip: "192.0.1.12"
+    - type: InternalIP
+      ip: "fd00::12"
+  ipv4alloccidr: "10.0.3.0/24"
+  ipv6alloccidr: "fd00:10:0:3::/64"
+
+-- expected-empty.table --
+Owner   Table   Prefix   AD   Selected   Nexthop   Device   Scope   Type
+
+-- expected-two-routes.table --
+Owner              Table            Prefix                         AD   Selected   Nexthop        Scope      Type
+adnr/remote-node-1 main (254)       10.0.2.0/24                    100  true       192.0.1.11     universe   unspec
+adnr/remote-node-1 main (254)       fd00:10:0:2::/64               100  true       fd00::11       universe   unspec
+adnr/remote-node-2 main (254)       10.0.3.0/24                    100  true       192.0.1.12     universe   unspec
+adnr/remote-node-2 main (254)       fd00:10:0:3::/64               100  true       fd00::12       universe   unspec
+-- expected-updated-route.table --
+Owner              Table            Prefix                         AD   Selected   Nexthop        Scope      Type
+adnr/remote-node-1 main (254)       10.0.5.0/24                    100  true       192.0.1.13     universe   unspec
+adnr/remote-node-1 main (254)       fd00:10:0:5::/64               100  true       fd00::13       universe   unspec
+adnr/remote-node-2 main (254)       10.0.3.0/24                    100  true       192.0.1.12     universe   unspec
+adnr/remote-node-2 main (254)       fd00:10:0:3::/64               100  true       fd00::12       universe   unspec
+-- expected-delete-route.table --
+Owner              Table            Prefix                         AD   Selected   Nexthop        Scope      Type
+adnr/remote-node-1 main (254)       10.0.5.0/24                    100  true       192.0.1.13     universe   unspec
+adnr/remote-node-1 main (254)       fd00:10:0:5::/64               100  true       fd00::13       universe   unspec
+
+-- expected-health-ok.table --
+Module                    Component                     Level   Message                             
+auto-direct-node-routes   job-auto-direct-node-routes   OK      Auto-direct-node-routes synchronized
