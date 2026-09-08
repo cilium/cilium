@@ -1689,6 +1689,24 @@ hubble:
     # -- The cluster domain to use to query the Hubble Peer service. It should
     # be the local cluster.
     clusterDomain: cluster.local
+    # @schema
+    # type: [null, array]
+    # @schema
+    # -- (list) IP families of the Peer service, for example `[IPv6]`. Hubble
+    # Relay reaches the agents through this service, so its IP family must match
+    # the address family of the agents' node addresses. This is needed in
+    # dual-stack clusters where the agents announce IPv6 addresses but the
+    # cluster's primary IP family is IPv4. If unset, the Kubernetes default is
+    # used.
+    ipFamilies: ~
+    # @schema
+    # anyOf:
+    # - type: [null]
+    # - enum: [SingleStack, PreferDualStack, RequireDualStack]
+    # @schema
+    # -- (string) IP family policy of the Peer service. If unset, the Kubernetes
+    # default is used.
+    ipFamilyPolicy: ~
   # -- TLS configuration for Hubble
   tls:
     # -- Enable mutual TLS for listenAddress. Setting this value to false is

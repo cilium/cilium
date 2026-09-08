@@ -3427,6 +3427,26 @@
             "clusterDomain": {
               "type": "string"
             },
+            "ipFamilies": {
+              "type": [
+                "null",
+                "array"
+              ]
+            },
+            "ipFamilyPolicy": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "enum": [
+                    "SingleStack",
+                    "PreferDualStack",
+                    "RequireDualStack"
+                  ]
+                }
+              ]
+            },
             "targetPort": {
               "type": "integer"
             }

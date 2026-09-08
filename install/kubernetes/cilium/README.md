@@ -617,6 +617,8 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.metrics.tls.server.mtls.name | string | `nil` | Name of the ConfigMap containing the CA to validate client certificates against. If mTLS is enabled and this is unspecified, it will default to the same CA used for Hubble metrics server certificates. |
 | hubble.networkPolicyCorrelation | object | `{"enabled":true}` | Enables network policy correlation of Hubble flows, i.e. populating `egress_allowed_by`, `ingress_denied_by` fields with policy information. |
 | hubble.peerService.clusterDomain | string | `"cluster.local"` | The cluster domain to use to query the Hubble Peer service. It should be the local cluster. |
+| hubble.peerService.ipFamilies | list | `nil` | IP families of the Peer service, for example `[IPv6]`. Hubble Relay reaches the agents through this service, so its IP family must match the address family of the agents' node addresses. This is needed in dual-stack clusters where the agents announce IPv6 addresses but the cluster's primary IP family is IPv4. If unset, the Kubernetes default is used. |
+| hubble.peerService.ipFamilyPolicy | string | `nil` | IP family policy of the Peer service. If unset, the Kubernetes default is used. |
 | hubble.peerService.targetPort | int | `4244` | Target Port for the Peer service, must match the hubble.listenAddress' port. |
 | hubble.preferIpv6 | bool | `false` | Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available. Deprecated: use top-level preferIpv6 instead. |
 | hubble.redact | object | `{"enabled":false,"http":{"headers":{"allow":[],"deny":[]},"urlQuery":false,"userInfo":true}}` | Enables redacting sensitive information present in Layer 7 flows. |

@@ -30,4 +30,11 @@ spec:
     protocol: TCP
     targetPort: {{ .Values.hubble.peerService.targetPort }}
   internalTrafficPolicy: Local
+  {{- if .Values.hubble.peerService.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.hubble.peerService.ipFamilyPolicy }}
+  {{- end }}
+  {{- if .Values.hubble.peerService.ipFamilies }}
+  ipFamilies:
+    {{- toYaml .Values.hubble.peerService.ipFamilies | nindent 4 }}
+  {{- end }}
 {{- end }}

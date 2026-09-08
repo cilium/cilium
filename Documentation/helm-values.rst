@@ -2268,6 +2268,14 @@
      - The cluster domain to use to query the Hubble Peer service. It should be the local cluster.
      - string
      - ``"cluster.local"``
+   * - :spelling:ignore:`hubble.peerService.ipFamilies`
+     - IP families of the Peer service, for example ``[IPv6]``. Hubble Relay reaches the agents through this service, so its IP family must match the address family of the agents' node addresses. This is needed in dual-stack clusters where the agents announce IPv6 addresses but the cluster's primary IP family is IPv4. If unset, the Kubernetes default is used.
+     - list
+     - ``nil``
+   * - :spelling:ignore:`hubble.peerService.ipFamilyPolicy`
+     - IP family policy of the Peer service. If unset, the Kubernetes default is used.
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.peerService.targetPort`
      - Target Port for the Peer service, must match the hubble.listenAddress' port.
      - int
