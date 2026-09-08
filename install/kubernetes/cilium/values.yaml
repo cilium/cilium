@@ -132,7 +132,7 @@ k8sClientExponentialBackoff:
   # -- Configure maximum duration (in seconds) for exponential backoff.
   backoffMaxDurationSeconds: 120
 cluster:
-  # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
+  # -- Name of the cluster. Only required for Cluster Mesh.
   # It must respect the following constraints:
   # * It must contain at most 32 characters;
   # * It must begin and end with a lower case alphanumeric character;
@@ -4400,25 +4400,8 @@ sctp:
   enabled: false
 # -- Enable Non-Default-Deny policies
 enableNonDefaultDenyPolicies: true
-# Configuration for deprecated authentication settings.
 authentication:
-  # -- Deprecated: accepted for compatibility. Policy authentication is ignored and no longer blocks traffic.
-  enabled: false
-  # -- Deprecated: accepted for compatibility. No longer used by the agent.
-  queueSize: 1024
-  # -- Deprecated: accepted for compatibility. No longer used by the agent.
-  rotatedIdentitiesQueueSize: 1024
-  # Configuration for Cilium's service-to-service mutual authentication using TLS handshakes.
-  # Note that this is not full mTLS support without also enabling encryption of some form.
-  # Current encryption options are WireGuard or IPsec, configured in encryption block above.
-  #
-  # Deprecated as of Cilium v1.20, this feature will be removed in Cilium v1.21.
-  # See https://github.com/cilium/cilium/issues/47132 for details.
   mutual:
-    # -- Port on the agent where mutual authentication handshakes between agents will be performed
-    port: 4250
-    # -- Timeout for connecting to the remote node TCP socket
-    connectTimeout: 5s
     # Settings for SPIRE
     spire:
       # -- Enable SPIRE integration (beta)

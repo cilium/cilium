@@ -64,18 +64,6 @@
      - The api-rate-limit option can be used to overwrite individual settings of the default configuration for rate limiting calls to the Cilium Agent API
      - string
      - ``nil``
-   * - :spelling:ignore:`authentication.enabled`
-     - Deprecated: accepted for compatibility. Policy authentication is ignored and no longer blocks traffic.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`authentication.mutual.connectTimeout`
-     - Timeout for connecting to the remote node TCP socket
-     - string
-     - ``"5s"``
-   * - :spelling:ignore:`authentication.mutual.port`
-     - Port on the agent where mutual authentication handshakes between agents will be performed
-     - int
-     - ``4250``
    * - :spelling:ignore:`authentication.mutual.spire.adminSocketPath`
      - SPIRE socket path where the SPIRE delegated api agent is listening
      - string
@@ -252,14 +240,6 @@
      - SPIFFE trust domain to use for fetching certificates
      - string
      - ``"spiffe.cilium"``
-   * - :spelling:ignore:`authentication.queueSize`
-     - Deprecated: accepted for compatibility. No longer used by the agent.
-     - int
-     - ``1024``
-   * - :spelling:ignore:`authentication.rotatedIdentitiesQueueSize`
-     - Deprecated: accepted for compatibility. No longer used by the agent.
-     - int
-     - ``1024``
    * - :spelling:ignore:`autoDirectNodeRoutes`
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool
@@ -597,7 +577,7 @@
      - int
      - ``0``
    * - :spelling:ignore:`cluster.name`
-     - Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE. It must respect the following constraints: * It must contain at most 32 characters; * It must begin and end with a lower case alphanumeric character; * It may contain lower case alphanumeric characters and dashes between. The "default" name cannot be used if the Cluster ID is different from 0.
+     - Name of the cluster. Only required for Cluster Mesh. It must respect the following constraints: * It must contain at most 32 characters; * It must begin and end with a lower case alphanumeric character; * It may contain lower case alphanumeric characters and dashes between. The "default" name cannot be used if the Cluster ID is different from 0.
      - string
      - ``"default"``
    * - :spelling:ignore:`clustermesh.annotations`
