@@ -12,7 +12,7 @@ Please ensure your pull request adheres to the following guidelines:
 - [ ] Disclose use of machine learning models (including LLMs and other generative AI)
       in accordance with the [Cilium AI Policy], and indicate the rating using
       [AI Influence Level].
-      Example: "This PR was prepared with AIL:3. I personally checked X."
+      Example: "This PR was prepared with AIL:N. I personally checked X."
 - [ ] Thanks for contributing!
 
 <!-- Description of change -->
