@@ -74,23 +74,26 @@ func TestPrivilegedUnusedMaps(t *testing.T) {
 
 	reach, err = computeReachability(spec)
 	require.NoError(t, err)
+	err = nopUnusedFuncs(spec, reach, nil)
+	require.NoError(t, err)
 	err = removeUnusedMaps(spec, nil, reach, nil)
 	require.NoError(t, err)
 
 	assert.Nil(t, spec.Maps["map_a"])
 	assert.Nil(t, spec.Maps["map_b"])
-	// BPF functions are always visited to match the kernel's behavior pre-v6.8.
-	assert.NotNil(t, spec.Maps["map_static"])
-	assert.NotNil(t, spec.Maps["map_global"])
 	assert.True(t, slices.ContainsFunc(obj.Program.Instructions, func(ins asm.Instruction) bool {
 		return ins.Constant == poisonedMapLoad
 	}), "At least one instruction should have been poisoned")
 
+	// Dead (global/static) functions are stubbed out, allowing their maps to be
+	// pruned.
+	assert.Nil(t, spec.Maps["map_static"])
+	assert.Nil(t, spec.Maps["map_global"])
+
 	coll = mustNewCollection(t, spec)
 	freed, err = freedMaps(coll, nil)
 	assert.NoError(t, err)
-	// Depending on the kernel versions, map_static and map_global may be freed by the verifier.
-	assert.GreaterOrEqual(t, 2, len(freed))
+	assert.Empty(t, freed)
 }
 
 func TestPrivilegedUnusedMapsFalseNegative(t *testing.T) {
