@@ -82,6 +82,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 					Ports: []corev1.ServicePort{{
 						Port: 8000,
 					}},
@@ -102,6 +103,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 				},
 			},
 
@@ -127,6 +129,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 					Ports: []corev1.ServicePort{
 						{
 							Name: "named",
@@ -156,6 +159,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 					Ports: []corev1.ServicePort{{
 						Port: 8000,
 					}},
@@ -189,6 +193,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 				},
 			},
 
@@ -206,6 +211,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 				},
 			},
 
@@ -223,6 +229,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 					Ports: []corev1.ServicePort{{
 						Port: 4242,
 					}},
@@ -243,6 +250,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 					Ports: []corev1.ServicePort{{
 						Port: 4242,
 					}},
@@ -263,6 +271,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 					Ports: []corev1.ServicePort{{
 						Name: "myport",
 						Port: 4242,
@@ -323,6 +332,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 				},
 			},
 
@@ -340,6 +350,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityClientIP,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 					SessionAffinityConfig: &corev1.SessionAffinityConfig{
 						ClientIP: &corev1.ClientIPConfig{TimeoutSeconds: ptr.To[int32](4242)},
 					},
@@ -363,6 +374,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 					Name:      "conflict-annotations",
 					Namespace: "default",
 				},
+				Spec: corev1.ServiceSpec{IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol}},
 			},
 
 			&mcsapiv1beta1.ServiceExport{
@@ -382,6 +394,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 					Name:      "conflict-labels",
 					Namespace: "default",
 				},
+				Spec: corev1.ServiceSpec{IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol}},
 			},
 
 			&mcsapiv1beta1.ServiceExport{
@@ -398,6 +411,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					InternalTrafficPolicy: ptr.To(corev1.ServiceInternalTrafficPolicyLocal),
+					IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol},
 				},
 			},
 
@@ -415,6 +429,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					TrafficDistribution: ptr.To(corev1.ServiceTrafficDistributionPreferClose),
+					IPFamilies:          []corev1.IPFamily{corev1.IPv4Protocol},
 				},
 			},
 
@@ -441,6 +456,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 					Ports: []corev1.ServicePort{{
 						Port: 8080,
 					}},
@@ -460,6 +476,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					SessionAffinity: corev1.ServiceAffinityNone,
+					IPFamilies:      []corev1.IPFamily{corev1.IPv4Protocol},
 					Ports: []corev1.ServicePort{{
 						Port: 9090,
 					}},
@@ -471,6 +488,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "remote-only",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Type:                    mcsapiv1beta1.ClusterSetIP,
 				SessionAffinity:         corev1.ServiceAffinityNone,
@@ -479,6 +497,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "delete-remote",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Type:                    mcsapiv1beta1.ClusterSetIP,
 				SessionAffinity:         corev1.ServiceAffinityNone,
@@ -487,14 +506,16 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "unknown-ns",
 				Namespace:               "unknown",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Type:                    mcsapiv1beta1.ClusterSetIP,
 				SessionAffinity:         corev1.ServiceAffinityNone,
 			},
 			{
-				Cluster:   remoteClusterName,
-				Name:      "basic",
-				Namespace: "default",
+				Cluster:    remoteClusterName,
+				Name:       "basic",
+				Namespace:  "default",
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
 				Annotations: map[string]string{
 					"service.cilium.io/global-sync-endpoint-slices": "true",
 				},
@@ -517,6 +538,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "multiple-clusters",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Type:                    mcsapiv1beta1.ClusterSetIP,
 				SessionAffinity:         corev1.ServiceAffinityNone,
@@ -525,6 +547,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "conflict-type-remove",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: nowTime,
 				Type:                    mcsapiv1beta1.Headless,
 				SessionAffinity:         corev1.ServiceAffinityNone,
@@ -533,6 +556,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "conflict-type",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Type:                    mcsapiv1beta1.Headless,
 				SessionAffinity:         corev1.ServiceAffinityNone,
@@ -541,6 +565,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "conflict-port-name",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Ports: []mcsapiv1beta1.ServicePort{
 					{Name: "remote", Port: 4242},
@@ -552,6 +577,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "conflict-port-appprotocol",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Ports: []mcsapiv1beta1.ServicePort{
 					{Port: 4242, AppProtocol: ptr.To("something-else")},
@@ -563,6 +589,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "conflict-duplicated-port-name",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Ports: []mcsapiv1beta1.ServicePort{
 					{Name: "myport", Port: 4243},
@@ -574,6 +601,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "conflict-port-union-1",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Ports: []mcsapiv1beta1.ServicePort{
 					{Name: "myport1", Port: 4242},
@@ -586,6 +614,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "conflict-port-union-2",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Ports: []mcsapiv1beta1.ServicePort{
 					{Name: "myport1", Port: 4242},
@@ -597,6 +626,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "conflict-session-affinity",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Ports:                   []mcsapiv1beta1.ServicePort{},
 				Type:                    mcsapiv1beta1.ClusterSetIP,
@@ -606,6 +636,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "conflict-session-affinity-config",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Ports:                   []mcsapiv1beta1.ServicePort{},
 				Type:                    mcsapiv1beta1.ClusterSetIP,
@@ -615,9 +646,10 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				},
 			},
 			{
-				Cluster:   remoteClusterName,
-				Name:      "conflict-annotations",
-				Namespace: "default",
+				Cluster:    remoteClusterName,
+				Name:       "conflict-annotations",
+				Namespace:  "default",
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
 				Annotations: map[string]string{
 					"service.cilium.io/global-sync-endpoint-slices": "true",
 					"service.cilium.io/lb-l7":                       "true",
@@ -627,9 +659,10 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Type:                    mcsapiv1beta1.ClusterSetIP,
 			},
 			{
-				Cluster:   remoteClusterName,
-				Name:      "conflict-labels",
-				Namespace: "default",
+				Cluster:    remoteClusterName,
+				Name:       "conflict-labels",
+				Namespace:  "default",
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
 				Labels: map[string]string{
 					"my-label":  "test",
 					"my-label2": "test",
@@ -642,6 +675,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "conflict-internal-traffic-policy",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Ports:                   []mcsapiv1beta1.ServicePort{},
 				Type:                    mcsapiv1beta1.ClusterSetIP,
@@ -650,6 +684,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "conflict-traffic-distribution",
 				Namespace:               "default",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Ports:                   []mcsapiv1beta1.ServicePort{},
 				Type:                    mcsapiv1beta1.ClusterSetIP,
@@ -658,6 +693,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Cluster:                 remoteClusterName,
 				Name:                    "remote-in-non-global",
 				Namespace:               "non-global-ns",
+				IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 				ExportCreationTimestamp: olderTime,
 				Ports: []mcsapiv1beta1.ServicePort{{
 					Port: 9090,
@@ -667,7 +703,6 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			},
 		}
 	)
-
 	c := fake.NewClientBuilder().
 		WithObjects(svcImportTestFixtures...).
 		WithStatusSubresource(&mcsapiv1beta1.ServiceExport{}).
@@ -714,6 +749,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			Type:                  mcsapiv1beta1.ClusterSetIP,
 			SessionAffinity:       corev1.ServiceAffinityNone,
 			SessionAffinityConfig: nil,
+			IPFamilies:            []corev1.IPFamily{corev1.IPv4Protocol},
 		}, svcImport.Spec)
 		require.Len(t, svcImport.Status.Clusters, 1)
 		require.Equal(t, mcsapiv1beta1.EndpointSliceObjectsAbsent, svcImport.Status.EndpointSliceObjects)
@@ -992,6 +1028,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			Name:                    "conflict-type-remove",
 			Namespace:               "default",
 			ExportCreationTimestamp: nowTime,
+			IPFamilies:              []corev1.IPFamily{corev1.IPv4Protocol},
 			Type:                    mcsapiv1beta1.ClusterSetIP,
 			SessionAffinity:         corev1.ServiceAffinityNone,
 		})
@@ -1328,18 +1365,8 @@ func TestIntersectIPFamilies(t *testing.T) {
 			expectReason:   mcsapiv1beta1.ServiceExportReasonNoConflicts,
 		},
 		{
-			name: "all legacy",
-			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
-				newMCSAPISpecIPFamily(nil),
-				newMCSAPISpecIPFamily(nil),
-			},
-			expectFamilies: nil,
-			expectReason:   mcsapiv1beta1.ServiceExportReasonNoConflicts,
-		},
-		{
 			name: "dual-stack then narrows to IPv4",
 			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
-				newMCSAPISpecIPFamily(nil),
 				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}),
 				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol}),
 			},
@@ -1350,7 +1377,6 @@ func TestIntersectIPFamilies(t *testing.T) {
 			name: "keep oldest single stack IPv6",
 			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
 				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv6Protocol}),
-				newMCSAPISpecIPFamily(nil),
 				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}),
 			},
 			expectFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
