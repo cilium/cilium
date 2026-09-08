@@ -101,7 +101,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock, failedToRetrieveLock, leaderElectionReadTimeout,
-		failedToListCRDs, knownIssueWireguardCollision, nilDetailsForService, gobgpFailedCloseTCP,
+		failedToListCRDs, knownIssueWireguardCollision, gobgpFailedCloseTCP,
 		vendoredLeaderElectionLeaseLockError}
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
@@ -111,7 +111,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		legacyBGPFeature, etcdTimeout, unableRestoreRouterIP,
 		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
 		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs,
-		hubbleQueueFull, reflectPanic, svcNotFound, gobgpv3Warnings, gobgpNotification, gobgpNoMatchingWithdrawPath,
+		hubbleQueueFull, reflectPanic, gobgpv3Warnings, gobgpNotification, gobgpNoMatchingWithdrawPath,
 		gobgpReceivedNotification, gobgpFailedToSend,
 		endpointMapDeleteFailed, etcdReconnection, failedToRetrieveRemoteClusterCfg, epRestoreMissingState, mutationDetectorKlog,
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
@@ -134,6 +134,11 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 
 	if ciliumVersion.LT(semver.MustParse("1.19.0")) {
 		warningLogExceptions = append(warningLogExceptions, kvstoreNodesGCWarn, kvstoreNodesGCWarn2, kvstoreNodesGCWarn3)
+	}
+
+	if ciliumVersion.LT(semver.MustParse("1.21.0")) {
+		errorLogExceptions = append(errorLogExceptions, nilDetailsForService)
+		warningLogExceptions = append(warningLogExceptions, svcNotFound)
 	}
 
 	if ciliumVersion.LT(semver.MustParse("1.21.0")) {
