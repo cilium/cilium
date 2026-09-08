@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
 	cmapisrv "github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
 	"github.com/cilium/cilium/operator/api"
-	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/doublewrite"
 	"github.com/cilium/cilium/operator/endpointgc"
 	"github.com/cilium/cilium/operator/endpointslicegc"
@@ -221,7 +220,6 @@ var (
 		bgp.Cell,
 		lbipam.Cell,
 		nodeipam.Cell,
-		auth.Cell,
 		store.Cell,
 		cmoperator.Cell,
 		endpointslicesync.Cell,

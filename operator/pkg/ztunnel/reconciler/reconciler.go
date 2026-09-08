@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 
-	"github.com/cilium/cilium/operator/auth/spire"
+	"github.com/cilium/cilium/operator/pkg/ztunnel/spire"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/ztunnel/table"
 )

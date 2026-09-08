@@ -13,8 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	authIdentity "github.com/cilium/cilium/operator/auth/identity"
-	"github.com/cilium/cilium/operator/auth/spire"
 	"github.com/cilium/cilium/operator/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -36,7 +34,6 @@ func TestIdentitiesGC(t *testing.T) {
 	)
 
 	var clientset k8sClient.Clientset
-	var authIdentityClient authIdentity.Provider
 
 	hive := hive.New(
 		cmtypes.ClusterInfoCell,
@@ -46,8 +43,6 @@ func TestIdentitiesGC(t *testing.T) {
 		k8sFakeClient.FakeClientCell(),
 		// Provide a (disabled) kvstore client
 		kvstore.Cell(kvstore.DisabledBackendName),
-		// provide a fake spire client
-		spire.FakeCellClient,
 		// provide resources
 		k8s.ResourcesCell,
 
@@ -68,9 +63,8 @@ func TestIdentitiesGC(t *testing.T) {
 		}),
 
 		// initial setup for the test
-		cell.Invoke(func(c k8sClient.Clientset, authClient authIdentity.Provider) error {
+		cell.Invoke(func(c k8sClient.Clientset) error {
 			clientset = c
-			authIdentityClient = authClient
 			if err := setupK8sNodes(t, clientset); err != nil {
 				return err
 			}
@@ -78,9 +72,6 @@ func TestIdentitiesGC(t *testing.T) {
 				return err
 			}
 			if err := setupCiliumEndpoint(t, clientset); err != nil {
-				return err
-			}
-			if err := setupAuthIdentities(t, authIdentityClient); err != nil {
 				return err
 			}
 
@@ -129,19 +120,6 @@ func TestIdentitiesGC(t *testing.T) {
 		t.Fatalf("expected Cilium identity \"99999\", got %q", identities.Items[0].Name)
 	}
 
-	authIdentities, err := authIdentityClient.List(ctx)
-	if err != nil {
-		t.Fatalf("unable to list Cilium Auth identities: %s", err)
-	}
-
-	if len(authIdentities) != 1 {
-		t.Fatalf("expected 1 Cilium Auth identity, got %d", len(authIdentities))
-	}
-
-	if authIdentities[0] != "99999" {
-		t.Fatalf("expected Cilium Auth identity \"99999\", got %q", authIdentities[0])
-	}
-
 	if err := hive.Stop(tlog, ctx); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
@@ -159,7 +137,6 @@ func TestIdentitiesGC_Disabled(t *testing.T) {
 
 		k8sFakeClient.FakeClientCell(),
 		kvstore.Cell(kvstore.DisabledBackendName),
-		spire.FakeCellClient,
 		k8s.ResourcesCell,
 
 		cell.Provide(func() Config {
@@ -255,16 +232,6 @@ func setupCiliumIdentities(t *testing.T, clientset k8sClient.Clientset) error {
 			Create(t.Context(), identity, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create identity %v: %w", identity, err)
 		}
-	}
-	return nil
-}
-
-func setupAuthIdentities(t *testing.T, client authIdentity.Provider) error {
-	if err := client.Upsert(t.Context(), "88888"); err != nil {
-		return err
-	}
-	if err := client.Upsert(t.Context(), "99999"); err != nil {
-		return err
 	}
 	return nil
 }
