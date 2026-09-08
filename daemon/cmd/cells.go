@@ -22,7 +22,6 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/auth"
 	awsAgent "github.com/cilium/cilium/pkg/aws/agent"
 	"github.com/cilium/cilium/pkg/bgp"
 	bgpagent "github.com/cilium/cilium/pkg/bgp/agent"
@@ -311,9 +310,6 @@ var (
 
 		// Brokers datapath signals from signalmap
 		signal.Cell,
-
-		// Auth is responsible for authenticating a request if required by a policy.
-		auth.Cell,
 
 		// Provides Identity Controlplane (Responsible for allocating & managing security identities)
 		identity.Cell,

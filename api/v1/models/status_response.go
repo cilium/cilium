@@ -26,9 +26,6 @@ type StatusResponse struct {
 	// Status of core datapath attachment mode
 	AttachMode AttachMode `json:"attach-mode,omitempty"`
 
-	// Status of Mutual Authentication certificate provider
-	AuthCertificateProvider *Status `json:"auth-certificate-provider,omitempty"`
-
 	// Status of bandwidth manager
 	BandwidthManager *BandwidthManager `json:"bandwidth-manager,omitempty"`
 
@@ -125,10 +122,6 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateAttachMode(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.validateAuthCertificateProvider(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -266,29 +259,6 @@ func (m *StatusResponse) validateAttachMode(formats strfmt.Registry) error {
 		}
 
 		return err
-	}
-
-	return nil
-}
-
-func (m *StatusResponse) validateAuthCertificateProvider(formats strfmt.Registry) error {
-	if typeutils.IsZero(m.AuthCertificateProvider) { // not required
-		return nil
-	}
-
-	if m.AuthCertificateProvider != nil {
-		if err := m.AuthCertificateProvider.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
-				return ve.ValidateName("auth-certificate-provider")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
-				return ce.ValidateName("auth-certificate-provider")
-			}
-
-			return err
-		}
 	}
 
 	return nil
@@ -933,10 +903,6 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 		res = append(res, err)
 	}
 
-	if err := m.contextValidateAuthCertificateProvider(ctx, formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.contextValidateBandwidthManager(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -1068,31 +1034,6 @@ func (m *StatusResponse) contextValidateAttachMode(ctx context.Context, formats 
 		}
 
 		return err
-	}
-
-	return nil
-}
-
-func (m *StatusResponse) contextValidateAuthCertificateProvider(ctx context.Context, formats strfmt.Registry) error {
-
-	if m.AuthCertificateProvider != nil {
-
-		if typeutils.IsZero(m.AuthCertificateProvider) { // not required
-			return nil
-		}
-
-		if err := m.AuthCertificateProvider.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
-				return ve.ValidateName("auth-certificate-provider")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
-				return ce.ValidateName("auth-certificate-provider")
-			}
-
-			return err
-		}
 	}
 
 	return nil

@@ -955,26 +955,6 @@ func (d *statusCollector) getProbes() []Probe {
 			},
 		},
 		{
-			Name: "auth-cert-provider",
-			Probe: func(ctx context.Context) (any, error) {
-				if d.statusParams.AuthManager == nil {
-					return &models.Status{State: models.StatusStateDisabled}, nil
-				}
-
-				return d.statusParams.AuthManager.CertProviderStatus(), nil
-			},
-			OnStatusUpdate: func(status Status) {
-				d.statusCollectMutex.Lock()
-				defer d.statusCollectMutex.Unlock()
-
-				if status.Err == nil {
-					if s, ok := status.Data.(*models.Status); ok {
-						d.statusResponse.AuthCertificateProvider = s
-					}
-				}
-			},
-		},
-		{
 			Name: "cni-config",
 			Probe: func(ctx context.Context) (any, error) {
 				if d.statusParams.CNIConfigManager == nil {

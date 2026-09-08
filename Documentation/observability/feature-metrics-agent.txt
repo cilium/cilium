@@ -549,11 +549,6 @@
     - *None*
     - Local Redirect Policy enabled on the agent
     - gauge
-  * - ``mutual_auth_enabled``
-    - *None*
-    - *None*
-    - Mutual Auth enabled on the agent
-    - gauge
   * - ``mutual_auth_policies_total``
     - ``action``
     - ``"add"``
