@@ -41,7 +41,6 @@ func TestMapState_AccumulateMapChanges_Ordered(t *testing.T) {
 		ingress  bool
 		redirect bool
 		deny     bool
-		authReq  AuthRequirement
 		level    types.Priority
 	}
 	tests := []struct {
@@ -125,19 +124,6 @@ func TestMapState_AccumulateMapChanges_Ordered(t *testing.T) {
 				TcpEgressKey(44): allowEntry().withLevel(1),
 			}),
 		},
-		{
-			name: "test-order-5a - pull auth down from same level",
-			args: []args{
-				{level: 2, cs: csFoo, adds: []int{44}, deletes: []int{}, port: 0, proto: 0, authReq: types.AuthTypeSpire.AsExplicitRequirement(), ingress: false, redirect: false, deny: false},
-				{level: 2, cs: csFoo, adds: []int{44}, deletes: []int{}, port: 0, proto: 6, ingress: false, redirect: false, deny: false},
-				{level: 1, cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: false, deny: false},
-			},
-			state: testMapState(t, mapStateMap{
-				EgressKey().WithIdentity(44): allowEntry().withExplicitAuth(AuthTypeSpire).withLevel(2),
-				TcpEgressKey(44):             allowEntry().withDerivedAuth(AuthTypeSpire).withLevel(2),
-				HttpEgressKey(44):            allowEntry().withLevel(1),
-			}),
-		},
 	}
 
 	epPolicy := &EndpointPolicy{
@@ -153,7 +139,6 @@ func TestMapState_AccumulateMapChanges_Ordered(t *testing.T) {
 		policyMapState := emptyMapState(logger)
 		epPolicy.policyMapState = policyMapState
 
-		features := precedenceFeatures
 		for _, x := range tt.args {
 			dir := trafficdirection.Egress
 			if x.ingress {
@@ -170,15 +155,11 @@ func TestMapState_AccumulateMapChanges_Ordered(t *testing.T) {
 			if x.deny {
 				verdict = types.Deny
 			}
-			// pass verdict not used in this test
-			if x.authReq != NoAuthRequirement {
-				features |= authRules
-			}
-			value := newMapStateEntry(x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, 0, verdict, x.authReq)
+			value := newMapStateEntry(x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, 0, verdict)
 			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, key, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
-		policyMaps.consumeMapChanges(epPolicy, features)
+		policyMaps.consumeMapChanges(epPolicy, precedenceFeatures)
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
 	}

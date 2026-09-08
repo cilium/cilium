@@ -72,8 +72,8 @@ struct policy_entry {
 	__u8		deny:1,
 			reserved:2, /* bits used in Cilium 1.16, keep unused for Cilium 1.17 */
 			lpm_prefix_length:5; /* map key protocol and dport prefix length */
-	__u8		auth_type:7,
-			has_explicit_auth_type:1;
+	__u8		reserved_auth_type:7,
+			reserved_explicit_auth_type:1;
 	__u32		precedence;
 	__u32		cookie;
 };
@@ -170,22 +170,14 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_policy __section_maps_btf;
 
-/* Return a verdict for the chosen 'policy', possibly propagating the auth type from 'policy2', if
- * non-NULL and of the same precedence.
- *
- * Always called with non-NULL 'policy', while 'policy2' may be NULL.
+/* Return a verdict for the chosen 'policy'. Always called with non-NULL 'policy', while
+ * 'policy2' may be NULL.
  * If 'policy2' is non-null, it never has a higher precedence than 'policy'.
  */
 static __always_inline int
-__policy_check(const struct policy_entry *policy, const struct policy_entry *policy2, __s8 *ext_err,
-	       __u16 *proxy_port, __u32 *cookie)
+__policy_check(const struct policy_entry *policy, const struct policy_entry *policy2 __maybe_unused,
+	       __s8 *ext_err __maybe_unused, __u16 *proxy_port, __u32 *cookie)
 {
-	/* auth_type is derived from the matched policy entry, except if both L3/L4 and L4-only
-	 * match, and the chosen policy has no explicit auth type: in this case the auth type is
-	 * derived from the less specific policy entry.
-	 */
-	__u8 auth_type;
-
 	*cookie = policy->cookie;
 
 	if (unlikely(policy->deny))
@@ -200,18 +192,6 @@ __policy_check(const struct policy_entry *policy, const struct policy_entry *pol
 	 */
 	*proxy_port = policy->proxy_port;
 
-	auth_type = policy->auth_type;
-	/* Propagate the auth type from the same precedence, more general policy2 if needed. */
-	if (unlikely(policy2 && policy2->precedence == policy->precedence &&
-		     !policy->has_explicit_auth_type && policy2->auth_type > auth_type)) {
-		auth_type = policy2->auth_type;
-	}
-
-	if (unlikely(auth_type)) {
-		if (ext_err)
-			*ext_err = (__s8)auth_type;
-		return DROP_POLICY_AUTH_REQUIRED;
-	}
 	return CTX_ACT_OK;
 }
 

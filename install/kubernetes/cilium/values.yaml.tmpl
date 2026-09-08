@@ -2322,7 +2322,6 @@ hubble:
     # --- Drop reasons to emit events for.
     # ref: https://docs.cilium.io/en/stable/_api/v1/flow/README/#dropreason
     reasons:
-      - auth_required
       - policy_denied
 
 # -- Method to use for identity allocation (`crd`, `kvstore` or `doublewrite-readkvstore` / `doublewrite-readcrd` for migrating between identity backends).
@@ -4446,15 +4445,13 @@ sctp:
   enabled: false
 # -- Enable Non-Default-Deny policies
 enableNonDefaultDenyPolicies: true
-# Configuration for types of authentication for Cilium (beta)
+# Configuration for deprecated authentication settings.
 authentication:
-  # -- Enable authentication processing and garbage collection.
-  # Note that if disabled, policy enforcement will still block requests that require authentication.
-  # But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
+  # -- Deprecated: accepted for compatibility. Policy authentication is ignored and no longer blocks traffic.
   enabled: false
-  # -- Buffer size of the channel Cilium uses to receive authentication events from the signal map.
+  # -- Deprecated: accepted for compatibility. No longer used by the agent.
   queueSize: 1024
-  # -- Buffer size of the channel Cilium uses to receive certificate expiration events from auth handlers.
+  # -- Deprecated: accepted for compatibility. No longer used by the agent.
   rotatedIdentitiesQueueSize: 1024
   # Configuration for Cilium's service-to-service mutual authentication using TLS handshakes.
   # Note that this is not full mTLS support without also enabling encryption of some form.

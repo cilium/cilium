@@ -107,12 +107,16 @@ spec:
                         individual rule.
                   properties:
                     authentication:
-                      description: Authentication is the required authentication type
-                        for the allowed traffic, if any.
+                      description: |-
+                        Authentication is the configured authentication type for the allowed traffic, if any.
+
+                        Deprecated: Authentication is accepted for compatibility but is currently unused.
                       properties:
                         mode:
-                          description: Mode is the required authentication mode for
-                            the allowed traffic, if any.
+                          description: |-
+                            Mode is the configured authentication mode.
+
+                            Deprecated: Authentication is accepted for compatibility but is currently unused.
                           enum:
                           - disabled
                           - required
@@ -1870,12 +1874,16 @@ spec:
                         rule.
                   properties:
                     authentication:
-                      description: Authentication is the required authentication type
-                        for the allowed traffic, if any.
+                      description: |-
+                        Authentication is the configured authentication type for the allowed traffic, if any.
+
+                        Deprecated: Authentication is accepted for compatibility but is currently unused.
                       properties:
                         mode:
-                          description: Mode is the required authentication mode for
-                            the allowed traffic, if any.
+                          description: |-
+                            Mode is the configured authentication mode.
+
+                            Deprecated: Authentication is accepted for compatibility but is currently unused.
                           enum:
                           - disabled
                           - required
@@ -3453,12 +3461,16 @@ spec:
                           individual rule.
                     properties:
                       authentication:
-                        description: Authentication is the required authentication
-                          type for the allowed traffic, if any.
+                        description: |-
+                          Authentication is the configured authentication type for the allowed traffic, if any.
+
+                          Deprecated: Authentication is accepted for compatibility but is currently unused.
                         properties:
                           mode:
-                            description: Mode is the required authentication mode
-                              for the allowed traffic, if any.
+                            description: |-
+                              Mode is the configured authentication mode.
+
+                              Deprecated: Authentication is accepted for compatibility but is currently unused.
                             enum:
                             - disabled
                             - required
@@ -5218,12 +5230,16 @@ spec:
                           rule.
                     properties:
                       authentication:
-                        description: Authentication is the required authentication
-                          type for the allowed traffic, if any.
+                        description: |-
+                          Authentication is the configured authentication type for the allowed traffic, if any.
+
+                          Deprecated: Authentication is accepted for compatibility but is currently unused.
                         properties:
                           mode:
-                            description: Mode is the required authentication mode
-                              for the allowed traffic, if any.
+                            description: |-
+                              Mode is the configured authentication mode.
+
+                              Deprecated: Authentication is accepted for compatibility but is currently unused.
                             enum:
                             - disabled
                             - required

@@ -625,9 +625,10 @@ const (
 	DropReason_INVALID_TC_BUFFER                                     DropReason = 184
 	DropReason_NO_SID                                                DropReason = 185
 	// Deprecated: Marked as deprecated in flow/flow.proto.
-	DropReason_MISSING_SRV6_STATE                 DropReason = 186
-	DropReason_NAT46                              DropReason = 187
-	DropReason_NAT64                              DropReason = 188
+	DropReason_MISSING_SRV6_STATE DropReason = 186
+	DropReason_NAT46              DropReason = 187
+	DropReason_NAT64              DropReason = 188
+	// Deprecated: Marked as deprecated in flow/flow.proto.
 	DropReason_AUTH_REQUIRED                      DropReason = 189
 	DropReason_CT_NO_MAP_FOUND                    DropReason = 190
 	DropReason_SNAT_NO_MAP_FOUND                  DropReason = 191
@@ -5957,7 +5958,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"\x06TRACED\x10\x06\x12\x0e\n" +
 	"\n" +
-	"TRANSLATED\x10\a*\xe5\x11\n" +
+	"TRANSLATED\x10\a*\xe9\x11\n" +
 	"\n" +
 	"DropReason\x12\x17\n" +
 	"\x13DROP_REASON_UNKNOWN\x10\x00\x12\x1b\n" +
@@ -6020,8 +6021,8 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"\x05NAT46\x10\xbb\x01\x12\n" +
 	"\n" +
-	"\x05NAT64\x10\xbc\x01\x12\x12\n" +
-	"\rAUTH_REQUIRED\x10\xbd\x01\x12\x14\n" +
+	"\x05NAT64\x10\xbc\x01\x12\x16\n" +
+	"\rAUTH_REQUIRED\x10\xbd\x01\x1a\x02\b\x01\x12\x14\n" +
 	"\x0fCT_NO_MAP_FOUND\x10\xbe\x01\x12\x16\n" +
 	"\x11SNAT_NO_MAP_FOUND\x10\xbf\x01\x12\x17\n" +
 	"\x12INVALID_CLUSTER_ID\x10\xc0\x01\x12'\n" +

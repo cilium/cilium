@@ -105,13 +105,11 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 		errs = errors.Join(errs, newPol.Spec.Validate())
 		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, newPol.Spec))
 		errs = errors.Join(errs, validateCNPNodeSelector(newPol.Spec))
-		errs = errors.Join(errs, pv.checkMutalAuthUsage(newPol.Spec))
 	}
 	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Validate())
 		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, r))
 		errs = errors.Join(errs, validateCNPNodeSelector(r))
-		errs = errors.Join(errs, pv.checkMutalAuthUsage(r))
 	}
 
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
@@ -160,11 +158,9 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 	var errs error
 	if newPol.Spec != nil {
 		errs = errors.Join(errs, newPol.Spec.Validate())
-		errs = errors.Join(errs, pv.checkMutalAuthUsage(newPol.Spec))
 	}
 	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Validate())
-		errs = errors.Join(errs, pv.checkMutalAuthUsage(r))
 	}
 
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
@@ -191,20 +187,6 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 	}
 
 	return err
-}
-
-func (pv *policyValidator) checkMutalAuthUsage(spec *api.Rule) error {
-	for _, r := range spec.Ingress {
-		if r.Authentication != nil && !pv.params.Cfg.MeshAuthEnabled {
-			return errors.New("mutual auth feature is disabled but an ingress auth rule is defined in policy")
-		}
-	}
-	for _, r := range spec.Egress {
-		if r.Authentication != nil && !pv.params.Cfg.MeshAuthEnabled {
-			return errors.New("mutual auth feature is disabled but an egress auth rule is defined in policy")
-		}
-	}
-	return nil
 }
 
 // validateCNPEndpointSelectorNamespace checks that the endpointSelector of a

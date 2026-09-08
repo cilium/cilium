@@ -25,16 +25,6 @@ type U64 uint64
 // U8 is generated from the BPF C type __u8.
 type U8 uint8
 
-// AuthKey is generated from the BPF C type auth_key.
-type AuthKey struct {
-	_              structs.HostLayout
-	LocalSecLabel  uint32
-	RemoteSecLabel uint32
-	RemoteNodeID   uint16
-	AuthType       uint8
-	Pad            uint8
-}
-
 // CTEntry is generated from the BPF C type ct_entry.
 type CTEntry struct {
 	_       structs.HostLayout

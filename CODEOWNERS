@@ -310,7 +310,6 @@ Makefile* @cilium/build
 /bpf/bpf_wireguard.c @cilium/wireguard @cilium/sig-datapath
 /bpf/include/bpf/tailcall.h @cilium/loader
 /bpf/include/bpf/config @cilium/loader
-/bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
 /bpf/lib/clustermesh.h @cilium/sig-datapath @cilium/sig-clustermesh
 /bpf/lib/drop_reasons.h @cilium/sig-hubble
 /bpf/lib/egress_gateway.h @cilium/egress-gateway

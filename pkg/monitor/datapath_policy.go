@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/policy"
 )
 
 const (
@@ -170,12 +169,6 @@ func GetPolicyActionString(verdict int32, audit bool) string {
 	return "allow"
 }
 
-// GetAuthType returns string for the authentication method applied (for success verdict)
-// or required (for drops).
-func (n *PolicyVerdictNotify) GetAuthType() policy.AuthType {
-	return policy.AuthType(n.AuthType)
-}
-
 // DumpInfo prints a summary of the policy notify messages.
 func (n *PolicyVerdictNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.DisplayFormat) {
 	dir := "egress"
@@ -188,8 +181,8 @@ func (n *PolicyVerdictNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric a
 	} else {
 		fmt.Fprintf(buf, ", remote ID %s", n.RemoteLabel)
 	}
-	fmt.Fprintf(buf, ", proto %d, %s, action %s, auth: %s, match %s, %s\n", n.Proto, dir,
+	fmt.Fprintf(buf, ", proto %d, %s, action %s, match %s, %s\n", n.Proto, dir,
 		GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
-		n.GetAuthType(), n.GetPolicyMatchType(),
+		n.GetPolicyMatchType(),
 		GetConnectionSummary(data[n.DataOffset():], &decodeOpts{IsL3Device: n.IsTrafficL3Device(), IsIPv6: n.IsTrafficIPv6()}))
 }

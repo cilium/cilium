@@ -61,7 +61,6 @@ func TestSignalSet(t *testing.T) {
 	require.True(t, sm.isMuted())
 	require.True(t, sm.isSignalMuted(SignalNatFillUp))
 	require.True(t, sm.isSignalMuted(SignalCTFillUp))
-	require.True(t, sm.isSignalMuted(SignalAuthRequired))
 
 	// invalid signal, nothing changes
 	err := sm.UnmuteSignals(SignalType(16))
@@ -70,7 +69,6 @@ func TestSignalSet(t *testing.T) {
 	require.True(t, sm.isMuted())
 	require.True(t, sm.isSignalMuted(SignalNatFillUp))
 	require.True(t, sm.isSignalMuted(SignalCTFillUp))
-	require.True(t, sm.isSignalMuted(SignalAuthRequired))
 
 	// 2 active signals
 	err = sm.UnmuteSignals(SignalNatFillUp, SignalCTFillUp)
@@ -78,7 +76,6 @@ func TestSignalSet(t *testing.T) {
 	require.False(t, sm.isMuted())
 	require.False(t, sm.isSignalMuted(SignalNatFillUp))
 	require.False(t, sm.isSignalMuted(SignalCTFillUp))
-	require.True(t, sm.isSignalMuted(SignalAuthRequired))
 
 	require.False(t, events.paused)
 	require.False(t, events.closed)
@@ -89,7 +86,6 @@ func TestSignalSet(t *testing.T) {
 	require.False(t, sm.isMuted())
 	require.True(t, sm.isSignalMuted(SignalNatFillUp))
 	require.False(t, sm.isSignalMuted(SignalCTFillUp))
-	require.True(t, sm.isSignalMuted(SignalAuthRequired))
 
 	require.False(t, events.paused)
 	require.False(t, events.closed)
@@ -100,29 +96,16 @@ func TestSignalSet(t *testing.T) {
 	require.False(t, sm.isMuted())
 	require.True(t, sm.isSignalMuted(SignalNatFillUp))
 	require.False(t, sm.isSignalMuted(SignalCTFillUp))
-	require.True(t, sm.isSignalMuted(SignalAuthRequired))
 
 	require.False(t, events.paused)
 	require.False(t, events.closed)
 
-	// Unmute one more
-	err = sm.UnmuteSignals(SignalAuthRequired)
-	require.NoError(t, err)
-	require.False(t, sm.isMuted())
-	require.True(t, sm.isSignalMuted(SignalNatFillUp))
-	require.False(t, sm.isSignalMuted(SignalCTFillUp))
-	require.False(t, sm.isSignalMuted(SignalAuthRequired))
-
-	require.False(t, events.paused)
-	require.False(t, events.closed)
-
-	// Last signala are muted
-	err = sm.MuteSignals(SignalCTFillUp, SignalAuthRequired)
+	// Last signal is muted
+	err = sm.MuteSignals(SignalCTFillUp)
 	require.NoError(t, err)
 	require.True(t, sm.isMuted())
 	require.True(t, sm.isSignalMuted(SignalNatFillUp))
 	require.True(t, sm.isSignalMuted(SignalCTFillUp))
-	require.True(t, sm.isSignalMuted(SignalAuthRequired))
 
 	require.True(t, events.paused)
 	require.False(t, events.closed)
@@ -133,7 +116,6 @@ func TestSignalSet(t *testing.T) {
 	require.False(t, sm.isMuted())
 	require.True(t, sm.isSignalMuted(SignalNatFillUp))
 	require.False(t, sm.isSignalMuted(SignalCTFillUp))
-	require.True(t, sm.isSignalMuted(SignalAuthRequired))
 
 	require.False(t, events.paused)
 	require.False(t, events.closed)

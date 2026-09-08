@@ -6,7 +6,8 @@
  *
  * API:
  * void send_policy_verdict_notify(ctx, remote_label, dst_port, proto, dir,
- *                                 is_ipv6, verdict, match_type)
+ *                                 is_ipv6, verdict, proxy_port, match_type,
+ *                                 is_audited, cookie)
  *
  * If POLICY_VERDICT_NOTIFY is not defined, the API will be a non-op.
  */
@@ -58,7 +59,7 @@ static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 static __always_inline void
 send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
 			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict, __u16 proxy_port,
-			   __u8 match_type, __u8 is_audited, __u8 auth_type, __u32 cookie)
+			   __u8 match_type, __u8 is_audited, __u32 cookie)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
@@ -112,7 +113,7 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u
 		.dir		= dir,
 		.ipv6		= is_ipv6,
 		.audited	= is_audited,
-		.auth_type      = auth_type,
+		.auth_type	= 0,
 		.cookie		= cookie,
 		.l3		= THIS_IS_L3_DEV,
 	};
@@ -130,7 +131,7 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx __maybe_unused,
 			   __u8 is_ipv6 __maybe_unused, int verdict __maybe_unused,
 			   __u16 proxy_port __maybe_unused,
 			   __u8 match_type __maybe_unused, __u8 is_audited __maybe_unused,
-			   __u8 auth_type __maybe_unused, __u32 cookie __maybe_unused)
+			   __u32 cookie __maybe_unused)
 {
 }
 #endif /* POLICY_VERDICT_NOTIFY */

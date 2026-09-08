@@ -172,9 +172,6 @@ const (
 	// L4PolicyID is the identifier of a L4 Policy
 	L4PolicyID = "PolicyID.L4"
 
-	// AuthType is an enum for the type of authentication required, if any.
-	AuthType = "AuthType"
-
 	// IsRedirect is a boolean for if the entry is a redirect or not
 	IsRedirect = "IsRedirect"
 
