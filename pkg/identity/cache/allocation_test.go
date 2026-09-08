@@ -86,6 +86,7 @@ func testAllocateIdentityReserved(t *testing.T, testConfig testConfig, client kv
 
 	mgr := NewCachingIdentityAllocator(logger, newDummyOwner(logger), testConfig.allocatorConfig)
 	<-mgr.InitIdentityAllocator(nil, client)
+	defer mgr.Close()
 
 	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
