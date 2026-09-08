@@ -1,6 +1,7 @@
 - hostname: '*'
   name: https
   port: 443
+  protocol: HTTPS
   sources:
     - group: gateway.networking.k8s.io
       kind: Gateway
