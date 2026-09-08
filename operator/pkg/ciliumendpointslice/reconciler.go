@@ -21,6 +21,7 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -340,6 +341,13 @@ func (r *slimReconciler) convertPodToCoreCEP(pod *slim_corev1.Pod) *cilium_v2a1.
 	}
 
 	namedPorts := r.getNamedPorts(pod)
+	var workload *cilium_v2.EndpointWorkload
+	if workloadMeta, workloadTypeMeta, ok := k8sUtils.GetWorkloadMetaFromPod(pod); ok {
+		workload = &cilium_v2.EndpointWorkload{
+			Name: workloadMeta.Name,
+			Kind: workloadTypeMeta.Kind,
+		}
+	}
 
 	return &cilium_v2a1.CoreCiliumEndpoint{
 		Name:       pod.GetName(),
@@ -351,6 +359,7 @@ func (r *slimReconciler) convertPodToCoreCEP(pod *slim_corev1.Pod) *cilium_v2a1.
 		},
 		NamedPorts:     namedPorts,
 		ServiceAccount: pod.Spec.ServiceAccountName,
+		Workload:       workload,
 	}
 }
 
