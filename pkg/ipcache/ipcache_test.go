@@ -244,23 +244,47 @@ func TestIPCache(t *testing.T) {
 	require.Empty(t, s.IPIdentityCache.identityToIPCache)
 }
 
-func TestK8sMetadataEqualIncludesPodUID(t *testing.T) {
+func TestK8sMetadataEqualIncludesPodUIDAndWorkload(t *testing.T) {
 	metadata := &K8sMetadata{
 		Namespace: "default",
 		PodName:   "echo",
 		PodUID:    "old-uid",
+		Workload:  &K8sWorkload{Name: "echo", Kind: "Deployment"},
 	}
 
 	require.True(t, metadata.Equal(&K8sMetadata{
 		Namespace: "default",
 		PodName:   "echo",
 		PodUID:    "old-uid",
+		Workload:  &K8sWorkload{Name: "echo", Kind: "Deployment"},
 	}))
 	require.False(t, metadata.Equal(&K8sMetadata{
 		Namespace: "default",
 		PodName:   "echo",
 		PodUID:    "new-uid",
 	}))
+	require.False(t, metadata.Equal(&K8sMetadata{
+		Namespace: "default",
+		PodName:   "echo",
+		PodUID:    "old-uid",
+		Workload:  &K8sWorkload{Name: "other", Kind: "Deployment"},
+	}))
+	require.False(t, metadata.Equal(&K8sMetadata{
+		Namespace: "default",
+		PodName:   "echo",
+		PodUID:    "old-uid",
+		Workload:  &K8sWorkload{Name: "echo", Kind: "StatefulSet"},
+	}))
+	require.False(t, metadata.Equal(&K8sMetadata{
+		Namespace: "default",
+		PodName:   "echo",
+		PodUID:    "old-uid",
+	}))
+	require.False(t, (&K8sMetadata{
+		Namespace: "default",
+		PodName:   "echo",
+		PodUID:    "old-uid",
+	}).Equal(metadata))
 }
 
 func TestDeleteOnMetadataMatchPodUID(t *testing.T) {
