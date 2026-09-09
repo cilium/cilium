@@ -41,6 +41,6 @@ func (t allIngressDenyKnp) build(ct *check.ConnectivityTest, _ map[string]string
 					return check.ResultOK, check.ResultNone
 				}
 			}
-			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
+			return check.ResultDrop, check.ResultDefaultDenyIngressDropWithPolicy(ct, "all-ingress-deny")
 		})
 }
