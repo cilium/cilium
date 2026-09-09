@@ -108,7 +108,7 @@ func (r *IpamPostIpamHandler) getNodeRouterAddressing(ctx context.Context) (*mod
 	if r.DaemonConfig.EnableIPv6 {
 		nodeRouterAddressing.IPv6 = &models.NodeAddressingElement{
 			Enabled:    r.DaemonConfig.EnableIPv6,
-			IP:         ln.GetCiliumInternalIP(true).String(),
+			IP:         ln.GetCiliumInternalIPv6().String(),
 			AllocRange: ln.IPv6AllocCIDR.String(),
 		}
 	}
@@ -116,7 +116,7 @@ func (r *IpamPostIpamHandler) getNodeRouterAddressing(ctx context.Context) (*mod
 	if r.DaemonConfig.EnableIPv4 {
 		nodeRouterAddressing.IPv4 = &models.NodeAddressingElement{
 			Enabled:    r.DaemonConfig.EnableIPv4,
-			IP:         ln.GetCiliumInternalIP(false).String(),
+			IP:         ln.GetCiliumInternalIPv4().String(),
 			AllocRange: ln.IPv4AllocCIDR.String(),
 		}
 	}

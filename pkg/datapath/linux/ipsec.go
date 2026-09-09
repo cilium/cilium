@@ -190,7 +190,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	statesUpdated := true
 	var spi uint8
 
-	remoteCiliumInternalIP := newNode.GetCiliumInternalIP(false)
+	remoteCiliumInternalIP := newNode.GetCiliumInternalIPv4()
 	if remoteCiliumInternalIP == nil {
 		return false, errs
 	}
@@ -279,7 +279,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	statesUpdated := true
 	var spi uint8
 
-	remoteCiliumInternalIP := newNode.GetCiliumInternalIP(false)
+	remoteCiliumInternalIP := newNode.GetCiliumInternalIPv4()
 	if remoteCiliumInternalIP == nil {
 		return false, errs
 	}
@@ -476,7 +476,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	statesUpdated := true
 	var spi uint8
 
-	remoteCiliumInternalIP := newNode.GetCiliumInternalIP(true)
+	remoteCiliumInternalIP := newNode.GetCiliumInternalIPv6()
 	if remoteCiliumInternalIP == nil {
 		return false, errs
 	}
@@ -565,7 +565,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	statesUpdated := true
 	var spi uint8
 
-	remoteCiliumInternalIP := newNode.GetCiliumInternalIP(true)
+	remoteCiliumInternalIP := newNode.GetCiliumInternalIPv6()
 	if remoteCiliumInternalIP == nil {
 		return false, errs
 	}

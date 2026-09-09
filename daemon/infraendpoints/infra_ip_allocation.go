@@ -644,7 +644,8 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context) error {
 
 	// Fetch the router (`cilium_host`) IPs in case they were set a priori from
 	// the Kubernetes or CiliumNode resource in the K8s subsystem.
-	restoredRouterIPIPv4FromK8s, restoredRouterIPv6FromK8s := localNode.GetCiliumInternalIP(false), localNode.GetCiliumInternalIP(true)
+	restoredRouterIPIPv4FromK8s := localNode.GetCiliumInternalIPv4()
+	restoredRouterIPv6FromK8s := localNode.GetCiliumInternalIPv6()
 	// Fetch the router IPs from the filesystem in case they were set a priori
 	restoredRouterIPIPv4FromFS, restoredRouterIPIPv6FromFS := r.extractCiliumHostIPFromFS()
 

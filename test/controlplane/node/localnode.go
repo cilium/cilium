@@ -75,7 +75,7 @@ func validateLocalNodeInit(lns *node.LocalNodeStore) error {
 	// LocalNodeStore has started:
 	assert.Equal(errs, localNodeObject.Name, node.Name)
 	assert.Equal(errs, "10.0.0.1", node.GetNodeIP(false).String())
-	assert.Equal(errs, "20.0.0.2", node.GetExternalIP(false).String())
+	assert.Equal(errs, "20.0.0.2", node.GetNodeExternalIPv4().String())
 	assert.Contains(errs, node.Labels, "foo")
 	assert.Contains(errs, node.Annotations, "cilium.io/baz")
 

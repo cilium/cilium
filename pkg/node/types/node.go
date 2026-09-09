@@ -158,22 +158,7 @@ func (n *Node) GetNodeIP(ipv6 bool) net.IP {
 	return addressing.ExtractNodeIP[Address](n.IPAddresses, ipv6)
 }
 
-// GetExternalIP returns ExternalIP of k8s Node. If not present, then it
-// returns nil;
-func (n *Node) GetExternalIP(ipv6 bool) net.IP {
-	for _, addr := range n.IPAddresses {
-		if (ipv6 && addr.IP.To4() != nil) || (!ipv6 && addr.IP.To4() == nil) {
-			continue
-		}
-		if addr.Type == addressing.NodeExternalIP {
-			return addr.IP
-		}
-	}
-
-	return nil
-}
-
-// GetK8sNodeIPs returns k8s Node IP (either InternalIP or ExternalIP or nil;
+// GetK8sNodeIP returns k8s Node IP (either InternalIP or ExternalIP or nil,
 // the former is preferred).
 func (n *Node) GetK8sNodeIP() net.IP {
 	var externalIP net.IP
@@ -189,47 +174,38 @@ func (n *Node) GetK8sNodeIP() net.IP {
 	return externalIP
 }
 
-// GetNodeInternalIP returns the Internal IPv4 of node or nil.
+// GetNodeExternalIPv4 returns the IPv4 ExternalIP of the k8s Node, or nil if
+// the node holds no such address.
+func (n *Node) GetNodeExternalIPv4() net.IP {
+	return n.getAddress(addressing.NodeExternalIP, false)
+}
+
+// GetNodeExternalIPv6 returns the IPv6 ExternalIP of the k8s Node, or nil if
+// the node holds no such address.
+func (n *Node) GetNodeExternalIPv6() net.IP {
+	return n.getAddress(addressing.NodeExternalIP, true)
+}
+
+// GetNodeInternalIPv4 returns the InternalIPv4 of the k8s Node or nil.
 func (n *Node) GetNodeInternalIPv4() net.IP {
-	for _, addr := range n.IPAddresses {
-		if addr.IP.To4() == nil {
-			continue
-		}
-		if addr.Type == addressing.NodeInternalIP {
-			return addr.IP
-		}
-	}
-
-	return nil
+	return n.getAddress(addressing.NodeInternalIP, false)
 }
 
-// GetNodeInternalIP returns the Internal IPv6 of node or nil.
+// GetNodeInternalIPv6 returns the InternalIPv6 of the k8s Node or nil.
 func (n *Node) GetNodeInternalIPv6() net.IP {
-	for _, addr := range n.IPAddresses {
-		if addr.IP.To4() != nil {
-			continue
-		}
-		if addr.Type == addressing.NodeInternalIP {
-			return addr.IP
-		}
-	}
-
-	return nil
+	return n.getAddress(addressing.NodeInternalIP, true)
 }
 
-// GetCiliumInternalIP returns the CiliumInternalIP e.g. the IP associated
-// with cilium_host on the node.
-func (n *Node) GetCiliumInternalIP(ipv6 bool) net.IP {
-	for _, addr := range n.IPAddresses {
-		if (ipv6 && addr.IP.To4() != nil) ||
-			(!ipv6 && addr.IP.To4() == nil) {
-			continue
-		}
-		if addr.Type == addressing.NodeCiliumInternalIP {
-			return addr.IP
-		}
-	}
-	return nil
+// GetCiliumInternalIPv4 returns the IPv4 CiliumInternalIP e.g. the IP
+// associated with cilium_host on the node.
+func (n *Node) GetCiliumInternalIPv4() net.IP {
+	return n.getAddress(addressing.NodeCiliumInternalIP, false)
+}
+
+// GetCiliumInternalIPv6 returns the IPv6 CiliumInternalIP e.g. the IP
+// associated with cilium_host on the node.
+func (n *Node) GetCiliumInternalIPv6() net.IP {
+	return n.getAddress(addressing.NodeCiliumInternalIP, true)
 }
 
 // SetCiliumInternalIP sets the CiliumInternalIP e.g. the IP associated
@@ -251,21 +227,35 @@ func (n *Node) SetNodeInternalIP(newAddr net.IP) {
 	n.setAddress(addressing.NodeInternalIP, newAddr)
 }
 
-func (n *Node) RemoveAddresses(typ addressing.AddressType) {
-	newAddresses := []Address{}
+// getAddress returns the node address of the given type for the given address
+// family, or nil if the node holds no such address.
+//
+// Unlike GetNodeIP and GetK8sNodeIP, which fall back to other address types
+// when the preferred one is missing, this is a plain lookup: it only ever
+// returns an address of type typ.
+func (n *Node) getAddress(typ addressing.AddressType, ipv6 bool) net.IP {
 	for _, addr := range n.IPAddresses {
 		if addr.Type != typ {
-			newAddresses = append(newAddresses, addr)
+			continue
+		}
+		if is4 := addr.IP.To4() != nil; (!ipv6 && is4) || (ipv6 && !is4) {
+			return addr.IP
 		}
 	}
-	n.IPAddresses = newAddresses
+	return nil
 }
 
+// setAddress sets the node address of the given type, replacing the address of
+// the same type and address family if the node already holds one. A nil newIP
+// removes every address of that type instead, for both address families.
+//
+// The address family is derived from newIP, which is why the exported setters,
+// unlike the getters, take no address family argument.
 func (n *Node) setAddress(typ addressing.AddressType, newIP net.IP) {
 	newAddr := Address{Type: typ, IP: newIP}
 
 	if newIP == nil {
-		n.RemoveAddresses(typ)
+		n.removeAddresses(typ)
 		return
 	}
 
@@ -289,16 +279,16 @@ func (n *Node) setAddress(typ addressing.AddressType, newIP net.IP) {
 	n.IPAddresses = append(n.IPAddresses, newAddr)
 }
 
-func (n *Node) GetIPByType(addrType addressing.AddressType, ipv6 bool) net.IP {
+// removeAddresses removes all the node addresses of the given type, for both
+// address families.
+func (n *Node) removeAddresses(typ addressing.AddressType) {
+	newAddresses := []Address{}
 	for _, addr := range n.IPAddresses {
-		if addr.Type != addrType {
-			continue
-		}
-		if is4 := addr.IP.To4() != nil; (!ipv6 && is4) || (ipv6 && !is4) {
-			return addr.IP
+		if addr.Type != typ {
+			newAddresses = append(newAddresses, addr)
 		}
 	}
-	return nil
+	n.IPAddresses = newAddresses
 }
 
 func (n *Node) getPrimaryAddress() *models.NodeAddressing {

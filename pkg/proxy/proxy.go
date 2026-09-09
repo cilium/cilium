@@ -387,7 +387,7 @@ func (p *Proxy) getProxyIP(ctx context.Context) string {
 		return "n/a"
 	}
 
-	localNodeIP := ln.GetCiliumInternalIP(false)
+	localNodeIP := ln.GetCiliumInternalIPv4()
 	if localNodeIP == nil {
 		return "n/a"
 	}
