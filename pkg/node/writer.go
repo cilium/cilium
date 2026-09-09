@@ -299,7 +299,9 @@ func (w *Writer) Refresh(ctx context.Context, reconcilers ...NodeReconciler) err
 // Upsert takes ownership of n and inserts or updates it if its source is
 // allowed to overwrite the current owner. The caller must not modify n after
 // calling Upsert. It reports whether the table changed. Updates whose internal
-// or external node IP conflicts with the local node are rejected.
+// or external node IP conflicts with the local node are rejected, as are
+// updates whose allocation CIDRs overlap the local node's allocation CIDRs or
+// contain one of those protected local addresses.
 func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
 	obj := &Node{
@@ -335,6 +337,16 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 			)
 			return false
 		}
+		if cidr, conflict := conflictingLocalNodeCIDR(local, obj); conflict {
+			w.log.Warn("Ignoring node update whose allocation CIDR conflicts with local node",
+				logfields.CIDR, cidr,
+				logfields.Node, obj.Fullname(),
+				logfields.Source, obj.Source,
+				logfields.ConflictingResource, local.Fullname(),
+				logfields.NodeOwner, local.Source,
+			)
+			return false
+		}
 	}
 
 	if found {
@@ -354,8 +366,7 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 
 func conflictingLocalNodeAddress(local, remote *Node) (netip.Addr, bool) {
 	for _, remoteAddress := range remote.IPAddresses {
-		if remoteAddress.Type != addressing.NodeInternalIP &&
-			remoteAddress.Type != addressing.NodeExternalIP {
+		if !protectedNodeAddressType(remoteAddress.Type) {
 			continue
 		}
 		remoteIP, ok := netip.AddrFromSlice(remoteAddress.IP)
@@ -365,8 +376,7 @@ func conflictingLocalNodeAddress(local, remote *Node) (netip.Addr, bool) {
 		remoteIP = remoteIP.Unmap()
 
 		for _, localAddress := range local.IPAddresses {
-			if localAddress.Type != addressing.NodeInternalIP &&
-				localAddress.Type != addressing.NodeExternalIP {
+			if !protectedNodeAddressType(localAddress.Type) {
 				continue
 			}
 			localIP, ok := netip.AddrFromSlice(localAddress.IP)
@@ -376,6 +386,35 @@ func conflictingLocalNodeAddress(local, remote *Node) (netip.Addr, bool) {
 		}
 	}
 	return netip.Addr{}, false
+}
+
+func protectedNodeAddressType(addressType addressing.AddressType) bool {
+	return addressType == addressing.NodeInternalIP ||
+		addressType == addressing.NodeExternalIP
+}
+
+func conflictingLocalNodeCIDR(local, remote *Node) (netip.Prefix, bool) {
+	localCIDRs := slices.Concat(local.GetIPv4AllocCIDRs(), local.GetIPv6AllocCIDRs())
+	remoteCIDRs := slices.Concat(remote.GetIPv4AllocCIDRs(), remote.GetIPv6AllocCIDRs())
+
+	for _, remoteCIDR := range remoteCIDRs {
+		for _, localCIDR := range localCIDRs {
+			if remoteCIDR.Overlaps(localCIDR) {
+				return remoteCIDR, true
+			}
+		}
+
+		for _, localAddress := range local.IPAddresses {
+			if !protectedNodeAddressType(localAddress.Type) {
+				continue
+			}
+			localIP, ok := netip.AddrFromSlice(localAddress.IP)
+			if ok && remoteCIDR.Contains(localIP.Unmap()) {
+				return remoteCIDR, true
+			}
+		}
+	}
+	return netip.Prefix{}, false
 }
 
 // Delete removes a remote node if this writer's source still owns it. It

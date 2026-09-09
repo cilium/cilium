@@ -562,6 +562,80 @@ func TestWriterProtectsOnlyLocalNodeIPs(t *testing.T) {
 	require.Empty(t, existing.Labels)
 }
 
+func TestWriterProtectsLocalNodeCIDRs(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+
+	local := &Node{
+		Node: types.Node{
+			Name:   "local",
+			Source: source.Local,
+			IPAddresses: []types.Address{
+				{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+				{Type: addressing.NodeExternalIP, IP: net.ParseIP("2001:db8::1")},
+				{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("198.51.100.1")},
+			},
+			IPv4AllocCIDR: types.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+			IPv4SecondaryAllocCIDRs: []types.Prefix{
+				types.PrefixFrom(netip.MustParsePrefix("10.1.0.0/24")),
+			},
+			IPv6AllocCIDR: types.PrefixFrom(netip.MustParsePrefix("fd00::/64")),
+			IPv6SecondaryAllocCIDRs: []types.Prefix{
+				types.PrefixFrom(netip.MustParsePrefix("fd01::/64")),
+			},
+		},
+		Local: &LocalNodeInfo{},
+	}
+	txn := db.WriteTxn(nodes)
+	_, _, err = nodes.Insert(txn, local)
+	require.NoError(t, err)
+	txn.Commit()
+
+	tests := []struct {
+		name      string
+		cidr      string
+		secondary bool
+		conflict  bool
+	}{
+		{"within IPv4 primary CIDR", "10.0.0.128/25", false, true},
+		{"contains IPv4 primary CIDR", "10.0.0.0/16", false, true},
+		{"overlaps IPv4 secondary CIDR", "10.1.0.128/25", true, true},
+		{"within IPv6 primary CIDR", "fd00::/80", false, true},
+		{"contains IPv6 secondary CIDR", "fd01::/48", true, true},
+		{"contains local internal IP", "192.0.2.0/24", false, true},
+		{"contains local external IP", "2001:db8::/64", false, true},
+		{"contains local Cilium internal IP", "198.51.100.0/24", false, false},
+		{"does not overlap local node", "203.0.113.0/24", false, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prefix := netip.MustParsePrefix(tt.cidr)
+			remote := &types.Node{Name: tt.name, Source: source.Kubernetes}
+			switch {
+			case prefix.Addr().Is4() && tt.secondary:
+				remote.IPv4SecondaryAllocCIDRs = []types.Prefix{types.PrefixFrom(prefix)}
+			case prefix.Addr().Is4():
+				remote.IPv4AllocCIDR = types.PrefixFrom(prefix)
+			case tt.secondary:
+				remote.IPv6SecondaryAllocCIDRs = []types.Prefix{types.PrefixFrom(prefix)}
+			default:
+				remote.IPv6AllocCIDR = types.PrefixFrom(prefix)
+			}
+
+			txn := db.WriteTxn(nodes)
+			changed := w.Upsert(txn, remote)
+			txn.Commit()
+			require.Equal(t, !tt.conflict, changed)
+
+			_, _, found := nodes.Get(db.ReadTxn(), NodeByName(remote.Name))
+			require.Equal(t, !tt.conflict, found)
+		})
+	}
+}
+
 func TestWriterRefresh(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
