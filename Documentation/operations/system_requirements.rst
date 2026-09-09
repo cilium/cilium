@@ -266,7 +266,6 @@ corresponds to requirements for GCM-128-AES.
         CONFIG_INET{,6}_IPCOMP=m
         CONFIG_INET{,6}_XFRM_TUNNEL=m
         CONFIG_INET{,6}_TUNNEL=m
-        CONFIG_INET_XFRM_MODE_TUNNEL=m
         CONFIG_CRYPTO_AEAD=m
         CONFIG_CRYPTO_AEAD2=m
         CONFIG_CRYPTO_GCM=m
