@@ -179,3 +179,129 @@ func (h *SecretSyncHandler) ConfigMapIsReferencedInGateway(ctx context.Context, 
 	}
 	return false
 }
+
+// EnqueueFrontendTLSConfigMapsGateway produces a handler.EventHandler that, when it is passed a
+// Gateway as the object.Object, returns any ConfigMaps referenced in the Frontend TLS validation.
+func (h *SecretSyncHandler) EnqueueFrontendTLSConfigMapsGateway() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		scopedLog := h.logger.With(logfields.Resource, obj.GetName())
+
+		gw, ok := obj.(*gatewayv1.Gateway)
+		if !ok {
+			return nil
+		}
+
+		// Check whether Gateway is managed by Cilium
+		if !helpers.GatewayHasMatchingControllerFn(ctx, h.client, h.controllerName, h.logger)(gw) {
+			return nil
+		}
+
+		var reqs []reconcile.Request
+
+		for cm := range helpers.FrontendTLSConfigMapRefSet(gw) {
+			reqs = append(reqs, reconcile.Request{NamespacedName: cm})
+			scopedLog.DebugContext(ctx, "Enqueued ConfigMap for Gateway frontend TLS validation",
+				logfields.ConfigMapName, cm)
+		}
+
+		return reqs
+	})
+}
+
+// FrontendTLSConfigMapIsReferenced checks if a ConfigMap is referenced by any Cilium Gateway's
+// frontend TLS validation configuration.
+func (h *SecretSyncHandler) FrontendTLSConfigMapIsReferenced(ctx context.Context, _ client.Client, _ *slog.Logger, cfgMap *corev1.ConfigMap) bool {
+	gateways := getGatewaysForFrontendTLSConfigMap(ctx, h.client, cfgMap, h.logger)
+	for _, gw := range gateways {
+		if helpers.GatewayHasMatchingControllerFn(ctx, h.client, h.controllerName, h.logger)(gw) {
+			return true
+		}
+	}
+	return false
+}
+
+// getGatewaysForFrontendTLSConfigMap returns all Gateways that reference the given ConfigMap
+// in their frontend TLS validation configuration.
+func getGatewaysForFrontendTLSConfigMap(ctx context.Context, c client.Client, cfgMap *corev1.ConfigMap, logger *slog.Logger) []*gatewayv1.Gateway {
+	scopedLog := logger.With(logfields.Resource, cfgMap.GetName())
+	cfgMapKey := client.ObjectKeyFromObject(cfgMap)
+	cfgMapNamespace := gatewayv1.Namespace(cfgMap.Namespace)
+
+	gwList := &gatewayv1.GatewayList{}
+	if err := c.List(ctx, gwList); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to list Gateways", logfields.Error, err)
+		return nil
+	}
+
+	grants := &gatewayv1.ReferenceGrantList{}
+	if err := c.List(ctx, grants); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to list ReferenceGrants", logfields.Error, err)
+		return nil
+	}
+
+	var gateways []*gatewayv1.Gateway
+	for i := range gwList.Items {
+		gw := &gwList.Items[i]
+
+		refs := helpers.FrontendTLSConfigMapRefSet(gw)
+		if _, ok := refs[cfgMapKey]; !ok {
+			continue
+		}
+
+		if !helpers.IsReferenceAllowed(
+			gw.Namespace,
+			cfgMap.Name,
+			&cfgMapNamespace,
+			gatewayv1.SchemeGroupVersion.WithKind("Gateway"),
+			corev1.SchemeGroupVersion.WithKind("ConfigMap"),
+			grants.Items,
+		) {
+			continue
+		}
+
+		gateways = append(gateways, gw)
+	}
+
+	return gateways
+}
+
+func (h *SecretSyncHandler) EnqueueFrontendTLSConfigMapsReferenceGrant() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		grant, ok := obj.(*gatewayv1.ReferenceGrant)
+		if !ok {
+			return nil
+		}
+
+		gwList := &gatewayv1.GatewayList{}
+		if err := h.client.List(ctx, gwList); err != nil {
+			h.logger.ErrorContext(ctx, "Failed to list Gateways for ReferenceGrant change", logfields.Error, err)
+			return nil
+		}
+
+		requests := map[reconcile.Request]struct{}{}
+
+		for i := range gwList.Items {
+			gw := &gwList.Items[i]
+
+			if !helpers.GatewayHasMatchingControllerFn(ctx, h.client, h.controllerName, h.logger)(gw) {
+				continue
+			}
+
+			for cfgMap := range helpers.FrontendTLSConfigMapRefSet(gw) {
+				// ReferenceGrants only matter for cross-namespace references,
+				// and this grant can only affect references into its namespace.
+				if cfgMap.Namespace == gw.Namespace || cfgMap.Namespace != grant.Namespace {
+					continue
+				}
+
+				requests[reconcile.Request{NamespacedName: cfgMap}] = struct{}{}
+			}
+		}
+
+		reqs := make([]reconcile.Request, 0, len(requests))
+		for req := range requests {
+			reqs = append(reqs, req)
+		}
+		return reqs
+	})
+}

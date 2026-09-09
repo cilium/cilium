@@ -6,10 +6,11 @@ package gateway_api
 import (
 	"time"
 
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
-
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
 // setGatewayAccepted inserts or updates the Accepted condition for the provided Gateway resource.
@@ -22,6 +23,26 @@ func setGatewayAccepted(gw *gatewayv1.Gateway, accepted bool, msg string, reason
 func setGatewayProgrammed(gw *gatewayv1.Gateway, status metav1.ConditionStatus, msg string, reason gatewayv1.GatewayConditionReason) *gatewayv1.Gateway {
 	gw.Status.Conditions = helpers.MergeConditions(gw.Status.Conditions, gatewayStatusProgrammedCondition(gw, status, msg, reason))
 	return gw
+}
+
+// setGatewayInsecureFrontendValidationMode sets or removes the
+// InsecureFrontendValidationMode condition based on whether insecure frontend
+// certificate validation is configured.
+func setGatewayInsecureFrontendValidationMode(gw *gatewayv1.Gateway, insecure bool) {
+	conditionType := string(gatewayv1.GatewayConditionInsecureFrontendValidationMode)
+	switch insecure {
+	case true:
+		gw.Status.Conditions = helpers.MergeConditions(gw.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gatewayv1.GatewayReasonConfigurationChanged),
+			Message:            "Gateway allows insecure frontend certificate validation",
+			ObservedGeneration: gw.GetGeneration(),
+			LastTransitionTime: metav1.Now(),
+		})
+	default:
+		meta.RemoveStatusCondition(&gw.Status.Conditions, conditionType)
+	}
 }
 
 func gatewayStatusAcceptedCondition(gw *gatewayv1.Gateway, accepted bool, msg string, reason gatewayv1.GatewayConditionReason) metav1.Condition {

@@ -35,6 +35,10 @@ func NewGatewayStatusManager(client client.Client, logger *slog.Logger, hostNetw
 }
 
 func (m *GatewayStatusManager) ValidateGateway(gw *gatewayv1.Gateway) bool {
+	if !m.validateTLSFrontend(gw) {
+		return false
+	}
+
 	if !m.validateInfrastructure(gw) {
 		return false
 	}
@@ -81,6 +85,36 @@ func (m *GatewayStatusManager) validateStaticAddresses(gw *gatewayv1.Gateway) bo
 			return false
 		}
 	}
+	return true
+}
+
+// validateTLSFrontend updates Gateway status for the configured frontend TLS
+// validation mode.
+// It always returns true because this mode does not block reconciliation.
+func (m *GatewayStatusManager) validateTLSFrontend(gw *gatewayv1.Gateway) bool {
+	frontend := helpers.FrontendTLSConfig(gw)
+	if frontend == nil {
+		setGatewayInsecureFrontendValidationMode(gw, false)
+		return true
+	}
+
+	isInsecure := func(v *gatewayv1.FrontendTLSValidation) bool {
+		return v != nil && v.Mode == gatewayv1.AllowInsecureFallback
+	}
+
+	if isInsecure(frontend.Default.Validation) {
+		setGatewayInsecureFrontendValidationMode(gw, true)
+		return true
+	}
+
+	for _, pp := range frontend.PerPort {
+		if isInsecure(pp.TLS.Validation) {
+			setGatewayInsecureFrontendValidationMode(gw, true)
+			return true
+		}
+	}
+
+	setGatewayInsecureFrontendValidationMode(gw, false)
 	return true
 }
 
