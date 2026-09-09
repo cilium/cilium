@@ -15,9 +15,9 @@ jobs:
   greet:
     # Only enforce on drive-by / first-time contributors.
     # Regulars (MEMBER, COLLABORATOR, OWNER, CONTRIBUTOR) are skipped entirely.
+    # The association lives under `pull_request` for PRs and `issue` for issues.
     if: >
-      github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' ||
-      github.event.pull_request.author_association == 'FIRST_TIMER' ||
-      github.event.pull_request.author_association == 'NONE'
+      contains(fromJSON('["FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER", "NONE"]'),
+      github.event.pull_request.author_association || github.event.issue.author_association)
     uses: cilium/cilium/.github/workflows/reusable-greetings.yml@main
     secrets: inherit
