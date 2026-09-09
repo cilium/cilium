@@ -141,7 +141,7 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 				return err
 			}
 		} else {
-			return fmt.Errorf("missed tail call in program %s to slot %d at insn %d", r.prog.Name, slot, iter.Index())
+			return fmt.Errorf("missed tail call in program %s to slot %d at insn %d", r.prog.Name, slot, iter.InstructionIndex())
 		}
 	}
 
