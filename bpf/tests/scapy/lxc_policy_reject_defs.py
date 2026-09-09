@@ -15,7 +15,7 @@ v4_lxc_to_external_icmp_unreach = (
     Ether(src=mac_two, dst=mac_one) /
     IP(src=v4_ext_one, dst=v4_pod_one, id=0) /
     ICMP(type="dest-unreach", code="communication-prohibited") /
-    IPerror(bytes(v4_lxc_to_external[IP])[:28])
+    IPerror(bytes(v4_lxc_to_external[IP]))
 )
 
 v6_lxc_to_external = (
