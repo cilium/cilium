@@ -425,11 +425,9 @@ func writeNodeConfigToBuffer(t *testing.T, nodeCfg *config.Config) string {
 }
 
 // TestPrivilegedWriteNodeConfigMonitorAggregation verifies that the monitor
-// aggregation configuration options (MonitorAggregationInterval and
-// MonitorAggregationFlags) are correctly propagated to BPF defines
-// (CT_REPORT_INTERVAL and CT_REPORT_FLAGS).
-// This covers the MonitorAggregation scenarios previously tested by
-// K8sDatapathConfig.
+// aggregation flags (MonitorAggregationFlags) are correctly propagated to BPF
+// configuration. This covers the MonitorAggregation scenarios previously
+// tested by K8sDatapathConfig.
 func TestPrivilegedWriteNodeConfigMonitorAggregation(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	ns := netns.NewNetNS(t)
@@ -451,8 +449,6 @@ func TestPrivilegedWriteNodeConfigMonitorAggregation(t *testing.T) {
 			option.Config.MonitorAggregationFlags = 0x02 // SYN flag
 
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
-			require.Contains(t, output, "define CT_REPORT_INTERVAL 60\n",
-				"Expected 60s monitor aggregation interval")
 			require.Contains(t, output, "define CT_REPORT_FLAGS 0x0002\n",
 				"Expected SYN flag (0x0002) in monitor aggregation flags")
 		})
@@ -464,8 +460,6 @@ func TestPrivilegedWriteNodeConfigMonitorAggregation(t *testing.T) {
 			option.Config.MonitorAggregationFlags = 0x08 // PSH flag
 
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
-			require.Contains(t, output, "define CT_REPORT_INTERVAL 60\n",
-				"Expected 60s monitor aggregation interval")
 			require.Contains(t, output, "define CT_REPORT_FLAGS 0x0008\n",
 				"Expected PSH flag (0x0008) in monitor aggregation flags")
 		})
@@ -476,8 +470,6 @@ func TestPrivilegedWriteNodeConfigMonitorAggregation(t *testing.T) {
 			option.Config.MonitorAggregationFlags = 0
 
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
-			require.Contains(t, output, "define CT_REPORT_INTERVAL 0\n",
-				"Expected 0 interval with no aggregation")
 			require.Contains(t, output, "define CT_REPORT_FLAGS 0x0000\n",
 				"Expected 0x0000 flags with no aggregation")
 		})

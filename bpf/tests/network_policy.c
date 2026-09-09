@@ -9,6 +9,8 @@
 #include "pktgen.h"
 #include <node_config.h>
 
+#include <bpf/config/global.h>
+
 #include <lib/policy.h>
 
 #include "lib/policy.h"
