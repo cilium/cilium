@@ -20,11 +20,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
+	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/api/v1/models"
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgp/config"
+	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/manager/tables"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -427,4 +431,156 @@ func TestDisableStatusReport(t *testing.T) {
 		// The status should be cleared to empty
 		assert.True(ct, nc.Status.DeepEqual(&v2.CiliumBGPNodeStatus{}), "Status is not empty")
 	}, time.Second*5, time.Millisecond*100)
+}
+
+// TestSamePeer covers matching a peer from the running gobgp state against its CRD
+// configuration, which decides whether that peer gets any state reported at all.
+func TestSamePeer(t *testing.T) {
+	tests := []struct {
+		name       string
+		running    *models.BgpPeer
+		configured v2.CiliumBGPNodePeer
+		want       bool
+	}{
+		{
+			// An unnumbered peer's address is discovered on the node rather than
+			// configured, and can change under the peer while the name cannot.
+			name:    "unnumbered peer matches on name",
+			running: &models.BgpPeer{Name: "dpu-unnumbered", PeerAddress: "fe80::43:57ff:fec5:c00d%enp193s0np0"},
+			configured: v2.CiliumBGPNodePeer{
+				Name:          "dpu-unnumbered",
+				PeerAddress:   ptr.To("fe80::43:57ff:fec5:c00d%enp193s0np0"),
+				PeerInterface: ptr.To("enp193s0np0"),
+			},
+			want: true,
+		},
+		{
+			// The running state reports the canonical form from netip.Addr.String(),
+			// so a non-canonical CRD spelling never string-matched and the peer was
+			// reported with no peering state.
+			name:       "non-canonical configured address still matches by name",
+			running:    &models.BgpPeer{Name: "dpu-ipv6", PeerAddress: "fc00::"},
+			configured: v2.CiliumBGPNodePeer{Name: "dpu-ipv6", PeerAddress: ptr.To("fc00::0")},
+			want:       true,
+		},
+		{
+			name:       "different names do not match even when addresses agree",
+			running:    &models.BgpPeer{Name: "dpu", PeerAddress: "169.254.100.0"},
+			configured: v2.CiliumBGPNodePeer{Name: "dpu-other", PeerAddress: ptr.To("169.254.100.0")},
+			want:       false,
+		},
+		{
+			name:       "canonical addresses match by name",
+			running:    &models.BgpPeer{Name: "dpu", PeerAddress: "169.254.100.0"},
+			configured: v2.CiliumBGPNodePeer{Name: "dpu", PeerAddress: ptr.To("169.254.100.0")},
+			want:       true,
+		},
+		{
+			// Peers predating the Description encoding carry no name; fall back to
+			// comparing addresses.
+			name:       "unnamed running peer falls back to the address",
+			running:    &models.BgpPeer{PeerAddress: "fc00::"},
+			configured: v2.CiliumBGPNodePeer{PeerAddress: ptr.To("fc00::")},
+			want:       true,
+		},
+		{
+			name:       "unnamed running peer falls back to the address, mismatch",
+			running:    &models.BgpPeer{PeerAddress: "fc00::1"},
+			configured: v2.CiliumBGPNodePeer{PeerAddress: ptr.To("fc00::2")},
+			want:       false,
+		},
+		{
+			name:       "unnamed running peer with no configured address does not match",
+			running:    &models.BgpPeer{PeerAddress: "fc00::"},
+			configured: v2.CiliumBGPNodePeer{},
+			want:       false,
+		},
+		{
+			name:       "named configured peer does not match an unnamed running peer",
+			running:    &models.BgpPeer{PeerAddress: "169.254.100.0"},
+			configured: v2.CiliumBGPNodePeer{Name: "dpu", PeerAddress: ptr.To("169.254.100.0")},
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, samePeer(tt.running, tt.configured))
+		})
+	}
+}
+
+// stubPeerStateRouter serves a canned legacy peer state, standing in for what gobgp
+// reports. It embeds the fake router so only GetPeerStateLegacy is overridden, leaving
+// the shared fake's behaviour untouched for every other test.
+type stubPeerStateRouter struct {
+	types.Router
+	peers []*models.BgpPeer
+}
+
+func (s *stubPeerStateRouter) GetPeerStateLegacy(context.Context) (types.GetPeerStateLegacyResponse, error) {
+	return types.GetPeerStateLegacyResponse{Peers: s.peers}, nil
+}
+
+// TestGetInstanceStatusPeers checks which configured peers make it into the reported
+// CiliumBGPNodeConfig status, and what address each is reported with.
+func TestGetInstanceStatusPeers(t *testing.T) {
+	req := require.New(t)
+
+	inst := instance.NewFakeBGPInstance()
+	inst.Config = &v2.CiliumBGPNodeInstance{
+		Name:     "bgp-k8s",
+		LocalASN: ptr.To[int64](4294841000),
+		Peers: []v2.CiliumBGPNodePeer{
+			// Unnumbered: the address was discovered on the node, zoned with
+			// the interface it was discovered on.
+			{
+				Name:          "dpu-unnumbered",
+				PeerASN:       ptr.To[int64](4290246000),
+				PeerAddress:   ptr.To("fe80::43:57ff:fec5:c00d%enp193s0np0"),
+				PeerInterface: ptr.To("enp193s0np0"),
+			},
+			// Non-canonical spelling of the address gobgp reports as "fc00::".
+			{Name: "dpu-ipv6", PeerASN: ptr.To[int64](4290246000), PeerAddress: ptr.To("fc00::0")},
+			{Name: "dpu", PeerASN: ptr.To[int64](4290246000), PeerAddress: ptr.To("169.254.100.0")},
+			// Configured but not present in the running state.
+			{Name: "dpu-absent", PeerASN: ptr.To[int64](4290246000), PeerAddress: ptr.To("169.254.100.2")},
+		},
+	}
+	inst.Router = &stubPeerStateRouter{
+		Router: inst.Router,
+		peers: []*models.BgpPeer{
+			{Name: "dpu-unnumbered", PeerAddress: "fe80::43:57ff:fec5:c00d%enp193s0np0", SessionState: "established"},
+			{Name: "dpu-ipv6", PeerAddress: "fc00::", SessionState: "established"},
+			{Name: "dpu", PeerAddress: "169.254.100.0", SessionState: "idle"},
+		},
+	}
+
+	r := &StatusReconciler{Logger: hivetest.Logger(t)}
+	status, err := r.getInstanceStatus(context.Background(), inst)
+	req.NoError(err)
+
+	got := map[string]v2.CiliumBGPNodePeerStatus{}
+	for _, p := range status.PeerStatuses {
+		got[p.Name] = p
+	}
+
+	req.Len(status.PeerStatuses, 4)
+
+	// The unnumbered peer is reported with the link-local address discovered for it.
+	req.Equal("fe80::43:57ff:fec5:c00d%enp193s0np0", got["dpu-unnumbered"].PeerAddress)
+	req.Equal("established", ptr.Deref(got["dpu-unnumbered"].PeeringState, ""))
+
+	// A non-canonical CRD address still matches, and is normalised to the canonical
+	// form the router reports.
+	req.Equal("fc00::", got["dpu-ipv6"].PeerAddress)
+	req.Equal("established", ptr.Deref(got["dpu-ipv6"].PeeringState, ""))
+
+	req.Equal("169.254.100.0", got["dpu"].PeerAddress)
+	req.Equal("idle", ptr.Deref(got["dpu"].PeeringState, ""))
+
+	// A peer with no running counterpart keeps its configured address and reports no
+	// session state.
+	req.Equal("169.254.100.2", got["dpu-absent"].PeerAddress)
+	req.Nil(got["dpu-absent"].PeeringState)
 }
