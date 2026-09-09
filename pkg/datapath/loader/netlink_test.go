@@ -7,6 +7,7 @@ package loader
 
 import (
 	"net"
+	"slices"
 	"testing"
 	"time"
 
@@ -53,14 +54,22 @@ func mustXDPProgram(t *testing.T, name string) *ebpf.Program {
 	return p
 }
 
-// TestPrivilegedSetupBaseDeviceIPv6NotTentative checks that the IPv6 link-local
-// addresses of the base devices are usable as soon as setupBaseDevice returns.
-// Bringing a link up before turning ARP off leaves the kernel-generated
-// link-local tentative for as long as duplicate address detection takes, and
-// the kernel does not notify subscribers about tentative addresses, so the
-// devices table stays without an IPv6 address for cilium_net and the from-proxy
-// routes cannot be installed.
-func TestPrivilegedSetupBaseDeviceIPv6NotTentative(t *testing.T) {
+// TestPrivilegedSetupBaseDeviceARPOffBeforeUp checks that setupBaseDevice turns
+// ARP off on both base devices before it brings them up. The kernel generates an
+// EUI-64 link-local for a veth end as soon as the pair gets carrier and runs
+// duplicate address detection on it unless the device is already NOARP by then.
+// It does not notify subscribers about an address still under detection, so a
+// device brought up with ARP on has no usable IPv6 address for as long as
+// detection takes, and the from-proxy routes that use cilium_net's link-local as
+// their nexthop cannot be installed.
+//
+// What is asserted is the order the flags were set in, not the flags of the
+// address: ipv6_add_addr() always creates the link-local IFA_F_TENTATIVE and only
+// the addrconf workqueue clears it again, so an address dump can legitimately
+// show IFA_F_TENTATIVE however the device was set up. The RTM_NEWLINK stream
+// carries no such ambiguity, because the kernel queues each notification while it
+// applies the corresponding flag change.
+func TestPrivilegedSetupBaseDeviceARPOffBeforeUp(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -78,38 +87,39 @@ func TestPrivilegedSetupBaseDeviceIPv6NotTentative(t *testing.T) {
 	ns := netns.NewNetNS(t)
 
 	ns.Do(func() error {
+		// Subscribed from inside the namespace: a netlink socket belongs to the
+		// namespace of the thread that opens it, and Do keeps this goroutine there.
+		updates := make(chan netlink.LinkUpdate, 128)
+		done := make(chan struct{})
+		defer close(done)
+		require.NoError(t, netlink.LinkSubscribe(updates, done))
+
 		_, _, err := setupBaseDevice(logger, sysctl, 1500)
 		require.NoError(t, err)
 
-		for _, devName := range []string{defaults.HostDevice, defaults.SecondHostDevice} {
-			link, err := safenetlink.LinkByName(devName)
-			require.NoError(t, err)
-
-			require.NotZero(t, link.Attrs().RawFlags&unix.IFF_NOARP,
-				"%s should have ARP off", devName)
-
-			// The kernel adds the link-local from a workqueue, so wait for it
-			// to show up and assert on the flags it is created with. With ARP
-			// off it is created permanent, otherwise it starts out tentative.
-			// Polled inline because the network namespace is per-thread, so
-			// the wait cannot run on another goroutine.
-			var addrs []netlink.Addr
-			for range 5000 {
-				addrs, err = safenetlink.AddrList(link, netlink.FAMILY_V6)
-				require.NoError(t, err)
-				if len(addrs) > 0 {
-					break
-				}
-				time.Sleep(time.Millisecond)
+		// Every notification the setup produced is already queued on the socket by
+		// the time it returns, so this drain waits for nothing still to happen.
+		remaining := []string{defaults.HostDevice, defaults.SecondHostDevice}
+		for len(remaining) > 0 {
+			var update netlink.LinkUpdate
+			var ok bool
+			select {
+			case update, ok = <-updates:
+				require.True(t, ok, "link subscription ended before %v were brought up", remaining)
+			case <-time.After(time.Minute):
+				require.FailNow(t, "timeout", "no link up notification for %v", remaining)
 			}
-			require.NotEmpty(t, addrs, "%s should get an IPv6 link-local address", devName)
 
-			for _, addr := range addrs {
-				require.Zero(t, addr.Flags&unix.IFA_F_TENTATIVE,
-					"%s address %s was created tentative, duplicate address detection was not skipped", devName, addr.IP)
-				require.Zero(t, addr.Flags&unix.IFA_F_DADFAILED,
-					"%s address %s failed duplicate address detection", devName, addr.IP)
+			i := slices.Index(remaining, update.Attrs().Name)
+			if i < 0 || update.Header.Type != unix.RTM_NEWLINK ||
+				update.IfInfomsg.Flags&unix.IFF_UP == 0 {
+				continue
 			}
+
+			require.NotZero(t, update.IfInfomsg.Flags&unix.IFF_NOARP,
+				"%s was brought up with ARP on, the kernel runs duplicate address detection on its link-local",
+				update.Attrs().Name)
+			remaining = slices.Delete(remaining, i, i+1)
 		}
 
 		return nil
