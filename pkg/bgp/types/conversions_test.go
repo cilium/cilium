@@ -263,6 +263,23 @@ func TestToNeighbor(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "BGP unnumbered",
+			nodePeer: &v2.CiliumBGPNodePeer{
+				PeerASN: ptr.To(int64(64512)),
+				// Both discovered by the DefaultGatewayReconciler: the
+				// interface, and the peer's link-local address on it, zoned
+				// with that interface.
+				PeerAddress:   ptr.To("fe80::1%eth0"),
+				PeerInterface: ptr.To("eth0"),
+			},
+			peerConfig: &v2.CiliumBGPPeerConfigSpec{},
+			expected: &Neighbor{
+				Address:   netip.MustParseAddr("fe80::1%eth0"),
+				Interface: "eth0",
+				ASN:       64512,
+			},
+		},
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
