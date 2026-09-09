@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -147,6 +148,9 @@ func getBPFCPU(logger *slog.Logger) string {
 }
 
 func getCompilerVersion(ctx context.Context) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
+	defer cancel()
+
 	out, err := exec.CommandContext(ctx, compiler, "--version").CombinedOutput()
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		err = ctxErr
@@ -169,6 +173,10 @@ func pidFromProcess(proc *os.Process) string {
 //
 // May output assembly or source code after prepocessing.
 func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *directoryInfo) (string, error) {
+	// Bound each clang run by its own ExecTimeout.
+	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
+	defer cancel()
+
 	compileArgs := append(testIncludes,
 		fmt.Sprintf("-I%s", path.Join(dir.Runtime, "globals")),
 		fmt.Sprintf("-I%s", dir.State),
