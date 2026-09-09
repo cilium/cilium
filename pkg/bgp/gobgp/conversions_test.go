@@ -102,6 +102,24 @@ func TestToGoBGPPeer(t *testing.T) {
 			},
 		},
 		{
+			// BGP unnumbered: the peer's discovered link-local address is
+			// configured as-is, zoned with the peering interface. The
+			// interface is not handed to gobgp as NeighborInterface, it only
+			// travels in the description.
+			name: "BGP unnumbered",
+			neighbor: &types.Neighbor{
+				Address:   netip.MustParseAddr("fe80::1%eth0"),
+				Interface: "eth0",
+			},
+			expected: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborAddress: "fe80::1%eth0",
+					Description:     `{"name":"","interface":"eth0"}`,
+				},
+				AfiSafis: defaultAfiSafi,
+			},
+		},
+		{
 			name: "ASN",
 			neighbor: &types.Neighbor{
 				Address: netip.MustParseAddr("10.0.0.1"),
@@ -191,6 +209,51 @@ func TestToGoBGPPeer(t *testing.T) {
 					LocalAddress: "10.0.0.2",
 					LocalPort:    1179,
 					RemotePort:   1179,
+				},
+				AfiSafis: defaultAfiSafi,
+			},
+		},
+		{
+			// An empty local address is left empty rather than forced to the
+			// wildcard: gobgp defaults it (wildcard for numbered peers).
+			name: "Transport without local address is not forced to wildcard",
+			neighbor: &types.Neighbor{
+				Address: netip.MustParseAddr("10.0.0.1"),
+				Transport: &types.NeighborTransport{
+					LocalPort:  1179,
+					RemotePort: 1179,
+				},
+			},
+			expected: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborAddress: "10.0.0.1",
+				},
+				Transport: &gobgp.Transport{
+					LocalPort:  1179,
+					RemotePort: 1179,
+				},
+				AfiSafis: defaultAfiSafi,
+			},
+		},
+		{
+			// Unnumbered peer: empty local address must stay empty so gobgp can
+			// derive the interface's own link-local as the transport source
+			// from the zone of the neighbor address.
+			name: "Unnumbered transport keeps empty local address",
+			neighbor: &types.Neighbor{
+				Address:   netip.MustParseAddr("fe80::1%eth0"),
+				Interface: "eth0",
+				Transport: &types.NeighborTransport{
+					RemotePort: 1179,
+				},
+			},
+			expected: &gobgp.Peer{
+				Conf: &gobgp.PeerConf{
+					NeighborAddress: "fe80::1%eth0",
+					Description:     `{"name":"","interface":"eth0"}`,
+				},
+				Transport: &gobgp.Transport{
+					RemotePort: 1179,
 				},
 				AfiSafis: defaultAfiSafi,
 			},
