@@ -86,7 +86,7 @@ type netlinkOps interface {
 	// LinkByName returns the link with the given interface name.
 	LinkByName(name string) (netlink.Link, error)
 	// LinkList returns all links on the system. Used to scope
-	// releaseUplinkTrunkVlanIfUnused's "is this VLAN still in use"
+	// releaseUnusedUplinkTrunkVlans's "is this VLAN still in use"
 	// scan to only ports enslaved to the same bridge as the uplink,
 	// since BridgeVlanList's table is keyed by ifindex system-wide and
 	// is not scoped to a single bridge.
@@ -361,15 +361,20 @@ func (d EswitchPciDevice) Free(config types.DeviceConfig) error {
 	// half. Deliberately falls through to the uplink step below rather
 	// than returning early — see the matching comment in Setup.
 
-	// Release the uplink's trunk membership for config.Vlan, but only if no
-	// other representor on this PF's bridge still uses it (see
-	// releaseUplinkTrunkVlanIfUnused doc comment). Must run after the
-	// representor's own entry above has already been removed, so this VF's
-	// now-stale membership doesn't make the "still in use" scan see itself.
+	// Release the uplink's trunk membership for config.Vlan on every uplink
+	// sharing this representor's bridge, not just this VF's own PF, but
+	// only where no representor on that bridge still uses it (see
+	// releaseUnusedUplinkTrunkVlans doc comment — a bridge shared by
+	// multiple PFs means freeing this representor can be the event that
+	// makes a DIFFERENT PF's uplink releasable too, since nothing else
+	// ever revisits that other uplink's earlier "still in use" decision).
+	// Must run after the representor's own entry above has already been
+	// removed, so this VF's now-stale membership doesn't make the "still
+	// in use" scan see itself.
 	if d.PFName != "" {
 		if uplink, err := d.nl.LinkByName(d.PFName); err != nil {
 			return fmt.Errorf("failed to retrieve pf uplink %s: %w", d.PFName, err)
-		} else if err := releaseUplinkTrunkVlanIfUnused(d.nl, uplink, uint16(config.Vlan)); err != nil {
+		} else if err := releaseUnusedUplinkTrunkVlans(d.nl, uplink.Attrs().MasterIndex, uint16(config.Vlan)); err != nil {
 			return err
 		}
 	}

@@ -4,11 +4,13 @@
 package eswitch_sriov
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
 
 	"github.com/vishvananda/netlink"
+	vishnetlinknl "github.com/vishvananda/netlink/nl"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -314,46 +316,57 @@ func ensureUplinkTrunkVlan(nl netlinkOps, uplinkLink netlink.Link, vid uint16) e
 	return nil
 }
 
-// releaseUplinkTrunkVlanIfUnused removes vid from uplinkLink's trunk
-// membership, but only if no other port ENSLAVED TO THE SAME BRIDGE as
-// uplinkLink still carries vid as its own PVID+untagged member (i.e. this
-// was the last representor using vid on this PF's bridge). This must be
-// called AFTER the caller has already removed its own representor's
-// PVID+untagged entry for vid (see EswitchPciDevice.Free), so that
-// representor's own now-stale entry doesn't cause this scan to spuriously
-// conclude the VLAN is still in use.
-//
-// BridgeVlanList's table is keyed by ifindex system-wide, not scoped to a
-// single bridge — with multiple bridges configured (e.g. one bridge per
-// PF), a VLAN ID can legitimately be reused as a PVID on a completely
-// unrelated bridge's port. Scanning the whole table unscoped would treat
-// that as "still in use" and leak the uplink's trunk membership forever
-// (never releasing it, even after every real user on THIS bridge is gone).
-// So this scan is restricted to links whose MasterIndex matches
-// uplinkLink's own bridge master.
-//
-// Queried fresh from the live bridge VLAN table and link list (source of
-// truth) on every call — no in-memory refcount is kept, consistent with how
-// representor VLAN state itself is managed (see package doc comment).
-func releaseUplinkTrunkVlanIfUnused(nl netlinkOps, uplinkLink netlink.Link, vid uint16) error {
-	if !bridgeVlanTaggedPresent(nl, uplinkLink, vid) {
-		// already absent; idempotent no-op.
-		return nil
+// vlanStillUsedByRepresentor reports whether any link in links, other than
+// the one at excludeIdx, is enslaved to bridgeIdx and carries vid as a
+// PVID+untagged member (i.e. is a representor actively using vid on this
+// bridge).
+func vlanStillUsedByRepresentor(links []netlink.Link, table map[int32][]*vishnetlinknl.BridgeVlanInfo, excludeIdx int, bridgeIdx int, vid uint16) bool {
+	for _, other := range links {
+		if other.Attrs().Index == excludeIdx {
+			continue
+		}
+		if other.Attrs().MasterIndex != bridgeIdx {
+			// not a port on the same bridge — its VLAN membership (even if
+			// vid happens to match) is irrelevant.
+			continue
+		}
+		for _, i := range table[int32(other.Attrs().Index)] {
+			if i.Vid == vid && i.PortVID() && i.EngressUntag() {
+				return true
+			}
+		}
 	}
 
-	bridgeIdx := uplinkLink.Attrs().MasterIndex
+	return false
+}
+
+// releaseUnusedUplinkTrunkVlans re-evaluates EVERY uplink currently enslaved
+// to bridgeIdx that carries vid as a tagged trunk member (see
+// ensureUplinkTrunkVlan), removing it from any uplink no longer backed by at
+// least one representor on the same bridge still using vid as its
+// PVID+untagged member.
+//
+// This must scan every uplink on the bridge, not just the freed device's own
+// PF's uplink: when a bridge is shared by more than one PF, freeing one PF's
+// representor can be the event that makes a DIFFERENT PF's uplink trunk
+// entry releasable (that uplink's entry was being kept alive by THIS
+// representor, on a different PF, still using vid) — nothing else ever
+// revisits that other uplink's earlier "still in use" decision otherwise, so
+// its trunk entry would leak forever once it stops being the last user's
+// own PF.
+//
+// Queried fresh from the live link list and bridge VLAN table (source of
+// truth) on every call, consistent with the rest of this file.
+func releaseUnusedUplinkTrunkVlans(nl netlinkOps, bridgeIdx int, vid uint16) error {
 	if bridgeIdx == 0 {
-		// uplink isn't enslaved to any bridge (shouldn't normally happen —
-		// init() only calls Setup/Free for PFs with a configured bridge).
-		// Err on the side of keeping the trunk membership.
 		return nil
 	}
 
 	links, err := nl.LinkList()
 	if err != nil {
-		// Can't determine whether other representors still use vid — err on
-		// the side of keeping the uplink's trunk membership rather than risk
-		// cutting off a VLAN that's still actively in use.
+		// Can't enumerate uplinks/representors — err on the side of leaving
+		// trunk memberships in place rather than risk cutting off a VLAN
+		// that's still actively in use.
 		return nil
 	}
 
@@ -362,31 +375,35 @@ func releaseUplinkTrunkVlanIfUnused(nl netlinkOps, uplinkLink netlink.Link, vid 
 		return nil
 	}
 
-	uplinkIdx := int32(uplinkLink.Attrs().Index)
-	for _, other := range links {
-		idx := int32(other.Attrs().Index)
-		if idx == uplinkIdx {
+	var errs []error
+	for _, link := range links {
+		idx := int32(link.Attrs().Index)
+		if link.Attrs().MasterIndex != bridgeIdx {
 			continue
 		}
-		if other.Attrs().MasterIndex != bridgeIdx {
-			// not a port on the same bridge as uplinkLink — its VLAN
-			// membership (even if vid happens to match) is irrelevant.
-			continue
-		}
+
+		isUplinkTrunkMember := false
 		for _, i := range table[idx] {
-			if i.Vid == vid && i.PortVID() && i.EngressUntag() {
-				// another representor on this SAME bridge still uses vid.
-				return nil
+			if i.Vid == vid && !i.PortVID() {
+				isUplinkTrunkMember = true
+				break
 			}
 		}
+		if !isUplinkTrunkMember {
+			continue
+		}
+
+		if vlanStillUsedByRepresentor(links, table, link.Attrs().Index, bridgeIdx, vid) {
+			continue
+		}
+
+		if err := nl.BridgeVlanDel(link, vid, false, false, false, true); err != nil {
+			errs = append(errs, fmt.Errorf(
+				"failed to remove vlan %d trunk membership from uplink %s: %w",
+				vid, link.Attrs().Name, err,
+			))
+		}
 	}
 
-	if err := nl.BridgeVlanDel(uplinkLink, vid, false, false, false, true); err != nil {
-		return fmt.Errorf(
-			"failed to remove vlan %d trunk membership from uplink %s: %w",
-			vid, uplinkLink.Attrs().Name, err,
-		)
-	}
-
-	return nil
+	return errors.Join(errs...)
 }
