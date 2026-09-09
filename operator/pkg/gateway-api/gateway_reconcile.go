@@ -88,9 +88,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// At this point, the GatewayClass is managed by Cilium, so Gateway-level validations are safe to run.
-	if ref := gw.Spec.Infrastructure; ref != nil && ref.ParametersRef != nil {
-		setGatewayAccepted(gw, false, "Invalid Gateway parameters: spec.infrastructure.parametersRef is not supported", gatewayv1.GatewayReasonInvalidParameters)
-		setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
+	if !r.gatewayStatusManager.ValidateGateway(gw) {
 		return r.updateStatusAndSuccess(ctx, original, gw)
 	}
 
@@ -106,10 +104,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
 			return r.updateStatusAndSuccess(ctx, original, gw)
 		}
-	}
-
-	if !r.gatewayAddressStatusManager.ValidateStaticAddresses(gw) {
-		return r.updateStatusAndSuccess(ctx, original, gw)
 	}
 
 	inputs, err := r.inputLoader.Load(ctx, scopedLog, gw, gwc)
@@ -216,11 +210,11 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Step 5: Update the status of the Gateway
-	if err = r.gatewayAddressStatusManager.SetAddressStatus(ctx, gw); err != nil {
+	if err = r.gatewayStatusManager.SetAddressStatus(ctx, gw); err != nil {
 		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to set address status: %w", err), original, gw)
 	}
 
-	if err = r.gatewayAddressStatusManager.SetStaticAddressStatus(ctx, gw); err != nil {
+	if err = r.gatewayStatusManager.SetStaticAddressStatus(ctx, gw); err != nil {
 		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to set static address status: %w", err), original, gw)
 	}
 
