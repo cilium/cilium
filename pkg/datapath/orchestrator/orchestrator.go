@@ -5,6 +5,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -57,6 +58,9 @@ const (
 
 	// reinitRetryDuration is the time to wait before retrying failed reinitialization.
 	reinitRetryDuration = 10 * time.Second
+
+	// datapathInitDeadline matches the default startupProbe budget, failureThreshold 300 at periodSeconds 2.
+	datapathInitDeadline = 10 * time.Minute
 )
 
 var DefaultConfig = Config{
@@ -219,8 +223,10 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	}
 
 	var (
-		request   = reinitializeRequest{ctx: ctx}
-		retryChan <-chan time.Time
+		request          = reinitializeRequest{ctx: ctx}
+		retryChan        <-chan time.Time
+		firstInitFailure time.Time
+		giveUp           error
 	)
 	for {
 		var (
@@ -272,6 +278,14 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 				if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
 					err = o.reinitialize(request.ctx, &localNodeConfig)
 					if err != nil {
+						// Only the first initialization gets a deadline; a later failure keeps the last good config.
+						if !o.initDone && !errors.Is(err, context.Canceled) {
+							if firstInitFailure.IsZero() {
+								firstInitFailure = time.Now()
+							} else if waited := time.Since(firstInitFailure); waited > datapathInitDeadline {
+								giveUp = fmt.Errorf("datapath not initialized after %s: %w", waited.Round(time.Second), err)
+							}
+						}
 						o.params.Log.Warn("Failed to initialize datapath, retrying later",
 							logfields.Error, err,
 							logfields.RetryDelay, reinitRetryDuration,
@@ -292,6 +306,10 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			close(request.errChan)
 		}
 		request = reinitializeRequest{ctx: ctx}
+
+		if giveUp != nil {
+			return giveUp
+		}
 
 		select {
 		case <-ctx.Done():
