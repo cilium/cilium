@@ -408,8 +408,8 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
-	defer cancel()
+	// Each clang run below bounds itself with defaults.ExecTimeout; everything
+	// else here inherits only cancellation.
 
 	if lnc.KPRConfig.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
