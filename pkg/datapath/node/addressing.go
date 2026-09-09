@@ -49,7 +49,10 @@ func (n *addressing) IPv4() node.AddressingFamily {
 
 func (a addressFamily) Router() net.IP {
 	if n, err := a.localNode.Get(context.Background()); err == nil {
-		return n.GetCiliumInternalIP(a.flags&ipv6 != 0)
+		if a.flags&ipv6 != 0 {
+			return n.GetCiliumInternalIPv6()
+		}
+		return n.GetCiliumInternalIPv4()
 	}
 	return nil
 }

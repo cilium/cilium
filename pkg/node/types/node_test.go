@@ -53,58 +53,75 @@ func TestGetNodeIP(t *testing.T) {
 	require.Equal(t, ip, net.ParseIP("198.51.100.2"))
 }
 
-func TestGetIPByType(t *testing.T) {
-	n := Node{
-		Name: "node-1",
-		IPAddresses: []Address{
-			{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP},
+// requireIP asserts that got holds the address want, or is nil when want is
+// empty.
+func requireIP(t *testing.T, want string, got net.IP) {
+	t.Helper()
+
+	if want == "" {
+		require.Nil(t, got)
+		return
+	}
+	require.Equal(t, net.ParseIP(want), got)
+}
+
+func TestNodeIPAccessors(t *testing.T) {
+	tests := []struct {
+		name string
+		node Node
+
+		internalV4, internalV6 string
+		externalV4, externalV6 string
+		ciliumV4, ciliumV6     string
+	}{
+		{
+			name: "external IPv4 only",
+			node: Node{
+				Name: "node-1",
+				IPAddresses: []Address{
+					{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP},
+				},
+			},
+			externalV4: "192.0.2.3",
+		},
+		{
+			name: "Cilium internal IPv6 only",
+			node: Node{
+				Name: "node-2",
+				IPAddresses: []Address{
+					{IP: net.ParseIP("f00b::1"), Type: addressing.NodeCiliumInternalIP},
+				},
+			},
+			ciliumV6: "f00b::1",
+		},
+		{
+			name: "external IPv4 and IPv6",
+			node: Node{
+				Name: "node-3",
+				IPAddresses: []Address{
+					{IP: net.ParseIP("192.42.0.3"), Type: addressing.NodeExternalIP},
+					{IP: net.ParseIP("f00d::1"), Type: addressing.NodeExternalIP},
+				},
+			},
+			externalV4: "192.42.0.3",
+			externalV6: "f00d::1",
 		},
 	}
 
-	ip := n.GetIPByType(addressing.NodeInternalIP, false)
-	require.Nil(t, ip)
-	ip = n.GetIPByType(addressing.NodeInternalIP, true)
-	require.Nil(t, ip)
-
-	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	require.Equal(t, ip, net.ParseIP("192.0.2.3"))
-	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	require.Nil(t, ip)
-
-	n = Node{
-		Name: "node-2",
-		IPAddresses: []Address{
-			{IP: net.ParseIP("f00b::1"), Type: addressing.NodeCiliumInternalIP},
-		},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Every accessor is asserted for every node, including the ones
+			// expected to return nil: they are one-line delegations to
+			// getAddress, so an accessor passing the wrong address type or
+			// address family is only caught by pinning the others too.
+			requireIP(t, tt.internalV4, tt.node.GetNodeInternalIPv4())
+			requireIP(t, tt.internalV6, tt.node.GetNodeInternalIPv6())
+			requireIP(t, tt.externalV4, tt.node.GetNodeExternalIPv4())
+			requireIP(t, tt.externalV6, tt.node.GetNodeExternalIPv6())
+			requireIP(t, tt.ciliumV4, tt.node.GetCiliumInternalIPv4())
+			requireIP(t, tt.ciliumV6, tt.node.GetCiliumInternalIPv6())
+		})
 	}
-
-	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	require.Nil(t, ip)
-	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	require.Nil(t, ip)
-
-	ip = n.GetIPByType(addressing.NodeCiliumInternalIP, false)
-	require.Nil(t, ip)
-	ip = n.GetIPByType(addressing.NodeCiliumInternalIP, true)
-	require.Equal(t, ip, net.ParseIP("f00b::1"))
-
-	n = Node{
-		Name: "node-3",
-		IPAddresses: []Address{
-			{IP: net.ParseIP("192.42.0.3"), Type: addressing.NodeExternalIP},
-			{IP: net.ParseIP("f00d::1"), Type: addressing.NodeExternalIP},
-		},
-	}
-
-	ip = n.GetIPByType(addressing.NodeInternalIP, false)
-	require.Nil(t, ip)
-	ip = n.GetIPByType(addressing.NodeInternalIP, true)
-	require.Nil(t, ip)
-
-	ip = n.GetIPByType(addressing.NodeExternalIP, false)
-	require.Equal(t, ip, net.ParseIP("192.42.0.3"))
-	ip = n.GetIPByType(addressing.NodeExternalIP, true)
-	require.Equal(t, ip, net.ParseIP("f00d::1"))
 }
 
 func TestNodeValidate(t *testing.T) {
