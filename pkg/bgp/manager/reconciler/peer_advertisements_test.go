@@ -312,6 +312,36 @@ func Test_GetAdvertisements(t *testing.T) {
 			},
 		},
 		{
+			name: "Unnumbered peer uses its discovered link-local address",
+			peerConfig: []*v2.CiliumBGPPeerConfig{
+				redPeerConfig,
+			},
+			advertisements: []*v2.CiliumBGPAdvertisement{
+				redAdvert,
+			},
+			reqBGPNodeInstance: &v2.CiliumBGPNodeInstance{
+				Name:     "bgp-65001",
+				LocalASN: ptr.To[int64](65001),
+				Peers: []v2.CiliumBGPNodePeer{
+					{
+						Name: "red-peer-65001",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-red",
+						},
+						PeerAddress:   ptr.To("fe80::1%eth0"),
+						PeerInterface: ptr.To("eth0"),
+					},
+				},
+			},
+			reqAdvertTypes: []v2.BGPAdvertisementType{v2.BGPPodCIDRAdvert},
+			expectedAdverts: map[PeerID]PeerFamilyAdvertisements{
+				{Name: "red-peer-65001", Address: "fe80::1%eth0"}: map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
+					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
+					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert},
+				},
+			},
+		},
+		{
 			name: "Expecting PodCIDR advertisement for dual peers",
 			peerConfig: []*v2.CiliumBGPPeerConfig{
 				redPeerConfig,

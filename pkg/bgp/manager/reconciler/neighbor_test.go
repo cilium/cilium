@@ -484,6 +484,60 @@ func TestNeighborReconciler_SourceInterfaceAddress(t *testing.T) {
 	}
 }
 
+// TestNeighborReconciler_UnnumberedIgnoresLocalAddress ensures a localAddress override is
+// not applied to an unnumbered peer. The peer is reached at an IPv6 link-local address, so
+// the router sources the session from the peering interface's own link-local; an explicit
+// local address would replace that derivation with one the peer cannot be reached from.
+func TestNeighborReconciler_UnnumberedIgnoresLocalAddress(t *testing.T) {
+	req := require.New(t)
+
+	unnumberedPeer := &v2.CiliumBGPNodePeer{
+		Name:          "unnumbered-peer",
+		PeerASN:       ptr.To[int64](64124),
+		PeerAddress:   ptr.To("fe80::1%eth0"),
+		PeerInterface: ptr.To("eth0"),
+		LocalAddress:  ptr.To("10.100.100.100"),
+		PeerConfigRef: &v2.PeerConfigReference{Name: "peer-config"},
+	}
+
+	db := statedb.New()
+	deviceTable, err := tables.NewDeviceTable(db)
+	req.NoError(err)
+
+	peerConfigStore := store.NewMockBGPCPResourceStore[*v2.CiliumBGPPeerConfig]()
+	peerConfigStore.Upsert(&v2.CiliumBGPPeerConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: "peer-config"},
+	})
+
+	neighborReconciler := NewNeighborReconciler(NeighborReconcilerIn{
+		Logger:      hivetest.Logger(t),
+		PeerConfig:  peerConfigStore,
+		BGPConfig:   config.BGPConfig{},
+		DB:          db,
+		DeviceTable: deviceTable,
+	}).Reconciler.(*NeighborReconciler)
+
+	testInstance := instance.NewFakeBGPInstance()
+	neighborReconciler.Init(testInstance)
+	defer neighborReconciler.Cleanup(testInstance)
+
+	err = neighborReconciler.Reconcile(context.Background(), ReconcileParams{
+		BGPInstance: testInstance,
+		DesiredConfig: &v2.CiliumBGPNodeInstance{
+			Name:  "bgp-node",
+			Peers: []v2.CiliumBGPNodePeer{*unnumberedPeer},
+		},
+		CiliumNode: &v2.CiliumNode{ObjectMeta: metav1.ObjectMeta{Name: "bgp-node"}},
+	})
+	req.NoError(err)
+
+	running := neighborReconciler.getMetadata(testInstance)[unnumberedPeer.Name]
+	req.NotNil(running, "unnumbered peer is missing from the metadata")
+	req.Nil(running.Peer.LocalAddress, "localAddress override should have been ignored")
+	// The configured peer must not be mutated: the override is dropped on a copy.
+	req.Equal("10.100.100.100", ptr.Deref(unnumberedPeer.LocalAddress, ""))
+}
+
 func setupNeighbors(t *testing.T, peers []PeerData) (NeighborReconcilerIn, *v2.CiliumBGPNodeInstance) {
 	// Desired BGP Node config
 	nodeConfig := &v2.CiliumBGPNodeInstance{
@@ -587,5 +641,44 @@ func validatePeerData(req *require.Assertions, expected, running []PeerData) {
 			}
 		}
 		req.True(found)
+	}
+}
+
+func TestNeighborReconciler_neighborID(t *testing.T) {
+	r := &NeighborReconciler{}
+
+	tests := []struct {
+		name  string
+		peer  *v2.CiliumBGPNodePeer
+		expdt string
+	}{
+		{
+			name: "numbered peer uses address",
+			peer: &v2.CiliumBGPNodePeer{
+				Name:        "p",
+				PeerAddress: ptr.To("192.168.0.1"),
+				PeerASN:     ptr.To[int64](64512),
+			},
+			expdt: "p192.168.0.164512",
+		},
+		{
+			// An unnumbered peer is identified by the link-local address
+			// discovered for it, zone included: two peers discovered on
+			// different interfaces routinely share the same address.
+			name: "unnumbered peer uses the zoned link-local address",
+			peer: &v2.CiliumBGPNodePeer{
+				Name:          "p",
+				PeerAddress:   ptr.To("fe80::1%eth0"),
+				PeerInterface: ptr.To("eth0"),
+				PeerASN:       ptr.To[int64](64512),
+			},
+			expdt: "pfe80::1%eth064512",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expdt, r.neighborID(tt.peer))
+		})
 	}
 }
