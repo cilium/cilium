@@ -33,6 +33,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	cfg.HostEPID = uint16(lnc.HostEndpointID)
+	cfg.EnableLocalDeliveryMetricsAccounting = true
 	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
@@ -81,6 +82,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	}
 	cfg.InterfaceMAC.Addr = em
 
+	cfg.EnableLocalDeliveryMetricsAccounting = true
 	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
@@ -151,6 +153,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 		cfg.EnableRemoteNodeMasquerade = option.Config.EnableRemoteNodeMasquerade
 	}
 
+	cfg.EnableLocalDeliveryMetricsAccounting = true
 	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.HostEPID = uint16(lnc.HostEndpointID)

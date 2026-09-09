@@ -24,6 +24,7 @@ func Overlay(lnc *Config, link netlink.Link) any {
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableLocalDeliveryMetricsAccounting = false
 	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
