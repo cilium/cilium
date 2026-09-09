@@ -259,7 +259,7 @@ static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
 	}
 
 	return __ct_update_timeout(entry, lifetime, dir, seen_flags,
-				   CT_REPORT_FLAGS);
+				   CONFIG(monitor_report_flags));
 }
 
 static __always_inline void
@@ -429,7 +429,7 @@ __ct_lookup(const void *map, const struct __ctx_buff *ctx, const void *tuple,
 				break;
 			__ct_update_timeout(entry,
 					    bpf_sec_to_mono(CONFIG(ct_timeouts).close_timeout),
-					    dir, seen_flags, CT_REPORT_FLAGS);
+					    dir, seen_flags, CONFIG(monitor_report_flags));
 			break;
 		default:
 			break;

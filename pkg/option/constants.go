@@ -4,21 +4,20 @@
 package option
 
 const (
-	// TCP_FIN, ... from <linux/tcp.h> (host byte-order)
-	TCP_FIN = uint16(0x0001)
-	TCP_SYN = uint16(0x0002)
-	TCP_RST = uint16(0x0004)
-	TCP_PSH = uint16(0x0008)
-	TCP_ACK = uint16(0x0010)
-	TCP_URG = uint16(0x0020)
-	TCP_ECE = uint16(0x0040)
-	TCP_CWR = uint16(0x0080)
+	TCP_FIN = uint8(0x01)
+	TCP_SYN = uint8(0x02)
+	TCP_RST = uint8(0x04)
+	TCP_PSH = uint8(0x08)
+	TCP_ACK = uint8(0x10)
+	TCP_URG = uint8(0x20)
+	TCP_ECE = uint8(0x40)
+	TCP_CWR = uint8(0x80)
 )
 
 var (
-	TCPFlags = map[string]uint16{
-		"none": uint16(0x0000),
-		"all":  uint16(0x00FF),
+	TCPFlags = map[string]uint8{
+		"none": uint8(0x00),
+		"all":  uint8(0xFF),
 		"fin":  TCP_FIN,
 		"syn":  TCP_SYN,
 		"rst":  TCP_RST,
