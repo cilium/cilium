@@ -14,7 +14,7 @@ import (
 
 type IdentityAllocatorOwnerMock struct{}
 
-func (i *IdentityAllocatorOwnerMock) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
+func (i *IdentityAllocatorOwnerMock) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{} {
 	out := make(chan struct{})
 	close(out)
 	return out
@@ -120,7 +120,7 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 		f.nextIDs[scope]++
 	}
 
-	f.IdentityMap[identity.NumericIdentity(id)] = lbls.LabelArray()
+	f.IdentityMap[identity.NumericIdentity(id)] = lbls
 	f.labelsToIdentity[lbls.String()] = int(id)
 
 	realID := &identity.Identity{

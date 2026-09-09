@@ -248,7 +248,7 @@ func MatchesRequirements[T labels.LabelMatcher](reqs Requirements, ls T) bool {
 
 // matchesEncodedRequirements is like MatchesRequirements but checks for
 // encoded key+value labels. Used by CIDRGroupSelector.
-func matchesEncodedRequirements(reqs Requirements, ls labels.LabelArray) bool {
+func matchesEncodedRequirements(reqs Requirements, ls labels.Labels) bool {
 	for i := range reqs {
 		if !matchesEncodedRequirement(&reqs[i], ls) {
 			return false
@@ -259,7 +259,7 @@ func matchesEncodedRequirements(reqs Requirements, ls labels.LabelArray) bool {
 
 // matchesEncodedRequirement converts value-match operators into existence
 // checks on encoded key+value labels. Exists/DoesNotExist pass through.
-func matchesEncodedRequirement(r *Requirement, ls labels.LabelArray) bool {
+func matchesEncodedRequirement(r *Requirement, ls labels.Labels) bool {
 	encodedValueExists := func() bool {
 		for val := range r.values.Members() {
 			encoded := labels.EncodedCIDRGroupLabel(r.key.Key, val, r.key.Source)

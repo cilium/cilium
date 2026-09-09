@@ -136,7 +136,7 @@ var (
 func testNewPolicyRepository(t *testing.T, initialIDs []*identity.Identity) (identitymanager.IDManager, *policy.Repository) {
 	idmap := identity.IdentityMap{}
 	for _, id := range initialIDs {
-		idmap[id.ID] = id.LabelArray
+		idmap[id.ID] = id.Labels
 	}
 	logger := hivetest.Logger(t)
 	idManager := identitymanager.NewIDManager(logger)

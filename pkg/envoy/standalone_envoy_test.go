@@ -669,7 +669,7 @@ func newStandaloneTestPolicyRepo(t *testing.T, logger *slog.Logger, secretManage
 		labels.NewLabel("id", "a", labels.LabelSourceK8s),
 	}.Labels())
 	idCache := maps.Clone(IdentityCache)
-	idCache[localIdentity.ID] = localIdentity.LabelArray
+	idCache[localIdentity.ID] = localIdentity.Labels
 	idMgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(
 		logger,
@@ -684,9 +684,9 @@ func newStandaloneTestPolicyRepo(t *testing.T, logger *slog.Logger, secretManage
 	// through IdentityPolicyComputer. This test computes policy directly, so
 	// mirror the identity add/remove notifications here.
 	idMgr.Add(localIdentity)
-	repo.UpdateIdentities(identity.IdentityMap{localIdentity.ID: localIdentity.LabelArray}, nil)
+	repo.UpdateIdentities(identity.IdentityMap{localIdentity.ID: localIdentity.Labels}, nil)
 	t.Cleanup(func() {
-		repo.UpdateIdentities(nil, identity.IdentityMap{localIdentity.ID: localIdentity.LabelArray})
+		repo.UpdateIdentities(nil, identity.IdentityMap{localIdentity.ID: localIdentity.Labels})
 		idMgr.Remove(localIdentity)
 	})
 

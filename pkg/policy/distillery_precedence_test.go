@@ -230,15 +230,15 @@ func TestOrderedPolicyValidation(t *testing.T) {
 	identityWorldIPv4 := identity.ReservedIdentityWorldIPv4
 	identityWorldIPv6 := identity.ReservedIdentityWorldIPv6
 	identityAggregateWorld := identity.ReservedIdentityAggregateWorld
-	labelsWorld := labels.LabelWorld.LabelArray()
+	labelsWorld := labels.LabelWorld
 
 	identity1111 := localIdentity(1111)
-	labels1111 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32")))).LabelArray()
+	labels1111 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32"))))
 	selector1111 := types.ToSelector(api.CIDR("1.1.1.1/32"))
 	selectors1111 := types.Selectors{selector1111}
 
 	identity1100 := localIdentity(1100)
-	labels1100 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.0.0/16")))).LabelArray()
+	labels1100 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.0.0/16"))))
 	selector1100 := types.ToSelector(api.CIDR("1.1.0.0/16"))
 	selectors1100 := types.Selectors{selector1100}
 
@@ -254,14 +254,14 @@ func TestOrderedPolicyValidation(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identityFoo:                             labelsFoo,
 		identityWorld:                           labelsWorld,
-		identityWorldIPv4:                       labels.LabelWorldIPv4.LabelArray(),
-		identityWorldIPv6:                       labels.LabelWorldIPv6.LabelArray(),
-		identity.ReservedIdentityAggregateWorld: labels.LabelsAggregateWorld.LabelArray(),
+		identityWorldIPv4:                       labels.LabelWorldIPv4,
+		identityWorldIPv6:                       labels.LabelWorldIPv6,
+		identity.ReservedIdentityAggregateWorld: labels.LabelsAggregateWorld,
 		identity1111:                            labels1111,
 		identity1100:                            labels1100,
 	}
 	selectorCache := testNewSelectorCache(t, logger, identityCache)
-	identity := identity.NewIdentityFromLabelArray(identityFoo, labelsFoo)
+	identity := identity.NewIdentity(identityFoo, labelsFoo)
 
 	type probe struct {
 		key   Key

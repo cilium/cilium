@@ -68,7 +68,7 @@ func ListReservedIdentities() IdentityMap {
 	defer cacheMU.RUnlock()
 	out := make(IdentityMap, len(reservedIdentityCache))
 	for ni, identity := range reservedIdentityCache {
-		out[ni] = identity.LabelArray
+		out[ni] = identity.Labels
 	}
 	return out
 }

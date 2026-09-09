@@ -223,7 +223,7 @@ func newStageCmd(params CmdParams, state *script.State) (*stageCmd, error) {
 
 	// add this endpoint to the subject selector cache
 	wg := sync.WaitGroup{}
-	s.pr.GetSubjectSelectorCache().UpdateIdentities(identity.IdentityMap{s.epID.ID: s.epID.LabelArray}, nil, &wg)
+	s.pr.GetSubjectSelectorCache().UpdateIdentities(identity.IdentityMap{s.epID.ID: s.epID.Labels}, nil, &wg)
 	wg.Wait()
 
 	return s, nil
@@ -388,8 +388,9 @@ func (s *stageCmd) ensureCIDRIdentities(e policytypes.PolicyEntries) {
 	// this CIDR
 prefixLoop:
 	for _, prefix := range prefixes {
-		lbls := labels.GetCIDRLabelArray(prefix)
-		wantLabel := lbls[0]
+		lbla := labels.GetCIDRLabelArray(prefix)
+		wantLabel := lbla[0]
+		lbls := lbla.Labels()
 		for _, existingLabels := range s.ids {
 			for _, existingLbl := range existingLabels {
 				if existingLbl.Equals(&wantLabel) {

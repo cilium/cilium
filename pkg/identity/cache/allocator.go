@@ -519,7 +519,7 @@ func (m *CachingIdentityAllocator) allocateLocalIdentityLocked(lbls labels.Label
 
 		if notifyOwner {
 			added := identity.IdentityMap{
-				id.ID: id.LabelArray,
+				id.ID: id.Labels,
 			}
 			m.owner.UpdateIdentities(added, nil)
 		}
@@ -604,7 +604,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	// relying on the kv-store update events.
 	if allocated && notifyOwner {
 		added := identity.IdentityMap{
-			id.ID: id.LabelArray,
+			id.ID: id.Labels,
 		}
 		m.owner.UpdateIdentities(added, nil)
 	}
@@ -764,7 +764,7 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 			)
 		} else {
 			m.restoredIdentities[newID.ID] = newID
-			added[newID.ID] = newID.LabelArray
+			added[newID.ID] = newID.Labels
 			if newID.ID != oldID.ID {
 				// Paranoia, shouldn't happen
 				scopedLog.Warn(
@@ -859,7 +859,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	// Remove this ID from the selectorcache and any other identity "watchers"
 	if m.owner != nil && released && notifyOwner {
 		deleted := identity.IdentityMap{
-			id.ID: id.LabelArray,
+			id.ID: id.Labels,
 		}
 		m.owner.UpdateIdentities(nil, deleted)
 	}
@@ -905,7 +905,7 @@ func (m *CachingIdentityAllocator) ReleaseLocalIdentities(nids ...identity.Numer
 		released := alloc.release(id)
 		if released {
 			dealloc = append(dealloc, nid)
-			deleted[nid] = id.LabelArray
+			deleted[nid] = id.Labels
 			for labelSource := range id.Labels.CollectSources() {
 				metrics.IdentityLabelSources.WithLabelValues(labelSource).Dec()
 			}
