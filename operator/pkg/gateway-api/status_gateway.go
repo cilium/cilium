@@ -20,25 +20,47 @@ import (
 	"github.com/cilium/cilium/pkg/shortener"
 )
 
-type GatewayAddressStatusManager struct {
+type GatewayStatusManager struct {
 	client           client.Client
 	logger           *slog.Logger
 	hostNetworkLabel []metav1.LabelSelector
 }
 
-func NewGatewayAddressStatusManager(client client.Client, logger *slog.Logger, hostNetworkLabel ...metav1.LabelSelector) *GatewayAddressStatusManager {
-	return &GatewayAddressStatusManager{
+func NewGatewayStatusManager(client client.Client, logger *slog.Logger, hostNetworkLabel ...metav1.LabelSelector) *GatewayStatusManager {
+	return &GatewayStatusManager{
 		client:           client,
 		logger:           logger,
 		hostNetworkLabel: hostNetworkLabel,
 	}
 }
 
-// ValidateStaticAddresses validates spec.addresses before resource
+func (m *GatewayStatusManager) ValidateGateway(gw *gatewayv1.Gateway) bool {
+	if !m.validateInfrastructure(gw) {
+		return false
+	}
+
+	if !m.validateStaticAddresses(gw) {
+		return false
+	}
+
+	return true
+}
+
+func (m *GatewayStatusManager) validateInfrastructure(gw *gatewayv1.Gateway) bool {
+	if ref := gw.Spec.Infrastructure; ref != nil && ref.ParametersRef != nil {
+		setGatewayAccepted(gw, false, "Invalid Gateway parameters: spec.infrastructure.parametersRef is not supported", gatewayv1.GatewayReasonInvalidParameters)
+		setGatewayProgrammed(gw, metav1.ConditionUnknown, "Waiting for Accepted condition to be True", gatewayv1.GatewayReasonPending)
+		return false
+	}
+
+	return true
+}
+
+// validateStaticAddresses validates spec.addresses before resource
 // reconciliation continues. It only checks the requested static address shape;
 // it does not look at assigned Service status. Invalid addresses are surfaced
 // through Gateway conditions and reported as not valid.
-func (m *GatewayAddressStatusManager) ValidateStaticAddresses(gw *gatewayv1.Gateway) bool {
+func (m *GatewayStatusManager) validateStaticAddresses(gw *gatewayv1.Gateway) bool {
 	if len(gw.Spec.Addresses) == 0 {
 		return true
 	}
@@ -65,7 +87,7 @@ func (m *GatewayAddressStatusManager) ValidateStaticAddresses(gw *gatewayv1.Gate
 // SetAddressStatus reads the managed frontend Service and projects its observed
 // addresses into Gateway status. When at least one usable address is present,
 // it also marks the Gateway and accepted listeners as Programmed.
-func (m *GatewayAddressStatusManager) SetAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
+func (m *GatewayStatusManager) SetAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
 	m.logger.InfoContext(ctx, "Checking address status for Gateway", logfields.Resource, client.ObjectKeyFromObject(gw).String())
 	setGatewayProgrammed(gw, metav1.ConditionFalse, "Gateway waiting for address", gatewayv1.GatewayReasonAddressNotAssigned)
 
@@ -192,7 +214,7 @@ func (m *GatewayAddressStatusManager) SetAddressStatus(ctx context.Context, gw *
 // SetStaticAddressStatus compares requested static addresses with the assigned
 // load balancer ingress addresses. It is a post-reconcile check for whether
 // the requested static addresses were actually satisfied.
-func (m *GatewayAddressStatusManager) SetStaticAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
+func (m *GatewayStatusManager) SetStaticAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
 	if len(gw.Spec.Addresses) == 0 {
 		return nil
 	}
