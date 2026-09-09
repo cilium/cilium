@@ -109,6 +109,9 @@ NODE_CONFIG(bool, encryption_strict_ingress, "Enable strict encryption for ingre
 
 NODE_CONFIG(__u8, monitor_aggregation, "Level of aggregation for monitor events")
 
+NODE_CONFIG(__u32, monitor_report_interval, "Monitor report interval in seconds")
+ASSIGN_CONFIG(__u32, monitor_report_interval, 5)
+
 NODE_CONFIG(union v4addr, ipv4_inter_cluster_snat,
 	    "Node IPv4 address used as the source for inter-cluster SNAT")
 

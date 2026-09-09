@@ -16,7 +16,6 @@
 
 #define LRU_MEM_FLAVOR 0
 
-#define CT_REPORT_INTERVAL		5
 #ifndef CT_REPORT_FLAGS
 # define CT_REPORT_FLAGS		0xff
 #endif

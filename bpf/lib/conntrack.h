@@ -195,9 +195,9 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 	 *
 	 * If the branch is taken by multiple CPUs because of '*last_report',
 	 * then this merely causes multiple notifications to be sent after
-	 * CT_REPORT_INTERVAL rather than a single notification. '*last_report'
+	 * the report interval rather than a single notification. '*last_report'
 	 * will be updated by all CPUs and subsequent checks should not take
-	 * this branch until the next CT_REPORT_INTERVAL. As such, the trace
+	 * this branch until the next report interval. As such, the trace
 	 * aggregation that uses the result of this function may reduce the
 	 * number of packets per interval to a small integer value (max N_CPUS)
 	 * rather than 1 notification per packet throughout the interval.
@@ -217,7 +217,7 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 	 * otherwise be sent if the monitor aggregation level is set to none
 	 * (ie, sending a notification for every packet).
 	 */
-	if (last_report + bpf_sec_to_mono(CT_REPORT_INTERVAL) < now ||
+	if (last_report + bpf_sec_to_mono(CONFIG(monitor_report_interval)) < now ||
 	    accumulated_flags != seen_flags) {
 		/* verifier workaround: we don't use reference here. */
 		if (dir == CT_INGRESS) {
@@ -235,7 +235,7 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 /**
  * Update the CT timeouts for the specified entry.
  *
- * If CT_REPORT_INTERVAL has elapsed since the last update, updates the
+ * If the report interval has elapsed since the last update, updates the
  * last_updated timestamp and returns true. Otherwise returns false.
  */
 static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
