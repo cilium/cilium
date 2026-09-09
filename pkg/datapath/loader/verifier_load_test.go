@@ -28,6 +28,7 @@ func setBasePermutations(t *config.Node) {
 	t.IPv6SNATExclusion.Enabled = true
 	t.LBSelectionPerService = true
 	t.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
+	t.MonitorReportInterval = 5
 	t.TracingIPOptionType = 1
 	t.DebugLB = true
 	t.EventsMapRateLimit = 1000
