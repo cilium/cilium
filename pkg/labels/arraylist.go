@@ -226,6 +226,13 @@ func writeRemainder(str string, start, end int, sb *strings.Builder) {
 
 // merge 'b' to 'a' assuming both are sorted
 func MergeSortedLabelArrayListStrings(la, lb LabelArrayListString) LabelArrayListString {
+	if la == "" {
+		return lb
+	}
+	if lb == "" {
+		return la
+	}
+
 	var sb strings.Builder
 	var aStart, aEnd, bStart, bEnd int
 	a := string(la)
