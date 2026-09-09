@@ -2915,6 +2915,26 @@ func (ct *ConnectivityTest) validateDeploymentPerf(ctx context.Context) error {
 	return nil
 }
 
+// registerEchoPods registers the echo pods of every cluster as test peers.
+func (ct *ConnectivityTest) registerEchoPods(ctx context.Context) error {
+	for _, client := range ct.clients.clients() {
+		echoPods, err := client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
+		if err != nil {
+			return fmt.Errorf("unable to list echo pods: %w", err)
+		}
+		for _, echoPod := range echoPods.Items {
+			ct.echoPods[echoPod.Name] = Pod{
+				K8sClient: client,
+				Pod:       echoPod.DeepCopy(),
+				scheme:    "http",
+				port:      8080, // listen port of the echo server inside the container
+			}
+		}
+	}
+
+	return nil
+}
+
 func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	srcDeployments, dstDeployments := ct.deploymentList()
 	if err := ct.validateDeploymentCommon(ctx, srcDeployments, dstDeployments); err != nil {
@@ -3103,19 +3123,8 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			return err
 		}
 	}
-	for _, client := range ct.clients.clients() {
-		echoPods, err := client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
-		if err != nil {
-			return fmt.Errorf("unable to list echo pods: %w", err)
-		}
-		for _, echoPod := range echoPods.Items {
-			ct.echoPods[echoPod.Name] = Pod{
-				K8sClient: client,
-				Pod:       echoPod.DeepCopy(),
-				scheme:    "http",
-				port:      8080, // listen port of the echo server inside the container
-			}
-		}
+	if err := ct.registerEchoPods(ctx); err != nil {
+		return err
 	}
 
 	for _, client := range ct.clients.clients() {
