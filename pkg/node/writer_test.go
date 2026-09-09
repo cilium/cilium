@@ -9,7 +9,6 @@ import (
 	"maps"
 	"net"
 	"net/netip"
-	"slices"
 	"testing"
 	"time"
 
@@ -321,9 +320,12 @@ func TestSourceWriterDoesNotOverwriteLocalNode(t *testing.T) {
 
 	local := &Node{
 		Node: types.Node{
-			Name:        "local",
-			Source:      source.Local,
-			IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
+			Name:   "local",
+			Source: source.Local,
+			IPAddresses: []types.Address{{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("10.0.0.1"),
+			}},
 		},
 		Local: &LocalNodeInfo{},
 	}
@@ -343,9 +345,12 @@ func TestSourceWriterDoesNotOverwriteLocalNode(t *testing.T) {
 
 	// The local row also owns its addresses regardless of source priority.
 	remote = &types.Node{
-		Name:        "remote",
-		Source:      source.KubeAPIServer,
-		IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
+		Name:   "remote",
+		Source: source.KubeAPIServer,
+		IPAddresses: []types.Address{{
+			Type: addressing.NodeExternalIP,
+			IP:   net.ParseIP("10.0.0.1"),
+		}},
 	}
 	txn = db.WriteTxn(nodes)
 	require.False(t, w.Upsert(txn, remote))
@@ -354,7 +359,7 @@ func TestSourceWriterDoesNotOverwriteLocalNode(t *testing.T) {
 	require.False(t, found)
 }
 
-func TestWriterAddressConflicts(t *testing.T) {
+func TestWriterAllowsRemoteAddressConflicts(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
 	require.NoError(t, err)
@@ -365,75 +370,32 @@ func TestWriterAddressConflicts(t *testing.T) {
 		defer txn.Commit()
 		return w.Upsert(txn, n)
 	}
-	requireNode := func(name string) *Node {
-		n, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
-		require.True(t, found, name)
-		return n
-	}
-	requireNoNode := func(name string) {
-		_, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
-		require.False(t, found, name)
-	}
-	newNode := func(name string, src source.Source, addresses ...string) *types.Node {
-		n := &types.Node{Name: name, Source: src}
-		for _, address := range addresses {
-			n.IPAddresses = append(n.IPAddresses, types.Address{IP: net.ParseIP(address)})
+	newNode := func(name string, src source.Source) *types.Node {
+		return &types.Node{
+			Name:   name,
+			Source: src,
+			IPAddresses: []types.Address{{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("10.0.0.1"),
+			}},
 		}
-		return n
 	}
 
-	// A stronger source takes the address and removes the weaker node.
-	require.True(t, upsert(newNode("mesh", source.ClusterMesh, "10.0.0.1")))
-	require.True(t, upsert(newNode("k8s", source.Kubernetes, "10.0.0.1")))
-	requireNoNode("mesh")
-	require.Equal(t, source.Kubernetes, requireNode("k8s").Source)
+	// Address ownership between remote nodes is deliberately not arbitrated.
+	// This permits both equal-source and different-source conflicts.
+	require.True(t, upsert(newNode("mesh", source.ClusterMesh)))
+	require.True(t, upsert(newNode("k8s-1", source.Kubernetes)))
+	require.True(t, upsert(newNode("k8s-2", source.Kubernetes)))
 
-	// A weaker source cannot take an address from its current owner.
-	require.False(t, upsert(newNode("weaker", source.ClusterMesh, "10.0.0.1")))
-	requireNoNode("weaker")
-	requireNode("k8s")
-
-	// At equal priority the latest update wins.
-	require.True(t, upsert(newNode("latest", source.Kubernetes, "10.0.0.1")))
-	requireNoNode("k8s")
-	requireNode("latest")
-
-	// Health and ingress addresses participate in the same ownership checks.
-	health := newNode("health", source.Kubernetes)
-	health.IPv4HealthIP = iputil.AddrFrom(netip.MustParseAddr("10.0.0.4"))
-	require.True(t, upsert(health))
-	require.True(t, upsert(newNode("health-latest", source.Kubernetes, "10.0.0.4")))
-	requireNoNode("health")
-	requireNode("health-latest")
-
-	ingress := newNode("ingress", source.Kubernetes)
-	ingress.IPv4IngressIP = iputil.AddrFrom(netip.MustParseAddr("10.0.0.5"))
-	require.True(t, upsert(ingress))
-	require.True(t, upsert(newNode("ingress-latest", source.Kubernetes, "10.0.0.5")))
-	requireNoNode("ingress")
-	requireNode("ingress-latest")
-
-	// Four-byte IPv4 and IPv4-mapped IPv6 representations are equivalent.
-	mapped := newNode("mapped", source.Kubernetes)
-	mapped.IPAddresses = []types.Address{{IP: net.IP{10, 0, 0, 6}}}
-	require.True(t, upsert(mapped))
-	require.True(t, upsert(newNode("mapped-latest", source.Kubernetes, "10.0.0.6")))
-	requireNoNode("mapped")
-	requireNode("mapped-latest")
-
-	// Check all conflicts before deleting anything. This update could replace
-	// the mesh node, but is rejected because it cannot replace the KVStore node.
-	require.True(t, upsert(newNode("mesh-2", source.ClusterMesh, "10.0.0.2")))
-	require.True(t, upsert(newNode("kvstore", source.KVStore, "10.0.0.3")))
-	require.False(t, upsert(newNode(
-		"mixed", source.Kubernetes, "10.0.0.2", "10.0.0.3",
-	)))
-	requireNode("mesh-2")
-	requireNode("kvstore")
-	requireNoNode("mixed")
+	var owners []string
+	address := cmtypes.AddrClusterFrom(netip.MustParseAddr("10.0.0.1"), 0)
+	for n := range nodes.List(db.ReadTxn(), NodeByAddress(address)) {
+		owners = append(owners, n.Name)
+	}
+	require.ElementsMatch(t, []string{"mesh", "k8s-1", "k8s-2"}, owners)
 }
 
-func TestWriterClusterAwareAddressConflicts(t *testing.T) {
+func TestWriterClusterAwareAddressIndex(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
 	require.NoError(t, err)
@@ -448,10 +410,6 @@ func TestWriterClusterAwareAddressConflicts(t *testing.T) {
 		n, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
 		require.True(t, found, name)
 		return n
-	}
-	requireNoNode := func(name string) {
-		_, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
-		require.False(t, found, name)
 	}
 	newNode := func(
 		name, cluster string,
@@ -500,47 +458,41 @@ func TestWriterClusterAwareAddressConflicts(t *testing.T) {
 	requireNode("cluster-1/node-1")
 	requireNode("cluster-2/node-2")
 
-	// The same address in the same cluster still follows normal ownership rules.
+	// Address conflicts between remote nodes are allowed within a cluster.
 	require.True(t, upsert(newNode(
-		"latest", "cluster-1", addressing.NodeCiliumInternalIP, "10.0.0.1",
+		"node-3", "cluster-1", addressing.NodeCiliumInternalIP, "10.0.0.1",
 	)))
-	requireNoNode("cluster-1/node-1")
-	requireNode("cluster-1/latest")
+	requireNode("cluster-1/node-1")
+	requireNode("cluster-1/node-3")
 	requireNode("cluster-2/node-2")
 
-	// Underlay addresses remain globally scoped and conflict across clusters.
+	// Underlay addresses remain globally indexed, but may also be shared.
 	require.True(t, upsert(newNode(
 		"underlay-1", "cluster-1", addressing.NodeInternalIP, "192.0.2.1",
 	)))
 	require.True(t, upsert(newNode(
 		"underlay-2", "cluster-2", addressing.NodeInternalIP, "192.0.2.1",
 	)))
-	requireNoNode("cluster-1/underlay-1")
+	requireNode("cluster-1/underlay-1")
 	requireNode("cluster-2/underlay-2")
 }
 
-func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
+func TestWriterProtectsOnlyLocalNodeIPs(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
 	require.NoError(t, err)
 	w := NewWriter(hivetest.Logger(t), db, nodes)
-	w.isStaticLocalRouterIP = func(ip string) bool {
-		return ip == "169.254.23.0" || ip == "fe80::"
-	}
-
-	routerAddresses := []types.Address{
-		{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("169.254.23.0")},
-		{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("fe80::")},
-	}
-	localAddresses := append(slices.Clone(routerAddresses), types.Address{
-		Type: addressing.NodeInternalIP,
-		IP:   net.ParseIP("10.0.0.1"),
-	})
 	local := &Node{
 		Node: types.Node{
-			Name:        "local",
-			Source:      source.Local,
-			IPAddresses: localAddresses,
+			Name:   "local",
+			Source: source.Local,
+			IPAddresses: []types.Address{
+				{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.1")},
+				{Type: addressing.NodeExternalIP, IP: net.ParseIP("192.0.2.1")},
+				{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("10.0.0.2")},
+			},
+			IPv4HealthIP:  iputil.AddrFrom(netip.MustParseAddr("10.0.0.3")),
+			IPv4IngressIP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.4")),
 		},
 		Local: &LocalNodeInfo{},
 	}
@@ -549,57 +501,65 @@ func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
 	require.NoError(t, err)
 	txn.Commit()
 
-	for _, name := range []string{"remote-1", "remote-2"} {
+	upsert := func(n *types.Node) bool {
 		txn = db.WriteTxn(nodes)
-		require.True(t, w.Upsert(txn, &types.Node{
-			Name:        name,
-			Source:      source.CustomResource,
-			IPAddresses: slices.Clone(routerAddresses),
-		}))
-		txn.Commit()
+		defer txn.Commit()
+		return w.Upsert(txn, n)
 	}
-
-	for _, name := range []string{"local", "remote-1", "remote-2"} {
-		_, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
-		require.True(t, found, name)
-	}
-	for _, address := range []netip.Addr{
-		netip.MustParseAddr("169.254.23.0"),
-		netip.MustParseAddr("fe80::"),
-	} {
-		var owners []string
-		addrCluster := cmtypes.AddrClusterFrom(address, 0)
-		for n := range nodes.List(db.ReadTxn(), NodeByAddress(addrCluster)) {
-			owners = append(owners, n.Name)
+	newNode := func(name string, addressType addressing.AddressType, address string) *types.Node {
+		return &types.Node{
+			Name:   name,
+			Source: source.Kubernetes,
+			IPAddresses: []types.Address{{
+				Type: addressType,
+				IP:   net.ParseIP(address),
+			}},
 		}
-		require.ElementsMatch(t, []string{"local", "remote-1", "remote-2"}, owners)
+	}
+	requireNode := func(name string) *Node {
+		n, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
+		require.True(t, found, name)
+		return n
 	}
 
-	// Matching a local node address alone is not enough: only the configured
-	// Cilium internal router addresses may be shared.
-	txn = db.WriteTxn(nodes)
-	require.False(t, w.Upsert(txn, &types.Node{
-		Name:   "conflict",
-		Source: source.CustomResource,
-		IPAddresses: []types.Address{{
-			Type: addressing.NodeCiliumInternalIP,
-			IP:   net.ParseIP("10.0.0.1"),
-		}},
-	}))
-	txn.Commit()
+	// Internal and external IPs are protected regardless of whether the local
+	// and remote address types match. IPv4 representations are normalized.
+	internalConflict := newNode("internal-conflict", addressing.NodeInternalIP, "10.0.0.1")
+	internalConflict.IPAddresses[0].IP = net.IP{10, 0, 0, 1}
+	require.False(t, upsert(internalConflict))
+	require.False(t, upsert(newNode(
+		"external-conflict", addressing.NodeInternalIP, "192.0.2.1",
+	)))
 
-	// The configured address remains conflicting when it is not advertised as
-	// a Cilium internal IP.
-	txn = db.WriteTxn(nodes)
-	require.False(t, w.Upsert(txn, &types.Node{
-		Name:   "wrong-type",
-		Source: source.CustomResource,
-		IPAddresses: []types.Address{{
-			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("169.254.23.0"),
-		}},
-	}))
-	txn.Commit()
+	// Cilium internal, health, and ingress addresses do not participate in
+	// local-node protection, even when the raw address is shared.
+	require.True(t, upsert(newNode(
+		"cilium-internal", addressing.NodeCiliumInternalIP, "10.0.0.2",
+	)))
+	require.True(t, upsert(newNode(
+		"local-health", addressing.NodeInternalIP, "10.0.0.3",
+	)))
+	require.True(t, upsert(newNode(
+		"local-ingress", addressing.NodeExternalIP, "10.0.0.4",
+	)))
+	auxiliary := &types.Node{
+		Name:          "remote-auxiliary",
+		Source:        source.CustomResource,
+		IPv4HealthIP:  iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+		IPv4IngressIP: iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
+	}
+	require.True(t, upsert(auxiliary))
+
+	// A rejected update leaves the previously accepted version in place.
+	require.True(t, upsert(newNode(
+		"existing", addressing.NodeInternalIP, "198.51.100.1",
+	)))
+	update := newNode("existing", addressing.NodeInternalIP, "10.0.0.1")
+	update.Labels = map[string]string{"updated": "true"}
+	require.False(t, upsert(update))
+	existing := requireNode("existing")
+	require.Equal(t, "198.51.100.1", existing.IPAddresses[0].ToString())
+	require.Empty(t, existing.Labels)
 }
 
 func TestWriterRefresh(t *testing.T) {

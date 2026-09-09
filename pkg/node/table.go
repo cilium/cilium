@@ -80,11 +80,8 @@ func (n *Node) TableRow() []string {
 var _ statedb.TableWritable = &Node{}
 
 // addressClusters returns the normalized, cluster-aware addresses associated
-// with the node. The optional predicate omits configured Cilium internal
-// router addresses that may intentionally be shared by every node.
-func (n *Node) addressClusters(
-	omitStaticLocalRouterIP func(string) bool,
-) iter.Seq[cmtypes.AddrCluster] {
+// with the node.
+func (n *Node) addressClusters() iter.Seq[cmtypes.AddrCluster] {
 	return func(yield func(cmtypes.AddrCluster) bool) {
 		yieldAddr := func(addr netip.Addr, clusterID uint32) bool {
 			if !addr.IsValid() {
@@ -94,11 +91,6 @@ func (n *Node) addressClusters(
 		}
 
 		for _, address := range n.IPAddresses {
-			if address.Type == addressing.NodeCiliumInternalIP &&
-				omitStaticLocalRouterIP != nil &&
-				omitStaticLocalRouterIP(address.ToString()) {
-				continue
-			}
 			addr, ok := netip.AddrFromSlice(address.IP)
 			if !ok {
 				continue
@@ -198,14 +190,13 @@ var (
 	NodeByName = NodeNameIndex.Query
 
 	// NodeAddressIndex indexes every address of the node. The index is non-unique
-	// because configured Cilium internal router addresses may legitimately be
-	// shared by every node. Writer resolves all other conflicts according to
-	// source priority.
+	// because remote nodes may share addresses. Writer only rejects remote node
+	// updates whose internal or external IP conflicts with the local node.
 	NodeAddressIndex = statedb.Index[*Node, cmtypes.AddrCluster]{
 		Name: "address",
 		FromObject: func(obj *Node) index.KeySet {
 			keys := make([]index.Key, 0, len(obj.IPAddresses)+4)
-			for addr := range obj.addressClusters(nil) {
+			for addr := range obj.addressClusters() {
 				keys = append(keys, nodeAddressKey(addr))
 			}
 			return index.NewKeySet(keys...)
