@@ -146,15 +146,17 @@ jobs:
           make -C hubble
           ./hubble/hubble version
 
-      # Setup the cluster
       - name: Create kind cluster
-        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0 -C hubble
-        with:
-          version: ${{ env.KIND_VERSION }}
-          node_image: ${{ env.KIND_K8S_IMAGE }}
-          kubectl_version: ${{ env.KIND_K8S_VERSION }}
-          config: ${{ env.KIND_CONFIG }}
-          wait: 0 # The control-plane never becomes ready, since no CNI is present
+        run: |
+          export IMAGE=${{ env.KIND_K8S_IMAGE }}
+
+          # These commands are passed to stdin of ssh as a here-document. Env
+          # vars used here are substituted by bash from GitHub's env. However,
+          # in order to include them into the enviroment of kind.sh called
+          # below, they also need to be set inside the ssh session.
+          export KIND_EXPERIMENTAL_DOCKER_NETWORK=${KIND_EXPERIMENTAL_DOCKER_NETWORK@Q}
+
+          kind create cluster --config ${{ env.KIND_CONFIG }} --image ${{ env.KIND_K8S_IMAGE }}
 
       - name: Create imagePullSecret
         if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
