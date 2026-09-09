@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/netip"
 
+	"k8s.io/utils/ptr"
+
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -299,6 +301,10 @@ func ToNeighborV2(np *v2.CiliumBGPNodePeer, pc *v2.CiliumBGPPeerConfigSpec, pass
 
 	neighbor.Name = np.Name
 	neighbor.Address = toPeerAddressV2(*np.PeerAddress)
+	// Set for a BGP unnumbered peer only, alongside the IPv6 link-local address
+	// discovered on the interface. It is the peering interface, not a source
+	// address override: the peer is reached at its address as any other.
+	neighbor.Interface = ptr.Deref(np.PeerInterface, "")
 	neighbor.ASN = uint32(*np.PeerASN)
 	neighbor.AuthPassword = password
 	neighbor.EbgpMultihop = toNeighborEbgpMultihopV2(pc.EBGPMultihop)
