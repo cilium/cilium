@@ -29,6 +29,7 @@ func setBasePermutations(t *config.Node) {
 	t.LBSelectionPerService = true
 	t.MonitorAggregation = uint8(option.MonitorAggregationLevelMedium)
 	t.MonitorReportInterval = 5
+	t.MonitorReportFlags = 0xff
 	t.TracingIPOptionType = 1
 	t.DebugLB = true
 	t.EventsMapRateLimit = 1000
