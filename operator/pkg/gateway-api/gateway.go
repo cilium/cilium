@@ -43,7 +43,7 @@ type gatewayReconciler struct {
 	translator translation.Translator
 
 	inputLoader                   *loading.TranslationInputLoader
-	gatewayAddressStatusManager   *GatewayAddressStatusManager
+	gatewayStatusManager          *GatewayStatusManager
 	listenerStatusManager         *ListenerStatusManager
 	routeStatusManager            *RouteStatusManager
 	backendTLSPolicyStatusManager *BackendTLSPolicyStatusManager
@@ -71,7 +71,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
 			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
 		}),
-		gatewayAddressStatusManager: NewGatewayAddressStatusManager(mgr.GetClient(), scopedLog, hostNetworkLabel),
+		gatewayStatusManager: NewGatewayStatusManager(mgr.GetClient(), scopedLog, hostNetworkLabel),
 		listenerStatusManager: NewListenerStatusManager(
 			mgr.GetClient(),
 			scopedLog,
