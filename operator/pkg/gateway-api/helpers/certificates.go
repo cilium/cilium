@@ -3,7 +3,10 @@
 
 package helpers
 
-import "encoding/pem"
+import (
+	"crypto/x509"
+	"encoding/pem"
+)
 
 // IsValidPemFormat checks if the given byte array contains at least one valid PEM
 // formatted object, either certificate or key.
@@ -26,4 +29,13 @@ func IsValidPemFormat(b []byte) bool {
 	// Envoy will be able to parse the file as long as there
 	// is at least one valid certificate.
 	return true
+}
+
+func IsValidCACertificateBundle(b []byte) bool {
+	if len(b) == 0 {
+		return false
+	}
+
+	pool := x509.NewCertPool()
+	return pool.AppendCertsFromPEM(b)
 }

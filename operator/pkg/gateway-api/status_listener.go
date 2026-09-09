@@ -48,6 +48,7 @@ type listenerValidationParams struct {
 	generation     int64
 	grants         []gatewayv1.ReferenceGrant
 	ownerRef       string
+	gateway        *gatewayv1.Gateway
 }
 
 type listenerValidationResult struct {
@@ -99,7 +100,7 @@ func (m *ListenerStatusManager) SetListenerStatuses(ctx context.Context, gw *gat
 
 	conflictedListeners := m.conflictsAcrossSources(inputs.MergedListeners)
 	conflictFreeListeners := m.filterOutConflictedListeners(inputs.MergedListeners, conflictedListeners)
-	mergedAndValidListeners, _ := m.filterOutInvalidListeners(ctx, conflictFreeListeners, inputs.ReferenceGrants)
+	mergedAndValidListeners, _ := m.filterOutInvalidListeners(ctx, gw, conflictFreeListeners, inputs.ReferenceGrants)
 
 	gatewayStatus, err := m.setGatewayListenerStatus(
 		ctx,
@@ -337,6 +338,7 @@ func (m *ListenerStatusManager) setGatewayListenerStatus(
 			generation:     gw.GetGeneration(),
 			grants:         grants,
 			ownerRef:       client.ObjectKeyFromObject(gw).String(),
+			gateway:        gw,
 		})
 		if !res.isValid && res.invalidReason == gatewayv1.ListenerReasonUnsupportedProtocol {
 			unsupportedProtocolListeners++
@@ -479,6 +481,7 @@ func (m *ListenerStatusManager) setListenerSetStatuses(
 					generation:     ls.GetGeneration(),
 					grants:         grants,
 					ownerRef:       client.ObjectKeyFromObject(ls).String(),
+					gateway:        gw,
 				})
 				isValid := res.isValid
 				supportedKinds = res.supportedKinds
@@ -653,7 +656,119 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 		}
 	}
 
+	if l.Protocol == gatewayv1.HTTPSProtocolType && params.gateway != nil {
+		m.validateFrontendTLS(ctx, helpers.FrontendTLSValidationForPort(params.gateway, l.Port), params, &res)
+	}
+
 	return res
+}
+
+func (m *ListenerStatusManager) validateFrontendTLS(ctx context.Context, validation *gatewayv1.FrontendTLSValidation, params listenerValidationParams, res *listenerValidationResult) {
+	if validation == nil {
+		return
+	}
+
+	setInvalid := func(reason gatewayv1.ListenerConditionReason, message string) {
+		res.conds = helpers.MergeConditions(res.conds, metav1.Condition{
+			Type:               string(gatewayv1.ListenerConditionResolvedRefs),
+			Status:             metav1.ConditionFalse,
+			Reason:             string(reason),
+			Message:            message,
+			ObservedGeneration: params.generation,
+			LastTransitionTime: metav1.Now(),
+		})
+
+		res.invalidMessages = append(res.invalidMessages, message)
+		res.isValid = false
+		res.invalidReason = gatewayv1.ListenerReasonNoValidCACertificate
+	}
+
+	if len(validation.CACertificateRefs) > 1 {
+		res.conds = helpers.MergeConditions(res.conds, metav1.Condition{
+			Type:               string(gatewayv1.ListenerConditionResolvedRefs),
+			Status:             metav1.ConditionFalse,
+			Reason:             string(gatewayv1.ListenerReasonInvalidCACertificateRef),
+			Message:            "Having more than one Frontend TLS CA Certificate Ref is not supported; only the first reference is used.",
+			ObservedGeneration: params.generation,
+			LastTransitionTime: metav1.Now(),
+		})
+	}
+
+	ref, ok := helpers.FirstFrontendTLSCACertificateRef(validation)
+	if !ok {
+		setInvalid(
+			gatewayv1.ListenerReasonInvalidCACertificateRef,
+			"Frontend TLS validation must contain at least one CA Certificate Ref.",
+		)
+		return
+	}
+
+	if !helpers.IsObjectRefConfigMap(ref) {
+		setInvalid(
+			gatewayv1.ListenerReasonInvalidCACertificateKind,
+			fmt.Sprintf("Frontend TLS CACertificateRef %q has unsupported kind %q; must be a ConfigMap.", ref.Name, ref.Kind),
+		)
+		return
+	}
+
+	refNamespace := helpers.NamespaceDerefOr(
+		ref.Namespace,
+		params.gateway.Namespace,
+	)
+
+	if refNamespace != params.gateway.Namespace &&
+		!helpers.IsObjectRefAllowed(
+			params.gateway.Namespace,
+			ref,
+			gatewayv1.SchemeGroupVersion.WithKind("Gateway"),
+			corev1.SchemeGroupVersion.WithKind("ConfigMap"),
+			params.grants,
+		) {
+		setInvalid(
+			gatewayv1.ListenerReasonRefNotPermitted,
+			fmt.Sprintf("Frontend TLS CACertificateRef %q in namespace %q is not permitted.", ref.Name, refNamespace),
+		)
+		return
+	}
+
+	if err := m.validateFrontendTLSConfigMap(ctx, refNamespace, string(ref.Name)); err != nil {
+		m.logger.InfoContext(
+			ctx,
+			"Found an invalid Frontend TLS ConfigMap",
+			logfields.Error,
+			err.Error(),
+			logfields.Resource,
+			params.ownerRef)
+		setInvalid(
+			gatewayv1.ListenerReasonInvalidCACertificateRef,
+			fmt.Sprintf("Frontend TLS CACertificateRef %q is invalid: %s.", ref.Name, err),
+		)
+	}
+}
+
+func (m *ListenerStatusManager) validateFrontendTLSConfigMap(ctx context.Context, namespace, name string) error {
+	cfgMap := &corev1.ConfigMap{}
+	if err := m.client.Get(ctx, client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, cfgMap); err != nil {
+		return err
+	}
+
+	caCert, ok := cfgMap.Data["ca.crt"]
+	if !ok {
+		return fmt.Errorf(
+			"ConfigMap %s/%s does not contain 'ca.crt' key",
+			namespace,
+			name,
+		)
+	}
+
+	if !helpers.IsValidCACertificateBundle([]byte(caCert)) {
+		return fmt.Errorf("ca.crt does not contain a valid PEM-encoded certificate bundle")
+	}
+
+	return nil
 }
 
 func (m *ListenerStatusManager) validateTLSSecret(ctx context.Context, namespace, name string) error {
@@ -675,7 +790,7 @@ func (m *ListenerStatusManager) validateTLSSecret(ctx context.Context, namespace
 	return nil
 }
 
-func (m *ListenerStatusManager) filterOutInvalidListeners(ctx context.Context, listeners []ingestion.ListenerWithContext, grants []gatewayv1.ReferenceGrant) ([]ingestion.ListenerWithContext, []ingestion.ListenerWithContext) {
+func (m *ListenerStatusManager) filterOutInvalidListeners(ctx context.Context, gw *gatewayv1.Gateway, listeners []ingestion.ListenerWithContext, grants []gatewayv1.ReferenceGrant) ([]ingestion.ListenerWithContext, []ingestion.ListenerWithContext) {
 	valid := make([]ingestion.ListenerWithContext, 0, len(listeners))
 	invalid := make([]ingestion.ListenerWithContext, 0, len(listeners))
 	for _, listener := range listeners {
@@ -688,6 +803,7 @@ func (m *ListenerStatusManager) filterOutInvalidListeners(ctx context.Context, l
 				Name:      listener.Source.Name,
 				Namespace: listener.Source.Namespace,
 			}.String(),
+			gateway: gw,
 		})
 		if res.isValid {
 			valid = append(valid, listener)

@@ -97,6 +97,20 @@ func IsConfigMap(certRef gatewayv1.LocalObjectReference) bool {
 	return certRef.Kind == kindConfigMap && certRef.Group == corev1.GroupName
 }
 
+// IsObjectRefConfigMap checks if an ObjectReference refers to a ConfigMap.
+func IsObjectRefConfigMap(ref gatewayv1.ObjectReference) bool {
+	return ref.Kind == kindConfigMap && ref.Group == corev1.GroupName
+}
+
+// FirstFrontendTLSCACertificateRef returns the only frontend TLS CA reference
+// supported by Gateway API Core conformance.
+func FirstFrontendTLSCACertificateRef(validation *gatewayv1.FrontendTLSValidation) (gatewayv1.ObjectReference, bool) {
+	if validation == nil || len(validation.CACertificateRefs) == 0 {
+		return gatewayv1.ObjectReference{}, false
+	}
+	return validation.CACertificateRefs[0], true
+}
+
 func IsServiceTargetRef(tr gatewayv1.LocalPolicyTargetReferenceWithSectionName) bool {
 	return tr.Kind == kindService && tr.Group == corev1.GroupName
 }
@@ -171,4 +185,22 @@ func GetConcreteListObject(schemaType schema.GroupVersionKind) runtime.Object {
 
 func IsValidGammaService(svc *corev1.Service) bool {
 	return svc.Spec.Type == corev1.ServiceTypeClusterIP
+}
+
+func FrontendTLSValidationForPort(gw *gatewayv1.Gateway, port gatewayv1.PortNumber) *gatewayv1.FrontendTLSValidation {
+	frontend := FrontendTLSConfig(gw)
+
+	if frontend == nil {
+		return nil
+	}
+
+	for _, perPort := range frontend.PerPort {
+		if perPort.Port == port {
+			// A matching per-port config overrides the default,
+			// including when Validation is nil.
+			return perPort.TLS.Validation
+		}
+	}
+
+	return frontend.Default.Validation
 }

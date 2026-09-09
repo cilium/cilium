@@ -5,9 +5,15 @@ package gateway_api
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
@@ -1234,6 +1240,523 @@ func filterGRPCRoute(hrList *gatewayv1.GRPCRouteList, gatewayName string, namesp
 		}
 	}
 	return filterList
+}
+
+func Test_setListenerStatus_FrontendTLSConfigMapValidation(t *testing.T) {
+	validCACertificate := validFrontendCACertificate(t)
+
+	tests := []struct {
+		name                string
+		caRefs              []gatewayv1.ObjectReference
+		objects             []client.Object
+		wantListenersStatus ListenersStatus
+		wantResolvedStatus  metav1.ConditionStatus
+		wantResolvedReason  gatewayv1.ListenerConditionReason
+		wantResolvedMsg     string
+	}{
+		{
+			name: "invalid frontend CA ref kind",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "Secret",
+					Name:  "frontend-ca",
+				},
+			},
+			wantListenersStatus: ListenersStatusNoneValid,
+			wantResolvedStatus:  metav1.ConditionFalse,
+			wantResolvedReason:  gatewayv1.ListenerReasonInvalidCACertificateKind,
+		},
+		{
+			name: "frontend configmap does not exist",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "ConfigMap",
+					Name:  "frontend-ca",
+				},
+			},
+			wantListenersStatus: ListenersStatusNoneValid,
+			wantResolvedStatus:  metav1.ConditionFalse,
+			wantResolvedReason:  gatewayv1.ListenerReasonInvalidCACertificateRef,
+		},
+		{
+			name: "frontend configmap missing ca.crt key",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "ConfigMap",
+					Name:  "frontend-ca",
+				},
+			},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "frontend-ca",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"other-key": "value",
+					},
+				},
+			},
+			wantListenersStatus: ListenersStatusNoneValid,
+			wantResolvedStatus:  metav1.ConditionFalse,
+			wantResolvedReason:  gatewayv1.ListenerReasonInvalidCACertificateRef,
+		},
+		{
+			name: "valid frontend configmap reference",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "ConfigMap",
+					Name:  "frontend-ca",
+				},
+			},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "frontend-ca",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"ca.crt": validCACertificate,
+					},
+				},
+			},
+			wantListenersStatus: ListenersStatusAllValid,
+			wantResolvedStatus:  metav1.ConditionTrue,
+			wantResolvedReason:  gatewayv1.ListenerReasonResolvedRefs,
+		},
+		{
+			name: "valid first frontend configmap reference ignores invalid second reference",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "ConfigMap",
+					Name:  "frontend-ca",
+				},
+				{
+					Group: "",
+					Kind:  "Secret",
+					Name:  "ignored-frontend-ca",
+				},
+			},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "frontend-ca",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"ca.crt": validCACertificate,
+					},
+				},
+			},
+			wantListenersStatus: ListenersStatusAllValid,
+			wantResolvedStatus:  metav1.ConditionFalse,
+			wantResolvedReason:  gatewayv1.ListenerReasonInvalidCACertificateRef,
+			wantResolvedMsg:     "Having more than one Frontend TLS CA Certificate Ref is not supported; only the first reference is used.",
+		},
+		{
+			name: "invalid first frontend configmap reference is not rescued by valid second reference",
+			caRefs: []gatewayv1.ObjectReference{
+				{
+					Group: "",
+					Kind:  "Secret",
+					Name:  "frontend-ca",
+				},
+				{
+					Group: "",
+					Kind:  "ConfigMap",
+					Name:  "ignored-frontend-ca",
+				},
+			},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ignored-frontend-ca",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"ca.crt": validCACertificate,
+					},
+				},
+			},
+			wantListenersStatus: ListenersStatusNoneValid,
+			wantResolvedStatus:  metav1.ConditionFalse,
+			wantResolvedReason:  gatewayv1.ListenerReasonInvalidCACertificateKind,
+			wantResolvedMsg:     "Frontend TLS CACertificateRef \"frontend-ca\" has unsupported kind \"Secret\"; must be a ConfigMap.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := fake.NewClientBuilder().
+				WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+				WithObjects(tt.objects...).
+				Build()
+
+			r := &gatewayReconciler{
+				client:                c,
+				logger:                hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+				listenerStatusManager: NewListenerStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), ListenerStatusManagerConfig{}),
+			}
+
+			gw := &gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "gw",
+					Namespace:  "default",
+					Generation: 7,
+				},
+				Spec: gatewayv1.GatewaySpec{
+					GatewayClassName: "cilium",
+					Listeners: []gatewayv1.Listener{
+						{
+							Name:     "https",
+							Port:     443,
+							Protocol: gatewayv1.HTTPSProtocolType,
+						},
+					},
+					TLS: &gatewayv1.GatewayTLSConfig{
+						Frontend: &gatewayv1.FrontendTLSConfig{
+							Default: gatewayv1.TLSConfig{
+								Validation: &gatewayv1.FrontendTLSValidation{
+									CACertificateRefs: tt.caRefs,
+									Mode:              gatewayv1.AllowValidOnly,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			listenersStatus, err := r.listenerStatusManager.setGatewayListenerStatus(
+				t.Context(),
+				gw,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				helpers.NewNamespaceLabelIndex(nil),
+			)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantListenersStatus, listenersStatus)
+			require.Len(t, gw.Status.Listeners, 1)
+
+			resolvedRefs := findListenerCondition(gw.Status.Listeners[0].Conditions, string(gatewayv1.ListenerConditionResolvedRefs))
+			require.NotNil(t, resolvedRefs, "missing ResolvedRefs condition")
+			assert.Equal(t, tt.wantResolvedStatus, resolvedRefs.Status)
+			assert.Equal(t, string(tt.wantResolvedReason), resolvedRefs.Reason)
+			if tt.wantResolvedMsg != "" {
+				assert.Equal(t, tt.wantResolvedMsg, resolvedRefs.Message)
+			}
+			assert.Equal(t, gw.Generation, resolvedRefs.ObservedGeneration)
+
+			accepted := findListenerCondition(gw.Status.Listeners[0].Conditions, string(gatewayv1.ListenerConditionAccepted))
+			require.NotNil(t, accepted, "missing Accepted condition")
+			if tt.wantListenersStatus == ListenersStatusNoneValid {
+				assert.Equal(t, metav1.ConditionFalse, accepted.Status)
+				assert.Equal(t, string(gatewayv1.ListenerReasonNoValidCACertificate), accepted.Reason)
+			} else {
+				assert.Equal(t, metav1.ConditionTrue, accepted.Status)
+				assert.Equal(t, string(gatewayv1.ListenerReasonAccepted), accepted.Reason)
+			}
+			assert.Equal(t, gw.Generation, accepted.ObservedGeneration)
+
+			programmed := findListenerCondition(gw.Status.Listeners[0].Conditions, string(gatewayv1.ListenerConditionProgrammed))
+			require.NotNil(t, programmed, "missing Programmed condition")
+			assert.Equal(t, metav1.ConditionFalse, programmed.Status)
+			assert.Equal(t, gw.Generation, programmed.ObservedGeneration)
+		})
+	}
+
+	t.Run("invalid default frontend validation does not affect HTTP listeners", func(t *testing.T) {
+		c := fake.NewClientBuilder().
+			WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+			Build()
+		r := &gatewayReconciler{
+			client:                c,
+			logger:                hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+			listenerStatusManager: NewListenerStatusManager(c, hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), ListenerStatusManagerConfig{}),
+		}
+		gw := &gatewayv1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "default", Generation: 7},
+			Spec: gatewayv1.GatewaySpec{
+				GatewayClassName: "cilium",
+				Listeners: []gatewayv1.Listener{
+					{Name: "https", Port: 443, Protocol: gatewayv1.HTTPSProtocolType},
+					{Name: "http", Port: 80, Protocol: gatewayv1.HTTPProtocolType},
+				},
+				TLS: &gatewayv1.GatewayTLSConfig{
+					Frontend: &gatewayv1.FrontendTLSConfig{
+						Default: gatewayv1.TLSConfig{
+							Validation: &gatewayv1.FrontendTLSValidation{
+								CACertificateRefs: []gatewayv1.ObjectReference{{
+									Group: "", Kind: "ConfigMap", Name: "does-not-exist",
+								}},
+								Mode: gatewayv1.AllowValidOnly,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		listenersStatus, err := r.listenerStatusManager.setGatewayListenerStatus(
+			t.Context(),
+			gw,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			helpers.NewNamespaceLabelIndex(nil),
+		)
+		require.NoError(t, err)
+		assert.Equal(t, ListenersStatusSomeInvalid, listenersStatus)
+
+		https := findListenerStatus(gw.Status.Listeners, "https")
+		require.NotNil(t, https)
+		httpsResolved := findListenerCondition(https.Conditions, string(gatewayv1.ListenerConditionResolvedRefs))
+		require.NotNil(t, httpsResolved)
+		assert.Equal(t, metav1.ConditionFalse, httpsResolved.Status)
+		httpsAccepted := findListenerCondition(https.Conditions, string(gatewayv1.ListenerConditionAccepted))
+		require.NotNil(t, httpsAccepted)
+		assert.Equal(t, metav1.ConditionFalse, httpsAccepted.Status)
+		assert.Equal(t, string(gatewayv1.ListenerReasonNoValidCACertificate), httpsAccepted.Reason)
+		httpsProgrammed := findListenerCondition(https.Conditions, string(gatewayv1.ListenerConditionProgrammed))
+		require.NotNil(t, httpsProgrammed)
+		assert.Equal(t, metav1.ConditionFalse, httpsProgrammed.Status)
+
+		http := findListenerStatus(gw.Status.Listeners, "http")
+		require.NotNil(t, http)
+		httpResolved := findListenerCondition(http.Conditions, string(gatewayv1.ListenerConditionResolvedRefs))
+		require.NotNil(t, httpResolved)
+		assert.Equal(t, metav1.ConditionTrue, httpResolved.Status)
+		httpAccepted := findListenerCondition(http.Conditions, string(gatewayv1.ListenerConditionAccepted))
+		require.NotNil(t, httpAccepted)
+		assert.Equal(t, metav1.ConditionTrue, httpAccepted.Status)
+		httpProgrammed := findListenerCondition(http.Conditions, string(gatewayv1.ListenerConditionProgrammed))
+		require.NotNil(t, httpProgrammed)
+		assert.Equal(t, metav1.ConditionFalse, httpProgrammed.Status)
+	})
+}
+
+func Test_setListenerStatus_FrontendTLSConfigMapReferenceGrant(t *testing.T) {
+	targetNamespace := gatewayv1.Namespace("ca-namespace")
+	configMapName := gatewayv1.ObjectName("frontend-ca")
+
+	tests := []struct {
+		name           string
+		grant          *gatewayv1.ReferenceGrant
+		wantStatus     ListenersStatus
+		wantResolved   metav1.ConditionStatus
+		wantResolvedRS gatewayv1.ListenerConditionReason
+		wantAccepted   metav1.ConditionStatus
+	}{
+		{
+			name: "allowed by named ReferenceGrant",
+			grant: &gatewayv1.ReferenceGrant{
+				ObjectMeta: metav1.ObjectMeta{Namespace: string(targetNamespace)},
+				Spec: gatewayv1.ReferenceGrantSpec{
+					From: []gatewayv1.ReferenceGrantFrom{{
+						Group:     gatewayv1.GroupName,
+						Kind:      "Gateway",
+						Namespace: "gateway-namespace",
+					}},
+					To: []gatewayv1.ReferenceGrantTo{{
+						Group: corev1.GroupName,
+						Kind:  "ConfigMap",
+						Name:  ptr.To(configMapName),
+					}},
+				},
+			},
+			wantStatus:   ListenersStatusAllValid,
+			wantResolved: metav1.ConditionTrue,
+			wantAccepted: metav1.ConditionTrue,
+		},
+		{
+			name: "allowed by unrestricted ReferenceGrant",
+			grant: &gatewayv1.ReferenceGrant{
+				ObjectMeta: metav1.ObjectMeta{Namespace: string(targetNamespace)},
+				Spec: gatewayv1.ReferenceGrantSpec{
+					From: []gatewayv1.ReferenceGrantFrom{{
+						Group:     gatewayv1.GroupName,
+						Kind:      "Gateway",
+						Namespace: "gateway-namespace",
+					}},
+					To: []gatewayv1.ReferenceGrantTo{{
+						Group: corev1.GroupName,
+						Kind:  "ConfigMap",
+					}},
+				},
+			},
+			wantStatus:   ListenersStatusAllValid,
+			wantResolved: metav1.ConditionTrue,
+			wantAccepted: metav1.ConditionTrue,
+		},
+		{
+			name: "denied when ReferenceGrant names another ConfigMap",
+			grant: &gatewayv1.ReferenceGrant{
+				ObjectMeta: metav1.ObjectMeta{Namespace: string(targetNamespace)},
+				Spec: gatewayv1.ReferenceGrantSpec{
+					From: []gatewayv1.ReferenceGrantFrom{{
+						Group:     gatewayv1.GroupName,
+						Kind:      "Gateway",
+						Namespace: "gateway-namespace",
+					}},
+					To: []gatewayv1.ReferenceGrantTo{{
+						Group: corev1.GroupName,
+						Kind:  "ConfigMap",
+						Name:  ptr.To(gatewayv1.ObjectName("different-ca")),
+					}},
+				},
+			},
+			wantStatus:     ListenersStatusNoneValid,
+			wantResolved:   metav1.ConditionFalse,
+			wantResolvedRS: gatewayv1.ListenerReasonRefNotPermitted,
+			wantAccepted:   metav1.ConditionFalse,
+		},
+		{
+			name:           "denied without ReferenceGrant",
+			wantStatus:     ListenersStatusNoneValid,
+			wantResolved:   metav1.ConditionFalse,
+			wantResolvedRS: gatewayv1.ListenerReasonRefNotPermitted,
+			wantAccepted:   metav1.ConditionFalse,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objects := []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      string(configMapName),
+						Namespace: string(targetNamespace),
+					},
+					Data: map[string]string{
+						"ca.crt": validFrontendCACertificate(t),
+					},
+				},
+			}
+			if tt.grant != nil {
+				objects = append(objects, tt.grant)
+			}
+			var grants []gatewayv1.ReferenceGrant
+			if tt.grant != nil {
+				grants = []gatewayv1.ReferenceGrant{*tt.grant}
+			}
+
+			c := fake.NewClientBuilder().
+				WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
+				WithObjects(objects...).
+				Build()
+			manager := NewListenerStatusManager(c, hivetest.Logger(t), ListenerStatusManagerConfig{})
+			gw := &gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "gateway",
+					Namespace:  "gateway-namespace",
+					Generation: 1,
+				},
+				Spec: gatewayv1.GatewaySpec{
+					Listeners: []gatewayv1.Listener{{
+						Name:     "https",
+						Port:     443,
+						Protocol: gatewayv1.HTTPSProtocolType,
+					}},
+					TLS: &gatewayv1.GatewayTLSConfig{
+						Frontend: &gatewayv1.FrontendTLSConfig{
+							Default: gatewayv1.TLSConfig{
+								Validation: &gatewayv1.FrontendTLSValidation{
+									CACertificateRefs: []gatewayv1.ObjectReference{{
+										Group:     corev1.GroupName,
+										Kind:      "ConfigMap",
+										Name:      configMapName,
+										Namespace: &targetNamespace,
+									}},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			gotStatus, err := manager.setGatewayListenerStatus(
+				t.Context(),
+				gw,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				grants,
+				helpers.NewNamespaceLabelIndex(nil),
+			)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantStatus, gotStatus)
+
+			listener := findListenerStatus(gw.Status.Listeners, "https")
+			require.NotNil(t, listener)
+			resolved := findListenerCondition(listener.Conditions, string(gatewayv1.ListenerConditionResolvedRefs))
+			require.NotNil(t, resolved)
+			assert.Equal(t, tt.wantResolved, resolved.Status)
+			if tt.wantResolvedRS != "" {
+				assert.Equal(t, string(tt.wantResolvedRS), resolved.Reason)
+			}
+
+			accepted := findListenerCondition(listener.Conditions, string(gatewayv1.ListenerConditionAccepted))
+			require.NotNil(t, accepted)
+			assert.Equal(t, tt.wantAccepted, accepted.Status)
+		})
+	}
+}
+func validFrontendCACertificate(t *testing.T) string {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		NotBefore:             time.Unix(0, 0),
+		NotAfter:              time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	require.NoError(t, err)
+
+	return string(pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: der,
+	}))
+}
+
+func findListenerCondition(conditions []metav1.Condition, condType string) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == condType {
+			return &conditions[i]
+		}
+	}
+	return nil
+}
+
+func findListenerStatus(statuses []gatewayv1.ListenerStatus, name gatewayv1.SectionName) *gatewayv1.ListenerStatus {
+	for i := range statuses {
+		if statuses[i].Name == name {
+			return &statuses[i]
+		}
+	}
+	return nil
 }
 
 // fakeIndexHTTPRouteByBackendService is a client.IndexerFunc that takes a single HTTPRoute and
