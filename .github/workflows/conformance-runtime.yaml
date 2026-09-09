@@ -192,25 +192,30 @@ jobs:
         id: go-cache
         with:
           path: /tmp/.cache/go
-          key: ${{ runner.os }}-go-unit-tests-cache-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-unit-tests-cache-v2-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-unit-tests-cache-
+            ${{ runner.os }}-go-unit-tests-cache-v2-
 
-      - name: Create cache directories if they don't exist
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
+      # A restore-keys match delivers the tarballs just as an exact key match does.
+      - name: Move Go cache into the host mount
+        id: deliver-go-cache
+        if: ${{ matrix.focus == 'privileged' }}
         shell: bash
-        run: |
-          mkdir -p /tmp/.cache/go/.cache/go-build
-          mkdir -p /tmp/.cache/go/pkg
-
-      - name: Move Go cache to local directories
-        if: ${{ steps.go-cache.outputs.cache-hit == 'true' && matrix.focus == 'privileged' }}
         env:
           GOCACHE: "/tmp/.cache/go/.cache/go-build"
           GOMODCACHE: "/tmp/.cache/go/pkg"
         run: |
-          mv "${GOCACHE}/go-build-cache.tar.zst" ./go-build-cache.tar.zst || true
-          mv "${GOMODCACHE}/go-mod-cache.tar.zst" ./go-mod-cache.tar.zst || true
+          mkdir -p "${GOCACHE}" "${GOMODCACHE}"
+          delivered=true
+          for spec in "${GOCACHE}/go-build-cache.tar.zst" "${GOMODCACHE}/go-mod-cache.tar.zst"; do
+            if ! mv "${spec}" "./$(basename "${spec}")"; then
+              echo "::warning::${spec} is not in the restored cache"
+              delivered=false
+            fi
+          done
+          # The restored tree, so that a key holding the wrong layout names itself.
+          [ "${delivered}" = true ] || find /tmp/.cache/go -maxdepth 3 | head -50
+          echo "delivered=${delivered}" >> "$GITHUB_OUTPUT"
 
       - name: Login to docker registry for CI image pull
         if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
@@ -277,7 +282,12 @@ jobs:
             mkdir -p /go-caches
             tar --use-compress-program=zstd -xpf /host/go-build-cache.tar.zst --same-owner -C /go-caches || true
             tar --use-compress-program=zstd -xpf /host/go-mod-cache.tar.zst --same-owner -C /go-caches || true
-            ls -la /go-caches/go-build || true
+            # An unreported extraction failure here silently costs the whole build cache.
+            if [ -z "$(ls -A /go-caches/go-build 2>/dev/null)" ]; then
+              echo "::warning::no Go build cache in the VM, every package compiles cold"
+            else
+              du -sh /go-caches/go-build /go-caches/pkg
+            fi
 
       - name: Privileged unit tests
         id: run-tests
@@ -290,9 +300,11 @@ jobs:
             cd /host
             make TMPDIR=/var/tmp GOCACHE="/go-caches/go-build" GOMODCACHE="/go-caches/pkg" SKIP_COVERAGE=1 LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml" tests-privileged-only GO=go${{ env.go-version }}
 
+      # Gated on what actually reached the guest, not on the cache-hit boolean: a
+      # key whose content lacks the tarballs must still be refreshed.
       - name: Copy Go cache to host
         id: copy-go-cache
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
+        if: ${{ steps.deliver-go-cache.outputs.delivered != 'true' && matrix.focus == 'privileged' }}
         timeout-minutes: 10
         uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
         with:
@@ -303,17 +315,16 @@ jobs:
             tar --use-compress-program=zstd -cpf /host/go-mod-cache.tar.zst -C /go-caches pkg || true
 
       - name: Move Go cache to local directories
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
+        if: ${{ steps.deliver-go-cache.outputs.delivered != 'true' && matrix.focus == 'privileged' }}
         env:
           GOCACHE: "/tmp/.cache/go/.cache/go-build"
           GOMODCACHE: "/tmp/.cache/go/pkg"
         run: |
-          ls -lah "./go-build-cache.tar.zst" || true
-          ls -lah "./go-mod-cache.tar.zst" || true
-          mv ./go-build-cache.tar.zst "${GOCACHE}" || true
-          mv ./go-mod-cache.tar.zst "${GOMODCACHE}" || true
-          ls -lah "${GOCACHE}" || true
-          ls -lah "${GOMODCACHE}" || true
+          # Both are directories, so the tarballs keep their names inside them.
+          mkdir -p "${GOCACHE}" "${GOMODCACHE}"
+          mv ./go-build-cache.tar.zst "${GOCACHE}/"
+          mv ./go-mod-cache.tar.zst "${GOMODCACHE}/"
+          ls -lah "${GOCACHE}/go-build-cache.tar.zst" "${GOMODCACHE}/go-mod-cache.tar.zst"
 
 
       - name: Fetch JUnits
