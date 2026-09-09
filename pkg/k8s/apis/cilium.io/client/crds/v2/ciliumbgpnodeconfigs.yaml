@@ -179,17 +179,6 @@ spec:
                             required:
                             - name
                             type: object
-                          peerInterface:
-                            description: |-
-                              PeerInterface is the name of the local network interface the unnumbered
-                              peer is reached on. It is not user-configurable: like PeerAddress under
-                              autoDiscovery mode DefaultGateway, it is derived on the node by the agent
-                              for a peer using autoDiscovery mode Unnumbered. PeerAddress is then set
-                              alongside it, to the peer's IPv6 link-local address discovered on this
-                              interface, zoned with it.
-                            maxLength: 255
-                            minLength: 1
-                            type: string
                         required:
                         - name
                         type: object

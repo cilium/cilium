@@ -267,11 +267,10 @@ func TestToNeighbor(t *testing.T) {
 			name: "BGP unnumbered",
 			nodePeer: &v2.CiliumBGPNodePeer{
 				PeerASN: ptr.To(int64(64512)),
-				// Both discovered by the DefaultGatewayReconciler: the
+				// Both discovered by the UnnumberedReconciler: the
 				// interface, and the peer's link-local address on it, zoned
 				// with that interface.
-				PeerAddress:   ptr.To("fe80::1%eth0"),
-				PeerInterface: ptr.To("eth0"),
+				PeerAddress: ptr.To("fe80::1%eth0"),
 			},
 			peerConfig: &v2.CiliumBGPPeerConfigSpec{},
 			expected: &Neighbor{

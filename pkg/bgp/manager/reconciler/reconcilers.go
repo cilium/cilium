@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	UnnumberedReconcilerName     = "Unnumbered"
 	DefaultGatewayReconcilerName = "DefaultGateway"
 	NeighborReconcilerName       = "Neighbor"
 	PodIPPoolReconcilerName      = "PodIPPool"
@@ -37,6 +38,7 @@ const (
 	PodCIDRReconcilerPriority        = 30
 	InterfaceReconcilerPriority      = 20
 	DefaultGatewayReconcilerPriority = 10
+	UnnumberedReconcilerPriority     = 11
 )
 
 var (
@@ -70,6 +72,7 @@ type ConfigReconciler interface {
 var ConfigReconcilers = cell.Provide(
 	NewNeighborReconciler,
 	NewDefaultGatewayReconciler,
+	NewUnnumberedReconciler,
 	NewPodCIDRReconciler,
 	NewPodIPPoolReconciler,
 	NewServiceReconciler,

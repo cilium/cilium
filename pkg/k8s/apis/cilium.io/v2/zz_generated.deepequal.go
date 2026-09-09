@@ -815,14 +815,6 @@ func (in *CiliumBGPNodePeer) DeepEqual(other *CiliumBGPNodePeer) bool {
 		}
 	}
 
-	if (in.PeerInterface == nil) != (other.PeerInterface == nil) {
-		return false
-	} else if in.PeerInterface != nil {
-		if *in.PeerInterface != *other.PeerInterface {
-			return false
-		}
-	}
-
 	if (in.PeerConfigRef == nil) != (other.PeerConfigRef == nil) {
 		return false
 	} else if in.PeerConfigRef != nil {

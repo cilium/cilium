@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/netip"
 	"testing"
 
@@ -206,6 +207,53 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 			err: nil,
 		},
 		{
+			// An absent interface leaves the peer address unresolved. The RA
+			// sender reads the interface directly from autoDiscovery.
+			name:   "unnumbered peer waits for configured interface",
+			routes: defaultRouteTable,
+			peers: []v2.CiliumBGPNodePeer{
+				{
+					Name: "peer-unnum",
+					AutoDiscovery: &v2.BGPAutoDiscovery{
+						Mode:       v2.BGPUnnumberedMode,
+						Unnumbered: &v2.BGPUnnumbered{Interface: "net0"},
+					},
+					PeerASN: ptr.To[int64](64124),
+				},
+			},
+			expectedPeers: []v2.CiliumBGPNodePeer{
+				{
+					Name: "peer-unnum",
+					AutoDiscovery: &v2.BGPAutoDiscovery{
+						Mode:       v2.BGPUnnumberedMode,
+						Unnumbered: &v2.BGPUnnumbered{Interface: "net0"},
+					},
+					PeerASN: ptr.To[int64](64124),
+				},
+			},
+			newPeers: []v2.CiliumBGPNodePeer{
+				{
+					Name: "peer-unnum",
+					AutoDiscovery: &v2.BGPAutoDiscovery{
+						Mode:       v2.BGPUnnumberedMode,
+						Unnumbered: &v2.BGPUnnumbered{Interface: "net0"},
+					},
+					PeerASN: ptr.To[int64](64124),
+				},
+			},
+			expectedNewPeers: []v2.CiliumBGPNodePeer{
+				{
+					Name: "peer-unnum",
+					AutoDiscovery: &v2.BGPAutoDiscovery{
+						Mode:       v2.BGPUnnumberedMode,
+						Unnumbered: &v2.BGPUnnumbered{Interface: "net0"},
+					},
+					PeerASN: ptr.To[int64](64124),
+				},
+			},
+			err: nil,
+		},
+		{
 			name:   "update priority of default route",
 			routes: defaultRouteTable,
 			peers: []v2.CiliumBGPNodePeer{
@@ -392,6 +440,7 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 			txn := db.ReadTxn()
 			routeTable := db.GetTable(txn, "routes").(statedb.Table[*tables.Route])
 			deviceTable := db.GetTable(txn, "devices").(statedb.Table[*tables.Device])
+			neighborTable := db.GetTable(txn, "neighbors").(statedb.Table[*tables.Neighbor])
 
 			// Create reconciler
 			reconciler := &DefaultGatewayReconciler{
@@ -400,6 +449,12 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 				routeTable:  routeTable,
 				deviceTable: deviceTable,
 			}
+
+			unnumbered := &UnnumberedReconciler{
+				logger: hivetest.Logger(t), DB: db,
+				deviceTable: deviceTable, neighborTable: neighborTable,
+			}
+			defer unnumbered.Cleanup(testInstance)
 
 			// Test initial reconciliation
 			desiredConfig := &v2.CiliumBGPNodeInstance{
@@ -423,6 +478,7 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 
 			err = reconciler.Reconcile(context.Background(), reconcileParams)
 			req.NoError(err)
+			req.NoError(unnumbered.Reconcile(context.Background(), reconcileParams))
 
 			// Validate initial peers
 			validatePeers(req, tt.expectedPeers, desiredConfig.Peers)
@@ -439,10 +495,14 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 			txn = db.ReadTxn()
 			routeTable = db.GetTable(txn, "routes").(statedb.Table[*tables.Route])
 			deviceTable = db.GetTable(txn, "devices").(statedb.Table[*tables.Device])
+			neighborTable = db.GetTable(txn, "neighbors").(statedb.Table[*tables.Neighbor])
 
 			reconciler.DB = db
 			reconciler.routeTable = routeTable
 			reconciler.deviceTable = deviceTable
+			unnumbered.DB = db
+			unnumbered.deviceTable = deviceTable
+			unnumbered.neighborTable = neighborTable
 
 			desiredConfig = &v2.CiliumBGPNodeInstance{
 				Name:  "test-instance",
@@ -461,6 +521,7 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 
 			err = reconciler.Reconcile(context.Background(), reconcileParams)
 			req.NoError(err)
+			req.NoError(unnumbered.Reconcile(context.Background(), reconcileParams))
 
 			// Validate updated peers
 			validatePeers(req, tt.expectedNewPeers, desiredConfig.Peers)
@@ -626,13 +687,43 @@ func defaultRouteEntry(gw string, linkIndex, priority int) *tables.Route {
 	}
 }
 
+// unnumberedPeer builds an unnumbered peer peering over the named interface.
+func unnumberedPeer(name, iface string) v2.CiliumBGPNodePeer {
+	return v2.CiliumBGPNodePeer{
+		Name: name,
+		AutoDiscovery: &v2.BGPAutoDiscovery{
+			Mode:       v2.BGPUnnumberedMode,
+			Unnumbered: &v2.BGPUnnumbered{Interface: iface},
+		},
+		PeerASN: ptr.To[int64](64124),
+	}
+}
+
+// peerNeighbor builds the neighbor table entry an unnumbered peer is discovered from: a
+// reachable IPv6 link-local neighbor that announced itself as a router.
+func peerNeighbor(addr string, linkIndex int) *tables.Neighbor {
+	return &tables.Neighbor{
+		LinkIndex: linkIndex,
+		IPAddr:    netip.MustParseAddr(addr),
+		State:     tables.NUD_REACHABLE,
+		Flags:     tables.NTF_ROUTER,
+	}
+}
+
+// setupStateDB builds a state DB with the given routes and, on every device, the single
+// link-local router neighbor an unnumbered peer is discovered from.
 func setupStateDB(routes []*tables.Route) (*statedb.DB, error) {
+	var neighbors []*tables.Neighbor
+	for _, linkIndex := range []int{123, 124, 125, 126, 127, 128} {
+		neighbors = append(neighbors, peerNeighbor("fe80::1", linkIndex))
+	}
+	return setupStateDBWithNeighbors(routes, neighbors)
+}
+
+func setupStateDBWithNeighbors(routes []*tables.Route, neighbors []*tables.Neighbor) (*statedb.DB, error) {
 	// create a test statedb
 	db := statedb.New()
 
-	if len(routes) == 0 {
-		return db, nil
-	}
 	routeTable, err := tables.NewRouteTable(db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create default gateway table: %w", err)
@@ -641,20 +732,58 @@ func setupStateDB(routes []*tables.Route) (*statedb.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create device table: %w", err)
 	}
-	txn := db.WriteTxn(routeTable, deviceTable)
+	neighborTable, err := tables.NewNeighborTable(db)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create neighbor table: %w", err)
+	}
+	txn := db.WriteTxn(routeTable, deviceTable, neighborTable)
 	for _, r := range routes {
 		routeTable.Insert(txn, r)
+	}
+	for _, n := range neighbors {
+		neighborTable.Insert(txn, n)
 	}
 
 	deviceTable.Insert(txn, &tables.Device{
 		Name:       "eth0",
 		Index:      123,
+		Flags:      net.FlagUp,
 		OperStatus: "up",
 	})
 	deviceTable.Insert(txn, &tables.Device{
 		Name:       "eth1",
 		Index:      124,
+		Flags:      net.FlagUp,
 		OperStatus: "up",
+	})
+	// Operationally unknown, which point-to-point and dummy interfaces report even
+	// when they are perfectly usable.
+	deviceTable.Insert(txn, &tables.Device{
+		Name:       "eth2",
+		Index:      125,
+		Flags:      net.FlagUp,
+		OperStatus: linkOperStateUnknown,
+	})
+	// Operationally down.
+	deviceTable.Insert(txn, &tables.Device{
+		Name:       "eth3",
+		Index:      126,
+		Flags:      net.FlagUp,
+		OperStatus: "down",
+	})
+	// Administratively down.
+	deviceTable.Insert(txn, &tables.Device{
+		Name:       "eth4",
+		Index:      127,
+		OperStatus: linkOperStateUnknown,
+	})
+	// Loopback: up and operationally unknown like any other loopback, but never a
+	// way off the node.
+	deviceTable.Insert(txn, &tables.Device{
+		Name:       "lo",
+		Index:      128,
+		Flags:      net.FlagUp | net.FlagLoopback,
+		OperStatus: linkOperStateUnknown,
 	})
 	txn.Commit()
 
@@ -673,11 +802,13 @@ func validatePeers(req *require.Assertions, expected, actual []v2.CiliumBGPNodeP
 					req.NotNil(actPeer.PeerAddress)
 					req.Equal(*expPeer.PeerAddress, *actPeer.PeerAddress)
 				} else {
-					req.Nil(actPeer.PeerAddress)
+					req.Nil(actPeer.PeerAddress, "peer %s: unexpected PeerAddress", expPeer.Name)
 				}
 				if expPeer.PeerASN != nil {
 					req.NotNil(actPeer.PeerASN)
 					req.Equal(*expPeer.PeerASN, *actPeer.PeerASN)
+				} else {
+					req.Nil(actPeer.PeerASN, "peer %s: unexpected PeerASN", expPeer.Name)
 				}
 				break
 			}
