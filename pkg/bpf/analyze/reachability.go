@@ -174,10 +174,10 @@ func (r *Reachable) Funcs() iter.Seq2[Blocks, bool] {
 //
 // The BlockIterator itself is yielded so it can be used to start a backtracking
 // session.
-func (r *Reachable) Instructions() iter.Seq2[*BlockIterator, bool] {
-	return func(yield func(*BlockIterator, bool) bool) {
+func (r *Reachable) Instructions() iter.Seq2[*Iterator, bool] {
+	return func(yield func(*Iterator, bool) bool) {
 		iter := r.blocks.iterate(r.insns)
-		for iter.Next() {
+		for iter.NextInstruction() {
 			live := r.l.Get(iter.block.id)
 			if !yield(iter, live) {
 				return

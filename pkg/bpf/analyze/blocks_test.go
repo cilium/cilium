@@ -189,13 +189,13 @@ func TestBlocksIterateLocal(t *testing.T) {
 
 	assert.EqualValues(t, 100, bl.count())
 
-	iter := bl.first().iterateLocal(insns)
+	iter := bl.first().iterate(insns)
 
 	// Iterate over the first block only. Next should return false after the first
 	// block is done and stay at index 0.
-	assert.True(t, iter.Next())
-	assert.False(t, iter.Next())
-	assert.Equal(t, 0, iter.index)
+	assert.True(t, iter.NextInstruction())
+	assert.False(t, iter.NextInstruction())
+	assert.Equal(t, 0, iter.insnIdx)
 }
 
 func TestBlocksIterateGlobal(t *testing.T) {
@@ -208,19 +208,19 @@ func TestBlocksIterateGlobal(t *testing.T) {
 
 	iter := bl.iterate(insns)
 	i := 0
-	for ; iter.Next(); i++ {
+	for ; iter.NextInstruction(); i++ {
 		if iter.ins.OpCode.JumpOp() == asm.Exit {
 			continue
 		}
 
 		// The Constant fields of the branching instructions are set to their insn
 		// index. Make sure the iterator index matches.
-		assert.EqualValues(t, iter.index, iter.ins.Constant)
+		assert.EqualValues(t, iter.insnIdx, iter.ins.Constant)
 	}
 
 	// We should have seen all instructions.
 	assert.Equal(t, 100, i)
-	assert.Equal(t, 99, iter.index)
+	assert.Equal(t, 99, iter.insnIdx)
 }
 
 func TestBlocksIterateOffset(t *testing.T) {
@@ -242,27 +242,27 @@ func TestBlocksIterateOffset(t *testing.T) {
 
 	iter := bl.iterate(insns)
 
-	assert.True(t, iter.Next()) // Pull MovImm
-	assert.Equal(t, 0, iter.index)
+	assert.True(t, iter.NextInstruction()) // Pull MovImm
+	assert.Equal(t, 0, iter.insnIdx)
 	assert.Equal(t, asm.RawInstructionOffset(0), iter.offset)
 
-	assert.True(t, iter.Next()) // Pull LoadImm
-	assert.Equal(t, 1, iter.index)
+	assert.True(t, iter.NextInstruction()) // Pull LoadImm
+	assert.Equal(t, 1, iter.insnIdx)
 	assert.Equal(t, asm.RawInstructionOffset(1), iter.offset)
 
-	assert.True(t, iter.Next()) // Pull JEq
-	assert.Equal(t, 2, iter.index)
+	assert.True(t, iter.NextInstruction()) // Pull JEq
+	assert.Equal(t, 2, iter.insnIdx)
 	assert.Equal(t, asm.RawInstructionOffset(3), iter.offset) // Advance 2 raw insns due to LoadImm
 
-	assert.True(t, iter.Next()) // Pull LoadImm
-	assert.Equal(t, 3, iter.index)
+	assert.True(t, iter.NextInstruction()) // Pull LoadImm
+	assert.Equal(t, 3, iter.insnIdx)
 	assert.Equal(t, asm.RawInstructionOffset(4), iter.offset)
 
-	assert.True(t, iter.Next()) // Pull Return
-	assert.Equal(t, 4, iter.index)
+	assert.True(t, iter.NextInstruction()) // Pull Return
+	assert.Equal(t, 4, iter.insnIdx)
 	assert.Equal(t, asm.RawInstructionOffset(6), iter.offset) // Advance 2 raw insns due to LoadImm
 
-	assert.False(t, iter.Next())
+	assert.False(t, iter.NextInstruction())
 }
 
 func TestBacktracker(t *testing.T) {
