@@ -18,11 +18,59 @@ import (
 	awsMetadata "github.com/cilium/cilium/pkg/aws/metadata"
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 )
 
 func init() {
 	nodediscovery.RegisterENIMutator(mutate)
+}
+
+type metadataClient interface {
+	GetInstanceMetadata(ctx context.Context) (awsMetadata.MetaDataInfo, error)
+}
+
+// instanceFacts fetches the EC2 instance metadata once and remembers it.
+type instanceFacts struct {
+	mu     lock.Mutex
+	newFn  func(ctx context.Context) (metadataClient, error)
+	client metadataClient
+	info   *awsMetadata.MetaDataInfo
+}
+
+var facts = &instanceFacts{
+	newFn: func(ctx context.Context) (metadataClient, error) {
+		return awsMetadata.NewClient(ctx)
+	},
+}
+
+// get returns the metadata of the EC2 instance the agent runs on.
+func (f *instanceFacts) get(ctx context.Context) (awsMetadata.MetaDataInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.info != nil {
+		return *f.info, nil
+	}
+
+	if f.client == nil {
+		client, err := f.newFn(ctx)
+		if err != nil {
+			return awsMetadata.MetaDataInfo{}, fmt.Errorf("unable to create EC2 metadata client: %w", err)
+		}
+		f.client = client
+	}
+
+	info, err := f.client.GetInstanceMetadata(ctx)
+	if err != nil {
+		return awsMetadata.MetaDataInfo{}, fmt.Errorf("unable to retrieve InstanceID of own EC2 instance: %w", err)
+	}
+	if info.InstanceID == "" {
+		return awsMetadata.MetaDataInfo{}, errors.New("InstanceID of own EC2 instance is empty")
+	}
+
+	f.info = &info
+	return info, nil
 }
 
 // mutate populates the ENI-specific fields of nodeResource using EC2 IMDS
@@ -31,16 +79,9 @@ func mutate(ctx context.Context, in nodediscovery.ENIMutateInputs, nodeResource 
 	// set ENI field in the node only when the ENI ipam is specified
 	nodeResource.Spec.ENI = awsTypes.ENISpec{}
 
-	imds, err := awsMetadata.NewClient(ctx)
+	info, err := facts.get(ctx)
 	if err != nil {
-		return fmt.Errorf("unable to create EC2 metadata client: %w", err)
-	}
-	info, err := imds.GetInstanceMetadata(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to retrieve InstanceID of own EC2 instance: %w", err)
-	}
-	if info.InstanceID == "" {
-		return errors.New("InstanceID of own EC2 instance is empty")
+		return err
 	}
 
 	// It is important to determine the interface index here because this
