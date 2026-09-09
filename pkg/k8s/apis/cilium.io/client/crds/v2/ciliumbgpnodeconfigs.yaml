@@ -89,6 +89,15 @@ spec:
                           autoDiscovery:
                             description: AutoDiscovery is the configuration for auto-discovery
                               of the peer address.
+                            oneOf:
+                            - properties:
+                                defaultGateway: {}
+                              required:
+                              - defaultGateway
+                            - properties:
+                                unnumbered: {}
+                              required:
+                              - unnumbered
                             properties:
                               defaultGateway:
                                 description: defaultGateway is the configuration for
@@ -108,10 +117,31 @@ spec:
                                 description: mode is the mode of the auto-discovery.
                                 enum:
                                 - DefaultGateway
+                                - Unnumbered
                                 type: string
+                              unnumbered:
+                                description: |-
+                                  unnumbered is the configuration for BGP unnumbered peering over an
+                                  interface with no configured peer address.
+                                properties:
+                                  interface:
+                                    description: |-
+                                      interface is the name of the local network interface used to reach the
+                                      peer.
+                                    maxLength: 255
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - interface
+                                type: object
                             required:
                             - mode
                             type: object
+                            x-kubernetes-validations:
+                            - message: defaultGateway must be set when mode is DefaultGateway
+                              rule: self.mode != 'DefaultGateway' || has(self.defaultGateway)
+                            - message: unnumbered must be set when mode is Unnumbered
+                              rule: self.mode != 'Unnumbered' || has(self.unnumbered)
                           localAddress:
                             description: |-
                               LocalAddress is the IP address of the local interface to use for the peering session.
@@ -149,6 +179,17 @@ spec:
                             required:
                             - name
                             type: object
+                          peerInterface:
+                            description: |-
+                              PeerInterface is the name of the local network interface the unnumbered
+                              peer is reached on. It is not user-configurable: like PeerAddress under
+                              autoDiscovery mode DefaultGateway, it is derived on the node by the agent
+                              for a peer using autoDiscovery mode Unnumbered. PeerAddress is then set
+                              alongside it, to the peer's IPv6 link-local address discovered on this
+                              interface, zoned with it.
+                            maxLength: 255
+                            minLength: 1
+                            type: string
                         required:
                         - name
                         type: object
