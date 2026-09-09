@@ -307,12 +307,12 @@ egress_gw_request_needs_redirect_v6(struct ipv6_ct_tuple *rtuple __maybe_unused,
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
 	const struct egress_gw_policy_entry6 *egress_gw_policy;
-	union v6addr saddr, daddr;
+	const union v6addr *saddr, *daddr;
 
 	saddr = ipv6_ct_reverse_tuple_saddr(rtuple);
 	daddr = ipv6_ct_reverse_tuple_daddr(rtuple);
 
-	egress_gw_policy = lookup_ip6_egress_gw_policy(&saddr, &daddr);
+	egress_gw_policy = lookup_ip6_egress_gw_policy(saddr, daddr);
 	if (!egress_gw_policy)
 		return CTX_ACT_OK;
 
