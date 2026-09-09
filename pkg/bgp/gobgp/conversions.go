@@ -563,6 +563,8 @@ func ToGoBGPPeer(n *types.Neighbor, oldPeer *gobgp.Peer, v4 bool) *gobgp.Peer {
 
 type peerDescription struct {
 	Name string `json:"name"`
+	// Interface is the peering interface of an unnumbered peer, empty otherwise.
+	Interface string `json:"interface,omitempty"`
 }
 
 func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
@@ -573,12 +575,15 @@ func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
 		conf = oldPeer.Conf
 	}
 
-	// Encode neighbor name (inherited from the CRD) into the description
-	// field as JSON (for future extensibility). This is useful for the
-	// discovered peers where we cannot obtain IP address from the CRD.
-	if n.Name != "" {
+	// Encode the neighbor name (inherited from the CRD) and the peering
+	// interface of an unnumbered peer into the description field as JSON (for
+	// future extensibility). gobgp keeps neither anywhere else: it has no
+	// notion of a peer name, and the interface cannot be handed to it as
+	// NeighborInterface (see below).
+	if n.Name != "" || n.Interface != "" {
 		pd := peerDescription{
-			Name: n.Name,
+			Name:      n.Name,
+			Interface: n.Interface,
 		}
 		desc, err := json.Marshal(pd)
 		if err == nil {
@@ -589,6 +594,14 @@ func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
 		}
 	}
 
+	// An unnumbered peer is configured with its discovered IPv6 link-local
+	// address, zoned with the peering interface (e.g. "fe80::1%eth0"), and no
+	// NeighborInterface. gobgp's own NeighborInterface support would resolve the
+	// address itself, but only once, with a one-shot netlink call at the time the
+	// peer is added; the agent tracks the neighbor entries in StateDB instead and
+	// re-resolves as they change. The zone is what makes the address dialable and
+	// is also what gobgp derives the interface's own link-local from as the
+	// session's source address, so it has to survive into the configuration.
 	if n.Address.IsValid() {
 		conf.NeighborAddress = n.Address.String()
 	} else {
@@ -647,14 +660,13 @@ func toGoBGPTransport(n *types.NeighborTransport, oldPeer *gobgp.Peer, v4 bool) 
 		transport.RemotePort = n.RemotePort
 	}
 
-	if n.LocalAddress == "" {
-		// If local address is not set, set it to wildcard
-		if v4 {
-			transport.LocalAddress = wildcardIPv4Addr
-		} else {
-			transport.LocalAddress = wildcardIPv6Addr
-		}
-	} else {
+	// Only propagate an explicitly-configured local address. If it is left
+	// empty, gobgp defaults it in SetDefaultNeighborConfigValues: the wildcard
+	// (0.0.0.0 / ::) for a numbered peer, or the interface's own IPv6 link-local
+	// for an unnumbered/link-local peer. Forcing the wildcard here overrides that
+	// derivation and leaves gobgp unable to source the connection for a
+	// link-local peer (it would try to dial fe80::x%iface from "::").
+	if n.LocalAddress != "" {
 		transport.LocalAddress = n.LocalAddress
 	}
 
