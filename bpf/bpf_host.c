@@ -56,6 +56,8 @@
 #include "lib/vtep.h"
 #include "lib/subnet.h"
 
+ASSIGN_CONFIG(bool, enable_local_delivery_metrics_accounting, true)
+
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
  #define host_wg_encrypt_hook(ctx, proto, src_sec_identity)			\
 	 wg_maybe_redirect_to_encrypt(ctx, proto, src_sec_identity)

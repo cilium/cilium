@@ -168,5 +168,9 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
 
+	// note: the value for node.EnableLocalDeliveryMetricsAccounting is currently statically
+	// enforced with ASSIGN_CONFIG() in the datapath. Get rid of them before dynamically set it
+	// here.
+
 	return node
 }

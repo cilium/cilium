@@ -179,3 +179,7 @@ NODE_CONFIG(__u32, encap4_ifindex,
 	    "Interface index of the IPv4 IPIP encapsulation device")
 NODE_CONFIG(__u32, encap6_ifindex,
 	    "Interface index of the IPv6 IPIP encapsulation device")
+
+NODE_CONFIG(bool,
+	    enable_local_delivery_metrics_accounting,
+	    "Enable accounting of local delivery metrics")
