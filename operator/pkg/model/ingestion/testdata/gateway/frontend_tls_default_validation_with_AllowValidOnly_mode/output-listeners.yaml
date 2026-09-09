@@ -1,0 +1,15 @@
+- hostname: '*'
+  frontend_tls_validation:
+    ca_cert_refs:
+      - kind: ConfigMap
+        name: ca-cert
+        namespace: default
+    require_client_certificate: true
+  name: https
+  port: 443
+  sources:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gw
+      namespace: default
+      version: v1
