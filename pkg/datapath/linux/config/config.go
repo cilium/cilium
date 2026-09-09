@@ -463,9 +463,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e endpoint.Conf
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
-	// Local delivery metrics should always be set for endpoint programs.
-	fmt.Fprint(fw, "#define LOCAL_DELIVERY_METRICS 1\n")
-
 	h.writeNetdevConfig(fw, e.GetOptions())
 
 	return fw.Flush()

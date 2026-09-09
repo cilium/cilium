@@ -29,6 +29,8 @@ type BPFLXC struct {
 	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Enable support for Local Redirect Policy.
 	EnableLRP bool `config:"enable_lrp"`
+	// Enable accounting of local delivery metrics.
+	EnableLocalDeliveryMetricsAccounting bool `config:"enable_local_delivery_metrics_accounting"`
 	// Use netkit devices for pods.
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
@@ -81,7 +83,7 @@ type BPFLXC struct {
 
 func NewBPFLXC(node Node) *BPFLXC {
 	return &BPFLXC{false, 0x0, false, false, false, false, false, false, false, false,
-		false, false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x0, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
