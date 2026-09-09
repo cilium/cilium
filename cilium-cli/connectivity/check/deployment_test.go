@@ -42,9 +42,37 @@ func newFakeConnectivityTest(t *testing.T, objects ...runtime.Object) (*Connecti
 			src: client,
 			dst: client,
 		},
+		echoPods: make(map[string]Pod),
 	}
 
 	return ct, client
+}
+
+func echoPod(name string, phase corev1.PodPhase, reason string, ips ...string) *corev1.Pod {
+	podIPs := make([]corev1.PodIP, 0, len(ips))
+	for _, ip := range ips {
+		podIPs = append(podIPs, corev1.PodIP{IP: ip})
+	}
+
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default-test-namespace",
+			Labels:    map[string]string{"kind": kindEchoName},
+		},
+		Status: corev1.PodStatus{Phase: phase, Reason: reason, PodIPs: podIPs},
+	}
+}
+
+func TestRegisterEchoPodsSkipsSupersededLeftovers(t *testing.T) {
+	ct, _ := newFakeConnectivityTest(t,
+		echoPod("echo-other-node-live", corev1.PodRunning, "", "10.0.0.1"),
+		echoPod("echo-other-node-evicted", corev1.PodFailed, "Evicted"),
+	)
+
+	require.NoError(t, ct.registerEchoPods(context.Background()))
+	require.Len(t, ct.EchoPods(), 1)
+	assert.Contains(t, ct.EchoPods(), "echo-other-node-live")
 }
 
 func TestDeployNamespaceCreatesMissingNamespace(t *testing.T) {
