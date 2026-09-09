@@ -72,48 +72,55 @@ func setTestMergedListeners(input *Input, namespaces []corev1.Namespace) {
 
 func TestHTTPGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
-		"basic http":                                              {},
-		"basic http nodeport service":                             {},
-		"basic http external traffic policy":                      {},
-		"basic http load balancer":                                {},
-		"multiple parentRefs":                                     {},
-		"cert manager gateway":                                    {},
-		"Conformance/HTTPRouteSimpleSameNamespace":                {},
-		"Conformance/HTTPRouteCrossNamespace":                     {},
-		"Conformance/HTTPExactPathMatching":                       {},
-		"Conformance/HTTPRouteHeaderMatching":                     {},
-		"Conformance/HTTPRouteHostnameIntersection":               {},
-		"Conformance/HTTPRouteListenerHostnameMatching":           {},
-		"Conformance/HTTPRouteMatchingAcrossRoutes":               {},
-		"Conformance/HTTPRouteMatching":                           {},
-		"Conformance/HTTPRouteMethodMatching":                     {},
-		"Conformance/HTTPRouteQueryParamMatching":                 {},
-		"Conformance/HTTPRouteRequestHeaderModifier":              {},
-		"Conformance/HTTPRouteBackendRefsRequestHeaderModifier":   {},
-		"Conformance/HTTPRouteRequestRedirect":                    {},
-		"Conformance/HTTPRouteResponseHeaderModifier":             {},
-		"Conformance/HTTPRouteBackendRefsResponseHeaderModifier":  {},
-		"Conformance/HTTPRouteRewriteHost":                        {},
-		"Conformance/HTTPRouteRewritePath":                        {},
-		"Conformance/HTTPRouteRequestMirror":                      {},
-		"Conformance/HTTPRouteBackendTLSPolicy":                   {},
-		"Conformance/HTTPRouteBackendTLSPolicySystemCA":           {},
-		"Conformance/HTTPRouteBackendTLSPolicyConflictResolution": {},
-		"Conformance/HTTPRouteBackendTLSPolicyInvalidCA":          {},
-		"http external auth grpc":                                 {},
-		"http external auth http":                                 {},
-		"http external auth http tls":                             {},
-		"http external auth grpc tls":                             {},
-		"http external auth shared and no auth":                   {},
-		"http request mirror cross namespace no grant":            {},
-		"http request mirror cross namespace with grant":          {},
-		"grpc request mirror cross namespace no grant":            {},
-		"grpc request mirror cross namespace with grant":          {},
-		"http skips backends missing port":                        {},
-		"http cross namespace backend no grant":                   {},
-		"http cross namespace backend with grant":                 {},
-		"grpc cross namespace backend no grant":                   {},
-		"grpc cross namespace backend with grant":                 {},
+		"basic http":                                                      {},
+		"basic http nodeport service":                                     {},
+		"basic http external traffic policy":                              {},
+		"basic http load balancer":                                        {},
+		"multiple parentRefs":                                             {},
+		"cert manager gateway":                                            {},
+		"Conformance/HTTPRouteSimpleSameNamespace":                        {},
+		"Conformance/HTTPRouteCrossNamespace":                             {},
+		"Conformance/HTTPExactPathMatching":                               {},
+		"Conformance/HTTPRouteHeaderMatching":                             {},
+		"Conformance/HTTPRouteHostnameIntersection":                       {},
+		"Conformance/HTTPRouteListenerHostnameMatching":                   {},
+		"Conformance/HTTPRouteMatchingAcrossRoutes":                       {},
+		"Conformance/HTTPRouteMatching":                                   {},
+		"Conformance/HTTPRouteMethodMatching":                             {},
+		"Conformance/HTTPRouteQueryParamMatching":                         {},
+		"Conformance/HTTPRouteRequestHeaderModifier":                      {},
+		"Conformance/HTTPRouteBackendRefsRequestHeaderModifier":           {},
+		"Conformance/HTTPRouteRequestRedirect":                            {},
+		"Conformance/HTTPRouteResponseHeaderModifier":                     {},
+		"Conformance/HTTPRouteBackendRefsResponseHeaderModifier":          {},
+		"Conformance/HTTPRouteRewriteHost":                                {},
+		"Conformance/HTTPRouteRewritePath":                                {},
+		"Conformance/HTTPRouteRequestMirror":                              {},
+		"Conformance/HTTPRouteBackendTLSPolicy":                           {},
+		"Conformance/HTTPRouteBackendTLSPolicySystemCA":                   {},
+		"Conformance/HTTPRouteBackendTLSPolicyConflictResolution":         {},
+		"Conformance/HTTPRouteBackendTLSPolicyInvalidCA":                  {},
+		"http external auth grpc":                                         {},
+		"http external auth http":                                         {},
+		"http external auth http tls":                                     {},
+		"http external auth grpc tls":                                     {},
+		"http external auth shared and no auth":                           {},
+		"http request mirror cross namespace no grant":                    {},
+		"http request mirror cross namespace with grant":                  {},
+		"grpc request mirror cross namespace no grant":                    {},
+		"grpc request mirror cross namespace with grant":                  {},
+		"http skips backends missing port":                                {},
+		"http cross namespace backend no grant":                           {},
+		"http cross namespace backend with grant":                         {},
+		"grpc cross namespace backend no grant":                           {},
+		"grpc cross namespace backend with grant":                         {},
+		"frontend tls no tls config":                                      {},
+		"frontend tls no frontend config":                                 {},
+		"frontend tls default validation with AllowValidOnly mode":        {},
+		"frontend tls default validation with AllowInsecureFallback mode": {},
+		"frontend tls per_port override":                                  {},
+		"frontend tls per_port override not matched use default":          {},
+		"frontend tls multiple refs uses only first":                      {},
 	}
 
 	for name := range tests {
@@ -1986,5 +1993,45 @@ func TestToHTTPSessionPersistence(t *testing.T) {
 			)
 			assert.Equal(t, tt.want, got)
 		})
+	}
+}
+
+func TestGatewayAPIFrontendTLSValidationOnlyAppliesToHTTPS(t *testing.T) {
+	gw := gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "default"},
+		Spec: gatewayv1.GatewaySpec{
+			Listeners: []gatewayv1.Listener{
+				{Name: "http", Port: 80, Protocol: gatewayv1.HTTPProtocolType},
+				{Name: "https", Port: 443, Protocol: gatewayv1.HTTPSProtocolType},
+			},
+			TLS: &gatewayv1.GatewayTLSConfig{
+				Frontend: &gatewayv1.FrontendTLSConfig{
+					Default: gatewayv1.TLSConfig{
+						Validation: &gatewayv1.FrontendTLSValidation{
+							CACertificateRefs: []gatewayv1.ObjectReference{{
+								Group: "", Kind: "ConfigMap", Name: "client-ca",
+							}},
+							Mode: gatewayv1.AllowValidOnly,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	input := Input{Gateway: gw}
+	setTestMergedListeners(&input, nil)
+	m := GatewayAPI(hivetest.Logger(t), input)
+	require.Len(t, m.HTTP, 2)
+	for _, listener := range m.HTTP {
+		switch listener.Name {
+		case "http":
+			assert.Nil(t, listener.FrontendTLSValidation)
+		case "https":
+			require.NotNil(t, listener.FrontendTLSValidation)
+			assert.Equal(t, "client-ca", listener.FrontendTLSValidation.CACertRefs[0].Name)
+		default:
+			t.Fatalf("unexpected listener %q", listener.Name)
+		}
 	}
 }

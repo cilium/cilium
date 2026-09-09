@@ -1,0 +1,56 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-frontend-ca-ref-kind
+  namespace: gateway-conformance-infra
+  generation: 7
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: https
+      port: 443
+      protocol: HTTPS
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+            - kind: Secret
+              name: frontend-ca
+          mode: AllowValidOnly
+status:
+  conditions:
+    - type: Accepted
+      status: "False"
+      reason: ListenersNotValid
+      message: "No Accepted Listeners"
+      observedGeneration: 7
+    - type: Programmed
+      status: "False"
+      reason: ListenersNotValid
+      message: "No Accepted Listeners"
+      observedGeneration: 7
+  listeners:
+    - name: https
+      attachedRoutes: 0
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute
+      conditions:
+        - type: ResolvedRefs
+          status: "False"
+          reason: InvalidCACertificateKind
+          message: "Frontend TLS CACertificateRef \"frontend-ca\" has unsupported kind \"Secret\"; must be a ConfigMap."
+          observedGeneration: 7
+        - type: Accepted
+          status: "False"
+          reason: NoValidCACertificate
+          message: "Listener not valid. Frontend TLS CACertificateRef \"frontend-ca\" has unsupported kind \"Secret\"; must be a ConfigMap."
+          observedGeneration: 7
+        - type: Programmed
+          status: "False"
+          reason: Pending
+          message: "Address not ready yet"
+          observedGeneration: 7

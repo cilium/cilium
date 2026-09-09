@@ -9,9 +9,88 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+func TestValidateTLSFrontend(t *testing.T) {
+	tests := []struct {
+		name                      string
+		seedInsecureCondition     bool
+		defaultMode               gatewayv1.FrontendValidationModeType
+		hasPerPortValidation      bool
+		perPortMode               gatewayv1.FrontendValidationModeType
+		wantInsecureModeCondition bool
+	}{
+		{
+			name:                      "default fallback sets the condition",
+			defaultMode:               gatewayv1.AllowInsecureFallback,
+			wantInsecureModeCondition: true,
+		},
+		{
+			name:                      "per-port fallback keeps the condition",
+			seedInsecureCondition:     true,
+			defaultMode:               gatewayv1.AllowValidOnly,
+			hasPerPortValidation:      true,
+			perPortMode:               gatewayv1.AllowInsecureFallback,
+			wantInsecureModeCondition: true,
+		},
+		{
+			name:                  "valid-only modes remove the condition",
+			seedInsecureCondition: true,
+			defaultMode:           gatewayv1.AllowValidOnly,
+			hasPerPortValidation:  true,
+			perPortMode:           gatewayv1.AllowValidOnly,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &GatewayStatusManager{}
+			gw := &gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 7},
+				Spec: gatewayv1.GatewaySpec{
+					TLS: &gatewayv1.GatewayTLSConfig{
+						Frontend: &gatewayv1.FrontendTLSConfig{
+							Default: gatewayv1.TLSConfig{
+								Validation: &gatewayv1.FrontendTLSValidation{Mode: gatewayv1.AllowInsecureFallback},
+							},
+						},
+					},
+				},
+			}
+
+			conditionType := string(gatewayv1.GatewayConditionInsecureFrontendValidationMode)
+			if tt.seedInsecureCondition {
+				manager.validateTLSFrontend(gw)
+				require.NotNil(t, findListenerCondition(gw.Status.Conditions, conditionType), "expected insecure condition before applying the test configuration")
+			}
+
+			gw.Spec.TLS.Frontend.Default.Validation.Mode = tt.defaultMode
+			if tt.hasPerPortValidation {
+				gw.Spec.TLS.Frontend.PerPort = []gatewayv1.TLSPortConfig{{
+					Port: 8443,
+					TLS: gatewayv1.TLSConfig{
+						Validation: &gatewayv1.FrontendTLSValidation{Mode: tt.perPortMode},
+					},
+				}}
+			}
+
+			manager.validateTLSFrontend(gw)
+			condition := findListenerCondition(gw.Status.Conditions, conditionType)
+			if !tt.wantInsecureModeCondition {
+				assert.Nil(t, condition)
+				return
+			}
+
+			require.NotNil(t, condition)
+			assert.Equal(t, metav1.ConditionTrue, condition.Status)
+			assert.Equal(t, string(gatewayv1.GatewayReasonConfigurationChanged), condition.Reason)
+			assert.Equal(t, gw.Generation, condition.ObservedGeneration)
+		})
+	}
+}
 
 func Test_gatewayStatusScheduledCondition(t *testing.T) {
 	type args struct {

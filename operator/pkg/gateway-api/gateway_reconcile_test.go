@@ -310,6 +310,17 @@ func Test_Conformance(t *testing.T) {
 		{name: "tcproute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tcproute", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
 		{name: "udproute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-udproute-referencegrant", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
 		{name: "udproute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-udproute", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
+		{name: "gateway-frontend-tls-validation", skipCEC: true, gateway: []gwDetails{
+			{FullName: types.NamespacedName{Name: "invalid-frontend-ca-ref-kind", Namespace: "gateway-conformance-infra"}, wantErr: true},
+			{FullName: types.NamespacedName{Name: "frontend-configmap-does-not-exist", Namespace: "gateway-conformance-infra"}, wantErr: true},
+			{FullName: types.NamespacedName{Name: "frontend-configmap-missing-ca-crt-key", Namespace: "gateway-conformance-infra"}, wantErr: true},
+			{FullName: types.NamespacedName{Name: "frontend-configmap-ca-crt-empty", Namespace: "gateway-conformance-infra"}, wantErr: true},
+			{FullName: types.NamespacedName{Name: "frontend-configmap-ca-crt-not-pem", Namespace: "gateway-conformance-infra"}, wantErr: true},
+			{FullName: types.NamespacedName{Name: "valid-frontend-configmap-reference", Namespace: "gateway-conformance-infra"}},
+			{FullName: types.NamespacedName{Name: "valid-first-frontend-configmap-ref-invalid-second-ref", Namespace: "gateway-conformance-infra"}},
+			{FullName: types.NamespacedName{Name: "invalid-first-frontend-configmap-ref-valid-second-ref", Namespace: "gateway-conformance-infra"}, wantErr: true},
+			{FullName: types.NamespacedName{Name: "invalid-default-frontend-validation-http-listener", Namespace: "gateway-conformance-infra"}},
+		}},
 		// A single Gateway mixing an L7 (HTTP) and an L4 (TCP) listener: the
 		// L7 path produces a CiliumEnvoyConfig while the L4 path produces a
 		// managed EndpointSlice for the TCP backend (no dummy slice is added
@@ -1278,6 +1289,194 @@ func filterGRPCRoute(hrList *gatewayv1.GRPCRouteList, gatewayName string, namesp
 		}
 	}
 	return filterList
+}
+
+func Test_setListenerStatus_FrontendTLSConfigMapReferenceGrant(t *testing.T) {
+	targetNamespace := gatewayv1.Namespace("ca-namespace")
+	configMapName := gatewayv1.ObjectName("frontend-ca")
+
+	tests := []struct {
+		name           string
+		grant          *gatewayv1.ReferenceGrant
+		wantStatus     ListenersStatus
+		wantResolved   metav1.ConditionStatus
+		wantResolvedRS gatewayv1.ListenerConditionReason
+		wantAccepted   metav1.ConditionStatus
+	}{
+		{
+			name: "allowed by named ReferenceGrant",
+			grant: &gatewayv1.ReferenceGrant{
+				ObjectMeta: metav1.ObjectMeta{Namespace: string(targetNamespace)},
+				Spec: gatewayv1.ReferenceGrantSpec{
+					From: []gatewayv1.ReferenceGrantFrom{{
+						Group:     gatewayv1.GroupName,
+						Kind:      "Gateway",
+						Namespace: "gateway-namespace",
+					}},
+					To: []gatewayv1.ReferenceGrantTo{{
+						Group: corev1.GroupName,
+						Kind:  "ConfigMap",
+						Name:  ptr.To(configMapName),
+					}},
+				},
+			},
+			wantStatus:   ListenersStatusAllValid,
+			wantResolved: metav1.ConditionTrue,
+			wantAccepted: metav1.ConditionTrue,
+		},
+		{
+			name: "allowed by unrestricted ReferenceGrant",
+			grant: &gatewayv1.ReferenceGrant{
+				ObjectMeta: metav1.ObjectMeta{Namespace: string(targetNamespace)},
+				Spec: gatewayv1.ReferenceGrantSpec{
+					From: []gatewayv1.ReferenceGrantFrom{{
+						Group:     gatewayv1.GroupName,
+						Kind:      "Gateway",
+						Namespace: "gateway-namespace",
+					}},
+					To: []gatewayv1.ReferenceGrantTo{{
+						Group: corev1.GroupName,
+						Kind:  "ConfigMap",
+					}},
+				},
+			},
+			wantStatus:   ListenersStatusAllValid,
+			wantResolved: metav1.ConditionTrue,
+			wantAccepted: metav1.ConditionTrue,
+		},
+		{
+			name: "denied when ReferenceGrant names another ConfigMap",
+			grant: &gatewayv1.ReferenceGrant{
+				ObjectMeta: metav1.ObjectMeta{Namespace: string(targetNamespace)},
+				Spec: gatewayv1.ReferenceGrantSpec{
+					From: []gatewayv1.ReferenceGrantFrom{{
+						Group:     gatewayv1.GroupName,
+						Kind:      "Gateway",
+						Namespace: "gateway-namespace",
+					}},
+					To: []gatewayv1.ReferenceGrantTo{{
+						Group: corev1.GroupName,
+						Kind:  "ConfigMap",
+						Name:  ptr.To(gatewayv1.ObjectName("different-ca")),
+					}},
+				},
+			},
+			wantStatus:     ListenersStatusNoneValid,
+			wantResolved:   metav1.ConditionFalse,
+			wantResolvedRS: gatewayv1.ListenerReasonRefNotPermitted,
+			wantAccepted:   metav1.ConditionFalse,
+		},
+		{
+			name:           "denied without ReferenceGrant",
+			wantStatus:     ListenersStatusNoneValid,
+			wantResolved:   metav1.ConditionFalse,
+			wantResolvedRS: gatewayv1.ListenerReasonRefNotPermitted,
+			wantAccepted:   metav1.ConditionFalse,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objects := []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      string(configMapName),
+						Namespace: string(targetNamespace),
+					},
+					Data: map[string]string{
+						"ca.crt": "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
+					},
+				},
+			}
+			if tt.grant != nil {
+				objects = append(objects, tt.grant)
+			}
+			var grants []gatewayv1.ReferenceGrant
+			if tt.grant != nil {
+				grants = []gatewayv1.ReferenceGrant{*tt.grant}
+			}
+
+			c := fake.NewClientBuilder().
+				WithScheme(testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)).
+				WithObjects(objects...).
+				Build()
+			manager := NewListenerStatusManager(c, hivetest.Logger(t), ListenerStatusManagerConfig{})
+			gw := &gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "gateway",
+					Namespace:  "gateway-namespace",
+					Generation: 1,
+				},
+				Spec: gatewayv1.GatewaySpec{
+					Listeners: []gatewayv1.Listener{{
+						Name:     "https",
+						Port:     443,
+						Protocol: gatewayv1.HTTPSProtocolType,
+					}},
+					TLS: &gatewayv1.GatewayTLSConfig{
+						Frontend: &gatewayv1.FrontendTLSConfig{
+							Default: gatewayv1.TLSConfig{
+								Validation: &gatewayv1.FrontendTLSValidation{
+									CACertificateRefs: []gatewayv1.ObjectReference{{
+										Group:     corev1.GroupName,
+										Kind:      "ConfigMap",
+										Name:      configMapName,
+										Namespace: &targetNamespace,
+									}},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			gotStatus, err := manager.setGatewayListenerStatus(
+				t.Context(),
+				gw,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				grants,
+				helpers.NewNamespaceLabelIndex(nil),
+			)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantStatus, gotStatus)
+
+			listener := findListenerStatus(gw.Status.Listeners, "https")
+			require.NotNil(t, listener)
+			resolved := findListenerCondition(listener.Conditions, string(gatewayv1.ListenerConditionResolvedRefs))
+			require.NotNil(t, resolved)
+			assert.Equal(t, tt.wantResolved, resolved.Status)
+			if tt.wantResolvedRS != "" {
+				assert.Equal(t, string(tt.wantResolvedRS), resolved.Reason)
+			}
+
+			accepted := findListenerCondition(listener.Conditions, string(gatewayv1.ListenerConditionAccepted))
+			require.NotNil(t, accepted)
+			assert.Equal(t, tt.wantAccepted, accepted.Status)
+		})
+	}
+}
+
+func findListenerCondition(conditions []metav1.Condition, condType string) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == condType {
+			return &conditions[i]
+		}
+	}
+	return nil
+}
+
+func findListenerStatus(statuses []gatewayv1.ListenerStatus, name gatewayv1.SectionName) *gatewayv1.ListenerStatus {
+	for i := range statuses {
+		if statuses[i].Name == name {
+			return &statuses[i]
+		}
+	}
+	return nil
 }
 
 // fakeIndexHTTPRouteByBackendService is a client.IndexerFunc that takes a single HTTPRoute and

@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: missing-ca-key
+  namespace: gateway-conformance-infra
+data:
+    other-key: value
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: empty-ca
+  namespace: gateway-conformance-infra
+data:
+    ca.crt: ""
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: not-pem-ca
+  namespace: gateway-conformance-infra
+data:
+    ca.crt: not-pem
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valid-ca
+  namespace: gateway-conformance-infra
+data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIB
+      -----END CERTIFICATE-----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ignored-frontend-ca
+  namespace: gateway-conformance-infra
+data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIB
+      -----END CERTIFICATE-----
