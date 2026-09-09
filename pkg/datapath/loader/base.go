@@ -414,7 +414,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	if lnc.KPRConfig.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
 		if err := compileWithOptions(ctx, l.logger, socketProg, socketObj, nil); err != nil {
-			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)
+			return fmt.Errorf("failed to compile bpf_sock.c: %w", err)
 		}
 		if err := socketlb.Enable(ctx, l.logger, l.registry, l.bpfCollectionLoader, l.sysctl, lnc); err != nil {
 			return err
@@ -426,12 +426,12 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	}
 
 	if err := reinitializeXDPLocked(ctx, l.logger, l.registry, l.bpfCollectionLoader, lnc, devices); err != nil {
-		logging.Fatal(l.logger, "Failed to compile XDP program", logfields.Error, err)
+		return fmt.Errorf("failed to reinitialize XDP programs: %w", err)
 	}
 
 	// Compile alignchecker program
 	if err := compileDefault(ctx, l.logger, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
-		logging.Fatal(l.logger, "alignchecker compile failed", logfields.Error, err)
+		return fmt.Errorf("alignchecker compile failed: %w", err)
 	}
 	// Validate alignments of C and Go equivalent structs
 	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
