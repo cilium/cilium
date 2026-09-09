@@ -112,6 +112,15 @@ NODE_CONFIG(__u8, monitor_aggregation, "Level of aggregation for monitor events"
 NODE_CONFIG(__u32, monitor_report_interval, "Monitor report interval in seconds")
 ASSIGN_CONFIG(__u32, monitor_report_interval, 5)
 
+NODE_CONFIG(__u8, monitor_report_flags, "TCP flags that trigger monitor reports")
+
+/* Allow to override the assigned value in tests */
+#ifndef DEFAULT_MONITOR_REPORT_FLAGS
+#define DEFAULT_MONITOR_REPORT_FLAGS 0xff
+#endif
+
+ASSIGN_CONFIG(__u8, monitor_report_flags, DEFAULT_MONITOR_REPORT_FLAGS)
+
 NODE_CONFIG(union v4addr, ipv4_inter_cluster_snat,
 	    "Node IPv4 address used as the source for inter-cluster SNAT")
 
