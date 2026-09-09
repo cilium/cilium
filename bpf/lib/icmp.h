@@ -22,6 +22,10 @@ static __always_inline int icmp_load_type(const struct __ctx_buff *ctx, int l4_o
 }
 
 #define ICMP_PACKET_MAX_SAMPLE_SIZE 8
+#define ICMP4_MAX_DATAGRAM_LEN 576
+#define ICMP4_MAX_SAMPLE_LEN (ICMP4_MAX_DATAGRAM_LEN - \
+			      sizeof(struct iphdr) - \
+			      sizeof(struct icmphdr))
 
 static __always_inline
 int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
@@ -44,6 +48,15 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 		return DROP_INVALID;
 
 	sample_len = ipv4_hdrlen(ip4) + ICMP_PACKET_MAX_SAMPLE_SIZE;
+	/* On GRO packets (ctx_gso_size > 0), ctx_adjust_troom calls __bpf_skb_min_len
+	 * which rejects the resize with -EINVAL if the result is too short to hold the
+	 * partial checksum bytes.
+	 * Bump sample_len to the RFC 1812 maximum so the resize
+	 * succeeds and the ICMP datagram stays within the 576-byte RFC cap.
+	 * For the XDP case ctx_gso_size is zero so we use the regular sample size.
+	 */
+	if (ctx_is_skb())
+		sample_len = ICMP4_MAX_SAMPLE_LEN;
 	new_len = sizeof(struct ethhdr) + sample_len;
 	if (new_len > full_len) {
 		new_len = full_len;

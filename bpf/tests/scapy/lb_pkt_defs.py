@@ -32,7 +32,7 @@ lb4_udp_clusterip_icmp_unreach = (
     Ether(src=mac_two, dst=mac_one) /
     IP(src=v4_svc_one, dst=v4_ext_one, id=0) /
     ICMP(type="dest-unreach", code="port-unreachable") /
-    IPerror(bytes(lb4_udp_clusterip[IP])[:28])
+    IPerror(bytes(lb4_udp_clusterip[IP]))
 )
 
 lb6_clusterip = (
@@ -223,7 +223,7 @@ lb4_ew_udp_nodeport_icmp_unreach = (
     Ether(src=mac_two, dst=mac_one) /
     IP(src=v4_svc_one, dst=v4_pod_one, id=0) /
     ICMP(type="dest-unreach", code="port-unreachable") /
-    IPerror(bytes(lb4_ew_udp_nodeport[IP])[:28])
+    IPerror(bytes(lb4_ew_udp_nodeport[IP]))
 )
 
 lb6_ew_nodeport_fragment1 = (
