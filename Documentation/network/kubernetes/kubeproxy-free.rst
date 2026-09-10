@@ -1010,6 +1010,80 @@ annotation must be set at service creation time and should not be changed during
 the lifetime of that service. Changing the value of the annotations or removing
 them while the service is installed breaks connections.
 
+**Terminating IPIP from an external L4 load balancer**
+
+The inbound IPIP termination also accepts traffic from an external L4 load
+balancer such as ``Katran`` or IPVS that encapsulates client packets in IPIP (or
+IPv6-in-IPv6) towards the cluster. Such a load balancer picks a *real* from its
+own configured list and encapsulates to it; the real only says where to deliver
+the packet, not which backend serves it.
+
+An external load balancer can use a LoadBalancer or ``externalIP`` service frontend
+as a real. This address is not a local endpoint, so IPIP termination does not
+force it as the backend. Instead, regular backend selection runs on the inner
+packet, translating the destination port as usual. The reply leaves the backend
+node directly towards the client with the load balancer's VIP as source, which
+is the DSR behaviour the external load balancer expects.
+
+To set this up, expose the same backends through two services:
+
+- one carrying the external load balancer's VIP as an ``externalIPs`` entry, so
+  that the inner packet finds a frontend. This address belongs to the load
+  balancer and must not be announced by the cluster;
+- one of type ``LoadBalancer`` whose address is the real, allocated from a
+  :ref:`lb_ipam` pool and announced by :ref:`bgp_control_plane`. With
+  ``externalTrafficPolicy: Local`` only nodes hosting a backend announce it, so
+  the load balancer never delivers to a node that would have to forward.
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: web-vip
+    spec:
+      selector:
+        app: web
+      externalIPs:
+        - 203.0.113.10        # the external load balancer's VIP
+      ports:
+        - port: 80
+          targetPort: 8080
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: web-real
+    spec:
+      type: LoadBalancer
+      selector:
+        app: web
+      externalTrafficPolicy: Local
+      ports:
+        - port: 80
+          targetPort: 8080
+
+Enable the termination with ``--enable-ipip-termination`` (``extraConfig`` in
+Helm) when Cilium's own DSR dispatch is not IPIP; with
+``loadBalancer.dsrDispatch=ipip`` it is on already. With
+``externalTrafficPolicy: Cluster`` a node may forward the request to a backend
+on another node using Cilium's own DSR dispatch. Under ``dsrDispatch=ipip``
+that hop is subject to the rule from the note at the top of this section: the
+IPIP encapsulation carries no port, so ``port`` and ``targetPort`` must be
+equal. Use the Geneve dispatch for services where they differ. The hop from the
+external load balancer itself is not affected, as the inner packet goes through
+regular backend selection.
+
+An external load balancer may instead encapsulate directly to node IPs. Since a
+node IP can also be a hostNetwork backend selected by Cilium's own DSR-IPIP
+dispatch, this case requires setting ``--bpf-lb-ipip-use-outer-dst=false``.
+This disables forced-backend handling for local outer destinations and performs
+regular backend selection on the inner packet. It cannot be combined with
+Cilium's own IPIP dispatch; Cilium therefore forces this option back to ``true``
+when ``loadBalancer.dsrDispatch=ipip`` is configured. LoadBalancer and
+``externalIP`` frontends used as external-LB reals do not require disabling the
+option.
+
 .. _Hybrid mode:
 
 Hybrid DSR and SNAT Mode
