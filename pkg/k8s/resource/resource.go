@@ -170,34 +170,6 @@ type options struct {
 
 type ResourceOption func(o *options)
 
-// WithTransform sets the function to transform the object before storing it.
-func WithTransform[From, To k8sRuntime.Object](transform func(From) (To, error)) ResourceOption {
-	return WithLazyTransform(
-		func() k8sRuntime.Object {
-			var obj From
-			return obj
-		},
-		func(fromRaw any) (any, error) {
-			if from, ok := fromRaw.(From); ok {
-				to, err := transform(from)
-				return to, err
-			} else {
-				var obj From
-				return nil, fmt.Errorf("resource.WithTransform: expected %T, got %T", obj, fromRaw)
-			}
-		})
-}
-
-// WithLazyTransform sets the function to transform the object before storing it.
-// Unlike "WithTransform", this defers the resolving of the source object type until the resource
-// is needed. Use this in situations where the source object depends on api-server capabilities.
-func WithLazyTransform(sourceObj func() k8sRuntime.Object, transform cache.TransformFunc) ResourceOption {
-	return func(o *options) {
-		o.sourceObj = sourceObj
-		o.transform = transform
-	}
-}
-
 // WithMetric enables metrics collection for the resource using the provided scope.
 func WithMetric(scope string) ResourceOption {
 	return func(o *options) {

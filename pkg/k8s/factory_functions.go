@@ -4,11 +4,8 @@
 package k8s
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -28,83 +25,42 @@ func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]stri
 }
 
 // TransformToCiliumEndpoint transforms a *cilium_v2.CiliumEndpoint into a
-// *types.CiliumEndpoint or a cache.DeletedFinalStateUnknown into a
-// cache.DeletedFinalStateUnknown with a *types.CiliumEndpoint in its Obj.
-// If obj is a *types.CiliumEndpoint or a cache.DeletedFinalStateUnknown with
-// a *types.CiliumEndpoint in its Obj, obj is returned without any transformations.
-// If the given obj can't be cast into either *cilium_v2.CiliumEndpoint nor
-// cache.DeletedFinalStateUnknown, an error is returned.
-func TransformToCiliumEndpoint(obj any) (any, error) {
-	switch concreteObj := obj.(type) {
-	case *cilium_v2.CiliumEndpoint:
-		return &types.CiliumEndpoint{
-			TypeMeta: slim_metav1.TypeMeta{
-				Kind:       concreteObj.TypeMeta.Kind,
-				APIVersion: concreteObj.TypeMeta.APIVersion,
-			},
-			ObjectMeta: slim_metav1.ObjectMeta{
-				Name:            concreteObj.ObjectMeta.Name,
-				Namespace:       concreteObj.ObjectMeta.Namespace,
-				UID:             concreteObj.ObjectMeta.UID,
-				ResourceVersion: concreteObj.ObjectMeta.ResourceVersion,
-				// We don't need to store labels nor annotations because
-				// they are not used by the CEP handlers.
-				Labels:      nil,
-				Annotations: nil,
-				// OwnerReferences is needed for ztunnel xDS to extract Pod UID.
-				OwnerReferences: slim_metav1.SlimOwnerReferences(concreteObj.ObjectMeta.OwnerReferences),
-			},
-			Encryption: func() *cilium_v2.EncryptionSpec {
-				enc := concreteObj.Status.Encryption
-				return &enc
-			}(),
-			Identity:       concreteObj.Status.Identity,
-			Networking:     concreteObj.Status.Networking,
-			NamedPorts:     concreteObj.Status.NamedPorts,
-			ServiceAccount: concreteObj.Status.ServiceAccount,
-		}, nil
-	case *types.CiliumEndpoint:
-		return obj, nil
-	case cache.DeletedFinalStateUnknown:
-		if _, ok := concreteObj.Obj.(*types.CiliumEndpoint); ok {
-			return obj, nil
-		}
-		ciliumEndpoint, ok := concreteObj.Obj.(*cilium_v2.CiliumEndpoint)
-		if !ok {
-			return nil, fmt.Errorf("unknown object type %T", concreteObj.Obj)
-		}
-		return cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: &types.CiliumEndpoint{
-				TypeMeta: slim_metav1.TypeMeta{
-					Kind:       ciliumEndpoint.TypeMeta.Kind,
-					APIVersion: ciliumEndpoint.TypeMeta.APIVersion,
-				},
-				ObjectMeta: slim_metav1.ObjectMeta{
-					Name:            ciliumEndpoint.ObjectMeta.Name,
-					Namespace:       ciliumEndpoint.ObjectMeta.Namespace,
-					UID:             ciliumEndpoint.ObjectMeta.UID,
-					ResourceVersion: ciliumEndpoint.ObjectMeta.ResourceVersion,
-					// We don't need to store labels nor annotations because
-					// they are not used by the CEP handlers.
-					Labels:      nil,
-					Annotations: nil,
-					// OwnerReferences is needed for ztunnel xDS to extract Pod UID.
-					OwnerReferences: slim_metav1.SlimOwnerReferences(ciliumEndpoint.ObjectMeta.OwnerReferences),
-				},
-				Encryption: func() *cilium_v2.EncryptionSpec {
-					enc := ciliumEndpoint.Status.Encryption
-					return &enc
-				}(),
-				Identity:       ciliumEndpoint.Status.Identity,
-				Networking:     ciliumEndpoint.Status.Networking,
-				NamedPorts:     ciliumEndpoint.Status.NamedPorts,
-				ServiceAccount: ciliumEndpoint.Status.ServiceAccount,
-			},
-		}, nil
-	default:
-		return nil, fmt.Errorf("unknown object type %T", concreteObj)
-	}
+// *types.CiliumEndpoint, dropping the fields which are not used by the CEP
+// handlers.
+//
+// The deletions which the informer reports as cache.DeletedFinalStateUnknown
+// tombstones never reach the transform, so there is nothing to unwrap here:
+// see resource.WithTransform.
+func TransformToCiliumEndpoint(cep *cilium_v2.CiliumEndpoint) (*types.CiliumEndpoint, error) {
+	return &types.CiliumEndpoint{
+		TypeMeta: slim_metav1.TypeMeta{
+			Kind:       cep.TypeMeta.Kind,
+			APIVersion: cep.TypeMeta.APIVersion,
+		},
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:            cep.ObjectMeta.Name,
+			Namespace:       cep.ObjectMeta.Namespace,
+			UID:             cep.ObjectMeta.UID,
+			ResourceVersion: cep.ObjectMeta.ResourceVersion,
+			// We don't need to store labels nor annotations because
+			// they are not used by the CEP handlers.
+			Labels:      nil,
+			Annotations: nil,
+			// OwnerReferences is needed for ztunnel xDS to extract Pod UID.
+			OwnerReferences: slim_metav1.SlimOwnerReferences(cep.ObjectMeta.OwnerReferences),
+		},
+		// Copied rather than pointed at: &cep.Status.Encryption would keep the
+		// whole decoded endpoint alive, which is what the transform is here to
+		// avoid. See resource.WithTransform.
+		Encryption: func() *cilium_v2.EncryptionSpec {
+			enc := cep.Status.Encryption
+			return &enc
+		}(),
+		Identity:       cep.Status.Identity,
+		Networking:     cep.Status.Networking,
+		NamedPorts:     cep.Status.NamedPorts,
+		ServiceAccount: cep.Status.ServiceAccount,
+	}, nil
 }
 
 // ConvertCEPToCoreCEP converts a CiliumEndpoint to a CoreCiliumEndpoint

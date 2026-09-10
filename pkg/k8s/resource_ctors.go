@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
@@ -310,9 +309,7 @@ func CiliumSlimEndpointResource(params CiliumResourceParams, localNodeStore *nod
 		},
 	}
 	return resource.New[*types.CiliumEndpoint](params.Lifecycle, lw, params.MetricsProvider,
-		resource.WithLazyTransform(func() k8sRuntime.Object {
-			return &cilium_api_v2.CiliumEndpoint{}
-		}, TransformToCiliumEndpoint),
+		resource.WithTransform(TransformToCiliumEndpoint),
 		resource.WithMetric("CiliumEndpoint"),
 		resource.WithIndexers(indexers),
 		resource.WithCRDSync(params.CRDSyncPromise),
