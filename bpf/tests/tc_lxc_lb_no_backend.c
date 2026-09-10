@@ -9,7 +9,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
-#define SERVICE_NO_BACKEND_RESPONSE	1
 
 #define FRONTEND_IP		v4_svc_one
 #define FRONTEND_IPV6		v6_svc_one
@@ -18,6 +17,7 @@
 #include "lib/bpf_lxc.h"
 
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
+ASSIGN_CONFIG(bool, enable_service_no_backend_response, true)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
