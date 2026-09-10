@@ -46,6 +46,10 @@ func (d *DesiredVLANDeviceSpec) NeedsRecreate(existing netlink.Link) bool {
 	return vlan.VlanId != d.VLANID || vlan.ParentIndex != d.ParentIndex
 }
 
+func (d *DesiredVLANDeviceSpec) CanModify() bool {
+	return true
+}
+
 func (d *DesiredVLANDeviceSpec) Properties() string {
 	return fmt.Sprintf("Type=vlan, ParentDevice=%s (%d), VLAN=%d",
 		d.ParentName, d.ParentIndex, d.VLANID)

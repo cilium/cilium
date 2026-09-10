@@ -84,6 +84,8 @@ type DesiredDeviceSpec interface {
 	// existing device. Returning true unconditionally causes a destructive
 	// delete+add on every reconcile (including periodic refresh).
 	NeedsRecreate(existing netlink.Link) bool
+	// CanModify reports whether the device supports in-place updates.
+	CanModify() bool
 }
 
 type DesiredDevice struct {
