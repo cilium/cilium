@@ -207,6 +207,26 @@ func EchoSendOnce(ctx context.Context, gwAddr string, timeout time.Duration) (st
 	return resp.Pod, nil
 }
 
+// ExpectEchoResponse polls until a complete TCP echo handshake succeeds against
+// the provided address, or fails the test if the timeout expires. Unlike a TCP
+// connection probe, this verifies that a route has reached a ready backend.
+func ExpectEchoResponse(t *testing.T, timeoutConfig config.TimeoutConfig, address string) {
+	t.Helper()
+
+	tlog.Logf(t, "performing TCP echo probe on %s", address)
+	err := wait.PollUntilContextTimeout(t.Context(), timeoutConfig.DefaultPollInterval, timeoutConfig.MaxTimeToConsistency, true,
+		func(ctx context.Context) (bool, error) {
+			pod, err := EchoSendOnce(ctx, address, timeoutConfig.RequestTimeout)
+			if err != nil {
+				tlog.Logf(t, "failed to receive a TCP echo response from %s; retrying: %v", address, err)
+				return false, nil
+			}
+			tlog.Logf(t, "received a TCP echo response from %s via pod %s", address, pod)
+			return true, nil
+		})
+	require.NoError(t, err, "failed waiting for a TCP echo response from %s after %v", address, timeoutConfig.MaxTimeToConsistency)
+}
+
 // ExpectAddressBeAvailable polls until a TCP connection to the provided address
 // can be established, or fails the test if the timeout expires. It only verifies
 // that the address accepts TCP connections; it does not validate an echo response

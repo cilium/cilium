@@ -385,7 +385,7 @@ func (h *Handle) DevLinkGetDeviceList() ([]*DevlinkDevice, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func DevLinkGetDeviceList() ([]*DevlinkDevice, error) {
-	return pkgHandle.DevLinkGetDeviceList()
+	return pkgHandle().DevLinkGetDeviceList()
 }
 
 func parseDevlinkDevice(msgs [][]byte) (*DevlinkDevice, error) {
@@ -450,7 +450,7 @@ func (h *Handle) DevLinkGetDeviceByName(Bus string, Device string) (*DevlinkDevi
 // DevlinkGetDeviceByName provides a pointer to devlink device and nil error,
 // otherwise returns an error code.
 func DevLinkGetDeviceByName(Bus string, Device string) (*DevlinkDevice, error) {
-	return pkgHandle.DevLinkGetDeviceByName(Bus, Device)
+	return pkgHandle().DevLinkGetDeviceByName(Bus, Device)
 }
 
 // DevLinkSetEswitchMode sets eswitch mode if able to set successfully or
@@ -479,7 +479,7 @@ func (h *Handle) DevLinkSetEswitchMode(Dev *DevlinkDevice, NewMode string) error
 // Equivalent to: `devlink dev eswitch set $dev mode switchdev`
 // Equivalent to: `devlink dev eswitch set $dev mode legacy`
 func DevLinkSetEswitchMode(Dev *DevlinkDevice, NewMode string) error {
-	return pkgHandle.DevLinkSetEswitchMode(Dev, NewMode)
+	return pkgHandle().DevLinkSetEswitchMode(Dev, NewMode)
 }
 
 func (port *DevlinkPort) parseAttributes(attrs []syscall.NetlinkRouteAttr) error {
@@ -584,7 +584,7 @@ func (h *Handle) DevLinkGetAllPortList() ([]*DevlinkPort, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func DevLinkGetAllPortList() ([]*DevlinkPort, error) {
-	return pkgHandle.DevLinkGetAllPortList()
+	return pkgHandle().DevLinkGetAllPortList()
 }
 
 func parseDevlinkPortMsg(msgs [][]byte) (*DevlinkPort, error) {
@@ -621,7 +621,7 @@ func (h *Handle) DevLinkGetPortByIndex(Bus string, Device string, PortIndex uint
 
 // DevlinkGetDeviceResources returns devlink device resources
 func DevlinkGetDeviceResources(bus string, device string) (*DevlinkResources, error) {
-	return pkgHandle.DevlinkGetDeviceResources(bus, device)
+	return pkgHandle().DevlinkGetDeviceResources(bus, device)
 }
 
 // DevlinkGetDeviceResources returns devlink device resources
@@ -685,7 +685,7 @@ func (h *Handle) DevlinkGetDeviceParams(bus string, device string) ([]*DevlinkPa
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func DevlinkGetDeviceParams(bus string, device string) ([]*DevlinkParam, error) {
-	return pkgHandle.DevlinkGetDeviceParams(bus, device)
+	return pkgHandle().DevlinkGetDeviceParams(bus, device)
 }
 
 // DevlinkGetDeviceParamByName returns specific parameter for devlink device
@@ -717,7 +717,7 @@ func (h *Handle) DevlinkGetDeviceParamByName(bus string, device string, param st
 // DevlinkGetDeviceParamByName returns specific parameter for devlink device
 // Equivalent to: `devlink dev param show <bus>/<device> name <param>`
 func DevlinkGetDeviceParamByName(bus string, device string, param string) (*DevlinkParam, error) {
-	return pkgHandle.DevlinkGetDeviceParamByName(bus, device, param)
+	return pkgHandle().DevlinkGetDeviceParamByName(bus, device, param)
 }
 
 // DevlinkSplitPort splits a devlink port.
@@ -736,7 +736,7 @@ func (h *Handle) DevlinkSplitPort(port *DevlinkPort, count uint32) error {
 }
 
 func DevlinkSplitPort(port *DevlinkPort, count uint32) error {
-	return pkgHandle.DevlinkSplitPort(port, count)
+	return pkgHandle().DevlinkSplitPort(port, count)
 }
 
 // DevlinkUnsplitPort: unsplit devlink port
@@ -754,7 +754,7 @@ func (h *Handle) DevlinkUnsplitPort(port *DevlinkPort) error {
 }
 
 func DevlinkUnsplitPort(port *DevlinkPort) error {
-	return pkgHandle.DevlinkUnsplitPort(port)
+	return pkgHandle().DevlinkUnsplitPort(port)
 }
 
 // DevlinkSetDeviceParam set specific parameter for devlink device
@@ -826,13 +826,13 @@ func (h *Handle) DevlinkSetDeviceParam(bus string, device string, param string, 
 // cmode argument should contain valid cmode value as uint8, modes are define in nl.DEVLINK_PARAM_CMODE_* constants
 // value argument should have one of the following types: uint8, uint16, uint32, string, bool
 func DevlinkSetDeviceParam(bus string, device string, param string, cmode uint8, value interface{}) error {
-	return pkgHandle.DevlinkSetDeviceParam(bus, device, param, cmode, value)
+	return pkgHandle().DevlinkSetDeviceParam(bus, device, param, cmode, value)
 }
 
 // DevLinkGetPortByIndex provides a pointer to devlink portand nil error,
 // otherwise returns an error code.
 func DevLinkGetPortByIndex(Bus string, Device string, PortIndex uint32) (*DevlinkPort, error) {
-	return pkgHandle.DevLinkGetPortByIndex(Bus, Device, PortIndex)
+	return pkgHandle().DevLinkGetPortByIndex(Bus, Device, PortIndex)
 }
 
 // DevLinkPortAdd adds a devlink port and returns a port on success
@@ -866,7 +866,7 @@ func (h *Handle) DevLinkPortAdd(Bus string, Device string, Flavour uint16, Attrs
 // DevLinkPortAdd adds a devlink port and returns a port on success
 // otherwise returns nil port and an error code.
 func DevLinkPortAdd(Bus string, Device string, Flavour uint16, Attrs DevLinkPortAddAttrs) (*DevlinkPort, error) {
-	return pkgHandle.DevLinkPortAdd(Bus, Device, Flavour, Attrs)
+	return pkgHandle().DevLinkPortAdd(Bus, Device, Flavour, Attrs)
 }
 
 // DevLinkPortDel deletes a devlink port and returns success or error code.
@@ -883,7 +883,7 @@ func (h *Handle) DevLinkPortDel(Bus string, Device string, PortIndex uint32) err
 
 // DevLinkPortDel deletes a devlink port and returns success or error code.
 func DevLinkPortDel(Bus string, Device string, PortIndex uint32) error {
-	return pkgHandle.DevLinkPortDel(Bus, Device, PortIndex)
+	return pkgHandle().DevLinkPortDel(Bus, Device, PortIndex)
 }
 
 // DevlinkPortFnSet sets one or more port function attributes specified by the attribute mask.
@@ -914,7 +914,7 @@ func (h *Handle) DevlinkPortFnSet(Bus string, Device string, PortIndex uint32, F
 // DevlinkPortFnSet sets one or more port function attributes specified by the attribute mask.
 // It returns 0 on success or error code.
 func DevlinkPortFnSet(Bus string, Device string, PortIndex uint32, FnAttrs DevlinkPortFnSetAttrs) error {
-	return pkgHandle.DevlinkPortFnSet(Bus, Device, PortIndex, FnAttrs)
+	return pkgHandle().DevlinkPortFnSet(Bus, Device, PortIndex, FnAttrs)
 }
 
 // devlinkInfoGetter is function that is responsible for getting devlink info message
@@ -937,7 +937,8 @@ func (h *Handle) DevlinkGetDeviceInfoByName(Bus string, Device string, getInfoMs
 // otherwise returns an error code.
 // Equivalent to: `devlink dev info $dev`
 func DevlinkGetDeviceInfoByName(Bus string, Device string) (*DevlinkDeviceInfo, error) {
-	return pkgHandle.DevlinkGetDeviceInfoByName(Bus, Device, pkgHandle.getDevlinkInfoMsg)
+	h := pkgHandle()
+	return h.DevlinkGetDeviceInfoByName(Bus, Device, h.getDevlinkInfoMsg)
 }
 
 // DevlinkGetDeviceInfoByNameAsMap returns devlink info for selected device as a map,
@@ -961,19 +962,22 @@ func (h *Handle) DevlinkGetDeviceInfoByNameAsMap(Bus string, Device string, getI
 // otherwise returns an error code.
 // Equivalent to: `devlink dev info $dev`
 func DevlinkGetDeviceInfoByNameAsMap(Bus string, Device string) (map[string]string, error) {
-	return pkgHandle.DevlinkGetDeviceInfoByNameAsMap(Bus, Device, pkgHandle.getDevlinkInfoMsg)
+	h := pkgHandle()
+	return h.DevlinkGetDeviceInfoByNameAsMap(Bus, Device, h.getDevlinkInfoMsg)
 }
 
 // GetDevlinkInfo returns devlink info for target device,
 // otherwise returns an error code.
 func (d *DevlinkDevice) GetDevlinkInfo() (*DevlinkDeviceInfo, error) {
-	return pkgHandle.DevlinkGetDeviceInfoByName(d.BusName, d.DeviceName, pkgHandle.getDevlinkInfoMsg)
+	h := pkgHandle()
+	return h.DevlinkGetDeviceInfoByName(d.BusName, d.DeviceName, h.getDevlinkInfoMsg)
 }
 
 // GetDevlinkInfoAsMap returns devlink info for target device as a map,
 // otherwise returns an error code.
 func (d *DevlinkDevice) GetDevlinkInfoAsMap() (map[string]string, error) {
-	return pkgHandle.DevlinkGetDeviceInfoByNameAsMap(d.BusName, d.DeviceName, pkgHandle.getDevlinkInfoMsg)
+	h := pkgHandle()
+	return h.DevlinkGetDeviceInfoByNameAsMap(d.BusName, d.DeviceName, h.getDevlinkInfoMsg)
 }
 
 func (h *Handle) getDevlinkInfoMsg(bus, device string) ([]byte, error) {

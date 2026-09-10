@@ -132,9 +132,6 @@ func (c *Client) addOperationDetachVolumeMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}

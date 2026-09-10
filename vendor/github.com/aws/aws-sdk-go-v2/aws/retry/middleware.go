@@ -93,6 +93,9 @@ func (r Attempt) logf(logger logging.Logger, classification logging.Classificati
 func (r *Attempt) HandleFinalize(ctx context.Context, in smithymiddle.FinalizeInput, next smithymiddle.FinalizeHandler) (
 	out smithymiddle.FinalizeOutput, metadata smithymiddle.Metadata, err error,
 ) {
+	ctx, span := tracing.StartSpan(ctx, "RetryLoop")
+	defer span.End()
+
 	var attemptClockSkew time.Duration
 	if !r.DisableClockSkewCorrection && r.ClientSkew != nil {
 		attemptClockSkew = time.Duration(r.ClientSkew.Load())

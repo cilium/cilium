@@ -248,6 +248,16 @@ func UnmarshalAttribute(attr *api.Attribute) (bgp.PathAttributeInterface, error)
 					return nil, fmt.Errorf("invalid ipv6 address: %s", v.Address)
 				}
 				community, _ = bgp.NewRedirectIPv6AddressSpecificExtended(addr, uint16(v.LocalAdmin))
+			case *api.IP6ExtendedCommunitiesAttribute_Community_FlowSpecRedirectToIpv6:
+				v := an.GetFlowSpecRedirectToIpv6()
+				addr, err := netip.ParseAddr(v.Address)
+				if err != nil {
+					return nil, fmt.Errorf("invalid redirect-to-ipv6 address: %s", v.Address)
+				}
+				community, err = bgp.NewFlowSpecRedirectToIPv6Extended(addr, v.Copy)
+				if err != nil {
+					return nil, err
+				}
 			}
 			if community == nil {
 				return nil, fmt.Errorf("invalid ipv6 extended community: %T", an.GetExtcom())
@@ -2483,6 +2493,13 @@ func NewExtendedCommunitiesAttributeFromNative(a *bgp.PathAttributeExtendedCommu
 					LocalAdmin: uint32(v.LocalAdmin),
 				},
 			}
+		case *bgp.FlowSpecRedirectToIPv4Extended:
+			community.Extcom = &api.ExtendedCommunity_FlowSpecRedirectToIpv4{
+				FlowSpecRedirectToIpv4: &api.FlowSpecRedirectToIPv4Extended{
+					Address: v.Target.String(),
+					Copy:    v.Copy,
+				},
+			}
 		case *bgp.RedirectFourOctetAsSpecificExtended:
 			community.Extcom = &api.ExtendedCommunity_RedirectFourOctetAsSpecific{
 				RedirectFourOctetAsSpecific: &api.RedirectFourOctetAsSpecificExtended{
@@ -2621,6 +2638,16 @@ func unmarshalExComm(a *api.ExtendedCommunitiesAttribute) (*bgp.PathAttributeExt
 				return nil, fmt.Errorf("invalid address: %s", v.Address)
 			}
 			community, _ = bgp.NewRedirectIPv4AddressSpecificExtended(addr, uint16(v.LocalAdmin))
+		case *api.ExtendedCommunity_FlowSpecRedirectToIpv4:
+			v := comm.FlowSpecRedirectToIpv4
+			addr, err := netip.ParseAddr(v.Address)
+			if err != nil {
+				return nil, fmt.Errorf("invalid redirect-to-ipv4 address: %s", v.Address)
+			}
+			community, err = bgp.NewFlowSpecRedirectToIPv4Extended(addr, v.Copy)
+			if err != nil {
+				return nil, err
+			}
 		case *api.ExtendedCommunity_RedirectFourOctetAsSpecific:
 			v := comm.RedirectFourOctetAsSpecific
 			community = bgp.NewRedirectFourOctetAsSpecificExtended(v.Asn, uint16(v.LocalAdmin))
@@ -2841,6 +2868,13 @@ func NewIP6ExtendedCommunitiesAttributeFromNative(a *bgp.PathAttributeIP6Extende
 				RedirectIpv6AddressSpecific: &api.RedirectIPv6AddressSpecificExtended{
 					Address:    v.IPv6.String(),
 					LocalAdmin: uint32(v.LocalAdmin),
+				},
+			}
+		case *bgp.FlowSpecRedirectToIPv6Extended:
+			community.Extcom = &api.IP6ExtendedCommunitiesAttribute_Community_FlowSpecRedirectToIpv6{
+				FlowSpecRedirectToIpv6: &api.FlowSpecRedirectToIPv6Extended{
+					Address: v.Target.String(),
+					Copy:    v.Copy,
 				},
 			}
 		default:
@@ -3331,6 +3365,13 @@ func MarshalSRBSID(bsid *bgp.TunnelEncapSubTLVSRBSID) (*api.SRBindingSID, error)
 		Sid: make([]byte, len(bsid.BSID.Value)),
 	}
 	copy(s.Sid, bsid.BSID.Value)
+	// An SR-MPLS BSID is a 4-octet label stack entry with the label in the
+	// high 20 bits (RFC 9830 Figure 6). NewBSID shifts the API label into
+	// that position on decode, so undo the shift here to round-trip the
+	// label value instead of the encoded stack entry.
+	if len(bsid.BSID.Value) == 4 {
+		binary.BigEndian.PutUint32(s.Sid, binary.BigEndian.Uint32(bsid.BSID.Value)>>12)
+	}
 	s.SFlag = bsid.Flags&0x80 == 0x80
 	s.IFlag = bsid.Flags&0x40 == 0x40
 	return s, nil

@@ -120,15 +120,17 @@ func RunConformanceWithOptions(t *testing.T, opts suite.ConformanceOptions) {
 	cSuite, err := suite.NewConformanceTestSuite(opts)
 	require.NoError(t, err, "error initializing conformance suite")
 
+	if opts.ReportOutputPath != "" {
+		t.Cleanup(func() {
+			report, rErr := cSuite.Report()
+			require.NoError(t, rErr, "error generating conformance profile report")
+			require.NoError(t, writeReport(t.Logf, *report, opts.ReportOutputPath), "error writing report")
+		})
+	}
+
 	cSuite.Setup(t, tests.ConformanceTests)
 	err = cSuite.Run(t, tests.ConformanceTests)
 	require.NoError(t, err)
-
-	if opts.ReportOutputPath != "" {
-		report, err := cSuite.Report()
-		require.NoError(t, err, "error generating conformance profile report")
-		require.NoError(t, writeReport(t.Logf, *report, opts.ReportOutputPath), "error writing report")
-	}
 }
 
 func logOptions(t *testing.T, opts suite.ConformanceOptions) {

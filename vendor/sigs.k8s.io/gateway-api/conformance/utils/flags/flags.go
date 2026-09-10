@@ -141,6 +141,9 @@ func init() {
 	registerBoolFlag("skip-provisional-tests", false, "Whether to skip provisional tests",
 		func(o *suite.ConfigurableOptions, v bool) { o.SkipProvisionalTests = v },
 	)
+	registerBoolFlag("disable-parallel-tests", false, "Whether to force all tests to run sequentially, even those that support running in parallel",
+		func(o *suite.ConfigurableOptions, v bool) { o.DisableParallelTests = v },
+	)
 	registerBoolFlag("fail-fast", false, "Whether to stop the suite execution upon the first test failure",
 		func(o *suite.ConfigurableOptions, v bool) { o.FailFast = v },
 	)

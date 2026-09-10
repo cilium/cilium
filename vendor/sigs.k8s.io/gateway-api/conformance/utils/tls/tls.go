@@ -17,9 +17,11 @@ limitations under the License.
 package tls
 
 import (
+	"context"
 	cryptotls "crypto/tls"
 	"errors"
 	"io"
+	"net"
 	"strings"
 	"syscall"
 	"testing"
@@ -32,6 +34,10 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
 	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
 )
+
+type contextDialer interface {
+	DialContext(ctx context.Context, network, address string) (net.Conn, error)
+}
 
 // MakeTLSRequestAndExpectEventuallyConsistentResponse makes a request with the given parameters,
 // understanding that the request may fail for some amount of time.
@@ -137,8 +143,26 @@ func MakeTLSConnectionAndExpectEventuallyConnectionRejection(t *testing.T, timeo
 		},
 	}
 
+	waitForTLSConnectionRejection(t, timeoutConfig, dialer, gwAddr, time.Second)
+}
+
+func waitForTLSConnectionRejection(t *testing.T, timeoutConfig config.TimeoutConfig, dialer contextDialer, gwAddr string, retryInterval time.Duration) {
+	t.Helper()
+
+	overallCtx, cancel := context.WithTimeout(t.Context(), timeoutConfig.MaxTimeToConsistency)
+	defer cancel()
+
 	assert.Eventually(t, func() bool {
-		_, err := dialer.DialContext(t.Context(), "tcp", gwAddr)
+		attemptCtx, cancelAttempt := context.WithTimeout(overallCtx, timeoutConfig.RequestTimeout)
+		conn, err := dialer.DialContext(attemptCtx, "tcp", gwAddr)
+		cancelAttempt()
+
+		if conn != nil {
+			if closeErr := conn.Close(); closeErr != nil {
+				tlog.Logf(t, "error closing connection: %s", closeErr)
+			}
+		}
+
 		if err != nil {
 			if isConnectionRejected(err) {
 				tlog.Logf(t, "connection was rejected during dial: %s", err)
@@ -149,7 +173,7 @@ func MakeTLSConnectionAndExpectEventuallyConnectionRejection(t *testing.T, timeo
 		}
 		tlog.Logf(t, "client could connect")
 		return false
-	}, timeoutConfig.MaxTimeToConsistency, time.Second)
+	}, timeoutConfig.MaxTimeToConsistency, retryInterval)
 }
 
 // isConnectionRejected checks if an error indicates either a TCP RST (ECONNRESET)

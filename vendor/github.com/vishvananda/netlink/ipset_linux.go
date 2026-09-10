@@ -77,52 +77,52 @@ type IpsetCreateOptions struct {
 
 // IpsetProtocol returns the ipset protocol version from the kernel
 func IpsetProtocol() (uint8, uint8, error) {
-	return pkgHandle.IpsetProtocol()
+	return pkgHandle().IpsetProtocol()
 }
 
 // IpsetCreate creates a new ipset
 func IpsetCreate(setname, typename string, options IpsetCreateOptions) error {
-	return pkgHandle.IpsetCreate(setname, typename, options)
+	return pkgHandle().IpsetCreate(setname, typename, options)
 }
 
 // IpsetDestroy destroys an existing ipset
 func IpsetDestroy(setname string) error {
-	return pkgHandle.IpsetDestroy(setname)
+	return pkgHandle().IpsetDestroy(setname)
 }
 
 // IpsetFlush flushes an existing ipset
 func IpsetFlush(setname string) error {
-	return pkgHandle.IpsetFlush(setname)
+	return pkgHandle().IpsetFlush(setname)
 }
 
 // IpsetSwap swaps two ipsets.
 func IpsetSwap(setname, othersetname string) error {
-	return pkgHandle.IpsetSwap(setname, othersetname)
+	return pkgHandle().IpsetSwap(setname, othersetname)
 }
 
 // IpsetList dumps an specific ipset.
 func IpsetList(setname string) (*IPSetResult, error) {
-	return pkgHandle.IpsetList(setname)
+	return pkgHandle().IpsetList(setname)
 }
 
 // IpsetListAll dumps all ipsets.
 func IpsetListAll() ([]IPSetResult, error) {
-	return pkgHandle.IpsetListAll()
+	return pkgHandle().IpsetListAll()
 }
 
 // IpsetAdd adds an entry to an existing ipset.
 func IpsetAdd(setname string, entry *IPSetEntry) error {
-	return pkgHandle.IpsetAdd(setname, entry)
+	return pkgHandle().IpsetAdd(setname, entry)
 }
 
 // IpsetDel deletes an entry from an existing ipset.
 func IpsetDel(setname string, entry *IPSetEntry) error {
-	return pkgHandle.IpsetDel(setname, entry)
+	return pkgHandle().IpsetDel(setname, entry)
 }
 
 // IpsetTest tests whether an entry is in a set or not.
 func IpsetTest(setname string, entry *IPSetEntry) (bool, error) {
-	return pkgHandle.IpsetTest(setname, entry)
+	return pkgHandle().IpsetTest(setname, entry)
 }
 
 func (h *Handle) IpsetProtocol() (protocol uint8, minVersion uint8, err error) {
@@ -470,13 +470,15 @@ func getIpsetDefaultRevision(typename string, featureFlags uint32) uint8 {
 
 func ipsetExecute(req *nl.NetlinkRequest) (msgs [][]byte, err error) {
 	msgs, err = req.Execute(unix.NETLINK_NETFILTER, 0)
+	return msgs, ipsetError(err)
+}
 
-	if err != nil {
-		if errno := int(err.(syscall.Errno)); errno >= nl.IPSET_ERR_PRIVATE {
-			err = nl.IPSetError(uintptr(errno))
-		}
+func ipsetError(err error) error {
+	errno, ok := err.(syscall.Errno)
+	if !ok || int(errno) < nl.IPSET_ERR_PRIVATE {
+		return err
 	}
-	return
+	return nl.IPSetError(uintptr(errno))
 }
 
 func ipsetUnserialize(msgs [][]byte) (result IPSetResult) {

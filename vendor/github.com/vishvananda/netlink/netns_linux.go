@@ -36,7 +36,7 @@ func (h *Handle) GetNetNsIdByPid(pid int) (int, error) {
 // GetNetNsIdByPid looks up the network namespace ID for a given pid (really thread id).
 // Returns -1 if the namespace does not have an ID set.
 func GetNetNsIdByPid(pid int) (int, error) {
-	return pkgHandle.GetNetNsIdByPid(pid)
+	return pkgHandle().GetNetNsIdByPid(pid)
 }
 
 // SetNetNSIdByPid sets the ID of the network namespace for a given pid (really thread id).
@@ -48,7 +48,7 @@ func (h *Handle) SetNetNsIdByPid(pid, nsid int) error {
 // SetNetNSIdByPid sets the ID of the network namespace for a given pid (really thread id).
 // The ID can only be set for namespaces without an ID already set.
 func SetNetNsIdByPid(pid, nsid int) error {
-	return pkgHandle.SetNetNsIdByPid(pid, nsid)
+	return pkgHandle().SetNetNsIdByPid(pid, nsid)
 }
 
 // GetNetNsIdByFd looks up the network namespace ID for a given fd.
@@ -62,7 +62,7 @@ func (h *Handle) GetNetNsIdByFd(fd int) (int, error) {
 // fd must be an open file descriptor to a namespace file.
 // Returns -1 if the namespace does not have an ID set.
 func GetNetNsIdByFd(fd int) (int, error) {
-	return pkgHandle.GetNetNsIdByFd(fd)
+	return pkgHandle().GetNetNsIdByFd(fd)
 }
 
 // SetNetNSIdByFd sets the ID of the network namespace for a given fd.
@@ -76,7 +76,7 @@ func (h *Handle) SetNetNsIdByFd(fd, nsid int) error {
 // fd must be an open file descriptor to a namespace file.
 // The ID can only be set for namespaces without an ID already set.
 func SetNetNsIdByFd(fd, nsid int) error {
-	return pkgHandle.SetNetNsIdByFd(fd, nsid)
+	return pkgHandle().SetNetNsIdByFd(fd, nsid)
 }
 
 // getNetNsId requests the netnsid for a given type-val pair

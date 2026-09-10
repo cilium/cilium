@@ -61,7 +61,6 @@ spec:
       port: 9090
     - name: grpc
       port: 7070
-      appProtocol: grpc
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -118,7 +117,6 @@ spec:
       port: 9090
     - name: grpc
       port: 7070
-      appProtocol: grpc
 ---
 apiVersion: v1
 kind: Service
@@ -143,7 +141,7 @@ spec:
       port: 9090
     - name: grpc
       port: 7070
-      appProtocol: grpc
+      appProtocol: kubernetes.io/h2c
 ---
 apiVersion: v1
 kind: Namespace

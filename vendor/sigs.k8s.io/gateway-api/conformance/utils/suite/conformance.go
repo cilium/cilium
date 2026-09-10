@@ -42,7 +42,7 @@ type ConformanceTest struct {
 // Run runs an individual tests, applying and cleaning up the required manifests
 // before calling the Test function.
 func (test *ConformanceTest) Run(t *testing.T, suite *ConformanceTestSuite) {
-	if test.Parallel {
+	if test.Parallel && !suite.DisableParallelTests {
 		t.Parallel()
 	}
 

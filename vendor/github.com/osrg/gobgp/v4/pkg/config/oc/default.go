@@ -228,7 +228,7 @@ func setDefaultNeighborConfigValuesWithViper(v *viper.Viper, n *Neighbor, g *Glo
 
 	if n.EbgpMultihop.Config.Enabled {
 		if n.TtlSecurity.Config.Enabled {
-			return fmt.Errorf("ebgp-multihop and ttl-security are mututally exclusive")
+			return fmt.Errorf("ebgp-multihop and ttl-security are mutually exclusive")
 		}
 		if n.EbgpMultihop.Config.MultihopTtl == 0 {
 			n.EbgpMultihop.Config.MultihopTtl = 255

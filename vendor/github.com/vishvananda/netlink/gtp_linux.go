@@ -102,7 +102,7 @@ func (h *Handle) GTPPDPList() ([]*PDP, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func GTPPDPList() ([]*PDP, error) {
-	return pkgHandle.GTPPDPList()
+	return pkgHandle().GTPPDPList()
 }
 
 func gtpPDPGet(req *nl.NetlinkRequest) (*PDP, error) {
@@ -138,7 +138,7 @@ func (h *Handle) GTPPDPByTID(link Link, tid int) (*PDP, error) {
 }
 
 func GTPPDPByTID(link Link, tid int) (*PDP, error) {
-	return pkgHandle.GTPPDPByTID(link, tid)
+	return pkgHandle().GTPPDPByTID(link, tid)
 }
 
 func (h *Handle) GTPPDPByITEI(link Link, itei int) (*PDP, error) {
@@ -159,7 +159,7 @@ func (h *Handle) GTPPDPByITEI(link Link, itei int) (*PDP, error) {
 }
 
 func GTPPDPByITEI(link Link, itei int) (*PDP, error) {
-	return pkgHandle.GTPPDPByITEI(link, itei)
+	return pkgHandle().GTPPDPByITEI(link, itei)
 }
 
 func (h *Handle) GTPPDPByMSAddress(link Link, addr net.IP) (*PDP, error) {
@@ -180,7 +180,7 @@ func (h *Handle) GTPPDPByMSAddress(link Link, addr net.IP) (*PDP, error) {
 }
 
 func GTPPDPByMSAddress(link Link, addr net.IP) (*PDP, error) {
-	return pkgHandle.GTPPDPByMSAddress(link, addr)
+	return pkgHandle().GTPPDPByMSAddress(link, addr)
 }
 
 func (h *Handle) GTPPDPAdd(link Link, pdp *PDP) error {
@@ -214,7 +214,7 @@ func (h *Handle) GTPPDPAdd(link Link, pdp *PDP) error {
 }
 
 func GTPPDPAdd(link Link, pdp *PDP) error {
-	return pkgHandle.GTPPDPAdd(link, pdp)
+	return pkgHandle().GTPPDPAdd(link, pdp)
 }
 
 func (h *Handle) GTPPDPDel(link Link, pdp *PDP) error {
@@ -244,5 +244,5 @@ func (h *Handle) GTPPDPDel(link Link, pdp *PDP) error {
 }
 
 func GTPPDPDel(link Link, pdp *PDP) error {
-	return pkgHandle.GTPPDPDel(link, pdp)
+	return pkgHandle().GTPPDPDel(link, pdp)
 }

@@ -3894,6 +3894,18 @@ func (lhs *Policy) Add(rhs *Policy) error {
 }
 
 func (lhs *Policy) Remove(rhs *Policy) error {
+	for _, y := range rhs.Statements {
+		found := false
+		for _, x := range lhs.Statements {
+			if x.Name == y.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("not found statement %s in policy %s", y.Name, lhs.Name)
+		}
+	}
 	stmts := make([]*Statement, 0, len(lhs.Statements))
 	for _, x := range lhs.Statements {
 		found := false
@@ -4518,7 +4530,7 @@ func (r *RoutingPolicy) AddPolicy(x *Policy, refer bool) (err error) {
 	return err
 }
 
-func (r *RoutingPolicy) DeletePolicy(x *Policy, all, preserve bool, activeId []string) (err error) {
+func (r *RoutingPolicy) DeletePolicy(x *Policy, all, preserve bool) (err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -4530,9 +4542,11 @@ func (r *RoutingPolicy) DeletePolicy(x *Policy, all, preserve bool, activeId []s
 		err = fmt.Errorf("not found policy: %s", name)
 		return err
 	}
-	inUse := func(ids []string) bool {
-		for _, id := range ids {
-			for _, dir := range []PolicyDirection{POLICY_DIRECTION_EXPORT, POLICY_DIRECTION_EXPORT} {
+	// The assignment map holds the global RIB and the route server clients that
+	// still exist. An entry is removed when the peer goes away.
+	inUse := func() bool {
+		for id := range r.assignmentMap {
+			for _, dir := range []PolicyDirection{POLICY_DIRECTION_IMPORT, POLICY_DIRECTION_EXPORT} {
 				for _, y := range r.getPolicy(id, dir) {
 					if x.Name == y.Name {
 						return true
@@ -4544,7 +4558,7 @@ func (r *RoutingPolicy) DeletePolicy(x *Policy, all, preserve bool, activeId []s
 	}
 
 	if all {
-		if inUse(activeId) {
+		if inUse() {
 			err = fmt.Errorf("can't delete. policy %s is in use", name)
 			return err
 		}
@@ -4556,7 +4570,12 @@ func (r *RoutingPolicy) DeletePolicy(x *Policy, all, preserve bool, activeId []s
 		err = y.Remove(x)
 	}
 	if err == nil && !preserve {
-		for _, st := range y.Statements {
+		statements := x.Statements
+		if all {
+			statements = y.Statements
+		}
+
+		for _, st := range statements {
 			if !r.statementInUse(st) {
 				r.logger.Debug("delete unused statement",
 					slog.String("Topic", "Policy"),
@@ -4727,6 +4746,16 @@ func (r *RoutingPolicy) SetPeerPolicy(peerId string, c oc.ApplyPolicy) error {
 
 	r.setPeerPolicy(peerId, c)
 	return nil
+}
+
+// DeletePeerPolicy drops the policy assignment of a peer that is gone. Nothing
+// else removes an entry from the assignment map, so without this the map grows
+// every time a dynamic neighbor connects.
+func (r *RoutingPolicy) DeletePeerPolicy(peerId string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.assignmentMap, peerId)
 }
 
 func (r *RoutingPolicy) Reset(rp *oc.RoutingPolicy, ap map[string]oc.ApplyPolicy) error {

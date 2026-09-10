@@ -36,17 +36,6 @@ type VPLSNLRI struct {
 }
 
 func (n *VPLSNLRI) decodeFromBytes(data []byte, options ...*MarshallingOption) error {
-	/*
-		RFC6074 Section 7 BGP-AD and VPLS-BGP Interoperability
-		Both BGP-AD and VPLS-BGP [RFC4761] use the same AFI/SAFI.  In order
-		for both BGP-AD and VPLS-BGP to co-exist, the NLRI length must be
-		used as a demultiplexer.
-
-		The BGP-AD NLRI has an NLRI length of 12 bytes, containing only an
-		8-byte RD and a 4-byte VSI-ID. VPLS-BGP [RFC4761] uses a 17-byte
-		NLRI length.  Therefore, implementations of BGP-AD must ignore NLRI
-		that are greater than 12 bytes.
-	*/
 	if len(data) < 2 {
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "Not all VPLS NLRI bytes available")
 	}
@@ -54,12 +43,14 @@ func (n *VPLSNLRI) decodeFromBytes(data []byte, options ...*MarshallingOption) e
 	if len(data) < length+2 {
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "Not all VPLS NLRI bytes available")
 	}
-	if length == 12 { // BGP-AD
-		// BGP-AD is not supported yet
-		return nil
-	}
-	if len(data) < 19 {
-		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "Not all VPLS NLRI bytes available")
+	// RFC 4761 VPLS-BGP NLRI is a fixed 17 bytes, which is the size Len()
+	// reports to the MP_(UN)REACH framing loop. A different length desyncs
+	// Len() from the on-wire size and mis-frames the following NLRIs; the
+	// 12-byte RFC 6074 BGP-AD NLRI in particular was decoded into a route with
+	// a nil RD that panics when re-serialized. gobgp does not support BGP-AD,
+	// so reject anything that is not a 17-byte VPLS-BGP NLRI.
+	if length != 17 {
+		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "unsupported VPLS NLRI length")
 	}
 	// VPLS-BGP
 	n.rd = GetRouteDistinguisher(data[2:10])
@@ -87,7 +78,12 @@ func (n *VPLSNLRI) Serialize(options ...*MarshallingOption) ([]byte, error) {
 	binary.BigEndian.PutUint16(buf[12:14], n.VEBlockOffset)
 	binary.BigEndian.PutUint16(buf[14:16], n.VEBlockSize)
 
-	labelBlockBase := n.LabelBlockBase << 4
+	// RFC 4761 does not say how the 3-octet Label Base is laid out. Treat it
+	// like the label field of RFC 8277 section 2.2: a 20-bit label value, a
+	// 3-bit reserved field, and the bottom-of-stack bit, which "MUST be set
+	// to one on transmission". The decoder drops those low 4 bits, so without
+	// this the base goes back out with the bottom-of-stack bit cleared.
+	labelBlockBase := n.LabelBlockBase<<4 | 1
 	labelBaseBuf[0] = byte(labelBlockBase >> 16 & 0xff)
 	labelBaseBuf[1] = byte(labelBlockBase >> 8 & 0xff)
 	labelBaseBuf[2] = byte(labelBlockBase & 0xff)

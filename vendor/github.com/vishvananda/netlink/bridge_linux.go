@@ -15,7 +15,7 @@ import (
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func BridgeVlanTunnelShow() ([]nl.TunnelInfo, error) {
-	return pkgHandle.BridgeVlanTunnelShow()
+	return pkgHandle().BridgeVlanTunnelShow()
 }
 
 func (h *Handle) BridgeVlanTunnelShow() ([]nl.TunnelInfo, error) {
@@ -29,7 +29,7 @@ func (h *Handle) BridgeVlanTunnelShow() ([]nl.TunnelInfo, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func BridgeVlanTunnelShowDev(link Link) ([]nl.TunnelInfo, error) {
-	return pkgHandle.BridgeVlanTunnelShowDev(link)
+	return pkgHandle().BridgeVlanTunnelShowDev(link)
 }
 
 func (h *Handle) BridgeVlanTunnelShowDev(link Link) ([]nl.TunnelInfo, error) {
@@ -137,7 +137,7 @@ func parseTunnelInfo(nestAttr *syscall.NetlinkRouteAttr, results []nl.TunnelInfo
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func BridgeVlanList() (map[int32][]*nl.BridgeVlanInfo, error) {
-	return pkgHandle.BridgeVlanList()
+	return pkgHandle().BridgeVlanList()
 }
 
 // BridgeVlanList gets a map of device id to bridge vlan infos.
@@ -187,13 +187,13 @@ func (h *Handle) BridgeVlanList() (map[int32][]*nl.BridgeVlanInfo, error) {
 // BridgeVlanAddTunnelInfo adds a new vlan filter entry
 // Equivalent to: `bridge vlan add dev DEV vid VID tunnel_info id TUNID [ self ] [ master ]`
 func BridgeVlanAddTunnelInfo(link Link, vid uint16, tunid uint32, self, master bool) error {
-	return pkgHandle.BridgeVlanAddTunnelInfo(link, vid, 0, tunid, 0, self, master)
+	return pkgHandle().BridgeVlanAddTunnelInfo(link, vid, 0, tunid, 0, self, master)
 }
 
 // BridgeVlanAddRangeTunnelInfoRange adds a new vlan filter entry
 // Equivalent to: `bridge vlan add dev DEV vid VID-VIDEND tunnel_info id VIN-VINEND [ self ] [ master ]`
 func BridgeVlanAddRangeTunnelInfoRange(link Link, vid, vidEnd uint16, tunid, tunidEnd uint32, self, master bool) error {
-	return pkgHandle.BridgeVlanAddTunnelInfo(link, vid, vidEnd, tunid, tunidEnd, self, master)
+	return pkgHandle().BridgeVlanAddTunnelInfo(link, vid, vidEnd, tunid, tunidEnd, self, master)
 }
 
 func (h *Handle) BridgeVlanAddTunnelInfo(link Link, vid, vidEnd uint16, tunid, tunidEnd uint32, self, master bool) error {
@@ -203,13 +203,13 @@ func (h *Handle) BridgeVlanAddTunnelInfo(link Link, vid, vidEnd uint16, tunid, t
 // BridgeVlanDelTunnelInfo adds a new vlan filter entry
 // Equivalent to: `bridge vlan del dev DEV vid VID tunnel_info id TUNID [ self ] [ master ]`
 func BridgeVlanDelTunnelInfo(link Link, vid uint16, tunid uint32, self, master bool) error {
-	return pkgHandle.BridgeVlanDelTunnelInfo(link, vid, 0, tunid, 0, self, master)
+	return pkgHandle().BridgeVlanDelTunnelInfo(link, vid, 0, tunid, 0, self, master)
 }
 
 // BridgeVlanDelRangeTunnelInfoRange adds a new vlan filter entry
 // Equivalent to: `bridge vlan del dev DEV vid VID-VIDEND tunnel_info id VIN-VINEND [ self ] [ master ]`
 func BridgeVlanDelRangeTunnelInfoRange(link Link, vid, vidEnd uint16, tunid, tunidEnd uint32, self, master bool) error {
-	return pkgHandle.BridgeVlanDelTunnelInfo(link, vid, vidEnd, tunid, tunidEnd, self, master)
+	return pkgHandle().BridgeVlanDelTunnelInfo(link, vid, vidEnd, tunid, tunidEnd, self, master)
 }
 
 func (h *Handle) BridgeVlanDelTunnelInfo(link Link, vid, vidEnd uint16, tunid, tunidEnd uint32, self, master bool) error {
@@ -219,7 +219,7 @@ func (h *Handle) BridgeVlanDelTunnelInfo(link Link, vid, vidEnd uint16, tunid, t
 // BridgeVlanAdd adds a new vlan filter entry
 // Equivalent to: `bridge vlan add dev DEV vid VID [ pvid ] [ untagged ] [ self ] [ master ]`
 func BridgeVlanAdd(link Link, vid uint16, pvid, untagged, self, master bool) error {
-	return pkgHandle.BridgeVlanAdd(link, vid, pvid, untagged, self, master)
+	return pkgHandle().BridgeVlanAdd(link, vid, pvid, untagged, self, master)
 }
 
 // BridgeVlanAdd adds a new vlan filter entry
@@ -231,7 +231,7 @@ func (h *Handle) BridgeVlanAdd(link Link, vid uint16, pvid, untagged, self, mast
 // BridgeVlanAddRange adds a new vlan filter entry
 // Equivalent to: `bridge vlan add dev DEV vid VID-VIDEND [ pvid ] [ untagged ] [ self ] [ master ]`
 func BridgeVlanAddRange(link Link, vid, vidEnd uint16, pvid, untagged, self, master bool) error {
-	return pkgHandle.BridgeVlanAddRange(link, vid, vidEnd, pvid, untagged, self, master)
+	return pkgHandle().BridgeVlanAddRange(link, vid, vidEnd, pvid, untagged, self, master)
 }
 
 // BridgeVlanAddRange adds a new vlan filter entry
@@ -243,7 +243,7 @@ func (h *Handle) BridgeVlanAddRange(link Link, vid, vidEnd uint16, pvid, untagge
 // BridgeVlanDel adds a new vlan filter entry
 // Equivalent to: `bridge vlan del dev DEV vid VID [ pvid ] [ untagged ] [ self ] [ master ]`
 func BridgeVlanDel(link Link, vid uint16, pvid, untagged, self, master bool) error {
-	return pkgHandle.BridgeVlanDel(link, vid, pvid, untagged, self, master)
+	return pkgHandle().BridgeVlanDel(link, vid, pvid, untagged, self, master)
 }
 
 // BridgeVlanDel adds a new vlan filter entry
@@ -255,7 +255,7 @@ func (h *Handle) BridgeVlanDel(link Link, vid uint16, pvid, untagged, self, mast
 // BridgeVlanDelRange adds a new vlan filter entry
 // Equivalent to: `bridge vlan del dev DEV vid VID-VIDEND [ pvid ] [ untagged ] [ self ] [ master ]`
 func BridgeVlanDelRange(link Link, vid, vidEnd uint16, pvid, untagged, self, master bool) error {
-	return pkgHandle.BridgeVlanDelRange(link, vid, vidEnd, pvid, untagged, self, master)
+	return pkgHandle().BridgeVlanDelRange(link, vid, vidEnd, pvid, untagged, self, master)
 }
 
 // BridgeVlanDelRange adds a new vlan filter entry
@@ -333,7 +333,7 @@ func (h *Handle) bridgeVlanModify(cmd int, link Link, vid, vidEnd uint16, tunid,
 // BridgeVniAdd adds a new vni filter entry
 // Equivalent to: `bridge vni add dev DEV vni VNI`
 func BridgeVniAdd(link Link, vni uint32) error {
-	return pkgHandle.BridgeVniAdd(link, vni)
+	return pkgHandle().BridgeVniAdd(link, vni)
 }
 
 // BridgeVniAdd adds a new vni filter entry
@@ -345,7 +345,7 @@ func (h *Handle) BridgeVniAdd(link Link, vni uint32) error {
 // BridgeVniAddRange adds a new vni filter entry
 // Equivalent to: `bridge vni add dev DEV vni VNI-VNIEND`
 func BridgeVniAddRange(link Link, vniStart, vniEnd uint32) error {
-	return pkgHandle.BridgeVniAddRange(link, vniStart, vniEnd)
+	return pkgHandle().BridgeVniAddRange(link, vniStart, vniEnd)
 }
 
 // BridgeVniAddRange adds a new vni filter entry
@@ -357,7 +357,7 @@ func (h *Handle) BridgeVniAddRange(link Link, vniStart, vniEnd uint32) error {
 // BridgeVniDel deletes a vni filter entry
 // Equivalent to: `bridge vni del dev DEV vni VNI`
 func BridgeVniDel(link Link, vni uint32) error {
-	return pkgHandle.BridgeVniDel(link, vni)
+	return pkgHandle().BridgeVniDel(link, vni)
 }
 
 // BridgeVniDel deletes a vni filter entry
@@ -369,7 +369,7 @@ func (h *Handle) BridgeVniDel(link Link, vni uint32) error {
 // BridgeVniDelRange deletes a vni filter entry
 // Equivalent to: `bridge vni del dev DEV vni VNI-VNIEND`
 func BridgeVniDelRange(link Link, vniStart, vniEnd uint32) error {
-	return pkgHandle.BridgeVniDelRange(link, vniStart, vniEnd)
+	return pkgHandle().BridgeVniDelRange(link, vniStart, vniEnd)
 }
 
 // BridgeVniDelRange deletes a vni filter entry
@@ -403,7 +403,7 @@ func (h *Handle) bridgeVniModify(cmd int, link Link, vniStart, vniEnd uint32) er
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func BridgeVniList() (map[int32][]*nl.BridgeVniInfo, error) {
-	return pkgHandle.BridgeVniList()
+	return pkgHandle().BridgeVniList()
 }
 
 // BridgeVniList gets a map of device id to vni filter infos.

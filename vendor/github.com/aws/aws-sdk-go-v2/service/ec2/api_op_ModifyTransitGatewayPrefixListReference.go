@@ -73,9 +73,6 @@ func (c *Client) addOperationModifyTransitGatewayPrefixListReferenceMiddlewares(
 		return err
 	}
 
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}

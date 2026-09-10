@@ -64,7 +64,7 @@ func FouFamilyId() (int, error) {
 }
 
 func FouAdd(f Fou) error {
-	return pkgHandle.FouAdd(f)
+	return pkgHandle().FouAdd(f)
 }
 
 func (h *Handle) FouAdd(f Fou) error {
@@ -100,7 +100,7 @@ func (h *Handle) FouAdd(f Fou) error {
 }
 
 func FouDel(f Fou) error {
-	return pkgHandle.FouDel(f)
+	return pkgHandle().FouDel(f)
 }
 
 func (h *Handle) FouDel(f Fou) error {
@@ -137,7 +137,7 @@ func (h *Handle) FouDel(f Fou) error {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func FouList(fam int) ([]Fou, error) {
-	return pkgHandle.FouList(fam)
+	return pkgHandle().FouList(fam)
 }
 
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent

@@ -71,16 +71,36 @@ const (
 
 type fsmStateReason struct {
 	Type            fsmStateReasonType
-	BGPNotification *bgp.BGPMessage
+	BGPNotification *bgp.BGPNotification
 	Data            []byte
 }
 
-func newfsmStateReason(typ fsmStateReasonType, notif *bgp.BGPMessage, data []byte) *fsmStateReason {
+func newfsmStateReason(typ fsmStateReasonType, notif *bgp.BGPNotification, data []byte) *fsmStateReason {
 	return &fsmStateReason{
 		Type:            typ,
 		BGPNotification: notif,
 		Data:            data,
 	}
+}
+
+// notificationBody returns the NOTIFICATION body of m, or nil when m is nil.
+// m must be a NOTIFICATION message.
+func notificationBody(m *bgp.BGPMessage) *bgp.BGPNotification {
+	if m == nil {
+		return nil
+	}
+	return m.Body.(*bgp.BGPNotification)
+}
+
+// notificationMessage rebuilds the NOTIFICATION message that the reason
+// carries. The result serializes to the same bytes as the message that was
+// sent to or received from the peer.
+func (r *fsmStateReason) notificationMessage() *bgp.BGPMessage {
+	if r.BGPNotification == nil {
+		return nil
+	}
+	n := r.BGPNotification
+	return bgp.NewBGPNotificationMessage(n.ErrorCode, n.ErrorSubcode, n.Data)
 }
 
 func (r fsmStateReason) String() string {
@@ -94,11 +114,11 @@ func (r fsmStateReason) String() string {
 	case fsmWriteFailed:
 		return "write-failed"
 	case fsmNotificationSent:
-		body := r.BGPNotification.Body.(*bgp.BGPNotification)
-		return fmt.Sprintf("notification-sent %s", bgp.NewNotificationErrorCode(body.ErrorCode, body.ErrorSubcode).String())
+		n := r.BGPNotification
+		return fmt.Sprintf("notification-sent %s", bgp.NewNotificationErrorCode(n.ErrorCode, n.ErrorSubcode).String())
 	case fsmNotificationRecv:
-		body := r.BGPNotification.Body.(*bgp.BGPNotification)
-		return fmt.Sprintf("notification-received %s", bgp.NewNotificationErrorCode(body.ErrorCode, body.ErrorSubcode).String())
+		n := r.BGPNotification
+		return fmt.Sprintf("notification-received %s", bgp.NewNotificationErrorCode(n.ErrorCode, n.ErrorSubcode).String())
 	case fsmHoldTimerExpired:
 		return "hold-timer-expired"
 	case fsmIdleTimerExpired:
@@ -1018,7 +1038,7 @@ func (h *fsmHandler) active(ctx context.Context) (bgp.FSMState, *fsmStateReason)
 				fsm.recvOpen = result.open
 				fsm.lock.Unlock()
 
-				return bgp.BGP_FSM_OPENCONFIRM, newfsmStateReason(fsmOpenMsgReceived, result.open, nil)
+				return bgp.BGP_FSM_OPENCONFIRM, newfsmStateReason(fsmOpenMsgReceived, nil, nil)
 			}
 		case <-fsm.gracefulRestartTimer.C:
 			conf := fsm.pConf.ReadOnly()
@@ -1317,7 +1337,7 @@ func (h *fsmHandler) recvMessageWithError(conn net.Conn, stateReasonCh chan<- fs
 			}
 		}
 		if hd.Len > maxLen {
-			err = bgp.NewMessageError(bgp.BGP_ERROR_MESSAGE_HEADER_ERROR, bgp.BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "too large BGP message length")
+			err = bgp.NewMessageError(bgp.BGP_ERROR_MESSAGE_HEADER_ERROR, bgp.BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, binary.BigEndian.AppendUint16(nil, hd.Len), fmt.Sprintf("too large BGP message length %d", hd.Len))
 		}
 	}
 	if err != nil {
@@ -1465,15 +1485,17 @@ func (fsm *fsm) handleOpen(fmsg *fsmMsg) (bgp.FSMState, *fsmStateReason, *bgp.BG
 				err := err.(*bgp.MessageError)
 				notif := bgp.NewBGPNotificationMessage(err.TypeCode, err.SubTypeCode, err.Data)
 				if err.TypeCode == bgp.BGP_ERROR_OPEN_MESSAGE_ERROR && err.SubTypeCode == bgp.BGP_ERROR_SUB_BAD_PEER_AS {
-					return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmBadPeerAS, m, nil), notif
+					return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmBadPeerAS, notificationBody(notif), nil), notif
 				}
-				return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmInvalidMsg, m, nil), notif
+				return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmInvalidMsg, notificationBody(notif), nil), notif
 			}
 			return bgp.BGP_FSM_OPENCONFIRM, newfsmStateReason(fsmOpenMsgReceived, nil, nil), nil
 		}
-		return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmInvalidMsg, m, nil), bgp.NewBGPNotificationMessage(bgp.BGP_ERROR_FSM_ERROR, 1, nil)
+		notif := bgp.NewBGPNotificationMessage(bgp.BGP_ERROR_FSM_ERROR, 1, nil)
+		return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmInvalidMsg, notificationBody(notif), nil), notif
 	case *bgp.MessageError:
-		return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmInvalidMsg, nil, nil), bgp.NewBGPNotificationMessage(m.TypeCode, m.SubTypeCode, m.Data)
+		notif := bgp.NewBGPNotificationMessage(m.TypeCode, m.SubTypeCode, m.Data)
+		return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmInvalidMsg, notificationBody(notif), nil), notif
 	}
 	panic("handleOpen was called with invalid fsmMsg")
 }
@@ -1608,14 +1630,14 @@ func (h *fsmHandler) opensent(ctx context.Context) (bgp.FSMState, *fsmStateReaso
 				return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmWriteFailed, nil, nil)
 			}
 			fsm.bgpMessageStateUpdate(bgp.BGP_MSG_KEEPALIVE, false)
-			return bgp.BGP_FSM_OPENCONFIRM, newfsmStateReason(fsmOpenMsgReceived, result.open, nil)
+			return bgp.BGP_FSM_OPENCONFIRM, newfsmStateReason(fsmOpenMsgReceived, nil, nil)
 		case err := <-reasonCh:
 			fsm.conn.Close()
 			return bgp.BGP_FSM_IDLE, &err
 		case <-holdTimer.C:
 			m := bgp.NewBGPNotificationMessage(bgp.BGP_ERROR_HOLD_TIMER_EXPIRED, 0, nil)
 			_ = fsm.sendNotification(fsm.conn, m)
-			return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmHoldTimerExpired, m, nil)
+			return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmHoldTimerExpired, notificationBody(m), nil)
 		case stateOp := <-fsm.adminStateCh:
 			err := h.changeadminState(stateOp.State)
 			if err == nil {
@@ -1721,7 +1743,7 @@ func (h *fsmHandler) openconfirm(ctx context.Context) (bgp.FSMState, *fsmStateRe
 			case *bgp.MessageError:
 				n := bgp.NewBGPNotificationMessage(m.TypeCode, m.SubTypeCode, m.Data)
 				_ = fsm.sendNotification(fsm.conn, n)
-				return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmInvalidMsg, n, nil)
+				return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmInvalidMsg, notificationBody(n), nil)
 			default:
 				fsm.logger.Error("unknown msg type",
 					slog.String("State", fsm.state.String()),
@@ -1733,7 +1755,7 @@ func (h *fsmHandler) openconfirm(ctx context.Context) (bgp.FSMState, *fsmStateRe
 		case <-holdTimer.C:
 			m := bgp.NewBGPNotificationMessage(bgp.BGP_ERROR_HOLD_TIMER_EXPIRED, 0, nil)
 			_ = fsm.sendNotification(fsm.conn, m)
-			return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmHoldTimerExpired, m, nil)
+			return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmHoldTimerExpired, notificationBody(m), nil)
 		case stateOp := <-fsm.adminStateCh:
 			err := h.changeadminState(stateOp.State)
 			if err == nil {
@@ -1956,9 +1978,9 @@ func (h *fsmHandler) recvMessageloop(ctx context.Context, conn net.Conn, holdtim
 					s := conf.GracefulRestart.State
 					hardReset := s.Enabled && s.NotificationEnabled && body.ErrorCode == bgp.BGP_ERROR_CEASE && body.ErrorSubcode == bgp.BGP_ERROR_SUB_HARD_RESET
 					if hardReset {
-						nonblockSendChannel(stateReasonCh, *newfsmStateReason(fsmHardReset, m, nil))
+						nonblockSendChannel(stateReasonCh, *newfsmStateReason(fsmHardReset, body, nil))
 					} else {
-						nonblockSendChannel(stateReasonCh, *newfsmStateReason(fsmNotificationRecv, m, nil))
+						nonblockSendChannel(stateReasonCh, *newfsmStateReason(fsmNotificationRecv, body, nil))
 					}
 				}
 
@@ -2042,11 +2064,11 @@ func (h *fsmHandler) established(ctx context.Context) (bgp.FSMState, *fsmStateRe
 				// fsm.sendNotification closes the connection.
 				fsm.conn.Close()
 			}
-			return -1, newfsmStateReason(fsmDeConfigured, m, nil)
+			return -1, newfsmStateReason(fsmDeConfigured, notificationBody(m), nil)
 		case m := <-fsm.notification:
 			m = convertNotification(m)
 			_ = fsm.sendNotification(fsm.conn, m)
-			return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmNotificationSent, m, nil)
+			return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmNotificationSent, notificationBody(m), nil)
 		case conn, ok := <-fsm.connCh:
 			if !ok {
 				break
@@ -2065,7 +2087,7 @@ func (h *fsmHandler) established(ctx context.Context) (bgp.FSMState, *fsmStateRe
 			if s := conf.GracefulRestart.State; s.Enabled {
 				if s.NotificationEnabled && err.Type == fsmNotificationRecv ||
 					err.Type == fsmNotificationSent &&
-						err.BGPNotification.Body.(*bgp.BGPNotification).ErrorCode == bgp.BGP_ERROR_HOLD_TIMER_EXPIRED ||
+						err.BGPNotification.ErrorCode == bgp.BGP_ERROR_HOLD_TIMER_EXPIRED ||
 					err.Type == fsmReadFailed ||
 					err.Type == fsmWriteFailed {
 					err = *newfsmStateReason(fsmGracefulRestart, nil, nil)
@@ -2088,11 +2110,11 @@ func (h *fsmHandler) established(ctx context.Context) (bgp.FSMState, *fsmStateRe
 			// Let it fallback to read/write error or fsmNotificationSent handled above
 			// Reference: https://github.com/osrg/gobgp/issues/2174
 			if !s.Enabled {
-				return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmHoldTimerExpired, m, nil)
+				return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmHoldTimerExpired, notificationBody(m), nil)
 			} else if err != nil {
 				return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmWriteFailed, nil, nil)
 			}
-			reasonCh <- *newfsmStateReason(fsmNotificationSent, m, nil)
+			reasonCh <- *newfsmStateReason(fsmNotificationSent, notificationBody(m), nil)
 		case <-holdtimerResetCh:
 			conf := fsm.pConf.ReadOnly()
 			if conf.Timers.State.NegotiatedHoldTime != 0 {
@@ -2105,7 +2127,7 @@ func (h *fsmHandler) established(ctx context.Context) (bgp.FSMState, *fsmStateRe
 				case adminStateDown:
 					m := bgp.NewBGPNotificationMessage(bgp.BGP_ERROR_CEASE, bgp.BGP_ERROR_SUB_ADMINISTRATIVE_SHUTDOWN, stateOp.Communication)
 					_ = fsm.sendNotification(fsm.conn, m)
-					return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmAdminDown, m, nil)
+					return bgp.BGP_FSM_IDLE, newfsmStateReason(fsmAdminDown, notificationBody(m), nil)
 				case adminStatePfxCt:
 					_ = fsm.sendNotification(fsm.conn, bgp.NewBGPNotificationMessage(bgp.BGP_ERROR_CEASE, bgp.BGP_ERROR_SUB_MAXIMUM_NUMBER_OF_PREFIXES_REACHED, nil))
 				}

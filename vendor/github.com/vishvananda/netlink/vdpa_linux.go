@@ -108,13 +108,13 @@ func IsBitSet(input uint64, pos int) bool {
 // VDPANewDev adds new VDPA device
 // Equivalent to: `vdpa dev add name <name> mgmtdev <mgmtBus>/mgmtName [params]`
 func VDPANewDev(name, mgmtBus, mgmtName string, params VDPANewDevParams) error {
-	return pkgHandle.VDPANewDev(name, mgmtBus, mgmtName, params)
+	return pkgHandle().VDPANewDev(name, mgmtBus, mgmtName, params)
 }
 
 // VDPADelDev removes VDPA device
 // Equivalent to: `vdpa dev del <name>`
 func VDPADelDev(name string) error {
-	return pkgHandle.VDPADelDev(name)
+	return pkgHandle().VDPADelDev(name)
 }
 
 // VDPAGetDevList returns list of VDPA devices
@@ -123,13 +123,13 @@ func VDPADelDev(name string) error {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func VDPAGetDevList() ([]*VDPADev, error) {
-	return pkgHandle.VDPAGetDevList()
+	return pkgHandle().VDPAGetDevList()
 }
 
 // VDPAGetDevByName returns VDPA device selected by name
 // Equivalent to: `vdpa dev show <name>`
 func VDPAGetDevByName(name string) (*VDPADev, error) {
-	return pkgHandle.VDPAGetDevByName(name)
+	return pkgHandle().VDPAGetDevByName(name)
 }
 
 // VDPAGetDevConfigList returns list of VDPA devices configurations
@@ -138,19 +138,19 @@ func VDPAGetDevByName(name string) (*VDPADev, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func VDPAGetDevConfigList() ([]*VDPADevConfig, error) {
-	return pkgHandle.VDPAGetDevConfigList()
+	return pkgHandle().VDPAGetDevConfigList()
 }
 
 // VDPAGetDevConfigByName returns VDPA device configuration selected by name
 // Equivalent to: `vdpa dev config show <name>`
 func VDPAGetDevConfigByName(name string) (*VDPADevConfig, error) {
-	return pkgHandle.VDPAGetDevConfigByName(name)
+	return pkgHandle().VDPAGetDevConfigByName(name)
 }
 
 // VDPAGetDevVStats returns vstats for VDPA device
 // Equivalent to: `vdpa dev vstats show <name> qidx <queueIndex>`
 func VDPAGetDevVStats(name string, queueIndex uint32) (*VDPADevVStats, error) {
-	return pkgHandle.VDPAGetDevVStats(name, queueIndex)
+	return pkgHandle().VDPAGetDevVStats(name, queueIndex)
 }
 
 // VDPAGetMGMTDevList returns list of mgmt devices
@@ -159,13 +159,13 @@ func VDPAGetDevVStats(name string, queueIndex uint32) (*VDPADevVStats, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func VDPAGetMGMTDevList() ([]*VDPAMGMTDev, error) {
-	return pkgHandle.VDPAGetMGMTDevList()
+	return pkgHandle().VDPAGetMGMTDevList()
 }
 
 // VDPAGetMGMTDevByBusAndName returns mgmt devices selected by bus and name
 // Equivalent to: `vdpa mgmtdev show <bus>/<name>`
 func VDPAGetMGMTDevByBusAndName(bus, name string) (*VDPAMGMTDev, error) {
-	return pkgHandle.VDPAGetMGMTDevByBusAndName(bus, name)
+	return pkgHandle().VDPAGetMGMTDevByBusAndName(bus, name)
 }
 
 type vdpaNetlinkMessage []syscall.NetlinkRouteAttr

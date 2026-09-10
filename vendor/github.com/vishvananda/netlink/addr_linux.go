@@ -31,7 +31,7 @@ const (
 // will be automatically computed based on the IP mask if /30 or larger.
 // If `net.IPv4zero` is given as the broadcast address, broadcast is disabled.
 func AddrAdd(link Link, addr *Addr) error {
-	return pkgHandle.AddrAdd(link, addr)
+	return pkgHandle().AddrAdd(link, addr)
 }
 
 // AddrAdd will add an IP address to a link device.
@@ -54,7 +54,7 @@ func (h *Handle) AddrAdd(link Link, addr *Addr) error {
 // will be automatically computed based on the IP mask if /30 or larger.
 // If `net.IPv4zero` is given as the broadcast address, broadcast is disabled.
 func AddrReplace(link Link, addr *Addr) error {
-	return pkgHandle.AddrReplace(link, addr)
+	return pkgHandle().AddrReplace(link, addr)
 }
 
 // AddrReplace will replace (or, if not present, add) an IP address on a link device.
@@ -73,7 +73,7 @@ func (h *Handle) AddrReplace(link Link, addr *Addr) error {
 //
 // Equivalent to: `ip addr del $addr dev $link`
 func AddrDel(link Link, addr *Addr) error {
-	return pkgHandle.AddrDel(link, addr)
+	return pkgHandle().AddrDel(link, addr)
 }
 
 // AddrDel will delete an IP address from a link device.
@@ -191,7 +191,7 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func AddrList(link Link, family int) ([]Addr, error) {
-	return pkgHandle.AddrList(link, family)
+	return pkgHandle().AddrList(link, family)
 }
 
 // AddrList gets a list of IP addresses in the system.
@@ -384,7 +384,7 @@ func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-c
 		}()
 	}
 	if listExisting {
-		req := pkgHandle.newNetlinkRequest(unix.RTM_GETADDR,
+		req := pkgHandle().newNetlinkRequest(unix.RTM_GETADDR,
 			unix.NLM_F_DUMP)
 		infmsg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 		req.AddData(infmsg)

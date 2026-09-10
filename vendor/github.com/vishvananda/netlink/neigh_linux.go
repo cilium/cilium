@@ -87,7 +87,7 @@ func (msg *Ndmsg) Len() int {
 // NeighAdd will add an IP to MAC mapping to the ARP table
 // Equivalent to: `ip neigh add ....`
 func NeighAdd(neigh *Neigh) error {
-	return pkgHandle.NeighAdd(neigh)
+	return pkgHandle().NeighAdd(neigh)
 }
 
 // NeighAdd will add an IP to MAC mapping to the ARP table
@@ -99,7 +99,7 @@ func (h *Handle) NeighAdd(neigh *Neigh) error {
 // NeighSet will add or replace an IP to MAC mapping to the ARP table
 // Equivalent to: `ip neigh replace....`
 func NeighSet(neigh *Neigh) error {
-	return pkgHandle.NeighSet(neigh)
+	return pkgHandle().NeighSet(neigh)
 }
 
 // NeighSet will add or replace an IP to MAC mapping to the ARP table
@@ -111,7 +111,7 @@ func (h *Handle) NeighSet(neigh *Neigh) error {
 // NeighAppend will append an entry to FDB
 // Equivalent to: `bridge fdb append...`
 func NeighAppend(neigh *Neigh) error {
-	return pkgHandle.NeighAppend(neigh)
+	return pkgHandle().NeighAppend(neigh)
 }
 
 // NeighAppend will append an entry to FDB
@@ -123,7 +123,7 @@ func (h *Handle) NeighAppend(neigh *Neigh) error {
 // NeighAppend will append an entry to FDB
 // Equivalent to: `bridge fdb append...`
 func neighAdd(neigh *Neigh, mode int) error {
-	return pkgHandle.neighAdd(neigh, mode)
+	return pkgHandle().neighAdd(neigh, mode)
 }
 
 // NeighAppend will append an entry to FDB
@@ -136,7 +136,7 @@ func (h *Handle) neighAdd(neigh *Neigh, mode int) error {
 // NeighDel will delete an IP address from a link device.
 // Equivalent to: `ip addr del $addr dev $link`
 func NeighDel(neigh *Neigh) error {
-	return pkgHandle.NeighDel(neigh)
+	return pkgHandle().NeighDel(neigh)
 }
 
 // NeighDel will delete an IP address from a link device.
@@ -211,7 +211,7 @@ func neighHandle(neigh *Neigh, req *nl.NetlinkRequest) error {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func NeighList(linkIndex, family int) ([]Neigh, error) {
-	return pkgHandle.NeighList(linkIndex, family)
+	return pkgHandle().NeighList(linkIndex, family)
 }
 
 // NeighProxyList returns a list of neighbor proxies in the system.
@@ -221,7 +221,7 @@ func NeighList(linkIndex, family int) ([]Neigh, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func NeighProxyList(linkIndex, family int) ([]Neigh, error) {
-	return pkgHandle.NeighProxyList(linkIndex, family)
+	return pkgHandle().NeighProxyList(linkIndex, family)
 }
 
 // NeighList returns a list of IP-MAC mappings in the system (ARP table).
@@ -256,7 +256,7 @@ func (h *Handle) NeighProxyList(linkIndex, family int) ([]Neigh, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func NeighListExecute(msg Ndmsg) ([]Neigh, error) {
-	return pkgHandle.NeighListExecute(msg)
+	return pkgHandle().NeighListExecute(msg)
 }
 
 // NeighListExecute returns a list of neighbour entries filtered by link, ip family, flag and state.
@@ -404,7 +404,7 @@ func neighSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- NeighUpdate, done <
 	rcvbuf int, rcvTimeout *unix.Timeval, rcvbufForce bool) error {
 	s, err := nl.SubscribeAt(newNs, curNs, unix.NETLINK_ROUTE, unix.RTNLGRP_NEIGH)
 	makeRequest := func(family int) error {
-		req := pkgHandle.newNetlinkRequest(unix.RTM_GETNEIGH, unix.NLM_F_DUMP)
+		req := pkgHandle().newNetlinkRequest(unix.RTM_GETNEIGH, unix.NLM_F_DUMP)
 		ndmsg := &Ndmsg{Family: uint8(family)}
 		req.AddData(ndmsg)
 		if err := s.Send(req); err != nil {

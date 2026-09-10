@@ -150,7 +150,7 @@ func (h *Handle) GenlFamilyList() ([]*GenlFamily, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func GenlFamilyList() ([]*GenlFamily, error) {
-	return pkgHandle.GenlFamilyList()
+	return pkgHandle().GenlFamilyList()
 }
 
 func (h *Handle) GenlFamilyGet(name string) (*GenlFamily, error) {
@@ -176,5 +176,5 @@ func (h *Handle) GenlFamilyGet(name string) (*GenlFamily, error) {
 }
 
 func GenlFamilyGet(name string) (*GenlFamily, error) {
-	return pkgHandle.GenlFamilyGet(name)
+	return pkgHandle().GenlFamilyGet(name)
 }

@@ -62,6 +62,7 @@ var TCPRouteWeightedRouting = confsuite.ConformanceTest{
 			}
 
 			tcp.ExpectAddressBeAvailable(t, suite.TimeoutConfig.DefaultPollInterval, suite.TimeoutConfig.MaxTimeToConsistency, gwAddr)
+			tcp.ExpectEchoResponse(t, suite.TimeoutConfig, gwAddr)
 
 			sender := weight.NewFunctionBasedSender(func() (string, error) {
 				return tcp.EchoSendOnce(t.Context(), gwAddr, suite.TimeoutConfig.RequestTimeout)

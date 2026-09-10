@@ -237,7 +237,7 @@ func writeReplay(r *XfrmReplayState) []byte {
 // XfrmStateAdd will add an xfrm state to the system.
 // Equivalent to: `ip xfrm state add $state`
 func XfrmStateAdd(state *XfrmState) error {
-	return pkgHandle.XfrmStateAdd(state)
+	return pkgHandle().XfrmStateAdd(state)
 }
 
 // XfrmStateAdd will add an xfrm state to the system.
@@ -249,13 +249,13 @@ func (h *Handle) XfrmStateAdd(state *XfrmState) error {
 // XfrmStateAllocSpi will allocate an xfrm state in the system.
 // Equivalent to: `ip xfrm state allocspi`
 func XfrmStateAllocSpi(state *XfrmState) (*XfrmState, error) {
-	return pkgHandle.xfrmStateAllocSpi(state)
+	return pkgHandle().xfrmStateAllocSpi(state)
 }
 
 // XfrmStateUpdate will update an xfrm state to the system.
 // Equivalent to: `ip xfrm state update $state`
 func XfrmStateUpdate(state *XfrmState) error {
-	return pkgHandle.XfrmStateUpdate(state)
+	return pkgHandle().XfrmStateUpdate(state)
 }
 
 // XfrmStateUpdate will update an xfrm state to the system.
@@ -385,7 +385,7 @@ func (h *Handle) xfrmStateAllocSpi(state *XfrmState) (*XfrmState, error) {
 // the Algos are ignored when matching the state to delete.
 // Equivalent to: `ip xfrm state del $state`
 func XfrmStateDel(state *XfrmState) error {
-	return pkgHandle.XfrmStateDel(state)
+	return pkgHandle().XfrmStateDel(state)
 }
 
 // XfrmStateDel will delete an xfrm state from the system. Note that
@@ -403,7 +403,7 @@ func (h *Handle) XfrmStateDel(state *XfrmState) error {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func XfrmStateList(family int) ([]XfrmState, error) {
-	return pkgHandle.XfrmStateList(family)
+	return pkgHandle().XfrmStateList(family)
 }
 
 // XfrmStateList gets a list of xfrm states in the system.
@@ -439,7 +439,7 @@ func (h *Handle) XfrmStateList(family int) ([]XfrmState, error) {
 // ID := [ src ADDR ] [ dst ADDR ] [ proto XFRM-PROTO ] [ spi SPI ]
 // mark is optional
 func XfrmStateGet(state *XfrmState) (*XfrmState, error) {
-	return pkgHandle.XfrmStateGet(state)
+	return pkgHandle().XfrmStateGet(state)
 }
 
 // XfrmStateGet gets the xfrm state described by the ID, if found.
@@ -622,7 +622,7 @@ func parseXfrmState(m []byte, family int) (*XfrmState, error) {
 // proto = 0 means any transformation protocols
 // Equivalent to: `ip xfrm state flush [ proto XFRM-PROTO ]`
 func XfrmStateFlush(proto Proto) error {
-	return pkgHandle.XfrmStateFlush(proto)
+	return pkgHandle().XfrmStateFlush(proto)
 }
 
 // XfrmStateFlush will flush the xfrm state on the system.
