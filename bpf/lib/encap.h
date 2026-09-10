@@ -8,6 +8,7 @@
 #include "eps.h"
 #include "hash.h"
 #include "trace.h"
+#include "vtep.h"
 
 #ifdef HAVE_ENCAP
 static __always_inline int

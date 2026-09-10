@@ -10,6 +10,11 @@
 
 #include "eth.h"
 
+/* NOT_VTEP_DST is passed to an encapsulation function when the
+ * destination of the tunnel is not a VTEP.
+ */
+#define NOT_VTEP_DST 0
+
 struct vtep_key {
 	__u32 vtep_ip;
 };
@@ -28,4 +33,5 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_vtep_map __section_maps_btf;
 
+DECLARE_CONFIG(bool, enable_vtep, "Enable VTEP integration")
 DECLARE_CONFIG(__u32, vtep_mask, "VXLAN tunnel endpoint network mask")

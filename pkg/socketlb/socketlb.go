@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -117,6 +118,10 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	}
 
 	cfg.EnableSocketLBTracing = option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing
+	cfg.EnableVTEP = option.Config.EnableVTEP
+	if option.Config.EnableVTEP {
+		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
+	}
 
 	coll, commit, cleanup, err := collLoader.Load(ctx, logger, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,

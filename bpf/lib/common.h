@@ -40,10 +40,6 @@
     (defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
 #define HAVE_ENCAP	1
 
-/* NOT_VTEP_DST is passed to an encapsulation function when the
- * destination of the tunnel is not a VTEP.
- */
-#define NOT_VTEP_DST 0
 #endif
 
 /* XFER_FLAGS that get transferred from XDP to SKB */

@@ -1234,13 +1234,13 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		}
 	}
 
+#ifdef HAVE_ENCAP
 	/* L7 proxy result in VTEP redirection in bpf_host, but when L7 proxy disabled
 	 * We want VTEP redirection handled earlier here to avoid packets passing to
 	 * stack to bpf_host for VTEP redirection. When L7 proxy enabled, but no
 	 * L7 policy applied to pod, VTEP redirection also happen here.
 	 */
-#if defined(ENABLE_VTEP)
-	{
+	if (CONFIG(enable_vtep)) {
 		struct vtep_key vkey = {
 			.vtep_ip = ip4->daddr & CONFIG(vtep_mask),
 		};
@@ -1258,7 +1258,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 								bpf_htons(ETH_P_IP));
 		}
 	}
-#endif
+#endif /* HAVE_ENCAP */
 
 #if defined(TUNNEL_MODE)
 	/* If the connection was established over the tunnel, ignore the

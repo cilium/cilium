@@ -40,6 +40,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 		cfg.WGPort = wgtypes.ListenPort
 	}
 
+	cfg.EnableVTEP = option.Config.EnableVTEP
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
@@ -94,6 +95,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 		cfg.WGPort = wgtypes.ListenPort
 	}
 
+	cfg.EnableVTEP = option.Config.EnableVTEP
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
@@ -157,6 +159,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 		cfg.WGPort = wgtypes.ListenPort
 	}
 
+	cfg.EnableVTEP = option.Config.EnableVTEP
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}

@@ -6,6 +6,7 @@ package config
 import (
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -18,6 +19,11 @@ func Wireguard(lnc *Config, link netlink.Link) any {
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
+
+	cfg.EnableVTEP = option.Config.EnableVTEP
+	if option.Config.EnableVTEP {
+		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
+	}
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 

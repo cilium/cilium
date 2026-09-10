@@ -5,6 +5,7 @@
 
 #include <linux/ip.h>
 #include "identity.h"
+#include "vtep.h"
 
 static __always_inline __maybe_unused void
 bpf_clear_meta(struct __sk_buff *ctx)
@@ -204,11 +205,9 @@ ctx_set_encap_info4(struct __sk_buff *ctx, __u32 src_ip,
 	struct bpf_tunnel_key key = {};
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 
-#ifdef ENABLE_VTEP
-	if (vni != NOT_VTEP_DST)
+	if (CONFIG(enable_vtep) && vni != NOT_VTEP_DST)
 		key.tunnel_id = get_tunnel_id(vni);
 	else
-#endif /* ENABLE_VTEP */
 		key.tunnel_id = get_tunnel_id(seclabel);
 
 	if (src_ip != 0) {
