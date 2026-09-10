@@ -20,9 +20,11 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -36,6 +38,11 @@ func (info *RoutingInfo) useCompatEgressPriority() bool {
 // Azure IPAM mode.
 // These rules and routes direct egress traffic out of the interface and
 // ingress traffic back to the endpoint (`ip`).
+//
+// RoutingInfo configuration is a one time operation that happens during:
+// * AgentStartup for infra ip components
+// * Endpoint Restore
+// * CNI ADD
 //
 // ip: The endpoint IP address to direct traffic out / from interface.
 // info: The interface routing info used to create rules and routes.
@@ -57,10 +64,13 @@ func (info *RoutingInfo) Configure(ip netip.Addr, mtu int, host bool) error {
 
 	ipWithMask := netipx.AddrIPNet(ip)
 
+	var family int
 	var replaceRule func(route.Rule) error
 	if ip.Is4() {
+		family = netlink.FAMILY_V4
 		replaceRule = route.ReplaceRule
 	} else {
+		family = netlink.FAMILY_V6
 		replaceRule = route.ReplaceRuleIPv6
 	}
 
@@ -89,20 +99,69 @@ func (info *RoutingInfo) Configure(ip netip.Addr, mtu int, host bool) error {
 		ifaceNum = info.InterfaceNumber
 	}
 	tableID = computeTableIDFromIfaceNumber(info.useCompatEgressPriority(), ifaceNum)
-
-	// Install an unconditional rule so all traffic from the endpoint
-	// (including external/internet traffic) is routed through the correct ENI.
-	// A previous implementation scoped rules to the VPC CIDRs, which let
-	// external traffic fall through to the default routing table and be routed
-	// via the wrong interface, resulting in drops.
-	// See https://github.com/cilium/cilium/issues/45137.
-	if err := replaceRule(route.Rule{
+	ruleFilter := route.Rule{
 		Priority: egressPriority,
 		From:     ipWithMask,
 		Table:    tableID,
 		Protocol: linux_defaults.RTProto,
-	}); err != nil {
-		return fmt.Errorf("unable to install ip rule: %w", err)
+	}
+
+	// The condition here should mirror the condition in Delete.
+	if info.Masquerade && (info.IpamMode == ipamOption.IPAMENI || info.IpamMode == ipamOption.IPAMAzure) {
+		// Lookup a VPC specific table for all traffic from an endpoint to the
+		// CIDR configured for the VPC on which the endpoint has the IP on.
+		// ReplaceRule function doesn't handle all zeros cidr and return `file exists` error,
+		// so we need to normalize the rule to cidr here and in Delete
+		var installedCatchAllEquivalent bool
+		for _, cidr := range info.CIDRs {
+			to := normalizeRuleToCIDR(&cidr)
+			if to == nil {
+				// A 0.0.0.0/0 (or ::/0) CIDR normalizes to an unconditional
+				// rule identical in shape to the stale catch-all rule we'd
+				// otherwise clean up below. Track this so we don't delete
+				// the rule we just installed.
+				installedCatchAllEquivalent = true
+			}
+			if err := replaceRule(route.Rule{
+				Priority: egressPriority,
+				From:     ipWithMask,
+				To:       to,
+				Table:    tableID,
+				Protocol: linux_defaults.RTProto,
+			}); err != nil {
+				return fmt.Errorf("unable to install ip rule: %w", err)
+			}
+		}
+
+		// After creating cidr specific rules for ENI remove the catch-all rule if present.
+		// This ensures cleanup of the rule when masquerading configuration changes(best-effort).
+		if !installedCatchAllEquivalent {
+			_ = deleteRulesFiltered(info.logger, ruleFilter, family, deleteRuleFilter{
+				fn: func(r netlink.Rule) bool {
+					return r.Dst == nil
+				},
+			})
+		}
+	} else {
+		// Cleanup cidr specific rules if present and create catch-all rule.
+		// This needs to happen before installing the catch all rule as creating
+		// a catch all rule on top of CIDR specific rule results in error:
+		// RTNETLINK answers: File exists
+		_ = deleteRulesFiltered(info.logger, ruleFilter, family, deleteRuleFilter{
+			fn: func(r netlink.Rule) bool {
+				return r.Dst != nil
+			},
+		})
+
+		// Lookup a VPC specific table for all traffic from an endpoint.
+		if err := replaceRule(route.Rule{
+			Priority: egressPriority,
+			From:     ipWithMask,
+			Table:    tableID,
+			Protocol: linux_defaults.RTProto,
+		}); err != nil {
+			return fmt.Errorf("unable to install ip rule: %w", err)
+		}
 	}
 
 	return info.installRoutes(ifindex, tableID)
@@ -289,21 +348,60 @@ func Delete(logger *slog.Logger, ip netip.Addr) error {
 		msg: "rule does not refer to a per-ENI routing table ID",
 	}
 
-	// Delete all egress rules matching the priority and source IP.
-	// This covers the unconditional rule (from <IP> lookup <table>) and
-	// any CIDR-specific rules (from <IP> to <CIDR> lookup <table>).
-	egress := route.Rule{
-		Priority: priority,
-		From:     ipWithMask,
+	// The condition here should mirror the conditions in Configure.
+	info := node.GetRouterInfo()
+	if info != nil && option.Config.EnableIPv4Masquerade && (option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) {
+		ipCIDRs := info.GetCIDRs()
+		cidrs := make([]*net.IPNet, 0, len(ipCIDRs))
+		for i := range ipCIDRs {
+			cidrs = append(cidrs, &ipCIDRs[i])
+		}
+		// Coalesce CIDRs into minimum set needed for route rules
+		// This code here mirrors interfaceAdd() in cilium-cni/interface.go
+		// and must be kept in sync when modified
+		ipv4RoutingCIDRs, ipv6RoutingCIDRs := iputil.CoalesceCIDRs(cidrs)
+		for _, cidr := range ipv4RoutingCIDRs {
+			egress := route.Rule{
+				Priority: priority,
+				From:     ipWithMask,
+				To:       normalizeRuleToCIDR(cidr),
+			}
+			if err := deleteRulesFiltered(logger, egress, netlink.FAMILY_V4, withENIRouteTableID); err != nil {
+				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
+			}
+			logger.Debug("Deleted egress rule",
+				logfields.Rule, egress,
+				logfields.IPAddr, ipWithMask,
+			)
+		}
+		for _, cidr := range ipv6RoutingCIDRs {
+			egress := route.Rule{
+				Priority: priority,
+				From:     ipWithMask,
+				To:       normalizeRuleToCIDR(cidr),
+			}
+			if err := deleteRulesFiltered(logger, egress, netlink.FAMILY_V6, withENIRouteTableID); err != nil {
+				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
+			}
+			logger.Debug("Deleted egress rule",
+				logfields.Rule, egress,
+				logfields.IPAddr, ipWithMask,
+			)
+		}
+	} else {
+		egress := route.Rule{
+			Priority: priority,
+			From:     ipWithMask,
+		}
+		if err := deleteRulesFiltered(
+			logger, egress, family, withENIRouteTableID); err != nil {
+			return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
+		}
+		logger.Debug("Deleted egress rule",
+			logfields.Rule, egress,
+			logfields.IPAddr, ipWithMask,
+		)
 	}
-	if err := deleteRulesFiltered(
-		logger, egress, family, withENIRouteTableID); err != nil {
-		return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
-	}
-	logger.Debug("Deleted egress rule",
-		logfields.Rule, egress,
-		logfields.IPAddr, ipWithMask,
-	)
 
 	if option.Config.EnableUnreachableRoutes {
 		// Replace route to old IP with an unreachable route. This will
@@ -405,4 +503,12 @@ func computeTableIDFromIfaceNumber(compat bool, num int) int {
 		return num
 	}
 	return linux_defaults.RouteTableInterfacesOffset + num
+}
+
+// normalizeRuleToCIDR returns nil when passed cidr is zeroes only cidr
+func normalizeRuleToCIDR(cidr *net.IPNet) *net.IPNet {
+	if cidr.IP.IsUnspecified() {
+		return nil
+	}
+	return cidr
 }
