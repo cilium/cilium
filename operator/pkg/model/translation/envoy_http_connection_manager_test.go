@@ -135,7 +135,6 @@ func Test_getHTTPConnectionManagerHttpFilters(t *testing.T) {
 		require.Equal(t, "envoy.filters.http.grpc_stats", res[1].Name)
 		require.Equal(t, "envoy.filters.http.cors", res[2].Name)
 		require.Equal(t, "envoy.filters.http.router", res[3].Name)
-
 	})
 	t.Run("stateful session filter enabled", func(t *testing.T) {
 		m := &model.Model{HTTP: []model.HTTPListener{
@@ -209,6 +208,42 @@ func Test_desiredHTTPConnectionManager_withExtAuthz(t *testing.T) {
 	require.NotNil(t, httpFilter.GetHttpService())
 	require.Equal(t, "/auth", httpFilter.GetHttpService().GetPathPrefix())
 	require.Equal(t, "http:default:http-authz:8080", httpFilter.GetHttpService().GetServerUri().GetCluster())
+}
+
+func Test_desiredHTTPConnectionManager_withExtensionRefFilters(t *testing.T) {
+	i := &cecTranslator{}
+	m := &model.Model{HTTP: []model.HTTPListener{{
+		Routes: []model.HTTPRoute{
+			{
+				ExternalAuth: &model.HTTPExternalAuthFilter{
+					Backend:  model.Backend{Name: "grpc-authz", Namespace: "default", Port: &model.BackendPort{Port: 9000}},
+					Protocol: model.ExternalAuthProtocolGRPC,
+				},
+				CORS: &model.HTTPCORSFilter{AllowOrigins: []string{"*"}},
+				ExtensionRefFilters: []model.ExtensionRefFilter{
+					{Name: "envoy.filters.http.ext_proc/default/first", TypeURL: "type.googleapis.com/test.First"},
+					{Name: "envoy.filters.http.ext_proc/default/second", TypeURL: "type.googleapis.com/test.Second"},
+				},
+			},
+		},
+	}}}
+	authFilters := i.getUniqueAuthFilters(m)
+
+	res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", m)
+	require.NoError(t, err)
+
+	hcm := &httpConnectionManagerv3.HttpConnectionManager{}
+	require.NoError(t, proto.Unmarshal(res.Value, hcm))
+
+	// ext_proc runs before ext_authz and cors: grpc_web, grpc_stats, ext_proc/*, ext_authz/*, cors, router.
+	require.Len(t, hcm.GetHttpFilters(), 7)
+	require.Equal(t, "envoy.filters.http.grpc_web", hcm.GetHttpFilters()[0].Name)
+	require.Equal(t, "envoy.filters.http.grpc_stats", hcm.GetHttpFilters()[1].Name)
+	require.Equal(t, "envoy.filters.http.ext_proc/default/first", hcm.GetHttpFilters()[2].Name)
+	require.Equal(t, "envoy.filters.http.ext_proc/default/second", hcm.GetHttpFilters()[3].Name)
+	require.Equal(t, ExtAuthzFilterName(extAuthzFilterKey(authFilters[0])), hcm.GetHttpFilters()[4].Name)
+	require.Equal(t, "envoy.filters.http.cors", hcm.GetHttpFilters()[5].Name)
+	require.Equal(t, "envoy.filters.http.router", hcm.GetHttpFilters()[6].Name)
 }
 
 func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
@@ -339,7 +374,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 	}
 
 	t.Run("route without auth disables all filters", func(t *testing.T) {
-		cfg := getTypedPerFilterConfig(nil, authFilters, model.HTTPRoute{}, false)
+		cfg := getTypedPerFilterConfig(nil, authFilters, nil, model.HTTPRoute{}, false)
 		require.Len(t, cfg, 2)
 		for _, v := range cfg {
 			perRoute := &extauthzv3.ExtAuthzPerRoute{}
@@ -353,7 +388,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 			Backend:  model.Backend{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
 			Protocol: model.ExternalAuthProtocolGRPC,
 		}
-		cfg := getTypedPerFilterConfig(routeAuth, authFilters, model.HTTPRoute{}, false)
+		cfg := getTypedPerFilterConfig(routeAuth, authFilters, nil, model.HTTPRoute{}, false)
 		// Only svc-b should be disabled; svc-a has no entry (enabled by default)
 		require.Len(t, cfg, 1)
 		_, hasSvcA := cfg["envoy.filters.http.ext_authz/GRPC:ns:svc-a:9000"]
@@ -366,7 +401,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 	})
 
 	t.Run("route with CORS filter", func(t *testing.T) {
-		cfg := getTypedPerFilterConfig(nil, nil, model.HTTPRoute{
+		cfg := getTypedPerFilterConfig(nil, nil, nil, model.HTTPRoute{
 			CORS: &model.HTTPCORSFilter{MaxAge: 42},
 		}, false)
 		require.Len(t, cfg, 1)
@@ -375,11 +410,11 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 	})
 
 	t.Run("no auth filters returns nil", func(t *testing.T) {
-		require.Nil(t, getTypedPerFilterConfig(nil, nil, model.HTTPRoute{}, false))
+		require.Nil(t, getTypedPerFilterConfig(nil, nil, nil, model.HTTPRoute{}, false))
 	})
 
 	t.Run("route without persistence disables stateful sessions", func(t *testing.T) {
-		cfg := getTypedPerFilterConfig(nil, nil, model.HTTPRoute{}, true)
+		cfg := getTypedPerFilterConfig(nil, nil, nil, model.HTTPRoute{}, true)
 		entry, ok := cfg["envoy.filters.http.stateful_session"]
 		require.True(t, ok)
 		perRoute := &statefulsessionv3.StatefulSessionPerRoute{}
@@ -388,7 +423,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 	})
 
 	t.Run("route with persistence configures cookie session state", func(t *testing.T) {
-		cfg := getTypedPerFilterConfig(nil, nil, model.HTTPRoute{
+		cfg := getTypedPerFilterConfig(nil, nil, nil, model.HTTPRoute{
 			SessionPersistence: &model.HTTPSessionPersistence{
 				Cookie: &model.HTTPCookieSessionPersistence{
 					Name: "gateway-session",

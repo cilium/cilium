@@ -526,12 +526,41 @@ type HTTPCookieSessionPersistence struct {
 	SameSite string `json:"sameSite,omitempty"`
 }
 
+// ExtensionRefFilter holds a resolved Gateway API ExtensionRef filter.
+type ExtensionRefFilter struct {
+	// Name is the Envoy filter instance name.
+	Name string `json:"name"`
+	// TypeURL is the protobuf type URL for the filter config.
+	TypeURL string `json:"type_url"`
+	// Config is the serialized protobuf config for the filter.
+	Config []byte `json:"config,omitempty"`
+	// Backend is the filter's backend service.
+	Backend *Backend `json:"backend,omitempty"`
+
+	// The following fields carry per-route provenance used for listener-wide
+	// conflict resolution. They are intentionally excluded from JSON/CEC output
+	// so that golden fixtures remain stable. SourceRouteRule is the canonical
+	// route identity and rule position; the remaining fields identify the filter
+	// position and route creation time.
+	SourceRouteRule              *HTTPRouteRule `json:"-"`
+	SourceRouteCreationTimestamp time.Time      `json:"-"`
+}
+
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
-	// SourceRule identifies the Gateway API HTTPRoute rule and match that
-	// produced this route when rule identity must be preserved internally.
+	// SourceRoute identifies the source Gateway API Route for every emitted
+	// model route. It is internal provenance used to scope fail-closed status
+	// and is not part of the CEC output.
+	SourceRoute *FullyQualifiedResource `json:"-"`
+	// SourceRule identifies the Gateway API HTTPRoute or GRPCRoute rule and
+	// match that produced this route. It is preserved only where rule identity
+	// affects aggregation or fail-closed handling.
 	SourceRule *HTTPRouteRule `json:"-"`
+	// ExtProcInvalidReason marks a rule rejected before translation. It is
+	// internal provenance for parent-scoped PartiallyInvalid status.
+	ExtProcInvalidReason  string `json:"-"`
+	ExtProcInvalidMessage string `json:"-"`
 	// Hostnames that the route should match
 	Hostnames []string `json:"hostnames,omitempty"`
 	// PathMatch specifies that the HTTPRoute should match a path.
@@ -569,6 +598,9 @@ type HTTPRoute struct {
 
 	// ExternalAuth configures external authorization for this route.
 	ExternalAuth *HTTPExternalAuthFilter `json:"external_auth,omitempty"`
+
+	// ExtensionRefFilters are filters resolved from Gateway API ExtensionRef filters.
+	ExtensionRefFilters []ExtensionRefFilter `json:"extension_ref_filters,omitempty"`
 
 	// IsGRPC is an indicator if this route is related to GRPC
 	IsGRPC bool `json:"is_grpc,omitempty"`
@@ -665,6 +697,20 @@ func (r *HTTPRoute) GetMatchKey() string {
 	if r.SessionPersistence != nil {
 		sb.WriteString("session:")
 		sb.WriteString(r.SessionPersistence.String())
+		sb.WriteString("|")
+	}
+
+	if len(r.ExtensionRefFilters) > 0 {
+		names := make([]string, len(r.ExtensionRefFilters))
+		for i, f := range r.ExtensionRefFilters {
+			names[i] = f.Name
+		}
+		sort.Strings(names)
+		sb.WriteString("extproc:")
+		for _, n := range names {
+			sb.WriteString(n)
+			sb.WriteString(",")
+		}
 		sb.WriteString("|")
 	}
 

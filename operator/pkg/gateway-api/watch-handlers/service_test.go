@@ -20,9 +20,92 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
+	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 const testGatewayControllerName = "io.cilium/gateway-controller"
+
+func TestEnqueueRequestForExtProcFilterBackendService(t *testing.T) {
+	scheme := helpers.TestScheme(helpers.AllOptionalKinds)
+	backendService := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "ext-proc-backend", Namespace: "default"}}
+	gatewayClass := &gatewayv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "cilium"},
+		Spec:       gatewayv1.GatewayClassSpec{ControllerName: gatewayv1.GatewayController(testGatewayControllerName)},
+	}
+	httpGateway := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "http-gateway", Namespace: "default"},
+		Spec:       gatewayv1.GatewaySpec{GatewayClassName: "cilium"},
+	}
+	grpcGateway := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "grpc-gateway", Namespace: "default"},
+		Spec:       gatewayv1.GatewaySpec{GatewayClassName: "cilium"},
+	}
+	listenerSetGateway := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "listenerset-gateway", Namespace: "default"},
+		Spec:       gatewayv1.GatewaySpec{GatewayClassName: "cilium"},
+	}
+	listenerSet := &gatewayv1.ListenerSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "listeners", Namespace: "default"},
+		Spec:       gatewayv1.ListenerSetSpec{ParentRef: gatewayv1.ParentGatewayReference{Name: "listenerset-gateway"}},
+	}
+	filter := &v2alpha1.CiliumEnvoyExtProcFilter{
+		ObjectMeta: metav1.ObjectMeta{Name: "filter", Namespace: "default"},
+		Spec: v2alpha1.CiliumEnvoyExtProcFilterSpec{BackendRef: v2alpha1.ExtProcBackendRef{
+			Name: "ext-proc-backend",
+			Port: 4317,
+		}},
+	}
+	extensionRef := func() gatewayv1.HTTPRouteFilter {
+		return gatewayv1.HTTPRouteFilter{
+			Type: gatewayv1.HTTPRouteFilterExtensionRef,
+			ExtensionRef: &gatewayv1.LocalObjectReference{
+				Group: "cilium.io",
+				Kind:  "CiliumEnvoyExtProcFilter",
+				Name:  "filter",
+			},
+		}
+	}
+	listenerSetKind := gatewayv1.Kind("ListenerSet")
+	httpRoute := &gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "http-route", Namespace: "default"},
+		Spec: gatewayv1.HTTPRouteSpec{CommonRouteSpec: gatewayv1.CommonRouteSpec{ParentRefs: []gatewayv1.ParentReference{
+			{Name: "http-gateway"},
+			{Kind: &listenerSetKind, Name: "listeners"},
+		}}, Rules: []gatewayv1.HTTPRouteRule{{Filters: []gatewayv1.HTTPRouteFilter{extensionRef()}}}},
+	}
+	grpcRoute := &gatewayv1.GRPCRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "grpc-route", Namespace: "default"},
+		Spec: gatewayv1.GRPCRouteSpec{CommonRouteSpec: gatewayv1.CommonRouteSpec{ParentRefs: []gatewayv1.ParentReference{{Name: "grpc-gateway"}}}, Rules: []gatewayv1.GRPCRouteRule{{Filters: []gatewayv1.GRPCRouteFilter{{
+			Type:         gatewayv1.GRPCRouteFilterExtensionRef,
+			ExtensionRef: &gatewayv1.LocalObjectReference{Group: "cilium.io", Kind: "CiliumEnvoyExtProcFilter", Name: "filter"},
+		}}}}},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(backendService, gatewayClass, httpGateway, grpcGateway, listenerSetGateway, listenerSet, filter, httpRoute, grpcRoute).
+		WithIndex(&gatewayv1.HTTPRoute{}, indexers.ExtProcFilterHTTPRouteIndex, indexers.IndexHTTPRouteByExtProcFilter).
+		WithIndex(&gatewayv1.GRPCRoute{}, indexers.ExtProcFilterGRPCRouteIndex, indexers.IndexGRPCRouteByExtProcFilter).
+		Build()
+
+	handler := EnqueueRequestForExtProcFilterBackendService(fakeClient, hivetest.Logger(t), testGatewayControllerName)
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+	defer queue.ShutDown()
+	handler.Create(t.Context(), event.TypedCreateEvent[client.Object]{Object: backendService}, queue)
+
+	var got []types.NamespacedName
+	for queue.Len() > 0 {
+		item, shutdown := queue.Get()
+		require.False(t, shutdown)
+		got = append(got, item.NamespacedName)
+		queue.Done(item)
+	}
+	require.ElementsMatch(t, []types.NamespacedName{
+		{Namespace: "default", Name: "http-gateway"},
+		{Namespace: "default", Name: "grpc-gateway"},
+		{Namespace: "default", Name: "listenerset-gateway"},
+	}, got)
+}
 
 func TestEnqueueRequestForBackendServiceIncludesGRPCTCPAndUDP(t *testing.T) {
 	scheme := helpers.TestScheme(helpers.AllOptionalKinds)

@@ -72,6 +72,7 @@ Cilium's Gateway API features:
    splitting
    session-persistence
    header
+   ext-proc
    parameterized-gatewayclass
    default-tls-certificate
    backendtlspolicy
