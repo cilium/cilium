@@ -217,7 +217,8 @@ ASSIGN_CONFIG(bool, enable_ipip_termination, true)
  * pktgen__finish().
  */
 static __always_inline int
-pktgen_ipip_v4(struct __ctx_buff *ctx, __be32 outer_dst, __be32 inner_dst)
+__pktgen_ipip_v4(struct __ctx_buff *ctx, __be32 outer_src, __be32 outer_dst,
+		 __be32 inner_dst, __be16 inner_dport)
 {
 	struct pktgen builder;
 	struct iphdr *outer_l3, *inner_l3;
@@ -235,7 +236,7 @@ pktgen_ipip_v4(struct __ctx_buff *ctx, __be32 outer_dst, __be32 inner_dst)
 	outer_l3 = pktgen__push_default_iphdr(&builder);
 	if (!outer_l3)
 		return TEST_ERROR;
-	outer_l3->saddr = LB_NODE_IP;
+	outer_l3->saddr = outer_src;
 	outer_l3->daddr = outer_dst;
 
 	inner_l3 = pktgen__push_default_iphdr(&builder);
@@ -248,7 +249,7 @@ pktgen_ipip_v4(struct __ctx_buff *ctx, __be32 outer_dst, __be32 inner_dst)
 	if (!l4)
 		return TEST_ERROR;
 	l4->source = CLIENT_PORT;
-	l4->dest = FRONTEND_PORT;
+	l4->dest = inner_dport;
 	l4->syn = 1;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
@@ -275,6 +276,14 @@ pktgen_ipip_v4(struct __ctx_buff *ctx, __be32 outer_dst, __be32 inner_dst)
 	}
 
 	return 0;
+}
+
+/* Cilium's own DSR-IPIP dispatch: outer src is the LB node. */
+static __always_inline int
+pktgen_ipip_v4(struct __ctx_buff *ctx, __be32 outer_dst, __be32 inner_dst)
+{
+	return __pktgen_ipip_v4(ctx, LB_NODE_IP, outer_dst, inner_dst,
+				FRONTEND_PORT);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -587,4 +596,293 @@ int ipip_term_v4_xdp_handoff_check(struct __ctx_buff *ctx)
 			   l3->daddr);
 
 	test_finish();
+}
+
+/* -------------------------------------------------------------------------- */
+/* External L4LB tests.                                                       */
+/*                                                                            */
+/* An external L4LB (Katran, IPVS, ...) encapsulates the client's packet to a */
+/* "real" from its own list. The real says where to deliver, not which        */
+/* backend serves: the LB has no knowledge of this cluster's backend set. The */
+/* real is announced by the cluster via BGP, i.e. it is a LoadBalancer or     */
+/* externalIP frontend of the service. So when the outer dst is such a        */
+/* frontend for the inner port, the strip must run without stashing a forced  */
+/* backend, and ordinary selection on the inner tuple must pick the Pod.      */
+/*                                                                            */
+/* The backend port differs from the frontend port on purpose: the forced-    */
+/* backend path cannot translate ports, so a translated port is by itself     */
+/* proof that the forced path did not run.                                    */
+/* -------------------------------------------------------------------------- */
+
+#define EXT_LB_IP		v4_ext_two		/* the external LB box */
+#define EXT_VIP			v4_svc_three		/* the LB's VIP, inner dst */
+#define EXT_REAL_IP		IPV4(172, 16, 99, 9)	/* the LB's real, outer dst */
+#define EXT_BACKEND_PORT	tcp_svc_two		/* != FRONTEND_PORT */
+#define EXT_OTHER_PORT		__bpf_htons(9999)	/* no frontend on it */
+
+/* real_flags: the service flags of the frontend that sits on the real. */
+static __always_inline int ext_lb_setup(struct __ctx_buff *ctx, __u8 real_flags)
+{
+	/* The VIP: Katran's address, declared as an externalIP so that the
+	 * inner request finds a service. Never announced by the cluster.
+	 */
+	lb_v4_add_service_with_flags(EXT_VIP, FRONTEND_PORT, IPPROTO_TCP, 1, 3,
+				     SVC_FLAG_ROUTABLE | SVC_FLAG_EXTERNAL_IP, 0);
+	lb_v4_add_backend(EXT_VIP, FRONTEND_PORT, 1, 300,
+			  BACKEND_IP, EXT_BACKEND_PORT, IPPROTO_TCP, 0);
+
+	/* The real: announced by the cluster, same selector as the VIP. */
+	lb_v4_add_service_with_flags(EXT_REAL_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 4,
+				     SVC_FLAG_ROUTABLE | real_flags, 0);
+	lb_v4_add_backend(EXT_REAL_IP, FRONTEND_PORT, 1, 300,
+			  BACKEND_IP, EXT_BACKEND_PORT, IPPROTO_TCP, 0);
+
+	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
+			      (__u8 *)backend_mac, (__u8 *)node_mac);
+	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
+
+	/* This node's own IP as a host endpoint, so that a node IP used as
+	 * the outer dst resolves and takes the pre-existing forced path.
+	 */
+	endpoint_v4_add_entry(BACKEND_NODE_IP, 0, 0, ENDPOINT_F_HOST,
+			      HOST_ID, 0, NULL, NULL);
+	ipcache_v4_add_entry(BACKEND_NODE_IP, 0, HOST_ID, 0, 0);
+
+	num_calls[RECORD_REDIRECT] = 0;
+	num_calls[RECORD_REDIRECT_PEER] = 0;
+	num_calls[RECORD_TAILCALL] = 0;
+	xdp_xfer_flags = 0;
+
+	return netdev_receive_packet(ctx);
+}
+
+static __always_inline void ext_lb_teardown(void)
+{
+	endpoint_v4_del_entry(BACKEND_IP);
+	endpoint_v4_del_entry(BACKEND_NODE_IP);
+}
+
+/* The outer dst is a LoadBalancer frontend: strip, select on the inner tuple,
+ * land on the Pod with the port translated and the client IP preserved.
+ */
+PKTGEN(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_real")
+int ipip_term_v4_ext_lb_real_pktgen(struct __ctx_buff *ctx)
+{
+	return __pktgen_ipip_v4(ctx, EXT_LB_IP, EXT_REAL_IP, EXT_VIP,
+				FRONTEND_PORT);
+}
+
+SETUP(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_real")
+int ipip_term_v4_ext_lb_real_setup(struct __ctx_buff *ctx)
+{
+	return ext_lb_setup(ctx, SVC_FLAG_LOADBALANCER);
+}
+
+CHECK(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_real")
+int ipip_term_v4_ext_lb_real_check(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	struct tcphdr *l4;
+
+	test_init();
+
+	ext_lb_teardown();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+	if (num_calls[RECORD_TAILCALL] != 1)
+		test_fatal("want 1 policy tail-call, got %u",
+			   num_calls[RECORD_TAILCALL]);
+	if (num_calls[RECORD_REDIRECT_PEER] != 1)
+		test_fatal("want 1 ctx_redirect_peer, got %u",
+			   num_calls[RECORD_REDIRECT_PEER]);
+	if (num_calls[RECORD_REDIRECT] != 0)
+		test_fatal("want 0 plain ctx_redirect, got %u",
+			   num_calls[RECORD_REDIRECT]);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->protocol != IPPROTO_TCP)
+		test_fatal("L3 proto is %u, want TCP: outer not stripped",
+			   l3->protocol);
+	if (l3->saddr != CLIENT_IP)
+		test_fatal("src IP is %x, want CLIENT", l3->saddr);
+	if (l3->daddr != BACKEND_IP)
+		test_fatal("dst IP is %x, want BACKEND: real was forced as backend",
+			   l3->daddr);
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->source != CLIENT_PORT)
+		test_fatal("src port has changed");
+	if (l4->dest != EXT_BACKEND_PORT)
+		test_fatal("dport %u, want backend port: forced path ran",
+			   bpf_ntohs(l4->dest));
+	if (!l4->syn)
+		test_fatal("TCP flags lost the SYN");
+
+	test_finish();
+}
+
+/* A node IP is a host endpoint, not a delivery target: the pre-existing
+ * forced-backend path applies and the inner is DNAT'd to the node with its
+ * port untranslated. This pins down that the frontend gate only fires for
+ * addresses that are not local endpoints.
+ */
+PKTGEN(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_node_ip")
+int ipip_term_v4_ext_lb_node_ip_pktgen(struct __ctx_buff *ctx)
+{
+	return __pktgen_ipip_v4(ctx, EXT_LB_IP, BACKEND_NODE_IP, EXT_VIP,
+				FRONTEND_PORT);
+}
+
+SETUP(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_node_ip")
+int ipip_term_v4_ext_lb_node_ip_setup(struct __ctx_buff *ctx)
+{
+	return ext_lb_setup(ctx, SVC_FLAG_LOADBALANCER);
+}
+
+CHECK(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_node_ip")
+int ipip_term_v4_ext_lb_node_ip_check(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	struct tcphdr *l4;
+
+	test_init();
+
+	ext_lb_teardown();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	if (num_calls[RECORD_REDIRECT_PEER] != 0)
+		test_fatal("redirected to a Pod, want the forced host path");
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->protocol != IPPROTO_TCP)
+		test_fatal("L3 proto is %u, want TCP: outer not stripped",
+			   l3->protocol);
+	if (l3->daddr != BACKEND_NODE_IP)
+		test_fatal("dst IP is %x, want NODE_IP: gate fired on a host endpoint",
+			   l3->daddr);
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->dest != FRONTEND_PORT)
+		test_fatal("dport %u, want frontend port", bpf_ntohs(l4->dest));
+
+	test_finish();
+}
+
+/* Shared check for the two negative cases below: nothing about the packet
+ * qualifies it, so the outer header must still be there and no Pod is
+ * involved. The rest is the pre-existing behaviour for unknown IPIP.
+ */
+static __always_inline int ext_lb_not_stripped_check(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+
+	test_init();
+
+	ext_lb_teardown();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	if (num_calls[RECORD_REDIRECT_PEER] != 0)
+		test_fatal("redirected to a Pod, want no termination");
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->protocol != IPPROTO_IPIP)
+		test_fatal("L3 proto is %u, want IPIP: outer was stripped",
+			   l3->protocol);
+	if (l3->daddr != EXT_REAL_IP)
+		test_fatal("outer dst changed");
+
+	test_finish();
+}
+
+/* The real is a frontend, but not on the inner port: not a delivery target. */
+PKTGEN(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_port_mismatch")
+int ipip_term_v4_ext_lb_port_mismatch_pktgen(struct __ctx_buff *ctx)
+{
+	return __pktgen_ipip_v4(ctx, EXT_LB_IP, EXT_REAL_IP, EXT_VIP,
+				EXT_OTHER_PORT);
+}
+
+SETUP(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_port_mismatch")
+int ipip_term_v4_ext_lb_port_mismatch_setup(struct __ctx_buff *ctx)
+{
+	return ext_lb_setup(ctx, SVC_FLAG_LOADBALANCER);
+}
+
+CHECK(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_port_mismatch")
+int ipip_term_v4_ext_lb_port_mismatch_check(struct __ctx_buff *ctx)
+{
+	return ext_lb_not_stripped_check(ctx);
+}
+
+/* The real is a frontend on the inner port, but a ClusterIP one: nothing an
+ * external LB can be pointed at, so not a delivery target either.
+ */
+PKTGEN(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_clusterip")
+int ipip_term_v4_ext_lb_clusterip_pktgen(struct __ctx_buff *ctx)
+{
+	return __pktgen_ipip_v4(ctx, EXT_LB_IP, EXT_REAL_IP, EXT_VIP,
+				FRONTEND_PORT);
+}
+
+SETUP(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_clusterip")
+int ipip_term_v4_ext_lb_clusterip_setup(struct __ctx_buff *ctx)
+{
+	return ext_lb_setup(ctx, 0);
+}
+
+CHECK(PROG_TYPE, "tc_nodeport_ipip_term_v4_ext_lb_clusterip")
+int ipip_term_v4_ext_lb_clusterip_check(struct __ctx_buff *ctx)
+{
+	return ext_lb_not_stripped_check(ctx);
 }
