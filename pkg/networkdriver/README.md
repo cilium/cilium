@@ -223,6 +223,11 @@ whose `metadata.name` matches the cilium node name (from `CiliumNode`).
 Note: at the current point in time, configuration updates need a restart
 of the cilium-agent pod.
 
+Per-node configs can be created directly (see below), or generated
+automatically for groups of nodes by the operator from a
+`CiliumNetworkDriverClusterConfig` — see
+[Cluster-wide configuration](#cluster-wide-configuration-operator-driven).
+
 ```yaml
 apiVersion: cilium.io/v2alpha1
 kind: CiliumNetworkDriverNodeConfig
@@ -332,6 +337,88 @@ Device-specific configuration is passed as opaque parameters in the
 |-------------|----------|------------------------------------------------------------------------------|
 | `vlan`      | `int32`  | 802.1q VLAN ID to configure on the device (SR-IOV only)                      |
 | `podIfName` | `string` | Rename the interface inside the pod namespace                               |
+
+### Cluster-wide configuration (operator-driven)
+
+Instead of (or in addition to) creating `CiliumNetworkDriverNodeConfig`
+objects by hand per node, the cilium-operator can generate and manage them
+for you from a cluster-scoped `CiliumNetworkDriverClusterConfig` CRD. This is
+implemented in `operator/pkg/networkdriver/config` and is gated by the same
+`--enable-network-driver` flag on the operator (`networkDriver.enabled=true`
+via Helm also propagates to the operator).
+
+```yaml
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: sriov-workers
+spec:
+  nodeSelector:            # optional; omit/nil to match all nodes
+    matchLabels:
+      node-role: sriov-worker
+  spec:                    # a full CiliumNetworkDriverNodeConfigSpec
+    deviceManagerConfigs:
+      sriov:
+        enabled: true
+        ifaces:
+          - ifName: ens1f0
+            vfCount: 4
+    pools:
+      - name: sriov-pool
+        filter:
+          deviceManagers:
+            - sr-iov
+          pfNames:
+            - ens1f0
+```
+
+The operator watches `CiliumNode` objects and all
+`CiliumNetworkDriverClusterConfig` objects, matches each node's labels
+against each cluster config's `nodeSelector` (an empty/nil selector matches
+every node), and creates/updates a `CiliumNetworkDriverNodeConfig` named
+after the node for every match — mirroring `spec.spec` verbatim into the
+generated node config's `.spec`. Deleting a `CiliumNetworkDriverClusterConfig`
+(or a node no longer matching any selector) deletes the corresponding
+generated `CiliumNetworkDriverNodeConfig` objects.
+
+#### Conflict resolution
+
+A node may only be governed by one cluster config at a time. When more than
+one `CiliumNetworkDriverClusterConfig` selects the same node, priority is:
+
+1. **Older `creationTimestamp` wins** — the earliest-created config that
+   matches a node "occupies" it.
+2. **Alphabetical name, as a tiebreak** — for configs created at the exact
+   same time.
+
+Every other cluster config that also matches an already-occupied node is
+marked conflicting: `status.conditions` gets a
+`cilium.io/ConflictingClusterConfiguration` condition
+(`reason: configurationConflict`) set to `True`, and none of its nodes are
+touched by that config (they keep whatever the winning config assigned, or
+remain unconfigured if no non-conflicting config matches them). The
+condition is cleared automatically once the conflict is resolved (e.g. the
+higher-priority config is deleted or its selector no longer matches).
+
+```bash
+# See which cluster configs are active/conflicting and which nodes they cover
+kubectl get ciliumnetworkdriverclusterconfigs
+kubectl get ciliumnetworkdriverclusterconfig sriov-workers -o yaml   # check status.conditions
+
+# See the node configs the operator generated (named after the node, not
+# the cluster config, e.g. "worker-node-1" — not "sriov-workers")
+kubectl get ciliumnetworkdrivernodeconfigs
+kubectl get ciliumnetworkdrivernodeconfig worker-node-1 -o yaml
+```
+
+Manually created `CiliumNetworkDriverNodeConfig` objects for a node that
+also matches a cluster config are treated as external drift: the operator's
+reconciler owns that object once a cluster config selects the node, and
+will overwrite/recreate it to match the cluster config's `spec.spec` (a
+periodic 5-minute refresh additionally re-checks for such external changes,
+independent of any Kubernetes watch event). Node configs whose node no
+longer exists, or that no longer match any cluster config's node selector,
+are deleted.
 
 ### 3. Prepare device requests
 
