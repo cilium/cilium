@@ -136,32 +136,55 @@ func (p *IDPool) Remove(id ID) bool {
 }
 
 type idCache struct {
-	// ids is a slice of IDs available in this idCache.
-	ids map[ID]struct{}
+	minID ID
+	maxID ID
 
-	// leased is the set of IDs that are leased in this idCache.
+	// nextID tracks the next unallocated sequential ID in range [minID, maxID].
+	nextID ID
+
+	// exhausted indicates whether nextID has reached maxID and been consumed.
+	exhausted bool
+
+	// freed contains IDs that were leased and returned, or explicitly inserted.
+	freed map[ID]struct{}
+
+	// leased contains IDs that are currently leased out.
 	leased map[ID]struct{}
+
+	// removed contains unallocated IDs (>= nextID) that were explicitly removed.
+	removed map[ID]struct{}
 }
 
 func newIDCache(minID ID, maxID ID) *idCache {
-	n := max(int(maxID-minID+1), 0)
-
-	c := &idCache{
-		ids:    make(map[ID]struct{}, n),
-		leased: make(map[ID]struct{}),
+	return &idCache{
+		minID:   minID,
+		maxID:   maxID,
+		nextID:  minID,
+		freed:   make(map[ID]struct{}),
+		leased:  make(map[ID]struct{}),
+		removed: make(map[ID]struct{}),
 	}
-
-	for id := minID; id < maxID+1; id++ {
-		c.ids[id] = struct{}{}
-	}
-
-	return c
 }
 
-// allocateID returns a random available ID without leasing it
+// allocateID returns an available ID without leasing it.
 func (c *idCache) allocateID() ID {
-	for id := range c.ids {
-		delete(c.ids, id)
+	for id := range c.freed {
+		delete(c.freed, id)
+		return id
+	}
+
+	for c.nextID <= c.maxID && !c.exhausted {
+		id := c.nextID
+		if c.nextID == c.maxID {
+			c.exhausted = true
+		} else {
+			c.nextID++
+		}
+
+		if _, isRemoved := c.removed[id]; isRemoved {
+			delete(c.removed, id)
+			continue
+		}
 		return id
 	}
 
@@ -210,15 +233,23 @@ func (c *idCache) use(id ID) bool {
 // insert adds the ID into the cache if it is currently unavailable.
 // Returns true if the ID was added to the cache.
 func (c *idCache) insert(id ID) bool {
-	if _, ok := c.ids[id]; ok {
-		return false
-	}
-
 	if _, exists := c.leased[id]; exists {
 		return false
 	}
 
-	c.ids[id] = struct{}{}
+	if _, ok := c.freed[id]; ok {
+		return false
+	}
+
+	if !c.exhausted && id >= c.nextID && id <= c.maxID {
+		if _, isRemoved := c.removed[id]; !isRemoved {
+			return false
+		}
+		delete(c.removed, id)
+		return true
+	}
+
+	c.freed[id] = struct{}{}
 	return true
 }
 
@@ -227,9 +258,16 @@ func (c *idCache) insert(id ID) bool {
 func (c *idCache) remove(id ID) bool {
 	delete(c.leased, id)
 
-	if _, ok := c.ids[id]; ok {
-		delete(c.ids, id)
+	if _, ok := c.freed[id]; ok {
+		delete(c.freed, id)
 		return true
+	}
+
+	if !c.exhausted && id >= c.nextID && id <= c.maxID {
+		if _, isRemoved := c.removed[id]; !isRemoved {
+			c.removed[id] = struct{}{}
+			return true
+		}
 	}
 
 	return false
