@@ -1249,8 +1249,9 @@
       "packageNameTemplate": "ubuntu"
     },
     {
-      "fileMatch": [
-        "^\\.custom-gcl\\.yaml$"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.custom-gcl\\.yaml$/"
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+version:\\s+'?(?<currentValue>[^'\"\\s]+)'?"
