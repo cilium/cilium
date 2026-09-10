@@ -58,7 +58,7 @@ type Controller struct {
 
 	// DatapathWaiter is called to wait for the datapath to be ready before
 	// allowing BGP route announcements.
-	DatapathWaiter DatapathWaiter
+	DatapathWaiter types.DatapathWaiter
 }
 
 // ControllerParams contains all parameters needed to construct a Controller
@@ -75,7 +75,7 @@ type ControllerParams struct {
 	BGPNodeConfigStore      store.BGPCPResourceStore[*v2.CiliumBGPNodeConfig]
 	BGPConfig               config.BGPConfig
 	LocalCiliumNodeResource daemon_k8s.LocalCiliumNodeResource
-	DatapathWaiter          DatapathWaiter
+	DatapathWaiter          types.DatapathWaiter
 }
 
 // NewController constructs a new BGP Control Plane Controller.

@@ -673,6 +673,13 @@ type RouterProvider interface {
 	NewRouter(ctx context.Context, log *slog.Logger, params ServerParameters) (Router, error)
 }
 
+// DatapathWaiter is called by the BGP controller to wait for the datapath to
+// be ready before announcing routes. It abstracts the individual initialization
+// gates so that the controller does not need to know about each component.
+type DatapathWaiter interface {
+	Wait(ctx context.Context) error
+}
+
 // Router is vendor-agnostic cilium bgp configuration layer. Parameters of this layer
 // are standard BGP RFC complaint and not specific to any underlying implementation.
 type Router interface {
