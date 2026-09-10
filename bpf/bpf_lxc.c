@@ -238,10 +238,9 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			if (ret == DROP_NO_SERVICE) {
 				if (!CONFIG(enable_no_service_endpoints_routable))
 					return handle_nonroutable_endpoints_v4(svc);
-#ifdef SERVICE_NO_BACKEND_RESPONSE
-				ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
-							 ext_err);
-#endif
+				if (CONFIG(enable_service_no_backend_response))
+					ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
+								 ext_err);
 			}
 			return ret;
 		}
@@ -408,10 +407,9 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			if (ret == DROP_NO_SERVICE) {
 				if (!CONFIG(enable_no_service_endpoints_routable))
 					return handle_nonroutable_endpoints_v6(svc);
-#ifdef SERVICE_NO_BACKEND_RESPONSE
-				ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
-							 ext_err);
-#endif
+				if (CONFIG(enable_service_no_backend_response))
+					ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
+								 ext_err);
 			}
 			return ret;
 		}

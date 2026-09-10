@@ -17,10 +17,8 @@
 
 #ifndef SKIP_CALLS_MAP
 #include "drop.h"
-#ifdef SERVICE_NO_BACKEND_RESPONSE
 #include "icmp.h"
 #include "icmp6.h"
-#endif
 #endif
 
 struct lb6_key {
@@ -2446,9 +2444,12 @@ lb4_dnat_request(struct __ctx_buff *ctx, const struct lb4_backend *backend,
 }
 #endif /* ENABLE_IPV4 */
 
+DECLARE_CONFIG(bool,
+	       enable_service_no_backend_response,
+	       "Reply with ICMP to traffic to a service with no backends")
+
 /* Because we use tail calls and this file is included in bpf_sock.h */
 #ifndef SKIP_CALLS_MAP
-#ifdef SERVICE_NO_BACKEND_RESPONSE
 
 #ifdef ENABLE_IPV4
 __declare_tail(CILIUM_CALL_IPV4_NO_SERVICE)
@@ -2512,7 +2513,6 @@ drop_err:
 }
 #endif /* ENABLE_IPV6 */
 
-#endif /* SERVICE_NO_BACKEND_RESPONSE */
 #endif /* SKIP_CALLS_MAP */
 
 static __always_inline
