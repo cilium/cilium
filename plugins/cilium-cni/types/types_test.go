@@ -65,6 +65,29 @@ func TestReadCNIConf(t *testing.T) {
 	testConfRead(t, confFile2, &netConf2)
 }
 
+func TestReadCNIConfLogRotation(t *testing.T) {
+	confFile := `
+{
+  "name": "cilium",
+  "type": "cilium-cni",
+  "log-file": "/var/run/cilium/cilium-cni.log",
+  "log-max-backups": 3,
+  "log-max-size": 25
+}
+`
+
+	netConf := NetConf{
+		NetConf: cnitypes.NetConf{
+			Name: "cilium",
+			Type: "cilium-cni",
+		},
+		LogFile:       "/var/run/cilium/cilium-cni.log",
+		LogMaxBackups: 3,
+		LogMaxSize:    25,
+	}
+	testConfRead(t, confFile, &netConf)
+}
+
 func TestReadCNIConfENIWithPlugins(t *testing.T) {
 	confFile1 := `
 {
