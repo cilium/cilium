@@ -58,6 +58,16 @@ func (d datapathHash) hashTemplate(c linuxConfig.Writer, epCfg endpoint.Config) 
 	if err := c.WriteTemplateConfig(h, epCfg); err != nil {
 		return "", err
 	}
+
+	// Host and workload endpoints use different BPF source files, but share
+	// the template cache. Keep their cache keys separate even when their
+	// generated template configuration is otherwise identical.
+	templateSource := endpointProg
+	if epCfg.IsHost() {
+		templateSource = hostEndpointProg
+	}
+	_, _ = h.Write([]byte("\x00" + templateSource))
+
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
