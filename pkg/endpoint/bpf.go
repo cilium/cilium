@@ -871,8 +871,10 @@ func (e *Endpoint) deleteMaps() []error {
 	// Remove the policy tail call entry for the endpoint. This will disable
 	// policy evaluation for the endpoint and will result in missing tail calls if
 	// e.g. bpf_host or bpf_overlay call into the endpoint's policy program.
-	if err := policymap.RemoveGlobalMapping(e.getLogger(), uint32(e.ID)); err != nil {
-		errors = append(errors, fmt.Errorf("removing endpoint program from global policy map: %w", err))
+	if e.policyMapFactory != nil {
+		if err := e.policyMapFactory.RemoveGlobalMapping(uint32(e.ID)); err != nil {
+			errors = append(errors, fmt.Errorf("removing endpoint program from global policymap: %w", err))
+		}
 	}
 
 	// Remove rate limit from bandwidth manager map.
@@ -1525,6 +1527,23 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	}
 
 	return err
+}
+
+// DumpPolicyMap returns the current entries in the endpoint's BPF policymap.
+// Returns nil if the policymap has not been initialized.
+func (e *Endpoint) DumpPolicyMap() (policymap.PolicyEntriesDump, error) {
+	// The policymap is opened, reassigned and closed under the endpoint
+	// mutex, so hold the read lock for the duration of the dump to avoid a
+	// data race on the field and a dump of a closed map.
+	if err := e.rlockAlive(); err != nil {
+		return nil, err
+	}
+	defer e.runlock()
+
+	if e.policyMap == nil {
+		return nil, nil
+	}
+	return e.policyMap.DumpToSlice()
 }
 
 // startSyncPolicyMapController starts the policymap sync controller. Must be called with the endpoint mutex held.

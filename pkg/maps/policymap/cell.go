@@ -51,6 +51,7 @@ func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
 type Factory interface {
 	OpenEndpoint(id uint16) (PolicyMap, error)
 	RemoveEndpoint(id uint16) error
+	RemoveGlobalMapping(id uint32) error
 
 	PolicyMaxEntries() int
 	StatsMaxEntries() int
@@ -92,6 +93,10 @@ func (f *factory) OpenEndpoint(id uint16) (PolicyMap, error) {
 // RemoveEndpoint removes the policy map of the specified endpoint.
 func (f *factory) RemoveEndpoint(id uint16) error {
 	return os.RemoveAll(bpf.LocalMapPath(f.logger, MapName, id))
+}
+
+func (f *factory) RemoveGlobalMapping(id uint32) error {
+	return RemoveGlobalMapping(f.logger, id)
 }
 
 func (f *factory) PolicyMaxEntries() int {

@@ -1,0 +1,96 @@
+hive/start
+
+env ep1_labels=k8s:io.kubernetes.pod.namespace=default,k8s:app=web
+identity/allocate ${ep1_labels}
+env --from-stdout ep1_identity
+
+env ep2_labels=k8s:io.kubernetes.pod.namespace=default,k8s:app=backend
+identity/allocate ${ep2_labels}
+env --from-stdout ep2_identity
+
+endpoint/create ${ep1_identity} ${ep1_labels}
+env --from-stdout ep1
+
+endpoint/create ${ep2_identity} ${ep2_labels}
+env --from-stdout ep2
+
+# The host is reserved identity 1, which sorts before the dynamically allocated
+# pod identities (>=256). 8080-8095 is aligned to a single LPM prefix, so it
+# lands as one entry rather than several.
+k8s/add policy.yaml
+policy/import policy.yaml
+endpoint/wait-for-policy-revision 2
+
+# cmpenv -w expands ${ep2_identity} and ignores the column alignment, so the
+# golden does not depend on the allocated identity value.
+policy/policymap ${ep1}
+cmpenv -w stdout ep1.expected
+
+# The backend endpoint is not selected by any policy, so it is wildcard
+# allow-all. The wildcard (identity 0) is materialized across the aggregate
+# buckets, so the realized map also carries the aggregate identities for
+# cluster (11), cluster-mesh (12), world (13) and remote-node (14).
+policy/policymap ${ep2}
+cmp -w stdout ep2.expected
+
+-- ep1.expected --
+Direction  Identity         PortProto      Action  ProxyPort
+Ingress    ${ep2_identity}  80/TCP         Allow   19001
+Ingress    ${ep2_identity}  8080-8095/TCP  Allow   19001
+Egress     1                ANY            Deny    0
+Egress     ${ep2_identity}  ANY            Allow   0
+Egress     ${ep2_identity}  53/UDP         Allow   19002
+-- ep2.expected --
+Direction  Identity  PortProto  Action  ProxyPort
+Ingress    0         ANY        Allow   0
+Ingress    11        ANY        Allow   0
+Ingress    12        ANY        Allow   0
+Ingress    13        ANY        Allow   0
+Ingress    14        ANY        Allow   0
+Egress     0         ANY        Allow   0
+Egress     11        ANY        Allow   0
+Egress     12        ANY        Allow   0
+Egress     13        ANY        Allow   0
+Egress     14        ANY        Allow   0
+-- policy.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "web-policy"
+  namespace: "default"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: web
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: backend
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      - port: "8080"
+        endPort: 8095
+        protocol: TCP
+      rules:
+        http:
+        - method: GET
+          path: "/"
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: backend
+  - toEndpoints:
+    - matchLabels:
+        app: backend
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      rules:
+        dns:
+        - matchPattern: "*"
+  egressDeny:
+  - toEntities:
+    - host
