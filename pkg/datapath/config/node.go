@@ -112,6 +112,7 @@ func NodeConfig(lnc *Config) Node {
 	node.NodeportPortMax = lnc.LBConfig.NodePortMax
 	node.NodeportPortMinNATExt = lnc.LBConfig.NodePortMinNATExt
 	node.NodeportPortMaxNATExt = lnc.LBConfig.NodePortMaxNATExt
+	node.EnableIPMasqAvoidHostPort = lnc.LBConfig.EnableIPMasqAvoidHostPort
 
 	if option.Config.EnableNat46X64Gateway {
 		// The datapath only stores the leading 32 bits of the RFC6052

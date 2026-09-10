@@ -226,3 +226,6 @@ NODE_CONFIG(bool, enable_masquerade_ipv4, "Enable BPF masquerading for IPv4 traf
 NODE_CONFIG(bool, enable_wireguard, "Enable Wireguard support")
 
 NODE_CONFIG(bool, enable_l7_lb, "Enable L7 load-balancing support")
+
+NODE_CONFIG(bool, enable_ip_masq_avoid_hostport,
+	    "Avoid allocating hostports during BPF masquerade SNAT port selection")
