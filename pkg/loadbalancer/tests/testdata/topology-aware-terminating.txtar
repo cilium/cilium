@@ -27,8 +27,9 @@ db/cmp frontends frontends-both.table
 # Transform endpointslice2 to a terminating endpoint that has no hints, as
 # the real EndpointSlice controller would produce for a non-Ready Pod.
 # Pre-fix this would have fallen back to all backends (missingHints=true);
-# post-fix the safeguard ignores the terminating backend and only the
-# Ready zone-local endpoint is selected.
+# post-fix the safeguard ignores the terminating backend. The terminating
+# backend itself stays selected so that it remains in the datapath maps and
+# its established connections can drain.
 cp endpointslice2.yaml endpointslice2-terminating.yaml
 sed 'ready: true' 'ready: false' endpointslice2-terminating.yaml
 sed 'terminating: false' 'terminating: true' endpointslice2-terminating.yaml
@@ -81,7 +82,7 @@ Address               Type        ServiceName   PortName   Status  Backends
 
 -- frontends-only-eps1.table --
 Address               Type        ServiceName   PortName   Status  Backends
-10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP, 10.244.2.1:80/TCP
 
 -- frontends-both-terminating.table --
 Address               Type        ServiceName   PortName   Status  Backends
