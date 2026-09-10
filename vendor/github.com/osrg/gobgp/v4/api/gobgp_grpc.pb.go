@@ -95,6 +95,10 @@ const (
 	GoBgpService_DeleteBmp_FullMethodName              = "/api.GoBgpService/DeleteBmp"
 	GoBgpService_ListBmp_FullMethodName                = "/api.GoBgpService/ListBmp"
 	GoBgpService_SetLogLevel_FullMethodName            = "/api.GoBgpService/SetLogLevel"
+	GoBgpService_AddTcpAoKeychain_FullMethodName       = "/api.GoBgpService/AddTcpAoKeychain"
+	GoBgpService_UpdateTcpAoKeychain_FullMethodName    = "/api.GoBgpService/UpdateTcpAoKeychain"
+	GoBgpService_DeleteTcpAoKeychain_FullMethodName    = "/api.GoBgpService/DeleteTcpAoKeychain"
+	GoBgpService_ListTcpAoKeychain_FullMethodName      = "/api.GoBgpService/ListTcpAoKeychain"
 )
 
 // GoBgpServiceClient is the client API for GoBgpService service.
@@ -158,6 +162,10 @@ type GoBgpServiceClient interface {
 	DeleteBmp(ctx context.Context, in *DeleteBmpRequest, opts ...grpc.CallOption) (*DeleteBmpResponse, error)
 	ListBmp(ctx context.Context, in *ListBmpRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ListBmpResponse], error)
 	SetLogLevel(ctx context.Context, in *SetLogLevelRequest, opts ...grpc.CallOption) (*SetLogLevelResponse, error)
+	AddTcpAoKeychain(ctx context.Context, in *AddTcpAoKeychainRequest, opts ...grpc.CallOption) (*AddTcpAoKeychainResponse, error)
+	UpdateTcpAoKeychain(ctx context.Context, in *UpdateTcpAoKeychainRequest, opts ...grpc.CallOption) (*UpdateTcpAoKeychainResponse, error)
+	DeleteTcpAoKeychain(ctx context.Context, in *DeleteTcpAoKeychainRequest, opts ...grpc.CallOption) (*DeleteTcpAoKeychainResponse, error)
+	ListTcpAoKeychain(ctx context.Context, in *ListTcpAoKeychainRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ListTcpAoKeychainResponse], error)
 }
 
 type goBgpServiceClient struct {
@@ -838,6 +846,55 @@ func (c *goBgpServiceClient) SetLogLevel(ctx context.Context, in *SetLogLevelReq
 	return out, nil
 }
 
+func (c *goBgpServiceClient) AddTcpAoKeychain(ctx context.Context, in *AddTcpAoKeychainRequest, opts ...grpc.CallOption) (*AddTcpAoKeychainResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddTcpAoKeychainResponse)
+	err := c.cc.Invoke(ctx, GoBgpService_AddTcpAoKeychain_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *goBgpServiceClient) UpdateTcpAoKeychain(ctx context.Context, in *UpdateTcpAoKeychainRequest, opts ...grpc.CallOption) (*UpdateTcpAoKeychainResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateTcpAoKeychainResponse)
+	err := c.cc.Invoke(ctx, GoBgpService_UpdateTcpAoKeychain_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *goBgpServiceClient) DeleteTcpAoKeychain(ctx context.Context, in *DeleteTcpAoKeychainRequest, opts ...grpc.CallOption) (*DeleteTcpAoKeychainResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteTcpAoKeychainResponse)
+	err := c.cc.Invoke(ctx, GoBgpService_DeleteTcpAoKeychain_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *goBgpServiceClient) ListTcpAoKeychain(ctx context.Context, in *ListTcpAoKeychainRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ListTcpAoKeychainResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &GoBgpService_ServiceDesc.Streams[14], GoBgpService_ListTcpAoKeychain_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ListTcpAoKeychainRequest, ListTcpAoKeychainResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type GoBgpService_ListTcpAoKeychainClient = grpc.ServerStreamingClient[ListTcpAoKeychainResponse]
+
 // GoBgpServiceServer is the server API for GoBgpService service.
 // All implementations must embed UnimplementedGoBgpServiceServer
 // for forward compatibility.
@@ -899,6 +956,10 @@ type GoBgpServiceServer interface {
 	DeleteBmp(context.Context, *DeleteBmpRequest) (*DeleteBmpResponse, error)
 	ListBmp(*ListBmpRequest, grpc.ServerStreamingServer[ListBmpResponse]) error
 	SetLogLevel(context.Context, *SetLogLevelRequest) (*SetLogLevelResponse, error)
+	AddTcpAoKeychain(context.Context, *AddTcpAoKeychainRequest) (*AddTcpAoKeychainResponse, error)
+	UpdateTcpAoKeychain(context.Context, *UpdateTcpAoKeychainRequest) (*UpdateTcpAoKeychainResponse, error)
+	DeleteTcpAoKeychain(context.Context, *DeleteTcpAoKeychainRequest) (*DeleteTcpAoKeychainResponse, error)
+	ListTcpAoKeychain(*ListTcpAoKeychainRequest, grpc.ServerStreamingServer[ListTcpAoKeychainResponse]) error
 	mustEmbedUnimplementedGoBgpServiceServer()
 }
 
@@ -1073,6 +1134,18 @@ func (UnimplementedGoBgpServiceServer) ListBmp(*ListBmpRequest, grpc.ServerStrea
 }
 func (UnimplementedGoBgpServiceServer) SetLogLevel(context.Context, *SetLogLevelRequest) (*SetLogLevelResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetLogLevel not implemented")
+}
+func (UnimplementedGoBgpServiceServer) AddTcpAoKeychain(context.Context, *AddTcpAoKeychainRequest) (*AddTcpAoKeychainResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddTcpAoKeychain not implemented")
+}
+func (UnimplementedGoBgpServiceServer) UpdateTcpAoKeychain(context.Context, *UpdateTcpAoKeychainRequest) (*UpdateTcpAoKeychainResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateTcpAoKeychain not implemented")
+}
+func (UnimplementedGoBgpServiceServer) DeleteTcpAoKeychain(context.Context, *DeleteTcpAoKeychainRequest) (*DeleteTcpAoKeychainResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteTcpAoKeychain not implemented")
+}
+func (UnimplementedGoBgpServiceServer) ListTcpAoKeychain(*ListTcpAoKeychainRequest, grpc.ServerStreamingServer[ListTcpAoKeychainResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method ListTcpAoKeychain not implemented")
 }
 func (UnimplementedGoBgpServiceServer) mustEmbedUnimplementedGoBgpServiceServer() {}
 func (UnimplementedGoBgpServiceServer) testEmbeddedByValue()                      {}
@@ -1983,6 +2056,71 @@ func _GoBgpService_SetLogLevel_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GoBgpService_AddTcpAoKeychain_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddTcpAoKeychainRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GoBgpServiceServer).AddTcpAoKeychain(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GoBgpService_AddTcpAoKeychain_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GoBgpServiceServer).AddTcpAoKeychain(ctx, req.(*AddTcpAoKeychainRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GoBgpService_UpdateTcpAoKeychain_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTcpAoKeychainRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GoBgpServiceServer).UpdateTcpAoKeychain(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GoBgpService_UpdateTcpAoKeychain_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GoBgpServiceServer).UpdateTcpAoKeychain(ctx, req.(*UpdateTcpAoKeychainRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GoBgpService_DeleteTcpAoKeychain_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteTcpAoKeychainRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GoBgpServiceServer).DeleteTcpAoKeychain(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GoBgpService_DeleteTcpAoKeychain_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GoBgpServiceServer).DeleteTcpAoKeychain(ctx, req.(*DeleteTcpAoKeychainRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GoBgpService_ListTcpAoKeychain_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListTcpAoKeychainRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(GoBgpServiceServer).ListTcpAoKeychain(m, &grpc.GenericServerStream[ListTcpAoKeychainRequest, ListTcpAoKeychainResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type GoBgpService_ListTcpAoKeychainServer = grpc.ServerStreamingServer[ListTcpAoKeychainResponse]
+
 // GoBgpService_ServiceDesc is the grpc.ServiceDesc for GoBgpService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2154,6 +2292,18 @@ var GoBgpService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "SetLogLevel",
 			Handler:    _GoBgpService_SetLogLevel_Handler,
 		},
+		{
+			MethodName: "AddTcpAoKeychain",
+			Handler:    _GoBgpService_AddTcpAoKeychain_Handler,
+		},
+		{
+			MethodName: "UpdateTcpAoKeychain",
+			Handler:    _GoBgpService_UpdateTcpAoKeychain_Handler,
+		},
+		{
+			MethodName: "DeleteTcpAoKeychain",
+			Handler:    _GoBgpService_DeleteTcpAoKeychain_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -2224,6 +2374,11 @@ var GoBgpService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ListBmp",
 			Handler:       _GoBgpService_ListBmp_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ListTcpAoKeychain",
+			Handler:       _GoBgpService_ListTcpAoKeychain_Handler,
 			ServerStreams: true,
 		},
 	},

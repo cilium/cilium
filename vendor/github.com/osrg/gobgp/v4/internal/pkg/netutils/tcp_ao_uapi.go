@@ -54,10 +54,11 @@ const (
 	tcpAOKeyFlagIfindex    = 1 << 0
 	tcpAOKeyFlagExcludeOpt = 1 << 1
 
-	// tcpAOMACLength is the 96-bit MAC length in bytes
-	// specified for TCP-AO algorithms by RFC 5926, Section 3.2.
-	// https://www.rfc-editor.org/rfc/rfc5926.html#section-3.2
-	tcpAOMACLength = 12
+	// tcpAOMACLength96 is the 96-bit MAC length in bytes.
+	tcpAOMACLength96 = 12
+
+	// tcpAOMACLength128 is the 128-bit MAC length in bytes.
+	tcpAOMACLength128 = 16
 )
 
 // Linux C ABIs allocate the first declared bitfield from the low-order bit on
@@ -103,7 +104,7 @@ type tcpAOAddABI struct {
 	MACLength      uint8
 	KeyFlags       uint8
 	KeyLength      uint8
-	Key            [tcpAOMaxKeyLen]byte
+	Key            [TCPAOMaxKeyLen]byte
 }
 
 // tcpAODelABI mirrors Linux struct tcp_ao_del:
@@ -140,7 +141,7 @@ type tcpAOInfoABI struct {
 type tcpAOGetKeyABI struct {
 	Address        tcpAOSockaddrStorage
 	Algorithm      [tcpAOAlgorithmNameSize]byte
-	Key            [tcpAOMaxKeyLen]byte
+	Key            [TCPAOMaxKeyLen]byte
 	KeyCount       uint32
 	Flags          uint16
 	SendID         uint8
@@ -173,16 +174,20 @@ type tcpAOSockaddrInet6ABI struct {
 	ScopeID  uint32
 }
 
-// tcpAOAlgorithmName returns a Linux TCP-AO algorithm name:
+// tcpAOAlgorithmProfile returns a Linux TCP-AO algorithm name and MAC length:
 // https://github.com/torvalds/linux/blob/v7.2-rc1/net/ipv4/tcp_ao.c#L26-L42
-func tcpAOAlgorithmName(algorithm TCPAOAlgorithm) string {
+func tcpAOAlgorithmProfile(algorithm TCPAOAlgorithm) (string, uint8) {
 	switch algorithm {
 	case TCPAOAlgorithmHMACSHA1:
-		return "hmac(sha1)"
+		return "hmac(sha1)", tcpAOMACLength96
 	case TCPAOAlgorithmAES128CMAC:
-		return "cmac(aes128)"
+		return "cmac(aes128)", tcpAOMACLength96
+	case TCPAOAlgorithmHMACSHA256MAC96:
+		return "hmac(sha256)", tcpAOMACLength96
+	case TCPAOAlgorithmHMACSHA256MAC128:
+		return "hmac(sha256)", tcpAOMACLength128
 	default:
-		return ""
+		return "", 0
 	}
 }
 
@@ -191,16 +196,17 @@ func marshalTCPAOAdd(scope netip.Prefix, ifindex int32, key TCPAOKey, selected b
 	if err != nil {
 		return nil, err
 	}
+	algorithmName, macLength := tcpAOAlgorithmProfile(key.Algorithm)
 	abi := tcpAOAddABI{
 		Address:        address,
 		InterfaceIndex: ifindex,
 		PrefixLength:   uint8(scope.Bits()),
 		SendID:         key.SendID,
 		ReceiveID:      key.ReceiveID,
-		MACLength:      tcpAOMACLength,
+		MACLength:      macLength,
 		KeyLength:      uint8(len(key.MasterKey)),
 	}
-	copy(abi.Algorithm[:], tcpAOAlgorithmName(key.Algorithm))
+	copy(abi.Algorithm[:], algorithmName)
 	if selected {
 		abi.Flags = tcpAOFlagSetCurrent | tcpAOFlagSetRNext
 	}

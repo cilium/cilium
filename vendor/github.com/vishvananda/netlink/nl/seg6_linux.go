@@ -37,9 +37,13 @@ func (s1 *IPv6SrHdr) Equal(s2 IPv6SrHdr) bool {
 }
 
 // seg6 encap mode
+// from include/uapi/linux/seg6_iptunnel.h
 const (
 	SEG6_IPTUN_MODE_INLINE = iota
 	SEG6_IPTUN_MODE_ENCAP
+	SEG6_IPTUN_MODE_L2ENCAP
+	SEG6_IPTUN_MODE_ENCAP_RED
+	SEG6_IPTUN_MODE_L2ENCAP_RED
 )
 
 // number of nested RTATTR
@@ -49,6 +53,7 @@ const (
 	SEG6_IPTUNNEL_SRH
 	__SEG6_IPTUNNEL_MAX
 )
+
 const (
 	SEG6_IPTUNNEL_MAX = __SEG6_IPTUNNEL_MAX - 1
 )
@@ -121,6 +126,7 @@ func DecodeSEG6Srh(buf []byte) ([]net.IP, error) {
 	}
 	return srh.Segments, nil
 }
+
 func EncodeSEG6Srh(segments []net.IP) ([]byte, error) {
 	nsegs := len(segments) // nsegs: number of segments
 	if nsegs == 0 {
@@ -149,6 +155,12 @@ func SEG6EncapModeString(mode int) string {
 		return "inline"
 	case SEG6_IPTUN_MODE_ENCAP:
 		return "encap"
+	case SEG6_IPTUN_MODE_L2ENCAP:
+		return "l2encap"
+	case SEG6_IPTUN_MODE_ENCAP_RED:
+		return "encap.red"
+	case SEG6_IPTUN_MODE_L2ENCAP_RED:
+		return "l2encap.red"
 	}
 	return "unknown"
 }

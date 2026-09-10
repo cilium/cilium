@@ -128,7 +128,7 @@ func selFromPolicy(sel *nl.XfrmSelector, policy *XfrmPolicy) {
 // XfrmPolicyAdd will add an xfrm policy to the system.
 // Equivalent to: `ip xfrm policy add $policy`
 func XfrmPolicyAdd(policy *XfrmPolicy) error {
-	return pkgHandle.XfrmPolicyAdd(policy)
+	return pkgHandle().XfrmPolicyAdd(policy)
 }
 
 // XfrmPolicyAdd will add an xfrm policy to the system.
@@ -140,7 +140,7 @@ func (h *Handle) XfrmPolicyAdd(policy *XfrmPolicy) error {
 // XfrmPolicyUpdate will update an xfrm policy to the system.
 // Equivalent to: `ip xfrm policy update $policy`
 func XfrmPolicyUpdate(policy *XfrmPolicy) error {
-	return pkgHandle.XfrmPolicyUpdate(policy)
+	return pkgHandle().XfrmPolicyUpdate(policy)
 }
 
 // XfrmPolicyUpdate will update an xfrm policy to the system.
@@ -202,7 +202,7 @@ func (h *Handle) xfrmPolicyAddOrUpdate(policy *XfrmPolicy, nlProto int) error {
 // the Tmpls are ignored when matching the policy to delete.
 // Equivalent to: `ip xfrm policy del $policy`
 func XfrmPolicyDel(policy *XfrmPolicy) error {
-	return pkgHandle.XfrmPolicyDel(policy)
+	return pkgHandle().XfrmPolicyDel(policy)
 }
 
 // XfrmPolicyDel will delete an xfrm policy from the system. Note that
@@ -220,7 +220,7 @@ func (h *Handle) XfrmPolicyDel(policy *XfrmPolicy) error {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func XfrmPolicyList(family int) ([]XfrmPolicy, error) {
-	return pkgHandle.XfrmPolicyList(family)
+	return pkgHandle().XfrmPolicyList(family)
 }
 
 // XfrmPolicyList gets a list of xfrm policies in the system.
@@ -256,7 +256,7 @@ func (h *Handle) XfrmPolicyList(family int) ([]XfrmPolicy, error) {
 // XfrmPolicyGet gets a the policy described by the index or selector, if found.
 // Equivalent to: `ip xfrm policy get { SELECTOR | index INDEX } dir DIR [ctx CTX ] [ mark MARK [ mask MASK ] ] [ ptype PTYPE ]`.
 func XfrmPolicyGet(policy *XfrmPolicy) (*XfrmPolicy, error) {
-	return pkgHandle.XfrmPolicyGet(policy)
+	return pkgHandle().XfrmPolicyGet(policy)
 }
 
 // XfrmPolicyGet gets a the policy described by the index or selector, if found.
@@ -268,7 +268,7 @@ func (h *Handle) XfrmPolicyGet(policy *XfrmPolicy) (*XfrmPolicy, error) {
 // XfrmPolicyFlush will flush the policies on the system.
 // Equivalent to: `ip xfrm policy flush`
 func XfrmPolicyFlush() error {
-	return pkgHandle.XfrmPolicyFlush()
+	return pkgHandle().XfrmPolicyFlush()
 }
 
 // XfrmPolicyFlush will flush the policies on the system.

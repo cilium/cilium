@@ -10,7 +10,7 @@ import (
 // ChainDel will delete a chain from the system.
 func ChainDel(link Link, chain Chain) error {
 	// Equivalent to: `tc chain del $chain`
-	return pkgHandle.ChainDel(link, chain)
+	return pkgHandle().ChainDel(link, chain)
 }
 
 // ChainDel will delete a chain from the system.
@@ -22,7 +22,7 @@ func (h *Handle) ChainDel(link Link, chain Chain) error {
 // ChainAdd will add a chain to the system.
 // Equivalent to: `tc chain add`
 func ChainAdd(link Link, chain Chain) error {
-	return pkgHandle.ChainAdd(link, chain)
+	return pkgHandle().ChainAdd(link, chain)
 }
 
 // ChainAdd will add a chain to the system.
@@ -62,7 +62,7 @@ func (h *Handle) chainModify(cmd, flags int, link Link, chain Chain) error {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func ChainList(link Link, parent uint32) ([]Chain, error) {
-	return pkgHandle.ChainList(link, parent)
+	return pkgHandle().ChainList(link, parent)
 }
 
 // ChainList gets a list of chains in the system.

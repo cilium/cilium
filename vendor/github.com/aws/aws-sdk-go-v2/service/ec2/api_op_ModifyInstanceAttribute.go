@@ -156,7 +156,7 @@ type ModifyInstanceAttributeInput struct {
 	// base64-encoding might be performed for you. For more information, see [Work with instance user data].
 	//
 	// [Work with instance user data]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.html
-	UserData *types.BlobAttributeValue
+	UserData *types.SecureBlobAttributeValue
 
 	// A new value for the attribute. Use only with the kernel , ramdisk , userData ,
 	// disableApiTermination , or instanceInitiatedShutdownBehavior attribute.
@@ -182,9 +182,6 @@ func (c *Client) addOperationModifyInstanceAttributeMiddlewares(stack *middlewar
 		return err
 	}
 
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}

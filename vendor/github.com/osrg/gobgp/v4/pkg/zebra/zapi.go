@@ -2465,8 +2465,12 @@ func (n *Nexthop) decode(data []byte, version uint8, software Software, family u
 		}
 		n.LabelNum = data[offset] // frr: STREAM_GETC(s, api_nh->label_num);
 		offset++
+		// frr rejects label_num > MPLS_MAX_LABELS instead of decoding the
+		// nexthop. Clamping the count here left the extra label octets in the
+		// buffer, so the reader resumed (label_num-maxMplsLabel)*4 bytes early
+		// and framed the next nexthop from label data.
 		if n.LabelNum > maxMplsLabel {
-			n.LabelNum = maxMplsLabel
+			return 0, fmt.Errorf("invalid number of nexthop labels %d exceeds maximum %d", n.LabelNum, maxMplsLabel)
 		}
 		if n.LabelNum > 0 {
 			n.MplsLabels = make([]uint32, n.LabelNum)

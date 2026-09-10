@@ -283,7 +283,7 @@ func (filter *Flower) decode(data []syscall.NetlinkRouteAttr) error {
 // FilterDel will delete a filter from the system.
 // Equivalent to: `tc filter del $filter`
 func FilterDel(filter Filter) error {
-	return pkgHandle.FilterDel(filter)
+	return pkgHandle().FilterDel(filter)
 }
 
 // FilterDel will delete a filter from the system.
@@ -295,7 +295,7 @@ func (h *Handle) FilterDel(filter Filter) error {
 // FilterAdd will add a filter to the system.
 // Equivalent to: `tc filter add $filter`
 func FilterAdd(filter Filter) error {
-	return pkgHandle.FilterAdd(filter)
+	return pkgHandle().FilterAdd(filter)
 }
 
 // FilterAdd will add a filter to the system.
@@ -307,7 +307,7 @@ func (h *Handle) FilterAdd(filter Filter) error {
 // FilterReplace will replace a filter.
 // Equivalent to: `tc filter replace $filter`
 func FilterReplace(filter Filter) error {
-	return pkgHandle.FilterReplace(filter)
+	return pkgHandle().FilterReplace(filter)
 }
 
 // FilterReplace will replace a filter.
@@ -457,7 +457,7 @@ func (h *Handle) filterModify(filter Filter, proto, flags int) error {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func FilterList(link Link, parent uint32) ([]Filter, error) {
-	return pkgHandle.FilterList(link, parent)
+	return pkgHandle().FilterList(link, parent)
 }
 
 // FilterList gets a list of filters in the system.

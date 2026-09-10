@@ -435,7 +435,7 @@ func bmpPeerDown(ev *watchEventPeer, t uint8, policy bool, pd uint64) *bmp.BMPMe
 	case fsmDeConfigured:
 		reasonCode = bmp.BMP_PEER_DOWN_REASON_PEER_DE_CONFIGURED
 	}
-	return bmp.NewBMPPeerDownNotification(*ph, uint8(reasonCode), ev.StateReason.BGPNotification, ev.StateReason.Data)
+	return bmp.NewBMPPeerDownNotification(*ph, uint8(reasonCode), ev.StateReason.notificationMessage(), ev.StateReason.Data)
 }
 
 func bmpPeerRoute(t uint8, policy bool, pd uint64, fourBytesAs bool, peeri *table.PeerInfo, timestamp int64, payload []byte) *bmp.BMPMessage {

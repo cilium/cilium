@@ -19,10 +19,10 @@ type BgpConfigSet struct {
 	Vrfs              []Vrf              `mapstructure:"vrfs"`
 	MrtDump           []Mrt              `mapstructure:"mrt-dump"`
 	Zebra             Zebra              `mapstructure:"zebra"`
-	Collector         Collector          `mapstructure:"collector"`
 	DefinedSets       DefinedSets        `mapstructure:"defined-sets"`
 	PolicyDefinitions []PolicyDefinition `mapstructure:"policy-definitions"`
 	DynamicNeighbors  []DynamicNeighbor  `mapstructure:"dynamic-neighbors"`
+	Keychains         []Keychain         `mapstructure:"keychains"`
 }
 
 func ReadConfigfile(path, format string) (*BgpConfigSet, error) {
@@ -43,7 +43,7 @@ func ReadConfig(r io.Reader, format string) (*BgpConfigSet, error) {
 	var err error
 
 	config := &BgpConfigSet{}
-	opts := viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(mapstructure.StringToNetIPAddrHookFunc(), mapstructure.StringToNetIPPrefixHookFunc()))
+	opts := viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(integerRangeHookFunc(), mapstructure.StringToNetIPAddrHookFunc(), mapstructure.StringToNetIPPrefixHookFunc()))
 
 	v := viper.New()
 	v.SetConfigType(format)

@@ -233,6 +233,8 @@ const (
 	EC_SUBTYPE_L2_INFO                 ExtendedCommunityAttrSubType = 0x0A // EC_TYPE: 0x80
 	EC_SUBTYPE_FLOWSPEC_REDIRECT_IP6   ExtendedCommunityAttrSubType = 0x0B // EC_TYPE: 0x80
 
+	EC_SUBTYPE_FLOWSPEC_REDIRECT_IP ExtendedCommunityAttrSubType = 0x0C // EC_TYPE: 0x01 (IPv4), 0x00 (IPv6)
+
 	EC_SUBTYPE_MAC_MOBILITY    ExtendedCommunityAttrSubType = 0x00 // EC_TYPE: 0x06
 	EC_SUBTYPE_ESI_LABEL       ExtendedCommunityAttrSubType = 0x01 // EC_TYPE: 0x06
 	EC_SUBTYPE_ES_IMPORT       ExtendedCommunityAttrSubType = 0x02 // EC_TYPE: 0x06
@@ -497,9 +499,14 @@ type ParameterCapabilityInterface interface {
 }
 
 type DefaultParameterCapability struct {
-	CapCode  BGPCapabilityCode `json:"code"`
-	CapLen   uint8             `json:"-"`
-	CapValue []byte            `json:"value,omitempty"`
+	CapCode BGPCapabilityCode `json:"code"`
+	// CapLen is the capability length read off the wire. DecodeFromBytes is
+	// the only place that sets it. Serialize does not update it.
+	CapLen uint8 `json:"-"`
+	// CapValue is the capability value for the types that do not keep it in
+	// typed fields. DecodeFromBytes and NewCapUnknown set it. Serialize does
+	// not: see serializeValue.
+	CapValue []byte `json:"value,omitempty"`
 }
 
 func (c *DefaultParameterCapability) Code() BGPCapabilityCode {
@@ -521,17 +528,32 @@ func (c *DefaultParameterCapability) DecodeFromBytes(data []byte) error {
 	return nil
 }
 
-func (c *DefaultParameterCapability) Serialize() ([]byte, error) {
-	c.CapLen = uint8(len(c.CapValue))
-	buf := make([]byte, 2+len(c.CapValue))
+// serializeValue returns the capability TLV for value. It does not store value
+// in the receiver, and it does not update CapLen. Serialize has to leave the
+// capability alone: a capability decoded from a peer OPEN is handed to the
+// gRPC API and to every BMP client, which serialize it from their own
+// goroutines while the FSM still holds it.
+func (c *DefaultParameterCapability) serializeValue(value []byte) ([]byte, error) {
+	buf := make([]byte, 2+len(value))
 	buf[0] = uint8(c.CapCode)
-	buf[1] = c.CapLen
-	copy(buf[2:], c.CapValue)
+	buf[1] = uint8(len(value))
+	copy(buf[2:], value)
 	return buf, nil
 }
 
+func (c *DefaultParameterCapability) Serialize() ([]byte, error) {
+	return c.serializeValue(c.CapValue)
+}
+
+// Len returns the length of the capability once serialized, so it must always
+// match len(Serialize()). A type that overrides Serialize to build the value
+// from typed fields has to override Len as well. A type that keeps the value
+// in CapValue uses both of these and matches on its own.
+//
+// CapLen is not used here. DecodeFromBytes and Serialize are the only places
+// that set it, so it is zero for a capability that was built locally.
 func (c *DefaultParameterCapability) Len() int {
-	return int(c.CapLen) + 2
+	return 2 + len(c.CapValue)
 }
 
 type CapMultiProtocol struct {
@@ -555,8 +577,11 @@ func (c *CapMultiProtocol) Serialize() ([]byte, error) {
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint16(buf[0:], c.CapValue.Afi())
 	buf[3] = c.CapValue.Safi()
-	c.DefaultParameterCapability.CapValue = buf
-	return c.DefaultParameterCapability.Serialize()
+	return c.serializeValue(buf)
+}
+
+func (c *CapMultiProtocol) Len() int {
+	return 6
 }
 
 func (c *CapMultiProtocol) MarshalJSON() ([]byte, error) {
@@ -680,8 +705,11 @@ func (c *CapExtendedNexthop) Serialize() ([]byte, error) {
 		binary.BigEndian.PutUint16(buf[i*6+2:i*6+4], t.NLRISAFI)
 		binary.BigEndian.PutUint16(buf[i*6+4:i*6+6], t.NexthopAFI)
 	}
-	c.CapValue = buf
-	return c.DefaultParameterCapability.Serialize()
+	return c.serializeValue(buf)
+}
+
+func (c *CapExtendedNexthop) Len() int {
+	return 2 + 6*len(c.Tuples)
 }
 
 func (c *CapExtendedNexthop) MarshalJSON() ([]byte, error) {
@@ -778,8 +806,11 @@ func (c *CapGracefulRestart) Serialize() ([]byte, error) {
 		tbuf[3] = t.Flags
 		buf = append(buf, tbuf[:]...)
 	}
-	c.CapValue = buf
-	return c.DefaultParameterCapability.Serialize()
+	return c.serializeValue(buf)
+}
+
+func (c *CapGracefulRestart) Len() int {
+	return 4 + 4*len(c.Tuples)
 }
 
 func (c *CapGracefulRestart) MarshalJSON() ([]byte, error) {
@@ -833,8 +864,11 @@ func (c *CapFourOctetASNumber) DecodeFromBytes(data []byte) error {
 func (c *CapFourOctetASNumber) Serialize() ([]byte, error) {
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, c.CapValue)
-	c.DefaultParameterCapability.CapValue = buf
-	return c.DefaultParameterCapability.Serialize()
+	return c.serializeValue(buf)
+}
+
+func (c *CapFourOctetASNumber) Len() int {
+	return 6
 }
 
 func (c *CapFourOctetASNumber) MarshalJSON() ([]byte, error) {
@@ -937,8 +971,11 @@ func (c *CapAddPath) Serialize() ([]byte, error) {
 		buf[i*4+2] = t.Family.Safi()
 		buf[i*4+3] = byte(t.Mode)
 	}
-	c.CapValue = buf
-	return c.DefaultParameterCapability.Serialize()
+	return c.serializeValue(buf)
+}
+
+func (c *CapAddPath) Len() int {
+	return 2 + 4*len(c.Tuples)
 }
 
 func (c *CapAddPath) MarshalJSON() ([]byte, error) {
@@ -1054,8 +1091,11 @@ func (c *CapLongLivedGracefulRestart) Serialize() ([]byte, error) {
 		buf[idx*7+5] = uint8(t.RestartTime >> 8 & 0xff)
 		buf[idx*7+6] = uint8(t.RestartTime & 0xff)
 	}
-	c.CapValue = buf
-	return c.DefaultParameterCapability.Serialize()
+	return c.serializeValue(buf)
+}
+
+func (c *CapLongLivedGracefulRestart) Len() int {
+	return 2 + 7*len(c.Tuples)
 }
 
 func (c *CapLongLivedGracefulRestart) MarshalJSON() ([]byte, error) {
@@ -1114,8 +1154,11 @@ func (c *CapFQDN) Serialize() ([]byte, error) {
 	copy(buf[1:c.HostNameLen+1], c.HostName)
 	buf[c.HostNameLen+1] = c.DomainNameLen
 	copy(buf[c.HostNameLen+2:], c.DomainName)
-	c.CapValue = buf
-	return c.DefaultParameterCapability.Serialize()
+	return c.serializeValue(buf)
+}
+
+func (c *CapFQDN) Len() int {
+	return 4 + int(c.HostNameLen) + int(c.DomainNameLen)
 }
 
 func (c *CapFQDN) MarshalJSON() ([]byte, error) {
@@ -1177,8 +1220,11 @@ func (c *CapSoftwareVersion) Serialize() ([]byte, error) {
 	buf := make([]byte, c.SoftwareVersionLen+1)
 	buf[0] = c.SoftwareVersionLen
 	copy(buf[1:], []byte(c.SoftwareVersion))
-	c.CapValue = buf
-	return c.DefaultParameterCapability.Serialize()
+	return c.serializeValue(buf)
+}
+
+func (c *CapSoftwareVersion) Len() int {
+	return 3 + int(c.SoftwareVersionLen)
 }
 
 func (c *CapSoftwareVersion) MarshalJSON() ([]byte, error) {
@@ -1264,7 +1310,10 @@ type OptionParameterInterface interface {
 }
 
 type OptionParameterCapability struct {
-	ParamType  uint8
+	ParamType uint8
+	// ParamLen is the parameter length read off the wire. BGPOpen's
+	// DecodeFromBytes is the only place that sets it. Serialize does not
+	// update it.
 	ParamLen   uint8
 	Capability []ParameterCapabilityInterface
 }
@@ -1279,10 +1328,15 @@ func (o *OptionParameterCapability) DecodeFromBytes(data []byte) error {
 			return err
 		}
 		o.Capability = append(o.Capability, c)
-		if c.Len() == 0 || len(data) < c.Len() {
+		// Advance by the length on the wire. Len reports how long the
+		// capability is once serialized, which is not always what was
+		// received: a decoder that drops a trailing partial record
+		// returns a shorter length.
+		capLen := 2 + int(data[1])
+		if len(data) < capLen {
 			return NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "Bad capability length")
 		}
-		data = data[c.Len():]
+		data = data[capLen:]
 	}
 	return nil
 }
@@ -1297,8 +1351,8 @@ func (o *OptionParameterCapability) Serialize() ([]byte, error) {
 		}
 		buf = append(buf, pbuf...)
 	}
-	o.ParamLen = uint8(len(buf) - 2)
-	buf[1] = o.ParamLen
+	paramLen := uint8(len(buf) - 2)
+	buf[1] = paramLen
 	return buf, nil
 }
 
@@ -1311,31 +1365,43 @@ func NewOptionParameterCapability(capability []ParameterCapabilityInterface) *Op
 
 type OptionParameterUnknown struct {
 	ParamType uint8
-	ParamLen  uint8
-	Value     []byte
+	// ParamLen is the parameter length read off the wire. Serialize uses it
+	// when it is not zero and falls back to len(Value). Serialize does not
+	// update it.
+	ParamLen uint8
+	Value    []byte
 }
 
 func (o *OptionParameterUnknown) Serialize() ([]byte, error) {
 	buf := make([]byte, 2+len(o.Value))
 	buf[0] = o.ParamType
-	if o.ParamLen == 0 {
-		o.ParamLen = uint8(len(o.Value))
+	paramLen := o.ParamLen
+	if paramLen == 0 {
+		paramLen = uint8(len(o.Value))
 	}
-	buf[1] = o.ParamLen
+	buf[1] = paramLen
 	copy(buf[2:], o.Value)
 	return buf, nil
 }
 
 type BGPOpen struct {
-	Version     uint8
-	MyAS        uint16
-	HoldTime    uint16
-	ID          netip.Addr
+	Version  uint8
+	MyAS     uint16
+	HoldTime uint16
+	ID       netip.Addr
+	// OptParamLen is the optional parameters length read off the wire.
+	// DecodeFromBytes is the only place that sets it. Serialize does not
+	// update it.
 	OptParamLen uint8
 	OptParams   []OptionParameterInterface
 }
 
 func (msg *BGPOpen) DecodeFromBytes(data []byte, options ...*MarshallingOption) error {
+	// The length checks in a body decoder only keep it from reading past the
+	// end of the slice, which a caller decoding a body on its own can hand
+	// over too short. The rules RFC 4271 Section 6.1 states on the message
+	// length are checked in parseBody, the only place that knows the length
+	// declared on the wire, so these errors carry no Data field.
 	if len(data) < 10 {
 		return NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "Not all BGP Open message bytes available")
 	}
@@ -1395,8 +1461,7 @@ func (msg *BGPOpen) Serialize(options ...*MarshallingOption) ([]byte, error) {
 		}
 		pbuf = append(pbuf, onepbuf...)
 	}
-	msg.OptParamLen = uint8(len(pbuf))
-	buf[9] = msg.OptParamLen
+	buf[9] = uint8(len(pbuf))
 	return append(buf, pbuf...), nil
 }
 
@@ -1732,7 +1797,12 @@ func (rd *RouteDistinguisherUnknown) Serialize() ([]byte, error) {
 }
 
 func (rd *RouteDistinguisherUnknown) String() string {
-	return fmt.Sprintf("%v", rd.Value)
+	// Include the type. EVPN, MUP, VPLS and flowspec-VPN NLRIs are keyed on
+	// String(), so two unknown RDs that differ only in their type would share
+	// one table entry if the type were left out. The value is printed as hex,
+	// which is always 12 digits for the 6 value bytes, so it cannot collide
+	// with the decimal "admin:assigned" form of a known RD type.
+	return fmt.Sprintf("%d:%x", rd.Type, rd.Value)
 }
 
 func (rd *RouteDistinguisherUnknown) MarshalJSON() ([]byte, error) {
@@ -1761,6 +1831,7 @@ func GetRouteDistinguisher(data []byte) RouteDistinguisherInterface {
 		DefaultRouteDistinguisher: DefaultRouteDistinguisher{
 			Type: typ,
 		},
+		Value: data[2:8],
 	}
 	return rd
 }
@@ -14589,6 +14660,124 @@ func NewRedirectIPv4AddressSpecificExtended(ipv4 netip.Addr, localAdmin uint16) 
 	return &RedirectIPv4AddressSpecificExtended{*e}, nil
 }
 
+// FlowSpecRedirectToIPv4Extended is the redirect-to-IPv4 action of
+// draft-ietf-idr-flowspec-redirect-ip-16. Unlike the Redirect* types,
+// which carry a route target (redirect-to-VRF, RFC 8955 section 7.4),
+// the value is a forwarding target. Copy is the C bit.
+type FlowSpecRedirectToIPv4Extended struct {
+	Target netip.Addr
+	Copy   bool
+}
+
+const flowSpecRedirectToIPCopyBit uint16 = 0x0001
+
+func flowSpecRedirectLocalAdmin(isCopy bool) uint16 {
+	if isCopy {
+		return flowSpecRedirectToIPCopyBit
+	}
+	return 0
+}
+
+func (e *FlowSpecRedirectToIPv4Extended) Serialize() ([]byte, error) {
+	if !e.Target.Is4() {
+		return nil, fmt.Errorf("redirect-to-ipv4 target must be an IPv4 address: %s", e.Target)
+	}
+	buf := make([]byte, 8)
+	buf[0] = byte(EC_TYPE_TRANSITIVE_IP4_SPECIFIC)
+	buf[1] = byte(EC_SUBTYPE_FLOWSPEC_REDIRECT_IP)
+	copy(buf[2:6], e.Target.AsSlice())
+	binary.BigEndian.PutUint16(buf[6:8], flowSpecRedirectLocalAdmin(e.Copy))
+	return buf, nil
+}
+
+func (e *FlowSpecRedirectToIPv4Extended) IsCopy() bool { return e.Copy }
+
+func (e *FlowSpecRedirectToIPv4Extended) String() string {
+	if e.Copy {
+		return "copy-to-ip: " + e.Target.String()
+	}
+	return "redirect-to-ip: " + e.Target.String()
+}
+
+func (e *FlowSpecRedirectToIPv4Extended) MarshalJSON() ([]byte, error) {
+	t, s := e.GetTypes()
+	return json.Marshal(struct {
+		Type    ExtendedCommunityAttrType    `json:"type"`
+		Subtype ExtendedCommunityAttrSubType `json:"subtype"`
+		Target  string                       `json:"target"`
+		Copy    bool                         `json:"copy"`
+	}{t, s, e.Target.String(), e.Copy})
+}
+
+func (e *FlowSpecRedirectToIPv4Extended) GetTypes() (ExtendedCommunityAttrType, ExtendedCommunityAttrSubType) {
+	return EC_TYPE_TRANSITIVE_IP4_SPECIFIC, EC_SUBTYPE_FLOWSPEC_REDIRECT_IP
+}
+
+func (e *FlowSpecRedirectToIPv4Extended) Flat() map[string]string {
+	return map[string]string{}
+}
+
+func NewFlowSpecRedirectToIPv4Extended(target netip.Addr, isCopy bool) (*FlowSpecRedirectToIPv4Extended, error) {
+	if !target.Is4() {
+		return nil, fmt.Errorf("redirect-to-ipv4 target must be an IPv4 address: %s", target)
+	}
+	return &FlowSpecRedirectToIPv4Extended{Target: target, Copy: isCopy}, nil
+}
+
+// FlowSpecRedirectToIPv6Extended is the IPv6 counterpart, carried in an
+// RFC 5701 IPv6 address-specific community.
+type FlowSpecRedirectToIPv6Extended struct {
+	Target netip.Addr
+	Copy   bool
+}
+
+func (e *FlowSpecRedirectToIPv6Extended) Serialize() ([]byte, error) {
+	// Is6 admits the IPv4-mapped form, which the decoder can produce.
+	if !e.Target.Is6() {
+		return nil, fmt.Errorf("redirect-to-ipv6 target must be an IPv6 address: %s", e.Target)
+	}
+	buf := make([]byte, 20)
+	buf[0] = byte(EC_TYPE_TRANSITIVE_IP6_SPECIFIC)
+	buf[1] = byte(EC_SUBTYPE_FLOWSPEC_REDIRECT_IP)
+	copy(buf[2:18], e.Target.AsSlice())
+	binary.BigEndian.PutUint16(buf[18:20], flowSpecRedirectLocalAdmin(e.Copy))
+	return buf, nil
+}
+
+func (e *FlowSpecRedirectToIPv6Extended) IsCopy() bool { return e.Copy }
+
+func (e *FlowSpecRedirectToIPv6Extended) String() string {
+	if e.Copy {
+		return "copy-to-ip: " + e.Target.String()
+	}
+	return "redirect-to-ip: " + e.Target.String()
+}
+
+func (e *FlowSpecRedirectToIPv6Extended) MarshalJSON() ([]byte, error) {
+	t, s := e.GetTypes()
+	return json.Marshal(struct {
+		Type    ExtendedCommunityAttrType    `json:"type"`
+		Subtype ExtendedCommunityAttrSubType `json:"subtype"`
+		Target  string                       `json:"target"`
+		Copy    bool                         `json:"copy"`
+	}{t, s, e.Target.String(), e.Copy})
+}
+
+func (e *FlowSpecRedirectToIPv6Extended) GetTypes() (ExtendedCommunityAttrType, ExtendedCommunityAttrSubType) {
+	return EC_TYPE_TRANSITIVE_IP6_SPECIFIC, EC_SUBTYPE_FLOWSPEC_REDIRECT_IP
+}
+
+func (e *FlowSpecRedirectToIPv6Extended) Flat() map[string]string {
+	return map[string]string{}
+}
+
+func NewFlowSpecRedirectToIPv6Extended(target netip.Addr, isCopy bool) (*FlowSpecRedirectToIPv6Extended, error) {
+	if !target.Is6() {
+		return nil, fmt.Errorf("redirect-to-ipv6 target must be an IPv6 address: %s", target)
+	}
+	return &FlowSpecRedirectToIPv6Extended{Target: target, Copy: isCopy}, nil
+}
+
 type RedirectIPv6AddressSpecificExtended struct {
 	IPv6AddressSpecificExtended
 }
@@ -14899,6 +15088,15 @@ func ParseExtended(data []byte) (ExtendedCommunityInterface, error) {
 			return NewTwoOctetAsSpecificExtended(subtype, as, localAdmin, transitive), nil
 		}
 	case EC_TYPE_TRANSITIVE_IP4_SPECIFIC:
+		if subtype == EC_SUBTYPE_FLOWSPEC_REDIRECT_IP {
+			target, _ := netip.AddrFromSlice(data[2:6])
+			// Reserved bits are ignored on receipt.
+			la := binary.BigEndian.Uint16(data[6:8])
+			return &FlowSpecRedirectToIPv4Extended{
+				Target: target,
+				Copy:   la&flowSpecRedirectToIPCopyBit != 0,
+			}, nil
+		}
 		transitive = true
 		fallthrough
 	case EC_TYPE_NON_TRANSITIVE_IP4_SPECIFIC:
@@ -15959,6 +16157,15 @@ func ParseIP6Extended(data []byte) (ExtendedCommunityInterface, error) {
 	transitive := false
 	switch attrType {
 	case EC_TYPE_TRANSITIVE_IP6_SPECIFIC:
+		if subtype == EC_SUBTYPE_FLOWSPEC_REDIRECT_IP {
+			target, _ := netip.AddrFromSlice(data[2:18])
+			// Reserved bits are ignored on receipt.
+			la := binary.BigEndian.Uint16(data[18:20])
+			return &FlowSpecRedirectToIPv6Extended{
+				Target: target,
+				Copy:   la&flowSpecRedirectToIPCopyBit != 0,
+			}, nil
+		}
 		transitive = true
 		fallthrough
 	case EC_TYPE_NON_TRANSITIVE_IP6_SPECIFIC:
@@ -16766,6 +16973,7 @@ type BGPNotification struct {
 }
 
 func (msg *BGPNotification) DecodeFromBytes(data []byte, options ...*MarshallingOption) error {
+	// See BGPOpen.DecodeFromBytes on the split with parseBody.
 	if len(data) < 2 {
 		return NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "Not all Notification bytes available")
 	}
@@ -16823,6 +17031,9 @@ func ShouldHardReset(subcode uint8, hardResetOnAdminReset bool) bool {
 type BGPKeepAlive struct{}
 
 func (msg *BGPKeepAlive) DecodeFromBytes(data []byte, options ...*MarshallingOption) error {
+	// A KEEPALIVE has no body to read, so there is nothing to guard against
+	// here. RFC 4271 Section 4.4 requires the body to be empty, and parseBody
+	// is where that is checked.
 	return nil
 }
 
@@ -16887,12 +17098,17 @@ const (
 
 type BGPHeader struct {
 	Marker []byte
-	Len    uint16
-	Type   uint8
+	// Len is the message length read off the wire. DecodeFromBytes is the
+	// only place that sets it. BGPMessage.Serialize reads it when it is not
+	// zero, and does not update it.
+	Len  uint16
+	Type uint8
 }
 
 func (msg *BGPHeader) DecodeFromBytes(data []byte, options ...*MarshallingOption) error {
-	// minimum BGP message length
+	// minimum BGP message length. The Data field stays empty here: fewer
+	// than 19 octets means the Length field itself was never read, so
+	// there is no erroneous Length to report.
 	if uint16(len(data)) < BGP_HEADER_LENGTH {
 		return NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "not all BGP message header")
 	}
@@ -16905,21 +17121,30 @@ func (msg *BGPHeader) DecodeFromBytes(data []byte, options ...*MarshallingOption
 
 	msg.Len = binary.BigEndian.Uint16(data[16:18])
 	if int(msg.Len) < BGP_HEADER_LENGTH {
-		return NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "unknown message type")
+		return NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, binary.BigEndian.AppendUint16(nil, msg.Len), fmt.Sprintf("too short BGP message length %d", msg.Len))
 	}
 
 	msg.Type = data[18]
 	return nil
 }
 
-func (msg *BGPHeader) Serialize(options ...*MarshallingOption) ([]byte, error) {
+// serialize builds the header with the given message length. The length is
+// passed in rather than taken from msg.Len so that BGPMessage.Serialize does
+// not have to cache it in the header: a message received from a peer is
+// shared by the FSM, the gRPC API and the BMP clients, which serialize it
+// from their own goroutines.
+func (msg *BGPHeader) serialize(length uint16) []byte {
 	buf := make([]byte, BGP_HEADER_LENGTH)
 	for i := range buf[:16] {
 		buf[i] = 0xff
 	}
-	binary.BigEndian.PutUint16(buf[16:18], msg.Len)
+	binary.BigEndian.PutUint16(buf[16:18], length)
 	buf[18] = msg.Type
-	return buf, nil
+	return buf
+}
+
+func (msg *BGPHeader) Serialize(options ...*MarshallingOption) ([]byte, error) {
+	return msg.serialize(msg.Len), nil
 }
 
 type BGPMessage struct {
@@ -16927,26 +17152,59 @@ type BGPMessage struct {
 	Body   BGPBody
 }
 
+// parseBody decodes the body of one message. h.Len is the authority on how
+// long that body is: every body decoder assumes it gets exactly the declared
+// body and nothing more. BGPUpdate reads whatever is left after the path
+// attributes as NLRI, and BGPKeepAlive requires an empty slice. So a caller
+// that hands over a different number of bytes gets an error instead of a wrong
+// parse.
+//
+// RFC 4271 Section 6.1: the Data field of a Bad Message Length NOTIFICATION
+// carries the erroneous Length field.
 func parseBody(h *BGPHeader, data []byte, options ...*MarshallingOption) (*BGPMessage, error) {
-	if len(data) < int(h.Len)-BGP_HEADER_LENGTH {
-		return nil, NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "Not all BGP message bytes available")
+	if len(data) != int(h.Len)-BGP_HEADER_LENGTH {
+		return nil, NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, binary.BigEndian.AppendUint16(nil, h.Len), fmt.Sprintf("BGP message length %d does not match the body length %d", h.Len, len(data)))
 	}
 	msg := &BGPMessage{Header: *h}
+
+	// minBody is the shortest body RFC 4271 Section 6.1 allows for the type,
+	// and exact means the body must be that long and no longer. The rules
+	// live here because h.Len tells us what the peer declared, which is what
+	// Section 6.1 wants in the Data field. A body decoder is handed a slice
+	// alone and cannot tell a short message from a short slice.
+	//
+	// ROUTE-REFRESH is left out on purpose. RFC 7313 Section 5 requires a
+	// wrong length there to be reported as ROUTE-REFRESH Message Error with
+	// the subcode Invalid Message Length, not as a header error, so that
+	// check stays in BGPRouteRefresh.DecodeFromBytes.
+	minBody, exact := 0, false
 
 	switch msg.Header.Type {
 	case BGP_MSG_OPEN:
 		msg.Body = &BGPOpen{}
+		minBody = 10 // version, my AS, hold time, BGP identifier, optional parameters length
 	case BGP_MSG_UPDATE:
 		msg.Body = &BGPUpdate{}
+		minBody = 4 // withdrawn routes length, total path attribute length
 	case BGP_MSG_NOTIFICATION:
 		msg.Body = &BGPNotification{}
+		minBody = 2 // error code, error subcode
 	case BGP_MSG_KEEPALIVE:
 		msg.Body = &BGPKeepAlive{}
+		exact = true // Section 4.4: the message header and nothing else
 	case BGP_MSG_ROUTE_REFRESH:
 		msg.Body = &BGPRouteRefresh{}
 	default:
-		return nil, NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_TYPE, nil, "unknown message type")
+		return nil, NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_TYPE, []byte{msg.Header.Type}, "unknown message type")
 	}
+
+	if len(data) < minBody {
+		return nil, NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, binary.BigEndian.AppendUint16(nil, h.Len), fmt.Sprintf("too short length %d for message type %d, need at least %d", h.Len, msg.Header.Type, BGP_HEADER_LENGTH+minBody))
+	}
+	if exact && len(data) != minBody {
+		return nil, NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, binary.BigEndian.AppendUint16(nil, h.Len), fmt.Sprintf("wrong length %d for message type %d, need exactly %d", h.Len, msg.Header.Type, BGP_HEADER_LENGTH+minBody))
+	}
+
 	err := msg.Body.DecodeFromBytes(data, options...)
 	return msg, err
 }
@@ -16958,12 +17216,15 @@ func ParseBGPMessage(data []byte, options ...*MarshallingOption) (*BGPMessage, e
 	}
 
 	if int(h.Len) > len(data) {
-		return nil, NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "unknown message type")
+		return nil, NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, binary.BigEndian.AppendUint16(nil, h.Len), "Not all BGP message bytes available")
 	}
 
 	return parseBody(h, data[BGP_HEADER_LENGTH:h.Len], options...)
 }
 
+// ParseBGPBody decodes a body that the caller read separately from the header,
+// as the FSM does. data must hold exactly the body h declares, that is
+// h.Len - BGP_HEADER_LENGTH bytes.
 func ParseBGPBody(h *BGPHeader, data []byte, options ...*MarshallingOption) (*BGPMessage, error) {
 	return parseBody(h, data, options...)
 }
@@ -16973,7 +17234,8 @@ func (msg *BGPMessage) Serialize(options ...*MarshallingOption) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	if msg.Header.Len == 0 {
+	length := msg.Header.Len
+	if length == 0 {
 		// RFC 8654 Section 4 + Section 6: with the BGP Extended
 		// Message Capability negotiated the cap rises to 65535 for
 		// UPDATE, NOTIFICATION and ROUTE-REFRESH; OPEN and KEEPALIVE
@@ -16991,13 +17253,9 @@ func (msg *BGPMessage) Serialize(options ...*MarshallingOption) ([]byte, error) 
 		if BGP_HEADER_LENGTH+len(b) > maxLen {
 			return nil, NewMessageError(0, 0, nil, fmt.Sprintf("too long message length %d", BGP_HEADER_LENGTH+len(b)))
 		}
-		msg.Header.Len = BGP_HEADER_LENGTH + uint16(len(b))
+		length = BGP_HEADER_LENGTH + uint16(len(b))
 	}
-	h, err := msg.Header.Serialize(options...)
-	if err != nil {
-		return nil, err
-	}
-	return append(h, b...), nil
+	return append(msg.Header.serialize(length), b...), nil
 }
 
 type ErrorHandling int
@@ -17058,8 +17316,15 @@ func getErrorHandlingFromPathAttribute(t BGPAttrType) ErrorHandling {
 }
 
 type MessageError struct {
-	TypeCode       uint8
-	SubTypeCode    uint8
+	TypeCode    uint8
+	SubTypeCode uint8
+	// Data becomes the Data field of the NOTIFICATION that is sent for
+	// this error. What belongs in it depends on the code and the
+	// subcode. RFC 4271 Section 6 leaves it empty unless the error
+	// handling section for the code says otherwise: Section 6.1 asks for
+	// the erroneous Length or Type field of the message header, Section
+	// 6.2 for the largest locally supported version number, and Section
+	// 6.3 for the erroneous attribute or its type code.
 	Data           []byte
 	Message        string
 	ErrorHandling  ErrorHandling

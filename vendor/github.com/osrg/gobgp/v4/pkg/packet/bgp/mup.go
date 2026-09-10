@@ -810,7 +810,14 @@ func (r *MUPType2SessionTransformedRoute) DecodeFromBytes(data []byte, afi uint1
 		return malformedAttrListErr("invalid 3GPP 5G specific Type 2 Session Transformed Route length")
 	}
 	r.EndpointAddressLength = data[p]
-	if afi == AFI_IP && r.EndpointAddressLength > 64 || afi == AFI_IP6 && r.EndpointAddressLength > 160 {
+	// Endpoint Address Length covers the endpoint address plus the
+	// architecture-specific endpoint identifier (TEID), so it must be at
+	// least the endpoint address size (32 for IPv4, 128 for IPv6). Without
+	// the lower bound a too-small value makes teidLen negative, so the on-wire
+	// TEID octets are handed to parseMUPTLVs and the TEID recorded in the
+	// route key is wrong.
+	if afi == AFI_IP && (r.EndpointAddressLength < 32 || r.EndpointAddressLength > 64) ||
+		afi == AFI_IP6 && (r.EndpointAddressLength < 128 || r.EndpointAddressLength > 160) {
 		return malformedAttrListErr(fmt.Sprintf("Invalid Endpoint Address Length: %d", r.EndpointAddressLength))
 	}
 	p += 1

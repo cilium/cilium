@@ -242,7 +242,7 @@ func (h *Handle) SocketGet(local, remote net.Addr) (*Socket, error) {
 // If the returned error is [ErrDumpInterrupted], the search for a result may
 // be incomplete and the caller should retry.
 func SocketGet(local, remote net.Addr) (*Socket, error) {
-	return pkgHandle.SocketGet(local, remote)
+	return pkgHandle().SocketGet(local, remote)
 }
 
 // SocketDestroy kills the Socket identified by its local and remote addresses.
@@ -283,7 +283,7 @@ func (h *Handle) SocketDestroy(local, remote net.Addr) error {
 
 // SocketDestroy kills the Socket identified by its local and remote addresses.
 func SocketDestroy(local, remote net.Addr) error {
-	return pkgHandle.SocketDestroy(local, remote)
+	return pkgHandle().SocketDestroy(local, remote)
 }
 
 // SocketDiagTCPInfo requests INET_DIAG_INFO for TCP protocol for specified family type and return with extension TCP info.
@@ -333,7 +333,7 @@ func (h *Handle) SocketDiagTCPInfo(family uint8) ([]*InetDiagTCPInfoResp, error)
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func SocketDiagTCPInfo(family uint8) ([]*InetDiagTCPInfoResp, error) {
-	return pkgHandle.SocketDiagTCPInfo(family)
+	return pkgHandle().SocketDiagTCPInfo(family)
 }
 
 // SocketDiagTCP requests INET_DIAG_INFO for TCP protocol for specified family type and return related socket.
@@ -371,7 +371,7 @@ func (h *Handle) SocketDiagTCP(family uint8) ([]*Socket, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func SocketDiagTCP(family uint8) ([]*Socket, error) {
-	return pkgHandle.SocketDiagTCP(family)
+	return pkgHandle().SocketDiagTCP(family)
 }
 
 // SocketDiagUDPInfo requests INET_DIAG_INFO for UDP protocol for specified family type and return with extension info.
@@ -426,7 +426,7 @@ func (h *Handle) SocketDiagUDPInfo(family uint8) ([]*InetDiagUDPInfoResp, error)
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func SocketDiagUDPInfo(family uint8) ([]*InetDiagUDPInfoResp, error) {
-	return pkgHandle.SocketDiagUDPInfo(family)
+	return pkgHandle().SocketDiagUDPInfo(family)
 }
 
 // SocketDiagUDP requests INET_DIAG_INFO for UDP protocol for specified family type and return related socket.
@@ -464,7 +464,7 @@ func (h *Handle) SocketDiagUDP(family uint8) ([]*Socket, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func SocketDiagUDP(family uint8) ([]*Socket, error) {
-	return pkgHandle.SocketDiagUDP(family)
+	return pkgHandle().SocketDiagUDP(family)
 }
 
 // UnixSocketDiagInfo requests UNIX_DIAG_INFO for unix sockets and return with extension info.
@@ -520,7 +520,7 @@ func (h *Handle) UnixSocketDiagInfo() ([]*UnixDiagInfoResp, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func UnixSocketDiagInfo() ([]*UnixDiagInfoResp, error) {
-	return pkgHandle.UnixSocketDiagInfo()
+	return pkgHandle().UnixSocketDiagInfo()
 }
 
 // UnixSocketDiag requests UNIX_DIAG_INFO for unix sockets.
@@ -559,7 +559,7 @@ func (h *Handle) UnixSocketDiag() ([]*UnixSocket, error) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func UnixSocketDiag() ([]*UnixSocket, error) {
-	return pkgHandle.UnixSocketDiag()
+	return pkgHandle().UnixSocketDiag()
 }
 
 func attrsToInetDiagTCPInfoResp(attrs []syscall.NetlinkRouteAttr, sockInfo *Socket) (*InetDiagTCPInfoResp, error) {

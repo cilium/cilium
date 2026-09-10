@@ -106,7 +106,7 @@ func (h *Handle) LinkSetARPOff(link Link) error {
 }
 
 func LinkSetARPOff(link Link) error {
-	return pkgHandle.LinkSetARPOff(link)
+	return pkgHandle().LinkSetARPOff(link)
 }
 
 func (h *Handle) LinkSetARPOn(link Link) error {
@@ -125,7 +125,7 @@ func (h *Handle) LinkSetARPOn(link Link) error {
 }
 
 func LinkSetARPOn(link Link) error {
-	return pkgHandle.LinkSetARPOn(link)
+	return pkgHandle().LinkSetARPOn(link)
 }
 
 func (h *Handle) SetPromiscOn(link Link) error {
@@ -146,7 +146,7 @@ func (h *Handle) SetPromiscOn(link Link) error {
 // LinkSetAllmulticastOn enables the reception of all hardware multicast packets for the link device.
 // Equivalent to: `ip link set $link allmulticast on`
 func LinkSetAllmulticastOn(link Link) error {
-	return pkgHandle.LinkSetAllmulticastOn(link)
+	return pkgHandle().LinkSetAllmulticastOn(link)
 }
 
 // LinkSetAllmulticastOn enables the reception of all hardware multicast packets for the link device.
@@ -169,7 +169,7 @@ func (h *Handle) LinkSetAllmulticastOn(link Link) error {
 // LinkSetAllmulticastOff disables the reception of all hardware multicast packets for the link device.
 // Equivalent to: `ip link set $link allmulticast off`
 func LinkSetAllmulticastOff(link Link) error {
-	return pkgHandle.LinkSetAllmulticastOff(link)
+	return pkgHandle().LinkSetAllmulticastOff(link)
 }
 
 // LinkSetAllmulticastOff disables the reception of all hardware multicast packets for the link device.
@@ -191,7 +191,7 @@ func (h *Handle) LinkSetAllmulticastOff(link Link) error {
 // LinkSetMulticastOn enables the reception of multicast packets for the link device.
 // Equivalent to: `ip link set $link multicast on`
 func LinkSetMulticastOn(link Link) error {
-	return pkgHandle.LinkSetMulticastOn(link)
+	return pkgHandle().LinkSetMulticastOn(link)
 }
 
 // LinkSetMulticastOn enables the reception of multicast packets for the link device.
@@ -214,7 +214,7 @@ func (h *Handle) LinkSetMulticastOn(link Link) error {
 // LinkSetAllmulticastOff disables the reception of multicast packets for the link device.
 // Equivalent to: `ip link set $link multicast off`
 func LinkSetMulticastOff(link Link) error {
-	return pkgHandle.LinkSetMulticastOff(link)
+	return pkgHandle().LinkSetMulticastOff(link)
 }
 
 // LinkSetAllmulticastOff disables the reception of multicast packets for the link device.
@@ -234,7 +234,7 @@ func (h *Handle) LinkSetMulticastOff(link Link) error {
 }
 
 func MacvlanMACAddrAdd(link Link, addr net.HardwareAddr) error {
-	return pkgHandle.MacvlanMACAddrAdd(link, addr)
+	return pkgHandle().MacvlanMACAddrAdd(link, addr)
 }
 
 func (h *Handle) MacvlanMACAddrAdd(link Link, addr net.HardwareAddr) error {
@@ -242,7 +242,7 @@ func (h *Handle) MacvlanMACAddrAdd(link Link, addr net.HardwareAddr) error {
 }
 
 func MacvlanMACAddrDel(link Link, addr net.HardwareAddr) error {
-	return pkgHandle.MacvlanMACAddrDel(link, addr)
+	return pkgHandle().MacvlanMACAddrDel(link, addr)
 }
 
 func (h *Handle) MacvlanMACAddrDel(link Link, addr net.HardwareAddr) error {
@@ -250,7 +250,7 @@ func (h *Handle) MacvlanMACAddrDel(link Link, addr net.HardwareAddr) error {
 }
 
 func MacvlanMACAddrFlush(link Link) error {
-	return pkgHandle.MacvlanMACAddrFlush(link)
+	return pkgHandle().MacvlanMACAddrFlush(link)
 }
 
 func (h *Handle) MacvlanMACAddrFlush(link Link) error {
@@ -258,7 +258,7 @@ func (h *Handle) MacvlanMACAddrFlush(link Link) error {
 }
 
 func MacvlanMACAddrSet(link Link, addrs []net.HardwareAddr) error {
-	return pkgHandle.MacvlanMACAddrSet(link, addrs)
+	return pkgHandle().MacvlanMACAddrSet(link, addrs)
 }
 
 func (h *Handle) MacvlanMACAddrSet(link Link, addrs []net.HardwareAddr) error {
@@ -306,7 +306,7 @@ func (h *Handle) macvlanMACAddrChange(link Link, addrs []net.HardwareAddr, mode 
 // Note that passthrough mode cannot be set to and from and will fail.
 // Equivalent to: `ip link set $link type (macvlan|macvtap) mode $mode
 func LinkSetMacvlanMode(link Link, mode MacvlanMode) error {
-	return pkgHandle.LinkSetMacvlanMode(link, mode)
+	return pkgHandle().LinkSetMacvlanMode(link, mode)
 }
 
 // LinkSetMacvlanMode sets the mode of the macvlan or macvtap link device.
@@ -334,7 +334,7 @@ func (h *Handle) LinkSetMacvlanMode(link Link, mode MacvlanMode) error {
 }
 
 func BridgeSetMcastSnoop(link Link, on bool) error {
-	return pkgHandle.BridgeSetMcastSnoop(link, on)
+	return pkgHandle().BridgeSetMcastSnoop(link, on)
 }
 
 func (h *Handle) BridgeSetMcastSnoop(link Link, on bool) error {
@@ -344,7 +344,7 @@ func (h *Handle) BridgeSetMcastSnoop(link Link, on bool) error {
 }
 
 func BridgeSetVlanFiltering(link Link, on bool) error {
-	return pkgHandle.BridgeSetVlanFiltering(link, on)
+	return pkgHandle().BridgeSetVlanFiltering(link, on)
 }
 
 func (h *Handle) BridgeSetVlanFiltering(link Link, on bool) error {
@@ -354,7 +354,7 @@ func (h *Handle) BridgeSetVlanFiltering(link Link, on bool) error {
 }
 
 func BridgeSetVlanDefaultPVID(link Link, pvid uint16) error {
-	return pkgHandle.BridgeSetVlanDefaultPVID(link, pvid)
+	return pkgHandle().BridgeSetVlanDefaultPVID(link, pvid)
 }
 
 func (h *Handle) BridgeSetVlanDefaultPVID(link Link, pvid uint16) error {
@@ -364,7 +364,7 @@ func (h *Handle) BridgeSetVlanDefaultPVID(link Link, pvid uint16) error {
 }
 
 func SetPromiscOn(link Link) error {
-	return pkgHandle.SetPromiscOn(link)
+	return pkgHandle().SetPromiscOn(link)
 }
 
 func (h *Handle) SetPromiscOff(link Link) error {
@@ -382,13 +382,13 @@ func (h *Handle) SetPromiscOff(link Link) error {
 }
 
 func SetPromiscOff(link Link) error {
-	return pkgHandle.SetPromiscOff(link)
+	return pkgHandle().SetPromiscOff(link)
 }
 
 // LinkSetUp enables the link device.
 // Equivalent to: `ip link set $link up`
 func LinkSetUp(link Link) error {
-	return pkgHandle.LinkSetUp(link)
+	return pkgHandle().LinkSetUp(link)
 }
 
 // LinkSetUp enables the link device.
@@ -411,7 +411,7 @@ func (h *Handle) LinkSetUp(link Link) error {
 // LinkSetDown disables link device.
 // Equivalent to: `ip link set $link down`
 func LinkSetDown(link Link) error {
-	return pkgHandle.LinkSetDown(link)
+	return pkgHandle().LinkSetDown(link)
 }
 
 // LinkSetDown disables link device.
@@ -433,7 +433,7 @@ func (h *Handle) LinkSetDown(link Link) error {
 // LinkSetMTU sets the mtu of the link device.
 // Equivalent to: `ip link set $link mtu $mtu`
 func LinkSetMTU(link Link, mtu int) error {
-	return pkgHandle.LinkSetMTU(link, mtu)
+	return pkgHandle().LinkSetMTU(link, mtu)
 }
 
 // LinkSetMTU sets the mtu of the link device.
@@ -460,7 +460,7 @@ func (h *Handle) LinkSetMTU(link Link, mtu int) error {
 // LinkSetName sets the name of the link device.
 // Equivalent to: `ip link set $link name $name`
 func LinkSetName(link Link, name string) error {
-	return pkgHandle.LinkSetName(link, name)
+	return pkgHandle().LinkSetName(link, name)
 }
 
 // LinkSetName sets the name of the link device.
@@ -484,7 +484,7 @@ func (h *Handle) LinkSetName(link Link, name string) error {
 // LinkSetAlias sets the alias of the link device.
 // Equivalent to: `ip link set dev $link alias $name`
 func LinkSetAlias(link Link, name string) error {
-	return pkgHandle.LinkSetAlias(link, name)
+	return pkgHandle().LinkSetAlias(link, name)
 }
 
 // LinkSetAlias sets the alias of the link device.
@@ -508,7 +508,7 @@ func (h *Handle) LinkSetAlias(link Link, name string) error {
 // LinkAddAltName adds a new alternative name for the link device.
 // Equivalent to: `ip link property add $link altname $name`
 func LinkAddAltName(link Link, name string) error {
-	return pkgHandle.LinkAddAltName(link, name)
+	return pkgHandle().LinkAddAltName(link, name)
 }
 
 // LinkAddAltName adds a new alternative name for the link device.
@@ -534,7 +534,7 @@ func (h *Handle) LinkAddAltName(link Link, name string) error {
 // LinkDelAltName delete an alternative name for the link device.
 // Equivalent to: `ip link property del $link altname $name`
 func LinkDelAltName(link Link, name string) error {
-	return pkgHandle.LinkDelAltName(link, name)
+	return pkgHandle().LinkDelAltName(link, name)
 }
 
 // LinkDelAltName delete an alternative name for the link device.
@@ -560,7 +560,7 @@ func (h *Handle) LinkDelAltName(link Link, name string) error {
 // LinkSetHardwareAddr sets the hardware address of the link device.
 // Equivalent to: `ip link set $link address $hwaddr`
 func LinkSetHardwareAddr(link Link, hwaddr net.HardwareAddr) error {
-	return pkgHandle.LinkSetHardwareAddr(link, hwaddr)
+	return pkgHandle().LinkSetHardwareAddr(link, hwaddr)
 }
 
 // LinkSetHardwareAddr sets the hardware address of the link device.
@@ -584,7 +584,7 @@ func (h *Handle) LinkSetHardwareAddr(link Link, hwaddr net.HardwareAddr) error {
 // LinkSetVfHardwareAddr sets the hardware address of a vf for the link.
 // Equivalent to: `ip link set $link vf $vf mac $hwaddr`
 func LinkSetVfHardwareAddr(link Link, vf int, hwaddr net.HardwareAddr) error {
-	return pkgHandle.LinkSetVfHardwareAddr(link, vf, hwaddr)
+	return pkgHandle().LinkSetVfHardwareAddr(link, vf, hwaddr)
 }
 
 // LinkSetVfHardwareAddr sets the hardware address of a vf for the link.
@@ -614,7 +614,7 @@ func (h *Handle) LinkSetVfHardwareAddr(link Link, vf int, hwaddr net.HardwareAdd
 // LinkSetVfVlan sets the vlan of a vf for the link.
 // Equivalent to: `ip link set $link vf $vf vlan $vlan`
 func LinkSetVfVlan(link Link, vf, vlan int) error {
-	return pkgHandle.LinkSetVfVlan(link, vf, vlan)
+	return pkgHandle().LinkSetVfVlan(link, vf, vlan)
 }
 
 // LinkSetVfVlan sets the vlan of a vf for the link.
@@ -644,7 +644,7 @@ func (h *Handle) LinkSetVfVlan(link Link, vf, vlan int) error {
 // LinkSetVfVlanQos sets the vlan and qos priority of a vf for the link.
 // Equivalent to: `ip link set $link vf $vf vlan $vlan qos $qos`
 func LinkSetVfVlanQos(link Link, vf, vlan, qos int) error {
-	return pkgHandle.LinkSetVfVlanQos(link, vf, vlan, qos)
+	return pkgHandle().LinkSetVfVlanQos(link, vf, vlan, qos)
 }
 
 // LinkSetVfVlanQos sets the vlan and qos priority of a vf for the link.
@@ -675,7 +675,7 @@ func (h *Handle) LinkSetVfVlanQos(link Link, vf, vlan, qos int) error {
 // LinkSetVfVlanQosProto sets the vlan, qos and protocol of a vf for the link.
 // Equivalent to: `ip link set $link vf $vf vlan $vlan qos $qos proto $proto`
 func LinkSetVfVlanQosProto(link Link, vf, vlan, qos, proto int) error {
-	return pkgHandle.LinkSetVfVlanQosProto(link, vf, vlan, qos, proto)
+	return pkgHandle().LinkSetVfVlanQosProto(link, vf, vlan, qos, proto)
 }
 
 // LinkSetVfVlanQosProto sets the vlan, qos and protocol of a vf for the link.
@@ -712,7 +712,7 @@ func (h *Handle) LinkSetVfVlanQosProto(link Link, vf, vlan, qos, proto int) erro
 // LinkSetVfTxRate sets the tx rate of a vf for the link.
 // Equivalent to: `ip link set $link vf $vf rate $rate`
 func LinkSetVfTxRate(link Link, vf, rate int) error {
-	return pkgHandle.LinkSetVfTxRate(link, vf, rate)
+	return pkgHandle().LinkSetVfTxRate(link, vf, rate)
 }
 
 // LinkSetVfTxRate sets the tx rate of a vf for the link.
@@ -742,7 +742,7 @@ func (h *Handle) LinkSetVfTxRate(link Link, vf, rate int) error {
 // LinkSetVfRate sets the min and max tx rate of a vf for the link.
 // Equivalent to: `ip link set $link vf $vf min_tx_rate $min_rate max_tx_rate $max_rate`
 func LinkSetVfRate(link Link, vf, minRate, maxRate int) error {
-	return pkgHandle.LinkSetVfRate(link, vf, minRate, maxRate)
+	return pkgHandle().LinkSetVfRate(link, vf, minRate, maxRate)
 }
 
 // LinkSetVfRate sets the min and max tx rate of a vf for the link.
@@ -773,7 +773,7 @@ func (h *Handle) LinkSetVfRate(link Link, vf, minRate, maxRate int) error {
 // LinkSetVfState enables/disables virtual link state on a vf.
 // Equivalent to: `ip link set $link vf $vf state $state`
 func LinkSetVfState(link Link, vf int, state uint32) error {
-	return pkgHandle.LinkSetVfState(link, vf, state)
+	return pkgHandle().LinkSetVfState(link, vf, state)
 }
 
 // LinkSetVfState enables/disables virtual link state on a vf.
@@ -803,7 +803,7 @@ func (h *Handle) LinkSetVfState(link Link, vf int, state uint32) error {
 // LinkSetVfSpoofchk enables/disables spoof check on a vf for the link.
 // Equivalent to: `ip link set $link vf $vf spoofchk $check`
 func LinkSetVfSpoofchk(link Link, vf int, check bool) error {
-	return pkgHandle.LinkSetVfSpoofchk(link, vf, check)
+	return pkgHandle().LinkSetVfSpoofchk(link, vf, check)
 }
 
 // LinkSetVfSpoofchk enables/disables spoof check on a vf for the link.
@@ -837,7 +837,7 @@ func (h *Handle) LinkSetVfSpoofchk(link Link, vf int, check bool) error {
 // LinkSetVfTrust enables/disables trust state on a vf for the link.
 // Equivalent to: `ip link set $link vf $vf trust $state`
 func LinkSetVfTrust(link Link, vf int, state bool) error {
-	return pkgHandle.LinkSetVfTrust(link, vf, state)
+	return pkgHandle().LinkSetVfTrust(link, vf, state)
 }
 
 // LinkSetVfTrust enables/disables trust state on a vf for the link.
@@ -871,13 +871,13 @@ func (h *Handle) LinkSetVfTrust(link Link, vf int, state bool) error {
 // LinkSetVfNodeGUID sets the node GUID of a vf for the link.
 // Equivalent to: `ip link set dev $link vf $vf node_guid $nodeguid`
 func LinkSetVfNodeGUID(link Link, vf int, nodeguid net.HardwareAddr) error {
-	return pkgHandle.LinkSetVfGUID(link, vf, nodeguid, nl.IFLA_VF_IB_NODE_GUID)
+	return pkgHandle().LinkSetVfGUID(link, vf, nodeguid, nl.IFLA_VF_IB_NODE_GUID)
 }
 
 // LinkSetVfPortGUID sets the port GUID of a vf for the link.
 // Equivalent to: `ip link set dev $link vf $vf port_guid $portguid`
 func LinkSetVfPortGUID(link Link, vf int, portguid net.HardwareAddr) error {
-	return pkgHandle.LinkSetVfGUID(link, vf, portguid, nl.IFLA_VF_IB_PORT_GUID)
+	return pkgHandle().LinkSetVfGUID(link, vf, portguid, nl.IFLA_VF_IB_PORT_GUID)
 }
 
 // LinkSetVfGUID sets the node or port GUID of a vf for the link.
@@ -915,7 +915,7 @@ func (h *Handle) LinkSetVfGUID(link Link, vf int, vfGuid net.HardwareAddr, guidT
 // LinkSetMaster sets the master of the link device.
 // Equivalent to: `ip link set $link master $master`
 func LinkSetMaster(link Link, master Link) error {
-	return pkgHandle.LinkSetMaster(link, master)
+	return pkgHandle().LinkSetMaster(link, master)
 }
 
 // LinkSetMaster sets the master of the link device.
@@ -936,7 +936,7 @@ func (h *Handle) LinkSetMaster(link Link, master Link) error {
 // LinkSetNoMaster removes the master of the link device.
 // Equivalent to: `ip link set $link nomaster`
 func LinkSetNoMaster(link Link) error {
-	return pkgHandle.LinkSetNoMaster(link)
+	return pkgHandle().LinkSetNoMaster(link)
 }
 
 // LinkSetNoMaster removes the master of the link device.
@@ -948,7 +948,7 @@ func (h *Handle) LinkSetNoMaster(link Link) error {
 // LinkSetMasterByIndex sets the master of the link device.
 // Equivalent to: `ip link set $link master $master`
 func LinkSetMasterByIndex(link Link, masterIndex int) error {
-	return pkgHandle.LinkSetMasterByIndex(link, masterIndex)
+	return pkgHandle().LinkSetMasterByIndex(link, masterIndex)
 }
 
 // LinkSetMasterByIndex sets the master of the link device.
@@ -976,7 +976,7 @@ func (h *Handle) LinkSetMasterByIndex(link Link, masterIndex int) error {
 // pid must be a pid of a running process.
 // Equivalent to: `ip link set $link netns $pid`
 func LinkSetNsPid(link Link, nspid int) error {
-	return pkgHandle.LinkSetNsPid(link, nspid)
+	return pkgHandle().LinkSetNsPid(link, nspid)
 }
 
 // LinkSetNsPid puts the device into a new network namespace. The
@@ -1005,7 +1005,7 @@ func (h *Handle) LinkSetNsPid(link Link, nspid int) error {
 // fd must be an open file descriptor to a network namespace.
 // Similar to: `ip link set $link netns $ns`
 func LinkSetNsFd(link Link, fd int) error {
-	return pkgHandle.LinkSetNsFd(link, fd)
+	return pkgHandle().LinkSetNsFd(link, fd)
 }
 
 // LinkSetNsFd puts the device into a new network namespace. The
@@ -1056,7 +1056,7 @@ func LinkSetXdpFdWithFlags(link Link, fd, flags int) error {
 // LinkSetGSOMaxSegs sets the GSO maximum segment count of the link device.
 // Equivalent to: `ip link set $link gso_max_segs $maxSegs`
 func LinkSetGSOMaxSegs(link Link, maxSegs int) error {
-	return pkgHandle.LinkSetGSOMaxSegs(link, maxSegs)
+	return pkgHandle().LinkSetGSOMaxSegs(link, maxSegs)
 }
 
 // LinkSetGSOMaxSegs sets the GSO maximum segment count of the link device.
@@ -1083,7 +1083,7 @@ func (h *Handle) LinkSetGSOMaxSegs(link Link, maxSize int) error {
 // LinkSetGSOMaxSize sets the IPv6 GSO maximum size of the link device.
 // Equivalent to: `ip link set $link gso_max_size $maxSize`
 func LinkSetGSOMaxSize(link Link, maxSize int) error {
-	return pkgHandle.LinkSetGSOMaxSize(link, maxSize)
+	return pkgHandle().LinkSetGSOMaxSize(link, maxSize)
 }
 
 // LinkSetGSOMaxSize sets the IPv6 GSO maximum size of the link device.
@@ -1110,7 +1110,7 @@ func (h *Handle) LinkSetGSOMaxSize(link Link, maxSize int) error {
 // LinkSetGROMaxSize sets the IPv6 GRO maximum size of the link device.
 // Equivalent to: `ip link set $link gro_max_size $maxSize`
 func LinkSetGROMaxSize(link Link, maxSize int) error {
-	return pkgHandle.LinkSetGROMaxSize(link, maxSize)
+	return pkgHandle().LinkSetGROMaxSize(link, maxSize)
 }
 
 // LinkSetGROMaxSize sets the IPv6 GRO maximum size of the link device.
@@ -1137,7 +1137,7 @@ func (h *Handle) LinkSetGROMaxSize(link Link, maxSize int) error {
 // LinkSetGSOIPv4MaxSize sets the IPv4 GSO maximum size of the link device.
 // Equivalent to: `ip link set $link gso_ipv4_max_size $maxSize`
 func LinkSetGSOIPv4MaxSize(link Link, maxSize int) error {
-	return pkgHandle.LinkSetGSOIPv4MaxSize(link, maxSize)
+	return pkgHandle().LinkSetGSOIPv4MaxSize(link, maxSize)
 }
 
 // LinkSetGSOIPv4MaxSize sets the IPv4 GSO maximum size of the link device.
@@ -1164,7 +1164,7 @@ func (h *Handle) LinkSetGSOIPv4MaxSize(link Link, maxSize int) error {
 // LinkSetGROIPv4MaxSize sets the IPv4 GRO maximum size of the link device.
 // Equivalent to: `ip link set $link gro_ipv4_max_size $maxSize`
 func LinkSetGROIPv4MaxSize(link Link, maxSize int) error {
-	return pkgHandle.LinkSetGROIPv4MaxSize(link, maxSize)
+	return pkgHandle().LinkSetGROIPv4MaxSize(link, maxSize)
 }
 
 // LinkSetGROIPv4MaxSize sets the IPv4 GRO maximum size of the link device.
@@ -1192,7 +1192,7 @@ func (h *Handle) LinkSetGROIPv4MaxSize(link Link, maxSize int) error {
 // Equivalent to: `ip link set $link type vxlan { remote | group } $group`
 // Note: netlink does not support changing the group address family. If attempted, this will return an EOPNOTSUPP error.
 func LinkSetVXLANGroup(link *Vxlan, group net.IP) error {
-	return pkgHandle.LinkSetVXLANGroup(link, group)
+	return pkgHandle().LinkSetVXLANGroup(link, group)
 }
 
 // LinkSetVXLANGroup sets the group address of a VXLAN link device.
@@ -1234,7 +1234,7 @@ func (h *Handle) LinkSetVXLANGroup(link *Vxlan, group net.IP) error {
 // LinkSetVXLANVtepDevIndex sets the VTEP device index of a VXLAN link device.
 // Equivalent to: `ip link set $link type [ dev $dev ]`
 func LinkSetVXLANVtepDevIndex(link *Vxlan, ifIndex int) error {
-	return pkgHandle.LinkSetVXLANVtepDevIndex(link, ifIndex)
+	return pkgHandle().LinkSetVXLANVtepDevIndex(link, ifIndex)
 }
 
 // LinkSetVXLANVtepDevIndex sets the VTEP device index of a VXLAN link device.
@@ -1458,7 +1458,7 @@ func cleanupFds(fds []*os.File) {
 // are taken from the parameters in the link object.
 // Equivalent to: `ip link add $link`
 func LinkAdd(link Link) error {
-	return pkgHandle.LinkAdd(link)
+	return pkgHandle().LinkAdd(link)
 }
 
 // LinkAdd adds a new link device. The type and features of the device
@@ -1469,7 +1469,7 @@ func (h *Handle) LinkAdd(link Link) error {
 }
 
 func LinkModify(link Link) error {
-	return pkgHandle.LinkModify(link)
+	return pkgHandle().LinkModify(link)
 }
 
 func (h *Handle) LinkModify(link Link) error {
@@ -1949,7 +1949,7 @@ func (h *Handle) linkModify(link Link, flags int) error {
 // the link object for it to be deleted. The other values are ignored.
 // Equivalent to: `ip link del $link`
 func LinkDel(link Link) error {
-	return pkgHandle.LinkDel(link)
+	return pkgHandle().LinkDel(link)
 }
 
 // LinkDel deletes link device. Either Index or Name must be set in
@@ -2011,7 +2011,7 @@ func (h *Handle) linkByAliasDump(alias string) (Link, error) {
 // filtering a dump of all link names. In this case, if the returned error is
 // [ErrDumpInterrupted] the result may be missing or outdated.
 func LinkByName(name string) (Link, error) {
-	return pkgHandle.LinkByName(name)
+	return pkgHandle().LinkByName(name)
 }
 
 // LinkByName finds a link by name and returns a pointer to the object.
@@ -2057,7 +2057,7 @@ func (h *Handle) LinkByName(name string) (Link, error) {
 // filtering a dump of all link names. In this case, if the returned error is
 // [ErrDumpInterrupted] the result may be missing or outdated.
 func LinkByAlias(alias string) (Link, error) {
-	return pkgHandle.LinkByAlias(alias)
+	return pkgHandle().LinkByAlias(alias)
 }
 
 // LinkByAlias finds a link by its alias and returns a pointer to the object.
@@ -2096,7 +2096,7 @@ func (h *Handle) LinkByAlias(alias string) (Link, error) {
 
 // LinkByIndex finds a link by index and returns a pointer to the object.
 func LinkByIndex(index int) (Link, error) {
-	return pkgHandle.LinkByIndex(index)
+	return pkgHandle().LinkByIndex(index)
 }
 
 // LinkByIndex finds a link by index and returns a pointer to the object.
@@ -2512,7 +2512,7 @@ func readSysPropAsInt64(ifname, prop string) (int64, error) {
 // LinkList gets a list of link devices.
 // Equivalent to: `ip link show`
 func LinkList() ([]Link, error) {
-	return pkgHandle.LinkList()
+	return pkgHandle().LinkList()
 }
 
 // LinkList gets a list of link devices.
@@ -2619,7 +2619,7 @@ func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-c
 		}()
 	}
 	if listExisting {
-		req := pkgHandle.newNetlinkRequest(unix.RTM_GETLINK,
+		req := pkgHandle().newNetlinkRequest(unix.RTM_GETLINK,
 			unix.NLM_F_DUMP)
 		msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 		req.AddData(msg)
@@ -2680,7 +2680,7 @@ func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-c
 }
 
 func LinkSetHairpin(link Link, mode bool) error {
-	return pkgHandle.LinkSetHairpin(link, mode)
+	return pkgHandle().LinkSetHairpin(link, mode)
 }
 
 func (h *Handle) LinkSetHairpin(link Link, mode bool) error {
@@ -2688,7 +2688,7 @@ func (h *Handle) LinkSetHairpin(link Link, mode bool) error {
 }
 
 func LinkSetGuard(link Link, mode bool) error {
-	return pkgHandle.LinkSetGuard(link, mode)
+	return pkgHandle().LinkSetGuard(link, mode)
 }
 
 func (h *Handle) LinkSetGuard(link Link, mode bool) error {
@@ -2697,7 +2697,7 @@ func (h *Handle) LinkSetGuard(link Link, mode bool) error {
 
 // LinkSetBRSlaveGroupFwdMask set the group_fwd_mask of a bridge slave interface
 func LinkSetBRSlaveGroupFwdMask(link Link, mask uint16) error {
-	return pkgHandle.LinkSetBRSlaveGroupFwdMask(link, mask)
+	return pkgHandle().LinkSetBRSlaveGroupFwdMask(link, mask)
 }
 
 // LinkSetBRSlaveGroupFwdMask set the group_fwd_mask of a bridge slave interface
@@ -2706,7 +2706,7 @@ func (h *Handle) LinkSetBRSlaveGroupFwdMask(link Link, mask uint16) error {
 }
 
 func LinkSetFastLeave(link Link, mode bool) error {
-	return pkgHandle.LinkSetFastLeave(link, mode)
+	return pkgHandle().LinkSetFastLeave(link, mode)
 }
 
 func (h *Handle) LinkSetFastLeave(link Link, mode bool) error {
@@ -2714,7 +2714,7 @@ func (h *Handle) LinkSetFastLeave(link Link, mode bool) error {
 }
 
 func LinkSetLearning(link Link, mode bool) error {
-	return pkgHandle.LinkSetLearning(link, mode)
+	return pkgHandle().LinkSetLearning(link, mode)
 }
 
 func (h *Handle) LinkSetLearning(link Link, mode bool) error {
@@ -2722,7 +2722,7 @@ func (h *Handle) LinkSetLearning(link Link, mode bool) error {
 }
 
 func LinkSetVlanTunnel(link Link, mode bool) error {
-	return pkgHandle.LinkSetVlanTunnel(link, mode)
+	return pkgHandle().LinkSetVlanTunnel(link, mode)
 }
 
 func (h *Handle) LinkSetVlanTunnel(link Link, mode bool) error {
@@ -2730,7 +2730,7 @@ func (h *Handle) LinkSetVlanTunnel(link Link, mode bool) error {
 }
 
 func LinkSetRootBlock(link Link, mode bool) error {
-	return pkgHandle.LinkSetRootBlock(link, mode)
+	return pkgHandle().LinkSetRootBlock(link, mode)
 }
 
 func (h *Handle) LinkSetRootBlock(link Link, mode bool) error {
@@ -2738,7 +2738,7 @@ func (h *Handle) LinkSetRootBlock(link Link, mode bool) error {
 }
 
 func LinkSetFlood(link Link, mode bool) error {
-	return pkgHandle.LinkSetFlood(link, mode)
+	return pkgHandle().LinkSetFlood(link, mode)
 }
 
 func (h *Handle) LinkSetFlood(link Link, mode bool) error {
@@ -2746,7 +2746,7 @@ func (h *Handle) LinkSetFlood(link Link, mode bool) error {
 }
 
 func LinkSetIsolated(link Link, mode bool) error {
-	return pkgHandle.LinkSetIsolated(link, mode)
+	return pkgHandle().LinkSetIsolated(link, mode)
 }
 
 func (h *Handle) LinkSetIsolated(link Link, mode bool) error {
@@ -2754,7 +2754,7 @@ func (h *Handle) LinkSetIsolated(link Link, mode bool) error {
 }
 
 func LinkSetBrProxyArp(link Link, mode bool) error {
-	return pkgHandle.LinkSetBrProxyArp(link, mode)
+	return pkgHandle().LinkSetBrProxyArp(link, mode)
 }
 
 func (h *Handle) LinkSetBrProxyArp(link Link, mode bool) error {
@@ -2762,7 +2762,7 @@ func (h *Handle) LinkSetBrProxyArp(link Link, mode bool) error {
 }
 
 func LinkSetBrProxyArpWiFi(link Link, mode bool) error {
-	return pkgHandle.LinkSetBrProxyArpWiFi(link, mode)
+	return pkgHandle().LinkSetBrProxyArpWiFi(link, mode)
 }
 
 func (h *Handle) LinkSetBrProxyArpWiFi(link Link, mode bool) error {
@@ -2770,7 +2770,7 @@ func (h *Handle) LinkSetBrProxyArpWiFi(link Link, mode bool) error {
 }
 
 func LinkSetBrNeighSuppress(link Link, mode bool) error {
-	return pkgHandle.LinkSetBrNeighSuppress(link, mode)
+	return pkgHandle().LinkSetBrNeighSuppress(link, mode)
 }
 
 func (h *Handle) LinkSetBrNeighSuppress(link Link, mode bool) error {
@@ -2802,7 +2802,7 @@ func (h *Handle) setProtinfoAttr(link Link, mode bool, attr int) error {
 // LinkSetTxQLen sets the transaction queue length for the link.
 // Equivalent to: `ip link set $link txqlen $qlen`
 func LinkSetTxQLen(link Link, qlen int) error {
-	return pkgHandle.LinkSetTxQLen(link, qlen)
+	return pkgHandle().LinkSetTxQLen(link, qlen)
 }
 
 // LinkSetTxQLen sets the transaction queue length for the link.
@@ -2830,7 +2830,7 @@ func (h *Handle) LinkSetTxQLen(link Link, qlen int) error {
 // with iproute2 as well use it as a reference in nft filters.
 // Equivalent to: `ip link set $link group $id`
 func LinkSetGroup(link Link, group int) error {
-	return pkgHandle.LinkSetGroup(link, group)
+	return pkgHandle().LinkSetGroup(link, group)
 }
 
 // LinkSetGroup sets the link group id which can be used to perform mass actions
@@ -2858,7 +2858,7 @@ func (h *Handle) LinkSetGroup(link Link, group int) error {
 // LinkSetIP6AddrGenMode sets the IPv6 address generation mode of the link device.
 // Equivalent to: `ip link set $link addrgenmode $mode`
 func LinkSetIP6AddrGenMode(link Link, mode int) error {
-	return pkgHandle.LinkSetIP6AddrGenMode(link, mode)
+	return pkgHandle().LinkSetIP6AddrGenMode(link, mode)
 }
 
 // LinkSetIP6AddrGenMode sets the IPv6 address generation mode of the link device.
@@ -4141,7 +4141,7 @@ func (h *Handle) LinkSetBondSlaveQueueId(link Link, queueId uint16) error {
 
 // LinkSetBondSlaveQueueId modify bond slave queue-id.
 func LinkSetBondSlaveQueueId(link Link, queueId uint16) error {
-	return pkgHandle.LinkSetBondSlaveQueueId(link, queueId)
+	return pkgHandle().LinkSetBondSlaveQueueId(link, queueId)
 }
 
 func vethStatsSerialize(stats ethtoolStats) ([]byte, error) {
