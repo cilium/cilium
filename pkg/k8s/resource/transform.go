@@ -4,8 +4,38 @@
 package resource
 
 import (
+	"fmt"
+
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 )
+
+// WithTransform sets the function to transform the object before storing it.
+//
+// The transform is only ever handed a freshly decoded object: the deletions
+// which the informer reports as [cache.DeletedFinalStateUnknown] tombstones
+// are stripped of their object rather than transformed, see transformDelta.
+//
+// The transform should not return an object holding a pointer into the one it
+// is given, such as the address of one of its fields: that keeps the whole
+// decoded object alive for as long as the store holds the transformed one,
+// which is precisely what a transform is usually there to avoid.
+func WithTransform[From, To k8sRuntime.Object](transform func(From) (To, error)) ResourceOption {
+	return func(o *options) {
+		o.sourceObj = func() k8sRuntime.Object {
+			var obj From
+			return obj
+		}
+		o.transform = func(fromRaw any) (any, error) {
+			from, ok := fromRaw.(From)
+			if !ok {
+				var obj From
+				return nil, fmt.Errorf("resource.WithTransform: expected %T, got %T", obj, fromRaw)
+			}
+			return transform(from)
+		}
+	}
+}
 
 // transformDelta applies the transform of the resource, if any, to the object
 // of a single delta.

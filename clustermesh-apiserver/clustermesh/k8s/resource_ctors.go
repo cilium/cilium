@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
@@ -36,9 +35,7 @@ func CiliumSlimEndpointResource(params k8s.CiliumResourceParams, mp workqueue.Me
 		opts...,
 	)
 	return resource.New[*types.CiliumEndpoint](params.Lifecycle, lw, mp,
-		resource.WithLazyTransform(func() runtime.Object {
-			return &cilium_api_v2.CiliumEndpoint{}
-		}, k8s.TransformToCiliumEndpoint),
+		resource.WithTransform(k8s.TransformToCiliumEndpoint),
 		resource.WithCRDSync(params.CRDSyncPromise),
 		resource.WithIndexers(
 			cache.Indexers{

@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,6 +38,35 @@ func testPod(name string) *corev1.Pod {
 // differs from the one the informer decodes.
 func stripPod(pod *corev1.Pod) (*metav1.PartialObjectMetadata, error) {
 	return &metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}}, nil
+}
+
+func TestWithTransform(t *testing.T) {
+	transform, sourceObj := transformOf(t, stripPod)
+
+	// The prototype the reflector decodes into is derived from the source type
+	// of the transform, rather than declared again by the caller.
+	assert.IsType(t, &corev1.Pod{}, sourceObj())
+
+	obj, err := transform(testPod("foo"))
+	require.NoError(t, err)
+	assert.Equal(t, &metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}, obj)
+}
+
+func TestWithTransformUnknownType(t *testing.T) {
+	transform, _ := transformOf(t, stripPod)
+
+	_, err := transform(&corev1.Node{})
+	require.ErrorContains(t, err, "expected *v1.Pod, got *v1.Node")
+}
+
+func TestWithTransformError(t *testing.T) {
+	errTransform := errors.New("transform failed")
+	transform, _ := transformOf(t, func(pod *corev1.Pod) (*metav1.PartialObjectMetadata, error) {
+		return nil, errTransform
+	})
+
+	_, err := transform(testPod("foo"))
+	require.ErrorIs(t, err, errTransform)
 }
 
 func TestTransformDelta(t *testing.T) {
