@@ -1009,6 +1009,38 @@ func TestPreferredIPv6Address(t *testing.T) {
 			},
 			want: netip.MustParseAddr("2600:1900:4001:2a1:0:2::"),
 		},
+		{
+			name: "skip_deprecated_global",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("2602:47:193:4c08:be24:11ff:fe0a:da37"), Deprecated: true},
+				{Addr: netip.MustParseAddr("fdc1:e344:ba0a:8:10:2:8:81")},
+			},
+			want: netip.MustParseAddr("fdc1:e344:ba0a:8:10:2:8:81"),
+		},
+		{
+			name: "all_global_deprecated_fallback",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("2602:47:193:4c08:be24:11ff:fe0a:da37"), Deprecated: true},
+			},
+			want: netip.MustParseAddr("2602:47:193:4c08:be24:11ff:fe0a:da37"),
+		},
+		{
+			name: "deprecated_before_non_deprecated",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("fe80::1")},
+				{Addr: netip.MustParseAddr("2602:47:193:4c08:be24:11ff:fe0a:da37"), Deprecated: true},
+				{Addr: netip.MustParseAddr("fdc1:e344:ba0a:8:10:2:8:81")},
+			},
+			want: netip.MustParseAddr("fdc1:e344:ba0a:8:10:2:8:81"),
+		},
+		{
+			name: "deprecated_only_with_link_local",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("fe80::1")},
+				{Addr: netip.MustParseAddr("2602:47:193:4c08:be24:11ff:fe0a:da37"), Deprecated: true},
+			},
+			want: netip.MustParseAddr("2602:47:193:4c08:be24:11ff:fe0a:da37"),
+		},
 	}
 
 	for _, tt := range tests {
