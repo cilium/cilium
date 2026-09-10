@@ -16,6 +16,7 @@
 package oc
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net"
 	"net/netip"
@@ -687,6 +688,78 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 			DetectionMultiplier:      uint32(pconf.Bfd.Config.DetectionMultiplier),
 		},
 	}
+}
+
+func NewTcpAoKeychainsFromConfigStruct(chains []Keychain) ([]*api.TcpAoKeychain, error) {
+	result := make([]*api.TcpAoKeychain, 0, len(chains))
+	names := make(map[string]struct{}, len(chains))
+	for i := range chains {
+		chain, err := newTcpAoKeychainFromConfigStruct(&chains[i])
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := names[chain.Name]; ok {
+			return nil, fmt.Errorf("duplicate TCP-AO keychain %q", chain.Name)
+		}
+		names[chain.Name] = struct{}{}
+		result = append(result, chain)
+	}
+	return result, nil
+}
+
+func newTcpAoKeychainFromConfigStruct(chain *Keychain) (*api.TcpAoKeychain, error) {
+	name := chain.Config.Name
+	if name == "" {
+		return nil, fmt.Errorf("TCP-AO keychain name is required")
+	}
+	result := &api.TcpAoKeychain{
+		Name: name,
+		Keys: make([]*api.TcpAoKey, 0, len(chain.Keys)),
+	}
+	for i, key := range chain.Keys {
+		masterKey, err := readTcpAoMasterKey(key.Config.SecretKey)
+		if err != nil {
+			return nil, fmt.Errorf("TCP-AO keychain %q key %d: %w", name, i, err)
+		}
+		algorithm, err := tcpAoAlgorithmToAPI(key.Config.CryptoAlgorithm)
+		if err != nil {
+			return nil, fmt.Errorf("TCP-AO keychain %q key %d: %w", name, i, err)
+		}
+		result.Keys = append(result.Keys, &api.TcpAoKey{
+			SendId:            uint32(key.Config.KeyId),
+			ReceiveId:         uint32(key.Config.ReceiveId),
+			Algorithm:         algorithm,
+			ExcludeTcpOptions: key.Config.ExcludeTcpOptions,
+			MasterKey:         masterKey,
+		})
+	}
+	return result, nil
+}
+
+func tcpAoAlgorithmToAPI(algorithm CryptoType) (api.TcpAoAlgorithm, error) {
+	switch algorithm {
+	case CRYPTO_TYPE_HMAC_SHA_1_96:
+		return api.TcpAoAlgorithm_TCP_AO_ALGORITHM_HMAC_SHA1_96, nil
+	case CRYPTO_TYPE_AES_128_CMAC_96:
+		return api.TcpAoAlgorithm_TCP_AO_ALGORITHM_AES_128_CMAC_96, nil
+	case CRYPTO_TYPE_HMAC_SHA_256_96:
+		return api.TcpAoAlgorithm_TCP_AO_ALGORITHM_HMAC_SHA256_96, nil
+	case CRYPTO_TYPE_HMAC_SHA_256_128:
+		return api.TcpAoAlgorithm_TCP_AO_ALGORITHM_HMAC_SHA256_128, nil
+	default:
+		return api.TcpAoAlgorithm_TCP_AO_ALGORITHM_UNSPECIFIED, fmt.Errorf("unsupported algorithm %q", algorithm)
+	}
+}
+
+func readTcpAoMasterKey(secretKey string) ([]byte, error) {
+	if secretKey == "" {
+		return nil, fmt.Errorf("secret-key is required")
+	}
+	masterKey, err := base64.StdEncoding.DecodeString(secretKey)
+	if err != nil {
+		return nil, fmt.Errorf("secret-key must be base64 encoded: %w", err)
+	}
+	return masterKey, nil
 }
 
 func NewPeerGroupFromConfigStruct(pconf *PeerGroup) *api.PeerGroup {

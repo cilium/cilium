@@ -55,6 +55,14 @@ type CreateInterruptibleCapacityReservationAllocationInput struct {
 	//  The tags to apply to the interruptible Capacity Reservation during creation.
 	TagSpecifications []types.TagSpecification
 
+	//  Specifies the behavior for the interruptible Capacity Reservation when you
+	// reduce its allocation to zero instances. Specify retain to keep the
+	// interruptible Capacity Reservation active at zero capacity so that you can
+	// allocate instances to it again later. Specify default to cancel the
+	// interruptible Capacity Reservation and return the capacity to your source
+	// Capacity Reservation. The default value is default .
+	ZeroSizePreference types.ZeroSizePreference
+
 	noSmithyDocumentSerde
 }
 
@@ -89,9 +97,6 @@ func (c *Client) addOperationCreateInterruptibleCapacityReservationAllocationMid
 		return err
 	}
 
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}

@@ -2530,3 +2530,34 @@ func (s *server) GetTable(ctx context.Context, r *api.GetTableRequest) (*api.Get
 func (s *server) SetLogLevel(ctx context.Context, r *api.SetLogLevelRequest) (*api.SetLogLevelResponse, error) {
 	return &api.SetLogLevelResponse{}, s.bgpServer.SetLogLevel(ctx, r)
 }
+
+func (s *server) AddTcpAoKeychain(ctx context.Context, r *api.AddTcpAoKeychainRequest) (*api.AddTcpAoKeychainResponse, error) {
+	return &api.AddTcpAoKeychainResponse{}, s.bgpServer.AddTcpAoKeychain(ctx, r)
+}
+
+func (s *server) UpdateTcpAoKeychain(ctx context.Context, r *api.UpdateTcpAoKeychainRequest) (*api.UpdateTcpAoKeychainResponse, error) {
+	return s.bgpServer.UpdateTcpAoKeychain(ctx, r)
+}
+
+func (s *server) DeleteTcpAoKeychain(ctx context.Context, r *api.DeleteTcpAoKeychainRequest) (*api.DeleteTcpAoKeychainResponse, error) {
+	if err := s.bgpServer.DeleteTcpAoKeychain(ctx, r); err != nil {
+		return nil, err
+	}
+	return &api.DeleteTcpAoKeychainResponse{}, nil
+}
+
+func (s *server) ListTcpAoKeychain(r *api.ListTcpAoKeychainRequest, stream api.GoBgpService_ListTcpAoKeychainServer) error {
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+	var sendErr error
+	fn := func(chain *api.TcpAoKeychain) {
+		if sendErr = stream.Send(&api.ListTcpAoKeychainResponse{Keychain: chain}); sendErr != nil {
+			cancel()
+		}
+	}
+	err := s.bgpServer.ListTcpAoKeychain(ctx, r, fn)
+	if sendErr != nil {
+		return sendErr
+	}
+	return err
+}

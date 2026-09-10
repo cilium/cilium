@@ -96,7 +96,7 @@ func execRdmaSetLink(req *nl.NetlinkRequest) error {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func RdmaLinkList() ([]*RdmaLink, error) {
-	return pkgHandle.RdmaLinkList()
+	return pkgHandle().RdmaLinkList()
 }
 
 // RdmaLinkList gets a list of RDMA link devices.
@@ -131,7 +131,7 @@ func (h *Handle) RdmaLinkList() ([]*RdmaLink, error) {
 // If the returned error is [ErrDumpInterrupted], the result may be missing or
 // outdated and the caller should retry.
 func RdmaLinkByName(name string) (*RdmaLink, error) {
-	return pkgHandle.RdmaLinkByName(name)
+	return pkgHandle().RdmaLinkByName(name)
 }
 
 // RdmaLinkByName finds a link by name and returns a pointer to the object if
@@ -156,7 +156,7 @@ func (h *Handle) RdmaLinkByName(name string) (*RdmaLink, error) {
 // or error otherwise.
 // Equivalent to: `rdma dev set $old_devname name $name`
 func RdmaLinkSetName(link *RdmaLink, name string) error {
-	return pkgHandle.RdmaLinkSetName(link, name)
+	return pkgHandle().RdmaLinkSetName(link, name)
 }
 
 // RdmaLinkSetName sets the name of the rdma link device. Return nil on success
@@ -215,7 +215,7 @@ func executeOneGetRdmaNetnsMode(data []byte) (string, error) {
 // otherwise.
 // Equivalent to: `rdma system show netns'
 func RdmaSystemGetNetnsMode() (string, error) {
-	return pkgHandle.RdmaSystemGetNetnsMode()
+	return pkgHandle().RdmaSystemGetNetnsMode()
 }
 
 // RdmaSystemGetNetnsMode gets the net namespace mode for RDMA subsystem
@@ -252,7 +252,7 @@ func netnsModeStringToUint8(mode string) (uint8, error) {
 // Returns nil on success or appropriate error code.
 // Equivalent to: `rdma system set netns { shared | exclusive }'
 func RdmaSystemSetNetnsMode(NewMode string) error {
-	return pkgHandle.RdmaSystemSetNetnsMode(NewMode)
+	return pkgHandle().RdmaSystemSetNetnsMode(NewMode)
 }
 
 // RdmaSystemSetNetnsMode sets the net namespace mode for RDMA subsystem
@@ -278,7 +278,7 @@ func (h *Handle) RdmaSystemSetNetnsMode(NewMode string) error {
 // fd must be an open file descriptor to a network namespace.
 // Similar to: `rdma dev set $dev netns $ns`
 func RdmaLinkSetNsFd(link *RdmaLink, fd uint32) error {
-	return pkgHandle.RdmaLinkSetNsFd(link, fd)
+	return pkgHandle().RdmaLinkSetNsFd(link, fd)
 }
 
 // RdmaLinkSetNsFd puts the RDMA device into a new network namespace. The
@@ -303,7 +303,7 @@ func (h *Handle) RdmaLinkSetNsFd(link *RdmaLink, fd uint32) error {
 // Similar to: rdma link delete NAME
 // REF: https://man7.org/linux/man-pages/man8/rdma-link.8.html
 func RdmaLinkDel(name string) error {
-	return pkgHandle.RdmaLinkDel(name)
+	return pkgHandle().RdmaLinkDel(name)
 }
 
 // RdmaLinkDel deletes an rdma link.
@@ -337,7 +337,7 @@ func (h *Handle) RdmaLinkDel(name string) error {
 //
 // REF: https://man7.org/linux/man-pages/man8/rdma-link.8.html
 func RdmaLinkAdd(linkName, linkType, netdev string) error {
-	return pkgHandle.RdmaLinkAdd(linkName, linkType, netdev)
+	return pkgHandle().RdmaLinkAdd(linkName, linkType, netdev)
 }
 
 // RdmaLinkAdd adds an rdma link for the specified type to the network device.
@@ -367,7 +367,7 @@ type RdmaResource struct {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func RdmaResourceList() ([]*RdmaResource, error) {
-	return pkgHandle.RdmaResourceList()
+	return pkgHandle().RdmaResourceList()
 }
 
 // RdmaResourceList list rdma resource tracking information
@@ -489,7 +489,7 @@ type RdmaDeviceStatistic struct {
 // otherwise.
 // Equivalent to: `rdma statistic show link [DEV]'
 func RdmaStatistic(link *RdmaLink) (*RdmaDeviceStatistic, error) {
-	return pkgHandle.RdmaStatistic(link)
+	return pkgHandle().RdmaStatistic(link)
 }
 
 // RdmaStatistic get rdma device statistic counters
@@ -513,7 +513,7 @@ func (h *Handle) RdmaStatistic(link *RdmaLink) (*RdmaDeviceStatistic, error) {
 // otherwise.
 // Equivalent to: `rdma statistic show link [DEV/PORT]'
 func RdmaPortStatisticList(link *RdmaLink, port uint32) (*RdmaPortStatistic, error) {
-	return pkgHandle.RdmaPortStatisticList(link, port)
+	return pkgHandle().RdmaPortStatisticList(link, port)
 }
 
 // RdmaPortStatisticList get rdma device port statistic counters

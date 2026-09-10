@@ -5620,6 +5620,7 @@ type IP6ExtendedCommunitiesAttribute_Community struct {
 	//
 	//	*IP6ExtendedCommunitiesAttribute_Community_Ipv6AddressSpecific
 	//	*IP6ExtendedCommunitiesAttribute_Community_RedirectIpv6AddressSpecific
+	//	*IP6ExtendedCommunitiesAttribute_Community_FlowSpecRedirectToIpv6
 	Extcom        isIP6ExtendedCommunitiesAttribute_Community_Extcom `protobuf_oneof:"extcom"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5680,6 +5681,15 @@ func (x *IP6ExtendedCommunitiesAttribute_Community) GetRedirectIpv6AddressSpecif
 	return nil
 }
 
+func (x *IP6ExtendedCommunitiesAttribute_Community) GetFlowSpecRedirectToIpv6() *FlowSpecRedirectToIPv6Extended {
+	if x != nil {
+		if x, ok := x.Extcom.(*IP6ExtendedCommunitiesAttribute_Community_FlowSpecRedirectToIpv6); ok {
+			return x.FlowSpecRedirectToIpv6
+		}
+	}
+	return nil
+}
+
 type isIP6ExtendedCommunitiesAttribute_Community_Extcom interface {
 	isIP6ExtendedCommunitiesAttribute_Community_Extcom()
 }
@@ -5692,10 +5702,17 @@ type IP6ExtendedCommunitiesAttribute_Community_RedirectIpv6AddressSpecific struc
 	RedirectIpv6AddressSpecific *RedirectIPv6AddressSpecificExtended `protobuf:"bytes,2,opt,name=redirect_ipv6_address_specific,json=redirectIpv6AddressSpecific,proto3,oneof"`
 }
 
+type IP6ExtendedCommunitiesAttribute_Community_FlowSpecRedirectToIpv6 struct {
+	FlowSpecRedirectToIpv6 *FlowSpecRedirectToIPv6Extended `protobuf:"bytes,3,opt,name=flow_spec_redirect_to_ipv6,json=flowSpecRedirectToIpv6,proto3,oneof"`
+}
+
 func (*IP6ExtendedCommunitiesAttribute_Community_Ipv6AddressSpecific) isIP6ExtendedCommunitiesAttribute_Community_Extcom() {
 }
 
 func (*IP6ExtendedCommunitiesAttribute_Community_RedirectIpv6AddressSpecific) isIP6ExtendedCommunitiesAttribute_Community_Extcom() {
+}
+
+func (*IP6ExtendedCommunitiesAttribute_Community_FlowSpecRedirectToIpv6) isIP6ExtendedCommunitiesAttribute_Community_Extcom() {
 }
 
 type AigpAttribute_TLV struct {
@@ -6049,12 +6066,13 @@ const file_api_attribute_proto_rawDesc = "" +
 	"#RedirectIPv6AddressSpecificExtended\x12\x18\n" +
 	"\aaddress\x18\x01 \x01(\tR\aaddress\x12\x1f\n" +
 	"\vlocal_admin\x18\x02 \x01(\rR\n" +
-	"localAdmin\"\xd4\x02\n" +
+	"localAdmin\"\xb7\x03\n" +
 	"\x1fIP6ExtendedCommunitiesAttribute\x12P\n" +
-	"\vcommunities\x18\x01 \x03(\v2..api.IP6ExtendedCommunitiesAttribute.CommunityR\vcommunities\x1a\xde\x01\n" +
+	"\vcommunities\x18\x01 \x03(\v2..api.IP6ExtendedCommunitiesAttribute.CommunityR\vcommunities\x1a\xc1\x02\n" +
 	"\tCommunity\x12V\n" +
 	"\x15ipv6_address_specific\x18\x01 \x01(\v2 .api.IPv6AddressSpecificExtendedH\x00R\x13ipv6AddressSpecific\x12o\n" +
-	"\x1eredirect_ipv6_address_specific\x18\x02 \x01(\v2(.api.RedirectIPv6AddressSpecificExtendedH\x00R\x1bredirectIpv6AddressSpecificB\b\n" +
+	"\x1eredirect_ipv6_address_specific\x18\x02 \x01(\v2(.api.RedirectIPv6AddressSpecificExtendedH\x00R\x1bredirectIpv6AddressSpecific\x12a\n" +
+	"\x1aflow_spec_redirect_to_ipv6\x18\x03 \x01(\v2#.api.FlowSpecRedirectToIPv6ExtendedH\x00R\x16flowSpecRedirectToIpv6B\b\n" +
 	"\x06extcom\"*\n" +
 	"\x10AigpTLVIGPMetric\x12\x16\n" +
 	"\x06metric\x18\x01 \x01(\x04R\x06metric\":\n" +
@@ -6422,6 +6440,7 @@ var file_api_attribute_proto_goTypes = []any{
 	(*Family)(nil),                                    // 89: api.Family
 	(*NLRI)(nil),                                      // 90: api.NLRI
 	(*ExtendedCommunity)(nil),                         // 91: api.ExtendedCommunity
+	(*FlowSpecRedirectToIPv6Extended)(nil),            // 92: api.FlowSpecRedirectToIPv6Extended
 }
 var file_api_attribute_proto_depIdxs = []int32{
 	70,  // 0: api.Attribute.unknown:type_name -> api.UnknownAttribute
@@ -6518,18 +6537,19 @@ var file_api_attribute_proto_depIdxs = []int32{
 	36,  // 91: api.TunnelEncapTLV.TLV.sr_segment_list:type_name -> api.TunnelEncapSubTLVSRSegmentList
 	42,  // 92: api.IP6ExtendedCommunitiesAttribute.Community.ipv6_address_specific:type_name -> api.IPv6AddressSpecificExtended
 	43,  // 93: api.IP6ExtendedCommunitiesAttribute.Community.redirect_ipv6_address_specific:type_name -> api.RedirectIPv6AddressSpecificExtended
-	46,  // 94: api.AigpAttribute.TLV.unknown:type_name -> api.AigpTLVUnknown
-	45,  // 95: api.AigpAttribute.TLV.igp_metric:type_name -> api.AigpTLVIGPMetric
-	73,  // 96: api.SRv6InformationSubTLV.SubSubTlvsEntry.value:type_name -> api.SRv6SubSubTLVs
-	77,  // 97: api.SRv6L3ServiceTLV.SubTlvsEntry.value:type_name -> api.SRv6SubTLVs
-	77,  // 98: api.SRv6L2ServiceTLV.SubTlvsEntry.value:type_name -> api.SRv6SubTLVs
-	78,  // 99: api.PrefixSID.TLV.l3_service:type_name -> api.SRv6L3ServiceTLV
-	79,  // 100: api.PrefixSID.TLV.l2_service:type_name -> api.SRv6L2ServiceTLV
-	101, // [101:101] is the sub-list for method output_type
-	101, // [101:101] is the sub-list for method input_type
-	101, // [101:101] is the sub-list for extension type_name
-	101, // [101:101] is the sub-list for extension extendee
-	0,   // [0:101] is the sub-list for field type_name
+	92,  // 94: api.IP6ExtendedCommunitiesAttribute.Community.flow_spec_redirect_to_ipv6:type_name -> api.FlowSpecRedirectToIPv6Extended
+	46,  // 95: api.AigpAttribute.TLV.unknown:type_name -> api.AigpTLVUnknown
+	45,  // 96: api.AigpAttribute.TLV.igp_metric:type_name -> api.AigpTLVIGPMetric
+	73,  // 97: api.SRv6InformationSubTLV.SubSubTlvsEntry.value:type_name -> api.SRv6SubSubTLVs
+	77,  // 98: api.SRv6L3ServiceTLV.SubTlvsEntry.value:type_name -> api.SRv6SubTLVs
+	77,  // 99: api.SRv6L2ServiceTLV.SubTlvsEntry.value:type_name -> api.SRv6SubTLVs
+	78,  // 100: api.PrefixSID.TLV.l3_service:type_name -> api.SRv6L3ServiceTLV
+	79,  // 101: api.PrefixSID.TLV.l2_service:type_name -> api.SRv6L2ServiceTLV
+	102, // [102:102] is the sub-list for method output_type
+	102, // [102:102] is the sub-list for method input_type
+	102, // [102:102] is the sub-list for extension type_name
+	102, // [102:102] is the sub-list for extension extendee
+	0,   // [0:102] is the sub-list for field type_name
 }
 
 func init() { file_api_attribute_proto_init() }
@@ -6596,6 +6616,7 @@ func file_api_attribute_proto_init() {
 	file_api_attribute_proto_msgTypes[80].OneofWrappers = []any{
 		(*IP6ExtendedCommunitiesAttribute_Community_Ipv6AddressSpecific)(nil),
 		(*IP6ExtendedCommunitiesAttribute_Community_RedirectIpv6AddressSpecific)(nil),
+		(*IP6ExtendedCommunitiesAttribute_Community_FlowSpecRedirectToIpv6)(nil),
 	}
 	file_api_attribute_proto_msgTypes[81].OneofWrappers = []any{
 		(*AigpAttribute_TLV_Unknown)(nil),

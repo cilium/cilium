@@ -11,7 +11,7 @@ import (
 // NexthopAdd will add a nexthop to the system.
 // Equivalent to: `ip nexthop add $nexthop`
 func NexthopAdd(nh *Nexthop) error {
-	return pkgHandle.NexthopAdd(nh)
+	return pkgHandle().NexthopAdd(nh)
 }
 
 // NexthopAdd will add a nexthop to the system.
@@ -29,7 +29,7 @@ func (h *Handle) NexthopAdd(nh *Nexthop) error {
 // NexthopReplace will replace a nexthop in the system.
 // Equivalent to: `ip nexthop replace $nexthop`
 func NexthopReplace(nh *Nexthop) error {
-	return pkgHandle.NexthopReplace(nh)
+	return pkgHandle().NexthopReplace(nh)
 }
 
 // NexthopReplace will replace a nexthop in the system.
@@ -47,7 +47,7 @@ func (h *Handle) NexthopReplace(nh *Nexthop) error {
 // NexthopDel will delete a nexthop from the system.
 // Equivalent to: `ip nexthop del $nexthop`
 func NexthopDel(nh *Nexthop) error {
-	return pkgHandle.NexthopDel(nh)
+	return pkgHandle().NexthopDel(nh)
 }
 
 // NexthopDel will delete a nexthop from the system.
@@ -67,7 +67,7 @@ func (h *Handle) NexthopDel(nh *Nexthop) error {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func NexthopList() ([]Nexthop, error) {
-	return pkgHandle.NexthopList()
+	return pkgHandle().NexthopList()
 }
 
 // NexthopList gets a list of nexthop in the system.
