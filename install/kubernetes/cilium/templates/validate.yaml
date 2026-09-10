@@ -17,6 +17,11 @@
 }}
   {{ fail "encryption.{keyFile,mountPath,secretName,interface} were deprecated in v1.14 and has been removed in v1.16. For details please refer to https://docs.cilium.io/en/v1.16/operations/upgrade/#helm-options" }}
 {{- end }}
+
+{{/* Options removed in v1.21 */}}
+{{- if dig "encryption" "ipsec" "interface" "" .Values.AsMap }}
+  {{ fail "encryption.ipsec.interface (the --encrypt-interface agent flag) was a no-op since v1.18 and has been removed. Use devices to select the network-facing interface." }}
+{{- end }}
 {{- if or
   ((dig "proxy" "prometheus" "enabled" "" .Values.AsMap) | toString)
   (dig "proxy" "prometheus" "port" "" .Values.AsMap)

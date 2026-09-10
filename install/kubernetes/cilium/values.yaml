@@ -1181,8 +1181,6 @@ encryption:
     mountPath: /etc/ipsec
     # -- Name of the Kubernetes secret containing the encryption keys.
     secretName: cilium-ipsec-keys
-    # -- The interface to use for encrypted traffic.
-    interface: ""
     # -- Enable the key watcher. If disabled, a restart of the agent will be
     # necessary on key rotations.
     keyWatcher: true

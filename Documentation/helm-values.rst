@@ -1356,10 +1356,6 @@
      - Enable transparent network encryption.
      - bool
      - ``false``
-   * - :spelling:ignore:`encryption.ipsec.interface`
-     - The interface to use for encrypted traffic.
-     - string
-     - ``""``
    * - :spelling:ignore:`encryption.ipsec.keyFile`
      - Name of the key file inside the Kubernetes secret configured via secretName.
      - string
