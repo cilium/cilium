@@ -11,8 +11,6 @@
  * @xlate_point: pre- or post- service translation point for load-balancing
  * @dst_ip:	 pre- or post- service translation destination ip address
  * @dst_port:	 pre- or post- service translation destination port
- *
- * If TRACE_SOCK_NOTIFY is not defined, the API will be compiled in as a NOP.
  */
 #pragma once
 
@@ -35,6 +33,8 @@ enum {
 #define TRACE_SOCK_EXTENSION
 #define trace_sock_extension_hook(ctx, msg) do {} while (0)
 #endif
+
+DECLARE_CONFIG(bool, enable_socket_lb_tracing, "Enable socket-based service load-balancing tracing")
 
 /* L4 protocol for the trace event */
 enum l4_protocol {
@@ -74,7 +74,6 @@ struct trace_sock_notify {
 	TRACE_SOCK_EXTENSION
 };
 
-#ifdef TRACE_SOCK_NOTIFY
 static __always_inline enum l4_protocol
 parse_protocol(__u32 l4_proto) {
 	switch (l4_proto) {
@@ -119,10 +118,11 @@ emit_trace_sock_notify(enum xlate_point xlate_point, bool is_connect)
 }
 
 static __always_inline void
-send_trace_sock_notify4(struct __ctx_sock *ctx,
-			enum xlate_point xlate_point,
-			__u32 dst_ip, __u16 dst_port,
-			bool is_connect)
+__send_trace_sock_notify4(struct __ctx_sock *ctx,
+			  enum xlate_point xlate_point,
+			  __u32 dst_ip,
+			  __u16 dst_port,
+			  bool is_connect)
 {
 	struct trace_sock_notify msg __align_stack_8 = {};
 	struct ratelimit_key rkey = {
@@ -162,11 +162,22 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 }
 
 static __always_inline void
-send_trace_sock_notify6(struct __ctx_sock *ctx,
+send_trace_sock_notify4(struct __ctx_sock *ctx,
 			enum xlate_point xlate_point,
-			const union v6addr *dst_addr,
-			__u16 dst_port,
+			__u32 dst_ip, __u16 dst_port,
 			bool is_connect)
+{
+	if (!CONFIG(enable_socket_lb_tracing))
+		return;
+	__send_trace_sock_notify4(ctx, xlate_point, dst_ip, dst_port, is_connect);
+}
+
+static __always_inline void
+__send_trace_sock_notify6(struct __ctx_sock *ctx,
+			  enum xlate_point xlate_point,
+			  const union v6addr *dst_addr,
+			  __u16 dst_port,
+			  bool is_connect)
 {
 	struct trace_sock_notify msg __align_stack_8;
 	struct ratelimit_key rkey = {
@@ -207,21 +218,15 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 	trace_sock_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
-#else
-static __always_inline void
-send_trace_sock_notify4(struct __ctx_sock *ctx __maybe_unused,
-			enum xlate_point xlate_point __maybe_unused,
-			__u32 dst_ip __maybe_unused, __u16 dst_port __maybe_unused,
-			bool is_connect __maybe_unused)
-{
-}
 
 static __always_inline void
-send_trace_sock_notify6(struct __ctx_sock *ctx __maybe_unused,
-			enum xlate_point xlate_point __maybe_unused,
-			const union v6addr *dst_addr __maybe_unused,
-			__u16 dst_port __maybe_unused,
-			bool is_connect __maybe_unused)
+send_trace_sock_notify6(struct __ctx_sock *ctx,
+			enum xlate_point xlate_point,
+			const union v6addr *dst_addr,
+			__u16 dst_port,
+			bool is_connect)
 {
+	if (!CONFIG(enable_socket_lb_tracing))
+		return;
+	__send_trace_sock_notify6(ctx, xlate_point, dst_addr, dst_port, is_connect);
 }
-#endif /* TRACE_SOCK_NOTIFY */
