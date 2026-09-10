@@ -112,3 +112,12 @@ func TestUpdateEnvoyResourcesDoesNotWaitWithoutPortAllocationCallbacks(t *testin
 	require.NoError(t, ops.updateEnvoyResources(context.Background(), xds.NewResources(), resources))
 	require.False(t, mutator.gotWaitGroup.Load())
 }
+
+func TestIsPortBindingErrorMatchesDuplicateAddress(t *testing.T) {
+	// Exact rejection shape Envoy returns in the N/ACK when a dynamically
+	// allocated listener port collides with a listener that already owns it.
+	err := fmt.Errorf("error adding listener: 'ns/cec/listener' has duplicate address '127.0.0.1:17980' as existing listener")
+	if !isPortBindingError(err) {
+		t.Fatal("duplicate-address rejection not classified as a port binding error")
+	}
+}
