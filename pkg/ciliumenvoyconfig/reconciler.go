@@ -167,18 +167,25 @@ func isPortBindingError(err error) bool {
 	if proxyErr, ok := errors.AsType[*xds.ProxyError](err); ok {
 		// Check ProxyError.Detail field which contains the actual Envoy error message
 		detail := strings.ToLower(proxyErr.Detail)
-		if strings.Contains(detail, "cannot bind") ||
-			strings.Contains(detail, "address already in use") ||
-			strings.Contains(detail, "eaddrinuse") {
+		if isPortBindingErrorMessage(detail) {
 			return true
 		}
 	}
 
 	// Fallback to checking the error message itself
 	errStr := strings.ToLower(err.Error())
+	return isPortBindingErrorMessage(errStr)
+}
+
+// isPortBindingErrorMessage matches the error strings Envoy emits when a
+// listener cannot claim its address. "has duplicate address" is the N/ACK
+// rejection Envoy returns when another listener already owns the port, which
+// is how a dynamic port allocation collision surfaces outside the agent.
+func isPortBindingErrorMessage(errStr string) bool {
 	return strings.Contains(errStr, "cannot bind") ||
 		strings.Contains(errStr, "address already in use") ||
-		strings.Contains(errStr, "eaddrinuse")
+		strings.Contains(errStr, "eaddrinuse") ||
+		strings.Contains(errStr, "has duplicate address")
 }
 
 func (ops *envoyOps) updateEnvoyResources(ctx context.Context, prevResources, resources xds.Resources) error {
