@@ -55,6 +55,12 @@ const (
 	CiliumEgresscallPolicy              = "cilium_egresscall_policy"
 	CiliumEncryptState                  = "cilium_encrypt_state"
 	CiliumEvents                        = "cilium_events"
+	CiliumHostPortV4SCTP                = "cilium_hostport_v4_sctp"
+	CiliumHostPortV4TCP                 = "cilium_hostport_v4_tcp"
+	CiliumHostPortV4UDP                 = "cilium_hostport_v4_udp"
+	CiliumHostPortV6SCTP                = "cilium_hostport_v6_sctp"
+	CiliumHostPortV6TCP                 = "cilium_hostport_v6_tcp"
+	CiliumHostPortV6UDP                 = "cilium_hostport_v6_udp"
 	CiliumIPCacheV2                     = "cilium_ipcache_v2"
 	CiliumIPMasqV4                      = "cilium_ipmasq_v4"
 	CiliumIPMasqV6                      = "cilium_ipmasq_v6"
@@ -354,6 +360,90 @@ func newCiliumEventsSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  4,
 		MaxEntries: 0,
 		Flags:      0,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumHostPortV4SCTPSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumHostPortV4SCTP,
+		Type:       ebpf.Array,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "__u32"),
+		ValueSize:  8192,
+		Value:      anyTypeByName(btf, "hostport_bitmap"),
+		MaxEntries: 1,
+		Flags:      unix.BPF_F_RDONLY_PROG,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumHostPortV4TCPSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumHostPortV4TCP,
+		Type:       ebpf.Array,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "__u32"),
+		ValueSize:  8192,
+		Value:      anyTypeByName(btf, "hostport_bitmap"),
+		MaxEntries: 1,
+		Flags:      unix.BPF_F_RDONLY_PROG,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumHostPortV4UDPSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumHostPortV4UDP,
+		Type:       ebpf.Array,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "__u32"),
+		ValueSize:  8192,
+		Value:      anyTypeByName(btf, "hostport_bitmap"),
+		MaxEntries: 1,
+		Flags:      unix.BPF_F_RDONLY_PROG,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumHostPortV6SCTPSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumHostPortV6SCTP,
+		Type:       ebpf.Array,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "__u32"),
+		ValueSize:  8192,
+		Value:      anyTypeByName(btf, "hostport_bitmap"),
+		MaxEntries: 1,
+		Flags:      unix.BPF_F_RDONLY_PROG,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumHostPortV6TCPSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumHostPortV6TCP,
+		Type:       ebpf.Array,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "__u32"),
+		ValueSize:  8192,
+		Value:      anyTypeByName(btf, "hostport_bitmap"),
+		MaxEntries: 1,
+		Flags:      unix.BPF_F_RDONLY_PROG,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumHostPortV6UDPSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumHostPortV6UDP,
+		Type:       ebpf.Array,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "__u32"),
+		ValueSize:  8192,
+		Value:      anyTypeByName(btf, "hostport_bitmap"),
+		MaxEntries: 1,
+		Flags:      unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -1313,6 +1403,12 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumEgresscallPolicySpec,
 	newCiliumEncryptStateSpec,
 	newCiliumEventsSpec,
+	newCiliumHostPortV4SCTPSpec,
+	newCiliumHostPortV4TCPSpec,
+	newCiliumHostPortV4UDPSpec,
+	newCiliumHostPortV6SCTPSpec,
+	newCiliumHostPortV6TCPSpec,
+	newCiliumHostPortV6UDPSpec,
 	newCiliumIPCacheV2Spec,
 	newCiliumIPMasqV4Spec,
 	newCiliumIPMasqV6Spec,

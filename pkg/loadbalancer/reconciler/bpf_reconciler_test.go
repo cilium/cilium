@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // Convenient aliases for the service types.
@@ -1657,4 +1658,217 @@ func showMaps(m []maps.MapDump) string {
 	}
 	w.WriteString("},\n")
 	return w.String()
+}
+
+func TestHostPortBitmap(t *testing.T) {
+	log := hivetest.Logger(t)
+	lc := hivetest.Lifecycle(t)
+
+	userCfg := loadbalancer.DefaultUserConfig
+	cfg, _ := loadbalancer.NewConfig(log, userCfg, &option.DaemonConfig{})
+	extCfg := loadbalancer.ExternalConfig{
+		ZoneMapper:           &option.DaemonConfig{},
+		EnableIPv4:           true,
+		EnableIPv6:           true,
+		KubeProxyReplacement: true,
+	}
+	maglevCfg := maglev.DefaultConfig
+	maglev := maglev.New(maglevCfg, lc)
+
+	lbmaps := maps.NewFakeLBMaps()
+
+	db := statedb.New()
+	nodeAddrs, err := tables.NewNodeAddressTable(db)
+	require.NoError(t, err)
+	frontends, err := loadbalancer.NewFrontendsTable(cfg, db)
+	require.NoError(t, err)
+
+	wtxn := db.WriteTxn(nodeAddrs)
+	for _, n := range nodePortAddrs {
+		na := tables.NodeAddress{
+			Addr:       n,
+			NodePort:   true,
+			Primary:    true,
+			DeviceName: "lol0",
+		}
+		_, _, err := nodeAddrs.Insert(wtxn, na)
+		require.NoError(t, err)
+	}
+	wtxn.Commit()
+
+	// Test with EnableIPMasqAvoidHostPort disabled (default false)
+	opsDisabled := newBPFOps(bpfOpsParams{
+		Lifecycle:      lc,
+		Log:            log,
+		Config:         cfg,
+		ExternalConfig: extCfg,
+		LBMaps:         lbmaps,
+		Maglev:         maglev,
+		DB:             db,
+		NodeAddresses:  nodeAddrs,
+		Frontends:      frontends,
+		Metrics:        newReconcilerMetrics(),
+	})
+	require.NoError(t, opsDisabled.ResetAndRestore())
+
+	testFe := baseFrontend
+	testFe.Type = HostPort
+	testFe.Address = loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		types.MustParseAddrCluster("0.0.0.0"),
+		8080,
+		loadbalancer.ScopeExternal,
+	)
+	svc0 := baseService
+	testFe.Service = &svc0
+	testFe.Backends = concatBe(testFe.Backends, baseBackend, 1)
+	require.NoError(t, opsDisabled.Update(context.TODO(), db.ReadTxn(), 0, &testFe))
+	require.False(t, lbmaps.HasHostPort(u8proto.TCP, 8080, false), "HostPort bitmap should not be updated when EnableIPMasqAvoidHostPort is false")
+	require.NoError(t, opsDisabled.Delete(context.TODO(), db.ReadTxn(), 0, &testFe))
+
+	// Enable EnableIPMasqAvoidHostPort
+	userCfg.EnableIPMasqAvoidHostPort = true
+	cfg, _ = loadbalancer.NewConfig(log, userCfg, &option.DaemonConfig{})
+	ops := newBPFOps(bpfOpsParams{
+		Lifecycle:      lc,
+		Log:            log,
+		Config:         cfg,
+		ExternalConfig: extCfg,
+		LBMaps:         lbmaps,
+		Maglev:         maglev,
+		DB:             db,
+		NodeAddresses:  nodeAddrs,
+		Frontends:      frontends,
+		Metrics:        newReconcilerMetrics(),
+	})
+
+	require.NoError(t, ops.ResetAndRestore())
+
+	// Initially no host ports exist
+	require.False(t, lbmaps.HasHostPort(u8proto.TCP, 8080, false))
+	require.False(t, lbmaps.HasHostPort(u8proto.UDP, 8080, false))
+	require.False(t, lbmaps.HasHostPort(u8proto.SCTP, 8080, false))
+	require.False(t, lbmaps.HasHostPort(u8proto.TCP, 8080, true))
+	require.False(t, lbmaps.HasHostPort(u8proto.UDP, 8080, true))
+	require.False(t, lbmaps.HasHostPort(u8proto.SCTP, 8080, true))
+
+	// 1. Add TCP IPv4 HostPort frontend (wildcard 0.0.0.0:8080, expands to node IPs)
+	tcpFe := baseFrontend
+	tcpFe.Type = HostPort
+	tcpFe.Address = loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		types.MustParseAddrCluster("0.0.0.0"),
+		8080,
+		loadbalancer.ScopeExternal,
+	)
+	svc := baseService
+	tcpFe.Service = &svc
+	tcpFe.Backends = concatBe(tcpFe.Backends, baseBackend, 1)
+
+	require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &tcpFe))
+	require.True(t, lbmaps.HasHostPort(u8proto.TCP, 8080, false), "IPv4 TCP port 8080 should be set")
+	require.False(t, lbmaps.HasHostPort(u8proto.TCP, 8080, true), "IPv6 TCP port 8080 should not be set")
+	require.False(t, lbmaps.HasHostPort(u8proto.TCP, 8081, false), "IPv4 TCP port 8081 should not be set")
+	require.False(t, lbmaps.HasHostPort(u8proto.UDP, 8080, false), "IPv4 UDP port 8080 should not be set")
+
+	// 2. Add TCP IPv6 HostPort frontend (wildcard [::]:8080)
+	tcp6Fe := baseFrontend
+	tcp6Fe.Type = HostPort
+	tcp6Fe.Address = loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		types.MustParseAddrCluster("::"),
+		8080,
+		loadbalancer.ScopeExternal,
+	)
+	tcp6Fe.Service = &svc
+	tcp6Be := newTestBackend(
+		loadbalancer.NewL3n4Addr(
+			loadbalancer.TCP,
+			types.MustParseAddrCluster("fd00::2"),
+			8080,
+			loadbalancer.ScopeExternal,
+		),
+		loadbalancer.BackendStateActive,
+	)
+	tcp6Fe.Backends = concatBe(tcp6Fe.Backends, tcp6Be, 1)
+
+	require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &tcp6Fe))
+	require.True(t, lbmaps.HasHostPort(u8proto.TCP, 8080, true), "IPv6 TCP port 8080 should be set")
+	require.True(t, lbmaps.HasHostPort(u8proto.TCP, 8080, false), "IPv4 TCP port 8080 should still be set")
+
+	// 3. Add UDP HostPort frontend (specific IP 10.0.0.1:9090)
+	udpFe := baseFrontend
+	udpFe.Type = HostPort
+	udpFe.Address = loadbalancer.NewL3n4Addr(
+		loadbalancer.UDP,
+		types.MustParseAddrCluster("10.0.0.1"),
+		9090,
+		loadbalancer.ScopeExternal,
+	)
+	udpSvc := baseService
+	udpFe.Service = &udpSvc
+	udpBe := newTestBackend(
+		loadbalancer.NewL3n4Addr(
+			loadbalancer.UDP,
+			types.MustParseAddrCluster("10.1.0.1"),
+			9090,
+			loadbalancer.ScopeExternal,
+		),
+		loadbalancer.BackendStateActive,
+	)
+	udpFe.Backends = concatBe(udpFe.Backends, udpBe, 1)
+
+	require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &udpFe))
+	require.True(t, lbmaps.HasHostPort(u8proto.UDP, 9090, false), "UDP port 9090 should be set")
+	require.False(t, lbmaps.HasHostPort(u8proto.UDP, 9090, true), "IPv6 UDP port 9090 should not be set")
+	require.True(t, lbmaps.HasHostPort(u8proto.TCP, 8080, false), "IPv4 TCP port 8080 should still be set")
+
+	// 4. Add SCTP HostPort frontend
+	sctpFe := baseFrontend
+	sctpFe.Type = HostPort
+	sctpFe.Address = loadbalancer.NewL3n4Addr(
+		loadbalancer.SCTP,
+		types.MustParseAddrCluster("10.0.0.1"),
+		7070,
+		loadbalancer.ScopeExternal,
+	)
+	sctpSvc := baseService
+	sctpFe.Service = &sctpSvc
+	sctpBe := newTestBackend(
+		loadbalancer.NewL3n4Addr(
+			loadbalancer.SCTP,
+			types.MustParseAddrCluster("10.1.0.1"),
+			7070,
+			loadbalancer.ScopeExternal,
+		),
+		loadbalancer.BackendStateActive,
+	)
+	sctpFe.Backends = concatBe(sctpFe.Backends, sctpBe, 1)
+
+	require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &sctpFe))
+	require.True(t, lbmaps.HasHostPort(u8proto.SCTP, 7070, false), "SCTP port 7070 should be set")
+	require.False(t, lbmaps.HasHostPort(u8proto.SCTP, 7070, true), "IPv6 SCTP port 7070 should not be set")
+
+	// 5. Delete UDP HostPort frontend
+	require.NoError(t, ops.Delete(context.TODO(), db.ReadTxn(), 0, &udpFe))
+	require.False(t, lbmaps.HasHostPort(u8proto.UDP, 9090, false), "UDP port 9090 should be cleared")
+	require.True(t, lbmaps.HasHostPort(u8proto.TCP, 8080, false), "IPv4 TCP port 8080 should still be set")
+	require.True(t, lbmaps.HasHostPort(u8proto.TCP, 8080, true), "IPv6 TCP port 8080 should still be set")
+	require.True(t, lbmaps.HasHostPort(u8proto.SCTP, 7070, false), "SCTP port 7070 should still be set")
+
+	// 6. Delete SCTP HostPort frontend
+	require.NoError(t, ops.Delete(context.TODO(), db.ReadTxn(), 0, &sctpFe))
+	require.False(t, lbmaps.HasHostPort(u8proto.SCTP, 7070, false), "SCTP port 7070 should be cleared")
+
+	// 7. Delete TCP IPv4 HostPort frontend (which expands to multiple node addrs)
+	require.NoError(t, ops.Delete(context.TODO(), db.ReadTxn(), 0, &tcpFe))
+	require.False(t, lbmaps.HasHostPort(u8proto.TCP, 8080, false), "IPv4 TCP port 8080 should be cleared")
+	require.True(t, lbmaps.HasHostPort(u8proto.TCP, 8080, true), "IPv6 TCP port 8080 should still be set")
+
+	// 8. Delete TCP IPv6 HostPort frontend
+	require.NoError(t, ops.Delete(context.TODO(), db.ReadTxn(), 0, &tcp6Fe))
+	require.False(t, lbmaps.HasHostPort(u8proto.TCP, 8080, true), "IPv6 TCP port 8080 should be cleared")
+
+	require.True(t, ops.StateIsEmpty(), "BPFOps state should be empty")
+	require.True(t, lbmaps.IsEmpty(), "LBMaps should be empty")
 }
