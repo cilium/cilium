@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -49,7 +50,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/node/types"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -75,7 +76,7 @@ func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	slog.SetLogLoggerLevel(slog.LevelDebug) // used by test GoBGP instances
 
-	types.SetName(testNodeName)
+	nodeTypes.SetName(testNodeName)
 
 	// setup test link
 	dummy := &netlink.Dummy{
@@ -152,7 +153,7 @@ func TestPrivilegedScript(t *testing.T) {
 			// Stub dependency added by the BGP announcement gating.
 			// DatapathWaiter is immediately ready unless --wait-datapath is set,
 			// in which case the test must call bgp/datapath-initialized to unblock.
-			cell.Provide(func() agent.DatapathWaiter { return datapathWaiter }),
+			cell.Provide(func() types.DatapathWaiter { return datapathWaiter }),
 
 			// Provide source.Sources for loadbalancer writer
 			cell.Provide(func() source.Sources { return source.Sources{} }),
