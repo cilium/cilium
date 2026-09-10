@@ -575,18 +575,6 @@ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 	ct_flip_tuple_dir6(tuple);
 }
 
-static __always_inline const union v6addr *
-ipv6_ct_reverse_tuple_saddr(const struct ipv6_ct_tuple *rtuple)
-{
-	return &rtuple->daddr;
-}
-
-static __always_inline const union v6addr *
-ipv6_ct_reverse_tuple_daddr(const struct ipv6_ct_tuple *rtuple)
-{
-	return &rtuple->saddr;
-}
-
 static __always_inline int
 ct_extract_ports6(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6, fraginfo_t fraginfo,
 		  int off, enum ct_dir dir, struct ipv6_ct_tuple *tuple)
@@ -833,18 +821,6 @@ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 {
 	__ipv4_ct_tuple_reverse(tuple);
 	ct_flip_tuple_dir4(tuple);
-}
-
-static __always_inline __be32
-ipv4_ct_reverse_tuple_saddr(const struct ipv4_ct_tuple *rtuple)
-{
-	return rtuple->daddr;
-}
-
-static __always_inline __be32
-ipv4_ct_reverse_tuple_daddr(const struct ipv4_ct_tuple *rtuple)
-{
-	return rtuple->saddr;
 }
 
 static __always_inline int

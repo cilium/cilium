@@ -145,14 +145,13 @@ lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 # endif /* ENABLE_EGRESS_GATEWAY */
 
 static __always_inline int
-egress_gw_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
+egress_gw_request_needs_redirect(struct ipv4_ct_tuple *tuple __maybe_unused,
 				 __be32 *gateway_ip __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
 	const struct egress_gw_policy_entry_v2 *egress_gw_policy;
 
-	egress_gw_policy = lookup_ip4_egress_gw_policy(ipv4_ct_reverse_tuple_saddr(rtuple),
-						       ipv4_ct_reverse_tuple_daddr(rtuple));
+	egress_gw_policy = lookup_ip4_egress_gw_policy(tuple->saddr, tuple->daddr);
 	if (!egress_gw_policy)
 		return CTX_ACT_OK;
 
@@ -224,7 +223,7 @@ bool egress_gw_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 }
 
 /** Match a packet against EGW policy map, and return the gateway's IP.
- * @arg rtuple		CT tuple for the packet
+ * @arg tuple		CT tuple for the packet
  * @arg gateway_ip	returns the gateway node's IP
  *
  * Returns
@@ -233,10 +232,10 @@ bool egress_gw_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
  * * DROP_* for error conditions.
  */
 static __always_inline int
-egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
+egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *tuple,
 				      __be32 *gateway_ip)
 {
-	return egress_gw_request_needs_redirect(rtuple, gateway_ip);
+	return egress_gw_request_needs_redirect(tuple, gateway_ip);
 }
 
 static __always_inline
@@ -309,17 +308,13 @@ lookup_ip6_egress_gw_policy(const union v6addr *saddr, const union v6addr *daddr
 #endif /* ENABLE_EGRESS_GATEWAY */
 
 static __always_inline int
-egress_gw_request_needs_redirect_v6(struct ipv6_ct_tuple *rtuple __maybe_unused,
+egress_gw_request_needs_redirect_v6(struct ipv6_ct_tuple *tuple __maybe_unused,
 				    __be32 *gateway_ip __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
 	const struct egress_gw_policy_entry6 *egress_gw_policy;
-	const union v6addr *saddr, *daddr;
 
-	saddr = ipv6_ct_reverse_tuple_saddr(rtuple);
-	daddr = ipv6_ct_reverse_tuple_daddr(rtuple);
-
-	egress_gw_policy = lookup_ip6_egress_gw_policy(saddr, daddr);
+	egress_gw_policy = lookup_ip6_egress_gw_policy(&tuple->saddr, &tuple->daddr);
 	if (!egress_gw_policy)
 		return CTX_ACT_OK;
 
@@ -386,10 +381,10 @@ bool egress_gw_reply_matches_policy_v6(struct ipv6hdr *ip6 __maybe_unused)
 }
 
 static __always_inline int
-egress_gw_request_needs_redirect_hook_v6(struct ipv6_ct_tuple *rtuple,
+egress_gw_request_needs_redirect_hook_v6(struct ipv6_ct_tuple *tuple,
 					 __be32 *gateway_ip)
 {
-	return egress_gw_request_needs_redirect_v6(rtuple, gateway_ip);
+	return egress_gw_request_needs_redirect_v6(tuple, gateway_ip);
 }
 
 static __always_inline
@@ -522,6 +517,7 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 
 		fraginfo = ipfrag_encode_ipv4(ip4);
 
+		tuple4.flags = TUPLE_F_OUT;
 		tuple4.nexthdr = ip4->protocol;
 		tuple4.daddr = ip4->daddr;
 		tuple4.saddr = ip4->saddr;
@@ -548,8 +544,6 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		if (info)
 			dst_sec_identity = info->sec_identity;
 
-		/* lower-level code expects CT tuple to be flipped: */
-		__ipv4_ct_tuple_reverse(&tuple4);
 		ret = egress_gw_handle_packet(&tuple4, dst_sec_identity,
 					      &gateway_ip);
 		break;
@@ -558,6 +552,7 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
+		tuple6.flags = TUPLE_F_OUT;
 		tuple6.nexthdr = ip6->nexthdr;
 		ipv6_addr_copy(&tuple6.daddr, (union v6addr *)&ip6->daddr);
 		ipv6_addr_copy(&tuple6.saddr, (union v6addr *)&ip6->saddr);
@@ -588,8 +583,6 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		if (info)
 			dst_sec_identity = info->sec_identity;
 
-		/* lower-level code expects CT tuple to be flipped: */
-		__ipv6_ct_tuple_reverse(&tuple6);
 		ret = egress_gw_handle_packet_v6(&tuple6, dst_sec_identity,
 						 &gateway_ip);
 		break;
