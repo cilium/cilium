@@ -752,7 +752,7 @@ func (ct *ConnectivityTest) deployNamespace(ctx context.Context, client *k8s.Cli
 		namespace = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        namespaceName,
-				Annotations: ct.params.NamespaceAnnotations,
+				Annotations: maps.Clone(ct.params.NamespaceAnnotations),
 				Labels:      labels.Merge(ct.params.NamespaceLabels, appLabels),
 			},
 		}
