@@ -3,7 +3,7 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:7ad030d55d59cd57ca189e3984c97a6e59d51237@sha256:00ba810524a1a6dc1550aaa4b1f3d18143ad20319b8f870591dfcb4354da38cc
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:75bfbf3e10cd03935c38ba9e8769faee5fb39bd5@sha256:a4229dd8a7c3ed3a0fdd8872effec513830fdfa5e580a2f8c1700bb8fd7dc9ca
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:1788915995-1311b37@sha256:c83f23858d59836e23667f2b629a6f85839dde4994ad69cfbb16fed824edfd18
 ARG GOLANG_IMAGE=docker.io/library/golang:1.26.8@sha256:9d2f36f06329b2a141b9db99ffa32765cf695ee57b813ca29e245e8670bcbfff
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:21.1.8-1788778131-5dd7297@sha256:a310143ff6f8b953f09112e923fa8f7ae407de545339630652a9048032cf3225
