@@ -29,6 +29,7 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 #include "srv6.h"
+#include "vtep.h"
 
 DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")

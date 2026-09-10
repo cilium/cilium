@@ -6,6 +6,7 @@ package config
 import (
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -17,6 +18,11 @@ func XDP(lnc *Config, link netlink.Link) any {
 	cfg.DeviceMTU = uint16(link.Attrs().MTU)
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+
+	cfg.EnableVTEP = option.Config.EnableVTEP
+	if option.Config.EnableVTEP {
+		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
+	}
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 

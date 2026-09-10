@@ -24,6 +24,8 @@ type BPFXDP struct {
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
+	// Enable VTEP integration.
+	EnableVTEP bool `config:"enable_vtep"`
 	// Enable XDP Prefilter.
 	EnableXDPPrefilter bool `config:"enable_xdp_prefilter"`
 	// Ephemeral port range minimum.
@@ -52,17 +54,19 @@ type BPFXDP struct {
 	TunnelPort uint16 `config:"tunnel_port"`
 	// The identifier of the tunnel protocol used for the overlay network.
 	TunnelProtocol uint8 `config:"tunnel_protocol"`
+	// VXLAN tunnel endpoint network mask.
+	VTEPMask uint32 `config:"vtep_mask"`
 
 	Node
 }
 
 func NewBPFXDP(node Node) *BPFXDP {
-	return &BPFXDP{0x0, false, false, false, false, false, false, 0x0, false, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
-		0x20,
+	return &BPFXDP{0x0, false, false, false, false, false, false, false, 0x0, false,
+		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}), 0x20,
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x80, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		false, 0x0, 0x0, node}
+		false, 0x0, 0x0, 0x0, node}
 }

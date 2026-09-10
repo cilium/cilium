@@ -26,6 +26,7 @@ func Overlay(lnc *Config, link netlink.Link) any {
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
+	cfg.EnableVTEP = option.Config.EnableVTEP
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
