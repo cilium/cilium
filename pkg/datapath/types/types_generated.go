@@ -251,6 +251,12 @@ type EndpointKey struct {
 	ClusterID uint16
 }
 
+// HostPortBitmap is generated from the BPF C type hostport_bitmap.
+type HostPortBitmap struct {
+	_    structs.HostLayout
+	Bits [8192]uint8
+}
+
 // Identity is generated from the BPF C type identity.
 type Identity uint32
 

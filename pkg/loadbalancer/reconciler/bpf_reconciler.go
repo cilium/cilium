@@ -157,6 +157,9 @@ type BPFOps struct {
 	// nodePortAddrByPort are the last used NodePort addresses for a given NodePort
 	// (or HostPort) service (by port).
 	nodePortAddrByPort map[nodePortAddrKey][]netip.Addr
+
+	// hostPortFrontends tracks frontends that have set host port bitmap bits.
+	hostPortFrontends sets.Set[loadbalancer.L3n4Addr]
 }
 
 type nodePortAddrKey struct {
@@ -254,6 +257,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.wildcardReferences = map[netip.Addr][]loadbalancer.ServiceID{}
 	ops.nodePortAddrByPort = map[nodePortAddrKey][]netip.Addr{}
 	ops.prevSourceRanges = map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{}
+	ops.hostPortFrontends = sets.New[loadbalancer.L3n4Addr]()
 
 	// Restore backend IDs
 	backendIDToAddress := map[loadbalancer.BackendID]loadbalancer.L3n4Addr{}
@@ -537,6 +541,12 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	ops.updateBackendRefCounts(fe.Address, nil)
 	delete(ops.backendReferences, fe.Address)
 	ops.serviceIDAlloc.deleteLocalID(feID)
+
+	if ops.hostPortFrontends.Has(fe.Address) {
+		if err := ops.deleteHostPort(fe); err != nil {
+			return fmt.Errorf("delete host port: %w", err)
+		}
+	}
 
 	return nil
 }
@@ -1142,6 +1152,16 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
+	if fe.Type == loadbalancer.SVCTypeHostPort && isLocalAddr != nil {
+		if err := ops.addHostPort(fe); err != nil {
+			return fmt.Errorf("add host port: %w", err)
+		}
+	} else if ops.hostPortFrontends.Has(fe.Address) {
+		if err := ops.deleteHostPort(fe); err != nil {
+			return fmt.Errorf("delete host port: %w", err)
+		}
+	}
+
 	// Upsert wildcard entries such that the data path will have a service entry for any
 	// traffic for an unknown protocol/port combination.
 	if loadbalancer.IsWildcardCandidate(fe) && ops.isWildcardClass(svc) {
@@ -1649,13 +1669,52 @@ func (ops *BPFOps) sortedBackends(fe *loadbalancer.Frontend) []backendWithRevisi
 	return bes
 }
 
+func (ops *BPFOps) addHostPort(fe *loadbalancer.Frontend) error {
+	if !ops.cfg.EnableIPMasqAvoidHostPort {
+		return nil
+	}
+	if ops.hostPortFrontends.Has(fe.Address) {
+		return nil
+	}
+	proto, err := u8proto.ParseProtocol(fe.Address.Protocol())
+	if err != nil {
+		return err
+	}
+	if err := ops.LBMaps.AddHostPort(proto, fe.Address.Port(), fe.Address.IsIPv6()); err != nil {
+		return err
+	}
+	ops.hostPortFrontends.Insert(fe.Address)
+	return nil
+}
+
+func (ops *BPFOps) deleteHostPort(fe *loadbalancer.Frontend) error {
+	if !ops.cfg.EnableIPMasqAvoidHostPort {
+		return nil
+	}
+	if !ops.hostPortFrontends.Has(fe.Address) {
+		return nil
+	}
+	proto, err := u8proto.ParseProtocol(fe.Address.Protocol())
+	if err != nil {
+		return err
+	}
+	ops.hostPortFrontends.Delete(fe.Address)
+	for other := range ops.hostPortFrontends {
+		if other.IsIPv6() == fe.Address.IsIPv6() && other.Protocol() == fe.Address.Protocol() && other.Port() == fe.Address.Port() {
+			return nil
+		}
+	}
+	return ops.LBMaps.DeleteHostPort(proto, fe.Address.Port(), fe.Address.IsIPv6())
+}
+
 func (ops *BPFOps) StateIsEmpty() bool {
 	return len(ops.backendReferences) == 0 &&
 		len(ops.backendStates) == 0 &&
 		len(ops.nodePortAddrByPort) == 0 &&
 		len(ops.serviceIDAlloc.addrToId) == 0 &&
 		len(ops.backendIDAlloc.addrToId) == 0 &&
-		len(ops.wildcardReferences) == 0
+		len(ops.wildcardReferences) == 0 &&
+		len(ops.hostPortFrontends) == 0
 }
 
 // StateSummary returns a multi-line summary of the internal state.

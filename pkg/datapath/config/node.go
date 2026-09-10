@@ -104,6 +104,7 @@ func NodeConfig(lnc *Config) Node {
 	node.NodeportPortMax = lnc.LBConfig.NodePortMax
 	node.NodeportPortMinNATExt = lnc.LBConfig.NodePortMinNATExt
 	node.NodeportPortMaxNATExt = lnc.LBConfig.NodePortMaxNATExt
+	node.EnableIPMasqAvoidHostPort = lnc.LBConfig.EnableIPMasqAvoidHostPort
 
 	if option.Config.EnableNat46X64Gateway {
 		node.NAT46X64Prefix.Addr = option.Config.IPv6NAT46x64CIDRBase.As4()

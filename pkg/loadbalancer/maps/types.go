@@ -29,6 +29,24 @@ const (
 
 	// Service6MapV2Name is the name of the IPv6 LB Services v2 BPF map.
 	Service6MapV2Name = "cilium_lb6_services_v2"
+
+	// HostPortTCP4MapName is the BPF map name for the IPv4 TCP host port bitmap.
+	HostPortTCP4MapName = "cilium_hostport_v4_tcp"
+
+	// HostPortUDP4MapName is the BPF map name for the IPv4 UDP host port bitmap.
+	HostPortUDP4MapName = "cilium_hostport_v4_udp"
+
+	// HostPortSCTP4MapName is the BPF map name for the IPv4 SCTP host port bitmap.
+	HostPortSCTP4MapName = "cilium_hostport_v4_sctp"
+
+	// HostPortTCP6MapName is the BPF map name for the IPv6 TCP host port bitmap.
+	HostPortTCP6MapName = "cilium_hostport_v6_tcp"
+
+	// HostPortUDP6MapName is the BPF map name for the IPv6 UDP host port bitmap.
+	HostPortUDP6MapName = "cilium_hostport_v6_udp"
+
+	// HostPortSCTP6MapName is the BPF map name for the IPv6 SCTP host port bitmap.
+	HostPortSCTP6MapName = "cilium_hostport_v6_sctp"
 )
 
 // ServiceKey is the interface describing key for services map v2.
@@ -1364,3 +1382,33 @@ func (v *SkipLB6Value) String() string {
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
 func (k *SkipLB6Key) NewValue() bpf.MapValue { return &SkipLB6Value{} }
+
+// HostPortKey represents the key for hostport bitmap array maps.
+type HostPortKey struct {
+	Index uint32
+}
+
+func (k *HostPortKey) String() string  { return fmt.Sprintf("%d", k.Index) }
+func (k *HostPortKey) New() bpf.MapKey { return &HostPortKey{} }
+
+const HostPortBitmapBytes = 8192 // 65536 bits for ports 0-65535
+
+// HostPortValue represents the flat bitmap of allocated host ports for a protocol.
+type HostPortValue struct {
+	Bitmap [HostPortBitmapBytes]byte
+}
+
+func (v *HostPortValue) String() string    { return "" }
+func (v *HostPortValue) New() bpf.MapValue { return &HostPortValue{} }
+
+func (v *HostPortValue) Set(port uint16) {
+	v.Bitmap[port/8] |= 1 << (port % 8)
+}
+
+func (v *HostPortValue) Clear(port uint16) {
+	v.Bitmap[port/8] &^= 1 << (port % 8)
+}
+
+func (v *HostPortValue) Has(port uint16) bool {
+	return (v.Bitmap[port/8] & (1 << (port % 8))) != 0
+}
