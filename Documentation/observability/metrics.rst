@@ -642,12 +642,29 @@ Name                                       Labels                               
 ``bpf_maps_virtual_memory_max_bytes``                                                                            Enabled    Max memory used by eBPF maps installed in the system
 ``bpf_progs_virtual_memory_max_bytes``                                                                           Enabled    Max memory used by eBPF programs installed in the system
 ``bpf_ratelimit_dropped_total``            ``usage``                                                             Enabled    Total drops resulting from BPF ratelimiter, tagged by source of drop
+``agent_memory_bytes``                     ``component``                                                         Enabled    Estimated memory usage of the Cilium agent in bytes, broken down by component
 ========================================== ===================================================================== ========== ========================================================
 
-Both ``bpf_maps_virtual_memory_max_bytes`` and ``bpf_progs_virtual_memory_max_bytes``
-are currently reporting the system-wide memory usage of eBPF that is directly
-and not directly managed by Cilium. This might change in the future and only
-report the eBPF memory usage directly managed by Cilium.
+``bpf_maps_virtual_memory_max_bytes``, ``bpf_progs_virtual_memory_max_bytes`` and
+the ``bpf_maps`` and ``bpf_progs`` components of ``agent_memory_bytes`` all report
+the same kernel memlock: that of the eBPF programs loaded by Cilium and of the maps
+those programs use. Maps that Cilium pins but that no loaded program uses are not
+counted, and a map shared with an eBPF program outside of Cilium is counted in full.
+
+``agent_memory_bytes`` composes that eBPF memlock with the agent's Go runtime usage
+into a single estimate, which is useful for capacity planning. Its ``component``
+label takes the following values:
+
+- ``go``: memory in use by the Go runtime, covering the heap, goroutine stacks and
+  the runtime allocators.
+- ``bpf_maps``: kernel memlock of the eBPF maps described above.
+- ``bpf_progs``: kernel memlock of the eBPF programs described above.
+- ``total``: the sum of ``go``, ``bpf_maps`` and ``bpf_progs``.
+
+The eBPF memlock is not part of the agent's resident set size, and it is not
+re-attributed to the cgroup of a restarted agent, which is why it is worth
+accounting for separately from the process RSS reported by
+``process_resident_memory_bytes``.
 
 Drops/Forwards (L3/L4)
 ~~~~~~~~~~~~~~~~~~~~~~
