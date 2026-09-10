@@ -4,7 +4,9 @@
 package common
 
 import (
+	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -151,6 +153,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					return err
 				}
 
+				ctx, cancel := context.WithCancel(ctx)
 				extraOpts := rc.makeExtraOpts(clusterLock, ciliumConfig)
 				backend, errChan := rc.remoteClientFactory(ctx, rc.logger, rc.configPath, extraOpts)
 
@@ -174,6 +177,8 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					default:
 						rc.logger.Warn("Unable to establish etcd connection to remote cluster", logfields.Error, err)
 					}
+
+					cancel()
 					return err
 				}
 
@@ -184,7 +189,6 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				rc.etcdClusterID = etcdClusterID
 				rc.mutex.Unlock()
 
-				ctx, cancel := context.WithCancel(ctx)
 				configChanged := make(chan struct{})
 				rc.wg.Go(func() {
 					rc.watchdog(ctx, backend, clusterLock, configChanged)
@@ -356,7 +360,7 @@ func (rc *remoteCluster) waitForClusterConfig(
 ) (types.CiliumClusterConfig, error) {
 	const clusterConfigRetrievalTimeout = 3 * time.Minute
 
-	ctx, cancel := context.WithTimeout(ctx, clusterConfigRetrievalTimeout)
+	cctx, cancel := context.WithTimeout(ctx, clusterConfigRetrievalTimeout)
 	defer cancel()
 
 	rc.mutex.Lock()
@@ -382,10 +386,11 @@ func (rc *remoteCluster) waitForClusterConfig(
 		rc.mutex.Unlock()
 
 		return config, nil
-	case <-ctx.Done():
+	case <-cctx.Done():
 	}
 
-	return types.CiliumClusterConfig{}, fmt.Errorf("failed to retrieve cluster configuration: %w", ctx.Err())
+	return types.CiliumClusterConfig{}, fmt.Errorf("failed to retrieve cluster configuration: %w",
+		cmp.Or(cctx.Err(), ctx.Err(), errors.New("config updates watcher terminated unexpectedly")))
 }
 
 func (rc *remoteCluster) makeExtraOpts(clusterLock *clusterLock, ciliumConfig CiliumEtcdConfig) kvstore.ExtraOptions {
