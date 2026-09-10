@@ -196,10 +196,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		cDefinesMap["ENABLE_SCTP"] = "1"
 	}
 
-	if option.Config.ServiceNoBackendResponse == option.ServiceNoBackendResponseReject {
-		cDefinesMap["SERVICE_NO_BACKEND_RESPONSE"] = "1"
-	}
-
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
 	if option.Config.EnableEnvoyConfig {

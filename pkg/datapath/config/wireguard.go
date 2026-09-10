@@ -25,6 +25,7 @@ func Wireguard(lnc *Config, link netlink.Link) any {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
+	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 	cfg.EphemeralMin = lnc.EphemeralMin
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
