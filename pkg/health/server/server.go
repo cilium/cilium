@@ -4,6 +4,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -415,7 +416,7 @@ func (s *Server) newServer(logger *slog.Logger, spec *healthApi.Spec) *healthApi
 }
 
 // NewServer creates a server to handle health requests.
-func NewServer(logger *slog.Logger, config Config, enableActiveChecks bool, localNode node.LocalNode) (*Server, error) {
+func NewServer(logger *slog.Logger, config Config, enableActiveChecks bool, localNodeStore *node.LocalNodeStore) (*Server, error) {
 	server := &Server{
 		logger:             logger,
 		startTime:          time.Now(),
@@ -433,32 +434,37 @@ func NewServer(logger *slog.Logger, config Config, enableActiveChecks bool, loca
 	server.Client = cl
 	server.Server = *server.newServer(logger, config.HealthAPISpec)
 
-	server.httpPathServer = responder.NewServers(getAddresses(localNode), config.HTTPPathPort)
+	server.httpPathServer = responder.NewServersFunc(
+		func() []string { return getAddresses(localNodeStore) }, config.HTTPPathPort)
 
 	return server, nil
 }
 
-// Get internal node ipv4/ipv6 addresses based on config enabled.
-// If it fails to get either of internal node address, it returns "0.0.0.0" if ipv4 or "::" if ipv6.
-func getAddresses(localNode node.LocalNode) []string {
+// Get internal node ipv4/ipv6 addresses based on config enabled. One entry per
+// enabled family, empty while that family has no address: the listener waits
+// for one rather than binding every interface.
+func getAddresses(localNodeStore *node.LocalNodeStore) []string {
+	// Get only fails on a cancelled context, and blocks until initialized.
+	localNode, _ := localNodeStore.Get(context.Background())
+
 	addresses := make([]string, 0, 2)
 
+	// An entry stays empty while its family has no address, so that a family
+	// gaining one does not move another family's listener.
 	if option.Config.EnableIPv4 {
+		var addr string
 		if ip := localNode.GetNodeInternalIPv4(); ip != nil {
-			addresses = append(addresses, ip.String())
-		} else {
-			// if Get ipv4 fails, then listen on all addresses.
-			return nil
+			addr = ip.String()
 		}
+		addresses = append(addresses, addr)
 	}
 
 	if option.Config.EnableIPv6 {
+		var addr string
 		if ip := localNode.GetNodeInternalIPv6(); ip != nil {
-			addresses = append(addresses, ip.String())
-		} else {
-			// if Get ipv6 fails, then listen on all addresses.
-			return nil
+			addr = ip.String()
 		}
+		addresses = append(addresses, addr)
 	}
 
 	return addresses
