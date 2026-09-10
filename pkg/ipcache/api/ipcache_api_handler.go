@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/go-openapi/runtime/middleware"
 
@@ -37,7 +38,7 @@ func (r *IPCacheGetIPHandler) Handle(params policyapi.GetIPParams) middleware.Re
 		identityAllocator: r.identityAllocator,
 	}
 	if params.Cidr != nil {
-		_, cidrFilter, err := net.ParseCIDR(*params.Cidr)
+		cidrFilter, err := netip.ParsePrefix(*params.Cidr)
 		if err != nil {
 			return api.Error(policyapi.GetIPBadRequestCode, err)
 		}
@@ -55,7 +56,7 @@ func (r *IPCacheGetIPHandler) Handle(params policyapi.GetIPParams) middleware.Re
 }
 
 type ipCacheDumpListener struct {
-	cidrFilter        *net.IPNet
+	cidrFilter        netip.Prefix
 	labelsFilter      labels.Labels
 	identityAllocator identitycell.CachingIdentityAllocator
 	entries           []*models.IPListEntry
@@ -76,10 +77,10 @@ func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheMod
 	cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
 	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata, endpointFlags uint8,
 ) {
-	cidr := cidrCluster.AsIPNet()
+	cidr := cidrCluster.AsPrefix()
 
 	// only capture entries which are a subnet of cidrFilter
-	if ipc.cidrFilter != nil && !containsSubnet(*ipc.cidrFilter, cidr) {
+	if ipc.cidrFilter.IsValid() && !containsSubnet(ipc.cidrFilter, cidr) {
 		return
 	}
 	// Only capture identities with requested labels
@@ -123,9 +124,6 @@ func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheMod
 }
 
 // containsSubnet returns true if 'outer' contains 'inner'
-func containsSubnet(outer, inner net.IPNet) bool {
-	outerOnes, outerBits := outer.Mask.Size()
-	innerOnes, innerBits := inner.Mask.Size()
-
-	return outerBits == innerBits && outerOnes <= innerOnes && outer.Contains(inner.IP)
+func containsSubnet(outer, inner netip.Prefix) bool {
+	return outer.Addr().BitLen() == inner.Addr().BitLen() && outer.Bits() <= inner.Bits() && outer.Contains(inner.Addr())
 }
