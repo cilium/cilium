@@ -153,7 +153,7 @@ func (ops *ops) Update(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision,
 		if err == nil {
 			err = ops.handle.LinkAdd(nl)
 		}
-	} else {
+	} else if obj.DeviceSpec.CanModify() {
 		err = ops.handle.LinkModify(nl)
 	}
 	if err != nil {
