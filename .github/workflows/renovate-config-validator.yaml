@@ -23,4 +23,4 @@ jobs:
           export RENOVATE_IMAGE=ghcr.io/renovatebot/renovate:44.83.2@sha256:c1cb952b2e14a112d0d0c61987a10f60a2626fe9b9c1504436be46a17bd123bc
           docker run --rm --entrypoint "renovate-config-validator" \
             -v "${{ github.workspace }}/.github/renovate.json5":"/renovate.json5" \
-            ${RENOVATE_IMAGE} "/renovate.json5"
+            ${RENOVATE_IMAGE} --strict "/renovate.json5"
