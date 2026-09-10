@@ -557,7 +557,7 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	if len(svcExports) == 0 && svcExport == nil {
 		if svcImportExists {
-			return controllerruntime.Fail(r.Client.Delete(ctx, svcImport))
+			return controllerruntime.Fail(client.IgnoreNotFound(r.Client.Delete(ctx, svcImport)))
 		}
 		return controllerruntime.Success()
 	}

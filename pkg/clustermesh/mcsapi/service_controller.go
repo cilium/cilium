@@ -189,7 +189,7 @@ func (r *mcsAPIServiceReconciler) getBaseDerivedService(
 	if isHeadless != (svc.Spec.ClusterIP == corev1.ClusterIPNone) {
 		// We need to delete the derived service first if we need to switch
 		// to/from headless on a Service that already exists.
-		if err := r.Client.Delete(ctx, &svc); err != nil {
+		if err := client.IgnoreNotFound(r.Client.Delete(ctx, &svc)); err != nil {
 			return nil, false, err
 		}
 		return svcBase, false, nil
@@ -238,7 +238,7 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	if !cmnamespace.IsGlobalNamespace(ns, r.NamespaceConfig.GlobalNamespacesByDefault) {
 		if svcExists {
-			return controllerruntime.Fail(r.Client.Delete(ctx, svc))
+			return controllerruntime.Fail(client.IgnoreNotFound(r.Client.Delete(ctx, svc)))
 		}
 		return controllerruntime.Success()
 	}
@@ -247,7 +247,7 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		// If we don't have any supported ip families, we can bail out and cleanup
 		// any existing derived service
 		if svcExists {
-			return controllerruntime.Fail(r.Client.Delete(ctx, svc))
+			return controllerruntime.Fail(client.IgnoreNotFound(r.Client.Delete(ctx, svc)))
 		}
 		return controllerruntime.Success()
 	}
