@@ -255,3 +255,6 @@ NODE_CONFIG(bool, enable_bandwidth_manager, "Enable bandwidth manager")
 NODE_CONFIG(bool, enable_egress_gateway, "Enable egress gateway support")
 
 NODE_CONFIG(bool, enable_active_connection_tracking, "Enable active connection tracking")
+
+NODE_CONFIG(bool, enable_ip_masq_avoid_hostport,
+	    "Avoid allocating hostports during BPF masquerade SNAT port selection")
