@@ -390,10 +390,12 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	/* Check if the source and destination IP has same subnet ID. */
 	bool same_subnet_id = false;
 
-	if (CONFIG(hybrid_routing_enabled))
-		same_subnet_id = is_subnet_same_id6((union v6addr *)&ip6->saddr,
-						    (union v6addr *)&ip6->daddr);
+	if (CONFIG(hybrid_routing_enabled)) {
+		__u32 src_subnet_id = lookup_ip6_subnet_id((union v6addr *)&ip6->saddr);
+		__u32 dst_subnet_id = lookup_ip6_subnet_id((union v6addr *)&ip6->daddr);
 
+		same_subnet_id = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
+	}
 	if ((info && info->flag_skip_tunnel) || same_subnet_id)
 		goto skip_tunnel;
 
@@ -857,9 +859,12 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	/* Check if the source and destination IP has same subnet ID. */
 	bool same_subnet_id = false;
 	/* Lookup the subnet IDs for the source and destination IPs in hybrid routing mode. */
-	if (CONFIG(hybrid_routing_enabled))
-		same_subnet_id = is_subnet_same_id4(ip4->saddr, ip4->daddr);
+	if (CONFIG(hybrid_routing_enabled)) {
+		__u32 src_subnet_id = lookup_ip4_subnet_id(ip4->saddr);
+		__u32 dst_subnet_id = lookup_ip4_subnet_id(ip4->daddr);
 
+		same_subnet_id = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
+	}
 	if ((info && info->flag_skip_tunnel) || same_subnet_id)
 		goto skip_tunnel;
 
@@ -1294,6 +1299,27 @@ drop_err_ingress: __maybe_unused
 	return send_drop_notify_error(ctx, identity, ret, dir);
 }
 
+#define ALLOW_VLAN_THROUGH DROP_INVALID
+
+__noinline __weak
+int filter_vlan(struct __ctx_buff *ctx)
+{
+	__u32 vlan_id;
+
+	/* Filter allowed vlan id's and pass them back to kernel.
+	 * We will see the packet again in from-netdev@eth0.vlanXXX.
+	 */
+	if (ctx->vlan_present) {
+		vlan_id = ctx->vlan_tci & 0xfff;
+		if (vlan_id) {
+			if (allow_vlan(ctx->ifindex, vlan_id))
+				return ALLOW_VLAN_THROUGH;
+			return DROP_VLAN_FILTERED;
+		}
+	}
+	return CTX_ACT_OK;
+}
+
 /*
  * from-netdev is attached as a tc ingress filter to one or more physical devices
  * managed by Cilium (e.g., eth0).
@@ -1313,20 +1339,11 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif
 	int ret;
 
-	/* Filter allowed vlan id's and pass them back to kernel.
-	 * We will see the packet again in from-netdev@eth0.vlanXXX.
-	 */
-	if (ctx->vlan_present) {
-		__u32 vlan_id = ctx->vlan_tci & 0xfff;
-
-		if (vlan_id) {
-			if (allow_vlan(ctx->ifindex, vlan_id))
-				return CTX_ACT_OK;
-
-			ret = DROP_VLAN_FILTERED;
-			goto drop_err;
-		}
-	}
+	ret = filter_vlan(ctx);
+	if (ret == DROP_VLAN_FILTERED)
+		goto drop_err;
+	else if (ret == ALLOW_VLAN_THROUGH)
+		return CTX_ACT_OK;
 
 	ctx_skip_nodeport_clear(ctx);
 
@@ -1448,7 +1465,6 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		.monitor = 0,
 	};
 	__be16 proto = 0;
-	__u32 vlan_id;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
 
@@ -1478,18 +1494,11 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		src_sec_identity = get_identity(ctx);
 #endif
 
-	/* Filter allowed vlan id's and pass them back to kernel.
-	 */
-	if (ctx->vlan_present) {
-		vlan_id = ctx->vlan_tci & 0xfff;
-		if (vlan_id) {
-			if (allow_vlan(ctx->ifindex, vlan_id))
-				return CTX_ACT_OK;
-
-			ret = DROP_VLAN_FILTERED;
-			goto drop_err;
-		}
-	}
+	ret = filter_vlan(ctx);
+	if (ret == DROP_VLAN_FILTERED)
+		goto drop_err;
+	else if (ret == ALLOW_VLAN_THROUGH)
+		return CTX_ACT_OK;
 
 #if defined(ENABLE_L7_LB)
 	if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
