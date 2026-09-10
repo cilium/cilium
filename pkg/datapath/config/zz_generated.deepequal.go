@@ -211,6 +211,9 @@ func (in *Config) deepEqual(other *Config) bool {
 		return false
 	}
 
+	if in.EnableLocalRedirectPolicy != other.EnableLocalRedirectPolicy {
+		return false
+	}
 	if in.MaglevConfig != other.MaglevConfig {
 		return false
 	}
