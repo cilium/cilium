@@ -753,14 +753,9 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 			defer r.mu.RUnlock()
 
 			for _, d := range obj.(cache.Deltas) {
-				var obj any
-				if transformer != nil {
-					var err error
-					if obj, err = transformer(d.Object); err != nil {
-						return err
-					}
-				} else {
-					obj = d.Object
+				obj, err := transformDelta(transformer, d.Object)
+				if err != nil {
+					return err
 				}
 
 				// Deduplicate the strings in the object metadata to reduce memory consumption.

@@ -33,6 +33,7 @@ import (
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -541,6 +542,133 @@ func TestResource_WithTransform(t *testing.T) {
 		t.Fatalf("unexpected event still in channel: %v", event)
 	}
 
+}
+
+// relistListerWatcher serves the node in its first list only, so that the
+// relist which follows a broken watch makes the informer detect its deletion
+// and report it as a cache.DeletedFinalStateUnknown tombstone.
+type relistListerWatcher struct {
+	mu       lock.Mutex
+	node     *corev1.Node
+	lists    int
+	watchers []*watch.FakeWatcher
+}
+
+func (lw *relistListerWatcher) List(metav1.ListOptions) (k8sRuntime.Object, error) {
+	lw.mu.Lock()
+	defer lw.mu.Unlock()
+
+	lw.lists++
+	list := &corev1.NodeList{
+		ListMeta: metav1.ListMeta{ResourceVersion: strconv.Itoa(lw.lists)},
+	}
+	if lw.lists == 1 {
+		list.Items = []corev1.Node{*lw.node}
+	}
+	return list, nil
+}
+
+func (lw *relistListerWatcher) Watch(options metav1.ListOptions) (watch.Interface, error) {
+	// Decline the streaming list, so that the reflector falls back to the
+	// list and watch semantics this only knows how to serve.
+	if options.SendInitialEvents != nil && *options.SendInitialEvents {
+		return nil, errors.New("watchlist not supported")
+	}
+
+	lw.mu.Lock()
+	defer lw.mu.Unlock()
+
+	w := watch.NewFake()
+	lw.watchers = append(lw.watchers, w)
+	return w, nil
+}
+
+// breakWatch stops the watches handed out so far, which makes the reflector
+// list again.
+func (lw *relistListerWatcher) breakWatch() {
+	lw.mu.Lock()
+	defer lw.mu.Unlock()
+
+	for _, w := range lw.watchers {
+		w.Stop()
+	}
+	lw.watchers = nil
+}
+
+var _ cache.ListerWatcher = &relistListerWatcher{}
+
+// A deletion detected by a relist is reported with a tombstone holding the
+// object of the store, which the transform has already been applied to and
+// could not be applied to a second time.
+func TestResource_WithTransformRelistDeletion(t *testing.T) {
+	type StrippedNode = metav1.PartialObjectMetadata
+
+	var (
+		strippedNodes resource.Resource[*StrippedNode]
+		transforms    atomic.Int32
+		lw            = &relistListerWatcher{
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: "some-node", ResourceVersion: "1"},
+				Status:     corev1.NodeStatus{Phase: "init"},
+			},
+		}
+	)
+
+	strip := func(node *corev1.Node) (*StrippedNode, error) {
+		transforms.Add(1)
+		return &StrippedNode{ObjectMeta: metav1.ObjectMeta{Name: node.Name}}, nil
+	}
+
+	hive := hive.New(
+		cell.Provide(func(lc cell.Lifecycle) resource.Resource[*StrippedNode] {
+			return resource.New[*StrippedNode](lc, lw, nil, resource.WithTransform(strip))
+		}),
+		cell.Invoke(func(r resource.Resource[*StrippedNode]) { strippedNodes = r }))
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	tlog := hivetest.Logger(t)
+	require.NoError(t, hive.Start(tlog, ctx))
+
+	events := strippedNodes.Events(ctx)
+
+	event := <-events
+	assert.Equal(t, resource.Upsert, event.Kind)
+	assert.Equal(t, "some-node", event.Key.Name)
+	event.Done(nil)
+
+	event = <-events
+	assert.Equal(t, resource.Sync, event.Kind)
+	event.Done(nil)
+
+	// The node is gone from the second list, so the relist which follows the
+	// broken watch reports its deletion.
+	lw.breakWatch()
+
+	select {
+	case event = <-events:
+	case <-time.After(30 * time.Second):
+		// Transforming the tombstone fails, and as the informer is not
+		// configured to retry, the whole batch of deltas is then dropped.
+		t.Fatal("timed out waiting for the deletion detected by the relist")
+	}
+	assert.Equal(t, resource.Delete, event.Kind)
+	assert.Equal(t, "some-node", event.Key.Name)
+	assert.Equal(t, &StrippedNode{ObjectMeta: metav1.ObjectMeta{Name: "some-node"}}, event.Object)
+	event.Done(nil)
+
+	// Only the node of the first list was transformed: had the tombstone been
+	// transformed as well, the whole batch of deltas would have been dropped
+	// and no deletion ever reported.
+	assert.Equal(t, int32(1), transforms.Load())
+
+	require.NoError(t, hive.Stop(tlog, ctx))
+
+	event, ok := <-events
+	if ok {
+		t.Fatalf("unexpected event still in channel: %v", event)
+	}
 }
 
 func TestResource_WithoutIndexers(t *testing.T) {
