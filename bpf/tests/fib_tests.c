@@ -40,20 +40,29 @@ long mock_redirect_neigh(__maybe_unused int ifindex,
 
 struct fib_lookup_recorder {
 	__u32 flags;
+	__u8 l4_protocol;
+	__be16 sport;
+	__be16 dport;
 } fib_lookup_recorder = {0};
 
 void reset_fib_lookup_recorder(struct fib_lookup_recorder *r)
 {
 	r->flags = 0;
+	r->l4_protocol = 0;
+	r->sport = 0;
+	r->dport = 0;
 }
 
 #define fib_lookup mock_fib_lookup
 
 long mock_fib_lookup(void *ctx __maybe_unused,
-		     struct bpf_fib_lookup *params __maybe_unused,
+		     const struct bpf_fib_lookup *params __maybe_unused,
 		     int plen __maybe_unused, __u32 flags __maybe_unused)
 {
 	fib_lookup_recorder.flags = flags;
+	fib_lookup_recorder.l4_protocol = params->l4_protocol;
+	fib_lookup_recorder.sport = params->sport;
+	fib_lookup_recorder.dport = params->dport;
 	return 0;
 }
 
@@ -202,7 +211,7 @@ int test2_check(struct __ctx_buff *ctx)
 	});
 
 	TEST("fib_redirect_v4", {
-		struct iphdr hdr = { 0 };
+		struct iphdr hdr = { .protocol = IPPROTO_TCP };
 		int oif = 0;
 		__s8 ext_err;
 
@@ -216,11 +225,16 @@ int test2_check(struct __ctx_buff *ctx)
 				   BPF_FIB_LOOKUP_SKIP_NEIGH,
 				   fib_lookup_recorder.flags);
 
+		if (fib_lookup_recorder.l4_protocol != IPPROTO_TCP)
+			test_fatal("expected l4_protocol %d, got %d",
+				   IPPROTO_TCP,
+				   fib_lookup_recorder.l4_protocol);
+
 		reset_fib_lookup_recorder(&fib_lookup_recorder);
 	});
 
 	TEST("fib_redirect_v6", {
-		struct ipv6hdr hdr6 = { 0 };
+		struct ipv6hdr hdr6 = { .nexthdr = IPPROTO_UDP };
 		int oif = 0;
 		__s8 ext_err;
 
@@ -233,6 +247,11 @@ int test2_check(struct __ctx_buff *ctx)
 			test_fatal("expected flags %x, got %d",
 				   BPF_FIB_LOOKUP_SKIP_NEIGH,
 				   fib_lookup_recorder.flags);
+
+		if (fib_lookup_recorder.l4_protocol != IPPROTO_UDP)
+			test_fatal("expected l4_protocol %d, got %d",
+				   IPPROTO_UDP,
+				   fib_lookup_recorder.l4_protocol);
 
 		reset_fib_lookup_recorder(&fib_lookup_recorder);
 	});
