@@ -118,6 +118,7 @@ func baseSockPermutations() *loadPermutationBuilder {
 			setBasePermutations(&t.Node)
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
+			t.EnableSocketLBTracing = true
 		}),
 		Increment(func(t *config.BPFSock, v bool) {
 			if v {

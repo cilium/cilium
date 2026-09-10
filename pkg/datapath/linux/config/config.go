@@ -215,9 +215,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		if option.Config.UnsafeDaemonConfigOption.EnableSocketLBPeer {
 			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
 		}
-		if option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing {
-			cDefinesMap["TRACE_SOCK_NOTIFY"] = "1"
-		}
 	}
 
 	cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
