@@ -51,21 +51,22 @@ const (
 
 // API represents a mocked EC2 API
 type API struct {
-	mutex          lock.RWMutex
-	unattached     map[string]*types.ENI
-	enis           map[string]ENIMap
-	subnets        map[string]*ipamTypes.Subnet
-	vpcs           map[string]*ipamTypes.VirtualNetwork
-	routeTables    map[string]*ipamTypes.RouteTable
-	securityGroups map[string]*types.SecurityGroup
-	instanceTypes  []ec2_types.InstanceTypeInfo
-	errors         map[Operation]error
-	allocator      *ipallocator.Range
-	pdAllocator    *cidrset.CidrSet
-	ipv6Allocator  *cidrset.CidrSet
-	limiter        *rate.Limiter
-	delaySim       *helpers.DelaySimulator
-	pdSubnet       netip.Prefix
+	mutex                   lock.RWMutex
+	unattached              map[string]*types.ENI
+	enis                    map[string]ENIMap
+	subnets                 map[string]*ipamTypes.Subnet
+	vpcs                    map[string]*ipamTypes.VirtualNetwork
+	routeTables             map[string]*ipamTypes.RouteTable
+	securityGroups          map[string]*types.SecurityGroup
+	instanceTypes           []ec2_types.InstanceTypeInfo
+	errors                  map[Operation]error
+	allocator               *ipallocator.Range
+	pdAllocator             *cidrset.CidrSet
+	ipv6Allocator           *cidrset.CidrSet
+	limiter                 *rate.Limiter
+	delaySim                *helpers.DelaySimulator
+	pdSubnet                netip.Prefix
+	subnetsAtPrefixCapacity map[string]bool
 }
 
 // NewAPI returns a new mocked EC2 API
@@ -176,19 +177,20 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 	}
 
 	api := &API{
-		unattached:     map[string]*types.ENI{},
-		enis:           map[string]ENIMap{},
-		subnets:        map[string]*ipamTypes.Subnet{},
-		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
-		routeTables:    map[string]*ipamTypes.RouteTable{},
-		securityGroups: map[string]*types.SecurityGroup{},
-		instanceTypes:  []ec2_types.InstanceTypeInfo{},
-		allocator:      podCidrRange,
-		pdAllocator:    pdCidrRange,
-		ipv6Allocator:  ipv6CidrRange,
-		errors:         map[Operation]error{},
-		delaySim:       helpers.NewDelaySimulator(),
-		pdSubnet:       pdCidr,
+		unattached:              map[string]*types.ENI{},
+		enis:                    map[string]ENIMap{},
+		subnets:                 map[string]*ipamTypes.Subnet{},
+		vpcs:                    map[string]*ipamTypes.VirtualNetwork{},
+		routeTables:             map[string]*ipamTypes.RouteTable{},
+		securityGroups:          map[string]*types.SecurityGroup{},
+		instanceTypes:           []ec2_types.InstanceTypeInfo{},
+		allocator:               podCidrRange,
+		pdAllocator:             pdCidrRange,
+		ipv6Allocator:           ipv6CidrRange,
+		errors:                  map[Operation]error{},
+		delaySim:                helpers.NewDelaySimulator(),
+		pdSubnet:                pdCidr,
+		subnetsAtPrefixCapacity: map[string]bool{},
 	}
 
 	api.UpdateSubnets(subnets)
@@ -258,6 +260,14 @@ func (e *API) SetMockError(op Operation, err error) {
 	defer e.mutex.Unlock()
 	e.errors[op] = err
 
+}
+
+// SetSubnetAtPrefixCapacity marks a subnet as out of free /28 prefix blocks
+// while leaving its free /32 address count (AvailableAddresses) untouched.
+func (e *API) SetSubnetAtPrefixCapacity(subnetID string, atCapacity bool) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+	e.subnetsAtPrefixCapacity[subnetID] = atCapacity
 }
 
 // SetDelay specifies the delay which should be simulated for an individual EC2
@@ -546,6 +556,13 @@ func assignPrefixToENI(e *API, eni *types.ENI, prefixes int32) error {
 	subnet, ok := e.subnets[eni.Subnet.ID]
 	if !ok {
 		return fmt.Errorf("subnet %s not found", eni.Subnet.ID)
+	}
+
+	if e.subnetsAtPrefixCapacity[eni.Subnet.ID] {
+		return &smithy.GenericAPIError{
+			Code:    api.InvalidParameterValueStr,
+			Message: api.SubnetFullErrMsgStr,
+		}
 	}
 
 	if int(prefixes)*option.ENIPDBlockSizeIPv4 > subnet.AvailableAddresses {

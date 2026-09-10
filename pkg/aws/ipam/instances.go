@@ -151,47 +151,40 @@ func (m *InstancesManager) GetSubnets(ctx context.Context) ipamTypes.SubnetMap {
 	return subnetsCopy
 }
 
-// FindSubnetByIDs returns the subnet with the most addresses matching VPC ID,
-// availability zone within a provided list of subnet ids
-//
-// The returned subnet is immutable so it can be safely accessed
-func (m *InstancesManager) FindSubnetByIDs(vpcID, availabilityZone string, subnetIDs []string) (bestSubnet *ipamTypes.Subnet) {
+// FindSubnetByIDsSorted returns all subnets matching VPC ID, availability zone
+// and subnet IDs, sorted by AvailableAddresses descending
+func (m *InstancesManager) FindSubnetByIDsSorted(vpcID, availabilityZone string, subnetIDs []string) []*ipamTypes.Subnet {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-
+	var result []*ipamTypes.Subnet
 	for _, s := range m.subnets {
 		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone {
-			for _, subnetID := range subnetIDs {
-				if s.ID == subnetID {
-					if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
-						bestSubnet = s
-					}
-					continue
-				}
+			if slices.Contains(subnetIDs, s.ID) {
+				result = append(result, s)
 			}
 		}
 	}
-
-	return
+	slices.SortFunc(result, func(a, b *ipamTypes.Subnet) int {
+		return b.AvailableAddresses - a.AvailableAddresses
+	})
+	return result
 }
 
-// FindSubnetByTags returns the subnet with the most addresses matching VPC ID,
-// availability zone and all required tags
-//
-// The returned subnet is immutable so it can be safely accessed
-func (m *InstancesManager) FindSubnetByTags(vpcID, availabilityZone string, required ipamTypes.Tags) (bestSubnet *ipamTypes.Subnet) {
+// FindSubnetByTagsSorted returns all subnets matching VPC ID, availability zone
+// and all required tags, sorted by AvailableAddresses descending.
+func (m *InstancesManager) FindSubnetByTagsSorted(vpcID, availabilityZone string, required ipamTypes.Tags) []*ipamTypes.Subnet {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-
+	var result []*ipamTypes.Subnet
 	for _, s := range m.subnets {
 		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone && s.Tags.Match(required) {
-			if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
-				bestSubnet = s
-			}
+			result = append(result, s)
 		}
 	}
-
-	return
+	slices.SortFunc(result, func(a, b *ipamTypes.Subnet) int {
+		return b.AvailableAddresses - a.AvailableAddresses
+	})
+	return result
 }
 
 // FindSecurityGroupByTags returns the security groups matching VPC ID and all required tags
