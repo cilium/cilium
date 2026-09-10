@@ -31,6 +31,10 @@ type Config struct {
 	// PodRestartSelector is the label selector for pods that should be
 	// restarted if not managed by Cilium.
 	PodRestartSelector string
+
+	// EnableUnmanagedPodObserveOnly runs the controller in observe-only mode: unmanaged pods are
+	// counted and reported via cilium_operator_unmanaged_pods but never deleted. Default false.
+	EnableUnmanagedPodObserveOnly bool
 }
 
 var defaultConfig = Config{
@@ -41,6 +45,7 @@ var defaultConfig = Config{
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Duration("unmanaged-pod-watcher-interval", def.UnmanagedPodWatcherInterval, "Interval to check for unmanaged kube-dns pods (0 to disable)")
 	flags.String("pod-restart-selector", def.PodRestartSelector, "cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted")
+	flags.Bool("enable-unmanaged-pod-observe-only", def.EnableUnmanagedPodObserveOnly, "If true, the unmanaged pod watcher runs in observe-only mode: it counts unmanaged pods and emits the cilium_operator_unmanaged_pods metric but does not restart (delete) them")
 }
 
 // SharedConfig contains the configuration that is shared between this module and others.

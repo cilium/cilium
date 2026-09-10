@@ -65,6 +65,11 @@ func registerController(p params) {
 		logger:             p.Logger,
 		interval:           p.Config.UnmanagedPodWatcherInterval,
 		podRestartSelector: p.Config.PodRestartSelector,
+		observeOnly:        p.Config.EnableUnmanagedPodObserveOnly,
+	}
+
+	if c.observeOnly {
+		p.Logger.Info("Unmanaged pods controller running in observe-only mode: unmanaged pods will be counted and reported via metrics but not restarted")
 	}
 
 	p.Lifecycle.Append(cell.Hook{
@@ -79,6 +84,10 @@ type unmanagedPodsController struct {
 	logger             *slog.Logger
 	interval           time.Duration
 	podRestartSelector string
+	observeOnly        bool
+	// prevObserveOnlyEligible is the restart-eligible pod count from the last observe-only cycle,
+	// used to suppress repeated Info logs when nothing changes.
+	prevObserveOnlyEligible int
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -128,12 +137,11 @@ type podRestartCandidate struct {
 	age time.Duration
 }
 
-// reconcile counts every unmanaged pod, publishes the
-// cilium_operator_unmanaged_pods gauge with that full count, and then restarts
-// at most one eligible pod. Counting happens before any restart so the gauge
-// stays accurate even on cycles where a pod is restarted.
+// reconcile counts all unmanaged pods, publishes the cilium_operator_unmanaged_pods gauge,
+// then deletes at most one restart-eligible pod. Counting precedes deletion so the gauge
+// is always accurate, including on cycles where a pod is restarted.
 func (c *unmanagedPodsController) reconcile(ctx context.Context) error {
-	// Clean up old entries from lastPodRestart map
+	// Evict stale cooldown entries so the map does not grow unbounded.
 	for podName, lastRestart := range lastPodRestart {
 		if time.Since(lastRestart) > 2*minimalPodRestartInterval {
 			delete(lastPodRestart, podName)
@@ -185,12 +193,38 @@ func (c *unmanagedPodsController) reconcile(ctx context.Context) error {
 		}
 	}
 
-	// Publish the full count before any restart so the gauge is always accurate.
+	// Publish before any deletion so the gauge reflects the true count this cycle.
 	c.metrics.UnmanagedPods.Set(float64(countUnmanagedPods))
 
-	// Restart at most one pod per cycle to avoid taking down all replicas at
-	// once. On a failed delete, move on to the next candidate so a single
-	// failure does not stall progress for the whole cycle.
+	if c.observeOnly {
+		// Observe-only: log only when the restart-eligible count changes to avoid per-cycle spam.
+		// The gauge above already reflects the full unmanaged count every cycle.
+		if len(candidates) != c.prevObserveOnlyEligible {
+			if len(candidates) > 0 {
+				c.logger.InfoContext(ctx,
+					fmt.Sprintf("observe-only: %d unmanaged pods, %d eligible for restart (none will be restarted)", countUnmanagedPods, len(candidates)),
+				)
+			} else if countUnmanagedPods > 0 {
+				c.logger.InfoContext(ctx,
+					fmt.Sprintf("observe-only: %d unmanaged pods, none eligible for restart yet", countUnmanagedPods),
+				)
+			} else {
+				c.logger.InfoContext(ctx, "observe-only: no unmanaged pods")
+			}
+			c.prevObserveOnlyEligible = len(candidates)
+		}
+		for _, candidate := range candidates {
+			c.logger.DebugContext(ctx,
+				"observe-only: pod eligible for restart",
+				logfields.K8sPodName, candidate.id,
+				logfields.TimeSincePodStarted, candidate.age,
+			)
+		}
+		return nil
+	}
+
+	// Delete at most one pod per cycle to avoid simultaneous restarts.
+	// On failure, try the next candidate rather than stalling the cycle.
 	for _, candidate := range candidates {
 		if c.restartUnmanagedPod(ctx, candidate) {
 			break
@@ -200,8 +234,8 @@ func (c *unmanagedPodsController) reconcile(ctx context.Context) error {
 	return nil
 }
 
-// evaluateRestartCandidate returns a candidate if the unmanaged pod is eligible
-// for restart (old enough and past its per-pod restart cooldown), else nil.
+// evaluateRestartCandidate returns the pod as a restart candidate if it is old enough
+// and past its per-pod cooldown, otherwise nil.
 func (c *unmanagedPodsController) evaluateRestartCandidate(ctx context.Context, pod *slim_corev1.Pod, podID string) *podRestartCandidate {
 	startTime := pod.Status.StartTime
 	if startTime == nil {
@@ -227,9 +261,8 @@ func (c *unmanagedPodsController) evaluateRestartCandidate(ctx context.Context, 
 	return &podRestartCandidate{pod: pod, id: podID, age: age}
 }
 
-// restartUnmanagedPod deletes a single unmanaged pod so it is recreated and
-// picked up by Cilium. It returns true and records the restart time on success,
-// or false if the delete failed (so the caller can try the next candidate).
+// restartUnmanagedPod deletes the pod so it is recreated and picked up by Cilium.
+// Returns true on success (restart time recorded), false on failure (caller tries next candidate).
 func (c *unmanagedPodsController) restartUnmanagedPod(ctx context.Context, candidate *podRestartCandidate) bool {
 	c.logger.InfoContext(ctx,
 		"Restarting unmanaged pod",
