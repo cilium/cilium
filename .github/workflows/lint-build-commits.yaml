@@ -127,7 +127,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-all-cache-
             ${{ runner.os }}-go-cilium-cache-
-            ${{ runner.os }}-go-operator-generic-cache-
+            ${{ runner.os }}-go-operator-cache-
             ${{ runner.os }}-go-hubble-relay-cache-
             ${{ runner.os }}-go-clustermesh-apiserver-cache-
 
@@ -301,7 +301,7 @@ jobs:
           go-version: 1.27.1
 
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -309,7 +309,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-all-cache-
             ${{ runner.os }}-go-cilium-cache-
-            ${{ runner.os }}-go-operator-generic-cache-
+            ${{ runner.os }}-go-operator-cache-
             ${{ runner.os }}-go-hubble-relay-cache-
             ${{ runner.os }}-go-clustermesh-apiserver-cache-
 
