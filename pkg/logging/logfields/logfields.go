@@ -514,6 +514,9 @@ const (
 	// DirectRoutingDevice is the name of the direct routing device
 	DirectRoutingDevice = "directRoutingDevice"
 
+	// VFID is the virtual function (VF) ID for SR-IOV devices
+	VFID = "vfID"
+
 	// DatapathMode is the datapath mode name
 	DatapathMode = "datapathMode"
 
