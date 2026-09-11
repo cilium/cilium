@@ -82,9 +82,15 @@ type adsServer struct {
 	// Value holds the number of redirects using the listener named by the key.
 	listenerCount map[string]uint
 
-	// resourceGenerations identifies the latest resource state published for
-	// each node. Revert closures use the generation as a cheap stale-update
-	// guard instead of hashing all resources. mutex must be held during access.
+	// resourceGeneration is the latest generation allocated from the global ADS
+	// resource-state sequence. Generations are unique across all nodes.
+	// mutex must be held during access.
+	resourceGeneration uint64
+
+	// resourceGenerations identifies the latest resource state staged for each
+	// node. Revert closures use the node's generation as a cheap stale-update
+	// guard without treating updates to other nodes as superseding it.
+	// mutex must be held during access.
 	resourceGenerations map[string]uint64
 
 	// stopFunc contains the function which stops the xDS gRPC server.
@@ -1088,7 +1094,7 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		// Reserve the next generation before registering the revert closure. It
 		// becomes current after the immutable resources have been staged. The
 		// actual snapshot may be finalized later when Envoy opens its next watch.
-		newGeneration := s.resourceGenerations[nodeId] + 1
+		newGeneration := s.resourceGeneration + 1
 		var revertFunc xdsnew.RevertFunc
 		// An update without a WaitGroup can still be coalesced into a response
 		// carrying older tracked generations. Preserve its revert so a NACK can
@@ -1115,6 +1121,7 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 				logfields.Error, err)
 			return err
 		}
+		s.resourceGeneration = newGeneration
 		s.resourceGenerations[nodeId] = newGeneration
 	} else {
 		s.logger.Debug("updateXdsSnapshot: Resources are identical, skipping update")

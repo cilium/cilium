@@ -220,6 +220,46 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		require.Equal(t, uint64(1), current.NetworkPolicies["policy"].EndpointId)
 	})
 
+	t.Run("updates share a global generation space without coupling node reverts", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		publish := func(nodeID string, endpointID uint64) {
+			next := resources(endpointID)
+			server.mutex.Lock()
+			current := cache.GetAllResources(nodeID)
+			var changes *resourceChanges
+			if current != nil {
+				changes = computeChanges(current, &next)
+			}
+			err := server.updateSnapshot(ctx, &next, nodeID, nil, nil, changes)
+			server.mutex.Unlock()
+			require.NoError(t, err)
+		}
+
+		publish("node-a", 1) // generation 1
+		publish("node-b", 1) // generation 2
+		cache.revertFuncs = nil
+		publish("node-a", 2) // generation 3
+		require.Len(t, cache.revertFuncs, 1)
+		revertNodeA := cache.revertFuncs[0]
+		publish("node-b", 2) // generation 4
+
+		require.Equal(t, uint64(4), server.resourceGeneration)
+		require.Equal(t, uint64(3), server.resourceGenerations["node-a"])
+		require.Equal(t, uint64(4), server.resourceGenerations["node-b"])
+
+		// The global allocator advanced for node-b, but node-a still has the
+		// exact resource generation expected by its revert.
+		generation, reverted := revertNodeA(server.resourceGenerations["node-a"])
+		require.True(t, reverted)
+		require.Equal(t, uint64(5), generation)
+		require.Equal(t, generation, server.resourceGeneration)
+		require.Equal(t, generation, server.resourceGenerations["node-a"])
+		require.Equal(t, uint64(4), server.resourceGenerations["node-b"])
+		require.Equal(t, uint64(1), cache.GetAllResources("node-a").NetworkPolicies["policy"].EndpointId)
+		require.Equal(t, uint64(2), cache.GetAllResources("node-b").NetworkPolicies["policy"].EndpointId)
+	})
+
 	t.Run("superseded ABA generation is not reverted", func(t *testing.T) {
 		server, cache := newServer(t)
 		ctx := t.Context()
