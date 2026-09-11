@@ -134,14 +134,14 @@ type countingADSCache struct {
 
 type revertCapturingADSCache struct {
 	xdsnew.Cache
-	revertFuncs []func()
+	revertFuncs []xdsnew.RevertFunc
 }
 
-func (c *revertCapturingADSCache) UpdateSnapshot(ctx context.Context, nodeID string, snapshot xds_cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc func()) error {
+func (c *revertCapturingADSCache) UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, snapshot xds_cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc xdsnew.RevertFunc) error {
 	if revertFunc != nil {
 		c.revertFuncs = append(c.revertFuncs, revertFunc)
 	}
-	return c.Cache.UpdateSnapshot(ctx, nodeID, snapshot, wg, typeURLs, revertFunc)
+	return c.Cache.UpdateSnapshot(ctx, nodeID, generation, snapshot, wg, typeURLs, revertFunc)
 }
 
 func (c *countingADSCache) GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (xds_cache.ResourceSnapshot, error) {
@@ -154,9 +154,9 @@ func (c *countingADSCache) GenerateSnapshotIncrementally(resources *xds.Resource
 	return c.Cache.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, logger)
 }
 
-func (c *countingADSCache) UpdateSnapshot(ctx context.Context, nodeID string, snapshot xds_cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc func()) error {
+func (c *countingADSCache) UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, snapshot xds_cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc xdsnew.RevertFunc) error {
 	c.published.Add(1)
-	return c.Cache.UpdateSnapshot(ctx, nodeID, snapshot, wg, typeURLs, revertFunc)
+	return c.Cache.UpdateSnapshot(ctx, nodeID, generation, snapshot, wg, typeURLs, revertFunc)
 }
 
 func (c *countingADSCache) reset() {
@@ -191,7 +191,8 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), wg))
 		require.Len(t, cache.revertFuncs, 1)
 
-		cache.revertFuncs[0]()
+		_, reverted := cache.revertFuncs[0](server.resourceGenerations[localNodeID])
+		require.True(t, reverted)
 		current := cache.GetAllResources(localNodeID)
 		require.Equal(t, uint64(1), current.NetworkPolicies["policy"].EndpointId)
 	})
@@ -215,10 +216,36 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		beforeRevert := cache.GetAllResources(localNodeID)
 		generation := server.resourceGenerations[localNodeID]
 
-		staleRevert()
+		_, reverted := staleRevert(2)
+		require.False(t, reverted)
 		require.Same(t, beforeRevert, cache.GetAllResources(localNodeID))
 		require.Equal(t, generation, server.resourceGenerations[localNodeID])
 		require.Equal(t, uint64(2), beforeRevert.NetworkPolicies["policy"].EndpointId)
+	})
+
+	t.Run("coalesced generations revert to the last accepted state", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
+
+		wg2 := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg2.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), wg2))
+		wg3 := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg3.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(3), wg3))
+		require.Len(t, cache.revertFuncs, 2)
+
+		expectedGeneration := server.resourceGenerations[localNodeID]
+		for i := len(cache.revertFuncs) - 1; i >= 0; i-- {
+			var reverted bool
+			expectedGeneration, reverted = cache.revertFuncs[i](expectedGeneration)
+			require.True(t, reverted)
+		}
+
+		current := cache.GetAllResources(localNodeID)
+		require.Equal(t, uint64(1), current.NetworkPolicies["policy"].EndpointId)
+		require.Equal(t, expectedGeneration, server.resourceGenerations[localNodeID])
 	})
 }
 

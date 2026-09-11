@@ -887,29 +887,35 @@ func listenerPortAllocationCompletionTypeURLs(callback func(error), changes *res
 }
 
 // buildRevert captures the given resource changes and returns a closure that
-// restores them. The revert is skipped if another update has been applied since,
-// as identified by the resource generation assigned to the published update.
+// restores them. The caller threads the actual generation returned by one
+// successful revert into the next older revert. A revert is skipped if the
+// current generation no longer matches that rollback chain.
 // Caller must hold s.mutex.
-func (s *adsServer) buildRevert(ctx context.Context, nodeID string, pushedGeneration uint64, changes *resourceChanges) func() {
+func (s *adsServer) buildRevert(ctx context.Context, nodeID string, pushedGeneration uint64, changes *resourceChanges) xdsnew.RevertFunc {
 	if changes == nil {
 		changes = &resourceChanges{}
 	}
 
-	return func() {
+	return func(expectedGeneration uint64) (uint64, bool) {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 
-		// Check whether the resource state is still the generation we pushed.
+		// Check whether the resource state is still the generation expected by
+		// the rollback chain. The newest changed update normally expects its own
+		// pushedGeneration; a newer no-op completion may advance that expectation.
+		// Each successful revert publishes a fresh generation which is threaded
+		// into the next older revert.
 		currentResources := s.cache.GetAllResources(nodeID)
 		currentGeneration := s.resourceGenerations[nodeID]
-		if currentGeneration != pushedGeneration {
+		if currentGeneration != expectedGeneration {
 			s.logger.Info(
 				"Skipping revert, resource generation has been superseded",
 				logfields.NodeID, nodeID,
 				"pushedGeneration", pushedGeneration,
+				"expectedGeneration", expectedGeneration,
 				"currentGeneration", currentGeneration,
 			)
-			return
+			return currentGeneration, false
 		}
 
 		s.logger.Info("Reverting snapshot for node", logfields.NodeID, nodeID)
@@ -919,7 +925,9 @@ func (s *adsServer) buildRevert(ctx context.Context, nodeID string, pushedGenera
 			s.logger.Error("Failed to revert snapshot",
 				logfields.NodeID, nodeID,
 				logfields.Error, err)
+			return s.resourceGenerations[nodeID], false
 		}
+		return s.resourceGenerations[nodeID], true
 	}
 }
 
@@ -1103,11 +1111,11 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		// becomes current only after both the snapshot and immutable resources
 		// have been published successfully.
 		newGeneration := s.resourceGenerations[nodeId] + 1
-		var revertFunc func()
+		var revertFunc xdsnew.RevertFunc
 		if wg != nil {
 			revertFunc = s.buildRevert(ctx, nodeId, newGeneration, changes)
 		}
-		err = s.cache.UpdateSnapshot(ctx, nodeId, newSnapshot, wg, completionTypeURLs, revertFunc)
+		err = s.cache.UpdateSnapshot(ctx, nodeId, newGeneration, newSnapshot, wg, completionTypeURLs, revertFunc)
 		if err != nil {
 			s.logger.Error("Error setting snapshot for node %s: %q",
 				logfields.NodeID, nodeId,
