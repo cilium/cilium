@@ -471,6 +471,32 @@ retry:
 	}
 }
 
+// eniDeviceIPv6 returns the IPv6 address to configure the ENI device itself
+// with, or the zero Addr if the ENI has no IPv6 address at all.
+func eniDeviceIPv6(iface *ec2_types.NetworkInterface, eni *types.ENI) (netip.Addr, error) {
+	var lowest netip.Addr
+	for _, a := range iface.Ipv6Addresses {
+		addrStr := aws.ToString(a.Ipv6Address)
+		if addrStr == "" {
+			continue
+		}
+		addr, err := netip.ParseAddr(addrStr)
+		if err != nil {
+			return netip.Addr{}, fmt.Errorf("unable to parse ENI IPv6 address %q: %w", addrStr, err)
+		}
+		if aws.ToBool(a.IsPrimaryIpv6) {
+			return addr, nil
+		}
+		if !lowest.IsValid() || addr.Less(lowest) {
+			lowest = addr
+		}
+	}
+	if lowest.IsValid() {
+		return lowest, nil
+	}
+	return eni.DeriveIPv6FromPrefixes(), nil
+}
+
 // parseENI parses a ec2.NetworkInterface as returned by the EC2 service API,
 // converts it into a types.ENI object.
 //
@@ -582,6 +608,12 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		}
 		eni.IPv6Prefixes = append(eni.IPv6Prefixes, iputil.PrefixFrom(p))
 	}
+
+	ipv6, err := eniDeviceIPv6(iface, eni)
+	if err != nil {
+		return "", nil, err
+	}
+	eni.IPv6 = iputil.AddrFrom(ipv6)
 
 	// An Association can be present without a public IPv4 address (e.g. an
 	// IPv6-only, carrier or customer-owned-IP association), in which case
