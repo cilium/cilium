@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
@@ -145,6 +146,7 @@ type Input struct {
 	ServiceImports      []mcsapiv1beta1.ServiceImport
 	BackendTLSPolicyMap helpers.BackendTLSPolicyServiceMap
 	MergedListeners     []ListenerWithContext
+	InferencePools      []gateway_inf_ext.InferencePool
 }
 
 // GatewayAPI translates Gateway API resources into a model.
@@ -191,6 +193,13 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 		}
 	}
 
+	// build out a map for the inference pool to keep track
+	infPoolsByKey := make(map[types.NamespacedName]*gateway_inf_ext.InferencePool, len(input.InferencePools))
+	for i := range input.InferencePools {
+		p := &input.InferencePools[i]
+		infPoolsByKey[types.NamespacedName{Namespace: p.Namespace, Name: p.Name}] = p
+	}
+
 	for _, l := range listeners {
 		switch l.Protocol {
 		case gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType, gatewayv1.TLSProtocolType:
@@ -199,7 +208,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 
 			var httpRoutes []model.HTTPRoute
 
-			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, listenerHostnamesByProtocol, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
+			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, listenerHostnamesByProtocol, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap, infPoolsByKey)...)
 			httpRoutes = append(httpRoutes, toGRPCRoutes(l.Listener, listenerHostnamesByProtocol, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
 			m.HTTP = append(m.HTTP, model.HTTPListener{
 				Name:                       string(l.Name),
@@ -286,7 +295,8 @@ func getBackendServiceName(namespace string, services []corev1.Service, serviceI
 		if err != nil {
 			return "", err
 		}
-
+	case helpers.IsInferencePool(backendObjectReference):
+		svcName = helpers.ShadowServiceName(string(backendObjectReference.Name))
 	default:
 		return "", fmt.Errorf("Unsupported backend kind %s", *backendObjectReference.Kind)
 	}
@@ -306,6 +316,7 @@ func toHTTPRoutes(log *slog.Logger,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
 	btlspMap helpers.BackendTLSPolicyServiceMap,
+	infPoolsByKey map[types.NamespacedName]*gateway_inf_ext.InferencePool,
 ) []model.HTTPRoute {
 	// Sort by age and name so matches with equal priority keep this order when Envoy sorts them later.
 	input = slices.Clone(input)
@@ -329,7 +340,7 @@ func toHTTPRoutes(log *slog.Logger,
 			computedHost = nil
 		}
 
-		httpRoutes = append(httpRoutes, extractRoutes(log, int32(listener.Port), computedHost, r, services, serviceImports, grants, btlspMap)...)
+		httpRoutes = append(httpRoutes, extractRoutes(log, int32(listener.Port), computedHost, r, services, serviceImports, grants, btlspMap, infPoolsByKey)...)
 
 	}
 	return httpRoutes
@@ -343,6 +354,7 @@ func extractRoutes(logger *slog.Logger,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
 	btlspMap helpers.BackendTLSPolicyServiceMap,
+	infPoolsByKey map[types.NamespacedName]*gateway_inf_ext.InferencePool,
 ) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for ruleIndex, rule := range hr.Spec.Rules {
@@ -375,6 +387,13 @@ func extractRoutes(logger *slog.Logger,
 				toAppend, include = addBackendTLSDetails(logger, toAppend, svc, btlspMap)
 				if !include {
 					continue
+				}
+				//if the backendref is an InferencePool
+				if helpers.IsInferencePool(be.BackendRef.BackendObjectReference) {
+					ns := helpers.NamespaceDerefOr(be.Namespace, hr.GetNamespace())
+					if pool, ok := infPoolsByKey[types.NamespacedName{Namespace: ns, Name: string(be.Name)}]; ok {
+						toAppend.EndpointPicker = toEndpointPicker(pool)
+					}
 				}
 				bes = append(bes, toAppend)
 				for _, f := range be.Filters {
@@ -932,6 +951,26 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnamesByProtocol m
 	}
 
 	return tlsRoutes
+}
+
+func toEndpointPicker(pool *gateway_inf_ext.InferencePool) *model.EndpointPicker {
+	ref := pool.Spec.EndpointPickerRef
+	if ref == nil {
+		return nil
+	}
+	ep := &model.EndpointPicker{
+		Name:        string(ref.Name),
+		Namespace:   pool.Namespace,
+		FailureMode: string(ref.FailureMode),
+		AppProtocol: string(pool.Spec.AppProtocol),
+	}
+	if ref.Port != nil {
+		ep.Port = uint32(ref.Port.Number)
+	}
+	if ep.FailureMode == "" {
+		ep.FailureMode = string(gateway_inf_ext.EndpointPickerFailClose) // the default if not set
+	}
+	return ep
 }
 
 func parentRefsMatchListener(parentRefs []gatewayv1.ParentReference, listener gatewayv1.Listener) bool {

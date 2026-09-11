@@ -1,0 +1,12 @@
+- metadata:
+    creationTimestamp: null
+    name: my-inferencepool-shadow-service
+    namespace: default
+  spec:
+    clusterIP: None
+    ports:
+    - port: 8080
+      protocol: TCP
+      targetPorts: 8080
+  status:
+    loadBalancer: {}

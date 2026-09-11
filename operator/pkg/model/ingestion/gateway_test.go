@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
+	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -77,6 +78,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"basic http nodeport service":                             {},
 		"basic http external traffic policy":                      {},
 		"basic http load balancer":                                {},
+		"basic inference pool":                                    {},
 		"multiple parentRefs":                                     {},
 		"cert manager gateway":                                    {},
 		"Conformance/HTTPRouteSimpleSameNamespace":                {},
@@ -148,7 +150,7 @@ func TestExtractRoutesSetsHTTPRouteRuleSource(t *testing.T) {
 		},
 	}
 
-	routes := extractRoutes(logger, 80, nil, hr, nil, nil, nil, nil)
+	routes := extractRoutes(logger, 80, nil, hr, nil, nil, nil, nil, nil)
 
 	require.Len(t, routes, 2)
 	require.NotNil(t, routes[0].SourceRule)
@@ -1058,7 +1060,7 @@ func TestHTTPRequestMirrorNilFilterDoesNotPanic(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil, nil, nil)
+	}, nil, nil, nil, nil, nil)
 
 	require.Len(t, routes, 1)
 	assert.Nil(t, routes[0].RequestMirrors)
@@ -1102,7 +1104,7 @@ func TestHTTPRequestMirrorSameNamespaceIsKept(t *testing.T) {
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("default", "mirror-backend", 8080),
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1149,7 +1151,7 @@ func TestHTTPRequestMirrorCrossNamespaceWithoutReferenceGrantIsDropped(t *testin
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("other-ns", "mirror-backend", 8080),
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 
 	require.Len(t, routes, 1)
 	assert.Len(t, routes[0].Backends, 1)
@@ -1197,7 +1199,7 @@ func TestHTTPRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
 		testService("other-ns", "mirror-backend", 8080),
 	}, nil, []gatewayv1.ReferenceGrant{
 		testReferenceGrant("other-ns", "default", "HTTPRoute"),
-	}, nil)
+	}, nil, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1255,7 +1257,7 @@ func TestHTTPRequestMirrorServiceImportIsResolved(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1302,7 +1304,7 @@ func TestHTTPRequestExternalAuthCrossNamespaceWithoutReferenceGrantFailsClosed(t
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("other-ns", "auth-backend", 8080),
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 
 	require.Len(t, routes, 1)
 	require.NotNil(t, routes[0].DirectResponse)
@@ -1351,7 +1353,7 @@ func TestHTTPRequestExternalAuthCrossNamespaceWithReferenceGrantIsKept(t *testin
 		testService("other-ns", "auth-backend", 8080),
 	}, nil, []gatewayv1.ReferenceGrant{
 		testReferenceGrant("other-ns", "default", "HTTPRoute"),
-	}, nil)
+	}, nil, nil)
 
 	require.Len(t, routes, 1)
 	assert.Nil(t, routes[0].DirectResponse)
@@ -1397,7 +1399,7 @@ func TestHTTPRequestExternalAuthMissingBackendFailsClosed(t *testing.T) {
 		},
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 
 	require.Len(t, routes, 1)
 	require.NotNil(t, routes[0].DirectResponse)
@@ -1840,6 +1842,126 @@ func TestGatewayAPI_GatewayClassConfigTelemetry(t *testing.T) {
 	}
 }
 
+func TestHTTPInferencePoolBackendSetsEndpointPicker(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	routes := extractRoutes(logger, 80, nil, gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "inferencepool-http",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.HTTPRouteSpec{
+			Rules: []gatewayv1.HTTPRouteRule{
+				{
+					BackendRefs: []gatewayv1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1.BackendRef{
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Group: ptr.To[gatewayv1.Group](gateway_inf_ext.GroupName),
+									Kind:  ptr.To[gatewayv1.Kind]("InferencePool"),
+									Name:  gatewayv1.ObjectName("llm-pool"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, []corev1.Service{
+		testService("default", helpers.ShadowServiceName("llm-pool"), 8000),
+	}, nil, nil, nil, map[types.NamespacedName]*gateway_inf_ext.InferencePool{
+		{Namespace: "default", Name: "llm-pool"}: {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "llm-pool",
+				Namespace: "default",
+			},
+			Spec: gateway_inf_ext.InferencePoolSpec{
+				EndpointPickerRef: &gateway_inf_ext.EndpointPickerRef{
+					Name:        gateway_inf_ext.ObjectName("llm-pool-epp"),
+					Port:        &gateway_inf_ext.Port{Number: 9002},
+					FailureMode: gateway_inf_ext.EndpointPickerFailOpen,
+				},
+			},
+		},
+	})
+
+	require.Len(t, routes, 1)
+	require.Len(t, routes[0].Backends, 1)
+	// The InferencePool backend resolves to the shadow Service and inherits its
+	// port, since the backendRef had none.
+	assert.Equal(t, helpers.ShadowServiceName("llm-pool"), routes[0].Backends[0].Name)
+	assert.Equal(t, "default", routes[0].Backends[0].Namespace)
+	require.NotNil(t, routes[0].Backends[0].Port)
+	assert.Equal(t, uint32(8000), routes[0].Backends[0].Port.Port)
+	require.NotNil(t, routes[0].Backends[0].EndpointPicker)
+	assert.Equal(t, "llm-pool-epp", routes[0].Backends[0].EndpointPicker.Name)
+	assert.Equal(t, "default", routes[0].Backends[0].EndpointPicker.Namespace)
+	assert.Equal(t, uint32(9002), routes[0].Backends[0].EndpointPicker.Port)
+	assert.Equal(t, string(gateway_inf_ext.EndpointPickerFailOpen), routes[0].Backends[0].EndpointPicker.FailureMode)
+}
+
+func TestToEndpointPicker(t *testing.T) {
+	tests := []struct {
+		name string
+		pool *gateway_inf_ext.InferencePool
+		want *model.EndpointPicker
+	}{
+		{
+			name: "nil EndpointPickerRef returns nil",
+			pool: &gateway_inf_ext.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "default"},
+			},
+			want: nil,
+		},
+		{
+			name: "all fields set",
+			pool: &gateway_inf_ext.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns1"},
+				Spec: gateway_inf_ext.InferencePoolSpec{
+					EndpointPickerRef: &gateway_inf_ext.EndpointPickerRef{
+						Name:        gateway_inf_ext.ObjectName("epp"),
+						Port:        &gateway_inf_ext.Port{Number: 9002},
+						FailureMode: gateway_inf_ext.EndpointPickerFailOpen,
+					},
+				},
+			},
+			want: &model.EndpointPicker{Name: "epp", Namespace: "ns1", Port: 9002, FailureMode: "FailOpen"},
+		},
+		{
+			name: "empty FailureMode defaults to FailClose",
+			pool: &gateway_inf_ext.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns1"},
+				Spec: gateway_inf_ext.InferencePoolSpec{
+					EndpointPickerRef: &gateway_inf_ext.EndpointPickerRef{
+						Name: gateway_inf_ext.ObjectName("epp"),
+						Port: &gateway_inf_ext.Port{Number: 9002},
+					},
+				},
+			},
+			want: &model.EndpointPicker{Name: "epp", Namespace: "ns1", Port: 9002, FailureMode: "FailClose"},
+		},
+		{
+			name: "nil Port leaves Port zero",
+			pool: &gateway_inf_ext.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns1"},
+				Spec: gateway_inf_ext.InferencePoolSpec{
+					EndpointPickerRef: &gateway_inf_ext.EndpointPickerRef{
+						Name:        gateway_inf_ext.ObjectName("epp"),
+						FailureMode: gateway_inf_ext.EndpointPickerFailClose,
+					},
+				},
+			},
+			want: &model.EndpointPicker{Name: "epp", Namespace: "ns1", Port: 0, FailureMode: "FailClose"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, toEndpointPicker(tt.pool))
+		})
+	}
+}
+
 func testService(namespace, name string, port int32) corev1.Service {
 	return corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1893,6 +2015,7 @@ func readGatewayInput(t *testing.T, testName string) Input {
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-udproute.yaml"), &input.UDPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-service.yaml"), &input.Services)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-serviceimport.yaml"), &input.ServiceImports)
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-inferencepool.yaml"), &input.InferencePools)
 
 	// namespaces are used to construct mergedListeners
 	var namespaces []corev1.Namespace

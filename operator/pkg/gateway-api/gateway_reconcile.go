@@ -210,6 +210,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ReferenceGrants:     inputs.ReferenceGrants,
 		BackendTLSPolicyMap: btlspStatusMap,
 		MergedListeners:     listenerStatusResult.MergedAndValidListeners,
+		InferencePools:      inputs.InferencePools,
 	})
 
 	// Step 4: Translate the listeners into Cilium model

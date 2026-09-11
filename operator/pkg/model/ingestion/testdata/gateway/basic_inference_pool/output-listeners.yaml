@@ -1,0 +1,26 @@
+- hostname: '*'
+  infrastructure:
+    Annotations:
+      internal-loadbalancer-annotation: "true"
+    Labels:
+      internal-loadbalancer-label: "true"
+  name: prod-web-gw
+  port: 80
+  routes:
+  - backends:
+    - name: my-inferencepool-shadow-service
+      namespace: default
+      port:
+        port: 8080
+    path_match:
+      prefix: /
+    timeout: {}
+  service:
+    type: LoadBalancer
+    load_balancer_source_ranges_policy: Allow
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1

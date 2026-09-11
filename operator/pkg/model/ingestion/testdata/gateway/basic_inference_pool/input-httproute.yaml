@@ -1,0 +1,18 @@
+- metadata:
+    creationTimestamp: null
+    name: http-app-1
+    namespace: default
+  spec:
+    parentRefs:
+    - name: my-gateway
+    rules:
+    - backendRefs:
+      - group: inference.networking.k8s.io
+        kind: InferencePool 
+        name: my-inferencepool
+      matches:
+      - path:
+          type: PathPrefix
+          value: /
+  status:
+    parents: null
