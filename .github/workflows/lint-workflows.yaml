@@ -7,6 +7,7 @@ on:
     branches:
       - main
       - ft/main/**
+      - pr/aanm/ctmap-gc-observability
 
 permissions: read-all
 
