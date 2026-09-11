@@ -9,6 +9,7 @@ import (
 	"iter"
 	"log/slog"
 	"slices"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -240,6 +241,11 @@ type responseState struct {
 	// pendingVersion is the version in the most recent response for which we have
 	// not yet observed an ACK or NACK.
 	pendingVersion string
+	// pendingNonce and pendingStreamID identify that exact response. The
+	// go-control-plane callback runs before its own stale-nonce check, so these
+	// fields prevent an old request from completing or reverting a newer update.
+	pendingNonce    string
+	pendingStreamID int64
 	// acceptedVersion is the version Envoy most recently ACKed for this type.
 	acceptedVersion string
 	// rejectedVersion/rejectedErr remember the latest NACKed version so a
@@ -562,7 +568,35 @@ func (cb *CompletionCallbacks) OnStreamOpen(ctx context.Context, streamID int64,
 // OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
 func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 	cb.mutex.Lock()
+	nodeID := cb.streamNodeIDs[streamID]
+	if nodeID == "" {
+		nodeID = node.GetId()
+	}
 	delete(cb.streamNodeIDs, streamID)
+
+	// Once the last stream for a node closes, its ACK state no longer describes
+	// the next Envoy process. Keep pending completion order so a replacement
+	// stream can satisfy it, but require fresh responses and ACKs.
+	streamStillOpen := false
+	for _, openNodeID := range cb.streamNodeIDs {
+		if openNodeID == nodeID {
+			streamStillOpen = true
+			break
+		}
+	}
+	if nodeID != "" && !streamStillOpen {
+		prefix := nodeID + "\x00"
+		for key, state := range cb.responseStates {
+			if !strings.HasPrefix(key, prefix) {
+				continue
+			}
+			state.pendingVersion = ""
+			state.pendingNonce = ""
+			state.pendingStreamID = 0
+			state.acceptedVersion = ""
+			cb.responseStates[key] = state
+		}
+	}
 	cb.mutex.Unlock()
 
 	cb.Log.Info("OnStreamClosed", logfields.XDSStreamID, streamID)
@@ -573,20 +607,37 @@ func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.DiscoveryRequest) error {
 	cb.mutex.Lock()
 	nodeID := cb.nodeIDForRequest(streamID, req)
-	if req.VersionInfo == "" {
-		// This means this is the first request on the stream, so we can ignore it for completion purposes since there is no version to ACK.
+	typeURL := req.GetTypeUrl()
+	key := completionsOrderKey(nodeID, typeURL)
+	if req.VersionInfo == "" && req.GetResponseNonce() == "" && req.GetErrorDetail() == nil {
+		// This is a fresh subscription, not an ACK or NACK. Any accepted version
+		// belongs to an earlier Envoy stream and must not satisfy new updates.
+		state := cb.responseStates[key]
+		state.pendingVersion = ""
+		state.pendingNonce = ""
+		state.pendingStreamID = 0
+		state.acceptedVersion = ""
+		cb.responseStates[key] = state
 		cb.mutex.Unlock()
 		return nil
 	}
-	typeURL := req.GetTypeUrl()
-	key := completionsOrderKey(nodeID, typeURL)
+
+	state := cb.responseStates[key]
+	if req.GetResponseNonce() != "" &&
+		(state.pendingNonce == "" || state.pendingStreamID != streamID || state.pendingNonce != req.GetResponseNonce()) {
+		cb.Log.Debug("Ignoring stale xDS ACK/NACK",
+			logfields.XDSTypeURL, typeURL,
+			logfields.Version, req.GetVersionInfo(),
+			logfields.NodeID, nodeID)
+		cb.mutex.Unlock()
+		return nil
+	}
 
 	var completed []*completion.Completion
 	var completeErr error
 	var revertFunc func()
 
 	if req.GetErrorDetail() != nil {
-		state := cb.responseStates[key]
 		rejectedVersion := state.pendingVersion
 		if rejectedVersion == "" {
 			rejectedVersion = req.GetVersionInfo()
@@ -594,6 +645,8 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		nackErr := fmt.Errorf("NACK from %s for %s version %s: %s",
 			nodeID, typeURL, rejectedVersion, req.GetErrorDetail().GetMessage())
 		state.pendingVersion = ""
+		state.pendingNonce = ""
+		state.pendingStreamID = 0
 		state.acceptedVersion = req.GetVersionInfo()
 		state.rejectedVersion = rejectedVersion
 		state.rejectedErr = nackErr
@@ -633,12 +686,13 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	}
 
 	// ACK received: complete this version and all earlier versions in the version order.
-	state := cb.responseStates[key]
 	state.acceptedVersion = req.GetVersionInfo()
 	state.rejectedVersion = ""
 	state.rejectedErr = nil
 	if state.pendingVersion == req.GetVersionInfo() {
 		state.pendingVersion = ""
+		state.pendingNonce = ""
+		state.pendingStreamID = 0
 	}
 	cb.responseStates[key] = state
 
@@ -724,6 +778,8 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	}
 
 	state.pendingVersion = version
+	state.pendingNonce = resp.GetNonce()
+	state.pendingStreamID = streamID
 	if state.rejectedVersion == version {
 		state.rejectedVersion = ""
 		state.rejectedErr = nil
