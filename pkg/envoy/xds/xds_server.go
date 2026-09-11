@@ -174,11 +174,35 @@ func (r *Resources) CloneNetworkPolicyHosts() *Resources {
 	return &cloned
 }
 
-// CloneRouted returns a shallow copy of r with a cloned, initialized Routes map.
+// CloneRoutes returns a shallow copy of r with a cloned, initialized Routes map.
 // All other maps and the protobuf values remain shared.
 func (r *Resources) CloneRoutes() *Resources {
 	cloned := *r
 	cloned.Routes = cloneMapOrInit(r.Routes)
+	return &cloned
+}
+
+// CloneClusters returns a shallow copy of r with a cloned, initialized Clusters map.
+// All other maps and the protobuf values remain shared.
+func (r *Resources) CloneClusters() *Resources {
+	cloned := *r
+	cloned.Clusters = cloneMapOrInit(r.Clusters)
+	return &cloned
+}
+
+// CloneEndpoints returns a shallow copy of r with a cloned, initialized Endpoints map.
+// All other maps and the protobuf values remain shared.
+func (r *Resources) CloneEndpoints() *Resources {
+	cloned := *r
+	cloned.Endpoints = cloneMapOrInit(r.Endpoints)
+	return &cloned
+}
+
+// CloneSecrets returns a shallow copy of r with a cloned, initialized Secrets map.
+// All other maps and the protobuf values remain shared.
+func (r *Resources) CloneSecrets() *Resources {
+	cloned := *r
+	cloned.Secrets = cloneMapOrInit(r.Secrets)
 	return &cloned
 }
 

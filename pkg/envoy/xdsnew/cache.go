@@ -42,6 +42,9 @@ const (
 	logFieldComponent         = "component"
 )
 
+type RevertGenerationFunc = callbacks.RevertGenerationFunc
+type Rollback = callbacks.Rollback
+
 type Cache interface {
 	cache.SnapshotCache
 
@@ -51,10 +54,10 @@ type Cache interface {
 	// resource types outside changedTypeURLs. A nil change set requests a full
 	// snapshot; a non-nil empty set returns the previous snapshot unchanged.
 	GenerateSnapshotIncrementally(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}, logger *slog.Logger) (cache.ResourceSnapshot, error)
-	UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFuncs map[string]func()) error
+	UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), rollbacks map[string]Rollback) error
 	// AwaitCurrentVersion registers completions against the current snapshot
 	// without publishing it again.
-	AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup, typeURLs map[string]func(err error)) error
+	AwaitCurrentVersion(nodeID string, generation uint64, wg *completion.WaitGroup, typeURLs map[string]func(err error)) error
 	// SetResources transfers resources to the cache as immutable published state.
 	SetResources(nodeID string, resources *xds.Resources)
 	// GetAllResources returns cache-owned immutable state. Callers must use
@@ -71,6 +74,9 @@ type cacheImpl struct {
 	mutex *lock.RWMutex
 	// resourcesInSnapshot holds the last set of resources (keyed by nodeID) pushed to Envoy.
 	resourcesInSnapshot map[string]*xds.Resources
+	// snapshotGenerations records the generation associated with the current
+	// snapshot for each node.
+	snapshotGenerations map[string]uint64
 	logger              *slog.Logger
 	hasher              hash.Hash32
 	completionCbs       *callbacks.CompletionCallbacks
@@ -260,6 +266,7 @@ func NewCache(logger *slog.Logger, strictAdsMode bool) Cache {
 		SnapshotCache:       snapshotCache,
 		mutex:               &lock.RWMutex{},
 		resourcesInSnapshot: make(map[string]*xds.Resources),
+		snapshotGenerations: make(map[string]uint64),
 		logger:              logger,
 		hasher:              fnv.New32a(),
 		completionCbs:       callbacks.NewCompletionCallbacks(logger),
@@ -809,34 +816,42 @@ func (c *cacheImpl) SetResources(nodeID string, resources *xds.Resources) {
 type immediateCompletion struct {
 	comp                      *completion.Completion
 	typeURL                   string
+	generation                uint64
 	err                       error
 	completeUnsentCompletions bool
+	rollback                  Rollback
 }
 
-func (c *cacheImpl) registerVersionCompletions(nodeID string, newSnapshot, oldSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(err error), revertFuncs map[string]func()) ([]*completion.Completion, []immediateCompletion) {
+func (c *cacheImpl) registerGenerationCompletions(nodeID string, generation uint64, newSnapshot, oldSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(err error), rollbacks map[string]Rollback) ([]*completion.Completion, []immediateCompletion) {
 	completions := make([]*completion.Completion, 0, len(typeURLs))
 	immediateCompletions := make([]immediateCompletion, 0, 1)
 	if wg != nil && len(typeURLs) > 0 {
 		for typeURL, completionCallback := range typeURLs {
-			version := newSnapshot.GetVersion(typeURL)
-			owner := c.completionCbs.NewTypeVersionCompletionOwner(nodeID, typeURL, version)
+			rollback := rollbacks[typeURL]
+			owner := c.completionCbs.NewTypeGenerationCompletionOwner(nodeID, typeURL, generation)
 			comp := wg.AddCompletionWithCallback(owner, completionCallback)
 			if typeURL == NetworkPolicyTypeURL && len(newSnapshot.GetResourcesAndTTL(NetworkPolicyTypeURL)) == 0 {
 				immediateCompletions = append(immediateCompletions, immediateCompletion{
 					comp:                      comp,
 					typeURL:                   typeURL,
+					generation:                generation,
 					completeUnsentCompletions: true,
+					rollback:                  rollback,
 				})
 				continue
 			}
+			version := newSnapshot.GetVersion(typeURL)
 			versionChanged := oldSnapshot == nil || oldSnapshot.GetVersion(typeURL) != version
-			registered, err := c.completionCbs.AddTypeVersionCompletion(comp, version, typeURL, nodeID, versionChanged, revertFuncs[typeURL])
+			registered, err := c.completionCbs.AddPreparedTypeGenerationCompletionWithRollback(
+				comp, owner, version, versionChanged, rollback)
 			if !registered {
 				immediateCompletions = append(immediateCompletions, immediateCompletion{
 					comp:                      comp,
 					typeURL:                   typeURL,
+					generation:                generation,
 					err:                       err,
 					completeUnsentCompletions: err == nil,
+					rollback:                  rollback,
 				})
 				continue
 			}
@@ -846,67 +861,84 @@ func (c *cacheImpl) registerVersionCompletions(nodeID string, newSnapshot, oldSn
 	return completions, immediateCompletions
 }
 
+type typeGenerationRegistration struct {
+	typeURL string
+}
+
 func (c *cacheImpl) completeImmediateCompletions(nodeID string, immediateCompletions []immediateCompletion) {
 	for _, completion := range immediateCompletions {
 		if completion.completeUnsentCompletions {
-			c.completionCbs.CompleteUnsentPendingCompletions(nodeID, completion.typeURL, nil)
+			c.completionCbs.CompleteCompletionsThroughGeneration(nodeID, completion.typeURL, completion.generation, nil)
+		}
+		if completion.rollback != nil {
+			completion.rollback.Finalize()
 		}
 		completion.comp.Complete(completion.err)
 	}
 }
 
-func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFuncs map[string]func()) error {
+func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), rollbacks map[string]Rollback) error {
 	oldSnapshot, _ := c.GetSnapshot(nodeID)
-	completions, immediateCompletions := c.registerVersionCompletions(nodeID, newSnapshot, oldSnapshot, wg, updatedTypeURLS, revertFuncs)
+	c.mutex.RLock()
+	oldGeneration := c.snapshotGenerations[nodeID]
+	c.mutex.RUnlock()
+	completions, immediateCompletions := c.registerGenerationCompletions(nodeID, generation, newSnapshot, oldSnapshot, wg, updatedTypeURLS, rollbacks)
 
-	handledTypeURLs := make(map[string]struct{}, len(updatedTypeURLS))
-	if wg != nil {
-		for typeURL := range updatedTypeURLS {
-			handledTypeURLs[typeURL] = struct{}{}
-		}
-	}
-
-	// A newer snapshot may be published without a completion, for example when
-	// the synthetic ingress endpoint updates NPDS. Record changed versions while
-	// older completions are pending so a response for the newer snapshot can
-	// claim and eventually complete coalesced updates.
-	markers := make([]*callbacks.TypeVersionMarker, 0, len(snapshotResourceTypes))
-	completeUnsentTypeURLs := make([]string, 0, 1)
+	// Stage the authoritative generation before SetSnapshot. go-control-plane
+	// can synchronously build a response while SetSnapshot is running, and a
+	// concurrent CreateWatch may use context.Background instead of ctx.
+	c.completionCbs.SetPublishedSnapshot(nodeID, generation, newSnapshot)
+	var registrations []typeGenerationRegistration
+	var completeUnsentTypeURLs []string
+	var unusedRollbacks []Rollback
 	for _, typeURL := range snapshotResourceTypes {
-		if _, handled := handledTypeURLs[typeURL]; handled {
-			continue
-		}
-		// An empty NPDS snapshot intentionally does not wait for an ACK.
-		if typeURL == NetworkPolicyTypeURL && len(newSnapshot.GetResourcesAndTTL(typeURL)) == 0 {
-			completeUnsentTypeURLs = append(completeUnsentTypeURLs, typeURL)
-			continue
+		if wg != nil {
+			if _, tracked := updatedTypeURLS[typeURL]; tracked {
+				// The pending completion carries this generation's revert. Only
+				// updates without a completion need a separate generation entry.
+				continue
+			}
 		}
 		version := newSnapshot.GetVersion(typeURL)
 		versionChanged := oldSnapshot == nil || oldSnapshot.GetVersion(typeURL) != version
-		marker, completeUnsent := c.completionCbs.AddTypeVersionMarker(version, typeURL, nodeID, versionChanged, revertFuncs[typeURL])
-		if marker != nil {
-			markers = append(markers, marker)
+		rollback := rollbacks[typeURL]
+		registered, completeUnsent := c.completionCbs.AddTypeGenerationWithRollback(
+			generation, version, typeURL, nodeID, versionChanged, rollback)
+		if registered {
+			registrations = append(registrations, typeGenerationRegistration{typeURL: typeURL})
+		} else if rollback != nil {
+			unusedRollbacks = append(unusedRollbacks, rollback)
 		}
 		if completeUnsent {
 			completeUnsentTypeURLs = append(completeUnsentTypeURLs, typeURL)
 		}
 	}
-
-	err := c.SetSnapshot(ctx, nodeID, newSnapshot)
+	if len(newSnapshot.GetResourcesAndTTL(NetworkPolicyTypeURL)) == 0 {
+		completeUnsentTypeURLs = append(completeUnsentTypeURLs, NetworkPolicyTypeURL)
+	}
+	err := c.SetSnapshot(callbacks.WithSnapshotGeneration(ctx, generation), nodeID, newSnapshot)
 
 	if err != nil {
-		// go-control-plane stores a snapshot before delivering responses and can
-		// return an error after the new snapshot is already observable. Treat that
-		// case as committed so callback ordering and resourcesInSnapshot stay in
-		// sync with the underlying cache.
+		// SnapshotCache stores the snapshot before delivering watch responses. A
+		// canceled delivery may therefore return an error after publication has
+		// committed; keep generation state in that case.
 		currentSnapshot, getErr := c.GetSnapshot(nodeID)
 		committed := getErr == nil && !c.AreDifferentSnapshots(currentSnapshot, newSnapshot)
 		if !committed {
+			c.completionCbs.SetPublishedSnapshot(nodeID, oldGeneration, oldSnapshot)
 			for _, comp := range completions {
-				c.completionCbs.RemoveTypeVersionCompletion(comp)
+				c.completionCbs.RemoveTypeGenerationCompletion(comp)
 			}
-			for _, marker := range markers {
-				c.completionCbs.RemoveTypeVersionMarker(marker)
+			for _, registration := range registrations {
+				c.completionCbs.RemoveTypeGeneration(nodeID, registration.typeURL, generation)
+			}
+			for _, completion := range immediateCompletions {
+				if completion.rollback != nil {
+					completion.rollback.Finalize()
+				}
+			}
+			for _, rollback := range unusedRollbacks {
+				rollback.Finalize()
 			}
 			return err
 		}
@@ -914,8 +946,14 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapsh
 			logfields.NodeID, nodeID,
 			logfields.Error, err)
 	}
+	c.mutex.Lock()
+	c.snapshotGenerations[nodeID] = generation
+	c.mutex.Unlock()
+	for _, rollback := range unusedRollbacks {
+		rollback.Finalize()
+	}
 	for _, typeURL := range completeUnsentTypeURLs {
-		c.completionCbs.CompleteUnsentPendingCompletions(nodeID, typeURL, nil)
+		c.completionCbs.CompleteCompletionsThroughGeneration(nodeID, typeURL, generation, nil)
 	}
 	c.completeImmediateCompletions(nodeID, immediateCompletions)
 
@@ -927,7 +965,7 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapsh
 // the snapshot again. The completions attach to an in-flight response, complete
 // immediately for an ACKed or NACKed version, or wait for the current version to
 // be sent and acknowledged.
-func (c *cacheImpl) AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup, typeURLs map[string]func(err error)) error {
+func (c *cacheImpl) AwaitCurrentVersion(nodeID string, generation uint64, wg *completion.WaitGroup, typeURLs map[string]func(err error)) error {
 	if wg == nil || len(typeURLs) == 0 {
 		return nil
 	}
@@ -939,17 +977,18 @@ func (c *cacheImpl) AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup,
 	if currentSnapshot == nil {
 		return fmt.Errorf("missing current snapshot for node %s", nodeID)
 	}
-
-	_, immediateCompletions := c.registerVersionCompletions(nodeID, currentSnapshot, currentSnapshot, wg, typeURLs, nil)
+	_, immediateCompletions := c.registerGenerationCompletions(nodeID, generation, currentSnapshot, currentSnapshot, wg, typeURLs, nil)
 	c.completeImmediateCompletions(nodeID, immediateCompletions)
 	return nil
 }
 
 func (c *cacheImpl) ClearSnapshot(nodeID string) {
 	c.SnapshotCache.ClearSnapshot(nodeID)
+	c.completionCbs.SetPublishedSnapshot(nodeID, 0, nil)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.resourcesInSnapshot[nodeID] = &xds.Resources{}
+	delete(c.snapshotGenerations, nodeID)
 }
 
 func normalizeCustomWildcardRequest(request *cache.Request, sub cache.Subscription) *cache.Request {
