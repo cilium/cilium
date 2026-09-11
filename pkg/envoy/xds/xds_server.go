@@ -72,8 +72,47 @@ type XDSServer interface {
 	RemoveAllNetworkPolicies()
 }
 
+// todo (nezdolik) migrate to go control plane constants when available
+const (
+	// ListenerTypeURL is the type URL of Listener resources.
+	ListenerTypeURL = "type.googleapis.com/envoy.config.listener.v3.Listener"
+
+	// RouteTypeURL is the type URL of HTTP Route resources.
+	RouteTypeURL = "type.googleapis.com/envoy.config.route.v3.RouteConfiguration"
+
+	// ClusterTypeURL is the type URL of Cluster resources.
+	ClusterTypeURL = "type.googleapis.com/envoy.config.cluster.v3.Cluster"
+
+	// HttpConnectionManagerTypeURL is the type URL of HttpConnectionManager filter.
+	HttpConnectionManagerTypeURL = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+
+	// TCPProxyTypeURL is the type URL of TCPProxy filter.
+	TCPProxyTypeURL = "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy"
+
+	// EndpointTypeURL is the type URL of Endpoint resources.
+	EndpointTypeURL = "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment"
+
+	// SecretTypeURL is the type URL of Endpoint resources.
+	SecretTypeURL = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret"
+
+	// NetworkPolicyTypeURL is the type URL of NetworkPolicy resources.
+	NetworkPolicyTypeURL = "type.googleapis.com/cilium.NetworkPolicy"
+
+	// NetworkPolicyHostsTypeURL is the type URL of NetworkPolicyHosts resources.
+	NetworkPolicyHostsTypeURL = "type.googleapis.com/cilium.NetworkPolicyHosts"
+
+	// HealthCheckSinkPipeTypeURL is the type URL of NetworkPolicyHosts resources.
+	HealthCheckSinkPipeTypeURL = "type.googleapis.com/cilium.health_check.event_sink.pipe"
+
+	// DownstreamTlsContextURL is the type URL of DownstreamTlsContext
+	DownstreamTlsContextURL = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext"
+)
+
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD.
 // Each resource type is stored in a map keyed by resource name.
+// Once published to an xDS cache, the Resources, its maps, and the protobuf
+// values in those maps must be treated as immutable. Updates must use
+// copy-on-write for every map they modify.
 type Resources struct {
 	Listeners          map[string]*envoy_config_listener.Listener
 	Secrets            map[string]*envoy_config_tls.Secret
@@ -103,13 +142,69 @@ func NewResources() Resources {
 	}
 }
 
-// DeepCopy returns a copy of the Resources with cloned maps.
-// Protobuf values are shared (not deep-copied) since they are treated as immutable once published.
-func cloneOrInit[K comparable, V any](m map[K]V) map[K]V {
-	if m == nil {
-		return make(map[K]V)
+func cloneMapOrInit[K comparable, V any](source map[K]V) map[K]V {
+	cloned := maps.Clone(source)
+	if cloned == nil {
+		cloned = make(map[K]V)
 	}
-	return maps.Clone(m)
+	return cloned
+}
+
+// CloneListeners returns a shallow copy of r with a cloned, initialized Listeners map. All other
+// maps and the protobuf values remain shared.
+func (r *Resources) CloneListeners() *Resources {
+	cloned := *r
+	cloned.Listeners = cloneMapOrInit(r.Listeners)
+	return &cloned
+}
+
+// CloneNetworkPolicies returns a shallow copy of r with a cloned, initialized NetworkPolicies
+// map. All other maps and the protobuf values remain shared.
+func (r *Resources) CloneNetworkPolicies() *Resources {
+	cloned := *r
+	cloned.NetworkPolicies = cloneMapOrInit(r.NetworkPolicies)
+	return &cloned
+}
+
+// CloneNetworkPolicyHosts returns a shallow copy of r with a cloned, initialized NetworkPolicyHosts
+// map. All other maps and the protobuf values remain shared.
+func (r *Resources) CloneNetworkPolicyHosts() *Resources {
+	cloned := *r
+	cloned.NetworkPolicyHosts = cloneMapOrInit(r.NetworkPolicyHosts)
+	return &cloned
+}
+
+// CloneRouted returns a shallow copy of r with a cloned, initialized Routes map.
+// All other maps and the protobuf values remain shared.
+func (r *Resources) CloneRoutes() *Resources {
+	cloned := *r
+	cloned.Routes = cloneMapOrInit(r.Routes)
+	return &cloned
+}
+
+// CloneTypeURLs returns a shallow copy of r with a cloned, initialized maps for each given
+// typeURL. All other maps and the protobuf values remain shared.
+func (r *Resources) CloneTypeURLs(typeURLs ...string) *Resources {
+	cloned := *r
+	for _, typeURL := range typeURLs {
+		switch typeURL {
+		case ListenerTypeURL:
+			cloned.Listeners = cloneMapOrInit(r.Listeners)
+		case SecretTypeURL:
+			cloned.Secrets = cloneMapOrInit(r.Secrets)
+		case RouteTypeURL:
+			cloned.Routes = cloneMapOrInit(r.Routes)
+		case ClusterTypeURL:
+			cloned.Clusters = cloneMapOrInit(r.Clusters)
+		case EndpointTypeURL:
+			cloned.Endpoints = cloneMapOrInit(r.Endpoints)
+		case NetworkPolicyTypeURL:
+			cloned.NetworkPolicies = cloneMapOrInit(r.NetworkPolicies)
+		case NetworkPolicyHostsTypeURL:
+			cloned.NetworkPolicyHosts = cloneMapOrInit(r.NetworkPolicyHosts)
+		}
+	}
+	return &cloned
 }
 
 // DebugInfo returns aggregated info about the underlying envoy resources in the object
@@ -139,22 +234,6 @@ func (r *Resources) DebugInfo() string {
 	}
 
 	return strings.Join(resourcesInfo, ", ")
-}
-
-func (r *Resources) DeepCopy() *Resources {
-	if r == nil {
-		return nil
-	}
-	return &Resources{
-		Listeners:               cloneOrInit(r.Listeners),
-		Secrets:                 cloneOrInit(r.Secrets),
-		Routes:                  cloneOrInit(r.Routes),
-		Clusters:                cloneOrInit(r.Clusters),
-		Endpoints:               cloneOrInit(r.Endpoints),
-		NetworkPolicies:         cloneOrInit(r.NetworkPolicies),
-		NetworkPolicyHosts:      cloneOrInit(r.NetworkPolicyHosts),
-		PortAllocationCallbacks: cloneOrInit(r.PortAllocationCallbacks),
-	}
 }
 
 // ListenersAddedOrDeleted returns 'true' if a listener is added or removed when updating from 'old'

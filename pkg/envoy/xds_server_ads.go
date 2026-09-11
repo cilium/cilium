@@ -315,7 +315,7 @@ func (s *adsServer) addListener(ctx context.Context, name string, listenerConf f
 			Listeners: make(map[string]*envoy_config_listener.Listener),
 		}
 	} else {
-		resources = resources.DeepCopy()
+		resources = resources.CloneListeners()
 	}
 	oldListener := resources.Listeners[name]
 	resources.Listeners[name] = listenerConfig
@@ -516,7 +516,7 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 
 	// Capture old listener for revert.
 	oldListener, existed := resources.Listeners[name]
-	resources = resources.DeepCopy()
+	resources = resources.CloneListeners()
 	delete(resources.Listeners, name)
 
 	var changes *resourceChanges
@@ -533,9 +533,17 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 
 		if existed {
 			s.logger.Debug("Reverting listener removal", logfields.Listener, name)
-			resources := s.cache.GetAllResources(localNodeID)
-			resources.Listeners[name] = oldListener
-			s.updateSnapshot(ctx, resources, localNodeID, nil, nil, nil)
+			currentResources := s.cache.GetAllResources(localNodeID)
+			if currentResources == nil {
+				empty := xds.NewResources()
+				currentResources = &empty
+			}
+
+			// The cached resources are published immutable state. Copy the
+			// Resources and only the map changed by this revert.
+			revertedResources := currentResources.CloneListeners()
+			revertedResources.Listeners[name] = oldListener
+			s.updateSnapshot(ctx, revertedResources, localNodeID, nil, nil, nil)
 		}
 		if isProxyListener {
 			s.proxyListeners++
@@ -591,9 +599,9 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 			resources := s.cache.GetAllResources(localNodeID)
 			if resources != nil {
 				if _, exists := resources.NetworkPolicies[dupName]; exists {
-					resources = resources.DeepCopy()
-					delete(resources.NetworkPolicies, dupName)
-					s.updateSnapshot(ctx, resources, localNodeID, nil, nil, nil)
+					updatedResources := resources.CloneNetworkPolicies()
+					delete(updatedResources.NetworkPolicies, dupName)
+					s.updateSnapshot(ctx, updatedResources, localNodeID, nil, nil, nil)
 				}
 			}
 		}
@@ -633,24 +641,36 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	}
 	s.localEndpointStore.setLocalEndpoint(ep, names)
 
+	var updatedLocalNodeID bool
 	resources := s.cache.GetAllResources(localNodeID)
 	if resources == nil {
 		resources = &xds.Resources{}
 	}
-	resources = resources.DeepCopy()
 	oldPolicy := resources.NetworkPolicies[resourceName]
-	resources.NetworkPolicies[resourceName] = networkPolicy
-	var callbackTypeURLs map[string]func(error)
-	if waitForACK {
-		callbackTypeURLs = map[string]func(error){NetworkPolicyTypeURL: callback}
-	}
-	if err := s.updateSnapshot(ctx, resources, localNodeID, wg, callbackTypeURLs,
-		&resourceChanges{networkPolicies: []savedEntry[cilium.NetworkPolicy]{{
-			key: resourceName,
-			old: oldPolicy,
-			new: networkPolicy,
-		}}}); err != nil {
-		return err, nil
+	if oldPolicy != nil && (oldPolicy == networkPolicy || xds.ResourceEqual(oldPolicy, networkPolicy)) {
+		if waitForACK {
+			if err := s.cache.AwaitCurrentVersion(localNodeID, wg, map[string]func(error){NetworkPolicyTypeURL: callback}); err != nil {
+				return err, nil
+			}
+		}
+	} else {
+		// Preserve the immutable published generation by copying the Resources
+		// header and only the resource map changed by this update.
+		updatedResources := resources.CloneNetworkPolicies()
+		updatedResources.NetworkPolicies[resourceName] = networkPolicy
+		var callbackTypeURLs map[string]func(error)
+		if waitForACK {
+			callbackTypeURLs = map[string]func(error){NetworkPolicyTypeURL: callback}
+		}
+		if err := s.updateSnapshot(ctx, updatedResources, localNodeID, wg, callbackTypeURLs,
+			&resourceChanges{networkPolicies: []savedEntry[cilium.NetworkPolicy]{{
+				key: resourceName,
+				old: oldPolicy,
+				new: networkPolicy,
+			}}}); err != nil {
+			return err, nil
+		}
+		updatedLocalNodeID = true
 	}
 
 	if !waitForACK {
@@ -672,20 +692,31 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 			}
 		}
 
-		// Remove the policy we just added and re-push snapshot.
-		resources := s.cache.GetAllResources(localNodeID)
-		if resources != nil {
-			resources = resources.DeepCopy()
-			oldPolicy := resources.NetworkPolicies[resourceName]
-			delete(resources.NetworkPolicies, resourceName)
-			changes := &resourceChanges{
-				networkPolicies: []savedEntry[cilium.NetworkPolicy]{{
-					key: resourceName,
-					old: oldPolicy,
-				}},
-			}
-			if err := s.updateSnapshot(ctx, resources, localNodeID, nil, nil, changes); err != nil {
-				return err
+		// Remove each policy this call added and re-push its snapshot. Nodes
+		// whose policy was already current require no xDS revert.
+		if updatedLocalNodeID {
+			resources := s.cache.GetAllResources(localNodeID)
+			if resources != nil {
+				currentPolicy := resources.NetworkPolicies[resourceName]
+				// revert only if policy still exists and has not been changed again
+				if currentPolicy != nil && (currentPolicy == networkPolicy || xds.ResourceEqual(currentPolicy, networkPolicy)) {
+					updatedResources := resources.CloneNetworkPolicies()
+					if oldPolicy != nil {
+						updatedResources.NetworkPolicies[resourceName] = oldPolicy
+					} else {
+						delete(updatedResources.NetworkPolicies, resourceName)
+					}
+					changes := &resourceChanges{
+						networkPolicies: []savedEntry[cilium.NetworkPolicy]{{
+							key: resourceName,
+							old: currentPolicy,
+							new: oldPolicy,
+						}},
+					}
+					if err := s.updateSnapshot(ctx, updatedResources, localNodeID, nil, nil, changes); err != nil {
+						return err
+					}
+				}
 			}
 		}
 
@@ -712,9 +743,9 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		return
 	}
 	// Work on a copy so the cached state is untouched.
-	resources = resources.DeepCopy()
-	oldPolicy, existed := resources.NetworkPolicies[resourceName]
-	delete(resources.NetworkPolicies, resourceName)
+	updatedResources := resources.CloneNetworkPolicies()
+	oldPolicy, existed := updatedResources.NetworkPolicies[resourceName]
+	delete(updatedResources.NetworkPolicies, resourceName)
 
 	ip := ep.GetIPv6Address()
 	if ip != "" {
@@ -734,7 +765,7 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 			}},
 		}
 	}
-	s.updateSnapshot(ctx, resources, localNodeID, nil, nil, changes)
+	s.updateSnapshot(ctx, updatedResources, localNodeID, nil, nil, changes)
 }
 
 func (s *adsServer) RemoveAllNetworkPolicies() {
@@ -745,10 +776,10 @@ func (s *adsServer) RemoveAllNetworkPolicies() {
 	if resources == nil {
 		return
 	}
-	newResources := resources.DeepCopy()
+	newResources := *resources
 	newResources.NetworkPolicies = map[string]*cilium.NetworkPolicy{}
 
-	if err := s.updateSnapshot(context.Background(), newResources, localNodeID, nil, nil, computeChanges(resources, newResources)); err != nil {
+	if err := s.updateSnapshot(context.Background(), &newResources, localNodeID, nil, nil, computeChanges(resources, &newResources)); err != nil {
 		s.logger.Error("Failed to remove all network policies", logfields.Error, err)
 	}
 }
@@ -992,7 +1023,7 @@ func (s *adsServer) buildRevert(ctx context.Context, nodeID, typeURL string, cha
 
 		currentResources := s.cache.GetAllResources(nodeID)
 		// Work on a copy so we don't mutate cached state.
-		reverted := currentResources.DeepCopy()
+		reverted := currentResources.CloneTypeURLs(typeURL, companionTypeURL)
 		revertedAny := applyResourceChangesIfUnchanged(reverted, typeChanges)
 		if companionTypeURL != "" {
 			revertedAny = applyResourceChangesIfUnchanged(reverted, companionChanges) || revertedAny
@@ -1009,7 +1040,6 @@ func (s *adsServer) buildRevert(ctx context.Context, nodeID, typeURL string, cha
 		s.logger.Info("Reverting resources for node",
 			logfields.NodeID, nodeID,
 			logfields.XDSTypeURL, typeURL)
-
 		revertChanges := computeChanges(currentResources, reverted)
 		if err := s.updateSnapshot(ctx, reverted, nodeID, nil, nil, revertChanges); err != nil {
 			s.logger.Error("Failed to revert snapshot",
@@ -1121,6 +1151,16 @@ func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds
 	}
 
 	updatedTypeURLsInSnapshot := getUpdatedTypeURLs(changes)
+	// Preserve the semantic resource changes before callback-only type URLs are
+	// merged below. ACK bookkeeping must not cause unrelated snapshot groups to
+	// be regenerated.
+	var changedTypeURLs map[string]struct{}
+	if updatedTypeURLsInSnapshot != nil {
+		changedTypeURLs = make(map[string]struct{}, len(updatedTypeURLsInSnapshot))
+		for typeURL := range updatedTypeURLsInSnapshot {
+			changedTypeURLs[typeURL] = struct{}{}
+		}
+	}
 	completionTypeURLs := inferredCompletionTypeURLs(changes)
 	// Callers can explicitly add type URLs when the changed type cannot be
 	// inferred from the changed resource entries. When explicit callback types
@@ -1139,7 +1179,14 @@ func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds
 		}
 		completionTypeURLs = callbackTypeURLs
 	}
-	newSnapshot, err := s.cache.GenerateSnapshot(resources, s.logger)
+	oldSnapshot, _ := s.cache.GetSnapshot(nodeId)
+	if oldSnapshot == nil {
+		// This may be first update for this node, so snapshot may not exist yet.
+		s.logger.Debug("Failed to get snapshot for node, will create new one",
+			logfields.NodeID, nodeId)
+	}
+
+	newSnapshot, err := s.cache.GenerateSnapshotIncrementally(resources, oldSnapshot, changedTypeURLs, s.logger)
 	if err != nil {
 		s.logger.Error("Failed to generate ADS snapshot",
 			logfields.NodeID, nodeId,
@@ -1155,13 +1202,6 @@ func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds
 			return err
 		}
 	}
-	oldSnapshot, _ := s.cache.GetSnapshot(nodeId)
-	if oldSnapshot == nil {
-		// This may be first update for this node, so snapshot may not exist yet.
-		s.logger.Debug("Failed to get snapshot for node, will create new one",
-			logfields.NodeID, nodeId)
-	}
-
 	if oldSnapshot == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.AreDifferentSnapshots(oldSnapshot, newSnapshot) {
 		var revertFuncs map[string]func()
 		// Untracked snapshots can coalesce older tracked updates in ADS. Preserve
@@ -1223,14 +1263,14 @@ func (s *adsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Reso
 	if currentResources == nil {
 		currentResources = &xds.Resources{}
 	}
-	// Merge new resources into a copy of current resources (upsert semantics).
-	merged := currentResources.DeepCopy()
-	mergeResources(merged, &resources)
-	changes := computeChanges(currentResources, merged)
+	// Merge new resources into a copy-on-write view of current resources.
+	// Only resource-type maps that contain upserts are cloned.
+	merged := updateResources(currentResources, nil, &resources)
+	changes := computeChanges(currentResources, &merged)
 
 	callback := s.portAllocationCallback(ctx, resources.PortAllocationCallbacks)
 	callbackTypeURLs := listenerPortAllocationCompletionTypeURLs(callback, changes)
-	return s.updateSnapshot(ctx, merged, "", wg, callbackTypeURLs, changes)
+	return s.updateSnapshot(ctx, &merged, "", wg, callbackTypeURLs, changes)
 }
 
 func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newResources xds.Resources, waitGroup *completion.WaitGroup) error {
@@ -1256,9 +1296,9 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	if currentResources == nil {
 		currentResources = &xds.Resources{}
 	}
-	// Subtract old resources and merge new resources (update semantics).
-	updated := subtractResources(currentResources, &oldResources)
-	mergeResources(&updated, &newResources)
+	// Subtract old resources and merge new resources using copy-on-write.
+	// A resource-type map touched by both operations is still cloned only once.
+	updated := updateResources(currentResources, &oldResources, &newResources)
 	changes := computeChanges(currentResources, &updated)
 
 	callback := s.portAllocationCallback(ctx, newResources.PortAllocationCallbacks)
@@ -1290,11 +1330,14 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	// is disabled, because the replacement overlaps sockets still owned by the
 	// active listener. Publish and ACK a snapshot without the listener first so
 	// Envoy closes those sockets before the replacement is sent.
-	staged := currentResources.DeepCopy()
+	staged := currentResources.CloneListeners()
 	for _, name := range listenersToRecreate {
 		delete(staged.Listeners, name)
 	}
-	if s.config.envoyXDSMode.IsStrictADS() {
+	if s.config.envoyXDSMode.IsStrictADS() && len(staged.Routes) > 0 {
+		// pruneUnreferencedRoutes mutates Routes. Keep the published map
+		// immutable while sharing every resource map left untouched by staging.
+		staged = staged.CloneRoutes()
 		pruneUnreferencedRoutes(staged)
 	}
 
@@ -1381,7 +1424,7 @@ func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 	if currentResources == nil {
 		currentResources = &xds.Resources{}
 	}
-	newResources := subtractResources(currentResources, &resources)
+	newResources := updateResources(currentResources, &resources, nil)
 
 	// For now we only care about listeners, to match the existing (pre ADS) implementation of xds server.
 	var callbackTypeURLs map[string]func(error)
@@ -1400,77 +1443,51 @@ func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 	return s.updateSnapshot(ctx, &newResources, "", waitGroup, callbackTypeURLs, changes)
 }
 
-// mergeResources copies all resources from src into dst (upsert semantics).
-func mergeResources(dst *xds.Resources, src *xds.Resources) {
-	if src == nil {
-		return
+func cloneMapOrInit[K comparable, V any](source map[K]V) map[K]V {
+	cloned := maps.Clone(source)
+	if cloned == nil {
+		cloned = make(map[K]V)
 	}
-	maps.Copy(dst.Listeners, src.Listeners)
-	maps.Copy(dst.Routes, src.Routes)
-	maps.Copy(dst.Clusters, src.Clusters)
-	maps.Copy(dst.Endpoints, src.Endpoints)
-	maps.Copy(dst.Secrets, src.Secrets)
-	maps.Copy(dst.NetworkPolicies, src.NetworkPolicies)
-	maps.Copy(dst.NetworkPolicyHosts, src.NetworkPolicyHosts)
+	return cloned
 }
 
-// Subtracts all resources present in b from a.
-func subtractResources(a *xds.Resources, b *xds.Resources) xds.Resources {
-	diffResources := xds.Resources{
-		Listeners:          make(map[string]*envoy_config_listener.Listener),
-		Clusters:           make(map[string]*envoy_config_cluster.Cluster),
-		Routes:             make(map[string]*envoy_config_route.RouteConfiguration),
-		Endpoints:          make(map[string]*envoy_config_endpoint.ClusterLoadAssignment),
-		Secrets:            make(map[string]*envoy_config_tls.Secret),
-		NetworkPolicies:    make(map[string]*cilium.NetworkPolicy),
-		NetworkPolicyHosts: make(map[string]*cilium.NetworkPolicyHosts),
-	}
-	if a == nil || b == nil {
-		return diffResources
+// updateResourceMap returns current unchanged when neither operation touches the
+// resource type. Otherwise it clones the map once, applies removals, then upserts.
+func updateResourceMap[V any](current, removed, upserted map[string]V) map[string]V {
+	if len(removed) == 0 && len(upserted) == 0 {
+		return current
 	}
 
-	for name, ep := range a.Endpoints {
-		if _, present := b.Endpoints[name]; !present {
-			diffResources.Endpoints[name] = ep
-		}
+	updated := cloneMapOrInit(current)
+	for name := range removed {
+		delete(updated, name)
+	}
+	maps.Copy(updated, upserted)
+	return updated
+}
+
+// updateResources applies removals and upserts using copy-on-write per resource
+// type. Unaffected maps remain shared with the immutable current resources.
+func updateResources(current, removed, upserted *xds.Resources) xds.Resources {
+	var updated, removeSet, upsertSet xds.Resources
+	if current != nil {
+		updated = *current
+	}
+	if removed != nil {
+		removeSet = *removed
+	}
+	if upserted != nil {
+		upsertSet = *upserted
 	}
 
-	for name, cluster := range a.Clusters {
-		if _, present := b.Clusters[name]; !present {
-			diffResources.Clusters[name] = cluster
-		}
-	}
-
-	for name, route := range a.Routes {
-		if _, present := b.Routes[name]; !present {
-			diffResources.Routes[name] = route
-		}
-	}
-
-	for name, listener := range a.Listeners {
-		if _, present := b.Listeners[name]; !present {
-			diffResources.Listeners[name] = listener
-		}
-	}
-
-	for name, secret := range a.Secrets {
-		if _, present := b.Secrets[name]; !present {
-			diffResources.Secrets[name] = secret
-		}
-	}
-
-	for name, nwPolicy := range a.NetworkPolicies {
-		if _, present := b.NetworkPolicies[name]; !present {
-			diffResources.NetworkPolicies[name] = nwPolicy
-		}
-	}
-	for name, nwPolicyHosts := range a.NetworkPolicyHosts {
-		if _, present := b.NetworkPolicyHosts[name]; !present {
-			diffResources.NetworkPolicyHosts[name] = nwPolicyHosts
-		}
-	}
-
-	return diffResources
+	updated.Listeners = updateResourceMap(updated.Listeners, removeSet.Listeners, upsertSet.Listeners)
+	updated.Routes = updateResourceMap(updated.Routes, removeSet.Routes, upsertSet.Routes)
+	updated.Clusters = updateResourceMap(updated.Clusters, removeSet.Clusters, upsertSet.Clusters)
+	updated.Endpoints = updateResourceMap(updated.Endpoints, removeSet.Endpoints, upsertSet.Endpoints)
+	updated.Secrets = updateResourceMap(updated.Secrets, removeSet.Secrets, upsertSet.Secrets)
+	updated.NetworkPolicies = updateResourceMap(updated.NetworkPolicies, removeSet.NetworkPolicies, upsertSet.NetworkPolicies)
+	updated.NetworkPolicyHosts = updateResourceMap(updated.NetworkPolicyHosts, removeSet.NetworkPolicyHosts, upsertSet.NetworkPolicyHosts)
+	return updated
 }
 
 func (s *adsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts GetEgressNamedPorts, selectors policy.SelectorSnapshot, names []string, l4Policy *policy.L4Policy,
@@ -1493,11 +1510,8 @@ func getUpdatedTypeURLs(changes *resourceChanges) map[string]func(error) {
 	if changes == nil {
 		return nil
 	}
-	var updatedTypeURLS map[string]func(error)
+	updatedTypeURLS := make(map[string]func(error))
 	add := func(typeURL string) {
-		if updatedTypeURLS == nil {
-			updatedTypeURLS = make(map[string]func(error))
-		}
 		updatedTypeURLS[typeURL] = nil
 	}
 	if len(changes.listeners) > 0 {

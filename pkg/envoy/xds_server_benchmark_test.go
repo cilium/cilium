@@ -329,9 +329,26 @@ func (c *benchmarkSnapshotCache) GenerateSnapshot(resources *xds.Resources, logg
 	return c.Cache.GenerateSnapshot(resources, logger)
 }
 
+func (c *benchmarkSnapshotCache) GenerateSnapshotIncrementally(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}, logger *slog.Logger) (cache.ResourceSnapshot, error) {
+	c.generated.Add(1)
+	return c.Cache.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, logger)
+}
+
 func (c *benchmarkSnapshotCache) UpdateSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLs map[string]func(error), reverts map[string]func()) error {
 	c.published.Add(1)
 	return c.Cache.UpdateSnapshot(ctx, nodeID, snapshot, wg, updatedTypeURLs, reverts)
+}
+
+func (c *benchmarkSnapshotCache) AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup, typeURLs map[string]func(error)) error {
+	err := c.Cache.AwaitCurrentVersion(nodeID, wg, typeURLs)
+	if err == nil && wg != nil {
+		// The benchmark has no Envoy process. Simulate the ACK that would
+		// complete waiters attached to the already-published version.
+		for typeURL := range typeURLs {
+			c.Cache.GetCompletionCallbacks().CompleteUnsentPendingCompletions(nodeID, typeURL, nil)
+		}
+	}
+	return err
 }
 
 func (c *benchmarkSnapshotCache) GetVersion(resources *xds.Resources) string {
