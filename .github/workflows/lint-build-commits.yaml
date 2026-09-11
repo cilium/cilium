@@ -126,7 +126,10 @@ jobs:
           key: ${{ runner.os }}-go-all-cache-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-all-cache-
-            ${{ runner.os }}-go-
+            ${{ runner.os }}-go-cilium-cache-
+            ${{ runner.os }}-go-operator-generic-cache-
+            ${{ runner.os }}-go-hubble-relay-cache-
+            ${{ runner.os }}-go-clustermesh-apiserver-cache-
 
       - name: Load ccache cache build from GitHub
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -212,7 +215,6 @@ jobs:
           key: ${{ runner.os }}-go-hubble-cli-cache-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-hubble-cli-cache-
-            ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -306,7 +308,10 @@ jobs:
           key: ${{ runner.os }}-go-all-cache-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-all-cache-
-            ${{ runner.os }}-go-
+            ${{ runner.os }}-go-cilium-cache-
+            ${{ runner.os }}-go-operator-generic-cache-
+            ${{ runner.os }}-go-hubble-relay-cache-
+            ${{ runner.os }}-go-clustermesh-apiserver-cache-
 
       - name: Load ccache cache build from GitHub
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
