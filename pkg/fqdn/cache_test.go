@@ -1424,3 +1424,68 @@ func Test_sortZombieMappingSlice(t *testing.T) {
 		})
 	}
 }
+
+// TestZombiesLookupIP covers the case Hubble relies on: a name that has
+// expired from DNSHistory is still resolvable while the connection using it
+// is alive, and stops resolving once the zombie is reaped.
+func TestZombiesLookupIP(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	now := time.Now()
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+
+	ip := netip.MustParseAddr("1.1.1.1")
+	zombies.Upsert(now, ip, "test.com")
+
+	require.Equal(t, []string{"test.com"}, zombies.LookupIP(ip))
+
+	// Unknown addresses resolve to nothing rather than erroring.
+	require.Nil(t, zombies.LookupIP(netip.MustParseAddr("3.3.3.3")))
+
+	// Multiple names for one IP are all returned, sorted: zombie.Names is
+	// unordered, and callers use the result as a metric label.
+	zombies.Upsert(now, ip, "anotherthing.com")
+	require.Equal(t, []string{"anotherthing.com", "test.com"}, zombies.LookupIP(ip))
+
+	// Marking alive keeps the mapping resolvable across GC cycles, which is
+	// what a long-lived connection does via MarkDNSCTEntry.
+	now = now.Add(5 * time.Minute)
+	next := now.Add(5 * time.Minute)
+	zombies.MarkAlive(now, ip)
+	zombies.SetCTGCTime(now, next)
+	_, dead := zombies.GC()
+	require.Empty(t, dead)
+	require.Equal(t, []string{"anotherthing.com", "test.com"}, zombies.LookupIP(ip))
+
+	// Once the connection is gone the zombie is reaped and the name with it.
+	now = now.Add(10 * time.Minute)
+	zombies.SetCTGCTime(now, now.Add(5*time.Minute))
+	_, dead = zombies.GC()
+	require.NotEmpty(t, dead)
+	require.Nil(t, zombies.LookupIP(ip))
+}
+
+// TestZombiesLookupIPIsDisjointFromHistory documents why Hubble consults
+// DNSHistory before zombies rather than either alone: an entry is in exactly
+// one of the two, so only the pair covers a connection's whole life.
+func TestZombiesLookupIPIsDisjointFromHistory(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	now := time.Now()
+	ip := netip.MustParseAddr("1.1.1.1")
+
+	cache := NewDNSCache(0)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+
+	// A fresh lookup lives in history and is not yet a zombie, so resolving
+	// from zombies alone would report nothing for a new connection.
+	cache.Update(now, "test.com", []netip.Addr{ip}, 3)
+	require.Equal(t, []string{"test.com"}, cache.LookupIP(ip))
+	require.Nil(t, zombies.LookupIP(ip))
+
+	// Expiry moves it across: history goes quiet and the zombie takes over,
+	// which is the window where Hubble previously reported no name.
+	cache.GC(now.Add(5*time.Second), zombies)
+	require.Empty(t, cache.LookupIP(ip))
+	require.Equal(t, []string{"test.com"}, zombies.LookupIP(ip))
+}
