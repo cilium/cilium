@@ -26,32 +26,20 @@ jobs:
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
           path: src/github.com/cilium/cilium
 
-      # Load Ginkgo build from GitHub
-      - name: Load ginkgo linter from GH cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: cache
-        with:
-          path: /tmp/.ginkgo-build/
-          key: ${{ runner.os }}-ginkgo-linter-${{ hashFiles('src/github.com/cilium/cilium/**/*.go') }}
-
       - name: Install Go
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          cache-dependency-path: "src/github.com/cilium/cilium/*.sum"
+          cache-dependency-path: "src/github.com/cilium/cilium/go.mod"
           # renovate: datasource=golang-version depName=go
           go-version: 1.27.1
 
       - name: Build Ginkgo
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
           cd src/github.com/cilium/cilium
           go install github.com/onsi/ginkgo/ginkgo@v1.16.5
-          mkdir -p /tmp/.ginkgo-build
 
       - name: Building Ginkgo Linter Test
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
           cd src/github.com/cilium/cilium
@@ -60,25 +48,6 @@ jobs:
           cd test
           /home/runner/go/bin/ginkgo build
           strip test.test
-          tar -cz test.test -f test.tgz
-
-      - name: Store Ginkgo Linter Test in GitHub cache path
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          cd src/github.com/cilium/cilium
-          mkdir -p /tmp/.ginkgo-build/
-          if [ -f test/test.tgz ]; then
-            cp test/test.tgz /tmp/.ginkgo-build/
-            echo "file copied"
-          fi
-
-      - name: Copy Ginkgo binary
-        if: ${{ steps.cache.outputs.cache-hit == 'true' }}
-        shell: bash
-        run: |
-          cd src/github.com/cilium/cilium/test/
-          tar -xf /tmp/.ginkgo-build/test.tgz
 
       - name: Reading Comments From Workflows
         shell: bash
