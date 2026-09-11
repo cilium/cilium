@@ -145,6 +145,10 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 		}
 	}
 
+	if !in.IPv6.DeepEqual(&other.IPv6) {
+		return false
+	}
+
 	if ((in.SecurityGroups != nil) && (other.SecurityGroups != nil)) || ((in.SecurityGroups == nil) != (other.SecurityGroups == nil)) {
 		in, other := &in.SecurityGroups, &other.SecurityGroups
 		if other == nil {
