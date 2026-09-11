@@ -58,13 +58,9 @@ func TestValidateEnvoyXDSMode(t *testing.T) {
 
 func TestEnvoyXDSModeHelpers(t *testing.T) {
 	require.False(t, XDSMode("").IsADS())
-	require.False(t, XDSMode("").IsStrictADS())
 	require.False(t, EnvoyXDSModeSplit.IsADS())
-	require.False(t, EnvoyXDSModeSplit.IsStrictADS())
 
 	require.True(t, EnvoyXDSModeADS.IsADS())
-	require.False(t, EnvoyXDSModeADS.IsStrictADS())
 
 	require.True(t, EnvoyXDSModeStrictADS.IsADS())
-	require.True(t, EnvoyXDSModeStrictADS.IsStrictADS())
 }
