@@ -1112,7 +1112,10 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		// have been published successfully.
 		newGeneration := s.resourceGenerations[nodeId] + 1
 		var revertFunc xdsnew.RevertFunc
-		if wg != nil {
+		// An update without a WaitGroup can still be coalesced into a response
+		// carrying older tracked generations. Preserve its revert so a NACK can
+		// restore every resource change represented by that response.
+		if changes != nil {
 			revertFunc = s.buildRevert(ctx, nodeId, newGeneration, changes)
 		}
 		err = s.cache.UpdateSnapshot(ctx, nodeId, newGeneration, newSnapshot, wg, completionTypeURLs, revertFunc)

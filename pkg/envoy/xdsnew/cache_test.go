@@ -5,6 +5,7 @@ package xdsnew
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -39,9 +40,10 @@ import (
 )
 
 type mockSnapshotCache struct {
-	snapshots      map[string]cache.ResourceSnapshot
-	setSnapshotErr error
-	clearCalled    map[string]bool
+	snapshots                map[string]cache.ResourceSnapshot
+	setSnapshotErr           error
+	storeSnapshotBeforeError bool
+	clearCalled              map[string]bool
 
 	// Call tracking
 	setSnapshotCalls   []setSnapshotCall
@@ -69,6 +71,9 @@ func newMockSnapshotCache() *mockSnapshotCache {
 
 func (m *mockSnapshotCache) SetSnapshot(ctx context.Context, node string, snapshot cache.ResourceSnapshot) error {
 	m.setSnapshotCalls = append(m.setSnapshotCalls, setSnapshotCall{ctx: ctx, nodeID: node, snapshot: snapshot})
+	if m.storeSnapshotBeforeError {
+		m.snapshots[node] = snapshot
+	}
 	if m.setSnapshotErr != nil {
 		return m.setSnapshotErr
 	}
@@ -1170,6 +1175,174 @@ func TestUpdateSnapshot_CompletesUnsentCoalescedNetworkPolicyUpdates(t *testing.
 	assert.NoError(t, bCallbackErrs[0])
 	require.Len(t, aCallbackErrs, 1)
 	assert.NoError(t, aCallbackErrs[0])
+}
+
+func TestUpdateSnapshot_TrackedCompletionFollowsUntrackedGeneration(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, snapA := networkPolicySnapshot(t, c, 1)
+	_, snapB := networkPolicySnapshot(t, c, 2)
+
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	reverted := make([]uint64, 0, 2)
+	newRevert := func(generation uint64) RevertFunc {
+		return func(expected uint64) (uint64, bool) {
+			reverted = append(reverted, generation)
+			return expected + 1, true
+		}
+	}
+
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 1, snapA, wg,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, newRevert(1)))
+	// The newer generation deliberately has no WaitGroup.
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 2, snapB, nil, nil, newRevert(2)))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+
+	node := &envoy_config_core.Node{Id: nodeID}
+	c.completionCbs.OnStreamResponse(mock.setSnapshotCalls[1].ctx, 1,
+		&discovery.DiscoveryRequest{Node: node, TypeUrl: NetworkPolicyTypeURL},
+		&discovery.DiscoveryResponse{VersionInfo: snapB.GetVersion(NetworkPolicyTypeURL), TypeUrl: NetworkPolicyTypeURL})
+	require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        node,
+		TypeUrl:     NetworkPolicyTypeURL,
+		VersionInfo: snapB.GetVersion(NetworkPolicyTypeURL),
+	}))
+
+	require.NoError(t, wg.Wait())
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+	require.Empty(t, reverted)
+}
+
+func TestUpdateSnapshot_ImmediateWatchRecoversUntrackedGeneration(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, snapA := networkPolicySnapshot(t, c, 1)
+	_, snapB := networkPolicySnapshot(t, c, 2)
+
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 1, snapA, wg,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 2, snapB, nil, nil, nil))
+
+	// CreateWatch uses context.Background when Envoy connects after both
+	// snapshots were published. The current published snapshot supplies gen 2.
+	node := &envoy_config_core.Node{Id: nodeID}
+	c.completionCbs.OnStreamResponse(context.Background(), 1,
+		&discovery.DiscoveryRequest{Node: node, TypeUrl: NetworkPolicyTypeURL},
+		&discovery.DiscoveryResponse{VersionInfo: snapB.GetVersion(NetworkPolicyTypeURL), TypeUrl: NetworkPolicyTypeURL})
+	require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        node,
+		TypeUrl:     NetworkPolicyTypeURL,
+		VersionInfo: snapB.GetVersion(NetworkPolicyTypeURL),
+	}))
+
+	require.NoError(t, wg.Wait())
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+}
+
+func TestUpdateSnapshot_UntrackedAcceptedGenerationCompletesPending(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, snapA := networkPolicySnapshot(t, c, 1)
+	_, snapB := networkPolicySnapshot(t, c, 2)
+
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 1, snapA, nil, nil, nil))
+	ackNetworkPolicyVersion(t, c, nodeID, snapA.GetVersion(NetworkPolicyTypeURL))
+
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 2, snapB, wg,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+
+	// Envoy already accepted A, so returning to A without a WaitGroup will not
+	// produce another response. Successful publication still supersedes B.
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 3, snapA, nil, nil, nil))
+	require.NoError(t, wg.Wait())
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+}
+
+func TestUpdateSnapshot_EmptyPolicyGenerationCompletesPending(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, nonempty := networkPolicySnapshot(t, c, 1)
+	empty, err := c.GenerateSnapshot(emptyResources(), c.logger)
+	require.NoError(t, err)
+
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 1, nonempty, wg,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+
+	// Envoy has nothing to subscribe to or ACK once NPDS becomes empty.
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 2, empty, nil, nil, nil))
+	require.NoError(t, wg.Wait())
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+}
+
+func TestUpdateSnapshot_FailedUntrackedGenerationIsNotObserved(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, snapA := networkPolicySnapshot(t, c, 1)
+	_, snapB := networkPolicySnapshot(t, c, 2)
+
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 1, snapA, wg,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+
+	mock.setSnapshotErr = errors.New("snapshot publication failed")
+	require.Error(t, c.UpdateSnapshot(context.Background(), nodeID, 2, snapB, nil, nil, nil))
+	mock.setSnapshotErr = nil
+
+	node := &envoy_config_core.Node{Id: nodeID}
+	c.completionCbs.OnStreamResponse(context.Background(), 1,
+		&discovery.DiscoveryRequest{Node: node, TypeUrl: NetworkPolicyTypeURL},
+		&discovery.DiscoveryResponse{VersionInfo: snapB.GetVersion(NetworkPolicyTypeURL), TypeUrl: NetworkPolicyTypeURL})
+	require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        node,
+		TypeUrl:     NetworkPolicyTypeURL,
+		VersionInfo: snapB.GetVersion(NetworkPolicyTypeURL),
+	}))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+
+	ackNetworkPolicyVersion(t, c, nodeID, snapA.GetVersion(NetworkPolicyTypeURL))
+	require.NoError(t, wg.Wait())
+}
+
+func TestUpdateSnapshot_ErrorAfterStoreCommitsGeneration(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, snapA := networkPolicySnapshot(t, c, 1)
+	_, snapB := networkPolicySnapshot(t, c, 2)
+
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 1, snapA, wg,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+
+	mock.storeSnapshotBeforeError = true
+	mock.setSnapshotErr = errors.New("watch delivery failed after store")
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, 2, snapB, nil, nil, nil))
+
+	ackNetworkPolicyVersion(t, c, nodeID, snapB.GetVersion(NetworkPolicyTypeURL))
+	require.NoError(t, wg.Wait())
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
 }
 
 func TestUpdateSnapshot_ResponseContextDisambiguatesABAGeneration(t *testing.T) {

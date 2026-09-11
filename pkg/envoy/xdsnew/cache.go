@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -808,14 +809,20 @@ func (c *cacheImpl) registerGenerationCompletions(nodeID string, generation uint
 	immediateCompletions := make([]immediateCompletion, 0, 1)
 	if wg != nil && len(typeURLs) > 0 {
 		for typeURL, completionCallback := range typeURLs {
-			comp := wg.AddCompletionWithCallback(nil, completionCallback)
+			owner := c.completionCbs.NewTypeGenerationCompletionOwner(nodeID, typeURL, generation)
+			comp := wg.AddCompletionWithCallback(owner, completionCallback)
 			if typeURL == NetworkPolicyTypeURL && len(newSnapshot.GetResourcesAndTTL(NetworkPolicyTypeURL)) == 0 {
-				immediateCompletions = append(immediateCompletions, immediateCompletion{comp: comp})
+				immediateCompletions = append(immediateCompletions, immediateCompletion{
+					comp:                      comp,
+					typeURL:                   typeURL,
+					generation:                generation,
+					completeUnsentCompletions: true,
+				})
 				continue
 			}
 			version := newSnapshot.GetVersion(typeURL)
 			versionChanged := oldSnapshot == nil || oldSnapshot.GetVersion(typeURL) != version
-			registered, err := c.completionCbs.AddTypeGenerationCompletion(comp, generation, version, typeURL, nodeID, versionChanged, revertFunc)
+			registered, err := c.completionCbs.AddPreparedTypeGenerationCompletion(comp, owner, version, versionChanged, revertFunc)
 			if !registered {
 				immediateCompletions = append(immediateCompletions, immediateCompletion{
 					comp:                      comp,
@@ -832,6 +839,10 @@ func (c *cacheImpl) registerGenerationCompletions(nodeID string, generation uint
 	return completions, immediateCompletions
 }
 
+type typeGenerationRegistration struct {
+	typeURL string
+}
+
 func (c *cacheImpl) completeImmediateCompletions(nodeID string, immediateCompletions []immediateCompletion) {
 	for _, completion := range immediateCompletions {
 		if completion.completeUnsentCompletions {
@@ -842,22 +853,68 @@ func (c *cacheImpl) completeImmediateCompletions(nodeID string, immediateComplet
 }
 
 func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc RevertFunc) error {
-	var oldSnapshot cache.ResourceSnapshot
-	if wg != nil && len(updatedTypeURLS) > 0 {
-		oldSnapshot, _ = c.GetSnapshot(nodeID)
-	}
+	oldSnapshot, _ := c.GetSnapshot(nodeID)
+	c.mutex.RLock()
+	oldGeneration := c.snapshotGenerations[nodeID]
+	c.mutex.RUnlock()
 	completions, immediateCompletions := c.registerGenerationCompletions(nodeID, generation, newSnapshot, oldSnapshot, wg, updatedTypeURLS, revertFunc)
+
+	// Stage the authoritative generation before SetSnapshot. go-control-plane
+	// can synchronously build a response while SetSnapshot is running, and a
+	// concurrent CreateWatch may use context.Background instead of ctx.
+	c.completionCbs.SetPublishedSnapshot(nodeID, generation, newSnapshot)
+	var registrations []typeGenerationRegistration
+	var completeUnsentTypeURLs []string
+	for _, typeURL := range snapshotResourceTypes {
+		if wg != nil {
+			if _, tracked := updatedTypeURLS[typeURL]; tracked {
+				// The pending completion carries this generation's revert. Only
+				// updates without a completion need a separate generation entry.
+				continue
+			}
+		}
+		version := newSnapshot.GetVersion(typeURL)
+		versionChanged := oldSnapshot == nil || oldSnapshot.GetVersion(typeURL) != version
+		registered, completeUnsent := c.completionCbs.AddTypeGeneration(
+			generation, version, typeURL, nodeID, versionChanged, revertFunc)
+		if registered {
+			registrations = append(registrations, typeGenerationRegistration{typeURL: typeURL})
+		}
+		if completeUnsent {
+			completeUnsentTypeURLs = append(completeUnsentTypeURLs, typeURL)
+		}
+	}
+	if len(newSnapshot.GetResourcesAndTTL(NetworkPolicyTypeURL)) == 0 {
+		completeUnsentTypeURLs = append(completeUnsentTypeURLs, NetworkPolicyTypeURL)
+	}
 	err := c.SetSnapshot(callbacks.WithSnapshotGeneration(ctx, generation), nodeID, newSnapshot)
 
 	if err != nil {
-		for _, comp := range completions {
-			c.completionCbs.RemoveTypeGenerationCompletion(comp)
+		// SnapshotCache stores the snapshot before delivering watch responses. A
+		// canceled delivery may therefore return an error after publication has
+		// committed; keep generation state in that case.
+		currentSnapshot, getErr := c.GetSnapshot(nodeID)
+		committed := getErr == nil && !c.AreDifferentSnapshots(currentSnapshot, newSnapshot)
+		if !committed {
+			c.completionCbs.SetPublishedSnapshot(nodeID, oldGeneration, oldSnapshot)
+			for _, comp := range completions {
+				c.completionCbs.RemoveTypeGenerationCompletion(comp)
+			}
+			for _, registration := range registrations {
+				c.completionCbs.RemoveTypeGeneration(nodeID, registration.typeURL, generation)
+			}
+			return err
 		}
-		return err
+		c.logger.Debug("Snapshot was installed despite response delivery error",
+			logfields.NodeID, nodeID,
+			logfields.Error, err)
 	}
 	c.mutex.Lock()
 	c.snapshotGenerations[nodeID] = generation
 	c.mutex.Unlock()
+	for _, typeURL := range completeUnsentTypeURLs {
+		c.completionCbs.CompleteCompletionsThroughGeneration(nodeID, typeURL, generation, nil)
+	}
 	c.completeImmediateCompletions(nodeID, immediateCompletions)
 
 	return nil
@@ -891,6 +948,7 @@ func (c *cacheImpl) AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup,
 
 func (c *cacheImpl) ClearSnapshot(nodeID string) {
 	c.SnapshotCache.ClearSnapshot(nodeID)
+	c.completionCbs.SetPublishedSnapshot(nodeID, 0, nil)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.resourcesInSnapshot[nodeID] = &xds.Resources{}

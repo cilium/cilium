@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
@@ -185,6 +187,7 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		server, cache := newServer(t)
 		ctx := t.Context()
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
+		cache.revertFuncs = nil
 
 		wg := completion.NewWaitGroup(ctx)
 		t.Cleanup(wg.Cancel)
@@ -201,6 +204,7 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		server, cache := newServer(t)
 		ctx := t.Context()
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
+		cache.revertFuncs = nil
 
 		wg := completion.NewWaitGroup(ctx)
 		t.Cleanup(wg.Cancel)
@@ -227,6 +231,7 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		server, cache := newServer(t)
 		ctx := t.Context()
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
+		cache.revertFuncs = nil
 
 		wg2 := completion.NewWaitGroup(ctx)
 		t.Cleanup(wg2.Cancel)
@@ -246,6 +251,60 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		current := cache.GetAllResources(localNodeID)
 		require.Equal(t, uint64(1), current.NetworkPolicies["policy"].EndpointId)
 		require.Equal(t, expectedGeneration, server.resourceGenerations[localNodeID])
+	})
+
+	t.Run("NACK reverts a coalesced untracked generation", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		listenerResources := func(name string) xds.Resources {
+			resources := xds.NewResources()
+			resources.Listeners[name] = &envoy_config_listener.Listener{Name: name}
+			return resources
+		}
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-1"), nil))
+
+		baselineSnapshot, err := cache.GetSnapshot(localNodeID)
+		require.NoError(t, err)
+		baselineVersion := baselineSnapshot.GetVersion(ListenerTypeURL)
+		node := &envoy_config_core_v3.Node{Id: localNodeID}
+		require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+			Node:        node,
+			TypeUrl:     ListenerTypeURL,
+			VersionInfo: baselineVersion,
+		}))
+
+		wg := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-2"), wg))
+		// Generation 3 has no WaitGroup, matching the tracked/untracked update
+		// shape produced by the synthetic ingress policy in #43519.
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-3"), nil))
+
+		currentSnapshot, err := cache.GetSnapshot(localNodeID)
+		require.NoError(t, err)
+		currentVersion := currentSnapshot.GetVersion(ListenerTypeURL)
+		currentGeneration := server.resourceGenerations[localNodeID]
+		cache.GetCompletionCallbacks().OnStreamResponse(
+			callbacks.WithSnapshotGeneration(ctx, currentGeneration), 1,
+			&envoy_service_discovery.DiscoveryRequest{Node: node, TypeUrl: ListenerTypeURL},
+			&envoy_service_discovery.DiscoveryResponse{
+				VersionInfo: currentVersion,
+				TypeUrl:     ListenerTypeURL,
+				Nonce:       "nonce-3",
+			})
+		require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+			Node:          node,
+			TypeUrl:       ListenerTypeURL,
+			VersionInfo:   baselineVersion,
+			ResponseNonce: "nonce-3",
+			ErrorDetail:   &status.Status{Message: "rejected coalesced listener"},
+		}))
+
+		require.ErrorContains(t, wg.Wait(), "rejected coalesced listener")
+		current := cache.GetAllResources(localNodeID)
+		require.Contains(t, current.Listeners, "listener-1")
+		require.NotContains(t, current.Listeners, "listener-2")
+		require.NotContains(t, current.Listeners, "listener-3")
 	})
 }
 
