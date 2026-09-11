@@ -379,6 +379,61 @@ func TestUpsertEnvoyResources(t *testing.T) {
 	require.NotNil(t, resources.NetworkPolicies["40"])
 }
 
+func TestComputeChangesUsesProtoEquality(t *testing.T) {
+	current := xds.NewResources()
+	current.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
+	current.Routes["route"] = &envoy_config_route.RouteConfiguration{Name: "route"}
+	current.Clusters["cluster"] = &envoy_config_cluster.Cluster{Name: "cluster"}
+	current.Endpoints["endpoint"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
+	current.Secrets["secret"] = &envoy_config_tls.Secret{Name: "secret"}
+	current.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 1}
+	current.NetworkPolicyHosts["hosts"] = &cilium.NetworkPolicyHosts{}
+
+	equal := current.DeepCopy()
+	equal.Listeners["listener"] = proto.Clone(current.Listeners["listener"]).(*envoy_config_listener.Listener)
+	equal.Routes["route"] = proto.Clone(current.Routes["route"]).(*envoy_config_route.RouteConfiguration)
+	equal.Clusters["cluster"] = proto.Clone(current.Clusters["cluster"]).(*envoy_config_cluster.Cluster)
+	equal.Endpoints["endpoint"] = proto.Clone(current.Endpoints["endpoint"]).(*envoy_config_endpoint.ClusterLoadAssignment)
+	equal.Secrets["secret"] = proto.Clone(current.Secrets["secret"]).(*envoy_config_tls.Secret)
+	equal.NetworkPolicies["policy"] = proto.Clone(current.NetworkPolicies["policy"]).(*cilium.NetworkPolicy)
+	equal.NetworkPolicyHosts["hosts"] = proto.Clone(current.NetworkPolicyHosts["hosts"]).(*cilium.NetworkPolicyHosts)
+
+	changes := computeChanges(&current, equal)
+	require.Empty(t, changes.listeners)
+	require.Empty(t, changes.routes)
+	require.Empty(t, changes.clusters)
+	require.Empty(t, changes.endpoints)
+	require.Empty(t, changes.secrets)
+	require.Empty(t, changes.networkPolicies)
+	require.Empty(t, changes.networkPolicyHosts)
+
+	changed := equal.DeepCopy()
+	changed.NetworkPolicies["policy"] = proto.Clone(equal.NetworkPolicies["policy"]).(*cilium.NetworkPolicy)
+	changed.NetworkPolicies["policy"].EndpointId = 2
+	changed.Listeners["added"] = &envoy_config_listener.Listener{Name: "added"}
+	delete(changed.Secrets, "secret")
+
+	changes = computeChanges(equal, changed)
+	require.Equal(t, []savedEntry[*cilium.NetworkPolicy]{{
+		key:     "policy",
+		value:   equal.NetworkPolicies["policy"],
+		existed: true,
+	}}, changes.networkPolicies)
+	require.Equal(t, []savedEntry[*envoy_config_listener.Listener]{{
+		key:     "added",
+		existed: false,
+	}}, changes.listeners)
+	require.Equal(t, []savedEntry[*envoy_config_tls.Secret]{{
+		key:     "secret",
+		value:   equal.Secrets["secret"],
+		existed: true,
+	}}, changes.secrets)
+	require.Empty(t, changes.routes)
+	require.Empty(t, changes.clusters)
+	require.Empty(t, changes.endpoints)
+	require.Empty(t, changes.networkPolicyHosts)
+}
+
 func TestUpdateEnvoyResources(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	config := xdsServerConfig{

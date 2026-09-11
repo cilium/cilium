@@ -22,6 +22,7 @@ import (
 	envoy_extensions_listener_tls_inspector_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -913,12 +914,15 @@ type savedEntry[V any] struct {
 // diffMap returns entries for every key whose value differs between old and new,
 // plus keys present in old but absent in new (deletions). Keys that are identical
 // in both maps are not saved.
-func diffMap[V comparable](old, new map[string]V) []savedEntry[V] {
+func diffMap[V interface {
+	proto.Message
+	comparable
+}](old, new map[string]V) []savedEntry[V] {
 	var saved []savedEntry[V]
 	// Keys that are new or changed.
-	for k := range new {
+	for k, newVal := range new {
 		oldVal, existed := old[k]
-		if !existed || any(oldVal) != any(new[k]) {
+		if !existed || (oldVal != newVal && !proto.Equal(oldVal, newVal)) {
 			saved = append(saved, savedEntry[V]{key: k, value: oldVal, existed: existed})
 		}
 	}
