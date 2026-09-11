@@ -103,6 +103,8 @@ const (
 	CiliumPerClusterSNATV6ExternalInner = "cilium_per_cluster_snat_v6_external_inner"
 	CiliumPerCPUTraceID                 = "cilium_percpu_trace_id"
 	CiliumPolicy                        = "cilium_policy"
+	CiliumPolicyOverlay                 = "cilium_policy_overlay"
+	CiliumPolicyShared                  = "cilium_policy_shared"
 	CiliumPolicystats                   = "cilium_policystats"
 	CiliumRatelimit                     = "cilium_ratelimit"
 	CiliumRatelimitMetrics              = "cilium_ratelimit_metrics"
@@ -1033,6 +1035,34 @@ func newCiliumPolicySpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
+func newCiliumPolicyOverlaySpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumPolicyOverlay,
+		Type:       ebpf.Hash,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "__u32"),
+		ValueSize:  4,
+		Value:      anyTypeByName(btf, "__u32"),
+		MaxEntries: 16384,
+		Flags:      unix.BPF_F_NO_PREALLOC,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumPolicySharedSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumPolicyShared,
+		Type:       ebpf.LPMTrie,
+		KeySize:    16,
+		Key:        anyTypeByName(btf, "shared_policy_key"),
+		ValueSize:  12,
+		Value:      anyTypeByName(btf, "policy_entry"),
+		MaxEntries: 131072,
+		Flags:      unix.BPF_F_NO_PREALLOC,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
 func newCiliumPolicystatsSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       CiliumPolicystats,
@@ -1352,6 +1382,8 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumPerClusterSNATV6ExternalSpec,
 	newCiliumPerCPUTraceIDSpec,
 	newCiliumPolicySpec,
+	newCiliumPolicyOverlaySpec,
+	newCiliumPolicySharedSpec,
 	newCiliumPolicystatsSpec,
 	newCiliumRatelimitSpec,
 	newCiliumRatelimitMetricsSpec,
