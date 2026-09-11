@@ -33,6 +33,7 @@ type versionEntry struct {
 	version     string
 	completions set.Set[*completion.Completion]
 	rollback    func()
+	markerID    uint64
 }
 
 // aggregateRollback combines rollback functions in update order. The returned
@@ -88,6 +89,27 @@ func (vo *orderedCompletions) append(version string, c *completion.Completion, r
 		completions: set.NewSet(c),
 		rollback:    rollback,
 	})
+}
+
+// appendMarker records a snapshot version that has no completion of its own.
+// The marker allows a response for this version to claim completions belonging
+// to older snapshots that go-control-plane coalesced into it.
+func (vo *orderedCompletions) appendMarker(version string, markerID uint64, rollback func()) {
+	*vo = append(*vo, versionEntry{
+		version:     version,
+		completions: set.NewSet[*completion.Completion](),
+		rollback:    rollback,
+		markerID:    markerID,
+	})
+}
+
+func (vo *orderedCompletions) hasPendingCompletions() bool {
+	for i := range *vo {
+		if !(*vo)[i].completions.Empty() {
+			return true
+		}
+	}
+	return false
 }
 
 // removeRange removes entries in [start, end), preserving order and releasing
@@ -199,6 +221,9 @@ type CompletionCallbacks struct {
 	// stream. Envoy is configured with SetNodeOnFirstMessageOnly, so subsequent
 	// ACK/NACK requests can omit Node even though completions are keyed by node ID.
 	streamNodeIDs map[int64]string
+	// nextMarkerID uniquely identifies version-only ordering entries so an update
+	// that definitely was not published can remove the exact entry it registered.
+	nextMarkerID uint64
 }
 
 func NewCompletionCallbacks(logger *slog.Logger) *CompletionCallbacks {
@@ -255,15 +280,41 @@ func (cb *CompletionCallbacks) removeFromOrderedCompletions(c *completion.Comple
 			entry := &(*vo)[i]
 			if entry.completions.Has(c) {
 				entry.completions.Remove(c)
-				if entry.completions.Empty() {
+				if entry.completions.Empty() && entry.markerID == 0 {
 					vo.remove(i)
 				}
-				if len(*vo) == 0 {
+				if !vo.hasPendingCompletions() {
 					delete(cb.completionsOrders, key)
 				}
 				return
 			}
 		}
+	}
+}
+
+type typeVersionCompletionOwner struct {
+	callbacks *CompletionCallbacks
+	nodeID    string
+	typeURL   string
+	version   string
+}
+
+func (o *typeVersionCompletionOwner) ID() string {
+	return fmt.Sprintf("nodeID:%s,typeURL:%s,version:%s", o.nodeID, o.typeURL, o.version)
+}
+
+func (o *typeVersionCompletionOwner) CleanupAfterWait(c *completion.Completion) {
+	o.callbacks.RemoveTypeVersionCompletion(c)
+}
+
+// NewTypeVersionCompletionOwner returns an owner that removes a completion
+// from the xDS callback state if its wait group ends before an ACK or NACK.
+func (cb *CompletionCallbacks) NewTypeVersionCompletionOwner(nodeID, typeURL, version string) completion.Owner {
+	return &typeVersionCompletionOwner{
+		callbacks: cb,
+		nodeID:    nodeID,
+		typeURL:   typeURL,
+		version:   version,
 	}
 }
 
@@ -411,6 +462,77 @@ func (cb *CompletionCallbacks) AddTypeVersionCompletion(c *completion.Completion
 	return true, nil
 }
 
+// AddTypeVersionMarker records a changed snapshot version that has no
+// completion of its own. It returns completeUnsent when Envoy has already
+// ACKed this version and older pending completions should be completed after
+// the snapshot is published successfully.
+func (cb *CompletionCallbacks) AddTypeVersionMarker(version, typeURL, nodeID string, versionChanged bool, revertFunc func()) (marker *TypeVersionMarker, completeUnsent bool) {
+	if version == "" || !versionChanged {
+		return nil, false
+	}
+
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+
+	key := completionsOrderKey(nodeID, typeURL)
+	vo, ok := cb.completionsOrders[key]
+	// A marker is only needed to carry older pending completions across this
+	// untracked version.
+	if !ok || !vo.hasPendingCompletions() {
+		return nil, false
+	}
+
+	state := cb.responseStates[key]
+	if state.pendingVersion == "" && state.acceptedVersion == version {
+		return nil, true
+	}
+
+	cb.nextMarkerID++
+	marker = &TypeVersionMarker{key: key, id: cb.nextMarkerID}
+	vo.appendMarker(version, marker.id, revertFunc)
+	cb.Log.Debug("Added snapshot version marker",
+		logfields.XDSTypeURL, typeURL,
+		logfields.Version, version,
+		logfields.NodeID, nodeID)
+	return marker, false
+}
+
+// TypeVersionMarker identifies an ordering entry for a snapshot version that
+// does not have a completion of its own.
+type TypeVersionMarker struct {
+	key string
+	id  uint64
+}
+
+// RemoveTypeVersionMarker removes a marker for an update that was confirmed
+// not to have been installed in the snapshot cache. If a response has already
+// associated completions with it, keep it for the eventual ACK or NACK.
+func (cb *CompletionCallbacks) RemoveTypeVersionMarker(marker *TypeVersionMarker) {
+	if marker == nil {
+		return
+	}
+
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+
+	vo, ok := cb.completionsOrders[marker.key]
+	if !ok {
+		return
+	}
+	for i := range *vo {
+		entry := &(*vo)[i]
+		if entry.markerID == marker.id {
+			if entry.completions.Empty() {
+				vo.remove(i)
+			}
+			break
+		}
+	}
+	if !vo.hasPendingCompletions() {
+		delete(cb.completionsOrders, marker.key)
+	}
+}
+
 // OnFetchRequest implements server.Callbacks.
 func (cb *CompletionCallbacks) OnFetchRequest(context.Context, *discovery.DiscoveryRequest) error {
 	return nil
@@ -485,7 +607,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 			for _, c := range completed {
 				delete(cb.pendingCompletions, c)
 			}
-			if len(*vo) == 0 {
+			if !vo.hasPendingCompletions() {
 				delete(cb.completionsOrders, key)
 			}
 		}
@@ -528,7 +650,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 				logfields.XDSTypeURL, typeURL,
 				logfields.Version, req.GetVersionInfo())
 		}
-		if len(*vo) == 0 {
+		if !vo.hasPendingCompletions() {
 			delete(cb.completionsOrders, key)
 		}
 	}
@@ -583,7 +705,7 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 			for _, c := range completed {
 				delete(cb.pendingCompletions, c)
 			}
-			if len(*vo) == 0 {
+			if !vo.hasPendingCompletions() {
 				delete(cb.completionsOrders, key)
 			}
 		}

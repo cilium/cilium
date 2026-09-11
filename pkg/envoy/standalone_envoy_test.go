@@ -1412,6 +1412,105 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	stopEnvoy()
 }
 
+// Repro for https://github.com/cilium/cilium/issues/43519:
+// ADS may coalesce a tracked snapshot into a newer untracked snapshot, leaving
+// the earlier completion stuck even after Envoy ACKs the newer snapshot.
+func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+
+	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
+		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
+	}
+
+	logging.SetLogLevel(slog.LevelDebug)
+	flowdebug.Enable()
+
+	testRunDir, err := os.MkdirTemp("", "envoy_go_test")
+	require.NoError(t, err)
+	t.Logf("run directory: %s", testRunDir)
+
+	localEndpointStore := newLocalEndpointStore()
+	logger := hivetest.Logger(t)
+
+	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+		xdsServerConfig{
+			envoySocketDir:    util.GetSocketDir(testRunDir),
+			proxyGID:          1337,
+			httpNormalizePath: true,
+			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeADS,
+		},
+		nil, nil)
+	require.NotNil(t, xdsServer)
+
+	go func() {
+		err = xdsServer.run(t.Context())
+		require.NoError(t, err)
+	}()
+	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
+	require.NotNil(t, accessLogServer)
+	go func() {
+		err = accessLogServer.run(t.Context())
+		require.NoError(t, err)
+	}()
+
+	// Publish tracked snapshot A before Envoy connects. Its completion can only
+	// be resolved by a response/ACK for this version or a newer version.
+	waitCtx, waitCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer waitCancel()
+	trackedWaitGroup := completion.NewWaitGroup(waitCtx)
+	err = xdsServer.AddListener(ctx, "tracked-listener", policy.ParserTypeHTTP, 18081, true, false, trackedWaitGroup, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
+
+	trackedSnapshot, err := xdsServer.cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	trackedVersion := trackedSnapshot.GetVersion(ListenerTypeURL)
+	require.NotEmpty(t, trackedVersion)
+
+	// Publish newer snapshot B without a wait group, mirroring the untracked
+	// NPDS snapshot produced by the synthetic ingress endpoint. Since Envoy has
+	// not connected yet, it can receive only B and A is guaranteed to be
+	// coalesced.
+	err = xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil, nil)
+	require.NoError(t, err)
+	untrackedSnapshot, err := xdsServer.cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	untrackedVersion := untrackedSnapshot.GetVersion(ListenerTypeURL)
+	require.NotEmpty(t, untrackedVersion)
+	require.NotEqual(t, trackedVersion, untrackedVersion)
+	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
+
+	starter := &onDemandXdsStarter{logger: logger}
+	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
+		runDir:                         testRunDir,
+		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
+		baseID:                         43,
+		connectTimeout:                 1,
+		maxActiveDownstreamConnections: 100,
+		defaultLogLevel:                "debug",
+		maxConnections:                 10,
+		maxRequests:                    100,
+		maxConcurrentRetries:           10,
+		maxPendingRequests:             1024,
+		xdsMode:                        config.EnvoyXDSModeADS,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, envoyProxy)
+	t.Log("started Envoy after both snapshots were published")
+	stopEnvoy := cleanupStandaloneEnvoy(t, envoyProxy)
+
+	// Confirm Envoy applied B. Its ACK must also release the completion
+	// associated with the older coalesced snapshot A.
+	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "ListenersConfigDump", "untracked-listener")
+	err = trackedWaitGroup.Wait()
+	require.NoError(t, err, "ACK of the newer snapshot should complete the older coalesced update")
+	require.Zero(t, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
+
+	stopEnvoy()
+}
+
 func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)

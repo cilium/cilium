@@ -292,6 +292,82 @@ func TestCompletionFollowsNewerResponseVersion(t *testing.T) {
 	}
 }
 
+func TestCompletionFollowsUntrackedVersionMarker(t *testing.T) {
+	for _, tt := range orderedCompletionTypeURLs {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := newTestCompletionCallbacks()
+			wg, comp := newTestCompletion(t)
+
+			registerTypeVersionCompletion(t, cb, comp, tt.typeURL, "version-1")
+			marker, completeUnsent := cb.AddTypeVersionMarker("version-2", tt.typeURL, "node-1", true, nil)
+			require.NotNil(t, marker)
+			require.False(t, completeUnsent)
+
+			sendTypeVersionResponse(cb, tt.typeURL, "version-2")
+			ackTypeVersionResponse(t, cb, tt.typeURL, "version-2")
+
+			require.Zero(t, cb.PendingCompletionCount())
+			require.NoError(t, wg.Wait())
+		})
+	}
+}
+
+func TestRemoveUnpublishedTypeVersionMarker(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	_, comp := newTestCompletion(t)
+	registerTypeVersionCompletion(t, cb, comp, listenerTypeURL, "version-1")
+
+	marker, completeUnsent := cb.AddTypeVersionMarker("version-2", listenerTypeURL, "node-1", true, nil)
+	require.NotNil(t, marker)
+	require.False(t, completeUnsent)
+
+	key := completionsOrderKey("node-1", listenerTypeURL)
+	require.Len(t, *cb.completionsOrders[key], 2)
+	cb.RemoveTypeVersionMarker(marker)
+	require.Len(t, *cb.completionsOrders[key], 1)
+	require.Equal(t, "version-1", (*cb.completionsOrders[key])[0].version)
+}
+
+func TestWaitCancellationRemovesCompletionAndVersionMarkers(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	ctx, cancel := context.WithCancel(context.Background())
+	wg := completion.NewWaitGroup(ctx)
+	t.Cleanup(wg.Cancel)
+	comp := wg.AddCompletionWithCallback(
+		cb.NewTypeVersionCompletionOwner("node-1", listenerTypeURL, "version-1"),
+		nil,
+	)
+	registerTypeVersionCompletion(t, cb, comp, listenerTypeURL, "version-1")
+
+	for _, version := range []string{"version-2", "version-3", "version-4"} {
+		marker, completeUnsent := cb.AddTypeVersionMarker(version, listenerTypeURL, "node-1", true, nil)
+		require.NotNil(t, marker)
+		require.False(t, completeUnsent)
+	}
+
+	cancel()
+	require.ErrorIs(t, wg.Wait(), context.Canceled)
+	require.Zero(t, cb.PendingCompletionCount())
+	_, exists := cb.completionsOrders[completionsOrderKey("node-1", listenerTypeURL)]
+	require.False(t, exists)
+}
+
+func TestUntrackedAlreadyAcceptedVersionCompletesUnsentUpdates(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+
+	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-2")
+	registerTypeVersionCompletion(t, cb, comp, listenerTypeURL, "version-1")
+
+	marker, completeUnsent := cb.AddTypeVersionMarker("version-2", listenerTypeURL, "node-1", true, nil)
+	require.Nil(t, marker)
+	require.True(t, completeUnsent)
+
+	cb.CompleteUnsentPendingCompletions("node-1", listenerTypeURL, nil)
+	require.Zero(t, cb.PendingCompletionCount())
+	require.NoError(t, wg.Wait())
+}
+
 func TestNACKRevertsAllCoalescedUpdates(t *testing.T) {
 	cb := newTestCompletionCallbacks()
 	reverted := make([]string, 0, 3)
