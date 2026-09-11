@@ -352,7 +352,7 @@ Migrating network policies in practice
 
 The command ``cilium clustermesh inspect-policy-default-local-cluster --all-namespaces`` can help you
 discover all the policies that will change as a result of changing ``policy-default-local-cluster``.
-You can also replace ``--all-namespaces`` with ``-n my-namespace`` if you want to only inspect
+You can also replace ``--all-namespaces`` with ``-p my-namespace`` if you want to only inspect
 policies from a particular namespace.
 
 Below is an example where there is one network policy that needs to be updated:

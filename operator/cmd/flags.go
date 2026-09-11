@@ -183,21 +183,11 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableCiliumClusterwideNetworkPolicy)
 	option.BindEnv(vp, option.EnableCiliumClusterwideNetworkPolicy)
 
-	// Options used for policy validation
-
-	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
-	option.BindEnv(vp, option.EnableL7Proxy)
-
-	flags.Bool(option.EnableICMPRules, defaults.EnableICMPRules, "Enable ICMP-based rule support for Cilium Network Policies")
-	flags.MarkHidden(option.EnableICMPRules)
-	option.BindEnv(vp, option.EnableICMPRules)
-
-	flags.Bool(option.EnableNodeSelectorLabels, defaults.EnableNodeSelectorLabels, "Enable use of node label based identity")
-	option.BindEnv(vp, option.EnableNodeSelectorLabels)
-
 	flags.Bool(option.EnableCiliumNodeCRDName, defaults.EnableCiliumNodeCRD, "Enable CiliumNode CRD")
 	flags.MarkHidden(option.EnableCiliumNodeCRDName)
 	option.BindEnv(vp, option.EnableCiliumNodeCRDName)
+
+	option.RegisterCommonPolicyFlags(vp, flags)
 
 	vp.BindPFlags(flags)
 }
