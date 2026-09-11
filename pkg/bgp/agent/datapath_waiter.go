@@ -6,7 +6,6 @@ package agent
 import (
 	"context"
 
-	loadertypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -18,26 +17,28 @@ type DatapathWaiter interface {
 }
 
 // datapathWaiter is the production implementation of DatapathWaiter. It waits
-// for the host datapath BPF programs to be attached (via Loader) and for the
-// load-balancing BPF maps to be populated (via InitWaitFunc).
+// for the host datapath BPF programs to be attached and for the load-balancing
+// BPF maps to be populated (via InitWaitFunc).
 type datapathWaiter struct {
-	loader     loadertypes.Loader
-	lbInitWait loadbalancer.InitWaitFunc
+	// hostDatapathInitialized is closed when the host datapath BPF programs
+	// are attached. It comes from Loader.HostDatapathInitialized().
+	hostDatapathInitialized <-chan struct{}
+	lbInitWait              loadbalancer.InitWaitFunc
 }
 
 // NewDatapathWaiter returns a DatapathWaiter that waits for the host datapath
 // and load-balancing state to be initialized before BGP route announcements
 // are allowed.
-func NewDatapathWaiter(loader loadertypes.Loader, lbInitWait loadbalancer.InitWaitFunc) DatapathWaiter {
+func NewDatapathWaiter(hostDatapathInitialized <-chan struct{}, lbInitWait loadbalancer.InitWaitFunc) DatapathWaiter {
 	return &datapathWaiter{
-		loader:     loader,
-		lbInitWait: lbInitWait,
+		hostDatapathInitialized: hostDatapathInitialized,
+		lbInitWait:              lbInitWait,
 	}
 }
 
 func (w *datapathWaiter) Wait(ctx context.Context) error {
 	select {
-	case <-w.loader.HostDatapathInitialized():
+	case <-w.hostDatapathInitialized:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
