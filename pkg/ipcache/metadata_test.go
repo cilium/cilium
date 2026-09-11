@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache/types"
-	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
+	k8ssynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -678,19 +679,19 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 func TestAllMetadata(t *testing.T) {
 	s := setupIPCacheTestSuite(t)
 
-	tp1 := ipcachetypes.TunnelPeer{Addr: netip.MustParseAddr("1.1.1.1")}
-	tp2 := ipcachetypes.TunnelPeer{Addr: netip.MustParseAddr("1.1.1.2")}
+	tp1 := types.TunnelPeer{Addr: netip.MustParseAddr("1.1.1.1")}
+	tp2 := types.TunnelPeer{Addr: netip.MustParseAddr("1.1.1.2")}
 
-	ec1 := ipcachetypes.EncryptKey(1)
-	ec2 := ipcachetypes.EncryptKey(2)
+	ec1 := types.EncryptKey(1)
+	ec2 := types.EncryptKey(2)
 
-	ri1 := ipcachetypes.RequestedIdentity(1)
-	ri2 := ipcachetypes.RequestedIdentity(2)
+	ri1 := types.RequestedIdentity(1)
+	ri2 := types.RequestedIdentity(2)
 
-	epf1 := ipcachetypes.EndpointFlags{}
+	epf1 := types.EndpointFlags{}
 	epf1.SetRemoteCluster(true)
 
-	epf2 := ipcachetypes.EndpointFlags{}
+	epf2 := types.EndpointFlags{}
 	epf2.SetSkipTunnel(true)
 
 	steps := []struct {
@@ -852,7 +853,7 @@ func TestAllMetadata(t *testing.T) {
 			},
 		},
 		{
-			del:    ipcachetypes.AllMetadata{},
+			del:    types.AllMetadata{},
 			result: nil,
 		},
 	}
@@ -981,6 +982,44 @@ func TestHandleLabelInjection(t *testing.T) {
 	require.Contains(t, ipc.ipToIdentityCache, inClusterPrefix.String())
 	require.Contains(t, ipc.ipToIdentityCache, inClusterPrefix2.String())
 	require.NoError(t, err)
+}
+
+func TestHandleLabelInjectionWaitsForRegisteredSyncs(t *testing.T) {
+	s := setupIPCacheTestSuite(t)
+	ipc := s.IPIdentityCache
+	cacheStatus := make(k8ssynced.CacheStatus)
+	nodeObserverSynced := make(chan struct{})
+	ipc.RegisterSync(cacheStatus)
+	ipc.RegisterSync(nodeObserverSynced)
+	require.False(t, ipc.synchronized())
+
+	done := make(chan error, 1)
+	go func() {
+		done <- ipc.handleLabelInjection(t.Context())
+	}()
+
+	select {
+	case <-done:
+		require.FailNow(t, "metadata injection completed before cache synchronization")
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	close(cacheStatus)
+	require.False(t, ipc.synchronized())
+	select {
+	case <-done:
+		require.FailNow(t, "metadata injection completed before node observer synchronization")
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	close(nodeObserverSynced)
+	require.True(t, ipc.synchronized())
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		require.FailNow(t, "metadata injection did not complete after initial synchronization")
+	}
 }
 
 func TestMetadataRevision(t *testing.T) {

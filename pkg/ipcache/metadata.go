@@ -12,6 +12,7 @@ import (
 	"maps"
 	"net"
 	"net/netip"
+	"slices"
 	"sync"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -369,8 +370,8 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []cmtyp
 		return modifiedPrefixes, ErrLocalIdentityAllocatorUninitialized
 	}
 
-	if !ipc.Configuration.CacheStatus.Synchronized() {
-		return modifiedPrefixes, errors.New("k8s cache not fully synced")
+	if !ipc.synchronized() {
+		return modifiedPrefixes, errors.New("ipcache prerequisites not fully synced")
 	}
 
 	type ipcacheEntry struct {
@@ -996,14 +997,14 @@ var chunkSize = 512
 // handleLabelInjection dequeues the set of pending prefixes and processes
 // their metadata updates
 func (ipc *IPCache) handleLabelInjection(ctx context.Context) error {
-	if ipc.Configuration.CacheStatus != nil {
-		// wait for k8s caches to sync.
-		// this is duplicated from doInjectLabels(), but it keeps us from needlessly
-		// churning the queue while the agent initializes.
+	ipc.syncsMu.Lock()
+	syncs := slices.Clone(ipc.syncs)
+	ipc.syncsMu.Unlock()
+	for _, ch := range syncs {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ipc.Configuration.CacheStatus:
+		case <-ch:
 		}
 	}
 
