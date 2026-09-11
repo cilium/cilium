@@ -1807,7 +1807,7 @@
    * - :spelling:ignore:`envoy.prometheus`
      - Configure Cilium Envoy Prometheus options. Note that some of these apply to either cilium-agent or cilium-envoy.
      - object
-     - ``{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null}}``
+     - ``{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"attachMetadata":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null}}``
    * - :spelling:ignore:`envoy.prometheus.enabled`
      - Enable prometheus metrics for cilium-envoy
      - bool
@@ -1818,6 +1818,10 @@
      - ``"9964"``
    * - :spelling:ignore:`envoy.prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor cilium-envoy
+     - object
+     - ``{}``
+   * - :spelling:ignore:`envoy.prometheus.serviceMonitor.attachMetadata`
+     - Attach node metadata to the discovered targets, making node labels and annotations available as relabeling sources. Requires the Prometheus service account to be able to list and watch nodes. E.g. attachMetadata: {node: true}
      - object
      - ``{}``
    * - :spelling:ignore:`envoy.prometheus.serviceMonitor.enabled`
@@ -2159,7 +2163,7 @@
    * - :spelling:ignore:`hubble.metrics`
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"dynamic":{"config":{"configMapName":"cilium-dynamic-metrics-config","content":[],"createConfigMap":true},"enabled":false},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
+     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"dynamic":{"config":{"configMapName":"cilium-dynamic-metrics-config","content":[],"createConfigMap":true},"enabled":false},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"attachMetadata":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
    * - :spelling:ignore:`hubble.metrics.dashboards`
      - Grafana dashboards for hubble grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
      - object
@@ -2194,6 +2198,10 @@
      - ``{}``
    * - :spelling:ignore:`hubble.metrics.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor hubble
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.metrics.serviceMonitor.attachMetadata`
+     - Attach node metadata to the discovered targets, making node labels and annotations available as relabeling sources. Requires the Prometheus service account to be able to list and watch nodes. E.g. attachMetadata: {node: true}
      - object
      - ``{}``
    * - :spelling:ignore:`hubble.metrics.serviceMonitor.enabled`
@@ -3559,9 +3567,13 @@
    * - :spelling:ignore:`operator.prometheus`
      - Enable prometheus metrics for cilium-operator on the configured port at /metrics
      - object
-     - ``{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"tls":{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}}``
+     - ``{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"attachMetadata":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"tls":{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}}``
    * - :spelling:ignore:`operator.prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor cilium-operator
+     - object
+     - ``{}``
+   * - :spelling:ignore:`operator.prometheus.serviceMonitor.attachMetadata`
+     - Attach node metadata to the discovered targets, making node labels and annotations available as relabeling sources. Requires the Prometheus service account to be able to list and watch nodes. E.g. attachMetadata: {node: true}
      - object
      - ``{}``
    * - :spelling:ignore:`operator.prometheus.serviceMonitor.enabled`
@@ -3823,7 +3835,7 @@
    * - :spelling:ignore:`prometheus`
      - Configure prometheus metrics on the configured port at /metrics
      - object
-     - ``{"controllerGroupMetrics":["write-cni-file","sync-host-ips","sync-lb-maps-with-k8s-services"],"enabled":false,"metrics":null,"metricsService":false,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"trustCRDsExist":false}}``
+     - ``{"controllerGroupMetrics":["write-cni-file","sync-host-ips","sync-lb-maps-with-k8s-services"],"enabled":false,"metrics":null,"metricsService":false,"port":9962,"serviceMonitor":{"annotations":{},"attachMetadata":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"trustCRDsExist":false}}``
    * - :spelling:ignore:`prometheus.controllerGroupMetrics`
      - - Enable controller group metrics for monitoring specific Cilium subsystems. The list is a list of controller group names. The special values of "all" and "none" are supported. The set of controller group names is not guaranteed to be stable between Cilium versions.
      - list
@@ -3834,6 +3846,10 @@
      - ``nil``
    * - :spelling:ignore:`prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor cilium-agent
+     - object
+     - ``{}``
+   * - :spelling:ignore:`prometheus.serviceMonitor.attachMetadata`
+     - Attach node metadata to the discovered targets, making node labels and annotations available as relabeling sources. Requires the Prometheus service account to be able to list and watch nodes. E.g. attachMetadata: {node: true}
      - object
      - ``{}``
    * - :spelling:ignore:`prometheus.serviceMonitor.enabled`
