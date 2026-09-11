@@ -154,7 +154,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -221,6 +221,15 @@ jobs:
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"
+
+      # Only a trusted event may publish a cache entry, since this job compiles
+      # and runs the pull request's own code.
+      - name: Store Golang cache build in GitHub
+        if: ${{ ( github.event_name == 'push' || github.event_name == 'schedule' ) && steps.go-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/.cache/go
+          key: ${{ steps.go-cache.outputs.cache-primary-key }}
 
   merge-upload:
     if: ${{ always() }}
