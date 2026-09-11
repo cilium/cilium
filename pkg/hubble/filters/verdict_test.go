@@ -10,11 +10,12 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestVerdictFilter(t *testing.T) {
 	ev := &v1.Event{
-		Event: &flowpb.Flow{
+		Event: &ir.Flow{
 			Verdict: flowpb.Verdict_FORWARDED,
 		},
 	}

@@ -13,6 +13,7 @@ import (
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser/agent"
 	"github.com/cilium/cilium/pkg/hubble/parser/debug"
@@ -114,12 +115,12 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 			return nil, errors.ErrEmptyData
 		}
 
-		flow := &pb.Flow{
-			Emitter: &pb.Emitter{
+		flow := ir.Flow{
+			Emitter: ir.Emitter{
 				Name:    v1.FlowEmitter,
 				Version: v1.FlowEmitterVersion,
 			},
-			Uuid: monitorEvent.UUID.String(),
+			UUID: monitorEvent.UUID.String(),
 		}
 		switch payload.Data[0] {
 		case monitorAPI.MessageTypeDebug:
@@ -133,42 +134,42 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 			ev.Event = dbg
 			return ev, nil
 		case monitorAPI.MessageTypeTraceSock:
-			if err := p.sock.Decode(payload.Data, flow); err != nil {
+			if err := p.sock.Decode(payload.Data, &flow); err != nil {
 				return nil, err
 			}
 		default:
-			if err := p.l34.Decode(payload.Data, flow); err != nil {
+			if err := p.l34.Decode(payload.Data, &flow); err != nil {
 				return nil, err
 			}
 		}
 		// FIXME: Time and NodeName are now part of GetFlowsResponse. We
 		// populate these fields for compatibility with old clients.
-		flow.Time = ts
+		flow.Time = monitorEvent.Timestamp
 		flow.NodeName = monitorEvent.NodeName
-		ev.Event = flow
+		ev.Event = &flow
 		return ev, nil
 	case *observerTypes.AgentEvent:
 		switch payload.Type {
 		case monitorAPI.MessageTypeAccessLog:
-			flow := &pb.Flow{
-				Emitter: &pb.Emitter{
+			flow := ir.Flow{
+				Emitter: ir.Emitter{
 					Name:    v1.FlowEmitter,
 					Version: v1.FlowEmitterVersion,
 				},
-				Uuid: monitorEvent.UUID.String(),
+				UUID: monitorEvent.UUID.String(),
 			}
 			logrecord, ok := payload.Message.(accesslog.LogRecord)
 			if !ok {
 				return nil, errors.ErrInvalidAgentMessageType
 			}
-			if err := p.l7.Decode(&logrecord, flow); err != nil {
+			if err := p.l7.Decode(&logrecord, &flow); err != nil {
 				return nil, err
 			}
 			// FIXME: Time and NodeName are now part of GetFlowsResponse. We
 			// populate these fields for compatibility with old clients.
-			flow.Time = ts
+			flow.Time = monitorEvent.Timestamp
 			flow.NodeName = monitorEvent.NodeName
-			ev.Event = flow
+			ev.Event = &flow
 			return ev, nil
 		case monitorAPI.MessageTypeAgent:
 			agentNotifyMessage, ok := payload.Message.(monitorAPI.AgentNotifyMessage)

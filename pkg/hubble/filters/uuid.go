@@ -13,11 +13,14 @@ import (
 
 func filterByUUID(uuids []string) FilterFunc {
 	return func(ev *v1.Event) bool {
+		if ev == nil {
+			return false
+		}
 		flow := ev.GetFlow()
 		if flow == nil {
 			return false
 		}
-		return slices.Contains(uuids, flow.GetUuid())
+		return slices.Contains(uuids, flow.UUID)
 	}
 }
 

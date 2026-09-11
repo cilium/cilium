@@ -15,15 +15,39 @@ import (
 )
 
 func sourceIP(ev *v1.Event) string {
-	return ev.GetFlow().GetIP().GetSource()
+	if ev == nil {
+		return ""
+	}
+	fl := ev.GetFlow()
+	if fl == nil {
+		return ""
+	}
+
+	return fl.IP.Source
 }
 
 func destinationIP(ev *v1.Event) string {
-	return ev.GetFlow().GetIP().GetDestination()
+	if ev == nil {
+		return ""
+	}
+	fl := ev.GetFlow()
+	if fl == nil {
+		return ""
+	}
+
+	return fl.IP.Destination
 }
 
 func sourceIPXlated(ev *v1.Event) string {
-	return ev.GetFlow().GetIP().GetSourceXlated()
+	if ev == nil {
+		return ""
+	}
+	fl := ev.GetFlow()
+	if fl == nil {
+		return ""
+	}
+
+	return fl.IP.SourceXlated
 }
 
 func filterByIPs(ips []string, getIP func(*v1.Event) string) (FilterFunc, error) {
@@ -112,7 +136,7 @@ func filterByIPVersion(ipver []flowpb.IPVersion) FilterFunc {
 		if flow == nil {
 			return false
 		}
-		return slices.Contains(ipver, flow.GetIP().GetIpVersion())
+		return slices.Contains(ipver, flow.IP.IPVersion)
 	}
 }
 

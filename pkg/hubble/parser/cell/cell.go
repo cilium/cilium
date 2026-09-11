@@ -13,12 +13,12 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hubble/parser"
+	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	hubbleGetters "github.com/cilium/cilium/pkg/hubble/parser/getters"
 	parserOptions "github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/identity"
@@ -162,9 +162,9 @@ func (h *payloadGetters) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
 
 // GetServiceByAddr implements ServiceGetter. It looks up service by IP/port.
 // Hubble uses this function to annotate flows with service information.
-func (h *payloadGetters) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
+func (h *payloadGetters) GetServiceByAddr(ip netip.Addr, port uint16) getters.FQN {
 	if !ip.IsValid() {
-		return nil
+		return getters.BlankFQN
 	}
 	addrCluster := cmtypes.AddrClusterFrom(ip, 0)
 	txn := h.db.ReadTxn()
@@ -173,10 +173,8 @@ func (h *payloadGetters) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Se
 		fe, found = loadbalancer.LookupFrontendByTuple(txn, h.frontends, addrCluster, loadbalancer.UDP, port, loadbalancer.ScopeExternal)
 	}
 	if !found {
-		return nil
+		return getters.BlankFQN
 	}
-	return &flowpb.Service{
-		Namespace: fe.ServiceName.Namespace(),
-		Name:      fe.ServiceName.Name(),
-	}
+
+	return getters.NewFQN(fe.ServiceName.Namespace(), fe.ServiceName.Name())
 }
