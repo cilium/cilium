@@ -90,6 +90,14 @@ type IPKeyPair struct {
 	Key uint8
 }
 
+// K8sWorkload identifies the Kubernetes workload which owns a Pod.
+type K8sWorkload struct {
+	// Name is the name of the workload.
+	Name string
+	// Kind is the kind of the workload, such as Deployment or StatefulSet.
+	Kind string
+}
+
 // K8sMetadata contains Kubernetes pod information of the IP
 type K8sMetadata struct {
 	// Namespace is the Kubernetes namespace of the pod behind the IP
@@ -98,8 +106,35 @@ type K8sMetadata struct {
 	PodName string
 	// PodUID is the Kubernetes pod UID behind the IP
 	PodUID string
+	// Workload identifies the Kubernetes workload which owns the pod
+	Workload *K8sWorkload
 	// NamedPorts is the set of named ports for the pod
 	NamedPorts types.NamedPortMap
+}
+
+// Equal returns true if two K8sMetadata pointers contain the same data or are
+// both nil.
+func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
+	if m == o {
+		return true
+	} else if m == nil || o == nil {
+		return false
+	}
+	if len(m.NamedPorts) != len(o.NamedPorts) {
+		return false
+	}
+	for k, v := range m.NamedPorts {
+		if v2, ok := o.NamedPorts[k]; !ok || v != v2 {
+			return false
+		}
+	}
+	if (m.Workload == nil) != (o.Workload == nil) {
+		return false
+	}
+	if m.Workload != nil && *m.Workload != *o.Workload {
+		return false
+	}
+	return m.Namespace == o.Namespace && m.PodName == o.PodName && m.PodUID == o.PodUID
 }
 
 // Configuration is init-time configuration for the IPCache.
@@ -971,23 +1006,4 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 		}
 	}
 	return cidrs
-}
-
-// Equal returns true if two K8sMetadata pointers contain the same data or are
-// both nil.
-func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
-	if m == o {
-		return true
-	} else if m == nil || o == nil {
-		return false
-	}
-	if len(m.NamedPorts) != len(o.NamedPorts) {
-		return false
-	}
-	for k, v := range m.NamedPorts {
-		if v2, ok := o.NamedPorts[k]; !ok || v != v2 {
-			return false
-		}
-	}
-	return m.Namespace == o.Namespace && m.PodName == o.PodName && m.PodUID == o.PodUID
 }

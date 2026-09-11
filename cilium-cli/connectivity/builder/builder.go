@@ -259,6 +259,7 @@ func connDisruptTests(ct *check.ConnectivityTest) error {
 func concurrentTests(connTests []*check.ConnectivityTest) error {
 	tests := []testBuilder{
 		noPolicies{},
+		hubbleWorkload{},
 		noPoliciesFromOutside{},
 		noPoliciesExtra{},
 		allowAllExceptWorld{},

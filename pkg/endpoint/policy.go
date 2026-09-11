@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -1234,8 +1235,14 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				k8sPodUID := e.GetK8sPodUID()
 
 				k8sServiceAccount := ""
+				k8sWorkloadName := ""
+				k8sWorkloadKind := ""
 				if pod := e.GetPod(); pod != nil {
 					k8sServiceAccount = pod.Spec.ServiceAccountName
+					if workloadMeta, workloadTypeMeta, ok := k8sUtils.GetWorkloadMetaFromPod(pod); ok {
+						k8sWorkloadName = workloadMeta.Name
+						k8sWorkloadKind = workloadTypeMeta.Kind
+					}
 				}
 
 				// Release lock as we do not want to have long-lasting key-value
@@ -1251,6 +1258,8 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					K8sNamespace:      k8sNamespace,
 					K8sPodName:        k8sPodName,
 					K8sPodUID:         k8sPodUID,
+					K8sWorkloadName:   k8sWorkloadName,
+					K8sWorkloadKind:   k8sWorkloadKind,
 					K8sServiceAccount: k8sServiceAccount,
 					NPM:               e.GetK8sPorts(),
 				}

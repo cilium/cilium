@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -18,7 +19,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-func TestResolveEndpointPodUID(t *testing.T) {
+func TestResolveEndpointPodMetadata(t *testing.T) {
 	ip := netip.MustParseAddr("10.0.0.1")
 
 	t.Run("local endpoint", func(t *testing.T) {
@@ -54,7 +55,13 @@ func TestResolveEndpointPodUID(t *testing.T) {
 	t.Run("remote endpoint", func(t *testing.T) {
 		ipGetter := &testutils.FakeIPGetter{
 			OnGetK8sMetadata: func(netip.Addr) *ipcache.K8sMetadata {
-				return &ipcache.K8sMetadata{PodUID: "remote-pod-uid"}
+				return &ipcache.K8sMetadata{
+					PodUID: "remote-pod-uid",
+					Workload: &ipcache.K8sWorkload{
+						Name: "remote-workload",
+						Kind: "Deployment",
+					},
+				}
 			},
 			OnLookupSecIDByIP: func(netip.Addr) (ipcache.Identity, bool) {
 				return ipcache.Identity{}, false
@@ -65,6 +72,7 @@ func TestResolveEndpointPodUID(t *testing.T) {
 		endpoint := resolver.ResolveEndpoint(ip, 0, DatapathContext{})
 
 		assert.Equal(t, "remote-pod-uid", endpoint.GetPodUid())
+		assert.Equal(t, []*flowpb.Workload{{Name: "remote-workload", Kind: "Deployment"}}, endpoint.GetWorkloads())
 	})
 
 	t.Run("unknown UID", func(t *testing.T) {

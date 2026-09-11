@@ -78,7 +78,12 @@ func GetWorkloadMetaFromPod(pod *slim_corev1.Pod) (slim_metav1.ObjectMeta, slim_
 				// https://github.com/openshift/library-go/blob/7a65fdb398e28782ee1650959a5e0419121e97ae/pkg/apps/appsutil/const.go#L25
 				workloadObjectMeta.Name = pod.Labels["deploymentconfig"]
 				typeMetadata.Kind = "DeploymentConfig"
-				delete(workloadObjectMeta.Labels, "deploymentconfig")
+				// The label is only used to identify the parent DeploymentConfig, so it
+				// would ideally be omitted from the returned workload metadata. However,
+				// workloadObjectMeta is a shallow copy and shares its Labels map with the
+				// input Pod. Deleting the label would mutate the Pod, while cloning the map
+				// would allocate on every workload lookup. Keep it because callers only
+				// use the derived Name and Kind.
 			} else if typeMetadata.Kind == "Job" {
 				// If job name suffixed with `-<digit-timestamp>`, where the length of digit timestamp is 8~10,
 				// trim the suffix and set kind to cron job.
