@@ -64,7 +64,9 @@ func (m *listenerProxyUpdaterMock) PolicyDebug(string, ...any) {}
 
 func (m *listenerProxyUpdaterMock) IsHost() bool { return false }
 
-func (m *listenerProxyUpdaterMock) PreviousMapState() *policy.MapState { return nil }
+func (m *listenerProxyUpdaterMock) PreviousMapStateSizes() policy.MapStateSizes {
+	return policy.MapStateSizes{}
+}
 
 func (m *listenerProxyUpdaterMock) RegenerateIfAlive(*regeneration.ExternalRegenerationMetadata) <-chan bool {
 	ch := make(chan bool)

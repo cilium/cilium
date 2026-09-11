@@ -512,8 +512,8 @@ func (o *dummyPolicyOwner) IsHost() bool {
 	return o.ep.IsHost()
 }
 
-func (o *dummyPolicyOwner) PreviousMapState() *policy.MapState {
-	return o.ep.PreviousMapState()
+func (o *dummyPolicyOwner) PreviousMapStateSizes() policy.MapStateSizes {
+	return o.ep.PreviousMapStateSizes()
 }
 
 func (o *dummyPolicyOwner) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
