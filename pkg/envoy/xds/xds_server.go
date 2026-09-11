@@ -102,13 +102,37 @@ func NewResources() Resources {
 	}
 }
 
-// DeepCopy returns a copy of the Resources with cloned maps.
-// Protobuf values are shared (not deep-copied) since they are treated as immutable once published.
-func cloneOrInit[K comparable, V any](m map[K]V) map[K]V {
-	if m == nil {
-		return make(map[K]V)
+func cloneMapOrInit[K comparable, V any](source map[K]V) map[K]V {
+	cloned := maps.Clone(source)
+	if cloned == nil {
+		cloned = make(map[K]V)
 	}
-	return maps.Clone(m)
+	return cloned
+}
+
+// CloneListeners returns a shallow copy of r with a cloned, initialized
+// Listeners map. All other maps and the protobuf values remain shared.
+func (r *Resources) CloneListeners() *Resources {
+	cloned := *r
+	cloned.Listeners = cloneMapOrInit(r.Listeners)
+	return &cloned
+}
+
+// CloneNetworkPolicies returns a shallow copy of r with a cloned, initialized
+// NetworkPolicies map. All other maps and the protobuf values remain shared.
+func (r *Resources) CloneNetworkPolicies() *Resources {
+	cloned := *r
+	cloned.NetworkPolicies = cloneMapOrInit(r.NetworkPolicies)
+	return &cloned
+}
+
+// CloneNetworkPolicyHosts returns a shallow copy of r with a cloned,
+// initialized NetworkPolicyHosts map. All other maps and the protobuf values
+// remain shared.
+func (r *Resources) CloneNetworkPolicyHosts() *Resources {
+	cloned := *r
+	cloned.NetworkPolicyHosts = cloneMapOrInit(r.NetworkPolicyHosts)
+	return &cloned
 }
 
 // DebugInfo returns aggregated info about the underlying envoy resources in the object
@@ -138,22 +162,6 @@ func (r *Resources) DebugInfo() string {
 	}
 
 	return strings.Join(resourcesInfo, ", ")
-}
-
-func (r *Resources) DeepCopy() *Resources {
-	if r == nil {
-		return nil
-	}
-	return &Resources{
-		Listeners:               cloneOrInit(r.Listeners),
-		Secrets:                 cloneOrInit(r.Secrets),
-		Routes:                  cloneOrInit(r.Routes),
-		Clusters:                cloneOrInit(r.Clusters),
-		Endpoints:               cloneOrInit(r.Endpoints),
-		NetworkPolicies:         cloneOrInit(r.NetworkPolicies),
-		NetworkPolicyHosts:      cloneOrInit(r.NetworkPolicyHosts),
-		PortAllocationCallbacks: cloneOrInit(r.PortAllocationCallbacks),
-	}
 }
 
 // ListenersAddedOrDeleted returns 'true' if a listener is added or removed when updating from 'old'

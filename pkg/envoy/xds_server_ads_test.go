@@ -6,7 +6,9 @@ package envoy
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"os"
+	"reflect"
 	"sync/atomic"
 	"testing"
 
@@ -143,6 +145,10 @@ func (c *countingADSCache) UpdateSnapshot(ctx context.Context, nodeID string, sn
 func (c *countingADSCache) reset() {
 	c.generated.Store(0)
 	c.published.Store(0)
+}
+
+func mapIdentity[K comparable, V any](m map[K]V) uintptr {
+	return reflect.ValueOf(m).Pointer()
 }
 
 func TestNewADSServer(t *testing.T) {
@@ -419,7 +425,14 @@ func TestComputeChangesUsesProtoEquality(t *testing.T) {
 	current.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 1}
 	current.NetworkPolicyHosts["hosts"] = &cilium.NetworkPolicyHosts{}
 
-	equal := current.DeepCopy()
+	equal := current
+	equal.Listeners = maps.Clone(current.Listeners)
+	equal.Routes = maps.Clone(current.Routes)
+	equal.Clusters = maps.Clone(current.Clusters)
+	equal.Endpoints = maps.Clone(current.Endpoints)
+	equal.Secrets = maps.Clone(current.Secrets)
+	equal.NetworkPolicies = maps.Clone(current.NetworkPolicies)
+	equal.NetworkPolicyHosts = maps.Clone(current.NetworkPolicyHosts)
 	equal.Listeners["listener"] = proto.Clone(current.Listeners["listener"]).(*envoy_config_listener.Listener)
 	equal.Routes["route"] = proto.Clone(current.Routes["route"]).(*envoy_config_route.RouteConfiguration)
 	equal.Clusters["cluster"] = proto.Clone(current.Clusters["cluster"]).(*envoy_config_cluster.Cluster)
@@ -428,7 +441,7 @@ func TestComputeChangesUsesProtoEquality(t *testing.T) {
 	equal.NetworkPolicies["policy"] = proto.Clone(current.NetworkPolicies["policy"]).(*cilium.NetworkPolicy)
 	equal.NetworkPolicyHosts["hosts"] = proto.Clone(current.NetworkPolicyHosts["hosts"]).(*cilium.NetworkPolicyHosts)
 
-	changes := computeChanges(&current, equal)
+	changes := computeChanges(&current, &equal)
 	require.Empty(t, changes.listeners)
 	require.Empty(t, changes.routes)
 	require.Empty(t, changes.clusters)
@@ -437,13 +450,16 @@ func TestComputeChangesUsesProtoEquality(t *testing.T) {
 	require.Empty(t, changes.networkPolicies)
 	require.Empty(t, changes.networkPolicyHosts)
 
-	changed := equal.DeepCopy()
+	changed := equal
+	changed.Listeners = maps.Clone(equal.Listeners)
+	changed.Secrets = maps.Clone(equal.Secrets)
+	changed.NetworkPolicies = maps.Clone(equal.NetworkPolicies)
 	changed.NetworkPolicies["policy"] = proto.Clone(equal.NetworkPolicies["policy"]).(*cilium.NetworkPolicy)
 	changed.NetworkPolicies["policy"].EndpointId = 2
 	changed.Listeners["added"] = &envoy_config_listener.Listener{Name: "added"}
 	delete(changed.Secrets, "secret")
 
-	changes = computeChanges(equal, changed)
+	changes = computeChanges(&equal, &changed)
 	require.Equal(t, []savedEntry[*cilium.NetworkPolicy]{{
 		key:     "policy",
 		value:   equal.NetworkPolicies["policy"],
@@ -462,6 +478,58 @@ func TestComputeChangesUsesProtoEquality(t *testing.T) {
 	require.Empty(t, changes.clusters)
 	require.Empty(t, changes.endpoints)
 	require.Empty(t, changes.networkPolicyHosts)
+}
+
+func TestUpdateResourcesCopiesOnlyChangedResourceTypes(t *testing.T) {
+	current := xds.NewResources()
+	current.Listeners["old-listener"] = &envoy_config_listener.Listener{Name: "old-listener"}
+	current.Routes["route"] = &envoy_config_route.RouteConfiguration{Name: "route"}
+	current.Clusters["old-cluster"] = &envoy_config_cluster.Cluster{Name: "old-cluster"}
+	current.Endpoints["endpoint"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
+	current.Secrets["old-secret"] = &envoy_config_tls.Secret{Name: "old-secret"}
+	current.NetworkPolicies["old-policy"] = &cilium.NetworkPolicy{EndpointId: 1}
+	current.NetworkPolicyHosts["hosts"] = &cilium.NetworkPolicyHosts{}
+	current.PortAllocationCallbacks["listener"] = func(context.Context) error { return nil }
+
+	removed := xds.NewResources()
+	removed.Listeners["old-listener"] = current.Listeners["old-listener"]
+	removed.Clusters["old-cluster"] = current.Clusters["old-cluster"]
+	removed.NetworkPolicies["old-policy"] = current.NetworkPolicies["old-policy"]
+
+	upserted := xds.NewResources()
+	upserted.Listeners["new-listener"] = &envoy_config_listener.Listener{Name: "new-listener"}
+	upserted.Secrets["new-secret"] = &envoy_config_tls.Secret{Name: "new-secret"}
+	upserted.NetworkPolicies["new-policy"] = &cilium.NetworkPolicy{EndpointId: 2}
+
+	updated := updateResources(&current, &removed, &upserted)
+
+	// Each touched resource-type map is cloned once, regardless of whether it
+	// contains removals, upserts, or both.
+	require.NotEqual(t, mapIdentity(current.Listeners), mapIdentity(updated.Listeners))
+	require.NotEqual(t, mapIdentity(current.Clusters), mapIdentity(updated.Clusters))
+	require.NotEqual(t, mapIdentity(current.Secrets), mapIdentity(updated.Secrets))
+	require.NotEqual(t, mapIdentity(current.NetworkPolicies), mapIdentity(updated.NetworkPolicies))
+	require.NotContains(t, updated.Listeners, "old-listener")
+	require.Contains(t, updated.Listeners, "new-listener")
+	require.NotContains(t, updated.Clusters, "old-cluster")
+	require.Contains(t, updated.Secrets, "old-secret")
+	require.Contains(t, updated.Secrets, "new-secret")
+	require.NotContains(t, updated.NetworkPolicies, "old-policy")
+	require.Contains(t, updated.NetworkPolicies, "new-policy")
+
+	// Unaffected maps, including the non-xDS callback map, remain shared.
+	require.Equal(t, mapIdentity(current.Routes), mapIdentity(updated.Routes))
+	require.Equal(t, mapIdentity(current.Endpoints), mapIdentity(updated.Endpoints))
+	require.Equal(t, mapIdentity(current.NetworkPolicyHosts), mapIdentity(updated.NetworkPolicyHosts))
+	require.Equal(t, mapIdentity(current.PortAllocationCallbacks), mapIdentity(updated.PortAllocationCallbacks))
+
+	// Mutating the new maps must not affect the published input generation.
+	require.Contains(t, current.Listeners, "old-listener")
+	require.NotContains(t, current.Listeners, "new-listener")
+	require.Contains(t, current.Clusters, "old-cluster")
+	require.NotContains(t, current.Secrets, "new-secret")
+	require.Contains(t, current.NetworkPolicies, "old-policy")
+	require.NotContains(t, current.NetworkPolicies, "new-policy")
 }
 
 func TestUpdateEnvoyResources(t *testing.T) {
@@ -661,7 +729,8 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	resources := DEFAULT_RESOURCES.DeepCopy()
+	resources := DEFAULT_RESOURCES
+	resources.PortAllocationCallbacks = cloneMapOrInit(DEFAULT_RESOURCES.PortAllocationCallbacks)
 	var callbackCount atomic.Uint64
 	resources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
 		callbackCount.Add(1)
@@ -669,7 +738,7 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 	}
 
 	wg := completion.NewWaitGroup(ctx)
-	require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), *resources, wg))
+	require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), resources, wg))
 
 	require.Eventually(t, func() bool {
 		return cache.GetCompletionCallbacks().PendingCompletionCount() == 2
@@ -735,7 +804,10 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 	oldResources := DEFAULT_RESOURCES
 	require.NoError(t, server.UpsertEnvoyResources(ctx, oldResources, nil))
 
-	newResources := DEFAULT_RESOURCES.DeepCopy()
+	newResources := DEFAULT_RESOURCES
+	newResources.Routes = maps.Clone(DEFAULT_RESOURCES.Routes)
+	newResources.Clusters = maps.Clone(DEFAULT_RESOURCES.Clusters)
+	newResources.PortAllocationCallbacks = cloneMapOrInit(DEFAULT_RESOURCES.PortAllocationCallbacks)
 	newResources.Routes["routeConfig2"] = &envoy_config_route.RouteConfiguration{Name: "routeConfig2"}
 	newResources.Clusters["cluster2"] = &envoy_config_cluster.Cluster{
 		Name: "cluster2",
@@ -750,7 +822,7 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 	}
 
 	wg := completion.NewWaitGroup(ctx)
-	require.NoError(t, server.UpdateEnvoyResources(ctx, oldResources, *newResources, wg))
+	require.NoError(t, server.UpdateEnvoyResources(ctx, oldResources, newResources, wg))
 
 	require.NoError(t, wg.Wait())
 	require.Equal(t, uint64(0), callbackCount.Load())
@@ -1025,6 +1097,41 @@ func TestUpdateNetworkPolicyNoOpWaitsForCurrentACKWithoutPublishing(t *testing.T
 	require.Zero(t, cache.published.Load())
 	require.Same(t, resourcesBefore, cache.GetAllResources(localNodeID))
 	require.Contains(t, resourcesBefore.NetworkPolicies, "1")
+}
+
+func TestUpdateNetworkPolicyCopiesOnlyNetworkPolicies(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := xdsnew.NewCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
+	ctx := context.Background()
+
+	resources := xds.NewResources()
+	resources.NetworkPolicies["1"] = &cilium.NetworkPolicy{
+		EndpointId:  1,
+		EndpointIps: []string{"192.0.2.1"},
+	}
+	require.NoError(t, server.UpsertEnvoyResources(ctx, resources, nil))
+	resourcesBefore := cache.GetAllResources(localNodeID)
+	oldPolicy := resourcesBefore.NetworkPolicies["1"]
+
+	ep := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
+	epp := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+	err, _, _ := server.UpdateNetworkPolicy(ctx, ep, epp, nil)
+	require.NoError(t, err)
+
+	resourcesAfter := cache.GetAllResources(localNodeID)
+	require.NotSame(t, resourcesBefore, resourcesAfter)
+	require.NotEqual(t, mapIdentity(resourcesBefore.NetworkPolicies), mapIdentity(resourcesAfter.NetworkPolicies))
+	require.Same(t, oldPolicy, resourcesBefore.NetworkPolicies["1"])
+	require.False(t, proto.Equal(oldPolicy, resourcesAfter.NetworkPolicies["1"]))
+
+	require.Equal(t, mapIdentity(resourcesBefore.Listeners), mapIdentity(resourcesAfter.Listeners))
+	require.Equal(t, mapIdentity(resourcesBefore.Routes), mapIdentity(resourcesAfter.Routes))
+	require.Equal(t, mapIdentity(resourcesBefore.Clusters), mapIdentity(resourcesAfter.Clusters))
+	require.Equal(t, mapIdentity(resourcesBefore.Endpoints), mapIdentity(resourcesAfter.Endpoints))
+	require.Equal(t, mapIdentity(resourcesBefore.Secrets), mapIdentity(resourcesAfter.Secrets))
+	require.Equal(t, mapIdentity(resourcesBefore.NetworkPolicyHosts), mapIdentity(resourcesAfter.NetworkPolicyHosts))
+	require.Equal(t, mapIdentity(resourcesBefore.PortAllocationCallbacks), mapIdentity(resourcesAfter.PortAllocationCallbacks))
 }
 
 func TestNPDSListenerTrackingFromBulkResources(t *testing.T) {

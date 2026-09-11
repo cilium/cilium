@@ -470,7 +470,9 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 
 	t.Log("Updating Envoy resources")
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	updatedResources := ADS_RESOURCES.DeepCopy()
+	updatedResources := ADS_RESOURCES
+	updatedResources.Secrets = maps.Clone(ADS_RESOURCES.Secrets)
+	updatedResources.NetworkPolicies = maps.Clone(ADS_RESOURCES.NetworkPolicies)
 	for k := range updatedResources.Secrets {
 		delete(updatedResources.Secrets, k)
 	}
@@ -478,7 +480,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 		EndpointId:  40,
 		EndpointIps: []string{"10.0.0.9"},
 	}
-	err = xdsServer.UpdateEnvoyResources(ctx, ADS_RESOURCES, *updatedResources, s.waitGroup)
+	err = xdsServer.UpdateEnvoyResources(ctx, ADS_RESOURCES, updatedResources, s.waitGroup)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 
