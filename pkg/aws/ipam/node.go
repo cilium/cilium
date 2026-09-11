@@ -58,7 +58,9 @@ type Node struct {
 	// node contains the general purpose fields of a node
 	node ipamNodeActions
 
-	// mutex protects members below this field
+	// mutex protects members below this field. The operator's nodemanager.Node
+	// lock is always taken before mutex, so no caller may reach n.node with
+	// this mutex held.
 	mutex lock.RWMutex
 
 	// enis is the list of ENIs attached to the node indexed by ENI ID.
@@ -111,11 +113,14 @@ func (n *Node) updateLogger() {
 func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	k8sObj.Status.ENI.ENIs = map[string]types.ENI{}
 
+	// Read the instance ID before taking n.mutex, see the mutex field.
+	instanceID := n.node.InstanceID()
+
 	n.mutex.RLock()
 	usePrimary := n.usePrimaryAddress()
 	n.mutex.RUnlock()
 
-	n.foreachENI(usePrimary, func(e *types.ENI) error {
+	n.foreachENI(instanceID, usePrimary, func(e *types.ENI) error {
 		k8sObj.Status.ENI.ENIs[e.ID] = *e.DeepCopy()
 		return nil
 	})
@@ -160,10 +165,10 @@ func (n *Node) usePrimaryAddress() bool {
 //
 // fn receives a shallow copy of the inventory ENI whose Addresses slice is
 // freshly allocated when filtering; the shared inventory is never mutated.
-// This method does not take n.mutex; callers pass usePrimary computed under
-// the appropriate lock.
-func (n *Node) foreachENI(usePrimary bool, fn func(e *types.ENI) error) {
-	n.manager.ForeachInstance(n.node.InstanceID(),
+// This method does not take n.mutex; callers pass instanceID and usePrimary
+// read under the appropriate lock, or none.
+func (n *Node) foreachENI(instanceID string, usePrimary bool, fn func(e *types.ENI) error) {
+	n.manager.ForeachInstance(instanceID,
 		func(_, _ string, iface ipamTypes.Interface) error {
 			e, ok := iface.(*types.ENI)
 			if !ok {
@@ -939,6 +944,8 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 		return nil, stats, nodemanager.ErrLimitsNotFound
 	}
 
+	// Read the instance ID before taking n.mutex, see the mutex field.
+	instanceID := n.node.InstanceID()
 	available = ipamTypes.AllocationMap{}
 
 	n.mutex.Lock()
@@ -957,7 +964,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 	// * Any excluded interfaces will be subtracted from this total.
 	stats.NodeCapacity *= limits.Adapters
 
-	n.foreachENI(n.usePrimaryAddress(),
+	n.foreachENI(instanceID, n.usePrimaryAddress(),
 		func(e *types.ENI) error {
 			n.enis[e.ID] = *e
 

@@ -43,7 +43,7 @@ func TestForeachENIPrimaryAddressFiltering(t *testing.T) {
 
 	collect := func(usePrimary bool) []netip.Addr {
 		var got []netip.Addr
-		n.foreachENI(usePrimary, func(e *types.ENI) error {
+		n.foreachENI(instanceID, usePrimary, func(e *types.ENI) error {
 			for _, a := range e.Addresses {
 				got = append(got, a.Addr)
 			}
