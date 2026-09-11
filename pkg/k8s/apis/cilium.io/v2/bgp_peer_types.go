@@ -23,6 +23,12 @@ const (
 	DefaultBGPKeepAliveTimeSeconds = 30
 	// DefaultBGPGRRestartTimeSeconds defines default Restart Time for graceful restart (RFC 4724, section 4.2)
 	DefaultBGPGRRestartTimeSeconds = 120
+	// DefaultBGPBFDTransmitIntervalMilliseconds defines the default BFD transmit interval.
+	DefaultBGPBFDTransmitIntervalMilliseconds = 100
+	// DefaultBGPBFDReceiveIntervalMilliseconds defines the default BFD receive interval.
+	DefaultBGPBFDReceiveIntervalMilliseconds = 100
+	// DefaultBGPBFDDetectionMultiplier defines the default BFD detection multiplier.
+	DefaultBGPBFDDetectionMultiplier = 3
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -63,6 +69,7 @@ type CiliumBGPPeerConfig struct {
 	Status CiliumBGPPeerConfigStatus `json:"status,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!has(self.bfd) || !self.bfd.enabled || !has(self.ebgpMultihop) || self.ebgpMultihop <= 1", message="BFD is only supported for single-hop BGP peers"
 type CiliumBGPPeerConfigSpec struct {
 	// Transport defines the BGP transport parameters for the peer.
 	//
@@ -94,6 +101,14 @@ type CiliumBGPPeerConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	GracefulRestart *CiliumBGPNeighborGracefulRestart `json:"gracefulRestart,omitempty"`
 
+	// BFD defines Bidirectional Forwarding Detection parameters for this peer.
+	// BFD is only supported for single-hop BGP peers.
+	//
+	// If not specified, BFD is disabled.
+	//
+	// +kubebuilder:validation:Optional
+	BFD *CiliumBGPNeighborBFD `json:"bfd,omitempty"`
+
 	// EBGPMultihopTTL controls the multi-hop feature for eBGP peers.
 	// Its value defines the Time To Live (TTL) value used in BGP
 	// packets sent to the peer.
@@ -113,6 +128,61 @@ type CiliumBGPPeerConfigSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	Families []CiliumBGPFamilyWithAdverts `json:"families,omitempty"`
+}
+
+// CiliumBGPNeighborBFD defines BFD parameters for a BGP peer.
+type CiliumBGPNeighborBFD struct {
+	// Enabled controls whether BFD is enabled for the peer.
+	//
+	// +kubebuilder:validation:Required
+	Enabled bool `json:"enabled"`
+
+	// TransmitIntervalMilliseconds is the interval between
+	// transmitted BFD control packets.
+	//
+	// If not specified, defaults to 100 milliseconds.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=10
+	// +kubebuilder:validation:Maximum=4294967
+	// +kubebuilder:default=100
+	TransmitIntervalMilliseconds uint32 `json:"transmitIntervalMilliseconds,omitempty"`
+
+	// ReceiveIntervalMilliseconds is the interval between received
+	// BFD control packets that this system is capable of supporting.
+	//
+	// If not specified, defaults to 100 milliseconds.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=10
+	// +kubebuilder:validation:Maximum=4294967
+	// +kubebuilder:default=100
+	ReceiveIntervalMilliseconds uint32 `json:"receiveIntervalMilliseconds,omitempty"`
+
+	// DetectionMultiplier determines the number of consecutive missed BFD
+	// control packets required to declare the session down.
+	//
+	// If not specified, defaults to 3.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=255
+	// +kubebuilder:default=3
+	DetectionMultiplier *int32 `json:"detectionMultiplier,omitempty"`
+}
+
+func (bfd *CiliumBGPNeighborBFD) SetDefaults() {
+	if bfd.TransmitIntervalMilliseconds == 0 {
+		bfd.TransmitIntervalMilliseconds = DefaultBGPBFDTransmitIntervalMilliseconds
+	}
+
+	if bfd.ReceiveIntervalMilliseconds == 0 {
+		bfd.ReceiveIntervalMilliseconds = DefaultBGPBFDReceiveIntervalMilliseconds
+	}
+
+	if bfd.DetectionMultiplier == nil || *bfd.DetectionMultiplier == 0 {
+		bfd.DetectionMultiplier = ptr.To[int32](DefaultBGPBFDDetectionMultiplier)
+	}
 }
 
 type CiliumBGPPeerConfigStatus struct {
@@ -290,6 +360,10 @@ func (p *CiliumBGPPeerConfigSpec) SetDefaults() {
 		p.GracefulRestart = &CiliumBGPNeighborGracefulRestart{}
 	}
 	p.GracefulRestart.SetDefaults()
+
+	if p.BFD != nil {
+		p.BFD.SetDefaults()
+	}
 
 	if len(p.Families) == 0 {
 		p.Families = []CiliumBGPFamilyWithAdverts{

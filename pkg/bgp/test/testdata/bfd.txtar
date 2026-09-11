@@ -1,0 +1,53 @@
+hive start
+
+# Start a BFD peer and configure it through the CiliumBGP* resources.
+bfd/add-peer peer0 127.0.0.2
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml
+bfd/wait-up peer0
+sleep 0.1s
+
+# Verify that the CRD configuration results in an operational BFD session.
+bgp/peers --no-uptime -f detailed -o bfd-up.actual
+grep 'BFD:' bfd-up.actual
+grep 'Session State: up' bfd-up.actual
+
+# Stop answering BFD packets and verify that the session expires.
+bfd/responding peer0 false
+sleep 1s
+bgp/peers --no-uptime -f detailed -o bfd-down.actual
+grep 'BFD:' bfd-down.actual
+grep 'Session State: down' bfd-down.actual
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - name: instance0
+    localASN: 65000
+    routerID: 127.0.0.1
+    peers:
+    - name: peer0
+      peerASN: 65001
+      peerAddress: 127.0.0.2
+      localAddress: 127.0.0.1
+      peerConfigRef:
+        name: test-peer-config
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: test-peer-config
+spec:
+  bfd:
+    enabled: true
+    transmitIntervalMilliseconds: 100
+    receiveIntervalMilliseconds: 100
+    detectionMultiplier: 3

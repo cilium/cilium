@@ -437,6 +437,38 @@ func toAgentSessionState(s gobgp.PeerState_SessionState) types.SessionState {
 	}
 }
 
+func toAgentBFDSessionState(s gobgp.BfdSessionState) types.BFDSessionState {
+	switch s {
+	case gobgp.BfdSessionState_BFD_SESSION_STATE_UP:
+		return types.BFDSessionUp
+	case gobgp.BfdSessionState_BFD_SESSION_STATE_DOWN:
+		return types.BFDSessionDown
+	case gobgp.BfdSessionState_BFD_SESSION_STATE_ADMIN_DOWN:
+		return types.BFDSessionAdminDown
+	case gobgp.BfdSessionState_BFD_SESSION_STATE_INIT:
+		return types.BFDSessionInit
+	default:
+		return types.BFDSessionUnknown
+	}
+}
+
+func toAgentBFDState(s *gobgp.BfdPeerState) *types.BFDState {
+	if s == nil {
+		return nil
+	}
+
+	state := &types.BFDState{
+		SessionState: toAgentBFDSessionState(s.SessionState),
+	}
+	if s.BfdAsync != nil {
+		state.ControlCounters = types.BFDPacketCounters{
+			TransmittedPackets: s.BfdAsync.TransmittedPackets,
+			ReceivedPackets:    s.BfdAsync.ReceivedPackets,
+		}
+	}
+	return state
+}
+
 func toAgentCap(s []*gobgp.Capability) []bgp.ParameterCapabilityInterface {
 	caps, err := apiutil.UnmarshalCapabilities(s)
 	if err != nil {
@@ -556,6 +588,7 @@ func ToGoBGPPeer(n *types.Neighbor, oldPeer *gobgp.Peer, v4 bool) *gobgp.Peer {
 	newPeer.Timers = toGoBGPTimers(n.Timers)
 	newPeer.Transport = toGoBGPTransport(n.Transport, oldPeer, v4)
 	newPeer.GracefulRestart = toGoBGPGracefulRestart(n.GracefulRestart)
+	newPeer.Bfd = toGoBGPBFD(n.BFD)
 	newPeer.AfiSafis = toGoBGPAfiSafi(n.AfiSafis, newPeer.GracefulRestart)
 
 	return newPeer
@@ -659,6 +692,19 @@ func toGoBGPTransport(n *types.NeighborTransport, oldPeer *gobgp.Peer, v4 bool) 
 	}
 
 	return transport
+}
+
+func toGoBGPBFD(n *types.NeighborBFD) *gobgp.BfdPeerConfig {
+	if n == nil {
+		return nil
+	}
+
+	return &gobgp.BfdPeerConfig{
+		Enabled:                  true,
+		DesiredMinimumTxInterval: n.DesiredMinTxInterval,
+		RequiredMinimumReceive:   n.RequiredMinRxInterval,
+		DetectionMultiplier:      uint32(n.DetectionMultiplier),
+	}
 }
 
 func toGoBGPGracefulRestart(n *types.NeighborGracefulRestart) *gobgp.GracefulRestart {
