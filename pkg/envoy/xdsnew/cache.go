@@ -44,6 +44,12 @@ const (
 
 type RevertFunc = callbacks.RevertFunc
 
+// SnapshotGenerator constructs the immutable snapshot which represents the
+// latest staged resources. Keeping generation behind this callback lets the
+// cache postpone protobuf marshaling and version hashing until Envoy has a
+// watch which can consume the result.
+type SnapshotGenerator func(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}) (cache.ResourceSnapshot, error)
+
 type Cache interface {
 	cache.SnapshotCache
 
@@ -53,11 +59,14 @@ type Cache interface {
 	// resource types outside changedTypeURLs. A nil change set requests a full
 	// snapshot; a non-nil empty set returns the previous snapshot unchanged.
 	GenerateSnapshotIncrementally(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}, logger *slog.Logger) (cache.ResourceSnapshot, error)
-	UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc RevertFunc) error
+	// UpdateResources stages the newest immutable resource state. Snapshot
+	// construction is deferred until an affected watch is already open or the
+	// next affected CreateWatch call arrives.
+	UpdateResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, changedTypeURLs map[string]struct{}, generator SnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), revertFunc RevertFunc) error
 	// AwaitCurrentVersion registers completions against the current snapshot
 	// without publishing it again.
 	AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup, typeURLs map[string]func(err error)) error
-	// SetResources transfers resources to the cache as immutable published state.
+	// SetResources transfers resources to the cache as immutable desired state.
 	SetResources(nodeID string, resources *xds.Resources)
 	// GetAllResources returns cache-owned immutable state. Callers must use
 	// copy-on-write rather than mutate the returned Resources or its contents.
@@ -71,15 +80,70 @@ type cacheImpl struct {
 
 	// mutex protects accesses to the configuration resources below.
 	mutex *lock.RWMutex
-	// resourcesInSnapshot holds the last set of resources (keyed by nodeID) pushed to Envoy.
+	// resourcesInSnapshot holds the latest immutable desired resources keyed by
+	// nodeID. They may still be waiting for lazy snapshot finalization.
 	resourcesInSnapshot map[string]*xds.Resources
+	// stagedSnapshots holds resource generations which have not yet been
+	// finalized into a go-control-plane snapshot. At most one entry is retained
+	// per node; subsequent updates replace its resources and merge dirty types.
+	stagedSnapshots map[string]*stagedSnapshot
 	// snapshotGenerations records the generation associated with the current
 	// snapshot for each node. AwaitCurrentVersion uses it to attach a no-op
 	// update to the response which actually carries that snapshot.
 	snapshotGenerations map[string]uint64
-	logger              *slog.Logger
-	hasher              hash.Hash32
-	completionCbs       *callbacks.CompletionCallbacks
+	// openWatches tracks the precise resource types which can consume a newly
+	// finalized snapshot. go-control-plane exposes only a total watch count, so
+	// responses are relayed through cache-owned channels to retire each watch as
+	// soon as it is consumed.
+	openWatches   map[watchKey]map[uint64]*trackedWatch
+	watchRelays   map[chan cache.Response]*watchRelay
+	nextWatchID   uint64
+	logger        *slog.Logger
+	hasher        hash.Hash32
+	completionCbs *callbacks.CompletionCallbacks
+}
+
+type stagedSnapshot struct {
+	resources          *xds.Resources
+	generation         uint64
+	changedTypeURLs    map[string]struct{}
+	completionTypeURLs map[string]struct{}
+	generations        []stagedGeneration
+	generator          SnapshotGenerator
+}
+
+// stagedGeneration retains only the rollback information needed if multiple
+// resource mutations are folded into the same lazily generated response. The
+// history is discarded as soon as the staged snapshot is finalized.
+type stagedGeneration struct {
+	generation      uint64
+	changedTypeURLs map[string]struct{}
+	revertFunc      RevertFunc
+}
+
+type watchKey struct {
+	nodeID  string
+	typeURL string
+}
+
+type watchRelay struct {
+	inner   chan cache.Response
+	outer   chan cache.Response
+	watches map[uint64]*trackedWatch
+}
+
+type trackedWatch struct {
+	id      uint64
+	key     watchKey
+	request *cache.Request
+	relay   *watchRelay
+	cancel  func()
+	closed  bool
+}
+
+type responseDelivery struct {
+	channel   chan cache.Response
+	responses []cache.Response
 }
 
 var _ Cache = &cacheImpl{}
@@ -262,7 +326,10 @@ func NewCache(logger *slog.Logger, strictAdsMode bool) Cache {
 		SnapshotCache:       snapshotCache,
 		mutex:               &lock.RWMutex{},
 		resourcesInSnapshot: make(map[string]*xds.Resources),
+		stagedSnapshots:     make(map[string]*stagedSnapshot),
 		snapshotGenerations: make(map[string]uint64),
+		openWatches:         make(map[watchKey]map[uint64]*trackedWatch),
+		watchRelays:         make(map[chan cache.Response]*watchRelay),
 		logger:              logger,
 		hasher:              fnv.New32a(),
 		completionCbs:       callbacks.NewCompletionCallbacks(logger),
@@ -788,8 +855,9 @@ func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
 	return c.completionCbs
 }
 
-// SetResources stores resources as cache-owned immutable state. It intentionally
-// does not clone resources; callers transfer ownership when calling this method.
+// SetResources stores resources as cache-owned immutable desired state. It
+// intentionally does not clone resources; callers transfer ownership when
+// calling this method.
 func (c *cacheImpl) SetResources(nodeID string, resources *xds.Resources) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -839,8 +907,45 @@ func (c *cacheImpl) registerGenerationCompletions(nodeID string, generation uint
 	return completions, immediateCompletions
 }
 
-type typeGenerationRegistration struct {
-	typeURL string
+func (c *cacheImpl) registerStagedGenerationCompletions(nodeID string, generation uint64, resources *xds.Resources, wg *completion.WaitGroup, typeURLs map[string]func(err error), revertFunc RevertFunc) ([]*completion.Completion, []immediateCompletion) {
+	completions := make([]*completion.Completion, 0, len(typeURLs))
+	immediateCompletions := make([]immediateCompletion, 0, 1)
+	if wg == nil || len(typeURLs) == 0 {
+		return completions, immediateCompletions
+	}
+
+	for typeURL, completionCallback := range typeURLs {
+		owner := c.completionCbs.NewTypeGenerationCompletionOwner(nodeID, typeURL, generation)
+		comp := wg.AddCompletionWithCallback(owner, completionCallback)
+		if typeURL == NetworkPolicyTypeURL && (resources == nil || len(resources.NetworkPolicies) == 0) {
+			immediateCompletions = append(immediateCompletions, immediateCompletion{
+				comp:                      comp,
+				typeURL:                   typeURL,
+				generation:                generation,
+				completeUnsentCompletions: true,
+			})
+			continue
+		}
+		registered, err := c.completionCbs.AddPreparedTypeGenerationCompletion(comp, owner, "", true, revertFunc)
+		if !registered {
+			immediateCompletions = append(immediateCompletions, immediateCompletion{
+				comp:                      comp,
+				typeURL:                   typeURL,
+				generation:                generation,
+				err:                       err,
+				completeUnsentCompletions: err == nil,
+			})
+			continue
+		}
+		completions = append(completions, comp)
+	}
+	return completions, immediateCompletions
+}
+
+type finalizedCompletion struct {
+	typeURL    string
+	generation uint64
+	err        error
 }
 
 func (c *cacheImpl) completeImmediateCompletions(nodeID string, immediateCompletions []immediateCompletion) {
@@ -852,71 +957,178 @@ func (c *cacheImpl) completeImmediateCompletions(nodeID string, immediateComplet
 	}
 }
 
-func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc RevertFunc) error {
-	oldSnapshot, _ := c.GetSnapshot(nodeID)
-	c.mutex.RLock()
-	oldGeneration := c.snapshotGenerations[nodeID]
-	c.mutex.RUnlock()
-	completions, immediateCompletions := c.registerGenerationCompletions(nodeID, generation, newSnapshot, oldSnapshot, wg, updatedTypeURLS, revertFunc)
-
-	// Stage the authoritative generation before SetSnapshot. go-control-plane
-	// can synchronously build a response while SetSnapshot is running, and a
-	// concurrent CreateWatch may use context.Background instead of ctx.
-	c.completionCbs.SetPublishedSnapshot(nodeID, generation, newSnapshot)
-	var registrations []typeGenerationRegistration
-	var completeUnsentTypeURLs []string
+func snapshotTypesChangedBy(changedTypeURLs map[string]struct{}) map[string]struct{} {
+	regenerate, ok := incrementalSnapshotTypeURLs(changedTypeURLs)
+	if ok {
+		return regenerate
+	}
+	regenerate = make(map[string]struct{}, len(snapshotResourceTypes))
 	for _, typeURL := range snapshotResourceTypes {
-		if wg != nil {
-			if _, tracked := updatedTypeURLS[typeURL]; tracked {
-				// The pending completion carries this generation's revert. Only
-				// updates without a completion need a separate generation entry.
-				continue
-			}
-		}
-		version := newSnapshot.GetVersion(typeURL)
-		versionChanged := oldSnapshot == nil || oldSnapshot.GetVersion(typeURL) != version
-		registered, completeUnsent := c.completionCbs.AddTypeGeneration(
-			generation, version, typeURL, nodeID, versionChanged, revertFunc)
-		if registered {
-			registrations = append(registrations, typeGenerationRegistration{typeURL: typeURL})
-		}
-		if completeUnsent {
-			completeUnsentTypeURLs = append(completeUnsentTypeURLs, typeURL)
-		}
+		regenerate[typeURL] = struct{}{}
 	}
-	if len(newSnapshot.GetResourcesAndTTL(NetworkPolicyTypeURL)) == 0 {
-		completeUnsentTypeURLs = append(completeUnsentTypeURLs, NetworkPolicyTypeURL)
-	}
-	err := c.SetSnapshot(callbacks.WithSnapshotGeneration(ctx, generation), nodeID, newSnapshot)
+	return regenerate
+}
 
+// finalizeStagedSnapshotLocked constructs and installs the newest staged
+// snapshot for nodeID. The caller must hold c.mutex. Completion resolution is
+// returned to the caller so callbacks can run after the cache lock is released.
+func (c *cacheImpl) finalizeStagedSnapshotLocked(ctx context.Context, nodeID string) (bool, []finalizedCompletion, error) {
+	staged := c.stagedSnapshots[nodeID]
+	if staged == nil {
+		return false, nil, nil
+	}
+	if staged.generator == nil {
+		return false, nil, fmt.Errorf("missing snapshot generator for node %s", nodeID)
+	}
+
+	oldSnapshot, _ := c.SnapshotCache.GetSnapshot(nodeID)
+	newSnapshot, err := staged.generator(staged.resources, oldSnapshot, staged.changedTypeURLs)
+	if err != nil {
+		return false, nil, err
+	}
+
+	oldGeneration := c.snapshotGenerations[nodeID]
+	// Stage the authoritative finalized generation before SetSnapshot.
+	// go-control-plane may synchronously build a response while SetSnapshot is
+	// running, while CreateWatch responses use context.Background.
+	c.completionCbs.SetPublishedSnapshot(nodeID, staged.generation, newSnapshot)
+	err = c.SnapshotCache.SetSnapshot(callbacks.WithSnapshotGeneration(ctx, staged.generation), nodeID, newSnapshot)
 	if err != nil {
 		// SnapshotCache stores the snapshot before delivering watch responses. A
 		// canceled delivery may therefore return an error after publication has
 		// committed; keep generation state in that case.
-		currentSnapshot, getErr := c.GetSnapshot(nodeID)
+		currentSnapshot, getErr := c.SnapshotCache.GetSnapshot(nodeID)
 		committed := getErr == nil && !c.AreDifferentSnapshots(currentSnapshot, newSnapshot)
 		if !committed {
 			c.completionCbs.SetPublishedSnapshot(nodeID, oldGeneration, oldSnapshot)
-			for _, comp := range completions {
-				c.completionCbs.RemoveTypeGenerationCompletion(comp)
-			}
-			for _, registration := range registrations {
-				c.completionCbs.RemoveTypeGeneration(nodeID, registration.typeURL, generation)
-			}
-			return err
+			return false, nil, err
 		}
 		c.logger.Debug("Snapshot was installed despite response delivery error",
 			logfields.NodeID, nodeID,
 			logfields.Error, err)
 	}
+
+	delete(c.stagedSnapshots, nodeID)
+	c.snapshotGenerations[nodeID] = staged.generation
+	// Register rollback state only after the snapshot has been installed. An
+	// older mutation without a WaitGroup may precede a tracked mutation in the
+	// same response, and a NACK must revert both generations. AddTypeGeneration
+	// ignores this history when no completion is waiting for the resource type.
+	for _, update := range staged.generations {
+		for typeURL := range update.changedTypeURLs {
+			c.completionCbs.AddTypeGeneration(
+				update.generation, "", typeURL, nodeID, true, update.revertFunc)
+		}
+	}
+	finalized := make([]finalizedCompletion, 0, len(staged.completionTypeURLs))
+	for typeURL := range staged.completionTypeURLs {
+		version := newSnapshot.GetVersion(typeURL)
+		versionChanged := oldSnapshot == nil || oldSnapshot.GetVersion(typeURL) != version
+		complete, completeErr := c.completionCbs.FinalizeTypeGeneration(
+			nodeID, typeURL, staged.generation, version, versionChanged)
+		if complete {
+			finalized = append(finalized, finalizedCompletion{
+				typeURL:    typeURL,
+				generation: staged.generation,
+				err:        completeErr,
+			})
+		}
+	}
+	return true, finalized, nil
+}
+
+func (c *cacheImpl) completeFinalized(nodeID string, finalized []finalizedCompletion) {
+	for _, result := range finalized {
+		c.completionCbs.CompleteCompletionsThroughGeneration(
+			nodeID, result.typeURL, result.generation, result.err)
+	}
+}
+
+func (c *cacheImpl) UpdateResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, changedTypeURLs map[string]struct{}, generator SnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), revertFunc RevertFunc) error {
+	dirtyTypeURLs := snapshotTypesChangedBy(changedTypeURLs)
+	completions, immediateCompletions := c.registerStagedGenerationCompletions(
+		nodeID, generation, resources, wg, updatedTypeURLs, revertFunc)
+	// A completion already owns the revert for its resource type. Retain only
+	// untracked mutations in the staged history so finalization can attach them
+	// to a later tracked response without duplicating hot-path bookkeeping.
+	var rollbackTypeURLs map[string]struct{}
+	if revertFunc != nil {
+		rollbackTypeURLs = dirtyTypeURLs
+		if wg != nil && len(updatedTypeURLs) > 0 {
+			rollbackTypeURLs = maps.Clone(dirtyTypeURLs)
+			for typeURL := range updatedTypeURLs {
+				delete(rollbackTypeURLs, typeURL)
+			}
+		}
+	}
+
 	c.mutex.Lock()
-	c.snapshotGenerations[nodeID] = generation
+	oldResources := c.resourcesInSnapshot[nodeID]
+	oldStaged := c.stagedSnapshots[nodeID]
+	mergedTypeURLs := maps.Clone(dirtyTypeURLs)
+	completionTypeURLs := maps.Clone(dirtyTypeURLs)
+	var generations []stagedGeneration
+	if oldStaged != nil {
+		for typeURL := range oldStaged.changedTypeURLs {
+			mergedTypeURLs[typeURL] = struct{}{}
+		}
+		for typeURL := range oldStaged.completionTypeURLs {
+			completionTypeURLs[typeURL] = struct{}{}
+		}
+		generations = append(generations, oldStaged.generations...)
+	}
+	for typeURL := range updatedTypeURLs {
+		completionTypeURLs[typeURL] = struct{}{}
+	}
+	c.resourcesInSnapshot[nodeID] = resources
+	if len(rollbackTypeURLs) > 0 {
+		generations = append(generations, stagedGeneration{
+			generation:      generation,
+			changedTypeURLs: rollbackTypeURLs,
+			revertFunc:      revertFunc,
+		})
+	}
+	c.stagedSnapshots[nodeID] = &stagedSnapshot{
+		resources:          resources,
+		generation:         generation,
+		changedTypeURLs:    mergedTypeURLs,
+		completionTypeURLs: completionTypeURLs,
+		generations:        generations,
+		generator:          generator,
+	}
+
+	var finalized []finalizedCompletion
+	var err error
+	if c.hasOpenWatchLocked(nodeID, mergedTypeURLs) {
+		_, finalized, err = c.finalizeStagedSnapshotLocked(ctx, nodeID)
+	}
+	deliveries := c.collectResponseDeliveriesLocked()
+	if err != nil {
+		c.resourcesInSnapshot[nodeID] = oldResources
+		if oldStaged == nil {
+			delete(c.stagedSnapshots, nodeID)
+		} else {
+			c.stagedSnapshots[nodeID] = oldStaged
+		}
+	}
 	c.mutex.Unlock()
-	for _, typeURL := range completeUnsentTypeURLs {
-		c.completionCbs.CompleteCompletionsThroughGeneration(nodeID, typeURL, generation, nil)
+	c.deliverResponses(deliveries)
+
+	if err != nil {
+		for _, comp := range completions {
+			c.completionCbs.RemoveTypeGenerationCompletion(comp)
+		}
+		return err
+	}
+	c.completeFinalized(nodeID, finalized)
+	if resources == nil || len(resources.NetworkPolicies) == 0 {
+		// With no NPDS resources there may be no policy watch or ACK to resolve
+		// older policy waiters. The empty state is still retained for lazy
+		// publication if Envoy connects later.
+		c.completionCbs.CompleteCompletionsThroughGeneration(
+			nodeID, NetworkPolicyTypeURL, generation, nil)
 	}
 	c.completeImmediateCompletions(nodeID, immediateCompletions)
-
 	return nil
 }
 
@@ -930,29 +1142,74 @@ func (c *cacheImpl) AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup,
 		return nil
 	}
 
-	currentSnapshot, err := c.GetSnapshot(nodeID)
+	c.mutex.Lock()
+	staged := c.stagedSnapshots[nodeID]
+	if staged != nil {
+		stagedTypeURLs := make(map[string]func(error))
+		publishedTypeURLs := make(map[string]func(error))
+		for typeURL, callback := range typeURLs {
+			if _, changed := staged.changedTypeURLs[typeURL]; changed {
+				stagedTypeURLs[typeURL] = callback
+			} else {
+				publishedTypeURLs[typeURL] = callback
+			}
+		}
+		_, immediateCompletions := c.registerStagedGenerationCompletions(
+			nodeID, staged.generation, staged.resources, wg, stagedTypeURLs, nil)
+		if len(publishedTypeURLs) == 0 {
+			c.mutex.Unlock()
+			c.completeImmediateCompletions(nodeID, immediateCompletions)
+			return nil
+		}
+		currentSnapshot, err := c.SnapshotCache.GetSnapshot(nodeID)
+		if err != nil {
+			c.mutex.Unlock()
+			return fmt.Errorf("failed to get current snapshot for node %s: %w", nodeID, err)
+		}
+		_, publishedImmediate := c.registerGenerationCompletions(
+			nodeID, c.snapshotGenerations[nodeID], currentSnapshot, currentSnapshot, wg, publishedTypeURLs, nil)
+		c.mutex.Unlock()
+		c.completeImmediateCompletions(nodeID, immediateCompletions)
+		c.completeImmediateCompletions(nodeID, publishedImmediate)
+		return nil
+	}
+
+	currentSnapshot, err := c.SnapshotCache.GetSnapshot(nodeID)
 	if err != nil {
+		c.mutex.Unlock()
 		return fmt.Errorf("failed to get current snapshot for node %s: %w", nodeID, err)
 	}
-	if currentSnapshot == nil {
-		return fmt.Errorf("missing current snapshot for node %s", nodeID)
-	}
-	c.mutex.RLock()
 	generation := c.snapshotGenerations[nodeID]
-	c.mutex.RUnlock()
-
 	_, immediateCompletions := c.registerGenerationCompletions(nodeID, generation, currentSnapshot, currentSnapshot, wg, typeURLs, nil)
+	c.mutex.Unlock()
 	c.completeImmediateCompletions(nodeID, immediateCompletions)
 	return nil
 }
 
 func (c *cacheImpl) ClearSnapshot(nodeID string) {
+	c.mutex.Lock()
 	c.SnapshotCache.ClearSnapshot(nodeID)
 	c.completionCbs.SetPublishedSnapshot(nodeID, 0, nil)
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 	c.resourcesInSnapshot[nodeID] = &xds.Resources{}
+	delete(c.stagedSnapshots, nodeID)
 	delete(c.snapshotGenerations, nodeID)
+	var cancels []func()
+	for key, watches := range c.openWatches {
+		if key.nodeID != nodeID {
+			continue
+		}
+		for _, watch := range watches {
+			watch.closed = true
+			if watch.cancel != nil {
+				cancels = append(cancels, watch.cancel)
+			}
+			c.removeTrackedWatchLocked(watch)
+		}
+	}
+	c.mutex.Unlock()
+	for _, cancel := range cancels {
+		cancel()
+	}
 }
 
 func normalizeCustomWildcardRequest(request *cache.Request, sub cache.Subscription) *cache.Request {
@@ -969,13 +1226,169 @@ func normalizeCustomWildcardRequest(request *cache.Request, sub cache.Subscripti
 	}
 }
 
+func (c *cacheImpl) hasOpenWatchLocked(nodeID string, typeURLs map[string]struct{}) bool {
+	for typeURL := range typeURLs {
+		if len(c.openWatches[watchKey{nodeID: nodeID, typeURL: typeURL}]) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *cacheImpl) relayForLocked(responseChannel chan cache.Response) *watchRelay {
+	if relay := c.watchRelays[responseChannel]; relay != nil {
+		return relay
+	}
+	capacity := cap(responseChannel)
+	if capacity < len(snapshotResourceTypes)+1 {
+		capacity = len(snapshotResourceTypes) + 1
+	}
+	relay := &watchRelay{
+		inner:   make(chan cache.Response, capacity),
+		outer:   responseChannel,
+		watches: make(map[uint64]*trackedWatch),
+	}
+	c.watchRelays[responseChannel] = relay
+	return relay
+}
+
+func (c *cacheImpl) addTrackedWatchLocked(request *cache.Request, responseChannel chan cache.Response) *trackedWatch {
+	c.nextWatchID++
+	relay := c.relayForLocked(responseChannel)
+	watch := &trackedWatch{
+		id:      c.nextWatchID,
+		key:     watchKey{nodeID: request.GetNode().GetId(), typeURL: request.GetTypeUrl()},
+		request: request,
+		relay:   relay,
+	}
+	watches := c.openWatches[watch.key]
+	if watches == nil {
+		watches = make(map[uint64]*trackedWatch)
+		c.openWatches[watch.key] = watches
+	}
+	watches[watch.id] = watch
+	relay.watches[watch.id] = watch
+	return watch
+}
+
+func (c *cacheImpl) removeTrackedWatchLocked(watch *trackedWatch) {
+	if watch == nil {
+		return
+	}
+	if watches := c.openWatches[watch.key]; watches != nil {
+		delete(watches, watch.id)
+		if len(watches) == 0 {
+			delete(c.openWatches, watch.key)
+		}
+	}
+	if watch.relay != nil {
+		delete(watch.relay.watches, watch.id)
+		if len(watch.relay.watches) == 0 && len(watch.relay.inner) == 0 {
+			delete(c.watchRelays, watch.relay.outer)
+		}
+	}
+}
+
+func (c *cacheImpl) cancelTrackedWatch(watch *trackedWatch) {
+	c.mutex.Lock()
+	if watch.closed {
+		c.mutex.Unlock()
+		return
+	}
+	watch.closed = true
+	cancel := watch.cancel
+	c.removeTrackedWatchLocked(watch)
+	c.mutex.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+// collectResponseDeliveriesLocked drains responses which go-control-plane has
+// synchronously produced. Draining retires the corresponding type watch before
+// another resource update can mistake it for available Envoy capacity.
+func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
+	var deliveries []responseDelivery
+	for _, relay := range c.watchRelays {
+		var responses []cache.Response
+		for {
+			select {
+			case response := <-relay.inner:
+				responses = append(responses, response)
+				var matched *trackedWatch
+				for _, watch := range relay.watches {
+					if watch.request == response.GetRequest() {
+						matched = watch
+						break
+					}
+				}
+				if matched != nil {
+					matched.closed = true
+					c.removeTrackedWatchLocked(matched)
+				}
+			default:
+				if len(responses) > 0 {
+					deliveries = append(deliveries, responseDelivery{
+						channel:   relay.outer,
+						responses: responses,
+					})
+				}
+				goto nextRelay
+			}
+		}
+	nextRelay:
+	}
+	return deliveries
+}
+
+func (c *cacheImpl) deliverResponses(deliveries []responseDelivery) {
+	for _, delivery := range deliveries {
+		for _, response := range delivery.responses {
+			delivery.channel <- response
+		}
+	}
+}
+
 func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
 	if request != nil && request.GetTypeUrl() == envoy_resource.SecretType && len(request.GetResourceNames()) == 0 {
 		c.logger.Debug("Ignoring empty ADS SDS watch")
 		return func() {}, nil
 	}
 	request = normalizeCustomWildcardRequest(request, sub)
-	return c.SnapshotCache.CreateWatch(request, sub, respChan)
+	if request == nil {
+		return c.SnapshotCache.CreateWatch(request, sub, respChan)
+	}
+
+	nodeID := request.GetNode().GetId()
+	typeURL := request.GetTypeUrl()
+	c.mutex.Lock()
+	var finalized []finalizedCompletion
+	if staged := c.stagedSnapshots[nodeID]; staged != nil {
+		if _, changed := staged.changedTypeURLs[typeURL]; changed {
+			_, finalized, err = c.finalizeStagedSnapshotLocked(context.Background(), nodeID)
+			if err != nil {
+				deliveries := c.collectResponseDeliveriesLocked()
+				c.mutex.Unlock()
+				c.deliverResponses(deliveries)
+				return nil, err
+			}
+		}
+	}
+
+	watch := c.addTrackedWatchLocked(request, respChan)
+	watch.cancel, err = c.SnapshotCache.CreateWatch(request, sub, watch.relay.inner)
+	if err != nil {
+		watch.closed = true
+		c.removeTrackedWatchLocked(watch)
+	}
+	deliveries := c.collectResponseDeliveriesLocked()
+	c.mutex.Unlock()
+	c.deliverResponses(deliveries)
+	c.completeFinalized(nodeID, finalized)
+	if err != nil {
+		return nil, err
+	}
+	return func() { c.cancelTrackedWatch(watch) }, nil
 }
 
 // GetAllResources returns cache-owned immutable state. The returned pointer and

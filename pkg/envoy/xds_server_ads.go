@@ -22,6 +22,7 @@ import (
 	envoy_extensions_listener_tls_inspector_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	xds_cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -1083,33 +1084,10 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		}
 		completionTypeURLs = callbackTypeURLs
 	}
-	oldSnapshot, _ := s.cache.GetSnapshot(nodeId)
-	if oldSnapshot == nil {
-		// This may be first update for this node, so snapshot may not exist yet.
-		s.logger.Debug("Failed to get snapshot for node, will create new one",
-			logfields.NodeID, nodeId)
-	}
-
-	newSnapshot, err := s.cache.GenerateSnapshotIncrementally(resources, oldSnapshot, changedTypeURLs, s.logger)
-	if err != nil {
-		s.logger.Error("Failed to generate ADS snapshot",
-			logfields.NodeID, nodeId,
-			logfields.Error, err)
-		return err
-	}
-	if s.config.envoyXDSMode.IsStrictADS() {
-		if err := xdsnew.CheckSnapshotConsistency(newSnapshot); err != nil {
-			err = fmt.Errorf("generated ADS snapshot is inconsistent: %w", err)
-			s.logger.Error("Generated ADS snapshot is inconsistent",
-				logfields.NodeID, nodeId,
-				logfields.Error, err)
-			return err
-		}
-	}
-	if oldSnapshot == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.AreDifferentSnapshots(oldSnapshot, newSnapshot) {
+	if changes == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.GetAllResources(nodeId) == nil {
 		// Reserve the next generation before registering the revert closure. It
-		// becomes current only after both the snapshot and immutable resources
-		// have been published successfully.
+		// becomes current after the immutable resources have been staged. The
+		// actual snapshot may be finalized later when Envoy opens its next watch.
 		newGeneration := s.resourceGenerations[nodeId] + 1
 		var revertFunc xdsnew.RevertFunc
 		// An update without a WaitGroup can still be coalesced into a response
@@ -1118,18 +1096,28 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		if changes != nil {
 			revertFunc = s.buildRevert(ctx, nodeId, newGeneration, changes)
 		}
-		err = s.cache.UpdateSnapshot(ctx, nodeId, newGeneration, newSnapshot, wg, completionTypeURLs, revertFunc)
+		generator := func(resources *xds.Resources, previous xds_cache.ResourceSnapshot, changedTypeURLs map[string]struct{}) (xds_cache.ResourceSnapshot, error) {
+			snapshot, err := s.cache.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, s.logger)
+			if err != nil {
+				return nil, err
+			}
+			if s.config.envoyXDSMode.IsStrictADS() {
+				if err := xdsnew.CheckSnapshotConsistency(snapshot); err != nil {
+					return nil, fmt.Errorf("generated ADS snapshot is inconsistent: %w", err)
+				}
+			}
+			return snapshot, nil
+		}
+		err := s.cache.UpdateResources(ctx, nodeId, newGeneration, resources, changedTypeURLs, generator, wg, completionTypeURLs, revertFunc)
 		if err != nil {
-			s.logger.Error("Error setting snapshot for node %s: %q",
+			s.logger.Error("Error staging snapshot resources",
 				logfields.NodeID, nodeId,
 				logfields.Error, err)
 			return err
-		} else {
-			s.cache.SetResources(nodeId, resources)
-			s.resourceGenerations[nodeId] = newGeneration
 		}
+		s.resourceGenerations[nodeId] = newGeneration
 	} else {
-		s.logger.Debug("updateXdsSnapshot: Snapshots are identical, skipping update")
+		s.logger.Debug("updateXdsSnapshot: Resources are identical, skipping update")
 	}
 
 	if nodeId == localNodeID {

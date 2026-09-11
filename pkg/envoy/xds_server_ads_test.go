@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
-	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
@@ -43,6 +42,7 @@ import (
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xds_cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
+	envoy_stream "github.com/envoyproxy/go-control-plane/pkg/server/stream/v3"
 )
 
 func GetLocalEndpointStoreForTest() *LocalEndpointStore {
@@ -139,11 +139,11 @@ type revertCapturingADSCache struct {
 	revertFuncs []xdsnew.RevertFunc
 }
 
-func (c *revertCapturingADSCache) UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, snapshot xds_cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc xdsnew.RevertFunc) error {
+func (c *revertCapturingADSCache) UpdateResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, changedTypeURLs map[string]struct{}, generator xdsnew.SnapshotGenerator, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc xdsnew.RevertFunc) error {
 	if revertFunc != nil {
 		c.revertFuncs = append(c.revertFuncs, revertFunc)
 	}
-	return c.Cache.UpdateSnapshot(ctx, nodeID, generation, snapshot, wg, typeURLs, revertFunc)
+	return c.Cache.UpdateResources(ctx, nodeID, generation, resources, changedTypeURLs, generator, wg, typeURLs, revertFunc)
 }
 
 func (c *countingADSCache) GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (xds_cache.ResourceSnapshot, error) {
@@ -156,14 +156,34 @@ func (c *countingADSCache) GenerateSnapshotIncrementally(resources *xds.Resource
 	return c.Cache.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, logger)
 }
 
-func (c *countingADSCache) UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, snapshot xds_cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc xdsnew.RevertFunc) error {
+func (c *countingADSCache) UpdateResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, changedTypeURLs map[string]struct{}, generator xdsnew.SnapshotGenerator, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc xdsnew.RevertFunc) error {
 	c.published.Add(1)
-	return c.Cache.UpdateSnapshot(ctx, nodeID, generation, snapshot, wg, typeURLs, revertFunc)
+	return c.Cache.UpdateResources(ctx, nodeID, generation, resources, changedTypeURLs, generator, wg, typeURLs, revertFunc)
 }
 
 func (c *countingADSCache) reset() {
 	c.generated.Store(0)
 	c.published.Store(0)
+}
+
+func createADSWatchResponse(t *testing.T, cache xdsnew.Cache, typeURL, version string) xds_cache.Response {
+	t.Helper()
+	request := &envoy_service_discovery.DiscoveryRequest{
+		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl:     typeURL,
+		VersionInfo: version,
+	}
+	responses := make(chan xds_cache.Response, 1)
+	cancel, err := cache.CreateWatch(request, envoy_stream.NewSotwSubscription(nil, false), responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+	select {
+	case response := <-responses:
+		return response
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for ADS watch response")
+		return nil
+	}
 }
 
 func mapIdentity[K comparable, V any](m map[K]V) uintptr {
@@ -263,6 +283,7 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		}
 		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-1"), nil))
 
+		createADSWatchResponse(t, cache, ListenerTypeURL, "")
 		baselineSnapshot, err := cache.GetSnapshot(localNodeID)
 		require.NoError(t, err)
 		baselineVersion := baselineSnapshot.GetVersion(ListenerTypeURL)
@@ -280,12 +301,12 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		// shape produced by the synthetic ingress policy in #43519.
 		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-3"), nil))
 
+		response := createADSWatchResponse(t, cache, ListenerTypeURL, baselineVersion)
 		currentSnapshot, err := cache.GetSnapshot(localNodeID)
 		require.NoError(t, err)
 		currentVersion := currentSnapshot.GetVersion(ListenerTypeURL)
-		currentGeneration := server.resourceGenerations[localNodeID]
 		cache.GetCompletionCallbacks().OnStreamResponse(
-			callbacks.WithSnapshotGeneration(ctx, currentGeneration), 1,
+			response.GetContext(), 1,
 			&envoy_service_discovery.DiscoveryRequest{Node: node, TypeUrl: ListenerTypeURL},
 			&envoy_service_discovery.DiscoveryResponse{
 				VersionInfo: currentVersion,
@@ -301,6 +322,62 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		}))
 
 		require.ErrorContains(t, wg.Wait(), "rejected coalesced listener")
+		current := cache.GetAllResources(localNodeID)
+		require.Contains(t, current.Listeners, "listener-1")
+		require.NotContains(t, current.Listeners, "listener-2")
+		require.NotContains(t, current.Listeners, "listener-3")
+	})
+
+	t.Run("NACK reverts an untracked generation staged before a tracked generation", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		listenerResources := func(name string) xds.Resources {
+			resources := xds.NewResources()
+			resources.Listeners[name] = &envoy_config_listener.Listener{Name: name}
+			return resources
+		}
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-1"), nil))
+
+		createADSWatchResponse(t, cache, ListenerTypeURL, "")
+		baselineSnapshot, err := cache.GetSnapshot(localNodeID)
+		require.NoError(t, err)
+		baselineVersion := baselineSnapshot.GetVersion(ListenerTypeURL)
+		node := &envoy_config_core_v3.Node{Id: localNodeID}
+		require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+			Node:        node,
+			TypeUrl:     ListenerTypeURL,
+			VersionInfo: baselineVersion,
+		}))
+
+		// Lazy finalization allows an untracked mutation to be staged before a
+		// later tracked one. Both enter the same response and must therefore be
+		// rolled back together if Envoy rejects it.
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-2"), nil))
+		wg := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-3"), wg))
+
+		response := createADSWatchResponse(t, cache, ListenerTypeURL, baselineVersion)
+		currentSnapshot, err := cache.GetSnapshot(localNodeID)
+		require.NoError(t, err)
+		currentVersion := currentSnapshot.GetVersion(ListenerTypeURL)
+		cache.GetCompletionCallbacks().OnStreamResponse(
+			response.GetContext(), 1,
+			&envoy_service_discovery.DiscoveryRequest{Node: node, TypeUrl: ListenerTypeURL},
+			&envoy_service_discovery.DiscoveryResponse{
+				VersionInfo: currentVersion,
+				TypeUrl:     ListenerTypeURL,
+				Nonce:       "nonce-3",
+			})
+		require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+			Node:          node,
+			TypeUrl:       ListenerTypeURL,
+			VersionInfo:   baselineVersion,
+			ResponseNonce: "nonce-3",
+			ErrorDetail:   &status.Status{Message: "rejected lazily coalesced listener"},
+		}))
+
+		require.ErrorContains(t, wg.Wait(), "rejected lazily coalesced listener")
 		current := cache.GetAllResources(localNodeID)
 		require.Contains(t, current.Listeners, "listener-1")
 		require.NotContains(t, current.Listeners, "listener-2")
@@ -405,20 +482,17 @@ func TestAddListenerCompletesCallbackOnACK(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int32(0), calls.Load())
 
+	watchResponse := createADSWatchResponse(t, cache, ListenerTypeURL, "")
 	snapshot, err := cache.GetSnapshot(localNodeID)
 	require.NoError(t, err)
 	version := snapshot.GetVersion(ListenerTypeURL)
 	require.NotEmpty(t, version)
 
-	req := &envoy_service_discovery.DiscoveryRequest{
-		TypeUrl: ListenerTypeURL,
-		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
-	}
 	resp := &envoy_service_discovery.DiscoveryResponse{
 		TypeUrl:     ListenerTypeURL,
 		VersionInfo: version,
 	}
-	cache.GetCompletionCallbacks().OnStreamResponse(ctx, 1, req, resp)
+	cache.GetCompletionCallbacks().OnStreamResponse(watchResponse.GetContext(), 1, watchResponse.GetRequest(), resp)
 	require.Equal(t, int32(0), calls.Load())
 
 	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
@@ -864,20 +938,17 @@ func TestUpdateEnvoyResourcesWaitsForListenerACKWithPortAllocationCallback(t *te
 	}, time.Second, 10*time.Millisecond)
 	require.Equal(t, uint64(0), callbackCount.Load())
 
+	watchResponse := createADSWatchResponse(t, cache, ListenerTypeURL, "")
 	snapshot, err := cache.GetSnapshot(localNodeID)
 	require.NoError(t, err)
 	version := snapshot.GetVersion(ListenerTypeURL)
 	require.NotEmpty(t, version)
 
-	req := &envoy_service_discovery.DiscoveryRequest{
-		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
-		TypeUrl: ListenerTypeURL,
-	}
 	resp := &envoy_service_discovery.DiscoveryResponse{
 		TypeUrl:     ListenerTypeURL,
 		VersionInfo: version,
 	}
-	cache.GetCompletionCallbacks().OnStreamResponse(context.Background(), 1, req, resp)
+	cache.GetCompletionCallbacks().OnStreamResponse(watchResponse.GetContext(), 1, watchResponse.GetRequest(), resp)
 	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
 		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
 		TypeUrl:     ListenerTypeURL,
@@ -916,6 +987,7 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 	}, time.Second, 10*time.Millisecond)
 	require.Equal(t, uint64(0), callbackCount.Load())
 
+	clusterWatchResponse := createADSWatchResponse(t, cache, ClusterTypeURL, "")
 	snapshot, err := cache.GetSnapshot(localNodeID)
 	require.NoError(t, err)
 	listenerVersion := snapshot.GetVersion(ListenerTypeURL)
@@ -923,16 +995,13 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 	require.NotEmpty(t, listenerVersion)
 	require.NotEmpty(t, clusterVersion)
 	require.NotEmpty(t, snapshot.GetVersion(RouteTypeURL))
+	listenerWatchResponse := createADSWatchResponse(t, cache, ListenerTypeURL, "")
 
-	clusterReq := &envoy_service_discovery.DiscoveryRequest{
-		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
-		TypeUrl: ClusterTypeURL,
-	}
 	clusterResp := &envoy_service_discovery.DiscoveryResponse{
 		TypeUrl:     ClusterTypeURL,
 		VersionInfo: clusterVersion,
 	}
-	cache.GetCompletionCallbacks().OnStreamResponse(context.Background(), 1, clusterReq, clusterResp)
+	cache.GetCompletionCallbacks().OnStreamResponse(clusterWatchResponse.GetContext(), 1, clusterWatchResponse.GetRequest(), clusterResp)
 	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
 		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
 		TypeUrl:     ClusterTypeURL,
@@ -941,15 +1010,11 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 	require.Equal(t, uint64(0), callbackCount.Load())
 	require.Equal(t, 1, cache.GetCompletionCallbacks().PendingCompletionCount())
 
-	listenerReq := &envoy_service_discovery.DiscoveryRequest{
-		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
-		TypeUrl: ListenerTypeURL,
-	}
 	listenerResp := &envoy_service_discovery.DiscoveryResponse{
 		TypeUrl:     ListenerTypeURL,
 		VersionInfo: listenerVersion,
 	}
-	cache.GetCompletionCallbacks().OnStreamResponse(context.Background(), 1, listenerReq, listenerResp)
+	cache.GetCompletionCallbacks().OnStreamResponse(listenerWatchResponse.GetContext(), 1, listenerWatchResponse.GetRequest(), listenerResp)
 	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
 		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
 		TypeUrl:     ListenerTypeURL,
@@ -1017,7 +1082,12 @@ func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testi
 	resources := xds.NewResources()
 	resources.Listeners["listener1"] = proto.Clone(DEFAULT_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
 
-	err := server.UpsertEnvoyResources(context.Background(), resources, nil)
+	require.NoError(t, server.UpsertEnvoyResources(context.Background(), resources, nil))
+	responses := make(chan xds_cache.Response, 1)
+	_, err := cache.CreateWatch(&envoy_service_discovery.DiscoveryRequest{
+		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl: ListenerTypeURL,
+	}, envoy_stream.NewSotwSubscription(nil, false), responses)
 	require.ErrorContains(t, err, "generated ADS snapshot is inconsistent")
 }
 
@@ -1227,6 +1297,12 @@ func TestUpdateNetworkPolicyNoOpWaitsForCurrentACKWithoutPublishing(t *testing.T
 	err, _, _ := server.UpdateNetworkPolicy(ctx, ep, epp, firstWG)
 	require.NoError(t, err)
 	require.Equal(t, 1, cache.GetCompletionCallbacks().PendingCompletionCount())
+	response := createADSWatchResponse(t, cache, NetworkPolicyTypeURL, "")
+	cache.GetCompletionCallbacks().OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
+		&envoy_service_discovery.DiscoveryResponse{
+			VersionInfo: response.GetResponseVersion(),
+			TypeUrl:     NetworkPolicyTypeURL,
+		})
 
 	resourcesBefore := cache.GetAllResources(localNodeID)
 	snapshotBefore, err := cache.GetSnapshot(localNodeID)
@@ -1249,9 +1325,6 @@ func TestUpdateNetworkPolicyNoOpWaitsForCurrentACKWithoutPublishing(t *testing.T
 
 	version := snapshotBefore.GetVersion(NetworkPolicyTypeURL)
 	node := &envoy_config_core_v3.Node{Id: localNodeID}
-	cache.GetCompletionCallbacks().OnStreamResponse(ctx, 1,
-		&envoy_service_discovery.DiscoveryRequest{Node: node, TypeUrl: NetworkPolicyTypeURL},
-		&envoy_service_discovery.DiscoveryResponse{VersionInfo: version, TypeUrl: NetworkPolicyTypeURL})
 	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
 		Node:        node,
 		TypeUrl:     NetworkPolicyTypeURL,

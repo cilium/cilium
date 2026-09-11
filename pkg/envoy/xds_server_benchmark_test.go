@@ -170,9 +170,9 @@ func (c *benchmarkSnapshotCache) GenerateSnapshotIncrementally(resources *xds.Re
 	return c.Cache.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, logger)
 }
 
-func (c *benchmarkSnapshotCache) UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, snapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLs map[string]func(error), revert xdsnew.RevertFunc) error {
+func (c *benchmarkSnapshotCache) UpdateResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, changedTypeURLs map[string]struct{}, generator xdsnew.SnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(error), revert xdsnew.RevertFunc) error {
 	c.published.Add(1)
-	return c.Cache.UpdateSnapshot(ctx, nodeID, generation, snapshot, wg, updatedTypeURLs, revert)
+	return c.Cache.UpdateResources(ctx, nodeID, generation, resources, changedTypeURLs, generator, wg, updatedTypeURLs, revert)
 }
 
 func (c *benchmarkSnapshotCache) GetVersion(resources *xds.Resources) string {

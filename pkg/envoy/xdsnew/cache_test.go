@@ -12,6 +12,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -132,6 +133,10 @@ func newTestCache(mockedCache *mockSnapshotCache) cacheImpl {
 		SnapshotCache:       mockedCache,
 		mutex:               &lock.RWMutex{},
 		resourcesInSnapshot: make(map[string]*xds.Resources),
+		stagedSnapshots:     make(map[string]*stagedSnapshot),
+		snapshotGenerations: make(map[string]uint64),
+		openWatches:         make(map[watchKey]map[uint64]*trackedWatch),
+		watchRelays:         make(map[chan cache.Response]*watchRelay),
 		logger:              logger,
 		hasher:              nil, // not needed for tests that don't call hash/GetVersion
 		completionCbs:       callbacks.NewCompletionCallbacks(logger),
@@ -143,6 +148,38 @@ func newTestCacheWithHasher(mock *mockSnapshotCache) *cacheImpl {
 	c.SnapshotCache = mock
 	c.resourcesInSnapshot = make(map[string]*xds.Resources)
 	return c
+}
+
+// UpdateSnapshot preserves the eager publication shape used by the completion
+// callback tests below. Production updates go through UpdateResources; these
+// tests provide an already generated snapshot and explicitly finalize it.
+func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, snapshot cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc RevertFunc) error {
+	resources := emptyResources()
+	for name, resource := range snapshot.GetResources(NetworkPolicyTypeURL) {
+		if policy, ok := resource.(*cilium.NetworkPolicy); ok {
+			resources.NetworkPolicies[name] = policy
+		}
+	}
+	changedTypeURLs := make(map[string]struct{}, len(typeURLs))
+	for typeURL := range typeURLs {
+		changedTypeURLs[typeURL] = struct{}{}
+	}
+	if typeURLs == nil {
+		changedTypeURLs = nil
+	}
+	generator := func(*xds.Resources, cache.ResourceSnapshot, map[string]struct{}) (cache.ResourceSnapshot, error) {
+		return snapshot, nil
+	}
+	if err := c.UpdateResources(ctx, nodeID, generation, resources, changedTypeURLs, generator, wg, typeURLs, revertFunc); err != nil {
+		return err
+	}
+	c.mutex.Lock()
+	_, finalized, err := c.finalizeStagedSnapshotLocked(ctx, nodeID)
+	deliveries := c.collectResponseDeliveriesLocked()
+	c.mutex.Unlock()
+	c.deliverResponses(deliveries)
+	c.completeFinalized(nodeID, finalized)
+	return err
 }
 
 func emptyResources() *xds.Resources {
@@ -1562,6 +1599,203 @@ func TestAreDifferentSnapshots_Different(t *testing.T) {
 }
 
 // --- CreateWatch ---
+
+func testSnapshotGenerator(c *cacheImpl, generated *int) SnapshotGenerator {
+	return func(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}) (cache.ResourceSnapshot, error) {
+		(*generated)++
+		return c.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, c.logger)
+	}
+}
+
+func mustSnapshot(t *testing.T, c *cacheImpl, nodeID string) cache.ResourceSnapshot {
+	t.Helper()
+	snapshot, err := c.SnapshotCache.GetSnapshot(nodeID)
+	require.NoError(t, err)
+	return snapshot
+}
+
+func TestUpdateResourcesFinalizesLatestGenerationOnCreateWatch(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	generated := 0
+	generator := testSnapshotGenerator(c, &generated)
+	changed := map[string]struct{}{NetworkPolicyTypeURL: {}}
+
+	resourcesA := emptyResources()
+	resourcesA.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 1}
+	require.NoError(t, c.UpdateResources(t.Context(), "node1", 1, resourcesA, changed, generator, nil, nil, nil))
+	resourcesB := emptyResources()
+	resourcesB.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 2}
+	require.NoError(t, c.UpdateResources(t.Context(), "node1", 2, resourcesB, changed, generator, nil, nil, nil))
+
+	require.Zero(t, generated)
+	_, err := c.SnapshotCache.GetSnapshot("node1")
+	require.Error(t, err)
+	require.Same(t, resourcesB, c.GetAllResources("node1"))
+
+	request := &cache.Request{
+		Node:    &envoy_config_core.Node{Id: "node1"},
+		TypeUrl: NetworkPolicyTypeURL,
+	}
+	responses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+
+	var response cache.Response
+	select {
+	case response = <-responses:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for finalized snapshot")
+	}
+	require.Equal(t, 1, generated)
+	require.Equal(t, response.GetResponseVersion(), mustSnapshot(t, c, "node1").GetVersion(NetworkPolicyTypeURL))
+	policy := mustSnapshot(t, c, "node1").GetResources(NetworkPolicyTypeURL)["policy"].(*cilium.NetworkPolicy)
+	require.Equal(t, uint64(2), policy.EndpointId)
+}
+
+func TestUpdateResourcesFinalizesOncePerAvailableWatch(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	generated := 0
+	generator := testSnapshotGenerator(c, &generated)
+	changed := map[string]struct{}{NetworkPolicyTypeURL: {}}
+	request := &cache.Request{
+		Node:    &envoy_config_core.Node{Id: "node1"},
+		TypeUrl: NetworkPolicyTypeURL,
+	}
+	subscription := stream.NewSotwSubscription(nil, false)
+	responses := make(chan cache.Response, 1)
+
+	resourcesA := emptyResources()
+	resourcesA.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 1}
+	require.NoError(t, c.UpdateResources(t.Context(), "node1", 1, resourcesA, changed, generator, nil, nil, nil))
+	cancel, err := c.CreateWatch(request, subscription, responses)
+	require.NoError(t, err)
+	responseA := <-responses
+	subscription.SetReturnedResources(responseA.GetReturnedResources())
+	cancel()
+	require.Equal(t, 1, generated)
+
+	request.VersionInfo = responseA.GetResponseVersion()
+	cancel, err = c.CreateWatch(request, subscription, responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+
+	resourcesB := emptyResources()
+	resourcesB.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 2}
+	require.NoError(t, c.UpdateResources(t.Context(), "node1", 2, resourcesB, changed, generator, nil, nil, nil))
+	responseB := <-responses
+	subscription.SetReturnedResources(responseB.GetReturnedResources())
+	require.Equal(t, 2, generated)
+
+	// The B response consumed the only NPDS watch. C remains staged while the
+	// simulated client processes B, even though its response channel is empty.
+	resourcesC := emptyResources()
+	resourcesC.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 3}
+	require.NoError(t, c.UpdateResources(t.Context(), "node1", 3, resourcesC, changed, generator, nil, nil, nil))
+	require.Equal(t, 2, generated)
+
+	request.VersionInfo = responseB.GetResponseVersion()
+	cancel, err = c.CreateWatch(request, subscription, responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+	responseC := <-responses
+	require.Equal(t, 3, generated)
+	require.NotEqual(t, responseB.GetResponseVersion(), responseC.GetResponseVersion())
+}
+
+func TestUpdateResourcesIgnoresUnrelatedOpenWatch(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	generated := 0
+	generator := testSnapshotGenerator(c, &generated)
+	node := &envoy_config_core.Node{Id: "node1"}
+
+	resourcesA := emptyResources()
+	resourcesA.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 1}
+	require.NoError(t, c.UpdateResources(t.Context(), "node1", 1, resourcesA,
+		map[string]struct{}{NetworkPolicyTypeURL: {}}, generator, nil, nil, nil))
+	npResponses := make(chan cache.Response, 1)
+	_, err := c.CreateWatch(&cache.Request{Node: node, TypeUrl: NetworkPolicyTypeURL},
+		stream.NewSotwSubscription(nil, false), npResponses)
+	require.NoError(t, err)
+	<-npResponses
+	require.Equal(t, 1, generated)
+
+	listenerVersion := mustSnapshot(t, c, "node1").GetVersion(envoy_resource.ListenerType)
+	listenerResponses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(&cache.Request{
+		Node: node, TypeUrl: envoy_resource.ListenerType, VersionInfo: listenerVersion,
+	}, stream.NewSotwSubscription(nil, false), listenerResponses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+
+	resourcesB := emptyResources()
+	resourcesB.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 2}
+	require.NoError(t, c.UpdateResources(t.Context(), "node1", 2, resourcesB,
+		map[string]struct{}{NetworkPolicyTypeURL: {}}, generator, nil, nil, nil))
+	require.Equal(t, 1, generated)
+}
+
+func TestUpdateResourcesCompletesCoalescedABAOnCreateWatch(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	generated := 0
+	generator := testSnapshotGenerator(c, &generated)
+	changed := map[string]struct{}{NetworkPolicyTypeURL: {}}
+	node := &envoy_config_core.Node{Id: "node1"}
+	subscription := stream.NewSotwSubscription(nil, false)
+
+	resourcesA := emptyResources()
+	resourcesA.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 1}
+	require.NoError(t, c.UpdateResources(t.Context(), "node1", 1, resourcesA,
+		changed, generator, nil, nil, nil))
+	responses := make(chan cache.Response, 1)
+	_, err := c.CreateWatch(&cache.Request{Node: node, TypeUrl: NetworkPolicyTypeURL}, subscription, responses)
+	require.NoError(t, err)
+	responseA := <-responses
+	subscription.SetReturnedResources(responseA.GetReturnedResources())
+	c.completionCbs.OnStreamResponse(responseA.GetContext(), 1, responseA.GetRequest(),
+		&discovery.DiscoveryResponse{
+			VersionInfo: responseA.GetResponseVersion(),
+			TypeUrl:     NetworkPolicyTypeURL,
+			Nonce:       "nonce-a",
+		})
+	require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:          node,
+		TypeUrl:       NetworkPolicyTypeURL,
+		VersionInfo:   responseA.GetResponseVersion(),
+		ResponseNonce: "nonce-a",
+	}))
+
+	resourcesB := emptyResources()
+	resourcesB.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 2}
+	wgB := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wgB.Cancel)
+	require.NoError(t, c.UpdateResources(t.Context(), "node1", 2, resourcesB,
+		changed, generator, wgB, map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+	wgA := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wgA.Cancel)
+	require.NoError(t, c.UpdateResources(t.Context(), "node1", 3, resourcesA,
+		changed, generator, wgA, map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+	require.Equal(t, 2, c.completionCbs.PendingCompletionCount())
+	require.Equal(t, 1, generated)
+
+	// Finalization returns to the already ACKed contents. CreateWatch therefore
+	// opens a watch without emitting another response, while both folded
+	// generations complete successfully.
+	cancel, err := c.CreateWatch(&cache.Request{
+		Node: node, TypeUrl: NetworkPolicyTypeURL, VersionInfo: responseA.GetResponseVersion(),
+	}, subscription, responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+	require.NoError(t, wgB.Wait())
+	require.NoError(t, wgA.Wait())
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+	require.Equal(t, 2, generated)
+	select {
+	case <-responses:
+		t.Fatal("unexpected response for already accepted finalized contents")
+	default:
+	}
+}
 
 func TestCreateWatch_DelegatesToSnapshotCache(t *testing.T) {
 	mock := newMockSnapshotCache()
