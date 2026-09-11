@@ -23,6 +23,7 @@ import (
 	envoy_extensions_listener_tls_inspector_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	xds_cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -1012,6 +1013,41 @@ func computeChanges(current, new *xds.Resources) *resourceChanges {
 	}
 }
 
+// computeChangesForTypeURLs captures only directly changed resource types.
+// Snapshot generation may additionally dirty dependent types, but those types
+// do not own resource mutations and therefore need no rollback state.
+func computeChangesForTypeURLs(current, new *xds.Resources, typeURLs map[string]struct{}) *resourceChanges {
+	if current == nil {
+		current = &xds.Resources{}
+	}
+	if new == nil {
+		new = &xds.Resources{}
+	}
+	changes := &resourceChanges{}
+	if _, changed := typeURLs[ListenerTypeURL]; changed {
+		changes.listeners = diffMap(current.Listeners, new.Listeners)
+	}
+	if _, changed := typeURLs[RouteTypeURL]; changed {
+		changes.routes = diffMap(current.Routes, new.Routes)
+	}
+	if _, changed := typeURLs[ClusterTypeURL]; changed {
+		changes.clusters = diffMap(current.Clusters, new.Clusters)
+	}
+	if _, changed := typeURLs[EndpointTypeURL]; changed {
+		changes.endpoints = diffMap(current.Endpoints, new.Endpoints)
+	}
+	if _, changed := typeURLs[SecretTypeURL]; changed {
+		changes.secrets = diffMap(current.Secrets, new.Secrets)
+	}
+	if _, changed := typeURLs[NetworkPolicyTypeURL]; changed {
+		changes.networkPolicies = diffMap(current.NetworkPolicies, new.NetworkPolicies)
+	}
+	if _, changed := typeURLs[NetworkPolicyHostsTypeURL]; changed {
+		changes.networkPolicyHosts = diffMap(current.NetworkPolicyHosts, new.NetworkPolicyHosts)
+	}
+	return changes
+}
+
 func inferredCompletionTypeURLs(changes *resourceChanges) map[string]func(error) {
 	// In ADS, CDS/RDS/EDS/SDS ACKs can be delayed by dependencies that are
 	// reconciled by later StateDB rows. A generic wait for every changed type can
@@ -1244,6 +1280,50 @@ func (tracker *resourceGenerationTracker) releaseRollbackLocked(nodeID string, c
 	}
 }
 
+func pruneUnownedTombstones(generations map[string]resourceGenerationEntry, owners map[rollbackOwnerKey]uint32, typeURL string, throughGeneration uint64) {
+	for name, current := range generations {
+		if current.exists || current.generation > throughGeneration ||
+			owners[rollbackOwnerKey{typeURL: typeURL, name: name, generation: current.generation}] != 0 {
+			continue
+		}
+		delete(generations, name)
+	}
+}
+
+// pruneUnownedTombstonesLocked drops generation metadata for removals whose
+// finalized state needs no rollback (for example, add-then-remove coalescing).
+// Tombstones referenced by an older response stay live until that response is
+// ACKed or NACKed.
+func (tracker *resourceGenerationTracker) pruneUnownedTombstonesLocked(nodeID, typeURL string, throughGeneration uint64) {
+	state := tracker.nodes[nodeID]
+	if state == nil {
+		return
+	}
+	owners := tracker.owners[nodeID]
+	switch typeURL {
+	case ListenerTypeURL:
+		pruneUnownedTombstones(state.listeners, owners, typeURL, throughGeneration)
+	case RouteTypeURL:
+		pruneUnownedTombstones(state.routes, owners, typeURL, throughGeneration)
+	case ClusterTypeURL:
+		pruneUnownedTombstones(state.clusters, owners, typeURL, throughGeneration)
+	case EndpointTypeURL:
+		pruneUnownedTombstones(state.endpoints, owners, typeURL, throughGeneration)
+	case SecretTypeURL:
+		pruneUnownedTombstones(state.secrets, owners, typeURL, throughGeneration)
+	case NetworkPolicyTypeURL:
+		pruneUnownedTombstones(state.networkPolicies, owners, typeURL, throughGeneration)
+	case NetworkPolicyHostsTypeURL:
+		pruneUnownedTombstones(state.networkPolicyHosts, owners, typeURL, throughGeneration)
+	}
+	if len(owners) == 0 {
+		delete(tracker.owners, nodeID)
+	}
+	if resourceGenerationStateEmpty(state) {
+		delete(tracker.nodes, nodeID)
+	}
+}
+
 type resourceRollbackLifecycle struct {
 	server           *adsServer
 	ctx              context.Context
@@ -1327,6 +1407,7 @@ func (s *adsServer) buildRevert(ctx context.Context, nodeID, typeURL string, pus
 	tracker := s.resourceGenerationTracker
 	tracker.mutex.Lock()
 	tracker.prepareRollbackLocked(nodeID, changes, pushedGeneration)
+	tracker.pruneUnownedTombstonesLocked(nodeID, typeURL, pushedGeneration)
 	tracker.mutex.Unlock()
 	lifecycle := &resourceRollbackLifecycle{
 		server:           s,
@@ -1504,63 +1585,52 @@ func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds
 		}
 		completionTypeURLs = callbackTypeURLs
 	}
-	oldSnapshot, _ := s.cache.GetSnapshot(nodeId)
-	if oldSnapshot == nil {
-		// This may be first update for this node, so snapshot may not exist yet.
-		s.logger.Debug("Failed to get snapshot for node, will create new one",
-			logfields.NodeID, nodeId)
-	}
-
-	newSnapshot, err := s.cache.GenerateSnapshotIncrementally(resources, oldSnapshot, changedTypeURLs, s.logger)
-	if err != nil {
-		s.logger.Error("Failed to generate ADS snapshot",
-			logfields.NodeID, nodeId,
-			logfields.Error, err)
-		return err
-	}
-	if s.config.envoyXDSMode.IsStrictADS() {
-		if err := xdsnew.CheckSnapshotConsistency(newSnapshot); err != nil {
-			err = fmt.Errorf("generated ADS snapshot is inconsistent: %w", err)
-			s.logger.Error("Generated ADS snapshot is inconsistent",
-				logfields.NodeID, nodeId,
-				logfields.Error, err)
-			return err
-		}
-	}
-	if oldSnapshot == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.AreDifferentSnapshots(oldSnapshot, newSnapshot) {
+	if changes == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.GetAllResources(nodeId) == nil {
 		// Reserve the next generation before registering the revert closure. It
-		// becomes current only after both the snapshot and immutable resources
-		// have been published successfully.
+		// becomes current after the immutable resources have been staged. The
+		// actual snapshot may be finalized later when Envoy opens its next watch.
 		newGeneration := s.resourceGeneration + 1
-		// Record the generation before UpdateSnapshot can synchronously expose a
-		// response whose NACK invokes the rollback callback.
-		s.resourceGenerationTracker.record(nodeId, newGeneration, resources, changes)
-		var rollbacks map[string]xdsnew.Rollback
-		// An update without a WaitGroup can still be coalesced into a response
-		// carrying older tracked generations. Preserve its revert so a NACK can
-		// restore every resource change represented by that response.
-		if revertOnNACK && changes != nil {
-			for typeURL := range getUpdatedTypeURLs(changes) {
-				if rollbacks == nil {
-					rollbacks = make(map[string]xdsnew.Rollback)
+		var revertFactory xdsnew.RevertFactory
+		// A resource mutation without an ACK-tracked completion can still be
+		// coalesced into a later response. Preserve response-owned rollback state
+		// beyond the lifetime of the caller so a delayed NACK can restore every
+		// resource change represented by that response.
+		if revertOnNACK && changes != nil && len(changedTypeURLs) > 0 {
+			revertFactory = func(generation uint64, previous, current *xds.Resources, changedTypeURLs map[string]struct{}) xdsnew.Rollback {
+				for typeURL := range changedTypeURLs {
+					return s.buildRevert(context.Background(), nodeId, typeURL, generation,
+						computeChangesForTypeURLs(previous, current, changedTypeURLs))
 				}
-				rollbacks[typeURL] = s.buildRevert(ctx, nodeId, typeURL, newGeneration, changes)
+				return nil
 			}
 		}
-		err = s.cache.UpdateSnapshot(ctx, nodeId, newGeneration, newSnapshot, wg, completionTypeURLs, rollbacks)
+		generator := func(resources *xds.Resources, previous xds_cache.ResourceSnapshot, changedTypeURLs map[string]struct{}) (xds_cache.ResourceSnapshot, error) {
+			snapshot, err := s.cache.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, s.logger)
+			if err != nil {
+				return nil, err
+			}
+			if s.config.envoyXDSMode.IsStrictADS() {
+				if err := xdsnew.CheckSnapshotConsistency(snapshot); err != nil {
+					return nil, fmt.Errorf("generated ADS snapshot is inconsistent: %w", err)
+				}
+			}
+			return snapshot, nil
+		}
+		// Record the generation before UpdateResources can synchronously finalize
+		// an open watch and build its response rollback.
+		s.resourceGenerationTracker.record(nodeId, newGeneration, resources, changes)
+		err := s.cache.UpdateResources(ctx, nodeId, newGeneration, resources, changedTypeURLs, generator, wg, completionTypeURLs, nil, revertFactory)
 		if err != nil {
 			s.resourceGenerationTracker.restore(nodeId, changes)
-			s.logger.Error("Error setting snapshot for node %s: %q",
+			s.logger.Error("Error staging snapshot resources",
 				logfields.NodeID, nodeId,
 				logfields.Error, err)
 			return err
-		} else {
-			s.cache.SetResources(nodeId, resources)
-			s.resourceGeneration = newGeneration
-			s.resourceGenerations[nodeId] = newGeneration
 		}
+		s.resourceGeneration = newGeneration
+		s.resourceGenerations[nodeId] = newGeneration
 	} else {
-		s.logger.Debug("updateXdsSnapshot: Snapshots are identical, skipping update")
+		s.logger.Debug("updateXdsSnapshot: Resources are identical, skipping update")
 	}
 
 	if nodeId == localNodeID {
