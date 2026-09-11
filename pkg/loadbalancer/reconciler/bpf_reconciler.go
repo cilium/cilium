@@ -480,7 +480,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	var svcKey maps.ServiceKey
 	var revNatKey maps.RevNatKey
 
-	ip := fe.Address.AddrCluster().AsNetIP()
+	ip := fe.Address.Addr()
 	proto, err := u8proto.ParseProtocol(fe.Address.Protocol())
 	if err != nil {
 		return fmt.Errorf("invalid L4 protocol %q: %w", fe.Address.Protocol(), err)
@@ -899,7 +899,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		return fmt.Errorf("invalid L4 protocol %q: %w", fe.Address.Protocol(), err)
 	}
 
-	ip := fe.Address.AddrCluster().AsNetIP()
+	ip := fe.Address.Addr()
 	if fe.Address.IsIPv6() {
 		svcKey = maps.NewService6Key(ip, fe.Address.Port(), proto, fe.Address.Scope(), 0)
 		svcVal = &maps.Service6Value{}
@@ -1431,11 +1431,11 @@ func (ops *BPFOps) upsertWildcard(fe *loadbalancer.Frontend, feID loadbalancer.S
 		var wildcardVal maps.ServiceValue
 
 		if addr.Is6() {
-			wildcardKey = maps.NewService6Key(addr.AsSlice(), WildcardPortNumber,
+			wildcardKey = maps.NewService6Key(addr, WildcardPortNumber,
 				WildcardProtoNumber, fe.Address.Scope(), 0)
 			wildcardVal = &maps.Service6Value{}
 		} else {
-			wildcardKey = maps.NewService4Key(addr.AsSlice(), WildcardPortNumber,
+			wildcardKey = maps.NewService4Key(addr, WildcardPortNumber,
 				WildcardProtoNumber, fe.Address.Scope(), 0)
 			wildcardVal = &maps.Service4Value{}
 		}
@@ -1492,10 +1492,10 @@ func (ops *BPFOps) deleteWildcard(fe *loadbalancer.Frontend, feID loadbalancer.S
 		var wildcardKey maps.ServiceKey
 
 		if addr.Is6() {
-			wildcardKey = maps.NewService6Key(addr.AsSlice(), WildcardPortNumber,
+			wildcardKey = maps.NewService6Key(addr, WildcardPortNumber,
 				WildcardProtoNumber, fe.Address.Scope(), 0)
 		} else {
-			wildcardKey = maps.NewService4Key(addr.AsSlice(), WildcardPortNumber,
+			wildcardKey = maps.NewService4Key(addr, WildcardPortNumber,
 				WildcardProtoNumber, fe.Address.Scope(), 0)
 		}
 

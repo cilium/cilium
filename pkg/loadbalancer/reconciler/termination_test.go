@@ -334,7 +334,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 	sd, err := sockets.NewSocketDestroyer(log, nil, nil)
 	require.NoError(t, err)
 
-	lbmap.UpdateSockRevNat(uint64(cookie), net.IP{127, 0, 0, 1}, 30000, 0)
+	lbmap.UpdateSockRevNat(uint64(cookie), netip.MustParseAddr("127.0.0.1"), 30000, 0)
 
 	ip, err := netip.ParseAddr("127.0.0.1")
 	require.NoError(t, err)
@@ -376,7 +376,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 		return nil
 	}))
 	cookie3 := getCookie(ns3, 30001)
-	lbmap.UpdateSockRevNat(uint64(cookie3), net.IP{127, 0, 0, 1}, 30001, 0)
+	lbmap.UpdateSockRevNat(uint64(cookie3), netip.MustParseAddr("127.0.0.1"), 30001, 0)
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30001, 0)
 	params.ExtConfig.BPFSocketLBHostnsOnly = true
 	terminateConnectionsToBackend(params, sd, l4a)
@@ -386,7 +386,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 	// 	so this one should close.
 	conn3, err = net.Dial("udp", "127.0.0.1:30004")
 	assert.NoError(t, err)
-	lbmap.UpdateSockRevNat(uint64(getCookie(nil, 30004)), net.IP{127, 0, 0, 1}, 30004, 0)
+	lbmap.UpdateSockRevNat(uint64(getCookie(nil, 30004)), netip.MustParseAddr("127.0.0.1"), 30004, 0)
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30004, 0)
 	terminateConnectionsToBackend(params, sd, l4a)
 	assertForceClose(true, conn3)
@@ -399,7 +399,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 		return nil
 	}))
 	cookie3 = getCookie(ns3, 30003)
-	lbmap.UpdateSockRevNat(uint64(cookie3), net.IP{127, 0, 0, 1}, 30003, 0)
+	lbmap.UpdateSockRevNat(uint64(cookie3), netip.MustParseAddr("127.0.0.1"), 30003, 0)
 	l4a = loadbalancer.NewL3n4Addr(loadbalancer.UDP, cmtypes.AddrClusterFrom(ip, 0), 30003, 0)
 
 	params.ExtConfig.BPFSocketLBHostnsOnly = false

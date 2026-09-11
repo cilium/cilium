@@ -266,9 +266,9 @@ func (ops *skiplbOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb
 		for _, addr := range addrs {
 			var addErr error
 			if addr.IsIPv6() {
-				addErr = ops.m.AddLB6(*d.NetnsCookie, addr.AddrCluster().AsNetIP(), addr.Port())
+				addErr = ops.m.AddLB6(*d.NetnsCookie, addr.Addr(), addr.Port())
 			} else {
-				addErr = ops.m.AddLB4(*d.NetnsCookie, addr.AddrCluster().AsNetIP(), addr.Port())
+				addErr = ops.m.AddLB4(*d.NetnsCookie, addr.Addr(), addr.Port())
 			}
 			if addErr != nil {
 				err = errors.Join(err, addErr)

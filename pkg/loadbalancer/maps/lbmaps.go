@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
-	"net"
+	"net/netip"
 	"os"
 	"reflect"
 	"unsafe"
@@ -101,9 +101,9 @@ type maglevMaps interface {
 }
 
 type sockRevNatMaps interface {
-	UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error
-	DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) error
-	ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool
+	UpdateSockRevNat(cookie uint64, addr netip.Addr, port uint16, revNatIndex uint16) error
+	DeleteSockRevNat(cookie uint64, addr netip.Addr, port uint16) error
+	ExistsSockRevNat(cookie uint64, addr netip.Addr, port uint16) bool
 	SockRevNat() (*bpf.Map, *bpf.Map)
 }
 
@@ -692,8 +692,8 @@ func (r *BPFLBMaps) DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, MaglevInn
 }
 
 // DeleteSockRevNat implements LBMaps.
-func (r *BPFLBMaps) DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) error {
-	if addr.To4() != nil && r.sockRevNat4Map != nil {
+func (r *BPFLBMaps) DeleteSockRevNat(cookie uint64, addr netip.Addr, port uint16) error {
+	if addr.Unmap().Is4() && r.sockRevNat4Map != nil {
 		key := NewSockRevNat4Key(cookie, addr, port)
 		_, err := r.sockRevNat4Map.SilentDelete(key)
 		return err
@@ -706,8 +706,8 @@ func (r *BPFLBMaps) DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) er
 }
 
 // UpdateSockRevNat implements LBMaps.
-func (r *BPFLBMaps) UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error {
-	if addr.To4() != nil && r.sockRevNat4Map != nil {
+func (r *BPFLBMaps) UpdateSockRevNat(cookie uint64, addr netip.Addr, port uint16, revNatIndex uint16) error {
+	if addr.Unmap().Is4() && r.sockRevNat4Map != nil {
 		key := NewSockRevNat4Key(cookie, addr, port)
 		value := SockRevNat4Value{
 			Address:     key.Address,
@@ -727,8 +727,8 @@ func (r *BPFLBMaps) UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, re
 	return nil
 }
 
-func (r *BPFLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
-	if addr.To4() != nil && r.sockRevNat4Map != nil {
+func (r *BPFLBMaps) ExistsSockRevNat(cookie uint64, addr netip.Addr, port uint16) bool {
+	if addr.Unmap().Is4() && r.sockRevNat4Map != nil {
 		key := NewSockRevNat4Key(cookie, addr, port)
 		if v, _ := r.sockRevNat4Map.Lookup(key); v != nil {
 			return true
@@ -816,7 +816,7 @@ type FaultyLBMaps struct {
 }
 
 // DeleteSockRevNat implements LBMaps.
-func (f *FaultyLBMaps) DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) error {
+func (f *FaultyLBMaps) DeleteSockRevNat(cookie uint64, addr netip.Addr, port uint16) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -824,7 +824,7 @@ func (f *FaultyLBMaps) DeleteSockRevNat(cookie uint64, addr net.IP, port uint16)
 }
 
 // UpdateSockRevNat implements LBMaps.
-func (f *FaultyLBMaps) UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error {
+func (f *FaultyLBMaps) UpdateSockRevNat(cookie uint64, addr netip.Addr, port uint16, revNatIndex uint16) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -968,7 +968,7 @@ func (f *FaultyLBMaps) DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, Maglev
 	return f.impl.DumpMaglev(cb)
 }
 
-func (f *FaultyLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
+func (f *FaultyLBMaps) ExistsSockRevNat(cookie uint64, addr netip.Addr, port uint16) bool {
 	return f.impl.ExistsSockRevNat(cookie, addr, port)
 }
 
@@ -1197,9 +1197,9 @@ func (f *FakeLBMaps) DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, MaglevIn
 }
 
 // DeleteSockRevNat implements LBMaps.
-func (f *FakeLBMaps) DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) error {
+func (f *FakeLBMaps) DeleteSockRevNat(cookie uint64, addr netip.Addr, port uint16) error {
 	var key bpf.MapKey
-	if addr.To4() != nil {
+	if addr.Unmap().Is4() {
 		key4 := NewSockRevNat4Key(cookie, addr, port)
 		key = key4
 	} else {
@@ -1210,10 +1210,10 @@ func (f *FakeLBMaps) DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) e
 }
 
 // UpdateSockRevNat implements LBMaps.
-func (f *FakeLBMaps) UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error {
+func (f *FakeLBMaps) UpdateSockRevNat(cookie uint64, addr netip.Addr, port uint16, revNatIndex uint16) error {
 	var key bpf.MapKey
 	var value bpf.MapValue
-	if addr.To4() != nil {
+	if addr.Unmap().Is4() {
 		key4 := NewSockRevNat4Key(cookie, addr, port)
 		key = key4
 		value = &SockRevNat4Value{
@@ -1234,9 +1234,9 @@ func (f *FakeLBMaps) UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, r
 	return nil
 }
 
-func (f *FakeLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
+func (f *FakeLBMaps) ExistsSockRevNat(cookie uint64, addr netip.Addr, port uint16) bool {
 	var key bpf.MapKey
-	if addr.To4() != nil {
+	if addr.Unmap().Is4() {
 		key4 := NewSockRevNat4Key(cookie, addr, port)
 		key = key4
 	} else {

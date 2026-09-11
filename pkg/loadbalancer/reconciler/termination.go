@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -235,7 +236,7 @@ func terminateConnectionsToBackend(p socketTerminationParams, sd sockets.SocketD
 	checkSockInRevNat := func(id netlink.SocketID) bool {
 		cookie := uint64(id.Cookie[1])
 		cookie = cookie<<32 + uint64(id.Cookie[0])
-		return p.LBMaps.ExistsSockRevNat(cookie, id.Destination, id.DestinationPort)
+		return p.LBMaps.ExistsSockRevNat(cookie, iputil.AddrFromIP(id.Destination), id.DestinationPort)
 	}
 
 	destroy := func(nsName string, ns *netns.NetNS) error {
