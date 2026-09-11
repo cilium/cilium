@@ -1023,7 +1023,10 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 
 	if oldSnapshot == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.AreDifferentSnapshots(oldSnapshot, newSnapshot) {
 		var revertFunc func()
-		if wg != nil {
+		// Untracked snapshots can coalesce older tracked updates in ADS. Preserve
+		// their rollback as well so a NACK of the resulting response restores all
+		// updates represented by it, newest first.
+		if wg != nil || changes != nil {
 			revertFunc = s.buildRevert(ctx, nodeId, resources, changes)
 		}
 		err = s.cache.UpdateSnapshot(ctx, nodeId, newSnapshot, wg, completionTypeURLs, revertFunc)
