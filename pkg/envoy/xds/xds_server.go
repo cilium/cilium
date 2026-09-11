@@ -72,6 +72,9 @@ type XDSServer interface {
 
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD.
 // Each resource type is stored in a map keyed by resource name.
+// Once published to an xDS cache, the Resources, its maps, and the protobuf
+// values in those maps must be treated as immutable. Updates must use
+// copy-on-write for every map they modify.
 type Resources struct {
 	Listeners          map[string]*envoy_config_listener.Listener
 	Secrets            map[string]*envoy_config_tls.Secret

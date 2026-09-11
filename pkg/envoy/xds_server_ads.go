@@ -517,9 +517,21 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 
 		if existed {
 			s.logger.Debug("Reverting listener removal", logfields.Listener, name)
-			resources := s.cache.GetAllResources(localNodeID)
-			resources.Listeners[name] = oldListener
-			s.updateSnapshot(ctx, resources, localNodeID, nil, nil, nil)
+			currentResources := s.cache.GetAllResources(localNodeID)
+			if currentResources == nil {
+				empty := xds.NewResources()
+				currentResources = &empty
+			}
+
+			// The cached resources are published immutable state. Copy the
+			// Resources and only the map changed by this revert.
+			revertedResources := *currentResources
+			revertedResources.Listeners = maps.Clone(currentResources.Listeners)
+			if revertedResources.Listeners == nil {
+				revertedResources.Listeners = make(map[string]*envoy_config_listener.Listener)
+			}
+			revertedResources.Listeners[name] = oldListener
+			s.updateSnapshot(ctx, &revertedResources, localNodeID, nil, nil, nil)
 		}
 		if isProxyListener {
 			s.proxyListeners++

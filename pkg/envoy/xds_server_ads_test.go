@@ -345,8 +345,16 @@ func TestRemoveListener(t *testing.T) {
 	revertFunc := server.RemoveListener(ctx, "test-listener", wg)
 	assert.NotNil(t, revertFunc)
 
-	resources = cache.GetAllResources(localNodeID)
-	require.Empty(t, resources.Listeners)
+	removedResources := cache.GetAllResources(localNodeID)
+	require.Empty(t, removedResources.Listeners)
+
+	revertFunc()
+
+	revertedResources := cache.GetAllResources(localNodeID)
+	require.NotSame(t, removedResources, revertedResources)
+	require.NotNil(t, revertedResources.Listeners["test-listener"])
+	// A revert must not mutate the Resources generation it superseded.
+	require.Empty(t, removedResources.Listeners)
 }
 
 // TestUpsertEnvoyResources verifies that Envoy resources can be upserted

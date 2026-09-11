@@ -47,7 +47,10 @@ type Cache interface {
 	GetVersion(resources *xds.Resources) string
 	GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error)
 	UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc func()) error
+	// SetResources transfers resources to the cache as immutable published state.
 	SetResources(nodeID string, resources *xds.Resources)
+	// GetAllResources returns cache-owned immutable state. Callers must use
+	// copy-on-write rather than mutate the returned Resources or its contents.
 	GetAllResources(nodeID string) *xds.Resources
 	AreDifferentSnapshots(left, right cache.ResourceSnapshot) bool
 	GetCompletionCallbacks() *callbacks.CompletionCallbacks
@@ -620,6 +623,8 @@ func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
 	return c.completionCbs
 }
 
+// SetResources stores resources as cache-owned immutable state. It intentionally
+// does not clone resources; callers transfer ownership when calling this method.
 func (c *cacheImpl) SetResources(nodeID string, resources *xds.Resources) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -707,6 +712,9 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 	return c.SnapshotCache.CreateWatch(request, sub, respChan)
 }
 
+// GetAllResources returns cache-owned immutable state. The returned pointer and
+// all of its maps and protobuf values must only be read. Callers making an update
+// must copy the Resources and every map they modify before publishing it.
 func (c *cacheImpl) GetAllResources(nodeID string) *xds.Resources {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
