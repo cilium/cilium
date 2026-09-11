@@ -41,7 +41,7 @@ var LocalNodeStoreCell = cell.Module(
 	"Provides LocalNodeStore for observing and updating local node info",
 
 	cell.ProvidePrivate(NewNodeTable),
-	cell.Provide(provideWriter),
+	WriterCell,
 	cell.Provide(NewNodeTableAndLocalNodeStore),
 	cell.Provide(NewClusterSizeDependantInterval),
 )
@@ -79,14 +79,15 @@ func NewNodeTableAndLocalNodeStore(params LocalNodeStoreParams) (
 	*LocalNodeStore, NodeGetter, statedb.Table[*Node], error,
 ) {
 	nodeTable := params.Nodes
-	wtxn := params.DB.WriteTxn(nodeTable)
+	wtxn := params.NodeWriter.WriteTxn()
+	defer wtxn.Abort()
 
 	// Register an initializer that'll mark the table initialized once we're done
 	// with [LocalNodeSynchronizer.InitLocalNode].
-	initDone := nodeTable.RegisterInitializer(wtxn, LocalNodeTableInitializerName)
+	initDone := params.NodeWriter.RegisterInitializer(wtxn, LocalNodeTableInitializerName)
 
 	// Insert the skeleton local node.
-	nodeTable.Insert(wtxn,
+	params.NodeWriter.upsertLocal(wtxn, nil,
 		&LocalNode{
 			Node: types.Node{
 				Name:      types.GetName(),
@@ -96,7 +97,7 @@ func NewNodeTableAndLocalNodeStore(params LocalNodeStoreParams) (
 				// we don't need to always check for nil values.
 				Labels:      make(map[string]string),
 				Annotations: make(map[string]string),
-				Source:      source.Unspec,
+				Source:      source.Local,
 			},
 			Local: &LocalNodeInfo{},
 		})
@@ -106,17 +107,13 @@ func NewNodeTableAndLocalNodeStore(params LocalNodeStoreParams) (
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			wtxn := params.DB.WriteTxn(nodeTable)
+			wtxn := params.NodeWriter.WriteTxn()
+			defer wtxn.Abort()
 			n, _, _ := nodeTable.Get(wtxn, LocalNodeQuery)
-			// Delete the initial one as name might change.
-			nodeTable.Delete(wtxn, n)
-
+			orig := n
 			n = n.DeepCopy()
 			err := params.Sync.InitLocalNode(ctx, n)
-			n.Statuses = n.Statuses.Pending(
-				reconcilerNames(s.writer.getRequiredReconcilers(wtxn))...,
-			)
-			nodeTable.Insert(wtxn, n)
+			params.NodeWriter.upsertLocal(wtxn, orig, n)
 			initDone(wtxn)
 			wtxn.Commit()
 
@@ -222,7 +219,7 @@ func (s *LocalNodeStore) Get(ctx context.Context) (LocalNode, error) {
 
 // Update modifies the local node with a mutator.
 func (s *LocalNodeStore) Update(update func(*LocalNode)) {
-	txn := s.db.WriteTxn(s.nodes)
+	txn := s.writer.WriteTxn()
 	defer txn.Abort()
 	ln, _, found := s.nodes.Get(txn, LocalNodeQuery)
 	if !found {
@@ -239,16 +236,7 @@ func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 		// No changes.
 		return
 	}
-	ln.Statuses = orig.Statuses.Pending(
-		reconcilerNames(s.writer.getRequiredReconcilers(txn))...,
-	)
-
-	if orig.Fullname() != ln.Fullname() {
-		// Name or cluster has changed, delete first to remove it from the name index.
-		s.nodes.Delete(txn, orig)
-	}
-
-	s.nodes.Insert(txn, ln)
+	s.writer.upsertLocal(txn, orig, ln)
 	txn.Commit()
 }
 
@@ -265,10 +253,11 @@ func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
 	if mockNode.Local == nil {
 		mockNode.Local = &LocalNodeInfo{}
 	}
-	txn := db.WriteTxn(tbl)
-	tbl.Insert(txn, &mockNode)
+	writer := NewWriter(slog.Default(), db, tbl)
+	txn := writer.WriteTxn()
+	writer.upsertLocal(txn, nil, &mockNode)
 	txn.Commit()
-	return &LocalNodeStore{db, tbl, nil, nil}
+	return &LocalNodeStore{db, tbl, nil, writer}
 }
 
 // LocalNodeStoreTestCell is a convenience for tests that provides a no-op
