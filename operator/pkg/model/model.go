@@ -608,6 +608,22 @@ type Infrastructure struct {
 	Annotations map[string]string
 }
 
+// EndpointPicker holds the GIE Endpoint Picker (EPP) reference for a backend that is an
+// InfernecePool.
+type EndpointPicker struct {
+	// Name is the name of the EPP Service
+	Name string `json:"name,omitempty"`
+
+	// Same namespace as the InferencePool
+	Namespace string `json:"namespace,omitempty"`
+
+	// Port is the EPP Service Port
+	Port uint32 `json:"port,omitempty"`
+
+	// "FailOpen" or "FailClose"
+	FailureMode string `json:"failure_mode,omitempty"`
+}
+
 // GetMatchKey returns the key for this route's request match criteria.
 func (r *HTTPRoute) GetMatchKey() string {
 	sb := strings.Builder{}
@@ -750,6 +766,10 @@ type Backend struct {
 	// Weight specifies the percentage of traffic to send to this backend.
 	// This is computed as weight/(sum of all weights in backends) * 100.
 	Weight *int32 `json:"weight,omitempty"`
+
+	// Endpoint Picker when set, makes this backend a GIE InferencePool
+	// and holds the EPP used to configure the ext_proc
+	EndpointPicker *EndpointPicker `json:"endpointPicker,omitempty"`
 }
 
 // BackendPort holds the details of what port on the Service to connect to.
