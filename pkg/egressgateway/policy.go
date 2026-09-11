@@ -265,7 +265,16 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 				if v6Needed {
 					_, egressIP6 = deviceGetPrimaryAddresses(manager, dev.Name)
 					if !egressIP6.IsValid() {
-						return fmt.Errorf("failed to retrieve IPv6 address for egress interface")
+						// The policy explicitly configures an IPv4 egress IP:
+						// failing to derive an IPv6 address for the same
+						// interface must not prevent the IPv4 entries from
+						// being programmed. Mark only the IPv6 side as not
+						// found.
+						egressIP6 = EgressIPNotFoundIPv6
+						manager.logger.Warn(
+							"Failed to derive IPv6 address for egress interface, IPv6 destinations of this policy will not be routed via the egress gateway",
+							logfields.Interface, dev.Name,
+						)
 					}
 				}
 			} else if gc.egressIP.Is6() {
@@ -274,7 +283,12 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 				if v4Needed {
 					egressIP4, _ = deviceGetPrimaryAddresses(manager, dev.Name)
 					if !egressIP4.IsValid() {
-						return fmt.Errorf("failed to retrieve IPv4 address for egress interface")
+						// Same as above, with the address families swapped.
+						egressIP4 = EgressIPNotFoundIPv4
+						manager.logger.Warn(
+							"Failed to derive IPv4 address for egress interface, IPv4 destinations of this policy will not be routed via the egress gateway",
+							logfields.Interface, dev.Name,
+						)
 					}
 				}
 			}
@@ -290,7 +304,17 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 				if v6Needed {
 					egressIP6, err = netdevice.GetIfaceFirstIPv6Address(gwc.ifaceName)
 					if err != nil {
-						return fmt.Errorf("failed to retrieve IPv6 address for egress interface: %w", err)
+						// The policy explicitly configures an IPv4 egress IP:
+						// failing to derive an IPv6 address for the same
+						// interface must not prevent the IPv4 entries from
+						// being programmed. Mark only the IPv6 side as not
+						// found.
+						egressIP6 = EgressIPNotFoundIPv6
+						manager.logger.Warn(
+							"Failed to derive IPv6 address for egress interface, IPv6 destinations of this policy will not be routed via the egress gateway",
+							logfields.Error, err,
+							logfields.Interface, gwc.ifaceName,
+						)
 					}
 				}
 			} else if gc.egressIP.Is6() {
@@ -304,7 +328,13 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *po
 				if v4Needed {
 					egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 					if err != nil {
-						return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
+						// Same as above, with the address families swapped.
+						egressIP4 = EgressIPNotFoundIPv4
+						manager.logger.Warn(
+							"Failed to derive IPv4 address for egress interface, IPv4 destinations of this policy will not be routed via the egress gateway",
+							logfields.Error, err,
+							logfields.Interface, gwc.ifaceName,
+						)
 					}
 				}
 			}
