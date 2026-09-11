@@ -49,3 +49,12 @@ func cachedListener(t testing.TB, cache xdsnew.Cache, nodeID, name string) *envo
 	require.True(t, ok)
 	return listener
 }
+
+func cachedNetworkPolicy(t testing.TB, cache xdsnew.Cache, nodeID, name string) *cilium.NetworkPolicy {
+	t.Helper()
+	resource, exists := cache.GetResource(nodeID, typeurl.NetworkPolicy, name)
+	require.True(t, exists)
+	policy, ok := resource.(*cilium.NetworkPolicy)
+	require.True(t, ok)
+	return policy
+}

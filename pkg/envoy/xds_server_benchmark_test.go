@@ -42,6 +42,7 @@ import (
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -308,35 +309,17 @@ type benchmarkSnapshotCache struct {
 	xdsnew.Cache
 
 	generated atomic.Uint64
-	published atomic.Uint64
 	versioned atomic.Uint64
 }
 
 func (c *benchmarkSnapshotCache) reset() {
 	c.generated.Store(0)
-	c.published.Store(0)
 	c.versioned.Store(0)
 }
 
 func (c *benchmarkSnapshotCache) report(b *testing.B) {
-	b.ReportMetric(float64(c.published.Load())/float64(b.N), "cache-updates")
 	b.ReportMetric(float64(c.generated.Load())/float64(b.N), "snapshot-builds")
 	b.ReportMetric(float64(c.versioned.Load())/float64(b.N), "versions")
-}
-
-func (c *benchmarkSnapshotCache) GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error) {
-	c.generated.Add(1)
-	return c.Cache.GenerateSnapshot(resources, logger)
-}
-
-func (c *benchmarkSnapshotCache) UpdateSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLs map[string]func(error), reverts map[string]func()) error {
-	c.published.Add(1)
-	return c.Cache.UpdateSnapshot(ctx, nodeID, snapshot, wg, updatedTypeURLs, reverts)
-}
-
-func (c *benchmarkSnapshotCache) GetVersion(resources *xds.Resources) string {
-	c.versioned.Add(1)
-	return c.Cache.GetVersion(resources)
 }
 
 // benchmarkADSEnvoy keeps a real go-control-plane SotW watch open for NPDS.
@@ -428,6 +411,13 @@ func (e *benchmarkADSEnvoy) observeResponse(response cache.Response) (string, st
 		return "", "", err
 	}
 
+	if observed, ok := e.cache.(*benchmarkSnapshotCache); ok {
+		observed.generated.Add(1)
+		// This benchmark mutates NPDS only, so each finalized response computes
+		// exactly one changed resource-type version.
+		observed.versioned.Add(1)
+	}
+
 	e.nonce++
 	discoveryResponse.Nonce = strconv.FormatUint(e.nonce, 10)
 	e.subscription.SetReturnedResources(response.GetReturnedResources())
@@ -466,7 +456,7 @@ func (e *benchmarkADSEnvoy) run() {
 			if err != nil {
 				e.endServerWork(false)
 				e.fail(err)
-				e.cache.GetCompletionCallbacks().CancelPendingCompletions(NetworkPolicyTypeURL)
+				e.cache.GetCompletionCallbacks().CancelPendingCompletions(typeurl.NetworkPolicy)
 				return
 			}
 			e.endServerWork(true)
@@ -498,7 +488,7 @@ func (e *benchmarkADSEnvoy) run() {
 		e.endServerWork(responsePending)
 		if err != nil {
 			e.fail(err)
-			e.cache.GetCompletionCallbacks().CancelPendingCompletions(NetworkPolicyTypeURL)
+			e.cache.GetCompletionCallbacks().CancelPendingCompletions(typeurl.NetworkPolicy)
 			return
 		}
 	}
@@ -690,18 +680,11 @@ func (e *benchmarkLegacyEnvoy) close() {
 	e.clientTimer.Stop()
 }
 
-type benchmarkLegacyCacheStats struct {
-	cache        *xds.Cache
-	startVersion uint64
-}
+type benchmarkLegacyCacheStats struct{}
 
-func (s *benchmarkLegacyCacheStats) reset() {
-	s.startVersion, _ = s.cache.VersionState()
-}
+func (*benchmarkLegacyCacheStats) reset() {}
 
-func (s *benchmarkLegacyCacheStats) report(b *testing.B) {
-	version, _ := s.cache.VersionState()
-	b.ReportMetric(float64(version-s.startVersion)/float64(b.N), "cache-updates")
+func (*benchmarkLegacyCacheStats) report(b *testing.B) {
 	b.ReportMetric(0, "snapshot-builds")
 	b.ReportMetric(0, "versions")
 }
@@ -787,7 +770,7 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 
 	var backend benchmarkXDSBackend
 	if mode.IsADS() {
-		observedCache := &benchmarkSnapshotCache{Cache: xdsnew.NewCache(logger, mode.IsStrictADS())}
+		observedCache := &benchmarkSnapshotCache{Cache: newADSCache(logger, mode.IsStrictADS())}
 		server := newADSServerWithCache(observedCache, logger, nil, localEndpointStore, serverConfig, secretManager, nil)
 		server.l7RulesTranslator = translator
 		backend = benchmarkXDSBackend{
@@ -811,7 +794,7 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 		require.True(b, ok)
 		backend = benchmarkXDSBackend{
 			server: server,
-			stats:  &benchmarkLegacyCacheStats{cache: server.networkPolicyCache},
+			stats:  &benchmarkLegacyCacheStats{},
 			networkPolicies: func() []*cilium.NetworkPolicy {
 				resources := server.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, nil)
 				if resources == nil {
@@ -1085,7 +1068,7 @@ func benchmarkRemoteIdentities(count int) identity.IdentityMap {
 //
 // There is intentionally no benchmark-owned "pooled" implementation. Every
 // mode invokes the same stable production entry point, so future production
-// batching will be measured without duplicating it here. cache-updates
+// batching will be measured without duplicating it here. snapshot-builds
 // and xds-responses make publication and delivery amplification visible, while
 // xds-response-bytes reports the encoded response volume.
 //

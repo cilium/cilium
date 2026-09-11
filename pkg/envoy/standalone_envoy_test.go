@@ -39,6 +39,8 @@ import (
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -240,16 +242,23 @@ var ADS_RESOURCES = xds.Resources{
 	// Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{
 	// 	"endpoint1": &DEFAULT_CLA,
 	// },
-	NetworkPolicies: map[string]*cilium.NetworkPolicy{
-		"40": {
-			EndpointId:  40,
-			EndpointIps: []string{"10.0.0.1"},
-		},
-		"30": {
-			EndpointId:  30,
-			EndpointIps: []string{"10.0.0.2"},
-		},
+}
+
+var adsTestNetworkPolicies = map[string]*cilium.NetworkPolicy{
+	"40": {
+		EndpointId:  40,
+		EndpointIps: []string{"10.0.0.1"},
 	},
+	"30": {
+		EndpointId:  30,
+		EndpointIps: []string{"10.0.0.2"},
+	},
+}
+
+func upsertADSTestNetworkPolicy(t *testing.T, server *adsServer, name string, policy *cilium.NetworkPolicy) {
+	t.Helper()
+	err := server.cache.ApplyResource(t.Context(), localNodeID, typeurl.NetworkPolicy, name, policy, nil, nil)
+	require.NoError(t, err)
 }
 
 func (s *EnvoySuite) waitForProxyCompletion() error {
@@ -465,6 +474,9 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("Upserting Envoy resources")
+	for name, policy := range adsTestNetworkPolicies {
+		upsertADSTestNetworkPolicy(t, xdsServer, name, policy)
+	}
 	err = xdsServer.UpsertEnvoyResources(ctx, ADS_RESOURCES, s.waitGroup)
 	require.NoError(t, err)
 
@@ -500,15 +512,16 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	updatedResources := ADS_RESOURCES
 	updatedResources.Secrets = maps.Clone(ADS_RESOURCES.Secrets)
-	updatedResources.NetworkPolicies = maps.Clone(ADS_RESOURCES.NetworkPolicies)
 	for k := range updatedResources.Secrets {
 		delete(updatedResources.Secrets, k)
 	}
-	updatedResources.NetworkPolicies["40"] = &cilium.NetworkPolicy{
+	updatedPolicy := &cilium.NetworkPolicy{
 		EndpointId:  40,
 		EndpointIps: []string{"10.0.0.9"},
 	}
 	err = xdsServer.UpdateEnvoyResources(ctx, ADS_RESOURCES, updatedResources, s.waitGroup)
+	require.NoError(t, err)
+	upsertADSTestNetworkPolicy(t, xdsServer, "40", updatedPolicy)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 
@@ -589,8 +602,11 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 
 	stopEnvoy := cleanupStandaloneEnvoy(t, envoyProxy)
 
-	// Step 1: Upsert base resources (includes network policies for endpoints 40 and 30)
+	// Step 1: Upsert base Envoy resources and the separate endpoint policies.
 	t.Log("upserting base ADS resources with network policies")
+	for name, policy := range adsTestNetworkPolicies {
+		upsertADSTestNetworkPolicy(t, xdsServer, name, policy)
+	}
 	err = xdsServer.UpsertEnvoyResources(ctx, ADS_RESOURCES, s.waitGroup)
 	require.NoError(t, err)
 
@@ -721,8 +737,7 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 	stopEnvoy := cleanupStandaloneEnvoy(t, envoyProxy)
 
 	resources := ADS_RESOURCES
-	resources.NetworkPolicies = maps.Clone(ADS_RESOURCES.NetworkPolicies)
-	delete(resources.NetworkPolicies, "30")
+	upsertADSTestNetworkPolicy(t, xdsServer, "40", adsTestNetworkPolicies["40"])
 
 	t.Log("upserting a listener and its network policy")
 	err = xdsServer.UpsertEnvoyResources(ctx, resources, s.waitGroup)
@@ -752,19 +767,10 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 	baselineWarnings := countEnvoyLogOccurrences(t, envoyLogPath, unwatchedNetworkPolicy)
 
 	t.Log("updating the retained network policy after final listener removal")
-	err = xdsServer.UpdateEnvoyResources(ctx,
-		xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{
-			"40": resources.NetworkPolicies["40"],
-		}},
-		xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{
-			"40": {
-				EndpointId:  40,
-				EndpointIps: []string{"10.0.0.9"},
-			},
-		}},
-		nil,
-	)
-	require.NoError(t, err)
+	upsertADSTestNetworkPolicy(t, xdsServer, "40", &cilium.NetworkPolicy{
+		EndpointId:  40,
+		EndpointIps: []string{"10.0.0.9"},
+	})
 	policies, err := xdsServer.GetNetworkPolicies([]string{"40"})
 	require.NoError(t, err)
 	require.Contains(t, policies, "10.0.0.9")
@@ -1558,7 +1564,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 
 	// Step 2: Rapidly add multiple listeners, each producing a new snapshot version.
 	// Use a single WaitGroup that collects all completions — when Envoy ACKs
-	// the latest version, the orderedCompletions should complete all earlier versions too.
+	// the latest generation, it should complete all earlier generations too.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	listenerNames := []string{"rapid-1", "rapid-2", "rapid-3"}
 	for i, name := range listenerNames {
@@ -1566,8 +1572,8 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 		xdsServer.AddListener(ctx, name, policy.ParserTypeHTTP, uint16(8090+i), true, false, s.waitGroup, nil)
 	}
 
-	// Wait for all completions — this will only succeed if the orderedCompletions
-	// correctly completes earlier versions when the latest is ACKed.
+	// Wait for all completions — this will only succeed if the generation-aware
+	// callbacks complete earlier updates when the latest is ACKed.
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err, "all completions should have been resolved, none stuck")
 
@@ -1586,9 +1592,10 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	stopEnvoy()
 }
 
-// Repro for https://github.com/cilium/cilium/issues/43519:
-// ADS may coalesce a tracked snapshot into a newer untracked snapshot, leaving
-// the earlier completion stuck even after Envoy ACKs the newer snapshot.
+// Repro for https://github.com/cilium/cilium/issues/43519: an ADS update
+// without a WaitGroup may be coalesced with an older tracked generation before
+// Envoy can consume either one. The ACK for the snapshot Envoy actually sees
+// must also release the older completion.
 func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
@@ -1606,7 +1613,6 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t)
-
 	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
@@ -1619,42 +1625,29 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, xdsServer.run(t.Context()))
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	go func() {
-		err = accessLogServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, accessLogServer.run(t.Context()))
 	}()
 
-	// Publish tracked snapshot A before Envoy connects. Its completion can only
-	// be resolved by a response/ACK for this version or a newer version.
 	waitCtx, waitCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer waitCancel()
 	trackedWaitGroup := completion.NewWaitGroup(waitCtx)
-	err = xdsServer.AddListener(ctx, "tracked-listener", policy.ParserTypeHTTP, 18081, true, false, trackedWaitGroup, nil)
-	require.NoError(t, err)
+	defer trackedWaitGroup.Cancel()
+	require.NoError(t, xdsServer.AddListener(ctx, "tracked-listener", policy.ParserTypeHTTP, 18081, true, false, trackedWaitGroup, nil))
 	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
 
-	trackedSnapshot, err := xdsServer.cache.GetSnapshot(localNodeID)
-	require.NoError(t, err)
-	trackedVersion := trackedSnapshot.GetVersion(ListenerTypeURL)
-	require.NotEmpty(t, trackedVersion)
-
-	// Publish newer snapshot B without a wait group, mirroring the untracked
-	// NPDS snapshot produced by the synthetic ingress endpoint. Since Envoy has
-	// not connected yet, it can receive only B and A is guaranteed to be
-	// coalesced.
-	err = xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil, nil)
-	require.NoError(t, err)
-	untrackedSnapshot, err := xdsServer.cache.GetSnapshot(localNodeID)
-	require.NoError(t, err)
-	untrackedVersion := untrackedSnapshot.GetVersion(ListenerTypeURL)
-	require.NotEmpty(t, untrackedVersion)
-	require.NotEqual(t, trackedVersion, untrackedVersion)
+	// Publish a newer generation without a waiter before Envoy connects. The
+	// first LDS watch must receive the latest snapshot containing both listeners.
+	require.NoError(t, xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil, nil))
 	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
+	snapshot, err := xdsServer.cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	require.Contains(t, snapshot.GetResources(ListenerTypeURL), "tracked-listener")
+	require.Contains(t, snapshot.GetResources(ListenerTypeURL), "untracked-listener")
 
 	starter := &onDemandXdsStarter{logger: logger}
 	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
@@ -1672,14 +1665,11 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
-	t.Log("started Envoy after both snapshots were published")
 	stopEnvoy := cleanupStandaloneEnvoy(t, envoyProxy)
 
-	// Confirm Envoy applied B. Its ACK must also release the completion
-	// associated with the older coalesced snapshot A.
+	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "ListenersConfigDump", "tracked-listener")
 	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "ListenersConfigDump", "untracked-listener")
-	err = trackedWaitGroup.Wait()
-	require.NoError(t, err, "ACK of the newer snapshot should complete the older coalesced update")
+	require.NoError(t, trackedWaitGroup.Wait(), "ACK of the untracked generation should complete the older update")
 	require.Zero(t, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
 
 	stopEnvoy()
@@ -1887,8 +1877,10 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	// UpsertEnvoyResources intentionally does not wait for endpoint ACKs. This
 	// regression test needs to observe the EDS ACK for the bootstrap locality cluster.
+	var callbacks xdsnew.TypeURLCallbacks
+	callbacks.Set(typeurl.Endpoint, nil)
 	xdsServer.mutex.Lock()
-	err = xdsServer.updateSnapshot(ctx, &resources, localNodeID, s.waitGroup, map[string]func(error){EndpointTypeURL: nil}, computeChanges(nil, &resources))
+	err = xdsServer.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, s.waitGroup, callbacks)
 	xdsServer.mutex.Unlock()
 	require.NoError(t, err)
 

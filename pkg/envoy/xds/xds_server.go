@@ -6,7 +6,6 @@ package xds
 import (
 	"context"
 	"fmt"
-	"maps"
 	"strings"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -69,7 +68,8 @@ type XDSServer interface {
 }
 
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD.
-// Each resource type is stored in a map keyed by resource name.
+// Each resource type is stored in a map keyed by resource name. Once passed to
+// an xDS server, the stored protobuf values must be treated as immutable.
 type Resources struct {
 	Listeners          map[string]*envoy_config_listener.Listener
 	Secrets            map[string]*envoy_config_tls.Secret
@@ -99,15 +99,6 @@ func NewResources() Resources {
 	}
 }
 
-// DeepCopy returns a copy of the Resources with cloned maps.
-// Protobuf values are shared (not deep-copied) since they are treated as immutable once published.
-func cloneOrInit[K comparable, V any](m map[K]V) map[K]V {
-	if m == nil {
-		return make(map[K]V)
-	}
-	return maps.Clone(m)
-}
-
 // DebugInfo returns aggregated info about the underlying envoy resources in the object
 func (r *Resources) DebugInfo() string {
 	resourcesInfo := make([]string, 0, 7)
@@ -135,22 +126,6 @@ func (r *Resources) DebugInfo() string {
 	}
 
 	return strings.Join(resourcesInfo, ", ")
-}
-
-func (r *Resources) DeepCopy() *Resources {
-	if r == nil {
-		return nil
-	}
-	return &Resources{
-		Listeners:               cloneOrInit(r.Listeners),
-		Secrets:                 cloneOrInit(r.Secrets),
-		Routes:                  cloneOrInit(r.Routes),
-		Clusters:                cloneOrInit(r.Clusters),
-		Endpoints:               cloneOrInit(r.Endpoints),
-		NetworkPolicies:         cloneOrInit(r.NetworkPolicies),
-		NetworkPolicyHosts:      cloneOrInit(r.NetworkPolicyHosts),
-		PortAllocationCallbacks: cloneOrInit(r.PortAllocationCallbacks),
-	}
 }
 
 // ListenersAddedOrDeleted returns 'true' if a listener is added or removed when updating from 'old'
