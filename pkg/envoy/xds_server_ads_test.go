@@ -38,6 +38,7 @@ import (
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	xds_cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 )
 
 func GetLocalEndpointStoreForTest() *LocalEndpointStore {
@@ -122,6 +123,27 @@ var (
 		},
 	}
 )
+
+type countingADSCache struct {
+	xdsnew.Cache
+	generated atomic.Uint64
+	published atomic.Uint64
+}
+
+func (c *countingADSCache) GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (xds_cache.ResourceSnapshot, error) {
+	c.generated.Add(1)
+	return c.Cache.GenerateSnapshot(resources, logger)
+}
+
+func (c *countingADSCache) UpdateSnapshot(ctx context.Context, nodeID string, snapshot xds_cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc func()) error {
+	c.published.Add(1)
+	return c.Cache.UpdateSnapshot(ctx, nodeID, snapshot, wg, typeURLs, revertFunc)
+}
+
+func (c *countingADSCache) reset() {
+	c.generated.Store(0)
+	c.published.Store(0)
+}
 
 func TestNewADSServer(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -942,6 +964,67 @@ func TestUpdateNetworkPolicyWithNPDSListenerWaitsForACK(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return mockEp.proxyPolicyUpdateCount.Load() == 1
 	}, time.Second, 10*time.Millisecond)
+}
+
+func TestUpdateNetworkPolicyNoOpWaitsForCurrentACKWithoutPublishing(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := &countingADSCache{Cache: xdsnew.NewCache(logger, true)}
+	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
+	ctx := context.Background()
+
+	resources := xds.NewResources()
+	resources.Listeners["npds-listener"] = server.getListenerConf("npds-listener", policy.ParserTypeHTTP, 12345, false, false)
+	require.NoError(t, server.UpsertEnvoyResources(ctx, resources, nil))
+	require.False(t, server.npdsListeners.Empty())
+
+	ep := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
+	epp := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+	firstWG := completion.NewWaitGroup(ctx)
+	defer firstWG.Cancel()
+	err, _, _ := server.UpdateNetworkPolicy(ctx, ep, epp, firstWG)
+	require.NoError(t, err)
+	require.Equal(t, 1, cache.GetCompletionCallbacks().PendingCompletionCount())
+
+	resourcesBefore := cache.GetAllResources(localNodeID)
+	snapshotBefore, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	cache.reset()
+
+	secondWG := completion.NewWaitGroup(ctx)
+	defer secondWG.Cancel()
+	err, noOpRevert, finalize := server.UpdateNetworkPolicy(ctx, ep, epp, secondWG)
+	require.NoError(t, err)
+	require.NotNil(t, noOpRevert)
+	require.NotNil(t, finalize)
+	require.Zero(t, cache.generated.Load())
+	require.Zero(t, cache.published.Load())
+	require.Same(t, resourcesBefore, cache.GetAllResources(localNodeID))
+	snapshotAfter, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	require.Same(t, snapshotBefore, snapshotAfter)
+	require.Equal(t, 2, cache.GetCompletionCallbacks().PendingCompletionCount())
+
+	version := snapshotBefore.GetVersion(NetworkPolicyTypeURL)
+	node := &envoy_config_core_v3.Node{Id: localNodeID}
+	cache.GetCompletionCallbacks().OnStreamResponse(ctx, 1,
+		&envoy_service_discovery.DiscoveryRequest{Node: node, TypeUrl: NetworkPolicyTypeURL},
+		&envoy_service_discovery.DiscoveryResponse{VersionInfo: version, TypeUrl: NetworkPolicyTypeURL})
+	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+		Node:        node,
+		TypeUrl:     NetworkPolicyTypeURL,
+		VersionInfo: version,
+	}))
+	require.NoError(t, firstWG.Wait())
+	require.NoError(t, secondWG.Wait())
+	require.Eventually(t, func() bool {
+		return ep.proxyPolicyUpdateCount.Load() == 2
+	}, time.Second, 10*time.Millisecond)
+
+	require.NoError(t, noOpRevert())
+	require.Zero(t, cache.generated.Load())
+	require.Zero(t, cache.published.Load())
+	require.Same(t, resourcesBefore, cache.GetAllResources(localNodeID))
+	require.Contains(t, resourcesBefore.NetworkPolicies, "1")
 }
 
 func TestNPDSListenerTrackingFromBulkResources(t *testing.T) {

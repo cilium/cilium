@@ -630,13 +630,23 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		s.localEndpointStore.setLocalEndpoint(ep)
 	}
 
+	updatedNodeIDs := make([]string, 0, len(nodeIDs))
 	for _, nodeId := range nodeIDs {
 		resources := s.cache.GetAllResources(nodeId)
 		if resources == nil {
 			resources = &xds.Resources{}
 		}
-		resources = resources.DeepCopy()
 		oldPolicy, existed := resources.NetworkPolicies[resourceName]
+		if existed && (oldPolicy == networkPolicy || proto.Equal(oldPolicy, networkPolicy)) {
+			if waitForACK {
+				if err := s.cache.AwaitCurrentVersion(nodeId, wg, map[string]func(error){NetworkPolicyTypeURL: callback}); err != nil {
+					return err, nil, nil
+				}
+			}
+			continue
+		}
+
+		resources = resources.DeepCopy()
 		resources.NetworkPolicies[resourceName] = networkPolicy
 		var callbackTypeURLs map[string]func(error)
 		if waitForACK {
@@ -646,6 +656,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 			&resourceChanges{networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{key: resourceName, value: oldPolicy, existed: existed}}}); err != nil {
 			return err, nil, nil
 		}
+		updatedNodeIDs = append(updatedNodeIDs, nodeId)
 	}
 	if !waitForACK {
 		callback(nil)
@@ -666,8 +677,9 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 				}
 			}
 
-			// Remove the policy we just added and re-push snapshot.
-			for _, nodeId := range nodeIDs {
+			// Remove each policy this call added and re-push its snapshot. Nodes
+			// whose policy was already current require no xDS revert.
+			for _, nodeId := range updatedNodeIDs {
 				resources := s.cache.GetAllResources(nodeId)
 				if resources == nil {
 					continue

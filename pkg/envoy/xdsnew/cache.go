@@ -47,6 +47,9 @@ type Cache interface {
 	GetVersion(resources *xds.Resources) string
 	GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error)
 	UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc func()) error
+	// AwaitCurrentVersion registers completions against the current snapshot
+	// without publishing it again.
+	AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup, typeURLs map[string]func(err error)) error
 	// SetResources transfers resources to the cache as immutable published state.
 	SetResources(nodeID string, resources *xds.Resources)
 	// GetAllResources returns cache-owned immutable state. Callers must use
@@ -631,21 +634,20 @@ func (c *cacheImpl) SetResources(nodeID string, resources *xds.Resources) {
 	c.resourcesInSnapshot[nodeID] = resources
 }
 
-func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc func()) error {
-	type immediateCompletion struct {
-		comp                      *completion.Completion
-		typeURL                   string
-		err                       error
-		completeUnsentCompletions bool
-	}
+type immediateCompletion struct {
+	comp                      *completion.Completion
+	typeURL                   string
+	err                       error
+	completeUnsentCompletions bool
+}
 
-	completions := make([]*completion.Completion, 0, len(updatedTypeURLS))
+func (c *cacheImpl) registerVersionCompletions(nodeID string, newSnapshot, oldSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(err error), revertFunc func()) ([]*completion.Completion, []immediateCompletion) {
+	completions := make([]*completion.Completion, 0, len(typeURLs))
 	immediateCompletions := make([]immediateCompletion, 0, 1)
-	if wg != nil && len(updatedTypeURLS) > 0 {
-		oldSnapshot, _ := c.GetSnapshot(nodeID)
-		for typeURL, completionCallback := range updatedTypeURLS {
+	if wg != nil && len(typeURLs) > 0 {
+		for typeURL, completionCallback := range typeURLs {
 			comp := wg.AddCompletionWithCallback(nil, completionCallback)
-			if typeURL == NetworkPolicyTypeURL && len(newSnapshot.GetResources(NetworkPolicyTypeURL)) == 0 {
+			if typeURL == NetworkPolicyTypeURL && len(newSnapshot.GetResourcesAndTTL(NetworkPolicyTypeURL)) == 0 {
 				immediateCompletions = append(immediateCompletions, immediateCompletion{comp: comp})
 				continue
 			}
@@ -664,6 +666,24 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapsh
 			completions = append(completions, comp)
 		}
 	}
+	return completions, immediateCompletions
+}
+
+func (c *cacheImpl) completeImmediateCompletions(nodeID string, immediateCompletions []immediateCompletion) {
+	for _, completion := range immediateCompletions {
+		if completion.completeUnsentCompletions {
+			c.completionCbs.CompleteUnsentPendingCompletions(nodeID, completion.typeURL, nil)
+		}
+		completion.comp.Complete(completion.err)
+	}
+}
+
+func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc func()) error {
+	var oldSnapshot cache.ResourceSnapshot
+	if wg != nil && len(updatedTypeURLS) > 0 {
+		oldSnapshot, _ = c.GetSnapshot(nodeID)
+	}
+	completions, immediateCompletions := c.registerVersionCompletions(nodeID, newSnapshot, oldSnapshot, wg, updatedTypeURLS, revertFunc)
 	err := c.SetSnapshot(ctx, nodeID, newSnapshot)
 
 	if err != nil {
@@ -672,13 +692,31 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapsh
 		}
 		return err
 	}
-	for _, completion := range immediateCompletions {
-		if completion.completeUnsentCompletions {
-			c.completionCbs.CompleteUnsentPendingCompletions(nodeID, completion.typeURL, nil)
-		}
-		completion.comp.Complete(completion.err)
+	c.completeImmediateCompletions(nodeID, immediateCompletions)
+
+	return nil
+}
+
+// AwaitCurrentVersion registers completions for the requested resource types
+// against the versions in the currently published snapshot without publishing
+// the snapshot again. The completions attach to an in-flight response, complete
+// immediately for an ACKed or NACKed version, or wait for the current version to
+// be sent and acknowledged.
+func (c *cacheImpl) AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup, typeURLs map[string]func(err error)) error {
+	if wg == nil || len(typeURLs) == 0 {
+		return nil
 	}
 
+	currentSnapshot, err := c.GetSnapshot(nodeID)
+	if err != nil {
+		return fmt.Errorf("failed to get current snapshot for node %s: %w", nodeID, err)
+	}
+	if currentSnapshot == nil {
+		return fmt.Errorf("missing current snapshot for node %s", nodeID)
+	}
+
+	_, immediateCompletions := c.registerVersionCompletions(nodeID, currentSnapshot, currentSnapshot, wg, typeURLs, nil)
+	c.completeImmediateCompletions(nodeID, immediateCompletions)
 	return nil
 }
 

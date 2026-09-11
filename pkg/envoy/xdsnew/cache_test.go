@@ -26,6 +26,7 @@ import (
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	envoy_resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/stream/v3"
+	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -910,6 +911,111 @@ func TestUpdateSnapshot_CompletesUnsentCoalescedNetworkPolicyUpdates(t *testing.
 	assert.NoError(t, bCallbackErrs[0])
 	require.Len(t, aCallbackErrs, 1)
 	assert.NoError(t, aCallbackErrs[0])
+}
+
+func TestAwaitCurrentVersion_AttachesToPendingNetworkPolicyResponse(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, snap := networkPolicySnapshot(t, c, 1)
+	version := snap.GetVersion(NetworkPolicyTypeURL)
+
+	firstWG := completion.NewWaitGroup(context.Background())
+	defer firstWG.Cancel()
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, snap, firstWG,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+
+	node := &envoy_config_core.Node{Id: nodeID}
+	c.completionCbs.OnStreamResponse(context.Background(), 1,
+		&discovery.DiscoveryRequest{Node: node, TypeUrl: NetworkPolicyTypeURL},
+		&discovery.DiscoveryResponse{VersionInfo: version, TypeUrl: NetworkPolicyTypeURL})
+
+	callbackCalled := false
+	var callbackErr error
+	secondWG := completion.NewWaitGroup(context.Background())
+	defer secondWG.Cancel()
+	require.NoError(t, c.AwaitCurrentVersion(nodeID, secondWG,
+		map[string]func(error){NetworkPolicyTypeURL: func(err error) {
+			callbackCalled = true
+			callbackErr = err
+		}}))
+
+	require.Len(t, mock.setSnapshotCalls, 1)
+	require.Equal(t, 2, c.completionCbs.PendingCompletionCount())
+	require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        node,
+		TypeUrl:     NetworkPolicyTypeURL,
+		VersionInfo: version,
+	}))
+	require.NoError(t, firstWG.Wait())
+	require.NoError(t, secondWG.Wait())
+	require.True(t, callbackCalled)
+	require.NoError(t, callbackErr)
+}
+
+func TestAwaitCurrentVersion_CompletesAlreadyAckedNetworkPolicyVersion(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, snap := networkPolicySnapshot(t, c, 1)
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, snap, nil, nil, nil))
+	ackNetworkPolicyVersion(t, c, nodeID, snap.GetVersion(NetworkPolicyTypeURL))
+
+	callbackCalled := false
+	var callbackErr error
+	wg := completion.NewWaitGroup(context.Background())
+	defer wg.Cancel()
+	require.NoError(t, c.AwaitCurrentVersion(nodeID, wg,
+		map[string]func(error){NetworkPolicyTypeURL: func(err error) {
+			callbackCalled = true
+			callbackErr = err
+		}}))
+
+	require.Len(t, mock.setSnapshotCalls, 1)
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+	require.NoError(t, wg.Wait())
+	require.True(t, callbackCalled)
+	require.NoError(t, callbackErr)
+}
+
+func TestAwaitCurrentVersion_CompletesAlreadyNackedNetworkPolicyVersion(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, acceptedSnapshot := networkPolicySnapshot(t, c, 1)
+	_, rejectedSnapshot := networkPolicySnapshot(t, c, 2)
+	acceptedVersion := acceptedSnapshot.GetVersion(NetworkPolicyTypeURL)
+	rejectedVersion := rejectedSnapshot.GetVersion(NetworkPolicyTypeURL)
+	require.NotEqual(t, acceptedVersion, rejectedVersion)
+
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, acceptedSnapshot, nil, nil, nil))
+	ackNetworkPolicyVersion(t, c, nodeID, acceptedVersion)
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, rejectedSnapshot, nil, nil, nil))
+
+	node := &envoy_config_core.Node{Id: nodeID}
+	c.completionCbs.OnStreamResponse(context.Background(), 1,
+		&discovery.DiscoveryRequest{Node: node, TypeUrl: NetworkPolicyTypeURL},
+		&discovery.DiscoveryResponse{VersionInfo: rejectedVersion, TypeUrl: NetworkPolicyTypeURL})
+	require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        node,
+		TypeUrl:     NetworkPolicyTypeURL,
+		VersionInfo: acceptedVersion,
+		ErrorDetail: &status.Status{Message: "rejected policy"},
+	}))
+
+	var callbackErr error
+	wg := completion.NewWaitGroup(context.Background())
+	defer wg.Cancel()
+	require.NoError(t, c.AwaitCurrentVersion(nodeID, wg,
+		map[string]func(error){NetworkPolicyTypeURL: func(err error) { callbackErr = err }}))
+
+	require.Len(t, mock.setSnapshotCalls, 2)
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+	require.ErrorContains(t, wg.Wait(), "rejected policy")
+	require.ErrorContains(t, callbackErr, "rejected policy")
 }
 
 // --- GetVersion ---

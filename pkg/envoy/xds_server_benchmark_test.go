@@ -170,6 +170,18 @@ func (c *benchmarkSnapshotCache) UpdateSnapshot(ctx context.Context, nodeID stri
 	return c.Cache.UpdateSnapshot(ctx, nodeID, snapshot, wg, updatedTypeURLs, revert)
 }
 
+func (c *benchmarkSnapshotCache) AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup, typeURLs map[string]func(error)) error {
+	err := c.Cache.AwaitCurrentVersion(nodeID, wg, typeURLs)
+	if err == nil && wg != nil {
+		// The benchmark has no Envoy process. Simulate the ACK that would
+		// complete waiters attached to the already-published version.
+		for typeURL := range typeURLs {
+			c.Cache.GetCompletionCallbacks().CompleteUnsentPendingCompletions(nodeID, typeURL, nil)
+		}
+	}
+	return err
+}
+
 func (c *benchmarkSnapshotCache) GetVersion(resources *xds.Resources) string {
 	c.versioned.Add(1)
 	return c.Cache.GetVersion(resources)
