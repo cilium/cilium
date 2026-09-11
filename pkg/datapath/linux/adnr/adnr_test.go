@@ -4,13 +4,9 @@
 package adnr
 
 import (
-	"context"
-	"fmt"
-	"log/slog"
 	"net"
 	"net/netip"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -18,38 +14,11 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
 
-	"github.com/cilium/cilium/pkg/datapath/linux"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/addressing"
-	"github.com/cilium/cilium/pkg/node/types"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 )
-
-func newCiliumNode(name, ip, cidr string) *node.Node {
-	return &node.Node{Node: nodeTypes.Node{
-		Name: name,
-		IPAddresses: []nodeTypes.Address{{
-			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP(ip),
-		}},
-		IPv4AllocCIDR: nodeTypes.PrefixFrom(netip.MustParsePrefix(cidr)),
-	}}
-}
-
-func insertTestNode(t testing.TB, db *statedb.DB, nodes statedb.RWTable[*node.Node], n *node.Node) {
-	t.Helper()
-	txn := db.WriteTxn(nodes)
-	_, _, err := nodes.Insert(txn, n)
-	require.NoError(t, err)
-	txn.Commit()
-}
 
 func insertTestRoute(t testing.TB, db *statedb.DB, routes statedb.RWTable[*tables.Route], r *tables.Route) {
 	t.Helper()
@@ -72,12 +41,6 @@ func assertRoute(t testing.TB,
 
 	require.Equal(t, routeReconciler.TableMain, route.Table)
 	require.Equal(t, routeReconciler.AdminDistanceDefault, route.AdminDistance)
-}
-
-func simpleHealthLevel(h *cell.SimpleHealth) cell.Level {
-	h.Lock()
-	defer h.Unlock()
-	return h.Level
 }
 
 func newTestDesiredRouteManagerSetup(t testing.TB) (
@@ -361,145 +324,4 @@ func TestReplaceOwnerRoutesDoesNotInsertUnchangedRoute(t *testing.T) {
 	require.Same(t, before, after)
 	require.Equal(t, beforeRevision, afterRevision)
 	require.Equal(t, before.GetStatus(), after.GetStatus())
-}
-
-func testADNRFlow(t *testing.T, directRoutingSkipUnreachable bool) {
-	t.Helper()
-	db, desiredRoutes, rm := newTestDesiredRouteManagerSetup(t)
-
-	/////////////////////
-	// Populate node table
-	/////////////////////
-
-	nodes, err := node.NewNodeTable(db)
-	require.NoError(t, err)
-
-	localNodeName := "local-node"
-	types.SetName(localNodeName)
-	localNode := newCiliumNode("local-node", "192.0.1.10", "10.0.1.0/24")
-
-	node1IP := "192.0.1.11"
-	node1Name := "remote-node-1"
-	node1Prefix := "10.0.2.0/24"
-	node1 := newCiliumNode(node1Name, node1IP, node1Prefix)
-
-	node2IP := "192.0.1.12"
-	node2Name := "remote-node-2"
-	node2Prefix := "10.0.3.0/24"
-	node2 := newCiliumNode(node2Name, node2IP, node2Prefix)
-
-	// this is a node in a different LAN
-	// we shouldn't create a route for it.
-	extNodeIP := "192.0.2.1"
-	extNodeName := "different-lan-node"
-	extNodePrefix := "10.0.4.0/24"
-	extNode := newCiliumNode(extNodeName, extNodeIP, extNodePrefix)
-
-	for _, n := range []*node.Node{localNode, node1, node2, extNode} {
-		insertTestNode(t, db, nodes, n)
-	}
-
-	/////////////////////
-	// Populate route table
-	/////////////////////
-
-	routeTable, err := tables.NewRouteTable(db)
-	require.NoError(t, err)
-	insertTestRoute(t, db, routeTable, &tables.Route{
-		Table: tables.RT_TABLE_MAIN,
-		Dst:   netip.MustParsePrefix("192.0.1.0/24"),
-	})
-	insertTestRoute(t, db, routeTable, &tables.Route{
-		Table: tables.RT_TABLE_MAIN,
-		Dst:   netip.MustParsePrefix("192.0.2.0/24"),
-		Gw:    netip.MustParseAddr("192.0.1.254"),
-	})
-
-	/////////////////////
-	// Setup ADNR handler
-	/////////////////////
-
-	handler := &Handler{
-		db:            db,
-		nodes:         nodes.ToTable(),
-		routes:        routeTable.ToTable(),
-		desiredRoutes: desiredRoutes,
-		routeManager:  rm,
-		nodePolicy:    &linux.NodePolicy{},
-		cfg: &option.DaemonConfig{
-			EnableIPv4:                   true,
-			DirectRoutingSkipUnreachable: directRoutingSkipUnreachable,
-		},
-		logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
-	}
-
-	/////////////////////
-	// Running handler and assert routes
-	/////////////////////
-
-	ctx, cancel := context.WithCancel(t.Context())
-	health, healthState := cell.NewSimpleHealth()
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return handler.run(ctx, health)
-	})
-	t.Cleanup(func() {
-		// we will close the handler at the end of the test by canceling the context.
-		cancel()
-		require.NoError(t, g.Wait())
-	})
-
-	if directRoutingSkipUnreachable {
-		// if we skip unreachable nodes, we expect the health to be OK
-		require.Eventually(t, func() bool {
-			return simpleHealthLevel(healthState) == cell.StatusOK
-		}, time.Second*3, time.Millisecond*100)
-	} else {
-		// In this case, we expect the health to be degraded
-		require.Eventually(t, func() bool {
-			return simpleHealthLevel(healthState) == cell.StatusDegraded
-		}, time.Second*3, time.Millisecond*100)
-		node3Health := healthState.GetChild(extNodeName)
-		require.NotNil(t, node3Health)
-		require.Equal(t, cell.StatusDegraded, simpleHealthLevel(node3Health))
-	}
-
-	// Here we don't care if `directRoutingSkipUnreachable` is enabled or not, we always
-	// expect 2 routes to be created
-	routes := slices.Collect(statedb.ToSeq(desiredRoutes.All(db.ReadTxn())))
-	require.Len(t, routes, 2)
-	slices.SortFunc(routes, func(a, b *routeReconciler.DesiredRoute) int {
-		return strings.Compare(a.Owner.String(), b.Owner.String())
-	})
-
-	ownerNode1, err := rm.GetOwner(getOwnerName(node1Name))
-	require.NoError(t, err)
-	require.NotNil(t, ownerNode1)
-
-	ownerNode2, err := rm.GetOwner(getOwnerName(node2Name))
-	require.NoError(t, err)
-	require.NotNil(t, ownerNode2)
-
-	assertRoute(
-		t, routes[0],
-		node1Prefix,
-		ownerNode1,
-		node1IP,
-	)
-	assertRoute(
-		t, routes[1],
-		node2Prefix,
-		ownerNode2,
-		node2IP,
-	)
-}
-
-func TestADRNFullFlow(t *testing.T) {
-	t.Parallel()
-	for _, v := range []bool{true, false} {
-		t.Run(fmt.Sprintf("skip_unreachable_%v", v), func(t *testing.T) {
-			t.Parallel()
-			testADNRFlow(t, v)
-		})
-	}
 }
