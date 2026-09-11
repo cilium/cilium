@@ -226,8 +226,8 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemana
 				// Identify unused IP prefixes to release
 				for _, prefix := range prefixes {
 					found := false
-					for ip := range usedIPs {
-						if prefix.Contains(netip.MustParseAddr(ip)) {
+					for addr := range usedIPs {
+						if prefix.Contains(addr.Addr) {
 							found = true
 							break
 						}
@@ -255,9 +255,9 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemana
 				r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
 				r.IPPrefixesToRelease = unusedIPPrefixes
 				if len(secondaryIPs) > 0 {
-					unused := getUnusedIPs(usedIPs, cslices.Map(secondaryIPs, netip.Addr.String), e.IP.String())
+					unused := getUnusedIPs(usedIPs, secondaryIPs, e.IP.Addr)
 					maxReleaseOnENI := min(excessIPs, len(unused))
-					matchedIPs = append(matchedIPs, unused[:maxReleaseOnENI]...)
+					matchedIPs = append(matchedIPs, cslices.Map(unused[:maxReleaseOnENI], netip.Addr.String)...)
 				}
 				scopedLog.Debug(
 					"ENI has unused secondary IPs and/or IPPrefixes that can be released",
@@ -281,7 +281,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemana
 		)
 
 		// Count free IP addresses on this ENI
-		freeIpsOnENI := getUnusedIPs(usedIPs, cslices.Map(addrs, netip.Addr.String), e.IP.String())
+		freeIpsOnENI := getUnusedIPs(usedIPs, addrs, e.IP.Addr)
 		freeOnENICount := len(freeIpsOnENI)
 		if freeOnENICount <= 0 {
 			continue
@@ -300,7 +300,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemana
 		if firstENIWithFreeIPFound || eniWithMoreFreeIPsFound {
 			r.InterfaceID = eniId
 			r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
-			r.IPsToRelease = freeIpsOnENI[:maxReleaseOnENI]
+			r.IPsToRelease = cslices.Map(freeIpsOnENI[:maxReleaseOnENI], netip.Addr.String)
 		}
 	}
 	return r
@@ -455,11 +455,10 @@ func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *nodemanager.ReleaseActi
 }
 
 // Get Unused Individual IPs
-func getUnusedIPs(usedIPs ipamTypes.AllocationMap, ipAddresses []string, primaryIP string) (unusedIPs []string) {
-	for _, ipStr := range ipAddresses {
-		_, usedIP := usedIPs[ipStr]
-		if !usedIP && ipStr != primaryIP {
-			unusedIPs = append(unusedIPs, ipStr)
+func getUnusedIPs(usedIPs ipamTypes.AllocationMap, addrs []netip.Addr, primaryIP netip.Addr) (unusedIPs []netip.Addr) {
+	for _, addr := range addrs {
+		if _, usedIP := usedIPs[iputil.AddrFrom(addr)]; !usedIP && addr != primaryIP {
+			unusedIPs = append(unusedIPs, addr)
 		}
 	}
 	return unusedIPs
@@ -986,7 +985,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 			}
 
 			for _, addr := range e.Addresses {
-				available[addr.String()] = ipamTypes.AllocationIP{Resource: e.ID}
+				available[addr] = ipamTypes.AllocationIP{Resource: e.ID}
 			}
 
 			return nil

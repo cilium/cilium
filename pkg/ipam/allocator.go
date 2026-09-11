@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -330,7 +331,7 @@ func (ipam *IPAM) releaseIPLocked(ip netip.Addr, pool Pool) error {
 		logfields.Owner, owner,
 	)
 
-	key := timerKey{ip: ip, pool: pool}
+	key := poolIP{ip: ip, pool: pool}
 	if t, ok := ipam.expirationTimers[key]; ok {
 		close(t.stop)
 		delete(ipam.expirationTimers, key)
@@ -352,7 +353,7 @@ func (ipam *IPAM) ReleaseIP(ip netip.Addr, pool Pool) error {
 // Dump dumps the list of allocated IP addresses
 func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, status string) {
 	var st4, st6 string
-	var allocPerPool4, allocPerPool6 map[Pool]map[string]string
+	var allocPerPool4, allocPerPool6 map[Pool]sets.Set[netip.Addr]
 
 	allocv4 = make(map[string]string)
 	allocv6 = make(map[string]string)
@@ -364,14 +365,9 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 		allocPerPool4, st4 = ipam.ipv4Allocator.Dump()
 		st4 = "IPv4: " + st4
 		for pool, alloc := range allocPerPool4 {
-			for ip := range alloc {
-				owner := ipam.getIPOwner(ip, pool)
-				ipPrefix := ""
-				if pool != PoolDefault() {
-					ipPrefix = string(pool) + "/"
-				}
+			for addr := range alloc {
 				// If owner is not available, report IP but leave owner empty
-				allocv4[ipPrefix+ip] = owner
+				allocv4[poolIP{ip: addr, pool: pool}.String()] = ipam.getIPOwner(addr, pool)
 			}
 		}
 	}
@@ -380,14 +376,9 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 		allocPerPool6, st6 = ipam.ipv6Allocator.Dump()
 		st6 = "IPv6: " + st6
 		for pool, alloc := range allocPerPool6 {
-			for ip := range alloc {
-				owner := ipam.getIPOwner(ip, pool)
-				ipPrefix := ""
-				if pool != PoolDefault() {
-					ipPrefix = string(pool) + "/"
-				}
+			for addr := range alloc {
 				// If owner is not available, report IP but leave owner empty
-				allocv6[ipPrefix+ip] = owner
+				allocv6[poolIP{ip: addr, pool: pool}.String()] = ipam.getIPOwner(addr, pool)
 			}
 		}
 	}
@@ -414,7 +405,7 @@ func (ipam *IPAM) StartExpirationTimer(ip netip.Addr, pool Pool, timeout time.Du
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	key := timerKey{ip: ip, pool: pool}
+	key := poolIP{ip: ip, pool: pool}
 	if _, ok := ipam.expirationTimers[key]; ok {
 		return "", fmt.Errorf("expiration timer already registered")
 	}
@@ -426,7 +417,7 @@ func (ipam *IPAM) StartExpirationTimer(ip netip.Addr, pool Pool, timeout time.Du
 		stop: stop,
 	}
 
-	go func(key timerKey, ip netip.Addr, pool Pool, allocationUUID string, timeout time.Duration, stop <-chan struct{}) {
+	go func(key poolIP, allocationUUID string, timeout time.Duration, stop <-chan struct{}) {
 		timer := time.NewTimerWithoutMaxDelay(timeout)
 		select {
 		case <-stop:
@@ -442,19 +433,19 @@ func (ipam *IPAM) StartExpirationTimer(ip netip.Addr, pool Pool, timeout time.Du
 
 		if t, ok := ipam.expirationTimers[key]; ok {
 			if t.uuid == allocationUUID {
-				if err := ipam.releaseIPLocked(ip, pool); err != nil {
+				if err := ipam.releaseIPLocked(key.ip, key.pool); err != nil {
 					ipam.logger.Warn(
 						"Unable to release IP after expiration",
 						logfields.Error, err,
-						logfields.IPAddr, ip,
-						logfields.PoolName, pool,
+						logfields.IPAddr, key.ip,
+						logfields.PoolName, key.pool,
 						logfields.UUID, allocationUUID,
 					)
 				} else {
 					ipam.logger.Warn(
 						"Released IP after expiration",
-						logfields.IPAddr, ip,
-						logfields.PoolName, pool,
+						logfields.IPAddr, key.ip,
+						logfields.PoolName, key.pool,
 						logfields.UUID, allocationUUID,
 					)
 				}
@@ -466,7 +457,7 @@ func (ipam *IPAM) StartExpirationTimer(ip netip.Addr, pool Pool, timeout time.Du
 		} else {
 			// Expiration timer was removed. No action is required
 		}
-	}(key, ip, pool, allocationUUID, timeout, stop)
+	}(key, allocationUUID, timeout, stop)
 
 	return allocationUUID, nil
 }
@@ -479,7 +470,7 @@ func (ipam *IPAM) StopExpirationTimer(ip netip.Addr, pool Pool, allocationUUID s
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	key := timerKey{ip: ip, pool: pool}
+	key := poolIP{ip: ip, pool: pool}
 	t, ok := ipam.expirationTimers[key]
 	if !ok {
 		return fmt.Errorf("no expiration timer registered")

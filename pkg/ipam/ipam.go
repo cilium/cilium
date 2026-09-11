@@ -102,9 +102,9 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 		logger:                    params.Logger,
 		config:                    params.AgentConfig,
 		nodeAddressing:            params.NodeAddressing,
-		owner:                     map[Pool]map[string]string{},
-		expirationTimers:          map[timerKey]expirationTimer{},
-		excludedIPs:               map[string]string{},
+		owner:                     map[poolIP]string{},
+		expirationTimers:          map[poolIP]expirationTimer{},
+		excludedIPs:               map[poolIP]string{},
 		k8sEventReg:               params.K8sEventReg,
 		localNodeStore:            params.LocalNodeStore,
 		nodeResource:              params.NodeResource,
@@ -235,32 +235,20 @@ func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
 
 // getIPOwner returns the owner for an IP in a particular pool or the empty
 // string in case the pool or IP is not registered.
-func (ipam *IPAM) getIPOwner(ip string, pool Pool) string {
-	if p, ok := ipam.owner[pool]; ok {
-		return p[ip]
-	}
-	return ""
+func (ipam *IPAM) getIPOwner(ip netip.Addr, pool Pool) string {
+	return ipam.owner[poolIP{ip: ip, pool: pool}]
 }
 
 // registerIPOwner registers a new owner for an IP in a particular pool.
 func (ipam *IPAM) registerIPOwner(ip netip.Addr, owner string, pool Pool) {
-	if _, ok := ipam.owner[pool]; !ok {
-		ipam.owner[pool] = make(map[string]string)
-	}
-	ipam.owner[pool][ip.String()] = owner
+	ipam.owner[poolIP{ip: ip, pool: pool}] = owner
 }
 
 // releaseIPOwner releases ip from pool and returns the previous owner.
 func (ipam *IPAM) releaseIPOwner(ip netip.Addr, pool Pool) string {
-	var owner string
-	if m, ok := ipam.owner[pool]; ok {
-		ipStr := ip.String()
-		owner = m[ipStr]
-		delete(m, ipStr)
-		if len(m) == 0 {
-			delete(ipam.owner, pool)
-		}
-	}
+	key := poolIP{ip: ip, pool: pool}
+	owner := ipam.owner[key]
+	delete(ipam.owner, key)
 	return owner
 }
 
@@ -269,13 +257,13 @@ func (ipam *IPAM) releaseIPOwner(ip netip.Addr, pool Pool) string {
 // change and suddenly cover the IP to be excluded.
 func (ipam *IPAM) ExcludeIP(ip netip.Addr, owner string, pool Pool) {
 	ipam.allocatorMutex.Lock()
-	ipam.excludedIPs[pool.String()+":"+ip.String()] = owner
+	ipam.excludedIPs[poolIP{ip: ip, pool: pool}] = owner
 	ipam.allocatorMutex.Unlock()
 }
 
 // isIPExcluded is used to check if a particular IP is excluded from being allocated.
 func (ipam *IPAM) isIPExcluded(ip netip.Addr, pool Pool) (string, bool) {
-	owner, ok := ipam.excludedIPs[pool.String()+":"+ip.String()]
+	owner, ok := ipam.excludedIPs[poolIP{ip: ip, pool: pool}]
 	return owner, ok
 }
 

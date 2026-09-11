@@ -242,7 +242,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 			}
 
 			for _, ip := range e.PrivateIPSets {
-				available[ip.PrivateIpAddress.String()] = ipamTypes.AllocationIP{Resource: e.NetworkInterfaceID}
+				available[ip.PrivateIpAddress] = ipamTypes.AllocationIP{Resource: e.NetworkInterfaceID}
 			}
 			return nil
 		})
@@ -350,7 +350,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemana
 			if ip.Primary {
 				continue
 			}
-			_, ipUsed := n.k8sObj.Status.IPAM.Used[ip.PrivateIpAddress.String()]
+			_, ipUsed := n.k8sObj.Status.IPAM.Used[ip.PrivateIpAddress]
 			if !ipUsed {
 				freeIpsOnENI = append(freeIpsOnENI, ip.PrivateIpAddress.String())
 			}
