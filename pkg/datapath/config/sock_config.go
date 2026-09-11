@@ -10,6 +10,8 @@ package config
 // Warning: do not instantiate directly! Always use [NewBPFSock] to ensure the
 // default values configured in the ELF are honored.
 type BPFSock struct {
+	// Disable externalIP mitigation (CVE-2020-8554).
+	DisableExternalIPMitigation bool `config:"disable_external_ip_mitigation"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Enable IPv4 fragments tracking.
@@ -35,6 +37,6 @@ type BPFSock struct {
 }
 
 func NewBPFSock(node Node) *BPFSock {
-	return &BPFSock{false, false, false, false, false, false, 0x0, 0x0, 0x0, 0x0,
-		node}
+	return &BPFSock{false, false, false, false, false, false, false, 0x0, 0x0, 0x0,
+		0x0, node}
 }
