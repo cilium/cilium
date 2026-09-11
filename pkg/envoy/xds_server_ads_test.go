@@ -1181,3 +1181,84 @@ func TestStartAdsGRPCServerContextCanceledBeforeResolve(t *testing.T) {
 	err := <-errCh
 	assert.ErrorIs(t, err, context.Canceled)
 }
+
+func TestUpdateNetworkPolicyUnchangedPolicySkipsSnapshotUpdate(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	config := xdsServerConfig{
+		envoySocketDir:       t.TempDir(),
+		policyRestoreTimeout: 30 * time.Second,
+	}
+	cache := xdsnew.NewCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
+	ctx := context.Background()
+
+	require.NoError(t, server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil))
+
+	wg := completion.NewWaitGroup(ctx)
+	defer wg.Cancel()
+
+	mockEp := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
+	mockPolicy1 := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+
+	// 1. First UpdateNetworkPolicy establishes the initial NetworkPolicy resource.
+	err, revertFunc, finalizeFunc := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy1, wg)
+	require.NoError(t, err)
+	require.NotNil(t, revertFunc)
+	require.NotNil(t, finalizeFunc)
+
+	require.Eventually(t, func() bool {
+		return mockEp.proxyPolicyUpdateCount.Load() == 1
+	}, time.Second, 10*time.Millisecond)
+
+	snap1, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	require.NotNil(t, snap1)
+	ver1 := snap1.GetVersion(xdsnew.NetworkPolicyTypeURL)
+
+	// 2. Second UpdateNetworkPolicy with identical policy should skip snapshot generation.
+	wg2 := completion.NewWaitGroup(ctx)
+	defer wg2.Cancel()
+
+	err, revertFunc2, finalizeFunc2 := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy1, wg2)
+	require.NoError(t, err)
+	require.NotNil(t, revertFunc2)
+	require.NotNil(t, finalizeFunc2)
+
+	require.Eventually(t, func() bool {
+		return mockEp.proxyPolicyUpdateCount.Load() == 2
+	}, time.Second, 10*time.Millisecond)
+
+	snap2, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	require.NotNil(t, snap2)
+	ver2 := snap2.GetVersion(xdsnew.NetworkPolicyTypeURL)
+
+	// Assert the snapshot instance and version did not change on the second call.
+	require.Equal(t, snap1, snap2)
+	require.Equal(t, ver1, ver2)
+
+	// 3. UpdateNetworkPolicy with a genuinely changed policy should trigger a new snapshot.
+	mockPolicy2 := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+	mockPolicy2.SelectorPolicy.L4Policy.Revision = 2
+	mockPolicy2.SelectorPolicy.L4Policy.Ingress.PortRules = L4PolicyMap1
+
+	wg3 := completion.NewWaitGroup(ctx)
+	defer wg3.Cancel()
+
+	err, revertFunc3, finalizeFunc3 := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy2, wg3)
+	require.NoError(t, err)
+	require.NotNil(t, revertFunc3)
+	require.NotNil(t, finalizeFunc3)
+
+	require.Eventually(t, func() bool {
+		return mockEp.proxyPolicyUpdateCount.Load() == 3
+	}, time.Second, 10*time.Millisecond)
+
+	snap3, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	require.NotNil(t, snap3)
+	ver3 := snap3.GetVersion(xdsnew.NetworkPolicyTypeURL)
+
+	require.NotEqual(t, snap2, snap3)
+	require.NotEqual(t, ver2, ver3)
+}
