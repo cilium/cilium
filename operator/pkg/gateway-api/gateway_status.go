@@ -6,10 +6,11 @@ package gateway_api
 import (
 	"time"
 
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
-
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
 // setGatewayAccepted inserts or updates the Accepted condition for the provided Gateway resource.
@@ -22,6 +23,48 @@ func setGatewayAccepted(gw *gatewayv1.Gateway, accepted bool, msg string, reason
 func setGatewayProgrammed(gw *gatewayv1.Gateway, status metav1.ConditionStatus, msg string, reason gatewayv1.GatewayConditionReason) *gatewayv1.Gateway {
 	gw.Status.Conditions = helpers.MergeConditions(gw.Status.Conditions, gatewayStatusProgrammedCondition(gw, status, msg, reason))
 	return gw
+}
+
+// setGatewayInsecureFrontendValidationMode adds the warning condition required
+// for AllowInsecureFallback and removes it as soon as the mode is no longer in
+// use by either the default or a per-port frontend TLS configuration.
+func setGatewayInsecureFrontendValidationMode(gw *gatewayv1.Gateway) *gatewayv1.Gateway {
+	conditionType := string(gatewayv1.GatewayConditionInsecureFrontendValidationMode)
+	if !hasInsecureFrontendValidationMode(gw) {
+		meta.RemoveStatusCondition(&gw.Status.Conditions, conditionType)
+		return gw
+	}
+
+	gw.Status.Conditions = helpers.MergeConditions(gw.Status.Conditions, metav1.Condition{
+		Type:               conditionType,
+		Status:             metav1.ConditionTrue,
+		Reason:             string(gatewayv1.GatewayReasonConfigurationChanged),
+		Message:            "Gateway is configured to allow insecure frontend certificate validation",
+		ObservedGeneration: gw.GetGeneration(),
+		LastTransitionTime: metav1.Now(),
+	})
+
+	return gw
+}
+
+func hasInsecureFrontendValidationMode(gw *gatewayv1.Gateway) bool {
+	frontend := helpers.FrontendTLSConfig(gw)
+
+	if frontend == nil {
+		return false
+	}
+
+	if frontend.Default.Validation != nil && frontend.Default.Validation.Mode == gatewayv1.AllowInsecureFallback {
+		return true
+	}
+
+	for _, pp := range frontend.PerPort {
+		if pp.TLS.Validation != nil && pp.TLS.Validation.Mode == gatewayv1.AllowInsecureFallback {
+			return true
+		}
+	}
+
+	return false
 }
 
 func gatewayStatusAcceptedCondition(gw *gatewayv1.Gateway, accepted bool, msg string, reason gatewayv1.GatewayConditionReason) metav1.Condition {
