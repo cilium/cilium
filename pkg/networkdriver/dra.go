@@ -246,7 +246,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
-	if err := validatePodIfNames(claim, deviceClaimConfigs); err != nil {
+	if err := validateDeviceConfigs(claim, deviceClaimConfigs); err != nil {
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
@@ -410,12 +410,16 @@ func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerRef
 	}
 }
 
-// validatePodIfNames checks that every podIfName in the claim's device configs
-// is a valid Linux interface name before any destructive work begins.
-func validatePodIfNames(claim *resourceapi.ResourceClaim, deviceClaimConfigs map[string]types.DeviceConfig) error {
+// validateDeviceConfigs checks that every device config in the claim is
+// valid (podIfName, sysctl settings) before any destructive work begins.
+func validateDeviceConfigs(claim *resourceapi.ResourceClaim, deviceClaimConfigs map[string]types.DeviceConfig) error {
 	for request, cfg := range deviceClaimConfigs {
 		if err := types.ValidateInterfaceName(cfg.PodIfName); err != nil {
 			return fmt.Errorf("invalid podIfName in request %s for claim %s: %w",
+				request, path.Join(claim.Namespace, claim.Name), err)
+		}
+		if err := validateInterfaceSysctl(cfg); err != nil {
+			return fmt.Errorf("invalid sysctl config in request %s for claim %s: %w",
 				request, path.Join(claim.Namespace, claim.Name), err)
 		}
 	}
