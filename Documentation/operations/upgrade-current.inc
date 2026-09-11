@@ -10,8 +10,8 @@ If you are using the following features in your environment, then you may need
 to take action because of changes to the behavior of these features. Read the
 notes carefully below to understand what to do during upgrade.
 
-* :ref:`gs_mutual_authentication` support is now deprecated and will be removed
-  in a future version. Consider using :ref:`encryption_ztunnel` instead, and
+* Cilium mutual authentication support is now deprecated and will be removed in
+  a future version. Consider using :ref:`encryption_ztunnel` instead, and
   please provide feedback on whether this alternative feature addresses your
   use cases.
 * Envoy Go Extensions (proxylib) was removed after deprecation in Cilium 1.16.
