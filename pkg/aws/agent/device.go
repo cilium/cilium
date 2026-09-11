@@ -119,6 +119,7 @@ func validateENIConfig(node *ciliumv2.CiliumNode) error {
 type eniDeviceConfig struct {
 	name         string
 	ip           netip.Addr
+	ipv6         netip.Addr
 	cidr         netip.Prefix
 	mtu          int
 	usePrimaryIP bool
@@ -151,6 +152,7 @@ func configureENIDevices(logger *slog.Logger, oldNode, newNode *ciliumv2.CiliumN
 			addedENIByMac[eni.MAC] = eniDeviceConfig{
 				name:         name,
 				ip:           eni.IP.Addr,
+				ipv6:         eni.IPv6.Addr,
 				cidr:         eni.Subnet.CIDR.Masked(),
 				mtu:          mtuConfig.GetDeviceMTU(),
 				usePrimaryIP: usePrimary,
@@ -312,6 +314,19 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 		err = sysctl.Disable([]string{"net", "ipv4", "conf", link.Attrs().Name, "rp_filter"})
 		if err != nil {
 			return fmt.Errorf("failed to disable rp_filter on link %q: %w", link.Attrs().Name, err)
+		}
+	}
+
+	// Set the ENI's auto-assigned IPv6 address so that traffic the host stack
+	// forwards out this ENI can be sourced from an address the interface owns.
+	// Without it the source falls back to another ENI's address and AWS
+	// silently discards the packet.
+	if cfg.ipv6.IsValid() {
+		err := netlink.AddrAdd(link, &netlink.Addr{
+			IPNet: netipx.PrefixIPNet(netip.PrefixFrom(cfg.ipv6, cfg.ipv6.BitLen())),
+		})
+		if err != nil && !errors.Is(err, unix.EEXIST) {
+			return fmt.Errorf("failed to set eni ipv6 address %q on link %q: %w", cfg.ipv6, link.Attrs().Name, err)
 		}
 	}
 
