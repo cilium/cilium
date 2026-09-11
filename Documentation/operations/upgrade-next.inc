@@ -18,6 +18,9 @@ notes carefully below to understand what to do during upgrade.
   ``migration`` or ``legacy``. If you have a different configuration, you are
   not expected to take any action and the transition to
   ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
+* Cilium mutual authentication support has been removed after deprecation. If
+  you use mutual authentication, remove that configuration before upgrading.
+  Consider using :ref:`encryption_ztunnel` instead.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
