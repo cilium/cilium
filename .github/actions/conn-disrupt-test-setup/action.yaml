@@ -33,6 +33,7 @@ runs:
           --include-unsafe-tests \
           --conn-disrupt-test-setup \
           --conn-disrupt-dispatch-interval 0ms \
+          --conn-disrupt-client-timeout 15s \
           --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
           --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
           --expected-xfrm-errors "+inbound_no_state" \
