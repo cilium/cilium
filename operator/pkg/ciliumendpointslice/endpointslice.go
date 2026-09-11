@@ -18,6 +18,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/cilium/cilium/operator/pkg/ciliumidentity"
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -486,7 +487,7 @@ func (c *SlimController) resolvePodPlacement(pod *slim_corev1.Pod) (string, *key
 		return "", nil, errSkipPodEvent
 	}
 
-	cidKey, err := getPodCIDKey(pod, c.logger, c.reconciler.namespaceStore, c.reconciler.clusterInfo)
+	cidKey, err := ciliumidentity.GetCIDKeyForPod(c.logger, pod, c.reconciler.namespaceStore, c.reconciler.clusterInfo)
 	if err != nil {
 		c.logger.Debug("could not get labels for pod",
 			logfields.K8sPodName, pod.Name,
