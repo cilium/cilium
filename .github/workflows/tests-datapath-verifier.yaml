@@ -160,7 +160,7 @@ jobs:
           echo "full=${FULL_KERNEL}" >> $GITHUB_OUTPUT
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           test-name: datapath-bpf-complexity
           image: 'complexity-test'
@@ -193,7 +193,7 @@ jobs:
             rm -rf /usr/local/go
 
       - name: Run verifier tests (on PR branch)
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
           provision: 'false'
@@ -215,7 +215,7 @@ jobs:
             mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-pull.json
 
       - name: Run verifier tests (on base branch)
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           provision: 'false'
           cmd: |
