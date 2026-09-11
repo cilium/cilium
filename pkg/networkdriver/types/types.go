@@ -191,10 +191,20 @@ type DeviceManager interface {
 type DeviceConfig struct {
 	PodIfName string `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
 	Vlan      int32  `json:"vlan,omitempty"`      // VLAN ID to assign to the device (0 = untagged / no change)
+
+	// InterfaceSysctlIPv4/IPv6 hold leaf sysctl parameters (e.g.
+	// "arp_filter") applied under net.<family>.conf.<interface>. for the
+	// interface this claim allocates. Applied once, inside the pod netns,
+	// when the interface is brought up; not reverted on Free (the
+	// namespace is destroyed with the pod).
+	InterfaceSysctlIPv4 map[string]string `json:"interfaceSysctlIPv4,omitempty"`
+	InterfaceSysctlIPv6 map[string]string `json:"interfaceSysctlIPv6,omitempty"`
 }
 
 func (d *DeviceConfig) Empty() bool {
-	return d == nil || *d == DeviceConfig{}
+	return d == nil ||
+		(d.PodIfName == "" && d.Vlan == 0 &&
+			len(d.InterfaceSysctlIPv4) == 0 && len(d.InterfaceSysctlIPv6) == 0)
 }
 
 type SerializedDevice struct {
