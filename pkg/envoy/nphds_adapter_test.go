@@ -30,15 +30,19 @@ import (
 func newTestNPHDSAdapter(t *testing.T) *nphdsCacheAdapter {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	server := newTestADSServerWithCache(t, newADSCache(logger, false), logger, nil, nil, xdsServerConfig{envoyXDSMode: config.EnvoyXDSModeADS}, nil, nil)
+	server := newTestADSServerWithCache(t, newADSCache(logger), logger, nil, nil, xdsServerConfig{envoyXDSMode: config.EnvoyXDSModeADS}, nil, nil)
 	return newNPHDSCacheAdapter(logger, server)
 }
 
 func lookupNPHDS(t *testing.T, adapter *nphdsCacheAdapter, identityStr string) *envoyAPI.NetworkPolicyHosts {
 	t.Helper()
-	resource, _ := testADSNPHDSCache(t, adapter).GetResource(localNodeID, typeurl.NetworkPolicyHosts, identityStr)
-	npHost, _ := resource.(*envoyAPI.NetworkPolicyHosts)
-	return npHost
+	resource := testADSNPHDSCache(t, adapter).GetResource(localNodeID, typeurl.NetworkPolicyHosts, identityStr)
+	if resource == nil {
+		return nil
+	}
+	res, ok := resource.(*envoyAPI.NetworkPolicyHosts)
+	require.True(t, ok)
+	return res
 }
 
 func testADSNPHDSCache(t *testing.T, adapter *nphdsCacheAdapter) xdsnew.Cache {
@@ -90,10 +94,10 @@ func TestNPHDSAdapterUpdatesOnlyMatchingIdentity(t *testing.T) {
 	require.NoError(t, adapter.handleIPUpsert("123", "1.2.3.0/32", 123))
 	require.NoError(t, adapter.handleIPUpsert("456", "4.5.6.0/32", 456))
 	unrelated := lookupNPHDS(t, adapter, "456")
-	priorResources := testADSNPHDSCache(t, adapter).GetAllResources(localNodeID)
+	priorResource := lookupNPHDS(t, adapter, "123")
 
 	require.NoError(t, adapter.handleIPUpsert("123", "1.2.3.1/32", 123))
-	assert.Equal(t, []string{"1.2.3.0/32"}, priorResources.NetworkPolicyHosts["123"].HostAddresses)
+	assert.Equal(t, []string{"1.2.3.0/32"}, priorResource.HostAddresses)
 	assert.Same(t, unrelated, lookupNPHDS(t, adapter, "456"))
 	require.NoError(t, adapter.handleIPDelete("123", "1.2.3.0/32"))
 	assert.Same(t, unrelated, lookupNPHDS(t, adapter, "456"))
@@ -248,7 +252,7 @@ func TestNPHDSAdapterPublishesFullStateResponses(t *testing.T) {
 
 func TestStartNPHDSIPCacheListener(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	adsCache := newADSCache(logger, false)
+	adsCache := newADSCache(logger)
 	server := newTestADSServerWithCache(t, adsCache, logger, nil, nil, xdsServerConfig{envoyXDSMode: config.EnvoyXDSModeADS}, nil, nil)
 
 	// nil ipCache should be a no-op
@@ -272,8 +276,6 @@ func TestADSFirstNPHDSRequestDumpsExistingMappings(t *testing.T) {
 			}
 			server := newTestADSServer(t, logger, ipCache, nil, xdsServerConfig{envoyXDSMode: mode}, nil, nil)
 			require.True(t, server.cache.HasNode(localNodeID))
-			_, err := server.cache.GetSnapshot(localNodeID)
-			require.Error(t, err, "initial IPCache dump must precede the first snapshot")
 			client := newTestADSClient(t, server)
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 			defer cancel()

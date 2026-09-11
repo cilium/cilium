@@ -31,7 +31,7 @@ const (
 	// EnvoyXDSModeStrictADS is a compatibility spelling normalized to ADS during configuration.
 	EnvoyXDSModeStrictADS XDSMode = "strict-ads"
 
-	// EnvoyXDSModeStrictDeltaADS selects the ADS xDS server with strict snapshot validation in Delta xDS mode.
+	// EnvoyXDSModeStrictDeltaADS is a legacy spelling for an unsupported Delta ADS mode.
 	EnvoyXDSModeStrictDeltaADS XDSMode = "strict-delta-ads"
 
 	// DefaultXDSMode is set to "split" for upgrade compatibility
@@ -40,10 +40,6 @@ const (
 
 func (v XDSMode) IsADS() bool {
 	return strings.HasSuffix(string(v), "ads")
-}
-
-func (v XDSMode) IsStrictADS() bool {
-	return strings.HasPrefix(string(v), "strict-")
 }
 
 // Validate checks whether the XDSMode is supported.
@@ -129,10 +125,6 @@ type ProxyConfig struct {
 
 func (r ProxyConfig) ADSModeEnabled() bool {
 	return r.EnvoyXDSMode.IsADS()
-}
-
-func (r ProxyConfig) StrictADSModeEnabled() bool {
-	return r.EnvoyXDSMode.IsStrictADS()
 }
 
 // Validate validates and normalizes the XDSMode
