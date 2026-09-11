@@ -81,6 +81,11 @@ type adsServer struct {
 	// Value holds the number of redirects using the listener named by the key.
 	listenerCount map[string]uint
 
+	// resourceGenerations identifies the latest resource state published for
+	// each node. Revert closures use the generation as a cheap stale-update
+	// guard instead of hashing all resources. mutex must be held during access.
+	resourceGenerations map[string]uint64
+
 	// stopFunc contains the function which stops the xDS gRPC server.
 	stopFunc context.CancelFunc
 
@@ -98,17 +103,18 @@ type adsServer struct {
 
 func newADSServerWithCache(cache xdsnew.Cache, logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) *adsServer {
 	adsServer := &adsServer{
-		logger:             logger,
-		cache:              cache,
-		ipCache:            ipCache,
-		localEndpointStore: localEndpointStore,
-		config:             config,
-		secretManager:      secretManager,
-		socketPath:         util.GetXDSSocketPath(config.envoySocketDir),
-		accessLogPath:      util.GetAccessLogSocketPath(config.envoySocketDir),
-		restorerPromise:    restorerPromise,
-		listenerCount:      make(map[string]uint),
-		npdsListeners:      make(npdsListenersTracker),
+		logger:              logger,
+		cache:               cache,
+		ipCache:             ipCache,
+		localEndpointStore:  localEndpointStore,
+		config:              config,
+		secretManager:       secretManager,
+		socketPath:          util.GetXDSSocketPath(config.envoySocketDir),
+		accessLogPath:       util.GetAccessLogSocketPath(config.envoySocketDir),
+		restorerPromise:     restorerPromise,
+		listenerCount:       make(map[string]uint),
+		npdsListeners:       make(npdsListenersTracker),
+		resourceGenerations: make(map[string]uint64),
 	}
 	return adsServer
 }
@@ -881,13 +887,10 @@ func listenerPortAllocationCompletionTypeURLs(callback func(error), changes *res
 }
 
 // buildRevert captures the given resource changes and returns a closure that
-// restores them. The revert is skipped if another update has been applied since
-// (detected via snapshot version mismatch).
+// restores them. The revert is skipped if another update has been applied since,
+// as identified by the resource generation assigned to the published update.
 // Caller must hold s.mutex.
-func (s *adsServer) buildRevert(ctx context.Context, nodeID string, newResources *xds.Resources, changes *resourceChanges) func() {
-	// Compute the version of the snapshot we are about to push so we can
-	// detect whether a subsequent update has superseded ours.
-	pushedVersion := s.cache.GetVersion(newResources)
+func (s *adsServer) buildRevert(ctx context.Context, nodeID string, pushedGeneration uint64, changes *resourceChanges) func() {
 	if changes == nil {
 		changes = &resourceChanges{}
 	}
@@ -896,15 +899,15 @@ func (s *adsServer) buildRevert(ctx context.Context, nodeID string, newResources
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 
-		// Check whether the snapshot is still the one we pushed.
+		// Check whether the resource state is still the generation we pushed.
 		currentResources := s.cache.GetAllResources(nodeID)
-		currentVersion := s.cache.GetVersion(currentResources)
-		if currentVersion != pushedVersion {
+		currentGeneration := s.resourceGenerations[nodeID]
+		if currentGeneration != pushedGeneration {
 			s.logger.Info(
-				"Skipping revert, snapshot has been superseded",
+				"Skipping revert, resource generation has been superseded",
 				logfields.NodeID, nodeID,
-				logfields.XDSPushedVersion, pushedVersion,
-				logfields.XDSCurrentVersion, currentVersion,
+				"pushedGeneration", pushedGeneration,
+				"currentGeneration", currentGeneration,
 			)
 			return
 		}
@@ -1096,9 +1099,13 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		}
 	}
 	if oldSnapshot == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.AreDifferentSnapshots(oldSnapshot, newSnapshot) {
+		// Reserve the next generation before registering the revert closure. It
+		// becomes current only after both the snapshot and immutable resources
+		// have been published successfully.
+		newGeneration := s.resourceGenerations[nodeId] + 1
 		var revertFunc func()
 		if wg != nil {
-			revertFunc = s.buildRevert(ctx, nodeId, resources, changes)
+			revertFunc = s.buildRevert(ctx, nodeId, newGeneration, changes)
 		}
 		err = s.cache.UpdateSnapshot(ctx, nodeId, newSnapshot, wg, completionTypeURLs, revertFunc)
 		if err != nil {
@@ -1108,6 +1115,7 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 			return err
 		} else {
 			s.cache.SetResources(nodeId, resources)
+			s.resourceGenerations[nodeId] = newGeneration
 		}
 	} else {
 		s.logger.Debug("updateXdsSnapshot: Snapshots are identical, skipping update")

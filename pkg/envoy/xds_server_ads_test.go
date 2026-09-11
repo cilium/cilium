@@ -132,6 +132,18 @@ type countingADSCache struct {
 	published atomic.Uint64
 }
 
+type revertCapturingADSCache struct {
+	xdsnew.Cache
+	revertFuncs []func()
+}
+
+func (c *revertCapturingADSCache) UpdateSnapshot(ctx context.Context, nodeID string, snapshot xds_cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc func()) error {
+	if revertFunc != nil {
+		c.revertFuncs = append(c.revertFuncs, revertFunc)
+	}
+	return c.Cache.UpdateSnapshot(ctx, nodeID, snapshot, wg, typeURLs, revertFunc)
+}
+
 func (c *countingADSCache) GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (xds_cache.ResourceSnapshot, error) {
 	c.generated.Add(1)
 	return c.Cache.GenerateSnapshot(resources, logger)
@@ -154,6 +166,60 @@ func (c *countingADSCache) reset() {
 
 func mapIdentity[K comparable, V any](m map[K]V) uintptr {
 	return reflect.ValueOf(m).Pointer()
+}
+
+func TestSnapshotRevertGeneration(t *testing.T) {
+	newServer := func(t *testing.T) (*adsServer, *revertCapturingADSCache) {
+		t.Helper()
+		logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+		cache := &revertCapturingADSCache{Cache: xdsnew.NewCache(logger, false)}
+		return newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, nil), cache
+	}
+	resources := func(endpointID uint64) xds.Resources {
+		resources := xds.NewResources()
+		resources.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: endpointID}
+		return resources
+	}
+
+	t.Run("current generation is reverted", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
+
+		wg := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), wg))
+		require.Len(t, cache.revertFuncs, 1)
+
+		cache.revertFuncs[0]()
+		current := cache.GetAllResources(localNodeID)
+		require.Equal(t, uint64(1), current.NetworkPolicies["policy"].EndpointId)
+	})
+
+	t.Run("superseded ABA generation is not reverted", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
+
+		wg := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), wg))
+		require.Len(t, cache.revertFuncs, 1)
+		staleRevert := cache.revertFuncs[0]
+
+		// Return to the same resource contents through a later generation. A
+		// content hash cannot distinguish this state from the one associated
+		// with staleRevert, but its generation token can.
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(3), nil))
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), nil))
+		beforeRevert := cache.GetAllResources(localNodeID)
+		generation := server.resourceGenerations[localNodeID]
+
+		staleRevert()
+		require.Same(t, beforeRevert, cache.GetAllResources(localNodeID))
+		require.Equal(t, generation, server.resourceGenerations[localNodeID])
+		require.Equal(t, uint64(2), beforeRevert.NetworkPolicies["policy"].EndpointId)
+	})
 }
 
 func TestNewADSServer(t *testing.T) {
