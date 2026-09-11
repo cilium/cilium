@@ -1044,6 +1044,16 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 	}
 
 	updatedTypeURLsInSnapshot := getUpdatedTypeURLs(changes)
+	// Preserve the semantic resource changes before callback-only type URLs are
+	// merged below. ACK bookkeeping must not cause unrelated snapshot groups to
+	// be regenerated.
+	var changedTypeURLs map[string]struct{}
+	if updatedTypeURLsInSnapshot != nil {
+		changedTypeURLs = make(map[string]struct{}, len(updatedTypeURLsInSnapshot))
+		for typeURL := range updatedTypeURLsInSnapshot {
+			changedTypeURLs[typeURL] = struct{}{}
+		}
+	}
 	completionTypeURLs := inferredCompletionTypeURLs(changes)
 	// Callers can explicitly add type URLs when the changed type cannot be
 	// inferred from the changed resource entries. When explicit callback types
@@ -1062,7 +1072,14 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		}
 		completionTypeURLs = callbackTypeURLs
 	}
-	newSnapshot, err := s.cache.GenerateSnapshot(resources, s.logger)
+	oldSnapshot, _ := s.cache.GetSnapshot(nodeId)
+	if oldSnapshot == nil {
+		// This may be first update for this node, so snapshot may not exist yet.
+		s.logger.Debug("Failed to get snapshot for node, will create new one",
+			logfields.NodeID, nodeId)
+	}
+
+	newSnapshot, err := s.cache.GenerateSnapshotIncrementally(resources, oldSnapshot, changedTypeURLs, s.logger)
 	if err != nil {
 		s.logger.Error("Failed to generate ADS snapshot",
 			logfields.NodeID, nodeId,
@@ -1078,13 +1095,6 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 			return err
 		}
 	}
-	oldSnapshot, _ := s.cache.GetSnapshot(nodeId)
-	if oldSnapshot == nil {
-		// This may be first update for this node, so snapshot may not exist yet.
-		s.logger.Debug("Failed to get snapshot for node, will create new one",
-			logfields.NodeID, nodeId)
-	}
-
 	if oldSnapshot == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.AreDifferentSnapshots(oldSnapshot, newSnapshot) {
 		var revertFunc func()
 		if wg != nil {
@@ -1289,11 +1299,8 @@ func getUpdatedTypeURLs(changes *resourceChanges) map[string]func(error) {
 	if changes == nil {
 		return nil
 	}
-	var updatedTypeURLS map[string]func(error)
+	updatedTypeURLS := make(map[string]func(error))
 	add := func(typeURL string) {
-		if updatedTypeURLS == nil {
-			updatedTypeURLS = make(map[string]func(error))
-		}
 		updatedTypeURLS[typeURL] = nil
 	}
 	if len(changes.listeners) > 0 {

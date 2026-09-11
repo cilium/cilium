@@ -137,6 +137,11 @@ func (c *countingADSCache) GenerateSnapshot(resources *xds.Resources, logger *sl
 	return c.Cache.GenerateSnapshot(resources, logger)
 }
 
+func (c *countingADSCache) GenerateSnapshotIncrementally(resources *xds.Resources, previous xds_cache.ResourceSnapshot, changedTypeURLs map[string]struct{}, logger *slog.Logger) (xds_cache.ResourceSnapshot, error) {
+	c.generated.Add(1)
+	return c.Cache.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, logger)
+}
+
 func (c *countingADSCache) UpdateSnapshot(ctx context.Context, nodeID string, snapshot xds_cache.ResourceSnapshot, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFunc func()) error {
 	c.published.Add(1)
 	return c.Cache.UpdateSnapshot(ctx, nodeID, snapshot, wg, typeURLs, revertFunc)
@@ -166,6 +171,20 @@ func TestNewADSServer(t *testing.T) {
 	require.NotNil(t, &server.cache)
 	assert.NotEmpty(t, server.socketPath)
 	assert.NotEmpty(t, server.accessLogPath)
+}
+
+func TestGetUpdatedTypeURLsDistinguishesUnknownFromNoChanges(t *testing.T) {
+	require.Nil(t, getUpdatedTypeURLs(nil))
+	require.NotNil(t, getUpdatedTypeURLs(&resourceChanges{}))
+	require.Empty(t, getUpdatedTypeURLs(&resourceChanges{}))
+
+	changes := &resourceChanges{
+		networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{key: "1"}},
+	}
+	require.Equal(t,
+		map[string]func(error){NetworkPolicyTypeURL: nil},
+		getUpdatedTypeURLs(changes),
+	)
 }
 
 func TestAddListener(t *testing.T) {

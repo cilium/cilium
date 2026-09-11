@@ -46,6 +46,10 @@ type Cache interface {
 
 	GetVersion(resources *xds.Resources) string
 	GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error)
+	// GenerateSnapshotIncrementally reuses immutable state from previous for
+	// resource types outside changedTypeURLs. A nil change set requests a full
+	// snapshot; a non-nil empty set returns the previous snapshot unchanged.
+	GenerateSnapshotIncrementally(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}, logger *slog.Logger) (cache.ResourceSnapshot, error)
 	UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc func()) error
 	// AwaitCurrentVersion registers completions against the current snapshot
 	// without publishing it again.
@@ -76,8 +80,9 @@ var _ Cache = &cacheImpl{}
 // ciliumSnapshot implements go-control-plane's ResourceSnapshot interface for
 // both Envoy core resources and Cilium-specific xDS resources.
 type ciliumSnapshot struct {
-	Resources  map[string]cache.Resources
-	VersionMap map[string]map[string]string
+	Resources        map[string]cache.Resources
+	VersionMap       map[string]map[string]string
+	resourceVersions map[string]map[string]string
 }
 
 // Ensure ciliumSnapshot implements cache.ResourceSnapshot.
@@ -94,12 +99,14 @@ var snapshotResourceTypes = []envoy_resource.Type{
 	NetworkPolicyHostsTypeURL,
 }
 
-func newCiliumSnapshot(resources map[string]cache.Resources) *ciliumSnapshot {
+func newCiliumSnapshot(resources map[string]cache.Resources, resourceVersions map[string]map[string]string) *ciliumSnapshot {
 	w := &ciliumSnapshot{
-		Resources: make(map[string]cache.Resources, len(snapshotResourceTypes)),
+		Resources:        make(map[string]cache.Resources, len(snapshotResourceTypes)),
+		resourceVersions: make(map[string]map[string]string, len(snapshotResourceTypes)),
 	}
 	for _, typeURL := range snapshotResourceTypes {
 		w.Resources[typeURL] = resources[typeURL]
+		w.resourceVersions[typeURL] = resourceVersions[typeURL]
 	}
 	return w
 }
@@ -137,6 +144,15 @@ func (w *ciliumSnapshot) ConstructVersionMap() error {
 		return fmt.Errorf("missing snapshot")
 	}
 	if w.VersionMap != nil {
+		return nil
+	}
+	if w.resourceVersions != nil {
+		w.VersionMap = make(map[string]map[string]string, len(w.resourceVersions))
+		for typeURL, versions := range w.resourceVersions {
+			if len(versions) > 0 {
+				w.VersionMap[typeURL] = maps.Clone(versions)
+			}
+		}
 		return nil
 	}
 
@@ -464,28 +480,190 @@ func sdsReferenceVersionContext(resources *xds.Resources) string {
 	return resourceReferencesVersionContext(refs)
 }
 
-func (c *cacheImpl) resourceVersion(typeURL string, resources map[string]cache_types.Resource, versionContext ...string) (string, error) {
-	keys := slices.Collect(maps.Keys(resources))
+func resourceContentVersion(resource cache_types.Resource) (string, error) {
+	marshaledResource, err := cache.MarshalResource(resource)
+	if err != nil {
+		return "", err
+	}
+	return cache.HashResource(marshaledResource), nil
+}
+
+func (c *cacheImpl) resourceVersion(typeURL string, resourceVersions map[string]string, versionContext ...string) string {
+	keys := slices.Collect(maps.Keys(resourceVersions))
 	slices.Sort(keys)
 	var sb strings.Builder
 	for _, name := range keys {
-		encodedResource, err := marshal(resources[name])
-		if err != nil {
-			return "", err
-		}
 		sb.WriteString(name)
-		sb.WriteString(encodedResource)
+		sb.WriteByte(0)
+		sb.WriteString(resourceVersions[name])
+		sb.WriteByte(0)
 	}
 	for _, context := range versionContext {
 		if context == "" {
 			continue
 		}
-		sb.WriteByte(0)
 		sb.WriteString("version-context")
 		sb.WriteByte(0)
 		sb.WriteString(context)
+		sb.WriteByte(0)
 	}
-	return c.hash(map[string]string{typeURL: sb.String()}), nil
+	return c.hash(map[string]string{typeURL: sb.String()})
+}
+
+func (c *cacheImpl) resourceVersions(typeURL string, resources map[string]cache_types.Resource, versionContext ...string) (string, map[string]string, error) {
+	versions := make(map[string]string, len(resources))
+	for name, resource := range resources {
+		version, err := resourceContentVersion(resource)
+		if err != nil {
+			return "", nil, err
+		}
+		versions[name] = version
+	}
+	return c.resourceVersion(typeURL, versions, versionContext...), versions, nil
+}
+
+func (c *cacheImpl) updateResourceVersions(typeURL string, resources map[string]cache_types.Resource, previous cache.Resources, previousVersions map[string]string, versionContext ...string) (cache.Resources, map[string]string, error) {
+	items := maps.Clone(previous.Items)
+	versions := maps.Clone(previousVersions)
+
+	for name := range items {
+		if _, exists := resources[name]; !exists {
+			delete(items, name)
+			delete(versions, name)
+		}
+	}
+
+	for name, resource := range resources {
+		previousItem, resourceExists := items[name]
+		_, versionExists := versions[name]
+		if resourceExists && versionExists &&
+			(previousItem.Resource == resource || proto.Equal(previousItem.Resource, resource)) {
+			continue
+		}
+
+		version, err := resourceContentVersion(resource)
+		if err != nil {
+			return cache.Resources{}, nil, err
+		}
+		if items == nil {
+			items = make(map[string]cache_types.ResourceWithTTL)
+		}
+		if versions == nil {
+			versions = make(map[string]string)
+		}
+		items[name] = cache_types.ResourceWithTTL{Resource: resource}
+		versions[name] = version
+	}
+
+	return cache.Resources{
+		Version: c.resourceVersion(typeURL, versions, versionContext...),
+		Items:   items,
+	}, versions, nil
+}
+
+func snapshotResourceMap[V proto.Message](resources map[string]V) map[string]cache_types.Resource {
+	result := make(map[string]cache_types.Resource, len(resources))
+	for name, resource := range resources {
+		result[name] = resource
+	}
+	return result
+}
+
+func snapshotResourcesForType(resources *xds.Resources, typeURL string) map[string]cache_types.Resource {
+	if typeURL == envoy_resource.EndpointType {
+		endpoints := make(map[string]cache_types.Resource, len(resources.Endpoints))
+		for name, resource := range resources.Endpoints {
+			// Skip wildcard :* endpoints that have no matching cluster,
+			// as they cause snapshot inconsistency (EDS count > CDS references).
+			// These are generated for backward compatibility with the old per-type
+			// xDS caches but are not needed in the ADS snapshot.
+			if _, hasCluster := resources.Clusters[name]; !hasCluster && strings.HasSuffix(name, ":*") {
+				continue
+			}
+			endpoints[name] = resource
+		}
+		return endpoints
+	}
+
+	switch typeURL {
+	case envoy_resource.ClusterType:
+		return snapshotResourceMap(resources.Clusters)
+	case envoy_resource.RouteType:
+		return snapshotResourceMap(resources.Routes)
+	case envoy_resource.ListenerType:
+		return snapshotResourceMap(resources.Listeners)
+	case envoy_resource.SecretType:
+		return snapshotResourceMap(resources.Secrets)
+	case NetworkPolicyTypeURL:
+		return snapshotResourceMap(resources.NetworkPolicies)
+	case NetworkPolicyHostsTypeURL:
+		return snapshotResourceMap(resources.NetworkPolicyHosts)
+	default:
+		return nil
+	}
+}
+
+func snapshotVersionContext(resources *xds.Resources, typeURL string) string {
+	switch typeURL {
+	case envoy_resource.EndpointType:
+		// Envoy creates one EDS subscription per EDS-backed cluster. A new
+		// parent can request a dependent resource that the ADS stream has already
+		// seen at the current version, so go-control-plane may open the new watch
+		// without replaying the cached resource. Include the parent reference sets
+		// in dependent resource versions so new subscriptions receive the current
+		// resource immediately.
+		return edsClusterReferenceVersionContext(resources)
+	case envoy_resource.RouteType:
+		return rdsListenerReferenceVersionContext(resources)
+	case envoy_resource.SecretType:
+		return sdsReferenceVersionContext(resources)
+	case envoy_resource.ClusterType:
+		return listenerClusterReferenceVersionContext(resources)
+	default:
+		return ""
+	}
+}
+
+func incrementalSnapshotTypeURLs(changedTypeURLs map[string]struct{}) (map[string]struct{}, bool) {
+	if changedTypeURLs == nil {
+		return nil, false
+	}
+
+	regenerate := maps.Clone(changedTypeURLs)
+	for typeURL := range changedTypeURLs {
+		if !slices.Contains(snapshotResourceTypes, envoy_resource.Type(typeURL)) {
+			return nil, false
+		}
+	}
+
+	if _, listenersChanged := changedTypeURLs[envoy_resource.ListenerType]; listenersChanged {
+		regenerate[envoy_resource.RouteType] = struct{}{}
+		regenerate[envoy_resource.ClusterType] = struct{}{}
+		regenerate[envoy_resource.SecretType] = struct{}{}
+	}
+	if _, clustersChanged := changedTypeURLs[envoy_resource.ClusterType]; clustersChanged {
+		regenerate[envoy_resource.EndpointType] = struct{}{}
+		regenerate[envoy_resource.SecretType] = struct{}{}
+	}
+
+	return regenerate, true
+}
+
+func (c *cacheImpl) canGenerateSnapshotIncrementally(previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}) (*ciliumSnapshot, map[string]struct{}, bool) {
+	previousSnapshot, ok := previous.(*ciliumSnapshot)
+	if !ok || previousSnapshot == nil || previousSnapshot.resourceVersions == nil {
+		return nil, nil, false
+	}
+	for _, typeURL := range snapshotResourceTypes {
+		if _, exists := previousSnapshot.Resources[typeURL]; !exists {
+			return nil, nil, false
+		}
+		if _, exists := previousSnapshot.resourceVersions[typeURL]; !exists {
+			return nil, nil, false
+		}
+	}
+	regenerate, ok := incrementalSnapshotTypeURLs(changedTypeURLs)
+	return previousSnapshot, regenerate, ok
 }
 
 // normalizeSnapshotResources returns the resource view used to build an ADS
@@ -547,79 +725,55 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 	}
 
 	resources = normalizeSnapshotResources(resources)
-	endpoints := make(map[string]cache_types.Resource, len(resources.Endpoints))
-	clusters := make(map[string]cache_types.Resource, len(resources.Clusters))
-	routes := make(map[string]cache_types.Resource, len(resources.Routes))
-	listeners := make(map[string]cache_types.Resource, len(resources.Listeners))
-	networkPolicies := make(map[string]cache_types.Resource, len(resources.NetworkPolicies))
-	networkPolicyHosts := make(map[string]cache_types.Resource, len(resources.NetworkPolicyHosts))
-	secrets := make(map[string]cache_types.Resource, len(resources.Secrets))
-
-	for name, r := range resources.Endpoints {
-		// Skip wildcard :* endpoints that have no matching cluster,
-		// as they cause snapshot inconsistency (EDS count > CDS references).
-		// These are generated for backward compatibility with the old per-type
-		// xDS caches but are not needed in the ADS snapshot.
-		if _, hasCluster := resources.Clusters[name]; !hasCluster && len(name) > 2 && name[len(name)-2:] == ":*" {
-			continue
-		}
-		endpoints[name] = r
-	}
-	for name, r := range resources.Clusters {
-		clusters[name] = r
-	}
-	for name, r := range resources.Routes {
-		routes[name] = r
-	}
-	for name, r := range resources.Listeners {
-		listeners[name] = r
-	}
-	for name, r := range resources.NetworkPolicies {
-		networkPolicies[name] = r
-	}
-	for name, r := range resources.NetworkPolicyHosts {
-		networkPolicyHosts[name] = r
-	}
-	for name, r := range resources.Secrets {
-		secrets[name] = r
-	}
-
-	resourceGroups := map[string]map[string]cache_types.Resource{
-		envoy_resource.EndpointType: endpoints,
-		envoy_resource.ClusterType:  clusters,
-		envoy_resource.RouteType:    routes,
-		envoy_resource.ListenerType: listeners,
-		envoy_resource.SecretType:   secrets,
-		NetworkPolicyTypeURL:        networkPolicies,
-		NetworkPolicyHostsTypeURL:   networkPolicyHosts,
-	}
-
-	versionedResources := make(map[string]cache.Resources, len(resourceGroups))
-	for typeURL, resourceMap := range resourceGroups {
-		var versionContext string
-		if typeURL == envoy_resource.EndpointType {
-			// Envoy creates one EDS subscription per EDS-backed cluster. A new
-			// parent can request a dependent resource that the ADS stream has already
-			// seen at the current version, so go-control-plane may open the new watch
-			// without replaying the cached resource. Include the parent reference sets
-			// in dependent resource versions so new subscriptions receive the current
-			// resource immediately.
-			versionContext = edsClusterReferenceVersionContext(resources)
-		} else if typeURL == envoy_resource.RouteType {
-			versionContext = rdsListenerReferenceVersionContext(resources)
-		} else if typeURL == envoy_resource.SecretType {
-			versionContext = sdsReferenceVersionContext(resources)
-		} else if typeURL == envoy_resource.ClusterType {
-			versionContext = listenerClusterReferenceVersionContext(resources)
-		}
-		version, err := c.resourceVersion(typeURL, resourceMap, versionContext)
+	versionedResources := make(map[string]cache.Resources, len(snapshotResourceTypes))
+	resourceVersions := make(map[string]map[string]string, len(snapshotResourceTypes))
+	for _, typeURL := range snapshotResourceTypes {
+		resourceMap := snapshotResourcesForType(resources, typeURL)
+		version, versions, err := c.resourceVersions(typeURL, resourceMap, snapshotVersionContext(resources, typeURL))
 		if err != nil {
 			return nil, err
 		}
 		versionedResources[typeURL] = resourceGroup(version, resourceMap)
+		resourceVersions[typeURL] = versions
 	}
 
-	return newCiliumSnapshot(versionedResources), nil
+	return newCiliumSnapshot(versionedResources, resourceVersions), nil
+}
+
+func (c *cacheImpl) GenerateSnapshotIncrementally(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}, logger *slog.Logger) (cache.ResourceSnapshot, error) {
+	previousSnapshot, regenerate, ok := c.canGenerateSnapshotIncrementally(previous, changedTypeURLs)
+	if !ok {
+		return c.GenerateSnapshot(resources, logger)
+	}
+	if len(regenerate) == 0 {
+		return previousSnapshot, nil
+	}
+
+	if resources == nil {
+		empty := xds.NewResources()
+		resources = &empty
+	}
+	resources = normalizeSnapshotResources(resources)
+
+	versionedResources := maps.Clone(previousSnapshot.Resources)
+	resourceVersions := maps.Clone(previousSnapshot.resourceVersions)
+	for typeURL := range regenerate {
+		resourceMap := snapshotResourcesForType(resources, typeURL)
+		group, versions, err := c.updateResourceVersions(
+			typeURL,
+			resourceMap,
+			previousSnapshot.Resources[typeURL],
+			previousSnapshot.resourceVersions[typeURL],
+			snapshotVersionContext(resources, typeURL),
+		)
+		if err != nil {
+			return nil, err
+		}
+		versionedResources[typeURL] = group
+		resourceVersions[typeURL] = versions
+	}
+
+	return newCiliumSnapshot(versionedResources, resourceVersions), nil
 }
 
 func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
