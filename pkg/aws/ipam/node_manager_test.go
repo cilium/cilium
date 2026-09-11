@@ -152,7 +152,7 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -199,7 +199,7 @@ func TestNodeManagerPrefixDelegation(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, true, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func TestNodeManagerENIWithSGTags(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -334,7 +334,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -393,7 +393,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -461,7 +461,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -574,7 +574,7 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 		"cilium.io/no_manage": "true",
 	})
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -642,7 +642,7 @@ func TestNodeManagerExceedENICapacity(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -704,7 +704,7 @@ func TestInterfaceCreatedInInitialSubnet(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, testSubnet.ID, "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -777,7 +777,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	for i := range state {
 		eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "mgmt-1", "desc", []string{"sg1", "sg2"}, false, false)
 		require.NoError(t, err)
-		_, err = ec2api.AttachNetworkInterface(t.Context(), 0, fmt.Sprintf("i-testNodeManagerManyNodes-%d", i), eniID)
+		_, err = ec2api.AttachNetworkInterface(t.Context(), 0, fmt.Sprintf("i-testNodeManagerManyNodes-%d", i), eniID, 0)
 		require.NoError(t, err)
 		_, err = instancesManager.Resync(t.Context())
 		require.NoError(t, err)
@@ -835,7 +835,7 @@ func TestNodeManagerInstanceNotRunning(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -883,11 +883,11 @@ func TestInstanceBeenDeleted(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	eniID2, _, err := ec2api.CreateNetworkInterface(t.Context(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, instanceID, eniID2)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, instanceID, eniID2, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -946,7 +946,7 @@ func TestNodeManagerStaticIP(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -993,7 +993,7 @@ func TestNodeManagerStaticIPAlreadyAssociated(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
 	require.NoError(t, err)
 	staticIP, err := ec2api.AssociateEIP(t.Context(), eniID1, make(ipamTypes.Tags))
 	require.NoError(t, err)
@@ -1036,13 +1036,13 @@ func TestNodeManagerStaticIPPrimaryENI(t *testing.T) {
 	// Primary ENI (Number == 0).
 	primaryENI, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, primaryENI)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, primaryENI, 0)
 	require.NoError(t, err)
 
 	// Secondary ENI (Number == 1)
 	secondaryENI, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, instanceID, secondaryENI)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, instanceID, secondaryENI, 0)
 	require.NoError(t, err)
 
 	_, err = instances.Resync(t.Context())
@@ -1097,7 +1097,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 	for i := range state {
 		eniID, _, err := ec2api.CreateNetworkInterface(b.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 		require.NoError(b, err)
-		_, err = ec2api.AttachNetworkInterface(b.Context(), 0, fmt.Sprintf("i-benchmarkAllocWorker-%d", i), eniID)
+		_, err = ec2api.AttachNetworkInterface(b.Context(), 0, fmt.Sprintf("i-benchmarkAllocWorker-%d", i), eniID, 0)
 		require.NoError(b, err)
 		_, err = instances.Resync(b.Context())
 		require.NoError(b, err)
@@ -1202,6 +1202,18 @@ func withInstanceType(instanceType string) func(*v2.CiliumNode) {
 	}
 }
 
+func withENIDisablePrefixDelegation() func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.ENI.DisablePrefixDelegation = new(true)
+	}
+}
+
+func withENAQueueCount(count string) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.ENI.ENAQueueCount = count
+	}
+}
+
 func withFirstInterfaceIndex(firstInterface int) func(*v2.CiliumNode) {
 	return func(cn *v2.CiliumNode) {
 		cn.Spec.ENI.FirstInterfaceIndex = &firstInterface
@@ -1273,4 +1285,175 @@ func reachedAddressesNeeded(mngr *nodemanager.NodeManager, nodeName string, need
 		success = node.GetNeededAddresses() == needed
 	}
 	return
+}
+
+// TestNodeManagerENAQueueCount tests that the ENA queue count of the node
+// reaches the ENIs which Cilium attaches, and is reported back in the
+// CiliumNode status.
+//
+// - c8i.8xlarge (10x ENIs, 128 ENA queues, at most 32 per interface)
+// - ena-queue-count auto
+func TestNodeManagerENAQueueCount(t *testing.T) {
+	setup(t)
+
+	const instanceID = "i-testNodeManagerENAQueueCount-0"
+
+	ec2api := apiMock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
+	instances, err := NewInstancesManager(t.Context(), hivetest.Logger(t), ec2api, metadataMockapi)
+	require.NoError(t, err)
+
+	// The primary ENI is attached without a requested queue count, as it is not
+	// attached by Cilium.
+	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
+	require.NoError(t, err)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
+	require.NoError(t, err)
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
+
+	mngr, err := nodemanager.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, true)
+	require.NoError(t, err)
+
+	// Prefix delegation is disabled so that an ENI holds 49 IPs rather than
+	// 784, which keeps the number of IPs needed to force a second ENI within
+	// the capacity of the test subnet.
+	cn := newCiliumNode("node1",
+		withTestDefaults(),
+		withInstanceID(instanceID),
+		withInstanceType("c8i.8xlarge"),
+		withENIDisablePrefixDelegation(),
+		withENAQueueCount("auto"),
+		withIPAMPreAllocate(8),
+	)
+	mngr.Upsert(cn)
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+	mngr.Upsert(updateCiliumNode(cn, 60, 60))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+
+	node := mngr.Get("node1")
+	require.NotNil(t, node)
+	node.Ops().PopulateStatusFields(cn)
+
+	// The ENI Cilium attached carries the queue count of the node, capped by
+	// the maximum the instance type allows per interface. The interface which
+	// was already attached keeps the queues it was attached with, reported as
+	// the default of the instance type because the EC2 API does not report a
+	// count for attachments which did not request one.
+	require.Len(t, cn.Status.ENI.ENIs, 2)
+	queueCounts := map[string]int32{}
+	for id, eni := range cn.Status.ENI.ENIs {
+		queueCounts[id] = eni.ENAQueueCount
+	}
+	require.Equal(t, int32(8), queueCounts[eniID1])
+	delete(queueCounts, eniID1)
+	require.Len(t, queueCounts, 1)
+	for _, count := range queueCounts {
+		require.Equal(t, int32(32), count)
+	}
+}
+
+// TestNodeManagerENAQueueCountRounded tests that a queue count which AWS would
+// reject is rounded to one it accepts before the attachment is made.
+//
+// - c8i.8xlarge (10x ENIs, 128 ENA queues, at most 32 per interface, 8 by default)
+// - ena-queue-count 24, which is not a power of two and becomes 16
+func TestNodeManagerENAQueueCountRounded(t *testing.T) {
+	setup(t)
+
+	const instanceID = "i-testNodeManagerENAQueueCountRounded-0"
+
+	ec2api := apiMock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
+	instances, err := NewInstancesManager(t.Context(), hivetest.Logger(t), ec2api, metadataMockapi)
+	require.NoError(t, err)
+
+	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
+	require.NoError(t, err)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
+	require.NoError(t, err)
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
+
+	mngr, err := nodemanager.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, true)
+	require.NoError(t, err)
+
+	// A count which is not a power of two only reaches the operator through a
+	// path the CiliumNode schema does not validate, such as a CiliumNodeConfig.
+	cn := newCiliumNode("node1",
+		withTestDefaults(),
+		withInstanceID(instanceID),
+		withInstanceType("c8i.8xlarge"),
+		withENIDisablePrefixDelegation(),
+		withENAQueueCount("24"),
+		withIPAMPreAllocate(8),
+	)
+	mngr.Upsert(cn)
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+	mngr.Upsert(updateCiliumNode(cn, 60, 60))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+
+	node := mngr.Get("node1")
+	require.NotNil(t, node)
+	node.Ops().PopulateStatusFields(cn)
+
+	// 24 was rounded down to 16, which AWS accepts, rather than being sent as
+	// is and rejected. The pre-existing interface keeps its default of 8.
+	require.Len(t, cn.Status.ENI.ENIs, 2)
+	require.Equal(t, int32(8), cn.Status.ENI.ENIs[eniID1].ENAQueueCount)
+	for id, eni := range cn.Status.ENI.ENIs {
+		if id != eniID1 {
+			require.Equal(t, int32(16), eni.ENAQueueCount)
+		}
+	}
+}
+
+// TestNodeManagerENAQueueCountRejected tests that IP allocation continues when
+// AWS rejects the number of ENA queues requested for a new ENI. A queue count
+// is a tuning knob, and a node must not run out of IP addresses because of one.
+//
+// - c8i.8xlarge (10x ENIs, 128 ENA queues, at most 32 per interface, 8 by default)
+// - ena-queue-count auto, with an API rejecting any requested count
+func TestNodeManagerENAQueueCountRejected(t *testing.T) {
+	setup(t)
+
+	const instanceID = "i-testNodeManagerENAQueueCountRejected-0"
+
+	ec2api := apiMock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
+	instances, err := NewInstancesManager(t.Context(), hivetest.Logger(t), ec2api, metadataMockapi)
+	require.NoError(t, err)
+
+	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
+	require.NoError(t, err)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, 0)
+	require.NoError(t, err)
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
+
+	// Every attachment asking for a specific number of queues is rejected.
+	ec2api.RejectENAQueueCount(true)
+
+	mngr, err := nodemanager.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, true)
+	require.NoError(t, err)
+
+	cn := newCiliumNode("node1",
+		withTestDefaults(),
+		withInstanceID(instanceID),
+		withInstanceType("c8i.8xlarge"),
+		withENIDisablePrefixDelegation(),
+		withENAQueueCount("auto"),
+		withIPAMPreAllocate(8),
+	)
+	mngr.Upsert(cn)
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+	mngr.Upsert(updateCiliumNode(cn, 60, 60))
+	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+
+	// The ENI was attached despite the rejection, with the number of queues
+	// AWS assigns by default, so the node did not run out of IP addresses.
+	node := mngr.Get("node1")
+	require.NotNil(t, node)
+	node.Ops().PopulateStatusFields(cn)
+	require.Len(t, cn.Status.ENI.ENIs, 2)
+	for _, eni := range cn.Status.ENI.ENIs {
+		require.Equal(t, int32(8), eni.ENAQueueCount)
+	}
 }

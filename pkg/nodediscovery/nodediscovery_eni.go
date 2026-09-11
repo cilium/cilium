@@ -24,6 +24,7 @@ type ENIMutateInputs struct {
 	UsePrimaryAddress       bool
 	DisablePrefixDelegation bool
 	DeleteOnTermination     bool
+	ENAQueueCount           string
 	SubnetIDs               []string
 	SubnetTags              map[string]string
 	SecurityGroups          []string
@@ -65,6 +66,7 @@ func (n *NodeDiscovery) mutateENINodeResource(ctx context.Context, nodeResource 
 		UsePrimaryAddress:       n.config.ENIUsePrimaryAddress,
 		DisablePrefixDelegation: n.config.ENIDisablePrefixDelegation,
 		DeleteOnTermination:     n.config.ENIDeleteOnTermination,
+		ENAQueueCount:           n.config.ENIENAQueueCount,
 		SubnetIDs:               n.config.ENISubnetIDs,
 		SubnetTags:              n.config.ENISubnetTags,
 		SecurityGroups:          n.config.ENISecurityGroups,

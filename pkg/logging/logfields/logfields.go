@@ -1377,6 +1377,36 @@ const (
 
 	IsPrefixDelegated = "isPrefixDelegated"
 
+	// ENA queue fields describing the state of an instance. Fields describing
+	// a change carry a Before and an After variant, so that a log line about
+	// attaching an interface states both sides of the change it makes.
+
+	ENAQueueCountConfigured = "enaQueueCountConfigured"
+
+	ENAQueueCountRequested = "enaQueueCountRequested"
+
+	ENAQueueCountGranted = "enaQueueCountGranted"
+
+	ENAQueueBudget = "enaQueueBudget"
+
+	ENAQueueBudgetUsed = "enaQueueBudgetUsed"
+
+	ENAQueueBudgetUsedBefore = "enaQueueBudgetUsedBefore"
+
+	ENAQueueBudgetUsedAfter = "enaQueueBudgetUsedAfter"
+
+	ENAQueueBudgetRemaining = "enaQueueBudgetRemaining"
+
+	ENAQueueBudgetRemainingBefore = "enaQueueBudgetRemainingBefore"
+
+	ENAQueueBudgetRemainingAfter = "enaQueueBudgetRemainingAfter"
+
+	ENAQueueFundableInterfacesAfter = "enaQueueFundableInterfacesAfter"
+
+	NumInterfacesBefore = "numInterfacesBefore"
+
+	NumInterfacesAfter = "numInterfacesAfter"
+
 	AttachmentID = "attachmentID"
 
 	FirstInterfaceIndex = "firstInterfaceIndex"

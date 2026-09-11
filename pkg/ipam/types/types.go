@@ -30,6 +30,31 @@ type Limits struct {
 
 	// IsBareMetal tracks whether an instance is a bare metal instance or not
 	IsBareMetal bool
+
+	// VCpus is the default number of vCPUs of the instance type. It is used
+	// as an upper bound when deriving a queue count for network interfaces,
+	// as drivers do not create more queues than there are CPUs.
+	VCpus int
+
+	// SupportsFlexibleENAQueues tracks whether the instance type allows the
+	// number of ENA queues of a network interface to be chosen at attachment
+	// time. On instance types which do not support it, any requested queue
+	// count is ignored.
+	SupportsFlexibleENAQueues bool
+
+	// MaxENAQueueCount is the maximum total number of ENA queues that can be
+	// distributed across all network interfaces attached to the instance. It
+	// is a budget shared by every interface, including interfaces which are
+	// not managed by Cilium.
+	MaxENAQueueCount int
+
+	// MaxENAQueueCountPerInterface is the maximum number of ENA queues that
+	// can be assigned to a single network interface.
+	MaxENAQueueCountPerInterface int
+
+	// DefaultENAQueueCountPerInterface is the number of ENA queues assigned
+	// to a network interface when no queue count is requested explicitly.
+	DefaultENAQueueCountPerInterface int
 }
 
 // AllocationIP is an IP which is available for allocation, or already

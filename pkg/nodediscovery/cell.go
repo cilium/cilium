@@ -48,6 +48,7 @@ var defaultConfig = config{
 	ENIUsePrimaryAddress:       defaults.UseENIPrimaryAddress,
 	ENIDisablePrefixDelegation: defaults.ENIDisableNodeLevelPD,
 	ENIDeleteOnTermination:     defaults.ENIDeleteOnTermination,
+	ENIENAQueueCount:           defaults.ENIENAQueueCount,
 
 	AzureInterfaceName: "",
 
@@ -72,6 +73,7 @@ type config struct {
 	ENIUsePrimaryAddress       bool
 	ENIDisablePrefixDelegation bool
 	ENIDeleteOnTermination     bool
+	ENIENAQueueCount           string
 
 	AzureInterfaceName string
 
@@ -96,6 +98,7 @@ func (c config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("eni-use-primary-address", c.ENIUsePrimaryAddress, "Whether an ENI's primary address should be available for allocations on the node at the node level")
 	flags.Bool("eni-disable-prefix-delegation", c.ENIDisablePrefixDelegation, "Whether ENI prefix delegation should be disabled on this node at the node level")
 	flags.Bool("eni-delete-on-termination", c.ENIDeleteOnTermination, "Whether the ENI should be deleted when the associated instance is terminated at the node level")
+	flags.String("eni-ena-queue-count", c.ENIENAQueueCount, "Number of ENA queues to request for each ENI attached to the node by Cilium: \"default\" to leave the number of queues to AWS, \"auto\" for as many as the interface can use, or a positive number of queues. ENA queues are a budget shared by all interfaces of an instance, so a high number of queues per ENI may reduce the number of ENIs, and therefore the number of pods, that fit on the node")
 
 	flags.String("azure-interface-name", c.AzureInterfaceName, "InterfaceName the cilium-operator will use to allocate all the IPs on at the node level")
 

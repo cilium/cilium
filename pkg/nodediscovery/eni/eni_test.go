@@ -147,3 +147,56 @@ func TestInstanceFactsRetriesFailures(t *testing.T) {
 		})
 	}
 }
+
+// TestENAQueueCountFromConfiguration asserts that the ENA queue count reaches
+// the CiliumNode from the agent configuration, and that the CNI configuration
+// file overrides it when it sets one.
+func TestENAQueueCountFromConfiguration(t *testing.T) {
+	info := awsMetadata.MetaDataInfo{InstanceID: "i-instance", InstanceType: "c8i.8xlarge"}
+
+	tests := []struct {
+		name     string
+		agent    string
+		netConf  string
+		expected string
+	}{
+		{
+			name:     "unset by default",
+			expected: "",
+		},
+		{
+			name:     "set from the agent configuration",
+			agent:    "auto",
+			expected: "auto",
+		},
+		{
+			name:     "overridden by the CNI configuration file",
+			agent:    "auto",
+			netConf:  "16",
+			expected: "16",
+		},
+		{
+			name:     "kept when the CNI configuration file sets nothing",
+			agent:    "16",
+			netConf:  "",
+			expected: "16",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := nodediscovery.ENIMutateInputs{
+				Logger:        slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+				ENAQueueCount: tt.agent,
+				CNIConfigManager: &netConfManager{conf: &cnitypes.NetConf{
+					ENI: awsTypes.ENISpec{ENAQueueCount: tt.netConf},
+				}},
+			}
+
+			node := &ciliumv2.CiliumNode{}
+			apply(in, info, node)
+
+			require.Equal(t, tt.expected, node.Spec.ENI.ENAQueueCount)
+		})
+	}
+}

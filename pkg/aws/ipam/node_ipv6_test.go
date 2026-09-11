@@ -29,7 +29,7 @@ func newWiredNode(t *testing.T, instanceID, instanceType string) (*Node, *apiMoc
 
 	eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, testSubnet.ID, "primary", []string{"sg-1"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID, 0)
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)

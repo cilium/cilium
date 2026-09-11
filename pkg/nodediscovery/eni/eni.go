@@ -117,6 +117,7 @@ func applyAgentConfiguration(in nodediscovery.ENIMutateInputs, spec *ciliumv2.No
 		UsePrimaryAddress:       aws.Bool(in.UsePrimaryAddress),
 		DisablePrefixDelegation: aws.Bool(in.DisablePrefixDelegation),
 		DeleteOnTermination:     aws.Bool(in.DeleteOnTermination),
+		ENAQueueCount:           in.ENAQueueCount,
 
 		SubnetIDs:            in.SubnetIDs,
 		SubnetTags:           in.SubnetTags,
@@ -167,6 +168,9 @@ func overrideFromNetConf(logger *slog.Logger, spec *ciliumv2.NodeSpec, c *cnityp
 	}
 	if c.ENI.DeleteOnTermination != nil {
 		spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
+	}
+	if c.ENI.ENAQueueCount != "" {
+		spec.ENI.ENAQueueCount = c.ENI.ENAQueueCount
 	}
 
 	warnIgnoredInstanceFact(logger, "vpc-id", c.ENI.VpcID, info.VPCID)
