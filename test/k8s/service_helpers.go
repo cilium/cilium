@@ -103,6 +103,18 @@ func waitPodsDs(kubectl *helpers.Kubectl, groups []string) {
 	}
 }
 
+// waitDaemonSetReady waits for a DaemonSet to have all its desired pods
+// available. Unlike WaitforPods, which only checks the pods that currently
+// exist, this waits for the DaemonSet controller to recreate a deleted pod,
+// so callers that delete a pod and then read its IP don't race the controller.
+func waitDaemonSetReady(kubectl *helpers.Kubectl, name string) {
+	Eventually(func() error {
+		_, err := kubectl.DaemonSetIsReady(helpers.DefaultNamespace, name)
+		return err
+	}, helpers.HelperTimeout, time.Second).Should(BeNil(),
+		"DaemonSet %s did not become ready", name)
+}
+
 func testCurlFromPodInHostNetNS(kubectl *helpers.Kubectl, url string, count, fails int, fromPod string) {
 	By("Making %d curl requests from pod (host netns) %s to %q", count, fromPod, url)
 	cmd := testCommand(helpers.CurlFailNoStats(url), count, fails)
@@ -443,6 +455,9 @@ func testSessionAffinity(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 		// the deleted pod from the BPF LB maps, so that the next request won't
 		// choose the deleted pod.
 		waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
+		// Wait for the deleted pod's replacement to exist and have an IP before
+		// GetPodsIPs reads it below, else it reads an empty IP.
+		waitDaemonSetReady(kubectl, "testds")
 		// The second wait is needed to make sure that an IPCache entry of the
 		// new pod appears on the k8s1 node. Otherwise, if the new pod runs
 		// on k8s2 and a request below selects it, the request will be dropped
