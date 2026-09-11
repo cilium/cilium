@@ -3,7 +3,14 @@
 
 package xds
 
-import "google.golang.org/protobuf/proto"
+import (
+	"fmt"
+	"strconv"
+
+	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+)
 
 // ResourceSource provides read access to a versioned set of resources.
 // A single version is associated to all the contained resources.
@@ -61,6 +68,28 @@ func (r *VersionedResources) appendResource(name string, version uint64, resourc
 			Version:  version,
 			Resource: resource,
 		})
+}
+
+// DiscoveryResponse constructs the SotW response sent for these resources.
+func (r *VersionedResources) DiscoveryResponse(typeURL string) (*envoy_service_discovery.DiscoveryResponse, error) {
+	resources := make([]*anypb.Any, len(r.VersionedResources))
+	for i := range r.VersionedResources {
+		resource := r.VersionedResources[i]
+		marshaled, err := anypb.New(resource.Resource)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling xDS resource %q: %w", resource.Name, err)
+		}
+		resources[i] = marshaled
+	}
+
+	version := strconv.FormatUint(r.Version, 10)
+	return &envoy_service_discovery.DiscoveryResponse{
+		VersionInfo: version,
+		Resources:   resources,
+		Canary:      r.Canary,
+		TypeUrl:     typeURL,
+		Nonce:       version,
+	}, nil
 }
 
 // ResourceMutatorRevertFunc is a function which reverts the effects of an update on a
