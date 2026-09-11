@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"net"
+	"net/netip"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -380,10 +380,13 @@ func (tc testCommands) setNodeIP() script.Cmd {
 			if len(args) != 1 {
 				return nil, fmt.Errorf("%w: expected 'ip'", script.ErrUsage)
 			}
-			ip := net.ParseIP(args[0])
+			ip, err := netip.ParseAddr(args[0])
+			if err != nil {
+				return nil, fmt.Errorf("invalid IP %q: %w", args[0], err)
+			}
 			tc.lns.Update(func(n *node.LocalNode) {
 				n.IPAddresses = []nodeTypes.Address{
-					{Type: addressing.NodeExternalIP, IP: ip},
+					{Type: addressing.NodeExternalIP, IP: ip.AsSlice()},
 				}
 				s.Logf("NodeIP set to %s\n", ip)
 			})

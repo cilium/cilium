@@ -284,11 +284,11 @@ func (d *testBPFSocketDestroyer) PrepareAddress(cookie uint64, addr string) erro
 	p := addrPort.Port()
 
 	if a.Is4() {
-		key = maps.NewSockRevNat4Key(cookie, a.AsSlice(), p)
+		key = maps.NewSockRevNat4Key(cookie, a, p)
 		value = &maps.SockRevNat4Value{}
 		sockRevMap = d.sockRevNat4Map
 	} else {
-		key = maps.NewSockRevNat6Key(cookie, a.AsSlice(), p)
+		key = maps.NewSockRevNat6Key(cookie, a, p)
 		value = &maps.SockRevNat6Value{}
 		sockRevMap = d.sockRevNat6Map
 	}

@@ -9,7 +9,7 @@ import (
 	"iter"
 	"log/slog"
 	"maps"
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -143,10 +143,10 @@ func (f *fakeSkipLBMap) Close() error {
 }
 
 // AddLB4 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) AddLB4(netnsCookie uint64, ip net.IP, port uint16) error {
+func (f *fakeSkipLBMap) AddLB4(netnsCookie uint64, ip netip.Addr, port uint16) error {
 	key := lbmaps.SkipLB4Key{
 		NetnsCookie: netnsCookie,
-		Address:     ([4]byte)(ip),
+		Address:     ip.As4(),
 		Port:        port,
 	}
 	f.entries.Store(
@@ -157,10 +157,10 @@ func (f *fakeSkipLBMap) AddLB4(netnsCookie uint64, ip net.IP, port uint16) error
 }
 
 // AddLB6 implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) AddLB6(netnsCookie uint64, ip net.IP, port uint16) error {
+func (f *fakeSkipLBMap) AddLB6(netnsCookie uint64, ip netip.Addr, port uint16) error {
 	key := lbmaps.SkipLB6Key{
 		NetnsCookie: netnsCookie,
-		Address:     ([16]byte)(ip),
+		Address:     ip.As16(),
 		Port:        port,
 	}
 	f.entries.Store(

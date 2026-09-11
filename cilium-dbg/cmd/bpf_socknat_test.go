@@ -4,7 +4,7 @@
 package cmd
 
 import (
-	"net"
+	"net/netip"
 	"testing"
 
 	lbmap "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -17,11 +17,11 @@ func TestDumpReverseSKEntries(t *testing.T) {
 	t.Log("Created empty FakeLBMaps")
 
 	// Add one IPv4 and one IPv6 entry to test both address families
-	err := mockMap.UpdateSockRevNat(1234, net.ParseIP("10.0.2.100"), 80, 1) // IPv4
+	err := mockMap.UpdateSockRevNat(1234, netip.MustParseAddr("10.0.2.100"), 80, 1) // IPv4
 	if err != nil {
 		t.Fatalf("Failed to add IPv4 entry: %v", err)
 	}
-	err = mockMap.UpdateSockRevNat(2345, net.ParseIP("2001:db8::1"), 443, 2) // IPv6
+	err = mockMap.UpdateSockRevNat(2345, netip.MustParseAddr("2001:db8::1"), 443, 2) // IPv6
 	if err != nil {
 		t.Fatalf("Failed to add IPv6 entry: %v", err)
 	}
@@ -29,20 +29,20 @@ func TestDumpReverseSKEntries(t *testing.T) {
 
 	// Test that entries exist
 	t.Run("IPv4 entry exists", func(t *testing.T) {
-		if !mockMap.ExistsSockRevNat(1234, net.ParseIP("10.0.2.100"), 80) {
+		if !mockMap.ExistsSockRevNat(1234, netip.MustParseAddr("10.0.2.100"), 80) {
 			t.Error("Expected IPv4 entry to exist")
 		}
 	})
 
 	t.Run("IPv6 entry exists", func(t *testing.T) {
-		if !mockMap.ExistsSockRevNat(2345, net.ParseIP("2001:db8::1"), 443) {
+		if !mockMap.ExistsSockRevNat(2345, netip.MustParseAddr("2001:db8::1"), 443) {
 			t.Error("Expected IPv6 entry to exist")
 		}
 	})
 
 	// Test that non-existent entries don't exist
 	t.Run("Non-existent entries", func(t *testing.T) {
-		if mockMap.ExistsSockRevNat(9999, net.ParseIP("192.168.1.1"), 8080) {
+		if mockMap.ExistsSockRevNat(9999, netip.MustParseAddr("192.168.1.1"), 8080) {
 			t.Error("Expected non-existent entry to not exist")
 		}
 	})

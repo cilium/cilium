@@ -146,7 +146,7 @@ type Service4Key struct {
 	Pad         pad2uint8  `align:"pad"`
 }
 
-func NewService4Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, slot uint16) *Service4Key {
+func NewService4Key(ip netip.Addr, port uint16, proto u8proto.U8proto, scope uint8, slot uint16) *Service4Key {
 	key := Service4Key{
 		Port:        port,
 		Proto:       uint8(proto),
@@ -154,7 +154,7 @@ func NewService4Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, 
 		BackendSlot: slot,
 	}
 
-	copy(key.Address[:], ip.To4())
+	key.Address.FromAddr(ip.Unmap())
 
 	return &key
 }
@@ -306,7 +306,7 @@ type Service6Key struct {
 	Pad         pad2uint8  `align:"pad"`
 }
 
-func NewService6Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, slot uint16) *Service6Key {
+func NewService6Key(ip netip.Addr, port uint16, proto u8proto.U8proto, scope uint8, slot uint16) *Service6Key {
 	key := Service6Key{
 		Port:        port,
 		Proto:       uint8(proto),
@@ -314,7 +314,7 @@ func NewService6Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, 
 		BackendSlot: slot,
 	}
 
-	copy(key.Address[:], ip.To16())
+	key.Address.FromAddr(ip)
 
 	return &key
 }
@@ -1003,11 +1003,11 @@ type SockRevNat4Value struct {
 	RevNatIndex uint16     `align:"rev_nat_index"`
 }
 
-func NewSockRevNat4Key(cookie uint64, addr net.IP, port uint16) *SockRevNat4Key {
+func NewSockRevNat4Key(cookie uint64, addr netip.Addr, port uint16) *SockRevNat4Key {
 	var key SockRevNat4Key
 	key.Cookie = cookie
 	key.Port = int16(byteorder.NetworkToHost16(port))
-	copy(key.Address[:], addr.To4())
+	key.Address.FromAddr(addr.Unmap())
 
 	return &key
 }
@@ -1048,13 +1048,12 @@ type SockRevNat6Value struct {
 // SizeofSockRevNat6Value is the size of type SockRevNat6Value.
 const SizeofSockRevNat6Value = int(unsafe.Sizeof(SockRevNat6Value{}))
 
-func NewSockRevNat6Key(cookie uint64, addr net.IP, port uint16) *SockRevNat6Key {
+func NewSockRevNat6Key(cookie uint64, addr netip.Addr, port uint16) *SockRevNat6Key {
 	var key SockRevNat6Key
 
 	key.Cookie = cookie
 	key.Port = int16(byteorder.NetworkToHost16(port))
-	ipv6Array := addr.To16()
-	copy(key.Address[:], ipv6Array[:])
+	key.Address.FromAddr(addr)
 
 	return &key
 }
@@ -1289,12 +1288,12 @@ type SkipLB4Value struct {
 }
 
 // NewSkipLB4Key creates the SkipLB4Key
-func NewSkipLB4Key(netnsCookie uint64, address net.IP, port uint16) *SkipLB4Key {
+func NewSkipLB4Key(netnsCookie uint64, address netip.Addr, port uint16) *SkipLB4Key {
 	key := SkipLB4Key{
 		NetnsCookie: netnsCookie,
 		Port:        byteorder.HostToNetwork16(port),
 	}
-	copy(key.Address[:], address.To4())
+	key.Address.FromAddr(address.Unmap())
 
 	return &key
 }
@@ -1331,12 +1330,12 @@ type SkipLB6Value struct {
 }
 
 // NewSkipLB6Key creates the SkipLB6Key
-func NewSkipLB6Key(netnsCookie uint64, address net.IP, port uint16) *SkipLB6Key {
+func NewSkipLB6Key(netnsCookie uint64, address netip.Addr, port uint16) *SkipLB6Key {
 	key := SkipLB6Key{
 		NetnsCookie: netnsCookie,
 		Port:        byteorder.HostToNetwork16(port),
 	}
-	copy(key.Address[:], address.To16())
+	key.Address.FromAddr(address)
 
 	return &key
 }
