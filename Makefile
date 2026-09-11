@@ -38,6 +38,10 @@ SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tool
 # which is then used to filter out items such as "tools/mount" and "tools/sysctlfx"
 SUBDIRS := $(filter-out $(foreach dir,$(SUBDIRS),$(dir)/%),$(SUBDIRS))
 
+# The bpf subdir regenerates Go sources under pkg/datapath that every other subdir compiles, so it cannot run alongside them.
+SUBDIRS_DATAPATH_GEN := bpf
+SUBDIRS_GO := $(filter-out $(SUBDIRS_DATAPATH_GEN),$(SUBDIRS))
+
 # Space-separated list of Go packages to test, equivalent to 'go test' package patterns.
 # Because is treated as a Go package pattern, the special '...' sequence is supported,
 # meaning 'all subpackages of the given package'.
@@ -59,7 +63,10 @@ TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=
 
 TEST_UNITTEST_LDFLAGS=
 
-build: $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
+.PHONY: build
+build: ## Builds all the components for Cilium by executing make in the respective sub directories.
+	$(QUIET)$(MAKE) $(SUBMAKEOPTS) $(SUBDIRS_DATAPATH_GEN)
+	$(QUIET)$(MAKE) $(SUBMAKEOPTS) $(SUBDIRS_GO)
 
 build-container: ## Builds components required for cilium-agent container.
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i all; done
