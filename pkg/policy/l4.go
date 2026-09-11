@@ -1505,6 +1505,10 @@ type L4DirectionPolicy struct {
 
 	// features tracks properties of PortRules to skip code when features are not used
 	features policyFeatures
+
+	// defaultDenyRules tracks all rules that contribute to
+	// default deny.
+	defaultDenyRules ruleOrigin
 }
 
 // newL4DirectionPolicy creates a new L4DirectionPolicy with slices initialized for one tier for

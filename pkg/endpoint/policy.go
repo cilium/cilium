@@ -1386,14 +1386,14 @@ func (e *Endpoint) UpdateBandwidthPolicy(bandwidthEgress, bandwidthIngress, prio
 // datapath's L3-vs-L4 precedence (via EndpointPolicy.Lookup), so port-range entries and the
 // various matchType-equivalent stored shapes (L3L4, L4Only, L3Proto, ProtoOnly, L3Only, All)
 // resolve through a single LPM walk without per-matchType key adjustments on the caller side.
-func (e *Endpoint) GetPolicyCorrelationInfoForKey(key policyTypes.Key) (
+func (e *Endpoint) GetPolicyCorrelationInfoForKey(key policyTypes.Key, deny bool) (
 	info policyTypes.PolicyCorrelationInfo,
 	ok bool,
 ) {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	_, ruleMeta, found := e.realizedPolicy.Lookup(key)
+	ruleMeta, found := e.realizedPolicy.Attribute(key, deny)
 	if !found {
 		return info, false
 	}
