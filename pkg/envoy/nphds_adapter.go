@@ -164,7 +164,7 @@ func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, mutate func(ma
 		empty := xds.NewResources()
 		currentResources = &empty
 	}
-	newResources := currentResources.DeepCopy()
+	newResources := currentResources.CloneNetworkPolicyHosts()
 
 	changed, err := mutate(newResources.NetworkPolicyHosts)
 	if err != nil {
