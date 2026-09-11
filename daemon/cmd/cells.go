@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
+	loadertypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	debugapi "github.com/cilium/cilium/pkg/debug/api"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
@@ -64,6 +65,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	loadbalancer_cell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -295,7 +297,14 @@ var (
 		bgp.Cell,
 		// Provides the BGP DatapathWaiter that gates route announcements on
 		// host datapath and load-balancing state initialization.
-		cell.Provide(bgpagent.NewDatapathWaiter),
+		//
+		// We pass the channel from Loader.HostDatapathInitialized() rather than
+		// Loader itself to avoid importing pkg/datapath/loader/types into
+		// pkg/bgp/agent. That package transitively pulls in Linux-specific
+		// packages (bigtcp, iptables) and would break cross-platform builds.
+		cell.Provide(func(loader loadertypes.Loader, lbInitWait loadbalancer.InitWaitFunc) bgpagent.DatapathWaiter {
+			return bgpagent.NewDatapathWaiter(loader.HostDatapathInitialized(), lbInitWait)
+		}),
 
 		// The Cilium Network Driver for exposing network devices to workloads via DRA.
 		networkdriver.Cell,
