@@ -69,6 +69,7 @@ type Driver struct {
 	db             *statedb.DB
 	deviceTable    statedb.RWTable[*DRADevice]
 	localNodeStore *node.LocalNodeStore
+	hostProcPath   string
 }
 
 type allocation struct {

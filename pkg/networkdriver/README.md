@@ -337,6 +337,9 @@ Device-specific configuration is passed as opaque parameters in the
 |-------------|----------|------------------------------------------------------------------------------|
 | `vlan`      | `int32`  | 802.1q VLAN ID to configure on the device (SR-IOV only)                      |
 | `podIfName` | `string` | Rename the interface inside the pod namespace                               |
+| `interfaceSysctlIPv4` | `map[string]string` | Leaf sysctl parameters (e.g. `arp_filter`) applied under `net.ipv4.conf.<interface>.` for the allocated interface, once it is up in the pod netns |
+| `interfaceSysctlIPv6` | `map[string]string` | Same as above, under `net.ipv6.conf.<interface>.`                    |
+
 
 ### Cluster-wide configuration (operator-driven)
 
@@ -460,6 +463,8 @@ spec:
           parameters:
             vlan: 1001
             podIfName: sriov0
+            interfaceSysctlIPv4:
+              arp_filter: "1"
 ```
 
 ### 4. Request a device from a pod
