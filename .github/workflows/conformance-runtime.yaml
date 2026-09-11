@@ -24,6 +24,7 @@ on:
     branches:
       - main
       - ft/main/**
+      - pr/aanm/ci-cache-budget-and-fork-writes
     paths-ignore:
       - 'Documentation/**'
   # Run every 8 hours
