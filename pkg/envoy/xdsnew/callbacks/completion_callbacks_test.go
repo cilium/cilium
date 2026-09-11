@@ -333,7 +333,7 @@ func TestFirstResponseNACKWithEmptyAcceptedVersion(t *testing.T) {
 	require.Zero(t, cb.PendingCompletionCount())
 }
 
-func TestWaitCancellationRemovesCompletionGenerationState(t *testing.T) {
+func TestWaitCancellationRetainsResponseGenerationState(t *testing.T) {
 	cb := newTestCompletionCallbacks()
 	ctx, cancel := context.WithCancel(t.Context())
 	wg := completion.NewWaitGroup(ctx)
@@ -341,25 +341,38 @@ func TestWaitCancellationRemovesCompletionGenerationState(t *testing.T) {
 	owner := cb.NewTypeGenerationCompletionOwner("node-1", listenerTypeURL, 1)
 	comp := wg.AddCompletionWithCallback(owner, nil)
 	registered, err := cb.AddPreparedTypeGenerationCompletion(
-		comp, owner, "version-1", true,
-		func(expected uint64) (uint64, bool) { return expected + 1, true },
+		comp, owner, "version-1", true, nil,
 	)
 	require.NoError(t, err)
 	require.True(t, registered)
+	reverted := false
 	registered, completeUnsent := cb.AddTypeGeneration(
-		2, "version-2", listenerTypeURL, "node-1", true,
-		func(expected uint64) (uint64, bool) { return expected + 1, true },
+		1, "version-1", listenerTypeURL, "node-1", true,
+		func(expected uint64) (uint64, bool) {
+			reverted = true
+			return expected + 1, true
+		},
 	)
 	require.True(t, registered)
 	require.False(t, completeUnsent)
+	sendTypeGenerationResponse(cb, listenerTypeURL, 1, "version-1")
 
 	cancel()
 	require.ErrorIs(t, wg.Wait(), context.Canceled)
 	require.Zero(t, cb.PendingCompletionCount())
 
-	// With the only waiter gone, later untracked generations have no callback
-	// or rollback state to preserve.
-	registered, completeUnsent = cb.AddTypeGeneration(3, "version-3", listenerTypeURL, "node-1", true, nil)
+	// Canceling the caller must not discard response-owned rollback state.
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        &core.Node{Id: "node-1"},
+		TypeUrl:     listenerTypeURL,
+		VersionInfo: "",
+		ErrorDetail: &status.Status{Message: "rejected after cancellation"},
+	}))
+	require.True(t, reverted)
+
+	// Function-less generations still have no state to preserve without a
+	// waiter or a response-owned rollback.
+	registered, completeUnsent = cb.AddTypeGeneration(2, "version-2", listenerTypeURL, "node-1", true, nil)
 	require.False(t, registered)
 	require.False(t, completeUnsent)
 }

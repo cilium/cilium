@@ -334,9 +334,9 @@ func (c *benchmarkSnapshotCache) GenerateSnapshotIncrementally(resources *xds.Re
 	return c.Cache.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, logger)
 }
 
-func (c *benchmarkSnapshotCache) UpdateSnapshot(ctx context.Context, nodeID string, generation uint64, snapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLs map[string]func(error), rollbacks map[string]xdsnew.Rollback) error {
+func (c *benchmarkSnapshotCache) UpdateResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, changedTypeURLs map[string]struct{}, generator xdsnew.SnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(error), completionRollbacks map[string]xdsnew.Rollback, revertFactory xdsnew.RevertFactory) error {
 	c.published.Add(1)
-	return c.Cache.UpdateSnapshot(ctx, nodeID, generation, snapshot, wg, updatedTypeURLs, rollbacks)
+	return c.Cache.UpdateResources(ctx, nodeID, generation, resources, changedTypeURLs, generator, wg, updatedTypeURLs, completionRollbacks, revertFactory)
 }
 
 func (c *benchmarkSnapshotCache) GetVersion(resources *xds.Resources) string {
