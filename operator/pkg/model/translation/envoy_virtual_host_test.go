@@ -874,7 +874,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, "http", nil, false)
 		require.Len(t, res, 2)
 		// Redirect Route
 		require.NotNil(t, res[0])
@@ -893,6 +893,42 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 		require.Empty(t, res[1].Match.GetHeaders())
 		require.NotNil(t, res[1].GetRoute())
 		require.Equal(t, "default:backend:31337", res[1].GetRoute().GetCluster())
+	})
+	t.Run("redirect to the scheme the listener already serves is not guarded", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{
+			{
+				Name:      "Redirect",
+				PathMatch: model.StringMatch{Exact: "/"},
+				RequestRedirect: &model.HTTPRequestRedirectFilter{
+					Scheme:     ptr.To("https"),
+					Path:       &model.StringMatch{Exact: "/admin"},
+					StatusCode: ptr.To(302),
+				},
+			},
+		}
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 443, "https", nil, false)
+		require.Len(t, res, 1)
+		require.Empty(t, res[0].Match.GetHeaders())
+		require.NotNil(t, res[0].GetRedirect())
+		require.Equal(t, "https", res[0].GetRedirect().GetSchemeRedirect())
+	})
+	t.Run("redirect that changes the scheme is guarded on a TLS listener", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{
+			{
+				Name:      "Redirect",
+				PathMatch: model.StringMatch{Exact: "/"},
+				RequestRedirect: &model.HTTPRequestRedirectFilter{
+					Scheme:     ptr.To("http"),
+					StatusCode: ptr.To(302),
+				},
+			},
+		}
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 443, "https", nil, false)
+		require.Len(t, res, 1)
+		require.Len(t, res[0].Match.GetHeaders(), 1)
+		require.Equal(t, "X-Forwarded-Proto", res[0].Match.GetHeaders()[0].Name)
+		require.True(t, res[0].Match.GetHeaders()[0].InvertMatch)
+		require.Equal(t, "http", res[0].Match.GetHeaders()[0].GetStringMatch().GetExact())
 	})
 	t.Run("backend and redirect with same match preserve order after x-forwarded-proto guard", func(t *testing.T) {
 		httpRoutes := []model.HTTPRoute{
@@ -917,7 +953,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, "http", nil, false)
 		require.Len(t, res, 2)
 		sort.Stable(SortableRoute(res))
 		// Backend Route
@@ -968,7 +1004,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, "http", nil, false)
 		require.Len(t, res, 2)
 
 		sort.Stable(SortableRoute(res))
@@ -1025,7 +1061,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, "http", nil, false)
 		require.Len(t, res, 1)
 		require.NotNil(t, res[0])
 		require.NotNil(t, res[0].GetDirectResponse())
@@ -1048,7 +1084,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, "http", nil, false)
 
 		require.Len(t, res, 1)
 		weightedClusters := res[0].GetRoute().GetWeightedClusters()
@@ -1075,7 +1111,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, "http", nil, false)
 
 		require.Len(t, res, 2)
 		require.Equal(t, "default:backend-v1:8080", res[0].GetRoute().GetCluster())
@@ -1099,7 +1135,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, "http", nil, false)
 
 		require.Len(t, res, 2)
 		require.NotNil(t, res[0].GetDirectResponse())
@@ -1119,7 +1155,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, "http", nil, false)
 
 		require.Len(t, res, 1)
 		require.NotNil(t, res[0].GetDirectResponse())
@@ -1143,7 +1179,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, true)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, "http", nil, true)
 		require.Len(t, res, 1)
 		entry, ok := res[0].GetTypedPerFilterConfig()["envoy.filters.http.stateful_session"]
 		require.True(t, ok)
@@ -1168,7 +1204,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, true)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, "http", nil, true)
 
 		require.Len(t, res, 1)
 		entry, ok := res[0].GetTypedPerFilterConfig()["envoy.filters.http.stateful_session"]
@@ -1187,7 +1223,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, true)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, "http", nil, true)
 
 		require.Len(t, res, 1)
 		entry, ok := res[0].GetTypedPerFilterConfig()["envoy.filters.http.stateful_session"]
@@ -1315,7 +1351,7 @@ func Test_envoyHTTPRoutes_differentAuthFilters(t *testing.T) {
 		},
 	}
 
-	res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, allAuthFilters, false)
+	res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, "http", allAuthFilters, false)
 	require.Len(t, res, 2, "routes with different auth filters must not be merged")
 
 	filterNameA := ExtAuthzFilterName(extAuthzFilterKey(authA))
