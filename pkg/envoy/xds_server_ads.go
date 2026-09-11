@@ -83,6 +83,21 @@ type adsServer struct {
 	// Value holds the number of redirects using the listener named by the key.
 	listenerCount map[string]uint
 
+	// resourceGeneration is the latest generation allocated from the global ADS
+	// resource-state sequence. Generations are unique across all nodes.
+	// mutex must be held during access.
+	resourceGeneration uint64
+
+	// resourceGenerations identifies the latest resource state staged for each
+	// node. Revert closures use the node's generation as a cheap stale-update
+	// guard without treating updates to other nodes as superseding it.
+	// mutex must be held during access.
+	resourceGenerations map[string]uint64
+
+	// resourceGenerationTracker records the generation which last changed each
+	// resource name. Rollbacks use it to leave newer resources untouched.
+	resourceGenerationTracker *resourceGenerationTracker
+
 	// stopFunc contains the function which stops the xDS gRPC server.
 	stopFunc context.CancelFunc
 
@@ -103,17 +118,22 @@ type adsServer struct {
 
 func newADSServerWithCache(cache xdsnew.Cache, logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) *adsServer {
 	adsServer := &adsServer{
-		logger:             logger,
-		cache:              cache,
-		ipCache:            ipCache,
-		localEndpointStore: localEndpointStore,
-		config:             config,
-		secretManager:      secretManager,
-		socketPath:         util.GetXDSSocketPath(config.envoySocketDir),
-		accessLogPath:      util.GetAccessLogSocketPath(config.envoySocketDir),
-		restorerPromise:    restorerPromise,
-		listenerCount:      make(map[string]uint),
-		npdsListeners:      make(npdsListenersTracker),
+		logger:              logger,
+		cache:               cache,
+		ipCache:             ipCache,
+		localEndpointStore:  localEndpointStore,
+		config:              config,
+		secretManager:       secretManager,
+		socketPath:          util.GetXDSSocketPath(config.envoySocketDir),
+		accessLogPath:       util.GetAccessLogSocketPath(config.envoySocketDir),
+		restorerPromise:     restorerPromise,
+		listenerCount:       make(map[string]uint),
+		npdsListeners:       make(npdsListenersTracker),
+		resourceGenerations: make(map[string]uint64),
+		resourceGenerationTracker: &resourceGenerationTracker{
+			nodes:  make(map[string]*resourceGenerationState),
+			owners: make(map[string]map[rollbackOwnerKey]uint32),
+		},
 	}
 	return adsServer
 }
@@ -650,7 +670,11 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		oldPolicy, existed := resources.NetworkPolicies[resourceName]
 		if existed && (oldPolicy == networkPolicy || proto.Equal(oldPolicy, networkPolicy)) {
 			if waitForACK {
-				if err := s.cache.AwaitCurrentVersion(nodeId, wg, map[string]func(error){NetworkPolicyTypeURL: callback}); err != nil {
+				generation, ok := s.resourceGenerationTracker.networkPolicyGeneration(nodeId, resourceName)
+				if !ok {
+					generation = s.resourceGenerations[nodeId]
+				}
+				if err := s.cache.AwaitCurrentVersion(nodeId, generation, wg, map[string]func(error){NetworkPolicyTypeURL: callback}); err != nil {
 					return err, nil, nil
 				}
 			}
@@ -845,6 +869,133 @@ type resourceChanges struct {
 	networkPolicyHosts []savedEntry[*cilium.NetworkPolicyHosts]
 }
 
+type resourceGenerationEntry struct {
+	generation uint64
+	exists     bool
+}
+
+type resourceGenerationState struct {
+	listeners          map[string]resourceGenerationEntry
+	routes             map[string]resourceGenerationEntry
+	clusters           map[string]resourceGenerationEntry
+	endpoints          map[string]resourceGenerationEntry
+	secrets            map[string]resourceGenerationEntry
+	networkPolicies    map[string]resourceGenerationEntry
+	networkPolicyHosts map[string]resourceGenerationEntry
+}
+
+type rollbackOwnerKey struct {
+	typeURL    string
+	name       string
+	generation uint64
+}
+
+// resourceGenerationTracker records per-resource generations independently of
+// the ADS server mutex because completion finalizers run from xDS callbacks.
+type resourceGenerationTracker struct {
+	mutex  lock.Mutex
+	nodes  map[string]*resourceGenerationState
+	owners map[string]map[rollbackOwnerKey]uint32
+}
+
+func recordResourceGenerations[V any](generations *map[string]resourceGenerationEntry, resources map[string]V, changes []savedEntry[V], generation uint64) {
+	if len(changes) == 0 {
+		return
+	}
+	if *generations == nil {
+		*generations = make(map[string]resourceGenerationEntry, len(changes))
+	}
+	for i := range changes {
+		change := &changes[i]
+		entry, existed := (*generations)[change.key]
+		change.previousGeneration = entry
+		change.previousGenerationExisted = existed
+		_, exists := resources[change.key]
+		(*generations)[change.key] = resourceGenerationEntry{generation: generation, exists: exists}
+	}
+}
+
+func restoreResourceGenerations[V any](generations *map[string]resourceGenerationEntry, changes []savedEntry[V]) {
+	for _, change := range changes {
+		if change.previousGenerationExisted {
+			if *generations == nil {
+				*generations = make(map[string]resourceGenerationEntry)
+			}
+			(*generations)[change.key] = change.previousGeneration
+		} else {
+			delete(*generations, change.key)
+		}
+	}
+	if len(*generations) == 0 {
+		*generations = nil
+	}
+}
+
+func resourceGenerationStateEmpty(state *resourceGenerationState) bool {
+	return state == nil ||
+		len(state.listeners) == 0 && len(state.routes) == 0 &&
+			len(state.clusters) == 0 && len(state.endpoints) == 0 &&
+			len(state.secrets) == 0 && len(state.networkPolicies) == 0 &&
+			len(state.networkPolicyHosts) == 0
+}
+
+func (tracker *resourceGenerationTracker) record(nodeID string, generation uint64, resources *xds.Resources, changes *resourceChanges) {
+	if resourceChangesEmpty(changes) {
+		return
+	}
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	state := tracker.nodes[nodeID]
+	if state == nil {
+		state = &resourceGenerationState{}
+		tracker.nodes[nodeID] = state
+	}
+	if resources == nil {
+		resources = &xds.Resources{}
+	}
+	recordResourceGenerations(&state.listeners, resources.Listeners, changes.listeners, generation)
+	recordResourceGenerations(&state.routes, resources.Routes, changes.routes, generation)
+	recordResourceGenerations(&state.clusters, resources.Clusters, changes.clusters, generation)
+	recordResourceGenerations(&state.endpoints, resources.Endpoints, changes.endpoints, generation)
+	recordResourceGenerations(&state.secrets, resources.Secrets, changes.secrets, generation)
+	recordResourceGenerations(&state.networkPolicies, resources.NetworkPolicies, changes.networkPolicies, generation)
+	recordResourceGenerations(&state.networkPolicyHosts, resources.NetworkPolicyHosts, changes.networkPolicyHosts, generation)
+}
+
+func (tracker *resourceGenerationTracker) restore(nodeID string, changes *resourceChanges) {
+	if resourceChangesEmpty(changes) {
+		return
+	}
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	state := tracker.nodes[nodeID]
+	if state == nil {
+		state = &resourceGenerationState{}
+		tracker.nodes[nodeID] = state
+	}
+	restoreResourceGenerations(&state.listeners, changes.listeners)
+	restoreResourceGenerations(&state.routes, changes.routes)
+	restoreResourceGenerations(&state.clusters, changes.clusters)
+	restoreResourceGenerations(&state.endpoints, changes.endpoints)
+	restoreResourceGenerations(&state.secrets, changes.secrets)
+	restoreResourceGenerations(&state.networkPolicies, changes.networkPolicies)
+	restoreResourceGenerations(&state.networkPolicyHosts, changes.networkPolicyHosts)
+	if resourceGenerationStateEmpty(state) {
+		delete(tracker.nodes, nodeID)
+	}
+}
+
+func (tracker *resourceGenerationTracker) networkPolicyGeneration(nodeID, name string) (uint64, bool) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	state := tracker.nodes[nodeID]
+	if state == nil {
+		return 0, false
+	}
+	entry, ok := state.networkPolicies[name]
+	return entry.generation, ok
+}
+
 // computeChanges builds a resourceChanges by diffing current and new resources.
 func computeChanges(current, new *xds.Resources) *resourceChanges {
 	if current == nil {
@@ -944,31 +1095,6 @@ func pruneUnreferencedRoutes(resources *xds.Resources) {
 	}
 }
 
-func resourcesForTypeURL(resources *xds.Resources, typeURL string) *xds.Resources {
-	selected := &xds.Resources{}
-	if resources == nil {
-		return selected
-	}
-
-	switch typeURL {
-	case ListenerTypeURL:
-		selected.Listeners = resources.Listeners
-	case RouteTypeURL:
-		selected.Routes = resources.Routes
-	case ClusterTypeURL:
-		selected.Clusters = resources.Clusters
-	case EndpointTypeURL:
-		selected.Endpoints = resources.Endpoints
-	case SecretTypeURL:
-		selected.Secrets = resources.Secrets
-	case NetworkPolicyTypeURL:
-		selected.NetworkPolicies = resources.NetworkPolicies
-	case NetworkPolicyHostsTypeURL:
-		selected.NetworkPolicyHosts = resources.NetworkPolicyHosts
-	}
-	return selected
-}
-
 func changesForTypeURL(changes *resourceChanges, typeURL string) *resourceChanges {
 	selected := &resourceChanges{}
 	if changes == nil {
@@ -994,53 +1120,233 @@ func changesForTypeURL(changes *resourceChanges, typeURL string) *resourceChange
 	return selected
 }
 
-// buildRevert captures the changes for one resource type and returns a closure
-// that restores them. The revert is skipped if that resource type has changed
-// since (detected via resource version mismatch).
-// Caller must hold s.mutex.
-func (s *adsServer) buildRevert(ctx context.Context, nodeID, typeURL string, newResources *xds.Resources, changes *resourceChanges) func() {
-	// Compute the version of the resource type we are about to push so changes
-	// to other types do not suppress its rollback.
-	pushedVersion := s.cache.GetVersion(resourcesForTypeURL(newResources, typeURL))
-	changes = changesForTypeURL(changes, typeURL)
-
-	return func() {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
-
-		// Check whether this resource type is still the one we pushed.
-		currentResources := s.cache.GetAllResources(nodeID)
-		currentVersion := s.cache.GetVersion(resourcesForTypeURL(currentResources, typeURL))
-		if currentVersion != pushedVersion {
-			s.logger.Info(
-				"Skipping revert, resources have been superseded",
-				logfields.NodeID, nodeID,
-				logfields.XDSTypeURL, typeURL,
-				logfields.XDSPushedVersion, pushedVersion,
-				logfields.XDSCurrentVersion, currentVersion,
-			)
-			return
-		}
-
-		s.logger.Info("Reverting resources for node",
-			logfields.NodeID, nodeID,
-			logfields.XDSTypeURL, typeURL)
-		reverted := applyChanges(currentResources, changes)
-		revertChanges := computeChanges(currentResources, reverted)
-		if err := s.updateSnapshot(ctx, reverted, nodeID, nil, nil, revertChanges); err != nil {
-			s.logger.Error("Failed to revert snapshot",
-				logfields.NodeID, nodeID,
-				logfields.Error, err)
+func setExpectedGeneration[V any](entries []savedEntry[V], generations map[string]resourceGenerationEntry, fallback uint64) {
+	for i := range entries {
+		entries[i].expectedGeneration = fallback
+		if entry, ok := generations[entries[i].key]; ok {
+			entries[i].expectedGeneration = entry.generation
 		}
 	}
+}
+
+func addRollbackOwners[V any](owners *map[rollbackOwnerKey]uint32, typeURL string, entries []savedEntry[V], generations map[string]resourceGenerationEntry) {
+	for _, entry := range entries {
+		current, ok := generations[entry.key]
+		if !ok || current.exists || current.generation != entry.expectedGeneration {
+			continue
+		}
+		if *owners == nil {
+			*owners = make(map[rollbackOwnerKey]uint32)
+		}
+		(*owners)[rollbackOwnerKey{typeURL: typeURL, name: entry.key, generation: entry.expectedGeneration}]++
+	}
+}
+
+func releaseRollbackOwners[V any](owners map[rollbackOwnerKey]uint32, typeURL string, entries []savedEntry[V], generations map[string]resourceGenerationEntry) {
+	for _, entry := range entries {
+		key := rollbackOwnerKey{typeURL: typeURL, name: entry.key, generation: entry.expectedGeneration}
+		count := owners[key]
+		if count <= 1 {
+			delete(owners, key)
+			current, ok := generations[entry.key]
+			if ok && !current.exists && current.generation == entry.expectedGeneration {
+				delete(generations, entry.key)
+			}
+		} else {
+			owners[key] = count - 1
+		}
+	}
+}
+
+func filterResourceChanges[V any](entries []savedEntry[V], generations map[string]resourceGenerationEntry, chainedGeneration uint64) []savedEntry[V] {
+	var filtered []savedEntry[V]
+	for _, entry := range entries {
+		current, ok := generations[entry.key]
+		if !ok {
+			continue
+		}
+		if current.generation == entry.expectedGeneration || current.generation == chainedGeneration {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
+}
+
+func resourceChangesEmpty(changes *resourceChanges) bool {
+	return changes == nil ||
+		len(changes.listeners) == 0 && len(changes.routes) == 0 &&
+			len(changes.clusters) == 0 && len(changes.endpoints) == 0 &&
+			len(changes.secrets) == 0 && len(changes.networkPolicies) == 0 &&
+			len(changes.networkPolicyHosts) == 0
+}
+
+func (tracker *resourceGenerationTracker) prepareRollbackLocked(nodeID string, changes *resourceChanges, fallbackGeneration uint64) {
+	state := tracker.nodes[nodeID]
+	if state == nil {
+		state = &resourceGenerationState{}
+		tracker.nodes[nodeID] = state
+	}
+	setExpectedGeneration(changes.listeners, state.listeners, fallbackGeneration)
+	setExpectedGeneration(changes.routes, state.routes, fallbackGeneration)
+	setExpectedGeneration(changes.clusters, state.clusters, fallbackGeneration)
+	setExpectedGeneration(changes.endpoints, state.endpoints, fallbackGeneration)
+	setExpectedGeneration(changes.secrets, state.secrets, fallbackGeneration)
+	setExpectedGeneration(changes.networkPolicies, state.networkPolicies, fallbackGeneration)
+	setExpectedGeneration(changes.networkPolicyHosts, state.networkPolicyHosts, fallbackGeneration)
+
+	owners := tracker.owners[nodeID]
+	addRollbackOwners(&owners, ListenerTypeURL, changes.listeners, state.listeners)
+	addRollbackOwners(&owners, RouteTypeURL, changes.routes, state.routes)
+	addRollbackOwners(&owners, ClusterTypeURL, changes.clusters, state.clusters)
+	addRollbackOwners(&owners, EndpointTypeURL, changes.endpoints, state.endpoints)
+	addRollbackOwners(&owners, SecretTypeURL, changes.secrets, state.secrets)
+	addRollbackOwners(&owners, NetworkPolicyTypeURL, changes.networkPolicies, state.networkPolicies)
+	addRollbackOwners(&owners, NetworkPolicyHostsTypeURL, changes.networkPolicyHosts, state.networkPolicyHosts)
+	if len(owners) > 0 {
+		tracker.owners[nodeID] = owners
+	}
+}
+
+func (tracker *resourceGenerationTracker) filterRollbackLocked(nodeID string, changes *resourceChanges, chainedGeneration uint64) *resourceChanges {
+	state := tracker.nodes[nodeID]
+	if state == nil {
+		return &resourceChanges{}
+	}
+	return &resourceChanges{
+		listeners:          filterResourceChanges(changes.listeners, state.listeners, chainedGeneration),
+		routes:             filterResourceChanges(changes.routes, state.routes, chainedGeneration),
+		clusters:           filterResourceChanges(changes.clusters, state.clusters, chainedGeneration),
+		endpoints:          filterResourceChanges(changes.endpoints, state.endpoints, chainedGeneration),
+		secrets:            filterResourceChanges(changes.secrets, state.secrets, chainedGeneration),
+		networkPolicies:    filterResourceChanges(changes.networkPolicies, state.networkPolicies, chainedGeneration),
+		networkPolicyHosts: filterResourceChanges(changes.networkPolicyHosts, state.networkPolicyHosts, chainedGeneration),
+	}
+}
+
+func (tracker *resourceGenerationTracker) releaseRollbackLocked(nodeID string, changes *resourceChanges) {
+	state := tracker.nodes[nodeID]
+	if state == nil {
+		return
+	}
+	owners := tracker.owners[nodeID]
+	releaseRollbackOwners(owners, ListenerTypeURL, changes.listeners, state.listeners)
+	releaseRollbackOwners(owners, RouteTypeURL, changes.routes, state.routes)
+	releaseRollbackOwners(owners, ClusterTypeURL, changes.clusters, state.clusters)
+	releaseRollbackOwners(owners, EndpointTypeURL, changes.endpoints, state.endpoints)
+	releaseRollbackOwners(owners, SecretTypeURL, changes.secrets, state.secrets)
+	releaseRollbackOwners(owners, NetworkPolicyTypeURL, changes.networkPolicies, state.networkPolicies)
+	releaseRollbackOwners(owners, NetworkPolicyHostsTypeURL, changes.networkPolicyHosts, state.networkPolicyHosts)
+	if len(owners) == 0 {
+		delete(tracker.owners, nodeID)
+	}
+	if resourceGenerationStateEmpty(state) {
+		delete(tracker.nodes, nodeID)
+	}
+}
+
+type resourceRollbackLifecycle struct {
+	server           *adsServer
+	ctx              context.Context
+	nodeID           string
+	pushedGeneration uint64
+	changes          *resourceChanges
+	done             bool
+}
+
+func (lifecycle *resourceRollbackLifecycle) warnDuplicateLocked(operation string) {
+	lifecycle.server.logger.Warn("Ignoring duplicate resource rollback terminal operation",
+		logfields.NodeID, lifecycle.nodeID,
+		logfields.XDSGeneration, lifecycle.pushedGeneration,
+		logfields.Operation, operation)
+}
+
+func (lifecycle *resourceRollbackLifecycle) Finalize() {
+	tracker := lifecycle.server.resourceGenerationTracker
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	if lifecycle.done {
+		lifecycle.warnDuplicateLocked("finalize")
+		return
+	}
+	lifecycle.done = true
+	tracker.releaseRollbackLocked(lifecycle.nodeID, lifecycle.changes)
+	lifecycle.changes = nil
+}
+
+func (lifecycle *resourceRollbackLifecycle) Revert(expectedGeneration uint64) (uint64, bool) {
+	s := lifecycle.server
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	tracker := s.resourceGenerationTracker
+	tracker.mutex.Lock()
+	if lifecycle.done {
+		lifecycle.warnDuplicateLocked("revert")
+		tracker.mutex.Unlock()
+		return expectedGeneration, false
+	}
+	lifecycle.done = true
+	changes := tracker.filterRollbackLocked(lifecycle.nodeID, lifecycle.changes, expectedGeneration)
+	tracker.releaseRollbackLocked(lifecycle.nodeID, lifecycle.changes)
+	lifecycle.changes = nil
+	tracker.mutex.Unlock()
+
+	currentGeneration := s.resourceGenerations[lifecycle.nodeID]
+	if resourceChangesEmpty(changes) {
+		s.logger.Debug("Skipping revert, affected resources have been superseded",
+			logfields.NodeID, lifecycle.nodeID,
+			logfields.XDSPushedGeneration, lifecycle.pushedGeneration,
+			logfields.XDSExpectedGeneration, expectedGeneration,
+			logfields.XDSCurrentGeneration, currentGeneration)
+		// Preserve the rollback chain token. Returning the node's newer current
+		// generation here could let an older coalesced rollback overwrite the
+		// resource which caused this rollback to be skipped.
+		return expectedGeneration, false
+	}
+
+	currentResources := s.cache.GetAllResources(lifecycle.nodeID)
+	s.logger.Info("Reverting resources for node", logfields.NodeID, lifecycle.nodeID)
+	reverted := applyChanges(currentResources, changes)
+	revertChanges := computeChanges(currentResources, reverted)
+	if err := s.updateSnapshot(lifecycle.ctx, reverted, lifecycle.nodeID, nil, nil, revertChanges); err != nil {
+		s.logger.Error("Failed to revert snapshot",
+			logfields.NodeID, lifecycle.nodeID,
+			logfields.Error, err)
+		return expectedGeneration, false
+	}
+	return s.resourceGenerations[lifecycle.nodeID], true
+}
+
+// buildRevert captures the changes for one resource type and returns a closure
+// that restores them. The caller threads the actual generation returned by one
+// successful revert into the next older revert. A revert is skipped if the
+// current generation no longer matches that rollback chain.
+// Caller must hold s.mutex.
+func (s *adsServer) buildRevert(ctx context.Context, nodeID, typeURL string, pushedGeneration uint64, changes *resourceChanges) xdsnew.Rollback {
+	changes = changesForTypeURL(changes, typeURL)
+	tracker := s.resourceGenerationTracker
+	tracker.mutex.Lock()
+	tracker.prepareRollbackLocked(nodeID, changes, pushedGeneration)
+	tracker.mutex.Unlock()
+	lifecycle := &resourceRollbackLifecycle{
+		server:           s,
+		ctx:              ctx,
+		nodeID:           nodeID,
+		pushedGeneration: pushedGeneration,
+		changes:          changes,
+	}
+	return lifecycle
 }
 
 // savedEntry records the previous value of a single resource key.
 // If existed is false, the key was not present before the update and should be deleted on revert.
 type savedEntry[V any] struct {
-	key     string
-	value   V
-	existed bool
+	key                       string
+	value                     V
+	existed                   bool
+	expectedGeneration        uint64
+	previousGeneration        resourceGenerationEntry
+	previousGenerationExisted bool
 }
 
 // diffMap returns entries for every key whose value differs between old and new,
@@ -1222,26 +1528,36 @@ func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds
 		}
 	}
 	if oldSnapshot == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.AreDifferentSnapshots(oldSnapshot, newSnapshot) {
-		var revertFuncs map[string]func()
-		// Untracked snapshots can coalesce older tracked updates in ADS. Preserve
-		// their rollback as well so a NACK of the resulting response restores all
-		// updates represented by it, newest first.
-		if revertOnNACK && (wg != nil || changes != nil) {
+		// Reserve the next generation before registering the revert closure. It
+		// becomes current only after both the snapshot and immutable resources
+		// have been published successfully.
+		newGeneration := s.resourceGeneration + 1
+		// Record the generation before UpdateSnapshot can synchronously expose a
+		// response whose NACK invokes the rollback callback.
+		s.resourceGenerationTracker.record(nodeId, newGeneration, resources, changes)
+		var rollbacks map[string]xdsnew.Rollback
+		// An update without a WaitGroup can still be coalesced into a response
+		// carrying older tracked generations. Preserve its revert so a NACK can
+		// restore every resource change represented by that response.
+		if revertOnNACK && changes != nil {
 			for typeURL := range getUpdatedTypeURLs(changes) {
-				if revertFuncs == nil {
-					revertFuncs = make(map[string]func())
+				if rollbacks == nil {
+					rollbacks = make(map[string]xdsnew.Rollback)
 				}
-				revertFuncs[typeURL] = s.buildRevert(ctx, nodeId, typeURL, resources, changes)
+				rollbacks[typeURL] = s.buildRevert(ctx, nodeId, typeURL, newGeneration, changes)
 			}
 		}
-		err = s.cache.UpdateSnapshot(ctx, nodeId, newSnapshot, wg, completionTypeURLs, revertFuncs)
+		err = s.cache.UpdateSnapshot(ctx, nodeId, newGeneration, newSnapshot, wg, completionTypeURLs, rollbacks)
 		if err != nil {
+			s.resourceGenerationTracker.restore(nodeId, changes)
 			s.logger.Error("Error setting snapshot for node %s: %q",
 				logfields.NodeID, nodeId,
 				logfields.Error, err)
 			return err
 		} else {
 			s.cache.SetResources(nodeId, resources)
+			s.resourceGeneration = newGeneration
+			s.resourceGenerations[nodeId] = newGeneration
 		}
 	} else {
 		s.logger.Debug("updateXdsSnapshot: Snapshots are identical, skipping update")
@@ -1360,9 +1676,20 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 		staged.Routes = cloneMapOrInit(currentResources.Routes)
 		pruneUnreferencedRoutes(staged)
 	}
+	// The listener-address transaction handles failures synchronously while
+	// holding s.mutex. Still pass the actual changes to generation tracking so
+	// an older delayed rollback cannot overwrite one of these transaction phases.
+	updateWithoutRevert := func(ctx context.Context, resources *xds.Resources, wg *completion.WaitGroup, callbackTypeURLs map[string]func(error)) error {
+		published := s.cache.GetAllResources(localNodeID)
+		if published == nil {
+			published = &xds.Resources{}
+		}
+		changes := computeChanges(published, resources)
+		return s.updateSnapshotWithRevert(ctx, resources, "", wg, callbackTypeURLs, changes, false)
+	}
 
 	restore := func(cause error) error {
-		restoreErr := s.updateSnapshot(context.WithoutCancel(ctx), currentResources, "", nil, nil, nil)
+		restoreErr := updateWithoutRevert(context.WithoutCancel(ctx), currentResources, nil, nil)
 		if restoreErr != nil {
 			return fmt.Errorf("%w; failed to restore ADS snapshot: %w", cause, restoreErr)
 		}
@@ -1375,7 +1702,7 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	// asynchronous NACK revert, which would try to reacquire the same mutex;
 	// restore handles failures synchronously below instead.
 	deleteWG := completion.NewWaitGroup(ctx)
-	if err := s.updateSnapshotWithRevert(ctx, staged, "", deleteWG, map[string]func(error){ListenerTypeURL: nil}, nil, false); err != nil {
+	if err := updateWithoutRevert(ctx, staged, deleteWG, map[string]func(error){ListenerTypeURL: nil}); err != nil {
 		return err
 	}
 	if err := deleteWG.Wait(); err != nil {
@@ -1396,7 +1723,7 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	// transient bind failure; all other NACKs restore the original snapshot.
 	for attempt := 1; ; attempt++ {
 		replaceWG := completion.NewWaitGroup(ctx)
-		err := s.updateSnapshotWithRevert(ctx, &updated, "", replaceWG, callbackTypeURLs, nil, false)
+		err := updateWithoutRevert(ctx, &updated, replaceWG, callbackTypeURLs)
 		if err == nil {
 			err = replaceWG.Wait()
 		}
@@ -1411,7 +1738,7 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 		// The rejected desired snapshot remains in the cache. Publish the already
 		// ACKed deletion snapshot again so the same desired version can be sent as
 		// a fresh response on the next attempt.
-		if stageErr := s.updateSnapshotWithRevert(ctx, staged, "", nil, nil, nil, false); stageErr != nil {
+		if stageErr := updateWithoutRevert(ctx, staged, nil, nil); stageErr != nil {
 			return restore(fmt.Errorf("re-staging listener deletion after bind failure: %w", stageErr))
 		}
 
