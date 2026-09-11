@@ -4,6 +4,25 @@ to modify or extend the default chart behaviors.
 */}}
 
 {{/*
+Allow packagers to add configuration to hubble-relay.
+*/}}
+{{- define "hubble-relay.config.extra" }}
+{{- end }}
+
+{{/*
+Allow packagers to change the primary hubble-relay port name.
+*/}}
+{{- define "hubble-relay.port.name" -}}
+grpc
+{{- end }}
+
+{{/*
+Allow packagers to add volume mounts to hubble-relay.
+*/}}
+{{- define "hubble-relay.volumeMounts.extra" }}
+{{- end }}
+
+{{/*
 Allow packagers to add extra volumes to cilium-agent.
 */}}
 {{- define "cilium-agent.volumes.extra" }}
@@ -82,7 +101,7 @@ disable-server-tls: true
 {{- end }}
 
 {{- define "hubble-relay.service.targetPort" -}}
-grpc
+{{- include "hubble-relay.port.name" . }}
 {{- end }}
 
 {{/*

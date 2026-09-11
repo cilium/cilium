@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"os/signal"
 
 	"github.com/google/gops/agent"
@@ -59,13 +58,13 @@ const (
 )
 
 // New creates a new serve command.
-func New(vp *viper.Viper) *cobra.Command {
+func New(vp *viper.Viper, extensions ...Extension) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the gRPC proxy server",
 		Long:  `Run the gRPC proxy server.`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runServe(vp)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runServe(cmd.Context(), vp, extensions)
 		},
 	}
 	flags := cmd.Flags()
@@ -189,14 +188,32 @@ func New(vp *viper.Viper) *cobra.Command {
 		false,
 		"Disable TLS for the server and allow clients to connect over plaintext.",
 	)
+	for _, extension := range extensions {
+		extension.RegisterFlags(flags)
+	}
 	vp.BindPFlags(flags)
 
 	return cmd
 }
 
-func runServe(vp *viper.Viper) error {
+// runServe configures and starts Relay, then blocks until the server exits or
+// the supplied context, SIGINT, or SIGTERM requests shutdown. It stops the TLS
+// watchers and gops agent created for this run, closes configured extensions,
+// and joins extension cleanup failures with the error that ended the run.
+func runServe(ctx context.Context, vp *viper.Viper, extensions []Extension) (retErr error) {
+	ctx, stop := signal.NotifyContext(ctx, unix.SIGINT, unix.SIGTERM)
+	defer stop()
+
 	// slogloggercheck: the logger has been initialized with default settings
 	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "hubble-relay")
+
+	configuredExtensions, err := configureExtensions(ctx, logger, vp, extensions)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		retErr = errors.Join(retErr, configuredExtensions.Close())
+	}()
 
 	opts := []server.Option{
 		server.WithLocalClusterName(vp.GetString(keyClusterName)),
@@ -238,6 +255,7 @@ func runServe(vp *viper.Viper) error {
 		if err != nil {
 			return err
 		}
+		defer tlsClientConfig.Stop()
 		opts = append(opts, server.WithClientTLS(tlsClientConfig))
 	}
 
@@ -256,8 +274,10 @@ func runServe(vp *viper.Viper) error {
 		if err != nil {
 			return err
 		}
+		defer tlsServerConfig.Stop()
 		opts = append(opts, server.WithServerTLS(tlsServerConfig))
 	}
+	opts = append(opts, configuredExtensions.serverOptions...)
 
 	if vp.GetBool(keyPprof) {
 		pprof.Enable(logger, vp.GetString(keyPprofAddress), vp.GetInt(keyPprofPort))
@@ -271,29 +291,24 @@ func runServe(vp *viper.Viper) error {
 		}); err != nil {
 			return fmt.Errorf("failed to start gops agent: %w", err)
 		}
+		defer agent.Close()
 	}
 	srv, err := server.New(opts...)
 	if err != nil {
 		return fmt.Errorf("cannot create hubble-relay server: %w", err)
 	}
+	shutdownDone := make(chan struct{})
 	go func() {
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, unix.SIGINT, unix.SIGTERM)
-		<-sigs
+		defer close(shutdownDone)
+		<-ctx.Done()
 		srv.Stop()
-		if tlsServerConfig != nil {
-			tlsServerConfig.Stop()
-		}
-		if tlsClientConfig != nil {
-			tlsClientConfig.Stop()
-		}
-		if gopsEnabled {
-			agent.Close()
-		}
 	}()
 
-	if err := srv.Serve(); !errors.Is(err, http.ErrServerClosed) {
-		return err
+	serveErr := srv.Serve()
+	stop()
+	<-shutdownDone
+	if !errors.Is(serveErr, http.ErrServerClosed) && !errors.Is(serveErr, grpc.ErrServerStopped) {
+		return serveErr
 	}
 	return nil
 }

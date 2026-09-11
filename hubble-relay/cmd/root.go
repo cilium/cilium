@@ -26,7 +26,12 @@ const (
 )
 
 // New creates a new hubble-relay command.
-func New() *cobra.Command {
+func New(options ...Option) *cobra.Command {
+	opts := new(cmdOptions)
+	for _, option := range options {
+		option(opts)
+	}
+
 	vp := newViper()
 
 	rootCmd := &cobra.Command{
@@ -66,7 +71,7 @@ func New() *cobra.Command {
 
 	rootCmd.AddCommand(
 		completion.New(),
-		serve.New(vp),
+		serve.New(vp, opts.serveExtensions...),
 		version.New(),
 	)
 	rootCmd.SetVersionTemplate("{{with .Name}}{{printf \"%s \" .}}{{end}}{{printf \"v%s\" .Version}}\n")

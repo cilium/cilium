@@ -86,7 +86,7 @@ spec:
             - --debug
           {{- end }}
           ports:
-            - name: grpc
+            - name: {{ include "hubble-relay.port.name" . }}
               containerPort: {{ include "hubble-relay.config.listenPort" . }}
             {{- if .Values.hubble.relay.prometheus.enabled }}
             - name: prometheus
@@ -147,6 +147,7 @@ spec:
           {{- with .Values.hubble.relay.extraVolumeMounts }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+          {{- include "hubble-relay.volumeMounts.extra" . | nindent 10 }}
           terminationMessagePolicy: FallbackToLogsOnError
         {{- include "hubble-relay.containers.extra" . | nindent 8 }}
       restartPolicy: Always
