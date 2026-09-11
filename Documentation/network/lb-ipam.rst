@@ -467,6 +467,10 @@ Sharing Keys
 Services can share the same IP or set of IPs with other services. This is done by setting the ``lbipam.cilium.io/sharing-key`` annotation on the service.
 Services that have the same sharing key annotation will share the same IP or set of IPs. The sharing key is a string that can be any value.
 
+.. note::
+
+   Sharing keys are not supported together with :ref:`l2_announcements`. L2 announcements elect one node per service, and the elections for services sharing an IP are independent, so two nodes can end up answering ARP or NDP requests for the same IP.
+
 .. code-block:: yaml
 
   apiVersion: v1

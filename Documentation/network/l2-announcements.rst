@@ -84,6 +84,10 @@ Limitations
 * The feature is incompatible with the ``externalTrafficPolicy: Local`` on services as it may cause 
   service IPs to be announced on nodes without pods causing traffic drops.
 
+* The feature is incompatible with LB IPAM sharing keys (services sharing one IP, see :ref:`lb_ipam`).
+  Leader election runs per service, so services sharing an IP can elect different nodes and the IP
+  is then announced from more than one node.
+
 Policies
 ########
 
