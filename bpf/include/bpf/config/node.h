@@ -53,6 +53,8 @@ NODE_CONFIG(__u8, tracing_ip_option_type, "The IP option type to use for packet 
 
 NODE_CONFIG(bool, policy_deny_response_enabled, "Enable ICMP responses for policy-denied traffic")
 
+NODE_CONFIG(bool, enable_shared_policy, "Enable node-scoped shared policy LPM trie map lookup path")
+
 NODE_CONFIG(__u32, cluster_id, "Cluster ID")
 
 NODE_CONFIG(__u32, cluster_id_bits, "Number of bits of the identity reserved for the Cluster ID")

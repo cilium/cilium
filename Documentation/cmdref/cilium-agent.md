@@ -68,6 +68,9 @@ cilium-agent [flags]
       --bpf-node-map-max uint32                                   Sets size of node bpf map which will be the max number of unique Node IPs in the cluster (default 16384)
       --bpf-policy-map-max int                                    Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-policy-map-pressure-metrics-threshold float           Sets threshold for emitting pressure metrics of policy maps (default 0.1)
+      --bpf-policy-max-rule-sets int                              Maximum number of unique policy rule sets per node (default 8192)
+      --bpf-policy-overlay-map-max int                            Maximum number of entries in BPF policy overlay map (default 16384)
+      --bpf-policy-shared-map-max int                             Maximum number of entries in node-scoped shared BPF policy map (default 131072)
       --bpf-policy-stats-map-max int                              Maximum number of entries in bpf policy stats map (default 65536)
       --bpf-root string                                           Path to BPF filesystem
       --bpf-sock-rev-map-max int                                  Maximum number of entries for the SockRevNAT BPF map
@@ -188,6 +191,7 @@ cilium-agent [flags]
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                               Enable SCTP support (beta)
       --enable-service-topology                                   Enable support for service topology aware hints
+      --enable-shared-policy                                      Enable node-scoped shared policy LPM trie map lookup path
       --enable-standalone-dns-proxy                               Enables standalone DNS proxy
       --enable-tcx                                                Attach endpoint programs using tcx if supported by the kernel (default true)
       --enable-tracing                                            Enable tracing while determining policy (debugging)

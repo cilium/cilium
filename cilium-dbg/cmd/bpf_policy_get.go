@@ -69,6 +69,10 @@ func listAllMaps(logger *slog.Logger) {
 
 	maps := []policyMap{}
 	for _, file := range matchFiles {
+		base := filepath.Base(file)
+		if base == policymap.SharedPolicyMapName || base == policymap.PolicyOverlayMapName {
+			continue
+		}
 		endpointSplit := strings.Split(file, "_")
 		endpoint := strings.TrimLeft(endpointSplit[len(endpointSplit)-1], "0")
 		maps = append(maps, policyMap{
