@@ -339,6 +339,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo;
+	bool __maybe_unused from_host = false;
 	int l4_off, ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -359,6 +360,8 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		const struct endpoint_info *ep;
 
 		ep = __lookup_ip4_endpoint(ip4->saddr);
+		from_host = (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST ||
+			    (ep && (ep->flags & ENDPOINT_F_HOST));
 		if (ep && ep->parent_ifindex && ep->parent_ifindex != CONFIG(interface_ifindex)) {
 			/* This packet came from an endpoint with a parent interface and
 			 * it is currently not egressing on its parent interface.
@@ -394,7 +397,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
-	ret = snat_v4_needs_masquerade(ctx, fraginfo, l4_off);
+	ret = snat_v4_needs_masquerade(ctx, fraginfo, l4_off, from_host);
 #endif /*ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */
 	if (IS_ERR(ret))
 		goto out;

@@ -77,7 +77,7 @@ int test_nat4_remote_node_masquerade_skipped(__maybe_unused struct __ctx_buff *c
 	 * and TUNNEL_MODE undefined.
 	 * Expect NAT_PUNT_TO_STACK and target.addr to be 0.
 	 */
-	ret = snat_v4_needs_masquerade(ctx, fraginfo, l4_off);
+	ret = snat_v4_needs_masquerade(ctx, fraginfo, l4_off, false);
 	assert(ret == NAT_PUNT_TO_STACK);
 	assert(args->target.addr == 0); /* Masquerade address should NOT be set */
 

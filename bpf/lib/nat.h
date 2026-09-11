@@ -635,15 +635,13 @@ DEFINE_AUX(struct snat_v4_args, snat_v4_args);
 static __always_inline int
 __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			   struct iphdr *ip4, fraginfo_t fraginfo, int l4_off,
-			   struct ipv4_nat_target *target)
+			   struct ipv4_nat_target *target, bool from_host)
 {
 	const struct endpoint_info *local_ep;
 	const struct remote_endpoint_info *remote_ep;
-	bool from_host;
+	__u32 local_ep_rt_info __maybe_unused = 0;
 
 	local_ep = __lookup_ip4_endpoint(tuple->saddr);
-	from_host = (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST ||
-		    (local_ep && (local_ep->flags & ENDPOINT_F_HOST));
 
 	/* Check if this packet belongs to reply traffic coming from a
 	 * local endpoint.
@@ -652,32 +650,36 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	 * node which matches the packet source IP, which means we can
 	 * skip the CT lookup since this cannot be reply traffic.
 	 */
-	if (local_ep && !from_host) {
-		int err;
+	if (local_ep) {
+		local_ep_rt_info = local_ep->rt_info;
 
-		target->from_local_endpoint = true;
+		if (!from_host) {
+			int err;
 
-		err = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
-					CT_EGRESS, tuple);
-		switch (err) {
-		case 0:
-			/* If the packet is a reply it means that outside has
-			 * initiated the connection, so no need to SNAT the
-			 * reply.
-			 */
-			if (ct_is_reply4(get_ct_map4(tuple), tuple))
-				return NAT_PUNT_TO_STACK;
+			target->from_local_endpoint = true;
 
-			/* SNAT code has its own port extraction logic: */
-			tuple->dport = 0;
-			tuple->sport = 0;
+			err = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
+						CT_EGRESS, tuple);
+			switch (err) {
+			case 0:
+				/* If the packet is a reply it means that outside has
+				 * initiated the connection, so no need to SNAT the
+				 * reply.
+				 */
+				if (ct_is_reply4(get_ct_map4(tuple), tuple))
+					return NAT_PUNT_TO_STACK;
 
-			break;
-		case DROP_CT_UNKNOWN_PROTO:
-			/* tolerate L4 protocols not supported by CT: */
-			break;
-		default:
-			return err;
+				/* SNAT code has its own port extraction logic: */
+				tuple->dport = 0;
+				tuple->sport = 0;
+
+				break;
+			case DROP_CT_UNKNOWN_PROTO:
+				/* tolerate L4 protocols not supported by CT: */
+				break;
+			default:
+				return err;
+			}
 		}
 	}
 
@@ -699,8 +701,8 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		if (from_host || !local_ep)
 			target->needs_ct = true;
 
-		if (!from_host && local_ep && local_ep->rt_info)
-			target->tbid = local_ep->rt_info;
+		if (!from_host && local_ep_rt_info)
+			target->tbid = local_ep_rt_info;
 
 		return NAT_NEEDED;
 	}
@@ -798,7 +800,8 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 }
 
 __noinline __weak int
-snat_v4_needs_masquerade(struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off)
+snat_v4_needs_masquerade(struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off,
+			 bool from_host)
 {
 	struct snat_v4_args *args = AUX_REUSE(snat_v4_args);
 	void *data, *data_end;
@@ -808,7 +811,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off
 		return DROP_INVALID;
 
 	return __snat_v4_needs_masquerade(ctx, &args->tuple, ip4, fraginfo,
-					  l4_off, &args->target);
+					  l4_off, &args->target, from_host);
 }
 
 #endif /* ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */

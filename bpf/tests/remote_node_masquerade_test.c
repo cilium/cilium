@@ -76,7 +76,7 @@ int test_nat4_remote_node_masquerade_enabled(__maybe_unused struct __ctx_buff *c
 	 * Test: With enable_remote_node_masquerade configured as true via ASSIGN_CONFIG.
 	 * Expect NAT_NEEDED and target.addr to be set.
 	 */
-	ret = snat_v4_needs_masquerade(ctx, fraginfo, l4_off);
+	ret = snat_v4_needs_masquerade(ctx, fraginfo, l4_off, false);
 	assert(ret == NAT_NEEDED);
 	assert(args->target.addr == IPV4_MASQUERADE); /* Masquerade address set */
 
