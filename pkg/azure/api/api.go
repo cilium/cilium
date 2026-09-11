@@ -419,6 +419,24 @@ func (c *Client) ListAllNetworkInterfaces(ctx context.Context) ([]*armnetwork.In
 	return append(networkInterfaces, vmInterfaces...), nil
 }
 
+// skipInterface reports whether a parsed interface must be withheld from the
+// instance cache, and therefore from CiliumNode.Status.Azure.Interfaces.
+func skipInterface(logger *slog.Logger, i *types.AzureInterface) bool {
+	if i == nil {
+		return false
+	}
+	if !i.MAC.IsValid() {
+		logger.Warn(
+			"Ignoring interface without a MAC address, it is likely still provisioning",
+			logfields.Interface, i.Name,
+			logfields.ID, i.ID,
+		)
+		return true
+	}
+
+	return false
+}
+
 // ParseInterfacesIntoInstanceMap parses network interfaces into an InstanceMap
 // This allows re-parsing the same network interface data with different subnet maps
 // without making additional Azure API calls
@@ -426,9 +444,11 @@ func (c *Client) ParseInterfacesIntoInstanceMap(networkInterfaces []*armnetwork.
 	instances := ipamTypes.NewInstanceMap()
 
 	for _, iface := range networkInterfaces {
-		if instanceID, azureInterface := parseInterface(c.logger, iface, subnets, c.usePrimary); instanceID != "" {
-			instances.Update(instanceID, azureInterface)
+		instanceID, azureInterface := parseInterface(c.logger, iface, subnets, c.usePrimary)
+		if instanceID == "" || skipInterface(c.logger, azureInterface) {
+			continue
 		}
+		instances.Update(instanceID, azureInterface)
 	}
 
 	return instances
@@ -457,6 +477,9 @@ func (c *Client) ParseInterfacesIntoInstance(networkInterfaces []*armnetwork.Int
 
 	for _, networkInterface := range networkInterfaces {
 		_, azureInterface := parseInterface(c.logger, networkInterface, subnets, c.usePrimary)
+		if skipInterface(c.logger, azureInterface) {
+			continue
+		}
 		instance.Interfaces[azureInterface.ID] = azureInterface
 	}
 
