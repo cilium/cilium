@@ -4,7 +4,12 @@
 package xds
 
 import (
+	"fmt"
+	"strconv"
+
+	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/cilium/cilium/pkg/container/set"
 )
@@ -76,6 +81,53 @@ func (r *VersionedResources) appendResource(name string, version uint64, resourc
 			Version:  version,
 			Resource: resource,
 		})
+}
+
+// DiscoveryResponse constructs the SotW response sent for these resources.
+func (r *VersionedResources) DiscoveryResponse(typeURL string) (*envoy_service_discovery.DiscoveryResponse, error) {
+	resources := make([]*anypb.Any, len(r.VersionedResources))
+	for i := range r.VersionedResources {
+		resource := r.VersionedResources[i]
+		marshaled, err := anypb.New(resource.Resource)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling xDS resource %q: %w", resource.Name, err)
+		}
+		resources[i] = marshaled
+	}
+
+	version := strconv.FormatUint(r.Version, 10)
+	return &envoy_service_discovery.DiscoveryResponse{
+		VersionInfo: version,
+		Resources:   resources,
+		Canary:      r.Canary,
+		TypeUrl:     typeURL,
+		Nonce:       version,
+	}, nil
+}
+
+// DeltaDiscoveryResponse constructs the Delta response sent for these resources.
+func (r *VersionedResources) DeltaDiscoveryResponse(typeURL, nonce string) (*envoy_service_discovery.DeltaDiscoveryResponse, error) {
+	resources := make([]*envoy_service_discovery.Resource, len(r.VersionedResources))
+	for i := range r.VersionedResources {
+		resource := r.VersionedResources[i]
+		marshaled, err := anypb.New(resource.Resource)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling Delta xDS resource %q: %w", resource.Name, err)
+		}
+		resources[i] = &envoy_service_discovery.Resource{
+			Name:     resource.Name,
+			Version:  strconv.FormatUint(resource.Version, 10),
+			Resource: marshaled,
+		}
+	}
+
+	return &envoy_service_discovery.DeltaDiscoveryResponse{
+		TypeUrl:           typeURL,
+		Resources:         resources,
+		RemovedResources:  r.RemovedNames,
+		Nonce:             nonce,
+		SystemVersionInfo: strconv.FormatUint(r.Version, 10),
+	}, nil
 }
 
 // ResourceMutatorRevertFunc is a function which reverts the effects of an update on a
