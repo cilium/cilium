@@ -194,3 +194,95 @@ func TestParseENIPublicIP(t *testing.T) {
 		})
 	}
 }
+
+func TestParseENIIPv6(t *testing.T) {
+	// addr describes one entry of the ENI's assigned IPv6 addresses.
+	type addr struct {
+		ip      string
+		primary bool
+	}
+
+	newIface := func(addrs []addr, prefixes []string) *ec2_types.NetworkInterface {
+		iface := &ec2_types.NetworkInterface{
+			PrivateIpAddress: aws.String("10.0.0.1"),
+		}
+		for _, a := range addrs {
+			iface.Ipv6Addresses = append(iface.Ipv6Addresses, ec2_types.NetworkInterfaceIpv6Address{
+				Ipv6Address:   aws.String(a.ip),
+				IsPrimaryIpv6: aws.Bool(a.primary),
+			})
+		}
+		for _, p := range prefixes {
+			iface.Ipv6Prefixes = append(iface.Ipv6Prefixes, ec2_types.Ipv6PrefixSpecification{
+				Ipv6Prefix: aws.String(p),
+			})
+		}
+		return iface
+	}
+
+	tests := []struct {
+		name      string
+		addrs     []addr
+		prefixes  []string
+		want      string
+		wantError bool
+	}{
+		{
+			name: "no IPv6 address or prefix leaves the ENI without an IPv6 address",
+		},
+		{
+			name:     "address is taken out of the delegated prefix",
+			prefixes: []string{"2001:db8:0:1::/80"},
+			want:     "2001:db8:0:1:0:ffff:ffff:ffff",
+		},
+		{
+			name:     "address is taken out of the lowest delegated prefix",
+			prefixes: []string{"2001:db8:0:1:0:1::/80", "2001:db8:0:1::/80"},
+			want:     "2001:db8:0:1:0:ffff:ffff:ffff",
+		},
+		{
+			name:  "the only assigned address is used",
+			addrs: []addr{{ip: "2001:db8:0:2::5"}},
+			want:  "2001:db8:0:2::5",
+		},
+		{
+			name:  "the primary address wins over the other assigned ones",
+			addrs: []addr{{ip: "2001:db8:0:2::5"}, {ip: "2001:db8:0:2::9", primary: true}},
+			want:  "2001:db8:0:2::9",
+		},
+		{
+			name:  "the lowest address is picked when none is primary",
+			addrs: []addr{{ip: "2001:db8:0:2::9"}, {ip: "2001:db8:0:2::5"}, {ip: "2001:db8:0:2::7"}},
+			want:  "2001:db8:0:2::5",
+		},
+		{
+			name:     "an assigned address outside the delegated prefix wins over the prefix",
+			addrs:    []addr{{ip: "2001:db8:0:2::5", primary: true}},
+			prefixes: []string{"2001:db8:0:1::/80"},
+			want:     "2001:db8:0:2::5",
+		},
+		{
+			name:      "a malformed assigned address is an error",
+			addrs:     []addr{{ip: "not-an-ip"}},
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, eni, err := parseENI(newIface(tt.addrs, tt.prefixes), nil, nil)
+			if tt.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, eni)
+
+			if tt.want == "" {
+				assert.False(t, eni.IPv6.IsValid())
+				return
+			}
+			assert.Equal(t, tt.want, eni.IPv6.String())
+		})
+	}
+}

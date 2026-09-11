@@ -82,6 +82,7 @@ func (in *ENI) DeepCopyInto(out *ENI) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	in.IPv6.DeepCopyInto(&out.IPv6)
 	if in.SecurityGroups != nil {
 		in, out := &in.SecurityGroups, &out.SecurityGroups
 		*out = make([]string, len(*in))
