@@ -272,49 +272,72 @@ func deriveVpcCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR netip.Prefix, second
 	return
 }
 
+// autoDetectIPv4NativeRoutingCIDR either validates an existing native routing
+// CIDR configuration against the VPC CIDRs derived from the CiliumNode status,
+// or uses the VPC primary CIDR as the autodetected native routing CIDR.
+//
+// Returns false when the VPC CIDRs cannot be determined yet.
 func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNodeStore) bool {
-	if primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(n.ownNode); primaryCIDR.IsValid() {
-		allCIDRs := append([]netip.Prefix{primaryCIDR}, secondaryCIDRs...)
-		if nativeCIDR := n.conf.IPv4NativeRoutingCIDR; nativeCIDR.IsValid() {
-			found := false
-			for _, vpcCIDR := range allCIDRs {
-				// Accept the configured native routing CIDR as long as it
-				// overlaps one of the VPC CIDRs, i.e. it is a VPC CIDR, a
-				// subnet of one (e.g. a single availability-zone subnet, used
-				// to masquerade cross-subnet traffic), or a supernet of one.
-				if !ip.LaminarCIDRsOverlap(nativeCIDR, vpcCIDR) {
-					n.logger.Info(
-						"Native routing CIDR does not overlap VPC CIDR, trying next",
-						logfields.VPCCIDR, vpcCIDR,
-						option.IPv4NativeRoutingCIDR, nativeCIDR,
-					)
-				} else {
-					found = true
-					n.logger.Info(
-						"Native routing CIDR overlaps VPC CIDR, ignoring autodetected VPC CIDRs.",
-						logfields.VPCCIDR, vpcCIDR,
-						option.IPv4NativeRoutingCIDR, nativeCIDR,
-					)
-					break
-				}
-			}
-			if !found {
-				logging.Fatal(n.logger, "None of the VPC CIDRs overlaps the specified native routing CIDR")
-			}
-		} else {
-			n.logger.Info(
-				"Using autodetected primary VPC CIDR.",
-				logfields.VPCCIDR, primaryCIDR,
-			)
-			localNodeStore.Update(func(n *node.LocalNode) {
-				n.Local.IPv4NativeRoutingCIDR = primaryCIDR
-			})
-		}
-		return true
-	} else {
+	primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(n.ownNode)
+	if !primaryCIDR.IsValid() {
 		n.logger.Info("Could not determine VPC CIDRs")
 		return false
 	}
+
+	podSubnets := append([]netip.Prefix{primaryCIDR}, secondaryCIDRs...)
+	autodetected := false
+
+	if nativeCIDR := n.conf.IPv4NativeRoutingCIDR; nativeCIDR.IsValid() {
+		found := false
+		for _, vpcCIDR := range podSubnets {
+			// Accept the configured native routing CIDR as long as it
+			// overlaps one of the VPC CIDRs, i.e. it is a VPC CIDR, a
+			// subnet of one (e.g. a single availability-zone subnet, used
+			// to masquerade cross-subnet traffic), or a supernet of one.
+			if !ip.LaminarCIDRsOverlap(nativeCIDR, vpcCIDR) {
+				n.logger.Info(
+					"Native routing CIDR does not overlap VPC CIDR, trying next",
+					logfields.VPCCIDR, vpcCIDR,
+					option.IPv4NativeRoutingCIDR, nativeCIDR,
+				)
+			} else {
+				found = true
+				n.logger.Info(
+					"Native routing CIDR overlaps VPC CIDR, ignoring autodetected VPC CIDRs.",
+					logfields.VPCCIDR, vpcCIDR,
+					option.IPv4NativeRoutingCIDR, nativeCIDR,
+				)
+				break
+			}
+		}
+		if !found {
+			logging.Fatal(n.logger, "None of the VPC CIDRs overlaps the specified native routing CIDR")
+		}
+		// A configured native routing CIDR may be a supernet of the VPC CIDRs,
+		// e.g. one covering peered VPCs. It then covers pod subnets that the
+		// VPC CIDRs of this node do not.
+		podSubnets = append(podSubnets, nativeCIDR)
+	} else {
+		n.logger.Info(
+			"Using autodetected primary VPC CIDR.",
+			logfields.VPCCIDR, primaryCIDR,
+		)
+		autodetected = true
+	}
+
+	// deriveVpcCIDRs only ever returns IPv4 CIDRs, so the only IPv6 pod subnet
+	// that can be known is the operator-supplied one.
+	if nativeCIDR := n.conf.IPv6NativeRoutingCIDR; nativeCIDR.IsValid() {
+		podSubnets = append(podSubnets, nativeCIDR)
+	}
+
+	localNodeStore.Update(func(ln *node.LocalNode) {
+		if autodetected {
+			ln.Local.IPv4NativeRoutingCIDR = primaryCIDR
+		}
+		ln.SetPodSubnets(podSubnets)
+	})
+	return true
 }
 
 // hasMinimumIPsInPool returns true if the required number of IPs is available
