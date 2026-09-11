@@ -110,16 +110,25 @@ type mockIPAMNode struct {
 	instanceID       string
 	prefixDelegation bool
 	ops              nodemanager.NodeOperations
+
+	// onInstanceID, when set, runs on every InstanceID() call.
+	onInstanceID func()
 }
 
 func (m *mockIPAMNode) SetOpts(nodemanager.NodeOperations)           {}
 func (m *mockIPAMNode) SetPoolMaintainer(nodemanager.PoolMaintainer) {}
 func (m *mockIPAMNode) UpdatedResource(*v2.CiliumNode) bool          { panic("not impl") }
 func (m *mockIPAMNode) Update(*v2.CiliumNode)                        {}
-func (m *mockIPAMNode) InstanceID() string                           { return m.instanceID }
 func (m *mockIPAMNode) IsPrefixDelegationEnabled() bool              { return m.prefixDelegation }
 func (m *mockIPAMNode) Ops() nodemanager.NodeOperations              { return m.ops }
 func (m *mockIPAMNode) SetRunning(_ bool)                            { panic("not impl") }
+
+func (m *mockIPAMNode) InstanceID() string {
+	if m.onInstanceID != nil {
+		m.onInstanceID()
+	}
+	return m.instanceID
+}
 
 var _ ipamNodeActions = (*mockIPAMNode)(nil)
 
