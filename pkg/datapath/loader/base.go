@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/google/renameio/v2"
@@ -258,16 +259,36 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, reg *regist
 	if xdpConfig.Disabled() {
 		return nil
 	}
-	for _, dev := range devices {
-		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach cil_from_wireguard
-		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
-		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
-		// is enabled, otherwise we will get "operation not supported" error.
-		if dev == wgTypes.IfaceName {
-			continue
-		}
 
-		if err := compileAndLoadXDPProg(ctx, logger, reg, collLoader, lnc, dev, xdpConfig.Mode()); err != nil {
+	// When WG & encrypt-node are on, the devices include cilium_wg0 to attach cil_from_wireguard
+	// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
+	// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
+	// is enabled, otherwise we will get "operation not supported" error.
+	xdpDevs := slices.DeleteFunc(slices.Clone(devices), func(dev string) bool {
+		return dev == wgTypes.IfaceName
+	})
+	if len(xdpDevs) == 0 {
+		return nil
+	}
+
+	objPath, err := compileXDPProg(ctx, logger)
+	if err != nil {
+		// Hoisting the compile out of the loop below moved it out of that loop's
+		// best-effort tolerance, so keep tolerating it here.
+		if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
+			logger.Info("Failed to compile XDP program, ignoring due to best-effort mode",
+				logfields.Error, err,
+			)
+			return nil
+		}
+		return fmt.Errorf("compiling XDP program: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	for _, dev := range xdpDevs {
+		if err := loadXDPProg(ctx, logger, reg, collLoader, lnc, objPath, dev, xdpConfig.Mode()); err != nil {
 			if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
 				logger.Info("Failed to attach XDP program, ignoring due to best-effort mode",
 					logfields.Error, err,
@@ -387,13 +408,13 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
-	defer cancel()
+	// Each clang run below bounds itself with defaults.ExecTimeout; everything
+	// else here inherits only cancellation.
 
 	if lnc.KPRConfig.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
 		if err := compileWithOptions(ctx, l.logger, socketProg, socketObj, nil); err != nil {
-			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)
+			return fmt.Errorf("failed to compile bpf_sock.c: %w", err)
 		}
 		if err := socketlb.Enable(ctx, l.logger, l.registry, l.bpfCollectionLoader, l.sysctl, lnc); err != nil {
 			return err
@@ -405,12 +426,12 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	}
 
 	if err := reinitializeXDPLocked(ctx, l.logger, l.registry, l.bpfCollectionLoader, lnc, devices); err != nil {
-		logging.Fatal(l.logger, "Failed to compile XDP program", logfields.Error, err)
+		return fmt.Errorf("failed to reinitialize XDP programs: %w", err)
 	}
 
 	// Compile alignchecker program
 	if err := compileDefault(ctx, l.logger, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
-		logging.Fatal(l.logger, "alignchecker compile failed", logfields.Error, err)
+		return fmt.Errorf("alignchecker compile failed: %w", err)
 	}
 	// Validate alignments of C and Go equivalent structs
 	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
