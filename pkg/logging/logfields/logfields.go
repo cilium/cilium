@@ -631,6 +631,15 @@ const (
 	// XDSCurrentVersion is the current version of an xDS resource.
 	XDSCurrentVersion = "xdsCurrentVersion"
 
+	// XDSCurrentGeneration is the latest desired-state mutation generation for a node.
+	XDSCurrentGeneration = "xdsCurrentGeneration"
+
+	// XDSGeneration is an xDS mutation, wait, or response generation boundary.
+	XDSGeneration = "xdsGeneration"
+
+	// XDSRollbackGeneration is the generation boundary represented by a rollback lifecycle.
+	XDSRollbackGeneration = "xdsRollbackGeneration"
+
 	// XDSPushedVersion is the version of an xDS resource that has been pushed.
 	XDSPushedVersion = "xdsPushedVersion"
 

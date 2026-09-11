@@ -81,20 +81,7 @@ func TestADSEmptyNamedSubscriptionStillProcessesACK(t *testing.T) {
 			defer cancel()
 			wg := completion.NewWaitGroup(ctx)
 			t.Cleanup(wg.Cancel)
-			resources := xds.NewResources()
-			switch resource := test.initial.(type) {
-			case *endpoint.ClusterLoadAssignment:
-				resources.Endpoints["resource"] = resource
-			case *route.RouteConfiguration:
-				resources.Routes["resource"] = resource
-			case *tls.Secret:
-				resources.Secrets["resource"] = resource
-			}
-			// Observe the named resource's ACK directly; bulk server updates only
-			// infer listener waits unless a completion type is explicitly supplied.
-			snapshot, err := server.cache.GenerateSnapshot(&resources, server.logger)
-			require.NoError(t, err)
-			require.NoError(t, server.cache.UpdateSnapshot(ctx, localNodeID, snapshot, wg, map[string]func(error){test.typeURL.URL(): nil}, nil))
+			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, test.typeURL, "resource", test.initial, wg, nil))
 			stream, err := client.StreamAggregatedResources(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
@@ -128,15 +115,7 @@ func TestADSEmptyNamedSubscriptionStillProcessesACK(t *testing.T) {
 			require.Zero(t, server.cache.GetCompletionCallbacks().PendingCompletionCount())
 			require.Zero(t, server.cache.GetStatusInfo(localNodeID).GetNumWatches())
 
-			switch resource := test.updated.(type) {
-			case *endpoint.ClusterLoadAssignment:
-				resources.Endpoints["resource"] = resource
-			case *route.RouteConfiguration:
-				resources.Routes["resource"] = resource
-			case *tls.Secret:
-				resources.Secrets["resource"] = resource
-			}
-			require.NoError(t, server.UpsertEnvoyResources(ctx, resources, nil))
+			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, test.typeURL, "resource", test.updated, nil, nil))
 			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
 				TypeUrl: test.typeURL.URL(), ResourceNames: []string{"resource"}, VersionInfo: response.GetVersionInfo(),
 			}))
@@ -238,11 +217,9 @@ func TestADSRecognizesInitializedNodes(t *testing.T) {
 	logger := hivetest.Logger(t)
 	cache := xdsnew.NewCache(logger, false, xdsnew.WithNodeIDs(localNodeID, nodeID))
 	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
-	resources := xds.NewResources()
-	resources.Listeners["listener"] = &listener.Listener{Name: "listener"}
-	snapshot, err := server.cache.GenerateSnapshot(&resources, server.logger)
+	require.NoError(t, cache.ApplyResource(t.Context(), nodeID, typeurl.Listener, "listener", &listener.Listener{Name: "listener"}, nil, nil))
+	snapshot, err := cache.GetSnapshot(nodeID)
 	require.NoError(t, err)
-	require.NoError(t, server.cache.SetSnapshot(t.Context(), nodeID, snapshot))
 	client := newTestADSClient(t, server)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()

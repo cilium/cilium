@@ -135,9 +135,10 @@ func Indices() iter.Seq[Index] {
 	}
 }
 
-// Set is a fixed-size resource-type set. The zero value is unspecified rather
-// than an initialized empty set, preserving the distinction used by snapshot
-// generation between "regenerate everything" and "nothing changed".
+// Set is a fixed-size resource-type set. The zero value is empty and
+// uninitialized. An uninitialized set always has zero bits; Known distinguishes
+// an omitted set from an explicitly initialized empty set without changing
+// membership semantics.
 type Set struct {
 	bits  uint8
 	known bool
@@ -192,7 +193,7 @@ func (set *Set) Remove(index Index) {
 	}
 }
 
-// Union returns the initialized union of set and other.
+// Union returns the union of set and other, initialized if either set is.
 func (set Set) Union(other Set) Set {
 	return Set{bits: set.bits | other.bits, known: set.known || other.known}
 }

@@ -36,9 +36,13 @@ func newTestNPHDSAdapter(t *testing.T) *nphdsCacheAdapter {
 
 func lookupNPHDS(t *testing.T, adapter *nphdsCacheAdapter, identityStr string) *envoyAPI.NetworkPolicyHosts {
 	t.Helper()
-	resource, _ := testADSNPHDSCache(t, adapter).GetResource(localNodeID, typeurl.NetworkPolicyHosts, identityStr)
-	npHost, _ := resource.(*envoyAPI.NetworkPolicyHosts)
-	return npHost
+	resource := testADSNPHDSCache(t, adapter).GetResource(localNodeID, typeurl.NetworkPolicyHosts, identityStr)
+	if resource == nil {
+		return nil
+	}
+	res, ok := resource.(*envoyAPI.NetworkPolicyHosts)
+	require.True(t, ok)
+	return res
 }
 
 func testADSNPHDSCache(t *testing.T, adapter *nphdsCacheAdapter) xdsnew.Cache {
@@ -90,10 +94,10 @@ func TestNPHDSAdapterUpdatesOnlyMatchingIdentity(t *testing.T) {
 	require.NoError(t, adapter.handleIPUpsert("123", "1.2.3.0/32", 123))
 	require.NoError(t, adapter.handleIPUpsert("456", "4.5.6.0/32", 456))
 	unrelated := lookupNPHDS(t, adapter, "456")
-	priorResources := testADSNPHDSCache(t, adapter).GetAllResources(localNodeID)
+	priorResource := lookupNPHDS(t, adapter, "123")
 
 	require.NoError(t, adapter.handleIPUpsert("123", "1.2.3.1/32", 123))
-	assert.Equal(t, []string{"1.2.3.0/32"}, priorResources.NetworkPolicyHosts["123"].HostAddresses)
+	assert.Equal(t, []string{"1.2.3.0/32"}, priorResource.HostAddresses)
 	assert.Same(t, unrelated, lookupNPHDS(t, adapter, "456"))
 	require.NoError(t, adapter.handleIPDelete("123", "1.2.3.0/32"))
 	assert.Same(t, unrelated, lookupNPHDS(t, adapter, "456"))

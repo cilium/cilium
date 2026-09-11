@@ -42,6 +42,7 @@ import (
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -429,7 +430,7 @@ func (e *benchmarkADSEnvoy) run() {
 			if err != nil {
 				e.endServerWork(false)
 				e.fail(err)
-				e.cache.GetCompletionCallbacks().CancelPendingCompletions(NetworkPolicyTypeURL)
+				e.cache.GetCompletionCallbacks().TakePendingWaiters(localNodeID, typeurl.NetworkPolicy).Complete(nil)
 				return
 			}
 			e.endServerWork(true)
@@ -461,7 +462,7 @@ func (e *benchmarkADSEnvoy) run() {
 		e.endServerWork(responsePending)
 		if err != nil {
 			e.fail(err)
-			e.cache.GetCompletionCallbacks().CancelPendingCompletions(NetworkPolicyTypeURL)
+			e.cache.GetCompletionCallbacks().TakePendingWaiters(localNodeID, typeurl.NetworkPolicy).Complete(nil)
 			return
 		}
 	}

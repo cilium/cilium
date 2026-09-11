@@ -27,25 +27,28 @@ func requireCachedResource(t testing.TB, cache xdsnew.Cache, nodeID, typeURL, na
 	t.Helper()
 	typeIndex, supported := typeurl.FromURL(typeURL)
 	require.True(t, supported)
-	resource, exists := cache.GetResource(nodeID, typeIndex, name)
-	require.True(t, exists)
-	require.NotNil(t, resource)
+	require.NotNil(t, cache.GetResource(nodeID, typeIndex, name))
 }
 
 func requireNoCachedResource(t testing.TB, cache xdsnew.Cache, nodeID, typeURL, name string) {
 	t.Helper()
 	typeIndex, supported := typeurl.FromURL(typeURL)
 	require.True(t, supported)
-	resource, exists := cache.GetResource(nodeID, typeIndex, name)
-	require.False(t, exists)
-	require.Nil(t, resource)
+	require.Nil(t, cache.GetResource(nodeID, typeIndex, name))
 }
 
 func cachedListener(t testing.TB, cache xdsnew.Cache, nodeID, name string) *envoy_config_listener.Listener {
 	t.Helper()
-	resource, exists := cache.GetResource(nodeID, typeurl.Listener, name)
-	require.True(t, exists)
+	resource := cache.GetResource(nodeID, typeurl.Listener, name)
 	listener, ok := resource.(*envoy_config_listener.Listener)
 	require.True(t, ok)
 	return listener
+}
+
+func cachedNetworkPolicy(t testing.TB, cache xdsnew.Cache, nodeID, name string) *cilium.NetworkPolicy {
+	t.Helper()
+	resource := cache.GetResource(nodeID, typeurl.NetworkPolicy, name)
+	policy, ok := resource.(*cilium.NetworkPolicy)
+	require.True(t, ok)
+	return policy
 }

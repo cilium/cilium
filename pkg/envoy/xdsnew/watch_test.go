@@ -14,10 +14,12 @@ import (
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/stream/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
@@ -42,12 +44,7 @@ func TestSnapshotResponseDeliveryDoesNotHoldCacheLocks(t *testing.T) {
 	c := NewCache(logger, false, WithNodeIDs("node1")).(*cacheImpl)
 	const nodeID = "node1"
 	listener := &envoy_config_listener.Listener{Name: "listener"}
-	resources := xds.NewResources()
-	resources.Listeners[listener.Name] = listener
-	snapshot, err := c.GenerateSnapshot(&resources, logger)
-	require.NoError(t, err)
-	require.NoError(t, c.UpdateSnapshot(t.Context(), nodeID, snapshot, nil, nil, nil))
-	c.SetResources(nodeID, &resources)
+	require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Listener, listener.Name, listener, nil, nil))
 
 	request := &cache.Request{
 		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(),
@@ -71,21 +68,12 @@ func TestSnapshotResponseDeliveryDoesNotHoldCacheLocks(t *testing.T) {
 	updatedListener := &envoy_config_listener.Listener{
 		Name: "listener", Address: &envoy_config_core.Address{},
 	}
-	updatedResources := xds.NewResources()
-	updatedResources.Listeners[updatedListener.Name] = updatedListener
-	updatedSnapshot, err := c.GenerateSnapshot(&updatedResources, logger)
-	require.NoError(t, err)
-	cluster := &envoy_config_cluster.Cluster{Name: "unrelated-cluster"}
-	clusterResources := xds.NewResources()
-	clusterResources.Listeners[updatedListener.Name] = updatedListener
-	clusterResources.Clusters[cluster.Name] = cluster
-	clusterSnapshot, err := c.GenerateSnapshot(&clusterResources, logger)
-	require.NoError(t, err)
 	publication := &publicationSignalingCache{SnapshotCache: c.SnapshotCache, started: make(chan struct{}, 1)}
 	c.SnapshotCache = publication
 	publicationDone := make(chan error, 1)
 	go func() {
-		publicationDone <- c.UpdateSnapshot(context.Background(), nodeID, updatedSnapshot, nil, nil, nil)
+		publicationDone <- c.ApplyResource(context.Background(), nodeID, typeurl.Listener,
+			updatedListener.Name, updatedListener, nil, nil)
 	}()
 	<-publication.started
 
@@ -94,10 +82,8 @@ func TestSnapshotResponseDeliveryDoesNotHoldCacheLocks(t *testing.T) {
 	go func() {
 		// Exercise both Cilium's lock and go-control-plane's lock while the
 		// stream's response channel remains deliberately unconsumed.
-		accessErr = c.UpdateSnapshot(context.Background(), nodeID, clusterSnapshot, nil, nil, nil)
-		if accessErr == nil {
-			c.SetResources(nodeID, &clusterResources)
-		}
+		cluster := &envoy_config_cluster.Cluster{Name: "unrelated-cluster"}
+		accessErr = c.ApplyResource(context.Background(), nodeID, typeurl.Cluster, cluster.Name, cluster, nil, nil)
 		c.GetResource(nodeID, typeurl.Listener, "listener")
 		c.GetStatusInfo(nodeID).GetNumWatches()
 		close(accessDone)
@@ -128,8 +114,8 @@ func TestSnapshotResponseDeliveryDoesNotHoldCacheLocks(t *testing.T) {
 	select {
 	case <-accessDone:
 		require.NoError(t, accessErr)
-		resource, exists := c.GetResource(nodeID, typeurl.Listener, listener.Name)
-		require.True(t, exists)
+		resource := c.GetResource(nodeID, typeurl.Listener, listener.Name)
+		require.NotNil(t, resource)
 		require.Same(t, updatedListener, resource)
 	case <-time.After(5 * time.Second):
 		t.Fatal("a blocked response handoff must not hold either cache lock")
@@ -152,6 +138,84 @@ func TestCreateWatchImmediateResponseRetiresTracking(t *testing.T) {
 	// An already served watch has nothing left to cancel.
 	cancel()
 	cancel()
+}
+
+func TestDelayedImmediateResponseDoesNotACKLaterSameTypeUpdates(t *testing.T) {
+	for _, initialEmpty := range []bool{false, true} {
+		for _, repeatedVersion := range []bool{false, true} {
+			t.Run(fmt.Sprintf("initial-empty=%t/repeated-version=%t", initialEmpty, repeatedVersion), func(t *testing.T) {
+				c := NewCache(slog.New(slog.DiscardHandler), false, WithNodeIDs("node1")).(*cacheImpl)
+				const nodeID = "node1"
+				node := &envoy_config_core.Node{Id: nodeID}
+				var completed []int
+				update := func(id int, listener *envoy_config_listener.Listener) *completion.WaitGroup {
+					wg := completion.NewWaitGroup(t.Context())
+					t.Cleanup(wg.Cancel)
+					require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Listener, "listener", listener, wg,
+						func(err error) {
+							require.NoError(t, err)
+							completed = append(completed, id)
+						}))
+					return wg
+				}
+				var initial *envoy_config_listener.Listener
+				if !initialEmpty {
+					initial = &envoy_config_listener.Listener{Name: "listener"}
+					update(0, initial)
+				}
+				request := &cache.Request{Node: node, TypeUrl: typeurl.Listener.URL()}
+				responses := make(chan cache.Response, 1)
+				cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				oldResponse := <-responses
+				// Hold the immediate response before OnStreamResponse runs, just
+				// as a busy stream can delay the cache-to-server handoff. Both
+				// intervening updates use LDS, including an optional A-B-A case.
+				firstWG := update(1, &envoy_config_listener.Listener{
+					Name: "listener", TrafficDirection: envoy_config_core.TrafficDirection_OUTBOUND,
+				})
+				latest := &envoy_config_listener.Listener{
+					Name: "listener", TrafficDirection: envoy_config_core.TrafficDirection_INBOUND,
+				}
+				if repeatedVersion {
+					latest = initial
+				}
+				secondWG := update(2, latest)
+				response, err := oldResponse.GetDiscoveryResponse()
+				require.NoError(t, err)
+				response.Nonce = "old-response"
+				c.completionCbs.OnStreamResponse(oldResponse.GetContext(), 1, request, response)
+				require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
+					Node: node, TypeUrl: typeurl.Listener.URL(), VersionInfo: response.GetVersionInfo(), ResponseNonce: response.GetNonce(),
+				}))
+				if initialEmpty {
+					require.Empty(t, completed, "an ACK of the initial empty snapshot must not claim later generations")
+				} else {
+					require.Equal(t, []int{0}, completed, "the old response may ACK only the original update")
+				}
+				require.Equal(t, 2, c.completionCbs.PendingCompletionCount())
+
+				// A fresh stream consumes the current snapshot, even when its
+				// contents happen to have returned to the old content version.
+				require.NoError(t, c.completionCbs.OnStreamRequest(2, request))
+				cancel, err = c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				currentResponse := <-responses
+				response, err = currentResponse.GetDiscoveryResponse()
+				require.NoError(t, err)
+				response.Nonce = "current-response"
+				c.completionCbs.OnStreamResponse(currentResponse.GetContext(), 2, request, response)
+				require.NoError(t, c.completionCbs.OnStreamRequest(2, &discovery.DiscoveryRequest{
+					Node: node, TypeUrl: typeurl.Listener.URL(), VersionInfo: response.GetVersionInfo(), ResponseNonce: response.GetNonce(),
+				}))
+				require.NoError(t, firstWG.Wait())
+				require.NoError(t, secondWG.Wait())
+				require.Zero(t, c.completionCbs.PendingCompletionCount())
+			})
+		}
+	}
 }
 
 func TestTrackedWatchRemovalPreservesOtherNodes(t *testing.T) {
@@ -249,11 +313,11 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 						cancel()
 					}
 				case "respond":
-					resources := xds.NewResources()
-					resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
-					updated, err := c.GenerateSnapshot(&resources, c.logger)
+					listener := &envoy_config_listener.Listener{Name: "listener"}
+					require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Listener,
+						listener.Name, listener, nil, nil))
+					updated, err := c.GetSnapshot(nodeID)
 					require.NoError(t, err)
-					require.NoError(t, c.SetSnapshot(t.Context(), nodeID, updated))
 					for range watchCount {
 						select {
 						case response := <-responses:
@@ -321,9 +385,8 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 			resources := xds.NewResources()
 			resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
 			resources.Clusters["cluster"] = &envoy_config_cluster.Cluster{Name: "cluster"}
-			updatedSnapshot, err := c.GenerateSnapshot(&resources, c.logger)
-			require.NoError(t, err)
-			require.NoError(t, c.UpdateSnapshot(t.Context(), nodeID, updatedSnapshot, nil, nil, nil))
+			require.NoError(t, c.ApplyResources(t.Context(), nodeID,
+				ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{}))
 			var deliveredTypes []string
 			for range 2 {
 				response := <-responses
