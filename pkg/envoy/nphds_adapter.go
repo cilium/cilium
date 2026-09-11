@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net"
 	"slices"
 	"sync"
@@ -17,7 +16,6 @@ import (
 	envoy_server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -147,7 +145,7 @@ func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, name string, m
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	resource, _ := s.cache.GetResource(localNodeID, typeurl.NetworkPolicyHosts, name)
+	resource := s.cache.GetResource(localNodeID, typeurl.NetworkPolicyHosts, name)
 	current, _ := resource.(*envoyAPI.NetworkPolicyHosts)
 	next, err := mutate(current)
 	if err != nil {
@@ -156,24 +154,8 @@ func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, name string, m
 	if next == current {
 		return nil
 	}
-
-	currentResources := s.cache.GetAllResources(localNodeID)
-	if currentResources == nil {
-		currentResources = &xds.Resources{}
-	}
-	updated := *currentResources
-	updated.NetworkPolicyHosts = maps.Clone(currentResources.NetworkPolicyHosts)
-	if next == nil {
-		delete(updated.NetworkPolicyHosts, name)
-	} else {
-		if updated.NetworkPolicyHosts == nil {
-			updated.NetworkPolicyHosts = make(map[string]*envoyAPI.NetworkPolicyHosts)
-		}
-		updated.NetworkPolicyHosts[name] = next
-	}
-
-	return s.updateSnapshot(ctx, &updated, localNodeID, nil, nil,
-		computeChanges(currentResources, &updated))
+	err = s.cache.ApplyResource(ctx, localNodeID, typeurl.NetworkPolicyHosts, name, next, nil, nil)
+	return err
 }
 
 func newNPHDSIPCacheListenerCallbacks(logger *slog.Logger, ipCache IPCacheEventSource, store nphdsResourceStore) envoy_server.CallbackFuncs {
