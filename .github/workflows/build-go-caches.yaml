@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - pr/aanm/ctmap-gc-observability
 
   # If the cache was cleaned we should re-build the cache with the latest commit
   workflow_run:

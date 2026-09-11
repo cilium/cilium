@@ -24,6 +24,7 @@ on:
     branches:
     - main
     - ft/main/**
+    - pr/aanm/ctmap-gc-observability
     paths-ignore:
     - 'Documentation/**'
   # Run every 8 hours
