@@ -106,6 +106,9 @@ type IPAM struct {
 	ipv6Allocator Allocator
 	ipv4Allocator Allocator
 
+	ipv6RoutingMetadataResolver routingMetadataResolver
+	ipv4RoutingMetadataResolver routingMetadataResolver
+
 	// metadata provides information about a particular IP owner.
 	metadata Metadata
 
