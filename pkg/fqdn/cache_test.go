@@ -605,12 +605,12 @@ func assertZombiesContain(t *testing.T, zombies []*DNSZombieMapping, expected ma
 		names, exists := expected[zombie.IP.String()]
 		require.Truef(t, exists, "Unexpected zombie %s in zombies", zombie.IP.String())
 
-		slices.Sort(zombie.Names)
+		got := zombie.Names.Sorted()
 		slices.Sort(names)
 
-		require.Len(t, zombie.Names, len(names))
-		for i := range zombie.Names {
-			require.Equal(t, names[i], zombie.Names[i], "Unexpected name in zombie names list")
+		require.Len(t, got, len(names))
+		for i := range got {
+			require.Equal(t, names[i], got[i], "Unexpected name in zombie names list")
 		}
 	}
 }
@@ -1261,7 +1261,7 @@ func TestPerHostLimitBehaviourForS3(t *testing.T) {
 func (z *DNSZombieMapping) String() string {
 	return fmt.Sprintf(
 		"DNSZombieMapping{AliveAt: %s, DeletePendingAt: %s, Names: %v}",
-		z.AliveAt, z.DeletePendingAt, z.Names,
+		z.AliveAt, z.DeletePendingAt, z.Names.Sorted(),
 	)
 }
 
@@ -1331,7 +1331,7 @@ func Test_sortZombieMappingSlice(t *testing.T) {
 		{
 			"single",
 			args{zombies: []*DNSZombieMapping{{
-				Names:           []string{"test.com"},
+				Names:           newNameSet("test.com"),
 				AliveAt:         moments[0],
 				DeletePendingAt: moments[1],
 			}}},
@@ -1364,12 +1364,12 @@ func Test_sortZombieMappingSlice(t *testing.T) {
 			"swapped equal times, tiebreaker",
 			args{zombies: []*DNSZombieMapping{
 				{
-					Names:           []string{"test.com", "test2.com"},
+					Names:           newNameSet("test.com", "test2.com"),
 					AliveAt:         moments[0],
 					DeletePendingAt: moments[1],
 				},
 				{
-					Names:           []string{"test.com"},
+					Names:           newNameSet("test.com"),
 					AliveAt:         moments[0],
 					DeletePendingAt: moments[1],
 				},
@@ -1388,7 +1388,7 @@ func Test_sortZombieMappingSlice(t *testing.T) {
 				m := DNSZombieMapping{
 					AliveAt:         mi,
 					DeletePendingAt: mj,
-					Names:           names[:k],
+					Names:           newNameSet(names[:k]...),
 				}
 				allMappings = append(allMappings, &m)
 			}
@@ -1423,4 +1423,130 @@ func Test_sortZombieMappingSlice(t *testing.T) {
 			validateZombieSort(t, tt.args.zombies)
 		})
 	}
+}
+
+// DNSZombieMapping is written to the endpoint header file, which is a stable
+// format: an agent of a different version has to read back what this one wrote.
+// Names is a set in memory but must stay an array on the wire, so the tests
+// below pin the actual bytes rather than round-tripping through this same code.
+
+// zombieForWire returns a zombie with fixed timestamps and unsorted names, so
+// encoding it exercises ordering rather than an already-canonical case.
+func zombieForWire() DNSZombieMapping {
+	return DNSZombieMapping{
+		IP:              netip.MustParseAddr("10.0.0.1"),
+		AliveAt:         time.Unix(1, 0).UTC(),
+		DeletePendingAt: time.Unix(2, 0).UTC(),
+		Names:           newNameSet("zeta.example.com", "alpha.example.com"),
+	}
+}
+
+const zombieWireJSON = `{"names":["alpha.example.com","zeta.example.com"],` +
+	`"ip":"10.0.0.1","alive-at":"1970-01-01T00:00:01Z",` +
+	`"delete-pending-at":"1970-01-01T00:00:02Z"}`
+
+// The whole field rests on nameSet.MarshalJSON being reached: encoding/json
+// only finds a pointer method on an addressable value, so with a pointer
+// receiver a zombie arriving as a plain value -- a map element, say -- would
+// serialize with no names at all and no error. Cover every form callers can
+// hand it, and pin the bytes once.
+func TestZombieNamesSerialize(t *testing.T) {
+	zombie := zombieForWire()
+
+	t.Run("wire format", func(t *testing.T) {
+		encoded, err := json.Marshal(&zombie)
+		require.NoError(t, err)
+		require.JSONEq(t, zombieWireJSON, string(encoded),
+			"names must be a sorted array, not a map")
+	})
+
+	for name, encode := range map[string]func() ([]byte, error){
+		"pointer":       func() ([]byte, error) { return json.Marshal(&zombie) },
+		"value":         func() ([]byte, error) { return json.Marshal(zombie) },
+		"map element":   func() ([]byte, error) { return json.Marshal(map[string]DNSZombieMapping{"k": zombie}) },
+		"slice element": func() ([]byte, error) { return json.Marshal([]DNSZombieMapping{zombie}) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			encoded, err := encode()
+			require.NoError(t, err)
+			require.Contains(t, string(encoded), `"names":["alpha.example.com","zeta.example.com"]`,
+				"%s must serialize names, not drop them silently", name)
+		})
+	}
+
+	// An agent running the previous release reads Names as a plain []string.
+	// Decoding what this revision writes with that shape catches the set
+	// leaking onto the wire as an object.
+	t.Run("previous release can decode", func(t *testing.T) {
+		zombies := NewDNSZombieMappings(hivetest.Logger(t), defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+		zombies.Upsert(time.Unix(2, 0).UTC(), zombie.IP, "zeta.example.com", "alpha.example.com")
+
+		raw, err := json.Marshal(zombies)
+		require.NoError(t, err)
+
+		var legacy struct {
+			Deletes map[netip.Addr]struct {
+				Names           []string  `json:"names,omitempty"`
+				IP              string    `json:"ip,omitempty"`
+				DeletePendingAt time.Time `json:"delete-pending-at,omitempty"`
+			} `json:"deletes,omitempty"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &legacy))
+
+		got := legacy.Deletes[zombie.IP]
+		require.Equal(t, []string{"alpha.example.com", "zeta.example.com"}, got.Names)
+		require.Equal(t, "10.0.0.1", got.IP)
+		require.Equal(t, time.Unix(2, 0).UTC(), got.DeletePendingAt.UTC())
+	})
+}
+
+// Names written by an older agent are not de-duplicated, so a restored array
+// may repeat a name. Loading it into a set has to collapse those.
+func TestZombieNamesDeserialize(t *testing.T) {
+	t.Run("from array", func(t *testing.T) {
+		raw := `{"names":["zeta.example.com","alpha.example.com","alpha.example.com"],` +
+			`"ip":"10.0.0.1","alive-at":"1970-01-01T00:00:01Z",` +
+			`"delete-pending-at":"1970-01-01T00:00:02Z"}`
+
+		var zombie DNSZombieMapping
+		require.NoError(t, json.Unmarshal([]byte(raw), &zombie))
+
+		require.Equal(t, []string{"alpha.example.com", "zeta.example.com"}, zombie.Names.Sorted(),
+			"restored names must be de-duplicated")
+		require.Equal(t, netip.MustParseAddr("10.0.0.1"), zombie.IP)
+		require.Equal(t, time.Unix(1, 0).UTC(), zombie.AliveAt.UTC())
+		require.Equal(t, time.Unix(2, 0).UTC(), zombie.DeletePendingAt.UTC())
+	})
+
+	// A zombie holding no names omits "names" entirely, so the field decoder
+	// never runs and never allocates the set. Upserting into that restored
+	// zombie must not panic on a nil map.
+	t.Run("without names", func(t *testing.T) {
+		ip := netip.MustParseAddr("10.0.0.3")
+
+		src := NewDNSZombieMappings(hivetest.Logger(t), defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+		src.Upsert(time.Unix(4, 0).UTC(), ip)
+		raw, err := json.Marshal(src)
+		require.NoError(t, err)
+		require.NotContains(t, string(raw), `"names"`, "a nameless zombie must omit the field")
+
+		restored := NewDNSZombieMappings(hivetest.Logger(t), defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+		require.NoError(t, json.Unmarshal(raw, restored))
+
+		require.NotPanics(t, func() {
+			restored.Upsert(time.Unix(5, 0).UTC(), ip, "late.example.com")
+		}, "Upsert into a restored nameless zombie must not panic")
+		require.Equal(t, []string{"late.example.com"}, restored.deletes[ip].Names.Sorted())
+	})
+}
+
+// DeepCopy must not share the names map, or GC callers would mutate live state.
+func TestZombieDeepCopyDoesNotShareNames(t *testing.T) {
+	zombie := zombieForWire()
+
+	cp := zombie.DeepCopy()
+	cp.Names.Insert("new.example.com")
+
+	require.Equal(t, []string{"alpha.example.com", "zeta.example.com"}, zombie.Names.Sorted(),
+		"mutating the copy must not affect the original")
 }

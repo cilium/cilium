@@ -127,7 +127,7 @@ func (n *manager) dnsHistoryModel(endpointID string, prefixMatcher fqdn.PrefixMa
 		}
 
 		for _, delete := range ep.DNSZombies.DumpAlive(prefixMatcher) {
-			for _, name := range delete.Names {
+			for name := range delete.Names {
 				if !nameMatcher(name) {
 					continue
 				}
@@ -186,8 +186,8 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 		zombies, dead := ep.DNSZombies.GC()
 		lookupTime := time.Now()
 		for _, zombie := range zombies {
-			namesToRegen.Insert(zombie.Names...)
-			for _, name := range zombie.Names {
+			for name := range zombie.Names {
+				namesToRegen.Insert(name)
 				activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, 0)
 			}
 		}

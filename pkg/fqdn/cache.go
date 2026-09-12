@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
-	ciliumslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -840,9 +839,9 @@ func (c *DNSCache) UnmarshalJSON(raw []byte) error {
 //     to evict IPs with less DNS churn on them.
 //   - Zombies with the lowest count of DNS names in them are evicted first
 type DNSZombieMapping struct {
-	// Names is the list of names that had DNS lookups with this IP. These may
-	// derive from unrelated DNS lookups. The list is maintained de-duplicated.
-	Names []string `json:"names,omitempty"`
+	// Names is the set of names that had DNS lookups with this IP. These may
+	// derive from unrelated DNS lookups.
+	Names nameSet `json:"names,omitempty"`
 
 	// IP is an address that is pending for delete but may be in-use by a
 	// connection.
@@ -870,11 +869,57 @@ type DNSZombieMapping struct {
 	revisionAddedAt uint64 `json:"-"`
 }
 
+// nameSet is the set of DNS names a zombie holds.
+//
+// It is a defined type rather than sets.Set[string] used directly so that the
+// JSON encoding can live on the field itself. The endpoint header file is a
+// stable format and has to keep names as an array; a plain map-typed field
+// would encode as an object instead.
+type nameSet sets.Set[string]
+
+// newNameSet returns a nameSet holding names, de-duplicated.
+func newNameSet(names ...string) nameSet {
+	return nameSet(sets.New(names...))
+}
+
+// Insert adds names to the set, allocating it if needed. The receiver is a
+// pointer because a zombie restored from JSON that had no names has a nil set:
+// "names" is omitempty, so the field decoder never runs and never allocates.
+func (n *nameSet) Insert(names ...string) {
+	if *n == nil {
+		*n = newNameSet()
+	}
+	sets.Set[string](*n).Insert(names...)
+}
+
+func (n nameSet) Delete(names ...string) { sets.Set[string](n).Delete(names...) }
+
+// Sorted returns the names as a sorted slice. A set has no iteration order, so
+// sort wherever the order is observable, and identical state then produces
+// identical output.
+func (n nameSet) Sorted() []string { return sets.List(sets.Set[string](n)) }
+
+// MarshalJSON encodes the set as a sorted array. The receiver is a value, so
+// encoding/json finds it however the enclosing zombie is passed -- by pointer,
+// by value, or as a map element.
+func (n nameSet) MarshalJSON() ([]byte, error) { return json.Marshal(n.Sorted()) }
+
+// UnmarshalJSON decodes the array form back into a set. Restored names are not
+// trusted to be unique; loading them into a set de-duplicates them.
+func (n *nameSet) UnmarshalJSON(raw []byte) error {
+	var names []string
+	if err := json.Unmarshal(raw, &names); err != nil {
+		return err
+	}
+	*n = newNameSet(names...)
+	return nil
+}
+
 // DeepCopy returns a copy of zombie that does not share any internal pointers
 // or fields
 func (zombie *DNSZombieMapping) DeepCopy() *DNSZombieMapping {
 	return &DNSZombieMapping{
-		Names:           slices.Clone(zombie.Names),
+		Names:           maps.Clone(zombie.Names),
 		IP:              zombie.IP,
 		DeletePendingAt: zombie.DeletePendingAt,
 		AliveAt:         zombie.AliveAt,
@@ -923,7 +968,7 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, addr netip.Addr, 
 	zombie, updatedExisting := zombies.deletes[addr]
 	if !updatedExisting {
 		zombie = &DNSZombieMapping{
-			Names:           ciliumslices.Unique(qname),
+			Names:           make(nameSet, len(qname)),
 			IP:              addr,
 			AliveAt:         zombies.lastCTGCUpdate,
 			DeletePendingAt: expiryTime,
@@ -931,7 +976,6 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, addr netip.Addr, 
 		}
 		zombies.deletes[addr] = zombie
 	} else {
-		zombie.Names = ciliumslices.Unique(append(zombie.Names, qname...))
 		// Keep the latest expiry time
 		if expiryTime.After(zombie.DeletePendingAt) {
 			zombie.DeletePendingAt = expiryTime
@@ -941,6 +985,7 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, addr netip.Addr, 
 			zombie.AliveAt = zombies.lastCTGCUpdate
 		}
 	}
+	zombie.Names.Insert(qname...)
 	return updatedExisting
 }
 
@@ -976,7 +1021,7 @@ func (zombies *DNSZombieMappings) getAliveNames() map[string][]*DNSZombieMapping
 
 	for _, z := range zombies.deletes {
 		if zombies.isConnectionAlive(z) {
-			for _, name := range z.Names {
+			for name := range z.Names {
 				if _, ok := aliveNames[name]; !ok {
 					aliveNames[name] = make([]*DNSZombieMapping, 0, 5)
 				}
@@ -988,7 +1033,7 @@ func (zombies *DNSZombieMappings) getAliveNames() map[string][]*DNSZombieMapping
 	// Add all of the "dead" IPs for live names into the result
 	for _, z := range zombies.deletes {
 		if !zombies.isConnectionAlive(z) {
-			for _, name := range z.Names {
+			for name := range z.Names {
 				if _, ok := aliveNames[name]; ok {
 					aliveNames[name] = append(aliveNames[name], z)
 				}
@@ -1012,7 +1057,7 @@ func (zombies *DNSZombieMappings) isZombieAlive(zombie *DNSZombieMapping, aliveN
 		}
 	}
 
-	for _, name := range zombie.Names {
+	for name := range zombie.Names {
 		if z, ok := aliveNames[name]; ok {
 			alive = true
 			if zombies.perHostLimit == 0 {
@@ -1214,17 +1259,15 @@ func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nam
 			continue
 		}
 
-		// A zombie has multiple names, collect the ones that should remain (i.e.
-		// do not match nameMatch)
-		var newNames []string
-		for _, name := range zombie.Names {
+		// A zombie has multiple names, drop the ones matching nameMatch and
+		// keep the rest. Deleting during a map range is safe.
+		for name := range zombie.Names {
 			if nameMatch != nil && !nameMatch.MatchString(name) {
-				newNames = append(newNames, name)
-			} else {
-				namesAffected = append(namesAffected, name)
+				continue
 			}
+			namesAffected = append(namesAffected, name)
+			zombie.Names.Delete(name)
 		}
-		zombie.Names = newNames
 
 		// Delete the zombie outright if no names remain
 		if len(zombie.Names) == 0 {
@@ -1258,7 +1301,7 @@ func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.T
 
 		// Remove the specified name (if extant) and, if it was
 		// the last one, delete the entry entirely
-		zombie.Names = slices.DeleteFunc(zombie.Names, func(s string) bool { return s == name })
+		zombie.Names.Delete(name)
 		if len(zombie.Names) == 0 {
 			delete(zombies.deletes, ip)
 		}
