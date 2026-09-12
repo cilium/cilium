@@ -26,6 +26,9 @@
 #define SRC_NODE_V6			(const union v6addr *)v6_node_one
 #define DST_NODE_V6			(const union v6addr *)v6_node_two
 
+#define WORLD_IP_V4			0
+#define WORLD_IP_V6			((const union v6addr *)v6_world)
+
 #define VXLAN_PORT			bpf_htons(8472)
 #define GENERAL_PORT			bpf_htons(12134)
 
@@ -139,6 +142,7 @@ int encrypt_v4_1_missing_dst_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry_with_mask_size(DST_POD_CIDR_V4, 0, WORLD_ID,
 					    DST_NODE_V4, ENCRYPT_KEY,
 					    v4_pod_cidr_size);
+	ipcache_v4_add_entry_with_mask_size(WORLD_IP_V4, 0, WORLD_ID, 0, 0, 0);
 
 #ifdef ENABLE_IPSEC
 	ipsec_set_encrypt_state(ENCRYPT_KEY);
@@ -173,6 +177,7 @@ int encrypt_v4_2_src_mark_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry(DST_POD_V4, 0, DST_POD_SEC_IDENTITY,
 			     DST_NODE_V4, ENCRYPT_KEY);
+	ipcache_v4_add_entry_with_mask_size(WORLD_IP_V4, 0, WORLD_ID, 0, 0, 0);
 
 	set_identity_mark(ctx, SRC_POD_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
 
@@ -197,6 +202,8 @@ int encrypt_v4_3_no_src_mark_pktgen(struct __ctx_buff *ctx)
 SETUP(PROG_TYPE, "encrypt_v4_3_no_src_mark")
 int encrypt_v4_3_no_src_mark_setup(struct __ctx_buff *ctx)
 {
+	ipcache_v4_add_entry_with_mask_size(WORLD_IP_V4, 0, WORLD_ID, 0, 0, 0);
+
 	return netdev_send_packet(ctx);
 }
 
@@ -221,6 +228,7 @@ int encrypt_v4_4_no_src_mark_with_src_entry_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry(SRC_POD_V4, 0, SRC_POD_SEC_IDENTITY,
 			     0, ENCRYPT_KEY);
+	ipcache_v4_add_entry_with_mask_size(WORLD_IP_V4, 0, WORLD_ID, 0, 0, 0);
 
 	return netdev_send_packet(ctx);
 }
@@ -262,6 +270,8 @@ int encrypt_v6_1_missing_dst_setup(struct __ctx_buff *ctx)
 	ipcache_v6_add_entry_with_mask_size_ipv6_underlay(DST_POD_CIDR_V6, 0, WORLD_ID,
 							  DST_NODE_V6, ENCRYPT_KEY,
 							  v6_pod_cidr_size);
+	ipcache_v6_add_entry_with_mask_size_ipv6_underlay(WORLD_IP_V6, 0, WORLD_ID, WORLD_IP_V6,
+							  0, 0);
 
 #ifdef ENABLE_IPSEC
 	ipsec_set_encrypt_state(ENCRYPT_KEY);
@@ -290,6 +300,8 @@ int encrypt_v6_2_src_mark_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v6_add_entry_ipv6_underlay(DST_POD_V6, 0, DST_POD_SEC_IDENTITY,
 					   DST_NODE_V6, ENCRYPT_KEY);
+	ipcache_v6_add_entry_with_mask_size_ipv6_underlay(WORLD_IP_V6, 0, WORLD_ID, WORLD_IP_V6,
+							  0, 0);
 
 	set_identity_mark(ctx, SRC_POD_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
 
@@ -311,6 +323,9 @@ int encrypt_v6_3_no_src_mark_pktgen(struct __ctx_buff *ctx)
 SETUP(PROG_TYPE, "encrypt_v6_3_no_src_mark")
 int encrypt_v6_3_no_src_mark_setup(struct __ctx_buff *ctx)
 {
+	ipcache_v6_add_entry_with_mask_size_ipv6_underlay(WORLD_IP_V6, 0, WORLD_ID, WORLD_IP_V6,
+							  0, 0);
+
 	return netdev_send_packet(ctx);
 }
 
@@ -331,6 +346,7 @@ int encrypt_v6_4_no_src_mark_with_src_entry_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v6_add_entry(SRC_POD_V6, 0, SRC_POD_SEC_IDENTITY,
 			     0, ENCRYPT_KEY);
+	ipcache_v6_add_entry_with_mask_size(WORLD_IP_V6, 0, WORLD_ID, 0, 0, 0);
 
 	return netdev_send_packet(ctx);
 }

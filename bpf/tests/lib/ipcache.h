@@ -115,6 +115,14 @@ ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_identi
 }
 
 static __always_inline void
+ipcache_v6_add_entry_with_mask_size(const union v6addr *addr, __u8 cluster_id, __u32 sec_identity,
+				    __u32 tunnel_ep, __u8 spi, __u32 mask_size)
+{
+	__ipcache_v6_add_entry(addr, cluster_id, sec_identity, (union v6addr *)&tunnel_ep, spi,
+			       false, false, mask_size);
+}
+
+static __always_inline void
 ipcache_v6_add_entry_ipv6_underlay(const union v6addr *addr, __u8 cluster_id, __u32 sec_identity,
 				   const union v6addr *tunnel_ep, __u8 spi)
 {
