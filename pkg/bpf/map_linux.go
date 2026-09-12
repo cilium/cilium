@@ -170,10 +170,9 @@ func (m *Map) BatchCount() (count int, err error) {
 			// [BatchIterator.IterateAll]
 			case errors.Is(batchErr, unix.ENOSPC):
 				if retry == maxRetries-1 {
-					err = batchErr
-				} else {
-					chunkSize *= 2
+					return count, batchErr
 				}
+				chunkSize *= 2
 				keys = make(nopDecoder, chunkSize)
 				vals = make(nopDecoder, chunkSize)
 				continue
@@ -1145,11 +1144,11 @@ func (bi *BatchIterator[KT, VT, KP, VP]) IterateAll(ctx context.Context, opts ..
 				if errors.Is(batchErr, unix.ENOSPC) {
 					if retry == bi.maxBatchedRetries()-1 {
 						bi.err = batchErr
-					} else {
-						bi.chunkSize *= 2
-						bi.keys = make([]KT, bi.chunkSize)
-						bi.vals = make([]VT, bi.chunkSize)
+						return
 					}
+					bi.chunkSize *= 2
+					bi.keys = make([]KT, bi.chunkSize)
+					bi.vals = make([]VT, bi.chunkSize)
 					continue retry
 				} else if !done && batchErr != nil {
 					// If we're not done, and we didn't hit a ENOSPC then stop iteration and record
