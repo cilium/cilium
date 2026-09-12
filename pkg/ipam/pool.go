@@ -35,6 +35,9 @@ import (
 // its allocator is kept around. But no new IPs will be allocated from this
 // CIDR. By keeping removed CIDRs in the CiliumNode CRD status, we indicate
 // to the operator that we would like to re-gain ownership over that CIDR.
+// Once the operator advertises the CIDR in the CiliumNode CRD spec again, we
+// have regained ownership and the CIDR is removed from the removed map, making
+// its IPs allocatable once more.
 type cidrPool struct {
 	logger       *slog.Logger
 	mutex        lock.Mutex
@@ -196,8 +199,15 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
+	// Only count CIDRs we are allowed to allocate from. IPs in removed CIDRs
+	// are not handed out by allocateNext, so counting them here would report
+	// free IPs that can never be allocated, which in turn would suppress the
+	// reclaim below and leave the pool permanently exhausted.
 	totalFree := 0
 	for _, ipAllocator := range p.ipAllocators {
+		if _, removed := p.removed[ipAllocator.CIDR()]; removed {
+			continue
+		}
 		totalFree += ipAllocator.Free()
 	}
 
@@ -241,6 +251,17 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 	retainedAllocators := []*ipallocator.Range{}
 	for _, ipAllocator := range slices.Backward(p.ipAllocators) {
 		cidr := ipAllocator.CIDR()
+
+		// Removed CIDRs are not ours to release: they are no longer
+		// advertised, and their free IPs are excluded from totalFree above.
+		// Keep their allocator around to hold on to the in-use IPs and to
+		// signal to the operator that we want the CIDR back. Once the last
+		// IP is released, updatePool drops the allocator and the removed
+		// mark along with it.
+		if _, removed := p.removed[cidr]; removed {
+			retainedAllocators = append(retainedAllocators, ipAllocator)
+			continue
+		}
 
 		// If the CIDR is not used and releasing it would
 		// not take us below the release threshold, then release it immediately
@@ -321,6 +342,16 @@ func (p *cidrPool) updatePool(prefixes []netip.Prefix) {
 				logfields.CIDR, cidr,
 			)
 			p.removed[cidr] = struct{}{}
+		} else if _, removed := p.removed[cidr]; removed {
+			// The operator advertises the CIDR again, meaning we regained
+			// ownership over it and may allocate from it once more. Without
+			// this, the CIDR stays unallocatable for the lifetime of the
+			// agent, even though its IPs are attached and routable.
+			p.logger.Info(
+				"regained ownership of previously removed CIDR",
+				logfields.CIDR, cidr,
+			)
+			delete(p.removed, cidr)
 		}
 		newIPAllocators = append(newIPAllocators, ipAllocator)
 		existingAllocators[cidr] = struct{}{}
@@ -350,6 +381,15 @@ func (p *cidrPool) updatePool(prefixes []netip.Prefix) {
 		)
 		newIPAllocators = append(newIPAllocators, ipAllocator)
 		existingAllocators[prefix] = struct{}{} // Protect against duplicate CIDRs.
+	}
+
+	// Forget any removed CIDRs which no longer have an allocator, i.e. those
+	// whose last IP has been released above. Otherwise the mark would outlive
+	// the allocator and wrongly apply to a future allocator for the same CIDR.
+	for prefix := range p.removed {
+		if _, ok := existingAllocators[prefix]; !ok {
+			delete(p.removed, prefix)
+		}
 	}
 
 	if len(p.ipAllocators) > 0 && len(newIPAllocators) == 0 {

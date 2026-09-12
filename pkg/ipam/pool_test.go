@@ -119,3 +119,135 @@ func TestCIDRPoolReclaimsStillAdvertisedReleasedCIDR(t *testing.T) {
 	require.Len(t, pool.inUseCIDRs(), 2)
 	require.NoError(t, pool.allocate(netip.MustParseAddr("10.0.0.16")))
 }
+
+// TestCIDRPoolRegainsOwnershipOfRemovedCIDR is a regression test for
+// cilium/cilium#47910. A CIDR which briefly disappears from the CiliumNode CRD
+// spec while in use is marked as removed. Once the operator advertises it
+// again, we have regained ownership and must allocate from it again, instead of
+// keeping it unallocatable for the lifetime of the agent.
+func TestCIDRPoolRegainsOwnershipOfRemovedCIDR(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	// Delegated prefixes: first and last IPs of each /28 are allocatable.
+	pool := newCIDRPool(logger, true, true)
+
+	p1 := netip.MustParsePrefix("10.0.0.0/28")
+	p2 := netip.MustParsePrefix("10.0.0.16/28")
+
+	pool.updatePool([]netip.Prefix{p1, p2})
+	require.Equal(t, 32, pool.capacity())
+
+	// Fill up p1 and take a single IP out of p2, so that p2 is in use.
+	for range 16 {
+		_, err := pool.allocateNext()
+		require.NoError(t, err)
+	}
+	addr, err := pool.allocateNext()
+	require.NoError(t, err)
+	require.True(t, p2.Contains(addr))
+
+	// The operator transiently stops advertising p2. As p2 is in use,
+	// we hold on to its allocator, but stop allocating from it.
+	pool.updatePool([]netip.Prefix{p1})
+	require.Contains(t, pool.removed, p2, "in-use p2 should be marked as removed")
+	require.Equal(t, 0, pool.capacity(), "no IP of p2 is allocatable")
+	require.False(t, pool.hasAvailableIPs())
+	_, err = pool.allocateNext()
+	require.Error(t, err)
+
+	// A removed CIDR must not be reported as free either, otherwise the
+	// reclaim logic considers the pool sufficiently provisioned and neither
+	// reclaims nor requests any additional CIDR.
+	pool.releaseExcessCIDRsMultiPool(8)
+	require.Contains(t, pool.removed, p2, "p2 is not ours to release")
+	require.Empty(t, pool.released)
+	require.Len(t, pool.inUseCIDRs(), 2, "p2 stays advertised to reclaim ownership")
+
+	// The operator advertises p2 again: we regained ownership and its
+	// remaining IPs become allocatable.
+	pool.updatePool([]netip.Prefix{p1, p2})
+	require.NotContains(t, pool.removed, p2, "ownership of p2 should be regained")
+	require.Equal(t, 15, pool.capacity())
+	addr, err = pool.allocateNext()
+	require.NoError(t, err)
+	require.True(t, p2.Contains(addr))
+}
+
+// TestCIDRPoolRemovedCIDRDoesNotSuppressReclaim asserts that the free IPs of a
+// removed CIDR are not counted as available when deciding whether a released
+// CIDR must be reclaimed. Counting them reports free IPs which allocateNext
+// never hands out, leaving the pool exhausted until the agent restarts.
+func TestCIDRPoolRemovedCIDRDoesNotSuppressReclaim(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	// Delegated prefixes: first and last IPs of each /28 are allocatable.
+	pool := newCIDRPool(logger, true, true)
+
+	p1 := netip.MustParsePrefix("10.0.0.0/28")
+	p2 := netip.MustParsePrefix("10.0.0.16/28")
+	p3 := netip.MustParsePrefix("10.0.0.32/28")
+
+	pool.updatePool([]netip.Prefix{p1, p2, p3})
+	require.Equal(t, 48, pool.capacity())
+
+	// Fill up p1 and take a single IP out of p2.
+	for range 17 {
+		_, err := pool.allocateNext()
+		require.NoError(t, err)
+	}
+
+	// Demand drops, so the unused p3 is released. The operator keeps
+	// advertising it, e.g. because release-excess-ips is disabled.
+	pool.releaseExcessCIDRsMultiPool(0)
+	require.Contains(t, pool.released, p3, "unused p3 should be released")
+
+	// The operator then transiently stops advertising the in-use p2, which is
+	// therefore marked as removed. Its 15 free IPs are no longer allocatable.
+	pool.updatePool([]netip.Prefix{p1, p3})
+	require.Contains(t, pool.removed, p2)
+	require.Contains(t, pool.released, p3, "p3 stays released while advertised")
+	require.Equal(t, 0, pool.capacity())
+
+	// Demand grows back. The still-advertised p3 must be reclaimed: the free
+	// IPs of the removed p2 do not count towards the needed IPs.
+	pool.releaseExcessCIDRsMultiPool(8)
+	require.NotContains(t, pool.released, p3, "p3 should be reclaimed")
+	require.Contains(t, pool.removed, p2, "p2 is still not ours to allocate from")
+	require.Equal(t, 16, pool.capacity())
+
+	addr, err := pool.allocateNext()
+	require.NoError(t, err)
+	require.True(t, p3.Contains(addr))
+}
+
+// TestCIDRPoolForgetsRemovedCIDRWithoutAllocator asserts that the removed mark
+// does not outlive the allocator it refers to. Otherwise a later allocator for
+// the same CIDR would inherit the mark and never hand out any IP.
+func TestCIDRPoolForgetsRemovedCIDRWithoutAllocator(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	pool := newCIDRPool(logger, true, true)
+
+	p1 := netip.MustParsePrefix("10.0.0.0/28")
+	p2 := netip.MustParsePrefix("10.0.0.16/28")
+
+	pool.updatePool([]netip.Prefix{p1, p2})
+	addr := netip.MustParseAddr("10.0.0.16")
+	require.NoError(t, pool.allocate(addr))
+
+	// p2 is dropped from the spec while in use, and so marked as removed.
+	pool.updatePool([]netip.Prefix{p1})
+	require.Contains(t, pool.removed, p2)
+
+	// The last IP of p2 is released, so its allocator is dropped on the next
+	// update, and the removed mark must be dropped with it.
+	pool.release(addr)
+	pool.updatePool([]netip.Prefix{p1})
+	require.Empty(t, pool.removed, "removed mark should not outlive the allocator")
+	require.Len(t, pool.inUseCIDRs(), 1)
+
+	// p2 is advertised again and is immediately usable.
+	pool.updatePool([]netip.Prefix{p1, p2})
+	require.Equal(t, 32, pool.capacity())
+	require.NoError(t, pool.allocate(addr))
+}
