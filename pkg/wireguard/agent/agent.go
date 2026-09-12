@@ -868,7 +868,15 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 	}
 
 	if updatedPeer != nil {
-		if err := a.updatePeerByConfig(updatedPeer); err != nil {
+		var err error
+		retryTimer := backoff.Exponential{Logger: a.logger, Min: 10 * time.Millisecond, Max: 100 * time.Millisecond}
+		for range 3 {
+			if err = a.updatePeerByConfig(updatedPeer); err == nil {
+				break
+			}
+			_ = retryTimer.Wait(context.Background())
+		}
+		if err != nil {
 			a.logger.Error(
 				"Failed to update WireGuard peer after ipcache update",
 				logfields.Error, err,
