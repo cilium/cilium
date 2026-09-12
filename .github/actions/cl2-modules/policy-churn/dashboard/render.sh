@@ -2,6 +2,12 @@
 
 set -euo pipefail
 
+if [[ $# -ne 1 || -z "${1:-}" ]]; then
+  echo "Usage: $0 <node-name>" >&2
+  exit 1
+fi
+NODE_NAME="$1"
+
 # Last 2 Hour
 DASHBOARD_TO_MS="${DASHBOARD_TO_MS:-$(date +%s%3N)}"
 DASHBOARD_FROM_MS="${DASHBOARD_FROM_MS:-$((DASHBOARD_TO_MS - 7200000))}"
@@ -57,8 +63,8 @@ imageRenderer:
   image:
     tag: "v5.12.3"
   env:
-    RENDERING_VIEWPORT_MAX_WIDTH: "2500"
-    RENDERING_VIEWPORT_MAX_HEIGHT: "15000"
+    BROWSER_MAX_WIDTH: "2500"
+    BROWSER_MAX_HEIGHT: "7500"
 
 grafana.ini:
   auth.anonymous:
@@ -66,7 +72,7 @@ grafana.ini:
     org_role: Viewer
 EOF
 
-echo "[*] Rendering the dashboard to ${OUTPUT_PATH}"
+echo "[*] Rendering the dashboard for node ${NODE_NAME} to ${OUTPUT_PATH}"
 GRAFANA_PW=$(kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
 
 kubectl --namespace monitoring port-forward svc/grafana 13000:80 &
@@ -79,8 +85,16 @@ for _ in $(seq 1 15); do
 done
 
 RAW_SCREENSHOT="$(mktemp --suffix=.png)"
-curl -sf -u "admin:${GRAFANA_PW}" \
-  "http://localhost:13000/render/d/${DASHBOARD_UID}/${DASHBOARD_SLUG}?orgId=1&from=${DASHBOARD_FROM_MS}&to=${DASHBOARD_TO_MS}&width=2500&height=15000&tz=UTC&kiosk" \
+curl -sfG -u "admin:${GRAFANA_PW}" \
+  "http://localhost:13000/render/d/${DASHBOARD_UID}/${DASHBOARD_SLUG}" \
+  --data-urlencode "orgId=1" \
+  --data-urlencode "from=${DASHBOARD_FROM_MS}" \
+  --data-urlencode "to=${DASHBOARD_TO_MS}" \
+  --data-urlencode "width=2500" \
+  --data-urlencode "height=7500" \
+  --data-urlencode "tz=UTC" \
+  --data-urlencode "var-node=${NODE_NAME}" \
+  --data-urlencode "kiosk" \
   -o "${RAW_SCREENSHOT}"
 
 "${MAGICK_CMD}" "${RAW_SCREENSHOT}" -trim +repage "${OUTPUT_PATH}"

@@ -70,7 +70,7 @@ data:
                         "Port": {
                             "fuzzChance": 0,
                             "Config": {
-                                "range": "20000-20005"
+                                "range": "20000-20001"
                             }
                         },
                         "Protocol": {
@@ -130,10 +130,10 @@ data:
             "node": "",
             "nodeSelector": "kfuzz.cilium.io/fake-node=true",
             "sliceAddChance": 0.25,
-            "sliceAddCount": "16-64",
+            "sliceAddCount": "16-128",
             "sliceDeleteChance": 0.25,
-            "sliceDeleteCount": "16-64",
-            "sliceSize": "2048-8192",
+            "sliceDeleteCount": "16-128",
+            "sliceSize": "4096-8192",
             "sliceUpdateChance": 0
         }
     }

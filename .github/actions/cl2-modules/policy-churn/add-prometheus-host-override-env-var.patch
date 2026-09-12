@@ -3,7 +3,7 @@ index bf243f1bc..941ac59c9 100644
 --- a/clusterloader2/pkg/prometheus/clients/in_cluster.go
 +++ b/clusterloader2/pkg/prometheus/clients/in_cluster.go
 @@ -18,11 +18,25 @@ package prom
- 
+
  import (
  	"context"
 +	"fmt"
@@ -12,10 +12,10 @@ index bf243f1bc..941ac59c9 100644
 +	"net/url"
 +	"os"
  	"time"
- 
+
  	clientset "k8s.io/client-go/kubernetes"
  )
- 
+
 +// prometheusHostOverrideEnv, if set to a "host:port", queries Prometheus with a
 +// direct HTTP request to that address instead of going through the apiserver's
 +// service-proxy subresource below. Some managed control planes (e.g. EKS) refuse
@@ -42,7 +42,7 @@ index bf243f1bc..941ac59c9 100644
  		ProxyGet("http", "prometheus-k8s", "9090", "api/v1/query", params).
  		DoRaw(context.TODO())
  }
- 
+
 +func queryOverHTTP(host string, params map[string]string) ([]byte, error) {
 +	q := url.Values{}
 +	for k, v := range params {
@@ -87,11 +87,11 @@ index 4fbea8fcc..276a48420 100644
 +	"net/http"
  	"os"
  	"regexp"
- 
+
 @@ -36,6 +38,38 @@ import (
- 
+
  const allTargets = -1
- 
+
 +// prometheusHostOverrideEnv, if set to a "host:port", queries Prometheus with a
 +// direct HTTP request to that address instead of going through the apiserver's
 +// service-proxy subresource below. Some managed control planes (e.g. EKS) refuse
@@ -141,7 +141,7 @@ index 4fbea8fcc..276a48420 100644
  		if raw != nil {
 @@ -114,13 +145,28 @@ type snapshotData struct {
  }
- 
+
  func makeSnapshot(k8sClient kubernetes.Interface, config *restclient.Config, filePath string) error {
 -	raw, err := k8sClient.CoreV1().RESTClient().Post().
 -		Namespace(namespace).
