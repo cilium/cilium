@@ -133,7 +133,7 @@ data:
             "sliceAddCount": "16-64",
             "sliceDeleteChance": 0.25,
             "sliceDeleteCount": "16-64",
-            "sliceSize": "2048-8192",
+            "sliceSize": "4096-8192",
             "sliceUpdateChance": 0
         }
     }

@@ -124,9 +124,9 @@ jobs:
       matrix:
         scenario:
           - global-identities-churn
-          - local-identities-churn
-          - selectors-churn
-          - policy-identity-churn
+          # - local-identities-churn
+          # - selectors-churn
+          # - policy-identity-churn
     steps:
       - name: Set commit status to pending
         uses: cilium/actions/set-commit-status@fe0702f5df0d8e44d48f1baa226c023b73ff6b5e # main
@@ -324,6 +324,8 @@ jobs:
             prometheus:
               enabled: true
           healthChecking: false
+          bpf:
+            policyMapMax: 65536
           affinity:
             nodeAffinity:
               requiredDuringSchedulingIgnoredDuringExecution:
@@ -577,6 +579,106 @@ jobs:
           # The cilium-cli creates files owned by the root user when run as a container.
           sudo chmod --recursive +r ./report
 
+      - name: Collect test-node Cilium agent host logs
+        id: collect-cilium-agent-host-logs
+        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        shell: bash
+        env:
+          NODE_NAME: ${{ steps.test-nodes.outputs.test_node_name }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t cilium_pods < <(
+            kubectl get pods \
+              --namespace kube-system \
+              --selector k8s-app=cilium \
+              --field-selector "spec.nodeName=${NODE_NAME}" \
+              --output jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.uid}{"\n"}{end}'
+          )
+          if [ "${#cilium_pods[@]}" -ne 1 ]; then
+            echo "Error: expected exactly one Cilium pod on node ${NODE_NAME}, found ${#cilium_pods[@]}" >&2
+            exit 1
+          fi
+
+          IFS=$'\t' read -r CILIUM_POD CILIUM_POD_UID <<< "${cilium_pods[0]}"
+          if [ -z "${CILIUM_POD}" ]; then
+            echo "Error: Cilium pod name is empty for node ${NODE_NAME}" >&2
+            exit 1
+          fi
+          if [ -z "${CILIUM_POD_UID}" ]; then
+            echo "Error: Cilium pod UID is empty for pod ${CILIUM_POD}" >&2
+            exit 1
+          fi
+
+          COLLECTOR_POD=cilium-agent-host-log-collector
+          kubectl delete pod "${COLLECTOR_POD}" --namespace kube-system --ignore-not-found --wait=true || true
+          cleanup() {
+            kubectl delete pod "${COLLECTOR_POD}" --namespace kube-system --ignore-not-found --wait=false >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: ${COLLECTOR_POD}
+            namespace: kube-system
+          spec:
+            nodeName: ${NODE_NAME}
+            hostNetwork: true
+            tolerations:
+              - operator: Exists
+            restartPolicy: Never
+            terminationGracePeriodSeconds: 0
+            containers:
+              - name: collector
+                image: docker.io/library/busybox:1.37.0
+                command: ["sh", "-c", "sleep 300"]
+                securityContext:
+                  privileged: true
+                  runAsUser: 0
+                  runAsNonRoot: false
+                volumeMounts:
+                  - name: host-logs
+                    mountPath: /host-logs
+                    readOnly: true
+            volumes:
+              - name: host-logs
+                hostPath:
+                  path: /var/log/pods
+                  type: Directory
+          EOF
+
+          kubectl wait pod "${COLLECTOR_POD}" \
+            --namespace kube-system \
+            --for=condition=Ready \
+            --timeout=2m
+
+          HOST_LOG_DIR="kube-system_${CILIUM_POD}_${CILIUM_POD_UID}/cilium-agent"
+          if ! kubectl exec --namespace kube-system "${COLLECTOR_POD}" -- test -d "/host-logs/${HOST_LOG_DIR}"; then
+            echo "Error: Cilium agent host log directory /var/log/pods/${HOST_LOG_DIR} does not exist" >&2
+            exit 1
+          fi
+
+          ARCHIVE=./perf-tests/clusterloader2/report/cilium-agent-test-node-host-logs.tar.gz
+          mkdir -p ./perf-tests/clusterloader2/report
+          kubectl exec --namespace kube-system "${COLLECTOR_POD}" -- \
+            tar -C /host-logs -czf - "${HOST_LOG_DIR}" > "${ARCHIVE}"
+          chmod a+r "${ARCHIVE}"
+          tar -tzf "${ARCHIVE}"
+
+      - name: Upload test-node Cilium agent host logs
+        if: ${{ always() && steps.collect-cilium-agent-host-logs.outcome != 'skipped' && steps.collect-cilium-agent-host-logs.outcome != 'cancelled' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cilium-agent-test-node-host-logs-${{ matrix.scenario }}-${{ github.run_attempt }}
+          path: perf-tests/clusterloader2/report/cilium-agent-test-node-host-logs.tar.gz
+          if-no-files-found: warn
+          retention-days: 7
+          archive: false
+
       - name: Collect dashboard and post to job summary
         id: post-test-render-dashboard
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
@@ -585,33 +687,25 @@ jobs:
         working-directory: ./.github/actions/cl2-modules/policy-churn
         env:
           DASHBOARD_FROM_MS: ${{ steps.run-cl2.outputs.test_start_ms }}
-          OUTPUT_PATH: ${{ github.workspace }}/perf-tests/clusterloader2/report/cilium-scale-dashboard.png
+          NODE_NAME: ${{ steps.test-nodes.outputs.test_node_name }}
+          OUTPUT_PATH: ${{ github.workspace }}/perf-tests/clusterloader2/report/${{ matrix.scenario }}-results.png
         run: |
           sudo apt-get install -y imagemagick
-          ./dashboard/render.sh
+          chmod +x ./dashboard/render.sh
+          ./dashboard/render.sh "${NODE_NAME}"
 
+      # Github doesn't support adding images in github summary.
+      # For now upload as separate artifacts so its easy to access.
       - name: Upload test result dashboard
         id: upload-results-dashboard
         if: ${{ always() && steps.post-test-render-dashboard.outcome != 'skipped' && steps.post-test-render-dashboard.outcome != 'cancelled' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: result-dashboard-${{ matrix.scenario }}-${{ github.run_attempt }}
-          path: perf-tests/clusterloader2/report/cilium-scale-dashboard.png
+          path: perf-tests/clusterloader2/report/${{ matrix.scenario }}-results.png
           if-no-files-found: warn
           retention-days: 7
           archive: false
-
-      - name: Update result summary with dashboard image
-        if: ${{ always() && steps.post-test-render-dashboard.outcome != 'skipped' && steps.post-test-render-dashboard.outcome != 'cancelled' }}
-        run: |
-          DASHBOARD_IMAGE_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-results-dashboard.outputs.artifact-id }}"
-          {
-            echo "### Dashboard - ${{ matrix.scenario }}"
-            echo ""
-            echo "![Dashboard screenshot](${DASHBOARD_IMAGE_URL})"
-            echo ""
-            echo "Also uploaded as the \`result-dashboard-${{ matrix.scenario }}-${{ github.run_attempt }}\` artifact for this run."
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Get sysdump
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}

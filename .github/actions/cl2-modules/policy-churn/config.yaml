@@ -72,6 +72,11 @@ steps:
       enableViolations: {{$ENABLE_VIOLATIONS}}
 
 - module:
+    path: ../cilium-agent-pprofs.yaml
+    params:
+      action: start
+
+- module:
     path: ./modules/kfuzz.yaml
     params:
       actionName: "create"
@@ -96,13 +101,6 @@ steps:
       duration: {{$TEST_DURATION}}
 
 - module:
-    path: ./modules/metrics.yaml
-    params:
-      action: gather
-      testNodeName: {{$TEST_NODE_NAME}}
-      enableViolations: {{$ENABLE_VIOLATIONS}}
-
-- module:
     path: ./modules/kfuzz.yaml
     params:
       actionName: "delete"
@@ -118,6 +116,18 @@ steps:
       clientStepDelay: {{$KFUZZ_CLIENT_STEP_DELAY}}
       terminationGracePeriodSeconds: {{$KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS}}
       skipResourceCleanup: {{$KFUZZ_SKIP_RESOURCE_CLEANUP}}
+
+- module:
+    path: ../cilium-agent-pprofs.yaml
+    params:
+      action: gather
+
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: gather
+      testNodeName: {{$TEST_NODE_NAME}}
+      enableViolations: {{$ENABLE_VIOLATIONS}}
 
 {{if not $KFUZZ_SKIP_RESOURCE_CLEANUP}}
 - name: Delete fake nodes
