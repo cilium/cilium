@@ -89,7 +89,7 @@ func (n *manager) doGC(ctx context.Context) error {
 		//
 		lookupTime := time.Now()
 		for _, zombie := range alive {
-			for _, name := range zombie.Names {
+			for name := range zombie.Names {
 				namesToClean.Insert(name)
 				activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, activeConnectionsTTL)
 			}
@@ -99,7 +99,9 @@ func (n *manager) doGC(ctx context.Context) error {
 		// Entries here have been evicted from the DNS cache (via .GC due to
 		// TTL expiration or overlimit) and are no longer active connections.
 		for _, zombie := range dead {
-			namesToClean.Insert(zombie.Names...)
+			for name := range zombie.Names {
+				namesToClean.Insert(name)
+			}
 		}
 
 		// Sync endpoint's persisted state if the DNS state changed during this GC run.
@@ -206,7 +208,7 @@ func (n *manager) RestorationNotify(possibleEndpoints map[uint16]*endpoint.Endpo
 			lookupTime := time.Now()
 			alive, _ := possibleEP.DNSZombies.GC()
 			for _, zombie := range alive {
-				for _, name := range zombie.Names {
+				for name := range zombie.Names {
 					n.cache.Update(lookupTime, name, []netip.Addr{zombie.IP}, int(2*DNSGCJobInterval.Seconds()))
 				}
 			}
