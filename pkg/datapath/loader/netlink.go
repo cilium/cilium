@@ -71,8 +71,8 @@ func setupVethPair(logger *slog.Logger, sysctl sysctl.Sysctl, name, peerName str
 
 	// Turn ARP off before bringing the links up. The kernel skips duplicate
 	// address detection on NOARP devices, so the kernel-generated IPv6
-	// link-local is added as permanent instead of spending up to a second in
-	// the tentative state, invisible to netlink subscribers.
+	// link-local leaves the tentative state at once instead of spending up to a
+	// second in it, invisible to netlink subscribers.
 	if err := netlink.LinkSetARPOff(veth); err != nil {
 		return fmt.Errorf("failed to set ARP off for %s: %w", name, err)
 	}
