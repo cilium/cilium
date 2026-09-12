@@ -627,6 +627,17 @@
       ]
     },
     {
+      // LLVM major bumps require careful scrutiny (datapath verifier, etc.),
+      // so they are done manually in main and never backported.
+      "enabled": false,
+      "matchPackageNames": [
+        "quay.io/cilium/cilium-llvm"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ]
+    },
+    {
       // Avoid updating patch version for statedb as it might contain breaking changes
       "enabled": false,
       "matchPackageNames": [
