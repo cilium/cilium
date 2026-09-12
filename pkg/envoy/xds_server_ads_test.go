@@ -9,6 +9,7 @@ import (
 	"maps"
 	"os"
 	"reflect"
+	"slices"
 	"sync/atomic"
 	"testing"
 
@@ -302,9 +303,9 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		require.Len(t, cache.revertFuncs, 2)
 
 		expectedGeneration := server.resourceGenerations[localNodeID]
-		for i := len(cache.revertFuncs) - 1; i >= 0; i-- {
+		for _, revertFunc := range slices.Backward(cache.revertFuncs) {
 			var reverted bool
-			expectedGeneration, reverted = cache.revertFuncs[i](expectedGeneration)
+			expectedGeneration, reverted = revertFunc(expectedGeneration)
 			require.True(t, reverted)
 		}
 

@@ -1239,10 +1239,7 @@ func (c *cacheImpl) relayForLocked(responseChannel chan cache.Response) *watchRe
 	if relay := c.watchRelays[responseChannel]; relay != nil {
 		return relay
 	}
-	capacity := cap(responseChannel)
-	if capacity < len(snapshotResourceTypes)+1 {
-		capacity = len(snapshotResourceTypes) + 1
-	}
+	capacity := max(cap(responseChannel), len(snapshotResourceTypes)+1)
 	relay := &watchRelay{
 		inner:   make(chan cache.Response, capacity),
 		outer:   responseChannel,

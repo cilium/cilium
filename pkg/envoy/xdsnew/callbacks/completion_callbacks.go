@@ -217,7 +217,7 @@ func (cb *CompletionCallbacks) CancelPendingCompletions(typeURL string) {
 			cb.Log.Debug("Cancelling pending completion",
 				logfields.XDSTypeURL, typeURL,
 				logfields.Version, pc.version,
-				"generation", pc.generation,
+				logfields.XDSGeneration, pc.generation,
 				logfields.NodeID, pc.nodeID)
 			completed = append(completed, c)
 			delete(cb.pendingCompletions, c)
@@ -249,7 +249,7 @@ func (cb *CompletionCallbacks) addPendingCompletion(c *completion.Completion, pe
 		cb.Log.Debug("Adding pending completion for type URL and generation",
 			logfields.XDSTypeURL, typeURL,
 			logfields.Version, version,
-			"generation", generation,
+			logfields.XDSGeneration, generation,
 			logfields.NodeID, nodeID)
 	}
 	if pending == nil {
@@ -425,7 +425,7 @@ func (cb *CompletionCallbacks) addTypeGeneration(generation uint64, version, typ
 		cb.Log.Debug("Added pending snapshot generation",
 			logfields.XDSTypeURL, typeURL,
 			logfields.Version, version,
-			"generation", generation,
+			logfields.XDSGeneration, generation,
 			logfields.NodeID, nodeID)
 	}
 	return true, false
@@ -468,7 +468,7 @@ func (cb *CompletionCallbacks) addTypeGenerationCompletion(c *completion.Complet
 		cb.Log.Warn("Reusing existing completion",
 			logfields.XDSTypeURL, typeURL,
 			logfields.Version, version,
-			"generation", generation,
+			logfields.XDSGeneration, generation,
 			logfields.NodeID, nodeID)
 		return true, nil
 	}
@@ -685,7 +685,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 				"NACK received, reverting resource changes",
 				logfields.XDSTypeURL, typeURL,
 				logfields.Version, rejectedVersion,
-				"generation", rejectedGeneration,
+				logfields.XDSGeneration, rejectedGeneration,
 				logfields.NodeID, nodeID,
 				logfields.Error, req.GetErrorDetail().GetMessage(),
 			)
@@ -734,7 +734,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		cb.Log.Debug("Completed completion for type URL and generation",
 			logfields.XDSTypeURL, typeURL,
 			logfields.Version, req.GetVersionInfo(),
-			"generation", pc.generation)
+			logfields.XDSGeneration, pc.generation)
 	}
 	for generation, pending := range cb.pendingGenerations[key] {
 		if acceptedGeneration != 0 && pending.responseGeneration == acceptedGeneration {

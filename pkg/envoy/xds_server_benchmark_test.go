@@ -7,11 +7,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/netip"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -44,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -91,7 +90,7 @@ type benchmarkEnvoyState struct {
 	done      chan struct{}
 	responses atomic.Uint64
 
-	errMu  sync.Mutex
+	errMu  lock.Mutex
 	runErr error
 }
 
@@ -191,7 +190,7 @@ type benchmarkADSEnvoy struct {
 	responses    chan cache.Response
 	streamID     int64
 
-	watchMu     sync.Mutex
+	watchMu     lock.Mutex
 	cancelWatch func()
 }
 
@@ -579,10 +578,12 @@ type identityUpdateBenchmark struct {
 func newIdentityUpdateBenchmark(b *testing.B, mode envoyconfig.XDSMode) *identityUpdateBenchmark {
 	b.Helper()
 
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	oldDefaultLogger := logging.DefaultSlogLogger
-	logging.DefaultSlogLogger = logger
-	b.Cleanup(func() { logging.DefaultSlogLogger = oldDefaultLogger })
+	logger := slog.New(slog.DiscardHandler)
+	oldDefaultLogger := logging.DefaultSlogLogger // slogloggercheck: benchmark setup must restore the process-wide logger.
+	logging.DefaultSlogLogger = logger            // slogloggercheck: discard setup logs so they do not pollute benchmark output.
+	b.Cleanup(func() {
+		logging.DefaultSlogLogger = oldDefaultLogger // slogloggercheck: restore the logger replaced by benchmark setup.
+	})
 
 	manager := endpointmanager.New(logger, nil, &benchmarkEndpointSynchronizer{}, nil, nil, &testmonitor.TestMonitorAgent{}, endpointmanager.EndpointManagerConfig{
 		EndpointPolicyUpdateTimeout:          5 * time.Minute,

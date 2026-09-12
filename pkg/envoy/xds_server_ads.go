@@ -918,9 +918,9 @@ func (s *adsServer) buildRevert(ctx context.Context, nodeID string, pushedGenera
 			s.logger.Info(
 				"Skipping revert, resource generation has been superseded",
 				logfields.NodeID, nodeID,
-				"pushedGeneration", pushedGeneration,
-				"expectedGeneration", expectedGeneration,
-				"currentGeneration", currentGeneration,
+				logfields.XDSPushedGeneration, pushedGeneration,
+				logfields.XDSExpectedGeneration, expectedGeneration,
+				logfields.XDSCurrentGeneration, currentGeneration,
 			)
 			return currentGeneration, false
 		}
