@@ -104,6 +104,16 @@ More specifically, it offers the following features for supported Layer 7 protoc
 * For HTTP: redacting URL user info (for example, password used in basic auth) (``--hubble-redact-http-userinfo``)
 * For HTTP headers: redacting all headers except those defined in the ``--hubble-redact-http-headers-allow`` list or redacting only the headers defined in the ``--hubble-redact-http-headers-deny`` list
 
+Redaction masks a header's value with ``HUBBLE_REDACTED`` while keeping the
+header key visible in the flow. If you instead want headers removed entirely
+(no key, no value), use the separate HTTP header exclusion options. These are
+independent of ``--hubble-redact-enabled`` and active whenever a list is set:
+
+* ``--hubble-exclude-http-headers-allow``: keep only the listed HTTP headers in flows; all others are excluded (dropped entirely).
+* ``--hubble-exclude-http-headers-deny``: exclude (drop entirely) the listed HTTP headers from flows; all others are kept.
+
+As with the redact lists, the exclusion ``allow`` and ``deny`` lists are mutually exclusive with each other.
+
 For more information on configuring Cilium, see :ref:`Cilium Configuration <configuration>`.
 
 Limitations

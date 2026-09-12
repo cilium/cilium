@@ -15,6 +15,31 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
+func TestConfigValidate(t *testing.T) {
+	// Both redact lists set is rejected.
+	require.Error(t, config{
+		RedactHttpHeadersAllow: []string{"host"},
+		RedactHttpHeadersDeny:  []string{"authorization"},
+	}.validate())
+
+	// Both exclude lists set is rejected.
+	cfg := config{
+		ExcludeHttpHeadersAllow: []string{"host"},
+		ExcludeHttpHeadersDeny:  []string{"authorization"},
+	}
+	require.Error(t, cfg.validate())
+
+	// Either one alone is fine.
+	require.NoError(t, config{ExcludeHttpHeadersAllow: []string{"host"}}.validate())
+	require.NoError(t, config{ExcludeHttpHeadersDeny: []string{"authorization"}}.validate())
+
+	// Independent of the redact lists.
+	require.NoError(t, config{
+		RedactHttpHeadersDeny:   []string{"authorization"},
+		ExcludeHttpHeadersAllow: []string{"host"},
+	}.validate())
+}
+
 func TestPayloadGetters_GetServiceByAddr(t *testing.T) {
 	db := statedb.New()
 	fes, err := loadbalancer.NewFrontendsTable(loadbalancer.DefaultConfig, db)
