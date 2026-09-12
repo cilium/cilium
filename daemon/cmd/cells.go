@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
 	awsAgent "github.com/cilium/cilium/pkg/aws/agent"
+	azureAgent "github.com/cilium/cilium/pkg/azure/agent"
 	"github.com/cilium/cilium/pkg/bgp"
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bpf/stats"
@@ -313,6 +314,9 @@ var (
 
 		// Provides the AWS ENI customization of the multi-pool IPAM allocator.
 		awsAgent.Cell,
+
+		// Provides the Azure customization of the multi-pool IPAM allocator.
+		azureAgent.Cell,
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
