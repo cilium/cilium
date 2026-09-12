@@ -13,10 +13,12 @@ import (
 	"github.com/cilium/statedb/index"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -131,7 +133,7 @@ func NewTableAndReflector(jg job.Group, db *statedb.DB, cs client.Clientset) (st
 		return nil, err
 	}
 
-	if !cs.IsEnabled() {
+	if !cs.IsEnabled() || option.Config.IPAM != ipamOption.IPAMMultiPool {
 		return pools, nil
 	}
 
