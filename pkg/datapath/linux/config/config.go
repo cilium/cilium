@@ -324,10 +324,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 	}
 	cDefinesMap["VLAN_FILTER(ifindex, vlan_id)"] = vlanFilter
 
-	if option.Config.DisableExternalIPMitigation {
-		cDefinesMap["DISABLE_EXTERNAL_IP_MITIGATION"] = "1"
-	}
-
 	if option.Config.TunnelingEnabled() {
 		cDefinesMap["TUNNEL_MODE"] = "1"
 	}

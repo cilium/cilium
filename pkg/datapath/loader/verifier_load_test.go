@@ -116,6 +116,7 @@ func baseSockPermutations() *loadPermutationBuilder {
 	b.addOptions(
 		Always(func(t *config.BPFSock, _ bool) {
 			setBasePermutations(&t.Node)
+			t.DisableExternalIPMitigation = false
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
 			t.EnableSocketLBTracing = true
