@@ -82,9 +82,10 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 		return nil, fmt.Errorf("failed to create new controller-runtime manager: %w", err)
 	}
 
+	// Fail closed when the manager fails, allowing for the pod to naturally restart + retry
 	params.JobGroup.Add(job.OneShot("manager", func(ctx context.Context, health cell.Health) error {
 		return mgr.Start(ctx)
-	}))
+	}, job.WithShutdown()))
 
 	return mgr, nil
 }
