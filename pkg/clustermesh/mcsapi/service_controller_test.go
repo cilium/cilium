@@ -56,8 +56,9 @@ var (
 				Name:      "full",
 				Namespace: "default",
 				Annotations: map[string]string{
-					annotation.GlobalService: "not-used",
-					"test-annotation":        "copied",
+					annotation.GlobalService:       "not-used",
+					annotation.SupportedIPFamilies: "IPv4",
+					"test-annotation":              "copied",
 				},
 				Labels: map[string]string{
 					mcsapiv1beta1.LabelSourceCluster: "not-used",
@@ -108,7 +109,8 @@ var (
 				Name:      "full-update",
 				Namespace: "default",
 				Annotations: map[string]string{
-					"test-annotation": "copied",
+					annotation.SupportedIPFamilies: "IPv4",
+					"test-annotation":              "copied",
 				},
 				Labels: map[string]string{
 					"test-label": "copied",
@@ -160,7 +162,8 @@ var (
 				Name:      "import-only",
 				Namespace: "default",
 				Annotations: map[string]string{
-					annotation.GlobalService: "not-used",
+					annotation.GlobalService:       "not-used",
+					annotation.SupportedIPFamilies: "IPv4",
 				},
 				Labels: map[string]string{
 					mcsapiv1beta1.LabelSourceCluster: "not-used",
@@ -179,6 +182,9 @@ var (
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "import-and-local",
 				Namespace: "default",
+				Annotations: map[string]string{
+					annotation.SupportedIPFamilies: "IPv4",
+				},
 			},
 			Spec: mcsapiv1beta1.ServiceImportSpec{
 				Ports: []mcsapiv1beta1.ServicePort{{
@@ -232,6 +238,9 @@ var (
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "switch-to-headless",
 				Namespace: "default",
+				Annotations: map[string]string{
+					annotation.SupportedIPFamilies: "IPv4",
+				},
 			},
 			Spec: mcsapiv1beta1.ServiceImportSpec{
 				Type: mcsapiv1beta1.Headless,
@@ -532,9 +541,10 @@ func Test_mcsDerivedService_NonGlobalNamespace(t *testing.T) {
 
 func TestGetDesiredIPs(t *testing.T) {
 	for _, tt := range []struct {
-		name     string
-		svc      *corev1.Service
-		expected []string
+		name       string
+		svc        *corev1.Service
+		ipFamilies []corev1.IPFamily
+		expected   []string
 	}{
 		{
 			name: "headless service",
@@ -548,17 +558,8 @@ func TestGetDesiredIPs(t *testing.T) {
 					ClusterIP: corev1.ClusterIPNone,
 				},
 			},
-			expected: []string{},
-		},
-		{
-			name: "no annotation",
-			svc: &corev1.Service{
-				Spec: corev1.ServiceSpec{
-					ClusterIP:  "10.0.0.1",
-					ClusterIPs: []string{"10.0.0.1", "fd00::1"},
-				},
-			},
-			expected: []string{"10.0.0.1", "fd00::1"},
+			ipFamilies: []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+			expected:   []string{},
 		},
 		{
 			name: "invert ips",
@@ -572,7 +573,8 @@ func TestGetDesiredIPs(t *testing.T) {
 					ClusterIPs: []string{"10.0.0.2", "fd00::2"},
 				},
 			},
-			expected: []string{"fd00::2", "10.0.0.2"},
+			ipFamilies: []corev1.IPFamily{corev1.IPv6Protocol, corev1.IPv4Protocol},
+			expected:   []string{"fd00::2", "10.0.0.2"},
 		},
 		{
 			name: "filter one ip",
@@ -586,11 +588,12 @@ func TestGetDesiredIPs(t *testing.T) {
 					ClusterIPs: []string{"10.0.0.2", "fd00::2"},
 				},
 			},
-			expected: []string{"fd00::2"},
+			ipFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
+			expected:   []string{"fd00::2"},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ips := getDesiredIPs(tt.svc)
+			ips := getDesiredIPs(tt.svc, tt.ipFamilies)
 			require.Equal(t, tt.expected, ips)
 		})
 	}

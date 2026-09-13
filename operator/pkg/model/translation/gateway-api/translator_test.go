@@ -839,7 +839,7 @@ func Test_translator_Translate_ShortensCECName(t *testing.T) {
 	require.NotNil(t, cec)
 	require.NotNil(t, svc)
 	require.NotNil(t, ep)
-	require.Equal(t, shortener.ShortenK8sResourceName(CiliumGatewayPrefix+longName), cec.Name)
+	require.Equal(t, shortener.ShortenDNSLabelK8sName(CiliumGatewayPrefix+longName), cec.Name)
 	require.Equal(t, svc.Name, cec.Name)
 	require.LessOrEqual(t, len(cec.Name), 63, "CiliumEnvoyConfig name is too long")
 }

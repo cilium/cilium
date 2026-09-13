@@ -186,7 +186,7 @@ func (i *cecTranslator) desiredServicesWithPortsCombined(namespace string, name 
 	return []*ciliumv2.ServiceListener{
 		{
 			Namespace: namespace,
-			Name:      shortener.ShortenK8sResourceName(name),
+			Name:      shortener.ShortenDNSLabelK8sName(name),
 			Ports:     ports,
 		},
 	}, nil
@@ -195,7 +195,7 @@ func (i *cecTranslator) desiredServicesWithPortsCombined(namespace string, name 
 // desiredServicesWithPortsSplit returns per-port ServiceListeners for HTTPS and
 // TLS passthrough, plus one shared entry for plaintext HTTP ports.
 func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name string, m *model.Model) ([]*ciliumv2.ServiceListener, error) {
-	shortenedName := shortener.ShortenK8sResourceName(name)
+	shortenedName := shortener.ShortenDNSLabelK8sName(name)
 	var result []*ciliumv2.ServiceListener
 
 	// All TLS passthrough ports are excluded from the plaintext HTTP port list,
