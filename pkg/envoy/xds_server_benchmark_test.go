@@ -159,24 +159,12 @@ func (c *benchmarkSnapshotCache) report(b *testing.B) {
 	b.ReportMetric(float64(c.versioned.Load())/float64(b.N), "versions")
 }
 
-func (c *benchmarkSnapshotCache) GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error) {
-	c.generated.Add(1)
-	return c.Cache.GenerateSnapshot(resources, logger)
-}
-
-func (c *benchmarkSnapshotCache) GenerateSnapshotIncrementally(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}, logger *slog.Logger) (cache.ResourceSnapshot, error) {
-	c.generated.Add(1)
-	return c.Cache.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, logger)
-}
-
-func (c *benchmarkSnapshotCache) UpdateResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, changedTypeURLs map[string]struct{}, generator xdsnew.SnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(error), revert xdsnew.RevertFunc) error {
-	c.published.Add(1)
-	return c.Cache.UpdateResources(ctx, nodeID, generation, resources, changedTypeURLs, generator, wg, updatedTypeURLs, revert)
-}
-
-func (c *benchmarkSnapshotCache) GetVersion(resources *xds.Resources) string {
-	c.versioned.Add(1)
-	return c.Cache.GetVersion(resources)
+func (c *benchmarkSnapshotCache) ApplyResources(ctx context.Context, nodeID string, generation uint64, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs map[string]func(error), revertFactory xdsnew.RevertFuncFactory) (bool, xdsnew.RevertFunc, error) {
+	updated, revertFunc, err := c.Cache.ApplyResources(ctx, nodeID, generation, mutations, wg, updatedTypeURLs, revertFactory)
+	if updated {
+		c.published.Add(1)
+	}
+	return updated, revertFunc, err
 }
 
 // benchmarkADSEnvoy keeps a real go-control-plane SotW watch open for NPDS.
@@ -259,6 +247,9 @@ func (e *benchmarkADSEnvoy) openWatch(ackedVersion string) error {
 
 func (e *benchmarkADSEnvoy) observeResponse(response cache.Response) string {
 	version := response.GetResponseVersion()
+	if observed, ok := e.cache.(*benchmarkSnapshotCache); ok {
+		observed.generated.Add(1)
+	}
 	e.subscription.SetReturnedResources(response.GetReturnedResources())
 	e.cache.GetCompletionCallbacks().OnStreamResponse(
 		response.GetContext(),

@@ -12,10 +12,14 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
+	envoy_resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	sotw "github.com/envoyproxy/go-control-plane/pkg/server/sotw/v3"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -76,6 +80,10 @@ type CompletionCallbacks struct {
 	// whose context is not inherited from SetSnapshot, recover the generation of
 	// the current snapshot without inserting version-only ordering markers.
 	publishedSnapshots map[string]publishedSnapshot
+	// acceptedSnapshots retains the immutable snapshot last ACKed for each
+	// node/type. This permits resource-level no-op checks while another resource
+	// of the same type is pending.
+	acceptedSnapshots map[string]cache.ResourceSnapshot
 	// responseStates tracks the latest xDS response/ACK state per (nodeID, typeURL).
 	// Generations establish ordering; versions are retained only because Envoy
 	// echoes the content version in ACK and NACK requests.
@@ -92,6 +100,7 @@ func NewCompletionCallbacks(logger *slog.Logger) *CompletionCallbacks {
 		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
 		pendingGenerations: make(map[string]map[uint64]*pendingGeneration),
 		publishedSnapshots: make(map[string]publishedSnapshot),
+		acceptedSnapshots:  make(map[string]cache.ResourceSnapshot),
 		responseStates:     make(map[string]responseState),
 		streamNodeIDs:      make(map[int64]string),
 	}
@@ -304,11 +313,82 @@ func (cb *CompletionCallbacks) SetPublishedSnapshot(nodeID string, generation ui
 
 	if snapshot == nil {
 		delete(cb.publishedSnapshots, nodeID)
+		prefix := nodeID + "\x00"
+		for key := range cb.acceptedSnapshots {
+			if strings.HasPrefix(key, prefix) {
+				delete(cb.acceptedSnapshots, key)
+			}
+		}
 		return
 	}
 	cb.publishedSnapshots[nodeID] = publishedSnapshot{
 		generation: generation,
 		snapshot:   snapshot,
+	}
+}
+
+func resourceMutationAccepted[V interface {
+	proto.Message
+	comparable
+}](acceptedResources map[string]cache_types.ResourceWithTTL, desired, removed, upserted map[string]V) bool {
+	if len(removed) == 0 && len(upserted) == 0 {
+		return false
+	}
+	accepted := func(name string) bool {
+		desiredResource, desiredExists := desired[name]
+		acceptedResource, acceptedExists := acceptedResources[name]
+		if desiredExists != acceptedExists {
+			return false
+		}
+		return !desiredExists || acceptedResource.Resource == desiredResource || proto.Equal(acceptedResource.Resource, desiredResource)
+	}
+	for name := range removed {
+		if _, replaced := upserted[name]; !replaced && !accepted(name) {
+			return false
+		}
+	}
+	for name := range upserted {
+		if !accepted(name) {
+			return false
+		}
+	}
+	return true
+}
+
+// ResourcesAccepted reports whether every touched resource has the same desired
+// contents in the snapshot most recently ACKed for nodeID and typeURL. The
+// retained snapshots are immutable, so this needs no copies, name slices, or
+// version hashes.
+func (cb *CompletionCallbacks) ResourcesAccepted(nodeID, typeURL string, resources *xds.Resources, removed, upserted xds.Resources) bool {
+	cb.mutex.Lock()
+	acceptedSnapshot := cb.acceptedSnapshots[completionKey(nodeID, typeURL)]
+	cb.mutex.Unlock()
+	if acceptedSnapshot == nil {
+		return false
+	}
+
+	acceptedResources := acceptedSnapshot.GetResourcesAndTTL(typeURL)
+	var desiredSet xds.Resources
+	if resources != nil {
+		desiredSet = *resources
+	}
+	switch typeURL {
+	case envoy_resource.ListenerType:
+		return resourceMutationAccepted(acceptedResources, desiredSet.Listeners, removed.Listeners, upserted.Listeners)
+	case envoy_resource.RouteType:
+		return resourceMutationAccepted(acceptedResources, desiredSet.Routes, removed.Routes, upserted.Routes)
+	case envoy_resource.ClusterType:
+		return resourceMutationAccepted(acceptedResources, desiredSet.Clusters, removed.Clusters, upserted.Clusters)
+	case envoy_resource.EndpointType:
+		return resourceMutationAccepted(acceptedResources, desiredSet.Endpoints, removed.Endpoints, upserted.Endpoints)
+	case envoy_resource.SecretType:
+		return resourceMutationAccepted(acceptedResources, desiredSet.Secrets, removed.Secrets, upserted.Secrets)
+	case NetworkPolicyTypeURL:
+		return resourceMutationAccepted(acceptedResources, desiredSet.NetworkPolicies, removed.NetworkPolicies, upserted.NetworkPolicies)
+	case NetworkPolicyHostsTypeURL:
+		return resourceMutationAccepted(acceptedResources, desiredSet.NetworkPolicyHosts, removed.NetworkPolicyHosts, upserted.NetworkPolicyHosts)
+	default:
+		return false
 	}
 }
 
@@ -572,6 +652,7 @@ func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 			state.pendingStreamID = 0
 			state.acceptedVersion = ""
 			cb.responseStates[key] = state
+			delete(cb.acceptedSnapshots, key)
 		}
 	}
 	cb.mutex.Unlock()
@@ -596,6 +677,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		state.pendingStreamID = 0
 		state.acceptedVersion = ""
 		cb.responseStates[key] = state
+		delete(cb.acceptedSnapshots, key)
 		cb.mutex.Unlock()
 		return nil
 	}
@@ -723,6 +805,13 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	state.rejectedVersion = ""
 	state.rejectedErr = nil
 	cb.responseStates[key] = state
+	if published := cb.publishedSnapshots[nodeID]; acceptedGeneration != 0 &&
+		published.snapshot != nil && published.snapshot.GetVersion(typeURL) == req.GetVersionInfo() {
+		// Another resource type may have published a newer snapshot while this
+		// response was in flight. Reuse it when this type's content version is
+		// unchanged; its immutable resources are equivalent to those just ACKed.
+		cb.acceptedSnapshots[key] = published.snapshot
+	}
 
 	for c, pc := range cb.pendingCompletions {
 		if pc.nodeID != nodeID || pc.typeURL != typeURL ||
@@ -769,7 +858,7 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	// SetSnapshot propagates the exact generation through the response context.
 	// CreateWatch uses a background context for an immediately available
 	// snapshot, so recover the generation from the authoritative snapshot state
-	// staged by Cache.UpdateResources. The content version check prevents a
+	// staged by Cache.ApplyResources. The content version check prevents a
 	// delayed response from being attributed to a newer snapshot.
 	responseGeneration := snapshotGenerationFromContext(ctx)
 	if responseGeneration == 0 {
@@ -779,7 +868,7 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 		}
 	}
 	// Keep a narrow fallback for callback unit tests and response paths that do
-	// not originate in Cache.UpdateResources.
+	// not originate in Cache.ApplyResources.
 	if responseGeneration == 0 {
 		for _, pc := range cb.pendingCompletions {
 			if pc.nodeID == nodeID && pc.typeURL == typeURL && pc.version == version &&

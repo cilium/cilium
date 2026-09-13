@@ -7,23 +7,17 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	xds_cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -308,24 +302,12 @@ func (s *adsServer) addListener(ctx context.Context, name string, listenerConf f
 	count++
 	s.listenerCount[name] = count
 
-	resources := s.cache.GetAllResources(localNodeID)
-
-	if resources == nil {
-		s.logger.Info(fmt.Sprintf("Failed to get existing resources for node %s, creating new one", localNodeID))
-		resources = &xds.Resources{
-			Listeners: make(map[string]*envoy_config_listener.Listener),
-		}
-	} else {
-		resources = resources.CloneListeners()
-	}
-	oldListener, existed := resources.Listeners[name]
-	resources.Listeners[name] = listenerConfig
 	var callbackTypeURLs map[string]func(error)
 	if wg != nil {
 		callbackTypeURLs = map[string]func(error){ListenerTypeURL: cb}
 	}
-	if err := s.updateSnapshot(ctx, resources, localNodeID, wg, callbackTypeURLs,
-		&resourceChanges{listeners: []savedEntry[*envoy_config_listener.Listener]{{key: name, value: oldListener, existed: existed}}}); err != nil {
+	mutations := xdsnew.ResourceMutations{Upserted: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{name: listenerConfig}}}
+	if _, err := s.applyResourceUpdate(ctx, localNodeID, mutations, wg, callbackTypeURLs); err != nil {
 		return err
 	}
 	if wg == nil && cb != nil {
@@ -512,17 +494,18 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 	resources := s.cache.GetAllResources(localNodeID)
 
 	// Capture old listener for revert.
-	oldListener, existed := resources.Listeners[name]
-	resources = resources.CloneListeners()
-	delete(resources.Listeners, name)
+	var oldListener *envoy_config_listener.Listener
+	if resources != nil {
+		oldListener = resources.Listeners[name]
+	}
+	existed := oldListener != nil
 
-	var changes *resourceChanges
 	var callbackTypeURLs map[string]func(error)
 	if wg != nil {
-		changes = &resourceChanges{listeners: []savedEntry[*envoy_config_listener.Listener]{{key: name, value: oldListener, existed: existed}}}
 		callbackTypeURLs = map[string]func(error){ListenerTypeURL: nil}
 	}
-	s.updateSnapshot(ctx, resources, localNodeID, wg, callbackTypeURLs, changes)
+	mutations := xdsnew.ResourceMutations{Removed: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{name: oldListener}}}
+	_, _ = s.applyResourceUpdate(ctx, localNodeID, mutations, wg, callbackTypeURLs)
 
 	return func() {
 		s.mutex.Lock()
@@ -530,21 +513,8 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 
 		if existed {
 			s.logger.Debug("Reverting listener removal", logfields.Listener, name)
-			currentResources := s.cache.GetAllResources(localNodeID)
-			if currentResources == nil {
-				empty := xds.NewResources()
-				currentResources = &empty
-			}
-
-			// The cached resources are published immutable state. Copy the
-			// Resources and only the map changed by this revert.
-			revertedResources := *currentResources
-			revertedResources.Listeners = maps.Clone(currentResources.Listeners)
-			if revertedResources.Listeners == nil {
-				revertedResources.Listeners = make(map[string]*envoy_config_listener.Listener)
-			}
-			revertedResources.Listeners[name] = oldListener
-			s.updateSnapshot(ctx, &revertedResources, localNodeID, nil, nil, nil)
+			mutations := xdsnew.ResourceMutations{Upserted: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{name: oldListener}}}
+			_, _ = s.applyResourceUpdate(ctx, localNodeID, mutations, nil, nil)
 		}
 		if isProxyListener {
 			s.proxyListeners++
@@ -597,14 +567,8 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		// Remove network policies for conflicting endpoints from the cache.
 		for _, dup := range conflicts {
 			dupName := strconv.FormatUint(dup.ep.GetID(), 10)
-			resources := s.cache.GetAllResources(localNodeID)
-			if resources != nil {
-				if _, exists := resources.NetworkPolicies[dupName]; exists {
-					updatedResources := resources.CloneNetworkPolicies()
-					delete(updatedResources.NetworkPolicies, dupName)
-					s.updateSnapshot(ctx, updatedResources, localNodeID, nil, nil, nil)
-				}
-			}
+			mutations := xdsnew.ResourceMutations{Removed: xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{dupName: nil}}}
+			_, _ = s.applyResourceUpdate(ctx, localNodeID, mutations, nil, nil)
 		}
 	}
 
@@ -636,42 +600,20 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		}
 	}
 
-	// Capture old local endpoint state for revert.
-	revertEndpoints := make(map[string]endpoint.EndpointUpdater, len(names))
-	for _, name := range names {
-		revertEndpoints[name] = s.localEndpointStore.getLocalEndpoint(name)
-		s.localEndpointStore.setLocalEndpoint(ep)
-	}
-
-	updatedNodeIDs := make([]string, 0, len(nodeIDs))
+	var resourceUpdates []resourceUpdate
 	for _, nodeId := range nodeIDs {
-		resources := s.cache.GetAllResources(nodeId)
-		if resources == nil {
-			resources = &xds.Resources{}
-		}
-		oldPolicy, existed := resources.NetworkPolicies[resourceName]
-		if existed && (oldPolicy == networkPolicy || proto.Equal(oldPolicy, networkPolicy)) {
-			if waitForACK {
-				if err := s.cache.AwaitCurrentVersion(nodeId, wg, map[string]func(error){NetworkPolicyTypeURL: callback}); err != nil {
-					return err, nil, nil
-				}
-			}
-			continue
-		}
-
-		// Preserve the immutable published generation by copying the Resources
-		// header and only the resource map changed by this update.
-		updatedResources := resources.CloneNetworkPolicies()
-		updatedResources.NetworkPolicies[resourceName] = networkPolicy
 		var callbackTypeURLs map[string]func(error)
 		if waitForACK {
 			callbackTypeURLs = map[string]func(error){NetworkPolicyTypeURL: callback}
 		}
-		if err := s.updateSnapshot(ctx, updatedResources, nodeId, wg, callbackTypeURLs,
-			&resourceChanges{networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{key: resourceName, value: oldPolicy, existed: existed}}}); err != nil {
+		mutations := xdsnew.ResourceMutations{Upserted: xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{resourceName: networkPolicy}}}
+		update, err := s.applyResourceUpdate(ctx, nodeId, mutations, wg, callbackTypeURLs)
+		if err != nil {
 			return err, nil, nil
 		}
-		updatedNodeIDs = append(updatedNodeIDs, nodeId)
+		if update.changed() {
+			resourceUpdates = append(resourceUpdates, update)
+		}
 	}
 	if !waitForACK {
 		callback(nil)
@@ -680,38 +622,10 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	return nil, func() error {
 			s.logger.Debug("Reverting xDS network policy update")
 
-			s.mutex.Lock()
-			defer s.mutex.Unlock()
-
-			// Restore local endpoint mappings.
-			for _, oldEp := range revertEndpoints {
-				if oldEp == nil {
-					s.localEndpointStore.removeLocalEndpoint(ep)
-				} else {
-					s.localEndpointStore.setLocalEndpoint(ep)
-				}
-			}
-
-			// Remove each policy this call added and re-push its snapshot. Nodes
-			// whose policy was already current require no xDS revert.
-			for _, nodeId := range updatedNodeIDs {
-				resources := s.cache.GetAllResources(nodeId)
-				if resources == nil {
-					continue
-				}
-				updatedResources := resources.CloneNetworkPolicies()
-				oldPolicy, existed := updatedResources.NetworkPolicies[resourceName]
-				delete(updatedResources.NetworkPolicies, resourceName)
-				changes := &resourceChanges{
-					networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{
-						key:     resourceName,
-						value:   oldPolicy,
-						existed: existed,
-					}},
-				}
-				if err := s.updateSnapshot(ctx, updatedResources, nodeId, nil, nil, changes); err != nil {
-					return err
-				}
+			// Use the same generation-fenced inverse transaction that a NACK
+			// would use. If a NACK already applied it, the revert is idempotent.
+			for _, update := range resourceUpdates {
+				update.revert()
 			}
 
 			s.logger.Debug("Finished reverting xDS network policy update")
@@ -735,16 +649,6 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		logfields.CiliumNetworkPolicyName, resourceName,
 	)
 
-	// Host proxy uses "127.0.0.1" as the nodeID
-	resources := s.cache.GetAllResources(localNodeID)
-	if resources == nil {
-		return
-	}
-	// Work on a copy so the cached state is untouched.
-	updatedResources := resources.CloneNetworkPolicies()
-	oldPolicy, existed := updatedResources.NetworkPolicies[resourceName]
-	delete(updatedResources.NetworkPolicies, resourceName)
-
 	ip := ep.GetIPv6Address()
 	if ip != "" {
 		s.localEndpointStore.removeLocalEndpoint(ep)
@@ -754,17 +658,8 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		s.localEndpointStore.removeLocalEndpoint(ep)
 	}
 
-	var changes *resourceChanges
-	if existed {
-		changes = &resourceChanges{
-			networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{
-				key:     resourceName,
-				value:   oldPolicy,
-				existed: true,
-			}},
-		}
-	}
-	s.updateSnapshot(ctx, updatedResources, localNodeID, nil, nil, changes)
+	mutations := xdsnew.ResourceMutations{Removed: xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{resourceName: nil}}}
+	_, _ = s.applyResourceUpdate(ctx, localNodeID, mutations, nil, nil)
 }
 
 func (s *adsServer) RemoveAllNetworkPolicies() {
@@ -775,10 +670,8 @@ func (s *adsServer) RemoveAllNetworkPolicies() {
 	if resources == nil {
 		return
 	}
-	newResources := *resources
-	newResources.NetworkPolicies = map[string]*cilium.NetworkPolicy{}
-
-	if err := s.updateSnapshot(context.Background(), &newResources, localNodeID, nil, nil, computeChanges(resources, &newResources)); err != nil {
+	mutations := xdsnew.ResourceMutations{Removed: xds.Resources{NetworkPolicies: resources.NetworkPolicies}}
+	if _, err := s.applyResourceUpdate(context.Background(), localNodeID, mutations, nil, nil); err != nil {
 		s.logger.Error("Failed to remove all network policies", logfields.Error, err)
 	}
 }
@@ -834,86 +727,59 @@ func (s *adsServer) portAllocationCallback(ctx context.Context, callbacks map[st
 	}
 }
 
-// resourceChanges captures the previous state of resources that are about to change.
-// Each slice records the old value for keys being modified. Used by buildRevert to
-// restore only the changed resources on NACK, instead of reverting the entire snapshot.
-type resourceChanges struct {
-	listeners          []savedEntry[*envoy_config_listener.Listener]
-	routes             []savedEntry[*envoy_config_route.RouteConfiguration]
-	clusters           []savedEntry[*envoy_config_cluster.Cluster]
-	endpoints          []savedEntry[*envoy_config_endpoint.ClusterLoadAssignment]
-	secrets            []savedEntry[*envoy_config_tls.Secret]
-	networkPolicies    []savedEntry[*cilium.NetworkPolicy]
-	networkPolicyHosts []savedEntry[*cilium.NetworkPolicyHosts]
+// resourceUpdate retains the exact generation-fenced revert registered with
+// the cache. UpdateNetworkPolicy uses it for endpoint regeneration rollback,
+// so the NACK and caller-driven paths cannot construct competing inverses.
+type resourceUpdate struct {
+	updated    bool
+	revertFunc xdsnew.RevertFunc
 }
 
-// computeChanges builds a resourceChanges by diffing current and new resources.
-func computeChanges(current, new *xds.Resources) *resourceChanges {
-	if current == nil {
-		current = &xds.Resources{}
-	}
-	return &resourceChanges{
-		listeners:          diffMap(current.Listeners, new.Listeners),
-		routes:             diffMap(current.Routes, new.Routes),
-		clusters:           diffMap(current.Clusters, new.Clusters),
-		endpoints:          diffMap(current.Endpoints, new.Endpoints),
-		secrets:            diffMap(current.Secrets, new.Secrets),
-		networkPolicies:    diffMap(current.NetworkPolicies, new.NetworkPolicies),
-		networkPolicyHosts: diffMap(current.NetworkPolicyHosts, new.NetworkPolicyHosts),
+// Generation zero is never published. It asks a revert to use the node's
+// current generation for caller-driven rollback after a successful ACK.
+const revertCurrentGeneration uint64 = 0
+
+func (u resourceUpdate) changed() bool {
+	return u.updated
+}
+
+func (u resourceUpdate) revert() {
+	if u.revertFunc != nil {
+		_, _ = u.revertFunc(revertCurrentGeneration)
 	}
 }
 
-func inferredCompletionTypeURLs(changes *resourceChanges) map[string]func(error) {
-	// In ADS, CDS/RDS/EDS/SDS ACKs can be delayed by dependencies that are
-	// reconciled by later StateDB rows. A generic wait for every changed type can
-	// therefore block those rows from being published. Only infer the LDS wait
-	// needed by listener add/remove callers; callers that need other ACKs pass
-	// explicit callback type URLs.
-	if changes == nil || len(changes.listeners) == 0 {
-		return nil
-	}
-	return map[string]func(error){ListenerTypeURL: nil}
-}
-
-func listenerPortAllocationCompletionTypeURLs(callback func(error), changes *resourceChanges) map[string]func(error) {
-	if callback == nil {
-		return nil
-	}
-
-	callbackTypeURLs := map[string]func(error){ListenerTypeURL: callback}
-	if changes != nil && len(changes.clusters) > 0 {
-		// The legacy split xDS server waits for CDS ACKs before publishing the
-		// listener update. Keep the same safety for ADS listener updates that also
-		// change clusters; otherwise a listener ACK can unblock CEC reconciliation
-		// while Envoy still lacks a cluster referenced by the listener filter chain.
-		// Do not add RDS/EDS/SDS here, as those ACKs can legitimately be delayed by
-		// resources reconciled through later StateDB rows.
-		callbackTypeURLs[ClusterTypeURL] = nil
-	}
-	return callbackTypeURLs
-}
-
-// buildRevert captures the given resource changes and returns a closure that
-// restores them. The caller threads the actual generation returned by one
+// buildRevert captures the inverse sparse mutation and returns a closure that
+// restores it. The caller threads the actual generation returned by one
 // successful revert into the next older revert. A revert is skipped if the
-// current generation no longer matches that rollback chain.
+// current generation no longer matches that rollback chain. Replaying the
+// same revert is successful without publishing another resource generation;
+// this lets a later NACK continue rolling back older coalesced updates after an
+// endpoint regeneration has already reverted this update.
 // Caller must hold s.mutex.
-func (s *adsServer) buildRevert(ctx context.Context, nodeID string, pushedGeneration uint64, changes *resourceChanges) xdsnew.RevertFunc {
-	if changes == nil {
-		changes = &resourceChanges{}
-	}
+func (s *adsServer) buildRevert(ctx context.Context, nodeID string, pushedGeneration uint64, mutations xdsnew.ResourceMutations) xdsnew.RevertFunc {
+	var revertedExpectedGeneration, revertedGeneration uint64
 
 	return func(expectedGeneration uint64) (uint64, bool) {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
+
+		currentGeneration := s.resourceGenerations[nodeID]
+		if revertedGeneration != 0 {
+			if expectedGeneration == revertCurrentGeneration {
+				return currentGeneration, true
+			}
+			return currentGeneration, expectedGeneration == revertedExpectedGeneration && currentGeneration == revertedGeneration
+		}
+		if expectedGeneration == revertCurrentGeneration {
+			expectedGeneration = currentGeneration
+		}
 
 		// Check whether the resource state is still the generation expected by
 		// the rollback chain. The newest changed update normally expects its own
 		// pushedGeneration; a newer no-op completion may advance that expectation.
 		// Each successful revert publishes a fresh generation which is threaded
 		// into the next older revert.
-		currentResources := s.cache.GetAllResources(nodeID)
-		currentGeneration := s.resourceGenerations[nodeID]
 		if currentGeneration != expectedGeneration {
 			s.logger.Info(
 				"Skipping revert, resource generation has been superseded",
@@ -926,212 +792,44 @@ func (s *adsServer) buildRevert(ctx context.Context, nodeID string, pushedGenera
 		}
 
 		s.logger.Info("Reverting snapshot for node", logfields.NodeID, nodeID)
-		reverted := applyChanges(currentResources, changes)
-		revertChanges := computeChanges(currentResources, reverted)
-		if err := s.updateSnapshot(ctx, reverted, nodeID, nil, nil, revertChanges); err != nil {
+		update, err := s.applyResourceUpdate(ctx, nodeID, mutations, nil, nil)
+		if err != nil {
 			s.logger.Error("Failed to revert snapshot",
 				logfields.NodeID, nodeID,
 				logfields.Error, err)
 			return s.resourceGenerations[nodeID], false
 		}
-		return s.resourceGenerations[nodeID], true
+		revertedExpectedGeneration = expectedGeneration
+		revertedGeneration = s.resourceGenerations[nodeID]
+		return revertedGeneration, update.changed() || revertedGeneration == expectedGeneration
 	}
 }
 
-// savedEntry records the previous value of a single resource key.
-// If existed is false, the key was not present before the update and should be deleted on revert.
-type savedEntry[V any] struct {
-	key     string
-	value   V
-	existed bool
-}
-
-// diffMap returns entries for every key whose value differs between old and new,
-// plus keys present in old but absent in new (deletions). Keys that are identical
-// in both maps are not saved.
-func diffMap[V interface {
-	proto.Message
-	comparable
-}](old, new map[string]V) []savedEntry[V] {
-	var saved []savedEntry[V]
-	// Keys that are new or changed.
-	for k, newVal := range new {
-		oldVal, existed := old[k]
-		if !existed || (oldVal != newVal && !proto.Equal(oldVal, newVal)) {
-			saved = append(saved, savedEntry[V]{key: k, value: oldVal, existed: existed})
-		}
-	}
-	// Keys deleted from old.
-	for k, v := range old {
-		if _, inNew := new[k]; !inNew {
-			saved = append(saved, savedEntry[V]{key: k, value: v, existed: true})
-		}
-	}
-	return saved
-}
-
-func cloneMapOrInit[K comparable, V any](source map[K]V) map[K]V {
-	cloned := maps.Clone(source)
-	if cloned == nil {
-		cloned = make(map[K]V)
-	}
-	return cloned
-}
-
-// applyDiff restores saved entries into dst.
-func applyDiff[V any](dst map[string]V, entries []savedEntry[V]) {
-	for _, e := range entries {
-		if e.existed {
-			dst[e.key] = e.value
-		} else {
-			delete(dst, e.key)
-		}
-	}
-}
-
-func applyChanges(r *xds.Resources, changes *resourceChanges) *xds.Resources {
-	// Clone only maps that the revert is about to mutate. Published resource
-	// maps are immutable, so all unaffected maps can be shared.
-	updated := *r
-	if len(changes.listeners) > 0 {
-		updated.Listeners = cloneMapOrInit(r.Listeners)
-		applyDiff(updated.Listeners, changes.listeners)
-	}
-	if len(changes.routes) > 0 {
-		updated.Routes = cloneMapOrInit(r.Routes)
-		applyDiff(updated.Routes, changes.routes)
-	}
-	if len(changes.clusters) > 0 {
-		updated.Clusters = cloneMapOrInit(r.Clusters)
-		applyDiff(updated.Clusters, changes.clusters)
-	}
-	if len(changes.endpoints) > 0 {
-		updated.Endpoints = cloneMapOrInit(r.Endpoints)
-		applyDiff(updated.Endpoints, changes.endpoints)
-	}
-	if len(changes.secrets) > 0 {
-		updated.Secrets = cloneMapOrInit(r.Secrets)
-		applyDiff(updated.Secrets, changes.secrets)
-	}
-	if len(changes.networkPolicies) > 0 {
-		updated.NetworkPolicies = cloneMapOrInit(r.NetworkPolicies)
-		applyDiff(updated.NetworkPolicies, changes.networkPolicies)
-	}
-	if len(changes.networkPolicyHosts) > 0 {
-		updated.NetworkPolicyHosts = cloneMapOrInit(r.NetworkPolicyHosts)
-		applyDiff(updated.NetworkPolicyHosts, changes.networkPolicyHosts)
-	}
-	return &updated
-}
-
+// applyResourceUpdate forwards sparse mutation intent to the cache, which is
+// the authority for semantic equality, copy-on-write, and changed TypeURLs.
 // Caller must hold s.mutex.
-func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources, nodeId string, wg *completion.WaitGroup, callbackTypeURLs map[string]func(err error), changes *resourceChanges) error {
-	if nodeId == "" {
-		// Host proxy uses "127.0.0.1" as the nodeID
-		nodeId = localNodeID
+func (s *adsServer) applyResourceUpdate(ctx context.Context, nodeID string, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, callbackTypeURLs map[string]func(error)) (resourceUpdate, error) {
+	if nodeID == "" {
+		nodeID = localNodeID
 	}
-
-	s.logger.Debug("updateXdsSnapshot: Updating Envoy resources",
-		logfields.Resource, resources.DebugInfo())
-	for _, r := range resources.Secrets {
-		s.logger.Debug(
-			"Envoy updateSecret",
-			logfields.ResourceName, r.Name,
-		)
+	newGeneration := s.resourceGeneration + 1
+	revertFactory := func(inverse xdsnew.ResourceMutations) xdsnew.RevertFunc {
+		return s.buildRevert(ctx, nodeID, newGeneration, inverse)
 	}
-	for _, r := range resources.Endpoints {
-		s.logger.Debug(
-			"Envoy updateEndpoint",
-			logfields.ResourceName, r.ClusterName,
-			logfields.Resource, r,
-		)
+	updated, revertFunc, err := s.cache.ApplyResources(ctx, nodeID, newGeneration, mutations, wg, callbackTypeURLs, revertFactory)
+	if err != nil {
+		return resourceUpdate{}, err
 	}
-	for _, r := range resources.Clusters {
-		s.logger.Debug(
-			"Envoy updateCluster",
-			logfields.ResourceName, r.Name,
-			logfields.Resource, r,
-		)
-	}
-	for _, r := range resources.Routes {
-		s.logger.Debug(
-			"Envoy updateRoute",
-			logfields.ResourceName, r.Name,
-			logfields.Resource, r,
-		)
-	}
-
-	updatedTypeURLsInSnapshot := getUpdatedTypeURLs(changes)
-	// Preserve the semantic resource changes before callback-only type URLs are
-	// merged below. ACK bookkeeping must not cause unrelated snapshot groups to
-	// be regenerated.
-	var changedTypeURLs map[string]struct{}
-	if updatedTypeURLsInSnapshot != nil {
-		changedTypeURLs = make(map[string]struct{}, len(updatedTypeURLsInSnapshot))
-		for typeURL := range updatedTypeURLsInSnapshot {
-			changedTypeURLs[typeURL] = struct{}{}
-		}
-	}
-	completionTypeURLs := inferredCompletionTypeURLs(changes)
-	// Callers can explicitly add type URLs when the changed type cannot be
-	// inferred from the changed resource entries. When explicit callback types
-	// are provided, use them as the completion set too: callers such as CEC port
-	// allocation only need the listener ACK/NACK, and waiting for all changed ADS
-	// types can deadlock behind dependent resources reconciled by later StateDB
-	// rows.
-	if callbackTypeURLs != nil {
-		if updatedTypeURLsInSnapshot == nil {
-			updatedTypeURLsInSnapshot = make(map[string]func(error), len(callbackTypeURLs))
-		}
-		for typeURL := range callbackTypeURLs {
-			if _, ok := updatedTypeURLsInSnapshot[typeURL]; !ok {
-				updatedTypeURLsInSnapshot[typeURL] = nil
-			}
-		}
-		completionTypeURLs = callbackTypeURLs
-	}
-	if changes == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.GetAllResources(nodeId) == nil {
-		// Reserve the next generation before registering the revert closure. It
-		// becomes current after the immutable resources have been staged. The
-		// actual snapshot may be finalized later when Envoy opens its next watch.
-		newGeneration := s.resourceGeneration + 1
-		var revertFunc xdsnew.RevertFunc
-		// An update without a WaitGroup can still be coalesced into a response
-		// carrying older tracked generations. Preserve its revert so a NACK can
-		// restore every resource change represented by that response.
-		if changes != nil {
-			revertFunc = s.buildRevert(ctx, nodeId, newGeneration, changes)
-		}
-		generator := func(resources *xds.Resources, previous xds_cache.ResourceSnapshot, changedTypeURLs map[string]struct{}) (xds_cache.ResourceSnapshot, error) {
-			snapshot, err := s.cache.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, s.logger)
-			if err != nil {
-				return nil, err
-			}
-			if s.config.envoyXDSMode.IsStrictADS() {
-				if err := xdsnew.CheckSnapshotConsistency(snapshot); err != nil {
-					return nil, fmt.Errorf("generated ADS snapshot is inconsistent: %w", err)
-				}
-			}
-			return snapshot, nil
-		}
-		err := s.cache.UpdateResources(ctx, nodeId, newGeneration, resources, changedTypeURLs, generator, wg, completionTypeURLs, revertFunc)
-		if err != nil {
-			s.logger.Error("Error staging snapshot resources",
-				logfields.NodeID, nodeId,
-				logfields.Error, err)
-			return err
-		}
+	if updated {
 		s.resourceGeneration = newGeneration
-		s.resourceGenerations[nodeId] = newGeneration
+		s.resourceGenerations[nodeID] = newGeneration
 	} else {
-		s.logger.Debug("updateXdsSnapshot: Resources are identical, skipping update")
+		s.logger.Debug("ADS resources are identical, skipping update")
 	}
-
-	if nodeId == localNodeID {
-		s.syncNPDSListeners(resources)
+	if updated && nodeID == localNodeID && (len(mutations.Removed.Listeners) > 0 || len(mutations.Upserted.Listeners) > 0) {
+		s.syncNPDSListeners(s.cache.GetAllResources(nodeID))
 	}
-
-	return nil
+	return resourceUpdate{updated: updated, revertFunc: revertFunc}, nil
 }
 
 // syncNPDSListeners updates the ADS NetworkPolicy ACK expectation from the
@@ -1157,18 +855,16 @@ func (s *adsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Reso
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	currentResources := s.cache.GetAllResources(localNodeID)
-	if currentResources == nil {
-		currentResources = &xds.Resources{}
-	}
-	// Merge new resources into a copy-on-write view of current resources.
-	// Only resource-type maps that contain upserts are cloned.
-	merged := updateResources(currentResources, nil, &resources)
-	changes := computeChanges(currentResources, &merged)
-
 	callback := s.portAllocationCallback(ctx, resources.PortAllocationCallbacks)
-	callbackTypeURLs := listenerPortAllocationCompletionTypeURLs(callback, changes)
-	return s.updateSnapshot(ctx, &merged, "", wg, callbackTypeURLs, changes)
+	var callbackTypeURLs map[string]func(error)
+	if callback != nil {
+		callbackTypeURLs = map[string]func(error){ListenerTypeURL: callback}
+		if len(resources.Clusters) > 0 {
+			callbackTypeURLs[ClusterTypeURL] = nil
+		}
+	}
+	_, err := s.applyResourceUpdate(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, wg, callbackTypeURLs)
+	return err
 }
 
 func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newResources xds.Resources, waitGroup *completion.WaitGroup) error {
@@ -1194,15 +890,6 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 		}
 	}
 
-	currentResources := s.cache.GetAllResources(localNodeID)
-	if currentResources == nil {
-		currentResources = &xds.Resources{}
-	}
-	// Subtract old resources and merge new resources using copy-on-write.
-	// A resource-type map touched by both operations is still cloned only once.
-	updated := updateResources(currentResources, &oldResources, &newResources)
-	changes := computeChanges(currentResources, &updated)
-
 	callback := s.portAllocationCallback(ctx, newResources.PortAllocationCallbacks)
 	var callbackTypeURLs map[string]func(error)
 	if hadPortAllocationCallbacks {
@@ -1214,9 +901,13 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 		callbackTypeURLs = map[string]func(error){}
 	}
 	if callback != nil {
-		callbackTypeURLs = listenerPortAllocationCompletionTypeURLs(callback, changes)
+		callbackTypeURLs = map[string]func(error){ListenerTypeURL: callback}
+		if len(oldResources.Clusters) > 0 || len(newResources.Clusters) > 0 {
+			callbackTypeURLs[ClusterTypeURL] = nil
+		}
 	}
-	return s.updateSnapshot(ctx, &updated, "", waitGroup, callbackTypeURLs, changes)
+	_, err := s.applyResourceUpdate(ctx, localNodeID, xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}, waitGroup, callbackTypeURLs)
+	return err
 }
 
 func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
@@ -1231,19 +922,7 @@ func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 		logfields.ResourceSecrets, len(resources.Secrets),
 	)
 
-	currentResources := s.cache.GetAllResources(localNodeID)
-	if currentResources == nil {
-		currentResources = &xds.Resources{}
-	}
-	newResources := updateResources(currentResources, &resources, nil)
-
-	// For now we only care about listeners, to match the existing (pre ADS) implementation of xds server.
 	var callbackTypeURLs map[string]func(error)
-	if len(currentResources.Listeners) != len(newResources.Listeners) {
-		callbackTypeURLs = map[string]func(error){ListenerTypeURL: nil}
-	}
-	changes := computeChanges(currentResources, &newResources)
-
 	callback := s.portAllocationCallback(ctx, resources.PortAllocationCallbacks)
 	if callback != nil {
 		if callbackTypeURLs == nil {
@@ -1251,46 +930,8 @@ func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 		}
 		callbackTypeURLs[ListenerTypeURL] = callback
 	}
-	return s.updateSnapshot(ctx, &newResources, "", waitGroup, callbackTypeURLs, changes)
-}
-
-// updateResourceMap returns current unchanged when neither operation touches the
-// resource type. Otherwise it clones the map once, applies removals, then upserts.
-func updateResourceMap[V any](current, removed, upserted map[string]V) map[string]V {
-	if len(removed) == 0 && len(upserted) == 0 {
-		return current
-	}
-
-	updated := cloneMapOrInit(current)
-	for name := range removed {
-		delete(updated, name)
-	}
-	maps.Copy(updated, upserted)
-	return updated
-}
-
-// updateResources applies removals and upserts using copy-on-write per resource
-// type. Unaffected maps remain shared with the immutable current resources.
-func updateResources(current, removed, upserted *xds.Resources) xds.Resources {
-	var updated, removeSet, upsertSet xds.Resources
-	if current != nil {
-		updated = *current
-	}
-	if removed != nil {
-		removeSet = *removed
-	}
-	if upserted != nil {
-		upsertSet = *upserted
-	}
-
-	updated.Listeners = updateResourceMap(updated.Listeners, removeSet.Listeners, upsertSet.Listeners)
-	updated.Routes = updateResourceMap(updated.Routes, removeSet.Routes, upsertSet.Routes)
-	updated.Clusters = updateResourceMap(updated.Clusters, removeSet.Clusters, upsertSet.Clusters)
-	updated.Endpoints = updateResourceMap(updated.Endpoints, removeSet.Endpoints, upsertSet.Endpoints)
-	updated.Secrets = updateResourceMap(updated.Secrets, removeSet.Secrets, upsertSet.Secrets)
-	updated.NetworkPolicies = updateResourceMap(updated.NetworkPolicies, removeSet.NetworkPolicies, upsertSet.NetworkPolicies)
-	updated.NetworkPolicyHosts = updateResourceMap(updated.NetworkPolicyHosts, removeSet.NetworkPolicyHosts, upsertSet.NetworkPolicyHosts)
-	return updated
+	_, err := s.applyResourceUpdate(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, waitGroup, callbackTypeURLs)
+	return err
 }
 
 func (s *adsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts GetEgressNamedPorts, selectors policy.SelectorSnapshot, names []string, l4Policy *policy.L4Policy,
@@ -1307,36 +948,4 @@ func (s *adsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamed
 	}
 
 	return p
-}
-
-func getUpdatedTypeURLs(changes *resourceChanges) map[string]func(error) {
-	if changes == nil {
-		return nil
-	}
-	updatedTypeURLS := make(map[string]func(error))
-	add := func(typeURL string) {
-		updatedTypeURLS[typeURL] = nil
-	}
-	if len(changes.listeners) > 0 {
-		add(ListenerTypeURL)
-	}
-	if len(changes.routes) > 0 {
-		add(RouteTypeURL)
-	}
-	if len(changes.clusters) > 0 {
-		add(ClusterTypeURL)
-	}
-	if len(changes.endpoints) > 0 {
-		add(EndpointTypeURL)
-	}
-	if len(changes.secrets) > 0 {
-		add(SecretTypeURL)
-	}
-	if len(changes.networkPolicies) > 0 {
-		add(NetworkPolicyTypeURL)
-	}
-	if len(changes.networkPolicyHosts) > 0 {
-		add(NetworkPolicyHostsTypeURL)
-	}
-	return updatedTypeURLS
 }

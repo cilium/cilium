@@ -37,6 +37,7 @@ import (
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -1705,7 +1706,7 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 	// UpsertEnvoyResources intentionally does not wait for endpoint ACKs. This
 	// regression test needs to observe the EDS ACK for the bootstrap locality cluster.
 	xdsServer.mutex.Lock()
-	err = xdsServer.updateSnapshot(ctx, &resources, localNodeID, s.waitGroup, map[string]func(error){EndpointTypeURL: nil}, computeChanges(nil, &resources))
+	_, err = xdsServer.applyResourceUpdate(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, s.waitGroup, map[string]func(error){EndpointTypeURL: nil})
 	xdsServer.mutex.Unlock()
 	require.NoError(t, err)
 

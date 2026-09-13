@@ -44,40 +44,48 @@ const (
 
 type RevertFunc = callbacks.RevertFunc
 
-// SnapshotGenerator constructs the immutable snapshot which represents the
+// RevertFuncFactory constructs rollback state after the cache has found a real
+// semantic change. No-op transactions therefore allocate neither inverse maps
+// nor a revert closure.
+type RevertFuncFactory func(inverse ResourceMutations) RevertFunc
+
+// ResourceMutations is a sparse resource transaction. Unchanged resource maps
+// remain nil. Keeping the Resources values inline lets callers keep the sparse
+// headers on their stack; only maps referenced by a transaction can escape.
+type ResourceMutations struct {
+	Removed  xds.Resources
+	Upserted xds.Resources
+}
+
+// snapshotGenerator constructs the immutable snapshot which represents the
 // latest staged resources. Keeping generation behind this callback lets the
 // cache postpone protobuf marshaling and version hashing until Envoy has a
 // watch which can consume the result.
-type SnapshotGenerator func(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}) (cache.ResourceSnapshot, error)
+type snapshotGenerator func(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}) (cache.ResourceSnapshot, error)
 
 type Cache interface {
 	cache.SnapshotCache
 
-	GetVersion(resources *xds.Resources) string
-	GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error)
-	// GenerateSnapshotIncrementally reuses immutable state from previous for
-	// resource types outside changedTypeURLs. A nil change set requests a full
-	// snapshot; a non-nil empty set returns the previous snapshot unchanged.
-	GenerateSnapshotIncrementally(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}, logger *slog.Logger) (cache.ResourceSnapshot, error)
-	// UpdateResources stages the newest immutable resource state. Snapshot
-	// construction is deferred until an affected watch is already open or the
-	// next affected CreateWatch call arrives.
-	UpdateResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, changedTypeURLs map[string]struct{}, generator SnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), revertFunc RevertFunc) error
-	// AwaitCurrentVersion registers completions against the current snapshot
-	// without publishing it again.
-	AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup, typeURLs map[string]func(err error)) error
-	// SetResources transfers resources to the cache as immutable desired state.
-	SetResources(nodeID string, resources *xds.Resources)
+	// ApplyResources stages the newest immutable resource state if it contains
+	// semantic changes. Completions for unchanged resource types are attached to
+	// their current version instead of creating a completion-only generation.
+	// On change it returns the same generation-aware revert registered for NACK
+	// handling, allowing callers to reuse one inverse transaction for broader
+	// rollback.
+	ApplyResources(ctx context.Context, nodeID string, generation uint64, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), revertFactory RevertFuncFactory) (bool, RevertFunc, error)
 	// GetAllResources returns cache-owned immutable state. Callers must use
 	// copy-on-write rather than mutate the returned Resources or its contents.
 	GetAllResources(nodeID string) *xds.Resources
-	AreDifferentSnapshots(left, right cache.ResourceSnapshot) bool
 	GetCompletionCallbacks() *callbacks.CompletionCallbacks
 }
 
 type cacheImpl struct {
 	cache.SnapshotCache
 
+	// transactionMutex serializes complete sparse resource mutations. The ADS
+	// server already serializes its callers, but the cache API must remain an
+	// atomic transaction when used directly.
+	transactionMutex lock.Mutex
 	// mutex protects accesses to the configuration resources below.
 	mutex *lock.RWMutex
 	// resourcesInSnapshot holds the latest immutable desired resources keyed by
@@ -99,8 +107,13 @@ type cacheImpl struct {
 	watchRelays   map[chan cache.Response]*watchRelay
 	nextWatchID   uint64
 	logger        *slog.Logger
+	strictAdsMode bool
 	hasher        hash.Hash32
 	completionCbs *callbacks.CompletionCallbacks
+	// defaultGenerator is bound once when the cache is constructed. Reusing the
+	// method value avoids allocating an otherwise identical closure for every
+	// resource mutation.
+	defaultGenerator snapshotGenerator
 }
 
 type stagedSnapshot struct {
@@ -109,7 +122,7 @@ type stagedSnapshot struct {
 	changedTypeURLs    map[string]struct{}
 	completionTypeURLs map[string]struct{}
 	generations        []stagedGeneration
-	generator          SnapshotGenerator
+	generator          snapshotGenerator
 }
 
 // stagedGeneration retains only the rollback information needed if multiple
@@ -160,7 +173,7 @@ type ciliumSnapshot struct {
 var _ cache.ResourceSnapshot = &ciliumSnapshot{}
 var _ interface{ Consistent() error } = &ciliumSnapshot{}
 
-var snapshotResourceTypes = []envoy_resource.Type{
+var snapshotResourceTypes = [...]envoy_resource.Type{
 	envoy_resource.EndpointType,
 	envoy_resource.ClusterType,
 	envoy_resource.RouteType,
@@ -169,6 +182,30 @@ var snapshotResourceTypes = []envoy_resource.Type{
 	NetworkPolicyTypeURL,
 	NetworkPolicyHostsTypeURL,
 }
+
+const snapshotResourceTypeCount = len(snapshotResourceTypes)
+
+var singletonTypeURLSets = map[string]map[string]struct{}{
+	envoy_resource.EndpointType: {envoy_resource.EndpointType: {}},
+	envoy_resource.ClusterType:  {envoy_resource.ClusterType: {}},
+	envoy_resource.RouteType:    {envoy_resource.RouteType: {}},
+	envoy_resource.ListenerType: {envoy_resource.ListenerType: {}},
+	envoy_resource.SecretType:   {envoy_resource.SecretType: {}},
+	NetworkPolicyTypeURL:        {NetworkPolicyTypeURL: {}},
+	NetworkPolicyHostsTypeURL:   {NetworkPolicyHostsTypeURL: {}},
+}
+
+var (
+	listenerDependentTypeURLs = map[string]struct{}{
+		envoy_resource.RouteType:   {},
+		envoy_resource.ClusterType: {},
+		envoy_resource.SecretType:  {},
+	}
+	clusterDependentTypeURLs = map[string]struct{}{
+		envoy_resource.EndpointType: {},
+		envoy_resource.SecretType:   {},
+	}
+)
 
 func newCiliumSnapshot(resources map[string]cache.Resources, resourceVersions map[string]map[string]string) *ciliumSnapshot {
 	w := &ciliumSnapshot{
@@ -322,7 +359,7 @@ func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 func NewCache(logger *slog.Logger, strictAdsMode bool) Cache {
 	snapshotCache := cache.NewSnapshotCache(strictAdsMode, cache.IDHash{}, snapshotCacheLogger(logger))
 
-	return &cacheImpl{
+	c := &cacheImpl{
 		SnapshotCache:       snapshotCache,
 		mutex:               &lock.RWMutex{},
 		resourcesInSnapshot: make(map[string]*xds.Resources),
@@ -331,9 +368,12 @@ func NewCache(logger *slog.Logger, strictAdsMode bool) Cache {
 		openWatches:         make(map[watchKey]map[uint64]*trackedWatch),
 		watchRelays:         make(map[chan cache.Response]*watchRelay),
 		logger:              logger,
+		strictAdsMode:       strictAdsMode,
 		hasher:              fnv.New32a(),
 		completionCbs:       callbacks.NewCompletionCallbacks(logger),
 	}
+	c.defaultGenerator = c.generateSnapshotForUpdate
+	return c
 }
 
 func (c *cacheImpl) hash(resources map[string]string) string {
@@ -348,7 +388,7 @@ func (c *cacheImpl) hash(resources map[string]string) string {
 	return rand.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
 }
 
-func (c *cacheImpl) GetVersion(resources *xds.Resources) string {
+func (c *cacheImpl) getVersion(resources *xds.Resources) string {
 	encodedResources, err := Marshal(resources)
 	if err != nil {
 		c.logger.Error(fmt.Sprintf("failed to marshal resources for versioning: %v", err))
@@ -704,21 +744,18 @@ func incrementalSnapshotTypeURLs(changedTypeURLs map[string]struct{}) (map[strin
 		return nil, false
 	}
 
-	regenerate := maps.Clone(changedTypeURLs)
 	for typeURL := range changedTypeURLs {
-		if !slices.Contains(snapshotResourceTypes, envoy_resource.Type(typeURL)) {
+		if !slices.Contains(snapshotResourceTypes[:], envoy_resource.Type(typeURL)) {
 			return nil, false
 		}
 	}
 
+	regenerate := changedTypeURLs
 	if _, listenersChanged := changedTypeURLs[envoy_resource.ListenerType]; listenersChanged {
-		regenerate[envoy_resource.RouteType] = struct{}{}
-		regenerate[envoy_resource.ClusterType] = struct{}{}
-		regenerate[envoy_resource.SecretType] = struct{}{}
+		regenerate = mergeTypeURLSets(regenerate, listenerDependentTypeURLs)
 	}
 	if _, clustersChanged := changedTypeURLs[envoy_resource.ClusterType]; clustersChanged {
-		regenerate[envoy_resource.EndpointType] = struct{}{}
-		regenerate[envoy_resource.SecretType] = struct{}{}
+		regenerate = mergeTypeURLSets(regenerate, clusterDependentTypeURLs)
 	}
 
 	return regenerate, true
@@ -793,7 +830,7 @@ func normalizeSnapshotResources(resources *xds.Resources) *xds.Resources {
 	return normalized
 }
 
-func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error) {
+func (c *cacheImpl) generateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error) {
 	if resources == nil {
 		empty := xds.NewResources()
 		resources = &empty
@@ -815,10 +852,10 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 	return newCiliumSnapshot(versionedResources, resourceVersions), nil
 }
 
-func (c *cacheImpl) GenerateSnapshotIncrementally(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}, logger *slog.Logger) (cache.ResourceSnapshot, error) {
+func (c *cacheImpl) generateSnapshotIncrementally(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}, logger *slog.Logger) (cache.ResourceSnapshot, error) {
 	previousSnapshot, regenerate, ok := c.canGenerateSnapshotIncrementally(previous, changedTypeURLs)
 	if !ok {
-		return c.GenerateSnapshot(resources, logger)
+		return c.generateSnapshot(resources, logger)
 	}
 	if len(regenerate) == 0 {
 		return previousSnapshot, nil
@@ -858,7 +895,7 @@ func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
 // SetResources stores resources as cache-owned immutable desired state. It
 // intentionally does not clone resources; callers transfer ownership when
 // calling this method.
-func (c *cacheImpl) SetResources(nodeID string, resources *xds.Resources) {
+func (c *cacheImpl) setResources(nodeID string, resources *xds.Resources) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.resourcesInSnapshot[nodeID] = resources
@@ -969,6 +1006,47 @@ func snapshotTypesChangedBy(changedTypeURLs map[string]struct{}) map[string]stru
 	return regenerate
 }
 
+// mergeTypeURLSets returns the union while preserving base when it already
+// contains every addition. TypeURL sets are immutable after being staged, so
+// repeated mutations of the same resource type do not need to clone the set.
+func mergeTypeURLSets(base, additions map[string]struct{}) map[string]struct{} {
+	merged := base
+	cloned := false
+	for typeURL := range additions {
+		if _, exists := merged[typeURL]; exists {
+			continue
+		}
+		if !cloned {
+			merged = maps.Clone(base)
+			if merged == nil {
+				merged = make(map[string]struct{}, len(additions))
+			}
+			cloned = true
+		}
+		merged[typeURL] = struct{}{}
+	}
+	return merged
+}
+
+func mergeTypeURLCallbacks(base map[string]struct{}, additions map[string]func(error)) map[string]struct{} {
+	merged := base
+	cloned := false
+	for typeURL := range additions {
+		if _, exists := merged[typeURL]; exists {
+			continue
+		}
+		if !cloned {
+			merged = maps.Clone(base)
+			if merged == nil {
+				merged = make(map[string]struct{}, len(additions))
+			}
+			cloned = true
+		}
+		merged[typeURL] = struct{}{}
+	}
+	return merged
+}
+
 // finalizeStagedSnapshotLocked constructs and installs the newest staged
 // snapshot for nodeID. The caller must hold c.mutex. Completion resolution is
 // returned to the caller so callbacks can run after the cache lock is released.
@@ -998,7 +1076,7 @@ func (c *cacheImpl) finalizeStagedSnapshotLocked(ctx context.Context, nodeID str
 		// canceled delivery may therefore return an error after publication has
 		// committed; keep generation state in that case.
 		currentSnapshot, getErr := c.SnapshotCache.GetSnapshot(nodeID)
-		committed := getErr == nil && !c.AreDifferentSnapshots(currentSnapshot, newSnapshot)
+		committed := getErr == nil && !c.areDifferentSnapshots(currentSnapshot, newSnapshot)
 		if !committed {
 			c.completionCbs.SetPublishedSnapshot(nodeID, oldGeneration, oldSnapshot)
 			return false, nil, err
@@ -1044,8 +1122,220 @@ func (c *cacheImpl) completeFinalized(nodeID string, finalized []finalizedComple
 	}
 }
 
-func (c *cacheImpl) UpdateResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, changedTypeURLs map[string]struct{}, generator SnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), revertFunc RevertFunc) error {
-	dirtyTypeURLs := snapshotTypesChangedBy(changedTypeURLs)
+func applyResourceMap[V interface {
+	proto.Message
+	comparable
+}](current, removed, upserted map[string]V) (updated, inverseRemoved, inverseUpserted map[string]V, changed bool) {
+	ensureUpdated := func() {
+		if updated == nil {
+			updated = maps.Clone(current)
+			if updated == nil {
+				updated = make(map[string]V)
+			}
+		}
+	}
+	for name := range removed {
+		if _, replaced := upserted[name]; replaced {
+			continue
+		}
+		if old, exists := current[name]; exists {
+			ensureUpdated()
+			delete(updated, name)
+			if inverseUpserted == nil {
+				inverseUpserted = make(map[string]V)
+			}
+			inverseUpserted[name] = old
+		}
+	}
+	for name, resource := range upserted {
+		old, exists := current[name]
+		if exists && (old == resource || proto.Equal(old, resource)) {
+			continue
+		}
+		ensureUpdated()
+		updated[name] = resource
+		if exists {
+			if inverseUpserted == nil {
+				inverseUpserted = make(map[string]V)
+			}
+			inverseUpserted[name] = old
+		} else {
+			if inverseRemoved == nil {
+				inverseRemoved = make(map[string]V)
+			}
+			var zero V
+			inverseRemoved[name] = zero
+		}
+	}
+	if updated == nil {
+		return current, nil, nil, false
+	}
+	if len(updated) == 0 {
+		updated = nil
+	}
+	return updated, inverseRemoved, inverseUpserted, true
+}
+
+func applyResourceMutation(current *xds.Resources, mutations ResourceMutations) (*xds.Resources, map[string]struct{}, ResourceMutations) {
+	var resources xds.Resources
+	if current != nil {
+		resources = *current
+	}
+	removeSet := mutations.Removed
+	upsertSet := mutations.Upserted
+	var inverse ResourceMutations
+
+	var changedTypes [snapshotResourceTypeCount]string
+	changedTypeCount := 0
+	markChanged := func(typeURL string) {
+		changedTypes[changedTypeCount] = typeURL
+		changedTypeCount++
+	}
+	var changed bool
+	resources.Listeners, inverse.Removed.Listeners, inverse.Upserted.Listeners, changed = applyResourceMap(resources.Listeners, removeSet.Listeners, upsertSet.Listeners)
+	if changed {
+		markChanged(envoy_resource.ListenerType)
+	}
+	resources.Routes, inverse.Removed.Routes, inverse.Upserted.Routes, changed = applyResourceMap(resources.Routes, removeSet.Routes, upsertSet.Routes)
+	if changed {
+		markChanged(envoy_resource.RouteType)
+	}
+	resources.Clusters, inverse.Removed.Clusters, inverse.Upserted.Clusters, changed = applyResourceMap(resources.Clusters, removeSet.Clusters, upsertSet.Clusters)
+	if changed {
+		markChanged(envoy_resource.ClusterType)
+	}
+	resources.Endpoints, inverse.Removed.Endpoints, inverse.Upserted.Endpoints, changed = applyResourceMap(resources.Endpoints, removeSet.Endpoints, upsertSet.Endpoints)
+	if changed {
+		markChanged(envoy_resource.EndpointType)
+	}
+	resources.Secrets, inverse.Removed.Secrets, inverse.Upserted.Secrets, changed = applyResourceMap(resources.Secrets, removeSet.Secrets, upsertSet.Secrets)
+	if changed {
+		markChanged(envoy_resource.SecretType)
+	}
+	resources.NetworkPolicies, inverse.Removed.NetworkPolicies, inverse.Upserted.NetworkPolicies, changed = applyResourceMap(resources.NetworkPolicies, removeSet.NetworkPolicies, upsertSet.NetworkPolicies)
+	if changed {
+		markChanged(NetworkPolicyTypeURL)
+	}
+	resources.NetworkPolicyHosts, inverse.Removed.NetworkPolicyHosts, inverse.Upserted.NetworkPolicyHosts, changed = applyResourceMap(resources.NetworkPolicyHosts, removeSet.NetworkPolicyHosts, upsertSet.NetworkPolicyHosts)
+	if changed {
+		markChanged(NetworkPolicyHostsTypeURL)
+	}
+
+	if current != nil && changedTypeCount == 0 {
+		// Keep semantic no-ops on the caller's existing immutable Resources
+		// rather than making the temporary header escape.
+		return current, nil, ResourceMutations{}
+	}
+	var changedTypeURLs map[string]struct{}
+	if changedTypeCount == 1 {
+		changedTypeURLs = singletonTypeURLSets[changedTypes[0]]
+	} else if changedTypeCount > 1 {
+		changedTypeURLs = make(map[string]struct{}, changedTypeCount)
+		for _, typeURL := range changedTypes[:changedTypeCount] {
+			changedTypeURLs[typeURL] = struct{}{}
+		}
+	}
+	return &resources, changedTypeURLs, inverse
+}
+
+// ApplyResources applies sparse removals and upserts to the cache-owned
+// immutable desired state. It is the authority for semantic no-op detection,
+// changed TypeURLs, and copy-on-write map cloning.
+func (c *cacheImpl) ApplyResources(ctx context.Context, nodeID string, generation uint64, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), revertFactory RevertFuncFactory) (bool, RevertFunc, error) {
+	c.transactionMutex.Lock()
+	defer c.transactionMutex.Unlock()
+
+	currentResources := c.GetAllResources(nodeID)
+	resources, changedTypeURLs, inverse := applyResourceMutation(currentResources, mutations)
+	var revertFunc RevertFunc
+	if len(changedTypeURLs) > 0 && revertFactory != nil {
+		revertFunc = revertFactory(inverse)
+	}
+	if updatedTypeURLs == nil && (len(mutations.Removed.Listeners) > 0 || len(mutations.Upserted.Listeners) > 0) {
+		// Listener mutations are always ACK-tracked by the legacy server because
+		// callers may immediately depend on the listener being usable. Infer that
+		// contract from mutation intent, including semantic no-ops, so callers
+		// cannot accidentally omit the AwaitCurrentVersion path.
+		updatedTypeURLs = map[string]func(error){envoy_resource.ListenerType: nil}
+	}
+	if currentResources == nil {
+		changedTypeURLs = nil
+	}
+	updated, err := c.applyPreparedResources(ctx, nodeID, generation, resources, changedTypeURLs, mutations, wg, updatedTypeURLs, revertFunc)
+	return updated, revertFunc, err
+}
+
+// generateSnapshotForUpdate is shared by every production mutation. Tests may
+// still supply a custom generator to updateResources when they need to observe
+// lazy finalization directly.
+func (c *cacheImpl) generateSnapshotForUpdate(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}) (cache.ResourceSnapshot, error) {
+	snapshot, err := c.generateSnapshotIncrementally(resources, previous, changedTypeURLs, c.logger)
+	if err != nil {
+		return nil, err
+	}
+	if c.strictAdsMode {
+		if err := CheckSnapshotConsistency(snapshot); err != nil {
+			return nil, fmt.Errorf("generated ADS snapshot is inconsistent: %w", err)
+		}
+	}
+	return snapshot, nil
+}
+
+// applyPreparedResources stages resources only when their semantic contents changed.
+// Completion-only updates are attached to the current version of that resource
+// type. For a mixed update, completions are split between resource types made
+// dirty by this generation and types which remain at their current version.
+func (c *cacheImpl) applyPreparedResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, changedTypeURLs map[string]struct{}, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), revertFunc RevertFunc) (bool, error) {
+	currentResources := c.GetAllResources(nodeID)
+	resourcesChanged := currentResources == nil || len(changedTypeURLs) > 0
+	var dirtyTypeURLs map[string]struct{}
+	if resourcesChanged {
+		dirtyTypeURLs = snapshotTypesChangedBy(changedTypeURLs)
+	}
+	var changedCompletions, unchangedCompletions map[string]func(error)
+	var acceptedCompletions []func(error)
+	for typeURL, callback := range updatedTypeURLs {
+		if c.completionCbs.ResourcesAccepted(nodeID, typeURL, resources, mutations.Removed, mutations.Upserted) {
+			acceptedCompletions = append(acceptedCompletions, callback)
+			continue
+		}
+		if _, changed := dirtyTypeURLs[typeURL]; changed {
+			if changedCompletions == nil {
+				changedCompletions = make(map[string]func(error), len(updatedTypeURLs))
+			}
+			changedCompletions[typeURL] = callback
+		} else {
+			if unchangedCompletions == nil {
+				unchangedCompletions = make(map[string]func(error), len(updatedTypeURLs))
+			}
+			unchangedCompletions[typeURL] = callback
+		}
+	}
+	completeAccepted := func() {
+		if wg == nil {
+			return
+		}
+		for _, callback := range acceptedCompletions {
+			wg.AddCompletionWithCallback(nil, callback).Complete(nil)
+		}
+	}
+	if !resourcesChanged {
+		err := c.awaitCurrentVersion(nodeID, wg, unchangedCompletions)
+		completeAccepted()
+		return false, err
+	}
+	if err := c.updateResources(ctx, nodeID, generation, resources, dirtyTypeURLs, c.defaultGenerator, wg, changedCompletions, revertFunc); err != nil {
+		return false, err
+	}
+	if err := c.awaitCurrentVersion(nodeID, wg, unchangedCompletions); err != nil {
+		completeAccepted()
+		return true, err
+	}
+	completeAccepted()
+	return true, nil
+}
+
+func (c *cacheImpl) updateResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, dirtyTypeURLs map[string]struct{}, generator snapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), revertFunc RevertFunc) error {
 	completions, immediateCompletions := c.registerStagedGenerationCompletions(
 		nodeID, generation, resources, wg, updatedTypeURLs, revertFunc)
 	// A completion already owns the revert for its resource type. Retain only
@@ -1055,9 +1345,14 @@ func (c *cacheImpl) UpdateResources(ctx context.Context, nodeID string, generati
 	if revertFunc != nil {
 		rollbackTypeURLs = dirtyTypeURLs
 		if wg != nil && len(updatedTypeURLs) > 0 {
-			rollbackTypeURLs = maps.Clone(dirtyTypeURLs)
-			for typeURL := range updatedTypeURLs {
-				delete(rollbackTypeURLs, typeURL)
+			rollbackTypeURLs = nil
+			for typeURL := range dirtyTypeURLs {
+				if _, tracked := updatedTypeURLs[typeURL]; !tracked {
+					if rollbackTypeURLs == nil {
+						rollbackTypeURLs = make(map[string]struct{}, len(dirtyTypeURLs))
+					}
+					rollbackTypeURLs[typeURL] = struct{}{}
+				}
 			}
 		}
 	}
@@ -1065,21 +1360,17 @@ func (c *cacheImpl) UpdateResources(ctx context.Context, nodeID string, generati
 	c.mutex.Lock()
 	oldResources := c.resourcesInSnapshot[nodeID]
 	oldStaged := c.stagedSnapshots[nodeID]
-	mergedTypeURLs := maps.Clone(dirtyTypeURLs)
-	completionTypeURLs := maps.Clone(dirtyTypeURLs)
+	var oldStagedValue stagedSnapshot
+	mergedTypeURLs := dirtyTypeURLs
+	completionTypeURLs := dirtyTypeURLs
 	var generations []stagedGeneration
 	if oldStaged != nil {
-		for typeURL := range oldStaged.changedTypeURLs {
-			mergedTypeURLs[typeURL] = struct{}{}
-		}
-		for typeURL := range oldStaged.completionTypeURLs {
-			completionTypeURLs[typeURL] = struct{}{}
-		}
-		generations = append(generations, oldStaged.generations...)
+		oldStagedValue = *oldStaged
+		mergedTypeURLs = mergeTypeURLSets(oldStaged.changedTypeURLs, dirtyTypeURLs)
+		completionTypeURLs = mergeTypeURLSets(oldStaged.completionTypeURLs, dirtyTypeURLs)
+		generations = oldStaged.generations
 	}
-	for typeURL := range updatedTypeURLs {
-		completionTypeURLs[typeURL] = struct{}{}
-	}
+	completionTypeURLs = mergeTypeURLCallbacks(completionTypeURLs, updatedTypeURLs)
 	c.resourcesInSnapshot[nodeID] = resources
 	if len(rollbackTypeURLs) > 0 {
 		generations = append(generations, stagedGeneration{
@@ -1088,7 +1379,11 @@ func (c *cacheImpl) UpdateResources(ctx context.Context, nodeID string, generati
 			revertFunc:      revertFunc,
 		})
 	}
-	c.stagedSnapshots[nodeID] = &stagedSnapshot{
+	staged := oldStaged
+	if staged == nil {
+		staged = &stagedSnapshot{}
+	}
+	*staged = stagedSnapshot{
 		resources:          resources,
 		generation:         generation,
 		changedTypeURLs:    mergedTypeURLs,
@@ -1096,6 +1391,7 @@ func (c *cacheImpl) UpdateResources(ctx context.Context, nodeID string, generati
 		generations:        generations,
 		generator:          generator,
 	}
+	c.stagedSnapshots[nodeID] = staged
 
 	var finalized []finalizedCompletion
 	var err error
@@ -1108,6 +1404,7 @@ func (c *cacheImpl) UpdateResources(ctx context.Context, nodeID string, generati
 		if oldStaged == nil {
 			delete(c.stagedSnapshots, nodeID)
 		} else {
+			*oldStaged = oldStagedValue
 			c.stagedSnapshots[nodeID] = oldStaged
 		}
 	}
@@ -1132,12 +1429,12 @@ func (c *cacheImpl) UpdateResources(ctx context.Context, nodeID string, generati
 	return nil
 }
 
-// AwaitCurrentVersion registers completions for the requested resource types
+// awaitCurrentVersion registers completions for the requested resource types
 // against the versions in the currently published snapshot without publishing
 // the snapshot again. The completions attach to an in-flight response, complete
 // immediately for an ACKed or NACKed version, or wait for the current version to
 // be sent and acknowledged.
-func (c *cacheImpl) AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup, typeURLs map[string]func(err error)) error {
+func (c *cacheImpl) awaitCurrentVersion(nodeID string, wg *completion.WaitGroup, typeURLs map[string]func(err error)) error {
 	if wg == nil || len(typeURLs) == 0 {
 		return nil
 	}
@@ -1187,6 +1484,9 @@ func (c *cacheImpl) AwaitCurrentVersion(nodeID string, wg *completion.WaitGroup,
 }
 
 func (c *cacheImpl) ClearSnapshot(nodeID string) {
+	c.transactionMutex.Lock()
+	defer c.transactionMutex.Unlock()
+
 	c.mutex.Lock()
 	c.SnapshotCache.ClearSnapshot(nodeID)
 	c.completionCbs.SetPublishedSnapshot(nodeID, 0, nil)
@@ -1389,15 +1689,15 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 }
 
 // GetAllResources returns cache-owned immutable state. The returned pointer and
-// all of its maps and protobuf values must only be read. Callers making an update
-// must copy the Resources and every map they modify before publishing it.
+// all of its maps and protobuf values must only be read. Callers make changes by
+// submitting sparse copy-on-write mutations through ApplyResources.
 func (c *cacheImpl) GetAllResources(nodeID string) *xds.Resources {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.resourcesInSnapshot[nodeID]
 }
 
-func (c *cacheImpl) AreDifferentSnapshots(left, right cache.ResourceSnapshot) bool {
+func (c *cacheImpl) areDifferentSnapshots(left, right cache.ResourceSnapshot) bool {
 	for _, resourceType := range snapshotResourceTypes {
 		if left.GetVersion(resourceType) != right.GetVersion(resourceType) {
 			return true
