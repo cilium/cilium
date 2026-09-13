@@ -6,7 +6,6 @@ package xdsnew
 import (
 	"context"
 	"log/slog"
-	"slices"
 	"testing"
 	"time"
 
@@ -20,7 +19,7 @@ import (
 
 const listenerTypeURL = "type.googleapis.com/envoy.config.listener.v3.Listener"
 
-var orderedCompletionTypeURLs = []struct {
+var completionTypeURLs = []struct {
 	name    string
 	typeURL string
 }{
@@ -40,15 +39,15 @@ func newTestCompletion(t *testing.T) (*completion.WaitGroup, *completion.Complet
 	return wg, wg.AddCompletionWithCallback(nil, nil)
 }
 
-func registerTypeVersionCompletion(t *testing.T, cb *CompletionCallbacks, comp *completion.Completion, typeURL, version string) {
+func registerTypeGenerationCompletion(t *testing.T, cb *CompletionCallbacks, comp *completion.Completion, typeURL string, generation uint64, version string) {
 	t.Helper()
-	registered, err := cb.AddTypeVersionCompletion(comp, version, typeURL, "node-1", true, nil)
+	registered, err := cb.AddTypeGenerationCompletion(comp, generation, version, typeURL, "node-1", true, nil)
 	require.NoError(t, err)
 	require.True(t, registered)
 }
 
-func sendTypeVersionResponse(cb *CompletionCallbacks, typeURL, version string) {
-	cb.OnStreamResponse(context.Background(), 1,
+func sendTypeGenerationResponse(cb *CompletionCallbacks, typeURL string, generation uint64, version string) {
+	cb.OnStreamResponse(WithSnapshotGeneration(context.Background(), generation), 1,
 		&discovery.DiscoveryRequest{
 			Node:    &core.Node{Id: "node-1"},
 			TypeUrl: typeURL,
@@ -78,110 +77,7 @@ func requireCompletionPending(t *testing.T, comp *completion.Completion) {
 	}
 }
 
-func TestOrderedCompletionsUpdateUpToLastVersion(t *testing.T) {
-	vo := newOrderedCompletions()
-	compA1 := completion.NewCompletion(nil, nil, nil)
-	compB := completion.NewCompletion(nil, nil, nil)
-	compA2 := completion.NewCompletion(nil, nil, nil)
-	compC := completion.NewCompletion(nil, nil, nil)
-
-	vo.append("version-a", compA1, nil)
-	vo.append("version-b", compB, nil)
-	vo.append("version-a", compA2, nil)
-	vo.append("version-c", compC, nil)
-
-	updated := slices.Collect(vo.updateUpTo("version-a"))
-	require.ElementsMatch(t, []*completion.Completion{compA1, compB, compA2}, updated)
-	require.Len(t, *vo, 2)
-	require.Equal(t, "version-a", (*vo)[0].version)
-	require.Equal(t, 3, (*vo)[0].completions.Len())
-	require.Equal(t, "version-c", (*vo)[1].version)
-	require.True(t, (*vo)[1].completions.Has(compC))
-}
-
-func TestOrderedCompletionsCompleteUpToLastVersion(t *testing.T) {
-	vo := newOrderedCompletions()
-	compA1 := completion.NewCompletion(nil, nil, nil)
-	compB := completion.NewCompletion(nil, nil, nil)
-	compA2 := completion.NewCompletion(nil, nil, nil)
-	compC := completion.NewCompletion(nil, nil, nil)
-
-	vo.append("version-a", compA1, nil)
-	vo.append("version-b", compB, nil)
-	vo.append("version-a", compA2, nil)
-	vo.append("version-c", compC, nil)
-
-	completed := vo.completeUpTo("version-a")
-	require.ElementsMatch(t, []*completion.Completion{compA1, compB, compA2}, completed)
-	require.Len(t, *vo, 1)
-	require.Equal(t, "version-c", (*vo)[0].version)
-	require.True(t, (*vo)[0].completions.Has(compC))
-}
-
-func TestRemoveFromOrderedCompletionsCompactsMiddleEntry(t *testing.T) {
-	cb := newTestCompletionCallbacks()
-	vo := newOrderedCompletions()
-	compA := completion.NewCompletion(nil, nil, nil)
-	compB1 := completion.NewCompletion(nil, nil, nil)
-	compB2 := completion.NewCompletion(nil, nil, nil)
-	compC := completion.NewCompletion(nil, nil, nil)
-
-	vo.append("version-a", compA, nil)
-	vo.append("version-b", compB1, nil)
-	vo.add("version-b", compB2, nil)
-	vo.append("version-c", compC, nil)
-	cb.completionsOrders[completionsOrderKey("node-1", listenerTypeURL)] = vo
-
-	cb.RemoveTypeVersionCompletion(compB1)
-	require.Len(t, *vo, 3)
-	require.Equal(t, "version-b", (*vo)[1].version)
-	require.Equal(t, 1, (*vo)[1].completions.Len())
-	require.True(t, (*vo)[1].completions.Has(compB2))
-
-	cb.RemoveTypeVersionCompletion(compB2)
-	require.Len(t, *vo, 2)
-	require.Equal(t, "version-a", (*vo)[0].version)
-	require.Equal(t, "version-c", (*vo)[1].version)
-}
-
-func TestOrderedCompletionsRemoveCapacity(t *testing.T) {
-	t.Run("ordinary capacity is retained", func(t *testing.T) {
-		entries := make(orderedCompletions, 3, 16)
-		entries[0].version = "version-a"
-		entries[1].version = "version-b"
-		entries[2].version = "version-c"
-
-		entries.remove(1)
-		require.Equal(t, 16, cap(entries))
-		require.Equal(t, []string{"version-a", "version-c"}, []string{entries[0].version, entries[1].version})
-	})
-
-	t.Run("exactly the excess limit is retained", func(t *testing.T) {
-		entries := make(orderedCompletions, 2, maxOrderedCompletionsExcessCapacity+1)
-		entries.remove(0)
-		require.Equal(t, maxOrderedCompletionsExcessCapacity+1, cap(entries))
-		require.Equal(t, maxOrderedCompletionsExcessCapacity, cap(entries)-len(entries))
-	})
-
-	t.Run("capacity above the excess limit is released", func(t *testing.T) {
-		entries := make(orderedCompletions, 2, maxOrderedCompletionsExcessCapacity+2)
-		entries.remove(0)
-		require.Equal(t, len(entries), cap(entries))
-	})
-
-	t.Run("large live slice shrinks only excessive capacity", func(t *testing.T) {
-		entries := make(orderedCompletions, 200, 400)
-		entries.remove(0)
-		require.Len(t, entries, 199)
-		require.Equal(t, 199, cap(entries))
-
-		entries.remove(0)
-		require.Len(t, entries, 198)
-		require.Equal(t, 199, cap(entries))
-	})
-}
-
-func TestAddTypeVersionCompletionCompletesAlreadyAckedVersion(t *testing.T) {
+func TestAddTypeGenerationCompletionCompletesAlreadyAckedVersion(t *testing.T) {
 	cb := newTestCompletionCallbacks()
 	wg, comp := newTestCompletion(t)
 
@@ -192,7 +88,7 @@ func TestAddTypeVersionCompletionCompletesAlreadyAckedVersion(t *testing.T) {
 	}
 	require.NoError(t, cb.OnStreamRequest(1, req))
 
-	registered, err := cb.AddTypeVersionCompletion(comp, "version-1", NetworkPolicyTypeURL, "node-1", true, nil)
+	registered, err := cb.AddTypeGenerationCompletion(comp, 1, "version-1", NetworkPolicyTypeURL, "node-1", true, nil)
 	require.NoError(t, err)
 	require.False(t, registered)
 
@@ -201,7 +97,7 @@ func TestAddTypeVersionCompletionCompletesAlreadyAckedVersion(t *testing.T) {
 	require.NoError(t, wg.Wait())
 }
 
-func TestAddTypeVersionCompletionKeepsPendingForNewVersion(t *testing.T) {
+func TestAddTypeGenerationCompletionKeepsPendingForNewVersion(t *testing.T) {
 	cb := newTestCompletionCallbacks()
 	_, comp := newTestCompletion(t)
 
@@ -212,7 +108,7 @@ func TestAddTypeVersionCompletionKeepsPendingForNewVersion(t *testing.T) {
 	}
 	require.NoError(t, cb.OnStreamRequest(1, req))
 
-	registered, err := cb.AddTypeVersionCompletion(comp, "version-2", NetworkPolicyTypeURL, "node-1", true, nil)
+	registered, err := cb.AddTypeGenerationCompletion(comp, 2, "version-2", NetworkPolicyTypeURL, "node-1", true, nil)
 	require.NoError(t, err)
 	require.True(t, registered)
 
@@ -223,7 +119,7 @@ func TestOnStreamResponseCompletesPendingCompletionForAlreadyAckedVersion(t *tes
 	cb := newTestCompletionCallbacks()
 	wg, comp := newTestCompletion(t)
 
-	registered, err := cb.AddTypeVersionCompletion(comp, "", NetworkPolicyTypeURL, "node-1", true, nil)
+	registered, err := cb.AddTypeGenerationCompletion(comp, 1, "", NetworkPolicyTypeURL, "node-1", true, nil)
 	require.NoError(t, err)
 	require.True(t, registered)
 	require.Equal(t, 1, cb.PendingCompletionCount())
@@ -235,7 +131,7 @@ func TestOnStreamResponseCompletesPendingCompletionForAlreadyAckedVersion(t *tes
 	}
 	require.NoError(t, cb.OnStreamRequest(1, req))
 
-	cb.OnStreamResponse(context.Background(), 1,
+	cb.OnStreamResponse(WithSnapshotGeneration(context.Background(), 1), 1,
 		&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}},
 		&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: NetworkPolicyTypeURL},
 	)
@@ -252,11 +148,11 @@ func TestCompletionCallbacksUseStreamNodeIDWhenACKOmitsNode(t *testing.T) {
 		Node: &core.Node{Id: "node-1"},
 	}))
 
-	registered, err := cb.AddTypeVersionCompletion(comp, "version-1", listenerTypeURL, "node-1", true, nil)
+	registered, err := cb.AddTypeGenerationCompletion(comp, 1, "version-1", listenerTypeURL, "node-1", true, nil)
 	require.NoError(t, err)
 	require.True(t, registered)
 
-	cb.OnStreamResponse(context.Background(), 1,
+	cb.OnStreamResponse(WithSnapshotGeneration(context.Background(), 1), 1,
 		&discovery.DiscoveryRequest{TypeUrl: listenerTypeURL},
 		&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: listenerTypeURL},
 	)
@@ -270,19 +166,19 @@ func TestCompletionCallbacksUseStreamNodeIDWhenACKOmitsNode(t *testing.T) {
 }
 
 func TestCompletionFollowsNewerResponseVersion(t *testing.T) {
-	for _, tt := range orderedCompletionTypeURLs {
+	for _, tt := range completionTypeURLs {
 		t.Run(tt.name, func(t *testing.T) {
 			cb := newTestCompletionCallbacks()
 			wg1, comp1 := newTestCompletion(t)
 			wg2, comp2 := newTestCompletion(t)
 
-			registerTypeVersionCompletion(t, cb, comp1, tt.typeURL, "version-1")
-			registerTypeVersionCompletion(t, cb, comp2, tt.typeURL, "version-2")
+			registerTypeGenerationCompletion(t, cb, comp1, tt.typeURL, 1, "version-1")
+			registerTypeGenerationCompletion(t, cb, comp2, tt.typeURL, 2, "version-2")
 
-			// The later response must move the earlier completion to version-2 rather
-			// than leave it stranded in version-1's ordered-list entry.
-			sendTypeVersionResponse(cb, tt.typeURL, "version-1")
-			sendTypeVersionResponse(cb, tt.typeURL, "version-2")
+			// The later response generation covers the earlier completion even
+			// though the two content versions differ.
+			sendTypeGenerationResponse(cb, tt.typeURL, 1, "version-1")
+			sendTypeGenerationResponse(cb, tt.typeURL, 2, "version-2")
 			ackTypeVersionResponse(t, cb, tt.typeURL, "version-2")
 
 			require.Zero(t, cb.PendingCompletionCount())
@@ -295,16 +191,22 @@ func TestCompletionFollowsNewerResponseVersion(t *testing.T) {
 func TestNACKRevertsAllCoalescedUpdates(t *testing.T) {
 	cb := newTestCompletionCallbacks()
 	reverted := make([]string, 0, 3)
+	expectedGenerations := make([]uint64, 0, 3)
 
-	for _, version := range []string{"version-1", "version-2", "version-3"} {
+	for i, version := range []string{"version-1", "version-2", "version-3"} {
 		_, comp := newTestCompletion(t)
-		registered, err := cb.AddTypeVersionCompletion(
+		registered, err := cb.AddTypeGenerationCompletion(
 			comp,
+			uint64(i+1),
 			version,
 			listenerTypeURL,
 			"node-1",
 			true,
-			func() { reverted = append(reverted, version) },
+			func(expected uint64) (uint64, bool) {
+				reverted = append(reverted, version)
+				expectedGenerations = append(expectedGenerations, expected)
+				return expected + 1, true
+			},
 		)
 		require.NoError(t, err)
 		require.True(t, registered)
@@ -313,7 +215,7 @@ func TestNACKRevertsAllCoalescedUpdates(t *testing.T) {
 	// The response for version-3 coalesces all three pending updates. A NACK
 	// rejects the entire response, so all of its updates must be reverted in
 	// reverse order to restore the snapshot that preceded the response.
-	sendTypeVersionResponse(cb, listenerTypeURL, "version-3")
+	sendTypeGenerationResponse(cb, listenerTypeURL, 3, "version-3")
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
 		Node:        &core.Node{Id: "node-1"},
 		TypeUrl:     listenerTypeURL,
@@ -322,7 +224,175 @@ func TestNACKRevertsAllCoalescedUpdates(t *testing.T) {
 	}))
 
 	require.Equal(t, []string{"version-3", "version-2", "version-1"}, reverted)
+	require.Equal(t, []uint64{3, 4, 5}, expectedGenerations)
 	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestNACKRevertsUntrackedGeneration(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	reverted := make([]string, 0, 2)
+	expectedGenerations := make([]uint64, 0, 2)
+
+	_, comp := newTestCompletion(t)
+	registered, err := cb.AddTypeGenerationCompletion(
+		comp, 1, "version-1", listenerTypeURL, "node-1", true,
+		func(expected uint64) (uint64, bool) {
+			reverted = append(reverted, "version-1")
+			expectedGenerations = append(expectedGenerations, expected)
+			return expected + 1, true
+		},
+	)
+	require.NoError(t, err)
+	require.True(t, registered)
+
+	// Generation 2 has no completion of its own, but it can supersede gen 1 in
+	// the snapshot response and must therefore participate in rollback.
+	registered, completeUnsent := cb.AddTypeGeneration(
+		2, "version-2", listenerTypeURL, "node-1", true,
+		func(expected uint64) (uint64, bool) {
+			reverted = append(reverted, "version-2")
+			expectedGenerations = append(expectedGenerations, expected)
+			return expected + 1, true
+		},
+	)
+	require.True(t, registered)
+	require.False(t, completeUnsent)
+
+	sendTypeGenerationResponse(cb, listenerTypeURL, 2, "version-2")
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:        &core.Node{Id: "node-1"},
+		TypeUrl:     listenerTypeURL,
+		VersionInfo: "version-0",
+		ErrorDetail: &status.Status{Message: "rejected listener"},
+	}))
+
+	require.Equal(t, []string{"version-2", "version-1"}, reverted)
+	require.Equal(t, []uint64{2, 3}, expectedGenerations)
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestStaleNACKDoesNotAffectNewerResponse(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg1, comp1 := newTestCompletion(t)
+	wg2, comp2 := newTestCompletion(t)
+
+	registerTypeGenerationCompletion(t, cb, comp1, listenerTypeURL, 1, "version-1")
+	cb.OnStreamResponse(WithSnapshotGeneration(context.Background(), 1), 1,
+		&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL},
+		&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: listenerTypeURL, Nonce: "nonce-1"})
+
+	registerTypeGenerationCompletion(t, cb, comp2, listenerTypeURL, 2, "version-2")
+	cb.OnStreamResponse(WithSnapshotGeneration(context.Background(), 2), 1,
+		&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL},
+		&discovery.DiscoveryResponse{VersionInfo: "version-2", TypeUrl: listenerTypeURL, Nonce: "nonce-2"})
+
+	// go-control-plane invokes callbacks before its stale-nonce check. Ignore
+	// this request rather than applying it to the newer pending generation.
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL,
+		VersionInfo:   "version-0",
+		ResponseNonce: "nonce-1",
+		ErrorDetail:   &status.Status{Message: "stale rejection"},
+	}))
+	require.Equal(t, 2, cb.PendingCompletionCount())
+	requireCompletionPending(t, comp1)
+	requireCompletionPending(t, comp2)
+
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL,
+		VersionInfo:   "version-2",
+		ResponseNonce: "nonce-2",
+	}))
+	require.NoError(t, wg1.Wait())
+	require.NoError(t, wg2.Wait())
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestFirstResponseNACKWithEmptyAcceptedVersion(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+	registerTypeGenerationCompletion(t, cb, comp, listenerTypeURL, 1, "version-1")
+
+	cb.OnStreamResponse(WithSnapshotGeneration(context.Background(), 1), 1,
+		&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL},
+		&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: listenerTypeURL, Nonce: "nonce-1"})
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL,
+		ResponseNonce: "nonce-1",
+		ErrorDetail:   &status.Status{Message: "rejected first response"},
+	}))
+
+	require.ErrorContains(t, wg.Wait(), "rejected first response")
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestWaitCancellationRemovesCompletionGenerationState(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	ctx, cancel := context.WithCancel(t.Context())
+	wg := completion.NewWaitGroup(ctx)
+	t.Cleanup(wg.Cancel)
+	owner := cb.NewTypeGenerationCompletionOwner("node-1", listenerTypeURL, 1)
+	comp := wg.AddCompletionWithCallback(owner, nil)
+	registered, err := cb.AddPreparedTypeGenerationCompletion(
+		comp, owner, "version-1", true,
+		func(expected uint64) (uint64, bool) { return expected + 1, true },
+	)
+	require.NoError(t, err)
+	require.True(t, registered)
+	registered, completeUnsent := cb.AddTypeGeneration(
+		2, "version-2", listenerTypeURL, "node-1", true,
+		func(expected uint64) (uint64, bool) { return expected + 1, true },
+	)
+	require.True(t, registered)
+	require.False(t, completeUnsent)
+
+	cancel()
+	require.ErrorIs(t, wg.Wait(), context.Canceled)
+	require.Zero(t, cb.PendingCompletionCount())
+
+	// With the only waiter gone, later untracked generations have no callback
+	// or rollback state to preserve.
+	registered, completeUnsent = cb.AddTypeGeneration(3, "version-3", listenerTypeURL, "node-1", true, nil)
+	require.False(t, registered)
+	require.False(t, completeUnsent)
+}
+
+func TestStreamCloseClearsAcceptedGenerationState(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	cb.OnStreamResponse(WithSnapshotGeneration(context.Background(), 1), 1,
+		&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL},
+		&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: listenerTypeURL, Nonce: "nonce-1"})
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL,
+		VersionInfo:   "version-1",
+		ResponseNonce: "nonce-1",
+	}))
+	cb.OnStreamClosed(1, &core.Node{Id: "node-1"})
+
+	_, comp := newTestCompletion(t)
+	registered, err := cb.AddTypeGenerationCompletion(
+		comp, 2, "version-1", listenerTypeURL, "node-1", false, nil)
+	require.NoError(t, err)
+	require.True(t, registered, "a replacement Envoy must ACK its own response")
+}
+
+func TestFreshSubscriptionClearsAcceptedGenerationState(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-1")
+	require.NoError(t, cb.OnStreamRequest(2, &discovery.DiscoveryRequest{
+		Node:    &core.Node{Id: "node-1"},
+		TypeUrl: listenerTypeURL,
+	}))
+
+	_, comp := newTestCompletion(t)
+	registered, err := cb.AddTypeGenerationCompletion(
+		comp, 2, "version-1", listenerTypeURL, "node-1", false, nil)
+	require.NoError(t, err)
+	require.True(t, registered)
 }
 
 func TestNACKRollbackStopsAtLastACKedVersion(t *testing.T) {
@@ -330,34 +400,42 @@ func TestNACKRollbackStopsAtLastACKedVersion(t *testing.T) {
 	reverted := make([]string, 0, 2)
 
 	_, ackedComp := newTestCompletion(t)
-	registered, err := cb.AddTypeVersionCompletion(
+	registered, err := cb.AddTypeGenerationCompletion(
 		ackedComp,
+		1,
 		"version-1",
 		listenerTypeURL,
 		"node-1",
 		true,
-		func() { reverted = append(reverted, "version-1") },
+		func(expected uint64) (uint64, bool) {
+			reverted = append(reverted, "version-1")
+			return expected + 1, true
+		},
 	)
 	require.NoError(t, err)
 	require.True(t, registered)
-	sendTypeVersionResponse(cb, listenerTypeURL, "version-1")
+	sendTypeGenerationResponse(cb, listenerTypeURL, 1, "version-1")
 	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-1")
 
-	for _, version := range []string{"version-2", "version-3"} {
+	for i, version := range []string{"version-2", "version-3"} {
 		_, comp := newTestCompletion(t)
-		registered, err = cb.AddTypeVersionCompletion(
+		registered, err = cb.AddTypeGenerationCompletion(
 			comp,
+			uint64(i+2),
 			version,
 			listenerTypeURL,
 			"node-1",
 			true,
-			func() { reverted = append(reverted, version) },
+			func(expected uint64) (uint64, bool) {
+				reverted = append(reverted, version)
+				return expected + 1, true
+			},
 		)
 		require.NoError(t, err)
 		require.True(t, registered)
 	}
 
-	sendTypeVersionResponse(cb, listenerTypeURL, "version-3")
+	sendTypeGenerationResponse(cb, listenerTypeURL, 3, "version-3")
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
 		Node:        &core.Node{Id: "node-1"},
 		TypeUrl:     listenerTypeURL,
@@ -374,21 +452,24 @@ func TestNACKRollsBackCompletionRegisteredWithoutVersion(t *testing.T) {
 	_, comp := newTestCompletion(t)
 	reverted := false
 
-	registered, err := cb.AddTypeVersionCompletion(
+	registered, err := cb.AddTypeGenerationCompletion(
 		comp,
+		1,
 		"",
 		listenerTypeURL,
 		"node-1",
 		true,
-		func() { reverted = true },
+		func(expected uint64) (uint64, bool) {
+			reverted = true
+			return expected + 1, true
+		},
 	)
 	require.NoError(t, err)
 	require.True(t, registered)
 
 	// The response callback runs before go-control-plane sends the response. It
-	// assigns the response version and attaches the completion to response order
-	// before Envoy can NACK it.
-	sendTypeVersionResponse(cb, listenerTypeURL, "version-1")
+	// attaches the completion to the response generation before Envoy can NACK it.
+	sendTypeGenerationResponse(cb, listenerTypeURL, 1, "version-1")
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
 		Node:        &core.Node{Id: "node-1"},
 		TypeUrl:     listenerTypeURL,
@@ -404,15 +485,19 @@ func TestNACKDoesNotRollbackNewerUpdate(t *testing.T) {
 	cb := newTestCompletionCallbacks()
 	reverted := make([]string, 0, 2)
 
-	for _, version := range []string{"version-1", "version-2"} {
+	for i, version := range []string{"version-1", "version-2"} {
 		_, comp := newTestCompletion(t)
-		registered, err := cb.AddTypeVersionCompletion(
+		registered, err := cb.AddTypeGenerationCompletion(
 			comp,
+			uint64(i+1),
 			version,
 			listenerTypeURL,
 			"node-1",
 			true,
-			func() { reverted = append(reverted, version) },
+			func(expected uint64) (uint64, bool) {
+				reverted = append(reverted, version)
+				return expected + 1, true
+			},
 		)
 		require.NoError(t, err)
 		require.True(t, registered)
@@ -420,15 +505,19 @@ func TestNACKDoesNotRollbackNewerUpdate(t *testing.T) {
 
 	// version-2 is now in flight. Register version-3 after the response was sent
 	// but before Envoy NACKs it; version-3 was not part of that response.
-	sendTypeVersionResponse(cb, listenerTypeURL, "version-2")
+	sendTypeGenerationResponse(cb, listenerTypeURL, 2, "version-2")
 	wg3, comp3 := newTestCompletion(t)
-	registered, err := cb.AddTypeVersionCompletion(
+	registered, err := cb.AddTypeGenerationCompletion(
 		comp3,
+		3,
 		"version-3",
 		listenerTypeURL,
 		"node-1",
 		true,
-		func() { reverted = append(reverted, "version-3") },
+		func(expected uint64) (uint64, bool) {
+			reverted = append(reverted, "version-3")
+			return expected + 1, true
+		},
 	)
 	require.NoError(t, err)
 	require.True(t, registered)
@@ -444,33 +533,33 @@ func TestNACKDoesNotRollbackNewerUpdate(t *testing.T) {
 	require.Equal(t, 1, cb.PendingCompletionCount())
 	requireCompletionPending(t, comp3)
 
-	// The newer update remains in response order and completes normally when
+	// The newer update remains pending and completes normally when
 	// its own response is sent and ACKed.
-	sendTypeVersionResponse(cb, listenerTypeURL, "version-3")
+	sendTypeGenerationResponse(cb, listenerTypeURL, 3, "version-3")
 	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-3")
 	require.NoError(t, wg3.Wait())
 	require.Zero(t, cb.PendingCompletionCount())
 }
 
 func TestOlderResponseDoesNotClaimNewerCompletion(t *testing.T) {
-	for _, tt := range orderedCompletionTypeURLs {
+	for _, tt := range completionTypeURLs {
 		t.Run(tt.name, func(t *testing.T) {
 			cb := newTestCompletionCallbacks()
 			wg1, comp1 := newTestCompletion(t)
 			wg2, comp2 := newTestCompletion(t)
 
-			registerTypeVersionCompletion(t, cb, comp1, tt.typeURL, "version-1")
-			registerTypeVersionCompletion(t, cb, comp2, tt.typeURL, "version-2")
+			registerTypeGenerationCompletion(t, cb, comp1, tt.typeURL, 1, "version-1")
+			registerTypeGenerationCompletion(t, cb, comp2, tt.typeURL, 2, "version-2")
 
 			// An ACK for a response created before version-2 must not complete the
 			// version-2 update, even though the response callback runs afterwards.
-			sendTypeVersionResponse(cb, tt.typeURL, "version-1")
+			sendTypeGenerationResponse(cb, tt.typeURL, 1, "version-1")
 			ackTypeVersionResponse(t, cb, tt.typeURL, "version-1")
 			require.Equal(t, 1, cb.PendingCompletionCount())
 			require.NoError(t, wg1.Wait())
 			requireCompletionPending(t, comp2)
 
-			sendTypeVersionResponse(cb, tt.typeURL, "version-2")
+			sendTypeGenerationResponse(cb, tt.typeURL, 2, "version-2")
 			ackTypeVersionResponse(t, cb, tt.typeURL, "version-2")
 			require.Zero(t, cb.PendingCompletionCount())
 			require.NoError(t, wg2.Wait())
@@ -479,20 +568,20 @@ func TestOlderResponseDoesNotClaimNewerCompletion(t *testing.T) {
 }
 
 func TestResponseUsesLastMatchingVersion(t *testing.T) {
-	for _, tt := range orderedCompletionTypeURLs {
+	for _, tt := range completionTypeURLs {
 		t.Run(tt.name, func(t *testing.T) {
 			cb := newTestCompletionCallbacks()
 			wgA1, compA1 := newTestCompletion(t)
 			wgB, compB := newTestCompletion(t)
 			wgA2, compA2 := newTestCompletion(t)
 
-			registerTypeVersionCompletion(t, cb, compA1, tt.typeURL, "version-a")
-			registerTypeVersionCompletion(t, cb, compB, tt.typeURL, "version-b")
-			registerTypeVersionCompletion(t, cb, compA2, tt.typeURL, "version-a")
+			registerTypeGenerationCompletion(t, cb, compA1, tt.typeURL, 1, "version-a")
+			registerTypeGenerationCompletion(t, cb, compB, tt.typeURL, 2, "version-b")
+			registerTypeGenerationCompletion(t, cb, compA2, tt.typeURL, 3, "version-a")
 
-			// For A -> B -> A, the response for A represents the last A and therefore
-			// covers both earlier entries as well as the final A entry.
-			sendTypeVersionResponse(cb, tt.typeURL, "version-a")
+			// For A -> B -> A, generation 3 identifies the last A without finding
+			// the last matching occurrence in a version-order slice.
+			sendTypeGenerationResponse(cb, tt.typeURL, 3, "version-a")
 			ackTypeVersionResponse(t, cb, tt.typeURL, "version-a")
 
 			require.Zero(t, cb.PendingCompletionCount())
@@ -501,4 +590,70 @@ func TestResponseUsesLastMatchingVersion(t *testing.T) {
 			require.NoError(t, wgA2.Wait())
 		})
 	}
+}
+
+func TestResponseGenerationDisambiguatesRepeatedVersion(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wgA1, compA1 := newTestCompletion(t)
+	_, compB := newTestCompletion(t)
+	_, compA2 := newTestCompletion(t)
+
+	registerTypeGenerationCompletion(t, cb, compA1, listenerTypeURL, 1, "version-a")
+	registerTypeGenerationCompletion(t, cb, compB, listenerTypeURL, 2, "version-b")
+	registerTypeGenerationCompletion(t, cb, compA2, listenerTypeURL, 3, "version-a")
+
+	// Although generation 3 has the same content version, this response was
+	// constructed from generation 1 and must not claim the later updates.
+	sendTypeGenerationResponse(cb, listenerTypeURL, 1, "version-a")
+	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-a")
+
+	require.NoError(t, wgA1.Wait())
+	require.Equal(t, 2, cb.PendingCompletionCount())
+	requireCompletionPending(t, compB)
+	requireCompletionPending(t, compA2)
+}
+
+func TestImmediateWatchResponseInfersLatestMatchingGeneration(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wgA1, compA1 := newTestCompletion(t)
+	wgB, compB := newTestCompletion(t)
+	wgA2, compA2 := newTestCompletion(t)
+
+	registerTypeGenerationCompletion(t, cb, compA1, listenerTypeURL, 1, "version-a")
+	registerTypeGenerationCompletion(t, cb, compB, listenerTypeURL, 2, "version-b")
+	registerTypeGenerationCompletion(t, cb, compA2, listenerTypeURL, 3, "version-a")
+
+	// go-control-plane uses context.Background for a CreateWatch response served
+	// from the current snapshot. The latest matching pending generation is the
+	// unambiguous current A in this case.
+	cb.OnStreamResponse(context.Background(), 1,
+		&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL},
+		&discovery.DiscoveryResponse{VersionInfo: "version-a", TypeUrl: listenerTypeURL})
+	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-a")
+
+	require.NoError(t, wgA1.Wait())
+	require.NoError(t, wgB.Wait())
+	require.NoError(t, wgA2.Wait())
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestPendingResponseAttachesInterveningGenerationsOnABA(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wgA1, compA1 := newTestCompletion(t)
+	wgB, compB := newTestCompletion(t)
+	wgA2, compA2 := newTestCompletion(t)
+
+	registerTypeGenerationCompletion(t, cb, compA1, listenerTypeURL, 1, "version-a")
+	sendTypeGenerationResponse(cb, listenerTypeURL, 1, "version-a")
+	registerTypeGenerationCompletion(t, cb, compB, listenerTypeURL, 2, "version-b")
+	registerTypeGenerationCompletion(t, cb, compA2, listenerTypeURL, 3, "version-a")
+
+	// The in-flight A already contains the final desired type state. Its ACK
+	// therefore also resolves B, which was coalesced without a response.
+	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-a")
+
+	require.NoError(t, wgA1.Wait())
+	require.NoError(t, wgB.Wait())
+	require.NoError(t, wgA2.Wait())
+	require.Zero(t, cb.PendingCompletionCount())
 }

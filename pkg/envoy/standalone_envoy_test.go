@@ -470,7 +470,9 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 
 	t.Log("Updating Envoy resources")
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	updatedResources := ADS_RESOURCES.DeepCopy()
+	updatedResources := ADS_RESOURCES
+	updatedResources.Secrets = maps.Clone(ADS_RESOURCES.Secrets)
+	updatedResources.NetworkPolicies = maps.Clone(ADS_RESOURCES.NetworkPolicies)
 	for k := range updatedResources.Secrets {
 		delete(updatedResources.Secrets, k)
 	}
@@ -478,7 +480,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 		EndpointId:  40,
 		EndpointIps: []string{"10.0.0.9"},
 	}
-	err = xdsServer.UpdateEnvoyResources(ctx, ADS_RESOURCES, *updatedResources, s.waitGroup)
+	err = xdsServer.UpdateEnvoyResources(ctx, ADS_RESOURCES, updatedResources, s.waitGroup)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 
@@ -1384,7 +1386,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 
 	// Step 2: Rapidly add multiple listeners, each producing a new snapshot version.
 	// Use a single WaitGroup that collects all completions — when Envoy ACKs
-	// the latest version, the orderedCompletions should complete all earlier versions too.
+	// the latest generation, it should complete all earlier generations too.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	listenerNames := []string{"rapid-1", "rapid-2", "rapid-3"}
 	for i, name := range listenerNames {
@@ -1392,8 +1394,8 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 		xdsServer.AddListener(ctx, name, policy.ParserTypeHTTP, uint16(8090+i), true, false, s.waitGroup, nil)
 	}
 
-	// Wait for all completions — this will only succeed if the orderedCompletions
-	// correctly completes earlier versions when the latest is ACKed.
+	// Wait for all completions — this will only succeed if the generation-aware
+	// callbacks complete earlier updates when the latest is ACKed.
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err, "all completions should have been resolved, none stuck")
 
@@ -1409,6 +1411,94 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	t.Log("all rapid listeners present and all completions resolved")
 
 	t.Log("stopping Envoy")
+	stopEnvoy()
+}
+
+// Repro for https://github.com/cilium/cilium/issues/43519: an ADS snapshot
+// without a WaitGroup may supersede an older tracked generation before
+// go-control-plane sends it. The ACK for the generation Envoy actually sees
+// must also release the older completion.
+func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+
+	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
+		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
+	}
+
+	logging.SetLogLevel(slog.LevelDebug)
+	flowdebug.Enable()
+
+	testRunDir, err := os.MkdirTemp("", "envoy_go_test")
+	require.NoError(t, err)
+	t.Logf("run directory: %s", testRunDir)
+
+	localEndpointStore := newLocalEndpointStore()
+	logger := hivetest.Logger(t)
+	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+		xdsServerConfig{
+			envoySocketDir:    util.GetSocketDir(testRunDir),
+			proxyGID:          1337,
+			httpNormalizePath: true,
+			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeADS,
+		},
+		nil, nil)
+	require.NotNil(t, xdsServer)
+
+	go func() {
+		require.NoError(t, xdsServer.run(t.Context()))
+	}()
+	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
+	require.NotNil(t, accessLogServer)
+	go func() {
+		require.NoError(t, accessLogServer.run(t.Context()))
+	}()
+
+	waitCtx, waitCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer waitCancel()
+	trackedWaitGroup := completion.NewWaitGroup(waitCtx)
+	defer trackedWaitGroup.Cancel()
+	require.NoError(t, xdsServer.AddListener(ctx, "tracked-listener", policy.ParserTypeHTTP, 18081, true, false, trackedWaitGroup, nil))
+	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
+
+	trackedSnapshot, err := xdsServer.cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	trackedVersion := trackedSnapshot.GetVersion(ListenerTypeURL)
+	require.NotEmpty(t, trackedVersion)
+
+	// Publish the newer generation without a waiter before Envoy connects. Its
+	// immediate CreateWatch response has no SetSnapshot context, so callbacks
+	// must recover the numeric generation from the published snapshot.
+	require.NoError(t, xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil, nil))
+	untrackedSnapshot, err := xdsServer.cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	untrackedVersion := untrackedSnapshot.GetVersion(ListenerTypeURL)
+	require.NotEmpty(t, untrackedVersion)
+	require.NotEqual(t, trackedVersion, untrackedVersion)
+
+	starter := &onDemandXdsStarter{logger: logger}
+	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
+		runDir:                         testRunDir,
+		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
+		baseID:                         43,
+		connectTimeout:                 1,
+		maxActiveDownstreamConnections: 100,
+		defaultLogLevel:                "debug",
+		maxConnections:                 10,
+		maxRequests:                    100,
+		maxConcurrentRetries:           10,
+		maxPendingRequests:             1024,
+		xdsMode:                        config.EnvoyXDSModeADS,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, envoyProxy)
+	stopEnvoy := cleanupStandaloneEnvoy(t, envoyProxy)
+
+	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "ListenersConfigDump", "untracked-listener")
+	require.NoError(t, trackedWaitGroup.Wait(), "ACK of the untracked generation should complete the older update")
+	require.Zero(t, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
+
 	stopEnvoy()
 }
 
