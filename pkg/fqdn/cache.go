@@ -525,6 +525,17 @@ func (c *DNSCache) LookupIP(ip netip.Addr) (names []string) {
 	return c.lookupIPByTime(c.lastCleanup, ip)
 }
 
+// CountNamesForIP returns the number of DNS names which include that IP (as in, the length of the
+// slice that LookupIP would return). This is useful for hubble, where displaying many domain names
+// for a single IP is useless, but memory-intensive.
+func (c *DNSCache) CountNamesForIP(ip netip.Addr) int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	cacheEntries := c.reverse[ip]
+	return len(cacheEntries)
+}
+
 // lookupIPByTime takes a timestamp for expiration comparisons, and is
 // only intended for testing.
 func (c *DNSCache) lookupIPByTime(now time.Time, ip netip.Addr) (names []string) {
