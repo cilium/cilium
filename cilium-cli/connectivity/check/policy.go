@@ -237,10 +237,6 @@ func defaultDenyReason(flow *flowpb.Flow) bool {
 	return flow.GetDropReasonDesc() == flowpb.DropReason_POLICY_DENIED
 }
 
-func authRequiredDropReason(flow *flowpb.Flow) bool {
-	return flow.GetDropReasonDesc() == flowpb.DropReason_AUTH_REQUIRED
-}
-
 func unencryptedDropReason(flow *flowpb.Flow) bool {
 	return flow.GetDropReasonDesc() == flowpb.DropReason_UNENCRYPTED_TRAFFIC
 }

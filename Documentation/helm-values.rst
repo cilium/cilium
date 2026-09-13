@@ -64,22 +64,6 @@
      - The api-rate-limit option can be used to overwrite individual settings of the default configuration for rate limiting calls to the Cilium Agent API
      - string
      - ``nil``
-   * - :spelling:ignore:`authentication.enabled`
-     - Enable authentication processing and garbage collection. Note that if disabled, policy enforcement will still block requests that require authentication. But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`authentication.gcInterval`
-     - Interval for garbage collection of auth map entries.
-     - string
-     - ``"5m0s"``
-   * - :spelling:ignore:`authentication.mutual.connectTimeout`
-     - Timeout for connecting to the remote node TCP socket
-     - string
-     - ``"5s"``
-   * - :spelling:ignore:`authentication.mutual.port`
-     - Port on the agent where mutual authentication handshakes between agents will be performed
-     - int
-     - ``4250``
    * - :spelling:ignore:`authentication.mutual.spire.adminSocketPath`
      - SPIRE socket path where the SPIRE delegated api agent is listening
      - string
@@ -256,14 +240,6 @@
      - SPIFFE trust domain to use for fetching certificates
      - string
      - ``"spiffe.cilium"``
-   * - :spelling:ignore:`authentication.queueSize`
-     - Buffer size of the channel Cilium uses to receive authentication events from the signal map.
-     - int
-     - ``1024``
-   * - :spelling:ignore:`authentication.rotatedIdentitiesQueueSize`
-     - Buffer size of the channel Cilium uses to receive certificate expiration events from auth handlers.
-     - int
-     - ``1024``
    * - :spelling:ignore:`autoDirectNodeRoutes`
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool
@@ -340,10 +316,6 @@
      - Enable/Disable BGP status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false.
      - bool
      - ``true``
-   * - :spelling:ignore:`bpf.authMapMax`
-     - Configure the maximum number of entries in auth map.
-     - int
-     - ``524288``
    * - :spelling:ignore:`bpf.autoMount.enabled`
      - Enable automatic mount of BPF filesystem When ``autoMount`` is enabled, the BPF filesystem is mounted at ``bpf.root`` path on the underlying host and inside the cilium agent pod. If users disable ``autoMount``\ , it's expected that users have mounted bpffs filesystem at the specified ``bpf.root`` volume, and then the volume will be mounted inside the cilium agent pod at the same path.
      - bool
@@ -605,7 +577,7 @@
      - int
      - ``0``
    * - :spelling:ignore:`cluster.name`
-     - Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE. It must respect the following constraints: * It must contain at most 32 characters; * It must begin and end with a lower case alphanumeric character; * It may contain lower case alphanumeric characters and dashes between. The "default" name cannot be used if the Cluster ID is different from 0.
+     - Name of the cluster. Only required for Cluster Mesh. It must respect the following constraints: * It must contain at most 32 characters; * It must begin and end with a lower case alphanumeric character; * It may contain lower case alphanumeric characters and dashes between. The "default" name cannot be used if the Cluster ID is different from 0.
      - string
      - ``"default"``
    * - :spelling:ignore:`clustermesh.annotations`
@@ -2095,7 +2067,7 @@
    * - :spelling:ignore:`hubble.dropEventEmitter`
      - Emit v1.Events related to pods on detection of packet drops.    This feature is alpha, please provide feedback at https://github.com/cilium/cilium/issues/33975.
      - object
-     - ``{"enabled":false,"interval":"2m","reasons":["auth_required","policy_denied"]}``
+     - ``{"enabled":false,"interval":"2m","reasons":["policy_denied"]}``
    * - :spelling:ignore:`hubble.dropEventEmitter.interval`
      - - Minimum time between emitting same events.
      - string
@@ -2103,7 +2075,7 @@
    * - :spelling:ignore:`hubble.dropEventEmitter.reasons`
      - - Drop reasons to emit events for. ref: https://docs.cilium.io/en/stable/_api/v1/flow/README/#dropreason
      - list
-     - ``["auth_required","policy_denied"]``
+     - ``["policy_denied"]``
    * - :spelling:ignore:`hubble.enabled`
      - Enable Hubble (true by default).
      - bool

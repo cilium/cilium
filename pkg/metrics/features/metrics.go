@@ -41,7 +41,6 @@ type Metrics struct {
 
 	NPHostFirewallEnabled        metric.Gauge
 	NPLocalRedirectPolicyEnabled metric.Gauge
-	NPMutualAuthEnabled          metric.Gauge
 	NPNonDefaultDenyEnabled      metric.Gauge
 	NPCIDRPoliciesMode           metric.Vec[metric.Gauge]
 
@@ -68,7 +67,6 @@ type Metrics struct {
 	NPHTTPHeaderMatchesIngested metric.Vec[metric.Counter]
 	NPDenyPoliciesIngested      metric.Vec[metric.Counter]
 	NPIngressCIDRGroupIngested  metric.Vec[metric.Counter]
-	NPMutualAuthIngested        metric.Vec[metric.Counter]
 	NPTLSInspectionIngested     metric.Vec[metric.Counter]
 	NPSNIAllowListIngested      metric.Vec[metric.Counter]
 	NPNonDefaultDenyIngested    metric.Vec[metric.Counter]
@@ -400,13 +398,6 @@ func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemNP,
 			Name:      "local_redirect_policy_enabled",
-		}),
-
-		NPMutualAuthEnabled: metric.NewGauge(metric.GaugeOpts{
-			Help:      "Mutual Auth enabled on the agent",
-			Namespace: metrics.Namespace,
-			Subsystem: subsystemNP,
-			Name:      "mutual_auth_enabled",
 		}),
 
 		NPNonDefaultDenyEnabled: metric.NewGauge(metric.GaugeOpts{
@@ -762,24 +753,6 @@ func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 			},
 		}),
 
-		NPMutualAuthIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
-			Help:      "Mutual Auth Policies have been ingested since the agent started",
-			Namespace: metrics.Namespace,
-			Subsystem: subsystemNP,
-			Name:      "mutual_auth_policies_total",
-		}, metric.Labels{
-			{
-				Name: "action", Values: func() metric.Values {
-					if !withDefaults {
-						return nil
-					}
-					return metric.NewValues(
-						defaultActions...,
-					)
-				}(),
-			},
-		}),
-
 		NPTLSInspectionIngested: metric.NewCounterVecWithLabels(metric.CounterOpts{
 			Help:      "TLS Inspection Policies have been ingested since the agent started",
 			Namespace: metrics.Namespace,
@@ -1033,10 +1006,6 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 
 	if config.EnableLocalRedirectPolicy {
 		m.NPLocalRedirectPolicyEnabled.Set(1)
-	}
-
-	if params.IsMutualAuthEnabled() {
-		m.NPMutualAuthEnabled.Set(1)
 	}
 
 	if config.EnableNonDefaultDenyPolicies {

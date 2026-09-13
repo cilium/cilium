@@ -223,7 +223,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		}
 		eventSubType = pvn.SubType
 		packetOffset = int(pvn.DataOffset())
-		authType = pb.AuthType(pvn.GetAuthType())
+		authType = pb.AuthType(pvn.AuthType)
 	case monitorAPI.MessageTypeCapture:
 		dbg, err = p.debugCaptureDecoder(data, decoded)
 		if err != nil {

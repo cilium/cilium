@@ -175,11 +175,11 @@ const (
 //
 // Must be in sync with struct policy_entry in <bpf/lib/policy.h>
 type PolicyEntry struct {
-	ProxyPortNetwork uint16                      `align:"proxy_port"` // In network byte-order
-	Flags            policyEntryFlags            `align:"deny"`
-	AuthRequirement  policyTypes.AuthRequirement `align:"auth_type"`
-	Precedence       policyTypes.Precedence      `align:"precedence"`
-	Cookie           uint32                      `align:"cookie"`
+	ProxyPortNetwork uint16                 `align:"proxy_port"` // In network byte-order
+	Flags            policyEntryFlags       `align:"deny"`
+	ReservedAuth     uint8                  `align:"reserved_auth_type"`
+	Precedence       policyTypes.Precedence `align:"precedence"`
+	Cookie           uint32                 `align:"cookie"`
 }
 
 // GetProxyPort returns the ProxyPortNetwork in host byte order
@@ -332,7 +332,6 @@ func NewEntryFromPolicyEntry(key PolicyKey, pe policyTypes.MapStateEntry) Policy
 	return PolicyEntry{
 		ProxyPortNetwork: byteorder.HostToNetwork16(pe.ProxyPort),
 		Flags:            pef,
-		AuthRequirement:  pe.AuthRequirement,
 		Precedence:       pe.Precedence,
 		Cookie:           pe.Cookie,
 	}
@@ -415,10 +414,9 @@ func (pm *policyMap) DumpToMapStateMap() (policyTypes.MapStateMap, error) {
 
 		// Convert from policymap.PolicyEntry to policyTypes.MapStateEntry.
 		policyVal := policyTypes.MapStateEntry{
-			Precedence:      val.Precedence,
-			ProxyPort:       val.GetProxyPort(),
-			AuthRequirement: val.AuthRequirement,
-			Cookie:          val.Cookie,
+			Precedence: val.Precedence,
+			ProxyPort:  val.GetProxyPort(),
+			Cookie:     val.Cookie,
 		}.WithDeny(val.IsDeny())
 		// if policymapEntry has invalid prefix length, force update by storing as an
 		// invalid MapStateEntry

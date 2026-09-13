@@ -168,7 +168,7 @@ func TestNamedPortRulesDeleteByID(t *testing.T) {
 	}
 	require.NotNil(t, epPolicy.policyMapState.byId)
 
-	entry := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, 0, 0, types.Allow, NoAuthRequirement)
+	entry := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, 0, 0, types.Allow)
 	for _, key := range []Key{
 		EgressKey().WithIdentity(101).WithTCPPort(8080),
 		EgressKey().WithIdentity(101).WithTCPPort(9090),
@@ -369,9 +369,6 @@ func TestCreateL4Filter(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := getAuthType(sp.Authentication)
-			require.False(t, explicit)
-			require.Equal(t, AuthTypeDisabled, authType)
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 
@@ -380,15 +377,12 @@ func TestCreateL4Filter(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := getAuthType(sp.Authentication)
-			require.False(t, explicit)
-			require.Equal(t, AuthTypeDisabled, authType)
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 	}
 }
 
-func TestCreateL4FilterAuthRequired(t *testing.T) {
+func TestCreateL4FilterAuthenticationIgnored(t *testing.T) {
 	// disable allow local host to simplify the this test
 	oldLocalhostOpt := option.Config.UnsafeDaemonConfigOption.AllowLocalhost
 	option.Config.UnsafeDaemonConfigOption.AllowLocalhost = option.AllowLocalhostPolicy
@@ -425,9 +419,6 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := getAuthType(sp.Authentication)
-			require.True(t, explicit)
-			require.Equal(t, AuthTypeDisabled, authType)
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 
@@ -436,9 +427,6 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := getAuthType(sp.Authentication)
-			require.True(t, explicit)
-			require.Equal(t, AuthTypeDisabled, authType)
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 	}

@@ -148,10 +148,6 @@ type MapStateEntry struct {
 
 	invalid bool
 
-	// AuthRequirement is non-zero when authentication is required for the traffic to be
-	// allowed, except for when it explicitly defines authentication is not required.
-	AuthRequirement AuthRequirement
-
 	// Cookie is the policy log cookie. It is non-zero, datapath will pass up the cookie on any
 	// policy verdict.
 	Cookie uint32
@@ -189,21 +185,12 @@ func (e MapStateEntry) String() string {
 	priorityText := ",Priority=" + strconv.FormatUint(uint64(priority), 10) +
 		":" + strconv.FormatUint(uint64(listenerPriority), 10)
 
-	var authText string
-	if e.AuthRequirement != 0 {
-		var authNote string
-		if !e.AuthRequirement.IsExplicit() {
-			authNote = " (derived)"
-		}
-		authText = ",AuthType=" + e.AuthRequirement.AuthType().String() + authNote
-	}
-
 	var cookieText string
 	if e.Cookie != 0 {
 		cookieText = ",Cookie=" + strconv.FormatUint(uint64(e.Cookie), 10)
 	}
 
-	return verdictText + priorityText + proxyText + authText + cookieText
+	return verdictText + priorityText + proxyText + cookieText
 }
 
 // Convert API priority to the lowest datapath Precedence for that priority:
@@ -249,7 +236,6 @@ func NewMapStateEntry(
 	deny bool,
 	proxyPort uint16,
 	listenerPriority ListenerPriority,
-	authReq AuthRequirement,
 ) MapStateEntry {
 	precedence := priority.toBasePrecedence()
 
@@ -259,15 +245,13 @@ func NewMapStateEntry(
 		// Normalize inputs
 		proxyPort = 0
 		listenerPriority = 0
-		authReq = 0
 	} else {
 		precedence |= precedenceByteAllow
 	}
 
 	return MapStateEntry{
-		Precedence:      precedence,
-		ProxyPort:       proxyPort,
-		AuthRequirement: authReq,
+		Precedence: precedence,
+		ProxyPort:  proxyPort,
 	}.WithListenerPriority(listenerPriority)
 }
 
@@ -348,7 +332,7 @@ func (e MapStateEntry) WithProxyPort(proxyPort uint16) MapStateEntry {
 // Merge is only called for entries whose precedence may differ only for the proxy port priority
 // value.
 func (e *MapStateEntry) Merge(entry MapStateEntry) {
-	// Only allow entries have proxy redirection or auth requirement
+	// Only allow entries have proxy redirection
 	if e.IsAllow() && entry.IsAllow() {
 		// Proxy port takes precedence, but may be updated due to priority
 		if entry.IsRedirectEntry() {
@@ -359,17 +343,6 @@ func (e *MapStateEntry) Merge(entry MapStateEntry) {
 				e.ProxyPort = entry.ProxyPort
 				e.Precedence = entry.Precedence
 			}
-		}
-
-		// Numerically higher AuthType takes precedence when both are
-		// either explicitly defined or derived
-		if entry.AuthRequirement.IsExplicit() == e.AuthRequirement.IsExplicit() {
-			if entry.AuthRequirement > e.AuthRequirement {
-				e.AuthRequirement = entry.AuthRequirement
-			}
-		} else if entry.AuthRequirement.IsExplicit() {
-			// Explicit auth takes precedence over defaulted one.
-			e.AuthRequirement = entry.AuthRequirement
 		}
 	}
 }

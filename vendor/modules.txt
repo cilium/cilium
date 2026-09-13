@@ -1533,7 +1533,6 @@ github.com/spiffe/go-spiffe/v2/svid/x509svid
 github.com/spiffe/go-spiffe/v2/workloadapi
 # github.com/spiffe/spire-api-sdk v1.15.3
 ## explicit; go 1.23.0
-github.com/spiffe/spire-api-sdk/proto/spire/api/agent/delegatedidentity/v1
 github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1
 github.com/spiffe/spire-api-sdk/proto/spire/api/types
 # github.com/stretchr/objx v0.5.3

@@ -35,8 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
-	"github.com/cilium/cilium/pkg/maps/authmap"
-	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	fakeencrypt "github.com/cilium/cilium/pkg/maps/encrypt/fake"
@@ -68,7 +66,6 @@ var Cell = cell.Module(
 			return fakeNodeHandler, fakeNodeHandler, fakeNodeHandler
 		},
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
-		func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
 		func() encrypt.EncryptMap { return fakeencrypt.NewFakeEncryptMap() },
 		func() *egressmap.PolicyMap4V2 { return nil },
 		func() *egressmap.PolicyMap6 { return nil },

@@ -7,7 +7,6 @@ import (
 	check "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/bpf"
 	lbmap "github.com/cilium/cilium/pkg/loadbalancer/maps"
-	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
@@ -80,8 +79,6 @@ var (
 		"srv6_policy_key6":          {srv6map.PolicyKey6{}},
 		"vtep_key":                  {vtep.Key{}},
 		"vtep_value":                {vtep.VtepEndpointInfo{}},
-		"auth_key":                  {authmap.AuthKey{}},
-		"auth_info":                 {authmap.AuthInfo{}},
 		"skip_lb4_key":              {lbmap.SkipLB4Key{}},
 		"skip_lb6_key":              {lbmap.SkipLB6Key{}},
 		"ratelimit_key":             {ratelimitmap.Key{}},

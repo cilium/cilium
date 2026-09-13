@@ -97,20 +97,8 @@
     },
     "authentication": {
       "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "gcInterval": {
-          "type": "string"
-        },
         "mutual": {
           "properties": {
-            "connectTimeout": {
-              "type": "string"
-            },
-            "port": {
-              "type": "integer"
-            },
             "spire": {
               "properties": {
                 "adminSocketPath": {
@@ -441,12 +429,6 @@
             }
           },
           "type": "object"
-        },
-        "queueSize": {
-          "type": "integer"
-        },
-        "rotatedIdentitiesQueueSize": {
-          "type": "integer"
         }
       },
       "type": "object"
@@ -535,12 +517,6 @@
     },
     "bpf": {
       "properties": {
-        "authMapMax": {
-          "type": [
-            "null",
-            "integer"
-          ]
-        },
         "autoMount": {
           "properties": {
             "enabled": {
@@ -3097,9 +3073,6 @@
             "reasons": {
               "items": {
                 "anyOf": [
-                  {
-                    "type": "string"
-                  },
                   {
                     "type": "string"
                   }

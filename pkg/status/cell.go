@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/daemon/cmd/cni"
-	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -80,7 +79,6 @@ type statusParams struct {
 
 	DaemonConfigPromise promise.Promise[*option.DaemonConfig]
 
-	AuthManager      *auth.AuthManager
 	BigTCPConfig     bigtcp.Config
 	BandwidthManager bandwidth.Manager
 	CiliumHealth     health.CiliumHealthManager

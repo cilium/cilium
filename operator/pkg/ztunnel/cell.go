@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/ztunnel/config"
 	ztunnelReconciler "github.com/cilium/cilium/operator/pkg/ztunnel/reconciler"
+	"github.com/cilium/cilium/operator/pkg/ztunnel/spire"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/ztunnel/table"
@@ -21,6 +22,7 @@ var Cell = cell.Module(
 	"ZTunnel SPIRE Enrollment",
 
 	cell.Config(config.DefaultConfig),
+	spire.Cell,
 	metrics.Metric(ztunnelReconciler.NewMetrics),
 	cell.Provide(
 		k8sTables.NewNamespaceTableAndReflector,

@@ -157,7 +157,7 @@ cilium-agent hive dot-graph [flags]
       --hubble-drop-events-extended                               Include L4 network policies in drop event message
       --hubble-drop-events-interval duration                      Minimum time between emitting same events (default 2m0s)
       --hubble-drop-events-rate-limit int                         Rate limit for the drop event emitter in events per second (0 for no rate limit) (default 1)
-      --hubble-drop-events-reasons strings                        Drop reasons to emit events for (default [auth_required,policy_denied])
+      --hubble-drop-events-reasons strings                        Drop reasons to emit events for (default [policy_denied])
       --hubble-dynamic-metrics-config-path string                 Filepath with dynamic configuration of hubble metrics.
       --hubble-event-buffer-capacity int                          Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                               Buffer size of the channel to receive monitor events.
@@ -225,13 +225,6 @@ cilium-agent hive dot-graph [flags]
       --lb-state-file string                                      Synchronize load-balancing state from the specified file
       --lrp-address-matcher-cidrs strings                         Limit address matches to specific CIDRs
       --max-connected-clusters uint32                             Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
-      --mesh-auth-gc-interval duration                            Interval in which auth entries are attempted to be garbage collected (default 5m0s)
-      --mesh-auth-mutual-connect-timeout duration                 Timeout for connecting to the remote node TCP socket (default 5s)
-      --mesh-auth-mutual-listener-port int                        Port on which the Cilium Agent will perform mutual authentication handshakes between other Agents
-      --mesh-auth-queue-size int                                  Queue size for the auth manager (default 1024)
-      --mesh-auth-rotated-identities-queue-size int               The size of the queue for signaling rotated identities. (default 1024)
-      --mesh-auth-spiffe-trust-domain string                      The trust domain for the SPIFFE identity. (default "spiffe.cilium")
-      --mesh-auth-spire-admin-socket string                       The path for the SPIRE admin agent Unix socket.
       --metrics strings                                           Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo, -metric_bar to disable metric_bar)
       --metrics-sampling-interval duration                        Set the internal metrics sampling interval (default 5m0s)
       --monitor-queue-size int                                    Size of the event queue when reading monitor events
