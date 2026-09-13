@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
@@ -1987,4 +1988,21 @@ func TestToHTTPSessionPersistence(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+// Test_sortL4RoutesByAge checks that routes with equal creation timestamps are
+// ordered by namespace and then name as separate fields: a namespace that is a
+// prefix of another must not take precedence based on the "/" separator.
+func Test_sortL4RoutesByAge(t *testing.T) {
+	sameTime := metav1.NewTime(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
+
+	routes := []gatewayv1.TCPRoute{
+		{ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "a-x", CreationTimestamp: sameTime}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "a", CreationTimestamp: sameTime}},
+	}
+
+	sortL4RoutesByAge(routes, func(r gatewayv1.TCPRoute) metav1.ObjectMeta { return r.ObjectMeta })
+
+	require.Equal(t, "a", routes[0].Namespace)
+	require.Equal(t, "a-x", routes[1].Namespace)
 }

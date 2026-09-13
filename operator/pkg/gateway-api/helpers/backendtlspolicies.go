@@ -127,9 +127,11 @@ func BuildBackendTLSPolicyLookup(btlspList *gatewayv1.BackendTLSPolicyList) Back
 				continue
 			}
 
-			// There is already a valid entry for this section name, so now we check timestamps.
-			if currentBTLSP.ObjectMeta.CreationTimestamp.Before(&existingBTLSP.ObjectMeta.CreationTimestamp) {
-				// if the current policy has an older creation time, it wins
+			// There is already a valid entry for this section name, so the Gateway API
+			// conflict resolution rules decide: the oldest policy wins, and policies
+			// with equal creation timestamps are ordered by namespace and then name.
+			if CompareByCreationTimestampAndObjectKey(currentBTLSP.ObjectMeta, existingBTLSP.ObjectMeta) < 0 {
+				// The current policy sorts first, so it wins.
 				// Move the existing policy into the Conflicted map
 				lookupMap[svcName].UpsertConflictedPolicy(existingName, existingBTLSP)
 				// Upsert the current BTLSP into the Valid set.
@@ -137,25 +139,7 @@ func BuildBackendTLSPolicyLookup(btlspList *gatewayv1.BackendTLSPolicyList) Back
 				continue
 			}
 
-			if existingBTLSP.ObjectMeta.CreationTimestamp.Before(&currentBTLSP.ObjectMeta.CreationTimestamp) {
-				// if the existing policy has an older creation time, it wins
-				// Move the current policy into the Conflicted map
-				lookupMap[svcName].UpsertConflictedPolicy(currentName, &currentBTLSP)
-				// The existing BTLSP is already in the Valid set, nothing more to do.
-				continue
-			}
-
-			// If the creation timestamps are equal, because neither are before the other,
-			// and they're not the same object, then the lexicographically first one wins.
-			if currentName.String() < existingName.String() {
-				// Move the existing policy into the Conflicted map
-				lookupMap[svcName].UpsertConflictedPolicy(existingName, existingBTLSP)
-				// Upsert the current BTLSP into the Valid set.
-				lookupMap[svcName].UpsertValidPolicy(sectionName, &currentBTLSP)
-				continue
-			}
-
-			// Otherwise, the current policy is conflicted.
+			// Otherwise, the existing policy sorts first and wins: the current policy is conflicted.
 			lookupMap[svcName].UpsertConflictedPolicy(currentName, &currentBTLSP)
 		}
 	}
