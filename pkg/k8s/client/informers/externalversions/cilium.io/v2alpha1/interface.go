@@ -39,6 +39,12 @@ type Interface interface {
 	CiliumNetworkDriverNodeConfigs() TypedCiliumNetworkDriverNodeConfigInformer
 	// CiliumPodIPPools returns a CiliumPodIPPoolInformer.
 	CiliumPodIPPools() TypedCiliumPodIPPoolInformer
+	// CiliumQoSClasses returns a CiliumQoSClassInformer.
+	CiliumQoSClasses() TypedCiliumQoSClassInformer
+	// CiliumQoSMechanisms returns a CiliumQoSMechanismInformer.
+	CiliumQoSMechanisms() TypedCiliumQoSMechanismInformer
+	// CiliumQoSPolicies returns a CiliumQoSPolicyInformer.
+	CiliumQoSPolicies() TypedCiliumQoSPolicyInformer
 	// CiliumResourceIPPools returns a CiliumResourceIPPoolInformer.
 	CiliumResourceIPPools() TypedCiliumResourceIPPoolInformer
 }
@@ -122,6 +128,21 @@ func (v *version) CiliumNetworkDriverNodeConfigs() TypedCiliumNetworkDriverNodeC
 // CiliumPodIPPools returns a TypedCiliumPodIPPoolInformer.
 func (v *version) CiliumPodIPPools() TypedCiliumPodIPPoolInformer {
 	return &ciliumPodIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumQoSClasses returns a TypedCiliumQoSClassInformer.
+func (v *version) CiliumQoSClasses() TypedCiliumQoSClassInformer {
+	return &ciliumQoSClassInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumQoSMechanisms returns a TypedCiliumQoSMechanismInformer.
+func (v *version) CiliumQoSMechanisms() TypedCiliumQoSMechanismInformer {
+	return &ciliumQoSMechanismInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumQoSPolicies returns a TypedCiliumQoSPolicyInformer.
+func (v *version) CiliumQoSPolicies() TypedCiliumQoSPolicyInformer {
+	return &ciliumQoSPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumResourceIPPools returns a TypedCiliumResourceIPPoolInformer.
