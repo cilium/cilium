@@ -870,7 +870,7 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 	if updatedPeer != nil {
 		if err := a.updatePeerByConfig(updatedPeer); err != nil {
 			a.logger.Error(
-				"Failed to update WireGuard peer after ipcache update",
+				"Failed to update WireGuard peer after ipcache update, scheduling retry",
 				logfields.Error, err,
 				logfields.Modification, modType,
 				logfields.IPAddr, ipnet,
@@ -878,7 +878,36 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 				logfields.NewNode, newHostIP,
 				logfields.PubKey, updatedPeer.pubKey,
 			)
+			go a.retryUpdatePeer(updatedPeer)
 		}
+	}
+}
+
+func (a *Agent) retryUpdatePeer(peer *peerConfig) {
+	delay := 100 * time.Millisecond
+	for i := 0; i < 15; i++ {
+		time.Sleep(delay)
+		if delay < 1*time.Minute {
+			delay *= 2
+		}
+		
+		a.Lock()
+		if a.wgClient == nil {
+			a.Unlock()
+			return
+		}
+		if _, ok := a.nodeNameByPubKey[peer.pubKey]; !ok {
+			a.Unlock()
+			return
+		}
+		err := a.updatePeerByConfig(peer)
+		a.Unlock()
+		
+		if err == nil {
+			a.logger.Debug("Successfully updated WireGuard peer after retry", logfields.PubKey, peer.pubKey)
+			return
+		}
+		a.logger.Error("Failed to retry WireGuard peer update", logfields.Error, err, logfields.PubKey, peer.pubKey)
 	}
 }
 
