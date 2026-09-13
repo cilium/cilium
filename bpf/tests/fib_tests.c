@@ -43,6 +43,7 @@ struct fib_lookup_recorder {
 	__u8 l4_protocol;
 	__be16 sport;
 	__be16 dport;
+	__be32 flowinfo;
 } fib_lookup_recorder = {0};
 
 void reset_fib_lookup_recorder(struct fib_lookup_recorder *r)
@@ -51,6 +52,7 @@ void reset_fib_lookup_recorder(struct fib_lookup_recorder *r)
 	r->l4_protocol = 0;
 	r->sport = 0;
 	r->dport = 0;
+	r->flowinfo = 0;
 }
 
 #define fib_lookup mock_fib_lookup
@@ -63,6 +65,7 @@ long mock_fib_lookup(void *ctx __maybe_unused,
 	fib_lookup_recorder.l4_protocol = params->l4_protocol;
 	fib_lookup_recorder.sport = params->sport;
 	fib_lookup_recorder.dport = params->dport;
+	fib_lookup_recorder.flowinfo = params->flowinfo;
 	return 0;
 }
 
@@ -237,7 +240,11 @@ int test2_check(struct __ctx_buff *ctx)
 		struct ipv6hdr hdr6 = { .nexthdr = IPPROTO_UDP };
 		int oif = 0;
 		__s8 ext_err;
-
+		hdr6.version = 6;
+		hdr6.priority = 0x5;
+		hdr6.flow_lbl[0] = 0x0A;
+		hdr6.flow_lbl[1] = 0xBC;
+		hdr6.flow_lbl[2] = 0xDE;
 		if (!neigh_resolver_available())
 			test_fatal("expected neigh_resolver_available true");
 
@@ -253,6 +260,11 @@ int test2_check(struct __ctx_buff *ctx)
 				   IPPROTO_UDP,
 				   fib_lookup_recorder.l4_protocol);
 
+		/* flowinfo is priority and flow_lbl, version is expected to be removed */
+		if (fib_lookup_recorder.flowinfo != bpf_ntohl(0x050ABCDE))
+			test_fatal("expected flowinfo %x, got %x",
+				   0x050ABCDE,
+				   bpf_ntohl(fib_lookup_recorder.flowinfo));
 		reset_fib_lookup_recorder(&fib_lookup_recorder);
 	});
 

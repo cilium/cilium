@@ -752,6 +752,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			       (union v6addr *)&ip6->saddr);
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
+		fib_params.l.flowinfo = ipv6_flowinfo(ip6);
 		ret = fib_set_l4_v6(ctx, ETH_HLEN, ip6, &fib_params);
 		if (ret < 0)
 			goto drop_err;
@@ -1061,6 +1062,7 @@ fib_lookup:
 			       (union v6addr *)&ip6->saddr);
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
+		fib_params.l.flowinfo = ipv6_flowinfo(ip6);
 	}
 	fib_set_l4_from_tuple(&fib_params, tuple.nexthdr, tuple.dport, tuple.sport);
 
@@ -1337,6 +1339,10 @@ fib_ipv4:
 		fib_params->l.ipv4_src = ip4->saddr;
 		fib_params->l.ipv4_dst = ip4->daddr;
 		fib_params->l.family = AF_INET;
+		/* Since fib_params is not zero-initialized here,
+		 * it may carry leftover bits from flowinfo
+		 */
+		fib_params->l.tos = 0;
 		ret = fib_set_l4_v4(ctx, ETH_HLEN, ip4, fib_params);
 		if (ret < 0)
 			goto drop_err;
@@ -1345,6 +1351,7 @@ fib_ipv4:
 			       (union v6addr *)&ip6->saddr);
 		ipv6_addr_copy((union v6addr *)&fib_params->l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
+		fib_params->l.flowinfo = ipv6_flowinfo(ip6);
 		ret = fib_set_l4_v6(ctx, ETH_HLEN, ip6, fib_params);
 		if (ret < 0)
 			goto drop_err;

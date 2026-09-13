@@ -340,6 +340,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		flags = (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID);
 	}
 
+	fib_params.l.flowinfo = ipv6_flowinfo(ip6);
 	/* Populate L4 flow fields for ECMP multipath hashing. The kernel hashes
 	 * these fields to distribute flows across multiple nexthops.
 	 */
