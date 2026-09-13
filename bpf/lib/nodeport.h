@@ -1410,12 +1410,12 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		if (ret == DROP_NO_SERVICE) {
 			if (!CONFIG(enable_no_service_endpoints_routable))
 				return handle_nonroutable_endpoints_v6(svc);
-#ifdef SERVICE_NO_BACKEND_RESPONSE
-			edt_set_aggregate(ctx, 0);
-			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
-						 ext_err);
-			return ret;
-#endif
+			if (CONFIG(enable_service_no_backend_response)) {
+				edt_set_aggregate(ctx, 0);
+				ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
+							 ext_err);
+				return ret;
+			}
 		}
 
 		return ret;
@@ -2668,13 +2668,13 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 				if (!CONFIG(enable_no_service_endpoints_routable))
 					return handle_nonroutable_endpoints_v4(svc);
 
-#ifdef SERVICE_NO_BACKEND_RESPONSE
-				/* Packet is TX'ed back out, avoid EDT false-positives: */
-				edt_set_aggregate(ctx, 0);
-				ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
-							 ext_err);
-				return ret;
-#endif
+				if (CONFIG(enable_service_no_backend_response)) {
+					/* Packet is TX'ed back out, avoid EDT false-positives: */
+					edt_set_aggregate(ctx, 0);
+					ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
+								 ext_err);
+					return ret;
+				}
 			}
 
 			return ret;

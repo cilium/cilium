@@ -1957,6 +1957,19 @@ func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
 	}
 }
 
+// ServiceNoBackendResponseEnabled returns true if an ICMP reply should be sent back to the client in case it sent a
+// packet targeting a service with no available backends; false otherwise.
+func (c *DaemonConfig) ServiceNoBackendResponseEnabled() bool {
+	switch v := c.ServiceNoBackendResponse; v {
+	case ServiceNoBackendResponseDrop:
+		return false
+	case ServiceNoBackendResponseReject:
+		return true
+	default:
+		return false
+	}
+}
+
 // TunnelingEnabled returns true if tunneling is enabled.
 func (c *DaemonConfig) TunnelingEnabled() bool {
 	// We check if routing mode is not native rather than checking if it's

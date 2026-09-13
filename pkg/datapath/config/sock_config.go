@@ -20,6 +20,8 @@ type BPFSock struct {
 	EnableLRP bool `config:"enable_lrp"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
+	// Reply with ICMP to traffic to a service with no backends.
+	EnableServiceNoBackendResponse bool `config:"enable_service_no_backend_response"`
 	// Enable socket-based service load-balancing tracing.
 	EnableSocketLBTracing bool `config:"enable_socket_lb_tracing"`
 	// Cookie identifying the network namespace treated as the host namespace.
@@ -35,6 +37,6 @@ type BPFSock struct {
 }
 
 func NewBPFSock(node Node) *BPFSock {
-	return &BPFSock{false, false, false, false, false, false, 0x0, 0x0, 0x0, 0x0,
-		node}
+	return &BPFSock{false, false, false, false, false, false, false, 0x0, 0x0, 0x0,
+		0x0, node}
 }
