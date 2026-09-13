@@ -59,9 +59,16 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 			UseRemoteAddress: true,
 		},
 	})
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, translation.Config{
-		ServiceConfig: translation.ServiceConfig{
-			ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
+	cecTranslatorWithProxy := translation.NewCECTranslator(translation.Config{
+		RouteConfig: translation.RouteConfig{
+			HostNameSuffixMatch: true,
+		},
+		ListenerConfig: translation.ListenerConfig{
+			UseProxyProtocol:         true,
+			StreamIdleTimeoutSeconds: 300,
+		},
+		ClusterConfig: translation.ClusterConfig{
+			IdleTimeoutSeconds: 60,
 		},
 		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
 			UseRemoteAddress: true,
@@ -69,11 +76,13 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 	})
 
 	tests := []struct {
-		name       string
-		serviceKey []types.NamespacedName
-		wantErr    bool
+		name          string
+		serviceKey    []types.NamespacedName
+		wantErr       bool
+		proxyProtocol bool
 	}{
 		{name: "mesh-basic", serviceKey: []types.NamespacedName{serviceKeyEcho}},
+		{name: "mesh-proxy-protocol", serviceKey: []types.NamespacedName{serviceKeyEcho}, proxyProtocol: true},
 		{name: "mesh-split", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 		{name: "mesh-frontend", serviceKey: []types.NamespacedName{serviceKeyEchoV2}},
 		{name: "mesh-matching", serviceKey: []types.NamespacedName{serviceKeyEcho}},
@@ -107,6 +116,19 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 						WithStatusSubresource(&gatewayv1.GRPCRoute{}).
 						WithInterceptorFuncs(typeMetaInterceptor(scheme)).
 						Build()
+
+					selectedCECTranslator := cecTranslator
+					if tt.proxyProtocol {
+						selectedCECTranslator = cecTranslatorWithProxy
+					}
+					gatewayAPITranslator := gatewayApiTranslation.NewTranslator(selectedCECTranslator, translation.Config{
+						ServiceConfig: translation.ServiceConfig{
+							ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
+						},
+						OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
+							UseRemoteAddress: true,
+						},
+					})
 
 					r := &gammaReconciler{
 						client:         c,
