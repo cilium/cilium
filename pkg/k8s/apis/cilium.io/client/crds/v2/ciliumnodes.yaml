@@ -630,6 +630,10 @@ spec:
                         ip:
                           description: IP is the primary IP of the ENI
                           type: string
+                        ipv6:
+                          description: IPv6 is the IPv6 address reserved for use by
+                            the ENI device itself
+                          type: string
                         ipv6-prefixes:
                           description: IPv6Prefixes is the list of all IPv6 /80 delegated
                             prefixes associated with the ENI
