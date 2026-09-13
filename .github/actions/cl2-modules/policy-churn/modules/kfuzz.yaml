@@ -1,0 +1,118 @@
+{{$actionName := .actionName}}
+{{$tuningSet := .tuningSet}}
+
+{{$ciliumNamespace := .ciliumNamespace}}
+
+{{$image := .image}}
+{{$testNodeName := .testNodeName}}
+{{$scenario := .scenario}}
+{{$tickInterval := .tickInterval}}
+{{$clientTuningSet := .clientTuningSet}}
+{{$clientQPS := .clientQPS}}
+{{$clientBurstSize := .clientBurstSize}}
+{{$clientStepDelay := .clientStepDelay}}
+{{$terminationGracePeriodSeconds := .terminationGracePeriodSeconds}}
+{{$skipResourceCleanup := .skipResourceCleanup}}
+
+{{$replicas := 0}}
+{{if eq $actionName "create"}}
+{{$replicas = 1}}
+{{end}}
+
+steps:
+
+- name: {{$actionName}} kfuzz scenario configmap {{$scenario}}
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz-config
+      objectTemplatePath: ./scenarios/{{$scenario}}.yaml
+      templateFillMap:
+        testNodeName: {{$testNodeName}}
+        kfuzzNamespace: {{$ciliumNamespace}}
+
+{{if eq $actionName "create"}}
+
+- module:
+    path: ./modules/rbac.yaml
+    params:
+      replicas: 1
+      actionName: create
+      tuningSet: {{$tuningSet}}
+      serviceAccountName: kfuzz
+      serviceAccountNamespace: {{$ciliumNamespace}}
+
+- name: Starting measurement for kfuzz to be running
+  measurements:
+  - identifier: WaitForKfuzzRunning
+    method: WaitForControlledPodsRunning
+    params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      namespace: {{$ciliumNamespace}}
+      labelSelector: app.kubernetes.io/name=kfuzz
+      operationTimeout: 1m
+
+{{end}}
+
+- name: {{$actionName}} kfuzz deployment
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz
+      objectTemplatePath: ./manifests/kfuzz-deployment.yaml
+      templateFillMap:
+        image: {{$image}}
+        svcAccountRefName: kfuzz
+        configMapRefName: kfuzz-config
+        tickInterval: {{$tickInterval}}
+        clientTuningSet: {{$clientTuningSet}}
+        clientQPS: {{$clientQPS}}
+        clientBurstSize: {{$clientBurstSize}}
+        clientStepDelay: {{$clientStepDelay}}
+        terminationGracePeriodSeconds: {{$terminationGracePeriodSeconds}}
+        skipResourceCleanup: {{$skipResourceCleanup}}
+
+{{if eq $actionName "create"}}
+
+- name: Waiting for kfuzz to be running
+  measurements:
+  - identifier: WaitForKfuzzRunning
+    method: WaitForControlledPodsRunning
+    params:
+      action: gather
+
+{{else}}
+
+- name: Waiting for kfuzz pod to terminate
+  measurements:
+  - identifier: WaitForKfuzzPodGone
+    method: Exec
+    params:
+      timeout: {{AddInt $terminationGracePeriodSeconds 30}}s
+      command:
+      - kubectl
+      - wait
+      - --for=delete
+      - pod
+      - -n
+      - {{$ciliumNamespace}}
+      - -l
+      - app.kubernetes.io/name=kfuzz
+      - --timeout={{$terminationGracePeriodSeconds}}s
+
+- module:
+    path: ./modules/rbac.yaml
+    params:
+      replicas: 0
+      actionName: delete
+      tuningSet: {{$tuningSet}}
+      serviceAccountName: kfuzz
+      serviceAccountNamespace: {{$ciliumNamespace}}
+
+{{end}}

@@ -1,0 +1,58 @@
+{{$image := .image}}
+
+{{$ciliumNamespace := .ciliumNamespace}}
+{{$ciliumConfigMapName := .ciliumConfigMapName}}
+
+{{$svcAccountRefName := printf "%s-%d" .svcAccountRefName .Index}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/name: kwok-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kwok-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kwok-controller
+    spec:
+      serviceAccountName: {{$svcAccountRefName}}
+      nodeSelector:
+        role.scaffolding/test-infra: "true"
+      containers:
+      - name: kwok-controller
+        image: {{$image}}
+        command: ["/usr/local/bin/kwok"]
+        args:
+        - --kubeconfig=
+        - --enable-crds=Stage
+        - --node-port=10247
+        - --manage-nodes-with-label-selector=kfuzz.cilium.io/fake-node=true
+        - --enable-cilium
+        - --cilium-namespace={{$ciliumNamespace}}
+        - --cilium-configmap-name={{$ciliumConfigMapName}}
+        - --node-ip-pool=100.10.0.0/16
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 10247
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 10247
+          initialDelaySeconds: 2
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+      terminationGracePeriodSeconds: 10
