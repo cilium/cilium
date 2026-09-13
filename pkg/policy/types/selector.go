@@ -544,9 +544,21 @@ func (p *CIDRSelector) Matches(ls labels.LabelArray) bool {
 }
 
 // matchesCIDRWildcard returns true if the requirement is a wildcard and matches
-// the target under the PolicyCIDRMatchesPods configuration.
+// the target under the PolicyCIDRMatchesPods/PolicyCIDRMatchesNodes configuration.
 func matchesCIDRWildcard(req *Requirement, lbls labels.Labels) bool {
-	if !option.Config.PolicyCIDRMatchesPods() || req.key.Source != labels.LabelSourceReserved {
+	if req.key.Source != labels.LabelSourceReserved {
+		return false
+	}
+
+	// A wildcard CIDR (e.g. 0.0.0.0/0) requirement only carries a CIDR label
+	// for targets that are permitted to be matched by CIDR selectors, i.e.
+	// pods when PolicyCIDRMatchesPods() is set, or nodes/host when
+	// PolicyCIDRMatchesNodes() is set (see resolveLabels() in
+	// pkg/ipcache/metadata.go). If neither applies to this target, bail out
+	// early rather than allowing every in-cluster wildcard-selector to
+	// resolve to a false match.
+	isNode := lbls.HasHostLabel() || lbls.HasRemoteNodeLabel()
+	if !option.Config.PolicyCIDRMatchesPods() && !(isNode && option.Config.PolicyCIDRMatchesNodes()) {
 		return false
 	}
 
