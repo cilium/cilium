@@ -164,7 +164,7 @@ further details.
 Debugging
 =========
 
-The contents stored in the kvstore can be queued and manipulate using the
+The contents stored in the kvstore can be queried and manipulated using the
 ``cilium kvstore`` command. For additional details, see the command reference.
 
 Example:
