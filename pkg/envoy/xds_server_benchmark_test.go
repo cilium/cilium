@@ -36,6 +36,7 @@ import (
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -159,24 +160,27 @@ func (c *benchmarkSnapshotCache) report(b *testing.B) {
 	b.ReportMetric(float64(c.versioned.Load())/float64(b.N), "versions")
 }
 
-func (c *benchmarkSnapshotCache) GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error) {
-	c.generated.Add(1)
-	return c.Cache.GenerateSnapshot(resources, logger)
+func (c *benchmarkSnapshotCache) ApplyResources(ctx context.Context, nodeID string, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs xdsnew.TypeURLCallbacks) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+	return c.countUpdate(c.Cache.ApplyResources(ctx, nodeID, mutations, wg, updatedTypeURLs))
 }
 
-func (c *benchmarkSnapshotCache) GenerateSnapshotIncrementally(resources *xds.Resources, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}, logger *slog.Logger) (cache.ResourceSnapshot, error) {
-	c.generated.Add(1)
-	return c.Cache.GenerateSnapshotIncrementally(resources, previous, changedTypeURLs, logger)
+func (c *benchmarkSnapshotCache) UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+	return c.countUpdate(c.Cache.UpsertNetworkPolicy(ctx, nodeID, name, resource, wg, callback))
 }
 
-func (c *benchmarkSnapshotCache) UpdateResources(ctx context.Context, nodeID string, generation uint64, resources *xds.Resources, changedTypeURLs map[string]struct{}, generator xdsnew.SnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(error), completionRollbacks map[string]xdsnew.Rollback, revertFactory xdsnew.RevertFactory) error {
-	c.published.Add(1)
-	return c.Cache.UpdateResources(ctx, nodeID, generation, resources, changedTypeURLs, generator, wg, updatedTypeURLs, completionRollbacks, revertFactory)
+func (c *benchmarkSnapshotCache) UpsertNetworkPolicyHosts(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+	return c.countUpdate(c.Cache.UpsertNetworkPolicyHosts(ctx, nodeID, name, resource))
 }
 
-func (c *benchmarkSnapshotCache) GetVersion(resources *xds.Resources) string {
-	c.versioned.Add(1)
-	return c.Cache.GetVersion(resources)
+func (c *benchmarkSnapshotCache) RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name string) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+	return c.countUpdate(c.Cache.RemoveNetworkPolicyHosts(ctx, nodeID, name))
+}
+
+func (c *benchmarkSnapshotCache) countUpdate(updated bool, revertFunc xdsnew.RevertFunc, finalizeFunc xdsnew.FinalizeFunc, err error) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+	if updated {
+		c.published.Add(1)
+	}
+	return updated, revertFunc, finalizeFunc, err
 }
 
 // benchmarkADSEnvoy keeps a real go-control-plane SotW watch open for NPDS.
@@ -259,6 +263,12 @@ func (e *benchmarkADSEnvoy) openWatch(ackedVersion string) error {
 
 func (e *benchmarkADSEnvoy) observeResponse(response cache.Response) string {
 	version := response.GetResponseVersion()
+	if observed, ok := e.cache.(*benchmarkSnapshotCache); ok {
+		observed.generated.Add(1)
+		// This benchmark mutates NPDS only, so each finalized response computes
+		// exactly one changed resource-type version.
+		observed.versioned.Add(1)
+	}
 	e.subscription.SetReturnedResources(response.GetReturnedResources())
 	e.cache.GetCompletionCallbacks().OnStreamResponse(
 		response.GetContext(),
@@ -285,7 +295,7 @@ func (e *benchmarkADSEnvoy) run() {
 			}
 			if err := e.openWatch(version); err != nil {
 				e.fail(err)
-				e.cache.GetCompletionCallbacks().CancelPendingCompletions(NetworkPolicyTypeURL)
+				e.cache.GetCompletionCallbacks().CancelPendingCompletions(typeurl.NetworkPolicy)
 				return
 			}
 		}
@@ -484,9 +494,8 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 			server: server,
 			stats:  observedCache,
 			networkPolicies: func() []*cilium.NetworkPolicy {
-				resources := observedCache.GetAllResources(localNodeID)
-				policies := make([]*cilium.NetworkPolicy, 0, len(resources.NetworkPolicies))
-				for _, networkPolicy := range resources.NetworkPolicies {
+				var policies []*cilium.NetworkPolicy
+				for _, networkPolicy := range observedCache.NetworkPolicies(localNodeID) {
 					policies = append(policies, networkPolicy)
 				}
 				return policies

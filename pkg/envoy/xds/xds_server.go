@@ -6,7 +6,6 @@ package xds
 import (
 	"context"
 	"fmt"
-	"maps"
 	"strings"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -69,11 +68,9 @@ type XDSServer interface {
 	RemoveAllNetworkPolicies()
 }
 
-// Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD.
-// Each resource type is stored in a map keyed by resource name.
-// Once published to an xDS cache, the Resources, its maps, and the protobuf
-// values in those maps must be treated as immutable. Updates must use
-// copy-on-write for every map they modify.
+// Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD.  Each resource type
+// is stored in a map keyed by resource name. Stored valued are as immutable after being passed to
+// an xDS server.
 type Resources struct {
 	Listeners          map[string]*envoy_config_listener.Listener
 	Secrets            map[string]*envoy_config_tls.Secret
@@ -99,39 +96,6 @@ func NewResources() Resources {
 		NetworkPolicyHosts:      make(map[string]*cilium.NetworkPolicyHosts),
 		PortAllocationCallbacks: make(map[string]func(context.Context) error),
 	}
-}
-
-func cloneMapOrInit[K comparable, V any](source map[K]V) map[K]V {
-	cloned := maps.Clone(source)
-	if cloned == nil {
-		cloned = make(map[K]V)
-	}
-	return cloned
-}
-
-// CloneListeners returns a shallow copy of r with a cloned, initialized
-// Listeners map. All other maps and the protobuf values remain shared.
-func (r *Resources) CloneListeners() *Resources {
-	cloned := *r
-	cloned.Listeners = cloneMapOrInit(r.Listeners)
-	return &cloned
-}
-
-// CloneNetworkPolicies returns a shallow copy of r with a cloned, initialized
-// NetworkPolicies map. All other maps and the protobuf values remain shared.
-func (r *Resources) CloneNetworkPolicies() *Resources {
-	cloned := *r
-	cloned.NetworkPolicies = cloneMapOrInit(r.NetworkPolicies)
-	return &cloned
-}
-
-// CloneNetworkPolicyHosts returns a shallow copy of r with a cloned,
-// initialized NetworkPolicyHosts map. All other maps and the protobuf values
-// remain shared.
-func (r *Resources) CloneNetworkPolicyHosts() *Resources {
-	cloned := *r
-	cloned.NetworkPolicyHosts = cloneMapOrInit(r.NetworkPolicyHosts)
-	return &cloned
 }
 
 // DebugInfo returns aggregated info about the underlying envoy resources in the object
