@@ -9447,6 +9447,29 @@ func (NestedVirtualizationSpecification) Values() []NestedVirtualizationSpecific
 	}
 }
 
+type NetworkCardInterfaceType string
+
+// Enum values for NetworkCardInterfaceType
+const (
+	NetworkCardInterfaceTypeInterface NetworkCardInterfaceType = "interface"
+	NetworkCardInterfaceTypeEfa       NetworkCardInterfaceType = "efa"
+	NetworkCardInterfaceTypeEfaOnly   NetworkCardInterfaceType = "efa-only"
+	NetworkCardInterfaceTypeSecondary NetworkCardInterfaceType = "secondary"
+)
+
+// Values returns all known values for NetworkCardInterfaceType. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (NetworkCardInterfaceType) Values() []NetworkCardInterfaceType {
+	return []NetworkCardInterfaceType{
+		"interface",
+		"efa",
+		"efa-only",
+		"secondary",
+	}
+}
+
 type NetworkInterfaceAttribute string
 
 // Enum values for NetworkInterfaceAttribute
