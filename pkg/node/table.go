@@ -99,15 +99,11 @@ func (n *Node) addressClusters(
 				omitStaticLocalRouterIP(address.ToString()) {
 				continue
 			}
-			addr, ok := netip.AddrFromSlice(address.IP)
-			if !ok {
-				continue
-			}
 			clusterID := uint32(0)
 			if address.Type == addressing.NodeCiliumInternalIP {
 				clusterID = n.addressClusterID
 			}
-			if !yieldAddr(addr, clusterID) {
+			if !yieldAddr(address.IP.Addr, clusterID) {
 				return
 			}
 		}

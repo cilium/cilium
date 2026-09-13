@@ -4,7 +4,6 @@
 package node
 
 import (
-	"net"
 	"net/netip"
 	"testing"
 
@@ -29,11 +28,11 @@ func TestNodeAddressIndexClusterIdentity(t *testing.T) {
 			IPAddresses: []nodeTypes.Address{
 				{
 					Type: addressing.NodeCiliumInternalIP,
-					IP:   net.ParseIP("10.0.0.1"),
+					IP:   iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 				},
 				{
 					Type: addressing.NodeInternalIP,
-					IP:   net.ParseIP("192.0.2.1"),
+					IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 				},
 			},
 			IPv4HealthIP:  iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),

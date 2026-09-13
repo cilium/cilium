@@ -317,9 +317,9 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 			// b) the LocalNode store contains an IP address which we can use instead
 			switch net.IPFamilyOfString(address.IP) {
 			case net.IPv4:
-				return !option.Config.EnableIPv4 || ln.GetCiliumInternalIPv4() != nil
+				return !option.Config.EnableIPv4 || ln.GetCiliumInternalIPv4().IsValid()
 			case net.IPv6:
-				return !option.Config.EnableIPv6 || ln.GetCiliumInternalIPv6() != nil
+				return !option.Config.EnableIPv6 || ln.GetCiliumInternalIPv6().IsValid()
 			}
 		}
 

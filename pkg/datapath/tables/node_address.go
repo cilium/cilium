@@ -282,8 +282,8 @@ func (n *nodeAddressController) reconcile(health cell.Health) *statedb.WatchSet 
 
 	var k8sIPv4, k8sIPv6 netip.Addr
 	if localNode, _, watch, found := n.Nodes.GetWatch(rtxn, node.LocalNodeQuery); found {
-		k8sIPv4, _ = netip.AddrFromSlice(addressing.ExtractNodeIP[nodeTypes.Address](localNode.IPAddresses, false))
-		k8sIPv6, _ = netip.AddrFromSlice(addressing.ExtractNodeIP[nodeTypes.Address](localNode.IPAddresses, true))
+		k8sIPv4 = addressing.ExtractNodeIP[nodeTypes.Address](localNode.IPAddresses, false)
+		k8sIPv6 = addressing.ExtractNodeIP[nodeTypes.Address](localNode.IPAddresses, true)
 		ws.Add(watch)
 	}
 
