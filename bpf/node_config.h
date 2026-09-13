@@ -63,25 +63,6 @@
 #define LB4_SRC_RANGE_MAP_SIZE	1000
 #define LB6_SRC_RANGE_MAP_SIZE	1000
 
-#define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \
-case 116: \
-switch (vlan_id) { \
-case 4000: \
-case 4001: \
-return true; \
-} \
-break; \
-case 117: \
-switch (vlan_id) { \
-case 4003: \
-case 4004: \
-case 4005: \
-return true; \
-} \
-break; \
-} \
-return false;
-
 /*
  *   **** WARNING, THIS FILE IS DEPRECATED, SEE COMMENT AT THE TOP ****
  */

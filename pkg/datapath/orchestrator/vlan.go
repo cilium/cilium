@@ -13,9 +13,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
-const maxVLANFilterEntries = 5
+const maxVLANFilterEntries = len(types.VlanFilterConfig{}.VlanIds)
 
 func resolveVLANFilters(nativeDevices []*tables.Device, bypass []int) (config.VLANFilter, error) {
 	if slices.Contains(bypass, 0) {

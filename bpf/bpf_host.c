@@ -20,10 +20,6 @@
 /* Pass unknown ICMPv6 NS to stack */
 #define ACTION_UNKNOWN_ICMP6_NS CTX_ACT_OK
 
-#ifndef VLAN_FILTER
-#define VLAN_FILTER(ifindex, vlan_id) return false
-#endif
-
 #define	NODEPORT_USE_NAT_46x64		1
 
 #include "lib/common.h"
@@ -72,9 +68,18 @@
 #define FROM_HOST_FLAG_NEED_HOSTFW (1 << 1)
 #define FROM_HOST_FLAG_HOST_ID (1 << 2)
 
-static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __maybe_unused vlan_id)
+static __always_inline bool allow_vlan(__u32 vlan_id)
 {
-	VLAN_FILTER(ifindex, vlan_id);
+	if (CONFIG(vlan_filter).allow_all)
+		return true;
+
+	#pragma unroll
+	for (int i = 0; i < VLAN_FILTER_MAX_ENTRIES; i++) {
+		if (vlan_id == CONFIG(vlan_filter).vlan_ids[i])
+			return true;
+	}
+
+	return false;
 }
 
 struct {
@@ -1320,7 +1325,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		__u32 vlan_id = ctx->vlan_tci & 0xfff;
 
 		if (vlan_id) {
-			if (allow_vlan(ctx->ifindex, vlan_id))
+			if (allow_vlan(vlan_id))
 				return CTX_ACT_OK;
 
 			ret = DROP_VLAN_FILTERED;
@@ -1483,7 +1488,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	if (ctx->vlan_present) {
 		vlan_id = ctx->vlan_tci & 0xfff;
 		if (vlan_id) {
-			if (allow_vlan(ctx->ifindex, vlan_id))
+			if (allow_vlan(vlan_id))
 				return CTX_ACT_OK;
 
 			ret = DROP_VLAN_FILTERED;

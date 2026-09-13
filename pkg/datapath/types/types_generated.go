@@ -1084,6 +1084,14 @@ type V6Addr struct {
 	Addr [16]uint8
 }
 
+// VlanFilterConfig is generated from the BPF C type vlan_filter_config.
+type VlanFilterConfig struct {
+	_        structs.HostLayout
+	VlanIds  [5]uint16
+	AllowAll bool
+	_        [1]byte
+}
+
 // VTEPKey is generated from the BPF C type vtep_key.
 type VTEPKey struct {
 	_      structs.HostLayout

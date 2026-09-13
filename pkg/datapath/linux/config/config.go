@@ -5,7 +5,6 @@ package config
 
 import (
 	"bufio"
-	"bytes"
 	"cmp"
 	"encoding/base64"
 	"encoding/json"
@@ -15,7 +14,6 @@ import (
 	"maps"
 	"net/netip"
 	"slices"
-	"text/template"
 
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
@@ -312,12 +310,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 	cDefinesMap["VTEP_MAP_SIZE"] = fmt.Sprintf("%d", vtep.MaxEntries)
 
-	vlanFilter, err := vlanFilterMacros(cfg.VLANFilter)
-	if err != nil {
-		return fmt.Errorf("rendering vlan filter macros: %w", err)
-	}
-	cDefinesMap["VLAN_FILTER(ifindex, vlan_id)"] = vlanFilter
-
 	if option.Config.DisableExternalIPMitigation {
 		cDefinesMap["DISABLE_EXTERNAL_IP_MITIGATION"] = "1"
 	}
@@ -369,44 +361,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 	}
 
 	return fw.Flush()
-}
-
-// vlanFilterMacros generates VLAN_FILTER macros which
-// are written to node_config.h
-func vlanFilterMacros(vlanFilter config.VLANFilter) (string, error) {
-	// Allow all VLAN IDs.
-	if vlanFilter.AllowAll {
-		return "return true", nil
-	}
-	if len(vlanFilter.Entries) == 0 {
-		return "return false", nil
-	}
-
-	vlansByIfIndex := make(map[int][]uint16)
-	for _, entry := range vlanFilter.Entries {
-		vlansByIfIndex[entry.IfIndex] = append(
-			vlansByIfIndex[entry.IfIndex],
-			entry.VLAN,
-		)
-	}
-
-	vlanFilterTmpl := template.Must(template.New("vlanFilter").Parse(
-		`switch (ifindex) { \
-{{range $ifindex,$vlans := . -}} case {{$ifindex}}: \
-switch (vlan_id) { \
-{{range $vlan := $vlans -}} case {{$vlan}}: \
-{{end}}return true; \
-} \
-break; \
-{{end}}} \
-return false;`))
-
-	var vlanFilterMacro bytes.Buffer
-	if err := vlanFilterTmpl.Execute(&vlanFilterMacro, vlansByIfIndex); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
-	}
-
-	return vlanFilterMacro.String(), nil
 }
 
 func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, opts *option.IntOptions) {
