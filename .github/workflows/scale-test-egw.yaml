@@ -75,7 +75,7 @@ env:
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.37.0
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 583.0.0
+  gcloud_version: 584.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/actions/set-commit-status@fe0702f5df0d8e44d48f1baa226c023b73ff6b5e # main
+        uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -147,7 +147,7 @@ jobs:
           - egw
     steps:
       - name: Set commit status to pending
-        uses: cilium/actions/set-commit-status@fe0702f5df0d8e44d48f1baa226c023b73ff6b5e # main
+        uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
