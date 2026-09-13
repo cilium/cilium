@@ -1,0 +1,27 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "egress-via-forward-proxy"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: myService
+  egress:
+    # Redirect internet-bound web traffic to the Envoy listener, which tunnels
+    # it through the external forward proxy. The except list keeps cluster-local
+    # and private-network traffic out of the redirect.
+    - toCIDRSet:
+        - cidr: 0.0.0.0/0
+          except:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+          listener:
+            envoyConfig:
+              kind: CiliumClusterwideEnvoyConfig
+              name: forward-proxy-redirect
+            name: forward-proxy-listener

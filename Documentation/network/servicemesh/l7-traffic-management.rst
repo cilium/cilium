@@ -13,6 +13,9 @@ L7-Aware Traffic Management
 Cilium provides a way to control L7 traffic via CRDs (e.g. CiliumEnvoyConfig
 and CiliumClusterwideEnvoyConfig).
 
+To redirect policy-selected traffic to a listener defined in a CiliumEnvoyConfig
+or CiliumClusterwideEnvoyConfig, see :ref:`envoy_listener_redirect`.
+
 Prerequisites
 #############
 
