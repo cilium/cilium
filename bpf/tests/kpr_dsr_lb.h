@@ -175,8 +175,16 @@ const __u8 kpr_v4_dsr_lb3_mtu_post_option[] = {
 	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_option)
 };
 
+const __u8 kpr_v4_dsr_lb3_mtu_post_option_xdp[] = {
+	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_option_xdp)
+};
+
 const __u8 kpr_v4_dsr_lb3_mtu_post_geneve[] = {
 	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_geneve)
+};
+
+const __u8 kpr_v4_dsr_lb3_mtu_post_geneve_xdp[] = {
+	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_geneve_xdp)
 };
 
 const __u8 kpr_v4_dsr_lb3_mtu2[] = {
@@ -698,15 +706,29 @@ int kpr_v4_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert(*status_code == CTX_ACT_TX);
 
 #if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+# ifdef ATTACHMENT_XDP
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu_post_geneve",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb3_mtu_post_geneve_xdp,
+			   sizeof(kpr_v4_dsr_lb3_mtu_post_geneve_xdp));
+# else
 	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu_post_geneve",
 			   "Ether", ctx, sizeof(__u32),
 			   kpr_v4_dsr_lb3_mtu_post_geneve,
 			   sizeof(kpr_v4_dsr_lb3_mtu_post_geneve));
+# endif
 #else
+# ifdef ATTACHMENT_XDP
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu_post_option",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb3_mtu_post_option_xdp,
+			   sizeof(kpr_v4_dsr_lb3_mtu_post_option_xdp));
+# else
 	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu_post_option",
 			   "Ether", ctx, sizeof(__u32),
 			   kpr_v4_dsr_lb3_mtu_post_option,
 			   sizeof(kpr_v4_dsr_lb3_mtu_post_option));
+# endif
 #endif
 
 	struct ipv4_ct_tuple tuple;
