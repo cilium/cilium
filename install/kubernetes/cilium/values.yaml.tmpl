@@ -225,7 +225,7 @@ terminationGracePeriodSeconds: 1
 agent: true
 # -- Agent daemonset name.
 name: cilium
-# -- Roll out cilium agent pods automatically when configmap is updated.
+# -- Roll out cilium agent pods automatically when configmap is updated. Enabling this also rolls out cilium-operator pods, which must stay in sync with the agent configuration.
 rollOutCiliumPods: false
 # -- Configuration for the ConfigMap drift detection feature.
 # When enabled, the agent continuously watches the cilium-config ConfigMap
@@ -3312,8 +3312,8 @@ etcd:
 operator:
   # -- Enable the cilium-operator component (required).
   enabled: true
-  # -- Roll out cilium-operator pods automatically when configmap is updated.
-  rollOutPods: false
+  # -- Roll out cilium-operator pods automatically when configmap is updated. The operator must run with a configuration matching the agents, because it creates the CRDs required by enabled features and agents block their startup until those CRDs exist.
+  rollOutPods: true
   # -- cilium-operator image.
   image:
     # @schema

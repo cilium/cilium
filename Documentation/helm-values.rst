@@ -3613,9 +3613,9 @@
      - object
      - ``{}``
    * - :spelling:ignore:`operator.rollOutPods`
-     - Roll out cilium-operator pods automatically when configmap is updated.
+     - Roll out cilium-operator pods automatically when configmap is updated. The operator must run with a configuration matching the agents, because it creates the CRDs required by enabled features and agents block their startup until those CRDs exist.
      - bool
-     - ``false``
+     - ``true``
    * - :spelling:ignore:`operator.securityContext`
      - Security context to be added to cilium-operator pods
      - object
@@ -3889,7 +3889,7 @@
      - object
      - ``{}``
    * - :spelling:ignore:`rollOutCiliumPods`
-     - Roll out cilium agent pods automatically when configmap is updated.
+     - Roll out cilium agent pods automatically when configmap is updated. Enabling this also rolls out cilium-operator pods, which must stay in sync with the agent configuration.
      - bool
      - ``false``
    * - :spelling:ignore:`routingMode`
