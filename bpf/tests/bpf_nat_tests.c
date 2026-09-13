@@ -8,8 +8,10 @@
 
 #define ENABLE_SCTP
 #define ENABLE_IPV4
+#define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_MASQUERADE_IPV4
+#define ENABLE_MASQUERADE_IPV6
 #include <bpf/config/global.h>
 
 /* Set port ranges to have deterministic source port selection */
@@ -1572,6 +1574,163 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 		assert(retries_100percent[i] <= retries_100percent[i - 1]);
 	for (__u32 i = 6; i < SNAT_COLLISION_RETRIES; i++)
 		assert(retries_100percent[i] <= retries_100percent[5]);
+
+	test_finish();
+}
+
+CHECK(PROG_TYPE, "nat4_skip_hostport")
+int test_nat4_skip_hostport(__maybe_unused struct __ctx_buff *ctx)
+{
+	struct ipv4_ct_tuple tuple = {
+		.nexthdr = IPPROTO_TCP,
+		.saddr = bpf_htonl(IP_ENDPOINT),
+		.daddr = bpf_htonl(IP_WORLD),
+		.sport = bpf_htons(30001),
+		.dport = bpf_htons(80),
+		.flags = NAT_DIR_EGRESS,
+	};
+	struct ipv4_nat_target target = {
+		.addr = bpf_htonl(IP_HOST),
+		.min_port = 30001,
+		.max_port = 30002,
+	};
+	struct lb4_key svc_key = {
+		.address = bpf_htonl(IP_HOST),
+		.dport = bpf_htons(30001),
+		.proto = IPPROTO_TCP,
+		.scope = LB_LOOKUP_SCOPE_EXT,
+	};
+	struct lb4_service svc_val = {
+		.count = 1,
+		.flags = SVC_FLAG_HOSTPORT,
+	};
+	struct ipv4_ct_tuple rtuple = {};
+	struct ipv4_nat_entry state;
+	void *map;
+	int ret;
+
+	test_init();
+
+	/* This test checks that ports allocated as hostports are not used for SNAT port selection.
+	 */
+
+	map = get_cluster_snat_map_v4(target.cluster_id);
+	assert(map);
+
+	// Simulate a hostport 30001
+	ret = map_update_elem(&cilium_lb4_services_v2, &svc_key, &svc_val, BPF_ANY);
+	assert(ret == 0);
+
+	ret = snat_v4_new_mapping(ctx, map, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(30002));
+
+	set_v4_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(map, &tuple);
+	map_delete_elem(map, &rtuple);
+	map_delete_elem(&cilium_lb4_services_v2, &svc_key);
+
+	// Simulate host port for wildcard address on port 30001
+	svc_key.address = 0;
+	ret = map_update_elem(&cilium_lb4_services_v2, &svc_key, &svc_val, BPF_ANY);
+	assert(ret == 0);
+
+	ret = snat_v4_new_mapping(ctx, map, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(30002));
+
+	set_v4_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(map, &tuple);
+	map_delete_elem(map, &rtuple);
+	map_delete_elem(&cilium_lb4_services_v2, &svc_key);
+
+	// No host port on 30001 preserves original port
+	ret = snat_v4_new_mapping(ctx, map, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(30001));
+
+	set_v4_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(map, &tuple);
+	map_delete_elem(map, &rtuple);
+
+	test_finish();
+}
+
+CHECK(PROG_TYPE, "nat6_skip_hostport")
+int test_nat6_skip_hostport(__maybe_unused struct __ctx_buff *ctx)
+{
+	const union v6addr ep_ip = { .addr = v6_pod_one_addr };
+	const union v6addr host_ip = { .addr = v6_node_one_addr };
+	const union v6addr world_ip = { .addr = v6_ext_node_one_addr };
+	struct ipv6_ct_tuple tuple = {
+		.nexthdr = IPPROTO_TCP,
+		.sport = bpf_htons(30001),
+		.dport = bpf_htons(80),
+		.flags = NAT_DIR_EGRESS,
+	};
+	struct ipv6_nat_target target = {
+		.min_port = 30001,
+		.max_port = 30002,
+	};
+	struct lb6_key svc_key = {
+		.dport = bpf_htons(30001),
+		.proto = IPPROTO_TCP,
+		.scope = LB_LOOKUP_SCOPE_EXT,
+	};
+	struct lb6_service svc_val = {
+		.count = 1,
+		.flags = SVC_FLAG_HOSTPORT,
+	};
+	struct ipv6_ct_tuple rtuple = {};
+	struct ipv6_nat_entry state;
+	int ret;
+
+	ipv6_addr_copy(&tuple.saddr, &ep_ip);
+	ipv6_addr_copy(&tuple.daddr, &world_ip);
+	ipv6_addr_copy(&target.addr, &host_ip);
+	ipv6_addr_copy(&svc_key.address, &host_ip);
+
+	test_init();
+
+	/* This test checks that ports allocated as hostports are not used for SNAT port selection.
+	 */
+
+	// Simulate a hostport 30001
+	ret = map_update_elem(&cilium_lb6_services_v2, &svc_key, &svc_val, BPF_ANY);
+	assert(ret == 0);
+
+	// Test
+	ret = snat_v6_new_mapping(ctx, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(30002));
+
+	set_v6_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(&cilium_snat_v6_external, &tuple);
+	map_delete_elem(&cilium_snat_v6_external, &rtuple);
+	map_delete_elem(&cilium_lb6_services_v2, &svc_key);
+
+	// Simulate host port for wildcard address on port 30001
+	memset(&svc_key.address, 0, sizeof(svc_key.address));
+	ret = map_update_elem(&cilium_lb6_services_v2, &svc_key, &svc_val, BPF_ANY);
+	assert(ret == 0);
+
+	ret = snat_v6_new_mapping(ctx, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(30002));
+
+	set_v6_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(&cilium_snat_v6_external, &tuple);
+	map_delete_elem(&cilium_snat_v6_external, &rtuple);
+	map_delete_elem(&cilium_lb6_services_v2, &svc_key);
+
+	// No host port on 30001 preserves original port
+	ret = snat_v6_new_mapping(ctx, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(30001));
+
+	set_v6_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(&cilium_snat_v6_external, &tuple);
+	map_delete_elem(&cilium_snat_v6_external, &rtuple);
 
 	test_finish();
 }
