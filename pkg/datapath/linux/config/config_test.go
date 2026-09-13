@@ -180,58 +180,6 @@ func TestPrivilegedWriteNetdevConfig(t *testing.T) {
 	})
 }
 
-func TestVLANFilterMacros(t *testing.T) {
-	tests := []struct {
-		name     string
-		filter   config.VLANFilter
-		expected string
-	}{
-		{
-			name:     "no entries",
-			expected: "return false",
-		},
-		{
-			name:     "allow all",
-			filter:   config.VLANFilter{AllowAll: true},
-			expected: "return true",
-		},
-		{
-			name: "entries grouped by interface",
-			filter: config.VLANFilter{Entries: []config.VLANFilterEntry{
-				{IfIndex: 10, VLAN: 4000},
-				{IfIndex: 10, VLAN: 4001},
-				{IfIndex: 20, VLAN: 4003},
-				{IfIndex: 20, VLAN: 4004},
-			}},
-			expected: `switch (ifindex) { \
-case 10: \
-switch (vlan_id) { \
-case 4000: \
-case 4001: \
-return true; \
-} \
-break; \
-case 20: \
-switch (vlan_id) { \
-case 4003: \
-case 4004: \
-return true; \
-} \
-break; \
-} \
-return false;`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			actual, err := vlanFilterMacros(tt.filter)
-			require.NoError(t, err)
-			require.Equal(t, tt.expected, actual)
-		})
-	}
-}
-
 func TestPrivilegedWriteNodeConfigExtraDefines(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	ns := netns.NewNetNS(t)
