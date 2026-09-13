@@ -254,6 +254,9 @@ type Config struct {
 	// for encryption over these subnets at node initialization.
 	IPv6PodSubnets []ip.Prefix
 
+	// VLANFilter contains the resolved VLAN bypass configuration for native devices.
+	VLANFilter VLANFilter
+
 	// XDPConfig holds configuration options to determine how the node should
 	// handle XDP programs.
 	XDPConfig xdp.Config
