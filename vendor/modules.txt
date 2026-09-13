@@ -2454,7 +2454,7 @@ sigs.k8s.io/gateway-api/apis/v1beta1
 sigs.k8s.io/gateway-api/apisx/v1alpha1
 sigs.k8s.io/gateway-api/pkg/consts
 sigs.k8s.io/gateway-api/pkg/features
-# sigs.k8s.io/gateway-api/conformance v1.6.1
+# sigs.k8s.io/gateway-api/conformance v1.6.2
 ## explicit; go 1.26.0
 sigs.k8s.io/gateway-api/conformance
 sigs.k8s.io/gateway-api/conformance/apis/v1
