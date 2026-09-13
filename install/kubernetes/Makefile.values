@@ -52,13 +52,13 @@ export CILIUM_ENVOY_DIGEST?=sha256:c56be451fbb62ad1327f8492a3671784246b426cd3bb4
 
 # renovate: datasource=docker
 export HUBBLE_UI_BACKEND_REPO?=quay.io/cilium/hubble-ui-backend
-export HUBBLE_UI_BACKEND_VERSION?=v0.13.5
-export HUBBLE_UI_BACKEND_DIGEST?=sha256:fac0c300ae119274edca11fd89b1ad23c788792d8bc4ea2ba631c709e8d3c688
+export HUBBLE_UI_BACKEND_VERSION?=v0.13.6
+export HUBBLE_UI_BACKEND_DIGEST?=sha256:83b3fc763f3d49948c306bf49b08277383e195904b9ca5c0c0022b2112628787
 
 # renovate: datasource=docker
 export HUBBLE_UI_FRONTEND_REPO?=quay.io/cilium/hubble-ui
-export HUBBLE_UI_FRONTEND_VERSION?=v0.13.5
-export HUBBLE_UI_FRONTEND_DIGEST?=sha256:f7d514fc54d784ed6df9d58cf0e97648b143f92b766dd1780ed3fc845bd4c516
+export HUBBLE_UI_FRONTEND_VERSION?=v0.13.6
+export HUBBLE_UI_FRONTEND_DIGEST?=sha256:049a80a03585c043d0c3121bdc518c72b0fd42bae07e4bcce0fdb8f1e88041d0
 
 # renovate: datasource=docker
 export SPIRE_SERVER_REPO?=ghcr.io/spiffe/spire-server
