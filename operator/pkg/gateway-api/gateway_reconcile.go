@@ -477,10 +477,15 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 		// NodePort service gets as many Node
 		// IP addresses as we can fit into Status
 		nodes := &corev1.NodeList{}
-		if err := r.Client.List(ctx, nodes); err != nil {
+		selector, err := metav1.LabelSelectorAsSelector(&r.hostNetworkLabel)
+		if err != nil {
+			return fmt.Errorf("could not parse the node label selector")
+		}
+		if err := r.Client.List(ctx, nodes, &client.ListOptions{
+			LabelSelector: selector,
+		}); err != nil {
 			return fmt.Errorf("unable to list nodes")
 		}
-
 		ips := make([]net.IP, 0)
 		for _, node := range nodes.Items {
 			if len(node.Status.Addresses) == 0 {
@@ -489,7 +494,6 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 			nodeAddress := node.Status.Addresses[0]
 			ips = append(ips, net.ParseIP(nodeAddress.Address))
 		}
-
 		// sort the addresses for consistent ip addresses assigned
 		sort.Slice(ips, func(i, j int) bool {
 			return bytes.Compare(ips[i], ips[j]) < 0
