@@ -156,6 +156,28 @@ func (a *Action) Scenario() Scenario {
 	return a.scenario
 }
 
+// CountFlows returns the number of flows collected during the Action that match
+// the given filter. It is intended to be called by a Scenario after Run() has
+// completed, to make aggregate assertions over the flows of a single action
+// (for example, "at least one DNS flow was served by the standalone DNS proxy").
+// It returns 0 when flow collection is disabled or no flows were captured.
+func (a *Action) CountFlows(filter filters.FlowFilterImplementation) int {
+	a.flowsMu.Lock()
+	defer a.flowsMu.Unlock()
+
+	fc := filters.NewFlowContext()
+	count := 0
+	for _, res := range a.flows {
+		if res == nil || res.Flow == nil {
+			continue
+		}
+		if filter.Match(res.Flow, &fc) {
+			count++
+		}
+	}
+	return count
+}
+
 // Run executes function f.
 //
 // This method is to be called from a Scenario implementation.

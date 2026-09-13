@@ -65,6 +65,14 @@ func (a *Action) collectPrometheusMetricsForNode(source MetricsSource, node stri
 
 // collectMetricsForPod retrieves the metrics for one pod.
 func (a *Action) collectMetricsForPod(pod Pod, port string) (promMetricsFamily, error) {
+	return fetchPodMetrics(a.test.ctx, pod, port)
+}
+
+// fetchPodMetrics port-forwards to the given pod's Prometheus port and returns
+// its parsed metrics. It is decoupled from Action so that Scenarios can read
+// metrics outside of the per-action before/after validation flow (see
+// ConnectivityTest.SumCiliumAgentMetric).
+func fetchPodMetrics(ct *ConnectivityTest, pod Pod, port string) (promMetricsFamily, error) {
 	// The context is in charge if closing the port-forward when it is cancelled.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -74,7 +82,7 @@ func (a *Action) collectMetricsForPod(pod Pod, port string) (promMetricsFamily, 
 		Pod:        pod.NameWithoutNamespace(),
 		Ports:      []string{fmt.Sprintf(":%s", port)},
 		Addresses:  nil, // default is localhost
-		OutWriters: portforward.OutWriters{Out: &debugWriter{ct: a.test.ctx}, ErrOut: &warnWriter{ct: a.test.ctx}},
+		OutWriters: portforward.OutWriters{Out: &debugWriter{ct: ct}, ErrOut: &warnWriter{ct: ct}},
 	}
 
 	// Call the k8s dialer to port forward,
@@ -151,4 +159,76 @@ func metricsIncrease(mf1, mf2 *dto.MetricFamily) error {
 	}
 
 	return nil
+}
+
+// SumCiliumAgentMetric returns the sum of the counter samples of the named
+// metric exposed by the Cilium agent running on the given node, restricted to
+// samples whose labels are a superset of the provided labels (an empty/nil
+// labels map matches every sample). It is meant for aggregate before/after
+// assertions in Scenarios, e.g. counting DNS proxy verdicts across a batch of
+// requests.
+//
+// It returns (0, nil) when the Cilium agent does not expose Prometheus metrics
+// (e.g. metrics are disabled), so callers can treat that as "skip the metric
+// assertion". It returns an error only when metrics are exposed but could not
+// be retrieved.
+func (ct *ConnectivityTest) SumCiliumAgentMetric(node, name string, labels map[string]string) (float64, error) {
+	source := ct.CiliumAgentMetrics()
+	if source.IsEmpty() {
+		return 0, nil
+	}
+
+	var agentPod *Pod
+	for i := range source.Pods {
+		if source.Pods[i].NodeName() == node {
+			agentPod = &source.Pods[i]
+			break
+		}
+	}
+	if agentPod == nil {
+		return 0, fmt.Errorf("no Cilium agent pod found on node %q", node)
+	}
+
+	metrics, err := fetchPodMetrics(ct, *agentPod, source.Port)
+	if err != nil {
+		return 0, err
+	}
+
+	return sumCounterMetric(metrics[name], labels), nil
+}
+
+// sumCounterMetric sums the values of all counter samples in mf whose labels
+// are a superset of the provided labels.
+func sumCounterMetric(mf *dto.MetricFamily, labels map[string]string) float64 {
+	if mf == nil {
+		return 0
+	}
+	var sum float64
+	for _, m := range mf.GetMetric() {
+		if m.GetCounter() == nil {
+			continue
+		}
+		if metricHasLabels(m, labels) {
+			sum += m.GetCounter().GetValue()
+		}
+	}
+	return sum
+}
+
+// metricHasLabels reports whether the metric sample carries every label in the
+// provided map with the exact value.
+func metricHasLabels(m *dto.Metric, labels map[string]string) bool {
+	for key, want := range labels {
+		found := false
+		for _, lp := range m.GetLabel() {
+			if lp.GetName() == key && lp.GetValue() == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
