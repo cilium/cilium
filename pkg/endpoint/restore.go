@@ -533,6 +533,18 @@ type serializableEndpoint struct {
 	RTInfo uint32
 }
 
+// newDNSZombies returns the deferred-delete tracking an endpoint uses. Both the
+// create and the restore path use it, so the configured TTL-bound zones
+// cannot be wired into one and missed in the other.
+func newDNSZombies(logger *slog.Logger) *fqdn.DNSZombieMappings {
+	return fqdn.NewDNSZombieMappings(
+		logger,
+		option.Config.ToFQDNsMaxDeferredConnectionDeletes,
+		option.Config.ToFQDNsMaxIPsPerHost,
+		option.Config.ToFQDNsTTLBoundZones,
+	)
+}
+
 // UnmarshalJSON expects that the contents of `raw` are a serializableEndpoint,
 // which is then converted into an Endpoint.
 func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
@@ -542,7 +554,7 @@ func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
 		Labels:     labels.NewOpLabels(),
 		Options:    option.NewIntOptions(&EndpointMutableOptionLibrary),
 		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		DNSZombies: fqdn.NewDNSZombieMappings(ep.Logger(subsystem), option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
+		DNSZombies: newDNSZombies(ep.Logger(subsystem)),
 	}
 	if err := json.Unmarshal(raw, restoredEp); err != nil {
 		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %w", err)

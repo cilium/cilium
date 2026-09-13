@@ -269,7 +269,7 @@ type fakeEPM struct{}
 
 func (f *fakeEPM) GetEndpoints() []*endpoint.Endpoint {
 	return []*endpoint.Endpoint{{
-		DNSZombies: fqdn.NewDNSZombieMappings(slog.Default(), 0, 0),
+		DNSZombies: fqdn.NewDNSZombieMappings(slog.Default(), 0, 0, nil),
 	}}
 }
 

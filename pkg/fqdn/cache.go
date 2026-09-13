@@ -12,11 +12,15 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strings"
 	"unsafe"
 
+	cdns "github.com/cilium/dns"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
@@ -346,13 +350,21 @@ func (c *DNSCache) GC(now time.Time, zombies *DNSZombieMappings) (affectedNames 
 	c.mu.Unlock()
 
 	if zombies != nil {
-		// Iterate over 2 maps
-		for _, m := range []map[netip.Addr][]*cacheEntry{
-			expiredEntries,
-			overLimitEntries,
+		// Iterate over 2 maps. Only TTL-expired entries are TTL-bound: an
+		// over-limit eviction is still inside its TTL, so expiring it outright
+		// would drop a live connection.
+		for _, m := range []struct {
+			entries    map[netip.Addr][]*cacheEntry
+			ttlExpired bool
+		}{
+			{expiredEntries, true},
+			{overLimitEntries, false},
 		} {
-			for ip, entries := range m {
+			for ip, entries := range m.entries {
 				for _, entry := range entries {
+					if m.ttlExpired && zombies.isTTLBound(entry.Name) {
+						continue
+					}
 					// Set the expiration time to either the GC or the expiration time
 					// of the DNS lookup if it is in the future.
 					// This can be the case when entries are not expired, but they are
@@ -900,16 +912,77 @@ type DNSZombieMappings struct {
 
 	// perHostLimit is the number of maximum number of IP per host.
 	perHostLimit int
+
+	// ttlBoundZones names the zones whose entries expire on their TTL rather
+	// than being deferred here. Fully qualified, read-only after construction.
+	ttlBoundZones []string
 }
 
 // NewDNSZombieMappings constructs a DNSZombieMappings that is read to use
-func NewDNSZombieMappings(logger *slog.Logger, max, perHostLimit int) *DNSZombieMappings {
-	return &DNSZombieMappings{
+//
+// Names in ttlBoundZones are never deferred here. A set that does not parse
+// binds nothing; the agent rejects one at startup.
+func NewDNSZombieMappings(logger *slog.Logger, max, perHostLimit int, ttlBoundZones []string) *DNSZombieMappings {
+	zombies := &DNSZombieMappings{
 		logger:       logger,
 		deletes:      make(map[netip.Addr]*DNSZombieMapping),
 		max:          max,
 		perHostLimit: perHostLimit,
 	}
+	if zones, err := ParseTTLBoundZones(ttlBoundZones); err != nil {
+		logger.Error("Ignoring unusable zone list; no zone will be TTL-bound",
+			logfields.Option, option.ToFQDNsTTLBoundZones,
+			logfields.Error, err)
+	} else {
+		zombies.ttlBoundZones = zones
+	}
+	return zombies
+}
+
+// isTTLBound reports whether name falls in one of the TTL-bound zones, and so
+// must expire on its TTL rather than being deferred as a zombie.
+func (zombies *DNSZombieMappings) isTTLBound(name string) bool {
+	if len(zombies.ttlBoundZones) == 0 {
+		return false
+	}
+	// Compared by label: a suffix test would read an escaped dot as a boundary.
+	fqdn := dns.FQDN(name)
+	for _, zone := range zombies.ttlBoundZones {
+		if cdns.IsSubDomain(zone, fqdn) {
+			return true
+		}
+	}
+	return false
+}
+
+// allowedZoneChars matches the character set a toFQDNs matchName allows.
+var allowedZoneChars = regexp.MustCompile(`^([-a-zA-Z0-9_]+[.]?)+$`)
+
+// ParseTTLBoundZones normalises each entry to the zone it names and reports the
+// first that is unusable, so a typo fails the agent at startup instead of
+// silently binding nothing. An entry is a domain, optionally written with a
+// leading "*."; either form covers that domain and every name below it. A
+// wildcard anywhere else is rejected, since "*abc.com" would also cover
+// "notabc.com".
+func ParseTTLBoundZones(entries []string) ([]string, error) {
+	zones := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		zone := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(entry)), "*.")
+		if zone == "" || zone == "." {
+			return nil, fmt.Errorf("invalid entry %q: names no zone", entry)
+		}
+		if strings.Contains(zone, "*") {
+			return nil, fmt.Errorf("invalid entry %q: a wildcard is only allowed as a leading %q label", entry, "*.")
+		}
+		if !allowedZoneChars.MatchString(strings.TrimSuffix(zone, ".")) {
+			return nil, fmt.Errorf("invalid entry %q: only letters, digits, '-', '_' and '.' are allowed", entry)
+		}
+		if _, ok := cdns.IsDomainName(zone); !ok {
+			return nil, fmt.Errorf("invalid entry %q: not a valid DNS name", entry)
+		}
+		zones = append(zones, dns.FQDN(zone))
+	}
+	return zones, nil
 }
 
 // Upsert enqueues the ip -> qname as a possible deletion. updatedExisting is
