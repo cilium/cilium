@@ -4,7 +4,6 @@
 package k8s
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	core_v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -23,11 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-)
-
-var (
-	unknownObj    = 100
-	errUnknownObj = fmt.Errorf("unknown object type %T", unknownObj)
 )
 
 func Test_EqualV2CNP(t *testing.T) {
@@ -739,335 +732,65 @@ func Test_EqualV1Namespace(t *testing.T) {
 	}
 }
 
-func Test_TransformToCNP(t *testing.T) {
-	type args struct {
-		obj any
-	}
-	tests := []struct {
-		name     string
-		args     args
-		want     any
-		expected bool
-	}{
-		{
-			name: "normal transformation",
-			args: args{
-				obj: &v2.CiliumNetworkPolicy{},
-			},
-			want: &types.SlimCNP{
-				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-			},
-			expected: true,
-		},
-		{
-			name: "transformation unneeded",
-			args: args{
-				obj: &types.SlimCNP{},
-			},
-			want:     &types.SlimCNP{},
-			expected: true,
-		},
-		{
-			name: "delete final state unknown transformation",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: &v2.CiliumNetworkPolicy{},
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: &types.SlimCNP{
-					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "delete final state unknown transformation with SlimCNP",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: &types.SlimCNP{},
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: &types.SlimCNP{},
-			},
-			expected: true,
-		},
-		{
-			name: "unknown object type in delete final state unknown transformation",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: unknownObj,
-				},
-			},
-			want:     errUnknownObj,
-			expected: false,
-		},
-		{
-			name: "unknown object type in transformation",
-			args: args{
-				obj: unknownObj,
-			},
-			want:     errUnknownObj,
-			expected: false,
-		},
-	}
-	for _, tt := range tests {
-		got, err := TransformToCNP(tt.args.obj)
-		if tt.expected {
-			require.NoError(t, err)
-			require.Equalf(t, tt.want, got, "Test Name: %s", tt.name)
-		} else {
-			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
-		}
-	}
-}
-
-func Test_TransformToCCNP(t *testing.T) {
-	type args struct {
-		obj any
-	}
-	tests := []struct {
-		name     string
-		args     args
-		want     any
-		expected bool
-	}{
-		{
-			name: "normal transformation",
-			args: args{
-				obj: &v2.CiliumClusterwideNetworkPolicy{},
-			},
-			want: &types.SlimCNP{
-				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-			},
-			expected: true,
-		},
-		{
-			name: "transformation unneeded",
-			args: args{
-				obj: &types.SlimCNP{},
-			},
-			want:     &types.SlimCNP{},
-			expected: true,
-		},
-		{
-			name: "A CCNP where it doesn't contain neither a spec nor specs",
-			args: args{
-				obj: &v2.CiliumClusterwideNetworkPolicy{},
-			},
-			want: &types.SlimCNP{
-				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-			},
-			expected: true,
-		},
-		{
-			name: "delete final state unknown transformation",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: &v2.CiliumClusterwideNetworkPolicy{},
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: &types.SlimCNP{
-					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "delete final state unknown transformation with SlimCNP",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: &types.SlimCNP{},
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: &types.SlimCNP{},
-			},
-			expected: true,
-		},
-		{
-			name: "unknown object type in delete final state unknown transformation",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: unknownObj,
-				},
-			},
-			want:     errUnknownObj,
-			expected: false,
-		},
-		{
-			name: "unknown object type in transformation",
-			args: args{
-				obj: unknownObj,
-			},
-			want:     errUnknownObj,
-			expected: false,
-		},
-	}
-	for _, tt := range tests {
-		got, err := TransformToCCNP(tt.args.obj)
-		if tt.expected {
-			require.NoError(t, err)
-			require.Equalf(t, tt.want, got, "Test Name: %s", tt.name)
-		} else {
-			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
-		}
-	}
-}
-
+// That the cache.DeletedFinalStateUnknown tombstones never reach the transform
+// is covered by the tests of resource.WithTransform.
 func Test_TransformToCiliumEndpoint(t *testing.T) {
-	type args struct {
-		obj any
-	}
 	tests := []struct {
-		name     string
-		args     args
-		want     any
-		expected bool
+		name string
+		cep  *v2.CiliumEndpoint
+		want *types.CiliumEndpoint
 	}{
 		{
-			name: "normal transformation",
-			args: args{
-				obj: &v2.CiliumEndpoint{},
-			},
+			name: "empty endpoint",
+			cep:  &v2.CiliumEndpoint{},
 			want: &types.CiliumEndpoint{
 				Encryption: &v2.EncryptionSpec{},
 			},
-			expected: true,
 		},
 		{
-			name: "transformation unneeded",
-			args: args{
-				obj: &types.CiliumEndpoint{},
-			},
-			want:     &types.CiliumEndpoint{},
-			expected: true,
-		},
-		{
-			name: "delete final state unknown transformation",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: &v2.CiliumEndpoint{
-						TypeMeta: metav1.TypeMeta{
-							Kind:       "CiliumEndpoint",
-							APIVersion: "v2",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name:            "foo",
-							GenerateName:    "generated-Foo",
-							Namespace:       "bar",
-							UID:             "fdadada-dada",
-							ResourceVersion: "5454",
-							Generation:      5,
-							CreationTimestamp: metav1.Time{
-								Time: time.Date(2018, 01, 01, 01, 01, 01, 01, time.UTC),
-							},
-							Labels: map[string]string{
-								"foo": "bar",
-							},
-							Annotations: map[string]string{
-								"foo": "bar",
-							},
-							OwnerReferences: []metav1.OwnerReference{
-								{
-									Kind:       "Pod",
-									APIVersion: "v1",
-									Name:       "foo",
-									UID:        "65dasd54d45",
-									Controller: nil,
-								},
-							},
-						},
-						Status: v2.EndpointStatus{
-							ID:          0,
-							Controllers: nil,
-							ExternalIdentifiers: &models.EndpointIdentifiers{
-								CniAttachmentID: "3290f4bc32129cb3e2f81074557ad9690240ea8fcce84bcc51a9921034875878",
-							},
-							Health: &models.EndpointHealth{
-								Bpf:           "good",
-								Connected:     false,
-								OverallHealth: "excellent",
-								Policy:        "excellent",
-							},
-							Identity: &v2.EndpointIdentity{
-								ID: 9654,
-								Labels: []string{
-									"k8s:io.cilium.namespace=bar",
-								},
-							},
-							Networking: &v2.EndpointNetworking{
-								Addressing: []*v2.AddressPair{
-									{
-										IPV4: "10.0.0.1",
-										IPV6: "fd00::1",
-									},
-								},
-								NodeIP: "192.168.0.1",
-							},
-							Encryption: v2.EncryptionSpec{
-								Key: 250,
-							},
-							Policy: &v2.EndpointPolicy{
-								Ingress: &v2.EndpointPolicyDirection{
-									Enforcing: true,
-								},
-								Egress: &v2.EndpointPolicyDirection{
-									Enforcing: true,
-								},
-							},
-							State: "",
-							NamedPorts: []*models.Port{
-								{
-									Name:     "foo-port",
-									Port:     8181,
-									Protocol: "TCP",
-								},
-							},
-							ServiceAccount: "test-service-account",
+			name: "the fields which are not used by the CEP handlers are dropped",
+			cep: &v2.CiliumEndpoint{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "CiliumEndpoint",
+					APIVersion: "v2",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "foo",
+					GenerateName:    "generated-Foo",
+					Namespace:       "bar",
+					UID:             "fdadada-dada",
+					ResourceVersion: "5454",
+					Generation:      5,
+					CreationTimestamp: metav1.Time{
+						Time: time.Date(2018, 01, 01, 01, 01, 01, 01, time.UTC),
+					},
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Annotations: map[string]string{
+						"foo": "bar",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							Kind:       "Pod",
+							APIVersion: "v1",
+							Name:       "foo",
+							UID:        "65dasd54d45",
+							Controller: nil,
 						},
 					},
 				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: &types.CiliumEndpoint{
-					TypeMeta: slim_metav1.TypeMeta{
-						Kind:       "CiliumEndpoint",
-						APIVersion: "v2",
+				Status: v2.EndpointStatus{
+					ID:          0,
+					Controllers: nil,
+					ExternalIdentifiers: &models.EndpointIdentifiers{
+						CniAttachmentID: "3290f4bc32129cb3e2f81074557ad9690240ea8fcce84bcc51a9921034875878",
 					},
-					ObjectMeta: slim_metav1.ObjectMeta{
-						Name:            "foo",
-						Namespace:       "bar",
-						UID:             "fdadada-dada",
-						ResourceVersion: "5454",
-						// We don't need to store labels nor annotations because
-						// they are not used by the CEP handlers.
-						Labels:      nil,
-						Annotations: nil,
-						// OwnerReferences is preserved for ztunnel xDS to extract Pod UID.
-						OwnerReferences: []slim_metav1.OwnerReference{
-							{
-								Kind:       "Pod",
-								APIVersion: "v1",
-								Name:       "foo",
-								UID:        "65dasd54d45",
-								Controller: nil,
-							},
-						},
+					Health: &models.EndpointHealth{
+						Bpf:           "good",
+						Connected:     false,
+						OverallHealth: "excellent",
+						Policy:        "excellent",
 					},
 					Identity: &v2.EndpointIdentity{
 						ID: 9654,
@@ -1084,9 +807,18 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 						},
 						NodeIP: "192.168.0.1",
 					},
-					Encryption: &v2.EncryptionSpec{
+					Encryption: v2.EncryptionSpec{
 						Key: 250,
 					},
+					Policy: &v2.EndpointPolicy{
+						Ingress: &v2.EndpointPolicyDirection{
+							Enforcing: true,
+						},
+						Egress: &v2.EndpointPolicyDirection{
+							Enforcing: true,
+						},
+					},
+					State: "",
 					NamedPorts: []*models.Port{
 						{
 							Name:     "foo-port",
@@ -1097,50 +829,66 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 					ServiceAccount: "test-service-account",
 				},
 			},
-			expected: true,
-		},
-		{
-			name: "unknown object type in delete final state unknown transformation",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: unknownObj,
+			want: &types.CiliumEndpoint{
+				TypeMeta: slim_metav1.TypeMeta{
+					Kind:       "CiliumEndpoint",
+					APIVersion: "v2",
 				},
-			},
-			want:     errUnknownObj,
-			expected: false,
-		},
-		{
-			name: "delete final state unknown transformation with a types.CiliumEndpoint",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: &types.CiliumEndpoint{},
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:            "foo",
+					Namespace:       "bar",
+					UID:             "fdadada-dada",
+					ResourceVersion: "5454",
+					// We don't need to store labels nor annotations because
+					// they are not used by the CEP handlers.
+					Labels:      nil,
+					Annotations: nil,
+					// OwnerReferences is preserved for ztunnel xDS to extract Pod UID.
+					OwnerReferences: []slim_metav1.OwnerReference{
+						{
+							Kind:       "Pod",
+							APIVersion: "v1",
+							Name:       "foo",
+							UID:        "65dasd54d45",
+							Controller: nil,
+						},
+					},
 				},
+				Identity: &v2.EndpointIdentity{
+					ID: 9654,
+					Labels: []string{
+						"k8s:io.cilium.namespace=bar",
+					},
+				},
+				Networking: &v2.EndpointNetworking{
+					Addressing: []*v2.AddressPair{
+						{
+							IPV4: "10.0.0.1",
+							IPV6: "fd00::1",
+						},
+					},
+					NodeIP: "192.168.0.1",
+				},
+				Encryption: &v2.EncryptionSpec{
+					Key: 250,
+				},
+				NamedPorts: []*models.Port{
+					{
+						Name:     "foo-port",
+						Port:     8181,
+						Protocol: "TCP",
+					},
+				},
+				ServiceAccount: "test-service-account",
 			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: &types.CiliumEndpoint{},
-			},
-			expected: true,
-		},
-		{
-			name: "unknown object type in transformation",
-			args: args{
-				obj: unknownObj,
-			},
-			want:     errUnknownObj,
-			expected: false,
 		},
 	}
 	for _, tt := range tests {
-		got, err := TransformToCiliumEndpoint(tt.args.obj)
-		if tt.expected {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := TransformToCiliumEndpoint(tt.cep)
 			require.NoError(t, err)
-			require.Equalf(t, tt.want, got, "Test Name: %s", tt.name)
-		} else {
-			require.Equal(t, tt.want, err, "Test Name: %s", tt.name)
-		}
+			require.Equal(t, tt.want, got)
+		})
 	}
 }
 
