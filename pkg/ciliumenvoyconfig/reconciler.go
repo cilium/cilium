@@ -100,8 +100,6 @@ func (ops *envoyOps) initializeResources(ctx context.Context, txn statedb.ReadTx
 		maps.Copy(merged.Clusters, res.Resources.Clusters)
 		maps.Copy(merged.Endpoints, res.Resources.Endpoints)
 		maps.Copy(merged.Secrets, res.Resources.Secrets)
-		maps.Copy(merged.NetworkPolicies, res.Resources.NetworkPolicies)
-		maps.Copy(merged.NetworkPolicyHosts, res.Resources.NetworkPolicyHosts)
 	}
 	return ops.xds.UpdateEnvoyResources(initCtx, xds.NewResources(), merged, nil)
 }

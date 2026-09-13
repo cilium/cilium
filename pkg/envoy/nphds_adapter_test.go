@@ -17,6 +17,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 )
@@ -24,17 +25,18 @@ import (
 func newTestNPHDSAdapter(t *testing.T) *nphdsCacheAdapter {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	server := newADSServerWithCache(xdsnew.NewCache(logger, false), logger, nil, nil, xdsServerConfig{}, nil, nil)
+	server := newADSServerWithCache(newADSCache(logger, false), logger, nil, nil, xdsServerConfig{}, nil, nil)
 	return newNPHDSCacheAdapter(logger, server)
 }
 
 func lookupNPHDS(t *testing.T, adapter *nphdsCacheAdapter, identityStr string) *envoyAPI.NetworkPolicyHosts {
 	t.Helper()
-	resources := adapter.store.networkPolicyHosts()
-	res, ok := resources[identityStr]
+	resource, ok := testADSNPHDSCache(t, adapter).GetResource(localNodeID, typeurl.NetworkPolicyHosts, identityStr)
 	if !ok {
 		return nil
 	}
+	res, ok := resource.(*envoyAPI.NetworkPolicyHosts)
+	require.True(t, ok)
 	return res
 }
 
@@ -225,7 +227,7 @@ func TestNPHDSAdapterPublishesFullStateResponses(t *testing.T) {
 
 func TestStartNPHDSIPCacheListener(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	adsCache := xdsnew.NewCache(logger, false)
+	adsCache := newADSCache(logger, false)
 	server := newADSServerWithCache(adsCache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 
 	// nil ipCache should be a no-op
