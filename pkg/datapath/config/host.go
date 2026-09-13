@@ -206,5 +206,23 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 		}
 	}
 
+	cfg.VLANFilter = vlanFilterConfig(lnc.VLANFilter, ifindex)
+
+	return cfg
+}
+
+func vlanFilterConfig(filter VLANFilter, ifindex int) types.VLANFilterConfig {
+	cfg := types.VLANFilterConfig{AllowAll: filter.AllowAll}
+
+	vlanIndex := 0
+	for _, entry := range filter.Entries {
+		if entry.IfIndex != ifindex {
+			continue
+		}
+
+		cfg.VLANIds[vlanIndex] = entry.VLAN
+		vlanIndex++
+	}
+
 	return cfg
 }

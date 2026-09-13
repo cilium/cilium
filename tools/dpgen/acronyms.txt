@@ -58,6 +58,7 @@ TCP4
 TCP6
 V4Addr
 V6Addr
+VLAN
 VRF
 VTEP
 WG
