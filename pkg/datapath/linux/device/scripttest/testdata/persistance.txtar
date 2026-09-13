@@ -5,8 +5,8 @@ link/set eth0 up
 
 hive/start
 
-add-device owner1 eth0.10.yaml
-add-device owner1 eth0.20.yaml
+add-device owner1 vlan eth0.10.yaml
+add-device owner1 vlan eth0.20.yaml
 
 # validate tables are populated correctly
 db/cmp desired-devices desired-device.1.table
@@ -23,7 +23,7 @@ add-initializer owner1
 hive/start
 
 # Add device again after restart, but only eth0.10 device
-add-device owner1 eth0.10.yaml
+add-device owner1 vlan eth0.10.yaml
 
 # Mark initializer as finished so pruning can proceed
 finish-initializer owner1

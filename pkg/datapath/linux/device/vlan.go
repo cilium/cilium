@@ -17,6 +17,10 @@ type DesiredVLANDeviceSpec struct {
 	MTU         int    `json:"mtu" yaml:"mtu"`
 	ParentName  string `json:"parentName" yaml:"parentName"`
 	ParentIndex int    `json:"parentIndex" yaml:"parentIndex"`
+	// MasterName and MasterIndex bind the device into a VRF or a bridge. Zero leaves it
+	// where it is: netlink only takes a master when one is given.
+	MasterName  string `json:"masterName" yaml:"masterName"`
+	MasterIndex int    `json:"masterIndex" yaml:"masterIndex"`
 }
 
 var _ DesiredDeviceSpec = (*DesiredVLANDeviceSpec)(nil)
@@ -27,6 +31,7 @@ func (d *DesiredVLANDeviceSpec) ToNetlink() (netlink.Link, error) {
 			Name:        d.Name,
 			MTU:         d.MTU,
 			ParentIndex: d.ParentIndex,
+			MasterIndex: d.MasterIndex,
 		},
 		VlanId: d.VLANID,
 	}, nil
@@ -35,7 +40,7 @@ func (d *DesiredVLANDeviceSpec) ToNetlink() (netlink.Link, error) {
 // NeedsRecreate reports whether the existing VLAN device must be recreated. The
 // VLAN ID and parent interface are immutable, so a recreate is only
 // needed when one of those differs from the desired spec. Mutable attributes (e.g.
-// MTU) are handled in-place via LinkModify.
+// MTU, master) are handled in-place via LinkModify.
 func (d *DesiredVLANDeviceSpec) NeedsRecreate(existing netlink.Link) bool {
 	vlan, ok := existing.(*netlink.Vlan)
 	if !ok {
@@ -46,9 +51,19 @@ func (d *DesiredVLANDeviceSpec) NeedsRecreate(existing netlink.Link) bool {
 	return vlan.VlanId != d.VLANID || vlan.ParentIndex != d.ParentIndex
 }
 
+func (d *DesiredVLANDeviceSpec) CanModify() bool {
+	return true
+}
+
 func (d *DesiredVLANDeviceSpec) Properties() string {
-	return fmt.Sprintf("Type=vlan, ParentDevice=%s (%d), VLAN=%d",
+	props := fmt.Sprintf("Type=vlan, ParentDevice=%s (%d), VLAN=%d",
 		d.ParentName, d.ParentIndex, d.VLANID)
+
+	if d.MasterIndex != 0 {
+		props += fmt.Sprintf(", Master=%s (%d)", d.MasterName, d.MasterIndex)
+	}
+
+	return props
 }
 
 func (d *DesiredVLANDeviceSpec) MarshalYAML() (any, error) {

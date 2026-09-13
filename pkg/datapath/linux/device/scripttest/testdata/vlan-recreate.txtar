@@ -10,14 +10,14 @@ link/set eth0 up
 hive/start
 
 # Create the VLAN device, wait for it to be reconciled and record its ifindex.
-add-device owner1 eth0.10.yaml
+add-device owner1 vlan eth0.10.yaml
 db/cmp devices devices.1.table
 db/get devices --index=name eth0.10 --columns=Index -o index.create.txt
 
 # Re-apply with only the MTU changed (a mutable attribute). The reconciler must
 # call LinkModify. Wait for the MTU update to land (devices.2.table), then assert
 # the ifindex is unchanged -> the device was modified in place, not recreated.
-add-device owner1 eth0.10-mtu.yaml
+add-device owner1 vlan eth0.10-mtu.yaml
 db/cmp devices devices.2.table
 db/get devices --index=name eth0.10 --columns=Index -o index.mtu.txt
 cmp index.mtu.txt index.create.txt
@@ -26,7 +26,7 @@ cmp index.mtu.txt index.create.txt
 # change it, so the reconciler deletes and re-adds the device. We also bump the
 # MTU so the devices table has an observable change to wait on.
 # Then assert the ifindex changed -> recreated.
-add-device owner1 eth0.10-vlan.yaml
+add-device owner1 vlan eth0.10-vlan.yaml
 db/cmp devices devices.3.table
 db/get devices --index=name eth0.10 --columns=Index -o index.vlan.txt
 ! cmp index.vlan.txt index.mtu.txt
