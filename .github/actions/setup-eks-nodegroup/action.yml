@@ -36,6 +36,9 @@ inputs:
   az_external:
     description: 'Availability zone of nodes without Cilium'
     required: false
+  ip_family:
+    description: 'IP family of the cluster the nodes join (IPv4 or IPv6)'
+    required: false
 runs:
   using: composite
   steps:
@@ -142,6 +145,12 @@ runs:
           echo "node_groups_override must contain a non-empty 'managedNodeGroups' array"
           exit 1
         fi
+
+    - name: Allow the nodes to assign IPv6 addresses
+      if: ${{ inputs.ip_family == 'IPv6' }}
+      shell: bash
+      run: |
+        yq -i '.managedNodeGroups[].iam.attachPolicy = {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["ec2:AssignIpv6Addresses"], "Resource": "*"}]}' nodegroup-details.yaml
 
     - name: Create EKS nodegroup
       shell: bash

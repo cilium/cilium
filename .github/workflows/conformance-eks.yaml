@@ -371,6 +371,9 @@ jobs:
           if [[ "${{ matrix.aws-eni-pd }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set eni.awsEnablePrefixDelegation=true"
           fi
+          if [[ "${{ matrix.ip-family }}" == "IPv6" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set ipv4.enabled=false --helm-set ipv6.enabled=true"
+          fi
 
           BPFMASQV4=$(echo "${EXTRA_ARGS}" | jq -r '.["bpf-masq-v4"] // false')
           if [[ "${BPFMASQV4}" == "true" ]]; then
@@ -444,6 +447,7 @@ jobs:
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
           addons: "coredns kube-proxy"
+          ip_family: ${{ matrix.ip-family }}
 
       - name: Generate cilium-cli kubeconfig
         id: gen-kubeconfig
@@ -533,11 +537,31 @@ jobs:
           nodes_without_cilium: 2
           az_cluster: ${{ steps.vars.outputs.eks_zone_1 }}
           az_external: ${{ steps.vars.outputs.eks_zone_2 }}
+          ip_family: ${{ matrix.ip-family }}
 
       - name: Wait for Cilium to be ready
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods -n kube-system
+
+      # The Corefile forwards to /etc/resolv.conf. That file is inherited from
+      # the host and lists an IPv4 nameserver, unreachable from an IPv6 only pod.
+      # Override the pod's copy to target the IPv6 VPC resolver.
+      - name: Configure the coredns nameservers
+        if: ${{ matrix.ip-family == 'IPv6' }}
+        run: |
+          COREDNS_PATCH="
+          spec:
+            template:
+              spec:
+                dnsPolicy: None
+                dnsConfig:
+                  nameservers:
+                  - fd00:ec2::253
+          "
+
+          kubectl patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
+          kubectl -n kube-system rollout status deploy/coredns --timeout=5m
 
       - name: Add external targets to the cluster
         uses: ./.github/actions/generic-external-targets
@@ -557,7 +581,18 @@ jobs:
             --output text)
           # Supposed to be one subnet and one CIDR with the default setup-eks-nodegroup config.
           CIDRV4=$(echo "$CIDRS" | awk '{print $1}')
-          echo "ipv4_external_cidr=$CIDRV4" >> $GITHUB_OUTPUT
+          if [ "${{ matrix.ip-family }}" != "IPv6" ]; then
+            echo "ipv4_external_cidr=$CIDRV4" >> $GITHUB_OUTPUT
+          fi
+
+          CIDRS6=$(aws ec2 describe-subnets \
+            --subnet-ids $SUBNETS \
+            --query 'Subnets[].Ipv6CidrBlockAssociationSet[].Ipv6CidrBlock' \
+            --output text)
+          CIDRV6=$(echo "$CIDRS6" | awk '{print $1}')
+          if [ "${{ matrix.ip-family }}" = "IPv6" ]; then
+            echo "ipv6_external_cidr=$CIDRV6" >> $GITHUB_OUTPUT
+          fi
 
       - name: Get connectivity test flags
         id: e2e_config
@@ -568,6 +603,10 @@ jobs:
           external-cidr: ${{ steps.external_cidr.outputs.ipv4_external_cidr }}
           external-ip: ${{ steps.external_targets.outputs.ipv4_external_target }}
           external-other-ip: ${{ steps.external_targets.outputs.ipv4_other_external_target }}
+          external-cidrv6: ${{ steps.external_cidr.outputs.ipv6_external_cidr }}
+          external-ipv6: ${{ steps.external_targets.outputs.ipv6_external_target }}
+          external-other-ipv6: ${{ steps.external_targets.outputs.ipv6_other_external_target }}
+          external-target-ipv6-capable: ${{ steps.external_targets.outputs.ipv6_external_target != '' }}
           external-target-ca-namespace: external-target-secrets
           external-target-ca-name: custom-ca
           external-target-fake-dns: true

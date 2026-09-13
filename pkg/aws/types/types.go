@@ -4,6 +4,10 @@
 package types
 
 import (
+	"net/netip"
+
+	"go4.org/netipx"
+
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/mac"
@@ -176,6 +180,11 @@ type ENI struct {
 	// +optional
 	IPv6Prefixes []iputil.Prefix `json:"ipv6-prefixes,omitempty"`
 
+	// IPv6 is the IPv6 address reserved for use by the ENI device itself
+	//
+	// +optional
+	IPv6 iputil.Addr `json:"ipv6,omitzero"`
+
 	// SecurityGroups are the security groups associated with the ENI
 	SecurityGroups []string `json:"security-groups,omitempty"`
 
@@ -198,6 +207,26 @@ func (e *ENI) DeepCopyInterface() ipamTypes.Interface {
 // InterfaceID returns the identifier of the interface
 func (e *ENI) InterfaceID() string {
 	return e.ID
+}
+
+// DeriveIPv6FromPrefixes returns an IPv6 address carved out of the ENI's
+// delegated prefixes, or the zero Addr if the ENI has none.
+func (e *ENI) DeriveIPv6FromPrefixes() netip.Addr {
+	var lowest netip.Prefix
+	for _, prefix := range e.IPv6Prefixes {
+		if !prefix.IsValid() {
+			continue
+		}
+		if !lowest.IsValid() || prefix.Addr().Less(lowest.Addr()) {
+			lowest = prefix.Prefix
+		}
+	}
+
+	if !lowest.IsValid() {
+		return netip.Addr{}
+	}
+
+	return netipx.PrefixLastIP(lowest)
 }
 
 // IsExcludedBySpec returns true if the ENI is excluded by the provided spec and

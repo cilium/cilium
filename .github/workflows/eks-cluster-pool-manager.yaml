@@ -416,6 +416,7 @@ jobs:
           VERSION: ${{ matrix.version }}
           ADDONS: ${{ matrix.addons }}
           ZONES: ${{ matrix.zones }}
+          IP_FAMILY: ${{ matrix.ip-family }}
         run: |
           set -e
 
@@ -433,6 +434,9 @@ jobs:
           ADDONS_HASH=$(echo -n "${ADDONS} ${ZONES}" | sha256sum | cut -c1-8)
 
           KUBECONFIG_PATH="${REGION}-${VERSION}-${ADDONS_HASH}"
+          if [[ "${IP_FAMILY}" == "IPv6" ]]; then
+            KUBECONFIG_PATH="ipv6-${KUBECONFIG_PATH}"
+          fi
           KUBECONFIG_PATH_SAFE="${KUBECONFIG_PATH//[.\/]/-}"
           S3_PREFIX="kubeconfig-pool/${KUBECONFIG_PATH_SAFE}/"
 
@@ -515,6 +519,7 @@ jobs:
           owner: "eks-cluster-pool-manager"
           version: ${{ matrix.version }}
           addons: ${{ matrix.addons }}
+          ip_family: ${{ matrix.ip-family }}
 
       - name: Create EKS nodegroups
         # We can only create node groups with vpc-cni addon or if Cilium was
@@ -530,6 +535,7 @@ jobs:
           nodes_without_cilium: 2
           az_cluster: ${{ matrix.az_cluster }}
           az_external: ${{ matrix.az_external }}
+          ip_family: ${{ matrix.ip-family }}
 
       - name: Upload kubeconfig to S3 pool
         if: ${{ steps.check-pool.outputs.should_create == 'true' }}
@@ -538,6 +544,7 @@ jobs:
           VERSION: ${{ matrix.version }}
           ADDONS: ${{ matrix.addons }}
           ZONES: ${{ matrix.zones }}
+          IP_FAMILY: ${{ matrix.ip-family }}
           CLUSTER_NAME: ${{ steps.setup-cluster.outputs.cluster_name }}
           TIMESTAMP: ${{ steps.cluster-name.outputs.timestamp }}
           S3_BUCKET: ${{ steps.check-pool.outputs.s3_bucket }}
@@ -549,6 +556,9 @@ jobs:
           ADDONS_HASH=$(echo -n "${ADDONS} ${ZONES}" | sha256sum | cut -c1-8)
 
           KUBECONFIG_PATH="${REGION}-${VERSION}-${ADDONS_HASH}"
+          if [[ "${IP_FAMILY}" == "IPv6" ]]; then
+            KUBECONFIG_PATH="ipv6-${KUBECONFIG_PATH}"
+          fi
           KUBECONFIG_PATH_SAFE="${KUBECONFIG_PATH//[.\/]/-}"
           S3_PREFIX="kubeconfig-pool/${KUBECONFIG_PATH_SAFE}/"
 
