@@ -29,6 +29,8 @@ type BPFHost struct {
 	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Enable L2 Announcements.
 	EnableL2Announcements bool `config:"enable_l2_announcements"`
+	// Enable accounting of local delivery metrics.
+	EnableLocalDeliveryMetricsAccounting bool `config:"enable_local_delivery_metrics_accounting"`
 	// Use netkit devices for pods.
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
@@ -37,6 +39,8 @@ type BPFHost struct {
 	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
+	// Reply with ICMP to traffic to a service with no backends.
+	EnableServiceNoBackendResponse bool `config:"enable_service_no_backend_response"`
 	// Ephemeral port range minimum.
 	EphemeralMin uint16 `config:"ephemeral_min"`
 	// Length of the Ethernet header on this device. May be set to zero on L2-less
@@ -78,7 +82,7 @@ type BPFHost struct {
 
 func NewBPFHost(node Node) *BPFHost {
 	return &BPFHost{false, 0x0, false, false, false, false, false, false, false, false,
-		false, false, 0x0, 0xe, 0x0, false, 0x0,
+		false, false, false, false, 0x0, 0xe, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

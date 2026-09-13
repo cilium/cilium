@@ -117,6 +117,7 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	}
 
 	cfg.EnableSocketLBTracing = option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing
+	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 
 	coll, commit, cleanup, err := collLoader.Load(ctx, logger, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,

@@ -10,6 +10,7 @@
 #include "drop.h"
 #include "drop_reasons.h"
 #include "eps.h"
+#include "bpf/config/global.h"
 
 #define ICMP6_TYPE_OFFSET offsetof(struct icmp6hdr, icmp6_type)
 #define ICMP6_CSUM_OFFSET (sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum))

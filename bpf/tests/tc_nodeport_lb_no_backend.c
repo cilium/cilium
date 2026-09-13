@@ -10,9 +10,8 @@
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
 #define ENABLE_NODEPORT			1
-#define SERVICE_NO_BACKEND_RESPONSE	1
-#define ENABLE_MASQUERADE_IPV4		1
-#define ENABLE_MASQUERADE_IPV6		1
+#define ENABLE_MASQUERADE_IPV4	1
+#define ENABLE_MASQUERADE_IPV6	1
 
 #define FRONTEND_IP		v4_svc_one
 #define FRONTEND_IPV6		v6_svc_one
@@ -22,6 +21,7 @@
 
 ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = FRONTEND_IP})
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
+ASSIGN_CONFIG(bool, enable_service_no_backend_response, true)
 
 #include "lib/icmp.h"
 #include "lib/ipcache.h"

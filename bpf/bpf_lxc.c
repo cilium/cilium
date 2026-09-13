@@ -238,10 +238,9 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			if (ret == DROP_NO_SERVICE) {
 				if (!CONFIG(enable_no_service_endpoints_routable))
 					return handle_nonroutable_endpoints_v4(svc);
-#ifdef SERVICE_NO_BACKEND_RESPONSE
-				ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
-							 ext_err);
-#endif
+				if (CONFIG(enable_service_no_backend_response))
+					ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
+								 ext_err);
 			}
 			return ret;
 		}
@@ -408,10 +407,9 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			if (ret == DROP_NO_SERVICE) {
 				if (!CONFIG(enable_no_service_endpoints_routable))
 					return handle_nonroutable_endpoints_v6(svc);
-#ifdef SERVICE_NO_BACKEND_RESPONSE
-				ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
-							 ext_err);
-#endif
+				if (CONFIG(enable_service_no_backend_response))
+					ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
+								 ext_err);
 			}
 			return ret;
 		}
@@ -2089,9 +2087,8 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL_IPV6);
 
-#ifdef LOCAL_DELIVERY_METRICS
-	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
-#endif
+	if (CONFIG(enable_local_delivery_metrics_accounting))
+		update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 
 	ret = ipv6_policy(ctx, ip6, src_sec_identity, NULL, &ext_err,
 			  &proxy_port, false);
@@ -2413,9 +2410,8 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL_IPV4);
 
-#ifdef LOCAL_DELIVERY_METRICS
-	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
-#endif
+	if (CONFIG(enable_local_delivery_metrics_accounting))
+		update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 
 	ret = ipv4_policy(ctx, ip4, src_sec_identity, NULL, &ext_err,
 			  &proxy_port, false);

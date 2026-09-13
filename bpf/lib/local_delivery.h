@@ -136,6 +136,10 @@ local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, cluster_id);
 }
 
+DECLARE_CONFIG(bool,
+	       enable_local_delivery_metrics_accounting,
+	       "Enable accounting of local delivery metrics")
+
 static __always_inline int
 local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	       const struct endpoint_info *ep, __u8 direction, bool from_host,
@@ -143,14 +147,14 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 {
 	bool use_redirect_peer;
 
-#ifdef LOCAL_DELIVERY_METRICS
-	/*
-	 * Special LXC case for updating egress forwarding metrics.
-	 * Note that the packet could still be dropped but it would show up
-	 * as an ingress drop counter in metrics.
-	 */
-	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
-#endif
+	if (CONFIG(enable_local_delivery_metrics_accounting)) {
+		/*
+		 * Special LXC case for updating egress forwarding metrics.
+		 * Note that the packet could still be dropped but it would show up
+		 * as an ingress drop counter in metrics.
+		 */
+		update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
+	}
 
 	if (direction == METRIC_INGRESS && !from_host) {
 		/*
