@@ -16926,6 +16926,9 @@ type NetworkCardInfo struct {
 	// The default number of the ENA queues for each interface.
 	DefaultEnaQueueCountPerInterface *int32
 
+	// The supported interface types for the network card.
+	InterfaceTypes []NetworkCardInterfaceType
+
 	// The maximum number of the ENA queues.
 	MaximumEnaQueueCount *int32
 

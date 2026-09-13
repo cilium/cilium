@@ -142236,6 +142236,12 @@ func awsEc2query_deserializeDocumentNetworkCardInfo(v **types.NetworkCardInfo, d
 				sv.DefaultEnaQueueCountPerInterface = ptr.Int32(int32(i64))
 			}
 
+		case strings.EqualFold("interfaceTypeSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentNetworkCardInterfaceTypeList(&sv.InterfaceTypes, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("maximumEnaQueueCount", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -142411,6 +142417,86 @@ func awsEc2query_deserializeDocumentNetworkCardInfoListUnwrapped(v *[]types.Netw
 			return err
 		}
 		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
+func awsEc2query_deserializeDocumentNetworkCardInterfaceTypeList(v *[]types.NetworkCardInterfaceType, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.NetworkCardInterfaceType
+	if *v == nil {
+		sv = make([]types.NetworkCardInterfaceType, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		memberDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		decoder = memberDecoder
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.NetworkCardInterfaceType
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				col = types.NetworkCardInterfaceType(xtv)
+			}
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentNetworkCardInterfaceTypeListUnwrapped(v *[]types.NetworkCardInterfaceType, decoder smithyxml.NodeDecoder) error {
+	var sv []types.NetworkCardInterfaceType
+	if *v == nil {
+		sv = make([]types.NetworkCardInterfaceType, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.NetworkCardInterfaceType
+		t := decoder.StartEl
+		_ = t
+		val, err := decoder.Value()
+		if err != nil {
+			return err
+		}
+		if val == nil {
+			break
+		}
+		{
+			xtv := string(val)
+			mv = types.NetworkCardInterfaceType(xtv)
+		}
 		sv = append(sv, mv)
 	}
 	*v = sv

@@ -234,7 +234,7 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 github.com/aws/aws-sdk-go-v2/internal/v4a
 github.com/aws/aws-sdk-go-v2/internal/v4a/internal/crypto
 github.com/aws/aws-sdk-go-v2/internal/v4a/internal/v4
-# github.com/aws/aws-sdk-go-v2/service/ec2 v1.329.0
+# github.com/aws/aws-sdk-go-v2/service/ec2 v1.330.0
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
@@ -1758,7 +1758,7 @@ go.yaml.in/yaml/v3
 # go4.org/netipx v0.0.0-20260823151212-3075585bcbeb
 ## explicit; go 1.18
 go4.org/netipx
-# golang.org/x/crypto v0.56.0
+# golang.org/x/crypto v0.57.0
 ## explicit; go 1.26.0
 golang.org/x/crypto/argon2
 golang.org/x/crypto/bcrypt
@@ -1842,11 +1842,11 @@ golang.org/x/telemetry/counter
 golang.org/x/telemetry/internal/counter
 golang.org/x/telemetry/internal/mmap
 golang.org/x/telemetry/internal/telemetry
-# golang.org/x/term v0.45.0
-## explicit; go 1.25.0
+# golang.org/x/term v0.46.0
+## explicit; go 1.26.0
 golang.org/x/term
-# golang.org/x/text v0.41.0
-## explicit; go 1.25.0
+# golang.org/x/text v0.42.0
+## explicit; go 1.26.0
 golang.org/x/text/cases
 golang.org/x/text/currency
 golang.org/x/text/encoding
