@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/operator/k8s"
@@ -480,7 +481,7 @@ func TestReconcileNS(t *testing.T) {
 	}
 }
 
-func TestGetRelevantLabelsForPodDoesNotIncludeGeneratedNamedPorts(t *testing.T) {
+func TestGetCIDKeyForPodNamedPorts(t *testing.T) {
 	ctx := t.Context()
 	reconciler, _, _, cleanupFunc := testNewReconciler(t, ctx, false)
 	defer cleanupFunc()
@@ -497,9 +498,148 @@ func TestGetRelevantLabelsForPodDoesNotIncludeGeneratedNamedPorts(t *testing.T) 
 		}},
 	}}
 
-	k8sLabels, err := GetRelevantLabelsForPod(hivetest.Logger(t), pod, reconciler.nsStore, reconciler.clusterInfo)
-	require.NoError(t, err)
-	require.NotContains(t, k8sLabels, ciliumio.NamedPortsIdentityLabelName)
+	namedPortsKey := labels.LabelSourceGenerated + ":" + ciliumio.NamedPortsIdentityLabelName
+
+	t.Run("new pod", func(t *testing.T) {
+		cidKey, err := GetCIDKeyForPod(hivetest.Logger(t), pod, reconciler.nsStore, reconciler.clusterInfo, nil)
+		require.NoError(t, err)
+		require.Equal(t, "http.TCP.8080", cidKey.GetAsMap()[namedPortsKey])
+	})
+
+	t.Run("existing pod", func(t *testing.T) {
+		cidKey, err := GetCIDKeyForPod(hivetest.Logger(t), pod, reconciler.nsStore, reconciler.clusterInfo, &capi_v2.CiliumIdentity{})
+		require.NoError(t, err)
+		require.NotContains(t, cidKey.GetAsMap(), namedPortsKey)
+	})
+
+	t.Run("existing pod preserves prior named ports", func(t *testing.T) {
+		existingCID := cidtest.NewCID("1000", testLbsA)
+		existingCID.SecurityLabels[namedPortsKey] = "http.TCP.80"
+
+		cidKey, err := GetCIDKeyForPod(hivetest.Logger(t), pod, reconciler.nsStore, reconciler.clusterInfo, existingCID)
+		require.NoError(t, err)
+		require.Equal(t, "http.TCP.80", cidKey.GetAsMap()[namedPortsKey])
+	})
+
+	t.Run("new and existing pods use the same named-port label key", func(t *testing.T) {
+		newCIDKey, err := GetCIDKeyForPod(hivetest.Logger(t), pod, reconciler.nsStore, reconciler.clusterInfo, nil)
+		require.NoError(t, err)
+
+		existingCID := cidtest.NewCID("1000", testLbsA)
+		existingCID.SecurityLabels[namedPortsKey] = "http.TCP.8080"
+		existingCIDKey, err := GetCIDKeyForPod(hivetest.Logger(t), pod, reconciler.nsStore, reconciler.clusterInfo, existingCID)
+		require.NoError(t, err)
+
+		require.Contains(t, newCIDKey.GetAsMap(), namedPortsKey)
+		require.Contains(t, existingCIDKey.GetAsMap(), namedPortsKey)
+		require.Equal(t, newCIDKey.GetAsMap()[namedPortsKey], existingCIDKey.GetAsMap()[namedPortsKey])
+	})
+}
+
+func TestAssignedCIDForPod(t *testing.T) {
+	const cidName = "1000"
+
+	newPod := func() *slim_corev1.Pod {
+		pod := cidtest.NewPod("pod1", "ns1", testLbsA, "node1")
+		pod.UID = types.UID("pod-uid")
+		return pod
+	}
+	addCID := func(t *testing.T, r *reconciler, withNamedPorts bool) *capi_v2.CiliumIdentity {
+		t.Helper()
+		cid := cidtest.NewCID(cidName, testLbsA)
+		if withNamedPorts {
+			cid.SecurityLabels[labels.LabelSourceGenerated+":"+ciliumio.NamedPortsIdentityLabelName] = "http.TCP.8080"
+		}
+		require.NoError(t, r.cidStore.CacheStore().Add(cid))
+		return cid
+	}
+
+	t.Run("pod without endpoint is new and CID should be nil", func(t *testing.T) {
+		r, _, _, cleanup := testNewReconciler(t, t.Context(), false)
+		defer cleanup()
+
+		cid, err := r.assignedCIDForPod(newPod())
+		require.NoError(t, err)
+		require.Nil(t, cid)
+	})
+
+	t.Run("pod with existing CEP keeps existing identity", func(t *testing.T) {
+		r, _, _, cleanup := testNewReconciler(t, t.Context(), false)
+		defer cleanup()
+		pod := newPod()
+		expectedCID := addCID(t, r, false)
+		require.NoError(t, r.cepStore.CacheStore().Add(&capi_v2.CiliumEndpoint{
+			ObjectMeta: metav1.ObjectMeta{Name: pod.Name, Namespace: pod.Namespace},
+			Status:     capi_v2.EndpointStatus{Identity: &capi_v2.EndpointIdentity{ID: 1000}},
+		}))
+
+		cid, err := r.assignedCIDForPod(pod)
+		require.NoError(t, err)
+		require.NotNil(t, cid)
+		require.Equal(t, expectedCID, cid)
+		require.Empty(t, namedPortLabelsFromCID(cid))
+	})
+
+	t.Run("pod with named-port CEP keeps named-port identity", func(t *testing.T) {
+		r, _, _, cleanup := testNewReconciler(t, t.Context(), false)
+		defer cleanup()
+		pod := newPod()
+		expectedCID := addCID(t, r, true)
+		require.NoError(t, r.cepStore.CacheStore().Add(&capi_v2.CiliumEndpoint{
+			ObjectMeta: metav1.ObjectMeta{Name: pod.Name, Namespace: pod.Namespace},
+			Status:     capi_v2.EndpointStatus{Identity: &capi_v2.EndpointIdentity{ID: 1000}},
+		}))
+
+		cid, err := r.assignedCIDForPod(pod)
+		require.NoError(t, err)
+		require.NotNil(t, cid)
+		require.Equal(t, expectedCID, cid)
+		require.Equal(t, "http.TCP.8080", namedPortLabelsFromCID(cid)[0].Value)
+	})
+
+	t.Run("replacement pod ignores stale CEP", func(t *testing.T) {
+		r, _, _, cleanup := testNewReconciler(t, t.Context(), false)
+		defer cleanup()
+		// newPod() creates a pod with UID "pod-uid".
+		pod := newPod()
+		require.NoError(t, r.cepStore.CacheStore().Add(&capi_v2.CiliumEndpoint{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+				OwnerReferences: []metav1.OwnerReference{{
+					Kind: "Pod",
+					UID:  types.UID("old-pod-uid"),
+				}},
+			},
+			Status: capi_v2.EndpointStatus{Identity: &capi_v2.EndpointIdentity{ID: 1000}},
+		}))
+
+		cid, err := r.assignedCIDForPod(pod)
+		require.NoError(t, err)
+		require.Nil(t, cid)
+	})
+
+	t.Run("pod with existing CES endpoint keeps existing identity", func(t *testing.T) {
+		r, _, _, cleanup := testNewReconciler(t, t.Context(), true)
+		defer cleanup()
+		pod := newPod()
+		expectedCID := addCID(t, r, false)
+		require.NoError(t, r.cesStore.CacheStore().Add(&capi_v2a1.CiliumEndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{Name: "ces1"},
+			Namespace:  pod.Namespace,
+			Endpoints: []capi_v2a1.CoreCiliumEndpoint{{
+				Name:       pod.Name,
+				IdentityID: 1000,
+				PodUID:     string(pod.UID),
+			}},
+		}))
+
+		cid, err := r.assignedCIDForPod(pod)
+		require.NoError(t, err)
+		require.NotNil(t, cid)
+		require.Equal(t, expectedCID, cid)
+		require.Empty(t, namedPortLabelsFromCID(cid))
+	})
 }
 
 func TestHandleStoreCIDMatch(t *testing.T) {

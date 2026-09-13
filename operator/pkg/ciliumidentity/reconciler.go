@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/k8s"
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -281,11 +283,15 @@ func (r *reconciler) cidIsUsedInCEPOrCES(cidName string) bool {
 // 1. CID exists: No action.
 // 2. CID doesn't exist: Create CID.
 func (r *reconciler) allocateCIDForPod(pod *slim_corev1.Pod) error {
-	k8sLabels, err := GetRelevantLabelsForPod(r.logger, pod, r.nsStore, r.clusterInfo)
+	assignedCID, err := r.assignedCIDForPod(pod)
 	if err != nil {
-		return fmt.Errorf("failed to get relevant labels for pod: %w", err)
+		return err
 	}
-	cidKey := key.GetCIDKeyFromLabels(k8sLabels, labels.LabelSourceK8s)
+
+	cidKey, err := GetCIDKeyForPod(r.logger, pod, r.nsStore, r.clusterInfo, assignedCID)
+	if err != nil {
+		return fmt.Errorf("failed to get CID key for pod: %w", err)
+	}
 
 	r.cidCreateLock.Lock()
 	defer r.cidCreateLock.Unlock()
@@ -305,7 +311,7 @@ func (r *reconciler) allocateCIDForPod(pod *slim_corev1.Pod) error {
 			logfields.K8sPodName, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name),
 			logfields.CIDName, cidName,
 			logfields.IdentityOld, prevCIDName,
-			logfields.Labels, k8sLabels)
+			logfields.Labels, cidKey.GetAsMap())
 	}
 
 	if isNewCID {
@@ -347,15 +353,95 @@ func (r *reconciler) allocateCID(cidKey *key.GlobalIdentity) (string, bool, erro
 	return allocatedID.String(), true, nil
 }
 
-// GetRelevantLabelsForPod returns the pod and namespace labels for a given pod
-func GetRelevantLabelsForPod(logger *slog.Logger, pod *slim_corev1.Pod, nsStore resource.Store[*slim_corev1.Namespace], clusterInfo cmtypes.ClusterInfo) (map[string]string, error) {
+func (r *reconciler) assignedCIDForPod(pod *slim_corev1.Pod) (*cilium_api_v2.CiliumIdentity, error) {
+	cidName, err := r.assignedCIDNameForPod(pod)
+	if err != nil {
+		return nil, err
+	}
+	if cidName == "" {
+		return nil, nil
+	}
+
+	cid, exists, err := r.cidStore.GetByKey(cidResourceKey(cidName))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get existing CID %q for pod %s/%s: %w", cidName, pod.Namespace, pod.Name, err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("CID name %q exists for pod %s/%s, but the CiliumIdentity was not found", cidName, pod.Namespace, pod.Name)
+	}
+	return cid, nil
+}
+
+func (r *reconciler) assignedCIDNameForPod(pod *slim_corev1.Pod) (string, error) {
+	if !r.cesEnabled {
+		cep, exists, err := r.cepStore.GetByKey(podResourceKey(pod.Name, pod.Namespace))
+		if err != nil {
+			return "", fmt.Errorf("failed to get CEP for pod %s/%s: %w", pod.Namespace, pod.Name, err)
+		}
+		if !exists || cep.Status.Identity == nil || cep.Status.Identity.ID == 0 {
+			return "", nil
+		}
+		for _, owner := range cep.OwnerReferences {
+			if owner.Kind == "Pod" && pod.UID != "" && owner.UID != pod.UID {
+				return "", nil
+			}
+		}
+		return strconv.FormatInt(cep.Status.Identity.ID, 10), nil
+	}
+
+	for _, ces := range r.cesStore.List() {
+		if ces.Namespace != pod.Namespace {
+			continue
+		}
+		for _, cep := range ces.Endpoints {
+			if cep.Name != pod.Name || cep.IdentityID == 0 {
+				continue
+			}
+			if cep.PodUID != "" && pod.UID != "" && cep.PodUID != string(pod.UID) {
+				return "", nil
+			}
+			return strconv.FormatInt(cep.IdentityID, 10), nil
+		}
+	}
+	return "", nil
+}
+
+func namedPortLabelsFromCID(cid *cilium_api_v2.CiliumIdentity) labels.LabelArray {
+	if cid == nil {
+		return nil
+	}
+
+	var namedPortLabels labels.LabelArray
+	for _, lbl := range key.GetCIDKeyFromLabels(cid.SecurityLabels, "").LabelArray {
+		if lbl.Source == labels.LabelSourceGenerated && ciliumio.IsNamedPortsIdentityLabelName(lbl.Key) {
+			namedPortLabels = append(namedPortLabels, lbl)
+		}
+	}
+	return namedPortLabels
+}
+
+// GetCIDKeyForPod returns the GlobalIdentity key for a pod. New pods derive
+// named-port labels from pod metadata, while existing pods retain the exact
+// named-port labels from their existing identity.
+func GetCIDKeyForPod(logger *slog.Logger, pod *slim_corev1.Pod, nsStore resource.Store[*slim_corev1.Namespace], clusterInfo cmtypes.ClusterInfo, existingCID *cilium_api_v2.CiliumIdentity) (*key.GlobalIdentity, error) {
 	ns, err := getNamespace(pod.Namespace, nsStore)
 	if err != nil {
 		return nil, err
 	}
 
-	_, labelsMap := k8s.GetPodMetadata(logger, clusterInfo, ns, pod)
-	return labelsMap, nil
+	namedPorts, labelsMap := k8s.GetPodMetadata(logger, clusterInfo, ns, pod)
+	lbs := labels.Map2Labels(labelsMap, labels.LabelSourceK8s)
+	if existingCID == nil {
+		for _, lbl := range k8s.NamedPortsIdentityLabels(namedPorts) {
+			lbs[lbl.Key] = lbl
+		}
+	} else {
+		for _, lbl := range namedPortLabelsFromCID(existingCID) {
+			lbs[lbl.Key] = lbl
+		}
+	}
+	idLabels, _ := labelsfilter.Filter(lbs)
+	return &key.GlobalIdentity{LabelArray: idLabels.LabelArray()}, nil
 }
 
 func getNamespace(namespace string, nsStore resource.Store[*slim_corev1.Namespace]) (*slim_corev1.Namespace, error) {
