@@ -169,7 +169,12 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 	filter := fmt.Sprintf("src host %s", client.Address(ipFam))
 	dstIP := server.Address(ipFam)
 
-	if tunnelEnabled {
+	// Match the node source for tunnel and SNAT-ed pod-to-remote-node traffic.
+	// This may also capture node-to-node traffic with the same destination and
+	// protocol, which is also a valid leak when node encryption is asserted.
+	srcIsPod := client.Address(ipFam) != clientHost.Address(ipFam)
+	dstIsRemoteNode := dstIP == serverHost.Address(ipFam)
+	if tunnelEnabled || (srcIsPod && dstIsRemoteNode) {
 		cmd := []string{
 			"/bin/sh", "-c",
 			fmt.Sprintf("ip -o route get %s | grep -oE 'src [^ ]*' | cut -d' ' -f2",
