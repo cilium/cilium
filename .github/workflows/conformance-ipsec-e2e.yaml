@@ -124,8 +124,27 @@ jobs:
           login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
           auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
+  lvh-cache-key:
+    name: LVH Cache Key
+    # Same runner as the legs, so the key describes the packages they install.
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    timeout-minutes: 20
+    outputs:
+      dependency-list-sha: ${{ steps.key.outputs.dependency_list_sha }}
+    steps:
+      # The deadline is on the step rather than the job so that continue-on-error
+      # absorbs it: the output then stays empty and every leg derives the key
+      # itself. A set-up failure still skips the legs, as wait-for-images does.
+      - name: Derive the LVH package cache key
+        id: key
+        timeout-minutes: 10
+        continue-on-error: true
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
+        with:
+          derive-dependency-list-sha: 'true'
+
   setup-and-test:
-    needs: [wait-for-images, generate-matrix]
+    needs: [wait-for-images, generate-matrix, lvh-cache-key]
     name: 'Setup & Test'
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     env:
@@ -227,6 +246,7 @@ jobs:
         uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
+          dependency-list-sha: ${{ needs.lvh-cache-key.outputs.dependency-list-sha }}
           kernel: ${{ steps.kernel-version.outputs.full }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
@@ -272,7 +292,7 @@ jobs:
 
       - name: Setup bootid file
         if: ${{ steps.cilium-config.outputs.skip != 'true' }}
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           provision: 'false'
           cmd: |

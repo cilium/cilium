@@ -21,6 +21,10 @@ inputs:
   test-name:
     required: true
     description: 'Test name'
+  dependency-list-sha:
+    required: false
+    description: 'Package cache key derived once per run by the lvh-cache-key job'
+    default: ''
 
 outputs:
   external_target_name:
@@ -55,7 +59,7 @@ runs:
   using: composite
   steps:
     - name: Provision LVH VMs
-      uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+      uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
       with:
         test-name: ${{ inputs.test-name }}
         image-version: ${{ inputs.kernel }}
@@ -66,6 +70,7 @@ runs:
         # renovate: datasource=github-tags depName=cilium/little-vm-helper
         lvh-version: "v0.0.30"
         install-dependencies: 'true'
+        dependency-list-sha: ${{ inputs.dependency-list-sha }}
         port-forward: ${{ inputs.port-forward }}
         ssh-connect-wait-retries: 600
         cmd: |
@@ -78,7 +83,7 @@ runs:
         lvh: 'true'
 
     - name: Create K8s cluster
-      uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+      uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
       with:
         provision: 'false'
         cmd: |

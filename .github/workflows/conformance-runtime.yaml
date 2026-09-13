@@ -173,7 +173,7 @@ jobs:
           allow-unsafe-pr-checkout: true
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           test-name: runtime-tests
           install-dependencies: true
@@ -228,7 +228,7 @@ jobs:
 
       - name: Setup runtime
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           provision: 'false'
           cmd: |
@@ -258,7 +258,7 @@ jobs:
         id: prepare-tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           provision: 'false'
           cmd: |
@@ -283,7 +283,7 @@ jobs:
         id: run-tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           provision: 'false'
           cmd: |
@@ -294,7 +294,7 @@ jobs:
         id: copy-go-cache
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           provision: 'false'
           cmd: |

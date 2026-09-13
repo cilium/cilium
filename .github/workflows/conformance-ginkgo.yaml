@@ -311,8 +311,27 @@ jobs:
           cat /tmp/merged.json
           echo "matrix=$(jq -c . < /tmp/merged.json)" >> $GITHUB_OUTPUT
 
+  lvh-cache-key:
+    name: LVH Cache Key
+    # Same runner as the legs, so the key describes the packages they install.
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    timeout-minutes: 20
+    outputs:
+      dependency-list-sha: ${{ steps.key.outputs.dependency_list_sha }}
+    steps:
+      # The deadline is on the step rather than the job so that continue-on-error
+      # absorbs it: the output then stays empty and every leg derives the key
+      # itself. A set-up failure still skips the legs, as wait-for-images does.
+      - name: Derive the LVH package cache key
+        id: key
+        timeout-minutes: 10
+        continue-on-error: true
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
+        with:
+          derive-dependency-list-sha: 'true'
+
   setup-and-test:
-    needs: [setup-vars, build-ginkgo-binary, generate-matrix, wait-for-images]
+    needs: [setup-vars, build-ginkgo-binary, generate-matrix, wait-for-images, lvh-cache-key]
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     timeout-minutes: 45
     name: "E2E Test (${{ matrix.k8s-version }}, ${{matrix.focus}})"
@@ -399,10 +418,11 @@ jobs:
 
       - name: Provision LVH VMs
         id: provision-vh-vms
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           test-name: datapath-conformance
           install-dependencies: true
+          dependency-list-sha: ${{ needs.lvh-cache-key.outputs.dependency-list-sha }}
           image-version: ${{ matrix.kernel }}
           images-folder-parent: "/tmp"
           host-mount: untrusted/
@@ -417,7 +437,7 @@ jobs:
 
       - name: Provision kind
         timeout-minutes: 5
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           provision: 'false'
           cmd: |
@@ -434,7 +454,7 @@ jobs:
 
       - name: Create imagePullSecret for ginkgo image pull
         if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           provision: 'false'
           cmd: |
@@ -495,7 +515,7 @@ jobs:
       - name: Run tests
         id: run-tests
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           provision: 'false'
           cmd: |
@@ -565,7 +585,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
-        uses: cilium/little-vm-helper@5ae749011735fd77f30f38add52f1a53a5568671 # v0.0.30
+        uses: cilium/little-vm-helper@70cec4320d267bc1c1bc1ad77d1351c63f824080 # unreleased, re-pin to v0.0.31
         with:
           provision: 'false'
           cmd: |
