@@ -10,7 +10,7 @@
 CNI Chaining
 ************
 
-CNI chaining allows to use Cilium in combination with other CNI plugins.
+CNI chaining allows you to use Cilium in combination with other CNI plugins.
 
 With Cilium CNI chaining, the base network connectivity and IP address management
 is managed by the non-Cilium CNI plugin, but Cilium attaches eBPF programs to the
