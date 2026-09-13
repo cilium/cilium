@@ -5,6 +5,7 @@ package xdsnew
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -36,9 +37,10 @@ import (
 )
 
 type mockSnapshotCache struct {
-	snapshots      map[string]cache.ResourceSnapshot
-	setSnapshotErr error
-	clearCalled    map[string]bool
+	snapshots                map[string]cache.ResourceSnapshot
+	setSnapshotErr           error
+	storeSnapshotBeforeError bool
+	clearCalled              map[string]bool
 
 	// Call tracking
 	setSnapshotCalls   []setSnapshotCall
@@ -66,6 +68,9 @@ func newMockSnapshotCache() *mockSnapshotCache {
 
 func (m *mockSnapshotCache) SetSnapshot(ctx context.Context, node string, snapshot cache.ResourceSnapshot) error {
 	m.setSnapshotCalls = append(m.setSnapshotCalls, setSnapshotCall{ctx: ctx, nodeID: node, snapshot: snapshot})
+	if m.storeSnapshotBeforeError {
+		m.snapshots[node] = snapshot
+	}
 	if m.setSnapshotErr != nil {
 		return m.setSnapshotErr
 	}
@@ -910,6 +915,135 @@ func TestUpdateSnapshot_CompletesUnsentCoalescedNetworkPolicyUpdates(t *testing.
 	assert.NoError(t, bCallbackErrs[0])
 	require.Len(t, aCallbackErrs, 1)
 	assert.NoError(t, aCallbackErrs[0])
+}
+
+func TestUpdateSnapshot_TrackedPolicyCompletionFollowsUntrackedNewerVersion(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, snapA := networkPolicySnapshot(t, c, 1)
+	_, snapB := networkPolicySnapshot(t, c, 2)
+	_, snapC := networkPolicySnapshot(t, c, 3)
+
+	// Establish the version Envoy has already accepted.
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, snapA, nil, nil, nil))
+	ackNetworkPolicyVersion(t, c, nodeID, snapA.GetVersion(NetworkPolicyTypeURL))
+
+	wgB := completion.NewWaitGroup(context.Background())
+	defer wgB.Cancel()
+
+	// A normal endpoint policy update waits for the NPDS ACK.
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, snapB, wgB,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+
+	// reserved:ingress can publish a newer snapshot with wg=nil. If
+	// go-control-plane coalesces B and sends only C, ACK(C) must complete B.
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, snapC, nil, nil, nil))
+	ackNetworkPolicyVersion(t, c, nodeID, snapC.GetVersion(NetworkPolicyTypeURL))
+
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+	require.NoError(t, wgB.Wait())
+}
+
+func TestUpdateSnapshot_UntrackedAlreadyAcceptedVersionCompletesPendingUpdate(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, snapA := networkPolicySnapshot(t, c, 1)
+	_, snapB := networkPolicySnapshot(t, c, 2)
+
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, snapA, nil, nil, nil))
+	ackNetworkPolicyVersion(t, c, nodeID, snapA.GetVersion(NetworkPolicyTypeURL))
+
+	wgB := completion.NewWaitGroup(context.Background())
+	defer wgB.Cancel()
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, snapB, wgB,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+
+	// Returning to A needs no new response because Envoy has already accepted
+	// A. Publishing it without a wait group must still complete unsent B.
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, snapA, nil, nil, nil))
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+	require.NoError(t, wgB.Wait())
+}
+
+func TestUpdateSnapshot_FailedUntrackedUpdateRemovesVersionMarker(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, snapA := networkPolicySnapshot(t, c, 1)
+	_, snapB := networkPolicySnapshot(t, c, 2)
+
+	wgA := completion.NewWaitGroup(context.Background())
+	defer wgA.Cancel()
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, snapA, wgA,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+
+	mock.setSnapshotErr = errors.New("snapshot publication failed")
+	require.Error(t, c.UpdateSnapshot(context.Background(), nodeID, snapB, nil, nil, nil))
+	mock.setSnapshotErr = nil
+
+	// A response for the unpublished version must not claim A's completion.
+	ackNetworkPolicyVersion(t, c, nodeID, snapB.GetVersion(NetworkPolicyTypeURL))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+
+	ackNetworkPolicyVersion(t, c, nodeID, snapA.GetVersion(NetworkPolicyTypeURL))
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+	require.NoError(t, wgA.Wait())
+}
+
+func TestUpdateSnapshot_EmptyPolicySnapshotCompletesPendingUpdate(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, nonemptySnapshot := networkPolicySnapshot(t, c, 1)
+	emptySnapshot, err := c.GenerateSnapshot(emptyResources(), c.logger)
+	require.NoError(t, err)
+
+	wg := completion.NewWaitGroup(context.Background())
+	defer wg.Cancel()
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, nonemptySnapshot, wg,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+
+	// Envoy does not ACK an empty NPDS snapshot. Once that snapshot is
+	// installed, it supersedes and must release the older pending update.
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, emptySnapshot, nil, nil, nil))
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+	require.NoError(t, wg.Wait())
+}
+
+func TestUpdateSnapshot_ErrorAfterStoreKeepsVersionMarker(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+
+	const nodeID = "node1"
+	_, snapA := networkPolicySnapshot(t, c, 1)
+	_, snapB := networkPolicySnapshot(t, c, 2)
+
+	wgA := completion.NewWaitGroup(context.Background())
+	defer wgA.Cancel()
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, snapA, wgA,
+		map[string]func(error){NetworkPolicyTypeURL: nil}, nil))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+
+	// go-control-plane installs the snapshot before it delivers watch
+	// responses. A canceled delivery can therefore return an error even though
+	// the new version is now the cache's authoritative state.
+	mock.storeSnapshotBeforeError = true
+	mock.setSnapshotErr = errors.New("response delivery failed after store")
+	require.NoError(t, c.UpdateSnapshot(context.Background(), nodeID, snapB, nil, nil, nil))
+
+	ackNetworkPolicyVersion(t, c, nodeID, snapB.GetVersion(NetworkPolicyTypeURL))
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+	require.NoError(t, wgA.Wait())
 }
 
 // --- GetVersion ---

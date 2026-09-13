@@ -56,16 +56,19 @@ func sendTypeVersionResponse(cb *CompletionCallbacks, typeURL, version string) {
 		&discovery.DiscoveryResponse{
 			VersionInfo: version,
 			TypeUrl:     typeURL,
+			Nonce:       "nonce-" + version,
 		},
 	)
 }
 
 func ackTypeVersionResponse(t *testing.T, cb *CompletionCallbacks, typeURL, version string) {
 	t.Helper()
+	state := cb.responseStates[completionsOrderKey("node-1", typeURL)]
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
-		Node:        &core.Node{Id: "node-1"},
-		TypeUrl:     typeURL,
-		VersionInfo: version,
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       typeURL,
+		VersionInfo:   version,
+		ResponseNonce: state.pendingNonce,
 	}))
 }
 
@@ -292,6 +295,82 @@ func TestCompletionFollowsNewerResponseVersion(t *testing.T) {
 	}
 }
 
+func TestCompletionFollowsUntrackedVersionMarker(t *testing.T) {
+	for _, tt := range orderedCompletionTypeURLs {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := newTestCompletionCallbacks()
+			wg, comp := newTestCompletion(t)
+
+			registerTypeVersionCompletion(t, cb, comp, tt.typeURL, "version-1")
+			marker, completeUnsent := cb.AddTypeVersionMarker("version-2", tt.typeURL, "node-1", true, nil)
+			require.NotNil(t, marker)
+			require.False(t, completeUnsent)
+
+			sendTypeVersionResponse(cb, tt.typeURL, "version-2")
+			ackTypeVersionResponse(t, cb, tt.typeURL, "version-2")
+
+			require.Zero(t, cb.PendingCompletionCount())
+			require.NoError(t, wg.Wait())
+		})
+	}
+}
+
+func TestRemoveUnpublishedTypeVersionMarker(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	_, comp := newTestCompletion(t)
+	registerTypeVersionCompletion(t, cb, comp, listenerTypeURL, "version-1")
+
+	marker, completeUnsent := cb.AddTypeVersionMarker("version-2", listenerTypeURL, "node-1", true, nil)
+	require.NotNil(t, marker)
+	require.False(t, completeUnsent)
+
+	key := completionsOrderKey("node-1", listenerTypeURL)
+	require.Len(t, *cb.completionsOrders[key], 2)
+	cb.RemoveTypeVersionMarker(marker)
+	require.Len(t, *cb.completionsOrders[key], 1)
+	require.Equal(t, "version-1", (*cb.completionsOrders[key])[0].version)
+}
+
+func TestWaitCancellationRemovesCompletionAndVersionMarkers(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	ctx, cancel := context.WithCancel(context.Background())
+	wg := completion.NewWaitGroup(ctx)
+	t.Cleanup(wg.Cancel)
+	comp := wg.AddCompletionWithCallback(
+		cb.NewTypeVersionCompletionOwner("node-1", listenerTypeURL, "version-1"),
+		nil,
+	)
+	registerTypeVersionCompletion(t, cb, comp, listenerTypeURL, "version-1")
+
+	for _, version := range []string{"version-2", "version-3", "version-4"} {
+		marker, completeUnsent := cb.AddTypeVersionMarker(version, listenerTypeURL, "node-1", true, nil)
+		require.NotNil(t, marker)
+		require.False(t, completeUnsent)
+	}
+
+	cancel()
+	require.ErrorIs(t, wg.Wait(), context.Canceled)
+	require.Zero(t, cb.PendingCompletionCount())
+	_, exists := cb.completionsOrders[completionsOrderKey("node-1", listenerTypeURL)]
+	require.False(t, exists)
+}
+
+func TestUntrackedAlreadyAcceptedVersionCompletesUnsentUpdates(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+
+	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-2")
+	registerTypeVersionCompletion(t, cb, comp, listenerTypeURL, "version-1")
+
+	marker, completeUnsent := cb.AddTypeVersionMarker("version-2", listenerTypeURL, "node-1", true, nil)
+	require.Nil(t, marker)
+	require.True(t, completeUnsent)
+
+	cb.CompleteUnsentPendingCompletions("node-1", listenerTypeURL, nil)
+	require.Zero(t, cb.PendingCompletionCount())
+	require.NoError(t, wg.Wait())
+}
+
 func TestNACKRevertsAllCoalescedUpdates(t *testing.T) {
 	cb := newTestCompletionCallbacks()
 	reverted := make([]string, 0, 3)
@@ -315,14 +394,154 @@ func TestNACKRevertsAllCoalescedUpdates(t *testing.T) {
 	// reverse order to restore the snapshot that preceded the response.
 	sendTypeVersionResponse(cb, listenerTypeURL, "version-3")
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
-		Node:        &core.Node{Id: "node-1"},
-		TypeUrl:     listenerTypeURL,
-		VersionInfo: "version-0",
-		ErrorDetail: &status.Status{Message: "rejected listener"},
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL,
+		VersionInfo:   "version-0",
+		ResponseNonce: "nonce-version-3",
+		ErrorDetail:   &status.Status{Message: "rejected listener"},
 	}))
 
 	require.Equal(t, []string{"version-3", "version-2", "version-1"}, reverted)
 	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestNACKOfUntrackedVersionRevertsTrackedPredecessor(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+	reverted := make([]string, 0, 2)
+
+	registered, err := cb.AddTypeVersionCompletion(
+		comp,
+		"version-1",
+		listenerTypeURL,
+		"node-1",
+		true,
+		func() { reverted = append(reverted, "version-1") },
+	)
+	require.NoError(t, err)
+	require.True(t, registered)
+	marker, completeUnsent := cb.AddTypeVersionMarker(
+		"version-2",
+		listenerTypeURL,
+		"node-1",
+		true,
+		func() { reverted = append(reverted, "version-2") },
+	)
+	require.NotNil(t, marker)
+	require.False(t, completeUnsent)
+
+	sendTypeVersionResponse(cb, listenerTypeURL, "version-2")
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL,
+		VersionInfo:   "version-0",
+		ResponseNonce: "nonce-version-2",
+		ErrorDetail:   &status.Status{Message: "rejected listener"},
+	}))
+
+	require.Equal(t, []string{"version-2", "version-1"}, reverted)
+	require.Zero(t, cb.PendingCompletionCount())
+	require.Error(t, wg.Wait())
+}
+
+func TestStaleNACKDoesNotAffectNewerResponse(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+	reverted := make([]string, 0, 2)
+
+	registered, err := cb.AddTypeVersionCompletion(
+		comp,
+		"version-1",
+		listenerTypeURL,
+		"node-1",
+		true,
+		func() { reverted = append(reverted, "version-1") },
+	)
+	require.NoError(t, err)
+	require.True(t, registered)
+	marker, completeUnsent := cb.AddTypeVersionMarker(
+		"version-2",
+		listenerTypeURL,
+		"node-1",
+		true,
+		func() { reverted = append(reverted, "version-2") },
+	)
+	require.NotNil(t, marker)
+	require.False(t, completeUnsent)
+
+	sendTypeVersionResponse(cb, listenerTypeURL, "version-1")
+	sendTypeVersionResponse(cb, listenerTypeURL, "version-2")
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL,
+		VersionInfo:   "version-0",
+		ResponseNonce: "nonce-version-1",
+		ErrorDetail:   &status.Status{Message: "stale rejection"},
+	}))
+
+	require.Empty(t, reverted)
+	require.Equal(t, 1, cb.PendingCompletionCount())
+	requireCompletionPending(t, comp)
+
+	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-2")
+	require.NoError(t, wg.Wait())
+	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestFirstResponseNACKWithEmptyAcceptedVersion(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	wg, comp := newTestCompletion(t)
+	reverted := false
+
+	registered, err := cb.AddTypeVersionCompletion(
+		comp,
+		"version-1",
+		listenerTypeURL,
+		"node-1",
+		true,
+		func() { reverted = true },
+	)
+	require.NoError(t, err)
+	require.True(t, registered)
+	sendTypeVersionResponse(cb, listenerTypeURL, "version-1")
+
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL,
+		VersionInfo:   "",
+		ResponseNonce: "nonce-version-1",
+		ErrorDetail:   &status.Status{Message: "first response rejected"},
+	}))
+
+	require.True(t, reverted)
+	require.Zero(t, cb.PendingCompletionCount())
+	require.Error(t, wg.Wait())
+}
+
+func TestStreamCloseClearsResponseState(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	sendTypeVersionResponse(cb, listenerTypeURL, "version-1")
+	key := completionsOrderKey("node-1", listenerTypeURL)
+	require.Equal(t, "version-1", cb.responseStates[key].pendingVersion)
+
+	cb.OnStreamClosed(1, &core.Node{Id: "node-1"})
+	state := cb.responseStates[key]
+	require.Empty(t, state.pendingVersion)
+	require.Empty(t, state.pendingNonce)
+	require.Empty(t, state.acceptedVersion)
+}
+
+func TestFreshSubscriptionClearsAcceptedVersion(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-1")
+	key := completionsOrderKey("node-1", listenerTypeURL)
+	require.Equal(t, "version-1", cb.responseStates[key].acceptedVersion)
+
+	require.NoError(t, cb.OnStreamRequest(2, &discovery.DiscoveryRequest{
+		Node:    &core.Node{Id: "node-1"},
+		TypeUrl: listenerTypeURL,
+	}))
+	require.Empty(t, cb.responseStates[key].acceptedVersion)
 }
 
 func TestNACKRollbackStopsAtLastACKedVersion(t *testing.T) {
@@ -359,10 +578,11 @@ func TestNACKRollbackStopsAtLastACKedVersion(t *testing.T) {
 
 	sendTypeVersionResponse(cb, listenerTypeURL, "version-3")
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
-		Node:        &core.Node{Id: "node-1"},
-		TypeUrl:     listenerTypeURL,
-		VersionInfo: "version-1",
-		ErrorDetail: &status.Status{Message: "rejected listener"},
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL,
+		VersionInfo:   "version-1",
+		ResponseNonce: "nonce-version-3",
+		ErrorDetail:   &status.Status{Message: "rejected listener"},
 	}))
 
 	require.Equal(t, []string{"version-3", "version-2"}, reverted)
@@ -390,10 +610,11 @@ func TestNACKRollsBackCompletionRegisteredWithoutVersion(t *testing.T) {
 	// before Envoy can NACK it.
 	sendTypeVersionResponse(cb, listenerTypeURL, "version-1")
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
-		Node:        &core.Node{Id: "node-1"},
-		TypeUrl:     listenerTypeURL,
-		VersionInfo: "version-0",
-		ErrorDetail: &status.Status{Message: "rejected listener"},
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL,
+		VersionInfo:   "version-0",
+		ResponseNonce: "nonce-version-1",
+		ErrorDetail:   &status.Status{Message: "rejected listener"},
 	}))
 
 	require.True(t, reverted)
@@ -434,10 +655,11 @@ func TestNACKDoesNotRollbackNewerUpdate(t *testing.T) {
 	require.True(t, registered)
 
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
-		Node:        &core.Node{Id: "node-1"},
-		TypeUrl:     listenerTypeURL,
-		VersionInfo: "version-0",
-		ErrorDetail: &status.Status{Message: "rejected listener"},
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL,
+		VersionInfo:   "version-0",
+		ResponseNonce: "nonce-version-2",
+		ErrorDetail:   &status.Status{Message: "rejected listener"},
 	}))
 
 	require.Equal(t, []string{"version-2", "version-1"}, reverted)

@@ -9,6 +9,7 @@ import (
 	"iter"
 	"log/slog"
 	"slices"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -33,6 +34,7 @@ type versionEntry struct {
 	version     string
 	completions set.Set[*completion.Completion]
 	rollback    func()
+	markerID    uint64
 }
 
 // aggregateRollback combines rollback functions in update order. The returned
@@ -88,6 +90,27 @@ func (vo *orderedCompletions) append(version string, c *completion.Completion, r
 		completions: set.NewSet(c),
 		rollback:    rollback,
 	})
+}
+
+// appendMarker records a snapshot version that has no completion of its own.
+// The marker allows a response for this version to claim completions belonging
+// to older snapshots that go-control-plane coalesced into it.
+func (vo *orderedCompletions) appendMarker(version string, markerID uint64, rollback func()) {
+	*vo = append(*vo, versionEntry{
+		version:     version,
+		completions: set.NewSet[*completion.Completion](),
+		rollback:    rollback,
+		markerID:    markerID,
+	})
+}
+
+func (vo *orderedCompletions) hasPendingCompletions() bool {
+	for i := range *vo {
+		if !(*vo)[i].completions.Empty() {
+			return true
+		}
+	}
+	return false
 }
 
 // removeRange removes entries in [start, end), preserving order and releasing
@@ -199,6 +222,9 @@ type CompletionCallbacks struct {
 	// stream. Envoy is configured with SetNodeOnFirstMessageOnly, so subsequent
 	// ACK/NACK requests can omit Node even though completions are keyed by node ID.
 	streamNodeIDs map[int64]string
+	// nextMarkerID uniquely identifies version-only ordering entries so an update
+	// that definitely was not published can remove the exact entry it registered.
+	nextMarkerID uint64
 }
 
 func NewCompletionCallbacks(logger *slog.Logger) *CompletionCallbacks {
@@ -215,6 +241,11 @@ type responseState struct {
 	// pendingVersion is the version in the most recent response for which we have
 	// not yet observed an ACK or NACK.
 	pendingVersion string
+	// pendingNonce and pendingStreamID identify that exact response. The
+	// go-control-plane callback runs before its own stale-nonce check, so these
+	// fields prevent an old request from completing or reverting a newer update.
+	pendingNonce    string
+	pendingStreamID int64
 	// acceptedVersion is the version Envoy most recently ACKed for this type.
 	acceptedVersion string
 	// rejectedVersion/rejectedErr remember the latest NACKed version so a
@@ -255,15 +286,41 @@ func (cb *CompletionCallbacks) removeFromOrderedCompletions(c *completion.Comple
 			entry := &(*vo)[i]
 			if entry.completions.Has(c) {
 				entry.completions.Remove(c)
-				if entry.completions.Empty() {
+				if entry.completions.Empty() && entry.markerID == 0 {
 					vo.remove(i)
 				}
-				if len(*vo) == 0 {
+				if !vo.hasPendingCompletions() {
 					delete(cb.completionsOrders, key)
 				}
 				return
 			}
 		}
+	}
+}
+
+type typeVersionCompletionOwner struct {
+	callbacks *CompletionCallbacks
+	nodeID    string
+	typeURL   string
+	version   string
+}
+
+func (o *typeVersionCompletionOwner) ID() string {
+	return fmt.Sprintf("nodeID:%s,typeURL:%s,version:%s", o.nodeID, o.typeURL, o.version)
+}
+
+func (o *typeVersionCompletionOwner) CleanupAfterWait(c *completion.Completion) {
+	o.callbacks.RemoveTypeVersionCompletion(c)
+}
+
+// NewTypeVersionCompletionOwner returns an owner that removes a completion
+// from the xDS callback state if its wait group ends before an ACK or NACK.
+func (cb *CompletionCallbacks) NewTypeVersionCompletionOwner(nodeID, typeURL, version string) completion.Owner {
+	return &typeVersionCompletionOwner{
+		callbacks: cb,
+		nodeID:    nodeID,
+		typeURL:   typeURL,
+		version:   version,
 	}
 }
 
@@ -411,6 +468,77 @@ func (cb *CompletionCallbacks) AddTypeVersionCompletion(c *completion.Completion
 	return true, nil
 }
 
+// AddTypeVersionMarker records a changed snapshot version that has no
+// completion of its own. It returns completeUnsent when Envoy has already
+// ACKed this version and older pending completions should be completed after
+// the snapshot is published successfully.
+func (cb *CompletionCallbacks) AddTypeVersionMarker(version, typeURL, nodeID string, versionChanged bool, revertFunc func()) (marker *TypeVersionMarker, completeUnsent bool) {
+	if version == "" || !versionChanged {
+		return nil, false
+	}
+
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+
+	key := completionsOrderKey(nodeID, typeURL)
+	vo, ok := cb.completionsOrders[key]
+	// A marker is only needed to carry older pending completions across this
+	// untracked version.
+	if !ok || !vo.hasPendingCompletions() {
+		return nil, false
+	}
+
+	state := cb.responseStates[key]
+	if state.pendingVersion == "" && state.acceptedVersion == version {
+		return nil, true
+	}
+
+	cb.nextMarkerID++
+	marker = &TypeVersionMarker{key: key, id: cb.nextMarkerID}
+	vo.appendMarker(version, marker.id, revertFunc)
+	cb.Log.Debug("Added snapshot version marker",
+		logfields.XDSTypeURL, typeURL,
+		logfields.Version, version,
+		logfields.NodeID, nodeID)
+	return marker, false
+}
+
+// TypeVersionMarker identifies an ordering entry for a snapshot version that
+// does not have a completion of its own.
+type TypeVersionMarker struct {
+	key string
+	id  uint64
+}
+
+// RemoveTypeVersionMarker removes a marker for an update that was confirmed
+// not to have been installed in the snapshot cache. If a response has already
+// associated completions with it, keep it for the eventual ACK or NACK.
+func (cb *CompletionCallbacks) RemoveTypeVersionMarker(marker *TypeVersionMarker) {
+	if marker == nil {
+		return
+	}
+
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+
+	vo, ok := cb.completionsOrders[marker.key]
+	if !ok {
+		return
+	}
+	for i := range *vo {
+		entry := &(*vo)[i]
+		if entry.markerID == marker.id {
+			if entry.completions.Empty() {
+				vo.remove(i)
+			}
+			break
+		}
+	}
+	if !vo.hasPendingCompletions() {
+		delete(cb.completionsOrders, marker.key)
+	}
+}
+
 // OnFetchRequest implements server.Callbacks.
 func (cb *CompletionCallbacks) OnFetchRequest(context.Context, *discovery.DiscoveryRequest) error {
 	return nil
@@ -440,7 +568,35 @@ func (cb *CompletionCallbacks) OnStreamOpen(ctx context.Context, streamID int64,
 // OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
 func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 	cb.mutex.Lock()
+	nodeID := cb.streamNodeIDs[streamID]
+	if nodeID == "" {
+		nodeID = node.GetId()
+	}
 	delete(cb.streamNodeIDs, streamID)
+
+	// Once the last stream for a node closes, its ACK state no longer describes
+	// the next Envoy process. Keep pending completion order so a replacement
+	// stream can satisfy it, but require fresh responses and ACKs.
+	streamStillOpen := false
+	for _, openNodeID := range cb.streamNodeIDs {
+		if openNodeID == nodeID {
+			streamStillOpen = true
+			break
+		}
+	}
+	if nodeID != "" && !streamStillOpen {
+		prefix := nodeID + "\x00"
+		for key, state := range cb.responseStates {
+			if !strings.HasPrefix(key, prefix) {
+				continue
+			}
+			state.pendingVersion = ""
+			state.pendingNonce = ""
+			state.pendingStreamID = 0
+			state.acceptedVersion = ""
+			cb.responseStates[key] = state
+		}
+	}
 	cb.mutex.Unlock()
 
 	cb.Log.Info("OnStreamClosed", logfields.XDSStreamID, streamID)
@@ -451,20 +607,37 @@ func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.DiscoveryRequest) error {
 	cb.mutex.Lock()
 	nodeID := cb.nodeIDForRequest(streamID, req)
-	if req.VersionInfo == "" {
-		// This means this is the first request on the stream, so we can ignore it for completion purposes since there is no version to ACK.
+	typeURL := req.GetTypeUrl()
+	key := completionsOrderKey(nodeID, typeURL)
+	if req.VersionInfo == "" && req.GetResponseNonce() == "" && req.GetErrorDetail() == nil {
+		// This is a fresh subscription, not an ACK or NACK. Any accepted version
+		// belongs to an earlier Envoy stream and must not satisfy new updates.
+		state := cb.responseStates[key]
+		state.pendingVersion = ""
+		state.pendingNonce = ""
+		state.pendingStreamID = 0
+		state.acceptedVersion = ""
+		cb.responseStates[key] = state
 		cb.mutex.Unlock()
 		return nil
 	}
-	typeURL := req.GetTypeUrl()
-	key := completionsOrderKey(nodeID, typeURL)
+
+	state := cb.responseStates[key]
+	if req.GetResponseNonce() != "" &&
+		(state.pendingNonce == "" || state.pendingStreamID != streamID || state.pendingNonce != req.GetResponseNonce()) {
+		cb.Log.Debug("Ignoring stale xDS ACK/NACK",
+			logfields.XDSTypeURL, typeURL,
+			logfields.Version, req.GetVersionInfo(),
+			logfields.NodeID, nodeID)
+		cb.mutex.Unlock()
+		return nil
+	}
 
 	var completed []*completion.Completion
 	var completeErr error
 	var revertFunc func()
 
 	if req.GetErrorDetail() != nil {
-		state := cb.responseStates[key]
 		rejectedVersion := state.pendingVersion
 		if rejectedVersion == "" {
 			rejectedVersion = req.GetVersionInfo()
@@ -472,6 +645,8 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		nackErr := fmt.Errorf("NACK from %s for %s version %s: %s",
 			nodeID, typeURL, rejectedVersion, req.GetErrorDetail().GetMessage())
 		state.pendingVersion = ""
+		state.pendingNonce = ""
+		state.pendingStreamID = 0
 		state.acceptedVersion = req.GetVersionInfo()
 		state.rejectedVersion = rejectedVersion
 		state.rejectedErr = nackErr
@@ -485,7 +660,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 			for _, c := range completed {
 				delete(cb.pendingCompletions, c)
 			}
-			if len(*vo) == 0 {
+			if !vo.hasPendingCompletions() {
 				delete(cb.completionsOrders, key)
 			}
 		}
@@ -511,12 +686,13 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	}
 
 	// ACK received: complete this version and all earlier versions in the version order.
-	state := cb.responseStates[key]
 	state.acceptedVersion = req.GetVersionInfo()
 	state.rejectedVersion = ""
 	state.rejectedErr = nil
 	if state.pendingVersion == req.GetVersionInfo() {
 		state.pendingVersion = ""
+		state.pendingNonce = ""
+		state.pendingStreamID = 0
 	}
 	cb.responseStates[key] = state
 
@@ -528,7 +704,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 				logfields.XDSTypeURL, typeURL,
 				logfields.Version, req.GetVersionInfo())
 		}
-		if len(*vo) == 0 {
+		if !vo.hasPendingCompletions() {
 			delete(cb.completionsOrders, key)
 		}
 	}
@@ -583,7 +759,7 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 			for _, c := range completed {
 				delete(cb.pendingCompletions, c)
 			}
-			if len(*vo) == 0 {
+			if !vo.hasPendingCompletions() {
 				delete(cb.completionsOrders, key)
 			}
 		}
@@ -602,6 +778,8 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	}
 
 	state.pendingVersion = version
+	state.pendingNonce = resp.GetNonce()
+	state.pendingStreamID = streamID
 	if state.rejectedVersion == version {
 		state.rejectedVersion = ""
 		state.rejectedErr = nil
