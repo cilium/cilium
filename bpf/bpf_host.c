@@ -1100,9 +1100,14 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		if (CONFIG(enable_ipip_termination) && !from_host &&
 		    ip6->nexthdr == NEXTHDR_IPV6) {
 			const struct endpoint_info *ep_outer;
+			bool to_frontend = false;
 
 			ep_outer = lookup_ip6_endpoint(ip6);
-			if (ep_outer) {
+			/* See the IPv4 sibling block below. */
+			if (!ep_outer)
+				to_frontend = lb6_ipip_dst_is_frontend(ctx, ip6,
+								       data_end);
+			if (ep_outer || to_frontend) {
 				union v6addr outer_dst;
 
 				ipv6_addr_copy(&outer_dst,
@@ -1118,8 +1123,10 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 					ret = DROP_INVALID;
 					goto drop_err_ingress;
 				}
-				ctx_store_meta_ipv6(ctx, CB_FORCED_BACKEND_V6_1,
-						    &outer_dst);
+				if (ep_outer)
+					ctx_store_meta_ipv6(ctx,
+							    CB_FORCED_BACKEND_V6_1,
+							    &outer_dst);
 				/* See the IPv4 sibling block below for why we
 				 * have to clear the skip-nodeport flag here.
 				 */
@@ -1190,9 +1197,20 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		    ip4->protocol == IPPROTO_IPIP &&
 		    ipv4_hdrlen(ip4) == sizeof(*ip4)) {
 			const struct endpoint_info *ep_outer;
+			bool to_frontend = false;
 
 			ep_outer = lookup_ip4_endpoint(ip4);
-			if (ep_outer) {
+			/* Not a local endpoint, but possibly a service frontend
+			 * that an external L4LB (Katran, IPVS, ...) delivered
+			 * to. Its outer dst says where to deliver, not which
+			 * backend serves, so strip without forcing a backend
+			 * and let nodeport select on the inner tuple. See
+			 * lb4_ipip_dst_is_frontend().
+			 */
+			if (!ep_outer)
+				to_frontend = lb4_ipip_dst_is_frontend(ctx, ip4,
+								       data_end);
+			if (ep_outer || to_frontend) {
 				__be32 outer_dst = ip4->daddr;
 
 				if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip4),
@@ -1205,7 +1223,9 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 					ret = DROP_INVALID;
 					goto drop_err_ingress;
 				}
-				ctx_store_meta(ctx, CB_FORCED_BACKEND_V4, outer_dst);
+				if (ep_outer)
+					ctx_store_meta(ctx, CB_FORCED_BACKEND_V4,
+						       outer_dst);
 				/* If NodePort XDP acceleration ran upstream, it
 				 * couldn't classify the IPIP packet (no L4 to
 				 * extract a service tuple from) and signalled
