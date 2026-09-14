@@ -24,7 +24,10 @@ runs:
   using: "composite"
   steps:
     - name: Features tested
+      id: features_tested
       if: ${{ always() && inputs.capture_features_tested == 'true' }}
+      # Also gated inside the action; this covers a failure to resolve it.
+      continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
       uses: ./.github/actions/feature-status
       with:
         title: "Summary of all features tested"
@@ -40,31 +43,51 @@ runs:
         cilium sysdump --output-filename "cilium-sysdump-${{ inputs.artifacts_suffix }}"
 
     - name: Upload artifacts
+      id: upload_sysdumps
       if: ${{ always() && inputs.job_status != 'success' }}
+      # A lost report is not worth failing a pull request over. Scheduled runs
+      # dispatch with a vX-Y PR-number and keep failing hard, since they are what
+      # corgi reads.
+      continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: "cilium-sysdumps-${{ inputs.artifacts_suffix }}"
         path: cilium-sysdump-*.zip
 
     - name: Upload JUnits [junit]
+      id: upload_junits
       if: ${{ always() }}
+      continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: "cilium-junits-${{ inputs.artifacts_suffix }}"
         path: ${{ inputs.junits-directory }}/*.xml
 
     - name: Upload features tested
+      id: upload_features
       # Always run this step even if inputs.capture_features_tested is false,
       # as features might have been captured in a previous step outside of this
       # composite action.
       if: ${{ always() }}
+      continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: "features-tested-${{ inputs.artifacts_suffix }}"
         path: ./features-tested-*.json
 
     - name: Publish Test Results As GitHub Summary
+      id: publish_results
       if: ${{ always() }}
+      continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
       uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
       with:
         junit-directory: "${{ inputs.junits-directory }}"
+
+    # continue-on-error above hides these failures, so keep them visible.
+    - name: Warn on tolerated post-step failure
+      if: ${{ always() && (steps.features_tested.outcome == 'failure' || steps.upload_sysdumps.outcome == 'failure' || steps.upload_junits.outcome == 'failure' || steps.upload_features.outcome == 'failure' || steps.publish_results.outcome == 'failure') }}
+      shell: bash
+      env:
+        SUFFIX: ${{ inputs.artifacts_suffix }}
+      run: |
+        echo "::warning title=Post steps degraded::Collecting or uploading the sysdump, JUnit or features-tested reports failed for ${SUFFIX}; the test result itself is unaffected."
