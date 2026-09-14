@@ -206,5 +206,9 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 		}
 	}
 
+	if lnc.KPRConfig.KubeProxyReplacement {
+		cfg.EnableHealthCheck = option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath
+	}
+
 	return cfg
 }

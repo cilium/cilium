@@ -1623,13 +1623,13 @@ skip_host_firewall:
 		}
 	}
 
-#ifdef ENABLE_HEALTH_CHECK
-	ret = lb_handle_health(ctx, proto);
-	if (ret != CTX_ACT_OK)
-		goto exit;
-#endif
-
 #ifdef ENABLE_NODEPORT
+	if (CONFIG(enable_health_check)) {
+		ret = lb_handle_health(ctx, proto);
+		if (ret != CTX_ACT_OK)
+			goto exit;
+	}
+
 	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_is_encrypt(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
@@ -1639,9 +1639,7 @@ skip_host_firewall:
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 	}
-#endif
 
-#ifdef ENABLE_HEALTH_CHECK
 exit:
 #endif
 	if (IS_ERR(ret))

@@ -623,7 +623,6 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV4 */
 
-#ifdef ENABLE_HEALTH_CHECK
 static __always_inline int
 lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 {
@@ -691,7 +690,6 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 		return CTX_ACT_OK;
 	}
 }
-#endif /* ENABLE_HEALTH_CHECK */
 
 /* handle_nat_fwd() handles revDNAT, fib_lookup_redirect, and bpf_snat for
  * nodeport. If revdnat_only is set to true, fib_lookup and bpf_snat are

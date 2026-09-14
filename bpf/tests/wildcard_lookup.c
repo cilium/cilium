@@ -9,7 +9,6 @@
 #define ENABLE_IPV6 1
 
 #define ENABLE_HOST_SERVICES_TCP 1
-#undef ENABLE_HEALTH_CHECK
 #define ENABLE_SOCKET_LB_HOST_ONLY 1
 #define ENABLE_SOCKET_LB_TCP
 #define ENABLE_SOCKET_LB_UDP
@@ -36,6 +35,8 @@ __net_cookie test_get_netns_cookie(__maybe_unused void *ctx)
 
 /* Hardcode the host netns cookie to 42 */
 ASSIGN_CONFIG(__u64, host_netns_cookie, HOST_NETNS_COOKIE)
+
+ASSIGN_CONFIG(bool, enable_health_check, false)
 
 enum {
 	NODEPORT_LOOKUP = 0,

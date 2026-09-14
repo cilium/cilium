@@ -217,9 +217,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 	cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 
 	if h.kprCfg.KubeProxyReplacement {
-		if option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
-			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
-		}
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
 
 		if option.Config.EnableNat46X64Gateway {
