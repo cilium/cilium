@@ -3,6 +3,7 @@
 
 #include <bpf/ctx/unspec.h>
 #include <bpf/api.h>
+#include <linux/in6.h>
 
 #include <node_config.h>
 #include <lib/static_data.h>
@@ -33,7 +34,26 @@ struct bpf_iter__tcp {
 	void *tcp_sk;
 };
 
-struct sock_common {};
+/* Enough of the kernel's socket types to reach the destination address and
+ * port. Outside the unit test the field offsets are resolved against the
+ * running kernel's BTF at load time; the test builds the socket itself, so it
+ * keeps the layout declared here.
+ */
+#ifdef BPF_TEST
+# define __sock_btf
+#else
+# define __sock_btf __attribute__((preserve_access_index))
+#endif
+
+struct sock_common {
+	__be32 skc_daddr;
+	__be16 skc_dport;
+	struct in6_addr skc_v6_daddr;
+} __sock_btf;
+
+struct sock {
+	struct sock_common __sk_common;
+} __sock_btf;
 
 #ifndef BPF_TEST
 int bpf_sock_destroy(struct sock_common *sk) __section(".ksyms");
@@ -42,10 +62,17 @@ static int BPF_FUNC(seq_write, struct seq_file *m, const void *data,
 #endif
 
 static __always_inline
-bool matches_v4(__sock_cookie cookie)
+bool matches_v4(void *sk, __sock_cookie cookie)
 {
 	struct ipv4_revnat_tuple key = { };
+	struct sock *s = sk;
 
+	/* Ensure that sk is still connected to the backend. */
+	if (s->__sk_common.skc_daddr != cilium_sock_term_filter.address.addr4 ||
+	    s->__sk_common.skc_dport != bpf_htons(cilium_sock_term_filter.port))
+		return false;
+
+	/* Ensure that sk was connected to the backend via a service VIP. */
 	key.address = cilium_sock_term_filter.address.addr4;
 	key.port    = bpf_htons(cilium_sock_term_filter.port);
 	key.cookie  = cookie;
@@ -54,10 +81,20 @@ bool matches_v4(__sock_cookie cookie)
 }
 
 static __always_inline
-bool matches_v6(__sock_cookie cookie)
+bool matches_v6(void *sk, __sock_cookie cookie)
 {
 	struct ipv6_revnat_tuple key = { };
+	struct sock *s = sk;
 
+	/* Ensure that sk is still connected to the backend. */
+	if (s->__sk_common.skc_dport != bpf_htons(cilium_sock_term_filter.port) ||
+	    s->__sk_common.skc_v6_daddr.s6_addr32[0] != cilium_sock_term_filter.address.addr6.p1 ||
+	    s->__sk_common.skc_v6_daddr.s6_addr32[1] != cilium_sock_term_filter.address.addr6.p2 ||
+	    s->__sk_common.skc_v6_daddr.s6_addr32[2] != cilium_sock_term_filter.address.addr6.p3 ||
+	    s->__sk_common.skc_v6_daddr.s6_addr32[3] != cilium_sock_term_filter.address.addr6.p4)
+		return false;
+
+	/* Ensure that sk was connected to the backend via a service VIP. */
 	key.address = cilium_sock_term_filter.address.addr6;
 	key.port    = bpf_htons(cilium_sock_term_filter.port);
 	key.cookie  = cookie;
@@ -76,7 +113,7 @@ int sock_udp_destroy_v4(struct bpf_iter__udp *ctx)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v4(cookie))
+	if (!matches_v4(sk, cookie))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))
@@ -96,7 +133,7 @@ int sock_tcp_destroy_v4(struct bpf_iter__tcp *ctx)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v4(cookie))
+	if (!matches_v4(sk, cookie))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))
@@ -116,7 +153,7 @@ int sock_udp_destroy_v6(struct bpf_iter__udp *ctx)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v6(cookie))
+	if (!matches_v6(sk, cookie))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))
@@ -136,7 +173,7 @@ int sock_tcp_destroy_v6(struct bpf_iter__tcp *ctx)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v6(cookie))
+	if (!matches_v6(sk, cookie))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))

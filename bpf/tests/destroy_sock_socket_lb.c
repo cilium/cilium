@@ -114,6 +114,24 @@ static __always_inline void reset(__sock_cookie cookie)
 	write_len = 0;
 }
 
+/* The socket as the iterator sees it: where it is connected to, or nothing
+ * for one that never connected or has since disconnected.
+ */
+static __always_inline void connect4(struct sock *sk, __be32 addr, __u16 port)
+{
+	memset(sk, 0, sizeof(*sk));
+	sk->__sk_common.skc_daddr = addr;
+	sk->__sk_common.skc_dport = bpf_htons(port);
+}
+
+static __always_inline void connect6(struct sock *sk, const union v6addr *addr,
+				     __u16 port)
+{
+	memset(sk, 0, sizeof(*sk));
+	memcpy(&sk->__sk_common.skc_v6_daddr, addr, sizeof(*addr));
+	sk->__sk_common.skc_dport = bpf_htons(port);
+}
+
 CHECK("xdp", "sock_terminate")
 int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 {
@@ -131,11 +149,12 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 		.address_family = AF_INET6,
 		.port = match_port,
 	};
+	const union v6addr other_addr6 = { .d1 = 0x3, .d2 = 0x4 };
 	struct bpf_iter__udp iter_ctx_udp;
 	struct bpf_iter__tcp iter_ctx_tcp;
 	struct bpf_iter_meta meta;
 	struct seq_file seq;
-	int sk;
+	struct sock sk;
 
 	iter_ctx_udp.meta = &meta;
 	iter_ctx_udp.udp_sk = &sk;
@@ -155,15 +174,38 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	 * cilium_lb4_reverse_sk.
 	 */
 	reset(no_match_cookie4);
+	connect4(&sk, match_addr4, match_port);
 	sock_udp_destroy_v4(&iter_ctx_udp);
 	assert(destroys == 0);
 	assert(write_len == 0);
-	/* Destroy the socket if its cookie is in cilium_lb4_reverse_sk. */
+	/* Destroy the socket if it was connected to the backend via a service VIP
+	 * and is still connected to that backend.
+	 */
 	reset(match_cookie4);
+	connect4(&sk, match_addr4, match_port);
 	sock_udp_destroy_v4(&iter_ctx_udp);
 	assert(destroys == 1);
 	assert(write_len == sizeof(__sock_cookie));
 	assert(*((__sock_cookie *)write_data) == match_cookie4);
+	/* Don't destroy the socket if it has no destination: its cookie came
+	 * from an unconnected sendto(), or it has since run connect(AF_UNSPEC).
+	 */
+	reset(match_cookie4);
+	connect4(&sk, 0, 0);
+	sock_udp_destroy_v4(&iter_ctx_udp);
+	assert(destroys == 0);
+	assert(write_len == 0);
+	/* Don't destroy the socket if it has since connected elsewhere. */
+	reset(match_cookie4);
+	connect4(&sk, match_addr4 + 1, match_port);
+	sock_udp_destroy_v4(&iter_ctx_udp);
+	assert(destroys == 0);
+	assert(write_len == 0);
+	reset(match_cookie4);
+	connect4(&sk, match_addr4, match_port + 1);
+	sock_udp_destroy_v4(&iter_ctx_udp);
+	assert(destroys == 0);
+	assert(write_len == 0);
 
 	/* TCP */
 
@@ -171,15 +213,30 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	 * cilium_lb4_reverse_sk.
 	 */
 	reset(no_match_cookie4);
+	connect4(&sk, match_addr4, match_port);
 	sock_tcp_destroy_v4(&iter_ctx_tcp);
 	assert(destroys == 0);
 	assert(write_len == 0);
-	/* Destroy the socket if its cookie is in cilium_lb4_reverse_sk. */
+	/* Destroy the socket if it was connected to the backend via a service VIP
+	 * and is still connected to that backend.
+	 */
 	reset(match_cookie4);
+	connect4(&sk, match_addr4, match_port);
 	sock_tcp_destroy_v4(&iter_ctx_tcp);
 	assert(destroys == 1);
 	assert(write_len == sizeof(__sock_cookie));
 	assert(*((__sock_cookie *)write_data) == match_cookie4);
+	/* See the IPv4 UDP case. */
+	reset(match_cookie4);
+	connect4(&sk, 0, 0);
+	sock_tcp_destroy_v4(&iter_ctx_tcp);
+	assert(destroys == 0);
+	assert(write_len == 0);
+	reset(match_cookie4);
+	connect4(&sk, match_addr4 + 1, match_port);
+	sock_tcp_destroy_v4(&iter_ctx_tcp);
+	assert(destroys == 0);
+	assert(write_len == 0);
 
 	/* IPv6 tests */
 	set_filter(&filter6);
@@ -190,15 +247,30 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	 * cilium_lb6_reverse_sk.
 	 */
 	reset(no_match_cookie6);
+	connect6(&sk, &match_addr6, match_port);
 	sock_udp_destroy_v6(&iter_ctx_udp);
 	assert(destroys == 0);
 	assert(write_len == 0);
-	/* Destroy the socket if its cookie is in cilium_lb6_reverse_sk. */
+	/* Destroy the socket if it was connected to the backend via a service VIP
+	 * and is still connected to that backend.
+	 */
 	reset(match_cookie6);
+	connect6(&sk, &match_addr6, match_port);
 	sock_udp_destroy_v6(&iter_ctx_udp);
 	assert(destroys == 1);
 	assert(write_len == sizeof(__sock_cookie));
 	assert(*((__sock_cookie *)write_data) == match_cookie6);
+	/* See the IPv4 UDP case. */
+	reset(match_cookie6);
+	connect6(&sk, &(union v6addr){}, 0);
+	sock_udp_destroy_v6(&iter_ctx_udp);
+	assert(destroys == 0);
+	assert(write_len == 0);
+	reset(match_cookie6);
+	connect6(&sk, &other_addr6, match_port);
+	sock_udp_destroy_v6(&iter_ctx_udp);
+	assert(destroys == 0);
+	assert(write_len == 0);
 
 	/* TCP */
 
@@ -206,15 +278,30 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	 * cilium_lb6_reverse_sk.
 	 */
 	reset(no_match_cookie6);
+	connect6(&sk, &match_addr6, match_port);
 	sock_tcp_destroy_v6(&iter_ctx_tcp);
 	assert(destroys == 0);
 	assert(write_len == 0);
-	/* Destroy the socket if its cookie is in cilium_lb6_reverse_sk. */
+	/* Destroy the socket if it was connected to the backend via a service VIP
+	 * and is still connected to that backend.
+	 */
 	reset(match_cookie6);
+	connect6(&sk, &match_addr6, match_port);
 	sock_tcp_destroy_v6(&iter_ctx_tcp);
 	assert(destroys == 1);
 	assert(write_len == sizeof(__sock_cookie));
 	assert(*((__sock_cookie *)write_data) == match_cookie6);
+	/* See the IPv4 UDP case. */
+	reset(match_cookie6);
+	connect6(&sk, &(union v6addr){}, 0);
+	sock_tcp_destroy_v6(&iter_ctx_tcp);
+	assert(destroys == 0);
+	assert(write_len == 0);
+	reset(match_cookie6);
+	connect6(&sk, &other_addr6, match_port);
+	sock_tcp_destroy_v6(&iter_ctx_tcp);
+	assert(destroys == 0);
+	assert(write_len == 0);
 
 	test_finish();
 }
