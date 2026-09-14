@@ -16,6 +16,7 @@ import (
 	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_extensions_filters_http_cors_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
+	extprocv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 
 	statefulsessionv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
@@ -154,7 +155,8 @@ type VirtualHostParameter struct {
 	StatefulSessionFilterEnabled bool
 	// AllAuthFilters is the deduplicated list of external auth filters active on this listener.
 	// It is used to build per-route TypedPerFilterConfig entries that enable/disable each filter.
-	AllAuthFilters []*model.HTTPExternalAuthFilter
+	AllAuthFilters     []*model.HTTPExternalAuthFilter
+	AllEndpointPickers []*model.EndpointPicker
 }
 
 // desiredVirtualHost creates a new VirtualHost with the given HTTP routes, set of pre-defined params as well mutator
@@ -162,9 +164,9 @@ type VirtualHostParameter struct {
 func (i *cecTranslator) desiredVirtualHost(httpRoutes []model.HTTPRoute, param VirtualHostParameter, mutators ...VirtualHostMutator) *envoy_config_route_v3.VirtualHost {
 	var routes SortableRoute
 	if param.HTTPSRedirect {
-		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.AllAuthFilters, param.StatefulSessionFilterEnabled)
+		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.AllAuthFilters, param.AllEndpointPickers, param.StatefulSessionFilterEnabled)
 	} else {
-		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.ListenerPort, param.AllAuthFilters, param.StatefulSessionFilterEnabled)
+		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, i.Config.RouteConfig.HostNameSuffixMatch, param.ListenerPort, param.AllAuthFilters, param.AllEndpointPickers, param.StatefulSessionFilterEnabled)
 	}
 
 	// This is to make sure that the Exact match is always having higher priority.
@@ -276,7 +278,7 @@ func getStatefulSession(sp *model.HTTPSessionPersistence) *anypb.Any {
 }
 
 // getTypedPerFilterConfig returns the TypedPerFilterConfig map for a route.
-func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFilters []*model.HTTPExternalAuthFilter, route model.HTTPRoute, statefulSessionFilterEnabled bool) map[string]*anypb.Any {
+func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFilters []*model.HTTPExternalAuthFilter, routeEPPs []*model.EndpointPicker, allEPPs []*model.EndpointPicker, route model.HTTPRoute, statefulSessionFilterEnabled bool) map[string]*anypb.Any {
 	var activeKey string
 	if routeAuth != nil {
 		activeKey = extAuthzFilterKey(routeAuth)
@@ -298,6 +300,23 @@ func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFil
 			Override: &extauthzv3.ExtAuthzPerRoute_Disabled{Disabled: true},
 		})
 		config[filterName] = disabled
+	}
+
+	// enable only the EPP that this route targets
+	activeEPP := make(map[string]struct{}, len(routeEPPs))
+	for _, epp := range routeEPPs {
+		name := getEPPClusterName(epp.Namespace, epp.Name, strconv.Itoa(int(epp.Port)))
+		activeEPP[name] = struct{}{}
+	}
+	for _, epp := range allEPPs {
+		name := getEPPClusterName(epp.Namespace, epp.Name, strconv.Itoa(int(epp.Port)))
+		if _, ok := activeEPP[name]; ok {
+			continue // enabled
+		}
+		disabled := toAny(&extprocv3.ExtProcPerRoute{
+			Override: &extprocv3.ExtProcPerRoute_Disabled{Disabled: true},
+		})
+		config[ExtProcFilterName(name)] = disabled
 	}
 
 	if route.CORS != nil {
@@ -322,11 +341,11 @@ func getTypedPerFilterConfig(routeAuth *model.HTTPExternalAuthFilter, allAuthFil
 // a backend, so calling the authorization service is wasted work and exposes it
 // to traffic for a route that cannot be served. Non-external per-route
 // configuration such as CORS and session persistence is retained.
-func getTypedPerFilterConfigForSyntheticRoute(route model.HTTPRoute, allAuthFilters []*model.HTTPExternalAuthFilter, statefulSessionFilterEnabled bool) map[string]*anypb.Any {
-	return getTypedPerFilterConfig(nil, allAuthFilters, route, statefulSessionFilterEnabled)
+func getTypedPerFilterConfigForSyntheticRoute(route model.HTTPRoute, allAuthFilters []*model.HTTPExternalAuthFilter, allEPPs []*model.EndpointPicker, statefulSessionFilterEnabled bool) map[string]*anypb.Any {
+	return getTypedPerFilterConfig(nil, allAuthFilters, nil, allEPPs, route, statefulSessionFilterEnabled)
 }
 
-func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter, statefulSessionFilterEnabled bool) []*envoy_config_route_v3.Route {
+func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter, allEPPs []*model.EndpointPicker, statefulSessionFilterEnabled bool) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
 		key := r.GetBackendAggregationKey()
@@ -359,7 +378,7 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 				hRoutes[0].HeadersMatch,
 				hRoutes[0].Method),
 			Action:               rRedirect,
-			TypedPerFilterConfig: getTypedPerFilterConfigForSyntheticRoute(r, allAuthFilters, statefulSessionFilterEnabled),
+			TypedPerFilterConfig: getTypedPerFilterConfigForSyntheticRoute(r, allAuthFilters, allEPPs, statefulSessionFilterEnabled),
 		}
 		routes = append(routes, &route)
 		delete(matchBackendMap, key)
@@ -367,7 +386,7 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 	return routes
 }
 
-func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, listenerPort uint32, allAuthFilters []*model.HTTPExternalAuthFilter, statefulSessionFilterEnabled bool) []*envoy_config_route_v3.Route {
+func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, listenerPort uint32, allAuthFilters []*model.HTTPExternalAuthFilter, allEPPs []*model.EndpointPicker, statefulSessionFilterEnabled bool) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
 		key := r.GetBackendAggregationKey()
@@ -387,7 +406,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		}
 
 		if hRoutes[0].DirectResponse != nil {
-			noBackendRoute := envoyHTTPRouteDirectResponse(hRoutes[0], hostnames, hostNameSuffixMatch, allAuthFilters, statefulSessionFilterEnabled)
+			noBackendRoute := envoyHTTPRouteDirectResponse(hRoutes[0], hostnames, hostNameSuffixMatch, allAuthFilters, allEPPs, statefulSessionFilterEnabled)
 			routes = append(routes, noBackendRoute)
 			delete(matchBackendMap, key)
 			continue
@@ -397,7 +416,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 			// redirects don't select an upstream backend.
 			r.SessionPersistence = nil
 		}
-
+		routeEPPs := routeEndpointPicker(r)
 		route := envoy_config_route_v3.Route{
 			Match: getRouteMatch(hostnames,
 				hostNameSuffixMatch,
@@ -409,7 +428,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 			RequestHeadersToRemove:  getHeadersToRemove(hRoutes[0].RequestHeaderFilter),
 			ResponseHeadersToAdd:    getHeadersToAdd(hRoutes[0].ResponseHeaderModifier),
 			ResponseHeadersToRemove: getHeadersToRemove(hRoutes[0].ResponseHeaderModifier),
-			TypedPerFilterConfig:    getTypedPerFilterConfig(hRoutes[0].ExternalAuth, allAuthFilters, r, statefulSessionFilterEnabled),
+			TypedPerFilterConfig:    getTypedPerFilterConfig(hRoutes[0].ExternalAuth, allAuthFilters, routeEPPs, allEPPs, r, statefulSessionFilterEnabled),
 		}
 
 		if hRoutes[0].RequestRedirect != nil {
@@ -706,7 +725,7 @@ func getRouteRedirectMatch(match string) *envoy_config_route_v3.HeaderMatcher {
 	}
 }
 
-func envoyHTTPRouteDirectResponse(route model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter, statefulSessionFilterEnabled bool) *envoy_config_route_v3.Route {
+func envoyHTTPRouteDirectResponse(route model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, allAuthFilters []*model.HTTPExternalAuthFilter, allEPPs []*model.EndpointPicker, statefulSessionFilterEnabled bool) *envoy_config_route_v3.Route {
 	if route.DirectResponse == nil {
 		return nil
 	}
@@ -730,7 +749,7 @@ func envoyHTTPRouteDirectResponse(route model.HTTPRoute, hostnames []string, hos
 				},
 			},
 		},
-		TypedPerFilterConfig: getTypedPerFilterConfigForSyntheticRoute(route, allAuthFilters, statefulSessionFilterEnabled),
+		TypedPerFilterConfig: getTypedPerFilterConfigForSyntheticRoute(route, allAuthFilters, allEPPs, statefulSessionFilterEnabled),
 	}
 }
 
@@ -944,4 +963,15 @@ func toRedirectResponseCode(statusCode int) envoy_config_route_v3.RedirectAction
 	default:
 		return envoy_config_route_v3.RedirectAction_MOVED_PERMANENTLY
 	}
+}
+
+// routeEndpointPicker returns the EPPs referenced by a route's backends
+func routeEndpointPicker(route model.HTTPRoute) []*model.EndpointPicker {
+	var epps []*model.EndpointPicker
+	for _, be := range route.Backends {
+		if be.EndpointPicker != nil {
+			epps = append(epps, be.EndpointPicker)
+		}
+	}
+	return epps
 }
