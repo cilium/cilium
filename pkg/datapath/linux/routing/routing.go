@@ -121,6 +121,9 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 		// so we need to normalize the rule to cidr here and in Delete
 		var installedCatchAllEquivalent bool
 		for _, cidr := range info.CIDRs {
+			if (cidr.IP.To4() != nil) != (ip.To4() != nil) {
+				continue
+			}
 			to := normalizeRuleToCIDR(&cidr)
 			if to == nil {
 				// A 0.0.0.0/0 (or ::/0) CIDR normalizes to an unconditional
@@ -408,27 +411,17 @@ func Delete(logger *slog.Logger, ip netip.Addr) error {
 		// This code here mirrors interfaceAdd() in cilium-cni/interface.go
 		// and must be kept in sync when modified
 		ipv4RoutingCIDRs, ipv6RoutingCIDRs := iputil.CoalesceCIDRs(cidrs)
-		for _, cidr := range ipv4RoutingCIDRs {
-			egress := route.Rule{
-				Priority: priority,
-				From:     ipWithMask,
-				To:       normalizeRuleToCIDR(cidr),
-			}
-			if err := deleteRulesFiltered(logger, egress, netlink.FAMILY_V4, withENIRouteTableID); err != nil {
-				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
-			}
-			logger.Debug("Deleted egress rule",
-				logfields.Rule, egress,
-				logfields.IPAddr, ipWithMask,
-			)
+		routingCIDRs := ipv4RoutingCIDRs
+		if ip.Is6() {
+			routingCIDRs = ipv6RoutingCIDRs
 		}
-		for _, cidr := range ipv6RoutingCIDRs {
+		for _, cidr := range routingCIDRs {
 			egress := route.Rule{
 				Priority: priority,
 				From:     ipWithMask,
 				To:       normalizeRuleToCIDR(cidr),
 			}
-			if err := deleteRulesFiltered(logger, egress, netlink.FAMILY_V6, withENIRouteTableID); err != nil {
+			if err := deleteRulesFiltered(logger, egress, family, withENIRouteTableID); err != nil {
 				return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
 			}
 			logger.Debug("Deleted egress rule",
