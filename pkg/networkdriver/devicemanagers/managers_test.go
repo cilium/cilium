@@ -58,4 +58,22 @@ func TestInitManagers(t *testing.T) {
 		assert.NotContains(t, mgrs, types.DeviceManagerTypeDummy)
 
 	})
+
+	t.Run("RX queue disabled does not show up in the map", func(t *testing.T) {
+		cfg := &v2alpha1.CiliumNetworkDriverDeviceManagerConfig{
+			RXQueue: &v2alpha1.RXQueueDeviceManagerConfig{Enabled: false},
+		}
+		mgrs, err := InitManagers(hivetest.Logger(t), cfg)
+		require.NoError(t, err)
+		assert.NotContains(t, mgrs, types.DeviceManagerTypeRXQueue)
+	})
+
+	t.Run("RX queue enabled requires interfaces", func(t *testing.T) {
+		cfg := &v2alpha1.CiliumNetworkDriverDeviceManagerConfig{
+			RXQueue: &v2alpha1.RXQueueDeviceManagerConfig{Enabled: true},
+		}
+		mgrs, err := InitManagers(hivetest.Logger(t), cfg)
+		require.Error(t, err)
+		assert.NotContains(t, mgrs, types.DeviceManagerTypeRXQueue)
+	})
 }
