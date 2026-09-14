@@ -529,6 +529,25 @@ func (driver *Driver) setConfig(config *v2alpha1.CiliumNetworkDriverNodeConfigSp
 	})
 }
 
+// updateAllocationDevice replaces a prepared device that NRI recovered on
+// demand after a reboot.
+func (driver *Driver) updateAllocationDevice(a allocation) {
+	if a.Device == nil || a.DeviceName == "" {
+		return
+	}
+
+	wtxn := driver.db.WriteTxn(driver.allocationTable)
+	defer wtxn.Commit()
+
+	row, _, found := driver.allocationTable.Get(wtxn, allocationByKey.Query(allocationTableKey(a)))
+	if !found {
+		return
+	}
+	updated := row.Clone()
+	updated.PreparedDevice = a.Device
+	driver.allocationTable.Insert(wtxn, updated)
+}
+
 // resolvePool returns the single pool name the device should be assigned to.
 // If the device matches multiple pools, the first alphabetically is chosen and
 // a conflict is logged. Returns "" if no pool matches.
