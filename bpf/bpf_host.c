@@ -1433,12 +1433,8 @@ int cil_from_host(struct __ctx_buff *ctx)
 	return do_netdev(ctx, proto, identity, obs_point, true);
 }
 
-/*
- * to-netdev is attached as a tc egress filter to one or more physical devices
- * managed by Cilium (e.g., eth0).
- */
-__section_entry
-int cil_to_netdev(struct __ctx_buff *ctx)
+static __always_inline
+int __cil_to_netdev(struct __ctx_buff *ctx, __be16 proto)
 {
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 	__u32 dst_sec_identity = UNKNOWN_ID;
@@ -1447,13 +1443,9 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	__be16 proto = 0;
 	__u32 vlan_id;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
-
-	/* Load the ethertype just once: */
-	validate_ethertype(ctx, &proto);
 
 	/* Trace before clearing skb->cb */
 #ifdef ENABLE_IPSEC
@@ -1655,6 +1647,50 @@ exit:
 
 drop_err:
 	return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
+					  METRIC_EGRESS);
+}
+
+__declare_tail(CILIUM_CALL_IPV4_TO_NETDEV)
+static __always_inline int
+tail_ipv4_to_netdev(struct __ctx_buff *ctx)
+{
+	return __cil_to_netdev(ctx, bpf_htons(ETH_P_IP));
+}
+
+__declare_tail(CILIUM_CALL_IPV6_TO_NETDEV)
+static __always_inline int
+tail_ipv6_to_netdev(struct __ctx_buff *ctx)
+{
+	return __cil_to_netdev(ctx, bpf_htons(ETH_P_IPV6));
+}
+
+/*
+ * to-netdev is attached as a tc egress filter to one or more physical devices
+ * managed by Cilium (e.g., eth0).
+ */
+__section_entry
+int cil_to_netdev(struct __ctx_buff *ctx)
+{
+	__be16 proto = 0;
+	__s8 ext_err = 0;
+	int ret = 0;
+
+	/* Load the ethertype just once: */
+	validate_ethertype(ctx, &proto);
+
+	switch (proto) {
+	case bpf_htons(ETH_P_IP):
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_TO_NETDEV, &ext_err);
+		goto drop_err;
+	case bpf_htons(ETH_P_IPV6):
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_TO_NETDEV, &ext_err);
+		goto drop_err;
+	default:
+		return __cil_to_netdev(ctx, proto);
+	}
+
+drop_err:
+	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
 					  METRIC_EGRESS);
 }
 
