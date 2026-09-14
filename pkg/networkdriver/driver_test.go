@@ -40,6 +40,7 @@ import (
 	"k8s.io/dynamic-resource-allocation/resourceslice"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
@@ -125,6 +126,24 @@ func deviceLogicalPoolAttr(t *testing.T, devices []resourceapi.Device, name stri
 	}
 	t.Fatalf("device %s not found", name)
 	return ""
+}
+
+func TestValidateRXQueueDatapath(t *testing.T) {
+	disabled := &v2alpha1.CiliumNetworkDriverDeviceManagerConfig{
+		RXQueue: &v2alpha1.RXQueueDeviceManagerConfig{},
+	}
+	enabled := &v2alpha1.CiliumNetworkDriverDeviceManagerConfig{
+		RXQueue: &v2alpha1.RXQueueDeviceManagerConfig{Enabled: true},
+	}
+
+	require.NoError(t, validateRXQueueDatapath(nil, connector.ModeVeth))
+	require.NoError(t, validateRXQueueDatapath(&v2alpha1.CiliumNetworkDriverDeviceManagerConfig{}, connector.ModeVeth))
+	require.NoError(t, validateRXQueueDatapath(disabled, connector.ModeVeth))
+	for _, mode := range []connector.Mode{connector.ModeNetkit, connector.ModeNetkitL2} {
+		require.NoError(t, validateRXQueueDatapath(enabled, mode))
+	}
+	require.ErrorContains(t, validateRXQueueDatapath(enabled, connector.ModeVeth),
+		"requires the netkit or netkit-l2 datapath")
 }
 
 // matchingDevice is a trackedDevice whose Match() returns the supplied bool.
