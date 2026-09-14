@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from scapy.all import *
+from scapy.layers.sctp import SCTP
 
 from pkt_defs_common import *
 
@@ -125,6 +126,17 @@ icmp6_err_revnat_egress_udp = (
     Raw(default_data)
 )
 
+# SCTP CRC32c does not cover the IPv6 pseudo-header, so an address-only
+# NAT rewrite leaves the SCTP checksum unchanged.
+_sctp_hdr_egress = SCTP(sport=tcp_src_two, dport=tcp_dst_one, tag=0)
+
+icmp6_err_revnat_egress_sctp = (
+    Ether(src=mac_one, dst=mac_two) /
+    _ip6_hdr_egress /
+    _sctp_hdr_egress /
+    Raw(default_data)
+)
+
 # Post-masquerade: saddr rewritten to node IP. Ports are unchanged because
 # tcp_src_two (33440) > NODEPORT_PORT_MIN_NAT so the same source port is reused.
 _ip6_hdr_egress_post = IPv6(src=v6_node_one, dst=v6_ext_node_one)
@@ -139,6 +151,13 @@ icmp6_err_revnat_egress_post_udp = (
     Ether(src=mac_one, dst=mac_two) /
     _ip6_hdr_egress_post /
     _udp_hdr_egress /
+    Raw(default_data)
+)
+
+icmp6_err_revnat_egress_post_sctp = (
+    Ether(src=mac_one, dst=mac_two) /
+    _ip6_hdr_egress_post /
+    _sctp_hdr_egress /
     Raw(default_data)
 )
 
@@ -178,6 +197,14 @@ icmp6_err_revnat_full_udp = _icmp6_revnat_pkt(
 
 icmp6_err_revnat_full_udp_after = _icmp6_revnat_after_pkt(
     _udp_hdr_egress / Raw(default_data)
+)
+
+icmp6_err_revnat_full_sctp = _icmp6_revnat_pkt(
+    _sctp_hdr_egress / Raw(default_data)
+)
+
+icmp6_err_revnat_full_sctp_after = _icmp6_revnat_after_pkt(
+    _sctp_hdr_egress / Raw(default_data)
 )
 
 # outer IPv4 (pod_two -> pod_one), ICMP Destination Unreachable / Fragmentation Needed,
