@@ -24,6 +24,7 @@ type RouteConfigurationMutator func(*envoy_config_route_v3.RouteConfiguration) *
 func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ciliumv2.XDSResource, error) {
 	var res []ciliumv2.XDSResource
 	allAuthFilters := i.getUniqueAuthFilters(m)
+	allEPPs := getUniqueEPPs(m)
 	statefulSessionFilterEnabled := m.IsSessionPersistenceConfigured()
 
 	type hostnameRedirect struct {
@@ -144,6 +145,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 							HTTPSRedirect:                true,
 							ListenerPort:                 m.HTTP[0].Port,
 							AllAuthFilters:               allAuthFilters,
+							AllEndpointPickers:           allEPPs,
 							StatefulSessionFilterEnabled: statefulSessionFilterEnabled,
 						})
 						virtualhosts = append(virtualhosts, vhs)
@@ -166,6 +168,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 				HTTPSRedirect:                false,
 				ListenerPort:                 m.HTTP[0].Port,
 				AllAuthFilters:               allAuthFilters,
+				AllEndpointPickers:           allEPPs,
 				StatefulSessionFilterEnabled: statefulSessionFilterEnabled,
 			})
 			virtualhosts = append(virtualhosts, vhs)
