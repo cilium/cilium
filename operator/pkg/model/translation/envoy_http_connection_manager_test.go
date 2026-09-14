@@ -9,6 +9,8 @@ import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	httpCORSv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
+	extprocv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
+	header_mutationv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_mutation/v3"
 	statefulsessionv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	httpConnectionManagerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
@@ -339,7 +341,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 	}
 
 	t.Run("route without auth disables all filters", func(t *testing.T) {
-		cfg := getTypedPerFilterConfig(nil, authFilters, model.HTTPRoute{}, false)
+		cfg := getTypedPerFilterConfig(nil, authFilters, nil, nil, model.HTTPRoute{}, false)
 		require.Len(t, cfg, 2)
 		for _, v := range cfg {
 			perRoute := &extauthzv3.ExtAuthzPerRoute{}
@@ -353,7 +355,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 			Backend:  model.Backend{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
 			Protocol: model.ExternalAuthProtocolGRPC,
 		}
-		cfg := getTypedPerFilterConfig(routeAuth, authFilters, model.HTTPRoute{}, false)
+		cfg := getTypedPerFilterConfig(routeAuth, authFilters, nil, nil, model.HTTPRoute{}, false)
 		// Only svc-b should be disabled; svc-a has no entry (enabled by default)
 		require.Len(t, cfg, 1)
 		_, hasSvcA := cfg["envoy.filters.http.ext_authz/GRPC:ns:svc-a:9000"]
@@ -366,7 +368,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 	})
 
 	t.Run("route with CORS filter", func(t *testing.T) {
-		cfg := getTypedPerFilterConfig(nil, nil, model.HTTPRoute{
+		cfg := getTypedPerFilterConfig(nil, nil, nil, nil, model.HTTPRoute{
 			CORS: &model.HTTPCORSFilter{MaxAge: 42},
 		}, false)
 		require.Len(t, cfg, 1)
@@ -375,11 +377,11 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 	})
 
 	t.Run("no auth filters returns nil", func(t *testing.T) {
-		require.Nil(t, getTypedPerFilterConfig(nil, nil, model.HTTPRoute{}, false))
+		require.Nil(t, getTypedPerFilterConfig(nil, nil, nil, nil, model.HTTPRoute{}, false))
 	})
 
 	t.Run("route without persistence disables stateful sessions", func(t *testing.T) {
-		cfg := getTypedPerFilterConfig(nil, nil, model.HTTPRoute{}, true)
+		cfg := getTypedPerFilterConfig(nil, nil, nil, nil, model.HTTPRoute{}, true)
 		entry, ok := cfg["envoy.filters.http.stateful_session"]
 		require.True(t, ok)
 		perRoute := &statefulsessionv3.StatefulSessionPerRoute{}
@@ -388,7 +390,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 	})
 
 	t.Run("route with persistence configures cookie session state", func(t *testing.T) {
-		cfg := getTypedPerFilterConfig(nil, nil, model.HTTPRoute{
+		cfg := getTypedPerFilterConfig(nil, nil, nil, nil, model.HTTPRoute{
 			SessionPersistence: &model.HTTPSessionPersistence{
 				Cookie: &model.HTTPCookieSessionPersistence{
 					Name: "gateway-session",
@@ -479,4 +481,89 @@ func Test_desiredHTTPConnectionManagerWithoutGRPCWebTranslation(t *testing.T) {
 	require.Len(t, httpConnectionManager.GetHttpFilters(), 2)
 	require.Equal(t, "envoy.filters.http.grpc_stats", httpConnectionManager.GetHttpFilters()[0].Name)
 	require.Equal(t, "envoy.filters.http.router", httpConnectionManager.GetHttpFilters()[1].Name)
+}
+
+func Test_desiredHTTPConnectionManager_withExtProc(t *testing.T) {
+	i := &cecTranslator{}
+	m := &model.Model{
+		HTTP: []model.HTTPListener{{
+			Routes: []model.HTTPRoute{{
+				Backends: []model.Backend{{
+					Name:      "llm-pool-shadow-service",
+					Namespace: "default",
+					Port:      &model.BackendPort{Port: 8000},
+					EndpointPicker: &model.EndpointPicker{
+						Name: "llm-pool-epp", Namespace: "default", Port: 9002, FailureMode: "FailOpen",
+					},
+				}},
+			}},
+		}},
+	}
+
+	res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", m)
+	require.NoError(t, err)
+
+	hcm := &httpConnectionManagerv3.HttpConnectionManager{}
+	require.NoError(t, proto.Unmarshal(res.Value, hcm))
+
+	eppCluster := getEPPClusterName("default", "llm-pool-epp", "9002")
+	filterName := ExtProcFilterName(eppCluster)
+
+	// Locate the ext_proc filter and the router, and confirm ordering.
+	idx := map[string]int{}
+	for n, f := range hcm.GetHttpFilters() {
+		idx[f.Name] = n
+	}
+	eppIdx, ok := idx[filterName]
+	require.True(t, ok, "ext_proc filter %q must be present in the chain", filterName)
+	routerIdx, ok := idx["envoy.filters.http.router"]
+	require.True(t, ok)
+	require.Less(t, eppIdx, routerIdx, "ext_proc must run before the router")
+
+	// Verify the filter config points at the EPP cluster and honours FailureMode.
+	cfg := &extprocv3.ExternalProcessor{}
+	require.NoError(t, proto.Unmarshal(hcm.GetHttpFilters()[eppIdx].GetTypedConfig().Value, cfg))
+	require.Equal(t, eppCluster, cfg.GetGrpcService().GetEnvoyGrpc().GetClusterName())
+	require.True(t, cfg.GetFailureModeAllow(), "FailOpen must map to failure_mode_allow=true")
+	require.Equal(t, extprocv3.ProcessingMode_SEND, cfg.GetProcessingMode().GetRequestHeaderMode())
+}
+
+func Test_desiredHTTPConnectionManager_stripsInferenceHeaders(t *testing.T) {
+	i := &cecTranslator{}
+	m := &model.Model{HTTP: []model.HTTPListener{{Routes: []model.HTTPRoute{{
+		Backends: []model.Backend{{
+			Name: "llm-pool-shadow-service", Namespace: "default", Port: &model.BackendPort{Port: 8000},
+			EndpointPicker: &model.EndpointPicker{Name: "epp", Namespace: "default", Port: 9002, FailureMode: "FailClose"},
+		}},
+	}}}}}
+
+	res, err := i.desiredHTTPConnectionManager("n", "r", m)
+	require.NoError(t, err)
+	hcm := &httpConnectionManagerv3.HttpConnectionManager{}
+	require.NoError(t, proto.Unmarshal(res.Value, hcm))
+
+	idx := map[string]int{}
+	var stripFilter *httpConnectionManagerv3.HttpFilter
+	for n, f := range hcm.GetHttpFilters() {
+		idx[f.Name] = n
+		if f.Name == "envoy.filters.http.header_mutation" {
+			stripFilter = f
+		}
+	}
+
+	stripIdx, ok := idx["envoy.filters.http.header_mutation"]
+	require.True(t, ok, "header_mutation strip filter must be present")
+	eppIdx, ok := idx[ExtProcFilterName(getEPPClusterName("default", "epp", "9002"))]
+	require.True(t, ok)
+	require.Less(t, stripIdx, eppIdx, "strip must run before ext_proc")
+
+	cfg := &header_mutationv3.HeaderMutation{}
+	require.NoError(t, proto.Unmarshal(stripFilter.GetTypedConfig().Value, cfg))
+	removed := map[string]bool{}
+	for _, mut := range cfg.GetMutations().GetRequestMutations() {
+		removed[mut.GetRemove()] = true
+	}
+	require.True(t, removed["x-gateway-destination-endpoint"])
+	require.True(t, removed["x-gateway-destination-endpoint-subset"])
+	require.True(t, removed["x-gateway-destination-endpoint-fallback"])
 }

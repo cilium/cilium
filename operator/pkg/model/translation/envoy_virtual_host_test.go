@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	envoy_config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_extensions_filters_http_cors_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
+	extprocv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	statefulsessionv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
@@ -874,7 +876,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
 		require.Len(t, res, 2)
 		// Redirect Route
 		require.NotNil(t, res[0])
@@ -917,7 +919,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
 		require.Len(t, res, 2)
 		sort.Stable(SortableRoute(res))
 		// Backend Route
@@ -968,7 +970,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
 		require.Len(t, res, 2)
 
 		sort.Stable(SortableRoute(res))
@@ -1025,7 +1027,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
 		require.Len(t, res, 1)
 		require.NotNil(t, res[0])
 		require.NotNil(t, res[0].GetDirectResponse())
@@ -1048,7 +1050,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
 
 		require.Len(t, res, 1)
 		weightedClusters := res[0].GetRoute().GetWeightedClusters()
@@ -1075,7 +1077,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
 
 		require.Len(t, res, 2)
 		require.Equal(t, "default:backend-v1:8080", res[0].GetRoute().GetCluster())
@@ -1099,7 +1101,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
 
 		require.Len(t, res, 2)
 		require.NotNil(t, res[0].GetDirectResponse())
@@ -1119,7 +1121,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, true, 80, nil, nil, false)
 
 		require.Len(t, res, 1)
 		require.NotNil(t, res[0].GetDirectResponse())
@@ -1143,7 +1145,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, true)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, nil, true)
 		require.Len(t, res, 1)
 		entry, ok := res[0].GetTypedPerFilterConfig()["envoy.filters.http.stateful_session"]
 		require.True(t, ok)
@@ -1168,7 +1170,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, true)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, nil, true)
 
 		require.Len(t, res, 1)
 		entry, ok := res[0].GetTypedPerFilterConfig()["envoy.filters.http.stateful_session"]
@@ -1187,7 +1189,7 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 				},
 			},
 		}
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, true)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, nil, true)
 
 		require.Len(t, res, 1)
 		entry, ok := res[0].GetTypedPerFilterConfig()["envoy.filters.http.stateful_session"]
@@ -1217,7 +1219,7 @@ func Test_envoyHTTPRoutes_disablesExtAuthzOnNoBackendResponse(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, nil, false)
 		require.Len(t, res, 1)
 		require.Equal(t, uint32(500), res[0].GetDirectResponse().GetStatus())
 
@@ -1238,7 +1240,7 @@ func Test_envoyHTTPRoutes_disablesExtAuthzOnNoBackendResponse(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, nil, false)
 		require.Len(t, res, 1)
 		require.Contains(t, res[0].TypedPerFilterConfig, "envoy.filters.http.cors")
 	})
@@ -1252,7 +1254,7 @@ func Test_envoyHTTPRoutes_disablesExtAuthzOnNoBackendResponse(t *testing.T) {
 			},
 		}
 
-		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, false)
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, []*model.HTTPExternalAuthFilter{auth}, nil, false)
 		require.Len(t, res, 1)
 		require.NotContains(t, res[0].TypedPerFilterConfig, filterName,
 			"auth filter must stay enabled on a route that reaches a backend")
@@ -1270,7 +1272,7 @@ func Test_envoyHTTPSRoutes_disablesExtAuthzFilters(t *testing.T) {
 		{PathMatch: model.StringMatch{Prefix: "/"}},
 	}
 
-	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, authFilters, false)
+	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, authFilters, nil, false)
 	require.Len(t, result, 1)
 
 	// The redirect route must disable all auth filters so that redirect requests
@@ -1315,7 +1317,7 @@ func Test_envoyHTTPRoutes_differentAuthFilters(t *testing.T) {
 		},
 	}
 
-	res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, allAuthFilters, false)
+	res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, allAuthFilters, nil, false)
 	require.Len(t, res, 2, "routes with different auth filters must not be merged")
 
 	filterNameA := ExtAuthzFilterName(extAuthzFilterKey(authA))
@@ -1344,7 +1346,7 @@ func Test_envoyHTTPSRoutes_noAuthFilters(t *testing.T) {
 	routes := []model.HTTPRoute{
 		{PathMatch: model.StringMatch{Prefix: "/"}},
 	}
-	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, nil, false)
+	result := envoyHTTPSRoutes(routes, []string{"example.com"}, false, nil, nil, false)
 	require.Len(t, result, 1)
 	require.Nil(t, result[0].TypedPerFilterConfig, "redirect route must not set TypedPerFilterConfig when there are no auth filters")
 }
@@ -1361,7 +1363,7 @@ func Test_envoyHTTPSRoutes_statefulSessionDisabled(t *testing.T) {
 			},
 		},
 	}
-	res := envoyHTTPSRoutes(httpsRoutes, []string{"example.com"}, false, nil, true)
+	res := envoyHTTPSRoutes(httpsRoutes, []string{"example.com"}, false, nil, nil, true)
 
 	require.Len(t, res, 1)
 	entry, ok := res[0].GetTypedPerFilterConfig()["envoy.filters.http.stateful_session"]
@@ -1382,7 +1384,7 @@ func Test_envoyHTTPRouteDirectResponse_statefulSessionDisabled(t *testing.T) {
 			},
 		},
 	}
-	res := envoyHTTPRouteDirectResponse(httpRoute, []string{"*"}, false, nil, true)
+	res := envoyHTTPRouteDirectResponse(httpRoute, []string{"*"}, false, nil, nil, true)
 
 	require.NotNil(t, res)
 	entry, ok := res.GetTypedPerFilterConfig()["envoy.filters.http.stateful_session"]
@@ -1494,5 +1496,84 @@ func Test_getCORS(t *testing.T) {
 		})
 		require.NotNil(t, res)
 		require.Equal(t, match, res)
+	})
+}
+
+func Test_envoyHTTPRoutes_extProcPerRoute(t *testing.T) {
+	epp := &model.EndpointPicker{Name: "epp", Namespace: "ns", Port: 9002, FailureMode: "FailClose"}
+	allEPPs := []*model.EndpointPicker{epp}
+	filterName := ExtProcFilterName(getEPPClusterName(epp.Namespace, epp.Name, strconv.Itoa(int(epp.Port))))
+
+	t.Run("route targeting the pool keeps the filter enabled", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{{
+			PathMatch: model.StringMatch{Prefix: "/"},
+			Backends: []model.Backend{{
+				Name: "epp-shadow-service", Namespace: "ns", Port: &model.BackendPort{Port: 8000},
+				EndpointPicker: epp,
+			}},
+		}}
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, allEPPs, false)
+		require.Len(t, res, 1)
+		require.NotContains(t, res[0].TypedPerFilterConfig, filterName,
+			"ext_proc must stay enabled on a route that targets the pool")
+	})
+
+	t.Run("route not targeting the pool disables the filter", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{{
+			PathMatch: model.StringMatch{Prefix: "/"},
+			Backends:  []model.Backend{{Name: "plain-svc", Namespace: "ns", Port: &model.BackendPort{Port: 8080}}},
+		}}
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, allEPPs, false)
+		require.Len(t, res, 1)
+
+		entry, ok := res[0].TypedPerFilterConfig[filterName]
+		require.True(t, ok, "ext_proc must be explicitly disabled on a non-inference route")
+		perRoute := &extprocv3.ExtProcPerRoute{}
+		require.NoError(t, proto.Unmarshal(entry.Value, perRoute))
+
+		require.True(t, perRoute.GetDisabled())
+	})
+
+	t.Run("synthetic direct-response route disables the filter even if it declared the pool", func(t *testing.T) {
+		httpRoutes := []model.HTTPRoute{{
+			PathMatch: model.StringMatch{Prefix: "/"},
+			Backends: []model.Backend{{
+				Name: "epp-shadow-service", Namespace: "ns", Port: &model.BackendPort{Port: 8000},
+				EndpointPicker: epp,
+			}},
+			DirectResponse: &model.DirectResponse{StatusCode: 500},
+		}}
+		res := envoyHTTPRoutes(httpRoutes, []string{"*"}, false, 80, nil, allEPPs, false)
+		require.Len(t, res, 1)
+		require.Equal(t, uint32(500), res[0].GetDirectResponse().GetStatus())
+
+		entry, ok := res[0].TypedPerFilterConfig[filterName]
+		require.True(t, ok, "synthetic routes must disable ext_proc regardless of declared backend")
+		perRoute := &extprocv3.ExtProcPerRoute{}
+		require.NoError(t, proto.Unmarshal(entry.Value, perRoute))
+		require.True(t, perRoute.GetDisabled())
+	})
+}
+
+func Test_getRouteAction_inferencePool(t *testing.T) {
+	t.Run("pool backend targets the ORIGINAL_DST cluster", func(t *testing.T) {
+		be := model.Backend{
+			Name: "llm-pool-shadow-service", Namespace: "default", Port: &model.BackendPort{Port: 8000},
+			EndpointPicker: &model.EndpointPicker{Name: "epp", Namespace: "default", Port: 9002, FailureMode: "FailClose"},
+		}
+		route := &model.HTTPRoute{Backends: []model.Backend{be}}
+
+		action := getRouteAction(route, route.Backends, nil, nil, nil)
+		require.Equal(t,
+			getInferenceDestinationClusterName("default", "llm-pool-shadow-service", "8000"),
+			action.Route.GetCluster())
+	})
+
+	t.Run("service backend still targets its EDS cluster", func(t *testing.T) {
+		be := model.Backend{Name: "svc", Namespace: "default", Port: &model.BackendPort{Port: 8080}}
+		route := &model.HTTPRoute{Backends: []model.Backend{be}}
+
+		action := getRouteAction(route, route.Backends, nil, nil, nil)
+		require.Equal(t, getClusterName("default", "svc", "8080"), action.Route.GetCluster())
 	})
 }

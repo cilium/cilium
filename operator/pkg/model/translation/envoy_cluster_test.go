@@ -312,3 +312,95 @@ func Test_getHTTPExtAuthBackends(t *testing.T) {
 	require.Len(t, backends, 1)
 	require.Equal(t, "http-svc", backends[0].Name)
 }
+
+// endpoint picker test
+func Test_desiredEnvoyCluster_epp(t *testing.T) {
+	m := &model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				Routes: []model.HTTPRoute{
+					{
+						Backends: []model.Backend{
+							{
+								Name:      "llm-pool-shadow-service",
+								Namespace: "default",
+								Port:      &model.BackendPort{Port: 8000},
+								EndpointPicker: &model.EndpointPicker{
+									Name:        "llm-pool-epp",
+									Namespace:   "default",
+									Port:        9002,
+									FailureMode: "FailClose",
+								},
+							}},
+					}},
+			}},
+	}
+
+	c := &cecTranslator{}
+	clusters, err := c.desiredEnvoyCluster(m)
+	require.NoError(t, err)
+
+	byName := map[string]*envoy_config_cluster_v3.Cluster{}
+	for _, res := range clusters {
+		cl := &envoy_config_cluster_v3.Cluster{}
+		require.NoError(t, proto.Unmarshal(res.Value, cl))
+		byName[cl.Name] = cl
+	}
+
+	eppName := getEPPClusterName("default", "llm-pool-epp", "9002")
+	epp, ok := byName[eppName]
+	require.True(t, ok, "expected EPP cluster %q", eppName)
+
+	require.Equal(t, &envoy_config_cluster_v3.Cluster_Type{
+		Type: envoy_config_cluster_v3.Cluster_EDS,
+	}, epp.ClusterDiscoveryType)
+
+	require.Equal(t, getClusterServiceName("default", "llm-pool-epp", "9002"), epp.EdsClusterConfig.ServiceName)
+
+	protocolOptions := &envoy_upstreams_http_v3.HttpProtocolOptions{}
+	require.NoError(t, epp.TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(protocolOptions))
+	require.NotNil(t, protocolOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions(),
+		"EPP cluster must speak HTTP/2 for ext_proc gRPC")
+
+}
+
+func Test_desiredEnvoyCluster_inferenceDestination(t *testing.T) {
+	m := &model.Model{
+		HTTP: []model.HTTPListener{{
+			Routes: []model.HTTPRoute{{
+				Backends: []model.Backend{{
+					Name:      "llm-pool-shadow-service",
+					Namespace: "default",
+					Port:      &model.BackendPort{Port: 8000},
+					EndpointPicker: &model.EndpointPicker{
+						Name: "llm-pool-epp", Namespace: "default", Port: 9002, FailureMode: "FailClose",
+					},
+				}},
+			}},
+		}},
+	}
+
+	c := &cecTranslator{}
+	clusters, err := c.desiredEnvoyCluster(m)
+	require.NoError(t, err)
+
+	byName := map[string]*envoy_config_cluster_v3.Cluster{}
+	for _, res := range clusters {
+		cl := &envoy_config_cluster_v3.Cluster{}
+		require.NoError(t, proto.Unmarshal(res.Value, cl))
+		byName[cl.Name] = cl
+	}
+
+	name := getInferenceDestinationClusterName("default", "llm-pool-shadow-service", "8000")
+	cl, ok := byName[name]
+	require.True(t, ok, "expected ORIGINAL_DST cluster %q", name)
+
+	require.Equal(t, envoy_config_cluster_v3.Cluster_ORIGINAL_DST, cl.GetType())
+	require.Equal(t, envoy_config_cluster_v3.Cluster_CLUSTER_PROVIDED, cl.GetLbPolicy())
+	require.True(t, cl.GetOriginalDstLbConfig().GetUseHttpHeader())
+	require.Equal(t, "x-gateway-destination-endpoint", cl.GetOriginalDstLbConfig().GetHttpHeaderName())
+
+	// sub-step 3: the pool backend must NOT also produce a plain EDS cluster.
+	require.NotContains(t, byName, getClusterName("default", "llm-pool-shadow-service", "8000"),
+		"pool backend should not emit a shadow-service EDS cluster")
+}
