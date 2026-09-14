@@ -59,6 +59,8 @@ const (
 	RXQueuesCapacity = "rxQueues"
 	// RXQueueIDLabel is the leased queue ID on the interface given to the pod.
 	RXQueueIDLabel = "rxQueueID"
+	// DefaultRXQueuePodIfName is the default existing Pod interface to receive a leased queue.
+	DefaultRXQueuePodIfName = "eth0"
 )
 
 var (
