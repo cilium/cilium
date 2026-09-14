@@ -5,9 +5,12 @@ package networkdriver
 
 import (
 	"iter"
+	"maps"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	resourceapi "k8s.io/api/resource/v1"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	kube_types "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/networkdriver/types"
@@ -31,7 +34,7 @@ var deviceByName = statedb.Index[*DRADevice, string]{
 var allocationByKey = statedb.Index[*DRAAllocation, string]{
 	Name: "id",
 	FromObject: func(a *DRAAllocation) index.KeySet {
-		return index.NewKeySet(index.String(AllocationKey(a.LogicalPool, a.DeviceName)))
+		return index.NewKeySet(index.String(AllocationKey(a.LogicalPool, a.DeviceName, a.ShareID)))
 	},
 	FromKey:    index.String,
 	FromString: index.FromString,
@@ -68,10 +71,10 @@ var allocationByPodUID = statedb.Index[*DRAAllocation, string]{
 	Unique:     false,
 }
 
-// AllocationKey returns the primary key for a device allocation. pool is the
-// logical (user-configured) Cilium pool, not the DRA ResourceSlice pool name.
-func AllocationKey(pool, deviceName string) string {
-	return pool + "/" + deviceName
+// AllocationKey returns the primary key for a device allocation. logicalPool
+// is the user-configured Cilium pool, not the DRA ResourceSlice pool name.
+func AllocationKey(logicalPool, deviceName string, shareID kube_types.UID) string {
+	return logicalPool + "/" + deviceName + "/" + string(shareID)
 }
 
 // AllocationsByDeviceName returns all allocations for the given device.
@@ -119,24 +122,27 @@ type DRAAllocation struct {
 	// LogicalPool is the user-configured Cilium pool the device was matched
 	// against at allocation time — not the DRA ResourceSlice pool name (see
 	// allocation.LogicalPool for the full explanation).
-	LogicalPool string
-	PodUID      kube_types.UID
-	ClaimUID    kube_types.UID
-	Config      types.DeviceConfig
+	LogicalPool      string
+	PodUID           kube_types.UID
+	ClaimUID         kube_types.UID
+	Config           types.DeviceConfig
+	ShareID          kube_types.UID
+	ConsumedCapacity map[resourceapi.QualifiedName]apiresource.Quantity
 }
 
 func (a *DRAAllocation) Clone() *DRAAllocation {
 	c := *a
+	c.ConsumedCapacity = maps.Clone(a.ConsumedCapacity)
 	return &c
 }
 
 func (a *DRAAllocation) TableHeader() []string {
-	return []string{"Device", "Manager", "LogicalPool", "PodUID", "ClaimUID", "PodIfName"}
+	return []string{"Device", "Manager", "LogicalPool", "ShareID", "PodUID", "ClaimUID", "PodIfName"}
 }
 
 func (a *DRAAllocation) TableRow() []string {
 	return []string{
-		a.DeviceName, a.Manager.String(), a.LogicalPool,
+		a.DeviceName, a.Manager.String(), a.LogicalPool, string(a.ShareID),
 		string(a.PodUID), string(a.ClaimUID), a.Config.PodIfName,
 	}
 }

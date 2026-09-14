@@ -90,7 +90,8 @@ func TestRecoverAllocationDevice(t *testing.T) {
 	recovered := &trackedDevice{name: prepTestDev0, kernelIfName: "recovered0"}
 	restored := &trackedDevice{
 		name: prepTestDev0,
-		recoverFunc: func(types.DeviceAllocation) (types.Device, error) {
+		recoverFunc: func(allocation types.DeviceAllocation) (types.Device, error) {
+			require.Equal(t, prepTestShareID0, allocation.ShareID)
 			return recovered, nil
 		},
 	}
@@ -99,6 +100,7 @@ func TestRecoverAllocationDevice(t *testing.T) {
 		DeviceName:  prepTestDev0,
 		LogicalPool: prepTestPool,
 		Manager:     types.DeviceManagerTypeMock,
+		ShareID:     prepTestShareID0,
 	}
 	driver.storeAllocations([]allocation{alloc}, prepTestPodUID, prepTestClaimUID)
 
