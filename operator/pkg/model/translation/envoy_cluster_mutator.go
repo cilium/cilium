@@ -198,3 +198,25 @@ func withTLSOrigination(secretsNamespace string, tls *model.BackendTLSOriginatio
 		return cluster
 	}
 }
+
+// withUpstreamTLSInsecure originates TLS to the upstream without verifying the
+// server certificate. Used for InferencePool Endpoint Pickers (EPP), which serve
+// their ext_proc gRPC over TLS with a self-signed certificate. ALPN "h2" is
+// advertised so the gRPC stream negotiates HTTP/2.
+func withUpstreamTLSInsecure() ClusterMutator {
+	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
+		tlsContext := &envoy_config_tls.UpstreamTlsContext{
+			CommonTlsContext: &envoy_config_tls.CommonTlsContext{
+				AlpnProtocols: []string{"h2"},
+				// No ValidationContext => Envoy does not verify the server cert.
+			},
+		}
+		cluster.TransportSocket = &envoy_config_core_v3.TransportSocket{
+			Name: "envoy.transport_sockets.tls",
+			ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+				TypedConfig: toAny(tlsContext),
+			},
+		}
+		return cluster
+	}
+}

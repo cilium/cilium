@@ -10,6 +10,7 @@ import (
 
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	override_hostv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/stretchr/testify/require"
@@ -311,4 +312,106 @@ func Test_getHTTPExtAuthBackends(t *testing.T) {
 	backends := getHTTPExtAuthBackends(m)
 	require.Len(t, backends, 1)
 	require.Equal(t, "http-svc", backends[0].Name)
+}
+
+// endpoint picker test
+func Test_desiredEnvoyCluster_epp(t *testing.T) {
+	m := &model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				Routes: []model.HTTPRoute{
+					{
+						Backends: []model.Backend{
+							{
+								Name:      "llm-pool-shadow-service",
+								Namespace: "default",
+								Port:      &model.BackendPort{Port: 8000},
+								EndpointPicker: &model.EndpointPicker{
+									Name:        "llm-pool-epp",
+									Namespace:   "default",
+									Port:        9002,
+									FailureMode: "FailClose",
+								},
+							}},
+					}},
+			}},
+	}
+
+	c := &cecTranslator{}
+	clusters, err := c.desiredEnvoyCluster(m)
+	require.NoError(t, err)
+
+	byName := map[string]*envoy_config_cluster_v3.Cluster{}
+	for _, res := range clusters {
+		cl := &envoy_config_cluster_v3.Cluster{}
+		require.NoError(t, proto.Unmarshal(res.Value, cl))
+		byName[cl.Name] = cl
+	}
+
+	eppName := getEPPClusterName("default", "llm-pool-epp", "9002")
+	epp, ok := byName[eppName]
+	require.True(t, ok, "expected EPP cluster %q", eppName)
+
+	require.Equal(t, &envoy_config_cluster_v3.Cluster_Type{
+		Type: envoy_config_cluster_v3.Cluster_EDS,
+	}, epp.ClusterDiscoveryType)
+
+	require.Equal(t, getClusterServiceName("default", "llm-pool-epp", "9002"), epp.EdsClusterConfig.ServiceName)
+
+	protocolOptions := &envoy_upstreams_http_v3.HttpProtocolOptions{}
+	require.NoError(t, epp.TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(protocolOptions))
+	require.NotNil(t, protocolOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions(),
+		"EPP cluster must speak HTTP/2 for ext_proc gRPC")
+
+}
+
+func Test_desiredEnvoyCluster_inferenceDestination(t *testing.T) {
+	m := &model.Model{
+		HTTP: []model.HTTPListener{{
+			Routes: []model.HTTPRoute{{
+				Backends: []model.Backend{{
+					Name:      "llm-pool-shadow-service",
+					Namespace: "default",
+					Port:      &model.BackendPort{Port: 8000},
+					EndpointPicker: &model.EndpointPicker{
+						Name: "llm-pool-epp", Namespace: "default", Port: 9002, FailureMode: "FailClose",
+					},
+				}},
+			}},
+		}},
+	}
+
+	c := &cecTranslator{}
+	clusters, err := c.desiredEnvoyCluster(m)
+	require.NoError(t, err)
+
+	byName := map[string]*envoy_config_cluster_v3.Cluster{}
+	for _, res := range clusters {
+		cl := &envoy_config_cluster_v3.Cluster{}
+		require.NoError(t, proto.Unmarshal(res.Value, cl))
+		byName[cl.Name] = cl
+	}
+
+	name := getClusterName("default", "llm-pool-shadow-service", "8000")
+	cl, ok := byName[name]
+	require.True(t, ok, "expected inference destination EDS cluster %q", name)
+
+	require.Equal(t, envoy_config_cluster_v3.Cluster_EDS, cl.GetType())
+	require.Equal(t, "default/llm-pool-shadow-service",
+		cl.GetEdsClusterConfig().GetServiceName())
+
+	// LB policy is override_host (reads the EPP destination header), round_robin fallback.
+	pols := cl.GetLoadBalancingPolicy().GetPolicies()
+	require.NotEmpty(t, pols)
+	require.Equal(t, "envoy.load_balancing_policies.override_host",
+		pols[0].GetTypedExtensionConfig().GetName())
+
+	oh := &override_hostv3.OverrideHost{}
+	require.NoError(t, pols[0].GetTypedExtensionConfig().GetTypedConfig().UnmarshalTo(oh))
+	require.Len(t, oh.GetOverrideHostSources(), 1)
+	require.Equal(t, "x-gateway-destination-endpoint", oh.GetOverrideHostSources()[0].GetHeader())
+
+	// the pool must no longer emit an ORIGINAL_DST origdst: cluster.
+	require.NotContains(t, byName, "origdst:default:llm-pool-shadow-service:8000",
+		"pool backend should not emit an ORIGINAL_DST cluster")
 }
