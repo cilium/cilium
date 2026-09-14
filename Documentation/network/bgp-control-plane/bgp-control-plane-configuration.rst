@@ -255,9 +255,9 @@ An example of creating a secret is:
    $ kubectl create secret generic -n kube-system --type=string secretname --from-literal=password=my-secret-password
 
 If you wish to change the namespace, you can set the
-``bgpControlPlane.secretNamespace.name`` Helm chart value. To have the
+``bgpControlPlane.secretsNamespace.name`` Helm chart value. To have the
 namespace created automatically, you can set the
-``bgpControlPlane.secretNamespace.create`` Helm chart value  to ``true``.
+``bgpControlPlane.secretsNamespace.create`` Helm chart value  to ``true``.
 
 Because TCP MD5 passwords sign the header of the packet they cannot be used if
 the session is address-translated by Cilium (in other words, the Cilium Agent's pod
@@ -270,9 +270,10 @@ Cilium Agent's logs rather than a more specific error message.
 .. _RFC-2385 : https://www.rfc-editor.org/rfc/rfc2385.html
 
 If a ``CiliumBGPPeerConfig`` is deployed with an ``authSecretRef`` that Cilium cannot find,
-the BGP session will use an empty password and the agent will log an error such as in the following example::
+the BGP session will use an empty password. This is not logged by the agent. Instead, the
+operator reports it as a ``MissingAuthSecret`` condition on the ``CiliumBGPPeerConfig``::
 
-    level=error msg="Failed to fetch secret \"secretname\": not found (will continue with empty password)" component=manager.fetchPeerPassword subsys=bgp-control-plane
+    $ kubectl get ciliumbgppeerconfig <name> -o jsonpath='{.status.conditions}'
 
 .. _bgp_peer_configuration_timers:
 
