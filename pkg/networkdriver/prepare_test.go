@@ -96,6 +96,7 @@ type trackedDevice struct {
 	recoverFunc      func(types.DeviceAllocation) (types.Device, error)
 	prepared         types.Device
 	capacity         map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
+	attrs            map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
 	allowMultiple    bool
 	setupCalls       atomic.Int32
 	recoverCalls     atomic.Int32
@@ -125,7 +126,7 @@ func (d *trackedDevice) Merge(old types.Device) {
 // GetAttrs intentionally returns nil — these tests do not exercise device
 // attributes, and buildPoolsFromTable handles a nil map safely.
 func (d *trackedDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
-	return nil
+	return d.attrs
 }
 
 func (d *trackedDevice) GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity {
@@ -201,6 +202,8 @@ const (
 	prepTestShareID1   = kubetypes.UID("eeeeeeee-0000-0000-0000-000000000005")
 	prepTestCapacity   = resourceapi.QualifiedName("rxQueues")
 )
+
+const prepTestLogicalPool = "logical-pool"
 
 // ---------------------------------------------------------------------------
 // Fixture builders
@@ -380,13 +383,37 @@ func TestPrepare(t *testing.T) {
 
 	t.Run("test prepare one device one claim success", func(t *testing.T) {
 		cs, _ := k8sClient.NewFakeClientset(tlog)
-		dev := &trackedDevice{name: prepTestDev0}
+		queueID := int64(1)
+		dev := &trackedDevice{
+			name: prepTestDev0,
+			attrs: map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
+				types.RXQueueIDLabel: {IntValue: &queueID},
+			},
+		}
 		claim := buildPrepClaim(prepTestDev0)
+		claim.Status.Allocation.Devices.Results[0].Pool = prepTestPool
 		createPrepClaim(t, cs, claim)
 
 		driver := buildPrepDriver(t, cs, dev)
+		driver.config.Pools = []v2alpha1.CiliumNetworkDriverDevicePoolConfig{{
+			PoolName: prepTestLogicalPool,
+			Filter:   &v2alpha1.CiliumNetworkDriverDeviceFilter{},
+		}}
 		result := prepOne(t, driver, claim)
 		require.NoError(t, result.Err)
+		require.Len(t, result.Devices, 1)
+		resultDevice := result.Devices[0]
+		require.Equal(t, []string{prepTestRequest}, resultDevice.Requests)
+		require.Equal(t, prepTestDev0, resultDevice.DeviceName)
+		require.Equal(t, prepTestPool, resultDevice.PoolName)
+		require.NotNil(t, resultDevice.Metadata)
+		require.NotNil(t, resultDevice.Metadata.NetworkData)
+		require.Equal(t, "mydevice", resultDevice.Metadata.NetworkData.InterfaceName)
+		require.EqualValues(t, 1, *resultDevice.Metadata.Attributes[types.RXQueueIDLabel].IntValue)
+		require.Equal(t, types.DeviceManagerTypeMock.String(),
+			*resultDevice.Metadata.Attributes[types.DeviceManagerLabel].StringValue)
+		require.Equal(t, prepTestLogicalPool,
+			*resultDevice.Metadata.Attributes[types.PoolNameLabel].StringValue)
 
 		require.EqualValues(t, 1, dev.setupCalls.Load(), "Setup must be called once")
 		require.EqualValues(t, 0, dev.freeCalls.Load(), "Free must not be called on success")
@@ -396,6 +423,7 @@ func TestPrepare(t *testing.T) {
 		require.Len(t, rows, 1)
 		require.Equal(t, prepTestPodUID, rows[0].PodUID)
 		require.Equal(t, prepTestClaimUID, rows[0].ClaimUID)
+		require.Equal(t, prepTestLogicalPool, rows[0].LogicalPool)
 
 		txn := driver.db.ReadTxn()
 		_, _, found := driver.deviceTable.Get(txn, deviceByName.Query(prepTestDev0))
