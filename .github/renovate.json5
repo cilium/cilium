@@ -571,7 +571,9 @@
       ],
       "allowedVersions": "<1.27",
       "matchBaseBranches": [
-        "v1.20"
+        "v1.20",
+        "v1.19",
+        "v1.18",
       ]
     },
     {
@@ -580,29 +582,7 @@
       ],
       "allowedVersions": "<2.14",
       "matchBaseBranches": [
-        "v1.20"
-      ]
-    },
-    // Toolchain ceilings for v1.19 and v1.18, which target Go 1.25.
-    {
-      "matchPackageNames": [
-        "docker.io/library/golang",
-        "go"
-      ],
-      "allowedVersions": "<1.26",
-      "matchBaseBranches": [
-        "v1.19",
-        "v1.18",
-      ]
-    },
-    {
-      // v1.18 already sits past this, on a v2.13.1 that only works because the
-      // branch has no .custom-gcl.yaml plugin binary to build.
-      "matchPackageNames": [
-        "golangci/golangci-lint"
-      ],
-      "allowedVersions": "<2.13",
-      "matchBaseBranches": [
+        "v1.20",
         "v1.19",
         "v1.18",
       ]
