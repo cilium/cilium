@@ -17,6 +17,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -164,7 +165,7 @@ func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, mutate func(ma
 		empty := xds.NewResources()
 		currentResources = &empty
 	}
-	newResources := currentResources.DeepCopy()
+	newResources := currentResources.CloneNetworkPolicyHosts()
 
 	changed, err := mutate(newResources.NetworkPolicyHosts)
 	if err != nil {
@@ -174,8 +175,10 @@ func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, mutate func(ma
 		return nil
 	}
 
-	return s.updateSnapshot(ctx, newResources, localNodeID, nil, nil,
-		computeChanges(currentResources, newResources))
+	removed := &xds.Resources{NetworkPolicyHosts: currentResources.NetworkPolicyHosts}
+	upserted := &xds.Resources{NetworkPolicyHosts: newResources.NetworkPolicyHosts}
+	_, err = s.applyResourceUpdate(ctx, localNodeID, xdsnew.ResourceMutations{Removed: *removed, Upserted: *upserted}, nil, nil)
+	return err
 }
 
 func newNPHDSIPCacheListenerCallbacks(logger *slog.Logger, ipCache IPCacheEventSource, store nphdsResourceStore) envoy_server.CallbackFuncs {

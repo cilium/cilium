@@ -6,7 +6,10 @@ package envoy
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"os"
+	"reflect"
+	"slices"
 	"sync/atomic"
 	"testing"
 
@@ -14,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -38,6 +42,8 @@ import (
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	xds_cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
+	envoy_stream "github.com/envoyproxy/go-control-plane/pkg/server/stream/v3"
 )
 
 func GetLocalEndpointStoreForTest() *LocalEndpointStore {
@@ -123,6 +129,330 @@ var (
 	}
 )
 
+type countingADSCache struct {
+	xdsnew.Cache
+	generated atomic.Uint64
+	published atomic.Uint64
+}
+
+type revertCapturingADSCache struct {
+	xdsnew.Cache
+	revertFuncs []xdsnew.RevertFunc
+}
+
+func (c *revertCapturingADSCache) ApplyResources(ctx context.Context, nodeID string, generation uint64, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFactory xdsnew.RevertFuncFactory) (bool, xdsnew.RevertFunc, error) {
+	updated, revertFunc, err := c.Cache.ApplyResources(ctx, nodeID, generation, mutations, wg, typeURLs, revertFactory)
+	if updated && revertFunc != nil {
+		c.revertFuncs = append(c.revertFuncs, revertFunc)
+	}
+	return updated, revertFunc, err
+}
+
+func (c *countingADSCache) ApplyResources(ctx context.Context, nodeID string, generation uint64, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, typeURLs map[string]func(error), revertFactory xdsnew.RevertFuncFactory) (bool, xdsnew.RevertFunc, error) {
+	updated, revertFunc, err := c.Cache.ApplyResources(ctx, nodeID, generation, mutations, wg, typeURLs, revertFactory)
+	if updated {
+		c.generated.Add(1)
+		c.published.Add(1)
+	}
+	return updated, revertFunc, err
+}
+
+func (c *countingADSCache) reset() {
+	c.generated.Store(0)
+	c.published.Store(0)
+}
+
+func createADSWatchResponse(t *testing.T, cache xdsnew.Cache, typeURL, version string) xds_cache.Response {
+	t.Helper()
+	request := &envoy_service_discovery.DiscoveryRequest{
+		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl:     typeURL,
+		VersionInfo: version,
+	}
+	responses := make(chan xds_cache.Response, 1)
+	cancel, err := cache.CreateWatch(request, envoy_stream.NewSotwSubscription(nil, false), responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+	select {
+	case response := <-responses:
+		return response
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for ADS watch response")
+		return nil
+	}
+}
+
+func mapIdentity[K comparable, V any](m map[K]V) uintptr {
+	return reflect.ValueOf(m).Pointer()
+}
+
+func TestSnapshotRevertGeneration(t *testing.T) {
+	newServer := func(t *testing.T) (*adsServer, *revertCapturingADSCache) {
+		t.Helper()
+		logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+		cache := &revertCapturingADSCache{Cache: xdsnew.NewCache(logger, false)}
+		return newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, nil), cache
+	}
+	resources := func(endpointID uint64) xds.Resources {
+		resources := xds.NewResources()
+		resources.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: endpointID}
+		return resources
+	}
+
+	t.Run("current generation is reverted", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
+		cache.revertFuncs = nil
+
+		wg := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), wg))
+		require.Len(t, cache.revertFuncs, 1)
+
+		_, reverted := cache.revertFuncs[0](server.resourceGenerations[localNodeID])
+		require.True(t, reverted)
+		current := cache.GetAllResources(localNodeID)
+		require.Equal(t, uint64(1), current.NetworkPolicies["policy"].EndpointId)
+	})
+
+	t.Run("updates share a global generation space without coupling node reverts", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		publish := func(nodeID string, endpointID uint64) {
+			next := resources(endpointID)
+			server.mutex.Lock()
+			current := cache.GetAllResources(nodeID)
+			err := func() error {
+				var removed xds.Resources
+				if current != nil {
+					removed = *current
+				}
+				_, err := server.applyResourceUpdate(ctx, nodeID, xdsnew.ResourceMutations{Removed: removed, Upserted: next}, nil, nil)
+				return err
+			}()
+			server.mutex.Unlock()
+			require.NoError(t, err)
+		}
+
+		publish("node-a", 1) // generation 1
+		publish("node-b", 1) // generation 2
+		cache.revertFuncs = nil
+		publish("node-a", 2) // generation 3
+		require.Len(t, cache.revertFuncs, 1)
+		revertNodeA := cache.revertFuncs[0]
+		publish("node-b", 2) // generation 4
+
+		require.Equal(t, uint64(4), server.resourceGeneration)
+		require.Equal(t, uint64(3), server.resourceGenerations["node-a"])
+		require.Equal(t, uint64(4), server.resourceGenerations["node-b"])
+
+		// The global allocator advanced for node-b, but node-a still has the
+		// exact resource generation expected by its revert.
+		generation, reverted := revertNodeA(server.resourceGenerations["node-a"])
+		require.True(t, reverted)
+		require.Equal(t, uint64(5), generation)
+		require.Equal(t, generation, server.resourceGeneration)
+		require.Equal(t, generation, server.resourceGenerations["node-a"])
+		require.Equal(t, uint64(4), server.resourceGenerations["node-b"])
+		require.Equal(t, uint64(1), cache.GetAllResources("node-a").NetworkPolicies["policy"].EndpointId)
+		require.Equal(t, uint64(2), cache.GetAllResources("node-b").NetworkPolicies["policy"].EndpointId)
+	})
+
+	t.Run("superseded ABA generation is not reverted", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
+		cache.revertFuncs = nil
+
+		wg := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), wg))
+		require.Len(t, cache.revertFuncs, 1)
+		staleRevert := cache.revertFuncs[0]
+
+		// Return to the same resource contents through a later generation. A
+		// content hash cannot distinguish this state from the one associated
+		// with staleRevert, but its generation token can.
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(3), nil))
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), nil))
+		beforeRevert := cache.GetAllResources(localNodeID)
+		generation := server.resourceGenerations[localNodeID]
+
+		_, reverted := staleRevert(2)
+		require.False(t, reverted)
+		require.Same(t, beforeRevert, cache.GetAllResources(localNodeID))
+		require.Equal(t, generation, server.resourceGenerations[localNodeID])
+		require.Equal(t, uint64(2), beforeRevert.NetworkPolicies["policy"].EndpointId)
+	})
+
+	t.Run("coalesced generations revert to the last accepted state", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
+		cache.revertFuncs = nil
+
+		wg2 := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg2.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), wg2))
+		wg3 := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg3.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(3), wg3))
+		require.Len(t, cache.revertFuncs, 2)
+
+		expectedGeneration := server.resourceGenerations[localNodeID]
+		for _, revertFunc := range slices.Backward(cache.revertFuncs) {
+			var reverted bool
+			expectedGeneration, reverted = revertFunc(expectedGeneration)
+			require.True(t, reverted)
+		}
+
+		current := cache.GetAllResources(localNodeID)
+		require.Equal(t, uint64(1), current.NetworkPolicies["policy"].EndpointId)
+		require.Equal(t, expectedGeneration, server.resourceGenerations[localNodeID])
+	})
+
+	t.Run("replayed revert lets a NACK continue through coalesced generations", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
+		cache.revertFuncs = nil
+
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), nil))
+		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(3), nil))
+		require.Len(t, cache.revertFuncs, 2)
+		olderRevert, newerRevert := cache.revertFuncs[0], cache.revertFuncs[1]
+
+		responseGeneration := server.resourceGenerations[localNodeID]
+		revertedGeneration, reverted := newerRevert(revertCurrentGeneration)
+		require.True(t, reverted)
+		require.Equal(t, uint64(2), cache.GetAllResources(localNodeID).NetworkPolicies["policy"].EndpointId)
+
+		// Endpoint regeneration already applied this inverse, but a subsequent
+		// NACK of the same response must treat it as successfully reverted and
+		// continue with older updates coalesced into that response.
+		replayedGeneration, reverted := newerRevert(responseGeneration)
+		require.True(t, reverted)
+		require.Equal(t, revertedGeneration, replayedGeneration)
+
+		finalGeneration, reverted := olderRevert(replayedGeneration)
+		require.True(t, reverted)
+		require.Equal(t, finalGeneration, server.resourceGenerations[localNodeID])
+		require.Equal(t, uint64(1), cache.GetAllResources(localNodeID).NetworkPolicies["policy"].EndpointId)
+	})
+
+	t.Run("NACK reverts a coalesced untracked generation", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		listenerResources := func(name string) xds.Resources {
+			resources := xds.NewResources()
+			resources.Listeners[name] = &envoy_config_listener.Listener{Name: name}
+			return resources
+		}
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-1"), nil))
+
+		createADSWatchResponse(t, cache, ListenerTypeURL, "")
+		baselineSnapshot, err := cache.GetSnapshot(localNodeID)
+		require.NoError(t, err)
+		baselineVersion := baselineSnapshot.GetVersion(ListenerTypeURL)
+		node := &envoy_config_core_v3.Node{Id: localNodeID}
+		require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+			Node:        node,
+			TypeUrl:     ListenerTypeURL,
+			VersionInfo: baselineVersion,
+		}))
+
+		wg := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-2"), wg))
+		// Generation 3 has no WaitGroup, matching the tracked/untracked update
+		// shape produced by the synthetic ingress policy in #43519.
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-3"), nil))
+
+		response := createADSWatchResponse(t, cache, ListenerTypeURL, baselineVersion)
+		currentSnapshot, err := cache.GetSnapshot(localNodeID)
+		require.NoError(t, err)
+		currentVersion := currentSnapshot.GetVersion(ListenerTypeURL)
+		cache.GetCompletionCallbacks().OnStreamResponse(
+			response.GetContext(), 1,
+			&envoy_service_discovery.DiscoveryRequest{Node: node, TypeUrl: ListenerTypeURL},
+			&envoy_service_discovery.DiscoveryResponse{
+				VersionInfo: currentVersion,
+				TypeUrl:     ListenerTypeURL,
+				Nonce:       "nonce-3",
+			})
+		require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+			Node:          node,
+			TypeUrl:       ListenerTypeURL,
+			VersionInfo:   baselineVersion,
+			ResponseNonce: "nonce-3",
+			ErrorDetail:   &status.Status{Message: "rejected coalesced listener"},
+		}))
+
+		require.ErrorContains(t, wg.Wait(), "rejected coalesced listener")
+		current := cache.GetAllResources(localNodeID)
+		require.Contains(t, current.Listeners, "listener-1")
+		require.NotContains(t, current.Listeners, "listener-2")
+		require.NotContains(t, current.Listeners, "listener-3")
+	})
+
+	t.Run("NACK reverts an untracked generation staged before a tracked generation", func(t *testing.T) {
+		server, cache := newServer(t)
+		ctx := t.Context()
+		listenerResources := func(name string) xds.Resources {
+			resources := xds.NewResources()
+			resources.Listeners[name] = &envoy_config_listener.Listener{Name: name}
+			return resources
+		}
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-1"), nil))
+
+		createADSWatchResponse(t, cache, ListenerTypeURL, "")
+		baselineSnapshot, err := cache.GetSnapshot(localNodeID)
+		require.NoError(t, err)
+		baselineVersion := baselineSnapshot.GetVersion(ListenerTypeURL)
+		node := &envoy_config_core_v3.Node{Id: localNodeID}
+		require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+			Node:        node,
+			TypeUrl:     ListenerTypeURL,
+			VersionInfo: baselineVersion,
+		}))
+
+		// Lazy finalization allows an untracked mutation to be staged before a
+		// later tracked one. Both enter the same response and must therefore be
+		// rolled back together if Envoy rejects it.
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-2"), nil))
+		wg := completion.NewWaitGroup(ctx)
+		t.Cleanup(wg.Cancel)
+		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-3"), wg))
+
+		response := createADSWatchResponse(t, cache, ListenerTypeURL, baselineVersion)
+		currentSnapshot, err := cache.GetSnapshot(localNodeID)
+		require.NoError(t, err)
+		currentVersion := currentSnapshot.GetVersion(ListenerTypeURL)
+		cache.GetCompletionCallbacks().OnStreamResponse(
+			response.GetContext(), 1,
+			&envoy_service_discovery.DiscoveryRequest{Node: node, TypeUrl: ListenerTypeURL},
+			&envoy_service_discovery.DiscoveryResponse{
+				VersionInfo: currentVersion,
+				TypeUrl:     ListenerTypeURL,
+				Nonce:       "nonce-3",
+			})
+		require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+			Node:          node,
+			TypeUrl:       ListenerTypeURL,
+			VersionInfo:   baselineVersion,
+			ResponseNonce: "nonce-3",
+			ErrorDetail:   &status.Status{Message: "rejected lazily coalesced listener"},
+		}))
+
+		require.ErrorContains(t, wg.Wait(), "rejected lazily coalesced listener")
+		current := cache.GetAllResources(localNodeID)
+		require.Contains(t, current.Listeners, "listener-1")
+		require.NotContains(t, current.Listeners, "listener-2")
+		require.NotContains(t, current.Listeners, "listener-3")
+	})
+}
+
 func TestNewADSServer(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	config := xdsServerConfig{
@@ -206,20 +536,17 @@ func TestAddListenerCompletesCallbackOnACK(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int32(0), calls.Load())
 
+	watchResponse := createADSWatchResponse(t, cache, ListenerTypeURL, "")
 	snapshot, err := cache.GetSnapshot(localNodeID)
 	require.NoError(t, err)
 	version := snapshot.GetVersion(ListenerTypeURL)
 	require.NotEmpty(t, version)
 
-	req := &envoy_service_discovery.DiscoveryRequest{
-		TypeUrl: ListenerTypeURL,
-		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
-	}
 	resp := &envoy_service_discovery.DiscoveryResponse{
 		TypeUrl:     ListenerTypeURL,
 		VersionInfo: version,
 	}
-	cache.GetCompletionCallbacks().OnStreamResponse(ctx, 1, req, resp)
+	cache.GetCompletionCallbacks().OnStreamResponse(watchResponse.GetContext(), 1, watchResponse.GetRequest(), resp)
 	require.Equal(t, int32(0), calls.Load())
 
 	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
@@ -230,6 +557,108 @@ func TestAddListenerCompletesCallbackOnACK(t *testing.T) {
 	require.NoError(t, wg.Wait())
 	require.Equal(t, int32(1), calls.Load())
 	require.NoError(t, <-callbackErr)
+}
+
+func TestNoOpListenerAlreadyAcceptedDoesNotWaitForUnrelatedListener(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := xdsnew.NewCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	ctx := t.Context()
+	node := &envoy_config_core_v3.Node{Id: localNodeID}
+
+	listener1 := &envoy_config_listener.Listener{Name: "listener-1"}
+	initial := xds.NewResources()
+	initial.Listeners[listener1.Name] = listener1
+	require.NoError(t, server.UpsertEnvoyResources(ctx, initial, nil))
+	firstResponse := createADSWatchResponse(t, cache, ListenerTypeURL, "")
+	firstVersion := firstResponse.GetResponseVersion()
+	cache.GetCompletionCallbacks().OnStreamResponse(firstResponse.GetContext(), 1, firstResponse.GetRequest(),
+		&envoy_service_discovery.DiscoveryResponse{
+			TypeUrl: ListenerTypeURL, VersionInfo: firstVersion, Nonce: "nonce-1",
+		})
+	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1,
+		&envoy_service_discovery.DiscoveryRequest{
+			Node: node, TypeUrl: ListenerTypeURL, VersionInfo: firstVersion, ResponseNonce: "nonce-1",
+		}))
+
+	listener2 := &envoy_config_listener.Listener{Name: "listener-2"}
+	second := xds.NewResources()
+	second.Listeners[listener2.Name] = listener2
+	require.NoError(t, server.UpsertEnvoyResources(ctx, second, nil))
+	secondResponse := createADSWatchResponse(t, cache, ListenerTypeURL, firstVersion)
+	secondVersion := secondResponse.GetResponseVersion()
+	cache.GetCompletionCallbacks().OnStreamResponse(secondResponse.GetContext(), 1, secondResponse.GetRequest(),
+		&envoy_service_discovery.DiscoveryResponse{
+			TypeUrl: ListenerTypeURL, VersionInfo: secondVersion, Nonce: "nonce-2",
+		})
+
+	var callbackCalls atomic.Int32
+	noop := xds.NewResources()
+	noop.Listeners[listener1.Name] = listener1
+	noop.PortAllocationCallbacks[listener1.Name] = func(context.Context) error {
+		callbackCalls.Add(1)
+		return nil
+	}
+	wg := completion.NewWaitGroup(ctx)
+	t.Cleanup(wg.Cancel)
+	require.NoError(t, server.UpsertEnvoyResources(ctx, noop, wg))
+	require.NoError(t, wg.Wait())
+	require.Equal(t, int32(1), callbackCalls.Load())
+	require.Zero(t, cache.GetCompletionCallbacks().PendingCompletionCount())
+
+	// A no-op update for listener-2 itself must still attach to the response
+	// which is currently awaiting its ACK.
+	var listener2CallbackCalls atomic.Int32
+	listener2NoOp := xds.NewResources()
+	listener2NoOp.Listeners[listener2.Name] = listener2
+	listener2NoOp.PortAllocationCallbacks[listener2.Name] = func(context.Context) error {
+		listener2CallbackCalls.Add(1)
+		return nil
+	}
+	listener2WG := completion.NewWaitGroup(ctx)
+	t.Cleanup(listener2WG.Cancel)
+	require.NoError(t, server.UpsertEnvoyResources(ctx, listener2NoOp, listener2WG))
+	require.Equal(t, 1, cache.GetCompletionCallbacks().PendingCompletionCount())
+	require.Equal(t, int32(0), listener2CallbackCalls.Load())
+
+	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1,
+		&envoy_service_discovery.DiscoveryRequest{
+			Node: node, TypeUrl: ListenerTypeURL, VersionInfo: secondVersion, ResponseNonce: "nonce-2",
+		}))
+	require.NoError(t, listener2WG.Wait())
+	require.Equal(t, int32(1), listener2CallbackCalls.Load())
+	require.Zero(t, cache.GetCompletionCallbacks().PendingCompletionCount())
+}
+
+func TestUpdateEnvoyResourcesNoOpListenerWaitsForCurrentACK(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := xdsnew.NewCache(logger, false)
+	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	t.Cleanup(cancel)
+
+	resources := xds.NewResources()
+	resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
+	require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), resources, nil))
+	response := createADSWatchResponse(t, cache, ListenerTypeURL, "")
+	version := response.GetResponseVersion()
+	cache.GetCompletionCallbacks().OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
+		&envoy_service_discovery.DiscoveryResponse{
+			TypeUrl: ListenerTypeURL, VersionInfo: version, Nonce: "nonce-1",
+		})
+
+	wg := completion.NewWaitGroup(ctx)
+	t.Cleanup(wg.Cancel)
+	require.NoError(t, server.UpdateEnvoyResources(ctx, resources, resources, wg))
+	require.Equal(t, 1, cache.GetCompletionCallbacks().PendingCompletionCount())
+
+	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1,
+		&envoy_service_discovery.DiscoveryRequest{
+			Node: &envoy_config_core_v3.Node{Id: localNodeID}, TypeUrl: ListenerTypeURL,
+			VersionInfo: version, ResponseNonce: "nonce-1",
+		}))
+	require.NoError(t, wg.Wait())
+	require.Zero(t, cache.GetCompletionCallbacks().PendingCompletionCount())
 }
 
 func TestAddListenerWithoutWaitGroupCallsCallback(t *testing.T) {
@@ -345,8 +774,16 @@ func TestRemoveListener(t *testing.T) {
 	revertFunc := server.RemoveListener(ctx, "test-listener", wg)
 	assert.NotNil(t, revertFunc)
 
-	resources = cache.GetAllResources(localNodeID)
-	require.Empty(t, resources.Listeners)
+	removedResources := cache.GetAllResources(localNodeID)
+	require.Empty(t, removedResources.Listeners)
+
+	revertFunc()
+
+	revertedResources := cache.GetAllResources(localNodeID)
+	require.NotSame(t, removedResources, revertedResources)
+	require.NotNil(t, revertedResources.Listeners["test-listener"])
+	// A revert must not mutate the Resources generation it superseded.
+	require.Empty(t, removedResources.Listeners)
 }
 
 // TestUpsertEnvoyResources verifies that Envoy resources can be upserted
@@ -492,7 +929,7 @@ func TestUpdateEnvoyResourcesWithoutExplicitCallbackDoesNotWaitForCDSOrRDS(t *te
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
+	cache := xdsnew.NewCache(logger, false)
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -500,6 +937,17 @@ func TestUpdateEnvoyResourcesWithoutExplicitCallbackDoesNotWaitForCDSOrRDS(t *te
 	oldResources := xds.NewResources()
 	oldResources.Listeners["listener1"] = DEFAULT_RESOURCES.Listeners["listener1"]
 	require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), oldResources, nil))
+	response := createADSWatchResponse(t, cache, ListenerTypeURL, "")
+	version := response.GetResponseVersion()
+	cache.GetCompletionCallbacks().OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
+		&envoy_service_discovery.DiscoveryResponse{
+			TypeUrl: ListenerTypeURL, VersionInfo: version, Nonce: "nonce-1",
+		})
+	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1,
+		&envoy_service_discovery.DiscoveryRequest{
+			Node: &envoy_config_core_v3.Node{Id: localNodeID}, TypeUrl: ListenerTypeURL,
+			VersionInfo: version, ResponseNonce: "nonce-1",
+		}))
 
 	newResources := xds.NewResources()
 	newResources.Listeners["listener1"] = DEFAULT_RESOURCES.Listeners["listener1"]
@@ -519,7 +967,7 @@ func TestUpdateEnvoyResourcesWaitsForListenerACKWithPortAllocationCallback(t *te
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
+	cache := xdsnew.NewCache(logger, false)
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -540,20 +988,17 @@ func TestUpdateEnvoyResourcesWaitsForListenerACKWithPortAllocationCallback(t *te
 	}, time.Second, 10*time.Millisecond)
 	require.Equal(t, uint64(0), callbackCount.Load())
 
+	watchResponse := createADSWatchResponse(t, cache, ListenerTypeURL, "")
 	snapshot, err := cache.GetSnapshot(localNodeID)
 	require.NoError(t, err)
 	version := snapshot.GetVersion(ListenerTypeURL)
 	require.NotEmpty(t, version)
 
-	req := &envoy_service_discovery.DiscoveryRequest{
-		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
-		TypeUrl: ListenerTypeURL,
-	}
 	resp := &envoy_service_discovery.DiscoveryResponse{
 		TypeUrl:     ListenerTypeURL,
 		VersionInfo: version,
 	}
-	cache.GetCompletionCallbacks().OnStreamResponse(context.Background(), 1, req, resp)
+	cache.GetCompletionCallbacks().OnStreamResponse(watchResponse.GetContext(), 1, watchResponse.GetRequest(), resp)
 	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
 		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
 		TypeUrl:     ListenerTypeURL,
@@ -571,12 +1016,13 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
+	cache := xdsnew.NewCache(logger, false)
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	resources := DEFAULT_RESOURCES.DeepCopy()
+	resources := DEFAULT_RESOURCES
+	resources.PortAllocationCallbacks = make(map[string]func(context.Context) error)
 	var callbackCount atomic.Uint64
 	resources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
 		callbackCount.Add(1)
@@ -584,13 +1030,14 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 	}
 
 	wg := completion.NewWaitGroup(ctx)
-	require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), *resources, wg))
+	require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), resources, wg))
 
 	require.Eventually(t, func() bool {
 		return cache.GetCompletionCallbacks().PendingCompletionCount() == 2
 	}, time.Second, 10*time.Millisecond)
 	require.Equal(t, uint64(0), callbackCount.Load())
 
+	clusterWatchResponse := createADSWatchResponse(t, cache, ClusterTypeURL, "")
 	snapshot, err := cache.GetSnapshot(localNodeID)
 	require.NoError(t, err)
 	listenerVersion := snapshot.GetVersion(ListenerTypeURL)
@@ -598,16 +1045,13 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 	require.NotEmpty(t, listenerVersion)
 	require.NotEmpty(t, clusterVersion)
 	require.NotEmpty(t, snapshot.GetVersion(RouteTypeURL))
+	listenerWatchResponse := createADSWatchResponse(t, cache, ListenerTypeURL, "")
 
-	clusterReq := &envoy_service_discovery.DiscoveryRequest{
-		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
-		TypeUrl: ClusterTypeURL,
-	}
 	clusterResp := &envoy_service_discovery.DiscoveryResponse{
 		TypeUrl:     ClusterTypeURL,
 		VersionInfo: clusterVersion,
 	}
-	cache.GetCompletionCallbacks().OnStreamResponse(context.Background(), 1, clusterReq, clusterResp)
+	cache.GetCompletionCallbacks().OnStreamResponse(clusterWatchResponse.GetContext(), 1, clusterWatchResponse.GetRequest(), clusterResp)
 	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
 		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
 		TypeUrl:     ClusterTypeURL,
@@ -616,15 +1060,11 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 	require.Equal(t, uint64(0), callbackCount.Load())
 	require.Equal(t, 1, cache.GetCompletionCallbacks().PendingCompletionCount())
 
-	listenerReq := &envoy_service_discovery.DiscoveryRequest{
-		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
-		TypeUrl: ListenerTypeURL,
-	}
 	listenerResp := &envoy_service_discovery.DiscoveryResponse{
 		TypeUrl:     ListenerTypeURL,
 		VersionInfo: listenerVersion,
 	}
-	cache.GetCompletionCallbacks().OnStreamResponse(context.Background(), 1, listenerReq, listenerResp)
+	cache.GetCompletionCallbacks().OnStreamResponse(listenerWatchResponse.GetContext(), 1, listenerWatchResponse.GetRequest(), listenerResp)
 	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
 		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
 		TypeUrl:     ListenerTypeURL,
@@ -650,7 +1090,10 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 	oldResources := DEFAULT_RESOURCES
 	require.NoError(t, server.UpsertEnvoyResources(ctx, oldResources, nil))
 
-	newResources := DEFAULT_RESOURCES.DeepCopy()
+	newResources := DEFAULT_RESOURCES
+	newResources.Routes = maps.Clone(DEFAULT_RESOURCES.Routes)
+	newResources.Clusters = maps.Clone(DEFAULT_RESOURCES.Clusters)
+	newResources.PortAllocationCallbacks = make(map[string]func(context.Context) error)
 	newResources.Routes["routeConfig2"] = &envoy_config_route.RouteConfiguration{Name: "routeConfig2"}
 	newResources.Clusters["cluster2"] = &envoy_config_cluster.Cluster{
 		Name: "cluster2",
@@ -665,7 +1108,7 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 	}
 
 	wg := completion.NewWaitGroup(ctx)
-	require.NoError(t, server.UpdateEnvoyResources(ctx, oldResources, *newResources, wg))
+	require.NoError(t, server.UpdateEnvoyResources(ctx, oldResources, newResources, wg))
 
 	require.NoError(t, wg.Wait())
 	require.Equal(t, uint64(0), callbackCount.Load())
@@ -689,7 +1132,12 @@ func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testi
 	resources := xds.NewResources()
 	resources.Listeners["listener1"] = proto.Clone(DEFAULT_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
 
-	err := server.UpsertEnvoyResources(context.Background(), resources, nil)
+	require.NoError(t, server.UpsertEnvoyResources(context.Background(), resources, nil))
+	responses := make(chan xds_cache.Response, 1)
+	_, err := cache.CreateWatch(&envoy_service_discovery.DiscoveryRequest{
+		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl: ListenerTypeURL,
+	}, envoy_stream.NewSotwSubscription(nil, false), responses)
 	require.ErrorContains(t, err, "generated ADS snapshot is inconsistent")
 }
 
@@ -820,6 +1268,74 @@ func TestUpdateNetworkPolicy(t *testing.T) {
 	assert.Equal(t, uint64(1), resources.NetworkPolicies["1"].EndpointId)
 }
 
+func TestUpdateNetworkPolicyReusesIdempotentCacheRevert(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := &revertCapturingADSCache{Cache: xdsnew.NewCache(logger, true)}
+	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
+	ctx := t.Context()
+
+	previousPolicy := &cilium.NetworkPolicy{
+		EndpointId:  1,
+		EndpointIps: []string{"192.0.2.1"},
+	}
+	resources := xds.NewResources()
+	resources.NetworkPolicies["1"] = previousPolicy
+	require.NoError(t, server.UpsertEnvoyResources(ctx, resources, nil))
+	cache.revertFuncs = nil
+
+	ep := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
+	epp := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+	err, revertFunc, _ := server.UpdateNetworkPolicy(ctx, ep, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revertFunc)
+	require.Len(t, cache.revertFuncs, 1)
+	require.False(t, proto.Equal(previousPolicy, cache.GetAllResources(localNodeID).NetworkPolicies["1"]))
+
+	// Simulate the cache's NACK path invoking the revert before endpoint
+	// regeneration reports failure to its caller.
+	_, reverted := cache.revertFuncs[0](server.resourceGenerations[localNodeID])
+	require.True(t, reverted)
+	require.Same(t, previousPolicy, cache.GetAllResources(localNodeID).NetworkPolicies["1"])
+	generationAfterNACK := server.resourceGenerations[localNodeID]
+
+	require.NoError(t, revertFunc())
+	require.Equal(t, generationAfterNACK, server.resourceGenerations[localNodeID])
+	require.Same(t, previousPolicy, cache.GetAllResources(localNodeID).NetworkPolicies["1"])
+}
+
+func TestUpdateNetworkPolicyRevertAfterLaterResourceUpdate(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := xdsnew.NewCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
+	ctx := t.Context()
+
+	previousPolicy := &cilium.NetworkPolicy{
+		EndpointId:  1,
+		EndpointIps: []string{"192.0.2.1"},
+	}
+	resources := xds.NewResources()
+	resources.NetworkPolicies["1"] = previousPolicy
+	require.NoError(t, server.UpsertEnvoyResources(ctx, resources, nil))
+
+	ep1 := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
+	epp := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+	err, revertPolicy1, _ := server.UpdateNetworkPolicy(ctx, ep1, epp, nil)
+	require.NoError(t, err)
+	require.NotNil(t, revertPolicy1)
+
+	// A different endpoint can advance the node generation before broader
+	// endpoint regeneration decides to roll the first update back.
+	ep2 := &testableEndpointUpdater{id: 2, ipv4: "127.0.0.2"}
+	err, _, _ = server.UpdateNetworkPolicy(ctx, ep2, epp, nil)
+	require.NoError(t, err)
+	require.Contains(t, cache.GetAllResources(localNodeID).NetworkPolicies, "2")
+
+	require.NoError(t, revertPolicy1())
+	current := cache.GetAllResources(localNodeID).NetworkPolicies
+	require.Same(t, previousPolicy, current["1"])
+	require.Contains(t, current, "2")
+}
+
 func TestUpdateNetworkPolicyWithoutNPDSListenersCompletesImmediately(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	config := xdsServerConfig{
@@ -879,6 +1395,105 @@ func TestUpdateNetworkPolicyWithNPDSListenerWaitsForACK(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return mockEp.proxyPolicyUpdateCount.Load() == 1
 	}, time.Second, 10*time.Millisecond)
+}
+
+func TestUpdateNetworkPolicyNoOpWaitsForCurrentACKWithoutPublishing(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := &countingADSCache{Cache: xdsnew.NewCache(logger, true)}
+	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
+	ctx := context.Background()
+
+	resources := xds.NewResources()
+	resources.Listeners["npds-listener"] = server.getListenerConf("npds-listener", policy.ParserTypeHTTP, 12345, false, false)
+	require.NoError(t, server.UpsertEnvoyResources(ctx, resources, nil))
+	require.False(t, server.npdsListeners.Empty())
+
+	ep := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
+	epp := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+	firstWG := completion.NewWaitGroup(ctx)
+	defer firstWG.Cancel()
+	err, _, _ := server.UpdateNetworkPolicy(ctx, ep, epp, firstWG)
+	require.NoError(t, err)
+	require.Equal(t, 1, cache.GetCompletionCallbacks().PendingCompletionCount())
+	response := createADSWatchResponse(t, cache, NetworkPolicyTypeURL, "")
+	cache.GetCompletionCallbacks().OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
+		&envoy_service_discovery.DiscoveryResponse{
+			VersionInfo: response.GetResponseVersion(),
+			TypeUrl:     NetworkPolicyTypeURL,
+		})
+
+	resourcesBefore := cache.GetAllResources(localNodeID)
+	snapshotBefore, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	cache.reset()
+
+	secondWG := completion.NewWaitGroup(ctx)
+	defer secondWG.Cancel()
+	err, noOpRevert, finalize := server.UpdateNetworkPolicy(ctx, ep, epp, secondWG)
+	require.NoError(t, err)
+	require.NotNil(t, noOpRevert)
+	require.NotNil(t, finalize)
+	require.Zero(t, cache.generated.Load())
+	require.Zero(t, cache.published.Load())
+	require.Same(t, resourcesBefore, cache.GetAllResources(localNodeID))
+	snapshotAfter, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	require.Same(t, snapshotBefore, snapshotAfter)
+	require.Equal(t, 2, cache.GetCompletionCallbacks().PendingCompletionCount())
+
+	version := snapshotBefore.GetVersion(NetworkPolicyTypeURL)
+	node := &envoy_config_core_v3.Node{Id: localNodeID}
+	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+		Node:        node,
+		TypeUrl:     NetworkPolicyTypeURL,
+		VersionInfo: version,
+	}))
+	require.NoError(t, firstWG.Wait())
+	require.NoError(t, secondWG.Wait())
+	require.Eventually(t, func() bool {
+		return ep.proxyPolicyUpdateCount.Load() == 2
+	}, time.Second, 10*time.Millisecond)
+
+	require.NoError(t, noOpRevert())
+	require.Zero(t, cache.generated.Load())
+	require.Zero(t, cache.published.Load())
+	require.Same(t, resourcesBefore, cache.GetAllResources(localNodeID))
+	require.Contains(t, resourcesBefore.NetworkPolicies, "1")
+}
+
+func TestUpdateNetworkPolicyCopiesOnlyNetworkPolicies(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := xdsnew.NewCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
+	ctx := context.Background()
+
+	resources := xds.NewResources()
+	resources.NetworkPolicies["1"] = &cilium.NetworkPolicy{
+		EndpointId:  1,
+		EndpointIps: []string{"192.0.2.1"},
+	}
+	require.NoError(t, server.UpsertEnvoyResources(ctx, resources, nil))
+	resourcesBefore := cache.GetAllResources(localNodeID)
+	oldPolicy := resourcesBefore.NetworkPolicies["1"]
+
+	ep := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
+	epp := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+	err, _, _ := server.UpdateNetworkPolicy(ctx, ep, epp, nil)
+	require.NoError(t, err)
+
+	resourcesAfter := cache.GetAllResources(localNodeID)
+	require.NotSame(t, resourcesBefore, resourcesAfter)
+	require.NotEqual(t, mapIdentity(resourcesBefore.NetworkPolicies), mapIdentity(resourcesAfter.NetworkPolicies))
+	require.Same(t, oldPolicy, resourcesBefore.NetworkPolicies["1"])
+	require.False(t, proto.Equal(oldPolicy, resourcesAfter.NetworkPolicies["1"]))
+
+	require.Equal(t, mapIdentity(resourcesBefore.Listeners), mapIdentity(resourcesAfter.Listeners))
+	require.Equal(t, mapIdentity(resourcesBefore.Routes), mapIdentity(resourcesAfter.Routes))
+	require.Equal(t, mapIdentity(resourcesBefore.Clusters), mapIdentity(resourcesAfter.Clusters))
+	require.Equal(t, mapIdentity(resourcesBefore.Endpoints), mapIdentity(resourcesAfter.Endpoints))
+	require.Equal(t, mapIdentity(resourcesBefore.Secrets), mapIdentity(resourcesAfter.Secrets))
+	require.Equal(t, mapIdentity(resourcesBefore.NetworkPolicyHosts), mapIdentity(resourcesAfter.NetworkPolicyHosts))
+	require.Equal(t, mapIdentity(resourcesBefore.PortAllocationCallbacks), mapIdentity(resourcesAfter.PortAllocationCallbacks))
 }
 
 func TestNPDSListenerTrackingFromBulkResources(t *testing.T) {
