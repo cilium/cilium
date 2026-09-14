@@ -28,10 +28,13 @@ import (
 
 const (
 	defaultReservedRXQueues = 1
+	mainRSSContext          = 0
 	firstLeasedRXQueueID    = 1
 
-	activeRXQueuesLogField   = "activeRxQueues"
-	reservedRXQueuesLogField = "reservedRxQueues"
+	activeRXQueuesLogField      = "activeRxQueues"
+	reservedRXQueuesLogField    = "reservedRxQueues"
+	rssUpdatedLogField          = "rssUpdated"
+	tcpDataSplitUpdatedLogField = "tcpDataSplitUpdated"
 )
 
 var (
@@ -44,6 +47,10 @@ var (
 
 	netlinkLinkByName     = safenetlink.LinkByName
 	netlinkNetDevQueueGet = netlink.NetDevQueueGet
+	netlinkNetDevRSSGet   = netlink.NetDevRSSGet
+	netlinkNetDevRSSSet   = netlink.NetDevRSSSet
+	netlinkNetDevRingsGet = netlink.NetDevRingsGet
+	netlinkNetDevRingsSet = netlink.NetDevRingsSet
 )
 
 type RXQueueManager struct {
@@ -58,6 +65,7 @@ func NewManager(logger *slog.Logger, cfg *v2alpha1.RXQueueDeviceManagerConfig) (
 	}
 
 	mgr := &RXQueueManager{reservations: make(map[string]*queueReservations)}
+	var programmed []*rxQueueNICState
 	for _, iface := range cfg.Ifaces {
 		count := iface.Count
 		if count == 0 {
@@ -66,19 +74,258 @@ func NewManager(logger *slog.Logger, cfg *v2alpha1.RXQueueDeviceManagerConfig) (
 
 		dev, err := discoverDevice(iface.IfName, count)
 		if err != nil {
-			return nil, err
+			return nil, rollbackRXQueueNICs(programmed, err)
 		}
 		dev.reservations = mgr.reservationsFor(dev.PhysicalIfName)
+		state, err := prepareRXQueueNIC(dev)
+		if err != nil {
+			return nil, rollbackRXQueueNICs(programmed, err)
+		}
+		programmed = append(programmed, state)
 		mgr.devices = append(mgr.devices, dev)
 
-		logger.Debug("discovered RX queues for leasing",
+		logger.Debug("prepared RX queues for leasing",
 			logfields.Device, iface.IfName,
 			activeRXQueuesLogField, dev.TotalRXQueues,
 			reservedRXQueuesLogField, dev.ReservedQueueIDs,
+			rssUpdatedLogField, state.rssChanged,
+			tcpDataSplitUpdatedLogField, state.ringsChanged,
 		)
 	}
 
 	return mgr, nil
+}
+
+type rxQueueNICState struct {
+	ifName        string
+	ifIndex       int
+	originalRSS   *netlink.NetDevRSS
+	originalRings netlink.NetDevRings
+	rssChanged    bool
+	ringsChanged  bool
+}
+
+func prepareRXQueueNIC(dev *RXQueueDevice) (_ *rxQueueNICState, retErr error) {
+	link, err := netlinkLinkByName(dev.PhysicalIfName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find RX queue interface %s: %w", dev.PhysicalIfName, err)
+	}
+
+	rss, err := netlinkNetDevRSSGet(link.Attrs().Index, mainRSSContext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read RSS configuration on %s: %w", dev.PhysicalIfName, err)
+	}
+	if rss == nil {
+		return nil, fmt.Errorf("failed to read RSS configuration on %s: empty response", dev.PhysicalIfName)
+	}
+	desiredTable, err := rssTableWithoutReservedQueues(rss.IndirectionTable, dev.TotalRXQueues, dev.ReservedQueueIDs)
+	if err != nil {
+		return nil, fmt.Errorf("invalid RSS configuration on %s: %w", dev.PhysicalIfName, err)
+	}
+
+	rings, err := netlinkNetDevRingsGet(link.Attrs().Index)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read ring configuration on %s: %w", dev.PhysicalIfName, err)
+	}
+	if rings == nil {
+		return nil, fmt.Errorf("failed to read ring configuration on %s: empty response", dev.PhysicalIfName)
+	}
+
+	state := &rxQueueNICState{
+		ifName:        dev.PhysicalIfName,
+		ifIndex:       link.Attrs().Index,
+		originalRSS:   cloneNetDevRSS(rss),
+		originalRings: *rings,
+	}
+	defer func() {
+		if retErr == nil {
+			return
+		}
+		if err := state.restore(); err != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("failed to roll back NIC configuration on %s: %w", state.ifName, err))
+		}
+	}()
+
+	expectedRSS := cloneNetDevRSS(rss)
+	expectedRSS.IndirectionTable = desiredTable
+	if !slices.Equal(rss.IndirectionTable, desiredTable) {
+		if err := netlinkNetDevRSSSet(state.ifIndex, mainRSSContext, netlink.NetDevRSSConfig{IndirectionTable: desiredTable}); err != nil {
+			return nil, fmt.Errorf("failed to exclude reserved queues from RSS on %s: %w", state.ifName, err)
+		}
+		state.rssChanged = true
+	}
+
+	// io_uring zero-copy receive requires TCP header/data splitting with a
+	// zero split threshold. Drivers that do not report their split setting
+	// read back as unknown, so attempt the change and let the driver decide.
+	expectedRings := *rings
+	expectedRings.TCPDataSplit = netlink.NetDevTCPDataSplitEnabled
+	expectedRings.HDSThreshold = 0
+	if rings.TCPDataSplit != expectedRings.TCPDataSplit || rings.HDSThreshold != expectedRings.HDSThreshold {
+		config := netlink.NetDevRingsConfig{
+			TCPDataSplit: &expectedRings.TCPDataSplit,
+			HDSThreshold: &expectedRings.HDSThreshold,
+		}
+		if err := netlinkNetDevRingsSet(state.ifIndex, config); err != nil {
+			return nil, fmt.Errorf("failed to enable TCP data splitting on %s: %w", state.ifName, err)
+		}
+		state.ringsChanged = true
+	}
+
+	if err := verifyRXQueueNIC(state.ifName, state.ifIndex, expectedRSS, &expectedRings); err != nil {
+		return nil, err
+	}
+
+	return state, nil
+}
+
+func rssTableWithoutReservedQueues(table []uint32, total int, reserved []uint32) ([]uint32, error) {
+	if len(table) == 0 {
+		return nil, errors.New("RSS indirection table is empty")
+	}
+	if total <= 0 {
+		return nil, errors.New("no active RX queues")
+	}
+
+	reservedSet := make(map[uint32]struct{}, len(reserved))
+	for _, queueID := range reserved {
+		if uint64(queueID) >= uint64(total) {
+			return nil, fmt.Errorf("reserved queue %d exceeds the %d active RX queues", queueID, total)
+		}
+		if _, exists := reservedSet[queueID]; exists {
+			return nil, fmt.Errorf("reserved queue %d is duplicated", queueID)
+		}
+		reservedSet[queueID] = struct{}{}
+	}
+
+	allowed := make([]uint32, 0, total-len(reservedSet))
+	counts := make([]int, total)
+	for queueID := range total {
+		if _, reserved := reservedSet[uint32(queueID)]; !reserved {
+			allowed = append(allowed, uint32(queueID))
+		}
+	}
+	if len(allowed) == 0 {
+		return nil, errors.New("no RX queue remains available for RSS")
+	}
+
+	result := slices.Clone(table)
+	for _, queueID := range table {
+		if uint64(queueID) >= uint64(total) {
+			return nil, fmt.Errorf("indirection table references queue %d, but only %d RX queues are active", queueID, total)
+		}
+		if _, reserved := reservedSet[queueID]; !reserved {
+			counts[queueID]++
+		}
+	}
+
+	// Keep queues excluded by the existing RSS policy excluded.
+	candidates := make([]uint32, 0, len(allowed))
+	for _, queueID := range allowed {
+		if counts[queueID] != 0 {
+			candidates = append(candidates, queueID)
+		}
+	}
+	if len(candidates) == 0 {
+		candidates = allowed
+	}
+
+	for i, queueID := range result {
+		if _, reserved := reservedSet[queueID]; !reserved {
+			continue
+		}
+
+		replacement := candidates[0]
+		for _, candidate := range candidates[1:] {
+			if counts[candidate] < counts[replacement] {
+				replacement = candidate
+			}
+		}
+		result[i] = replacement
+		counts[replacement]++
+	}
+
+	return result, nil
+}
+
+func cloneNetDevRSS(rss *netlink.NetDevRSS) *netlink.NetDevRSS {
+	if rss == nil {
+		return nil
+	}
+	clone := *rss
+	clone.IndirectionTable = slices.Clone(rss.IndirectionTable)
+	clone.HashKey = slices.Clone(rss.HashKey)
+	return &clone
+}
+
+func equalNetDevRSS(a, b *netlink.NetDevRSS) bool {
+	return a != nil && b != nil &&
+		a.Context == b.Context &&
+		a.HashFunction == b.HashFunction &&
+		slices.Equal(a.IndirectionTable, b.IndirectionTable) &&
+		slices.Equal(a.HashKey, b.HashKey) &&
+		a.InputTransformation == b.InputTransformation
+}
+
+func verifyRXQueueNIC(ifName string, ifIndex int, wantRSS *netlink.NetDevRSS, wantRings *netlink.NetDevRings) error {
+	rss, err := netlinkNetDevRSSGet(ifIndex, mainRSSContext)
+	if err != nil {
+		return fmt.Errorf("failed to verify RSS configuration on %s: %w", ifName, err)
+	}
+	if !equalNetDevRSS(rss, wantRSS) {
+		return fmt.Errorf("RSS configuration read back incorrectly on %s", ifName)
+	}
+
+	rings, err := netlinkNetDevRingsGet(ifIndex)
+	if err != nil {
+		return fmt.Errorf("failed to verify ring configuration on %s: %w", ifName, err)
+	}
+	if rings == nil || *rings != *wantRings {
+		return fmt.Errorf("ring configuration read back incorrectly on %s", ifName)
+	}
+
+	return nil
+}
+
+func (s *rxQueueNICState) restore() error {
+	var errs []error
+	if s.ringsChanged {
+		if err := netlinkNetDevRingsSet(s.ifIndex, netlink.NetDevRingsConfig{
+			TCPDataSplit: &s.originalRings.TCPDataSplit,
+			HDSThreshold: &s.originalRings.HDSThreshold,
+		}); err != nil {
+			errs = append(errs, fmt.Errorf("restore ring configuration: %w", err))
+		} else {
+			rings, err := netlinkNetDevRingsGet(s.ifIndex)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("verify restored ring configuration: %w", err))
+			} else if rings == nil || *rings != s.originalRings {
+				errs = append(errs, errors.New("restored ring configuration did not match its original state"))
+			}
+		}
+	}
+	if s.rssChanged {
+		if err := netlinkNetDevRSSSet(s.ifIndex, mainRSSContext, netlink.NetDevRSSConfig{IndirectionTable: s.originalRSS.IndirectionTable}); err != nil {
+			errs = append(errs, fmt.Errorf("restore RSS configuration: %w", err))
+		} else {
+			rss, err := netlinkNetDevRSSGet(s.ifIndex, mainRSSContext)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("verify restored RSS configuration: %w", err))
+			} else if !equalNetDevRSS(rss, s.originalRSS) {
+				errs = append(errs, errors.New("restored RSS configuration did not match its original state"))
+			}
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func rollbackRXQueueNICs(states []*rxQueueNICState, cause error) error {
+	for _, state := range slices.Backward(states) {
+		if err := state.restore(); err != nil {
+			cause = errors.Join(cause, fmt.Errorf("failed to roll back NIC configuration on %s: %w", state.ifName, err))
+		}
+	}
+	return cause
 }
 
 func validateConfig(cfg *v2alpha1.RXQueueDeviceManagerConfig) error {
