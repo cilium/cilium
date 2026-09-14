@@ -1534,13 +1534,22 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
 			/* Drain existing connections, but redirect new ones to only
-			 * active backends.
+			 * active backends. UDP connections are not drained because
+			 * UDP is connectionless.
 			 */
-			if (backend && !state->syn)
+			if (backend && !state->syn && tuple->nexthdr != IPPROTO_UDP)
 				break;
 
-			if (unlikely(svc->count == 0))
+			if (unlikely(svc->count == 0)) {
+				/* If all backends are terminating, fall back to the existing
+				 * terminating backend for UDP only. New TCP connections (SYN)
+				 * are rejected as no active backends exist. Established TCP
+				 * connections were already drained above.
+				 */
+				if (backend && tuple->nexthdr == IPPROTO_UDP)
+					break;
 				goto no_service;
+			}
 
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			backend = lb6_lookup_backend(ctx, backend_id);
@@ -2372,13 +2381,22 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
 			/* Drain existing connections, but redirect new ones to only
-			 * active backends.
+			 * active backends. UDP connections are not drained because
+			 * UDP is connectionless.
 			 */
-			if (backend && !state->syn)
+			if (backend && !state->syn && tuple->nexthdr != IPPROTO_UDP)
 				break;
 
-			if (unlikely(svc->count == 0))
+			if (unlikely(svc->count == 0)) {
+				/* If all backends are terminating, fall back to the existing
+				 * terminating backend for UDP only. New TCP connections (SYN)
+				 * are rejected as no active backends exist. Established TCP
+				 * connections were already drained above.
+				 */
+				if (backend && tuple->nexthdr == IPPROTO_UDP)
+					break;
 				goto no_service;
+			}
 
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 			backend = lb4_lookup_backend(ctx, backend_id);
