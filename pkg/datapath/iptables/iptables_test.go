@@ -608,6 +608,155 @@ func TestAddProxyRulesv6(t *testing.T) {
 	}
 }
 
+// TestInstallStaticProxyRules pins the ordered rule set installStaticProxyRules
+// emits, and which of those rules each configuration selects. The expectations
+// are spelled out rather than built from the production mark constants or
+// comment helpers: deriving them from the code under test would assert nothing.
+func TestInstallStaticProxyRules(t *testing.T) {
+	const (
+		toProxy      = "0x00000200/0x00000f00"
+		proxyReply   = "0x00000a00/0xfffffeff"
+		l7Upstream   = "0x00000800/0x00000e00"
+		proxyForward = "0x00000b00/0x00000f00"
+		fromProxy    = "0x00000a00/0x00000e00"
+	)
+
+	notrackOut := func(iface, mark, descr string) string {
+		return "-t raw -A CILIUM_OUTPUT_raw -o " + iface + " -m mark --mark " + mark +
+			" -m comment --comment cilium: NOTRACK for " + descr + " -j CT --notrack"
+	}
+
+	var (
+		notrackToProxy = "-t raw -A CILIUM_PRE_raw -m mark --mark " + toProxy +
+			" -m comment --comment cilium: NOTRACK for proxy traffic -j CT --notrack"
+		acceptToProxy = "-t filter -A CILIUM_INPUT -m mark --mark " + toProxy +
+			" -m comment --comment cilium: ACCEPT for proxy traffic -j ACCEPT"
+		notrackReplyDelivery = notrackOut("lxc+", proxyReply, "proxy return traffic")
+		notrackL7Delivery    = notrackOut("lxc+", l7Upstream, "L7 proxy upstream traffic")
+		notrackReplyHost     = notrackOut("cilium_host", proxyReply, "proxy return traffic")
+		notrackL7Host        = notrackOut("cilium_host", l7Upstream, "L7 proxy upstream traffic")
+		notrackForwardHost   = notrackOut("cilium_host", proxyForward, "proxy forward traffic")
+		acceptFromProxy      = "-t filter -A CILIUM_OUTPUT -m mark --mark " + fromProxy +
+			" -m comment --comment cilium: ACCEPT for proxy traffic -j ACCEPT"
+		acceptL7Upstream = "-t filter -A CILIUM_OUTPUT -m mark --mark " + l7Upstream +
+			" -m comment --comment cilium: ACCEPT for l7 proxy upstream traffic -j ACCEPT"
+		inboundRedirect = "-t mangle -A CILIUM_PRE_mangle -m socket --transparent ! -o lo" +
+			" -m mark ! --mark 0x00000e00/0x00000f00 -m mark ! --mark 0x00000800/0x00000f00" +
+			" -m comment --comment cilium: any->pod redirect proxied traffic to host proxy" +
+			" -j MARK --set-mark 0x00000200"
+	)
+
+	for _, tc := range []struct {
+		name               string
+		localDelivery      string
+		ipv4, ipv6         bool
+		ipsec, socketMatch bool
+		wantV4, wantV6     []string
+	}{
+		{
+			// The ACCEPT for L7 proxy upstream traffic is IPv4 only.
+			name:          "dual stack",
+			localDelivery: "cilium_host",
+			ipv4:          true, ipv6: true, ipsec: true, socketMatch: true,
+			wantV4: []string{
+				notrackToProxy, acceptToProxy,
+				notrackReplyHost, notrackL7Host, notrackForwardHost,
+				acceptFromProxy, acceptL7Upstream, inboundRedirect,
+			},
+			wantV6: []string{
+				notrackToProxy, acceptToProxy,
+				notrackReplyHost, notrackL7Host, notrackForwardHost,
+				acceptFromProxy, inboundRedirect,
+			},
+		},
+		{
+			name:          "separate local delivery interface adds its own NOTRACK pair first",
+			localDelivery: "lxc+",
+			ipv4:          true, ipsec: true, socketMatch: true,
+			wantV4: []string{
+				notrackToProxy, acceptToProxy,
+				notrackReplyDelivery, notrackL7Delivery,
+				notrackReplyHost, notrackL7Host, notrackForwardHost,
+				acceptFromProxy, acceptL7Upstream, inboundRedirect,
+			},
+		},
+		{
+			name:          "without IPsec the proxy forward rule is dropped",
+			localDelivery: "cilium_host",
+			ipv4:          true, socketMatch: true,
+			wantV4: []string{
+				notrackToProxy, acceptToProxy,
+				notrackReplyHost, notrackL7Host,
+				acceptFromProxy, acceptL7Upstream, inboundRedirect,
+			},
+		},
+		{
+			name:          "without the socket match the inbound redirect is dropped",
+			localDelivery: "cilium_host",
+			ipv4:          true, ipsec: true,
+			wantV4: []string{
+				notrackToProxy, acceptToProxy,
+				notrackReplyHost, notrackL7Host, notrackForwardHost,
+				acceptFromProxy, acceptL7Upstream,
+			},
+		},
+		{
+			// Pins that the L7 upstream ACCEPT is IPv4 only rather than merely
+			// last: with IPv4 disabled neither family emits it.
+			name:          "IPv6 only",
+			localDelivery: "cilium_host",
+			ipv6:          true, ipsec: true, socketMatch: true,
+			wantV6: []string{
+				notrackToProxy, acceptToProxy,
+				notrackReplyHost, notrackL7Host, notrackForwardHost,
+				acceptFromProxy, inboundRedirect,
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ip4 := &mockIptables{t: t, prog: "iptables"}
+			ip6 := &mockIptables{t: t, prog: "ip6tables"}
+			for _, e := range tc.wantV4 {
+				ip4.expectations = append(ip4.expectations, expectation{args: e})
+			}
+			for _, e := range tc.wantV6 {
+				ip6.expectations = append(ip6.expectations, expectation{args: e})
+			}
+
+			m := &manager{
+				logger: hivetest.Logger(t),
+				sharedCfg: SharedConfig{
+					EnableIPv4: tc.ipv4, EnableIPv6: tc.ipv6, EnableIPSec: tc.ipsec,
+				},
+				ip4tables:       ip4,
+				ip6tables:       ip6,
+				haveSocketMatch: tc.socketMatch,
+			}
+
+			require.NoError(t, m.installStaticProxyRules("cilium_host", tc.localDelivery))
+			require.NoError(t, ip4.checkExpectations())
+			require.NoError(t, ip6.checkExpectations())
+		})
+	}
+
+	// A partially applied chain must be reported rather than silently kept.
+	t.Run("the first failing rule aborts the install", func(t *testing.T) {
+		ip4 := &mockIptables{t: t, prog: "iptables"}
+		ip4.expectations = []expectation{{args: notrackToProxy, err: errors.New("rule 0 failed")}}
+
+		m := &manager{
+			logger:    hivetest.Logger(t),
+			sharedCfg: SharedConfig{EnableIPv4: true},
+			ip4tables: ip4,
+			ip6tables: &mockIptables{t: t, prog: "ip6tables"},
+		}
+
+		err := m.installStaticProxyRules("cilium_host", "cilium_host")
+		require.ErrorContains(t, err, "rule 0 failed")
+		require.NoError(t, ip4.checkExpectations())
+	})
+}
+
 func TestRemoveCiliumRulesv4(t *testing.T) {
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
