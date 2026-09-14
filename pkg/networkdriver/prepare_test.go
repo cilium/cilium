@@ -5,10 +5,9 @@ package networkdriver
 
 // Tests for prepareResourceClaim covering:
 //
-//   - the statedb device table's allocation fields are written only after
-//     UpdateStatus succeeds; if UpdateStatus fails the table stays unallocated.
-//     this avoids keeping a row with allocation state that does not have a
-//     persistent reference in kubernetes
+//   - StateDB allocation state is written only after UpdateStatus
+//     succeeds; if UpdateStatus fails no allocation row is committed.
+//     This avoids local state without a persistent Kubernetes reference.
 //
 //   - when any step inside the device loop fails, rollback
 //     calls Device.Free() and releaseAddrs() for every previously set-up device.
@@ -22,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -50,39 +50,34 @@ import (
 // statedb allocation helpers for tests
 // ---------------------------------------------------------------------------
 
-// allocatedRowsForPod returns all DRADevice rows with PodUID==podUID.
-func allocatedRowsForPod(t *testing.T, d *Driver, podUID kubetypes.UID) []*DRADevice {
+// allocatedRowsForPod returns all allocations owned by podUID.
+func allocatedRowsForPod(t *testing.T, d *Driver, podUID kubetypes.UID) []*DRAAllocation {
 	t.Helper()
 	txn := d.db.ReadTxn()
-	var rows []*DRADevice
-	for row := range d.deviceTable.All(txn) {
-		if row.PodUID == podUID {
-			rows = append(rows, row)
-		}
-	}
-	return rows
-}
-
-// allocatedRowsForClaim returns all DRADevice rows with ClaimUID==claimUID.
-func allocatedRowsForClaim(t *testing.T, d *Driver, claimUID kubetypes.UID) []*DRADevice {
-	t.Helper()
-	txn := d.db.ReadTxn()
-	var rows []*DRADevice
-	for row := range DevicesByClaimUID(d.deviceTable, txn, claimUID) {
+	var rows []*DRAAllocation
+	for row := range AllocationsByPodUID(d.allocationTable, txn, podUID) {
 		rows = append(rows, row)
 	}
 	return rows
 }
 
-// requireNoAllocations asserts no rows in the device table have a PodUID set.
+// allocatedRowsForClaim returns all allocations owned by claimUID.
+func allocatedRowsForClaim(t *testing.T, d *Driver, claimUID kubetypes.UID) []*DRAAllocation {
+	t.Helper()
+	txn := d.db.ReadTxn()
+	var rows []*DRAAllocation
+	for row := range AllocationsByClaimUID(d.allocationTable, txn, claimUID) {
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+// requireNoAllocations asserts that the allocation table is empty.
 func requireNoAllocations(t *testing.T, d *Driver, msgAndArgs ...any) {
 	t.Helper()
 	txn := d.db.ReadTxn()
-	for row := range d.deviceTable.All(txn) {
-		if row.PodUID != "" {
-			require.Fail(t, "expected no allocations but found row with PodUID set",
-				"row: %+v", row)
-		}
+	for row := range d.allocationTable.All(txn) {
+		require.Fail(t, fmt.Sprintf("expected no allocations; found row: %+v", row), msgAndArgs...)
 	}
 }
 
@@ -277,14 +272,16 @@ func buildPrepDriver(t *testing.T, cs *k8sClient.FakeClientset, devs ...*tracked
 	t.Cleanup(func() { hive.Stop(tlog, context.Background()) })
 
 	db := statedb.New()
-	tbl, err := newDeviceTable(db)
+	deviceTable, err := newDeviceTable(db)
+	require.NoError(t, err)
+	allocationTable, err := newAllocationTable(db)
 	require.NoError(t, err)
 
 	// Pre-populate the table with the test devices under the test pool.
 	if len(deviceList) > 0 {
-		wtxn := db.WriteTxn(tbl)
+		wtxn := db.WriteTxn(deviceTable)
 		for _, dev := range deviceList {
-			tbl.Insert(wtxn, &DRADevice{
+			deviceTable.Insert(wtxn, &DRADevice{
 				Name:    dev.IfName(),
 				Manager: types.DeviceManagerTypeMock,
 				Dev:     dev,
@@ -303,8 +300,9 @@ func buildPrepDriver(t *testing.T, cs *k8sClient.FakeClientset, devs ...*tracked
 		deviceManagers: map[types.DeviceManagerType]types.DeviceManager{
 			types.DeviceManagerTypeMock: &mockDeviceManager{devices: deviceList},
 		},
-		db:          db,
-		deviceTable: tbl,
+		db:              db,
+		deviceTable:     deviceTable,
+		allocationTable: allocationTable,
 	}
 }
 
@@ -352,12 +350,14 @@ func TestPrepare(t *testing.T) {
 		require.EqualValues(t, 0, dev.freeCalls.Load(), "Free must not be called on success")
 
 		require.NotEmpty(t, allocatedRowsForPod(t, driver, prepTestPodUID), "must have allocations for pod")
-		require.Len(t, allocatedRowsForClaim(t, driver, prepTestClaimUID), 1)
+		rows := allocatedRowsForClaim(t, driver, prepTestClaimUID)
+		require.Len(t, rows, 1)
+		require.Equal(t, prepTestPodUID, rows[0].PodUID)
+		require.Equal(t, prepTestClaimUID, rows[0].ClaimUID)
+
 		txn := driver.db.ReadTxn()
-		row, _, found := driver.deviceTable.Get(txn, deviceByName.Query(prepTestDev0))
-		require.True(t, found, "device row must exist in statedb")
-		require.Equal(t, prepTestPodUID, row.PodUID, "statedb row must have PodUID set after prepare")
-		require.Equal(t, prepTestClaimUID, row.ClaimUID, "statedb row must have ClaimUID set after prepare")
+		_, _, found := driver.deviceTable.Get(txn, deviceByName.Query(prepTestDev0))
+		require.True(t, found, "inventory row must remain in statedb")
 
 		updated, err := cs.KubernetesFakeClientset.ResourceV1().
 			ResourceClaims(prepTestClaimNS).Get(t.Context(), prepTestClaimName, metav1.GetOptions{})
@@ -669,12 +669,13 @@ func TestUnprepare(t *testing.T) {
 			"allocations map must be empty after unprepare")
 		require.EqualValues(t, 1, dev.freeCalls.Load(), "Free must be called once on unprepare")
 
-		// Statedb row must still exist but have allocation fields cleared.
+		// Unprepare removes allocation state without modifying inventory.
 		txn := driver.db.ReadTxn()
 		row, _, found := driver.deviceTable.Get(txn, deviceByName.Query(prepTestDev0))
-		require.True(t, found, "device row must still exist after unprepare")
-		require.Empty(t, row.PodUID, "PodUID must be cleared in statedb row after unprepare")
-		require.Empty(t, row.ClaimUID, "ClaimUID must be cleared in statedb row after unprepare")
+		require.True(t, found, "inventory row must still exist after unprepare")
+		require.Equal(t, prepTestDev0, row.Name)
+		require.Equal(t, types.DeviceManagerTypeMock, row.Manager)
+		require.Same(t, dev, row.Dev)
 	})
 
 	t.Run("multiple devices all are freed", func(t *testing.T) {
