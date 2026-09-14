@@ -365,3 +365,150 @@ func testNodeDeletion(t *testing.T, nodeEvent resource.Event[*slim_corev1.Node])
 	}
 	assert.True(t, foundDeleted, "Node should be marked as being deleted")
 }
+
+// A node IP corrected after startup must reach the LocalNodeStore.
+func TestLocalNodeSync_NodeIPChange(t *testing.T) {
+	nodeWith := func(ipv4, ipv6 string) *slim_corev1.Node {
+		var addrs []slim_corev1.NodeAddress
+		for _, ip := range []string{ipv4, ipv6} {
+			if ip != "" {
+				addrs = append(addrs, slim_corev1.NodeAddress{Type: slim_corev1.NodeInternalIP, Address: ip})
+			}
+		}
+		return &slim_corev1.Node{
+			ObjectMeta: slim_metav1.ObjectMeta{Name: "foo", UID: k8stypes.UID("uid1")},
+			Status:     slim_corev1.NodeStatus{Addresses: addrs},
+		}
+	}
+
+	// Each case starts on the stale pair, then observes the fresh one.
+	tests := []struct {
+		name                 string
+		ipv4NodeAddr         string
+		ipv6NodeAddr         string
+		freshIPv4, freshIPv6 string
+		wantIPv4, wantIPv6   string
+	}{
+		{
+			name:         "ipv6 changed",
+			ipv4NodeAddr: "auto", ipv6NodeAddr: "auto",
+			freshIPv4: "10.0.0.1", freshIPv6: "fc00::2",
+			wantIPv4: "10.0.0.1", wantIPv6: "fc00::2",
+		},
+		{
+			name:         "ipv4 changed",
+			ipv4NodeAddr: "auto", ipv6NodeAddr: "auto",
+			freshIPv4: "10.0.0.2", freshIPv6: "fc00::1",
+			wantIPv4: "10.0.0.2", wantIPv6: "fc00::1",
+		},
+		{
+			name:         "both changed",
+			ipv4NodeAddr: "auto", ipv6NodeAddr: "auto",
+			freshIPv4: "10.0.0.2", freshIPv6: "fc00::2",
+			wantIPv4: "10.0.0.2", wantIPv6: "fc00::2",
+		},
+		{
+			name:         "statically configured families are not overridden",
+			ipv4NodeAddr: "10.0.0.1", ipv6NodeAddr: "fc00::1",
+			freshIPv4: "10.0.0.2", freshIPv6: "fc00::2",
+			wantIPv4: "10.0.0.1", wantIPv6: "fc00::1",
+		},
+		{
+			name:         "absent family is not removed",
+			ipv4NodeAddr: "auto", ipv6NodeAddr: "auto",
+			freshIPv4: "", freshIPv6: "fc00::2",
+			wantIPv4: "10.0.0.1", wantIPv6: "fc00::2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			events := make(chan resource.Event[*slim_corev1.Node], 2)
+			for _, n := range []*slim_corev1.Node{
+				nodeWith("10.0.0.1", "fc00::1"),
+				nodeWith(tt.freshIPv4, tt.freshIPv6),
+			} {
+				events <- resource.Event[*slim_corev1.Node]{
+					Kind:   resource.Upsert,
+					Key:    resource.Key{Name: "foo"},
+					Object: n,
+					Done:   func(err error) {},
+				}
+			}
+			close(events)
+
+			sync := newLocalNodeSynchronizer(localNodeSynchronizerParams{
+				Logger:       hivetest.Logger(t),
+				Config:       &option.DaemonConfig{IPv4NodeAddr: tt.ipv4NodeAddr, IPv6NodeAddr: tt.ipv6NodeAddr},
+				K8sLocalNode: &fakeLocalNode{events: events},
+				K8sCiliumLocalNode: &mockResource[*v2.CiliumNode]{
+					items: []resource.Event[*v2.CiliumNode]{{Kind: resource.Sync, Done: func(err error) {}}},
+				},
+				IPsecConfig: fakeipsec.Config{},
+			})
+
+			local := node.LocalNode{Local: &node.LocalNodeInfo{}}
+			require.NoError(t, sync.InitLocalNode(t.Context(), &local))
+			// Init consumed the first event, so the agent starts on the stale pair.
+			require.Equal(t, "fc00::1", local.GetNodeInternalIPv6().String())
+
+			store := node.NewTestLocalNodeStore(local)
+			sync.SyncLocalNode(t.Context(), store)
+
+			n, err := store.Get(t.Context())
+			require.NoError(t, err)
+			require.Equal(t, tt.wantIPv4, n.GetNodeInternalIPv4().String())
+			require.Equal(t, tt.wantIPv6, n.GetNodeInternalIPv6().String())
+		})
+	}
+}
+
+// An unchanged Node must compare equal, or every event becomes a store update.
+// For a v6-only Node: GetNodeIP is nil for IPv4, which is a valid steady state
+// rather than a change to apply.
+func TestLocalNodeSync_NodeIPsEqualIsStable(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		ipv4, ipv6 string
+	}{
+		{name: "dual stack", ipv4: "10.0.0.1", ipv6: "fc00::1"},
+		{name: "ipv6 only", ipv4: "", ipv6: "fc00::1"},
+		{name: "ipv4 only", ipv4: "10.0.0.1", ipv6: ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var addrs []slim_corev1.NodeAddress
+			for _, ip := range []string{tt.ipv4, tt.ipv6} {
+				if ip != "" {
+					addrs = append(addrs, slim_corev1.NodeAddress{Type: slim_corev1.NodeInternalIP, Address: ip})
+				}
+			}
+			k8sNode := &slim_corev1.Node{
+				ObjectMeta: slim_metav1.ObjectMeta{Name: "foo", UID: k8stypes.UID("uid1")},
+				Status:     slim_corev1.NodeStatus{Addresses: addrs},
+			}
+
+			events := make(chan resource.Event[*slim_corev1.Node], 1)
+			events <- resource.Event[*slim_corev1.Node]{
+				Kind: resource.Upsert, Key: resource.Key{Name: "foo"},
+				Object: k8sNode, Done: func(err error) {},
+			}
+			close(events)
+
+			sync := newLocalNodeSynchronizer(localNodeSynchronizerParams{
+				Logger:       hivetest.Logger(t),
+				Config:       &option.DaemonConfig{IPv4NodeAddr: "auto", IPv6NodeAddr: "auto"},
+				K8sLocalNode: &fakeLocalNode{events: events},
+				K8sCiliumLocalNode: &mockResource[*v2.CiliumNode]{
+					items: []resource.Event[*v2.CiliumNode]{{Kind: resource.Sync, Done: func(err error) {}}},
+				},
+				IPsecConfig: fakeipsec.Config{},
+			})
+
+			local := node.LocalNode{Local: &node.LocalNodeInfo{}}
+			require.NoError(t, sync.InitLocalNode(t.Context(), &local))
+
+			require.True(t, sync.(*localNodeSynchronizer).mutableFieldsEqual(parseNode(hivetest.Logger(t), k8sNode)),
+				"re-observing the same Node must not report a change")
+		})
+	}
+}
