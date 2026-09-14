@@ -18,8 +18,11 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	metadatav1alpha1 "k8s.io/dynamic-resource-allocation/api/metadata/v1alpha1"
+	metadatav1beta1 "k8s.io/dynamic-resource-allocation/api/metadata/v1beta1"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 	"k8s.io/utils/ptr"
 
@@ -47,6 +50,10 @@ func (driver *Driver) startDRA(ctx context.Context) error {
 		kubeletplugin.DriverName(driver.config.DriverName),
 		kubeletplugin.NodeName(node_types.GetName()),
 		kubeletplugin.KubeClient(driver.kubeClient),
+		kubeletplugin.EnableDeviceMetadata(true, []schema.GroupVersion{
+			metadatav1beta1.SchemeGroupVersion,
+			metadatav1alpha1.SchemeGroupVersion,
+		}),
 	}
 
 	retryInterval := time.Duration(driver.config.DraRegistrationRetryIntervalSeconds) * time.Second
@@ -323,8 +330,9 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 
 	driver.storeAllocations(alloc, pod.UID, claim.UID)
 
-	// we dont need to return anything here.
-	return kubeletplugin.PrepareResult{}
+	return kubeletplugin.PrepareResult{
+		Devices: prepareResultDevices(claim.Status.Allocation.Devices.Results, alloc),
+	}
 }
 
 func (driver *Driver) deviceClaimConfigs(ctx context.Context, claim *resourceapi.ResourceClaim) (map[string]types.DeviceConfig, error) {
@@ -652,6 +660,14 @@ func (driver *Driver) reuseAllocatedDevice(
 	return &existing, &status, nil
 }
 
+// podInterfaceName returns the interface name after any configured rename.
+func podInterfaceName(a allocation) string {
+	if a.Config.PodIfName != "" {
+		return a.Config.PodIfName
+	}
+	return a.Device.KernelIfName()
+}
+
 // buildDeviceStatus serializes a fully set-up device allocation into the
 // AllocatedDeviceStatus that is written to ResourceClaim.Status.Devices.
 func (driver *Driver) buildDeviceStatus(
@@ -664,10 +680,6 @@ func (driver *Driver) buildDeviceStatus(
 		return resourceapi.AllocatedDeviceStatus{}, err
 	}
 
-	ifName := a.Device.IfName()
-	if a.Config.PodIfName != "" {
-		ifName = a.Config.PodIfName
-	}
 	ips := make([]string, 0, 2)
 	if driver.ipv4Enabled && a.Config.IPv4Addr.IsValid() {
 		ips = append(ips, a.Config.IPv4Addr.String())
@@ -689,10 +701,45 @@ func (driver *Driver) buildDeviceStatus(
 		Conditions: []metav1.Condition{conditionReady(claim)},
 		Data:       &runtime.RawExtension{Raw: rawDev},
 		NetworkData: &resourceapi.NetworkDeviceData{
-			InterfaceName: ifName,
+			InterfaceName: podInterfaceName(a),
 			IPs:           ips,
 		},
 	}, nil
+}
+
+func prepareResultDevices(
+	results []resourceapi.DeviceRequestAllocationResult,
+	allocations []allocation,
+) []kubeletplugin.Device {
+	devices := make([]kubeletplugin.Device, 0, len(allocations))
+	for i, a := range allocations {
+		result := results[i]
+		deviceAttrs := a.Device.GetAttrs()
+		attrs := make(map[string]resourceapi.DeviceAttribute, len(deviceAttrs)+2)
+		for name, value := range deviceAttrs {
+			attrs[string(name)] = value
+		}
+		attrs[types.DeviceManagerLabel] = resourceapi.DeviceAttribute{
+			StringValue: ptr.To(a.Manager.String()),
+		}
+		attrs[types.PoolNameLabel] = resourceapi.DeviceAttribute{
+			StringValue: ptr.To(a.LogicalPool),
+		}
+
+		devices = append(devices, kubeletplugin.Device{
+			Requests:   []string{result.Request},
+			PoolName:   result.Pool,
+			DeviceName: result.Device,
+			ShareID:    result.ShareID,
+			Metadata: &kubeletplugin.DeviceMetadata{
+				Attributes: attrs,
+				NetworkData: &resourceapi.NetworkDeviceData{
+					InterfaceName: podInterfaceName(a),
+				},
+			},
+		})
+	}
+	return devices
 }
 
 // conflictingDeviceForPod returns the name of the first DRA allocation that
