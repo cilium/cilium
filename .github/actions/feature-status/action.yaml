@@ -18,6 +18,10 @@ runs:
   steps:
     - name: Report features enabled on the agent from host
       if: ${{ always() }}
+      # A lost report is not worth failing a pull request over. Scheduled runs
+      # dispatch with a vX-Y PR-number and keep failing hard, since they are what
+      # corgi reads.
+      continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
       shell: bash
       run: |
         ${{ inputs.cilium-cli }} features status -o markdown --output-file="feature-status.md"
@@ -25,6 +29,8 @@ runs:
 
     - name: Report summary for features enabled on the agent
       if: ${{ always() }}
+      # Not worth failing a pull request over; see the comment above.
+      continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
       shell: bash
       run: |
         echo ""                                        >> "$GITHUB_STEP_SUMMARY"

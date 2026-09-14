@@ -37,6 +37,10 @@ jobs:
   merge-upload:
     if: ${{ always() && inputs.merge-artifacts }}
     name: Merge and Upload Artifacts
+    # Merging only repackages what the legs uploaded, so a pull request is not
+    # worth failing over it. Scheduled runs dispatch with a vX-Y PR-number and
+    # keep failing hard, since they are what corgi reads.
+    continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
