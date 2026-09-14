@@ -387,6 +387,10 @@ func (driver *Driver) podForClaim(ctx context.Context, claim *resourceapi.Resour
 	return pod, nil
 }
 
+func (a allocation) deviceAllocation() types.DeviceAllocation {
+	return types.DeviceAllocation{Config: a.Config}
+}
+
 // claimPrepState holds the precomputed lookups used to make prepareResourceClaim
 // idempotent across retries.
 type claimPrepState struct {
@@ -447,7 +451,7 @@ func (driver *Driver) cleanupAllocation(a allocation) error {
 		errs = append(errs, fmt.Errorf("failed to release addresses: %w", err))
 	}
 	if a.Device != nil {
-		if err := a.Device.Free(a.Config); err != nil {
+		if err := a.Device.Free(a.deviceAllocation()); err != nil {
 			errs = append(errs, fmt.Errorf("failed to free device: %w", err))
 		} else {
 			a.Device = nil
@@ -532,13 +536,20 @@ func (driver *Driver) getNewAllocation(
 		return allocation{}, nil, fmt.Errorf("%s for device %s in claim %s: %w", errMsg, alloc.DeviceName, claimNamespacedName, err)
 	}
 
-	// Setup the device
-	if err = draDevice.Dev.Setup(alloc.Config); err != nil {
+	// Setup the device. The prepared device may differ from the advertised
+	// device when setup creates allocation-specific state.
+	alloc.Manager = draDevice.Manager
+	var prepared types.Device
+	if prepared, err = draDevice.Dev.Setup(alloc.deviceAllocation()); err != nil {
 		errMsg = "failed to set up device"
 		return allocation{}, nil, fmt.Errorf("%s for ifname %s in claim %s: %w", errMsg, alloc.DeviceName, claimNamespacedName, err)
 	}
-	alloc.Device = draDevice.Dev
-	alloc.Manager = draDevice.Manager
+	if prepared == nil {
+		errMsg = "failed to set up device"
+		err = fmt.Errorf("device %s returned no prepared device", result.Device)
+		return allocation{}, nil, fmt.Errorf("%s for ifname %s in claim %s: %w", errMsg, alloc.DeviceName, claimNamespacedName, err)
+	}
+	alloc.Device = prepared
 	alloc.LogicalPool = driver.resolvePool(draDevice.Dev, driver.config.Pools)
 
 	// Build the device status

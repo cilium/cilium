@@ -172,8 +172,14 @@ type Device interface {
 	GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
 	GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
 	AllowMultipleAllocations() bool
-	Setup(cfg DeviceConfig) error
-	Free(cfg DeviceConfig) error
+	// Setup returns the device prepared for this allocation. It may differ from
+	// the advertised device when each allocation requires its own interface.
+	Setup(allocation DeviceAllocation) (Device, error)
+	// Recover re-creates missing kernel state for an allocation restored from
+	// ResourceClaim status. The returned device must represent the same logical
+	// allocation because recovery does not rewrite that status.
+	Recover(allocation DeviceAllocation) (Device, error)
+	Free(allocation DeviceAllocation) error
 	Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
 	IfName() string
 	KernelIfName() string
@@ -222,6 +228,11 @@ func (d *DeviceConfig) Empty() bool {
 
 func (d *DeviceConfig) HasPool() bool {
 	return d.IPPool != ""
+}
+
+// DeviceAllocation contains driver parameters for one allocation.
+type DeviceAllocation struct {
+	Config DeviceConfig
 }
 
 type SerializedDevice struct {
