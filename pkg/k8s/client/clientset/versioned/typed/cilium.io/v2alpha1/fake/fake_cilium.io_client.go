@@ -71,6 +71,18 @@ func (c *FakeCiliumV2alpha1) CiliumPodIPPools() v2alpha1.CiliumPodIPPoolInterfac
 	return newFakeCiliumPodIPPools(c)
 }
 
+func (c *FakeCiliumV2alpha1) CiliumQoSClasses() v2alpha1.CiliumQoSClassInterface {
+	return newFakeCiliumQoSClasses(c)
+}
+
+func (c *FakeCiliumV2alpha1) CiliumQoSMechanisms() v2alpha1.CiliumQoSMechanismInterface {
+	return newFakeCiliumQoSMechanisms(c)
+}
+
+func (c *FakeCiliumV2alpha1) CiliumQoSPolicies(namespace string) v2alpha1.CiliumQoSPolicyInterface {
+	return newFakeCiliumQoSPolicies(c, namespace)
+}
+
 func (c *FakeCiliumV2alpha1) CiliumResourceIPPools() v2alpha1.CiliumResourceIPPoolInterface {
 	return newFakeCiliumResourceIPPools(c)
 }

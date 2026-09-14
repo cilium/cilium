@@ -65,6 +65,22 @@ type CiliumNetworkDriverNodeConfigListerExpansion interface{}
 // CiliumPodIPPoolLister.
 type CiliumPodIPPoolListerExpansion interface{}
 
+// CiliumQoSClassListerExpansion allows custom methods to be added to
+// CiliumQoSClassLister.
+type CiliumQoSClassListerExpansion interface{}
+
+// CiliumQoSMechanismListerExpansion allows custom methods to be added to
+// CiliumQoSMechanismLister.
+type CiliumQoSMechanismListerExpansion interface{}
+
+// CiliumQoSPolicyListerExpansion allows custom methods to be added to
+// CiliumQoSPolicyLister.
+type CiliumQoSPolicyListerExpansion interface{}
+
+// CiliumQoSPolicyNamespaceListerExpansion allows custom methods to be added to
+// CiliumQoSPolicyNamespaceLister.
+type CiliumQoSPolicyNamespaceListerExpansion interface{}
+
 // CiliumResourceIPPoolListerExpansion allows custom methods to be added to
 // CiliumResourceIPPoolLister.
 type CiliumResourceIPPoolListerExpansion interface{}

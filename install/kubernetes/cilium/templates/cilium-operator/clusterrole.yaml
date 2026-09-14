@@ -287,6 +287,11 @@ rules:
   - ciliumnetworkdriverclusterconfigs.cilium.io
   - ciliumresourceippools.cilium.io
 {{- end }}
+{{- if .Values.qos.enabled }}
+  - ciliumqosmechanisms.cilium.io
+  - ciliumqosclasses.cilium.io
+  - ciliumqospolicies.cilium.io
+{{- end }}
 # The operator will migrate any custom resources that have "upgraded" storage versions.
 # To do this, it must be allowed to list and patch the resource. (This triggers a storage migration
 # on the apiserver.)
@@ -514,5 +519,26 @@ rules:
   - create
   - update
   - delete
+{{- end }}
+{{- if .Values.qos.enabled }}
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumqosmechanisms
+  - ciliumqosclasses
+  - ciliumqospolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumqosmechanisms/status
+  - ciliumqosclasses/status
+  - ciliumqospolicies/status
+  verbs:
+  - update
+  - patch
 {{- end }}
 {{- end }}
