@@ -6,13 +6,13 @@ package ciliumendpointslice
 import (
 	"fmt"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/workerpool"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -65,15 +65,14 @@ type Controller struct {
 
 	maxCEPsInCES int
 
-	// workqueue is used to sync CESs with the api-server. this will rate-limit the
+	// queue is used to sync CESs with the api-server. this will rate-limit the
 	// CES requests going to api-server, ensures a single CES will not be proccessed
 	// multiple times concurrently, and if CES is added multiple times before it
 	// can be processed, this will only be processed only once.
-	// Updates from CEP and CES in namespaces annotated as priority are added to the
-	// fast queue and processed first to ensure faster enforcement of the
+	// Updates from CEP and CES in namespaces annotated as priority are added with a
+	// higher priority and thus processed first to ensure faster enforcement of the
 	// Network Policy in critical areas.
-	fastQueue     workqueue.TypedRateLimitingInterface[CESKey]
-	standardQueue workqueue.TypedRateLimitingInterface[CESKey]
+	queue priorityqueue.PriorityQueue[CESKey]
 
 	rateLimit   rateLimitConfig
 	rateLimiter workqueue.TypedRateLimiter[CESKey]
@@ -90,9 +89,6 @@ type Controller struct {
 	priorityNamespacesLock lock.RWMutex
 
 	doReconciler doReconciler
-
-	// If the queues are empty, they wait until the condition (adding something to the queues) is met.
-	cond sync.Cond
 
 	Job job.Group
 }
@@ -168,7 +164,6 @@ func registerController(p params) error {
 		workqueueMetricsProvider: p.WorkqueueMetricsProvider,
 		syncDelay:                DefaultCESSyncTime,
 		priorityNamespaces:       make(map[string]struct{}),
-		cond:                     *sync.NewCond(&lock.Mutex{}),
 		Job:                      p.Job,
 	}
 
