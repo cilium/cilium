@@ -1,6 +1,10 @@
 name: xDS Performance Test (GCE)
 
 on:
+  push:
+    branches:
+      - delta-ads-with-benchmark
+
   workflow_dispatch:
     inputs:
       PR-number:
@@ -113,8 +117,8 @@ jobs:
       - name: Create benchmark VM
         id: create-vm
         env:
-          MACHINE_TYPE: ${{ inputs.machine_type }}
-          ZONE: ${{ inputs.zone }}
+          MACHINE_TYPE: ${{ inputs.machine_type || 'n2-standard-8' }}
+          ZONE: ${{ inputs.zone || 'us-west1-b' }}
         run: |
           gcloud compute instances create "${INSTANCE_NAME}" \
             --project "${{ secrets.GCP_PERF_PROJECT_ID }}" \
@@ -131,7 +135,7 @@ jobs:
 
       - name: Wait for SSH
         env:
-          ZONE: ${{ inputs.zone }}
+          ZONE: ${{ inputs.zone || 'us-west1-b' }}
         run: |
           for attempt in $(seq 1 30); do
             if gcloud compute ssh "${INSTANCE_NAME}" \
@@ -148,7 +152,7 @@ jobs:
 
       - name: Copy source to benchmark VM
         env:
-          ZONE: ${{ inputs.zone }}
+          ZONE: ${{ inputs.zone || 'us-west1-b' }}
         run: |
           gcloud compute scp "${RUNNER_TEMP}/cilium-source.tar.gz" \
             "${INSTANCE_NAME}:~/cilium-source.tar.gz" \
@@ -158,9 +162,9 @@ jobs:
 
       - name: Run benchmarks
         env:
-          ZONE: ${{ inputs.zone }}
-          XDS_BENCHTIME: ${{ inputs.benchmark_time }}
-          XDS_BENCH_COUNT: ${{ inputs.benchmark_count }}
+          ZONE: ${{ inputs.zone || 'us-west1-b' }}
+          XDS_BENCHTIME: ${{ inputs.benchmark_time || '2s' }}
+          XDS_BENCH_COUNT: ${{ inputs.benchmark_count || '5' }}
         run: |
           if [[ ! "${XDS_BENCHTIME}" =~ ^([0-9]+([.][0-9]+)?(ns|us|ms|s|m|h)|[0-9]+x)$ ]]; then
             echo "Invalid benchmark_time: ${XDS_BENCHTIME}" >&2
@@ -217,7 +221,7 @@ jobs:
         if: ${{ always() && steps.create-vm.outcome == 'success' }}
         continue-on-error: true
         env:
-          ZONE: ${{ inputs.zone }}
+          ZONE: ${{ inputs.zone || 'us-west1-b' }}
         run: |
           mkdir --parents xds-performance-results
           gcloud compute scp --recurse \
@@ -239,7 +243,7 @@ jobs:
       - name: Delete benchmark VM
         if: ${{ always() }}
         env:
-          ZONE: ${{ inputs.zone }}
+          ZONE: ${{ inputs.zone || 'us-west1-b' }}
         run: |
           gcloud compute instances delete "${INSTANCE_NAME}" \
             --project "${{ secrets.GCP_PERF_PROJECT_ID }}" \
