@@ -66,9 +66,10 @@ type Driver struct {
 	// path is still valid when we use it. Guarded by lock.
 	podNetns map[kube_types.UID]string
 
-	db             *statedb.DB
-	deviceTable    statedb.RWTable[*DRADevice]
-	localNodeStore *node.LocalNodeStore
+	db              *statedb.DB
+	deviceTable     statedb.RWTable[*DRADevice]
+	allocationTable statedb.RWTable[*DRAAllocation]
+	localNodeStore  *node.LocalNodeStore
 }
 
 type allocation struct {
