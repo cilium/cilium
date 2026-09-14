@@ -33,6 +33,9 @@ type cloudMultiPoolAllocator struct {
 // resolver reports for it, releasing the reservation if that fails.
 func (a *cloudMultiPoolAllocator) enrichResult(result *AllocationResult, err error) (*AllocationResult, error) {
 	if err != nil || result == nil {
+		if errors.Is(err, errAllCIDRsExhausted) {
+			return result, fmt.Errorf("%w: allocation will be retried once Cilium Operator allocates more IPs", err)
+		}
 		return result, err
 	}
 
