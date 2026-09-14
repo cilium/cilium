@@ -171,8 +171,10 @@ type Device interface {
 	GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
 	GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
 	AllowMultipleAllocations() bool
-	Setup(cfg DeviceConfig) error
-	Free(cfg DeviceConfig) error
+	// Setup returns the device prepared for this allocation. It may differ from
+	// the advertised device when each allocation requires its own interface.
+	Setup(allocation DeviceAllocation) (Device, error)
+	Free(allocation DeviceAllocation) error
 	Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
 	IfName() string
 	KernelIfName() string
@@ -197,6 +199,11 @@ type DeviceConfig struct {
 
 func (d *DeviceConfig) Empty() bool {
 	return d == nil || *d == DeviceConfig{}
+}
+
+// DeviceAllocation contains driver parameters for one allocation.
+type DeviceAllocation struct {
+	Config DeviceConfig
 }
 
 type SerializedDevice struct {

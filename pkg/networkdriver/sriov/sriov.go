@@ -127,9 +127,10 @@ func (p PciDevice) AllowMultipleAllocations() bool {
 }
 
 // Setup prepares a sr-iov VF device for use.
-func (d PciDevice) Setup(config types.DeviceConfig) error {
+func (d *PciDevice) Setup(allocation types.DeviceAllocation) (types.Device, error) {
+	config := allocation.Config
 	if d.PFName == "" {
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"failed to set up VF: PF name is empty, device with name %s (%s) %w",
 			d.IfName(), d.KernelIfName(), errNotAVF,
 		)
@@ -137,23 +138,24 @@ func (d PciDevice) Setup(config types.DeviceConfig) error {
 
 	l, err := d.nl.LinkByName(d.PFName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if config.Vlan != 0 {
 		if err := d.nl.LinkSetVfVlan(l, d.VFID, int(config.Vlan)); err != nil {
-			return fmt.Errorf(
+			return nil, fmt.Errorf(
 				"failed to set vlan id %d for vf %d on link %s: %w",
 				config.Vlan, d.VFID, l.Attrs().Name, err,
 			)
 		}
 	}
 
-	return nil
+	return d, nil
 }
 
 // Free resets a sr-iov VF device.
-func (d PciDevice) Free(config types.DeviceConfig) error {
+func (d *PciDevice) Free(allocation types.DeviceAllocation) error {
+	config := allocation.Config
 	if d.PFName == "" {
 		return fmt.Errorf(
 			"failed to free VF: PF name is empty, device with name %s (%s) %w",

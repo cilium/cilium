@@ -88,21 +88,18 @@ func requireNoAllocations(t *testing.T, d *Driver, msgAndArgs ...any) {
 // trackedDevice is a minimal types.Device implementation that records calls
 // to Setup and Free and can be configured to return errors on either.
 type trackedDevice struct {
-	name          string
-	setupErr      error
-	freeErr       error
-	capacity      map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
-	allowMultiple bool
-	setupCalls    atomic.Int32
-	freeCalls     atomic.Int32
-	setupCfgs     []types.DeviceConfig
-
-	// kernelIfName backs KernelIfName(). When empty, KernelIfName() falls back
-	// to name so existing tests that never set it keep their prior behavior.
-	// Merge copies this field forward from an old device when a fresh scan
-	// left it empty, mirroring how a real device manager can lose the kernel
-	// interface name once a device has moved into a pod's network namespace.
-	kernelIfName string
+	name             string
+	setupErr         error
+	freeErr          error
+	setupFunc        func(types.DeviceAllocation) (types.Device, error)
+	prepared         types.Device
+	capacity         map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
+	allowMultiple    bool
+	setupCalls       atomic.Int32
+	freeCalls        atomic.Int32
+	setupAllocations []types.DeviceAllocation
+	freeAllocations  []types.DeviceAllocation
+	kernelIfName     string
 }
 
 func (d *trackedDevice) IfName() string { return d.name }
@@ -136,14 +133,24 @@ func (d *trackedDevice) AllowMultipleAllocations() bool {
 	return d.allowMultiple
 }
 
-func (d *trackedDevice) Setup(cfg types.DeviceConfig) error {
+func (d *trackedDevice) Setup(allocation types.DeviceAllocation) (types.Device, error) {
 	d.setupCalls.Add(1)
-	d.setupCfgs = append(d.setupCfgs, cfg)
-	return d.setupErr
+	d.setupAllocations = append(d.setupAllocations, allocation)
+	if d.setupErr != nil {
+		return nil, d.setupErr
+	}
+	if d.setupFunc != nil {
+		return d.setupFunc(allocation)
+	}
+	if d.prepared != nil {
+		return d.prepared, nil
+	}
+	return d, nil
 }
 
-func (d *trackedDevice) Free(_ types.DeviceConfig) error {
+func (d *trackedDevice) Free(allocation types.DeviceAllocation) error {
 	d.freeCalls.Add(1)
+	d.freeAllocations = append(d.freeAllocations, allocation)
 	return d.freeErr
 }
 
@@ -417,6 +424,20 @@ func TestPrepare(t *testing.T) {
 		// no partial entry must be left in the map.
 		requireNoAllocations(t, driver,
 			"allocations map must be empty when UpdateStatus fails")
+	})
+
+	t.Run("allocation-specific prepared device is rolled back", func(t *testing.T) {
+		cs, _ := k8sClient.NewFakeClientset(tlog)
+		prepared := &trackedDevice{name: "prepared-0"}
+		dev := &trackedDevice{name: prepTestDev0, prepared: prepared}
+		claim := buildPrepClaim(prepTestDev0)
+
+		driver := buildPrepDriver(t, cs, dev)
+		require.Error(t, prepOne(t, driver, claim).Err)
+
+		require.EqualValues(t, 1, dev.setupCalls.Load())
+		require.EqualValues(t, 0, dev.freeCalls.Load())
+		require.EqualValues(t, 1, prepared.freeCalls.Load())
 	})
 
 	t.Run("test prepare fails and calls rollback", func(t *testing.T) {

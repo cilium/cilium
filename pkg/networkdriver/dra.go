@@ -214,7 +214,7 @@ func (d *Driver) unprepareResourceClaim(ctx context.Context, claim kubeletplugin
 		errs  []error
 	)
 	for _, dev := range devices {
-		if err := dev.Device.Free(dev.Config); err != nil {
+		if err := dev.Device.Free(dev.deviceAllocation()); err != nil {
 			errs = append(errs, err)
 			continue
 		}
@@ -375,6 +375,10 @@ func (driver *Driver) podForClaim(ctx context.Context, claim *resourceapi.Resour
 	return pod, nil
 }
 
+func (a allocation) deviceAllocation() types.DeviceAllocation {
+	return types.DeviceAllocation{Config: a.Config}
+}
+
 // claimPrepState holds the precomputed lookups used to make prepareResourceClaim
 // idempotent across retries.
 type claimPrepState struct {
@@ -433,7 +437,7 @@ func (driver *Driver) rollbackDevice(a allocation) {
 		// Nothing was set up for this allocation; nothing to roll back.
 		return
 	}
-	if err := a.Device.Free(a.Config); err != nil {
+	if err := a.Device.Free(a.deviceAllocation()); err != nil {
 		driver.logger.Warn("failed to free device during rollback",
 			logfields.Device, a.Device.IfName(),
 			logfields.Error, err,
@@ -513,18 +517,22 @@ func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string,
 	}
 
 	alloc.Manager = row.Manager
-	alloc.Device = row.Dev
-
-	if err := alloc.Device.Setup(alloc.Config); err != nil {
+	advertised := row.Dev
+	prepared, err := advertised.Setup(alloc.deviceAllocation())
+	if err != nil {
 		driver.logger.ErrorContext(ctx, "failed to set up device",
-			logfields.Device, alloc.Device.IfName(),
+			logfields.Device, advertised.IfName(),
 			logfields.Config, alloc.Config,
 			logfields.Error, err,
 		)
 
-		return alloc, fmt.Errorf("%w for ifname %s on %s", err, alloc.Device.IfName(), claim)
+		return alloc, fmt.Errorf("%w for ifname %s on %s", err, advertised.IfName(), claim)
+	}
+	if prepared == nil {
+		return alloc, fmt.Errorf("device %s returned no prepared device", result.Device)
 	}
 
+	alloc.Device = prepared
 	return alloc, nil
 }
 
