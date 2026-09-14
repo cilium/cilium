@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubetypes "k8s.io/apimachinery/pkg/types"
@@ -540,7 +541,41 @@ func TestBuildPoolsFromTable(t *testing.T) {
 		pools := driver.buildPoolsFromTable()
 		require.Contains(t, pools, "pool-a")
 		require.Len(t, pools["pool-a"].Slices[0].Devices, 1)
-		require.Equal(t, "eth0", pools["pool-a"].Slices[0].Devices[0].Name)
+		published := pools["pool-a"].Slices[0].Devices[0]
+		require.Equal(t, "eth0", published.Name)
+		require.Nil(t, published.Capacity)
+		require.Nil(t, published.AllowMultipleAllocations)
+	})
+
+	t.Run("consumable capacity is published", func(t *testing.T) {
+		one := apiresource.MustParse("1")
+		capacity := map[resourceapi.QualifiedName]resourceapi.DeviceCapacity{
+			"rxQueues": {
+				Value: apiresource.MustParse("4"),
+				RequestPolicy: &resourceapi.CapacityRequestPolicy{
+					Default:     ptr.To(one),
+					ValidValues: []apiresource.Quantity{one},
+				},
+			},
+		}
+		dev := &matchingDevice{
+			trackedDevice: trackedDevice{
+				name:          "eth0",
+				capacity:      capacity,
+				allowMultiple: true,
+			},
+			matches: true,
+		}
+		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
+		})
+		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
+
+		pools := driver.buildPoolsFromTable()
+		published := pools["pool-a"].Slices[0].Devices[0]
+
+		require.Equal(t, capacity, published.Capacity)
+		require.Equal(t, ptr.To(true), published.AllowMultipleAllocations)
 	})
 
 	t.Run("nil-filter pool is excluded", func(t *testing.T) {
