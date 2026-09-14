@@ -9,9 +9,10 @@
 #include <bpf/ctx/unspec.h>
 #include <bpf/api.h>
 
-#define bpf_sock_destroy   mock_bpf_sock_destroy
-#define seq_write	   mock_bpf_seq_write
-#define get_socket_cookie  mock_get_socket_cookie
+#define bpf_sock_destroy	mock_bpf_sock_destroy
+#define seq_write		mock_bpf_seq_write
+#define get_socket_cookie	mock_get_socket_cookie
+#define udp_sock_is_connected	mock_udp_sock_is_connected
 
 struct sock_common;
 struct seq_file;
@@ -48,6 +49,16 @@ static __sock_cookie current_cookie;
 static __always_inline __sock_cookie mock_get_socket_cookie(void *ctx __maybe_unused)
 {
 	return current_cookie;
+}
+
+/* The real one reads sk_state off the socket, which needs a kernel socket
+ * and its BTF. Here the state is set by the case under test.
+ */
+static bool current_connected;
+
+static __always_inline bool mock_udp_sock_is_connected(void *sk __maybe_unused)
+{
+	return current_connected;
 }
 
 #define ENABLE_IPV4 1
@@ -109,6 +120,7 @@ static __always_inline void set_filter(struct sock_term_filter *filter)
 static __always_inline void reset(__sock_cookie cookie)
 {
 	current_cookie = cookie;
+	current_connected = true;
 	destroys = 0;
 	memset(write_data, 0, sizeof(__sock_cookie));
 	write_len = 0;
@@ -158,12 +170,22 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	sock_udp_destroy_v4(&iter_ctx_udp);
 	assert(destroys == 0);
 	assert(write_len == 0);
-	/* Destroy the socket if its cookie is in cilium_lb4_reverse_sk. */
+	/* Destroy the socket if its cookie is in cilium_lb4_reverse_sk and it
+	 * is connected.
+	 */
 	reset(match_cookie4);
 	sock_udp_destroy_v4(&iter_ctx_udp);
 	assert(destroys == 1);
 	assert(write_len == sizeof(__sock_cookie));
 	assert(*((__sock_cookie *)write_data) == match_cookie4);
+	/* Leave it alone if it was never connected: the entry came from a
+	 * sendto(), and there is no connection to terminate.
+	 */
+	reset(match_cookie4);
+	current_connected = false;
+	sock_udp_destroy_v4(&iter_ctx_udp);
+	assert(destroys == 0);
+	assert(write_len == 0);
 
 	/* TCP */
 
@@ -174,8 +196,12 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	sock_tcp_destroy_v4(&iter_ctx_tcp);
 	assert(destroys == 0);
 	assert(write_len == 0);
-	/* Destroy the socket if its cookie is in cilium_lb4_reverse_sk. */
+	/* Destroy the socket if its cookie is in cilium_lb4_reverse_sk. The
+	 * state check is not applied here: a TCP socket only reaches the map
+	 * through connect(), and the entry alone is enough.
+	 */
 	reset(match_cookie4);
+	current_connected = false;
 	sock_tcp_destroy_v4(&iter_ctx_tcp);
 	assert(destroys == 1);
 	assert(write_len == sizeof(__sock_cookie));
@@ -193,12 +219,20 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	sock_udp_destroy_v6(&iter_ctx_udp);
 	assert(destroys == 0);
 	assert(write_len == 0);
-	/* Destroy the socket if its cookie is in cilium_lb6_reverse_sk. */
+	/* Destroy the socket if its cookie is in cilium_lb6_reverse_sk and it
+	 * is connected.
+	 */
 	reset(match_cookie6);
 	sock_udp_destroy_v6(&iter_ctx_udp);
 	assert(destroys == 1);
 	assert(write_len == sizeof(__sock_cookie));
 	assert(*((__sock_cookie *)write_data) == match_cookie6);
+	/* See the IPv4 case: an unconnected socket is left alone. */
+	reset(match_cookie6);
+	current_connected = false;
+	sock_udp_destroy_v6(&iter_ctx_udp);
+	assert(destroys == 0);
+	assert(write_len == 0);
 
 	/* TCP */
 
