@@ -2,11 +2,41 @@
 
 ROOT_DIR=$(realpath ./../../../../)
 
-# Kind cluster with 1 control plane and 2 worker nodes.
-${ROOT_DIR}/contrib/scripts/kind.sh 1 2
+export KIND_EXTRA_KUBEADM_CONFIG_PATCH='
+kind: ClusterConfiguration
+etcd:
+  local:
+    extraArgs:
+      quota-backend-bytes: "4294967296"
+apiServer:
+  extraArgs:
+    max-requests-inflight: "1200"
+    max-mutating-requests-inflight: "600"
+    http2-max-streams-per-connection: "1000"
+    etcd-compaction-interval: "2m"
+controllerManager:
+  extraArgs:
+    kube-api-qps: "100"
+    kube-api-burst: "200"
+scheduler:
+  extraArgs:
+    kube-api-qps: "100"
+    kube-api-burst: "200"
+'
+
+${ROOT_DIR}/contrib/scripts/kind.sh 1 1
 make -C "${ROOT_DIR}" kind-image
 
-kubectl label node kind-worker2 role.scaffolding/test-infra=true
+# We create kind cluster for local testing with 1 control plane and 1 worker node.
+# Remove the control-plane/master taint and use this node to host non test workloads
+# (coredns, monitoring stack, kwok, kfuzz) instead of a dedicated node.
+# This keeps the cluster footprint low during local test.
+set +e
+kubectl taint nodes --all node-role.kubernetes.io/control-plane- 2>/dev/null
+kubectl taint nodes --all node-role.kubernetes.io/master- 2>/dev/null
+set -e
+
+kubectl label node kind-control-plane role.scaffolding/test-infra=true
 kubectl label node kind-worker role.scaffolding/test-node=true
 
 # Cordon the test node so only pods explicitly targetted using nodeName
@@ -37,7 +67,7 @@ export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
 export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=false
 
 export CL2_TEST_NODE_NAME=kind-worker
-export CL2_TEST_DURATION=20m
+export CL2_TEST_DURATION=10m
 
 export CL2_NUM_FAKE_NODES=128
 
@@ -109,7 +139,6 @@ for file in ./scenarios/*.yaml; do
         --experimental-prometheus-snapshot-to-report-dir=true \
         --prometheus-additional-monitors-path=monitors
 
-
     echo "[*] Cleaning up any orphaned resources"
 
     kubectl --namespace kfuzz delete deployments --all
@@ -125,3 +154,5 @@ for file in ./scenarios/*.yaml; do
 
     sleep 150
 done
+
+./dashboard/render.sh "${CL2_TEST_NODE_NAME}"
