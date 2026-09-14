@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	resourceapi "k8s.io/api/resource/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/dynamic-resource-allocation/deviceattribute"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -205,13 +207,20 @@ func (d *DeviceConfig) Empty() bool {
 	return d == nil || *d == DeviceConfig{}
 }
 
-// DeviceAllocation contains driver parameters for one allocation.
+// DeviceAllocation contains scheduler and driver parameters for one allocation.
 type DeviceAllocation struct {
 	Config DeviceConfig
+	// ShareID identifies a shared allocation and is empty for a dedicated one.
+	// It reflects the scheduler's allocation-time decision, which may differ
+	// from the device's current sharing mode.
+	ShareID kube_types.UID
+	// ConsumedCapacity contains the capacity assigned by the scheduler.
+	ConsumedCapacity map[resourceapi.QualifiedName]resource.Quantity
 }
 
 type SerializedDevice struct {
-	Manager DeviceManagerType
-	Dev     json.RawMessage
-	Config  DeviceConfig
+	Manager          DeviceManagerType
+	Dev              json.RawMessage
+	Config           DeviceConfig
+	ConsumedCapacity map[resourceapi.QualifiedName]resource.Quantity `json:",omitempty"`
 }
