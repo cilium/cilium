@@ -116,6 +116,16 @@ func (d *PciDevice) Merge(old types.Device) {
 	}
 }
 
+// GetCapacity returns no consumable capacity because an SR-IOV VF is allocated
+// as a single, indivisible device.
+func (p PciDevice) GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity {
+	return nil
+}
+
+func (p PciDevice) AllowMultipleAllocations() bool {
+	return false
+}
+
 // Setup prepares a sr-iov VF device for use.
 func (d PciDevice) Setup(config types.DeviceConfig) error {
 	if d.PFName == "" {
