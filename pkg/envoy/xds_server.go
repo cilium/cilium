@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -20,6 +21,7 @@ import (
 	envoy_extensions_listener_tls_inspector_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -53,6 +55,9 @@ const (
 	ingressTLSClusterName = "ingress-cluster-tls"
 	metricsListenerName   = "envoy-prometheus-metrics-listener"
 	adminListenerName     = "envoy-admin-listener"
+
+	listenerAddressChangeMaxAttempts = 5
+	listenerAddressChangeRetryDelay  = 100 * time.Millisecond
 )
 
 type xdsServer struct {
@@ -940,6 +945,62 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Reso
 	return nil
 }
 
+func listenerAdditionalAddressesEqual(oldListener, newListener *envoy_config_listener.Listener) bool {
+	oldAdditionalAddresses := oldListener.GetAdditionalAddresses()
+	newAdditionalAddresses := newListener.GetAdditionalAddresses()
+	if len(oldAdditionalAddresses) != len(newAdditionalAddresses) {
+		return false
+	}
+
+	// Envoy treats listener addresses as an unordered set. Track matches so
+	// duplicate entries are still compared with multiset semantics.
+	matchedNewAddresses := make([]bool, len(newAdditionalAddresses))
+	for _, oldAddress := range oldAdditionalAddresses {
+		matched := false
+		for i, newAddress := range newAdditionalAddresses {
+			if !matchedNewAddresses[i] && proto.Equal(oldAddress, newAddress) {
+				matchedNewAddresses[i] = true
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	return true
+}
+
+func listenerAddressesEqual(oldListener, newListener *envoy_config_listener.Listener) bool {
+	return proto.Equal(oldListener.GetAddress(), newListener.GetAddress()) &&
+		listenerAdditionalAddressesEqual(oldListener, newListener)
+}
+
+func listenerReusePortDisabled(listener *envoy_config_listener.Listener) bool {
+	return listener.EnableReusePort != nil && !listener.EnableReusePort.Value
+}
+
+// Primary address changes preserve the existing delete-before-add behavior. Additional address
+// changes require it only when either listener explicitly disables SO_REUSEPORT.
+func listenerAddressChangeRequiresDeleteBeforeAdd(oldListener, newListener *envoy_config_listener.Listener) bool {
+	primaryChanged := !proto.Equal(oldListener.GetAddress(), newListener.GetAddress())
+	additionalChanged := !listenerAdditionalAddressesEqual(oldListener, newListener)
+
+	return primaryChanged ||
+		(additionalChanged &&
+			(listenerReusePortDisabled(oldListener) || listenerReusePortDisabled(newListener)))
+}
+
+func isAddressAlreadyInUseError(err error) bool {
+	var proxyErr *xds.ProxyError
+	if !errors.As(err, &proxyErr) {
+		return false
+	}
+
+	return strings.Contains(strings.ToLower(proxyErr.Detail), "address already in use")
+}
+
 // UpdateEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. This is
 // needed due to the possible dependency between listeners and listeners and clusters. If resources
 // includes listeners the caller MUST pass a context with a timeout to prevent indefinite blocking
@@ -951,25 +1012,18 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Reso
 func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources, waitGroup *completion.WaitGroup) error {
 	waitForDelete := false
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
-	// Delete old listeners not added in 'new' or if old and new listener have different ports
+	// Delete old listeners not added in 'new' or whose address configuration changed.
 	var deleteListeners []*envoy_config_listener.Listener
 	for _, oldListener := range old.Listeners {
 		found := false
-		port := uint32(0)
-		if addr := oldListener.Address.GetSocketAddress(); addr != nil {
-			port = addr.GetPortValue()
-		}
 		for _, newListener := range new.Listeners {
 			if newListener.Name == oldListener.Name {
-				if addr := newListener.Address.GetSocketAddress(); addr != nil && addr.GetPortValue() != port {
-					s.logger.Debug("UpdateEnvoyResources: port changing",
-						logfields.Listener, newListener.Name,
-						logfields.ValueBefore, port,
-						logfields.ValueAfter, addr.GetPortValue(),
-					)
+				if listenerAddressChangeRequiresDeleteBeforeAdd(oldListener, newListener) {
+					s.logger.Debug("UpdateEnvoyResources: listener address change requires recreation",
+						logfields.Listener, newListener.Name)
 					waitForDelete = true
 				} else {
-					// port is not changing, remove from new.PortAllocations to prevent acking an already acked port.
+					// The primary port is not being recreated, so prevent acking an already acked port.
 					delete(new.PortAllocationCallbacks, newListener.Name)
 					found = true
 				}
@@ -984,8 +1038,8 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 		logfields.ResourcesDeleted, len(deleteListeners),
 		logfields.ResourcesUpserted, len(new.Listeners),
 	)
-	// Wait for new listener dependencies if there are new listeners and listener's port number
-	// changed or there are new clusters
+	// Wait for new listener dependencies if there are new listeners and a listener's address
+	// configuration changed or there are new clusters.
 	var dependencyWG *completion.WaitGroup
 	if len(new.Listeners) > 0 && (waitForDelete || len(new.Clusters) > 0) {
 		dependencyWG = completion.NewWaitGroup(ctx)
@@ -1139,40 +1193,65 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 
 	// Add new Listeners
 
-	// Caller may not pass a waitGroup, but we must still wait for new Listeners to be able to
-	// revert on error.
-	wg := completion.NewWaitGroup(ctx)
-	for _, r := range new.Listeners {
-		listenerName := r.Name
-		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg,
-			// this callback is not called if there is no change
-			func(err error) {
-				if err == nil && new.PortAllocationCallbacks[listenerName] != nil {
-					if callbackErr := new.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
-						s.logger.Warn("Failure in port allocation callback",
-							logfields.Error, callbackErr,
-						)
+	// Envoy ACKs a listener deletion before its worker event loops have closed the
+	// listening sockets. If an address-changing replacement overlaps the old address
+	// set and SO_REUSEPORT is disabled, the first add can therefore race with socket
+	// closure and be NACKed with EADDRINUSE. Retry that transient NACK after reverting
+	// only the failed listener upserts. Other failures still revert the transaction.
+	for attempt := 1; ; attempt++ {
+		// Caller may not pass a waitGroup, but we must still wait for new Listeners to be able to
+		// revert on error.
+		wg := completion.NewWaitGroup(ctx)
+		var listenerRevertFuncs xds.AckingResourceMutatorRevertFuncList
+		for _, r := range new.Listeners {
+			listenerName := r.Name
+			listenerRevertFuncs = append(listenerRevertFuncs, s.upsertListener(r.Name, r, wg,
+				// this callback is not called if there is no change
+				func(err error) {
+					if err == nil && new.PortAllocationCallbacks[listenerName] != nil {
+						if callbackErr := new.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
+							s.logger.Warn("Failure in port allocation callback",
+								logfields.Error, callbackErr,
+							)
+						}
 					}
-				}
-			}))
-	}
+				}))
+		}
 
-	start := time.Now()
-	s.logger.Debug("UpdateEnvoyResources: Waiting for proxy listener updates to complete...")
-	err := wg.Wait()
-	logArgs := []any{logfields.Duration, time.Since(start)}
-	if err != nil {
-		logArgs = append(logArgs, logfields.Error, err)
-	}
-	s.logger.Debug("UpdateEnvoyResources: Finished waiting for proxy listener updates",
-		logArgs...)
+		start := time.Now()
+		s.logger.Debug("UpdateEnvoyResources: Waiting for proxy listener updates to complete...")
+		err := wg.Wait()
+		logArgs := []any{logfields.Duration, time.Since(start)}
+		if err != nil {
+			logArgs = append(logArgs, logfields.Error, err)
+		}
+		s.logger.Debug("UpdateEnvoyResources: Finished waiting for proxy listener updates",
+			logArgs...)
 
-	// revert all changes in case of failure
-	if err != nil {
-		revertFuncs.Revert()
-		s.logger.Debug("UpdateEnvoyResources: Finished reverting failed xDS transactions")
+		if err == nil {
+			return nil
+		}
+
+		listenerRevertFuncs.Revert()
+		if !waitForDelete || !isAddressAlreadyInUseError(err) || attempt >= listenerAddressChangeMaxAttempts {
+			revertFuncs.Revert()
+			s.logger.Debug("UpdateEnvoyResources: Finished reverting failed xDS transactions")
+			return err
+		}
+
+		s.logger.Debug("UpdateEnvoyResources: Retrying listener address change after bind failure",
+			logfields.Attempt, attempt+1,
+			logfields.Error, err)
+		timer := time.NewTimer(listenerAddressChangeRetryDelay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			revertFuncs.Revert()
+			s.logger.Debug("UpdateEnvoyResources: Finished reverting failed xDS transactions")
+			return ctx.Err()
+		case <-timer.C:
+		}
 	}
-	return err
 }
 
 // DeleteEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. If
