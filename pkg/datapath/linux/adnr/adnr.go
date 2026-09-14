@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"reflect"
 	"slices"
 
 	"github.com/cilium/hive/cell"
@@ -99,19 +98,6 @@ func (h *Handler) getNodeRoutes(nodeName string, nodeIP net.IP, podCIDRs []netip
 	return routes, nil
 }
 
-func sameRoute(a, b *routeReconciler.DesiredRoute) bool {
-	// we compare only exported fields of the route
-	// and we exclude the status.
-	return a.AdminDistance == b.AdminDistance &&
-		a.Nexthop == b.Nexthop &&
-		a.Src == b.Src &&
-		reflect.DeepEqual(a.Device, b.Device) &&
-		reflect.DeepEqual(a.MultiPath, b.MultiPath) &&
-		a.MTU == b.MTU &&
-		a.Scope == b.Scope &&
-		a.Type == b.Type
-}
-
 func (h *Handler) replaceOwnerRoutes(owner *routeReconciler.RouteOwner, newRoutes []routeReconciler.DesiredRoute) error {
 	desiredRoutes := make(map[routeReconciler.DesiredRouteKey]routeReconciler.DesiredRoute, len(newRoutes))
 	for _, route := range newRoutes {
@@ -136,7 +122,7 @@ func (h *Handler) replaceOwnerRoutes(owner *routeReconciler.RouteOwner, newRoute
 		// In any case we delete it from the desired routes map so that
 		// we don't add it again.
 		delete(desiredRoutes, current.GetFullKey())
-		if sameRoute(current, &desired) {
+		if current.SameSpec(&desired) {
 			continue
 		}
 		if err := h.routeManager.UpsertRoute(desired); err != nil {
