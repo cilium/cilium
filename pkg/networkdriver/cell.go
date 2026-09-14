@@ -42,6 +42,7 @@ var Cell = cell.Module(
 		resourceClaimResource,
 		podResource,
 		newDeviceTable,
+		newAllocationTable,
 	),
 	cell.Invoke(registerNetworkDriver),
 )
@@ -65,18 +66,19 @@ var defaultNetworkDriverConfig = NetworkDriverConfig{
 type networkDriverParams struct {
 	cell.In
 
-	CellCfg        NetworkDriverConfig
-	Log            *slog.Logger
-	Lifecycle      cell.Lifecycle
-	ClientSet      k8sClient.Clientset
-	JobGroup       job.Group
-	Configs        resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig]
-	ResourceClaims resource.Resource[*resourceapi.ResourceClaim]
-	Pods           resource.Resource[*corev1.Pod]
-	DaemonCfg      *option.DaemonConfig
-	DB             *statedb.DB
-	DeviceTable    statedb.RWTable[*DRADevice]
-	LocalNodeStore *node.LocalNodeStore
+	CellCfg         NetworkDriverConfig
+	Log             *slog.Logger
+	Lifecycle       cell.Lifecycle
+	ClientSet       k8sClient.Clientset
+	JobGroup        job.Group
+	Configs         resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig]
+	ResourceClaims  resource.Resource[*resourceapi.ResourceClaim]
+	Pods            resource.Resource[*corev1.Pod]
+	DaemonCfg       *option.DaemonConfig
+	DB              *statedb.DB
+	DeviceTable     statedb.RWTable[*DRADevice]
+	AllocationTable statedb.RWTable[*DRAAllocation]
+	LocalNodeStore  *node.LocalNodeStore
 }
 
 func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, cfg NetworkDriverConfig) resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig] {
@@ -138,17 +140,18 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 	}
 
 	driver := &Driver{
-		logger:         params.Log,
-		jg:             params.JobGroup,
-		resourceClaims: params.ResourceClaims,
-		pods:           params.Pods,
-		kubeClient:     params.ClientSet,
-		deviceManagers: make(map[types.DeviceManagerType]types.DeviceManager),
-		configCRD:      params.Configs,
-		podNetns:       make(map[kube_types.UID]string),
-		db:             params.DB,
-		deviceTable:    params.DeviceTable,
-		localNodeStore: params.LocalNodeStore,
+		logger:          params.Log,
+		jg:              params.JobGroup,
+		resourceClaims:  params.ResourceClaims,
+		pods:            params.Pods,
+		kubeClient:      params.ClientSet,
+		deviceManagers:  make(map[types.DeviceManagerType]types.DeviceManager),
+		configCRD:       params.Configs,
+		podNetns:        make(map[kube_types.UID]string),
+		db:              params.DB,
+		deviceTable:     params.DeviceTable,
+		allocationTable: params.AllocationTable,
+		localNodeStore:  params.LocalNodeStore,
 	}
 
 	params.Lifecycle.Append(driver)

@@ -33,7 +33,10 @@ import (
 // holds which device" and is visible via `cilium-dbg statedb dump`.
 // ---------------------------------------------------------------------------
 
-const DevicesTableName = "networkdriver-dra-devices"
+const (
+	DevicesTableName     = "networkdriver-dra-devices"
+	AllocationsTableName = "networkdriver-dra-allocations"
+)
 
 // deviceByName is the single primary index, keyed by device name.
 var deviceByName = statedb.Index[*DRADevice, string]{
@@ -59,9 +62,69 @@ var deviceByClaimUID = statedb.Index[*DRADevice, string]{
 	Unique:     false,
 }
 
+var allocationByKey = statedb.Index[*DRAAllocation, string]{
+	Name: "id",
+	FromObject: func(a *DRAAllocation) index.KeySet {
+		return index.NewKeySet(index.String(AllocationKey(a.Pool, a.DeviceName)))
+	},
+	FromKey:    index.String,
+	FromString: index.FromString,
+	Unique:     true,
+}
+
+var allocationByClaimUID = statedb.Index[*DRAAllocation, string]{
+	Name: "claim-uid",
+	FromObject: func(a *DRAAllocation) index.KeySet {
+		return index.NewKeySet(index.String(string(a.ClaimUID)))
+	},
+	FromKey:    index.String,
+	FromString: index.FromString,
+	Unique:     false,
+}
+
+var allocationByDeviceName = statedb.Index[*DRAAllocation, string]{
+	Name: "device-name",
+	FromObject: func(a *DRAAllocation) index.KeySet {
+		return index.NewKeySet(index.String(a.DeviceName))
+	},
+	FromKey:    index.String,
+	FromString: index.FromString,
+	Unique:     false,
+}
+
+var allocationByPodUID = statedb.Index[*DRAAllocation, string]{
+	Name: "pod-uid",
+	FromObject: func(a *DRAAllocation) index.KeySet {
+		return index.NewKeySet(index.String(string(a.PodUID)))
+	},
+	FromKey:    index.String,
+	FromString: index.FromString,
+	Unique:     false,
+}
+
 // DevicesByClaimUID returns all devices allocated for the given claim UID.
 func DevicesByClaimUID(tbl statedb.Table[*DRADevice], txn statedb.ReadTxn, claimUID kube_types.UID) iter.Seq2[*DRADevice, statedb.Revision] {
 	return tbl.List(txn, deviceByClaimUID.Query(string(claimUID)))
+}
+
+// AllocationKey returns the primary key for a device allocation.
+func AllocationKey(pool, deviceName string) string {
+	return pool + "/" + deviceName
+}
+
+// AllocationsByDeviceName returns all allocations for the given device.
+func AllocationsByDeviceName(tbl statedb.Table[*DRAAllocation], txn statedb.ReadTxn, deviceName string) iter.Seq2[*DRAAllocation, statedb.Revision] {
+	return tbl.List(txn, allocationByDeviceName.Query(deviceName))
+}
+
+// AllocationsByClaimUID returns all allocations for the given claim UID.
+func AllocationsByClaimUID(tbl statedb.Table[*DRAAllocation], txn statedb.ReadTxn, claimUID kube_types.UID) iter.Seq2[*DRAAllocation, statedb.Revision] {
+	return tbl.List(txn, allocationByClaimUID.Query(string(claimUID)))
+}
+
+// AllocationsByPodUID returns all allocations for the given pod UID.
+func AllocationsByPodUID(tbl statedb.Table[*DRAAllocation], txn statedb.ReadTxn, podUID kube_types.UID) iter.Seq2[*DRAAllocation, statedb.Revision] {
+	return tbl.List(txn, allocationByPodUID.Query(string(podUID)))
 }
 
 // allocationFromRow projects a statedb row into an allocation. Returns the
@@ -117,11 +180,49 @@ func (d *DRADevice) TableRow() []string {
 	}
 }
 
+// DRAAllocation records a device prepared for a ResourceClaim held by a pod.
+type DRAAllocation struct {
+	DeviceName     string
+	Manager        types.DeviceManagerType
+	PreparedDevice types.Device
+	Pool           string
+	PodUID         kube_types.UID
+	ClaimUID       kube_types.UID
+	Config         types.DeviceConfig
+}
+
+func (a *DRAAllocation) Clone() *DRAAllocation {
+	c := *a
+	return &c
+}
+
+func (a *DRAAllocation) TableHeader() []string {
+	return []string{"Device", "Manager", "Pool", "PodUID", "ClaimUID", "PodIfName"}
+}
+
+func (a *DRAAllocation) TableRow() []string {
+	return []string{
+		a.DeviceName, a.Manager.String(), a.Pool,
+		string(a.PodUID), string(a.ClaimUID), a.Config.PodIfName,
+	}
+}
+
 func newDeviceTable(db *statedb.DB) (statedb.RWTable[*DRADevice], error) {
 	return statedb.NewTable(
 		db,
 		DevicesTableName,
 		deviceByName,
 		deviceByClaimUID,
+	)
+}
+
+func newAllocationTable(db *statedb.DB) (statedb.RWTable[*DRAAllocation], error) {
+	return statedb.NewTable(
+		db,
+		AllocationsTableName,
+		allocationByKey,
+		allocationByClaimUID,
+		allocationByDeviceName,
+		allocationByPodUID,
 	)
 }
