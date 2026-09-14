@@ -88,12 +88,14 @@ func requireNoAllocations(t *testing.T, d *Driver, msgAndArgs ...any) {
 // trackedDevice is a minimal types.Device implementation that records calls
 // to Setup and Free and can be configured to return errors on either.
 type trackedDevice struct {
-	name       string
-	setupErr   error
-	freeErr    error
-	setupCalls atomic.Int32
-	freeCalls  atomic.Int32
-	setupCfgs  []types.DeviceConfig
+	name          string
+	setupErr      error
+	freeErr       error
+	capacity      map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
+	allowMultiple bool
+	setupCalls    atomic.Int32
+	freeCalls     atomic.Int32
+	setupCfgs     []types.DeviceConfig
 
 	// kernelIfName backs KernelIfName(). When empty, KernelIfName() falls back
 	// to name so existing tests that never set it keep their prior behavior.
@@ -124,6 +126,14 @@ func (d *trackedDevice) Merge(old types.Device) {
 // attributes, and buildPoolsFromTable handles a nil map safely.
 func (d *trackedDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	return nil
+}
+
+func (d *trackedDevice) GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity {
+	return d.capacity
+}
+
+func (d *trackedDevice) AllowMultipleAllocations() bool {
+	return d.allowMultiple
 }
 
 func (d *trackedDevice) Setup(cfg types.DeviceConfig) error {

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path"
 	"slices"
 
@@ -617,17 +618,23 @@ func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 			continue
 		}
 
-		attrs := d.Dev.GetAttrs()
+		attrs := maps.Clone(d.Dev.GetAttrs())
 		if attrs == nil {
 			attrs = make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
 		}
 		attrs[resourceapi.QualifiedName(types.PoolNameLabel)] = resourceapi.DeviceAttribute{StringValue: ptr.To(pool)}
 		attrs[resourceapi.QualifiedName(types.DeviceManagerLabel)] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.Manager.String())}
 
-		devices = append(devices, resourceapi.Device{
+		published := resourceapi.Device{
 			Name:       d.Name,
 			Attributes: attrs,
-		})
+			Capacity:   maps.Clone(d.Dev.GetCapacity()),
+		}
+		if d.Dev.AllowMultipleAllocations() {
+			published.AllowMultipleAllocations = ptr.To(true)
+		}
+
+		devices = append(devices, published)
 	}
 
 	// Sort by name so which slice a device lands in (when spread across more
