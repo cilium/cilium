@@ -209,16 +209,19 @@ func (d *Driver) unprepareResourceClaim(ctx context.Context, claim kubeletplugin
 		return nil
 	}
 
-	// Remove allocation ownership before freeing devices, preserving the
-	// existing unprepare behavior if cleanup fails partway through.
-	d.deleteAllocations(devices)
-
-	var errs []error
+	var (
+		freed []allocation
+		errs  []error
+	)
 	for _, dev := range devices {
 		if err := dev.Device.Free(dev.Config); err != nil {
 			errs = append(errs, err)
+			continue
 		}
+		freed = append(freed, dev)
 	}
+	// Keep failed allocations so a later unprepare can retry their cleanup.
+	d.deleteAllocations(freed)
 	return errors.Join(errs...)
 }
 

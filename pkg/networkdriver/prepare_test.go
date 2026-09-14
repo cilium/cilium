@@ -678,6 +678,31 @@ func TestUnprepare(t *testing.T) {
 		require.Same(t, dev, row.Dev)
 	})
 
+	t.Run("failed free retains allocation for retry", func(t *testing.T) {
+		cs, _ := k8sClient.NewFakeClientset(tlog)
+		dev := &trackedDevice{name: prepTestDev0, freeErr: errors.New("free failed")}
+		claim := buildPrepClaim(prepTestDev0)
+		createPrepClaim(t, cs, claim)
+
+		driver := buildPrepDriver(t, cs, dev)
+		require.NoError(t, prepOne(t, driver, claim).Err)
+
+		results, err := driver.UnprepareResourceClaims(t.Context(),
+			[]kubeletplugin.NamespacedObject{namedObject(prepTestClaimNS, prepTestClaimName, prepTestClaimUID)})
+		require.NoError(t, err)
+		require.Error(t, results[prepTestClaimUID])
+		require.Len(t, allocatedRowsForClaim(t, driver, prepTestClaimUID), 1,
+			"failed cleanup must remain available for retry")
+
+		dev.freeErr = nil
+		results, err = driver.UnprepareResourceClaims(t.Context(),
+			[]kubeletplugin.NamespacedObject{namedObject(prepTestClaimNS, prepTestClaimName, prepTestClaimUID)})
+		require.NoError(t, err)
+		require.NoError(t, results[prepTestClaimUID])
+		requireNoAllocations(t, driver)
+		require.EqualValues(t, 2, dev.freeCalls.Load())
+	})
+
 	t.Run("multiple devices all are freed", func(t *testing.T) {
 		cs, _ := k8sClient.NewFakeClientset(tlog)
 		dev0 := &trackedDevice{name: prepTestDev0}
