@@ -606,6 +606,19 @@ func (ops *BPFOps) pruneServiceMaps() error {
 	return nil
 }
 
+func (ops *BPFOps) pruneBackendIDs() error {
+	for id, addr := range ops.backendIDAlloc.idToAddr {
+		if _, ok := ops.backendStates[addr]; !ok {
+			ops.log.Debug("pruneBackendIDs: deleting leaked backend ID",
+				logfields.ID, id,
+				logfields.Address, addr,
+			)
+			ops.backendIDAlloc.deleteLocalID(id)
+		}
+	}
+	return nil
+}
+
 func (ops *BPFOps) pruneBackendMaps() error {
 	toDelete := []maps.BackendKey{}
 	beCB := func(beKey maps.BackendKey, beValue maps.BackendValue) {
@@ -737,6 +750,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 		ops.pruneRevNat(),
 		ops.pruneSourceRanges(),
 		ops.pruneMaglev(),
+		ops.pruneBackendIDs(),
 	)
 }
 
@@ -964,6 +978,13 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 
 	activeCount, terminatingCount, inactiveCount := 0, 0, 0
 
+	type backendRevisionUpdate struct {
+		id   loadbalancer.BackendID
+		addr loadbalancer.L3n4Addr
+		rev  statedb.Revision
+	}
+	revUpdates := make([]backendRevisionUpdate, 0, len(orderedBackends))
+
 	// Update backends that are new or changed.
 	slotID := 1
 	for _, be := range orderedBackends {
@@ -995,7 +1016,11 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 				return fmt.Errorf("upsert backend: %w", err)
 			}
 
-			ops.updateBackendRevision(beID, be.Address, be.Revision)
+			revUpdates = append(revUpdates, backendRevisionUpdate{
+				id:   beID,
+				addr: be.Address,
+				rev:  be.Revision,
+			})
 		}
 
 		if be.State == loadbalancer.BackendStateMaintenance {
@@ -1172,6 +1197,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 	// Finally update the new references. This makes sure any failures reconciling the service slots
 	// above can be retried and entries are not leaked.
 	ops.updateReferences(fe.Address, backendAddrs)
+
+	for _, u := range revUpdates {
+		ops.updateBackendRevision(u.id, u.addr, u.rev)
+	}
 
 	return nil
 }
