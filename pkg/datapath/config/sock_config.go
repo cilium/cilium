@@ -14,6 +14,8 @@ type BPFSock struct {
 	DisableExternalIPMitigation bool `config:"disable_external_ip_mitigation"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Enable IPIP health probes data path.
+	EnableHealthCheck bool `config:"enable_health_check"`
 	// Enable IPv4 fragments tracking.
 	EnableIPv4Fragments bool `config:"enable_ipv4_fragments"`
 	// Enable IPv6 fragments tracking.
@@ -44,5 +46,5 @@ type BPFSock struct {
 
 func NewBPFSock(node Node) *BPFSock {
 	return &BPFSock{false, false, false, false, false, false, false, false, false,
-		0x0, 0x0, 0x0, 0x0, 0x0, node}
+		false, 0x0, 0x0, 0x0, 0x0, 0x0, node}
 }

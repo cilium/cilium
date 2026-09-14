@@ -34,11 +34,6 @@
  */
 #define SKIP_SRV6_HANDLING
 
-/* The XDP datapath does not take care of health probes from the local node,
- * thus do not compile it in.
- */
-#undef ENABLE_HEALTH_CHECK
-
 #define	NODEPORT_USE_NAT_46x64		1
 
 #include "lib/common.h"
