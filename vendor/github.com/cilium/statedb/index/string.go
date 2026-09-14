@@ -27,7 +27,7 @@ func StringSlice(ss []string) KeySet {
 	for _, s := range ss {
 		keys = append(keys, String(s))
 	}
-	return NewKeySet(keys...)
+	return keySet(keys)
 }
 
 func StringerSlice[T fmt.Stringer](ss []T) KeySet {
@@ -35,7 +35,7 @@ func StringerSlice[T fmt.Stringer](ss []T) KeySet {
 	for _, s := range ss {
 		keys = append(keys, Stringer(s))
 	}
-	return NewKeySet(keys...)
+	return keySet(keys)
 }
 
 func StringerSeq[T fmt.Stringer](seq iter.Seq[T]) KeySet {

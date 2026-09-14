@@ -100,7 +100,10 @@ func (a NetIPPrefixIndex[Obj]) newTableIndex() tableIndex {
 			for prefix := range a.FromObject(obj.data.(Obj)) {
 				keys = append(keys, lpm.NetIPPrefixToIndexKey(prefix))
 			}
-			return index.NewKeySet(keys...)
+			if len(keys) == 0 {
+				return index.EmptyKeySet
+			}
+			return index.NewKeySet(keys[0], keys[1:]...)
 		},
 		watch: make(chan struct{}),
 	}
@@ -185,7 +188,10 @@ func (l LPMIndex[Obj]) newTableIndex() tableIndex {
 			for data, prefixLen := range l.FromObject(obj.data.(Obj)) {
 				keys = append(keys, mustEncodeLPMKey(data, prefixLen))
 			}
-			return index.NewKeySet(keys...)
+			if len(keys) == 0 {
+				return index.EmptyKeySet
+			}
+			return index.NewKeySet(keys[0], keys[1:]...)
 		},
 		watch: make(chan struct{}),
 	}

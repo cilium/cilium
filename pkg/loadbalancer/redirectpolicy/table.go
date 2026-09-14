@@ -46,15 +46,14 @@ var (
 	lrpAddressIndex = statedb.Index[*LocalRedirectPolicy, lb.L3n4Addr]{
 		Name: "address",
 		FromObject: func(lrp *LocalRedirectPolicy) index.KeySet {
-			if lrp.LRPType != lrpConfigTypeAddr {
-				return index.KeySet{}
+			if lrp.LRPType != lrpConfigTypeAddr || len(lrp.FrontendMappings) == 0 {
+				return index.EmptyKeySet
 			}
-			keys := make([]index.Key, 0, len(lrp.FrontendMappings))
-			for _, feM := range lrp.FrontendMappings {
-				keys = append(keys, feM.feAddr.Bytes())
-
+			keys := make([]index.Key, len(lrp.FrontendMappings))
+			for i, feM := range lrp.FrontendMappings {
+				keys[i] = feM.feAddr.Bytes()
 			}
-			return index.NewKeySet(keys...)
+			return index.NewKeySet(keys[0], keys[1:]...)
 		},
 		FromKey: func(addr lb.L3n4Addr) index.Key { return addr.Bytes() },
 		Unique:  false,

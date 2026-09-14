@@ -10,7 +10,7 @@ func Set[T any](s part.Set[T]) KeySet {
 	toBytes := s.ToBytesFunc()
 	switch s.Len() {
 	case 0:
-		return KeySet{}
+		return EmptyKeySet
 	case 1:
 		if v, ok := s.First(); ok {
 			return NewKeySet(toBytes(v))
@@ -21,6 +21,6 @@ func Set[T any](s part.Set[T]) KeySet {
 		for v := range s.All() {
 			keys = append(keys, toBytes(v))
 		}
-		return NewKeySet(keys...)
+		return keySet(keys)
 	}
 }

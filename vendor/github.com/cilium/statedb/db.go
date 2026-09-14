@@ -97,6 +97,7 @@ type dbState struct {
 	gcRateLimitInterval time.Duration
 	metrics             Metrics
 	writeTxnPool        sync.Pool
+	commitHooks         []CommitHook
 }
 
 type dbRoot = []*tableEntry
@@ -104,12 +105,31 @@ type dbRoot = []*tableEntry
 type Option func(*opts)
 
 type opts struct {
-	metrics Metrics
+	metrics     Metrics
+	commitHooks []CommitHook
 }
 
 func WithMetrics(m Metrics) Option {
 	return func(o *opts) {
 		o.metrics = m
+	}
+}
+
+// CommitHook is a commit hook that can be registered through [WithCommitHooks].
+// Commit hooks are run synchronously, must be strictly read-only, and fast.
+// The given list of tables is only valid until the hook terminates, and must
+// explicitly copied if longer retention is needed.
+type CommitHook func(txn ReadTxn, tables []string)
+
+// WithCommitHooks registers hooks that get invoked every time that a transaction
+// is committed, before releasing the associated locks. They get passed the read
+// transaction for that snapshot, and the list of tables locked by the transaction.
+// The hooks must be strictly read-only, and cannot abort the transaction.
+func WithCommitHooks(hooks ...CommitHook) Option {
+	return func(o *opts) {
+		o.commitHooks = append(o.commitHooks,
+			slices.DeleteFunc(hooks, func(hook CommitHook) bool { return hook == nil })...,
+		)
 	}
 }
 
@@ -130,6 +150,7 @@ func New(options ...Option) *DB {
 		dbState: &dbState{
 			metrics:             opts.metrics,
 			gcRateLimitInterval: defaultGCRateLimitInterval,
+			commitHooks:         opts.commitHooks,
 		},
 	}
 	db.updateWriteTxnPoolLocked(0)
@@ -188,25 +209,12 @@ func (db *DB) ReadTxn() ReadTxn {
 // The modifications performed in the write transaction are not visible outside
 // it until Commit() is called. To discard the changes call Abort().
 //
+// Panics if called with duplicate tables.
+//
 // The returned WriteTxn is not thread-safe.
 func (db *DB) WriteTxn(tables ...TableMeta) WriteTxn {
 	txn := db.writeTxnPool.Get().(*writeTxnState)
 	txn.db = db
-
-	// Deduplicate the set of tables to avoid acquiring the same table lock
-	// more than once, which would deadlock down the line.
-	seen := make(map[int]struct{}, len(tables))
-	tables = slices.DeleteFunc(slices.Clone(tables), func(table TableMeta) bool {
-		pos := table.tablePos()
-		if pos < 0 {
-			panic(tableError(table.Name(), ErrTableNotRegistered))
-		}
-		if _, exists := seen[pos]; exists {
-			return true
-		}
-		seen[pos] = struct{}{}
-		return false
-	})
 
 	txn.smus = reuseSlice(txn.smus, len(tables))
 	for i, table := range tables {
@@ -229,10 +237,9 @@ func (db *DB) WriteTxn(tables ...TableMeta) WriteTxn {
 	txn.tableNames = reuseSlice(txn.tableNames, len(tables))
 	for i, table := range tables {
 		pos := table.tablePos()
-		tableEntryCopy := *txn.tableEntries[pos]
-		tableEntryCopy.indexes = slices.Clone(tableEntryCopy.indexes)
+		tableEntryCopy := cloneTableEntry(txn.tableEntries[pos])
 		tableEntryCopy.locked = true
-		txn.tableEntries[pos] = &tableEntryCopy
+		txn.tableEntries[pos] = tableEntryCopy
 		name := table.Name()
 		txn.tableNames[i] = name
 

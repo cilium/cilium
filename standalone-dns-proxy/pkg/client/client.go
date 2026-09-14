@@ -89,11 +89,14 @@ var (
 	IdIPToEndpointIndex = statedb.Index[IPtoEndpointInfo, netip.Addr]{
 		Name: "ip",
 		FromObject: func(e IPtoEndpointInfo) index.KeySet {
-			keys := make([]index.Key, 0, len(e.IP))
-			for _, ip := range e.IP {
-				keys = append(keys, index.NetIPAddr(ip))
+			if len(e.IP) == 0 {
+				return index.EmptyKeySet
 			}
-			return index.NewKeySet(keys...)
+			keys := make([]index.Key, len(e.IP))
+			for i, ip := range e.IP {
+				keys[i] = index.NetIPAddr(ip)
+			}
+			return index.NewKeySet(keys[0], keys[1:]...)
 		},
 		FromKey: func(key netip.Addr) index.Key {
 			return index.NetIPAddr(key)
@@ -104,11 +107,14 @@ var (
 	PrefixToIdentityIndex = statedb.Index[PrefixToIdentity, netip.Prefix]{
 		Name: "prefix",
 		FromObject: func(p PrefixToIdentity) index.KeySet {
-			keys := make([]index.Key, 0, len(p.Prefix))
-			for _, prefix := range p.Prefix {
-				keys = append(keys, index.NetIPPrefix(prefix))
+			if len(p.Prefix) == 0 {
+				return index.EmptyKeySet
 			}
-			return index.NewKeySet(keys...)
+			keys := make([]index.Key, len(p.Prefix))
+			for i, prefix := range p.Prefix {
+				keys[i] = index.NetIPPrefix(prefix)
+			}
+			return index.NewKeySet(keys[0], keys[1:]...)
 		},
 		FromKey: func(key netip.Prefix) index.Key {
 			return index.NetIPPrefix(key)

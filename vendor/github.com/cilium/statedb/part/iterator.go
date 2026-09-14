@@ -138,13 +138,13 @@ func newIterator[T any](start *header[T]) Iterator[T] {
 	return Iterator[T]{start: start}
 }
 
-func prefixSearch[T any](root *header[T], rootWatch *watchState, prefix []byte) (Iterator[T], *watchState) {
+func prefixSearch[T any](root *header[T], rootWatch *atomicWatchPointer, prefix []byte) (Iterator[T], watchTarget) {
 	if root == nil {
-		return newIterator[T](nil), rootWatch
+		return newIterator[T](nil), watchTarget{direct: rootWatch}
 	}
 
 	this := root
-	watch := rootWatch
+	watch := watchTarget{direct: rootWatch}
 	for {
 		// Does the node have part of the prefix we're looking for?
 		commonPrefix := this.prefix()[:min(len(prefix), int(this.prefixLen))]
@@ -153,10 +153,10 @@ func prefixSearch[T any](root *header[T], rootWatch *watchState, prefix []byte) 
 			return newIterator[T](nil), watch
 		}
 
-		if !this.isLeaf() && this.watch != nil {
+		if !this.isLeaf() && this.watch.enabled() {
 			// Leaf watch channels only close when the leaf is manipulated,
 			// thus we only return non-leaf watch channels.
-			watch = this.watch
+			watch = watchTarget{lazy: &this.watch}
 		}
 
 		// Consume the prefix of this node

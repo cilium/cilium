@@ -15,41 +15,39 @@ import (
 // SortableMutex's with unique sequence numbers.
 var sortableMutexSeq atomic.Uint64
 
-// sortableMutex implements SortableMutex. Not exported as the only way to
-// initialize it is via NewSortableMutex().
-type sortableMutex struct {
+// SortableMutex is a mutex with a globally unique sequence number. The sequence
+// number allows SortableMutexes to lock a set of mutexes in a consistent order.
+type SortableMutex struct {
 	sync.Mutex
 	seq             uint64
 	acquireDuration time.Duration
 }
 
-func (s *sortableMutex) Lock() {
+func (s *SortableMutex) Lock() {
 	start := time.Now()
 	s.Mutex.Lock()
 	s.acquireDuration = time.Since(start)
 }
 
-func (s *sortableMutex) Seq() uint64 { return s.seq }
+func (s *SortableMutex) Seq() uint64 { return s.seq }
 
-func (s *sortableMutex) AcquireDuration() time.Duration { return s.acquireDuration }
-
-// SortableMutex provides a Mutex that can be globally sorted with other
-// sortable mutexes. This allows deadlock-safe locking of a set of mutexes
-// as it guarantees consistent lock ordering.
-type SortableMutex interface {
-	sync.Locker
-	Seq() uint64
-	AcquireDuration() time.Duration // The amount of time it took to acquire the lock
-}
+func (s *SortableMutex) AcquireDuration() time.Duration { return s.acquireDuration }
 
 // SortableMutexes is a set of mutexes that can be locked in a safe order.
 // Once Lock() is called it must not be mutated!
-type SortableMutexes []SortableMutex
+type SortableMutexes []*SortableMutex
 
 // Lock sorts the mutexes, and then locks them in order. If any lock cannot be acquired,
 // this will block while holding the locks with a lower sequence number.
+// Panics if the same mutex is included more than once.
 func (s SortableMutexes) Lock() {
-	slices.SortFunc(s, func(a, b SortableMutex) int { return cmp.Compare(a.Seq(), b.Seq()) })
+	slices.SortFunc(s, func(a, b *SortableMutex) int {
+		aSeq, bSeq := a.Seq(), b.Seq()
+		if aSeq == bSeq {
+			panic("SortableMutexes: duplicate mutex")
+		}
+		return cmp.Compare(a.Seq(), b.Seq())
+	})
 	for _, mu := range s {
 		mu.Lock()
 	}
@@ -62,9 +60,9 @@ func (s SortableMutexes) Unlock() {
 	}
 }
 
-func NewSortableMutex() SortableMutex {
+func NewSortableMutex() *SortableMutex {
 	seq := sortableMutexSeq.Add(1)
-	return &sortableMutex{
+	return &SortableMutex{
 		seq: seq,
 	}
 }

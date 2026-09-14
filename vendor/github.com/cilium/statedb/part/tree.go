@@ -15,7 +15,7 @@ import (
 // This allows watching any part of the tree (any prefix) for changes.
 type Tree[T any] struct {
 	root      *header[T]
-	rootWatch *watchState
+	rootWatch *atomicWatchPointer
 	size      int // the number of objects in the tree
 	opts      options
 	prevTxn   *atomic.Pointer[Txn[T]] // the previous txn for reusing the allocation
@@ -30,7 +30,7 @@ func New[T any](opts ...Option) Tree[T] {
 	}
 	t := Tree[T]{
 		root:      nil,
-		rootWatch: newWatchState(),
+		rootWatch: newWatchIdentity(),
 		size:      0,
 		opts:      o,
 		prevTxn:   &atomic.Pointer[Txn[T]]{},
@@ -84,14 +84,14 @@ func (t *Tree[T]) Len() int {
 
 // Get fetches the value associated with the given key.
 func (t *Tree[T]) Get(key []byte) (T, bool) {
-	value, _, ok := search(t.root, t.rootWatch, key)
+	value, ok := search(t.root, key)
 	return value, ok
 }
 
 // GetWatch fetches the value associated with the given key and returns a watch
 // channel that closes when the key is modified.
 func (t *Tree[T]) GetWatch(key []byte) (T, <-chan struct{}, bool) {
-	value, watch, ok := search(t.root, t.rootWatch, key)
+	value, watch, ok := searchWatch(t.root, t.rootWatch, key)
 	return value, watch.channel(), ok
 }
 

@@ -500,3 +500,8 @@ func (s *StatusSet) UnmarshalJSON(data []byte) error {
 func (s StatusSet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(maps.Collect(s.All()))
 }
+
+// MarshalYAML marshals the StatusSet as a map[string]Status.
+func (s StatusSet) MarshalYAML() (any, error) {
+	return maps.Collect(s.All()), nil
+}

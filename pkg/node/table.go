@@ -208,7 +208,10 @@ var (
 			for addr := range obj.addressClusters(nil) {
 				keys = append(keys, nodeAddressKey(addr))
 			}
-			return index.NewKeySet(keys...)
+			if len(keys) == 0 {
+				return index.EmptyKeySet
+			}
+			return index.NewKeySet(keys[0], keys[1:]...)
 		},
 		FromKey:    nodeAddressKey,
 		FromString: nodeAddressKeyString,

@@ -41,12 +41,12 @@ func (h dbHandler) dumpTable(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	if table := r.PathValue("table"); table != "" {
-		err = h.db.ReadTxn().WriteJSON(w, r.PathValue("table"))
+		err = h.db.ReadTxn().WriteJSON(w, table)
 	} else {
 		err = h.db.ReadTxn().WriteJSON(w)
 	}
 	if err != nil {
-		panic(err)
+		return
 	}
 }
 
@@ -183,12 +183,13 @@ func (h dbHandler) changes(w http.ResponseWriter, r *http.Request) {
 	for {
 		changes, watch := changeIter.nextAny(h.db.ReadTxn())
 		for change := range changes {
-			err := enc.Encode(change)
-			if err != nil {
-				panic(err)
+			if err := enc.Encode(change); err != nil {
+				return
 			}
 		}
-		w.(http.Flusher).Flush()
+		if err := http.NewResponseController(w).Flush(); err != nil {
+			return
+		}
 		select {
 		case <-r.Context().Done():
 			return

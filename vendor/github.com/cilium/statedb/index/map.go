@@ -8,5 +8,5 @@ func StringMap[V any](m map[string]V) KeySet {
 	for k := range m {
 		keys = append(keys, String(k))
 	}
-	return NewKeySet(keys...)
+	return keySet(keys)
 }

@@ -9,7 +9,6 @@ import (
 	"io"
 	"reflect"
 	"runtime"
-	"sync/atomic"
 	"time"
 
 	"github.com/cilium/statedb/index"
@@ -29,8 +28,7 @@ type writeTxnState struct {
 	db *DB
 
 	handle     string
-	acquiredAt time.Time     // the time at which the transaction acquired the locks
-	duration   atomic.Uint64 // the transaction duration after it finished
+	acquiredAt time.Time // the time at which the transaction acquired the locks
 
 	oldRoot      *dbRoot                  // snapshot of the root at the time WriteTxn was called
 	tableEntries []*tableEntry            // table entries being modified
@@ -344,8 +342,6 @@ func (handle *writeTxnHandle) Abort() {
 		}
 	}
 
-	txn.duration.Store(uint64(time.Since(txn.acquiredAt)))
-
 	txn.smus.Unlock()
 	txn.db.metrics.WriteTxnDuration(
 		txn.handle,
@@ -379,8 +375,6 @@ func (handle *writeTxnHandle) Commit() ReadTxn {
 		return nil
 	}
 	txn := handle.writeTxnState
-
-	txn.duration.Store(uint64(time.Since(txn.acquiredAt)))
 
 	db := txn.db
 
@@ -452,6 +446,11 @@ func (handle *writeTxnHandle) Commit() ReadTxn {
 	// mutated radix tree nodes in all changed indexes and on the root itself.
 	for _, txn := range txnToNotify {
 		txn.notify()
+	}
+
+	// Invoke commit hooks, if any.
+	for _, hook := range db.commitHooks {
+		hook((*readTxn)(&root), txn.tableNames)
 	}
 
 	// With the root pointer updated, we can now release the tables for the next write transaction.

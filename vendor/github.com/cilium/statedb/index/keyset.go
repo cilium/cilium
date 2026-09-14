@@ -61,11 +61,18 @@ func (ks KeySet) Exists(k Key) bool {
 	return false
 }
 
-// NewKeySet constructs a set from keys. Every argument is a key, including a
-// nil or zero-length key. Pass no arguments to construct an empty set.
-func NewKeySet(keys ...Key) KeySet {
+// EmptyKeySet is a KeySet containing no keys.
+var EmptyKeySet KeySet
+
+// NewKeySet constructs a non-empty set from keys. Every argument is a key,
+// including a nil or zero-length key.
+func NewKeySet(key Key, keys ...Key) KeySet {
+	return KeySet{head: key, tail: keys, hasHead: true}
+}
+
+func keySet(keys []Key) KeySet {
 	if len(keys) == 0 {
-		return KeySet{}
+		return EmptyKeySet
 	}
-	return KeySet{head: keys[0], tail: keys[1:], hasHead: true}
+	return NewKeySet(keys[0], keys[1:]...)
 }
