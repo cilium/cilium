@@ -104,6 +104,14 @@ func (d DummyDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.Device
 	return result
 }
 
+func (d DummyDevice) GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity {
+	return nil
+}
+
+func (d DummyDevice) AllowMultipleAllocations() bool {
+	return false
+}
+
 // Setup creates the dummy link in the root network namespace. The caller
 // (RunPodSandbox) subsequently moves it into the pod netns.
 //

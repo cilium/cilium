@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path"
 	"slices"
 
@@ -554,17 +555,23 @@ func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 			continue
 		}
 
-		attrs := d.Dev.GetAttrs()
+		attrs := maps.Clone(d.Dev.GetAttrs())
 		if attrs == nil {
 			attrs = make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
 		}
 		attrs[resourceapi.QualifiedName(types.PoolNameLabel)] = resourceapi.DeviceAttribute{StringValue: ptr.To(pool)}
 		attrs[resourceapi.QualifiedName(types.DeviceManagerLabel)] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.Manager.String())}
 
-		entry.Slices[0].Devices = append(entry.Slices[0].Devices, resourceapi.Device{
+		published := resourceapi.Device{
 			Name:       d.Name,
 			Attributes: attrs,
-		})
+			Capacity:   maps.Clone(d.Dev.GetCapacity()),
+		}
+		if d.Dev.AllowMultipleAllocations() {
+			published.AllowMultipleAllocations = ptr.To(true)
+		}
+
+		entry.Slices[0].Devices = append(entry.Slices[0].Devices, published)
 		pools[pool] = entry
 	}
 

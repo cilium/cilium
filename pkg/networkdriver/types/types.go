@@ -169,6 +169,8 @@ type Device interface {
 	encoding.BinaryUnmarshaler
 
 	GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
+	GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
+	AllowMultipleAllocations() bool
 	Setup(cfg DeviceConfig) error
 	Free(cfg DeviceConfig) error
 	Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
