@@ -6,6 +6,7 @@ package statedb
 import (
 	"io"
 	"iter"
+	"slices"
 
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/internal"
@@ -394,8 +395,8 @@ type tableInternal interface {
 	setTablePos(int)
 	indexPos(string) int
 	getIndexer(name string) *anyIndexer
-	secondary() []anyIndexer               // Secondary indexers (if any)
-	sortableMutex() internal.SortableMutex // The sortable mutex for locking the table for writing
+	secondary() []anyIndexer                // Secondary indexers (if any)
+	sortableMutex() *internal.SortableMutex // The sortable mutex for locking the table for writing
 	anyChanges(txn WriteTxn) (anyChangeIterator, error)
 	typeName() string                       // Returns the 'Obj' type as string
 	unmarshalYAML(data []byte) (any, error) // Unmarshal the data into 'Obj'
@@ -486,6 +487,54 @@ type tableEntry struct {
 
 	// locked marks the table locked for writes.
 	locked bool
+}
+
+type tableEntryWithIndexes0 struct {
+	tableEntry
+	indexes [SecondaryIndexStartPos]tableIndex
+}
+
+type tableEntryWithIndexes1 struct {
+	tableEntry
+	indexes [SecondaryIndexStartPos + 1]tableIndex
+}
+
+type tableEntryWithIndexes2 struct {
+	tableEntry
+	indexes [SecondaryIndexStartPos + 2]tableIndex
+}
+
+type tableEntryWithIndexes3 struct {
+	tableEntry
+	indexes [SecondaryIndexStartPos + 3]tableIndex
+}
+
+func cloneTableEntry(entry *tableEntry) *tableEntry {
+	var clone *tableEntry
+	var indexes []tableIndex
+
+	switch len(entry.indexes) {
+	case SecondaryIndexStartPos:
+		withIndexes := &tableEntryWithIndexes0{}
+		clone, indexes = &withIndexes.tableEntry, withIndexes.indexes[:]
+	case SecondaryIndexStartPos + 1:
+		withIndexes := &tableEntryWithIndexes1{}
+		clone, indexes = &withIndexes.tableEntry, withIndexes.indexes[:]
+	case SecondaryIndexStartPos + 2:
+		withIndexes := &tableEntryWithIndexes2{}
+		clone, indexes = &withIndexes.tableEntry, withIndexes.indexes[:]
+	case SecondaryIndexStartPos + 3:
+		withIndexes := &tableEntryWithIndexes3{}
+		clone, indexes = &withIndexes.tableEntry, withIndexes.indexes[:]
+	default:
+		clone = &tableEntry{}
+		indexes = slices.Clone(entry.indexes)
+	}
+
+	*clone = *entry
+	copy(indexes, entry.indexes)
+	clone.indexes = indexes
+	return clone
 }
 
 func (t *tableEntry) numObjects() int {

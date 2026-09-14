@@ -107,11 +107,14 @@ var (
 	cecServiceIndex = statedb.Index[*CEC, loadbalancer.ServiceName]{
 		Name: "service",
 		FromObject: func(obj *CEC) index.KeySet {
+			if len(obj.Spec.Services) == 0 {
+				return index.EmptyKeySet
+			}
 			keys := make([]index.Key, len(obj.Spec.Services))
 			for i, svcl := range obj.Spec.Services {
 				keys[i] = loadbalancer.NewServiceName(svcl.Namespace, svcl.Name).Key()
 			}
-			return index.NewKeySet(keys...)
+			return index.NewKeySet(keys[0], keys[1:]...)
 		},
 		FromKey: func(key loadbalancer.ServiceName) index.Key {
 			return index.String(key.String())
