@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubetypes "k8s.io/apimachinery/pkg/types"
@@ -46,16 +47,20 @@ func TestSerializeDevice(t *testing.T) {
 	t.Run("mock device round-trip", func(t *testing.T) {
 		dev := &trackedDevice{name: "eth0"}
 		cfg := types.DeviceConfig{PodIfName: "eth0-pod"}
-		a := allocation{Device: dev, Config: cfg, Manager: types.DeviceManagerTypeMock}
+		capacity := map[resourceapi.QualifiedName]apiresource.Quantity{
+			"rxQueues": apiresource.MustParse("1"),
+		}
+		a := allocation{Device: dev, Config: cfg, Manager: types.DeviceManagerTypeMock, ConsumedCapacity: capacity}
 
 		raw, err := serializeDevice(a)
 		require.NoError(t, err)
 
-		mgr, devRaw, gotCfg, err := deserializeDevice(raw)
+		serialized, err := deserializeDevice(raw)
 		require.NoError(t, err)
-		require.Equal(t, types.DeviceManagerTypeMock, mgr)
-		require.Equal(t, cfg.PodIfName, gotCfg.PodIfName)
-		require.NotEmpty(t, devRaw)
+		require.Equal(t, types.DeviceManagerTypeMock, serialized.Manager)
+		require.Equal(t, cfg.PodIfName, serialized.Config.PodIfName)
+		require.Equal(t, capacity, serialized.ConsumedCapacity)
+		require.NotEmpty(t, serialized.Dev)
 	})
 
 	t.Run("dummy device round-trip", func(t *testing.T) {
@@ -66,16 +71,16 @@ func TestSerializeDevice(t *testing.T) {
 		raw, err := serializeDevice(a)
 		require.NoError(t, err)
 
-		mgr, devRaw, gotCfg, err := deserializeDevice(raw)
+		serialized, err := deserializeDevice(raw)
 		require.NoError(t, err)
-		require.Equal(t, types.DeviceManagerTypeDummy, mgr)
-		require.Equal(t, cfg.PodIfName, gotCfg.PodIfName)
-		require.NotEmpty(t, devRaw)
+		require.Equal(t, types.DeviceManagerTypeDummy, serialized.Manager)
+		require.Equal(t, cfg.PodIfName, serialized.Config.PodIfName)
+		require.NotEmpty(t, serialized.Dev)
 
 		// Restore from the raw bytes using DummyManager.
 		dummyMgr, err := newDummyManager(t)
 		require.NoError(t, err)
-		restored, err := dummyMgr.RestoreDevice(devRaw)
+		restored, err := dummyMgr.RestoreDevice(serialized.Dev)
 		require.NoError(t, err)
 		require.Equal(t, dev.IfName(), restored.IfName())
 	})
@@ -494,8 +499,9 @@ func TestNetworkDriverIPAM(t *testing.T) {
 	require.Equal(t, device, status.NetworkData.InterfaceName)
 	require.ElementsMatch(t, []string{ipv4.String(), ipv6.String()}, status.NetworkData.IPs)
 
-	_, _, cfg, err := deserializeDevice(status.Data.Raw)
+	serialized, err := deserializeDevice(status.Data.Raw)
 	require.NoError(t, err)
+	cfg := serialized.Config
 	require.Empty(t, cfg.IPPool)
 	require.Equal(t, ipv4, cfg.IPv4Addr)
 	require.Equal(t, ipv6, cfg.IPv6Addr)
@@ -677,8 +683,9 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 		}
 	}
 
-	_, _, cfg, err := deserializeDevice(status.Data.Raw)
+	serialized, err := deserializeDevice(status.Data.Raw)
 	require.NoError(t, err)
+	cfg := serialized.Config
 	require.Equal(t, ipPoolName, cfg.IPPool)
 	require.Equal(t, 32, cfg.IPv4Addr.Bits())
 	require.True(t, v4PoolCIDR.Contains(cfg.IPv4Addr.Addr()))
