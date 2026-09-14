@@ -104,6 +104,38 @@ spec:
                         - parentIfName
                         x-kubernetes-list-type: map
                     type: object
+                  rxQueue:
+                    description: Configuration for the RX queue device manager
+                    properties:
+                      enabled:
+                        default: false
+                        type: boolean
+                      ifaces:
+                        description: |-
+                          Physical interfaces whose RX queues may be leased. Each interface must
+                          be up and retain at least one active RX queue outside the reserved set.
+                        items:
+                          description: Configuration for a physical interface providing
+                            RX queues.
+                          properties:
+                            count:
+                              default: 1
+                              description: Number of highest-numbered RX queues to
+                                reserve for leasing.
+                              minimum: 1
+                              type: integer
+                            ifName:
+                              description: Kernel interface name.
+                              type: string
+                          required:
+                          - ifName
+                          type: object
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - ifName
+                        x-kubernetes-list-type: map
+                    type: object
                   sriov:
                     description: Configuration for the SR-IOV device manager
                     properties:
