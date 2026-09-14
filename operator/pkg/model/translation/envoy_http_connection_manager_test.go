@@ -9,6 +9,7 @@ import (
 
 	httpCORSv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
+	extprocv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	httpConnectionManagerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -336,7 +337,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 	}
 
 	t.Run("route without auth disables all filters", func(t *testing.T) {
-		cfg := getTypedPerFilterConfig(nil, authFilters, model.HTTPRoute{})
+		cfg := getTypedPerFilterConfig(nil, authFilters, nil, nil, model.HTTPRoute{})
 		require.Len(t, cfg, 2)
 		for _, v := range cfg {
 			perRoute := &extauthzv3.ExtAuthzPerRoute{}
@@ -350,7 +351,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 			Backend:  model.Backend{Name: "svc-a", Namespace: "ns", Port: &model.BackendPort{Port: 9000}},
 			Protocol: model.ExternalAuthProtocolGRPC,
 		}
-		cfg := getTypedPerFilterConfig(routeAuth, authFilters, model.HTTPRoute{})
+		cfg := getTypedPerFilterConfig(routeAuth, authFilters, nil, nil, model.HTTPRoute{})
 		// Only svc-b should be disabled; svc-a has no entry (enabled by default)
 		require.Len(t, cfg, 1)
 		_, hasSvcA := cfg["envoy.filters.http.ext_authz/GRPC:ns:svc-a:9000"]
@@ -363,7 +364,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 	})
 
 	t.Run("route with CORS filter", func(t *testing.T) {
-		cfg := getTypedPerFilterConfig(nil, nil, model.HTTPRoute{
+		cfg := getTypedPerFilterConfig(nil, nil, nil, nil, model.HTTPRoute{
 			CORS: &model.HTTPCORSFilter{MaxAge: 42},
 		})
 		require.Len(t, cfg, 1)
@@ -372,7 +373,7 @@ func Test_getTypedPerFilterConfig(t *testing.T) {
 	})
 
 	t.Run("no auth filters returns nil", func(t *testing.T) {
-		require.Nil(t, getTypedPerFilterConfig(nil, nil, model.HTTPRoute{}))
+		require.Nil(t, getTypedPerFilterConfig(nil, nil, nil, nil, model.HTTPRoute{}))
 	})
 }
 
@@ -426,4 +427,49 @@ func Test_desiredHTTPConnectionManagerWithoutGRPCWebTranslation(t *testing.T) {
 	require.Len(t, httpConnectionManager.GetHttpFilters(), 2)
 	require.Equal(t, "envoy.filters.http.grpc_stats", httpConnectionManager.GetHttpFilters()[0].Name)
 	require.Equal(t, "envoy.filters.http.router", httpConnectionManager.GetHttpFilters()[1].Name)
+}
+
+func Test_desiredHTTPConnectionManager_withExtProc(t *testing.T) {
+	i := &cecTranslator{}
+	m := &model.Model{
+		HTTP: []model.HTTPListener{{
+			Routes: []model.HTTPRoute{{
+				Backends: []model.Backend{{
+					Name:      "llm-pool-shadow-service",
+					Namespace: "default",
+					Port:      &model.BackendPort{Port: 8000},
+					EndpointPicker: &model.EndpointPicker{
+						Name: "llm-pool-epp", Namespace: "default", Port: 9002, FailureMode: "FailOpen",
+					},
+				}},
+			}},
+		}},
+	}
+
+	res, err := i.desiredHTTPConnectionManager("dummy-name", "dummy-route-name", m)
+	require.NoError(t, err)
+
+	hcm := &httpConnectionManagerv3.HttpConnectionManager{}
+	require.NoError(t, proto.Unmarshal(res.Value, hcm))
+	picker := m.HTTP[0].Routes[0].Backends[0].EndpointPicker
+	eppCluster := getEPPClusterName(picker)
+	filterName := ExtProcFilterName(eppCluster)
+
+	// Locate the ext_proc filter and the router, and confirm ordering.
+	idx := map[string]int{}
+	for n, f := range hcm.GetHttpFilters() {
+		idx[f.Name] = n
+	}
+	eppIdx, ok := idx[filterName]
+	require.True(t, ok, "ext_proc filter %q must be present in the chain", filterName)
+	routerIdx, ok := idx["envoy.filters.http.router"]
+	require.True(t, ok)
+	require.Less(t, eppIdx, routerIdx, "ext_proc must run before the router")
+
+	// Verify the filter config points at the EPP cluster and honours FailureMode.
+	cfg := &extprocv3.ExternalProcessor{}
+	require.NoError(t, proto.Unmarshal(hcm.GetHttpFilters()[eppIdx].GetTypedConfig().Value, cfg))
+	require.Equal(t, eppCluster, cfg.GetGrpcService().GetEnvoyGrpc().GetClusterName())
+	require.True(t, cfg.GetFailureModeAllow(), "FailOpen must map to failure_mode_allow=true")
+	require.Equal(t, extprocv3.ProcessingMode_SEND, cfg.GetProcessingMode().GetRequestHeaderMode())
 }
