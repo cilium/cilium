@@ -22,6 +22,7 @@
 #include "lib/nat_46x64.h"
 #include "lib/sock.h"
 #include "lib/trace_sock.h"
+#include "lib/health_check.h"
 
 #define SYS_REJECT	0
 #define SYS_PROCEED	1
@@ -98,29 +99,32 @@ ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 static __always_inline __maybe_unused
 bool sock_is_health_check(struct bpf_sock_addr *ctx __maybe_unused)
 {
-#ifdef ENABLE_HEALTH_CHECK
+	if (!CONFIG(enable_health_check))
+		return false;
+
 	int val;
 
 	if (!get_socket_opt(ctx, SOL_SOCKET, SO_MARK, &val, sizeof(val)))
 		return val == MARK_MAGIC_HEALTH;
-#endif
+
 	return false;
 }
 
 static __always_inline __maybe_unused
 void sock_reset_health_check_marker(struct bpf_sock_addr *ctx __maybe_unused)
 {
+	if (!CONFIG(enable_health_check))
+		return;
+
 	/* connect() has been called at this point, so therefore we
 	 * can now reset the marker so that this does not leak into
 	 * the tcx datapath and looks like regular host traffic. We
 	 * cannot do much other than to proceed if resetting back to
 	 * zero should fail.
 	 */
-#ifdef ENABLE_HEALTH_CHECK
 	int val = 0;
 
 	set_socket_opt(ctx, SOL_SOCKET, SO_MARK, &val, sizeof(val));
-#endif
 }
 
 static __always_inline __maybe_unused
@@ -543,7 +547,6 @@ int cil_sock4_post_bind(struct bpf_sock *ctx)
 }
 #endif /* ENABLE_NODEPORT */
 
-#ifdef ENABLE_HEALTH_CHECK
 static __always_inline void sock4_auto_bind(struct bpf_sock_addr *ctx)
 {
 	ctx->user_ip4 = 0;
@@ -587,7 +590,6 @@ int cil_sock4_pre_bind(struct bpf_sock_addr *ctx)
 	}
 	return ret;
 }
-#endif /* ENABLE_HEALTH_CHECK */
 
 static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full)
@@ -968,7 +970,6 @@ int cil_sock6_post_bind(struct bpf_sock *ctx)
 }
 #endif /* ENABLE_NODEPORT */
 
-#ifdef ENABLE_HEALTH_CHECK
 static __always_inline int
 sock6_pre_bind_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
@@ -1043,7 +1044,6 @@ int cil_sock6_pre_bind(struct bpf_sock_addr *ctx)
 	}
 	return ret;
 }
-#endif /* ENABLE_HEALTH_CHECK */
 
 static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 					     const bool udp_only,

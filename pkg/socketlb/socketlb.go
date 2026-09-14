@@ -126,6 +126,10 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 
 	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 
+	if lnc.KPRConfig.KubeProxyReplacement {
+		cfg.EnableHealthCheck = option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath
+	}
+
 	coll, commit, cleanup, err := collLoader.Load(ctx, logger, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,
 		Constants:   cfg,
