@@ -179,12 +179,14 @@ func TestPrepareResourceClaim(t *testing.T) {
 		require.NotNil(t, pods, "pod resource must be wired by hive")
 
 		db := statedb.New()
-		tbl, err := newDeviceTable(db)
+		deviceTable, err := newDeviceTable(db)
+		require.NoError(t, err)
+		allocationTable, err := newAllocationTable(db)
 		require.NoError(t, err)
 
 		dev := &trackedDevice{name: "mydevice"}
-		wtxn := db.WriteTxn(tbl)
-		tbl.Insert(wtxn, &DRADevice{
+		wtxn := db.WriteTxn(deviceTable)
+		deviceTable.Insert(wtxn, &DRADevice{
 			Name:    dev.IfName(),
 			Manager: types.DeviceManagerTypeMock,
 			Dev:     dev,
@@ -201,8 +203,9 @@ func TestPrepareResourceClaim(t *testing.T) {
 			deviceManagers: map[types.DeviceManagerType]types.DeviceManager{
 				types.DeviceManagerTypeMock: &mockDeviceManager{devices: []types.Device{dev}},
 			},
-			db:          db,
-			deviceTable: tbl,
+			db:              db,
+			deviceTable:     deviceTable,
+			allocationTable: allocationTable,
 		}
 
 		claim := &resourceapi.ResourceClaim{
@@ -240,13 +243,15 @@ func TestPrepareResourceClaim(t *testing.T) {
 		claimUID := kubetypes.UID("existing-claim-uid")
 
 		driver := buildPrepDriver(t, cs)
-		// Pre-populate statedb to simulate an already-prepared claim (idempotency test).
-		wtxn := driver.db.WriteTxn(driver.deviceTable)
-		driver.deviceTable.Insert(wtxn, &DRADevice{
-			Name:     "existing-device",
-			Manager:  types.DeviceManagerTypeMock,
-			PodUID:   podUID,
-			ClaimUID: claimUID,
+		// Pre-populate statedb to simulate an already-prepared claim.
+		wtxn := driver.db.WriteTxn(driver.allocationTable)
+		driver.allocationTable.Insert(wtxn, &DRAAllocation{
+			DeviceName:     "existing-device",
+			Pool:           prepTestPool,
+			Manager:        types.DeviceManagerTypeMock,
+			PreparedDevice: &trackedDevice{name: "existing-device"},
+			PodUID:         podUID,
+			ClaimUID:       claimUID,
 		})
 		wtxn.Commit()
 

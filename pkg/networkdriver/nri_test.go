@@ -7,7 +7,7 @@ package networkdriver
 // that require no real kernel network namespaces:
 //
 //   - host-network pod (empty network namespace in the sandbox) → skipped
-//   - pod UID not found in the statedb device table → skipped
+//   - pod UID with no StateDB allocation → skipped
 //   - containerd <2.1 fallback: StopPodSandbox evicts the netns cache entry
 //     even when the netns open fails (path doesn't exist on the test host)
 //
@@ -39,14 +39,15 @@ func buildNRIDriverWithAlloc(t *testing.T, podUID kubetypes.UID, claimUID kubety
 	d := buildPrepDriver(t, cs)
 	d.podNetns = make(map[kubetypes.UID]string)
 	dev := &dummy.DummyDevice{Name: "dummy0"}
-	// Write the allocation into statedb directly (replaces the driver's device table row).
-	wtxn := d.db.WriteTxn(d.deviceTable)
-	d.deviceTable.Insert(wtxn, &DRADevice{
-		Name:     dev.IfName(),
-		Manager:  types.DeviceManagerTypeDummy,
-		Dev:      dev,
-		PodUID:   podUID,
-		ClaimUID: claimUID,
+	// Write the allocation into StateDB directly.
+	wtxn := d.db.WriteTxn(d.allocationTable)
+	d.allocationTable.Insert(wtxn, &DRAAllocation{
+		DeviceName:     dev.IfName(),
+		Pool:           "dummy-pool",
+		Manager:        types.DeviceManagerTypeDummy,
+		PreparedDevice: dev,
+		PodUID:         podUID,
+		ClaimUID:       claimUID,
 	})
 	wtxn.Commit()
 	return d
@@ -68,13 +69,13 @@ func TestRunPodSandbox_HostNetwork_Skipped(t *testing.T) {
 	assert.Empty(t, d.podNetns)
 }
 
-// TestRunPodSandbox_NoAllocation_Skipped verifies that a pod whose UID is not
-// found allocated in the statedb device table is silently skipped without an error.
+// TestRunPodSandbox_NoAllocation_Skipped verifies that a pod with no StateDB
+// allocation is silently skipped without an error.
 func TestRunPodSandbox_NoAllocation_Skipped(t *testing.T) {
 	d := buildNRIDriver(t)
 	// Give the sandbox a non-empty netns path to pass the host-network gate.
-	// Because the device table has no allocation for this pod, the function
-	// must return nil early before attempting to open the netns file.
+	// Because the allocation table has no matching row, the function must return nil early
+	// before attempting to open the netns file.
 	sb := podSandbox("unknown-pod-uid", "/run/netns/some-netns")
 
 	err := d.RunPodSandbox(t.Context(), sb)
@@ -110,7 +111,7 @@ func TestStopPodSandbox_NoAllocation_Skipped(t *testing.T) {
 	// Linux namespaces populated (mimics containerd < 2.1 stop event).
 	sb := &api.PodSandbox{Uid: "no-alloc-pod", Linux: &api.LinuxPodSandbox{}}
 
-	// allocations is empty → must exit early before trying to open the netns.
+	// No matching allocation exists, so this must exit before opening the netns.
 	err := d.StopPodSandbox(t.Context(), sb)
 	require.NoError(t, err)
 	assert.NotContains(t, d.podNetns, kubetypes.UID("no-alloc-pod"),

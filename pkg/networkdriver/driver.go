@@ -22,6 +22,7 @@ import (
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
+	draresourceclaim "k8s.io/dynamic-resource-allocation/resourceclaim"
 	"k8s.io/dynamic-resource-allocation/resourceslice"
 	"k8s.io/utils/ptr"
 
@@ -73,10 +74,21 @@ type Driver struct {
 }
 
 type allocation struct {
-	Device  types.Device
-	Config  types.DeviceConfig
-	Manager types.DeviceManagerType
-	Pool    string
+	Device     types.Device
+	DeviceName string
+	Pool       string
+	Manager    types.DeviceManagerType
+	Config     types.DeviceConfig
+}
+
+func allocationFromRow(row *DRAAllocation) allocation {
+	return allocation{
+		Device:     row.PreparedDevice,
+		DeviceName: row.DeviceName,
+		Pool:       row.Pool,
+		Manager:    row.Manager,
+		Config:     row.Config,
+	}
 }
 
 // watchConfig blocks until the first configuration is found (from the CRD). Update attempts are logged but not passed
@@ -189,9 +201,9 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 		driver.deviceManagers = mgrs
 
 		// Register initializers before spawning goroutines so the Initialized
-		// barrier is armed before anything can mark it done.
-		wtxn := driver.db.WriteTxn(driver.deviceTable)
-		markRestoreDone := driver.deviceTable.RegisterInitializer(wtxn, "restore")
+		// barriers are armed before anything can mark them done.
+		wtxn := driver.db.WriteTxn(driver.deviceTable, driver.allocationTable)
+		markRestoreDone := driver.allocationTable.RegisterInitializer(wtxn, "restore")
 		// Register one initializer per device manager; each is marked done on the
 		// manager's first onDevices call so the barrier only clears when every
 		// manager has published its initial device set.
@@ -225,10 +237,20 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			))
 		}
 
-		// Block until all initializers have fired: restored allocations are in
-		// the table AND every device manager has published its initial device set.
-		// Only then do we register with kubelet — no DRA/NRI callback can arrive
-		// before the table is fully populated.
+		// Do not register with kubelet until restored allocations and every
+		// device manager's initial inventory are visible.
+		for {
+			txn := driver.db.ReadTxn()
+			ok, watch := driver.allocationTable.Initialized(txn)
+			if ok {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-watch:
+			}
+		}
 		for {
 			txn := driver.db.ReadTxn()
 			ok, watch := driver.deviceTable.Initialized(txn)
@@ -242,7 +264,7 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			}
 		}
 
-		driver.logger.DebugContext(ctx, "device table initialized")
+		driver.logger.DebugContext(ctx, "device and allocation tables initialized")
 
 		if err := driver.startDRA(ctx); err != nil {
 			driver.Stop(ctx)
@@ -254,23 +276,12 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			return err
 		}
 
-		// Publish loop: watch the device table and re-publish ResourceSlices
-		// whenever it changes.
+		// Publish loop: re-publish ResourceSlices whenever inventory or
+		// allocation state changes.
 		driver.jg.Add(job.OneShot(
 			"network-driver-dra-publish-resources",
 			func(ctx context.Context, _ cell.Health) error {
-				for {
-					txn := driver.db.ReadTxn()
-					_, watch := driver.deviceTable.AllWatch(txn)
-					if err := driver.publish(ctx); err != nil {
-						driver.logger.ErrorContext(ctx, "failed to publish resources", logfields.Error, err)
-					}
-					select {
-					case <-ctx.Done():
-						return nil
-					case <-watch:
-					}
-				}
+				return driver.runPublishLoop(ctx, driver.publish)
 			},
 		))
 
@@ -299,6 +310,22 @@ func (driver *Driver) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
+func (driver *Driver) runPublishLoop(ctx context.Context, publish func(context.Context) error) error {
+	for {
+		txn := driver.db.ReadTxn()
+		_, devicesWatch := driver.deviceTable.AllWatch(txn)
+		_, allocationsWatch := driver.allocationTable.AllWatch(txn)
+		watches := statedb.NewWatchSet()
+		watches.Add(devicesWatch, allocationsWatch)
+		if err := publish(ctx); err != nil {
+			driver.logger.ErrorContext(ctx, "failed to publish resources", logfields.Error, err)
+		}
+		if _, err := watches.Wait(ctx, 0); err != nil {
+			return nil
+		}
+	}
+}
+
 // publish builds the ResourceSlice pool map from the current table snapshot
 // and pushes it to the kubelet plugin API.
 func (driver *Driver) publish(ctx context.Context) error {
@@ -319,16 +346,14 @@ func (driver *Driver) withLock(f func() error) error {
 }
 
 // onDevices is called by a device manager whenever its device set changes.
-// It writes the full updated set into the statedb table, replacing previous
-// rows for that manager, and leaves rows from other managers untouched.
-// Allocation state (PodUID, ClaimUID, Config) is preserved for rows that were
-// already in the table (restored by restoreDevices before any DRA callbacks).
+// It writes the full updated inventory into the statedb table, replacing
+// previous rows for that manager and leaving rows from other managers untouched.
 //
 // markDevicesDone is called on the first invocation, signalling that this
 // manager has published its initial device set. The Initialized barrier
 // clears only after all managers have called their respective markDevicesDone.
 func (driver *Driver) onDevices(mgrType types.DeviceManagerType, devices []types.Device, markDevicesDone func(statedb.WriteTxn)) {
-	wtxn := driver.db.WriteTxn(driver.deviceTable)
+	wtxn := driver.db.WriteTxn(driver.deviceTable, driver.allocationTable)
 	defer wtxn.Commit()
 
 	seen := make(map[string]struct{}, len(devices))
@@ -342,6 +367,15 @@ func (driver *Driver) onDevices(mgrType types.DeviceManagerType, devices []types
 		}
 		seen[ifname] = struct{}{}
 
+		// Allocation rows are restored before discovery starts. Merge prepared
+		// state into the live device so managers such as SR-IOV retain
+		// information that is no longer visible from the root namespace.
+		for allocation := range AllocationsByDeviceName(driver.allocationTable, wtxn, ifname) {
+			if allocation.Manager == mgrType && allocation.PreparedDevice != nil {
+				dev.Merge(allocation.PreparedDevice)
+			}
+		}
+
 		row := &DRADevice{
 			Name:    ifname,
 			Manager: mgrType,
@@ -349,8 +383,6 @@ func (driver *Driver) onDevices(mgrType types.DeviceManagerType, devices []types
 		}
 
 		_, _, err := driver.deviceTable.Modify(wtxn, row, func(old, _ *DRADevice) *DRADevice {
-			// Row already exists (written by restoreDevices or a prior onDevices call):
-			// update the live device handle, but preserve allocation state.
 			updated := old.Clone()
 			updated.Dev = dev
 			if old.Dev != nil {
@@ -358,12 +390,9 @@ func (driver *Driver) onDevices(mgrType types.DeviceManagerType, devices []types
 			}
 			return updated
 		})
-
 		if err != nil {
-			driver.logger.Error(
-				"failed to modify statedb object",
-				logfields.Error, err,
-			)
+			driver.logger.Error("failed to modify statedb object",
+				logfields.Error, err)
 		}
 	}
 
@@ -381,75 +410,56 @@ func (driver *Driver) onDevices(mgrType types.DeviceManagerType, devices []types
 	markDevicesDone(wtxn)
 }
 
-// allocationsForPod returns all allocations currently held for the given pod
-// by scanning the statedb device table for rows with a matching PodUID.
+// allocationsForPod returns all allocations currently held for the given pod.
 func (driver *Driver) allocationsForPod(podUID kube_types.UID) []allocation {
 	txn := driver.db.ReadTxn()
 	var result []allocation
-	for row := range driver.deviceTable.All(txn) {
-		if row.PodUID == podUID {
-			if a, ok := allocationFromRow(row); ok {
-				result = append(result, a)
-			}
+	for row := range AllocationsByPodUID(driver.allocationTable, txn, podUID) {
+		if row.PreparedDevice != nil {
+			result = append(result, allocationFromRow(row))
 		}
 	}
 	return result
 }
 
-// setAllocationInTable updates the statedb row for each device in allocs with
-// the given podUID and claimUID.
-func (driver *Driver) setAllocationInTable(allocs []allocation, podUID, claimUID kube_types.UID) {
-	byName := allocationsByName(allocs)
-
-	wtxn := driver.db.WriteTxn(driver.deviceTable)
-	defer wtxn.Commit()
-
-	for d := range driver.deviceTable.All(wtxn) {
-		a, ok := byName[d.Name]
-		if !ok {
-			continue
-		}
-
-		row := d.Clone()
-		row.PodUID = podUID
-		row.ClaimUID = claimUID
-		row.Config = a.Config
-		row.Pool = a.Pool
-		driver.deviceTable.Insert(wtxn, row)
-	}
+func allocationTableKey(a allocation) string {
+	return AllocationKey(a.Pool, a.DeviceName)
 }
 
-// clearAllocationInTable clears the PodUID/ClaimUID/Config fields for each
-// device in allocs.
-func (driver *Driver) clearAllocationInTable(allocs []allocation) {
-	byName := allocationsByName(allocs)
-
-	wtxn := driver.db.WriteTxn(driver.deviceTable)
+// storeAllocations records devices after their ResourceClaim status has been
+// persisted. Inventory may change independently after a device is prepared.
+func (driver *Driver) storeAllocations(allocs []allocation, podUID, claimUID kube_types.UID) {
+	wtxn := driver.db.WriteTxn(driver.allocationTable)
 	defer wtxn.Commit()
 
-	for d := range driver.deviceTable.All(wtxn) {
-		if _, ok := byName[d.Name]; !ok {
-			continue
-		}
-
-		row := d.Clone()
-		row.PodUID = ""
-		row.ClaimUID = ""
-		row.Config = types.DeviceConfig{}
-		driver.deviceTable.Insert(wtxn, row)
-	}
-}
-
-// allocationsByName builds a device-name→allocation index
-// for more convenient lookups.
-func allocationsByName(allocs []allocation) map[string]allocation {
-	byName := make(map[string]allocation, len(allocs))
 	for _, a := range allocs {
-		if a.Device != nil {
-			byName[a.Device.IfName()] = a
+		if a.Device == nil || a.DeviceName == "" || a.Pool == "" {
+			continue
+		}
+
+		driver.allocationTable.Insert(wtxn, &DRAAllocation{
+			DeviceName:     a.DeviceName,
+			Manager:        a.Manager,
+			PreparedDevice: a.Device,
+			Pool:           a.Pool,
+			PodUID:         podUID,
+			ClaimUID:       claimUID,
+			Config:         a.Config,
+		})
+	}
+}
+
+// deleteAllocations removes the stored rows for the supplied allocations.
+func (driver *Driver) deleteAllocations(allocs []allocation) {
+	wtxn := driver.db.WriteTxn(driver.allocationTable)
+	defer wtxn.Commit()
+
+	for _, a := range allocs {
+		row, _, found := driver.allocationTable.Get(wtxn, allocationByKey.Query(allocationTableKey(a)))
+		if found {
+			driver.allocationTable.Delete(wtxn, row)
 		}
 	}
-	return byName
 }
 
 // resolvePool returns the single pool name the device should be assigned to.
@@ -484,8 +494,9 @@ func (driver *Driver) resolvePool(dev types.Device, sortedPools []v2alpha1.Ciliu
 // buildPoolsFromTable constructs the ResourceSlice pool map from the current
 // table snapshot. It pre-populates every configured pool (with a valid filter)
 // so pools with no devices are still published as empty slices. Pool
-// membership and device attributes are resolved here, on demand,
-// using the latest information present in statedb.
+// membership and device attributes are resolved on demand from the current
+// inventory. An allocated device stays in the pool recorded for its allocation
+// until its final allocation is released.
 func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 	txn := driver.db.ReadTxn()
 
@@ -501,36 +512,45 @@ func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 		}
 	}
 
+	allocatedPools := make(map[string]string)
+	devicesWithPoolConflicts := make(map[string]struct{})
+	for allocation := range driver.allocationTable.All(txn) {
+		if allocation.Pool == "" {
+			devicesWithPoolConflicts[allocation.DeviceName] = struct{}{}
+			delete(allocatedPools, allocation.DeviceName)
+			continue
+		}
+		if pool, found := allocatedPools[allocation.DeviceName]; found && pool != allocation.Pool {
+			driver.logger.Error("device has allocations from multiple pools",
+				logfields.Device, allocation.DeviceName,
+				logfields.PoolName, []string{pool, allocation.Pool})
+			devicesWithPoolConflicts[allocation.DeviceName] = struct{}{}
+			delete(allocatedPools, allocation.DeviceName)
+			continue
+		}
+		if _, conflicting := devicesWithPoolConflicts[allocation.DeviceName]; !conflicting {
+			allocatedPools[allocation.DeviceName] = allocation.Pool
+		}
+	}
+
 	for d := range driver.deviceTable.All(txn) {
 		if d.Dev == nil {
 			continue
 		}
+		if _, conflicting := devicesWithPoolConflicts[d.Name]; conflicting {
+			// Do not advertise a device whose allocation state is ambiguous.
+			continue
+		}
 
-		var pool string
-
-		// if an allocation exists, the device was allocated
-		// from a pool on a previous run.
-		// we should stick with that pool
-		// until the device is eventually unallocated
-		if d.ClaimUID != "" && d.PodUID != "" {
-			if d.Pool == "" {
-				// pool is empty while we have allocation
-				// state for this device. this shouldn't happen
-				// (devices should always belong to a pool)
-				// skip advertising this device to prevent
-				// double allocation.
-				continue
-			}
-
-			pool = d.Pool
-		} else {
+		pool := allocatedPools[d.Name]
+		if pool == "" {
 			pool = driver.resolvePool(d.Dev, sortedPools)
 		}
 
 		entry, ok := pools[pool]
 		if !ok {
-			// pool does not exist in the current configuration
-			// dont advertise the device
+			// The device either matches no pool or its allocated pool is no
+			// longer present in the current configuration.
 			continue
 		}
 
@@ -568,10 +588,11 @@ func (driver *Driver) deviceFromClaim(devStatus resourceapi.AllocatedDeviceStatu
 	}
 
 	return allocation{
-		Device:  dev,
-		Config:  devCfg,
-		Manager: devMgrType,
-		Pool:    devStatus.Pool,
+		Device:     dev,
+		DeviceName: devStatus.Device,
+		Config:     devCfg,
+		Manager:    devMgrType,
+		Pool:       devStatus.Pool,
 	}, nil
 }
 
@@ -610,33 +631,53 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, 
 		}
 		podUID := claim.Status.ReservedFor[0].UID
 
-		ifname := alloc.Device.IfName()
+		pool := alloc.Pool
 
-		// Write a row with allocation state and a fully restored Dev handle.
-		// The row must exist before DRA/NRI callbacks can arrive so they
-		// can look up the device by ClaimUID. A later onDevices call from
-		// the device manager will merge in any live-scan updates
-		// without touching allocation state.
-		row := &DRADevice{
-			Name:     ifname,
-			Manager:  alloc.Manager,
-			Dev:      alloc.Device,
-			PodUID:   podUID,
-			ClaimUID: claim.UID,
-			Config:   alloc.Config,
-			Pool:     alloc.Pool,
-		}
-		driver.deviceTable.Insert(wtxn, row)
+		// Restore allocation state before DRA/NRI callbacks can arrive. Device
+		// manager discovery populates the independent inventory table.
+		driver.allocationTable.Insert(wtxn, &DRAAllocation{
+			DeviceName:     alloc.DeviceName,
+			Manager:        alloc.Manager,
+			PreparedDevice: alloc.Device,
+			Pool:           pool,
+			PodUID:         podUID,
+			ClaimUID:       claim.UID,
+			Config:         alloc.Config,
+		})
 
 		driver.logger.Debug("allocation device restored",
 			logfields.PodUID, podUID,
 			logfields.ClaimUID, claim.UID,
-			logfields.Device, ifname,
+			logfields.Device, alloc.DeviceName,
 			logfields.Config, alloc.Config,
 		)
 	}
 
 	return errors.Join(errs...)
+}
+
+func podResourceClaimNames(pod *corev1.Pod) ([]string, error) {
+	var (
+		names []string
+		errs  []error
+	)
+
+	for i := range pod.Spec.ResourceClaims {
+		name, _, err := draresourceclaim.Name(pod, &pod.Spec.ResourceClaims[i])
+		switch {
+		case errors.Is(err, draresourceclaim.ErrClaimNotFound):
+			// A claim generated from a template may not exist yet.
+			continue
+		case err != nil:
+			errs = append(errs, err)
+			continue
+		case name == nil:
+			continue
+		}
+		names = append(names, *name)
+	}
+
+	return names, errors.Join(errs...)
 }
 
 func (driver *Driver) restoreDevices(ctx context.Context, markRestoreDone func(statedb.WriteTxn)) error {
@@ -645,19 +686,19 @@ func (driver *Driver) restoreDevices(ctx context.Context, markRestoreDone func(s
 		return err
 	}
 
-	var localPodClaims []resource.Key
+	var (
+		localPodClaims []resource.Key
+		errs           []error
+	)
 	for _, pod := range podsStore.List() {
-		for _, claimRef := range pod.Status.ResourceClaimStatuses {
-			if claimRef.ResourceClaimName == nil {
-				driver.logger.InfoContext(ctx, "resourceClaimStatuses field is empty for pod, no allocation to restore",
-					logfields.K8sNamespace, pod.GetNamespace(),
-					logfields.Name, pod.Name,
-				)
-				continue
-			}
+		claimNames, err := podResourceClaimNames(pod)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to resolve resource claims for pod %s/%s: %w", pod.Namespace, pod.Name, err))
+		}
+		for _, claimName := range claimNames {
 			localPodClaims = append(localPodClaims, resource.Key{
 				Namespace: pod.GetNamespace(),
-				Name:      *claimRef.ResourceClaimName,
+				Name:      claimName,
 			})
 		}
 	}
@@ -665,13 +706,13 @@ func (driver *Driver) restoreDevices(ctx context.Context, markRestoreDone func(s
 
 	claimsStore, err := driver.resourceClaims.Store(ctx)
 	if err != nil {
-		return err
+		errs = append(errs, err)
+		return errors.Join(errs...)
 	}
 
-	wtxn := driver.db.WriteTxn(driver.deviceTable)
+	wtxn := driver.db.WriteTxn(driver.allocationTable)
 	defer wtxn.Commit()
 
-	var errs []error
 	for _, key := range localPodClaims {
 		claim, exists, err := claimsStore.GetByKey(key)
 		if err != nil {
