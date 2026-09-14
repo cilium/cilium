@@ -18,6 +18,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 
 	"github.com/cilium/cilium/operator/pkg/ciliumidentity"
 	"github.com/cilium/cilium/pkg/identity/key"
@@ -42,6 +43,9 @@ const (
 	// dropped out of the queue.
 	maxRetries = 15
 
+	// highPriority is the priority used for CES work from priority namespaces.
+	highPriority = 100
+
 	// Default CES Synctime, multiple consecutive syncs with k8s-apiserver are
 	// batched and synced together after a short delay.
 	DefaultCESSyncTime = 500 * time.Millisecond
@@ -56,32 +60,12 @@ func (c *Controller) initializeQueue() {
 		logfields.WorkQueueBurstLimit, c.rateLimit.current.Burst,
 		logfields.WorkQueueSyncBackOff, defaultSyncBackOff)
 
-	// Single rateLimiter controls the number of processed events in both queues.
 	c.rateLimiter = workqueue.NewTypedItemExponentialFailureRateLimiter[CESKey](defaultSyncBackOff, maxSyncBackOff)
-	c.fastQueue = workqueue.NewTypedRateLimitingQueueWithConfig(
-		c.rateLimiter,
-		workqueue.TypedRateLimitingQueueConfig[CESKey]{
-			Name:            "cilium_endpoint_slice_fast",
-			MetricsProvider: c.workqueueMetricsProvider,
+	c.queue = priorityqueue.New("cilium_endpoint_slice",
+		func(opts *priorityqueue.Opts[CESKey]) {
+			opts.RateLimiter = c.rateLimiter
+			opts.MetricProvider = c.workqueueMetricsProvider
 		})
-	c.standardQueue = workqueue.NewTypedRateLimitingQueueWithConfig(
-		c.rateLimiter,
-		workqueue.TypedRateLimitingQueueConfig[CESKey]{
-			Name:            "cilium_endpoint_slice_standard",
-			MetricsProvider: c.workqueueMetricsProvider,
-		})
-}
-
-// shutdownQueues shuts down both workqueues and wakes any worker waiting for
-// an item on the controller's condition variable. Holding the condition lock
-// prevents a worker from starting to wait between shutdown and the broadcast.
-func (c *Controller) shutdownQueues() {
-	c.cond.L.Lock()
-	defer c.cond.L.Unlock()
-
-	c.fastQueue.ShutDown()
-	c.standardQueue.ShutDown()
-	c.cond.Broadcast()
 }
 
 // isValidEndpoint reports whether a CiliumEndpoint has enough state to be
@@ -120,18 +104,12 @@ func (c *Controller) addToQueue(ces CESKey) {
 	c.priorityNamespacesLock.RLock()
 	_, exists := c.priorityNamespaces[ces.Namespace]
 	c.priorityNamespacesLock.RUnlock()
-	time.AfterFunc(c.syncDelay, func() {
-		c.cond.L.Lock()
-		defer c.cond.L.Unlock()
-		if exists {
-			c.fastQueue.Add(ces)
-		} else {
-			c.standardQueue.Add(ces)
-		}
-		c.cond.Signal()
 
-	})
-
+	opts := priorityqueue.AddOpts{After: c.syncDelay}
+	if exists {
+		opts.Priority = new(highPriority)
+	}
+	c.queue.AddWithOpts(opts, ces)
 }
 
 func (c *Controller) enqueueCESReconciliation(cess []CESKey) {
@@ -166,17 +144,14 @@ func (c *Controller) getAndResetCESProcessingDelay(ces CESKey) float64 {
 // start the worker thread, reconciles the modified CESs with api-server
 func (c *DefaultController) Start(ctx cell.HookContext) error {
 	// Processing CES/CEP events:
-	// CES or CEP event is retrieved and checked whether it is from a priority namespace
-	// Event is added to the fast queue if the namespace was priority and to the standard queue otherwise
-
-	// Processing queues:
-	// The controller checks if the fast queue and standard queue are empty
-	// If yes, it waits on signal
-	// if no, it checks if fast queue is empty
-	// If no, it takes element from the fast queue. Otherwise it takes element from the standard queue.
-	// CES from the queue is reconciled with the k8s api-server
-	// if error appears while reconciling and maximum number of retries for this element has not been reached, it is added to the appropriate queue.
-	// if the error has not appeared or the maximum number of retries has been reached, the element is forgotten.
+	// CES or CEP event is retrieved and checked whether it is from a priority namespace.
+	// Event is added with priority highPriority (100) if the namespace was priority, or with
+	// default priority (0) otherwise.
+	//
+	// If an error appears while reconciling and maximum number of retries for this
+	// element has not been reached, it is re-added to the priority queue.
+	// If the error has not appeared or the maximum number of retries has been
+	// reached, the element is forgotten.
 
 	c.logger.InfoContext(ctx, "Bootstrap ces controller")
 	defer utilruntime.HandleCrash()
@@ -233,7 +208,7 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 			<-ctx.Done()
 			workerCancel()
 			c.wp.Close()
-			c.shutdownQueues()
+			c.queue.ShutDown()
 			return nil
 		}),
 	)
@@ -244,10 +219,11 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 // start the worker thread, reconciles the modified CESs with api-server
 func (c *SlimController) Start(ctx cell.HookContext) error {
 	// Processing CES/Pod events:
-	// CES or Pod event is retrieved and checked whether it is from a priority namespace
-	// Event is added to the fast queue if the namespace was priority and to the standard queue otherwise
+	// CES or Pod event is retrieved and checked whether it is from a priority namespace.
+	// Event is added with priority 100 if the namespace was priority, or with
+	// default priority otherwise.
 
-	// Processing queues handled as with DefaultController.
+	// Processing queue handled as with DefaultController.
 
 	c.logger.InfoContext(ctx, "Bootstrap ces controller")
 	defer utilruntime.HandleCrash()
@@ -304,7 +280,7 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 		// Add the shutdown job last so it stops first.
 		job.OneShot("shutdown", func(ctx context.Context, health cell.Health) error {
 			<-ctx.Done()
-			c.shutdownQueues()
+			c.queue.ShutDown()
 			workerCancel()
 			return nil
 		}),
@@ -786,47 +762,25 @@ func (c *Controller) rateLimitProcessing(ctx context.Context) {
 	}
 }
 
-func (c *Controller) getQueue() workqueue.TypedRateLimitingInterface[CESKey] {
-	c.cond.L.Lock()
-	defer c.cond.L.Unlock()
-
-	for c.fastQueue.Len() == 0 && c.standardQueue.Len() == 0 {
-		if c.fastQueue.ShuttingDown() {
-			return c.fastQueue
-		}
-		if c.standardQueue.ShuttingDown() {
-			return c.standardQueue
-		}
-		c.cond.Wait()
-	}
-
-	if c.fastQueue.Len() == 0 {
-		return c.standardQueue
-	} else {
-		return c.fastQueue
-	}
-}
-
 func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	c.rateLimitProcessing(ctx)
-	queue := c.getQueue()
-	key, quit := queue.Get()
+	key, priority, quit := c.queue.GetWithPriority()
 	if quit {
 		return false
 	}
-	defer queue.Done(key)
+	defer c.queue.Done(key)
 
 	c.logger.Debug("Processing CES", logfields.CESName, key.string())
 
 	queueDelay := c.getAndResetCESProcessingDelay(key)
 	err := c.doReconciler.reconcileCES(ctx, CESName(key.Name))
-	if queue == c.fastQueue {
+	if priority == highPriority {
 		c.metrics.CiliumEndpointSliceQueueDelay.WithLabelValues(LabelQueueFast).Observe(queueDelay)
 	} else {
 		c.metrics.CiliumEndpointSliceQueueDelay.WithLabelValues(LabelQueueStandard).Observe(queueDelay)
 	}
 
-	isRetried := c.handleErr(queue, err, key)
+	isRetried := c.handleErr(err, key, priority)
 	if err != nil {
 		if isRetried {
 			c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeFail, LabelFailureTypeTransient).Inc()
@@ -840,25 +794,21 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
-func (c *Controller) handleErr(queue workqueue.TypedRateLimitingInterface[CESKey], err error, key CESKey) (retry bool) {
+func (c *Controller) handleErr(err error, key CESKey, priority int) (retry bool) {
 	if err == nil {
-		queue.Forget(key)
+		c.queue.Forget(key)
 		return false
 	}
 
-	if queue.NumRequeues(key) < maxRetries {
+	if c.queue.NumRequeues(key) < maxRetries {
 		if !k8serrors.IsConflict(err) && !k8serrors.IsAlreadyExists(err) && !k8serrors.IsNotFound(err) && !(k8serrors.IsForbidden(err) && k8serrors.HasStatusCause(err, corev1.NamespaceTerminatingCause)) {
 			c.logger.Warn("Error processing CES, retrying",
 				logfields.CESName, key.string(),
 				logfields.Error, err,
-				logfields.Attempt, queue.NumRequeues(key)+1)
+				logfields.Attempt, c.queue.NumRequeues(key)+1)
 		}
-		time.AfterFunc(c.rateLimiter.When(key), func() {
-			c.cond.L.Lock()
-			defer c.cond.L.Unlock()
-			queue.Add(key)
-			c.cond.Signal()
-		})
+		opts := priorityqueue.AddOpts{RateLimited: true, Priority: &priority}
+		c.queue.AddWithOpts(opts, key)
 		return true
 	}
 
@@ -866,6 +816,6 @@ func (c *Controller) handleErr(queue workqueue.TypedRateLimitingInterface[CESKey
 	c.logger.Error("Dropping the CES from queue, exceeded maxRetries",
 		logfields.CESName, key.string(),
 		logfields.Error, err)
-	queue.Forget(key)
+	c.queue.Forget(key)
 	return false
 }
