@@ -606,6 +606,7 @@ func (ops *BPFOps) pruneServiceMaps() error {
 	return nil
 }
 
+
 func (ops *BPFOps) pruneBackendMaps() error {
 	toDelete := []maps.BackendKey{}
 	beCB := func(beKey maps.BackendKey, beValue maps.BackendValue) {
@@ -949,6 +950,19 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 	for _, be := range orderedBackends {
 		backendAddrs.Insert(be.Address)
 	}
+	success := false
+	defer func() {
+		if success {
+			ops.updateReferences(fe.Address, backendAddrs)
+		} else {
+			union := backendAddrs.Clone()
+			if oldRefs, ok := ops.backendReferences[fe.Address]; ok {
+				union = union.Union(oldRefs)
+			}
+			ops.updateReferences(fe.Address, union)
+		}
+	}()
+
 
 	for _, orphanState := range ops.orphanBackends(fe.Address, backendAddrs) {
 		ops.log.Debug("Delete orphan backend", logfields.Address, orphanState.addr)
@@ -992,6 +1006,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 				logfields.Address, be.Address,
 			)
 			if err := ops.upsertBackend(beID, be.Backend); err != nil {
+				ops.updateBackendRevision(beID, be.Address, 0)
 				return fmt.Errorf("upsert backend: %w", err)
 			}
 
@@ -1169,10 +1184,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		}
 	}
 
-	// Finally update the new references. This makes sure any failures reconciling the service slots
-	// above can be retried and entries are not leaked.
-	ops.updateReferences(fe.Address, backendAddrs)
-
+	success = true
 	return nil
 }
 
