@@ -639,7 +639,7 @@ func TestInstallStaticProxyRules(t *testing.T) {
 		acceptFromProxy      = "-t filter -A CILIUM_OUTPUT -m mark --mark " + fromProxy +
 			" -m comment --comment cilium: ACCEPT for proxy traffic -j ACCEPT"
 		acceptL7Upstream = "-t filter -A CILIUM_OUTPUT -m mark --mark " + l7Upstream +
-			" -m comment --comment cilium: ACCEPT for l7 proxy upstream traffic -j ACCEPT"
+			" -m comment --comment cilium: ACCEPT for L7 proxy upstream traffic -j ACCEPT"
 		inboundRedirect = "-t mangle -A CILIUM_PRE_mangle -m socket --transparent ! -o lo" +
 			" -m mark ! --mark 0x00000e00/0x00000f00 -m mark ! --mark 0x00000800/0x00000f00" +
 			" -m comment --comment cilium: any->pod redirect proxied traffic to host proxy" +
