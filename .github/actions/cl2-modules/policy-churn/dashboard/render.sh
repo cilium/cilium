@@ -26,6 +26,13 @@ else
   exit 1
 fi
 
+# Rendering several time ranges of the same dashboard (eg. a baseline run, a
+# test run and both together) is just as many invocations of this script, so
+# skip the provisioning if a previous one already did it.
+if helm status grafana --namespace monitoring &> /dev/null; then
+  echo "[*] Grafana is already provisioned by a previous run, skipping the install"
+else
+
 echo "[*] Provisioning the dashboard via the grafana sidecar"
 
 # Remove the old grafana instance laying around from CL2 run.
@@ -72,6 +79,8 @@ grafana.ini:
     org_role: Viewer
 EOF
 
+fi
+
 echo "[*] Rendering the dashboard for node ${NODE_NAME} to ${OUTPUT_PATH}"
 GRAFANA_PW=$(kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
 
@@ -97,6 +106,7 @@ curl -sfG -u "admin:${GRAFANA_PW}" \
   --data-urlencode "kiosk" \
   -o "${RAW_SCREENSHOT}"
 
+mkdir -p "$(dirname "${OUTPUT_PATH}")"
 "${MAGICK_CMD}" "${RAW_SCREENSHOT}" -trim +repage "${OUTPUT_PATH}"
 rm -f "${RAW_SCREENSHOT}"
 
