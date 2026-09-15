@@ -1,0 +1,757 @@
+name: Resource Churn Compare Test (resource-churn-compare)
+
+on:
+  push:
+    branches:
+      - pr/fristonio/ci/resource-churn-compare
+
+  workflow_dispatch:
+    inputs:
+      base-sha:
+        description: "Commit SHA of the comparison baseline. CI images for it must already exist."
+        required: true
+        type: string
+      sha:
+        description: "Commit SHA under test. CI images for it must already exist."
+        required: true
+        type: string
+      scenario:
+        description: "Churn scenario to run, see .github/actions/cl2-modules/policy-churn/scenarios"
+        required: true
+        default: global-identities-churn
+        type: choice
+        options:
+          - global-identities-churn
+          - local-identities-churn
+          - selectors-churn
+          - policy-identity-churn
+
+permissions:
+  # To be able to trigger eks-cluster-pool-manager.yaml workflow
+  actions: write
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To be able to request the JWT from GitHub's OIDC provider (AWS, GCP)
+  id-token: write
+
+concurrency:
+  # One comparison per (base-sha, sha, scenario) at a time. Queue instead of
+  # cancelling, since a run holds a dedicated EKS cluster for over an hour and
+  # is always started deliberately by a human.
+  group: |
+    ${{ github.workflow }}
+    ${{ inputs.base-sha }}
+    ${{ inputs.sha }}
+    ${{ inputs.scenario }}
+  cancel-in-progress: false
+
+env:
+  # renovate: datasource=github-releases depName=eksctl-io/eksctl
+  eksctl_version: v0.230.0
+  # renovate: datasource=github-releases depName=kubernetes/kubernetes
+  kubectl_version: v1.36.3
+  # renovate: datasource=docker depName=google/cloud-sdk
+  gcloud_version: 580.0.0
+
+  test_name: resource-churn-compare
+
+  # EKS managed nodegroups: 3 real nodes mirroring the kind cluster's 3-node
+  # setup described in .github/actions/cl2-modules/policy-churn/README.md:
+  # - ng-general:    unlabelled node, mirrors the kind control-plane node
+  #                   which hosts cluster-operations components (eg. coredns).
+  # - ng-test-infra:  role.scaffolding/test-infra=true, hosts kwok, kfuzz and
+  #                   the monitoring stack.
+  # - ng-test-node:   role.scaffolding/test-node=true, cordoned; the node
+  #                   named by CL2_TEST_NODE_NAME.
+  node_instance_type: m5.2xlarge
+
+  # EKS Provisioned Control Plane scaling tier, see
+  # https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html
+  control_plane_tier: tier-4xl
+
+jobs:
+  churn-compare:
+    runs-on: ubuntu-24.04
+    name: Compare Resource Churn of two Cilium builds
+    timeout-minutes: 150
+    env:
+      CL2_ENABLE_PVS: "false"
+      CL2_PROMETHEUS_PVC_ENABLED: "false"
+      CL2_PROMETHEUS_NODE_SELECTOR: 'role.scaffolding/test-infra: "true"'
+
+      # We need node label on metrics, so cilium-agent scraping is managed
+      # separately by the additional PodMonitor in the module's monitors/.
+      CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
+      CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "false"
+
+      CL2_TEST_DURATION: 20m
+
+      # A violation would abort the run and leave the comparison half-finished;
+      # the point of this workflow is to look at both runs, not to gate.
+      CL2_ENABLE_VIOLATIONS: "false"
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        env:
+          BASE_SHA: ${{ inputs.base-sha }}
+          SHA: ${{ inputs.sha }}
+          SCENARIO: ${{ inputs.scenario }}
+        run: |
+          # Default values for testing.
+          : "${BASE_SHA:=379936f5c8f95ae82b08718880624bbc34f58798}"
+          : "${SHA:=64bdad06c54fd4ed2ffe8aa6544f39051688c035}"
+          : "${SCENARIO:=global-identities-churn}"
+
+          # Both SHAs end up in image tags, cluster resource names and shell
+          # commands, so reject anything that isn't a hex commit SHA.
+          for sha_input in "${BASE_SHA}" "${SHA}"; do
+            if [[ ! "${sha_input}" =~ ^[0-9a-f]{7,40}$ ]]; then
+              echo "::error::'${sha_input}' is not a valid commit SHA"
+              exit 1
+            fi
+          done
+          if [ "${BASE_SHA}" == "${SHA}" ]; then
+            echo "::warning::base-sha and sha are identical, the comparison will not show anything"
+          fi
+          if [ ! -f ".github/actions/cl2-modules/policy-churn/scenarios/${SCENARIO}.yaml" ]; then
+            echo "::error::unknown scenario '${SCENARIO}'"
+            exit 1
+          fi
+
+          OWNER="${{ github.ref_name }}"
+          OWNER="${OWNER//[.\/]/-}"
+
+          CLUSTER_NAME="scale-churn-${{ github.run_id }}-${{ github.run_attempt }}"
+
+          eks_version_and_region=$(yq '.include | sort_by(.version) | reverse | .[0] | "\(.version),\(.region)"' .github/actions/eks/k8s-versions.yaml)
+          EKS_VERSION=$(echo "$eks_version_and_region" | cut -d',' -f1)
+          EKS_REGION=$(echo "$eks_version_and_region" | cut -d',' -f2)
+
+          {
+            echo "base_sha=${BASE_SHA}"
+            echo "sha=${SHA}"
+            echo "base_sha_short=${BASE_SHA:0:12}"
+            echo "sha_short=${SHA:0:12}"
+            echo "scenario=${SCENARIO}"
+            echo "owner=${OWNER}"
+            echo "cluster_name=${CLUSTER_NAME}"
+            echo "eks_version=${EKS_VERSION}"
+            echo "eks_region=${EKS_REGION}"
+            echo "eks_zone_1=${EKS_REGION}b"
+            echo "eks_zone_2=${EKS_REGION}c"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "CL2_TEST_SCENARIO=${SCENARIO}" >> "$GITHUB_ENV"
+          {
+            echo "## Resource churn comparison"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Scenario | \`${SCENARIO}\` |"
+            echo "| Baseline SHA | \`${BASE_SHA}\` |"
+            echo "| Test SHA | \`${SHA}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout baseline chart (NOT TRUSTED)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.vars.outputs.base_sha }}
+          persist-credentials: false
+          # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
+          allow-unsafe-pr-checkout: true
+          path: untrusted/cilium-baseline
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Checkout test chart (NOT TRUSTED)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
+          allow-unsafe-pr-checkout: true
+          path: untrusted/cilium-test
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      # Both SHAs are expected to have images built already.
+      - name: Wait for baseline Cilium images
+        timeout-minutes: 5
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ steps.vars.outputs.base_sha }}
+          images: cilium-ci operator-generic-ci
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
+
+      - name: Wait for test Cilium images
+        timeout-minutes: 5
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ steps.vars.outputs.sha }}
+          images: cilium-ci operator-generic-ci cilium-cli-ci
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
+
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.26.5
+
+      - name: Setup gcloud credentials
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PERF_SA }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          version: ${{ env.gcloud_version }}
+
+      - name: Install kubectl and eksctl
+        run: |
+          curl -sfL --retry 5 --retry-all-errors --retry-delay 3 -O "https://dl.k8s.io/release/${{ env.kubectl_version }}/bin/linux/amd64/kubectl"
+          curl -sfL --retry 5 --retry-all-errors --retry-delay 3 -O "https://dl.k8s.io/${{ env.kubectl_version }}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 -O "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
+          rm "eksctl_$(uname -s)_amd64.tar.gz"
+
+          echo "--- go ---"
+          go version
+          echo "--- kubectl ---"
+          kubectl version --client
+          echo "--- eksctl ---"
+          eksctl version
+          echo "--- gcloud ---"
+          gcloud version
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ steps.vars.outputs.eks_region }}
+
+      - name: Create EKS cluster
+        id: deploy-cluster
+        uses: ./.github/actions/setup-eks-cluster
+        with:
+          create-cluster: "true"
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          region: ${{ steps.vars.outputs.eks_region }}
+          zones: "${{ steps.vars.outputs.eks_zone_1 }} ${{ steps.vars.outputs.eks_zone_2 }}"
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: "${{ steps.vars.outputs.eks_version }}"
+          addons: "coredns"
+          control_plane_scaling_tier: "${{ env.control_plane_tier }}"
+
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
+      - name: Create imagePullSecret
+        if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
+        run: |
+          kubectl create secret docker-registry cilium-registry \
+            --namespace kube-system \
+            --docker-server=${{ vars.DOCKER_READ_HOST }} \
+            --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
+            --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
+
+      - name: Get Cilium's default values for the baseline
+        id: baseline_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ steps.vars.outputs.base_sha }}
+          registry_host: ${{ vars.DOCKER_READ_HOST }}
+          registry_organization: ${{ vars.DOCKER_READ_ORG }}
+          chart-dir: ./untrusted/cilium-baseline/install/kubernetes/cilium
+          image-pull-secret: "cilium-registry"
+
+      - name: Get Cilium's default values for the test SHA
+        id: test_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ steps.vars.outputs.sha }}
+          registry_host: ${{ vars.DOCKER_READ_HOST }}
+          registry_organization: ${{ vars.DOCKER_READ_ORG }}
+          chart-dir: ./untrusted/cilium-test/install/kubernetes/cilium
+          image-pull-secret: "cilium-registry"
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@7ca7fc53c20275f5c10ef5f3557076691fd1d720 # v0.19.7
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
+
+      - name: Prepare the Cilium install values shared by both runs
+        id: install-values
+        run: |
+          K8S_API_SRV_ADDR=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' | sed 's|https://||')
+          echo "Retrieved Kubernetes API Server address: '${K8S_API_SRV_ADDR}'"
+          echo "k8s_api_srv_addr=${K8S_API_SRV_ADDR}" >> "$GITHUB_OUTPUT"
+
+          cat <<EOF > cilium-install-helm-values.yaml
+          debug:
+            enabled: false
+          pprof:
+            enabled: true
+          prometheus:
+            enabled: true
+          operator:
+            prometheus:
+              enabled: true
+          healthChecking: false
+          bpf:
+            policyMapMax: 65536
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: type
+                    operator: NotIn
+                    values:
+                    - kwok
+          envoy:
+            enabled: true
+            debug:
+              enabled: false
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                  - matchExpressions:
+                    - key: type
+                      operator: NotIn
+                      values:
+                      - kwok
+          EOF
+
+      # Tunnel mode (vxlan) with cluster-pool IPAM: no AWS ENI/VPC CNI
+      # involved, so kwok's fake nodes never need real ENI IPs or instances,
+      # and the operator image stays operator-generic (only eni.enabled would
+      # switch it to operator-aws).
+      - name: Install baseline Cilium
+        id: install-cilium-baseline
+        run: |
+          cilium install ${{ steps.baseline_vars.outputs.cilium_install_defaults }} \
+            --helm-set=debug.enabled=false \
+            --helm-set=kubeProxyReplacement=true \
+            --helm-set=routingMode=tunnel \
+            --helm-set=tunnelProtocol=vxlan \
+            --helm-set=ipam.mode=cluster-pool \
+            --set=k8sServiceHost="${{ steps.install-values.outputs.k8s_api_srv_addr }}" --set=k8sServicePort=443 \
+            --helm-values=cilium-install-helm-values.yaml
+
+      - name: Create EKS nodegroups
+        uses: ./.github/actions/setup-eks-nodegroup
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          region: ${{ steps.vars.outputs.eks_region }}
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: "${{ steps.vars.outputs.eks_version }}"
+          timeout: "15m"
+          node_groups_override: |
+            managedNodeGroups:
+            - name: ng-general
+              instanceTypes:
+              - ${{ env.node_instance_type }}
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: 1
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+
+            - name: ng-test-infra
+              instanceTypes:
+              - ${{ env.node_instance_type }}
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: 1
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+              labels:
+                role.scaffolding/test-infra: "true"
+
+            - name: ng-test-node
+              instanceTypes:
+              - ${{ env.node_instance_type }}
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: 1
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+              labels:
+                role.scaffolding/test-node: "true"
+
+      - name: Discover and prepare test nodes
+        id: test-nodes
+        run: |
+          TEST_NODE_NAME=$(kubectl get nodes -l eks.amazonaws.com/nodegroup=ng-test-node -o jsonpath='{.items[0].metadata.name}')
+          TEST_INFRA_NODE_NAME=$(kubectl get nodes -l eks.amazonaws.com/nodegroup=ng-test-infra -o jsonpath='{.items[0].metadata.name}')
+
+          kubectl cordon "${TEST_NODE_NAME}"
+          kubectl create namespace kfuzz
+
+          echo "test_node_name=${TEST_NODE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "test_infra_node_name=${TEST_INFRA_NODE_NAME}" >> "$GITHUB_OUTPUT"
+          # Both CL2 runs churn on the same test node.
+          echo "CL2_TEST_NODE_NAME=${TEST_NODE_NAME}" >> "$GITHUB_ENV"
+
+          kubectl get nodes -o wide --show-labels
+
+      - name: Wait for baseline Cilium status to be ready
+        run: |
+          cilium status --wait --interactive=false
+
+      - name: Set up kwok CRDs and Stages
+        run: |
+          kubectl apply -k "https://github.com/kubernetes-sigs/kwok/kustomize/crd?ref=v0.8.0"
+          kubectl apply -k "https://github.com/kubernetes-sigs/kwok/kustomize/stage/fast?ref=v0.8.0"
+
+      - name: Clone ClusterLoader2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: kubernetes/perf-tests
+          # Avoid using renovate to update this dependency because: (1)
+          # perf-tests does not tag or release, so renovate will pull
+          # all updates to the default branch and (2) continually
+          # updating CL2 may impact the stability of the scale test
+          # results.
+          ref: d51da38a445d653c6f7cd039728d313cb31290b9
+          persist-credentials: false
+          sparse-checkout: clusterloader2
+          path: perf-tests
+
+      - name: Patch ClusterLoader2 in-cluster Prometheus client
+        working-directory: ./perf-tests
+        run: |
+          # EKS's managed control plane refuses to proxy the apiserver's
+          # services/proxy subresource to pod IPs outside the cluster's VPC
+          # CIDR (see the "Install baseline Cilium" step: tunnel mode +
+          # cluster-pool IPAM puts every pod on a 10.0.0.0/8 address, which
+          # isn't part of the VPC). That subresource is what CL2 uses,
+          # unconditionally, to reach Prometheus, so this adds an opt-in
+          # PROMETHEUS_HOST_OVERRIDE env var CL2 doesn't otherwise support,
+          # used by run-cl2.sh to route it over a `kubectl port-forward`
+          # instead -- port-forward is unaffected, since it's dispatched
+          # through the pod's node (kubelet) rather than dialed directly by the
+          # apiserver. A no-op on every other provider, since the new code path
+          # is only reachable when the env var is set.
+          git apply ../.github/actions/cl2-modules/policy-churn/add-prometheus-host-override-env-var.patch
+
+          echo "--- Applied patch (for debugging if this step's git apply ever starts failing after a re-pin) ---"
+          git diff --stat || true
+
+          chmod +x \
+            "${GITHUB_WORKSPACE}/.github/actions/cl2-modules/policy-churn/run-cl2.sh" \
+            "${GITHUB_WORKSPACE}/.github/actions/cl2-modules/policy-churn/collect-agent-host-logs.sh"
+
+      - name: Run CL2 against the baseline
+        id: run-cl2-baseline
+        working-directory: ./perf-tests/clusterloader2
+        shell: bash
+        timeout-minutes: 60
+        env:
+          REPORT_DIR: ./report/baseline
+          CL2_OUTPUT_FILE: cl2-output-baseline.txt
+        run: |
+          echo "test_start_ms=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
+          "${GITHUB_WORKSPACE}/.github/actions/cl2-modules/policy-churn/run-cl2.sh"
+          echo "test_end_ms=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
+
+      - name: Collect baseline test-node Cilium agent host logs
+        id: baseline-host-logs
+        if: ${{ always() && steps.run-cl2-baseline.outcome != 'skipped' && steps.run-cl2-baseline.outcome != 'cancelled' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          ./.github/actions/cl2-modules/policy-churn/collect-agent-host-logs.sh \
+            "${CL2_TEST_NODE_NAME}" baseline \
+            ./perf-tests/clusterloader2/report/baseline/cilium-agent-test-node-host-logs.tar.gz
+
+      - name: Get baseline sysdump
+        if: ${{ always() && steps.install-cilium-baseline.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-baseline
+          sudo chmod +r cilium-sysdump-baseline.zip
+
+      - name: Refresh AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ steps.vars.outputs.eks_region }}
+
+
+      - name: Clean up the resources churned by the baseline run
+        run: |
+          kubectl --namespace kfuzz delete deployments --all
+          kubectl --namespace kfuzz delete ciliumnetworkpolicies --all
+          kubectl --namespace kfuzz delete ciliumcidrgroups --all
+
+          kubectl delete namespace kfuzz --wait
+          kubectl delete nodes -l type=kwok
+
+          kubectl -n kube-system delete deployments kwok-controller-deployment-0 kfuzz-deployment-0 || true
+
+          # Default kubectl qps is too low to clean up stale identities for test run in the cluster.
+          # Use apiserver's collection delete endpoint instead for server side delete.
+          remaining=0
+          for _ in $(seq 1 5); do
+            # A single collection delete can outlive the apiserver's request
+            # timeout on a long churn run, deleting a chunk and then erroring
+            # out, so repeat it until the selection is empty.
+            kubectl delete --raw "/apis/cilium.io/v2/ciliumidentities?labelSelector=cilium.io%2Fowner%3Dkwok" > /dev/null || true
+            remaining=$(kubectl get ciliumidentities -l cilium.io/owner=kwok --no-headers 2>/dev/null | wc -l)
+            echo "kwok managed identities remaining: ${remaining}"
+            if [ "${remaining}" -eq 0 ]; then
+              break
+            fi
+          done
+          if [ "${remaining}" -ne 0 ]; then
+            echo "::warning::Collection delete left ${remaining} kwok identities, falling back to per-object deletes"
+            kubectl delete ciliumidentities -l cilium.io/owner=kwok --wait=false > /dev/null
+          fi
+
+          # Everything CL2 creates while setting up its Prometheus stack
+          # tolerates AlreadyExists, except this one secret -- without deleting
+          # it the second run dies with `secrets "prometheus-token" already
+          # exists` instead of reusing the stack (and the TSDB) left running by
+          # --tear-down-prometheus-server=false. CL2 mints a fresh token on the
+          # next run; the Prometheus pod itself is left alone.
+          kubectl --namespace monitoring delete secret prometheus-token --ignore-not-found
+
+      - name: Install cilium test SHA
+        id: install-cilium-test
+        run: |
+          cilium uninstall
+          kubectl --namespace kube-system wait --for=delete pod -l k8s-app=cilium --timeout=5m || true
+          sleep 60
+
+          cilium install ${{ steps.test_vars.outputs.cilium_install_defaults }} \
+            --helm-set=debug.enabled=false \
+            --helm-set=kubeProxyReplacement=true \
+            --helm-set=routingMode=tunnel \
+            --helm-set=tunnelProtocol=vxlan \
+            --helm-set=ipam.mode=cluster-pool \
+            --set=k8sServiceHost="${{ steps.install-values.outputs.k8s_api_srv_addr }}" --set=k8sServicePort=443 \
+            --helm-values=cilium-install-helm-values.yaml
+          cilium status --wait --interactive=false
+
+          rm -rf untrusted/
+
+          kubectl create namespace kfuzz
+          kubectl --namespace monitoring get pods -o wide
+
+      - name: Run CL2 against the test SHA
+        id: run-cl2-test
+        working-directory: ./perf-tests/clusterloader2
+        shell: bash
+        timeout-minutes: 60
+        env:
+          REPORT_DIR: ./report/test
+          CL2_OUTPUT_FILE: cl2-output-test.txt
+        run: |
+          echo "test_start_ms=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
+          "${GITHUB_WORKSPACE}/.github/actions/cl2-modules/policy-churn/run-cl2.sh"
+          echo "test_end_ms=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
+
+      - name: Collect test-SHA test-node Cilium agent host logs
+        id: test-host-logs
+        if: ${{ always() && steps.run-cl2-test.outcome != 'skipped' && steps.run-cl2-test.outcome != 'cancelled' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          ./.github/actions/cl2-modules/policy-churn/collect-agent-host-logs.sh \
+            "${CL2_TEST_NODE_NAME}" test \
+            ./perf-tests/clusterloader2/report/test/cilium-agent-test-node-host-logs.tar.gz
+
+      - name: Get test SHA sysdump
+        if: ${{ always() && steps.install-cilium-test.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-test
+          sudo chmod +r cilium-sysdump-test.zip
+
+      - name: Render the baseline, test and comparison dashboards
+        id: render-dashboards
+        if: ${{ always() && steps.run-cl2-baseline.outcome != 'skipped' && steps.run-cl2-baseline.outcome != 'cancelled' }}
+        continue-on-error: true
+        timeout-minutes: 20
+        working-directory: ./.github/actions/cl2-modules/policy-churn
+        env:
+          BASELINE_START_MS: ${{ steps.run-cl2-baseline.outputs.test_start_ms }}
+          BASELINE_END_MS: ${{ steps.run-cl2-baseline.outputs.test_end_ms }}
+          TEST_START_MS: ${{ steps.run-cl2-test.outputs.test_start_ms }}
+          TEST_END_MS: ${{ steps.run-cl2-test.outputs.test_end_ms }}
+          REPORT_ROOT: ${{ github.workspace }}/perf-tests/clusterloader2/report
+          SCENARIO: ${{ steps.vars.outputs.scenario }}
+          BASELINE_SHA_SHORT: ${{ steps.vars.outputs.base_sha_short }}
+          TEST_SHA_SHORT: ${{ steps.vars.outputs.sha_short }}
+        run: |
+          if [ -z "${BASELINE_START_MS}" ]; then
+            echo "::error::The baseline run never started, there is nothing to render"
+            exit 1
+          fi
+
+          sudo apt-get install -y imagemagick
+          chmod +x ./dashboard/render.sh
+
+          NOW=$(date +%s%3N)
+          # A run that failed never recorded its end, so graph up to now.
+          : "${BASELINE_END_MS:=${NOW}}"
+          : "${TEST_END_MS:=${NOW}}"
+          # A minute of margin on both sides keeps the churn from touching the
+          # edge of the graphs.
+          PAD=60000
+
+          render() {
+            echo "::group::Rendering ${3}"
+            DASHBOARD_FROM_MS="$((${1} - PAD))" \
+            DASHBOARD_TO_MS="$((${2} + PAD))" \
+            OUTPUT_PATH="${3}" \
+              ./dashboard/render.sh "${CL2_TEST_NODE_NAME}"
+            echo "::endgroup::"
+          }
+
+          render "${BASELINE_START_MS}" "${BASELINE_END_MS}" \
+            "${REPORT_ROOT}/baseline/${SCENARIO}-baseline-${BASELINE_SHA_SHORT}-dashboard.png"
+
+          if [ -n "${TEST_START_MS}" ]; then
+            render "${TEST_START_MS}" "${TEST_END_MS}" \
+              "${REPORT_ROOT}/test/${SCENARIO}-test-${TEST_SHA_SHORT}-dashboard.png"
+            render "${BASELINE_START_MS}" "${TEST_END_MS}" \
+              "${REPORT_ROOT}/test/${SCENARIO}-compare-${BASELINE_SHA_SHORT}-vs-${TEST_SHA_SHORT}-dashboard.png"
+          else
+            echo "::warning::The test SHA run never started, rendering the baseline dashboard only"
+          fi
+
+      # Github doesn't support adding images in github summary.
+      # For now upload as separate artifacts so its easy to access.
+      - name: Upload result dashboards, host logs and sysdumps
+        if: ${{ always() && steps.run-cl2-baseline.outcome != 'skipped' && steps.run-cl2-baseline.outcome != 'cancelled' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: churn-compare-results-${{ steps.vars.outputs.scenario }}-${{ github.run_attempt }}
+          path: |
+            perf-tests/clusterloader2/report/*/*-dashboard.png
+            perf-tests/clusterloader2/report/*/cilium-agent-test-node-host-logs.tar.gz
+            cilium-sysdump-baseline.zip
+            cilium-sysdump-test.zip
+          if-no-files-found: warn
+          retention-days: 7
+          archive: false
+
+      - name: Baseline results heading
+        if: ${{ always() && steps.run-cl2-baseline.outcome != 'skipped' }}
+        run: |
+          echo "## Baseline results (\`${{ steps.vars.outputs.base_sha }}\`)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish baseline results
+        if: ${{ always() && steps.run-cl2-baseline.outcome != 'skipped' }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "baseline-${{ steps.vars.outputs.scenario }}"
+          job_status: "${{ job.status }}"
+          junits-directory: 'perf-tests/clusterloader2/report/baseline'
+          capture_sysdump: 'false'
+          capture_features_tested: 'false'
+
+      - name: Test SHA results heading
+        if: ${{ always() && steps.run-cl2-test.outcome != 'skipped' }}
+        run: |
+          echo "## Test SHA results (\`${{ steps.vars.outputs.sha }}\`)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish test SHA results
+        if: ${{ always() && steps.run-cl2-test.outcome != 'skipped' }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "test-${{ steps.vars.outputs.scenario }}"
+          job_status: "${{ job.status }}"
+          junits-directory: 'perf-tests/clusterloader2/report/test'
+          capture_sysdump: 'false'
+          capture_features_tested: 'false'
+
+      - name: Export baseline results to GS bucket
+        if: ${{ always() && steps.run-cl2-baseline.outcome != 'skipped' && steps.run-cl2-baseline.outcome != 'cancelled' }}
+        uses: cilium/scale-tests-action/export-results@7e3eae9de9542f1a7616ca797e2d5090e8f9f8ee # main
+        with:
+          test_name: ${{ env.test_name }}-${{ steps.vars.outputs.scenario }}
+          tested_sha: ${{ steps.vars.outputs.base_sha }}
+          results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
+          artifacts: ./perf-tests/clusterloader2/report/baseline/
+          other_files: cilium-sysdump-baseline.zip ./perf-tests/clusterloader2/cl2-output-baseline.txt
+
+      - name: Export test SHA results to GS bucket
+        if: ${{ always() && steps.run-cl2-test.outcome != 'skipped' && steps.run-cl2-test.outcome != 'cancelled' }}
+        uses: cilium/scale-tests-action/export-results@7e3eae9de9542f1a7616ca797e2d5090e8f9f8ee # main
+        with:
+          test_name: ${{ env.test_name }}-${{ steps.vars.outputs.scenario }}
+          tested_sha: ${{ steps.vars.outputs.sha }}
+          results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
+          artifacts: ./perf-tests/clusterloader2/report/test/
+          other_files: cilium-sysdump-test.zip ./perf-tests/clusterloader2/cl2-output-test.txt
+
+      # Refresh credentials, since the role assumption session from earlier
+      # may have expired during the (potentially long-running) test.
+      - name: Set up AWS CLI credentials
+        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ steps.vars.outputs.eks_region }}
+
+      - name: Cleanup cluster
+        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
+        run: |
+          eksctl delete cluster --name ${{ steps.vars.outputs.cluster_name }} --region ${{ steps.vars.outputs.eks_region }}

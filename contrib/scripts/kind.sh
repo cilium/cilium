@@ -81,6 +81,7 @@ pod_subnet="${PODSUBNET:=${default_pod_subnet}}"
 service_subnet="${SERVICESUBNET:=${default_service_subnet}}"
 agent_port_prefix="${AGENTPORTPREFIX:=${default_agent_port_prefix}}"
 operator_port_prefix="${OPERATORPORTPREFIX:=${default_operator_port_prefix}}"
+extra_kubeadm_config_patch="${KIND_EXTRA_KUBEADM_CONFIG_PATCH:-}"
 
 bridge_dev="br-${default_network}"
 bridge_dev_secondary="${bridge_dev}2"
@@ -182,6 +183,15 @@ workers() {
   done
 }
 
+extra_kubeadm_config_patch_block() {
+  if [[ -n "${extra_kubeadm_config_patch}" ]]; then
+    echo "  - |"
+    while IFS= read -r line; do
+      printf '    %s\n' "${line}"
+    done <<< "${extra_kubeadm_config_patch}"
+  fi
+}
+
 echo "${kind_cmd}"
 
 kind --version
@@ -249,6 +259,7 @@ kubeadmConfigPatches:
     nodeRegistration:
       kubeletExtraArgs:
         container-log-max-size: "10M"
+$(extra_kubeadm_config_patch_block)
 EOF
 
 if [ "${secondary_network_flag}" = true ]; then
