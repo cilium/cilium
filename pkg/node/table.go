@@ -16,6 +16,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -128,11 +129,14 @@ func (n *Node) addressClusters(
 // LocalNodeInfo is the additional information about the local node that
 // is only used internally.
 //
-// Every field is a comparable value type, which lets DeepCopyInto and
-// DeepEqual below be a plain assignment and a plain comparison.
+// DeepEqual is generated, except for the netip.Addr and netip.Prefix fields:
+// deepequal-gen cannot synthesize a comparison for an external type with
+// unexported pointer fields, so those carry +deepequal-gen=false and are
+// compared by the hand-written prologue in DeepEqual below.
 //
 // +k8s:deepcopy-gen=false
-// +deepequal-gen=false
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type LocalNodeInfo struct {
 	// OptOutNodeEncryption will make the local node opt-out of node-to-node
 	// encryption
@@ -143,15 +147,27 @@ type LocalNodeInfo struct {
 	// ID of the node assigned by the cloud provider.
 	ProviderID string
 	// v4 CIDR in which pod IPs are routable
+	// +deepequal-gen=false
 	IPv4NativeRoutingCIDR netip.Prefix
 	// v6 CIDR in which pod IPs are routable
+	// +deepequal-gen=false
 	IPv6NativeRoutingCIDR netip.Prefix
 	// ServiceLoopbackIPv4 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
+	// +deepequal-gen=false
 	ServiceLoopbackIPv4 netip.Addr
 	// ServiceLoopbackIPv6 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
+	// +deepequal-gen=false
 	ServiceLoopbackIPv6 netip.Addr
+	// IPv4PodSubnets are the v4 subnets pod IPs are allocated from, for IPAM
+	// modes where pods live in cloud provider subnets rather than in a node
+	// PodCIDR. Empty for every other mode.
+	IPv4PodSubnets []ip.Prefix
+	// IPv6PodSubnets are the v6 subnets pod IPs are allocated from, for IPAM
+	// modes where pods live in cloud provider subnets rather than in a node
+	// PodCIDR. Empty for every other mode.
+	IPv6PodSubnets []ip.Prefix
 	// IsBeingDeleted indicates that the local node is being deleted.
 	IsBeingDeleted bool
 	// UnderlayProtocol is the IP family of our underlay.
@@ -161,6 +177,8 @@ type LocalNodeInfo struct {
 // DeepCopyInto copies the receiver into out. in must be non-nil.
 func (in *LocalNodeInfo) DeepCopyInto(out *LocalNodeInfo) {
 	*out = *in
+	out.IPv4PodSubnets = slices.Clone(in.IPv4PodSubnets)
+	out.IPv6PodSubnets = slices.Clone(in.IPv6PodSubnets)
 }
 
 // DeepCopy creates a deep copy of the LocalNodeInfo.
@@ -178,7 +196,39 @@ func (in *LocalNodeInfo) DeepEqual(other *LocalNodeInfo) bool {
 	if other == nil {
 		return false
 	}
-	return *in == *other
+	// Manually compare the netip.Addr and netip.Prefix fields, which
+	// deepequal-gen cannot generate a comparison for.
+	if in.IPv4NativeRoutingCIDR != other.IPv4NativeRoutingCIDR {
+		return false
+	}
+	if in.IPv6NativeRoutingCIDR != other.IPv6NativeRoutingCIDR {
+		return false
+	}
+	if in.ServiceLoopbackIPv4 != other.ServiceLoopbackIPv4 {
+		return false
+	}
+	if in.ServiceLoopbackIPv6 != other.ServiceLoopbackIPv6 {
+		return false
+	}
+	// Call the generated `deepEqual` method, which compares all other fields.
+	return in.deepEqual(other)
+}
+
+// SetPodSubnets records the subnets pod IPs are allocated from, coalescing
+// them into the minimal equivalent set and splitting them by address family.
+// It replaces any previously recorded value, so repeated calls with the same
+// input are idempotent and dedup against the previous revision in statedb.
+func (n *LocalNode) SetPodSubnets(prefixes []netip.Prefix) {
+	var v4, v6 []ip.Prefix
+	for _, p := range ip.CoalescePrefixes(prefixes) {
+		if p.Addr().Is4() {
+			v4 = append(v4, ip.PrefixFrom(p))
+		} else {
+			v6 = append(v6, ip.PrefixFrom(p))
+		}
+	}
+	n.Local.IPv4PodSubnets = v4
+	n.Local.IPv6PodSubnets = v6
 }
 
 const (
