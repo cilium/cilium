@@ -312,8 +312,9 @@ The second holds its ``golangci-lint`` ceiling:
 
 To allow Renovate to create a pull request that updates the minor Golang version,
 bump the ``allowedVersions`` constraint of both entries to include the desired
-versions. Once this change has been merged, Renovate will create a pull request
-that updates the Golang version. Minor version updates may require further changes
+versions. Once this change has been merged, Renovate will create a single pull
+request that updates the Golang version and ``golangci-lint`` together, since both
+share the ``base-images`` group. Minor version updates may require further changes
 to ensure that all Cilium features are working correctly – use the CI to identify
 any issues that require further changes, and bring them to the attention of the
 Cilium maintainers in the pull request.
