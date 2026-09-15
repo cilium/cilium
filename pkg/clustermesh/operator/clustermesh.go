@@ -77,11 +77,7 @@ type ClusterMesh interface {
 }
 
 func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams, en enabled) (*clusterMesh, ClusterMesh) {
-	if params.ClusterInfo.ID == 0 || params.ClusterMeshConfig == "" {
-		return nil, nil
-	}
-
-	if !params.Cfg.ClusterMeshEnableEndpointSync && !bool(en) {
+	if params.ClusterInfo.ID == 0 || params.ClusterMeshConfig == "" || !bool(en) {
 		return nil, nil
 	}
 
