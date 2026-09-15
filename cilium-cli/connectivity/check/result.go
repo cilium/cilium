@@ -12,6 +12,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 type Result struct {
@@ -211,6 +212,39 @@ var (
 		ExitCode: ExitCurlHTTPError,
 	}
 )
+
+func ResultDefaultDenyIngressDropWithPolicy(ct *ConnectivityTest, policyName string) Result {
+	dropFunc := func(flow *flowpb.Flow) bool {
+		reason := flow.GetDropReasonDesc()
+		// Cilium v1.21 reports all policies that caused a default deny.
+		// For v1.20 and earlier, just determine the reason
+		if !versioncheck.MustCompile(">=1.21.0")(ct.CiliumVersion) {
+			return reason == flowpb.DropReason_POLICY_DENIED
+		}
+
+		// Starting in v1.20 (but untested), PASS verdicts will be either DENY or DENIED
+		// This is because a baseline deny entry is created.
+		if reason != flowpb.DropReason_POLICY_DENIED && reason != flowpb.DropReason_POLICY_DENY {
+			return false
+		}
+
+		// Ensure that the policies responsible for the drop include the name in question
+		for _, pol := range flow.GetIngressDeniedBy() {
+			if pol.Name == policyName {
+				ct.Debugf("Found flow with deny attributed to policy  %s", pol.Name)
+				return true
+			}
+		}
+		return false
+	}
+
+	return Result{
+		Drop:           true,
+		IngressDrop:    true,
+		DropReasonFunc: dropFunc,
+		ExitCode:       ExitAnyError,
+	}
+}
 
 func (e ExitCode) String() string {
 	switch e {

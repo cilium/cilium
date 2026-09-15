@@ -324,6 +324,29 @@ func (p *EndpointPolicy) Lookup(key Key) (MapStateEntry, RuleMeta, bool) {
 	return entry.MapStateEntry, entry.derivedFromRules.Value(), found
 }
 
+// Attribute functions like Lookup, but also returns the rules responsible
+// for setting the endpoint in to default deny state if relevant.
+func (p *EndpointPolicy) Attribute(key Key, deny bool) (RuleMeta, bool) {
+	_, ruleMeta, found := p.Lookup(key)
+	if !found {
+		// If this was denied, and not found, then it was a default deny.
+		// Substitute in the full set of policies
+		if deny {
+			if key.IsIngress() {
+				ruleMeta = p.SelectorPolicy.L4Policy.Ingress.defaultDenyRules.Value()
+			} else {
+				ruleMeta = p.SelectorPolicy.L4Policy.Egress.defaultDenyRules.Value()
+			}
+		} else {
+			// unlikely, but somehow traffic was allowed and we didn't find the
+			// corresponding mapstate entry. Maybe skew as a new policy was being
+			// applied to BPF.
+			return ruleMeta, false
+		}
+	}
+	return ruleMeta, true
+}
+
 // CopyMapStateFrom copies the policy map entries from m.
 func (p *EndpointPolicy) CopyMapStateFrom(m MapStateMap) {
 	for key, entry := range m {

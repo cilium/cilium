@@ -6,6 +6,7 @@ package policy
 import (
 	"cmp"
 	"errors"
+	"fmt"
 	"slices"
 
 	"github.com/cilium/cilium/pkg/container/set"
@@ -113,10 +114,11 @@ func (rules ruleSlice) computeTierPriorities() ([]types.Priority, []int, error) 
 	return tierBasePriorities, tierPriorityLevels, nil
 }
 
-func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPolicy, error) {
+func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext, ingress bool) (L4DirectionPolicy, error) {
 	state := traceState{}
 	result := L4DirectionPolicy{
-		PortRules: L4PolicyMaps{makeL4PolicyMap()},
+		PortRules:        L4PolicyMaps{makeL4PolicyMap()},
+		defaultDenyRules: NilRuleOrigin,
 	}
 
 	if len(rules) == 0 {
@@ -141,6 +143,7 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 	increment := types.Priority(1) // default increment
 	tier := types.Tier(0)
 	lastPrio := rules[0].Priority
+	numDefaultDeny := 0 // attribute default deny to the first rule, but count the number of rules
 	for _, r := range rules {
 		if r.Tier != tier {
 			tier = r.Tier
@@ -172,6 +175,26 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 		if r.Verdict == types.Pass && tier < lastTier {
 			increment = types.Priority(tierPassPriorities[tier]) + 1
 		}
+
+		if r.DefaultDeny {
+			if numDefaultDeny == 0 {
+				// Attribute any default-deny flows to the first rule.
+				result.defaultDenyRules = r.origin()
+			}
+			numDefaultDeny++
+		}
+	}
+
+	// Tag the default-deny attribution with the standard default-deny label, along with
+	// some information indicating that the attribution may have been truncated.
+	if numDefaultDeny > 0 {
+		desc := "egress"
+		lbls := LabelsDenyAnyEgress
+		if ingress {
+			desc = "ingress"
+			lbls = LabelsDenyAnyIngress
+		}
+		result.defaultDenyRules = result.defaultDenyRules.Merge(makeSingleRuleOrigin(lbls, fmt.Sprintf("%s default deny from %d rules", desc, numDefaultDeny)))
 	}
 
 	state.trace(len(rules), policyCtx)
