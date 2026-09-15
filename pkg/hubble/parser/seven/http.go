@@ -20,6 +20,9 @@ import (
 func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts *options.Options) *flowpb.Layer7_Http {
 	var headers []*flowpb.HTTPHeader
 	for _, key := range slices.Sorted(maps.Keys(http.Headers)) {
+		if shouldExcludeHeader(key, opts.ExcludeHttpHeaders) {
+			continue
+		}
 		for _, value := range http.Headers[key] {
 			filteredValue := filterHeader(key, value, opts.HubbleRedactSettings)
 			headers = append(headers, &flowpb.HTTPHeader{Key: key, Value: filteredValue})
@@ -93,6 +96,26 @@ func filterHeader(key string, value string, redactSettings options.HubbleRedactS
 		return defaults.SensitiveValueRedacted
 	}
 	return value
+}
+
+// shouldExcludeHeader reports whether the HTTP header with the given key should
+// be excluded (dropped entirely) from the flow, based on the allow/deny lists
+// in the provided HttpHeadersList:
+//  1. If both lists are empty the feature is inactive and nothing is excluded.
+//  2. If the allow list is non-empty it acts as a whitelist: headers not in it
+//     are excluded.
+//  3. Otherwise the deny list acts as a blacklist: only headers in it are
+//     excluded.
+func shouldExcludeHeader(key string, excludeSettings options.HttpHeadersList) bool {
+	if len(excludeSettings.Allow) == 0 && len(excludeSettings.Deny) == 0 {
+		return false
+	}
+	if len(excludeSettings.Allow) > 0 {
+		_, ok := excludeSettings.Allow[strings.ToLower(key)]
+		return !ok
+	}
+	_, ok := excludeSettings.Deny[strings.ToLower(key)]
+	return ok
 }
 
 // filteredURL return a copy of the given URL potentially mutated depending on

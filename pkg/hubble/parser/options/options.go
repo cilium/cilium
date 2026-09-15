@@ -18,6 +18,7 @@ type Option func(*Options)
 type Options struct {
 	CacheSize                      int
 	HubbleRedactSettings           HubbleRedactSettings
+	ExcludeHttpHeaders             HttpHeadersList
 	EnableNetworkPolicyCorrelation bool
 	SkipUnknownCGroupIDs           bool
 
@@ -58,6 +59,23 @@ func WithRedact(httpQuery, httpUserInfo bool, allowHeaders, denyHeaders []string
 		opt.HubbleRedactSettings.RedactHTTPQuery = httpQuery
 		opt.HubbleRedactSettings.RedactHTTPUserInfo = httpUserInfo
 		opt.HubbleRedactSettings.RedactHttpHeaders = HttpHeadersList{
+			Allow: headerSliceToMap(allowHeaders),
+			Deny:  headerSliceToMap(denyHeaders),
+		}
+	}
+}
+
+// WithExcludeHttpHeaders configures which HTTP headers Hubble will exclude (drop
+// entirely, key and value) from flows. This is independent of the redact
+// feature: redact masks a header's value but keeps its key, whereas exclusion
+// removes the header completely.
+//
+// allowHeaders acts as a whitelist (keep only these, exclude all others) and
+// denyHeaders as a blacklist (exclude these, keep all others). The two are
+// mutually exclusive; the feature is inactive when both are empty.
+func WithExcludeHttpHeaders(allowHeaders, denyHeaders []string) Option {
+	return func(opt *Options) {
+		opt.ExcludeHttpHeaders = HttpHeadersList{
 			Allow: headerSliceToMap(allowHeaders),
 			Deny:  headerSliceToMap(denyHeaders),
 		}
