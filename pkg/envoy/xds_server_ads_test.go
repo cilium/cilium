@@ -786,11 +786,26 @@ func TestRemoveListener(t *testing.T) {
 	require.Len(t, resources.Listeners, 1)
 	require.NotNil(t, resources.Listeners["test-listener"])
 
-	revertFunc := server.RemoveListener(ctx, "test-listener", wg)
-	assert.NotNil(t, revertFunc)
+	server.RemoveListener(ctx, "test-listener", wg)
 
 	resources = cache.GetAllResources(localNodeID)
 	require.Empty(t, resources.Listeners)
+}
+
+func TestRemoveListenerReferenceCount(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := xdsnew.NewCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	ctx := t.Context()
+
+	require.NoError(t, server.AddListener(ctx, "test-listener", policy.ParserTypeHTTP, 8080, false, false, nil, nil))
+	require.NoError(t, server.AddListener(ctx, "test-listener", policy.ParserTypeHTTP, 8080, false, false, nil, nil))
+
+	server.RemoveListener(ctx, "test-listener", nil)
+	require.Equal(t, uint(1), server.listenerCount["test-listener"])
+
+	server.RemoveListener(ctx, "test-listener", nil)
+	require.NotContains(t, server.listenerCount, "test-listener")
 }
 
 // TestUpsertEnvoyResources verifies that Envoy resources can be upserted

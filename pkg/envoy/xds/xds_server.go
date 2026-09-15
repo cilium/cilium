@@ -40,9 +40,8 @@ type XDSServer interface {
 	AddMetricsListener(ctx context.Context, port uint16, wg *completion.WaitGroup)
 
 	// RemoveListener removes an existing Envoy listener by name.
-	// The completion is signaled on 'wg'. Returns a revert function that can be called
-	// to undo the removal.
-	RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) AckingResourceMutatorRevertFunc
+	// The completion is signaled on 'wg'.
+	RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup)
 
 	// UpsertEnvoyResources inserts or updates Envoy resources (listeners, routes, clusters,
 	// endpoints, secrets) in the xDS cache, from where they will be delivered to Envoy via
