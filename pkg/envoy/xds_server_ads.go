@@ -489,13 +489,13 @@ func (s *adsServer) AddListener(ctx context.Context, name string, kind policy.L7
 	}, wg, cb, true)
 }
 
-func (s *adsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
-	return s.removeListener(ctx, name, wg, true)
+func (s *adsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) {
+	s.removeListener(ctx, name, wg, true)
 }
 
 // removeListener removes an existing Envoy Listener.
 // The listener is only actually deleted when the reference count reaches zero.
-func (s *adsServer) removeListener(ctx context.Context, name string, wg *completion.WaitGroup, isProxyListener bool) xds.AckingResourceMutatorRevertFunc {
+func (s *adsServer) removeListener(ctx context.Context, name string, wg *completion.WaitGroup, isProxyListener bool) {
 	s.logger.Debug(
 		"Envoy: RemoveListener",
 		logfields.Listener, name,
@@ -511,18 +511,14 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 			"Envoy: Attempt to remove non-existent listener",
 			logfields.Listener, name,
 		)
-		return func() {}
+		return
 	}
 
 	count--
 	if count > 0 {
 		// Other redirects still using this listener, just decrement.
 		s.listenerCount[name] = count
-		return func() {
-			s.mutex.Lock()
-			defer s.mutex.Unlock()
-			s.listenerCount[name]++
-		}
+		return
 	}
 
 	// count == 0: actually delete the listener.
@@ -546,7 +542,7 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 	resources := s.cache.GetAllResources(localNodeID)
 
 	// Capture old listener for revert.
-	oldListener, existed := resources.Listeners[name]
+	oldListener := resources.Listeners[name]
 	resources = resources.CloneListeners()
 	delete(resources.Listeners, name)
 
@@ -557,30 +553,6 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 		callbackTypeURLs = map[string]func(error){ListenerTypeURL: nil}
 	}
 	s.updateSnapshot(ctx, resources, localNodeID, wg, callbackTypeURLs, changes)
-
-	return func() {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
-
-		if existed {
-			s.logger.Debug("Reverting listener removal", logfields.Listener, name)
-			currentResources := s.cache.GetAllResources(localNodeID)
-			if currentResources == nil {
-				empty := xds.NewResources()
-				currentResources = &empty
-			}
-
-			// The cached resources are published immutable state. Copy the
-			// Resources and only the map changed by this revert.
-			revertedResources := currentResources.CloneListeners()
-			revertedResources.Listeners[name] = oldListener
-			s.updateSnapshot(ctx, revertedResources, localNodeID, nil, nil, nil)
-		}
-		if isProxyListener {
-			s.proxyListeners++
-		}
-		s.listenerCount[name]++
-	}
 }
 
 func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy,
