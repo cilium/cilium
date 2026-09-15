@@ -65,6 +65,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
+	policycompute "github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -1213,6 +1214,7 @@ type daemonParams struct {
 	EndpointRestorer    *endpointRestorer
 	IdentityAllocator   identitycell.CachingIdentityAllocator
 	Policy              policy.PolicyRepository
+	PolicyComputer      policycompute.PolicyRecomputer
 	MonitorAgent        monitorAgent.Agent
 	DB                  *statedb.DB
 	Devices             statedb.Table[*datapathTables.Device]
