@@ -27,8 +27,14 @@ const (
 
 // New creates a new hubble-relay command.
 func New() *cobra.Command {
-	vp := newViper()
+	vp := NewViper()
+	rootCmd := NewRoot(vp)
+	rootCmd.AddCommand(serve.New(vp))
+	return rootCmd
+}
 
+// NewRoot creates a hubble-relay root command with its utility subcommands.
+func NewRoot(vp *viper.Viper) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "hubble-relay",
 		Short:        "Hubble Relay is a proxy server for the hubble API",
@@ -66,14 +72,14 @@ func New() *cobra.Command {
 
 	rootCmd.AddCommand(
 		completion.New(),
-		serve.New(vp),
 		version.New(),
 	)
 	rootCmd.SetVersionTemplate("{{with .Name}}{{printf \"%s \" .}}{{end}}{{printf \"v%s\" .Version}}\n")
 	return rootCmd
 }
 
-func newViper() *viper.Viper {
+// NewViper returns a Viper instance configured for the hubble-relay command.
+func NewViper() *viper.Viper {
 	vp := viper.New()
 	vp.SetEnvPrefix("relay")
 	vp.SetConfigFile(configFilePath)

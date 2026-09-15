@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"os/signal"
 
 	"github.com/google/gops/agent"
@@ -64,8 +63,10 @@ func New(vp *viper.Viper) *cobra.Command {
 		Use:   "serve",
 		Short: "Run the gRPC proxy server",
 		Long:  `Run the gRPC proxy server.`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runServe(vp)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx, stop := signal.NotifyContext(cmd.Context(), unix.SIGINT, unix.SIGTERM)
+			defer stop()
+			return Run(ctx, vp)
 		},
 	}
 	flags := cmd.Flags()
@@ -194,7 +195,13 @@ func New(vp *viper.Viper) *cobra.Command {
 	return cmd
 }
 
-func runServe(vp *viper.Viper) error {
+// Run configures and starts Hubble Relay with the values in vp. Additional
+// server options are applied after the options derived from the command
+// configuration. Run blocks until Relay exits or ctx is canceled.
+func Run(ctx context.Context, vp *viper.Viper, additionalOptions ...server.Option) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// slogloggercheck: the logger has been initialized with default settings
 	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "hubble-relay")
 
@@ -238,6 +245,7 @@ func runServe(vp *viper.Viper) error {
 		if err != nil {
 			return err
 		}
+		defer tlsClientConfig.Stop()
 		opts = append(opts, server.WithClientTLS(tlsClientConfig))
 	}
 
@@ -256,8 +264,10 @@ func runServe(vp *viper.Viper) error {
 		if err != nil {
 			return err
 		}
+		defer tlsServerConfig.Stop()
 		opts = append(opts, server.WithServerTLS(tlsServerConfig))
 	}
+	opts = append(opts, additionalOptions...)
 
 	if vp.GetBool(keyPprof) {
 		pprof.Enable(logger, vp.GetString(keyPprofAddress), vp.GetInt(keyPprofPort))
@@ -271,29 +281,24 @@ func runServe(vp *viper.Viper) error {
 		}); err != nil {
 			return fmt.Errorf("failed to start gops agent: %w", err)
 		}
+		defer agent.Close()
 	}
 	srv, err := server.New(opts...)
 	if err != nil {
 		return fmt.Errorf("cannot create hubble-relay server: %w", err)
 	}
+	shutdownDone := make(chan struct{})
 	go func() {
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, unix.SIGINT, unix.SIGTERM)
-		<-sigs
+		defer close(shutdownDone)
+		<-ctx.Done()
 		srv.Stop()
-		if tlsServerConfig != nil {
-			tlsServerConfig.Stop()
-		}
-		if tlsClientConfig != nil {
-			tlsClientConfig.Stop()
-		}
-		if gopsEnabled {
-			agent.Close()
-		}
 	}()
 
-	if err := srv.Serve(); !errors.Is(err, http.ErrServerClosed) {
-		return err
+	serveErr := srv.Serve()
+	cancel()
+	<-shutdownDone
+	if !errors.Is(serveErr, http.ErrServerClosed) && !errors.Is(serveErr, grpc.ErrServerStopped) {
+		return serveErr
 	}
 	return nil
 }
