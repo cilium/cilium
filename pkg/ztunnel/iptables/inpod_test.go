@@ -32,8 +32,8 @@ func TestPrivilegedCreateInPodRules(t *testing.T) {
 		// Create custom chains
 		for _, table := range []string{"mangle", "nat"} {
 			for _, chain := range []string{InpodPreroutingChain, InpodOutputChain} {
-				require.NoError(t, exec.WithTimeout(defaults.ExecTimeout, "iptables", "-t", table, "-N", chain).Run())
-				require.NoError(t, exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-t", table, "-N", chain).Run())
+				require.NoError(t, exec.WithTimeout(defaults.ExecTimeout, "iptables", "-w", "-t", table, "-N", chain).Run())
+				require.NoError(t, exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-w", "-t", table, "-N", chain).Run())
 			}
 		}
 
@@ -132,11 +132,11 @@ func TestPrivilegedAddExistingChains(t *testing.T) {
 		for _, table := range []string{"mangle", "nat"} {
 			for _, chain := range []string{InpodPreroutingChain, InpodOutputChain} {
 				// IPv4
-				_, err := exec.WithTimeout(defaults.ExecTimeout, "iptables", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
+				_, err := exec.WithTimeout(defaults.ExecTimeout, "iptables", "-w", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
 				require.NoError(t, err, "Chain %s should exist in IPv4 %s table", chain, table)
 
 				// IPv6
-				_, err = exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
+				_, err = exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-w", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
 				require.NoError(t, err, "Chain %s should exist in IPv6 %s table", chain, table)
 			}
 		}
@@ -299,7 +299,7 @@ func TestPrivilegedDeleteInPodRules(t *testing.T) {
 		// Verify iptables chains are deleted (IPv4)
 		for _, table := range []string{"mangle", "nat"} {
 			for _, chain := range []string{InpodPreroutingChain, InpodOutputChain} {
-				_, err := exec.WithTimeout(defaults.ExecTimeout, "iptables", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
+				_, err := exec.WithTimeout(defaults.ExecTimeout, "iptables", "-w", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
 				require.Error(t, err, "Chain %s should not exist in IPv4 %s table after deletion", chain, table)
 			}
 		}
@@ -307,7 +307,7 @@ func TestPrivilegedDeleteInPodRules(t *testing.T) {
 		// Verify iptables chains are deleted (IPv6)
 		for _, table := range []string{"mangle", "nat"} {
 			for _, chain := range []string{InpodPreroutingChain, InpodOutputChain} {
-				_, err := exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
+				_, err := exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-w", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
 				require.Error(t, err, "Chain %s should not exist in IPv6 %s table after deletion", chain, table)
 			}
 		}
@@ -498,10 +498,10 @@ func TestPrivilegedDeleteInPodChains(t *testing.T) {
 		// Verify chains exist before deletion
 		for _, table := range []string{"mangle", "nat"} {
 			for _, chain := range []string{InpodPreroutingChain, InpodOutputChain} {
-				_, err := exec.WithTimeout(defaults.ExecTimeout, "iptables", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
+				_, err := exec.WithTimeout(defaults.ExecTimeout, "iptables", "-w", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
 				require.NoError(t, err, "IPv4 chain %s should exist in %s table before deletion", chain, table)
 
-				_, err = exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
+				_, err = exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-w", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
 				require.NoError(t, err, "IPv6 chain %s should exist in %s table before deletion", chain, table)
 			}
 		}
@@ -513,7 +513,7 @@ func TestPrivilegedDeleteInPodChains(t *testing.T) {
 		// Verify chains are deleted (IPv4)
 		for _, table := range []string{"mangle", "nat"} {
 			for _, chain := range []string{InpodPreroutingChain, InpodOutputChain} {
-				_, err := exec.WithTimeout(defaults.ExecTimeout, "iptables", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
+				_, err := exec.WithTimeout(defaults.ExecTimeout, "iptables", "-w", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
 				require.Error(t, err, "IPv4 chain %s should not exist in %s table after deletion", chain, table)
 			}
 		}
@@ -521,7 +521,7 @@ func TestPrivilegedDeleteInPodChains(t *testing.T) {
 		// Verify chains are deleted (IPv6)
 		for _, table := range []string{"mangle", "nat"} {
 			for _, chain := range []string{InpodPreroutingChain, InpodOutputChain} {
-				_, err := exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
+				_, err := exec.WithTimeout(defaults.ExecTimeout, "ip6tables", "-w", "-t", table, "-L", chain, "-n").Output(slog.Default(), false)
 				require.Error(t, err, "IPv6 chain %s should not exist in %s table after deletion", chain, table)
 			}
 		}
@@ -531,7 +531,7 @@ func TestPrivilegedDeleteInPodChains(t *testing.T) {
 }
 
 func getIPTablesRules(t *testing.T, cmd, table string) []string {
-	out, err := exec.WithTimeout(defaults.ExecTimeout, cmd, "-t", table, "-S").Output(slog.Default(), false)
+	out, err := exec.WithTimeout(defaults.ExecTimeout, cmd, "-w", "-t", table, "-S").Output(slog.Default(), false)
 	require.NoError(t, err, "Failed to get iptables rules for table %s", table)
 	return strings.Split(string(out), "\n")
 }

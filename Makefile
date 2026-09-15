@@ -47,8 +47,17 @@ SUBDIRS_GO := $(filter-out $(SUBDIRS_DATAPATH_GEN),$(SUBDIRS))
 # meaning 'all subpackages of the given package'.
 TESTPKGS ?= ./...
 
+# The only packages a -run "TestPrivileged.*" filter can select from, './'-normalised for go test.
+PRIVILEGED_TESTPKGS = $(shell grep -rlE '^func TestPrivileged' --include='*_test.go' \
+	--exclude-dir=vendor --exclude-dir=.git . \
+	| sed -e 's|/[^/]*$$||' -e 's|^\./||' -e 's|^|./|' | sort -u)
+
 GOTEST_BASE := -timeout 720s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
+# generate-cov is the sole consumer of the profile, so stop producing one as well.
+ifneq ($(SKIP_COVERAGE),)
+GOTEST_COVER_OPTS =
+endif
 BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
 BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$$ -benchtime=10s
@@ -98,8 +107,10 @@ build-container-standalone-dns-proxy: ## Builds components required for standalo
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
+tests-privileged-only: TESTPKGS = $(PRIVILEGED_TESTPKGS)
 tests-privileged-only: ## Run Go only the unit tests that require elevated privileges.
 	@$(ECHO_CHECK) running only privileged tests...
+	@test -n "$(strip $(TESTPKGS))" || { echo "no package declares a TestPrivileged test"; exit 1; }
 	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
 		$(TESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
