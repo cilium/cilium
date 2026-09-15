@@ -81,9 +81,18 @@ func newLocalNodeConfig(
 		auxPrefixes = append(auxPrefixes, ip.PrefixFrom(daemon.IPv6ServiceRange))
 	}
 
-	nativeDevices, devsWatch := tables.SelectedDevices(devices, txn)
+	nativeDevices, _ := tables.SelectedDevices(devices, txn)
+	// Explicitly bypassed VLANs may be represented by VLAN devices that are not
+	// selected for datapath attachment. Watch all devices so adding or removing
+	// such a VLAN causes the filter configuration to be recalculated.
+	_, devsWatch := devices.AllWatch(txn)
 	nodeAddrsIter, addrsWatch := nodeAddresses.AllWatch(txn)
 	mtuRoute, _, mtuWatch, _ := mtuTbl.GetWatch(txn, mtu.MTURouteByPrefix(mtu.DefaultPrefixV4))
+
+	vlanFilter, err := resolveVLANFilters(nativeDevices, daemon.VLANBPFBypass)
+	if err != nil {
+		return config.Config{}, devsWatch, fmt.Errorf("resolving VLAN filters: %w", err)
+	}
 
 	watchChans := []<-chan struct{}{devsWatch, addrsWatch, mtuWatch}
 	var directRoutingDevice *tables.Device
@@ -236,6 +245,7 @@ func newLocalNodeConfig(
 		MaglevConfig:                 maglevConfig,
 		DatapathIsLayer2:             connectorConfig.GetOperationalMode().IsLayer2(),
 		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
+		VLANFilter:                   vlanFilter,
 		Plugins:                      plugins,
 	}, common.MergeChannels(watchChans...), nil
 }

@@ -11,9 +11,47 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
+
+func TestVLANFilterConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		filter   VLANFilter
+		ifindex  int
+		expected types.VlanFilterConfig
+	}{
+		{
+			name: "entries for current interface",
+			filter: VLANFilter{Entries: []VLANFilterEntry{
+				{IfIndex: 10, VLAN: 100},
+				{IfIndex: 20, VLAN: 200},
+				{IfIndex: 10, VLAN: 300},
+			}},
+			ifindex: 10,
+			expected: types.VlanFilterConfig{
+				VlanIds: [5]uint16{100, 300},
+			},
+		},
+		{
+			name:     "allow all",
+			filter:   VLANFilter{AllowAll: true},
+			expected: types.VlanFilterConfig{AllowAll: true},
+		},
+		{
+			name:     "empty filter",
+			expected: types.VlanFilterConfig{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, vlanFilterConfig(tt.filter, tt.ifindex))
+		})
+	}
+}
 
 func TestNetdevStrictEgressEncryptionConfig(t *testing.T) {
 	oldEnabled := option.Config.EnableEncryptionStrictModeEgress

@@ -23,3 +23,13 @@ DECLARE_CONFIG(__u8, eth_header_length, "Length of the Ethernet header on this d
 ASSIGN_CONFIG(__u8, eth_header_length, __ETH_HLEN)
 #define ETH_HLEN CONFIG(eth_header_length)
 #endif
+
+#define VLAN_FILTER_MAX_ENTRIES 5
+
+struct vlan_filter_config {
+	__u16 vlan_ids[VLAN_FILTER_MAX_ENTRIES];
+	bool allow_all;
+};
+
+DECLARE_CONFIG(struct vlan_filter_config, vlan_filter,
+	       "VLAN IDs allowed to bypass filtering on this device")
