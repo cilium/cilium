@@ -4,6 +4,7 @@
 package linuxrouting
 
 import (
+	"fmt"
 	"net"
 	"net/netip"
 	"testing"
@@ -81,6 +82,64 @@ func TestPrivilegedConfigureZeros(t *testing.T) {
 		runConfigureThenDelete(t, ri, ip, 1500)
 		return nil
 	})
+}
+
+func TestPrivilegedConfigureDualStackCIDRs(t *testing.T) {
+	setupLinuxRoutingSuite(t)
+
+	for _, tt := range []struct {
+		name      string
+		ip        string
+		gateway   string
+		cidr      string
+		otherCIDR string
+		family    int
+	}{
+		{"ipv4", "192.168.2.123", "192.168.2.1", "192.168.0.0/16", "2001:db8::/32", netlink.FAMILY_V4},
+		{"ipv6", "2001:db8::123", "fe80::1", "2001:db8::/32", "192.168.0.0/16", netlink.FAMILY_V6},
+		{"ipv4-with-ipv6-default", "192.168.2.123", "192.168.2.1", "192.168.0.0/16", "::/0", netlink.FAMILY_V4},
+		{"ipv6-with-ipv4-default", "2001:db8::123", "fe80::1", "2001:db8::/32", "0.0.0.0/0", netlink.FAMILY_V6},
+	} {
+		for _, host := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/host=%t", tt.name, host), func(t *testing.T) {
+				ns := netns.NewNetNS(t)
+				ns.Do(func() error {
+					_, ri := getFakes(t, ipamOption.IPAMENI, true, false)
+					ri.Gateway = net.ParseIP(tt.gateway)
+					ri.CIDRs = nil
+					for _, cidr := range []string{tt.otherCIDR, tt.cidr} {
+						_, prefix, err := net.ParseCIDR(cidr)
+						require.NoError(t, err)
+						ri.CIDRs = append(ri.CIDRs, *prefix)
+					}
+					node.SetRouterInfo(&ri)
+					ifaceCleanup := createDummyDevice(t, ri.MasterIfMAC)
+					defer ifaceCleanup()
+
+					ip := netip.MustParseAddr(tt.ip)
+					require.NoError(t, ri.Configure(net.ParseIP(tt.ip), 1500, host))
+					rules, err := route.ListRules(tt.family, &route.Rule{
+						Priority: linux_defaults.RulePriorityEgressv2,
+						From:     &net.IPNet{IP: ip.AsSlice(), Mask: net.CIDRMask(ip.BitLen(), ip.BitLen())},
+					})
+					require.NoError(t, err)
+					require.Len(t, rules, 1)
+					require.NotNil(t, rules[0].Dst)
+					require.Equal(t, tt.cidr, rules[0].Dst.String())
+
+					if !host {
+						runDelete(t, ip)
+						rules, err = route.ListRules(tt.family, &route.Rule{
+							Priority: linux_defaults.RulePriorityEgressv2,
+						})
+						require.NoError(t, err)
+						require.Empty(t, rules)
+					}
+					return nil
+				})
+			})
+		}
+	}
 }
 
 // TestPrivilegedConfigureMasqueradeReconciliation verifies that re-running
