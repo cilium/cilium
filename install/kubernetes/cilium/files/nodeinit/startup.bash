@@ -28,6 +28,8 @@ fi
 # presence of the kubelet binary at GKE_KUBERNETES_BIN_DIR.
 GKE_KUBERNETES_BIN_DIR="/home/kubernetes/bin"
 KUBELET_DEFAULTS_FILE="/etc/default/kubelet"
+# Created by the kubelet wrapper once it is done with containerd; /run is tmpfs.
+KUBELET_READY_FILE="/run/cilium-node-init/kubelet-ready"
 if [[ -f "${GKE_KUBERNETES_BIN_DIR}/kubelet" ]]; then
   echo "GKE *_containerd flavor detected..."
 
@@ -61,6 +63,8 @@ set -euo pipefail
 
 CNI_CONF_DIR="/etc/cni/net.d"
 CONTAINERD_CONFIG="/etc/containerd/config.toml"
+# Tells node-init that containerd is settled and it may publish the bootstrap file.
+KUBELET_READY_FILE="/run/cilium-node-init/kubelet-ready"
 
 # kubelet version string format is "Kubernetes v1.24-gke.900"
 K8S_VERSION=$(/home/kubernetes/bin/the-kubelet --version)
@@ -108,6 +112,10 @@ then
   systemctl enable --now containerd
 fi
 
+# Release node-init now that the containerd fixup above is done, if it ran at all.
+mkdir -p "${KUBELET_READY_FILE%/*}"
+touch "${KUBELET_READY_FILE}"
+
 # Become the real kubelet and, for k8s < 1.24, pass it additional dockershim
 # flags (and place these last so they have precedence).
 if version_gte "${K8S_VERSION#"Kubernetes "}" "v1.24"; then
@@ -117,7 +125,20 @@ else
 fi
 EOF
     echo "Restarting the kubelet..."
+    rm -f "${KUBELET_READY_FILE}"
     systemctl restart kubelet
+
+    # Wait out the containerd restart the wrapper performs on its first run.
+    echo "Waiting for the kubelet wrapper to hand over to the real kubelet..."
+    for _ in {1..120}; do
+      if [[ -f "${KUBELET_READY_FILE}" ]] && systemctl is-active --quiet containerd; then
+        break
+      fi
+      sleep 1
+    done
+    if [[ ! -f "${KUBELET_READY_FILE}" ]] || ! systemctl is-active --quiet containerd; then
+      echo "Gave up waiting for the kubelet wrapper, continuing anyway"
+    fi
   else
     echo "Kubelet wrapper already exists, skipping..."
   fi
