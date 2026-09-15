@@ -189,10 +189,24 @@ kpr_v4_dsr_lb3_mtu_post_option = (
     Ether(src=mac_one, dst=host_mac_addr) /
     IP(src=v4_svc_one, dst=v4_ext_one, id=0) /
     ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=192) /
+    IPerror(bytes(kpr_v4_dsr_lb3_mtu[IP]))
+)
+
+kpr_v4_dsr_lb3_mtu_post_option_xdp = (
+    Ether(src=mac_one, dst=host_mac_addr) /
+    IP(src=v4_svc_one, dst=v4_ext_one, id=0) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=192) /
     IPerror(bytes(kpr_v4_dsr_lb3_mtu[IP])[:28])
 )
 
 kpr_v4_dsr_lb3_mtu_post_geneve = (
+    Ether(src=mac_one, dst=host_mac_addr) /
+    IP(src=v4_svc_one, dst=v4_ext_one, id=0) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=138) /
+    IPerror(bytes(kpr_v4_dsr_lb3_mtu[IP]))
+)
+
+kpr_v4_dsr_lb3_mtu_post_geneve_xdp = (
     Ether(src=mac_one, dst=host_mac_addr) /
     IP(src=v4_svc_one, dst=v4_ext_one, id=0) /
     ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=138) /
