@@ -94,6 +94,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Set commit status to pending
+        # commit-status-start does not re-run, so this is only needed on a re-run. It's ok
+        # to continue on error since the check is reported at the end of the test.
+        if: ${{ github.run_attempt != '1' }}
+        continue-on-error: true
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
@@ -211,6 +215,10 @@ jobs:
 
       - name: Upload JUnits [junit]
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        # A lost report is not worth failing a pull request over. Scheduled runs
+        # dispatch with a vX-Y PR-number and keep failing hard, since they are what
+        # corgi reads.
+        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cilium-junits-${{ env.job_name }}
@@ -218,6 +226,8 @@ jobs:
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() && runner.arch != 'ARM64' }}
+        # Not worth failing a pull request over; see the comment above.
+        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"
@@ -225,6 +235,9 @@ jobs:
   merge-upload:
     if: ${{ always() }}
     name: Merge and Upload Artifacts
+    # Merging only repackages what the legs uploaded, so a pull request is not
+    # worth failing over it.
+    continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
     runs-on: ${{ vars.UBUNTU_2404_AMD64_4CPU_16GB }}
     needs: integration-test
     steps:
