@@ -51,6 +51,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 			t.EnableNetkit = false
 			t.EnableVTEP = true
 			t.EnableServiceNoBackendResponse = true
+			t.EnableLocalDeliveryMetricsAccounting = true
 		}),
 
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
@@ -75,6 +76,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 			t.EnableL2Announcements = true
 			t.EnableVTEP = true
 			t.EnableServiceNoBackendResponse = true
+			t.EnableLocalDeliveryMetricsAccounting = true
 		}),
 
 		Increment(func(t *config.BPFHost, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
