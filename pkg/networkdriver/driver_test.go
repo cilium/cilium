@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blang/semver/v4"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/containerd/nri/pkg/api"
@@ -459,6 +460,53 @@ func TestOnDevicesMerge(t *testing.T) {
 		require.Zero(t, parent.mergeCalls)
 		require.Len(t, allocatedRowsForClaim(t, driver, prepTestClaimUID), 2)
 	})
+}
+
+func TestValidateConsumableCapacityVersion(t *testing.T) {
+	tests := []struct {
+		name          string
+		k8sVersion    semver.Version
+		allowMultiple bool
+		wantErr       bool
+	}{
+		{
+			name:       "exclusive device on Kubernetes 1.33",
+			k8sVersion: semver.Version{Major: 1, Minor: 33},
+		},
+		{
+			name:          "consumable device on Kubernetes 1.33",
+			k8sVersion:    semver.Version{Major: 1, Minor: 33},
+			allowMultiple: true,
+			wantErr:       true,
+		},
+		{
+			name:          "consumable device on Kubernetes 1.34",
+			k8sVersion:    semver.Version{Major: 1, Minor: 34},
+			allowMultiple: true,
+		},
+		{
+			name:          "consumable device on Kubernetes 1.35",
+			k8sVersion:    semver.Version{Major: 1, Minor: 35},
+			allowMultiple: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			driver := buildDriverForPool(t, nil)
+			driver.onDevices(types.DeviceManagerTypeMock, []types.Device{&trackedDevice{
+				name:          "eth0",
+				allowMultiple: tt.allowMultiple,
+			}}, func(statedb.WriteTxn) {})
+
+			err := driver.validateConsumableCapacityVersion(tt.k8sVersion)
+			if tt.wantErr {
+				require.ErrorContains(t, err, "needs Kubernetes v1.34.0 or later")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 // TestOnDevicesAttrsNotPersisted verifies that device attributes are never
