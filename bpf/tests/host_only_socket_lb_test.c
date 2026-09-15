@@ -8,7 +8,6 @@
 #define TEST_BPF_SOCK 1
 
 #define ENABLE_IPV4 1
-#undef ENABLE_HEALTH_CHECK
 #define ENABLE_SOCKET_LB_HOST_ONLY 1
 
 #define SERVICE_PROTO IPPROTO_TCP
@@ -36,6 +35,7 @@ int my_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 #include "lib/common.h"
 
 ASSIGN_CONFIG(__u64, host_netns_cookie, HOST_NETNS_COOKIE)
+ASSIGN_CONFIG(bool, enable_health_check, false)
 
 #define SVC_KEY_VALUE(_port, _proto, _beslot, _beid, _scope) { \
 	.key = { \

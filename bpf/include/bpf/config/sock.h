@@ -17,3 +17,5 @@ DECLARE_CONFIG(__u32, mke_host,
 
 DECLARE_CONFIG(__u64, host_netns_cookie,
 	       "Cookie identifying the network namespace treated as the host namespace")
+
+DECLARE_CONFIG(bool, enable_health_check, "Enable IPIP health probes data path")

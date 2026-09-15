@@ -7,7 +7,6 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
-#undef ENABLE_HEALTH_CHECK
 #define ENABLE_SOCKET_LB_HOST_ONLY 1
 
 #include "lib/bpf_lxc.h"

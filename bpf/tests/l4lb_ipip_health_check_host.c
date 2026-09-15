@@ -12,7 +12,6 @@
 #define ENABLE_DSR		1
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
-#define ENABLE_HEALTH_CHECK	1
 
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -63,6 +62,8 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 
 ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
 ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
+
+ASSIGN_CONFIG(bool, enable_health_check, true)
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
