@@ -670,7 +670,8 @@
     {
       // Group golangci-lint updates to overrule grouping of version updates in the GHA files.
       // Without this, golangci-lint updates are not in sync for GHA files and other usages.
-      "groupName": "all-dependencies",
+      // Same group as the Go toolchain, which golangci-lint is compiled with.
+      "groupName": "base-images",
       "matchDepNames": [
         "golangci/golangci-lint",
         "golangci/golangci-lint-action"
