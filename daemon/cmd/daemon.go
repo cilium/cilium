@@ -323,6 +323,7 @@ func unloadDNSPolicies(params daemonParams) {
 
 			PolicyRevisionToWaitFor: params.Policy.BumpRevision(),
 		}
+		params.PolicyComputer.RecomputeIdentityPolicyForAllIdentities(regenerationMetadata.PolicyRevisionToWaitFor)
 		wg := params.EndpointManager.RegenerateAllEndpoints(regenerationMetadata)
 		wg.Wait()
 		params.Logger.Info("All endpoints regenerated after unloading DNS rules on graceful shutdown")

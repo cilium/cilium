@@ -132,6 +132,7 @@ func ParseExternalRegenerationMetadata(ctx context.Context, logger *slog.Logger,
 			ctCleaned:         make(chan struct{}),
 
 			policyRevisionToWaitFor: e.PolicyRevisionToWaitFor,
+			parentContext:           ctx,
 		},
 		parentContext: ctx,
 		cancelFunc:    c,
@@ -158,6 +159,10 @@ type datapathRegenerationContext struct {
 	// policyRevisionToWaitFor is the policy revision being requested to
 	// update the endpoint to.
 	policyRevisionToWaitFor uint64
+
+	// parentContext is the context governing the whole regeneration. It bounds
+	// the wait for the policy computation result.
+	parentContext context.Context
 
 	finalizeList revert.FinalizeList
 	revertStack  revert.RevertStack
