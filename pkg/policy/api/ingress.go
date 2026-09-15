@@ -155,7 +155,9 @@ type IngressRule struct {
 	// +kubebuilder:validation:Optional
 	ICMPs ICMPRules `json:"icmps,omitempty"`
 
-	// Authentication is the required authentication type for the allowed traffic, if any.
+	// Authentication is the configured authentication type for the allowed traffic, if any.
+	//
+	// Deprecated: Authentication is accepted for compatibility but is currently unused.
 	//
 	// +kubebuilder:validation:Optional
 	Authentication *Authentication `json:"authentication,omitempty"`

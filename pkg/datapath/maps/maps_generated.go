@@ -38,7 +38,6 @@ func LoadMapSpecs() (map[string]*ebpf.MapSpec, error) {
 //
 // Extend dpgen/acronyms.txt if any identifiers are incorrectly capitalized.
 const (
-	CiliumAuthMap                       = "cilium_auth_map"
 	CiliumCallPolicy                    = "cilium_call_policy"
 	CiliumCalls                         = "cilium_calls"
 	CiliumCIDRV4Dyn                     = "cilium_cidr_v4_dyn"
@@ -123,20 +122,6 @@ const (
 	CiliumVTEPMap                       = "cilium_vtep_map"
 	CiliumXDPScratch                    = "cilium_xdp_scratch"
 )
-
-func newCiliumAuthMapSpec(btf *btf.Spec) *ebpf.MapSpec {
-	return &ebpf.MapSpec{
-		Name:       CiliumAuthMap,
-		Type:       ebpf.Hash,
-		KeySize:    12,
-		Key:        anyTypeByName(btf, "auth_key"),
-		ValueSize:  8,
-		Value:      anyTypeByName(btf, "auth_info"),
-		MaxEntries: 524288,
-		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
-		Pinning:    ebpf.PinByName,
-	}
-}
 
 func newCiliumCallPolicySpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
@@ -1296,7 +1281,6 @@ func newCiliumXDPScratchSpec(btf *btf.Spec) *ebpf.MapSpec {
 }
 
 var _outer []newMapFn = []newMapFn{
-	newCiliumAuthMapSpec,
 	newCiliumCallPolicySpec,
 	newCiliumCallsSpec,
 	newCiliumCIDRV4DynSpec,

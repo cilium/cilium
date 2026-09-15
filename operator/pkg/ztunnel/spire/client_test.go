@@ -91,7 +91,7 @@ func TestClient_Upsert(t *testing.T) {
 		{
 			name: "unable to list entry due to unknown error",
 			args: args{
-				id: "dummy-id",
+				id: "dummy-ns/dummy-sa",
 			},
 			fields: fields{
 				entry: mockEntryClient{
@@ -100,18 +100,16 @@ func TestClient_Upsert(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/identity/dummy-id",
+									Path:        "/ns/dummy-ns/sa/dummy-sa",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-operator",
+									Path:        "/ztunnel",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
-										{
-											Type:  "cilium",
-											Value: "mutual-auth",
-										},
+										{Type: "k8s", Value: "ns:dummy-ns"},
+										{Type: "k8s", Value: "sa:dummy-sa"},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
 								},
@@ -126,7 +124,7 @@ func TestClient_Upsert(t *testing.T) {
 		{
 			name: "entry does not exist with not found error",
 			args: args{
-				id: "dummy-id",
+				id: "dummy-ns/dummy-sa",
 			},
 			fields: fields{
 				entry: mockEntryClient{
@@ -135,18 +133,16 @@ func TestClient_Upsert(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/identity/dummy-id",
+									Path:        "/ns/dummy-ns/sa/dummy-sa",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-operator",
+									Path:        "/ztunnel",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
-										{
-											Type:  "cilium",
-											Value: "mutual-auth",
-										},
+										{Type: "k8s", Value: "ns:dummy-ns"},
+										{Type: "k8s", Value: "sa:dummy-sa"},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
 								},
@@ -159,13 +155,13 @@ func TestClient_Upsert(t *testing.T) {
 							{
 								SpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/identity/dummy-id",
+									Path:        "/ns/dummy-ns/sa/dummy-sa",
 								},
 								ParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-operator",
+									Path:        "/ztunnel",
 								},
-								Selectors: defaultSelectors,
+								Selectors: entryCfg.SelectorsFunc("dummy-ns/dummy-sa"),
 							},
 						})
 						return &entryv1.BatchCreateEntryResponse{}, nil
@@ -176,7 +172,7 @@ func TestClient_Upsert(t *testing.T) {
 		{
 			name: "entry exists",
 			args: args{
-				id: "dummy-id",
+				id: "dummy-ns/dummy-sa",
 			},
 			fields: fields{
 				entry: mockEntryClient{
@@ -185,18 +181,16 @@ func TestClient_Upsert(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/identity/dummy-id",
+									Path:        "/ns/dummy-ns/sa/dummy-sa",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-operator",
+									Path:        "/ztunnel",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
-										{
-											Type:  "cilium",
-											Value: "mutual-auth",
-										},
+										{Type: "k8s", Value: "ns:dummy-ns"},
+										{Type: "k8s", Value: "sa:dummy-sa"},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
 								},
@@ -214,13 +208,13 @@ func TestClient_Upsert(t *testing.T) {
 								Id: "existing-entry-id",
 								SpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/identity/dummy-id",
+									Path:        "/ns/dummy-ns/sa/dummy-sa",
 								},
 								ParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-operator",
+									Path:        "/ztunnel",
 								},
-								Selectors: defaultSelectors,
+								Selectors: entryCfg.SelectorsFunc("dummy-ns/dummy-sa"),
 							},
 						})
 						return &entryv1.BatchUpdateEntryResponse{
@@ -235,7 +229,7 @@ func TestClient_Upsert(t *testing.T) {
 		{
 			name: "entry exists but update returns per-entry failure",
 			args: args{
-				id: "dummy-id",
+				id: "dummy-ns/dummy-sa",
 			},
 			fields: fields{
 				entry: mockEntryClient{
@@ -300,7 +294,7 @@ func TestClient_Delete(t *testing.T) {
 		{
 			name: "unable to list entries due to unknown error",
 			args: args{
-				id: "dummy-id",
+				id: "dummy-ns/dummy-sa",
 			},
 			fields: fields{
 				entry: mockEntryClient{
@@ -309,18 +303,16 @@ func TestClient_Delete(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/identity/dummy-id",
+									Path:        "/ns/dummy-ns/sa/dummy-sa",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-operator",
+									Path:        "/ztunnel",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
-										{
-											Type:  "cilium",
-											Value: "mutual-auth",
-										},
+										{Type: "k8s", Value: "ns:dummy-ns"},
+										{Type: "k8s", Value: "sa:dummy-sa"},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
 								},
@@ -335,7 +327,7 @@ func TestClient_Delete(t *testing.T) {
 		{
 			name: "unable to list entries due to not found error",
 			args: args{
-				id: "dummy-id",
+				id: "dummy-ns/dummy-sa",
 			},
 			fields: fields{
 				entry: mockEntryClient{
@@ -344,18 +336,16 @@ func TestClient_Delete(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/identity/dummy-id",
+									Path:        "/ns/dummy-ns/sa/dummy-sa",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-operator",
+									Path:        "/ztunnel",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
-										{
-											Type:  "cilium",
-											Value: "mutual-auth",
-										},
+										{Type: "k8s", Value: "ns:dummy-ns"},
+										{Type: "k8s", Value: "sa:dummy-sa"},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
 								},
@@ -369,7 +359,7 @@ func TestClient_Delete(t *testing.T) {
 		{
 			name: "entry does not exist",
 			args: args{
-				id: "dummy-id",
+				id: "dummy-ns/dummy-sa",
 			},
 			fields: fields{
 				entry: mockEntryClient{
@@ -378,18 +368,16 @@ func TestClient_Delete(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/identity/dummy-id",
+									Path:        "/ns/dummy-ns/sa/dummy-sa",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-operator",
+									Path:        "/ztunnel",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
-										{
-											Type:  "cilium",
-											Value: "mutual-auth",
-										},
+										{Type: "k8s", Value: "ns:dummy-ns"},
+										{Type: "k8s", Value: "sa:dummy-sa"},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
 								},
@@ -403,7 +391,7 @@ func TestClient_Delete(t *testing.T) {
 		{
 			name: "entry exists",
 			args: args{
-				id: "dummy-id",
+				id: "dummy-ns/dummy-sa",
 			},
 			fields: fields{
 				entry: mockEntryClient{
@@ -412,18 +400,16 @@ func TestClient_Delete(t *testing.T) {
 							Filter: &entryv1.ListEntriesRequest_Filter{
 								BySpiffeId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/identity/dummy-id",
+									Path:        "/ns/dummy-ns/sa/dummy-sa",
 								},
 								ByParentId: &types.SPIFFEID{
 									TrustDomain: "dummy.trusted.domain",
-									Path:        "/cilium-operator",
+									Path:        "/ztunnel",
 								},
 								BySelectors: &types.SelectorMatch{
 									Selectors: []*types.Selector{
-										{
-											Type:  "cilium",
-											Value: "mutual-auth",
-										},
+										{Type: "k8s", Value: "ns:dummy-ns"},
+										{Type: "k8s", Value: "sa:dummy-sa"},
 									},
 									Match: types.SelectorMatch_MATCH_EXACT,
 								},
@@ -551,7 +537,7 @@ func TestClient_UpsertBatch(t *testing.T) {
 		{
 			name:    "client not initialized",
 			entry:   nil,
-			ids:     []string{"id1"},
+			ids:     []string{"ns1/sa1"},
 			wantErr: true,
 		},
 		{
@@ -568,7 +554,7 @@ func TestClient_UpsertBatch(t *testing.T) {
 					// Verify entries have correct structure
 					for _, e := range in.Entries {
 						require.Equal(t, "dummy.trusted.domain", e.SpiffeId.TrustDomain)
-						require.Equal(t, "/cilium-operator", e.ParentId.Path)
+						require.Equal(t, "/ztunnel", e.ParentId.Path)
 					}
 					return &entryv1.BatchCreateEntryResponse{
 						Results: []*entryv1.BatchCreateEntryResponse_Result{
@@ -578,7 +564,7 @@ func TestClient_UpsertBatch(t *testing.T) {
 					}, nil
 				},
 			},
-			ids:     []string{"id1", "id2"},
+			ids:     []string{"ns1/sa1", "ns2/sa2"},
 			wantErr: false,
 		},
 		{
@@ -599,7 +585,7 @@ func TestClient_UpsertBatch(t *testing.T) {
 				},
 				BatchUpdateEntryFunc: func(ctx context.Context, in *entryv1.BatchUpdateEntryRequest, opts ...grpc.CallOption) (*entryv1.BatchUpdateEntryResponse, error) {
 					require.Len(t, in.Entries, 1)
-					require.Equal(t, "/identity/id2", in.Entries[0].SpiffeId.Path)
+					require.Equal(t, "/ns/ns2/sa/sa2", in.Entries[0].SpiffeId.Path)
 					// The update entry must carry the existing Id.
 					require.Equal(t, "existing-id2", in.Entries[0].Id)
 					return &entryv1.BatchUpdateEntryResponse{
@@ -609,7 +595,7 @@ func TestClient_UpsertBatch(t *testing.T) {
 					}, nil
 				},
 			},
-			ids:     []string{"id1", "id2"},
+			ids:     []string{"ns1/sa1", "ns2/sa2"},
 			wantErr: false,
 		},
 		{
@@ -638,7 +624,7 @@ func TestClient_UpsertBatch(t *testing.T) {
 					}, nil
 				},
 			},
-			ids:     []string{"id1"},
+			ids:     []string{"ns1/sa1"},
 			wantErr: true,
 		},
 		{
@@ -654,7 +640,7 @@ func TestClient_UpsertBatch(t *testing.T) {
 					}, nil
 				},
 			},
-			ids:     []string{"id1"},
+			ids:     []string{"ns1/sa1"},
 			wantErr: true,
 		},
 		{
@@ -664,7 +650,7 @@ func TestClient_UpsertBatch(t *testing.T) {
 					return nil, fmt.Errorf("connection refused")
 				},
 			},
-			ids:     []string{"id1"},
+			ids:     []string{"ns1/sa1"},
 			wantErr: true,
 		},
 		{
@@ -684,7 +670,7 @@ func TestClient_UpsertBatch(t *testing.T) {
 					return nil, fmt.Errorf("update failed")
 				},
 			},
-			ids:     []string{"id1"},
+			ids:     []string{"ns1/sa1"},
 			wantErr: true,
 		},
 	}
@@ -721,7 +707,7 @@ func TestClient_DeleteBatch(t *testing.T) {
 		{
 			name:    "client not initialized",
 			entry:   nil,
-			ids:     []string{"id1"},
+			ids:     []string{"ns1/sa1"},
 			wantErr: true,
 		},
 		{
@@ -735,12 +721,12 @@ func TestClient_DeleteBatch(t *testing.T) {
 			entry: mockEntryClient{
 				ListEntriesFunc: func(ctx context.Context, in *entryv1.ListEntriesRequest, opts ...grpc.CallOption) (*entryv1.ListEntriesResponse, error) {
 					// Verify we're listing by parent ID
-					require.Equal(t, "/cilium-operator", in.Filter.ByParentId.Path)
+					require.Equal(t, "/ztunnel", in.Filter.ByParentId.Path)
 					return &entryv1.ListEntriesResponse{
 						Entries: []*types.Entry{
-							{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/identity/id1"}},
-							{Id: "entry-2", SpiffeId: &types.SPIFFEID{Path: "/identity/id2"}},
-							{Id: "entry-3", SpiffeId: &types.SPIFFEID{Path: "/identity/other"}}, // Not in delete list
+							{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/ns/ns1/sa/sa1"}},
+							{Id: "entry-2", SpiffeId: &types.SPIFFEID{Path: "/ns/ns2/sa/sa2"}},
+							{Id: "entry-3", SpiffeId: &types.SPIFFEID{Path: "/ns/other/sa/other"}}, // Not in delete list
 						},
 					}, nil
 				},
@@ -754,7 +740,7 @@ func TestClient_DeleteBatch(t *testing.T) {
 					}, nil
 				},
 			},
-			ids:     []string{"id1", "id2"},
+			ids:     []string{"ns1/sa1", "ns2/sa2"},
 			wantErr: false,
 		},
 		{
@@ -763,7 +749,7 @@ func TestClient_DeleteBatch(t *testing.T) {
 				ListEntriesFunc: func(ctx context.Context, in *entryv1.ListEntriesRequest, opts ...grpc.CallOption) (*entryv1.ListEntriesResponse, error) {
 					return &entryv1.ListEntriesResponse{
 						Entries: []*types.Entry{
-							{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/identity/id1"}},
+							{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/ns/ns1/sa/sa1"}},
 						},
 					}, nil
 				},
@@ -775,7 +761,7 @@ func TestClient_DeleteBatch(t *testing.T) {
 					}, nil
 				},
 			},
-			ids:     []string{"id1"},
+			ids:     []string{"ns1/sa1"},
 			wantErr: false,
 		},
 		{
@@ -784,12 +770,12 @@ func TestClient_DeleteBatch(t *testing.T) {
 				ListEntriesFunc: func(ctx context.Context, in *entryv1.ListEntriesRequest, opts ...grpc.CallOption) (*entryv1.ListEntriesResponse, error) {
 					return &entryv1.ListEntriesResponse{
 						Entries: []*types.Entry{
-							{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/identity/other"}},
+							{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/ns/other/sa/other"}},
 						},
 					}, nil
 				},
 			},
-			ids:     []string{"id1", "id2"},
+			ids:     []string{"ns1/sa1", "ns2/sa2"},
 			wantErr: false,
 		},
 		{
@@ -799,7 +785,7 @@ func TestClient_DeleteBatch(t *testing.T) {
 					return nil, fmt.Errorf("connection refused")
 				},
 			},
-			ids:     []string{"id1"},
+			ids:     []string{"ns1/sa1"},
 			wantErr: true,
 		},
 		{
@@ -808,7 +794,7 @@ func TestClient_DeleteBatch(t *testing.T) {
 				ListEntriesFunc: func(ctx context.Context, in *entryv1.ListEntriesRequest, opts ...grpc.CallOption) (*entryv1.ListEntriesResponse, error) {
 					return &entryv1.ListEntriesResponse{
 						Entries: []*types.Entry{
-							{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/identity/id1"}},
+							{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/ns/ns1/sa/sa1"}},
 						},
 					}, nil
 				},
@@ -816,7 +802,7 @@ func TestClient_DeleteBatch(t *testing.T) {
 					return nil, fmt.Errorf("delete failed")
 				},
 			},
-			ids:     []string{"id1"},
+			ids:     []string{"ns1/sa1"},
 			wantErr: true,
 		},
 		{
@@ -825,7 +811,7 @@ func TestClient_DeleteBatch(t *testing.T) {
 				ListEntriesFunc: func(ctx context.Context, in *entryv1.ListEntriesRequest, opts ...grpc.CallOption) (*entryv1.ListEntriesResponse, error) {
 					return &entryv1.ListEntriesResponse{
 						Entries: []*types.Entry{
-							{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/identity/id1"}},
+							{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/ns/ns1/sa/sa1"}},
 						},
 					}, nil
 				},
@@ -837,7 +823,7 @@ func TestClient_DeleteBatch(t *testing.T) {
 					}, nil
 				},
 			},
-			ids:     []string{"id1"},
+			ids:     []string{"ns1/sa1"},
 			wantErr: true,
 		},
 		{
@@ -850,14 +836,14 @@ func TestClient_DeleteBatch(t *testing.T) {
 						if callCount == 1 {
 							return &entryv1.ListEntriesResponse{
 								Entries: []*types.Entry{
-									{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/identity/id1"}},
+									{Id: "entry-1", SpiffeId: &types.SPIFFEID{Path: "/ns/ns1/sa/sa1"}},
 								},
 								NextPageToken: "page2",
 							}, nil
 						}
 						return &entryv1.ListEntriesResponse{
 							Entries: []*types.Entry{
-								{Id: "entry-2", SpiffeId: &types.SPIFFEID{Path: "/identity/id2"}},
+								{Id: "entry-2", SpiffeId: &types.SPIFFEID{Path: "/ns/ns2/sa/sa2"}},
 							},
 						}, nil
 					}
@@ -872,7 +858,7 @@ func TestClient_DeleteBatch(t *testing.T) {
 					}, nil
 				},
 			},
-			ids:     []string{"id1", "id2"},
+			ids:     []string{"ns1/sa1", "ns2/sa2"},
 			wantErr: false,
 		},
 	}

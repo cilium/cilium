@@ -25,7 +25,6 @@ import (
 type mockFeaturesParams struct {
 	TunnelConfig                        tunnel.EncapProtocol
 	CNIChainingMode                     string
-	MutualAuth                          bool
 	BandwidthManager                    bool
 	bigTCPFeatures                      bigTCPFeatures
 	L2PodAnnouncement                   bool
@@ -40,10 +39,6 @@ func (m mockFeaturesParams) TunnelProtocol() tunnel.EncapProtocol {
 
 func (m mockFeaturesParams) GetChainingMode() string {
 	return m.CNIChainingMode
-}
-
-func (m mockFeaturesParams) IsMutualAuthEnabled() bool {
-	return m.MutualAuth
 }
 
 func (m mockFeaturesParams) IsBandwidthManagerEnabled() bool {
@@ -593,52 +588,6 @@ func TestUpdateLocalRedirectPolicies(t *testing.T) {
 
 			counterValue := metrics.NPLocalRedirectPolicyEnabled.Get()
 			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableLRP, counterValue)
-		})
-	}
-}
-
-func TestUpdateMutualAuth(t *testing.T) {
-	tests := []struct {
-		name             string
-		enableMutualAuth bool
-		expected         float64
-	}{
-		{
-			name:             "MutualAuth enabled",
-			enableMutualAuth: true,
-			expected:         1,
-		},
-		{
-			name:             "MutualAuth disabled",
-			enableMutualAuth: false,
-			expected:         0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true, false)
-			config := &option.DaemonConfig{
-				IPAM:                   defaultIPAMModes[0],
-				EnableIPv4:             true,
-				IdentityAllocationMode: defaultIdentityAllocationModes[0],
-				DatapathMode:           defaultConfiguredDatapathMode,
-				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
-			}
-
-			lbConfig := loadbalancer.DefaultConfig
-			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
-			lbConfig.LBMode = defaultNodePortModes[0]
-
-			params := mockFeaturesParams{
-				CNIChainingMode: defaultChainingModes[0],
-				MutualAuth:      tt.enableMutualAuth,
-			}
-
-			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakewireguard.Config{}, fakeipsec.Config{}, bgpConfig.BGPConfig{})
-
-			counterValue := metrics.NPMutualAuthEnabled.Get()
-			assert.Equal(t, tt.expected, counterValue, "Expected value to be %.f for enabled: %t, got %.f", tt.expected, tt.enableMutualAuth, counterValue)
 		})
 	}
 }
