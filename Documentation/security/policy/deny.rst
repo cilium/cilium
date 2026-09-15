@@ -16,7 +16,7 @@ Deny policies take precedence over allow policies, regardless of whether they
 are a Cilium Network Policy, a Clusterwide Cilium Network Policy or even a
 Kubernetes Network Policy.
 
-Similarly to "allow" policies, Pods will enter default-deny mode as soon a
+Similarly to "allow" policies, Pods will enter default-deny mode as soon as a
 single policy selects it.
 
 If multiple allow and deny policies are applied to the same pod, the following
