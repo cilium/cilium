@@ -4,12 +4,39 @@
 package utils
 
 import (
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
-// RulestoPolicyEntries converts the external rule type to the internal policy entry representation.
-func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
+type ruleParserConfig struct {
+	fqdn            fqdnconfig.FQDNPolicyDNSServerConfig
+	serviceResolver fqdnconfig.ServiceResolver
+}
+
+type RuleParserOption func(*ruleParserConfig)
+
+func WithFQDNPolicyDNSServerConfig(cfg fqdnconfig.FQDNPolicyDNSServerConfig) RuleParserOption {
+	return func(c *ruleParserConfig) {
+		c.fqdn = cfg
+	}
+}
+
+func WithServiceResolver(resolver fqdnconfig.ServiceResolver) RuleParserOption {
+	return func(c *ruleParserConfig) {
+		c.serviceResolver = resolver
+	}
+}
+
+// RulesToPolicyEntries converts the external rule type to the internal policy entry representation.
+func RulesToPolicyEntries(rules api.Rules, opts ...RuleParserOption) types.PolicyEntries {
+	cfg := &ruleParserConfig{
+		fqdn: fqdnconfig.DefaultFQDNPolicyDNSServerConfig,
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
 	entries := types.PolicyEntries{}
 	for _, rule := range rules {
 		ls, node := getSelector(rule)
@@ -109,6 +136,24 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				Log:            rule.Log,
 			}
 			entries = append(entries, entry)
+
+			if len(eRule.ToFQDNs) > 0 {
+				l3, l4 := cfg.fqdn.DNSSelectors(cfg.serviceResolver, toPortRulesDNS(eRule.ToFQDNs))
+				if len(l3) > 0 {
+					entries = append(entries, &types.PolicyEntry{
+						Tier:        types.Normal,
+						Subject:     subjectSelector,
+						Node:        node,
+						Labels:      rule.Labels,
+						DefaultDeny: defaultDeny,
+						Verdict:     types.Allow,
+						Ingress:     false,
+						L3:          l3,
+						L4:          l4,
+						Log:         rule.Log,
+					})
+				}
+			}
 		}
 
 		for _, eRule := range rule.EgressDeny {
@@ -192,4 +237,13 @@ func getSelector(rule *api.Rule) (api.EndpointSelector, bool) {
 		return es, true
 	}
 	return rule.EndpointSelector, false
+}
+
+// toPortRulesDNS converts a slice of FQDN selectors into an L7 PortRulesDNS slice for rule parsing.
+func toPortRulesDNS(toFQDNs api.FQDNSelectorSlice) api.PortRulesDNS {
+	dnsRules := make(api.PortRulesDNS, 0, len(toFQDNs))
+	for _, fqdn := range toFQDNs {
+		dnsRules = append(dnsRules, api.PortRuleDNS(fqdn))
+	}
+	return dnsRules
 }
