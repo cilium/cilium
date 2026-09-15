@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 )
 
 // ActionsCreateOrgVariableRequest represents a request to create an
@@ -141,11 +142,13 @@ func (s *ActionsService) ListOrgVariables(ctx context.Context, org string, opts 
 
 // ListEnvVariables lists all variables available in an environment.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/actions/variables?apiVersion=2022-11-28#list-environment-variables
 //
 //meta:operation GET /repos/{owner}/{repo}/environments/{environment_name}/variables
 func (s *ActionsService) ListEnvVariables(ctx context.Context, owner, repo, env string, opts *ListOptions) (*ActionsVariables, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables", owner, repo, env)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables", owner, repo, url.PathEscape(env))
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, nil, err
@@ -211,11 +214,13 @@ func (s *ActionsService) GetOrgVariable(ctx context.Context, org, name string) (
 
 // GetEnvVariable gets a single environment variable.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/actions/variables?apiVersion=2022-11-28#get-an-environment-variable
 //
 //meta:operation GET /repos/{owner}/{repo}/environments/{environment_name}/variables/{name}
 func (s *ActionsService) GetEnvVariable(ctx context.Context, owner, repo, env, variableName string) (*ActionsVariable, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables/%v", owner, repo, env, variableName)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables/%v", owner, repo, url.PathEscape(env), variableName)
 
 	req, err := s.client.NewRequest(ctx, "GET", u, nil)
 	if err != nil {
@@ -265,11 +270,13 @@ func (s *ActionsService) CreateOrgVariable(ctx context.Context, org string, body
 
 // CreateEnvVariable creates an environment variable.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/actions/variables?apiVersion=2022-11-28#create-an-environment-variable
 //
 //meta:operation POST /repos/{owner}/{repo}/environments/{environment_name}/variables
 func (s *ActionsService) CreateEnvVariable(ctx context.Context, owner, repo, env string, body ActionsCreateVariableRequest) (*Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables", owner, repo, env)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables", owner, repo, url.PathEscape(env))
 
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
 	if err != nil {
@@ -312,11 +319,13 @@ func (s *ActionsService) UpdateOrgVariable(ctx context.Context, org, name string
 
 // UpdateEnvVariable updates an environment variable.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/actions/variables?apiVersion=2022-11-28#update-an-environment-variable
 //
 //meta:operation PATCH /repos/{owner}/{repo}/environments/{environment_name}/variables/{name}
 func (s *ActionsService) UpdateEnvVariable(ctx context.Context, owner, repo, env, name string, body ActionsUpdateVariableRequest) (*Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables/%v", owner, repo, env, name)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables/%v", owner, repo, url.PathEscape(env), name)
 
 	req, err := s.client.NewRequest(ctx, "PATCH", u, body)
 	if err != nil {
@@ -360,11 +369,13 @@ func (s *ActionsService) DeleteOrgVariable(ctx context.Context, org, name string
 
 // DeleteEnvVariable deletes a variable in an environment.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/actions/variables?apiVersion=2022-11-28#delete-an-environment-variable
 //
 //meta:operation DELETE /repos/{owner}/{repo}/environments/{environment_name}/variables/{name}
 func (s *ActionsService) DeleteEnvVariable(ctx context.Context, owner, repo, env, variableName string) (*Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables/%v", owner, repo, env, variableName)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/variables/%v", owner, repo, url.PathEscape(env), variableName)
 
 	req, err := s.client.NewRequest(ctx, "DELETE", u, nil)
 	if err != nil {

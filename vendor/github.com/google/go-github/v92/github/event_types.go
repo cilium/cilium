@@ -1210,18 +1210,21 @@ type PullRequestEvent struct {
 	PerformedViaGithubApp *App `json:"performed_via_github_app,omitempty"`
 }
 
-// PullRequestReviewEvent is triggered when a review is submitted on a pull
-// request.
+// PullRequestReviewEvent is triggered when a review on a pull request is
+// submitted, edited, or dismissed.
 // The Webhook event name is "pull_request_review".
 //
 // GitHub API docs: https://docs.github.com/developers/webhooks-and-events/webhook-events-and-payloads#pull_request_review
 type PullRequestReviewEvent struct {
-	// Action is always "submitted".
+	// Action is the action that was performed on the review.
+	// Possible values are: "submitted", "edited", "dismissed".
 	Action      *string            `json:"action,omitempty"`
 	Review      *PullRequestReview `json:"review,omitempty"`
 	PullRequest *PullRequest       `json:"pull_request,omitempty"`
 
 	// The following fields are only populated by Webhook events.
+	// Changes is populated in "edited" event deliveries.
+	Changes      *EditChange   `json:"changes,omitempty"`
 	Repo         *Repository   `json:"repository,omitempty"`
 	Sender       *User         `json:"sender,omitempty"`
 	Installation *Installation `json:"installation,omitempty"`

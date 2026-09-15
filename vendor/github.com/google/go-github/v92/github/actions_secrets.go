@@ -9,13 +9,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 )
 
 // PublicKey represents the public key that should be used to encrypt secrets.
 type PublicKey struct {
+	// KeyID is the identifier for the key.
 	KeyID *string `json:"key_id"`
-	Key   *string `json:"key"`
+	// Key is the Base64 encoded public key.
+	Key *string `json:"key"`
+	// ID is the unique identifier of the key.
+	ID *int64 `json:"id,omitempty"`
+	// URL is the API URL for the key.
+	URL *string `json:"url,omitempty"`
+	// Title is the title of the key.
+	Title *string `json:"title,omitempty"`
+	// CreatedAt is the time when the key was created.
+	CreatedAt *Timestamp `json:"created_at,omitempty"`
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
@@ -23,8 +34,12 @@ type PublicKey struct {
 // do not error out when unmarshaling.
 func (p *PublicKey) UnmarshalJSON(data []byte) error {
 	var pk struct {
-		KeyID any     `json:"key_id"`
-		Key   *string `json:"key"`
+		KeyID     any        `json:"key_id"`
+		Key       *string    `json:"key"`
+		ID        *int64     `json:"id"`
+		URL       *string    `json:"url"`
+		Title     *string    `json:"title"`
+		CreatedAt *Timestamp `json:"created_at"`
 	}
 
 	if err := json.Unmarshal(data, &pk); err != nil {
@@ -32,6 +47,10 @@ func (p *PublicKey) UnmarshalJSON(data []byte) error {
 	}
 
 	p.Key = pk.Key
+	p.ID = pk.ID
+	p.URL = pk.URL
+	p.Title = pk.Title
+	p.CreatedAt = pk.CreatedAt
 
 	switch v := pk.KeyID.(type) {
 	case nil:
@@ -84,12 +103,14 @@ func (s *ActionsService) GetOrgPublicKey(ctx context.Context, org string) (*Publ
 
 // GetEnvPublicKey gets a public key that should be used for secret encryption.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/actions/secrets?apiVersion=2022-11-28#get-an-environment-public-key
 //
 //meta:operation GET /repos/{owner}/{repo}/environments/{environment_name}/secrets/public-key
 func (s *ActionsService) GetEnvPublicKey(ctx context.Context, owner, repo, env string) (*PublicKey, *Response, error) {
-	url := fmt.Sprintf("repos/%v/%v/environments/%v/secrets/public-key", owner, repo, env)
-	return s.getPublicKey(ctx, url)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/secrets/public-key", owner, repo, url.PathEscape(env))
+	return s.getPublicKey(ctx, u)
 }
 
 // Secret represents a repository action secret.
@@ -190,11 +211,13 @@ func (s *ActionsService) ListOrgSecrets(ctx context.Context, org string, opts *L
 
 // ListEnvSecrets lists all secrets available in an environment.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/actions/secrets?apiVersion=2022-11-28#list-environment-secrets
 //
 //meta:operation GET /repos/{owner}/{repo}/environments/{environment_name}/secrets
 func (s *ActionsService) ListEnvSecrets(ctx context.Context, owner, repo, env string, opts *ListOptions) (*Secrets, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/secrets", owner, repo, env)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/secrets", owner, repo, url.PathEscape(env))
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, nil, err
@@ -260,11 +283,13 @@ func (s *ActionsService) GetOrgSecret(ctx context.Context, org, name string) (*S
 
 // GetEnvSecret gets a single environment secret without revealing its encrypted value.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/actions/secrets?apiVersion=2022-11-28#get-an-environment-secret
 //
 //meta:operation GET /repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}
 func (s *ActionsService) GetEnvSecret(ctx context.Context, owner, repo, env, secretName string) (*Secret, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/secrets/%v", owner, repo, env, secretName)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/secrets/%v", owner, repo, url.PathEscape(env), secretName)
 
 	req, err := s.client.NewRequest(ctx, "GET", u, nil)
 	if err != nil {
@@ -354,11 +379,13 @@ func (s *ActionsService) CreateOrUpdateOrgSecret(ctx context.Context, org, name 
 
 // CreateOrUpdateEnvSecret creates or updates a single environment secret with an encrypted value.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/actions/secrets?apiVersion=2022-11-28#create-or-update-an-environment-secret
 //
 //meta:operation PUT /repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}
 func (s *ActionsService) CreateOrUpdateEnvSecret(ctx context.Context, owner, repo, env, name string, body SecretRequest) (*Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/secrets/%v", owner, repo, env, name)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/secrets/%v", owner, repo, url.PathEscape(env), name)
 
 	req, err := s.client.NewRequest(ctx, "PUT", u, body)
 	if err != nil {
@@ -402,11 +429,13 @@ func (s *ActionsService) DeleteOrgSecret(ctx context.Context, org, name string) 
 
 // DeleteEnvSecret deletes a secret in an environment using the secret name.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/actions/secrets?apiVersion=2022-11-28#delete-an-environment-secret
 //
 //meta:operation DELETE /repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}
 func (s *ActionsService) DeleteEnvSecret(ctx context.Context, owner, repo, env, secretName string) (*Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/secrets/%v", owner, repo, env, secretName)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/secrets/%v", owner, repo, url.PathEscape(env), secretName)
 
 	req, err := s.client.NewRequest(ctx, "DELETE", u, nil)
 	if err != nil {

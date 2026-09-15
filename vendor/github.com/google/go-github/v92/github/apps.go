@@ -8,6 +8,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/http"
 )
 
 // AppsService provides access to the installation related functions
@@ -388,7 +389,11 @@ func (s *AppsService) DeleteInstallation(ctx context.Context, id int64) (*Respon
 		return nil, err
 	}
 
-	return s.client.Do(req, nil)
+	resp, err := s.client.Do(req, nil)
+	if err != nil && (resp == nil || resp.StatusCode != http.StatusAccepted) {
+		return resp, err
+	}
+	return resp, nil
 }
 
 // CreateInstallationToken creates a new installation token.

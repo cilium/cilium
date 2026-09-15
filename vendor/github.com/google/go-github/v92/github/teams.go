@@ -200,6 +200,10 @@ type CreateTeamRequest struct {
 	// The slug of a team to set as the parent team.
 	// Ignored when ParentTeamID is also provided.
 	ParentTeamSlug *string `json:"parent_team_slug,omitempty"`
+
+	// Set the distinguished name (DN) of the LDAP entry to map to a team. This is
+	// only supported by GitHub Enterprise Server.
+	LDAPDN *string `json:"ldap_dn,omitempty"`
 }
 
 func (r CreateTeamRequest) String() string {

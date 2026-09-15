@@ -29,6 +29,7 @@ type HookDelivery struct {
 	Action         *string    `json:"action,omitempty"`
 	InstallationID *int64     `json:"installation_id,omitempty"`
 	RepositoryID   *int64     `json:"repository_id,omitempty"`
+	ThrottledAt    *Timestamp `json:"throttled_at,omitempty"`
 
 	// Request is populated by GetHookDelivery.
 	Request *HookRequest `json:"request,omitempty"`

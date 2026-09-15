@@ -53,6 +53,49 @@ type EnterpriseListBudgets struct {
 	TotalCount  *int                `json:"total_count,omitempty"`
 }
 
+// EnterpriseListBudgetsOptions specifies the optional parameters to the
+// EnterpriseService.ListBudgets method.
+type EnterpriseListBudgetsOptions struct {
+	Scope string `url:"scope,omitempty"`
+	User  string `url:"user,omitempty"`
+
+	ListOptions
+}
+
+// EnterpriseBudgetUserState represents the budget status and consumption of an individual user.
+type EnterpriseBudgetUserState struct {
+	User             *string `json:"user,omitempty"`
+	ConsumedAmount   float64 `json:"consumed_amount"`
+	TargetAmount     float64 `json:"target_amount"`
+	OverrideBudgetID *string `json:"override_budget_id,omitempty"`
+}
+
+func (u EnterpriseBudgetUserState) String() string {
+	return Stringify(u)
+}
+
+// EnterpriseBudgetUserStates represents the response when retrieving user states for a budget.
+type EnterpriseBudgetUserStates struct {
+	UserStates  []*EnterpriseBudgetUserState `json:"user_states"`
+	HasNextPage bool                         `json:"has_next_page"`
+	TotalCount  int                          `json:"total_count"`
+}
+
+func (u EnterpriseBudgetUserStates) String() string {
+	return Stringify(u)
+}
+
+// EnterpriseGetUserStatesOptions specifies the optional parameters to the
+// EnterpriseService.GetUserStatesForBudget method.
+type EnterpriseGetUserStatesOptions struct {
+	SortOrder           int     `url:"sort_order,omitempty"`
+	User                string  `url:"user,omitempty"`
+	ThresholdLowerBound float64 `url:"threshold_lower_bound,omitempty"`
+	ThresholdUpperBound float64 `url:"threshold_upper_bound,omitempty"`
+
+	ListOptions
+}
+
 // EnterpriseCreateBudget represents the payload to create a GitHub enterprise budget.
 type EnterpriseCreateBudget struct {
 	BudgetAmount        int                       `json:"budget_amount"`
@@ -92,8 +135,12 @@ type EnterpriseDeleteBudgetResponse struct {
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/billing/budgets?apiVersion=2022-11-28#get-all-budgets
 //
 //meta:operation GET /enterprises/{enterprise}/settings/billing/budgets
-func (s *EnterpriseService) ListBudgets(ctx context.Context, enterprise string) (*EnterpriseListBudgets, *Response, error) {
+func (s *EnterpriseService) ListBudgets(ctx context.Context, enterprise string, opts *EnterpriseListBudgetsOptions) (*EnterpriseListBudgets, *Response, error) {
 	u := fmt.Sprintf("enterprises/%v/settings/billing/budgets", enterprise)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	req, err := s.client.NewRequest(ctx, "GET", u, nil)
 	if err != nil {
@@ -107,6 +154,32 @@ func (s *EnterpriseService) ListBudgets(ctx context.Context, enterprise string) 
 	}
 
 	return budgets, resp, nil
+}
+
+// GetUserStatesForBudget gets user states for a multi-user budget in an enterprise.
+//
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/billing/budgets?apiVersion=2022-11-28#get-user-states-for-a-multi-user-budget
+//
+//meta:operation GET /enterprises/{enterprise}/settings/billing/budgets/{budget_id}/user-states
+func (s *EnterpriseService) GetUserStatesForBudget(ctx context.Context, enterprise, budgetID string, opts *EnterpriseGetUserStatesOptions) (*EnterpriseBudgetUserStates, *Response, error) {
+	u := fmt.Sprintf("enterprises/%v/settings/billing/budgets/%v/user-states", enterprise, budgetID)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var userStates *EnterpriseBudgetUserStates
+	resp, err := s.client.Do(req, &userStates)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return userStates, resp, nil
 }
 
 // CreateBudget creates a new budget for an enterprise.
