@@ -18,6 +18,8 @@ import (
 	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -2462,6 +2464,270 @@ func Test_GetLocalListenerAddresses(t *testing.T) {
 			got, gotAdditional := GetLocalListenerAddresses(tt.args.port, tt.args.ipv4, tt.args.ipv6)
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.wantAdditional, gotAdditional)
+		})
+	}
+}
+
+func testListenerWithPorts(ports ...uint32) *envoy_config_listener.Listener {
+	listener := &envoy_config_listener.Listener{Name: "listener"}
+	for i, port := range ports {
+		address := &envoy_config_core.Address{
+			Address: &envoy_config_core.Address_SocketAddress{
+				SocketAddress: &envoy_config_core.SocketAddress{
+					Protocol: envoy_config_core.SocketAddress_TCP,
+					Address:  "0.0.0.0",
+					PortSpecifier: &envoy_config_core.SocketAddress_PortValue{
+						PortValue: port,
+					},
+				},
+			},
+		}
+		if i == 0 {
+			listener.Address = address
+		} else {
+			listener.AdditionalAddresses = append(listener.AdditionalAddresses,
+				&envoy_config_listener.AdditionalAddress{Address: address})
+		}
+	}
+	return listener
+}
+
+func TestListenerAddressesEqual(t *testing.T) {
+	tests := []struct {
+		name string
+		old  *envoy_config_listener.Listener
+		new  *envoy_config_listener.Listener
+		want bool
+	}{
+		{
+			name: "unchanged addresses",
+			old:  testListenerWithPorts(80, 443),
+			new:  testListenerWithPorts(80, 443),
+			want: true,
+		},
+		{
+			name: "changed primary port",
+			old:  testListenerWithPorts(80, 443),
+			new:  testListenerWithPorts(8080, 443),
+		},
+		{
+			name: "changed additional port",
+			old:  testListenerWithPorts(80, 443),
+			new:  testListenerWithPorts(80, 8443),
+		},
+		{
+			name: "added additional address",
+			old:  testListenerWithPorts(80),
+			new:  testListenerWithPorts(80, 443),
+		},
+		{
+			name: "removed additional address",
+			old:  testListenerWithPorts(80, 443),
+			new:  testListenerWithPorts(80),
+		},
+		{
+			name: "reordered additional addresses",
+			old:  testListenerWithPorts(80, 443, 8443),
+			new:  testListenerWithPorts(80, 8443, 443),
+			want: true,
+		},
+		{
+			name: "different duplicate additional addresses",
+			old:  testListenerWithPorts(80, 443, 443),
+			new:  testListenerWithPorts(80, 443, 8443),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, listenerAddressesEqual(tt.old, tt.new))
+		})
+	}
+}
+
+func TestListenerAddressChangeRequiresDeleteBeforeAdd(t *testing.T) {
+	tests := []struct {
+		name         string
+		oldPorts     []uint32
+		newPorts     []uint32
+		oldReusePort *wrapperspb.BoolValue
+		newReusePort *wrapperspb.BoolValue
+		want         bool
+	}{
+		{
+			name:         "unchanged addresses with reuse port disabled",
+			oldPorts:     []uint32{80, 443},
+			newPorts:     []uint32{80, 443},
+			oldReusePort: wrapperspb.Bool(false),
+			newReusePort: wrapperspb.Bool(false),
+		},
+		{
+			name:     "primary address changed with reuse port default",
+			oldPorts: []uint32{80, 443},
+			newPorts: []uint32{8080, 443},
+			want:     true,
+		},
+		{
+			name:     "additional address changed with reuse port default",
+			oldPorts: []uint32{80, 443},
+			newPorts: []uint32{80, 8443},
+		},
+		{
+			name:         "additional address changed with reuse port enabled",
+			oldPorts:     []uint32{80, 443},
+			newPorts:     []uint32{80, 8443},
+			oldReusePort: wrapperspb.Bool(true),
+			newReusePort: wrapperspb.Bool(true),
+		},
+		{
+			name:         "additional address changed with reuse port disabled",
+			oldPorts:     []uint32{80, 443},
+			newPorts:     []uint32{80, 8443},
+			oldReusePort: wrapperspb.Bool(false),
+			newReusePort: wrapperspb.Bool(false),
+			want:         true,
+		},
+		{
+			name:         "additional address changed while enabling reuse port",
+			oldPorts:     []uint32{80, 443},
+			newPorts:     []uint32{80, 8443},
+			oldReusePort: wrapperspb.Bool(false),
+			newReusePort: wrapperspb.Bool(true),
+			want:         true,
+		},
+		{
+			name:         "additional addresses reordered with reuse port disabled",
+			oldPorts:     []uint32{80, 443, 8443},
+			newPorts:     []uint32{80, 8443, 443},
+			oldReusePort: wrapperspb.Bool(false),
+			newReusePort: wrapperspb.Bool(false),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oldListener := testListenerWithPorts(tt.oldPorts...)
+			oldListener.EnableReusePort = tt.oldReusePort
+			newListener := testListenerWithPorts(tt.newPorts...)
+			newListener.EnableReusePort = tt.newReusePort
+
+			assert.Equal(t, tt.want, listenerAddressChangeRequiresDeleteBeforeAdd(oldListener, newListener))
+		})
+	}
+}
+
+type recordingAckingResourceMutator struct {
+	operations []string
+	upsertErrs []error
+	upserts    int
+}
+
+func (m *recordingAckingResourceMutator) Upsert(
+	_ string,
+	resourceName string,
+	_ proto.Message,
+	_ []string,
+	wg *completion.WaitGroup,
+	callback func(error),
+) xds.AckingResourceMutatorRevertFunc {
+	m.operations = append(m.operations, "upsert "+resourceName)
+	var err error
+	if m.upserts < len(m.upsertErrs) {
+		err = m.upsertErrs[m.upserts]
+	}
+	m.upserts++
+	if wg != nil {
+		wg.AddCompletionWithCallback(nil, callback).Complete(err)
+	}
+	return func() { m.operations = append(m.operations, "revert upsert "+resourceName) }
+}
+
+func (m *recordingAckingResourceMutator) Delete(
+	_ string,
+	resourceName string,
+	_ []string,
+	wg *completion.WaitGroup,
+	callback func(error),
+) xds.AckingResourceMutatorRevertFunc {
+	m.operations = append(m.operations, "delete "+resourceName)
+	if wg != nil {
+		wg.AddCompletionWithCallback(nil, callback).Complete(nil)
+	}
+	return func() {}
+}
+
+func (*recordingAckingResourceMutator) CancelCompletions(string) {}
+
+func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
+	tests := []struct {
+		name             string
+		oldPorts         []uint32
+		newPorts         []uint32
+		operations       []string
+		upsertErrs       []error
+		disableReusePort bool
+	}{
+		{
+			name:       "unchanged addresses are updated in place",
+			oldPorts:   []uint32{80, 443},
+			newPorts:   []uint32{80, 443},
+			operations: []string{"upsert listener"},
+		},
+		{
+			name:       "changed primary address preserves delete before update",
+			oldPorts:   []uint32{80, 443},
+			newPorts:   []uint32{8080, 443},
+			operations: []string{"delete listener", "upsert listener"},
+		},
+		{
+			name:       "changed additional address with reuse port default is updated in place",
+			oldPorts:   []uint32{80, 443},
+			newPorts:   []uint32{80, 8443},
+			operations: []string{"upsert listener"},
+		},
+		{
+			name:             "changed additional address with reuse port disabled is deleted before update",
+			oldPorts:         []uint32{80, 443},
+			newPorts:         []uint32{80, 8443},
+			operations:       []string{"delete listener", "upsert listener"},
+			disableReusePort: true,
+		},
+		{
+			name:       "transient bind failure is retried after address change",
+			oldPorts:   []uint32{80, 443},
+			newPorts:   []uint32{80, 8443},
+			operations: []string{"delete listener", "upsert listener", "revert upsert listener", "upsert listener"},
+			upsertErrs: []error{&xds.ProxyError{
+				Err: xds.ErrNackReceived, Detail: "cannot bind '0.0.0.0:80': Address already in use",
+			}},
+			disableReusePort: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mutator := &recordingAckingResourceMutator{upsertErrs: tt.upsertErrs}
+			server := &xdsServer{
+				logger:               hivetest.Logger(t),
+				listenerMutator:      mutator,
+				networkPolicyMutator: mutator,
+				npdsListeners:        make(npdsListenersTracker),
+			}
+			oldListener := testListenerWithPorts(tt.oldPorts...)
+			newListener := testListenerWithPorts(tt.newPorts...)
+			if tt.disableReusePort {
+				oldListener.EnableReusePort = wrapperspb.Bool(false)
+				newListener.EnableReusePort = wrapperspb.Bool(false)
+			}
+			oldResources := xds.NewResources()
+			oldResources.Listeners["listener"] = oldListener
+			newResources := xds.NewResources()
+			newResources.Listeners["listener"] = newListener
+
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			require.NoError(t, server.UpdateEnvoyResources(ctx, oldResources, newResources, nil))
+			assert.Equal(t, tt.operations, mutator.operations)
 		})
 	}
 }

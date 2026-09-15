@@ -28,6 +28,7 @@ import (
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	corev1 "k8s.io/api/core/v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -1149,6 +1150,27 @@ func TestEnvoy(t *testing.T) {
 	require.NoError(t, err)
 	t.Log("completed adding listener1, listener2, listener3")
 	s.waitGroup = completion.NewWaitGroup(ctx)
+
+	t.Log("updating a listener additional address with SO_REUSEPORT disabled")
+	oldListener := xdsServer.getListenerConf("listener-address-update", policy.ParserTypeHTTP, 18080, true, false)
+	oldAddresses := testListenerWithPorts(18080, 18443)
+	oldListener.Address = oldAddresses.Address
+	oldListener.AdditionalAddresses = oldAddresses.AdditionalAddresses
+	oldListener.EnableReusePort = wrapperspb.Bool(false)
+	oldResources := xds.NewResources()
+	oldResources.Listeners[oldListener.Name] = oldListener
+	require.NoError(t, xdsServer.UpsertEnvoyResources(ctx, oldResources, nil))
+
+	newListener := xdsServer.getListenerConf("listener-address-update", policy.ParserTypeHTTP, 18080, true, false)
+	newAddresses := testListenerWithPorts(18080, 18444)
+	newListener.Address = newAddresses.Address
+	newListener.AdditionalAddresses = newAddresses.AdditionalAddresses
+	newListener.EnableReusePort = wrapperspb.Bool(false)
+	newResources := xds.NewResources()
+	newResources.Listeners[newListener.Name] = newListener
+	require.NoError(t, xdsServer.UpdateEnvoyResources(ctx, oldResources, newResources, nil))
+	require.NoError(t, xdsServer.DeleteEnvoyResources(ctx, newResources, nil))
+	t.Log("completed updating a listener additional address")
 
 	// Remove listener3
 	t.Log("removing listener 3")
