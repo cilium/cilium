@@ -1081,6 +1081,39 @@ lb6_lookup_service(struct lb6_key *key, const bool east_west)
 	return __lb6_lookup_service(key);
 }
 
+/* lb6_ipip_dst_is_frontend - IPv6 sibling of lb4_ipip_dst_is_frontend(); see
+ * there for the rationale. The inner header must be followed directly by the
+ * L4 header: no extension headers, which also rules out fragments.
+ */
+static __always_inline bool
+lb6_ipip_dst_is_frontend(struct __ctx_buff *ctx, struct ipv6hdr *outer,
+			 void *data_end)
+{
+	struct ipv6hdr *inner = (void *)outer + sizeof(*outer);
+	const struct lb6_service *svc;
+	struct lb6_key key = {};
+	int l4_off;
+
+	if ((void *)inner + sizeof(*inner) > data_end)
+		return false;
+	if (inner->nexthdr != IPPROTO_TCP && inner->nexthdr != IPPROTO_UDP &&
+	    inner->nexthdr != IPPROTO_SCTP)
+		return false;
+
+	l4_off = ETH_HLEN + sizeof(*outer) + sizeof(*inner);
+	if (l4_load_port(ctx, l4_off + TCP_DPORT_OFF, &key.dport) < 0)
+		return false;
+
+	ipv6_addr_copy(&key.address, (union v6addr *)&outer->daddr);
+	key.proto = inner->nexthdr;
+
+	svc = lb6_lookup_service(&key, true);
+	if (!svc)
+		return false;
+
+	return lb6_svc_is_loadbalancer(svc) || lb6_svc_is_external_ip(svc);
+}
+
 /* lb6_lookup_wildcard_service - see lb4_lookup_wildcard_service. */
 static __always_inline const struct lb6_service *
 lb6_lookup_wildcard_service(struct lb6_key *key __maybe_unused)
@@ -1892,6 +1925,65 @@ lb4_lookup_service(struct lb4_key *key, const bool east_west)
 
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb4_lookup_service(key);
+}
+
+/* lb4_ipip_dst_is_frontend - classify the outer dst of an IPIP packet as a
+ * delivery target of an external L4 load balancer.
+ *
+ * An external L4LB (Katran, IPVS, ...) picks a "real" from its own list and
+ * encapsulates the client's packet to it. The real says where to deliver,
+ * not which backend serves: the LB knows nothing about this cluster's
+ * backend set. Cilium's own DSR-IPIP dispatch is the opposite: there the
+ * outer dst is the backend that the LB node selected and must be honoured.
+ *
+ * The outer dst itself tells the two apart. A backend is a Pod or host
+ * address. A real that the cluster announces via BGP is a LoadBalancer or
+ * externalIP frontend, and the inner L4 port is that service's port. When
+ * {outer dst, inner dport, inner proto} resolves to such a frontend, the
+ * outer dst is a delivery target and ordinary backend selection on the inner
+ * tuple is the correct thing to do.
+ *
+ * NodePort, HostPort and ClusterIP frontends do not qualify. The first two
+ * live on node addresses, which are also legitimate hostNetwork backends of
+ * Cilium's own DSR, and the last is not routable from an external LB.
+ *
+ * Only the protocols that lb4_extract_tuple() load balances are considered,
+ * since the frontend lookup needs an L4 port. Inner packets without an L4
+ * header (non-first fragments) or with another protocol are not classified
+ * and take the existing path.
+ */
+static __always_inline bool
+lb4_ipip_dst_is_frontend(struct __ctx_buff *ctx, struct iphdr *outer,
+			 void *data_end)
+{
+	struct iphdr *inner = (void *)outer + sizeof(*outer);
+	const struct lb4_service *svc;
+	struct lb4_key key = {};
+	int l4_off;
+
+	if ((void *)inner + sizeof(*inner) > data_end)
+		return false;
+	if (inner->protocol != IPPROTO_TCP && inner->protocol != IPPROTO_UDP &&
+	    inner->protocol != IPPROTO_SCTP)
+		return false;
+	if (!ipfrag_has_l4_header(ipfrag_encode_ipv4(inner)))
+		return false;
+
+	/* TCP, UDP and SCTP all carry the destination port at the same
+	 * offset.
+	 */
+	l4_off = ETH_HLEN + sizeof(*outer) + ipv4_hdrlen(inner);
+	if (l4_load_port(ctx, l4_off + TCP_DPORT_OFF, &key.dport) < 0)
+		return false;
+
+	key.address = outer->daddr;
+	key.proto = inner->protocol;
+
+	svc = lb4_lookup_service(&key, true);
+	if (!svc)
+		return false;
+
+	return lb4_svc_is_loadbalancer(svc) || lb4_svc_is_external_ip(svc);
 }
 
 /* lb4_lookup_wildcard_service - Wildcard service lookup for NodePort and HostPort.
