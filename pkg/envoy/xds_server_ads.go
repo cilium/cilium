@@ -22,6 +22,7 @@ import (
 	envoy_extensions_listener_tls_inspector_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -617,13 +618,17 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		s.localEndpointStore.setLocalEndpoint(ep)
 	}
 
+	snapshotUpdated := false
 	for _, nodeId := range nodeIDs {
 		resources := s.cache.GetAllResources(nodeId)
 		if resources == nil {
 			resources = &xds.Resources{}
 		}
-		resources = resources.DeepCopy()
 		oldPolicy, existed := resources.NetworkPolicies[resourceName]
+		if existed && proto.Equal(oldPolicy, networkPolicy) {
+			continue
+		}
+		resources = resources.DeepCopy()
 		resources.NetworkPolicies[resourceName] = networkPolicy
 		var callbackTypeURLs map[string]func(error)
 		if waitForACK {
@@ -633,8 +638,9 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 			&resourceChanges{networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{key: resourceName, value: oldPolicy, existed: existed}}}); err != nil {
 			return err, nil, nil
 		}
+		snapshotUpdated = true
 	}
-	if !waitForACK {
+	if !waitForACK || !snapshotUpdated {
 		callback(nil)
 	}
 
