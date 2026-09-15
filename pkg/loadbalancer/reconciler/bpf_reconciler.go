@@ -964,6 +964,13 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 
 	activeCount, terminatingCount, inactiveCount := 0, 0, 0
 
+	type backendRevisionUpdate struct {
+		id   loadbalancer.BackendID
+		addr loadbalancer.L3n4Addr
+		rev  statedb.Revision
+	}
+	var revUpdates []backendRevisionUpdate
+
 	// Update backends that are new or changed.
 	slotID := 1
 	for _, be := range orderedBackends {
@@ -995,7 +1002,11 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 				return fmt.Errorf("upsert backend: %w", err)
 			}
 
-			ops.updateBackendRevision(beID, be.Address, be.Revision)
+			revUpdates = append(revUpdates, backendRevisionUpdate{
+				id:   beID,
+				addr: be.Address,
+				rev:  be.Revision,
+			})
 		}
 
 		if be.State == loadbalancer.BackendStateMaintenance {
@@ -1172,6 +1183,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 	// Finally update the new references. This makes sure any failures reconciling the service slots
 	// above can be retried and entries are not leaked.
 	ops.updateReferences(fe.Address, backendAddrs)
+
+	for _, u := range revUpdates {
+		ops.updateBackendRevision(u.id, u.addr, u.rev)
+	}
 
 	return nil
 }
