@@ -121,7 +121,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 		// so we need to normalize the rule to cidr here and in Delete
 		var installedCatchAllEquivalent bool
 		for _, cidr := range info.CIDRs {
-			if (cidr.IP.To4() != nil) != (ip.To4() != nil) {
+			if !sameIPFamily(cidr.IP, ip) {
 				continue
 			}
 			to := normalizeRuleToCIDR(&cidr)
@@ -544,6 +544,10 @@ func computeTableIDFromIfaceNumber(compat bool, num int) int {
 		return num
 	}
 	return linux_defaults.RouteTableInterfacesOffset + num
+}
+
+func sameIPFamily(a, b net.IP) bool {
+	return (a.To4() != nil) == (b.To4() != nil)
 }
 
 // normalizeRuleToCIDR returns nil when passed cidr is zeroes only cidr
