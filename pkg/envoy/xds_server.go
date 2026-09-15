@@ -658,18 +658,15 @@ func (s *xdsServer) AddListener(ctx context.Context, name string, kind policy.L7
 	}, wg, cb, true)
 }
 
-func (s *xdsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
-	return s.removeListener(name, wg, true)
+func (s *xdsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) {
+	s.removeListener(name, wg, true)
 }
 
 // removeListener removes an existing Envoy Listener.
-func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProxyListener bool) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProxyListener bool) {
 	s.logger.Debug("Envoy: RemoveListener",
 		logfields.Listener, name,
 	)
-
-	var listenerRevertFunc xds.AckingResourceMutatorRevertFunc
-	var revertNPDSTracking func()
 
 	s.mutex.Lock()
 	count := s.listenerCount[name]
@@ -677,13 +674,13 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 		count--
 		if count == 0 {
 			if isProxyListener {
-				revertNPDSTracking = s.npdsListeners.Delete(name)
+				s.npdsListeners.Delete(name)
 			}
 			delete(s.listenerCount, name)
 			s.logger.Info("Envoy: Deleting listener",
 				logfields.Listener, name,
 			)
-			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
+			s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 
 			// cancel all pending network policy completions if this was the last
 			// listener with bpf metadata listener filter with bpf path configured.
@@ -700,18 +697,6 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 		)
 	}
 	s.mutex.Unlock()
-
-	return func() {
-		s.mutex.Lock()
-		if listenerRevertFunc != nil {
-			listenerRevertFunc()
-		}
-		if revertNPDSTracking != nil {
-			revertNPDSTracking()
-		}
-		s.listenerCount[name] = s.listenerCount[name] + 1
-		s.mutex.Unlock()
-	}
 }
 
 // ErrNotImplemented is the error returned by gRPC methods that are not
