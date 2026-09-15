@@ -21,6 +21,7 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -44,7 +45,9 @@ func CRDResourceName(crd string) string {
 func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
 	result := []string{
 		CRDResourceName(v2.CIDName),
-		CRDResourceName(v2alpha1.CPIPName),
+	}
+	if option.Config.IPAM == ipamOption.IPAMMultiPool {
+		result = append(result, CRDResourceName(v2alpha1.CPIPName))
 	}
 
 	if !option.Config.DisableCiliumEndpointCRD {
@@ -130,6 +133,11 @@ func GatewayAPIResourceNames() []string {
 // that the cilium operator or testsuite may register.
 func AllCiliumCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
 	res := append(AgentCRDResourceNames(bgpCfg), GatewayAPIResourceNames()...)
+	if option.Config.IPAM != ipamOption.IPAMMultiPool {
+		// The operator registers all Cilium CRDs, including the PodIPPool CRD
+		// that is only consumed by agents in multi-pool IPAM mode.
+		res = append(res, CRDResourceName(v2alpha1.CPIPName))
+	}
 	res = append(res,
 		CRDResourceName(v2.CNCName),
 	)
