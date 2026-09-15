@@ -180,13 +180,20 @@ func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, mutate func(ma
 
 func newNPHDSIPCacheListenerCallbacks(logger *slog.Logger, ipCache IPCacheEventSource, store nphdsResourceStore) envoy_server.CallbackFuncs {
 	var once sync.Once
+	startForType := func(typeURL string) {
+		if typeURL == NetworkPolicyHostsTypeURL {
+			once.Do(func() {
+				startNPHDSIPCacheListener(logger, ipCache, store)
+			})
+		}
+	}
 	return envoy_server.CallbackFuncs{
 		StreamRequestFunc: func(_ int64, req *discovery.DiscoveryRequest) error {
-			if req.GetTypeUrl() == NetworkPolicyHostsTypeURL {
-				once.Do(func() {
-					startNPHDSIPCacheListener(logger, ipCache, store)
-				})
-			}
+			startForType(req.GetTypeUrl())
+			return nil
+		},
+		StreamDeltaRequestFunc: func(_ int64, req *discovery.DeltaDiscoveryRequest) error {
+			startForType(req.GetTypeUrl())
 			return nil
 		},
 	}

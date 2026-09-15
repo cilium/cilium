@@ -677,20 +677,27 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 }
 
 func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	config := xdsServerConfig{
-		envoySocketDir:       t.TempDir(),
-		policyRestoreTimeout: 30 * time.Second,
-		envoyXDSMode:         config.EnvoyXDSModeStrictADS,
+	for _, mode := range []config.XDSMode{
+		config.EnvoyXDSModeStrictADS,
+		config.EnvoyXDSModeStrictDeltaADS,
+	} {
+		t.Run(mode.String(), func(t *testing.T) {
+			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+			serverConfig := xdsServerConfig{
+				envoySocketDir:       t.TempDir(),
+				policyRestoreTimeout: 30 * time.Second,
+				envoyXDSMode:         mode,
+			}
+			cache := xdsnew.NewCache(logger, true)
+			server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+
+			resources := xds.NewResources()
+			resources.Listeners["listener1"] = proto.Clone(DEFAULT_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
+
+			err := server.UpsertEnvoyResources(context.Background(), resources, nil)
+			require.ErrorContains(t, err, "generated ADS snapshot is inconsistent")
+		})
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
-
-	resources := xds.NewResources()
-	resources.Listeners["listener1"] = proto.Clone(DEFAULT_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
-
-	err := server.UpsertEnvoyResources(context.Background(), resources, nil)
-	require.ErrorContains(t, err, "generated ADS snapshot is inconsistent")
 }
 
 func TestDeleteEnvoyResources(t *testing.T) {

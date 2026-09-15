@@ -2892,7 +2892,9 @@
                 "split",
                 "delta-split",
                 "ads",
-                "strict-ads"
+                "delta-ads",
+                "strict-ads",
+                "strict-delta-ads"
               ]
             }
           ]

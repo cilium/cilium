@@ -26,6 +26,19 @@ func TestAppendEmbeddedLocalityBootstrap(t *testing.T) {
 			assertEDS: func(t *testing.T, edsConfig *corev3.ConfigSource) {
 				apiConfigSource := edsConfig.GetApiConfigSource()
 				require.NotNil(t, apiConfigSource)
+				require.Equal(t, corev3.ApiConfigSource_GRPC, apiConfigSource.GetApiType())
+				require.NotEmpty(t, apiConfigSource.GetGrpcServices())
+				require.Equal(t, CiliumXDSClusterName, apiConfigSource.GetGrpcServices()[0].GetEnvoyGrpc().GetClusterName())
+				require.Nil(t, edsConfig.GetAds())
+			},
+		},
+		{
+			name:    "delta-split",
+			xdsMode: config.EnvoyXDSModeDeltaSplit,
+			assertEDS: func(t *testing.T, edsConfig *corev3.ConfigSource) {
+				apiConfigSource := edsConfig.GetApiConfigSource()
+				require.NotNil(t, apiConfigSource)
+				require.Equal(t, corev3.ApiConfigSource_DELTA_GRPC, apiConfigSource.GetApiType())
 				require.NotEmpty(t, apiConfigSource.GetGrpcServices())
 				require.Equal(t, CiliumXDSClusterName, apiConfigSource.GetGrpcServices()[0].GetEnvoyGrpc().GetClusterName())
 				require.Nil(t, edsConfig.GetAds())
@@ -42,6 +55,22 @@ func TestAppendEmbeddedLocalityBootstrap(t *testing.T) {
 		{
 			name:    "strict-ads",
 			xdsMode: config.EnvoyXDSModeStrictADS,
+			assertEDS: func(t *testing.T, edsConfig *corev3.ConfigSource) {
+				require.NotNil(t, edsConfig.GetAds())
+				require.Nil(t, edsConfig.GetApiConfigSource())
+			},
+		},
+		{
+			name:    "delta-ads",
+			xdsMode: config.EnvoyXDSModeDeltaADS,
+			assertEDS: func(t *testing.T, edsConfig *corev3.ConfigSource) {
+				require.NotNil(t, edsConfig.GetAds())
+				require.Nil(t, edsConfig.GetApiConfigSource())
+			},
+		},
+		{
+			name:    "strict-delta-ads",
+			xdsMode: config.EnvoyXDSModeStrictDeltaADS,
 			assertEDS: func(t *testing.T, edsConfig *corev3.ConfigSource) {
 				require.NotNil(t, edsConfig.GetAds())
 				require.Nil(t, edsConfig.GetApiConfigSource())
