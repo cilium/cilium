@@ -261,15 +261,10 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 
 	manager.reconciliationTrigger = t
 
-	// The device-table watcher runs as a job so that a failure to subscribe
-	// (or an unexpected exit) surfaces as module health via `cilium status`
-	// / `cilium-dbg status --all-health`, rather than only a log line. Retry
-	// forever with backoff: losing device reactivity degrades egress gateway
-	// but must not take down the agent, so we do not use job.WithShutdown.
 	p.JobGroup.Add(job.OneShot(
 		"egress-gateway-device-watcher",
 		manager.processDeviceEvents,
-		job.WithRetry(-1, &job.ExponentialBackoff{Min: time.Second, Max: time.Minute}),
+		job.WithShutdown(),
 	))
 
 	var wg sync.WaitGroup
@@ -426,9 +421,10 @@ func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy]) {
 // reconciliationTriggerInterval, so a flurry of address add/del events will
 // not cause reconcile storms.
 //
-// Runs as a job.OneShot: a subscription failure is reported through the health
-// reporter (visible via `cilium status`) and retried, instead of silently
-// leaving egress gateway unable to react to device changes.
+// Runs as a job.OneShot so the watcher is tied to the agent lifecycle and
+// reports health while it is running. Subscribing can only fail if the write
+// transaction is misused, which is a bug, so the job is registered with
+// job.WithShutdown and the error brings the agent down.
 func (manager *Manager) processDeviceEvents(ctx context.Context, health cell.Health) error {
 	wtxn := manager.db.WriteTxn(manager.deviceTable)
 	changeIter, err := manager.deviceTable.Changes(wtxn)
@@ -436,6 +432,7 @@ func (manager *Manager) processDeviceEvents(ctx context.Context, health cell.Hea
 	if err != nil {
 		return fmt.Errorf("subscribe to device table changes: %w", err)
 	}
+	defer changeIter.Close()
 
 	health.OK("Watching device table")
 
