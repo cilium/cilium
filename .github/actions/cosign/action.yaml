@@ -48,12 +48,31 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    # cosign-installer curls github.com with --retry but no --retry-all-errors.
     - name: Install Cosign
+      id: install_cosign
       if: ${{ inputs.install_cosign == 'true' }}
+      continue-on-error: true
       uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
+    - name: Install Cosign (retry)
+      if: ${{ steps.install_cosign.outcome == 'failure' }}
+      uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+    # sbom-action fetches syft's installer in a single unretried download.
     - name: Generate SBOM
+      id: generate_sbom
       if: ${{ inputs.generate_sbom == 'true' }}
+      continue-on-error: true
+      uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+      with:
+        artifact-name: sbom_${{ inputs.sbom_name }}.spdx.json
+        output-file: ./sbom_${{ inputs.sbom_name }}.spdx.json
+        image: ${{ inputs.image_tag }}
+        upload-release-assets: ${{ inputs.upload_sbom_release_assets  }}
+
+    - name: Generate SBOM (retry)
+      if: ${{ steps.generate_sbom.outcome == 'failure' }}
       uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
       with:
         artifact-name: sbom_${{ inputs.sbom_name }}.spdx.json
