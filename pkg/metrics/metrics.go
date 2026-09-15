@@ -634,6 +634,12 @@ var (
 		Name:       "retries_total",
 		Help:       "Total number of retries handled by workqueue.",
 	}, []string{"name"})
+
+	// EndpointLatencyMeasurementBuckets is the generic histogram metrics bucket configuration shared
+	// across various internal latency metrics measurement, ranging from 1ms to 1min.
+	// The buckets are intentionally spaced non exponentially and are dense in SLO range for
+	// meaningful data points.
+	EndpointLatencyMeasurementBuckets = []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60}
 )
 
 type LegacyMetrics struct {
@@ -744,7 +750,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Namespace: Namespace,
 			Name:      "endpoint_detached_selector_policy_time_stats_seconds",
 			Help:      "Endpoint detached selector policy time stats labeled by the scope",
-			Buckets:   prometheus.ExponentialBucketsRange(0.01, 60*10, 10),
+			Buckets:   EndpointLatencyMeasurementBuckets,
 		}, []string{LabelScope}),
 
 		EndpointRegenerationTotal: metric.NewCounterVec(metric.CounterOpts{
@@ -769,7 +775,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 			Namespace: Namespace,
 			Name:      "endpoint_regeneration_time_stats_seconds",
-			Buckets:   prometheus.ExponentialBuckets(10e-6, 10, 8),
+			Buckets:   EndpointLatencyMeasurementBuckets,
 			Help:      "Endpoint regeneration time stats labeled by the scope",
 		}, []string{LabelScope, LabelStatus}),
 
@@ -821,13 +827,8 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 			Namespace: Namespace,
 			Name:      "policy_implementation_delay",
-			// Decade-spaced buckets (10us..100s) leave a void across the
-			// 0.05-2s region where the realization SLO actually lives, so
-			// histogram_quantile interpolates any sub-second tail up towards
-			// the next boundary (1s) and reports meaningless p90/p99 values.
-			// Use buckets dense in the SLO region instead.
-			Buckets: []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
-			Help:    "Time between a policy change and it being fully deployed into the datapath",
+			Buckets:   EndpointLatencyMeasurementBuckets,
+			Help:      "Time between a policy change and it being fully deployed into the datapath",
 		}, metric.Labels{
 			{
 				Name:   LabelPolicySource,
@@ -841,7 +842,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Namespace: Namespace,
 			Name:      "policy_incremental_update_duration",
 			Help:      "Time between learning about a new identity and it being fully added to all policies.",
-			Buckets:   prometheus.ExponentialBuckets(10e-6, 10, 8),
+			Buckets:   EndpointLatencyMeasurementBuckets,
 		}, []string{"scope"}),
 
 		PolicyMissingProxyRedirects: metric.NewGaugeVec(metric.GaugeOpts{
