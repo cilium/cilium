@@ -204,7 +204,12 @@ func AddUserDefinedNumericIdentitySet(m map[string]string) error {
 // LookupReservedIdentityByLabels looks up a reserved identity by its labels and
 // returns it if found. Returns nil if not found.
 func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
+	// if the identity exactly matches a well-known or reserved identity
+	// by labels, then we're done.
 	if identity := WellKnown.LookupByLabels(lbls); identity != nil {
+		return identity
+	}
+	if identity := reservedIdentityByLabels(lbls); identity != nil {
 		return identity
 	}
 

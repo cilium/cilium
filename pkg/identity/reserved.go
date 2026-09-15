@@ -47,6 +47,17 @@ func LookupReservedIdentity(ni NumericIdentity) *Identity {
 	return reservedIdentityCache[ni]
 }
 
+func reservedIdentityByLabels(lbls labels.Labels) *Identity {
+	cacheMU.RLock()
+	defer cacheMU.RUnlock()
+	for _, identity := range reservedIdentityCache {
+		if identity.Labels.Equals(lbls) {
+			return identity
+		}
+	}
+	return nil
+}
+
 func init() {
 	iterateReservedIdentityLabels(func(ni NumericIdentity, lbls labels.Labels) {
 		AddReservedIdentityWithLabels(ni, lbls)
