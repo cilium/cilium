@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )
 
@@ -52,32 +53,32 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), &api.MetricConfig{}))
 
 	// shouldn't count
-	handler.ProcessFlow(ctx, &pb.Flow{})
+	handler.ProcessFlow(ctx, &ir.Flow{})
 	// shouldn't count
-	handler.ProcessFlow(ctx, &pb.Flow{L7: &pb.Layer7{
-		Type:   pb.L7FlowType_RESPONSE,
-		Record: &pb.Layer7_Dns{},
+	handler.ProcessFlow(ctx, &ir.Flow{L7: ir.Layer7{
+		Type: pb.L7FlowType_RESPONSE,
+		DNS:  ir.DNS{},
 	}})
 	// should count for request
-	handler.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &ir.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
-		L7: &pb.Layer7{
+		L7: ir.Layer7{
 			Type: pb.L7FlowType_REQUEST,
-			Record: &pb.Layer7_Http{Http: &pb.HTTP{
+			HTTP: ir.HTTP{
 				Method: "GET",
-			}},
+			},
 		},
 	})
 	// should count for response
-	handler.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &ir.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
-		L7: &pb.Layer7{
+		L7: ir.Layer7{
 			Type:      pb.L7FlowType_RESPONSE,
 			LatencyNs: 12345678,
-			Record: &pb.Layer7_Http{Http: &pb.HTTP{
+			HTTP: ir.HTTP{
 				Code:   200,
 				Method: "GET",
-			}},
+			},
 		},
 	})
 	requestsExpected := `
@@ -146,29 +147,29 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), options))
 
 	// shouldn't count
-	handler.ProcessFlow(ctx, &pb.Flow{})
+	handler.ProcessFlow(ctx, &ir.Flow{})
 	// shouldn't count
-	handler.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &ir.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
-		L7: &pb.Layer7{
-			Type:   pb.L7FlowType_RESPONSE,
-			Record: &pb.Layer7_Dns{},
+		L7: ir.Layer7{
+			Type: pb.L7FlowType_RESPONSE,
+			DNS:  ir.DNS{},
 		}})
 	// shouldn't count for request, we use responses in v2
-	handler.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &ir.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
-		L7: &pb.Layer7{
+		L7: ir.Layer7{
 			Type: pb.L7FlowType_REQUEST,
-			Record: &pb.Layer7_Http{Http: &pb.HTTP{
+			HTTP: ir.HTTP{
 				Method: "GET",
-			}},
+			},
 		},
 	})
 
-	sourceEndpoint := &pb.Endpoint{
+	sourceEndpoint := ir.Endpoint{
 		Namespace: "source-ns",
 		PodName:   "source-deploy-pod",
-		Workloads: []*pb.Workload{{
+		Workloads: []ir.Workload{{
 			Name: "source-deploy",
 			Kind: "Deployment",
 		}},
@@ -176,10 +177,10 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 			"k8s:app=sourceapp",
 		},
 	}
-	destinationEndpoint := &pb.Endpoint{
+	destinationEndpoint := ir.Endpoint{
 		Namespace: "destination-ns",
 		PodName:   "destination-deploy-pod",
-		Workloads: []*pb.Workload{{
+		Workloads: []ir.Workload{{
 			Name: "destination-deploy",
 			Kind: "Deployment",
 		}},
@@ -188,7 +189,7 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 		},
 	}
 	// should count for request
-	handler.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &ir.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		// Responses have the source and destination inverted, because it's the
 		// other side of the flow. Our tests are asserting that the HTTPv2 handler
@@ -196,14 +197,14 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 		// perspective of the request.
 		Source:      destinationEndpoint,
 		Destination: sourceEndpoint,
-		L7: &pb.Layer7{
+		L7: ir.Layer7{
 			Type:      pb.L7FlowType_RESPONSE,
 			LatencyNs: 12345678,
-			Record: &pb.Layer7_Http{Http: &pb.HTTP{
+			HTTP: ir.HTTP{
 				Protocol: "HTTP/1.1",
 				Code:     200,
 				Method:   "GET",
-			}},
+			},
 		},
 	})
 	requestsExpected := `

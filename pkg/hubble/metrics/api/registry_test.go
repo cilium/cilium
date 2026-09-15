@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -67,7 +68,7 @@ func (h *testHandler) HandleConfigurationUpdate(cfg *MetricConfig) error {
 	return nil
 }
 
-func (t *testHandler) ProcessFlow(ctx context.Context, p *pb.Flow) error {
+func (t *testHandler) ProcessFlow(ctx context.Context, p *ir.Flow) error {
 	labels, _ := t.ContextOptions.GetLabelValues(p)
 	t.counter.WithLabelValues(labels...).Inc()
 	t.ProcessCalled++
@@ -75,25 +76,26 @@ func (t *testHandler) ProcessFlow(ctx context.Context, p *pb.Flow) error {
 }
 
 func TestRegister(t *testing.T) {
-	flow1 := &pb.Flow{
-		EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog},
-		L7: &pb.Layer7{
-			Record: &pb.Layer7_Http{Http: &pb.HTTP{}},
+	flow1 := ir.Flow{
+		EventType: ir.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog},
+		L7: ir.Layer7{
+			HTTP: ir.HTTP{},
 		},
-		Source:      &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "worker"}}},
-		Destination: &pb.Endpoint{Namespace: "bar", PodName: "bar-123", Workloads: []*pb.Workload{{Name: "api"}}},
+		Source:      ir.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []ir.Workload{{Name: "worker"}}},
+		Destination: ir.Endpoint{Namespace: "bar", PodName: "bar-123", Workloads: []ir.Workload{{Name: "api"}}},
 		Verdict:     pb.Verdict_FORWARDED,
 	}
 
-	flow2 := &pb.Flow{
-		EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog},
-		L7: &pb.Layer7{
-			Record: &pb.Layer7_Http{Http: &pb.HTTP{}},
+	flow2 := ir.Flow{
+		EventType: ir.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog},
+		L7: ir.Layer7{
+			HTTP: ir.HTTP{},
 		},
-		Source:      &pb.Endpoint{Namespace: "abc", PodName: "abc-456", Workloads: []*pb.Workload{{Name: "worker"}}},
-		Destination: &pb.Endpoint{Namespace: "bar", PodName: "bar-123", Workloads: []*pb.Workload{{Name: "api"}}},
+		Source:      ir.Endpoint{Namespace: "abc", PodName: "abc-456", Workloads: []ir.Workload{{Name: "worker"}}},
+		Destination: ir.Endpoint{Namespace: "bar", PodName: "bar-123", Workloads: []ir.Workload{{Name: "api"}}},
 		Verdict:     pb.Verdict_FORWARDED,
 	}
+
 	log := hivetest.Logger(t)
 
 	t.Run("Should not register non-enabled handler", func(t *testing.T) {
@@ -152,8 +154,8 @@ func TestRegister(t *testing.T) {
 		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
-		ExecuteAllProcessFlow(t.Context(), flow1, *handlers)
-		ExecuteAllProcessFlow(t.Context(), flow2, *handlers)
+		ExecuteAllProcessFlow(t.Context(), &flow1, *handlers)
+		ExecuteAllProcessFlow(t.Context(), &flow2, *handlers)
 		assert.Equal(t, 2, (*handlers)[0].Handler.(*testHandler).ProcessCalled)
 
 		verifyMetricSeriesExists(t, promRegistry, 2)
@@ -194,8 +196,8 @@ func TestRegister(t *testing.T) {
 		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
-		ExecuteAllProcessFlow(t.Context(), flow1, *handlers)
-		ExecuteAllProcessFlow(t.Context(), flow2, *handlers)
+		ExecuteAllProcessFlow(t.Context(), &flow1, *handlers)
+		ExecuteAllProcessFlow(t.Context(), &flow2, *handlers)
 		assert.Equal(t, 2, (*handlers)[0].Handler.(*testHandler).ProcessCalled)
 
 		verifyMetricSeriesExists(t, promRegistry, 1)
@@ -232,8 +234,8 @@ func TestRegister(t *testing.T) {
 		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
-		ExecuteAllProcessFlow(t.Context(), flow1, *handlers)
-		ExecuteAllProcessFlow(t.Context(), flow2, *handlers)
+		ExecuteAllProcessFlow(t.Context(), &flow1, *handlers)
+		ExecuteAllProcessFlow(t.Context(), &flow2, *handlers)
 		assert.Equal(t, 2, (*handlers)[0].Handler.(*testHandler).ProcessCalled)
 
 		verifyMetricSeriesExists(t, promRegistry, 2)
@@ -270,8 +272,8 @@ func TestRegister(t *testing.T) {
 		opts, _ := ParseContextOptions(options)
 		handlers := initHandlers(t, opts, promRegistry, log)
 
-		ExecuteAllProcessFlow(t.Context(), flow1, *handlers)
-		ExecuteAllProcessFlow(t.Context(), flow2, *handlers)
+		ExecuteAllProcessFlow(t.Context(), &flow1, *handlers)
+		ExecuteAllProcessFlow(t.Context(), &flow2, *handlers)
 		assert.Equal(t, 2, (*handlers)[0].Handler.(*testHandler).ProcessCalled)
 
 		verifyMetricSeriesExists(t, promRegistry, 2)
@@ -342,7 +344,7 @@ func verifyMetricSeriesNotExists(t *testing.T, promRegistry *prometheus.Registry
 	require.Empty(t, metricFamilies)
 }
 
-func ExecuteAllProcessFlow(ctx context.Context, flow *pb.Flow, handlers []NamedHandler) error {
+func ExecuteAllProcessFlow(ctx context.Context, flow *ir.Flow, handlers []NamedHandler) error {
 	var errs error
 	for _, nh := range handlers {
 		errs = errors.Join(errs, nh.Handler.ProcessFlow(ctx, flow))
