@@ -4,7 +4,6 @@
 package k8s
 
 import (
-	"net"
 	"net/netip"
 	"testing"
 
@@ -403,7 +402,8 @@ func TestParseCiliumNode(t *testing.T) {
 		Spec: ciliumv2.NodeSpec{
 			Addresses: []ciliumv2.NodeAddress{
 				{Type: addressing.NodeInternalIP, IP: "2.2.2.2"},
-				{Type: addressing.NodeExternalIP, IP: "3.3.3.3"},
+				// Mapped form: must normalize to the unmapped 3.3.3.3.
+				{Type: addressing.NodeExternalIP, IP: "::ffff:3.3.3.3"},
 				{Type: addressing.NodeInternalIP, IP: "c0de::1"},
 				{Type: addressing.NodeExternalIP, IP: "c0de::2"},
 			},
@@ -437,10 +437,10 @@ func TestParseCiliumNode(t *testing.T) {
 		ClusterID: clusterInfo.ID,
 		Source:    source.CustomResource,
 		IPAddresses: []nodeTypes.Address{
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("3.3.3.3")},
-			{Type: addressing.NodeInternalIP, IP: net.ParseIP("c0de::1")},
-			{Type: addressing.NodeExternalIP, IP: net.ParseIP("c0de::2")},
+			{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("2.2.2.2"))},
+			{Type: addressing.NodeExternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("3.3.3.3"))},
+			{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("c0de::1"))},
+			{Type: addressing.NodeExternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("c0de::2"))},
 		},
 		EncryptionKey:           uint8(10),
 		IPv4AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("10.10.0.0/16")),

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"net"
+	"net/netip"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
@@ -380,10 +381,13 @@ func (tc testCommands) setNodeIP() script.Cmd {
 			if len(args) != 1 {
 				return nil, fmt.Errorf("%w: expected 'ip'", script.ErrUsage)
 			}
-			ip := net.ParseIP(args[0])
+			ip, err := netip.ParseAddr(args[0])
+			if err != nil {
+				return nil, fmt.Errorf("%w: %q is not an IP address", script.ErrUsage, args[0])
+			}
 			tc.lns.Update(func(n *node.LocalNode) {
 				n.IPAddresses = []nodeTypes.Address{
-					{Type: addressing.NodeExternalIP, IP: ip},
+					{Type: addressing.NodeExternalIP, IP: iputil.AddrFrom(ip)},
 				}
 				s.Logf("NodeIP set to %s\n", ip)
 			})

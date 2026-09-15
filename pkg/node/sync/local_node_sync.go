@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"net"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -145,7 +144,7 @@ func (ini *localNodeSynchronizer) initFromConfig(n *node.LocalNode) error {
 
 	// Initialize node IP addresses from configuration.
 	if ini.Config.IPv6NodeAddr != "auto" {
-		if ip := net.ParseIP(ini.Config.IPv6NodeAddr); ip == nil {
+		if ip, err := netip.ParseAddr(ini.Config.IPv6NodeAddr); err != nil {
 			return fmt.Errorf("invalid IPv6 node address: %q", ini.Config.IPv6NodeAddr)
 		} else {
 			if !ip.IsGlobalUnicast() {
@@ -155,7 +154,7 @@ func (ini *localNodeSynchronizer) initFromConfig(n *node.LocalNode) error {
 		}
 	}
 	if ini.Config.IPv4NodeAddr != "auto" {
-		if ip := net.ParseIP(ini.Config.IPv4NodeAddr); ip == nil {
+		if ip, err := netip.ParseAddr(ini.Config.IPv4NodeAddr); err != nil {
 			return fmt.Errorf("Invalid IPv4 node address: %q", ini.Config.IPv4NodeAddr)
 		} else {
 			n.SetNodeInternalIP(ip)
@@ -222,9 +221,9 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 	node.Name = parsedNode.Name
 	for _, addr := range parsedNode.IPAddresses {
 		if addr.Type == addressing.NodeInternalIP {
-			node.SetNodeInternalIP(addr.IP)
+			node.SetNodeInternalIP(addr.IP.Addr)
 		} else if addr.Type == addressing.NodeExternalIP {
-			node.SetNodeExternalIP(addr.IP)
+			node.SetNodeExternalIP(addr.IP.Addr)
 		}
 	}
 	ini.syncFromK8s(node, parsedNode)
@@ -235,7 +234,7 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 	if k8sCiliumNode != nil {
 		for _, addr := range k8sCiliumNode.Spec.Addresses {
 			if addr.Type == addressing.NodeCiliumInternalIP {
-				node.SetCiliumInternalIP(net.ParseIP(addr.IP))
+				node.SetCiliumInternalIP(addr.Addr())
 			}
 		}
 

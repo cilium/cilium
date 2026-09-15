@@ -16,8 +16,8 @@ var (
 	IPv4NodePortAddress = tables.TestIPv4NodePortAddress.AsSlice()
 
 	fakeIPv4 = addressFamily{
-		router:          net.ParseIP("1.1.1.2"),
-		primaryExternal: net.ParseIP("1.1.1.1"),
+		router:          netip.MustParseAddr("1.1.1.2"),
+		primaryExternal: netip.MustParseAddr("1.1.1.1"),
 		allocCIDR:       netip.MustParsePrefix("1.1.1.0/24"),
 	}
 
@@ -25,8 +25,8 @@ var (
 	IPv6NodePortAddress = tables.TestIPv6NodePortAddress.AsSlice()
 
 	fakeIPv6 = addressFamily{
-		router:          net.ParseIP("cafe::2"),
-		primaryExternal: net.ParseIP("cafe::1"),
+		router:          netip.MustParseAddr("cafe::2"),
+		primaryExternal: netip.MustParseAddr("cafe::1"),
 		allocCIDR:       netip.MustParsePrefix("cafe::/96"),
 	}
 )
@@ -63,16 +63,16 @@ func NewAddressing() node.Addressing {
 }
 
 type addressFamily struct {
-	router          net.IP
-	primaryExternal net.IP
+	router          netip.Addr
+	primaryExternal netip.Addr
 	allocCIDR       netip.Prefix
 }
 
-func (a *addressFamily) Router() net.IP {
+func (a *addressFamily) Router() netip.Addr {
 	return a.router
 }
 
-func (a *addressFamily) PrimaryExternal() net.IP {
+func (a *addressFamily) PrimaryExternal() netip.Addr {
 	return a.primaryExternal
 }
 

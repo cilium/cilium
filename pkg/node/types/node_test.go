@@ -6,13 +6,13 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
@@ -20,49 +20,49 @@ func TestGetNodeIP(t *testing.T) {
 	n := Node{
 		Name: "node-1",
 		IPAddresses: []Address{
-			{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP},
+			{IP: iputil.AddrFrom(netip.MustParseAddr("192.0.2.3")), Type: addressing.NodeExternalIP},
 		},
 	}
 	ip := n.GetNodeIP(false)
 	// Return the only IP present
-	require.Equal(t, ip, net.ParseIP("192.0.2.3"))
+	require.Equal(t, netip.MustParseAddr("192.0.2.3"), ip)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{IP: iputil.AddrFrom(netip.MustParseAddr("192.0.2.3")), Type: addressing.NodeExternalIP})
 	ip = n.GetNodeIP(false)
 	// The next priority should be NodeExternalIP
-	require.Equal(t, ip, net.ParseIP("192.0.2.3"))
+	require.Equal(t, netip.MustParseAddr("192.0.2.3"), ip)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: addressing.NodeInternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{IP: iputil.AddrFrom(netip.MustParseAddr("198.51.100.2")), Type: addressing.NodeInternalIP})
 	ip = n.GetNodeIP(false)
 	// The next priority should be NodeInternalIP
-	require.Equal(t, ip, net.ParseIP("198.51.100.2"))
+	require.Equal(t, netip.MustParseAddr("198.51.100.2"), ip)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::1"), Type: addressing.NodeExternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{IP: iputil.AddrFrom(netip.MustParseAddr("2001:DB8::1")), Type: addressing.NodeExternalIP})
 	ip = n.GetNodeIP(true)
 	// The next priority should be NodeExternalIP and IPv6
-	require.Equal(t, ip, net.ParseIP("2001:DB8::1"))
+	require.Equal(t, netip.MustParseAddr("2001:DB8::1"), ip)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::2"), Type: addressing.NodeInternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{IP: iputil.AddrFrom(netip.MustParseAddr("2001:DB8::2")), Type: addressing.NodeInternalIP})
 	ip = n.GetNodeIP(true)
 	// The next priority should be NodeInternalIP and IPv6
-	require.Equal(t, ip, net.ParseIP("2001:DB8::2"))
+	require.Equal(t, netip.MustParseAddr("2001:DB8::2"), ip)
 
-	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), Type: addressing.NodeInternalIP})
+	n.IPAddresses = append(n.IPAddresses, Address{IP: iputil.AddrFrom(netip.MustParseAddr("198.51.100.2")), Type: addressing.NodeInternalIP})
 	ip = n.GetNodeIP(false)
 	// Should still return NodeInternalIP and IPv4
-	require.Equal(t, ip, net.ParseIP("198.51.100.2"))
+	require.Equal(t, netip.MustParseAddr("198.51.100.2"), ip)
 }
 
-// requireIP asserts that got holds the address want, or is nil when want is
-// empty.
-func requireIP(t *testing.T, want string, got net.IP) {
+// requireIP asserts that got holds the address want, or is the zero value when
+// want is empty.
+func requireIP(t *testing.T, want string, got netip.Addr) {
 	t.Helper()
 
 	if want == "" {
-		require.Nil(t, got)
+		require.False(t, got.IsValid())
 		return
 	}
-	require.Equal(t, net.ParseIP(want), got)
+	require.Equal(t, netip.MustParseAddr(want), got)
 }
 
 func TestNodeIPAccessors(t *testing.T) {
@@ -79,7 +79,7 @@ func TestNodeIPAccessors(t *testing.T) {
 			node: Node{
 				Name: "node-1",
 				IPAddresses: []Address{
-					{IP: net.ParseIP("192.0.2.3"), Type: addressing.NodeExternalIP},
+					{IP: iputil.AddrFrom(netip.MustParseAddr("192.0.2.3")), Type: addressing.NodeExternalIP},
 				},
 			},
 			externalV4: "192.0.2.3",
@@ -89,7 +89,7 @@ func TestNodeIPAccessors(t *testing.T) {
 			node: Node{
 				Name: "node-2",
 				IPAddresses: []Address{
-					{IP: net.ParseIP("f00b::1"), Type: addressing.NodeCiliumInternalIP},
+					{IP: iputil.AddrFrom(netip.MustParseAddr("f00b::1")), Type: addressing.NodeCiliumInternalIP},
 				},
 			},
 			ciliumV6: "f00b::1",
@@ -99,8 +99,8 @@ func TestNodeIPAccessors(t *testing.T) {
 			node: Node{
 				Name: "node-3",
 				IPAddresses: []Address{
-					{IP: net.ParseIP("192.42.0.3"), Type: addressing.NodeExternalIP},
-					{IP: net.ParseIP("f00d::1"), Type: addressing.NodeExternalIP},
+					{IP: iputil.AddrFrom(netip.MustParseAddr("192.42.0.3")), Type: addressing.NodeExternalIP},
+					{IP: iputil.AddrFrom(netip.MustParseAddr("f00d::1")), Type: addressing.NodeExternalIP},
 				},
 			},
 			externalV4: "192.42.0.3",
@@ -111,8 +111,8 @@ func TestNodeIPAccessors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Every accessor is asserted for every node, including the ones
-			// expected to return nil: they are one-line delegations to
-			// getAddress, so an accessor passing the wrong address type or
+			// expected to return the zero value: they are one-line delegations
+			// to getAddress, so an accessor passing the wrong address type or
 			// address family is only caught by pinning the others too.
 			requireIP(t, tt.internalV4, tt.node.GetNodeInternalIPv4())
 			requireIP(t, tt.internalV6, tt.node.GetNodeInternalIPv6())
@@ -339,11 +339,23 @@ func TestNodeCIDRFieldsUnmarshalLegacy(t *testing.T) {
 		"IPv4AllocCIDR": {"IP":"10.244.1.0","Mask":"////AA=="},
 		"IPv6AllocCIDR": {"IP":"fd00::","Mask":"//////////8AAAAAAAAAAA=="},
 		"IPv4SecondaryAllocCIDRs": [{"IP":"10.244.2.0","Mask":"////AA=="}],
-		"IPv6SecondaryAllocCIDRs": [{"IP":"fd01::","Mask":"//////////8AAAAAAAAAAA=="}]
+		"IPv6SecondaryAllocCIDRs": [{"IP":"fd01::","Mask":"//////////8AAAAAAAAAAA=="}],
+		"IPAddresses": [
+			{"Type":"InternalIP","IP":"10.0.0.1"},
+			{"Type":"CiliumInternalIP","IP":"fd00::1"},
+			{"Type":"Hostname","IP":""}
+		]
 	}`)
 
 	var n Node
 	require.NoError(t, n.Unmarshal("default/node-1", legacy))
+
+	// A pre-migration Address.IP was a net.IP, marshaled as a bare text address;
+	// iputil.Addr inherits netip's UnmarshalText, which maps "" to the zero value.
+	require.Len(t, n.IPAddresses, 3)
+	assert.Equal(t, netip.MustParseAddr("10.0.0.1"), n.IPAddresses[0].IP.Addr)
+	assert.Equal(t, netip.MustParseAddr("fd00::1"), n.IPAddresses[1].IP.Addr)
+	assert.False(t, n.IPAddresses[2].IP.IsValid())
 
 	assert.Equal(t, netip.MustParsePrefix("10.244.1.0/24"), n.IPv4AllocCIDR.Prefix.Prefix)
 	assert.Equal(t, netip.MustParsePrefix("fd00::/64"), n.IPv6AllocCIDR.Prefix.Prefix)
@@ -359,4 +371,8 @@ func TestNodeCIDRFieldsUnmarshalLegacy(t *testing.T) {
 	require.NoError(t, json.Unmarshal(b, &raw))
 	//nolint:testifylint // byte-exact wire format matters for kvstore compat, JSONEq would ignore key order.
 	assert.Equal(t, `{"IP":"10.244.1.0","Mask":"////AA=="}`, string(raw["IPv4AllocCIDR"]))
+	//nolint:testifylint // byte-exact wire format matters for kvstore compat, JSONEq would ignore key order.
+	assert.Equal(t,
+		`[{"Type":"InternalIP","IP":"10.0.0.1"},{"Type":"CiliumInternalIP","IP":"fd00::1"},{"Type":"Hostname","IP":""}]`,
+		string(raw["IPAddresses"]))
 }

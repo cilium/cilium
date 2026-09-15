@@ -164,7 +164,7 @@ func newLocalNodeConfig(
 	}
 
 	// Validate Encryption Strict Mode Egress
-	nodeIPv4 := ip.AddrFromIP(localNode.GetNodeIP(false))
+	nodeIPv4 := localNode.GetNodeIP(false)
 	if daemon.EnableEncryptionStrictModeEgress {
 		if !nodeIPv4.IsValid() {
 			return config.Config{}, nil, fmt.Errorf("unable to parse node IPv4 address %s", nodeIPv4)
@@ -187,10 +187,10 @@ func newLocalNodeConfig(
 	return config.Config{
 		ClusterID:                    localNode.ClusterID,
 		ClusterIDBits:                clusterInfo.GetClusterIDBits(),
-		NodeIPv4:                     ip.AddrFromIP(localNode.GetNodeIP(false)),
-		NodeIPv6:                     ip.AddrFromIP(localNode.GetNodeIP(true)),
-		CiliumInternalIPv4:           ip.AddrFromIP(localNode.GetCiliumInternalIPv4()),
-		CiliumInternalIPv6:           ip.AddrFromIP(localNode.GetCiliumInternalIPv6()),
+		NodeIPv4:                     localNode.GetNodeIP(false),
+		NodeIPv6:                     localNode.GetNodeIP(true),
+		CiliumInternalIPv4:           localNode.GetCiliumInternalIPv4(),
+		CiliumInternalIPv6:           localNode.GetCiliumInternalIPv6(),
 		CiliumNetIfIndex:             uint32(ciliumNetDevice.Index),
 		CiliumNetMAC:                 ciliumNetMAC,
 		CiliumHostIfIndex:            uint32(ciliumHostDevice.Index),

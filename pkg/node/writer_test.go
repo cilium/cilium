@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"maps"
-	"net"
 	"net/netip"
 	"slices"
 	"testing"
@@ -323,7 +322,7 @@ func TestSourceWriterDoesNotOverwriteLocalNode(t *testing.T) {
 		Node: types.Node{
 			Name:        "local",
 			Source:      source.Local,
-			IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
+			IPAddresses: []types.Address{{IP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))}},
 		},
 		Local: &LocalNodeInfo{},
 	}
@@ -345,7 +344,7 @@ func TestSourceWriterDoesNotOverwriteLocalNode(t *testing.T) {
 	remote = &types.Node{
 		Name:        "remote",
 		Source:      source.KubeAPIServer,
-		IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
+		IPAddresses: []types.Address{{IP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))}},
 	}
 	txn = db.WriteTxn(nodes)
 	require.False(t, w.Upsert(txn, remote))
@@ -377,7 +376,7 @@ func TestWriterAddressConflicts(t *testing.T) {
 	newNode := func(name string, src source.Source, addresses ...string) *types.Node {
 		n := &types.Node{Name: name, Source: src}
 		for _, address := range addresses {
-			n.IPAddresses = append(n.IPAddresses, types.Address{IP: net.ParseIP(address)})
+			n.IPAddresses = append(n.IPAddresses, types.Address{IP: iputil.AddrFrom(netip.MustParseAddr(address))})
 		}
 		return n
 	}
@@ -415,7 +414,7 @@ func TestWriterAddressConflicts(t *testing.T) {
 
 	// Four-byte IPv4 and IPv4-mapped IPv6 representations are equivalent.
 	mapped := newNode("mapped", source.Kubernetes)
-	mapped.IPAddresses = []types.Address{{IP: net.IP{10, 0, 0, 6}}}
+	mapped.IPAddresses = []types.Address{{IP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.6"))}}
 	require.True(t, upsert(mapped))
 	require.True(t, upsert(newNode("mapped-latest", source.Kubernetes, "10.0.0.6")))
 	requireNoNode("mapped")
@@ -465,7 +464,7 @@ func TestWriterClusterAwareAddressConflicts(t *testing.T) {
 			Source:    source.Kubernetes,
 			IPAddresses: []types.Address{{
 				Type: addressType,
-				IP:   net.ParseIP(address),
+				IP:   iputil.AddrFrom(netip.MustParseAddr(address)),
 			}},
 		}
 	}
@@ -529,12 +528,12 @@ func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
 	}
 
 	routerAddresses := []types.Address{
-		{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("169.254.23.0")},
-		{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("fe80::")},
+		{Type: addressing.NodeCiliumInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("169.254.23.0"))},
+		{Type: addressing.NodeCiliumInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("fe80::"))},
 	}
 	localAddresses := append(slices.Clone(routerAddresses), types.Address{
 		Type: addressing.NodeInternalIP,
-		IP:   net.ParseIP("10.0.0.1"),
+		IP:   iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 	})
 	local := &Node{
 		Node: types.Node{
@@ -583,7 +582,7 @@ func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
 		Source: source.CustomResource,
 		IPAddresses: []types.Address{{
 			Type: addressing.NodeCiliumInternalIP,
-			IP:   net.ParseIP("10.0.0.1"),
+			IP:   iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 		}},
 	}))
 	txn.Commit()
@@ -596,7 +595,7 @@ func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
 		Source: source.CustomResource,
 		IPAddresses: []types.Address{{
 			Type: addressing.NodeInternalIP,
-			IP:   net.ParseIP("169.254.23.0"),
+			IP:   iputil.AddrFrom(netip.MustParseAddr("169.254.23.0")),
 		}},
 	}))
 	txn.Commit()

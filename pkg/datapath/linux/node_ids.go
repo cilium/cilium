@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -67,7 +66,7 @@ func (n *linuxNodeHandler) getNodeIDForIP(nodeIP netip.Addr) (uint16, bool) {
 		logging.Fatal(n.log, "failed to retrieve local node")
 	}
 
-	if ip.AddrFromIP(ln.GetNodeIP(false)) == nodeIP || ip.AddrFromIP(ln.GetNodeIP(true)) == nodeIP {
+	if ln.GetNodeIP(false) == nodeIP || ln.GetNodeIP(true) == nodeIP {
 		return 0, true
 	}
 
@@ -284,7 +283,7 @@ func (n *linuxNodeHandler) diffAndUnmapNodeIPs(oldIPs, newIPs []nodeTypes.Addres
 nextOldIP:
 	for _, oldAddr := range oldIPs {
 		for _, newAddr := range newIPs {
-			if newAddr.IP.Equal(oldAddr.IP) {
+			if newAddr.IP == oldAddr.IP {
 				continue nextOldIP
 			}
 		}

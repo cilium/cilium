@@ -4,6 +4,7 @@
 package linux
 
 import (
+	"net"
 	"net/netip"
 	"testing"
 
@@ -18,7 +19,6 @@ import (
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -31,10 +31,10 @@ var (
 	fakeNodeAddressing = fakenode.NewAddressing()
 
 	nodeConfig = config.Config{
-		NodeIPv4:            ip.AddrFromIP(fakeNodeAddressing.IPv4().PrimaryExternal()),
-		NodeIPv6:            ip.AddrFromIP(fakeNodeAddressing.IPv6().PrimaryExternal()),
-		CiliumInternalIPv4:  ip.AddrFromIP(fakeNodeAddressing.IPv4().Router()),
-		CiliumInternalIPv6:  ip.AddrFromIP(fakeNodeAddressing.IPv6().Router()),
+		NodeIPv4:            fakeNodeAddressing.IPv4().PrimaryExternal(),
+		NodeIPv6:            fakeNodeAddressing.IPv6().PrimaryExternal(),
+		CiliumInternalIPv4:  fakeNodeAddressing.IPv4().Router(),
+		CiliumInternalIPv6:  fakeNodeAddressing.IPv6().Router(),
 		DeviceMTU:           calcMtu.DeviceMTU,
 		RouteMTU:            calcMtu.RouteMTU,
 		RoutePostEncryptMTU: calcMtu.RoutePostEncryptMTU,
@@ -65,8 +65,8 @@ func TestCreateNodeRoute(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, *netipx.PrefixIPNet(c1), generatedRoute.Prefix)
 	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
-	require.Equal(t, fakeNodeAddressing.IPv4().Router().To4(), generatedRoute.Nexthop.To4())
-	require.Equal(t, fakeNodeAddressing.IPv4().Router().To4(), generatedRoute.Local.To4())
+	require.Equal(t, net.IP(fakeNodeAddressing.IPv4().Router().AsSlice()), generatedRoute.Nexthop.To4())
+	require.Equal(t, net.IP(fakeNodeAddressing.IPv4().Router().AsSlice()), generatedRoute.Local.To4())
 
 	c1 = netip.MustParsePrefix("beef:beef::/48")
 	generatedRoute, err = nodeHandler.createNodeRouteSpec(c1, false)
@@ -74,7 +74,7 @@ func TestCreateNodeRoute(t *testing.T) {
 	require.Equal(t, *netipx.PrefixIPNet(c1), generatedRoute.Prefix)
 	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
 	require.Nil(t, generatedRoute.Nexthop)
-	require.Equal(t, fakeNodeAddressing.IPv6().Router().To16(), generatedRoute.Local.To16())
+	require.Equal(t, net.IP(fakeNodeAddressing.IPv6().Router().AsSlice()), generatedRoute.Local.To16())
 }
 
 func TestCreateNodeRouteSpecMtu(t *testing.T) {

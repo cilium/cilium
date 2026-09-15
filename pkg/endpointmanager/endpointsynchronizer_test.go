@@ -5,7 +5,7 @@ package endpointmanager
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -115,7 +115,7 @@ func Test_updateCEPUID(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			ln := node.LocalNode{}
-			ln.SetNodeInternalIP(net.ParseIP(test.nodeIP))
+			ln.SetNodeInternalIP(netip.MustParseAddr(test.nodeIP))
 			eps := &EndpointSynchronizer{
 				localNodeStore: node.NewTestLocalNodeStore(ln),
 			}
