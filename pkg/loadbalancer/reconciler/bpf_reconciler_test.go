@@ -1658,3 +1658,98 @@ func showMaps(m []maps.MapDump) string {
 	w.WriteString("},\n")
 	return w.String()
 }
+func TestUDPGracefulTermination(t *testing.T) {
+	lc := hivetest.Lifecycle(t)
+	log := hivetest.Logger(t)
+
+	maglevCfg, err := maglev.UserConfig{
+		TableSize: 1021,
+		HashSeed:  maglev.DefaultHashSeed,
+	}.ToConfig()
+	require.NoError(t, err, "ToConfig")
+	maglev := maglev.New(maglevCfg, lc)
+
+	extCfg := loadbalancer.ExternalConfig{
+		ZoneMapper:           &option.DaemonConfig{},
+		EnableIPv4:           true,
+		EnableIPv6:           true,
+		KubeProxyReplacement: true,
+	}
+	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
+	lbmaps := maps.NewFakeLBMaps()
+
+	db := statedb.New()
+	nodeAddrs, err := tables.NewNodeAddressTable(db)
+	require.NoError(t, err)
+
+	ops := newBPFOps(bpfOpsParams{
+		Lifecycle:      lc,
+		Log:            log,
+		Config:         cfg,
+		ExternalConfig: extCfg,
+		LBMaps:         lbmaps,
+		Maglev:         maglev,
+		DB:             db,
+		NodeAddresses:  nodeAddrs,
+	})
+
+	udpAddr := loadbalancer.NewL3n4Addr(
+		loadbalancer.UDP,
+		types.MustParseAddrCluster("10.0.0.1"),
+		53,
+		loadbalancer.ScopeExternal,
+	)
+	be1Addr := loadbalancer.NewL3n4Addr(
+		loadbalancer.UDP,
+		types.MustParseAddrCluster("10.1.0.1"),
+		53,
+		loadbalancer.ScopeExternal,
+	)
+	be2Addr := loadbalancer.NewL3n4Addr(
+		loadbalancer.UDP,
+		types.MustParseAddrCluster("10.1.0.2"),
+		53,
+		loadbalancer.ScopeExternal,
+	)
+
+	svc := baseService
+	fe := baseFrontend
+	fe.Type = ClusterIP
+	fe.Address = udpAddr
+	fe.Service = &svc
+
+	// Phase 1: 2 Active Backends
+	be1 := newTestBackend(be1Addr, loadbalancer.BackendStateActive)
+	be2 := newTestBackend(be2Addr, loadbalancer.BackendStateActive)
+	fe.Backends = concatBe(concatBe(fe.Backends, *be1.GetInstance(svc.Name), 1), *be2.GetInstance(svc.Name), 2)
+
+	err = ops.Update(context.TODO(), db.ReadTxn(), 0, &fe)
+	require.NoError(t, err)
+
+	dump := dumpLBMapsWithReplace(lbmaps, udpAddr, true)
+	require.Contains(t, dump, "SVC: ID=<non-zero> ADDR=<auto>/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable")
+
+	// Phase 2A: Backend 1 transitions to BackendStateTerminating
+	fe.Backends = func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {}
+	be1Term := newTestBackend(be1Addr, loadbalancer.BackendStateTerminating)
+	fe.Backends = concatBe(concatBe(fe.Backends, *be1Term.GetInstance(svc.Name), 3), *be2.GetInstance(svc.Name), 2)
+
+	err = ops.Update(context.TODO(), db.ReadTxn(), 0, &fe)
+	require.NoError(t, err)
+
+	dump = dumpLBMapsWithReplace(lbmaps, udpAddr, true)
+	require.Contains(t, dump, "SVC: ID=<non-zero> ADDR=<auto>/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable")
+	require.Contains(t, dump, "SVC: ID=<non-zero> ADDR=<auto>/UDP SLOT=1 BEID=<non-zero> COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable")
+
+	// Phase 2B: Backend 1 transitions to BackendStateTerminatingNotServing
+	fe.Backends = func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {}
+	be1TermNotServing := newTestBackend(be1Addr, loadbalancer.BackendStateTerminatingNotServing)
+	fe.Backends = concatBe(concatBe(fe.Backends, *be1TermNotServing.GetInstance(svc.Name), 4), *be2.GetInstance(svc.Name), 2)
+
+	err = ops.Update(context.TODO(), db.ReadTxn(), 0, &fe)
+	require.NoError(t, err)
+
+	dump = dumpLBMapsWithReplace(lbmaps, udpAddr, true)
+	require.Contains(t, dump, "SVC: ID=<non-zero> ADDR=<auto>/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable")
+	require.Contains(t, dump, "SVC: ID=<non-zero> ADDR=<auto>/UDP SLOT=1 BEID=<non-zero> COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable")
+}

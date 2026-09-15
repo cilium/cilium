@@ -943,7 +943,27 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 
 	// Gather backends for the service
 	orderedBackends := ops.sortedBackends(fe)
-
+     // For UDP, connection draining does not apply because UDP is connectionless.
+ // When active backends exist, terminating backends must not receive traffic
+ // and should be excluded from load balancing and BPF maps immediately.
+ if fe.Address.Protocol() == loadbalancer.UDP {
+ 	hasActive := false
+ 	for _, be := range orderedBackends {
+ 		if be.State == loadbalancer.BackendStateActive && !be.Unhealthy {
+ 			hasActive = true
+ 			break
+ 		}
+ 	}
+ 	if hasActive {
+ 		filtered := make([]backendWithRevision, 0, len(orderedBackends))
+ 		for _, be := range orderedBackends {
+ 			if be.State != loadbalancer.BackendStateTerminating && be.State != loadbalancer.BackendStateTerminatingNotServing {
+ 				filtered = append(filtered, be)
+ 			}
+ 		}
+ 		orderedBackends = filtered
+ 	}
+ }
 	// Clean up any orphan backends to make room for new backends
 	backendAddrs := sets.New[loadbalancer.L3n4Addr]()
 	for _, be := range orderedBackends {
