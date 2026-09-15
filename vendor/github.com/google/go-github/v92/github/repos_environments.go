@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 // Environment represents a single environment in a repository.
@@ -137,11 +138,13 @@ func (s *RepositoriesService) ListEnvironments(ctx context.Context, owner, repo 
 
 // GetEnvironment get a single environment for a repository.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/deployments/environments?apiVersion=2022-11-28#get-an-environment
 //
 //meta:operation GET /repos/{owner}/{repo}/environments/{environment_name}
 func (s *RepositoriesService) GetEnvironment(ctx context.Context, owner, repo, name string) (*Environment, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v", owner, repo, name)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v", owner, repo, url.PathEscape(name))
 	req, err := s.client.NewRequest(ctx, "GET", u, nil)
 	if err != nil {
 		return nil, nil, err
@@ -194,11 +197,13 @@ type createUpdateEnvironmentNoEnterprise struct {
 
 // CreateUpdateEnvironment create or update a new environment for a repository.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/deployments/environments?apiVersion=2022-11-28#create-or-update-an-environment
 //
 //meta:operation PUT /repos/{owner}/{repo}/environments/{environment_name}
 func (s *RepositoriesService) CreateUpdateEnvironment(ctx context.Context, owner, repo, name string, body *CreateUpdateEnvironment) (*Environment, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v", owner, repo, name)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v", owner, repo, url.PathEscape(name))
 	req, err := s.client.NewRequest(ctx, "PUT", u, body)
 	if err != nil {
 		return nil, nil, err
@@ -243,11 +248,13 @@ func (s *RepositoriesService) createNewEnvNoEnterprise(ctx context.Context, u st
 
 // DeleteEnvironment delete an environment from a repository.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/deployments/environments?apiVersion=2022-11-28#delete-an-environment
 //
 //meta:operation DELETE /repos/{owner}/{repo}/environments/{environment_name}
 func (s *RepositoriesService) DeleteEnvironment(ctx context.Context, owner, repo, name string) (*Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v", owner, repo, name)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v", owner, repo, url.PathEscape(name))
 	req, err := s.client.NewRequest(ctx, "DELETE", u, nil)
 	if err != nil {
 		return nil, err

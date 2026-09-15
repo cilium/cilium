@@ -38,6 +38,7 @@ type HostedRunner struct {
 	MaximumRunners     *int64                   `json:"maximum_runners,omitempty"`
 	PublicIPEnabled    *bool                    `json:"public_ip_enabled,omitempty"`
 	PublicIPs          []*HostedRunnerPublicIP  `json:"public_ips,omitempty"`
+	ImageGen           *bool                    `json:"image_gen,omitempty"`
 	LastActiveOn       *Timestamp               `json:"last_active_on,omitempty"`
 }
 
@@ -112,6 +113,7 @@ type UpdateHostedRunnerRequest struct {
 	Size           *string `json:"size,omitempty"`
 	ImageID        *string `json:"image_id,omitempty"`
 	ImageVersion   *string `json:"image_version,omitempty"`
+	ImageGen       *bool   `json:"image_gen,omitempty"`
 }
 
 // validateCreateHostedRunnerRequest validates the provided CreateHostedRunnerRequest to ensure

@@ -150,8 +150,8 @@ func (s *CodespacesService) List(ctx context.Context, opts *ListCodespacesOption
 	return codespaces, resp, nil
 }
 
-// CreateCodespaceOptions represents options for the creation of a codespace in a repository.
-type CreateCodespaceOptions struct {
+// CreateCodespaceRequest represents a request to create a codespace in a repository.
+type CreateCodespaceRequest struct {
 	Ref *string `json:"ref,omitempty"`
 	// Geo represents the geographic area for this codespace.
 	// If not specified, the value is assigned by IP.
@@ -212,11 +212,11 @@ type CodespacePullRequestOptions struct {
 	RepositoryID int64 `json:"repository_id"`
 }
 
-// CodespaceCreateForUserOptions represents options for creating a codespace for the authenticated user.
-type CodespaceCreateForUserOptions struct {
-	PullRequest *CodespacePullRequestOptions `json:"pull_request"`
+// CreateCodespaceForUserRequest represents a request to create a codespace for the authenticated user.
+type CreateCodespaceForUserRequest struct {
+	PullRequest *CodespacePullRequestOptions `json:"pull_request,omitempty"`
 	// RepositoryID represents the repository ID for this codespace.
-	RepositoryID               int64   `json:"repository_id"`
+	RepositoryID               *int64  `json:"repository_id,omitempty"`
 	Ref                        *string `json:"ref,omitempty"`
 	Geo                        *string `json:"geo,omitempty"`
 	ClientIP                   *string `json:"client_ip,omitempty"`
@@ -230,10 +230,12 @@ type CodespaceCreateForUserOptions struct {
 	DisplayName                *string `json:"display_name,omitempty"`
 }
 
-// UpdateCodespaceOptions represents options for updating a codespace.
-type UpdateCodespaceOptions struct {
+// UpdateCodespaceRequest represents a request to update a codespace.
+type UpdateCodespaceRequest struct {
 	// Machine represents a valid machine to transition this codespace to.
 	Machine *string `json:"machine,omitempty"`
+	// DisplayName represents the display name for this codespace.
+	DisplayName *string `json:"display_name,omitempty"`
 	// RecentFolders represents the recently opened folders inside the codespace.
 	// It is currently used by the clients to determine the folder path to load the codespace in.
 	RecentFolders []string `json:"recent_folders,omitempty"`
@@ -251,8 +253,8 @@ type CodespaceExport struct {
 	HTMLURL     *string    `json:"html_url,omitempty"`
 }
 
-// PublishCodespaceOptions represents options for creating a repository from an unpublished codespace.
-type PublishCodespaceOptions struct {
+// PublishCodespaceRequest represents a request to create a repository from an unpublished codespace.
+type PublishCodespaceRequest struct {
 	// Name represents the name of the new repository.
 	Name *string `json:"name,omitempty"`
 	// Private represents whether the new repository is private. Defaults to false.
@@ -273,7 +275,7 @@ type CodespacePermissions struct {
 // GitHub API docs: https://docs.github.com/rest/codespaces/codespaces?apiVersion=2022-11-28#create-a-codespace-in-a-repository
 //
 //meta:operation POST /repos/{owner}/{repo}/codespaces
-func (s *CodespacesService) CreateInRepo(ctx context.Context, owner, repo string, body *CreateCodespaceOptions) (*Codespace, *Response, error) {
+func (s *CodespacesService) CreateInRepo(ctx context.Context, owner, repo string, body CreateCodespaceRequest) (*Codespace, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/codespaces", owner, repo)
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
 	if err != nil {
@@ -444,7 +446,7 @@ func (s *CodespacesService) CheckPermissions(ctx context.Context, owner, repo, r
 // GitHub API docs: https://docs.github.com/rest/codespaces/codespaces?apiVersion=2022-11-28#create-a-codespace-from-a-pull-request
 //
 //meta:operation POST /repos/{owner}/{repo}/pulls/{pull_number}/codespaces
-func (s *CodespacesService) CreateFromPullRequest(ctx context.Context, owner, repo string, pullNumber int, body *CreateCodespaceOptions) (*Codespace, *Response, error) {
+func (s *CodespacesService) CreateFromPullRequest(ctx context.Context, owner, repo string, pullNumber int, body CreateCodespaceRequest) (*Codespace, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/pulls/%v/codespaces", owner, repo, pullNumber)
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
 	if err != nil {
@@ -462,12 +464,12 @@ func (s *CodespacesService) CreateFromPullRequest(ctx context.Context, owner, re
 
 // Create creates a new codespace, owned by the authenticated user.
 //
-// This method requires either RepositoryId OR a PullRequest but not both.
+// This method requires either RepositoryID or PullRequest to be set, but not both.
 //
 // GitHub API docs: https://docs.github.com/rest/codespaces/codespaces?apiVersion=2022-11-28#create-a-codespace-for-the-authenticated-user
 //
 //meta:operation POST /user/codespaces
-func (s *CodespacesService) Create(ctx context.Context, body *CodespaceCreateForUserOptions) (*Codespace, *Response, error) {
+func (s *CodespacesService) Create(ctx context.Context, body CreateCodespaceForUserRequest) (*Codespace, *Response, error) {
 	u := "user/codespaces"
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
 	if err != nil {
@@ -511,7 +513,7 @@ func (s *CodespacesService) Get(ctx context.Context, codespaceName string) (*Cod
 // GitHub API docs: https://docs.github.com/rest/codespaces/codespaces?apiVersion=2022-11-28#update-a-codespace-for-the-authenticated-user
 //
 //meta:operation PATCH /user/codespaces/{codespace_name}
-func (s *CodespacesService) Update(ctx context.Context, codespaceName string, body *UpdateCodespaceOptions) (*Codespace, *Response, error) {
+func (s *CodespacesService) Update(ctx context.Context, codespaceName string, body UpdateCodespaceRequest) (*Codespace, *Response, error) {
 	u := fmt.Sprintf("user/codespaces/%v", codespaceName)
 	req, err := s.client.NewRequest(ctx, "PATCH", u, body)
 	if err != nil {
@@ -574,7 +576,7 @@ func (s *CodespacesService) GetLatestCodespaceExport(ctx context.Context, codesp
 // GitHub API docs: https://docs.github.com/rest/codespaces/codespaces?apiVersion=2022-11-28#create-a-repository-from-an-unpublished-codespace
 //
 //meta:operation POST /user/codespaces/{codespace_name}/publish
-func (s *CodespacesService) Publish(ctx context.Context, codespaceName string, body *PublishCodespaceOptions) (*Codespace, *Response, error) {
+func (s *CodespacesService) Publish(ctx context.Context, codespaceName string, body PublishCodespaceRequest) (*Codespace, *Response, error) {
 	u := fmt.Sprintf("user/codespaces/%v/publish", codespaceName)
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
 	if err != nil {

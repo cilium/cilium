@@ -456,3 +456,98 @@ func (s *BillingService) GetUserAICreditUsage(ctx context.Context, username stri
 
 	return aiCreditUsage, resp, nil
 }
+
+// UsageSummaryOptions specifies optional parameters for the
+// BillingService.GetOrganizationUsageSummary and BillingService.GetUserUsageSummary methods.
+type UsageSummaryOptions struct {
+	Year       int    `url:"year,omitempty"`
+	Month      int    `url:"month,omitempty"`
+	Day        int    `url:"day,omitempty"`
+	Repository string `url:"repository,omitempty"`
+	Product    string `url:"product,omitempty"`
+	SKU        string `url:"sku,omitempty"`
+}
+
+// UsageSummaryTimePeriod represents a time period for billing usage summary reports.
+type UsageSummaryTimePeriod struct {
+	Year  int  `json:"year"`
+	Month *int `json:"month,omitempty"`
+	Day   *int `json:"day,omitempty"`
+}
+
+// UsageSummaryItem represents a single usage line item in a billing usage summary report.
+type UsageSummaryItem struct {
+	Product          string  `json:"product"`
+	SKU              string  `json:"sku"`
+	UnitType         string  `json:"unitType"`
+	PricePerUnit     float64 `json:"pricePerUnit"`
+	GrossQuantity    float64 `json:"grossQuantity"`
+	GrossAmount      float64 `json:"grossAmount"`
+	DiscountQuantity float64 `json:"discountQuantity"`
+	DiscountAmount   float64 `json:"discountAmount"`
+	NetQuantity      float64 `json:"netQuantity"`
+	NetAmount        float64 `json:"netAmount"`
+}
+
+// UsageSummaryReport represents the billing usage summary report response.
+type UsageSummaryReport struct {
+	TimePeriod   UsageSummaryTimePeriod `json:"timePeriod"`
+	Organization *string                `json:"organization,omitempty"`
+	User         *string                `json:"user,omitempty"`
+	Repository   *string                `json:"repository,omitempty"`
+	Product      *string                `json:"product,omitempty"`
+	SKU          *string                `json:"sku,omitempty"`
+	UsageItems   []*UsageSummaryItem    `json:"usageItems"`
+}
+
+// GetOrganizationUsageSummary returns a summary report of usage for an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/billing/usage?apiVersion=2022-11-28#get-billing-usage-summary-for-an-organization
+//
+//meta:operation GET /organizations/{org}/settings/billing/usage/summary
+func (s *BillingService) GetOrganizationUsageSummary(ctx context.Context, org string, opts *UsageSummaryOptions) (*UsageSummaryReport, *Response, error) {
+	u := fmt.Sprintf("organizations/%v/settings/billing/usage/summary", org)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *UsageSummaryReport
+	resp, err := s.client.Do(req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
+// GetUserUsageSummary returns a summary report of usage for a user.
+//
+// GitHub API docs: https://docs.github.com/rest/billing/usage?apiVersion=2022-11-28#get-billing-usage-summary-for-a-user
+//
+//meta:operation GET /users/{username}/settings/billing/usage/summary
+func (s *BillingService) GetUserUsageSummary(ctx context.Context, user string, opts *UsageSummaryOptions) (*UsageSummaryReport, *Response, error) {
+	u := fmt.Sprintf("users/%v/settings/billing/usage/summary", user)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *UsageSummaryReport
+	resp, err := s.client.Do(req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}

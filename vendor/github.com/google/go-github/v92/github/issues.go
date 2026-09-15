@@ -54,9 +54,11 @@ type Issue struct {
 	// Deprecated: GitHub will remove this field from Events API payloads on October 7, 2025.
 	// Use the Issues REST API endpoint to retrieve this information.
 	// See: https://docs.github.com/rest/issues/issues?apiVersion=2022-11-28#get-an-issue
-	AuthorAssociation        *string                   `json:"author_association,omitempty"`
-	User                     *User                     `json:"user,omitempty"`
-	Labels                   []*Label                  `json:"labels,omitempty"`
+	AuthorAssociation *string  `json:"author_association,omitempty"`
+	User              *User    `json:"user,omitempty"`
+	Labels            []*Label `json:"labels,omitempty"`
+	// Deprecated: GitHub REST API version 2026-03-10 removed the singular assignee field.
+	// Use Assignees instead.
 	Assignee                 *User                     `json:"assignee,omitempty"`
 	Comments                 *int                      `json:"comments,omitempty"`
 	ClosedAt                 *Timestamp                `json:"closed_at,omitempty"`
@@ -159,6 +161,7 @@ type IssueType struct {
 	Name        *string    `json:"name,omitempty"`
 	Description *string    `json:"description,omitempty"`
 	Color       *string    `json:"color,omitempty"`
+	IsEnabled   *bool      `json:"is_enabled,omitempty"`
 	CreatedAt   *Timestamp `json:"created_at,omitempty"`
 	UpdatedAt   *Timestamp `json:"updated_at,omitempty"`
 }

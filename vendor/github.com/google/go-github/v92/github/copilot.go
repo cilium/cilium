@@ -21,6 +21,226 @@ import (
 // GitHub API docs: https://docs.github.com/rest/copilot?apiVersion=2022-11-28
 type CopilotService service
 
+// CopilotSpace represents a Copilot Space.
+type CopilotSpace struct {
+	ID                  int64   `json:"id"`
+	Number              int     `json:"number"`
+	Name                string  `json:"name"`
+	Description         *string `json:"description,omitempty"`
+	GeneralInstructions *string `json:"general_instructions,omitempty"`
+	// Owner can either be a User or an Organization.
+	Owner               any                     `json:"owner"`
+	Creator             User                    `json:"creator"`
+	CreatedAt           Timestamp               `json:"created_at"`
+	UpdatedAt           Timestamp               `json:"updated_at"`
+	HTMLURL             string                  `json:"html_url"`
+	APIURL              string                  `json:"api_url"`
+	BaseRole            string                  `json:"base_role"`
+	ResourcesAttributes []*CopilotSpaceResource `json:"resources_attributes,omitempty"`
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (c *CopilotSpace) UnmarshalJSON(data []byte) error {
+	// Define a new type without methods to avoid recursively calling UnmarshalJSON.
+	type alias CopilotSpace
+	var space alias
+
+	if err := json.Unmarshal(data, &space); err != nil {
+		return err
+	}
+
+	switch v := space.Owner.(type) {
+	case nil:
+		space.Owner = nil
+	case map[string]any:
+		if t, ok := v["type"].(string); ok && t == "User" {
+			space.Owner = &User{}
+		} else if t, ok := v["type"].(string); ok && t == "Organization" {
+			space.Owner = &Organization{}
+		} else if _, ok := v["hooks_url"]; ok {
+			space.Owner = &Organization{}
+		} else {
+			return fmt.Errorf("unsupported owner type %v", v["type"])
+		}
+		if err := json.Unmarshal(data, &space); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unsupported owner type %T", v)
+	}
+	*c = CopilotSpace(space)
+	return nil
+}
+
+// CopilotSpaceResource represents a resource attached to a Copilot Space.
+type CopilotSpaceResource struct {
+	ID                      *int64                `json:"id,omitempty"`
+	ResourceType            *string               `json:"resource_type,omitempty"`
+	Metadata                *CopilotSpaceMetadata `json:"metadata,omitempty"`
+	CopilotChatAttachmentID *int64                `json:"copilot_chat_attachment_id,omitempty"`
+	CreatedAt               *Timestamp            `json:"created_at,omitempty"`
+	UpdatedAt               *Timestamp            `json:"updated_at,omitempty"`
+}
+
+// CreateCopilotSpaceResourceAttributes represents a resource to attach when creating a Copilot Space.
+type CreateCopilotSpaceResourceAttributes struct {
+	ResourceType *string               `json:"resource_type,omitempty"`
+	Metadata     *CopilotSpaceMetadata `json:"metadata,omitempty"`
+}
+
+// UpdateCopilotSpaceResourceAttributes represents a resource to attach, update, or remove when updating a Copilot Space.
+type UpdateCopilotSpaceResourceAttributes struct {
+	ID           *int64                `json:"id,omitempty"`
+	ResourceType *string               `json:"resource_type,omitempty"`
+	Metadata     *CopilotSpaceMetadata `json:"metadata,omitempty"`
+	Destroy      *bool                 `json:"_destroy,omitempty"`
+}
+
+// CopilotSpaceMetadata represents metadata specific to a Copilot Space resource type.
+type CopilotSpaceMetadata struct {
+	RepositoryID            *int64  `json:"repository_id,omitempty"`
+	FilePath                *string `json:"file_path,omitempty"`
+	Text                    *string `json:"text,omitempty"`
+	Name                    *string `json:"name,omitempty"`
+	Number                  *int    `json:"number,omitempty"`
+	CopilotChatAttachmentID *int64  `json:"copilot_chat_attachment_id,omitempty"`
+	MediaType               *string `json:"media_type,omitempty"`
+	URL                     *string `json:"url,omitempty"`
+	Height                  *int    `json:"height,omitempty"`
+	Width                   *int    `json:"width,omitempty"`
+}
+
+// CreateOrganizationCopilotSpaceRequest represents a request to create a Copilot Space.
+type CreateOrganizationCopilotSpaceRequest struct {
+	Name                string                                  `json:"name"`
+	Description         *string                                 `json:"description,omitempty"`
+	GeneralInstructions *string                                 `json:"general_instructions,omitempty"`
+	BaseRole            *string                                 `json:"base_role,omitempty"`
+	ResourcesAttributes []*CreateCopilotSpaceResourceAttributes `json:"resources_attributes,omitempty"`
+}
+
+// UpdateOrganizationCopilotSpaceRequest represents a request to update a Copilot Space.
+type UpdateOrganizationCopilotSpaceRequest struct {
+	Name                *string                                 `json:"name,omitempty"`
+	Description         *string                                 `json:"description,omitempty"`
+	GeneralInstructions *string                                 `json:"general_instructions,omitempty"`
+	BaseRole            *string                                 `json:"base_role,omitempty"`
+	ResourcesAttributes []*UpdateCopilotSpaceResourceAttributes `json:"resources_attributes,omitempty"`
+}
+
+// CopilotSpacesList represents a list of Copilot Spaces.
+type CopilotSpacesList struct {
+	Spaces []*CopilotSpace `json:"spaces"`
+}
+
+// ListOrganizationCopilotSpaces lists Copilot Spaces for an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/copilot-spaces/copilot-spaces?apiVersion=2022-11-28#list-organization-copilot-spaces
+//
+//meta:operation GET /orgs/{org}/copilot-spaces
+func (s *CopilotService) ListOrganizationCopilotSpaces(ctx context.Context, org string, opts *ListCursorOptions) (*CopilotSpacesList, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/copilot-spaces", org)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var spaces *CopilotSpacesList
+	resp, err := s.client.Do(req, &spaces)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return spaces, resp, nil
+}
+
+// GetOrganizationCopilotSpace gets a Copilot Space for an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/copilot-spaces/copilot-spaces?apiVersion=2022-11-28#get-an-organization-copilot-space
+//
+//meta:operation GET /orgs/{org}/copilot-spaces/{space_number}
+func (s *CopilotService) GetOrganizationCopilotSpace(ctx context.Context, org string, spaceNumber int) (*CopilotSpace, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/copilot-spaces/%v", org, spaceNumber)
+
+	req, err := s.client.NewRequest(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var space *CopilotSpace
+	resp, err := s.client.Do(req, &space)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return space, resp, nil
+}
+
+// CreateOrganizationCopilotSpace creates a Copilot Space for an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/copilot-spaces/copilot-spaces?apiVersion=2022-11-28#create-an-organization-copilot-space
+//
+//meta:operation POST /orgs/{org}/copilot-spaces
+func (s *CopilotService) CreateOrganizationCopilotSpace(ctx context.Context, org string, body CreateOrganizationCopilotSpaceRequest) (*CopilotSpace, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/copilot-spaces", org)
+
+	req, err := s.client.NewRequest(ctx, "POST", u, body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var space *CopilotSpace
+	resp, err := s.client.Do(req, &space)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return space, resp, nil
+}
+
+// UpdateOrganizationCopilotSpace updates a Copilot Space for an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/copilot-spaces/copilot-spaces?apiVersion=2022-11-28#set-an-organization-copilot-space
+//
+//meta:operation PUT /orgs/{org}/copilot-spaces/{space_number}
+func (s *CopilotService) UpdateOrganizationCopilotSpace(ctx context.Context, org string, spaceNumber int, body UpdateOrganizationCopilotSpaceRequest) (*CopilotSpace, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/copilot-spaces/%v", org, spaceNumber)
+
+	req, err := s.client.NewRequest(ctx, "PUT", u, body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var space *CopilotSpace
+	resp, err := s.client.Do(req, &space)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return space, resp, nil
+}
+
+// DeleteOrganizationCopilotSpace deletes a Copilot Space for an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/copilot-spaces/copilot-spaces?apiVersion=2022-11-28#delete-an-organization-copilot-space
+//
+//meta:operation DELETE /orgs/{org}/copilot-spaces/{space_number}
+func (s *CopilotService) DeleteOrganizationCopilotSpace(ctx context.Context, org string, spaceNumber int) (*Response, error) {
+	u := fmt.Sprintf("orgs/%v/copilot-spaces/%v", org, spaceNumber)
+
+	req, err := s.client.NewRequest(ctx, "DELETE", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.client.Do(req, nil)
+}
+
 // CopilotOrganizationDetails represents the details of an organization's Copilot for Business subscription.
 type CopilotOrganizationDetails struct {
 	SeatBreakdown         *CopilotSeatBreakdown `json:"seat_breakdown"`
@@ -879,11 +1099,132 @@ func (s *CopilotService) GetOrganizationUsersMetricsReport(ctx context.Context, 
 	return report, resp, nil
 }
 
+// GetEnterpriseRepositoriesDailyMetricsReport gets a report containing Copilot
+// repository-level pull request metrics for a single day for an enterprise.
+//
+// Use DownloadRepositoryDailyMetrics to decode the payloads served at the returned download links.
+//
+// GitHub API docs: https://docs.github.com/rest/copilot/copilot-usage-metrics?apiVersion=2022-11-28#get-copilot-enterprise-repository-report-for-a-specific-day
+//
+//meta:operation GET /enterprises/{enterprise}/copilot/metrics/reports/repos-1-day
+func (s *CopilotService) GetEnterpriseRepositoriesDailyMetricsReport(ctx context.Context, enterprise string, opts *CopilotMetricsReportOptions) (*CopilotDailyMetricsReport, *Response, error) {
+	u := fmt.Sprintf("enterprises/%v/copilot/metrics/reports/repos-1-day", enterprise)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotDailyMetricsReport
+	resp, err := s.client.Do(req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
+// GetOrganizationRepositoriesDailyMetricsReport gets a report containing Copilot
+// repository-level pull request metrics for a single day for an organization.
+//
+// Use DownloadRepositoryDailyMetrics to decode the payloads served at the returned download links.
+//
+// GitHub API docs: https://docs.github.com/rest/copilot/copilot-usage-metrics?apiVersion=2022-11-28#get-copilot-organization-repository-report-for-a-specific-day
+//
+//meta:operation GET /orgs/{org}/copilot/metrics/reports/repos-1-day
+func (s *CopilotService) GetOrganizationRepositoriesDailyMetricsReport(ctx context.Context, org string, opts *CopilotMetricsReportOptions) (*CopilotDailyMetricsReport, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/copilot/metrics/reports/repos-1-day", org)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotDailyMetricsReport
+	resp, err := s.client.Do(req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
+// GetEnterpriseUserTeamsDailyMetricsReport gets a report containing Copilot
+// user-team membership data for a single day for an enterprise.
+//
+// Use DownloadUserTeamsDailyMetrics to decode the payloads served at the returned download links.
+// Join these records with per-user usage metrics on user_id, day, and enterprise_id to
+// construct team-level metrics.
+//
+// GitHub API docs: https://docs.github.com/rest/copilot/copilot-usage-metrics?apiVersion=2022-11-28#get-copilot-enterprise-user-teams-report-for-a-specific-day
+//
+//meta:operation GET /enterprises/{enterprise}/copilot/metrics/reports/user-teams-1-day
+func (s *CopilotService) GetEnterpriseUserTeamsDailyMetricsReport(ctx context.Context, enterprise string, opts *CopilotMetricsReportOptions) (*CopilotDailyMetricsReport, *Response, error) {
+	u := fmt.Sprintf("enterprises/%v/copilot/metrics/reports/user-teams-1-day", enterprise)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotDailyMetricsReport
+	resp, err := s.client.Do(req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
+// GetOrganizationUserTeamsDailyMetricsReport gets a report containing Copilot
+// user-team membership data for a single day for an organization.
+//
+// Use DownloadUserTeamsDailyMetrics to decode the payloads served at the returned download links.
+// Join these records with per-user usage metrics on user_id, day, and organization_id to
+// construct team-level metrics.
+//
+// GitHub API docs: https://docs.github.com/rest/copilot/copilot-usage-metrics?apiVersion=2022-11-28#get-copilot-organization-user-teams-report-for-a-specific-day
+//
+//meta:operation GET /orgs/{org}/copilot/metrics/reports/user-teams-1-day
+func (s *CopilotService) GetOrganizationUserTeamsDailyMetricsReport(ctx context.Context, org string, opts *CopilotMetricsReportOptions) (*CopilotDailyMetricsReport, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/copilot/metrics/reports/user-teams-1-day", org)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest(ctx, "GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotDailyMetricsReport
+	resp, err := s.client.Do(req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
 // DownloadCopilotMetrics downloads a Copilot metrics report from the provided download link
 // and decodes it as a []*CopilotMetrics.
 //
 // Deprecated: Use DownloadDailyMetrics,
-// DownloadPeriodicMetrics, DownloadUserDailyMetrics, DownloadUserPeriodicMetrics instead.
+// DownloadPeriodicMetrics, DownloadUserDailyMetrics, DownloadUserPeriodicMetrics,
+// DownloadRepositoryDailyMetrics, DownloadUserTeamsDailyMetrics instead.
 // The payloads served at the download links returned by the new
 // Get*MetricsReport endpoints on GitHub.com do not match the CopilotMetrics shape
 // (see https://github.com/google/go-github/issues/4136).
@@ -909,22 +1250,48 @@ func (s *CopilotService) DownloadCopilotMetrics(ctx context.Context, url string)
 	return metrics, resp, nil
 }
 
+// CopilotMetricsCopilotSuggestionByCommentType represents Copilot code review suggestion
+// counts broken down by comment type in a pull_requests object.
+//
+// GitHub API docs: https://docs.github.com/en/copilot/reference/copilot-usage-metrics/copilot-usage-metrics#pull-request-activity-fields
+type CopilotMetricsCopilotSuggestionByCommentType struct {
+	CommentType                    string `json:"comment_type"`
+	TotalCopilotSuggestions        *int   `json:"total_copilot_suggestions,omitempty"`
+	TotalCopilotAppliedSuggestions *int   `json:"total_copilot_applied_suggestions,omitempty"`
+}
+
 // CopilotMetricsPullRequests represents pull request totals in a Copilot metrics report.
 type CopilotMetricsPullRequests struct {
-	TotalReviewed                       *int     `json:"total_reviewed,omitempty"`
-	TotalCreated                        *int     `json:"total_created,omitempty"`
-	TotalCreatedByCopilot               *int     `json:"total_created_by_copilot,omitempty"`
-	TotalReviewedByCopilot              *int     `json:"total_reviewed_by_copilot,omitempty"`
-	TotalMerged                         *int     `json:"total_merged,omitempty"`
-	MedianMinutesToMerge                *float64 `json:"median_minutes_to_merge,omitempty"`
-	TotalSuggestions                    *int     `json:"total_suggestions,omitempty"`
-	TotalAppliedSuggestions             *int     `json:"total_applied_suggestions,omitempty"`
-	TotalMergedCreatedByCopilot         *int     `json:"total_merged_created_by_copilot,omitempty"`
-	MedianMinutesToMergeCopilotAuthored *float64 `json:"median_minutes_to_merge_copilot_authored,omitempty"`
-	TotalCopilotSuggestions             *int     `json:"total_copilot_suggestions,omitempty"`
-	TotalCopilotAppliedSuggestions      *int     `json:"total_copilot_applied_suggestions,omitempty"`
-	MedianMinutesToMergeCopilotReviewed *float64 `json:"median_minutes_to_merge_copilot_reviewed,omitempty"`
-	TotalMergedReviewedByCopilot        *int     `json:"total_merged_reviewed_by_copilot,omitempty"`
+	TotalReviewed                       *int                                            `json:"total_reviewed,omitempty"`
+	TotalCreated                        *int                                            `json:"total_created,omitempty"`
+	TotalCreatedByCopilot               *int                                            `json:"total_created_by_copilot,omitempty"`
+	TotalReviewedByCopilot              *int                                            `json:"total_reviewed_by_copilot,omitempty"`
+	TotalMerged                         *int                                            `json:"total_merged,omitempty"`
+	MedianMinutesToMerge                *float64                                        `json:"median_minutes_to_merge,omitempty"`
+	TotalSuggestions                    *int                                            `json:"total_suggestions,omitempty"`
+	TotalAppliedSuggestions             *int                                            `json:"total_applied_suggestions,omitempty"`
+	TotalMergedCreatedByCopilot         *int                                            `json:"total_merged_created_by_copilot,omitempty"`
+	MedianMinutesToMergeCopilotAuthored *float64                                        `json:"median_minutes_to_merge_copilot_authored,omitempty"`
+	TotalCopilotSuggestions             *int                                            `json:"total_copilot_suggestions,omitempty"`
+	TotalCopilotAppliedSuggestions      *int                                            `json:"total_copilot_applied_suggestions,omitempty"`
+	MedianMinutesToMergeCopilotReviewed *float64                                        `json:"median_minutes_to_merge_copilot_reviewed,omitempty"`
+	TotalMergedReviewedByCopilot        *int                                            `json:"total_merged_reviewed_by_copilot,omitempty"`
+	CopilotSuggestionsByCommentType     []*CopilotMetricsCopilotSuggestionByCommentType `json:"copilot_suggestions_by_comment_type,omitempty"`
+}
+
+// CopilotRepositoryDailyMetrics represents a single repository's per-day Copilot pull request
+// metrics record from a repos-1-day report. Repository reports are served as newline-delimited JSON.
+//
+// GitHub API docs: https://docs.github.com/en/copilot/reference/copilot-usage-metrics/copilot-usage-metrics#repository-level-fields-api-only
+type CopilotRepositoryDailyMetrics struct {
+	Day            string                      `json:"day"`
+	EnterpriseID   *string                     `json:"enterprise_id,omitempty"`
+	OrganizationID *string                     `json:"organization_id,omitempty"`
+	RepoID         int64                       `json:"repo_id"`
+	RepoOwnerName  string                      `json:"repo_owner_name"`
+	RepoName       string                      `json:"repo_name"`
+	RepoVisibility string                      `json:"repo_visibility"`
+	PullRequests   *CopilotMetricsPullRequests `json:"pull_requests,omitempty"`
 }
 
 // CopilotMetricsCodeActivity captures the code-generation activity counts and lines-of-code (LOC)
@@ -1157,6 +1524,22 @@ type CopilotUserMetricsIDE struct {
 	LastKnownIDEVersion    *CopilotUserMetricsIDEVersion    `json:"last_known_ide_version,omitempty"`
 }
 
+// CopilotUserTeamsDailyMetrics represents a user-team membership record from a user-teams-1-day
+// report. These records are joined with per-user usage metrics to construct team-level metrics.
+// Teams with fewer than 5 seated Copilot users are omitted from the report.
+// User-teams reports are served as newline-delimited JSON.
+//
+// GitHub API docs: https://docs.github.com/en/copilot/reference/copilot-usage-metrics/copilot-usage-metrics#user-teams-fields
+type CopilotUserTeamsDailyMetrics struct {
+	UserID         int64   `json:"user_id"`
+	UserLogin      string  `json:"user_login"`
+	Day            string  `json:"day"`
+	OrganizationID *string `json:"organization_id,omitempty"`
+	EnterpriseID   *string `json:"enterprise_id,omitempty"`
+	TeamID         int64   `json:"team_id"`
+	Slug           string  `json:"slug"`
+}
+
 // CopilotUserDailyMetrics represents a single user's per-day Copilot usage metrics record from a
 // 1-day user metrics report. User metrics reports are served as newline-delimited JSON.
 type CopilotUserDailyMetrics struct {
@@ -1343,6 +1726,44 @@ func (s *CopilotService) DownloadUserPeriodicMetrics(ctx context.Context, url st
 	defer resp.Body.Close()
 
 	records, err := decodeNDJSONMetrics[CopilotUserPeriodicMetrics](resp.Body)
+	if err != nil {
+		return nil, r, err
+	}
+	return records, r, nil
+}
+
+// DownloadRepositoryDailyMetrics downloads the payload of a 1-day Copilot repository metrics
+// report from a download link returned by GetEnterpriseRepositoriesDailyMetricsReport or
+// GetOrganizationRepositoriesDailyMetricsReport.
+//
+// The response is newline-delimited JSON, with one CopilotRepositoryDailyMetrics record per line.
+func (s *CopilotService) DownloadRepositoryDailyMetrics(ctx context.Context, url string) ([]*CopilotRepositoryDailyMetrics, *Response, error) {
+	resp, r, err := s.fetchMetricsReport(ctx, url)
+	if err != nil {
+		return nil, r, err
+	}
+	defer resp.Body.Close()
+
+	records, err := decodeNDJSONMetrics[CopilotRepositoryDailyMetrics](resp.Body)
+	if err != nil {
+		return nil, r, err
+	}
+	return records, r, nil
+}
+
+// DownloadUserTeamsDailyMetrics downloads the payload of a 1-day Copilot user-teams report from a
+// download link returned by GetEnterpriseUserTeamsDailyMetricsReport or
+// GetOrganizationUserTeamsDailyMetricsReport.
+//
+// The response is newline-delimited JSON, with one CopilotUserTeamsDailyMetrics record per line.
+func (s *CopilotService) DownloadUserTeamsDailyMetrics(ctx context.Context, url string) ([]*CopilotUserTeamsDailyMetrics, *Response, error) {
+	resp, r, err := s.fetchMetricsReport(ctx, url)
+	if err != nil {
+		return nil, r, err
+	}
+	defer resp.Body.Close()
+
+	records, err := decodeNDJSONMetrics[CopilotUserTeamsDailyMetrics](resp.Body)
 	if err != nil {
 		return nil, r, err
 	}

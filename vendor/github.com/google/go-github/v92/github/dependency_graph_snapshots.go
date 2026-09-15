@@ -41,8 +41,8 @@ type DependencyGraphSnapshotResolvedDependency struct {
 //
 // GitHub API docs: https://docs.github.com/rest/dependency-graph/dependency-submission?apiVersion=2022-11-28#create-a-snapshot-of-dependencies-for-a-repository
 type DependencyGraphSnapshotJob struct {
-	Correlator *string `json:"correlator,omitempty"`
-	ID         *string `json:"id,omitempty"`
+	Correlator string  `json:"correlator"`
+	ID         string  `json:"id"`
 	HTMLURL    *string `json:"html_url,omitempty"`
 }
 
@@ -50,9 +50,9 @@ type DependencyGraphSnapshotJob struct {
 //
 // GitHub API docs: https://docs.github.com/rest/dependency-graph/dependency-submission?apiVersion=2022-11-28#create-a-snapshot-of-dependencies-for-a-repository
 type DependencyGraphSnapshotDetector struct {
-	Name    *string `json:"name,omitempty"`
-	Version *string `json:"version,omitempty"`
-	URL     *string `json:"url,omitempty"`
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	URL     string `json:"url"`
 }
 
 // DependencyGraphSnapshotManifestFile represents the file declaring the repository's dependencies.
@@ -66,22 +66,24 @@ type DependencyGraphSnapshotManifestFile struct {
 //
 // GitHub API docs: https://docs.github.com/rest/dependency-graph/dependency-submission?apiVersion=2022-11-28#create-a-snapshot-of-dependencies-for-a-repository
 type DependencyGraphSnapshotManifest struct {
-	Name     *string                                               `json:"name,omitempty"`
+	Name     string                                                `json:"name"`
 	File     *DependencyGraphSnapshotManifestFile                  `json:"file,omitempty"`
 	Metadata map[string]any                                        `json:"metadata,omitempty"`
 	Resolved map[string]*DependencyGraphSnapshotResolvedDependency `json:"resolved,omitempty"`
 }
 
-// DependencyGraphSnapshot represent a snapshot of a repository's dependencies.
+// CreateDependencyGraphSnapshotRequest represents a request to create a snapshot of a repository's dependencies.
 //
 // GitHub API docs: https://docs.github.com/rest/dependency-graph/dependency-submission?apiVersion=2022-11-28#create-a-snapshot-of-dependencies-for-a-repository
-type DependencyGraphSnapshot struct {
+//
+//meta:schema request POST /repos/{owner}/{repo}/dependency-graph/snapshots
+type CreateDependencyGraphSnapshotRequest struct {
 	Version   int                                         `json:"version"`
-	Sha       *string                                     `json:"sha,omitempty"`
-	Ref       *string                                     `json:"ref,omitempty"`
-	Job       *DependencyGraphSnapshotJob                 `json:"job,omitempty"`
-	Detector  *DependencyGraphSnapshotDetector            `json:"detector,omitempty"`
-	Scanned   *Timestamp                                  `json:"scanned,omitempty"`
+	SHA       string                                      `json:"sha"`
+	Ref       string                                      `json:"ref"`
+	Job       DependencyGraphSnapshotJob                  `json:"job"`
+	Detector  DependencyGraphSnapshotDetector             `json:"detector"`
+	Scanned   Timestamp                                   `json:"scanned"`
 	Metadata  map[string]any                              `json:"metadata,omitempty"`
 	Manifests map[string]*DependencyGraphSnapshotManifest `json:"manifests,omitempty"`
 }
@@ -106,7 +108,7 @@ type DependencyGraphSnapshotCreationData struct {
 // GitHub API docs: https://docs.github.com/rest/dependency-graph/dependency-submission?apiVersion=2022-11-28#create-a-snapshot-of-dependencies-for-a-repository
 //
 //meta:operation POST /repos/{owner}/{repo}/dependency-graph/snapshots
-func (s *DependencyGraphService) CreateSnapshot(ctx context.Context, owner, repo string, body *DependencyGraphSnapshot) (*DependencyGraphSnapshotCreationData, *Response, error) {
+func (s *DependencyGraphService) CreateSnapshot(ctx context.Context, owner, repo string, body CreateDependencyGraphSnapshotRequest) (*DependencyGraphSnapshotCreationData, *Response, error) {
 	url := fmt.Sprintf("repos/%v/%v/dependency-graph/snapshots", owner, repo)
 
 	req, err := s.client.NewRequest(ctx, "POST", url, body)

@@ -8,6 +8,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/url"
 )
 
 // DeploymentBranchPolicy represents a single deployment branch policy for an environment.
@@ -37,11 +38,13 @@ type UpdateDeploymentBranchPolicyRequest struct {
 
 // ListDeploymentBranchPolicies lists the deployment branch policies for an environment.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/deployments/branch-policies?apiVersion=2022-11-28#list-deployment-branch-policies
 //
 //meta:operation GET /repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies
 func (s *RepositoriesService) ListDeploymentBranchPolicies(ctx context.Context, owner, repo, environment string, opts *ListOptions) (*DeploymentBranchPolicyResponse, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies", owner, repo, environment)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies", owner, repo, url.PathEscape(environment))
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, nil, err
@@ -63,11 +66,13 @@ func (s *RepositoriesService) ListDeploymentBranchPolicies(ctx context.Context, 
 
 // GetDeploymentBranchPolicy gets a deployment branch policy for an environment.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/deployments/branch-policies?apiVersion=2022-11-28#get-a-deployment-branch-policy
 //
 //meta:operation GET /repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies/{branch_policy_id}
 func (s *RepositoriesService) GetDeploymentBranchPolicy(ctx context.Context, owner, repo, environment string, branchPolicyID int64) (*DeploymentBranchPolicy, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies/%v", owner, repo, environment, branchPolicyID)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies/%v", owner, repo, url.PathEscape(environment), branchPolicyID)
 
 	req, err := s.client.NewRequest(ctx, "GET", u, nil)
 	if err != nil {
@@ -85,11 +90,13 @@ func (s *RepositoriesService) GetDeploymentBranchPolicy(ctx context.Context, own
 
 // CreateDeploymentBranchPolicy creates a deployment branch policy for an environment.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/deployments/branch-policies?apiVersion=2022-11-28#create-a-deployment-branch-policy
 //
 //meta:operation POST /repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies
 func (s *RepositoriesService) CreateDeploymentBranchPolicy(ctx context.Context, owner, repo, environment string, body CreateDeploymentBranchPolicyRequest) (*DeploymentBranchPolicy, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies", owner, repo, environment)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies", owner, repo, url.PathEscape(environment))
 
 	req, err := s.client.NewRequest(ctx, "POST", u, body)
 	if err != nil {
@@ -107,11 +114,13 @@ func (s *RepositoriesService) CreateDeploymentBranchPolicy(ctx context.Context, 
 
 // UpdateDeploymentBranchPolicy updates a deployment branch policy for an environment.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/deployments/branch-policies?apiVersion=2022-11-28#update-a-deployment-branch-policy
 //
 //meta:operation PUT /repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies/{branch_policy_id}
 func (s *RepositoriesService) UpdateDeploymentBranchPolicy(ctx context.Context, owner, repo, environment string, branchPolicyID int64, body UpdateDeploymentBranchPolicyRequest) (*DeploymentBranchPolicy, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies/%v", owner, repo, environment, branchPolicyID)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies/%v", owner, repo, url.PathEscape(environment), branchPolicyID)
 
 	req, err := s.client.NewRequest(ctx, "PUT", u, body)
 	if err != nil {
@@ -129,11 +138,13 @@ func (s *RepositoriesService) UpdateDeploymentBranchPolicy(ctx context.Context, 
 
 // DeleteDeploymentBranchPolicy deletes a deployment branch policy for an environment.
 //
+// Note: the environment name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
+//
 // GitHub API docs: https://docs.github.com/rest/deployments/branch-policies?apiVersion=2022-11-28#delete-a-deployment-branch-policy
 //
 //meta:operation DELETE /repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies/{branch_policy_id}
 func (s *RepositoriesService) DeleteDeploymentBranchPolicy(ctx context.Context, owner, repo, environment string, branchPolicyID int64) (*Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies/%v", owner, repo, environment, branchPolicyID)
+	u := fmt.Sprintf("repos/%v/%v/environments/%v/deployment-branch-policies/%v", owner, repo, url.PathEscape(environment), branchPolicyID)
 
 	req, err := s.client.NewRequest(ctx, "DELETE", u, nil)
 	if err != nil {

@@ -9,15 +9,18 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"net/url"
 )
 
 // ListRulesForBranch gets all the repository rules that apply to the specified branch.
+//
+// Note: the branch name is URL path escaped for you. See: https://pkg.go.dev/net/url#PathEscape .
 //
 // GitHub API docs: https://docs.github.com/rest/repos/rules?apiVersion=2022-11-28#get-rules-for-a-branch
 //
 //meta:operation GET /repos/{owner}/{repo}/rules/branches/{branch}
 func (s *RepositoriesService) ListRulesForBranch(ctx context.Context, owner, repo, branch string, opts *ListOptions) (*BranchRules, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/rules/branches/%v", owner, repo, branch)
+	u := fmt.Sprintf("repos/%v/%v/rules/branches/%v", owner, repo, url.PathEscape(branch))
 
 	u, err := addOptions(u, opts)
 	if err != nil {
