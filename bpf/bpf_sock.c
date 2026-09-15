@@ -26,6 +26,9 @@
 #define SYS_REJECT	0
 #define SYS_PROCEED	1
 
+DECLARE_CONFIG(bool, disable_external_ip_mitigation,
+	       "Disable externalIP mitigation (CVE-2020-8554)")
+
 static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
 {
 	/* Check for 127.0.0.0/8 range, RFC3330. */
@@ -198,7 +201,7 @@ sock4_skip_xlate(const struct lb4_service *svc, __be32 address)
 {
 	if (lb4_to_lb6_service(svc))
 		return true;
-	if ((lb4_svc_is_external_ip(svc) && !is_defined(DISABLE_EXTERNAL_IP_MITIGATION)) ||
+	if ((lb4_svc_is_external_ip(svc) && !CONFIG(disable_external_ip_mitigation)) ||
 	    (lb4_svc_is_hostport(svc) && !is_v4_loopback(address))) {
 		const struct remote_endpoint_info *info;
 
@@ -773,7 +776,7 @@ sock6_skip_xlate(const struct lb6_service *svc, const union v6addr *address)
 {
 	if (lb6_to_lb4_service(svc))
 		return true;
-	if ((lb6_svc_is_external_ip(svc) && !is_defined(DISABLE_EXTERNAL_IP_MITIGATION)) ||
+	if ((lb6_svc_is_external_ip(svc) && !CONFIG(disable_external_ip_mitigation)) ||
 	    (lb6_svc_is_hostport(svc) && !is_v6_loopback(address))) {
 		const struct remote_endpoint_info *info;
 
