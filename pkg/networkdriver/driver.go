@@ -40,7 +40,8 @@ import (
 )
 
 var (
-	defaultDriverPluginPath = "/var/lib/kubelet/plugins/"
+	defaultDriverPluginPath         = "/var/lib/kubelet/plugins/"
+	minConsumableCapacityK8sVersion = semver.Version{Major: 1, Minor: 34}
 )
 
 func driverPluginPath(driverName string) string {
@@ -269,6 +270,9 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			case <-watch:
 			}
 		}
+		if err := driver.validateConsumableCapacityVersion(version.Version()); err != nil {
+			return err
+		}
 
 		driver.logger.DebugContext(ctx, "device and allocation tables initialized")
 
@@ -336,12 +340,39 @@ func (driver *Driver) runPublishLoop(ctx context.Context, publish func(context.C
 // and pushes it to the kubelet plugin API.
 func (driver *Driver) publish(ctx context.Context) error {
 	return driver.withLock(func() error {
+		if err := driver.validateConsumableCapacityVersion(version.Version()); err != nil {
+			return err
+		}
+
 		pools := driver.buildPoolsFromTable()
 
 		driver.logger.DebugContext(ctx, "publishing resourceslices", logfields.Count, len(pools))
 
 		return driver.draPlugin.PublishResources(ctx, resourceslice.DriverResources{Pools: pools})
 	})
+}
+
+// validateConsumableCapacityVersion prevents a device manager from relying on
+// consumable capacity before Kubernetes supports it. On Kubernetes 1.34 and
+// 1.35, the DRAConsumableCapacity feature gate must also be enabled; the DRA
+// ResourceSlice controller detects and reports when the API server drops the
+// feature-gated fields.
+func (driver *Driver) validateConsumableCapacityVersion(k8sVersion semver.Version) error {
+	if !k8sVersion.LT(minConsumableCapacityK8sVersion) {
+		return nil
+	}
+
+	txn := driver.db.ReadTxn()
+	for d := range driver.deviceTable.All(txn) {
+		if d.Dev != nil && d.Dev.AllowMultipleAllocations() {
+			return fmt.Errorf(
+				"device %q requires DRA consumable capacity, which needs Kubernetes v%s or later (detected v%s)",
+				d.Name, minConsumableCapacityK8sVersion, k8sVersion,
+			)
+		}
+	}
+
+	return nil
 }
 
 func (driver *Driver) withLock(f func() error) error {
