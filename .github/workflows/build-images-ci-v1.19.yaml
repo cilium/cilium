@@ -367,7 +367,10 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Generate SBOM, Sign, and Attest Main CI Image
+        id: cosign_ci
         if: ${{ matrix.name != 'cilium-cli' && steps.check.outputs.build != '' }}
+        # Don't redden a pull request over a syft, quay or sigstore flake.
+        continue-on-error: ${{ startsWith(github.event_name, 'pull_request') }}
         uses: ./../cilium-base-branch/.github/actions/cosign
         with:
           image: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}"
@@ -375,7 +378,9 @@ jobs:
           sbom_name: "ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
 
       - name: Generate SBOM, Sign, and Attest Race Detection Image
-        if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
+        id: cosign_race
+        if: ${{ matrix.name != 'cilium-cli' && steps.cosign_ci.outcome != 'failure' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
+        continue-on-error: ${{ startsWith(github.event_name, 'pull_request') }}
         uses: ./../cilium-base-branch/.github/actions/cosign
         with:
           image: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}"
@@ -384,13 +389,22 @@ jobs:
           install_cosign: 'false'
 
       - name: Generate SBOM, Sign, and Attest Unstripped Image
-        if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
+        id: cosign_unstripped
+        if: ${{ matrix.name != 'cilium-cli' && steps.cosign_ci.outcome != 'failure' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
+        continue-on-error: ${{ startsWith(github.event_name, 'pull_request') }}
         uses: ./../cilium-base-branch/.github/actions/cosign
         with:
           image: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}"
           image_tag: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped"
           sbom_name: "ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
           install_cosign: 'false'
+
+      # A tolerated failure reports success in the jobs API, so say it out loud here.
+      - name: Warn about unsigned CI images
+        if: ${{ steps.cosign_ci.outcome == 'failure' || steps.cosign_race.outcome == 'failure' || steps.cosign_unstripped.outcome == 'failure' }}
+        shell: bash
+        run: |
+          echo "::warning title=Unsigned CI image::${{ matrix.name }} was pushed without a cosign signature or an SBOM attestation."
 
       - name: CI Image Releases digests
         shell: bash
