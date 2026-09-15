@@ -366,6 +366,14 @@
       ]
     },
     {
+      // Signing a >1100-file vendor commit through the GitHub API times out.
+      "platformCommit": "disabled",
+      "matchFileNames": [
+        "go.mod",
+        "go.sum"
+      ]
+    },
+    {
       // Avoid updating patch releases of golang in go.mod
       "enabled": false,
       "matchFileNames": [
