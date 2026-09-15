@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
 	"sort"
 	"strings"
@@ -36,7 +37,13 @@ func PrintBGPPeersTable(w *tabwriter.Writer, peers []*models.BgpPeer, printUptim
 	for _, peer := range peers {
 		fmt.Fprintf(w, "%d\t", peer.LocalAsn)
 		fmt.Fprintf(w, "%d\t", peer.PeerAsn)
-		fmt.Fprintf(w, "%s:%d\t", peer.PeerAddress, peer.PeerPort)
+		// Unnumbered peers carry an interface name rather than an IP in
+		// PeerAddress; the ":port" suffix is only meaningful for an address.
+		if _, err := netip.ParseAddr(peer.PeerAddress); err == nil {
+			fmt.Fprintf(w, "%s:%d\t", peer.PeerAddress, peer.PeerPort)
+		} else {
+			fmt.Fprintf(w, "%s\t", peer.PeerAddress)
+		}
 		fmt.Fprintf(w, "%s\t", peer.SessionState)
 
 		if printUptime {

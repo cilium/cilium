@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/netip"
 
+	"k8s.io/utils/ptr"
+
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -292,13 +294,19 @@ func ToAgentFamily(fam v2.CiliumBGPFamily) Family {
 }
 
 // ToNeighborV2 converts a CiliumBGPNodePeer to Neighbor which can be used
-// with Router API. The caller must ensure that the np, np.PeerAddress,
-// np.PeerASN and pc are not nil.
+// with Router API. The caller must ensure that np, np.PeerASN and pc are not
+// nil. Either np.PeerAddress or np.PeerInterface must be set.
 func ToNeighborV2(np *v2.CiliumBGPNodePeer, pc *v2.CiliumBGPPeerConfigSpec, password string) *Neighbor {
 	neighbor := &Neighbor{}
 
 	neighbor.Name = np.Name
-	neighbor.Address = toPeerAddressV2(*np.PeerAddress)
+	if addr := ptr.Deref(np.PeerAddress, ""); addr != "" {
+		neighbor.Address = toPeerAddressV2(addr)
+	} else if iface := ptr.Deref(np.PeerInterface, ""); iface != "" {
+		// BGP unnumbered: no peer address, so hand gobgp the interface and let
+		// it discover the peer's link-local via IPv6 ND on it.
+		neighbor.Interface = iface
+	}
 	neighbor.ASN = uint32(*np.PeerASN)
 	neighbor.AuthPassword = password
 	neighbor.EbgpMultihop = toNeighborEbgpMultihopV2(pc.EBGPMultihop)

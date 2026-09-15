@@ -4,6 +4,7 @@
 package reconciler
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -255,6 +256,7 @@ func Test_GetAdvertisements(t *testing.T) {
 		advertisements     []*v2.CiliumBGPAdvertisement
 		reqAdvertTypes     []v2.BGPAdvertisementType
 		reqBGPNodeInstance *v2.CiliumBGPNodeInstance
+		resolvedPeers      map[string]netip.Addr
 		expectedError      bool
 		expectedAdverts    PeerAdvertisements
 	}{
@@ -306,6 +308,65 @@ func Test_GetAdvertisements(t *testing.T) {
 			reqAdvertTypes: []v2.BGPAdvertisementType{v2.BGPPodCIDRAdvert},
 			expectedAdverts: map[PeerID]PeerFamilyAdvertisements{
 				{Name: "red-peer-65001", Address: "10.0.0.1"}: map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
+					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
+					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert},
+				},
+			},
+		},
+		{
+			name: "Unnumbered peer uses the address resolved by the router",
+			peerConfig: []*v2.CiliumBGPPeerConfig{
+				redPeerConfig,
+			},
+			advertisements: []*v2.CiliumBGPAdvertisement{
+				redAdvert,
+			},
+			reqBGPNodeInstance: &v2.CiliumBGPNodeInstance{
+				Name:     "bgp-65001",
+				LocalASN: ptr.To[int64](65001),
+				Peers: []v2.CiliumBGPNodePeer{
+					{
+						Name: "red-peer-65001",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-red",
+						},
+						PeerInterface: ptr.To("eth0"),
+					},
+				},
+			},
+			resolvedPeers:  map[string]netip.Addr{"red-peer-65001": netip.MustParseAddr("fe80::1%eth0")},
+			reqAdvertTypes: []v2.BGPAdvertisementType{v2.BGPPodCIDRAdvert},
+			expectedAdverts: map[PeerID]PeerFamilyAdvertisements{
+				{Name: "red-peer-65001", Address: "fe80::1%eth0"}: map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
+					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
+					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert},
+				},
+			},
+		},
+		{
+			name: "Unnumbered peer not resolved yet has no address",
+			peerConfig: []*v2.CiliumBGPPeerConfig{
+				redPeerConfig,
+			},
+			advertisements: []*v2.CiliumBGPAdvertisement{
+				redAdvert,
+			},
+			reqBGPNodeInstance: &v2.CiliumBGPNodeInstance{
+				Name:     "bgp-65001",
+				LocalASN: ptr.To[int64](65001),
+				Peers: []v2.CiliumBGPNodePeer{
+					{
+						Name: "red-peer-65001",
+						PeerConfigRef: &v2.PeerConfigReference{
+							Name: "peer-config-red",
+						},
+						PeerInterface: ptr.To("eth0"),
+					},
+				},
+			},
+			reqAdvertTypes: []v2.BGPAdvertisementType{v2.BGPPodCIDRAdvert},
+			expectedAdverts: map[PeerID]PeerFamilyAdvertisements{
+				{Name: "red-peer-65001", Address: ""}: map[v2.CiliumBGPFamily][]v2.BGPAdvertisement{
 					{Afi: "ipv4", Safi: "unicast"}: {redPodCIDRAdvert},
 					{Afi: "ipv6", Safi: "unicast"}: {redPodCIDRAdvert},
 				},
@@ -470,7 +531,7 @@ func Test_GetAdvertisements(t *testing.T) {
 
 			r := NewCiliumPeerAdvertisement(params)
 
-			advertisements, err := r.GetConfiguredAdvertisements(tt.reqBGPNodeInstance, tt.reqAdvertTypes...)
+			advertisements, err := r.GetConfiguredAdvertisements(tt.reqBGPNodeInstance, tt.resolvedPeers, tt.reqAdvertTypes...)
 			if tt.expectedError {
 				req.Error(err)
 				return

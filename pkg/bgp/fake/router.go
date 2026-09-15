@@ -17,28 +17,52 @@ type FakeRouter struct {
 	paths    map[string]*types.Path
 	policies map[string]*types.RoutePolicy
 	resets   map[netip.Addr]types.SoftResetDirection
+	// neighbors holds the configured peers, keyed by peer name.
+	neighbors map[string]*types.Neighbor
+	// discovered simulates the addresses a real router resolves for unnumbered
+	// peers via IPv6 ND, keyed by interface name.
+	discovered map[string]netip.Addr
 }
 
 func NewFakeRouter() *FakeRouter {
 	return &FakeRouter{
-		paths:    make(map[string]*types.Path),
-		policies: make(map[string]*types.RoutePolicy),
-		resets:   make(map[netip.Addr]types.SoftResetDirection),
+		paths:      make(map[string]*types.Path),
+		policies:   make(map[string]*types.RoutePolicy),
+		resets:     make(map[netip.Addr]types.SoftResetDirection),
+		neighbors:  make(map[string]*types.Neighbor),
+		discovered: make(map[string]netip.Addr),
 	}
 }
 
 func (f *FakeRouter) Stop(ctx context.Context, r types.StopRequest) {}
 
 func (f *FakeRouter) AddNeighbor(ctx context.Context, n *types.Neighbor) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.neighbors[n.Name] = n
 	return nil
 }
 
 func (f *FakeRouter) UpdateNeighbor(ctx context.Context, n *types.Neighbor) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.neighbors[n.Name] = n
 	return nil
 }
 
 func (f *FakeRouter) RemoveNeighbor(ctx context.Context, n *types.Neighbor) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.neighbors, n.Name)
 	return nil
+}
+
+// DiscoverPeerAddress simulates the router resolving the address of an unnumbered
+// peer configured on the provided interface.
+func (f *FakeRouter) DiscoverPeerAddress(iface string, addr netip.Addr) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.discovered[iface] = addr
 }
 
 func (f *FakeRouter) ResetNeighbor(ctx context.Context, r types.ResetNeighborRequest) error {
@@ -97,7 +121,24 @@ func (f *FakeRouter) RemoveRoutePolicy(ctx context.Context, p types.RoutePolicyR
 }
 
 func (f *FakeRouter) GetPeerState(ctx context.Context, r *types.GetPeerStateRequest) (*types.GetPeerStateResponse, error) {
-	return &types.GetPeerStateResponse{}, nil
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	var res types.GetPeerStateResponse
+	for _, n := range f.neighbors {
+		state := types.PeerState{
+			Name:      n.Name,
+			Address:   n.Address,
+			Interface: n.Interface,
+			PeerAsn:   int64(n.ASN),
+		}
+		// An unnumbered peer only has the address the router discovered for it.
+		if !state.Address.IsValid() && n.Interface != "" {
+			state.Address = f.discovered[n.Interface]
+		}
+		res.Peers = append(res.Peers, state)
+	}
+	return &res, nil
 }
 
 func (f *FakeRouter) GetPeerStateLegacy(ctx context.Context) (types.GetPeerStateLegacyResponse, error) {

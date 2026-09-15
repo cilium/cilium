@@ -70,11 +70,11 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context, req *types.GetPeerStateR
 					state.Name = pd.Name
 				}
 			}
-			// We can just ignore error here. In that case, the
-			// addr is invalid. Caller is responsible for handling
-			// the invalid case.
-			addr, _ := netip.ParseAddr(peer.Conf.NeighborAddress)
-			state.Address = addr
+			// The address is invalid if the peer is unnumbered and the
+			// router has not resolved it yet. Caller is responsible for
+			// handling the invalid case.
+			state.Address = resolvedPeerAddress(peer)
+			state.Interface = peer.Conf.NeighborInterface
 			state.LocalAsn = int64(peer.Conf.LocalAsn)
 			state.PeerAsn = int64(peer.Conf.PeerAsn)
 			state.TCPPasswordEnabled = peer.Conf.AuthPassword != ""
@@ -176,7 +176,7 @@ func (g *GoBGPServer) GetPeerStateLegacy(ctx context.Context) (types.GetPeerStat
 
 		if peer.Conf != nil {
 			peerState.LocalAsn = int64(peer.Conf.LocalAsn)
-			peerState.PeerAddress = peer.Conf.NeighborAddress
+			peerState.PeerAddress = peerDisplayAddress(peer)
 			peerState.PeerAsn = int64(peer.Conf.PeerAsn)
 			peerState.TCPPasswordEnabled = peer.Conf.AuthPassword != ""
 			if peer.Conf.Description != "" {
@@ -255,6 +255,44 @@ func (g *GoBGPServer) GetPeerStateLegacy(ctx context.Context) (types.GetPeerStat
 	return types.GetPeerStateLegacyResponse{
 		Peers: data,
 	}, nil
+}
+
+// resolvedPeerAddress returns the address gobgp uses to identify the peer.
+//
+// Unnumbered peers have no configured neighbor address: gobgp discovers the
+// peer's IPv6 link-local via ND on the interface and records it (zoned, e.g.
+// "fe80::1%eth0") in the peer state only. That resolved address is the key of
+// gobgp's neighbor map, so it is what every per-peer gobgp call needs.
+//
+// The address is parsed rather than compared against "", because an unset
+// address is rendered as "invalid IP" by gobgp's netip-based config.
+// An invalid address is returned if the peer is unnumbered and not yet resolved.
+func resolvedPeerAddress(peer *gobgp.Peer) netip.Addr {
+	if peer.Conf != nil {
+		if addr, err := netip.ParseAddr(peer.Conf.NeighborAddress); err == nil {
+			return addr
+		}
+	}
+	if peer.State != nil {
+		if addr, err := netip.ParseAddr(peer.State.NeighborAddress); err == nil {
+			return addr
+		}
+	}
+	return netip.Addr{}
+}
+
+// peerDisplayAddress returns the address to show for a peer. An unnumbered peer
+// that gobgp has not resolved yet has no address at all, so fall back to the
+// interface name to keep the peer distinguishable in listings instead of
+// rendering as an empty address (e.g. ":179").
+func peerDisplayAddress(peer *gobgp.Peer) string {
+	if addr := resolvedPeerAddress(peer); addr.IsValid() {
+		return addr.String()
+	}
+	if peer.Conf != nil {
+		return peer.Conf.NeighborInterface
+	}
+	return ""
 }
 
 // toAgentAfiSafiStateLegacy translates gobgp structures to cilium bgp models.
