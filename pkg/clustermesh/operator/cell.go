@@ -27,6 +27,9 @@ var Cell = cell.Module(
 	cell.Config(ClusterMeshConfig{}),
 	cell.Config(types.DefaultServiceModeV2Config),
 	cell.Invoke(types.ServiceModeV2Config.Validate),
+	Enable(func(cfg ClusterMeshConfig) bool {
+		return cfg.ClusterMeshEnableEndpointSync
+	}),
 	cell.ProvidePrivate(toEnabled),
 	cell.Provide(
 		common.DefaultRemoteClientFactory,
