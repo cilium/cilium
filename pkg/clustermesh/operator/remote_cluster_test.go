@@ -44,36 +44,22 @@ func TestRemoteClusterStatus(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                            string
-		clusterMeshEnableEndpointSync   bool
-		serviceModeV2                   types.ServiceModeV2
-		clusterMeshEnableMCSAPI         bool
-		capabilityServiceExportsEnabled *bool
-		expectedServiceSync             bool
+		name                          string
+		clusterMeshEnableEndpointSync bool
+		serviceModeV2                 types.ServiceModeV2
+		expectedServiceSync           bool
 	}{
 		{
-			name:                            "Everything disabled",
-			clusterMeshEnableEndpointSync:   false,
-			serviceModeV2:                   types.ServiceV2PreferLegacy,
-			clusterMeshEnableMCSAPI:         false,
-			capabilityServiceExportsEnabled: nil,
-			expectedServiceSync:             false,
+			name:                          "Everything disabled",
+			clusterMeshEnableEndpointSync: false,
+			serviceModeV2:                 types.ServiceV2PreferLegacy,
+			expectedServiceSync:           false,
 		},
 		{
-			name:                            "Both config enabled but remote doesn't support service exports",
-			clusterMeshEnableEndpointSync:   true,
-			serviceModeV2:                   types.ServiceV2PreferLegacy,
-			clusterMeshEnableMCSAPI:         true,
-			capabilityServiceExportsEnabled: nil,
-			expectedServiceSync:             true,
-		},
-		{
-			name:                            "Both config enabled and remote supports service exports",
-			clusterMeshEnableEndpointSync:   true,
-			serviceModeV2:                   types.ServiceV2PreferLegacy,
-			clusterMeshEnableMCSAPI:         true,
-			capabilityServiceExportsEnabled: ptr.To(false),
-			expectedServiceSync:             true,
+			name:                          "Endpoint sync enabled",
+			clusterMeshEnableEndpointSync: true,
+			serviceModeV2:                 types.ServiceV2PreferLegacy,
+			expectedServiceSync:           true,
 		},
 		{
 			name:                          "Endpoint sync enabled but services disabled by mode",
@@ -102,7 +88,6 @@ func TestRemoteClusterStatus(t *testing.T) {
 				storeFactory:   st,
 				globalServices: common.NewGlobalServiceCache(logger),
 				cfg:            ClusterMeshConfig{ClusterMeshEnableEndpointSync: tt.clusterMeshEnableEndpointSync},
-				cfgMCSAPI:      mcsapitypes.MCSAPIConfig{EnableMCSAPI: tt.clusterMeshEnableMCSAPI},
 				serviceModeV2:  tt.serviceModeV2,
 			}
 
@@ -111,9 +96,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 				require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 			}
 			rc := cm.newRemoteCluster("foo", func() *models.RemoteCluster {
-				return &models.RemoteCluster{Ready: true, Config: &models.RemoteClusterConfig{
-					ServiceExportsEnabled: tt.capabilityServiceExportsEnabled,
-				}}
+				return &models.RemoteCluster{Ready: true, Config: &models.RemoteClusterConfig{}}
 			})
 
 			// Validate the status before watching the remote cluster.
@@ -130,9 +113,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 			require.EqualValues(t, 0, status.NumSharedServices, "Incorrect number of services")
 
 			cfg := types.CiliumClusterConfig{
-				ID: 10, Capabilities: types.CiliumClusterConfigCapabilities{
-					ServiceExportsEnabled: tt.capabilityServiceExportsEnabled,
-				},
+				ID: 10,
 			}
 			ready := make(chan error)
 			wg.Go(func() {
@@ -221,6 +202,7 @@ type fakeCMObserver struct {
 	registered atomic.Bool
 	revoked    atomic.Bool
 	drained    atomic.Bool
+	entries    atomic.Uint64
 }
 
 func (f *fakeCMObserver) Name() observer.Name { return f.name }
@@ -235,7 +217,69 @@ func (f *fakeCMObserver) Register(mgr store.WatchStoreManager, backend kvstore.B
 }
 
 func (f *fakeCMObserver) Status() observer.Status {
-	return observer.Status{Enabled: f.enabled, Synced: f.synced.Load()}
+	return observer.Status{Enabled: f.enabled, Synced: f.synced.Load(), Entries: f.entries.Load()}
+}
+
+func TestRemoteClusterMCSAPIStatus(t *testing.T) {
+	var (
+		logger = hivetest.Logger(t)
+		remote = kvstore.NewInMemoryClient(statedb.New(), "__remote__")
+
+		cfg = types.CiliumClusterConfig{
+			ID: 10, Capabilities: types.CiliumClusterConfigCapabilities{
+				MaxConnectedClusters: 123,
+			},
+		}
+		mcsapiops = fakeCMObserver{name: mcsapitypes.Name, enabled: true}
+
+		factory = func(obs *fakeCMObserver) observer.Factory {
+			return func(cluster string, onSync func()) observer.Observer {
+				obs.cluster = cluster
+				obs.onSync = func() {
+					onSync()
+					obs.synced.Store(true)
+				}
+				return obs
+			}
+		}
+	)
+
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(func() {
+		cancel()
+		wg.Wait()
+	})
+
+	cm := clusterMesh{
+		logger:            logger,
+		metrics:           NewMetrics(),
+		observerFactories: []observer.Factory{factory(&mcsapiops)},
+		storeFactory:      store.NewFactory(logger, store.MetricsProvider()),
+	}
+
+	rc := cm.newRemoteCluster("foo", func() *models.RemoteCluster {
+		return &models.RemoteCluster{Ready: true}
+	}).(*remoteCluster)
+
+	require.False(t, rc.Status().Ready, "Status should not be ready before [Run] is invoked")
+
+	ready := make(chan error)
+	wg.Go(func() { rc.Run(ctx, remote, cfg, ready) })
+
+	require.NoError(t, <-ready, "rc.Run() failed")
+
+	status := rc.Status()
+	require.False(t, status.Ready, "Status should not be ready before the mcsapi observers is synced")
+	require.NotNil(t, status.Synced.ServiceExports != nil, "ServiceExports should not be nil")
+	require.False(t, ptr.Deref(status.Synced.ServiceExports, false), "ServiceExports should not be marked as synced")
+	mcsapiops.onSync()
+	mcsapiops.entries.Store(1337)
+	status = rc.Status()
+	require.True(t, rc.Status().Ready, "Status should be ready")
+	require.NotNil(t, status.Synced.ServiceExports, "ServiceExports should not be nil")
+	require.True(t, ptr.Deref(status.Synced.ServiceExports, false), "ServiceExports should be marked as synced")
+	require.EqualValues(t, 1337, status.NumServiceExports, "NumServiceExports should be reported based on MCSAPI observer")
 }
 
 func TestRemoteClusterExtraObservers(t *testing.T) {

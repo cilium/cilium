@@ -39,7 +39,6 @@ type remoteCluster struct {
 	clusterID uint32
 
 	clusterMeshEnableEndpointSync bool
-	clusterMeshEnableMCSAPI       bool
 	clusterMeshServiceModeV2      types.ServiceModeV2
 
 	// remoteServices is the shared store representing services in remote clusters

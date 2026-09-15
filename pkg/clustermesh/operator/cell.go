@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	cmendpointslice "github.com/cilium/cilium/pkg/clustermesh/endpointslice"
-	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
@@ -26,7 +25,6 @@ var Cell = cell.Module(
 	"clustermesh",
 	"Cell providing clustermesh capabilities in the operator",
 	cell.Config(ClusterMeshConfig{}),
-	cell.Config(mcsapitypes.DefaultMCSAPIConfig),
 	cell.Config(types.DefaultServiceModeV2Config),
 	cell.Invoke(types.ServiceModeV2Config.Validate),
 	cell.ProvidePrivate(toEnabled),
@@ -52,9 +50,8 @@ type clusterMeshParams struct {
 	common.Config
 	types.ServiceModeV2Config
 	wait.TimeoutConfig
-	Cfg       ClusterMeshConfig
-	CfgMCSAPI mcsapitypes.MCSAPIConfig
-	Logger    *slog.Logger
+	Cfg    ClusterMeshConfig
+	Logger *slog.Logger
 
 	// ClusterInfo is the id/name of the local cluster.
 	ClusterInfo types.ClusterInfo
