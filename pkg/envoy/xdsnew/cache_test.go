@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,6 +30,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/server/stream/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -1202,6 +1204,112 @@ func TestCreateDeltaWatch_WildcardReportsUpdatesAndRemovals(t *testing.T) {
 	}
 	require.ElementsMatch(t, []string{"listener1", "listener3"}, updatedNames)
 	require.Equal(t, []string{"listener2"}, secondDeltaResponse.RemovedResources)
+}
+
+func TestIncrementalEDSCacheOrdersClusterBeforeEndpoint(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	c := NewCacheWithIncrementalEDS(logger, true)
+	node := &envoy_config_core.Node{Id: "node1"}
+	resources := emptyResources()
+	resources.Clusters["c1"] = &envoy_config_cluster.Cluster{Name: "c1"}
+	resources.Endpoints["c1"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "c1"}
+
+	initial, err := c.GenerateSnapshot(resources, logger)
+	require.NoError(t, err)
+	require.NoError(t, c.UpdateSnapshot(t.Context(), node.GetId(), initial, nil, nil, nil))
+
+	responses := make(chan cache.DeltaResponse, 4)
+	clusterRequest := &cache.DeltaRequest{Node: node, TypeUrl: envoy_resource.ClusterType}
+	clusterSubscription := stream.NewDeltaSubscription(nil, nil, nil, true)
+	_, err = c.CreateDeltaWatch(clusterRequest, &clusterSubscription, responses)
+	require.NoError(t, err)
+	clusterResponse := <-responses
+	clusterSubscription.SetReturnedResources(clusterResponse.GetReturnedResources())
+
+	endpointRequest := &cache.DeltaRequest{
+		Node:                   node,
+		TypeUrl:                envoy_resource.EndpointType,
+		ResourceNamesSubscribe: []string{"c1"},
+	}
+	endpointSubscription := stream.NewDeltaSubscription([]string{"c1"}, nil, nil, false)
+	_, err = c.CreateDeltaWatch(endpointRequest, &endpointSubscription, responses)
+	require.NoError(t, err)
+	endpointResponse := <-responses
+	endpointSubscription.SetReturnedResources(endpointResponse.GetReturnedResources())
+	assert.Equal(t, initial.GetVersion(envoy_resource.EndpointType), endpointResponse.GetResponseVersion())
+
+	clusterRequest.ResponseNonce = "cluster-1"
+	_, err = c.CreateDeltaWatch(clusterRequest, &clusterSubscription, responses)
+	require.NoError(t, err)
+	endpointRequest.ResponseNonce = "endpoint-1"
+	endpointRequest.ResourceNamesSubscribe = nil
+	_, err = c.CreateDeltaWatch(endpointRequest, &endpointSubscription, responses)
+	require.NoError(t, err)
+
+	updated := resources.DeepCopy()
+	updated.Clusters["c1"] = &envoy_config_cluster.Cluster{
+		Name:                 "c1",
+		ConnectTimeout:       durationpb.New(time.Second),
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_STATIC},
+	}
+	updated.Endpoints["c1"] = &envoy_config_endpoint.ClusterLoadAssignment{
+		ClusterName: "c1",
+		Policy: &envoy_config_endpoint.ClusterLoadAssignment_Policy{
+			OverprovisioningFactor: wrapperspb.UInt32(200),
+		},
+	}
+	changes := make(SnapshotChanges)
+	changes.Add(envoy_resource.ClusterType, "c1")
+	changes.Add(envoy_resource.EndpointType, "c1")
+	next, err := c.GenerateIncrementalSnapshot(node.GetId(), updated, changes, logger)
+	require.NoError(t, err)
+	wg := completion.NewWaitGroup(t.Context())
+	defer wg.Cancel()
+	require.NoError(t, c.UpdateSnapshot(t.Context(), node.GetId(), next, wg,
+		map[string]func(error){envoy_resource.EndpointType: nil}, nil))
+	require.Equal(t, 1, c.GetCompletionCallbacks().PendingCompletionCount())
+
+	first := <-responses
+	second := <-responses
+	assert.Equal(t, envoy_resource.ClusterType, first.GetDeltaRequest().GetTypeUrl())
+	assert.Equal(t, envoy_resource.EndpointType, second.GetDeltaRequest().GetTypeUrl())
+	assert.Equal(t, next.GetVersion(envoy_resource.EndpointType), second.GetResponseVersion())
+	endpointDiscoveryResponse, err := second.GetDeltaDiscoveryResponse()
+	require.NoError(t, err)
+	require.Len(t, endpointDiscoveryResponse.Resources, 1)
+	assert.Equal(t, "c1", endpointDiscoveryResponse.Resources[0].GetName())
+	endpointDiscoveryResponse.Nonce = "endpoint-2"
+	c.GetCompletionCallbacks().OnStreamDeltaResponse(1, endpointRequest, endpointDiscoveryResponse)
+	require.NoError(t, c.GetCompletionCallbacks().OnStreamDeltaRequest(1, &cache.DeltaRequest{
+		Node:          node,
+		TypeUrl:       envoy_resource.EndpointType,
+		ResponseNonce: endpointDiscoveryResponse.GetNonce(),
+	}))
+	require.NoError(t, wg.Wait())
+}
+
+func TestIncrementalEDSCachesAreIsolatedByNode(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	c := NewCacheWithIncrementalEDS(logger, true).(*cacheImpl)
+
+	for _, test := range []struct {
+		nodeID       string
+		endpointName string
+	}{
+		{nodeID: "node1", endpointName: "endpoint1"},
+		{nodeID: "node2", endpointName: "endpoint2"},
+	} {
+		resources := emptyResources()
+		resources.Endpoints[test.endpointName] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: test.endpointName}
+		snapshot, err := c.GenerateSnapshot(resources, logger)
+		require.NoError(t, err)
+		require.NoError(t, c.UpdateSnapshot(t.Context(), test.nodeID, snapshot, nil, nil, nil))
+	}
+
+	assert.Contains(t, c.getLinearEDSCache("node1").cache.GetResources(), "endpoint1")
+	assert.NotContains(t, c.getLinearEDSCache("node1").cache.GetResources(), "endpoint2")
+	assert.Contains(t, c.getLinearEDSCache("node2").cache.GetResources(), "endpoint2")
+	assert.NotContains(t, c.getLinearEDSCache("node2").cache.GetResources(), "endpoint1")
 }
 
 func TestCreateDeltaWatch_EmptySDSSubscriptionDoesNotRespond(t *testing.T) {

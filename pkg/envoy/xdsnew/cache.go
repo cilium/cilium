@@ -82,6 +82,16 @@ type cacheImpl struct {
 	completionCbs       *callbacks.CompletionCallbacks
 	versionPrefix       string
 	version             atomic.Uint64
+	linearEDS           bool
+	linearEDSMutex      lock.Mutex
+	linearEDSCaches     map[string]*linearEDSCache
+}
+
+type linearEDSCache struct {
+	mutex         lock.Mutex
+	cache         *cache.LinearCache
+	versionPrefix string
+	version       uint64
 }
 
 var _ Cache = &cacheImpl{}
@@ -93,6 +103,9 @@ type ciliumSnapshot struct {
 	VersionMap      map[string]map[string]string
 	clusterEDSNames map[string]string
 	edsReferences   map[string]uint32
+	changes         SnapshotChanges
+	edsUpdates      map[string]cache_types.Resource
+	edsDeletes      []string
 }
 
 // Ensure ciliumSnapshot implements cache.ResourceSnapshot.
@@ -254,6 +267,17 @@ func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 // ordering for both SotW and delta watches; snapshot consistency validation is
 // configured separately by the ADS server.
 func NewCache(logger *slog.Logger, orderedADS bool) Cache {
+	return newCache(logger, orderedADS, false)
+}
+
+// NewCacheWithIncrementalEDS creates an ADS cache that serves EDS watches from
+// a per-node linear cache while retaining ordered snapshot delivery for other
+// resource types.
+func NewCacheWithIncrementalEDS(logger *slog.Logger, orderedADS bool) Cache {
+	return newCache(logger, orderedADS, true)
+}
+
+func newCache(logger *slog.Logger, orderedADS, linearEDS bool) Cache {
 	snapshotCache := cache.NewSnapshotCache(orderedADS, cache.IDHash{}, snapshotCacheLogger(logger))
 
 	return &cacheImpl{
@@ -264,7 +288,32 @@ func NewCache(logger *slog.Logger, orderedADS bool) Cache {
 		logger:              logger,
 		completionCbs:       callbacks.NewCompletionCallbacks(logger),
 		versionPrefix:       rand.String(12) + "-",
+		linearEDS:           linearEDS,
+		linearEDSCaches:     make(map[string]*linearEDSCache),
 	}
+}
+
+func (c *cacheImpl) getLinearEDSCache(nodeID string) *linearEDSCache {
+	c.linearEDSMutex.Lock()
+	defer c.linearEDSMutex.Unlock()
+	if existing := c.linearEDSCaches[nodeID]; existing != nil {
+		return existing
+	}
+	versionPrefix := rand.String(12) + "-"
+	linear := &linearEDSCache{
+		cache: cache.NewLinearCache(
+			envoy_resource.EndpointType,
+			cache.WithVersionPrefix(versionPrefix),
+			cache.WithLogger(snapshotCacheLogger(c.logger)),
+		),
+		versionPrefix: versionPrefix,
+	}
+	c.linearEDSCaches[nodeID] = linear
+	return linear
+}
+
+func (c *linearEDSCache) nextVersion() string {
+	return c.versionPrefix + strconv.FormatUint(c.version+1, 10)
 }
 
 func (c *cacheImpl) nextVersion() string {
@@ -792,6 +841,8 @@ func (c *cacheImpl) GenerateIncrementalSnapshot(nodeID string, resources *xds.Re
 	version := c.nextVersion()
 	versionedResources := maps.Clone(previousSnapshot.Resources)
 	versionMaps := maps.Clone(previousSnapshot.VersionMap)
+	var edsUpdates map[string]cache_types.Resource
+	var edsDeletes []string
 	for typeURL := range affectedTypes {
 		group, knownType := previousSnapshot.Resources[typeURL]
 		if !knownType {
@@ -801,6 +852,20 @@ func (c *cacheImpl) GenerateIncrementalSnapshot(nodeID string, resources *xds.Re
 
 		names := changes[typeURL]
 		if len(names) == 0 {
+			versionedResources[typeURL] = group
+			continue
+		}
+		if c.linearEDS && typeURL == envoy_resource.EndpointType {
+			edsUpdates = make(map[string]cache_types.Resource, len(names))
+			edsDeletes = make([]string, 0, len(names))
+			for name := range names {
+				resource, exists := currentSnapshotResource(resources, typeURL, name, edsReferences)
+				if exists {
+					edsUpdates[name] = resource
+				} else {
+					edsDeletes = append(edsDeletes, name)
+				}
+			}
 			versionedResources[typeURL] = group
 			continue
 		}
@@ -831,7 +896,11 @@ func (c *cacheImpl) GenerateIncrementalSnapshot(nodeID string, resources *xds.Re
 		versionMaps[typeURL] = resourceVersions
 	}
 
-	return newCiliumSnapshot(versionedResources, versionMaps, clusterEDSNames, edsReferences), nil
+	snapshot := newCiliumSnapshot(versionedResources, versionMaps, clusterEDSNames, edsReferences)
+	snapshot.changes = changes
+	snapshot.edsUpdates = edsUpdates
+	snapshot.edsDeletes = edsDeletes
+	return snapshot, nil
 }
 
 func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
@@ -843,6 +912,52 @@ func (c *cacheImpl) SetResources(nodeID string, resources *xds.Resources) {
 	defer c.mutex.Unlock()
 	c.resourcesInSnapshot[nodeID] = resources
 	c.resourceGenerations[nodeID]++
+}
+
+type pendingLinearEDSUpdate struct {
+	state   *linearEDSCache
+	updates map[string]cache_types.Resource
+	deletes []string
+	replace bool
+}
+
+func (c *cacheImpl) prepareLinearEDSUpdate(nodeID string, snapshot *ciliumSnapshot) *pendingLinearEDSUpdate {
+	if !c.linearEDS || snapshot == nil {
+		return nil
+	}
+	if snapshot.changes == nil {
+		return &pendingLinearEDSUpdate{
+			state:   c.getLinearEDSCache(nodeID),
+			updates: snapshot.GetResources(envoy_resource.EndpointType),
+			replace: true,
+		}
+	}
+	if len(snapshot.edsUpdates) == 0 && len(snapshot.edsDeletes) == 0 {
+		return nil
+	}
+	return &pendingLinearEDSUpdate{
+		state:   c.getLinearEDSCache(nodeID),
+		updates: snapshot.edsUpdates,
+		deletes: snapshot.edsDeletes,
+	}
+}
+
+func setSnapshotVersion(snapshot *ciliumSnapshot, typeURL, version string) {
+	group := snapshot.Resources[typeURL]
+	group.Version = version
+	snapshot.Resources[typeURL] = group
+}
+
+func (c *cacheImpl) commitLinearEDSUpdate(update *pendingLinearEDSUpdate) {
+	if update.replace {
+		update.state.cache.SetResources(update.updates)
+	} else if err := update.state.cache.UpdateResources(update.updates, update.deletes); err != nil {
+		// LinearCache applies resources before notifying watches. Keep its version
+		// synchronized with the committed snapshot and let a subsequent request
+		// retry response construction.
+		c.logger.Error("Failed to notify incremental EDS watches", logfields.Error, err)
+	}
+	update.state.version++
 }
 
 func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc func()) error {
@@ -857,6 +972,13 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapsh
 	immediateCompletions := make([]immediateCompletion, 0, 1)
 	handledTypeURLs := make(map[string]struct{}, len(updatedTypeURLS))
 	oldSnapshot, _ := c.GetSnapshot(nodeID)
+	typedSnapshot, _ := newSnapshot.(*ciliumSnapshot)
+	linearEDSUpdate := c.prepareLinearEDSUpdate(nodeID, typedSnapshot)
+	if linearEDSUpdate != nil {
+		linearEDSUpdate.state.mutex.Lock()
+		defer linearEDSUpdate.state.mutex.Unlock()
+		setSnapshotVersion(typedSnapshot, envoy_resource.EndpointType, linearEDSUpdate.state.nextVersion())
+	}
 	if wg != nil && len(updatedTypeURLS) > 0 {
 		for typeURL, completionCallback := range updatedTypeURLS {
 			handledTypeURLs[typeURL] = struct{}{}
@@ -933,6 +1055,12 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapsh
 			logfields.NodeID, nodeID,
 			logfields.Error, err)
 	}
+	if linearEDSUpdate != nil {
+		// SnapshotCache enqueues dependency responses first. Updating the linear
+		// cache afterwards preserves CDS-before-EDS ordering on the shared ADS
+		// response channel.
+		c.commitLinearEDSUpdate(linearEDSUpdate)
+	}
 	for _, typeURL := range completeUnsentTypeURLs {
 		c.completionCbs.CompleteUnsentPendingCompletions(nodeID, typeURL, nil)
 	}
@@ -948,6 +1076,13 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapsh
 
 func (c *cacheImpl) ClearSnapshot(nodeID string) {
 	c.SnapshotCache.ClearSnapshot(nodeID)
+	if c.linearEDS {
+		linearEDS := c.getLinearEDSCache(nodeID)
+		linearEDS.mutex.Lock()
+		linearEDS.cache.SetResources(nil)
+		linearEDS.version++
+		linearEDS.mutex.Unlock()
+	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.resourcesInSnapshot[nodeID] = &xds.Resources{}
@@ -973,8 +1108,22 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 		c.logger.Debug("Ignoring empty ADS SDS watch")
 		return func() {}, nil
 	}
+	if c.linearEDS && request != nil && request.GetTypeUrl() == envoy_resource.EndpointType {
+		if nodeID := request.GetNode().GetId(); nodeID != "" {
+			return c.getLinearEDSCache(nodeID).cache.CreateWatch(request, sub, respChan)
+		}
+	}
 	request = normalizeCustomWildcardRequest(request, sub)
 	return c.SnapshotCache.CreateWatch(request, sub, respChan)
+}
+
+func (c *cacheImpl) CreateDeltaWatch(request *cache.DeltaRequest, sub cache.Subscription, respChan chan cache.DeltaResponse) (cancel func(), err error) {
+	if c.linearEDS && request != nil && request.GetTypeUrl() == envoy_resource.EndpointType {
+		if nodeID := request.GetNode().GetId(); nodeID != "" {
+			return c.getLinearEDSCache(nodeID).cache.CreateDeltaWatch(request, sub, respChan)
+		}
+	}
+	return c.SnapshotCache.CreateDeltaWatch(request, sub, respChan)
 }
 
 func (c *cacheImpl) GetAllResources(nodeID string) *xds.Resources {

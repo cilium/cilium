@@ -117,7 +117,11 @@ func newADSServerWithCache(cache xdsnew.Cache, logger *slog.Logger, ipCache IPCa
 // newADSServer creates a new ADS GRPC server.
 func newADSServer(logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) *adsServer {
 	orderedADS := config.envoyXDSMode.IsStrictADS() || config.envoyXDSMode.IsDeltaADS()
-	return newADSServerWithCache(xdsnew.NewCache(logger, orderedADS), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
+	adsCache := xdsnew.NewCache(logger, orderedADS)
+	if config.envoyXDSMode.IsDeltaADS() && !config.envoyXDSMode.IsStrictADS() {
+		adsCache = xdsnew.NewCacheWithIncrementalEDS(logger, orderedADS)
+	}
+	return newADSServerWithCache(adsCache, logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
 }
 
 func (s *adsServer) run(ctx context.Context) error {
