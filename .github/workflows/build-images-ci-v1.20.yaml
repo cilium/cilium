@@ -296,6 +296,40 @@ jobs:
             echo build="true" >> $GITHUB_OUTPUT
           fi
 
+      # If the images were already built on the merge_group, then we don't need to build them again.
+      - name: Check if the ${{ matrix.name }} image was already built
+        id: check-published
+        if: ${{ steps.check.outputs.build != '' && github.event_name == 'push' }}
+        shell: bash
+        env:
+          IMAGE: ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+        run: |
+          exists="false"
+          digest=""
+          err="${RUNNER_TEMP}/imagetools-inspect.err"
+          # Only a "not found" is conclusive; any other failure falls back to building the image.
+          for attempt in 1 2 3; do
+            if out="$(docker buildx imagetools inspect --format '{{.Manifest.Digest}}' "${IMAGE}" 2>"${err}")"; then
+              if [[ "${out}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+                echo "${IMAGE} was already built as ${out}"
+                exists="true"
+                digest="${out}"
+              else
+                echo "::warning::${IMAGE} reported an unexpected digest, building it again"
+              fi
+              break
+            fi
+            cat "${err}"
+            if grep --quiet ': not found' "${err}"; then
+              echo "${IMAGE} has not been built yet"
+              break
+            fi
+            echo "::warning::attempt ${attempt}: cannot tell whether ${IMAGE} exists"
+            sleep 5
+          done
+          echo exists="${exists}" >> $GITHUB_OUTPUT
+          echo digest="${digest}" >> $GITHUB_OUTPUT
+
       - name: Tag local module version
         id: create-local-tag
         env:
@@ -311,7 +345,7 @@ jobs:
       - name: CI Build ${{ matrix.name }}
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         id: docker_build_ci
-        if: ${{ steps.check.outputs.build != '' }}
+        if: ${{ steps.check.outputs.build != '' && steps.check-published.outputs.exists != 'true' }}
         with:
           provenance: false
           context: .
@@ -323,6 +357,33 @@ jobs:
           build-args: |
             CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             OPERATOR_VARIANT=${{ matrix.name }}
+
+      - name: Add the floating tag to the ${{ matrix.name }} image
+        id: float-tag
+        if: ${{ steps.check-published.outputs.exists == 'true' && steps.tag.outputs.floating_tag != '' }}
+        shell: bash
+        env:
+          IMAGE: ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci
+          DIGEST: ${{ steps.check-published.outputs.digest }}
+          FLOATING_TAG: ${{ steps.tag.outputs.floating_tag }}
+        run: |
+          # --prefer-index=false makes this a carbon copy, so the digest is preserved.
+          for attempt in 1 2 3; do
+            if docker buildx imagetools create --prefer-index=false \
+                 --tag "${IMAGE}:${FLOATING_TAG}" "${IMAGE}@${DIGEST}"; then
+              break
+            fi
+            if [[ "${attempt}" == "3" ]]; then
+              echo "::error::cannot tag ${IMAGE}@${DIGEST} as ${IMAGE}:${FLOATING_TAG}"
+              exit 1
+            fi
+            sleep 5
+          done
+          created="$(docker buildx imagetools inspect --format '{{.Manifest.Digest}}' "${IMAGE}:${FLOATING_TAG}" || true)"
+          if [[ "${created}" != "${DIGEST}" ]]; then
+            echo "::warning::${IMAGE}:${FLOATING_TAG} is ${created} and not ${DIGEST}"
+          fi
+          echo digest="${created}" >> $GITHUB_OUTPUT
 
       - name: CI race detection Build ${{ matrix.name }}
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -366,7 +427,7 @@ jobs:
         continue-on-error: ${{ startsWith(github.event_name, 'pull_request') }}
         uses: ./../cilium-base-branch/.github/actions/cosign
         with:
-          image: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}"
+          image: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest || steps.check-published.outputs.digest }}"
           image_tag: "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}"
           sbom_name: "ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
 
@@ -406,9 +467,9 @@ jobs:
           mkdir -p image-digest/
           # shellcheck disable=SC2078
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
-            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+            echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest || steps.float-tag.outputs.digest || steps.check-published.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
           fi
-          echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci.outputs.digest || steps.check-published.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
           if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
             echo "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
           fi
