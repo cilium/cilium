@@ -148,6 +148,8 @@ func (s *MCSAPIServiceSpec) validate() error {
 		return errors.New("name is unset")
 	case s.ExportCreationTimestamp.IsZero():
 		return errors.New("exportCreationTimestamp is unset")
+	case len(s.IPFamilies) == 0:
+		return errors.New("ipFamilies is unset")
 	case s.Type != mcsapiv1beta1.ClusterSetIP && s.Type != mcsapiv1beta1.Headless:
 		return fmt.Errorf("type is unknown: %s", s.Type)
 	case s.SessionAffinity != corev1.ServiceAffinityClientIP && s.SessionAffinity != corev1.ServiceAffinityNone:
@@ -161,6 +163,20 @@ func (s *MCSAPIServiceSpec) validate() error {
 		*s.TrafficDistribution != corev1.ServiceTrafficDistributionPreferSameZone &&
 		*s.TrafficDistribution != corev1.ServiceTrafficDistributionPreferSameNode:
 		return fmt.Errorf("traffic distribution is unknown: %s", *s.TrafficDistribution)
+	}
+	var ipv4Count, ipv6Count int
+	for _, ipFamily := range s.IPFamilies {
+		switch ipFamily {
+		case corev1.IPv4Protocol:
+			ipv4Count++
+		case corev1.IPv6Protocol:
+			ipv6Count++
+		default:
+			return fmt.Errorf("ipFamilies have an unknown family: %s", ipFamily)
+		}
+	}
+	if ipv4Count > 1 || ipv6Count > 1 {
+		return errors.New("ipFamilies contain duplicate families")
 	}
 
 	return nil
