@@ -21,6 +21,7 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -41,10 +42,21 @@ func CRDResourceName(crd string) string {
 	return "crd:" + crd
 }
 
+// agentNeedsPodIPPoolCRD reports whether the agent consumes the
+// CiliumPodIPPool CRD. It is only read by the multi-pool IPAM allocator (see
+// the ipamOption.IPAMMultiPool case in pkg/ipam/ipam.go), so in every other
+// IPAM mode the agent must not gate its startup on the CRD being registered.
+func agentNeedsPodIPPoolCRD() bool {
+	return option.Config.IPAM == ipamOption.IPAMMultiPool
+}
+
 func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
 	result := []string{
 		CRDResourceName(v2.CIDName),
-		CRDResourceName(v2alpha1.CPIPName),
+	}
+
+	if agentNeedsPodIPPoolCRD() {
+		result = append(result, CRDResourceName(v2alpha1.CPIPName))
 	}
 
 	if !option.Config.DisableCiliumEndpointCRD {
@@ -133,6 +145,13 @@ func AllCiliumCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
 	res = append(res,
 		CRDResourceName(v2.CNCName),
 	)
+	// The operator registers CiliumPodIPPool regardless of the configured IPAM
+	// mode, whereas the agent only waits for it in multi-pool mode. Add it here
+	// when AgentCRDResourceNames left it out, so that the returned list stays
+	// free of duplicates.
+	if !agentNeedsPodIPPoolCRD() {
+		res = append(res, CRDResourceName(v2alpha1.CPIPName))
+	}
 	return res
 }
 
