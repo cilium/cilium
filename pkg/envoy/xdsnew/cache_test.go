@@ -29,6 +29,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/server/stream/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -1418,6 +1419,79 @@ func TestGenerateSnapshot_ResourceContents(t *testing.T) {
 		cache.HashResource(marshaledListener),
 		versionedSnapshot.GetVersionMap(envoy_resource.ListenerType)["l1"],
 	)
+}
+
+func TestGenerateIncrementalSnapshotUpdatesChangedResources(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+	resources := emptyResources()
+	for _, name := range []string{"c1", "c2"} {
+		resources.Clusters[name] = &envoy_config_cluster.Cluster{
+			Name: name,
+			ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{
+				Type: envoy_config_cluster.Cluster_EDS,
+			},
+		}
+		resources.Endpoints[name] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
+	}
+
+	initial, err := c.GenerateSnapshot(resources, c.logger)
+	require.NoError(t, err)
+	require.NoError(t, mock.SetSnapshot(t.Context(), "node1", initial))
+	initialSnapshot := initial.(*ciliumSnapshot)
+
+	updated := resources.DeepCopy()
+	updated.Endpoints["c1"] = &envoy_config_endpoint.ClusterLoadAssignment{
+		ClusterName: "c1",
+		Policy: &envoy_config_endpoint.ClusterLoadAssignment_Policy{
+			OverprovisioningFactor: wrapperspb.UInt32(200),
+		},
+	}
+	changes := make(SnapshotChanges)
+	changes.Add(envoy_resource.EndpointType, "c1")
+
+	next, err := c.GenerateIncrementalSnapshot("node1", updated, changes, c.logger)
+	require.NoError(t, err)
+	nextSnapshot := next.(*ciliumSnapshot)
+	assert.NotEqual(t, initial.GetVersion(envoy_resource.EndpointType), next.GetVersion(envoy_resource.EndpointType))
+	assert.Equal(t, initial.GetVersion(envoy_resource.ClusterType), next.GetVersion(envoy_resource.ClusterType))
+	assert.NotEqual(t,
+		initialSnapshot.GetVersionMap(envoy_resource.EndpointType)["c1"],
+		nextSnapshot.GetVersionMap(envoy_resource.EndpointType)["c1"],
+	)
+	assert.Equal(t,
+		initialSnapshot.GetVersionMap(envoy_resource.EndpointType)["c2"],
+		nextSnapshot.GetVersionMap(envoy_resource.EndpointType)["c2"],
+	)
+}
+
+func TestGenerateIncrementalSnapshotMaintainsSyntheticEndpoints(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+	resources := emptyResources()
+	initial, err := c.GenerateSnapshot(resources, c.logger)
+	require.NoError(t, err)
+	require.NoError(t, mock.SetSnapshot(t.Context(), "node1", initial))
+
+	updated := resources.DeepCopy()
+	updated.Clusters["c1"] = &envoy_config_cluster.Cluster{
+		Name: "c1",
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{
+			Type: envoy_config_cluster.Cluster_EDS,
+		},
+	}
+	changes := make(SnapshotChanges)
+	changes.Add(envoy_resource.ClusterType, "c1")
+	withCluster, err := c.GenerateIncrementalSnapshot("node1", updated, changes, c.logger)
+	require.NoError(t, err)
+	require.Contains(t, withCluster.GetResources(envoy_resource.EndpointType), "c1")
+	require.NoError(t, mock.SetSnapshot(t.Context(), "node1", withCluster))
+
+	withoutCluster := updated.DeepCopy()
+	delete(withoutCluster.Clusters, "c1")
+	withoutClusterSnapshot, err := c.GenerateIncrementalSnapshot("node1", withoutCluster, changes, c.logger)
+	require.NoError(t, err)
+	assert.NotContains(t, withoutClusterSnapshot.GetResources(envoy_resource.EndpointType), "c1")
 }
 
 // --- Verify no delegation to snapshotCache for local-only operations ---

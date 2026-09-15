@@ -13,7 +13,9 @@ import (
 	"log/slog"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
+	"sync/atomic"
 
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -27,6 +29,7 @@ import (
 	controlplanelog "github.com/envoyproxy/go-control-plane/pkg/log"
 	envoy_resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -46,12 +49,24 @@ type Cache interface {
 	cache.SnapshotCache
 
 	GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error)
+	GenerateIncrementalSnapshot(nodeID string, resources *xds.Resources, changes SnapshotChanges, logger *slog.Logger) (cache.ResourceSnapshot, error)
 	UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc func()) error
 	SetResources(nodeID string, resources *xds.Resources)
 	GetAllResources(nodeID string) *xds.Resources
 	GetResourcesGeneration(nodeID string) uint64
 	AreDifferentSnapshots(left, right cache.ResourceSnapshot) bool
 	GetCompletionCallbacks() *callbacks.CompletionCallbacks
+}
+
+// SnapshotChanges contains changed resource names grouped by type URL.
+type SnapshotChanges map[string]map[string]struct{}
+
+// Add records a changed resource name.
+func (c SnapshotChanges) Add(typeURL, name string) {
+	if c[typeURL] == nil {
+		c[typeURL] = make(map[string]struct{})
+	}
+	c[typeURL][name] = struct{}{}
 }
 
 type cacheImpl struct {
@@ -65,6 +80,8 @@ type cacheImpl struct {
 	resourceGenerations map[string]uint64
 	logger              *slog.Logger
 	completionCbs       *callbacks.CompletionCallbacks
+	versionPrefix       string
+	version             atomic.Uint64
 }
 
 var _ Cache = &cacheImpl{}
@@ -72,8 +89,10 @@ var _ Cache = &cacheImpl{}
 // ciliumSnapshot implements go-control-plane's ResourceSnapshot interface for
 // both Envoy core resources and Cilium-specific xDS resources.
 type ciliumSnapshot struct {
-	Resources  map[string]cache.Resources
-	VersionMap map[string]map[string]string
+	Resources       map[string]cache.Resources
+	VersionMap      map[string]map[string]string
+	clusterEDSNames map[string]string
+	edsReferences   map[string]uint32
 }
 
 // Ensure ciliumSnapshot implements cache.ResourceSnapshot.
@@ -90,10 +109,12 @@ var snapshotResourceTypes = []envoy_resource.Type{
 	NetworkPolicyHostsTypeURL,
 }
 
-func newCiliumSnapshot(resources map[string]cache.Resources, versionMap map[string]map[string]string) *ciliumSnapshot {
+func newCiliumSnapshot(resources map[string]cache.Resources, versionMap map[string]map[string]string, clusterEDSNames map[string]string, edsReferences map[string]uint32) *ciliumSnapshot {
 	w := &ciliumSnapshot{
-		Resources:  make(map[string]cache.Resources, len(snapshotResourceTypes)),
-		VersionMap: versionMap,
+		Resources:       make(map[string]cache.Resources, len(snapshotResourceTypes)),
+		VersionMap:      versionMap,
+		clusterEDSNames: clusterEDSNames,
+		edsReferences:   edsReferences,
 	}
 	for _, typeURL := range snapshotResourceTypes {
 		w.Resources[typeURL] = resources[typeURL]
@@ -242,7 +263,12 @@ func NewCache(logger *slog.Logger, orderedADS bool) Cache {
 		resourceGenerations: make(map[string]uint64),
 		logger:              logger,
 		completionCbs:       callbacks.NewCompletionCallbacks(logger),
+		versionPrefix:       rand.String(12) + "-",
 	}
+}
+
+func (c *cacheImpl) nextVersion() string {
+	return c.versionPrefix + strconv.FormatUint(c.version.Add(1), 10)
 }
 
 func resourceGroup(version string, resources map[string]cache_types.Resource) cache.Resources {
@@ -480,6 +506,31 @@ func versionedResourceGroup(typeURL string, resources map[string]cache_types.Res
 	return resourceGroup(version, resources), versionMap, nil
 }
 
+func edsNameForCluster(cluster *envoy_config_cluster.Cluster) string {
+	if cluster == nil || cluster.GetType() != envoy_config_cluster.Cluster_EDS {
+		return ""
+	}
+	name := cluster.GetEdsClusterConfig().GetServiceName()
+	if name == "" {
+		name = cluster.GetName()
+	}
+	return name
+}
+
+func buildEDSReferences(resources *xds.Resources) (map[string]string, map[string]uint32) {
+	clusterEDSNames := make(map[string]string, len(resources.Clusters))
+	edsReferences := make(map[string]uint32)
+	for clusterName, cluster := range resources.Clusters {
+		edsName := edsNameForCluster(cluster)
+		if edsName == "" {
+			continue
+		}
+		clusterEDSNames[clusterName] = edsName
+		edsReferences[edsName]++
+	}
+	return clusterEDSNames, edsReferences
+}
+
 // normalizeSnapshotResources returns the resource view used to build an ADS
 // snapshot.
 //
@@ -497,14 +548,7 @@ func normalizeSnapshotResources(resources *xds.Resources) *xds.Resources {
 	var normalized *xds.Resources
 
 	for _, cluster := range resources.Clusters {
-		if cluster.GetType() != envoy_config_cluster.Cluster_EDS {
-			continue
-		}
-
-		name := cluster.GetEdsClusterConfig().GetServiceName()
-		if name == "" {
-			name = cluster.GetName()
-		}
+		name := edsNameForCluster(cluster)
 		if name == "" {
 			continue
 		}
@@ -538,6 +582,7 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 		resources = &empty
 	}
 
+	clusterEDSNames, edsReferences := buildEDSReferences(resources)
 	resources = normalizeSnapshotResources(resources)
 	endpoints := make(map[string]cache_types.Resource, len(resources.Endpoints))
 	clusters := make(map[string]cache_types.Resource, len(resources.Clusters))
@@ -613,7 +658,180 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 		versionMaps[typeURL] = versionMap
 	}
 
-	return newCiliumSnapshot(versionedResources, versionMaps), nil
+	return newCiliumSnapshot(versionedResources, versionMaps, clusterEDSNames, edsReferences), nil
+}
+
+func cloneSnapshotChanges(changes SnapshotChanges) SnapshotChanges {
+	cloned := make(SnapshotChanges, len(changes))
+	for typeURL, names := range changes {
+		cloned[typeURL] = maps.Clone(names)
+	}
+	return cloned
+}
+
+func currentSnapshotResource(resources *xds.Resources, typeURL, name string, edsReferences map[string]uint32) (cache_types.Resource, bool) {
+	switch typeURL {
+	case envoy_resource.EndpointType:
+		if resource, ok := resources.Endpoints[name]; ok {
+			if strings.HasSuffix(name, ":*") {
+				if _, hasCluster := resources.Clusters[name]; !hasCluster {
+					return nil, false
+				}
+			}
+			return resource, true
+		}
+		if edsReferences[name] > 0 {
+			return &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}, true
+		}
+	case envoy_resource.ClusterType:
+		resource, ok := resources.Clusters[name]
+		return resource, ok
+	case envoy_resource.RouteType:
+		resource, ok := resources.Routes[name]
+		return resource, ok
+	case envoy_resource.ListenerType:
+		resource, ok := resources.Listeners[name]
+		return resource, ok
+	case envoy_resource.SecretType:
+		resource, ok := resources.Secrets[name]
+		return resource, ok
+	case NetworkPolicyTypeURL:
+		resource, ok := resources.NetworkPolicies[name]
+		return resource, ok
+	case NetworkPolicyHostsTypeURL:
+		resource, ok := resources.NetworkPolicyHosts[name]
+		return resource, ok
+	}
+	return nil, false
+}
+
+func updateEDSReferences(snapshot *ciliumSnapshot, resources *xds.Resources, changes SnapshotChanges) (map[string]string, map[string]uint32) {
+	clusterEDSNames := snapshot.clusterEDSNames
+	edsReferences := snapshot.edsReferences
+	if len(changes[envoy_resource.ClusterType]) == 0 {
+		return clusterEDSNames, edsReferences
+	}
+
+	clusterEDSNames = maps.Clone(clusterEDSNames)
+	edsReferences = maps.Clone(edsReferences)
+	if clusterEDSNames == nil {
+		clusterEDSNames = make(map[string]string)
+	}
+	if edsReferences == nil {
+		edsReferences = make(map[string]uint32)
+	}
+
+	for clusterName := range changes[envoy_resource.ClusterType] {
+		oldEDSName := clusterEDSNames[clusterName]
+		newEDSName := edsNameForCluster(resources.Clusters[clusterName])
+		if oldEDSName == newEDSName {
+			continue
+		}
+
+		if oldEDSName != "" {
+			if edsReferences[oldEDSName] <= 1 {
+				delete(edsReferences, oldEDSName)
+			} else {
+				edsReferences[oldEDSName]--
+			}
+			changes.Add(envoy_resource.EndpointType, oldEDSName)
+		}
+		if newEDSName == "" {
+			delete(clusterEDSNames, clusterName)
+		} else {
+			clusterEDSNames[clusterName] = newEDSName
+			edsReferences[newEDSName]++
+			changes.Add(envoy_resource.EndpointType, newEDSName)
+		}
+
+		// Wildcard endpoint placeholders are included only when their map key has
+		// a matching cluster key.
+		changes.Add(envoy_resource.EndpointType, clusterName)
+	}
+	return clusterEDSNames, edsReferences
+}
+
+// GenerateIncrementalSnapshot reuses immutable groups from the currently
+// published snapshot and rebuilds only groups containing changed resources.
+func (c *cacheImpl) GenerateIncrementalSnapshot(nodeID string, resources *xds.Resources, changes SnapshotChanges, logger *slog.Logger) (cache.ResourceSnapshot, error) {
+	if resources == nil {
+		empty := xds.NewResources()
+		resources = &empty
+	}
+
+	previous, err := c.GetSnapshot(nodeID)
+	if err != nil || previous == nil {
+		return c.GenerateSnapshot(resources, logger)
+	}
+	previousSnapshot, ok := previous.(*ciliumSnapshot)
+	if !ok || previousSnapshot.VersionMap == nil {
+		return c.GenerateSnapshot(resources, logger)
+	}
+
+	changes = cloneSnapshotChanges(changes)
+	clusterEDSNames, edsReferences := updateEDSReferences(previousSnapshot, resources, changes)
+	affectedTypes := make(map[string]struct{}, len(changes))
+	for typeURL, names := range changes {
+		if len(names) > 0 {
+			affectedTypes[typeURL] = struct{}{}
+		}
+	}
+	if len(changes[envoy_resource.ListenerType]) > 0 {
+		affectedTypes[envoy_resource.ClusterType] = struct{}{}
+		affectedTypes[envoy_resource.RouteType] = struct{}{}
+		affectedTypes[envoy_resource.SecretType] = struct{}{}
+	}
+	if len(changes[envoy_resource.ClusterType]) > 0 {
+		affectedTypes[envoy_resource.EndpointType] = struct{}{}
+		affectedTypes[envoy_resource.SecretType] = struct{}{}
+	}
+	if len(affectedTypes) == 0 {
+		return previousSnapshot, nil
+	}
+
+	version := c.nextVersion()
+	versionedResources := maps.Clone(previousSnapshot.Resources)
+	versionMaps := maps.Clone(previousSnapshot.VersionMap)
+	for typeURL := range affectedTypes {
+		group, knownType := previousSnapshot.Resources[typeURL]
+		if !knownType {
+			continue
+		}
+		group.Version = version
+
+		names := changes[typeURL]
+		if len(names) == 0 {
+			versionedResources[typeURL] = group
+			continue
+		}
+
+		group.Items = maps.Clone(group.Items)
+		if group.Items == nil {
+			group.Items = make(map[string]cache_types.ResourceWithTTL)
+		}
+		resourceVersions := maps.Clone(previousSnapshot.VersionMap[typeURL])
+		if resourceVersions == nil {
+			resourceVersions = make(map[string]string)
+		}
+		for name := range names {
+			resource, exists := currentSnapshotResource(resources, typeURL, name, edsReferences)
+			if !exists {
+				delete(group.Items, name)
+				delete(resourceVersions, name)
+				continue
+			}
+			marshaledResource, err := cache.MarshalResource(resource)
+			if err != nil {
+				return nil, err
+			}
+			group.Items[name] = cache_types.ResourceWithTTL{Resource: resource}
+			resourceVersions[name] = cache.HashResource(marshaledResource)
+		}
+		versionedResources[typeURL] = group
+		versionMaps[typeURL] = resourceVersions
+	}
+
+	return newCiliumSnapshot(versionedResources, versionMaps, clusterEDSNames, edsReferences), nil
 }
 
 func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
