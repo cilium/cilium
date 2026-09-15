@@ -1,0 +1,68 @@
+# Verify that a NodeConfig is created on operator startup when a ClusterConfig
+# and a matching CiliumNode already exist in the cluster (i.e. both objects
+# pre-date the operator process).
+
+k8s/add kind-worker-node.yaml
+k8s/add driver-cluster-config.yaml
+
+hive start
+
+* db/cmp netdriver-node-config node-config.table
+
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-worker -o kind-worker-config-actual.yaml
+* cmp kind-worker-config-expected.yaml kind-worker-config-actual.yaml
+
+hive stop
+
+# ----
+
+-- kind-worker-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker
+  name: kind-worker
+spec: {}
+-- driver-cluster-config.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: kind-worker
+  spec:
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- node-config.table --
+Node                ClusterConfig          Config                                                                                                                                                                                                                                           Status  Error
+kind-worker         driver-cluster-config  {"draRegistrationRetryInterval":1,"draRegistrationTimeout":600,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}                       Done    
+-- kind-worker-config-expected.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: kind-worker
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 1
+  draRegistrationTimeout: 600
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool

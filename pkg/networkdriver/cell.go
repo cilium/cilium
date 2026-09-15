@@ -149,6 +149,7 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		db:             params.DB,
 		deviceTable:    params.DeviceTable,
 		localNodeStore: params.LocalNodeStore,
+		hostProcPath:   params.DaemonCfg.ProcFs,
 	}
 
 	params.Lifecycle.Append(driver)
