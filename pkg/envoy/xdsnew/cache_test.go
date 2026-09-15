@@ -129,8 +129,8 @@ func newTestCache(mockedCache *mockSnapshotCache) cacheImpl {
 		SnapshotCache:       mockedCache,
 		mutex:               &lock.RWMutex{},
 		resourcesInSnapshot: make(map[string]*xds.Resources),
+		resourceGenerations: make(map[string]uint64),
 		logger:              logger,
-		hasher:              nil, // not needed for tests that don't call hash/GetVersion
 		completionCbs:       callbacks.NewCompletionCallbacks(logger),
 	}
 }
@@ -444,7 +444,7 @@ func TestNewCache(t *testing.T) {
 
 	assert.NotNil(t, c.SnapshotCache)
 	assert.NotNil(t, c.logger)
-	assert.NotNil(t, c.hasher)
+	assert.NotNil(t, c.resourceGenerations)
 }
 
 func TestGetSnapshot_ExistingNode(t *testing.T) {
@@ -545,6 +545,7 @@ func TestSetResources(t *testing.T) {
 	storedResources := c.resourcesInSnapshot["node1"]
 	require.NotNil(t, storedResources)
 	assert.Contains(t, storedResources.Listeners, "listener1")
+	assert.Equal(t, uint64(1), c.GetResourcesGeneration("node1"))
 }
 
 func TestSetResources_OverwriteExisting(t *testing.T) {
@@ -567,6 +568,7 @@ func TestSetResources_OverwriteExisting(t *testing.T) {
 	require.NotNil(t, storedResources)
 	assert.Len(t, storedResources.Listeners, 1)
 	assert.Contains(t, storedResources.Listeners, "new-listener")
+	assert.Equal(t, uint64(2), c.GetResourcesGeneration("node1"))
 }
 
 func TestGetAllResources_ExistingNode(t *testing.T) {
@@ -1046,42 +1048,6 @@ func TestUpdateSnapshot_ErrorAfterStoreKeepsVersionMarker(t *testing.T) {
 	require.NoError(t, wgA.Wait())
 }
 
-// --- GetVersion ---
-
-func TestGetVersion_DifferentResourcesProduceDifferentVersions(t *testing.T) {
-	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
-
-	res1 := emptyResources()
-	res1.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
-
-	res2 := emptyResources()
-	res2.Listeners["l2"] = &envoy_config_listener.Listener{Name: "l2"}
-
-	v1 := c.GetVersion(res1)
-	v2 := c.GetVersion(res2)
-
-	assert.NotEmpty(t, v1)
-	assert.NotEmpty(t, v2)
-	assert.NotEqual(t, v1, v2)
-}
-
-func TestGetVersion_SameResourcesProduceSameVersion(t *testing.T) {
-	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
-
-	res1 := emptyResources()
-	res1.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
-
-	res2 := emptyResources()
-	res2.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
-
-	v1 := c.GetVersion(res1)
-	v2 := c.GetVersion(res2)
-
-	assert.Equal(t, v1, v2)
-}
-
 // --- AreDifferentSnapshots ---
 
 func TestAreDifferentSnapshots_Identical(t *testing.T) {
@@ -1443,6 +1409,15 @@ func TestGenerateSnapshot_ResourceContents(t *testing.T) {
 	assertResourceCount(envoy_resource.RouteType, 0)
 	assertResourceCount(envoy_resource.EndpointType, 1)
 	assertResourceCount(envoy_resource.SecretType, 1)
+
+	versionedSnapshot := snap.(*ciliumSnapshot)
+	require.NotNil(t, versionedSnapshot.VersionMap)
+	marshaledListener, err := cache.MarshalResource(listener)
+	require.NoError(t, err)
+	assert.Equal(t,
+		cache.HashResource(marshaledListener),
+		versionedSnapshot.GetVersionMap(envoy_resource.ListenerType)["l1"],
+	)
 }
 
 // --- Verify no delegation to snapshotCache for local-only operations ---

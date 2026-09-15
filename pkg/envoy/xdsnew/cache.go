@@ -5,15 +5,16 @@ package xdsnew
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"hash"
-	"hash/fnv"
 	"log/slog"
 	"maps"
 	"slices"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -26,7 +27,6 @@ import (
 	controlplanelog "github.com/envoyproxy/go-control-plane/pkg/log"
 	envoy_resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -45,11 +45,11 @@ const (
 type Cache interface {
 	cache.SnapshotCache
 
-	GetVersion(resources *xds.Resources) string
 	GenerateSnapshot(resources *xds.Resources, logger *slog.Logger) (cache.ResourceSnapshot, error)
 	UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc func()) error
 	SetResources(nodeID string, resources *xds.Resources)
 	GetAllResources(nodeID string) *xds.Resources
+	GetResourcesGeneration(nodeID string) uint64
 	AreDifferentSnapshots(left, right cache.ResourceSnapshot) bool
 	GetCompletionCallbacks() *callbacks.CompletionCallbacks
 }
@@ -61,8 +61,9 @@ type cacheImpl struct {
 	mutex *lock.RWMutex
 	// resourcesInSnapshot holds the last set of resources (keyed by nodeID) pushed to Envoy.
 	resourcesInSnapshot map[string]*xds.Resources
+	// resourceGenerations identifies the currently published resource state for each node.
+	resourceGenerations map[string]uint64
 	logger              *slog.Logger
-	hasher              hash.Hash32
 	completionCbs       *callbacks.CompletionCallbacks
 }
 
@@ -89,9 +90,10 @@ var snapshotResourceTypes = []envoy_resource.Type{
 	NetworkPolicyHostsTypeURL,
 }
 
-func newCiliumSnapshot(resources map[string]cache.Resources) *ciliumSnapshot {
+func newCiliumSnapshot(resources map[string]cache.Resources, versionMap map[string]map[string]string) *ciliumSnapshot {
 	w := &ciliumSnapshot{
-		Resources: make(map[string]cache.Resources, len(snapshotResourceTypes)),
+		Resources:  make(map[string]cache.Resources, len(snapshotResourceTypes)),
+		VersionMap: versionMap,
 	}
 	for _, typeURL := range snapshotResourceTypes {
 		w.Resources[typeURL] = resources[typeURL]
@@ -237,31 +239,10 @@ func NewCache(logger *slog.Logger, orderedADS bool) Cache {
 		SnapshotCache:       snapshotCache,
 		mutex:               &lock.RWMutex{},
 		resourcesInSnapshot: make(map[string]*xds.Resources),
+		resourceGenerations: make(map[string]uint64),
 		logger:              logger,
-		hasher:              fnv.New32a(),
 		completionCbs:       callbacks.NewCompletionCallbacks(logger),
 	}
-}
-
-func (c *cacheImpl) hash(resources map[string]string) string {
-	hasher := fnv.New32a()
-	printer := spew.ConfigState{
-		Indent:         " ",
-		SortKeys:       true,
-		DisableMethods: true,
-		SpewKeys:       true,
-	}
-	printer.Fprintf(hasher, "%#v", resources)
-	return rand.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
-}
-
-func (c *cacheImpl) GetVersion(resources *xds.Resources) string {
-	encodedResources, err := Marshal(resources)
-	if err != nil {
-		c.logger.Error(fmt.Sprintf("failed to marshal resources for versioning: %v", err))
-		return ""
-	}
-	return c.hash(encodedResources)
 }
 
 func resourceGroup(version string, resources map[string]cache_types.Resource) cache.Resources {
@@ -462,28 +443,41 @@ func sdsReferenceVersionContext(resources *xds.Resources) string {
 	return resourceReferencesVersionContext(refs)
 }
 
-func (c *cacheImpl) resourceVersion(typeURL string, resources map[string]cache_types.Resource, versionContext ...string) (string, error) {
+func writeVersionPart(hasher hash.Hash, value string) {
+	var size [8]byte
+	binary.BigEndian.PutUint64(size[:], uint64(len(value)))
+	_, _ = hasher.Write(size[:])
+	_, _ = hasher.Write([]byte(value))
+}
+
+// versionedResourceGroup deterministically marshals each resource once and uses
+// the result for both the type version and Delta's per-resource version map.
+func versionedResourceGroup(typeURL string, resources map[string]cache_types.Resource, versionContext ...string) (cache.Resources, map[string]string, error) {
 	keys := slices.Collect(maps.Keys(resources))
 	slices.Sort(keys)
-	var sb strings.Builder
+	hasher := sha256.New()
+	writeVersionPart(hasher, typeURL)
+	versionMap := make(map[string]string, len(resources))
 	for _, name := range keys {
-		encodedResource, err := marshal(resources[name])
+		encodedResource, err := cache.MarshalResource(resources[name])
 		if err != nil {
-			return "", err
+			return cache.Resources{}, nil, err
 		}
-		sb.WriteString(name)
-		sb.WriteString(encodedResource)
+		resourceVersion := cache.HashResource(encodedResource)
+		versionMap[name] = resourceVersion
+		writeVersionPart(hasher, "resource")
+		writeVersionPart(hasher, name)
+		writeVersionPart(hasher, resourceVersion)
 	}
 	for _, context := range versionContext {
 		if context == "" {
 			continue
 		}
-		sb.WriteByte(0)
-		sb.WriteString("version-context")
-		sb.WriteByte(0)
-		sb.WriteString(context)
+		writeVersionPart(hasher, "version-context")
+		writeVersionPart(hasher, context)
 	}
-	return c.hash(map[string]string{typeURL: sb.String()}), nil
+	version := hex.EncodeToString(hasher.Sum(nil))
+	return resourceGroup(version, resources), versionMap, nil
 }
 
 // normalizeSnapshotResources returns the resource view used to build an ADS
@@ -593,6 +587,7 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 	}
 
 	versionedResources := make(map[string]cache.Resources, len(resourceGroups))
+	versionMaps := make(map[string]map[string]string, len(resourceGroups))
 	for typeURL, resourceMap := range resourceGroups {
 		var versionContext string
 		if typeURL == envoy_resource.EndpointType {
@@ -610,14 +605,15 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 		} else if typeURL == envoy_resource.ClusterType {
 			versionContext = listenerClusterReferenceVersionContext(resources)
 		}
-		version, err := c.resourceVersion(typeURL, resourceMap, versionContext)
+		resourceGroup, versionMap, err := versionedResourceGroup(typeURL, resourceMap, versionContext)
 		if err != nil {
 			return nil, err
 		}
-		versionedResources[typeURL] = resourceGroup(version, resourceMap)
+		versionedResources[typeURL] = resourceGroup
+		versionMaps[typeURL] = versionMap
 	}
 
-	return newCiliumSnapshot(versionedResources), nil
+	return newCiliumSnapshot(versionedResources, versionMaps), nil
 }
 
 func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
@@ -628,6 +624,7 @@ func (c *cacheImpl) SetResources(nodeID string, resources *xds.Resources) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.resourcesInSnapshot[nodeID] = resources
+	c.resourceGenerations[nodeID]++
 }
 
 func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFunc func()) error {
@@ -736,6 +733,7 @@ func (c *cacheImpl) ClearSnapshot(nodeID string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.resourcesInSnapshot[nodeID] = &xds.Resources{}
+	c.resourceGenerations[nodeID]++
 }
 
 func normalizeCustomWildcardRequest(request *cache.Request, sub cache.Subscription) *cache.Request {
@@ -765,6 +763,12 @@ func (c *cacheImpl) GetAllResources(nodeID string) *xds.Resources {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.resourcesInSnapshot[nodeID]
+}
+
+func (c *cacheImpl) GetResourcesGeneration(nodeID string) uint64 {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return c.resourceGenerations[nodeID]
 }
 
 func (c *cacheImpl) AreDifferentSnapshots(left, right cache.ResourceSnapshot) bool {

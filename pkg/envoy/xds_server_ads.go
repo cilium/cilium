@@ -857,12 +857,12 @@ func listenerPortAllocationCompletionTypeURLs(callback func(error), changes *res
 
 // buildRevert captures the given resource changes and returns a closure that
 // restores them. The revert is skipped if another update has been applied since
-// (detected via snapshot version mismatch).
+// (detected via the published resource generation).
 // Caller must hold s.mutex.
-func (s *adsServer) buildRevert(ctx context.Context, nodeID string, newResources *xds.Resources, changes *resourceChanges) func() {
-	// Compute the version of the snapshot we are about to push so we can
-	// detect whether a subsequent update has superseded ours.
-	pushedVersion := s.cache.GetVersion(newResources)
+func (s *adsServer) buildRevert(ctx context.Context, nodeID string, changes *resourceChanges) func() {
+	// updateSnapshot serializes publications with s.mutex, so the next successful
+	// publication receives this generation.
+	pushedGeneration := s.cache.GetResourcesGeneration(nodeID) + 1
 	if changes == nil {
 		changes = &resourceChanges{}
 	}
@@ -872,14 +872,14 @@ func (s *adsServer) buildRevert(ctx context.Context, nodeID string, newResources
 		defer s.mutex.Unlock()
 
 		// Check whether the snapshot is still the one we pushed.
+		currentGeneration := s.cache.GetResourcesGeneration(nodeID)
 		currentResources := s.cache.GetAllResources(nodeID)
-		currentVersion := s.cache.GetVersion(currentResources)
-		if currentVersion != pushedVersion {
+		if currentGeneration != pushedGeneration {
 			s.logger.Info(
 				"Skipping revert, snapshot has been superseded",
 				logfields.NodeID, nodeID,
-				logfields.XDSPushedVersion, pushedVersion,
-				logfields.XDSCurrentVersion, currentVersion,
+				logfields.XDSPushedVersion, pushedGeneration,
+				logfields.XDSCurrentVersion, currentGeneration,
 			)
 			return
 		}
@@ -951,34 +951,36 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		nodeId = localNodeID
 	}
 
-	s.logger.Debug("updateXdsSnapshot: Updating Envoy resources",
-		logfields.Resource, resources.DebugInfo())
-	for _, r := range resources.Secrets {
-		s.logger.Debug(
-			"Envoy updateSecret",
-			logfields.ResourceName, r.Name,
-		)
-	}
-	for _, r := range resources.Endpoints {
-		s.logger.Debug(
-			"Envoy updateEndpoint",
-			logfields.ResourceName, r.ClusterName,
-			logfields.Resource, r,
-		)
-	}
-	for _, r := range resources.Clusters {
-		s.logger.Debug(
-			"Envoy updateCluster",
-			logfields.ResourceName, r.Name,
-			logfields.Resource, r,
-		)
-	}
-	for _, r := range resources.Routes {
-		s.logger.Debug(
-			"Envoy updateRoute",
-			logfields.ResourceName, r.Name,
-			logfields.Resource, r,
-		)
+	if s.logger.Enabled(ctx, slog.LevelDebug) {
+		s.logger.Debug("updateXdsSnapshot: Updating Envoy resources",
+			logfields.Resource, resources.DebugInfo())
+		for _, r := range resources.Secrets {
+			s.logger.Debug(
+				"Envoy updateSecret",
+				logfields.ResourceName, r.Name,
+			)
+		}
+		for _, r := range resources.Endpoints {
+			s.logger.Debug(
+				"Envoy updateEndpoint",
+				logfields.ResourceName, r.ClusterName,
+				logfields.Resource, r,
+			)
+		}
+		for _, r := range resources.Clusters {
+			s.logger.Debug(
+				"Envoy updateCluster",
+				logfields.ResourceName, r.Name,
+				logfields.Resource, r,
+			)
+		}
+		for _, r := range resources.Routes {
+			s.logger.Debug(
+				"Envoy updateRoute",
+				logfields.ResourceName, r.Name,
+				logfields.Resource, r,
+			)
+		}
 	}
 
 	updatedTypeURLsInSnapshot := getUpdatedTypeURLs(changes)
@@ -1031,7 +1033,7 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		// their rollback as well so a NACK of the resulting response restores all
 		// updates represented by it, newest first.
 		if wg != nil || changes != nil {
-			revertFunc = s.buildRevert(ctx, nodeId, resources, changes)
+			revertFunc = s.buildRevert(ctx, nodeId, changes)
 		}
 		err = s.cache.UpdateSnapshot(ctx, nodeId, newSnapshot, wg, completionTypeURLs, revertFunc)
 		if err != nil {
