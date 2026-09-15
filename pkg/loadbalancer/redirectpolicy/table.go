@@ -80,8 +80,8 @@ func newLRPListerWatcher(cs client.Clientset) lrpListerWatcher {
 	return k8sUtils.ListerWatcherFromTyped(cs.CiliumV2().CiliumLocalRedirectPolicies("" /* all namespaces */))
 }
 
-func registerLRPReflector(enabled lrpIsEnabled, cfg Config, db *statedb.DB, log *slog.Logger, jg job.Group, lw lrpListerWatcher, lrps statedb.RWTable[*LocalRedirectPolicy]) {
-	if !enabled || lw == nil {
+func registerLRPReflector(cfg Config, db *statedb.DB, log *slog.Logger, jg job.Group, lw lrpListerWatcher, lrps statedb.RWTable[*LocalRedirectPolicy]) {
+	if !cfg.IsEnabled() || lw == nil {
 		return
 	}
 

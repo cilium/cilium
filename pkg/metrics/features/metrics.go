@@ -1031,7 +1031,7 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		m.NPHostFirewallEnabled.Set(1)
 	}
 
-	if config.EnableLocalRedirectPolicy {
+	if params.IsLocalRedirectPolicyEnabled() {
 		m.NPLocalRedirectPolicyEnabled.Set(1)
 	}
 
