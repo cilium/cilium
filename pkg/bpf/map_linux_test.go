@@ -1081,3 +1081,41 @@ func TestPrivilegedBatchIterator(t *testing.T) {
 		}
 	}
 }
+
+func TestBatchIterator_ENOSPCRetryExhaustion(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	mapSize := 1 << 13
+	size := 1 << 12
+
+	m := NewMap("cilium_test_enospc",
+		ebpf.Hash,
+		&TestLPMKey{PrefixLen: 32, Key: 0},
+		&TestValue{Value: 0},
+		mapSize,
+		0,
+	)
+	require.NoError(t, m.OpenOrCreate())
+	defer assert.NoError(t, m.UnpinIfExists())
+
+	for i := range size {
+		err := m.Update(&TestLPMKey{PrefixLen: 32, Key: uint32(i)}, &TestValue{Value: uint32(i)})
+		require.NoError(t, err)
+	}
+
+	// Setup iteration with starting chunk size 1 and maxRetries 1.
+	// When the batch lookup returns ENOSPC, retries are exhausted immediately.
+	// IterateAll must terminate promptly and set iter.Err() rather than looping indefinitely.
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+
+	iter := NewBatchIterator[TestLPMKey, TestValue](m)
+	for range iter.IterateAll(ctx,
+		WithStartingChunkSize[TestLPMKey, TestValue](1),
+		WithMaxRetries[TestLPMKey, TestValue](1),
+	) {
+	}
+
+	require.ErrorIs(t, iter.Err(), unix.ENOSPC)
+	assert.NoError(t, ctx.Err(), "IterateAll should terminate immediately without waiting for context timeout")
+}
