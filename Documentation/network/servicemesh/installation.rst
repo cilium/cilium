@@ -39,16 +39,6 @@ Installation
            :post-commands: kubectl -n kube-system rollout restart deployment/cilium-operator
                            kubectl -n kube-system rollout restart ds/cilium
 
-        .. note:: These commands update the ``cilium-config`` ConfigMap, and the
-           cilium-operator must be rolled out together with the agents: the
-           operator creates the CRDs required by the newly enabled features
-           (e.g. ``ciliumenvoyconfigs.cilium.io``), and agents block their
-           startup until those CRDs are registered. When
-           ``operator.rollOutPods`` is enabled (default), Helm adds a
-           configuration checksum annotation to the operator Deployment so the
-           operator picks up the new configuration automatically; otherwise it
-           must be restarted manually as shown above.
-
         Next you can check the status of the Cilium agent and operator:
 
         .. code-block:: shell-session

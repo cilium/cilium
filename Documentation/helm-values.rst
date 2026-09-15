@@ -3889,7 +3889,7 @@
      - object
      - ``{}``
    * - :spelling:ignore:`rollOutCiliumPods`
-     - Roll out cilium agent pods automatically when configmap is updated. Enabling this also rolls out cilium-operator pods, which must stay in sync with the agent configuration.
+     - Roll out cilium agent pods automatically when configmap is updated.
      - bool
      - ``false``
    * - :spelling:ignore:`routingMode`
