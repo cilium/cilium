@@ -32,8 +32,12 @@ var Cell = cell.Module(
 	"mcsapi",
 	"Multi-Cluster Services API",
 
+	cell.Config(mcsapitypes.DefaultMCSAPIConfig),
 	cell.Provide(func(params paramsObserver) observer.FactoryOut {
 		return observer.NewFactoryOut(newFactory(params))
+	}),
+	operator.Enable(func(cfg mcsapitypes.MCSAPIConfig) bool {
+		return cfg.EnableMCSAPI
 	}),
 	cell.ProvidePrivate(newGlobalServiceExportCache),
 	cell.ProvidePrivate(func() *operator.RemoteObjectSource[*mcsapitypes.MCSAPIServiceSpec] {

@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -33,7 +32,6 @@ type clusterMesh struct {
 
 	cfg           ClusterMeshConfig
 	serviceModeV2 types.ServiceModeV2
-	cfgMCSAPI     mcsapitypes.MCSAPIConfig
 	logger        *slog.Logger
 	metrics       Metrics
 
@@ -83,7 +81,7 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams, en enabled) (*c
 		return nil, nil
 	}
 
-	if !params.Cfg.ClusterMeshEnableEndpointSync && !params.CfgMCSAPI.EnableMCSAPI && !bool(en){
+	if !params.Cfg.ClusterMeshEnableEndpointSync && !bool(en) {
 		return nil, nil
 	}
 
@@ -92,7 +90,6 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams, en enabled) (*c
 	cm := clusterMesh{
 		cfg:               params.Cfg,
 		serviceModeV2:     params.ServiceModeV2,
-		cfgMCSAPI:         params.CfgMCSAPI,
 		logger:            params.Logger,
 		metrics:           params.Metrics,
 		globalServices:    common.NewGlobalServiceCache(params.Logger),
@@ -167,7 +164,6 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 		name:                          name,
 		clusterID:                     types.ClusterIDUnset,
 		clusterMeshEnableEndpointSync: cm.cfg.ClusterMeshEnableEndpointSync,
-		clusterMeshEnableMCSAPI:       cm.cfgMCSAPI.EnableMCSAPI,
 		clusterMeshServiceModeV2:      cm.serviceModeV2,
 		storeFactory:                  cm.storeFactory,
 		synced:                        newSynced(),
