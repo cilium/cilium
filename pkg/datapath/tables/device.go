@@ -29,12 +29,12 @@ var (
 	deviceNameIndex = statedb.Index[*Device, string]{
 		Name: "name",
 		FromObject: func(d *Device) index.KeySet {
-			keys := make([]index.Key, 0, 1+len(d.AltNames))
-			keys = append(keys, index.String(d.Name))
+			keys := make([]index.Key, 1, 1+len(d.AltNames))
+			keys[0] = index.String(d.Name)
 			for _, altName := range d.AltNames {
 				keys = append(keys, index.String(altName))
 			}
-			return index.NewKeySet(keys...)
+			return index.NewKeySet(keys[0], keys[1:]...)
 		},
 		FromKey:    index.String,
 		FromString: index.FromString,

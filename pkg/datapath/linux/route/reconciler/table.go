@@ -388,7 +388,7 @@ var (
 		Name: "device",
 		FromObject: func(obj *DesiredRoute) index.KeySet {
 			if obj.Device == nil {
-				return index.NewKeySet()
+				return index.EmptyKeySet
 			}
 			return index.NewKeySet(index.Int(obj.Device.Index))
 		},

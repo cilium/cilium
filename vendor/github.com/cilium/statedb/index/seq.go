@@ -18,7 +18,7 @@ func Seq[T any](
 	for v := range seq {
 		keys = append(keys, toKey(v))
 	}
-	return NewKeySet(keys...)
+	return keySet(keys)
 }
 
 // Seq2 creates a KeySet from an iter.Seq2[A,B] with the given indexing function.
@@ -34,5 +34,5 @@ func Seq2[A, B any](
 	for a := range seq {
 		keys = append(keys, toKey(a))
 	}
-	return NewKeySet(keys...)
+	return keySet(keys)
 }

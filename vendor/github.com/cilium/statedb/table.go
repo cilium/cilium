@@ -181,7 +181,7 @@ func validateTableName(name string) error {
 type genTable[Obj any] struct {
 	pos                  int
 	table                TableName
-	smu                  internal.SortableMutex
+	smu                  *internal.SortableMutex
 	primaryIndexer       Indexer[Obj]
 	primaryAnyIndexer    anyIndexer
 	secondaryAnyIndexers []anyIndexer
@@ -619,7 +619,7 @@ func (t *genTable[Obj]) anyChanges(txn WriteTxn) (anyChangeIterator, error) {
 	return iter.(*changeIterator[Obj]), err
 }
 
-func (t *genTable[Obj]) sortableMutex() internal.SortableMutex {
+func (t *genTable[Obj]) sortableMutex() *internal.SortableMutex {
 	return t.smu
 }
 
