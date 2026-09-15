@@ -7,6 +7,9 @@
 #include <bpf/api.h>
 
 #include "common.h"
+#include "ipfrag.h"
+#include "ipv4.h"
+#include "ipv6.h"
 #include "network_device.h"
 #include "neigh.h"
 #include "l3.h"
@@ -183,6 +186,90 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 			       ret, *oif, ext_err);
 }
 
+/* fib_set_l4_v4 populates the L4 protocol and port fields of @fib_params for
+ * an IPv4 packet. Uses ipv4_load_l4_ports() to handle fragmented packets: with
+ * fragment tracking enabled, ports are retrieved from the tracking map for
+ * non-first fragments; without tracking, non-first fragments proceed with zero
+ * ports so ECMP hashing falls back to the IP-address tuple rather than
+ * silently reading garbage payload bytes.
+ */
+static __always_inline int
+fib_set_l4_v4(struct __ctx_buff *ctx, int l3_off, struct iphdr *ip4,
+	      struct bpf_fib_lookup_padded *fib_params)
+{
+	struct bpf_fib_lookup *l = &fib_params->l;
+	fraginfo_t fraginfo = ipfrag_encode_ipv4(ip4);
+
+	l->l4_protocol = ip4->protocol;
+	if (ip4->protocol == IPPROTO_TCP || ip4->protocol == IPPROTO_UDP ||
+	    ip4->protocol == IPPROTO_SCTP) {
+		__be16 ports[2] = {};
+		int ret;
+
+		if (ipfrag_has_l4_header(fraginfo) || CONFIG(enable_ipv4_fragments)) {
+			ret = ipv4_load_l4_ports(ctx, ip4, fraginfo,
+						 l3_off + ipv4_hdrlen(ip4),
+						 CT_EGRESS, ports);
+			if (ret < 0)
+				return ret;
+		}
+		l->sport = ports[0];
+		l->dport = ports[1];
+	}
+	return CTX_ACT_OK;
+}
+
+/* fib_set_l4_v6 populates the L4 protocol and port fields of @fib_params for
+ * an IPv6 packet. Walks extension headers to find the true L4 offset and
+ * extract fraginfo, then uses ipv6_load_l4_ports() for the same fragment-aware
+ * port loading as fib_set_l4_v4.
+ */
+static __always_inline int
+fib_set_l4_v6(struct __ctx_buff *ctx, int l3_off, struct ipv6hdr *ip6,
+	      struct bpf_fib_lookup_padded *fib_params)
+{
+	struct bpf_fib_lookup *l = &fib_params->l;
+	__u8 nexthdr = ip6->nexthdr;
+	fraginfo_t fraginfo;
+	int hdrlen;
+
+	hdrlen = ipv6_hdrlen_offset(ctx, l3_off, &nexthdr, &fraginfo);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l->l4_protocol = nexthdr;
+	if (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP ||
+	    nexthdr == IPPROTO_SCTP) {
+		__be16 ports[2] = {};
+		int ret;
+
+		if (ipfrag_has_l4_header(fraginfo) || CONFIG(enable_ipv6_fragments)) {
+			ret = ipv6_load_l4_ports(ctx, ip6, fraginfo,
+						 l3_off + hdrlen,
+						 CT_EGRESS, ports);
+			if (ret < 0)
+				return ret;
+		}
+		l->sport = ports[0];
+		l->dport = ports[1];
+	}
+	return CTX_ACT_OK;
+}
+
+/* fib_set_l4_from_tuple populates the L4 fields of @fib_params from an
+ * already-extracted CT tuple, avoiding a packet read.
+ */
+static __always_inline void
+fib_set_l4_from_tuple(struct bpf_fib_lookup_padded *fib_params, __u8 nexthdr,
+		      __be16 sport, __be16 dport)
+{
+	struct bpf_fib_lookup *l = &fib_params->l;
+
+	l->l4_protocol = nexthdr;
+	l->sport = sport;
+	l->dport = dport;
+}
+
 #ifdef ENABLE_IPV6
 /* fib_lookup_v6 will perform a fib lookup with the src and dest addresses
  * provided.
@@ -252,6 +339,13 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		fib_params.l.tbid = tbid;
 		flags = (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID);
 	}
+
+	/* Populate L4 flow fields for ECMP multipath hashing. The kernel hashes
+	 * these fields to distribute flows across multiple nexthops.
+	 */
+	ret = fib_set_l4_v6(ctx, l3_off, ip6, &fib_params);
+	if (ret < 0)
+		return ret;
 
 	fib_result = fib_lookup_v6(ctx, &fib_params, &ip6->saddr, &ip6->daddr, flags);
 	switch (fib_result) {
@@ -334,6 +428,13 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		fib_params.l.tbid = tbid;
 		flags = (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID);
 	}
+
+	/* Populate L4 flow fields for ECMP multipath hashing. The kernel hashes
+	 * these fields to distribute flows across multiple nexthops.
+	 */
+	ret = fib_set_l4_v4(ctx, l3_off, ip4, &fib_params);
+	if (ret < 0)
+		return ret;
 
 	fib_result = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, flags);
 	switch (fib_result) {
