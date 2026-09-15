@@ -13,7 +13,9 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -27,6 +29,23 @@ var (
 	goBoolType = reflect.TypeFor[bool]()
 
 	celEnv *cel.Env
+
+	// Limiter to use for logging CEL filter program eval error.
+	// 1 log per second with a burst of 3.
+	celFilterLoggingLimiter = logging.NewLimiter(time.Second, 3)
+
+	// Maximum size of the raw CEL filter expression(4096 characters).
+	celExpressionMaxSize int = 4096
+
+	// celProgramMaxRuntimeCost is the maximum runtime cost budget for a single
+	// expression evaluation. Evaluation is aborted with an error if the
+	// actual accumulated cost exceeds this value.
+	celProgramMaxRuntimeCost uint64 = 100000
+
+	// celProgramInterruptCheckFrequency controls how often (in comprehension
+	// iterations) CEL checks for context cancellation. Lower values make
+	// cancellation more responsive at the expense of a small throughput cost.
+	celProgramInterruptCheckFrequency uint = 100
 )
 
 func init() {
@@ -35,6 +54,7 @@ func init() {
 		cel.Container("flow"),
 		celTypes,
 		cel.Variable(flowVariableName, cel.ObjectType("flow.Flow")),
+		cel.ParserExpressionSizeLimit(celExpressionMaxSize),
 	)
 	if err != nil {
 		panic(fmt.Sprintf("error creating CEL env %s", err))
@@ -67,7 +87,7 @@ func compile(env *cel.Env, expr string, celType *cel.Type) (*cel.Ast, error) {
 	return ast, nil
 }
 
-func filterByCELExpression(ctx context.Context, log *slog.Logger, exprs []string) (FilterFunc, error) {
+func compileCELFilters(exprs []string) ([]cel.Program, error) {
 	var programs []cel.Program
 	for _, expr := range exprs {
 		// we want filters to be boolean expressions, so check the type of the
@@ -77,11 +97,25 @@ func filterByCELExpression(ctx context.Context, log *slog.Logger, exprs []string
 			return nil, fmt.Errorf("error compiling CEL expression: %w", err)
 		}
 
-		prg, err := celEnv.Program(ast)
+		prg, err := celEnv.Program(
+			ast,
+			cel.EvalOptions(cel.OptOptimize),
+			cel.CostLimit(celProgramMaxRuntimeCost),
+			cel.InterruptCheckFrequency(celProgramInterruptCheckFrequency),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("error building CEL program: %w", err)
 		}
 		programs = append(programs, prg)
+	}
+
+	return programs, nil
+}
+
+func filterByCELExpression(ctx context.Context, log *slog.Logger, exprs []string) (FilterFunc, error) {
+	programs, err := compileCELFilters(exprs)
+	if err != nil {
+		return nil, err
 	}
 
 	return func(ev *v1.Event) bool {
@@ -90,13 +124,18 @@ func filterByCELExpression(ctx context.Context, log *slog.Logger, exprs []string
 				flowVariableName: ev.GetFlow(),
 			})
 			if err != nil {
-				log.Error("error running CEL program", logfields.Error, err)
+				if celFilterLoggingLimiter.Allow() {
+					log.Error("Error running CEL program", logfields.Error, err)
+				} else {
+					log.Debug("Error running CEL program", logfields.Error, err)
+				}
 				return false
 			}
 
 			v, err := out.ConvertToNative(goBoolType)
 			if err != nil {
-				log.Error("invalid conversion in CEL program", logfields.Error, err)
+				// This branch is unreachable as we already verified boolean result during compilation.
+				log.Error("Invalid conversion in CEL program", logfields.Error, err)
 				return false
 			}
 			b, ok := v.(bool)
