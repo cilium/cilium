@@ -105,7 +105,7 @@ func eventually(in <-chan event) event {
 	}
 }
 
-func TestIPIdentitySynchronizerPodUID(t *testing.T) {
+func TestIPIdentitySynchronizerK8sMetadata(t *testing.T) {
 	client := &recordingKVStoreClient{}
 	synchronizer := &IPIdentitySynchronizer{
 		logger: hivetest.Logger(t),
@@ -113,16 +113,20 @@ func TestIPIdentitySynchronizerPodUID(t *testing.T) {
 	}
 
 	require.NoError(t, synchronizer.Upsert(t.Context(), &UpsertParams{
-		IP:           netip.MustParseAddr("10.0.0.1"),
-		HostIP:       netip.MustParseAddr("10.0.0.2"),
-		K8sNamespace: "default",
-		K8sPodName:   "echo",
-		K8sPodUID:    "90b3d76d-3c14-42ce-b132-d2aad6789d47",
+		IP:              netip.MustParseAddr("10.0.0.1"),
+		HostIP:          netip.MustParseAddr("10.0.0.2"),
+		K8sNamespace:    "default",
+		K8sPodName:      "echo",
+		K8sPodUID:       "90b3d76d-3c14-42ce-b132-d2aad6789d47",
+		K8sWorkloadName: "echo",
+		K8sWorkloadKind: "Deployment",
 	}))
 
 	var pair identity.IPIdentityPair
 	require.NoError(t, json.Unmarshal(client.value, &pair))
 	require.Equal(t, "90b3d76d-3c14-42ce-b132-d2aad6789d47", pair.K8sPodUID)
+	require.Equal(t, "echo", pair.K8sWorkloadName)
+	require.Equal(t, "Deployment", pair.K8sWorkloadKind)
 }
 
 func TestIPIdentityWatcher(t *testing.T) {
@@ -236,7 +240,7 @@ func TestIdentityValidator(t *testing.T) {
 	}
 }
 
-func TestIPIdentityWatcherNamedPorts(t *testing.T) {
+func TestIPIdentityWatcherK8sMetadata(t *testing.T) {
 	const src = source.Source("foo")
 
 	ipcache := &fakeIPCache{events: make(chan event, 1)}
@@ -247,11 +251,13 @@ func TestIPIdentityWatcherNamedPorts(t *testing.T) {
 	}
 
 	watcher.OnUpdate(&identity.IPIdentityPair{
-		IP:           net.ParseIP("10.0.0.1"),
-		ID:           identity.NumericIdentity(1000),
-		K8sNamespace: "test-ns",
-		K8sPodName:   "echo-1",
-		K8sPodUID:    "90b3d76d-3c14-42ce-b132-d2aad6789d47",
+		IP:              net.ParseIP("10.0.0.1"),
+		ID:              identity.NumericIdentity(1000),
+		K8sNamespace:    "test-ns",
+		K8sPodName:      "echo-1",
+		K8sPodUID:       "90b3d76d-3c14-42ce-b132-d2aad6789d47",
+		K8sWorkloadName: "echo",
+		K8sWorkloadKind: "Deployment",
 		NamedPorts: []identity.NamedPort{
 			{Name: "http", Port: 8080, Protocol: "TCP"},
 			{Name: "dns", Port: 53, Protocol: "UDP"},
@@ -266,6 +272,7 @@ func TestIPIdentityWatcherNamedPorts(t *testing.T) {
 	require.Equal(t, "test-ns", event.k8sMeta.Namespace)
 	require.Equal(t, "echo-1", event.k8sMeta.PodName)
 	require.Equal(t, "90b3d76d-3c14-42ce-b132-d2aad6789d47", event.k8sMeta.PodUID)
+	require.Equal(t, &K8sWorkload{Name: "echo", Kind: "Deployment"}, event.k8sMeta.Workload)
 	require.Equal(t, types.NamedPortMap{
 		"http": {Proto: u8proto.TCP, Port: 8080},
 		"dns":  {Proto: u8proto.UDP, Port: 53},

@@ -269,6 +269,10 @@ func ciliumEndpointMapper(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
 						K8sServiceAccount: endpoint.ServiceAccount,
 						NamedPorts:        namedPortsToIPIdentity(endpoint.NamedPorts),
 					}
+					if endpoint.Workload != nil {
+						entry.K8sWorkloadName = endpoint.Workload.Name
+						entry.K8sWorkloadKind = endpoint.Workload.Kind
+					}
 
 					if endpoint.Identity != nil {
 						entry.ID = identity.NumericIdentity(endpoint.Identity.ID)
@@ -321,6 +325,10 @@ func ciliumEndpointSliceMapper(endpointslice *cilium_api_v2a1.CiliumEndpointSlic
 							Key:               uint8(endpoint.Encryption.Key),
 							K8sServiceAccount: endpoint.ServiceAccount,
 							NamedPorts:        namedPortsToIPIdentity(endpoint.NamedPorts),
+						}
+						if endpoint.Workload != nil {
+							entry.K8sWorkloadName = endpoint.Workload.Name
+							entry.K8sWorkloadKind = endpoint.Workload.Kind
 						}
 
 						if !yield(&entry) {

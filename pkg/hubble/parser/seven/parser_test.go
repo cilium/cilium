@@ -151,6 +151,7 @@ func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
 		}}
 	}
 	localWorkload := []*flowpb.Workload{{Kind: "StatefulSet", Name: "local-workload"}}
+	remoteWorkload := []*flowpb.Workload{{Kind: "Deployment", Name: "ipcache-workload"}}
 	tests := []struct {
 		name            string
 		endpointID      uint32
@@ -209,6 +210,7 @@ func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
 			wantNamespace:   "ipcache-namespace",
 			wantPodName:     "ipcache-pod",
 			wantPodUID:      "ipcache-pod-uid",
+			wantWorkloads:   remoteWorkload,
 		},
 	}
 
@@ -232,6 +234,7 @@ func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
 				Namespace: "ipcache-namespace",
 				PodName:   "ipcache-pod",
 				PodUid:    "ipcache-pod-uid",
+				Workloads: remoteWorkload,
 			}
 
 			parser.updateEndpointFromLocal(ip, endpoint)
