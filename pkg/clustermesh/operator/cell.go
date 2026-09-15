@@ -5,6 +5,7 @@ package operator
 
 import (
 	"log/slog"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -28,6 +29,7 @@ var Cell = cell.Module(
 	cell.Config(mcsapitypes.DefaultMCSAPIConfig),
 	cell.Config(types.DefaultServiceModeV2Config),
 	cell.Invoke(types.ServiceModeV2Config.Validate),
+	cell.ProvidePrivate(toEnabled),
 	cell.Provide(
 		common.DefaultRemoteClientFactory,
 		newClusterMesh,
@@ -85,4 +87,31 @@ func (cfg ClusterMeshConfig) Flags(flags *pflag.FlagSet) {
 		cfg.ClusterMeshEnableEndpointSync,
 		"Whether or not the endpoint slice cluster mesh synchronization is enabled.",
 	)
+}
+
+// enabler is the type to request enabling the operator ClusterMesh cell
+type enabler bool
+
+// enabled is the type representing whether the operator CluterMesh is requested to be enabled.
+type enabled bool
+
+// Enable allows to enable the ClusterMesh Cell. The cell is enabled if at
+// least one Enable instance returns true.
+func Enable[T any](fn func(T) bool) cell.Cell {
+	return cell.Provide(func(cfg T) (out struct {
+		cell.Out
+		Enabler enabler `group:"request-enable-clustermesh"`
+	}) {
+		out.Enabler = enabler(fn(cfg))
+		return out
+	})
+}
+
+// toEnabled summarizes the outputs of [Enable] into a single [enabled] value.
+func toEnabled(in struct {
+	cell.In
+
+	Enablers []enabler `group:"request-enable-clustermesh"`
+}) (en enabled) {
+	return enabled(slices.Contains(in.Enablers, enabler(true)))
 }

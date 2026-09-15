@@ -78,12 +78,12 @@ type ClusterMesh interface {
 	ObserverSynced(ctx context.Context, name observer.Name) error
 }
 
-func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, ClusterMesh) {
+func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams, en enabled) (*clusterMesh, ClusterMesh) {
 	if params.ClusterInfo.ID == 0 || params.ClusterMeshConfig == "" {
 		return nil, nil
 	}
 
-	if !params.Cfg.ClusterMeshEnableEndpointSync && !params.CfgMCSAPI.EnableMCSAPI {
+	if !params.Cfg.ClusterMeshEnableEndpointSync && !params.CfgMCSAPI.EnableMCSAPI && !bool(en){
 		return nil, nil
 	}
 
