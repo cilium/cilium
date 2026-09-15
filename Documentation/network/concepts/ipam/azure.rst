@@ -46,21 +46,24 @@ Architecture
 .. image:: azure_arch.png
     :align: center
 
-The Azure IPAM allocator builds on top of the CRD-backed allocator. Each node
-creates a ``ciliumnodes.cilium.io`` custom resource matching the node name when
-Cilium starts up for the first time on that node. The Cilium agent running on
-each node will retrieve the Kubernetes ``v1.Node`` resource and extract the
-``.Spec.ProviderID`` field in order to derive the `Azure instance ID <https://learn.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-instance-ids>`__.
-Azure allocation parameters are provided as agent configuration option and are
-passed into the custom resource as well.
+Azure IPAM coordinates the operator and the agent through a
+``ciliumnodes.cilium.io`` custom resource matching the node name. When Cilium
+starts, the agent retrieves the Kubernetes ``v1.Node`` resource and uses its
+``.spec.providerID`` field to derive the `Azure instance ID <https://learn.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-instance-ids>`__.
+Azure allocation parameters are provided as agent configuration and copied to
+the custom resource.
 
-The Cilium operator listens for new ``ciliumnodes.cilium.io`` custom resources
-and starts managing the IPAM aspect automatically. It scans the Azure instances
-for existing interfaces with associated IPs and makes them available via the
-``spec.ipam.available`` field. It will then constantly monitor the used IP
-addresses in the ``status.ipam.used`` field and allocate more IPs as needed to
-meet the IP pre-allocation watermark. This ensures that there are always IPs
-available
+The Cilium operator listens for new ``CiliumNode`` resources, scans the Azure
+instance's interfaces, and publishes the discovered interfaces, their address
+provisioning states, and available routing metadata in
+``status.azure.interfaces``. Subnet CIDRs and gateways are present only when
+the operator can retrieve the corresponding subnet details. The agent treats
+each valid address in ``status.azure.interfaces[].addresses`` whose state is
+``succeeded`` as a host prefix in the default multi-pool IPAM pool. It reports
+its address target in ``spec.ipam.pools.requested`` and records the host
+prefixes it is retaining in ``spec.ipam.pools.allocated``. The operator
+allocates additional Azure private IP addresses as needed to maintain the
+pre-allocation watermark.
 
 *************
 Configuration
@@ -95,13 +98,15 @@ Subscription (``--azure-subscription-id``)
 
 Resource group (``--azure-resource-group``)
    Scopes per-resource-group API calls such as listing interfaces, VMSS, and
-   Public IP Prefixes. This must be the resource group of the cluster
-   nodes. If unset, the operator detects the resource group of the node it runs
-   on via its IMDS, which is only correct when the operator pod runs on a node in
-   the same resource group as the rest of the cluster's nodes. Set this flag
-   explicitly when worker VMs/VMSS live in a different resource group (for
-   example, self-managed Azure VM clusters that split control-plane and
-   worker pools across resource groups).
+   Public IP Prefixes. For VMSS nodes, this must be the resource group that
+   contains the VMSS. For standalone nodes, private-IP discovery and allocation
+   use the resource group that contains the attached network interfaces. When
+   static public IP allocation is enabled for a standalone node, the current
+   API paths require its VM, primary network interface, and Public IP Prefix to
+   be in this configured resource group. If unset, the operator detects the
+   resource group of the node it runs on via IMDS; that value is correct only
+   when it is also the resource group required by the node topology described
+   above.
 
 VNet / subnet resource group
    The operator derives the VNet and subnet resource group from each
@@ -239,29 +244,47 @@ The following parameters are available to control the IP allocation:
 Operational Details
 *******************
 
-Cache of Interfaces, Subnets, and VirtualNetworks
-=================================================
+Cache of Interfaces and Subnets
+===============================
 
-The operator maintains a list of all Azure ScaleSets, Instances, Interfaces,
-VirtualNetworks, and Subnets associated with the Azure subscription in a cache.
+The operator maintains an in-memory cache of the instances and interfaces it
+discovers in the configured Azure resource group. It retrieves details only for
+the subnets referenced by those interfaces. On startup, it rebuilds the cache
+with a blocking initial synchronization.
 
-The cache is updated once per minute or after an IP allocation has been
-performed. When triggered based on an allocation, the operation is performed at
-most once per second.
+The operator refreshes the full cache once per minute. A successful private-IP
+allocation that changes an instance triggers a targeted synchronization of that
+instance.
 
 Publication of available IPs
 ============================
 
-Following the update of the cache, all CiliumNode custom resources representing
-nodes are updated to publish eventual new IPs that have become available.
+Following a full or targeted cache update, the operator reconciles the
+``CiliumNode`` resources for affected nodes. It publishes each discovered Azure
+interface and the provisioning state of each listed address in
+``status.azure.interfaces``. When subnet lookup succeeds, it also publishes the
+subnet CIDR and gateway. Agents using the multi-pool protocol derive the
+default-pool allocation from valid addresses in this status whose state is
+``succeeded``. The operator also updates the legacy ``spec.ipam.pool`` map for
+agents using the CRD allocator.
 
-In this process, all interfaces are scanned for all available IPs.  All IPs
-found are added to ``spec.ipam.available``. Each interface is also added to
-``status.azure.interfaces``.
+The agent writes its address target to the default entry in
+``spec.ipam.pools.requested`` and records the host prefixes it is retaining in
+``spec.ipam.pools.allocated``.
 
-If this update caused the custom resource to change, the custom resource is
-updated using the Kubernetes API methods ``Update()`` and/or ``UpdateStatus()``
-if available.
+Native-routing readiness
+========================
+
+The agent requires at least one valid IPv4 subnet CIDR in
+``status.azure.interfaces[].subnet.cidr`` before it can complete Azure IPAM
+initialization. The operator publishes interfaces in interface-ID order, and
+the agent selects the first valid IPv4 subnet CIDR in that list. This selection
+is independent of ``spec.azure.interface-name``. If
+``--ipv4-native-routing-cidr`` is unset, the agent uses the selected subnet CIDR
+as its native-routing CIDR. If the option is set, its value must overlap the
+selected subnet CIDR or initialization fails. Once startup reaches the
+provider-readiness check, the agent waits up to five minutes for such a CIDR
+before failing initialization.
 
 Determination of IP deficits or excess
 ======================================
@@ -272,27 +295,19 @@ addresses. The check to recognize a deficit is performed on two occasions:
  * When a ``CiliumNode`` custom resource is updated
  * All nodes are scanned in a regular interval (once per minute)
 
-When determining whether a node has a deficit in IP addresses, the following
-calculation is performed:
+Agents using the multi-pool protocol report an address target in the default
+entry of ``spec.ipam.pools.requested``. The target consists of locally in-use
+addresses, outstanding pending allocation requests, and the
+``spec.ipam.pre-allocate`` buffer. The operator subtracts that buffer to derive
+the effective in-use and pending demand, then applies the configured allocation
+watermarks against the successful addresses on the Azure interfaces. For an
+agent using the legacy CRD allocator, the operator instead obtains usage from
+``status.ipam.used``.
 
-.. code-block:: go
-
-     spec.ipam.pre-allocate - (len(spec.ipam.available) - len(status.ipam.used))
-
-For excess IP calculation:
-
-.. code-block:: go
-
-     (len(spec.ipam.available) - len(status.ipam.used)) - (spec.ipam.pre-allocate + spec.ipam.max-above-watermark)
-
-Upon detection of a deficit, the node is added to the list of nodes which
-require IP address allocation. When a deficit is detected using the interval
-based scan, the allocation order of nodes is determined based on the severity
-of the deficit, i.e. the node with the biggest deficit will be at the front of
-the allocation queue. Nodes that need to release IPs are behind nodes that need
-allocation.
-
-The allocation queue is handled on demand but at most once per second.
+Upon detection of a deficit, the operator schedules pool maintenance for the
+node. During interval-based scans, nodes with the largest deficit are scheduled
+first. Maintenance can run concurrently for multiple nodes, and Azure API calls
+are subject to the operator's configured IPAM API rate limits.
 
 IP Allocation
 =============
@@ -328,7 +343,7 @@ Static Public IP Allocation
 Nodes can be assigned static public IPs from tagged Azure Public IP Prefixes.
 
 1. Create and tag a `Public IP Prefix <https://learn.microsoft.com/en-us/azure/virtual-network/ip-services/public-ip-address-prefix>`__
-   in the same Resource Group as your nodes:
+   in the resource group selected by ``--azure-resource-group``:
 
    .. code-block:: shell-session
 
@@ -350,19 +365,19 @@ Nodes can be assigned static public IPs from tagged Azure Public IP Prefixes.
         }
       }
 
-The Operator will assign a public IP from the first matching Prefix with available capacity.
-The Prefix ID will be stored in CiliumNode's ``status.ipam.assigned-static-ip``.
+If the node's primary IP configuration already references a usable public IP,
+the operator reuses and records that address without selecting a new prefix.
+Otherwise, it selects a successfully provisioned Public IP Prefix that matches
+all configured tags and reports available capacity. The assigned or reused
+public IP address is stored in the ``CiliumNode`` resource's
+``status.ipam.assigned-static-ip`` field.
 
 IP Release
 ==========
 
-When performing IP release for a node with IP excess, the operator scans the
-interface attached to the node. The following formula is used to determine how
-many IPs are available for release on the interface:
-
-.. code-block:: go
-
-      min(FreeOnInterface, (TotalFreeIPs - spec.ipam.pre-allocate - spec.ipam.max-above-watermark))
+Azure IPAM does not release excess private IP addresses from interfaces.
+Addresses that the agent removes from ``spec.ipam.pools.allocated`` remain
+attached and can be admitted to the default pool again if demand grows.
 
 Node Termination
 ================
@@ -386,13 +401,14 @@ The identity used by the operator (managed identity, service principal, or
 workload identity federation) needs Azure RBAC permissions on two or three
 scopes depending on topology:
 
-Node resource group
-   Grants read on VMSS, and the writes needed to attach IP configurations
-   to node NICs. On VMSS this is a write on the VMSS instance's VM model,
-   on standalone VMs it is a write on the network interface itself (see
-   the ``Actions`` breakdown below for the exact permissions). This is the
-   resource group passed via ``--azure-resource-group`` (or auto-detected
-   from IMDS when the operator is collocated with the nodes).
+Configured resource group
+   Grants read on VMSS and network interfaces, and the writes needed to attach
+   IP configurations. On VMSS this is a write on the VMSS instance's VM model;
+   on standalone nodes it is a write on the network interface itself (see the
+   ``Actions`` breakdown below for the exact permissions). This is the resource
+   group passed via ``--azure-resource-group`` or auto-detected from IMDS. The
+   required resource placement for VMSS and standalone nodes is described in
+   the configuration section above.
 
 VNet / subnet resource group
    Grants read on the VNet and subnets, and the ``subnets/join/action`` used
@@ -457,10 +473,9 @@ When using static public IP allocation with Public IP Prefixes, add:
 
 .. note::
 
-   The node resource group is *not* the resource group of the AKS cluster. A
-   single resource group may hold multiple AKS clusters, but each AKS cluster
-   regroups all resources in an automatically managed secondary resource group.
-   See `Why are two resource groups created with AKS? <https://learn.microsoft.com/en-us/azure/aks/faq#why-are-two-resource-groups-created-with-aks->`__
+   The configured resource group is not the user-facing resource group of an
+   AKS cluster. AKS places managed node resources in a separate, automatically
+   managed resource group. See `Why are two resource groups created with AKS? <https://learn.microsoft.com/en-us/azure/aks/faq#why-are-two-resource-groups-created-with-aks->`__
    for more details.
 
 Troubleshooting
@@ -469,13 +484,29 @@ Troubleshooting
 ``AuthorizationFailed`` on ``Microsoft.Network/virtualNetworks/read``
    The operator's identity does not have read access on the resource group
    that owns the VNet. Add a role assignment scoped to the VNet resource
-   group (which may differ from the node resource group).
+   group (which may differ from the configured resource group).
 
-``spec.ipam.available`` stays empty and no allocations happen
-   ``--azure-resource-group`` is pointing at the wrong resource group.
-   Verify that the value matches the resource group containing the actual
-   VMs or VMSS, not the operator's own resource group, and not the AKS
-   cluster resource group.
+No successful addresses appear in ``status.azure.interfaces``
+   ``--azure-resource-group`` may point at the wrong resource group. For VMSS
+   nodes, verify that it identifies the resource group containing the VMSS. For
+   standalone nodes, verify that it identifies the resource group containing
+   the attached network interfaces. The IMDS-derived default is only correct
+   when the operator's node is in that required resource group.
+
+Successful addresses appear, but the agent waits for an Azure subnet CIDR
+   Inspect ``status.azure.interfaces[].subnet.cidr``. Ensure that the operator's
+   identity can read the resource group containing the VNet and subnet. If
+   multiple interfaces report an IPv4 subnet CIDR, the agent selects the first
+   valid one in the published list, independently of
+   ``spec.azure.interface-name``. If ``--ipv4-native-routing-cidr`` is set,
+   ensure that it overlaps that selected CIDR.
+
+``spec.ipam.pools.requested`` stays empty on a multi-pool agent
+   Verify that the agent uses ``--ipam=azure`` and inspect its startup logs.
+   An agent using the multi-pool protocol writes its address target to
+   ``spec.ipam.pools.requested`` and retained host prefixes to
+   ``spec.ipam.pools.allocated``. An agent using the legacy CRD allocator reads
+   ``spec.ipam.pool`` and reports usage through ``status.ipam.used``.
 
 ``ManagedIdentityCredential authentication failed``
    ``--azure-user-assigned-identity-id`` was set to the full resource ID
