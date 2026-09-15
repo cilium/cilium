@@ -156,20 +156,23 @@ testdata:
 	-c ../pkg/alignchecker/testdata/bpf_foo.c \
 	-o ../pkg/alignchecker/testdata/bpf_foo.o
 
+.PHONY: generate-bpf2go
+generate-bpf2go:
+	@$(ECHO_GEN)../pkg/datapath/bpf
+	$(QUIET)BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" \
+		GOARCH=$(NATIVE_ARCH) $(GO) generate ../pkg/datapath/bpf
+	@$(ECHO_GEN)../pkg/datapath/bpf/testprogs
+	$(QUIET)BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" \
+		GOARCH=$(NATIVE_ARCH) $(GO) generate ../pkg/datapath/bpf/testprogs
+
 .PHONY: generate
-generate: $(BPF)
+generate: $(BPF) generate-bpf2go
 	@$(ECHO_GEN)../pkg/datapath/types
 	$(QUIET)$(GO) generate ../pkg/datapath/types
 	@$(ECHO_GEN)../pkg/datapath/config
 	$(QUIET)$(GO) generate ../pkg/datapath/config
 	@$(ECHO_GEN)../pkg/datapath/maps
 	$(QUIET)$(GO) generate ../pkg/datapath/maps
-	@$(ECHO_GEN)../pkg/datapath/bpf
-	$(QUIET)BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" \
-		$(GO) generate ../pkg/datapath/bpf
-	@$(ECHO_GEN)../pkg/datapath/bpf/testprogs
-	$(QUIET)BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" \
-		$(GO) generate ../pkg/datapath/bpf/testprogs
 
 $(BPF_SIMPLE): %.o: %.c $(LIB)
 	@$(ECHO_CC)
