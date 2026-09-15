@@ -376,13 +376,13 @@ jobs:
           fi
 
           BPFMASQV4=$(echo "${EXTRA_ARGS}" | jq -r '.["bpf-masq-v4"] // false')
-          if [[ "${BPFMASQV4}" == "true" ]]; then
+          if [[ "${BPFMASQV4}" == "true" && "${{ matrix.ip-family }}" != "IPv6" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
               --helm-set enableIPv4Masquerade=true"
           fi
 
           ADV_FEAT=$(echo "${EXTRA_ARGS}" | jq -r '.["advanced-features"] // false')
-          if [[ "$ADV_FEAT" == "true" ]]; then
+          if [[ "$ADV_FEAT" == "true" && "${{ matrix.ip-family }}" != "IPv6" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set localRedirectPolicies.enabled=true \
               --helm-set egressGateway.enabled=true"
           fi
