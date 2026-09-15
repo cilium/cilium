@@ -57,6 +57,16 @@ func Test_sortListenerSets(t *testing.T) {
 			},
 			expected: []string{"a-ns/ls", "z-ns/ls"},
 		},
+		{
+			name: "same timestamp, one namespace a prefix of the other, namespace field decides",
+			input: []gatewayv1.ListenerSet{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ls", Namespace: "a-x", CreationTimestamp: t1}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ls", Namespace: "a", CreationTimestamp: t1}},
+			},
+			// The joined "a-x/ls" sorts before "a/ls" because '-' sorts below '/',
+			// but namespaces are compared as fields, so "a" comes first.
+			expected: []string{"a/ls", "a-x/ls"},
+		},
 	}
 
 	for _, tt := range tests {
