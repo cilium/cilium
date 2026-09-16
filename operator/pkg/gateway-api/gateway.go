@@ -72,6 +72,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 			IncludeUDPRoutes:      includeUDPRoutes,
 			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
 			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
+			IncludesInferencePools: helpers.HasInferencePoolSupport(mgr.GetScheme()),
 		}),
 		gatewayStatusManager: NewGatewayStatusManager(mgr.GetClient(), scopedLog, hostNetworkLabel),
 		listenerStatusManager: NewListenerStatusManager(
@@ -178,7 +179,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if inferencePoolEnabled {
 		// Watch for changes to InferencePool and InferenceObjective
-		gatewayBuilder = gatewayBuilder.Watches(&gateway_inf_ext.InferencePool{}, watchhandlers.EnqueueRequestForOwningInferencePool(r.client, r.logger, r.controllerName))
+		gatewayBuilder = gatewayBuilder.Watches(&gateway_inf_ext.InferencePool{}, watchhandlers.EnqueueRequestForOwningInferencePool(r.client, r.logger, r.controllerName)).
+		Watches(&discoveryv1.EndpointSlice{}, watchhandlers.EnqueueRequestForOwningEndpointSlice(r.client, r.logger, r.controllerName))
 	}
 	return gatewayBuilder.Complete(r)
 }
