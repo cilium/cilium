@@ -1,0 +1,63 @@
+#! --enable-network-driver=true --enable-network-driver-ipv6=true
+
+hive start
+
+# Add a node with a status error from Pod IPAM that requests capacity
+# from a resource pool that does not exist.
+k8s/add node-missing-pool.yaml
+
+# Resource IPAM reports the allocation failure in its dedicated status field,
+# without overwriting Pod IPAM status field.
+k8s/get cilium.io.v2.ciliumnodes node-missing-pool -o actual.yaml
+* cmp expected-node-missing-pool.yaml actual.yaml
+
+hive stop
+
+# ----
+
+-- node-missing-pool.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-missing-pool
+spec:
+  ipam:
+    resourcePools:
+      requested:
+      - pool: missing
+        needed:
+          ipv4-addrs: 1
+status:
+  ipam:
+    operator-status:
+      error: "Pod IPAM allocation failed"
+
+-- expected-node-missing-pool.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-missing-pool
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools: {}
+    resourcePools:
+      requested:
+      - needed:
+          ipv4-addrs: 1
+        pool: missing
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status:
+      error: Pod IPAM allocation failed
+      resource-ipam-error: 'network-driver-ipam-sync allocation failed: failed to
+        allocate ipv4 address for node "node-missing-pool" from pool "missing": cannot
+        allocate from non-existing pool: missing'

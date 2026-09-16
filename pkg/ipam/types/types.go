@@ -334,10 +334,16 @@ type PodCIDRMapEntry struct {
 // OperatorStatus is the status used by cilium-operator to report
 // errors in case the allocation CIDR failed.
 type OperatorStatus struct {
-	// Error is the error message set by cilium-operator.
+	// Error is the Pod IPAM error message set by cilium-operator.
 	//
 	// +optional
 	Error string `json:"error,omitempty"`
+
+	// ResourceIPAMError is the Resource IPAM error message set by
+	// cilium-operator.
+	//
+	// +optional
+	ResourceIPAMError string `json:"resource-ipam-error,omitempty"`
 }
 
 // Tags implements generic key value tags

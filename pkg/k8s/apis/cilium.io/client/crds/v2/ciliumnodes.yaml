@@ -818,7 +818,12 @@ spec:
                     description: Operator is the Operator status of the node
                     properties:
                       error:
-                        description: Error is the error message set by cilium-operator.
+                        description: Error is the Pod IPAM error message set by cilium-operator.
+                        type: string
+                      resource-ipam-error:
+                        description: |-
+                          ResourceIPAMError is the Resource IPAM error message set by
+                          cilium-operator.
                         type: string
                     type: object
                   pod-cidrs:

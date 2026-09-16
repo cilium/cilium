@@ -27,9 +27,10 @@ type NodeHandler struct {
 	logger *slog.Logger
 	mutex  lock.Mutex
 
-	poolManager   *PoolAllocator
-	cnClient      cilium_v2.CiliumNodeInterface
-	poolsAccessor ipam.PoolSpecAccessors
+	poolManager    *PoolAllocator
+	cnClient       cilium_v2.CiliumNodeInterface
+	poolsAccessor  ipam.PoolSpecAccessors
+	statusAccessor ipam.OperatorStatusAccessors
 
 	name string
 
@@ -49,12 +50,14 @@ func NewNodeHandler(
 	manager *PoolAllocator,
 	cnClient cilium_v2.CiliumNodeInterface,
 	poolsAccessor ipam.PoolSpecAccessors,
+	statusAccessor ipam.OperatorStatusAccessors,
 ) *NodeHandler {
 	return &NodeHandler{
 		logger:                 logger,
 		poolManager:            manager,
 		cnClient:               cnClient,
 		poolsAccessor:          poolsAccessor,
+		statusAccessor:         statusAccessor,
 		name:                   name,
 		nodesPendingAllocation: map[string]*v2.CiliumNode{},
 		controllerManager:      controller.NewManager(),
@@ -152,7 +155,8 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 			}
 
 			newResource := resource.DeepCopy()
-			newResource.Status.IPAM.OperatorStatus.Error = errorMessage
+			// Update the error message in the OperatorStatus
+			statusChanged := n.statusAccessor.ToResource(newResource, errorMessage)
 
 			newPools := n.poolsAccessor.FromResource(newResource)
 			newPools.Allocated = n.poolManager.AllocatedPools(newResource.Name)
@@ -168,7 +172,7 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 				}
 			}
 
-			if !newResource.Status.IPAM.OperatorStatus.DeepEqual(&resource.Status.IPAM.OperatorStatus) && !refetchNode {
+			if statusChanged && !refetchNode {
 				_, err = n.cnClient.UpdateStatus(ctx, newResource, metav1.UpdateOptions{})
 				if err != nil {
 					controllerErr = errors.Join(controllerErr, fmt.Errorf("failed to update status: %w", err))
