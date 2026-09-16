@@ -382,7 +382,7 @@ jobs:
           fi
 
           ADV_FEAT=$(echo "${EXTRA_ARGS}" | jq -r '.["advanced-features"] // false')
-          if [[ "$ADV_FEAT" == "true" ]]; then
+          if [[ "$ADV_FEAT" == "true" && "${{ matrix.ip-family }}" != "IPv6" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set localRedirectPolicies.enabled=true \
               --helm-set egressGateway.enabled=true"
           fi
