@@ -39,8 +39,11 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	/* Trim down to sample size (IPv4 header + 8 bytes datagram) */
-	if (full_len < sizeof(struct ethhdr))
+	if (ipv4_hdrlen(ip4) < sizeof(struct iphdr) ||
+	    (void *)ip4 + ipv4_hdrlen(ip4) > data_end)
+		return DROP_INVALID;
+
+	if (full_len < sizeof(struct ethhdr) + ipv4_hdrlen(ip4))
 		return DROP_INVALID;
 
 	sample_len = ipv4_hdrlen(ip4) + ICMP_PACKET_MAX_SAMPLE_SIZE;
@@ -50,34 +53,35 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 		sample_len = full_len - sizeof(struct ethhdr);
 	}
 
-	ctx_adjust_troom(ctx, (__s32)(new_len - full_len));
-
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	/* Calculate the checksum of the ICMP sample */
-	csum = icmp_wsum_accumulate(data + sizeof(struct ethhdr), data_end, (int)sample_len);
-
-	/* We need to insert a IPv4 and ICMP header before the original packet.
-	 * Make that room.
+	/* Adjust headroom first. If headroom extension fails (e.g. alloc failure),
+	 * ctx remains untouched so drop notifications and metrics remain valid.
 	 */
-
 	ret = ctx_adjust_hroom(ctx, sizeof(*ip4) + sizeof(*icmphdr),
 			       BPF_ADJ_ROOM_MAC, BPF_F_ADJ_ROOM_NO_CSUM_RESET);
 	if (ret < 0)
 		return DROP_INVALID;
 
-	/* changing size invalidates pointers, so we need to re-fetch them. */
+	/* Adjust tailroom to sample size if packet needs trimming. */
+	if (new_len < full_len) {
+		ret = ctx_adjust_troom(ctx, (__s32)(new_len - full_len));
+		if (ret < 0)
+			return DROP_INVALID;
+	}
+
+	/* Changing size invalidates pointers, so we re-fetch them once. */
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
 
-	/* Bound check all headers at once. */
+	/* Bound check all headers and sample payload for the BPF verifier. */
 	ethhdr = data;
 	ip4 = (void *)ethhdr + sizeof(*ethhdr);
 	icmphdr = (void *)ip4 + sizeof(*ip4);
 	inner_ip4 = (void *)icmphdr + sizeof(*icmphdr);
-	if ((void *)inner_ip4 + sizeof(*inner_ip4) > data_end)
+	if ((void *)inner_ip4 + sample_len > data_end)
 		return DROP_INVALID;
+
+	/* Calculate the checksum of the ICMP sample */
+	csum = icmp_wsum_accumulate((void *)inner_ip4, data_end, (int)sample_len);
 
 	/* Write reversed eth header, ready for egress */
 	eth_flip_addrs(ethhdr);
