@@ -310,8 +310,24 @@ jobs:
           cat /tmp/merged.json
           echo "matrix=$(jq -c . < /tmp/merged.json)" >> $GITHUB_OUTPUT
 
+  lvh-cache-key:
+    name: LVH Cache Key
+    # Same runner as the legs, so the key describes the packages they install.
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    timeout-minutes: 20
+    outputs:
+      dependency-list-sha: ${{ steps.key.outputs.dependency_list_sha }}
+    steps:
+      - name: Derive the LVH package cache key
+        id: key
+        timeout-minutes: 10
+        continue-on-error: true
+        uses: cilium/little-vm-helper@f86d344aca812dda5aef167867a9a0a90ca6cca5 # v0.0.31
+        with:
+          derive-dependency-list-sha: 'true'
+
   setup-and-test:
-    needs: [setup-vars, build-ginkgo-binary, generate-matrix, wait-for-images]
+    needs: [setup-vars, build-ginkgo-binary, generate-matrix, wait-for-images, lvh-cache-key]
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     timeout-minutes: 45
     name: "E2E Test (${{ matrix.k8s-version }}, ${{matrix.focus}})"
@@ -393,6 +409,7 @@ jobs:
         with:
           test-name: datapath-conformance
           install-dependencies: true
+          dependency-list-sha: ${{ needs.lvh-cache-key.outputs.dependency-list-sha }}
           image-version: ${{ matrix.kernel }}
           images-folder-parent: "/tmp"
           host-mount: ./
