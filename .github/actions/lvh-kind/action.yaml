@@ -21,6 +21,10 @@ inputs:
   test-name:
     required: true
     description: 'Test name'
+  dependency-list-sha:
+    required: false
+    description: 'Package cache key derived once per run by the lvh-cache-key job'
+    default: ''
 
 runs:
   using: composite
@@ -37,6 +41,7 @@ runs:
         # renovate: datasource=github-tags depName=cilium/little-vm-helper
         lvh-version: "v0.0.31"
         install-dependencies: 'true'
+        dependency-list-sha: ${{ inputs.dependency-list-sha }}
         port-forward: ${{ inputs.port-forward }}
         ssh-connect-wait-retries: 600
         cmd: |
