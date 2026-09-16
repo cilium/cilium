@@ -27,6 +27,26 @@ func pod(name string, phase corev1.PodPhase, reason string) corev1.Pod {
 	}
 }
 
+func TestIsRejectedBeforeStart(t *testing.T) {
+	// Rejected at admission: no container was ever created, so no log stream.
+	rejected := pod("hubble-relay-mpzhm", corev1.PodFailed, "TaintToleration")
+	assert.True(t, IsRejectedBeforeStart(&rejected))
+
+	// Ran and crashed: the pod-level reason is empty and the logs are there.
+	crashed := pod("hubble-relay-crashed", corev1.PodFailed, "")
+	crashed.Status.ContainerStatuses = []corev1.ContainerStatus{{Name: "hubble-relay"}}
+	assert.False(t, IsRejectedBeforeStart(&crashed))
+
+	// Evicted after running: the container statuses are still around.
+	evicted := pod("hubble-relay-evicted", corev1.PodFailed, "Evicted")
+	evicted.Status.InitContainerStatuses = []corev1.ContainerStatus{{Name: "config"}}
+	assert.False(t, IsRejectedBeforeStart(&evicted))
+
+	// Still pulling its image: not terminal, hence not our business.
+	pending := pod("hubble-relay-pending", corev1.PodPending, "")
+	assert.False(t, IsRejectedBeforeStart(&pending))
+}
+
 func TestLivePods(t *testing.T) {
 	// A superseded leftover alongside its healthy replacement.
 	live := LivePods([]corev1.Pod{

@@ -22,6 +22,17 @@ func IsSupersededPodRejection(reason string) bool {
 	return false
 }
 
+// IsRejectedBeforeStart reports whether a pod was rejected before any of its
+// containers was created, so that no log stream for it has ever existed. All
+// three conditions must hold, which keeps a container that ran and produced
+// logs out of scope even once its pod is terminal.
+func IsRejectedBeforeStart(pod *corev1.Pod) bool {
+	return pod.Status.Phase == corev1.PodFailed &&
+		IsSupersededPodRejection(pod.Status.Reason) &&
+		len(pod.Status.ContainerStatuses) == 0 &&
+		len(pod.Status.InitContainerStatuses) == 0
+}
+
 // LivePods returns the pods that are not terminal, controller-superseded
 // leftovers. Listing pods by label selector alone also returns such leftovers,
 // which carry no pod IP and are never going to run, so counting them makes a

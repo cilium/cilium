@@ -223,7 +223,7 @@ type podInfo struct {
 }
 
 func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
-	pods, err := n.allCiliumPods(ctx, t.Context())
+	pods, err := n.allCiliumPods(ctx, t)
 	if err != nil {
 		t.Fatalf("Error retrieving Cilium pods: %s", err)
 	}
@@ -373,7 +373,8 @@ func computeExpectedDropReasons(defaultReasons, inputReasons []string) string {
 	return filter
 }
 
-func (n *noErrorsInLogs) allCiliumPods(ctx context.Context, ct *check.ConnectivityTest) (map[podID]podInfo, error) {
+func (n *noErrorsInLogs) allCiliumPods(ctx context.Context, t *check.Test) (map[podID]podInfo, error) {
+	ct := t.Context()
 	output := make(map[podID]podInfo)
 
 	// List all Cilium-related pods
@@ -385,6 +386,12 @@ func (n *noErrorsInLogs) allCiliumPods(ctx context.Context, ct *check.Connectivi
 
 		cluster := client.ClusterName()
 		for _, pod := range pods.Items {
+			// Such a pod never created a container, hence has no log stream to read.
+			if k8s.IsRejectedBeforeStart(&pod) {
+				t.Infof("Skipping pod %s/%s rejected before start (%s): it has no logs", pod.Namespace, pod.Name, pod.Status.Reason)
+				continue
+			}
+
 			output[podID{Cluster: cluster, Namespace: pod.Namespace, Name: pod.Name}] = podInfo{
 				client: client, containers: n.podContainers(&pod),
 			}
