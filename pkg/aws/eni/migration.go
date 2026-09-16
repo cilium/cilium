@@ -77,7 +77,7 @@ func (in *InterfaceDB) GetMACByInterfaceNumber(ifaceNum int) (string, error) {
 	}
 
 	if !found {
-		return "", fmt.Errorf("could not find interface with number %q in CiliumNode resource", ifaceNum)
+		return "", fmt.Errorf("could not find interface with number %d in CiliumNode resource", ifaceNum)
 	}
 
 	return eni.MAC, nil
