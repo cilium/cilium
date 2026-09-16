@@ -503,6 +503,16 @@ func (m *MetadataOptions) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error)
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.ClusterMetadataForwardingNamespaces != nil {
+		size, err := m.ClusterMetadataForwardingNamespaces.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1a
+	}
 	if m.ReceivingNamespaces != nil {
 		size, err := m.ReceivingNamespaces.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -1038,6 +1048,10 @@ func (m *MetadataOptions) SizeVT() (n int) {
 	}
 	if m.ReceivingNamespaces != nil {
 		l = m.ReceivingNamespaces.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.ClusterMetadataForwardingNamespaces != nil {
+		l = m.ClusterMetadataForwardingNamespaces.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

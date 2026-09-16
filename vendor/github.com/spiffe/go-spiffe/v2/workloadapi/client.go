@@ -4,10 +4,14 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/go-jose/go-jose/v4"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/exp/bundle/witbundle"
+	"github.com/spiffe/go-spiffe/v2/exp/svid/witsvid"
 	"github.com/spiffe/go-spiffe/v2/logger"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -250,6 +254,265 @@ func (c *Client) ValidateJWTSVID(ctx context.Context, token, audience string) (*
 	}
 
 	return jwtsvid.ParseInsecure(token, []string{audience})
+}
+
+// FetchWITSVID fetches the default WIT-SVID (i.e. the first in the list
+// returned by the Workload API). An optional SPIFFE ID may be provided to
+// request a specific WIT-SVID.
+//
+// Experimental: subject to change.
+func (c *Client) FetchWITSVID(ctx context.Context, spiffeID string) (*witsvid.SVID, error) {
+	svids, err := c.fetchWITSVIDs(ctx, spiffeID, true)
+	if err != nil {
+		return nil, err
+	}
+	return svids[0], nil
+}
+
+// FetchWITSVIDs fetches all WIT-SVIDs. An optional SPIFFE ID may be provided
+// to request a specific WIT-SVID.
+//
+// Experimental: subject to change.
+func (c *Client) FetchWITSVIDs(ctx context.Context, spiffeID string) ([]*witsvid.SVID, error) {
+	return c.fetchWITSVIDs(ctx, spiffeID, false)
+}
+
+// WatchWITSVIDs watches for WIT-SVID updates. The watcher receives the updated
+// WIT-SVIDs. The optional spiffeID filters updates to a specific identity.
+//
+// If the server returns codes.Unimplemented, the watch loop terminates without
+// retrying per the SPIFFE Workload API spec §7 (WIT-SVID Profile).
+//
+// Experimental: subject to change.
+func (c *Client) WatchWITSVIDs(ctx context.Context, watcher WITSVIDWatcher, spiffeID string) error {
+	backoff := c.config.backoffStrategy.NewBackoff()
+	for {
+		err := c.watchWITSVIDs(ctx, watcher, backoff, spiffeID)
+		watcher.OnWITSVIDsWatchError(err)
+		if status.Code(err) == codes.Unimplemented {
+			c.config.log.Errorf("WIT-SVID profile not supported by server: %v", err)
+			return err
+		}
+		if err = c.handleWatchError(ctx, err, backoff); err != nil {
+			return err
+		}
+	}
+}
+
+// FetchWITBundles fetches the WIT bundles for WIT-SVID validation, keyed by
+// the SPIFFE ID of the trust domain to which they belong.
+//
+// Experimental: subject to change.
+func (c *Client) FetchWITBundles(ctx context.Context) (*witbundle.Set, error) {
+	ctx, cancel := context.WithCancel(withHeader(ctx))
+	defer cancel()
+
+	stream, err := c.wlClient.FetchWITBundles(ctx, &workload.WITBundlesRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+
+	return parseWITBundles(resp)
+}
+
+// WatchWITBundles watches for changes to the WIT bundles. The watcher receives
+// the updated WIT bundle set.
+//
+// If the server returns codes.Unimplemented, the watch loop terminates without
+// retrying per the SPIFFE Workload API spec §7 (WIT-SVID Profile).
+//
+// Experimental: subject to change.
+func (c *Client) WatchWITBundles(ctx context.Context, watcher WITBundleWatcher) error {
+	backoff := c.config.backoffStrategy.NewBackoff()
+	for {
+		err := c.watchWITBundles(ctx, watcher, backoff)
+		watcher.OnWITBundlesWatchError(err)
+		if status.Code(err) == codes.Unimplemented {
+			c.config.log.Errorf("WIT bundle profile not supported by server: %v", err)
+			return err
+		}
+		if err = c.handleWatchError(ctx, err, backoff); err != nil {
+			return err
+		}
+	}
+}
+
+func (c *Client) fetchWITSVIDs(ctx context.Context, spiffeID string, firstOnly bool) ([]*witsvid.SVID, error) {
+	ctx, cancel := context.WithCancel(withHeader(ctx))
+	defer cancel()
+
+	stream, err := c.wlClient.FetchWITSVID(ctx, &workload.WITSVIDRequest{
+		SpiffeId: spiffeID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+
+	return parseWITSVIDs(resp, firstOnly)
+}
+
+func (c *Client) watchWITSVIDs(ctx context.Context, watcher WITSVIDWatcher, backoff Backoff, spiffeID string) error {
+	ctx, cancel := context.WithCancel(withHeader(ctx))
+	defer cancel()
+
+	c.config.log.Debugf("Watching WIT-SVIDs")
+	stream, err := c.wlClient.FetchWITSVID(ctx, &workload.WITSVIDRequest{
+		SpiffeId: spiffeID,
+	})
+	if err != nil {
+		return err
+	}
+
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+
+		backoff.Reset()
+		svids, err := parseWITSVIDs(resp, false)
+		if err != nil {
+			c.config.log.Errorf("Failed to parse WIT-SVID response: %v", err)
+			watcher.OnWITSVIDsWatchError(err)
+			continue
+		}
+		watcher.OnWITSVIDsUpdate(svids)
+	}
+}
+
+func (c *Client) watchWITBundles(ctx context.Context, watcher WITBundleWatcher, backoff Backoff) error {
+	ctx, cancel := context.WithCancel(withHeader(ctx))
+	defer cancel()
+
+	c.config.log.Debugf("Watching WIT bundles")
+	stream, err := c.wlClient.FetchWITBundles(ctx, &workload.WITBundlesRequest{})
+	if err != nil {
+		return err
+	}
+
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+
+		backoff.Reset()
+		bundleSet, err := parseWITBundles(resp)
+		if err != nil {
+			c.config.log.Errorf("Failed to parse WIT bundle response: %v", err)
+			watcher.OnWITBundlesWatchError(err)
+			continue
+		}
+		watcher.OnWITBundlesUpdate(bundleSet)
+	}
+}
+
+func parseWITSVIDs(resp *workload.WITSVIDResponse, firstOnly bool) ([]*witsvid.SVID, error) {
+	n := len(resp.Svids)
+	if n == 0 {
+		return nil, errors.New("no WIT-SVIDs in response")
+	}
+	if firstOnly {
+		n = 1
+	}
+
+	hints := make(map[string]struct{}, n)
+	svids := make([]*witsvid.SVID, 0, n)
+	for i := range n {
+		s := resp.Svids[i]
+		// In the event of more than one WITSVID with the same hint value set,
+		// the first message in the list SHOULD be selected.
+		if _, ok := hints[s.Hint]; ok && s.Hint != "" {
+			continue
+		}
+		hints[s.Hint] = struct{}{}
+
+		if s.WitSvidKey == "" {
+			return nil, fmt.Errorf("missing private key for SVID with SPIFFE ID %q", s.SpiffeId)
+		}
+
+		svid, err := witsvid.ParseInsecure(s.WitSvid)
+		if err != nil {
+			return nil, err
+		}
+
+		privKey, err := parseJWKPrivateKey(s.WitSvidKey)
+		if err != nil {
+			return nil, err
+		}
+		svid.PrivateKey = privKey
+
+		svid.Hint = s.Hint
+		svids = append(svids, svid)
+	}
+
+	return svids, nil
+}
+
+func parseWITBundles(resp *workload.WITBundlesResponse) (*witbundle.Set, error) {
+	bundles := make([]*witbundle.Bundle, 0, len(resp.Bundles))
+
+	for tdID, bundleStr := range resp.Bundles {
+		td, err := spiffeid.TrustDomainFromString(tdID)
+		if err != nil {
+			return nil, err
+		}
+
+		b, err := witbundle.Parse(td, []byte(bundleStr))
+		if err != nil {
+			return nil, err
+		}
+		bundles = append(bundles, b)
+	}
+
+	return witbundle.NewSet(bundles...), nil
+}
+
+func parseJWKPrivateKey(jwkStr string) (any, error) {
+	var jwkKey jose.JSONWebKey
+	if err := jwkKey.UnmarshalJSON([]byte(jwkStr)); err != nil {
+		return nil, fmt.Errorf("unable to parse private key JWK: %w", err)
+	}
+	if jwkKey.IsPublic() {
+		return nil, errors.New("expected private key JWK, got public key")
+	}
+	return jwkKey.Key, nil
+}
+
+// WITSVIDWatcher receives WIT-SVID updates from the Workload API.
+//
+// Experimental: subject to change.
+type WITSVIDWatcher interface {
+	// OnWITSVIDsUpdate is called with the latest WIT-SVIDs retrieved from
+	// the Workload API.
+	OnWITSVIDsUpdate([]*witsvid.SVID)
+
+	// OnWITSVIDsWatchError is called when there is a problem establishing
+	// or maintaining connectivity with the Workload API.
+	OnWITSVIDsWatchError(error)
+}
+
+// WITBundleWatcher receives WIT bundle updates from the Workload API.
+//
+// Experimental: subject to change.
+type WITBundleWatcher interface {
+	// OnWITBundlesUpdate is called with the latest WIT bundle set retrieved
+	// from the Workload API.
+	OnWITBundlesUpdate(*witbundle.Set)
+
+	// OnWITBundlesWatchError is called when there is a problem establishing
+	// or maintaining connectivity with the Workload API.
+	OnWITBundlesWatchError(error)
 }
 
 func (c *Client) newConn(ctx context.Context) (*grpc.ClientConn, error) {

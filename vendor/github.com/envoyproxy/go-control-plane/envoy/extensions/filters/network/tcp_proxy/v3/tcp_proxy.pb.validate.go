@@ -520,6 +520,32 @@ func (m *TcpProxy) validate(all bool) error {
 
 	}
 
+	if _, ok := UpstreamConnectMode_name[int32(m.GetUpstreamConnectMode())]; !ok {
+		err := TcpProxyValidationError{
+			field:  "UpstreamConnectMode",
+			reason: "value must be one of the defined enum values",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if wrapper := m.GetMaxEarlyDataBytes(); wrapper != nil {
+
+		if wrapper.GetValue() > 1048576 {
+			err := TcpProxyValidationError{
+				field:  "MaxEarlyDataBytes",
+				reason: "value must be less than or equal to 1048576",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	oneofClusterSpecifierPresent := false
 	switch v := m.ClusterSpecifier.(type) {
 	case *TcpProxy_Cluster:
@@ -604,7 +630,7 @@ type TcpProxyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxyMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -749,7 +775,7 @@ type TcpProxy_WeightedClusterMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxy_WeightedClusterMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -948,7 +974,7 @@ type TcpProxy_TunnelingConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxy_TunnelingConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1110,7 +1136,7 @@ type TcpProxy_OnDemandMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxy_OnDemandMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1244,7 +1270,7 @@ type TcpProxy_TcpAccessLogOptionsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxy_TcpAccessLogOptionsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1401,7 +1427,7 @@ type TcpProxy_WeightedCluster_ClusterWeightMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxy_WeightedCluster_ClusterWeightMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

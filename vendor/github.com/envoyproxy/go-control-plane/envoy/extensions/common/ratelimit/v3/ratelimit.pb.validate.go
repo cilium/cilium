@@ -179,7 +179,7 @@ type RateLimitDescriptorMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitDescriptorMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -366,7 +366,7 @@ type LocalRateLimitDescriptorMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m LocalRateLimitDescriptorMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -468,7 +468,7 @@ type LocalClusterRateLimitMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m LocalClusterRateLimitMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -592,7 +592,7 @@ type RateLimitDescriptor_EntryMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitDescriptor_EntryMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -709,7 +709,7 @@ type RateLimitDescriptor_RateLimitOverrideMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitDescriptor_RateLimitOverrideMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

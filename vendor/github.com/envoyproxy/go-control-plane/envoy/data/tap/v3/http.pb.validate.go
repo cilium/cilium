@@ -188,7 +188,7 @@ type HttpBufferedTraceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpBufferedTraceMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -543,7 +543,7 @@ type HttpStreamedTraceSegmentMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpStreamedTraceSegmentMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -771,7 +771,7 @@ type HttpBufferedTrace_MessageMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpBufferedTrace_MessageMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

@@ -178,6 +178,11 @@ func (m *SocketEvent) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.SeqNum != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.SeqNum))
+		i--
+		dAtA[i] = 0x30
+	}
 	if m.Connection != nil {
 		size, err := m.Connection.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -601,6 +606,9 @@ func (m *SocketEvent) SizeVT() (n int) {
 	if m.Connection != nil {
 		l = m.Connection.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.SeqNum != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.SeqNum))
 	}
 	n += len(m.unknownFields)
 	return n
