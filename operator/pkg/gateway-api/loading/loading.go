@@ -105,6 +105,7 @@ type TranslationInputLoaderConfig struct {
 	IncludeUDPRoutes      bool
 	IncludeServiceImports bool
 	IncludeListenerSets   bool
+	IncludeInferencePools bool
 }
 
 type TranslationInputLoader struct {
