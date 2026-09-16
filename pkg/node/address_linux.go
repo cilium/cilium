@@ -17,24 +17,66 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 )
 
-// errNoAddressFound is returned when no usable address could be selected. It
-// is a sentinel so that firstGlobalAddr can tell "nothing matched" apart from
-// a netlink failure, and only retry in the former case.
-var errNoAddressFound = errors.New("No address found")
-
-func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error) {
-	// Deprecated addresses (RFC 4862, e.g., kube-vip VIP with preferred_lft=0)
-	// cannot be used for new communication. Unlike tentative/dadfailed addresses,
-	// they can still carry traffic, so use as fallback only when no other
-	// address is available.
-	addr, err := selectFirstGlobalAddr(intf, preferredIP, family, false)
-	if !errors.Is(err, errNoAddressFound) {
-		return addr, err
-	}
-	return selectFirstGlobalAddr(intf, preferredIP, family, true)
+// addrCandidates collects the addresses usable as a node IP that were found by
+// one stage of the search in firstGlobalAddr.
+type addrCandidates struct {
+	public       []netlink.Addr
+	private      []netlink.Addr
+	hasPreferred bool
 }
 
-func selectFirstGlobalAddr(intf string, preferredIP net.IP, family int, allowDeprecated bool) (net.IP, error) {
+func (c *addrCandidates) add(a netlink.Addr, isPreferredIP bool) {
+	if ip.IsPublicAddr(a.IP) {
+		c.public = append(c.public, a)
+	} else {
+		c.private = append(c.private, a)
+	}
+	// If the IP is the same as the preferredIP, that
+	// means that maybe it is restored from node_config.h,
+	// so if it is present we prefer this one, even if it
+	// is a secondary address.
+	if isPreferredIP {
+		c.hasPreferred = true
+	}
+}
+
+func (c *addrCandidates) empty() bool {
+	return len(c.public) == 0 && len(c.private) == 0
+}
+
+// pick returns the best of the collected addresses, or nil if there are none.
+func (c *addrCandidates) pick(preferredIP net.IP) net.IP {
+	if len(c.public) != 0 {
+		if c.hasPreferred && ip.IsPublicAddr(preferredIP) {
+			return preferredIP
+		}
+
+		// Just make sure that we always return the same one and not a
+		// random one. More info in the issue GH-7637.
+		sort.SliceStable(c.public, func(i, j int) bool {
+			return c.public[i].LinkIndex < c.public[j].LinkIndex
+		})
+
+		return c.public[0].IP
+	}
+
+	if len(c.private) != 0 {
+		if c.hasPreferred && !ip.IsPublicAddr(preferredIP) {
+			return preferredIP
+		}
+
+		// Same stable order, see above public.
+		sort.SliceStable(c.private, func(i, j int) bool {
+			return c.private[i].LinkIndex < c.private[j].LinkIndex
+		})
+
+		return c.private[0].IP
+	}
+
+	return nil
+}
+
+func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error) {
 	var link netlink.Link
 	var ipLen int
 	var err error
@@ -56,6 +98,14 @@ func selectFirstGlobalAddr(intf string, preferredIP net.IP, family int, allowDep
 		}
 	}
 
+	// Deprecated addresses (RFC 4862), as produced by e.g. kube-vip in ARP
+	// mode configuring its VIP with preferred_lft 0, must not be used for new
+	// communication. Unlike tentative and dadfailed ones they can still carry
+	// traffic though, so rather than rejecting them outright and risking a
+	// node with no selectable address at all, keep them aside and only fall
+	// back to them once every stage of the search below came up empty.
+	deprecated := addrCandidates{}
+
 retryInterface:
 	addr, err := safenetlink.AddrList(link, family)
 	if err != nil {
@@ -63,55 +113,29 @@ retryInterface:
 	}
 
 retryScope:
-	ipsPublic := []netlink.Addr{}
-	ipsPrivate := []netlink.Addr{}
-	hasPreferred := false
+	candidates := addrCandidates{}
+	// Only the first stage to find deprecated addresses contributes them, so
+	// that the fallback observes the same device and scope preference as the
+	// search itself rather than ranking every stage's leftovers together.
+	keepDeprecated := deprecated.empty()
 
 	for _, a := range addr {
 		isPreferredIP := a.IP.Equal(preferredIP)
-		if !addrUsableAsNodeIP(a, isPreferredIP, ipsToExclude, linkScopeMax, ipLen, allowDeprecated) {
+		if !addrUsableAsNodeIP(a, isPreferredIP, ipsToExclude, linkScopeMax, ipLen) {
 			continue
 		}
 
-		if ip.IsPublicAddr(a.IP) {
-			ipsPublic = append(ipsPublic, a)
-		} else {
-			ipsPrivate = append(ipsPrivate, a)
+		if a.Flags&unix.IFA_F_DEPRECATED != 0 {
+			if keepDeprecated {
+				deprecated.add(a, isPreferredIP)
+			}
+			continue
 		}
-		// If the IP is the same as the preferredIP, that
-		// means that maybe it is restored from node_config.h,
-		// so if it is present we prefer this one, even if it
-		// is a secondary address.
-		if isPreferredIP {
-			hasPreferred = true
-		}
+		candidates.add(a, isPreferredIP)
 	}
 
-	if len(ipsPublic) != 0 {
-		if hasPreferred && ip.IsPublicAddr(preferredIP) {
-			return preferredIP, nil
-		}
-
-		// Just make sure that we always return the same one and not a
-		// random one. More info in the issue GH-7637.
-		sort.SliceStable(ipsPublic, func(i, j int) bool {
-			return ipsPublic[i].LinkIndex < ipsPublic[j].LinkIndex
-		})
-
-		return ipsPublic[0].IP, nil
-	}
-
-	if len(ipsPrivate) != 0 {
-		if hasPreferred && !ip.IsPublicAddr(preferredIP) {
-			return preferredIP, nil
-		}
-
-		// Same stable order, see above ipsPublic.
-		sort.SliceStable(ipsPrivate, func(i, j int) bool {
-			return ipsPrivate[i].LinkIndex < ipsPrivate[j].LinkIndex
-		})
-
-		return ipsPrivate[0].IP, nil
+	if selected := candidates.pick(preferredIP); selected != nil {
+		return selected, nil
 	}
 
 	// First, if a device is specified, fall back to anything wider
@@ -130,10 +154,14 @@ retryScope:
 		goto retryInterface
 	}
 
-	return nil, errNoAddressFound
+	if selected := deprecated.pick(preferredIP); selected != nil {
+		return selected, nil
+	}
+
+	return nil, errors.New("No address found")
 }
 
-func addrUsableAsNodeIP(a netlink.Addr, isPreferredIP bool, ipsToExclude []net.IP, linkScopeMax, ipLen int, allowDeprecated bool) bool {
+func addrUsableAsNodeIP(a netlink.Addr, isPreferredIP bool, ipsToExclude []net.IP, linkScopeMax, ipLen int) bool {
 	if a.Scope > linkScopeMax {
 		return false
 	}
@@ -147,9 +175,6 @@ func addrUsableAsNodeIP(a netlink.Addr, isPreferredIP bool, ipsToExclude []net.I
 		return false
 	}
 	if a.Flags&(unix.IFA_F_TENTATIVE|unix.IFA_F_DADFAILED) != 0 {
-		return false
-	}
-	if !allowDeprecated && a.Flags&unix.IFA_F_DEPRECATED != 0 {
 		return false
 	}
 	return true
@@ -178,8 +203,8 @@ func addrUsableAsNodeIP(a netlink.Addr, isPreferredIP bool, ipsToExclude []net.I
 // If the latter fails as well, we retry on all interfaces beginning with
 // universe scope again (and then falling back to reduced scope).
 //
-// If still no address was found, the whole search is repeated while also
-// considering deprecated addresses, which are otherwise filtered out.
+// Deprecated addresses are only considered once none of the above yielded
+// an address.
 //
 // In case none of the above helped, we bail out with error.
 func FirstGlobalV4Addr(intf string, preferredIP net.IP) (net.IP, error) {
