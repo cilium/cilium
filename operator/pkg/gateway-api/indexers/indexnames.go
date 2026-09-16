@@ -85,4 +85,7 @@ const (
 
 	// Indexes UDPRoutes by all the ListenerSet parents referenced in the object.
 	UDPRouteListenerSetIndex = "listenerSetUDPRouteIndex"
+
+	// Indexes HTTPRoutes by InferencePools that are referenced by the object.
+	InferencePoolHTTPRouteIndex = "inferencePoolHTTPRouteIndex"
 )
