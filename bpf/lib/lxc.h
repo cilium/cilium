@@ -14,10 +14,15 @@
 #include "proxy.h"
 #include "proxy_hairpin.h"
 
-#ifdef ENABLE_SIP_VERIFICATION
+DECLARE_CONFIG(bool, enable_sip_verification,
+	       "Enable source IP verification for endpoint egress")
+
 static __always_inline
 int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
 {
+	if (!CONFIG(enable_sip_verification))
+		return 1;
+
 #ifdef ENABLE_IPV6
 	union v6addr valid = CONFIG(endpoint_ipv6);
 
@@ -30,6 +35,9 @@ int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
 static __always_inline
 int is_valid_lxc_src_ipv4(const struct iphdr *ip4 __maybe_unused)
 {
+	if (!CONFIG(enable_sip_verification))
+		return 1;
+
 #ifdef ENABLE_IPV4
 	return ip4->saddr == CONFIG(endpoint_ipv4).be32;
 #else
@@ -37,16 +45,3 @@ int is_valid_lxc_src_ipv4(const struct iphdr *ip4 __maybe_unused)
 	return 0;
 #endif
 }
-#else /* ENABLE_SIP_VERIFICATION */
-static __always_inline
-int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
-{
-	return 1;
-}
-
-static __always_inline
-int is_valid_lxc_src_ipv4(struct iphdr *ip4 __maybe_unused)
-{
-	return 1;
-}
-#endif /* ENABLE_SIP_VERIFICATION */
