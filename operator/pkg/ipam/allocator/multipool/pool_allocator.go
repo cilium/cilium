@@ -338,29 +338,26 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, 
 		opt(&options)
 	}
 
+	var v4Prev []cidralloc.CIDRAllocator
+	var v6Prev []cidralloc.CIDRAllocator
+
 	pool, exists := p.pools[poolName]
 	if exists {
 		if err := validateExistingPool(pool, ipv4MaskSize, ipv6MaskSize, options); err != nil {
 			return fmt.Errorf("validation failed for existing pool %q: %w", poolName, err)
 		}
+		v4Prev = pool.v4
+		v6Prev = pool.v6
 	}
 
 	ipv4Prefixes := cidrPrefixes(ipv4CIDRs)
 	ipv6Prefixes := cidrPrefixes(ipv6CIDRs)
 
-	var v4Prev []cidralloc.CIDRAllocator
-	if exists {
-		v4Prev = pool.v4
-	}
 	v4, err := p.updateCIDRSets(false, v4Prev, ipv4Prefixes, ipv4MaskSize)
 	if err != nil {
 		return err
 	}
 
-	var v6Prev []cidralloc.CIDRAllocator
-	if exists {
-		v6Prev = pool.v6
-	}
 	v6, err := p.updateCIDRSets(true, v6Prev, ipv6Prefixes, ipv6MaskSize)
 	if err != nil {
 		return err
