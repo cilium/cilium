@@ -371,6 +371,223 @@ func TestNodeLabels(t *testing.T) {
 	}
 }
 
+func TestNodeCIDRLabels(t *testing.T) {
+	oldNodeSelectorLabels := option.Config.EnableNodeSelectorLabels
+	oldPolicyCIDRMatchMode := option.Config.PolicyCIDRMatchMode
+	oldClusterName := option.Config.ClusterName
+	t.Cleanup(func() {
+		option.Config.EnableNodeSelectorLabels = oldNodeSelectorLabels
+		option.Config.PolicyCIDRMatchMode = oldPolicyCIDRMatchMode
+		option.Config.ClusterName = oldClusterName
+	})
+	option.Config.EnableNodeSelectorLabels = false
+	option.Config.PolicyCIDRMatchMode = []string{}
+	option.Config.ClusterName = "default"
+
+	logger := hivetest.Logger(t)
+	labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, "")
+
+	h, _ := cell.NewSimpleHealth()
+	ipc := ipcache.NewIPCache(&ipcache.Configuration{
+		Context:           t.Context(),
+		Logger:            logger,
+		IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
+		IdentityUpdater:   &mockUpdater{},
+	})
+	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil, testClusterSizeDependantInterval)
+	require.NoError(t, err)
+
+	nodeTypes.SetName("localNode")
+	nLocal := nodeTypes.Node{
+		Name:    "localNode",
+		Cluster: option.Config.ClusterName,
+		Labels:  map[string]string{"a": "b"},
+		Source:  source.Local,
+		IPAddresses: []nodeTypes.Address{{
+			Type: addressing.NodeInternalIP,
+			IP:   net.ParseIP("10.0.0.1"),
+		}},
+	}
+	nRemote := nodeTypes.Node{
+		Name:    "remoteNode",
+		Cluster: option.Config.ClusterName,
+		Labels:  map[string]string{"a": "c"},
+		Source:  source.Kubernetes,
+		IPAddresses: []nodeTypes.Address{{
+			Type: addressing.NodeInternalIP,
+			IP:   net.ParseIP("10.0.0.2"),
+		}},
+	}
+
+	setIPLabels := func(pfx string, lbls ...string) {
+		var rev uint64
+		if len(lbls) > 0 {
+			rev = ipc.UpsertMetadataBatch(ipcache.MU{
+				Prefix:   cmtypes.MustParsePrefixCluster(pfx),
+				Source:   source.CustomResource,
+				Resource: "dummy",
+				Metadata: []ipcache.IPMetadata{labels.ParseLabels(lbls...)},
+			})
+		} else {
+			rev = ipc.RemoveMetadataBatch(ipcache.MU{
+				Prefix:   cmtypes.MustParsePrefixCluster(pfx),
+				Source:   source.CustomResource,
+				Resource: "dummy",
+				Metadata: []ipcache.IPMetadata{labels.Labels{}},
+			})
+		}
+		ipc.WaitForRevision(t.Context(), rev)
+	}
+
+	dummyIP := netip.MustParseAddr("100.0.0.1")
+
+	// updateAndCheck commits the node update to the
+	updateAndCheck := func(n nodeTypes.Node, wantLbls labels.Labels, wantNID identity.NumericIdentity) {
+		t.Helper()
+		mngr.NodeUpdated(n)
+		// make a dummy ipcache update so we're sure the metadata resolver has run.
+		// This is to prevent test flakes.
+		setIPLabels(dummyIP.String()+"/32", "reserved:ingress")
+		dummyIP = dummyIP.Next()
+
+		ip := netip.MustParseAddr(n.IPAddresses[0].IP.String())
+		ipcID, ok := ipc.LookupSecIDByIP(ip)
+		require.True(t, ok)
+		if wantNID != 0 {
+			require.Equal(t, wantNID, ipcID.ID)
+		}
+		secID := ipc.IdentityAllocator.LookupIdentityByID(t.Context(), ipcID.ID)
+		require.NotNil(t, secID)
+		require.Equal(t, wantLbls, secID.Labels)
+	}
+
+	// Standard case: nodes do not have non-reserved labels.
+	updateAndCheck(nLocal, labels.ParseLabels(
+		"reserved:host",
+	), identity.ReservedIdentityHost)
+
+	updateAndCheck(nRemote, labels.ParseLabels(
+		"reserved:remote-node",
+	), identity.ReservedIdentityRemoteNode)
+
+	// Set both nodes to be kube-apiserver
+	setIPLabels("10.0.0.1/32", "reserved:kube-apiserver")
+	setIPLabels("10.0.0.2/32", "reserved:kube-apiserver")
+
+	updateAndCheck(nLocal, labels.ParseLabels(
+		"reserved:host",
+		"reserved:kube-apiserver",
+	), identity.ReservedIdentityHost)
+
+	updateAndCheck(nRemote, labels.ParseLabels(
+		"reserved:remote-node",
+		"reserved:kube-apiserver",
+	), identity.ReservedIdentityKubeAPIServer)
+
+	// Enable CIDR selection, see that nothing changes
+	option.Config.PolicyCIDRMatchMode = []string{"nodes"}
+
+	updateAndCheck(nLocal, labels.ParseLabels(
+		"reserved:host",
+		"reserved:kube-apiserver",
+	), identity.ReservedIdentityHost)
+
+	updateAndCheck(nRemote, labels.ParseLabels(
+		"reserved:remote-node",
+		"reserved:kube-apiserver",
+	), identity.ReservedIdentityKubeAPIServer)
+
+	// Add a CIDR selector that covers both nodes
+	setIPLabels("10.0.0.0/24", "cidr:10.0.0.0/24")
+
+	updateAndCheck(nLocal, labels.ParseLabels(
+		"reserved:host",
+		"reserved:kube-apiserver",
+		"cidr:10.0.0.0/24",
+	), identity.ReservedIdentityHost)
+
+	updateAndCheck(nRemote, labels.ParseLabels(
+		"reserved:remote-node",
+		"reserved:kube-apiserver",
+		"cidr:10.0.0.0/24",
+	), identity.IdentityScopeRemoteNode)
+
+	// Add a CIDR selector that selects only one node
+	setIPLabels("10.0.0.2/31", "cidr:10.0.0.2/31")
+
+	updateAndCheck(nLocal, labels.ParseLabels(
+		"reserved:host",
+		"reserved:kube-apiserver",
+		"cidr:10.0.0.0/24",
+	), identity.ReservedIdentityHost)
+
+	updateAndCheck(nRemote, labels.ParseLabels(
+		"reserved:remote-node",
+		"reserved:kube-apiserver",
+		"cidr:10.0.0.2/31",
+	), identity.IdentityScopeRemoteNode+1)
+
+	// Remove the /24 selector
+	setIPLabels("10.0.0.0/24")
+
+	updateAndCheck(nLocal, labels.ParseLabels(
+		"reserved:host",
+		"reserved:kube-apiserver",
+	), identity.ReservedIdentityHost)
+
+	updateAndCheck(nRemote, labels.ParseLabels(
+		"reserved:remote-node",
+		"reserved:kube-apiserver",
+		"cidr:10.0.0.2/31",
+	), identity.IdentityScopeRemoteNode+1)
+
+	// add the /24 back, remove kube-apiserver from localhost
+	setIPLabels("10.0.0.1/32")
+	setIPLabels("10.0.0.0/24", "cidr:10.0.0.0/24")
+
+	updateAndCheck(nLocal, labels.ParseLabels(
+		"reserved:host",
+		"cidr:10.0.0.0/24",
+	), identity.ReservedIdentityHost)
+
+	updateAndCheck(nRemote, labels.ParseLabels(
+		"reserved:remote-node",
+		"reserved:kube-apiserver",
+		"cidr:10.0.0.2/31",
+	), identity.IdentityScopeRemoteNode+1)
+
+	// remove the /31, see that remote node was correctly updated.
+	setIPLabels("10.0.0.2/31")
+
+	updateAndCheck(nLocal, labels.ParseLabels(
+		"reserved:host",
+		"cidr:10.0.0.0/24",
+	), identity.ReservedIdentityHost)
+
+	updateAndCheck(nRemote, labels.ParseLabels(
+		"reserved:remote-node",
+		"reserved:kube-apiserver",
+		"cidr:10.0.0.0/24",
+	), identity.IdentityScopeRemoteNode+2)
+
+	// Enable node selector labels
+	option.Config.EnableNodeSelectorLabels = true
+	updateAndCheck(nLocal, labels.ParseLabels(
+		"reserved:host",
+		"node:a=b",
+		"k8s:io.cilium.k8s.policy.cluster=default",
+		"cidr:10.0.0.0/24",
+	), identity.ReservedIdentityHost)
+
+	updateAndCheck(nRemote, labels.ParseLabels(
+		"reserved:remote-node",
+		"reserved:kube-apiserver",
+		"node:a=c",
+		"k8s:io.cilium.k8s.policy.cluster=default",
+		"cidr:10.0.0.0/24",
+	), identity.IdentityScopeRemoteNode+3)
+}
+
 func TestMultipleSources(t *testing.T) {
 	logger := hivetest.Logger(t)
 
