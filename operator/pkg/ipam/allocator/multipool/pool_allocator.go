@@ -241,7 +241,7 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 		if oldCIDR == nil {
 			continue
 		}
-		if exists := slices.ContainsFunc(newCIDRs, oldCIDR.IsClusterCIDR); exists {
+		if slices.ContainsFunc(newCIDRs, oldCIDR.IsClusterCIDR) {
 			continue
 		}
 
