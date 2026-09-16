@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/watchers"
@@ -237,11 +238,14 @@ func (c *unmanagedPodsController) restartUnmanagedPod(ctx context.Context, candi
 		logfields.K8sPodName, candidate.id,
 	)
 	if err := c.clientset.CoreV1().Pods(candidate.pod.Namespace).Delete(ctx, candidate.pod.Name, metav1.DeleteOptions{}); err != nil {
-		c.logger.WarnContext(ctx,
-			"Unable to restart pod",
-			logfields.Error, err,
-			logfields.K8sPodName, candidate.id,
-		)
+		// Do not emit a warning if the pod has already been deleted (TOCTOU race)
+		if !k8sErrors.IsNotFound(err) {
+			c.logger.WarnContext(ctx,
+				"Unable to restart pod",
+				logfields.Error, err,
+				logfields.K8sPodName, candidate.id,
+			)
+		}
 		return false
 	}
 	lastPodRestart[candidate.id] = time.Now()
