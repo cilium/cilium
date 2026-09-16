@@ -51,6 +51,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 			t.EnableNetkit = false
 			t.EnableVTEP = true
 			t.EnableServiceNoBackendResponse = true
+			t.EnableSIPVerification = true
 		}),
 
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),

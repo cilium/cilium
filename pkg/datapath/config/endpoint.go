@@ -50,6 +50,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
+	cfg.EnableSIPVerification = ep.GetOptions().IsEnabled(option.SourceIPVerification)
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 
 	cfg.EphemeralMin = lnc.EphemeralMin
