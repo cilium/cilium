@@ -481,6 +481,24 @@ func TestNewSvcFlag(t *testing.T) {
 	}
 }
 
+func TestServiceFlagsSVCSlotQuarantined(t *testing.T) {
+	tests := []struct {
+		name  string
+		flags ServiceFlags
+		want  bool
+	}{
+		{"healthy", serviceFlagNone, false},
+		{"quarantined", serviceFlagQuarantined, true},
+		{"legacy source-range deny", serviceFlagSourceRange | serviceFlagSourceRangeDeny, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.flags.SVCSlotQuarantined())
+		})
+	}
+}
+
 func TestServiceFlags_String(t *testing.T) {
 	tests := []struct {
 		name string
