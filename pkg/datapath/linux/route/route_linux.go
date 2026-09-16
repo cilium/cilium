@@ -400,11 +400,13 @@ func lookupRule(spec Rule, family int) (bool, error) {
 			continue
 		}
 
-		if spec.From != nil && (r.Src == nil || r.Src.String() != spec.From.String()) {
+		// Match selectors exactly. A nil selector represents all addresses;
+		// it is not a wildcard that may match a scoped rule.
+		if !ruleSelectorEqual(r.Src, spec.From) {
 			continue
 		}
 
-		if spec.To != nil && (r.Dst == nil || r.Dst.String() != spec.To.String()) {
+		if !ruleSelectorEqual(r.Dst, spec.To) {
 			continue
 		}
 
@@ -425,6 +427,16 @@ func lookupRule(spec Rule, family int) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func ruleSelectorEqual(a, b *net.IPNet) bool {
+	if a == nil || b == nil {
+		// IPNet.String returns "<nil>" for both a nil selector and some
+		// malformed non-nil selectors. Keep absence distinct because a nil
+		// selector specifically represents all addresses.
+		return a == nil && b == nil
+	}
+	return a.String() == b.String()
 }
 
 // ListRules will list IP routing rules on Linux, filtered by `filter`. When
