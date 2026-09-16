@@ -1,0 +1,30 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-weighted-two-pools
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: conformance-primary
+    namespace: inference-conformance-infra
+    sectionName: http
+  hostnames:
+  - "primary.example.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /weighted-two-pools-test
+    backendRefs:
+    # 70% of traffic goes to the primary pool
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: primary-inference-pool
+      weight: 70
+    # 30% of traffic goes to the secondary pool
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: secondary-inference-pool
+      weight: 30
