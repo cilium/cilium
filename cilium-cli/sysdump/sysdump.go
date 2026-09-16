@@ -2956,6 +2956,12 @@ func (c *Collector) SubmitTracingGopsSubtask(pods []*corev1.Pod, containerName s
 func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, limitBytes int64) error {
 	t := metav1.NewTime(time.Now().Add(-since))
 	for _, p := range pods {
+		// Such a pod never created a container, hence has no log stream to read.
+		if k8s.IsRejectedBeforeStart(p) {
+			c.log("Skipping logs of pod %q in namespace %q rejected before start (%s)", p.Name, p.Namespace, p.Status.Reason)
+			continue
+		}
+
 		allContainers := append(p.Spec.Containers, p.Spec.InitContainers...)
 		for _, d := range allContainers {
 			if err := c.Pool.Submit(fmt.Sprintf("logs-%s-%s", p.Name, d.Name), func(ctx context.Context) error {
