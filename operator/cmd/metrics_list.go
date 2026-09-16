@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -16,7 +17,6 @@ import (
 	"github.com/cilium/cilium/api/v1/operator/client"
 	metricsApi "github.com/cilium/cilium/api/v1/operator/client/metrics"
 	"github.com/cilium/cilium/api/v1/operator/models"
-	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/logging"
 )
@@ -26,6 +26,27 @@ var (
 	operatorAddr string
 )
 
+// defaultOperatorAddrs are the addresses tried, in order, when
+// --server-address is not given.
+var defaultOperatorAddrs = []string{"127.0.0.1:9234", "[::1]:9234"}
+
+// getMetrics retrieves the operator metrics from the first of addrs that
+// answers, and reports the errors of every attempt if none does.
+func getMetrics(addrs []string) ([]*models.Metric, error) {
+	var errs []error
+	for _, addr := range addrs {
+		c := client.NewHTTPClientWithConfig(
+			strfmt.Default, client.DefaultTransportConfig().WithHost(addr))
+
+		res, err := c.Metrics.GetMetrics(metricsApi.NewGetMetricsParams())
+		if err == nil {
+			return res.Payload, nil
+		}
+		errs = append(errs, fmt.Errorf("%s: %w", addr, err))
+	}
+	return nil, errors.Join(errs...)
+}
+
 // MetricsListCmd dumps all metrics into stdout
 var MetricsListCmd = &cobra.Command{
 	Use:   "list",
@@ -34,10 +55,12 @@ var MetricsListCmd = &cobra.Command{
 		// slogloggercheck: use the logger with the default settings since this ist only used for CLI output
 		logger := logging.DefaultSlogLogger
 
-		c := client.NewHTTPClientWithConfig(
-			strfmt.Default, client.DefaultTransportConfig().WithHost(operatorAddr))
+		addrs := defaultOperatorAddrs
+		if operatorAddr != "" {
+			addrs = []string{operatorAddr}
+		}
 
-		res, err := c.Metrics.GetMetrics(metricsApi.NewGetMetricsParams())
+		payload, err := getMetrics(addrs)
 		if err != nil {
 			logging.Fatal(logger, fmt.Sprintf("Cannot get metrics list: %s", err))
 		}
@@ -47,8 +70,8 @@ var MetricsListCmd = &cobra.Command{
 			logging.Fatal(logger, fmt.Sprintf("Cannot compile regex: %s", err))
 		}
 
-		metrics := make([]*models.Metric, 0, len(res.Payload))
-		for _, metric := range res.Payload {
+		metrics := make([]*models.Metric, 0, len(payload))
+		for _, metric := range payload {
 			if re.MatchString(metric.Name) {
 				metrics = append(metrics, metric)
 			}
@@ -81,6 +104,6 @@ var MetricsListCmd = &cobra.Command{
 
 func init() {
 	MetricsListCmd.Flags().StringVarP(&matchPattern, "match-pattern", "p", "", "Show only metrics whose names match matchpattern")
-	MetricsListCmd.Flags().StringVarP(&operatorAddr, "server-address", "s", api.OperatorAPIServeAddrDefault, "Address of the operator API server")
+	MetricsListCmd.Flags().StringVarP(&operatorAddr, "server-address", "s", "", fmt.Sprintf("Address of the operator API server (default %s)", strings.Join(defaultOperatorAddrs, " or ")))
 	command.AddOutputOption(MetricsListCmd)
 }
