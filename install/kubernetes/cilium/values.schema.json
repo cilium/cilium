@@ -2976,6 +2976,14 @@
         "externalTrafficPolicy": {
           "type": "string"
         },
+        "gatewayAPIInferenceExtension": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "gatewayClass": {
           "properties": {
             "create": {
