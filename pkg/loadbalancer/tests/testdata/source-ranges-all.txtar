@@ -17,7 +17,7 @@ sed 'placeholder: placeholder' 'service.cilium.io/src-ranges-policy: deny' servi
 k8s/update service.yaml
 db/cmp services services_deny.table
 
-# Validate that the service entries now have the 'source-range+deny' set.
+# Validate that the master service entries now have 'source-range+deny' set.
 lb/maps-dump lbmaps.actual
 * cmp lbmaps_deny.expected lbmaps.actual
 
@@ -134,9 +134,9 @@ SRCRANGE: ID=2 CIDR=10.0.0.0/8
 SVC: ID=0 ADDR=10.0.0.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=0 ADDR=10.0.0.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
 SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+check source-range
-SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+check source-range
+SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+check source-range
-SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+check source-range
+SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
 -- lbmaps_deny.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
 REV: ID=1 ADDR=10.0.0.1:80
@@ -146,6 +146,6 @@ SRCRANGE: ID=2 CIDR=10.0.0.0/8
 SVC: ID=0 ADDR=10.0.0.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=0 ADDR=10.0.0.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
 SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+check source-range+deny
-SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+check source-range+deny
+SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+check source-range+deny
-SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+check source-range+deny
+SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer

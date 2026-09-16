@@ -298,13 +298,12 @@ func (s ServiceFlags) SVCNatPolicy(fe L3n4Addr) SVCNatPolicy {
 	}
 }
 
-// SVCSlotQuarantined
+// SVCSlotQuarantined reports whether a backend service slot is quarantined.
 func (s ServiceFlags) SVCSlotQuarantined() bool {
-	if s&serviceFlagQuarantined == 0 {
-		return false
-	} else {
-		return true
-	}
+	// Source-range deny shares the quarantine bit. Older agents copied the
+	// master-only source-range flags to backend slots, so exclude that legacy
+	// combination when restoring state after an upgrade.
+	return s&serviceFlagQuarantined != 0 && s&serviceFlagSourceRange == 0
 }
 
 // String returns the string implementation of ServiceFlags.

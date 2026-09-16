@@ -925,7 +925,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		forwardingMode = svc.ForwardingMode
 	}
 
-	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
+	masterFlagParams := &loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcNatPolicy:     svc.NatPolicy,
 		SvcFwdModeDSR:    forwardingMode == loadbalancer.SVCForwardingModeDSR,
@@ -938,9 +938,21 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		L7LoadBalancer:   svc.ProxyRedirects.Redirects(fe.ServicePort),
 		LoopbackHostport: svc.LoopbackHostPort || proxyDelegation != loadbalancer.SVCProxyDelegationNone,
 		Quarantined:      false,
-	})
-	svcVal.SetFlags(flag.UInt16())
+	}
+	masterFlags := loadbalancer.NewSvcFlag(masterFlagParams)
+	svcVal.SetFlags(masterFlags.UInt16())
 	svcVal.SetRevNat(int(feID))
+	slotVal := svcVal.New().(maps.ServiceValue)
+	slotVal.SetRevNat(int(feID))
+
+	// Source-range flags apply to the master slot. SourceRangeDeny shares its
+	// bit with backend quarantine, so omit both source-range flags from backend
+	// slots to keep quarantine unambiguous when restoring.
+	slotFlagParams := *masterFlagParams
+	slotFlagParams.CheckSourceRange = false
+	slotFlagParams.SourceRangeDeny = false
+	healthySlotFlags := loadbalancer.NewSvcFlag(&slotFlagParams)
+	slotVal.SetFlags(healthySlotFlags.UInt16())
 
 	// Gather backends for the service
 	orderedBackends := ops.sortedBackends(fe)
@@ -1013,10 +1025,9 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 			logfields.Slot, slotID,
 			logfields.BackendID, beID)
 
-		svcVal.SetBackendID(beID)
-		svcVal.SetRevNat(int(feID))
+		slotVal.SetBackendID(beID)
 		svcKey.SetBackendSlot(slotID)
-		if err := ops.upsertService(svcKey, svcVal); err != nil {
+		if err := ops.upsertService(svcKey, slotVal); err != nil {
 			return fmt.Errorf("upsert service: %w", err)
 		}
 
