@@ -146,7 +146,7 @@ type InternalUpstreamTransportMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m InternalUpstreamTransportMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -302,7 +302,7 @@ type InternalUpstreamTransport_MetadataValueSourceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m InternalUpstreamTransport_MetadataValueSourceMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

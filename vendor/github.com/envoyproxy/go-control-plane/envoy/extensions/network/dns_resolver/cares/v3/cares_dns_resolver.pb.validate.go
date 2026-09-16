@@ -231,6 +231,8 @@ func (m *CaresDnsResolverConfig) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for ReinitChannelOnTimeout
+
 	if len(errors) > 0 {
 		return CaresDnsResolverConfigMultiError(errors)
 	}
@@ -245,7 +247,7 @@ type CaresDnsResolverConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CaresDnsResolverConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

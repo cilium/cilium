@@ -51,6 +51,18 @@ func (m *ExtAuthz) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.EnforceResponseHeaderLimits {
+		i--
+		if m.EnforceResponseHeaderLimits {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xf8
+	}
 	if m.MaxDeniedResponseBodyBytes != 0 {
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.MaxDeniedResponseBodyBytes))
 		i--
@@ -1261,6 +1273,9 @@ func (m *ExtAuthz) SizeVT() (n int) {
 	}
 	if m.MaxDeniedResponseBodyBytes != 0 {
 		n += 2 + protohelpers.SizeOfVarint(uint64(m.MaxDeniedResponseBodyBytes))
+	}
+	if m.EnforceResponseHeaderLimits {
+		n += 3
 	}
 	n += len(m.unknownFields)
 	return n

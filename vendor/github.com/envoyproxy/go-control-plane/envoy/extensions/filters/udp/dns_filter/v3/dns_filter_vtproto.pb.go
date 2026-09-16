@@ -283,6 +283,30 @@ func (m *DnsFilterConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error)
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.AccessLog) > 0 {
+		for iNdEx := len(m.AccessLog) - 1; iNdEx >= 0; iNdEx-- {
+			if vtmsg, ok := interface{}(m.AccessLog[iNdEx]).(interface {
+				MarshalToSizedBufferVTStrict([]byte) (int, error)
+			}); ok {
+				size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			} else {
+				encoded, err := proto.Marshal(m.AccessLog[iNdEx])
+				if err != nil {
+					return 0, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
+	}
 	if m.ClientConfig != nil {
 		size, err := m.ClientConfig.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -432,6 +456,18 @@ func (m *DnsFilterConfig) SizeVT() (n int) {
 	if m.ClientConfig != nil {
 		l = m.ClientConfig.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if len(m.AccessLog) > 0 {
+		for _, e := range m.AccessLog {
+			if size, ok := interface{}(e).(interface {
+				SizeVT() int
+			}); ok {
+				l = size.SizeVT()
+			} else {
+				l = proto.Size(e)
+			}
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
 	}
 	n += len(m.unknownFields)
 	return n

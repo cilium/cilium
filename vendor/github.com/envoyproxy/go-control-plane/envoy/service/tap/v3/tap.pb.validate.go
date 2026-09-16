@@ -132,7 +132,7 @@ type StreamTapsRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StreamTapsRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -234,7 +234,7 @@ type StreamTapsResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StreamTapsResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -378,7 +378,7 @@ type StreamTapsRequest_IdentifierMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StreamTapsRequest_IdentifierMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

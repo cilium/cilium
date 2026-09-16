@@ -75,7 +75,7 @@ type CapabilityMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CapabilityMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -233,7 +233,7 @@ type HealthCheckRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HealthCheckRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -366,7 +366,7 @@ type EndpointHealthMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m EndpointHealthMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -529,7 +529,7 @@ type LocalityEndpointsHealthMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m LocalityEndpointsHealthMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -667,7 +667,7 @@ type ClusterEndpointsHealthMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ClusterEndpointsHealthMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -837,7 +837,7 @@ type EndpointHealthResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m EndpointHealthResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1029,7 +1029,7 @@ type HealthCheckRequestOrEndpointHealthResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HealthCheckRequestOrEndpointHealthResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1195,7 +1195,7 @@ type LocalityEndpointsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m LocalityEndpointsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1430,7 +1430,7 @@ type ClusterHealthCheckMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ClusterHealthCheckMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1595,7 +1595,7 @@ type HealthCheckSpecifierMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HealthCheckSpecifierMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1696,7 +1696,7 @@ type HdsDummyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HdsDummyMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

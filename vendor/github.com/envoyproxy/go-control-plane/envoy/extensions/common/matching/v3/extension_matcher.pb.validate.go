@@ -170,7 +170,7 @@ type ExtensionWithMatcherMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ExtensionWithMatcherMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -301,7 +301,7 @@ type ExtensionWithMatcherPerRouteMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ExtensionWithMatcherPerRouteMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

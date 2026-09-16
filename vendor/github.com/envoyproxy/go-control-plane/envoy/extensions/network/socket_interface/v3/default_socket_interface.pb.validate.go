@@ -101,7 +101,7 @@ type DefaultSocketInterfaceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DefaultSocketInterfaceMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -292,7 +292,7 @@ type IoUringOptionsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m IoUringOptionsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

@@ -233,7 +233,7 @@ type CompressorMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CompressorMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -362,7 +362,7 @@ type ResponseDirectionOverridesMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ResponseDirectionOverridesMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -522,7 +522,7 @@ type CompressorOverridesMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CompressorOverridesMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -706,7 +706,7 @@ type CompressorPerRouteMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CompressorPerRouteMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -868,7 +868,7 @@ type Compressor_CommonDirectionConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Compressor_CommonDirectionConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1002,7 +1002,7 @@ type Compressor_RequestDirectionConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Compressor_RequestDirectionConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1173,7 +1173,7 @@ type Compressor_ResponseDirectionConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Compressor_ResponseDirectionConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

@@ -141,7 +141,7 @@ func (n *linuxNodeHandler) allocateIDForNode(oldNode *nodeTypes.Node, node *node
 				logfields.SPI, node.EncryptionKey,
 			)
 			errs = errors.Join(errs,
-				fmt.Errorf("failed to map IP %q with node ID %q: %w", nodeID, nodeID, err))
+				fmt.Errorf("failed to map IP %q with node ID %d: %w", ip, nodeID, err))
 		}
 	}
 	return nodeID, errs

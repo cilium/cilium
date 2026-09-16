@@ -156,7 +156,7 @@ type IPTaggingMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m IPTaggingMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -292,7 +292,7 @@ type IPTagging_IPTagMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m IPTagging_IPTagMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -416,7 +416,7 @@ type IPTagging_IpTagHeaderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m IPTagging_IpTagHeaderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
