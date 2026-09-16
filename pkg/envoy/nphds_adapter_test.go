@@ -10,6 +10,7 @@ import (
 
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	stream "github.com/envoyproxy/go-control-plane/pkg/server/stream/v3"
 	"github.com/stretchr/testify/assert"
@@ -235,6 +236,31 @@ func TestStartNPHDSIPCacheListener(t *testing.T) {
 	mock := &mockIPCacheEventSource{}
 	startNPHDSIPCacheListener(logger, mock, server)
 	assert.Equal(t, 1, mock.listenerCount)
+}
+
+func TestNPHDSIPCacheListenerCallbacksSupportDelta(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	adsCache := xdsnew.NewCache(logger, false)
+	server := newADSServerWithCache(adsCache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	mock := &mockIPCacheEventSource{}
+	callbacks := newNPHDSIPCacheListenerCallbacks(logger, mock, server)
+
+	require.NoError(t, callbacks.OnStreamDeltaRequest(1, &discovery.DeltaDiscoveryRequest{
+		TypeUrl: ListenerTypeURL,
+	}))
+	require.Zero(t, mock.listenerCount)
+
+	require.NoError(t, callbacks.OnStreamDeltaRequest(1, &discovery.DeltaDiscoveryRequest{
+		TypeUrl: NetworkPolicyHostsTypeURL,
+	}))
+	require.Equal(t, 1, mock.listenerCount)
+
+	// The shared once guard must prevent a later SotW request from registering
+	// the IPCache listener a second time.
+	require.NoError(t, callbacks.OnStreamRequest(2, &discovery.DiscoveryRequest{
+		TypeUrl: NetworkPolicyHostsTypeURL,
+	}))
+	require.Equal(t, 1, mock.listenerCount)
 }
 
 type mockIPCacheEventSource struct {

@@ -677,20 +677,27 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 }
 
 func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	config := xdsServerConfig{
-		envoySocketDir:       t.TempDir(),
-		policyRestoreTimeout: 30 * time.Second,
-		envoyXDSMode:         config.EnvoyXDSModeStrictADS,
+	for _, mode := range []config.XDSMode{
+		config.EnvoyXDSModeStrictADS,
+		config.EnvoyXDSModeStrictDeltaADS,
+	} {
+		t.Run(mode.String(), func(t *testing.T) {
+			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+			serverConfig := xdsServerConfig{
+				envoySocketDir:       t.TempDir(),
+				policyRestoreTimeout: 30 * time.Second,
+				envoyXDSMode:         mode,
+			}
+			cache := xdsnew.NewCache(logger, true)
+			server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+
+			resources := xds.NewResources()
+			resources.Listeners["listener1"] = proto.Clone(DEFAULT_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
+
+			err := server.UpsertEnvoyResources(context.Background(), resources, nil)
+			require.ErrorContains(t, err, "generated ADS snapshot is inconsistent")
+		})
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
-
-	resources := xds.NewResources()
-	resources.Listeners["listener1"] = proto.Clone(DEFAULT_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
-
-	err := server.UpsertEnvoyResources(context.Background(), resources, nil)
-	require.ErrorContains(t, err, "generated ADS snapshot is inconsistent")
 }
 
 func TestDeleteEnvoyResources(t *testing.T) {
@@ -782,6 +789,27 @@ func TestGetNetworkPolicies(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, policies)
 	assert.Empty(t, policies)
+}
+
+func TestUpdateResourceStateAppliesSparseChanges(t *testing.T) {
+	current := xds.NewResources()
+	listener := &envoy_config_listener.Listener{Name: "listener1"}
+	current.Listeners[listener.Name] = listener
+	current.Endpoints["c1"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "c1"}
+	current.Endpoints["c2"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "c2"}
+
+	updatedEndpoint := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "updated-c1"}
+	updated, changes := updateResourceState(&current, nil, &xds.Resources{
+		Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{"c1": updatedEndpoint},
+	})
+
+	require.Len(t, changes.endpoints, 1)
+	assert.Equal(t, "c1", changes.endpoints[0].key)
+	assert.Same(t, current.Endpoints["c1"], changes.endpoints[0].value)
+	assert.Same(t, updatedEndpoint, updated.Endpoints["c1"])
+	assert.Equal(t, "c1", current.Endpoints["c1"].ClusterName)
+	assert.Same(t, listener, updated.Listeners[listener.Name])
+	assert.Empty(t, changes.listeners)
 }
 
 func TestUpdateNetworkPolicy(t *testing.T) {

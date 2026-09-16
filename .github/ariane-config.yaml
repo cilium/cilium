@@ -191,6 +191,9 @@ triggers:
   /l7-perf(\s+(?:\s*version=[-+.0-9a-z]+)?(?:\s*sha=[a-f0-9]+)?)?:
     workflows:
     - l7-perf.yaml
+  /xds-perf:
+    workflows:
+    - xds-performance-gce.yaml
   /build-images-dependency:  #this trigger is not meant to be used in comments, as build workflows are not triggered by Ariane. Having this trigger allows us to have others depend on images workflow though.
     workflows:
     - build-images-ci.yaml

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"slices"
 	"sync"
@@ -164,7 +165,11 @@ func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, mutate func(ma
 		empty := xds.NewResources()
 		currentResources = &empty
 	}
-	newResources := currentResources.DeepCopy()
+	newResources := *currentResources
+	newResources.NetworkPolicyHosts = maps.Clone(currentResources.NetworkPolicyHosts)
+	if newResources.NetworkPolicyHosts == nil {
+		newResources.NetworkPolicyHosts = make(map[string]*envoyAPI.NetworkPolicyHosts)
+	}
 
 	changed, err := mutate(newResources.NetworkPolicyHosts)
 	if err != nil {
@@ -174,19 +179,28 @@ func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, mutate func(ma
 		return nil
 	}
 
-	return s.updateSnapshot(ctx, newResources, localNodeID, nil, nil,
-		computeChanges(currentResources, newResources))
+	changes := &resourceChanges{
+		networkPolicyHosts: diffMap(currentResources.NetworkPolicyHosts, newResources.NetworkPolicyHosts),
+	}
+	return s.updateSnapshot(ctx, &newResources, localNodeID, nil, nil, changes)
 }
 
 func newNPHDSIPCacheListenerCallbacks(logger *slog.Logger, ipCache IPCacheEventSource, store nphdsResourceStore) envoy_server.CallbackFuncs {
 	var once sync.Once
+	startForType := func(typeURL string) {
+		if typeURL == NetworkPolicyHostsTypeURL {
+			once.Do(func() {
+				startNPHDSIPCacheListener(logger, ipCache, store)
+			})
+		}
+	}
 	return envoy_server.CallbackFuncs{
 		StreamRequestFunc: func(_ int64, req *discovery.DiscoveryRequest) error {
-			if req.GetTypeUrl() == NetworkPolicyHostsTypeURL {
-				once.Do(func() {
-					startNPHDSIPCacheListener(logger, ipCache, store)
-				})
-			}
+			startForType(req.GetTypeUrl())
+			return nil
+		},
+		StreamDeltaRequestFunc: func(_ int64, req *discovery.DeltaDiscoveryRequest) error {
+			startForType(req.GetTypeUrl())
 			return nil
 		},
 	}

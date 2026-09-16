@@ -40,7 +40,8 @@ func (s *xdsServer) runXDSGRPCServer(ctx context.Context, config map[string]*xds
 	grpcServer := grpc.NewServer()
 
 	// xdsServer optionally pauses serving any resources until endpoints have been restored
-	xdsServer := xds.NewServer(s.logger, config, s.restorerPromise, s.config.metrics)
+	xdsServer := xds.NewServer(s.logger, config, s.restorerPromise, s.config.metrics,
+		xds.WithMode(s.config.envoyXDSMode.String()))
 	dsServer := &xdsGRPCServer{Server: xdsServer}
 
 	// TODO: https://github.com/cilium/cilium/issues/5051

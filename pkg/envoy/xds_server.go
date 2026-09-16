@@ -53,6 +53,9 @@ const (
 	ingressTLSClusterName = "ingress-cluster-tls"
 	metricsListenerName   = "envoy-prometheus-metrics-listener"
 	adminListenerName     = "envoy-admin-listener"
+	xdsOperationUpsert    = "upsert"
+	xdsOperationUpdate    = "update"
+	xdsOperationDelete    = "delete"
 )
 
 type xdsServer struct {
@@ -833,6 +836,11 @@ func (s *xdsServer) RemoveAllNetworkPolicies() {
 }
 
 func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+	start := time.Now()
+	defer func() {
+		xds.ObserveUpdate(s.config.metrics, s.config.envoyXDSMode.String(), xdsOperationUpsert, time.Since(start))
+	}()
+
 	s.logger.Debug("UpsertEnvoyResources: Upserting Envoy Resources",
 		logfields.Resource, resources.DebugInfo())
 
@@ -949,6 +957,11 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Reso
 // 'waitGroup' is intentionally not used as we need to wait to be able to revert even if the caller
 // does not need to wait.
 func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources, waitGroup *completion.WaitGroup) error {
+	updateStart := time.Now()
+	defer func() {
+		xds.ObserveUpdate(s.config.metrics, s.config.envoyXDSMode.String(), xdsOperationUpdate, time.Since(updateStart))
+	}()
+
 	waitForDelete := false
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 	// Delete old listeners not added in 'new' or if old and new listener have different ports
@@ -1179,6 +1192,11 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 // resources includes listeners the caller MUST pass a context with a timeout to prevent indefinite
 // blocking in case Envoy never responds.
 func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+	start := time.Now()
+	defer func() {
+		xds.ObserveUpdate(s.config.metrics, s.config.envoyXDSMode.String(), xdsOperationDelete, time.Since(start))
+	}()
+
 	s.logger.Debug("DeleteEnvoyResources: Deleting Envoy resources",
 		logfields.ResourceListeners, len(resources.Listeners),
 		logfields.ResourceRoutes, len(resources.Routes),
