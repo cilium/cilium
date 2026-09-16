@@ -163,7 +163,6 @@ func TestNewIdentityFromLabelArray(t *testing.T) {
 }
 
 func TestLookupReservedIdentityByLabels(t *testing.T) {
-	cidrPrefix := netip.MustParsePrefix("10.0.0.0/24")
 	type want struct {
 		id     NumericIdentity
 		labels labels.Labels
@@ -301,33 +300,49 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 		},
 		{
 			name: "cidr",
-			args: labels.Map2Labels(map[string]string{
-				labels.LabelWorld.String():                "",
-				labels.GetCIDRLabels(cidrPrefix).String(): "",
-			}, ""),
+			args: labels.NewLabelsFromModel([]string{
+				"reserved:world",
+				"cidr:10.0.0.0/24",
+			}),
 			want: nil,
 		},
 		{
-			name:           "remote-node-with-cidr-policy",
+			name:           "remote-node-with-cidr-policy-no-cidrs",
 			args:           labels.LabelRemoteNode,
 			nodeCIDRPolicy: true,
+			want: &want{
+				id:     ReservedIdentityRemoteNode,
+				labels: labels.LabelRemoteNode,
+			},
+		},
+		{
+			name: "remote-node-with-cidr-policy-with-cidrs",
+			args: labels.NewLabelsFromModel([]string{
+				"reserved:remote-node",
+				"cidr:10.0.0.0/24",
+			}),
+			nodeCIDRPolicy: true,
 			want:           nil,
+		},
+		{
+			name: "kube-apiserver-and-remote-node-cidr-policy-no-cidrs",
+			args: labels.NewLabelsFromModel([]string{
+				"reserved:remote-node",
+				"reserved:kube-apiserver",
+			}),
+			nodeCIDRPolicy: true,
+			want: &want{
+				id:     ReservedIdentityKubeAPIServer,
+				labels: reservedIdentityLabels[ReservedIdentityKubeAPIServer],
+			},
 		},
 		{
 			name: "kube-apiserver-and-remote-node-cidr-policy",
-			args: labels.Map2Labels(map[string]string{
-				labels.LabelKubeAPIServer.String(): "",
-				labels.LabelRemoteNode.String():    "",
-			}, ""),
-			nodeCIDRPolicy: true,
-			want:           nil,
-		},
-		{
-			name: "remote-node-and-kube-apiserver-cidr-policy",
-			args: labels.Map2Labels(map[string]string{
-				labels.LabelRemoteNode.String():    "",
-				labels.LabelKubeAPIServer.String(): "",
-			}, ""),
+			args: labels.NewLabelsFromModel([]string{
+				"reserved:remote-node",
+				"reserved:kube-apiserver",
+				"cidr:10.0.0.0/24",
+			}),
 			nodeCIDRPolicy: true,
 			want:           nil,
 		},
