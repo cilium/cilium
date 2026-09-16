@@ -328,6 +328,7 @@ data:
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
   gateway-api-hostnetwork-enabled: {{ .Values.gatewayAPI.hostNetwork.enabled | quote }}
   gateway-api-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.gatewayAPI.hostNetwork.nodes.matchLabels | quote }}
+  gateway-api-inference-extension-enabled: {{ .Values.gatewayAPI.gatewayAPIInferenceExtension.enabled | quote}}
 {{- end }}
 
 {{- if and $readSecretsOnlyFromSecretsNamespace $secretSyncEnabled }}

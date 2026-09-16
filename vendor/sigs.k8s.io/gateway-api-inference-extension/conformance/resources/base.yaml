@@ -1,0 +1,768 @@
+# Base Kubernetes resources for the Gateway API Inference Extension conformance tests.
+# This includes namespaces and a minimal set of resources (Gateway, Backend)
+# required by many tests. More specific resources should be defined within
+# individual test files or other resource directories (e.g., sample_backends).
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: inference-conformance-infra
+  labels:
+    inference-conformance: infra
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: inference-conformance-app-backend
+  labels:
+    inference-conformance: backend
+---
+# A basic Gateway resource that allows HTTPRoutes from the same namespace.
+# Tests can use this as a parent reference for routes that target InferencePools.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: conformance-primary
+  namespace: inference-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+      kinds:
+      - group: gateway.networking.k8s.io
+        kind: HTTPRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: conformance-secondary
+  namespace: inference-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    hostname: "secondary.example.com"
+    allowedRoutes:
+      namespaces:
+        from: All
+
+### The following defines the essential resources for the gateway conformance test.
+### All resources are created in the 'inference-conformance-app-backend' namespace.
+---
+# Deploys a mock backend service to act as a model server.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: primary-inference-model-server-deployment
+  namespace: inference-conformance-app-backend
+  labels:
+    app: primary-inference-model-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: primary-inference-model-server
+  template:
+    metadata:
+      labels:
+        app: primary-inference-model-server
+    spec:
+      containers:
+      - name: echoserver
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20251106-v1.3.0-263-g47c3435c
+        ports:
+        - containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 2
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+---
+# Deploys a secondary mock backend service to act as a model server.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secondary-inference-model-server-deployment
+  namespace: inference-conformance-app-backend
+  labels:
+    app: secondary-inference-model-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: secondary-inference-model-server
+  template:
+    metadata:
+      labels:
+        app: secondary-inference-model-server
+    spec:
+      containers:
+      - name: echoserver
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20251106-v1.3.0-263-g47c3435c
+        ports:
+        - containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 2
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+---
+# Deploys a dedicated mock backend for appProtocol conformance coverage.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: appprotocol-inference-model-server-deployment
+  namespace: inference-conformance-app-backend
+  labels:
+    app: appprotocol-inference-model-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: appprotocol-inference-model-server
+  template:
+    metadata:
+      labels:
+        app: appprotocol-inference-model-server
+    spec:
+      containers:
+      - name: echoserver
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20251106-v1.3.0-263-g47c3435c
+        ports:
+        - containerPort: 3000
+        - containerPort: 3001
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 2
+        env:
+        - name: HTTP_PORT
+          value: "3000"
+        - name: H2C_PORT
+          value: "3001"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+---
+# --- Primary InferencePool Definition ---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: primary-inference-pool
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    matchLabels:
+      app: primary-inference-model-server
+  targetPorts:
+    - number: 3000
+  endpointPickerRef:
+    name: primary-endpoint-picker-svc
+    port:
+      number: 9002
+---
+# --- Primary Conformance EPP service Definition ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: primary-endpoint-picker-svc
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    app: primary-app-backend-epp
+  ports:
+    - protocol: TCP
+      port: 9002
+      targetPort: 9002
+      appProtocol: http2
+  type: ClusterIP
+---
+# --- Primary Conformance EPP Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: primary-app-endpoint-picker
+  namespace: inference-conformance-app-backend
+  labels:
+    app: primary-app-backend-epp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: primary-app-backend-epp
+  template:
+    metadata:
+      labels:
+        app: primary-app-backend-epp
+    spec:
+      # Conservatively, this timeout should mirror the longest grace period of the pods within the pool
+      terminationGracePeriodSeconds: 130
+      containers:
+      - name: epp
+        image: registry.k8s.io/gateway-api-inference-extension/lwepp:v1.6.2
+        imagePullPolicy: IfNotPresent
+        args:
+        - --pool-name
+        - "primary-inference-pool"
+        - --pool-namespace
+        - "inference-conformance-app-backend"
+        - --zap-encoder
+        - "json"
+        - --grpc-port
+        - "9002"
+        - --grpc-health-port
+        - "9003"
+        ports:
+        - containerPort: 9002
+        - containerPort: 9003
+        - name: metrics
+          containerPort: 9090
+        livenessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+# --- Secondary InferencePool Definition ---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: secondary-inference-pool
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    matchLabels:
+      app: secondary-inference-model-server
+  targetPorts:
+    - number: 3000
+  endpointPickerRef:
+    name: secondary-endpoint-picker-svc
+    failureMode: FailOpen
+    port:
+      number: 9002
+---
+# --- Secondary Conformance EPP service Definition ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: secondary-endpoint-picker-svc
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    app: secondary-app-backend-epp
+  ports:
+    - protocol: TCP
+      port: 9002
+      targetPort: 9002
+      appProtocol: http2
+  type: ClusterIP
+---
+# --- Secondary Conformance EPP Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secondary-app-endpoint-picker
+  namespace: inference-conformance-app-backend
+  labels:
+    app: secondary-app-backend-epp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secondary-app-backend-epp
+  template:
+    metadata:
+      labels:
+        app: secondary-app-backend-epp
+    spec:
+      # Conservatively, this timeout should mirror the longest grace period of the pods within the pool
+      terminationGracePeriodSeconds: 130
+      containers:
+      - name: epp
+        image: registry.k8s.io/gateway-api-inference-extension/lwepp:v1.6.2
+        imagePullPolicy: IfNotPresent
+        args:
+        - --pool-name
+        - "secondary-inference-pool"
+        - --pool-namespace
+        - "inference-conformance-app-backend"
+        - --zap-encoder
+        - "json"
+        - --grpc-port
+        - "9002"
+        - --grpc-health-port
+        - "9003"
+        ports:
+        - containerPort: 9002
+        - containerPort: 9003
+        - name: metrics
+          containerPort: 9090
+        livenessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+# --- Explicit HTTP appProtocol InferencePool Definition ---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: appprotocol-http-inference-pool
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    matchLabels:
+      app: appprotocol-inference-model-server
+  targetPorts:
+    - number: 3000
+  appProtocol: http
+  endpointPickerRef:
+    name: appprotocol-http-endpoint-picker-svc
+    port:
+      number: 9002
+---
+# --- Explicit HTTP appProtocol Conformance EPP service Definition ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: appprotocol-http-endpoint-picker-svc
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    app: appprotocol-http-app-backend-epp
+  ports:
+    - protocol: TCP
+      port: 9002
+      targetPort: 9002
+      appProtocol: http2
+  type: ClusterIP
+---
+# --- Explicit HTTP appProtocol Conformance EPP Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: appprotocol-http-app-endpoint-picker
+  namespace: inference-conformance-app-backend
+  labels:
+    app: appprotocol-http-app-backend-epp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: appprotocol-http-app-backend-epp
+  template:
+    metadata:
+      labels:
+        app: appprotocol-http-app-backend-epp
+    spec:
+      # Conservatively, this timeout should mirror the longest grace period of the pods within the pool
+      terminationGracePeriodSeconds: 130
+      containers:
+      - name: epp
+        image: registry.k8s.io/gateway-api-inference-extension/lwepp:v1.6.2
+        imagePullPolicy: IfNotPresent
+        args:
+        - --pool-name
+        - "appprotocol-http-inference-pool"
+        - --pool-namespace
+        - "inference-conformance-app-backend"
+        - --zap-encoder
+        - "json"
+        - --grpc-port
+        - "9002"
+        - --grpc-health-port
+        - "9003"
+        ports:
+        - containerPort: 9002
+        - containerPort: 9003
+        - name: metrics
+          containerPort: 9090
+        livenessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+# --- H2C InferencePool Definition ---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: appprotocol-h2c-inference-pool
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    matchLabels:
+      app: appprotocol-inference-model-server
+  targetPorts:
+    - number: 3001
+  appProtocol: kubernetes.io/h2c
+  endpointPickerRef:
+    name: appprotocol-h2c-endpoint-picker-svc
+    port:
+      number: 9002
+---
+# --- H2C Conformance EPP service Definition ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: appprotocol-h2c-endpoint-picker-svc
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    app: appprotocol-h2c-app-backend-epp
+  ports:
+    - protocol: TCP
+      port: 9002
+      targetPort: 9002
+      appProtocol: http2
+  type: ClusterIP
+---
+# --- H2C Conformance EPP Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: appprotocol-h2c-app-endpoint-picker
+  namespace: inference-conformance-app-backend
+  labels:
+    app: appprotocol-h2c-app-backend-epp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: appprotocol-h2c-app-backend-epp
+  template:
+    metadata:
+      labels:
+        app: appprotocol-h2c-app-backend-epp
+    spec:
+      # Conservatively, this timeout should mirror the longest grace period of the pods within the pool
+      terminationGracePeriodSeconds: 130
+      containers:
+      - name: epp
+        image: registry.k8s.io/gateway-api-inference-extension/lwepp:v1.6.2
+        imagePullPolicy: IfNotPresent
+        args:
+        - --pool-name
+        - "appprotocol-h2c-inference-pool"
+        - --pool-namespace
+        - "inference-conformance-app-backend"
+        - --zap-encoder
+        - "json"
+        - --grpc-port
+        - "9002"
+        - --grpc-health-port
+        - "9003"
+        ports:
+        - containerPort: 9002
+        - containerPort: 9003
+        - name: metrics
+          containerPort: 9090
+        livenessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+# -- Data Parallelism (DP) backend deployment: 3 pods, each listening on three ports to simulate ranks ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dp-inference-model-server-deployment
+  namespace: inference-conformance-app-backend
+  labels:
+    app: dp-inference-model-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dp-inference-model-server
+  template:
+    metadata:
+      labels:
+        app: dp-inference-model-server
+    spec:
+      containers:
+      - name: echoserver-3000
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20251106-v1.3.0-263-g47c3435c
+        ports:
+        - containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 2
+        env:
+        - name: HTTP_PORT # Default port for HTTP echo server
+          value: "3000"
+        - name: H2C_PORT # Default port for HTC echo server
+          value: "3001"
+        - name: INCLUDE_HTTP_PORT_HEADER
+          value: "true"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+      - name: echoserver-3002
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20251106-v1.3.0-263-g47c3435c
+        ports:
+        - containerPort: 3002
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3002
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 2
+        env:
+        - name: HTTP_PORT
+          value: "3002"
+        - name: H2C_PORT
+          value: "3003"
+        - name: INCLUDE_HTTP_PORT_HEADER
+          value: "true"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+      - name: echoserver-3004
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20251106-v1.3.0-263-g47c3435c
+        ports:
+        - containerPort: 3004
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3004
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 2
+        env:
+        - name: HTTP_PORT
+          value: "3004"
+        - name: H2C_PORT
+          value: "3005"
+        - name: INCLUDE_HTTP_PORT_HEADER
+          value: "true"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+---
+# ---  Data Parallelism (DP) InferencePool Definition ---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: dp-inference-pool
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    matchLabels:
+      app: dp-inference-model-server
+  targetPorts:
+    - number: 3000
+    - number: 3002
+    - number: 3004
+  endpointPickerRef:
+    name: dp-endpoint-picker-svc
+    port:
+      number: 9002
+---
+# --- Data Parallelism (DP) Conformance EPP service Definition ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dp-endpoint-picker-svc
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    app: dp-app-backend-epp
+  ports:
+    - protocol: TCP
+      port: 9002
+      targetPort: 9002
+      appProtocol: http2
+  type: ClusterIP
+---
+# --- Data Parallelism (DP) Conformance EPP Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dp-app-endpoint-picker
+  namespace: inference-conformance-app-backend
+  labels:
+    app: dp-app-backend-epp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dp-app-backend-epp
+  template:
+    metadata:
+      labels:
+        app: dp-app-backend-epp
+    spec:
+      # Conservatively, this timeout should mirror the longest grace period of the pods within the pool
+      terminationGracePeriodSeconds: 130
+      containers:
+      - name: epp
+        image: registry.k8s.io/gateway-api-inference-extension/lwepp:v1.6.2
+        imagePullPolicy: IfNotPresent
+        args:
+        - --pool-name
+        - "dp-inference-pool"
+        - --pool-namespace
+        - "inference-conformance-app-backend"
+        - --zap-encoder
+        - "json"
+        - --grpc-port
+        - "9002"
+        - --grpc-health-port
+        - "9003"
+        ports:
+        - containerPort: 9002
+        - containerPort: 9003
+        - name: metrics
+          containerPort: 9090
+        livenessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+# --- Required Role and RoleBinding for Conformance Test for EPP ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: inference-model-reader
+  namespace: inference-conformance-app-backend
+rules:
+- apiGroups: ["inference.networking.k8s.io"]
+  resources: ["inferencepools"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: epp-to-inference-model-reader
+  namespace: inference-conformance-app-backend
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: inference-conformance-app-backend
+roleRef:
+  kind: Role
+  name: inference-model-reader
+  apiGroup: rbac.authorization.k8s.io

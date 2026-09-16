@@ -42,20 +42,21 @@ type gatewayReconciler struct {
 	scheme     *runtime.Scheme
 	translator translation.Translator
 
-	inputLoader                   *loading.TranslationInputLoader
-	gatewayStatusManager          *GatewayStatusManager
-	listenerStatusManager         *ListenerStatusManager
-	routeStatusManager            *RouteStatusManager
-	backendTLSPolicyStatusManager *BackendTLSPolicyStatusManager
-	logger                        *slog.Logger
-	controllerName                string
-	tcpUDPRouteSupport            bool
-	tcpUDPUnsupportedReason       string
-	hostNetworkEnabled            bool
-	hostNetworkLabel              metav1.LabelSelector
+	inputLoader                         *loading.TranslationInputLoader
+	gatewayStatusManager                *GatewayStatusManager
+	listenerStatusManager               *ListenerStatusManager
+	routeStatusManager                  *RouteStatusManager
+	backendTLSPolicyStatusManager       *BackendTLSPolicyStatusManager
+	logger                              *slog.Logger
+	controllerName                      string
+	tcpUDPRouteSupport                  bool
+	tcpUDPUnsupportedReason             string
+	hostNetworkEnabled                  bool
+	hostNetworkLabel                    metav1.LabelSelector
+	gatewayAPIInferenceExtensionEnabled bool
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector, gatewayAPIInferenceExtensionEnabled bool) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 	includeTCPRoutes := helpers.HasTCPRouteSupport(mgr.GetScheme())
 	includeUDPRoutes := helpers.HasUDPRouteSupport(mgr.GetScheme())
@@ -91,13 +92,14 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 			},
 		),
-		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(mgr.GetClient(), controllerName),
-		logger:                        scopedLog,
-		controllerName:                controllerName,
-		tcpUDPRouteSupport:            tcpUDPRouteSupport,
-		tcpUDPUnsupportedReason:       hostNetworkTCPUDPRouteUnsupportedReason,
-		hostNetworkEnabled:            hostNetworkEnabled,
-		hostNetworkLabel:              hostNetworkLabel,
+		backendTLSPolicyStatusManager:       NewBackendTLSPolicyStatusManager(mgr.GetClient(), controllerName),
+		logger:                              scopedLog,
+		controllerName:                      controllerName,
+		tcpUDPRouteSupport:                  tcpUDPRouteSupport,
+		tcpUDPUnsupportedReason:             hostNetworkTCPUDPRouteUnsupportedReason,
+		hostNetworkEnabled:                  hostNetworkEnabled,
+		hostNetworkLabel:                    hostNetworkLabel,
+		gatewayAPIInferenceExtensionEnabled: gatewayAPIInferenceExtensionEnabled,
 	}
 }
 
