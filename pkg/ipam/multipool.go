@@ -31,19 +31,34 @@ import (
 
 const waitForPoolInStateDBTimeout = time.Minute
 
-var MultiPoolAccessor = PoolSpecAccessors{
-	FromResource: func(cn *ciliumv2.CiliumNode) types.IPAMPoolSpec {
-		return cn.Spec.IPAM.Pools
-	},
-	ToResource: func(cn *ciliumv2.CiliumNode, spec types.IPAMPoolSpec) bool {
-		if !cn.Spec.IPAM.Pools.DeepEqual(&spec) {
-			cn.Spec.IPAM.Pools = spec
-			return true
-		}
-		return false
-	},
-}
+var (
+	MultiPoolAccessor = PoolSpecAccessors{
+		FromResource: func(cn *ciliumv2.CiliumNode) types.IPAMPoolSpec {
+			return cn.Spec.IPAM.Pools
+		},
+		ToResource: func(cn *ciliumv2.CiliumNode, spec types.IPAMPoolSpec) bool {
+			if !cn.Spec.IPAM.Pools.DeepEqual(&spec) {
+				cn.Spec.IPAM.Pools = spec
+				return true
+			}
+			return false
+		},
+	}
 
+	MultiPoolStatusAccessor = OperatorStatusAccessors{
+		FromResource: func(cn *ciliumv2.CiliumNode) string {
+			return cn.Status.IPAM.OperatorStatus.Error
+		},
+		ToResource: func(cn *ciliumv2.CiliumNode, errStr string) bool {
+			if cn.Status.IPAM.OperatorStatus.Error == errStr {
+				return false
+			}
+
+			cn.Status.IPAM.OperatorStatus.Error = errStr
+			return true
+		},
+	}
+)
 var _ Allocator = (*multiPoolAllocator)(nil)
 
 type MultiPoolAllocatorParams struct {

@@ -130,6 +130,7 @@ func TestNodeHandler(t *testing.T) {
 	nh := NewNodeHandler(
 		"test", hivetest.Logger(t), backend, nodeUpdater,
 		ipam.MultiPoolAccessor,
+		ipam.MultiPoolStatusAccessor,
 	)
 
 	// wait 1ms instead of default 1s base duration in unit tests
@@ -279,6 +280,7 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 	nh := NewNodeHandler(
 		"test", hivetest.Logger(t), backend, nodeUpdater,
 		ipam.MultiPoolAccessor,
+		ipam.MultiPoolStatusAccessor,
 	)
 
 	// wait 1ms instead of default 1s base duration in unit tests
@@ -417,6 +419,7 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 	nh := NewNodeHandler(
 		"test", hivetest.Logger(t), backend, nodeUpdater,
 		ipam.MultiPoolAccessor,
+		ipam.MultiPoolStatusAccessor,
 	)
 
 	// wait 1ms instead of default 1s base duration in unit tests
@@ -541,7 +544,9 @@ func TestNodeHandlerRetries(t *testing.T) {
 			},
 			Status: v2.NodeStatus{
 				IPAM: ipamTypes.IPAMStatus{
-					OperatorStatus: ipamTypes.OperatorStatus{Error: "stale allocation error"},
+					OperatorStatus: ipamTypes.OperatorStatus{
+						Error: "stale allocation error",
+					},
 				},
 			},
 		}
@@ -581,6 +586,7 @@ func TestNodeHandlerRetries(t *testing.T) {
 		nh := NewNodeHandler(
 			"test", hivetest.Logger(t), backend, clientset.CiliumV2().CiliumNodes(),
 			ipam.MultiPoolAccessor,
+			ipam.MultiPoolStatusAccessor,
 		)
 		t.Cleanup(nh.Stop)
 		nh.controllerErrorRetryBaseDuration = time.Millisecond
@@ -630,7 +636,9 @@ func TestNodeHandlerRetries(t *testing.T) {
 			},
 			Status: v2.NodeStatus{
 				IPAM: ipamTypes.IPAMStatus{
-					OperatorStatus: ipamTypes.OperatorStatus{Error: "stale allocation error"},
+					OperatorStatus: ipamTypes.OperatorStatus{
+						Error: "stale allocation error",
+					},
 				},
 			},
 		}
@@ -659,6 +667,7 @@ func TestNodeHandlerRetries(t *testing.T) {
 		nh := NewNodeHandler(
 			"test", hivetest.Logger(t), backend, clientset.CiliumV2().CiliumNodes(),
 			ipam.MultiPoolAccessor,
+			ipam.MultiPoolStatusAccessor,
 		)
 		t.Cleanup(nh.Stop)
 		nh.controllerErrorRetryBaseDuration = time.Millisecond

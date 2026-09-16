@@ -179,6 +179,7 @@ func StartAllocator(p multiPoolParams) {
 							"ipam-multi-pool-sync",
 							p.Logger, p.Allocator, p.Clientset.CiliumV2().CiliumNodes(),
 							ipam.MultiPoolAccessor,
+							ipam.MultiPoolStatusAccessor,
 						)
 
 						return nm, nil

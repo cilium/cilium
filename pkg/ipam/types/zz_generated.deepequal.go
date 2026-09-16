@@ -358,6 +358,9 @@ func (in *OperatorStatus) DeepEqual(other *OperatorStatus) bool {
 	if in.Error != other.Error {
 		return false
 	}
+	if in.ResourceIPAMError != other.ResourceIPAMError {
+		return false
+	}
 
 	return true
 }
