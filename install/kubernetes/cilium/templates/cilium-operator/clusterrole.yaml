@@ -500,6 +500,12 @@ rules:
 - apiGroups:
   - cilium.io
   resources:
+  - ciliumresourceippools
+  verbs:
+  - create
+- apiGroups:
+  - cilium.io
+  resources:
   - ciliumnetworkdriverclusterconfigs/status
   verbs:
   - update
