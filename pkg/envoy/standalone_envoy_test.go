@@ -664,6 +664,7 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeADS,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
@@ -1285,6 +1286,7 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
+			envoyXDSMode:      config.EnvoyXDSModeADS,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)

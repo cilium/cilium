@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	config "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -24,7 +25,7 @@ import (
 func newTestNPHDSAdapter(t *testing.T) *nphdsCacheAdapter {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	server := newADSServerWithCache(xdsnew.NewCache(logger, false), logger, nil, nil, xdsServerConfig{}, nil, nil)
+	server := newADSServerWithCache(xdsnew.NewCache(logger, false), logger, nil, nil, xdsServerConfig{envoyXDSMode: config.EnvoyXDSModeADS}, nil, nil)
 	return newNPHDSCacheAdapter(logger, server)
 }
 
@@ -226,7 +227,7 @@ func TestNPHDSAdapterPublishesFullStateResponses(t *testing.T) {
 func TestStartNPHDSIPCacheListener(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	adsCache := xdsnew.NewCache(logger, false)
-	server := newADSServerWithCache(adsCache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	server := newADSServerWithCache(adsCache, logger, nil, nil, xdsServerConfig{envoyXDSMode: config.EnvoyXDSModeADS}, nil, nil)
 
 	// nil ipCache should be a no-op
 	startNPHDSIPCacheListener(logger, nil, server)

@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -20,6 +21,7 @@ func TestADSGRPCServerStopsOnContextCancel(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		proxyGID:             os.Getgid(),
 		policyRestoreTimeout: time.Second,
+		envoyXDSMode:         config.EnvoyXDSModeADS,
 	}, nil, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
