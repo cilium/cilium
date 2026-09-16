@@ -3002,6 +3002,14 @@
           },
           "type": "object"
         },
+        "inferenceExtension": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "secretsNamespace": {
           "properties": {
             "create": {

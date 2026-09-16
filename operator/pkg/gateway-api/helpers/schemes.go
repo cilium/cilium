@@ -12,6 +12,7 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -34,6 +35,7 @@ var AllOptionalKinds = []schema.GroupVersionKind{
 	mcsapiv1beta1.SchemeGroupVersion.WithKind(ServiceImportKind),
 	GatewayV1GVK(TCPRouteKind),
 	GatewayV1GVK(UDPRouteKind),
+	GatewayIEV1GVK(InferencePoolKind),
 }
 
 // GatewayV1GVK returns the GroupVersionKind for a given Gateway API v1 kind.
@@ -56,6 +58,15 @@ func TestScheme(optionalKinds []schema.GroupVersionKind) *runtime.Scheme {
 	RegisterGatewayAPITypesToScheme(scheme, optionalKinds)
 
 	return scheme
+}
+
+// GIEV1GVK returns the GroupVersionKind for a given GIE v1 kind
+func GatewayIEV1GVK(kind string) schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   gateway_inf_ext.GroupVersion.Group,
+		Version: gateway_inf_ext.GroupVersion.Version,
+		Kind:    kind,
+	}
 }
 
 func RegisterGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []schema.GroupVersionKind) error {

@@ -2020,6 +2020,10 @@
      - Specify the labels of the nodes where the Ingress listeners should be exposed  matchLabels:   kubernetes.io/os: linux   kubernetes.io/hostname: kind-worker
      - object
      - ``{}``
+   * - :spelling:ignore:`gatewayAPI.inferenceExtension.enabled`
+     - 
+     - bool
+     - ``false``
    * - :spelling:ignore:`gatewayAPI.secretsNamespace`
      - SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
      - object

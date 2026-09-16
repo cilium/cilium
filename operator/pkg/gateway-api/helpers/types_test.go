@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
+	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
@@ -369,6 +370,15 @@ func TestGetConcreteObject(t *testing.T) {
 			},
 			want: &mcsapiv1beta1.ServiceImport{},
 		},
+		{
+			name: "InferencePool",
+			gvk: schema.GroupVersionKind{
+				Group:   gateway_inf_ext.GroupVersion.Group,
+				Version: gateway_inf_ext.GroupVersion.Version,
+				Kind:    InferencePoolKind,
+			},
+			want: &gateway_inf_ext.InferencePool{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -484,6 +494,15 @@ func TestGetConcreteListObject(t *testing.T) {
 				Kind:    ServiceImportKind,
 			},
 			want: &mcsapiv1beta1.ServiceImportList{},
+		},
+		{
+			name: "InferencePoolList",
+			gvk: schema.GroupVersionKind{
+				Group:   gateway_inf_ext.GroupVersion.Group,
+				Version: gateway_inf_ext.GroupVersion.Version,
+				Kind:    InferencePoolKind,
+			},
+			want: &gateway_inf_ext.InferencePoolList{},
 		},
 	}
 	for _, tt := range tests {

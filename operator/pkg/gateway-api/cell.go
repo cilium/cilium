@@ -60,6 +60,7 @@ var Cell = cell.Module(
 		GatewayAPIHostnetworkEnabled:           false,
 		GatewayAPIHostnetworkNodelabelselector: "",
 		GatewayAPIUseRemoteAddress:             true,
+		GatewayAPIInferenceExtensionEnabled:    false,
 	}),
 
 	// Private provider for preconditions - consumed by both initGatewayAPIController
@@ -199,6 +200,7 @@ type gatewayApiConfig struct {
 	GatewayAPIHostnetworkEnabled           bool
 	GatewayAPIHostnetworkNodelabelselector string
 	GatewayAPIUseRemoteAddress             bool
+	GatewayAPIInferenceExtensionEnabled    bool
 }
 
 func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
@@ -212,6 +214,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("gateway-api-hostnetwork-enabled", r.GatewayAPIHostnetworkEnabled, "Exposes Gateway listeners on the host network.")
 	flags.Bool("gateway-api-use-remote-address", r.GatewayAPIUseRemoteAddress, "Use the immediate client's IP address as the origin client's IP address")
 	flags.String("gateway-api-hostnetwork-nodelabelselector", r.GatewayAPIHostnetworkNodelabelselector, "Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
+	flags.Bool("gateway-api-inference-extension-enabled", r.GatewayAPIInferenceExtensionEnabled, "Enables the use Gateway API Inference Extension")
 }
 
 type gatewayAPIParams struct {
@@ -298,6 +301,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		installedOptionalKinds,
 		cfg.HostNetworkConfig.Enabled,
 		nodeLabelSelector,
+		params.GatewayApiConfig.GatewayAPIInferenceExtensionEnabled,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -453,12 +457,13 @@ func registerReconcilers(
 	installedOptionalCRDs []schema.GroupVersionKind,
 	hostNetworkEnabled bool,
 	hostNetworkLabel v1.LabelSelector,
+	inferenceExtensionEnabled bool,
 ) error {
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger, controllerName),
-		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled, hostNetworkLabel),
+		newGatewayReconciler(mgr, translator, logger, controllerName, hostNetworkEnabled, hostNetworkLabel, inferenceExtensionEnabled),
 		newGammaReconciler(mgr, translator, logger, controllerName),
 		newGatewayClassConfigReconciler(mgr, logger),
 		newEndpointSliceReconciler(mgr, logger),
@@ -492,6 +497,9 @@ func registerReconcilers(
 			// we don't need a reconciler, but we do need to tell folks that the
 			// support is working.
 			logger.Info("ServiceImport CRD is installed, ServiceImport support is enabled")
+		case helpers.InferencePoolKind:
+			// inform the user that inference pool are  being used
+			logger.Info("InferencePool CRD is installed and Gateway API Inference Extension is enabled, Inference Pool is enabled")
 		default:
 			panic(fmt.Sprintf("No reconciler available for GVK %s", gvk))
 		}
