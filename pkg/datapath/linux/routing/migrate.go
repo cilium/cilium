@@ -304,7 +304,7 @@ func (m *migrator) upgradeRule(rule netlink.Rule) ([]netlink.Route, error) {
 	ifindex := routes[0].LinkIndex
 	newTable, err := m.retrieveTableIDFromIfIndex(ifindex)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve new table ID from ifindex %q: %w",
+		return nil, fmt.Errorf("failed to retrieve new table ID from ifindex %d: %w",
 			ifindex, err)
 	}
 
@@ -378,7 +378,7 @@ func (m *migrator) downgradeRule(rule netlink.Rule) ([]netlink.Route, error) {
 
 	newTable, err := m.retrieveTableIDFromInterfaceNumber(ifaceNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve new table ID from interface-number %q: %w",
+		return nil, fmt.Errorf("failed to retrieve new table ID from interface-number %d: %w",
 			ifaceNumber, err)
 	}
 
@@ -491,7 +491,7 @@ func (m *migrator) retrieveTableIDFromInterfaceNumber(ifaceNum int) (int, error)
 	}
 
 	if !found {
-		return -1, fmt.Errorf("could not find link with MAC %q by interface-number %q", mac, ifaceNum)
+		return -1, fmt.Errorf("could not find link with MAC %q by interface-number %d", mac, ifaceNum)
 	}
 
 	return link.Attrs().Index, nil
