@@ -1,0 +1,23 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-for-failopen-pool-gw
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: conformance-secondary
+    namespace: inference-conformance-infra
+    sectionName: http
+  hostnames:
+  - "secondary.example.com"
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: secondary-inference-pool # Use secondary-inferencePool because it has failureMode set to failOpen
+    matches:
+    - path:
+        type: PathPrefix
+        value: /failopen-pool-test
