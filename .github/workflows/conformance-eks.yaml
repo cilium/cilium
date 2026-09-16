@@ -496,16 +496,20 @@ jobs:
       - name: Determine the native routing CIDR
         id: native_cidr
         run: |
-          # Retrieve the CIDR associated with the availability zone where the cluster
-          # is deployed, and configure it as native routing CIDR. Otherwise, Cilium
+          # Retrieve the CIDRs associated with the availability zone where the cluster
+          # is deployed, and configure them as native routing CIDRs. Otherwise, Cilium
           # would default to the VPC CIDR, but we want to masquerade traffic towards
           # the external destination (which is located in the same VPC, but different
           # availability zone), to reflect the most common type of real deployments.
-          NATIVE_CIDR=$(aws ec2 describe-subnets --region ${{ matrix.region }} \
+          SUBNETS=$(aws ec2 describe-subnets --region ${{ matrix.region }} \
             --filters Name=availability-zone,Values=${{ steps.vars.outputs.eks_zone_1 }} \
                 Name=tag:alpha.eksctl.io/cluster-name,Values=${{ steps.setup-cluster.outputs.cluster_name }} \
                 Name=map-public-ip-on-launch,Values=false \
-            --query 'Subnets[*].CidrBlock' --output text)
+            --query 'Subnets[*].{v4: CidrBlock, v6: Ipv6CidrBlockAssociationSet[].Ipv6CidrBlock}' \
+            --output json)
+          NATIVE_CIDR=$(echo "$SUBNETS" | jq -r '[.[].v4 // empty] | join(" ")')
+          NATIVE_CIDRV6=$(echo "$SUBNETS" | jq -r '[.[].v6[]?] | join(" ")')
+
           # A pooled cluster is tagged with its real eksctl name, not the
           # synthetic run name, so an empty result means the lookup missed and
           # Cilium would silently fall back to the whole-VPC CIDR, disabling the
@@ -516,13 +520,22 @@ jobs:
           fi
           echo "ipv4_native_cidr=$NATIVE_CIDR" >> $GITHUB_OUTPUT
           echo "Native routing CIDR: $NATIVE_CIDR"
+          if [ "${{ matrix.ip-family }}" == "IPv6" ]; then
+            if [ "$(echo "$NATIVE_CIDRV6" | wc -w)" -ne 1 ]; then
+              echo "::error::IPv6 native routing CIDR lookup returned '$NATIVE_CIDRV6' (expected exactly one CIDR); IPsec would drop all cross-node pod traffic"
+              exit 1
+            fi
+            echo "ipv6_native_cidr=$NATIVE_CIDRV6" >> $GITHUB_OUTPUT
+            echo "IPv6 native routing CIDR: $NATIVE_CIDRV6"
+          fi
 
       - name: Install Cilium
         id: install-cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
           --nodes-without-cilium \
-          --set=ipv4NativeRoutingCIDR="${{ steps.native_cidr.outputs.ipv4_native_cidr }}"
+          --set=ipv4NativeRoutingCIDR="${{ steps.native_cidr.outputs.ipv4_native_cidr }}" \
+          --set=ipv6NativeRoutingCIDR="${{ steps.native_cidr.outputs.ipv6_native_cidr }}"
 
       # Wait for Cilium to be ready after install (before creating nodegroups)
       # since the nodegroups creation depends on Cilium being ready.
