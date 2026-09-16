@@ -97,6 +97,7 @@ func TestPrivilegedFirstGlobalV4AddrDeprecated(t *testing.T) {
 		name          string
 		ips           []string
 		deprecatedIPs []string
+		preferredIP   string
 		want          string
 	}{
 		{
@@ -113,6 +114,22 @@ func TestPrivilegedFirstGlobalV4AddrDeprecated(t *testing.T) {
 			name:          "deprecated IP used when it is the only one",
 			deprecatedIPs: []string{"21.0.0.1"},
 			want:          "21.0.0.1",
+		},
+		{
+			// A restored IP does not override deprecation: an address
+			// that has deprecated since it was picked is exactly the
+			// case this is meant to move away from.
+			name:          "deprecated IP not restored when a usable one exists",
+			ips:           []string{"192.168.0.1"},
+			deprecatedIPs: []string{"21.0.0.1"},
+			preferredIP:   "21.0.0.1",
+			want:          "192.168.0.1",
+		},
+		{
+			name:          "deprecated IP restored when it is the only one",
+			deprecatedIPs: []string{"21.0.0.1", "21.0.0.2"},
+			preferredIP:   "21.0.0.2",
+			want:          "21.0.0.2",
 		},
 	}
 
@@ -141,7 +158,7 @@ func TestPrivilegedFirstGlobalV4AddrDeprecated(t *testing.T) {
 				}
 
 				var err error
-				got, err = FirstGlobalV4Addr(ifName, nil)
+				got, err = FirstGlobalV4Addr(ifName, net.ParseIP(tc.preferredIP))
 				return err
 			}))
 			require.Equal(t, tc.want, got.String())
@@ -151,45 +168,31 @@ func TestPrivilegedFirstGlobalV4AddrDeprecated(t *testing.T) {
 
 func TestAddrUsableAsNodeIP(t *testing.T) {
 	testCases := []struct {
-		name            string
-		addr            netlink.Addr
-		isPreferredIP   bool
-		ipsToExclude    []net.IP
-		linkScopeMax    int
-		ipLen           int
-		allowDeprecated bool
-		want            bool
+		name          string
+		addr          netlink.Addr
+		isPreferredIP bool
+		ipsToExclude  []net.IP
+		linkScopeMax  int
+		ipLen         int
+		want          bool
 	}{
 		{
-			name:         "deprecated IPv4 is rejected",
+			// Deprecation is handled by firstGlobalAddr, which ranks
+			// such addresses last rather than dropping them.
+			name:         "deprecated IPv4 is usable",
 			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED},
 			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
 			ipLen:        4,
-			want:         false,
+			want:         true,
 		},
 		{
-			name:         "deprecated IPv6 is rejected",
-			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::4"), Mask: net.CIDRMask(64, 128)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED},
+			// Being deprecated must not excuse an address from the
+			// other filters.
+			name:         "deprecated and tentative IPv6 is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::5"), Mask: net.CIDRMask(64, 128)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED | unix.IFA_F_TENTATIVE},
 			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
 			ipLen:        16,
 			want:         false,
-		},
-		{
-			name:            "deprecated IPv4 is accepted when deprecated addresses are allowed",
-			addr:            netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED},
-			linkScopeMax:    int(unix.RT_SCOPE_UNIVERSE),
-			ipLen:           4,
-			allowDeprecated: true,
-			want:            true,
-		},
-		{
-			// Allowing deprecated addresses must not weaken the other filters.
-			name:            "tentative IPv6 is rejected even when deprecated addresses are allowed",
-			addr:            netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::5"), Mask: net.CIDRMask(64, 128)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED | unix.IFA_F_TENTATIVE},
-			linkScopeMax:    int(unix.RT_SCOPE_UNIVERSE),
-			ipLen:           16,
-			allowDeprecated: true,
-			want:            false,
 		},
 		{
 			name:         "plain IPv4 is usable",
@@ -260,7 +263,7 @@ func TestAddrUsableAsNodeIP(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := addrUsableAsNodeIP(tc.addr, tc.isPreferredIP, tc.ipsToExclude, tc.linkScopeMax, tc.ipLen, tc.allowDeprecated)
+			got := addrUsableAsNodeIP(tc.addr, tc.isPreferredIP, tc.ipsToExclude, tc.linkScopeMax, tc.ipLen)
 			require.Equal(t, tc.want, got)
 		})
 	}
