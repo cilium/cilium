@@ -420,7 +420,7 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 			{cidr: netip.MustParsePrefix("fb00:200::/80")},
 		}, 97,
 	)
-	assert.ErrorContains(t, err, `cannot change IPv4 mask size in existing pool "mars"`)
+	assert.ErrorContains(t, err, `"mars": cannot change IPv4 mask size`)
 	mars, exists = p.pools["mars"]
 	assert.True(t, exists)
 	assert.Equal(t, 24, mars.v4MaskSize)
@@ -441,7 +441,7 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 			{cidr: netip.MustParsePrefix("fb00:200::/80")},
 		}, 97,
 	)
-	assert.ErrorContains(t, err, `cannot change IPv6 mask size in existing pool "mars"`)
+	assert.ErrorContains(t, err, `"mars": cannot change IPv6 mask size`)
 	mars, exists = p.pools["mars"]
 	assert.True(t, exists)
 	assert.Equal(t, 24, mars.v4MaskSize)
@@ -463,7 +463,7 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 		}, 96,
 		WithAllowFirstIP(),
 	)
-	assert.ErrorContains(t, err, `cannot change allowFirstIP in existing pool "mars"`)
+	assert.ErrorContains(t, err, `"mars": cannot change allowFirstIP`)
 	mars, exists = p.pools["mars"]
 	assert.True(t, exists)
 	assert.False(t, mars.allowFirstIP)
@@ -481,7 +481,7 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 		}, 96,
 		WithAllowLastIP(),
 	)
-	assert.ErrorContains(t, err, `cannot change allowLastIP in existing pool "mars"`)
+	assert.ErrorContains(t, err, `"mars": cannot change allowLastIP`)
 	mars, exists = p.pools["mars"]
 	assert.True(t, exists)
 	assert.False(t, mars.allowFirstIP)

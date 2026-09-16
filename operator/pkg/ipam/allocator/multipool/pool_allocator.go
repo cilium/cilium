@@ -313,6 +313,22 @@ func setReservedRanges(allocators []cidralloc.CIDRAllocator, cidrs []poolCIDRCon
 	return nil
 }
 
+func validateExistingPool(pool cidrPool, ipv4MaskSize, ipv6MaskSize int, options poolOptions) error {
+	if pool.v4MaskSize != ipv4MaskSize {
+		return fmt.Errorf("cannot change IPv4 mask size")
+	}
+	if pool.v6MaskSize != ipv6MaskSize {
+		return fmt.Errorf("cannot change IPv6 mask size")
+	}
+	if pool.allowFirstIP != options.allowFirstIP {
+		return fmt.Errorf("cannot change allowFirstIP")
+	}
+	if pool.allowLastIP != options.allowLastIP {
+		return fmt.Errorf("cannot change allowLastIP")
+	}
+	return nil
+}
+
 func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, ipv4MaskSize int, ipv6CIDRs []poolCIDRConfig, ipv6MaskSize int, opts ...PoolOption) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -323,17 +339,10 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, 
 	}
 
 	pool, exists := p.pools[poolName]
-	if exists && ipv4MaskSize != pool.v4MaskSize {
-		return fmt.Errorf("cannot change IPv4 mask size in existing pool %q", poolName)
-	}
-	if exists && ipv6MaskSize != pool.v6MaskSize {
-		return fmt.Errorf("cannot change IPv6 mask size in existing pool %q", poolName)
-	}
-	if exists && options.allowFirstIP != pool.allowFirstIP {
-		return fmt.Errorf("cannot change allowFirstIP in existing pool %q", poolName)
-	}
-	if exists && options.allowLastIP != pool.allowLastIP {
-		return fmt.Errorf("cannot change allowLastIP in existing pool %q", poolName)
+	if exists {
+		if err := validateExistingPool(pool, ipv4MaskSize, ipv6MaskSize, options); err != nil {
+			return fmt.Errorf("validation failed for existing pool %q: %w", poolName, err)
+		}
 	}
 
 	ipv4Prefixes := cidrPrefixes(ipv4CIDRs)
