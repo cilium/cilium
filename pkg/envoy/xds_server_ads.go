@@ -23,6 +23,7 @@ import (
 	envoy_extensions_listener_tls_inspector_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -316,14 +317,18 @@ func (s *adsServer) addListener(ctx context.Context, name string, listenerConf f
 	} else {
 		resources = resources.DeepCopy()
 	}
-	oldListener, existed := resources.Listeners[name]
+	oldListener := resources.Listeners[name]
 	resources.Listeners[name] = listenerConfig
 	var callbackTypeURLs map[string]func(error)
 	if wg != nil {
 		callbackTypeURLs = map[string]func(error){ListenerTypeURL: cb}
 	}
 	if err := s.updateSnapshot(ctx, resources, localNodeID, wg, callbackTypeURLs,
-		&resourceChanges{listeners: []savedEntry[*envoy_config_listener.Listener]{{key: name, value: oldListener, existed: existed}}}); err != nil {
+		&resourceChanges{listeners: []savedEntry[envoy_config_listener.Listener]{{
+			key: name,
+			old: oldListener,
+			new: listenerConfig,
+		}}}); err != nil {
 		return err
 	}
 	if wg == nil && cb != nil {
@@ -517,7 +522,7 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 	var changes *resourceChanges
 	var callbackTypeURLs map[string]func(error)
 	if wg != nil {
-		changes = &resourceChanges{listeners: []savedEntry[*envoy_config_listener.Listener]{{key: name, value: oldListener, existed: existed}}}
+		changes = &resourceChanges{listeners: []savedEntry[envoy_config_listener.Listener]{{key: name, old: oldListener}}}
 		callbackTypeURLs = map[string]func(error){ListenerTypeURL: nil}
 	}
 	s.updateSnapshot(ctx, resources, localNodeID, wg, callbackTypeURLs, changes)
@@ -633,14 +638,18 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		resources = &xds.Resources{}
 	}
 	resources = resources.DeepCopy()
-	oldPolicy, existed := resources.NetworkPolicies[resourceName]
+	oldPolicy := resources.NetworkPolicies[resourceName]
 	resources.NetworkPolicies[resourceName] = networkPolicy
 	var callbackTypeURLs map[string]func(error)
 	if waitForACK {
 		callbackTypeURLs = map[string]func(error){NetworkPolicyTypeURL: callback}
 	}
 	if err := s.updateSnapshot(ctx, resources, localNodeID, wg, callbackTypeURLs,
-		&resourceChanges{networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{key: resourceName, value: oldPolicy, existed: existed}}}); err != nil {
+		&resourceChanges{networkPolicies: []savedEntry[cilium.NetworkPolicy]{{
+			key: resourceName,
+			old: oldPolicy,
+			new: networkPolicy,
+		}}}); err != nil {
 		return err, nil
 	}
 
@@ -667,13 +676,12 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		resources := s.cache.GetAllResources(localNodeID)
 		if resources != nil {
 			resources = resources.DeepCopy()
-			oldPolicy, existed := resources.NetworkPolicies[resourceName]
+			oldPolicy := resources.NetworkPolicies[resourceName]
 			delete(resources.NetworkPolicies, resourceName)
 			changes := &resourceChanges{
-				networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{
-					key:     resourceName,
-					value:   oldPolicy,
-					existed: existed,
+				networkPolicies: []savedEntry[cilium.NetworkPolicy]{{
+					key: resourceName,
+					old: oldPolicy,
 				}},
 			}
 			if err := s.updateSnapshot(ctx, resources, localNodeID, nil, nil, changes); err != nil {
@@ -720,10 +728,9 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	var changes *resourceChanges
 	if existed {
 		changes = &resourceChanges{
-			networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{
-				key:     resourceName,
-				value:   oldPolicy,
-				existed: true,
+			networkPolicies: []savedEntry[cilium.NetworkPolicy]{{
+				key: resourceName,
+				old: oldPolicy,
 			}},
 		}
 	}
@@ -801,13 +808,13 @@ func (s *adsServer) portAllocationCallback(ctx context.Context, callbacks map[st
 // Each slice records the old value for keys being modified. Used by buildRevert to
 // restore only the changed resources on NACK, instead of reverting the entire snapshot.
 type resourceChanges struct {
-	listeners          []savedEntry[*envoy_config_listener.Listener]
-	routes             []savedEntry[*envoy_config_route.RouteConfiguration]
-	clusters           []savedEntry[*envoy_config_cluster.Cluster]
-	endpoints          []savedEntry[*envoy_config_endpoint.ClusterLoadAssignment]
-	secrets            []savedEntry[*envoy_config_tls.Secret]
-	networkPolicies    []savedEntry[*cilium.NetworkPolicy]
-	networkPolicyHosts []savedEntry[*cilium.NetworkPolicyHosts]
+	listeners          []savedEntry[envoy_config_listener.Listener]
+	routes             []savedEntry[envoy_config_route.RouteConfiguration]
+	clusters           []savedEntry[envoy_config_cluster.Cluster]
+	endpoints          []savedEntry[envoy_config_endpoint.ClusterLoadAssignment]
+	secrets            []savedEntry[envoy_config_tls.Secret]
+	networkPolicies    []savedEntry[cilium.NetworkPolicy]
+	networkPolicyHosts []savedEntry[cilium.NetworkPolicyHosts]
 }
 
 // computeChanges builds a resourceChanges by diffing current and new resources.
@@ -909,45 +916,99 @@ func pruneUnreferencedRoutes(resources *xds.Resources) {
 	}
 }
 
-// buildRevert captures the given resource changes and returns a closure that
-// restores them. The revert is skipped if another update has been applied since
-// (detected via snapshot version mismatch).
-// Caller must hold s.mutex.
-func (s *adsServer) buildRevert(ctx context.Context, nodeID string, newResources *xds.Resources, changes *resourceChanges) func() {
-	// Compute the version of the snapshot we are about to push so we can
-	// detect whether a subsequent update has superseded ours.
-	pushedVersion := s.cache.GetVersion(newResources)
+// strictADSConsistencyCompanion returns the additional resource type that must
+// be rolled back with typeURL to preserve go-control-plane snapshot consistency.
+// An EDS rollback does not require a CDS rollback: snapshot normalization adds
+// an empty ClusterLoadAssignment for an EDS cluster without one.
+func strictADSConsistencyCompanion(typeURL string) string {
+	switch typeURL {
+	case ListenerTypeURL:
+		return RouteTypeURL
+	case RouteTypeURL:
+		return ListenerTypeURL
+	case ClusterTypeURL:
+		return EndpointTypeURL
+	default:
+		return ""
+	}
+}
+
+func changesForTypeURL(changes *resourceChanges, typeURL string) *resourceChanges {
+	selected := &resourceChanges{}
 	if changes == nil {
-		changes = &resourceChanges{}
+		return selected
+	}
+
+	switch typeURL {
+	case ListenerTypeURL:
+		selected.listeners = changes.listeners
+	case RouteTypeURL:
+		selected.routes = changes.routes
+	case ClusterTypeURL:
+		selected.clusters = changes.clusters
+	case EndpointTypeURL:
+		selected.endpoints = changes.endpoints
+	case SecretTypeURL:
+		selected.secrets = changes.secrets
+	case NetworkPolicyTypeURL:
+		selected.networkPolicies = changes.networkPolicies
+	case NetworkPolicyHostsTypeURL:
+		selected.networkPolicyHosts = changes.networkPolicyHosts
+	}
+	return selected
+}
+
+func applyResourceChangesIfUnchanged(resources *xds.Resources, changes *resourceChanges) bool {
+	changed := applyDiffIfUnchanged(resources.Listeners, changes.listeners)
+	changed = applyDiffIfUnchanged(resources.Routes, changes.routes) || changed
+	changed = applyDiffIfUnchanged(resources.Clusters, changes.clusters) || changed
+	changed = applyDiffIfUnchanged(resources.Endpoints, changes.endpoints) || changed
+	changed = applyDiffIfUnchanged(resources.Secrets, changes.secrets) || changed
+	changed = applyDiffIfUnchanged(resources.NetworkPolicies, changes.networkPolicies) || changed
+	return applyDiffIfUnchanged(resources.NetworkPolicyHosts, changes.networkPolicyHosts) || changed
+}
+
+// buildRevert captures the changes for one response type and returns a closure
+// that restores them. In strict ADS mode, CDS/EDS and LDS/RDS are captured as
+// consistency groups because rolling back only one side can produce an invalid
+// snapshot. Each resource is restored only if it still has the value sent in
+// the rejected snapshot, so unrelated later changes do not suppress its revert.
+// Caller must hold s.mutex.
+func (s *adsServer) buildRevert(ctx context.Context, nodeID, typeURL string, changes *resourceChanges) func() {
+	companionTypeURL := ""
+	if s.config.envoyXDSMode.IsStrictADS() {
+		companionTypeURL = strictADSConsistencyCompanion(typeURL)
+	}
+
+	typeChanges := changesForTypeURL(changes, typeURL)
+	var companionChanges *resourceChanges
+	if companionTypeURL != "" {
+		companionChanges = changesForTypeURL(changes, companionTypeURL)
 	}
 
 	return func() {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 
-		// Check whether the snapshot is still the one we pushed.
 		currentResources := s.cache.GetAllResources(nodeID)
-		currentVersion := s.cache.GetVersion(currentResources)
-		if currentVersion != pushedVersion {
+		// Work on a copy so we don't mutate cached state.
+		reverted := currentResources.DeepCopy()
+		revertedAny := applyResourceChangesIfUnchanged(reverted, typeChanges)
+		if companionTypeURL != "" {
+			revertedAny = applyResourceChangesIfUnchanged(reverted, companionChanges) || revertedAny
+		}
+		if !revertedAny {
 			s.logger.Info(
-				"Skipping revert, snapshot has been superseded",
+				"Skipping revert, changed resources have been superseded",
 				logfields.NodeID, nodeID,
-				logfields.XDSPushedVersion, pushedVersion,
-				logfields.XDSCurrentVersion, currentVersion,
+				logfields.XDSTypeURL, typeURL,
 			)
 			return
 		}
 
-		s.logger.Info("Reverting snapshot for node", logfields.NodeID, nodeID)
-		// Work on a copy so we don't mutate cached state.
-		reverted := currentResources.DeepCopy()
-		applyDiff(reverted.Listeners, changes.listeners)
-		applyDiff(reverted.Routes, changes.routes)
-		applyDiff(reverted.Clusters, changes.clusters)
-		applyDiff(reverted.Endpoints, changes.endpoints)
-		applyDiff(reverted.Secrets, changes.secrets)
-		applyDiff(reverted.NetworkPolicies, changes.networkPolicies)
-		applyDiff(reverted.NetworkPolicyHosts, changes.networkPolicyHosts)
+		s.logger.Info("Reverting resources for node",
+			logfields.NodeID, nodeID,
+			logfields.XDSTypeURL, typeURL)
 
 		revertChanges := computeChanges(currentResources, reverted)
 		if err := s.updateSnapshot(ctx, reverted, nodeID, nil, nil, revertChanges); err != nil {
@@ -958,44 +1019,63 @@ func (s *adsServer) buildRevert(ctx context.Context, nodeID string, newResources
 	}
 }
 
-// savedEntry records the previous value of a single resource key.
-// If existed is false, the key was not present before the update and should be deleted on revert.
+// savedEntry records the old and new values of a single resource key. A zero
+// old value means the resource was added, and a zero new value means it was
+// deleted.
 type savedEntry[V any] struct {
-	key     string
-	value   V
-	existed bool
+	key string
+	old *V
+	new *V
+}
+
+type protoMessagePointer[V any] interface {
+	*V
+	proto.Message
 }
 
 // diffMap returns entries for every key whose value differs between old and new,
 // plus keys present in old but absent in new (deletions). Keys that are identical
 // in both maps are not saved.
-func diffMap[V comparable](old, new map[string]V) []savedEntry[V] {
+func diffMap[V any, P protoMessagePointer[V]](old, new map[string]P) []savedEntry[V] {
 	var saved []savedEntry[V]
 	// Keys that are new or changed.
 	for k := range new {
-		oldVal, existed := old[k]
-		if !existed || any(oldVal) != any(new[k]) {
-			saved = append(saved, savedEntry[V]{key: k, value: oldVal, existed: existed})
+		oldValue, existed := old[k]
+		if !existed || any(oldValue) != any(new[k]) {
+			saved = append(saved, savedEntry[V]{key: k, old: (*V)(oldValue), new: (*V)(new[k])})
 		}
 	}
 	// Keys deleted from old.
 	for k, v := range old {
 		if _, inNew := new[k]; !inNew {
-			saved = append(saved, savedEntry[V]{key: k, value: v, existed: true})
+			saved = append(saved, savedEntry[V]{key: k, old: (*V)(v)})
 		}
 	}
 	return saved
 }
 
-// applyDiff restores saved entries into dst.
-func applyDiff[V any](dst map[string]V, entries []savedEntry[V]) {
+// applyDiffIfUnchanged restores entries that still contain the value published
+// by the rejected update. Resource maps use copy-on-write and published values
+// are immutable, so pointer identity is the fast path. Fall back to semantic
+// equality in case an equivalent protobuf was rebuilt with a different pointer.
+func applyDiffIfUnchanged[V any, P protoMessagePointer[V]](dst map[string]P, entries []savedEntry[V]) bool {
+	changed := false
 	for _, e := range entries {
-		if e.existed {
-			dst[e.key] = e.value
+		currentValue, currentExists := dst[e.key]
+		newExists := e.new != nil
+		newValue := P(e.new)
+		if currentExists != newExists ||
+			(currentExists && currentValue != newValue && !proto.Equal(currentValue, newValue)) {
+			continue
+		}
+		if e.old != nil {
+			dst[e.key] = P(e.old)
 		} else {
 			delete(dst, e.key)
 		}
+		changed = true
 	}
+	return changed
 }
 
 // Caller must hold s.mutex.
@@ -1083,14 +1163,19 @@ func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds
 	}
 
 	if oldSnapshot == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.AreDifferentSnapshots(oldSnapshot, newSnapshot) {
-		var revertFunc func()
+		var revertFuncs map[string]func()
 		// Untracked snapshots can coalesce older tracked updates in ADS. Preserve
 		// their rollback as well so a NACK of the resulting response restores all
 		// updates represented by it, newest first.
 		if revertOnNACK && (wg != nil || changes != nil) {
-			revertFunc = s.buildRevert(ctx, nodeId, resources, changes)
+			for typeURL := range getUpdatedTypeURLs(changes) {
+				if revertFuncs == nil {
+					revertFuncs = make(map[string]func())
+				}
+				revertFuncs[typeURL] = s.buildRevert(ctx, nodeId, typeURL, changes)
+			}
 		}
-		err = s.cache.UpdateSnapshot(ctx, nodeId, newSnapshot, wg, completionTypeURLs, revertFunc)
+		err = s.cache.UpdateSnapshot(ctx, nodeId, newSnapshot, wg, completionTypeURLs, revertFuncs)
 		if err != nil {
 			s.logger.Error("Error setting snapshot for node %s: %q",
 				logfields.NodeID, nodeId,
