@@ -69,7 +69,6 @@ var (
 	}
 
 	specSourceIPVerification = Option{
-		Define:      "ENABLE_SIP_VERIFICATION",
 		Description: "Enable the check of the source IP on pod egress",
 	}
 )
