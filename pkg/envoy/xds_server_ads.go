@@ -917,36 +917,87 @@ func pruneUnreferencedRoutes(resources *xds.Resources) {
 	}
 }
 
-// buildRevert captures the given resource changes and returns a closure that
-// restores them. The revert is skipped if another update has been applied since
-// (detected via snapshot version mismatch).
-// Caller must hold s.mutex.
-func (s *adsServer) buildRevert(ctx context.Context, nodeID string, newResources *xds.Resources, changes *resourceChanges) func() {
-	// Compute the version of the snapshot we are about to push so we can
-	// detect whether a subsequent update has superseded ours.
-	pushedVersion := s.cache.GetVersion(newResources)
-	if changes == nil {
-		changes = &resourceChanges{}
+func resourcesForTypeURL(resources *xds.Resources, typeURL string) *xds.Resources {
+	selected := &xds.Resources{}
+	if resources == nil {
+		return selected
 	}
+
+	switch typeURL {
+	case ListenerTypeURL:
+		selected.Listeners = resources.Listeners
+	case RouteTypeURL:
+		selected.Routes = resources.Routes
+	case ClusterTypeURL:
+		selected.Clusters = resources.Clusters
+	case EndpointTypeURL:
+		selected.Endpoints = resources.Endpoints
+	case SecretTypeURL:
+		selected.Secrets = resources.Secrets
+	case NetworkPolicyTypeURL:
+		selected.NetworkPolicies = resources.NetworkPolicies
+	case NetworkPolicyHostsTypeURL:
+		selected.NetworkPolicyHosts = resources.NetworkPolicyHosts
+	}
+	return selected
+}
+
+func changesForTypeURL(changes *resourceChanges, typeURL string) *resourceChanges {
+	selected := &resourceChanges{}
+	if changes == nil {
+		return selected
+	}
+
+	switch typeURL {
+	case ListenerTypeURL:
+		selected.listeners = changes.listeners
+	case RouteTypeURL:
+		selected.routes = changes.routes
+	case ClusterTypeURL:
+		selected.clusters = changes.clusters
+	case EndpointTypeURL:
+		selected.endpoints = changes.endpoints
+	case SecretTypeURL:
+		selected.secrets = changes.secrets
+	case NetworkPolicyTypeURL:
+		selected.networkPolicies = changes.networkPolicies
+	case NetworkPolicyHostsTypeURL:
+		selected.networkPolicyHosts = changes.networkPolicyHosts
+	}
+	return selected
+}
+
+// buildRevert captures the changes for one resource type and returns a closure
+// that restores them. The revert is skipped if that resource type has changed
+// since (detected via resource version mismatch).
+// Caller must hold s.mutex.
+func (s *adsServer) buildRevert(ctx context.Context, nodeID, typeURL string, newResources *xds.Resources, changes *resourceChanges) func() {
+	// Compute the version of the resource type we are about to push so changes
+	// to other types do not suppress its rollback.
+	pushedVersion := s.cache.GetVersion(resourcesForTypeURL(newResources, typeURL))
+	changes = changesForTypeURL(changes, typeURL)
 
 	return func() {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 
-		// Check whether the snapshot is still the one we pushed.
+		// Check whether this resource type is still the one we pushed.
 		currentResources := s.cache.GetAllResources(nodeID)
-		currentVersion := s.cache.GetVersion(currentResources)
+		currentVersion := s.cache.GetVersion(resourcesForTypeURL(currentResources, typeURL))
 		if currentVersion != pushedVersion {
 			s.logger.Info(
-				"Skipping revert, snapshot has been superseded",
+				"Skipping revert, resources have been superseded",
 				logfields.NodeID, nodeID,
+				logfields.XDSTypeURL, typeURL,
 				logfields.XDSPushedVersion, pushedVersion,
 				logfields.XDSCurrentVersion, currentVersion,
 			)
 			return
 		}
 
-		s.logger.Info("Reverting snapshot for node", logfields.NodeID, nodeID)
+		s.logger.Info("Reverting resources for node",
+			logfields.NodeID, nodeID,
+			logfields.XDSTypeURL, typeURL)
 		// Work on a copy so we don't mutate cached state.
 		reverted := currentResources.DeepCopy()
 		applyDiff(reverted.Listeners, changes.listeners)
@@ -1100,14 +1151,19 @@ func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds
 	}
 
 	if oldSnapshot == nil || len(updatedTypeURLsInSnapshot) > 0 || s.cache.AreDifferentSnapshots(oldSnapshot, newSnapshot) {
-		var revertFunc func()
+		var revertFuncs map[string]func()
 		// Untracked snapshots can coalesce older tracked updates in ADS. Preserve
 		// their rollback as well so a NACK of the resulting response restores all
 		// updates represented by it, newest first.
 		if revertOnNACK && (wg != nil || changes != nil) {
-			revertFunc = s.buildRevert(ctx, nodeId, resources, changes)
+			for typeURL := range getUpdatedTypeURLs(changes) {
+				if revertFuncs == nil {
+					revertFuncs = make(map[string]func())
+				}
+				revertFuncs[typeURL] = s.buildRevert(ctx, nodeId, typeURL, resources, changes)
+			}
 		}
-		err = s.cache.UpdateSnapshot(ctx, nodeId, newSnapshot, wg, completionTypeURLs, revertFunc)
+		err = s.cache.UpdateSnapshot(ctx, nodeId, newSnapshot, wg, completionTypeURLs, revertFuncs)
 		if err != nil {
 			s.logger.Error("Error setting snapshot for node %s: %q",
 				logfields.NodeID, nodeId,

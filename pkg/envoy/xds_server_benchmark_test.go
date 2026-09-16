@@ -164,9 +164,9 @@ func (c *benchmarkSnapshotCache) GenerateSnapshot(resources *xds.Resources, logg
 	return c.Cache.GenerateSnapshot(resources, logger)
 }
 
-func (c *benchmarkSnapshotCache) UpdateSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLs map[string]func(error), revert func()) error {
+func (c *benchmarkSnapshotCache) UpdateSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLs map[string]func(error), reverts map[string]func()) error {
 	c.published.Add(1)
-	return c.Cache.UpdateSnapshot(ctx, nodeID, snapshot, wg, updatedTypeURLs, revert)
+	return c.Cache.UpdateSnapshot(ctx, nodeID, snapshot, wg, updatedTypeURLs, reverts)
 }
 
 func (c *benchmarkSnapshotCache) GetVersion(resources *xds.Resources) string {

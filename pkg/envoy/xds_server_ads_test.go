@@ -331,6 +331,55 @@ func TestAddListenerDuringRestoreDoesNotWaitForACK(t *testing.T) {
 	require.Zero(t, cache.GetCompletionCallbacks().PendingCompletionCount())
 }
 
+func TestADSNACKRevertsOnlyRejectedResourceType(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := xdsnew.NewCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	ctx := t.Context()
+
+	tracked := xds.NewResources()
+	tracked.Listeners["listener-1"] = &envoy_config_listener.Listener{Name: "listener-1"}
+	wg := completion.NewWaitGroup(ctx)
+	t.Cleanup(wg.Cancel)
+	require.NoError(t, server.UpsertEnvoyResources(ctx, tracked, wg))
+
+	// Publish a newer untracked snapshot before the tracked Listener update is
+	// sent. go-control-plane may coalesce both Listener versions into one
+	// response, but the NetworkPolicy still belongs to an independent response.
+	untracked := xds.NewResources()
+	untracked.Listeners["listener-2"] = &envoy_config_listener.Listener{Name: "listener-2"}
+	untracked.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 1}
+	require.NoError(t, server.UpsertEnvoyResources(ctx, untracked, nil))
+
+	snapshot, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	version := snapshot.GetVersion(ListenerTypeURL)
+	require.NotEmpty(t, version)
+
+	const nonce = "rejected-listener"
+	request := &envoy_service_discovery.DiscoveryRequest{
+		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl: ListenerTypeURL,
+	}
+	cache.GetCompletionCallbacks().OnStreamResponse(ctx, 1, request, &envoy_service_discovery.DiscoveryResponse{
+		VersionInfo: version,
+		TypeUrl:     ListenerTypeURL,
+		Nonce:       nonce,
+	})
+	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+		Node:          &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl:       ListenerTypeURL,
+		ResponseNonce: nonce,
+		ErrorDetail:   &status.Status{Message: "rejected listener"},
+	}))
+	require.Error(t, wg.Wait())
+
+	current := cache.GetAllResources(localNodeID)
+	require.Empty(t, current.Listeners)
+	require.Contains(t, current.NetworkPolicies, "policy",
+		"a Listener NACK must not revert NetworkPolicy from the coalesced untracked update")
+}
+
 func TestAddListenerWithoutWaitGroupCallsCallback(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	config := xdsServerConfig{
