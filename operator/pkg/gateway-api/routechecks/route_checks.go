@@ -50,7 +50,7 @@ func CheckBackend(input Input, parentRef gatewayv1.ParentReference) (bool, error
 
 	for _, rule := range input.GetRules() {
 		for _, be := range rule.GetBackendRefs() {
-			if !helpers.IsService(be.BackendObjectReference) && !helpers.IsServiceImport(be.BackendObjectReference) {
+			if !helpers.IsService(be.BackendObjectReference) && !helpers.IsServiceImport(be.BackendObjectReference) && !helpers.IsInferencePool(be.BackendObjectReference) {
 				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
@@ -61,7 +61,7 @@ func CheckBackend(input Input, parentRef gatewayv1.ParentReference) (bool, error
 				continueChecks = false
 				continue
 			}
-			if be.BackendObjectReference.Port == nil {
+			if be.BackendObjectReference.Port == nil && !helpers.IsInferencePool(be.BackendObjectReference){
 				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1alpha2.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
