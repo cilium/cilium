@@ -43,18 +43,34 @@ type allocatorParams struct {
 	Config                Config
 }
 
-var resourceMultiPoolAccessor = ipam.PoolSpecAccessors{
-	FromResource: func(node *ciliumv2.CiliumNode) ipamTypes.IPAMPoolSpec {
-		return node.Spec.IPAM.ResourcePools
-	},
-	ToResource: func(node *ciliumv2.CiliumNode, spec ipamTypes.IPAMPoolSpec) bool {
-		if node.Spec.IPAM.ResourcePools.DeepEqual(&spec) {
-			return false
-		}
-		node.Spec.IPAM.ResourcePools = spec
-		return true
-	},
-}
+var (
+	resourceMultiPoolAccessor = ipam.PoolSpecAccessors{
+		FromResource: func(node *ciliumv2.CiliumNode) ipamTypes.IPAMPoolSpec {
+			return node.Spec.IPAM.ResourcePools
+		},
+		ToResource: func(node *ciliumv2.CiliumNode, spec ipamTypes.IPAMPoolSpec) bool {
+			if node.Spec.IPAM.ResourcePools.DeepEqual(&spec) {
+				return false
+			}
+			node.Spec.IPAM.ResourcePools = spec
+			return true
+		},
+	}
+
+	resourceMultiPoolStatusAccessor = ipam.OperatorStatusAccessors{
+		FromResource: func(node *ciliumv2.CiliumNode) string {
+			return node.Status.IPAM.OperatorStatus.ResourceIPAMError
+		},
+		ToResource: func(node *ciliumv2.CiliumNode, errStr string) bool {
+			if node.Status.IPAM.OperatorStatus.ResourceIPAMError == errStr {
+				return false
+			}
+
+			node.Status.IPAM.OperatorStatus.ResourceIPAMError = errStr
+			return true
+		},
+	}
+)
 
 func registerAllocator(p allocatorParams) {
 	if !p.Clientset.IsEnabled() || !p.NetworkDriverConfig.Enabled {
@@ -68,6 +84,7 @@ func registerAllocator(p allocatorParams) {
 		allocator,
 		p.Clientset.CiliumV2().CiliumNodes(),
 		resourceMultiPoolAccessor,
+		resourceMultiPoolStatusAccessor,
 	)
 
 	p.Lifecycle.Append(cell.Hook{
