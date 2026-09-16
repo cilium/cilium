@@ -300,22 +300,27 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 		}
 		ops.serviceIDAlloc.nextID = max(ops.serviceIDAlloc.nextID, id+1)
 
-		if master.GetQCount() > 0 && len(slots) == 1+master.GetCount()+master.GetQCount() {
-			if ops.restoredQuarantinedBackends == nil {
-				ops.restoredQuarantinedBackends = make(map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr])
+		// qcount describes the inactive tail of the service slots. It also
+		// includes terminating backends, so restore health quarantine only
+		// from explicitly flagged slots in that tail. Bound the scan by the
+		// master counts to ignore stale slots left in the map.
+		firstInactiveSlot := 1 + master.GetCount()
+		lastInactiveSlot := min(len(slots), firstInactiveSlot+master.GetQCount())
+		for slotID := firstInactiveSlot; slotID < lastInactiveSlot; slotID++ {
+			slot := slots[slotID]
+			if slot == nil || !loadbalancer.ServiceFlags(slot.GetFlags()).SVCSlotQuarantined() {
+				continue
 			}
-			backends := ops.restoredQuarantinedBackends[addr]
-			if backends == nil {
-				backends = sets.New[loadbalancer.L3n4Addr]()
-				ops.restoredQuarantinedBackends[addr] = backends
-			}
-			for _, slot := range slots[1+master.GetCount():] {
-				if slot == nil {
-					continue
+			if beAddr, found := backendIDToAddress[slot.GetBackendID()]; found {
+				if ops.restoredQuarantinedBackends == nil {
+					ops.restoredQuarantinedBackends = make(map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr])
 				}
-				if addr, found := backendIDToAddress[slot.GetBackendID()]; found {
-					backends.Insert(addr)
+				backends := ops.restoredQuarantinedBackends[addr]
+				if backends == nil {
+					backends = sets.New[loadbalancer.L3n4Addr]()
+					ops.restoredQuarantinedBackends[addr] = backends
 				}
+				backends.Insert(beAddr)
 			}
 		}
 	}
@@ -855,7 +860,8 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	slotFlagParams.CheckSourceRange = false
 	slotFlagParams.SourceRangeDeny = false
 	healthySlotFlags := loadbalancer.NewSvcFlag(&slotFlagParams)
-	slotVal.SetFlags(healthySlotFlags.UInt16())
+	slotFlagParams.Quarantined = true
+	quarantinedSlotFlags := loadbalancer.NewSvcFlag(&slotFlagParams)
 
 	// Gather backends for the service
 	orderedBackends := ops.sortedBackends(fe)
@@ -920,6 +926,20 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 			continue
 		}
 
+		state := be.State
+		if be.Unhealthy {
+			// We only care about [be.Unhealthy] for the Count/QCount and not for
+			// the state in the backend maps as the backend might be healthy for some
+			// service and unhealthy for another.
+			state = loadbalancer.BackendStateQuarantined
+		}
+
+		if state == loadbalancer.BackendStateQuarantined {
+			slotVal.SetFlags(quarantinedSlotFlags.UInt16())
+		} else {
+			slotVal.SetFlags(healthySlotFlags.UInt16())
+		}
+
 		// Update the service slot for the backend. We do this regardless
 		// if the backend entry is up-to-date since the backend slot order might've
 		// changed.
@@ -959,14 +979,6 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 		if !be.UnhealthyUpdatedAt.IsZero() {
 			ops.deleteRestoredQuarantinedBackends(fe.Address, be.Address)
-		}
-
-		state := be.State
-		if be.Unhealthy {
-			// We only care about [be.Unhealthy] for the Count/QCount and not for
-			// the state in the backend maps as the backend might be healthy for some
-			// service and unhealthy for another.
-			state = loadbalancer.BackendStateQuarantined
 		}
 
 		switch state {
