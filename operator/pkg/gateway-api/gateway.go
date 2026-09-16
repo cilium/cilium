@@ -48,6 +48,7 @@ type gatewayReconciler struct {
 	listenerStatusManager               *ListenerStatusManager
 	routeStatusManager                  *RouteStatusManager
 	backendTLSPolicyStatusManager       *BackendTLSPolicyStatusManager
+	inferencePoolStatusManager          *InferencePoolStatusManager
 	logger                              *slog.Logger
 	controllerName                      string
 	tcpUDPRouteSupport                  bool
@@ -95,6 +96,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 			},
 		),
 		backendTLSPolicyStatusManager:       NewBackendTLSPolicyStatusManager(mgr.GetClient(), controllerName),
+		inferencePoolStatusManager:          NewInferencePoolStatusManager(mgr.GetClient(), controllerName),
 		logger:                              scopedLog,
 		controllerName:                      controllerName,
 		tcpUDPRouteSupport:                  tcpUDPRouteSupport,
