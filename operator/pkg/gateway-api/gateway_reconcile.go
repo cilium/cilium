@@ -135,6 +135,13 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Fail(fmt.Errorf("failed to update BackendTLSPolicy status: %w", err))
 	}
 
+	// Inferencepool status
+	if r.gatewayAPIInferenceExtensionEnabled {
+		if err := r.inferencePoolStatusManager.SetInferencePoolStatuses(ctx, scopedLog, req.NamespacedName, inputs.InferencePools, inputs.AttachedHTTPRoutes(gw)); err != nil {
+			return controllerruntime.Fail(fmt.Errorf("failed to update InferencePool status: %w", err))
+		}
+	}
+
 	listenerStatusResult, err := r.listenerStatusManager.SetListenerStatuses(ctx, gw, ListenerStatusInputs{
 		MergedListeners:        inputs.MergedListeners,
 		Namespaces:             inputs.Namespaces,
