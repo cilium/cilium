@@ -48,6 +48,7 @@ type gatewayReconciler struct {
 	listenerStatusManager               *ListenerStatusManager
 	routeStatusManager                  *RouteStatusManager
 	backendTLSPolicyStatusManager       *BackendTLSPolicyStatusManager
+	inferencePoolStatusManager          *InferencePoolStatusManager
 	logger                              *slog.Logger
 	controllerName                      string
 	tcpUDPRouteSupport                  bool
@@ -68,10 +69,10 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 		scheme:     mgr.GetScheme(),
 		translator: translator,
 		inputLoader: loading.NewTranslationInputLoader(mgr.GetClient(), scopedLog, controllerName, loading.TranslationInputLoaderConfig{
-			IncludeTCPRoutes:      includeTCPRoutes,
-			IncludeUDPRoutes:      includeUDPRoutes,
-			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
-			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
+			IncludeTCPRoutes:       includeTCPRoutes,
+			IncludeUDPRoutes:       includeUDPRoutes,
+			IncludeServiceImports:  helpers.HasServiceImportSupport(mgr.GetScheme()),
+			IncludeListenerSets:    helpers.HasListenerSetSupport(mgr.GetScheme()),
 			IncludesInferencePools: helpers.HasInferencePoolSupport(mgr.GetScheme()),
 		}),
 		gatewayStatusManager: NewGatewayStatusManager(mgr.GetClient(), scopedLog, hostNetworkLabel),
@@ -95,6 +96,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 			},
 		),
 		backendTLSPolicyStatusManager:       NewBackendTLSPolicyStatusManager(mgr.GetClient(), controllerName),
+		inferencePoolStatusManager:          NewInferencePoolStatusManager(mgr.GetClient(), controllerName),
 		logger:                              scopedLog,
 		controllerName:                      controllerName,
 		tcpUDPRouteSupport:                  tcpUDPRouteSupport,
@@ -180,7 +182,7 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if inferencePoolEnabled {
 		// Watch for changes to InferencePool and InferenceObjective
 		gatewayBuilder = gatewayBuilder.Watches(&gateway_inf_ext.InferencePool{}, watchhandlers.EnqueueRequestForOwningInferencePool(r.client, r.logger, r.controllerName)).
-		Watches(&discoveryv1.EndpointSlice{}, watchhandlers.EnqueueRequestForOwningEndpointSlice(r.client, r.logger, r.controllerName))
+			Watches(&discoveryv1.EndpointSlice{}, watchhandlers.EnqueueRequestForOwningEndpointSlice(r.client, r.logger, r.controllerName))
 	}
 	return gatewayBuilder.Complete(r)
 }
