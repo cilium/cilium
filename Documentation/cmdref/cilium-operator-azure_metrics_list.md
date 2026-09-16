@@ -14,7 +14,7 @@ cilium-operator-azure metrics list [flags]
   -h, --help                    help for list
   -p, --match-pattern string    Show only metrics whose names match matchpattern
   -o, --output string           json| yaml| jsonpath='{}'
-  -s, --server-address string   Address of the operator API server (default "localhost:9234")
+  -s, --server-address string   Address of the operator API server (default 127.0.0.1:9234 or [::1]:9234)
 ```
 
 ### SEE ALSO
