@@ -40,5 +40,8 @@ func (t egressGatewayWithL7Policy) build(ct *check.ConnectivityTest, templates m
 			features.RequireEnabled(features.L7Proxy),
 			features.RequireEnabled(features.NodeWithoutCilium),
 		).
-		WithScenarios(tests.EgressGateway())
+		// Managed-cloud clusters can transiently drop the first connection to the
+		// external node. Retries cover curl failures only; a successful response
+		// with the wrong source IP is still rejected without retrying.
+		WithScenarios(tests.EgressGateway(tests.WithRetryAll()))
 }

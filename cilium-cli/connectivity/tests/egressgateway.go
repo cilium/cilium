@@ -154,14 +154,22 @@ func testIngressNoSNATDirectRouting(ctx context.Context, t *check.Test, ct *chec
 // - pod to external IP traffic
 // - reply traffic for services
 // - reply traffic for pods
-func EgressGateway() check.Scenario {
+func EgressGateway(opts ...RetryOption) check.Scenario {
+	rc := &retryCondition{}
+	for _, opt := range opts {
+		opt(rc)
+	}
+
 	return &egressGateway{
 		ScenarioBase: check.NewScenarioBase(),
+		rc:           rc,
 	}
 }
 
 type egressGateway struct {
 	check.ScenarioBase
+
+	rc *retryCondition
 }
 
 func (s *egressGateway) Name() string {
@@ -285,7 +293,8 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 					gatewayIP = egressGatewayNodeInternalIPv6
 				}
 				t.NewAction(s, fmt.Sprintf("curl-external-echo-service-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
+					curlOpts := s.rc.CurlOptions(externalEcho, ipFam, client, ct.Params(), a.ExpectingSuccess())
+					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho, curlOpts...))
 					validateEgressGatewayClientIP(a, gatewayIP)
 				})
 			})
@@ -308,7 +317,8 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 					gatewayIP = egressGatewayNodeInternalIPv6
 				}
 				t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
+					curlOpts := s.rc.CurlOptions(externalEcho, ipFam, client, ct.Params(), a.ExpectingSuccess())
+					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho, curlOpts...))
 					validateEgressGatewayClientIP(a, gatewayIP)
 				})
 
