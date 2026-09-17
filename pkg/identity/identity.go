@@ -29,10 +29,6 @@ type Identity struct {
 	// Set of labels that belong to this Identity.
 	Labels labels.Labels `json:"labels"`
 
-	// LabelArray contains the same labels as Labels in a form of a list, used
-	// for faster lookup.
-	LabelArray labels.LabelArray `json:"-"`
-
 	// ReferenceCount counts the number of references pointing to this
 	// identity. This field is used by the owning cache of the identity.
 	ReferenceCount int `json:"-"`
@@ -91,14 +87,6 @@ type NamedPort struct {
 	Protocol string `json:"Protocol"`
 }
 
-// Sanitize takes a partially initialized Identity (for example, deserialized
-// from json) and reconstitutes the full object from what has been restored.
-func (id *Identity) Sanitize() {
-	if id.Labels != nil {
-		id.LabelArray = id.Labels.LabelArray()
-	}
-}
-
 // String returns the identity identifier as string
 func (id *Identity) String() string {
 	return id.ID.StringID()
@@ -131,17 +119,12 @@ func NewIdentityFromLabelArray(id NumericIdentity, lblArray labels.LabelArray) *
 	if lblArray != nil {
 		lbls = lblArray.Labels()
 	}
-	return &Identity{ID: id, Labels: lbls, LabelArray: lblArray}
+	return &Identity{ID: id, Labels: lbls}
 }
 
 // NewIdentity creates a new identity
 func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
-	var lblArray labels.LabelArray
-
-	if lbls != nil {
-		lblArray = lbls.LabelArray()
-	}
-	return &Identity{ID: id, Labels: lbls, LabelArray: lblArray}
+	return &Identity{ID: id, Labels: lbls}
 }
 
 // ScopeForLabels returns the identity scope to be used for the label set.

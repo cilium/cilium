@@ -358,7 +358,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 
 	policyCtx := policyContext{
 		repo:               p,
-		ns:                 securityIdentity.LabelArray.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+		ns:                 securityIdentity.Labels.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 		defaultDenyIngress: hasIngressDefaultDeny,
 		defaultDenyEgress:  hasEgressDefaultDeny,
 		traceEnabled:       option.Config.TracingEnabled(),
@@ -402,7 +402,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	hasIngressDefaultDeny, hasEgressDefaultDeny bool,
 	rulesIngress, rulesEgress ruleSlice,
 ) {
-	lbls := securityIdentity.LabelArray
+	lbls := securityIdentity.Labels
 
 	// Check if policy enforcement should be enabled at the daemon level.
 	if securityIdentity.ID == identity.ReservedIdentityHost && !option.Config.EnableHostFirewall {
@@ -551,7 +551,7 @@ func (rules ruleSlice) addDefaultRule(subject *identity.Identity, peers types.Se
 			Priority: priority,
 			Verdict:  verdict,
 			Ingress:  ingress,
-			Subject:  types.NewLabelSelectorFromLabels(subject.LabelArray...),
+			Subject:  types.NewLabelSelectorFromLabels(subject.Labels.LabelArray()...),
 			L3:       peers,
 			Labels:   lbls,
 		},

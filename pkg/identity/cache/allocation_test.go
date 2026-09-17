@@ -437,7 +437,7 @@ func testAllocatorOperatorIDManagement(t *testing.T, cl kvstoreClient) {
 			}, 100*time.Millisecond)
 			require.NoError(t, err)
 			require.False(t, isNew)
-			require.Equal(t, lbls1.LabelArray(), id2.LabelArray)
+			require.Equal(t, lbls1, id2.Labels)
 
 			// Repeat verification for the same lbls.
 			var id3 *identity.Identity
@@ -447,7 +447,7 @@ func testAllocatorOperatorIDManagement(t *testing.T, cl kvstoreClient) {
 			}, 100*time.Millisecond)
 			require.NoError(t, err)
 			require.False(t, isNew)
-			require.Equal(t, lbls1.LabelArray(), id3.LabelArray)
+			require.Equal(t, lbls1, id3.Labels)
 
 			released, err := mgr.Release(ctx, id2, false)
 			require.NoError(t, err)

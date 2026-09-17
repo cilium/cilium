@@ -990,7 +990,6 @@ func ParseEndpoint(p EndpointParams,
 	if ep.SecurityIdentity == nil {
 		ep.SecurityIdentity = identity.LookupReservedIdentity(identity.ReservedIdentityInit)
 	}
-	ep.SecurityIdentity.Sanitize()
 
 	ep.UpdateLogger(nil)
 
