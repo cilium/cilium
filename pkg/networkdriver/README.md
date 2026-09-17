@@ -73,133 +73,168 @@ link creation is deferred to `Setup` (called at `PrepareResourceClaims` time).
 The manager publishes the synthesised device list once at startup and then
 blocks.
 
-## State management — statedb
+## State management — StateDB
 
-All device state is tracked in a single [statedb](https://github.com/cilium/statedb)
-table named **`networkdriver-dra-devices`** (type `statedb.RWTable[*DRADevice]`,
-`pkg/networkdriver/tables.go`). The table is the single observable source of
-truth for both discovery state and allocation state and is inspectable at
-runtime via `cilium-dbg statedb`.
+The driver keeps live device inventory and prepared allocation state in two
+[StateDB](https://github.com/cilium/statedb) tables. Device discovery can then
+change without erasing the claim state needed to configure a pod or free a
+device later. Both tables are visible through `cilium-dbg statedb`.
 
-### DRADevice schema
+### Device inventory
+
+`networkdriver-dra-devices` contains the devices currently reported by each
+device manager:
 
 ```go
 type DRADevice struct {
-    Name    string                  // primary key; assigned by the device manager
+    Name    string
     Manager types.DeviceManagerType
-    Dev     types.Device            // opaque device handle (marshalled to ResourceClaim status)
-
-    // Allocation fields — non-zero only when the device is prepared for a pod.
-    Pool     string
-    PodUID   kube_types.UID
-    ClaimUID kube_types.UID
-    Config   types.DeviceConfig
+    Dev     types.Device
 }
 ```
 
-| Field      | Type                 | Description                                                                                                   |
-|------------|----------------------|-----------------------------------------------------------------------------------------------------------------|
-| `Name`     | `string`             | Device name assigned by the manager; **the primary key**. Not necessarily the kernel ifname.                    |
-| `Manager`  | `DeviceManagerType`  | Which manager owns this device (`sr-iov`, `dummy`, …)                                                          |
-| `Dev`      | `types.Device`       | Opaque device object; attributes for the `ResourceSlice` are computed on demand from `Dev.GetAttrs()`, not cached in the row |
-| `Pool`     | `string`             | Set only once the device is allocated (`ClaimUID`/`PodUID` non-empty), to pin it to that pool across restarts/re-publishes; empty when free — see below |
-| `PodUID`   | `kube_types.UID`     | UID of the pod holding the device; empty when free                                                              |
-| `ClaimUID` | `kube_types.UID`     | UID of the ResourceClaim; empty when free                                                                       |
-| `Config`   | `types.DeviceConfig` | Device config from the claim (e.g. `PodIfName`, `Vlan`)                                                        |
+`Name` is the primary key and the name published in a `ResourceSlice`. It
+does not have to match a kernel interface name. `Manager` identifies the
+device manager, and `Dev` is that manager's current device object.
 
-There is no separate `Attrs` field: `ResourceSlice` attributes are built
-fresh on every publish from `Dev.GetAttrs()`, plus two injected labels —
-`pool` and `deviceManager` (`types.PoolNameLabel`/`types.DeviceManagerLabel`).
+Each device manager calls `onDevices` with its complete inventory. The driver
+updates that manager's rows and removes devices it no longer reports. This
+does not remove prepared allocation state. If the manager rediscovers a
+prepared device, `Merge` preserves state that discovery can no longer see,
+such as an SR-IOV Virtual Function interface name after the interface moved
+into a pod network namespace.
 
-### How state flows
+`ResourceSlice` attributes are computed from `Dev.GetAttrs()` on each
+publication. The driver also adds the `pool` and `deviceManager` attributes.
 
-Pool membership is **not** cached at write time for free devices — it's
-resolved on demand every time the `ResourceSlice` is (re)built:
+### Prepared allocations
 
+`networkdriver-dra-allocations` contains devices that the driver prepared for
+a Kubernetes Dynamic Resource Allocation (DRA) `ResourceClaim`:
+
+```go
+type DRAAllocation struct {
+    DeviceName     string
+    Manager        types.DeviceManagerType
+    PreparedDevice types.Device
+    Pool           string
+    PodUID         kube_types.UID
+    ClaimUID       kube_types.UID
+    Config         types.DeviceConfig
+}
 ```
+
+The primary key is `AllocationKey(Pool, DeviceName)`. Secondary indexes
+support lookups by claim UID, device name, and pod UID. `PreparedDevice`
+holds the device state after setup, while `Config` records claim-specific
+settings such as the pod interface name or VLAN.
+
+The allocation table has a different lifetime from device inventory. An
+inventory row answers, “What does the device manager see now?” An allocation
+row answers, “What did the driver prepare, for which claim and pod, and what
+state will it need for pod setup or cleanup?” Keeping those answers separate
+prevents an inventory refresh from losing allocation state.
+
+### Allocation lifecycle
+
+```text
 Device manager goroutine
   └─ Run(ctx, publish)
-       └─ publish([]types.Device)   ← called once at startup; again on any change
-            └─ driver.onDevices()   ← callback registered per manager with the driver
-                 ├─ writes/updates rows for this manager's devices (Modify, WriteTxn)
-                 │    • new row  → Name/Manager/Dev only; allocation fields
-                 │                 stay zero unless a prior restoreDevicesFromClaim
-                 │                 already populated this row
-                 │    • existing → Dev updated (dev.Merge(old.Dev) carries forward
-                 │                 fields the fresh scan couldn't re-resolve, e.g. a
-                 │                 VF's KernelIfaceName once it's inside a pod netns);
-                 │                 Pool/PodUID/ClaimUID/Config left untouched
-                 └─ deletes rows for this manager's devices no longer reported
+       └─ publish([]types.Device)
+            └─ driver.onDevices()
+                 ├─ merges prepared state found by device name
+                 ├─ upserts Name/Manager/Dev in networkdriver-dra-devices
+                 └─ removes missing inventory rows
+                    (networkdriver-dra-allocations is unchanged)
 
-PrepareResourceClaim (kubelet → DRA plugin)
-  └─ driver.setAllocationInTable(allocs, podUID, claimUID)
-       └─ stamps PodUID/ClaimUID/Config/Pool directly on the matching table rows
-          (no separate in-memory allocation cache — statedb is the only store)
+PrepareResourceClaims (kubelet → DRA plugin)
+  └─ for each scheduler-selected device
+       ├─ reads the DRADevice from networkdriver-dra-devices
+       ├─ calls Device.Setup(Config)
+       ├─ serializes the prepared device to ResourceClaim.Status.Devices
+       └─ after the status update, inserts a DRAAllocation in
+          networkdriver-dra-allocations
 
-UnprepareResourceClaim (kubelet → DRA plugin)
-  └─ looks up devices via DevicesByClaimUID
-     then driver.clearAllocationInTable(allocs)
-        └─ then calls Device.Free() per device
-            └─ clears PodUID/ClaimUID/Config
+RunPodSandbox (container runtime → NRI plugin)
+  └─ finds allocations by PodUID
+       └─ configures their devices in the pod network namespace
 
-Building a ResourceSlice (on every publish)
-  └─ driver.buildPoolsFromTable()
-       └─ for each row:
-            • if allocated (ClaimUID/PodUID set): keep its existing Pool
-              unchanged, so a device already claimed from a pool is never
-              silently reassigned while pools/filters are being re-evaluated
-            • if free: driver.resolvePool(dev, sortedPools) re-evaluates every
-              configured pool's filter against Dev.Match(filter) and picks the
-              (deterministic, alphabetically-first) matching pool fresh each time
-       └─ attrs := Dev.GetAttrs(); attrs["pool"], attrs["deviceManager"] injected
-       └─ assembled into resourceslice.Pool per pool name
+UnprepareResourceClaims (kubelet → DRA plugin)
+  └─ finds allocations by ClaimUID
+       └─ calls Device.Free(Config)
+            ├─ success → deletes the DRAAllocation
+            └─ failure → retains the row for a later retry
+
+ResourceSlice publication (a change to either table wakes this loop)
+  ├─ networkdriver-dra-devices
+  │    └─ supplies the current device and its attributes
+  ├─ networkdriver-dra-allocations
+  │    └─ pins a prepared device to its recorded pool
+  └─ buildPoolsFromTable()
+       └─ draPlugin.PublishResources()
 
 Agent restart
-  └─ restoreDevices()                 ← lists local pods' ResourceClaimStatuses
-       └─ restoreDevicesFromClaim()   ← per claim, rebuilds the device via
-                                         devMgr.RestoreDevice() and Inserts a
-                                         fully-populated row (Dev + PodUID +
-                                         ClaimUID + Config + Pool) directly,
-                                         ahead of that manager's first onDevices call
+  ├─ local pods
+  │    └─ resolve direct or template-generated ResourceClaims
+  │         └─ ResourceClaim.Status.Devices
+  │              └─ DeviceManager.RestoreDevice()
+  │                   └─ rebuilds networkdriver-dra-allocations
+  ├─ device managers rebuild networkdriver-dra-devices independently
+  └─ DRA and NRI registration starts after both tables are initialized
 ```
 
-Key invariants:
+The ResourceClaim status is the durable recovery record; both StateDB tables
+are node-local runtime state. If the agent stops after `Device.Setup` but
+before it updates the claim status, there is no serialized device state to
+restore. The driver logs a warning on restart because that device may require
+manual cleanup. If the status update succeeds but the agent stops before the
+StateDB write, restart recovery can rebuild the allocation from the status.
 
-- `onDevices` is the only writer of `Dev` (and hence discovery-derived
-  attributes); it never touches allocation fields.
-- `setAllocationInTable`/`clearAllocationInTable` are the only writers of
-  allocation fields (`PodUID`, `ClaimUID`, `Config`, `Pool`).
-- Allocation writes do **not** trigger a re-publish of the `ResourceSlice` —
-  allocation state is internal to the driver and not part of the DRA API;
-  the next natural publish (or restart) picks it up.
-- The table outlives individual publish cycles; rows are never deleted
-  unless the owning device manager stops reporting that device.
+Changes to either table trigger a new `ResourceSlice` publication. If one
+device has allocation rows that name different pools, the state is ambiguous.
+The driver logs the conflict and does not advertise that device.
 
 ### Inspecting state at runtime
 
 ```bash
-# Dump the full statedb as JSON (includes all tables)
-kubectl -n kube-system exec <cilium-pod> -c cilium-agent -- cilium-dbg statedb
+kubectl -n kube-system exec <cilium-pod> -c cilium-agent -- \
+  cilium-dbg statedb |
+  jq '{
+    inventory: .["networkdriver-dra-devices"] | map({Name, Manager}),
+    allocations: .["networkdriver-dra-allocations"] |
+      map({DeviceName, Manager, Pool, PodUID, ClaimUID, Config})
+  }'
 ```
 
-Example output while a VF is allocated to a pod:
+Example output for one prepared SR-IOV Virtual Function:
 
-```
-0000-03-00-4  manager=sr-iov  pool=(unresolved)  pod=(free)
-0000-03-00-5  manager=sr-iov  pool=sriov-pool     pod=a1b2c3d4-…
-0000-03-00-6  manager=sr-iov  pool=(unresolved)  pod=(free)
-0000-03-00-7  manager=sr-iov  pool=(unresolved)  pod=(free)
+```json
+{
+  "inventory": [
+    {
+      "Name": "0000-03-00-1",
+      "Manager": "sr-iov"
+    }
+  ],
+  "allocations": [
+    {
+      "DeviceName": "0000-03-00-1",
+      "Manager": "sr-iov",
+      "Pool": "sriov-pool",
+      "PodUID": "a1b2c3d4-...",
+      "ClaimUID": "e5f6a7b8-...",
+      "Config": {
+        "podIfName": "sriov0",
+        "vlan": 1001
+      }
+    }
+  ]
+}
 ```
 
-Free devices show `pool=(unresolved)` if they were never allocated. Note
-that `Pool` is only *cleared* by `clearAllocationInTable`'s counterpart
-`setAllocationInTable` writing a new value — freeing a device
-(`clearAllocationInTable`) resets `PodUID`/`ClaimUID`/`Config` but does
-**not** reset `Pool`, so a device that was previously allocated and is now
-free may still show its last-held `pool` value even though `pod=(free)`.
-The table's `Pool` field for a free device is therefore stale/meaningless —
-its actual current pool membership is computed live by
-`buildPoolsFromTable`/`resolvePool` at publish time, not read from the row.
+An empty allocation list means StateDB currently tracks no prepared devices.
+A retained allocation row can also indicate that cleanup failed; check the
+agent log before treating it as an active pod allocation.
 
 ## How to use the Network Driver
 
@@ -309,17 +344,17 @@ field uniquely identifies a single device.
 
 **Runtime conflict resolution** handles cases where a device matches more than
 one pool despite passing config-time validation (e.g. when pools overlap via
-`pfNames`, `drivers`, or `vendorIDs`). The device is assigned to exactly one
-pool using the following priority:
+`pfNames`, `drivers`, or `vendorIDs`). The driver normally assigns the
+device to one pool using the following priority:
 
-1. **Previous assignment (allocated devices only)** — if the device is
-   currently allocated to a pod (`PodUID`/`ClaimUID` set), its existing
-   `Pool` is kept unchanged for as long as that allocation lasts, regardless
-   of how filters re-evaluate in the meantime. This pinning does **not**
-   apply to free devices — a free device has no sticky pool from a past
-   allocation; it's always re-evaluated fresh (see rule 2).
+1. **Prepared allocation** — if the allocation table contains a row for the
+   device, the recorded `Pool` is kept for as long as that allocation exists,
+   regardless of how filters re-evaluate in the meantime. If multiple rows
+   name different pools, the driver logs the conflict and does not advertise
+   the device. Pool pinning does **not** apply after the final allocation row
+   is removed.
 2. **Alphabetically first matching pool** — deterministic tie-break, applied
-   fresh on every publish for any device that is not currently allocated.
+   fresh on every publish for a device with no prepared allocation.
 
 An error is logged whenever a device matches more than one pool.
 
@@ -448,11 +483,10 @@ kubectl get deviceclasses
 kubectl -n kube-system exec <cilium-pod> -c cilium-agent -- cilium-dbg statedb
 ```
 
-Each row includes `Name`, `Manager`, `Dev`, `PodUID`, `ClaimUID`, `Config`,
-and `Pool`. A non-empty `PodUID` means the device is currently prepared for
-that pod; `PodUID`/`ClaimUID`/`Config` are empty for free devices, but note
-`Pool` is **not** reset when a device is freed (see the caveat above) — treat
-`Pool` as meaningful only while `PodUID`/`ClaimUID` are also set.
+`networkdriver-dra-devices` shows current inventory.
+`networkdriver-dra-allocations` shows prepared devices and any rows retained
+for a failed cleanup attempt. See “State management — StateDB” above for the
+field definitions and lifecycle.
 
 ## Feature status
 
