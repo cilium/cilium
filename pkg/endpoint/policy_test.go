@@ -323,7 +323,7 @@ func TestWaitSkipsSupersededPolicy(t *testing.T) {
 	ep.UpdateLogger(nil)
 
 	res, err := ep.waitForPolicyComputationResult(
-		&datapathRegenerationContext{policyRevisionToWaitFor: rev}, f.podID)
+		&datapathRegenerationContext{policyRevisionToWaitFor: rev, parentContext: context.Background()}, f.podID)
 	require.NoError(t, err)
 	require.Same(t, live, res.NewPolicy)
 

@@ -46,6 +46,8 @@ var (
 
 	errPolicyComputationStaleRevision = errors.New("policy computation result has stale revision")
 	errPolicyComputationNotFound      = errors.New("policy computation result not found in statedb")
+
+	PolicyComputationTimeout = 60 * time.Second
 )
 
 // PreviousMapStateSizes returns the map sizes of the endpoint's current desired policy map state,
@@ -299,8 +301,9 @@ func (e *Endpoint) waitForPolicyComputationResult(
 ) (*compute.Result, error) {
 	wantedRevision := datapathRegenCtxt.policyRevisionToWaitFor
 
-	timeout := time.NewTimer(time.Second)
-	defer timeout.Stop()
+	waitCtx, cancel := context.WithTimeout(datapathRegenCtxt.parentContext, PolicyComputationTimeout)
+	defer cancel()
+	start := time.Now()
 
 	for {
 		computeResult, _, watch, found := e.policyFetcher.GetIdentityPolicyByIdentity(securityIdentity)
@@ -343,19 +346,23 @@ func (e *Endpoint) waitForPolicyComputationResult(
 		select {
 		case <-watch:
 			continue
-		case <-timeout.C:
+		case <-waitCtx.Done():
 			if found {
-				return nil, fmt.Errorf("%w: identity=%d got rev=%d currentAt=%d, want rev=%d",
+				return nil, fmt.Errorf("%w after %s: identity=%d got rev=%d, currentAt=%d, want rev=%d: %w",
 					errPolicyComputationStaleRevision,
+					time.Since(start).Round(time.Millisecond),
 					securityIdentity.ID,
 					computeResult.Revision,
 					computeResult.CurrentAtRevision,
-					wantedRevision)
+					wantedRevision,
+					waitCtx.Err())
 			}
-			return nil, fmt.Errorf("%w: identity=%d, want rev=%d",
+			return nil, fmt.Errorf("%w after %s: identity=%d, want rev=%d: %w",
 				errPolicyComputationNotFound,
+				time.Since(start).Round(time.Millisecond),
 				securityIdentity.ID,
-				wantedRevision)
+				wantedRevision,
+				waitCtx.Err())
 		}
 	}
 }
