@@ -12,8 +12,6 @@
 #include "pktgen.h"
 #include "scapy.h"
 
-#define ENABLE_DSR_ICMP_ERRORS		1
-
 /* IPIP expectations below assume only the skb/GRO path */
 #if defined(ATTACHMENT_XDP) && defined(DSR_ENCAP_MODE) && \
     DSR_ENCAP_MODE == DSR_ENCAP_IPIP
@@ -121,6 +119,8 @@ ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = v4_node_one })
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+
+ASSIGN_CONFIG(bool, enable_dsr_icmp_errors, true)
 
 const __u8 kpr_v4_dsr_lb1_syn[] = {
 	SCAPY_BUF_BYTES(kpr_v4_dsr_lb1_syn)

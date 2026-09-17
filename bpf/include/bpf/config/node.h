@@ -183,3 +183,6 @@ NODE_CONFIG(__u32, encap6_ifindex,
 NODE_CONFIG(bool, enable_sctp, "Enable SCTP support")
 
 NODE_CONFIG(bool, enable_drop_notify, "Enable drop notifications")
+
+NODE_CONFIG(bool, enable_dsr_icmp_errors,
+	    "Enable sending ICMP fragmentation-needed replies to the client")
