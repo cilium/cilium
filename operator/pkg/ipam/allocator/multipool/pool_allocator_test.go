@@ -251,14 +251,22 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 		}, 96,
 	)
 	require.NoError(t, err)
-	mars, exists := p.pools["mars"]
-	require.True(t, exists)
-	require.Equal(t, 24, mars.v4MaskSize)
-	require.Equal(t, 96, mars.v6MaskSize)
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("10.20.0.0/16")))
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("fb00:200::/80")))
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("fe00:100::/80")))
+
+	requirePoolUnchanged := func(t *testing.T) {
+		t.Helper()
+		pool, exists := p.pools["mars"]
+		require.True(t, exists)
+		require.Equal(t, 24, pool.v4MaskSize)
+		require.Equal(t, 96, pool.v6MaskSize)
+		require.True(t, pool.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))
+		require.True(t, pool.hasCIDR(netip.MustParsePrefix("10.20.0.0/16")))
+		require.True(t, pool.hasCIDR(netip.MustParsePrefix("fb00:200::/80")))
+		require.True(t, pool.hasCIDR(netip.MustParsePrefix("fe00:100::/80")))
+		require.False(t, pool.allowFirstIP)
+		require.False(t, pool.allowLastIP)
+	}
+
+	requirePoolUnchanged(t)
 
 	// IPv4 mask size cannot be changed on existing pool
 	err = p.UpsertPool("mars",
@@ -269,17 +277,10 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 		[]poolCIDRConfig{
 			{cidr: netip.MustParsePrefix("fa00:100::/80")},
 			{cidr: netip.MustParsePrefix("fb00:200::/80")},
-		}, 97,
+		}, 96,
 	)
 	require.ErrorContains(t, err, `"mars": cannot change IPv4 mask size`)
-	mars, exists = p.pools["mars"]
-	require.True(t, exists)
-	require.Equal(t, 24, mars.v4MaskSize)
-	require.Equal(t, 96, mars.v6MaskSize)
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("10.20.0.0/16")))
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("fe00:100::/80")))
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("fb00:200::/80")))
+	requirePoolUnchanged(t)
 
 	// IPv6 mask size cannot be changed on existing pool
 	err = p.UpsertPool("mars",
@@ -293,14 +294,7 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 		}, 97,
 	)
 	require.ErrorContains(t, err, `"mars": cannot change IPv6 mask size`)
-	mars, exists = p.pools["mars"]
-	require.True(t, exists)
-	require.Equal(t, 24, mars.v4MaskSize)
-	require.Equal(t, 96, mars.v6MaskSize)
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("10.20.0.0/16")))
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("fe00:100::/80")))
-	require.True(t, mars.hasCIDR(netip.MustParsePrefix("fb00:200::/80")))
+	requirePoolUnchanged(t)
 
 	// allowFirstIP cannot be changed on existing pool
 	err = p.UpsertPool("mars",
@@ -315,10 +309,7 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 		WithAllowFirstIP(),
 	)
 	require.ErrorContains(t, err, `"mars": cannot change allowFirstIP`)
-	mars, exists = p.pools["mars"]
-	require.True(t, exists)
-	require.False(t, mars.allowFirstIP)
-	require.False(t, mars.allowLastIP)
+	requirePoolUnchanged(t)
 
 	// allowLastIP cannot be changed on existing pool
 	err = p.UpsertPool("mars",
@@ -333,10 +324,7 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 		WithAllowLastIP(),
 	)
 	require.ErrorContains(t, err, `"mars": cannot change allowLastIP`)
-	mars, exists = p.pools["mars"]
-	require.True(t, exists)
-	require.False(t, mars.allowFirstIP)
-	require.False(t, mars.allowLastIP)
+	requirePoolUnchanged(t)
 
 	// Changes in pool CIDRs are reflected in internal bookkeeping after upsert
 	err = p.UpsertPool("mars",
@@ -352,7 +340,7 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 		}, 96,
 	)
 	require.NoError(t, err)
-	mars, exists = p.pools["mars"]
+	mars, exists := p.pools["mars"]
 	require.True(t, exists)
 	require.Equal(t, 24, mars.v4MaskSize)
 	require.Equal(t, 96, mars.v6MaskSize)
