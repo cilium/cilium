@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
-	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -147,23 +146,6 @@ func (r *infraIPAllocator) allocateRouterIPv6(ctx context.Context, family node.A
 	}
 
 	return r.reallocateRouterIPs(ctx, family, fromK8s, fromFS)
-}
-
-// Coalesce CIDRS when allocating the DatapathIPs and healthIPs. GH #18868
-func (r *infraIPAllocator) coalesceCIDRs(rCIDRs []netip.Prefix) []netip.Prefix {
-	cidrs := make([]*net.IPNet, 0, len(rCIDRs))
-	for _, p := range rCIDRs {
-		cidrs = append(cidrs, netipx.PrefixIPNet(p))
-	}
-	ipv4cidr, ipv6cidr := iputil.CoalesceCIDRs(cidrs)
-	combinedcidrs := append(ipv4cidr, ipv6cidr...)
-	result := make([]netip.Prefix, 0, len(combinedcidrs))
-	for _, k := range combinedcidrs {
-		if p, ok := netipx.FromStdIPNet(k); ok {
-			result = append(result, p)
-		}
-	}
-	return result
 }
 
 // reallocateOldRouterIPs attempts to reallocate the old router IP from IPAM.
@@ -324,14 +306,6 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.
 	masq := (ipfamily == ipam.IPv4 && r.daemonConfig.EnableIPv4Masquerade) ||
 		(ipfamily == ipam.IPv6 && r.daemonConfig.EnableIPv6Masquerade)
 
-	// Coalescing multiple CIDRs. GH #18868
-	if masq &&
-		(r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAzure) &&
-		result != nil &&
-		len(result.CIDRs) > 0 {
-		result.CIDRs = r.coalesceCIDRs(result.CIDRs)
-	}
-
 	if (r.daemonConfig.IPAM == ipamOption.IPAMENI ||
 		r.daemonConfig.IPAM == ipamOption.IPAMAlibabaCloud ||
 		r.daemonConfig.IPAM == ipamOption.IPAMAzure) && result != nil {
@@ -428,19 +402,11 @@ func (r *infraIPAllocator) allocateHealthIPs(ctx context.Context, oldV4HealthIP 
 			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4HealthIP = iputil.AddrFrom(result.IP) })
 		}
 
-		// Coalescing multiple CIDRs. GH #18868
-		if r.daemonConfig.EnableIPv4Masquerade &&
-			(r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAzure) &&
-			result != nil &&
-			len(result.CIDRs) > 0 {
-			result.CIDRs = r.coalesceCIDRs(result.CIDRs)
-		}
-
 		r.logger.Debug("Allocated IPv4 health endpoint address", logfields.IPAddr, result.IP)
 
-		// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
-		// in order to set up rules and routes on the local node to direct
-		// endpoint traffic out of the ENIs.
+		// In ENI and AlibabaCloud ENI mode, we require the gateway and the ENI
+		// MAC addr in order to set up rules and routes on the local node to
+		// direct endpoint traffic out of the ENIs.
 		if r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAlibabaCloud {
 			if r.healthEndpointRouting, err = r.parseRoutingInfo(result); err != nil {
 				r.logger.Warn("Unable to allocate health information for ENI", logfields.Error, err)
@@ -475,19 +441,11 @@ func (r *infraIPAllocator) allocateHealthIPs(ctx context.Context, oldV4HealthIP 
 			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6HealthIP = iputil.AddrFrom(result.IP) })
 		}
 
-		// Coalescing multiple CIDRs. GH #18868
-		if r.daemonConfig.EnableIPv6Masquerade &&
-			r.daemonConfig.IPAM == ipamOption.IPAMENI &&
-			result != nil &&
-			len(result.CIDRs) > 0 {
-			result.CIDRs = r.coalesceCIDRs(result.CIDRs)
-		}
-
 		r.logger.Debug("Allocated IPv6 health endpoint address", logfields.IPAddr, result.IP)
 
-		// In ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
-		// in order to set up rules and routes on the local node to direct
-		// endpoint traffic out of the ENIs.
+		// In ENI mode, we require the gateway and the ENI MAC addr in order to
+		// set up rules and routes on the local node to direct endpoint traffic
+		// out of the ENIs.
 		if r.daemonConfig.IPAM == ipamOption.IPAMENI {
 			if r.healthEndpointRoutingV6, err = r.parseRoutingInfo(result); err != nil {
 				r.logger.Warn("Unable to allocate health information for ENI", logfields.Error, err)
@@ -528,20 +486,12 @@ func (r *infraIPAllocator) allocateIngressIPs(ctx context.Context, oldV4IngressI
 			}
 		}
 
-		// Coalescing multiple CIDRs. GH #18868
-		if r.daemonConfig.EnableIPv4Masquerade &&
-			(r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAzure) &&
-			result != nil &&
-			len(result.CIDRs) > 0 {
-			result.CIDRs = r.coalesceCIDRs(result.CIDRs)
-		}
-
 		ingressIPv4 = result.IP
 		r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = iputil.AddrFrom(result.IP) })
 		r.logger.Debug("Allocated IPv4 Ingress address", logfields.IPAddr, result.IP)
 
-		// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the
-		// ENI MAC addr in order to set up rules and routes on the local node to
+		// In ENI and AlibabaCloud ENI mode, we require the gateway and the ENI
+		// MAC addr in order to set up rules and routes on the local node to
 		// direct ingress traffic out of the ENIs.
 		if r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAlibabaCloud {
 			if ingressRouting, err := r.parseRoutingInfo(result); err != nil {
@@ -597,20 +547,12 @@ func (r *infraIPAllocator) allocateIngressIPs(ctx context.Context, oldV4IngressI
 			}
 		}
 
-		// Coalescing multiple CIDRs. GH #18868
-		if r.daemonConfig.EnableIPv6Masquerade &&
-			r.daemonConfig.IPAM == ipamOption.IPAMENI &&
-			result != nil &&
-			len(result.CIDRs) > 0 {
-			result.CIDRs = r.coalesceCIDRs(result.CIDRs)
-		}
-
 		r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6IngressIP = iputil.AddrFrom(result.IP) })
 		r.logger.Debug("Allocated IPv6 Ingress address", logfields.IPAddr, result.IP)
 
-		// In ENI mode, we require the gateway, CIDRs, and the
-		// ENI MAC addr in order to set up rules and routes on the local node to
-		// direct ingress traffic out of the ENIs.
+		// In ENI mode, we require the gateway and the ENI MAC addr in order to
+		// set up rules and routes on the local node to direct ingress traffic
+		// out of the ENIs.
 		if r.daemonConfig.IPAM == ipamOption.IPAMENI {
 			if ingressRouting, err := r.parseRoutingInfo(result); err != nil {
 				r.logger.Warn("Unable to allocate ingress information for ENI", logfields.Error, err)
@@ -771,7 +713,7 @@ func (r *infraIPAllocator) parseRoutingInfo(result *ipam.AllocationResult) (*lin
 
 func (r *infraIPAllocator) newRoutingInfo(result *ipam.AllocationResult, masquerade bool) (*linuxrouting.RoutingInfo, error) {
 	options := []linuxrouting.RoutingInfoOption{
-		linuxrouting.WithCIDRsAndMasquerade(result.CIDRs, masquerade),
+		linuxrouting.WithMasquerade(masquerade),
 	}
 	if r.daemonConfig.IPAM != ipamOption.IPAMENI {
 		options = append(options,
