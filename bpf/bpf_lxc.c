@@ -1803,7 +1803,6 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	int ifindex = CONFIG(interface_ifindex);
 	struct ipv6_ct_tuple *tuple;
 	bool is_untracked_fragment;
-	fraginfo_t fraginfo;
 	int ret, verdict, l4_off;
 	struct ct_buffer6 *ct_buffer;
 	struct trace_ctx trace;
@@ -1827,12 +1826,12 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	trace.reason = (enum trace_reason)ct_buffer->ret;
 	ret = ct_buffer->ret;
 	l4_off = ct_buffer->l4_off;
-	fraginfo = ct_buffer->fraginfo;
 
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
 	 */
-	is_untracked_fragment = !CONFIG(enable_ipv6_fragments) && ipfrag_is_fragment(fraginfo);
+	is_untracked_fragment = !CONFIG(enable_ipv6_fragments) &&
+		ipfrag_is_fragment(ct_buffer->fraginfo);
 
 	switch (ret) {
 	case CT_REPLY:
@@ -1861,7 +1860,8 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 					   &ct_state->nat_addr, ct_state->nat_port,
 					   ct_state->loopback,
 					   tuple,
-					   ipfrag_has_l4_header(fraginfo), CT_INGRESS);
+					   ipfrag_has_l4_header(ct_buffer->fraginfo),
+					   CT_INGRESS);
 			if (IS_ERR(ret2))
 				return ret2;
 		}
