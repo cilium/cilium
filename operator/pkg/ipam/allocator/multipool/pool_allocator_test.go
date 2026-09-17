@@ -546,12 +546,10 @@ func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
 	// Shrink pool to a single CIDR
 	newCIDRs := []netip.Prefix{netip.MustParsePrefix("10.1.0.0/16")}
 
-	require.NotPanics(t, func() {
-		updated, err := p.updateCIDRSets(false, pool.v4, newCIDRs, 24)
-		require.NoError(t, err)
-		require.Len(t, updated, 1)
-		require.True(t, updated[0].IsClusterCIDR(newCIDRs[0]))
-	})
+	updated, err := p.updateCIDRSets(false, pool.v4, newCIDRs, 24)
+	require.NoError(t, err)
+	require.Len(t, updated, 1)
+	require.True(t, updated[0].IsClusterCIDR(newCIDRs[0]))
 }
 
 func TestPoolUpdateWithCIDRInUse(t *testing.T) {
