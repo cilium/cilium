@@ -110,8 +110,12 @@
     "v1.18",
   ],
   "vulnerabilityAlerts": {
-    "enabled": true
+    "enabled": true,
+    "groupName": "security updates",
+    "groupSlug": "security",
+    "rangeStrategy": "replace"
   },
+  "osvVulnerabilityAlerts": true,
   "labels": [
     "renovate/stop-updating",
     "kind/enhancement",
