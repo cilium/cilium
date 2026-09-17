@@ -100,8 +100,8 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 	// error cannot be fixed in Cilium or in the test.
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
-		failedToUpdateLock, failedToReleaseLock, failedToRetrieveLock, leaderElectionReadTimeout,
-		failedToListCRDs, knownIssueWireguardCollision, gobgpFailedCloseTCP,
+		failedToUpdateLock, failedToReleaseLock, failedToRetrieveLock, failedToRetrieveResourceLock,
+		leaderElectionReadTimeout, failedToListCRDs, knownIssueWireguardCollision, gobgpFailedCloseTCP,
 		vendoredLeaderElectionLeaseLockError}
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
@@ -532,24 +532,25 @@ const (
 	// the reason why this exception is needed.
 
 	// errors
-	panicMessage                       = "panic:"
-	deadLockHeader                     = "POTENTIAL DEADLOCK:"                        // from github.com/sasha-s/go-deadlock/deadlock.go:header
-	RunInitFailed                      = "JoinEP: "                                   // from https://github.com/cilium/cilium/pull/5052
-	RemovingMapMsg                     = "Removing map to allow for property upgrade" // from https://github.com/cilium/cilium/pull/10626
-	symbolSubstitution                 = "Skipping symbol substitution"               //
-	uninitializedRegen                 = "Uninitialized regeneration level"           // from https://github.com/cilium/cilium/pull/10949
-	unstableStat                       = "BUG: stat() has unstable behavior"          // from https://github.com/cilium/cilium/pull/11028
-	missingIptablesWait                = "Missing iptables wait arg (-w):"
-	localIDRestoreFail                 = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
-	routerIPMismatch                   = "Mismatch of router IPs found during restoration"
-	emptyIPNodeIDAlloc                 = "Attempt to allocate a node ID for an empty node IP address"
-	failedToListCRDs     stringMatcher = "the server could not find the requested resource" // cf. https://github.com/cilium/cilium/issues/16425
-	failedToUpdateLock   stringMatcher = "Failed to update lock:"
-	failedToReleaseLock  stringMatcher = "Failed to release lock:"
-	failedToRetrieveLock stringMatcher = "Error retrieving lease lock"                          // cf. https://github.com/cilium/cilium/issues/45426
-	nilDetailsForService stringMatcher = "retrieved nil details for Service"                    // from: https://github.com/cilium/cilium/issues/35595
-	removeInexistentID   stringMatcher = "removing identity not added to the identity manager!" // from https://github.com/cilium/cilium/issues/16419
-	gobgpFailedCloseTCP  stringMatcher = "failed to close existing tcp connection"              // Benign error during BGP peer teardown in ACTIVE state
+	panicMessage                               = "panic:"
+	deadLockHeader                             = "POTENTIAL DEADLOCK:"                        // from github.com/sasha-s/go-deadlock/deadlock.go:header
+	RunInitFailed                              = "JoinEP: "                                   // from https://github.com/cilium/cilium/pull/5052
+	RemovingMapMsg                             = "Removing map to allow for property upgrade" // from https://github.com/cilium/cilium/pull/10626
+	symbolSubstitution                         = "Skipping symbol substitution"               //
+	uninitializedRegen                         = "Uninitialized regeneration level"           // from https://github.com/cilium/cilium/pull/10949
+	unstableStat                               = "BUG: stat() has unstable behavior"          // from https://github.com/cilium/cilium/pull/11028
+	missingIptablesWait                        = "Missing iptables wait arg (-w):"
+	localIDRestoreFail                         = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
+	routerIPMismatch                           = "Mismatch of router IPs found during restoration"
+	emptyIPNodeIDAlloc                         = "Attempt to allocate a node ID for an empty node IP address"
+	failedToListCRDs             stringMatcher = "the server could not find the requested resource" // cf. https://github.com/cilium/cilium/issues/16425
+	failedToUpdateLock           stringMatcher = "Failed to update lock:"
+	failedToReleaseLock          stringMatcher = "Failed to release lock:"
+	failedToRetrieveLock         stringMatcher = "Error retrieving lease lock"                                              // cf. https://github.com/cilium/cilium/issues/45426
+	failedToRetrieveResourceLock stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock" // cf. https://github.com/cilium/cilium/issues/47808
+	nilDetailsForService         stringMatcher = "retrieved nil details for Service"                                        // from: https://github.com/cilium/cilium/issues/35595
+	removeInexistentID           stringMatcher = "removing identity not added to the identity manager!"                     // from https://github.com/cilium/cilium/issues/16419
+	gobgpFailedCloseTCP          stringMatcher = "failed to close existing tcp connection"                                  // Benign error during BGP peer teardown in ACTIVE state
 
 	// warnings
 	cantEnableJIT                    stringMatcher = "bpf_jit_enable: no such file or directory"                               // Because we run tests in Kind.
