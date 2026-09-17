@@ -46,7 +46,7 @@ spec:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
                       decoderHeaderMutationRules:
                         disallowExpression:
-                          regex: ^(:authority|host)$
+                          regex: ^(:authority|host|content-length)$
                       grpcService:
                         envoyGrpc:
                           authority: auth-service:9001

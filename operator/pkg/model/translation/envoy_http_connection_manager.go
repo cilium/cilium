@@ -202,7 +202,7 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) *httpConnectionMa
 			},
 			DecoderHeaderMutationRules: &mutation_rules_v3.HeaderMutationRules{
 				DisallowExpression: &envoy_type_matcher_v3.RegexMatcher{
-					Regex: "^(:authority|host)$",
+					Regex: "^(:authority|host|content-length)$",
 				},
 			},
 		}
@@ -232,20 +232,22 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) *httpConnectionMa
 			httpSvc.AuthorizationResponse.AllowedUpstreamHeaders = toListStringMatcher(af.AllowedResponseHeaders)
 		} else {
 			// Empty list means forward all per Gateway API spec. Use AllowedUpstreamHeaders
-			// (replace, not append) so that if the auth service returns a header that already
-			// exists on the client request (e.g. Content-Length), the upstream request ends up
-			// with exactly one value rather than a duplicate that would corrupt the request.
+			// (replace, not append) so that a header the auth service returns which already
+			// exists on the client request ends up with exactly one value rather than a
+			// duplicate that would corrupt the request. Headers describing the message body
+			// are excluded by DecoderHeaderMutationRules below.
 			httpSvc.AuthorizationResponse.AllowedUpstreamHeaders = allHeadersMatcher()
 		}
 		config = &extauthzv3.ExtAuthz{
 			Services: &extauthzv3.ExtAuthz_HttpService{
 				HttpService: httpSvc,
 			},
-			// Prevent the auth service from overriding routing-critical headers
-			// regardless of what AllowedUpstreamHeaders matches.
+			// Prevent the auth service from overriding routing-critical or
+			// message-framing headers regardless of what AllowedUpstreamHeaders
+			// matches.
 			DecoderHeaderMutationRules: &mutation_rules_v3.HeaderMutationRules{
 				DisallowExpression: &envoy_type_matcher_v3.RegexMatcher{
-					Regex: "^(:authority|host)$",
+					Regex: "^(:authority|host|content-length)$",
 				},
 			},
 		}
