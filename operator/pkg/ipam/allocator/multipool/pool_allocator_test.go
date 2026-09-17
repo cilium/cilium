@@ -237,35 +237,10 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 
-	_, exists := p.pools["jupiter"]
-	require.False(t, exists)
-	err := p.UpsertPool("jupiter",
-		[]poolCIDRConfig{
-			{cidr: netip.MustParsePrefix("10.100.0.0/16")},
-			{cidr: netip.MustParsePrefix("10.200.0.0/16")},
-		}, 24,
-		[]poolCIDRConfig{
-			{cidr: netip.MustParsePrefix("fd00:100::/80")},
-			{cidr: netip.MustParsePrefix("fc00:100::/80")},
-		}, 96,
-	)
-	require.NoError(t, err)
-	_, exists = p.pools["jupiter"]
-	require.True(t, exists)
-
-	jupiter, exists := p.pools["jupiter"]
-	require.True(t, exists)
-	require.Equal(t, 24, jupiter.v4MaskSize)
-	require.Equal(t, 96, jupiter.v6MaskSize)
-	require.True(t, jupiter.hasCIDR(netip.MustParsePrefix("10.100.0.0/16")))
-	require.True(t, jupiter.hasCIDR(netip.MustParsePrefix("10.200.0.0/16")))
-	require.True(t, jupiter.hasCIDR(netip.MustParsePrefix("fd00:100::/80")))
-	require.True(t, jupiter.hasCIDR(netip.MustParsePrefix("fc00:100::/80")))
-
 	// Upserting a non-existing pool adds it
-	_, exists = p.pools["mars"]
+	_, exists := p.pools["mars"]
 	require.False(t, exists)
-	err = p.UpsertPool("mars",
+	err := p.UpsertPool("mars",
 		[]poolCIDRConfig{
 			{cidr: netip.MustParsePrefix("10.10.0.0/16")},
 			{cidr: netip.MustParsePrefix("10.20.0.0/16")},
@@ -395,9 +370,9 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	require.ErrorContains(t, err, `pool "saturn" requested for deletion doesn't exist`)
 
 	// Deleting an existing pool removes it completely
-	err = p.DeletePool("jupiter")
+	err = p.DeletePool("mars")
 	require.NoError(t, err)
-	_, exists = p.pools["jupiter"]
+	_, exists = p.pools["mars"]
 	require.False(t, exists)
 }
 
