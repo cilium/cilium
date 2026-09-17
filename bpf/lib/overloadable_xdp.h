@@ -237,11 +237,23 @@ ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 	return CTX_ACT_REDIRECT;
 }
 
+/* Encapsulation towards an IPv6 tunnel endpoint is not implemented on the
+ * XDP path yet. Unlike the skb path we cannot defer to
+ * bpf_skb_set_tunnel_key(); we would have to build the outer IPv6 header
+ * here, which additionally requires resolving an outer source address
+ * (fib_lookup_src_v6()) and an IPv6-aware FIB redirect in the callers.
+ *
+ * Until then, return an error. Returning 0 is not an option: 0 does not
+ * satisfy IS_ERR(), so callers treat the packet as successfully handled.
+ * tail_nodeport_nat_egress_ipv6() for instance then jumps to its fib_ipv4
+ * label and performs an AF_INET FIB lookup over what is still an
+ * unencapsulated IPv6 packet.
+ */
 static __always_inline __maybe_unused int
 ctx_set_encap_info6(struct xdp_md *ctx __maybe_unused,
 		    const union v6addr *tunnel_endpoint __maybe_unused,
 		    __u32 seclabel __maybe_unused, void *opt __maybe_unused,
 		    __u32 opt_len __maybe_unused)
 {
-	return 0;
+	return DROP_INVALID;
 }
