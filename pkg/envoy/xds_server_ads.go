@@ -604,7 +604,6 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	}
 
 	epID := ep.GetID()
-	nodeIDs := GetNodeIDs(ep, l4policy)
 	resourceName := strconv.FormatUint(epID, 10)
 
 	// If there are no listeners configured that start an NPDS client, the local
@@ -630,26 +629,23 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		s.localEndpointStore.setLocalEndpoint(ep)
 	}
 
-	updatedNodeIDs := make([]string, 0, len(nodeIDs))
-	for _, nodeId := range nodeIDs {
-		resources := s.cache.GetAllResources(nodeId)
-		if resources == nil {
-			resources = &xds.Resources{}
-		}
-		oldPolicy, existed := resources.NetworkPolicies[resourceName]
-		if existed && (oldPolicy == networkPolicy || proto.Equal(oldPolicy, networkPolicy)) {
-			if waitForACK {
-				generation, ok := s.resourceGenerationTracker.networkPolicyGeneration(nodeId, resourceName)
-				if !ok {
-					generation = s.resourceGenerations[nodeId]
-				}
-				if err := s.cache.AwaitCurrentVersion(nodeId, generation, wg, map[string]func(error){NetworkPolicyTypeURL: callback}); err != nil {
-					return err, nil, nil
-				}
+	var updatedLocalNodeID bool
+	resources := s.cache.GetAllResources(localNodeID)
+	if resources == nil {
+		resources = &xds.Resources{}
+	}
+	oldPolicy, existed := resources.NetworkPolicies[resourceName]
+	if existed && (oldPolicy == networkPolicy || proto.Equal(oldPolicy, networkPolicy)) {
+		if waitForACK {
+			generation, ok := s.resourceGenerationTracker.networkPolicyGeneration(localNodeID, resourceName)
+			if !ok {
+				generation = s.resourceGenerations[localNodeID]
 			}
-			continue
+			if err := s.cache.AwaitCurrentVersion(localNodeID, generation, wg, map[string]func(error){NetworkPolicyTypeURL: callback}); err != nil {
+				return err, nil, nil
+			}
 		}
-
+	} else {
 		// Preserve the immutable published generation by copying the Resources
 		// header and only the resource map changed by this update.
 		updatedResources := resources.CloneNetworkPolicies()
@@ -658,12 +654,13 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		if waitForACK {
 			callbackTypeURLs = map[string]func(error){NetworkPolicyTypeURL: callback}
 		}
-		if err := s.updateSnapshot(ctx, updatedResources, nodeId, wg, callbackTypeURLs,
+		if err := s.updateSnapshot(ctx, updatedResources, localNodeID, wg, callbackTypeURLs,
 			&resourceChanges{networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{key: resourceName, value: oldPolicy, existed: existed}}}); err != nil {
 			return err, nil, nil
 		}
-		updatedNodeIDs = append(updatedNodeIDs, nodeId)
+		updatedLocalNodeID = true
 	}
+
 	if !waitForACK {
 		callback(nil)
 	}
@@ -685,26 +682,24 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 
 			// Remove each policy this call added and re-push its snapshot. Nodes
 			// whose policy was already current require no xDS revert.
-			for _, nodeId := range updatedNodeIDs {
-				resources := s.cache.GetAllResources(nodeId)
-				if resources == nil {
-					continue
-				}
-				updatedResources := resources.CloneNetworkPolicies()
-				oldPolicy, existed := updatedResources.NetworkPolicies[resourceName]
-				delete(updatedResources.NetworkPolicies, resourceName)
-				changes := &resourceChanges{
-					networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{
-						key:     resourceName,
-						value:   oldPolicy,
-						existed: existed,
-					}},
-				}
-				if err := s.updateSnapshot(ctx, updatedResources, nodeId, nil, nil, changes); err != nil {
-					return err
+			if updatedLocalNodeID {
+				resources := s.cache.GetAllResources(localNodeID)
+				if resources != nil {
+					updatedResources := resources.CloneNetworkPolicies()
+					oldPolicy, existed := updatedResources.NetworkPolicies[resourceName]
+					delete(updatedResources.NetworkPolicies, resourceName)
+					changes := &resourceChanges{
+						networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{
+							key:     resourceName,
+							value:   oldPolicy,
+							existed: existed,
+						}},
+					}
+					if err := s.updateSnapshot(ctx, updatedResources, localNodeID, nil, nil, changes); err != nil {
+						return err
+					}
 				}
 			}
-
 			s.logger.Debug("Finished reverting xDS network policy update")
 			return nil
 		}, func() {

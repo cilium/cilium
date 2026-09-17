@@ -775,7 +775,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		}
 	}
 	epID := ep.GetID()
-	nodeIDs := GetLegacyFormatNodeIDs(ep, l4policy)
+	nodeIDs := []string{LegacyFormatLocalNodeID}
 	resourceName := strconv.FormatUint(epID, 10)
 	revertFunc := s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
 
