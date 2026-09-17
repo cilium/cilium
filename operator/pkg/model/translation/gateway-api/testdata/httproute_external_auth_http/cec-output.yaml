@@ -50,7 +50,7 @@ spec:
                   ignoreCase: true
               decoderHeaderMutationRules:
                 disallowExpression:
-                  regex: ^(:authority|host)$
+                  regex: ^(:authority|host|content-length)$
               httpService:
                 authorizationResponse:
                   allowedUpstreamHeaders:
