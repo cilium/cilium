@@ -209,6 +209,46 @@
       "pinDigests": false
     },
     {
+      // Try to group all updates for all dependencies in a single PR. More
+      // specific packageRules are followed by this one.
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch",
+        "pin",
+        "pinDigest",
+        "digest",
+        "lockFileMaintenance",
+        "rollback",
+        "bump",
+        "replacement"
+      ],
+      "groupName": "all-dependencies",
+      "matchPackageNames": [
+        "!quay.io/goswagger/swagger",
+        // cilium-envoy is excluded because it has its own grouping rule that
+        // combines updates from both dockerfile and regex managers into a single PR.
+        "!quay.io/cilium/cilium-envoy"
+      ]
+    },
+    {
+      // Update quay.io/goswagger/swagger independently because it changes 300+ files
+      // which breaks GitHub workflow path filtering
+      "matchPackageNames": [
+        "quay.io/goswagger/swagger"
+      ],
+      "groupName": "goswagger",
+      "separateMajorMinor": true,
+      // Open as draft so CODEOWNERS are only requested once ciliumbot has
+      // been added and the auto-approve workflow can mark the PR ready.
+      // GitHub auto-merge is also enabled by the auto-approve workflow.
+      "draftPR": true,
+      // Replace the list of reviewers with just ciliumbot
+      "reviewers":[
+        "ciliumbot",
+      ]
+    },
+    {
       "matchPackageNames": [
         "bufbuild/buf", // Protocol buffer toolkit
         "docker.io/alpine/socat", // Alpine socat package
@@ -264,53 +304,6 @@
       // Replace the list of reviewers with just ciliumbot
       "reviewers": [
         "ciliumbot"
-      ]
-    },
-    {
-      // Try to group all updates for all dependencies in a single PR. More
-      // specific packageRules are followed by this one.
-      "matchUpdateTypes": [
-        "major",
-        "minor",
-        "patch",
-        "pin",
-        "pinDigest",
-        "digest",
-        "lockFileMaintenance",
-        "rollback",
-        "bump",
-        "replacement"
-      ],
-      "groupName": "all-dependencies",
-      "matchPackageNames": [
-        "!quay.io/goswagger/swagger",
-        // cilium-envoy is excluded because it has its own grouping rule that
-        // combines updates from both dockerfile and regex managers into a single PR.
-        "!quay.io/cilium/cilium-envoy"
-      ]
-    },
-    {
-      // Update quay.io/goswagger/swagger independently because it changes 300+ files
-      // which breaks GitHub workflow path filtering
-      "matchPackageNames": [
-        "quay.io/goswagger/swagger"
-      ],
-      "groupName": "goswagger",
-      "separateMajorMinor": true,
-      // Open as draft so CODEOWNERS are only requested once ciliumbot has
-      // been added and the auto-approve workflow can mark the PR ready.
-      // GitHub auto-merge is also enabled by the auto-approve workflow.
-      "draftPR": true,
-      // Replace the list of reviewers with just ciliumbot
-      "reviewers":[
-        "ciliumbot",
-      ]
-    },
-    {
-      "groupName": "all github action dependencies",
-      "groupSlug": "all-github-action",
-      "matchFileNames": [
-        ".github/**"
       ]
     },
     {
