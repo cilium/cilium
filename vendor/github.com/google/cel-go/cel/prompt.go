@@ -108,7 +108,7 @@ type Prompt struct {
 	// tmpl is the text template base-configuration for rendering text.
 	tmpl *template.Template
 
-	// fieldPaths is a flag to enable including reachable field paths in the prompt.
+	// fieldPaths is a flag to include reachable field paths in the prompt.
 	fieldPaths bool
 
 	// env reference used to collect variables, functions, and macros available to the prompt.
@@ -131,6 +131,12 @@ type promptInst struct {
 
 // Render renders the user prompt with the associated context from the prompt template
 // for use with LLM generators.
+//
+// User-supplied input is passed as template data via the UserPrompt field, which
+// Go's text/template renders as a literal string value. Template action delimiters
+// such as {{.Persona}} in the user prompt are never evaluated as template directives
+// because text/template only executes directives present in the template definition
+// itself, not in data values interpolated at render time.
 func (p *Prompt) Render(userPrompt string) string {
 	var buffer strings.Builder
 	vars := make([]*promptVariable, len(p.env.Variables()))
@@ -178,7 +184,8 @@ func (p *Prompt) Render(userPrompt string) string {
 		Variables:  vars,
 		Macros:     macs,
 		Functions:  funcs,
-		UserPrompt: userPrompt}
+		UserPrompt: userPrompt,
+	}
 	p.tmpl.Execute(&buffer, inst)
 	return buffer.String()
 }

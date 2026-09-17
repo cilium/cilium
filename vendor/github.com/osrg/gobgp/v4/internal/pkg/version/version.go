@@ -19,7 +19,7 @@ import "fmt"
 
 const (
 	MAJOR uint = 4
-	MINOR uint = 6
+	MINOR uint = 7
 	PATCH uint = 0
 )
 
