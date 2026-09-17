@@ -25,8 +25,14 @@ import (
 
 func getExpectedDerivedLabels(localEpSliceName string) map[string]string {
 	labels := maps.Clone(commonLabels)
-	labels[localEndpointSliceLabel] = localEpSliceName
+	if len(localEpSliceName) <= 63 {
+		labels[localEndpointSliceLabel] = localEpSliceName
+	}
 	return labels
+}
+
+func getExpectedDerivedAnnotations(localEpSliceName string) map[string]string {
+	return map[string]string{localEndpointSliceNameAnnotation: localEpSliceName}
 }
 
 var (
@@ -539,7 +545,7 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 
 			require.Equal(t, commonOwnerReferences, epSlice.OwnerReferences)
 			require.Equal(t, getExpectedDerivedLabels("full"+fullSuffix), epSlice.Labels)
-			require.Empty(t, epSlice.Annotations)
+			require.Equal(t, getExpectedDerivedAnnotations("full"+fullSuffix), epSlice.Annotations)
 			require.Equal(t, commonPorts, epSlice.Ports)
 			require.Equal(t, commonEndpoints, epSlice.Endpoints)
 			require.Equal(t, discoveryv1.AddressTypeIPv4, epSlice.AddressType)
@@ -602,6 +608,7 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 			var epSlice discoveryv1.EndpointSlice
 			require.NoError(t, c.Get(t.Context(), keyDerived, &epSlice))
 			require.Equal(t, getExpectedDerivedLabels(tt.localName), epSlice.Labels)
+			require.Equal(t, getExpectedDerivedAnnotations(tt.localName), epSlice.Annotations)
 			require.Equal(t, commonOwnerReferences, epSlice.OwnerReferences)
 			require.Equal(t, commonEndpoints, epSlice.Endpoints)
 			require.Equal(t, commonPorts, epSlice.Ports)
