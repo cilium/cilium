@@ -70,6 +70,7 @@ const (
 	DNSTypeTXT    DNSType = 16  // text strings
 	DNSTypeAAAA   DNSType = 28  // a IPv6 host address [RFC3596]
 	DNSTypeSRV    DNSType = 33  // server discovery [RFC2782] [RFC6195]
+	DNSTypeNAPTR  DNSType = 35  // naming authority pointer [RFC3403]
 	DNSTypeOPT    DNSType = 41  // OPT Pseudo-RR [RFC6891]
 	DNSTypeRRSIG  DNSType = 46  // RRSIG RR [RFC4034][RFC3755]
 	DNSTypeDNSKEY DNSType = 48  // DNSKEY RR [RFC4034][RFC3755]
@@ -118,6 +119,8 @@ func (dt DNSType) String() string {
 		return "AAAA"
 	case DNSTypeSRV:
 		return "SRV"
+	case DNSTypeNAPTR:
+		return "NAPTR"
 	case DNSTypeOPT:
 		return "OPT"
 	case DNSTypeRRSIG:
@@ -449,6 +452,8 @@ func recSize(rr *DNSResourceRecord) int {
 		return l
 	case DNSTypeSRV:
 		return 6 + len(rr.SRV.Name) + 2
+	case DNSTypeNAPTR:
+		return 4 + 1 + len(rr.NAPTR.Flags) + 1 + len(rr.NAPTR.Service) + 1 + len(rr.NAPTR.Regexp) + len(rr.NAPTR.Replacement) + 2
 	case DNSTypeURI:
 		return 4 + len(rr.URI.Target)
 	case DNSTypeOPT:
@@ -717,6 +722,7 @@ type DNSResourceRecord struct {
 	SOA            DNSSOA
 	SRV            DNSSRV
 	MX             DNSMX
+	NAPTR          DNSNAPTR
 	OPT            []DNSOPT // See RFC 6891, section 6.1.2
 	RRSIG          DNSRRSIG // See RFC 4034, section 3.1
 	DNSKEY         DNSKEY   // See RFC 4034, section 2.1
@@ -825,6 +831,20 @@ func (rr *DNSResourceRecord) encode(data []byte, offset int, opts gopacket.Seria
 		binary.BigEndian.PutUint16(data[noff+12:], rr.SRV.Weight)
 		binary.BigEndian.PutUint16(data[noff+14:], rr.SRV.Port)
 		encodeName(rr.SRV.Name, data, noff+16)
+	case DNSTypeNAPTR:
+		binary.BigEndian.PutUint16(data[noff+10:], rr.NAPTR.Order)
+		binary.BigEndian.PutUint16(data[noff+12:], rr.NAPTR.Preference)
+		noff2 := noff + 14
+		data[noff2] = byte(len(rr.NAPTR.Flags))
+		copy(data[noff2+1:], rr.NAPTR.Flags)
+		noff2 += 1 + len(rr.NAPTR.Flags)
+		data[noff2] = byte(len(rr.NAPTR.Service))
+		copy(data[noff2+1:], rr.NAPTR.Service)
+		noff2 += 1 + len(rr.NAPTR.Service)
+		data[noff2] = byte(len(rr.NAPTR.Regexp))
+		copy(data[noff2+1:], rr.NAPTR.Regexp)
+		noff2 += 1 + len(rr.NAPTR.Regexp)
+		encodeName(rr.NAPTR.Replacement, data, noff2)
 	case DNSTypeURI:
 		binary.BigEndian.PutUint16(data[noff+10:], rr.URI.Priority)
 		binary.BigEndian.PutUint16(data[noff+12:], rr.URI.Weight)
@@ -1050,6 +1070,52 @@ func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte
 			return err
 		}
 		rr.SRV.Name = name
+	case DNSTypeNAPTR:
+		if len(data) < offset+4 {
+			return errors.New("NAPTR too small")
+		}
+		rr.NAPTR.Order = binary.BigEndian.Uint16(data[offset : offset+2])
+		rr.NAPTR.Preference = binary.BigEndian.Uint16(data[offset+2 : offset+4])
+		offset += 4
+		// Decode Flags (character-string)
+		if len(data) < offset+1 {
+			return errors.New("NAPTR Flags missing")
+		}
+		flagsLen := int(data[offset])
+		offset++
+		if len(data) < offset+flagsLen {
+			return errors.New("NAPTR Flags truncated")
+		}
+		rr.NAPTR.Flags = data[offset : offset+flagsLen]
+		offset += flagsLen
+		// Decode Service (character-string)
+		if len(data) < offset+1 {
+			return errors.New("NAPTR Service missing")
+		}
+		serviceLen := int(data[offset])
+		offset++
+		if len(data) < offset+serviceLen {
+			return errors.New("NAPTR Service truncated")
+		}
+		rr.NAPTR.Service = data[offset : offset+serviceLen]
+		offset += serviceLen
+		// Decode Regexp (character-string)
+		if len(data) < offset+1 {
+			return errors.New("NAPTR Regexp missing")
+		}
+		regexpLen := int(data[offset])
+		offset++
+		if len(data) < offset+regexpLen {
+			return errors.New("NAPTR Regexp truncated")
+		}
+		rr.NAPTR.Regexp = data[offset : offset+regexpLen]
+		offset += regexpLen
+		// Decode Replacement (domain-name)
+		name, _, err := decodeName(data, offset, buffer, 1)
+		if err != nil {
+			return err
+		}
+		rr.NAPTR.Replacement = name
 	case DNSTypeOPT:
 		allOPT, err := decodeOPTs(data, offset)
 		if err != nil {
@@ -1095,6 +1161,17 @@ type DNSSRV struct {
 type DNSMX struct {
 	Preference uint16
 	Name       []byte
+}
+
+// DNSNAPTR is a Naming Authority Pointer record, used for application-specific
+// string transformations (e.g., for SIP, ENUM).
+type DNSNAPTR struct {
+	Order       uint16
+	Preference  uint16
+	Flags       []byte
+	Service     []byte
+	Regexp      []byte
+	Replacement []byte
 }
 
 // DNSSVCB resource record is used to facilitate the lookup of

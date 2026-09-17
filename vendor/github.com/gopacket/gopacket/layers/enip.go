@@ -1,10 +1,7 @@
-// Copyright 2018, The GoPacket Authors, All rights reserved.
-//
-// Use of this source code is governed by a BSD-style license
-// that can be found in the LICENSE file in the root of the source
-// tree.
-//
-//******************************************************************************
+// EtherNet/IP (ENIP) protocol support for gopacket.
+// EtherNet/IP is an industrial Ethernet protocol that encapsulates CIP
+// (Common Industrial Protocol) over TCP/IP.
+// See: https://www.odva.org/technology-standards/key-technologies/ethernet-ip/
 
 package layers
 
@@ -16,21 +13,28 @@ import (
 	"github.com/gopacket/gopacket"
 )
 
-//******************************************************************************
-//
-// ENIP (Ethernet/IP) Decoding Layer
-// ------------------------------------------
-// This file provides a GoPacket decoding layer for ENIP (Ethernet/IP).
-// Ethernet/IP is an industrial protocol that encapsulates CIP (Common Industrial Protocol)
-//
-//******************************************************************************
+const (
+	enipMinPacketLen           int = 24
+	enipMinRegSessionPacketLen int = 4
+	enipMinSendRRDataPacketLen int = 36
 
-const enipHeaderSize = 24
+	// TCPPortENIP is the TCP port used to transport EtherNet/IP packets
+	TCPPortENIP uint16 = 44818
+	// UDPPortENIP is the UDP port used to transport EtherNet/IP packets
+	UDPPortENIP uint16 = 2222
+)
 
-// ENIPCommand represents the command code in an ENIP packet
+var (
+	// ErrENIPDataTooSmall is returned if an EtherNet/IP packet is truncated
+	ErrENIPDataTooSmall = errors.New("ENIP packet data truncated")
+	// ErrENIPUnknownDataFormat is returned if an unknown data format ID is encountered
+	ErrENIPUnknownDataFormat = errors.New("ENIP unknown data format ID")
+)
+
+// ENIPCommand is an EtherNet/IP command code
 type ENIPCommand uint16
 
-// ENIP Command codes
+// ENIP Command constants
 const (
 	ENIPCommandNOP               ENIPCommand = 0x0000
 	ENIPCommandListServices      ENIPCommand = 0x0004
@@ -44,6 +48,7 @@ const (
 	ENIPCommandCancel            ENIPCommand = 0x0073
 )
 
+// String returns a human-readable string representation of the ENIP command
 func (ec ENIPCommand) String() string {
 	switch ec {
 	case ENIPCommandNOP:
@@ -67,14 +72,14 @@ func (ec ENIPCommand) String() string {
 	case ENIPCommandCancel:
 		return "Cancel"
 	default:
-		return fmt.Sprintf("Unknown Command (0x%04x)", uint16(ec))
+		return fmt.Sprintf("Unknown(0x%04X)", uint16(ec))
 	}
 }
 
-// ENIPStatus represents the status code in an ENIP packet
+// ENIPStatus represents an EtherNet/IP status code
 type ENIPStatus uint32
 
-// ENIP Status codes
+// ENIP Status constants
 const (
 	ENIPStatusSuccess              ENIPStatus = 0x0000
 	ENIPStatusInvalidCommand       ENIPStatus = 0x0001
@@ -85,6 +90,7 @@ const (
 	ENIPStatusUnsupportedProtocol  ENIPStatus = 0x0069
 )
 
+// String returns a human-readable string representation of the ENIP status
 func (es ENIPStatus) String() string {
 	switch es {
 	case ENIPStatusSuccess:
@@ -102,128 +108,177 @@ func (es ENIPStatus) String() string {
 	case ENIPStatusUnsupportedProtocol:
 		return "Unsupported Protocol"
 	default:
-		return fmt.Sprintf("Unknown Status (0x%08x)", uint32(es))
+		return fmt.Sprintf("Unknown(0x%08X)", uint32(es))
 	}
 }
 
-//******************************************************************************
-
-// ENIP represents an Ethernet/IP packet
+// ENIP implements decoding of EtherNet/IP, a protocol used to transport the
+// Common Industrial Protocol over standard OSI networks. EtherNet/IP transports
+// over both TCP and UDP.
+// See the EtherNet/IP Developer's Guide for more information: https://www.odva.org/Portals/0/Library/Publications_Numbered/PUB00213R0_EtherNetIP_Developers_Guide.pdf
 type ENIP struct {
 	BaseLayer
-
-	Command       ENIPCommand // Command code
-	Length        uint16      // Length of data portion in bytes
-	SessionHandle uint32      // Session identification
-	Status        ENIPStatus  // Status code
-	SenderContext uint64      // Sender context
-	Options       uint32      // Options flags
+	Command         ENIPCommand
+	Length          uint16
+	SessionHandle   uint32
+	Status          uint32
+	SenderContext   []byte
+	Options         uint32
+	CommandSpecific ENIPCommandSpecificData
 }
 
-//******************************************************************************
-
-// LayerType returns the layer type of the ENIP object
-func (e *ENIP) LayerType() gopacket.LayerType {
-	return LayerTypeENIP
+// ENIPCommandSpecificData contains data specific to a command. This may
+// include another EtherNet/IP packet embedded within the Data structure.
+type ENIPCommandSpecificData struct {
+	Cmd  ENIPCommand
+	Data []byte
 }
 
-//******************************************************************************
-
-// decodeENIP analyses a byte slice and attempts to decode it as an ENIP packet
-func decodeENIP(data []byte, p gopacket.PacketBuilder) error {
-	enip := &ENIP{}
-	err := enip.DecodeFromBytes(data, p)
-	if err != nil {
-		return err
-	}
-	p.AddLayer(enip)
-	p.SetApplicationLayer(enip)
-	return p.NextDecoder(enip.NextLayerType())
+func init() {
+	RegisterTCPPortLayerType(TCPPort(TCPPortENIP), LayerTypeENIP)
+	RegisterUDPPortLayerType(UDPPort(UDPPortENIP), LayerTypeENIP)
 }
 
-//******************************************************************************
-
-// DecodeFromBytes analyses a byte slice and attempts to decode it as an ENIP packet
-func (e *ENIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
-	if len(data) < enipHeaderSize {
+// DecodeFromBytes parses the contents of `data` as an EtherNet/IP packet.
+func (enip *ENIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < enipMinPacketLen {
 		df.SetTruncated()
-		return errors.New("ENIP packet too short")
+		return ErrENIPDataTooSmall
 	}
-
-	// Parse ENIP header
-	e.Command = ENIPCommand(binary.LittleEndian.Uint16(data[0:2]))
-	e.Length = binary.LittleEndian.Uint16(data[2:4])
-	e.SessionHandle = binary.LittleEndian.Uint32(data[4:8])
-	e.Status = ENIPStatus(binary.LittleEndian.Uint32(data[8:12]))
-
-	// Sender context is 8 bytes at offset 12
-	e.SenderContext = binary.LittleEndian.Uint64(data[12:20])
-
-	e.Options = binary.LittleEndian.Uint32(data[20:24])
-
-	// Check if we have enough data for the payload
-	totalLength := enipHeaderSize + int(e.Length)
-	if len(data) < totalLength {
-		df.SetTruncated()
-		return fmt.Errorf("ENIP packet truncated: expected %d bytes, got %d", totalLength, len(data))
-	}
-
-	e.BaseLayer = BaseLayer{
-		Contents: data[:enipHeaderSize],
-		Payload:  data[enipHeaderSize:totalLength],
-	}
-
-	return nil
+	enip.Command = ENIPCommand(binary.LittleEndian.Uint16(data[0:2]))
+	enip.Length = binary.LittleEndian.Uint16(data[2:4])
+	enip.SessionHandle = binary.LittleEndian.Uint32(data[4:8])
+	enip.Status = binary.LittleEndian.Uint32(data[8:12])
+	enip.SenderContext = data[12:20]
+	enip.Options = binary.LittleEndian.Uint32(data[20:24])
+	return enip.getPayload(data, df)
 }
 
-//******************************************************************************
-
-// NextLayerType returns the layer type of the ENIP payload
-// For SendRRData and SendUnitData commands, the payload typically contains CIP data
-func (e *ENIP) NextLayerType() gopacket.LayerType {
-	// Commands that typically contain CIP data
-	switch e.Command {
-	case ENIPCommandSendRRData, ENIPCommandSendUnitData:
-		// The payload contains CIP encapsulation, but we'll simplify and try to decode as CIP
-		// In reality, SendRRData and SendUnitData have additional encapsulation headers
-		// For now, we'll just return CIP and let it handle what it can
-		if len(e.Payload()) > 0 {
-			return LayerTypeCIP
+func (enip *ENIP) getPayload(data []byte, df gopacket.DecodeFeedback) (err error) {
+	enip.CommandSpecific.Cmd = enip.Command
+	switch enip.Command {
+	case ENIPCommandRegisterSession: // Register session command
+		if len(data) < 28 { // 24 byte header + 4 byte protocol version/options
+			df.SetTruncated()
+			err = ErrENIPDataTooSmall
+			return
 		}
+		enip.CommandSpecific.Data = data[24:28]
+		enip.Contents = data[0:28]
+		enip.Payload = data[28:]
+	case ENIPCommandSendUnitData, ENIPCommandSendRRData:
+		if len(data) < enipMinSendRRDataPacketLen {
+			df.SetTruncated()
+			return ErrENIPDataTooSmall
+		}
+		// Grab the item count
+		itemCount := int(binary.LittleEndian.Uint16(data[30:32]))
+		csdEnd := 32
+		for i := 0; i < itemCount; i++ {
+			if csdEnd+4 > len(data) {
+				df.SetTruncated()
+				return ErrENIPDataTooSmall
+			}
+			dataFormatID := binary.LittleEndian.Uint16(data[csdEnd:])
+			itemLen, err := getDataFormatIDLen(dataFormatID, data[csdEnd+2:])
+			if err != nil {
+				return err
+			}
+			csdEnd += itemLen
+		}
+		if len(data) < csdEnd {
+			df.SetTruncated()
+			return ErrENIPDataTooSmall
+		}
+		enip.CommandSpecific.Data = data[24:csdEnd]
+		enip.Contents = data[0:csdEnd]
+		enip.Payload = data[csdEnd:]
+	default:
+		enip.CommandSpecific.Data = data[24:]
+		enip.Contents = data
+		enip.Payload = []byte{}
 	}
-	return gopacket.LayerTypePayload
+	return
 }
 
-//******************************************************************************
-
-// Payload returns the ENIP payload bytes
-func (e *ENIP) Payload() []byte {
-	return e.BaseLayer.Payload
+func getDataFormatIDLen(id uint16, data []byte) (int, error) {
+	switch id {
+	case 0x0000:
+		return 4, nil // ID (2 bytes) + length field (2 bytes)
+	case 0x000C:
+		return 8, nil // Sockaddr info
+	case 0x00A1:
+		if len(data) < 2 {
+			return 0, ErrENIPDataTooSmall
+		}
+		length := int(binary.LittleEndian.Uint16(data))
+		totalLen := 4 + length
+		// Ensure the claimed item length fits in the remaining buffer (data includes the 2-byte length field)
+		if totalLen < 0 || length < 0 || 2+length > len(data) {
+			return 0, ErrENIPDataTooSmall
+		}
+		return totalLen, nil // Connected data item
+	case 0x00B1:
+		return 6, nil // Connected address item
+	case 0x00B2:
+		return 4, nil // Sequenced address item
+	case 0x0100:
+		return 4, nil // List services response
+	case 0x8000:
+		return 4, nil // CIP identity
+	case 0x8001:
+		return 2, nil // CIP security
+	case 0x8002:
+		return 2, nil // EtherNet/IP capability
+	default:
+		return 0, ErrENIPUnknownDataFormat
+	}
 }
 
-// CanDecode returns the set of layer types that this DecodingLayer can decode
-func (e *ENIP) CanDecode() gopacket.LayerClass {
-	return LayerTypeENIP
+// LayerType returns LayerTypeENIP
+func (enip *ENIP) LayerType() gopacket.LayerType { return LayerTypeENIP }
+
+// CanDecode returns LayerTypeENIP
+func (enip *ENIP) CanDecode() gopacket.LayerClass { return LayerTypeENIP }
+
+// NextLayerType returns either LayerTypePayload or the next layer type
+// derived from the command specific data
+func (enip *ENIP) NextLayerType() (nl gopacket.LayerType) {
+	switch enip.Command {
+	case ENIPCommandSendRRData:
+		fallthrough
+	case ENIPCommandSendUnitData:
+		nl = enip.CommandSpecific.NextLayer()
+	case ENIPCommandRegisterSession:
+		fallthrough
+	default:
+		nl = gopacket.LayerTypePayload
+	}
+	return
 }
 
-// SerializeTo writes the serialized form of this layer into the SerializationBuffer
-func (e *ENIP) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
-	bytes, err := b.PrependBytes(enipHeaderSize)
-	if err != nil {
-		return err
+func decodeENIP(data []byte, p gopacket.PacketBuilder) error {
+	if len(data) < enipMinPacketLen {
+		p.SetTruncated()
+		return ErrENIPDataTooSmall
 	}
+	enip := &ENIP{}
+	return decodingLayerDecoder(enip, data, p)
+}
 
-	binary.LittleEndian.PutUint16(bytes[0:2], uint16(e.Command))
-
-	if opts.FixLengths {
-		e.Length = uint16(len(b.Bytes()) - enipHeaderSize)
+// NextLayer derives the next layer type by checking for a CIP marker
+// at the start of the command specific data, returning LayerTypeCIP
+// if found; if not present, the next layer type is LayerTypePayload
+func (csd ENIPCommandSpecificData) NextLayer() (nl gopacket.LayerType) {
+	if len(csd.Data) < 4 {
+		nl = gopacket.LayerTypePayload
+		return
 	}
-	binary.LittleEndian.PutUint16(bytes[2:4], e.Length)
-
-	binary.LittleEndian.PutUint32(bytes[4:8], e.SessionHandle)
-	binary.LittleEndian.PutUint32(bytes[8:12], uint32(e.Status))
-	binary.LittleEndian.PutUint64(bytes[12:20], e.SenderContext)
-	binary.LittleEndian.PutUint32(bytes[20:24], e.Options)
-
-	return nil
+	switch binary.LittleEndian.Uint32(csd.Data) {
+	case 0x0:
+		nl = LayerTypeCIP
+	default:
+		nl = gopacket.LayerTypePayload
+	}
+	return
 }
