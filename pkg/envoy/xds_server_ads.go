@@ -593,7 +593,6 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	}
 
 	epID := ep.GetID()
-	nodeIDs := GetNodeIDs(ep, l4policy)
 	resourceName := strconv.FormatUint(epID, 10)
 
 	// If there are no listeners configured that start an NPDS client, the local
@@ -619,23 +618,22 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		s.localEndpointStore.setLocalEndpoint(ep)
 	}
 
-	for _, nodeId := range nodeIDs {
-		resources := s.cache.GetAllResources(nodeId)
-		if resources == nil {
-			resources = &xds.Resources{}
-		}
-		resources = resources.DeepCopy()
-		oldPolicy, existed := resources.NetworkPolicies[resourceName]
-		resources.NetworkPolicies[resourceName] = networkPolicy
-		var callbackTypeURLs map[string]func(error)
-		if waitForACK {
-			callbackTypeURLs = map[string]func(error){NetworkPolicyTypeURL: callback}
-		}
-		if err := s.updateSnapshot(ctx, resources, nodeId, wg, callbackTypeURLs,
-			&resourceChanges{networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{key: resourceName, value: oldPolicy, existed: existed}}}); err != nil {
-			return err, nil, nil
-		}
+	resources := s.cache.GetAllResources(localNodeID)
+	if resources == nil {
+		resources = &xds.Resources{}
 	}
+	resources = resources.DeepCopy()
+	oldPolicy, existed := resources.NetworkPolicies[resourceName]
+	resources.NetworkPolicies[resourceName] = networkPolicy
+	var callbackTypeURLs map[string]func(error)
+	if waitForACK {
+		callbackTypeURLs = map[string]func(error){NetworkPolicyTypeURL: callback}
+	}
+	if err := s.updateSnapshot(ctx, resources, localNodeID, wg, callbackTypeURLs,
+		&resourceChanges{networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{key: resourceName, value: oldPolicy, existed: existed}}}); err != nil {
+		return err, nil, nil
+	}
+
 	if !waitForACK {
 		callback(nil)
 	}
@@ -656,11 +654,8 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 			}
 
 			// Remove the policy we just added and re-push snapshot.
-			for _, nodeId := range nodeIDs {
-				resources := s.cache.GetAllResources(nodeId)
-				if resources == nil {
-					continue
-				}
+			resources := s.cache.GetAllResources(localNodeID)
+			if resources != nil {
 				resources = resources.DeepCopy()
 				oldPolicy, existed := resources.NetworkPolicies[resourceName]
 				delete(resources.NetworkPolicies, resourceName)
@@ -671,7 +666,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 						existed: existed,
 					}},
 				}
-				if err := s.updateSnapshot(ctx, resources, nodeId, nil, nil, changes); err != nil {
+				if err := s.updateSnapshot(ctx, resources, localNodeID, nil, nil, changes); err != nil {
 					return err
 				}
 			}
