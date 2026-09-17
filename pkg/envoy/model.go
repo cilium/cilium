@@ -63,6 +63,11 @@ const (
 	// LocalNodeID is the Envoy node ID used by the host proxy.
 	LocalNodeID = "host~127.0.0.1~no-id~localdomain"
 
+	// GetLegacyFormatNodeIDs returns the Envoy proxy IDs that need to ACK policy
+	// updates on the legacy per-type xDS server. The legacy server records ACKs by
+	// parsed node IP, not by full Envoy node ID.
+	LegacyFormatLocalNodeID = "127.0.0.1"
+
 	// direction logging
 	ingressDirection = "ingress"
 	egressDirection  = "egress"
@@ -285,25 +290,6 @@ func toEnvoyTerminatingTLSContext(tls *policy.TLSContext, policySecretsNamespace
 
 func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, policySecretsNamespace string) string {
 	return syncnames.SyncedSDSSecretName(policySecretsNamespace, namespacedName)
-}
-
-// return the Envoy proxy node IDs that need to ACK the policy.
-func GetNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
-	nodeIDs := make([]string, 0, 1)
-
-	// Host proxy uses LocalNodeID as the nodeID
-	nodeIDs = append(nodeIDs, LocalNodeID)
-	return nodeIDs
-}
-
-// GetLegacyFormatNodeIDs returns the Envoy proxy IDs that need to ACK policy
-// updates on the legacy per-type xDS server. The legacy server records ACKs by
-// parsed node IP, not by full Envoy node ID.
-func GetLegacyFormatNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
-	nodeIDs := make([]string, 0, 1)
-
-	nodeIDs = append(nodeIDs, "127.0.0.1")
-	return nodeIDs
 }
 
 func GetNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts GetEgressNamedPorts, selectors policy.SelectorSnapshot, names []string, l4Policy *policy.L4Policy,
