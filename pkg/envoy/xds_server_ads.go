@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -40,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -853,6 +855,59 @@ func listenerPortAllocationCompletionTypeURLs(callback func(error), changes *res
 	return callbackTypeURLs
 }
 
+func adsListenerReusePortDisabled(listener *envoy_config_listener.Listener) bool {
+	reusePort := listener.GetEnableReusePort()
+	return reusePort != nil && !reusePort.GetValue()
+}
+
+func adsListenersRequiringRecreate(oldListeners, newListeners map[string]*envoy_config_listener.Listener) []string {
+	var names []string
+	for name, oldListener := range oldListeners {
+		newListener, found := newListeners[name]
+		if found && !listenerAddressesEqual(oldListener, newListener) &&
+			(adsListenerReusePortDisabled(oldListener) || adsListenerReusePortDisabled(newListener)) {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	return names
+}
+
+// pruneUnreferencedRoutes removes RDS resources that become temporarily
+// unreferenced while listeners are staged for deletion. Strict ADS snapshots
+// reject unreferenced routes, so the routes are restored with the replacement
+// listeners in the final snapshot.
+func pruneUnreferencedRoutes(resources *xds.Resources) {
+	referenced := make(map[string]struct{})
+	for _, listener := range resources.Listeners {
+		for _, filterChain := range listener.GetFilterChains() {
+			for _, filter := range filterChain.GetFilters() {
+				typedConfig := filter.GetTypedConfig()
+				if typedConfig == nil {
+					continue
+				}
+				message, err := typedConfig.UnmarshalNew()
+				if err != nil {
+					continue
+				}
+				hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
+				if !ok {
+					continue
+				}
+				if name := hcm.GetRds().GetRouteConfigName(); name != "" {
+					referenced[name] = struct{}{}
+				}
+			}
+		}
+	}
+
+	for name := range resources.Routes {
+		if _, found := referenced[name]; !found {
+			delete(resources.Routes, name)
+		}
+	}
+}
+
 // buildRevert captures the given resource changes and returns a closure that
 // restores them. The revert is skipped if another update has been applied since
 // (detected via snapshot version mismatch).
@@ -944,6 +999,11 @@ func applyDiff[V any](dst map[string]V, entries []savedEntry[V]) {
 
 // Caller must hold s.mutex.
 func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources, nodeId string, wg *completion.WaitGroup, callbackTypeURLs map[string]func(err error), changes *resourceChanges) error {
+	return s.updateSnapshotWithRevert(ctx, resources, nodeId, wg, callbackTypeURLs, changes, true)
+}
+
+// Caller must hold s.mutex.
+func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds.Resources, nodeId string, wg *completion.WaitGroup, callbackTypeURLs map[string]func(err error), changes *resourceChanges, revertOnNACK bool) error {
 	if nodeId == "" {
 		// Host proxy uses "127.0.0.1" as the nodeID
 		nodeId = localNodeID
@@ -1026,7 +1086,7 @@ func (s *adsServer) updateSnapshot(ctx context.Context, resources *xds.Resources
 		// Untracked snapshots can coalesce older tracked updates in ADS. Preserve
 		// their rollback as well so a NACK of the resulting response restores all
 		// updates represented by it, newest first.
-		if wg != nil || changes != nil {
+		if revertOnNACK && (wg != nil || changes != nil) {
 			revertFunc = s.buildRevert(ctx, nodeId, resources, changes)
 		}
 		err = s.cache.UpdateSnapshot(ctx, nodeId, newSnapshot, wg, completionTypeURLs, revertFunc)
@@ -1091,21 +1151,20 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	defer s.mutex.Unlock()
 
 	hadPortAllocationCallbacks := len(newResources.PortAllocationCallbacks) > 0
-	// If a listener exists in both old and new with the same port, the port allocation
-	// was already acked - remove the callback to avoid double-acking.
-	for _, oldListener := range oldResources.Listeners {
-		oldPort := uint32(0)
-		if addr := oldListener.Address.GetSocketAddress(); addr != nil {
-			oldPort = addr.GetPortValue()
+	listenersToRecreate := adsListenersRequiringRecreate(oldResources.Listeners, newResources.Listeners)
+	// Port allocation applies only to the primary listener address. If its port
+	// is unchanged, remove the callback to avoid acknowledging it again.
+	for name, oldListener := range oldResources.Listeners {
+		newListener, found := newResources.Listeners[name]
+		if !found {
+			continue
 		}
-		for _, newListener := range newResources.Listeners {
-			if newListener.Name == oldListener.Name {
-				if addr := newListener.Address.GetSocketAddress(); addr != nil && addr.GetPortValue() == oldPort {
-					// Port is not changing, remove callback to prevent acking an already acked port.
-					delete(newResources.PortAllocationCallbacks, newListener.Name)
-				}
-				break
-			}
+
+		oldAddress := oldListener.GetAddress().GetSocketAddress()
+		newAddress := newListener.GetAddress().GetSocketAddress()
+		if oldAddress != nil && newAddress != nil &&
+			oldAddress.GetPortValue() == newAddress.GetPortValue() {
+			delete(newResources.PortAllocationCallbacks, name)
 		}
 	}
 
@@ -1131,7 +1190,87 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	if callback != nil {
 		callbackTypeURLs = listenerPortAllocationCompletionTypeURLs(callback, changes)
 	}
-	return s.updateSnapshot(ctx, &updated, "", waitGroup, callbackTypeURLs, changes)
+	if len(listenersToRecreate) == 0 {
+		return s.updateSnapshot(ctx, &updated, "", waitGroup, callbackTypeURLs, changes)
+	}
+
+	// Envoy cannot replace a listener's address set in place when SO_REUSEPORT
+	// is disabled, because the replacement overlaps sockets still owned by the
+	// active listener. Publish and ACK a snapshot without the listener first so
+	// Envoy closes those sockets before the replacement is sent.
+	staged := currentResources.DeepCopy()
+	for _, name := range listenersToRecreate {
+		delete(staged.Listeners, name)
+	}
+	if s.config.envoyXDSMode.IsStrictADS() {
+		pruneUnreferencedRoutes(staged)
+	}
+
+	restore := func(cause error) error {
+		restoreErr := s.updateSnapshot(context.WithoutCancel(ctx), currentResources, "", nil, nil, nil)
+		if restoreErr != nil {
+			return fmt.Errorf("%w; failed to restore ADS snapshot: %w", cause, restoreErr)
+		}
+		return cause
+	}
+
+	s.logger.Debug("UpdateEnvoyResources: deleting listeners before address change",
+		logfields.ResourcesDeleted, len(listenersToRecreate))
+	// Both transaction phases are awaited while s.mutex is held. Disable the
+	// asynchronous NACK revert, which would try to reacquire the same mutex;
+	// restore handles failures synchronously below instead.
+	deleteWG := completion.NewWaitGroup(ctx)
+	if err := s.updateSnapshotWithRevert(ctx, staged, "", deleteWG, map[string]func(error){ListenerTypeURL: nil}, nil, false); err != nil {
+		return err
+	}
+	if err := deleteWG.Wait(); err != nil {
+		return restore(fmt.Errorf("waiting for listener deletion ACK: %w", err))
+	}
+
+	// Always wait for the replacement LDS ACK, even when the caller did not
+	// supply a wait group. This keeps the two snapshots transactional and lets us
+	// restore the last working listener if Envoy rejects the replacement.
+	if callbackTypeURLs == nil {
+		callbackTypeURLs = make(map[string]func(error))
+	}
+	if _, found := callbackTypeURLs[ListenerTypeURL]; !found {
+		callbackTypeURLs[ListenerTypeURL] = nil
+	}
+	// Envoy can ACK the deletion before every worker has released its listening
+	// sockets. Re-stage the accepted deletion snapshot and retry only that
+	// transient bind failure; all other NACKs restore the original snapshot.
+	for attempt := 1; ; attempt++ {
+		replaceWG := completion.NewWaitGroup(ctx)
+		err := s.updateSnapshotWithRevert(ctx, &updated, "", replaceWG, callbackTypeURLs, nil, false)
+		if err == nil {
+			err = replaceWG.Wait()
+		}
+		if err == nil {
+			return nil
+		}
+
+		if !isAddressAlreadyInUseError(err) || attempt >= listenerAddressChangeMaxAttempts {
+			return restore(fmt.Errorf("waiting for replacement listener ACK: %w", err))
+		}
+
+		// The rejected desired snapshot remains in the cache. Publish the already
+		// ACKed deletion snapshot again so the same desired version can be sent as
+		// a fresh response on the next attempt.
+		if stageErr := s.updateSnapshotWithRevert(ctx, staged, "", nil, nil, nil, false); stageErr != nil {
+			return restore(fmt.Errorf("re-staging listener deletion after bind failure: %w", stageErr))
+		}
+
+		s.logger.Debug("UpdateEnvoyResources: Retrying ADS listener address change after bind failure",
+			logfields.Attempt, attempt+1,
+			logfields.Error, err)
+		timer := time.NewTimer(listenerAddressChangeRetryDelay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return restore(ctx.Err())
+		case <-timer.C:
+		}
+	}
 }
 
 func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {

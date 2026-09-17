@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -21,7 +20,6 @@ import (
 	envoy_extensions_listener_tls_inspector_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -55,9 +53,6 @@ const (
 	ingressTLSClusterName = "ingress-cluster-tls"
 	metricsListenerName   = "envoy-prometheus-metrics-listener"
 	adminListenerName     = "envoy-admin-listener"
-
-	listenerAddressChangeMaxAttempts = 5
-	listenerAddressChangeRetryDelay  = 100 * time.Millisecond
 )
 
 type xdsServer struct {
@@ -943,49 +938,6 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Reso
 		return err
 	}
 	return nil
-}
-
-func listenerAdditionalAddressesEqual(oldListener, newListener *envoy_config_listener.Listener) bool {
-	oldAdditionalAddresses := oldListener.GetAdditionalAddresses()
-	newAdditionalAddresses := newListener.GetAdditionalAddresses()
-	if len(oldAdditionalAddresses) != len(newAdditionalAddresses) {
-		return false
-	}
-
-	// Envoy treats listener addresses as an unordered set. Track matches so
-	// duplicate entries are still compared with multiset semantics.
-	matchedNewAddresses := make([]bool, len(newAdditionalAddresses))
-	for _, oldAddress := range oldAdditionalAddresses {
-		matched := false
-		for i, newAddress := range newAdditionalAddresses {
-			if !matchedNewAddresses[i] && proto.Equal(oldAddress, newAddress) {
-				matchedNewAddresses[i] = true
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return false
-		}
-	}
-
-	return true
-}
-
-// listenerAddressesEqual compares all listener addresses while treating additional addresses as
-// an unordered set.
-func listenerAddressesEqual(oldListener, newListener *envoy_config_listener.Listener) bool {
-	return proto.Equal(oldListener.GetAddress(), newListener.GetAddress()) &&
-		listenerAdditionalAddressesEqual(oldListener, newListener)
-}
-
-func isAddressAlreadyInUseError(err error) bool {
-	var proxyErr *xds.ProxyError
-	if !errors.As(err, &proxyErr) {
-		return false
-	}
-
-	return strings.Contains(strings.ToLower(proxyErr.Detail), "address already in use")
 }
 
 // UpdateEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. This is
