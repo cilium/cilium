@@ -16,6 +16,7 @@
 package stdlib
 
 import (
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -310,6 +311,9 @@ func init() {
 				argTypes(types.DurationType, types.DurationType), types.BoolType,
 				decls.OverloadExamples(`duration('1ms') < duration('1s') // true`)),
 			decls.SingletonBinaryBinding(func(lhs, rhs ref.Val) ref.Val {
+				if isNaN(lhs) || isNaN(rhs) {
+					return types.False
+				}
 				cmp := lhs.(traits.Comparer).Compare(rhs)
 				if cmp == types.IntNegOne {
 					return types.True
@@ -367,6 +371,9 @@ func init() {
 				argTypes(types.DurationType, types.DurationType), types.BoolType,
 				decls.OverloadExamples(`duration('1ms') <= duration('1s') // true`)),
 			decls.SingletonBinaryBinding(func(lhs, rhs ref.Val) ref.Val {
+				if isNaN(lhs) || isNaN(rhs) {
+					return types.False
+				}
 				cmp := lhs.(traits.Comparer).Compare(rhs)
 				if cmp == types.IntNegOne || cmp == types.IntZero {
 					return types.True
@@ -424,6 +431,9 @@ func init() {
 				argTypes(types.DurationType, types.DurationType), types.BoolType,
 				decls.OverloadExamples(`duration('1ms') > duration('1us') // true`)),
 			decls.SingletonBinaryBinding(func(lhs, rhs ref.Val) ref.Val {
+				if isNaN(lhs) || isNaN(rhs) {
+					return types.False
+				}
 				cmp := lhs.(traits.Comparer).Compare(rhs)
 				if cmp == types.IntOne {
 					return types.True
@@ -481,6 +491,9 @@ func init() {
 				argTypes(types.DurationType, types.DurationType), types.BoolType,
 				decls.OverloadExamples(`duration('60s') >= duration('1m') // true`)),
 			decls.SingletonBinaryBinding(func(lhs, rhs ref.Val) ref.Val {
+				if isNaN(lhs) || isNaN(rhs) {
+					return types.False
+				}
 				cmp := lhs.(traits.Comparer).Compare(rhs)
 				if cmp == types.IntOne || cmp == types.IntZero {
 					return types.True
@@ -605,8 +618,6 @@ func init() {
 			decls.Overload(overloads.DurationToDuration, argTypes(types.DurationType), types.DurationType,
 				decls.OverloadExamples(`duration(duration('1s')) // duration('1s')`),
 				decls.UnaryBinding(identity)),
-			decls.Overload(overloads.IntToDuration, argTypes(types.IntType), types.DurationType,
-				decls.UnaryBinding(convertToType(types.DurationType))),
 			decls.Overload(overloads.StringToDuration, argTypes(types.StringType), types.DurationType,
 				decls.OverloadExamples(`duration('1h2m3s') // duration('3723s')`),
 				decls.UnaryBinding(convertToType(types.DurationType)))),
@@ -926,6 +937,11 @@ func argTypes(args ...*types.Type) []*types.Type {
 
 func noBinaryOverrides(rhs, lhs ref.Val) ref.Val {
 	return types.NoSuchOverloadErr()
+}
+
+func isNaN(val ref.Val) bool {
+	d, ok := val.(types.Double)
+	return ok && math.IsNaN(float64(d))
 }
 
 func noFunctionOverrides(args ...ref.Val) ref.Val {

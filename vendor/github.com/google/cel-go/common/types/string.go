@@ -72,7 +72,7 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (any, error) {
 		case anyValueType:
 			// Primitives must be wrapped before being set on an Any field.
 			return anypb.New(wrapperspb.String(string(s)))
-		case jsonValueType:
+		case JSONValueType:
 			// Convert to a protobuf representation of a JSON String.
 			return structpb.NewStringValue(string(s)), nil
 		case stringWrapperType:
@@ -122,7 +122,11 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Val {
 			return durationOf(d)
 		}
 	case TimestampType:
-		if t, err := time.Parse(time.RFC3339, s.Value().(string)); err == nil {
+		str := s.Value().(string)
+		if !isStrictRFC3339(str) {
+			return NewErr("invalid RFC 3339 timestamp %q", str)
+		}
+		if t, err := time.Parse(time.RFC3339, str); err == nil {
 			if t.Unix() < minUnixTime || t.Unix() > maxUnixTime {
 				return celErrTimestampOverflow
 			}

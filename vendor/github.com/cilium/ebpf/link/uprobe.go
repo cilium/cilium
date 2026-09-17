@@ -6,7 +6,6 @@ import (
 	"debug/elf"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"sync"
 
@@ -34,8 +33,6 @@ var (
 	// in the ELF symbols table.
 	ErrNoSymbol = errors.New("not found")
 )
-
-const permExec fs.FileMode = 0111
 
 // Executable defines an executable program on the filesystem.
 type Executable struct {
@@ -113,13 +110,8 @@ func OpenExecutable(path string) (*Executable, error) {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
 
-	info, err := os.Stat(path)
-	if err != nil {
+	if _, err := os.Stat(path); err != nil {
 		return nil, fmt.Errorf("stat executable: %w", err)
-	}
-
-	if info.Mode()&permExec == 0 {
-		return nil, fmt.Errorf("file %s is not executable", path)
 	}
 
 	return &Executable{
@@ -264,12 +256,15 @@ func (ex *Executable) Symbol(address uint64) (SymbolOffset, error) {
 //	ex, _ = OpenExecutable("/bin/bash")
 //	ex.Uprobe("main", prog, nil)
 //
-// When using symbols which belongs to shared libraries,
-// an offset must be provided via options:
+// When tracing a location for which no ELF symbol is available, or a shared
+// library symbol whose static address is zero, set UprobeOptions.Address to
+// the absolute file offset and pass an empty symbol:
 //
-//	up, err := ex.Uprobe("main", prog, &UprobeOptions{Offset: 0x123})
+//	up, err := ex.Uprobe("", prog, &UprobeOptions{Address: 0x123})
 //
-// Note: Setting the Offset field in the options supersedes the symbol's offset.
+// Address bypasses symbol lookup. Offset, if set, is added to the resolved
+// address (whether from symbol resolution or from Address); on its own it
+// does not replace symbol resolution.
 //
 // Losing the reference to the resulting Link (up) will close the Uprobe
 // and prevent further execution of prog. The Link must be Closed during
@@ -300,12 +295,15 @@ func (ex *Executable) Uprobe(symbol string, prog *ebpf.Program, opts *UprobeOpti
 //	ex, _ = OpenExecutable("/bin/bash")
 //	ex.Uretprobe("main", prog, nil)
 //
-// When using symbols which belongs to shared libraries,
-// an offset must be provided via options:
+// When tracing a location for which no ELF symbol is available, or a shared
+// library symbol whose static address is zero, set UprobeOptions.Address to
+// the absolute file offset and pass an empty symbol:
 //
-//	up, err := ex.Uretprobe("main", prog, &UprobeOptions{Offset: 0x123})
+//	up, err := ex.Uretprobe("", prog, &UprobeOptions{Address: 0x123})
 //
-// Note: Setting the Offset field in the options supersedes the symbol's offset.
+// Address bypasses symbol lookup. Offset, if set, is added to the resolved
+// address (whether from symbol resolution or from Address); on its own it
+// does not replace symbol resolution.
 //
 // Losing the reference to the resulting Link (up) will close the Uprobe
 // and prevent further execution of prog. The Link must be Closed during

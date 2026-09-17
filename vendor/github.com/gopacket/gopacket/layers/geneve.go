@@ -86,6 +86,7 @@ func (gn *Geneve) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error
 
 	gn.Version = data[0] >> 7
 	gn.OptionsLength = (data[0] & 0x3f) * 4
+	gn.Options = gn.Options[:0]
 
 	gn.OAMPacket = data[1]&0x80 > 0
 	gn.CriticalOption = data[1]&0x40 > 0
