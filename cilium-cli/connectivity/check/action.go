@@ -146,6 +146,11 @@ func (a *Action) CmdOutput() string {
 	return a.cmdOutput
 }
 
+// Failed reports whether the action has already failed.
+func (a *Action) Failed() bool {
+	return a.failed
+}
+
 // IPFamily returns the IPFamily used for this test action.
 func (a *Action) IPFamily() features.IPFamily {
 	return a.ipFam
