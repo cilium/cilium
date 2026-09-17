@@ -612,6 +612,15 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 			require.Equal(t, commonOwnerReferences, epSlice.OwnerReferences)
 			require.Equal(t, commonEndpoints, epSlice.Endpoints)
 			require.Equal(t, commonPorts, epSlice.Ports)
+			require.Equal(t, []ctrl.Request{{NamespacedName: client.ObjectKeyFromObject(local)}}, endpointSliceMirrorRequests(&epSlice))
+
+			require.NoError(t, c.Delete(t.Context(), local))
+			result, err = r.Reconcile(t.Context(), ctrl.Request{
+				NamespacedName: client.ObjectKeyFromObject(local),
+			})
+			require.NoError(t, err)
+			require.Equal(t, ctrl.Result{}, result)
+			require.True(t, apierrors.IsNotFound(c.Get(t.Context(), keyDerived, &epSlice)))
 		})
 	}
 
