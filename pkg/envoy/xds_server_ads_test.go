@@ -14,7 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
@@ -122,6 +124,84 @@ var (
 		},
 	}
 )
+
+func adsTestListener(primaryPort uint32, additionalPorts ...uint32) *envoy_config_listener.Listener {
+	ports := append([]uint32{primaryPort}, additionalPorts...)
+	listener := testListenerWithPorts(ports...)
+	listener.Name = "listener1"
+	listener.EnableReusePort = wrapperspb.Bool(false)
+	listener.FilterChains = []*envoy_config_listener.FilterChain{{
+		Filters: []*envoy_config_listener.Filter{{
+			Name: "envoy.http_connection_manager",
+			ConfigType: &envoy_config_listener.Filter_TypedConfig{
+				TypedConfig: ToAny(&envoy_config_http.HttpConnectionManager{
+					StatPrefix: "http_proxy",
+					RouteSpecifier: &envoy_config_http.HttpConnectionManager_Rds{
+						Rds: &envoy_config_http.Rds{RouteConfigName: "routeConfig1"},
+					},
+				}),
+			},
+		}},
+	}}
+	return listener
+}
+
+func adsTestResources(listener *envoy_config_listener.Listener) xds.Resources {
+	resources := xds.NewResources()
+	resources.Listeners[listener.GetName()] = listener
+	resources.Routes["routeConfig1"] = &envoy_config_route.RouteConfiguration{Name: "routeConfig1"}
+	return resources
+}
+
+func ackADSResourceVersion(t *testing.T, cache xdsnew.Cache, streamID int64, typeURL string) string {
+	t.Helper()
+	snapshot, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	version := snapshot.GetVersion(typeURL)
+	require.NotEmpty(t, version)
+
+	req := &envoy_service_discovery.DiscoveryRequest{
+		Node:    &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl: typeURL,
+	}
+	resp := &envoy_service_discovery.DiscoveryResponse{
+		TypeUrl:     typeURL,
+		VersionInfo: version,
+	}
+	cache.GetCompletionCallbacks().OnStreamResponse(context.Background(), streamID, req, resp)
+	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(streamID, &envoy_service_discovery.DiscoveryRequest{
+		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl:     typeURL,
+		VersionInfo: version,
+	}))
+	return version
+}
+
+func nackADSResourceVersion(t *testing.T, cache xdsnew.Cache, streamID int64, typeURL, acceptedVersion, message string) {
+	t.Helper()
+	snapshot, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	rejectedVersion := snapshot.GetVersion(typeURL)
+	require.NotEmpty(t, rejectedVersion)
+	require.NotEqual(t, acceptedVersion, rejectedVersion)
+
+	req := &envoy_service_discovery.DiscoveryRequest{
+		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl:     typeURL,
+		VersionInfo: acceptedVersion,
+	}
+	resp := &envoy_service_discovery.DiscoveryResponse{
+		TypeUrl:     typeURL,
+		VersionInfo: rejectedVersion,
+	}
+	cache.GetCompletionCallbacks().OnStreamResponse(context.Background(), streamID, req, resp)
+	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(streamID, &envoy_service_discovery.DiscoveryRequest{
+		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl:     typeURL,
+		VersionInfo: acceptedVersion,
+		ErrorDetail: &status.Status{Message: message},
+	}))
+}
 
 func TestNewADSServer(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -484,6 +564,206 @@ func TestUpdateEnvoyResources(t *testing.T) {
 	require.NotNil(t, resources.Endpoints["endpoint1"])
 	require.Len(t, resources.NetworkPolicies, 1)
 	require.NotNil(t, resources.NetworkPolicies["40"])
+}
+
+func TestADSListenersRequiringRecreate(t *testing.T) {
+	oldListener := adsTestListener(80, 8443)
+	newListener := adsTestListener(80, 8444)
+	require.Equal(t, []string{"listener1"}, adsListenersRequiringRecreate(
+		map[string]*envoy_config_listener.Listener{"listener1": oldListener},
+		map[string]*envoy_config_listener.Listener{"listener1": newListener},
+	))
+
+	oldListener.EnableReusePort = wrapperspb.Bool(true)
+	newListener.EnableReusePort = wrapperspb.Bool(true)
+	require.Empty(t, adsListenersRequiringRecreate(
+		map[string]*envoy_config_listener.Listener{"listener1": oldListener},
+		map[string]*envoy_config_listener.Listener{"listener1": newListener},
+	))
+}
+
+func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
+	tests := []struct {
+		name   string
+		mode   config.XDSMode
+		strict bool
+	}{
+		{name: "ads", mode: config.EnvoyXDSModeADS},
+		{name: "strict ads", mode: config.EnvoyXDSModeStrictADS, strict: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+			serverConfig := xdsServerConfig{
+				envoySocketDir:       t.TempDir(),
+				policyRestoreTimeout: 30 * time.Second,
+				envoyXDSMode:         tt.mode,
+			}
+			cache := xdsnew.NewCache(logger, tt.strict)
+			server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+
+			oldResources := adsTestResources(adsTestListener(80, 8443))
+			require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
+
+			newResources := adsTestResources(adsTestListener(80, 8444))
+			var callbackCount atomic.Uint64
+			newResources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
+				callbackCount.Add(1)
+				return nil
+			}
+
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			result := make(chan error, 1)
+			go func() {
+				result <- server.UpdateEnvoyResources(ctx, oldResources, newResources, nil)
+			}()
+
+			require.Eventually(t, func() bool {
+				resources := cache.GetAllResources(localNodeID)
+				return resources != nil && len(resources.Listeners) == 0 &&
+					cache.GetCompletionCallbacks().PendingCompletionCount() == 1
+			}, time.Second, 10*time.Millisecond)
+			require.Equal(t, uint64(0), callbackCount.Load())
+			deleteVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
+
+			require.Eventually(t, func() bool {
+				resources := cache.GetAllResources(localNodeID)
+				listener := resources.Listeners["listener1"]
+				return listener != nil && listenerAddressesEqual(listener, newResources.Listeners["listener1"]) &&
+					cache.GetCompletionCallbacks().PendingCompletionCount() == 1
+			}, time.Second, 10*time.Millisecond)
+			require.Equal(t, uint64(0), callbackCount.Load())
+			replaceVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
+			require.NotEqual(t, deleteVersion, replaceVersion)
+
+			require.NoError(t, <-result)
+			require.Equal(t, uint64(0), callbackCount.Load())
+			require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
+		})
+	}
+}
+
+func TestUpdateEnvoyResourcesRestoresListenerWhenDeletionTimesOut(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	serverConfig := xdsServerConfig{
+		envoySocketDir:       t.TempDir(),
+		policyRestoreTimeout: 30 * time.Second,
+		envoyXDSMode:         config.EnvoyXDSModeADS,
+	}
+	cache := xdsnew.NewCache(logger, false)
+	server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+
+	oldResources := adsTestResources(adsTestListener(80, 8443))
+	require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
+	newResources := adsTestResources(adsTestListener(80, 8444))
+
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	err := server.UpdateEnvoyResources(ctx, oldResources, newResources, nil)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	resources := cache.GetAllResources(localNodeID)
+	require.NotNil(t, resources)
+	require.True(t, listenerAddressesEqual(resources.Listeners["listener1"], oldResources.Listeners["listener1"]))
+	require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
+}
+
+func TestUpdateEnvoyResourcesRestoresListenerWhenReplacementIsRejected(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	serverConfig := xdsServerConfig{
+		envoySocketDir:       t.TempDir(),
+		policyRestoreTimeout: 30 * time.Second,
+		envoyXDSMode:         config.EnvoyXDSModeADS,
+	}
+	cache := xdsnew.NewCache(logger, false)
+	server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+
+	oldResources := adsTestResources(adsTestListener(80, 8443))
+	require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
+	newResources := adsTestResources(adsTestListener(80, 8444))
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		result <- server.UpdateEnvoyResources(ctx, oldResources, newResources, nil)
+	}()
+
+	require.Eventually(t, func() bool {
+		resources := cache.GetAllResources(localNodeID)
+		return resources != nil && len(resources.Listeners) == 0 &&
+			cache.GetCompletionCallbacks().PendingCompletionCount() == 1
+	}, time.Second, 10*time.Millisecond)
+	deleteVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
+
+	require.Eventually(t, func() bool {
+		resources := cache.GetAllResources(localNodeID)
+		return resources.Listeners["listener1"] != nil &&
+			cache.GetCompletionCallbacks().PendingCompletionCount() == 1
+	}, time.Second, 10*time.Millisecond)
+	nackADSResourceVersion(t, cache, 1, ListenerTypeURL, deleteVersion, "rejected listener")
+	require.ErrorContains(t, <-result, "rejected listener")
+
+	resources := cache.GetAllResources(localNodeID)
+	require.NotNil(t, resources)
+	require.True(t, listenerAddressesEqual(resources.Listeners["listener1"], oldResources.Listeners["listener1"]))
+	require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
+}
+
+func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	serverConfig := xdsServerConfig{
+		envoySocketDir:       t.TempDir(),
+		policyRestoreTimeout: 30 * time.Second,
+		envoyXDSMode:         config.EnvoyXDSModeADS,
+	}
+	cache := xdsnew.NewCache(logger, false)
+	server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+
+	oldResources := adsTestResources(adsTestListener(80, 8443))
+	require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
+	newResources := adsTestResources(adsTestListener(80, 8444))
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		result <- server.UpdateEnvoyResources(ctx, oldResources, newResources, nil)
+	}()
+
+	require.Eventually(t, func() bool {
+		resources := cache.GetAllResources(localNodeID)
+		return resources != nil && len(resources.Listeners) == 0 &&
+			cache.GetCompletionCallbacks().PendingCompletionCount() == 1
+	}, time.Second, 10*time.Millisecond)
+	deleteVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
+
+	require.Eventually(t, func() bool {
+		resources := cache.GetAllResources(localNodeID)
+		return resources.Listeners["listener1"] != nil &&
+			cache.GetCompletionCallbacks().PendingCompletionCount() == 1
+	}, time.Second, 10*time.Millisecond)
+	nackADSResourceVersion(t, cache, 1, ListenerTypeURL, deleteVersion, "cannot bind: Address already in use")
+
+	// The rejected desired version is first replaced with the accepted deletion
+	// version, then published again after the retry delay.
+	require.Eventually(t, func() bool {
+		resources := cache.GetAllResources(localNodeID)
+		return resources != nil && len(resources.Listeners) == 0
+	}, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		resources := cache.GetAllResources(localNodeID)
+		return resources.Listeners["listener1"] != nil &&
+			cache.GetCompletionCallbacks().PendingCompletionCount() == 1
+	}, time.Second, 10*time.Millisecond)
+	ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
+
+	require.NoError(t, <-result)
+	resources := cache.GetAllResources(localNodeID)
+	require.True(t, listenerAddressesEqual(resources.Listeners["listener1"], newResources.Listeners["listener1"]))
+	require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
 }
 
 func TestUpdateEnvoyResourcesWithoutExplicitCallbackDoesNotWaitForCDSOrRDS(t *testing.T) {

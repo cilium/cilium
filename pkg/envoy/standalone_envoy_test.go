@@ -27,6 +27,7 @@ import (
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	corev1 "k8s.io/api/core/v1"
@@ -468,6 +469,31 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
+
+	t.Log("updating an ADS listener additional address with SO_REUSEPORT disabled")
+	oldListener := proto.Clone(ADS_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
+	oldListener.Name = "listener-address-update"
+	oldAddresses := testListenerWithPorts(18080, 18443)
+	oldListener.Address = oldAddresses.Address
+	oldListener.AdditionalAddresses = oldAddresses.AdditionalAddresses
+	oldListener.EnableReusePort = wrapperspb.Bool(false)
+	oldListenerResources := xds.NewResources()
+	oldListenerResources.Listeners[oldListener.Name] = oldListener
+	s.waitGroup = completion.NewWaitGroup(ctx)
+	require.NoError(t, xdsServer.UpsertEnvoyResources(ctx, oldListenerResources, s.waitGroup))
+	require.NoError(t, s.waitForProxyCompletion())
+
+	newListener := proto.Clone(oldListener).(*envoy_config_listener.Listener)
+	newAddresses := testListenerWithPorts(18080, 18444)
+	newListener.Address = newAddresses.Address
+	newListener.AdditionalAddresses = newAddresses.AdditionalAddresses
+	newListenerResources := xds.NewResources()
+	newListenerResources.Listeners[newListener.Name] = newListener
+	require.NoError(t, xdsServer.UpdateEnvoyResources(ctx, oldListenerResources, newListenerResources, nil))
+	s.waitGroup = completion.NewWaitGroup(ctx)
+	require.NoError(t, xdsServer.DeleteEnvoyResources(ctx, newListenerResources, s.waitGroup))
+	require.NoError(t, s.waitForProxyCompletion())
+	t.Log("completed updating an ADS listener additional address")
 
 	t.Log("Updating Envoy resources")
 	s.waitGroup = completion.NewWaitGroup(ctx)
