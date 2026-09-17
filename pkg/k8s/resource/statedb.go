@@ -136,6 +136,29 @@ func (twq *tableWorkQueue[T]) Observe(ctx context.Context, next func(Event[T]), 
 			}
 
 			var event Event[T]
+			switch {
+			case item.initOccurred:
+				event.Kind = Sync
+			default:
+				obj, _, found := twq.table.Get(twq.db.ReadTxn(), twq.getByKey(item.key))
+				if found {
+					event.Kind = Upsert
+					event.Object = obj
+				} else {
+					event.Kind = Delete
+					obj, found := deletedObjects.Load(item.key)
+					if !found {
+						// The object was deleted, but we never observed it (e.g. a
+						// duplicate delete notification, or it was already handled
+						// by a prior event for this key). There's nothing to deliver
+						// to the subscriber.
+						wq.Done(item)
+						continue
+					}
+					event.Object = obj
+				}
+			}
+
 			var eventDoneSentinel = new(bool)
 			event.Done = func(err error) {
 				runtime.SetFinalizer(eventDoneSentinel, nil)
@@ -156,25 +179,7 @@ func (twq *tableWorkQueue[T]) Observe(ctx context.Context, next func(Event[T]), 
 			// Add a finalizer to catch forgotten calls to Done().
 			runtime.SetFinalizer(eventDoneSentinel, doneFinalizer)
 
-			if item.initOccurred {
-				event.Kind = Sync
-				next(event)
-				continue
-			}
-
-			obj, _, found := twq.table.Get(twq.db.ReadTxn(), twq.getByKey(item.key))
-			if found {
-				event.Kind = Upsert
-				event.Object = obj
-				next(event)
-			} else {
-				event.Kind = Delete
-				obj, found := deletedObjects.Load(item.key)
-				if found {
-					event.Object = obj
-					next(event)
-				}
-			}
+			next(event)
 		}
 	}()
 }
