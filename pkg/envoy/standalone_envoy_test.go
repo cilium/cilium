@@ -29,9 +29,9 @@ import (
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/envoy/config"
 	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -452,6 +452,31 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
+
+	t.Log("updating an ADS listener additional address with SO_REUSEPORT disabled")
+	oldListener := proto.Clone(ADS_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
+	oldListener.Name = "listener-address-update"
+	oldAddresses := testListenerWithPorts(18080, 18443)
+	oldListener.Address = oldAddresses.Address
+	oldListener.AdditionalAddresses = oldAddresses.AdditionalAddresses
+	oldListener.EnableReusePort = wrapperspb.Bool(false)
+	oldListenerResources := xds.NewResources()
+	oldListenerResources.Listeners[oldListener.Name] = oldListener
+	s.waitGroup = completion.NewWaitGroup(ctx)
+	require.NoError(t, xdsServer.UpsertEnvoyResources(ctx, oldListenerResources, s.waitGroup))
+	require.NoError(t, s.waitForProxyCompletion())
+
+	newListener := proto.Clone(oldListener).(*envoy_config_listener.Listener)
+	newAddresses := testListenerWithPorts(18080, 18444)
+	newListener.Address = newAddresses.Address
+	newListener.AdditionalAddresses = newAddresses.AdditionalAddresses
+	newListenerResources := xds.NewResources()
+	newListenerResources.Listeners[newListener.Name] = newListener
+	require.NoError(t, xdsServer.UpdateEnvoyResources(ctx, oldListenerResources, newListenerResources, nil))
+	s.waitGroup = completion.NewWaitGroup(ctx)
+	require.NoError(t, xdsServer.DeleteEnvoyResources(ctx, newListenerResources, s.waitGroup))
+	require.NoError(t, s.waitForProxyCompletion())
+	t.Log("completed updating an ADS listener additional address")
 
 	t.Log("Updating Envoy resources")
 	s.waitGroup = completion.NewWaitGroup(ctx)
@@ -1431,7 +1456,7 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
 	}
 
-	SetXDSMode(config.EnvoyXDSModeADS)
+	SetXDSMode("ads")
 	t.Cleanup(func() { SetXDSMode("") })
 
 	logging.SetLogLevel(slog.LevelDebug)

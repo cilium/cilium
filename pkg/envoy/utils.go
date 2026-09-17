@@ -4,17 +4,24 @@
 package envoy
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
 	ciliumBPFMetadataListenerFilterName = "cilium.bpf_metadata"
+
+	listenerAddressChangeMaxAttempts = 5
+	listenerAddressChangeRetryDelay  = 100 * time.Millisecond
 )
 
 var (
@@ -66,6 +73,52 @@ func sanitizeServerNamePattern(pattern string) string {
 		return subdomainWildcardSpecifierPrefix + pattern
 	}
 	return pattern
+}
+
+func listenerAdditionalAddressesEqual(oldListener, newListener *envoy_config_listener.Listener) bool {
+	oldAdditionalAddresses := oldListener.GetAdditionalAddresses()
+	newAdditionalAddresses := newListener.GetAdditionalAddresses()
+	if len(oldAdditionalAddresses) != len(newAdditionalAddresses) {
+		return false
+	}
+
+	// Envoy treats listener addresses as an unordered set. Track matches so
+	// duplicate entries are still compared with multiset semantics.
+	matchedNewAddresses := make([]bool, len(newAdditionalAddresses))
+	for _, oldAddress := range oldAdditionalAddresses {
+		matched := false
+		for i, newAddress := range newAdditionalAddresses {
+			if !matchedNewAddresses[i] && proto.Equal(oldAddress, newAddress) {
+				matchedNewAddresses[i] = true
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+
+	return true
+}
+
+// listenerAddressesEqual compares all listener addresses while treating
+// additional addresses as an unordered multiset.
+func listenerAddressesEqual(oldListener, newListener *envoy_config_listener.Listener) bool {
+	return proto.Equal(oldListener.GetAddress(), newListener.GetAddress()) &&
+		listenerAdditionalAddressesEqual(oldListener, newListener)
+}
+
+func isAddressAlreadyInUseError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	detail := err.Error()
+	if proxyErr, ok := errors.AsType[*xds.ProxyError](err); ok {
+		detail = proxyErr.Detail
+	}
+	return strings.Contains(strings.ToLower(detail), "address already in use")
 }
 
 // listenerRequiresNPDS returns true if the listener carries a cilium.bpf_metadata
