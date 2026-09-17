@@ -8,6 +8,7 @@ package layers
 
 import (
 	"encoding/binary"
+	"errors"
 
 	"github.com/gopacket/gopacket"
 )
@@ -37,6 +38,28 @@ func (g *GRE) LayerType() gopacket.LayerType { return LayerTypeGRE }
 
 // DecodeFromBytes decodes the given bytes into this layer.
 func (g *GRE) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 4 {
+		df.SetTruncated()
+		return errors.New("GRE packet too small")
+	}
+	truncated := func() error {
+		df.SetTruncated()
+		return errors.New("GRE packet truncated")
+	}
+	requireBytes := func(offset, size int) error {
+		if len(data)-offset < size {
+			return truncated()
+		}
+		return nil
+	}
+
+	g.BaseLayer = BaseLayer{}
+	g.GRERouting = nil
+	g.Checksum = 0
+	g.Offset = 0
+	g.Key = 0
+	g.Seq = 0
+	g.Ack = 0
 	g.ChecksumPresent = data[0]&0x80 != 0
 	g.RoutingPresent = data[0]&0x40 != 0
 	g.KeyPresent = data[0]&0x20 != 0
@@ -49,25 +72,40 @@ func (g *GRE) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	g.Protocol = EthernetType(binary.BigEndian.Uint16(data[2:4]))
 	offset := 4
 	if g.ChecksumPresent || g.RoutingPresent {
+		if err := requireBytes(offset, 4); err != nil {
+			return err
+		}
 		g.Checksum = binary.BigEndian.Uint16(data[offset : offset+2])
 		g.Offset = binary.BigEndian.Uint16(data[offset+2 : offset+4])
 		offset += 4
 	}
 	if g.KeyPresent {
+		if err := requireBytes(offset, 4); err != nil {
+			return err
+		}
 		g.Key = binary.BigEndian.Uint32(data[offset : offset+4])
 		offset += 4
 	}
 	if g.SeqPresent {
+		if err := requireBytes(offset, 4); err != nil {
+			return err
+		}
 		g.Seq = binary.BigEndian.Uint32(data[offset : offset+4])
 		offset += 4
 	}
 	if g.RoutingPresent {
 		tail := &g.GRERouting
 		for {
+			if err := requireBytes(offset, 4); err != nil {
+				return err
+			}
 			sre := &GRERouting{
 				AddressFamily: binary.BigEndian.Uint16(data[offset : offset+2]),
 				SREOffset:     data[offset+2],
 				SRELength:     data[offset+3],
+			}
+			if err := requireBytes(offset+4, int(sre.SRELength)); err != nil {
+				return err
 			}
 			sre.RoutingInformation = data[offset+4 : offset+4+int(sre.SRELength)]
 			offset += 4 + int(sre.SRELength)
@@ -79,6 +117,9 @@ func (g *GRE) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 		}
 	}
 	if g.AckPresent {
+		if err := requireBytes(offset, 4); err != nil {
+			return err
+		}
 		g.Ack = binary.BigEndian.Uint32(data[offset : offset+4])
 		offset += 4
 	}
