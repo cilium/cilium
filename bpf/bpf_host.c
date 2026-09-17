@@ -26,6 +26,7 @@
 
 #define	NODEPORT_USE_NAT_46x64		1
 
+#include "lib/auxvars.h"
 #include "lib/common.h"
 #include "lib/config_map.h"
 #include "lib/edt.h"
@@ -77,19 +78,8 @@ static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __may
 	VLAN_FILTER(ifindex, vlan_id);
 }
 
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct ct_buffer6);
-	__uint(max_entries, 1);
-} cilium_tail_call_buffer6 __section_maps_btf;
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct ct_buffer4);
-	__uint(max_entries, 1);
-} cilium_tail_call_buffer4 __section_maps_btf;
+DEFINE_AUX(struct ct_buffer4, cilium_tail_call_buffer4);
+DEFINE_AUX(struct ct_buffer6, cilium_tail_call_buffer6);
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
@@ -152,9 +142,9 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	bool __maybe_unused need_hostfw = false;
 	bool __maybe_unused is_host_id = false;
 	bool __maybe_unused skip_host_firewall = false;
-	int ret, zero __maybe_unused = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -222,9 +212,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	if (skip_host_firewall)
 		goto skip_host_firewall;
 
-	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
-	if (!ct_buffer)
-		return DROP_INVALID_TC_BUFFER;
+	ct_buffer = AUX(cilium_tail_call_buffer6);
 
 	if (from_host) {
 		if (ipv6_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip6, ct_buffer)) {
@@ -296,13 +284,9 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	from_host_raw = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 
 	if (from_host_raw & FROM_HOST_FLAG_NEED_HOSTFW) {
-		struct ct_buffer6 *ct_buffer;
-		__u32 zero = 0;
+		struct ct_buffer6 *ct_buffer = AUX_REUSE(cilium_tail_call_buffer6);
 		__u32 remote_id = WORLD_IPV6_ID;
 
-		ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
-		if (!ct_buffer)
-			return DROP_INVALID_TC_BUFFER;
 		if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
 			/* The map value is zeroed so the map update didn't happen somehow. */
 			return DROP_INVALID_TC_BUFFER;
@@ -618,7 +602,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	bool __maybe_unused is_host_id = false;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int zero __maybe_unused = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -674,9 +657,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_HOST_FIREWALL
-	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
-	if (!ct_buffer)
-		return DROP_INVALID_TC_BUFFER;
+	ct_buffer = AUX(cilium_tail_call_buffer4);
 
 	if (from_host) {
 		/* We're on the egress path of cilium_host. */
@@ -746,13 +727,9 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	from_host_raw = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 
 	if (from_host_raw & FROM_HOST_FLAG_NEED_HOSTFW) {
-		struct ct_buffer4 *ct_buffer;
-		__u32 zero = 0;
+		struct ct_buffer4 *ct_buffer = AUX_REUSE(cilium_tail_call_buffer4);
 		__u32 remote_id = 0;
 
-		ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
-		if (!ct_buffer)
-			return DROP_INVALID_TC_BUFFER;
 		if (ct_buffer->tuple.saddr == 0)
 			/* The map value is zeroed so the map update didn't happen somehow. */
 			return DROP_INVALID_TC_BUFFER;
