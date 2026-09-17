@@ -459,7 +459,6 @@ func Test_addrsInPrefix(t *testing.T) {
 func TestPoolAllocatorAllowFirstAndLastIPs(t *testing.T) {
 	tests := []struct {
 		name              string
-		options           []PoolOption
 		allowFirstIP      bool
 		allowLastIP       bool
 		expectedAllocated []iputil.Prefix
@@ -473,7 +472,6 @@ func TestPoolAllocatorAllowFirstAndLastIPs(t *testing.T) {
 		},
 		{
 			name:         "first IP allowed",
-			options:      []PoolOption{WithAllowFirstIP()},
 			allowFirstIP: true,
 			expectedAllocated: []iputil.Prefix{
 				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/30")),
@@ -482,7 +480,6 @@ func TestPoolAllocatorAllowFirstAndLastIPs(t *testing.T) {
 		},
 		{
 			name:        "last IP allowed",
-			options:     []PoolOption{WithAllowLastIP()},
 			allowLastIP: true,
 			expectedAllocated: []iputil.Prefix{
 				iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/30")),
@@ -491,7 +488,6 @@ func TestPoolAllocatorAllowFirstAndLastIPs(t *testing.T) {
 		},
 		{
 			name:         "first and last IPs allowed",
-			options:      []PoolOption{WithAllowFirstIP(), WithAllowLastIP()},
 			allowFirstIP: true,
 			allowLastIP:  true,
 			expectedAllocated: []iputil.Prefix{
@@ -503,7 +499,17 @@ func TestPoolAllocatorAllowFirstAndLastIPs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPoolAllocator(hivetest.Logger(t), true, false)
-			err := p.UpsertPool("test-pool", []poolCIDRConfig{{cidr: netip.MustParsePrefix("10.0.0.0/29")}}, 30, nil, 0, tt.options...)
+			require.NotNil(t, p)
+
+			options := []PoolOption{}
+			if tt.allowFirstIP {
+				options = append(options, WithAllowFirstIP())
+			}
+			if tt.allowLastIP {
+				options = append(options, WithAllowLastIP())
+			}
+
+			err := p.UpsertPool("test-pool", []poolCIDRConfig{{cidr: netip.MustParsePrefix("10.0.0.0/29")}}, 30, nil, 0, options...)
 			require.NoError(t, err)
 			p.RestoreFinished()
 
