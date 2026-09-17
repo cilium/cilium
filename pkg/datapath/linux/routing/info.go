@@ -7,11 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/netip"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/mac"
-	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
 // RoutingInfo represents information required to enable connectivity via local
@@ -24,10 +22,6 @@ import (
 type RoutingInfo struct {
 	// Gateway is the gateway where outbound/egress IPv4/IPv6 traffic is directed.
 	Gateway net.IP
-
-	// CIDRs is a list of CIDRs which the interface has access to. In most
-	// cases, it'll at least contain the CIDR of the IPv4Gateway IP address.
-	CIDRs []netip.Prefix
 
 	// MasterIfMAC is the MAC address of the master interface that egress
 	// traffic is directed to. This is the MAC of the interface itself which
@@ -49,10 +43,6 @@ type RoutingInfo struct {
 	compatEgressPriority bool
 }
 
-func (info *RoutingInfo) GetCIDRs() []netip.Prefix {
-	return info.CIDRs
-}
-
 type RoutingInfoOption func(*RoutingInfo) error
 
 // WithOptions applies functional options to info.
@@ -65,15 +55,9 @@ func (info *RoutingInfo) WithOptions(opts ...RoutingInfoOption) error {
 	return nil
 }
 
-// WithCIDRsAndMasquerade configures the directly reachable CIDRs and whether
-// masquerading is enabled.
-func WithCIDRsAndMasquerade(cidrs []netip.Prefix, masquerade bool) RoutingInfoOption {
+// WithMasquerade configures whether masquerading is enabled.
+func WithMasquerade(masquerade bool) RoutingInfoOption {
 	return func(info *RoutingInfo) error {
-		if len(cidrs) == 0 && masquerade {
-			return errors.New("empty cidrs")
-		}
-
-		info.CIDRs = cslices.Map(cidrs, netip.Prefix.Masked)
 		info.Masquerade = masquerade
 		return nil
 	}

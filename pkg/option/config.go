@@ -1910,11 +1910,6 @@ func (c *DaemonConfig) IsExcludedLocalAddress(addr netip.Addr) bool {
 	return false
 }
 
-// IsPodSubnetsDefined returns true if encryption subnets should be configured at init time.
-func (c *DaemonConfig) IsPodSubnetsDefined() bool {
-	return len(c.IPv4PodSubnets) > 0 || len(c.IPv6PodSubnets) > 0
-}
-
 // NodeConfigFile is the name of the C header which contains the node's
 // network parameters.
 const nodeConfigFile = "node_config.h"

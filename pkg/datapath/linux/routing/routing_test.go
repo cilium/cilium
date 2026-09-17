@@ -32,7 +32,7 @@ func TestPrivilegedConfigure(t *testing.T) {
 
 	ns1 := netns.NewNetNS(t)
 	ns1.Do(func() error {
-		ip, ri := getFakes(t, ipamOption.IPAMENI, true, false)
+		ip, ri := getFakes(t, ipamOption.IPAMENI, true)
 		require.NoError(t, ri.WithOptions(WithMTU(1500), WithLinkState(true)))
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
@@ -44,7 +44,7 @@ func TestPrivilegedConfigure(t *testing.T) {
 
 	ns2 := netns.NewNetNS(t)
 	ns2.Do(func() error {
-		ip, ri := getFakes(t, ipamOption.IPAMAzure, false, false)
+		ip, ri := getFakes(t, ipamOption.IPAMAzure, false)
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
@@ -59,23 +59,7 @@ func TestPrivilegedConfigureAzureMasquerade(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		ip, ri := getFakes(t, ipamOption.IPAMAzure, true, false)
-		masterMAC := ri.MasterIfMAC
-		ifaceCleanup := createDummyDevice(t, masterMAC)
-		defer ifaceCleanup()
-
-		runConfigureThenDelete(t, ri, ip)
-		return nil
-	})
-}
-
-func TestPrivilegedConfigureZeros(t *testing.T) {
-	setupLinuxRoutingSuite(t)
-
-	ns1 := netns.NewNetNS(t)
-	ns1.Do(func() error {
-		ip, ri := getFakes(t, ipamOption.IPAMENI, true, true)
-		require.NoError(t, ri.WithOptions(WithMTU(1500), WithLinkState(true)))
+		ip, ri := getFakes(t, ipamOption.IPAMAzure, true)
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
@@ -88,7 +72,7 @@ func TestPrivilegedConfigureZeros(t *testing.T) {
 func TestPrivilegedConfigureRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
-	_, ri := getFakes(t, ipamOption.IPAMENI, true, false)
+	_, ri := getFakes(t, ipamOption.IPAMENI, true)
 	err := ri.Configure(netip.Addr{}, false)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "unable to install endpoint rules: invalid endpoint IP address")
@@ -106,7 +90,7 @@ func TestPrivilegedDeleteRouteWithIncompatibleIP(t *testing.T) {
 func TestPrivilegedDelete(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
-	fakeIP, fakeRoutingInfo := getFakes(t, ipamOption.IPAMENI, true, false)
+	fakeIP, fakeRoutingInfo := getFakes(t, ipamOption.IPAMENI, true)
 	require.NoError(t, fakeRoutingInfo.WithOptions(WithMTU(1500), WithLinkState(true)))
 	masterMAC := fakeRoutingInfo.MasterIfMAC
 
@@ -423,7 +407,7 @@ func TestPrivilegedReconcileObsoleteRules(t *testing.T) {
 		t.Run(ipamMode, func(t *testing.T) {
 			ns := netns.NewNetNS(t)
 			ns.Do(func() error {
-				ip, routingInfo := getFakes(t, ipamMode, true, false)
+				ip, routingInfo := getFakes(t, ipamMode, true)
 				ifaceCleanup := createDummyDevice(t, routingInfo.MasterIfMAC)
 				defer ifaceCleanup()
 
@@ -801,26 +785,14 @@ func createDummyDevice(t *testing.T, macAddr mac.MAC) func() {
 }
 
 // getFakes returns a fake IP simulating an Endpoint IP and RoutingInfo as test harnesses.
-// To create routing info with a list of CIDRs which the interface has access to, set masquerade parameter to true
-// If withZeroCIDR is also set to true, the function will use the "0.0.0.0/0" CIDR block instead of other CIDR blocks.
-func getFakes(t *testing.T, ipamMode string, masquerade bool, withZeroCIDR bool) (netip.Addr, RoutingInfo) {
+func getFakes(t *testing.T, ipamMode string, masquerade bool) (netip.Addr, RoutingInfo) {
 	t.Helper()
 
 	fakeGateway := "192.168.2.1"
-	fakeSubnet1CIDR := netip.MustParsePrefix("192.168.0.0/16")
-	fakeSubnet2CIDR := netip.MustParsePrefix("192.170.0.0/16")
 	fakeMAC := mac.MustParseMAC("00:11:22:33:44:55")
 
-	var cidrs []netip.Prefix
-	if masquerade {
-		cidrs = []netip.Prefix{fakeSubnet1CIDR, fakeSubnet2CIDR}
-		if withZeroCIDR {
-			cidrs = []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}
-		}
-	}
-
 	options := []RoutingInfoOption{
-		WithCIDRsAndMasquerade(cidrs, masquerade),
+		WithMasquerade(masquerade),
 	}
 	if ipamMode != ipamOption.IPAMENI {
 		options = append(options, WithMTU(1500), WithLinkState(true))

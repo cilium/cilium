@@ -5,7 +5,6 @@ package linuxrouting
 
 import (
 	"net"
-	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -61,7 +60,6 @@ func TestNewRoutingInfo(t *testing.T) {
 				}
 
 				require.Equal(t, net.ParseIP(tt.gateway), rInfo.Gateway)
-				require.Nil(t, rInfo.CIDRs)
 				require.Equal(t, tt.macAddr, rInfo.MasterIfMAC)
 				require.False(t, rInfo.Masquerade)
 				require.Equal(t, 1, rInfo.InterfaceNumber)
@@ -76,14 +74,13 @@ func TestNewRoutingInfo(t *testing.T) {
 			"192.168.1.1",
 			mac.MustParseMAC("11:22:33:44:55:66"),
 			"2",
-			WithCIDRsAndMasquerade([]netip.Prefix{netip.MustParsePrefix("192.168.0.0/16")}, true),
+			WithMasquerade(true),
 			WithMTU(1500),
 			WithLinkState(true),
 			WithCompatEgressPriority(),
 		)
 		require.NoError(t, err)
 
-		require.Equal(t, []netip.Prefix{netip.MustParsePrefix("192.168.0.0/16")}, rInfo.CIDRs)
 		require.True(t, rInfo.Masquerade)
 		require.NotNil(t, rInfo.mtu)
 		require.Equal(t, 1500, *rInfo.mtu)
@@ -94,28 +91,5 @@ func TestNewRoutingInfo(t *testing.T) {
 		require.NoError(t, rInfo.WithOptions(WithMTU(1400), WithLinkState(false)))
 		require.Equal(t, 1400, *rInfo.mtu)
 		require.False(t, *rInfo.linkState)
-	})
-	t.Run("CIDR option validation", func(t *testing.T) {
-		for _, tt := range []struct {
-			name       string
-			cidrs      []netip.Prefix
-			masquerade bool
-		}{
-			{
-				name:       "empty CIDRs with masquerading",
-				masquerade: true,
-			},
-		} {
-			t.Run(tt.name, func(t *testing.T) {
-				rInfo, err := NewRoutingInfo(
-					"192.168.1.1",
-					mac.MustParseMAC("11:22:33:44:55:66"),
-					"1",
-					WithCIDRsAndMasquerade(tt.cidrs, tt.masquerade),
-				)
-				require.Error(t, err)
-				require.Nil(t, rInfo)
-			})
-		}
 	})
 }
