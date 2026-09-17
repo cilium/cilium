@@ -73,7 +73,7 @@ func (r *endpointInfoRegistry) FillEndpointInfo(ctx context.Context, info *acces
 			// this is best-effort anyways.
 			if err == nil && secid != nil {
 				info.Identity = uint64(secid.ID)
-				info.Labels = secid.LabelArray
+				info.Labels = secid.Labels.LabelArray()
 			}
 		}
 
@@ -97,7 +97,7 @@ func (r *endpointInfoRegistry) FillEndpointInfo(ctx context.Context, info *acces
 		// remote read if missing. So, provide the context.
 		identity := r.identityAllocator.LookupIdentityByID(ctx, identity.NumericIdentity(info.Identity))
 		if identity != nil {
-			info.Labels = identity.LabelArray
+			info.Labels = identity.Labels.LabelArray()
 		}
 	}
 }

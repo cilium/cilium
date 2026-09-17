@@ -138,7 +138,6 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 	id := &identity.Identity{
 		ID:             numericIdentity,
 		Labels:         lbls,
-		LabelArray:     lbls.LabelArray(),
 		ReferenceCount: 1,
 	}
 

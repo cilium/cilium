@@ -62,7 +62,6 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 			"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
 		},
 	}
-	identity.Sanitize()
 
 	model := newTestEndpointModel(int(id), StateReady)
 	ep, err := NewEndpointFromChangeModel(p, nil, &FakeEndpointProxy{}, model, nil)
