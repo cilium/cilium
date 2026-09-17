@@ -238,21 +238,15 @@ nodeport_l7_lb_redirect(struct __ctx_buff *ctx __maybe_unused,
 
 static __always_inline bool dsr_fail_needs_reply(int code __maybe_unused)
 {
-#ifdef ENABLE_DSR_ICMP_ERRORS
-	if (code == DROP_FRAG_NEEDED)
-		return true;
-#endif
-	return false;
+	return CONFIG(enable_dsr_icmp_errors) &&
+		code == DROP_FRAG_NEEDED;
 }
 
 static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused,
 					   __u16 expanded_len __maybe_unused)
 {
-#ifdef ENABLE_DSR_ICMP_ERRORS
-	if (expanded_len > CONFIG(device_mtu))
-		return true;
-#endif
-	return false;
+	return CONFIG(enable_dsr_icmp_errors) &&
+		expanded_len > CONFIG(device_mtu);
 }
 
 static __always_inline int
@@ -642,7 +636,9 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 					   __be16 dport __maybe_unused,
 					   int code, int ohead __maybe_unused)
 {
-#ifdef ENABLE_DSR_ICMP_ERRORS
+	if (!CONFIG(enable_dsr_icmp_errors))
+		goto drop_err;
+
 	__u8 reason = (__u8)-code;
 # if DSR_ENCAP_MODE == DSR_ENCAP_NONE || DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
@@ -677,8 +673,8 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 		goto drop_err;
 
 	return redirect_self(ctx);
+
 drop_err:
-#endif
 	return send_drop_notify_error(ctx, UNKNOWN_ID, code, METRIC_EGRESS);
 }
 
@@ -1957,7 +1953,9 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 					   __be16 dport __maybe_unused,
 					   int code, __be16 ohead __maybe_unused)
 {
-#ifdef ENABLE_DSR_ICMP_ERRORS
+	if (!CONFIG(enable_dsr_icmp_errors))
+		goto drop_err;
+
 	__u8 reason = (__u8)-code;
 # if DSR_ENCAP_MODE == DSR_ENCAP_NONE || DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 	struct ipv4_ct_tuple tuple = {};
@@ -1988,8 +1986,8 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 		goto drop_err;
 
 	return redirect_self(ctx);
+
 drop_err:
-#endif
 	return send_drop_notify_error(ctx, UNKNOWN_ID, code, METRIC_EGRESS);
 }
 
