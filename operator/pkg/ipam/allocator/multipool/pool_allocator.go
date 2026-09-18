@@ -241,7 +241,7 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 		if oldCIDR == nil {
 			continue
 		}
-		if exists := slices.ContainsFunc(newCIDRs, oldCIDR.IsClusterCIDR); exists {
+		if slices.ContainsFunc(newCIDRs, oldCIDR.IsClusterCIDR) {
 			continue
 		}
 
@@ -313,6 +313,22 @@ func setReservedRanges(allocators []cidralloc.CIDRAllocator, cidrs []poolCIDRCon
 	return nil
 }
 
+func validateExistingPool(pool cidrPool, ipv4MaskSize, ipv6MaskSize int, options poolOptions) error {
+	if pool.v4MaskSize != ipv4MaskSize {
+		return fmt.Errorf("cannot change IPv4 mask size")
+	}
+	if pool.v6MaskSize != ipv6MaskSize {
+		return fmt.Errorf("cannot change IPv6 mask size")
+	}
+	if pool.allowFirstIP != options.allowFirstIP {
+		return fmt.Errorf("cannot change allowFirstIP")
+	}
+	if pool.allowLastIP != options.allowLastIP {
+		return fmt.Errorf("cannot change allowLastIP")
+	}
+	return nil
+}
+
 func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, ipv4MaskSize int, ipv6CIDRs []poolCIDRConfig, ipv6MaskSize int, opts ...PoolOption) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -322,36 +338,26 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, 
 		opt(&options)
 	}
 
+	var v4Prev []cidralloc.CIDRAllocator
+	var v6Prev []cidralloc.CIDRAllocator
+
 	pool, exists := p.pools[poolName]
-	if exists && ipv4MaskSize != pool.v4MaskSize {
-		return fmt.Errorf("cannot change IPv4 mask size in existing pool %q", poolName)
-	}
-	if exists && ipv6MaskSize != pool.v6MaskSize {
-		return fmt.Errorf("cannot change IPv6 mask size in existing pool %q", poolName)
-	}
-	if exists && options.allowFirstIP != pool.allowFirstIP {
-		return fmt.Errorf("cannot change allowFirstIP in existing pool %q", poolName)
-	}
-	if exists && options.allowLastIP != pool.allowLastIP {
-		return fmt.Errorf("cannot change allowLastIP in existing pool %q", poolName)
+	if exists {
+		if err := validateExistingPool(pool, ipv4MaskSize, ipv6MaskSize, options); err != nil {
+			return fmt.Errorf("validation failed for existing pool %q: %w", poolName, err)
+		}
+		v4Prev = pool.v4
+		v6Prev = pool.v6
 	}
 
 	ipv4Prefixes := cidrPrefixes(ipv4CIDRs)
 	ipv6Prefixes := cidrPrefixes(ipv6CIDRs)
 
-	var v4Prev []cidralloc.CIDRAllocator
-	if exists {
-		v4Prev = pool.v4
-	}
 	v4, err := p.updateCIDRSets(false, v4Prev, ipv4Prefixes, ipv4MaskSize)
 	if err != nil {
 		return err
 	}
 
-	var v6Prev []cidralloc.CIDRAllocator
-	if exists {
-		v6Prev = pool.v6
-	}
 	v6, err := p.updateCIDRSets(true, v6Prev, ipv6Prefixes, ipv6MaskSize)
 	if err != nil {
 		return err
