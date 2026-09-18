@@ -202,6 +202,9 @@ func publishedResponseForTest(t *testing.T, c *cacheImpl, node *envoy_config_cor
 	require.NoError(t, err)
 	response = callbacks.WithResponseCoverage(response, c.getNodeState(node.Id).snapshotGeneration, snapshot)
 	state := c.getNodeState(node.Id)
+	// Fetch bypasses CreateWatch. This fixture delivers the current snapshot,
+	// so a later version echo belongs to this agent's negotiated namespace.
+	state.commitEpochNegotiation(index)
 	state.rollbacks.claimResponseLocked(c, state, index, response)
 	return response
 }

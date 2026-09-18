@@ -570,7 +570,7 @@ func TestAddTypeGenerationCompletionKeepsPendingForNewVersion(t *testing.T) {
 
 	req := &discovery.DiscoveryRequest{
 		VersionInfo: "version-1",
-		TypeUrl:     NetworkPolicyTypeURL,
+		TypeUrl:     typeurl.NetworkPolicyURL,
 		Node:        &core.Node{Id: "node-1"},
 	}
 	require.NoError(t, cb.OnStreamRequest(1, req))
@@ -991,7 +991,7 @@ func TestResponseWithoutGenerationDoesNotClaimWaiters(t *testing.T) {
 	registerTypeGenerationCompletion(t, cb, first, firstPending, "version-a")
 	registerTypeGenerationCompletion(t, cb, unversioned, unversionedPending, "")
 	cb.SetPublishedSnapshot("node-1", newListenerSnapshot(t, "version-a", &listener.Listener{Name: "listener"}))
-	// Neither a matching current content hash nor a versionless waiter proves
+	// Neither a matching current wire version nor a versionless waiter proves
 	// which snapshot produced a response whose generation was not captured.
 	cb.OnStreamResponse(context.Background(), 1,
 		&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL.URL()},

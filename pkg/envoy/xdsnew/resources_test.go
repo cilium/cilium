@@ -31,7 +31,7 @@ func TestPreparedResourceChangesKeepSinglePolicyInline(t *testing.T) {
 	require.Empty(t, changes.more)
 	require.True(t, inverse.hasSingleton())
 
-	state.commitResourceMutation(changes)
+	state.commitResourceMutation(changes, 1)
 	changes = resourceChanges{}
 	changes.add(typeurl.NetworkPolicy, "policy", state.resourceEntries(typeurl.NetworkPolicy)["policy"], resourceEntry{revision: callbacks.Generation(2).Revision(), transaction: callbacks.Generation(2).TransactionID()})
 	types, inverse = changes.typeURLs(), changes.inverse()
@@ -55,9 +55,9 @@ func TestSnapshotTypesChangedBy(t *testing.T) {
 		{"zero", typeurl.Set{}, typeurl.Set{}},
 		{"initialized empty", typeurl.NewSet(), typeurl.NewSet()},
 		{"policy", typeurl.NewSet(typeurl.NetworkPolicy), typeurl.NewSet(typeurl.NetworkPolicy)},
-		{"listener", typeurl.NewSet(typeurl.Listener), typeurl.NewSet(typeurl.Listener, typeurl.Route, typeurl.Cluster, typeurl.Secret)},
-		{"cluster", typeurl.NewSet(typeurl.Cluster), typeurl.NewSet(typeurl.Cluster, typeurl.Endpoint, typeurl.Secret)},
-		{"listener and cluster", typeurl.NewSet(typeurl.Listener, typeurl.Cluster), typeurl.NewSet(typeurl.Listener, typeurl.Cluster, typeurl.Route, typeurl.Endpoint, typeurl.Secret)},
+		{"listener", typeurl.NewSet(typeurl.Listener), typeurl.NewSet(typeurl.Listener)},
+		{"cluster", typeurl.NewSet(typeurl.Cluster), typeurl.NewSet(typeurl.Cluster, typeurl.Endpoint)},
+		{"listener and cluster", typeurl.NewSet(typeurl.Listener, typeurl.Cluster), typeurl.NewSet(typeurl.Listener, typeurl.Cluster, typeurl.Endpoint)},
 		{"all", typeurl.All(), typeurl.All()},
 	} {
 		t.Run(test.name, func(t *testing.T) {

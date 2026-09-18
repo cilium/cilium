@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
 
@@ -89,7 +90,7 @@ func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 
 	changes, changedTypeURLs, inverse = state.prepareResourceMutation(ResourceMutations{Removed: removed, Upserted: upserted}, 1)
 	require.Len(t, changes.more, 2, "three changed resources should share one overflow slice")
-	state.commitResourceMutation(changes)
+	state.commitResourceMutation(changes, 1)
 	require.Equal(t, typeurl.NewSet(
 		typeurl.Listener,
 		typeurl.Cluster,
@@ -119,4 +120,25 @@ func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 	require.Contains(t, current.Listeners, "listener")
 	require.Contains(t, current.Clusters, "cluster")
 	require.NotContains(t, current.Secrets, "new-secret")
+}
+
+func (state *nodeState) seedResourceAtGeneration(typeURL typeurl.Index, name string, resource cache_types.Resource, generation callbacks.Generation) {
+	state.seedResource(typeURL, name, resource)
+	entry := state.resources[typeURL][name]
+	entry.revision = generation.Revision()
+	entry.transaction = generation.TransactionID()
+	state.resources[typeURL][name] = entry
+	state.typeStates[typeURL].generation = max(state.typeStates[typeURL].generation, generation)
+}
+
+// applyUnpublishedTestResource models a resource mutation waiting for the next
+// snapshot, so incremental generation can distinguish parent replacements.
+func (state *nodeState) applyUnpublishedTestResource(typeURL typeurl.Index, name string, resource cache_types.Resource) typeurl.Set {
+	var changes resourceChanges
+	generation := state.resourceGeneration + 1
+	changes.add(typeURL, name, state.resources[typeURL][name], resourceEntry{resource: resource, revision: generation.Revision(), transaction: generation.TransactionID()})
+	state.commitResourceMutation(changes, generation)
+	state.resourceGeneration = generation
+	state.pendingPublication = &pendingPublication{generation: generation}
+	return changes.typeURLs()
 }

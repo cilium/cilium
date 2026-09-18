@@ -331,7 +331,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 					c.ClearSnapshot(nodeID)
 					require.Nil(t, c.GetStatusInfo(nodeID))
 				}
-				require.True(t, c.getNodeState("node1").openWatches.Empty())
+				require.True(t, c.getNodeState(nodeID).openWatches.Empty())
 				require.Empty(t, c.watchRelays)
 
 				if action == "cancel" {
@@ -346,7 +346,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 					}
 					require.Equal(t, 1, c.GetStatusInfo(nodeID).GetNumWatches())
 					cancel()
-					require.True(t, c.getNodeState("node1").openWatches.Empty())
+					require.True(t, c.getNodeState(nodeID).openWatches.Empty())
 					require.Empty(t, c.watchRelays)
 				}
 			})
@@ -359,22 +359,20 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 		c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
 		const nodeID = "node1"
 		responses := make(chan cache.Response, 2)
-		cancel, err := c.CreateWatch(&cache.Request{
-			Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(),
-		}, stream.NewSotwSubscription(nil, true), responses)
-		require.NoError(t, err)
-		t.Cleanup(cancel)
-		<-responses
-		snapshot, err := c.GetSnapshot(nodeID)
-		require.NoError(t, err)
 		// Different TypeURLs can share one relay; both responses must survive
 		// collection and retire their watches.
 		for _, typeURL := range []typeurl.Index{typeurl.Listener, typeurl.Cluster} {
 			request := &cache.Request{
 				Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeURL.URL(),
-				VersionInfo: snapshot.GetVersion(typeURL.URL()),
 			}
-			cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
+			subscription := stream.NewSotwSubscription(nil, true)
+			cancel, err := c.CreateWatch(request, subscription, responses)
+			require.NoError(t, err)
+			t.Cleanup(cancel)
+			initial := <-responses
+			request.VersionInfo = initial.GetResponseVersion()
+			subscription.SetReturnedResources(initial.GetReturnedResources())
+			cancel, err = c.CreateWatch(request, subscription, responses)
 			require.NoError(t, err)
 			t.Cleanup(cancel)
 		}
@@ -392,7 +390,7 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 			deliveredTypes = append(deliveredTypes, response.GetRequest().GetTypeUrl())
 		}
 		expectedTypes := []string{typeurl.Cluster.URL(), typeurl.Listener.URL()}
-		require.ElementsMatch(t, expectedTypes, deliveredTypes)
+		require.Equal(t, expectedTypes, deliveredTypes)
 		require.Zero(t, c.GetStatusInfo(nodeID).GetNumWatches())
 		require.True(t, c.getNodeState("node1").openWatches.Empty())
 		require.Empty(t, c.watchRelays)

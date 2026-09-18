@@ -67,11 +67,12 @@ but delivered after unlocking, allowing callbacks to reenter cache APIs.
 ## State and ownership
 
 Each supported node has a persistent `nodeState`. It owns desired resources,
-publication boundaries, pending changes, open watches, and node-local rollback
-ownership. Per-resource-type state groups changed names, corrective generations,
-and rollback ownership. Desired and published generation boundaries can differ
-while changes await publication. The node's identity persists across stream
-disconnects; lifecycles retain their node reference for later resolution.
+publication boundaries, epoch negotiation, open watches, and node-local rollback
+ownership. Per-resource-type state groups changed names, aggregate and corrective
+generations, and rollback ownership. Desired and published generation boundaries
+can differ while changes await publication. The node's epoch and identity persist
+across stream disconnects; lifecycles retain their node reference for later
+resolution.
 
 Node-local rollback state manages caller and response lifetimes and adjusts
 rollback targets after a NACK. Completion callbacks own caller ACK waits,
@@ -87,12 +88,12 @@ their contents; dashed arrows show cross-references or shared values. `Slots` an
 ```mermaid
 flowchart TD
     cache["cacheImpl<br/>Cache lock and shared generation source"]
-    node["nodeState<br/>Persistent supported node<br/>Desired and published generation boundaries"]
+    node["nodeState<br/>Persistent supported node and epoch<br/>Desired and published generation boundaries"]
     desired["resourceMaps<br/>Desired entries by TypeURL and name"]
     entry["resourceEntry<br/>Immutable resource or removal tombstone<br/>Revision and originating TransactionID"]
-    types["resourceTypeState<br/>Changed names, corrective generation<br/>and rollback ownership"]
+    types["resourceTypeState<br/>Changed names, aggregate and corrective generations<br/>Epoch negotiation and rollback ownership"]
     snapshot["ciliumSnapshot<br/>Latest installed immutable protocol view"]
-    group["snapshotResourceGroup<br/>Resources and content versions for one TypeURL"]
+    group["snapshotResourceGroup<br/>Immutable resources and aggregate generation<br/>Epoch-bound wire version for one TypeURL"]
     protobuf["Immutable protobufs<br/>Shared between desired and published views"]
     pending["pendingPublication<br/>Latest unpublished boundary and affected types<br/>Sparse rollback state awaiting publication"]
 
@@ -187,23 +188,48 @@ state, including resources of other types. An empty resource group is supplied
 only when that type's desired state and any required synthesized assignments are
 empty.
 
-Snapshot construction shallow-copies the published groups, replaces changed
-entries, and shares unchanged maps. Serialization and content hashing happen
-at publication, so coalesced intermediate values need no version computation.
-Each group contains its resources and per-resource content versions, constructed
-together from the published projection, including synthesized CLAs.
-`ConstructVersionMap` does no additional serialization or hashing.
-Parent-reference version contexts advance a referenced group's protocol version
-when needed for delivery of unchanged resources. A corrective publication also
-incorporates its fresh generation in the affected type's version, so restoring
-identical contents cannot reuse an earlier response's ACK.
+New snapshots shallow-copy the previous snapshot and replace affected resource
+groups. Immutable resource maps are cloned only where entries change. Missing
+CLAs are synthesized in the snapshot. Generation-based versions make snapshot
+construction independent of serialization and content hashing. Marshaling is
+deferred to go-control-plane's response construction. Only SotW snapshots are
+supported.
 
 Publication metadata becomes visible only after successful installation. The
 published generation advances, and pending publication bookkeeping and changed
 names are cleared; independent rollback ownership remains intact.
 
 If publication triggered by `CreateWatch` fails, desired state and pending
-publication remain available for another attempt or caller rollback.
+publication remain available for another attempt or caller rollback. Response
+construction can still fail to encode a resource after a successful cache mutation
+or publication.
+
+### Wire versions and EDS replay
+
+Wire versions use `e<epoch>:g<generation>`, for example `e1:g42`. The epoch
+distinguishes the restarted agent's generation sequence from versions retained by
+a running Envoy. Internally the cache keeps bare generations and binds the node's
+epoch when publishing a snapshot. Each resource type's aggregate generation
+advances for changes and reverts, ensuring restored values receive a new wire
+version too.
+
+The first active subscription for each resource type contributes its reported
+epoch, if any. Versions without an `e<positive integer>:` prefix are ignored.
+The initial node epoch is the smallest positive integer absent from that
+subscription's reported versions. If another type's first active subscription
+reports that selected epoch, negotiation advances beyond all initial epochs
+recorded for the node. This handles Envoy retaining different epochs for different
+resource types across agent restarts.
+
+Negotiated types retain continuity across reconnects. Changing the epoch updates
+the published protocol view without publishing unrelated pending changes.
+
+A Cluster change can require fresh EDS delivery even when desired CLAs are
+unchanged: Envoy may need it to finish warming with an already-subscribed EDS name,
+or the snapshot may gain or lose synthesized empty assignments. In these cases,
+the EDS wire generation advances to the greater of its current generation and the
+CDS generation. Desired EDS revisions and transaction IDs remain unchanged.
+LDS changes do not artificially advance RDS, CDS, or SDS versions.
 
 ## Delivery and ACK processing
 
@@ -212,7 +238,8 @@ Cache relays buffer responses produced synchronously by `SetSnapshot` or
 generation, the resource names they communicate, and rollback ownership.
 Immediate `CreateWatch` responses are captured under the lock too; their
 generations are never inferred from later publications or newly registered waits.
-Collected responses are delivered outside the lock.
+Collected response batches are delivered outside the lock, with parents before
+children within each batch.
 
 ```mermaid
 flowchart TD
@@ -285,7 +312,7 @@ flowchart TD
     types -->|pendingGenerations: entries and generation boundaries| generation
     generation -.->|rollback| rollback
     generation -->|scope, once a response is collected| scope
-    callbacks -->|streams: stream ID map| stream
+    callbacks -->|streams: mode and stream ID map| stream
     stream -->|responses: independent Slots| response
     response -->|coverage| coverage
     callbacks -->|pendingCompletions: completion pointer map| wait
@@ -439,12 +466,12 @@ lifecycles. A later response can resolve the generations it communicates togethe
 
 - `cache.go`: API transactions, snapshot construction/publication, and delivery.
 - `resources.go`: resource containers, prepared changes, and input validation.
-- `node_state.go`: persistent desired state, pending publication, and node-local
-  bookkeeping.
+- `node_state.go`: persistent desired state, pending publication, and epoch
+  negotiation.
 - `rollback.go`: caller and response lifecycles, coalescing, rebasing, and
   tombstone ownership.
 - `callbacks/`: response identities, named-resource coverage, accepted state,
-  ACK waits, and NACK coordination.
+  ACK waits, NACK coordination, and stream lifecycle tracking.
 
 Cache API/lifecycle tests use the mutation APIs; watch and named-response tests
 drive real go-control-plane responses and stream callbacks. Shared test fixtures
