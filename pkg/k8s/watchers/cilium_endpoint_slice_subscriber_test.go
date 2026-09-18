@@ -39,7 +39,13 @@ func (u endpointUpdate) String() string {
 }
 
 func epEqual(e1, e2 *types.CiliumEndpoint) bool {
-	return ((e1 == nil) == (e2 == nil)) && (e1 == nil || (e1.Identity.ID == e2.Identity.ID && e1.ServiceAccount == e2.ServiceAccount))
+	if (e1 == nil) != (e2 == nil) {
+		return false
+	}
+	return e1 == nil ||
+		(e1.Identity.ID == e2.Identity.ID &&
+			e1.ServiceAccount == e2.ServiceAccount &&
+			cmp.Equal(e1.Workload, e2.Workload))
 }
 
 func updateEqual(u1, u2 endpointUpdate) bool {
@@ -177,6 +183,17 @@ func newEndpointWithPodUID(name, namespace string, id int64, serviceAccount, pod
 			UID:  k8sTypes.UID(podUID),
 		},
 	}
+	return endpoint
+}
+
+func newEndpointWithWorkload(
+	name, namespace string,
+	id int64,
+	serviceAccount string,
+	workload *v2.EndpointWorkload,
+) *types.CiliumEndpoint {
+	endpoint := newEndpoint(name, namespace, id, serviceAccount)
+	endpoint.Workload = workload
 	return endpoint
 }
 
@@ -594,9 +611,16 @@ func TestCESSubscriber_OnAdd(t *testing.T) {
 	}{
 		{
 			name: "one_cep",
-			ces:  newCES("ces", testNamespace, v2alpha1.CoreCiliumEndpoint{Name: "cep1", ServiceAccount: "test-service-account"}),
+			ces: newCES("ces", testNamespace, v2alpha1.CoreCiliumEndpoint{
+				Name:           "cep1",
+				ServiceAccount: "test-service-account",
+				Workload:       &v2.EndpointWorkload{Name: "workload-1", Kind: "Deployment"},
+			}),
 			expectAdds: []endpointUpdate{
-				{NewEP: newEndpoint("cep1", testNamespace, 0, "test-service-account")},
+				{NewEP: newEndpointWithWorkload(
+					"cep1", testNamespace, 0, "test-service-account",
+					&v2.EndpointWorkload{Name: "workload-1", Kind: "Deployment"},
+				)},
 			},
 			expectedCurrentCES: map[string]string{
 				"default/cep1": "ces",
@@ -765,6 +789,38 @@ func TestCESSubscriber_OnUpdate(t *testing.T) {
 				{
 					OldEP: newEndpointWithPodUID("cep1", testNamespace, 0, "test-service-account", "old-pod-uid"),
 					NewEP: newEndpointWithPodUID("cep1", testNamespace, 0, "test-service-account", "new-pod-uid"),
+				},
+			},
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+			},
+		},
+		{
+			name: "update_workload",
+			oldCES: newCES("ces", testNamespace,
+				v2alpha1.CoreCiliumEndpoint{
+					Name:           "cep1",
+					ServiceAccount: "test-service-account",
+					Workload:       &v2.EndpointWorkload{Name: "old-workload", Kind: "Deployment"},
+				},
+			),
+			newCES: newCES("ces", testNamespace,
+				v2alpha1.CoreCiliumEndpoint{
+					Name:           "cep1",
+					ServiceAccount: "test-service-account",
+					Workload:       &v2.EndpointWorkload{Name: "new-workload", Kind: "Deployment"},
+				},
+			),
+			expectUpdates: []endpointUpdate{
+				{
+					OldEP: newEndpointWithWorkload(
+						"cep1", testNamespace, 0, "test-service-account",
+						&v2.EndpointWorkload{Name: "old-workload", Kind: "Deployment"},
+					),
+					NewEP: newEndpointWithWorkload(
+						"cep1", testNamespace, 0, "test-service-account",
+						&v2.EndpointWorkload{Name: "new-workload", Kind: "Deployment"},
+					),
 				},
 			},
 			expectedCurrentCES: map[string]string{

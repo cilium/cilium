@@ -151,6 +151,7 @@ func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
 		}}
 	}
 	localWorkload := []*flowpb.Workload{{Kind: "StatefulSet", Name: "local-workload"}}
+	remoteWorkload := []*flowpb.Workload{{Kind: "Deployment", Name: "ipcache-workload"}}
 	tests := []struct {
 		name            string
 		endpointID      uint32
@@ -199,6 +200,19 @@ func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
 			wantPodName:     "local-pod",
 		},
 		{
+			name:            "ownerless local Pod clears IPCache workload",
+			endpointID:      1234,
+			localEndpointID: 1234,
+			localNamespace:  "local-namespace",
+			localPodName:    "local-pod",
+			localPod: &slim_corev1.Pod{ObjectMeta: slim_metav1.ObjectMeta{
+				UID: "ownerless-pod-uid",
+			}},
+			wantNamespace: "local-namespace",
+			wantPodName:   "local-pod",
+			wantPodUID:    "ownerless-pod-uid",
+		},
+		{
 			name:            "different local endpoint preserves IPCache metadata and skips workloads",
 			endpointID:      1234,
 			localEndpointID: 4321,
@@ -209,6 +223,7 @@ func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
 			wantNamespace:   "ipcache-namespace",
 			wantPodName:     "ipcache-pod",
 			wantPodUID:      "ipcache-pod-uid",
+			wantWorkloads:   remoteWorkload,
 		},
 	}
 
@@ -232,6 +247,7 @@ func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
 				Namespace: "ipcache-namespace",
 				PodName:   "ipcache-pod",
 				PodUid:    "ipcache-pod-uid",
+				Workloads: remoteWorkload,
 			}
 
 			parser.updateEndpointFromLocal(ip, endpoint)

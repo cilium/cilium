@@ -484,6 +484,18 @@ spec:
                 - disconnected
                 - invalid
                 type: string
+              workload:
+                description: Workload identifies the Kubernetes workload which owns
+                  the endpoint's Pod.
+                properties:
+                  kind:
+                    description: Kind is the kind of the workload, such as Deployment
+                      or StatefulSet.
+                    type: string
+                  name:
+                    description: Name is the name of the workload.
+                    type: string
+                type: object
             type: object
         required:
         - metadata

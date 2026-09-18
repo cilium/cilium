@@ -73,6 +73,8 @@ type UpsertParams struct {
 	K8sNamespace      string
 	K8sPodName        string
 	K8sPodUID         string
+	K8sWorkloadName   string
+	K8sWorkloadKind   string
 	K8sServiceAccount string
 	NPM               types.NamedPortMap
 }
@@ -102,6 +104,8 @@ func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, params *UpsertParam
 		K8sNamespace:      params.K8sNamespace,
 		K8sPodName:        params.K8sPodName,
 		K8sPodUID:         params.K8sPodUID,
+		K8sWorkloadName:   params.K8sWorkloadName,
+		K8sWorkloadKind:   params.K8sWorkloadKind,
 		K8sServiceAccount: params.K8sServiceAccount,
 		NamedPorts:        namedPorts,
 	}
@@ -401,12 +405,24 @@ func (iw *IPIdentityWatcher) OnUpdate(k storepkg.Key) {
 	}
 
 	var k8sMeta *K8sMetadata
-	if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" || ipIDPair.K8sPodUID != "" || len(ipIDPair.NamedPorts) > 0 {
+	hasK8sMetadata := ipIDPair.K8sNamespace != "" ||
+		ipIDPair.K8sPodName != "" ||
+		ipIDPair.K8sPodUID != "" ||
+		ipIDPair.K8sWorkloadName != "" ||
+		ipIDPair.K8sWorkloadKind != "" ||
+		len(ipIDPair.NamedPorts) > 0
+	if hasK8sMetadata {
 		k8sMeta = &K8sMetadata{
 			Namespace:  ipIDPair.K8sNamespace,
 			PodName:    ipIDPair.K8sPodName,
 			PodUID:     ipIDPair.K8sPodUID,
 			NamedPorts: make(types.NamedPortMap, len(ipIDPair.NamedPorts)),
+		}
+		if ipIDPair.K8sWorkloadName != "" || ipIDPair.K8sWorkloadKind != "" {
+			k8sMeta.Workload = &K8sWorkload{
+				Name: ipIDPair.K8sWorkloadName,
+				Kind: ipIDPair.K8sWorkloadKind,
+			}
 		}
 		for _, np := range ipIDPair.NamedPorts {
 			err := k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)

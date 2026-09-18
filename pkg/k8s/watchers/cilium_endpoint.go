@@ -218,6 +218,12 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 		PodUID:     endpoint.GetPodUID(),
 		NamedPorts: make(ciliumTypes.NamedPortMap, len(endpoint.NamedPorts)),
 	}
+	if endpoint.Workload != nil {
+		k8sMeta.Workload = &ipcache.K8sWorkload{
+			Name: endpoint.Workload.Name,
+			Kind: endpoint.Workload.Kind,
+		}
+	}
 	for _, port := range endpoint.NamedPorts {
 		if err := k8sMeta.NamedPorts.AddPort(port.Name, int(port.Port), port.Protocol); err != nil {
 			k.logger.Error(
