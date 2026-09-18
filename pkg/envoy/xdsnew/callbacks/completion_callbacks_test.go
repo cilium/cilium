@@ -40,7 +40,26 @@ func (rollback finalizingTestRollback) Finalize() {
 }
 
 func newTestCompletionCallbacks() *CompletionCallbacks {
-	return NewCompletionCallbacks(slog.New(slog.DiscardHandler))
+	return NewCompletionCallbacks(slog.New(slog.DiscardHandler), nil)
+}
+
+type streamLifecycleEvent struct {
+	streamID int64
+	nodeID   string
+	mode     StreamMode
+}
+
+type testStreamLifecycleHandler struct {
+	started []streamLifecycleEvent
+	closed  []streamLifecycleEvent
+}
+
+func (handler *testStreamLifecycleHandler) StreamStarted(streamID int64, nodeID string, mode StreamMode) {
+	handler.started = append(handler.started, streamLifecycleEvent{streamID: streamID, nodeID: nodeID, mode: mode})
+}
+
+func (handler *testStreamLifecycleHandler) StreamClosed(streamID int64, nodeID string, mode StreamMode) {
+	handler.closed = append(handler.closed, streamLifecycleEvent{streamID: streamID, nodeID: nodeID, mode: mode})
 }
 
 func newTestCompletion(t *testing.T) (*completion.WaitGroup, *completion.Completion) {
@@ -296,7 +315,7 @@ func TestListenerNACKAfterStreamSynchronizationUsesNormalRollback(t *testing.T) 
 
 	require.True(t, reverted)
 	require.Error(t, wg.Wait())
-	require.Equal(t, StreamResetInactive, cb.streams[1].resetPhase)
+	require.Equal(t, StreamResetInactive, cb.streams[streamKey{streamID: 1, mode: StreamModeSotW}].resetPhase)
 }
 
 func TestNACKRevertsUntrackedGeneration(t *testing.T) {
@@ -912,4 +931,25 @@ func TestPendingResponseAttachesInterveningGenerationsOnABA(t *testing.T) {
 	require.NoError(t, wgB.Wait())
 	require.NoError(t, wgA2.Wait())
 	require.Zero(t, cb.PendingCompletionCount())
+}
+
+func TestStreamLifecycleHandler(t *testing.T) {
+	handler := &testStreamLifecycleHandler{}
+	cb := NewCompletionCallbacks(slog.New(slog.DiscardHandler), handler)
+	chained := ChainedCallbacks{cb}
+
+	require.NoError(t, chained.OnStreamOpen(t.Context(), 7, ""))
+	sotwRequest := &discovery.DiscoveryRequest{
+		Node:    &core.Node{Id: "node-1"},
+		TypeUrl: typeurl.NetworkPolicy.URL(),
+	}
+	require.NoError(t, chained.OnStreamRequest(7, sotwRequest))
+	require.Equal(t, []streamLifecycleEvent{{streamID: 7, nodeID: "node-1", mode: StreamModeSotW}}, handler.started)
+	// A later request on the same stream must not increment the node's stream
+	// count again.
+	require.NoError(t, chained.OnStreamRequest(7, sotwRequest))
+	require.Len(t, handler.started, 1)
+
+	chained.OnStreamClosed(7, nil)
+	require.Equal(t, []streamLifecycleEvent{{streamID: 7, nodeID: "node-1", mode: StreamModeSotW}}, handler.closed)
 }

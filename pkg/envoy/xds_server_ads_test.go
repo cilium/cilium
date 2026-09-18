@@ -2149,14 +2149,46 @@ func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
 	nackADSResourceVersion(t, cache, 1, ListenerTypeURL, deleteVersion, "cannot bind: Address already in use")
 
 	// The rejected desired version is first replaced with the accepted deletion
-	// version, then published again after the retry delay.
+	// contents under a new generation version. ACK that rollback response before
+	// opening the watch which consumes the retried replacement.
 	require.Eventually(t, func() bool {
 		return len(cachedListeners(cache, localNodeID)) == 0
 	}, time.Second, 10*time.Millisecond)
-	retryRequest := &envoy_service_discovery.DiscoveryRequest{
+	rollbackRequest := &envoy_service_discovery.DiscoveryRequest{
 		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
 		TypeUrl:     ListenerTypeURL,
 		VersionInfo: deleteVersion,
+	}
+	rollbackResponses := make(chan xds_cache.Response, 1)
+	cancelRollbackWatch, err := cache.CreateWatch(
+		rollbackRequest, envoy_stream.NewSotwSubscription(nil, false), rollbackResponses)
+	require.NoError(t, err)
+	t.Cleanup(cancelRollbackWatch)
+
+	var rollbackResponse xds_cache.Response
+	select {
+	case rollbackResponse = <-rollbackResponses:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for listener rollback response")
+	}
+	rollbackVersion := rollbackResponse.GetResponseVersion()
+	require.NotEqual(t, deleteVersion, rollbackVersion)
+	cache.GetCompletionCallbacks().OnStreamResponse(
+		rollbackResponse.GetContext(), 1, rollbackResponse.GetRequest(),
+		&envoy_service_discovery.DiscoveryResponse{
+			TypeUrl:     ListenerTypeURL,
+			VersionInfo: rollbackVersion,
+		})
+	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl:     ListenerTypeURL,
+		VersionInfo: rollbackVersion,
+	}))
+
+	retryRequest := &envoy_service_discovery.DiscoveryRequest{
+		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
+		TypeUrl:     ListenerTypeURL,
+		VersionInfo: rollbackVersion,
 	}
 	retryResponses := make(chan xds_cache.Response, 1)
 	cancelRetryWatch, err := cache.CreateWatch(
@@ -2177,6 +2209,7 @@ func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
 	snapshot, err := cache.GetSnapshot(localNodeID)
 	require.NoError(t, err)
 	retryVersion := snapshot.GetVersion(ListenerTypeURL)
+	require.Equal(t, retryVersion, retryResponse.GetResponseVersion())
 	cache.GetCompletionCallbacks().OnStreamResponse(
 		retryResponse.GetContext(), 1, retryResponse.GetRequest(),
 		&envoy_service_discovery.DiscoveryResponse{

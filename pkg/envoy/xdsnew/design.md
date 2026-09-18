@@ -10,7 +10,7 @@ Cilium updates its xDS cache before Envoy has accepted the resulting configurati
 The rollback system must handle both cases without:
 
 - reverting newer resource updates;
-- confusing equal content versions in an A → B → A sequence;
+- confusing repeated content states in an A → B → A sequence;
 - losing rollback state when a caller times out;
 - retaining a complete cache snapshot for every mutation;
 - accumulating unnecessary rollback state while Envoy is slow or disconnected.
@@ -73,14 +73,15 @@ This is the most recent immutable go-control-plane snapshot made available to En
 The desired state can be ahead of the published snapshot while mutations are staged.
 
 The snapshot uses one fixed slot per supported TypeURL. Each slot keeps the
-published `cache.Resources` and its per-resource content-version map together,
-with the invariant that both maps contain the same resource names. Versions are
-computed before the snapshot is published, so go-control-plane's
-`ConstructVersionMap` hook has no additional work to do.
+published resources and the generation and dependency context used to derive
+its aggregate SotW version. The snapshot retains protobuf objects, not
+serialized bytes. go-control-plane marshals resources when a response is
+encoded.
 
 Incremental finalization shallow-copies the fixed slots and replaces only the
-affected resource groups. Within an affected group, the immutable resource and
-version maps are cloned together only when an entry actually changes.
+affected resource groups. Within an affected group, the immutable resource map
+is cloned only when its entries change. Snapshots carry only aggregate SotW
+versions; they do not retain per-resource generation or version maps.
 
 ### Accepted snapshot
 
@@ -96,15 +97,39 @@ accepted state ≤ published state ≤ desired state
 
 The states can temporarily be equal, but they have different responsibilities.
 
-## Generations and xDS content versions
+## Generations and xDS versions
 
-The implementation uses both generation numbers and xDS content versions, but they serve different purposes.
+The implementation uses generation numbers for both internal ordering and xDS
+version strings, with an epoch separating different agent instances.
 
-### Content versions
+### Wire format and epoch
 
-xDS versions are derived from resource contents. Envoy receives these versions and echoes them in ACK and NACK requests.
+xDS versions have this form:
 
-Equal resource contents produce equal versions.
+```text
+e<epoch>:g<generation>
+```
+
+For example, `e1:g42` identifies generation 42 in epoch 1.
+
+The cache negotiates one epoch for each node ID. The first request for each
+TypeURL contributes the epoch it reports; versions without an
+`e<positive integer>:` prefix are ignored. Each resource-type slot retains the
+greatest epoch from that first request. The initial node epoch is the smallest
+positive integer absent from the first request. If a later TypeURL reports the
+selected epoch, the cache advances beyond every epoch retained by the slots.
+
+This makes versions from a restarted agent distinct from versions retained by
+the longer-running Envoy process, including when Envoy retained different
+epochs for different resource types after partial agent restarts. An already
+negotiated TypeURL reporting the selected epoch on a later stream is ordinary
+continuity and does not rotate it again.
+
+Each resource-type slot also records the epoch under which it was negotiated.
+The cache stores bare generations in desired state and binds the node epoch
+when a snapshot is finalized for a consumable watch. Rotating the epoch
+shallow-copies and reinstalls the protocol view for all TypeURLs without
+copying resource maps or publishing unrelated staged desired state.
 
 ### Generations
 
@@ -120,9 +145,11 @@ generation 11: B
 generation 12: A
 ```
 
-Generations 10 and 12 may have the same xDS content version, but they are different resource-state events.
+Generations 10 and 12 have different xDS versions even though their resource
+contents are equal.
 
-This avoids the ambiguity inherent in using content hashes for internal ordering.
+This avoids content hashing and the ambiguity of using equal content hashes for
+internal ordering.
 
 ## Generation-tagged desired resources
 
@@ -378,7 +405,7 @@ While staged:
 - updates are applied directly to cache-private desired-state maps;
 - changed resource names are recorded;
 - rollback is coalesced per TypeURL and resource name;
-- no protobuf hashing is required merely to mutate the cache.
+- no protobuf marshaling or hashing is required.
 
 If no relevant Envoy watch exists, the cache stays in this state.
 
@@ -386,11 +413,19 @@ If no relevant Envoy watch exists, the cache stays in this state.
 
 When an appropriate watch can consume the update, the cache incrementally generates a new immutable snapshot.
 
-Only changed resource names and dependency-dirty types are considered. Resource content versions are computed at this point.
+Only changed resource names and dependency-dirty types are considered. The
+aggregate TypeURL version is formatted from its generation.
 
-If a TypeURL’s final content version did not change—for example, because staged updates produced A → B → A—its response rollback can be released because no new response is necessary.
+Generation versions advance across A → B → A changes. This may produce a new
+SotW response even when the final protobuf pointer equals the previously
+published one, but it avoids reintroducing a content comparison or hash at
+publication time.
 
 For changed versions, the cache retains at most one coalesced unsent rollback lifecycle per node and TypeURL.
+
+Snapshot finalization does not serialize protobufs or calculate content hashes.
+go-control-plane performs serialization only for resources included in an
+actual response.
 
 ### 3. Response-owned
 
@@ -418,7 +453,8 @@ mutation generations 40, 41, 42
 
 An ACK or NACK for that response can then resolve every mutation represented by it.
 
-The xDS content version is still used by the wire protocol, but generation numbers handle internal ordering.
+The formatted generation version is used by the wire protocol, while the
+numeric generation handles internal ordering without reparsing strings.
 
 The response is also matched using its node, TypeURL, stream, and nonce. An ACK or NACK from an old stream or for a stale nonce cannot resolve a newer response.
 
@@ -628,6 +664,24 @@ reset response closes the stream without modifying desired state.
 
 Rollback state belongs to the node and resource generations, not to one ADS stream. It is therefore not discarded merely because a stream disconnects.
 
+`CompletionCallbacks` owns one stream registry keyed by xDS mode and stream ID.
+After a SotW stream's first request identifies its node, a construction-time
+`StreamLifecycleHandler` notifies the cache of the stream start and close.
+Keeping the mode in the key and fixed cache slots prevents future protocol
+modes with independently allocated stream IDs from colliding.
+
+`nodeState` mirrors active stream IDs in fixed mode slots. The cache tracks
+individual SotW one-response watches in a common index by node, protocol mode,
+and TypeURL. Streams retain node state across one-response watch replacement,
+while the watch index identifies which resource types can consume a response
+immediately.
+
+Backend responses are relayed through cache-owned buffered channels.
+While holding the cache lock, response collection associates the response with
+its exact request, claims its response-owned rollback, and removes that watch
+from the common index. The response is delivered to go-control-plane only after
+the lock is released.
+
 When the last ADS stream for a node closes:
 
 - the node’s desired state remains;
@@ -639,6 +693,12 @@ When the last ADS stream for a node closes:
 - the old pending nonce, stream ID, and response association are cleared;
 - the remembered accepted snapshot is cleared.
 - any stream-private soft-reset snapshot is discarded.
+
+The negotiated node epoch is retained across a stream gap whenever desired,
+staged, or rollback state still owns the node. If none of those remain, the
+empty node state and its published empty snapshot are removed; a later stream
+can safely negotiate a new epoch because no state from the old namespace
+remains owned by the cache.
 
 Clearing accepted state is necessary because a new stream may belong to a newly restarted Envoy process that has no resources.
 
@@ -678,6 +738,12 @@ When Envoy reconnects using the same node ID, its first DiscoveryRequest establi
 
 The new watch can then consume the current state.
 
+The first supported requests received by a new cache instance negotiate the
+node epoch as described above. Since the selected epoch differs from every
+recognized epoch reported by a previously unseen TypeURL, go-control-plane
+cannot suppress the new agent's initial state merely because its generation
+number overlaps a generation retained by Envoy.
+
 ### Fresh Envoy with no version
 
 If the request has no current version, it is treated as a fresh subscription.
@@ -691,7 +757,8 @@ The cache:
 
 ### Envoy reports the current published version
 
-Envoy may reconnect and report that it already has the current content version.
+Envoy may reconnect to the same running agent and report that it already has
+the current generation version.
 
 If the reported version matches the current published snapshot, the cache can treat the corresponding snapshot generation as accepted without requiring another response.
 
@@ -732,17 +799,21 @@ If Envoy NACKs it:
 
 ## Nodes with no desired resources
 
-Connecting an Envoy node does not itself create persistent `nodeState`.
+An open ADS stream with a known node ID creates `nodeState` even when its
+desired state is empty. This lets the stream negotiate an epoch which remains
+stable across its TypeURL requests. Open-watch bookkeeping remains separate
+from desired node state because an individual watch is consumed for every
+response while the stream continues to exist.
 
-Open-watch bookkeeping is separate from desired node state: an outer map is
-keyed by node ID, and each node's watches are grouped in fixed TypeURL slots.
-Opening a watch therefore does not create desired resource state.
+The node state remains while it has any desired resources, staged mutations,
+rollback ownership, or open streams. It is removed only when all those owners
+are gone. Resource maps must be completely empty for removal: nil-resource
+tombstones still protect possible NACK rollback and therefore count as state.
 
-If a node with no desired resources requests a supported TypeURL, the cache can respond with an authoritative empty snapshot without creating desired-state ownership for that node.
-
-If resources are later added, normal node state is created and the existing watch can receive them.
-
-Desired node state is not removed simply because the node disconnects. Desired resources belong to Cilium configuration, not connection lifetime.
+Desired node state is not removed simply because the node disconnects. Desired
+resources belong to Cilium configuration, not connection lifetime. Conversely,
+an empty node state is removed after its final stream closes, so a later stream
+can negotiate a fresh epoch without leaving per-node protocol state behind.
 
 ## Memory behavior while disconnected
 

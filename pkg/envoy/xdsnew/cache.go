@@ -6,7 +6,6 @@ package xdsnew
 import (
 	"context"
 	"fmt"
-	"hash/fnv"
 	"iter"
 	"log/slog"
 	"maps"
@@ -14,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -28,9 +27,6 @@ import (
 	controlplanelog "github.com/envoyproxy/go-control-plane/pkg/log"
 	envoy_resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
-	"k8s.io/apimachinery/pkg/util/rand"
-
-	cilium "github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/container/set"
@@ -146,8 +142,8 @@ type ListenerChange struct {
 
 // snapshotGenerator constructs the immutable snapshot which represents the
 // latest staged resources. Keeping construction behind this callback lets the
-// cache postpone protobuf marshaling and version hashing until Envoy has a
-// watch which can consume the result.
+// cache postpone snapshot assembly until Envoy has a watch which can consume
+// the result. Protobuf marshaling remains lazy in go-control-plane.
 type snapshotGenerator func(state *nodeState, previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) (cache.ResourceSnapshot, error)
 
 type Cache interface {
@@ -219,11 +215,11 @@ type cacheImpl struct {
 	// publication, then release it before delivering responses or completions.
 	mutex *lock.RWMutex
 	// nodeStates hold the private mutable desired resources and the names changed
-	// since the last snapshot publication for each node.
+	// since the last snapshot publication, together with protocol state retained
+	// while the node has desired resources, rollback state, or an open stream.
 	nodeStates map[string]*nodeState
-	// openWatches tracks the precise resource types which can consume a newly
-	// finalized snapshot. go-control-plane exposes only a total watch count, so
-	// responses are relayed through cache-owned channels to retire each watch as
+	// go-control-plane exposes only total watch counts, so responses are relayed
+	// through cache-owned channels to retire each TypeURL-indexed openWatches entry as
 	// soon as it is consumed.
 	openWatches   map[string]*nodeWatchState
 	watchRelays   map[chan cache.Response]*watchRelay
@@ -261,6 +257,17 @@ type stagedSnapshot struct {
 // published go-control-plane maps without traversing the complete desired
 // state.
 type nodeState struct {
+	// epoch is the wire-version namespace shared by every resource type for this
+	// node. Each resource type retains the epoch reported by its first request,
+	// allowing later TypeURL negotiations to avoid every namespace Envoy may
+	// have retained from an earlier agent instance.
+	epoch uint64
+	// streams keeps protocol state alive across intervals with no desired
+	// resources. Modes have separate slots because go-control-plane allocates
+	// overlapping SotW and Delta stream IDs. Stream ID zero is never inserted
+	// because it denotes a direct cache watch outside a go-control-plane stream
+	// callback.
+	streams [callbacks.StreamModeCount]set.Set[int64]
 	// resourceGeneration identifies the latest desired state, while
 	// snapshotGeneration identifies the state most recently published to Envoy.
 	resourceGeneration uint64
@@ -297,6 +304,48 @@ type resourceEntry struct {
 type resourceTypeState struct {
 	entries map[string]resourceEntry
 	changed set.Set[string]
+	// generation identifies the latest desired state of this resource type.
+	// It also advances when another resource type changes its subscription
+	// dependencies, so SotW watches observe a new aggregate version.
+	generation uint64
+	// reportedEpoch is the greatest epoch parsed from this TypeURL's first
+	// request. Retaining it lets a later TypeURL advance the shared node epoch
+	// past namespaces Envoy retained from an earlier agent instance.
+	reportedEpoch uint64
+	// negotiatedEpoch is zero until the first request for this TypeURL has
+	// negotiated the node epoch. A value different from nodeState.epoch means an
+	// epoch rotation still needs to be reflected in the published snapshot.
+	negotiatedEpoch uint64
+}
+
+// disposable reports whether nodeState contains neither desired/rollback state
+// nor a stream which needs its negotiated epoch. Resource maps must be wholly
+// empty: nil-resource tombstones still protect possible NACK rollback.
+func (state *nodeState) disposable() bool {
+	if state == nil {
+		return true
+	}
+	// Desired resources are the overwhelmingly common reason for retaining a
+	// node. Check resource maps first so finalizing a rollback can normally stop
+	// after one or a few len(map) operations. Nil-resource tombstones count as
+	// entries because they may still be needed by a later NACK rollback.
+	for typeURL := range typeurl.Indices() {
+		if len(state.resources[typeURL].entries) != 0 {
+			return false
+		}
+	}
+	if !state.streams[callbacks.StreamModeSotW].Empty() ||
+		!state.streams[callbacks.StreamModeDelta].Empty() ||
+		state.staged != nil ||
+		!state.unsentRollbacks.Empty() || !state.rollbackOwners.Empty() {
+		return false
+	}
+	for typeURL := range typeurl.Indices() {
+		if !state.resources[typeURL].changed.Empty() {
+			return false
+		}
+	}
+	return true
 }
 
 // cacheResources is the cache-private, generation-aware counterpart of
@@ -460,7 +509,7 @@ type rollbackLifecycle struct {
 	inverse    inverseResources
 }
 
-type nodeWatchState = typeurl.Map[map[uint64]*trackedWatch]
+type nodeWatchState [callbacks.StreamModeCount]typeurl.Map[map[uint64]*trackedWatch]
 
 type watchRelay struct {
 	inner   chan cache.Response
@@ -488,7 +537,10 @@ func (watch *trackedWatch) isReset() bool {
 // isOpen reports whether the watch is still owned by its relay. Caller must
 // hold cacheImpl.mutex.
 func (watch *trackedWatch) isOpen() bool {
-	return watch != nil && watch.relay != nil && watch.relay.watches[watch.id] == watch
+	if watch == nil {
+		return false
+	}
+	return watch.relay != nil && watch.relay.watches[watch.id] == watch
 }
 
 // trackedResponse restores the protocol request after a stream-reset watch was
@@ -513,22 +565,34 @@ type responseDelivery struct {
 	responses []cache.Response
 }
 
-var _ Cache = &cacheImpl{}
+type responseDeliveries struct {
+	sotw []responseDelivery
+}
 
-// snapshotResourceGroup keeps the published resources and their per-resource
-// versions together. Every resource in resources.Items has a corresponding
-// entry in versions.
+func (deliveries *responseDeliveries) append(more responseDeliveries) {
+	deliveries.sotw = append(deliveries.sotw, more.sotw...)
+}
+
+var _ Cache = &cacheImpl{}
+var _ callbacks.StreamLifecycleHandler = (*cacheImpl)(nil)
+
+// snapshotResourceGroup keeps the published resources together with the
+// generation and dependency context used to update its aggregate SotW
+// version.
 type snapshotResourceGroup struct {
-	resources cache.Resources
-	versions  map[string]string
+	resources      cache.Resources
+	generation     uint64
+	versionContext string
 }
 
 // ciliumSnapshot implements go-control-plane's ResourceSnapshot interface for
 // both Envoy core resources and Cilium-specific xDS resources. Resource groups
-// are the published copy-on-write state in the same representations used by
-// go-control-plane's native Snapshot, so its version maps do not need to be
-// reconstructed after finalization.
-type ciliumSnapshot typeurl.Slots[snapshotResourceGroup]
+// are the published copy-on-write state in the same representation used by
+// go-control-plane's native Snapshot.
+type ciliumSnapshot struct {
+	resourceGroups typeurl.Slots[snapshotResourceGroup]
+	epoch          uint64
+}
 
 // Ensure ciliumSnapshot implements cache.ResourceSnapshot.
 var _ cache.ResourceSnapshot = &ciliumSnapshot{}
@@ -539,9 +603,26 @@ var (
 	clusterDependentTypeURLs  = typeurl.NewSet(typeurl.Endpoint, typeurl.Secret)
 )
 
-func newCiliumSnapshot(resourceGroups typeurl.Slots[snapshotResourceGroup]) *ciliumSnapshot {
-	snapshot := ciliumSnapshot(resourceGroups)
-	return &snapshot
+func newCiliumSnapshot(resourceGroups typeurl.Slots[snapshotResourceGroup], epoch uint64) *ciliumSnapshot {
+	for typeURL := range typeurl.Indices() {
+		group := resourceGroups[typeURL]
+		group.resources.Version = formatXDSVersion(epoch, group.generation)
+		resourceGroups[typeURL] = group
+	}
+	return &ciliumSnapshot{
+		resourceGroups: resourceGroups,
+		epoch:          epoch,
+	}
+}
+
+// withEpoch returns a copy-on-write protocol view using epoch while retaining
+// the exact resources previously published. Resource maps are never copied.
+func (snapshot *ciliumSnapshot) withEpoch(epoch uint64) *ciliumSnapshot {
+	// Slots is an array, so this shallow copy isolates all state modified by
+	// newCiliumSnapshot: each group's resources.Version and the snapshot epoch.
+	// Immutable resource maps remain shared.
+	groups := snapshot.resourceGroups
+	return newCiliumSnapshot(groups, epoch)
 }
 
 func (w *ciliumSnapshot) GetVersion(typeURLString string) string {
@@ -549,7 +630,7 @@ func (w *ciliumSnapshot) GetVersion(typeURLString string) string {
 	if !ok {
 		return ""
 	}
-	return w[typeURL].resources.Version
+	return w.resourceGroups[typeURL].resources.Version
 }
 
 func (w *ciliumSnapshot) GetResources(typeURL string) map[string]cache_types.Resource {
@@ -569,25 +650,18 @@ func (w *ciliumSnapshot) GetResourcesAndTTL(typeURLString string) map[string]cac
 	if !ok {
 		return nil
 	}
-	return w[typeURL].resources.Items
+	return w.resourceGroups[typeURL].resources.Items
 }
 
 func (w *ciliumSnapshot) ConstructVersionMap() error {
 	if w == nil {
 		return fmt.Errorf("missing snapshot")
 	}
-	return nil
+	return fmt.Errorf("delta xDS is not supported by cilium snapshot")
 }
 
-func (w *ciliumSnapshot) GetVersionMap(typeURLString string) map[string]string {
-	if w == nil {
-		return nil
-	}
-	typeURL, ok := typeurl.FromURL(typeURLString)
-	if !ok {
-		return nil
-	}
-	return w[typeURL].versions
+func (w *ciliumSnapshot) GetVersionMap(string) map[string]string {
+	return nil
 }
 
 func (w *ciliumSnapshot) Consistent() error {
@@ -597,7 +671,7 @@ func (w *ciliumSnapshot) Consistent() error {
 
 	var resourceGroups [cache_types.UnknownType]cache.Resources
 	for typeURL := range typeurl.Indices() {
-		resources := w[typeURL].resources
+		resources := w.resourceGroups[typeURL].resources
 		responseType := cache.GetResponseType(envoy_resource.Type(typeURL.URL()))
 		if responseType == cache_types.UnknownType {
 			continue
@@ -674,26 +748,83 @@ func NewCache(logger *slog.Logger, strictAdsMode bool, options ...CacheOption) C
 		watchRelays:   make(map[chan cache.Response]*watchRelay),
 		logger:        logger,
 		strictAdsMode: strictAdsMode,
-		completionCbs: callbacks.NewCompletionCallbacks(logger),
 	}
 	for _, option := range options {
 		option(c)
 	}
 	c.defaultGenerator = c.generateSnapshotForUpdate
-	c.completionCbs.SetStreamClosedCallback(c.streamClosed)
+	c.completionCbs = callbacks.NewCompletionCallbacks(logger, c)
 	return c
 }
 
-func (c *cacheImpl) hash(resources map[string]string) string {
-	hasher := fnv.New32a()
-	printer := spew.ConfigState{
-		Indent:         " ",
-		SortKeys:       true,
-		DisableMethods: true,
-		SpewKeys:       true,
+func formatXDSVersion(epoch, generation uint64) string {
+	return "e" + strconv.FormatUint(epoch, 10) + ":g" + strconv.FormatUint(generation, 10)
+}
+
+// parseXDSEpoch recognizes only versions in the form produced by
+// formatXDSVersion. The generation suffix is deliberately not parsed here:
+// epoch selection only needs to avoid namespaces already retained by Envoy.
+func parseXDSEpoch(version string) (uint64, bool) {
+	if len(version) < 3 || version[0] != 'e' {
+		return 0, false
 	}
-	printer.Fprintf(hasher, "%#v", resources)
-	return rand.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
+	colon := strings.IndexByte(version, ':')
+	if colon < 2 {
+		return 0, false
+	}
+	for _, digit := range version[1:colon] {
+		if digit < '0' || digit > '9' {
+			return 0, false
+		}
+	}
+	epoch, err := strconv.ParseUint(version[1:colon], 10, 64)
+	return epoch, err == nil && epoch != 0
+}
+
+// selectEpochLocked negotiates the shared node epoch when this TypeURL is
+// first requested. An already negotiated TypeURL reporting the current epoch
+// is ordinary stream continuity, not a collision. Caller must hold c.mutex.
+func (state *nodeState) selectEpochLocked(typeURL typeurl.Index, versions iter.Seq[string]) (epochChanged bool) {
+	if state.resources[typeURL].negotiatedEpoch != 0 {
+		return false
+	}
+	var reported set.Set[uint64]
+	for version := range versions {
+		if epoch, ok := parseXDSEpoch(version); ok {
+			reported.Insert(epoch)
+			state.resources[typeURL].reportedEpoch = max(state.resources[typeURL].reportedEpoch, epoch)
+		}
+	}
+	previous := state.epoch
+	if state.epoch == 0 {
+		for state.epoch = 1; reported.Has(state.epoch); state.epoch++ {
+		}
+	} else if reported.Has(state.epoch) {
+		// Once one TypeURL has already selected the shared node epoch, move past
+		// every epoch retained from earlier first requests.
+		for index := range typeurl.Indices() {
+			state.epoch = max(state.epoch, state.resources[index].reportedEpoch)
+		}
+		state.epoch++
+	}
+	return state.epoch != previous
+}
+
+func singleVersion(version string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		yield(version)
+	}
+}
+
+// commitEpochNegotiation records that typeURL and every previously negotiated
+// resource type are represented by the snapshot bound to the current node
+// epoch. Caller must hold c.mutex after successful snapshot publication.
+func (state *nodeState) commitEpochNegotiation(typeURL typeurl.Index) {
+	for index := range typeurl.Indices() {
+		if index == typeURL || state.resources[index].negotiatedEpoch != 0 {
+			state.resources[index].negotiatedEpoch = state.epoch
+		}
+	}
 }
 
 func addResourceReference(refs map[string]map[string]struct{}, parent, resource string) {
@@ -916,35 +1047,6 @@ func sdsReferenceVersionContext(resources snapshotResourceView) string {
 	return resourceReferencesVersionContext(refs)
 }
 
-func resourceContentVersion(resource cache_types.Resource) (string, error) {
-	marshaledResource, err := cache.MarshalResource(resource)
-	if err != nil {
-		return "", err
-	}
-	return cache.HashResource(marshaledResource), nil
-}
-
-func (c *cacheImpl) resourceVersion(typeURL typeurl.Index, resourceVersions map[string]string, versionContext ...string) string {
-	keys := sortedMapKeys(resourceVersions)
-	var sb strings.Builder
-	for _, name := range keys {
-		sb.WriteString(name)
-		sb.WriteByte(0)
-		sb.WriteString(resourceVersions[name])
-		sb.WriteByte(0)
-	}
-	for _, context := range versionContext {
-		if context == "" {
-			continue
-		}
-		sb.WriteString("version-context")
-		sb.WriteByte(0)
-		sb.WriteString(context)
-		sb.WriteByte(0)
-	}
-	return c.hash(map[string]string{typeURL.URL(): sb.String()})
-}
-
 func snapshotVersionContext(resources snapshotResourceView, typeURL typeurl.Index) string {
 	switch typeURL {
 	case typeurl.Endpoint:
@@ -981,7 +1083,7 @@ func incrementalSnapshotTypeURLs(changedTypeURLs typeurl.Set) (typeurl.Set, bool
 	return regenerate, true
 }
 
-func (c *cacheImpl) canGenerateSnapshotIncrementally(previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) (*ciliumSnapshot, typeurl.Set, bool) {
+func canGenerateSnapshotIncrementally(previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) (*ciliumSnapshot, typeurl.Set, bool) {
 	previousSnapshot, ok := previous.(*ciliumSnapshot)
 	if !ok || previousSnapshot == nil {
 		return nil, typeurl.Set{}, false
@@ -990,90 +1092,54 @@ func (c *cacheImpl) canGenerateSnapshotIncrementally(previous cache.ResourceSnap
 	return previousSnapshot, regenerate, ok
 }
 
-func (c *cacheImpl) resourceGroupFromEntries(typeURL typeurl.Index, resources map[string]resourceEntry, versionContext string) (cache.Resources, map[string]string, error) {
+func resourceGroupFromEntries(resources map[string]resourceEntry) cache.Resources {
 	items := make(map[string]cache_types.ResourceWithTTL, len(resources))
-	versions := make(map[string]string, len(resources))
 	for name, entry := range resources {
 		if entry.resource == nil {
 			continue
 		}
-		version, err := resourceContentVersion(entry.resource)
-		if err != nil {
-			return cache.Resources{}, nil, err
-		}
 		items[name] = cache_types.ResourceWithTTL{Resource: entry.resource}
-		versions[name] = version
 	}
 	if len(items) == 0 {
 		items = nil
 	}
-	if len(versions) == 0 {
-		versions = nil
-	}
-	return cache.Resources{
-		Version: c.resourceVersion(typeURL, versions, versionContext),
-		Items:   items,
-	}, versions, nil
+	return cache.Resources{Items: items}
 }
 
-func (c *cacheImpl) updateResourceEntries(typeURL typeurl.Index, resources map[string]resourceEntry, changed set.Set[string], previous cache.Resources, previousVersions map[string]string, versionContext string) (cache.Resources, map[string]string, error) {
+func updateResourceEntries(resources map[string]resourceEntry, changed set.Set[string], previous cache.Resources) cache.Resources {
 	items := previous.Items
-	versions := previousVersions
-	cloned := false
-	clone := func() {
-		if cloned {
+	itemsCloned := false
+	cloneItems := func() {
+		if itemsCloned {
 			return
 		}
 		items = maps.Clone(items)
-		versions = maps.Clone(versions)
-		cloned = true
+		itemsCloned = true
 	}
-
 	for name := range changed.Members() {
-		resource := resources[name].resource
+		entry := resources[name]
+		resource := entry.resource
 		previousItem, resourceExists := items[name]
-		previousVersion, versionExists := versions[name]
 		if resource == nil {
-			if !resourceExists && !versionExists {
+			if !resourceExists {
 				continue
 			}
-			clone()
+			cloneItems()
 			delete(items, name)
-			delete(versions, name)
 			continue
 		}
-		if resourceExists && versionExists &&
-			previousItem.Resource == resource {
+		if resourceExists && previousItem.Resource == resource {
 			continue
 		}
-
-		version, err := resourceContentVersion(resource)
-		if err != nil {
-			return cache.Resources{}, nil, err
+		if !resourceExists || previousItem.Resource != resource {
+			cloneItems()
+			if items == nil {
+				items = make(map[string]cache_types.ResourceWithTTL)
+			}
+			items[name] = cache_types.ResourceWithTTL{Resource: resource}
 		}
-		// The content version is required for a changed resource. Reuse it for
-		// semantic equality instead of performing another semantic comparison
-		// immediately before marshaling the same protobuf. Equal versions retain
-		// the published pointer and preserve the A-B-A no-op path.
-		if resourceExists && versionExists && previousVersion == version {
-			continue
-		}
-		clone()
-		if items == nil {
-			items = make(map[string]cache_types.ResourceWithTTL)
-		}
-		if versions == nil {
-			versions = make(map[string]string)
-		}
-		items[name] = cache_types.ResourceWithTTL{Resource: resource}
-		versions[name] = version
 	}
-
-	version := c.resourceVersion(typeURL, versions, versionContext)
-	if !cloned && version == previous.Version {
-		return previous, previousVersions, nil
-	}
-	return cache.Resources{Version: version, Items: items}, versions, nil
+	return cache.Resources{Items: items}
 }
 
 func clusterEndpointName(name string, cluster *envoy_config_cluster.Cluster) string {
@@ -1090,24 +1156,29 @@ func clusterEndpointName(name string, cluster *envoy_config_cluster.Cluster) str
 	return serviceName
 }
 
-// desiredEndpoint normalizes endpoints by skipping 'name' if a cluster with that name does not exist, and returning an empty one if a cluster
-func (resources *cacheResources) desiredEndpoint(name string) (*envoy_config_endpoint.ClusterLoadAssignment, bool) {
-	if resource, exists := currentResource(resources[typeurl.Endpoint].entries, name); exists {
+// desiredEndpoint projects the desired endpoint state into a snapshot. It
+// synthesizes an empty assignment for an EDS cluster without mutating the
+// cache's desired resources.
+func (resources *cacheResources) desiredEndpoint(name string) (resourceEntry, bool) {
+	if entry := resources[typeurl.Endpoint].entries[name]; entry.resource != nil {
 		// Skip wildcard :* endpoints that have no matching cluster,
 		// as they cause snapshot inconsistency (EDS count > CDS references).
 		// These are generated for backward compatibility with the old per-type
 		// xDS caches but are not needed in the ADS snapshot.
 		if _, hasCluster := currentResource(resources[typeurl.Cluster].entries, name); !hasCluster && strings.HasSuffix(name, ":*") {
-			return nil, false
+			return resourceEntry{}, false
 		}
-		return typedResource[*envoy_config_endpoint.ClusterLoadAssignment](resource), true
+		return entry, true
 	}
 	for clusterName, entry := range resources[typeurl.Cluster].entries {
 		if entry.resource != nil && clusterEndpointName(clusterName, typedResource[*envoy_config_cluster.Cluster](entry.resource)) == name {
-			return &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}, true
+			return resourceEntry{
+				resource:   &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name},
+				generation: entry.generation,
+			}, true
 		}
 	}
-	return nil, false
+	return resourceEntry{}, false
 }
 
 func (resources *cacheResources) endpointResourceNames() map[string]struct{} {
@@ -1132,7 +1203,7 @@ func (state *nodeState) changedEndpointResourceNames(previous *ciliumSnapshot) s
 		return state.resources[typeurl.Endpoint].changed
 	}
 	names := state.resources[typeurl.Endpoint].changed.Clone()
-	previousClusters := previous[typeurl.Cluster].resources.Items
+	previousClusters := previous.resourceGroups[typeurl.Cluster].resources.Items
 	for name := range state.resources[typeurl.Cluster].changed.Members() {
 		names.Insert(name)
 		if item, exists := previousClusters[name]; exists {
@@ -1153,111 +1224,80 @@ func (state *nodeState) changedEndpointResourceNames(previous *ciliumSnapshot) s
 	return names
 }
 
-func (c *cacheImpl) resourceGroupFromLookup(typeURL typeurl.Index, names map[string]struct{}, lookup func(string) (cache_types.Resource, bool), versionContext string) (cache.Resources, map[string]string, error) {
+func resourceGroupFromLookup(names map[string]struct{}, lookup func(string) (resourceEntry, bool)) cache.Resources {
 	items := make(map[string]cache_types.ResourceWithTTL, len(names))
-	versions := make(map[string]string, len(names))
 	for name := range names {
-		resource, exists := lookup(name)
+		entry, exists := lookup(name)
 		if !exists {
 			continue
 		}
-		version, err := resourceContentVersion(resource)
-		if err != nil {
-			return cache.Resources{}, nil, err
-		}
-		items[name] = cache_types.ResourceWithTTL{Resource: resource}
-		versions[name] = version
+		items[name] = cache_types.ResourceWithTTL{Resource: entry.resource}
 	}
 	if len(items) == 0 {
 		items = nil
 	}
-	if len(versions) == 0 {
-		versions = nil
-	}
-	return cache.Resources{Version: c.resourceVersion(typeURL, versions, versionContext), Items: items}, versions, nil
+	return cache.Resources{Items: items}
 }
 
-func (c *cacheImpl) updateResourceLookup(typeURL typeurl.Index, changed set.Set[string], lookup func(string) (cache_types.Resource, bool), previous cache.Resources, previousVersions map[string]string, versionContext string) (cache.Resources, map[string]string, error) {
+func updateResourceLookup(changed set.Set[string], lookup func(string) (resourceEntry, bool), previous cache.Resources) cache.Resources {
 	items := previous.Items
-	versions := previousVersions
-	cloned := false
-	clone := func() {
-		if cloned {
+	itemsCloned := false
+	cloneItems := func() {
+		if itemsCloned {
 			return
 		}
 		items = maps.Clone(items)
-		versions = maps.Clone(versions)
-		cloned = true
+		itemsCloned = true
 	}
 	for name := range changed.Members() {
-		resource, exists := lookup(name)
+		entry, exists := lookup(name)
 		previousItem, resourceExists := items[name]
-		previousVersion, versionExists := versions[name]
 		if !exists {
-			if !resourceExists && !versionExists {
+			if !resourceExists {
 				continue
 			}
-			clone()
+			cloneItems()
 			delete(items, name)
-			delete(versions, name)
 			continue
 		}
-		if resourceExists && versionExists &&
-			previousItem.Resource == resource {
+		if resourceExists && previousItem.Resource == entry.resource {
 			continue
 		}
-		version, err := resourceContentVersion(resource)
-		if err != nil {
-			return cache.Resources{}, nil, err
+		if !resourceExists || previousItem.Resource != entry.resource {
+			cloneItems()
+			if items == nil {
+				items = make(map[string]cache_types.ResourceWithTTL)
+			}
+			items[name] = cache_types.ResourceWithTTL{Resource: entry.resource}
 		}
-		if resourceExists && versionExists && previousVersion == version {
-			continue
-		}
-		clone()
-		if items == nil {
-			items = make(map[string]cache_types.ResourceWithTTL)
-		}
-		if versions == nil {
-			versions = make(map[string]string)
-		}
-		items[name] = cache_types.ResourceWithTTL{Resource: resource}
-		versions[name] = version
 	}
-	version := c.resourceVersion(typeURL, versions, versionContext)
-	if !cloned && version == previous.Version {
-		return previous, previousVersions, nil
-	}
-	return cache.Resources{Version: version, Items: items}, versions, nil
+	return cache.Resources{Items: items}
 }
 
 func (c *cacheImpl) generateSnapshotFromState(state *nodeState) (cache.ResourceSnapshot, error) {
 	view := cacheSnapshotResourceView{resources: &state.resources}
 	var resourceGroups typeurl.Slots[snapshotResourceGroup]
 	for typeURL := range typeurl.Indices() {
-		context := snapshotVersionContext(view, typeURL)
 		var group cache.Resources
-		var versions map[string]string
-		var err error
+		typeState := &state.resources[typeURL]
+		generation := typeState.generation
+		versionContext := snapshotVersionContext(view, typeURL)
 		if typeURL == typeurl.Endpoint {
-			group, versions, err = c.resourceGroupFromLookup(typeURL, state.resources.endpointResourceNames(), func(name string) (cache_types.Resource, bool) {
-				return state.resources.desiredEndpoint(name)
-			}, context)
+			group = resourceGroupFromLookup(state.resources.endpointResourceNames(), state.resources.desiredEndpoint)
 		} else {
-			group, versions, err = c.resourceGroupFromEntries(typeURL, state.resources[typeURL].entries, context)
-		}
-		if err != nil {
-			return nil, err
+			group = resourceGroupFromEntries(typeState.entries)
 		}
 		resourceGroups[typeURL] = snapshotResourceGroup{
-			resources: group,
-			versions:  versions,
+			resources:      group,
+			generation:     generation,
+			versionContext: versionContext,
 		}
 	}
-	return newCiliumSnapshot(resourceGroups), nil
+	return newCiliumSnapshot(resourceGroups, state.epoch), nil
 }
 
 func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) (cache.ResourceSnapshot, error) {
-	previousSnapshot, regenerate, ok := c.canGenerateSnapshotIncrementally(previous, changedTypeURLs)
+	previousSnapshot, regenerate, ok := canGenerateSnapshotIncrementally(previous, changedTypeURLs)
 	if !ok {
 		return c.generateSnapshotFromState(state)
 	}
@@ -1266,30 +1306,28 @@ func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, pre
 	}
 
 	view := cacheSnapshotResourceView{resources: &state.resources}
-	resourceGroups := typeurl.Slots[snapshotResourceGroup](*previousSnapshot)
+	resourceGroups := previousSnapshot.resourceGroups
 	for typeURL := range regenerate.Members() {
-		context := snapshotVersionContext(view, typeURL)
-		previousGroup := previousSnapshot[typeURL]
+		previousGroup := previousSnapshot.resourceGroups[typeURL]
 		var group cache.Resources
-		var versions map[string]string
-		var err error
-		if typeURL == typeurl.Endpoint {
-			group, versions, err = c.updateResourceLookup(typeURL, state.changedEndpointResourceNames(previousSnapshot), func(name string) (cache_types.Resource, bool) {
-				return state.resources.desiredEndpoint(name)
-			}, previousGroup.resources, previousGroup.versions, context)
-		} else {
-			typeState := &state.resources[typeURL]
-			group, versions, err = c.updateResourceEntries(typeURL, typeState.entries, typeState.changed, previousGroup.resources, previousGroup.versions, context)
+		typeState := &state.resources[typeURL]
+		generation := typeState.generation
+		versionContext := snapshotVersionContext(view, typeURL)
+		if versionContext != previousGroup.versionContext && generation <= previousGroup.generation {
+			generation = state.staged.generation
 		}
-		if err != nil {
-			return nil, err
+		if typeURL == typeurl.Endpoint {
+			group = updateResourceLookup(state.changedEndpointResourceNames(previousSnapshot), state.resources.desiredEndpoint, previousGroup.resources)
+		} else {
+			group = updateResourceEntries(typeState.entries, typeState.changed, previousGroup.resources)
 		}
 		resourceGroups[typeURL] = snapshotResourceGroup{
-			resources: group,
-			versions:  versions,
+			resources:      group,
+			generation:     generation,
+			versionContext: versionContext,
 		}
 	}
-	return newCiliumSnapshot(resourceGroups), nil
+	return newCiliumSnapshot(resourceGroups, state.epoch), nil
 }
 
 func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
@@ -1329,7 +1367,7 @@ type resourceTransaction struct {
 	state *nodeState
 
 	generation              uint64
-	deliveries              []responseDelivery
+	deliveries              responseDeliveries
 	finalized               []finalizedCompletion
 	registeredCompletions   set.Set[*completion.Completion]
 	immediateCompletions    []immediateCompletion
@@ -1619,6 +1657,11 @@ func (c *cacheImpl) finalizeStagedSnapshotLocked(ctx context.Context, nodeID str
 
 	state.staged = nil
 	state.snapshotGeneration = staged.generation
+	if published, ok := newSnapshot.(*ciliumSnapshot); ok {
+		for typeURL := range typeurl.Indices() {
+			state.resources[typeURL].generation = published.resourceGroups[typeURL].generation
+		}
+	}
 	for typeURL := range typeurl.Indices() {
 		state.resources[typeURL].changed = set.Set[string]{}
 	}
@@ -1950,7 +1993,11 @@ func (state *nodeState) commitResourceMutation(changes resourceChanges, generati
 				entry = previous
 			}
 		}
-		state.resources[change.typeURL].commitEntry(change.name, entry)
+		typeState := &state.resources[change.typeURL]
+		typeState.commitEntry(change.name, entry)
+		// Aggregate xDS versions advance even when a revert restores an older
+		// resource entry and its original generation.
+		typeState.generation = generation
 	}
 	if !changes.empty() {
 		commit(changes.first)
@@ -2481,13 +2528,22 @@ func (lifecycle *rollbackLifecycle) finalizeLocked() {
 	if !ok {
 		return
 	}
-	if state := lifecycle.cache.nodeStates[lifecycle.nodeID]; state != nil {
+	state := lifecycle.cache.nodeStates[lifecycle.nodeID]
+	if state != nil {
 		if resources == nil {
 			state.releaseInverseRollback(inverse, lifecycle.generation)
 		} else {
 			state.releaseRollback(*resources)
 		}
+		// A node with any Listener entry cannot be discarded. Keep this guard at
+		// the hot finalize call site so the normal agent case avoids the broader
+		// nodeState disposal check. Removal tombstones intentionally count as
+		// entries until their final rollback owner releases them.
+		if len(state.resources[typeurl.Listener].entries) != 0 {
+			return
+		}
 	}
+	lifecycle.cache.maybeDeleteNodeStateLocked(lifecycle.nodeID, true)
 }
 
 // Finalize releases the caller-owned rollback state after the enclosing
@@ -2753,6 +2809,10 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 		watchTypeURLs = snapshotTypesChangedBy(typeurl.Set{})
 	}
 	oldResourceGeneration := state.resourceGeneration
+	var oldTypeGenerations typeurl.Slots[uint64]
+	for typeURL := range typeurl.Indices() {
+		oldTypeGenerations[typeURL] = state.resources[typeURL].generation
+	}
 	state.commitResourceMutation(changes, tx.generation, restoredEntries)
 	if lifecycle != nil {
 		state.updateInverseRollbackOwners(lifecycle.inverse, lifecycle.generation, 1)
@@ -2822,6 +2882,9 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 			published, _ := c.SnapshotCache.GetSnapshot(tx.nodeID)
 			state.reconcileChangedResourceNames(inverseEntries, published)
 			state.resourceGeneration = oldResourceGeneration
+			for typeURL := range typeurl.Indices() {
+				state.resources[typeURL].generation = oldTypeGenerations[typeURL]
+			}
 			if oldStaged == nil {
 				state.staged = nil
 			} else {
@@ -2899,18 +2962,37 @@ func (c *cacheImpl) ClearSnapshot(nodeID string) {
 	c.mutex.Lock()
 	c.SnapshotCache.ClearSnapshot(nodeID)
 	c.completionCbs.SetPublishedSnapshot(nodeID, 0, nil)
-	c.nodeStates[nodeID] = &nodeState{}
 	var cancels []func()
-	if state := c.openWatches[nodeID]; state != nil {
-		for _, watches := range state.All() {
-			for _, watch := range watches {
-				if watch.cancel != nil {
-					cancels = append(cancels, watch.cancel)
+	if watchesByMode := c.openWatches[nodeID]; watchesByMode != nil {
+		for mode := callbacks.StreamMode(0); mode < callbacks.StreamModeCount; mode++ {
+			for _, watches := range watchesByMode[mode].All() {
+				for _, watch := range watches {
+					if watch.cancel != nil {
+						cancels = append(cancels, watch.cancel)
+					}
+					c.removeTrackedWatchLocked(watch)
 				}
-				c.removeTrackedWatchLocked(watch)
 			}
 		}
 	}
+	if state := c.nodeStates[nodeID]; state != nil {
+		var reported typeurl.Slots[uint64]
+		var negotiated typeurl.Slots[uint64]
+		for typeURL := range typeurl.Indices() {
+			reported[typeURL] = state.resources[typeURL].reportedEpoch
+			negotiated[typeURL] = state.resources[typeURL].negotiatedEpoch
+		}
+		epoch, streams := state.epoch, state.streams
+		*state = nodeState{
+			epoch:   epoch,
+			streams: streams,
+		}
+		for typeURL := range typeurl.Indices() {
+			state.resources[typeURL].reportedEpoch = reported[typeURL]
+			state.resources[typeURL].negotiatedEpoch = negotiated[typeURL]
+		}
+	}
+	c.maybeDeleteNodeStateLocked(nodeID, false)
 	c.mutex.Unlock()
 	for _, cancel := range cancels {
 		cancel()
@@ -2937,8 +3019,9 @@ func streamResetNodeID(streamID int64) string {
 
 func streamResetSnapshot(streamID int64) *ciliumSnapshot {
 	var groups typeurl.Slots[snapshotResourceGroup]
-	groups[typeurl.Listener].resources.Version = "cilium-stream-reset-" + strconv.FormatInt(streamID, 10)
-	return newCiliumSnapshot(groups)
+	snapshot := newCiliumSnapshot(groups, 0)
+	snapshot.resourceGroups[typeurl.Listener].resources.Version = "cilium-stream-reset-" + strconv.FormatInt(streamID, 10)
+	return snapshot
 }
 
 func streamResetRequest(request *cache.Request, streamID int64) *cache.Request {
@@ -2950,9 +3033,48 @@ func streamResetRequest(request *cache.Request, streamID int64) *cache.Request {
 	return resetRequest
 }
 
-func (c *cacheImpl) streamClosed(streamID int64) {
+func (c *cacheImpl) maybeDeleteNodeStateLocked(nodeID string, clearSnapshot bool) {
+	state := c.nodeStates[nodeID]
+	if !state.disposable() {
+		return
+	}
+	delete(c.nodeStates, nodeID)
+	if clearSnapshot {
+		c.SnapshotCache.ClearSnapshot(nodeID)
+	}
+	c.completionCbs.SetPublishedSnapshot(nodeID, 0, nil)
+}
+
+// StreamStarted implements callbacks.StreamLifecycleHandler. Protocol modes
+// have separate stream-ID spaces, so mode selects the corresponding slot.
+func (c *cacheImpl) StreamStarted(streamID int64, nodeID string, mode callbacks.StreamMode) {
+	if mode >= callbacks.StreamModeCount {
+		return
+	}
 	c.mutex.Lock()
-	c.SnapshotCache.ClearSnapshot(streamResetNodeID(streamID))
+	state := c.nodeStates[nodeID]
+	if state == nil {
+		state = &nodeState{}
+		c.nodeStates[nodeID] = state
+	}
+	state.streams[mode].Insert(streamID)
+	c.mutex.Unlock()
+}
+
+// StreamClosed implements callbacks.StreamLifecycleHandler.
+func (c *cacheImpl) StreamClosed(streamID int64, nodeID string, mode callbacks.StreamMode) {
+	if mode >= callbacks.StreamModeCount {
+		return
+	}
+	c.mutex.Lock()
+	state := c.nodeStates[nodeID]
+	if mode == callbacks.StreamModeSotW {
+		c.SnapshotCache.ClearSnapshot(streamResetNodeID(streamID))
+	}
+	if state != nil {
+		state.streams[mode].Remove(streamID)
+	}
+	c.maybeDeleteNodeStateLocked(nodeID, true)
 	c.mutex.Unlock()
 }
 
@@ -2962,9 +3084,11 @@ func (c *cacheImpl) hasOpenWatchLocked(nodeID string, typeURLs typeurl.Set) bool
 		return false
 	}
 	for typeURL := range typeURLs.Members() {
-		watches, _ := state.Get(typeURL)
-		if len(watches) > 0 {
-			return true
+		for mode := callbacks.StreamMode(0); mode < callbacks.StreamModeCount; mode++ {
+			watches, _ := state[mode].Get(typeURL)
+			if len(watches) > 0 {
+				return true
+			}
 		}
 	}
 	return false
@@ -2984,6 +3108,21 @@ func (c *cacheImpl) relayForLocked(responseChannel chan cache.Response) *watchRe
 	return relay
 }
 
+func (c *cacheImpl) indexTrackedWatchLocked(watch *trackedWatch) {
+	state := c.openWatches[watch.nodeID]
+	if state == nil {
+		state = &nodeWatchState{}
+		c.openWatches[watch.nodeID] = state
+	}
+	mode := callbacks.StreamModeSotW
+	watches, _ := state[mode].Get(watch.typeURL)
+	if watches == nil {
+		watches = make(map[uint64]*trackedWatch)
+		state[mode].Set(watch.typeURL, watches)
+	}
+	watches[watch.id] = watch
+}
+
 func (c *cacheImpl) addTrackedWatchLocked(request *cache.Request, typeURL typeurl.Index, responseChannel chan cache.Response, streamID int64, countsAsOpen bool) *trackedWatch {
 	c.nextWatchID++
 	relay := c.relayForLocked(responseChannel)
@@ -2997,17 +3136,7 @@ func (c *cacheImpl) addTrackedWatchLocked(request *cache.Request, typeURL typeur
 		relay:          relay,
 	}
 	if countsAsOpen {
-		state := c.openWatches[watch.nodeID]
-		if state == nil {
-			state = &nodeWatchState{}
-			c.openWatches[watch.nodeID] = state
-		}
-		watches, _ := state.Get(watch.typeURL)
-		if watches == nil {
-			watches = make(map[uint64]*trackedWatch)
-			state.Set(watch.typeURL, watches)
-		}
-		watches[watch.id] = watch
+		c.indexTrackedWatchLocked(watch)
 	}
 	relay.watches[watch.id] = watch
 	return watch
@@ -3018,14 +3147,17 @@ func (c *cacheImpl) removeTrackedWatchLocked(watch *trackedWatch) {
 		return
 	}
 	if state := c.openWatches[watch.nodeID]; state != nil {
-		watches, exists := state.Get(watch.typeURL)
+		mode := callbacks.StreamModeSotW
+		watches, exists := state[mode].Get(watch.typeURL)
 		if exists {
-			delete(watches, watch.id)
+			if watches[watch.id] == watch {
+				delete(watches, watch.id)
+			}
 			if len(watches) == 0 {
-				state.Remove(watch.typeURL)
+				state[mode].Remove(watch.typeURL)
 			}
 		}
-		if state.Empty() {
+		if state[callbacks.StreamModeSotW].Empty() && state[callbacks.StreamModeDelta].Empty() {
 			delete(c.openWatches, watch.nodeID)
 		}
 	}
@@ -3054,8 +3186,8 @@ func (c *cacheImpl) cancelTrackedWatch(watch *trackedWatch) {
 // collectResponseDeliveriesLocked drains responses which go-control-plane has
 // synchronously produced. Draining retires the corresponding type watch before
 // another resource update can mistake it for available Envoy capacity.
-func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
-	var deliveries []responseDelivery
+func (c *cacheImpl) collectResponseDeliveriesLocked() responseDeliveries {
+	var deliveries responseDeliveries
 	for _, relay := range c.watchRelays {
 		var responses []cache.Response
 		for {
@@ -3087,7 +3219,7 @@ func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 				responses = append(responses, response)
 			default:
 				if len(responses) > 0 {
-					deliveries = append(deliveries, responseDelivery{
+					deliveries.sotw = append(deliveries.sotw, responseDelivery{
 						channel:   relay.outer,
 						responses: responses,
 					})
@@ -3100,8 +3232,8 @@ func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 	return deliveries
 }
 
-func (c *cacheImpl) deliverResponses(deliveries []responseDelivery) {
-	for _, delivery := range deliveries {
+func (c *cacheImpl) deliverResponses(deliveries responseDeliveries) {
+	for _, delivery := range deliveries.sotw {
 		for _, response := range delivery.responses {
 			delivery.channel <- response
 		}
@@ -3117,7 +3249,12 @@ func (c *cacheImpl) ensureSnapshotForWatchLocked(nodeID string) error {
 		return nil
 	}
 
-	emptySnapshot, err := c.generateSnapshotForUpdate(&nodeState{}, nil, typeurl.Set{})
+	state := c.nodeStates[nodeID]
+	if state == nil {
+		state = &nodeState{}
+		c.nodeStates[nodeID] = state
+	}
+	emptySnapshot, err := c.generateSnapshotForUpdate(state, nil, typeurl.Set{})
 	if err != nil {
 		return err
 	}
@@ -3138,8 +3275,60 @@ func (c *cacheImpl) ensureSnapshotForWatchLocked(nodeID string) error {
 	return err
 }
 
+func (c *cacheImpl) prepareLiveSnapshotLocked(nodeID string, typeURL typeurl.Index) ([]finalizedCompletion, error) {
+	state := c.nodeStates[nodeID]
+	if state == nil {
+		return nil, c.ensureSnapshotForWatchLocked(nodeID)
+	}
+	if state.staged != nil && state.staged.watchTypeURLs.Has(typeURL) {
+		_, finalized, err := c.finalizeStagedSnapshotLocked(context.Background(), nodeID)
+		return finalized, err
+	}
+
+	// A later TypeURL may force the shared node epoch to rotate. Rebind only the
+	// protocol view of the already-published snapshot. Rebuilding from desired
+	// state here could accidentally publish unrelated staged changes.
+	current, err := c.SnapshotCache.GetSnapshot(nodeID)
+	if err != nil {
+		return nil, c.ensureSnapshotForWatchLocked(nodeID)
+	}
+	currentSnapshot, ok := current.(*ciliumSnapshot)
+	if ok {
+		if currentSnapshot.epoch == state.epoch {
+			return nil, nil
+		}
+		// Publish a new immutable protocol view when the shared epoch changes.
+		rebuilt := currentSnapshot.withEpoch(state.epoch)
+		c.completionCbs.SetPublishedSnapshot(nodeID, state.snapshotGeneration, rebuilt)
+		if err := c.SnapshotCache.SetSnapshot(
+			callbacks.WithSnapshotGeneration(context.Background(), state.snapshotGeneration),
+			nodeID,
+			rebuilt,
+		); err != nil {
+			c.completionCbs.SetPublishedSnapshot(nodeID, state.snapshotGeneration, current)
+			return nil, err
+		}
+		return nil, nil
+	}
+
+	rebuilt, err := c.generateSnapshotFromState(state)
+	if err != nil {
+		return nil, err
+	}
+	c.completionCbs.SetPublishedSnapshot(nodeID, state.snapshotGeneration, rebuilt)
+	if err := c.SnapshotCache.SetSnapshot(
+		callbacks.WithSnapshotGeneration(context.Background(), state.snapshotGeneration),
+		nodeID,
+		rebuilt,
+	); err != nil {
+		c.completionCbs.SetPublishedSnapshot(nodeID, state.snapshotGeneration, current)
+		return nil, err
+	}
+	return nil, nil
+}
+
 func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
-	streamID, resetPhase := c.completionCbs.StreamResetStateForRequest(request)
+	streamID, resetPhase := c.completionCbs.StreamStateForRequest(request)
 	if request != nil && request.GetTypeUrl() == envoy_resource.SecretType && len(request.GetResourceNames()) == 0 {
 		c.logger.Debug("Ignoring empty ADS SDS watch")
 		return func() {}, nil
@@ -3158,24 +3347,25 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 
 	nodeID := request.GetNode().GetId()
 	c.mutex.Lock()
+	state := c.nodeStates[nodeID]
+	if state == nil {
+		state = &nodeState{}
+		c.nodeStates[nodeID] = state
+	}
+	if streamID != 0 {
+		state.streams[callbacks.StreamModeSotW].Insert(streamID)
+	}
+	state.selectEpochLocked(typeURL, singleVersion(request.GetVersionInfo()))
 	var finalized []finalizedCompletion
-	var deliveries []responseDelivery
+	var deliveries responseDeliveries
 	// Retire responses already produced for this stream before handling a reset
 	// transition or deciding whether this watch can consume staged state.
-	deliveries = append(deliveries, c.collectResponseDeliveriesLocked()...)
+	deliveries.append(c.collectResponseDeliveriesLocked())
 
 	prepareLiveSnapshot := func() error {
-		state := c.nodeStates[nodeID]
-		if state == nil {
-			return c.ensureSnapshotForWatchLocked(nodeID)
-		}
-		if state.staged != nil && state.staged.watchTypeURLs.Has(typeURL) {
-			var newlyFinalized []finalizedCompletion
-			_, newlyFinalized, err := c.finalizeStagedSnapshotLocked(context.Background(), nodeID)
-			finalized = append(finalized, newlyFinalized...)
-			return err
-		}
-		return nil
+		newlyFinalized, err := c.prepareLiveSnapshotLocked(nodeID, typeURL)
+		finalized = append(finalized, newlyFinalized...)
+		return err
 	}
 
 	resetWatch := false
@@ -3202,7 +3392,7 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 		if err == nil {
 			c.SnapshotCache.ClearSnapshot(streamResetNodeID(streamID))
 			c.completionCbs.FinishStreamReset(streamID)
-			deliveries = append(deliveries, c.collectResponseDeliveriesLocked()...)
+			deliveries.append(c.collectResponseDeliveriesLocked())
 		}
 	case callbacks.StreamResetInactive:
 		err = prepareLiveSnapshot()
@@ -3213,13 +3403,16 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 			c.completionCbs.AbortStreamReset(streamID)
 			c.SnapshotCache.ClearSnapshot(streamResetNodeID(streamID))
 		}
-		deliveries = append(deliveries, c.collectResponseDeliveriesLocked()...)
+		deliveries.append(c.collectResponseDeliveriesLocked())
 		c.mutex.Unlock()
 		c.deliverResponses(deliveries)
 		if resetPhase == callbacks.StreamResetComplete {
 			c.completeFinalized(nodeID, finalized)
 		}
 		return nil, err
+	}
+	if !resetWatch {
+		state.commitEpochNegotiation(typeURL)
 	}
 
 	watch := c.addTrackedWatchLocked(request, typeURL, respChan, streamID, !resetWatch)
@@ -3230,7 +3423,7 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 	if err != nil {
 		c.removeTrackedWatchLocked(watch)
 	}
-	deliveries = append(deliveries, c.collectResponseDeliveriesLocked()...)
+	deliveries.append(c.collectResponseDeliveriesLocked())
 	c.mutex.Unlock()
 	c.deliverResponses(deliveries)
 	c.completeFinalized(nodeID, finalized)
@@ -3238,6 +3431,10 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 		return nil, err
 	}
 	return func() { c.cancelTrackedWatch(watch) }, nil
+}
+
+func (c *cacheImpl) CreateDeltaWatch(request *cache.DeltaRequest, sub cache.Subscription, respChan chan cache.DeltaResponse) (cancel func(), err error) {
+	return c.SnapshotCache.CreateDeltaWatch(request, sub, respChan)
 }
 
 func (state *nodeState) getResource(typeURL typeurl.Index, resourceName string) (cache_types.Resource, bool) {
