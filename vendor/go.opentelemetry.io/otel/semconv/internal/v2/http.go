@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package internal provides common semconv functionality.
-package internal // import "go.opentelemetry.io/otel/semconv/internal/v2"
+package internal
 
 import (
 	"fmt"
