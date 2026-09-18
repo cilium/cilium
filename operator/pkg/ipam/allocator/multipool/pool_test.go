@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go4.org/netipx"
 
-	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
+	"github.com/cilium/cilium/pkg/ipam/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
 )
 
