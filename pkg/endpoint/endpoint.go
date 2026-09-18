@@ -155,6 +155,10 @@ type Endpoint struct {
 	// recalculated on endpoint restore.
 	createdAt time.Time
 
+	// lifecycleGeneration uniquely identifies a period during which this
+	// Endpoint object is exposed by the endpoint manager.
+	lifecycleGeneration uint64
+
 	initialEnvoyPolicyComputed chan struct{}
 
 	// mutex protects write operations to this endpoint structure
@@ -630,7 +634,6 @@ func createEndpoint(
 		policyDebugLog:     policyDebugLog,
 		forcePolicyCompute: true,
 	}
-
 	ep.initialEnvoyPolicyComputed = make(chan struct{})
 
 	ctx, cancel := context.WithCancel(context.Background())
