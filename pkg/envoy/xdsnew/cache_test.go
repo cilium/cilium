@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -57,6 +58,28 @@ type setSnapshotCall struct {
 	ctx      context.Context
 	nodeID   string
 	snapshot cache.ResourceSnapshot
+}
+
+type formattingCounter int
+
+func (counter *formattingCounter) String() string {
+	(*counter)++
+	return "formatted"
+}
+
+func TestSnapshotCacheLoggerSkipsDisabledFormatting(t *testing.T) {
+	var counter formattingCounter
+	var infoOutput strings.Builder
+	infoLogger := slog.New(slog.NewTextHandler(&infoOutput, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	snapshotCacheLogger(infoLogger).Debugf("value: %s", &counter)
+	snapshotCacheLogger(infoLogger).Infof("value: %s", &counter)
+	require.Zero(t, counter)
+
+	var output strings.Builder
+	debugLogger := slog.New(slog.NewTextHandler(&output, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	snapshotCacheLogger(debugLogger).Debugf("value: %s", &counter)
+	snapshotCacheLogger(debugLogger).Infof("value: %s", &counter)
+	require.Equal(t, formattingCounter(2), counter)
 }
 
 func newMockSnapshotCache() *mockSnapshotCache {

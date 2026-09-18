@@ -1090,7 +1090,9 @@ func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds
 			s.cache.SetResources(nodeId, resources)
 		}
 	} else {
-		s.logger.Debug("updateXdsSnapshot: Snapshots are identical, skipping update")
+		if s.logger.Enabled(context.Background(), slog.LevelDebug) {
+			s.logger.Debug("updateXdsSnapshot: Snapshots are identical, skipping update")
+		}
 	}
 
 	if nodeId == localNodeID {

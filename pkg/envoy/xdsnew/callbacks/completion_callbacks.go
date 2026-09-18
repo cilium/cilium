@@ -331,14 +331,17 @@ func (cb *CompletionCallbacks) NewTypeVersionCompletionOwner(nodeID, typeURL, ve
 // an error status was used instead.
 func (cb *CompletionCallbacks) CancelPendingCompletions(typeURL string) {
 	var completed []*completion.Completion
+	debugEnabled := cb.Log.Enabled(context.Background(), slog.LevelDebug)
 
 	cb.mutex.Lock()
 	for c, pc := range cb.pendingCompletions {
 		if pc.typeURL == typeURL {
-			cb.Log.Debug("Cancelling pending completion",
-				logfields.XDSTypeURL, typeURL,
-				logfields.Version, pc.version,
-				logfields.NodeID, pc.nodeID)
+			if debugEnabled {
+				cb.Log.Debug("Cancelling pending completion",
+					logfields.XDSTypeURL, typeURL,
+					logfields.Version, pc.version,
+					logfields.NodeID, pc.nodeID)
+			}
 			completed = append(completed, c)
 			delete(cb.pendingCompletions, c)
 			cb.removeFromOrderedCompletions(c)
@@ -696,13 +699,16 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	}
 	cb.responseStates[key] = state
 
+	debugEnabled := cb.Log.Enabled(context.Background(), slog.LevelDebug)
 	if vo, ok := cb.completionsOrders[key]; ok {
 		completed = vo.completeUpTo(req.GetVersionInfo())
 		for _, c := range completed {
 			delete(cb.pendingCompletions, c)
-			cb.Log.Debug("Completed completion for type URL and version",
-				logfields.XDSTypeURL, typeURL,
-				logfields.Version, req.GetVersionInfo())
+			if debugEnabled {
+				cb.Log.Debug("Completed completion for type URL and version",
+					logfields.XDSTypeURL, typeURL,
+					logfields.Version, req.GetVersionInfo())
+			}
 		}
 		if !vo.hasPendingCompletions() {
 			delete(cb.completionsOrders, key)
