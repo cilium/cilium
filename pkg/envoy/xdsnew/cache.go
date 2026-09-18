@@ -1429,7 +1429,6 @@ type resourceTransaction struct {
 	listenerChanges         []ListenerChange
 	networkPolicyStateEmpty bool
 	updateFailed            bool
-	acceptedWG              *completion.WaitGroup
 	acceptedCallback        func(error)   // single callback common case
 	acceptedCallbacks       []func(error) // additional callbacks
 }
@@ -1451,18 +1450,14 @@ func (tx *resourceTransaction) currentResourceGeneration() uint64 {
 	return tx.state.resourceGeneration
 }
 
-func (tx *resourceTransaction) addAccepted(wg *completion.WaitGroup, callbacks []func(error)) {
-	for _, callback := range callbacks {
-		tx.addAcceptedCallback(wg, callback)
-	}
-}
-
+// addAcceptedCallback defers an already-satisfied callback until after the
+// cache mutex is released. No Completion needs to be added to wg because there
+// is no asynchronous work for it to wait on.
 func (tx *resourceTransaction) addAcceptedCallback(wg *completion.WaitGroup, callback func(error)) {
-	if wg == nil {
+	if wg == nil || callback == nil {
 		return
 	}
-	if tx.acceptedWG == nil {
-		tx.acceptedWG = wg
+	if tx.acceptedCallback == nil {
 		tx.acceptedCallback = callback
 		return
 	}
@@ -1488,10 +1483,10 @@ func (tx *resourceTransaction) complete() {
 			tx.nodeID, typeurl.NetworkPolicy, tx.generation, nil)
 	}
 	c.completeImmediateCompletions(tx.nodeID, tx.immediateCompletions)
-	if tx.acceptedWG != nil {
-		tx.acceptedWG.AddCompletionWithCallback(nil, tx.acceptedCallback).Complete(nil)
+	if tx.acceptedCallback != nil {
+		tx.acceptedCallback(nil)
 		for _, callback := range tx.acceptedCallbacks {
-			tx.acceptedWG.AddCompletionWithCallback(nil, callback).Complete(nil)
+			callback(nil)
 		}
 	}
 }
@@ -2901,11 +2896,10 @@ func (tx *resourceTransaction) applyPreparedResourcesLocked(changes ResourceMuta
 		dirtyTypeURLs = snapshotTypesChangedBy(changedTypeURLs)
 	}
 	var changedWaits, unchangedWaits typeURLWaits
-	var acceptedCompletions []func(error)
 	for typeURL, callback := range updatedTypeURLs.All() {
 		typeChanged := changedTypeURLs.Has(typeURL)
 		if tx.resourcesAcceptedLocked(typeURL, mutations, typeChanged) {
-			acceptedCompletions = append(acceptedCompletions, callback)
+			tx.addAcceptedCallback(wg, callback)
 			continue
 		}
 		if dirtyTypeURLs.Has(typeURL) {
@@ -2922,7 +2916,6 @@ func (tx *resourceTransaction) applyPreparedResourcesLocked(changes ResourceMuta
 	}
 	if !resourcesChanged {
 		err := tx.awaitCurrentVersionLocked(wg, unchangedWaits)
-		tx.addAccepted(wg, acceptedCompletions)
 		return false, err
 	}
 	err := tx.updateResourceChangesLocked(changes, inverse, dirtyTypeURLs, watchTypeURLs, tx.cache.defaultGenerator, wg, changedWaits, lifecycle, restoredEntries)
@@ -2930,7 +2923,6 @@ func (tx *resourceTransaction) applyPreparedResourcesLocked(changes ResourceMuta
 		return false, err
 	}
 	err = tx.awaitCurrentVersionLocked(wg, unchangedWaits)
-	tx.addAccepted(wg, acceptedCompletions)
 	if err != nil {
 		return true, err
 	}
