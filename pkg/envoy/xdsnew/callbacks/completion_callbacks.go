@@ -583,6 +583,19 @@ func (cb *CompletionCallbacks) SetPublishedSnapshot(nodeID string, generation ui
 // snapshots are immutable, so callers can pass their canonical cache pointer
 // and make the common already-ACKed case a pointer comparison.
 func (cb *CompletionCallbacks) ResourceAccepted(nodeID string, typeURL typeurl.Index, resourceName string, desired proto.Message, desiredExists bool) bool {
+	return cb.resourceAccepted(nodeID, typeURL, resourceName, nil, false, desired, desiredExists, false)
+}
+
+// ChangedResourceAccepted reports whether a changed resource has the same
+// contents in the most recently ACKed snapshot. previous is the cache value
+// which the caller already established differs semantically from desired. If
+// the accepted snapshot still owns that exact previous pointer, desired cannot
+// be accepted and the expensive protobuf comparison is unnecessary.
+func (cb *CompletionCallbacks) ChangedResourceAccepted(nodeID string, typeURL typeurl.Index, resourceName string, previous proto.Message, previousExists bool, desired proto.Message, desiredExists bool) bool {
+	return cb.resourceAccepted(nodeID, typeURL, resourceName, previous, previousExists, desired, desiredExists, true)
+}
+
+func (cb *CompletionCallbacks) resourceAccepted(nodeID string, typeURL typeurl.Index, resourceName string, previous proto.Message, previousExists bool, desired proto.Message, desiredExists, desiredChanged bool) bool {
 	cb.mutex.Lock()
 	typeState := cb.typeURLState(nodeID, typeURL)
 	var acceptedSnapshot cache.ResourceSnapshot
@@ -595,6 +608,10 @@ func (cb *CompletionCallbacks) ResourceAccepted(nodeID string, typeURL typeurl.I
 	}
 	accepted, acceptedExists := acceptedSnapshot.GetResourcesAndTTL(typeURL.URL())[resourceName]
 	if acceptedExists != desiredExists {
+		return false
+	}
+	if desiredChanged && acceptedExists == previousExists &&
+		(!previousExists || accepted.Resource == previous) {
 		return false
 	}
 	return !desiredExists || accepted.Resource == desired || proto.Equal(accepted.Resource, desired)

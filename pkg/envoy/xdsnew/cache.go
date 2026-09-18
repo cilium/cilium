@@ -837,15 +837,22 @@ func (c *cacheImpl) updateResourceVersions(typeURL typeurl.Index, resources map[
 
 	for name, resource := range resources {
 		previousItem, resourceExists := items[name]
-		_, versionExists := versions[name]
+		previousVersion, versionExists := versions[name]
 		if resourceExists && versionExists &&
-			(previousItem.Resource == resource || proto.Equal(previousItem.Resource, resource)) {
+			previousItem.Resource == resource {
 			continue
 		}
 
 		version, err := resourceContentVersion(resource)
 		if err != nil {
 			return cache.Resources{}, nil, err
+		}
+		// A changed resource needs a content version anyway. Compare that with
+		// the published version instead of reflectively traversing the protobuf
+		// once here and then marshaling the same resource below. This also keeps
+		// coalesced A-B-A updates on the already published object and maps.
+		if resourceExists && versionExists && previousVersion == version {
+			continue
 		}
 		clone()
 		if items == nil {
@@ -1112,7 +1119,7 @@ func (c *cacheImpl) updateResourceEntries(typeURL typeurl.Index, resources map[s
 	for name := range changed.Members() {
 		resource := resources[name].resource
 		previousItem, resourceExists := items[name]
-		_, versionExists := versions[name]
+		previousVersion, versionExists := versions[name]
 		if resource == nil {
 			if !resourceExists && !versionExists {
 				continue
@@ -1123,13 +1130,20 @@ func (c *cacheImpl) updateResourceEntries(typeURL typeurl.Index, resources map[s
 			continue
 		}
 		if resourceExists && versionExists &&
-			(previousItem.Resource == resource || proto.Equal(previousItem.Resource, resource)) {
+			previousItem.Resource == resource {
 			continue
 		}
 
 		version, err := resourceContentVersion(resource)
 		if err != nil {
 			return cache.Resources{}, nil, err
+		}
+		// The content version is required for a changed resource. Reuse it for
+		// semantic equality instead of paying for proto.Equal immediately before
+		// marshaling the same protobuf. Equal versions retain the published
+		// pointer and preserve the A-B-A no-op path.
+		if resourceExists && versionExists && previousVersion == version {
+			continue
 		}
 		clone()
 		if items == nil {
@@ -1260,7 +1274,7 @@ func (c *cacheImpl) updateResourceLookup(typeURL typeurl.Index, changed set.Set[
 	for name := range changed.Members() {
 		resource, exists := lookup(name)
 		previousItem, resourceExists := items[name]
-		_, versionExists := versions[name]
+		previousVersion, versionExists := versions[name]
 		if !exists {
 			if !resourceExists && !versionExists {
 				continue
@@ -1271,12 +1285,15 @@ func (c *cacheImpl) updateResourceLookup(typeURL typeurl.Index, changed set.Set[
 			continue
 		}
 		if resourceExists && versionExists &&
-			(previousItem.Resource == resource || proto.Equal(previousItem.Resource, resource)) {
+			previousItem.Resource == resource {
 			continue
 		}
 		version, err := resourceContentVersion(resource)
 		if err != nil {
 			return cache.Resources{}, nil, err
+		}
+		if resourceExists && versionExists && previousVersion == version {
+			continue
 		}
 		clone()
 		if items == nil {
@@ -2328,7 +2345,12 @@ func (tx *resourceTransaction) applyChangedSingleResourceLocked(typeURL typeurl.
 	accepted := false
 	var changedWaits typeURLWaits
 	if wg != nil {
-		accepted = c.completionCbs.ResourceAccepted(tx.nodeID, typeURL, name, desired, desiredExists)
+		previous := inverse[typeURL][name]
+		accepted = c.completionCbs.ChangedResourceAccepted(
+			tx.nodeID, typeURL, name,
+			previous.resource, previous.resource != nil,
+			desired, desiredExists,
+		)
 		if !accepted {
 			changedWaits.Set(typeURL, generationWait{callback: callback, generation: tx.generation})
 		}
