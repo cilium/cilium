@@ -4,14 +4,11 @@
 package restoration
 
 import (
-	"errors"
-	"io/fs"
 	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -20,8 +17,6 @@ import (
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -51,7 +46,6 @@ type localIdentityRestorerParams struct {
 	// allocator is initialized here.
 	IdentityAllocator identitycell.CachingIdentityAllocator
 	NodeLocalStore    *node.LocalNodeStore
-	MetricsRegistry   *metrics.Registry
 }
 
 type LocalIdentityRestorer struct {
@@ -75,9 +69,9 @@ func newLocalIdentityRestorer(params localIdentityRestorerParams) *LocalIdentity
 // This will ensure that the same set of labels is assigned the same numeric
 // identity once the agent has restored all state.
 //
-// Next, the outgoing ipcache bpf map is read. For any prefixes that
-// mapped to a CIDR-specific identity, the ipcache metadata is re-created
-// and inserted in to the ipcache.
+// Next, for any localPrefixes that mapped to a CIDR-specific identity in the
+// outgoing ipcache bpf map, the ipcache metadata is re-created and inserted in
+// to the ipcache.
 //
 // The purpose of this is to preserve stable local identities on agent
 // restart as much as possible. This helps prevent spurious policy drops
@@ -88,60 +82,18 @@ func newLocalIdentityRestorer(params localIdentityRestorerParams) *LocalIdentity
 // with other state (i.e. kvstore, k8s) and that all necessary entries
 // are present in ipcache & the identity allocator.
 //
-// This *must* be called before initMaps(), which will hide the "old" ipcache.
-func (d *LocalIdentityRestorer) RestoreLocalIdentities(ipCache *ipcache.IPCache) error {
+// localPrefixes are read from the old ipcache map before it is recreated.
+func (d *LocalIdentityRestorer) RestoreLocalIdentities(ipCache *ipcache.IPCache, localPrefixes map[netip.Prefix]identity.NumericIdentity) error {
 	// Restore the local identity allocator from its checkpoint.
 	// This returns the set of identities created. We will use this set
 	// to regenerate the set of labels for prefixes in the ipcache.
 	restoredIdentities, err := d.params.IdentityAllocator.RestoreLocalIdentities()
-
-	// Dump the existing BPF ipcache map
-	localPrefixes, err2 := d.dumpOldIPCache()
-	if err2 != nil {
-		d.params.Logger.Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.", logfields.Error, err2)
-		err = errors.Join(err, err2)
-		// continue; we may have a partial dump
-	}
 
 	// create placeholder CIDR labels in the ipcache.
 	// This only adds an ipcache metadata entry for prefixes with a `cidr:`
 	// label and ingress IPs. All other entries will have to be created anew.
 	d.restoreIPCache(ipCache, localPrefixes, restoredIdentities)
 	return err
-}
-
-// dumpOldIPCache reads the soon-to-be-overwritten ipcache BPF map, noting any prefixes
-// with a locally-scoped or ingress identity.
-func (d *LocalIdentityRestorer) dumpOldIPCache() (map[netip.Prefix]identity.NumericIdentity, error) {
-	localPrefixes := map[netip.Prefix]identity.NumericIdentity{}
-
-	// Dump the bpf ipcache, recording any prefixes with local or ingress
-	// numeric identities.
-	err := ipcachemap.IPCacheMap(d.params.MetricsRegistry).DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
-		k := key.(*ipcachemap.Key)
-		v := value.(*ipcachemap.RemoteEndpointInfo)
-		nid := identity.NumericIdentity(v.SecurityIdentity)
-
-		if !v.TunnelEndpoint.IsZero() || k.ClusterID != 0 {
-			return
-		}
-
-		if nid.Scope() == identity.IdentityScopeLocal || nid == identity.ReservedIdentityIngress {
-			localPrefixes[k.Prefix()] = nid
-		}
-	})
-	// dumpwithcallback() leaves the ipcache map open, must close before opened for
-	// parallel mode in daemon.initmaps()
-	ipcachemap.IPCacheMap(d.params.MetricsRegistry).Close()
-
-	if err != nil {
-		// ignore non-existent cache
-		if errors.Is(err, fs.ErrNotExist) {
-			err = nil
-		}
-	}
-	d.params.Logger.Debug("dumping ipache with local identities", logfields.Count, len(localPrefixes))
-	return localPrefixes, err
 }
 
 // restoreIPCache recreated ipcache metadata entries from the dumped allocator and
