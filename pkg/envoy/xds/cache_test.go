@@ -10,6 +10,9 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
+
+	cilium "github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/cilium/cilium/pkg/container/set"
 )
@@ -250,14 +253,20 @@ func TestCacheVersionStateDoesNotRotateOnNoopUpdate(t *testing.T) {
 	logger := hivetest.Logger(t)
 	c := NewCache(logger)
 
-	msg := resources[0]
-	_, updated, _ := c.Upsert("a", resources[0].Name, msg)
+	policy := &cilium.NetworkPolicy{
+		EndpointId: 1,
+		EgressPerPortPolicies: []*cilium.PortNetworkPolicy{{
+			Port: 80,
+		}},
+	}
+	equalPolicy := proto.Clone(policy).(*cilium.NetworkPolicy)
+	_, updated, _ := c.Upsert("a", "policy", policy)
 	if !updated {
 		t.Fatal("expected first upsert to update cache")
 	}
 
 	version, changed := c.VersionState()
-	_, updated, _ = c.Upsert("a", resources[0].Name, msg)
+	_, updated, _ = c.Upsert("a", "policy", equalPolicy)
 	if updated {
 		t.Fatal("expected identical upsert to be a no-op")
 	}
