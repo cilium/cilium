@@ -89,6 +89,15 @@ int mock_skb_set_tunnel_opt(__maybe_unused struct __sk_buff *skb,
 	}
 }
 
+__u32 mock_gso_size;
+
+# define ctx_gso_size mock_ctx_gso_size
+static __always_inline __u32
+mock_ctx_gso_size(const struct __sk_buff *ctx __maybe_unused)
+{
+	return mock_gso_size;
+}
+
 # include "lib/bpf_host.h"
 #endif /* ATTACHMENT_XDP */
 
@@ -207,6 +216,20 @@ const __u8 kpr_v4_dsr_lb3_mtu2_post_geneve_xdp[] = {
        SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu2_post_geneve_xdp)
 };
 
+#ifndef ATTACHMENT_XDP
+const __u8 kpr_v4_dsr_lb3_mtu3_gso[] = {
+	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu3_gso)
+};
+
+const __u8 kpr_v4_dsr_lb3_mtu3_gso_post_option[] = {
+	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu3_gso_post_option)
+};
+
+const __u8 kpr_v4_dsr_lb3_mtu3_gso_post_geneve[] = {
+	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu3_gso_post_geneve)
+};
+#endif /* ATTACHMENT_XDP */
+
 const __u8 kpr_v6_dsr_lb1_syn[] = {
 	SCAPY_BUF_BYTES(kpr_v6_dsr_lb1_syn)
 };
@@ -298,6 +321,20 @@ const __u8 kpr_v6_dsr_lb3_mtu2_post_geneve[] = {
 const __u8 kpr_v6_dsr_lb3_mtu2_post_geneve_xdp[] = {
        SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu2_post_geneve_xdp)
 };
+
+#ifndef ATTACHMENT_XDP
+const __u8 kpr_v6_dsr_lb3_mtu3_gso[] = {
+	SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu3_gso)
+};
+
+const __u8 kpr_v6_dsr_lb3_mtu3_gso_post_option[] = {
+	SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu3_gso_post_option)
+};
+
+const __u8 kpr_v6_dsr_lb3_mtu3_gso_post_geneve[] = {
+	SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu3_gso_post_geneve)
+};
+#endif /* ATTACHMENT_XDP */
 
 #ifdef ENABLE_IPV4
 /* Client accesses a DSR service with remote backend.
@@ -867,6 +904,98 @@ int kpr_v4_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+#ifndef ATTACHMENT_XDP
+PKTGEN(PROG_TYPE, "kpr_v4_dsr_lb3_mtu3_gso")
+int kpr_v4_dsr_lb3_mtu3_gso_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	scapy_push_data(&builder, kpr_v4_dsr_lb3_mtu3_gso,
+			sizeof(kpr_v4_dsr_lb3_mtu3_gso));
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "kpr_v4_dsr_lb3_mtu3_gso")
+int kpr_v4_dsr_lb3_mtu3_gso_setup(struct __ctx_buff *ctx)
+{
+	tunnel_key_set = false;
+	tunnel_opt_set = false;
+	mock_gso_size = 80;
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "kpr_v4_dsr_lb3_mtu3_gso")
+int kpr_v4_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	/* Don't leak the GSO size into the subsequent tests. */
+	mock_gso_size = 0;
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+#if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu3_gso_post_geneve",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb3_mtu3_gso_post_geneve,
+			   sizeof(kpr_v4_dsr_lb3_mtu3_gso_post_geneve));
+
+	struct geneve_dsr_opt4 *dsr_opt;
+	__u32 key = 0;
+
+	if (!tunnel_opt_set)
+		test_fatal("no DSR opt set");
+	dsr_opt = map_lookup_elem(&tunnel_opt_map, &key);
+	if (!dsr_opt)
+		test_fatal("no DSR opt");
+	if (dsr_opt->addr != v4_svc_one)
+		test_fatal("DSR addr is not correct");
+	if (dsr_opt->port != tcp_svc_three)
+		test_fatal("DSR port is not correct");
+#else
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu3_gso_post_option",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb3_mtu3_gso_post_option,
+			   sizeof(kpr_v4_dsr_lb3_mtu3_gso_post_option));
+#endif
+
+	struct ipv4_ct_tuple tuple;
+	struct ct_entry *ct_entry;
+
+	tuple.flags = TUPLE_F_SERVICE;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.daddr = v4_svc_one;
+	tuple.saddr = v4_ext_one;
+	tuple.sport = tcp_svc_three;
+	tuple.dport = tcp_src_two;
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR connection found");
+	if (!ct_entry->need_dsr_info)
+		test_fatal("CT entry lost the need_dsr_info flag");
+
+	test_finish();
+}
+#endif /* ATTACHMENT_XDP */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
@@ -1427,4 +1556,94 @@ int kpr_v6_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_finish();
 }
+#ifndef ATTACHMENT_XDP
+PKTGEN(PROG_TYPE, "kpr_v6_dsr_lb3_mtu3_gso")
+int kpr_v6_dsr_lb3_mtu3_gso_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder, kpr_v6_dsr_lb3_mtu3_gso,
+			sizeof(kpr_v6_dsr_lb3_mtu3_gso));
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "kpr_v6_dsr_lb3_mtu3_gso")
+int kpr_v6_dsr_lb3_mtu3_gso_setup(struct __ctx_buff *ctx)
+{
+	tunnel_key_set = false;
+	tunnel_opt_set = false;
+	mock_gso_size = 32;
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "kpr_v6_dsr_lb3_mtu3_gso")
+int kpr_v6_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	union v6addr frontend_ip = { v6_svc_one_addr };
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	/* Don't leak the GSO size into the subsequent tests. */
+	mock_gso_size = 0;
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+#if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu3_gso_post_geneve",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v6_dsr_lb3_mtu3_gso_post_geneve,
+			   sizeof(kpr_v6_dsr_lb3_mtu3_gso_post_geneve));
+
+	struct geneve_dsr_opt6 *dsr_opt;
+	__u32 key = 0;
+
+	if (!tunnel_opt_set)
+		test_fatal("no DSR opt set");
+	dsr_opt = map_lookup_elem(&tunnel_opt_map, &key);
+	if (!dsr_opt)
+		test_fatal("no DSR opt");
+	if (!ipv6_addr_equals((union v6addr *)&dsr_opt->addr, &frontend_ip))
+		test_fatal("DSR addr is not correct");
+	if (dsr_opt->port != tcp_svc_three)
+		test_fatal("DSR port is not correct");
+#else
+	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu3_gso_post_option",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v6_dsr_lb3_mtu3_gso_post_option,
+			   sizeof(kpr_v6_dsr_lb3_mtu3_gso_post_option));
+#endif
+
+	struct ipv6_ct_tuple tuple __align_stack_8;
+	struct ct_entry *ct_entry;
+	union v6addr client_ip = { v6_ext_node_one_addr };
+
+	tuple.flags = TUPLE_F_SERVICE;
+	tuple.nexthdr = IPPROTO_TCP;
+	ipv6_addr_copy(&tuple.daddr, &frontend_ip);
+	ipv6_addr_copy(&tuple.saddr, &client_ip);
+	tuple.sport = tcp_svc_three;
+	tuple.dport = tcp_src_two;
+
+	ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT entry for DSR connection found");
+	if (!ct_entry->need_dsr_info)
+		test_fatal("CT entry lost the need_dsr_info flag");
+
+	test_finish();
+}
+#endif /* ATTACHMENT_XDP */
 #endif /* ENABLE_IPV6 */
