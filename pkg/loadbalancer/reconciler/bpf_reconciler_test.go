@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -1330,6 +1332,14 @@ func TestBPFOps(t *testing.T) {
 	lc := hivetest.Lifecycle(t)
 	log := hivetest.Logger(t)
 
+	reg, err := registry.NewTestRegistry(log)
+	require.NoError(t, err)
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			return reg.StartTest()
+		},
+	})
+
 	maglevCfg, err := maglev.UserConfig{
 		TableSize: 1021,
 		HashSeed:  maglev.DefaultHashSeed,
@@ -1358,6 +1368,7 @@ func TestBPFOps(t *testing.T) {
 			Cfg:       cfg,
 			ExtCfg:    extCfg,
 			MaglevCfg: maglevCfg,
+			Registry:  reg,
 		}
 		lc.Append(r)
 		lbmaps = r

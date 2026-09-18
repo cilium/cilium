@@ -15,6 +15,33 @@
  */
 #define BPF_TEST
 
+/* Mock sk_storage helpers for BPF unit tests */
+#define BPF_SK_STORAGE_MOCKED
+static __always_inline void *
+mock_bpf_sk_storage_get_common(void *map __maybe_unused,
+			       void *sk __maybe_unused,
+			       void *value __maybe_unused,
+			       __u64 flags __maybe_unused)
+{
+	return NULL;
+}
+
+static __always_inline int
+mock_bpf_sk_storage_delete_common(void *map __maybe_unused, void *sk __maybe_unused)
+{
+	return -ENOENT;
+}
+
+#undef bpf_sk_storage_get
+#define bpf_sk_storage_get mock_bpf_sk_storage_get_common
+#undef sk_storage_get
+#define sk_storage_get mock_bpf_sk_storage_get_common
+
+#undef bpf_sk_storage_delete
+#define bpf_sk_storage_delete mock_bpf_sk_storage_delete_common
+#undef sk_storage_delete
+#define sk_storage_delete mock_bpf_sk_storage_delete_common
+
 #ifndef ___bpf_concat
 #define ___bpf_concat(a, b) a ## b
 #endif
