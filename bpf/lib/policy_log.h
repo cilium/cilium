@@ -12,6 +12,7 @@
  */
 #pragma once
 
+#include "auxvars.h"
 #include "common.h"
 #include "ratelimit.h"
 
@@ -55,20 +56,24 @@ static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 	return ((filter & d) > 0);
 }
 
+struct send_policy_verdict_notify_vars {
+	struct ratelimit_key rkey;
+	struct ratelimit_settings settings;
+	struct policy_verdict_notify msg;
+};
+
+DEFINE_AUX(struct send_policy_verdict_notify_vars, send_policy_verdict_notify_vars);
+
 static __always_inline void
 send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
 			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict, __u16 proxy_port,
 			   __u8 match_type, __u8 is_audited, __u8 auth_type, __u32 cookie)
 {
+	struct send_policy_verdict_notify_vars *vars =
+		AUX(send_policy_verdict_notify_vars);
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
-	struct ratelimit_key rkey = {
-		.usage = RATELIMIT_USAGE_EVENTS_MAP,
-	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
-	struct policy_verdict_notify msg;
+	struct policy_verdict_notify *msg = &vars->msg;
 
 #if defined(IS_BPF_HOST)
 	/* When this function is called in the context of bpf_host (e.g. by
@@ -94,14 +99,17 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u
 	if (verdict == 0)
 		verdict = (int)proxy_port;
 
+	vars->rkey.usage = RATELIMIT_USAGE_EVENTS_MAP;
+	vars->settings.topup_interval_ns = NSEC_PER_SEC;
+
 	if (CONFIG(events_map_rate_limit) > 0) {
-		settings.bucket_size = CONFIG(events_map_burst_limit);
-		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
-		if (!ratelimit_check_and_take(&rkey, &settings))
+		vars->settings.bucket_size = CONFIG(events_map_burst_limit);
+		vars->settings.tokens_per_topup = CONFIG(events_map_rate_limit);
+		if (!ratelimit_check_and_take(&vars->rkey, &vars->settings))
 			return;
 	}
 
-	msg = (typeof(msg)) {
+	*msg = (typeof(*msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_POLICY_VERDICT, 0),
 		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_CAPTURE_VER),
 		.remote_label	= remote_label,
@@ -120,7 +128,7 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u
 	policy_verdict_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
+			 msg, sizeof(*msg));
 }
 #else
 static __always_inline void
