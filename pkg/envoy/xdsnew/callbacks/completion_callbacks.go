@@ -47,13 +47,38 @@ func snapshotGenerationFromContext(ctx context.Context) uint64 {
 type Rollback = revert.Revertible
 
 // nodeIDForRequest returns the request node ID, falling back to the node ID
-// remembered from the first request on the stream. cb.mutex must be held.
-func (cb *CompletionCallbacks) nodeIDForRequest(streamID int64, req *discovery.DiscoveryRequest) string {
-	if nodeID := req.GetNode().GetId(); nodeID != "" {
-		cb.streamNodeIDs[streamID] = nodeID
-		return nodeID
+// remembered from the first request on the stream. identified reports that
+// this request first associated the stream with its node. cb.mutex must be
+// held.
+func (cb *CompletionCallbacks) nodeIDForRequest(streamID int64, req *discovery.DiscoveryRequest) (nodeID string, identified bool) {
+	key := streamKey{streamID: streamID, mode: StreamModeSotW}
+	stream := cb.streams[key]
+	if stream == nil {
+		stream = cb.ensureStreamState(key)
 	}
-	return cb.streamNodeIDs[streamID]
+	if nodeID := req.GetNode().GetId(); nodeID != "" {
+		identified := stream.nodeID == ""
+		stream.nodeID = nodeID
+		return nodeID, identified
+	}
+	return stream.nodeID, false
+}
+
+// StreamMode distinguishes go-control-plane's independently numbered SotW and
+// Delta stream spaces.
+type StreamMode uint8
+
+const (
+	StreamModeSotW StreamMode = iota
+	StreamModeDelta
+	StreamModeCount
+)
+
+// StreamLifecycleHandler maintains cache-side state for streams after their
+// first request identifies a node and when they close.
+type StreamLifecycleHandler interface {
+	StreamStarted(streamID int64, nodeID string, mode StreamMode)
+	StreamClosed(streamID int64, nodeID string, mode StreamMode)
 }
 
 type CompletionCallbacks struct {
@@ -70,19 +95,41 @@ type CompletionCallbacks struct {
 	// by TypeURL. Keeping related state together avoids parallel maps with the
 	// same composite keys.
 	nodes map[string]*callbackNodeState
-	// streamNodeIDs remembers the node ID from the first request on each ADS
-	// stream. Envoy is configured with SetNodeOnFirstMessageOnly, so subsequent
-	// ACK/NACK requests can omit Node even though completions are keyed by node ID.
-	streamNodeIDs map[int64]string
+	// streams remember the node ID from the first request on each ADS stream.
+	// Envoy may omit Node on subsequent ACK/NACK requests. The mode is part of
+	// the key because Delta and SotW allocate stream IDs independently.
+	streams map[streamKey]*callbackStreamState
+	// streamLifecycle is immutable after construction. Its methods are invoked
+	// without mutex held so the cache can update its own stream and node state.
+	streamLifecycle StreamLifecycleHandler
 }
 
-func NewCompletionCallbacks(logger *slog.Logger) *CompletionCallbacks {
+func NewCompletionCallbacks(logger *slog.Logger, streamLifecycle StreamLifecycleHandler) *CompletionCallbacks {
 	return &CompletionCallbacks{
 		Log:                logger,
 		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
 		nodes:              make(map[string]*callbackNodeState),
-		streamNodeIDs:      make(map[int64]string),
+		streams:            make(map[streamKey]*callbackStreamState),
+		streamLifecycle:    streamLifecycle,
 	}
+}
+
+type callbackStreamState struct {
+	nodeID string
+}
+
+type streamKey struct {
+	streamID int64
+	mode     StreamMode
+}
+
+func (cb *CompletionCallbacks) ensureStreamState(key streamKey) *callbackStreamState {
+	state := cb.streams[key]
+	if state == nil {
+		state = &callbackStreamState{}
+		cb.streams[key] = state
+	}
+	return state
 }
 
 type callbackNodeState struct {
@@ -104,8 +151,8 @@ type typeURLState struct {
 	// so no-op checks do not pin obsolete snapshots and unrelated resource types.
 	acceptedResources acceptedResourceGroup
 	// response tracks the latest xDS response/ACK state for this node/type.
-	// Generations establish ordering; versions are retained only because Envoy
-	// echoes the content version in ACK and NACK requests.
+	// Generations establish ordering; version strings are retained only because
+	// Envoy echoes the xDS version in ACK and NACK requests.
 	response responseState
 }
 
@@ -534,7 +581,7 @@ func (cb *CompletionCallbacks) DiscardUnsentTypeGeneration(nodeID string, typeUR
 	return true
 }
 
-// FinalizeTypeGeneration supplies the content version which was deliberately
+// FinalizeTypeGeneration supplies the xDS version which was deliberately
 // left unknown while resource updates were staged. It also resolves the cases
 // where no new response can be produced because Envoy is already processing or
 // has already accepted the finalized contents.
@@ -616,7 +663,7 @@ func (cb *CompletionCallbacks) addTypeGenerationCompletion(c *completion.Complet
 		if state.pendingGeneration == 0 {
 			// An immediately available CreateWatch response is built with a
 			// background context. Its generation can still be recovered from an
-			// update waiting for that same content version.
+			// update waiting for that same xDS version.
 			state.pendingGeneration = generation
 		}
 		// The cache can move A -> B -> A while the first A response is in
@@ -673,18 +720,22 @@ func (cb *CompletionCallbacks) OnStreamOpen(ctx context.Context, streamID int64,
 	return nil
 }
 
-// OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
-func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
-	cb.mutex.Lock()
-	nodeID := cb.streamNodeIDs[streamID]
+// closeStreamLocked removes one stream and clears node-wide accepted protocol
+// state when no stream for that node remains. cb.mutex must be held.
+func (cb *CompletionCallbacks) closeStreamLocked(key streamKey, node *core.Node) string {
+	stream := cb.streams[key]
+	var nodeID string
+	if stream != nil {
+		nodeID = stream.nodeID
+	}
 	if nodeID == "" && node != nil {
 		nodeID = node.GetId()
 	}
-	delete(cb.streamNodeIDs, streamID)
+	delete(cb.streams, key)
 
 	streamStillOpen := false
-	for _, openNodeID := range cb.streamNodeIDs {
-		if openNodeID == nodeID {
+	for _, openStream := range cb.streams {
+		if openStream.nodeID == nodeID {
 			streamStillOpen = true
 			break
 		}
@@ -702,7 +753,18 @@ func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 			}
 		}
 	}
+	return nodeID
+}
+
+// OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
+func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
+	cb.mutex.Lock()
+	nodeID := cb.closeStreamLocked(streamKey{streamID: streamID, mode: StreamModeSotW}, node)
+	streamLifecycle := cb.streamLifecycle
 	cb.mutex.Unlock()
+	if streamLifecycle != nil && nodeID != "" {
+		streamLifecycle.StreamClosed(streamID, nodeID, StreamModeSotW)
+	}
 
 	cb.Log.Info("OnStreamClosed", logfields.XDSStreamID, streamID)
 }
@@ -711,7 +773,10 @@ func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 // Returning an error will end processing and close the stream. OnStreamClosed will still be called.
 func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.DiscoveryRequest) error {
 	cb.mutex.Lock()
-	nodeID := cb.nodeIDForRequest(streamID, req)
+	nodeID, streamStarted := cb.nodeIDForRequest(streamID, req)
+	if streamStarted && cb.streamLifecycle != nil {
+		defer cb.streamLifecycle.StreamStarted(streamID, nodeID, StreamModeSotW)
+	}
 	typeURL := req.GetTypeUrl()
 	typeIndex, supported := typeurl.FromURL(typeURL)
 	if !supported {
@@ -877,7 +942,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	if published := nodeState.published; acceptedGeneration != 0 &&
 		published.snapshot != nil && published.snapshot.GetVersion(typeURL) == req.GetVersionInfo() {
 		// Another resource type may have published a newer snapshot while this
-		// response was in flight. Reuse it when this type's content version is
+		// response was in flight. Reuse it when this type's xDS version is
 		// unchanged; its immutable resources are equivalent to those just ACKed.
 		typeState.acceptedResources = acceptedResourceGroup{
 			generation: acceptedGeneration,
@@ -930,7 +995,10 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	var finalizers []Rollback
 
 	cb.mutex.Lock()
-	nodeID := cb.nodeIDForRequest(streamID, req)
+	nodeID, streamStarted := cb.nodeIDForRequest(streamID, req)
+	if streamStarted && cb.streamLifecycle != nil {
+		defer cb.streamLifecycle.StreamStarted(streamID, nodeID, StreamModeSotW)
+	}
 
 	if version == "" {
 		cb.mutex.Unlock()
@@ -947,7 +1015,7 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	// SetSnapshot propagates the exact generation through the response context.
 	// CreateWatch uses a background context for an immediately available
 	// snapshot, so recover the generation from the authoritative snapshot state
-	// staged by Cache.ApplyResources. The content version check prevents a
+	// staged by Cache.ApplyResources. The xDS version check prevents a
 	// delayed response from being attributed to a newer snapshot.
 	responseGeneration := snapshotGenerationFromContext(ctx)
 	if responseGeneration == 0 {
@@ -977,7 +1045,8 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 
 	// A response for generation G contains the finalized resource state after
 	// every generation <= G. Attach that whole prefix to G. A later ACK/NACK can
-	// now resolve it with an integer comparison instead of replaying hash order.
+	// now resolve it with an integer comparison instead of replaying version
+	// strings to infer order.
 	for _, pc := range cb.pendingCompletions {
 		if pc.nodeID == nodeID && pc.typeURL == typeIndex && pc.generation <= responseGeneration {
 			pc.responseGeneration = responseGeneration

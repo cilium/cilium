@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
 
@@ -208,7 +209,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 					t.Cleanup(cancel)
 					cancels = append(cancels, cancel)
 				}
-				watches, exists := c.openWatches[nodeID].Get(typeurl.Listener)
+				watches, exists := c.openWatches[nodeID][callbacks.StreamModeSotW].Get(typeurl.Listener)
 				require.True(t, exists)
 				require.Equal(t, watchCount, watches.Len())
 				require.Equal(t, watchCount, c.watchRelays[responses].watches.Len())
@@ -221,7 +222,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 				case "cancel":
 					cancels[0]()
 					cancels[0]()
-					remaining, exists := c.openWatches[nodeID].Get(typeurl.Listener)
+					remaining, exists := c.openWatches[nodeID][callbacks.StreamModeSotW].Get(typeurl.Listener)
 					require.True(t, exists)
 					require.Equal(t, watchCount-1, remaining.Len())
 					require.Equal(t, watchCount-1, c.watchRelays[responses].watches.Len())
@@ -278,22 +279,23 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 			c := NewCache(logger, strictADS).(*cacheImpl)
 			const nodeID = "node1"
 			responses := make(chan cache.Response, 2)
-			cancel, err := c.CreateWatch(&cache.Request{
-				Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(),
-			}, stream.NewSotwSubscription(nil, false), responses)
-			require.NoError(t, err)
-			t.Cleanup(cancel)
-			<-responses
-			snapshot, err := c.GetSnapshot(nodeID)
-			require.NoError(t, err)
-			// Register in reverse dependency order. The relay must preserve
-			// go-control-plane's CDS-before-LDS delivery order in strict ADS.
+			// Register in reverse dependency order. The relay must deliver CDS
+			// before LDS in both strict and non-strict ADS.
 			for _, typeURL := range []typeurl.Index{typeurl.Listener, typeurl.Cluster} {
 				request := &cache.Request{
 					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeURL.URL(),
-					VersionInfo: snapshot.GetVersion(typeURL.URL()),
 				}
-				cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), responses)
+				subscription := stream.NewSotwSubscription(nil, false)
+				// Receive each type's initial response before echoing its version.
+				// Borrowing another type's version would look like an old agent
+				// epoch on this type's first request and force epoch rotation.
+				cancel, err := c.CreateWatch(request, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				initialResponse := <-responses
+				request.VersionInfo = initialResponse.GetResponseVersion()
+				subscription.SetReturnedResources(initialResponse.GetReturnedResources())
+				cancel, err = c.CreateWatch(request, subscription, responses)
 				require.NoError(t, err)
 				t.Cleanup(cancel)
 			}
@@ -311,11 +313,7 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 				deliveredTypes = append(deliveredTypes, response.GetRequest().GetTypeUrl())
 			}
 			expectedTypes := []string{typeurl.Cluster.URL(), typeurl.Listener.URL()}
-			if strictADS {
-				require.Equal(t, expectedTypes, deliveredTypes)
-			} else {
-				require.ElementsMatch(t, expectedTypes, deliveredTypes)
-			}
+			require.Equal(t, expectedTypes, deliveredTypes)
 			require.Zero(t, c.GetStatusInfo(nodeID).GetNumWatches())
 			require.Empty(t, c.openWatches)
 			require.Empty(t, c.watchRelays)
