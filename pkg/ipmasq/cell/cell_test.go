@@ -8,89 +8,68 @@ import (
 	"path"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/testutils"
-
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/ipmasq"
 	ipmasqmaps "github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func TestPrivileged_TestIPMasqAgentCell(t *testing.T) {
-	testutils.PrivilegedTest(t)
+// newTestHive builds a hive holding the ip-masq-agent module and nothing that
+// consumes it: the agent must be started by the module's own invoke.
+func newTestHive(t *testing.T, enabled bool, configPath string) *hive.Hive {
+	t.Helper()
 
-	var agent *ipmasq.IPMasqAgent
-
-	testHive := hive.New(
+	h := hive.New(
 		// Needed for the metrics.Cell
 		cell.Provide(func() *option.DaemonConfig { return &option.DaemonConfig{} }),
 		// Needed for the IPMasqBPFMap
 		metrics.Cell,
 		ipmasqmaps.Cell,
 		Cell,
-		cell.Invoke(func(a *ipmasq.IPMasqAgent) {
-			agent = a
-		}),
 	)
 
-	hive.AddConfigOverride(testHive, func(cfg *Config) {
-		cfg.EnableIPMasqAgent = true
-		cfg.IPMasqAgentConfigPath = path.Join(t.TempDir(), "placeholder.yaml")
+	hive.AddConfigOverride(h, func(cfg *Config) {
+		cfg.EnableIPMasqAgent = enabled
+		cfg.IPMasqAgentConfigPath = configPath
 	})
 
-	// Start the hive
-	ctx := context.Background()
-	tlog := hivetest.Logger(t)
-	err := testHive.Start(tlog, ctx)
-	require.NoError(t, err)
-
-	// Verify that the agent was successfully created
-	assert.NotNil(t, agent)
-
-	// Stop the hive
-	err = testHive.Stop(tlog, ctx)
-	require.NoError(t, err)
+	return h
 }
 
-func TestPrivileged_TestIPMasqAgentCellDisabled(t *testing.T) {
-	testutils.PrivilegedTest(t)
+func TestIPMasqAgentCell(t *testing.T) {
+	h := newTestHive(t, true, path.Join(t.TempDir(), "placeholder.yaml"))
 
-	var agent *ipmasq.IPMasqAgent
-
-	testHive := hive.New(
-		// Needed for the metrics.Cell
-		cell.Provide(func() *option.DaemonConfig { return &option.DaemonConfig{} }),
-		// Needed for the IPMasqBPFMap
-		metrics.Cell,
-		ipmasqmaps.Cell,
-		Cell,
-		cell.Invoke(func(a *ipmasq.IPMasqAgent) {
-			agent = a
-		}),
-	)
-
-	// Disable via config
-	hive.AddConfigOverride(testHive, func(cfg *Config) {
-		cfg.EnableIPMasqAgent = false
-	})
-
-	// Start the hive
 	ctx := context.Background()
 	tlog := hivetest.Logger(t)
-	err := testHive.Start(tlog, ctx)
-	require.NoError(t, err)
+	require.NoError(t, h.Start(tlog, ctx))
+	require.NoError(t, h.Stop(tlog, ctx))
+}
 
-	// Verify that the agent was not created
-	assert.Nil(t, agent)
+// TestIPMasqAgentCellStartsAgent asserts that the agent is constructed and
+// started even though nothing in the hive depends on it. It points the agent
+// at a config file whose directory does not exist, which makes the fsnotify
+// watcher, and therefore the start hook, fail: an agent that was never
+// constructed would let the hive start cleanly instead.
+func TestIPMasqAgentCellStartsAgent(t *testing.T) {
+	h := newTestHive(t, true, path.Join(t.TempDir(), "missing", "placeholder.yaml"))
 
-	// Stop the hive
-	err = testHive.Stop(tlog, ctx)
-	require.NoError(t, err)
+	err := h.Start(hivetest.Logger(t), context.Background())
+	require.ErrorContains(t, err, "failed to start ip-masq-agent")
+}
+
+// TestIPMasqAgentCellDisabled is the counterpart of
+// TestIPMasqAgentCellStartsAgent: with the same unusable config path, the hive
+// starts cleanly because no agent is registered at all.
+func TestIPMasqAgentCellDisabled(t *testing.T) {
+	h := newTestHive(t, false, path.Join(t.TempDir(), "missing", "placeholder.yaml"))
+
+	ctx := context.Background()
+	tlog := hivetest.Logger(t)
+	require.NoError(t, h.Start(tlog, ctx))
+	require.NoError(t, h.Stop(tlog, ctx))
 }
