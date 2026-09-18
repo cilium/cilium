@@ -374,7 +374,10 @@ func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP net.IP, oldV6HealthIP
 			if err != nil {
 				return fmt.Errorf("unable to allocate health IPv4: %w, see https://cilium.link/ipam-range-full", err)
 			}
-			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4HealthIP = net.IP(result.IP.AsSlice()).To16() })
+			// Track the address we now hold, not just the one we tried to
+			// restore: the IPv6 arm below releases it if it cannot allocate.
+			healthIPv4 = net.IP(result.IP.AsSlice()).To16()
+			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4HealthIP = healthIPv4 })
 		}
 
 		// Coalescing multiple CIDRs. GH #18868
