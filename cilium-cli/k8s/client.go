@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"github.com/moby/spdystream"
 	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/cli/output"
 	appsv1 "k8s.io/api/apps/v1"
@@ -394,6 +395,12 @@ var transientExecErrorSubstrings = []string{
 	"TLS handshake timeout",
 }
 
+var transientExecErrors = []error{
+	spdystream.ErrTimeout,
+	spdystream.ErrReset,
+	spdystream.ErrWriteClosedStream,
+}
+
 // IsTransientExecError reports whether err looks like a transient failure of
 // the Kubernetes API server exec proxy, as opposed to a genuine failure of the
 // command that was executed in the pod. Callers that exec through the proxy in
@@ -402,6 +409,9 @@ var transientExecErrorSubstrings = []string{
 func IsTransientExecError(err error) bool {
 	if err == nil {
 		return false
+	}
+	if slices.ContainsFunc(transientExecErrors, func(target error) bool { return errors.Is(err, target) }) {
+		return true
 	}
 	msg := err.Error()
 	return slices.ContainsFunc(transientExecErrorSubstrings, func(substr string) bool {
