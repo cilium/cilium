@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
-	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -133,7 +132,6 @@ type IPAM struct {
 	clientset      client.Clientset
 	nodeDiscovery  Owner
 	sysctl         sysctl.Sysctl
-	ipMasqAgent    *ipmasq.IPMasqAgent
 
 	jg job.Group
 

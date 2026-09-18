@@ -21,7 +21,6 @@ import (
 	ipamapi "github.com/cilium/cilium/pkg/ipam/api"
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
-	"github.com/cilium/cilium/pkg/ipmasq"
 	k8sResources "github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -83,7 +82,6 @@ type ipamParams struct {
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	Sysctl              sysctl.Sysctl
 	EndpointManager     endpointmanager.EndpointManager
-	IPMasqAgent         *ipmasq.IPMasqAgent
 
 	JobGroup   job.Group
 	DB         *statedb.DB
@@ -124,7 +122,6 @@ func newIPAddressManager(params ipamParams, c ipamConfig) (*ipam.IPAM, error) {
 		Clientset:                 params.Clientset,
 		Metadata:                  params.IPAMMetadataManager,
 		Sysctl:                    params.Sysctl,
-		IPMasqAgent:               params.IPMasqAgent,
 		DB:                        params.DB,
 		JobGroup:                  params.JobGroup,
 		PodIPPools:                params.PodIPPools,

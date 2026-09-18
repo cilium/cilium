@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -667,24 +666,22 @@ type crdAllocator struct {
 	// family is the address family this allocator is allocating for
 	family Family
 
-	conf        *option.DaemonConfig
-	logger      *slog.Logger
-	ipMasqAgent *ipmasq.IPMasqAgent
+	conf   *option.DaemonConfig
+	logger *slog.Logger
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(logger *slog.Logger, family Family, c *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl, ipMasqAgent *ipmasq.IPMasqAgent) Allocator {
+func newCRDAllocator(logger *slog.Logger, family Family, c *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) Allocator {
 	initNodeStore.Do(func() {
 		sharedNodeStore = newNodeStore(logger, nodeTypes.GetName(), c, owner, localNodeStore, clientset, k8sEventReg, mtuConfig, sysctl)
 	})
 
 	allocator := &crdAllocator{
-		logger:      logger,
-		allocated:   ipamTypes.AllocationMap{},
-		family:      family,
-		store:       sharedNodeStore,
-		conf:        c,
-		ipMasqAgent: ipMasqAgent,
+		logger:    logger,
+		allocated: ipamTypes.AllocationMap{},
+		family:    family,
+		store:     sharedNodeStore,
+		conf:      c,
 	}
 
 	sharedNodeStore.addAllocator(allocator)
