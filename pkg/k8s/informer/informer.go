@@ -99,8 +99,9 @@ func NewInformerWithStore(
 					obj = d.Object
 				}
 
-				// Deduplicate the strings in the object metadata to reduce memory consumption.
-				resources.DedupMetadata(obj)
+				// Deduplicate the strings in the object metadata and drop its
+				// managedFields to reduce memory consumption.
+				resources.NormalizeMetadata(obj)
 
 				// In CI we detect if the objects were modified and panic
 				// this is a no-op in production environments.
