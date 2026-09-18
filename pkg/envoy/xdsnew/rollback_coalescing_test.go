@@ -155,26 +155,26 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 	latestSnapshot := mustSnapshot(t, c, nodeID)
 	policyResponses := make(chan cache.Response, 1)
 	cancel, err = c.CreateWatch(&cache.Request{
-		Node: node, TypeUrl: NetworkPolicyTypeURL,
-		VersionInfo: baselineSnapshot.GetVersion(NetworkPolicyTypeURL),
+		Node: node, TypeUrl: typeurl.NetworkPolicyURL,
+		VersionInfo: baselineSnapshot.GetVersion(typeurl.NetworkPolicyURL),
 	}, stream.NewSotwSubscription(nil, true), policyResponses)
 	require.NoError(t, err)
 	policyResponse := <-policyResponses
 	cancel()
-	require.Equal(t, latestSnapshot.GetVersion(NetworkPolicyTypeURL), policyResponse.GetResponseVersion())
+	require.Equal(t, latestSnapshot.GetVersion(typeurl.NetworkPolicyURL), policyResponse.GetResponseVersion())
 	c.getNodeState(nodeID).requireNoUnsentRollbacks(t,
 		"producing the response must transfer rollback ownership to its ACK/NACK lifecycle")
 
 	const policyNonce = "coalesced-policy"
 	c.completionCbs.OnStreamResponse(policyResponse.GetContext(), 2, policyResponse.GetRequest(), &discovery.DiscoveryResponse{
 		VersionInfo: policyResponse.GetResponseVersion(),
-		TypeUrl:     NetworkPolicyTypeURL,
+		TypeUrl:     typeurl.NetworkPolicyURL,
 		Nonce:       policyNonce,
 	})
 	require.NoError(t, c.completionCbs.OnStreamRequest(2, &discovery.DiscoveryRequest{
 		Node:          node,
-		TypeUrl:       NetworkPolicyTypeURL,
-		VersionInfo:   baselineSnapshot.GetVersion(NetworkPolicyTypeURL),
+		TypeUrl:       typeurl.NetworkPolicyURL,
+		VersionInfo:   baselineSnapshot.GetVersion(typeurl.NetworkPolicyURL),
 		ResponseNonce: policyNonce,
 		ErrorDetail:   &status.Status{Message: "rejected coalesced policy"},
 	}))

@@ -71,7 +71,7 @@ func TestPreparedResourceRevertsCarryTargetEntries(t *testing.T) {
 			}
 			require.Len(t, changes.more, 3)
 			require.Equal(t, current, state.resourceEntries(typeurl.NetworkPolicy), "preparation must not mutate entries")
-			state.commitResourceMutation(changes)
+			state.commitResourceMutation(changes, 12)
 			entries := state.resourceEntries(typeurl.NetworkPolicy)
 			for name, target := range targets {
 				if name == "superseded" {
@@ -148,7 +148,7 @@ func TestCallerRevertAfterCancellation(t *testing.T) {
 	// Otherwise it only commits unpublished compensation and never exercises delivery
 	// with the canceled caller's context.
 	cancelWatch, err := c.CreateWatch(&cache.Request{
-		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: NetworkPolicyTypeURL,
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.NetworkPolicyURL,
 	}, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
 	require.NoError(t, err)
 	t.Cleanup(cancelWatch)
@@ -232,7 +232,7 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 
 	request := &cache.Request{
 		Node:    &envoy_config_core.Node{Id: "node1"},
-		TypeUrl: NetworkPolicyTypeURL,
+		TypeUrl: typeurl.NetworkPolicyURL,
 	}
 	responses := make(chan cache.Response, 1)
 	cancelWatch, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
@@ -243,12 +243,12 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 	const nonce = "cold-start-response"
 	c.completionCbs.OnStreamResponse(response.GetContext(), 1, response.GetRequest(), &discovery.DiscoveryResponse{
 		VersionInfo: response.GetResponseVersion(),
-		TypeUrl:     NetworkPolicyTypeURL,
+		TypeUrl:     typeurl.NetworkPolicyURL,
 		Nonce:       nonce,
 	})
 	require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
 		Node:          request.Node,
-		TypeUrl:       NetworkPolicyTypeURL,
+		TypeUrl:       typeurl.NetworkPolicyURL,
 		ResponseNonce: nonce,
 		ErrorDetail:   &status.Status{Message: "rejected initial policies"},
 	}))
@@ -623,7 +623,7 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 				require.NoError(t, err)
 				rollback.Finalize()
 			}
-			s := coverageStream{cache: c, id: 1, typeURL: NetworkPolicyTypeURL}
+			s := coverageStream{cache: c, id: 1, typeURL: typeurl.NetworkPolicyURL}
 			initial := s.receive(t, test.names...)
 			s.reply(t, initial, "", test.names...)
 
@@ -634,7 +634,7 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 				t.Cleanup(wg.Cancel)
 				responses = make(chan cache.Response, 1)
 				cancel, err := c.CreateWatch(&cache.Request{
-					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: NetworkPolicyTypeURL,
+					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.NetworkPolicyURL,
 					VersionInfo: initial.VersionInfo, ResourceNames: test.names,
 				}, s.sub, responses)
 				require.NoError(t, err)
