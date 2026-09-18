@@ -23,13 +23,3 @@ func prefixes(ps ...string) []iputil.Prefix {
 		return iputil.PrefixFrom(netip.MustParsePrefix(s))
 	})
 }
-
-// ipMasqMapDummy is a no-op ip-masq-agent map, for the tests that need an
-// IPMasqAgent to read its non-masqueraded CIDRs from.
-type ipMasqMapDummy struct{}
-
-func (m ipMasqMapDummy) Update(netip.Prefix) error { return nil }
-
-func (m ipMasqMapDummy) Delete(netip.Prefix) error { return nil }
-
-func (m ipMasqMapDummy) Dump() ([]netip.Prefix, error) { return []netip.Prefix{}, nil }

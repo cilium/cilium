@@ -34,12 +34,6 @@ type AllocationResult struct {
 	// IPPoolName is the IPAM pool from which the above IP was allocated from
 	IPPoolName Pool
 
-	// CIDRs is a list of all CIDRs to which the IP has direct access to.
-	// This is primarily useful if the IP has been allocated out of a VPC
-	// subnet range and the VPC provides routing to a set of CIDRs in which
-	// the IP is routable.
-	CIDRs []netip.Prefix
-
 	// PrimaryMAC is the MAC address of the primary interface. This is useful
 	// when the IP is a secondary address of an interface which is
 	// represented on the node as a Linux device and all routing of the IP
