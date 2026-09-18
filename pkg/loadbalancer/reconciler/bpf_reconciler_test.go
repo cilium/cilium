@@ -1132,7 +1132,7 @@ var mapErrorTestCases = []testCase{
 				newTestBackend(backend2, loadbalancer.BackendStateActive),
 			}
 		},
-		nil, // maps not checked on error
+		nil,
 		nil,
 		true,
 	),
@@ -1168,6 +1168,50 @@ var mapErrorTestCases = []testCase{
 	),
 }
 
+var mapErrorDeleteTestCases = []testCase{
+	newTestCase(
+		"MapErrorDelete_setup_1_backend",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = autoAddr
+			return false, []loadbalancer.Backend{
+				newTestBackend(backend1, loadbalancer.BackendStateActive),
+			}
+		},
+		[]maps.MapDump{
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"REV: ID=1 ADDR=<auto>",
+			"SVC: ID=0 ADDR=<auto>/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+		},
+		nil,
+		false,
+	),
+
+	newTestCase(
+		"MapErrorDelete_update_service_fails",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = autoAddr
+			return false, []loadbalancer.Backend{
+				newTestBackend(backend2, loadbalancer.BackendStateActive),
+			}
+		},
+		nil,
+		nil,
+		true,
+	),
+
+	newTestCase(
+		"MapErrorDelete_delete_before_retry",
+		deleteFrontend(autoAddr, ClusterIP),
+		[]maps.MapDump{},
+		nil,
+		false,
+	),
+}
+
 var testCases = [][]testCase{
 	clusterIPTestCases,
 	quarantineTestCases,
@@ -1180,6 +1224,7 @@ var testCases = [][]testCase{
 	localRedirectTestCases,
 	sessionAffinityTestCases,
 	mapErrorTestCases,
+	mapErrorDeleteTestCases,
 }
 
 type setWithAlgo struct {
