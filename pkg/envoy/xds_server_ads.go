@@ -604,9 +604,11 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 			s.logger.Debug("Finished reverting xDS network policy update")
 			return nil
 		}, func() {
-			s.logger.Debug("Finalizing xDS network policy update",
-				logfields.EndpointID, epID,
-			)
+			if s.logger.Enabled(context.Background(), slog.LevelDebug) {
+				s.logger.Debug("Finalizing xDS network policy update",
+					logfields.EndpointID, epID,
+				)
+			}
 			for _, update := range resourceUpdates {
 				update.finalize()
 			}
@@ -746,7 +748,7 @@ func (s *adsServer) finishResourceUpdate(updated bool, revertFunc xdsnew.RevertF
 	if err != nil {
 		return resourceUpdate{}, err
 	}
-	if !updated {
+	if !updated && s.logger.Enabled(context.Background(), slog.LevelDebug) {
 		s.logger.Debug("ADS resources are identical, skipping update")
 	}
 	return resourceUpdate{updated: updated, revertFunc: revertFunc, finalizeFunc: finalizeFunc}, nil

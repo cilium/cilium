@@ -441,15 +441,18 @@ func (cb *CompletionCallbacks) NewTypeGenerationCompletionOwner(nodeID string, t
 func (cb *CompletionCallbacks) CancelPendingCompletions(typeURL typeurl.Index) {
 	var completed []*completion.Completion
 	var finalizers []FinalizeFunc
+	debugEnabled := cb.Log.Enabled(context.Background(), slog.LevelDebug)
 
 	cb.mutex.Lock()
 	for c, pc := range cb.pendingCompletions {
 		if pc.typeURL == typeURL {
-			cb.Log.Debug("Cancelling pending completion",
-				logfields.XDSTypeURL, typeURL.URL(),
-				logfields.Version, pc.version,
-				logfields.XDSGeneration, pc.generation,
-				logfields.NodeID, pc.nodeID)
+			if debugEnabled {
+				cb.Log.Debug("Cancelling pending completion",
+					logfields.XDSTypeURL, typeURL.URL(),
+					logfields.Version, pc.version,
+					logfields.XDSGeneration, pc.generation,
+					logfields.NodeID, pc.nodeID)
+			}
 			completed = append(completed, c)
 			delete(cb.pendingCompletions, c)
 			if pc.rollback != nil {
@@ -1161,6 +1164,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	}
 
 	var finalizers []FinalizeFunc
+	debugEnabled := cb.Log.Enabled(context.Background(), slog.LevelDebug)
 	for c, pc := range cb.pendingCompletions {
 		if pc.nodeID != nodeID || pc.typeURL != typeIndex ||
 			acceptedGeneration == 0 || pc.responseGeneration != acceptedGeneration {
@@ -1171,10 +1175,12 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		if pc.rollback != nil {
 			finalizers = append(finalizers, pc.rollback.Finalize)
 		}
-		cb.Log.Debug("Completed completion for type URL and generation",
-			logfields.XDSTypeURL, typeURL,
-			logfields.Version, req.GetVersionInfo(),
-			logfields.XDSGeneration, pc.generation)
+		if debugEnabled {
+			cb.Log.Debug("Completed completion for type URL and generation",
+				logfields.XDSTypeURL, typeURL,
+				logfields.Version, req.GetVersionInfo(),
+				logfields.XDSGeneration, pc.generation)
+		}
 	}
 	for generation, pending := range typeState.pendingGenerations {
 		if acceptedGeneration != 0 && pending.responseGeneration == acceptedGeneration {
