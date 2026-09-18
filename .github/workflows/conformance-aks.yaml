@@ -105,6 +105,8 @@ concurrency:
 env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 64
+  ipv4_pod_cidr: 192.168.0.0/16
+  ipv6_pod_cidr: fd00::/104
   test_concurrency: 5
 
 jobs:
@@ -286,8 +288,8 @@ jobs:
             --helm-set=azure.resourceGroup=${{ env.name }} \
             --helm-set=ipv4.enabled=true \
             --helm-set=ipv6.enabled=true \
-            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
-            --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
+            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=${{ env.ipv4_pod_cidr }} \
+            --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=${{ env.ipv6_pod_cidr }}"
 
           # Check if ipsec is requested via extra-args
           IPSEC=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
@@ -339,6 +341,7 @@ jobs:
           cluster_name: ${{ env.name }}
           location: ${{ matrix.location }}
           version: ${{ matrix.version }}
+          pod_cidrs: ${{ env.ipv4_pod_cidr }},${{ env.ipv6_pod_cidr }}
           tags: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}"
           taints: ${{ env.cost_reduction }}
           # IPsec requires the esp4/esp6 kernel modules, which AKS blacklists on
@@ -347,6 +350,54 @@ jobs:
           # 6.6.139.1-1.azl3+, Azure/AgentBaker#8546), so run the IPsec job on
           # AzureLinux where ESP works and cilium-agent can start.
           os_sku: ${{ steps.vars.outputs.ipsec == 'true' && 'AzureLinux' || '' }}
+
+      - name: Enable IP forwarding on AKS nodes
+        run: |
+          set -euo pipefail
+
+          # Azure must allow the Cilium nodes to receive packets whose
+          # destination is a Pod IP rather than the node IP itself.
+          NODE_RESOURCE_GROUP=$(az aks show \
+            --resource-group "${{ env.name }}" \
+            --name "${{ env.name }}" \
+            --query nodeResourceGroup \
+            --output tsv)
+          mapfile -t VMSS_NAMES < <(az vmss list \
+            --resource-group "$NODE_RESOURCE_GROUP" \
+            --query '[].name' \
+            --output tsv)
+
+          if [[ ${#VMSS_NAMES[@]} -eq 0 ]]; then
+            echo "::error::no VM scale sets found in $NODE_RESOURCE_GROUP"
+            exit 1
+          fi
+
+          for VMSS_NAME in "${VMSS_NAMES[@]}"; do
+            IP_FORWARDING=$(az vmss show \
+              --resource-group "$NODE_RESOURCE_GROUP" \
+              --name "$VMSS_NAME" \
+              --query 'virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0].enableIPForwarding' \
+              --output tsv)
+            if [[ "${IP_FORWARDING,,}" == "true" ]]; then
+              continue
+            fi
+
+            az vmss update \
+              --resource-group "$NODE_RESOURCE_GROUP" \
+              --name "$VMSS_NAME" \
+              --set 'virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0].enableIPForwarding=true' \
+              --output none
+            az vmss update-instances \
+              --resource-group "$NODE_RESOURCE_GROUP" \
+              --name "$VMSS_NAME" \
+              --instance-ids '*'
+          done
+
+          # Only wait for the dummy nodes; the main ones won't be ready until
+          # Cilium is installed, they are waited for below.
+          kubectl wait --for=condition=Ready node \
+            -l cilium.io/no-schedule=true \
+            --timeout=5m
 
       - name: Generate cilium-cli kubeconfig
         id: gen-kubeconfig
@@ -411,6 +462,84 @@ jobs:
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
 
+      - name: Configure Azure routes to Cilium PodCIDRs
+        run: |
+          set -euo pipefail
+
+          # A guest route on a node without Cilium is insufficient on Azure:
+          # the VNet fabric also needs a route to the Cilium node that owns
+          # each overlay PodCIDR.
+          NODE_RESOURCE_GROUP=$(az aks show \
+            --resource-group "${{ env.name }}" \
+            --name "${{ env.name }}" \
+            --query nodeResourceGroup \
+            --output tsv)
+          mapfile -t SUBNET_IDS < <(az vmss list \
+            --resource-group "$NODE_RESOURCE_GROUP" \
+            --query '[].virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].ipConfigurations[].subnet.id' \
+            --output tsv | sort -u)
+
+          if [[ ${#SUBNET_IDS[@]} -ne 1 ]]; then
+            echo "::error::expected exactly one AKS node subnet, found ${#SUBNET_IDS[@]}"
+            printf '%s\n' "${SUBNET_IDS[@]}"
+            exit 1
+          fi
+
+          ROUTE_TABLE_ID=$(az network vnet subnet show \
+            --ids "${SUBNET_IDS[0]}" \
+            --query routeTable.id \
+            --output tsv)
+          if [[ -z "$ROUTE_TABLE_ID" ]]; then
+            ROUTE_TABLE_ID=$(az network route-table create \
+              --resource-group "$NODE_RESOURCE_GROUP" \
+              --location "${{ matrix.location }}" \
+              --name cilium-pod-routes \
+              --query id \
+              --output tsv)
+            az network vnet subnet update \
+              --ids "${SUBNET_IDS[0]}" \
+              --route-table "$ROUTE_TABLE_ID" \
+              --output none
+          fi
+
+          IFS='/' read -r -a ROUTE_TABLE_PARTS <<< "$ROUTE_TABLE_ID"
+          ROUTE_TABLE_RESOURCE_GROUP=${ROUTE_TABLE_PARTS[4]}
+          ROUTE_TABLE_NAME=${ROUTE_TABLE_PARTS[8]}
+
+          CILIUM_NODES=$(kubectl get ciliumnodes.cilium.io -o json)
+          EXPECTED_ROUTES=$(jq '[.items[].spec.ipam.podCIDRs[]] | length' <<< "$CILIUM_NODES")
+          ROUTE_INDEX=0
+          while IFS=$'\t' read -r NODE POD_CIDR NODE_IP; do
+            ROUTE_INDEX=$((ROUTE_INDEX + 1))
+            echo "Routing $POD_CIDR to $NODE ($NODE_IP)"
+            az network route-table route create \
+              --resource-group "$ROUTE_TABLE_RESOURCE_GROUP" \
+              --route-table-name "$ROUTE_TABLE_NAME" \
+              --name "cilium-pod-$ROUTE_INDEX" \
+              --address-prefix "$POD_CIDR" \
+              --next-hop-type VirtualAppliance \
+              --next-hop-ip-address "$NODE_IP" \
+              --output none
+          done < <(jq -r '
+            .items[] as $node
+            | $node.spec.ipam.podCIDRs[] as $cidr
+            | $node.spec.addresses[]
+            | select(.type == "InternalIP")
+            | select((.ip | contains(":")) == ($cidr | contains(":")))
+            | [$node.metadata.name, $cidr, .ip]
+            | @tsv
+          ' <<< "$CILIUM_NODES")
+
+          if [[ $EXPECTED_ROUTES -eq 0 || $ROUTE_INDEX -ne $EXPECTED_ROUTES ]]; then
+            echo "::error::created $ROUTE_INDEX of $EXPECTED_ROUTES expected Cilium PodCIDR routes"
+            exit 1
+          fi
+
+          az network route-table route list \
+            --resource-group "$ROUTE_TABLE_RESOURCE_GROUP" \
+            --route-table-name "$ROUTE_TABLE_NAME" \
+            --output table
+
       - name: Add external targets to the cluster
         uses: ./../cilium-base-branch/.github/actions/generic-external-targets
         id: external_targets
@@ -450,6 +579,7 @@ jobs:
           external-target-ca-name: custom-ca
           external-target-fake-dns: true
           hubble: false
+          include-unsafe-tests: true
 
       - name: Set up job variables for connectivity tests
         id: vars-conn
