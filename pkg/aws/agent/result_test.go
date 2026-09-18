@@ -7,14 +7,12 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestAllocationResult(t *testing.T) {
@@ -53,11 +51,8 @@ func TestAllocationResult(t *testing.T) {
 		},
 	}
 
-	conf := &option.DaemonConfig{}
-	logger := hivetest.Logger(t)
-
 	t.Run("secondary IP on eni-1", func(t *testing.T) {
-		result, err := allocationResult(logger, netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs, conf, nil)
+		result, err := allocationResult(netip.MustParseAddr("10.1.1.10"), "", node.Status.ENI.ENIs)
 		require.NoError(t, err)
 		require.Equal(t, mac.MustParseMAC("aa:bb:cc:dd:ee:01"), result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)
@@ -65,7 +60,7 @@ func TestAllocationResult(t *testing.T) {
 	})
 
 	t.Run("secondary IP on eni-2", func(t *testing.T) {
-		result, err := allocationResult(logger, netip.MustParseAddr("10.3.1.20"), "", node.Status.ENI.ENIs, conf, nil)
+		result, err := allocationResult(netip.MustParseAddr("10.3.1.20"), "", node.Status.ENI.ENIs)
 		require.NoError(t, err)
 		require.Equal(t, mac.MustParseMAC("aa:bb:cc:dd:ee:02"), result.PrimaryMAC)
 		require.Equal(t, "2", result.InterfaceNumber)
@@ -73,7 +68,7 @@ func TestAllocationResult(t *testing.T) {
 	})
 
 	t.Run("unknown IP returns error", func(t *testing.T) {
-		_, err := allocationResult(logger, netip.MustParseAddr("10.99.99.99"), "", node.Status.ENI.ENIs, conf, nil)
+		_, err := allocationResult(netip.MustParseAddr("10.99.99.99"), "", node.Status.ENI.ENIs)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unable to find ENI for IP")
 	})
@@ -102,29 +97,26 @@ func TestAllocationResultPrefixDelegation(t *testing.T) {
 		},
 	}
 
-	conf := &option.DaemonConfig{}
-	logger := hivetest.Logger(t)
-
 	t.Run("IP in first prefix", func(t *testing.T) {
-		result, err := allocationResult(logger, netip.MustParseAddr("10.1.1.5"), "", node.Status.ENI.ENIs, conf, nil)
+		result, err := allocationResult(netip.MustParseAddr("10.1.1.5"), "", node.Status.ENI.ENIs)
 		require.NoError(t, err)
 		require.Equal(t, mac.MustParseMAC("aa:bb:cc:dd:ee:01"), result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)
 	})
 
 	t.Run("IP in second prefix", func(t *testing.T) {
-		result, err := allocationResult(logger, netip.MustParseAddr("10.1.1.20"), "", node.Status.ENI.ENIs, conf, nil)
+		result, err := allocationResult(netip.MustParseAddr("10.1.1.20"), "", node.Status.ENI.ENIs)
 		require.NoError(t, err)
 		require.Equal(t, mac.MustParseMAC("aa:bb:cc:dd:ee:01"), result.PrimaryMAC)
 	})
 
 	t.Run("IP outside all prefixes", func(t *testing.T) {
-		_, err := allocationResult(logger, netip.MustParseAddr("10.1.1.32"), "", node.Status.ENI.ENIs, conf, nil)
+		_, err := allocationResult(netip.MustParseAddr("10.1.1.32"), "", node.Status.ENI.ENIs)
 		require.Error(t, err)
 	})
 
 	t.Run("IP in IPv6 prefix", func(t *testing.T) {
-		result, err := allocationResult(logger, netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs, conf, nil)
+		result, err := allocationResult(netip.MustParseAddr("2001:db8::1"), "", node.Status.ENI.ENIs)
 		require.NoError(t, err)
 		require.Equal(t, mac.MustParseMAC("aa:bb:cc:dd:ee:01"), result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)

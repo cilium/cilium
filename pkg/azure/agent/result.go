@@ -10,16 +10,12 @@ import (
 
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/ipmasq"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 func allocationResult(
 	allocatedAddr netip.Addr,
 	pool ipam.Pool,
 	interfaces []azureTypes.AzureInterface,
-	conf *option.DaemonConfig,
-	ipMasqAgent *ipmasq.IPMasqAgent,
 ) (*ipam.AllocationResult, error) {
 	for _, iface := range interfaces {
 		if !slices.ContainsFunc(iface.Addresses, func(address azureTypes.AzureAddress) bool {
