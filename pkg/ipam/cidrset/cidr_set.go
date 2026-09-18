@@ -14,6 +14,7 @@ import (
 
 	"go4.org/netipx"
 
+	"github.com/cilium/cilium/pkg/ipam/cidralloc"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -341,4 +342,54 @@ func (s *CidrSet) SetReservedRanges(ranges []netipx.IPRange) error {
 	s.reserved.Set(&reservedBitmap)
 
 	return nil
+}
+
+type ErrCIDRCollision struct {
+	cidr      string
+	allocator cidralloc.CIDRAllocator
+}
+
+func (e ErrCIDRCollision) Error() string {
+	return fmt.Sprintf("requested CIDR %s collides with %s", e.cidr, e.allocator)
+}
+
+func (e *ErrCIDRCollision) Is(target error) bool {
+	t, ok := target.(*ErrCIDRCollision)
+	if !ok {
+		return false
+	}
+	return t.cidr == e.cidr
+}
+
+func NewCIDRSets(isV6 bool, strCIDRs []string, maskSize int) ([]cidralloc.CIDRAllocator, error) {
+	cidrAllocators := make([]cidralloc.CIDRAllocator, 0, len(strCIDRs))
+	for _, strCIDR := range strCIDRs {
+		prefix, err := netip.ParsePrefix(strCIDR)
+		if err != nil {
+			return nil, err
+		}
+		// Check if CIDRs collide with each other.
+		for _, cidrAllocator := range cidrAllocators {
+			if cidrAllocator.InRange(prefix) {
+				return nil, &ErrCIDRCollision{
+					cidr:      strCIDR,
+					allocator: cidrAllocator,
+				}
+			}
+		}
+
+		addr := prefix.Addr()
+		switch {
+		case isV6 && addr.Is4():
+			return nil, fmt.Errorf("CIDR is not v6 family: %s", prefix)
+		case !isV6 && !addr.Is4():
+			return nil, fmt.Errorf("CIDR is not v4 family: %s", prefix)
+		}
+		cidrSet, err := NewCIDRSet(prefix, maskSize)
+		if err != nil {
+			return nil, err
+		}
+		cidrAllocators = append(cidrAllocators, cidrSet)
+	}
+	return cidrAllocators, nil
 }

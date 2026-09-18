@@ -18,9 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
-	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/podcidr"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
