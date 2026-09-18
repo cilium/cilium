@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
@@ -35,7 +35,7 @@ var Cell = cell.Module(
 	"network-driver",
 	"Cilium Network Driver",
 
-	cell.Config(defaultNetworkDriverConfig),
+	cell.Config(config.DefaultConfig),
 
 	cell.ProvidePrivate(
 		ciliumNetworkDriverConfigResource,
@@ -46,26 +46,10 @@ var Cell = cell.Module(
 	cell.Invoke(registerNetworkDriver),
 )
 
-type NetworkDriverConfig struct {
-	Enabled bool `mapstructure:"enable-network-driver"`
-}
-
-func (cfg NetworkDriverConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool(
-		"enable-network-driver",
-		cfg.Enabled,
-		"enable network driver to assign interfaces via Dynamic Resource Allocation",
-	)
-}
-
-var defaultNetworkDriverConfig = NetworkDriverConfig{
-	Enabled: false,
-}
-
 type networkDriverParams struct {
 	cell.In
 
-	CellCfg        NetworkDriverConfig
+	CellCfg        config.Config
 	Log            *slog.Logger
 	Lifecycle      cell.Lifecycle
 	ClientSet      k8sClient.Clientset
@@ -79,7 +63,7 @@ type networkDriverParams struct {
 	LocalNodeStore *node.LocalNodeStore
 }
 
-func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, cfg NetworkDriverConfig) resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig] {
+func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, cfg config.Config) resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig] {
 	if !cs.IsEnabled() || !cfg.Enabled {
 		return nil
 	}

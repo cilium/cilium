@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/kvstore/locksweeper"
 	"github.com/cilium/cilium/operator/pkg/kvstore/nodesgc"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
+	networkdriveripam "github.com/cilium/cilium/operator/pkg/networkdriver/ipam"
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
@@ -337,6 +338,9 @@ var (
 		// Provides the ztunnel daemonset controller if ztunnel encryption
 		// is specified.
 		ztunnel.Cell,
+
+		// Delegates Resource IPAM CIDRs to nodes for the Cilium Network Driver.
+		networkdriveripam.Cell,
 	}
 
 	binaryName = filepath.Base(os.Args[0])
