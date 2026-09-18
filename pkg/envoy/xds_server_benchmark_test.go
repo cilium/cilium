@@ -160,27 +160,27 @@ func (c *benchmarkSnapshotCache) report(b *testing.B) {
 	b.ReportMetric(float64(c.versioned.Load())/float64(b.N), "versions")
 }
 
-func (c *benchmarkSnapshotCache) ApplyResources(ctx context.Context, nodeID string, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs xdsnew.TypeURLCallbacks) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *benchmarkSnapshotCache) ApplyResources(ctx context.Context, nodeID string, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs xdsnew.TypeURLCallbacks) (bool, xdsnew.Rollback, error) {
 	return c.countUpdate(c.Cache.ApplyResources(ctx, nodeID, mutations, wg, updatedTypeURLs))
 }
 
-func (c *benchmarkSnapshotCache) UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *benchmarkSnapshotCache) UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.Rollback, error) {
 	return c.countUpdate(c.Cache.UpsertNetworkPolicy(ctx, nodeID, name, resource, wg, callback))
 }
 
-func (c *benchmarkSnapshotCache) UpsertNetworkPolicyHosts(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *benchmarkSnapshotCache) UpsertNetworkPolicyHosts(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (bool, xdsnew.Rollback, error) {
 	return c.countUpdate(c.Cache.UpsertNetworkPolicyHosts(ctx, nodeID, name, resource))
 }
 
-func (c *benchmarkSnapshotCache) RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name string) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *benchmarkSnapshotCache) RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name string) (bool, xdsnew.Rollback, error) {
 	return c.countUpdate(c.Cache.RemoveNetworkPolicyHosts(ctx, nodeID, name))
 }
 
-func (c *benchmarkSnapshotCache) countUpdate(updated bool, revertFunc xdsnew.RevertFunc, finalizeFunc xdsnew.FinalizeFunc, err error) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *benchmarkSnapshotCache) countUpdate(updated bool, rollback xdsnew.Rollback, err error) (bool, xdsnew.Rollback, error) {
 	if updated {
 		c.published.Add(1)
 	}
-	return updated, revertFunc, finalizeFunc, err
+	return updated, rollback, err
 }
 
 // benchmarkADSEnvoy keeps a real go-control-plane SotW watch open for NPDS.

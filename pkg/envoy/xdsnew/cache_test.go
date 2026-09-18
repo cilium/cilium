@@ -278,7 +278,7 @@ func (c *cacheImpl) getAllResources(nodeID string) *xds.Resources {
 	return c.nodeStates[nodeID].materializeResources()
 }
 
-func (c *cacheImpl) updateResourceChanges(ctx context.Context, nodeID string, generation uint64, changes ResourceMutations, inverse resourceEntrySlots, dirtyTypeURLs map[string]struct{}, generator legacySnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), restoredEntries *resourceEntrySlots) error {
+func (c *cacheImpl) updateResourceChanges(ctx context.Context, nodeID string, generation uint64, changes ResourceMutations, inverse inverseResources, dirtyTypeURLs map[string]struct{}, generator legacySnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), restoredEntries *resourceEntrySlots) error {
 	tx := c.beginResourceTransaction(ctx, nodeID)
 	tx.generation = generation
 	watchTypeURLs := mutationTypeURLs(changes)
@@ -851,7 +851,7 @@ func TestNodeStateUsesProtoEqualityAndTracksChangedNames(t *testing.T) {
 	}
 	changes, changedTypeURLs, inverse := state.prepareResourceMutation(ResourceMutations{Upserted: equal})
 	require.True(t, changedTypeURLs.Empty())
-	require.True(t, resourceEntrySlotsEmpty(inverse))
+	require.True(t, inverse.empty())
 	require.True(t, resourceMutationsEmpty(changes))
 	unchanged := state.materializeResources()
 	require.Same(t, current.Listeners["listener"], unchanged.Listeners["listener"])
@@ -889,10 +889,14 @@ func TestNodeStateUsesProtoEqualityAndTracksChangedNames(t *testing.T) {
 	require.Empty(t, state.resources[typeurl.Route].changed)
 	require.Empty(t, state.resources[typeurl.Endpoint].changed)
 	require.Empty(t, state.resources[typeurl.NetworkPolicyHosts].changed)
-	require.Equal(t, current.Listeners["listener"], inverse[typeurl.Listener]["listener"].resource)
-	require.Equal(t, current.Clusters["cluster"], inverse[typeurl.Cluster]["cluster"].resource)
-	require.Nil(t, inverse[typeurl.Secret]["new-secret"].resource)
-	require.Equal(t, current.NetworkPolicies["policy"], inverse[typeurl.NetworkPolicy]["policy"].resource)
+	inverseListener, _ := inverse.get(typeurl.Listener, "listener")
+	inverseCluster, _ := inverse.get(typeurl.Cluster, "cluster")
+	inverseSecret, _ := inverse.get(typeurl.Secret, "new-secret")
+	inversePolicy, _ := inverse.get(typeurl.NetworkPolicy, "policy")
+	require.Equal(t, current.Listeners["listener"], inverseListener.resource)
+	require.Equal(t, current.Clusters["cluster"], inverseCluster.resource)
+	require.Nil(t, inverseSecret.resource)
+	require.Equal(t, current.NetworkPolicies["policy"], inversePolicy.resource)
 	require.Nil(t, updated.Listeners)
 	require.Nil(t, updated.Clusters)
 	require.NotContains(t, updated.Listeners, "listener")
@@ -2031,7 +2035,7 @@ func TestApplyResourcesKeepsChangedNamesUntilFinalization(t *testing.T) {
 	}
 
 	policyA := &cilium.NetworkPolicy{EndpointId: 1}
-	updated, _, _, err := c.ApplyResources(t.Context(), "node1", ResourceMutations{
+	updated, _, err := c.ApplyResources(t.Context(), "node1", ResourceMutations{
 		Upserted: xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{"policy": policyA}},
 	}, nil, TypeURLCallbacks{})
 	require.NoError(t, err)
@@ -2044,7 +2048,7 @@ func TestApplyResourcesKeepsChangedNamesUntilFinalization(t *testing.T) {
 	require.True(t, state.resources[typeurl.NetworkPolicy].changed.Has("policy"))
 
 	policyB := &cilium.NetworkPolicy{EndpointId: 2}
-	updated, _, _, err = c.ApplyResources(t.Context(), "node1", ResourceMutations{
+	updated, _, err = c.ApplyResources(t.Context(), "node1", ResourceMutations{
 		Upserted: xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{"policy": policyB}},
 	}, nil, TypeURLCallbacks{})
 	require.NoError(t, err)
@@ -2098,7 +2102,7 @@ func TestListenerObserverReceivesCommittedTransitions(t *testing.T) {
 
 	listenerA := &envoy_config_listener.Listener{Name: "listener-a"}
 	listenerB := &envoy_config_listener.Listener{Name: "listener-b"}
-	updated, _, finalize, err := c.ApplyResources(t.Context(), "node1", ResourceMutations{
+	updated, rollback, err := c.ApplyResources(t.Context(), "node1", ResourceMutations{
 		Upserted: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{
 			listenerA.Name: listenerA,
 			listenerB.Name: listenerB,
@@ -2106,14 +2110,14 @@ func TestListenerObserverReceivesCommittedTransitions(t *testing.T) {
 	}, nil, TypeURLCallbacks{})
 	require.NoError(t, err)
 	require.True(t, updated)
-	finalize()
+	rollback.Finalize()
 	require.Len(t, observed, 1)
 	require.Equal(t, ListenerChange{Name: listenerA.Name, Current: listenerA}, observed[0][listenerA.Name])
 	require.Equal(t, ListenerChange{Name: listenerB.Name, Current: listenerB}, observed[0][listenerB.Name])
 	require.Equal(t, 1, unlockedCalls)
 
 	listenerB2 := &envoy_config_listener.Listener{Name: listenerB.Name, TrafficDirection: envoy_config_core.TrafficDirection_OUTBOUND}
-	updated, revert, _, err := c.ApplyResources(t.Context(), "node1", ResourceMutations{
+	updated, rollback, err = c.ApplyResources(t.Context(), "node1", ResourceMutations{
 		Removed: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{
 			listenerA.Name: nil,
 		}},
@@ -2128,24 +2132,24 @@ func TestListenerObserverReceivesCommittedTransitions(t *testing.T) {
 	require.Equal(t, ListenerChange{Name: listenerB.Name, Previous: listenerB, Current: listenerB2}, observed[1][listenerB.Name])
 	require.Equal(t, 2, unlockedCalls)
 
-	_, reverted := revert(0)
+	_, reverted := rollback.Revert(0)
 	require.True(t, reverted)
 	require.Len(t, observed, 3)
 	require.Equal(t, ListenerChange{Name: listenerA.Name, Current: listenerA}, observed[2][listenerA.Name])
 	require.Equal(t, ListenerChange{Name: listenerB.Name, Previous: listenerB2, Current: listenerB}, observed[2][listenerB.Name])
 	require.Equal(t, 3, unlockedCalls)
 
-	updated, _, _, err = c.UpsertListener(t.Context(), "node1", listenerB.Name, proto.Clone(listenerB).(*envoy_config_listener.Listener), nil, nil)
+	updated, _, err = c.UpsertListener(t.Context(), "node1", listenerB.Name, proto.Clone(listenerB).(*envoy_config_listener.Listener), nil, nil)
 	require.NoError(t, err)
 	require.False(t, updated)
 	require.Len(t, observed, 3, "semantic no-ops must not notify observers")
 
 	notifyAfterUnlock = false
 	listenerC := &envoy_config_listener.Listener{Name: "listener-c"}
-	updated, _, finalize, err = c.UpsertListener(t.Context(), "node1", listenerC.Name, listenerC, nil, nil)
+	updated, rollback, err = c.UpsertListener(t.Context(), "node1", listenerC.Name, listenerC, nil, nil)
 	require.NoError(t, err)
 	require.True(t, updated)
-	finalize()
+	rollback.Finalize()
 	require.Len(t, observed, 4, "typed updates must notify the matching observer")
 	require.Equal(t, ListenerChange{Name: listenerC.Name, Current: listenerC}, observed[3][listenerC.Name])
 	require.Equal(t, 3, unlockedCalls, "the locked callback controls the unlocked follow-up")
@@ -2156,12 +2160,12 @@ func TestApplyResourcesCoalescesStagedRollbackState(t *testing.T) {
 	const updates = 1000
 
 	for endpointID := uint64(1); endpointID <= updates; endpointID++ {
-		updated, _, finalize, err := c.UpsertNetworkPolicy(
+		updated, rollback, err := c.UpsertNetworkPolicy(
 			t.Context(), "node1", "policy", &cilium.NetworkPolicy{EndpointId: endpointID}, nil, nil)
 		require.NoError(t, err)
 		require.True(t, updated)
-		require.NotNil(t, finalize)
-		finalize()
+		require.NotNil(t, rollback)
+		rollback.Finalize()
 	}
 
 	state := c.nodeStates["node1"]
@@ -2188,12 +2192,12 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 	// rollback intact so the first response can still be NACKed safely.
 	for id := uint64(1); id <= 2; id++ {
 		name := strconv.FormatUint(id, 10)
-		updated, _, finalize, err := c.UpsertNetworkPolicy(
+		updated, rollback, err := c.UpsertNetworkPolicy(
 			ctx, "node1", name, &cilium.NetworkPolicy{EndpointId: id}, nil, nil)
 		require.NoError(t, err)
 		require.True(t, updated)
-		require.NotNil(t, finalize)
-		finalize()
+		require.NotNil(t, rollback)
+		rollback.Finalize()
 	}
 
 	state := c.nodeStates["node1"]
@@ -2241,10 +2245,10 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 
 	for id := range resources {
 		name := strconv.Itoa(id)
-		_, _, finalize, err := c.UpsertNetworkPolicy(
+		_, rollback, err := c.UpsertNetworkPolicy(
 			t.Context(), "node1", name, &cilium.NetworkPolicy{EndpointId: uint64(id)}, nil, nil)
 		require.NoError(t, err)
-		finalize()
+		rollback.Finalize()
 	}
 	c.mutex.Lock()
 	_, finalized, err := c.finalizeStagedSnapshotLocked(t.Context(), "node1")
@@ -2256,9 +2260,9 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 
 	for id := range resources {
 		name := strconv.Itoa(id)
-		_, _, finalize, err := c.RemoveNetworkPolicy(t.Context(), "node1", name, nil, nil)
+		_, rollback, err := c.RemoveNetworkPolicy(t.Context(), "node1", name, nil, nil)
 		require.NoError(t, err)
-		finalize()
+		rollback.Finalize()
 	}
 	c.mutex.Lock()
 	_, finalized, err = c.finalizeStagedSnapshotLocked(t.Context(), "node1")
@@ -2279,10 +2283,10 @@ func TestAcceptedRemovalReleasesResponseTombstone(t *testing.T) {
 	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancelContext)
 
-	_, _, finalize, err := c.UpsertNetworkPolicy(
+	_, rollback, err := c.UpsertNetworkPolicy(
 		ctx, "node1", "policy", &cilium.NetworkPolicy{EndpointId: 1}, nil, nil)
 	require.NoError(t, err)
-	finalize()
+	rollback.Finalize()
 	c.mutex.Lock()
 	_, finalized, err := c.finalizeStagedSnapshotLocked(ctx, "node1")
 	c.mutex.Unlock()
@@ -2303,9 +2307,9 @@ func TestAcceptedRemovalReleasesResponseTombstone(t *testing.T) {
 
 	wg := completion.NewWaitGroup(ctx)
 	t.Cleanup(wg.Cancel)
-	_, _, finalize, err = c.RemoveNetworkPolicy(ctx, "node1", "policy", wg, nil)
+	_, rollback, err = c.RemoveNetworkPolicy(ctx, "node1", "policy", wg, nil)
 	require.NoError(t, err)
-	finalize()
+	rollback.Finalize()
 	tombstone := c.nodeStates["node1"].resources[typeurl.NetworkPolicy].entries["policy"]
 	require.Nil(t, tombstone.resource)
 	require.False(t, c.nodeStates["node1"].rollbackOwners.Empty(),
@@ -2334,9 +2338,9 @@ func TestNACKedRemovalRestoresResourceAfterCallerCompletion(t *testing.T) {
 	t.Cleanup(cancelContext)
 
 	policy := &cilium.NetworkPolicy{EndpointId: 1}
-	_, _, finalize, err := c.UpsertNetworkPolicy(ctx, "node1", "policy", policy, nil, nil)
+	_, rollback, err := c.UpsertNetworkPolicy(ctx, "node1", "policy", policy, nil, nil)
 	require.NoError(t, err)
-	finalize()
+	rollback.Finalize()
 	c.mutex.Lock()
 	_, finalized, err := c.finalizeStagedSnapshotLocked(ctx, "node1")
 	c.mutex.Unlock()
@@ -2358,10 +2362,10 @@ func TestNACKedRemovalRestoresResourceAfterCallerCompletion(t *testing.T) {
 
 	wg := completion.NewWaitGroup(ctx)
 	t.Cleanup(wg.Cancel)
-	_, _, finalize, err = c.RemoveNetworkPolicy(ctx, "node1", "policy", wg, nil)
+	_, rollback, err = c.RemoveNetworkPolicy(ctx, "node1", "policy", wg, nil)
 	require.NoError(t, err)
 	require.NoError(t, wg.Wait(), "an empty policy state must not make callers wait for an ACK")
-	finalize()
+	rollback.Finalize()
 	response := <-responses
 
 	const nonce = "rejected-removal"
@@ -2387,9 +2391,9 @@ func TestNACKRevertsAfterWaitCancellationAndCallerFinalize(t *testing.T) {
 	t.Cleanup(cancelContext)
 
 	policyA := &cilium.NetworkPolicy{EndpointId: 1}
-	_, _, finalize, err := c.UpsertNetworkPolicy(ctx, "node1", "policy", policyA, nil, nil)
+	_, rollback, err := c.UpsertNetworkPolicy(ctx, "node1", "policy", policyA, nil, nil)
 	require.NoError(t, err)
-	finalize()
+	rollback.Finalize()
 	c.mutex.Lock()
 	_, finalized, err := c.finalizeStagedSnapshotLocked(ctx, "node1")
 	c.mutex.Unlock()
@@ -2413,7 +2417,7 @@ func TestNACKRevertsAfterWaitCancellationAndCallerFinalize(t *testing.T) {
 	wg := completion.NewWaitGroup(waitCtx)
 	t.Cleanup(wg.Cancel)
 	policyB := &cilium.NetworkPolicy{EndpointId: 2}
-	updated, _, finalize, err := c.UpsertNetworkPolicy(ctx, "node1", "policy", policyB, wg, nil)
+	updated, rollback, err := c.UpsertNetworkPolicy(ctx, "node1", "policy", policyB, wg, nil)
 	require.NoError(t, err)
 	require.True(t, updated)
 	response := <-responses
@@ -2426,7 +2430,7 @@ func TestNACKRevertsAfterWaitCancellationAndCallerFinalize(t *testing.T) {
 	})
 	cancelWait()
 	require.ErrorIs(t, wg.Wait(), context.Canceled)
-	finalize()
+	rollback.Finalize()
 	require.Same(t, policyB, c.nodeStates["node1"].resources[typeurl.NetworkPolicy].entries["policy"].resource)
 
 	require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
@@ -2442,18 +2446,18 @@ func TestNACKRevertsAfterWaitCancellationAndCallerFinalize(t *testing.T) {
 
 func TestResourceUpdateTerminalOperationsAreNoOpAfterFirstCall(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
-	_, _, initialFinalize, err := c.UpsertNetworkPolicy(
+	_, initialRollback, err := c.UpsertNetworkPolicy(
 		t.Context(), "node1", "policy", &cilium.NetworkPolicy{EndpointId: 1}, nil, nil)
 	require.NoError(t, err)
-	initialFinalize()
+	initialRollback.Finalize()
 
-	_, revertFunc, finalizeFunc, err := c.UpsertNetworkPolicy(
+	_, rollback, err := c.UpsertNetworkPolicy(
 		t.Context(), "node1", "policy", &cilium.NetworkPolicy{EndpointId: 2}, nil, nil)
 	require.NoError(t, err)
-	finalizeFunc()
-	_, reverted := revertFunc(0)
+	rollback.Finalize()
+	_, reverted := rollback.Revert(0)
 	require.False(t, reverted)
-	finalizeFunc()
+	rollback.Finalize()
 	policy := c.nodeStates["node1"].resources[typeurl.NetworkPolicy].entries["policy"].resource.(*cilium.NetworkPolicy)
 	require.Equal(t, uint64(2), policy.EndpointId)
 }
@@ -2465,12 +2469,12 @@ func TestApplyResourcesOwnsGlobalGenerationAndPerNodeReverts(t *testing.T) {
 			"policy": {EndpointId: endpointID},
 		}}}
 	}
-	apply := func(nodeID string, endpointID uint64) RevertFunc {
+	apply := func(nodeID string, endpointID uint64) Rollback {
 		t.Helper()
-		updated, revertFunc, _, err := c.ApplyResources(t.Context(), nodeID, policy(endpointID), nil, TypeURLCallbacks{})
+		updated, rollback, err := c.ApplyResources(t.Context(), nodeID, policy(endpointID), nil, TypeURLCallbacks{})
 		require.NoError(t, err)
 		require.True(t, updated)
-		return revertFunc
+		return rollback
 	}
 
 	apply("node-a", 1)                // global generation 1
@@ -2481,7 +2485,7 @@ func TestApplyResourcesOwnsGlobalGenerationAndPerNodeReverts(t *testing.T) {
 	require.Equal(t, uint64(3), c.nodeStates["node-a"].resourceGeneration)
 	require.Equal(t, uint64(4), c.nodeStates["node-b"].resourceGeneration)
 
-	generation, reverted := revertNodeA(0)
+	generation, reverted := revertNodeA.Revert(0)
 	require.True(t, reverted)
 	require.Equal(t, uint64(5), generation)
 	require.Equal(t, generation, c.resourceGeneration)
@@ -2504,13 +2508,13 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 		}
 		return ResourceMutations{Upserted: xds.Resources{NetworkPolicies: resources}}
 	}
-	apply := func(t *testing.T, c *cacheImpl, mutations ResourceMutations) RevertFunc {
+	apply := func(t *testing.T, c *cacheImpl, mutations ResourceMutations) Rollback {
 		t.Helper()
-		updated, revertFunc, _, err := c.ApplyResources(t.Context(), "node-a", mutations, nil, TypeURLCallbacks{})
+		updated, rollback, err := c.ApplyResources(t.Context(), "node-a", mutations, nil, TypeURLCallbacks{})
 		require.NoError(t, err)
 		require.True(t, updated)
-		require.NotNil(t, revertFunc)
-		return revertFunc
+		require.NotNil(t, rollback)
+		return rollback
 	}
 
 	for _, tt := range []struct {
@@ -2526,7 +2530,7 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 			revert := apply(t, c, policies(map[string]uint64{"newer": 2, "unchanged": 2}))
 			apply(t, c, policies(map[string]uint64{"newer": 3}))
 
-			_, reverted := revert(tt.expectedGeneration)
+			_, reverted := revert.Revert(tt.expectedGeneration)
 			require.True(t, reverted)
 			resources := maps.Collect(c.NetworkPolicies("node-a"))
 			require.Equal(t, uint64(3), resources["newer"].EndpointId,
@@ -2546,7 +2550,7 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 		apply(t, c, policies(map[string]uint64{"newer": 3}))
 		apply(t, c, ResourceMutations{Removed: xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{"newer": nil}}})
 
-		_, reverted := revert(2)
+		_, reverted := revert.Revert(2)
 		require.True(t, reverted)
 		resources := maps.Collect(c.NetworkPolicies("node-a"))
 		require.NotContains(t, resources, "newer",
@@ -2571,12 +2575,12 @@ func TestApplyResourcesRevertGenerationCoversEveryResourceType(t *testing.T) {
 		}
 		return resources
 	}
-	apply := func(resources xds.Resources) RevertFunc {
+	apply := func(resources xds.Resources) Rollback {
 		t.Helper()
-		updated, revertFunc, _, err := c.ApplyResources(t.Context(), "node-a", ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{})
+		updated, rollback, err := c.ApplyResources(t.Context(), "node-a", ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{})
 		require.NoError(t, err)
 		require.True(t, updated)
-		return revertFunc
+		return rollback
 	}
 
 	baseline := resources(1, "newer", "unchanged")
@@ -2585,7 +2589,7 @@ func TestApplyResourcesRevertGenerationCoversEveryResourceType(t *testing.T) {
 	newer := resources(3, "newer")
 	apply(newer)
 
-	_, reverted := revert(2)
+	_, reverted := revert.Revert(2)
 	require.True(t, reverted)
 	current := c.getAllResources("node-a")
 	require.Same(t, newer.Listeners["newer"], current.Listeners["newer"])
@@ -2680,7 +2684,7 @@ func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
 	upserted := &xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{"listener": listener}}
 	wg1 := completion.NewWaitGroup(ctx)
 	t.Cleanup(wg1.Cancel)
-	updated, _, listenerFinalize, err := c.ApplyResources(ctx, "node1", ResourceMutations{Upserted: *upserted}, wg1, TypeURLCallbacks{})
+	updated, listenerRollback, err := c.ApplyResources(ctx, "node1", ResourceMutations{Upserted: *upserted}, wg1, TypeURLCallbacks{})
 	require.NoError(t, err)
 	require.True(t, updated)
 
@@ -2699,11 +2703,11 @@ func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
 	}, policySubscription, policyResponses)
 	require.NoError(t, err)
 	t.Cleanup(cancel)
-	updated, _, finalize, err := c.UpsertNetworkPolicy(ctx, node.GetId(), "policy",
+	updated, rollback, err := c.UpsertNetworkPolicy(ctx, node.GetId(), "policy",
 		&cilium.NetworkPolicy{EndpointId: 1}, nil, nil)
 	require.NoError(t, err)
 	require.True(t, updated)
-	finalize()
+	rollback.Finalize()
 	policyResponse := <-policyResponses
 	policySubscription.SetReturnedResources(policyResponse.GetReturnedResources())
 	require.Greater(t, c.nodeStates[node.GetId()].snapshotGeneration,
@@ -2718,17 +2722,17 @@ func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
 	equalUpsert := &xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{
 		"listener": proto.Clone(listener).(*envoy_config_listener.Listener),
 	}}
-	updated, revertFunc, _, err := c.ApplyResources(ctx, "node1", ResourceMutations{Upserted: *equalUpsert}, wg2, TypeURLCallbacks{})
+	updated, rollback, err = c.ApplyResources(ctx, "node1", ResourceMutations{Upserted: *equalUpsert}, wg2, TypeURLCallbacks{})
 	require.NoError(t, err)
 	require.False(t, updated)
-	require.Nil(t, revertFunc)
+	require.Nil(t, rollback)
 	typedWG := completion.NewWaitGroup(ctx)
 	t.Cleanup(typedWG.Cancel)
-	updated, revertFunc, _, err = c.UpsertListener(ctx, node.GetId(), listener.GetName(),
+	updated, rollback, err = c.UpsertListener(ctx, node.GetId(), listener.GetName(),
 		proto.Clone(listener).(*envoy_config_listener.Listener), typedWG, nil)
 	require.NoError(t, err)
 	require.False(t, updated)
-	require.Nil(t, revertFunc)
+	require.Nil(t, rollback)
 	request.VersionInfo = response.GetResponseVersion()
 	cancel, err = c.CreateWatch(request, subscription, responses)
 	require.NoError(t, err)
@@ -2754,7 +2758,7 @@ func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
 	acknowledgeResponse(t, c, 1, policyResponse, "policy")
 
 	require.NoError(t, wg1.Wait())
-	listenerFinalize()
+	listenerRollback.Finalize()
 	require.NoError(t, wg2.Wait())
 	require.NoError(t, typedWG.Wait())
 	require.Zero(t, c.completionCbs.PendingCompletionCount())
@@ -2800,10 +2804,10 @@ func TestListenerMutationWaitsForListenerWatchAndReleasesUnchangedDependencies(t
 	subscription := stream.NewSotwSubscription(nil, false)
 
 	listener := &envoy_config_listener.Listener{Name: "listener"}
-	updated, _, finalize, err := c.UpsertListener(ctx, node.GetId(), listener.GetName(), listener, nil, nil)
+	updated, rollback, err := c.UpsertListener(ctx, node.GetId(), listener.GetName(), listener, nil, nil)
 	require.NoError(t, err)
 	require.True(t, updated)
-	finalize()
+	rollback.Finalize()
 
 	listenerResponses := make(chan cache.Response, 1)
 	cancelListener, err := c.CreateWatch(&cache.Request{
@@ -2833,10 +2837,10 @@ func TestListenerMutationWaitsForListenerWatchAndReleasesUnchangedDependencies(t
 	t.Cleanup(cancelRoute)
 	initialGeneration := c.nodeStates[node.GetId()].snapshotGeneration
 
-	updated, _, finalize, err = c.RemoveListener(ctx, node.GetId(), listener.GetName(), nil, nil)
+	updated, rollback, err = c.RemoveListener(ctx, node.GetId(), listener.GetName(), nil, nil)
 	require.NoError(t, err)
 	require.True(t, updated)
-	finalize()
+	rollback.Finalize()
 	require.Equal(t, initialGeneration, c.nodeStates[node.GetId()].snapshotGeneration)
 	require.NotNil(t, c.nodeStates[node.GetId()].staged)
 	select {
@@ -2878,13 +2882,13 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 
 	baselineListener := &envoy_config_listener.Listener{Name: "listener-0"}
 	baselinePolicy := &cilium.NetworkPolicy{EndpointId: 1}
-	updated, _, finalize, err := c.ApplyResources(ctx, nodeID, ResourceMutations{Upserted: xds.Resources{
+	updated, rollback, err := c.ApplyResources(ctx, nodeID, ResourceMutations{Upserted: xds.Resources{
 		Listeners:       map[string]*envoy_config_listener.Listener{"listener": baselineListener},
 		NetworkPolicies: map[string]*cilium.NetworkPolicy{"policy": baselinePolicy},
 	}}, nil, TypeURLCallbacks{})
 	require.NoError(t, err)
 	require.True(t, updated)
-	finalize()
+	rollback.Finalize()
 
 	listenerResponses := make(chan cache.Response, 1)
 	cancel, err := c.CreateWatch(&cache.Request{
@@ -2920,10 +2924,10 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 		} else {
 			mutations.Removed.NetworkPolicies = map[string]*cilium.NetworkPolicy{"policy": nil}
 		}
-		updated, _, finalize, err = c.ApplyResources(ctx, nodeID, mutations, nil, TypeURLCallbacks{})
+		updated, rollback, err = c.ApplyResources(ctx, nodeID, mutations, nil, TypeURLCallbacks{})
 		require.NoError(t, err)
 		require.True(t, updated)
-		finalize()
+		rollback.Finalize()
 		response := <-listenerResponses
 		cancel()
 		acknowledgeResponse(t, c, 1, response, fmt.Sprintf("listener-%d", update))
@@ -3088,7 +3092,7 @@ func TestCreateWatchPublishesEmptySnapshotForUnknownNode(t *testing.T) {
 	require.NotContains(t, c.nodeStates, nodeID)
 
 	policy := &cilium.NetworkPolicy{EndpointId: 1}
-	updated, _, _, err := c.ApplyResources(t.Context(), nodeID, ResourceMutations{
+	updated, _, err := c.ApplyResources(t.Context(), nodeID, ResourceMutations{
 		Upserted: xds.Resources{
 			NetworkPolicies: map[string]*cilium.NetworkPolicy{"policy": policy},
 		},
@@ -3130,17 +3134,83 @@ func TestRemoveNetworkPolicyFromUnknownNodeIsNoOp(t *testing.T) {
 	t.Cleanup(wg.Cancel)
 	callbackCalls := 0
 
-	updated, revertFunc, finalizeFunc, err := c.RemoveNetworkPolicy(ctx, "unknown-node", "missing-policy", wg, func(err error) {
+	updated, rollback, err := c.RemoveNetworkPolicy(ctx, "unknown-node", "missing-policy", wg, func(err error) {
 		require.NoError(t, err)
 		callbackCalls++
 	})
 	require.NoError(t, err)
 	require.False(t, updated)
-	require.Nil(t, revertFunc)
-	require.Nil(t, finalizeFunc)
+	require.Nil(t, rollback)
 	require.NoError(t, wg.Wait())
 	require.Equal(t, 1, callbackCalls)
 	require.NotContains(t, c.nodeStates, "unknown-node")
+}
+
+func TestCacheRejectsEmptyResourceNames(t *testing.T) {
+	tests := []struct {
+		name  string
+		apply func(*cacheImpl) (bool, Rollback, error)
+	}{
+		{
+			name: "typed listener upsert",
+			apply: func(c *cacheImpl) (bool, Rollback, error) {
+				return c.UpsertListener(t.Context(), "node1", "", &envoy_config_listener.Listener{}, nil, nil)
+			},
+		},
+		{
+			name: "typed listener removal",
+			apply: func(c *cacheImpl) (bool, Rollback, error) {
+				return c.RemoveListener(t.Context(), "node1", "", nil, nil)
+			},
+		},
+		{
+			name: "typed network policy upsert",
+			apply: func(c *cacheImpl) (bool, Rollback, error) {
+				return c.UpsertNetworkPolicy(t.Context(), "node1", "", &cilium.NetworkPolicy{}, nil, nil)
+			},
+		},
+		{
+			name: "typed network policy hosts upsert",
+			apply: func(c *cacheImpl) (bool, Rollback, error) {
+				return c.UpsertNetworkPolicyHosts(t.Context(), "node1", "", &cilium.NetworkPolicyHosts{})
+			},
+		},
+	}
+
+	genericResources := []struct {
+		name      string
+		resources xds.Resources
+	}{
+		{name: "listener", resources: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{"": {}}}},
+		{name: "route", resources: xds.Resources{Routes: map[string]*envoy_config_route.RouteConfiguration{"": {}}}},
+		{name: "cluster", resources: xds.Resources{Clusters: map[string]*envoy_config_cluster.Cluster{"": {}}}},
+		{name: "endpoint", resources: xds.Resources{Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{"": {}}}},
+		{name: "secret", resources: xds.Resources{Secrets: map[string]*envoy_config_tls.Secret{"": {}}}},
+		{name: "network policy", resources: xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{"": {}}}},
+		{name: "network policy hosts", resources: xds.Resources{NetworkPolicyHosts: map[string]*cilium.NetworkPolicyHosts{"": {}}}},
+	}
+	for _, tt := range genericResources {
+		tests = append(tests, struct {
+			name  string
+			apply func(*cacheImpl) (bool, Rollback, error)
+		}{
+			name: "generic " + tt.name,
+			apply: func(c *cacheImpl) (bool, Rollback, error) {
+				return c.ApplyResources(t.Context(), "node1", ResourceMutations{Upserted: tt.resources}, nil, TypeURLCallbacks{})
+			},
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+			updated, rollback, err := tt.apply(c)
+			require.ErrorContains(t, err, "resource name must not be empty")
+			require.False(t, updated)
+			require.Nil(t, rollback)
+			require.Empty(t, c.nodeStates)
+		})
+	}
 }
 
 func TestApplyResourcesRemovalsFromUnknownNodeAreNoOp(t *testing.T) {
@@ -3155,7 +3225,7 @@ func TestApplyResourcesRemovalsFromUnknownNodeAreNoOp(t *testing.T) {
 		callbackCalls++
 	}
 
-	updated, revertFunc, finalizeFunc, err := c.ApplyResources(ctx, "unknown-node", ResourceMutations{
+	updated, rollback, err := c.ApplyResources(ctx, "unknown-node", ResourceMutations{
 		Removed: xds.Resources{
 			Listeners:       map[string]*envoy_config_listener.Listener{"listener": nil},
 			NetworkPolicies: map[string]*cilium.NetworkPolicy{"policy": nil},
@@ -3166,8 +3236,7 @@ func TestApplyResourcesRemovalsFromUnknownNodeAreNoOp(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	require.False(t, updated)
-	require.Nil(t, revertFunc)
-	require.Nil(t, finalizeFunc)
+	require.Nil(t, rollback)
 	require.NoError(t, wg.Wait())
 	require.Equal(t, 2, callbackCalls)
 	require.NotContains(t, c.nodeStates, "unknown-node")
@@ -3547,7 +3616,7 @@ func TestInitialListenerNACKSoftResetsOnlyLDS(t *testing.T) {
 	initialRoute := &envoy_config_route.RouteConfiguration{Name: "route"}
 	initialPolicy := &cilium.NetworkPolicy{EndpointId: 1}
 	initialPolicyHosts := &cilium.NetworkPolicyHosts{Policy: 1}
-	updated, _, finalize, err := c.ApplyResources(t.Context(), nodeID, ResourceMutations{
+	updated, rollback, err := c.ApplyResources(t.Context(), nodeID, ResourceMutations{
 		Upserted: xds.Resources{
 			Listeners:          map[string]*envoy_config_listener.Listener{"listener": initialListener},
 			Routes:             map[string]*envoy_config_route.RouteConfiguration{"route": initialRoute},
@@ -3557,7 +3626,7 @@ func TestInitialListenerNACKSoftResetsOnlyLDS(t *testing.T) {
 	}, nil, TypeURLCallbacks{})
 	require.NoError(t, err)
 	require.True(t, updated)
-	finalize()
+	rollback.Finalize()
 
 	responses := make(chan cache.Response, int(typeurl.Count)+1)
 	listenerSubscription := stream.NewSotwSubscription(nil, false)
@@ -3639,7 +3708,7 @@ func TestInitialListenerNACKSoftResetsOnlyLDS(t *testing.T) {
 	latestListener.TrafficDirection = envoy_config_core.TrafficDirection_OUTBOUND
 	latestPolicy := &cilium.NetworkPolicy{EndpointId: 2}
 	latestPolicyHosts := &cilium.NetworkPolicyHosts{Policy: 2}
-	updated, _, finalize, err = c.ApplyResources(t.Context(), nodeID, ResourceMutations{
+	updated, rollback, err = c.ApplyResources(t.Context(), nodeID, ResourceMutations{
 		Upserted: xds.Resources{
 			Listeners:          map[string]*envoy_config_listener.Listener{"listener": latestListener},
 			NetworkPolicies:    map[string]*cilium.NetworkPolicy{"policy": latestPolicy},
@@ -3648,7 +3717,7 @@ func TestInitialListenerNACKSoftResetsOnlyLDS(t *testing.T) {
 	}, nil, TypeURLCallbacks{})
 	require.NoError(t, err)
 	require.True(t, updated)
-	finalize()
+	rollback.Finalize()
 	require.Same(t, publishedBeforeReset, mustSnapshot(t, c, nodeID))
 	require.NotNil(t, c.nodeStates[nodeID].staged)
 	require.Same(t, latestListener, c.nodeStates[nodeID].resources[typeurl.Listener].entries["listener"].resource)
@@ -3732,10 +3801,10 @@ func TestStreamSoftResetSnapshotIsRemovedOnDisconnect(t *testing.T) {
 	require.NoError(t, c.completionCbs.OnStreamOpen(t.Context(), streamID, ""))
 
 	listener := &envoy_config_listener.Listener{Name: "listener"}
-	updated, _, finalize, err := c.UpsertListener(t.Context(), nodeID, listener.GetName(), listener, nil, nil)
+	updated, rollback, err := c.UpsertListener(t.Context(), nodeID, listener.GetName(), listener, nil, nil)
 	require.NoError(t, err)
 	require.True(t, updated)
-	finalize()
+	rollback.Finalize()
 
 	responses := make(chan cache.Response, 1)
 	subscription := stream.NewSotwSubscription(nil, false)

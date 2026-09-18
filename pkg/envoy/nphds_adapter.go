@@ -153,14 +153,12 @@ func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, name string, m
 		return nil
 	}
 	if next == nil {
-		var update resourceUpdate
-		update, err = s.removeNetworkPolicyHostsResource(ctx, localNodeID, name)
-		update.finalize()
+		rollback, err := s.removeNetworkPolicyHostsResource(ctx, localNodeID, name)
+		finalizeRollback(rollback)
 		return err
 	}
-	var update resourceUpdate
-	update, err = s.upsertNetworkPolicyHostsResource(ctx, localNodeID, name, next)
-	update.finalize()
+	rollback, err := s.upsertNetworkPolicyHostsResource(ctx, localNodeID, name, next)
+	finalizeRollback(rollback)
 	return err
 }
 

@@ -48,6 +48,7 @@ const (
 
 type RevertFunc = callbacks.RevertFunc
 type FinalizeFunc = callbacks.FinalizeFunc
+type Rollback = callbacks.Rollback
 
 // TypeURLCallbacks stores optional completion callbacks for supported resource
 // types without allocating a string-keyed map.
@@ -89,18 +90,18 @@ type Cache interface {
 	// ApplyResources stages the newest immutable resource state if it contains
 	// semantic changes. Completions for unchanged resource types are attached to
 	// their current version instead of creating a completion-only generation.
-	// On change it returns caller-owned revert and finalize functions. Exactly
-	// one must eventually be called; cache-owned NACK rollback remains live
-	// independently until the response is accepted or rejected.
-	ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) (bool, RevertFunc, FinalizeFunc, error)
+	// On change it returns a caller-owned rollback lifecycle. Exactly one of
+	// Revert or Finalize must eventually be called; cache-owned NACK rollback
+	// remains live independently until the response is accepted or rejected.
+	ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) (bool, Rollback, error)
 	// Typed single-resource updates compare only the named resource and build a
 	// sparse mutation only after detecting an actual semantic change.
-	UpsertListener(ctx context.Context, nodeID, name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error)
-	RemoveListener(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error)
-	UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error)
-	RemoveNetworkPolicy(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error)
-	UpsertNetworkPolicyHosts(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (bool, RevertFunc, FinalizeFunc, error)
-	RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name string) (bool, RevertFunc, FinalizeFunc, error)
+	UpsertListener(ctx context.Context, nodeID, name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error)
+	RemoveListener(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error)
+	UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error)
+	RemoveNetworkPolicy(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error)
+	UpsertNetworkPolicyHosts(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (bool, Rollback, error)
+	RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name string) (bool, Rollback, error)
 	// GetResource returns one cache-owned immutable resource without
 	// materializing the complete desired resource maps.
 	GetResource(nodeID string, typeURL typeurl.Index, resourceName string) (cache_types.Resource, bool)
@@ -220,9 +221,97 @@ type resourceTypeState struct {
 // determines the concrete generated protobuf type stored in each map.
 type cacheResources typeurl.Slots[resourceTypeState]
 
-// resourceEntrySlots carries sparse inverse or restored entries without the
-// persistent changed-name sets owned by cacheResources.
+// resourceEntrySlots carries sparse resource entries without the persistent
+// changed-name sets owned by cacheResources.
 type resourceEntrySlots typeurl.Slots[map[string]resourceEntry]
+
+// inverseResources stores the overwhelmingly common single-resource inverse
+// inline. Broader transactions retain ordinary per-TypeURL maps. The two
+// representations are mutually exclusive.
+type inverseResources struct {
+	entries   typeurl.Slots[map[string]resourceEntry]
+	singleton resourceEntrySingleton
+}
+
+type resourceEntrySingleton struct {
+	name    string
+	entry   resourceEntry
+	typeURL typeurl.Index
+}
+
+func singleInverseEntry(typeURL typeurl.Index, name string, entry resourceEntry) inverseResources {
+	return inverseResources{singleton: resourceEntrySingleton{
+		name:    name,
+		entry:   entry,
+		typeURL: typeURL,
+	}}
+}
+
+func (inverse *inverseResources) get(typeURL typeurl.Index, name string) (resourceEntry, bool) {
+	if inverse.hasSingleton() {
+		if inverse.singleton.typeURL == typeURL && inverse.singleton.name == name {
+			return inverse.singleton.entry, true
+		}
+		return resourceEntry{}, false
+	}
+	entry, exists := inverse.entries[typeURL][name]
+	return entry, exists
+}
+
+func (inverse *inverseResources) hasSingleton() bool {
+	return inverse.singleton.name != ""
+}
+
+func (inverse *inverseResources) len(typeURL typeurl.Index) int {
+	if inverse.hasSingleton() {
+		if inverse.singleton.typeURL == typeURL {
+			return 1
+		}
+		return 0
+	}
+	return len(inverse.entries[typeURL])
+}
+
+func (inverse *inverseResources) resources(typeURL typeurl.Index) iter.Seq2[string, resourceEntry] {
+	return func(yield func(string, resourceEntry) bool) {
+		if inverse.hasSingleton() {
+			if inverse.singleton.typeURL == typeURL {
+				yield(inverse.singleton.name, inverse.singleton.entry)
+			}
+			return
+		}
+		for name, entry := range inverse.entries[typeURL] {
+			if !yield(name, entry) {
+				return
+			}
+		}
+	}
+}
+
+func (inverse *inverseResources) empty() bool {
+	if inverse.hasSingleton() {
+		return false
+	}
+	for typeURL := range typeurl.Indices() {
+		if len(inverse.entries[typeURL]) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// materialize is used only to recover from snapshot publication failure. The
+// normal mutation and finalize paths retain the allocation-free singleton.
+func (inverse *inverseResources) materialize() resourceEntrySlots {
+	if inverse.hasSingleton() {
+		var entries resourceEntrySlots
+		entries[inverse.singleton.typeURL] = map[string]resourceEntry{
+			inverse.singleton.name: inverse.singleton.entry,
+		}
+		return entries
+	}
+	return resourceEntrySlots(inverse.entries)
+}
 
 func (state *nodeState) resourceEntries(typeURL typeurl.Index) map[string]resourceEntry {
 	if state == nil {
@@ -284,7 +373,7 @@ type rollbackLifecycle struct {
 	typeURL    typeurl.Index
 	generation uint64
 	resources  *rollbackResources
-	inverse    resourceEntrySlots
+	inverse    inverseResources
 }
 
 type nodeWatchState = typeurl.Map[map[uint64]*trackedWatch]
@@ -1614,7 +1703,7 @@ func mergeTypeURLWaits(base typeurl.Set, additions typeURLWaits) typeurl.Set {
 	return base
 }
 
-func mergeStagedRollbacks(state *nodeState, base typeurl.Map[rollbackResources], typeURLs typeurl.Set, inverse resourceEntrySlots, generation uint64) typeurl.Map[rollbackResources] {
+func (state *nodeState) mergeStagedRollbacks(base typeurl.Map[rollbackResources], typeURLs typeurl.Set, inverse inverseResources, generation uint64) typeurl.Map[rollbackResources] {
 	if typeURLs.Empty() {
 		return base
 	}
@@ -1857,53 +1946,61 @@ func prepareResourceMap[V interface {
 	return changedRemoved, changedUpserted, inverse, changed
 }
 
-func (state *nodeState) prepareResourceMutation(mutations ResourceMutations) (ResourceMutations, typeurl.Set, resourceEntrySlots) {
+func (state *nodeState) prepareResourceMutation(mutations ResourceMutations) (ResourceMutations, typeurl.Set, inverseResources) {
 	removeSet := mutations.Removed
 	upsertSet := mutations.Upserted
 	var changes ResourceMutations
-	var inverse resourceEntrySlots
+	var inverse inverseResources
 
 	changedTypeURLs := typeurl.NewSet()
 	var changed bool
-	changes.Removed.Listeners, changes.Upserted.Listeners, inverse[typeurl.Listener], changed = prepareResourceMap(state.resourceEntries(typeurl.Listener), removeSet.Listeners, upsertSet.Listeners)
+	var inverseEntries map[string]resourceEntry
+	changes.Removed.Listeners, changes.Upserted.Listeners, inverseEntries, changed = prepareResourceMap(state.resourceEntries(typeurl.Listener), removeSet.Listeners, upsertSet.Listeners)
+	inverse.entries[typeurl.Listener] = inverseEntries
 	if changed {
 		changedTypeURLs.Insert(typeurl.Listener)
 	}
-	changes.Removed.Routes, changes.Upserted.Routes, inverse[typeurl.Route], changed = prepareResourceMap(state.resourceEntries(typeurl.Route), removeSet.Routes, upsertSet.Routes)
+	changes.Removed.Routes, changes.Upserted.Routes, inverseEntries, changed = prepareResourceMap(state.resourceEntries(typeurl.Route), removeSet.Routes, upsertSet.Routes)
+	inverse.entries[typeurl.Route] = inverseEntries
 	if changed {
 		changedTypeURLs.Insert(typeurl.Route)
 	}
-	changes.Removed.Clusters, changes.Upserted.Clusters, inverse[typeurl.Cluster], changed = prepareResourceMap(state.resourceEntries(typeurl.Cluster), removeSet.Clusters, upsertSet.Clusters)
+	changes.Removed.Clusters, changes.Upserted.Clusters, inverseEntries, changed = prepareResourceMap(state.resourceEntries(typeurl.Cluster), removeSet.Clusters, upsertSet.Clusters)
+	inverse.entries[typeurl.Cluster] = inverseEntries
 	if changed {
 		changedTypeURLs.Insert(typeurl.Cluster)
 	}
-	changes.Removed.Endpoints, changes.Upserted.Endpoints, inverse[typeurl.Endpoint], changed = prepareResourceMap(state.resourceEntries(typeurl.Endpoint), removeSet.Endpoints, upsertSet.Endpoints)
+	changes.Removed.Endpoints, changes.Upserted.Endpoints, inverseEntries, changed = prepareResourceMap(state.resourceEntries(typeurl.Endpoint), removeSet.Endpoints, upsertSet.Endpoints)
+	inverse.entries[typeurl.Endpoint] = inverseEntries
 	if changed {
 		changedTypeURLs.Insert(typeurl.Endpoint)
 	}
-	changes.Removed.Secrets, changes.Upserted.Secrets, inverse[typeurl.Secret], changed = prepareResourceMap(state.resourceEntries(typeurl.Secret), removeSet.Secrets, upsertSet.Secrets)
+	changes.Removed.Secrets, changes.Upserted.Secrets, inverseEntries, changed = prepareResourceMap(state.resourceEntries(typeurl.Secret), removeSet.Secrets, upsertSet.Secrets)
+	inverse.entries[typeurl.Secret] = inverseEntries
 	if changed {
 		changedTypeURLs.Insert(typeurl.Secret)
 	}
-	changes.Removed.NetworkPolicies, changes.Upserted.NetworkPolicies, inverse[typeurl.NetworkPolicy], changed = prepareResourceMap(state.resourceEntries(typeurl.NetworkPolicy), removeSet.NetworkPolicies, upsertSet.NetworkPolicies)
+	changes.Removed.NetworkPolicies, changes.Upserted.NetworkPolicies, inverseEntries, changed = prepareResourceMap(state.resourceEntries(typeurl.NetworkPolicy), removeSet.NetworkPolicies, upsertSet.NetworkPolicies)
+	inverse.entries[typeurl.NetworkPolicy] = inverseEntries
 	if changed {
 		changedTypeURLs.Insert(typeurl.NetworkPolicy)
 	}
-	changes.Removed.NetworkPolicyHosts, changes.Upserted.NetworkPolicyHosts, inverse[typeurl.NetworkPolicyHosts], changed = prepareResourceMap(state.resourceEntries(typeurl.NetworkPolicyHosts), removeSet.NetworkPolicyHosts, upsertSet.NetworkPolicyHosts)
+	changes.Removed.NetworkPolicyHosts, changes.Upserted.NetworkPolicyHosts, inverseEntries, changed = prepareResourceMap(state.resourceEntries(typeurl.NetworkPolicyHosts), removeSet.NetworkPolicyHosts, upsertSet.NetworkPolicyHosts)
+	inverse.entries[typeurl.NetworkPolicyHosts] = inverseEntries
 	if changed {
 		changedTypeURLs.Insert(typeurl.NetworkPolicyHosts)
 	}
 	return changes, changedTypeURLs, inverse
 }
 
-func mergeRollbackMap(state *nodeState, typeURL typeurl.Index, current map[string]rollbackEntry, desired, inverse map[string]resourceEntry, generation uint64) map[string]rollbackEntry {
-	if len(inverse) == 0 {
+func mergeRollbackMap(state *nodeState, typeURL typeurl.Index, current map[string]rollbackEntry, desired map[string]resourceEntry, inverse inverseResources, generation uint64) map[string]rollbackEntry {
+	if inverse.len(typeURL) == 0 {
 		return current
 	}
 	if current == nil {
-		current = make(map[string]rollbackEntry, len(inverse))
+		current = make(map[string]rollbackEntry, inverse.len(typeURL))
 	}
-	for name, previous := range inverse {
+	merge := func(name string, previous resourceEntry) {
 		entry, exists := current[name]
 		if !exists {
 			entry.previous = previous
@@ -1917,11 +2014,14 @@ func mergeRollbackMap(state *nodeState, typeURL typeurl.Index, current map[strin
 		entry.expectedGeneration = generation
 		current[name] = entry
 	}
+	for name, previous := range inverse.resources(typeURL) {
+		merge(name, previous)
+	}
 	return current
 }
 
-func (rollback rollbackResources) mergeTypeURL(state *nodeState, typeURL typeurl.Index, inverse resourceEntrySlots, generation uint64) rollbackResources {
-	rollback[typeURL] = mergeRollbackMap(state, typeURL, rollback[typeURL], state.resources[typeURL].entries, inverse[typeURL], generation)
+func (rollback rollbackResources) mergeTypeURL(state *nodeState, typeURL typeurl.Index, inverse inverseResources, generation uint64) rollbackResources {
+	rollback[typeURL] = mergeRollbackMap(state, typeURL, rollback[typeURL], state.resources[typeURL].entries, inverse, generation)
 	return rollback
 }
 
@@ -2003,11 +2103,11 @@ func (state *nodeState) resourceRevert(rollback rollbackResources) (ResourceMuta
 func filterInverseResourceRevert[V interface {
 	proto.Message
 	comparable
-}](current, inverse map[string]resourceEntry, expectedGeneration uint64) (removed, upserted map[string]V, restored map[string]resourceEntry) {
+}](current map[string]resourceEntry, inverse inverseResources, typeURL typeurl.Index, expectedGeneration uint64) (removed, upserted map[string]V, restored map[string]resourceEntry) {
 	var zero V
-	for name, previous := range inverse {
+	filter := func(name string, previous resourceEntry) {
 		if current[name].generation != expectedGeneration {
-			continue
+			return
 		}
 		if restored == nil {
 			restored = make(map[string]resourceEntry)
@@ -2025,22 +2125,25 @@ func filterInverseResourceRevert[V interface {
 			upserted[name] = previous.resource.(V)
 		}
 	}
+	for name, previous := range inverse.resources(typeURL) {
+		filter(name, previous)
+	}
 	return removed, upserted, restored
 }
 
-func (state *nodeState) resourceRevertInverse(generation uint64, inverse resourceEntrySlots) (ResourceMutations, resourceEntrySlots) {
+func (state *nodeState) resourceRevertInverse(generation uint64, inverse inverseResources) (ResourceMutations, resourceEntrySlots) {
 	if state == nil {
 		return ResourceMutations{}, resourceEntrySlots{}
 	}
 	var mutations ResourceMutations
 	var restored resourceEntrySlots
-	mutations.Removed.Listeners, mutations.Upserted.Listeners, restored[typeurl.Listener] = filterInverseResourceRevert[*envoy_config_listener.Listener](state.resourceEntries(typeurl.Listener), inverse[typeurl.Listener], generation)
-	mutations.Removed.Routes, mutations.Upserted.Routes, restored[typeurl.Route] = filterInverseResourceRevert[*envoy_config_route.RouteConfiguration](state.resourceEntries(typeurl.Route), inverse[typeurl.Route], generation)
-	mutations.Removed.Clusters, mutations.Upserted.Clusters, restored[typeurl.Cluster] = filterInverseResourceRevert[*envoy_config_cluster.Cluster](state.resourceEntries(typeurl.Cluster), inverse[typeurl.Cluster], generation)
-	mutations.Removed.Endpoints, mutations.Upserted.Endpoints, restored[typeurl.Endpoint] = filterInverseResourceRevert[*envoy_config_endpoint.ClusterLoadAssignment](state.resourceEntries(typeurl.Endpoint), inverse[typeurl.Endpoint], generation)
-	mutations.Removed.Secrets, mutations.Upserted.Secrets, restored[typeurl.Secret] = filterInverseResourceRevert[*envoy_config_tls.Secret](state.resourceEntries(typeurl.Secret), inverse[typeurl.Secret], generation)
-	mutations.Removed.NetworkPolicies, mutations.Upserted.NetworkPolicies, restored[typeurl.NetworkPolicy] = filterInverseResourceRevert[*cilium.NetworkPolicy](state.resourceEntries(typeurl.NetworkPolicy), inverse[typeurl.NetworkPolicy], generation)
-	mutations.Removed.NetworkPolicyHosts, mutations.Upserted.NetworkPolicyHosts, restored[typeurl.NetworkPolicyHosts] = filterInverseResourceRevert[*cilium.NetworkPolicyHosts](state.resourceEntries(typeurl.NetworkPolicyHosts), inverse[typeurl.NetworkPolicyHosts], generation)
+	mutations.Removed.Listeners, mutations.Upserted.Listeners, restored[typeurl.Listener] = filterInverseResourceRevert[*envoy_config_listener.Listener](state.resourceEntries(typeurl.Listener), inverse, typeurl.Listener, generation)
+	mutations.Removed.Routes, mutations.Upserted.Routes, restored[typeurl.Route] = filterInverseResourceRevert[*envoy_config_route.RouteConfiguration](state.resourceEntries(typeurl.Route), inverse, typeurl.Route, generation)
+	mutations.Removed.Clusters, mutations.Upserted.Clusters, restored[typeurl.Cluster] = filterInverseResourceRevert[*envoy_config_cluster.Cluster](state.resourceEntries(typeurl.Cluster), inverse, typeurl.Cluster, generation)
+	mutations.Removed.Endpoints, mutations.Upserted.Endpoints, restored[typeurl.Endpoint] = filterInverseResourceRevert[*envoy_config_endpoint.ClusterLoadAssignment](state.resourceEntries(typeurl.Endpoint), inverse, typeurl.Endpoint, generation)
+	mutations.Removed.Secrets, mutations.Upserted.Secrets, restored[typeurl.Secret] = filterInverseResourceRevert[*envoy_config_tls.Secret](state.resourceEntries(typeurl.Secret), inverse, typeurl.Secret, generation)
+	mutations.Removed.NetworkPolicies, mutations.Upserted.NetworkPolicies, restored[typeurl.NetworkPolicy] = filterInverseResourceRevert[*cilium.NetworkPolicy](state.resourceEntries(typeurl.NetworkPolicy), inverse, typeurl.NetworkPolicy, generation)
+	mutations.Removed.NetworkPolicyHosts, mutations.Upserted.NetworkPolicyHosts, restored[typeurl.NetworkPolicyHosts] = filterInverseResourceRevert[*cilium.NetworkPolicyHosts](state.resourceEntries(typeurl.NetworkPolicyHosts), inverse, typeurl.NetworkPolicyHosts, generation)
 	return mutations, restored
 }
 
@@ -2064,8 +2167,8 @@ func (state *nodeState) updateRollbackOwners(rollback rollbackResources, delta i
 	}
 }
 
-func updateInverseRollbackOwnerMap(state *nodeState, typeURL typeurl.Index, desired, inverse map[string]resourceEntry, generation uint64, delta int) {
-	for name := range inverse {
+func (state *nodeState) updateInverseRollbackOwnerMap(typeURL typeurl.Index, desired map[string]resourceEntry, inverse inverseResources, generation uint64, delta int) {
+	update := func(name string) {
 		key := rollbackOwnerKey{name: name, generation: generation}
 		if delta > 0 {
 			if desired[name].resource == nil {
@@ -2075,11 +2178,14 @@ func updateInverseRollbackOwnerMap(state *nodeState, typeURL typeurl.Index, desi
 			state.removeRollbackOwner(typeURL, key)
 		}
 	}
+	for name := range inverse.resources(typeURL) {
+		update(name)
+	}
 }
 
-func (state *nodeState) updateInverseRollbackOwners(inverse resourceEntrySlots, generation uint64, delta int) {
+func (state *nodeState) updateInverseRollbackOwners(inverse inverseResources, generation uint64, delta int) {
 	for typeURL := range typeurl.Indices() {
-		updateInverseRollbackOwnerMap(state, typeURL, state.resources[typeURL].entries, inverse[typeURL], generation, delta)
+		state.updateInverseRollbackOwnerMap(typeURL, state.resources[typeURL].entries, inverse, generation, delta)
 	}
 }
 
@@ -2106,26 +2212,29 @@ func (state *nodeState) releaseRollback(rollback rollbackResources) {
 	}
 }
 
-func pruneInverseTombstones(state *nodeState, typeURL typeurl.Index, resources *map[string]resourceEntry, inverse map[string]resourceEntry, generation uint64) {
-	for name := range inverse {
+func (state *nodeState) pruneInverseTombstones(typeURL typeurl.Index, resources *map[string]resourceEntry, inverse inverseResources, generation uint64) {
+	prune := func(name string) {
 		entry := (*resources)[name]
 		if entry.resource != nil || entry.generation != generation {
-			continue
+			return
 		}
 		key := rollbackOwnerKey{name: name, generation: generation}
 		if state.rollbackOwnerCount(typeURL, key) == 0 {
 			delete(*resources, name)
 		}
 	}
+	for name := range inverse.resources(typeURL) {
+		prune(name)
+	}
 	if len(*resources) == 0 {
 		*resources = nil
 	}
 }
 
-func (state *nodeState) releaseInverseRollback(inverse resourceEntrySlots, generation uint64) {
+func (state *nodeState) releaseInverseRollback(inverse inverseResources, generation uint64) {
 	state.updateInverseRollbackOwners(inverse, generation, -1)
 	for typeURL := range typeurl.Indices() {
-		pruneInverseTombstones(state, typeURL, &state.resources[typeURL].entries, inverse[typeURL], generation)
+		state.pruneInverseTombstones(typeURL, &state.resources[typeURL].entries, inverse, generation)
 	}
 }
 
@@ -2197,13 +2306,12 @@ func (state *nodeState) commitResourceMutation(changes ResourceMutations, genera
 	commitResourceMap(&state.resources[typeurl.NetworkPolicyHosts], changes.Removed.NetworkPolicyHosts, changes.Upserted.NetworkPolicyHosts, generation, restore[typeurl.NetworkPolicyHosts])
 }
 
-func committedListenerChanges(changes ResourceMutations, inverse resourceEntrySlots) []ListenerChange {
-	listeners := inverse[typeurl.Listener]
-	if len(listeners) == 0 {
+func committedListenerChanges(changes ResourceMutations, inverse inverseResources) []ListenerChange {
+	if inverse.len(typeurl.Listener) == 0 {
 		return nil
 	}
-	listenerChanges := make([]ListenerChange, 0, len(listeners))
-	for name, previous := range listeners {
+	listenerChanges := make([]ListenerChange, 0, inverse.len(typeurl.Listener))
+	for name, previous := range inverse.resources(typeurl.Listener) {
 		listenerChanges = append(listenerChanges, ListenerChange{
 			Name:     name,
 			Previous: typedResource[*envoy_config_listener.Listener](previous.resource),
@@ -2213,9 +2321,9 @@ func committedListenerChanges(changes ResourceMutations, inverse resourceEntrySl
 	return listenerChanges
 }
 
-func (state *nodeState) restoreResourceEntries(inverse resourceEntrySlots) {
+func (state *nodeState) restoreResourceEntries(entries resourceEntrySlots) {
 	for typeURL := range typeurl.Indices() {
-		state.resources[typeURL].commitEntries(inverse[typeURL])
+		state.resources[typeURL].commitEntries(entries[typeURL])
 	}
 }
 
@@ -2248,15 +2356,6 @@ func (state *nodeState) reconcileChangedResourceNames(affected resourceEntrySlot
 	}
 }
 
-func resourceEntrySlotsEmpty(resources resourceEntrySlots) bool {
-	for typeURL := range typeurl.Indices() {
-		if len(resources[typeURL]) != 0 {
-			return false
-		}
-	}
-	return true
-}
-
 func resourceMutationsEmpty(mutations ResourceMutations) bool {
 	return len(mutations.Removed.Listeners) == 0 && len(mutations.Upserted.Listeners) == 0 &&
 		len(mutations.Removed.Routes) == 0 && len(mutations.Upserted.Routes) == 0 &&
@@ -2283,19 +2382,62 @@ func (state *nodeState) networkPoliciesEmpty() bool {
 	return resourceEntriesEmpty(state.resources[typeurl.NetworkPolicy].entries)
 }
 
+func validateResourceName(typeURL typeurl.Index, name string) error {
+	if name == "" {
+		return fmt.Errorf("%s resource name must not be empty", typeURL.URL())
+	}
+	return nil
+}
+
+func validateResourceMapNames[V any](typeURL typeurl.Index, removed, upserted map[string]V) error {
+	if _, exists := removed[""]; exists {
+		return validateResourceName(typeURL, "")
+	}
+	if _, exists := upserted[""]; exists {
+		return validateResourceName(typeURL, "")
+	}
+	return nil
+}
+
+func validateResourceMutations(mutations ResourceMutations) error {
+	removed, upserted := mutations.Removed, mutations.Upserted
+	if err := validateResourceMapNames(typeurl.Listener, removed.Listeners, upserted.Listeners); err != nil {
+		return err
+	}
+	if err := validateResourceMapNames(typeurl.Route, removed.Routes, upserted.Routes); err != nil {
+		return err
+	}
+	if err := validateResourceMapNames(typeurl.Cluster, removed.Clusters, upserted.Clusters); err != nil {
+		return err
+	}
+	if err := validateResourceMapNames(typeurl.Endpoint, removed.Endpoints, upserted.Endpoints); err != nil {
+		return err
+	}
+	if err := validateResourceMapNames(typeurl.Secret, removed.Secrets, upserted.Secrets); err != nil {
+		return err
+	}
+	if err := validateResourceMapNames(typeurl.NetworkPolicy, removed.NetworkPolicies, upserted.NetworkPolicies); err != nil {
+		return err
+	}
+	return validateResourceMapNames(typeurl.NetworkPolicyHosts, removed.NetworkPolicyHosts, upserted.NetworkPolicyHosts)
+}
+
 // ApplyResources applies sparse removals and upserts to the cache-private
 // desired state. It is the authority for semantic no-op detection, changed
 // resource names and generation-fenced reverts. Published maps remain immutable
 // and are updated copy-on-write only when the staged snapshot is finalized.
-func (c *cacheImpl) ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) (bool, RevertFunc, FinalizeFunc, error) {
+func (c *cacheImpl) ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) (bool, Rollback, error) {
+	if err := validateResourceMutations(mutations); err != nil {
+		return false, nil, err
+	}
 	tx := c.beginResourceTransaction(ctx, nodeID)
-	updated, revertFunc, finalizeFunc, err := tx.applyResourcesLocked(mutations, wg, updatedTypeURLs, nil)
+	updated, rollback, err := tx.applyResourcesLocked(mutations, wg, updatedTypeURLs, nil)
 	notifyObserver := tx.notifyListenerObserverLocked()
 	tx.complete()
 	if notifyObserver {
 		c.notifyListenerObserverUnlocked()
 	}
-	return updated, revertFunc, finalizeFunc, err
+	return updated, rollback, err
 }
 
 func prepareSingleResource[V interface {
@@ -2316,24 +2458,24 @@ func prepareSingleResource[V interface {
 // finishUnchangedSingleResourceLocked attaches a no-op update directly to the
 // resource's current ACK state without constructing a broad ResourceMutations
 // value or inspecting unrelated resource types. Caller must hold mutex.
-func (tx *resourceTransaction) finishUnchangedSingleResourceLocked(typeURL typeurl.Index, name string, generation uint64, desired proto.Message, desiredExists bool, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
+func (tx *resourceTransaction) finishUnchangedSingleResourceLocked(typeURL typeurl.Index, name string, generation uint64, desired proto.Message, desiredExists bool, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error) {
 	if wg == nil {
-		return false, nil, nil, nil
+		return false, nil, nil
 	}
 	if tx.cache.completionCbs.ResourceAccepted(tx.nodeID, typeURL, name, desired, desiredExists) {
 		tx.addAcceptedCallback(wg, callback)
-		return false, nil, nil, nil
+		return false, nil, nil
 	}
 	var waits typeURLWaits
 	waits.Set(typeURL, generationWait{callback: callback, generation: generation})
-	return false, nil, nil, tx.awaitCurrentVersionLocked(wg, waits)
+	return false, nil, tx.awaitCurrentVersionLocked(wg, waits)
 }
 
 // applyChangedSingleResourceLocked sends an already-prepared typed mutation
 // through the shared generation, revert, and lazy-publication machinery. It
 // handles completion state directly because the affected resource and TypeURL
 // are already known. Caller must hold mutex.
-func (tx *resourceTransaction) applyChangedSingleResourceLocked(typeURL typeurl.Index, name string, desired proto.Message, desiredExists bool, changes ResourceMutations, inverse resourceEntrySlots, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
+func (tx *resourceTransaction) applyChangedSingleResourceLocked(typeURL typeurl.Index, name string, desired proto.Message, desiredExists bool, changes ResourceMutations, inverse inverseResources, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error) {
 	c := tx.cache
 	c.resourceGeneration++
 	tx.generation = c.resourceGeneration
@@ -2344,7 +2486,7 @@ func (tx *resourceTransaction) applyChangedSingleResourceLocked(typeURL typeurl.
 	accepted := false
 	var changedWaits typeURLWaits
 	if wg != nil {
-		previous := inverse[typeURL][name]
+		previous, _ := inverse.get(typeURL, name)
 		accepted = c.completionCbs.ChangedResourceAccepted(
 			tx.nodeID, typeURL, name,
 			previous.resource, previous.resource != nil,
@@ -2356,16 +2498,15 @@ func (tx *resourceTransaction) applyChangedSingleResourceLocked(typeURL typeurl.
 	}
 	err := tx.updateResourceChangesLocked(changes, inverse, dirtyTypeURLs, changedTypeURLs, c.defaultGenerator, wg, changedWaits, lifecycle, nil)
 	if err != nil {
-		return false, nil, nil, err
+		return false, nil, err
 	}
 	if accepted {
 		tx.addAcceptedCallback(wg, callback)
 	}
-	revertFunc, finalizeFunc := lifecycle.functions()
-	return true, revertFunc, finalizeFunc, nil
+	return true, lifecycle, nil
 }
 
-func (tx *resourceTransaction) applyListenerLocked(name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
+func (tx *resourceTransaction) applyListenerLocked(name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error) {
 	state := tx.state
 	stateExists := state != nil
 	var current map[string]resourceEntry
@@ -2378,7 +2519,7 @@ func (tx *resourceTransaction) applyListenerLocked(name string, resource *envoy_
 			return tx.finishUnchangedSingleResourceLocked(typeurl.Listener, name, previous.generation, desired, desiredExists, wg, callback)
 		}
 		tx.addAcceptedCallback(wg, callback)
-		return false, nil, nil, nil
+		return false, nil, nil
 	}
 
 	var mutations ResourceMutations
@@ -2392,12 +2533,11 @@ func (tx *resourceTransaction) applyListenerLocked(name string, resource *envoy_
 		Previous: typedResource[*envoy_config_listener.Listener](previous.resource),
 		Current:  resource,
 	}}
-	var inverse resourceEntrySlots
-	inverse[typeurl.Listener] = map[string]resourceEntry{name: previous}
+	inverse := singleInverseEntry(typeurl.Listener, name, previous)
 	return tx.applyChangedSingleResourceLocked(typeurl.Listener, name, desired, desiredExists, mutations, inverse, wg, callback)
 }
 
-func (tx *resourceTransaction) applyNetworkPolicyLocked(name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
+func (tx *resourceTransaction) applyNetworkPolicyLocked(name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error) {
 	state := tx.state
 	stateExists := state != nil
 	var current map[string]resourceEntry
@@ -2410,7 +2550,7 @@ func (tx *resourceTransaction) applyNetworkPolicyLocked(name string, resource *c
 			return tx.finishUnchangedSingleResourceLocked(typeurl.NetworkPolicy, name, previous.generation, desired, desiredExists, wg, callback)
 		}
 		tx.addAcceptedCallback(wg, callback)
-		return false, nil, nil, nil
+		return false, nil, nil
 	}
 
 	var mutations ResourceMutations
@@ -2419,12 +2559,11 @@ func (tx *resourceTransaction) applyNetworkPolicyLocked(name string, resource *c
 	} else {
 		mutations.Upserted.NetworkPolicies = map[string]*cilium.NetworkPolicy{name: resource}
 	}
-	var inverse resourceEntrySlots
-	inverse[typeurl.NetworkPolicy] = map[string]resourceEntry{name: previous}
+	inverse := singleInverseEntry(typeurl.NetworkPolicy, name, previous)
 	return tx.applyChangedSingleResourceLocked(typeurl.NetworkPolicy, name, desired, desiredExists, mutations, inverse, wg, callback)
 }
 
-func (tx *resourceTransaction) applyNetworkPolicyHostsLocked(name string, resource *cilium.NetworkPolicyHosts) (bool, RevertFunc, FinalizeFunc, error) {
+func (tx *resourceTransaction) applyNetworkPolicyHostsLocked(name string, resource *cilium.NetworkPolicyHosts) (bool, Rollback, error) {
 	state := tx.state
 	var current map[string]resourceEntry
 	if state != nil {
@@ -2432,7 +2571,7 @@ func (tx *resourceTransaction) applyNetworkPolicyHostsLocked(name string, resour
 	}
 	previous, desired, desiredExists, changed := prepareSingleResource(current, name, resource)
 	if !changed {
-		return false, nil, nil, nil
+		return false, nil, nil
 	}
 
 	var mutations ResourceMutations
@@ -2441,64 +2580,81 @@ func (tx *resourceTransaction) applyNetworkPolicyHostsLocked(name string, resour
 	} else {
 		mutations.Upserted.NetworkPolicyHosts = map[string]*cilium.NetworkPolicyHosts{name: resource}
 	}
-	var inverse resourceEntrySlots
-	inverse[typeurl.NetworkPolicyHosts] = map[string]resourceEntry{name: previous}
+	inverse := singleInverseEntry(typeurl.NetworkPolicyHosts, name, previous)
 	return tx.applyChangedSingleResourceLocked(typeurl.NetworkPolicyHosts, name, desired, desiredExists, mutations, inverse, nil, nil)
 }
 
-func (c *cacheImpl) UpsertListener(ctx context.Context, nodeID, name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
+func (c *cacheImpl) UpsertListener(ctx context.Context, nodeID, name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error) {
+	if err := validateResourceName(typeurl.Listener, name); err != nil {
+		return false, nil, err
+	}
 	tx := c.beginResourceTransaction(ctx, nodeID)
-	updated, revertFunc, finalizeFunc, err := tx.applyListenerLocked(name, resource, wg, callback)
+	updated, rollback, err := tx.applyListenerLocked(name, resource, wg, callback)
 	notifyObserver := tx.notifyListenerObserverLocked()
 	tx.complete()
 	if notifyObserver {
 		c.notifyListenerObserverUnlocked()
 	}
-	return updated, revertFunc, finalizeFunc, err
+	return updated, rollback, err
 }
 
-func (c *cacheImpl) RemoveListener(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
+func (c *cacheImpl) RemoveListener(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error) {
+	if err := validateResourceName(typeurl.Listener, name); err != nil {
+		return false, nil, err
+	}
 	tx := c.beginResourceTransaction(ctx, nodeID)
-	updated, revertFunc, finalizeFunc, err := tx.applyListenerLocked(name, nil, wg, callback)
+	updated, rollback, err := tx.applyListenerLocked(name, nil, wg, callback)
 	notifyObserver := tx.notifyListenerObserverLocked()
 	tx.complete()
 	if notifyObserver {
 		c.notifyListenerObserverUnlocked()
 	}
-	return updated, revertFunc, finalizeFunc, err
+	return updated, rollback, err
 }
 
-func (c *cacheImpl) UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
+func (c *cacheImpl) UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error) {
+	if err := validateResourceName(typeurl.NetworkPolicy, name); err != nil {
+		return false, nil, err
+	}
 	tx := c.beginResourceTransaction(ctx, nodeID)
-	updated, revertFunc, finalizeFunc, err := tx.applyNetworkPolicyLocked(name, resource, wg, callback)
+	updated, rollback, err := tx.applyNetworkPolicyLocked(name, resource, wg, callback)
 	tx.complete()
-	return updated, revertFunc, finalizeFunc, err
+	return updated, rollback, err
 }
 
-func (c *cacheImpl) RemoveNetworkPolicy(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
+func (c *cacheImpl) RemoveNetworkPolicy(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, Rollback, error) {
+	if err := validateResourceName(typeurl.NetworkPolicy, name); err != nil {
+		return false, nil, err
+	}
 	tx := c.beginResourceTransaction(ctx, nodeID)
-	updated, revertFunc, finalizeFunc, err := tx.applyNetworkPolicyLocked(name, nil, wg, callback)
+	updated, rollback, err := tx.applyNetworkPolicyLocked(name, nil, wg, callback)
 	tx.complete()
-	return updated, revertFunc, finalizeFunc, err
+	return updated, rollback, err
 }
 
-func (c *cacheImpl) UpsertNetworkPolicyHosts(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (bool, RevertFunc, FinalizeFunc, error) {
+func (c *cacheImpl) UpsertNetworkPolicyHosts(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (bool, Rollback, error) {
+	if err := validateResourceName(typeurl.NetworkPolicyHosts, name); err != nil {
+		return false, nil, err
+	}
 	tx := c.beginResourceTransaction(ctx, nodeID)
-	updated, revertFunc, finalizeFunc, err := tx.applyNetworkPolicyHostsLocked(name, resource)
+	updated, rollback, err := tx.applyNetworkPolicyHostsLocked(name, resource)
 	tx.complete()
-	return updated, revertFunc, finalizeFunc, err
+	return updated, rollback, err
 }
 
-func (c *cacheImpl) RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name string) (bool, RevertFunc, FinalizeFunc, error) {
+func (c *cacheImpl) RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name string) (bool, Rollback, error) {
+	if err := validateResourceName(typeurl.NetworkPolicyHosts, name); err != nil {
+		return false, nil, err
+	}
 	tx := c.beginResourceTransaction(ctx, nodeID)
-	updated, revertFunc, finalizeFunc, err := tx.applyNetworkPolicyHostsLocked(name, nil)
+	updated, rollback, err := tx.applyNetworkPolicyHostsLocked(name, nil)
 	tx.complete()
-	return updated, revertFunc, finalizeFunc, err
+	return updated, rollback, err
 }
 
 // applyResourcesLocked allocates generations and constructs generation-fenced
 // reverts inside the cache. Caller must hold mutex.
-func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, restoredEntries *resourceEntrySlots) (bool, RevertFunc, FinalizeFunc, error) {
+func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, restoredEntries *resourceEntrySlots) (bool, Rollback, error) {
 	c := tx.cache
 	if !updatedTypeURLs.Known() && (len(mutations.Removed.Listeners) > 0 || len(mutations.Upserted.Listeners) > 0) {
 		// Listener mutations are always ACK-tracked by the legacy server because
@@ -2515,12 +2671,12 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 		for _, callback := range updatedTypeURLs.All() {
 			tx.addAcceptedCallback(wg, callback)
 		}
-		return false, nil, nil, nil
+		return false, nil, nil
 	}
 	resourcesChanged := !changedTypeURLs.Empty()
 	if !resourcesChanged {
-		updated, err := tx.applyPreparedResourcesLocked(ResourceMutations{}, resourceEntrySlots{}, typeurl.NewSet(), typeurl.NewSet(), false, mutations, wg, updatedTypeURLs, nil, restoredEntries)
-		return updated, nil, nil, err
+		updated, err := tx.applyPreparedResourcesLocked(ResourceMutations{}, inverseResources{}, typeurl.NewSet(), typeurl.NewSet(), false, mutations, wg, updatedTypeURLs, nil, restoredEntries)
+		return updated, nil, err
 	}
 	c.resourceGeneration++
 	tx.generation = c.resourceGeneration
@@ -2534,16 +2690,15 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 	}
 	updated, err := tx.applyPreparedResourcesLocked(changes, inverse, changedTypeURLs, watchTypeURLs, true, mutations, wg, updatedTypeURLs, lifecycle, restoredEntries)
 	if err != nil {
-		return false, nil, nil, err
+		return false, nil, err
 	}
-	if len(inverse[typeurl.Listener]) > 0 {
+	if inverse.len(typeurl.Listener) > 0 {
 		tx.listenerChanges = committedListenerChanges(changes, inverse)
 	}
 	if lifecycle == nil {
-		return updated, nil, nil, nil
+		return updated, nil, nil
 	}
-	revertFunc, finalizeFunc := lifecycle.functions()
-	return updated, revertFunc, finalizeFunc, nil
+	return updated, lifecycle, nil
 }
 
 func mutationTypeURLs(mutations ResourceMutations) typeurl.Set {
@@ -2621,7 +2776,7 @@ func (c *cacheImpl) newRollbackLifecycle(ctx context.Context, nodeID string, typ
 	}
 }
 
-func (c *cacheImpl) newCallerRollbackLifecycle(ctx context.Context, nodeID string, generation uint64, inverse resourceEntrySlots) *rollbackLifecycle {
+func (c *cacheImpl) newCallerRollbackLifecycle(ctx context.Context, nodeID string, generation uint64, inverse inverseResources) *rollbackLifecycle {
 	return &rollbackLifecycle{
 		cache:      c,
 		ctx:        ctx,
@@ -2657,21 +2812,21 @@ func (lifecycle *rollbackLifecycle) detachUnsentLocked() {
 // completedLocked reports whether a terminal operation has consumed the
 // lifecycle's rollback payload. Caller must hold cacheImpl.mutex.
 func (lifecycle *rollbackLifecycle) completedLocked() bool {
-	return lifecycle.resources == nil && resourceEntrySlotsEmpty(lifecycle.inverse)
+	return lifecycle.resources == nil && lifecycle.inverse.empty()
 }
 
 // takeRollbackLocked atomically selects the lifecycle's terminal operation and
 // returns its rollback payload. Clearing both payload representations marks the
 // lifecycle complete while retaining identifying fields for duplicate warnings.
 // Caller must hold cacheImpl.mutex.
-func (lifecycle *rollbackLifecycle) takeRollbackLocked(operation string) (*rollbackResources, resourceEntrySlots, bool) {
+func (lifecycle *rollbackLifecycle) takeRollbackLocked(operation string) (*rollbackResources, inverseResources, bool) {
 	if lifecycle.completedLocked() {
 		lifecycle.warnDuplicateLocked(operation)
-		return nil, resourceEntrySlots{}, false
+		return nil, inverseResources{}, false
 	}
 	resources, inverse := lifecycle.resources, lifecycle.inverse
 	lifecycle.resources = nil
-	lifecycle.inverse = resourceEntrySlots{}
+	lifecycle.inverse = inverseResources{}
 	lifecycle.detachUnsentLocked()
 	return resources, inverse, true
 }
@@ -2736,7 +2891,7 @@ func (lifecycle *rollbackLifecycle) Revert(expectedGeneration uint64) (uint64, b
 	}
 
 	c.logger.Debug("Reverting snapshot for node", logfields.NodeID, lifecycle.nodeID)
-	updated, _, _, err := tx.applyResourcesLocked(mutations, nil, TypeURLCallbacks{}, &restoredEntries)
+	updated, _, err := tx.applyResourcesLocked(mutations, nil, TypeURLCallbacks{}, &restoredEntries)
 	currentGeneration = tx.currentResourceGeneration()
 	notifyObserver := tx.notifyListenerObserverLocked()
 	tx.complete()
@@ -2750,10 +2905,6 @@ func (lifecycle *rollbackLifecycle) Revert(expectedGeneration uint64) (uint64, b
 		return currentGeneration, false
 	}
 	return currentGeneration, updated
-}
-
-func (lifecycle *rollbackLifecycle) functions() (RevertFunc, FinalizeFunc) {
-	return lifecycle.Revert, lifecycle.Finalize
 }
 
 func resourceMutationAccepted[V interface {
@@ -2893,7 +3044,7 @@ func (c *cacheImpl) generateSnapshotForUpdate(state *nodeState, previous cache.R
 // type. For a mixed update, completions are split between resource types made
 // dirty by this generation and types which remain at their current version.
 // Caller must hold mutex.
-func (tx *resourceTransaction) applyPreparedResourcesLocked(changes ResourceMutations, inverse resourceEntrySlots, changedTypeURLs, watchTypeURLs typeurl.Set, resourcesChanged bool, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, lifecycle *rollbackLifecycle, restoredEntries *resourceEntrySlots) (bool, error) {
+func (tx *resourceTransaction) applyPreparedResourcesLocked(changes ResourceMutations, inverse inverseResources, changedTypeURLs, watchTypeURLs typeurl.Set, resourcesChanged bool, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, lifecycle *rollbackLifecycle, restoredEntries *resourceEntrySlots) (bool, error) {
 	var dirtyTypeURLs typeurl.Set
 	if resourcesChanged {
 		dirtyTypeURLs = snapshotTypesChangedBy(changedTypeURLs)
@@ -2935,7 +3086,7 @@ func (tx *resourceTransaction) applyPreparedResourcesLocked(changes ResourceMuta
 // updateResourceChangesLocked commits one prepared mutation and optionally
 // finalizes it for an open watch. Caller must hold mutex; post-lock work is
 // accumulated on tx.
-func (tx *resourceTransaction) updateResourceChangesLocked(changes ResourceMutations, inverse resourceEntrySlots, dirtyTypeURLs, watchTypeURLs typeurl.Set, generator snapshotGenerator, wg *completion.WaitGroup, waits typeURLWaits, lifecycle *rollbackLifecycle, restoredEntries *resourceEntrySlots) error {
+func (tx *resourceTransaction) updateResourceChangesLocked(changes ResourceMutations, inverse inverseResources, dirtyTypeURLs, watchTypeURLs typeurl.Set, generator snapshotGenerator, wg *completion.WaitGroup, waits typeURLWaits, lifecycle *rollbackLifecycle, restoredEntries *resourceEntrySlots) error {
 	c := tx.cache
 	// Snapshot dependencies can make dirtyTypeURLs broader than the mutation.
 	// Responses are ACKed or NACKed independently by TypeURL, so retain rollback
@@ -2983,7 +3134,7 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes ResourceMutat
 	}
 	completionTypeURLs = mergeTypeURLWaits(completionTypeURLs, waits)
 	if lifecycle != nil {
-		rollbacks = mergeStagedRollbacks(state, rollbacks, rollbackTypeURLs, inverse, tx.generation)
+		rollbacks = state.mergeStagedRollbacks(rollbacks, rollbackTypeURLs, lifecycle.inverse, tx.generation)
 	}
 	staged := oldStaged
 	if staged == nil {
@@ -3010,7 +3161,8 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes ResourceMutat
 			lifecycle.finalizeLocked()
 		}
 		if stateExisted {
-			state.restoreResourceEntries(inverse)
+			inverseEntries := inverse.materialize()
+			state.restoreResourceEntries(inverseEntries)
 			// Re-establish the old stage ownership before releasing the failed
 			// replacement so shared tombstones remain continuously guarded.
 			if oldStaged != nil {
@@ -3018,7 +3170,7 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes ResourceMutat
 			}
 			state.releaseRollbackSet(rollbacks)
 			published, _ := c.SnapshotCache.GetSnapshot(tx.nodeID)
-			state.reconcileChangedResourceNames(inverse, published)
+			state.reconcileChangedResourceNames(inverseEntries, published)
 			state.resourceGeneration = oldResourceGeneration
 			if oldStaged == nil {
 				state.staged = nil

@@ -214,7 +214,7 @@ type countingADSCache struct {
 
 type revertCapturingADSCache struct {
 	xdsnew.Cache
-	revertFuncs []xdsnew.RevertFunc
+	rollbacks []xdsnew.Rollback
 }
 
 type blockingNetworkPolicyADSCache struct {
@@ -223,87 +223,93 @@ type blockingNetworkPolicyADSCache struct {
 	continueUpsert chan struct{}
 }
 
-func (c *blockingNetworkPolicyADSCache) UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *blockingNetworkPolicyADSCache) UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.Rollback, error) {
 	close(c.upsertStarted)
 	select {
 	case <-c.continueUpsert:
 	case <-ctx.Done():
-		return false, nil, nil, ctx.Err()
+		return false, nil, ctx.Err()
 	}
 	return c.Cache.UpsertNetworkPolicy(ctx, nodeID, name, resource, wg, callback)
 }
 
-func (c *revertCapturingADSCache) ApplyResources(ctx context.Context, nodeID string, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, typeURLs xdsnew.TypeURLCallbacks) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+type nonFinalizingRollback struct {
+	xdsnew.Rollback
+}
+
+func (nonFinalizingRollback) Finalize() {}
+
+func (c *revertCapturingADSCache) ApplyResources(ctx context.Context, nodeID string, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, typeURLs xdsnew.TypeURLCallbacks) (bool, xdsnew.Rollback, error) {
 	return c.captureRevert(c.Cache.ApplyResources(ctx, nodeID, mutations, wg, typeURLs))
 }
 
-func (c *revertCapturingADSCache) captureRevert(updated bool, revertFunc xdsnew.RevertFunc, finalizeFunc xdsnew.FinalizeFunc, err error) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
-	if updated && revertFunc != nil {
-		c.revertFuncs = append(c.revertFuncs, revertFunc)
+func (c *revertCapturingADSCache) captureRevert(updated bool, rollback xdsnew.Rollback, err error) (bool, xdsnew.Rollback, error) {
+	if updated && rollback != nil {
+		c.rollbacks = append(c.rollbacks, rollback)
 		// Keep the caller-owned revert live for tests which exercise it
 		// directly. Production callers invoke the returned finalizer.
-		finalizeFunc = func() {}
+		rollback = nonFinalizingRollback{Rollback: rollback}
 	}
-	return updated, revertFunc, finalizeFunc, err
+	return updated, rollback, err
 }
 
-func (c *revertCapturingADSCache) UpsertListener(ctx context.Context, nodeID, name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *revertCapturingADSCache) UpsertListener(ctx context.Context, nodeID, name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.Rollback, error) {
 	return c.captureRevert(c.Cache.UpsertListener(ctx, nodeID, name, resource, wg, callback))
 }
 
-func (c *revertCapturingADSCache) RemoveListener(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *revertCapturingADSCache) RemoveListener(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.Rollback, error) {
 	return c.captureRevert(c.Cache.RemoveListener(ctx, nodeID, name, wg, callback))
 }
 
-func (c *revertCapturingADSCache) UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *revertCapturingADSCache) UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.Rollback, error) {
 	return c.captureRevert(c.Cache.UpsertNetworkPolicy(ctx, nodeID, name, resource, wg, callback))
 }
 
-func (c *revertCapturingADSCache) RemoveNetworkPolicy(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *revertCapturingADSCache) RemoveNetworkPolicy(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.Rollback, error) {
 	return c.captureRevert(c.Cache.RemoveNetworkPolicy(ctx, nodeID, name, wg, callback))
 }
 
-func (c *revertCapturingADSCache) UpsertNetworkPolicyHosts(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *revertCapturingADSCache) UpsertNetworkPolicyHosts(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (bool, xdsnew.Rollback, error) {
 	return c.captureRevert(c.Cache.UpsertNetworkPolicyHosts(ctx, nodeID, name, resource))
 }
 
-func (c *revertCapturingADSCache) RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name string) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *revertCapturingADSCache) RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name string) (bool, xdsnew.Rollback, error) {
 	return c.captureRevert(c.Cache.RemoveNetworkPolicyHosts(ctx, nodeID, name))
 }
 
-func (c *countingADSCache) ApplyResources(ctx context.Context, nodeID string, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, typeURLs xdsnew.TypeURLCallbacks) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *countingADSCache) ApplyResources(ctx context.Context, nodeID string, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, typeURLs xdsnew.TypeURLCallbacks) (bool, xdsnew.Rollback, error) {
 	return c.countUpdate(c.Cache.ApplyResources(ctx, nodeID, mutations, wg, typeURLs))
 }
 
-func (c *countingADSCache) countUpdate(updated bool, revertFunc xdsnew.RevertFunc, finalizeFunc xdsnew.FinalizeFunc, err error) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *countingADSCache) countUpdate(updated bool, rollback xdsnew.Rollback, err error) (bool, xdsnew.Rollback, error) {
 	if updated {
 		c.generated.Add(1)
 		c.published.Add(1)
 	}
-	return updated, revertFunc, finalizeFunc, err
+	return updated, rollback, err
 }
 
-func (c *countingADSCache) UpsertListener(ctx context.Context, nodeID, name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *countingADSCache) UpsertListener(ctx context.Context, nodeID, name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.Rollback, error) {
 	return c.countUpdate(c.Cache.UpsertListener(ctx, nodeID, name, resource, wg, callback))
 }
 
-func (c *countingADSCache) RemoveListener(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *countingADSCache) RemoveListener(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.Rollback, error) {
 	return c.countUpdate(c.Cache.RemoveListener(ctx, nodeID, name, wg, callback))
 }
 
-func (c *countingADSCache) UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *countingADSCache) UpsertNetworkPolicy(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.Rollback, error) {
 	return c.countUpdate(c.Cache.UpsertNetworkPolicy(ctx, nodeID, name, resource, wg, callback))
 }
 
-func (c *countingADSCache) RemoveNetworkPolicy(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *countingADSCache) RemoveNetworkPolicy(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (bool, xdsnew.Rollback, error) {
 	return c.countUpdate(c.Cache.RemoveNetworkPolicy(ctx, nodeID, name, wg, callback))
 }
 
-func (c *countingADSCache) UpsertNetworkPolicyHosts(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *countingADSCache) UpsertNetworkPolicyHosts(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (bool, xdsnew.Rollback, error) {
 	return c.countUpdate(c.Cache.UpsertNetworkPolicyHosts(ctx, nodeID, name, resource))
 }
 
-func (c *countingADSCache) RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name string) (bool, xdsnew.RevertFunc, xdsnew.FinalizeFunc, error) {
+func (c *countingADSCache) RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name string) (bool, xdsnew.Rollback, error) {
 	return c.countUpdate(c.Cache.RemoveNetworkPolicyHosts(ctx, nodeID, name))
 }
 
@@ -349,14 +355,14 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		server, cache := newServer(t)
 		ctx := t.Context()
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
-		cache.revertFuncs = nil
+		cache.rollbacks = nil
 
 		wg := completion.NewWaitGroup(ctx)
 		t.Cleanup(wg.Cancel)
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), wg))
-		require.Len(t, cache.revertFuncs, 1)
+		require.Len(t, cache.rollbacks, 1)
 
-		_, reverted := cache.revertFuncs[0](revertCurrentGeneration)
+		_, reverted := cache.rollbacks[0].Revert(revertCurrentGeneration)
 		require.True(t, reverted)
 		current := cachedNetworkPolicy(t, cache, localNodeID, "policy")
 		require.Equal(t, uint64(1), current.EndpointId)
@@ -379,15 +385,15 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 
 		publish("node-a", 1) // generation 1
 		publish("node-b", 1) // generation 2
-		cache.revertFuncs = nil
+		cache.rollbacks = nil
 		publish("node-a", 2) // generation 3
-		require.Len(t, cache.revertFuncs, 1)
-		revertNodeA := cache.revertFuncs[0]
+		require.Len(t, cache.rollbacks, 1)
+		revertNodeA := cache.rollbacks[0]
 		publish("node-b", 2) // generation 4
 
 		// The global allocator advanced for node-b, but node-a still has the
 		// exact resource generation expected by its revert.
-		generation, reverted := revertNodeA(revertCurrentGeneration)
+		generation, reverted := revertNodeA.Revert(revertCurrentGeneration)
 		require.True(t, reverted)
 		require.Equal(t, uint64(5), generation)
 		require.Equal(t, uint64(1), cachedNetworkPolicy(t, cache, "node-a", "policy").EndpointId)
@@ -398,13 +404,13 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		server, cache := newServer(t)
 		ctx := t.Context()
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
-		cache.revertFuncs = nil
+		cache.rollbacks = nil
 
 		wg := completion.NewWaitGroup(ctx)
 		t.Cleanup(wg.Cancel)
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), wg))
-		require.Len(t, cache.revertFuncs, 1)
-		staleRevert := cache.revertFuncs[0]
+		require.Len(t, cache.rollbacks, 1)
+		staleRevert := cache.rollbacks[0]
 
 		// Return to the same resource contents through a later generation. A
 		// content hash cannot distinguish this state from the one associated
@@ -413,7 +419,7 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), nil))
 		beforeRevert := cachedNetworkPolicy(t, cache, localNodeID, "policy")
 
-		_, reverted := staleRevert(2)
+		_, reverted := staleRevert.Revert(2)
 		require.False(t, reverted)
 		require.Same(t, beforeRevert, cachedNetworkPolicy(t, cache, localNodeID, "policy"))
 		require.Equal(t, uint64(2), beforeRevert.EndpointId)
@@ -423,7 +429,7 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		server, cache := newServer(t)
 		ctx := t.Context()
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
-		cache.revertFuncs = nil
+		cache.rollbacks = nil
 
 		wg2 := completion.NewWaitGroup(ctx)
 		t.Cleanup(wg2.Cancel)
@@ -431,12 +437,12 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		wg3 := completion.NewWaitGroup(ctx)
 		t.Cleanup(wg3.Cancel)
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(3), wg3))
-		require.Len(t, cache.revertFuncs, 2)
+		require.Len(t, cache.rollbacks, 2)
 
 		expectedGeneration := revertCurrentGeneration
-		for _, revertFunc := range slices.Backward(cache.revertFuncs) {
+		for _, rollback := range slices.Backward(cache.rollbacks) {
 			var reverted bool
-			expectedGeneration, reverted = revertFunc(expectedGeneration)
+			expectedGeneration, reverted = rollback.Revert(expectedGeneration)
 			require.True(t, reverted)
 		}
 
@@ -448,26 +454,26 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		server, cache := newServer(t)
 		ctx := t.Context()
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(1), nil))
-		cache.revertFuncs = nil
+		cache.rollbacks = nil
 
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(2), nil))
 		require.NoError(t, server.UpsertEnvoyResources(ctx, resources(3), nil))
-		require.Len(t, cache.revertFuncs, 2)
-		olderRevert, newerRevert := cache.revertFuncs[0], cache.revertFuncs[1]
+		require.Len(t, cache.rollbacks, 2)
+		olderRevert, newerRevert := cache.rollbacks[0], cache.rollbacks[1]
 
 		const responseGeneration = uint64(3)
-		revertedGeneration, reverted := newerRevert(revertCurrentGeneration)
+		revertedGeneration, reverted := newerRevert.Revert(revertCurrentGeneration)
 		require.True(t, reverted)
 		require.Equal(t, uint64(2), cachedNetworkPolicy(t, cache, localNodeID, "policy").EndpointId)
 
 		// Endpoint regeneration already applied this inverse. A subsequent NACK
 		// observes that there is nothing left for this function to restore; the
 		// completion callback must nevertheless continue through older updates.
-		replayedGeneration, reverted := newerRevert(responseGeneration)
+		replayedGeneration, reverted := newerRevert.Revert(responseGeneration)
 		require.False(t, reverted)
 		require.Equal(t, revertedGeneration, replayedGeneration)
 
-		_, reverted = olderRevert(replayedGeneration)
+		_, reverted = olderRevert.Revert(replayedGeneration)
 		require.True(t, reverted)
 		require.Equal(t, uint64(1), cachedNetworkPolicy(t, cache, localNodeID, "policy").EndpointId)
 	})
@@ -479,9 +485,9 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 		resources.Listeners[listener.Name] = listener
 		require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, nil))
 		require.True(t, server.hasNPDSListeners())
-		require.Len(t, cache.revertFuncs, 1)
+		require.Len(t, cache.rollbacks, 1)
 
-		_, reverted := cache.revertFuncs[0](revertCurrentGeneration)
+		_, reverted := cache.rollbacks[0].Revert(revertCurrentGeneration)
 		require.True(t, reverted)
 		require.False(t, server.hasNPDSListeners())
 	})
@@ -629,7 +635,7 @@ func TestSnapshotRevertGeneration(t *testing.T) {
 			if tracked {
 				typeURLs.Set(typeurl.NetworkPolicy, nil)
 			}
-			updated, _, _, err := cache.ApplyResources(ctx, localNodeID, mutations, wg, typeURLs)
+			updated, _, err := cache.ApplyResources(ctx, localNodeID, mutations, wg, typeURLs)
 			require.NoError(t, err)
 			require.True(t, updated)
 		}
@@ -1440,12 +1446,12 @@ func TestUpdateEnvoyResourcesAddressChangeSupersedesOlderRollback(t *testing.T) 
 
 	initial := adsTestResources(adsTestListener(80, 8442))
 	require.NoError(t, server.UpsertEnvoyResources(ctx, initial, nil))
-	cache.revertFuncs = nil
+	cache.rollbacks = nil
 
 	tracked := adsTestResources(adsTestListener(80, 8443))
 	require.NoError(t, server.UpsertEnvoyResources(ctx, tracked, nil))
-	require.Len(t, cache.revertFuncs, 1)
-	staleRevert := cache.revertFuncs[0]
+	require.Len(t, cache.rollbacks, 1)
+	staleRollback := cache.rollbacks[0]
 
 	desired := adsTestResources(adsTestListener(80, 8444))
 	result := make(chan error, 1)
@@ -1466,7 +1472,7 @@ func TestUpdateEnvoyResourcesAddressChangeSupersedesOlderRollback(t *testing.T) 
 	ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
 	require.NoError(t, <-result)
 
-	_, reverted := staleRevert(revertCurrentGeneration)
+	_, reverted := staleRollback.Revert(revertCurrentGeneration)
 	require.False(t, reverted)
 	require.Same(t, desired.Listeners["listener1"], cachedListener(t, cache, localNodeID, "listener1"))
 }
@@ -2059,24 +2065,24 @@ func TestUpdateNetworkPolicyReusesIdempotentCacheRevert(t *testing.T) {
 	resources := xds.NewResources()
 	resources.NetworkPolicies["1"] = previousPolicy
 	require.NoError(t, server.UpsertEnvoyResources(ctx, resources, nil))
-	cache.revertFuncs = nil
+	cache.rollbacks = nil
 
 	ep := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
 	epp := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
 	err, revertFunc, _ := server.UpdateNetworkPolicy(ctx, ep, epp, nil)
 	require.NoError(t, err)
 	require.NotNil(t, revertFunc)
-	require.Len(t, cache.revertFuncs, 1)
+	require.Len(t, cache.rollbacks, 1)
 	require.False(t, proto.Equal(previousPolicy, cachedNetworkPolicy(t, cache, localNodeID, "1")))
 
 	// Simulate the cache's NACK path invoking the revert before endpoint
 	// regeneration reports failure to its caller.
-	generationAfterNACK, reverted := cache.revertFuncs[0](revertCurrentGeneration)
+	generationAfterNACK, reverted := cache.rollbacks[0].Revert(revertCurrentGeneration)
 	require.True(t, reverted)
 	require.Same(t, previousPolicy, cachedNetworkPolicy(t, cache, localNodeID, "1"))
 
 	require.NoError(t, revertFunc())
-	replayedGeneration, replayed := cache.revertFuncs[0](revertCurrentGeneration)
+	replayedGeneration, replayed := cache.rollbacks[0].Revert(revertCurrentGeneration)
 	require.False(t, replayed)
 	require.Equal(t, generationAfterNACK, replayedGeneration)
 	require.Same(t, previousPolicy, cachedNetworkPolicy(t, cache, localNodeID, "1"))
@@ -2248,10 +2254,10 @@ func TestUpdateNetworkPolicyCancelsWaitWhenLastNPDSListenerIsRemovedBeforeRegist
 	defer cancel()
 
 	listener := server.getListenerConf("npds-listener", policy.ParserTypeHTTP, 12345, false, false)
-	updated, listenerRevert, _, err := baseCache.UpsertListener(ctx, localNodeID, listener.Name, listener, nil, nil)
+	updated, listenerRollback, err := baseCache.UpsertListener(ctx, localNodeID, listener.Name, listener, nil, nil)
 	require.NoError(t, err)
 	require.True(t, updated)
-	require.NotNil(t, listenerRevert)
+	require.NotNil(t, listenerRollback)
 	require.True(t, server.hasNPDSListeners())
 
 	wg := completion.NewWaitGroup(ctx)
@@ -2280,7 +2286,7 @@ func TestUpdateNetworkPolicyCancelsWaitWhenLastNPDSListenerIsRemovedBeforeRegist
 
 	// Model a cache-owned listener rollback after UpdateNetworkPolicy has
 	// decided to wait, but before its completion is registered in the cache.
-	_, reverted := listenerRevert(0)
+	_, reverted := listenerRollback.Revert(0)
 	require.True(t, reverted)
 	require.False(t, server.hasNPDSListeners())
 	require.Zero(t, baseCache.GetCompletionCallbacks().PendingCompletionCount())

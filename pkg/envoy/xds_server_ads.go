@@ -306,11 +306,11 @@ func (s *adsServer) addListener(ctx context.Context, name string, listenerConf f
 	count++
 	s.listenerCount[name] = count
 
-	update, err := s.upsertListenerResource(ctx, localNodeID, name, listenerConfig, wg, cb)
+	rollback, err := s.upsertListenerResource(ctx, localNodeID, name, listenerConfig, wg, cb)
 	if err != nil {
 		return err
 	}
-	update.finalize()
+	finalizeRollback(rollback)
 	if wg == nil && cb != nil {
 		cb(nil)
 	}
@@ -489,8 +489,8 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 
 	// The cache owns the generation-fenced revert used if Envoy NACKs the
 	// listener removal. RemoveListener does not expose caller-driven rollback.
-	update, _ := s.removeListenerResource(ctx, localNodeID, name, wg, nil)
-	update.finalize()
+	rollback, _ := s.removeListenerResource(ctx, localNodeID, name, wg, nil)
+	finalizeRollback(rollback)
 }
 
 func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy,
@@ -537,8 +537,8 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		// Remove network policies for conflicting endpoints from the cache.
 		for _, dup := range conflicts {
 			dupName := strconv.FormatUint(dup.ep.GetID(), 10)
-			update, _ := s.removeNetworkPolicyResource(ctx, localNodeID, dupName, nil, nil)
-			update.finalize()
+			rollback, _ := s.removeNetworkPolicyResource(ctx, localNodeID, dupName, nil, nil)
+			finalizeRollback(rollback)
 		}
 	}
 
@@ -569,12 +569,11 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		}
 	}
 
-	var resourceUpdates []resourceUpdate
 	var updateCallback func(error)
 	if waitForACK {
 		updateCallback = callback
 	}
-	update, err := s.upsertNetworkPolicyResource(ctx, LocalNodeID, resourceName, networkPolicy, wg, updateCallback)
+	rollback, err := s.upsertNetworkPolicyResource(ctx, LocalNodeID, resourceName, networkPolicy, wg, updateCallback)
 	if err != nil {
 		return err, nil, nil
 	}
@@ -584,9 +583,6 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		// Recheck after registration to close that gap. If the listener disappears
 		// later, the cache's Listener observer performs the cancellation instead.
 		s.cancelNetworkPolicyCompletionsWithoutNPDSListeners()
-	}
-	if update.changed() {
-		resourceUpdates = append(resourceUpdates, update)
 	}
 
 	if !waitForACK {
@@ -598,9 +594,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 
 			// A cache-owned NACK may already have restored this update. The
 			// resource-generation fence makes the caller-owned revert harmless then.
-			for _, update := range resourceUpdates {
-				update.revert()
-			}
+			revertRollback(rollback)
 			s.logger.Debug("Finished reverting xDS network policy update")
 			return nil
 		}, func() {
@@ -609,9 +603,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 					logfields.EndpointID, epID,
 				)
 			}
-			for _, update := range resourceUpdates {
-				update.finalize()
-			}
+			finalizeRollback(rollback)
 		}
 }
 
@@ -636,8 +628,8 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		s.localEndpointStore.removeLocalEndpoint(ep)
 	}
 
-	update, _ := s.removeNetworkPolicyResource(ctx, localNodeID, resourceName, nil, nil)
-	update.finalize()
+	rollback, _ := s.removeNetworkPolicyResource(ctx, localNodeID, resourceName, nil, nil)
+	finalizeRollback(rollback)
 }
 
 func (s *adsServer) RemoveAllNetworkPolicies() {
@@ -649,12 +641,12 @@ func (s *adsServer) RemoveAllNetworkPolicies() {
 		return
 	}
 	mutations := xdsnew.ResourceMutations{Removed: xds.Resources{NetworkPolicies: policies}}
-	update, err := s.applyResourceUpdate(context.Background(), localNodeID, mutations, nil, xdsnew.TypeURLCallbacks{})
+	rollback, err := s.applyResourceUpdate(context.Background(), localNodeID, mutations, nil, xdsnew.TypeURLCallbacks{})
 	if err != nil {
 		s.logger.Error("Failed to remove all network policies", logfields.Error, err)
 		return
 	}
-	update.finalize()
+	finalizeRollback(rollback)
 }
 
 func (s *adsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
@@ -713,98 +705,84 @@ func (s *adsServer) portAllocationCallback(ctx context.Context, callbacks map[st
 	}
 }
 
-// resourceUpdate retains the caller-owned, resource-generation-fenced terminal
-// operations returned by the cache. Cache-owned NACK rollback has an
-// independent lifetime so endpoint regeneration can finalize its ownership
-// without weakening protocol rollback.
-type resourceUpdate struct {
-	updated      bool
-	revertFunc   xdsnew.RevertFunc
-	finalizeFunc xdsnew.FinalizeFunc
-}
-
 // No resource update uses generation zero. It identifies caller-driven
 // rollback rather than an xDS NACK rollback chain; the cache may use zero for
 // an initial empty snapshot which has no resource update to revert.
 const revertCurrentGeneration uint64 = 0
 
-func (u resourceUpdate) changed() bool {
-	return u.updated
-}
-
-func (u resourceUpdate) revert() {
-	if u.revertFunc != nil {
-		_, _ = u.revertFunc(revertCurrentGeneration)
+func revertRollback(rollback xdsnew.Rollback) {
+	if rollback != nil {
+		_, _ = rollback.Revert(revertCurrentGeneration)
 	}
 }
 
-func (u resourceUpdate) finalize() {
-	if u.finalizeFunc != nil {
-		u.finalizeFunc()
+func finalizeRollback(rollback xdsnew.Rollback) {
+	if rollback != nil {
+		rollback.Finalize()
 	}
 }
 
-func (s *adsServer) finishResourceUpdate(updated bool, revertFunc xdsnew.RevertFunc, finalizeFunc xdsnew.FinalizeFunc, err error) (resourceUpdate, error) {
+func (s *adsServer) finishResourceUpdate(updated bool, rollback xdsnew.Rollback, err error) (xdsnew.Rollback, error) {
 	if err != nil {
-		return resourceUpdate{}, err
+		return nil, err
 	}
 	if !updated && s.logger.Enabled(context.Background(), slog.LevelDebug) {
 		s.logger.Debug("ADS resources are identical, skipping update")
 	}
-	return resourceUpdate{updated: updated, revertFunc: revertFunc, finalizeFunc: finalizeFunc}, nil
+	return rollback, nil
 }
 
-func (s *adsServer) upsertListenerResource(ctx context.Context, nodeID, name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (resourceUpdate, error) {
+func (s *adsServer) upsertListenerResource(ctx context.Context, nodeID, name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (xdsnew.Rollback, error) {
 	completeImmediately := s.restorerPromise != nil && wg != nil
 	if completeImmediately {
 		wg = nil
 	}
-	updated, revertFunc, finalizeFunc, err := s.cache.UpsertListener(ctx, nodeID, name, resource, wg, callback)
-	update, err := s.finishResourceUpdate(updated, revertFunc, finalizeFunc, err)
+	updated, rollback, err := s.cache.UpsertListener(ctx, nodeID, name, resource, wg, callback)
+	rollback, err = s.finishResourceUpdate(updated, rollback, err)
 	if completeImmediately && err == nil && callback != nil {
 		callback(nil)
 	}
-	return update, err
+	return rollback, err
 }
 
-func (s *adsServer) removeListenerResource(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (resourceUpdate, error) {
+func (s *adsServer) removeListenerResource(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (xdsnew.Rollback, error) {
 	completeImmediately := s.restorerPromise != nil && wg != nil
 	if completeImmediately {
 		wg = nil
 	}
-	updated, revertFunc, finalizeFunc, err := s.cache.RemoveListener(ctx, nodeID, name, wg, callback)
-	update, err := s.finishResourceUpdate(updated, revertFunc, finalizeFunc, err)
+	updated, rollback, err := s.cache.RemoveListener(ctx, nodeID, name, wg, callback)
+	rollback, err = s.finishResourceUpdate(updated, rollback, err)
 	if completeImmediately && err == nil && callback != nil {
 		callback(nil)
 	}
-	return update, err
+	return rollback, err
 }
 
-func (s *adsServer) upsertNetworkPolicyResource(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (resourceUpdate, error) {
-	updated, revertFunc, finalizeFunc, err := s.cache.UpsertNetworkPolicy(ctx, nodeID, name, resource, wg, callback)
-	return s.finishResourceUpdate(updated, revertFunc, finalizeFunc, err)
+func (s *adsServer) upsertNetworkPolicyResource(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (xdsnew.Rollback, error) {
+	updated, rollback, err := s.cache.UpsertNetworkPolicy(ctx, nodeID, name, resource, wg, callback)
+	return s.finishResourceUpdate(updated, rollback, err)
 }
 
-func (s *adsServer) removeNetworkPolicyResource(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (resourceUpdate, error) {
-	updated, revertFunc, finalizeFunc, err := s.cache.RemoveNetworkPolicy(ctx, nodeID, name, wg, callback)
-	return s.finishResourceUpdate(updated, revertFunc, finalizeFunc, err)
+func (s *adsServer) removeNetworkPolicyResource(ctx context.Context, nodeID, name string, wg *completion.WaitGroup, callback func(error)) (xdsnew.Rollback, error) {
+	updated, rollback, err := s.cache.RemoveNetworkPolicy(ctx, nodeID, name, wg, callback)
+	return s.finishResourceUpdate(updated, rollback, err)
 }
 
-func (s *adsServer) upsertNetworkPolicyHostsResource(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (resourceUpdate, error) {
-	updated, revertFunc, finalizeFunc, err := s.cache.UpsertNetworkPolicyHosts(ctx, nodeID, name, resource)
-	return s.finishResourceUpdate(updated, revertFunc, finalizeFunc, err)
+func (s *adsServer) upsertNetworkPolicyHostsResource(ctx context.Context, nodeID, name string, resource *cilium.NetworkPolicyHosts) (xdsnew.Rollback, error) {
+	updated, rollback, err := s.cache.UpsertNetworkPolicyHosts(ctx, nodeID, name, resource)
+	return s.finishResourceUpdate(updated, rollback, err)
 }
 
-func (s *adsServer) removeNetworkPolicyHostsResource(ctx context.Context, nodeID, name string) (resourceUpdate, error) {
-	updated, revertFunc, finalizeFunc, err := s.cache.RemoveNetworkPolicyHosts(ctx, nodeID, name)
-	return s.finishResourceUpdate(updated, revertFunc, finalizeFunc, err)
+func (s *adsServer) removeNetworkPolicyHostsResource(ctx context.Context, nodeID, name string) (xdsnew.Rollback, error) {
+	updated, rollback, err := s.cache.RemoveNetworkPolicyHosts(ctx, nodeID, name)
+	return s.finishResourceUpdate(updated, rollback, err)
 }
 
 // applyResourceUpdate forwards sparse mutation intent to the cache, which is
 // the authority for semantic equality, changed resource names, published
 // copy-on-write snapshots, and generation-fenced reverts.
 // Caller must hold s.mutex.
-func (s *adsServer) applyResourceUpdate(ctx context.Context, nodeID string, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, callbackTypeURLs xdsnew.TypeURLCallbacks) (resourceUpdate, error) {
+func (s *adsServer) applyResourceUpdate(ctx context.Context, nodeID string, mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, callbackTypeURLs xdsnew.TypeURLCallbacks) (xdsnew.Rollback, error) {
 	restoring := s.restorerPromise != nil
 	callbacks := callbackTypeURLs
 	if restoring {
@@ -812,8 +790,8 @@ func (s *adsServer) applyResourceUpdate(ctx context.Context, nodeID string, muta
 		// An explicitly empty set prevents the cache from inferring an LDS wait.
 		callbackTypeURLs = xdsnew.NewTypeURLCallbacks()
 	}
-	updated, revertFunc, finalizeFunc, err := s.cache.ApplyResources(ctx, nodeID, mutations, wg, callbackTypeURLs)
-	update, err := s.finishResourceUpdate(updated, revertFunc, finalizeFunc, err)
+	updated, rollback, err := s.cache.ApplyResources(ctx, nodeID, mutations, wg, callbackTypeURLs)
+	rollback, err = s.finishResourceUpdate(updated, rollback, err)
 	if restoring && err == nil {
 		for _, callback := range callbacks.All() {
 			if callback != nil {
@@ -821,7 +799,7 @@ func (s *adsServer) applyResourceUpdate(ctx context.Context, nodeID string, muta
 			}
 		}
 	}
-	return update, err
+	return rollback, err
 }
 
 // updateNPDSListenerCount updates server-derived listener state while the
@@ -946,8 +924,8 @@ func (s *adsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Reso
 			callbackTypeURLs.Set(typeurl.Cluster, nil)
 		}
 	}
-	update, err := s.applyResourceUpdate(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, wg, callbackTypeURLs)
-	update.finalize()
+	rollback, err := s.applyResourceUpdate(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, wg, callbackTypeURLs)
+	finalizeRollback(rollback)
 	return err
 }
 
@@ -990,8 +968,8 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 		}
 	}
 	if len(listenersToRecreate) == 0 || s.restorerPromise != nil {
-		update, err := s.applyResourceUpdate(ctx, localNodeID, xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}, waitGroup, callbackTypeURLs)
-		update.finalize()
+		rollback, err := s.applyResourceUpdate(ctx, localNodeID, xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}, waitGroup, callbackTypeURLs)
+		finalizeRollback(rollback)
 		return err
 	}
 
@@ -1003,7 +981,7 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	// ACK waits observe the caller's deadline, but cache mutations and their
 	// caller-owned rollback operations must remain usable after that deadline.
 	mutationCtx := context.WithoutCancel(ctx)
-	applyUpdate := func(mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, callbacks xdsnew.TypeURLCallbacks) (resourceUpdate, error) {
+	applyUpdate := func(mutations xdsnew.ResourceMutations, wg *completion.WaitGroup, callbacks xdsnew.TypeURLCallbacks) (xdsnew.Rollback, error) {
 		return s.applyResourceUpdate(mutationCtx, localNodeID, mutations, wg, callbacks)
 	}
 
@@ -1012,12 +990,12 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	deleteWG := completion.NewWaitGroup(ctx)
 	var listenerWait xdsnew.TypeURLCallbacks
 	listenerWait.Set(typeurl.Listener, nil)
-	deleteUpdate, err := applyUpdate(stagedMutations, deleteWG, listenerWait)
+	deleteRollback, err := applyUpdate(stagedMutations, deleteWG, listenerWait)
 	if err != nil {
 		return err
 	}
 	if err := deleteWG.Wait(); err != nil {
-		deleteUpdate.revert()
+		revertRollback(deleteRollback)
 		return fmt.Errorf("waiting for listener deletion ACK: %w", err)
 	}
 
@@ -1028,23 +1006,23 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	replaceMutations := xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}
 	for attempt := 1; ; attempt++ {
 		replaceWG := completion.NewWaitGroup(ctx)
-		replaceUpdate, err := applyUpdate(replaceMutations, replaceWG, callbackTypeURLs)
+		replaceRollback, err := applyUpdate(replaceMutations, replaceWG, callbackTypeURLs)
 		if err == nil {
 			err = replaceWG.Wait()
 		}
 		if err == nil {
-			replaceUpdate.finalize()
-			deleteUpdate.finalize()
+			finalizeRollback(replaceRollback)
+			finalizeRollback(deleteRollback)
 			return nil
 		}
 		// If Envoy NACKed the replacement, cache-owned rollback has already
 		// restored this phase. On timeout, the caller-owned rollback does it now.
 		// Either way, the generation fence makes this operation safe and leaves
 		// the accepted listener-deletion state ready for a retry or full rollback.
-		replaceUpdate.revert()
+		revertRollback(replaceRollback)
 
 		if !isAddressAlreadyInUseError(err) || attempt >= listenerAddressChangeMaxAttempts {
-			deleteUpdate.revert()
+			revertRollback(deleteRollback)
 			return fmt.Errorf("waiting for replacement listener ACK: %w", err)
 		}
 
@@ -1058,7 +1036,7 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			deleteUpdate.revert()
+			revertRollback(deleteRollback)
 			return ctx.Err()
 		case <-timer.C:
 		}
@@ -1082,8 +1060,8 @@ func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 	if callback != nil {
 		callbackTypeURLs.Set(typeurl.Listener, callback)
 	}
-	update, err := s.applyResourceUpdate(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, waitGroup, callbackTypeURLs)
-	update.finalize()
+	rollback, err := s.applyResourceUpdate(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, waitGroup, callbackTypeURLs)
+	finalizeRollback(rollback)
 	return err
 }
 
