@@ -255,6 +255,28 @@ kpr_v4_dsr_lb3_mtu2_post_geneve_xdp = (
     b"foobar"
 )
 
+kpr_v4_dsr_lb3_mtu3_gso = (
+    Ether(src=host_mac_addr, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_svc_one) /
+    TCP(sport=tcp_src_two, dport=tcp_svc_three, flags="") /
+    Raw(load=b'\x00' * 200)
+)
+
+kpr_v4_dsr_lb3_mtu3_gso_post_option = (
+    Ether(src=host_mac_addr, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_pod_one, ttl=63,
+       options=[bytes(IPOption_DSR(port=tcp_svc_three, addr=v4_svc_one))]) /
+    TCP(sport=tcp_src_two, dport=tcp_dst_three, flags="") /
+    Raw(load=b'\x00' * 200)
+)
+
+kpr_v4_dsr_lb3_mtu3_gso_post_geneve = (
+    Ether(src=host_mac_addr, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    TCP(sport=tcp_src_two, dport=tcp_dst_three, flags="") /
+    Raw(load=b'\x00' * 200)
+)
+
 kpr_v4_dsr_remote_node_reply = (
     Ether(src=mac_two, dst=mac_one) /
     IP(src=v4_pod_one, dst=v4_ext_one) /
