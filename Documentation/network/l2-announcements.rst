@@ -84,6 +84,11 @@ Limitations
 * The feature is incompatible with the ``externalTrafficPolicy: Local`` on services as it may cause 
   service IPs to be announced on nodes without pods causing traffic drops.
 
+* The feature does not support announcing one IP for more than one service. Services sharing an IP
+  through an LB IPAM sharing key (see :ref:`lb_ipam_sharing_keys`), or listing the same address in
+  ``spec.externalIPs``, run separate leader elections, so the IP can end up announced from more
+  than one node.
+
 Policies
 ########
 
