@@ -15,9 +15,10 @@ import (
 
 	"go4.org/netipx"
 
-	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/ipam/cidralloc"
+	"github.com/cilium/cilium/pkg/ipam/cidrset"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -228,7 +229,7 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 	}
 	if len(alloc) > 0 {
 		var err error
-		newCIDRSets, err = cidralloc.NewCIDRSets(isV6, alloc, maskSize)
+		newCIDRSets, err = cidrset.NewCIDRSets(isV6, alloc, maskSize)
 		if err != nil {
 			return nil, err
 		}

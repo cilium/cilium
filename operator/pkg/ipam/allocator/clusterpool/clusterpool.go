@@ -9,8 +9,9 @@ import (
 	"log/slog"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
-	"github.com/cilium/cilium/operator/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/podcidr"
+	"github.com/cilium/cilium/pkg/ipam/cidralloc"
+	"github.com/cilium/cilium/pkg/ipam/cidrset"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -49,7 +50,7 @@ func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger) error
 			return fmt.Errorf("cluster-pool-ipv4-cidr must be provided when using ClusterPool")
 		}
 
-		v4Allocators, err := cidralloc.NewCIDRSets(false, a.ClusterPoolIPv4CIDR, a.ClusterPoolIPv4MaskSize)
+		v4Allocators, err := cidrset.NewCIDRSets(false, a.ClusterPoolIPv4CIDR, a.ClusterPoolIPv4MaskSize)
 		if err != nil {
 			return fmt.Errorf("unable to initialize IPv4 allocator: %w", err)
 		}
@@ -63,7 +64,7 @@ func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger) error
 			return fmt.Errorf("cluster-pool-ipv6-cidr must be provided when using ClusterPool")
 		}
 
-		v6Allocators, err := cidralloc.NewCIDRSets(true, a.ClusterPoolIPv6CIDR, a.ClusterPoolIPv6MaskSize)
+		v6Allocators, err := cidrset.NewCIDRSets(true, a.ClusterPoolIPv6CIDR, a.ClusterPoolIPv6MaskSize)
 		if err != nil {
 			return fmt.Errorf("unable to initialize IPv6 allocator: %w", err)
 		}
