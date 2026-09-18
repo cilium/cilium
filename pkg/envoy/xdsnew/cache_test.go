@@ -826,7 +826,7 @@ func TestGenerateSnapshotFromStateIncrementallyReusesPublishedMapAfterCoalescedA
 	require.Equal(t, previousSnapshot.GetVersion(NetworkPolicyTypeURL), nextSnapshot.GetVersion(NetworkPolicyTypeURL))
 }
 
-func TestNodeStateUsesProtoEqualityAndTracksChangedNames(t *testing.T) {
+func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 	current := xds.NewResources()
 	current.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
 	current.Routes["route"] = &envoy_config_route.RouteConfiguration{Name: "route"}

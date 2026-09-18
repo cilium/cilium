@@ -1232,9 +1232,9 @@ func (c *cacheImpl) updateResourceEntries(typeURL typeurl.Index, resources map[s
 			return cache.Resources{}, nil, err
 		}
 		// The content version is required for a changed resource. Reuse it for
-		// semantic equality instead of paying for proto.Equal immediately before
-		// marshaling the same protobuf. Equal versions retain the published
-		// pointer and preserve the A-B-A no-op path.
+		// semantic equality instead of performing another semantic comparison
+		// immediately before marshaling the same protobuf. Equal versions retain
+		// the published pointer and preserve the A-B-A no-op path.
 		if resourceExists && versionExists && previousVersion == version {
 			continue
 		}
@@ -1890,7 +1890,7 @@ func prepareResourceMap[V interface {
 			old := current[name]
 			desired := resourceValue(resource)
 			exists := old.resource != nil
-			if exists && (old.resource == desired || proto.Equal(old.resource, desired)) {
+			if exists && (old.resource == desired || xds.ResourceEqual(old.resource, desired)) {
 				return nil, nil, nil, false
 			}
 			inverse = map[string]resourceEntry{name: old}
@@ -1930,7 +1930,7 @@ func prepareResourceMap[V interface {
 		old := current[name]
 		desired := resourceValue(resource)
 		exists := old.resource != nil
-		if exists && (old.resource == desired || proto.Equal(old.resource, desired)) {
+		if exists && (old.resource == desired || xds.ResourceEqual(old.resource, desired)) {
 			continue
 		}
 		if changedUpserted == nil {
@@ -2338,7 +2338,7 @@ func (state *resourceTypeState) reconcileChangedNames(affected map[string]resour
 			continue
 		}
 		if publishedExists &&
-			(publishedResource.Resource == resource || proto.Equal(publishedResource.Resource, resource)) {
+			(publishedResource.Resource == resource || xds.ResourceEqual(publishedResource.Resource, resource)) {
 			state.changed.Remove(name)
 		}
 	}
@@ -2449,7 +2449,7 @@ func prepareSingleResource[V interface {
 	if resource == zero {
 		return previous, zero, false, previous.resource != nil
 	}
-	if previous.resource != nil && (previous.resource == resource || proto.Equal(previous.resource, resource)) {
+	if previous.resource != nil && (previous.resource == resource || xds.ResourceEqual(previous.resource, resource)) {
 		return previous, previous.resource.(V), true, false
 	}
 	return previous, resource, true, true
@@ -2925,7 +2925,7 @@ func resourceMutationAccepted[V interface {
 	for name, resource := range upserted {
 		// prepareResourceMutation has already established semantic equality
 		// for unchanged types. Reuse the canonical cache pointer here so an
-		// already-ACKed no-op does not pay for the same proto.Equal twice.
+		// already-ACKed no-op does not pay for the same semantic comparison twice.
 		if !typeChanged {
 			if cached, exists := currentResource(current, name); exists {
 				resource = cached.(V)

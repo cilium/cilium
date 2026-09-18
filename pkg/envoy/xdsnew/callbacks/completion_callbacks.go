@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -617,7 +618,7 @@ func (cb *CompletionCallbacks) resourceAccepted(nodeID string, typeURL typeurl.I
 		(!previousExists || accepted.Resource == previous) {
 		return false
 	}
-	return !desiredExists || accepted.Resource == desired || proto.Equal(accepted.Resource, desired)
+	return !desiredExists || accepted.Resource == desired || xds.ResourceEqual(accepted.Resource, desired)
 }
 
 // AddTypeGeneration records a resource-changing generation until the response

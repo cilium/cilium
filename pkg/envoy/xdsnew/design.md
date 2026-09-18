@@ -170,7 +170,8 @@ Suppose a NetworkPolicy named `P` changes from `P0` to `P1`.
 The cache first checks whether the resource changed semantically:
 
 1. Compare pointers.
-2. If the pointers differ, compare the protobuf contents with `proto.Equal`.
+2. If the pointers differ, use generated VT equality when available and fall
+   back to `proto.Equal` otherwise.
 
 If the contents are equal, the operation follows the no-op path described later.
 
