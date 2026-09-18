@@ -173,8 +173,10 @@ type Device interface {
 	GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
 	GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
 	AllowMultipleAllocations() bool
-	// Setup returns the device prepared for this allocation. It may differ from
-	// the advertised device when each allocation requires its own interface.
+	// Setup prepares one allocation and returns the device representing it.
+	// For a shared device, this may be an allocation-specific child, such as a
+	// netdev that leases one RX queue, rather than the device published in the
+	// ResourceSlice.
 	Setup(allocation DeviceAllocation) (Device, error)
 	Free(allocation DeviceAllocation) error
 	Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
