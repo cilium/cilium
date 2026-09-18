@@ -41,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/ipmasq"
 	k8sClientTest "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -101,7 +100,6 @@ func TestScriptClusterPoolToMultiPool(t *testing.T) {
 					func() *watchers.K8sEventReporter { return &watchers.K8sEventReporter{} },
 					func() endpointmanager.EndpointManager { return noopEndpointManager{} },
 					func() *nodediscovery.NodeDiscovery { return &nodediscovery.NodeDiscovery{} },
-					func() *ipmasq.IPMasqAgent { return nil },
 					func() mtu.MTU { return &mtuFake.MTU{} },
 					func() sysctl.Sysctl { return &sysctlFake.Sysctl{} },
 					datapathTables.NewDeviceTable,
