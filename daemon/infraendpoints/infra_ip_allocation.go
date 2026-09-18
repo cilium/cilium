@@ -419,6 +419,9 @@ func (r *infraIPAllocator) allocateHealthIPs(ctx context.Context, oldV4HealthIP 
 			if err != nil {
 				return fmt.Errorf("unable to allocate health IPv4: %w, see https://cilium.link/ipam-range-full", err)
 			}
+			// Track the address we now hold, not just the one we tried to
+			// restore: the IPv6 arm below releases it if it cannot allocate.
+			healthIPv4 = result.IP
 			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4HealthIP = iputil.AddrFrom(result.IP) })
 		}
 
