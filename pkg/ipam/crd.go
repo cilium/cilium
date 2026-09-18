@@ -744,27 +744,6 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 				if iface.Gateway.IsValid() {
 					result.GatewayIP = iface.Gateway.Addr
 				}
-				if p := iface.Subnet.CIDR.Prefix; p.IsValid() {
-					result.CIDRs = append(result.CIDRs, p)
-				}
-				// Add manually configured Native Routing CIDR
-				if a.conf.IPv4NativeRoutingCIDR.IsValid() {
-					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR)
-				}
-				// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
-				// Note that the resulting ip rules will not be dynamically regenerated if the
-				// ip-masq-agent configuration changes.
-				if a.conf.EnableIPMasqAgent {
-					nonMasqCidrs := a.ipMasqAgent.NonMasqCIDRsFromConfig()
-					for _, prefix := range nonMasqCidrs {
-						if addr.Is4() && prefix.Addr().Is4() {
-							result.CIDRs = append(result.CIDRs, prefix)
-						} else if !addr.Is4() && prefix.Addr().Is6() {
-							result.CIDRs = append(result.CIDRs, prefix)
-						}
-					}
-				}
-
 				// For now, we can hardcode the interface number to a valid
 				// integer because it will not be used in the allocation result
 				// anyway. Azure IPAM does not use the per-interface egress rule
@@ -782,7 +761,7 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 		return nil, fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
 
 	// In AlibabaCloud mode, the Resource points to the ENI so we can derive the
-	// master interface and all CIDRs of the VPC
+	// master interface and the vSwitch gateway
 	case ipamOption.IPAMAlibabaCloud:
 		for _, eni := range a.store.ownNode.Status.AlibabaCloud.ENIs {
 			if eni.NetworkInterfaceID != ipInfo.Resource {
@@ -791,7 +770,6 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 			result.PrimaryMAC = eni.MACAddress
 			if eni.VSwitch.CIDRBlock.IsValid() {
 				p := eni.VSwitch.CIDRBlock.Prefix
-				result.CIDRs = []netip.Prefix{p}
 
 				// AlibabaCloud reserves the third-to-last IP of the subnet for the gateway.
 				// Ref: https://www.alibabacloud.com/help/doc-detail/65398.html
