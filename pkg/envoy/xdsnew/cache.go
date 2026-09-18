@@ -1511,7 +1511,7 @@ func (tx *resourceTransaction) notifyListenerObserverLocked() bool {
 
 func (c *cacheImpl) registerGenerationCompletions(nodeID string, newSnapshot, oldSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, waits typeURLWaits, revertFunc RevertFunc) ([]*completion.Completion, []immediateCompletion) {
 	completions := make([]*completion.Completion, 0, waits.Len())
-	immediateCompletions := make([]immediateCompletion, 0, 1)
+	var immediateCompletions []immediateCompletion
 	if wg != nil && !waits.Empty() {
 		for typeURL, wait := range waits.All() {
 			owner := c.completionCbs.NewTypeGenerationCompletionOwner(nodeID, typeURL, wait.generation)
@@ -1546,7 +1546,7 @@ func (c *cacheImpl) registerGenerationCompletions(nodeID string, newSnapshot, ol
 
 func (c *cacheImpl) registerStagedGenerationCompletions(nodeID string, networkPoliciesEmpty bool, wg *completion.WaitGroup, waits typeURLWaits, revertFunc RevertFunc) ([]*completion.Completion, []immediateCompletion) {
 	completions := make([]*completion.Completion, 0, waits.Len())
-	immediateCompletions := make([]immediateCompletion, 0, 1)
+	var immediateCompletions []immediateCompletion
 	if wg == nil || waits.Empty() {
 		return completions, immediateCompletions
 	}
