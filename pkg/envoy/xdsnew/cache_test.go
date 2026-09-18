@@ -7,14 +7,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"log/slog"
 	"maps"
 	"os"
 	"reflect"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -1905,42 +1909,6 @@ func TestAwaitCurrentVersion_CompletesAlreadyNackedNetworkPolicyVersion(t *testi
 	require.ErrorContains(t, callbackErr, "rejected policy")
 }
 
-// --- GetVersion ---
-
-func TestGetVersion_DifferentResourcesProduceDifferentVersions(t *testing.T) {
-	mock := newMockSnapshotCache()
-	c := newInitializedTestCache(mock)
-
-	res1 := emptyResources()
-	res1.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
-
-	res2 := emptyResources()
-	res2.Listeners["l2"] = &envoy_config_listener.Listener{Name: "l2"}
-
-	v1 := c.getVersion(res1)
-	v2 := c.getVersion(res2)
-
-	assert.NotEmpty(t, v1)
-	assert.NotEmpty(t, v2)
-	assert.NotEqual(t, v1, v2)
-}
-
-func TestGetVersion_SameResourcesProduceSameVersion(t *testing.T) {
-	mock := newMockSnapshotCache()
-	c := newInitializedTestCache(mock)
-
-	res1 := emptyResources()
-	res1.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
-
-	res2 := emptyResources()
-	res2.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
-
-	v1 := c.getVersion(res1)
-	v2 := c.getVersion(res2)
-
-	assert.Equal(t, v1, v2)
-}
-
 // --- AreDifferentSnapshots ---
 
 func TestAreDifferentSnapshots_Identical(t *testing.T) {
@@ -3367,6 +3335,78 @@ func TestClearSnapshot_ResetsResourcesAndDelegates(t *testing.T) {
 	// Resources should be reset to empty.
 	_, exists := c.GetResource("node1", typeurl.Listener, "l1")
 	require.False(t, exists)
+}
+
+func TestResourceVersionPreservesLegacyHash(t *testing.T) {
+	c := &cacheImpl{}
+	legacyHash := func(resources map[string]string) string {
+		hasher := fnv.New32a()
+		printer := spew.ConfigState{
+			Indent:         " ",
+			SortKeys:       true,
+			DisableMethods: true,
+			SpewKeys:       true,
+		}
+		printer.Fprintf(hasher, "%#v", resources)
+		return encodeVersionHash(hasher.Sum32())
+	}
+	legacyResourceVersion := func(typeURL typeurl.Index, resourceVersions map[string]string, versionContext ...string) string {
+		keys := slices.Collect(maps.Keys(resourceVersions))
+		slices.Sort(keys)
+		var aggregate strings.Builder
+		for _, name := range keys {
+			aggregate.WriteString(name)
+			aggregate.WriteByte(0)
+			aggregate.WriteString(resourceVersions[name])
+			aggregate.WriteByte(0)
+		}
+		for _, context := range versionContext {
+			if context == "" {
+				continue
+			}
+			aggregate.WriteString("version-context")
+			aggregate.WriteByte(0)
+			aggregate.WriteString(context)
+			aggregate.WriteByte(0)
+		}
+		return legacyHash(map[string]string{typeURL.URL(): aggregate.String()})
+	}
+
+	testCases := []struct {
+		name             string
+		resourceVersions map[string]string
+		versionContext   []string
+	}{
+		{name: "empty"},
+		{name: "single", resourceVersions: map[string]string{"policy": "abc"}},
+		{
+			name: "sorted resources and contexts",
+			resourceVersions: map[string]string{
+				"z-resource": "version-z",
+				"a-resource": "version-a",
+			},
+			versionContext: []string{"", "first-context", "second-context"},
+		},
+		{
+			name:             "format delimiters",
+			resourceVersions: map[string]string{"name:]\x00": "version:[\x00"},
+			versionContext:   []string{"context:]\x00"},
+		},
+	}
+
+	for typeURL := range typeurl.Indices() {
+		for _, testCase := range testCases {
+			t.Run(fmt.Sprintf("%d/%s", typeURL, testCase.name), func(t *testing.T) {
+				require.Equal(t,
+					legacyResourceVersion(typeURL, testCase.resourceVersions, testCase.versionContext...),
+					c.resourceVersion(typeURL, testCase.resourceVersions, testCase.versionContext...),
+				)
+			})
+		}
+	}
+
+	// Pin one legacy value independently of the compatibility helper.
+	require.Equal(t, "cc78b4cb5", c.resourceVersion(typeurl.NetworkPolicy, nil))
 }
 
 // --- GenerateSnapshot versions are deterministic ---

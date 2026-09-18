@@ -6,7 +6,6 @@ package xdsnew
 import (
 	"context"
 	"fmt"
-	"hash/fnv"
 	"iter"
 	"log/slog"
 	"maps"
@@ -14,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -506,25 +504,8 @@ func NewCache(logger *slog.Logger, strictAdsMode bool) Cache {
 	return c
 }
 
-func (c *cacheImpl) hash(resources map[string]string) string {
-	hasher := fnv.New32a()
-	printer := spew.ConfigState{
-		Indent:         " ",
-		SortKeys:       true,
-		DisableMethods: true,
-		SpewKeys:       true,
-	}
-	printer.Fprintf(hasher, "%#v", resources)
-	return rand.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
-}
-
-func (c *cacheImpl) getVersion(resources *xds.Resources) string {
-	encodedResources, err := Marshal(resources)
-	if err != nil {
-		c.logger.Error(fmt.Sprintf("failed to marshal resources for versioning: %v", err))
-		return ""
-	}
-	return c.hash(encodedResources)
+func encodeVersionHash(hash uint32) string {
+	return rand.SafeEncodeString(strconv.FormatUint(uint64(hash), 10))
 }
 
 func resourceGroup(version string, resources map[string]cache_types.Resource) cache.Resources {
@@ -780,26 +761,46 @@ func resourceContentVersion(resource cache_types.Resource) (string, error) {
 	return cache.HashResource(marshaledResource), nil
 }
 
+const (
+	fnv32aOffsetBasis = uint32(2166136261)
+	fnv32aPrime       = uint32(16777619)
+)
+
+func updateFNV32a(hash uint32, value string) uint32 {
+	for i := range len(value) {
+		hash ^= uint32(value[i])
+		hash *= fnv32aPrime
+	}
+	return hash
+}
+
 func (c *cacheImpl) resourceVersion(typeURL typeurl.Index, resourceVersions map[string]string, versionContext ...string) string {
 	keys := slices.Collect(maps.Keys(resourceVersions))
 	slices.Sort(keys)
-	var sb strings.Builder
+	// Preserve the legacy single-entry map representation exactly while feeding
+	// it to FNV-1a directly. This avoids constructing the aggregate string and
+	// map and avoids formatting them with spew.
+	hash := fnv32aOffsetBasis
+	hash = updateFNV32a(hash, "(map[string]string)map[")
+	hash = updateFNV32a(hash, typeURL.URL())
+	hash = updateFNV32a(hash, ":")
 	for _, name := range keys {
-		sb.WriteString(name)
-		sb.WriteByte(0)
-		sb.WriteString(resourceVersions[name])
-		sb.WriteByte(0)
+		hash = updateFNV32a(hash, name)
+		hash = updateFNV32a(hash, "\x00")
+		hash = updateFNV32a(hash, resourceVersions[name])
+		hash = updateFNV32a(hash, "\x00")
 	}
 	for _, context := range versionContext {
 		if context == "" {
 			continue
 		}
-		sb.WriteString("version-context")
-		sb.WriteByte(0)
-		sb.WriteString(context)
-		sb.WriteByte(0)
+		hash = updateFNV32a(hash, "version-context")
+		hash = updateFNV32a(hash, "\x00")
+		hash = updateFNV32a(hash, context)
+		hash = updateFNV32a(hash, "\x00")
 	}
-	return c.hash(map[string]string{typeURL.URL(): sb.String()})
+	hash = updateFNV32a(hash, "]")
+	return encodeVersionHash(hash)
 }
 
 func (c *cacheImpl) resourceVersions(typeURL typeurl.Index, resources map[string]cache_types.Resource, versionContext ...string) (string, map[string]string, error) {
