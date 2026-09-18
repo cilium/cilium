@@ -93,21 +93,21 @@ ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 
-/* Test that a SVC request (TCP) to a local backend
+/* Test that a SVC request (UDP) to a local backend
  * - gets DNATed (but not SNATed)
  * - gets redirected by TC (as BPF Host Routing is enabled)
  */
-PKTGEN(PROG_TYPE, "tc_nodeport_lb_terminating_backend_0")
-int tc_nodeport_lb_terminating_backend_0_pktgen(struct __ctx_buff *ctx)
+PKTGEN(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_0")
+int tc_nodeport_lb_terminating_backend_udp_0_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct tcphdr *l4;
+	struct udphdr *l4;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+	l4 = pktgen__push_ipv4_udp_packet(&builder,
 					  (__u8 *)client_mac, (__u8 *)lb_mac,
 					  CLIENT_IP, FRONTEND_IP_LOCAL,
 					  CLIENT_PORT, FRONTEND_PORT);
@@ -124,14 +124,14 @@ int tc_nodeport_lb_terminating_backend_0_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(PROG_TYPE, "tc_nodeport_lb_terminating_backend_0")
-int tc_nodeport_lb_terminating_backend_0_setup(struct __ctx_buff *ctx)
+SETUP(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_0")
+int tc_nodeport_lb_terminating_backend_udp_0_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = SVC_REV_NAT_ID;
 
-	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
+	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, IPPROTO_UDP, 1, revnat_id);
 	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 125,
-			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
+			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
 
 	/* add local backend */
 	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
@@ -142,12 +142,12 @@ int tc_nodeport_lb_terminating_backend_0_setup(struct __ctx_buff *ctx)
 	return netdev_receive_packet(ctx);
 }
 
-CHECK(PROG_TYPE, "tc_nodeport_lb_terminating_backend_0")
-int tc_nodeport_lb_terminating_backend_0_check(const struct __ctx_buff *ctx)
+CHECK(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_0")
+int tc_nodeport_lb_terminating_backend_udp_0_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;
-	struct tcphdr *l4;
+	struct udphdr *l4;
 	struct ethhdr *l2;
 	struct iphdr *l3;
 
@@ -200,25 +200,22 @@ int tc_nodeport_lb_terminating_backend_0_check(const struct __ctx_buff *ctx)
 /* Test that a second request gets LBed to a terminating backend,
  * even when the service has no active backends remaining.
  */
-PKTGEN(PROG_TYPE, "tc_nodeport_lb_terminating_backend_1")
-int tc_nodeport_lb_terminating_backend_1_pktgen(struct __ctx_buff *ctx)
+PKTGEN(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_1")
+int tc_nodeport_lb_terminating_backend_udp_1_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct tcphdr *l4;
+	struct udphdr *l4;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+	l4 = pktgen__push_ipv4_udp_packet(&builder,
 					  (__u8 *)client_mac, (__u8 *)lb_mac,
 					  CLIENT_IP, FRONTEND_IP_LOCAL,
 					  CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->syn = 0;
-	l4->ack = 1;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -230,8 +227,8 @@ int tc_nodeport_lb_terminating_backend_1_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(PROG_TYPE, "tc_nodeport_lb_terminating_backend_1")
-int tc_nodeport_lb_terminating_backend_1_setup(struct __ctx_buff *ctx)
+SETUP(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_1")
+int tc_nodeport_lb_terminating_backend_udp_1_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = SVC_REV_NAT_ID;
 
@@ -241,19 +238,19 @@ int tc_nodeport_lb_terminating_backend_1_setup(struct __ctx_buff *ctx)
 	/* Remove the service's last backend, and flip the backend to
 	 * 'terminating' state.
 	 */
-	lb_v4_upsert_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
-	lb_v4_upsert_backend(125, BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP,
+	lb_v4_upsert_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, IPPROTO_UDP, 1, revnat_id);
+	lb_v4_upsert_backend(125, BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP,
 			     BE_STATE_TERMINATING, 0);
 
 	return netdev_receive_packet(ctx);
 }
 
-CHECK(PROG_TYPE, "tc_nodeport_lb_terminating_backend_1")
-int tc_nodeport_lb_terminating_backend_1_check(const struct __ctx_buff *ctx)
+CHECK(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_1")
+int tc_nodeport_lb_terminating_backend_udp_1_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;
-	struct tcphdr *l4;
+	struct udphdr *l4;
 	struct ethhdr *l2;
 	struct iphdr *l3;
 
@@ -303,28 +300,25 @@ int tc_nodeport_lb_terminating_backend_1_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-/* Test that an established TCP connection continues draining to the
- * terminating backend even when an active backend exists.
+/* Test that a subsequent UDP request does NOT get LBed to a terminating backend
+ * when an active backend exists.
  */
-PKTGEN(PROG_TYPE, "tc_nodeport_lb_terminating_backend_2")
-int tc_nodeport_lb_terminating_backend_2_pktgen(struct __ctx_buff *ctx)
+PKTGEN(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_2")
+int tc_nodeport_lb_terminating_backend_udp_2_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct tcphdr *l4;
+	struct udphdr *l4;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+	l4 = pktgen__push_ipv4_udp_packet(&builder,
 					  (__u8 *)client_mac, (__u8 *)lb_mac,
 					  CLIENT_IP, FRONTEND_IP_LOCAL,
 					  CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->syn = 0;
-	l4->ack = 1;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -336,8 +330,8 @@ int tc_nodeport_lb_terminating_backend_2_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP(PROG_TYPE, "tc_nodeport_lb_terminating_backend_2")
-int tc_nodeport_lb_terminating_backend_2_setup(struct __ctx_buff *ctx)
+SETUP(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_2")
+int tc_nodeport_lb_terminating_backend_udp_2_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = SVC_REV_NAT_ID;
 
@@ -349,21 +343,21 @@ int tc_nodeport_lb_terminating_backend_2_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(BACKEND_IP_LOCAL_2, 0, 112233, 0, 0);
 
 	/* Service has 1 active backend (126) and 1 terminating backend (125). */
-	lb_v4_upsert_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
+	lb_v4_upsert_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, IPPROTO_UDP, 1, revnat_id);
 	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 126,
-			  BACKEND_IP_LOCAL_2, BACKEND_PORT, IPPROTO_TCP, 0);
-	lb_v4_upsert_backend(125, BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP,
+			  BACKEND_IP_LOCAL_2, BACKEND_PORT, IPPROTO_UDP, 0);
+	lb_v4_upsert_backend(125, BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP,
 			     BE_STATE_TERMINATING, 0);
 
 	return netdev_receive_packet(ctx);
 }
 
-CHECK(PROG_TYPE, "tc_nodeport_lb_terminating_backend_2")
-int tc_nodeport_lb_terminating_backend_2_check(const struct __ctx_buff *ctx)
+CHECK(PROG_TYPE, "tc_nodeport_lb_terminating_backend_udp_2")
+int tc_nodeport_lb_terminating_backend_udp_2_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;
-	struct tcphdr *l4;
+	struct udphdr *l4;
 	struct ethhdr *l2;
 	struct iphdr *l3;
 
@@ -402,9 +396,9 @@ int tc_nodeport_lb_terminating_backend_2_check(const struct __ctx_buff *ctx)
 	if (l3->saddr != CLIENT_IP)
 		test_fatal("src IP has changed");
 
-	/* For TCP, existing connections continue draining to the terminating backend (BACKEND_IP_LOCAL) */
-	if (l3->daddr != BACKEND_IP_LOCAL)
-		test_fatal("dst IP was not drained to terminating backend IP");
+	/* Must be redirected to the active backend (BACKEND_IP_LOCAL_2), not the terminating one */
+	if (l3->daddr != BACKEND_IP_LOCAL_2)
+		test_fatal("dst IP was not redirected to active backend IP");
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
