@@ -96,6 +96,15 @@ func (meta *ObjectMeta) SetOwnerReferences(references []metav1.OwnerReference) {
 func (meta *ObjectMeta) GetManagedFields() []metav1.ManagedFieldsEntry {
 	panic("ObjectMeta - GetManagedFields() not implemented")
 }
-func (meta *ObjectMeta) SetManagedFields(_ []metav1.ManagedFieldsEntry) {
+
+// SetManagedFields is a no-op when asked to clear the entries, as the slim
+// ObjectMeta carries none to begin with. Callers which walk over objects of
+// both flavors, such as the normalization of the objects entering the informer
+// stores, rely on this to avoid having to tell the two apart. Storing entries
+// remains unsupported.
+func (meta *ObjectMeta) SetManagedFields(managedFields []metav1.ManagedFieldsEntry) {
+	if managedFields == nil {
+		return
+	}
 	panic("ObjectMeta - SetManagedFields() not implemented")
 }
