@@ -4,6 +4,9 @@
 package labelsfilter
 
 import (
+	"bytes"
+	"log/slog"
+	"os"
 	"regexp"
 	"testing"
 
@@ -250,4 +253,118 @@ func TestFilterLabelsByRegex(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestFilterLabelsFromFile(t *testing.T) {
+	var logs bytes.Buffer
+	handler := slog.NewTextHandler(&logs, &slog.HandlerOptions{
+		Level: slog.LevelWarn,
+	})
+	logger := slog.New(handler)
+
+	// Mix of inclusive and exclusive label prefixes => whitelist==true.
+	jsonContent := `{
+        "version": 1,
+        "valid-prefixes": [
+            {"source": "k8s", "prefix": "controller-revision-hash", "invert": true},
+            {"source": "k8s", "prefix": "pod-template-generation", "invert": true},
+            {"source": "k8s", "prefix": "my-label", "invert": false}
+        ]
+    }`
+
+	tmpFile, err := os.CreateTemp("", "label-prefix-*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(jsonContent)
+	require.NoError(t, err)
+	err = tmpFile.Close()
+	require.NoError(t, err)
+
+	err = ParseLabelPrefixCfg(logger, []string{}, []string{}, tmpFile.Name())
+	require.NoError(t, err)
+
+	allLabels := labels.Map2Labels(map[string]string{
+		"controller-revision-hash": "test",
+		"pod-template-generation":  "test",
+		"my-label":                 "test",
+		"some-random-label":        "test",
+	}, labels.LabelSourceK8s)
+	allLabels["reserved:host"] = labels.NewLabel("reserved:host", "test", labels.LabelSourceReserved)
+
+	identityLabels, infoLabels := Filter(allLabels)
+
+	// Verify reserved:host is NOT an identity label.
+	assert.NotContains(t, identityLabels, "reserved:host")
+	assert.Contains(t, infoLabels, "reserved:host")
+
+	// Verify warning was logged about 'reserved:.*' labels not being considered for identity.
+	assert.Contains(t, logs.String(), reservedLabelsPattern)
+
+	// Verify inclusions were applied correctly to k8s labels.
+	assert.Contains(t, identityLabels, "my-label")
+
+	// Verify exclusions were applied correctly to k8s labels.
+	assert.NotContains(t, identityLabels, "controller-revision-hash")
+	assert.NotContains(t, identityLabels, "pod-template-generation")
+	assert.Contains(t, infoLabels, "controller-revision-hash")
+	assert.Contains(t, infoLabels, "pod-template-generation")
+
+	// Verify other labels are not treated as identities (whitelist is on).
+	assert.NotContains(t, identityLabels, "some-random-label")
+	assert.Contains(t, infoLabels, "some-random-label")
+}
+
+func TestExclusiveOnlyFilterLabelsFromFile(t *testing.T) {
+	var logs bytes.Buffer
+	handler := slog.NewTextHandler(&logs, &slog.HandlerOptions{
+		Level: slog.LevelError,
+	})
+	logger := slog.New(handler)
+
+	// Only exclusive label prefixes => whitelist==false.
+	jsonContent := `{
+        "version": 1,
+        "valid-prefixes": [
+            {"source": "k8s", "prefix": "controller-revision-hash", "invert": true},
+            {"source": "k8s", "prefix": "pod-template-generation", "invert": true}
+        ]
+    }`
+
+	tmpFile, err := os.CreateTemp("", "label-prefix-*.json")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString(jsonContent)
+	require.NoError(t, err)
+	err = tmpFile.Close()
+	require.NoError(t, err)
+
+	err = ParseLabelPrefixCfg(logger, []string{}, []string{}, tmpFile.Name())
+	require.NoError(t, err)
+
+	allLabels := labels.Map2Labels(map[string]string{
+		"controller-revision-hash": "test",
+		"pod-template-generation":  "test",
+		"some-random-label":        "test",
+	}, labels.LabelSourceK8s)
+	allLabels["reserved:host"] = labels.NewLabel("reserved:host", "test", labels.LabelSourceReserved)
+
+	identityLabels, infoLabels := Filter(allLabels)
+
+	// Verify reserved:host IS an identity label.
+	assert.Contains(t, identityLabels, "reserved:host")
+	assert.NotContains(t, infoLabels, "reserved:host")
+
+	// Verify NO warning was logged about 'reserved:.*' labels not being considered for identity.
+	assert.NotContains(t, logs.String(), reservedLabelsPattern)
+
+	// Verify exclusions were applied correctly to k8s labels.
+	assert.NotContains(t, identityLabels, "controller-revision-hash")
+	assert.NotContains(t, identityLabels, "pod-template-generation")
+	assert.Contains(t, infoLabels, "controller-revision-hash")
+	assert.Contains(t, infoLabels, "pod-template-generation")
+
+	// Verify other labels are still treated as identities (whitelist is off).
+	assert.Contains(t, identityLabels, "some-random-label")
 }
