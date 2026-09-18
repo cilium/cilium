@@ -17,6 +17,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/fieldaggregate"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
@@ -64,14 +65,14 @@ func TestGenerateAggregationKey(t *testing.T) {
 	tests := []struct {
 		name       string
 		fieldPaths []string
-		flow       *flowpb.Flow
+		flow       *ir.Flow
 	}{
 		{
 			name:       "basic fields",
 			fieldPaths: []string{"destination.pod_name", "verdict"},
-			flow: &flowpb.Flow{
+			flow: &ir.Flow{
 				Verdict: flowpb.Verdict_FORWARDED,
-				Destination: &flowpb.Endpoint{
+				Destination: ir.Endpoint{
 					PodName: "dest-pod",
 				},
 			},
@@ -79,16 +80,14 @@ func TestGenerateAggregationKey(t *testing.T) {
 		{
 			name:       "empty fields",
 			fieldPaths: []string{},
-			flow: &flowpb.Flow{
+			flow: &ir.Flow{
 				Verdict: flowpb.Verdict_FORWARDED,
 			},
 		},
 		{
 			name:       "missing nested field",
 			fieldPaths: []string{"source.pod_name"},
-			flow: &flowpb.Flow{
-				Source: nil,
-			},
+			flow:       &ir.Flow{},
 		},
 	}
 
@@ -96,23 +95,21 @@ func TestGenerateAggregationKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fieldMask, err := fieldmaskpb.New(&flowpb.Flow{}, tt.fieldPaths...)
 			require.NoError(t, err)
-
 			fieldAgg, err := fieldaggregate.New(fieldMask)
 			require.NoError(t, err)
 
-			processedFlow := &flowpb.Flow{}
-			fieldAgg.Copy(processedFlow.ProtoReflect(), tt.flow.ProtoReflect())
+			processedFlow := new(flowpb.Flow)
+			fieldAgg.Copy(processedFlow.ProtoReflect(), tt.flow.ToProto().ProtoReflect())
 
 			key := generateAggregationKey(processedFlow)
-
 			if len(tt.fieldPaths) == 0 {
 				assert.Empty(t, string(key))
 			} else {
 				assert.NotEmpty(t, string(key))
 			}
 
-			processedFlow2 := &flowpb.Flow{}
-			fieldAgg.Copy(processedFlow2.ProtoReflect(), tt.flow.ProtoReflect())
+			processedFlow2 := new(flowpb.Flow)
+			fieldAgg.Copy(processedFlow2.ProtoReflect(), tt.flow.ToProto().ProtoReflect())
 			key2 := generateAggregationKey(processedFlow2)
 			assert.Equal(t, key, key2, "Keys should be deterministic")
 		})
@@ -131,19 +128,19 @@ func TestAggregateAdd(t *testing.T) {
 
 		// Add ingress, egress, and unknown direction flows with same verdict.
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
 			},
 		})
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_EGRESS,
 			},
 		})
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN,
 			},
@@ -153,8 +150,8 @@ func TestAggregateAdd(t *testing.T) {
 		assert.Len(t, aggregator.m, 1)
 
 		// Create the expected key for verdict=FORWARDED.
-		expectedFlow := &flowpb.Flow{Verdict: flowpb.Verdict_FORWARDED}
-		expectedKey := generateAggregationKey(expectedFlow)
+		expectedFlow := ir.Flow{Verdict: flowpb.Verdict_FORWARDED}
+		expectedKey := generateAggregationKey(expectedFlow.ToProto())
 
 		value, exists := aggregator.m[expectedKey]
 		require.True(t, exists, "Expected aggregation key should exist")
@@ -202,8 +199,8 @@ func TestAggregateAdd(t *testing.T) {
 		assert.Len(t, aggregator.m, 1)
 
 		// Create the expected key for verdict=FORWARDED.
-		expectedFlow := &flowpb.Flow{Verdict: flowpb.Verdict_FORWARDED}
-		expectedKey := generateAggregationKey(expectedFlow)
+		expectedFlow := ir.Flow{Verdict: flowpb.Verdict_FORWARDED}
+		expectedKey := generateAggregationKey(expectedFlow.ToProto())
 
 		value, exists := aggregator.m[expectedKey]
 		require.True(t, exists, "Expected aggregation key should exist")
@@ -230,18 +227,18 @@ func TestAggregateAdd(t *testing.T) {
 		assert.Len(t, aggregator.m, 1)
 
 		// Find and verify the aggregation (src-pod1 -> dest-pod1).
-		expectedFlow := &flowpb.Flow{
-			Source: &flowpb.Endpoint{
+		expectedFlow := ir.Flow{
+			Source: ir.Endpoint{
 				Namespace: "default",
 				PodName:   "src-pod1",
 			},
-			Destination: &flowpb.Endpoint{
+			Destination: ir.Endpoint{
 				Namespace: "default",
 				PodName:   "dest-pod1",
 			},
 		}
-		processedFlow := &flowpb.Flow{}
-		fieldAgg.Copy(processedFlow.ProtoReflect(), expectedFlow.ProtoReflect())
+		processedFlow := new(flowpb.Flow)
+		fieldAgg.Copy(processedFlow.ProtoReflect(), expectedFlow.ToProto().ProtoReflect())
 		expectedKey := generateAggregationKey(processedFlow)
 
 		value, exists := aggregator.m[expectedKey]
@@ -270,43 +267,34 @@ func TestAggregateAdd(t *testing.T) {
 		aggregator := NewAggregatorWithFields(fieldAgg, hivetest.Logger(t))
 
 		// Create 2 identical TCP+HTTP flows.
-		flow1 := &flowpb.Flow{
-			Source: &flowpb.Endpoint{Namespace: "default"},
-			L4: &flowpb.Layer4{
-				Protocol: &flowpb.Layer4_TCP{
-					TCP: &flowpb.TCP{
-						SourcePort:      33001,
-						DestinationPort: 443,
-					},
+		flow1 := &ir.Flow{
+			Source: ir.Endpoint{Namespace: "default"},
+			L4: ir.Layer4{
+				TCP: ir.TCP{
+					SourcePort:      33001,
+					DestinationPort: 443,
 				},
 			},
-			L7: &flowpb.Layer7{
-				Type: flowpb.L7FlowType_RESPONSE,
-				Record: &flowpb.Layer7_Http{
-					Http: &flowpb.HTTP{
-						Code: 200,
-					},
+			L7: ir.Layer7{
+				HTTP: ir.HTTP{
+					Code: 200,
 				},
 			},
 			TrafficDirection: flowpb.TrafficDirection_INGRESS,
 		}
 
-		flow2 := &flowpb.Flow{
-			Source: &flowpb.Endpoint{Namespace: "default"},
-			L4: &flowpb.Layer4{
-				Protocol: &flowpb.Layer4_TCP{
-					TCP: &flowpb.TCP{
-						SourcePort:      33002, // Different source port (not in mask).
-						DestinationPort: 443,
-					},
+		flow2 := &ir.Flow{
+			Source: ir.Endpoint{Namespace: "default"},
+			L4: ir.Layer4{
+				TCP: ir.TCP{
+					SourcePort:      33002, // Different source port (not in mask).
+					DestinationPort: 443,
 				},
 			},
-			L7: &flowpb.Layer7{
+			L7: ir.Layer7{
 				Type: flowpb.L7FlowType_RESPONSE,
-				Record: &flowpb.Layer7_Http{
-					Http: &flowpb.HTTP{
-						Code: 200,
-					},
+				HTTP: ir.HTTP{
+					Code: 200,
 				},
 			},
 			TrafficDirection: flowpb.TrafficDirection_INGRESS,
@@ -339,19 +327,19 @@ func TestAggregateAdd(t *testing.T) {
 
 		// Add flows with DIFFERENT verdicts - should create 3 separate aggregates.
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
 			},
 		})
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_DROPPED,
 				TrafficDirection: flowpb.TrafficDirection_EGRESS,
 			},
 		})
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_ERROR,
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
 			},
@@ -359,7 +347,7 @@ func TestAggregateAdd(t *testing.T) {
 
 		// Add another FORWARDED flow - should add to existing FORWARDED aggregate.
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_EGRESS,
 			},
@@ -388,7 +376,6 @@ func TestAggregateAdd(t *testing.T) {
 }
 
 func TestAggregateTimeEnrichment(t *testing.T) {
-
 	t.Run("time enriched despite not in fieldmask", func(t *testing.T) {
 		// Field Aggregate excludes time, but the processed flow is enriched anyway.
 		fieldMask, err := fieldmaskpb.New(&flowpb.Flow{}, "verdict")
@@ -400,8 +387,8 @@ func TestAggregateTimeEnrichment(t *testing.T) {
 		aggregator := NewAggregatorWithFields(fieldAgg, hivetest.Logger(t))
 		testTimestamp := &timestamp.Timestamp{Seconds: 1692369601, Nanos: 123456789}
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
-				Time:             testTimestamp,
+			Event: &ir.Flow{
+				Time:             testTimestamp.AsTime(),
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
 			},
@@ -410,7 +397,7 @@ func TestAggregateTimeEnrichment(t *testing.T) {
 		require.Len(t, aggregator.m, 1)
 		// Verify time is populated even though not in field mask.
 		for _, value := range aggregator.m {
-			assert.Equal(t, testTimestamp, value.ProcessedFlow.Time)
+			assert.Equal(t, testTimestamp.AsTime(), value.ProcessedFlow.Time)
 		}
 	})
 }
@@ -539,17 +526,22 @@ func TestAsyncProcessingEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
 func getEventList() []*v1.Event {
+	t1 := timestamp.Timestamp{Seconds: 1692369601}
+	t2 := timestamp.Timestamp{Seconds: 1692369602}
+	t3 := timestamp.Timestamp{Seconds: 1692369604}
+
 	return []*v1.Event{
 		{
-			Event: &flowpb.Flow{
-				Time:    &timestamp.Timestamp{Seconds: 1692369601},
+			Event: &ir.Flow{
+				Time:    t1.AsTime(),
 				Verdict: flowpb.Verdict_FORWARDED,
-				Source: &flowpb.Endpoint{
+				Source: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "src-pod1",
 				},
-				Destination: &flowpb.Endpoint{
+				Destination: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "dest-pod1",
 				},
@@ -557,14 +549,14 @@ func getEventList() []*v1.Event {
 			},
 		},
 		{
-			Event: &flowpb.Flow{
-				Time:    &timestamp.Timestamp{Seconds: 1692369604},
+			Event: &ir.Flow{
+				Time:    t2.AsTime(),
 				Verdict: flowpb.Verdict_FORWARDED,
-				Source: &flowpb.Endpoint{
+				Source: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "src-pod1",
 				},
-				Destination: &flowpb.Endpoint{
+				Destination: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "dest-pod1",
 				},
@@ -572,14 +564,14 @@ func getEventList() []*v1.Event {
 			},
 		},
 		{
-			Event: &flowpb.Flow{
-				Time:    &timestamp.Timestamp{Seconds: 1692369604},
+			Event: &ir.Flow{
+				Time:    t3.AsTime(),
 				Verdict: flowpb.Verdict_FORWARDED,
-				Source: &flowpb.Endpoint{
+				Source: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "src-pod1",
 				},
-				Destination: &flowpb.Endpoint{
+				Destination: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "dest-pod1",
 				},

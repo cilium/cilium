@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -44,26 +45,26 @@ func TestFlowHandler(t *testing.T) {
 	})
 
 	t.Run("ProcessFlow", func(t *testing.T) {
-		flow0 := &pb.Flow{
-			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog},
-			L7: &pb.Layer7{
-				Record: &pb.Layer7_Http{Http: &pb.HTTP{}},
+		flow0 := ir.Flow{
+			EventType: ir.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog},
+			L7: ir.Layer7{
+				HTTP: ir.HTTP{Code: 200},
 			},
-			Source:      &pb.Endpoint{Namespace: "foo"},
-			Destination: &pb.Endpoint{Namespace: "bar"},
+			Source:      ir.Endpoint{Namespace: "foo"},
+			Destination: ir.Endpoint{Namespace: "bar"},
 			Verdict:     pb.Verdict_FORWARDED,
 		}
-		flow1 := &pb.Flow{
-			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog},
-			L7: &pb.Layer7{
-				Record: &pb.Layer7_Http{Http: &pb.HTTP{}},
+		flow1 := ir.Flow{
+			EventType: ir.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog},
+			L7: ir.Layer7{
+				HTTP: ir.HTTP{Code: 200},
 			},
-			Source:      &pb.Endpoint{Namespace: "allowNs"},
-			Destination: &pb.Endpoint{Namespace: "bar"},
+			Source:      ir.Endpoint{Namespace: "allowNs"},
+			Destination: ir.Endpoint{Namespace: "bar"},
 			Verdict:     pb.Verdict_FORWARDED,
 		}
-		h.ProcessFlow(t.Context(), flow0)
-		h.ProcessFlow(t.Context(), flow1)
+		h.ProcessFlow(t.Context(), &flow0)
+		h.ProcessFlow(t.Context(), &flow1)
 
 		metricFamilies, err := registry.Gather()
 		require.NoError(t, err)
@@ -91,15 +92,15 @@ func TestFlowHandler(t *testing.T) {
 		assert.Equal(t, "verdict", *metric.Label[5].Name)
 		assert.Equal(t, "FORWARDED", *metric.Label[5].Value)
 
-		flow2 := &pb.Flow{
-			EventType: &pb.CiliumEventType{
+		flow2 := ir.Flow{
+			EventType: ir.CiliumEventType{
 				// flow events cannot be derived from agent events
 				Type: monitorAPI.MessageTypeAgent,
 			},
-			Source: &pb.Endpoint{Namespace: "allowNs"},
+			Source: ir.Endpoint{Namespace: "allowNs"},
 		}
 
-		h.ProcessFlow(t.Context(), flow2)
+		h.ProcessFlow(t.Context(), &flow2)
 
 		metricFamilies, err = registry.Gather()
 		require.NoError(t, err)
@@ -115,23 +116,21 @@ func TestFlowHandler(t *testing.T) {
 		assert.Equal(t, "type", *metric.Label[4].Name)
 		assert.Equal(t, "Unknown", *metric.Label[4].Value)
 
-		flow3 := &pb.Flow{
-			EventType: &pb.CiliumEventType{
+		flow3 := ir.Flow{
+			EventType: ir.CiliumEventType{
 				Type: monitorAPI.MessageTypePolicyVerdict,
 			},
-			L4: &pb.Layer4{
-				Protocol: &pb.Layer4_UDP{
-					UDP: &pb.UDP{
-						DestinationPort: 53,
-						SourcePort:      31313,
-					},
+			L4: ir.Layer4{
+				UDP: ir.UDP{
+					DestinationPort: 53,
+					SourcePort:      31313,
 				},
 			},
 			Verdict: pb.Verdict_DROPPED,
-			Source:  &pb.Endpoint{Namespace: "allowNs"},
+			Source:  ir.Endpoint{Namespace: "allowNs"},
 		}
 
-		h.ProcessFlow(t.Context(), flow3)
+		h.ProcessFlow(t.Context(), &flow3)
 
 		metricFamilies, err = registry.Gather()
 		require.NoError(t, err)

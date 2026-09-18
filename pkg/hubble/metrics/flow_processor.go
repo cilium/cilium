@@ -8,7 +8,7 @@ import (
 	"errors"
 	"log/slog"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -28,13 +28,13 @@ func NewStaticFlowProcessor(logger *slog.Logger, metrics []api.NamedHandler) *St
 }
 
 // ProcessFlow implements FlowProcessor.
-func (p *StaticFlowProcessor) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+func (p *StaticFlowProcessor) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
 	_, err := p.OnDecodedFlow(ctx, flow)
 	return err
 }
 
 // OnDecodedFlow implements observeroption.OnDecodedFlow.
-func (p *StaticFlowProcessor) OnDecodedFlow(ctx context.Context, flow *flowpb.Flow) (bool, error) {
+func (p *StaticFlowProcessor) OnDecodedFlow(ctx context.Context, flow *ir.Flow) (bool, error) {
 	if len(p.metrics) == 0 {
 		return false, nil
 	}

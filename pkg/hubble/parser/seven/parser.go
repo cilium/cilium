@@ -10,10 +10,9 @@ import (
 	"slices"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
@@ -88,7 +87,7 @@ func New(
 }
 
 // Decode decodes the data from 'payload' into 'decoded'
-func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
+func (p *Parser) Decode(r *accesslog.LogRecord, decoded *ir.Flow) error {
 	// Safety: This function and all the helpers it invokes are not allowed to
 	// mutate r in any way. We only have read access to the LogRecord, as it
 	// may be shared with other consumers
@@ -96,7 +95,7 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 		return errors.ErrEmptyData
 	}
 
-	timestamp, pbTimestamp, err := decodeTime(r.Timestamp)
+	timestamp, err := decodeTime(r.Timestamp)
 	if err != nil {
 		return err
 	}
@@ -126,18 +125,18 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	dstEndpoint := decodeEndpoint(r.DestinationEndpoint, destinationNamespace, destinationPod, destinationPodUID)
 
 	if p.endpointGetter != nil {
-		p.updateEndpointFromLocal(sourceIP, srcEndpoint)
-		p.updateEndpointFromLocal(destinationIP, dstEndpoint)
+		p.updateEndpointWorkloads(sourceIP, &srcEndpoint)
+		p.updateEndpointWorkloads(destinationIP, &dstEndpoint)
 	}
 
 	l4, sourcePort, destinationPort := decodeLayer4(r.TransportProtocol, r.SourceEndpoint, r.DestinationEndpoint)
-	var sourceService, destinationService *flowpb.Service
+	var sourceService, destinationService getters.FQN
 	if p.serviceGetter != nil {
 		sourceService = p.serviceGetter.GetServiceByAddr(sourceIP, sourcePort)
 		destinationService = p.serviceGetter.GetServiceByAddr(destinationIP, destinationPort)
 	}
 
-	decoded.Time = pbTimestamp
+	decoded.Time = timestamp
 	decoded.Verdict = decodeVerdict(r.Verdict)
 	decoded.DropReason = 0
 	decoded.DropReasonDesc = flowpb.DropReason_DROP_REASON_UNKNOWN
@@ -150,11 +149,10 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	decoded.DestinationNames = destinationNames
 	decoded.L7 = decodeLayer7(r, p.opts)
 	decoded.L7.LatencyNs = p.computeResponseTime(r, timestamp)
-	decoded.IsReply = decodeIsReply(r.Type)
-	decoded.Reply = decoded.GetIsReply().GetValue()
+	decoded.Reply = decodeIsReply(r.Type)
 	decoded.EventType = decodeCiliumEventType(api.MessageTypeAccessLog)
-	decoded.SourceService = sourceService
-	decoded.DestinationService = destinationService
+	decoded.SourceService = ir.NewService(sourceService.Name, sourceService.Namespace)
+	decoded.DestinationService = ir.NewService(destinationService.Name, destinationService.Namespace)
 	decoded.TrafficDirection = decodeTrafficDirection(r.ObservationPoint)
 	decoded.PolicyMatchType = 0
 	decoded.TraceContext = p.getTraceContext(r)
@@ -171,7 +169,7 @@ func extractRequestID(r *accesslog.LogRecord) string {
 	return requestID
 }
 
-func (p *Parser) getTraceContext(r *accesslog.LogRecord) *flowpb.TraceContext {
+func (p *Parser) getTraceContext(r *accesslog.LogRecord) ir.TraceContext {
 	requestID := extractRequestID(r)
 	switch r.Type {
 	case accesslog.TypeRequest:
@@ -184,19 +182,20 @@ func (p *Parser) getTraceContext(r *accesslog.LogRecord) *flowpb.TraceContext {
 		if requestID != "" {
 			p.traceContextCache.Add(requestID, traceContext)
 		}
-		return traceContext
+		return ir.ProtoToTraceContext(traceContext)
 	case accesslog.TypeResponse:
 		if requestID == "" {
-			return nil
+			return ir.TraceContext{}
 		}
 		traceContext, ok := p.traceContextCache.Get(requestID)
 		if !ok {
 			break
 		}
 		p.traceContextCache.Remove(requestID)
-		return traceContext
+		return ir.ProtoToTraceContext(traceContext)
 	}
-	return nil
+
+	return ir.TraceContext{}
 }
 
 func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time) uint64 {
@@ -223,36 +222,29 @@ func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time
 	return 0
 }
 
-func (p *Parser) updateEndpointFromLocal(ip netip.Addr, endpoint *flowpb.Endpoint) {
+func (p *Parser) updateEndpointWorkloads(ip netip.Addr, endpoint *ir.Endpoint) {
 	if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
 		// Access logs are decoded asynchronously. The IP may now belong to a
 		// replacement endpoint, so only use Pod metadata when the IDs match.
-		if ep.GetID() != uint64(endpoint.GetID()) {
+		if ep.GetID() != uint64(endpoint.ID) {
 			return
 		}
 		// Keep the Pod identity tuple tied to the ID-matched endpoint. When the
 		// UID is unknown, empty is safer than retaining metadata resolved by IP.
 		endpoint.Namespace = ep.GetK8sNamespace()
 		endpoint.PodName = ep.GetK8sPodName()
-		endpoint.PodUid = ep.GetK8sPodUID()
+		endpoint.PodUID = ep.GetK8sPodUID()
 		if pod := ep.GetPod(); pod != nil {
 			workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
 			if ok {
-				endpoint.Workloads = []*flowpb.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
+				endpoint.Workloads = []ir.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
 			}
 		}
 	}
 }
 
-func decodeTime(timestamp string) (goTime time.Time, pbTime *timestamppb.Timestamp, err error) {
-	goTime, err = time.Parse(time.RFC3339Nano, timestamp)
-	if err != nil {
-		return
-	}
-
-	pbTime = timestamppb.New(goTime)
-	err = pbTime.CheckValid()
-	return
+func decodeTime(timestamp string) (goTime time.Time, err error) {
+	return time.Parse(time.RFC3339Nano, timestamp)
 }
 
 func decodeVerdict(verdict accesslog.FlowVerdict) flowpb.Verdict {
@@ -281,74 +273,68 @@ func decodeTrafficDirection(direction accesslog.ObservationPoint) flowpb.Traffic
 	}
 }
 
-func decodeIP(version accesslog.IPVersion, source, destination accesslog.EndpointInfo) *flowpb.IP {
+func decodeIP(version accesslog.IPVersion, source, destination accesslog.EndpointInfo) ir.IP {
 	switch version {
 	case accesslog.VersionIPv4:
-		return &flowpb.IP{
+		return ir.IP{
 			Source:      source.IPv4,
 			Destination: destination.IPv4,
-			IpVersion:   flowpb.IPVersion_IPv4,
+			IPVersion:   flowpb.IPVersion_IPv4,
 		}
 	case accesslog.VersionIPV6:
-		return &flowpb.IP{
+		return ir.IP{
 			Source:      source.IPv6,
 			Destination: destination.IPv6,
-			IpVersion:   flowpb.IPVersion_IPv6,
+			IPVersion:   flowpb.IPVersion_IPv6,
 		}
 	default:
-		return nil
+		return ir.IP{}
 	}
 }
 
-func decodeLayer4(protocol accesslog.TransportProtocol, source, destination accesslog.EndpointInfo) (l4 *flowpb.Layer4, srcPort, dstPort uint16) {
+func decodeLayer4(protocol accesslog.TransportProtocol, source, destination accesslog.EndpointInfo) (l4 ir.Layer4, srcPort, dstPort uint16) {
 	switch u8proto.U8proto(protocol) {
 	case u8proto.TCP:
-		return &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					SourcePort:      uint32(source.Port),
-					DestinationPort: uint32(destination.Port),
-				},
+		return ir.Layer4{
+			TCP: ir.TCP{
+				SourcePort:      uint32(source.Port),
+				DestinationPort: uint32(destination.Port),
 			},
 		}, uint16(source.Port), uint16(destination.Port)
 	case u8proto.UDP:
-		return &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_UDP{
-				UDP: &flowpb.UDP{
-					SourcePort:      uint32(source.Port),
-					DestinationPort: uint32(destination.Port),
-				},
+		return ir.Layer4{
+			UDP: ir.UDP{
+				SourcePort:      uint32(source.Port),
+				DestinationPort: uint32(destination.Port),
 			},
 		}, uint16(source.Port), uint16(destination.Port)
 	case u8proto.SCTP:
-		return &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_SCTP{
-				SCTP: &flowpb.SCTP{
-					SourcePort:      uint32(source.Port),
-					DestinationPort: uint32(destination.Port),
-				},
+		return ir.Layer4{
+			SCTP: ir.SCTP{
+				SourcePort:      uint32(source.Port),
+				DestinationPort: uint32(destination.Port),
 			},
 		}, uint16(source.Port), uint16(destination.Port)
 	default:
-		return nil, 0, 0
+		return ir.Layer4{}, 0, 0
 	}
 }
 
-func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName, podUID string) *flowpb.Endpoint {
+func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName, podUID string) ir.Endpoint {
 	labels := endpoint.Labels.GetModel()
 	slices.Sort(labels)
-	return &flowpb.Endpoint{
+	return ir.Endpoint{
 		ID:          uint32(endpoint.ID),
 		Identity:    uint32(endpoint.Identity),
 		ClusterName: endpoint.Labels.Get(string(source.Kubernetes) + ciliumLabels.SourceDelimiter + k8sConst.PolicyLabelCluster),
 		Namespace:   namespace,
 		Labels:      labels,
 		PodName:     podName,
-		PodUid:      podUID,
+		PodUID:      podUID,
 	}
 }
 
-func decodeLayer7(r *accesslog.LogRecord, opts *options.Options) *flowpb.Layer7 {
+func decodeLayer7(r *accesslog.LogRecord, opts *options.Options) ir.Layer7 {
 	var flowType flowpb.L7FlowType
 	switch r.Type {
 	case accesslog.TypeRequest:
@@ -361,30 +347,32 @@ func decodeLayer7(r *accesslog.LogRecord, opts *options.Options) *flowpb.Layer7 
 
 	switch {
 	case r.DNS != nil:
-		return &flowpb.Layer7{
-			Type:   flowType,
-			Record: decodeDNS(r.Type, r.DNS),
+		return ir.Layer7{
+			Type: flowType,
+			DNS:  decodeDNS(r.Type, r.DNS),
 		}
 	case r.HTTP != nil:
-		return &flowpb.Layer7{
-			Type:   flowType,
-			Record: decodeHTTP(r.Type, r.HTTP, opts),
+		return ir.Layer7{
+			Type: flowType,
+			HTTP: decodeHTTP(r.Type, r.HTTP, opts),
 		}
 	default:
-		return &flowpb.Layer7{
+		return ir.Layer7{
 			Type: flowType,
 		}
 	}
 }
 
-func decodeIsReply(t accesslog.FlowType) *wrapperspb.BoolValue {
-	return &wrapperspb.BoolValue{
-		Value: t == accesslog.TypeResponse,
+func decodeIsReply(t accesslog.FlowType) ir.Reply {
+	if t == accesslog.TypeResponse {
+		return ir.ReplyYes
 	}
+
+	return ir.ReplyNo
 }
 
-func decodeCiliumEventType(eventType uint8) *flowpb.CiliumEventType {
-	return &flowpb.CiliumEventType{
+func decodeCiliumEventType(eventType uint8) ir.CiliumEventType {
+	return ir.CiliumEventType{
 		Type: int32(eventType),
 	}
 }
@@ -393,7 +381,7 @@ func genericSummary(l7 *accesslog.LogRecordL7) string {
 	return fmt.Sprintf("%s Fields: %s", l7.Proto, l7.Fields)
 }
 
-func (p *Parser) getSummary(logRecord *accesslog.LogRecord, flow *flowpb.Flow) string {
+func (p *Parser) getSummary(logRecord *accesslog.LogRecord, flow *ir.Flow) string {
 	if logRecord == nil {
 		return ""
 	}
