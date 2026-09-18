@@ -34,6 +34,7 @@ func setBasePermutations(t *config.Node) {
 	t.DebugLB = true
 	t.EventsMapRateLimit = 1000
 	t.EnableIdentityMark = true
+	t.EnableDSRByuser = true
 }
 
 func baseLXCPermutations() *loadPermutationBuilder {
