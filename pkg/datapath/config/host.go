@@ -57,6 +57,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	cfg.EphemeralMin = lnc.EphemeralMin
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
+	cfg.EnablePolicyAuditMode = ep.GetOptions().IsEnabled(option.PolicyAuditMode)
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
@@ -108,6 +109,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	cfg.EphemeralMin = lnc.EphemeralMin
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
+	cfg.EnablePolicyAuditMode = ep.GetOptions().IsEnabled(option.PolicyAuditMode)
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
@@ -178,6 +180,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	cfg.EphemeralMin = lnc.EphemeralMin
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
+	cfg.EnablePolicyAuditMode = ep.GetOptions().IsEnabled(option.PolicyAuditMode)
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
