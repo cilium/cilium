@@ -143,14 +143,14 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 {
 	bool use_redirect_peer;
 
-#ifdef LOCAL_DELIVERY_METRICS
-	/*
-	 * Special LXC case for updating egress forwarding metrics.
-	 * Note that the packet could still be dropped but it would show up
-	 * as an ingress drop counter in metrics.
-	 */
-	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
-#endif
+	if (CONFIG(enable_local_delivery_metrics_accounting)) {
+		/*
+		 * Special LXC case for updating egress forwarding metrics.
+		 * Note that the packet could still be dropped but it would show up
+		 * as an ingress drop counter in metrics.
+		 */
+		update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
+	}
 
 	if (direction == METRIC_INGRESS && !from_host) {
 		/*
