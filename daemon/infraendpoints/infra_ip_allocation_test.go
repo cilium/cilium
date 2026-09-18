@@ -4,6 +4,7 @@
 package infraendpoints
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -20,7 +21,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -322,4 +326,70 @@ func Test_getCiliumHostIPsFromFile(t *testing.T) {
 			require.Equal(t, tt.wantIpv6Router, gotIpv6Router)
 		})
 	}
+}
+
+// healthMockAllocator serves allocateHealthIPs: the IPv4 pool hands out a
+// fresh address, the IPv6 pool is exhausted. It records every ReleaseIP so a
+// test can assert that a partially completed dual-stack allocation is rolled
+// back.
+type healthMockAllocator struct {
+	freshV4  netip.Addr
+	released []netip.Addr
+}
+
+func (m *healthMockAllocator) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	return nil, fmt.Errorf("cannot re-allocate IP %s", ip)
+}
+
+func (m *healthMockAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	if family == ipam.IPv6 {
+		return nil, errors.New("all pools exhausted")
+	}
+	return &ipam.AllocationResult{IP: m.freshV4}, nil
+}
+
+func (m *healthMockAllocator) ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool) {}
+
+func (m *healthMockAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
+	m.released = append(m.released, ip)
+	return nil
+}
+
+var _ ipamAllocator = &healthMockAllocator{}
+
+// TestAllocateHealthIPsReleasesIPv4OnIPv6Failure pins the rollback of a
+// dual-stack health allocation that fails half way through. Both families are
+// enabled, there is nothing to restore, so the IPv4 address is freshly
+// allocated and the IPv6 one cannot be: the IPv4 address must be released back
+// to IPAM and cleared from the LocalNodeStore before the error is returned.
+func TestAllocateHealthIPsReleasesIPv4OnIPv6Failure(t *testing.T) {
+	freshV4 := netip.MustParseAddr("10.20.30.42")
+	allocator := &healthMockAllocator{freshV4: freshV4}
+	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+
+	r := &infraIPAllocator{
+		logger:         hivetest.Logger(t),
+		ipAllocator:    allocator,
+		localNodeStore: localNodeStore,
+		daemonConfig: &option.DaemonConfig{
+			EnableHealthChecking:         true,
+			EnableEndpointHealthChecking: true,
+			EnableIPv4:                   true,
+			EnableIPv6:                   true,
+			IPAM:                         ipamOption.IPAMKubernetes,
+		},
+	}
+
+	// Nothing to restore, so both families take the fresh-allocation path.
+	err := r.allocateHealthIPs(nil, nil)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "unable to allocate health IPv6")
+
+	require.Equal(t, []netip.Addr{freshV4}, allocator.released,
+		"the freshly allocated IPv4 health IP must be released when the IPv6 allocation fails")
+
+	localNode, err := localNodeStore.Get(t.Context())
+	require.NoError(t, err)
+	require.Nil(t, localNode.IPv4HealthIP,
+		"IPv4HealthIP must be cleared from the LocalNodeStore when the allocation is rolled back")
 }
