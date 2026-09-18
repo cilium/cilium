@@ -17,7 +17,10 @@ var Cell = cell.Module(
 	"ip-masq-agent",
 	"BPF ip-masq-agent implementation",
 
-	cell.Provide(newIPMasqAgentCell),
+	// The agent has no in-process consumer: it is wired up for its side
+	// effects on the BPF ipmasq map. Construct and register it from an invoke
+	// so that it runs even though nothing depends on it.
+	cell.Invoke(registerIPMasqAgent),
 	cell.Config(defaultConfig),
 )
 
@@ -30,9 +33,9 @@ type ipMasqAgentParams struct {
 	IPMasqMap *ipmasqmaps.IPMasqBPFMap
 }
 
-func newIPMasqAgentCell(params ipMasqAgentParams) (*ipmasq.IPMasqAgent, error) {
+func registerIPMasqAgent(params ipMasqAgentParams) {
 	if !params.Config.EnableIPMasqAgent {
-		return nil, nil
+		return
 	}
 
 	agent := ipmasq.NewIPMasqAgent(params.Logger, params.Config.IPMasqAgentConfigPath, params.IPMasqMap)
@@ -51,6 +54,4 @@ func newIPMasqAgentCell(params ipMasqAgentParams) (*ipmasq.IPMasqAgent, error) {
 			return nil
 		},
 	})
-
-	return agent, nil
 }
