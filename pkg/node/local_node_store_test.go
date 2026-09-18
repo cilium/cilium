@@ -5,6 +5,7 @@ package node_test
 
 import (
 	"context"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -19,6 +20,8 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	. "github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 type testSynchronizer struct{ identity chan uint32 }
@@ -183,6 +186,59 @@ func TestLocalNodeStoreUpdateMarksStatusesPending(t *testing.T) {
 		reconciler.StatusKindPending,
 		local.Statuses.Get(requiredReconciler).Kind,
 	)
+}
+
+func TestLocalNodeStoreUpdateRestoresConflictingCandidate(t *testing.T) {
+	var (
+		store  *LocalNodeStore
+		db     *statedb.DB
+		nodes  statedb.Table[*Node]
+		writer *Writer
+	)
+	hive := hive.New(
+		LocalNodeStoreTestCell,
+		cell.Provide(func() cmtypes.ClusterInfo {
+			return cmtypes.ClusterInfo{Name: "test"}
+		}),
+		cell.Invoke(func(
+			s *LocalNodeStore,
+			d *statedb.DB,
+			ns statedb.Table[*Node],
+			w *Writer,
+		) {
+			store, db, nodes, writer = s, d, ns, w
+		}),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	tlog := hivetest.Logger(t)
+	require.NoError(t, hive.Start(tlog, ctx))
+	t.Cleanup(func() {
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Minute)
+		defer stopCancel()
+		require.NoError(t, hive.Stop(tlog, stopCtx))
+	})
+
+	store.Update(func(n *LocalNode) {
+		n.IPAddresses = []types.Address{{IP: net.ParseIP("10.0.0.1")}}
+	})
+	remote := &types.Node{
+		Name:        "remote",
+		Source:      source.Kubernetes,
+		IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
+	}
+	txn := writer.WriteTxn()
+	writer.Upsert(txn, remote)
+	txn.Commit()
+	_, _, found := nodes.Get(db.ReadTxn(), NodeByName(remote.Fullname()))
+	require.False(t, found)
+
+	store.Update(func(n *LocalNode) {
+		n.IPAddresses = []types.Address{{IP: net.ParseIP("10.0.0.2")}}
+	})
+	_, _, found = nodes.Get(db.ReadTxn(), NodeByName(remote.Fullname()))
+	require.True(t, found)
 }
 
 func TestWaitForLocalNodeInit(t *testing.T) {
