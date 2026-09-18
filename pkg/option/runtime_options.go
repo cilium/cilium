@@ -57,7 +57,6 @@ var (
 	}
 
 	specPolicyAuditMode = Option{
-		Define:      "POLICY_AUDIT_MODE",
 		Description: "Enable audit mode for policies",
 	}
 
