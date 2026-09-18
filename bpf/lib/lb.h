@@ -678,11 +678,10 @@ static __always_inline bool
 lb_svc_uses_dsr(bool flip __maybe_unused)
 {
 #ifdef ENABLE_DSR
-# ifdef ENABLE_DSR_BYUSER
-	return flip;
-# else
-	return true;
-# endif
+	if (CONFIG(enable_dsr_byuser))
+		return flip;
+	else
+		return true;
 #else
 	return false;
 #endif

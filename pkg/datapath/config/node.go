@@ -105,6 +105,8 @@ func NodeConfig(lnc *Config) Node {
 	node.NodeportPortMinNATExt = lnc.LBConfig.NodePortMinNATExt
 	node.NodeportPortMaxNATExt = lnc.LBConfig.NodePortMaxNATExt
 
+	node.EnableDsrByuser = lnc.LBConfig.LBMode == loadbalancer.LBModeHybrid || lnc.LBConfig.LBModeAnnotation
+
 	if option.Config.EnableNat46X64Gateway {
 		node.NAT46X64Prefix.Addr = option.Config.IPv6NAT46x64CIDRBase.As4()
 	}

@@ -179,3 +179,6 @@ NODE_CONFIG(__u32, encap4_ifindex,
 	    "Interface index of the IPv4 IPIP encapsulation device")
 NODE_CONFIG(__u32, encap6_ifindex,
 	    "Interface index of the IPv6 IPIP encapsulation device")
+
+NODE_CONFIG(bool, enable_dsr_byuser,
+	    "Enable the common datapath for Hybrid-DSR+SNAT and Annotation-based+DSR+SNAT modes")

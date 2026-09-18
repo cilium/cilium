@@ -1162,24 +1162,26 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
+	if (!is_defined(ENABLE_DSR) || CONFIG(enable_dsr_byuser) ||
+	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
+		if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
+		    (CONFIG(enable_ipv6_fragments) && is_defined(IS_BPF_XDP)))
+			ret = tail_call_internal(ctx,
+						 CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS,
+						 &ext_err);
+		else
+			ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);
 
-	if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
-	    (CONFIG(enable_ipv6_fragments) && is_defined(IS_BPF_XDP)))
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS, &ext_err);
-	else
-		ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);
+		if (IS_ERR(ret))
+			goto drop_err;
 
-	if (IS_ERR(ret))
-		goto drop_err;
+		if (ret == CTX_ACT_OK)
+			goto recircle;
 
-	if (ret == CTX_ACT_OK)
-		goto recircle;
-
-	edt_set_aggregate(ctx, 0);
-	return ret;
-#endif
+		edt_set_aggregate(ctx, 0);
+		return ret;
+	}
 
 recircle:
 	ctx_skip_nodeport_set(ctx);
@@ -2405,32 +2407,33 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * Otherwise, we would have tail-called back to
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&						\
-     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
+	if (!is_defined(ENABLE_DSR) || CONFIG(enable_dsr_byuser) ||
+	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
+		/* If we're not in full DSR mode, reply traffic from remote backends
+		 * might pass back through the LB node and requires revDNAT.
+		 *
+		 * Also let nodeport_rev_dnat_ipv4() redirect EgressGW
+		 * reply traffic into tunnel (see there for details).
+		 */
+		if (is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST))
+			ret = tail_call_internal(ctx,
+						 CILIUM_CALL_IPV4_NODEPORT_REVNAT,
+						 &ext_err);
+		else
+			ret = nodeport_rev_dnat_ipv4(ctx, &trace, &ext_err);
 
-	/* If we're not in full DSR mode, reply traffic from remote backends
-	 * might pass back through the LB node and requires revDNAT.
-	 *
-	 * Also let nodeport_rev_dnat_ipv4() redirect EgressGW
-	 * reply traffic into tunnel (see there for details).
-	 */
-	if (is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST))
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT, &ext_err);
-	else
-		ret = nodeport_rev_dnat_ipv4(ctx, &trace, &ext_err);
+		if (IS_ERR(ret))
+			goto drop_err;
 
-	if (IS_ERR(ret))
-		goto drop_err;
+		/* No redirect needed: */
+		if (ret == CTX_ACT_OK)
+			goto recircle;
 
-	/* No redirect needed: */
-	if (ret == CTX_ACT_OK)
-		goto recircle;
-
-	/* Redirected to egress interface: */
-	edt_set_aggregate(ctx, 0);
-	return ret;
-#endif
+		/* Redirected to egress interface: */
+		edt_set_aggregate(ctx, 0);
+		return ret;
+	}
 
 recircle:
 	ctx_skip_nodeport_set(ctx);
