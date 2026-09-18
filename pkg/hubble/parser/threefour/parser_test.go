@@ -1372,7 +1372,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.True(t, ok)
 	info, ok := ep.GetPolicyCorrelationInfoForKey(
 		policy.KeyForDirection(directionFromProto(f.GetTrafficDirection())).
-			WithIdentity(identity.NumericIdentity(f.GetDestination().GetIdentity())))
+			WithIdentity(identity.NumericIdentity(f.GetDestination().GetIdentity())), false)
 	assert.True(t, ok)
 	lbls := labels.LabelArrayListFromString(info.RuleLabels)
 	assert.Equal(t, lbls, policyLabel)
