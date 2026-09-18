@@ -53,6 +53,18 @@ The following options have been introduced in this version of Cilium:
   These fields are only available in ``cilium.io/v2``. See
   :ref:`update_existing_ciliumpodippools_with_reservedranges`.
 
+* The ``dnsProxy.ttlBoundZones`` Helm value (agent flag
+  ``--tofqdns-ttl-bound-zones``) lists DNS zones whose names expire on their
+  DNS TTL instead of being deferred as zombies until the connection tracking
+  garbage collector observes that no connection uses them. An entry covers the
+  zone and every name below it, and may be written with a leading ``*.``; a
+  wildcard elsewhere, or an entry that is not a valid DNS name, makes the agent
+  fail at startup. The list is empty by default, which leaves the existing
+  behavior unchanged. Listing a zone bounds the growth of the per-endpoint
+  zombie list when many names in that zone resolve to the same address, at the
+  cost that a connection to such a name that outlives its DNS TTL, without the
+  client re-resolving, may be dropped by policy.
+
 Changed Options
 ###############
 
