@@ -37,19 +37,6 @@ func allocationResult(
 		if iface.Gateway.IsValid() {
 			result.GatewayIP = iface.Gateway.Addr
 		}
-		if iface.Subnet.CIDR.IsValid() {
-			result.CIDRs = append(result.CIDRs, iface.Subnet.CIDR.Prefix)
-		}
-		if allocatedAddr.Is4() && conf.EnableIPv4 && conf.IPv4NativeRoutingCIDR.IsValid() {
-			result.CIDRs = append(result.CIDRs, conf.IPv4NativeRoutingCIDR)
-		}
-		if conf.EnableIPMasqAgent {
-			for _, prefix := range ipMasqAgent.NonMasqCIDRsFromConfig() {
-				if allocatedAddr.Is4() == prefix.Addr().Is4() {
-					result.CIDRs = append(result.CIDRs, prefix)
-				}
-			}
-		}
 
 		return result, nil
 	}

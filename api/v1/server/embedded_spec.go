@@ -3239,13 +3239,6 @@ func init() {
       "description": "IPAM configuration of an individual address family",
       "type": "object",
       "properties": {
-        "cidrs": {
-          "description": "List of CIDRs out of which IPs are allocated",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/CIDR"
-          }
-        },
         "expiration-uuid": {
           "description": "The UUID for the expiration timer. Set when expiration has been\nenabled while allocating.\n",
           "type": "string"
@@ -8718,13 +8711,6 @@ func init() {
       "description": "IPAM configuration of an individual address family",
       "type": "object",
       "properties": {
-        "cidrs": {
-          "description": "List of CIDRs out of which IPs are allocated",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/CIDR"
-          }
-        },
         "expiration-uuid": {
           "description": "The UUID for the expiration timer. Set when expiration has been\nenabled while allocating.\n",
           "type": "string"

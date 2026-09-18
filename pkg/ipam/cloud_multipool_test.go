@@ -45,7 +45,6 @@ func (r *fakeResolver) ResolveRoutingMetadata(node *ciliumv2.CiliumNode, addr ne
 		IPPoolName:      pool,
 		PrimaryMAC:      mac.MustParseMAC("00:00:5e:00:53:01"),
 		GatewayIP:       netip.MustParseAddr("10.20.30.1"),
-		CIDRs:           []netip.Prefix{netip.MustParsePrefix("10.20.30.0/24")},
 		InterfaceNumber: "0",
 	}, nil
 }
@@ -124,7 +123,6 @@ func TestCloudMultiPoolAllocatorEnrichesResults(t *testing.T) {
 			require.Equal(t, []netip.Addr{result.IP}, resolver.seenAddrs)
 			require.Equal(t, mac.MustParseMAC("00:00:5e:00:53:01"), result.PrimaryMAC)
 			require.Equal(t, netip.MustParseAddr("10.20.30.1"), result.GatewayIP)
-			require.Equal(t, []netip.Prefix{netip.MustParsePrefix("10.20.30.0/24")}, result.CIDRs)
 			require.Equal(t, "0", result.InterfaceNumber)
 
 			require.Equal(t, 1, inUseIPs(t, a))

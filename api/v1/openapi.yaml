@@ -1660,11 +1660,6 @@ definitions:
       gateway:
         description: IP of gateway
         "$ref": "#/definitions/Address"
-      cidrs:
-        description: List of CIDRs out of which IPs are allocated
-        type: array
-        items:
-          "$ref": "#/definitions/CIDR"
       master-mac:
         description: MAC of master interface if address is a slave/secondary of a master interface
         "$ref": "#/definitions/MAC"

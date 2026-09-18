@@ -18,8 +18,8 @@ import (
 )
 
 // allocationResult derives ENI-specific AllocationResult metadata
-// (PrimaryMAC, GatewayIP, VPC CIDRs, InterfaceNumber) by finding which ENI
-// owns the given IP.
+// (PrimaryMAC, GatewayIP, InterfaceNumber) by finding which ENI owns the given
+// IP.
 func allocationResult(
 	logger *slog.Logger,
 	allocatedAddr netip.Addr,
@@ -38,36 +38,6 @@ func allocationResult(
 			IPPoolName: pool,
 			PrimaryMAC: eni.MAC,
 		}
-		if eni.VPC.PrimaryCIDR.IsValid() {
-			result.CIDRs = append(result.CIDRs, eni.VPC.PrimaryCIDR.Prefix)
-		}
-		for _, c := range eni.VPC.CIDRs {
-			if c.IsValid() {
-				result.CIDRs = append(result.CIDRs, c.Prefix)
-			}
-		}
-
-		// Add manually configured Native Routing CIDR
-		if conf.IPv4NativeRoutingCIDR.IsValid() && conf.EnableIPv4 {
-			result.CIDRs = append(result.CIDRs, conf.IPv4NativeRoutingCIDR)
-		}
-		if conf.IPv6NativeRoutingCIDR.IsValid() && conf.EnableIPv6 {
-			result.CIDRs = append(result.CIDRs, conf.IPv6NativeRoutingCIDR)
-		}
-
-		// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
-		// Note that the resulting ip rules will not be dynamically regenerated if the
-		// ip-masq-agent configuration changes.
-		if conf.EnableIPMasqAgent {
-			for _, prefix := range ipMasqAgent.NonMasqCIDRsFromConfig() {
-				if allocatedAddr.Is4() && prefix.Addr().Is4() {
-					result.CIDRs = append(result.CIDRs, prefix)
-				} else if !allocatedAddr.Is4() && prefix.Addr().Is6() {
-					result.CIDRs = append(result.CIDRs, prefix)
-				}
-			}
-		}
-
 		if allocatedAddr.Is4() {
 			if eni.Subnet.CIDR.IsValid() {
 				// AWS reserves the first subnet IP for the gateway.
