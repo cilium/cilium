@@ -87,7 +87,7 @@ func TestPreparedResourceRevertsCarryTargetEntries(t *testing.T) {
 			}
 			require.Len(t, changes.more, 3)
 			require.Equal(t, current, state.resourceEntries(typeurl.NetworkPolicy), "preparation must not mutate entries")
-			state.commitResourceMutation(changes)
+			state.commitResourceMutation(changes, 12)
 			entries := state.resourceEntries(typeurl.NetworkPolicy)
 			for name, target := range targets {
 				if name == "superseded" {
@@ -126,15 +126,19 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 	}
 	removed := requestSnapshotForTest(t, c, "node1", typeurl.NetworkPolicy)
 	ackNetworkPolicyVersion(t, c, "node1", removed.GetVersion(NetworkPolicyTypeURL))
+	c.completionCbs.OnStreamClosed(1, &envoy_config_core.Node{Id: "node1"})
 
 	state := c.getNodeState("node1")
+	require.NotNil(t, state, "known nodes remain after all resources and streams are gone")
 	require.Empty(t, state.resources[typeurl.NetworkPolicy],
 		"finalized removals must not leave generation tombstones behind")
 	state.requireNoRollbackOwners(t)
+	state.requireNoUnsentRollbacks(t)
 }
 
 func TestAcceptedRemovalReleasesResponseTombstone(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false, WithNodeIDs("node1")).(*cacheImpl)
+	c.setTestNodeEpochs("node1", 1)
 	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancelContext)
 
@@ -154,7 +158,7 @@ func TestAcceptedRemovalReleasesResponseTombstone(t *testing.T) {
 	}
 	responses := make(chan cache.Response, 1)
 	subscription := stream.NewSotwSubscription(nil, true)
-	subscription.SetReturnedResources(map[string]string{"policy": request.VersionInfo})
+	subscription.SetReturnedResources(map[string]string{"policy": initial.GetVersion(NetworkPolicyTypeURL)})
 	cancelWatch, err := c.CreateWatch(request, subscription, responses)
 	require.NoError(t, err)
 	t.Cleanup(cancelWatch)
@@ -184,12 +188,19 @@ func TestAcceptedRemovalReleasesResponseTombstone(t *testing.T) {
 	require.NoError(t, wg.Wait())
 	require.Empty(t, c.getNodeState("node1").resources[typeurl.NetworkPolicy])
 	c.getNodeState("node1").requireNoRollbackOwners(t)
+	c.completionCbs.OnStreamClosed(1, request.Node)
+	state := c.getNodeState("node1")
+	require.NotNil(t, state)
+	require.Empty(t, state.resources[typeurl.NetworkPolicy], "the accepted removal releases its tombstone")
+	state.requireNoRollbackOwners(t)
+	state.requireNoUnsentRollbacks(t)
 }
 
 func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
 	c := NewCache(slog.New(slog.DiscardHandler), false, WithNodeIDs("node1")).(*cacheImpl)
 	const nodeID = "node1"
 	node := &envoy_config_core.Node{Id: nodeID}
+	c.setTestNodeEpochs(nodeID, 1)
 
 	endpoint := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "orphan"}
 	cluster := &envoy_config_cluster.Cluster{Name: "unrelated-cluster"}
@@ -200,13 +211,11 @@ func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
 	require.NoError(t, err)
 
 	clusterResponses := make(chan cache.Response, 1)
-	clusterSubscription := stream.NewSotwSubscription(nil, true)
 	cancel, err := c.CreateWatch(&cache.Request{
 		Node: node, TypeUrl: envoy_resource.ClusterType,
-	}, clusterSubscription, clusterResponses)
+	}, stream.NewSotwSubscription(nil, true), clusterResponses)
 	require.NoError(t, err)
 	response := <-clusterResponses
-	clusterSubscription.SetReturnedResources(response.GetReturnedResources())
 	cancel()
 	acknowledgeResponse(t, c, 1, response, "initial-cluster")
 	require.NotNil(t, c.getNodeState(nodeID).typeStates[typeurl.Endpoint].rollbacks.unsent,
@@ -214,10 +223,12 @@ func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
 
 	previous := mustSnapshot(t, c, nodeID)
 	clusterResponses = make(chan cache.Response, 1)
+	subscription := stream.NewSotwSubscription(nil, true)
+	subscription.SetReturnedResources(response.GetReturnedResources())
 	cancel, err = c.CreateWatch(&cache.Request{
 		Node: node, TypeUrl: envoy_resource.ClusterType,
 		VersionInfo: previous.GetVersion(envoy_resource.ClusterType),
-	}, clusterSubscription, clusterResponses)
+	}, subscription, clusterResponses)
 	require.NoError(t, err)
 	err = c.ApplyResources(t.Context(), nodeID, ResourceMutations{
 		Removed: xds.Resources{Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{"orphan": endpoint}},
@@ -243,6 +254,7 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 	t.Cleanup(cancelContext)
 	const nodeID = "node1"
 	node := &envoy_config_core.Node{Id: nodeID}
+	c.setTestNodeEpochs(nodeID, 1)
 
 	baselineListener := &envoy_config_listener.Listener{Name: "listener-0"}
 	baselinePolicy := &cilium.NetworkPolicy{EndpointId: 1}
@@ -667,6 +679,7 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 
 func TestNACKedRemovalRestoresResourceAfterCallerCompletion(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false, WithNodeIDs("node1")).(*cacheImpl)
+	c.setTestNodeEpochs("node1", 1)
 	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancelContext)
 
@@ -685,6 +698,7 @@ func TestNACKedRemovalRestoresResourceAfterCallerCompletion(t *testing.T) {
 	}
 	responses := make(chan cache.Response, 1)
 	subscription := stream.NewSotwSubscription(nil, true)
+	// The mock has already received the initial policy; this is an ACK watch.
 	subscription.SetReturnedResources(map[string]string{"policy": initialVersion})
 	cancelWatch, err := c.CreateWatch(request, subscription, responses)
 	require.NoError(t, err)
@@ -716,6 +730,7 @@ func TestNACKedRemovalRestoresResourceAfterCallerCompletion(t *testing.T) {
 
 func TestNACKRevertsAfterWaitCancellationAndCallerFinalize(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false, WithNodeIDs("node1")).(*cacheImpl)
+	c.setTestNodeEpochs("node1", 1)
 	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancelContext)
 
@@ -734,6 +749,7 @@ func TestNACKRevertsAfterWaitCancellationAndCallerFinalize(t *testing.T) {
 	}
 	responses := make(chan cache.Response, 1)
 	subscription := stream.NewSotwSubscription(nil, true)
+	// The mock has already received the initial policy; this is an ACK watch.
 	subscription.SetReturnedResources(map[string]string{"policy": initialVersion})
 	cancelWatch, err := c.CreateWatch(request, subscription, responses)
 	require.NoError(t, err)

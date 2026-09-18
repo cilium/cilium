@@ -18,6 +18,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/server/stream/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -58,12 +59,15 @@ func TestFailedCoalescedABAPublicationKeepsPendingPublication(t *testing.T) {
 	cancelWatch, err = c.CreateWatch(request, s.sub, responses)
 	require.NoError(t, err)
 	t.Cleanup(cancelWatch)
-	// The coalesced A-B-A content version matches the already ACKed baseline,
-	// so finalization can complete the intermediate wait without a new response.
+	// A-B-A retains identical contents but advances the generation version.
+	// Finalization must publish the preserved desired state and wait for its new ACK.
+	retried := mustSnapshot(t, c, "coverage-node")
+	require.NotSame(t, baseline, retried, "retry must publish the preserved desired state")
+	require.NotEqual(t, baseline.GetVersion(NetworkPolicyTypeURL), retried.GetVersion(NetworkPolicyTypeURL))
+	requireCoveragePending(t, done)
+	s.reply(t, s.deliver(t, <-responses), "")
 	require.NoError(t, wg.Wait())
-	require.NoError(t, <-done, "successful A-B-A publication must resolve its wait against accepted contents")
-	require.NotSame(t, baseline, mustSnapshot(t, c, "coverage-node"), "retry must publish the preserved desired state")
-	require.Empty(t, responses, "already accepted contents need no new response")
+	require.NoError(t, <-done, "successful A-B-A publication must resolve its wait on ACK")
 }
 
 func TestNoOpWaitWithoutPublishedBaseline(t *testing.T) {
@@ -113,6 +117,154 @@ func TestNoOpWaitWithoutPublishedBaseline(t *testing.T) {
 					require.Same(t, policy, current, "an empty LDS outcome must not revert the unrelated policy")
 				})
 			}
+		}
+	}
+}
+
+func TestEpochRotationPreservesUnrelatedUnpublishedChanges(t *testing.T) {
+	for _, failPublication := range []bool{false, true} {
+		t.Run(fmt.Sprintf("publication-failure=%t", failPublication), func(t *testing.T) {
+			c := newCoverageCache(t)
+			const nodeID = "coverage-node"
+			require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster",
+				&cluster.Cluster{Name: "cluster"}, nil, nil))
+			cds := coverageStream{cache: c, id: 1, typeURL: typeurl.Cluster.URL(), version: "e1:g99"}
+			cds.reply(t, cds.receive(t), "")
+			baseline := mustSnapshot(t, c, nodeID)
+			require.Equal(t, "e2:g1", baseline.GetVersion(typeurl.Cluster.URL()))
+
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			t.Cleanup(cancel)
+			wg := completion.NewWaitGroup(ctx)
+			t.Cleanup(wg.Cancel)
+			done := make(chan error, 1)
+			policy := &cilium.NetworkPolicy{EndpointId: 1}
+			require.NoError(t, c.ApplyResource(ctx, nodeID, typeurl.NetworkPolicy, "policy", policy, wg, func(err error) { done <- err }))
+			request := &cache.Request{Node: &core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(), VersionInfo: "e2:g0"}
+			sub := stream.NewSotwSubscription(nil, true)
+			responses := make(chan cache.Response, 1)
+			if failPublication {
+				original := c.SnapshotCache
+				failed := newMockSnapshotCache()
+				failed.snapshots[nodeID] = baseline
+				failed.setSnapshotErr = errors.New("epoch publication failed")
+				c.SnapshotCache = failed
+				cancel, err := c.CreateWatch(request, sub, responses)
+				require.ErrorIs(t, err, failed.setSnapshotErr)
+				require.Nil(t, cancel)
+				require.Same(t, baseline, mustSnapshot(t, c, nodeID))
+				c.SnapshotCache = original
+			}
+			cancelWatch, err := c.CreateWatch(request, sub, responses)
+			require.NoError(t, err)
+			t.Cleanup(cancelWatch)
+			lds := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL(), sub: sub}
+			lds.reply(t, lds.deliver(t, <-responses), "")
+			rotated := mustSnapshot(t, c, nodeID)
+			require.Equal(t, "e3:g1", rotated.GetVersion(typeurl.Cluster.URL()))
+			require.Empty(t, rotated.GetResources(NetworkPolicyTypeURL), "rotation must not publish the pending policy")
+			require.Equal(t, "e2:g1", baseline.GetVersion(typeurl.Cluster.URL()), "the earlier snapshot stays immutable")
+			requireCoveragePending(t, done)
+			current := c.GetResource(nodeID, typeurl.NetworkPolicy, "policy")
+			require.NotNil(t, current)
+			require.Same(t, policy, current)
+			npds := coverageStream{cache: c, id: 1, typeURL: NetworkPolicyTypeURL}
+			npds.reply(t, npds.receive(t), "")
+			require.NoError(t, wg.Wait())
+			require.NoError(t, <-done)
+		})
+	}
+}
+
+func TestEpochExhaustionDoesNotCorruptKnownNode(t *testing.T) {
+	c := newCoverageCache(t)
+	cds := coverageStream{cache: c, id: 1, typeURL: typeurl.Cluster.URL(), version: fmt.Sprintf("e%d:g99", ^uint64(0))}
+	cds.reply(t, cds.receive(t), "")
+	baseline := mustSnapshot(t, c, "coverage-node")
+	request := &cache.Request{Node: &core.Node{Id: "coverage-node"}, TypeUrl: typeurl.Listener.URL(), VersionInfo: "e1:g0"}
+	responses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
+	require.ErrorContains(t, err, "epoch space exhausted")
+	require.Nil(t, cancel)
+	require.Empty(t, responses)
+	require.Same(t, baseline, mustSnapshot(t, c, "coverage-node"))
+
+	// A failing request does not commit negotiation. A non-conflicting retry
+	// still uses the positive epoch selected for this known node.
+	request.VersionInfo = "e2:g0"
+	cancel, err = c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+	require.Equal(t, "e1:g0", (<-responses).GetResponseVersion())
+}
+
+func TestClusterAddsMissingCLAAnswersExistingEDSWatch(t *testing.T) {
+	for _, strict := range []bool{false, true} {
+		for _, existingCluster := range []bool{false, true} {
+			t.Run(fmt.Sprintf("strict=%t/existing-cluster=%t", strict, existingCluster), func(t *testing.T) {
+				logger := slog.New(slog.DiscardHandler)
+				if strict {
+					logger = hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+				}
+				const nodeID = "coverage-node"
+				c := NewCache(logger, strict, WithNodeIDs(nodeID)).(*cacheImpl)
+				t.Cleanup(func() {
+					c.completionCbs.OnStreamClosed(1, nil)
+					c.completionCbs.OnStreamClosed(2, nil)
+				})
+				if existingCluster {
+					require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster",
+						&cluster.Cluster{Name: "cluster"}, nil, nil))
+				}
+
+				// Subscribe before a Cluster refers to this EDS name. The empty
+				// response establishes a version, but no assignment was delivered.
+				eds := coverageStream{cache: c, id: 1, typeURL: typeurl.Endpoint.URL()}
+				empty := eds.receive(t, "backend")
+				require.Empty(t, empty.Resources)
+				eds.reply(t, empty, "", "backend")
+				cds := coverageStream{cache: c, id: 2, typeURL: typeurl.Cluster.URL()}
+				cds.reply(t, cds.receive(t), "")
+
+				openWatch := func(s *coverageStream, names ...string) chan cache.Response {
+					request := &cache.Request{
+						Node: &core.Node{Id: nodeID}, TypeUrl: s.resourceType(),
+						VersionInfo: s.version, ResourceNames: names,
+					}
+					require.NoError(t, c.completionCbs.OnStreamRequest(s.id, request))
+					responses := make(chan cache.Response, 1)
+					cancel, err := c.CreateWatch(request, s.sub, responses)
+					require.NoError(t, err)
+					t.Cleanup(cancel)
+					require.Empty(t, responses, "the acknowledged version must establish an open watch")
+					return responses
+				}
+				edsResponses := openWatch(&eds, "backend")
+				cdsResponses := openWatch(&cds)
+
+				// The CDS watch lets finalization run. The new EDS reference adds
+				// a synthesized CLA only to the snapshot, not to desired cache state.
+				// No new EDS request follows: publication must answer the existing
+				// watch even though no Cluster previously subscribed to this name.
+				require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster",
+					strictTestEDSCluster("cluster", "backend"), nil, nil))
+				require.Nil(t, c.GetResource(nodeID, typeurl.Endpoint, "backend"))
+				require.Contains(t, mustSnapshot(t, c, nodeID).GetResources(typeurl.Endpoint.URL()), "backend")
+				require.Len(t, cdsResponses, 1, "the Cluster update must have been published")
+				// Buffered handoffs finish synchronously before ApplyResource returns;
+				// assert delivery before reading so a regression fails without hanging.
+				require.Len(t, edsResponses, 1, "the changed EDS projection must answer the already-open watch")
+				response := eds.deliver(t, <-edsResponses)
+				require.NotEqual(t, empty.VersionInfo, response.VersionInfo,
+					"a new synthesized assignment needs a new EDS wire version")
+				require.Len(t, response.Resources, 1)
+				var assignment endpoint.ClusterLoadAssignment
+				require.NoError(t, response.Resources[0].UnmarshalTo(&assignment))
+				require.Equal(t, "backend", assignment.ClusterName)
+				require.Empty(t, assignment.Endpoints)
+				eds.reply(t, response, "", "backend")
+				cds.reply(t, cds.deliver(t, <-cdsResponses), "")
+			})
 		}
 	}
 }
@@ -181,10 +333,14 @@ func TestIncrementalCLAProjection(t *testing.T) {
 					require.Nil(t, c.GetResource("node1", typeurl.Endpoint, "shared"), "synthetic assignments must not enter desired state")
 				}
 				require.Same(t, oldAssignment, before.GetResources(typeurl.Endpoint.URL())["shared"], "published maps must remain immutable")
-				version, err := resourceContentVersion(oldAssignment)
-				require.NoError(t, err)
-				require.Equal(t, map[string]string{"shared": version}, before.GetVersionMap(typeurl.Endpoint.URL()),
-					"published content-version maps must remain immutable")
+				if mode == "remove-one-reference" {
+					require.Equal(t, before.GetVersion(typeurl.Endpoint.URL()), after.GetVersion(typeurl.Endpoint.URL()),
+						"removing one shared reference must not advance an unchanged EDS projection")
+				} else {
+					require.NotEqual(t, before.GetVersion(typeurl.Endpoint.URL()), after.GetVersion(typeurl.Endpoint.URL()),
+						"a changed EDS projection must advance its wire version")
+				}
+				require.Nil(t, before.GetVersionMap(typeurl.Endpoint.URL()))
 				require.NoError(t, CheckSnapshotConsistency(after))
 			})
 		}

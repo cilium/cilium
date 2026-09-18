@@ -10,7 +10,6 @@ import (
 	"math"
 	"slices"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
@@ -76,27 +75,6 @@ func WithResponseGeneration(response cache.Response, generation Generation) cach
 // Rollback is the lifecycle of rollback state for one resource update.
 type Rollback = revert.Revertible
 
-// ensureStreamState returns stream state, creating it when needed.
-// cb.mutex must be held.
-func (cb *CompletionCallbacks) ensureStreamState(streamID int64) *callbackStreamState {
-	stream := cb.streams[streamID]
-	if stream == nil {
-		stream = &callbackStreamState{}
-		cb.streams[streamID] = stream
-	}
-	return stream
-}
-
-// streamForRequest returns stream state and remembers the request's node ID.
-// Subsequent requests may omit Node. cb.mutex must be held.
-func (cb *CompletionCallbacks) streamForRequest(streamID int64, req *discovery.DiscoveryRequest) *callbackStreamState {
-	stream := cb.ensureStreamState(streamID)
-	if nodeID := req.GetNode().GetId(); nodeID != "" {
-		stream.nodeID = nodeID
-	}
-	return stream
-}
-
 type CompletionCallbacks struct {
 	Log         *slog.Logger
 	nackHandler NACKHandler
@@ -115,22 +93,23 @@ type CompletionCallbacks struct {
 	// streams remember the node ID and pending responses for each ADS stream.
 	// Envoy may omit Node on subsequent ACK/NACK requests. Named EDS
 	// subscriptions can use several streams for the same node/resource type.
-	streams map[int64]*callbackStreamState
+	streams map[streamKey]*callbackStreamState
+	// streamLifecycle is immutable and called without the callbacks mutex held.
+	streamLifecycle StreamLifecycleHandler
 }
 
 func NewCompletionCallbacks(logger *slog.Logger, nackHandler NACKHandler) *CompletionCallbacks {
+	// Cache owners implement both interfaces. Owners which need only NACK
+	// processing can omit stream lifecycle bookkeeping.
+	streamLifecycle, _ := nackHandler.(StreamLifecycleHandler)
 	return &CompletionCallbacks{
 		Log:                logger,
 		nackHandler:        nackHandler,
 		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
 		nodes:              make(map[string]*callbackNodeState),
-		streams:            make(map[int64]*callbackStreamState),
+		streams:            make(map[streamKey]*callbackStreamState),
+		streamLifecycle:    streamLifecycle,
 	}
-}
-
-type callbackStreamState struct {
-	nodeID    string
-	responses typeurl.Slots[pendingResponse]
 }
 
 type callbackNodeState struct {
@@ -153,7 +132,7 @@ type typeURLState struct {
 	// response tracks the latest xDS response/ACK state for this node/type.
 	// Stream-local responses independently retain exact nonce/generation identity.
 	// Generations establish ordering; versions are retained only because Envoy
-	// echoes the content version in ACK and NACK requests.
+	// echoes the xDS version in ACK and NACK requests.
 	response responseState
 }
 
@@ -599,7 +578,7 @@ func (cb *CompletionCallbacks) DiscardUnsentTypeGeneration(nodeID string, typeUR
 	return true
 }
 
-// FinalizeTypeGeneration supplies the content version for waits registered
+// FinalizeTypeGeneration supplies the xDS version for waits registered
 // before publication. It also resolves cases where no new response can be
 // produced because Envoy is already processing or has accepted these contents.
 //
@@ -718,55 +697,6 @@ func (cb *CompletionCallbacks) OnStreamDeltaResponse(int64, *discovery.DeltaDisc
 
 var _ sotw.Callbacks = (*CompletionCallbacks)(nil)
 
-// OnStreamOpen is called once an xDS stream is open with a stream ID and the type URL (or "" for ADS).
-// Returning an error will end processing and close the stream. OnStreamClosed will still be called.
-func (cb *CompletionCallbacks) OnStreamOpen(ctx context.Context, streamID int64, typ string) error {
-	return nil
-}
-
-// OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
-func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
-	cb.mutex.Lock()
-	var nodeID string
-	if stream := cb.streams[streamID]; stream != nil {
-		nodeID = stream.nodeID
-	}
-	if nodeID == "" && node != nil {
-		nodeID = node.GetId()
-	}
-	delete(cb.streams, streamID)
-	if nodeState := cb.nodes[nodeID]; nodeState != nil {
-		for typeURL := range typeurl.Count {
-			state := &nodeState.typeURLs[typeURL].response
-			if state.pendingStreamID == streamID {
-				state.clearPending()
-			}
-		}
-	}
-
-	streamStillOpen := false
-	for _, openStream := range cb.streams {
-		if openStream.nodeID == nodeID {
-			streamStillOpen = true
-			break
-		}
-	}
-	if nodeID != "" && !streamStillOpen {
-		if nodeState := cb.nodes[nodeID]; nodeState != nil {
-			for typeURL := range typeurl.Count {
-				typeState := &nodeState.typeURLs[typeURL]
-				typeState.response.clearPending()
-				typeState.response.acceptedVersion = ""
-				typeState.response.acceptedGeneration = 0
-				typeState.acceptedResources = acceptedResourceGroup{}
-			}
-		}
-	}
-	cb.mutex.Unlock()
-
-	cb.Log.Info("OnStreamClosed", logfields.XDSStreamID, streamID)
-}
-
 // OnStreamRequest is called once a request is received on a stream.
 // Returning an error will end processing and close the stream. OnStreamClosed will still be called.
 func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.DiscoveryRequest) error {
@@ -774,8 +704,11 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		return cb.handleNACK(streamID, req)
 	}
 	cb.mutex.Lock()
-	stream := cb.streamForRequest(streamID, req)
+	stream, started := cb.streamForRequest(streamID, req)
 	nodeID := stream.nodeID
+	if started && cb.streamLifecycle != nil {
+		defer cb.streamLifecycle.StreamStarted(streamID, nodeID, StreamModeSotW)
+	}
 	typeURL := req.GetTypeUrl()
 	typeIndex, supported := typeurl.FromURL(typeURL)
 	if !supported {
@@ -847,7 +780,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		if published := nodeState.published; coverage == nil && acceptedGeneration != 0 &&
 			published != nil && published.GetVersion(typeURL) == req.GetVersionInfo() {
 			// Another resource type may have published a newer snapshot while this
-			// response was in flight. Reuse it when this type's content version is
+			// response was in flight. Reuse it when this type's xDS version is
 			// unchanged; its immutable resources are equivalent to those just ACKed.
 			typeState.acceptedResources = acceptedResourceGroup{
 				generation: acceptedGeneration,
@@ -998,8 +931,11 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	var finalizers []Rollback
 
 	cb.mutex.Lock()
-	stream := cb.streamForRequest(streamID, req)
+	stream, started := cb.streamForRequest(streamID, req)
 	nodeID := stream.nodeID
+	if started && cb.streamLifecycle != nil {
+		defer cb.streamLifecycle.StreamStarted(streamID, nodeID, StreamModeSotW)
+	}
 
 	if version == "" {
 		cb.mutex.Unlock()
@@ -1016,7 +952,7 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	// SetSnapshot responses inherit the publication context; the cache captures
 	// the generation of immediate CreateWatch responses before releasing its
 	// lock. Never infer it from current publications or waiters: delivery may
-	// be delayed past newer updates, including ones with the same content hash.
+	// be delayed past newer updates, even when contents match an earlier state.
 	responseGeneration := snapshotGenerationFromContext(ctx)
 	coverage := responseCoverageFromContext(ctx)
 	stream.responses[typeIndex] = pendingResponse{
@@ -1083,13 +1019,4 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 		}
 	}
 	cb.mutex.Unlock()
-}
-
-func (cb *CompletionCallbacks) OnDeltaStreamOpen(ctx context.Context, streamID int64, typeURL string) error {
-	panic("unimplemented")
-}
-
-// OnDeltaStreamClosed invokes DeltaStreamClosedFunc.
-func (cb *CompletionCallbacks) OnDeltaStreamClosed(streamID int64, node *core.Node) {
-	panic("unimplemented")
 }

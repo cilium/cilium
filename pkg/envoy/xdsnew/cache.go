@@ -4,32 +4,27 @@
 package xdsnew
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"iter"
 	"log/slog"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	"github.com/davecgh/go-spew/spew"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	envoy_extensions_filters_network_tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	controlplanelog "github.com/envoyproxy/go-control-plane/pkg/log"
 	envoy_resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/container/set"
@@ -41,7 +36,6 @@ import (
 )
 
 const (
-	// NetworkPolicyTypeURL is the type URL of NetworkPolicy resources.
 	NetworkPolicyTypeURL      = typeurl.NetworkPolicyURL
 	NetworkPolicyHostsTypeURL = typeurl.NetworkPolicyHostsURL
 	logFieldComponent         = "component"
@@ -213,34 +207,37 @@ type responseDelivery struct {
 
 var _ Cache = &cacheImpl{}
 
-// snapshotResourceGroup keeps the published resources and their per-resource
-// versions together. Every resource in resources.Items has a corresponding
-// entry in versions.
+// snapshotResourceGroup keeps published resources with their aggregate wire
+// generation, independently of the entries' revisions and transaction IDs.
 type snapshotResourceGroup struct {
-	resources cache.Resources
-	versions  map[string]string
+	resources  cache.Resources
+	generation callbacks.Generation
 }
 
 // ciliumSnapshot implements go-control-plane's ResourceSnapshot interface for
 // both Envoy core resources and Cilium-specific xDS resources. Resource groups
-// are the published copy-on-write state in the same representations used by
-// go-control-plane's native Snapshot. Their version maps are constructed during
-// finalization, so creating a watch does not need to marshal and hash the
-// resources again or mutate the published snapshot.
-type ciliumSnapshot typeurl.Slots[snapshotResourceGroup]
+// are the published copy-on-write state in the same representation used by
+// go-control-plane's native Snapshot. Versions use generations and the node
+// epoch, leaving resource marshaling to go-control-plane's response path.
+type ciliumSnapshot struct {
+	resourceGroups typeurl.Slots[snapshotResourceGroup]
+	epoch          uint64
+}
 
 // Ensure ciliumSnapshot implements cache.ResourceSnapshot.
 var _ cache.ResourceSnapshot = &ciliumSnapshot{}
 var _ interface{ Consistent() error } = &ciliumSnapshot{}
 
-var (
-	listenerDependentTypeURLs = typeurl.NewSet(typeurl.Route, typeurl.Cluster, typeurl.Secret)
-	clusterDependentTypeURLs  = typeurl.NewSet(typeurl.Endpoint, typeurl.Secret)
-)
-
-func newCiliumSnapshot(resourceGroups typeurl.Slots[snapshotResourceGroup]) *ciliumSnapshot {
-	snapshot := ciliumSnapshot(resourceGroups)
-	return &snapshot
+func newCiliumSnapshot(resourceGroups typeurl.Slots[snapshotResourceGroup], epoch uint64) *ciliumSnapshot {
+	for typeURL := range typeurl.Indices() {
+		group := resourceGroups[typeURL]
+		group.resources.Version = formatXDSVersion(epoch, group.generation)
+		resourceGroups[typeURL] = group
+	}
+	return &ciliumSnapshot{
+		resourceGroups: resourceGroups,
+		epoch:          epoch,
+	}
 }
 
 func (w *ciliumSnapshot) GetVersion(typeURLString string) string {
@@ -248,7 +245,7 @@ func (w *ciliumSnapshot) GetVersion(typeURLString string) string {
 	if !ok {
 		return ""
 	}
-	return w[typeURL].resources.Version
+	return w.resourceGroups[typeURL].resources.Version
 }
 
 func (w *ciliumSnapshot) GetResources(typeURL string) map[string]cache_types.Resource {
@@ -268,25 +265,18 @@ func (w *ciliumSnapshot) GetResourcesAndTTL(typeURLString string) map[string]cac
 	if !ok {
 		return nil
 	}
-	return w[typeURL].resources.Items
+	return w.resourceGroups[typeURL].resources.Items
 }
 
 func (w *ciliumSnapshot) ConstructVersionMap() error {
 	if w == nil {
 		return fmt.Errorf("missing snapshot")
 	}
-	return nil
+	return fmt.Errorf("delta xDS is not supported by cilium snapshot")
 }
 
-func (w *ciliumSnapshot) GetVersionMap(typeURLString string) map[string]string {
-	if w == nil {
-		return nil
-	}
-	typeURL, ok := typeurl.FromURL(typeURLString)
-	if !ok {
-		return nil
-	}
-	return w[typeURL].versions
+func (w *ciliumSnapshot) GetVersionMap(string) map[string]string {
+	return nil
 }
 
 func (w *ciliumSnapshot) Consistent() error {
@@ -296,7 +286,7 @@ func (w *ciliumSnapshot) Consistent() error {
 
 	var resourceGroups [cache_types.UnknownType]cache.Resources
 	for typeURL := range typeurl.Indices() {
-		resources := w[typeURL].resources
+		resources := w.resourceGroups[typeURL].resources
 		responseType := cache.GetResponseType(envoy_resource.Type(typeURL.URL()))
 		if responseType == cache_types.UnknownType {
 			continue
@@ -378,303 +368,6 @@ func NewCache(logger *slog.Logger, strictAdsMode bool, options ...CacheOption) C
 	}
 	return c
 }
-
-func (c *cacheImpl) hash(resources map[string]string) string {
-	hasher := fnv.New32a()
-	printer := spew.ConfigState{
-		Indent:         " ",
-		SortKeys:       true,
-		DisableMethods: true,
-		SpewKeys:       true,
-	}
-	printer.Fprintf(hasher, "%#v", resources)
-	return rand.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
-}
-
-func addResourceReference(refs map[string]map[string]struct{}, parent, resource string) {
-	if parent == "" || resource == "" {
-		return
-	}
-	if refs[parent] == nil {
-		refs[parent] = make(map[string]struct{})
-	}
-	refs[parent][resource] = struct{}{}
-}
-
-func sortedMapKeys[V any](values map[string]V) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-	return keys
-}
-
-func resourceReferencesVersionContext(refs map[string]map[string]struct{}) string {
-	parents := sortedMapKeys(refs)
-
-	var sb strings.Builder
-	for _, parent := range parents {
-		children := sortedMapKeys(refs[parent])
-		for _, child := range children {
-			sb.WriteString(parent)
-			sb.WriteByte(0)
-			sb.WriteString(child)
-			sb.WriteByte(0)
-		}
-	}
-	return sb.String()
-}
-
-// snapshotResourceView is a temporary bridge preserving the existing
-// parent-reference content-version helpers as resources move into cache-private
-// state. It and those helpers are removed later in this series by
-// "envoy: derive ADS versions from generations".
-type snapshotResourceView interface {
-	listeners() iter.Seq2[string, *envoy_config_listener.Listener]
-	clusters() iter.Seq2[string, *envoy_config_cluster.Cluster]
-}
-
-// cacheSnapshotResourceView adapts cache-private entries to the typed view
-// expected by the existing version-context helpers, without copying resource
-// maps and excluding removal tombstones. This temporary adapter is removed with
-// snapshotResourceView in "envoy: derive ADS versions from generations".
-type cacheSnapshotResourceView struct {
-	resources *resourceMaps
-}
-
-func (view cacheSnapshotResourceView) listeners() iter.Seq2[string, *envoy_config_listener.Listener] {
-	return func(yield func(string, *envoy_config_listener.Listener) bool) {
-		for name, entry := range view.resources[typeurl.Listener] {
-			if entry.resource != nil && !yield(name, typedResource[*envoy_config_listener.Listener](entry.resource)) {
-				return
-			}
-		}
-	}
-}
-
-func (view cacheSnapshotResourceView) clusters() iter.Seq2[string, *envoy_config_cluster.Cluster] {
-	return func(yield func(string, *envoy_config_cluster.Cluster) bool) {
-		for name, entry := range view.resources[typeurl.Cluster] {
-			if entry.resource != nil && !yield(name, typedResource[*envoy_config_cluster.Cluster](entry.resource)) {
-				return
-			}
-		}
-	}
-}
-
-func edsClusterReferenceVersionContext(resources snapshotResourceView) string {
-	refs := make(map[string]map[string]struct{})
-	for name, cluster := range resources.clusters() {
-		if cluster.GetType() != envoy_config_cluster.Cluster_EDS {
-			continue
-		}
-
-		// Use the snapshot map key as the parent identity. CEC parsing may
-		// qualify the snapshot resource key while leaving the inner Envoy name
-		// or EDS service name shared across multiple generated clusters; the key
-		// is what makes a newly introduced parent visible to versioning.
-		serviceName := cluster.GetEdsClusterConfig().GetServiceName()
-		if serviceName == "" {
-			serviceName = cluster.GetName()
-		}
-		if serviceName == "" {
-			serviceName = name
-		}
-		addResourceReference(refs, name, serviceName)
-	}
-
-	return resourceReferencesVersionContext(refs)
-}
-
-func httpConnectionManagerFromFilter(filter *envoy_config_listener.Filter) *envoy_config_http.HttpConnectionManager {
-	typedConfig := filter.GetTypedConfig()
-	if typedConfig == nil {
-		return nil
-	}
-	msg, err := typedConfig.UnmarshalNew()
-	if err != nil {
-		return nil
-	}
-	hcm, _ := msg.(*envoy_config_http.HttpConnectionManager)
-	return hcm
-}
-
-func rdsListenerReferenceVersionContext(resources snapshotResourceView) string {
-	refs := make(map[string]map[string]struct{})
-	for name, listener := range resources.listeners() {
-		for _, filterChain := range listener.GetFilterChains() {
-			for _, filter := range filterChain.GetFilters() {
-				hcm := httpConnectionManagerFromFilter(filter)
-				if hcm == nil {
-					continue
-				}
-				addResourceReference(refs, name, hcm.GetRds().GetRouteConfigName())
-			}
-		}
-	}
-
-	return resourceReferencesVersionContext(refs)
-}
-
-func addSDSSecretConfigReference(refs map[string]map[string]struct{}, parent string, secretConfig *envoy_config_tls.SdsSecretConfig) {
-	addResourceReference(refs, parent, secretConfig.GetName())
-}
-
-func addCommonTLSContextSDSReferences(refs map[string]map[string]struct{}, parent string, commonTLSContext *envoy_config_tls.CommonTlsContext) {
-	if commonTLSContext == nil {
-		return
-	}
-	for _, secretConfig := range commonTLSContext.GetTlsCertificateSdsSecretConfigs() {
-		addSDSSecretConfigReference(refs, parent, secretConfig)
-	}
-	addSDSSecretConfigReference(refs, parent, commonTLSContext.GetValidationContextSdsSecretConfig())
-	addSDSSecretConfigReference(refs, parent, commonTLSContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig())
-}
-
-func addDownstreamTLSContextSDSReferences(refs map[string]map[string]struct{}, parent string, downstreamTLSContext *envoy_config_tls.DownstreamTlsContext) {
-	if downstreamTLSContext == nil {
-		return
-	}
-	addCommonTLSContextSDSReferences(refs, parent, downstreamTLSContext.GetCommonTlsContext())
-	addSDSSecretConfigReference(refs, parent, downstreamTLSContext.GetSessionTicketKeysSdsSecretConfig())
-}
-
-func addUpstreamTLSContextSDSReferences(refs map[string]map[string]struct{}, parent string, upstreamTLSContext *envoy_config_tls.UpstreamTlsContext) {
-	if upstreamTLSContext == nil {
-		return
-	}
-	addCommonTLSContextSDSReferences(refs, parent, upstreamTLSContext.GetCommonTlsContext())
-}
-
-func downstreamTLSContextFromTransportSocket(transportSocket *envoy_config_core.TransportSocket) *envoy_config_tls.DownstreamTlsContext {
-	typedConfig := transportSocket.GetTypedConfig()
-	if typedConfig == nil {
-		return nil
-	}
-	msg, err := typedConfig.UnmarshalNew()
-	if err != nil {
-		return nil
-	}
-	downstreamTLSContext, _ := msg.(*envoy_config_tls.DownstreamTlsContext)
-	return downstreamTLSContext
-}
-
-func upstreamTLSContextFromTransportSocket(transportSocket *envoy_config_core.TransportSocket) *envoy_config_tls.UpstreamTlsContext {
-	typedConfig := transportSocket.GetTypedConfig()
-	if typedConfig == nil {
-		return nil
-	}
-	msg, err := typedConfig.UnmarshalNew()
-	if err != nil {
-		return nil
-	}
-	upstreamTLSContext, _ := msg.(*envoy_config_tls.UpstreamTlsContext)
-	return upstreamTLSContext
-}
-
-func tcpProxyFromFilter(filter *envoy_config_listener.Filter) *envoy_extensions_filters_network_tcp_proxy.TcpProxy {
-	typedConfig := filter.GetTypedConfig()
-	if typedConfig == nil {
-		return nil
-	}
-	msg, err := typedConfig.UnmarshalNew()
-	if err != nil {
-		return nil
-	}
-	tcpProxy, _ := msg.(*envoy_extensions_filters_network_tcp_proxy.TcpProxy)
-	return tcpProxy
-}
-
-func listenerClusterReferenceVersionContext(resources snapshotResourceView) string {
-	refs := make(map[string]map[string]struct{})
-	for name, listener := range resources.listeners() {
-		for _, filterChain := range listener.GetFilterChains() {
-			for _, filter := range filterChain.GetFilters() {
-				tcpProxy := tcpProxyFromFilter(filter)
-				if tcpProxy == nil {
-					continue
-				}
-				addResourceReference(refs, name, tcpProxy.GetCluster())
-				for _, cluster := range tcpProxy.GetWeightedClusters().GetClusters() {
-					addResourceReference(refs, name, cluster.GetName())
-				}
-			}
-		}
-	}
-	return resourceReferencesVersionContext(refs)
-}
-
-func sdsReferenceVersionContext(resources snapshotResourceView) string {
-	refs := make(map[string]map[string]struct{})
-	for name, listener := range resources.listeners() {
-		for _, filterChain := range listener.GetFilterChains() {
-			addDownstreamTLSContextSDSReferences(refs, name, downstreamTLSContextFromTransportSocket(filterChain.GetTransportSocket()))
-		}
-	}
-	for name, cluster := range resources.clusters() {
-		addUpstreamTLSContextSDSReferences(refs, name, upstreamTLSContextFromTransportSocket(cluster.GetTransportSocket()))
-	}
-
-	return resourceReferencesVersionContext(refs)
-}
-
-func resourceContentVersion(resource cache_types.Resource) (string, error) {
-	marshaledResource, err := cache.MarshalResource(resource)
-	if err != nil {
-		return "", err
-	}
-	return cache.HashResource(marshaledResource), nil
-}
-
-func (c *cacheImpl) resourceVersion(typeURL typeurl.Index, resourceVersions map[string]string, versionContext ...string) string {
-	keys := sortedMapKeys(resourceVersions)
-	var sb strings.Builder
-	for _, name := range keys {
-		sb.WriteString(name)
-		sb.WriteByte(0)
-		sb.WriteString(resourceVersions[name])
-		sb.WriteByte(0)
-	}
-	for _, context := range versionContext {
-		if context == "" {
-			continue
-		}
-		sb.WriteString("version-context")
-		sb.WriteByte(0)
-		sb.WriteString(context)
-		sb.WriteByte(0)
-	}
-	return c.hash(map[string]string{typeURL.URL(): sb.String()})
-}
-
-// snapshotVersionContext preserves dependency-sensitive content versioning:
-// changed parent references alter a dependent type's version even when its
-// resources are unchanged. It is part of the temporary snapshotResourceView
-// bridge, removed later in this series by
-// "envoy: derive ADS versions from generations", which uses generation-based
-// versions and targeted EDS replay instead.
-func snapshotVersionContext(resources snapshotResourceView, typeURL typeurl.Index) string {
-	switch typeURL {
-	case typeurl.Endpoint:
-		// Envoy creates one EDS subscription per EDS-backed cluster. A new
-		// parent can request a dependent resource that the ADS stream has already
-		// seen at the current version, so go-control-plane may open the new watch
-		// without replaying the cached resource. Include the parent reference sets
-		// in dependent resource versions so new subscriptions receive the current
-		// resource immediately.
-		return edsClusterReferenceVersionContext(resources)
-	case typeurl.Route:
-		return rdsListenerReferenceVersionContext(resources)
-	case typeurl.Secret:
-		return sdsReferenceVersionContext(resources)
-	case typeurl.Cluster:
-		return listenerClusterReferenceVersionContext(resources)
-	default:
-		return ""
-	}
-}
-
 func clusterEndpointName(name string, cluster *envoy_config_cluster.Cluster) string {
 	if cluster == nil || cluster.GetType() != envoy_config_cluster.Cluster_EDS {
 		return ""
@@ -689,69 +382,48 @@ func clusterEndpointName(name string, cluster *envoy_config_cluster.Cluster) str
 	return serviceName
 }
 
-func (c *cacheImpl) updateResourceEntries(typeURL typeurl.Index, changed set.Set[string], desired map[string]resourceEntry, endpointReferences set.Set[string], previous cache.Resources, previousVersions map[string]string, versionContexts ...string) (cache.Resources, map[string]string, error) {
+// updateResourceEntries clones only when a published entry changes. Missing
+// CLAs are a snapshot projection, never an insertion into desired state.
+// The boolean reports map changes using the existing copy-on-write decision.
+func (resources *resourceMaps) updateResourceEntries(typeURL typeurl.Index, changed set.Set[string], endpointReferences set.Set[string], previous cache.Resources) (cache.Resources, bool) {
 	items := previous.Items
-	versions := previousVersions
 	cloned := false
-	clone := func() {
-		if cloned {
-			return
-		}
-		items = maps.Clone(items)
-		versions = maps.Clone(versions)
-		cloned = true
-	}
 	for name := range changed.Members() {
-		resource := desired[name].resource
+		resource := resources[typeURL][name].resource
+		old, exists := items[name]
 		if resource == nil && endpointReferences.Has(name) {
-			// Missing EDS assignments exist only in the published projection.
-			resource = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
-		}
-		exists := resource != nil
-		previousItem, resourceExists := items[name]
-		previousVersion, versionExists := versions[name]
-		if !exists {
-			if !resourceExists && !versionExists {
+			// Reuse an unchanged synthetic CLA rather than allocating it again.
+			if exists && len(old.Resource.(*envoy_config_endpoint.ClusterLoadAssignment).GetEndpoints()) == 0 &&
+				xds.ResourceEqual(old.Resource, &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}) {
 				continue
 			}
-			clone()
+			resource = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
+		}
+		if resource == nil && !exists || exists && old.Resource == resource {
+			continue
+		}
+		if !cloned {
+			items = maps.Clone(items)
+			cloned = true
+		}
+		if resource == nil {
 			delete(items, name)
-			delete(versions, name)
-			continue
+		} else {
+			if items == nil {
+				items = make(map[string]cache_types.ResourceWithTTL)
+			}
+			items[name] = cache_types.ResourceWithTTL{Resource: resource}
 		}
-		if resourceExists && versionExists &&
-			previousItem.Resource == resource {
-			continue
-		}
-		version, err := resourceContentVersion(resource)
-		if err != nil {
-			return cache.Resources{}, nil, err
-		}
-		if resourceExists && versionExists && previousVersion == version {
-			continue
-		}
-		clone()
-		if items == nil {
-			items = make(map[string]cache_types.ResourceWithTTL)
-		}
-		if versions == nil {
-			versions = make(map[string]string)
-		}
-		items[name] = cache_types.ResourceWithTTL{Resource: resource}
-		versions[name] = version
 	}
-	version := c.resourceVersion(typeURL, versions, versionContexts...)
-	if !cloned && version == previous.Version {
-		return previous, previousVersions, nil
+	if len(items) == 0 {
+		items = nil
 	}
-	return cache.Resources{Version: version, Items: items}, versions, nil
+	return cache.Resources{Items: items}, cloned
 }
 
 func (c *cacheImpl) generateSnapshotFromState(state *nodeState) (cache.ResourceSnapshot, error) {
-	view := cacheSnapshotResourceView{resources: &state.resources}
 	var resourceGroups typeurl.Slots[snapshotResourceGroup]
 	for typeURL := range typeurl.Indices() {
-		versionContext := snapshotVersionContext(view, typeURL)
 		var group cache.Resources
 		entries := state.resources[typeURL]
 		capacity := len(entries)
@@ -772,18 +444,14 @@ func (c *cacheImpl) generateSnapshotFromState(state *nodeState) (cache.ResourceS
 			}
 			capacity = len(names)
 		}
-		group.Items = make(map[string]cache_types.ResourceWithTTL, capacity)
-		versions := make(map[string]string, capacity)
+		if capacity != 0 {
+			group.Items = make(map[string]cache_types.ResourceWithTTL, capacity)
+		}
 		for name, entry := range entries {
 			if entry.resource == nil {
 				continue
 			}
-			version, err := resourceContentVersion(entry.resource)
-			if err != nil {
-				return nil, err
-			}
 			group.Items[name] = cache_types.ResourceWithTTL{Resource: entry.resource}
-			versions[name] = version
 		}
 		if typeURL == typeurl.Endpoint {
 			// EDS also needs empty CLAs for Clusters without desired assignments.
@@ -802,31 +470,18 @@ func (c *cacheImpl) generateSnapshotFromState(state *nodeState) (cache.ResourceS
 					continue
 				}
 				resource := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
-				version, err := resourceContentVersion(resource)
-				if err != nil {
-					return nil, err
-				}
 				group.Items[name] = cache_types.ResourceWithTTL{Resource: resource}
-				versions[name] = version
 			}
 		}
 		if len(group.Items) == 0 {
 			group.Items = nil
-			versions = nil
 		}
-		var revertContext string
-		if generation := state.typeStates[typeURL].revertGeneration; generation != 0 {
-			// Identical contents from before a revert are not its corrective
-			// publication. Force a new wire version even for a stream still at A.
-			revertContext = fmt.Sprintf("revert:%d", generation)
-		}
-		group.Version = c.resourceVersion(typeURL, versions, versionContext, revertContext)
 		resourceGroups[typeURL] = snapshotResourceGroup{
-			resources: group,
-			versions:  versions,
+			resources:  group,
+			generation: state.typeStates[typeURL].generation,
 		}
 	}
-	return newCiliumSnapshot(resourceGroups), nil
+	return newCiliumSnapshot(resourceGroups, state.epoch), nil
 }
 
 func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) (cache.ResourceSnapshot, error) {
@@ -839,47 +494,30 @@ func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, pre
 		return previousSnapshot, nil
 	}
 
-	view := cacheSnapshotResourceView{resources: &state.resources}
-	resourceGroups := typeurl.Slots[snapshotResourceGroup](*previousSnapshot)
+	resourceGroups := previousSnapshot.resourceGroups
 	for typeURL := range regenerate.Members() {
-		context := snapshotVersionContext(view, typeURL)
-		var revertContext string
-		if generation := state.typeStates[typeURL].revertGeneration; generation != 0 {
-			// Incremental publication must fence restored contents just like a
-			// full snapshot, even when their content-version maps are reused.
-			revertContext = fmt.Sprintf("revert:%d", generation)
-		}
-		previousGroup := previousSnapshot[typeURL]
+		previousGroup := previousSnapshot.resourceGroups[typeURL]
+		generation := state.typeStates[typeURL].generation
 		changed := state.typeStates[typeURL].changedResourceNames
 		var endpointReferences set.Set[string]
+		var replay bool
 		if typeURL == typeurl.Endpoint {
 			changed = state.changedEndpointResourceNames(previousSnapshot)
-			// Index references only if a changed name needs synthesis or removal.
-			// Scan Clusters once, not once per missing CLA (quadratic for a
-			// bulk CDS retarget). Explicit assignments need no reference lookup.
-			for name := range changed.Members() {
-				if state.resources[typeurl.Endpoint][name].resource != nil {
-					continue
-				}
-				for clusterName, entry := range state.resources[typeurl.Cluster] {
-					if assignment := clusterEndpointName(clusterName, typedResource[*envoy_config_cluster.Cluster](entry.resource)); assignment != "" {
-						endpointReferences.Insert(assignment)
-					}
-				}
-				break
-			}
+			endpointReferences, replay = state.endpointReferencesForSnapshot(previousSnapshot, changed)
 		}
-		group, versions, err := c.updateResourceEntries(typeURL, changed, state.resources[typeURL], endpointReferences,
-			previousGroup.resources, previousGroup.versions, context, revertContext)
-		if err != nil {
-			return nil, err
+		group, resourcesChanged := state.resources.updateResourceEntries(typeURL, changed, endpointReferences, previousGroup.resources)
+		if typeURL == typeurl.Endpoint && (replay || resourcesChanged) {
+			// CDS mutations can change projected CLAs or require unchanged EDS
+			// to be replayed for Cluster warming. Both need a new EDS wire version,
+			// without changing desired CLA revisions or transaction IDs.
+			generation = max(generation, state.typeStates[typeurl.Cluster].generation)
 		}
 		resourceGroups[typeURL] = snapshotResourceGroup{
-			resources: group,
-			versions:  versions,
+			resources:  group,
+			generation: generation,
 		}
 	}
-	return newCiliumSnapshot(resourceGroups), nil
+	return newCiliumSnapshot(resourceGroups, state.epoch), nil
 }
 
 func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
@@ -1057,11 +695,8 @@ type finalizedCompletion struct {
 // Both zero and initialized-empty sets mean that no resource types changed.
 func snapshotTypesChangedBy(changedTypeURLs typeurl.Set) typeurl.Set {
 	regenerate := changedTypeURLs
-	if changedTypeURLs.Has(typeurl.Listener) {
-		regenerate = regenerate.Union(listenerDependentTypeURLs)
-	}
 	if changedTypeURLs.Has(typeurl.Cluster) {
-		regenerate = regenerate.Union(clusterDependentTypeURLs)
+		regenerate.Insert(typeurl.Endpoint)
 	}
 	return regenerate
 }
@@ -1090,8 +725,8 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 		// canceled delivery may therefore return an error after publication has
 		// committed; keep generation state in that case.
 		currentSnapshot, getErr := c.SnapshotCache.GetSnapshot(nodeID)
-		// SetSnapshot stores the exact snapshot object. Equal content versions
-		// alone are not installation evidence, especially for a coalesced A-B-A.
+		// SetSnapshot stores the exact snapshot object. Version equality alone
+		// cannot prove installation; do not infer success from stale state.
 		committed := getErr == nil && currentSnapshot == newSnapshot
 		if !committed {
 			return nil, err
@@ -1107,6 +742,7 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 	state.pendingPublication = nil
 	state.snapshotGeneration = pending.generation
 	for typeURL := range typeurl.Indices() {
+		state.typeStates[typeURL].generation = newSnapshot.(*ciliumSnapshot).resourceGroups[typeURL].generation
 		state.typeStates[typeURL].changedResourceNames = set.Set[string]{}
 	}
 	state.rollbacks.publishedLocked(c, state, pending, oldSnapshot, newSnapshot)
@@ -1163,8 +799,8 @@ func committedListenerChanges(changes resourceChanges) []ListenerChange {
 // ApplyResources applies sparse removals and upserts to the cache-private
 // desired state. It is the authority for semantic no-op detection, changed
 // resource names and transaction-fenced reverts. Changed transactions accumulate
-// unpublished changes and construct a snapshot when a watch can consume it;
-// published maps remain immutable.
+// unpublished changes and construct a snapshot when an affected watch can
+// consume it; published maps remain immutable.
 func (c *cacheImpl) ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) error {
 	_, err := c.applyResources(ctx, nodeID, mutations, wg, updatedTypeURLs, responseRollbackTracking)
 	return err
@@ -1564,13 +1200,18 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 	var previousReverts typeurl.Slots[callbacks.Generation]
 	if options.tracking == noRollbackTracking {
 		// Only caller- or response-driven reverts use noRollbackTracking.
-		// Record their fresh generation for corrective versions and absence waits.
+		// Record their fresh generation for absence waits. Aggregate wire
+		// generations also advance through commitResourceMutation below.
 		for typeURL := range changedTypeURLs.Members() {
 			previousReverts[typeURL] = state.typeStates[typeURL].revertGeneration
 			state.typeStates[typeURL].revertGeneration = tx.generation
 		}
 	}
-	state.commitResourceMutation(changes)
+	var oldTypeGenerations typeurl.Slots[callbacks.Generation]
+	for typeURL := range typeurl.Indices() {
+		oldTypeGenerations[typeURL] = state.typeStates[typeURL].generation
+	}
+	state.commitResourceMutation(changes, tx.generation)
 	if checkStrictConsistency {
 		state.strictRefs.apply(strictChanges, 1)
 	}
@@ -1611,6 +1252,9 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 		published, _ := c.SnapshotCache.GetSnapshot(tx.nodeID)
 		state.reconcileChangedResourceNames(changes, published)
 		state.resourceGeneration = oldResourceGeneration
+		for typeURL := range typeurl.Indices() {
+			state.typeStates[typeURL].generation = oldTypeGenerations[typeURL]
+		}
 	} else {
 		state.resourceGeneration = tx.generation
 		state.rollbacks.pruneUnownedRemovalsLocked(tx, changes, options)
@@ -1816,6 +1460,13 @@ func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 // response. Only the handoff may wait for that consumer, not either cache lock.
 func (c *cacheImpl) deliverResponses(deliveries []responseDelivery) {
 	for _, delivery := range deliveries {
+		// Non-strict go-control-plane iteration has no dependency order. Sort a
+		// coalesced batch by response type before handing it to the ADS stream.
+		if len(delivery.responses) > 1 {
+			slices.SortStableFunc(delivery.responses, func(a, b cache.Response) int {
+				return cmp.Compare(cache.GetResponseType(a.GetRequest().GetTypeUrl()), cache.GetResponseType(b.GetRequest().GetTypeUrl()))
+			})
+		}
 		for _, response := range delivery.responses {
 			delivery.channel <- response
 		}
@@ -1886,30 +1537,19 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 	}
 
 	c.mutex.Lock()
-	var finalized []finalizedCompletion
-	_, getErr := c.SnapshotCache.GetSnapshot(nodeID)
-	if getErr != nil && state.pendingPublication == nil {
-		// Known nodes own persistent desired state, not prebuilt snapshots. An
-		// initial or explicitly cleared snapshot must use that state, never a
-		// detached empty node. Reuse normal finalization even for an empty node.
-		state.pendingPublication = &pendingPublication{
-			generation:      state.resourceGeneration,
-			changedTypeURLs: typeurl.All(),
-			watchTypeURLs:   typeurl.All(),
-		}
+	if err := state.selectEpochLocked(typeURL, singleVersion(request.GetVersionInfo())); err != nil {
+		c.mutex.Unlock()
+		return nil, err
 	}
-	if state.pendingPublication != nil && (getErr != nil || state.pendingPublication.watchTypeURLs.Has(typeURL)) {
-		// The first watch needs a complete baseline even when it requests a
-		// different type from the first mutation.
-		finalized, err = c.finalizePendingPublicationLocked(context.Background(), nodeID)
-		if err != nil {
-			deliveries := c.collectResponseDeliveriesLocked()
-			c.mutex.Unlock()
-			c.deliverResponses(deliveries)
-			return nil, err
-		}
+	finalized, err := c.prepareLiveSnapshotLocked(state, typeURL)
+	if err != nil {
+		deliveries := c.collectResponseDeliveriesLocked()
+		c.mutex.Unlock()
+		c.deliverResponses(deliveries)
+		c.completeFinalized(nodeID, finalized)
+		return nil, err
 	}
-
+	state.commitEpochNegotiation(typeURL)
 	// Register before calling go-control-plane: CreateWatch may immediately
 	// queue a response rather than establish a deferred watch. Its relay keeps
 	// that response buffered until we retire the watch and release the locks.
@@ -1984,4 +1624,104 @@ func (c *cacheImpl) NetworkPolicies(nodeID string) iter.Seq2[string, *cilium.Net
 			}
 		}
 	}
+}
+
+// withEpoch returns a copy-on-write protocol view using epoch while retaining
+// the exact resources previously published. Resource maps are never copied.
+func (snapshot *ciliumSnapshot) withEpoch(epoch uint64) *ciliumSnapshot {
+	// Slots is an array, so this shallow copy isolates all state modified by
+	// newCiliumSnapshot: each group's resources.Version and the snapshot epoch.
+	// Immutable resource maps remain shared.
+	groups := snapshot.resourceGroups
+	return newCiliumSnapshot(groups, epoch)
+}
+
+func formatXDSVersion(epoch uint64, generation callbacks.Generation) string {
+	// Unwrap the aggregate boundary only to encode its wire representation.
+	return "e" + strconv.FormatUint(epoch, 10) + ":g" + strconv.FormatUint(uint64(generation), 10)
+}
+
+// parseXDSEpoch recognizes only versions in the form produced by
+// formatXDSVersion. The generation suffix is deliberately not parsed here:
+// epoch selection only needs to avoid namespaces already retained by Envoy.
+func parseXDSEpoch(version string) (uint64, bool) {
+	if len(version) < 3 || version[0] != 'e' {
+		return 0, false
+	}
+	colon := strings.IndexByte(version, ':')
+	if colon < 2 {
+		return 0, false
+	}
+	for _, digit := range version[1:colon] {
+		if digit < '0' || digit > '9' {
+			return 0, false
+		}
+	}
+	epoch, err := strconv.ParseUint(version[1:colon], 10, 64)
+	return epoch, err == nil && epoch != 0
+}
+
+func singleVersion(version string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		yield(version)
+	}
+}
+
+// prepareLiveSnapshotLocked finalizes an applicable pending publication or
+// rebinds already-published resources when a later type changes the node epoch.
+// Rebinding must not expose unrelated unpublished changes. Caller must hold c.mutex.
+func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.Index) ([]finalizedCompletion, error) {
+	nodeID := state.nodeID
+	current, getErr := c.SnapshotCache.GetSnapshot(nodeID)
+	if getErr != nil && state.pendingPublication == nil {
+		// Publish the known node's actual desired state, including an empty baseline.
+		state.pendingPublication = &pendingPublication{
+			generation:      state.resourceGeneration,
+			changedTypeURLs: typeurl.All(),
+			watchTypeURLs:   typeurl.All(),
+		}
+	}
+	if state.pendingPublication != nil && (getErr != nil || state.pendingPublication.watchTypeURLs.Has(typeURL)) {
+		return c.finalizePendingPublicationLocked(context.Background(), nodeID)
+	}
+	published, ok := current.(*ciliumSnapshot)
+	if !ok || published.epoch == state.epoch {
+		return nil, nil
+	}
+	rebuilt := published.withEpoch(state.epoch)
+	ctx := callbacks.WithSnapshotPublication(context.Background(), state.snapshotGeneration, rebuilt)
+	if err := c.SnapshotCache.SetSnapshot(ctx, nodeID, rebuilt); err != nil {
+		installed, getErr := c.SnapshotCache.GetSnapshot(nodeID)
+		if getErr != nil || installed != rebuilt {
+			return nil, err
+		}
+	}
+	c.completionCbs.SetPublishedSnapshot(nodeID, rebuilt)
+	return nil, nil
+}
+
+// StreamStarted implements callbacks.StreamLifecycleHandler. Stream callbacks
+// run outside the completion lock; known node membership never changes.
+func (c *cacheImpl) StreamStarted(streamID int64, nodeID string, mode callbacks.StreamMode) {
+	if mode >= callbacks.StreamModeCount {
+		return
+	}
+	c.mutex.Lock()
+	if state := c.getNodeState(nodeID); state != nil {
+		state.streams[mode].Insert(streamID)
+	}
+	c.mutex.Unlock()
+}
+
+// StreamClosed preserves desired resources and the negotiated epoch even when
+// the node is empty. Known nodes remain configured throughout the cache lifetime.
+func (c *cacheImpl) StreamClosed(streamID int64, nodeID string, mode callbacks.StreamMode) {
+	if mode >= callbacks.StreamModeCount {
+		return
+	}
+	c.mutex.Lock()
+	if state := c.getNodeState(nodeID); state != nil {
+		state.streams[mode].Remove(streamID)
+	}
+	c.mutex.Unlock()
 }

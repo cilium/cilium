@@ -5,6 +5,7 @@ package xdsnew
 
 import (
 	"fmt"
+	"iter"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -23,7 +24,11 @@ import (
 // or connected streams. Apart from the immutable nodeID, its fields are protected
 // by cacheImpl.mutex.
 type nodeState struct {
-	nodeID      string
+	nodeID string
+	// epoch is the wire-version namespace shared by this node's resource types.
+	epoch uint64
+	// streams use separate slots for the independently numbered protocol modes.
+	streams     [callbacks.StreamModeCount]set.Set[int64]
 	openWatches nodeWatchState
 	// resourceGeneration identifies the latest desired state, while
 	// snapshotGeneration identifies the state most recently published to Envoy.
@@ -50,10 +55,17 @@ type nodeState struct {
 // rollback ownership.
 type resourceTypeState struct {
 	// revertGeneration identifies the latest committed revert that changed
-	// resources of this type, or zero if none. It distinguishes restored contents
-	// from earlier identical snapshots and provides a conservative wait revision
-	// for absent names without retaining per-name tombstones.
+	// resources of this type, or zero if none. It provides a conservative wait
+	// revision for restored absence without retaining per-name tombstones.
 	revertGeneration callbacks.Generation
+	// generation is the aggregate xDS generation. It also advances for
+	// compensation and EDS replay; resource entries retain their revisions for
+	// ACK waits and transaction IDs for rollback fencing.
+	generation callbacks.Generation
+	// reportedEpoch is the greatest epoch from this type's first request.
+	reportedEpoch uint64
+	// negotiatedEpoch is zero until a watch for this type binds the node epoch.
+	negotiatedEpoch uint64
 	// changedResourceNames tracks names which may differ from the last published
 	// snapshot. Finalization clears only this set, not rollback ownership.
 	changedResourceNames set.Set[string]
@@ -91,9 +103,12 @@ func (state *nodeState) prepareResourceMutation(mutations ResourceMutations, gen
 	return changes, changes.typeURLs(), changes.inverse()
 }
 
-func (state *nodeState) commitResourceMutation(changes resourceChanges) {
+func (state *nodeState) commitResourceMutation(changes resourceChanges, generation callbacks.Generation) {
 	commit := func(change resourceChange) {
 		state.commitResourceEntry(change.typeURL, change.name, change.next)
+		// A revert restores an older value and transaction ID, but both its
+		// revision and the aggregate xDS generation advance to this mutation.
+		state.typeStates[change.typeURL].generation = generation
 	}
 	if !changes.empty() {
 		commit(changes.first)
@@ -358,7 +373,7 @@ func (state *nodeState) changedEndpointResourceNames(previous *ciliumSnapshot) s
 		return state.typeStates[typeurl.Endpoint].changedResourceNames
 	}
 	names := state.typeStates[typeurl.Endpoint].changedResourceNames.Clone()
-	previousClusters := previous[typeurl.Cluster].resources.Items
+	previousClusters := previous.resourceGroups[typeurl.Cluster].resources.Items
 	for name := range state.typeStates[typeurl.Cluster].changedResourceNames.Members() {
 		if item, exists := previousClusters[name]; exists {
 			cluster, ok := item.Resource.(*cluster.Cluster)
@@ -383,9 +398,9 @@ func (state *nodeState) changedEndpointResourceNames(previous *ciliumSnapshot) s
 // snapshot is constructed until a matching watch can consume it.
 type pendingPublication struct {
 	generation callbacks.Generation
-	// changedTypeURLs includes dependent types whose version context may need
-	// regeneration. watchTypeURLs contains the directly mutated types which can
-	// justify finalizing the publication when Envoy has capacity for them.
+	// changedTypeURLs includes dependent types whose projection or aggregate
+	// generation may need updating. watchTypeURLs contains the directly mutated
+	// types which justify publication when Envoy has capacity for them.
 	changedTypeURLs typeurl.Set
 	watchTypeURLs   typeurl.Set
 	// Every present resource type needs completion finalization, including
@@ -401,4 +416,100 @@ type pendingPublication struct {
 func (state *nodeState) commitResourceEntry(typeURL typeurl.Index, name string, entry resourceEntry) {
 	state.resources.commitEntry(typeURL, name, entry)
 	state.typeStates[typeURL].changedResourceNames.Insert(name)
+}
+
+// selectEpochLocked negotiates the shared node epoch when this TypeURL is
+// first requested. An already negotiated TypeURL reporting the current epoch
+// is ordinary stream continuity, not a collision. Caller must hold c.mutex.
+func (state *nodeState) selectEpochLocked(typeURL typeurl.Index, versions iter.Seq[string]) error {
+	if state.typeStates[typeURL].negotiatedEpoch != 0 {
+		return nil
+	}
+	var reported set.Set[uint64]
+	var reportedEpoch uint64
+	for version := range versions {
+		if epoch, ok := parseXDSEpoch(version); ok {
+			reported.Insert(epoch)
+			reportedEpoch = max(reportedEpoch, epoch)
+		}
+	}
+	epoch := state.epoch
+	if epoch == 0 {
+		for epoch = 1; reported.Has(epoch); epoch++ {
+		}
+	} else if reported.Has(epoch) {
+		// Once one TypeURL has already selected the shared node epoch, move past
+		// every epoch retained from earlier first requests.
+		for index := range typeurl.Indices() {
+			epoch = max(epoch, state.typeStates[index].reportedEpoch)
+		}
+		epoch = max(epoch, reportedEpoch)
+		if epoch == ^uint64(0) {
+			// Client versions are untrusted protocol input. Do not wrap into
+			// epoch zero or poison the retained negotiation state on failure.
+			return fmt.Errorf("xDS epoch space exhausted for node %q", state.nodeID)
+		}
+		epoch++
+	}
+	state.epoch = epoch
+	state.typeStates[typeURL].reportedEpoch = max(state.typeStates[typeURL].reportedEpoch, reportedEpoch)
+	return nil
+}
+
+// commitEpochNegotiation records that typeURL and every previously negotiated
+// resource type are represented by the snapshot bound to the current node
+// epoch. Caller must hold c.mutex after successful snapshot publication.
+func (state *nodeState) commitEpochNegotiation(typeURL typeurl.Index) {
+	for index := range typeurl.Indices() {
+		if index == typeURL || state.typeStates[index].negotiatedEpoch != 0 {
+			state.typeStates[index].negotiatedEpoch = state.epoch
+		}
+	}
+}
+
+// endpointReferencesForSnapshot collects EDS names for replay and missing-CLA
+// projection. Reuse one set: match changed Clusters' references against the old
+// subscription set before extending it with all current references for projection.
+// SotW needs only a group-wide replay decision, not a set of replayed names.
+func (state *nodeState) endpointReferencesForSnapshot(previous *ciliumSnapshot, changedEndpoints set.Set[string]) (references set.Set[string], replay bool) {
+	oldClusters := previous.resourceGroups[typeurl.Cluster].resources.Items
+	for name := range state.typeStates[typeurl.Cluster].changedResourceNames.Members() {
+		current := state.resources[typeurl.Cluster][name].resource
+		if current == nil {
+			continue
+		}
+		if old, exists := oldClusters[name]; exists && old.Resource == current {
+			continue
+		}
+		endpointName := clusterEndpointName(name, current.(*cluster.Cluster))
+		if endpointName == "" {
+			continue
+		}
+		references.Insert(endpointName)
+	}
+	if !references.Empty() {
+		// Envoy may not resubscribe when a new or changed Cluster reuses an EDS
+		// name. Match in one pass, not one old-Cluster scan per changed Cluster.
+		for name, old := range oldClusters {
+			if references.Has(clusterEndpointName(name, old.Resource.(*cluster.Cluster))) {
+				replay = true
+				break
+			}
+		}
+	}
+	for name := range changedEndpoints.Members() {
+		if state.resources[typeurl.Endpoint][name].resource != nil {
+			continue
+		}
+		// Only a changed name without an explicit CLA needs the full current
+		// reference index. Shared names retain an empty assignment while any
+		// Cluster still uses them; removals drop assignments no longer referenced.
+		for name, entry := range state.resources[typeurl.Cluster] {
+			if endpointName := clusterEndpointName(name, typedResource[*cluster.Cluster](entry.resource)); endpointName != "" {
+				references.Insert(endpointName)
+			}
+		}
+		break
+	}
+	return references, replay
 }

@@ -332,7 +332,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 					c.ClearSnapshot(nodeID)
 					require.Nil(t, c.GetStatusInfo(nodeID))
 				}
-				require.True(t, c.getNodeState("node1").openWatches.Empty())
+				require.True(t, c.getNodeState(nodeID).openWatches.Empty())
 				require.Empty(t, c.watchRelays)
 
 				if action == "cancel" {
@@ -347,7 +347,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 					}
 					require.Equal(t, 1, c.GetStatusInfo(nodeID).GetNumWatches())
 					cancel()
-					require.True(t, c.getNodeState("node1").openWatches.Empty())
+					require.True(t, c.getNodeState(nodeID).openWatches.Empty())
 					require.Empty(t, c.watchRelays)
 				}
 			})
@@ -362,22 +362,23 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 			c := NewCache(logger, strictADS, WithNodeIDs("node1")).(*cacheImpl)
 			const nodeID = "node1"
 			responses := make(chan cache.Response, 2)
-			cancel, err := c.CreateWatch(&cache.Request{
-				Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(),
-			}, stream.NewSotwSubscription(nil, true), responses)
-			require.NoError(t, err)
-			t.Cleanup(cancel)
-			<-responses
-			snapshot, err := c.GetSnapshot(nodeID)
-			require.NoError(t, err)
-			// Register in reverse dependency order. The relay must preserve
-			// go-control-plane's CDS-before-LDS delivery order in strict ADS.
+			// Register in reverse dependency order. The relay must deliver CDS
+			// before LDS in both strict and non-strict ADS.
 			for _, typeURL := range []typeurl.Index{typeurl.Listener, typeurl.Cluster} {
 				request := &cache.Request{
 					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeURL.URL(),
-					VersionInfo: snapshot.GetVersion(typeURL.URL()),
 				}
-				cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
+				subscription := stream.NewSotwSubscription(nil, true)
+				// Receive each type's initial response before echoing its version.
+				// Borrowing another type's version would look like an old agent
+				// epoch on this type's first request and force epoch rotation.
+				cancel, err := c.CreateWatch(request, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				initialResponse := <-responses
+				request.VersionInfo = initialResponse.GetResponseVersion()
+				subscription.SetReturnedResources(initialResponse.GetReturnedResources())
+				cancel, err = c.CreateWatch(request, subscription, responses)
 				require.NoError(t, err)
 				t.Cleanup(cancel)
 			}
@@ -395,13 +396,9 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 				deliveredTypes = append(deliveredTypes, response.GetRequest().GetTypeUrl())
 			}
 			expectedTypes := []string{typeurl.Cluster.URL(), typeurl.Listener.URL()}
-			if strictADS {
-				require.Equal(t, expectedTypes, deliveredTypes)
-			} else {
-				require.ElementsMatch(t, expectedTypes, deliveredTypes)
-			}
+			require.Equal(t, expectedTypes, deliveredTypes)
 			require.Zero(t, c.GetStatusInfo(nodeID).GetNumWatches())
-			require.True(t, c.getNodeState("node1").openWatches.Empty())
+			require.True(t, c.getNodeState(nodeID).openWatches.Empty())
 			require.Empty(t, c.watchRelays)
 		})
 	}

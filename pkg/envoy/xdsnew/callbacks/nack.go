@@ -48,8 +48,12 @@ type nackRecovery struct {
 // The callbacks lock is never held while acquiring the cache lock.
 func (cb *CompletionCallbacks) handleNACK(streamID int64, req *discovery.DiscoveryRequest) error {
 	cb.mutex.Lock()
-	nodeID := cb.streamForRequest(streamID, req).nodeID
+	stream, started := cb.streamForRequest(streamID, req)
+	nodeID := stream.nodeID
 	cb.mutex.Unlock()
+	if started && cb.streamLifecycle != nil {
+		cb.streamLifecycle.StreamStarted(streamID, nodeID, StreamModeSotW)
+	}
 	typeURL, supported := typeurl.FromURL(req.GetTypeUrl())
 	if !supported {
 		return nil
@@ -60,7 +64,7 @@ func (cb *CompletionCallbacks) handleNACK(streamID int64, req *discovery.Discove
 		cb.mutex.Lock()
 		// The stream may have closed or progressed while acquiring the cache
 		// lock. Revalidate instead of acting on an earlier response identity.
-		stream := cb.streams[streamID]
+		stream := cb.streams[streamKey{streamID: streamID, mode: StreamModeSotW}]
 		if stream == nil || stream.nodeID != nodeID || (req.GetResponseNonce() != "" &&
 			(stream.responses[typeURL].pendingNonce == "" || stream.responses[typeURL].pendingNonce != req.GetResponseNonce())) {
 			cb.mutex.Unlock()

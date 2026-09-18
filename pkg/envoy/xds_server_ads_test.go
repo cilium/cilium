@@ -2117,48 +2117,50 @@ func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 	nackADSResourceVersion(t, cache, 1, ListenerTypeURL, deleteVersion, "cannot bind: Address already in use")
 
-	// The rejected desired version is first replaced with a corrective deletion
-	// response, then published again after the retry delay. Restoration gets a
-	// fresh version: the earlier deletion ACK does not acknowledge this response.
+	// The rejected desired version is first replaced with the accepted deletion
+	// contents under a new generation version. ACK that rollback response before
+	// opening the watch which consumes the retried replacement.
 	require.Eventually(t, func() bool {
 		return len(cachedListeners(cache, localNodeID)) == 0
 	}, time.Second, 10*time.Millisecond)
-	retryRequest := &envoy_service_discovery.DiscoveryRequest{
+	rollbackRequest := &envoy_service_discovery.DiscoveryRequest{
 		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
 		TypeUrl:     ListenerTypeURL,
 		VersionInfo: deleteVersion,
 	}
-	retryResponses := make(chan xds_cache.Response, 1)
-	cancelRetryWatch, err := cache.CreateWatch(
-		retryRequest, envoy_stream.NewSotwSubscription(nil, true), retryResponses)
+	rollbackResponses := make(chan xds_cache.Response, 1)
+	cancelRollbackWatch, err := cache.CreateWatch(
+		rollbackRequest, envoy_stream.NewSotwSubscription(nil, true), rollbackResponses)
 	require.NoError(t, err)
-	t.Cleanup(cancelRetryWatch)
-	var correctiveResponse xds_cache.Response
+	t.Cleanup(cancelRollbackWatch)
+
+	var rollbackResponse xds_cache.Response
 	select {
-	case correctiveResponse = <-retryResponses:
+	case rollbackResponse = <-rollbackResponses:
 	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for corrective listener deletion")
+		t.Fatal("timed out waiting for listener rollback response")
 	}
-	corrective, err := correctiveResponse.GetDiscoveryResponse()
-	require.NoError(t, err)
-	require.Empty(t, corrective.Resources)
-	require.NotEqual(t, deleteVersion, corrective.VersionInfo)
+	rollbackVersion := rollbackResponse.GetResponseVersion()
+	require.NotEqual(t, deleteVersion, rollbackVersion)
 	cache.GetCompletionCallbacks().OnStreamResponse(
-		correctiveResponse.GetContext(), 1, correctiveResponse.GetRequest(), corrective)
+		rollbackResponse.GetContext(), 1, rollbackResponse.GetRequest(),
+		&envoy_service_discovery.DiscoveryResponse{
+			TypeUrl:     ListenerTypeURL,
+			VersionInfo: rollbackVersion,
+		})
 	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
 		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
 		TypeUrl:     ListenerTypeURL,
-		VersionInfo: corrective.VersionInfo,
+		VersionInfo: rollbackVersion,
 	}))
-	// Wait for the retry using the version actually consumed by the client.
-	// A response's context and version must come from that same response, not
-	// from a newer snapshot which may have been published while it was delayed.
-	retryRequest = &envoy_service_discovery.DiscoveryRequest{
+
+	retryRequest := &envoy_service_discovery.DiscoveryRequest{
 		Node:        &envoy_config_core_v3.Node{Id: localNodeID},
 		TypeUrl:     ListenerTypeURL,
-		VersionInfo: corrective.VersionInfo,
+		VersionInfo: rollbackVersion,
 	}
-	cancelRetryWatch, err = cache.CreateWatch(
+	retryResponses := make(chan xds_cache.Response, 1)
+	cancelRetryWatch, err := cache.CreateWatch(
 		retryRequest, envoy_stream.NewSotwSubscription(nil, true), retryResponses)
 	require.NoError(t, err)
 	t.Cleanup(cancelRetryWatch)
@@ -2176,6 +2178,7 @@ func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
 	retry, err := retryResponse.GetDiscoveryResponse()
 	require.NoError(t, err)
 	require.Len(t, retry.Resources, 1)
+	// Use the response's own version and context, not a possibly newer snapshot.
 	cache.GetCompletionCallbacks().OnStreamResponse(
 		retryResponse.GetContext(), 1, retryResponse.GetRequest(), retry)
 	require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{

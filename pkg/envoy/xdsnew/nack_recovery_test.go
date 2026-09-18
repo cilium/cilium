@@ -50,6 +50,14 @@ type gatedNACKHandler struct {
 	beforeRevert chan *nackGate
 }
 
+func (handler *gatedNACKHandler) StreamStarted(streamID int64, nodeID string, mode callbacks.StreamMode) {
+	handler.cache.StreamStarted(streamID, nodeID, mode)
+}
+
+func (handler *gatedNACKHandler) StreamClosed(streamID int64, nodeID string, mode callbacks.StreamMode) {
+	handler.cache.StreamClosed(streamID, nodeID, mode)
+}
+
 func newGatedNACKCache(t *testing.T, strict bool) (*cacheImpl, *gatedNACKHandler) {
 	t.Helper()
 	logger := slog.New(slog.DiscardHandler)
