@@ -210,14 +210,18 @@ func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 		logger = slog.Default()
 	}
 	logger = logger.With(logFieldComponent, "go-control-plane-snapshot-cache")
-	return controlplanelog.LoggerFuncs{
-		DebugFunc: func(format string, args ...any) {
+
+	// Empty logger for disabled debug level
+	debugLogger := func(string, ...any) {}
+	if logger.Enabled(context.Background(), slog.LevelDebug) {
+		debugLogger = func(format string, args ...any) {
 			logger.Debug(fmt.Sprintf(format, args...))
-		},
-		InfoFunc: func(format string, args ...any) {
-			// Consider using Debug here if Info is too chatty
-			logger.Info(fmt.Sprintf(format, args...))
-		},
+		}
+	}
+
+	return controlplanelog.LoggerFuncs{
+		DebugFunc: debugLogger,
+		InfoFunc:  debugLogger, // Punt info to debug to calm the logs
 		WarnFunc: func(format string, args ...any) {
 			logger.Warn(fmt.Sprintf(format, args...))
 		},
