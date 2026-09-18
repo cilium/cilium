@@ -171,7 +171,7 @@ func ParseLabelPrefixCfg(logger *slog.Logger, prefixes, nodePrefixes []string, f
 		cfg.LabelPrefixes = append(cfg.LabelPrefixes, p)
 	}
 
-	if fromCustomFile {
+	if fromCustomFile && cfg.whitelist {
 		found := false
 		for _, label := range cfg.LabelPrefixes {
 			if label.Source+":"+label.Prefix == reservedLabelsPattern {
