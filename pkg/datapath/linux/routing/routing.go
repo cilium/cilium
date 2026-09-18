@@ -358,32 +358,61 @@ next:
 	return errors.Join(errs...)
 }
 
-// retrieveIfIndexFromMAC finds the corresponding device index (ifindex) for a
-// given MAC address, excluding Linux slave devices. This is useful for
-// creating rules and routes in order to specify the table. When the ifindex is
-// found, the device is brought up and its MTU is set.
-func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
-	var link netlink.Link
-
-	links, err := safenetlink.LinkList()
-	if err != nil {
-		return -1, fmt.Errorf("unable to list interfaces: %w", err)
-	}
-
+// findLinkByMAC returns the non-slave link carrying the given MAC. Entries
+// repeated for the same ifindex are counted once, since an interrupted dump
+// may report an interface more than once; two genuinely distinct interfaces
+// sharing a MAC remain an error. Returns nil if no link matches.
+func findLinkByMAC(links []netlink.Link, m mac.MAC) (netlink.Link, error) {
+	var found netlink.Link
 	for _, l := range links {
 		// Linux slave devices have the same MAC address as their master
 		// device, but we want the master device.
 		if l.Attrs().RawFlags&unix.IFF_SLAVE != 0 {
 			continue
 		}
-		if l.Attrs().HardwareAddr.String() == mac.String() {
-			if link != nil {
-				return -1, fmt.Errorf("several interfaces found with MAC %s: %s and %s", mac, link.Attrs().Name, l.Attrs().Name)
-			}
-			link = l
+		if l.Attrs().HardwareAddr.String() != m.String() {
+			continue
 		}
+		if found != nil {
+			if found.Attrs().Index == l.Attrs().Index {
+				continue
+			}
+			return nil, fmt.Errorf("several interfaces found with MAC %s: %s and %s", m, found.Attrs().Name, l.Attrs().Name)
+		}
+		found = l
+	}
+	return found, nil
+}
+
+// retrieveIfIndexFromMAC finds the corresponding device index (ifindex) for a
+// given MAC address, excluding Linux slave devices. This is useful for
+// creating rules and routes in order to specify the table. When the ifindex is
+// found, the device is brought up and its MTU is set.
+func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
+	// Interrupted dumps may contain incomplete or inconsistent results.
+	// Accept a dump if it contains exactly one distinct non-slave interface
+	// matching the target MAC, counting repeated ifindices once. Otherwise,
+	// retry interrupted dumps using the existing bounded retry policy.
+	// This avoids requiring an uninterrupted dump for a successful lookup
+	// during sustained interface churn.
+	links, err := safenetlink.WithRetryResult(func() ([]netlink.Link, error) {
+		//nolint:forbidigo // ErrDumpInterrupted is handled here rather than by discarding the result.
+		links, err := netlink.LinkList()
+		if errors.Is(err, netlink.ErrDumpInterrupted) {
+			if l, mErr := findLinkByMAC(links, mac); mErr == nil && l != nil {
+				return links, nil
+			}
+		}
+		return links, err
+	})
+	if err != nil {
+		return -1, fmt.Errorf("unable to list interfaces: %w", err)
 	}
 
+	link, err := findLinkByMAC(links, mac)
+	if err != nil {
+		return -1, err
+	}
 	if link == nil {
 		return -1, fmt.Errorf("interface with MAC %s not found", mac)
 	}
