@@ -1222,6 +1222,80 @@ func TestGetDirectionNetworkPolicyWildcardPass(t *testing.T) {
 		}}, obtained)
 	})
 
+	t.Run("port_specific_pass_does_not_short_circuit_later_tiers", func(t *testing.T) {
+		passPriority := policyTypes.HighestPriority
+		denyPriority := policyTypes.Priority(1)
+		baselinePriority := policyTypes.Priority(0x100)
+		l4DirectionPolicy := &policy.L4DirectionPolicy{}
+		*l4DirectionPolicy = policy.NewL4DirectionPolicyForTest(policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+			"normal-deny/TCP": {
+				Tier:     0,
+				Port:     0,
+				Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+				PerSelectorPolicies: policy.L7DataMap{
+					wildcardCachedSelector: {
+						Priority: denyPriority,
+						Verdict:  types.Deny,
+					},
+				},
+			},
+			"normal-pass-8080/TCP": {
+				Tier:     0,
+				Port:     8080,
+				Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+				PerSelectorPolicies: policy.L7DataMap{
+					cachedSelector1: {
+						Priority: passPriority,
+						Verdict:  types.Pass,
+						L7Parser: policy.ParserTypeHTTP,
+						L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}},
+					},
+				},
+			},
+			"baseline-allow-8080/TCP": {
+				Tier:     1,
+				Port:     8080,
+				Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
+				PerSelectorPolicies: policy.L7DataMap{
+					cachedSelector1: {
+						Priority: baselinePriority,
+						L7Parser: policy.ParserTypeHTTP,
+						L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}},
+					},
+				},
+			},
+		}), []types.Priority{0, baselinePriority})
+
+		obtained := GetDirectionNetworkPolicy(ep, nil, selectors, l4DirectionPolicy, true, false, false, "ingress", "", xds.logger, xds.l7RulesTranslator)
+		require.Equal(t, []*cilium.PortNetworkPolicy{{
+			Port:     0,
+			Protocol: envoy_config_core.SocketAddress_TCP,
+			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence: uint32(denyPriority.ToDenyPrecedence()),
+				Verdict:    DenyVerdict,
+			}},
+		}, {
+			Port:     8080,
+			Protocol: envoy_config_core.SocketAddress_TCP,
+			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence: uint32(passPriority.ToPassPrecedence()),
+				Verdict: &cilium.PortNetworkPolicyRule_PassPrecedence{
+					PassPrecedence: uint32(policyTypes.Priority(0xff).ToPassPrecedence()),
+				},
+				RemotePolicies: []uint32{1001, 1002},
+				L7:             ExpectedHttpRule1,
+			}},
+		}, {
+			Port:     8080,
+			Protocol: envoy_config_core.SocketAddress_TCP,
+			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence:     uint32(baselinePriority.ToAllowPrecedence() + 1),
+				RemotePolicies: []uint32{1001, 1002},
+				L7:             ExpectedHttpRule1,
+			}},
+		}}, obtained)
+	})
+
 	t.Run("wildcard_pass_keeps_same_priority_port_rules", func(t *testing.T) {
 		passPriority := policyTypes.HighestPriority
 		l4DirectionPolicy := &policy.L4DirectionPolicy{}

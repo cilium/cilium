@@ -695,6 +695,14 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 				rules = nil
 			}
 
+			// A port-specific pass also requires lower tiers to be generated. Otherwise,
+			// a wildcard port rule would incorrectly short-circuit them below.
+			if !havePassRules {
+				havePassRules = slices.ContainsFunc(rules, func(rule *cilium.PortNetworkPolicyRule) bool {
+					return rule.GetPassPrecedence() != 0
+				})
+			}
+
 			// NPDS supports port ranges.
 			portPolicy := &cilium.PortNetworkPolicy{
 				Port:     uint32(portKey.port),
