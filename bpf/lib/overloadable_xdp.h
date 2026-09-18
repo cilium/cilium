@@ -156,7 +156,6 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 	return ctx_load_meta(ctx, XFER_MARKER) & XFER_PKT_SNAT_DONE;
 }
 
-#ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 		    __u32 daddr, __u32 seclabel, __u32 vni __maybe_unused,
@@ -246,4 +245,3 @@ ctx_set_encap_info6(struct xdp_md *ctx __maybe_unused,
 {
 	return 0;
 }
-#endif /* HAVE_ENCAP */
