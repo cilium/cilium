@@ -149,12 +149,11 @@ func newInitializedTestCache(mock *mockSnapshotCache) *cacheImpl {
 	return c
 }
 
-func materializeResourceMap[V comparable](current map[string]resourceEntry[V]) map[string]V {
+func materializeResourceMap[V proto.Message](current map[string]resourceEntry) map[string]V {
 	materialized := make(map[string]V, len(current))
-	var zero V
 	for name, entry := range current {
-		if entry.resource != zero {
-			materialized[name] = entry.resource
+		if entry.resource != nil {
+			materialized[name] = entry.resource.(V)
 		}
 	}
 	if len(materialized) == 0 {
@@ -168,13 +167,13 @@ func (state *nodeState) materializeResources() *xds.Resources {
 		return nil
 	}
 	return &xds.Resources{
-		Listeners:          materializeResourceMap(state.resources.listeners),
-		Routes:             materializeResourceMap(state.resources.routes),
-		Clusters:           materializeResourceMap(state.resources.clusters),
-		Endpoints:          materializeResourceMap(state.resources.endpoints),
-		Secrets:            materializeResourceMap(state.resources.secrets),
-		NetworkPolicies:    materializeResourceMap(state.resources.networkPolicies),
-		NetworkPolicyHosts: materializeResourceMap(state.resources.networkPolicyHosts),
+		Listeners:          materializeResourceMap[*envoy_config_listener.Listener](state.resources[typeurl.Listener].entries),
+		Routes:             materializeResourceMap[*envoy_config_route.RouteConfiguration](state.resources[typeurl.Route].entries),
+		Clusters:           materializeResourceMap[*envoy_config_cluster.Cluster](state.resources[typeurl.Cluster].entries),
+		Endpoints:          materializeResourceMap[*envoy_config_endpoint.ClusterLoadAssignment](state.resources[typeurl.Endpoint].entries),
+		Secrets:            materializeResourceMap[*envoy_config_tls.Secret](state.resources[typeurl.Secret].entries),
+		NetworkPolicies:    materializeResourceMap[*cilium.NetworkPolicy](state.resources[typeurl.NetworkPolicy].entries),
+		NetworkPolicyHosts: materializeResourceMap[*cilium.NetworkPolicyHosts](state.resources[typeurl.NetworkPolicyHosts].entries),
 	}
 }
 
@@ -253,7 +252,7 @@ func (c *cacheImpl) getAllResources(nodeID string) *xds.Resources {
 	return c.nodeStates[nodeID].materializeResources()
 }
 
-func (c *cacheImpl) updateResourceChanges(ctx context.Context, nodeID string, generation uint64, changes ResourceMutations, inverse cacheResources, dirtyTypeURLs map[string]struct{}, generator legacySnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), restoredEntries *cacheResources) error {
+func (c *cacheImpl) updateResourceChanges(ctx context.Context, nodeID string, generation uint64, changes ResourceMutations, inverse resourceEntrySlots, dirtyTypeURLs map[string]struct{}, generator legacySnapshotGenerator, wg *completion.WaitGroup, updatedTypeURLs map[string]func(err error), restoredEntries *resourceEntrySlots) error {
 	tx := c.beginResourceTransaction(ctx, nodeID)
 	tx.generation = generation
 	watchTypeURLs := mutationTypeURLs(changes)
@@ -784,8 +783,8 @@ func TestGenerateSnapshotFromStateIncrementallyReusesPublishedMapAfterCoalescedA
 		}},
 	})
 	state.commitResourceMutation(changes, 3, nil)
-	require.Equal(t, 1, state.changed.networkPolicies.Len())
-	require.True(t, state.changed.networkPolicies.Has("policy"))
+	require.Equal(t, 1, state.resources[typeurl.NetworkPolicy].changed.Len())
+	require.True(t, state.resources[typeurl.NetworkPolicy].changed.Has("policy"))
 
 	next, err := c.generateSnapshotFromStateIncrementally(state, previous, changedTypeURLs)
 	require.NoError(t, err)
@@ -826,7 +825,7 @@ func TestNodeStateUsesProtoEqualityAndTracksChangedNames(t *testing.T) {
 	}
 	changes, changedTypeURLs, inverse := state.prepareResourceMutation(ResourceMutations{Upserted: equal})
 	require.True(t, changedTypeURLs.Empty())
-	require.True(t, cacheResourcesEmpty(inverse))
+	require.True(t, resourceEntrySlotsEmpty(inverse))
 	require.True(t, resourceMutationsEmpty(changes))
 	unchanged := state.materializeResources()
 	require.Same(t, current.Listeners["listener"], unchanged.Listeners["listener"])
@@ -853,21 +852,21 @@ func TestNodeStateUsesProtoEqualityAndTracksChangedNames(t *testing.T) {
 		typeurl.Secret,
 		typeurl.NetworkPolicy,
 	), changedTypeURLs)
-	require.Equal(t, 1, state.changed.listeners.Len())
-	require.True(t, state.changed.listeners.Has("listener"))
-	require.Equal(t, 1, state.changed.clusters.Len())
-	require.True(t, state.changed.clusters.Has("cluster"))
-	require.Equal(t, 1, state.changed.secrets.Len())
-	require.True(t, state.changed.secrets.Has("new-secret"))
-	require.Equal(t, 1, state.changed.networkPolicies.Len())
-	require.True(t, state.changed.networkPolicies.Has("policy"))
-	require.Empty(t, state.changed.routes)
-	require.Empty(t, state.changed.endpoints)
-	require.Empty(t, state.changed.networkPolicyHosts)
-	require.Equal(t, current.Listeners["listener"], inverse.listeners["listener"].resource)
-	require.Equal(t, current.Clusters["cluster"], inverse.clusters["cluster"].resource)
-	require.Nil(t, inverse.secrets["new-secret"].resource)
-	require.Equal(t, current.NetworkPolicies["policy"], inverse.networkPolicies["policy"].resource)
+	require.Equal(t, 1, state.resources[typeurl.Listener].changed.Len())
+	require.True(t, state.resources[typeurl.Listener].changed.Has("listener"))
+	require.Equal(t, 1, state.resources[typeurl.Cluster].changed.Len())
+	require.True(t, state.resources[typeurl.Cluster].changed.Has("cluster"))
+	require.Equal(t, 1, state.resources[typeurl.Secret].changed.Len())
+	require.True(t, state.resources[typeurl.Secret].changed.Has("new-secret"))
+	require.Equal(t, 1, state.resources[typeurl.NetworkPolicy].changed.Len())
+	require.True(t, state.resources[typeurl.NetworkPolicy].changed.Has("policy"))
+	require.Empty(t, state.resources[typeurl.Route].changed)
+	require.Empty(t, state.resources[typeurl.Endpoint].changed)
+	require.Empty(t, state.resources[typeurl.NetworkPolicyHosts].changed)
+	require.Equal(t, current.Listeners["listener"], inverse[typeurl.Listener]["listener"].resource)
+	require.Equal(t, current.Clusters["cluster"], inverse[typeurl.Cluster]["cluster"].resource)
+	require.Nil(t, inverse[typeurl.Secret]["new-secret"].resource)
+	require.Equal(t, current.NetworkPolicies["policy"], inverse[typeurl.NetworkPolicy]["policy"].resource)
 	require.Nil(t, updated.Listeners)
 	require.Nil(t, updated.Clusters)
 	require.NotContains(t, updated.Listeners, "listener")
@@ -1979,7 +1978,7 @@ func TestAreDifferentSnapshots_Different(t *testing.T) {
 
 // --- CreateWatch ---
 
-func testSnapshotGenerator(c *cacheImpl, generated *int) legacySnapshotGenerator {
+func (c *cacheImpl) testSnapshotGenerator(generated *int) legacySnapshotGenerator {
 	return func(state *nodeState, previous cache.ResourceSnapshot, changedTypeURLs map[string]struct{}) (cache.ResourceSnapshot, error) {
 		(*generated)++
 		return c.generateSnapshotFromStateIncrementally(state, previous, indexedTypeURLs(changedTypeURLs))
@@ -1996,7 +1995,7 @@ func mustSnapshot(t *testing.T, c *cacheImpl, nodeID string) cache.ResourceSnaps
 func TestUpdateResourcesFinalizesLatestGenerationOnCreateWatch(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
 	generated := 0
-	generator := testSnapshotGenerator(c, &generated)
+	generator := c.testSnapshotGenerator(&generated)
 	changed := map[string]struct{}{NetworkPolicyTypeURL: {}}
 
 	resourcesA := emptyResources()
@@ -2049,10 +2048,10 @@ func TestApplyResourcesKeepsChangedNamesUntilFinalization(t *testing.T) {
 	require.True(t, updated)
 	require.Zero(t, generated)
 	state := c.nodeStates["node1"]
-	require.Same(t, policyA, state.resources.networkPolicies["policy"].resource)
-	resourceMap := reflect.ValueOf(state.resources.networkPolicies).Pointer()
-	require.Equal(t, 1, state.changed.networkPolicies.Len())
-	require.True(t, state.changed.networkPolicies.Has("policy"))
+	require.Same(t, policyA, state.resources[typeurl.NetworkPolicy].entries["policy"].resource)
+	resourceMap := reflect.ValueOf(state.resources[typeurl.NetworkPolicy].entries).Pointer()
+	require.Equal(t, 1, state.resources[typeurl.NetworkPolicy].changed.Len())
+	require.True(t, state.resources[typeurl.NetworkPolicy].changed.Has("policy"))
 
 	policyB := &cilium.NetworkPolicy{EndpointId: 2}
 	updated, _, _, err = c.ApplyResources(t.Context(), "node1", ResourceMutations{
@@ -2061,9 +2060,9 @@ func TestApplyResourcesKeepsChangedNamesUntilFinalization(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, updated)
 	require.Zero(t, generated)
-	require.Equal(t, resourceMap, reflect.ValueOf(state.resources.networkPolicies).Pointer())
-	require.Equal(t, 1, state.changed.networkPolicies.Len())
-	require.True(t, state.changed.networkPolicies.Has("policy"))
+	require.Equal(t, resourceMap, reflect.ValueOf(state.resources[typeurl.NetworkPolicy].entries).Pointer())
+	require.Equal(t, 1, state.resources[typeurl.NetworkPolicy].changed.Len())
+	require.True(t, state.resources[typeurl.NetworkPolicy].changed.Has("policy"))
 	require.Equal(t, uint64(2), state.resourceGeneration)
 	require.Zero(t, state.snapshotGeneration)
 	require.NotNil(t, state.staged)
@@ -2084,8 +2083,8 @@ func TestApplyResourcesKeepsChangedNamesUntilFinalization(t *testing.T) {
 	require.Equal(t, 1, generated, "all staged updates must be hashed by one finalization")
 	require.Equal(t, state.resourceGeneration, state.snapshotGeneration)
 	require.Nil(t, state.staged)
-	require.Same(t, policyB, state.resources.networkPolicies["policy"].resource)
-	require.Empty(t, state.changed.networkPolicies)
+	require.Same(t, policyB, state.resources[typeurl.NetworkPolicy].entries["policy"].resource)
+	require.Empty(t, state.resources[typeurl.NetworkPolicy].changed)
 }
 
 func TestListenerObserverReceivesCommittedTransitions(t *testing.T) {
@@ -2181,7 +2180,7 @@ func TestApplyResourcesCoalescesStagedRollbackState(t *testing.T) {
 	require.Equal(t, 1, state.staged.rollbacks.Len())
 	policyRollback, exists := state.staged.rollbacks.Get(typeurl.NetworkPolicy)
 	require.True(t, exists)
-	require.Len(t, policyRollback.networkPolicies, 1,
+	require.Len(t, policyRollback[typeurl.NetworkPolicy], 1,
 		"staging must retain one inverse per changed resource, not one per update")
 	require.True(t, state.rollbackOwners.Empty(), "non-removal updates need no tombstone ownership")
 }
@@ -2211,7 +2210,7 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 	require.NotNil(t, state.staged)
 	policyRollback, exists := state.staged.rollbacks.Get(typeurl.NetworkPolicy)
 	require.True(t, exists)
-	coldStartRollback := policyRollback.networkPolicies
+	coldStartRollback := policyRollback[typeurl.NetworkPolicy]
 	require.Len(t, coldStartRollback, 2)
 	for _, rollback := range coldStartRollback {
 		require.Nil(t, rollback.previous.resource,
@@ -2280,7 +2279,7 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 	ackNetworkPolicyVersion(t, c, "node1", removed.GetVersion(NetworkPolicyTypeURL))
 
 	state := c.nodeStates["node1"]
-	require.Empty(t, state.resources.networkPolicies,
+	require.Empty(t, state.resources[typeurl.NetworkPolicy].entries,
 		"finalized removals must not leave generation tombstones behind")
 	require.True(t, state.rollbackOwners.Empty())
 }
@@ -2317,7 +2316,7 @@ func TestAcceptedRemovalReleasesResponseTombstone(t *testing.T) {
 	_, _, finalize, err = c.RemoveNetworkPolicy(ctx, "node1", "policy", wg, nil)
 	require.NoError(t, err)
 	finalize()
-	tombstone := c.nodeStates["node1"].resources.networkPolicies["policy"]
+	tombstone := c.nodeStates["node1"].resources[typeurl.NetworkPolicy].entries["policy"]
 	require.Nil(t, tombstone.resource)
 	require.False(t, c.nodeStates["node1"].rollbackOwners.Empty(),
 		"caller finalization must leave the response-owned removal rollback live")
@@ -2335,7 +2334,7 @@ func TestAcceptedRemovalReleasesResponseTombstone(t *testing.T) {
 		ResponseNonce: nonce,
 	}))
 	require.NoError(t, wg.Wait())
-	require.Empty(t, c.nodeStates["node1"].resources.networkPolicies)
+	require.Empty(t, c.nodeStates["node1"].resources[typeurl.NetworkPolicy])
 	require.True(t, c.nodeStates["node1"].rollbackOwners.Empty())
 }
 
@@ -2388,7 +2387,7 @@ func TestNACKedRemovalRestoresResourceAfterCallerCompletion(t *testing.T) {
 		ResponseNonce: nonce,
 		ErrorDetail:   &status.Status{Message: "rejected removal"},
 	}))
-	require.Same(t, policy, c.nodeStates["node1"].resources.networkPolicies["policy"].resource,
+	require.Same(t, policy, c.nodeStates["node1"].resources[typeurl.NetworkPolicy].entries["policy"].resource,
 		"completing the caller early must not make a sent removal irreversible")
 }
 
@@ -2438,7 +2437,7 @@ func TestNACKRevertsAfterWaitCancellationAndCallerFinalize(t *testing.T) {
 	cancelWait()
 	require.ErrorIs(t, wg.Wait(), context.Canceled)
 	finalize()
-	require.Same(t, policyB, c.nodeStates["node1"].resources.networkPolicies["policy"].resource)
+	require.Same(t, policyB, c.nodeStates["node1"].resources[typeurl.NetworkPolicy].entries["policy"].resource)
 
 	require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
 		Node:          request.Node,
@@ -2447,7 +2446,7 @@ func TestNACKRevertsAfterWaitCancellationAndCallerFinalize(t *testing.T) {
 		ResponseNonce: nonce,
 		ErrorDetail:   &status.Status{Message: "rejected after timeout"},
 	}))
-	require.Same(t, policyA, c.nodeStates["node1"].resources.networkPolicies["policy"].resource,
+	require.Same(t, policyA, c.nodeStates["node1"].resources[typeurl.NetworkPolicy].entries["policy"].resource,
 		"caller timeout and finalization must not disable the response-owned NACK revert")
 }
 
@@ -2465,7 +2464,8 @@ func TestResourceUpdateTerminalOperationsAreNoOpAfterFirstCall(t *testing.T) {
 	_, reverted := revertFunc(0)
 	require.False(t, reverted)
 	finalizeFunc()
-	require.Equal(t, uint64(2), c.nodeStates["node1"].resources.networkPolicies["policy"].resource.EndpointId)
+	policy := c.nodeStates["node1"].resources[typeurl.NetworkPolicy].entries["policy"].resource.(*cilium.NetworkPolicy)
+	require.Equal(t, uint64(2), policy.EndpointId)
 }
 
 func TestApplyResourcesOwnsGlobalGenerationAndPerNodeReverts(t *testing.T) {
@@ -2617,7 +2617,7 @@ func TestApplyResourcesRevertGenerationCoversEveryResourceType(t *testing.T) {
 func TestUpdateResourcesFinalizesOncePerAvailableWatch(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
 	generated := 0
-	generator := testSnapshotGenerator(c, &generated)
+	generator := c.testSnapshotGenerator(&generated)
 	changed := map[string]struct{}{NetworkPolicyTypeURL: {}}
 	request := &cache.Request{
 		Node:    &envoy_config_core.Node{Id: "node1"},
@@ -2717,7 +2717,7 @@ func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
 	policyResponse := <-policyResponses
 	policySubscription.SetReturnedResources(policyResponse.GetReturnedResources())
 	require.Greater(t, c.nodeStates[node.GetId()].snapshotGeneration,
-		c.nodeStates[node.GetId()].resources.listeners[listener.GetName()].generation)
+		c.nodeStates[node.GetId()].resources[typeurl.Listener].entries[listener.GetName()].generation)
 
 	// The response has left the cache, but deliberately delay OnStreamResponse.
 	// A semantic no-op for the same listener must attach to that response while
@@ -2773,7 +2773,7 @@ func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
 func TestUpdateResourcesIgnoresUnrelatedOpenWatch(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
 	generated := 0
-	generator := testSnapshotGenerator(c, &generated)
+	generator := c.testSnapshotGenerator(&generated)
 	node := &envoy_config_core.Node{Id: "node1"}
 
 	resourcesA := emptyResources()
@@ -2870,7 +2870,7 @@ func TestListenerMutationWaitsForListenerWatchAndReleasesUnchangedDependencies(t
 	state := c.nodeStates[node.GetId()]
 	require.True(t, state.unsentRollbacks.Empty())
 	require.True(t, state.rollbackOwners.Empty())
-	require.Empty(t, state.resources.listeners,
+	require.Empty(t, state.resources[typeurl.Listener].entries,
 		"an ACKed removal must not retain a tombstone for unchanged dependent types")
 	select {
 	case <-routeResponses:
@@ -2947,9 +2947,9 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 			require.Same(t, policyRollback, current,
 				"published NetworkPolicy updates must reuse one unsent rollback lifecycle")
 		}
-		require.Len(t, current.resources.networkPolicies, 1)
-		require.Same(t, baselinePolicy, current.resources.networkPolicies["policy"].previous.resource)
-		require.Empty(t, current.resources.listeners,
+		require.Len(t, current.resources[typeurl.NetworkPolicy], 1)
+		require.Same(t, baselinePolicy, current.resources[typeurl.NetworkPolicy]["policy"].previous.resource)
+		require.Empty(t, current.resources[typeurl.Listener],
 			"NetworkPolicy rollback state must not retain Listener updates")
 	}
 	owners, exists := c.nodeStates[nodeID].rollbackOwners.Get(typeurl.NetworkPolicy)
@@ -2997,7 +2997,7 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 func TestUpdateResourcesCompletesCoalescedABAOnCreateWatch(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
 	generated := 0
-	generator := testSnapshotGenerator(c, &generated)
+	generator := c.testSnapshotGenerator(&generated)
 	changed := map[string]struct{}{NetworkPolicyTypeURL: {}}
 	node := &envoy_config_core.Node{Id: "node1"}
 	subscription := stream.NewSotwSubscription(nil, false)
@@ -3560,9 +3560,9 @@ func TestInitialListenerNACKSoftResetsOnlyLDS(t *testing.T) {
 	emptyListenerResponse := <-responses
 	require.Empty(t, emptyListenerResponse.GetReturnedResources())
 	require.Equal(t, nodeID, emptyListenerResponse.GetRequest().GetNode().GetId())
-	require.Same(t, initialListener, c.nodeStates[nodeID].resources.listeners["listener"].resource)
-	require.Same(t, initialPolicy, c.nodeStates[nodeID].resources.networkPolicies["policy"].resource)
-	require.Same(t, initialPolicyHosts, c.nodeStates[nodeID].resources.networkPolicyHosts["hosts"].resource)
+	require.Same(t, initialListener, c.nodeStates[nodeID].resources[typeurl.Listener].entries["listener"].resource)
+	require.Same(t, initialPolicy, c.nodeStates[nodeID].resources[typeurl.NetworkPolicy].entries["policy"].resource)
+	require.Same(t, initialPolicyHosts, c.nodeStates[nodeID].resources[typeurl.NetworkPolicyHosts].entries["hosts"].resource)
 	require.Same(t, publishedBeforeReset, mustSnapshot(t, c, nodeID))
 	c.completionCbs.OnStreamResponse(emptyListenerResponse.GetContext(), streamID,
 		emptyListenerResponse.GetRequest(), &discovery.DiscoveryResponse{
@@ -3589,9 +3589,9 @@ func TestInitialListenerNACKSoftResetsOnlyLDS(t *testing.T) {
 	finalize()
 	require.Same(t, publishedBeforeReset, mustSnapshot(t, c, nodeID))
 	require.NotNil(t, c.nodeStates[nodeID].staged)
-	require.Same(t, latestListener, c.nodeStates[nodeID].resources.listeners["listener"].resource)
-	require.Same(t, latestPolicy, c.nodeStates[nodeID].resources.networkPolicies["policy"].resource)
-	require.Same(t, latestPolicyHosts, c.nodeStates[nodeID].resources.networkPolicyHosts["hosts"].resource)
+	require.Same(t, latestListener, c.nodeStates[nodeID].resources[typeurl.Listener].entries["listener"].resource)
+	require.Same(t, latestPolicy, c.nodeStates[nodeID].resources[typeurl.NetworkPolicy].entries["policy"].resource)
+	require.Same(t, latestPolicyHosts, c.nodeStates[nodeID].resources[typeurl.NetworkPolicyHosts].entries["hosts"].resource)
 
 	// NPDS remains on the authoritative cache throughout the LDS reset. Once
 	// its earlier response is ACKed, its next watch immediately consumes the
@@ -3719,5 +3719,5 @@ func TestStreamSoftResetSnapshotIsRemovedOnDisconnect(t *testing.T) {
 	c.completionCbs.OnStreamClosed(streamID, node)
 	_, err = c.SnapshotCache.GetSnapshot(streamResetNodeID(streamID))
 	require.Error(t, err)
-	require.Same(t, listener, c.nodeStates[nodeID].resources.listeners[listener.GetName()].resource)
+	require.Same(t, listener, c.nodeStates[nodeID].resources[typeurl.Listener].entries[listener.GetName()].resource)
 }

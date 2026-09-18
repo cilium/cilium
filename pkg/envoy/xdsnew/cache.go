@@ -173,19 +173,19 @@ type stagedSnapshot struct {
 }
 
 // nodeState separates the mutable cache-private desired state from the last
-// immutable snapshot published to Envoy. changed retains only the names
-// touched since publication, allowing finalization to update the published
-// go-control-plane maps without traversing the complete desired state.
+// immutable snapshot published to Envoy. Each resource type retains only the
+// names touched since publication, allowing finalization to update the
+// published go-control-plane maps without traversing the complete desired
+// state.
 type nodeState struct {
 	// resourceGeneration identifies the latest desired state, while
 	// snapshotGeneration identifies the state most recently published to Envoy.
 	resourceGeneration uint64
 	snapshotGeneration uint64
 	// resources owns the current desired state, including generation-tagged
-	// removal tombstones. changed is a sparse set of names which may differ from
-	// the last published snapshot.
+	// removal tombstones, and the sparse set of names which may differ from the
+	// last published snapshot.
 	resources cacheResources
-	changed   changedResourceNames
 	// staged is non-nil while pending resources have not yet been finalized
 	// into a go-control-plane snapshot.
 	staged *stagedSnapshot
@@ -204,35 +204,33 @@ type nodeState struct {
 // retaining its generation makes remove/recreate/remove ABA sequences safe.
 // The entry is stored by value so changing one resource does not allocate a
 // wrapper object.
-type resourceEntry[V comparable] struct {
-	resource   V
+type resourceEntry struct {
+	resource   cache_types.Resource
 	generation uint64
+}
+
+// resourceTypeState groups the desired resource entries and names changed
+// since publication for one TypeURL.
+type resourceTypeState struct {
+	entries map[string]resourceEntry
+	changed set.Set[string]
 }
 
 // cacheResources is the cache-private, generation-aware counterpart of
 // xds.Resources. It deliberately excludes PortAllocationCallbacks, which are
-// server-side listener bookkeeping rather than xDS resources.
-type cacheResources struct {
-	listeners          map[string]resourceEntry[*envoy_config_listener.Listener]
-	routes             map[string]resourceEntry[*envoy_config_route.RouteConfiguration]
-	clusters           map[string]resourceEntry[*envoy_config_cluster.Cluster]
-	endpoints          map[string]resourceEntry[*envoy_config_endpoint.ClusterLoadAssignment]
-	secrets            map[string]resourceEntry[*envoy_config_tls.Secret]
-	networkPolicies    map[string]resourceEntry[*cilium.NetworkPolicy]
-	networkPolicyHosts map[string]resourceEntry[*cilium.NetworkPolicyHosts]
-}
+// server-side listener bookkeeping rather than xDS resources. The TypeURL slot
+// determines the concrete generated protobuf type stored in each map.
+type cacheResources typeurl.Slots[resourceTypeState]
 
-// changedResourceNames mirrors cacheResources without duplicating resource
-// values. These sets are retained until the desired state has been published
-// successfully, and are also the natural input for future Delta ADS updates.
-type changedResourceNames struct {
-	listeners          set.Set[string]
-	routes             set.Set[string]
-	clusters           set.Set[string]
-	endpoints          set.Set[string]
-	secrets            set.Set[string]
-	networkPolicies    set.Set[string]
-	networkPolicyHosts set.Set[string]
+// resourceEntrySlots carries sparse inverse or restored entries without the
+// persistent changed-name sets owned by cacheResources.
+type resourceEntrySlots typeurl.Slots[map[string]resourceEntry]
+
+func (state *nodeState) resourceEntries(typeURL typeurl.Index) map[string]resourceEntry {
+	if state == nil {
+		return nil
+	}
+	return state.resources[typeURL].entries
 }
 
 type rollbackOwnerKey struct {
@@ -274,20 +272,12 @@ func (state *nodeState) removeRollbackOwner(typeURL typeurl.Index, key rollbackO
 	}
 }
 
-type rollbackEntry[V comparable] struct {
-	previous           resourceEntry[V]
+type rollbackEntry struct {
+	previous           resourceEntry
 	expectedGeneration uint64
 }
 
-type rollbackResources struct {
-	listeners          map[string]rollbackEntry[*envoy_config_listener.Listener]
-	routes             map[string]rollbackEntry[*envoy_config_route.RouteConfiguration]
-	clusters           map[string]rollbackEntry[*envoy_config_cluster.Cluster]
-	endpoints          map[string]rollbackEntry[*envoy_config_endpoint.ClusterLoadAssignment]
-	secrets            map[string]rollbackEntry[*envoy_config_tls.Secret]
-	networkPolicies    map[string]rollbackEntry[*cilium.NetworkPolicy]
-	networkPolicyHosts map[string]rollbackEntry[*cilium.NetworkPolicyHosts]
-}
+type rollbackResources typeurl.Slots[map[string]rollbackEntry]
 
 type rollbackLifecycle struct {
 	cache      *cacheImpl
@@ -296,7 +286,7 @@ type rollbackLifecycle struct {
 	typeURL    typeurl.Index
 	generation uint64
 	resources  *rollbackResources
-	inverse    cacheResources
+	inverse    resourceEntrySlots
 }
 
 type nodeWatchState = typeurl.Map[map[uint64]*trackedWatch]
@@ -603,13 +593,13 @@ func (view xdsSnapshotResourceView) clusters() iter.Seq2[string, *envoy_config_c
 }
 
 type cacheSnapshotResourceView struct {
-	resources cacheResources
+	resources *cacheResources
 }
 
 func (view cacheSnapshotResourceView) listeners() iter.Seq2[string, *envoy_config_listener.Listener] {
 	return func(yield func(string, *envoy_config_listener.Listener) bool) {
-		for name, entry := range view.resources.listeners {
-			if entry.resource != nil && !yield(name, entry.resource) {
+		for name, entry := range view.resources[typeurl.Listener].entries {
+			if entry.resource != nil && !yield(name, typedResource[*envoy_config_listener.Listener](entry.resource)) {
 				return
 			}
 		}
@@ -618,8 +608,8 @@ func (view cacheSnapshotResourceView) listeners() iter.Seq2[string, *envoy_confi
 
 func (view cacheSnapshotResourceView) clusters() iter.Seq2[string, *envoy_config_cluster.Cluster] {
 	return func(yield func(string, *envoy_config_cluster.Cluster) bool) {
-		for name, entry := range view.resources.clusters {
-			if entry.resource != nil && !yield(name, entry.resource) {
+		for name, entry := range view.resources[typeurl.Cluster].entries {
+			if entry.resource != nil && !yield(name, typedResource[*envoy_config_cluster.Cluster](entry.resource)) {
 				return
 			}
 		}
@@ -1080,16 +1070,11 @@ func (c *cacheImpl) generateSnapshotIncrementally(resources *xds.Resources, prev
 	return newCiliumSnapshot(resourceGroups), nil
 }
 
-// Once Cilium uses Go 1.27, consider making this a generic method on cacheImpl.
-func resourceGroupFromEntries[V interface {
-	proto.Message
-	comparable
-}](c *cacheImpl, typeURL typeurl.Index, resources map[string]resourceEntry[V], versionContext string) (cache.Resources, map[string]string, error) {
+func (c *cacheImpl) resourceGroupFromEntries(typeURL typeurl.Index, resources map[string]resourceEntry, versionContext string) (cache.Resources, map[string]string, error) {
 	items := make(map[string]cache_types.ResourceWithTTL, len(resources))
 	versions := make(map[string]string, len(resources))
-	var zero V
 	for name, entry := range resources {
-		if entry.resource == zero {
+		if entry.resource == nil {
 			continue
 		}
 		version, err := resourceContentVersion(entry.resource)
@@ -1111,11 +1096,7 @@ func resourceGroupFromEntries[V interface {
 	}, versions, nil
 }
 
-// Once Cilium uses Go 1.27, consider making this a generic method on cacheImpl.
-func updateResourceEntries[V interface {
-	proto.Message
-	comparable
-}](c *cacheImpl, typeURL typeurl.Index, resources map[string]resourceEntry[V], changed set.Set[string], previous cache.Resources, previousVersions map[string]string, versionContext string) (cache.Resources, map[string]string, error) {
+func (c *cacheImpl) updateResourceEntries(typeURL typeurl.Index, resources map[string]resourceEntry, changed set.Set[string], previous cache.Resources, previousVersions map[string]string, versionContext string) (cache.Resources, map[string]string, error) {
 	items := previous.Items
 	versions := previousVersions
 	cloned := false
@@ -1128,12 +1109,11 @@ func updateResourceEntries[V interface {
 		cloned = true
 	}
 
-	var zero V
 	for name := range changed.Members() {
 		resource := resources[name].resource
 		previousItem, resourceExists := items[name]
 		_, versionExists := versions[name]
-		if resource == zero {
+		if resource == nil {
 			if !resourceExists && !versionExists {
 				continue
 			}
@@ -1183,28 +1163,32 @@ func clusterEndpointName(name string, cluster *envoy_config_cluster.Cluster) str
 	return serviceName
 }
 
-func desiredEndpoint(resources cacheResources, name string) (*envoy_config_endpoint.ClusterLoadAssignment, bool) {
-	if endpoint, exists := currentResource(resources.endpoints, name); exists {
-		if _, hasCluster := currentResource(resources.clusters, name); !hasCluster && strings.HasSuffix(name, ":*") {
+func desiredEndpoint(resources *cacheResources, name string) (*envoy_config_endpoint.ClusterLoadAssignment, bool) {
+	if resource, exists := currentResource(resources[typeurl.Endpoint].entries, name); exists {
+		if _, hasCluster := currentResource(resources[typeurl.Cluster].entries, name); !hasCluster && strings.HasSuffix(name, ":*") {
 			return nil, false
 		}
-		return endpoint, true
+		return typedResource[*envoy_config_endpoint.ClusterLoadAssignment](resource), true
 	}
-	for clusterName, entry := range resources.clusters {
-		if clusterEndpointName(clusterName, entry.resource) == name {
+	for clusterName, entry := range resources[typeurl.Cluster].entries {
+		if entry.resource != nil && clusterEndpointName(clusterName, typedResource[*envoy_config_cluster.Cluster](entry.resource)) == name {
 			return &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}, true
 		}
 	}
 	return nil, false
 }
 
-func endpointResourceNames(resources cacheResources) map[string]struct{} {
-	names := make(map[string]struct{}, len(resources.endpoints)+len(resources.clusters))
-	for name := range resources.endpoints {
+func endpointResourceNames(resources *cacheResources) map[string]struct{} {
+	names := make(map[string]struct{}, len(resources[typeurl.Endpoint].entries)+len(resources[typeurl.Cluster].entries))
+	for name := range resources[typeurl.Endpoint].entries {
 		names[name] = struct{}{}
 	}
-	for name, entry := range resources.clusters {
-		if endpointName := clusterEndpointName(name, entry.resource); endpointName != "" {
+	for name, entry := range resources[typeurl.Cluster].entries {
+		if entry.resource == nil {
+			continue
+		}
+		cluster := typedResource[*envoy_config_cluster.Cluster](entry.resource)
+		if endpointName := clusterEndpointName(name, cluster); endpointName != "" {
 			names[endpointName] = struct{}{}
 		}
 	}
@@ -1212,12 +1196,12 @@ func endpointResourceNames(resources cacheResources) map[string]struct{} {
 }
 
 func (state *nodeState) changedEndpointResourceNames(previous *ciliumSnapshot) set.Set[string] {
-	if state.changed.clusters.Empty() {
-		return state.changed.endpoints
+	if state.resources[typeurl.Cluster].changed.Empty() {
+		return state.resources[typeurl.Endpoint].changed
 	}
-	names := state.changed.endpoints.Clone()
+	names := state.resources[typeurl.Endpoint].changed.Clone()
 	previousClusters := previous[typeurl.Cluster].resources.Items
-	for name := range state.changed.clusters.Members() {
+	for name := range state.resources[typeurl.Cluster].changed.Members() {
 		names.Insert(name)
 		if item, exists := previousClusters[name]; exists {
 			cluster, ok := item.Resource.(*envoy_config_cluster.Cluster)
@@ -1227,8 +1211,9 @@ func (state *nodeState) changedEndpointResourceNames(previous *ciliumSnapshot) s
 				}
 			}
 		}
-		if entry := state.resources.clusters[name]; entry.resource != nil {
-			if newName := clusterEndpointName(name, entry.resource); newName != "" {
+		if entry := state.resources[typeurl.Cluster].entries[name]; entry.resource != nil {
+			cluster := typedResource[*envoy_config_cluster.Cluster](entry.resource)
+			if newName := clusterEndpointName(name, cluster); newName != "" {
 				names.Insert(newName)
 			}
 		}
@@ -1311,30 +1296,19 @@ func (c *cacheImpl) updateResourceLookup(typeURL typeurl.Index, changed set.Set[
 }
 
 func (c *cacheImpl) generateSnapshotFromState(state *nodeState) (cache.ResourceSnapshot, error) {
-	view := cacheSnapshotResourceView{resources: state.resources}
+	view := cacheSnapshotResourceView{resources: &state.resources}
 	var resourceGroups typeurl.Slots[snapshotResourceGroup]
 	for typeURL := range typeurl.Indices() {
 		context := snapshotVersionContext(view, typeURL)
 		var group cache.Resources
 		var versions map[string]string
 		var err error
-		switch typeURL {
-		case typeurl.Endpoint:
-			group, versions, err = c.resourceGroupFromLookup(typeURL, endpointResourceNames(state.resources), func(name string) (cache_types.Resource, bool) {
-				return desiredEndpoint(state.resources, name)
+		if typeURL == typeurl.Endpoint {
+			group, versions, err = c.resourceGroupFromLookup(typeURL, endpointResourceNames(&state.resources), func(name string) (cache_types.Resource, bool) {
+				return desiredEndpoint(&state.resources, name)
 			}, context)
-		case typeurl.Cluster:
-			group, versions, err = resourceGroupFromEntries(c, typeURL, state.resources.clusters, context)
-		case typeurl.Route:
-			group, versions, err = resourceGroupFromEntries(c, typeURL, state.resources.routes, context)
-		case typeurl.Listener:
-			group, versions, err = resourceGroupFromEntries(c, typeURL, state.resources.listeners, context)
-		case typeurl.Secret:
-			group, versions, err = resourceGroupFromEntries(c, typeURL, state.resources.secrets, context)
-		case typeurl.NetworkPolicy:
-			group, versions, err = resourceGroupFromEntries(c, typeURL, state.resources.networkPolicies, context)
-		case typeurl.NetworkPolicyHosts:
-			group, versions, err = resourceGroupFromEntries(c, typeURL, state.resources.networkPolicyHosts, context)
+		} else {
+			group, versions, err = c.resourceGroupFromEntries(typeURL, state.resources[typeURL].entries, context)
 		}
 		if err != nil {
 			return nil, err
@@ -1356,7 +1330,7 @@ func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, pre
 		return previousSnapshot, nil
 	}
 
-	view := cacheSnapshotResourceView{resources: state.resources}
+	view := cacheSnapshotResourceView{resources: &state.resources}
 	resourceGroups := typeurl.Slots[snapshotResourceGroup](*previousSnapshot)
 	for typeURL := range regenerate.Members() {
 		context := snapshotVersionContext(view, typeURL)
@@ -1364,23 +1338,13 @@ func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, pre
 		var group cache.Resources
 		var versions map[string]string
 		var err error
-		switch typeURL {
-		case typeurl.Endpoint:
+		if typeURL == typeurl.Endpoint {
 			group, versions, err = c.updateResourceLookup(typeURL, state.changedEndpointResourceNames(previousSnapshot), func(name string) (cache_types.Resource, bool) {
-				return desiredEndpoint(state.resources, name)
+				return desiredEndpoint(&state.resources, name)
 			}, previousGroup.resources, previousGroup.versions, context)
-		case typeurl.Cluster:
-			group, versions, err = updateResourceEntries(c, typeURL, state.resources.clusters, state.changed.clusters, previousGroup.resources, previousGroup.versions, context)
-		case typeurl.Route:
-			group, versions, err = updateResourceEntries(c, typeURL, state.resources.routes, state.changed.routes, previousGroup.resources, previousGroup.versions, context)
-		case typeurl.Listener:
-			group, versions, err = updateResourceEntries(c, typeURL, state.resources.listeners, state.changed.listeners, previousGroup.resources, previousGroup.versions, context)
-		case typeurl.Secret:
-			group, versions, err = updateResourceEntries(c, typeURL, state.resources.secrets, state.changed.secrets, previousGroup.resources, previousGroup.versions, context)
-		case typeurl.NetworkPolicy:
-			group, versions, err = updateResourceEntries(c, typeURL, state.resources.networkPolicies, state.changed.networkPolicies, previousGroup.resources, previousGroup.versions, context)
-		case typeurl.NetworkPolicyHosts:
-			group, versions, err = updateResourceEntries(c, typeURL, state.resources.networkPolicyHosts, state.changed.networkPolicyHosts, previousGroup.resources, previousGroup.versions, context)
+		} else {
+			typeState := &state.resources[typeURL]
+			group, versions, err = c.updateResourceEntries(typeURL, typeState.entries, typeState.changed, previousGroup.resources, previousGroup.versions, context)
 		}
 		if err != nil {
 			return nil, err
@@ -1634,7 +1598,7 @@ func mergeTypeURLWaits(base typeurl.Set, additions typeURLWaits) typeurl.Set {
 	return base
 }
 
-func mergeStagedRollbacks(state *nodeState, base typeurl.Map[rollbackResources], typeURLs typeurl.Set, inverse cacheResources, generation uint64) typeurl.Map[rollbackResources] {
+func mergeStagedRollbacks(state *nodeState, base typeurl.Map[rollbackResources], typeURLs typeurl.Set, inverse resourceEntrySlots, generation uint64) typeurl.Map[rollbackResources] {
 	if typeURLs.Empty() {
 		return base
 	}
@@ -1645,26 +1609,11 @@ func mergeStagedRollbacks(state *nodeState, base typeurl.Map[rollbackResources],
 	return base
 }
 
-// cloneRollbackResources copies the one typed map owned by a staged rollback
+// cloneRollbackResources copies the one map owned by a staged rollback
 // slot. Other fields are empty because rollback state is partitioned by
 // TypeURL before it is staged.
 func cloneRollbackResources(typeURL typeurl.Index, rollback rollbackResources) rollbackResources {
-	switch typeURL {
-	case typeurl.Listener:
-		rollback.listeners = maps.Clone(rollback.listeners)
-	case typeurl.Route:
-		rollback.routes = maps.Clone(rollback.routes)
-	case typeurl.Cluster:
-		rollback.clusters = maps.Clone(rollback.clusters)
-	case typeurl.Endpoint:
-		rollback.endpoints = maps.Clone(rollback.endpoints)
-	case typeurl.Secret:
-		rollback.secrets = maps.Clone(rollback.secrets)
-	case typeurl.NetworkPolicy:
-		rollback.networkPolicies = maps.Clone(rollback.networkPolicies)
-	case typeurl.NetworkPolicyHosts:
-		rollback.networkPolicyHosts = maps.Clone(rollback.networkPolicyHosts)
-	}
+	rollback[typeURL] = maps.Clone(rollback[typeURL])
 	return rollback
 }
 
@@ -1730,7 +1679,9 @@ func (c *cacheImpl) finalizeStagedSnapshotLocked(ctx context.Context, nodeID str
 
 	state.staged = nil
 	state.snapshotGeneration = staged.generation
-	state.changed = changedResourceNames{}
+	for typeURL := range typeurl.Indices() {
+		state.resources[typeURL].changed = set.Set[string]{}
+	}
 	// Retain rollback only for resource types whose published version changed.
 	// Until go-control-plane actually produces a response, repeated published
 	// generations are coalesced into one rollback per type. An older mutation
@@ -1769,13 +1720,35 @@ func (c *cacheImpl) completeFinalized(nodeID string, finalized []finalizedComple
 	}
 }
 
-func resourceEntries[V comparable](resources map[string]V, generation uint64) map[string]resourceEntry[V] {
+func resourceValue[V interface {
+	proto.Message
+	comparable
+}](resource V) cache_types.Resource {
+	var zero V
+	if resource == zero {
+		return nil
+	}
+	return resource
+}
+
+func typedResource[V proto.Message](resource cache_types.Resource) V {
+	if resource == nil {
+		var zero V
+		return zero
+	}
+	return resource.(V)
+}
+
+func resourceEntries[V interface {
+	proto.Message
+	comparable
+}](resources map[string]V, generation uint64) map[string]resourceEntry {
 	if len(resources) == 0 {
 		return nil
 	}
-	entries := make(map[string]resourceEntry[V], len(resources))
+	entries := make(map[string]resourceEntry, len(resources))
 	for name, resource := range resources {
-		entries[name] = resourceEntry[V]{resource: resource, generation: generation}
+		entries[name] = resourceEntry{resource: resourceValue(resource), generation: generation}
 	}
 	return entries
 }
@@ -1784,50 +1757,48 @@ func newCacheResources(resources *xds.Resources, generation uint64) cacheResourc
 	if resources == nil {
 		return cacheResources{}
 	}
-	return cacheResources{
-		listeners:          resourceEntries(resources.Listeners, generation),
-		routes:             resourceEntries(resources.Routes, generation),
-		clusters:           resourceEntries(resources.Clusters, generation),
-		endpoints:          resourceEntries(resources.Endpoints, generation),
-		secrets:            resourceEntries(resources.Secrets, generation),
-		networkPolicies:    resourceEntries(resources.NetworkPolicies, generation),
-		networkPolicyHosts: resourceEntries(resources.NetworkPolicyHosts, generation),
-	}
+	var result cacheResources
+	result[typeurl.Listener].entries = resourceEntries(resources.Listeners, generation)
+	result[typeurl.Route].entries = resourceEntries(resources.Routes, generation)
+	result[typeurl.Cluster].entries = resourceEntries(resources.Clusters, generation)
+	result[typeurl.Endpoint].entries = resourceEntries(resources.Endpoints, generation)
+	result[typeurl.Secret].entries = resourceEntries(resources.Secrets, generation)
+	result[typeurl.NetworkPolicy].entries = resourceEntries(resources.NetworkPolicies, generation)
+	result[typeurl.NetworkPolicyHosts].entries = resourceEntries(resources.NetworkPolicyHosts, generation)
+	return result
 }
 
-func currentResource[V comparable](resources map[string]resourceEntry[V], name string) (V, bool) {
+func currentResource(resources map[string]resourceEntry, name string) (cache_types.Resource, bool) {
 	resource := resources[name].resource
-	var zero V
-	return resource, resource != zero
+	return resource, resource != nil
 }
 
 func prepareResourceMap[V interface {
 	proto.Message
 	comparable
-}](current map[string]resourceEntry[V], removed, upserted map[string]V) (changedRemoved, changedUpserted map[string]V, inverse map[string]resourceEntry[V], changed bool) {
+}](current map[string]resourceEntry, removed, upserted map[string]V) (changedRemoved, changedUpserted map[string]V, inverse map[string]resourceEntry, changed bool) {
 	// Single-resource transactions are the overwhelmingly common update path.
 	// Reuse the caller's sparse map rather than allocating another one merely
 	// to represent the same cache-private delta.
 	if len(removed) == 0 && len(upserted) == 1 {
 		for name, resource := range upserted {
 			old := current[name]
-			var zero V
-			exists := old.resource != zero
-			if exists && (old.resource == resource || proto.Equal(old.resource, resource)) {
+			desired := resourceValue(resource)
+			exists := old.resource != nil
+			if exists && (old.resource == desired || proto.Equal(old.resource, desired)) {
 				return nil, nil, nil, false
 			}
-			inverse = map[string]resourceEntry[V]{name: old}
+			inverse = map[string]resourceEntry{name: old}
 			return nil, upserted, inverse, true
 		}
 	}
 	if len(upserted) == 0 && len(removed) == 1 {
 		for name := range removed {
 			old := current[name]
-			var zero V
-			if old.resource == zero {
+			if old.resource == nil {
 				return nil, nil, nil, false
 			}
-			inverse = map[string]resourceEntry[V]{name: old}
+			inverse = map[string]resourceEntry{name: old}
 			return removed, nil, inverse, true
 		}
 	}
@@ -1838,13 +1809,13 @@ func prepareResourceMap[V interface {
 		}
 		old := current[name]
 		var zero V
-		if old.resource != zero {
+		if old.resource != nil {
 			if changedRemoved == nil {
 				changedRemoved = make(map[string]V)
 			}
 			changedRemoved[name] = zero
 			if inverse == nil {
-				inverse = make(map[string]resourceEntry[V])
+				inverse = make(map[string]resourceEntry)
 			}
 			inverse[name] = old
 			changed = true
@@ -1852,9 +1823,9 @@ func prepareResourceMap[V interface {
 	}
 	for name, resource := range upserted {
 		old := current[name]
-		var zero V
-		exists := old.resource != zero
-		if exists && (old.resource == resource || proto.Equal(old.resource, resource)) {
+		desired := resourceValue(resource)
+		exists := old.resource != nil
+		if exists && (old.resource == desired || proto.Equal(old.resource, desired)) {
 			continue
 		}
 		if changedUpserted == nil {
@@ -1862,7 +1833,7 @@ func prepareResourceMap[V interface {
 		}
 		changedUpserted[name] = resource
 		if inverse == nil {
-			inverse = make(map[string]resourceEntry[V])
+			inverse = make(map[string]resourceEntry)
 		}
 		inverse[name] = old
 		changed = true
@@ -1870,63 +1841,58 @@ func prepareResourceMap[V interface {
 	return changedRemoved, changedUpserted, inverse, changed
 }
 
-func (state *nodeState) prepareResourceMutation(mutations ResourceMutations) (ResourceMutations, typeurl.Set, cacheResources) {
-	var current cacheResources
-	if state != nil {
-		current = state.resources
-	}
+func (state *nodeState) prepareResourceMutation(mutations ResourceMutations) (ResourceMutations, typeurl.Set, resourceEntrySlots) {
 	removeSet := mutations.Removed
 	upsertSet := mutations.Upserted
 	var changes ResourceMutations
-	var inverse cacheResources
+	var inverse resourceEntrySlots
 
 	changedTypeURLs := typeurl.NewSet()
 	var changed bool
-	changes.Removed.Listeners, changes.Upserted.Listeners, inverse.listeners, changed = prepareResourceMap(current.listeners, removeSet.Listeners, upsertSet.Listeners)
+	changes.Removed.Listeners, changes.Upserted.Listeners, inverse[typeurl.Listener], changed = prepareResourceMap(state.resourceEntries(typeurl.Listener), removeSet.Listeners, upsertSet.Listeners)
 	if changed {
 		changedTypeURLs.Insert(typeurl.Listener)
 	}
-	changes.Removed.Routes, changes.Upserted.Routes, inverse.routes, changed = prepareResourceMap(current.routes, removeSet.Routes, upsertSet.Routes)
+	changes.Removed.Routes, changes.Upserted.Routes, inverse[typeurl.Route], changed = prepareResourceMap(state.resourceEntries(typeurl.Route), removeSet.Routes, upsertSet.Routes)
 	if changed {
 		changedTypeURLs.Insert(typeurl.Route)
 	}
-	changes.Removed.Clusters, changes.Upserted.Clusters, inverse.clusters, changed = prepareResourceMap(current.clusters, removeSet.Clusters, upsertSet.Clusters)
+	changes.Removed.Clusters, changes.Upserted.Clusters, inverse[typeurl.Cluster], changed = prepareResourceMap(state.resourceEntries(typeurl.Cluster), removeSet.Clusters, upsertSet.Clusters)
 	if changed {
 		changedTypeURLs.Insert(typeurl.Cluster)
 	}
-	changes.Removed.Endpoints, changes.Upserted.Endpoints, inverse.endpoints, changed = prepareResourceMap(current.endpoints, removeSet.Endpoints, upsertSet.Endpoints)
+	changes.Removed.Endpoints, changes.Upserted.Endpoints, inverse[typeurl.Endpoint], changed = prepareResourceMap(state.resourceEntries(typeurl.Endpoint), removeSet.Endpoints, upsertSet.Endpoints)
 	if changed {
 		changedTypeURLs.Insert(typeurl.Endpoint)
 	}
-	changes.Removed.Secrets, changes.Upserted.Secrets, inverse.secrets, changed = prepareResourceMap(current.secrets, removeSet.Secrets, upsertSet.Secrets)
+	changes.Removed.Secrets, changes.Upserted.Secrets, inverse[typeurl.Secret], changed = prepareResourceMap(state.resourceEntries(typeurl.Secret), removeSet.Secrets, upsertSet.Secrets)
 	if changed {
 		changedTypeURLs.Insert(typeurl.Secret)
 	}
-	changes.Removed.NetworkPolicies, changes.Upserted.NetworkPolicies, inverse.networkPolicies, changed = prepareResourceMap(current.networkPolicies, removeSet.NetworkPolicies, upsertSet.NetworkPolicies)
+	changes.Removed.NetworkPolicies, changes.Upserted.NetworkPolicies, inverse[typeurl.NetworkPolicy], changed = prepareResourceMap(state.resourceEntries(typeurl.NetworkPolicy), removeSet.NetworkPolicies, upsertSet.NetworkPolicies)
 	if changed {
 		changedTypeURLs.Insert(typeurl.NetworkPolicy)
 	}
-	changes.Removed.NetworkPolicyHosts, changes.Upserted.NetworkPolicyHosts, inverse.networkPolicyHosts, changed = prepareResourceMap(current.networkPolicyHosts, removeSet.NetworkPolicyHosts, upsertSet.NetworkPolicyHosts)
+	changes.Removed.NetworkPolicyHosts, changes.Upserted.NetworkPolicyHosts, inverse[typeurl.NetworkPolicyHosts], changed = prepareResourceMap(state.resourceEntries(typeurl.NetworkPolicyHosts), removeSet.NetworkPolicyHosts, upsertSet.NetworkPolicyHosts)
 	if changed {
 		changedTypeURLs.Insert(typeurl.NetworkPolicyHosts)
 	}
 	return changes, changedTypeURLs, inverse
 }
 
-func mergeRollbackMap[V comparable](state *nodeState, typeURL typeurl.Index, current map[string]rollbackEntry[V], desired map[string]resourceEntry[V], inverse map[string]resourceEntry[V], generation uint64) map[string]rollbackEntry[V] {
+func mergeRollbackMap(state *nodeState, typeURL typeurl.Index, current map[string]rollbackEntry, desired, inverse map[string]resourceEntry, generation uint64) map[string]rollbackEntry {
 	if len(inverse) == 0 {
 		return current
 	}
 	if current == nil {
-		current = make(map[string]rollbackEntry[V], len(inverse))
+		current = make(map[string]rollbackEntry, len(inverse))
 	}
 	for name, previous := range inverse {
 		entry, exists := current[name]
 		if !exists {
 			entry.previous = previous
 		}
-		var zero V
-		if desired[name].resource == zero {
+		if desired[name].resource == nil {
 			state.addRollbackOwner(typeURL, rollbackOwnerKey{name: name, generation: generation})
 		}
 		if exists {
@@ -1938,23 +1904,8 @@ func mergeRollbackMap[V comparable](state *nodeState, typeURL typeurl.Index, cur
 	return current
 }
 
-func (rollback rollbackResources) mergeTypeURL(state *nodeState, typeURL typeurl.Index, inverse cacheResources, generation uint64) rollbackResources {
-	switch typeURL {
-	case typeurl.Listener:
-		rollback.listeners = mergeRollbackMap(state, typeURL, rollback.listeners, state.resources.listeners, inverse.listeners, generation)
-	case typeurl.Route:
-		rollback.routes = mergeRollbackMap(state, typeURL, rollback.routes, state.resources.routes, inverse.routes, generation)
-	case typeurl.Cluster:
-		rollback.clusters = mergeRollbackMap(state, typeURL, rollback.clusters, state.resources.clusters, inverse.clusters, generation)
-	case typeurl.Endpoint:
-		rollback.endpoints = mergeRollbackMap(state, typeURL, rollback.endpoints, state.resources.endpoints, inverse.endpoints, generation)
-	case typeurl.Secret:
-		rollback.secrets = mergeRollbackMap(state, typeURL, rollback.secrets, state.resources.secrets, inverse.secrets, generation)
-	case typeurl.NetworkPolicy:
-		rollback.networkPolicies = mergeRollbackMap(state, typeURL, rollback.networkPolicies, state.resources.networkPolicies, inverse.networkPolicies, generation)
-	case typeurl.NetworkPolicyHosts:
-		rollback.networkPolicyHosts = mergeRollbackMap(state, typeURL, rollback.networkPolicyHosts, state.resources.networkPolicyHosts, inverse.networkPolicyHosts, generation)
-	}
+func (rollback rollbackResources) mergeTypeURL(state *nodeState, typeURL typeurl.Index, inverse resourceEntrySlots, generation uint64) rollbackResources {
+	rollback[typeURL] = mergeRollbackMap(state, typeURL, rollback[typeURL], state.resources[typeURL].entries, inverse[typeURL], generation)
 	return rollback
 }
 
@@ -1962,7 +1913,7 @@ func (rollback rollbackResources) mergeTypeURL(state *nodeState, typeURL typeurl
 // older unsent one. The oldest previous value remains the rollback target,
 // while the newest expected generation fences the combined rollback. Ownership
 // of a superseded tombstone moves to the newer entry.
-func mergeRollbackHistoryMap[V comparable](state *nodeState, typeURL typeurl.Index, older, newer map[string]rollbackEntry[V]) map[string]rollbackEntry[V] {
+func mergeRollbackHistoryMap(state *nodeState, typeURL typeurl.Index, older, newer map[string]rollbackEntry) map[string]rollbackEntry {
 	if len(newer) == 0 {
 		return older
 	}
@@ -1983,27 +1934,26 @@ func mergeRollbackHistoryMap[V comparable](state *nodeState, typeURL typeurl.Ind
 }
 
 func (rollback rollbackResources) mergeHistory(state *nodeState, newer rollbackResources) rollbackResources {
-	rollback.listeners = mergeRollbackHistoryMap(state, typeurl.Listener, rollback.listeners, newer.listeners)
-	rollback.routes = mergeRollbackHistoryMap(state, typeurl.Route, rollback.routes, newer.routes)
-	rollback.clusters = mergeRollbackHistoryMap(state, typeurl.Cluster, rollback.clusters, newer.clusters)
-	rollback.endpoints = mergeRollbackHistoryMap(state, typeurl.Endpoint, rollback.endpoints, newer.endpoints)
-	rollback.secrets = mergeRollbackHistoryMap(state, typeurl.Secret, rollback.secrets, newer.secrets)
-	rollback.networkPolicies = mergeRollbackHistoryMap(state, typeurl.NetworkPolicy, rollback.networkPolicies, newer.networkPolicies)
-	rollback.networkPolicyHosts = mergeRollbackHistoryMap(state, typeurl.NetworkPolicyHosts, rollback.networkPolicyHosts, newer.networkPolicyHosts)
+	for typeURL := range typeurl.Indices() {
+		rollback[typeURL] = mergeRollbackHistoryMap(state, typeURL, rollback[typeURL], newer[typeURL])
+	}
 	return rollback
 }
 
-func filterResourceRevert[V comparable](current map[string]resourceEntry[V], rollback map[string]rollbackEntry[V]) (removed, upserted map[string]V, restored map[string]resourceEntry[V]) {
+func filterResourceRevert[V interface {
+	proto.Message
+	comparable
+}](current map[string]resourceEntry, rollback map[string]rollbackEntry) (removed, upserted map[string]V, restored map[string]resourceEntry) {
 	var zero V
 	for name, entry := range rollback {
 		if current[name].generation != entry.expectedGeneration {
 			continue
 		}
 		if restored == nil {
-			restored = make(map[string]resourceEntry[V])
+			restored = make(map[string]resourceEntry)
 		}
 		restored[name] = entry.previous
-		if entry.previous.resource == zero {
+		if entry.previous.resource == nil {
 			if removed == nil {
 				removed = make(map[string]V)
 			}
@@ -2012,39 +1962,42 @@ func filterResourceRevert[V comparable](current map[string]resourceEntry[V], rol
 			if upserted == nil {
 				upserted = make(map[string]V)
 			}
-			upserted[name] = entry.previous.resource
+			upserted[name] = entry.previous.resource.(V)
 		}
 	}
 	return removed, upserted, restored
 }
 
-func (state *nodeState) resourceRevert(rollback rollbackResources) (ResourceMutations, cacheResources) {
+func (state *nodeState) resourceRevert(rollback rollbackResources) (ResourceMutations, resourceEntrySlots) {
 	if state == nil {
-		return ResourceMutations{}, cacheResources{}
+		return ResourceMutations{}, resourceEntrySlots{}
 	}
 	var revert ResourceMutations
-	var restored cacheResources
-	revert.Removed.Listeners, revert.Upserted.Listeners, restored.listeners = filterResourceRevert(state.resources.listeners, rollback.listeners)
-	revert.Removed.Routes, revert.Upserted.Routes, restored.routes = filterResourceRevert(state.resources.routes, rollback.routes)
-	revert.Removed.Clusters, revert.Upserted.Clusters, restored.clusters = filterResourceRevert(state.resources.clusters, rollback.clusters)
-	revert.Removed.Endpoints, revert.Upserted.Endpoints, restored.endpoints = filterResourceRevert(state.resources.endpoints, rollback.endpoints)
-	revert.Removed.Secrets, revert.Upserted.Secrets, restored.secrets = filterResourceRevert(state.resources.secrets, rollback.secrets)
-	revert.Removed.NetworkPolicies, revert.Upserted.NetworkPolicies, restored.networkPolicies = filterResourceRevert(state.resources.networkPolicies, rollback.networkPolicies)
-	revert.Removed.NetworkPolicyHosts, revert.Upserted.NetworkPolicyHosts, restored.networkPolicyHosts = filterResourceRevert(state.resources.networkPolicyHosts, rollback.networkPolicyHosts)
+	var restored resourceEntrySlots
+	revert.Removed.Listeners, revert.Upserted.Listeners, restored[typeurl.Listener] = filterResourceRevert[*envoy_config_listener.Listener](state.resourceEntries(typeurl.Listener), rollback[typeurl.Listener])
+	revert.Removed.Routes, revert.Upserted.Routes, restored[typeurl.Route] = filterResourceRevert[*envoy_config_route.RouteConfiguration](state.resourceEntries(typeurl.Route), rollback[typeurl.Route])
+	revert.Removed.Clusters, revert.Upserted.Clusters, restored[typeurl.Cluster] = filterResourceRevert[*envoy_config_cluster.Cluster](state.resourceEntries(typeurl.Cluster), rollback[typeurl.Cluster])
+	revert.Removed.Endpoints, revert.Upserted.Endpoints, restored[typeurl.Endpoint] = filterResourceRevert[*envoy_config_endpoint.ClusterLoadAssignment](state.resourceEntries(typeurl.Endpoint), rollback[typeurl.Endpoint])
+	revert.Removed.Secrets, revert.Upserted.Secrets, restored[typeurl.Secret] = filterResourceRevert[*envoy_config_tls.Secret](state.resourceEntries(typeurl.Secret), rollback[typeurl.Secret])
+	revert.Removed.NetworkPolicies, revert.Upserted.NetworkPolicies, restored[typeurl.NetworkPolicy] = filterResourceRevert[*cilium.NetworkPolicy](state.resourceEntries(typeurl.NetworkPolicy), rollback[typeurl.NetworkPolicy])
+	revert.Removed.NetworkPolicyHosts, revert.Upserted.NetworkPolicyHosts, restored[typeurl.NetworkPolicyHosts] = filterResourceRevert[*cilium.NetworkPolicyHosts](state.resourceEntries(typeurl.NetworkPolicyHosts), rollback[typeurl.NetworkPolicyHosts])
 	return revert, restored
 }
 
-func filterInverseResourceRevert[V comparable](current, inverse map[string]resourceEntry[V], expectedGeneration uint64) (removed, upserted map[string]V, restored map[string]resourceEntry[V]) {
+func filterInverseResourceRevert[V interface {
+	proto.Message
+	comparable
+}](current, inverse map[string]resourceEntry, expectedGeneration uint64) (removed, upserted map[string]V, restored map[string]resourceEntry) {
 	var zero V
 	for name, previous := range inverse {
 		if current[name].generation != expectedGeneration {
 			continue
 		}
 		if restored == nil {
-			restored = make(map[string]resourceEntry[V])
+			restored = make(map[string]resourceEntry)
 		}
 		restored[name] = previous
-		if previous.resource == zero {
+		if previous.resource == nil {
 			if removed == nil {
 				removed = make(map[string]V)
 			}
@@ -2053,29 +2006,29 @@ func filterInverseResourceRevert[V comparable](current, inverse map[string]resou
 			if upserted == nil {
 				upserted = make(map[string]V)
 			}
-			upserted[name] = previous.resource
+			upserted[name] = previous.resource.(V)
 		}
 	}
 	return removed, upserted, restored
 }
 
-func (state *nodeState) resourceRevertInverse(generation uint64, inverse cacheResources) (ResourceMutations, cacheResources) {
+func (state *nodeState) resourceRevertInverse(generation uint64, inverse resourceEntrySlots) (ResourceMutations, resourceEntrySlots) {
 	if state == nil {
-		return ResourceMutations{}, cacheResources{}
+		return ResourceMutations{}, resourceEntrySlots{}
 	}
 	var mutations ResourceMutations
-	var restored cacheResources
-	mutations.Removed.Listeners, mutations.Upserted.Listeners, restored.listeners = filterInverseResourceRevert(state.resources.listeners, inverse.listeners, generation)
-	mutations.Removed.Routes, mutations.Upserted.Routes, restored.routes = filterInverseResourceRevert(state.resources.routes, inverse.routes, generation)
-	mutations.Removed.Clusters, mutations.Upserted.Clusters, restored.clusters = filterInverseResourceRevert(state.resources.clusters, inverse.clusters, generation)
-	mutations.Removed.Endpoints, mutations.Upserted.Endpoints, restored.endpoints = filterInverseResourceRevert(state.resources.endpoints, inverse.endpoints, generation)
-	mutations.Removed.Secrets, mutations.Upserted.Secrets, restored.secrets = filterInverseResourceRevert(state.resources.secrets, inverse.secrets, generation)
-	mutations.Removed.NetworkPolicies, mutations.Upserted.NetworkPolicies, restored.networkPolicies = filterInverseResourceRevert(state.resources.networkPolicies, inverse.networkPolicies, generation)
-	mutations.Removed.NetworkPolicyHosts, mutations.Upserted.NetworkPolicyHosts, restored.networkPolicyHosts = filterInverseResourceRevert(state.resources.networkPolicyHosts, inverse.networkPolicyHosts, generation)
+	var restored resourceEntrySlots
+	mutations.Removed.Listeners, mutations.Upserted.Listeners, restored[typeurl.Listener] = filterInverseResourceRevert[*envoy_config_listener.Listener](state.resourceEntries(typeurl.Listener), inverse[typeurl.Listener], generation)
+	mutations.Removed.Routes, mutations.Upserted.Routes, restored[typeurl.Route] = filterInverseResourceRevert[*envoy_config_route.RouteConfiguration](state.resourceEntries(typeurl.Route), inverse[typeurl.Route], generation)
+	mutations.Removed.Clusters, mutations.Upserted.Clusters, restored[typeurl.Cluster] = filterInverseResourceRevert[*envoy_config_cluster.Cluster](state.resourceEntries(typeurl.Cluster), inverse[typeurl.Cluster], generation)
+	mutations.Removed.Endpoints, mutations.Upserted.Endpoints, restored[typeurl.Endpoint] = filterInverseResourceRevert[*envoy_config_endpoint.ClusterLoadAssignment](state.resourceEntries(typeurl.Endpoint), inverse[typeurl.Endpoint], generation)
+	mutations.Removed.Secrets, mutations.Upserted.Secrets, restored[typeurl.Secret] = filterInverseResourceRevert[*envoy_config_tls.Secret](state.resourceEntries(typeurl.Secret), inverse[typeurl.Secret], generation)
+	mutations.Removed.NetworkPolicies, mutations.Upserted.NetworkPolicies, restored[typeurl.NetworkPolicy] = filterInverseResourceRevert[*cilium.NetworkPolicy](state.resourceEntries(typeurl.NetworkPolicy), inverse[typeurl.NetworkPolicy], generation)
+	mutations.Removed.NetworkPolicyHosts, mutations.Upserted.NetworkPolicyHosts, restored[typeurl.NetworkPolicyHosts] = filterInverseResourceRevert[*cilium.NetworkPolicyHosts](state.resourceEntries(typeurl.NetworkPolicyHosts), inverse[typeurl.NetworkPolicyHosts], generation)
 	return mutations, restored
 }
 
-func updateRollbackOwnerMap[V comparable](state *nodeState, typeURL typeurl.Index, resources map[string]rollbackEntry[V], delta int) {
+func updateRollbackOwnerMap(state *nodeState, typeURL typeurl.Index, resources map[string]rollbackEntry, delta int) {
 	if len(resources) == 0 {
 		return
 	}
@@ -2090,21 +2043,16 @@ func updateRollbackOwnerMap[V comparable](state *nodeState, typeURL typeurl.Inde
 }
 
 func (state *nodeState) updateRollbackOwners(rollback rollbackResources, delta int) {
-	updateRollbackOwnerMap(state, typeurl.Listener, rollback.listeners, delta)
-	updateRollbackOwnerMap(state, typeurl.Route, rollback.routes, delta)
-	updateRollbackOwnerMap(state, typeurl.Cluster, rollback.clusters, delta)
-	updateRollbackOwnerMap(state, typeurl.Endpoint, rollback.endpoints, delta)
-	updateRollbackOwnerMap(state, typeurl.Secret, rollback.secrets, delta)
-	updateRollbackOwnerMap(state, typeurl.NetworkPolicy, rollback.networkPolicies, delta)
-	updateRollbackOwnerMap(state, typeurl.NetworkPolicyHosts, rollback.networkPolicyHosts, delta)
+	for typeURL := range typeurl.Indices() {
+		updateRollbackOwnerMap(state, typeURL, rollback[typeURL], delta)
+	}
 }
 
-func updateInverseRollbackOwnerMap[V comparable](state *nodeState, typeURL typeurl.Index, desired, inverse map[string]resourceEntry[V], generation uint64, delta int) {
-	var zero V
+func updateInverseRollbackOwnerMap(state *nodeState, typeURL typeurl.Index, desired, inverse map[string]resourceEntry, generation uint64, delta int) {
 	for name := range inverse {
 		key := rollbackOwnerKey{name: name, generation: generation}
 		if delta > 0 {
-			if desired[name].resource == zero {
+			if desired[name].resource == nil {
 				state.addRollbackOwner(typeURL, key)
 			}
 		} else {
@@ -2113,21 +2061,16 @@ func updateInverseRollbackOwnerMap[V comparable](state *nodeState, typeURL typeu
 	}
 }
 
-func (state *nodeState) updateInverseRollbackOwners(inverse cacheResources, generation uint64, delta int) {
-	updateInverseRollbackOwnerMap(state, typeurl.Listener, state.resources.listeners, inverse.listeners, generation, delta)
-	updateInverseRollbackOwnerMap(state, typeurl.Route, state.resources.routes, inverse.routes, generation, delta)
-	updateInverseRollbackOwnerMap(state, typeurl.Cluster, state.resources.clusters, inverse.clusters, generation, delta)
-	updateInverseRollbackOwnerMap(state, typeurl.Endpoint, state.resources.endpoints, inverse.endpoints, generation, delta)
-	updateInverseRollbackOwnerMap(state, typeurl.Secret, state.resources.secrets, inverse.secrets, generation, delta)
-	updateInverseRollbackOwnerMap(state, typeurl.NetworkPolicy, state.resources.networkPolicies, inverse.networkPolicies, generation, delta)
-	updateInverseRollbackOwnerMap(state, typeurl.NetworkPolicyHosts, state.resources.networkPolicyHosts, inverse.networkPolicyHosts, generation, delta)
+func (state *nodeState) updateInverseRollbackOwners(inverse resourceEntrySlots, generation uint64, delta int) {
+	for typeURL := range typeurl.Indices() {
+		updateInverseRollbackOwnerMap(state, typeURL, state.resources[typeURL].entries, inverse[typeURL], generation, delta)
+	}
 }
 
-func pruneReleasedTombstones[V comparable](state *nodeState, typeURL typeurl.Index, resources *map[string]resourceEntry[V], rollback map[string]rollbackEntry[V]) {
-	var zero V
+func pruneReleasedTombstones(state *nodeState, typeURL typeurl.Index, resources *map[string]resourceEntry, rollback map[string]rollbackEntry) {
 	for name, rollbackEntry := range rollback {
 		entry := (*resources)[name]
-		if entry.resource != zero || entry.generation != rollbackEntry.expectedGeneration {
+		if entry.resource != nil || entry.generation != rollbackEntry.expectedGeneration {
 			continue
 		}
 		key := rollbackOwnerKey{name: name, generation: entry.generation}
@@ -2142,20 +2085,15 @@ func pruneReleasedTombstones[V comparable](state *nodeState, typeURL typeurl.Ind
 
 func (state *nodeState) releaseRollback(rollback rollbackResources) {
 	state.updateRollbackOwners(rollback, -1)
-	pruneReleasedTombstones(state, typeurl.Listener, &state.resources.listeners, rollback.listeners)
-	pruneReleasedTombstones(state, typeurl.Route, &state.resources.routes, rollback.routes)
-	pruneReleasedTombstones(state, typeurl.Cluster, &state.resources.clusters, rollback.clusters)
-	pruneReleasedTombstones(state, typeurl.Endpoint, &state.resources.endpoints, rollback.endpoints)
-	pruneReleasedTombstones(state, typeurl.Secret, &state.resources.secrets, rollback.secrets)
-	pruneReleasedTombstones(state, typeurl.NetworkPolicy, &state.resources.networkPolicies, rollback.networkPolicies)
-	pruneReleasedTombstones(state, typeurl.NetworkPolicyHosts, &state.resources.networkPolicyHosts, rollback.networkPolicyHosts)
+	for typeURL := range typeurl.Indices() {
+		pruneReleasedTombstones(state, typeURL, &state.resources[typeURL].entries, rollback[typeURL])
+	}
 }
 
-func pruneInverseTombstones[V comparable](state *nodeState, typeURL typeurl.Index, resources *map[string]resourceEntry[V], inverse map[string]resourceEntry[V], generation uint64) {
-	var zero V
+func pruneInverseTombstones(state *nodeState, typeURL typeurl.Index, resources *map[string]resourceEntry, inverse map[string]resourceEntry, generation uint64) {
 	for name := range inverse {
 		entry := (*resources)[name]
-		if entry.resource != zero || entry.generation != generation {
+		if entry.resource != nil || entry.generation != generation {
 			continue
 		}
 		key := rollbackOwnerKey{name: name, generation: generation}
@@ -2168,15 +2106,11 @@ func pruneInverseTombstones[V comparable](state *nodeState, typeURL typeurl.Inde
 	}
 }
 
-func (state *nodeState) releaseInverseRollback(inverse cacheResources, generation uint64) {
+func (state *nodeState) releaseInverseRollback(inverse resourceEntrySlots, generation uint64) {
 	state.updateInverseRollbackOwners(inverse, generation, -1)
-	pruneInverseTombstones(state, typeurl.Listener, &state.resources.listeners, inverse.listeners, generation)
-	pruneInverseTombstones(state, typeurl.Route, &state.resources.routes, inverse.routes, generation)
-	pruneInverseTombstones(state, typeurl.Cluster, &state.resources.clusters, inverse.clusters, generation)
-	pruneInverseTombstones(state, typeurl.Endpoint, &state.resources.endpoints, inverse.endpoints, generation)
-	pruneInverseTombstones(state, typeurl.Secret, &state.resources.secrets, inverse.secrets, generation)
-	pruneInverseTombstones(state, typeurl.NetworkPolicy, &state.resources.networkPolicies, inverse.networkPolicies, generation)
-	pruneInverseTombstones(state, typeurl.NetworkPolicyHosts, &state.resources.networkPolicyHosts, inverse.networkPolicyHosts, generation)
+	for typeURL := range typeurl.Indices() {
+		pruneInverseTombstones(state, typeURL, &state.resources[typeURL].entries, inverse[typeURL], generation)
+	}
 }
 
 func markChangedNames[V any](changed *set.Set[string], removed, upserted map[string]V) {
@@ -2191,125 +2125,120 @@ func markChangedNames[V any](changed *set.Set[string], removed, upserted map[str
 	}
 }
 
-func commitResourceEntries[V comparable](current *map[string]resourceEntry[V], changed *set.Set[string], entries map[string]resourceEntry[V]) {
+func (state *resourceTypeState) commitEntries(entries map[string]resourceEntry) {
 	if len(entries) == 0 {
 		return
 	}
-	var zero resourceEntry[V]
 	for name, entry := range entries {
-		if entry == zero {
-			delete(*current, name)
+		if entry.resource == nil && entry.generation == 0 {
+			delete(state.entries, name)
 		} else {
-			if *current == nil {
-				*current = make(map[string]resourceEntry[V], len(entries))
+			if state.entries == nil {
+				state.entries = make(map[string]resourceEntry, len(entries))
 			}
-			(*current)[name] = entry
+			state.entries[name] = entry
 		}
-		changed.Insert(name)
+		state.changed.Insert(name)
 	}
 }
 
-func commitResourceMap[V comparable](current *map[string]resourceEntry[V], changed *set.Set[string], removed, upserted map[string]V, generation uint64, restored map[string]resourceEntry[V]) {
+// Once Cilium uses Go 1.27, consider making this a generic method on
+// resourceTypeState.
+func commitResourceMap[V interface {
+	proto.Message
+	comparable
+}](state *resourceTypeState, removed, upserted map[string]V, generation uint64, restored map[string]resourceEntry) {
 	if restored != nil {
-		commitResourceEntries(current, changed, restored)
+		state.commitEntries(restored)
 		return
 	}
 	if len(removed) == 0 && len(upserted) == 0 {
 		return
 	}
-	if *current == nil {
-		*current = make(map[string]resourceEntry[V], len(removed)+len(upserted))
+	if state.entries == nil {
+		state.entries = make(map[string]resourceEntry, len(removed)+len(upserted))
 	}
 	for name := range removed {
-		(*current)[name] = resourceEntry[V]{generation: generation}
+		state.entries[name] = resourceEntry{generation: generation}
 	}
 	for name, resource := range upserted {
-		(*current)[name] = resourceEntry[V]{resource: resource, generation: generation}
+		state.entries[name] = resourceEntry{resource: resourceValue(resource), generation: generation}
 	}
-	markChangedNames(changed, removed, upserted)
+	markChangedNames(&state.changed, removed, upserted)
 }
 
-func (state *nodeState) commitResourceMutation(changes ResourceMutations, generation uint64, restored *cacheResources) {
-	var restore cacheResources
+func (state *nodeState) commitResourceMutation(changes ResourceMutations, generation uint64, restored *resourceEntrySlots) {
+	var restore resourceEntrySlots
 	if restored != nil {
 		restore = *restored
 	}
-	commitResourceMap(&state.resources.listeners, &state.changed.listeners, changes.Removed.Listeners, changes.Upserted.Listeners, generation, restore.listeners)
-	commitResourceMap(&state.resources.routes, &state.changed.routes, changes.Removed.Routes, changes.Upserted.Routes, generation, restore.routes)
-	commitResourceMap(&state.resources.clusters, &state.changed.clusters, changes.Removed.Clusters, changes.Upserted.Clusters, generation, restore.clusters)
-	commitResourceMap(&state.resources.endpoints, &state.changed.endpoints, changes.Removed.Endpoints, changes.Upserted.Endpoints, generation, restore.endpoints)
-	commitResourceMap(&state.resources.secrets, &state.changed.secrets, changes.Removed.Secrets, changes.Upserted.Secrets, generation, restore.secrets)
-	commitResourceMap(&state.resources.networkPolicies, &state.changed.networkPolicies, changes.Removed.NetworkPolicies, changes.Upserted.NetworkPolicies, generation, restore.networkPolicies)
-	commitResourceMap(&state.resources.networkPolicyHosts, &state.changed.networkPolicyHosts, changes.Removed.NetworkPolicyHosts, changes.Upserted.NetworkPolicyHosts, generation, restore.networkPolicyHosts)
+	commitResourceMap(&state.resources[typeurl.Listener], changes.Removed.Listeners, changes.Upserted.Listeners, generation, restore[typeurl.Listener])
+	commitResourceMap(&state.resources[typeurl.Route], changes.Removed.Routes, changes.Upserted.Routes, generation, restore[typeurl.Route])
+	commitResourceMap(&state.resources[typeurl.Cluster], changes.Removed.Clusters, changes.Upserted.Clusters, generation, restore[typeurl.Cluster])
+	commitResourceMap(&state.resources[typeurl.Endpoint], changes.Removed.Endpoints, changes.Upserted.Endpoints, generation, restore[typeurl.Endpoint])
+	commitResourceMap(&state.resources[typeurl.Secret], changes.Removed.Secrets, changes.Upserted.Secrets, generation, restore[typeurl.Secret])
+	commitResourceMap(&state.resources[typeurl.NetworkPolicy], changes.Removed.NetworkPolicies, changes.Upserted.NetworkPolicies, generation, restore[typeurl.NetworkPolicy])
+	commitResourceMap(&state.resources[typeurl.NetworkPolicyHosts], changes.Removed.NetworkPolicyHosts, changes.Upserted.NetworkPolicyHosts, generation, restore[typeurl.NetworkPolicyHosts])
 }
 
-func committedListenerChanges(changes ResourceMutations, inverse cacheResources) []ListenerChange {
-	if len(inverse.listeners) == 0 {
+func committedListenerChanges(changes ResourceMutations, inverse resourceEntrySlots) []ListenerChange {
+	listeners := inverse[typeurl.Listener]
+	if len(listeners) == 0 {
 		return nil
 	}
-	listenerChanges := make([]ListenerChange, 0, len(inverse.listeners))
-	for name, previous := range inverse.listeners {
+	listenerChanges := make([]ListenerChange, 0, len(listeners))
+	for name, previous := range listeners {
 		listenerChanges = append(listenerChanges, ListenerChange{
 			Name:     name,
-			Previous: previous.resource,
+			Previous: typedResource[*envoy_config_listener.Listener](previous.resource),
 			Current:  changes.Upserted.Listeners[name],
 		})
 	}
 	return listenerChanges
 }
 
-func (state *nodeState) restoreResourceEntries(inverse cacheResources) {
-	commitResourceEntries(&state.resources.listeners, &state.changed.listeners, inverse.listeners)
-	commitResourceEntries(&state.resources.routes, &state.changed.routes, inverse.routes)
-	commitResourceEntries(&state.resources.clusters, &state.changed.clusters, inverse.clusters)
-	commitResourceEntries(&state.resources.endpoints, &state.changed.endpoints, inverse.endpoints)
-	commitResourceEntries(&state.resources.secrets, &state.changed.secrets, inverse.secrets)
-	commitResourceEntries(&state.resources.networkPolicies, &state.changed.networkPolicies, inverse.networkPolicies)
-	commitResourceEntries(&state.resources.networkPolicyHosts, &state.changed.networkPolicyHosts, inverse.networkPolicyHosts)
+func (state *nodeState) restoreResourceEntries(inverse resourceEntrySlots) {
+	for typeURL := range typeurl.Indices() {
+		state.resources[typeURL].commitEntries(inverse[typeURL])
+	}
 }
 
-func reconcileChangedNames[V interface {
-	proto.Message
-	comparable
-}](current map[string]resourceEntry[V], changed *set.Set[string], affected map[string]resourceEntry[V], published map[string]cache_types.ResourceWithTTL) {
-	var zero V
+func (state *resourceTypeState) reconcileChangedNames(affected map[string]resourceEntry, published map[string]cache_types.ResourceWithTTL) {
 	for name := range affected {
-		resource := current[name].resource
+		resource := state.entries[name].resource
 		publishedResource, publishedExists := published[name]
-		if resource == zero {
+		if resource == nil {
 			if !publishedExists {
-				changed.Remove(name)
+				state.changed.Remove(name)
 			}
 			continue
 		}
 		if publishedExists &&
 			(publishedResource.Resource == resource || proto.Equal(publishedResource.Resource, resource)) {
-			changed.Remove(name)
+			state.changed.Remove(name)
 		}
 	}
 }
 
-func (state *nodeState) reconcileChangedResourceNames(affected cacheResources, published cache.ResourceSnapshot) {
+func (state *nodeState) reconcileChangedResourceNames(affected resourceEntrySlots, published cache.ResourceSnapshot) {
 	resources := func(typeURL typeurl.Index) map[string]cache_types.ResourceWithTTL {
 		if published == nil {
 			return nil
 		}
 		return published.GetResourcesAndTTL(typeURL.URL())
 	}
-	reconcileChangedNames(state.resources.listeners, &state.changed.listeners, affected.listeners, resources(typeurl.Listener))
-	reconcileChangedNames(state.resources.routes, &state.changed.routes, affected.routes, resources(typeurl.Route))
-	reconcileChangedNames(state.resources.clusters, &state.changed.clusters, affected.clusters, resources(typeurl.Cluster))
-	reconcileChangedNames(state.resources.endpoints, &state.changed.endpoints, affected.endpoints, resources(typeurl.Endpoint))
-	reconcileChangedNames(state.resources.secrets, &state.changed.secrets, affected.secrets, resources(typeurl.Secret))
-	reconcileChangedNames(state.resources.networkPolicies, &state.changed.networkPolicies, affected.networkPolicies, resources(typeurl.NetworkPolicy))
-	reconcileChangedNames(state.resources.networkPolicyHosts, &state.changed.networkPolicyHosts, affected.networkPolicyHosts, resources(typeurl.NetworkPolicyHosts))
+	for typeURL := range typeurl.Indices() {
+		state.resources[typeURL].reconcileChangedNames(affected[typeURL], resources(typeURL))
+	}
 }
 
-func cacheResourcesEmpty(resources cacheResources) bool {
-	return len(resources.listeners) == 0 && len(resources.routes) == 0 &&
-		len(resources.clusters) == 0 && len(resources.endpoints) == 0 &&
-		len(resources.secrets) == 0 && len(resources.networkPolicies) == 0 &&
-		len(resources.networkPolicyHosts) == 0
+func resourceEntrySlotsEmpty(resources resourceEntrySlots) bool {
+	for typeURL := range typeurl.Indices() {
+		if len(resources[typeURL]) != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func resourceMutationsEmpty(mutations ResourceMutations) bool {
@@ -2322,10 +2251,9 @@ func resourceMutationsEmpty(mutations ResourceMutations) bool {
 		len(mutations.Removed.NetworkPolicyHosts) == 0 && len(mutations.Upserted.NetworkPolicyHosts) == 0
 }
 
-func resourceEntriesEmpty[V comparable](resources map[string]resourceEntry[V]) bool {
-	var zero V
+func resourceEntriesEmpty(resources map[string]resourceEntry) bool {
 	for _, entry := range resources {
-		if entry.resource != zero {
+		if entry.resource != nil {
 			return false
 		}
 	}
@@ -2336,7 +2264,7 @@ func (state *nodeState) networkPoliciesEmpty() bool {
 	if state == nil {
 		return true
 	}
-	return resourceEntriesEmpty(state.resources.networkPolicies)
+	return resourceEntriesEmpty(state.resources[typeurl.NetworkPolicy].entries)
 }
 
 // ApplyResources applies sparse removals and upserts to the cache-private
@@ -2357,14 +2285,14 @@ func (c *cacheImpl) ApplyResources(ctx context.Context, nodeID string, mutations
 func prepareSingleResource[V interface {
 	proto.Message
 	comparable
-}](current map[string]resourceEntry[V], name string, resource V) (previous resourceEntry[V], desired V, desiredExists, changed bool) {
+}](current map[string]resourceEntry, name string, resource V) (previous resourceEntry, desired V, desiredExists, changed bool) {
 	previous = current[name]
 	var zero V
 	if resource == zero {
-		return previous, zero, false, previous.resource != zero
+		return previous, zero, false, previous.resource != nil
 	}
-	if previous.resource != zero && (previous.resource == resource || proto.Equal(previous.resource, resource)) {
-		return previous, previous.resource, true, false
+	if previous.resource != nil && (previous.resource == resource || proto.Equal(previous.resource, resource)) {
+		return previous, previous.resource.(V), true, false
 	}
 	return previous, resource, true, true
 }
@@ -2389,7 +2317,7 @@ func (tx *resourceTransaction) finishUnchangedSingleResourceLocked(typeURL typeu
 // through the shared generation, revert, and lazy-publication machinery. It
 // handles completion state directly because the affected resource and TypeURL
 // are already known. Caller must hold mutex.
-func (tx *resourceTransaction) applyChangedSingleResourceLocked(typeURL typeurl.Index, name string, desired proto.Message, desiredExists bool, changes ResourceMutations, inverse cacheResources, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
+func (tx *resourceTransaction) applyChangedSingleResourceLocked(typeURL typeurl.Index, name string, desired proto.Message, desiredExists bool, changes ResourceMutations, inverse resourceEntrySlots, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
 	c := tx.cache
 	c.resourceGeneration++
 	tx.generation = c.resourceGeneration
@@ -2419,9 +2347,9 @@ func (tx *resourceTransaction) applyChangedSingleResourceLocked(typeURL typeurl.
 func (tx *resourceTransaction) applyListenerLocked(name string, resource *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
 	state := tx.state
 	stateExists := state != nil
-	var current map[string]resourceEntry[*envoy_config_listener.Listener]
+	var current map[string]resourceEntry
 	if state != nil {
-		current = state.resources.listeners
+		current = state.resources[typeurl.Listener].entries
 	}
 	previous, desired, desiredExists, changed := prepareSingleResource(current, name, resource)
 	if !changed {
@@ -2438,17 +2366,22 @@ func (tx *resourceTransaction) applyListenerLocked(name string, resource *envoy_
 	} else {
 		mutations.Upserted.Listeners = map[string]*envoy_config_listener.Listener{name: resource}
 	}
-	tx.listenerChanges = []ListenerChange{{Name: name, Previous: previous.resource, Current: resource}}
-	inverse := cacheResources{listeners: map[string]resourceEntry[*envoy_config_listener.Listener]{name: previous}}
+	tx.listenerChanges = []ListenerChange{{
+		Name:     name,
+		Previous: typedResource[*envoy_config_listener.Listener](previous.resource),
+		Current:  resource,
+	}}
+	var inverse resourceEntrySlots
+	inverse[typeurl.Listener] = map[string]resourceEntry{name: previous}
 	return tx.applyChangedSingleResourceLocked(typeurl.Listener, name, desired, desiredExists, mutations, inverse, wg, callback)
 }
 
 func (tx *resourceTransaction) applyNetworkPolicyLocked(name string, resource *cilium.NetworkPolicy, wg *completion.WaitGroup, callback func(error)) (bool, RevertFunc, FinalizeFunc, error) {
 	state := tx.state
 	stateExists := state != nil
-	var current map[string]resourceEntry[*cilium.NetworkPolicy]
+	var current map[string]resourceEntry
 	if state != nil {
-		current = state.resources.networkPolicies
+		current = state.resources[typeurl.NetworkPolicy].entries
 	}
 	previous, desired, desiredExists, changed := prepareSingleResource(current, name, resource)
 	if !changed {
@@ -2465,15 +2398,16 @@ func (tx *resourceTransaction) applyNetworkPolicyLocked(name string, resource *c
 	} else {
 		mutations.Upserted.NetworkPolicies = map[string]*cilium.NetworkPolicy{name: resource}
 	}
-	inverse := cacheResources{networkPolicies: map[string]resourceEntry[*cilium.NetworkPolicy]{name: previous}}
+	var inverse resourceEntrySlots
+	inverse[typeurl.NetworkPolicy] = map[string]resourceEntry{name: previous}
 	return tx.applyChangedSingleResourceLocked(typeurl.NetworkPolicy, name, desired, desiredExists, mutations, inverse, wg, callback)
 }
 
 func (tx *resourceTransaction) applyNetworkPolicyHostsLocked(name string, resource *cilium.NetworkPolicyHosts) (bool, RevertFunc, FinalizeFunc, error) {
 	state := tx.state
-	var current map[string]resourceEntry[*cilium.NetworkPolicyHosts]
+	var current map[string]resourceEntry
 	if state != nil {
-		current = state.resources.networkPolicyHosts
+		current = state.resources[typeurl.NetworkPolicyHosts].entries
 	}
 	previous, desired, desiredExists, changed := prepareSingleResource(current, name, resource)
 	if !changed {
@@ -2486,7 +2420,8 @@ func (tx *resourceTransaction) applyNetworkPolicyHostsLocked(name string, resour
 	} else {
 		mutations.Upserted.NetworkPolicyHosts = map[string]*cilium.NetworkPolicyHosts{name: resource}
 	}
-	inverse := cacheResources{networkPolicyHosts: map[string]resourceEntry[*cilium.NetworkPolicyHosts]{name: previous}}
+	var inverse resourceEntrySlots
+	inverse[typeurl.NetworkPolicyHosts] = map[string]resourceEntry{name: previous}
 	return tx.applyChangedSingleResourceLocked(typeurl.NetworkPolicyHosts, name, desired, desiredExists, mutations, inverse, nil, nil)
 }
 
@@ -2542,7 +2477,7 @@ func (c *cacheImpl) RemoveNetworkPolicyHosts(ctx context.Context, nodeID, name s
 
 // applyResourcesLocked allocates generations and constructs generation-fenced
 // reverts inside the cache. Caller must hold mutex.
-func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, restoredEntries *cacheResources) (bool, RevertFunc, FinalizeFunc, error) {
+func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, restoredEntries *resourceEntrySlots) (bool, RevertFunc, FinalizeFunc, error) {
 	c := tx.cache
 	if !updatedTypeURLs.Known() && (len(mutations.Removed.Listeners) > 0 || len(mutations.Upserted.Listeners) > 0) {
 		// Listener mutations are always ACK-tracked by the legacy server because
@@ -2563,7 +2498,7 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 	}
 	resourcesChanged := !changedTypeURLs.Empty()
 	if !resourcesChanged {
-		updated, err := tx.applyPreparedResourcesLocked(ResourceMutations{}, cacheResources{}, typeurl.NewSet(), typeurl.NewSet(), false, mutations, wg, updatedTypeURLs, nil, restoredEntries)
+		updated, err := tx.applyPreparedResourcesLocked(ResourceMutations{}, resourceEntrySlots{}, typeurl.NewSet(), typeurl.NewSet(), false, mutations, wg, updatedTypeURLs, nil, restoredEntries)
 		return updated, nil, nil, err
 	}
 	c.resourceGeneration++
@@ -2580,7 +2515,7 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 	if err != nil {
 		return false, nil, nil, err
 	}
-	if len(inverse.listeners) > 0 {
+	if len(inverse[typeurl.Listener]) > 0 {
 		tx.listenerChanges = committedListenerChanges(changes, inverse)
 	}
 	if lifecycle == nil {
@@ -2665,7 +2600,7 @@ func (c *cacheImpl) newRollbackLifecycle(ctx context.Context, nodeID string, typ
 	}
 }
 
-func (c *cacheImpl) newCallerRollbackLifecycle(ctx context.Context, nodeID string, generation uint64, inverse cacheResources) *rollbackLifecycle {
+func (c *cacheImpl) newCallerRollbackLifecycle(ctx context.Context, nodeID string, generation uint64, inverse resourceEntrySlots) *rollbackLifecycle {
 	return &rollbackLifecycle{
 		cache:      c,
 		ctx:        ctx,
@@ -2701,21 +2636,21 @@ func (lifecycle *rollbackLifecycle) detachUnsentLocked() {
 // completedLocked reports whether a terminal operation has consumed the
 // lifecycle's rollback payload. Caller must hold cacheImpl.mutex.
 func (lifecycle *rollbackLifecycle) completedLocked() bool {
-	return lifecycle.resources == nil && cacheResourcesEmpty(lifecycle.inverse)
+	return lifecycle.resources == nil && resourceEntrySlotsEmpty(lifecycle.inverse)
 }
 
 // takeRollbackLocked atomically selects the lifecycle's terminal operation and
 // returns its rollback payload. Clearing both payload representations marks the
 // lifecycle complete while retaining identifying fields for duplicate warnings.
 // Caller must hold cacheImpl.mutex.
-func (lifecycle *rollbackLifecycle) takeRollbackLocked(operation string) (*rollbackResources, cacheResources, bool) {
+func (lifecycle *rollbackLifecycle) takeRollbackLocked(operation string) (*rollbackResources, resourceEntrySlots, bool) {
 	if lifecycle.completedLocked() {
 		lifecycle.warnDuplicateLocked(operation)
-		return nil, cacheResources{}, false
+		return nil, resourceEntrySlots{}, false
 	}
 	resources, inverse := lifecycle.resources, lifecycle.inverse
 	lifecycle.resources = nil
-	lifecycle.inverse = cacheResources{}
+	lifecycle.inverse = resourceEntrySlots{}
 	lifecycle.detachUnsentLocked()
 	return resources, inverse, true
 }
@@ -2754,7 +2689,7 @@ func (lifecycle *rollbackLifecycle) Revert(expectedGeneration uint64) (uint64, b
 	currentGeneration := tx.currentResourceGeneration()
 	state := tx.state
 	var mutations ResourceMutations
-	var restoredEntries cacheResources
+	var restoredEntries resourceEntrySlots
 	if resources == nil {
 		mutations, restoredEntries = state.resourceRevertInverse(lifecycle.generation, inverse)
 	} else {
@@ -2803,7 +2738,7 @@ func (lifecycle *rollbackLifecycle) functions() (RevertFunc, FinalizeFunc) {
 func resourceMutationAccepted[V interface {
 	proto.Message
 	comparable
-}](completionCbs *callbacks.CompletionCallbacks, nodeID string, typeURL typeurl.Index, current map[string]resourceEntry[V], removed, upserted map[string]V, typeChanged bool) bool {
+}](completionCbs *callbacks.CompletionCallbacks, nodeID string, typeURL typeurl.Index, current map[string]resourceEntry, removed, upserted map[string]V, typeChanged bool) bool {
 	if len(removed) == 0 && len(upserted) == 0 {
 		return false
 	}
@@ -2821,7 +2756,7 @@ func resourceMutationAccepted[V interface {
 		// already-ACKed no-op does not pay for the same proto.Equal twice.
 		if !typeChanged {
 			if cached, exists := currentResource(current, name); exists {
-				resource = cached
+				resource = cached.(V)
 			}
 		}
 		if !completionCbs.ResourceAccepted(nodeID, typeURL, name, resource, true) {
@@ -2834,7 +2769,7 @@ func resourceMutationAccepted[V interface {
 // resourceMutationGeneration returns the newest generation among the resource
 // names supplied for one TypeURL. The boolean distinguishes an absent mutation
 // from a mutation of a resource whose generation is legitimately zero.
-func resourceMutationGeneration[V comparable](current map[string]resourceEntry[V], removed, upserted map[string]V) (uint64, bool) {
+func resourceMutationGeneration[V comparable](current map[string]resourceEntry, removed, upserted map[string]V) (uint64, bool) {
 	var generation uint64
 	found := false
 	for name := range removed {
@@ -2852,27 +2787,23 @@ func resourceMutationGeneration[V comparable](current map[string]resourceEntry[V
 }
 
 func (state *nodeState) mutationGeneration(typeURL typeurl.Index, mutations ResourceMutations) uint64 {
-	var current cacheResources
-	if state != nil {
-		current = state.resources
-	}
 	var found bool
 	var generation uint64
 	switch typeURL {
 	case typeurl.Listener:
-		generation, found = resourceMutationGeneration(current.listeners, mutations.Removed.Listeners, mutations.Upserted.Listeners)
+		generation, found = resourceMutationGeneration(state.resourceEntries(typeurl.Listener), mutations.Removed.Listeners, mutations.Upserted.Listeners)
 	case typeurl.Route:
-		generation, found = resourceMutationGeneration(current.routes, mutations.Removed.Routes, mutations.Upserted.Routes)
+		generation, found = resourceMutationGeneration(state.resourceEntries(typeurl.Route), mutations.Removed.Routes, mutations.Upserted.Routes)
 	case typeurl.Cluster:
-		generation, found = resourceMutationGeneration(current.clusters, mutations.Removed.Clusters, mutations.Upserted.Clusters)
+		generation, found = resourceMutationGeneration(state.resourceEntries(typeurl.Cluster), mutations.Removed.Clusters, mutations.Upserted.Clusters)
 	case typeurl.Endpoint:
-		generation, found = resourceMutationGeneration(current.endpoints, mutations.Removed.Endpoints, mutations.Upserted.Endpoints)
+		generation, found = resourceMutationGeneration(state.resourceEntries(typeurl.Endpoint), mutations.Removed.Endpoints, mutations.Upserted.Endpoints)
 	case typeurl.Secret:
-		generation, found = resourceMutationGeneration(current.secrets, mutations.Removed.Secrets, mutations.Upserted.Secrets)
+		generation, found = resourceMutationGeneration(state.resourceEntries(typeurl.Secret), mutations.Removed.Secrets, mutations.Upserted.Secrets)
 	case typeurl.NetworkPolicy:
-		generation, found = resourceMutationGeneration(current.networkPolicies, mutations.Removed.NetworkPolicies, mutations.Upserted.NetworkPolicies)
+		generation, found = resourceMutationGeneration(state.resourceEntries(typeurl.NetworkPolicy), mutations.Removed.NetworkPolicies, mutations.Upserted.NetworkPolicies)
 	case typeurl.NetworkPolicyHosts:
-		generation, found = resourceMutationGeneration(current.networkPolicyHosts, mutations.Removed.NetworkPolicyHosts, mutations.Upserted.NetworkPolicyHosts)
+		generation, found = resourceMutationGeneration(state.resourceEntries(typeurl.NetworkPolicyHosts), mutations.Removed.NetworkPolicyHosts, mutations.Upserted.NetworkPolicyHosts)
 	}
 	if found {
 		return generation
@@ -2902,19 +2833,19 @@ func (tx *resourceTransaction) resourcesAcceptedLocked(typeURL typeurl.Index, mu
 	}
 	switch typeURL {
 	case typeurl.Listener:
-		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources.listeners, mutations.Removed.Listeners, mutations.Upserted.Listeners, typeChanged)
+		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources[typeurl.Listener].entries, mutations.Removed.Listeners, mutations.Upserted.Listeners, typeChanged)
 	case typeurl.Route:
-		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources.routes, mutations.Removed.Routes, mutations.Upserted.Routes, typeChanged)
+		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources[typeurl.Route].entries, mutations.Removed.Routes, mutations.Upserted.Routes, typeChanged)
 	case typeurl.Cluster:
-		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources.clusters, mutations.Removed.Clusters, mutations.Upserted.Clusters, typeChanged)
+		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources[typeurl.Cluster].entries, mutations.Removed.Clusters, mutations.Upserted.Clusters, typeChanged)
 	case typeurl.Endpoint:
-		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources.endpoints, mutations.Removed.Endpoints, mutations.Upserted.Endpoints, typeChanged)
+		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources[typeurl.Endpoint].entries, mutations.Removed.Endpoints, mutations.Upserted.Endpoints, typeChanged)
 	case typeurl.Secret:
-		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources.secrets, mutations.Removed.Secrets, mutations.Upserted.Secrets, typeChanged)
+		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources[typeurl.Secret].entries, mutations.Removed.Secrets, mutations.Upserted.Secrets, typeChanged)
 	case typeurl.NetworkPolicy:
-		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources.networkPolicies, mutations.Removed.NetworkPolicies, mutations.Upserted.NetworkPolicies, typeChanged)
+		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources[typeurl.NetworkPolicy].entries, mutations.Removed.NetworkPolicies, mutations.Upserted.NetworkPolicies, typeChanged)
 	case typeurl.NetworkPolicyHosts:
-		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources.networkPolicyHosts, mutations.Removed.NetworkPolicyHosts, mutations.Upserted.NetworkPolicyHosts, typeChanged)
+		return resourceMutationAccepted(c.completionCbs, tx.nodeID, typeURL, state.resources[typeurl.NetworkPolicyHosts].entries, mutations.Removed.NetworkPolicyHosts, mutations.Upserted.NetworkPolicyHosts, typeChanged)
 	default:
 		return false
 	}
@@ -2941,7 +2872,7 @@ func (c *cacheImpl) generateSnapshotForUpdate(state *nodeState, previous cache.R
 // type. For a mixed update, completions are split between resource types made
 // dirty by this generation and types which remain at their current version.
 // Caller must hold mutex.
-func (tx *resourceTransaction) applyPreparedResourcesLocked(changes ResourceMutations, inverse cacheResources, changedTypeURLs, watchTypeURLs typeurl.Set, resourcesChanged bool, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, lifecycle *rollbackLifecycle, restoredEntries *cacheResources) (bool, error) {
+func (tx *resourceTransaction) applyPreparedResourcesLocked(changes ResourceMutations, inverse resourceEntrySlots, changedTypeURLs, watchTypeURLs typeurl.Set, resourcesChanged bool, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, lifecycle *rollbackLifecycle, restoredEntries *resourceEntrySlots) (bool, error) {
 	var dirtyTypeURLs typeurl.Set
 	if resourcesChanged {
 		dirtyTypeURLs = snapshotTypesChangedBy(changedTypeURLs)
@@ -2986,7 +2917,7 @@ func (tx *resourceTransaction) applyPreparedResourcesLocked(changes ResourceMuta
 // updateResourceChangesLocked commits one prepared mutation and optionally
 // finalizes it for an open watch. Caller must hold mutex; post-lock work is
 // accumulated on tx.
-func (tx *resourceTransaction) updateResourceChangesLocked(changes ResourceMutations, inverse cacheResources, dirtyTypeURLs, watchTypeURLs typeurl.Set, generator snapshotGenerator, wg *completion.WaitGroup, waits typeURLWaits, lifecycle *rollbackLifecycle, restoredEntries *cacheResources) error {
+func (tx *resourceTransaction) updateResourceChangesLocked(changes ResourceMutations, inverse resourceEntrySlots, dirtyTypeURLs, watchTypeURLs typeurl.Set, generator snapshotGenerator, wg *completion.WaitGroup, waits typeURLWaits, lifecycle *rollbackLifecycle, restoredEntries *resourceEntrySlots) error {
 	c := tx.cache
 	// Snapshot dependencies can make dirtyTypeURLs broader than the mutation.
 	// Responses are ACKed or NACKed independently by TypeURL, so retain rollback
@@ -3493,27 +3424,10 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 }
 
 func (state *nodeState) getResource(typeURL typeurl.Index, resourceName string) (cache_types.Resource, bool) {
-	if state == nil {
+	if state == nil || typeURL >= typeurl.Count {
 		return nil, false
 	}
-	switch typeURL {
-	case typeurl.Listener:
-		return currentResource(state.resources.listeners, resourceName)
-	case typeurl.Route:
-		return currentResource(state.resources.routes, resourceName)
-	case typeurl.Cluster:
-		return currentResource(state.resources.clusters, resourceName)
-	case typeurl.Endpoint:
-		return currentResource(state.resources.endpoints, resourceName)
-	case typeurl.Secret:
-		return currentResource(state.resources.secrets, resourceName)
-	case typeurl.NetworkPolicy:
-		return currentResource(state.resources.networkPolicies, resourceName)
-	case typeurl.NetworkPolicyHosts:
-		return currentResource(state.resources.networkPolicyHosts, resourceName)
-	default:
-		return nil, false
-	}
+	return currentResource(state.resources[typeURL].entries, resourceName)
 }
 
 func (c *cacheImpl) GetResource(nodeID string, typeURL typeurl.Index, resourceName string) (cache_types.Resource, bool) {
@@ -3530,8 +3444,8 @@ func (c *cacheImpl) Listeners(nodeID string) iter.Seq2[string, *envoy_config_lis
 		if state == nil {
 			return
 		}
-		for name, entry := range state.resources.listeners {
-			if entry.resource != nil && !yield(name, entry.resource) {
+		for name, entry := range state.resources[typeurl.Listener].entries {
+			if entry.resource != nil && !yield(name, typedResource[*envoy_config_listener.Listener](entry.resource)) {
 				return
 			}
 		}
@@ -3546,8 +3460,8 @@ func (c *cacheImpl) Routes(nodeID string) iter.Seq2[string, *envoy_config_route.
 		if state == nil {
 			return
 		}
-		for name, entry := range state.resources.routes {
-			if entry.resource != nil && !yield(name, entry.resource) {
+		for name, entry := range state.resources[typeurl.Route].entries {
+			if entry.resource != nil && !yield(name, typedResource[*envoy_config_route.RouteConfiguration](entry.resource)) {
 				return
 			}
 		}
@@ -3562,8 +3476,8 @@ func (c *cacheImpl) NetworkPolicies(nodeID string) iter.Seq2[string, *cilium.Net
 		if state == nil {
 			return
 		}
-		for name, entry := range state.resources.networkPolicies {
-			if entry.resource != nil && !yield(name, entry.resource) {
+		for name, entry := range state.resources[typeurl.NetworkPolicy].entries {
+			if entry.resource != nil && !yield(name, typedResource[*cilium.NetworkPolicy](entry.resource)) {
 				return
 			}
 		}

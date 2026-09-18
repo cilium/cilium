@@ -132,6 +132,15 @@ resource pointer
 generation that most recently changed this resource name
 ```
 
+Desired resources use the same fixed TypeURL slots as published snapshots.
+Each slot keeps that resource type's entries together with the sparse set of
+names changed since publication. Resource values are stored through the
+protobuf message interface; the slot identifies their concrete protobuf type.
+Typed mutation APIs convert at the cache boundary, while internal publication
+and rollback code can operate uniformly across resource types. Sparse inverse
+and restored entries use map-only slots so they do not carry unused changed-name
+sets.
+
 Conceptually:
 
 ```text
