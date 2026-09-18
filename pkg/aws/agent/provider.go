@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -44,10 +43,9 @@ type providerParams struct {
 	Node           agentK8s.LocalCiliumNodeResource
 	LocalNodeStore *node.LocalNodeStore
 
-	Conf        *option.DaemonConfig
-	MTU         mtu.MTU
-	Sysctl      sysctl.Sysctl
-	IPMasqAgent *ipmasq.IPMasqAgent
+	Conf   *option.DaemonConfig
+	MTU    mtu.MTU
+	Sysctl sysctl.Sysctl
 }
 
 // provider is the AWS customization of the agent's multi-pool allocator.
@@ -75,11 +73,7 @@ func (p *provider) Initialize() (ipam.RoutingMetadataResolver, error) {
 	startDeviceConfigurator(p.params.Logger, p.params.JobGroup, p.params.Node, p.params.MTU, p.params.Sysctl)
 	p.nativeRoutingCIDRReady = startNativeRoutingCIDRSync(p.params.Logger, p.params.JobGroup, p.params.Node, p.params.LocalNodeStore, p.params.Conf)
 
-	return &resolver{
-		logger:      p.params.Logger,
-		conf:        p.params.Conf,
-		ipMasqAgent: p.params.IPMasqAgent,
-	}, nil
+	return &resolver{}, nil
 }
 
 // WaitReady blocks until the native routing CIDR observer registered in
@@ -116,13 +110,9 @@ const waitForNativeRoutingCIDRTimeout = 5 * time.Minute
 const operatorHelpMessage = "Check if the cilium-operator pod is running and does not have any warnings or error messages."
 
 // resolver reports the ENI routing metadata of the addresses the multi-pool
-// allocator hands out. It is built by Initialize and never mutated afterwards,
-// so it is safe for concurrent use.
-type resolver struct {
-	logger      *slog.Logger
-	conf        *option.DaemonConfig
-	ipMasqAgent *ipmasq.IPMasqAgent
-}
+// allocator hands out. It is stateless: everything it reports is derived from
+// the CiliumNode it is handed on each call.
+type resolver struct{}
 
 // ResolveRoutingMetadata reports the ENI-specific routing metadata of addr by
 // finding which ENI of the node owns it.
@@ -135,5 +125,5 @@ func (r *resolver) ResolveRoutingMetadata(node *ciliumv2.CiliumNode, addr netip.
 		enis = node.Status.ENI.ENIs
 	}
 
-	return allocationResult(r.logger, addr, pool, enis, r.conf, r.ipMasqAgent)
+	return allocationResult(addr, pool, enis)
 }

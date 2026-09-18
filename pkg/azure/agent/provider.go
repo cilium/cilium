@@ -17,7 +17,6 @@ import (
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -40,8 +39,7 @@ type providerParams struct {
 	Node           agentK8s.LocalCiliumNodeResource
 	LocalNodeStore *node.LocalNodeStore
 
-	Conf        *option.DaemonConfig
-	IPMasqAgent *ipmasq.IPMasqAgent
+	Conf *option.DaemonConfig
 }
 
 type provider struct {
@@ -67,10 +65,7 @@ func (p *provider) Initialize() (ipam.RoutingMetadataResolver, error) {
 		p.params.Conf,
 	)
 
-	return &resolver{
-		conf:        p.params.Conf,
-		ipMasqAgent: p.params.IPMasqAgent,
-	}, nil
+	return &resolver{}, nil
 }
 
 func (p *provider) WaitReady(ctx context.Context) error {
@@ -101,10 +96,7 @@ const waitForNativeRoutingCIDRTimeout = 5 * time.Minute
 
 const operatorHelpMessage = "Check if the cilium-operator pod is running and does not have any warnings or error messages."
 
-type resolver struct {
-	conf        *option.DaemonConfig
-	ipMasqAgent *ipmasq.IPMasqAgent
-}
+type resolver struct{}
 
 func (r *resolver) ResolveRoutingMetadata(node *ciliumv2.CiliumNode, addr netip.Addr, pool ipam.Pool) (*ipam.AllocationResult, error) {
 	var interfaces []azureTypes.AzureInterface
@@ -112,5 +104,5 @@ func (r *resolver) ResolveRoutingMetadata(node *ciliumv2.CiliumNode, addr netip.
 		interfaces = node.Status.Azure.Interfaces
 	}
 
-	return allocationResult(addr, pool, interfaces, r.conf, r.ipMasqAgent)
+	return allocationResult(addr, pool, interfaces)
 }

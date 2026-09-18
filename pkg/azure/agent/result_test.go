@@ -13,7 +13,6 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestAllocationResult(t *testing.T) {
@@ -43,15 +42,11 @@ func TestAllocationResult(t *testing.T) {
 		},
 	}
 
-	conf := &option.DaemonConfig{EnableIPv4: true}
-
 	pool := ipam.Pool("default")
 	result, err := allocationResult(
 		netip.MustParseAddr("10.20.1.5"),
 		pool,
 		interfaces,
-		conf,
-		nil,
 	)
 	require.NoError(t, err)
 	require.Equal(t, netip.MustParseAddr("10.20.1.5"), result.IP)
@@ -64,8 +59,6 @@ func TestAllocationResult(t *testing.T) {
 		netip.MustParseAddr("10.20.1.6"),
 		pool,
 		interfaces,
-		conf,
-		nil,
 	)
 	require.ErrorContains(t, err, "unable to find Azure interface for IP 10.20.1.6")
 
@@ -73,8 +66,6 @@ func TestAllocationResult(t *testing.T) {
 		netip.MustParseAddr("10.30.1.5"),
 		pool,
 		interfaces,
-		conf,
-		nil,
 	)
 	require.ErrorContains(t, err, "unable to find Azure interface for IP 10.30.1.5")
 }
