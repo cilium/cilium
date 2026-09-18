@@ -116,7 +116,7 @@ func TestAllocateID(t *testing.T) {
 
 	// Allocate a new identity
 	lbls := labels.NewLabelsFromSortedList("id=foo")
-	k := &key.GlobalIdentity{LabelArray: lbls.LabelArray()}
+	k := key.NewGlobalIdentity(lbls)
 	identityID := idpool.ID(10)
 	_, err := backend.AllocateID(context.Background(), identityID, k)
 	require.NoError(t, err)
@@ -147,7 +147,7 @@ func TestAllocateIDFailure(t *testing.T) {
 
 	// Allocate a new identity
 	lbls := labels.NewLabelsFromSortedList("id=foo")
-	k := &key.GlobalIdentity{LabelArray: lbls.LabelArray()}
+	k := key.NewGlobalIdentity(lbls)
 	identityID := idpool.ID(10)
 
 	// Pre-create the identity in the KVStore so as to trigger failure during allocation
@@ -169,7 +169,7 @@ func TestGetID(t *testing.T) {
 
 	// Allocate a new identity
 	lbls := labels.NewLabelsFromSortedList("id=foo")
-	k := &key.GlobalIdentity{LabelArray: lbls.LabelArray()}
+	k := key.NewGlobalIdentity(lbls)
 	identityID := idpool.ID(10)
 	_, err := backend.AllocateID(context.Background(), identityID, k)
 	require.NoError(t, err)

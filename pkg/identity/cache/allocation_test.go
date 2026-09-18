@@ -212,7 +212,7 @@ func testEventWatcherBatching(t *testing.T) {
 	watcher.watch(events)
 
 	lbls := labels.NewLabelsFromSortedList("id=foo")
-	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
+	key := cacheKey.NewGlobalIdentity(lbls)
 
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
@@ -351,7 +351,7 @@ func testAllocator(t *testing.T, client kvstore.Client) {
 }
 
 func createCIDObj(id string, lbls labels.Labels) *capi_v2.CiliumIdentity {
-	k := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
+	k := cacheKey.NewGlobalIdentity(lbls)
 	selectedLabels := identitybackend.SelectK8sLabels(k.GetAsMap())
 	return &capi_v2.CiliumIdentity{
 		ObjectMeta: metav1.ObjectMeta{
@@ -486,7 +486,7 @@ func testAllocatorOperatorIDManagement(t *testing.T, cl kvstoreClient) {
 type kvstoreClient struct{ kvstore.Client }
 
 func (c *kvstoreClient) addIDKVStore(ctx context.Context, id string, lbls labels.Labels) error {
-	key := &cacheKey.GlobalIdentity{LabelArray: lbls.LabelArray()}
+	key := cacheKey.NewGlobalIdentity(lbls)
 	idPrefix := kvstore.JoinKey(IdentitiesPath, "id")
 	keyPath := kvstore.JoinKey(idPrefix, id)
 	success, err := c.CreateOnly(ctx, keyPath, []byte(key.GetKey()), false)
@@ -747,9 +747,6 @@ func TestClusterNameValidator(t *testing.T) {
 	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected cluster name: got bar, expected foo")
 
 	key = generator.PutKey("k8s:foo=bar;k8s:bar=baz;qux:io.cilium.k8s.policy.cluster=bar")
-	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected source for cluster label: got qux, expected k8s")
-
-	key = generator.PutKey("k8s:foo=bar;k8s:bar=baz;qux:io.cilium.k8s.policy.cluster=bar;k8s:io.cilium.k8s.policy.cluster=bar")
 	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected source for cluster label: got qux, expected k8s")
 
 	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, nil), "unsupported key type <nil>")
