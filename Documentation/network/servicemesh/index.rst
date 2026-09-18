@@ -43,7 +43,7 @@ Looking at the feature set of a service mesh today, it can be summarized as foll
 .. admonition:: Video
   :class: attention
 
-  If you'd like a video explanation of Cilium's Service Mesh implementation, check out `eCHO episode 27: eBPF-enabled Service Mesh <https://www.youtube.com/watch?v=nJT0ASbGLvs>`__ and `eCHO episode 100: Next-gen mutual authentication in Cilium <https://www.youtube.com/watch?v=BWjDlynXhzg>`__.
+  If you'd like a video explanation of Cilium's Service Mesh implementation, check out `eCHO episode 27: eBPF-enabled Service Mesh <https://www.youtube.com/watch?v=nJT0ASbGLvs>`__.
 
 Why Cilium Service Mesh?
 ########################
@@ -64,5 +64,4 @@ HTTP, gRPC, and DNS are parsed using a proxy such as Envoy.
    gateway-api/gamma
    ingress-to-gateway/ingress-to-gateway
    istio
-   mutual-authentication/mutual-authentication
    l7-traffic-management

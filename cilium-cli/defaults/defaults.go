@@ -141,7 +141,6 @@ var (
 		"Unsupported L2 protocol",
 		"Unsupported L3 protocol",
 		"Stale or unroutable IP",
-		"Authentication required",
 		"Service backend not found",
 		"Unsupported protocol for NAT masquerade",
 		"Invalid source ip",

@@ -132,7 +132,7 @@ k8sClientExponentialBackoff:
   # -- Configure maximum duration (in seconds) for exponential backoff.
   backoffMaxDurationSeconds: 120
 cluster:
-  # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
+  # -- Name of the cluster. Only required for Cluster Mesh.
   # It must respect the following constraints:
   # * It must contain at most 32 characters;
   # * It must begin and end with a lower case alphanumeric character;
@@ -565,12 +565,6 @@ bpf:
   stats:
     # -- Enable BPF statistics collection
     enabled: false
-  # @schema
-  # type: [null, integer]
-  # @schema
-  # -- (int) Configure the maximum number of entries in auth map.
-  # @default -- `524288`
-  authMapMax: ~
   # -- Enable CT accounting for packets and bytes
   ctAccounting: false
   # @schema
@@ -2308,7 +2302,6 @@ hubble:
     # --- Drop reasons to emit events for.
     # ref: https://docs.cilium.io/en/stable/_api/v1/flow/README/#dropreason
     reasons:
-      - auth_required
       - policy_denied
 # -- Method to use for identity allocation (`crd`, `kvstore` or `doublewrite-readkvstore` / `doublewrite-readcrd` for migrating between identity backends).
 identityAllocationMode: "crd"
@@ -4407,29 +4400,8 @@ sctp:
   enabled: false
 # -- Enable Non-Default-Deny policies
 enableNonDefaultDenyPolicies: true
-# Configuration for types of authentication for Cilium (beta)
 authentication:
-  # -- Enable authentication processing and garbage collection.
-  # Note that if disabled, policy enforcement will still block requests that require authentication.
-  # But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
-  enabled: false
-  # -- Buffer size of the channel Cilium uses to receive authentication events from the signal map.
-  queueSize: 1024
-  # -- Buffer size of the channel Cilium uses to receive certificate expiration events from auth handlers.
-  rotatedIdentitiesQueueSize: 1024
-  # -- Interval for garbage collection of auth map entries.
-  gcInterval: "5m0s"
-  # Configuration for Cilium's service-to-service mutual authentication using TLS handshakes.
-  # Note that this is not full mTLS support without also enabling encryption of some form.
-  # Current encryption options are WireGuard or IPsec, configured in encryption block above.
-  #
-  # Deprecated as of Cilium v1.20, this feature will be removed in Cilium v1.21.
-  # See https://github.com/cilium/cilium/issues/47132 for details.
   mutual:
-    # -- Port on the agent where mutual authentication handshakes between agents will be performed
-    port: 4250
-    # -- Timeout for connecting to the remote node TCP socket
-    connectTimeout: 5s
     # Settings for SPIRE
     spire:
       # -- Enable SPIRE integration (beta)

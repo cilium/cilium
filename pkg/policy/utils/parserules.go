@@ -33,17 +33,16 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(iRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				Tier:           types.Normal,
-				Subject:        subjectSelector,
-				Node:           node,
-				Labels:         rule.Labels,
-				DefaultDeny:    defaultDeny,
-				Verdict:        types.Allow,
-				Ingress:        true,
-				L3:             l3,
-				L4:             l4,
-				Authentication: iRule.Authentication,
-				Log:            rule.Log,
+				Tier:        types.Normal,
+				Subject:     subjectSelector,
+				Node:        node,
+				Labels:      rule.Labels,
+				DefaultDeny: defaultDeny,
+				Verdict:     types.Allow,
+				Ingress:     true,
+				L3:          l3,
+				L4:          l4,
+				Log:         rule.Log,
 			}
 			entries = append(entries, entry)
 		}
@@ -96,17 +95,16 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(eRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				Tier:           types.Normal,
-				Subject:        subjectSelector,
-				Node:           node,
-				Labels:         rule.Labels,
-				DefaultDeny:    defaultDeny,
-				Verdict:        types.Allow,
-				Ingress:        false,
-				L3:             l3,
-				L4:             l4,
-				Authentication: eRule.Authentication,
-				Log:            rule.Log,
+				Tier:        types.Normal,
+				Subject:     subjectSelector,
+				Node:        node,
+				Labels:      rule.Labels,
+				DefaultDeny: defaultDeny,
+				Verdict:     types.Allow,
+				Ingress:     false,
+				L3:          l3,
+				L4:          l4,
+				Log:         rule.Log,
 			}
 			entries = append(entries, entry)
 		}

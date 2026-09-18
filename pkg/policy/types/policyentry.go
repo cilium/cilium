@@ -50,10 +50,6 @@ type PolicyEntry struct {
 	// considered first, then the rest of the rules, from the earliest to later priority levels.
 	Priority float64
 
-	// Authentication specifies the cryptographic authentication required for the traffic to be
-	// allowed
-	Authentication *api.Authentication
-
 	// Log specifies custom policy-specific Hubble logging configuration.
 	Log api.LogConfig
 

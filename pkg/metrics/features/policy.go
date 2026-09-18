@@ -16,7 +16,6 @@ type RuleFeatures struct {
 	HTTPHeaderMatches bool
 	Deny              bool
 	IngressCIDRGroup  bool
-	MutualAuth        bool
 	TLSInspection     bool
 	SNIAllowList      bool
 	NonDefaultDeny    bool
@@ -49,9 +48,6 @@ func (m Metrics) AddRule(r types.PolicyEntry) {
 	}
 	if rf.IngressCIDRGroup {
 		m.NPIngressCIDRGroupIngested.WithLabelValues(actionAdd).Inc()
-	}
-	if rf.MutualAuth {
-		m.NPMutualAuthIngested.WithLabelValues(actionAdd).Inc()
 	}
 	if rf.TLSInspection {
 		m.NPTLSInspectionIngested.WithLabelValues(actionAdd).Inc()
@@ -90,9 +86,6 @@ func (m Metrics) DelRule(r types.PolicyEntry) {
 	}
 	if rf.IngressCIDRGroup {
 		m.NPIngressCIDRGroupIngested.WithLabelValues(actionDel).Inc()
-	}
-	if rf.MutualAuth {
-		m.NPMutualAuthIngested.WithLabelValues(actionDel).Inc()
 	}
 	if rf.TLSInspection {
 		m.NPTLSInspectionIngested.WithLabelValues(actionDel).Inc()
@@ -141,7 +134,6 @@ func ruleType(r types.PolicyEntry) RuleFeatures {
 	var rf RuleFeatures
 
 	rf.Deny = r.IsDeny()
-	rf.MutualAuth = r.Authentication != nil
 	rf.NonDefaultDeny = r.DefaultDeny
 	rf.ToFQDNs, rf.Host, rf.IngressCIDRGroup = r.L3.GetRuleTypes()
 	rf.L3 = len(r.L3) > 0 && !rf.ToFQDNs

@@ -126,6 +126,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_capture4_rules",
 			"cilium_capture6_rules",
 			"cilium_ktime_cache",
+			"cilium_auth_map",
 		}
 		prefixedMaps = []PrefixedMap{
 			{"cilium_policy_", []string{policymap.MapName}},

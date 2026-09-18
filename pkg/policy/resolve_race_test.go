@@ -66,7 +66,7 @@ func TestDistillPolicyMapStateRace(t *testing.T) {
 
 	const numIdentities = 128
 	key := egressKey(0, u8proto.TCP, 80, 0)
-	entry := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, 0, 0, types.Allow, NoAuthRequirement)
+	entry := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, 0, 0, types.Allow)
 	for i := range numIdentities {
 		current.policyMapState.upsert(key.WithIdentity(identity.NumericIdentity(i+1000)), entry)
 	}

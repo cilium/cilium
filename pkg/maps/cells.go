@@ -10,7 +10,6 @@ import (
 
 	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/maps/act"
-	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -44,9 +43,6 @@ var Cell = cell.Module(
 	// Provides the map spec registry which gets initialized by the specs defined in the datapath which
 	// can then be modified during hive construction and the modified specs used once started.
 	registry.Cell,
-
-	// Provides the auth.Map which contains the authentication state between Cilium security identities.
-	authmap.Cell,
 
 	// ConfigMap stores runtime configuration state for the Cilium datapath.
 	configmap.Cell,

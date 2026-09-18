@@ -6,19 +6,7 @@ package compute
 import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/types"
 )
-
-// GetAuthTypes returns the AuthTypes required by the policy between localID
-// and remoteID. Returns nil if the local identity has no computed policy yet
-// or if no auth is required.
-func (r *IdentityPolicyComputer) GetAuthTypes(localID, remoteID identity.NumericIdentity) types.AuthTypes {
-	res, _, found := r.tbl.Get(r.db.ReadTxn(), PolicyComputationByIdentity(localID))
-	if !found || res.NewPolicy == nil {
-		return nil
-	}
-	return res.NewPolicy.GetAuthTypes(remoteID)
-}
 
 // GetPolicySnapshot returns the current SelectorPolicy for every identity in
 // the compute table. The returned map is a snapshot taken at a single statedb

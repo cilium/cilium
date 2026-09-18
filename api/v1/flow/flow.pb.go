@@ -625,9 +625,10 @@ const (
 	DropReason_INVALID_TC_BUFFER                                     DropReason = 184
 	DropReason_NO_SID                                                DropReason = 185
 	// Deprecated: Marked as deprecated in flow/flow.proto.
-	DropReason_MISSING_SRV6_STATE                 DropReason = 186
-	DropReason_NAT46                              DropReason = 187
-	DropReason_NAT64                              DropReason = 188
+	DropReason_MISSING_SRV6_STATE DropReason = 186
+	DropReason_NAT46              DropReason = 187
+	DropReason_NAT64              DropReason = 188
+	// Deprecated: Marked as deprecated in flow/flow.proto.
 	DropReason_AUTH_REQUIRED                      DropReason = 189
 	DropReason_CT_NO_MAP_FOUND                    DropReason = 190
 	DropReason_SNAT_NO_MAP_FOUND                  DropReason = 191
@@ -1523,8 +1524,9 @@ type Flow struct {
 	//
 	// Deprecated: Marked as deprecated in flow/flow.proto.
 	DropReason uint32 `protobuf:"varint,3,opt,name=drop_reason,json=dropReason,proto3" json:"drop_reason,omitempty"`
-	// auth_type is the authentication type specified for the flow in Cilium Network Policy.
-	// Only set on policy verdict events.
+	// auth_type is deprecated and no longer set.
+	//
+	// Deprecated: Marked as deprecated in flow/flow.proto.
 	AuthType AuthType `protobuf:"varint,35,opt,name=auth_type,json=authType,proto3,enum=flow.AuthType" json:"auth_type,omitempty"`
 	// l2
 	Ethernet *Ethernet `protobuf:"bytes,4,opt,name=ethernet,proto3" json:"ethernet,omitempty"`
@@ -1703,6 +1705,7 @@ func (x *Flow) GetDropReason() uint32 {
 	return 0
 }
 
+// Deprecated: Marked as deprecated in flow/flow.proto.
 func (x *Flow) GetAuthType() AuthType {
 	if x != nil {
 		return x.AuthType
@@ -5546,15 +5549,15 @@ var File_flow_flow_proto protoreflect.FileDescriptor
 
 const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
-	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8d\x11\n" +
+	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x91\x11\n" +
 	"\x04Flow\x12.\n" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x12\n" +
 	"\x04uuid\x18\" \x01(\tR\x04uuid\x12'\n" +
 	"\aemitter\x18) \x01(\v2\r.flow.EmitterR\aemitter\x12'\n" +
 	"\averdict\x18\x02 \x01(\x0e2\r.flow.VerdictR\averdict\x12#\n" +
 	"\vdrop_reason\x18\x03 \x01(\rB\x02\x18\x01R\n" +
-	"dropReason\x12+\n" +
-	"\tauth_type\x18# \x01(\x0e2\x0e.flow.AuthTypeR\bauthType\x12*\n" +
+	"dropReason\x12/\n" +
+	"\tauth_type\x18# \x01(\x0e2\x0e.flow.AuthTypeB\x02\x18\x01R\bauthType\x12*\n" +
 	"\bethernet\x18\x04 \x01(\v2\x0e.flow.EthernetR\bethernet\x12\x18\n" +
 	"\x02IP\x18\x05 \x01(\v2\b.flow.IPR\x02IP\x12\x1c\n" +
 	"\x02l4\x18\x06 \x01(\v2\f.flow.Layer4R\x02l4\x12$\n" +
@@ -5957,7 +5960,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"\x06TRACED\x10\x06\x12\x0e\n" +
 	"\n" +
-	"TRANSLATED\x10\a*\xe5\x11\n" +
+	"TRANSLATED\x10\a*\xe9\x11\n" +
 	"\n" +
 	"DropReason\x12\x17\n" +
 	"\x13DROP_REASON_UNKNOWN\x10\x00\x12\x1b\n" +
@@ -6020,8 +6023,8 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"\x05NAT46\x10\xbb\x01\x12\n" +
 	"\n" +
-	"\x05NAT64\x10\xbc\x01\x12\x12\n" +
-	"\rAUTH_REQUIRED\x10\xbd\x01\x12\x14\n" +
+	"\x05NAT64\x10\xbc\x01\x12\x16\n" +
+	"\rAUTH_REQUIRED\x10\xbd\x01\x1a\x02\b\x01\x12\x14\n" +
 	"\x0fCT_NO_MAP_FOUND\x10\xbe\x01\x12\x16\n" +
 	"\x11SNAT_NO_MAP_FOUND\x10\xbf\x01\x12\x17\n" +
 	"\x12INVALID_CLUSTER_ID\x10\xc0\x01\x12'\n" +

@@ -413,10 +413,6 @@ func (d *statusCollector) getBPFMapStatus() *models.BPFMapStatus {
 		DynamicSizeRatio: d.statusParams.DaemonConfig.BPFMapsDynamicSizeRatio,
 		Maps: []*models.BPFMapProperties{
 			{
-				Name: "Auth",
-				Size: int64(d.statusParams.DaemonConfig.AuthMapEntries),
-			},
-			{
 				Name: "Non-TCP connection tracking",
 				Size: int64(d.statusParams.DaemonConfig.CTMapEntriesGlobalAny),
 			},
@@ -950,26 +946,6 @@ func (d *statusCollector) getProbes() []Probe {
 				if status.Err == nil {
 					if s, ok := status.Data.(*models.KubeProxyReplacement); ok {
 						d.statusResponse.KubeProxyReplacement = s
-					}
-				}
-			},
-		},
-		{
-			Name: "auth-cert-provider",
-			Probe: func(ctx context.Context) (any, error) {
-				if d.statusParams.AuthManager == nil {
-					return &models.Status{State: models.StatusStateDisabled}, nil
-				}
-
-				return d.statusParams.AuthManager.CertProviderStatus(), nil
-			},
-			OnStatusUpdate: func(status Status) {
-				d.statusCollectMutex.Lock()
-				defer d.statusCollectMutex.Unlock()
-
-				if status.Err == nil {
-					if s, ok := status.Data.(*models.Status); ok {
-						d.statusResponse.AuthCertificateProvider = s
 					}
 				}
 			},
