@@ -4,10 +4,15 @@
 package labelsfilter
 
 import (
+	"bytes"
+	"log/slog"
+	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -250,4 +255,204 @@ func TestFilterLabelsByRegex(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+// TestParseLabelPrefixCfgReservedLabelWarning verifies that an error is
+// logged when the user's configuration excludes (or fails to include) the
+// reserved:host label. The test validates that:
+//
+//   - No error is logged when the reserved:host label will be included.
+//   - An error is logged when the reserved:host label will be excluded.
+func TestParseLabelPrefixCfgReservedLabelWarning(t *testing.T) {
+	var (
+		reservedHostLabel = labels.Label{Key: labels.IDNameHost, Value: "test", Source: labels.LabelSourceReserved}
+		myLabel           = labels.Label{Key: "my-label", Value: "test", Source: labels.LabelSourceK8s}
+		someLabel         = labels.Label{Key: "some-label", Value: "test", Source: labels.LabelSourceK8s}
+	)
+
+	tests := []struct {
+		name            string
+		parseLabelsFile string // JSON content of the label-prefix-file
+		parseLabelsFlag []string
+		filterLabels    labels.Labels
+		wantIdentity    labels.Labels
+		wantErrorLog    bool
+	}{
+		{
+			name:            "file includes label",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"k8s","prefix":"my-label","invert":false}]}`,
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(myLabel),
+			wantErrorLog:    true,
+		},
+		{
+			name:            "file excludes label",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"k8s","prefix":"my-label","invert":true}]}`,
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(reservedHostLabel, someLabel),
+			wantErrorLog:    false,
+		},
+		{
+			name:            "file includes reserved host label",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"reserved","prefix":"host","invert":false}]}`,
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(reservedHostLabel),
+			wantErrorLog:    false,
+		},
+		{
+			name:            "file includes reserved host label by prefix",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"reserved","prefix":"ho","invert":false}]}`,
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(reservedHostLabel),
+			wantErrorLog:    false,
+		},
+		{ // Label prefixes from v1 files are not treated as patterns. See https://github.com/cilium/cilium/issues/47918
+			name:            "file fails to include reserved host label by pattern",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"reserved","prefix":".*","invert":false}]}`,
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantErrorLog:    true,
+		},
+		{
+			name:            "file excludes reserved host label",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"reserved","prefix":"host","invert":true}]}`,
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(myLabel, someLabel),
+			wantErrorLog:    true,
+		},
+		{
+			name:            "file excludes reserved host label by prefix",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"reserved","prefix":"ho","invert":true}]}`,
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(myLabel, someLabel),
+			wantErrorLog:    true,
+		},
+		{ // Label prefixes from v1 files are not treated as patterns. See https://github.com/cilium/cilium/issues/47918
+			name:            "file fails to exclude reserved host label by pattern",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"reserved","prefix":".*","invert":true}]}`,
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantErrorLog:    false,
+		},
+		{
+			name:            "flag includes label",
+			parseLabelsFlag: []string{"k8s:my-label"},
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(myLabel, reservedHostLabel),
+			wantErrorLog:    false,
+		},
+		{
+			name:            "flag includes label prefix",
+			parseLabelsFlag: []string{"k8s:my-"},
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(myLabel, reservedHostLabel),
+			wantErrorLog:    false,
+		},
+		{
+			name:            "flag includes label pattern",
+			parseLabelsFlag: []string{"k8s:my-.*label"},
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(myLabel, reservedHostLabel),
+			wantErrorLog:    false,
+		},
+		{
+			name:            "flag excludes label",
+			parseLabelsFlag: []string{"k8s:!my-label"},
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(reservedHostLabel, someLabel),
+			wantErrorLog:    false,
+		},
+		{
+			name:            "flag excludes label prefix",
+			parseLabelsFlag: []string{"k8s:!my-"},
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(reservedHostLabel, someLabel),
+			wantErrorLog:    false,
+		},
+		{
+			name:            "flag excludes label pattern",
+			parseLabelsFlag: []string{"k8s:!my-.*label"},
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(reservedHostLabel, someLabel),
+			wantErrorLog:    false,
+		},
+		{
+			name:            "flag includes reserved label pattern",
+			parseLabelsFlag: []string{"reserved:.*"},
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(reservedHostLabel),
+			wantErrorLog:    false,
+		},
+		{
+			name:            "flag excludes reserved label pattern",
+			parseLabelsFlag: []string{"reserved:!.*"},
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(myLabel, someLabel),
+			wantErrorLog:    true,
+		},
+		{
+			name:            "file includes label prefix, flag includes label prefix",
+			parseLabelsFlag: []string{"k8s:my-other-label"},
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"k8s","prefix":"my-label","invert":false}]}`,
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantIdentity:    labels.FromSlice(myLabel),
+			wantErrorLog:    true,
+		},
+		{
+			name:            "file excludes label prefix, flag includes label prefix",
+			parseLabelsFlag: []string{"k8s:my-other-label"},
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"k8s","prefix":"my-label","invert":true}]}`,
+			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
+			wantErrorLog:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
+
+			handler := slog.NewTextHandler(&logs, &slog.HandlerOptions{
+				Level: slog.LevelError,
+			})
+			logger := slog.New(handler)
+			labelPrefixFile := createLabelPrefixFile(t, tt.parseLabelsFile)
+
+			// Run ParseLabelPrefixCfg() so we can check the log output.
+			gotErr := ParseLabelPrefixCfg(logger, tt.parseLabelsFlag, nil, labelPrefixFile)
+			if gotErr != nil {
+				t.Errorf("ParseLabelPrefixCfg() failed: %v", gotErr)
+
+				return
+			}
+
+			// Check the log output.
+			if tt.wantErrorLog {
+				assert.Contains(t, logs.String(), reservedLabelsMissing)
+			} else {
+				assert.NotContains(t, logs.String(), reservedLabelsMissing)
+			}
+
+			// Run Filter() to confirm whether reserved:host is or is not
+			// considered an identity label with the given config and labels.
+			gotIdentityLabels, _ := Filter(tt.filterLabels)
+			if diff := cmp.Diff(tt.wantIdentity.ToSlice(), gotIdentityLabels.ToSlice(), cmp.AllowUnexported(labels.Label{})); diff != "" {
+				t.Errorf("identity labels mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// createLabelPrefixFile creates a temporary file containing the provided
+// JSON label prefix configuration and returns its path. If the content is
+// empty, it returns an empty string.
+func createLabelPrefixFile(t *testing.T, parseLabelFileContent string) string {
+	t.Helper()
+
+	if parseLabelFileContent == "" {
+		return ""
+	}
+
+	path := filepath.Join(t.TempDir(), "label-prefix.json")
+	err := os.WriteFile(path, []byte(parseLabelFileContent), 0o600)
+	require.NoError(t, err)
+
+	return path
 }
