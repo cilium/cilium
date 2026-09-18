@@ -102,7 +102,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock, failedToRetrieveLock, failedToRetrieveResourceLock,
 		readingResponseBodyError, failedToListCRDs, knownIssueWireguardCollision, gobgpFailedCloseTCP,
-		vendoredLeaderElectionLeaseLockError}
+		vendoredLeaderElectionLeaseLockError, getProgInfoCannotAllocateMemory}
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
@@ -638,4 +638,6 @@ var (
 	readingResponseBodyError = regexMatcher{regexp.MustCompile(`Unexpected error when reading response body.*(request canceled|context deadline exceeded|context canceled)`)}
 	// it can happen under memory pressure if the Kernel cannot allocate a new chunk of memory at that point in time, and it is automatically retried.
 	lbMapCannotAllocateMemory = regexMatcher{regexp.MustCompile(`Updating frontend failed.*update: cannot allocate memory`)}
+	// Similarly to the toleration above, it can happen under memory pressure if the Kernel cannot allocate a new chunk of memory at that point in time.
+	getProgInfoCannotAllocateMemory = regexMatcher{regexp.MustCompile(`retrieving BPF maps & programs usage.*get program info: cannot allocate memory`)}
 )
