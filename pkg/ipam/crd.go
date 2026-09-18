@@ -725,7 +725,7 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 	switch a.conf.IPAMMode() {
 
 	// In AlibabaCloud mode, the Resource points to the ENI so we can derive the
-	// master interface and all CIDRs of the VPC
+	// master interface and the vSwitch gateway
 	case ipamOption.IPAMAlibabaCloud:
 		for _, eni := range a.store.ownNode.Status.AlibabaCloud.ENIs {
 			if eni.NetworkInterfaceID != ipInfo.Resource {
@@ -734,7 +734,6 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 			result.PrimaryMAC = eni.MACAddress
 			if eni.VSwitch.CIDRBlock.IsValid() {
 				p := eni.VSwitch.CIDRBlock.Prefix
-				result.CIDRs = []netip.Prefix{p}
 
 				// AlibabaCloud reserves the third-to-last IP of the subnet for the gateway.
 				// Ref: https://www.alibabacloud.com/help/doc-detail/65398.html

@@ -11,19 +11,14 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/mac"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
-	"github.com/go-openapi/swag/typeutils"
 )
 
 // IPAMAddressResponse IPAM configuration of an individual address family
 //
 // swagger:model IPAMAddressResponse
 type IPAMAddressResponse struct {
-
-	// List of CIDRs out of which IPs are allocated
-	Cidrs []iputil.Prefix `json:"cidrs"`
 
 	// The UUID for the expiration timer. Set when expiration has been
 	// enabled while allocating.
@@ -49,24 +44,7 @@ type IPAMAddressResponse struct {
 }
 
 // Validate validates this IP a m address response
-func (m *IPAMAddressResponse) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if err := m.validateCidrs(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-func (m *IPAMAddressResponse) validateCidrs(formats strfmt.Registry) error {
-	if typeutils.IsZero(m.Cidrs) { // not required
-		return nil
-	}
-
+func (m *IPAMAddressResponse) Validate(_ strfmt.Registry) error {
 	return nil
 }
 
