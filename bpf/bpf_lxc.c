@@ -88,13 +88,11 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
  * Furthermore, since SCTP cannot be handled as part of bpf_sock, also
  * enable per-packet LB is SCTP is enabled.
  */
-#if !defined(ENABLE_SOCKET_LB_FULL) || \
-    defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
-    defined(ENABLE_L7_LB)               || \
-    defined(ENABLE_SCTP)                || \
-    defined(ENABLE_CLUSTER_AWARE_ADDRESSING)
-# define ENABLE_PER_PACKET_LB 1
-#endif
+#define ENABLE_PER_PACKET_LB (!is_defined(ENABLE_SOCKET_LB_FULL) || \
+    is_defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
+    is_defined(ENABLE_L7_LB)               || \
+    is_defined(ENABLE_SCTP)                || \
+    is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING))
 
 struct nodeport_nat_info {
 	union v6addr nat_addr;
@@ -131,7 +129,6 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 #endif
 }
 
-#ifdef ENABLE_PER_PACKET_LB
 /* lb4_ctx_store_state() stores per packet load balancing state to be picked
  * up on the continuation tail call.
  */
@@ -273,7 +270,6 @@ skip_service_lookup:
 	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port, cluster_id);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_EGRESS, ext_err);
 }
-#endif /* ENABLE_PER_PACKET_LB */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
@@ -298,7 +294,6 @@ lb6_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 			      (ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16);
 }
 
-#ifdef ENABLE_PER_PACKET_LB
 /* lb6_ctx_store_state() stores per packet load balancing state to be picked
  * up on the continuation tail call.
  */
@@ -431,7 +426,6 @@ skip_service_lookup:
 	lb6_ctx_store_state(ctx, &ct_state_new, proxy_port);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_EGRESS, ext_err);
 }
-#endif /* ENABLE_PER_PACKET_LB */
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -530,7 +524,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	/* After a per-packet LB action, we only want the CT lookup to match	\
 	 * in forward direction.						\
 	 */									\
-	if (is_defined(ENABLE_PER_PACKET_LB) && DIR == CT_EGRESS) {		\
+	if (ENABLE_PER_PACKET_LB && DIR == CT_EGRESS) {				\
 		struct ct_state ct_state_new = {};				\
 		__u32 cluster_id;						\
 		__u16 proxy_port;						\
@@ -595,7 +589,7 @@ int NAME(struct __ctx_buff *ctx)						\
 										\
 	ct_buffer->l4_off = ETH_HLEN + hdrlen;					\
 										\
-	if (is_defined(ENABLE_PER_PACKET_LB) && DIR == CT_EGRESS) {		\
+	if (ENABLE_PER_PACKET_LB && DIR == CT_EGRESS) {				\
 		struct ct_state ct_state_new = {};				\
 		__u16 proxy_port;						\
 										\
@@ -851,20 +845,20 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			   daddr->p4, *dst_sec_identity);
 	}
 
-#ifdef ENABLE_PER_PACKET_LB
-	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, true);
-	hairpin_flow = ct_state_new.loopback;
+	if (ENABLE_PER_PACKET_LB) {
+		/* Restore ct_state from per packet lb handling in the previous tail call. */
+		lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, true);
+		hairpin_flow = ct_state_new.loopback;
 
 #if defined(ENABLE_NODEPORT)
-	{
-		struct nodeport_nat_info *nat_info = AUX_REUSE(nodeport_nat_info);
+		{
+			struct nodeport_nat_info *nat_info = AUX_REUSE(nodeport_nat_info);
 
-		ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
-		ct_state_new.nat_port = nat_info->nat_port;
-	}
+			ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
+			ct_state_new.nat_port = nat_info->nat_port;
+		}
 #endif /* ENABLE_NODEPORT */
-#endif /* ENABLE_PER_PACKET_LB */
+	}
 
 	ct_buffer = AUX_REUSE(cilium_tail_call_buffer6);
 	if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
@@ -1040,7 +1034,7 @@ int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 }
 
 TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_EGRESS, tail_ipv6_ct_egress, CT_EGRESS,
-		is_defined(ENABLE_PER_PACKET_LB),
+		ENABLE_PER_PACKET_LB,
 		CILIUM_CALL_IPV6_FROM_LXC_CONT, tail_handle_ipv6_cont)
 
 static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
@@ -1074,13 +1068,13 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	if (!from_l7lb && unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
-#ifdef ENABLE_PER_PACKET_LB
-	/* will tailcall internally or return error */
-	return __per_packet_lb_svc_xlate_6(ctx, ip6, ext_err);
-#else
+	if (ENABLE_PER_PACKET_LB) {
+		/* will tailcall internally or return error */
+		return __per_packet_lb_svc_xlate_6(ctx, ip6, ext_err);
+	}
+
 	/* won't be a tailcall, see TAIL_CT_LOOKUP6 */
 	return tail_ipv6_ct_egress(ctx);
-#endif /* ENABLE_PER_PACKET_LB */
 }
 
 __declare_tail(CILIUM_CALL_IPV6_FROM_LXC)
@@ -1386,20 +1380,20 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-#ifdef ENABLE_PER_PACKET_LB
-	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id, true);
-	hairpin_flow = ct_state_new.loopback;
+	if (ENABLE_PER_PACKET_LB) {
+		/* Restore ct_state from per packet lb handling in the previous tail call. */
+		lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id, true);
+		hairpin_flow = ct_state_new.loopback;
 
 #if defined(ENABLE_NODEPORT)
-	{
-		struct nodeport_nat_info *nat_info = AUX_REUSE(nodeport_nat_info);
+		{
+			struct nodeport_nat_info *nat_info = AUX_REUSE(nodeport_nat_info);
 
-		ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
-		ct_state_new.nat_port = nat_info->nat_port;
-	}
+			ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
+			ct_state_new.nat_port = nat_info->nat_port;
+		}
 #endif /* ENABLE_NODEPORT */
-#endif /* ENABLE_PER_PACKET_LB */
+	}
 
 	bool same_subnet_id = false;
 
@@ -1617,7 +1611,7 @@ int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 }
 
 TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_EGRESS, tail_ipv4_ct_egress, CT_EGRESS,
-		is_defined(ENABLE_PER_PACKET_LB),
+		ENABLE_PER_PACKET_LB,
 		CILIUM_CALL_IPV4_FROM_LXC_CONT, tail_handle_ipv4_cont)
 
 static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
@@ -1663,13 +1657,13 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 	}
 #endif /* ENABLE_MULTICAST */
 
-#ifdef ENABLE_PER_PACKET_LB
-	/* will tailcall internally or return error */
-	return __per_packet_lb_svc_xlate_4(ctx, ip4, ext_err);
-#else
+	if (ENABLE_PER_PACKET_LB) {
+		/* will tailcall internally or return error */
+		return __per_packet_lb_svc_xlate_4(ctx, ip4, ext_err);
+	}
+
 	/* won't be a tailcall, see TAIL_CT_LOOKUP4 */
 	return tail_ipv4_ct_egress(ctx);
-#endif /* ENABLE_PER_PACKET_LB */
 }
 
 __declare_tail(CILIUM_CALL_IPV4_FROM_LXC)
@@ -1875,18 +1869,18 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		if (tc_index_from_ingress_proxy(ctx))
 			break;
 
-#if defined(ENABLE_PER_PACKET_LB)
-		loopback_addr = CONFIG(service_loopback_ipv6);
-		if (ret == CT_NEW &&
-		    ipv6_addr_equals((union v6addr *)&ip6->saddr, &loopback_addr) &&
-		    ct_has_loopback_egress_entry6(get_ct_map6(tuple), tuple)) {
-			ct_state_new.loopback = true;
-			break;
-		}
+		if (ENABLE_PER_PACKET_LB) {
+			loopback_addr = CONFIG(service_loopback_ipv6);
+			if (ret == CT_NEW &&
+			    ipv6_addr_equals((union v6addr *)&ip6->saddr, &loopback_addr) &&
+			    ct_has_loopback_egress_entry6(get_ct_map6(tuple), tuple)) {
+				ct_state_new.loopback = true;
+				break;
+			}
 
-		if (unlikely(ct_state->loopback))
-			break;
-#endif /* ENABLE_PER_PACKET_LB */
+			if (unlikely(ct_state->loopback))
+				break;
+		}
 
 		verdict = policy_can_ingress6(ctx, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV6,
@@ -2185,26 +2179,26 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		if (tc_index_from_ingress_proxy(ctx))
 			break;
 
-#if defined(ENABLE_PER_PACKET_LB)
-		/* When an endpoint connects to itself via service clusterIP, we need
-		 * to skip the policy enforcement. If we didn't, the user would have to
-		 * define policy rules to allow pods to talk to themselves. We still
-		 * want to execute the conntrack logic so that replies can be correctly
-		 * matched.
-		 *
-		 * If ip4.saddr is config service_loopback_ipv4, this is almost certainly
-		 * a loopback connection. Populate .loopback, so that policy enforcement
-		 * is bypassed.
-		 */
-		if (ret == CT_NEW && ip4->saddr == CONFIG(service_loopback_ipv4).be32 &&
-		    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple)) {
-			ct_state_new.loopback = true;
-			break;
-		}
+		if (ENABLE_PER_PACKET_LB) {
+			/* When an endpoint connects to itself via service clusterIP, we need
+			 * to skip the policy enforcement. If we didn't, the user would have to
+			 * define policy rules to allow pods to talk to themselves. We still
+			 * want to execute the conntrack logic so that replies can be correctly
+			 * matched.
+			 *
+			 * If ip4.saddr is config service_loopback_ipv4, this is almost certainly
+			 * a loopback connection. Populate .loopback, so that policy enforcement
+			 * is bypassed.
+			 */
+			if (ret == CT_NEW && ip4->saddr == CONFIG(service_loopback_ipv4).be32 &&
+			    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple)) {
+				ct_state_new.loopback = true;
+				break;
+			}
 
-		if (unlikely(ct_state->loopback))
-			break;
-#endif /* ENABLE_PER_PACKET_LB */
+			if (unlikely(ct_state->loopback))
+				break;
+		}
 
 		verdict = policy_can_ingress4(ctx, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV4,

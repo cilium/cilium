@@ -9,7 +9,7 @@
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
-#define ENABLE_L7_LB
+#define ENABLE_L7_LB		1
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)

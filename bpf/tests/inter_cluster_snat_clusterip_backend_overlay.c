@@ -23,7 +23,7 @@
 #define ENABLE_NODEPORT
 
 /* Cluster-aware addressing is mandatory for overlapping PodCIDR support */
-#define ENABLE_CLUSTER_AWARE_ADDRESSING
+#define ENABLE_CLUSTER_AWARE_ADDRESSING		1
 
 /* Inter-cluster SNAT is mandatory for overlapping PodCIDR support for now */
 #define ENABLE_INTER_CLUSTER_SNAT
