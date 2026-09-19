@@ -9,7 +9,6 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
-#undef ENABLE_HEALTH_CHECK
 
 #define BACKEND_PORT 7000
 #define NETNS_COOKIE 5000
