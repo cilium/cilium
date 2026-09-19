@@ -553,7 +553,7 @@ func (i *cecTranslator) listenerMutatorsForPorts(m *model.Model, ports []uint32)
 			defaultTCPKeepAliveProbeIntervalInSeconds,
 			defaultTCPKeepAliveMaxFailures),
 	}
-	if i.Config.ListenerConfig.UseProxyProtocol {
+	if i.Config.ListenerConfig.UseProxyProtocol && !m.IsGamma() {
 		res = append(res, withProxyProtocol())
 	}
 
