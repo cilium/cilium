@@ -97,6 +97,9 @@ const (
 	// EnableWildcardEntries controls whether the load balancer datapath should
 	// program wildcard service entries into the BPF datapath.
 	EnableWildcardEntries = "bpf-lb-enable-wildcard-entries"
+
+	// EnableIPMasqAvoidHostPort avoids allocating HostPort ports during BPF masquerade SNAT port selection.
+	EnableIPMasqAvoidHostPort = "bpf-ip-masq-avoid-hostport"
 )
 
 // Configuration option defaults
@@ -252,6 +255,9 @@ type UserConfig struct {
 	// EnableWildcardEntries controls whether the load balancer datapath should
 	// program wildcard service entries into the BPF datapath.
 	EnableWildcardEntries bool `mapstructure:"bpf-lb-enable-wildcard-entries"`
+
+	// EnableIPMasqAvoidHostPort avoids allocating HostPort ports during BPF masquerade SNAT port selection.
+	EnableIPMasqAvoidHostPort bool `mapstructure:"bpf-ip-masq-avoid-hostport"`
 }
 
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
@@ -372,6 +378,8 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool(EnableWildcardEntries, def.EnableWildcardEntries, "Enable service load balancer wildcard entries.")
 	flags.MarkHidden(EnableWildcardEntries)
+
+	flags.Bool(EnableIPMasqAvoidHostPort, def.EnableIPMasqAvoidHostPort, "Avoid allocating hostports during BPF masquerade SNAT port selection")
 }
 
 // parsePortRange parses a "min,max" port range.
@@ -551,6 +559,8 @@ var DefaultUserConfig = UserConfig{
 
 	// Enable service wildcard entries by default.
 	EnableWildcardEntries: true,
+
+	EnableIPMasqAvoidHostPort: false,
 }
 
 var DefaultConfig = Config{

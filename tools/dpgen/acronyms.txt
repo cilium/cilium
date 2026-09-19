@@ -19,6 +19,7 @@ EDT
 EP
 FIB
 GW
+HostPort
 ICMP
 ICMPv4
 ICMPv6
@@ -48,6 +49,7 @@ PerCPU
 RevNAT
 RSS
 SAddr
+SCTP
 SNAT
 SPI
 SPort
@@ -56,6 +58,7 @@ SYN
 TCP
 TCP4
 TCP6
+UDP
 V4Addr
 V6Addr
 VLAN

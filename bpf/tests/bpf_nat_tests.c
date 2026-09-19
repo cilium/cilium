@@ -8,8 +8,10 @@
 
 #define ENABLE_SCTP
 #define ENABLE_IPV4
+#define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_MASQUERADE_IPV4
+#define ENABLE_MASQUERADE_IPV6
 #include <bpf/config/global.h>
 
 /* Set port ranges to have deterministic source port selection */
@@ -36,6 +38,7 @@ static char pkt[100];
 #include <lib/nodeport.h>
 
 ASSIGN_CONFIG(__u16, device_mtu, 1500);
+ASSIGN_CONFIG(bool, enable_ip_masq_avoid_hostport, true);
 
 __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress, bool rfc4884)
 {
@@ -1572,6 +1575,127 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 		assert(retries_100percent[i] <= retries_100percent[i - 1]);
 	for (__u32 i = 6; i < SNAT_COLLISION_RETRIES; i++)
 		assert(retries_100percent[i] <= retries_100percent[5]);
+
+	test_finish();
+}
+
+CHECK(PROG_TYPE, "nat4_skip_hostport")
+int test_nat4_skip_hostport(__maybe_unused struct __ctx_buff *ctx)
+{
+	struct ipv4_ct_tuple tuple = {
+		.nexthdr = IPPROTO_TCP,
+		.saddr = bpf_htonl(IP_ENDPOINT),
+		.daddr = bpf_htonl(IP_WORLD),
+		.sport = bpf_htons(30001),
+		.dport = bpf_htons(80),
+		.flags = NAT_DIR_EGRESS,
+	};
+	struct ipv4_nat_target target = {
+		.addr = bpf_htonl(IP_HOST),
+		.min_port = 30001,
+		.max_port = 30002,
+	};
+	struct hostport_bitmap *bm;
+	__u32 key = 0;
+	struct ipv4_ct_tuple rtuple = {};
+	struct ipv4_nat_entry state;
+	void *map;
+	int ret;
+
+	test_init();
+
+	/* This test checks that ports allocated as hostports are not used for SNAT port selection.
+	 */
+
+	map = get_cluster_snat_map_v4(target.cluster_id);
+	assert(map);
+
+	bm = map_lookup_elem(&cilium_hostport_v4_tcp, &key);
+	assert(bm);
+
+	// Simulate a hostport 30001 in bitmap
+	bm->bits[30001 >> 3] |= (__u8)(1U << (30001 & 7));
+
+	ret = snat_v4_new_mapping(ctx, map, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(30002));
+
+	set_v4_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(map, &tuple);
+	map_delete_elem(map, &rtuple);
+
+	// Clear host port on 30001
+	bm->bits[30001 >> 3] &= ~(__u8)(1U << (30001 & 7));
+
+	// No host port on 30001 preserves original port
+	ret = snat_v4_new_mapping(ctx, map, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(30001));
+
+	set_v4_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(map, &tuple);
+	map_delete_elem(map, &rtuple);
+
+	test_finish();
+}
+
+CHECK(PROG_TYPE, "nat6_skip_hostport")
+int test_nat6_skip_hostport(__maybe_unused struct __ctx_buff *ctx)
+{
+	const union v6addr ep_ip = { .addr = v6_pod_one_addr };
+	const union v6addr host_ip = { .addr = v6_node_one_addr };
+	const union v6addr world_ip = { .addr = v6_ext_node_one_addr };
+	struct ipv6_ct_tuple tuple = {
+		.nexthdr = IPPROTO_TCP,
+		.sport = bpf_htons(30001),
+		.dport = bpf_htons(80),
+		.flags = NAT_DIR_EGRESS,
+	};
+	struct ipv6_nat_target target = {
+		.min_port = 30001,
+		.max_port = 30002,
+	};
+	struct hostport_bitmap *bm;
+	__u32 key = 0;
+	struct ipv6_ct_tuple rtuple = {};
+	struct ipv6_nat_entry state;
+	int ret;
+
+	ipv6_addr_copy(&tuple.saddr, &ep_ip);
+	ipv6_addr_copy(&tuple.daddr, &world_ip);
+	ipv6_addr_copy(&target.addr, &host_ip);
+
+	test_init();
+
+	/* This test checks that ports allocated as hostports are not used for SNAT port selection.
+	 */
+
+	bm = map_lookup_elem(&cilium_hostport_v6_tcp, &key);
+	assert(bm);
+
+	// Simulate a hostport 30001 in bitmap
+	bm->bits[30001 >> 3] |= (__u8)(1U << (30001 & 7));
+
+	// Test
+	ret = snat_v6_new_mapping(ctx, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(30002));
+
+	set_v6_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(&cilium_snat_v6_external, &tuple);
+	map_delete_elem(&cilium_snat_v6_external, &rtuple);
+
+	// Clear host port on 30001
+	bm->bits[30001 >> 3] &= ~(__u8)(1U << (30001 & 7));
+
+	// No host port on 30001 preserves original port
+	ret = snat_v6_new_mapping(ctx, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(30001));
+
+	set_v6_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(&cilium_snat_v6_external, &tuple);
+	map_delete_elem(&cilium_snat_v6_external, &rtuple);
 
 	test_finish();
 }
