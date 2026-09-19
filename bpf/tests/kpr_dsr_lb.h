@@ -12,8 +12,6 @@
 #include "pktgen.h"
 #include "scapy.h"
 
-#define ENABLE_DSR_ICMP_ERRORS		1
-
 #define fib_lookup mock_fib_lookup
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		     __maybe_unused int plen, __maybe_unused __u32 flags)
@@ -106,6 +104,8 @@ ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = v4_node_one })
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+
+ASSIGN_CONFIG(bool, enable_dsr_icmp_errors, true)
 
 const __u8 kpr_v4_dsr_lb1_syn[] = {
 	SCAPY_BUF_BYTES(kpr_v4_dsr_lb1_syn)

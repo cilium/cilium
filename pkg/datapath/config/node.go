@@ -168,5 +168,9 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
 
+	if lnc.LBConfig.LoadBalancerUsesDSR() && option.Config.EnablePMTUDiscovery {
+		node.EnableDsrICMPErrors = true
+	}
+
 	return node
 }
