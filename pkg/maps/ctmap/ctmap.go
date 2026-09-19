@@ -453,7 +453,31 @@ func (m *Map) doGCForFamily(filter GCFilter, next4, next6 func(GCEvent), ipv6 bo
 	return stats
 }
 
-func (m *Map) purgeCtEntry(key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
+// errDeferredReopened reports that purgeCtEntry skipped a delete because the
+// datapath reopened the entry mid-GC; benign and expected under churn.
+var errDeferredReopened = errors.New("deferring delete: entry reopened by datapath")
+
+func (m *Map) purgeCtEntry(key CtKey, entry *CtEntry, scratch *CtEntry, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
+	// Re-lookup the entry at delete time and compare its Lifetime with the
+	// snapshot value the GC iterator handed us. A changed Lifetime means the
+	// datapath refreshed (typically reopened) the entry between the batch read
+	// and now, so it is live again: skip the delete and let a later GC pass
+	// reconsider it. This narrows but does not fully close the race -- the
+	// datapath can still reopen between this lookup and DeleteLocked.
+	if err := m.LookupInto(key, scratch); err != nil {
+		return err
+	}
+
+	if scratch.Lifetime != entry.Lifetime {
+		return fmt.Errorf("%w: snapshot Lifetime=%d current Lifetime=%d drift=%+d snapshot Flags=0x%04x current Flags=0x%04x",
+			errDeferredReopened,
+			entry.Lifetime,
+			scratch.Lifetime,
+			int64(scratch.Lifetime)-int64(entry.Lifetime),
+			entry.Flags,
+			scratch.Flags)
+	}
+
 	err := m.DeleteLocked(key)
 	if err != nil {
 		return err
@@ -506,6 +530,11 @@ func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next fun
 			countFailedFn = ACT.CountFailed6
 		}
 	}
+	// Use a separate buffer to preserve entry's snapshot for comparison.
+	// Reusing it for purgeCtEntry's re-lookups reduces memory allocations
+	// so that the lookups are faster. The callbacks run sequentially within
+	// a single GC pass, so reuse is safe.
+	scratch := &CtEntry{}
 	return func(key bpf.MapKey, value bpf.MapValue) {
 		// TODO: These type assertions are a bit dangerous, make more of this well typed
 		// to avoid having to make these assertions.
@@ -524,15 +553,22 @@ func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next fun
 
 		switch action {
 		case deleteEntry:
-			err := m.purgeCtEntry(ctKey, entry, natMap, next, countFailedFn)
+			err := m.purgeCtEntry(ctKey, entry, scratch, natMap, next, countFailedFn)
 			if err != nil {
-				if errors.Is(err, ebpf.ErrKeyNotExist) {
+				switch {
+				case errors.Is(err, ebpf.ErrKeyNotExist):
 					m.Logger.Debug("key is missing, likely due to lru eviction - skipping",
 						logfields.Error, err,
 						logfields.Key, ctKey.ToHost(),
 					)
 					stats.skipped++
-				} else {
+				case errors.Is(err, errDeferredReopened):
+					m.Logger.Debug("deferred delete: entry reopened between batch read and delete",
+						logfields.Error, err,
+						logfields.Key, ctKey.ToHost(),
+					)
+					stats.skipped++
+				default:
 					m.Logger.Error("key is missing, likely due to lru eviction - skipping",
 						logfields.Error, err,
 						logfields.Key, ctKey.ToHost(),
