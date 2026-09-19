@@ -24,15 +24,17 @@ import (
 	fakeiptables "github.com/cilium/cilium/pkg/datapath/iptables/fake"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	fakeloader "github.com/cilium/cilium/pkg/datapath/loader/fake"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
+	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
+	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	identitycache "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -53,11 +55,12 @@ import (
 	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	accesslogendpoint "github.com/cilium/cilium/pkg/proxy/accesslog/endpoint"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/revert"
 	testcertificatemanager "github.com/cilium/cilium/pkg/testutils/certificatemanager"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testmonitor "github.com/cilium/cilium/pkg/testutils/monitor"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
@@ -72,6 +75,7 @@ type testFixture struct {
 	computer   compute.PolicyRecomputer
 	importer   policycell.PolicyImporter
 	ipcache    *ipcache.IPCache
+	msgHandler messagehandler.DNSMessageHandler
 	templateEP *endpoint.Endpoint
 }
 
@@ -90,8 +94,9 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 		cell.Provide(
 			func() *option.DaemonConfig {
 				return &option.DaemonConfig{
-					EnableIPv4: true,
-					EnableIPv6: true,
+					EnableIPv4:        true,
+					EnableIPv6:        true,
+					DNSProxyLockCount: defaults.DNSProxyLockCount,
 				}
 			},
 		),
@@ -99,19 +104,19 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 		cell.Invoke(
 			func(client *k8sClient.FakeClientset, repo policy.PolicyRepository, idmgr identitymanager.IDManager,
 				alloc cache.IdentityAllocator, comp compute.PolicyRecomputer,
-				imp policycell.PolicyImporter, epm endpointmanager.EndpointManager) error {
+				imp policycell.PolicyImporter, epm endpointmanager.EndpointManager,
+				msgHandler messagehandler.DNSMessageHandler) error {
 				f.repo = repo
 				f.idmgr = idmgr
 				f.allocator = alloc
 				f.computer = comp
 				f.importer = imp
 				f.epm = epm
+				f.msgHandler = msgHandler
 
 				option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD
 
 				<-f.allocator.(*cache.CachingIdentityAllocator).InitIdentityAllocator(client, nil)
-
-				f.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 				var err error
 				f.templateEP, err = endpoint.NewEndpointFromChangeModel(
@@ -157,12 +162,12 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 			ch <- struct{}{}
 			return ch
 		}),
-		cell.ProvidePrivate(func() *ipcache.IPCache {
+		cell.ProvidePrivate(func(alloc cache.IdentityAllocator, updater policycell.IdentityUpdater) *ipcache.IPCache {
 			f.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 				Context:           t.Context(),
 				Logger:            log,
-				IdentityAllocator: f.allocator,
-				IdentityUpdater:   &mockUpdater{},
+				IdentityAllocator: alloc,
+				IdentityUpdater:   updater,
 			})
 			return f.ipcache
 		}),
@@ -171,6 +176,10 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 		identitymanager.Cell,
 		identitycache.Cell,
 		policycell.Cell,
+		namemanager.Cell,
+		messagehandler.Cell,
+		accesslog.Cell,
+		cell.ProvidePrivate(accesslogendpoint.NewEndpointInfoRegistry),
 		endpointmanager.TestCell,
 		node.LocalNodeStoreTestCell,
 
@@ -179,6 +188,13 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 		}),
 		cell.ProvidePrivate(compute.NewPolicyComputationTable),
 	)
+
+	// By default the name manager preallocates a toFQDNs selector's identity
+	// at registration. Turn it off so the identity is allocated by going
+	// through the resolution path, which is what these tests exercise.
+	hive.AddConfigOverride(f.hive, func(cfg *namemanager.NameManagerLocalConfig) {
+		cfg.ToFQDNsPreAllocate = false
+	})
 
 	require.NoError(t, f.hive.Start(log, context.Background()))
 	t.Cleanup(func() {
@@ -272,14 +288,6 @@ func (*fakeLXCMap) DeleteEntry(addr netip.Addr) error                           
 func (*fakeLXCMap) DeleteElement(logger *slog.Logger, f lxcmap.EndpointFrontend) []error { return nil }
 func (*fakeLXCMap) Dump(hash map[string][]string) error                                  { return nil }
 func (*fakeLXCMap) DumpToMap() (map[netip.Addr]lxcmap.EndpointInfo, error)               { return nil, nil }
-
-type mockUpdater struct{}
-
-func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{} {
-	out := make(chan struct{})
-	close(out)
-	return out
-}
 
 type fakeRestorer struct{}
 

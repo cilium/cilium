@@ -133,6 +133,19 @@ func lookupEPs(epl endpointmanager.EndpointsLookup, specs []string) ([]*endpoint
 	return out, nil
 }
 
+// LookupEP resolves a single endpoint from a spec, which is a numeric ID or a
+// namespace/podname.
+func LookupEP(epl endpointmanager.EndpointsLookup, spec string) (*endpoint.Endpoint, error) {
+	eps, err := lookupEPs(epl, []string{spec})
+	if err != nil {
+		return nil, err
+	}
+	if len(eps) != 1 {
+		return nil, fmt.Errorf("expected one endpoint but got %d", len(eps))
+	}
+	return eps[0], nil
+}
+
 func filterPrefix(vals []string, cur string) []string {
 	return slices.DeleteFunc(vals, func(s string) bool {
 		return !strings.HasPrefix(s, cur)
