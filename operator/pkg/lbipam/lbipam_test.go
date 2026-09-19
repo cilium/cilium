@@ -823,6 +823,52 @@ func TestSharingCrossNamespace(t *testing.T) {
 	fixture.DeleteSvc(t, svcC)
 }
 
+// TestSharingCrossNamespaceWhitespace tests that whitespace around the entries of the
+// sharing-cross-namespace annotation does not prevent sharing. The annotation takes a
+// comma-separated list, so a value written as "ns-x, ns-y" must permit ns-y.
+func TestSharingCrossNamespaceWhitespace(t *testing.T) {
+	fixture := mkTestFixture(t, true, true)
+	fixture.UpsertPool(t, mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"}))
+
+	mkSvc := func(name, namespace string, uid types.UID, crossNamespace string) *slim_core_v1.Service {
+		return &slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+				UID:       uid,
+				Annotations: map[string]string{
+					annotation.LBIPAMSharingKey:             "key-a",
+					annotation.LBIPAMSharingAcrossNamespace: crossNamespace,
+				},
+			},
+			Spec: slim_core_v1.ServiceSpec{
+				Type:       slim_core_v1.ServiceTypeLoadBalancer,
+				IPFamilies: []slim_core_v1.IPFamily{slim_core_v1.IPv4Protocol},
+			},
+		}
+	}
+
+	// The services carry no ports and no externalTrafficPolicy, so the namespace is the only
+	// thing isCompatible can reject them on.
+	fixture.UpsertSvc(t, mkSvc("service-a", "ns-a", serviceAUID, "ns-c, ns-b"))
+	svcA := fixture.GetSvc("ns-a", "service-a")
+	require.Len(t, svcA.Status.LoadBalancer.Ingress, 1, "service-a must receive an ingress IP")
+
+	fixture.UpsertSvc(t, mkSvc("service-b", "ns-b", serviceBUID, " ns-a , ns-c "))
+	svcB := fixture.GetSvc("ns-b", "service-b")
+	require.Len(t, svcB.Status.LoadBalancer.Ingress, 1, "service-b must receive an ingress IP")
+
+	assert.Equal(t, svcA.Status.LoadBalancer.Ingress[0].IP, svcB.Status.LoadBalancer.Ingress[0].IP,
+		"whitespace around the namespaces in the annotation list must be ignored")
+
+	fixture.UpsertSvc(t, mkSvc("service-c", "ns-c", serviceCUID, " * "))
+	svcC := fixture.GetSvc("ns-c", "service-c")
+	require.Len(t, svcC.Status.LoadBalancer.Ingress, 1, "service-c must receive an ingress IP")
+
+	assert.Equal(t, svcA.Status.LoadBalancer.Ingress[0].IP, svcC.Status.LoadBalancer.Ingress[0].IP,
+		"whitespace around the wildcard must be ignored")
+}
+
 // TestSharingPermitDifferentPods tests the sharing-permit-different-pods opt-in. With
 // externalTrafficPolicy=Local, the default same-selector check rejects services that select
 // different pods. The opt-in must be present on both services for them to share an IP. The

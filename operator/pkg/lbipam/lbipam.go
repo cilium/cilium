@@ -782,7 +782,11 @@ func getSVCSharingKey(svc *slim_core_v1.Service) sharingKey {
 
 func getSVCSharingCrossNamespace(svc *slim_core_v1.Service) []string {
 	if val, _ := annotation.Get(svc, annotation.LBIPAMSharingAcrossNamespace, annotation.LBIPAMSharingAcrossNamespaceAlias); val != "" {
-		return strings.Split(val, ",")
+		namespaces := strings.Split(val, ",")
+		for i := range namespaces {
+			namespaces[i] = strings.TrimSpace(namespaces[i])
+		}
+		return namespaces
 	}
 	return []string{}
 }
