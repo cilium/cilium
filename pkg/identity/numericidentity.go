@@ -232,6 +232,12 @@ func (w wellKnownIdentities) lookupByNumericIdentity(identity NumericIdentity) *
 	return wki.identity
 }
 
+func (w wellKnownIdentities) len() int {
+	wellKnownMU.RLock()
+	defer wellKnownMU.RUnlock()
+	return len(w)
+}
+
 func k8sLabel(key string, value string) string {
 	return "k8s:" + key + "=" + value
 }
@@ -324,7 +330,7 @@ func InitWellKnownIdentities(ciliumNS string, cinfo cmtypes.ClusterInfo) int {
 	WellKnown.add(ReservedCiliumOperator2, append(ciliumOperatorLabels,
 		k8sLabel(api.PodNamespaceMetaNameLabel, ciliumNS)))
 
-	return len(WellKnown)
+	return WellKnown.len()
 }
 
 var (
