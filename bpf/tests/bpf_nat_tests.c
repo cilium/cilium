@@ -176,6 +176,14 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress, b
 		       &extra_words, 1);
 	}
 
+	{
+		struct icmphdr *icmph = (struct icmphdr *)icmp_ptr;
+		__u32 msg_len = (__u32)(dst - icmp_ptr);
+
+		icmph->checksum = 0;
+		icmph->checksum = csum_fold(csum_diff(NULL, 0, icmp_ptr, msg_len, 0));
+	}
+
 	return (int)(dst - orig);
 }
 
