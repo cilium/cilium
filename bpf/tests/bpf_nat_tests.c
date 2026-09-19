@@ -6,7 +6,7 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_SCTP
+#define ENABLE_SCTP		1
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define ENABLE_MASQUERADE_IPV4

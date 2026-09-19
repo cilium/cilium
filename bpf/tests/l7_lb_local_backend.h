@@ -10,7 +10,7 @@
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
-#define ENABLE_L7_LB
+#define ENABLE_L7_LB		1
 
 /* Needed variables for the setup */
 #define CLIENT_IP		v4_pod_one
