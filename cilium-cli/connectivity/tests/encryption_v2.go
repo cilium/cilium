@@ -422,16 +422,6 @@ func (s *podToPodEncryptionV2) resolveTCPDumpFilters6(ctx context.Context) (clie
 		clientFilter, serverFilter, err = s.nativeTCPDumpFilters6(ctx)
 	}
 
-	if err == nil {
-		// If we have node encryption enabled with wireguard, filter out icmpv6 packets
-		// that are neighbor broadcast messages as these are not sent to the WG device.
-		encNode, ok := s.ct.Feature(features.EncryptionNode)
-		if ok && encNode.Enabled && s.encryptMode.Mode == "wireguard" {
-			clientFilter = fmt.Sprintf("(%s) and (%s)", clientFilter, icmpv6NAFilter)
-			serverFilter = fmt.Sprintf("(%s) and (%s)", serverFilter, icmpv6NAFilter)
-		}
-	}
-
 	return clientFilter, serverFilter, err
 }
 
