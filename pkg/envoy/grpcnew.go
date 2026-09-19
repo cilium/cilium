@@ -48,9 +48,12 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 	defer cancel()
 	s.stopFunc = grpcServer.Stop
 
-	if s.restorerPromise != nil {
+	s.mutex.Lock()
+	restorerPromise := s.restorerPromise
+	s.mutex.Unlock()
+	if restorerPromise != nil {
 		s.logger.Info("Envoy: Waiting for endpoint restorer before serving xDS resources...")
-		restorer, err := s.restorerPromise.Await(restoreCtx)
+		restorer, err := restorerPromise.Await(restoreCtx)
 		if err == nil && restorer != nil {
 			s.logger.Info("Envoy: Waiting for endpoint restoration before serving xDS resources...")
 			err = restorer.WaitForInitialPolicy(restoreCtx)
@@ -64,6 +67,7 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 				logfields.Duration, s.config.policyRestoreTimeout,
 			)
 		}
+		s.markRestoreCompleted()
 	}
 
 	s.logger.Info("Envoy: Starting xDS gRPC server listening",
