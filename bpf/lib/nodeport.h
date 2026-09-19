@@ -147,7 +147,6 @@ nodeport_dsr_lookup_v6_nat_entry(const struct ipv6_ct_tuple *nat_tuple)
 }
 #endif
 
-#ifdef HAVE_ENCAP
 static __always_inline int
 nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			      const struct remote_endpoint_info *info,
@@ -193,7 +192,6 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 					     ct_reason, monitor, ifindex,
 					     proto);
 }
-#endif /* HAVE_ENCAP */
 
 static __always_inline int
 nodeport_l7_lb_redirect(struct __ctx_buff *ctx __maybe_unused,
@@ -999,42 +997,43 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 		goto fib_lookup;
 	}
 out:
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))
 	/* The gateway node needs to manually steer any reply traffic
 	 * for a remote pod into the tunnel (to avoid iptables potentially
 	 * dropping or accidentally SNATing the packets).
 	 */
-	if (egress_gw_reply_needs_redirect_hook_v6(ip6, &info)) {
+	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	    (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)) &&
+	    egress_gw_reply_needs_redirect_hook_v6(ip6, &info)) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		src_sec_identity = WORLD_ID;
 		goto encap_redirect;
 	}
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
 
 	return CTX_ACT_OK;
 
-#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||	\
-    defined(TUNNEL_MODE)
 encap_redirect:
-	src_port = tunnel_gen_src_port_v6(&tuple);
+	if ((is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST))) ||
+	    is_defined(TUNNEL_MODE)) {
+		src_port = tunnel_gen_src_port_v6(&tuple);
 
-	ret = nodeport_add_tunnel_encap(ctx, CONFIG(ipv4_direct_routing).be32,
-					src_port, info, src_sec_identity, trace->reason,
-					trace->monitor, &ifindex, bpf_htons(ETH_P_IPV6));
-	if (IS_ERR(ret))
-		return ret;
+		ret = nodeport_add_tunnel_encap(ctx, CONFIG(ipv4_direct_routing).be32,
+						src_port, info, src_sec_identity, trace->reason,
+						trace->monitor, &ifindex, bpf_htons(ETH_P_IPV6));
+		if (IS_ERR(ret))
+			return ret;
 
-	if (ret == CTX_ACT_REDIRECT && ifindex)
-		return ctx_redirect(ctx, ifindex, 0);
+		if (ret == CTX_ACT_REDIRECT && ifindex)
+			return ctx_redirect(ctx, ifindex, 0);
 
-	fib_params.l.ipv4_src = CONFIG(ipv4_direct_routing).be32;
-	fib_params.l.ipv4_dst = info->tunnel_endpoint.ip4.be32;
-	fib_params.l.family = AF_INET;
+		fib_params.l.ipv4_src = CONFIG(ipv4_direct_routing).be32;
+		fib_params.l.ipv4_dst = info->tunnel_endpoint.ip4.be32;
+		fib_params.l.family = AF_INET;
 
-	/* neigh map doesn't contain DMACs for other nodes */
-	allow_neigh_map = false;
-	goto fib_redirect;
-#endif
+		/* neigh map doesn't contain DMACs for other nodes */
+		allow_neigh_map = false;
+		goto fib_redirect;
+	}
 
 fib_lookup:
 	if (is_v4_in_v6((union v6addr *)&ip6->saddr)) {
@@ -1057,10 +1056,7 @@ fib_lookup:
 			       (union v6addr *)&ip6->daddr);
 	}
 
-#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||	\
-    defined(TUNNEL_MODE)
 fib_redirect:
-#endif
 	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
 
@@ -1162,24 +1158,25 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
+	if (!is_defined(ENABLE_DSR) || (is_defined(ENABLE_DSR) && is_defined(ENABLE_DSR_BYUSER)) ||
+	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
+		if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
+		    (CONFIG(enable_ipv6_fragments) && is_defined(IS_BPF_XDP)))
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS,
+						 &ext_err);
+		else
+			ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);
 
-	if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
-	    (CONFIG(enable_ipv6_fragments) && is_defined(IS_BPF_XDP)))
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS, &ext_err);
-	else
-		ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);
+		if (IS_ERR(ret))
+			goto drop_err;
 
-	if (IS_ERR(ret))
-		goto drop_err;
+		if (ret == CTX_ACT_OK)
+			goto recircle;
 
-	if (ret == CTX_ACT_OK)
-		goto recircle;
-
-	edt_set_aggregate(ctx, 0);
-	return ret;
-#endif
+		edt_set_aggregate(ctx, 0);
+		return ret;
+	}
 
 recircle:
 	ctx_skip_nodeport_set(ctx);
@@ -2250,18 +2247,17 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	}
 
 skip_revdnat:
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && \
-    (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))
 	/* The gateway node needs to manually steer any reply traffic
 	 * for a remote pod into the tunnel (to avoid iptables potentially
 	 * dropping or accidentally SNATing the packets).
 	 */
-	if (egress_gw_reply_needs_redirect_hook(ip4, &tunnel_endpoint, &dst_sec_identity)) {
+	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	    (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)) &&
+	    egress_gw_reply_needs_redirect_hook(ip4, &tunnel_endpoint, &dst_sec_identity)) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		src_sec_identity = WORLD_ID;
 		goto redirect;
 	}
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
 
 	return CTX_ACT_OK;
 
@@ -2287,10 +2283,9 @@ redirect:
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 
-#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&				\
-     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||			\
-    defined(TUNNEL_MODE)
-	if (tunnel_endpoint) {
+	if (((is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	      (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST))) ||
+	     is_defined(TUNNEL_MODE)) && tunnel_endpoint) {
 		__be16 src_port = tunnel_gen_src_port_v4(&tuple);
 		struct remote_endpoint_info fake_info = {0};
 
@@ -2314,7 +2309,6 @@ redirect:
 		/* neigh map doesn't contain DMACs for other nodes */
 		allow_neigh_map = false;
 	}
-#endif
 
 	return fib_redirect(ctx, true, &fib_params, allow_neigh_map, ext_err, &ifindex);
 }
@@ -2405,32 +2399,31 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * Otherwise, we would have tail-called back to
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&						\
-     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
+	if (!is_defined(ENABLE_DSR) || (is_defined(ENABLE_DSR) && is_defined(ENABLE_DSR_BYUSER)) ||
+	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
+		/* If we're not in full DSR mode, reply traffic from remote backends
+		 * might pass back through the LB node and requires revDNAT.
+		 *
+		 * Also let nodeport_rev_dnat_ipv4() redirect EgressGW
+		 * reply traffic into tunnel (see there for details).
+		 */
+		if (is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST))
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT, &ext_err);
+		else
+			ret = nodeport_rev_dnat_ipv4(ctx, &trace, &ext_err);
 
-	/* If we're not in full DSR mode, reply traffic from remote backends
-	 * might pass back through the LB node and requires revDNAT.
-	 *
-	 * Also let nodeport_rev_dnat_ipv4() redirect EgressGW
-	 * reply traffic into tunnel (see there for details).
-	 */
-	if (is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST))
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT, &ext_err);
-	else
-		ret = nodeport_rev_dnat_ipv4(ctx, &trace, &ext_err);
+		if (IS_ERR(ret))
+			goto drop_err;
 
-	if (IS_ERR(ret))
-		goto drop_err;
+		/* No redirect needed: */
+		if (ret == CTX_ACT_OK)
+			goto recircle;
 
-	/* No redirect needed: */
-	if (ret == CTX_ACT_OK)
-		goto recircle;
-
-	/* Redirected to egress interface: */
-	edt_set_aggregate(ctx, 0);
-	return ret;
-#endif
+		/* Redirected to egress interface: */
+		edt_set_aggregate(ctx, 0);
+		return ret;
+	}
 
 recircle:
 	ctx_skip_nodeport_set(ctx);

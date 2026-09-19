@@ -579,11 +579,9 @@ snat_v4_nat_can_skip(const struct ipv4_nat_target *target,
 		     const struct ipv4_ct_tuple *tuple)
 {
 	__u16 sport = bpf_ntohs(tuple->sport);
-
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
-	if (target->egress_gateway)
+	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && is_defined(IS_BPF_HOST) &&
+	    target->egress_gateway)
 		return false;
-#endif
 
 	return (!target->from_local_endpoint && !is_port_in_nat_range(sport));
 }
@@ -687,10 +685,9 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	 * The destination may be in the SNAT exclusion CIDR but regardless of
 	 * that we always want to SNAT a packet if it's matched by an egress NAT policy.
 	 */
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON)
-	if (egress_gw_snat_needed_hook(ctx, tuple->saddr, tuple->daddr,
-				       &target->addr, &target->ifindex,
-				       from_host)) {
+	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	    egress_gw_snat_needed_hook(ctx, tuple->saddr, tuple->daddr, &target->addr,
+				       &target->ifindex, from_host)) {
 		if (target->addr == EGRESS_GATEWAY_NO_EGRESS_IP)
 			return DROP_NO_EGRESS_IP;
 
@@ -704,7 +701,6 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 		return NAT_NEEDED;
 	}
-#endif
 
 	/* To prevent aliasing with masqueraded connections,
 	 * we need to track all host connections that use config
@@ -1681,10 +1677,9 @@ snat_v6_nat_can_skip(const struct ipv6_nat_target *target,
 {
 	__u16 sport = bpf_ntohs(tuple->sport);
 
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
-	if (target->egress_gateway)
+	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && is_defined(IS_BPF_HOST) &&
+	    target->egress_gateway)
 		return false;
-#endif
 
 	return (!target->from_local_endpoint && !is_port_in_nat_range(sport));
 }
@@ -1755,8 +1750,8 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	}
 
 /* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed. */
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON)
-	if (egress_gw_snat_needed_hook_v6(&tuple->saddr, &tuple->daddr, &target->addr,
+	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	    egress_gw_snat_needed_hook_v6(&tuple->saddr, &tuple->daddr, &target->addr,
 					  &target->ifindex)) {
 		if (ipv6_addr_equals(&target->addr, &EGRESS_GATEWAY_NO_EGRESS_IP_V6))
 			return DROP_NO_EGRESS_IP;
@@ -1771,7 +1766,6 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 
 		return NAT_NEEDED;
 	}
-#endif
 
 	if (CONFIG(ipv6_snat_exclusion).enabled) {
 		union v6addr excl_cidr = CONFIG(ipv6_snat_exclusion).dst_addr;

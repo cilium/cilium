@@ -10,7 +10,10 @@
 #include "trace.h"
 #include "vtep.h"
 
-#ifdef HAVE_ENCAP
+#ifndef ENCAP_IFINDEX
+#define ENCAP_IFINDEX 0
+#endif
+
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    const struct remote_endpoint_info *info, __u32 seclabel,
@@ -134,4 +137,3 @@ get_tunnel_key(struct __ctx_buff *ctx, struct bpf_tunnel_key *key)
 	return DROP_NO_TUNNEL_KEY;
 }
 # endif /* ENABLE_IPV4 || ENABLE_IPV6 */
-#endif /* HAVE_ENCAP */

@@ -1478,10 +1478,8 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		src_sec_identity = get_identity(ctx);
 	else if (CONFIG(enable_identity_mark) && magic == MARK_MAGIC_IDENTITY)
 		src_sec_identity = get_identity(ctx);
-#ifdef ENABLE_EGRESS_GATEWAY_COMMON
-	else if (magic == MARK_MAGIC_EGW_DONE)
+	else if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && magic == MARK_MAGIC_EGW_DONE)
 		src_sec_identity = get_identity(ctx);
-#endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
@@ -1553,9 +1551,8 @@ skip_host_firewall:
 	if (IS_ERR(ret))
 		goto drop_err;
 
-#ifdef ENABLE_EGRESS_GATEWAY_COMMON
 	/* If request arrived via from-overlay, don't redirect it again: */
-	if (!ctx_egw_done(ctx)) {
+	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && !ctx_egw_done(ctx)) {
 		ret = egress_gw_handle_request(ctx, proto,
 					       src_sec_identity, dst_sec_identity,
 					       &trace);
@@ -1565,7 +1562,6 @@ skip_host_firewall:
 		if (ret != CTX_ACT_OK)
 			return ret;
 	}
-#endif
 
 #if defined(ENABLE_BANDWIDTH_MANAGER)
 	ret = edt_sched_departure(ctx, proto);

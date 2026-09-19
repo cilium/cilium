@@ -60,8 +60,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_egress_gw_policy_v6 __section_maps_btf;
 
-#ifdef ENABLE_EGRESS_GATEWAY_COMMON
-
 /* EGRESS_STATIC_PREFIX represents the size in bits of the static prefix part of
  * an egress policy key (i.e. the source IP).
  */
@@ -84,6 +82,7 @@ struct {
 #define EGRESS_GATEWAY_NO_EGRESS_IP (0)
 #define EGRESS_GATEWAY_NO_EGRESS_IP_V6 ((union v6addr){{0, 0, 0, 0}})
 
+#ifdef ENABLE_IPV4
 static __always_inline
 int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, __be32 daddr,
 				      __u32 egress_ifindex, __u32 tbid, __s8 *ext_err)
@@ -130,8 +129,8 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 	return fib_do_redirect(ctx, true, &fib_params, false, ret,
 			       egress_ifindex, ext_err);
 }
+#endif /* ENABLE_IPV4 */
 
-# ifdef ENABLE_EGRESS_GATEWAY
 static __always_inline const struct egress_gw_policy_entry_v2 *
 lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 {
@@ -142,13 +141,14 @@ lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 	};
 	return map_lookup_elem(&cilium_egress_gw_policy_v4_v2, &key);
 }
-# endif /* ENABLE_EGRESS_GATEWAY */
 
 static __always_inline int
 egress_gw_request_needs_redirect(struct ipv4_ct_tuple *tuple __maybe_unused,
 				 __be32 *gateway_ip __maybe_unused)
 {
-#if defined(ENABLE_EGRESS_GATEWAY)
+	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+		return CTX_ACT_OK;
+
 	const struct egress_gw_policy_entry_v2 *egress_gw_policy;
 
 	egress_gw_policy = lookup_ip4_egress_gw_policy(tuple->saddr, tuple->daddr);
@@ -165,9 +165,6 @@ egress_gw_request_needs_redirect(struct ipv4_ct_tuple *tuple __maybe_unused,
 
 	*gateway_ip = egress_gw_policy->gateway_ip;
 	return CTX_ACT_REDIRECT;
-#else
-	return CTX_ACT_OK;
-#endif /* ENABLE_EGRESS_GATEWAY */
 }
 
 static __always_inline
@@ -178,7 +175,9 @@ bool egress_gw_snat_needed(const struct __ctx_buff *ctx __maybe_unused,
 			   __u32 *egress_ifindex __maybe_unused,
 			   bool from_host __maybe_unused)
 {
-#if defined(ENABLE_EGRESS_GATEWAY)
+	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+		return false;
+
 	const struct egress_gw_policy_entry_v2 *egress_gw_policy;
 
 	if (from_host)
@@ -196,15 +195,14 @@ bool egress_gw_snat_needed(const struct __ctx_buff *ctx __maybe_unused,
 	*snat_addr = egress_gw_policy->egress_ip;
 
 	return true;
-#else
-	return false;
-#endif /* ENABLE_EGRESS_GATEWAY */
 }
 
 static __always_inline
 bool egress_gw_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 {
-#if defined(ENABLE_EGRESS_GATEWAY)
+	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+		return false;
+
 	const struct egress_gw_policy_entry_v2 *egress_policy;
 
 	/* Find a matching policy by looking up the reverse address tuple: */
@@ -217,9 +215,6 @@ bool egress_gw_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 		return false;
 
 	return true;
-#else
-	return false;
-#endif /* ENABLE_EGRESS_GATEWAY */
 }
 
 /** Match a packet against EGW policy map, and return the gateway's IP.
@@ -294,7 +289,6 @@ int egress_gw_handle_packet(struct ipv4_ct_tuple *tuple,
 }
 
 #ifdef ENABLE_IPV6
-#ifdef ENABLE_EGRESS_GATEWAY
 static __always_inline const struct egress_gw_policy_entry6 *
 lookup_ip6_egress_gw_policy(const union v6addr *saddr, const union v6addr *daddr)
 {
@@ -305,13 +299,14 @@ lookup_ip6_egress_gw_policy(const union v6addr *saddr, const union v6addr *daddr
 	};
 	return map_lookup_elem(&cilium_egress_gw_policy_v6, &key);
 }
-#endif /* ENABLE_EGRESS_GATEWAY */
 
 static __always_inline int
 egress_gw_request_needs_redirect_v6(struct ipv6_ct_tuple *tuple __maybe_unused,
 				    __be32 *gateway_ip __maybe_unused)
 {
-#if defined(ENABLE_EGRESS_GATEWAY)
+	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+		return CTX_ACT_OK;
+
 	const struct egress_gw_policy_entry6 *egress_gw_policy;
 
 	egress_gw_policy = lookup_ip6_egress_gw_policy(&tuple->saddr, &tuple->daddr);
@@ -328,9 +323,6 @@ egress_gw_request_needs_redirect_v6(struct ipv6_ct_tuple *tuple __maybe_unused,
 
 	*gateway_ip = egress_gw_policy->gateway_ip;
 	return CTX_ACT_REDIRECT;
-#else
-	return CTX_ACT_OK;
-#endif /* ENABLE_EGRESS_GATEWAY */
 }
 
 static __always_inline
@@ -339,7 +331,9 @@ bool egress_gw_snat_needed_v6(union v6addr *saddr __maybe_unused,
 			      union v6addr *snat_addr __maybe_unused,
 			      __u32 *egress_ifindex __maybe_unused)
 {
-#if defined(ENABLE_EGRESS_GATEWAY)
+	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+		return false;
+
 	const struct egress_gw_policy_entry6 *egress_gw_policy;
 
 	egress_gw_policy = lookup_ip6_egress_gw_policy(saddr, daddr);
@@ -354,15 +348,14 @@ bool egress_gw_snat_needed_v6(union v6addr *saddr __maybe_unused,
 	*egress_ifindex = egress_gw_policy->egress_ifindex;
 
 	return true;
-#else
-	return false;
-#endif /* ENABLE_EGRESS_GATEWAY */
 }
 
 static __always_inline
 bool egress_gw_reply_matches_policy_v6(struct ipv6hdr *ip6 __maybe_unused)
 {
-#if defined(ENABLE_EGRESS_GATEWAY)
+	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+		return false;
+
 	const struct egress_gw_policy_entry6 *egress_policy;
 
 	egress_policy = lookup_ip6_egress_gw_policy((union v6addr *)&ip6->daddr,
@@ -375,9 +368,6 @@ bool egress_gw_reply_matches_policy_v6(struct ipv6hdr *ip6 __maybe_unused)
 		return false;
 
 	return true;
-#else
-	return false;
-#endif /* ENABLE_EGRESS_GATEWAY */
 }
 
 static __always_inline int
@@ -608,5 +598,3 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 					      src_sec_identity, dst_sec_identity,
 					      trace, proto);
 }
-
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
