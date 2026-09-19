@@ -253,6 +253,41 @@ func TestNACKRevertsAllCoalescedUpdates(t *testing.T) {
 	require.Zero(t, cb.PendingCompletionCount())
 }
 
+func TestListenerNACKAfterStreamSynchronizationUsesNormalRollback(t *testing.T) {
+	cb := newTestCompletionCallbacks()
+	require.NoError(t, cb.OnStreamOpen(t.Context(), 1, ""))
+	t.Cleanup(func() { cb.OnStreamClosed(1, &core.Node{Id: "node-1"}) })
+
+	// Once this ADS stream has ACKed an LDS response, a later LDS rejection is
+	// an ordinary configuration NACK rather than stale startup state.
+	sendTypeGenerationResponse(cb, typeurl.Listener, 1, "version-1")
+	ackTypeVersionResponse(t, cb, typeurl.Listener, "version-1")
+
+	wg, comp := newTestCompletion(t)
+	reverted := false
+	registered, err := cb.AddTypeGenerationCompletion(
+		comp, 2, "version-2", typeurl.Listener, "node-1", true,
+		func(expected uint64) (uint64, bool) {
+			reverted = true
+			return expected + 1, true
+		},
+	)
+	require.NoError(t, err)
+	require.True(t, registered)
+	sendTypeGenerationResponse(cb, typeurl.Listener, 2, "version-2")
+	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       typeurl.Listener.URL(),
+		VersionInfo:   "version-1",
+		ResponseNonce: "nonce-version-2",
+		ErrorDetail:   &status.Status{Message: "rejected listener update"},
+	}))
+
+	require.True(t, reverted)
+	require.Error(t, wg.Wait())
+	require.Equal(t, StreamResetInactive, cb.streams[1].resetPhase)
+}
+
 func TestNACKRevertsUntrackedGeneration(t *testing.T) {
 	cb := newTestCompletionCallbacks()
 	reverted := make([]string, 0, 2)

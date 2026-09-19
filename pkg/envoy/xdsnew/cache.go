@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
@@ -307,18 +308,43 @@ type watchRelay struct {
 }
 
 type trackedWatch struct {
-	id      uint64
-	nodeID  string
-	typeURL typeurl.Index
-	request *cache.Request
-	relay   *watchRelay
-	cancel  func()
+	id             uint64
+	nodeID         string
+	typeURL        typeurl.Index
+	streamID       int64
+	request        *cache.Request
+	backendRequest *cache.Request
+	relay          *watchRelay
+	cancel         func()
+}
+
+// isReset reports whether this watch is currently bound through its cloned,
+// stream-private request rather than the original protocol request.
+func (watch *trackedWatch) isReset() bool {
+	return watch.backendRequest != watch.request
 }
 
 // isOpen reports whether the watch is still owned by its relay. Caller must
 // hold cacheImpl.mutex.
 func (watch *trackedWatch) isOpen() bool {
 	return watch != nil && watch.relay != nil && watch.relay.watches[watch.id] == watch
+}
+
+// trackedResponse restores the protocol request after a stream-reset watch was
+// keyed under a synthetic node ID, and marks the response as transport-only so
+// completion callbacks do not resolve desired cache generations from it.
+type trackedResponse struct {
+	cache.Response
+	request *cache.Request
+	ctx     context.Context
+}
+
+func (response *trackedResponse) GetRequest() *cache.Request {
+	return response.request
+}
+
+func (response *trackedResponse) GetContext() context.Context {
+	return response.ctx
 }
 
 type responseDelivery struct {
@@ -486,6 +512,7 @@ func NewCache(logger *slog.Logger, strictAdsMode bool) Cache {
 		completionCbs: callbacks.NewCompletionCallbacks(logger),
 	}
 	c.defaultGenerator = c.generateSnapshotForUpdate
+	c.completionCbs.SetStreamClosedCallback(c.streamClosed)
 	return c
 }
 
@@ -3156,6 +3183,31 @@ func normalizeCustomWildcardRequest(request *cache.Request, sub cache.Subscripti
 	}
 }
 
+func streamResetNodeID(streamID int64) string {
+	return "cilium-stream-reset/" + strconv.FormatInt(streamID, 10)
+}
+
+func streamResetSnapshot(streamID int64) *ciliumSnapshot {
+	var groups typeurl.Slots[snapshotResourceGroup]
+	groups[typeurl.Listener].resources.Version = "cilium-stream-reset-" + strconv.FormatInt(streamID, 10)
+	return newCiliumSnapshot(groups)
+}
+
+func streamResetRequest(request *cache.Request, streamID int64) *cache.Request {
+	resetRequest := proto.Clone(request).(*cache.Request)
+	if resetRequest.Node == nil {
+		resetRequest.Node = &envoy_config_core.Node{}
+	}
+	resetRequest.Node.Id = streamResetNodeID(streamID)
+	return resetRequest
+}
+
+func (c *cacheImpl) streamClosed(streamID int64) {
+	c.mutex.Lock()
+	c.SnapshotCache.ClearSnapshot(streamResetNodeID(streamID))
+	c.mutex.Unlock()
+}
+
 func (c *cacheImpl) hasOpenWatchLocked(nodeID string, typeURLs typeurl.Set) bool {
 	state := c.openWatches[nodeID]
 	if state == nil {
@@ -3184,27 +3236,31 @@ func (c *cacheImpl) relayForLocked(responseChannel chan cache.Response) *watchRe
 	return relay
 }
 
-func (c *cacheImpl) addTrackedWatchLocked(request *cache.Request, typeURL typeurl.Index, responseChannel chan cache.Response) *trackedWatch {
+func (c *cacheImpl) addTrackedWatchLocked(request *cache.Request, typeURL typeurl.Index, responseChannel chan cache.Response, streamID int64, countsAsOpen bool) *trackedWatch {
 	c.nextWatchID++
 	relay := c.relayForLocked(responseChannel)
 	watch := &trackedWatch{
-		id:      c.nextWatchID,
-		nodeID:  request.GetNode().GetId(),
-		typeURL: typeURL,
-		request: request,
-		relay:   relay,
+		id:             c.nextWatchID,
+		nodeID:         request.GetNode().GetId(),
+		typeURL:        typeURL,
+		streamID:       streamID,
+		request:        request,
+		backendRequest: request,
+		relay:          relay,
 	}
-	state := c.openWatches[watch.nodeID]
-	if state == nil {
-		state = &nodeWatchState{}
-		c.openWatches[watch.nodeID] = state
+	if countsAsOpen {
+		state := c.openWatches[watch.nodeID]
+		if state == nil {
+			state = &nodeWatchState{}
+			c.openWatches[watch.nodeID] = state
+		}
+		watches, _ := state.Get(watch.typeURL)
+		if watches == nil {
+			watches = make(map[uint64]*trackedWatch)
+			state.Set(watch.typeURL, watches)
+		}
+		watches[watch.id] = watch
 	}
-	watches, _ := state.Get(watch.typeURL)
-	if watches == nil {
-		watches = make(map[uint64]*trackedWatch)
-		state.Set(watch.typeURL, watches)
-	}
-	watches[watch.id] = watch
 	relay.watches[watch.id] = watch
 	return watch
 }
@@ -3257,18 +3313,30 @@ func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 		for {
 			select {
 			case response := <-relay.inner:
-				responses = append(responses, response)
 				var matched *trackedWatch
 				for _, watch := range relay.watches {
-					if watch.request == response.GetRequest() {
+					if watch.backendRequest == response.GetRequest() {
 						matched = watch
 						break
 					}
 				}
 				if matched != nil {
-					c.claimUnsentRollbackLocked(matched.nodeID, matched.typeURL)
+					if matched.isReset() {
+						ctx := response.GetContext()
+						if ctx == nil {
+							ctx = context.Background()
+						}
+						response = &trackedResponse{
+							Response: response,
+							request:  matched.request,
+							ctx:      callbacks.WithStreamReset(ctx, matched.streamID),
+						}
+					} else {
+						c.claimUnsentRollbackLocked(matched.nodeID, matched.typeURL)
+					}
 					c.removeTrackedWatchLocked(matched)
 				}
+				responses = append(responses, response)
 			default:
 				if len(responses) > 0 {
 					deliveries = append(deliveries, responseDelivery{
@@ -3323,6 +3391,7 @@ func (c *cacheImpl) ensureSnapshotForWatchLocked(nodeID string) error {
 }
 
 func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
+	streamID, resetPhase := c.completionCbs.StreamResetStateForRequest(request)
 	if request != nil && request.GetTypeUrl() == envoy_resource.SecretType && len(request.GetResourceNames()) == 0 {
 		c.logger.Debug("Ignoring empty ADS SDS watch")
 		return func() {}, nil
@@ -3342,34 +3411,78 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 	nodeID := request.GetNode().GetId()
 	c.mutex.Lock()
 	var finalized []finalizedCompletion
-	state := c.nodeStates[nodeID]
-	if state == nil {
-		if err = c.ensureSnapshotForWatchLocked(nodeID); err != nil {
-			deliveries := c.collectResponseDeliveriesLocked()
-			c.mutex.Unlock()
-			c.deliverResponses(deliveries)
-			return nil, err
+	var deliveries []responseDelivery
+	// Retire responses already produced for this stream before handling a reset
+	// transition or deciding whether this watch can consume staged state.
+	deliveries = append(deliveries, c.collectResponseDeliveriesLocked()...)
+
+	prepareLiveSnapshot := func() error {
+		state := c.nodeStates[nodeID]
+		if state == nil {
+			return c.ensureSnapshotForWatchLocked(nodeID)
 		}
-	}
-	if state != nil && state.staged != nil {
-		staged := state.staged
-		if staged.watchTypeURLs.Has(typeURL) {
-			_, finalized, err = c.finalizeStagedSnapshotLocked(context.Background(), nodeID)
-			if err != nil {
-				deliveries := c.collectResponseDeliveriesLocked()
-				c.mutex.Unlock()
-				c.deliverResponses(deliveries)
-				return nil, err
-			}
+		if state.staged != nil && state.staged.watchTypeURLs.Has(typeURL) {
+			var newlyFinalized []finalizedCompletion
+			_, newlyFinalized, err := c.finalizeStagedSnapshotLocked(context.Background(), nodeID)
+			finalized = append(finalized, newlyFinalized...)
+			return err
 		}
+		return nil
 	}
 
-	watch := c.addTrackedWatchLocked(request, typeURL, respChan)
-	watch.cancel, err = c.SnapshotCache.CreateWatch(request, sub, watch.relay.inner)
+	resetWatch := false
+	resetTransition := false
+	switch resetPhase {
+	case callbacks.StreamResetRequested:
+		if c.completionCbs.BeginStreamReset(streamID) {
+			resetWatch = true
+			resetTransition = true
+			resetNodeID := streamResetNodeID(streamID)
+			err = c.SnapshotCache.SetSnapshot(
+				callbacks.WithStreamReset(context.Background(), streamID),
+				resetNodeID,
+				streamResetSnapshot(streamID),
+			)
+		} else {
+			err = prepareLiveSnapshot()
+		}
+	case callbacks.StreamResetting:
+		resetWatch = true
+	case callbacks.StreamResetComplete:
+		resetTransition = true
+		err = prepareLiveSnapshot()
+		if err == nil {
+			c.SnapshotCache.ClearSnapshot(streamResetNodeID(streamID))
+			c.completionCbs.FinishStreamReset(streamID)
+			deliveries = append(deliveries, c.collectResponseDeliveriesLocked()...)
+		}
+	case callbacks.StreamResetInactive:
+		err = prepareLiveSnapshot()
+	}
+
+	if err != nil {
+		if resetTransition {
+			c.completionCbs.AbortStreamReset(streamID)
+			c.SnapshotCache.ClearSnapshot(streamResetNodeID(streamID))
+		}
+		deliveries = append(deliveries, c.collectResponseDeliveriesLocked()...)
+		c.mutex.Unlock()
+		c.deliverResponses(deliveries)
+		if resetPhase == callbacks.StreamResetComplete {
+			c.completeFinalized(nodeID, finalized)
+		}
+		return nil, err
+	}
+
+	watch := c.addTrackedWatchLocked(request, typeURL, respChan, streamID, !resetWatch)
+	if resetWatch {
+		watch.backendRequest = streamResetRequest(request, streamID)
+	}
+	watch.cancel, err = c.SnapshotCache.CreateWatch(watch.backendRequest, sub, watch.relay.inner)
 	if err != nil {
 		c.removeTrackedWatchLocked(watch)
 	}
-	deliveries := c.collectResponseDeliveriesLocked()
+	deliveries = append(deliveries, c.collectResponseDeliveriesLocked()...)
 	c.mutex.Unlock()
 	c.deliverResponses(deliveries)
 	c.completeFinalized(nodeID, finalized)

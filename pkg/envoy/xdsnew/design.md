@@ -563,9 +563,40 @@ For resources created after agent restart, the rollback target is simply “reso
 
 When Envoy eventually connects, the first relevant watch causes the staged state to be finalized and delivered.
 
-If Envoy NACKs that first response, the cache restores the empty baseline by removing the newly created resources.
+If a new ADS stream NACKs its initial Listener synchronization, the cache does
+not remove the desired resources. Instead, LDS on that stream enters a one-shot
+soft reset:
 
-This is intentional. After an agent restart, the cache has no earlier accepted state that could safely be restored. If Envoy rejects the complete initial configuration, retaining it unchanged would generally result in repeated NACKs of the same state.
+1. The NACKed response keeps its completions and response-owned rollback state.
+2. Only the LDS watch is rebound to a stream-private empty snapshot.
+3. The empty response uses a reset-only version and does not accept, reject, or
+   otherwise alter desired cache generations.
+4. Once the empty LDS response has been ACKed, the LDS watch is rebound to the
+   authoritative cache.
+5. Its next Listener response contains the cache contents current at that time,
+   including mutations accumulated while the reset was in progress.
+
+RDS, CDS/EDS, SDS, NPDS, and NPHDS remain attached to the authoritative cache
+throughout the reset. Draining listeners and their existing connections may
+still depend on routes, clusters, endpoints, TLS secrets, and policy resources;
+withdrawing those resources would turn listener recovery into a traffic
+disruption. A non-LDS initial NACK therefore follows the ordinary
+generation-aware rollback path rather than initiating a soft reset.
+
+The empty snapshot is therefore a transport synchronization barrier, not
+desired state. It is stored under a synthetic stream-specific node ID and is
+never installed as the node's published snapshot. Reset watches also do not
+count as capacity to consume staged desired changes, so cache mutation and
+coalescing continue normally during the reset.
+
+No initial snapshot is retained for replay. Returning the stream to the live
+cache for LDS lets ordinary lazy finalization publish the newest desired state.
+An ACK of that state resolves all represented generations. A NACK after the
+empty barrier uses normal generation-aware rollback because stale Envoy state
+has already been eliminated as the cause.
+
+An LDS soft reset is attempted at most once per ADS stream. A NACK of its empty
+reset response closes the stream without modifying desired state.
 
 ## ADS stream disconnect
 
@@ -581,6 +612,7 @@ When the last ADS stream for a node closes:
 - open watches belonging to the old stream are canceled;
 - the old pending nonce, stream ID, and response association are cleared;
 - the remembered accepted snapshot is cleared.
+- any stream-private soft-reset snapshot is discarded.
 
 Clearing accepted state is necessary because a new stream may belong to a newly restarted Envoy process that has no resources.
 
