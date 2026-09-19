@@ -82,6 +82,7 @@ const (
 	CiliumLB6SourceRange                = "cilium_lb6_source_range"
 	CiliumLBACT                         = "cilium_lb_act"
 	CiliumLBAffinityMatch               = "cilium_lb_affinity_match"
+	CiliumLBRoundRobin                  = "cilium_lb_round_robin"
 	CiliumLXC                           = "cilium_lxc"
 	CiliumMcastGroupOuterV4Map          = "cilium_mcast_group_outer_v4_map"
 	CiliumMcastGroupOuterV4MapInner     = "cilium_mcast_group_outer_v4_map_inner"
@@ -734,6 +735,20 @@ func newCiliumLBAffinityMatchSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
+func newCiliumLBRoundRobinSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumLBRoundRobin,
+		Type:       ebpf.LRUHash,
+		KeySize:    2,
+		Key:        anyTypeByName(btf, "__u16"),
+		ValueSize:  4,
+		Value:      anyTypeByName(btf, "__u32"),
+		MaxEntries: 65536,
+		Flags:      0,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
 func newCiliumLXCSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       CiliumLXC,
@@ -1338,6 +1353,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumLB6SourceRangeSpec,
 	newCiliumLBACTSpec,
 	newCiliumLBAffinityMatchSpec,
+	newCiliumLBRoundRobinSpec,
 	newCiliumLXCSpec,
 	newCiliumMcastGroupOuterV4MapSpec,
 	newCiliumMetricsSpec,
