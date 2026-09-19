@@ -78,6 +78,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 		{name: "mesh-frontend", serviceKey: []types.NamespacedName{serviceKeyEchoV2}},
 		{name: "mesh-matching", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 		{name: "mesh-ports", serviceKey: []types.NamespacedName{serviceKeyEchoV1, serviceKeyEchoV2}},
+		{name: "mesh-multi-parent", serviceKey: []types.NamespacedName{serviceKeyEchoV1, serviceKeyEchoV2}},
 		{name: "mesh-query-param-matching", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 		{name: "mesh-redirect-host-and-status", serviceKey: []types.NamespacedName{serviceKeyEcho}},
 		{name: "mesh-redirect-path", serviceKey: []types.NamespacedName{serviceKeyEcho}},
