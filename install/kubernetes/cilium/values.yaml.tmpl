@@ -3554,11 +3554,12 @@ operator:
     # managed by Cilium.
     intervalSeconds: 15
     # -- Selector for pods that should be restarted when not managed by Cilium.
-    # If not set, defaults to built-in selector "k8s-app=kube-dns". Set to empty string to select all pods.
+    # An empty string selects every pod; set to null to omit the option and
+    # leave cilium-operator on its built-in default.
     # @schema
     # type: [null, string]
     # @schema
-    selector: ~
+    selector: "k8s-app=kube-dns"
 nodeinit:
   # -- Enable the node initialization DaemonSet
   enabled: false

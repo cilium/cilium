@@ -18,6 +18,19 @@ notes carefully below to understand what to do during upgrade.
   ``migration`` or ``legacy``. If you have a different configuration, you are
   not expected to take any action and the transition to
   ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
+* Values set for ``operator.unmanagedPodWatcher.selector`` now reach
+  ``cilium-operator`` exactly as written, because the chart now quotes the
+  value it renders into the ``cilium-config`` ConfigMap. Values that YAML did
+  not preserve as plain strings, such as an empty string or one beginning with
+  ``!``, previously did not reach ``cilium-operator`` as configured, so the
+  selector in effect today may differ from the one you set. An empty selector
+  matches every pod: ``cilium-operator`` deletes one matching pod without a
+  ``CiliumEndpoint`` per check and repeats every
+  ``operator.unmanagedPodWatcher.intervalSeconds``, so pods that never gain a
+  ``CiliumEndpoint`` are restarted repeatedly. Before upgrading, set
+  ``operator.unmanagedPodWatcher.selector`` to the narrowest selector you need,
+  or set ``operator.unmanagedPodWatcher.restart=false`` to disable the watcher.
+  If you never set this value, no action is required.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
@@ -59,7 +72,12 @@ Changed Options
 The following options have been modified in this version of Cilium to behave
 differently than in prior releases:
 
-* TODO
+* The Helm default for ``operator.unmanagedPodWatcher.selector`` changed from
+  ``null`` to the explicit string ``k8s-app=kube-dns``, which is the selector
+  ``cilium-operator`` already applied when the value was unset. Behavior is
+  unchanged, but ``pod-restart-selector`` is now rendered into the
+  ``cilium-config`` ConfigMap by default. Setting the value to ``null`` still
+  omits it.
 
 Deprecated Options
 ##################
