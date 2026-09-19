@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
-	"net"
 	"net/netip"
 	"slices"
 	"sync"
@@ -446,24 +445,10 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) labels.Labels {
 	nodeLabels := labels.NewFrom(labels.LabelRemoteNode)
 	if n.IsLocal() {
 		nodeLabels = labels.NewFrom(labels.LabelHost)
-		if m.conf.PolicyCIDRMatchesNodes() {
-			for _, address := range n.IPAddresses {
-				addr, ok := netipx.FromStdIP(address.IP)
-				if ok {
-					bitLen := addr.BitLen()
-					if m.conf.EnableIPv4 && bitLen == net.IPv4len*8 ||
-						m.conf.EnableIPv6 && bitLen == net.IPv6len*8 {
-						prefix, err := addr.Prefix(bitLen)
-						if err == nil {
-							cidrLabels := labels.GetCIDRLabels(prefix)
-							nodeLabels.MergeLabels(cidrLabels)
-						}
-					}
-				}
-			}
-		}
 	}
 
+	// if per-node labels are enabled, then copy labels from the Node
+	// object to the node's identity.
 	if option.Config.PerNodeLabelsEnabled() {
 		lbls := labels.Map2Labels(n.Labels, labels.LabelSourceNode)
 		filteredLbls, _ := labelsfilter.FilterNodeLabels(lbls)
@@ -564,17 +549,10 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			dpUpdate = false
 		}
 
-		lbls := nodeLabels
-		// Add the CIDR labels for this node, if we allow selecting nodes by CIDR
-		if m.conf.PolicyCIDRMatchesNodes() {
-			lbls = labels.NewFrom(nodeLabels)
-			lbls.MergeLabels(labels.GetCIDRLabels(prefixCluster.AsPrefix()))
-		}
-
 		// Always associate the prefix with metadata, even though this may not
 		// end up in an ipcache entry.
 		m.ipcache.UpsertMetadata(prefixCluster, n.Source, resource,
-			lbls,
+			nodeLabels,
 			ipcacheTypes.TunnelPeer{Addr: tunnelIP},
 			ipcacheTypes.EncryptKey(key),
 			endpointFlags)
