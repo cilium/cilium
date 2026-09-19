@@ -107,8 +107,6 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 				f.importer = imp
 				f.epm = epm
 
-				option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD
-
 				<-f.allocator.(*cache.CachingIdentityAllocator).InitIdentityAllocator(client, nil)
 
 				f.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
