@@ -94,6 +94,10 @@ type adsServer struct {
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
 	secretManager     certificatemanager.SecretManager
 
+	// restorerPromise is cleared when restoration finishes. A non-nil value also
+	// prevents listener address updates from synchronously waiting for ACKs while
+	// holding mutex before the ADS server starts serving. mutex must be held during
+	// access after construction.
 	restorerPromise promise.Promise[endpointstate.Restorer]
 }
 
@@ -121,6 +125,12 @@ func newADSServer(logger *slog.Logger, ipCache IPCacheEventSource, localEndpoint
 
 func (s *adsServer) run(ctx context.Context) error {
 	return s.startAdsGRPCServer(ctx)
+}
+
+func (s *adsServer) markRestoreCompleted() {
+	s.mutex.Lock()
+	s.restorerPromise = nil
+	s.mutex.Unlock()
 }
 
 func (s *adsServer) newSocketListener() (*net.UnixListener, error) {
@@ -1098,7 +1108,6 @@ func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds
 	if nodeId == localNodeID {
 		s.syncNPDSListeners(resources)
 	}
-
 	return nil
 }
 
@@ -1184,6 +1193,14 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 		callbackTypeURLs = listenerPortAllocationCompletionTypeURLs(callback, changes)
 	}
 	if len(listenersToRecreate) == 0 {
+		return s.updateSnapshot(ctx, &updated, "", waitGroup, callbackTypeURLs, changes)
+	}
+	if s.restorerPromise != nil {
+		// ADS cannot acknowledge the staged listener deletion before it starts
+		// serving. Waiting here while holding s.mutex would also prevent the
+		// endpoint policy updates needed to reach that startup barrier. Publish
+		// the final state directly, but preserve the caller's wait so it can
+		// receive the initial snapshot's ACK or NACK after this method unlocks.
 		return s.updateSnapshot(ctx, &updated, "", waitGroup, callbackTypeURLs, changes)
 	}
 
