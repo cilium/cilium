@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/features"
 	"github.com/cilium/ebpf/link"
 	"github.com/gopacket/gopacket"
@@ -198,6 +199,52 @@ var HaveBPFJIT = sync.OnceValue(func() error {
 	if _, err := info.JitedSize(); err != nil && !errors.Is(err, ebpf.ErrRestrictedKernel) {
 		return fmt.Errorf("get JITed prog size: %w", err)
 	}
+
+	return nil
+})
+
+var HaveGlobalFunctions = sync.OnceValue(func() error {
+	// prog:
+	//  0: call subprog
+	//  1: exit
+	// subprog:
+	//  2: r0 = 0
+	//  3: exit
+	funcProto := &btf.FuncProto{
+		Return: &btf.Int{Name: "int", Size: 4, Encoding: btf.Signed},
+		Params: []btf.FuncParam{{
+			Name: "ctx",
+			Type: &btf.Pointer{Target: &btf.Struct{Name: "__sk_buff"}},
+		}},
+	}
+
+	insns := asm.Instructions{
+		asm.Call.Label("subprog").WithSymbol("prog"),
+		asm.Return(),
+		asm.Mov.Imm(asm.R0, 0).WithSymbol("subprog"),
+		asm.Return(),
+	}
+	insns[0] = btf.WithFuncMetadata(insns[0], &btf.Func{
+		Name:    "prog",
+		Type:    funcProto,
+		Linkage: btf.GlobalFunc,
+	})
+	insns[2] = btf.WithFuncMetadata(insns[2], &btf.Func{
+		Name:    "subprog",
+		Type:    funcProto,
+		Linkage: btf.GlobalFunc,
+	})
+
+	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Name:         "probe_global_func",
+		Type:         ebpf.SchedCLS,
+		Instructions: insns,
+		License:      "Apache-2.0",
+	})
+	if err != nil {
+		return fmt.Errorf("loading bpf program with global function and BTF: %w", err)
+	}
+	prog.Close()
 
 	return nil
 })
