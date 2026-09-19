@@ -312,6 +312,25 @@ func TestAddListenerCompletesCallbackOnACK(t *testing.T) {
 	require.NoError(t, <-callbackErr)
 }
 
+func TestAddListenerDuringRestoreDoesNotWaitForACK(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := xdsnew.NewCache(logger, true)
+	_, restorerPromise := promise.New[endpointstate.Restorer]()
+	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, restorerPromise)
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+
+	var calls atomic.Int32
+	require.NoError(t, server.AddListener(t.Context(), "test-listener", policy.ParserTypeHTTP, 8080, false, false, wg, func(err error) {
+		require.NoError(t, err)
+		calls.Add(1)
+	}))
+
+	require.NoError(t, wg.Wait())
+	require.Equal(t, int32(1), calls.Load())
+	require.Zero(t, cache.GetCompletionCallbacks().PendingCompletionCount())
+}
+
 func TestAddListenerWithoutWaitGroupCallsCallback(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	config := xdsServerConfig{
@@ -643,6 +662,31 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 			require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
 		})
 	}
+}
+
+func TestUpdateEnvoyResourcesDuringRestoreDoesNotStageListenerDeletion(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := xdsnew.NewCache(logger, false)
+	_, restorerPromise := promise.New[endpointstate.Restorer]()
+	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, restorerPromise)
+
+	oldResources := adsTestResources(adsTestListener(80, 8443))
+	require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
+	newResources := adsTestResources(adsTestListener(81, 8444))
+	var callbackCount atomic.Uint64
+	newResources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
+		callbackCount.Add(1)
+		return nil
+	}
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), oldResources, newResources, wg))
+	require.NoError(t, wg.Wait())
+	resources := cache.GetAllResources(localNodeID)
+	require.Same(t, newResources.Listeners["listener1"], resources.Listeners["listener1"])
+	require.Equal(t, uint64(1), callbackCount.Load())
+	require.Zero(t, cache.GetCompletionCallbacks().PendingCompletionCount())
 }
 
 func TestUpdateEnvoyResourcesRestoresListenerWhenDeletionTimesOut(t *testing.T) {
@@ -1126,6 +1170,34 @@ func TestUpdateNetworkPolicyWithoutNPDSListenersCompletesImmediately(t *testing.
 		return mockEp.proxyPolicyUpdateCount.Load() == 1
 	}, time.Second, 10*time.Millisecond)
 	require.NoError(t, wg.Wait())
+}
+
+func TestUpdateNetworkPolicyDuringRestoreDoesNotWaitForACK(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cache := xdsnew.NewCache(logger, true)
+	_, restorerPromise := promise.New[endpointstate.Restorer]()
+	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), restorerPromise)
+
+	resources := xds.NewResources()
+	resources.Listeners["npds-listener"] = server.getListenerConf("npds-listener", policy.ParserTypeHTTP, 12345, false, false)
+	require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, nil))
+	require.False(t, server.npdsListeners.Empty())
+
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	mockEp := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
+	mockPolicy := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+
+	err, revertFunc, finalizeFunc := server.UpdateNetworkPolicy(t.Context(), mockEp, mockPolicy, wg)
+	require.NoError(t, err)
+	require.NotNil(t, revertFunc)
+	require.NotNil(t, finalizeFunc)
+	finalizeFunc()
+	require.NoError(t, wg.Wait())
+	require.Zero(t, cache.GetCompletionCallbacks().PendingCompletionCount())
+	require.Eventually(t, func() bool {
+		return mockEp.proxyPolicyUpdateCount.Load() == 1
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestUpdateNetworkPolicyWithNPDSListenerWaitsForACK(t *testing.T) {

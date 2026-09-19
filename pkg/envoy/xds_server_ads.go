@@ -94,6 +94,9 @@ type adsServer struct {
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
 	secretManager     certificatemanager.SecretManager
 
+	// restorerPromise is cleared when restoration finishes. A non-nil value also
+	// suppresses ACK/NACK waits while the cache is populated before the ADS server
+	// starts serving. mutex must be held during access after construction.
 	restorerPromise promise.Promise[endpointstate.Restorer]
 }
 
@@ -121,6 +124,12 @@ func newADSServer(logger *slog.Logger, ipCache IPCacheEventSource, localEndpoint
 
 func (s *adsServer) run(ctx context.Context) error {
 	return s.startAdsGRPCServer(ctx)
+}
+
+func (s *adsServer) markRestoreCompleted() {
+	s.mutex.Lock()
+	s.restorerPromise = nil
+	s.mutex.Unlock()
 }
 
 func (s *adsServer) newSocketListener() (*net.UnixListener, error) {
@@ -599,7 +608,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	// If there are no listeners configured that start an NPDS client, the local
 	// node's Envoy proxy won't query for network policies and therefore will
 	// never ACK them, and we'd wait forever.
-	waitForACK := wg != nil && !s.npdsListeners.Empty()
+	waitForACK := wg != nil && s.restorerPromise == nil && !s.npdsListeners.Empty()
 	if !waitForACK {
 		wg = nil
 	}
@@ -1009,6 +1018,15 @@ func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds
 		nodeId = localNodeID
 	}
 
+	restoring := s.restorerPromise != nil
+	callbacks := callbackTypeURLs
+	if restoring {
+		wg = nil
+		// An explicitly empty set prevents inferred resource types from
+		// registering waits while Envoy is intentionally unable to connect.
+		callbackTypeURLs = map[string]func(error){}
+	}
+
 	s.logger.Debug("updateXdsSnapshot: Updating Envoy resources",
 		logfields.Resource, resources.DebugInfo())
 	for _, r := range resources.Secrets {
@@ -1105,6 +1123,13 @@ func (s *adsServer) updateSnapshotWithRevert(ctx context.Context, resources *xds
 	if nodeId == localNodeID {
 		s.syncNPDSListeners(resources)
 	}
+	if restoring {
+		for _, callback := range callbacks {
+			if callback != nil {
+				callback(nil)
+			}
+		}
+	}
 
 	return nil
 }
@@ -1190,7 +1215,7 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	if callback != nil {
 		callbackTypeURLs = listenerPortAllocationCompletionTypeURLs(callback, changes)
 	}
-	if len(listenersToRecreate) == 0 {
+	if len(listenersToRecreate) == 0 || s.restorerPromise != nil {
 		return s.updateSnapshot(ctx, &updated, "", waitGroup, callbackTypeURLs, changes)
 	}
 
