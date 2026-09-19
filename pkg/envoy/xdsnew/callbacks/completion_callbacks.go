@@ -31,6 +31,8 @@ const (
 
 type snapshotGenerationContextKey struct{}
 
+type streamResetContextKey struct{}
+
 // WithSnapshotGeneration associates an xDS response with the generation of
 // the snapshot from which go-control-plane constructed it.
 func WithSnapshotGeneration(ctx context.Context, generation uint64) context.Context {
@@ -40,6 +42,13 @@ func WithSnapshotGeneration(ctx context.Context, generation uint64) context.Cont
 func snapshotGenerationFromContext(ctx context.Context) uint64 {
 	generation, _ := ctx.Value(snapshotGenerationContextKey{}).(uint64)
 	return generation
+}
+
+// WithStreamReset marks a response as belonging to the transport-only empty
+// snapshot used to resynchronize one ADS stream. Such responses must not
+// accept, reject, or otherwise modify desired cache generations.
+func WithStreamReset(ctx context.Context, streamID int64) context.Context {
+	return context.WithValue(ctx, streamResetContextKey{}, streamID)
 }
 
 // RevertGenerationFunc restores the resources in one update which have not been
@@ -84,11 +93,13 @@ func NewRevertGenerationRollback(revertGeneration RevertGenerationFunc) Rollback
 // nodeIDForRequest returns the request node ID, falling back to the node ID
 // remembered from the first request on the stream. cb.mutex must be held.
 func (cb *CompletionCallbacks) nodeIDForRequest(streamID int64, req *discovery.DiscoveryRequest) string {
+	stream := cb.ensureStreamState(streamID)
+	stream.request = req
 	if nodeID := req.GetNode().GetId(); nodeID != "" {
-		cb.streamNodeIDs[streamID] = nodeID
+		stream.nodeID = nodeID
 		return nodeID
 	}
-	return cb.streamNodeIDs[streamID]
+	return stream.nodeID
 }
 
 type CompletionCallbacks struct {
@@ -105,10 +116,15 @@ type CompletionCallbacks struct {
 	// by TypeURL. Keeping related state together avoids parallel maps with the
 	// same composite keys.
 	nodes map[string]*callbackNodeState
-	// streamNodeIDs remembers the node ID from the first request on each ADS
-	// stream. Envoy is configured with SetNodeOnFirstMessageOnly, so subsequent
-	// ACK/NACK requests can omit Node even though completions are keyed by node ID.
-	streamNodeIDs map[int64]string
+	// streams remember the node ID and latest request for each ADS stream.
+	// Envoy is configured with SetNodeOnFirstMessageOnly, so subsequent ACK/NACK
+	// requests can omit Node. The latest request also lets Cache.CreateWatch
+	// recover the stream ID, which go-control-plane does not otherwise expose to
+	// its cache interface.
+	streams map[int64]*callbackStreamState
+	// streamClosed is invoked without mutex held so the cache can discard the
+	// synthetic snapshot of a stream which closes during a soft reset.
+	streamClosed func(streamID int64)
 }
 
 func NewCompletionCallbacks(logger *slog.Logger) *CompletionCallbacks {
@@ -116,8 +132,126 @@ func NewCompletionCallbacks(logger *slog.Logger) *CompletionCallbacks {
 		Log:                logger,
 		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
 		nodes:              make(map[string]*callbackNodeState),
-		streamNodeIDs:      make(map[int64]string),
+		streams:            make(map[int64]*callbackStreamState),
 	}
+}
+
+// StreamResetPhase is the cache-visible phase of a stream-local soft reset.
+// The zero value is the ordinary live-cache path.
+type StreamResetPhase uint8
+
+const (
+	StreamResetInactive StreamResetPhase = iota
+	StreamResetRequested
+	StreamResetting
+	StreamResetComplete
+	streamResetFailed
+)
+
+type callbackStreamState struct {
+	nodeID  string
+	request *discovery.DiscoveryRequest
+
+	softResetEligible    bool
+	listenerSynchronized bool
+	resetAttempted       bool
+	resetPhase           StreamResetPhase
+	resetResponseNonce   string
+}
+
+func (cb *CompletionCallbacks) ensureStreamState(streamID int64) *callbackStreamState {
+	state := cb.streams[streamID]
+	if state == nil {
+		state = &callbackStreamState{}
+		cb.streams[streamID] = state
+	}
+	return state
+}
+
+// SetStreamClosedCallback installs the cache-side cleanup invoked after an ADS
+// stream closes. It is configured once while constructing the cache.
+func (cb *CompletionCallbacks) SetStreamClosedCallback(callback func(streamID int64)) {
+	cb.mutex.Lock()
+	cb.streamClosed = callback
+	cb.mutex.Unlock()
+}
+
+// StreamResetStateForRequest maps the request passed to CreateWatch back to its
+// ADS stream and reports whether that stream is entering or leaving a reset.
+// go-control-plane numbers real streams from one, so stream ID zero means the
+// request was not associated with a stream callback.
+func (cb *CompletionCallbacks) StreamResetStateForRequest(req *discovery.DiscoveryRequest) (int64, StreamResetPhase) {
+	if req == nil {
+		return 0, StreamResetInactive
+	}
+	typeURL, supported := typeurl.FromURL(req.GetTypeUrl())
+	if !supported || typeURL != typeurl.Listener {
+		return 0, StreamResetInactive
+	}
+
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+
+	for streamID, state := range cb.streams {
+		if state.request == req {
+			if state.resetPhase == StreamResetRequested ||
+				state.resetPhase == StreamResetting ||
+				state.resetPhase == StreamResetComplete {
+				return streamID, state.resetPhase
+			}
+			return streamID, StreamResetInactive
+		}
+	}
+	return 0, StreamResetInactive
+}
+
+// BeginStreamReset starts the empty snapshot barrier for the LDS response
+// whose initial synchronization was NACKed. All resource types on which
+// draining listeners may depend remain on the live cache.
+func (cb *CompletionCallbacks) BeginStreamReset(streamID int64) bool {
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+
+	stream := cb.streams[streamID]
+	if stream == nil || stream.resetPhase != StreamResetRequested {
+		return false
+	}
+	if nodeState := cb.nodeState(stream.nodeID); nodeState != nil {
+		typeState := &nodeState.typeURLs[typeurl.Listener]
+		// The empty snapshot is deliberately not an accepted desired snapshot.
+		// Prevent updates racing the reset from treating the old Listener state
+		// as already accepted.
+		typeState.response.acceptedVersion = ""
+		typeState.acceptedSnapshot = nil
+	}
+	stream.resetPhase = StreamResetting
+	return true
+}
+
+// FinishStreamReset returns the stream to the authoritative cache after every
+// reset response has been ACKed. The one-attempt guard remains set for the
+// lifetime of the stream.
+func (cb *CompletionCallbacks) FinishStreamReset(streamID int64) bool {
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+
+	stream := cb.streams[streamID]
+	if stream == nil || stream.resetPhase != StreamResetComplete {
+		return false
+	}
+	stream.resetPhase = StreamResetInactive
+	stream.resetResponseNonce = ""
+	return true
+}
+
+// AbortStreamReset prevents a failed setup from being retried on the same
+// stream. Stream closure releases all remaining state.
+func (cb *CompletionCallbacks) AbortStreamReset(streamID int64) {
+	cb.mutex.Lock()
+	if stream := cb.streams[streamID]; stream != nil {
+		stream.resetPhase = streamResetFailed
+	}
+	cb.mutex.Unlock()
 }
 
 type callbackNodeState struct {
@@ -785,21 +919,28 @@ var _ sotw.Callbacks = (*CompletionCallbacks)(nil)
 // OnStreamOpen is called once an xDS stream is open with a stream ID and the type URL (or "" for ADS).
 // Returning an error will end processing and close the stream. OnStreamClosed will still be called.
 func (cb *CompletionCallbacks) OnStreamOpen(ctx context.Context, streamID int64, typ string) error {
+	cb.mutex.Lock()
+	cb.ensureStreamState(streamID).softResetEligible = typ == ""
+	cb.mutex.Unlock()
 	return nil
 }
 
 // OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
 func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 	cb.mutex.Lock()
-	nodeID := cb.streamNodeIDs[streamID]
+	stream := cb.streams[streamID]
+	var nodeID string
+	if stream != nil {
+		nodeID = stream.nodeID
+	}
 	if nodeID == "" && node != nil {
 		nodeID = node.GetId()
 	}
-	delete(cb.streamNodeIDs, streamID)
+	delete(cb.streams, streamID)
 
 	streamStillOpen := false
-	for _, openNodeID := range cb.streamNodeIDs {
-		if openNodeID == nodeID {
+	for _, openStream := range cb.streams {
+		if openStream.nodeID == nodeID {
 			streamStillOpen = true
 			break
 		}
@@ -817,7 +958,11 @@ func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 			}
 		}
 	}
+	streamClosed := cb.streamClosed
 	cb.mutex.Unlock()
+	if streamClosed != nil {
+		streamClosed(streamID)
+	}
 
 	cb.Log.Info("OnStreamClosed", logfields.XDSStreamID, streamID)
 }
@@ -836,6 +981,27 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	nodeState := cb.ensureNodeState(nodeID)
 	typeState := nodeState.typeURLState(typeIndex)
 	state := &typeState.response
+	stream := cb.streams[streamID]
+	if stream != nil && stream.resetPhase == StreamResetting && typeIndex == typeurl.Listener &&
+		req.GetResponseNonce() != "" {
+		if stream.resetResponseNonce != "" && stream.resetResponseNonce == req.GetResponseNonce() {
+			if req.GetErrorDetail() != nil {
+				stream.resetPhase = streamResetFailed
+				cb.mutex.Unlock()
+				return fmt.Errorf("NACK from %s for empty %s stream reset: %s",
+					nodeID, typeURL, req.GetErrorDetail().GetMessage())
+			}
+			stream.resetResponseNonce = ""
+			// The empty response is a transport barrier, not an accepted
+			// desired snapshot. Clear the ordinary response state so the next
+			// live-cache response establishes acceptance from scratch.
+			*state = responseState{}
+			typeState.acceptedSnapshot = nil
+			stream.resetPhase = StreamResetComplete
+			cb.mutex.Unlock()
+			return nil
+		}
+	}
 	if req.GetVersionInfo() == "" && req.GetResponseNonce() == "" && req.GetErrorDetail() == nil {
 		// This is a fresh subscription, not an ACK or NACK. Any accepted
 		// version belongs to an earlier Envoy process.
@@ -866,6 +1032,39 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	var completed []completionResult
 
 	if req.GetErrorDetail() != nil {
+		if stream != nil && stream.softResetEligible &&
+			typeIndex == typeurl.Listener &&
+			!stream.listenerSynchronized &&
+			(!stream.resetAttempted ||
+				stream.resetPhase == StreamResetRequested || stream.resetPhase == StreamResetting) {
+			if !stream.resetAttempted {
+				stream.resetAttempted = true
+				stream.resetPhase = StreamResetRequested
+			}
+			rejectedVersion := state.pendingVersion
+			if rejectedVersion == "" {
+				rejectedVersion = req.GetVersionInfo()
+			}
+			// Preserve every attached completion and rollback. The current
+			// desired state will be offered again after Envoy ACKs the empty
+			// stream view, at which point a real ACK or NACK owns them.
+			state.pendingVersion = ""
+			state.pendingGeneration = 0
+			state.pendingNonce = ""
+			state.pendingStreamID = 0
+			state.acceptedVersion = ""
+			state.rejectedVersion = ""
+			state.rejectedErr = nil
+			typeState.acceptedSnapshot = nil
+			cb.Log.Warn("Initial xDS NACK requested a stream soft reset",
+				logfields.XDSTypeURL, typeURL,
+				logfields.Version, rejectedVersion,
+				logfields.NodeID, nodeID,
+				logfields.Error, req.GetErrorDetail().GetMessage())
+			cb.mutex.Unlock()
+			return nil
+		}
+
 		type generationRevert struct {
 			generation uint64
 			rollback   Rollback
@@ -959,6 +1158,8 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	// OnStreamResponse attaches all earlier coalesced generations to the same
 	// response, so no separate version-order data structure is needed here.
 	var acceptedGeneration uint64
+	acceptedStreamResponse := state.pendingNonce != "" &&
+		state.pendingStreamID == streamID && state.pendingNonce == req.GetResponseNonce()
 	if state.pendingVersion == req.GetVersionInfo() {
 		acceptedGeneration = state.pendingGeneration
 		state.pendingVersion = ""
@@ -986,6 +1187,10 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		}
 	}
 	state.acceptedVersion = req.GetVersionInfo()
+	if stream != nil && typeIndex == typeurl.Listener &&
+		(acceptedStreamResponse || acceptedGeneration != 0) {
+		stream.listenerSynchronized = true
+	}
 	state.rejectedVersion = ""
 	state.rejectedErr = nil
 	if published := nodeState.published; acceptedGeneration != 0 &&
@@ -1052,6 +1257,15 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	}
 	typeIndex, supported := typeurl.FromURL(typeURL)
 	if !supported {
+		cb.mutex.Unlock()
+		return
+	}
+	if resetStreamID, reset := ctx.Value(streamResetContextKey{}).(int64); reset {
+		stream := cb.streams[streamID]
+		if resetStreamID == streamID && stream != nil && stream.resetPhase == StreamResetting &&
+			typeIndex == typeurl.Listener {
+			stream.resetResponseNonce = resp.GetNonce()
+		}
 		cb.mutex.Unlock()
 		return
 	}

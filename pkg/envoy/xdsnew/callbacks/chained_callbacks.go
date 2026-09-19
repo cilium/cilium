@@ -36,10 +36,13 @@ var _ envoy_xds.Callbacks = ChainedCallbacks{}
 // OnStreamOpen is called once an xDS stream is open with a stream ID and the type URL (or "" for ADS).
 // Returning an error will end processing and close the stream. OnStreamClosed will still be called.
 func (chainedCbs ChainedCallbacks) OnStreamOpen(ctx context.Context, streamID int64, typ string) error {
+	var firstErr error
 	for _, cb := range chainedCbs {
-		cb.OnStreamOpen(ctx, streamID, typ)
+		if err := cb.OnStreamOpen(ctx, streamID, typ); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
-	return nil
+	return firstErr
 }
 
 // OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
@@ -52,10 +55,13 @@ func (chainedCbs ChainedCallbacks) OnStreamClosed(streamID int64, node *core.Nod
 // OnStreamRequest is called once a request is received on a stream.
 // Returning an error will end processing and close the stream. OnStreamClosed will still be called.
 func (chainedCbs ChainedCallbacks) OnStreamRequest(streamID int64, req *discovery.DiscoveryRequest) error {
+	var firstErr error
 	for _, cb := range chainedCbs {
-		cb.OnStreamRequest(streamID, req)
+		if err := cb.OnStreamRequest(streamID, req); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
-	return nil
+	return firstErr
 }
 
 // OnStreamResponse is called immediately prior to sending a response on a stream.

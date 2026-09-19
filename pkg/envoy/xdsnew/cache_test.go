@@ -2153,6 +2153,9 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
 	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancelContext)
+	const streamID int64 = 1
+	require.NoError(t, c.completionCbs.OnStreamOpen(ctx, streamID, ""))
+	t.Cleanup(func() { c.completionCbs.OnStreamClosed(streamID, nil) })
 
 	// Initial endpoint policies are populated before Envoy connects and do not
 	// have WaitGroups. Caller finalization must leave the coalesced response
@@ -2190,12 +2193,12 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 	response := <-responses
 
 	const nonce = "cold-start-response"
-	c.completionCbs.OnStreamResponse(response.GetContext(), 1, response.GetRequest(), &discovery.DiscoveryResponse{
+	c.completionCbs.OnStreamResponse(response.GetContext(), streamID, response.GetRequest(), &discovery.DiscoveryResponse{
 		VersionInfo: response.GetResponseVersion(),
 		TypeUrl:     NetworkPolicyTypeURL,
 		Nonce:       nonce,
 	})
-	require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
+	require.NoError(t, c.completionCbs.OnStreamRequest(streamID, &discovery.DiscoveryRequest{
 		Node:          request.Node,
 		TypeUrl:       NetworkPolicyTypeURL,
 		ResponseNonce: nonce,
@@ -3440,4 +3443,278 @@ func TestGenerateSnapshot_ResourceContents(t *testing.T) {
 	assertResourceCount(envoy_resource.RouteType, 0)
 	assertResourceCount(envoy_resource.EndpointType, 1)
 	assertResourceCount(envoy_resource.SecretType, 1)
+}
+func TestInitialListenerNACKSoftResetsOnlyLDS(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), true).(*cacheImpl)
+	const streamID int64 = 11
+	const nodeID = "node1"
+	node := &envoy_config_core.Node{Id: nodeID}
+	require.NoError(t, c.completionCbs.OnStreamOpen(t.Context(), streamID, ""))
+	t.Cleanup(func() { c.completionCbs.OnStreamClosed(streamID, node) })
+
+	initialListener := &envoy_config_listener.Listener{
+		Name: "listener",
+		FilterChains: []*envoy_config_listener.FilterChain{{
+			Filters: []*envoy_config_listener.Filter{{
+				Name: "envoy.filters.network.http_connection_manager",
+				ConfigType: &envoy_config_listener.Filter_TypedConfig{
+					TypedConfig: mustAny(t, &envoy_config_http.HttpConnectionManager{
+						RouteSpecifier: &envoy_config_http.HttpConnectionManager_Rds{
+							Rds: &envoy_config_http.Rds{RouteConfigName: "route"},
+						},
+					}),
+				},
+			}},
+		}},
+	}
+	initialRoute := &envoy_config_route.RouteConfiguration{Name: "route"}
+	initialPolicy := &cilium.NetworkPolicy{EndpointId: 1}
+	initialPolicyHosts := &cilium.NetworkPolicyHosts{Policy: 1}
+	updated, rollback, err := c.ApplyResources(t.Context(), nodeID, ResourceMutations{
+		Upserted: xds.Resources{
+			Listeners: map[string]*envoy_config_listener.Listener{"listener": initialListener},
+			Routes:    map[string]*envoy_config_route.RouteConfiguration{"route": initialRoute},
+		},
+	}, nil, TypeURLCallbacks{})
+	require.NoError(t, err)
+	require.True(t, updated)
+	rollback.Finalize()
+	updated, rollback, err = c.UpsertNetworkPolicy(t.Context(), nodeID, "policy", initialPolicy, nil, nil)
+	require.NoError(t, err)
+	require.True(t, updated)
+	rollback.Finalize()
+	updated, rollback, err = c.UpsertNetworkPolicyHosts(t.Context(), nodeID, "hosts", initialPolicyHosts)
+	require.NoError(t, err)
+	require.True(t, updated)
+	rollback.Finalize()
+
+	responses := make(chan cache.Response, int(typeurl.Count)+1)
+	listenerSubscription := stream.NewSotwSubscription(nil, false)
+	policySubscription := stream.NewSotwSubscription(nil, false)
+	policyHostsSubscription := stream.NewSotwSubscription(nil, false)
+
+	listenerRequest := &cache.Request{
+		Node:        node,
+		TypeUrl:     envoy_resource.ListenerType,
+		VersionInfo: "envoy-listener-before-agent-restart",
+	}
+	require.NoError(t, c.completionCbs.OnStreamRequest(streamID, listenerRequest))
+	listenerCancel, err := c.CreateWatch(listenerRequest, listenerSubscription, responses)
+	require.NoError(t, err)
+	initialListenerResponse := <-responses
+	require.Equal(t, envoy_resource.ListenerType, initialListenerResponse.GetRequest().GetTypeUrl())
+	listenerSubscription.SetReturnedResources(initialListenerResponse.GetReturnedResources())
+	c.completionCbs.OnStreamResponse(initialListenerResponse.GetContext(), streamID,
+		initialListenerResponse.GetRequest(), &discovery.DiscoveryResponse{
+			VersionInfo: initialListenerResponse.GetResponseVersion(),
+			TypeUrl:     envoy_resource.ListenerType,
+			Nonce:       "initial-listener",
+		})
+
+	policyRequest := &cache.Request{
+		Node:        node,
+		TypeUrl:     NetworkPolicyTypeURL,
+		VersionInfo: "envoy-policy-before-agent-restart",
+	}
+	require.NoError(t, c.completionCbs.OnStreamRequest(streamID, policyRequest))
+	policyCancel, err := c.CreateWatch(policyRequest, policySubscription, responses)
+	require.NoError(t, err)
+	initialPolicyResponse := <-responses
+	require.Equal(t, NetworkPolicyTypeURL, initialPolicyResponse.GetRequest().GetTypeUrl())
+	policySubscription.SetReturnedResources(initialPolicyResponse.GetReturnedResources())
+	c.completionCbs.OnStreamResponse(initialPolicyResponse.GetContext(), streamID,
+		initialPolicyResponse.GetRequest(), &discovery.DiscoveryResponse{
+			VersionInfo: initialPolicyResponse.GetResponseVersion(),
+			TypeUrl:     NetworkPolicyTypeURL,
+			Nonce:       "initial-policy",
+		})
+	publishedBeforeReset := mustSnapshot(t, c, nodeID)
+
+	// The first NACK on this ADS stream requests a transport-only empty view.
+	// It must not run the rollback attached to the desired Listener generation.
+	listenerNACK := &cache.Request{
+		Node:          node,
+		TypeUrl:       envoy_resource.ListenerType,
+		VersionInfo:   listenerRequest.GetVersionInfo(),
+		ResponseNonce: "initial-listener",
+		ErrorDetail:   &status.Status{Message: "address already in use"},
+	}
+	require.NoError(t, c.completionCbs.OnStreamRequest(streamID, listenerNACK))
+	listenerCancel()
+	listenerResetCancel, err := c.CreateWatch(listenerNACK, listenerSubscription, responses)
+	require.NoError(t, err)
+	c.mutex.RLock()
+	resetWatchOpen := c.hasOpenWatchLocked(nodeID, typeurl.NewSet(typeurl.Listener))
+	c.mutex.RUnlock()
+	require.False(t, resetWatchOpen,
+		"the synthetic reset response must not leave an open desired-state watch")
+	emptyListenerResponse := <-responses
+	require.Empty(t, emptyListenerResponse.GetReturnedResources())
+	require.Equal(t, nodeID, emptyListenerResponse.GetRequest().GetNode().GetId())
+	require.Same(t, initialListener, c.nodeStates[nodeID].resources[typeurl.Listener].entries["listener"].resource)
+	require.Same(t, initialPolicy, c.nodeStates[nodeID].resources[typeurl.NetworkPolicy].entries["policy"].resource)
+	require.Same(t, initialPolicyHosts, c.nodeStates[nodeID].resources[typeurl.NetworkPolicyHosts].entries["hosts"].resource)
+	require.Same(t, publishedBeforeReset, mustSnapshot(t, c, nodeID))
+	c.completionCbs.OnStreamResponse(emptyListenerResponse.GetContext(), streamID,
+		emptyListenerResponse.GetRequest(), &discovery.DiscoveryResponse{
+			VersionInfo: emptyListenerResponse.GetResponseVersion(),
+			TypeUrl:     envoy_resource.ListenerType,
+			Nonce:       "empty-listener",
+		})
+
+	// Desired state keeps changing while the stream is reset. The reset watch
+	// must not be mistaken for Envoy capacity to consume a live snapshot.
+	latestListener := proto.Clone(initialListener).(*envoy_config_listener.Listener)
+	latestListener.TrafficDirection = envoy_config_core.TrafficDirection_OUTBOUND
+	latestPolicy := &cilium.NetworkPolicy{EndpointId: 2}
+	latestPolicyHosts := &cilium.NetworkPolicyHosts{Policy: 2}
+	updated, rollback, err = c.ApplyResources(t.Context(), nodeID, ResourceMutations{
+		Upserted: xds.Resources{
+			Listeners: map[string]*envoy_config_listener.Listener{"listener": latestListener},
+		},
+	}, nil, TypeURLCallbacks{})
+	require.NoError(t, err)
+	require.True(t, updated)
+	rollback.Finalize()
+	updated, rollback, err = c.UpsertNetworkPolicy(t.Context(), nodeID, "policy", latestPolicy, nil, nil)
+	require.NoError(t, err)
+	require.True(t, updated)
+	rollback.Finalize()
+	updated, rollback, err = c.UpsertNetworkPolicyHosts(t.Context(), nodeID, "hosts", latestPolicyHosts)
+	require.NoError(t, err)
+	require.True(t, updated)
+	rollback.Finalize()
+	require.Same(t, publishedBeforeReset, mustSnapshot(t, c, nodeID))
+	require.NotNil(t, c.nodeStates[nodeID].staged)
+	require.Same(t, latestListener, c.nodeStates[nodeID].resources[typeurl.Listener].entries["listener"].resource)
+	require.Same(t, latestPolicy, c.nodeStates[nodeID].resources[typeurl.NetworkPolicy].entries["policy"].resource)
+	require.Same(t, latestPolicyHosts, c.nodeStates[nodeID].resources[typeurl.NetworkPolicyHosts].entries["hosts"].resource)
+
+	// NPDS remains on the authoritative cache throughout the LDS reset. Once
+	// its earlier response is ACKed, its next watch immediately consumes the
+	// newest policy instead of receiving an empty reset response. NPHDS, RDS,
+	// CDS/EDS, and SDS follow the same non-LDS path.
+	policyACK := &cache.Request{
+		Node:          node,
+		TypeUrl:       NetworkPolicyTypeURL,
+		VersionInfo:   initialPolicyResponse.GetResponseVersion(),
+		ResponseNonce: "initial-policy",
+	}
+	require.NoError(t, c.completionCbs.OnStreamRequest(streamID, policyACK))
+	policyCancel()
+	policyLiveCancel, err := c.CreateWatch(policyACK, policySubscription, responses)
+	require.NoError(t, err)
+	latestPolicyResponse := <-responses
+	require.Equal(t, NetworkPolicyTypeURL, latestPolicyResponse.GetRequest().GetTypeUrl())
+	require.Contains(t, latestPolicyResponse.GetReturnedResources(), "policy")
+	require.Same(t, latestPolicy,
+		mustSnapshot(t, c, nodeID).GetResources(NetworkPolicyTypeURL)["policy"])
+	policySubscription.SetReturnedResources(latestPolicyResponse.GetReturnedResources())
+	acknowledgeResponse(t, c, streamID, latestPolicyResponse, "latest-policy")
+	policyLiveCancel()
+
+	policyHostsRequest := &cache.Request{
+		Node:        node,
+		TypeUrl:     NetworkPolicyHostsTypeURL,
+		VersionInfo: "envoy-policy-hosts-before-agent-restart",
+	}
+	require.NoError(t, c.completionCbs.OnStreamRequest(streamID, policyHostsRequest))
+	policyHostsCancel, err := c.CreateWatch(policyHostsRequest, policyHostsSubscription, responses)
+	require.NoError(t, err)
+	latestPolicyHostsResponse := <-responses
+	require.Equal(t, NetworkPolicyHostsTypeURL, latestPolicyHostsResponse.GetRequest().GetTypeUrl())
+	require.Contains(t, latestPolicyHostsResponse.GetReturnedResources(), "hosts")
+	require.Same(t, latestPolicyHosts,
+		mustSnapshot(t, c, nodeID).GetResources(NetworkPolicyHostsTypeURL)["hosts"])
+	policyHostsSubscription.SetReturnedResources(latestPolicyHostsResponse.GetReturnedResources())
+	acknowledgeResponse(t, c, streamID, latestPolicyHostsResponse, "latest-policy-hosts")
+	policyHostsCancel()
+
+	// ACKing the empty LDS view ends the type-local barrier. The next LDS watch
+	// returns the latest Listener, while no other TypeURL is rebound or replayed.
+	listenerResetACK := &cache.Request{
+		Node:          node,
+		TypeUrl:       envoy_resource.ListenerType,
+		VersionInfo:   emptyListenerResponse.GetResponseVersion(),
+		ResponseNonce: "empty-listener",
+	}
+	require.NoError(t, c.completionCbs.OnStreamRequest(streamID, listenerResetACK))
+	listenerResetCancel()
+	listenerReplayCancel, err := c.CreateWatch(listenerResetACK, listenerSubscription, responses)
+	require.NoError(t, err)
+	t.Cleanup(listenerReplayCancel)
+	replayedListener := <-responses
+	require.Equal(t, envoy_resource.ListenerType, replayedListener.GetRequest().GetTypeUrl())
+	require.Same(t, latestListener,
+		mustSnapshot(t, c, nodeID).GetResources(envoy_resource.ListenerType)["listener"])
+	_, err = c.SnapshotCache.GetSnapshot(streamResetNodeID(streamID))
+	require.Error(t, err)
+	select {
+	case response := <-responses:
+		t.Fatalf("unexpected replay for non-LDS type %s", response.GetRequest().GetTypeUrl())
+	default:
+	}
+
+	acknowledgeResponse(t, c, streamID, replayedListener, "replayed-listener")
+	require.True(t, c.nodeStates[nodeID].rollbackOwners.Empty())
+}
+
+func TestStreamSoftResetSnapshotIsRemovedOnDisconnect(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	const streamID int64 = 12
+	const nodeID = "node1"
+	node := &envoy_config_core.Node{Id: nodeID}
+	require.NoError(t, c.completionCbs.OnStreamOpen(t.Context(), streamID, ""))
+
+	listener := &envoy_config_listener.Listener{Name: "listener"}
+	updated, rollback, err := c.UpsertListener(t.Context(), nodeID, listener.GetName(), listener, nil, nil)
+	require.NoError(t, err)
+	require.True(t, updated)
+	rollback.Finalize()
+
+	responses := make(chan cache.Response, 1)
+	subscription := stream.NewSotwSubscription(nil, false)
+	request := &cache.Request{Node: node, TypeUrl: envoy_resource.ListenerType}
+	require.NoError(t, c.completionCbs.OnStreamRequest(streamID, request))
+	cancel, err := c.CreateWatch(request, subscription, responses)
+	require.NoError(t, err)
+	response := <-responses
+	c.completionCbs.OnStreamResponse(response.GetContext(), streamID, response.GetRequest(),
+		&discovery.DiscoveryResponse{
+			VersionInfo: response.GetResponseVersion(),
+			TypeUrl:     envoy_resource.ListenerType,
+			Nonce:       "initial-listener",
+		})
+
+	nack := &cache.Request{
+		Node:          node,
+		TypeUrl:       envoy_resource.ListenerType,
+		ResponseNonce: "initial-listener",
+		ErrorDetail:   &status.Status{Message: "rejected"},
+	}
+	require.NoError(t, c.completionCbs.OnStreamRequest(streamID, nack))
+	cancel()
+	resetCancel, err := c.CreateWatch(nack, subscription, responses)
+	require.NoError(t, err)
+	resetResponse := <-responses
+	c.completionCbs.OnStreamResponse(resetResponse.GetContext(), streamID, resetResponse.GetRequest(),
+		&discovery.DiscoveryResponse{
+			VersionInfo: resetResponse.GetResponseVersion(),
+			TypeUrl:     envoy_resource.ListenerType,
+			Nonce:       "empty-listener",
+		})
+	require.Error(t, c.completionCbs.OnStreamRequest(streamID, &discovery.DiscoveryRequest{
+		Node:          node,
+		TypeUrl:       envoy_resource.ListenerType,
+		ResponseNonce: "empty-listener",
+		ErrorDetail:   &status.Status{Message: "empty state rejected"},
+	}))
+	resetCancel()
+	_, err = c.SnapshotCache.GetSnapshot(streamResetNodeID(streamID))
+	require.NoError(t, err)
+
+	c.completionCbs.OnStreamClosed(streamID, node)
+	_, err = c.SnapshotCache.GetSnapshot(streamResetNodeID(streamID))
+	require.Error(t, err)
+	require.Same(t, listener, c.nodeStates[nodeID].resources[typeurl.Listener].entries[listener.GetName()].resource)
 }
