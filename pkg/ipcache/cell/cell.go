@@ -46,6 +46,8 @@ var Cell = cell.Module(
 	restoration.Cell,
 
 	cell.Invoke(
+		ipcache.RegisterNodeObserver,
+
 		// Register the watcher to the fence to ensure that we wait for ipcache
 		// synchronization from the kvstore (when enabled) before endpoint
 		// regeneration, to ensure that the ipcache map is ready at that point.
@@ -95,8 +97,8 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 		Logger:            params.Logger,
 		IdentityAllocator: params.CacheIdentityAllocator,
 		IdentityUpdater:   params.IdentityUpdater,
-		CacheStatus:       params.CacheStatus,
 	})
+	ipc.RegisterSync(params.CacheStatus)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
