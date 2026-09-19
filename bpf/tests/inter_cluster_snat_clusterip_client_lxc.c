@@ -38,7 +38,7 @@
 #define ENABLE_NODEPORT
 
 /* Cluster-aware addressing is mandatory for overlapping PodCIDR support */
-#define ENABLE_CLUSTER_AWARE_ADDRESSING
+#define ENABLE_CLUSTER_AWARE_ADDRESSING		1
 
 /* Import some default values */
 
