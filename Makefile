@@ -68,22 +68,25 @@ build: ## Builds all the components for Cilium by executing make in the respecti
 	$(QUIET)$(MAKE) $(SUBMAKEOPTS) $(SUBDIRS_DATAPATH_GEN)
 	$(QUIET)$(MAKE) $(SUBMAKEOPTS) $(SUBDIRS_GO)
 
-build-container: ## Builds components required for cilium-agent container.
+bpf-objs:
+	$(QUIET)$(MAKE) $(SUBMAKEOPTS) BPFGEN_CILIUM_ROOT="$(ROOT_DIR)" -C bpf generate-bpf2go
+
+build-container: bpf-objs ## Builds components required for cilium-agent container.
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i all; done
 
-build-container-operator: ## Builds components required for cilium-operator container.
+build-container-operator: bpf-objs ## Builds components required for cilium-operator container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_OPERATOR_CONTAINER) all
 
-build-container-operator-generic: ## Builds components required for a cilium-operator generic variant container.
+build-container-operator-generic: bpf-objs ## Builds components required for a cilium-operator generic variant container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_OPERATOR_CONTAINER) cilium-operator-generic
 
-build-container-operator-aws: ## Builds components required for a cilium-operator aws variant container.
+build-container-operator-aws: bpf-objs ## Builds components required for a cilium-operator aws variant container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_OPERATOR_CONTAINER) cilium-operator-aws
 
-build-container-operator-azure: ## Builds components required for a cilium-operator azure variant container.
+build-container-operator-azure: bpf-objs ## Builds components required for a cilium-operator azure variant container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_OPERATOR_CONTAINER) cilium-operator-azure
 
-build-container-operator-alibabacloud: ## Builds components required for a cilium-operator alibabacloud variant container.
+build-container-operator-alibabacloud: bpf-objs ## Builds components required for a cilium-operator alibabacloud variant container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_OPERATOR_CONTAINER) cilium-operator-alibabacloud
 
 build-container-hubble-relay:
@@ -92,13 +95,13 @@ build-container-hubble-relay:
 build-container-clustermesh-apiserver: ## Builds components required for the clustermesh-apiserver container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_CLUSTERMESH_APISERVER_CONTAINER) all
 
-build-container-standalone-dns-proxy: ## Builds components required for standalone dns proxy container.
+build-container-standalone-dns-proxy: bpf-objs ## Builds components required for standalone dns proxy container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_STANDALONE_DNS_PROXY_CONTAINER) all
 
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
-tests-privileged-only: ## Run Go only the unit tests that require elevated privileges.
+tests-privileged-only: bpf-objs ## Run Go only the unit tests that require elevated privileges.
 	@$(ECHO_CHECK) running only privileged tests...
 	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
 		$(TESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
@@ -144,7 +147,7 @@ else
 endif
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
-integration-tests: start-kvstores ## Run non-privileged Go tests and including ones that are marked as integration tests.
+integration-tests: generate-bpf2go start-kvstores ## Run non-privileged Go tests and including ones that are marked as integration tests.
 	@$(ECHO_CHECK) running integration tests...
 	INTEGRATION_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
@@ -203,7 +206,7 @@ install-container-binary: install-bpf ## Install binaries for all components req
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install-binary; done
 
-install-bash-completion: ## Install bash completion for all components required for cilium-agent container.
+install-bash-completion: bpf-objs ## Install bash completion for all components required for cilium-agent container.
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install-bash-completion; done
 
@@ -414,6 +417,14 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	contrib/scripts/builder.sh \
 		$(MAKE_CONTAINER) -C /go/src/github.com/cilium/cilium/ generate-k8s-api-local V=$(V)
 
+.PHONY: generate-bpf2go
+generate-bpf2go: ## Generate Go skeletons with bpf2go
+	@$(ECHO_DOCKER)
+	contrib/scripts/builder.sh \
+		$(MAKE_CONTAINER) -C /go/src/github.com/cilium/cilium/bpf generate-bpf2go V=$(V)
+	@$(ECHO_CHECK) bpf-skel
+	$(QUIET)git status bpf/ pkg/ --porcelain
+
 .PHONY: generate-bpf
 generate-bpf: ## Generate config structs from BPF objects using dpgen and Go skeletons with bpf2go
 	@$(ECHO_DOCKER)
@@ -463,7 +474,7 @@ statedb-lint:
 	$(QUIET)$(MAKE) -C tools/statedblint
 	$(QUIET)tools/statedblint/statedblint ./...
 
-golangci-lint: ## Run golangci-lint
+golangci-lint: generate-bpf2go ## Run golangci-lint
 ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION:v%=%),$(GOLANGCILINT_VERSION)))
 	@$(ECHO_CHECK) golangci-lint $(GOLANGCI_LINT_ARGS)
 	$(QUIET) ./contrib/scripts/golangci-lint.sh $(GOLANGCI_LINT_ARGS)
@@ -519,7 +530,7 @@ fuzz: check-fuzz # Run fuzzer tests briefly for FUZZ_TIME seconds
 	@$(ECHO_CHECK) go-fuzz
 	./test/fuzzing/go-fuzz.sh | $(GOTEST_FORMATTER)
 
-precheck: ## Peform build precheck for the source code.
+precheck: generate-bpf2go ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),false)
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
 	$(QUIET) contrib/scripts/check-k8s-code-gen.sh
@@ -622,7 +633,7 @@ GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES?=$(shell echo ${KIND_NET_CIDR} 
 GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES?=$(shell echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.216@")
 GATEWAY_API_CONFORMANCE_TEST_NAME ?= TestConformance
 GATEWAY_API_DIR ?=
-gateway-api-conformance: ## Run Gateway API conformance tests.
+gateway-api-conformance: generate-bpf2go ## Run Gateway API conformance tests.
 	@$(ECHO_CHECK) running Gateway API conformance tests...
 	$(QUIET)set -e; \
 	modfile_flags=; \
@@ -691,7 +702,7 @@ BPF_TEST_DUMP_CTX ?=
 BPF_TEST_FLAGS ?=
 SUDO ?= sudo -E
 
-run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
+run_bpf_tests: generate-bpf2go ## Build and run the BPF unit tests using the cilium-builder container image.
 	contrib/scripts/builder.sh \
 		env MAKEFLAGS="$(filter-out --jobserver-auth=%,$(MAKEFLAGS))" \
 		make $(SUBMAKEOPTS) -C bpf/tests/ all

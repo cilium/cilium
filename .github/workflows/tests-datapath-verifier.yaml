@@ -207,8 +207,10 @@ jobs:
             # Replace it with the one pinned by the PR branch, so that a change
             # to the LLVM version is reflected in the complexity diff.
             /host/pull/contrib/scripts/extract-llvm.sh /var/tmp/llvm
-            mv /var/tmp/llvm/usr/local/bin/{clang,llc} /bin/
+            mv /var/tmp/llvm/usr/local/bin/{clang,llc,llvm-strip} /bin/
             rm -r /var/tmp/llvm
+
+            make GO=go${{ env.go-version }} bpf-objs
 
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=25m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/pull --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
@@ -227,8 +229,13 @@ jobs:
             # Use the LLVM version pinned by the base branch, which may differ
             # from the one used for the PR branch above.
             /host/base/contrib/scripts/extract-llvm.sh /var/tmp/llvm
-            mv /var/tmp/llvm/usr/local/bin/{clang,llc} /bin/
+            mv /var/tmp/llvm/usr/local/bin/{clang,llc,llvm-strip} /bin/
             rm -r /var/tmp/llvm
+
+            # Base version may not have the bpf-objs target, so ignore failed
+            # executions for now; otherwise, BPF .o files will be in the tree.
+            # TODO(jrife): Remove this check after landing this PR.
+            make GO=go${{ env.go-version }} bpf-objs || echo "Base version contains .o in the tree"
 
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=25m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/base --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
