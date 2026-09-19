@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // TestUpdateLookup tests that we can insert DNS data and retrieve it. We
@@ -1423,4 +1424,68 @@ func Test_sortZombieMappingSlice(t *testing.T) {
 			validateZombieSort(t, tt.args.zombies)
 		})
 	}
+}
+
+// TestZombieLivenessConditions pins the liveness boundaries of isConnectionAlive.
+// A zombie is dead only once all of these hold:
+// 1. CT GC ran after DeletePendingAt plus the configured grace period,
+// 2. that CT GC run did not mark the zombie alive, and
+// 3. CT GC has run at least twice since the zombie was added.
+//
+// This test pins the exact boundaries of conditions 1 and 2.
+func TestZombieLivenessConditions(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	grace := 5 * time.Minute
+	oldGrace := option.Config.ToFQDNsIdleConnectionGracePeriod
+	option.Config.ToFQDNsIdleConnectionGracePeriod = grace
+
+	t.Cleanup(func() {
+		option.Config.ToFQDNsIdleConnectionGracePeriod = oldGrace
+	})
+
+	now := time.Now()
+	addr := netip.MustParseAddr("1.1.1.1")
+
+	// newZombie returns a mapping with a single zombie whose DeletePendingAt
+	// is now, i.e. it becomes eligible for deletion once CT GC passes
+	// now+grace.
+	newZombie := func() *DNSZombieMappings {
+		zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+		zombies.Upsert(now, addr, "test.com")
+		return zombies
+	}
+	isAlive := func(zombies *DNSZombieMappings) bool {
+		return len(zombies.DumpAlive(nil)) == 1
+	}
+
+	t.Run("grace period boundary", func(t *testing.T) {
+		zombies := newZombie()
+		// Two CT GC runs, the last one at exactly DeletePendingAt+grace:
+		// not *after* the grace period, so the zombie stays alive.
+		zombies.SetCTGCTime(now.Add(grace-time.Minute), now.Add(2*grace))
+		zombies.SetCTGCTime(now.Add(grace), now.Add(2*grace))
+		require.True(t, isAlive(zombies), "zombie must stay alive until CT GC runs strictly after DeletePendingAt+grace")
+
+		// One nanosecond past the grace period the zombie is dead.
+		zombies.SetCTGCTime(now.Add(grace+time.Nanosecond), now.Add(2*grace))
+		require.False(t, isAlive(zombies))
+		alive, dead := zombies.GC()
+		require.Empty(t, alive)
+		assertZombiesContain(t, dead, map[string][]string{"1.1.1.1": {"test.com"}})
+	})
+
+	t.Run("mark alive precedence", func(t *testing.T) {
+		zombies := newZombie()
+		// Both CT GC runs are past the grace period, but the second run marks
+		// the zombie alive: AliveAt >= lastCTGCUpdate keeps it alive.
+		zombies.SetCTGCTime(now.Add(grace+time.Hour), now.Add(grace+2*time.Hour))
+		zombies.MarkAlive(now.Add(grace+2*time.Hour), addr)
+		zombies.SetCTGCTime(now.Add(grace+2*time.Hour), now.Add(grace+3*time.Hour))
+		require.True(t, isAlive(zombies), "zombie marked alive by CT GC must survive")
+
+		// A later CT GC run without a MarkAlive kills it.
+		zombies.SetCTGCTime(now.Add(grace+3*time.Hour), now.Add(grace+4*time.Hour))
+		require.False(t, isAlive(zombies))
+	})
 }
