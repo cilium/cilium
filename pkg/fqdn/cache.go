@@ -1270,6 +1270,30 @@ func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.T
 type PrefixMatcherFunc func(ip netip.Addr) bool
 type NameMatcherFunc func(name string) bool
 
+// LookupIP returns the names associated with ip among zombies that are still
+// alive, i.e. whose IP is in use by a connection that outlived the DNS entry.
+// It returns nil when ip is unknown or its zombie is eligible for deletion.
+//
+// DNSHistory expires with the DNS TTL, so a long-lived connection loses its
+// name there long before it closes. Zombies exist precisely to retain that
+// mapping for the life of the connection, which makes them the correct source
+// for annotating flows on such connections.
+func (zombies *DNSZombieMappings) LookupIP(ip netip.Addr) (names []string) {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	zombie, ok := zombies.deletes[ip]
+	if !ok || !zombies.isConnectionAlive(zombie) {
+		return nil
+	}
+
+	// Sorted for the same reason as DNSCache.lookupIPByTime: zombie.Names is
+	// unordered, and callers such as Hubble use the result as a metric label.
+	names = slices.Clone(zombie.Names)
+	slices.Sort(names)
+	return names
+}
+
 // DumpAlive returns copies of still-alive zombies matching prefixMatcher.
 func (zombies *DNSZombieMappings) DumpAlive(prefixMatcher PrefixMatcherFunc) (alive []*DNSZombieMapping) {
 	zombies.Lock()
