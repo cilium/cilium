@@ -887,6 +887,8 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	if (tuple.nexthdr == IPPROTO_TCP &&
 	    total_inner_len < ipv4_hdrlen(&iphdr) + TCP_CSUM_OFF + TCP_CSUM_SIZE)
 		icmp_has_inner_l4_csum = false;
+	if (tuple.nexthdr == IPPROTO_ICMP || tuple.nexthdr == IPPROTO_SCTP)
+		icmp_has_inner_l4_csum = false;
 
 	/* For UDP, a checksum value of zero means that no checksum */
 	if (tuple.nexthdr == IPPROTO_UDP) {
@@ -1132,6 +1134,8 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	/* Check if the inner L4 header has checksum */
 	if (tuple.nexthdr == IPPROTO_TCP &&
 	    total_inner_len < ipv4_hdrlen(&iphdr) + TCP_CSUM_OFF + TCP_CSUM_SIZE)
+		icmp_has_inner_l4_csum = false;
+	if (tuple.nexthdr == IPPROTO_ICMP || tuple.nexthdr == IPPROTO_SCTP)
 		icmp_has_inner_l4_csum = false;
 
 	/* For UDP, a checksum value of zero means that no checksum */
