@@ -540,7 +540,7 @@ func TestPciDevice_SetupFree(t *testing.T) {
 	t.Run("Setup with vlan set calls LinkSetVfVlan with the configured vlan", func(t *testing.T) {
 		dev, nl := newDev()
 
-		err := dev.Setup(types.DeviceConfig{Vlan: 100})
+		_, err := dev.Setup(types.DeviceAllocation{Config: types.DeviceConfig{Vlan: 100}})
 		require.NoError(t, err)
 
 		require.Equal(t, []vlanCall{{linkName: "ens1f0", vf: 2, vlan: 100}}, nl.vlanCalls)
@@ -549,7 +549,7 @@ func TestPciDevice_SetupFree(t *testing.T) {
 	t.Run("Setup with vlan zero does not call LinkSetVfVlan", func(t *testing.T) {
 		dev, nl := newDev()
 
-		err := dev.Setup(types.DeviceConfig{Vlan: 0})
+		_, err := dev.Setup(types.DeviceAllocation{Config: types.DeviceConfig{Vlan: 0}})
 		require.NoError(t, err)
 
 		require.Empty(t, nl.vlanCalls)
@@ -560,7 +560,7 @@ func TestPciDevice_SetupFree(t *testing.T) {
 
 		// Free is called with the same config the claim requested (vlan=100);
 		// the driver must reset the VF's VLAN to 0 regardless.
-		err := dev.Free(types.DeviceConfig{Vlan: 100})
+		err := dev.Free(types.DeviceAllocation{Config: types.DeviceConfig{Vlan: 100}})
 		require.NoError(t, err)
 
 		require.Equal(t, []vlanCall{{linkName: "ens1f0", vf: 2, vlan: 0}}, nl.vlanCalls)
@@ -569,7 +569,7 @@ func TestPciDevice_SetupFree(t *testing.T) {
 	t.Run("Free with vlan zero does not call LinkSetVfVlan", func(t *testing.T) {
 		dev, nl := newDev()
 
-		err := dev.Free(types.DeviceConfig{Vlan: 0})
+		err := dev.Free(types.DeviceAllocation{Config: types.DeviceConfig{Vlan: 0}})
 		require.NoError(t, err)
 
 		require.Empty(t, nl.vlanCalls)
@@ -579,7 +579,7 @@ func TestPciDevice_SetupFree(t *testing.T) {
 		dev, nl := newDev()
 		dev.PFName = ""
 
-		err := dev.Setup(types.DeviceConfig{Vlan: 100})
+		_, err := dev.Setup(types.DeviceAllocation{Config: types.DeviceConfig{Vlan: 100}})
 		require.ErrorIs(t, err, errNotAVF)
 		require.Empty(t, nl.vlanCalls)
 	})
@@ -588,7 +588,7 @@ func TestPciDevice_SetupFree(t *testing.T) {
 		dev, nl := newDev()
 		dev.PFName = ""
 
-		err := dev.Free(types.DeviceConfig{Vlan: 100})
+		err := dev.Free(types.DeviceAllocation{Config: types.DeviceConfig{Vlan: 100}})
 		require.ErrorIs(t, err, errNotAVF)
 		require.Empty(t, nl.vlanCalls)
 	})
@@ -597,7 +597,7 @@ func TestPciDevice_SetupFree(t *testing.T) {
 		dev, nl := newDev()
 		nl.linkByNameErr = fmt.Errorf("boom")
 
-		err := dev.Setup(types.DeviceConfig{Vlan: 100})
+		_, err := dev.Setup(types.DeviceAllocation{Config: types.DeviceConfig{Vlan: 100}})
 		require.Error(t, err)
 	})
 
@@ -605,7 +605,7 @@ func TestPciDevice_SetupFree(t *testing.T) {
 		dev, nl := newDev()
 		nl.linkSetVfVlanErr = fmt.Errorf("boom")
 
-		err := dev.Setup(types.DeviceConfig{Vlan: 100})
+		_, err := dev.Setup(types.DeviceAllocation{Config: types.DeviceConfig{Vlan: 100}})
 		require.Error(t, err)
 	})
 
@@ -613,7 +613,7 @@ func TestPciDevice_SetupFree(t *testing.T) {
 		dev, nl := newDev()
 		nl.linkByNameErr = fmt.Errorf("boom")
 
-		err := dev.Free(types.DeviceConfig{Vlan: 100})
+		err := dev.Free(types.DeviceAllocation{Config: types.DeviceConfig{Vlan: 100}})
 		require.Error(t, err)
 	})
 
@@ -621,7 +621,7 @@ func TestPciDevice_SetupFree(t *testing.T) {
 		dev, nl := newDev()
 		nl.linkSetVfVlanErr = fmt.Errorf("boom")
 
-		err := dev.Free(types.DeviceConfig{Vlan: 100})
+		err := dev.Free(types.DeviceAllocation{Config: types.DeviceConfig{Vlan: 100}})
 		require.Error(t, err)
 	})
 }

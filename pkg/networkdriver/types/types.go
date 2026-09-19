@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	resourceapi "k8s.io/api/resource/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/dynamic-resource-allocation/deviceattribute"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -169,8 +171,14 @@ type Device interface {
 	encoding.BinaryUnmarshaler
 
 	GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
-	Setup(cfg DeviceConfig) error
-	Free(cfg DeviceConfig) error
+	GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
+	AllowMultipleAllocations() bool
+	// Setup prepares one allocation and returns the device representing it.
+	// For a shared device, this may be an allocation-specific child, such as a
+	// netdev that leases one RX queue, rather than the device published in the
+	// ResourceSlice.
+	Setup(allocation DeviceAllocation) (Device, error)
+	Free(allocation DeviceAllocation) error
 	Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
 	IfName() string
 	KernelIfName() string
@@ -197,8 +205,18 @@ func (d *DeviceConfig) Empty() bool {
 	return d == nil || *d == DeviceConfig{}
 }
 
+// DeviceAllocation contains scheduler and driver parameters for one allocation.
+type DeviceAllocation struct {
+	Config DeviceConfig
+	// ShareID is empty for devices that do not allow multiple allocations.
+	ShareID kube_types.UID
+	// ConsumedCapacity contains the capacity assigned by the scheduler.
+	ConsumedCapacity map[resourceapi.QualifiedName]resource.Quantity
+}
+
 type SerializedDevice struct {
-	Manager DeviceManagerType
-	Dev     json.RawMessage
-	Config  DeviceConfig
+	Manager          DeviceManagerType
+	Dev              json.RawMessage
+	Config           DeviceConfig
+	ConsumedCapacity map[resourceapi.QualifiedName]resource.Quantity `json:",omitempty"`
 }
