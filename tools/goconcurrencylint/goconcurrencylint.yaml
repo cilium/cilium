@@ -1,0 +1,28 @@
+version: "2"
+run:
+  modules-download-mode: readonly
+  issues-exit-code: 1
+  tests: true
+  timeout: 60m
+
+linters:
+  default: none
+  enable:
+    - goconcurrencylint
+
+  settings:
+    custom:
+      goconcurrencylint:
+        type: module
+        description: Detects misuse of sync.Mutex, sync.RWMutex, sync.WaitGroup, sync.Once, sync.Cond, sync.Pool and channels
+        settings:
+          # Checks that duplicate a linter already enabled in .golangci.yaml are
+          # excluded so the same finding is never reported twice:
+          #   GCL2005 (wg.Add inside the worker goroutine) == staticcheck SA2000
+          #   GCL5001 (non-pointer value in a sync.Pool)   == staticcheck SA6002
+          #   GCL9001 (sync primitive copied by value)     == govet copylocks
+          checks:
+            - all
+            - -GCL2005
+            - -GCL5001
+            - -GCL9001
