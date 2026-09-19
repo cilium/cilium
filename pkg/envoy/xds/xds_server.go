@@ -6,7 +6,6 @@ package xds
 import (
 	"context"
 	"fmt"
-	"maps"
 	"strings"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -40,9 +39,8 @@ type XDSServer interface {
 	AddMetricsListener(ctx context.Context, port uint16, wg *completion.WaitGroup)
 
 	// RemoveListener removes an existing Envoy listener by name.
-	// The completion is signaled on 'wg'. Returns a revert function that can be called
-	// to undo the removal.
-	RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) AckingResourceMutatorRevertFunc
+	// The completion is signaled on 'wg'.
+	RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup)
 
 	// UpsertEnvoyResources inserts or updates Envoy resources (listeners, routes, clusters,
 	// endpoints, secrets) in the xDS cache, from where they will be delivered to Envoy via
@@ -70,8 +68,9 @@ type XDSServer interface {
 	RemoveAllNetworkPolicies()
 }
 
-// Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD.
-// Each resource type is stored in a map keyed by resource name.
+// Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD.  Each resource type
+// is stored in a map keyed by resource name. Stored valued are as immutable after being passed to
+// an xDS server.
 type Resources struct {
 	Listeners          map[string]*envoy_config_listener.Listener
 	Secrets            map[string]*envoy_config_tls.Secret
@@ -97,15 +96,6 @@ func NewResources() Resources {
 		NetworkPolicyHosts:      make(map[string]*cilium.NetworkPolicyHosts),
 		PortAllocationCallbacks: make(map[string]func(context.Context) error),
 	}
-}
-
-// DeepCopy returns a copy of the Resources with cloned maps.
-// Protobuf values are shared (not deep-copied) since they are treated as immutable once published.
-func cloneOrInit[K comparable, V any](m map[K]V) map[K]V {
-	if m == nil {
-		return make(map[K]V)
-	}
-	return maps.Clone(m)
 }
 
 // DebugInfo returns aggregated info about the underlying envoy resources in the object
@@ -135,22 +125,6 @@ func (r *Resources) DebugInfo() string {
 	}
 
 	return strings.Join(resourcesInfo, ", ")
-}
-
-func (r *Resources) DeepCopy() *Resources {
-	if r == nil {
-		return nil
-	}
-	return &Resources{
-		Listeners:               cloneOrInit(r.Listeners),
-		Secrets:                 cloneOrInit(r.Secrets),
-		Routes:                  cloneOrInit(r.Routes),
-		Clusters:                cloneOrInit(r.Clusters),
-		Endpoints:               cloneOrInit(r.Endpoints),
-		NetworkPolicies:         cloneOrInit(r.NetworkPolicies),
-		NetworkPolicyHosts:      cloneOrInit(r.NetworkPolicyHosts),
-		PortAllocationCallbacks: cloneOrInit(r.PortAllocationCallbacks),
-	}
 }
 
 // ListenersAddedOrDeleted returns 'true' if a listener is added or removed when updating from 'old'

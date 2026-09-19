@@ -17,6 +17,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 )
@@ -30,11 +31,12 @@ func newTestNPHDSAdapter(t *testing.T) *nphdsCacheAdapter {
 
 func lookupNPHDS(t *testing.T, adapter *nphdsCacheAdapter, identityStr string) *envoyAPI.NetworkPolicyHosts {
 	t.Helper()
-	resources := adapter.store.networkPolicyHosts()
-	res, ok := resources[identityStr]
+	resource, ok := testADSNPHDSCache(t, adapter).GetResource(localNodeID, typeurl.NetworkPolicyHosts, identityStr)
 	if !ok {
 		return nil
 	}
+	res, ok := resource.(*envoyAPI.NetworkPolicyHosts)
+	require.True(t, ok)
 	return res
 }
 
