@@ -26,6 +26,7 @@ type mockFeaturesParams struct {
 	TunnelConfig                        tunnel.EncapProtocol
 	CNIChainingMode                     string
 	MutualAuth                          bool
+	LocalRedirectPolicy                 bool
 	BandwidthManager                    bool
 	bigTCPFeatures                      bigTCPFeatures
 	L2PodAnnouncement                   bool
@@ -44,6 +45,10 @@ func (m mockFeaturesParams) GetChainingMode() string {
 
 func (m mockFeaturesParams) IsMutualAuthEnabled() bool {
 	return m.MutualAuth
+}
+
+func (m mockFeaturesParams) IsLocalRedirectPolicyEnabled() bool {
+	return m.LocalRedirectPolicy
 }
 
 func (m mockFeaturesParams) IsBandwidthManagerEnabled() bool {
@@ -574,19 +579,19 @@ func TestUpdateLocalRedirectPolicies(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
-				IPAM:                      defaultIPAMModes[0],
-				EnableIPv4:                true,
-				IdentityAllocationMode:    defaultIdentityAllocationModes[0],
-				DatapathMode:              defaultConfiguredDatapathMode,
-				NodePortAcceleration:      defaultNodePortModeAccelerations[0],
-				EnableLocalRedirectPolicy: tt.enableLRP,
+				IPAM:                   defaultIPAMModes[0],
+				EnableIPv4:             true,
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultConfiguredDatapathMode,
+				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
 			}
 			lbConfig := loadbalancer.DefaultConfig
 			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
 			lbConfig.LBMode = defaultNodePortModes[0]
 
 			params := mockFeaturesParams{
-				CNIChainingMode: defaultChainingModes[0],
+				CNIChainingMode:     defaultChainingModes[0],
+				LocalRedirectPolicy: tt.enableLRP,
 			}
 
 			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakewireguard.Config{}, fakeipsec.Config{}, bgpConfig.BGPConfig{})
