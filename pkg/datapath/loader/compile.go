@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -158,6 +159,12 @@ func pidFromProcess(proc *os.Process) string {
 //
 // May output assembly or source code after prepocessing.
 func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *directoryInfo) (string, error) {
+	// ExecTimeout is a budget for one command, so spend it on this clang and on
+	// no other: a caller compiling several programs in sequence must not let an
+	// earlier one eat the time the next one needs.
+	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
+	defer cancel()
+
 	compileArgs := append(testIncludes,
 		fmt.Sprintf("-I%s", path.Join(dir.Runtime, "globals")),
 		fmt.Sprintf("-I%s", dir.State),
@@ -248,6 +255,19 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 	return output.Name(), nil
 }
 
+// logCompilerVersion runs the compiler to log which one is about to be used.
+func logCompilerVersion(ctx context.Context, logger *slog.Logger, msg string) error {
+	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
+	defer cancel()
+
+	version, err := exec.CommandContext(ctx, compiler, "--version").CombinedOutput(logger, true)
+	if err != nil {
+		return err
+	}
+	logger.Debug(msg, compiler, string(version))
+	return nil
+}
+
 // compileDatapath invokes the compiler and linker to create all state files for
 // the BPF datapath, with the primary target being the BPF ELF binary.
 //
@@ -258,15 +278,9 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 func compileDatapath(ctx context.Context, logger *slog.Logger, dirs *directoryInfo, isHost bool) error {
 	scopedLog := logger.With(logfields.Debug, true)
 
-	versionCmd := exec.CommandContext(ctx, compiler, "--version")
-	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
-	if err != nil {
+	if err := logCompilerVersion(ctx, scopedLog, "Compiling datapath"); err != nil {
 		return err
 	}
-	scopedLog.Debug(
-		"Compiling datapath",
-		compiler, string(compilerVersion),
-	)
 
 	prog := epProg
 	if isHost {
@@ -343,15 +357,9 @@ func compileOverlay(ctx context.Context, logger *slog.Logger) error {
 	}
 	scopedLog := logger.With(logfields.Debug, true)
 
-	versionCmd := exec.CommandContext(ctx, compiler, "--version")
-	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
-	if err != nil {
+	if err := logCompilerVersion(ctx, scopedLog, "Compiling overlay programs"); err != nil {
 		return err
 	}
-	scopedLog.Debug(
-		"Compiling overlay programs",
-		compiler, string(compilerVersion),
-	)
 
 	prog := &progInfo{
 		Source:     overlayProg,
@@ -370,7 +378,7 @@ func compileOverlay(ctx context.Context, logger *slog.Logger) error {
 	return nil
 }
 
-func compileWireguard(ctx context.Context, logger *slog.Logger) (err error) {
+func compileWireguard(ctx context.Context, logger *slog.Logger) error {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -379,15 +387,10 @@ func compileWireguard(ctx context.Context, logger *slog.Logger) (err error) {
 	}
 	scopedLog := logger.With(logfields.Debug, true)
 
-	versionCmd := exec.CommandContext(ctx, compiler, "--version")
-	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
-	if err != nil {
+	if err := logCompilerVersion(ctx, scopedLog, "Compiling wireguard programs"); err != nil {
 		return err
 	}
-	scopedLog.Debug(
-		"Compiling wireguard programs",
-		compiler, string(compilerVersion),
-	)
+
 	prog := &progInfo{
 		Source:     wireguardProg,
 		Output:     wireguardObj,
