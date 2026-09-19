@@ -11,6 +11,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
@@ -50,7 +51,7 @@ func CheckBackend(input Input, parentRef gatewayv1.ParentReference) (bool, error
 
 	for _, rule := range input.GetRules() {
 		for _, be := range rule.GetBackendRefs() {
-			if !helpers.IsService(be.BackendObjectReference) && !helpers.IsServiceImport(be.BackendObjectReference) {
+			if !helpers.IsService(be.BackendObjectReference) && !helpers.IsServiceImport(be.BackendObjectReference) && !helpers.IsInferencePool(be.BackendObjectReference) {
 				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
@@ -61,7 +62,7 @@ func CheckBackend(input Input, parentRef gatewayv1.ParentReference) (bool, error
 				continueChecks = false
 				continue
 			}
-			if be.BackendObjectReference.Port == nil {
+			if be.BackendObjectReference.Port == nil && !helpers.IsInferencePool(be.BackendObjectReference){
 				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    string(gatewayv1alpha2.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
@@ -103,9 +104,63 @@ func CheckHasServiceImportSupport(input Input, parentRef gatewayv1.ParentReferen
 	return true, nil
 }
 
+func CheckHasInferencePoolSupport(input Input, parentRef gatewayv1.ParentReference) (bool,error){
+	for _, rule := range input.GetRules() {
+		for _, be := range rule.GetBackendRefs() {
+			if !helpers.IsInferencePool(be.BackendObjectReference) {
+				continue
+			}
+
+			if !helpers.HasInferencePoolSupport(input.GetClient().Scheme()) {
+				input.SetParentCondition(parentRef, metav1.Condition{
+					Type:   string(gatewayv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionFalse,
+					Reason: string(gatewayv1.RouteReasonBackendNotFound),
+					Message: "Attempt to reference an InferencePool backend while " +
+						"the corresponding CRD is not installed, " +
+						"please restart the cilium-operator if the CRD is already installed",
+				})
+				return false, nil
+			}
+			return true, nil
+		}
+	}
+
+	return true, nil	
+}
+
+func CheckBackendIsExistingInferencePool(input Input, parentRef gatewayv1.ParentReference) (bool, error){
+	for _, rule := range input.GetRules(){
+		for _, be := range rule.GetBackendRefs(){
+			if !helpers.IsInferencePool(be.BackendObjectReference){
+				continue
+			}
+			ns := helpers.NamespaceDerefOr(be.Namespace, input.GetNamespace())
+			infPool := &gateway_inf_ext.InferencePool{}
+			if err := input.GetClient().Get(input.GetContext(),
+			client.ObjectKey{Name: string(be.Name), Namespace: ns},infPool); err !=nil{
+				                if !k8serrors.IsNotFound(err) {
+                    input.Log().Error("Failed to get InferencePool", logfields.Error, err)
+                    return false, err
+                }
+                input.SetParentCondition(parentRef, metav1.Condition{
+                    Type:    string(gatewayv1.RouteConditionResolvedRefs),
+                    Status:  metav1.ConditionFalse,
+                    Reason:  string(gatewayv1.RouteReasonBackendNotFound),
+                    Message: err.Error(),
+                })
+			}
+		}
+	}
+	return true, nil
+}
+
 func CheckBackendIsExistingService(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	for _, rule := range input.GetRules() {
 		for _, be := range rule.GetBackendRefs() {
+			if helpers.IsInferencePool(be.BackendObjectReference){
+				continue
+			}
 			ns := helpers.NamespaceDerefOr(be.Namespace, input.GetNamespace())
 			svcName, err := helpers.GetBackendServiceName(input.GetClient(), ns, be.BackendObjectReference)
 			if err != nil {

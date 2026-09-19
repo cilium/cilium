@@ -6,11 +6,13 @@ package translation
 import (
 	"fmt"
 	goslices "slices"
+	"strconv"
 
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -98,6 +100,24 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResou
 		}
 	}
 
+	for _, be := range getUniqueEPPs(m) {
+		port := strconv.Itoa(int(be.Port))
+		clusterName := getEPPClusterName(be.Namespace, be.Name, port)
+		clusterServiceName := getClusterServiceName(be.Namespace, be.Name, port)
+		if _, exists := envoyClusters[clusterName]; !exists {
+			sortedClusterNames = append(sortedClusterNames, clusterName)
+			envoyClusters[clusterName], _ = i.httpCluster(clusterName, clusterServiceName, true, "", nil)
+		}
+	}
+
+	for _, be := range getInferenceBackends(m) {
+		clusterName := getInferenceDestinationClusterName(be.Namespace, be.Name, be.Port.GetPort())
+		if _, exists := envoyClusters[clusterName]; !exists {
+			sortedClusterNames = append(sortedClusterNames, clusterName)
+			envoyClusters[clusterName], _ = i.inferenceDestinationCluster(clusterName)
+		}
+	}
+
 	for ns, v := range getNamespaceNamePortsMapForTLS(m) {
 		for name, ports := range v {
 			for _, port := range ports {
@@ -168,6 +188,26 @@ func (i *cecTranslator) tcpCluster(clusterName string, clusterServiceName string
 	return toXdsResource(cluster, envoy.ClusterTypeURL)
 }
 
+// inferenceDestinationCluster creeates an ORIGINAL_DST cluster whose upstream
+// host is from the x-gateway-destination-endpoint header set by the EPP
+func (i *cecTranslator) inferenceDestinationCluster(clusterName string) (ciliumv2.XDSResource, error) {
+	cluster := &envoy_config_cluster_v3.Cluster{
+		Name: clusterName,
+		ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{
+			Type: envoy_config_cluster_v3.Cluster_ORIGINAL_DST,
+		},
+		LbPolicy: envoy_config_cluster_v3.Cluster_CLUSTER_PROVIDED,
+		LbConfig: &envoy_config_cluster_v3.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &envoy_config_cluster_v3.Cluster_OriginalDstLbConfig{
+				UseHttpHeader:  true,
+				HttpHeaderName: "x-gateway-destination-endpoint",
+			},
+		},
+		ConnectTimeout: &durationpb.Duration{Seconds: 5},
+	}
+	return toXdsResource(cluster, envoy.ClusterTypeURL)
+}
+
 func getClusterName(ns, name, port string) string {
 	// the name is having the format of "namespace:name:port"
 	// -> slash would prevent ParseResources from rewriting with CEC namespace and name!
@@ -179,6 +219,22 @@ func getClusterName(ns, name, port string) string {
 // so each carries the correct protocol config (explicitHttpConfig/HTTP2 vs useDownstreamProtocolConfig).
 func getGRPCExtAuthClusterName(ns, name, port string) string {
 	return "grpc:" + getClusterName(ns, name, port)
+}
+
+// getEPPClusterName retiurns the cluster name for an InferencePool's EndpointPicker (EPP).
+// The "epp:" prefix keeps it distinct from the regular route clusters and ext_authz clusters for the
+// same service.
+func getEPPClusterName(ns, name, port string) string {
+	return "epp:" + getClusterName(ns, name, port)
+}
+
+// getInferenceDestinationClusterName returns the ORIGINAL_DST cluster name for an
+// InferencePool. Traffic to this cluster goest to the endpoint the EPP chose, carries
+// in the x-gateway-destination-endpoint header.
+// The "origdst:" prefix keeps it distinct from the pool's shadow service EDS cluster and EPP
+// cluster name
+func getInferenceDestinationClusterName(ns, name, port string) string {
+	return "origdst:" + getClusterName(ns, name, port)
 }
 
 // getHTTPExtAuthClusterName returns the cluster name for an HTTP ext_authz backend.
@@ -200,7 +256,7 @@ func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]str
 	namespaceNamePortMap := map[string]map[string][]string{}
 	for _, l := range m.HTTP {
 		for _, r := range l.Routes {
-			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
+			mergeBackendsInNamespaceNamePortMap(nonInferenceBackends(r.Backends), namespaceNamePortMap)
 			for _, rm := range r.RequestMirrors {
 				if rm.Backend == nil {
 					continue
@@ -210,6 +266,20 @@ func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]str
 		}
 	}
 	return namespaceNamePortMap
+}
+
+// nonInferenceBackends returns the backends that route to a normal EDS cluster.
+// Those are served by an ORIGINAL_DST cluster keyed on the EPP selected endpoint,
+// so they must not get a shadow service EDS cluster
+func nonInferenceBackends(backends []model.Backend) []model.Backend {
+	res := make([]model.Backend, 0, len(backends))
+	for _, be := range backends {
+		if be.EndpointPicker != nil {
+			continue
+		}
+		res = append(res, be)
+	}
+	return res
 }
 
 // getHTTPExtAuthBackends returns deduplicated backends used as HTTP ext_authz services.
@@ -266,4 +336,50 @@ func getNamespaceNamePortsMapForTLS(m *model.Model) map[string]map[string][]stri
 		}
 	}
 	return namespaceNamePortMap
+}
+
+// getUniqueEPPs returns a deduplicated list of Endpoint Pickers (EPPs) from the routes.
+// the uniqueness is based on "<namespace>/<name>:port"
+func getUniqueEPPs(m *model.Model) []*model.EndpointPicker {
+	seen := map[string]struct{}{}
+	var result []*model.EndpointPicker
+	for _, h := range m.HTTP {
+		for _, r := range h.Routes {
+			for _, be := range r.Backends {
+				if be.EndpointPicker == nil {
+					continue
+				}
+				key := be.EndpointPicker.Namespace + "/" + be.EndpointPicker.Name + ":" + strconv.Itoa(int(be.EndpointPicker.Port))
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = struct{}{}
+				result = append(result, be.EndpointPicker)
+			}
+		}
+	}
+	return result
+}
+
+// getInferenceBackends returns the deduplicated pool backends keyed by their resolved
+// shadow service identity so each pool has one ORIGINAL_DST cluster
+func getInferenceBackends(m *model.Model) []model.Backend {
+	seen := map[string]struct{}{}
+	var result []model.Backend
+	for _, h := range m.HTTP {
+		for _, r := range h.Routes {
+			for _, be := range r.Backends {
+				if be.EndpointPicker == nil || be.Port == nil {
+					continue
+				}
+				key := getClusterName(be.Namespace, be.Name, be.Port.GetPort())
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = struct{}{}
+				result = append(result, be)
+			}
+		}
+	}
+	return result
 }

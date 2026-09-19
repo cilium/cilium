@@ -13,8 +13,10 @@ import (
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	httpCorsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
+	extprocv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	grpcStatsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcWebv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
+	header_mutationv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_mutation/v3"
 	httpRouterv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	statefulsessionv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	httpConnectionManagerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -31,11 +33,20 @@ const (
 	// ExtAuthzFilterNamePrefix is the prefix for ext_authz filter instance names.
 	// Full name: "<prefix>/<clusterName>". Used as the TypedPerFilterConfig key on routes.
 	ExtAuthzFilterNamePrefix = "envoy.filters.http.ext_authz"
+
+	// ExtProcFilterNamePrefix is the prefix for ext_proc (EPP) filter instance names
+	// Full name: "<prefix>/<eppClusterName>". Used as the TypedPerFilterConfig key on routes.
+	ExtProcFilterNamePrefix = "envoy.filters.http.ext_proc"
 )
 
 // ExtAuthzFilterName returns the HCM filter instance name for a given ext_authz cluster.
 func ExtAuthzFilterName(clusterName string) string {
 	return fmt.Sprintf("%s/%s", ExtAuthzFilterNamePrefix, clusterName)
+}
+
+// ExtProcFilterName returns the HCM filter instance name for a given EPP cluster
+func ExtProcFilterName(clusterName string) string {
+	return fmt.Sprintf("%s/%s", ExtProcFilterNamePrefix, clusterName)
 }
 
 // extAuthzFilterKey returns the unique key for an ext_authz filter instance.
@@ -108,6 +119,15 @@ func (i *cecTranslator) getHTTPConnectionManagerHttpFilters(m *model.Model) []*h
 
 	for _, af := range i.getUniqueAuthFilters(m) {
 		hf = append(hf, buildExtAuthzHTTPFilter(af))
+	}
+
+	if epps := getUniqueEPPs(m); len(epps) > 0 {
+		// first, strip client supplied destination headers before ext_proc
+		// runs so only the EPP can set thme
+		hf = append(hf, buildInferenceDestinationHeaderStripFilter())
+		for _, epp := range getUniqueEPPs(m) {
+			hf = append(hf, buildExtProcHTTPFilter(epp))
+		}
 	}
 
 	// HTTP filter order matters. When CORS is enabled,
@@ -269,6 +289,40 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) *httpConnectionMa
 	}
 }
 
+// buildExtProcHTTPFilter creates one named ext_proc HCM HTTPFilter for an InferencePool's
+// EPP. Similar to ext_authz, these filters are placed before the terminal router filter so
+// that the per-route TypedPerFilterConfgi can enable or disable each instance.
+func buildExtProcHTTPFilter(epp *model.EndpointPicker) *httpConnectionManagerv3.HttpFilter {
+	port := strconv.Itoa(int(epp.Port))
+	clusterName := getEPPClusterName(epp.Namespace, epp.Name, port)
+
+	config := &extprocv3.ExternalProcessor{
+		GrpcService: &envoy_config_core.GrpcService{
+			TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
+					ClusterName: clusterName,
+					// same workaround as the grpc ext_authz
+					Authority: fmt.Sprintf("%s:%s", epp.Name, port),
+				},
+			},
+		},
+		ProcessingMode: &extprocv3.ProcessingMode{
+			RequestHeaderMode:  extprocv3.ProcessingMode_SEND,
+			ResponseHeaderMode: extprocv3.ProcessingMode_SKIP,
+		},
+		// FailOpen allows the request through if the EPP is unreachable
+		// FailClose drops the request
+		FailureModeAllow: epp.FailureMode == "FailOpen",
+		MessageTimeout:   &durationpb.Duration{Seconds: 5},
+	}
+	return &httpConnectionManagerv3.HttpFilter{
+		Name: ExtProcFilterName(clusterName),
+		ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+			TypedConfig: toAny(config),
+		},
+	}
+}
+
 // allHeadersMatcher returns a ListStringMatcher that matches every header name.
 func allHeadersMatcher() *envoy_type_matcher_v3.ListStringMatcher {
 	return &envoy_type_matcher_v3.ListStringMatcher{
@@ -297,4 +351,31 @@ func toListStringMatcher(headers []string) *envoy_type_matcher_v3.ListStringMatc
 		})
 	}
 	return &envoy_type_matcher_v3.ListStringMatcher{Patterns: patterns}
+}
+
+// buildInferenceDestinationHeaderStripFilter rremoves the GIE destination header from the client
+// request. It must run before the ext_proc so that only the EPP can set the
+// x-gateway-destination-endpoint. This mitigates a client spoofing the header and having
+// the ORGINAL_DST cluster route to an arbitrary host
+func buildInferenceDestinationHeaderStripFilter() *httpConnectionManagerv3.HttpFilter {
+	remove := func(h string) *mutation_rules_v3.HeaderMutation {
+		return &mutation_rules_v3.HeaderMutation{
+			Action: &mutation_rules_v3.HeaderMutation_Remove{Remove: h},
+		}
+	}
+	config := &header_mutationv3.HeaderMutation{
+		Mutations: &header_mutationv3.Mutations{
+			RequestMutations: []*mutation_rules_v3.HeaderMutation{
+				remove("x-gateway-destination-endpoint"),
+				remove("x-gateway-destination-endpoint-subset"),
+				remove("x-gateway-destination-endpoint-fallback"),
+			},
+		},
+	}
+	return &httpConnectionManagerv3.HttpFilter{
+		Name: "envoy.filters.http.header_mutation",
+		ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+			TypedConfig: toAny(config),
+		},
+	}
 }
