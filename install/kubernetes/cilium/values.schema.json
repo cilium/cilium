@@ -4515,6 +4515,9 @@
                 "integer"
               ]
             },
+            "insecurePortEnabled": {
+              "type": "boolean"
+            },
             "labels": {
               "type": "object"
             },
@@ -4538,6 +4541,9 @@
                 "null",
                 "integer"
               ]
+            },
+            "securePortEnabled": {
+              "type": "boolean"
             },
             "type": {
               "type": "string"
