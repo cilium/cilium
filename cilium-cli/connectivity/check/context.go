@@ -1172,6 +1172,16 @@ func (ct *ConnectivityTest) CiliumPods() map[string]Pod {
 	return ct.ciliumPods
 }
 
+// RefreshCiliumPods re-fetches the Cilium agent pods from all clients, replacing
+// the cached set. Tests that recreate Cilium agent pods (for example by
+// restarting the agent or evicting it from a node) must call this so that later
+// framework operations and finalizers (policy-revision waits, agent log
+// collection) act on the live pods instead of stale references.
+func (ct *ConnectivityTest) RefreshCiliumPods(ctx context.Context) error {
+	ct.ciliumPods = make(map[string]Pod)
+	return ct.initCiliumPods(ctx)
+}
+
 func (ct *ConnectivityTest) Nodes() map[string]*slimcorev1.Node {
 	return ct.nodes
 }
