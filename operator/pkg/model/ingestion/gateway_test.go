@@ -1990,9 +1990,8 @@ func TestToHTTPSessionPersistence(t *testing.T) {
 	}
 }
 
-// Test_sortL4RoutesByAge checks that routes with equal creation timestamps are
-// ordered by namespace and then name as separate fields: a namespace that is a
-// prefix of another must not take precedence based on the "/" separator.
+// Test_sortL4RoutesByAge covers the punctuation trap: with matching creation
+// times, "a" must stay ahead of "a-x" once the keys are kept apart.
 func Test_sortL4RoutesByAge(t *testing.T) {
 	sameTime := metav1.NewTime(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
 

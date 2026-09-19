@@ -9,15 +9,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CompareByCreationTimestampAndObjectKey compares two Kubernetes objects by
-// their object metadata following the Gateway API conflict resolution rules:
-// the object with the oldest creation timestamp sorts first, and objects with
-// equal creation timestamps are ordered by namespace and then by name.
+// CompareByCreationTimestampAndObjectKey puts the earlier-created object ahead;
+// when both timestamps match, the namespace decides, then the name.
 //
-// Namespace and name are compared as separate fields rather than as a joined
-// "namespace/name" string: '-' (0x2D) sorts below '/' (0x2F), so the joined
-// form would give a namespace that is a prefix of another precedence based on
-// the separator (e.g. "a-x/b" would sort before "a/c").
+// The two keys stay independent instead of being stitched into one
+// "namespace/name" string. Stitching lets punctuation reshuffle the result:
+// '-' ranks ahead of '/', so "a-x/b" would outrank "a/c" even though "a" is
+// the smaller namespace.
 func CompareByCreationTimestampAndObjectKey(a, b metav1.ObjectMeta) int {
 	if c := a.CreationTimestamp.Time.Compare(b.CreationTimestamp.Time); c != 0 {
 		return c

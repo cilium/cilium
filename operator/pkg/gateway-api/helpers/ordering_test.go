@@ -33,37 +33,37 @@ func TestCompareByCreationTimestampAndObjectKey(t *testing.T) {
 		expected int
 	}{
 		{
-			name:     "older creation timestamp sorts first",
+			name:     "earlier creation wins the slot",
 			a:        newRoute("ns", "older", t1),
 			b:        newRoute("ns", "newer", t2),
 			expected: -1,
 		},
 		{
-			name:     "newer creation timestamp sorts last",
+			name:     "later creation yields to the earlier one",
 			a:        newRoute("ns", "newer", t2),
 			b:        newRoute("ns", "older", t1),
 			expected: 1,
 		},
 		{
-			name:     "same timestamp sorts by namespace",
+			name:     "matching timestamps fall back to namespace",
 			a:        newRoute("a-ns", "route", t1),
 			b:        newRoute("z-ns", "route", t1),
 			expected: -1,
 		},
 		{
-			name:     "same timestamp and namespace sorts by name",
+			name:     "matching namespace falls back to name",
 			a:        newRoute("ns", "alpha", t1),
 			b:        newRoute("ns", "zebra", t1),
 			expected: -1,
 		},
 		{
-			name:     "namespace that is a prefix of another sorts by namespace, not by the separator",
+			name:     "hyphenated namespace does not jump ahead via punctuation",
 			a:        newRoute("a", "c", t1),
 			b:        newRoute("a-x", "b", t1),
 			expected: -1,
 		},
 		{
-			name:     "same namespace and name compare equal",
+			name:     "identical identity reports a tie",
 			a:        newRoute("ns", "route", t1),
 			b:        newRoute("ns", "route", t1),
 			expected: 0,

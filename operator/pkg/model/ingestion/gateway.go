@@ -856,9 +856,8 @@ func parentRefsMatchListener(parentRefs []gatewayv1.ParentReference, listener ga
 	return false
 }
 
-// sortL4RoutesByAge orders routes oldest-first by creation timestamp, tie-broken
-// by namespace then name, so L4 conflict resolution deterministically binds the
-// oldest route to the listener.
+// sortL4RoutesByAge lines routes up so the earliest-created binds first;
+// matching creation times defer to namespace, then name, keeping the choice stable.
 func sortL4RoutesByAge[T any](routes []T, meta func(T) metav1.ObjectMeta) {
 	slices.SortStableFunc(routes, func(a, b T) int {
 		return helpers.CompareByCreationTimestampAndObjectKey(meta(a), meta(b))

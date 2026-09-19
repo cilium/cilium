@@ -127,11 +127,11 @@ func BuildBackendTLSPolicyLookup(btlspList *gatewayv1.BackendTLSPolicyList) Back
 				continue
 			}
 
-			// There is already a valid entry for this section name, so the Gateway API
-			// conflict resolution rules decide: the oldest policy wins, and policies
-			// with equal creation timestamps are ordered by namespace and then name.
+			// This section name is already taken, so rank the two candidates with the
+			// shared age-then-identity order: earlier creation prevails, with namespace
+			// and then name settling matching timestamps.
 			if CompareByCreationTimestampAndObjectKey(currentBTLSP.ObjectMeta, existingBTLSP.ObjectMeta) < 0 {
-				// The current policy sorts first, so it wins.
+				// The incoming entry ranks ahead, so it takes the slot.
 				// Move the existing policy into the Conflicted map
 				lookupMap[svcName].UpsertConflictedPolicy(existingName, existingBTLSP)
 				// Upsert the current BTLSP into the Valid set.
@@ -139,7 +139,7 @@ func BuildBackendTLSPolicyLookup(btlspList *gatewayv1.BackendTLSPolicyList) Back
 				continue
 			}
 
-			// Otherwise, the existing policy sorts first and wins: the current policy is conflicted.
+			// Otherwise the stored entry keeps the slot and the incoming one is recorded as conflicted.
 			lookupMap[svcName].UpsertConflictedPolicy(currentName, &currentBTLSP)
 		}
 	}
