@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"slices"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -131,7 +132,7 @@ func (sv *ServiceView) isCompatible(osv *ServiceView) (bool, string) {
 		// This applies even when both services opt in via sharing-permit-different-pods, because the opt-in only
 		// relaxes the same-selector requirement and does not give LB-IPAM a way to reason about endpoints.
 		if len(sv.Selector) == 0 || len(osv.Selector) == 0 {
-			return false, "compatible ExternalTrafficPolicy local but selecting different set of pods"
+			return false, "ExternalTrafficPolicy local but a service has no selector"
 		}
 
 		// If both use selectors, and they are not the same, then the services are not compatible.
@@ -143,7 +144,8 @@ func (sv *ServiceView) isCompatible(osv *ServiceView) (bool, string) {
 		// announcements are not L4 aware, so combining them with this opt-in can drop traffic.
 		if !maps.Equal(sv.Selector, osv.Selector) &&
 			!(sv.SharingPermitDifferentPods && osv.SharingPermitDifferentPods) {
-			return false, "compatible ExternalTrafficPolicy local but selecting different set of pods"
+			return false, "ExternalTrafficPolicy local but selecting different set of pods without " +
+				annotation.LBIPAMSharingPermitDifferentPods + " on both services"
 		}
 	}
 
