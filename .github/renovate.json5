@@ -517,6 +517,16 @@
       ],
     },
     {
+      // goconcurrencylint is compiled into the custom golangci-lint binary, so a
+      // new version changes which findings block CI. Pin it and roll it forward
+      // deliberately after a maintainer has reviewed the upstream diff, rather
+      // than letting Renovate bump it automatically.
+      enabled: false,
+      matchPackageNames: [
+        "github.com/sanbricio/goconcurrencylint",
+      ],
+    },
+    {
       "groupName": "all external docker images dependencies",
       "groupSlug": "all-external-images-deps-stable",
       "matchFileNames": [

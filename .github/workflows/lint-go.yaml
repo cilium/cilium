@@ -87,6 +87,13 @@ jobs:
           version: v2.13.2
           skip-cache: true
           args: "--verbose --modules-download-mode=vendor -c tools/golangci-lint-kubeapi/golangci-lint-kubeapi.yaml ./pkg/k8s/apis/cilium.io/..."
+      - name: Run goconcurrencylint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          # renovate: datasource=docker depName=golangci/golangci-lint
+          version: v2.13.2
+          skip-cache: true
+          args: "--verbose --modules-download-mode=vendor -c tools/goconcurrencylint/goconcurrencylint.yaml ./..."
 
   precheck:
     runs-on: ubuntu-24.04

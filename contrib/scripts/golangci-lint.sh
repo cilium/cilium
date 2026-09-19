@@ -33,4 +33,4 @@ echo "golangci-lint-kubeapi run" "$@"
 "${custom_bin}" -c "${custom_dir}/golangci-lint-kubeapi.yaml" run ./pkg/k8s/apis/cilium.io/... "$@"
 
 echo "goconcurrencylint run" "$@"
-"${custom_bin}" -c "${custom_dir}/goconcurrencylint.yaml" run ./... "$@"
+"${custom_bin}" -c "tools/goconcurrencylint/goconcurrencylint.yaml" run ./... "$@"
