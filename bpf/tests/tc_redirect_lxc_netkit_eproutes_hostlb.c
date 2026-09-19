@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* Copyright Authors of Cilium */
+
+#define __CONFIG_ENABLE_NETKIT
+#define __CONFIG_ENABLE_ENDPOINT_ROUTES
+/* bpf-lb-sock-hostns-only=true: Pod traffic still needs per-packet LB. */
+#define ENABLE_SOCKET_LB_FULL 1
+#define ENABLE_SOCKET_LB_HOST_ONLY 1
+#define ENABLE_IPV4 1
+#define ENABLE_IPV6 1
+#include "tc_redirect_lxc.h"
