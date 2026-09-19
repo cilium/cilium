@@ -76,6 +76,10 @@ func init() {
   RFC3339Micro:           %s
   RFC3339Nano:            %s
   RFC1123Z:               %s
+
+Note: this filters on the time Hubble received the flow, not necessarily
+the time the underlying event occurred, and assumes flows in the buffer
+are stored in roughly chronological order.
  `,
 			time.StampMilli,
 			hubtime.YearMonthDay,
@@ -100,6 +104,10 @@ func init() {
   RFC3339Micro:           %s
   RFC3339Nano:            %s
   RFC1123Z:               %s
+
+Note: this filters on the time Hubble received the flow, not necessarily
+the time the underlying event occurred, and assumes flows in the buffer
+are stored in roughly chronological order.
  `,
 			time.StampMilli,
 			hubtime.YearMonthDay,
