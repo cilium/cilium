@@ -1856,6 +1856,16 @@
         "dnsRejectResponseCode": {
           "type": "string"
         },
+        "dnsServerIPs": {
+          "items": {},
+          "type": "array"
+        },
+        "dnsServerPort": {
+          "type": "integer"
+        },
+        "dnsServerService": {
+          "type": "string"
+        },
         "enableDnsCompression": {
           "type": "boolean"
         },
