@@ -4,6 +4,7 @@
 package translation
 
 import (
+	"regexp"
 	"testing"
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -262,6 +263,31 @@ func Test_buildExtAuthzHTTPFilter_forwardBody(t *testing.T) {
 		require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
 		require.Nil(t, config.GetWithRequestBody())
 	})
+}
+
+func Test_buildExtAuthzHTTPFilter_decoderHeaderMutationRules(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		protocol model.ExternalAuthProtocol
+	}{
+		{name: "HTTP", protocol: model.ExternalAuthProtocolHTTP},
+		{name: "GRPC", protocol: model.ExternalAuthProtocolGRPC},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			af := &model.HTTPExternalAuthFilter{
+				Backend:  model.Backend{Name: "authz", Namespace: "default", Port: &model.BackendPort{Port: 8080}},
+				Protocol: tc.protocol,
+			}
+			filter := buildExtAuthzHTTPFilter(af)
+			config := &extauthzv3.ExtAuthz{}
+			require.NoError(t, proto.Unmarshal(filter.GetTypedConfig().Value, config))
+
+			expr := config.GetDecoderHeaderMutationRules().GetDisallowExpression().GetRegex()
+			require.Equal(t, "^(:authority|host|content-length)$", expr)
+			_, err := regexp.Compile(expr)
+			require.NoError(t, err)
+		})
+	}
 }
 
 func Test_buildExtAuthzHTTPFilter_allowedRequestHeaders(t *testing.T) {
