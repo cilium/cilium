@@ -102,6 +102,17 @@ func listenerAdditionalAddressesEqual(oldListener, newListener *envoy_config_lis
 	return true
 }
 
+// listenerPrimaryPortsEqual reports whether two listeners use the same primary
+// socket port. Port-allocation callbacks manage this primary proxy port; a
+// change to AdditionalAddresses does not require releasing or acknowledging
+// the allocation again even when Envoy must recreate the listener.
+func listenerPrimaryPortsEqual(oldListener, newListener *envoy_config_listener.Listener) bool {
+	oldAddress := oldListener.GetAddress().GetSocketAddress()
+	newAddress := newListener.GetAddress().GetSocketAddress()
+	return oldAddress != nil && newAddress != nil &&
+		oldAddress.GetPortValue() == newAddress.GetPortValue()
+}
+
 // listenerAddressesEqual compares all listener addresses while treating
 // additional addresses as an unordered multiset.
 func listenerAddressesEqual(oldListener, newListener *envoy_config_listener.Listener) bool {

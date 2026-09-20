@@ -7,6 +7,7 @@ import (
 	"context"
 	"iter"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2662,11 +2663,12 @@ func (*recordingAckingResourceMutator) CancelCompletions(string) {}
 
 func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 	tests := []struct {
-		name       string
-		oldPorts   []uint32
-		newPorts   []uint32
-		operations []string
-		upsertErrs []error
+		name              string
+		oldPorts          []uint32
+		newPorts          []uint32
+		operations        []string
+		upsertErrs        []error
+		wantCallbackCount uint64
 	}{
 		{
 			name:       "unchanged addresses are updated in place",
@@ -2675,10 +2677,11 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 			operations: []string{"upsert listener"},
 		},
 		{
-			name:       "changed primary address preserves delete before update",
-			oldPorts:   []uint32{80, 443},
-			newPorts:   []uint32{8080, 443},
-			operations: []string{"delete listener", "upsert listener"},
+			name:              "changed primary port preserves delete before update",
+			oldPorts:          []uint32{80, 443},
+			newPorts:          []uint32{8080, 443},
+			operations:        []string{"delete listener", "upsert listener"},
+			wantCallbackCount: 1,
 		},
 		{
 			name:       "changed additional address is deleted before update",
@@ -2710,11 +2713,17 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 			oldResources.Listeners["listener"] = testListenerWithPorts(tt.oldPorts...)
 			newResources := xds.NewResources()
 			newResources.Listeners["listener"] = testListenerWithPorts(tt.newPorts...)
+			var callbackCount atomic.Uint64
+			newResources.PortAllocationCallbacks["listener"] = func(context.Context) error {
+				callbackCount.Add(1)
+				return nil
+			}
 
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 			defer cancel()
 			require.NoError(t, server.UpdateEnvoyResources(ctx, oldResources, newResources, nil))
 			assert.Equal(t, tt.operations, mutator.operations)
+			assert.Equal(t, tt.wantCallbackCount, callbackCount.Load())
 		})
 	}
 }
