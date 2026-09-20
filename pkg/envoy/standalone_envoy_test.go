@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/revert"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -1052,11 +1053,11 @@ func TestEnvoyDelta(t *testing.T) {
 
 	// Push Network Policies with Selectors
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	var finalize func()
-	err, _, finalize = xdsServer.UpdateNetworkPolicy(t.Context(), policyOwner, epp, s.waitGroup)
+	var policyRevertible revert.Revertible
+	err, policyRevertible = xdsServer.UpdateNetworkPolicy(t.Context(), policyOwner, epp, s.waitGroup)
 	require.NoError(t, err)
-	if finalize != nil {
-		finalize()
+	if policyRevertible != nil {
+		policyRevertible.Finalize()
 	}
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -1230,11 +1231,11 @@ func TestEnvoy(t *testing.T) {
 
 	// Push Network Policies with Selectors
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	var finalize func()
-	err, _, finalize = xdsServer.UpdateNetworkPolicy(t.Context(), policyOwner, epp, s.waitGroup)
+	var policyRevertible revert.Revertible
+	err, policyRevertible = xdsServer.UpdateNetworkPolicy(t.Context(), policyOwner, epp, s.waitGroup)
 	require.NoError(t, err)
-	if finalize != nil {
-		finalize()
+	if policyRevertible != nil {
+		policyRevertible.Finalize()
 	}
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)

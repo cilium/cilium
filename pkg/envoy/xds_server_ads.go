@@ -531,9 +531,9 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 
 func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy,
 	wg *completion.WaitGroup,
-) (error, revert.RevertFunc, revert.FinalizeFunc) {
+) (error, revert.Revertible) {
 	if epp == nil {
-		return ErrNilPolicy, nil, nil
+		return ErrNilPolicy, nil
 	}
 
 	names := ep.GetPolicyNames()
@@ -544,7 +544,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 			logfields.Name, names,
 			logfields.EndpointID, ep.GetID(),
 		)
-		return nil, func() error { return nil }, func() {}
+		return nil, nil
 	}
 
 	l4policy := &epp.SelectorPolicy.L4Policy
@@ -554,7 +554,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 
 	// Error out if the selectors are no longer valid
 	if !selectors.IsValid() {
-		return policy.ErrStaleSelectors, nil, nil
+		return policy.ErrStaleSelectors, nil
 	}
 
 	s.mutex.Lock()
@@ -589,7 +589,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	// First, validate the policy
 	err := networkPolicy.Validate()
 	if err != nil {
-		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), names, err), nil, nil
+		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), names, err), nil
 	}
 
 	epID := ep.GetID()
@@ -631,53 +631,49 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	}
 	if err := s.updateSnapshot(ctx, resources, localNodeID, wg, callbackTypeURLs,
 		&resourceChanges{networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{key: resourceName, value: oldPolicy, existed: existed}}}); err != nil {
-		return err, nil, nil
+		return err, nil
 	}
 
 	if !waitForACK {
 		callback(nil)
 	}
 
-	return nil, func() error {
-			s.logger.Debug("Reverting xDS network policy update")
+	return nil, revert.RevertFunc(func() error {
+		s.logger.Debug("Reverting xDS network policy update")
 
-			s.mutex.Lock()
-			defer s.mutex.Unlock()
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
 
-			// Restore local endpoint mappings.
-			for _, oldEp := range revertEndpoints {
-				if oldEp == nil {
-					s.localEndpointStore.removeLocalEndpoint(ep)
-				} else {
-					s.localEndpointStore.setLocalEndpoint(ep, names)
-				}
+		// Restore local endpoint mappings.
+		for _, oldEp := range revertEndpoints {
+			if oldEp == nil {
+				s.localEndpointStore.removeLocalEndpoint(ep)
+			} else {
+				s.localEndpointStore.setLocalEndpoint(ep, names)
 			}
-
-			// Remove the policy we just added and re-push snapshot.
-			resources := s.cache.GetAllResources(localNodeID)
-			if resources != nil {
-				resources = resources.DeepCopy()
-				oldPolicy, existed := resources.NetworkPolicies[resourceName]
-				delete(resources.NetworkPolicies, resourceName)
-				changes := &resourceChanges{
-					networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{
-						key:     resourceName,
-						value:   oldPolicy,
-						existed: existed,
-					}},
-				}
-				if err := s.updateSnapshot(ctx, resources, localNodeID, nil, nil, changes); err != nil {
-					return err
-				}
-			}
-
-			s.logger.Debug("Finished reverting xDS network policy update")
-			return nil
-		}, func() {
-			s.logger.Debug("Finalizing xDS network policy update",
-				logfields.EndpointID, epID,
-			)
 		}
+
+		// Remove the policy we just added and re-push snapshot.
+		resources := s.cache.GetAllResources(localNodeID)
+		if resources != nil {
+			resources = resources.DeepCopy()
+			oldPolicy, existed := resources.NetworkPolicies[resourceName]
+			delete(resources.NetworkPolicies, resourceName)
+			changes := &resourceChanges{
+				networkPolicies: []savedEntry[*cilium.NetworkPolicy]{{
+					key:     resourceName,
+					value:   oldPolicy,
+					existed: existed,
+				}},
+			}
+			if err := s.updateSnapshot(ctx, resources, localNodeID, nil, nil, changes); err != nil {
+				return err
+			}
+		}
+
+		s.logger.Debug("Finished reverting xDS network policy update")
+		return nil
+	})
 }
 
 func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource) {

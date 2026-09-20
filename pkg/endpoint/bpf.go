@@ -830,9 +830,9 @@ func (e *Endpoint) finalizeEndpointRegeneration(regenContext *regenerationContex
 		// Always execute the finalization code, even if the endpoint is
 		// terminating, in order to properly release resources.
 		e.unconditionalLock()
-		defer e.unlock() // In case Finalize() panics
+		defer e.unlock() // In case finalization panics
 		e.getLogger().Debug("Finalizing successful endpoint regeneration")
-		datapathRegenCtx.finalizeList.Finalize()
+		datapathRegenCtx.revertibles.Finalize()
 	} else {
 		if err := e.lockAlive(); err != nil {
 			e.getLogger().Debug(
@@ -841,9 +841,9 @@ func (e *Endpoint) finalizeEndpointRegeneration(regenContext *regenerationContex
 			)
 			return
 		}
-		defer e.unlock() // In case Revert() panics
+		defer e.unlock() // In case a revertible panics
 		e.getLogger().Debug("Reverting endpoint changes after BPF regeneration failed")
-		if err := datapathRegenCtx.revertStack.Revert(); err != nil {
+		if err := datapathRegenCtx.revertibles.Revert(); err != nil {
 			e.getLogger().Error(
 				"Reverting endpoint regeneration changes failed",
 				logfields.Error, err,
@@ -1046,11 +1046,11 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry)
 // ApplyPolicyMapChanges updates the Endpoint's PolicyMap with the changes
 // that have accumulated for the PolicyMap via various outside events (e.g.,
 // identities added / deleted).
-// 'proxyWaitGroup' may not be nil. Caller must ultimately call either the returned revert or
-// finalize func, if non-nil and proxyWaitGroup.Wait fails or succeeds, respectively.
-func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (err error, rf revert.RevertFunc, ff revert.FinalizeFunc) {
+// 'proxyWaitGroup' may not be nil. The caller must revert or finalize the returned
+// revertible, if non-nil.
+func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (err error, revertible revert.Revertible) {
 	if err = e.lockAlive(); err != nil {
-		return err, nil, nil
+		return err, nil
 	}
 	defer e.unlock()
 
@@ -1063,7 +1063,7 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (
 	if !e.desiredPolicy.IsValid() {
 		// The endpoint has no computed policy yet, so it is pointless to try apply
 		// incremental changes on it.
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	regenCtx := regenerationContext{
@@ -1077,24 +1077,20 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (
 		e.logStatusLocked(Policy, Failure, err.Error())
 
 		// revert any changes on synchronous error for an endpoint
-		regenCtx.datapathRegenerationContext.revertStack.Revert()
+		_ = regenCtx.datapathRegenerationContext.revertibles.Revert()
 
-		return err, nil, nil
+		return err, nil
 	}
 
 	e.LogStatusOKLocked(Policy, "Policy Map changes applied")
 
-	// otherwise the revert/finalize decision is postponed after
+	// Otherwise the revert/finalize decision is postponed until after
 	// eventual proxyWaitGroup.Wait by the caller
-
-	if !regenCtx.datapathRegenerationContext.revertStack.Empty() {
-		rf = regenCtx.datapathRegenerationContext.revertStack.Revert
-	}
-	if !regenCtx.datapathRegenerationContext.finalizeList.Empty() {
-		ff = regenCtx.datapathRegenerationContext.finalizeList.Finalize
+	if !regenCtx.datapathRegenerationContext.revertibles.Empty() {
+		revertible = &regenCtx.datapathRegenerationContext.revertibles
 	}
 
-	return nil, rf, ff
+	return nil, revertible
 }
 
 // applyPolicyMapChangesLocked applies any incremental policy map changes
@@ -1159,14 +1155,13 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		if option.Config.EnableEnvoyConfig || hasNewPolicy || hasEnvoyRedirect || e.isIngress {
 			e.getLogger().Debug("applyPolicyMapChanges: Updating Envoy NetworkPolicy")
 			stats.proxyPolicyCalculation.Start()
-			proxyErr, rf, ff := e.proxy.UpdateNetworkPolicy(context.Background(), e, e.desiredPolicy, proxyWaitGroup)
+			proxyErr, revertible := e.proxy.UpdateNetworkPolicy(context.Background(), e, e.desiredPolicy, proxyWaitGroup)
 			stats.proxyPolicyCalculation.End(proxyErr == nil)
 
-			// UpdateNetworkPolicy only returns revert/finalize func if there is no
+			// UpdateNetworkPolicy only returns a revertible if there is no
 			// synchronous error
 			if proxyErr == nil {
-				datapathRegenCtxt.revertStack.Push(rf)
-				datapathRegenCtxt.finalizeList.Append(ff)
+				datapathRegenCtxt.revertibles.Add(revertible)
 			} else {
 				e.getLogger().Debug("applyPolicyMapChanges: UpdateNetworkPolicy failed",
 					logfields.Error, proxyErr)

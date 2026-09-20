@@ -267,7 +267,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		stats.proxyConfiguration.Start()
 		desiredRedirects, stats.missingProxyRedirectsCount, rf = e.addNewRedirects(selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyConfiguration.End(true)
-		datapathRegenCtxt.revertStack.Push(rf)
+		datapathRegenCtxt.revertibles.AddRevert(rf)
 
 		// Add a finalize function to clear out stale redirects. This will be called after
 		// new redirects have been acknowledged, and policy maps and NetworkPolicy have been
@@ -276,7 +276,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		if e.desiredPolicy != nil {
 			previousRedirects = e.desiredPolicy.Redirects
 		}
-		datapathRegenCtxt.finalizeList.Append(func() {
+		datapathRegenCtxt.revertibles.AddFinalize(func() {
 			// At the point of this call, traffic is no longer redirected to the proxy
 			// for now-obsolete redirects, since we synced the updated policy map above.
 			// It's now safe to remove the redirects from the proxy's configuration.
@@ -428,7 +428,7 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 		// Revert by changing back to the old realized policy in case of any error
 		// This is needed to be able to recover to a known good state, as
 		// e.realizedPolicy is set when endpoint regeneration has succeeded.
-		datapathRegenCtxt.revertStack.Push(func() error {
+		datapathRegenCtxt.revertibles.AddRevert(func() error {
 			// Do nothing if e.policyMap was not initialized already
 			if e.policyMap != nil && e.desiredPolicy != e.realizedPolicy {
 				desiredPolicyMapLen := e.desiredPolicy.Len()
@@ -1102,8 +1102,8 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 		e.getLogger().Debug("Regenerate: Initial Envoy NetworkPolicy")
 
 		stats.proxyPolicyCalculation.Start()
-		// Initial NetworkPolicy is not reverted
-		err, _, finalize := e.proxy.UpdateNetworkPolicy(regenContext.parentContext, e, e.desiredPolicy, nil)
+		// Initial NetworkPolicy is not reverted.
+		err, revertible := e.proxy.UpdateNetworkPolicy(regenContext.parentContext, e, e.desiredPolicy, nil)
 		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {
 			e.getLogger().Warn(
@@ -1113,8 +1113,8 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 			// Do not error out so that the policy regeneration is tried again.
 			return nil, release
 		}
-		if finalize != nil {
-			finalize()
+		if revertible != nil {
+			revertible.Finalize()
 		}
 	}
 
