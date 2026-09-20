@@ -1536,7 +1536,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends.
 			 */
-			if (backend && !state->syn)
+			if (backend && !state->syn && tuple->nexthdr != IPPROTO_UDP)
 				break;
 
 			if (unlikely(svc->count == 0))
@@ -2374,7 +2374,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends.
 			 */
-			if (backend && !state->syn)
+			if (backend && !state->syn && tuple->nexthdr != IPPROTO_UDP)
 				break;
 
 			if (unlikely(svc->count == 0))

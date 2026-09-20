@@ -165,7 +165,7 @@ func socketTerminationLoop(p socketTerminationParams, sd sockets.SocketDestroyer
 
 			// Terminate the sockets connected to backends that have been either
 			// deleted or which are no longer considered viable.
-			if change.Deleted || !backend.IsAlive() {
+			if change.Deleted || !backend.IsAlive() || ((backend.State == lb.BackendStateTerminating || backend.State == lb.BackendStateTerminatingNotServing) && backend.Address.Protocol() == lb.UDP) {
 				opSupported := terminateConnectionsToBackend(p, sd, backend.Address)
 				if !opSupported {
 					// The kernel doesn't support socket termination. We can stop processing.
