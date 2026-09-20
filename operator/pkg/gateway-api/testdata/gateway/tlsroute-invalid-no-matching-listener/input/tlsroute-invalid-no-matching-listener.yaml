@@ -61,7 +61,7 @@ spec:
           - name: tls-validity-checks-certificate
             namespace: gateway-conformance-infra
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tlsroute-not-allowed-protocol-http
@@ -76,7 +76,7 @@ spec:
         - name: tls-backend
           port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tlsroute-not-allowed-protocol-https
@@ -91,7 +91,7 @@ spec:
         - name: tls-backend
           port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tlsroute-no-matching-section-name
