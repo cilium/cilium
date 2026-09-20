@@ -197,8 +197,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 	if h.kprCfg.EnableSocketLB {
 		if option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly {
 			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
-		} else {
-			cDefinesMap["ENABLE_SOCKET_LB_FULL"] = "1"
 		}
 		if option.Config.UnsafeDaemonConfigOption.EnableSocketLBPeer {
 			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
