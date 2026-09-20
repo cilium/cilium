@@ -25,7 +25,7 @@ body:
         **NOTE: If your version is NOT listed then please upgrade before opening the GH issue. Thank you**
       options:
         # renovate: datasource=github-tags depName=cilium/cilium
-        - 'equal or higher than v1.20.1 and lower than v1.21.0'
+        - 'equal or higher than 1.20.2 and lower than v1.21.0'
         # renovate: datasource=github-tags depName=cilium/cilium
         - 'equal or higher than v1.19.7 and lower than v1.20.0'
         # renovate: datasource=github-tags depName=cilium/cilium
