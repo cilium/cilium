@@ -84,11 +84,13 @@ type endpointManager struct {
 	// endpointManager and clean it up. Always set to RemoveEndpoint.
 	deleteEndpoint endpointDeleteFunc
 
-	// A mark-and-sweep garbage collector may operate on the endpoint list.
+	// A local cache of endpoints that are marked for garbage collection.
+	// Only used by EndpointManager GC controller.
+	//
 	// This is configured via WithPeriodicEndpointGC() and will mark
 	// endpoints for removal on one run of the controller, then in the
 	// subsequent controller run will remove the endpoints.
-	markedEndpoints []uint16
+	markedEndpoints map[uint16]struct{}
 
 	// controllers associated with the endpoint manager.
 	controllers *controller.Manager
