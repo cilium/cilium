@@ -195,6 +195,13 @@ rules:
 - apiGroups:
   - resource.k8s.io
   resources:
+  - resourceclaims/driver
+  verbs:
+  - associated-node:update
+  - associated-node:patch
+- apiGroups:
+  - resource.k8s.io
+  resources:
   - resourceslices
   verbs:
   - list
