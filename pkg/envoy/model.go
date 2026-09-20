@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy/config"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
@@ -90,7 +91,7 @@ type portState struct {
 	// Assume none of the rules have side-effects so that rule evaluation can be
 	// stopped as soon as the first allowing rule is found. Values are added to
 	// 'cantShortCircuit' for each precedence for which this is not true.
-	cantShortCircuit map[uint32]struct{}
+	cantShortCircuit set.Set[uint32]
 
 	// port-specific wildcard selector rules, if any, only for the highest
 	// precedence rules.
@@ -484,7 +485,6 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 		ensurePortState := func(key portKey) portState {
 			byPort, ok := rulesByPort[key]
 			if !ok {
-				byPort.cantShortCircuit = make(map[uint32]struct{})
 				ports = append(ports, key)
 			}
 			return byPort
@@ -559,7 +559,7 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 						portKey := portKey{port, l4.EndPort}
 						byPort := ensurePortState(portKey)
 						if !csc {
-							byPort.cantShortCircuit[rule.Precedence] = struct{}{}
+							byPort.cantShortCircuit.Insert(rule.Precedence)
 						}
 						byPort.rules = append(byPort.rules, rule)
 						rulesByPort[portKey] = byPort
@@ -595,7 +595,7 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 				portKey := portKey{port, l4.EndPort}
 				byPort := ensurePortState(portKey)
 				if !csc {
-					byPort.cantShortCircuit[rule.Precedence] = struct{}{}
+					byPort.cantShortCircuit.Insert(rule.Precedence)
 				}
 
 				if len(rule.RemotePolicies) == 0 {
@@ -642,7 +642,7 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 			if denyAllRule != nil || allowAllRule != nil {
 				nRules := len(rules)
 				rules = slices.DeleteFunc(rules, func(rule *cilium.PortNetworkPolicyRule) bool {
-					_, found := cantShortCircuit[rule.Precedence]
+					found := cantShortCircuit.Has(rule.Precedence)
 					canShortCircuit := !found
 
 					return denyAllRule != nil && rule != denyAllRule && rule.Precedence <= denyAllRule.Precedence ||
