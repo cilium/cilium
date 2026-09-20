@@ -41,14 +41,14 @@ func (s *LocalEndpointStore) getLocalEndpoint(name string) endpoint.EndpointUpda
 	return s.networkPolicyEndpoints[name]
 }
 
-// setLocalEndpoint maps endpoint's policy names to the local endpoint.
+// setLocalEndpoint maps policyNames to the local endpoint.
 // 'ep' must not be nil. Returns any conflicts found, nil for none.
-func (s *LocalEndpointStore) setLocalEndpoint(ep endpoint.EndpointUpdater) []endpointInfo {
+func (s *LocalEndpointStore) setLocalEndpoint(ep endpoint.EndpointUpdater, policyNames []string) []endpointInfo {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	var conflicts []endpointInfo
-	for _, name := range ep.GetPolicyNames() {
+	for _, name := range policyNames {
 		foundEP := s.networkPolicyEndpoints[name]
 		// 'ep' is assumed to be stable for the lifetime of the endpoint, so
 		// interface inequality indicates a conflict.
