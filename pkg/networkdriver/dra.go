@@ -29,8 +29,8 @@ import (
 )
 
 func (driver *Driver) startDRA(ctx context.Context) error {
-	driver.logger.DebugContext(
-		ctx, "starting driver",
+	driver.logger.InfoContext(
+		ctx, "starting DRA plugin",
 		logfields.DriverName, driver.config.DriverName,
 	)
 
@@ -103,9 +103,8 @@ func (driver *Driver) startDRA(ctx context.Context) error {
 		return fmt.Errorf("DRA plugin registration failed: %w", err)
 	}
 
-	driver.logger.DebugContext(ctx,
+	driver.logger.InfoContext(ctx,
 		"DRA plugin registration successful",
-		logfields.DriverName, driver.config.DriverName,
 	)
 
 	return nil
