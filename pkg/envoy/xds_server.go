@@ -752,7 +752,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	// Update local endpoint IP/policy mapping for access log correlation and log any conflicts.
 	// This is done even if policy update fails, as this information only depends on the
 	// existence of the endpoint and does not need to be reverted even if policy update fails.
-	conflicts := s.localEndpointStore.setLocalEndpoint(ep)
+	conflicts := s.localEndpointStore.setLocalEndpoint(ep, names)
 	if len(conflicts) > 0 {
 		s.logger.Error("Conflicting policy names detected while updating local endpoint store",
 			logfields.EndpointID, ep.GetID(),
@@ -772,7 +772,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	// First, validate the policy
 	err := networkPolicy.Validate()
 	if err != nil {
-		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), ep.GetPolicyNames(), err), nil, nil
+		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), names, err), nil, nil
 	}
 
 	// If there are no listeners configured, the local node's Envoy proxy won't
