@@ -605,7 +605,7 @@ func TestADSListenersRequiringRecreate(t *testing.T) {
 }
 
 func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
-	tests := []struct {
+	modes := []struct {
 		name   string
 		mode   config.XDSMode
 		strict bool
@@ -614,55 +614,78 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 		{name: "strict ads", mode: config.EnvoyXDSModeStrictADS, strict: true},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-			serverConfig := xdsServerConfig{
-				envoySocketDir:       t.TempDir(),
-				policyRestoreTimeout: 30 * time.Second,
-				envoyXDSMode:         tt.mode,
+	addressChanges := []struct {
+		name              string
+		oldListener       *envoy_config_listener.Listener
+		newListener       *envoy_config_listener.Listener
+		wantCallbackCount uint64
+	}{
+		{
+			name:        "additional address changed",
+			oldListener: adsTestListener(80, 8443),
+			newListener: adsTestListener(80, 8444),
+		},
+		{
+			name:              "primary port changed",
+			oldListener:       adsTestListener(80, 8443),
+			newListener:       adsTestListener(81, 8443),
+			wantCallbackCount: 1,
+		},
+	}
+
+	for _, mode := range modes {
+		t.Run(mode.name, func(t *testing.T) {
+			for _, addressChange := range addressChanges {
+				t.Run(addressChange.name, func(t *testing.T) {
+					logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+					serverConfig := xdsServerConfig{
+						envoySocketDir:       t.TempDir(),
+						policyRestoreTimeout: 30 * time.Second,
+						envoyXDSMode:         mode.mode,
+					}
+					cache := xdsnew.NewCache(logger, mode.strict)
+					server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+
+					oldResources := adsTestResources(addressChange.oldListener)
+					require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
+
+					newResources := adsTestResources(addressChange.newListener)
+					var callbackCount atomic.Uint64
+					newResources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
+						callbackCount.Add(1)
+						return nil
+					}
+
+					ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+					defer cancel()
+					result := make(chan error, 1)
+					go func() {
+						result <- server.UpdateEnvoyResources(ctx, oldResources, newResources, nil)
+					}()
+
+					require.Eventually(t, func() bool {
+						resources := cache.GetAllResources(localNodeID)
+						return resources != nil && len(resources.Listeners) == 0 &&
+							cache.GetCompletionCallbacks().PendingCompletionCount() == 1
+					}, time.Second, 10*time.Millisecond)
+					require.Equal(t, uint64(0), callbackCount.Load())
+					deleteVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
+
+					require.Eventually(t, func() bool {
+						resources := cache.GetAllResources(localNodeID)
+						listener := resources.Listeners["listener1"]
+						return listener != nil && listenerAddressesEqual(listener, newResources.Listeners["listener1"]) &&
+							cache.GetCompletionCallbacks().PendingCompletionCount() == 1
+					}, time.Second, 10*time.Millisecond)
+					require.Equal(t, uint64(0), callbackCount.Load())
+					replaceVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
+					require.NotEqual(t, deleteVersion, replaceVersion)
+
+					require.NoError(t, <-result)
+					require.Equal(t, addressChange.wantCallbackCount, callbackCount.Load())
+					require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
+				})
 			}
-			cache := xdsnew.NewCache(logger, tt.strict)
-			server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
-
-			oldResources := adsTestResources(adsTestListener(80, 8443))
-			require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
-
-			newResources := adsTestResources(adsTestListener(80, 8444))
-			var callbackCount atomic.Uint64
-			newResources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
-				callbackCount.Add(1)
-				return nil
-			}
-
-			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-			defer cancel()
-			result := make(chan error, 1)
-			go func() {
-				result <- server.UpdateEnvoyResources(ctx, oldResources, newResources, nil)
-			}()
-
-			require.Eventually(t, func() bool {
-				resources := cache.GetAllResources(localNodeID)
-				return resources != nil && len(resources.Listeners) == 0 &&
-					cache.GetCompletionCallbacks().PendingCompletionCount() == 1
-			}, time.Second, 10*time.Millisecond)
-			require.Equal(t, uint64(0), callbackCount.Load())
-			deleteVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
-
-			require.Eventually(t, func() bool {
-				resources := cache.GetAllResources(localNodeID)
-				listener := resources.Listeners["listener1"]
-				return listener != nil && listenerAddressesEqual(listener, newResources.Listeners["listener1"]) &&
-					cache.GetCompletionCallbacks().PendingCompletionCount() == 1
-			}, time.Second, 10*time.Millisecond)
-			require.Equal(t, uint64(0), callbackCount.Load())
-			replaceVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
-			require.NotEqual(t, deleteVersion, replaceVersion)
-
-			require.NoError(t, <-result)
-			require.Equal(t, uint64(0), callbackCount.Load())
-			require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
 		})
 	}
 }
