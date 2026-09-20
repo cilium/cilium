@@ -10,6 +10,9 @@ import (
 	"errors"
 )
 
+// ErrUnsupportedLayer is returned by decoders when they encounter a layer type that they do not support.
+var ErrUnsupportedLayer = errors.New("Layer type not currently supported")
+
 // DecodeFeedback is used by DecodingLayer layers to provide decoding metadata.
 type DecodeFeedback interface {
 	// SetTruncated should be called if during decoding you notice that a packet
@@ -154,5 +157,5 @@ func (d *DecodeFailure) LayerType() LayerType { return LayerTypeDecodeFailure }
 // decodeUnknown "decodes" unsupported data types by returning an error.
 // This decoder will thus always return a DecodeFailure layer.
 func decodeUnknown(data []byte, p PacketBuilder) error {
-	return errors.New("Layer type not currently supported")
+	return ErrUnsupportedLayer
 }

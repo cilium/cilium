@@ -190,14 +190,34 @@ type SCTPParameter struct {
 	Value        []byte
 }
 
-func decodeSCTPParameter(data []byte) SCTPParameter {
+// Minimum lengths covering the fixed fields each SCTP decoder reads.
+const (
+	sctpParameterMinLength = 4
+	sctpInitMinLength      = 20
+	sctpSackMinLength      = 16
+	sctpShutdownMinLength  = 8
+)
+
+func decodeSCTPParameter(data []byte) (SCTPParameter, error) {
+	if len(data) < sctpParameterMinLength {
+		return SCTPParameter{}, errors.New("invalid SCTP parameter length")
+	}
 	length := binary.BigEndian.Uint16(data[2:4])
+	if length < sctpParameterMinLength || int(length) > len(data) {
+		return SCTPParameter{}, errors.New("invalid SCTP parameter length")
+	}
 	return SCTPParameter{
 		Type:         binary.BigEndian.Uint16(data[0:2]),
 		Length:       length,
 		Value:        data[4:length],
 		ActualLength: roundUpToNearest4(int(length)),
-	}
+	}, nil
+}
+
+// nextSCTPParameter skips past p. The last parameter's padding may lie
+// outside the chunk length (RFC 9260 3.2), so the skip is clamped.
+func nextSCTPParameter(data []byte, p SCTPParameter) []byte {
+	return data[min(p.ActualLength, len(data)):]
 }
 
 func (p SCTPParameter) Bytes() []byte {
@@ -425,6 +445,9 @@ func decodeSCTPInit(data []byte, p gopacket.PacketBuilder) error {
 	if err != nil {
 		return err
 	}
+	if chunk.Length < sctpInitMinLength {
+		return errors.New("invalid SCTP init chunk length")
+	}
 	sc := &SCTPInit{
 		SCTPChunk:                      chunk,
 		InitiateTag:                    binary.BigEndian.Uint32(data[4:8]),
@@ -435,9 +458,12 @@ func decodeSCTPInit(data []byte, p gopacket.PacketBuilder) error {
 	}
 	paramData := data[20:sc.ActualLength]
 	for len(paramData) > 0 {
-		p := SCTPInitParameter(decodeSCTPParameter(paramData))
-		paramData = paramData[p.ActualLength:]
-		sc.Parameters = append(sc.Parameters, p)
+		param, err := decodeSCTPParameter(paramData)
+		if err != nil {
+			return err
+		}
+		paramData = nextSCTPParameter(paramData, param)
+		sc.Parameters = append(sc.Parameters, SCTPInitParameter(param))
 	}
 	p.AddLayer(sc)
 	return p.NextDecoder(gopacket.DecodeFunc(decodeWithSCTPChunkTypePrefix))
@@ -486,6 +512,9 @@ func decodeSCTPSack(data []byte, p gopacket.PacketBuilder) error {
 	if err != nil {
 		return err
 	}
+	if chunk.Length < sctpSackMinLength {
+		return errors.New("invalid SCTP sack chunk length")
+	}
 	sc := &SCTPSack{
 		SCTPChunk:                      chunk,
 		CumulativeTSNAck:               binary.BigEndian.Uint32(data[4:8]),
@@ -495,10 +524,9 @@ func decodeSCTPSack(data []byte, p gopacket.PacketBuilder) error {
 	}
 	// We maximize gapAcks and dupTSNs here so we're not allocating tons
 	// of memory based on a user-controlable field.  Our maximums are not exact,
-	// but should give us sane defaults... we'll still hit slice boundaries and
-	// fail if the user-supplied values are too high (in the for loops below), but
-	// the amount of memory we'll have allocated because of that should be small
-	// (< sc.ActualLength)
+	// but should give us sane defaults... counts too high for the chunk are
+	// rejected below, and the amount of memory we'll have allocated by then
+	// should be small (< sc.ActualLength)
 	gapAcks := sc.SCTPChunk.ActualLength / 2
 	dupTSNs := (sc.SCTPChunk.ActualLength - gapAcks*2) / 4
 	if gapAcks > int(sc.NumGapACKs) {
@@ -509,7 +537,13 @@ func decodeSCTPSack(data []byte, p gopacket.PacketBuilder) error {
 	}
 	sc.GapACKs = make([]uint16, 0, gapAcks)
 	sc.DuplicateTSNs = make([]uint32, 0, dupTSNs)
-	bytesRemaining := data[16:]
+	bytesRemaining := data[sctpSackMinLength:sc.Length]
+
+	// Counts are attacker-controlled; reject them if the chunk can't hold
+	// the entries they announce.
+	if 2*int(sc.NumGapACKs)+4*int(sc.NumDuplicateTSNs) > len(bytesRemaining) {
+		return errors.New("SCTP sack counts exceed chunk length")
+	}
 	for i := 0; i < int(sc.NumGapACKs); i++ {
 		sc.GapACKs = append(sc.GapACKs, binary.BigEndian.Uint16(bytesRemaining[:2]))
 		bytesRemaining = bytesRemaining[2:]
@@ -575,9 +609,12 @@ func decodeSCTPHeartbeat(data []byte, p gopacket.PacketBuilder) error {
 	}
 	paramData := data[4:sc.Length]
 	for len(paramData) > 0 {
-		p := SCTPHeartbeatParameter(decodeSCTPParameter(paramData))
-		paramData = paramData[p.ActualLength:]
-		sc.Parameters = append(sc.Parameters, p)
+		param, err := decodeSCTPParameter(paramData)
+		if err != nil {
+			return err
+		}
+		paramData = nextSCTPParameter(paramData, param)
+		sc.Parameters = append(sc.Parameters, SCTPHeartbeatParameter(param))
 	}
 	p.AddLayer(sc)
 	return p.NextDecoder(gopacket.DecodeFunc(decodeWithSCTPChunkTypePrefix))
@@ -631,9 +668,12 @@ func decodeSCTPError(data []byte, p gopacket.PacketBuilder) error {
 	}
 	paramData := data[4:sc.Length]
 	for len(paramData) > 0 {
-		p := SCTPErrorParameter(decodeSCTPParameter(paramData))
-		paramData = paramData[p.ActualLength:]
-		sc.Parameters = append(sc.Parameters, p)
+		param, err := decodeSCTPParameter(paramData)
+		if err != nil {
+			return err
+		}
+		paramData = nextSCTPParameter(paramData, param)
+		sc.Parameters = append(sc.Parameters, SCTPErrorParameter(param))
 	}
 	p.AddLayer(sc)
 	return p.NextDecoder(gopacket.DecodeFunc(decodeWithSCTPChunkTypePrefix))
@@ -671,6 +711,9 @@ func decodeSCTPShutdown(data []byte, p gopacket.PacketBuilder) error {
 	chunk, err := decodeSCTPChunk(data)
 	if err != nil {
 		return err
+	}
+	if chunk.Length < sctpShutdownMinLength {
+		return errors.New("invalid SCTP shutdown chunk length")
 	}
 	sc := &SCTPShutdown{
 		SCTPChunk:        chunk,
