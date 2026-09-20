@@ -18,3 +18,5 @@ DECLARE_CONFIG(union v6addr, endpoint_ipv6, "The endpoint's IPv6 address")
 DECLARE_CONFIG(__u64, endpoint_netns_cookie, "The endpoint's network namespace cookie")
 
 DECLARE_CONFIG(__u32, rt_info, "FIB routing table ID for egress lookups")
+
+DECLARE_CONFIG(bool, enable_socket_lb_full, "Enable socket-based LB for E/W traffic")

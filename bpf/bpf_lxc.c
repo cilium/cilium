@@ -87,7 +87,7 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
  * Furthermore, since SCTP cannot be handled as part of bpf_sock, also
  * enable per-packet LB is SCTP is enabled.
  */
-#define ENABLE_PER_PACKET_LB (!is_defined(ENABLE_SOCKET_LB_FULL) || \
+#define ENABLE_PER_PACKET_LB (!CONFIG(enable_socket_lb_full) || \
     is_defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
     is_defined(ENABLE_L7_LB)               || \
     CONFIG(enable_sctp)                    || \
@@ -216,7 +216,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		 * redirect services based on user configured policies. Per packet LB should
 		 * not override LB decisions made for local-redirect services in bpf_sock.
 		 */
-		if (CONFIG(enable_lrp) && is_defined(ENABLE_SOCKET_LB_FULL) &&
+		if (CONFIG(enable_lrp) && CONFIG(enable_socket_lb_full) &&
 		    unlikely(lb4_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
 
@@ -382,7 +382,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			goto skip_service_lookup;
 #endif /* ENABLE_L7_LB */
 		/* See comment in __per_packet_lb_svc_xlate_4. */
-		if (CONFIG(enable_lrp) && is_defined(ENABLE_SOCKET_LB_FULL) &&
+		if (CONFIG(enable_lrp) && CONFIG(enable_socket_lb_full) &&
 		    unlikely(lb6_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
 
