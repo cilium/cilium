@@ -11,6 +11,8 @@ import (
 // EndpointInfoSource returns information about an endpoint being proxied.
 // The read lock must be held when calling any method.
 type EndpointInfoSource interface {
+	// GetPolicyNames returns an immutable slice of policy names. Callers must
+	// not modify the returned slice.
 	GetPolicyNames() []string
 	GetID() uint64
 	GetIPv4Address() string
