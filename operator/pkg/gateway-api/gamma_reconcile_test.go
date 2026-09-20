@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8stestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 )
 
 var cmpIgnoreFields = []cmp.Option{
@@ -93,9 +94,9 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, serviceKey := range tt.serviceKey {
 				t.Run(serviceKey.String(), func(t *testing.T) {
-					base := readInputDir(t, "testdata/gamma/base")
-					input := readInputDir(t, fmt.Sprintf("testdata/gamma/%s/input", tt.name))
 					scheme := testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)
+					base := k8stestutils.ReadObjectsDir(t, "testdata/gamma/base", scheme)
+					input := k8stestutils.ReadObjectsDir(t, fmt.Sprintf("testdata/gamma/%s/input", tt.name), scheme)
 
 					c := fake.NewClientBuilder().
 						WithScheme(scheme).
@@ -134,7 +135,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 
 					// Checking the output for Service
 					expectedService := &corev1.Service{}
-					readOutput(t, fmt.Sprintf("testdata/gamma/%s/output/service-%s.yaml", tt.name, serviceKey.Name), expectedService)
+					k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gamma/%s/output/service-%s.yaml", tt.name, serviceKey.Name), expectedService)
 					actualService := &corev1.Service{}
 					err = c.Get(t.Context(), serviceKey, actualService)
 					require.NoError(t, err)
@@ -144,7 +145,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 						err = c.Get(t.Context(), client.ObjectKeyFromObject(&hr), actualHR)
 						require.NoError(t, err, "error getting HTTPRoute %s/%s: %v", hr.Namespace, hr.Name, err)
 						expectedHR := &gatewayv1.HTTPRoute{}
-						readOutput(t, fmt.Sprintf("testdata/gamma/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
+						k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gamma/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
 						require.Empty(t, cmp.Diff(expectedHR, actualHR, cmpIgnoreFields...))
 					}
 
@@ -153,7 +154,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 						err = c.Get(t.Context(), client.ObjectKeyFromObject(&grpcr), actualGRPCR)
 						require.NoError(t, err, "error getting GRPCRoute %s/%s: %v", grpcr.Namespace, grpcr.Name, err)
 						expectedGRPCR := &gatewayv1.GRPCRoute{}
-						readOutput(t, fmt.Sprintf("testdata/gamma/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)
+						k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gamma/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)
 						require.Empty(t, cmp.Diff(expectedGRPCR, actualGRPCR, cmpIgnoreFields...))
 					}
 
@@ -163,7 +164,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 						err = c.Get(t.Context(), serviceKey, actualCEC)
 						require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
 						expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
-						readOutput(t, fmt.Sprintf("testdata/gamma/%s/output/cec-%s.yaml", tt.name, serviceKey.Name), expectedCEC)
+						k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gamma/%s/output/cec-%s.yaml", tt.name, serviceKey.Name), expectedCEC)
 
 						require.NoError(t, err)
 						require.Empty(t, cmp.Diff(expectedCEC, actualCEC, protocmp.Transform()))
@@ -199,9 +200,9 @@ func Test_gammaReconciler_Reconcile_BackendRequestHeaderModifier(t *testing.T) {
 		},
 	})
 
-	base := readInputDir(t, "testdata/gamma/base")
-	input := readInputDir(t, "testdata/gamma/mesh-request-header-modifier-backend/input")
 	scheme := testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)
+	base := k8stestutils.ReadObjectsDir(t, "testdata/gamma/base", scheme)
+	input := k8stestutils.ReadObjectsDir(t, "testdata/gamma/mesh-request-header-modifier-backend/input", scheme)
 
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -229,7 +230,7 @@ func Test_gammaReconciler_Reconcile_BackendRequestHeaderModifier(t *testing.T) {
 	err = c.Get(t.Context(), serviceKeyEcho, actualCEC)
 	require.NoError(t, err)
 
-	cecYAML := toYaml(t, actualCEC)
+	cecYAML := k8stestutils.ToYAML(t, actualCEC)
 	for _, want := range []string{
 		"requestHeadersToAdd:",
 		"key: X-Header-Set",
@@ -249,7 +250,7 @@ func Test_gammaReconciler_Reconcile_BackendRequestHeaderModifier(t *testing.T) {
 	}, actualHR)
 	require.NoError(t, err)
 
-	hrYAML := toYaml(t, actualHR)
+	hrYAML := k8stestutils.ToYAML(t, actualHR)
 	assert.True(t, strings.Contains(hrYAML, "filters:") || strings.Contains(hrYAML, "requestHeaderModifier:"))
 }
 
@@ -278,10 +279,10 @@ func Test_gammaReconciler_Reconcile_ReplacesOwnerReferencesForRecreatedRoute(t *
 		},
 	})
 
-	base := readInputDir(t, "testdata/gamma/base")
-	originalInput := readInputDir(t, "testdata/gamma/mesh-request-header-modifier/input")
-	recreatedInput := readInputDir(t, "testdata/gamma/mesh-request-header-modifier-backend/input")
 	scheme := testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)
+	base := k8stestutils.ReadObjectsDir(t, "testdata/gamma/base", scheme)
+	originalInput := k8stestutils.ReadObjectsDir(t, "testdata/gamma/mesh-request-header-modifier/input", scheme)
+	recreatedInput := k8stestutils.ReadObjectsDir(t, "testdata/gamma/mesh-request-header-modifier-backend/input", scheme)
 
 	setRouteIdentity := func(objs []client.Object, uid string) {
 		t.Helper()

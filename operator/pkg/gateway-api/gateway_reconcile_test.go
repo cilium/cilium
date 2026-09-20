@@ -38,6 +38,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	k8stestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/shortener"
 )
 
@@ -398,8 +399,6 @@ func Test_Conformance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			base := readInputDir(t, "testdata/gateway/base")
-			input := readInputDir(t, fmt.Sprintf("testdata/gateway/%s/input", tt.name))
 			disabledKinds := map[string]bool{
 				helpers.ServiceImportKind: tt.disableServiceImport,
 				helpers.TCPRouteKind:      tt.disableTCPRoute,
@@ -413,6 +412,8 @@ func Test_Conformance(t *testing.T) {
 				optionalKinds = append(optionalKinds, k)
 			}
 			scheme := testhelpers.TestScheme(optionalKinds, helpers.RegisterGatewayAPITypesToScheme)
+			base := k8stestutils.ReadObjectsDir(t, "testdata/gateway/base", scheme)
+			input := k8stestutils.ReadObjectsDir(t, fmt.Sprintf("testdata/gateway/%s/input", tt.name), scheme)
 			clientBuilder := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(append(base, input...)...).
@@ -538,7 +539,7 @@ func Test_Conformance(t *testing.T) {
 				err = c.Get(t.Context(), gwDetail.FullName, actualGateway)
 				require.NoError(t, err)
 				expectedGateway := &gatewayv1.Gateway{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", tt.name, gwDetail.FullName.Name), expectedGateway)
+				k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", tt.name, gwDetail.FullName.Name), expectedGateway)
 				require.Empty(t, cmp.Diff(expectedGateway, actualGateway, cmpIgnoreFields...))
 				if !gwDetail.wantErr && !gwDetail.skipCEC && !tt.skipCEC {
 					// Checking the output for CiliumEnvoyConfig
@@ -549,7 +550,7 @@ func Test_Conformance(t *testing.T) {
 					}, actualCEC)
 					require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
 					expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
-					readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/cec-%s.yaml", tt.name, gwDetail.FullName.Name), expectedCEC)
+					k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gateway/%s/output/cec-%s.yaml", tt.name, gwDetail.FullName.Name), expectedCEC)
 					require.NoError(t, err)
 					require.Empty(t, cmp.Diff(expectedCEC, actualCEC, protocmp.Transform()))
 				}
@@ -567,7 +568,7 @@ func Test_Conformance(t *testing.T) {
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&eps), actualEPS)
 				require.NoError(t, err, "error getting EndpointSlice %s/%s: %v", eps.Namespace, eps.Name, err)
 				expectedEPS := &discoveryv1.EndpointSlice{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/endpointslice-%s.yaml", tt.name, eps.Name), expectedEPS)
+				k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gateway/%s/output/endpointslice-%s.yaml", tt.name, eps.Name), expectedEPS)
 				require.Empty(t, cmp.Diff(expectedEPS, actualEPS, cmpIgnoreFields...))
 			}
 
@@ -577,7 +578,7 @@ func Test_Conformance(t *testing.T) {
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&hr), actualHR)
 				require.NoError(t, err, "error getting HTTPRoute %s/%s: %v", hr.Namespace, hr.Name, err)
 				expectedHR := &gatewayv1.HTTPRoute{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
+				k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gateway/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
 				require.Empty(t, cmp.Diff(expectedHR, actualHR, cmpIgnoreFields...))
 			}
 
@@ -586,7 +587,7 @@ func Test_Conformance(t *testing.T) {
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&tlsr), actualTLSR)
 				require.NoError(t, err, "error getting TLSRoute %s/%s: %v", tlsr.Namespace, tlsr.Name, err)
 				expectedTLSR := &gatewayv1.TLSRoute{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tlsroute-%s.yaml", tt.name, tlsr.Name), expectedTLSR)
+				k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gateway/%s/output/tlsroute-%s.yaml", tt.name, tlsr.Name), expectedTLSR)
 				require.Empty(t, cmp.Diff(expectedTLSR, actualTLSR, cmpIgnoreFields...))
 			}
 
@@ -595,7 +596,7 @@ func Test_Conformance(t *testing.T) {
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&grpcr), actualGRPCR)
 				require.NoError(t, err, "error getting GRPCRoute %s/%s: %v", grpcr.Namespace, grpcr.Name, err)
 				expectedGRPCR := &gatewayv1.GRPCRoute{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)
+				k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gateway/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)
 				require.Empty(t, cmp.Diff(expectedGRPCR, actualGRPCR, cmpIgnoreFields...))
 			}
 
@@ -604,7 +605,7 @@ func Test_Conformance(t *testing.T) {
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&btlsp), actualBTLSP)
 				require.NoError(t, err, "error getting BackendTLSPolicy %s/%s: %v", btlsp.Namespace, btlsp.Name, err)
 				expectedBTLSP := &gatewayv1.BackendTLSPolicy{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/backendtlspolicy-%s.yaml", tt.name, btlsp.Name), expectedBTLSP)
+				k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gateway/%s/output/backendtlspolicy-%s.yaml", tt.name, btlsp.Name), expectedBTLSP)
 				require.Empty(t, cmp.Diff(expectedBTLSP, actualBTLSP, cmpIgnoreFields...))
 			}
 
@@ -613,7 +614,7 @@ func Test_Conformance(t *testing.T) {
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&tcpr), actualTCPR)
 				require.NoError(t, err, "error getting TCPRoute %s/%s: %v", tcpr.Namespace, tcpr.Name, err)
 				expectedTCPR := &gatewayv1.TCPRoute{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tcproute-%s.yaml", tt.name, tcpr.Name), expectedTCPR)
+				k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gateway/%s/output/tcproute-%s.yaml", tt.name, tcpr.Name), expectedTCPR)
 				require.Empty(t, cmp.Diff(expectedTCPR, actualTCPR, cmpIgnoreFields...))
 			}
 
@@ -622,7 +623,7 @@ func Test_Conformance(t *testing.T) {
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&udpr), actualUDPR)
 				require.NoError(t, err, "error getting UDPRoute %s/%s: %v", udpr.Namespace, udpr.Name, err)
 				expectedUDPR := &gatewayv1.UDPRoute{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/udproute-%s.yaml", tt.name, udpr.Name), expectedUDPR)
+				k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gateway/%s/output/udproute-%s.yaml", tt.name, udpr.Name), expectedUDPR)
 				require.Empty(t, cmp.Diff(expectedUDPR, actualUDPR, cmpIgnoreFields...))
 			}
 
@@ -634,7 +635,7 @@ func Test_Conformance(t *testing.T) {
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&ls), actualLS)
 				require.NoError(t, err, "error getting ListenerSet %s/%s: %v", ls.Namespace, ls.Name, err)
 				expectedLS := &gatewayv1.ListenerSet{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/listenerset-%s.yaml", tt.name, ls.Name), expectedLS)
+				k8stestutils.ReadYAML(t, fmt.Sprintf("testdata/gateway/%s/output/listenerset-%s.yaml", tt.name, ls.Name), expectedLS)
 				require.Empty(t, cmp.Diff(expectedLS, actualLS, cmpIgnoreFields...))
 			}
 		})
