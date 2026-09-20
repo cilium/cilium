@@ -129,12 +129,12 @@ func (d *Driver) WatchHealthStatus(ctx context.Context, reports chan<- kubeletpl
 
 // PrepareResourceClaims gets called when we have a request to allocate a resource claim. we also need to have a way to remember
 // the allocations elsewhere so allocation state persist across restarts in the plugin.
-func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceapi.ResourceClaim) (result map[kube_types.UID]kubeletplugin.PrepareResult, err error) {
+func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceapi.ResourceClaim) (map[kube_types.UID]kubeletplugin.PrepareResult, error) {
 	driver.logger.DebugContext(ctx, fmt.Sprintf("PrepareResourceClaims called with %d claims", len(claims)))
 
-	result = make(map[kube_types.UID]kubeletplugin.PrepareResult)
+	result := make(map[kube_types.UID]kubeletplugin.PrepareResult)
 
-	err = driver.withLock(func() error {
+	driver.withLockNoErr(func() {
 		for _, c := range claims {
 			l := driver.logger.With(
 				logfields.K8sNamespace, c.Namespace,
@@ -156,20 +156,18 @@ func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resou
 				logfields.Result, claimResult,
 			)
 		}
-
-		return nil
 	})
 
-	return result, err
+	return result, nil
 }
 
 // UnprepareResourceClaims gets called whenever we have a request to deallocate a resource claim. ex: pod goes away.
-func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kubeletplugin.NamespacedObject) (result map[kube_types.UID]error, err error) {
+func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kubeletplugin.NamespacedObject) (map[kube_types.UID]error, error) {
 	driver.logger.DebugContext(ctx, fmt.Sprintf("UnprepareResourceClaims called with %d claims", len(claims)))
 
-	result = make(map[kube_types.UID]error, len(claims))
+	result := make(map[kube_types.UID]error, len(claims))
 
-	err = driver.withLock(func() error {
+	driver.withLockNoErr(func() {
 		for _, c := range claims {
 			err := driver.unprepareResourceClaim(ctx, c)
 			if err != nil {
@@ -190,11 +188,9 @@ func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kube
 			}
 			result[c.UID] = err
 		}
-
-		return nil
 	})
 
-	return result, err
+	return result, nil
 }
 
 // unprepareResourceClaim removes an allocation and frees up the device.

@@ -85,7 +85,7 @@ func (driver *Driver) startNRI(ctx context.Context) error {
 // reconstructed from a durable source rather than persisted to disk. We request no
 // container updates.
 func (driver *Driver) Synchronize(ctx context.Context, pods []*api.PodSandbox, _ []*api.Container) ([]*api.ContainerUpdate, error) {
-	err := driver.withLock(func() error {
+	driver.withLockNoErr(func() {
 		n := 0
 		for _, pod := range pods {
 			if driver.rememberNetworkNamespace(pod) != "" {
@@ -95,10 +95,8 @@ func (driver *Driver) Synchronize(ctx context.Context, pods []*api.PodSandbox, _
 		driver.logger.DebugContext(ctx, "NRI Synchronize: cached pod network namespaces",
 			logfields.Count, n,
 		)
-		return nil
 	})
-
-	return nil, err
+	return nil, nil
 }
 
 // RunPodSandbox is called by the container runtime when a pod sandbox is started.

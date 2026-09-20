@@ -345,6 +345,12 @@ func (driver *Driver) withLock(f func() error) error {
 	return f()
 }
 
+func (driver *Driver) withLockNoErr(f func()) {
+	driver.lock.Lock()
+	defer driver.lock.Unlock()
+	f()
+}
+
 // onDevices is called by a device manager whenever its device set changes.
 // It writes the full updated inventory into the statedb table, replacing
 // previous rows for that manager and leaving rows from other managers untouched.
