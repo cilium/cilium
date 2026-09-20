@@ -718,11 +718,11 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 // implemented by Cilium.
 var ErrNilPolicy = errors.New("nil EndpointPolicy")
 
-// UpdateNetworkPolicy returns nil revert/finalize funcs with synchronous errors.
+// UpdateNetworkPolicy returns a nil revertible with synchronous errors.
 func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy, wg *completion.WaitGroup,
-) (error, revert.RevertFunc, revert.FinalizeFunc) {
+) (error, revert.Revertible) {
 	if epp == nil {
-		return ErrNilPolicy, nil, nil
+		return ErrNilPolicy, nil
 	}
 
 	names := ep.GetPolicyNames()
@@ -733,7 +733,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 			logfields.Name, names,
 			logfields.EndpointID, ep.GetID(),
 		)
-		return nil, func() error { return nil }, func() {}
+		return nil, nil
 	}
 
 	l4policy := &epp.SelectorPolicy.L4Policy
@@ -743,7 +743,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 
 	// Error out if the selectors are no longer valid
 	if !selectors.IsValid() {
-		return policy.ErrStaleSelectors, nil, nil
+		return policy.ErrStaleSelectors, nil
 	}
 
 	s.mutex.Lock()
@@ -772,7 +772,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	// First, validate the policy
 	err := networkPolicy.Validate()
 	if err != nil {
-		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), names, err), nil, nil
+		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), names, err), nil
 	}
 
 	// If there are no listeners configured, the local node's Envoy proxy won't
@@ -794,24 +794,19 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	resourceName := strconv.FormatUint(epID, 10)
 	revertFunc := s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
 
-	return nil, func() error {
-			s.logger.Debug("Reverting xDS network policy update",
-				logfields.EndpointID, epID,
-			)
+	return nil, revert.RevertFunc(func() error {
+		s.logger.Debug("Reverting xDS network policy update",
+			logfields.EndpointID, epID,
+		)
 
-			s.mutex.Lock()
-			defer s.mutex.Unlock()
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
 
-			revertFunc()
+		revertFunc()
 
-			s.logger.Debug("Finished reverting xDS network policy update")
-
-			return nil
-		}, func() {
-			s.logger.Debug("Finalizing xDS network policy update",
-				logfields.EndpointID, epID,
-			)
-		}
+		s.logger.Debug("Finished reverting xDS network policy update")
+		return nil
+	})
 }
 
 func (s *xdsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource) {

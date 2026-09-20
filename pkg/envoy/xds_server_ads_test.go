@@ -1081,12 +1081,12 @@ func TestUpdateNetworkPolicy(t *testing.T) {
 	// Create a mock policy
 	mockPolicy := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
 
-	err, revertFunc, _ := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy, wg)
+	err, revertible := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy, wg)
 	// This may return an error if policy is nil or invalid
 	if err != nil {
 		assert.Error(t, err)
 	} else {
-		assert.NotNil(t, revertFunc)
+		assert.NotNil(t, revertible)
 	}
 
 	resources := cache.GetAllResources(localNodeID)
@@ -1114,10 +1114,9 @@ func TestUpdateNetworkPolicyWithoutNPDSListenersCompletesImmediately(t *testing.
 	mockEp := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
 	mockPolicy := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
 
-	err, revertFunc, finalizeFunc := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy, wg)
+	err, revertible := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy, wg)
 	require.NoError(t, err)
-	require.NotNil(t, revertFunc)
-	require.NotNil(t, finalizeFunc)
+	require.NotNil(t, revertible)
 	require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
 	require.Eventually(t, func() bool {
 		return mockEp.proxyPolicyUpdateCount.Load() == 1
@@ -1145,10 +1144,9 @@ func TestUpdateNetworkPolicyWithNPDSListenerWaitsForACK(t *testing.T) {
 	mockEp := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
 	mockPolicy := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
 
-	err, revertFunc, finalizeFunc := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy, wg)
+	err, revertible := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy, wg)
 	require.NoError(t, err)
-	require.NotNil(t, revertFunc)
-	require.NotNil(t, finalizeFunc)
+	require.NotNil(t, revertible)
 	require.Equal(t, 1, cache.GetCompletionCallbacks().PendingCompletionCount())
 	require.Equal(t, uint64(0), mockEp.proxyPolicyUpdateCount.Load())
 
@@ -1177,7 +1175,7 @@ func TestNPDSListenerTrackingFromBulkResources(t *testing.T) {
 	defer wg.Cancel()
 	mockEp := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
 	mockPolicy := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
-	err, _, _ := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy, wg)
+	err, _ := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy, wg)
 	require.NoError(t, err)
 	require.Equal(t, 1, cache.GetCompletionCallbacks().PendingCompletionCount())
 
@@ -1233,12 +1231,12 @@ func TestRemoveAllNetworkPolicies(t *testing.T) {
 	// Create a mock policy
 	mockPolicy := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
 
-	err, revertFunc, _ := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy, wg)
+	err, revertible := server.UpdateNetworkPolicy(ctx, mockEp, mockPolicy, wg)
 	// This may return an error if policy is nil or invalid
 	if err != nil {
 		assert.Error(t, err)
 	} else {
-		assert.NotNil(t, revertFunc)
+		assert.NotNil(t, revertible)
 	}
 
 	resources := cache.GetAllResources(localNodeID)

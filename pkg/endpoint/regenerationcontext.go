@@ -159,8 +159,7 @@ type datapathRegenerationContext struct {
 	// update the endpoint to.
 	policyRevisionToWaitFor uint64
 
-	finalizeList revert.FinalizeList
-	revertStack  revert.RevertStack
+	revertibles revert.Revertibles
 }
 
 func (ctx *datapathRegenerationContext) prepareForProxyUpdates(parentCtx context.Context) {
