@@ -355,9 +355,13 @@ func (c *objCompiler) enqueueRef(pname string) (*Schema, error) {
 	if ref == nil {
 		return nil, nil
 	}
+	return c.enqueueRefVal(*ref)
+}
+
+func (c *objCompiler) enqueueRefVal(ref string) (*Schema, error) {
 	baseURL := c.res.id
 	// baseURL := c.r.baseURL(c.up.ptr)
-	uf, err := baseURL.join(*ref)
+	uf, err := baseURL.join(ref)
 	if err != nil {
 		return nil, err
 	}

@@ -293,6 +293,7 @@ func (vd *validator) objValidate(obj map[string]any) {
 			}
 			if err := sch.validate(pname, vd.regexpEngine, meta, resources, vd.assertVocabs, vd.vocabularies); err != nil {
 				verr := err.(*ValidationError)
+				verr.InstanceLocation = vd.vloc
 				verr.SchemaURL = s.PropertyNames.Location
 				verr.ErrorKind = &kind.PropertyNames{Property: pname}
 				vd.addErr(verr)
@@ -375,7 +376,7 @@ func (vd *validator) arrValidate(arr []any) {
 				}
 			case *Schema:
 				for i, item := range arr[evaluated:] {
-					vd.addErr(vd.validateVal(additional, item, strconv.Itoa(i)))
+					vd.addErr(vd.validateVal(additional, item, strconv.Itoa(evaluated+i)))
 				}
 			}
 		}
@@ -390,7 +391,7 @@ func (vd *validator) arrValidate(arr []any) {
 		// items2020 --
 		if s.Items2020 != nil {
 			for i, item := range arr[evaluated:] {
-				vd.addErr(vd.validateVal(s.Items2020, item, strconv.Itoa(i)))
+				vd.addErr(vd.validateVal(s.Items2020, item, strconv.Itoa(evaluated+i)))
 			}
 		}
 	}
@@ -503,6 +504,7 @@ func (vd *validator) strValidate(str string) {
 		}
 		if err = sch.validate(*deserialized, vd.regexpEngine, meta, resources, vd.assertVocabs, vd.vocabularies); err != nil {
 			verr := err.(*ValidationError)
+			verr.InstanceLocation = vd.vloc
 			verr.SchemaURL = s.Location
 			verr.ErrorKind = &kind.ContentSchema{}
 			vd.addErr(verr)

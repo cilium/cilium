@@ -1,3 +1,8 @@
+# v1.20.0 (2026-09-09)
+
+* **Feature**: Stop registering the `retry.MetricsHeader` middleware in generated clients. The `Amz-Sdk-Request` header is now set by the retry middleware itself.
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.19.2 (2026-09-04)
 
 * **Dependency Update**: Updated to the latest SDK module versions

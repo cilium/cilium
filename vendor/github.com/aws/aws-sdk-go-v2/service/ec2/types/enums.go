@@ -1047,6 +1047,23 @@ func (BlockPublicAccessMode) Values() []BlockPublicAccessMode {
 	}
 }
 
+type BootModeOverrideValues string
+
+// Enum values for BootModeOverrideValues
+const (
+	BootModeOverrideValuesUefi BootModeOverrideValues = "uefi"
+)
+
+// Values returns all known values for BootModeOverrideValues. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (BootModeOverrideValues) Values() []BootModeOverrideValues {
+	return []BootModeOverrideValues{
+		"uefi",
+	}
+}
+
 type BootModeType string
 
 // Enum values for BootModeType

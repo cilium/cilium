@@ -1,5 +1,20 @@
 # CHANGELOG
 
+# v1.2.0
+
+**This is the first release of package packet that only supports Go 1.26+.
+Users on older versions of Go must use v1.1.2.**
+
+- [New API]: `Conn.JoinGroup` and `Conn.LeaveGroup` can be used to join and
+  leave link layer multicast group addresses on a `Conn`'s network interface,
+  so traffic destined for those groups is delivered even when an interface
+  filters multicast in hardware.
+- [Bug Fix]: `Addr.String` no longer panics when called on a nil `*Addr`, which
+  could occur while stringifying a `net.OpError` produced by this package.
+- [Improvement]: drop the `github.com/josharian/native` dependency in favor of
+  `encoding/binary.NativeEndian` from the standard library.
+- [Improvement]: updated dependencies, test with Go 1.26 and 1.27.
+
 # v1.1.2
 
 - [Improvement]: updated dependencies, test with Go 1.20.

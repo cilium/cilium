@@ -1,8 +1,25 @@
+/*
+Package jsonschema provides json-schema compilation and validation.
+
+The schema is compiled against the version specified in "$schema" property.
+If "$schema" property is missing, it uses latest draft which currently implemented
+by this library.
+
+You can force to use specific draft,  when "$schema" is missing, as follows:
+
+	compiler := jsonschema.NewCompiler()
+	compiler.DefaultDraft(jsonschema.Draft4)
+
+This package supports loading json-schema from filePath and fileURL.
+
+see examples for usage.
+*/
 package jsonschema
 
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 )
 
@@ -110,12 +127,22 @@ const (
 )
 
 func typeOf(v any) jsonType {
-	switch v.(type) {
+	switch v := v.(type) {
 	case nil:
 		return nullType
 	case bool:
 		return booleanType
-	case json.Number, float32, float64, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	case float64:
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return invalidType
+		}
+		return numberType
+	case float32:
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return invalidType
+		}
+		return numberType
+	case json.Number, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		return numberType
 	case string:
 		return stringType

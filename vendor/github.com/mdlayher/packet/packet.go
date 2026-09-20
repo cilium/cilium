@@ -39,6 +39,7 @@ type Config struct {
 }
 
 // Type is a socket type used when creating a Conn with Listen.
+//
 //enumcheck:exhaustive
 type Type int
 
@@ -121,6 +122,25 @@ func (c *Conn) SetWriteDeadline(t time.Time) error {
 	return c.opError(opSet, c.c.SetWriteDeadline(t))
 }
 
+// JoinGroup joins the specified link layer multicast group address on the
+// Conn's network interface, so the interface will begin accepting traffic
+// destined for that group.
+//
+// Group memberships belong to an individual socket and are reference counted
+// by the Linux kernel: a group which was joined twice must also be left twice
+// before the membership is actually dropped. All of a Conn's memberships are
+// dropped when the Conn is closed.
+func (c *Conn) JoinGroup(addr net.HardwareAddr) error {
+	return c.joinGroup(addr)
+}
+
+// LeaveGroup leaves the specified link layer multicast group address on the
+// Conn's network interface. See the JoinGroup documentation for details on how
+// the kernel tracks group memberships.
+func (c *Conn) LeaveGroup(addr net.HardwareAddr) error {
+	return c.leaveGroup(addr)
+}
+
 // SetBPF attaches an assembled BPF program to the Conn.
 func (c *Conn) SetBPF(filter []bpf.RawInstruction) error {
 	return c.opError(opSetsockopt, c.c.SetBPF(filter))
@@ -128,6 +148,11 @@ func (c *Conn) SetBPF(filter []bpf.RawInstruction) error {
 
 // SetPromiscuous enables or disables promiscuous mode on the Conn, allowing it
 // to receive traffic that is not addressed to the Conn's network interface.
+//
+// If the multicast group addresses of interest are known in advance, prefer
+// JoinGroup. Promiscuous mode is much broader in scope, and it will also mask
+// any interface filtering faults which a protocol implementation may prefer to
+// have surfaced.
 func (c *Conn) SetPromiscuous(enable bool) error {
 	return c.setPromiscuous(enable)
 }
@@ -219,6 +244,10 @@ func (a *Addr) Network() string { return network }
 
 // String returns the string representation of an Addr.
 func (a *Addr) String() string {
+	if a == nil {
+		return "<nil>"
+	}
+
 	return a.HardwareAddr.String()
 }
 

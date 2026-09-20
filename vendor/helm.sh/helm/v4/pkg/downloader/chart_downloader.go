@@ -165,7 +165,7 @@ func (c *ChartDownloader) DownloadTo(ref, version, dest string) (string, *proven
 	// Use PlatformAtomicWriteFile to handle platform-specific concurrency concerns
 	// (Windows requires locking to avoid "Access Denied" errors when multiple
 	// processes write the same file)
-	if err := fileutil.PlatformAtomicWriteFile(destfile, data, 0644); err != nil {
+	if err := fileutil.PlatformAtomicWriteFile(destfile, data, 0o644); err != nil {
 		return destfile, nil, err
 	}
 
@@ -197,7 +197,7 @@ func (c *ChartDownloader) DownloadTo(ref, version, dest string) (string, *proven
 		provfile := destfile + ".prov"
 
 		// Use PlatformAtomicWriteFile for the provenance file as well
-		if err := fileutil.PlatformAtomicWriteFile(provfile, body, 0644); err != nil {
+		if err := fileutil.PlatformAtomicWriteFile(provfile, body, 0o644); err != nil {
 			return destfile, nil, err
 		}
 
@@ -282,7 +282,6 @@ func (c *ChartDownloader) DownloadToCache(ref, version string) (string, *provena
 	// If provenance is requested, verify it.
 	ver := &provenance.Verification{}
 	if c.Verify > VerifyNever {
-
 		ppth, err := c.Cache.Get(digest32, CacheProv)
 		if err == nil {
 			slog.Debug("found provenance in cache", "id", digestString)
@@ -308,7 +307,6 @@ func (c *ChartDownloader) DownloadToCache(ref, version string) (string, *provena
 		}
 
 		if c.Verify != VerifyLater {
-
 			// provenance files pin to a specific name so this needs to be accounted for
 			// when verifying.
 			// Note, this does make an assumption that the name/version is unique to a
@@ -323,7 +321,7 @@ func (c *ChartDownloader) DownloadToCache(ref, version string) (string, *provena
 			// Copy chart to a known location with the right name for verification and then
 			// clean it up.
 			tmpdir := filepath.Dir(filepath.Join(c.ContentCache, "tmp"))
-			if err := os.MkdirAll(tmpdir, 0755); err != nil {
+			if err := os.MkdirAll(tmpdir, 0o755); err != nil {
 				return pth, ver, err
 			}
 			tmpfile := filepath.Join(tmpdir, name)
@@ -384,7 +382,7 @@ func (c *ChartDownloader) ResolveChartVersion(ref, version string) (string, *url
 		return "", u, err
 	}
 
-	if u.IsAbs() && len(u.Host) > 0 && len(u.Path) > 0 {
+	if u.IsAbs() && u.Host != "" && u.Path != "" {
 		// In this case, we have to find the parent repo that contains this chart
 		// URL. And this is an unfortunate problem, as it requires actually going
 		// through each repo cache file and finding a matching URL. But basically

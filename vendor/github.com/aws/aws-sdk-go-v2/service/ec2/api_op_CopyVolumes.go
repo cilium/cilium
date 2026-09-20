@@ -48,6 +48,13 @@ type CopyVolumesInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// Indicates whether to encrypt the volume copy. If the source volume is
+	// encrypted, the service always encrypts the copy regardless of this value. Set to
+	// true to encrypt a copy of an unencrypted source volume during the copy
+	// operation. If you set Encrypted to true but do not specify KmsKeyId , the
+	// service uses the default KMS key for EBS encryption in your account.
+	Encrypted *bool
+
 	// The number of I/O operations per second (IOPS) to provision for the volume
 	// copy. Required for io1 and io2 volumes. Optional for gp3 volumes. Omit for all
 	// other volume types. Full provisioned IOPS performance can be achieved only once
@@ -65,6 +72,14 @@ type CopyVolumesInput struct {
 	//
 	// [Instances built on the Nitro System]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
 	Iops *int32
+
+	// The identifier of the KMS key to use for encryption of the volume copy. Specify
+	// a symmetric encryption KMS key. You can specify a KMS key using the key ID, key
+	// ARN, alias name, or alias ARN. If you set Encrypted to true but do not specify
+	// this parameter, the service uses the default KMS key for EBS encryption in your
+	// account. For cross-account volume copies, this must be a KMS key in the calling
+	// account.
+	KmsKeyId *string
 
 	// Indicates whether to enable Amazon EBS Multi-Attach for the volume copy. If you
 	// enable Multi-Attach, you can attach the volume to up to 16 Nitro instances in

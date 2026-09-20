@@ -511,7 +511,7 @@ func (*ContentMediaType) KeywordPath() []string {
 }
 
 func (k *ContentMediaType) LocalizedString(p *message.Printer) string {
-	return p.Sprintf("value if not of mediatype %s: %v", quote(k.Want), k.Err)
+	return p.Sprintf("value is not of mediatype %s: %v", quote(k.Want), k.Err)
 }
 
 // --

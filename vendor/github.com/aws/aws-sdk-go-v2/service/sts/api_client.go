@@ -737,9 +737,6 @@ func addRetry(stack *middleware.Stack, o Options, c *Client) error {
 	if err := stack.Finalize.Insert(attempt, "ResolveAuthScheme", middleware.Before); err != nil {
 		return err
 	}
-	if err := stack.Finalize.Insert(&retry.MetricsHeader{}, attempt.ID(), middleware.After); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -985,9 +982,6 @@ func (c presignConverter) convertToPresignMiddleware(stack *middleware.Stack, op
 	}
 	if _, ok := stack.Finalize.Get((*retry.Attempt)(nil).ID()); ok {
 		stack.Finalize.Remove((*retry.Attempt)(nil).ID())
-	}
-	if _, ok := stack.Finalize.Get((*retry.MetricsHeader)(nil).ID()); ok {
-		stack.Finalize.Remove((*retry.MetricsHeader)(nil).ID())
 	}
 	stack.Deserialize.Clear()
 	stack.Build.Remove((*awsmiddleware.ClientRequestID)(nil).ID())

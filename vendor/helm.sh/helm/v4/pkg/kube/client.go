@@ -127,8 +127,10 @@ const (
 	FieldValidationDirectiveStrict FieldValidationDirective = "Strict"
 )
 
-type CreateApplyFunc func(target *resource.Info) error
-type UpdateApplyFunc func(original, target *resource.Info) error
+type (
+	CreateApplyFunc func(target *resource.Info) error
+	UpdateApplyFunc func(original, target *resource.Info) error
+)
 
 func init() {
 	// Add CRDs to the scheme. They are missing by default.
@@ -167,14 +169,15 @@ func (c *Client) newStatusWatcher(opts ...WaitOption) (*statusWaiter, error) {
 		waitContext = c.WaitContext
 	}
 	sw := &statusWaiter{
-		restMapper:         restMapper,
-		client:             dynamicClient,
-		ctx:                waitContext,
-		watchUntilReadyCtx: o.watchUntilReadyCtx,
-		waitCtx:            o.waitCtx,
-		waitWithJobsCtx:    o.waitWithJobsCtx,
-		waitForDeleteCtx:   o.waitForDeleteCtx,
-		readers:            o.statusReaders,
+		restMapper:           restMapper,
+		client:               dynamicClient,
+		ctx:                  waitContext,
+		watchUntilReadyCtx:   o.watchUntilReadyCtx,
+		waitCtx:              o.waitCtx,
+		waitWithJobsCtx:      o.waitWithJobsCtx,
+		waitForDeleteCtx:     o.waitForDeleteCtx,
+		readers:              o.statusReaders,
+		statusComputeWorkers: o.statusComputeWorkers,
 	}
 	sw.SetLogger(c.Logger().Handler())
 	return sw, nil
@@ -249,7 +252,7 @@ func (c *Client) getKubeClient() (kubernetes.Interface, error) {
 // IsReachable tests connectivity to the cluster.
 func (c *Client) IsReachable() error {
 	client, err := c.getKubeClient()
-	if err == genericclioptions.ErrEmptyConfig {
+	if errors.Is(err, genericclioptions.ErrEmptyConfig) {
 		// re-replace kubernetes ErrEmptyConfig error with a friendly error
 		// moar workarounds for Kubernetes API breaking.
 		return errors.New("kubernetes cluster unreachable")
@@ -528,7 +531,6 @@ func determineFieldValidationDirective(validate bool) FieldValidationDirective {
 }
 
 func buildResourceList(f Factory, namespace string, validationDirective FieldValidationDirective, reader io.Reader, transformRequest resource.RequestTransform) (ResourceList, error) {
-
 	schema, err := f.Validator(string(validationDirective))
 	if err != nil {
 		return nil, err
@@ -866,7 +868,6 @@ func (c *Client) Update(originals, targets ResourceList, options ...ClientUpdate
 				slog.String("fieldValidationDirective", string(updateOptions.fieldValidationDirective)),
 				slog.Bool("upgradeClientSideFieldManager", updateOptions.upgradeClientSideFieldManager))
 			return func(original, target *resource.Info) error {
-
 				logger := c.Logger().With(
 					slog.String("namespace", target.Namespace),
 					slog.String("name", target.Name),
@@ -951,11 +952,12 @@ func (c *Client) Delete(resources ResourceList, policy metav1.DeletionPropagatio
 func isIncompatibleServerError(err error) bool {
 	// 415: Unsupported media type means we're talking to a server which doesn't
 	// support server-side apply.
-	if _, ok := err.(*apierrors.StatusError); !ok {
+	var sErr *apierrors.StatusError
+	if !errors.As(err, &sErr) {
 		// Non-StatusError means the error isn't because the server is incompatible.
 		return false
 	}
-	return err.(*apierrors.StatusError).Status().Code == http.StatusUnsupportedMediaType
+	return sErr.Status().Code == http.StatusUnsupportedMediaType
 }
 
 // isServerSideRetryable checks if an error encountered during server-side apply
@@ -987,14 +989,13 @@ func isResourceQuotaConflict(err error) bool {
 // getManagedFieldsManager returns the manager string. If one was set it will be returned.
 // Otherwise, one is calculated based on the name of the binary.
 func getManagedFieldsManager() string {
-
 	// When a manager is explicitly set use it
 	if ManagedFieldsManager != "" {
 		return ManagedFieldsManager
 	}
 
 	// When no manager is set and no calling application can be found it is unknown
-	if len(os.Args[0]) == 0 {
+	if os.Args[0] == "" {
 		return "unknown"
 	}
 
@@ -1135,7 +1136,6 @@ func createPatch(original runtime.Object, target *resource.Info, threeWayMergeFo
 }
 
 func replaceResource(target *resource.Info, fieldValidationDirective FieldValidationDirective) error {
-
 	helper := resource.NewHelper(target.Client, target.Mapping).
 		WithFieldValidation(string(fieldValidationDirective)).
 		WithFieldManager(getManagedFieldsManager())
@@ -1150,11 +1150,9 @@ func replaceResource(target *resource.Info, fieldValidationDirective FieldValida
 	}
 
 	return nil
-
 }
 
 func patchResourceClientSide(original runtime.Object, target *resource.Info, threeWayMergeForUnstructured bool) error {
-
 	patch, patchType, err := createPatch(original, target, threeWayMergeForUnstructured)
 	if err != nil {
 		return fmt.Errorf("failed to create patch: %w", err)
@@ -1188,14 +1186,12 @@ func patchResourceClientSide(original runtime.Object, target *resource.Info, thr
 // that upgrade CSA managed fields to SSA apply
 // see: https://github.com/kubernetes/kubernetes/pull/112905
 func upgradeClientSideFieldManager(info *resource.Info, dryRun bool, fieldValidationDirective FieldValidationDirective) (bool, error) {
-
 	fieldManagerName := getManagedFieldsManager()
 
 	patched := false
 	err := retry.RetryOnConflict(
 		retry.DefaultRetry,
 		func() error {
-
 			if err := info.Get(); err != nil {
 				return fmt.Errorf("failed to get object %s/%s %s: %w", info.Namespace, info.Name, info.Mapping.GroupVersionKind.String(), err)
 			}
@@ -1241,8 +1237,8 @@ func upgradeClientSideFieldManager(info *resource.Info, dryRun bool, fieldValida
 	return patched, err
 }
 
-// Patch reource using server-side apply
-func patchResourceServerSide(target *resource.Info, dryRun bool, forceConflicts bool, fieldValidationDirective FieldValidationDirective) error {
+// Patch resource using server-side apply
+func patchResourceServerSide(target *resource.Info, dryRun, forceConflicts bool, fieldValidationDirective FieldValidationDirective) error {
 	helper := resource.NewHelper(
 		target.Client,
 		target.Mapping).
@@ -1267,7 +1263,7 @@ func patchResourceServerSide(target *resource.Info, dryRun bool, forceConflicts 
 	)
 	if err != nil {
 		if isIncompatibleServerError(err) {
-			return fmt.Errorf("server-side apply not available on the server: %v", err)
+			return fmt.Errorf("server-side apply not available on the server: %w", err)
 		}
 
 		if apierrors.IsConflict(err) {
@@ -1284,7 +1280,7 @@ func patchResourceServerSide(target *resource.Info, dryRun bool, forceConflicts 
 func (c *Client) GetPodList(namespace string, listOptions metav1.ListOptions) (*v1.PodList, error) {
 	podList, err := c.kubeClient.CoreV1().Pods(namespace).List(context.Background(), listOptions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get pod list with options: %+v with error: %v", listOptions, err)
+		return nil, fmt.Errorf("failed to get pod list with options: %+v with error: %w", listOptions, err)
 	}
 	return podList, nil
 }

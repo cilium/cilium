@@ -318,7 +318,7 @@ func validateEmail(v any) error {
 		return LocalizableError("local part more than 64 characters long")
 	}
 
-	if len(local) > 1 && strings.HasPrefix(local, `"`) && strings.HasPrefix(local, `"`) {
+	if len(local) > 1 && strings.HasPrefix(local, `"`) && strings.HasSuffix(local, `"`) {
 		// quoted
 		local := local[1 : len(local)-1]
 		if strings.IndexByte(local, '\\') != -1 || strings.IndexByte(local, '"') != -1 {
