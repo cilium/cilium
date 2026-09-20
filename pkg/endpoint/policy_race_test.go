@@ -119,12 +119,12 @@ func TestPreviousMapStateSizesRace(t *testing.T) {
 		cmp := completion.NewWaitGroup(context.Background())
 		for i := range numIdentities {
 			addIdentity("peer", fmt.Sprintf("peer%d", i))
-			err, _, finalizeFunc := ep.ApplyPolicyMapChanges(cmp)
+			err, revertible := ep.ApplyPolicyMapChanges(cmp)
 			if !assert.NoError(t, err) {
 				return
 			}
-			if finalizeFunc != nil {
-				finalizeFunc()
+			if revertible != nil {
+				revertible.Finalize()
 			}
 		}
 	}()

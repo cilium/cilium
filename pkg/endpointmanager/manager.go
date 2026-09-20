@@ -208,8 +208,7 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	defer cancel()
 
 	var guard lock.Mutex
-	var finalizeList revert.FinalizeList
-	var revertStack revert.RevertStack
+	var revertibles revert.Revertibles
 	proxyWaitGroup := completion.NewWaitGroup(ctx)
 
 	eps := mgr.GetEndpoints()
@@ -217,10 +216,9 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
-			err, rf, ff := ep.ApplyPolicyMapChanges(proxyWaitGroup)
+			err, revertible := ep.ApplyPolicyMapChanges(proxyWaitGroup)
 			guard.Lock()
-			revertStack.Push(rf)
-			finalizeList.Append(ff)
+			revertibles.Add(revertible)
 			guard.Unlock()
 
 			if err != nil && !errors.Is(err, endpoint.ErrNotAlive) {
@@ -234,18 +232,20 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	// changes before waiting for the changes to be ACKed
 	wg.Wait()
 
-	// wait for proxy completions can return with no error immediately without waiting for
-	// anything if all Endpoint updates failed synchronously, but even in that case calling the
-	// finalize functions is the right thing to do.
+	// Waiting for proxy completions can return with no error immediately without waiting for
+	// anything if all Endpoint updates failed synchronously, but even in that case finalizing
+	// successful endpoint updates is the right thing to do.
 	err := mgr.waitForProxyCompletions(proxyWaitGroup)
 
 	// no endpoint locks needed here, as ApplyPolicyMapChanges currently collects
-	// revert/finalize functions only from UpdateNetworkPolicy
+	// revertibles only from UpdateNetworkPolicy
 	if err != nil {
-		revertStack.Revert()
+		if revertErr := revertibles.Revert(); revertErr != nil {
+			mgr.logger.Warn("Failed to revert L7 proxy policy changes", logfields.Error, revertErr)
+		}
 		mgr.logger.Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.", logfields.Error, err)
 	} else {
-		finalizeList.Finalize()
+		revertibles.Finalize()
 	}
 
 	// Perform policy update call if required.

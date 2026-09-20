@@ -2748,11 +2748,10 @@ func TestUpdateNetworkPolicyRevertKeepsLocalEndpointStoreAfterStaleDuplicateRemo
 	repo, localIdentity, currentEPP := newTestEndpointPolicy(t, currentEP)
 	xds := newTestXDSServer(t)
 
-	err, revert, finalize := xds.UpdateNetworkPolicy(t.Context(), currentEP, currentEPP, nil)
+	err, revertible := xds.UpdateNetworkPolicy(t.Context(), currentEP, currentEPP, nil)
 	require.NoError(t, err)
-	require.NotNil(t, revert)
-	require.NotNil(t, finalize)
-	finalize()
+	require.NotNil(t, revertible)
+	revertible.Finalize()
 
 	staleEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
 		Id:   500,
@@ -2770,11 +2769,9 @@ func TestUpdateNetworkPolicyRevertKeepsLocalEndpointStoreAfterStaleDuplicateRemo
 	require.Equal(t, staleEP.GetID(), localEP.GetID())
 
 	refreshedCurrentEPP := distillEndpointPolicy(t, repo, localIdentity, currentEP)
-	err, revert, finalize = xds.UpdateNetworkPolicy(t.Context(), currentEP, refreshedCurrentEPP, nil)
+	err, revertible = xds.UpdateNetworkPolicy(t.Context(), currentEP, refreshedCurrentEPP, nil)
 	require.NoError(t, err)
-	require.NotNil(t, revert)
-	require.NotNil(t, finalize)
-	finalize()
+	require.NotNil(t, revertible)
 
 	localEP = xds.localEndpointStore.getLocalEndpoint(currentEP.Ipv4)
 	require.NotNil(t, localEP)
@@ -2784,7 +2781,7 @@ func TestUpdateNetworkPolicyRevertKeepsLocalEndpointStoreAfterStaleDuplicateRemo
 	require.Equal(t, currentEP.GetID(), localEP.GetID())
 	require.Nil(t, xds.localEndpointStore.getLocalEndpoint(staleEP.Ipv6))
 
-	require.NoError(t, revert())
+	require.NoError(t, revertible.Revert())
 
 	localEP = xds.localEndpointStore.getLocalEndpoint(currentEP.Ipv4)
 	require.NotNil(t, localEP)
@@ -2812,10 +2809,9 @@ func TestUpdateNetworkPolicyLegacyACKUsesNodeIP(t *testing.T) {
 	defer cancel()
 	wg := completion.NewWaitGroup(ctx)
 
-	err, revert, finalize := xdsServer.UpdateNetworkPolicy(ctx, currentEP, currentEPP, wg)
+	err, revertible := xdsServer.UpdateNetworkPolicy(ctx, currentEP, currentEPP, wg)
 	require.NoError(t, err)
-	require.NotNil(t, revert)
-	require.NotNil(t, finalize)
+	require.NotNil(t, revertible)
 
 	acker, ok := xdsServer.networkPolicyMutator.(*xds.AckingResourceMutatorWrapper)
 	require.True(t, ok)
@@ -2824,8 +2820,7 @@ func TestUpdateNetworkPolicyLegacyACKUsesNodeIP(t *testing.T) {
 	acker.HandleResourceVersionAck("127.0.0.1", resources.Version, resources.Version, false, "", NetworkPolicyTypeURL, []string{resourceName})
 
 	require.NoError(t, wg.Wait())
-	finalize()
-	require.NoError(t, revert())
+	revertible.Finalize()
 }
 
 func newTestEndpointPolicy(t *testing.T, ep *listenerProxyUpdaterMock) (*policy.Repository, *identity.Identity, *policy.EndpointPolicy) {

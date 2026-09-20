@@ -117,8 +117,8 @@ func (r *RedirectSuiteProxy) RemoveRedirect(id string) {
 }
 
 // UpdateNetworkPolicy does nothing.
-func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
-	return nil, nil, nil
+func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.Revertible) {
+	return nil, nil
 }
 
 // RemoveNetworkPolicy does nothing.
@@ -292,7 +292,7 @@ func (s *RedirectSuite) computePolicyForTest(t *testing.T, ep *Endpoint, cmp *co
 	res := s.datapathRegenCtxt.policyResult
 
 	oldDesiredPolicy := ep.desiredPolicy
-	s.datapathRegenCtxt.revertStack.Push(func() error {
+	s.datapathRegenCtxt.revertibles.AddRevert(func() error {
 		ep.desiredPolicy = oldDesiredPolicy
 		return nil
 	})
@@ -300,7 +300,7 @@ func (s *RedirectSuite) computePolicyForTest(t *testing.T, ep *Endpoint, cmp *co
 	ep.setDesiredPolicy(s.datapathRegenCtxt)
 
 	// This will also remove old redirects
-	s.datapathRegenCtxt.finalizeList.Finalize()
+	s.datapathRegenCtxt.revertibles.Finalize()
 }
 
 type LabelArrayListMap map[policy.Key]labels.LabelArrayList
@@ -412,7 +412,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	require.Equal(t, 1+2*len(policy.AllAggregates), ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
-	s.datapathRegenCtxt.revertStack.Revert()
+	require.NoError(t, s.datapathRegenCtxt.revertibles.Revert())
 	require.Empty(t, ep.desiredPolicy.Redirects)
 
 	expected = policy.MapStateMap{}
@@ -537,7 +537,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	require.Equal(t, 1+2*len(policy.AllAggregates), ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
-	s.datapathRegenCtxt.revertStack.Revert()
+	require.NoError(t, s.datapathRegenCtxt.revertibles.Revert())
 	require.Empty(t, ep.desiredPolicy.Redirects)
 
 	expected = policy.MapStateMap{}
@@ -590,7 +590,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	require.Equal(t, 1+2*len(policy.AllAggregates), ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
-	s.datapathRegenCtxt.revertStack.Revert()
+	require.NoError(t, s.datapathRegenCtxt.revertibles.Revert())
 	require.Empty(t, ep.desiredPolicy.Redirects)
 
 	expected = policy.MapStateMap{}
