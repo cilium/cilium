@@ -53,6 +53,7 @@ func (driver *Driver) startNRI(ctx context.Context) error {
 	driver.nriPlugin = nriStub
 
 	driver.jg.Add(job.OneShot("network-driver-nri-plugin-run", func(ctx context.Context, health cell.Health) error {
+		driver.logger.InfoContext(ctx, "starting NRI plugin")
 		for {
 			if err := driver.nriPlugin.Run(ctx); err != nil {
 				driver.logger.ErrorContext(
