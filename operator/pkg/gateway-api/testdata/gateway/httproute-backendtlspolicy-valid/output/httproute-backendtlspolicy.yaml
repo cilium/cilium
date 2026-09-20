@@ -23,6 +23,15 @@ spec:
     - backendRefs:
         - group: ""
           kind: Service
+          name: backendtlspolicy-system-ca-test
+          port: 443
+      matches:
+        - path:
+            type: Exact
+            value: /backendtlspolicy-system-ca
+    - backendRefs:
+        - group: ""
+          kind: Service
           name: backendtlspolicy-host-mismatch-test
           port: 443
       matches:
