@@ -184,6 +184,13 @@ const (
 	//		use SNAT so that reply traffic comes back
 	ServiceForwardingMode = ServicePrefix + "/forwarding-mode"
 
+	// ServiceExternalIPs annotations specifies that traffic to the provided list of IPs
+	// should be routed to the Service's backends.
+	//
+	// This annotation allows Cilium to continue processing externalIPs for a
+	// Service even after Kubernetes removes support for the field.
+	ServiceExternalIPs = ServicePrefix + "/external-ips"
+
 	// NoTrack / NoTrackAlias is the annotation name used to store the port and
 	// protocol that we should bypass kernel conntrack for a given pod. This
 	// applies for both TCP and UDP connection. Current use case is NodeLocalDNS.
