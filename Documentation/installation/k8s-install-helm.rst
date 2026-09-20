@@ -374,6 +374,28 @@ OCI vs Traditional Repository
 
 Both methods remain fully supported.
 
+Uninstalling Cilium
+===================
+
+.. warning::
+
+   Uninstalling Cilium can disrupt cluster network connectivity. If the cluster
+   will remain in use, follow your platform's procedure to install or restore a
+   CNI plugin. For a provider-managed Cilium installation, use the provider's
+   removal procedure instead.
+
+Use the Cilium CLI to uninstall the Helm release and wait for its resources to
+be deleted:
+
+.. code-block:: shell-session
+
+   $ cilium uninstall --wait
+
+The command uses the ``cilium`` release in the ``kube-system`` namespace by
+default. For a different release or namespace, use ``--helm-release-name`` or
+``--namespace``. See the :doc:`cilium uninstall reference
+<../cmdref/cilium_uninstall>` for all options.
+
 Troubleshooting
 ===============
 
