@@ -117,6 +117,20 @@ const (
 // compile time interface check
 var _ notifications.RegenNotificationInfo = (*Endpoint)(nil)
 
+// endpointPolicyNames holds the immutable policy names derived from an
+// endpoint's addresses. Valid names are packed at the beginning of the array.
+type endpointPolicyNames [2]string
+
+func (names *endpointPolicyNames) slice() []string {
+	if names[1] != "" {
+		return names[:2:2]
+	}
+	if names[0] != "" {
+		return names[:1:1]
+	}
+	return nil
+}
+
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
 // endpoint manager in pkg/endpointmanager.
@@ -216,6 +230,11 @@ type Endpoint struct {
 	// IPv4 is the IPv4 address of the endpoint.
 	// Constant after endpoint creation / restoration.
 	IPv4 netip.Addr
+
+	// policyNames caches the string forms of the endpoint addresses. The
+	// addresses are immutable once endpoint creation or restoration completes,
+	// so generated proxy policies may safely share this immutable storage.
+	policyNames atomic.Pointer[endpointPolicyNames]
 
 	// IPv4IPAMPool is the IPAM address pool from which the IPv4 address has been allocated from.
 	// Constant after endpoint creation / restoration.
@@ -438,17 +457,28 @@ type Endpoint struct {
 	ctMapGC ctmap.GCRunner
 }
 
-// GetPolicyNames returns the policy names for this endpoint.
+// GetPolicyNames returns the immutable policy names for this endpoint.
 // For Endpoint, the policy names are the IP addresses of the endpoint.
+// Callers must not modify the returned slice.
 func (e *Endpoint) GetPolicyNames() []string {
-	var ips []string
+	if names := e.policyNames.Load(); names != nil {
+		return names.slice()
+	}
+
+	names := &endpointPolicyNames{}
+	n := 0
 	if ipv6 := e.GetIPv6Address(); ipv6 != "" {
-		ips = append(ips, ipv6)
+		names[n] = ipv6
+		n++
 	}
 	if ipv4 := e.GetIPv4Address(); ipv4 != "" {
-		ips = append(ips, ipv4)
+		names[n] = ipv4
 	}
-	return ips
+
+	if e.policyNames.CompareAndSwap(nil, names) {
+		return names.slice()
+	}
+	return e.policyNames.Load().slice()
 }
 
 func (e *Endpoint) GetReporter(name string) cell.Health {
