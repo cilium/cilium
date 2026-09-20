@@ -1162,10 +1162,7 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 			continue
 		}
 
-		oldAddress := oldListener.GetAddress().GetSocketAddress()
-		newAddress := newListener.GetAddress().GetSocketAddress()
-		if oldAddress != nil && newAddress != nil &&
-			oldAddress.GetPortValue() == newAddress.GetPortValue() {
+		if listenerPrimaryPortsEqual(oldListener, newListener) {
 			delete(newResources.PortAllocationCallbacks, name)
 		}
 	}

@@ -83,7 +83,9 @@ type Resources struct {
 	NetworkPolicies    map[string]*cilium.NetworkPolicy
 	NetworkPolicyHosts map[string]*cilium.NetworkPolicyHosts
 
-	// Callback functions that are called if the corresponding Listener change was successfully acked by Envoy
+	// Callback functions that confirm newly allocated primary proxy ports after
+	// the corresponding Listener change is successfully ACKed by Envoy. A
+	// listener update that retains its primary port must not call one again.
 	PortAllocationCallbacks map[string]func(context.Context) error `json:"-" yaml:"-"`
 }
 

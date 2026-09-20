@@ -952,13 +952,17 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 		found := false
 		for _, newListener := range new.Listeners {
 			if newListener.Name == oldListener.Name {
+				// Listener recreation and proxy-port allocation are independent:
+				// changing an additional address requires delete-and-recreate, but
+				// the unchanged primary port must retain its existing allocation.
+				if listenerPrimaryPortsEqual(oldListener, newListener) {
+					delete(new.PortAllocationCallbacks, newListener.Name)
+				}
 				if !listenerAddressesEqual(oldListener, newListener) {
 					s.logger.Debug("UpdateEnvoyResources: listener addresses changing",
 						logfields.Listener, newListener.Name)
 					waitForDelete = true
 				} else {
-					// The listener addresses are unchanged, so prevent acking an already acked port.
-					delete(new.PortAllocationCallbacks, newListener.Name)
 					found = true
 				}
 				break
