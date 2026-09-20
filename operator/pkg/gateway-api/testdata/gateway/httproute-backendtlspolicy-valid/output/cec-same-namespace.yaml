@@ -21,6 +21,10 @@ spec:
       namespace: gateway-conformance-infra
       number:
         - "443"
+    - name: backendtlspolicy-system-ca-test
+      namespace: gateway-conformance-infra
+      number:
+        - "443"
     - name: backendtlspolicy-test
       namespace: gateway-conformance-infra
       number:
@@ -99,6 +103,12 @@ spec:
                 maxStreamDuration:
                   maxStreamDuration: 0s
             - match:
+                path: /backendtlspolicy-system-ca
+              route:
+                cluster: gateway-conformance-infra:backendtlspolicy-system-ca-test:443
+                maxStreamDuration:
+                  maxStreamDuration: 0s
+            - match:
                 path: /backendtlspolicy
               route:
                 cluster: gateway-conformance-infra:backendtlspolicy-test:443
@@ -121,9 +131,9 @@ spec:
             combinedValidationContext:
               defaultValidationContext:
                 match_typed_subject_alt_names:
-                - san_type: DNS
-                  matcher:
-                    exact: "abc.example.com"
+                  - san_type: DNS
+                    matcher:
+                      exact: "abc.example.com"
               validationContextSdsSecretConfig:
                 name: cilium-secrets/cilium-sync-cfgmap-b12423955ebfb5ff0e4c9b01e91a2f2325aba4de2924d35b2799aa2e51462c24
           sni: abc.example.com
@@ -135,6 +145,7 @@ spec:
             idleTimeout: 60s
           useDownstreamProtocolConfig:
             http2ProtocolOptions: {}
+
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
         serviceName: gateway-conformance-infra/backendtlspolicy-host-mismatch-test:443
@@ -151,9 +162,9 @@ spec:
             combinedValidationContext:
               defaultValidationContext:
                 match_typed_subject_alt_names:
-                - san_type: DNS
-                  matcher:
-                    exact: "mismatch.example.com"
+                  - san_type: DNS
+                    matcher:
+                      exact: "mismatch.example.com"
               validationContextSdsSecretConfig:
                 name: cilium-secrets/cilium-sync-cfgmap-f3757660099595ce0587b4d45f08d43da98e3f80d7c9fa16d991dbd0946ee01b
           sni: mismatch.example.com
@@ -165,6 +176,36 @@ spec:
             idleTimeout: 60s
           useDownstreamProtocolConfig:
             http2ProtocolOptions: {}
+
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      edsClusterConfig:
+        serviceName: gateway-conformance-infra/backendtlspolicy-system-ca-test:443
+      name: gateway-conformance-infra:backendtlspolicy-system-ca-test:443
+      outlierDetection:
+        splitExternalLocalOriginErrors: true
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+          commonTlsContext:
+            tlsParams:
+              tlsMaximumProtocolVersion: TLSv1_3
+            validationContext:
+              match_typed_subject_alt_names:
+                - san_type: DNS
+                  matcher:
+                    exact: "abc.example.com"
+              systemRootCerts: {}
+          sni: abc.example.com
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            idleTimeout: 60s
+          useDownstreamProtocolConfig:
+            http2ProtocolOptions: {}
+
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
         serviceName: gateway-conformance-infra/backendtlspolicy-test:443
@@ -181,9 +222,9 @@ spec:
             combinedValidationContext:
               defaultValidationContext:
                 match_typed_subject_alt_names:
-                - san_type: DNS
-                  matcher:
-                    exact: "abc.example.com"
+                  - san_type: DNS
+                    matcher:
+                      exact: "abc.example.com"
               validationContextSdsSecretConfig:
                 name: cilium-secrets/cilium-sync-cfgmap-f3757660099595ce0587b4d45f08d43da98e3f80d7c9fa16d991dbd0946ee01b
           sni: abc.example.com
