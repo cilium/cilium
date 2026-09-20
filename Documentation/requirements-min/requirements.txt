@@ -5,7 +5,7 @@ sphinx-autobuild==2021.3.14
 git+https://github.com/cilium/sphinx_rtd_theme.git@cilium/main#egg=sphinx-rtd-theme-cilium
 
 # We use semver to parse Cilium's version in the config file
-semver==3.0.4
+semver==3.1.0
 
 # Sphinx extensions
 myst-parser==5.1.0
