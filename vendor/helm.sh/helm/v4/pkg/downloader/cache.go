@@ -59,14 +59,16 @@ func (c *DiskCache) Get(key [sha256.Size]byte, cacheType string) (string, error)
 	if err != nil {
 		return "", err
 	}
-	// Empty files treated as not exist because there is no content.
-	if fi.Size() == 0 {
-		return p, os.ErrNotExist
-	}
 	// directories should never happen unless something outside helm is operating
 	// on this content.
 	if fi.IsDir() {
 		return p, errors.New("is a directory")
+	}
+	// Empty files are treated as non-existent because there is no content.
+	// IsDir must be checked first: some filesystems (e.g. overlayfs) report
+	// directory size as 0.
+	if fi.Size() == 0 {
+		return p, os.ErrNotExist
 	}
 	return p, nil
 }
@@ -76,11 +78,11 @@ func (c *DiskCache) Get(key [sha256.Size]byte, cacheType string) (string, error)
 func (c *DiskCache) Put(key [sha256.Size]byte, data io.Reader, cacheType string) (string, error) {
 	// TODO: verify the key and digest of the key are the same.
 	p := c.fileName(key, cacheType)
-	if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		slog.Error("failed to create cache directory")
 		return p, err
 	}
-	return p, fileutil.AtomicWriteFile(p, data, 0644)
+	return p, fileutil.AtomicWriteFile(p, data, 0o644)
 }
 
 // fileName generates the filename in a structured manner where the first part is the

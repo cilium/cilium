@@ -21,6 +21,8 @@ func listen(_ *net.Interface, _ Type, _ int, _ *Config) (*Conn, error) { return 
 func (*Conn) readFrom(_ []byte) (int, net.Addr, error)  { return 0, nil, errUnimplemented }
 func (*Conn) writeTo(_ []byte, _ net.Addr) (int, error) { return 0, errUnimplemented }
 func (*Conn) setPromiscuous(_ bool) error               { return errUnimplemented }
+func (*Conn) joinGroup(_ net.HardwareAddr) error        { return errUnimplemented }
+func (*Conn) leaveGroup(_ net.HardwareAddr) error       { return errUnimplemented }
 func (*Conn) stats() (*Stats, error)                    { return nil, errUnimplemented }
 
 type conn struct{}

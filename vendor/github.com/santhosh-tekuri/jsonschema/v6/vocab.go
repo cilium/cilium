@@ -14,6 +14,10 @@ func (ctx *CompilerContext) Enqueue(schPath []string) *Schema {
 	return ctx.c.enqueuePtr(ptr)
 }
 
+func (ctx *CompilerContext) EnqueueRef(ref string) (*Schema, error) {
+	return ctx.c.enqueueRefVal(ref)
+}
+
 // Vocabulary defines a set of keywords, their syntax and
 // their semantics.
 type Vocabulary struct {

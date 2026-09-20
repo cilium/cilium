@@ -120,7 +120,6 @@ func (d *Dependency) dependencyStatus(chartpath string, dep *chart.Dependency, p
 		if r := statArchiveForStatus(archive, dep); r != "" {
 			return r
 		}
-
 	}
 	// End unnecessary code.
 
@@ -202,7 +201,7 @@ func (d *Dependency) printDependencies(chartpath string, out io.Writer, c *chart
 // printMissing prints warnings about charts that are present on disk, but are
 // not in Chart.yaml.
 func (d *Dependency) printMissing(chartpath string, out io.Writer, reqs []*chart.Dependency) {
-	folder := filepath.Join(chartpath, "charts/*")
+	folder := filepath.Join(chartpath, "charts", "*")
 	files, err := filepath.Glob(folder)
 	if err != nil {
 		fmt.Fprintln(out, err)

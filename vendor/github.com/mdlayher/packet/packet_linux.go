@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 
-	"github.com/josharian/native"
 	"github.com/mdlayher/socket"
 	"golang.org/x/sys/unix"
 )
@@ -52,13 +51,40 @@ func (c *Conn) writeTo(b []byte, addr net.Addr) (int, error) {
 
 // setPromiscuous wraps setsockopt(2) for the unix.PACKET_MR_PROMISC option.
 func (c *Conn) setPromiscuous(enable bool) error {
+	// PACKET_MR_PROMISC applies to the entire interface and therefore carries
+	// no address.
+	return c.setPacketMreq(unix.PACKET_MR_PROMISC, nil, enable)
+}
+
+// joinGroup wraps setsockopt(2) for the unix.PACKET_MR_MULTICAST option.
+func (c *Conn) joinGroup(addr net.HardwareAddr) error {
+	return c.setPacketMreq(unix.PACKET_MR_MULTICAST, addr, true)
+}
+
+// leaveGroup wraps setsockopt(2) for the unix.PACKET_MR_MULTICAST option.
+func (c *Conn) leaveGroup(addr net.HardwareAddr) error {
+	return c.setPacketMreq(unix.PACKET_MR_MULTICAST, addr, false)
+}
+
+// setPacketMreq wraps setsockopt(2) for unix.PacketMreq values, adding or
+// dropping a socket's membership of the given type and optional address.
+func (c *Conn) setPacketMreq(typ uint16, addr net.HardwareAddr, add bool) error {
 	mreq := unix.PacketMreq{
 		Ifindex: int32(c.ifIndex),
-		Type:    unix.PACKET_MR_PROMISC,
+		Type:    typ,
 	}
 
+	// Ensure the input address does not exceed the amount of space available,
+	// rather than silently truncating it.
+	if len(addr) > len(mreq.Address) {
+		return c.opError(opSetsockopt, os.NewSyscallError("setsockopt", unix.EINVAL))
+	}
+
+	mreq.Alen = uint16(len(addr))
+	copy(mreq.Address[:], addr)
+
 	membership := unix.PACKET_DROP_MEMBERSHIP
-	if enable {
+	if add {
 		membership = unix.PACKET_ADD_MEMBERSHIP
 	}
 
@@ -244,5 +270,5 @@ func htons(i int) (uint16, error) {
 	var b [2]byte
 	binary.BigEndian.PutUint16(b[:], uint16(i))
 
-	return native.Endian.Uint16(b[:]), nil
+	return binary.NativeEndian.Uint16(b[:]), nil
 }

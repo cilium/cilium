@@ -184347,6 +184347,19 @@ func awsEc2query_deserializeDocumentVolume(v **types.Volume, decoder smithyxml.N
 				sv.OutpostArn = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("ownerId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.OwnerId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("size", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -184437,6 +184450,19 @@ func awsEc2query_deserializeDocumentVolume(v **types.Volume, decoder smithyxml.N
 					return err
 				}
 				sv.Throughput = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("volumeArn", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.VolumeArn = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("volumeId", t.Name.Local):
@@ -198858,6 +198884,19 @@ func awsEc2query_deserializeOpDocumentCreateVolumeOutput(v **CreateVolumeOutput,
 				sv.OutpostArn = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("ownerId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.OwnerId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("size", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -198948,6 +198987,19 @@ func awsEc2query_deserializeOpDocumentCreateVolumeOutput(v **CreateVolumeOutput,
 					return err
 				}
 				sv.Throughput = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("volumeArn", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.VolumeArn = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("volumeId", t.Name.Local):

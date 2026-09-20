@@ -82,6 +82,24 @@ type CreateImageInput struct {
 	//   DeleteOnTermination .
 	BlockDeviceMappings []types.BlockDeviceMapping
 
+	// The boot mode of the new image, which overrides the default boot mode. By
+	// default, if you do not specify this parameter, the new image inherits the
+	// boot-mode from the source instance.
+	//
+	// A value of uefi indicates that the image only supports UEFI boot mode. You can
+	// specify this parameter only if the current-instance-boot-mode of the source
+	// instance is uefi . To find the boot-mode or current-instance-boot-mode of an
+	// instance, see [DescribeInstances].
+	//
+	// The operating system contained in the AMI must be configured to support the
+	// specified boot mode.
+	//
+	// For more information, see [Instance launch behavior with Amazon EC2 boot modes] in the Amazon EC2 User Guide.
+	//
+	// [Instance launch behavior with Amazon EC2 boot modes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-boot.html
+	// [DescribeInstances]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstances.html
+	BootModeOverride types.BootModeOverrideValues
+
 	// A description for the new image.
 	Description *string
 

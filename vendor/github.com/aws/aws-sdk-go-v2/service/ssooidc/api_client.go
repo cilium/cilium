@@ -723,9 +723,6 @@ func addRetry(stack *middleware.Stack, o Options, c *Client) error {
 	if err := stack.Finalize.Insert(attempt, "ResolveAuthScheme", middleware.Before); err != nil {
 		return err
 	}
-	if err := stack.Finalize.Insert(&retry.MetricsHeader{}, attempt.ID(), middleware.After); err != nil {
-		return err
-	}
 	return nil
 }
 
