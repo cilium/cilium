@@ -563,7 +563,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	// Update local endpoint IP/policy mapping for access log correlation and log any conflicts.
 	// This is done even if policy update fails, as this information only depends on the
 	// existence of the endpoint and does not need to be reverted even if policy update fails.
-	conflicts := s.localEndpointStore.setLocalEndpoint(ep)
+	conflicts := s.localEndpointStore.setLocalEndpoint(ep, names)
 	if len(conflicts) > 0 {
 		s.logger.Error("Conflicting policy names detected while updating local endpoint store",
 			logfields.EndpointID, ep.GetID(),
@@ -589,7 +589,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	// First, validate the policy
 	err := networkPolicy.Validate()
 	if err != nil {
-		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), ep.GetPolicyNames(), err), nil, nil
+		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), names, err), nil, nil
 	}
 
 	epID := ep.GetID()
@@ -615,8 +615,8 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	revertEndpoints := make(map[string]endpoint.EndpointUpdater, len(names))
 	for _, name := range names {
 		revertEndpoints[name] = s.localEndpointStore.getLocalEndpoint(name)
-		s.localEndpointStore.setLocalEndpoint(ep)
 	}
+	s.localEndpointStore.setLocalEndpoint(ep, names)
 
 	resources := s.cache.GetAllResources(localNodeID)
 	if resources == nil {
@@ -649,7 +649,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 				if oldEp == nil {
 					s.localEndpointStore.removeLocalEndpoint(ep)
 				} else {
-					s.localEndpointStore.setLocalEndpoint(ep)
+					s.localEndpointStore.setLocalEndpoint(ep, names)
 				}
 			}
 
