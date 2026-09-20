@@ -12,7 +12,7 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /
+        value: /cors-1
     backendRefs:
     - name: infra-backend-v1
       port: 8080
@@ -33,13 +33,6 @@ spec:
         - "x-header-4"
         allowCredentials: true
         maxAge: 3600
-    matches:
-    - path:
-        type: PathPrefix
-        value: /cors-1
-    backendRefs:
-    - name: infra-backend-v1
-      port: 8080
 status:
   parents:
   - conditions:

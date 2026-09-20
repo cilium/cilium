@@ -95,7 +95,7 @@ spec:
         - name: infra-backend-v1
           port: 8080
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tls-route-a
@@ -112,7 +112,7 @@ spec:
         - name: tls-backend
           port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tls-route-b
