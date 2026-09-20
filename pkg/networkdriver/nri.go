@@ -52,7 +52,7 @@ func (driver *Driver) startNRI(ctx context.Context) error {
 
 	driver.nriPlugin = nriStub
 
-	driver.jg.Add(job.OneShot("networkdriver-nri-plugin-run", func(ctx context.Context, health cell.Health) error {
+	driver.jg.Add(job.OneShot("network-driver-nri-plugin-run", func(ctx context.Context, health cell.Health) error {
 		for {
 			if err := driver.nriPlugin.Run(ctx); err != nil {
 				driver.logger.ErrorContext(
@@ -63,7 +63,7 @@ func (driver *Driver) startNRI(ctx context.Context) error {
 
 				health.Degraded("Network Driver NRI plugin failed", err)
 			} else {
-				health.OK("Network Driver NRI plugin registraction successful")
+				health.OK("Network Driver NRI plugin registration successful")
 			}
 			select {
 			case <-ctx.Done():
