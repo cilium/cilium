@@ -141,10 +141,19 @@ func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resou
 				logfields.UID, c.UID,
 				logfields.Name, c.Name,
 			)
-			result[c.UID] = driver.prepareResourceClaim(ctx, c)
+			claimResult := driver.prepareResourceClaim(ctx, c)
+			result[c.UID] = claimResult
 
-			l.DebugContext(ctx, "allocation for claim",
-				logfields.Result, result[c.UID],
+			// If there is an error we want to log it here the kubelet won't do it for us.
+			// Ref: https://github.com/kubernetes/kubernetes/blob/v1.37.0/pkg/kubelet/cm/dra/manager.go#L425-L436
+			if claimResult.Err != nil {
+				l.ErrorContext(ctx, "failed to prepare resources for claim",
+					logfields.Error, claimResult.Err,
+				)
+				continue
+			}
+			l.DebugContext(ctx, "successful allocation for claim",
+				logfields.Result, claimResult,
 			)
 		}
 
