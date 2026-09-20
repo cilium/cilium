@@ -2880,9 +2880,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.38.4-1789133559-b4174f07e1030109459e34436262323af5c3ef0f"
+    tag: "v1.38.4-1789396437-a6bb974d7ad015d17b46eb44fdd7bbfe8256c089"
     pullPolicy: "Always"
-    digest: "sha256:6452737a9e3c32dab163e00f9646a251c7c8b3e22d4f11c1ef5d4d5bcc0ea587"
+    digest: "sha256:39a86953505b46d8a8e1ee4add26d955d5ba1accf5e4fa60197c8155e5ac2b5e"
     useDigest: true
   # -- Init containers added to the cilium Envoy DaemonSet.
   initContainers: []
@@ -3642,9 +3642,9 @@ preflight:
       # @schema
       override: ~
       repository: "quay.io/cilium/cilium-envoy"
-      tag: "v1.38.4-1789133559-b4174f07e1030109459e34436262323af5c3ef0f"
+      tag: "v1.38.4-1789396437-a6bb974d7ad015d17b46eb44fdd7bbfe8256c089"
       pullPolicy: "Always"
-      digest: "sha256:6452737a9e3c32dab163e00f9646a251c7c8b3e22d4f11c1ef5d4d5bcc0ea587"
+      digest: "sha256:39a86953505b46d8a8e1ee4add26d955d5ba1accf5e4fa60197c8155e5ac2b5e"
       useDigest: true
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
