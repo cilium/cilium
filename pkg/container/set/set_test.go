@@ -277,6 +277,40 @@ func TestSet(t *testing.T) {
 	require.True(t, set2.Empty())
 }
 
+func TestSetZeroValueMember(t *testing.T) {
+	set := NewSet(0)
+	require.False(t, set.Empty())
+	require.Equal(t, 1, set.Len())
+	require.True(t, set.Has(0))
+	require.Equal(t, "0", set.String())
+	require.Equal(t, []int{0}, set.AsSlice())
+
+	member, found := set.Get()
+	require.True(t, found)
+	require.Zero(t, member)
+
+	// Preserve the externally visible storage-transition return values even though
+	// a zero-valued singleton has to use the map representation internally.
+	require.True(t, set.Insert(1))
+	require.False(t, set.Insert(2))
+	require.False(t, set.Remove(2))
+	require.True(t, set.Remove(1))
+	require.Equal(t, NewSet(0), set)
+	require.True(t, set.Remove(0))
+	require.True(t, set.Empty())
+
+	original := NewSet(0)
+	copy := original
+	require.True(t, copy.Insert(1))
+	require.Equal(t, NewSet(0), original)
+	require.Equal(t, NewSet(0, 1), copy)
+
+	copy = original
+	require.True(t, copy.Remove(0))
+	require.Equal(t, NewSet(0), original)
+	require.True(t, copy.Empty())
+}
+
 func TestSet_String(t *testing.T) {
 	tests := []struct {
 		name             string
