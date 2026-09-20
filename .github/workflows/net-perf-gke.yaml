@@ -71,7 +71,7 @@ env:
   # capacity since GCE does not report it.
   gcp_zone: us-central1-a
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 584.0.0
+  gcloud_version: 585.0.0
 
 jobs:
   echo-inputs:
