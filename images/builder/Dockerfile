@@ -5,7 +5,7 @@
 
 ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1788264345-cbe387d@sha256:0f3e7f35218cea6654d129b3ea1867ad3ede9bf9e4c2eb3cdf0b90c537c7dc4e
 ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:ccc1a8e2e299ac61182dcaddbf65cf324ec509b7@sha256:02a3f11fa19cfc9d990cf84ec3bba9f368c4644a1a7b1b6e6c21f29f95db45f6
-ARG TESTER_IMAGE=quay.io/cilium/image-tester:1788915995-1311b37@sha256:c83f23858d59836e23667f2b629a6f85839dde4994ad69cfbb16fed824edfd18
+ARG TESTER_IMAGE=quay.io/cilium/image-tester:1789686423-ec0d860@sha256:6c5726930509668042e2ea2e780929bb046cadf459ce66bfbad6c3a324ae8b54
 ARG GOLANG_IMAGE=docker.io/library/golang:1.26.8@sha256:3c3e25a4da13fd0478eed2df1eb35a0e667094a7124d3993a6a1d30f71c17e79
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:19.1.7-1788264345-cbe387d@sha256:9dbf0536ebf99f08bb3989faa8d85aef7345552f322bd745898a6116eef11a6d
 
