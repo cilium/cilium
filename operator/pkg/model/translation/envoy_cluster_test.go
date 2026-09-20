@@ -178,6 +178,31 @@ func Test_withTLSOrigination(t *testing.T) {
 		sdsName := combined.ValidationContextSdsSecretConfig.GetName()
 		require.Equal(t, syncnames.SyncedConfigMapSDSSecretName("cilium-secrets", types.NamespacedName{Namespace: "my-namespace", Name: "my-ca-configmap"}), sdsName)
 	})
+
+	t.Run("uses system root certificates when no CA ref is configured", func(t *testing.T) {
+		systemTLS := &model.BackendTLSOrigination{
+			SNI: "my-backend.svc.cluster.local",
+		}
+
+		fn := withTLSOrigination("cilium-secrets", systemTLS)
+		cluster := fn(&envoy_config_cluster_v3.Cluster{})
+
+		require.NotNil(t, cluster.TransportSocket)
+
+		upstreamTLS := &envoy_config_tls.UpstreamTlsContext{}
+		err := proto.Unmarshal(cluster.TransportSocket.GetTypedConfig().GetValue(), upstreamTLS)
+		require.NoError(t, err)
+
+		validationContext := upstreamTLS.CommonTlsContext.GetValidationContext()
+		require.NotNil(t, validationContext)
+
+		require.NotNil(t, validationContext.GetSystemRootCerts())
+
+		matchers := validationContext.GetMatchTypedSubjectAltNames()
+		require.Len(t, matchers, 1)
+		require.Equal(t, envoy_config_tls.SubjectAltNameMatcher_DNS, matchers[0].GetSanType())
+		require.Equal(t, systemTLS.SNI, matchers[0].GetMatcher().GetExact())
+	})
 }
 
 func Test_tcpCluster(t *testing.T) {

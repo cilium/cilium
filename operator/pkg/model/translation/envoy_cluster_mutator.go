@@ -143,7 +143,41 @@ func withTLSOrigination(secretsNamespace string, tls *model.BackendTLSOriginatio
 			return cluster
 		}
 
-		if tls.CACertRef == nil || tls.CACertRef.Name == "" || tls.CACertRef.Namespace == "" {
+		if tls.CACertRef == nil {
+			tlsContext := &envoy_config_tls.UpstreamTlsContext{
+				Sni: tls.SNI,
+				CommonTlsContext: &envoy_config_tls.CommonTlsContext{
+					TlsParams: &envoy_config_tls.TlsParameters{
+						TlsMaximumProtocolVersion: envoy_config_tls.TlsParameters_TLSv1_3,
+					},
+					ValidationContextType: &envoy_config_tls.CommonTlsContext_ValidationContext{
+						ValidationContext: &envoy_config_tls.CertificateValidationContext{
+							MatchTypedSubjectAltNames: []*envoy_config_tls.SubjectAltNameMatcher{
+								{
+									SanType: envoy_config_tls.SubjectAltNameMatcher_DNS,
+									Matcher: &envoy_type_matcher.StringMatcher{
+										MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+											Exact: tls.SNI,
+										},
+									},
+								},
+							},
+							SystemRootCerts: &envoy_config_tls.CertificateValidationContext_SystemRootCerts{},
+						},
+					},
+				},
+			}
+
+			cluster.TransportSocket = &envoy_config_core_v3.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+					TypedConfig: toAny(tlsContext),
+				},
+			}
+			return cluster
+		}
+
+		if tls.CACertRef.Name == "" || tls.CACertRef.Namespace == "" {
 			return cluster
 		}
 
@@ -168,18 +202,18 @@ func withTLSOrigination(secretsNamespace string, tls *model.BackendTLSOriginatio
 							},
 						},
 						ValidationContextSdsSecretConfig: &envoy_config_tls.SdsSecretConfig{
-							// This secret is synchronized by the secretsyncer Cell, with the Secret being copied
-							// out of the relevant ConfigMap by the ConfigMap sync Reconcile function there, which itself
-							// watches for ConfigMaps referenced in BackendTLSPolicy objects.
-							//
-							// That is, the flow is:
-							//
-							// * BackendTLSPolicy references ConfigMap
-							// * SecretSync sees ConfigMap reference
-							// * SecretSync copies ConfigMap into Secret in the configured secrets namespace
-							// * This translation references that Secret using the shared sync name
-							// * The Cilium Agent reads the Secret directly and suppies it to Envoy via SDS.
 							Name: syncnames.SyncedConfigMapSDSSecretName(secretsNamespace, types.NamespacedName{
+								// This secret is synchronized by the secretsyncer Cell, with the Secret being copied
+								// out of the relevant ConfigMap by the ConfigMap sync Reconcile function there, which itself
+								// watches for ConfigMaps referenced in BackendTLSPolicy objects.
+								//
+								// That is, the flow is:
+								//
+								// * BackendTLSPolicy references ConfigMap
+								// * SecretSync sees ConfigMap reference
+								// * SecretSync copies ConfigMap into Secret in the configured secrets namespace
+								// * This translation references that Secret using the shared sync name
+								// * The Cilium Agent reads the Secret directly and supplies it to Envoy via SDS.
 								Namespace: tls.CACertRef.Namespace,
 								Name:      tls.CACertRef.Name,
 							}),

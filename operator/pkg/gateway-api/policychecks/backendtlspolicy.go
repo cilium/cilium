@@ -63,6 +63,7 @@ func (b *BackendTLSPolicyInput) ValidateSpec(ctx context.Context, scopedLog *slo
 				string(gatewayv1.PolicyReasonInvalid), string(gatewayv1.PolicyReasonInvalid))
 			return false, nil
 		}
+
 		// Secondly, we check that there is only one CACertificateRef. We will ignore any additional
 		// ones, but we want to tell people about that.
 		if len(b.BackendTLSPolicy.Spec.Validation.CACertificateRefs) > 1 {
@@ -70,6 +71,7 @@ func (b *BackendTLSPolicyInput) ValidateSpec(ctx context.Context, scopedLog *slo
 				string(gatewayv1.PolicyReasonInvalid), string(gatewayv1.PolicyReasonInvalid))
 			return false, nil
 		}
+
 		// Thirdly, check that the CACertificateRef exists, and is a ConfigMap with a key named `ca.crt`.
 		caCertRef := b.BackendTLSPolicy.Spec.Validation.CACertificateRefs[0]
 
@@ -106,6 +108,18 @@ func (b *BackendTLSPolicyInput) ValidateSpec(ctx context.Context, scopedLog *slo
 				string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
 			return false, nil
 		}
+	}
+
+	// Cilium currently supports only the "System" well-known CA bundle.
+	if b.BackendTLSPolicy.Spec.Validation.WellKnownCACertificates != nil &&
+		*b.BackendTLSPolicy.Spec.Validation.WellKnownCACertificates != gatewayv1.WellKnownCACertificatesSystem {
+		b.setRejectedConditions(
+			ancestorRef,
+			"Only System is supported for wellKnownCACertificates",
+			string(gatewayv1.PolicyReasonInvalid),
+			string(gatewayv1.PolicyReasonInvalid),
+		)
+		return false, nil
 	}
 
 	return true, nil
