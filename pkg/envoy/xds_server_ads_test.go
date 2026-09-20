@@ -617,64 +617,78 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 		},
 	}
 
+	addressChanges := []struct {
+		name              string
+		oldListener       *envoy_config_listener.Listener
+		newListener       *envoy_config_listener.Listener
+		wantCallbackCount uint64
+	}{
+		{
+			name:        "additional address changed",
+			oldListener: adsTestListener(80, 8443),
+			newListener: adsTestListener(80, 8444),
+		},
+		{
+			name:              "primary port changed",
+			oldListener:       adsTestListener(80, 8443),
+			newListener:       adsTestListener(81, 8443),
+			wantCallbackCount: 1,
+		},
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-			serverConfig := xdsServerConfig{
-				envoySocketDir:       t.TempDir(),
-				policyRestoreTimeout: 30 * time.Second,
-				strictAdsMode:        tt.strictADSMode,
+			for _, addressChange := range addressChanges {
+				t.Run(addressChange.name, func(t *testing.T) {
+					logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+					serverConfig := xdsServerConfig{
+						envoySocketDir:       t.TempDir(),
+						policyRestoreTimeout: 30 * time.Second,
+						strictAdsMode:        tt.strictADSMode,
+					}
+					cache := xdsnew.NewCache(logger, tt.strictADSMode)
+					server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+
+					oldResources := adsTestResources(addressChange.oldListener)
+					require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
+
+					newResources := adsTestResources(addressChange.newListener)
+					var callbackCount atomic.Uint64
+					newResources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
+						callbackCount.Add(1)
+						return nil
+					}
+
+					ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+					defer cancel()
+					result := make(chan error, 1)
+					go func() {
+						result <- server.UpdateEnvoyResources(ctx, oldResources, newResources, nil)
+					}()
+
+					require.Eventually(t, func() bool {
+						resources := cache.GetAllResources(localNodeID)
+						return resources != nil && len(resources.Listeners) == 0 &&
+							cache.GetCompletionCallbacks().PendingCompletionCount() == 1
+					}, time.Second, 10*time.Millisecond)
+					require.Equal(t, uint64(0), callbackCount.Load())
+					deleteVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
+
+					require.Eventually(t, func() bool {
+						resources := cache.GetAllResources(localNodeID)
+						listener := resources.Listeners["listener1"]
+						return listener != nil && listenerAddressesEqual(listener, newResources.Listeners["listener1"]) &&
+							cache.GetCompletionCallbacks().PendingCompletionCount() == 1
+					}, time.Second, 10*time.Millisecond)
+					require.Equal(t, uint64(0), callbackCount.Load())
+					replaceVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
+					require.NotEqual(t, deleteVersion, replaceVersion)
+
+					require.NoError(t, <-result)
+					require.Equal(t, addressChange.wantCallbackCount, callbackCount.Load())
+					require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
+				})
 			}
-
-			cache := xdsnew.NewCache(logger, tt.strictADSMode)
-			server := newADSServerWithCache(
-				cache,
-				logger,
-				nil,
-				nil,
-				serverConfig,
-				nil,
-				nil,
-			)
-
-			oldResources := adsTestResources(adsTestListener(80, 8443))
-			require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
-
-			newResources := adsTestResources(adsTestListener(80, 8444))
-			var callbackCount atomic.Uint64
-			newResources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
-				callbackCount.Add(1)
-				return nil
-			}
-
-			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-			defer cancel()
-			result := make(chan error, 1)
-			go func() {
-				result <- server.UpdateEnvoyResources(ctx, oldResources, newResources, nil)
-			}()
-
-			require.Eventually(t, func() bool {
-				resources := cache.GetAllResources(localNodeID)
-				return resources != nil && len(resources.Listeners) == 0 &&
-					cache.GetCompletionCallbacks().PendingCompletionCount() == 1
-			}, time.Second, 10*time.Millisecond)
-			require.Equal(t, uint64(0), callbackCount.Load())
-			deleteVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
-
-			require.Eventually(t, func() bool {
-				resources := cache.GetAllResources(localNodeID)
-				listener := resources.Listeners["listener1"]
-				return listener != nil && listenerAddressesEqual(listener, newResources.Listeners["listener1"]) &&
-					cache.GetCompletionCallbacks().PendingCompletionCount() == 1
-			}, time.Second, 10*time.Millisecond)
-			require.Equal(t, uint64(0), callbackCount.Load())
-			replaceVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
-			require.NotEqual(t, deleteVersion, replaceVersion)
-
-			require.NoError(t, <-result)
-			require.Equal(t, uint64(0), callbackCount.Load())
-			require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
 		})
 	}
 }
@@ -1204,10 +1218,10 @@ func TestUpdateNetworkPolicyDuringRestoreWaitsForSeededPolicyACK(t *testing.T) {
 	// Initial endpoint restoration seeds the policy without waiting. A later
 	// regeneration of the same policy must still be able to wait for Envoy to
 	// accept the already-published version.
-	err, revertible := server.UpdateNetworkPolicy(t.Context(), mockEp, mockPolicy, nil)
+	err, _, finalizeFunc := server.UpdateNetworkPolicy(t.Context(), mockEp, mockPolicy, nil)
 	require.NoError(t, err)
-	require.NotNil(t, revertible)
-	revertible.Finalize()
+	require.NotNil(t, finalizeFunc)
+	finalizeFunc()
 	require.Eventually(t, func() bool {
 		return mockEp.proxyPolicyUpdateCount.Load() == 1
 	}, time.Second, 10*time.Millisecond)
@@ -1218,9 +1232,9 @@ func TestUpdateNetworkPolicyDuringRestoreWaitsForSeededPolicyACK(t *testing.T) {
 
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	err, revertible = server.UpdateNetworkPolicy(t.Context(), mockEp, mockPolicy, wg)
+	err, _, finalizeFunc = server.UpdateNetworkPolicy(t.Context(), mockEp, mockPolicy, wg)
 	require.NoError(t, err)
-	require.NotNil(t, revertible)
+	require.NotNil(t, finalizeFunc)
 	currentSnapshot, err := cache.GetSnapshot(localNodeID)
 	require.NoError(t, err)
 	require.Equal(t, seededVersion, currentSnapshot.GetVersion(NetworkPolicyTypeURL))
@@ -1229,7 +1243,7 @@ func TestUpdateNetworkPolicyDuringRestoreWaitsForSeededPolicyACK(t *testing.T) {
 
 	ackADSResourceVersion(t, cache, 1, NetworkPolicyTypeURL)
 	require.NoError(t, wg.Wait())
-	revertible.Finalize()
+	finalizeFunc()
 	require.Zero(t, cache.GetCompletionCallbacks().PendingCompletionCount())
 	require.Eventually(t, func() bool {
 		return mockEp.proxyPolicyUpdateCount.Load() == 2
