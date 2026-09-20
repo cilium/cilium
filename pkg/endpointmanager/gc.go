@@ -23,51 +23,22 @@ type EndpointCheckerFunc func(*endpoint.Endpoint) error
 // components in the system, then we will not flag warnings about the system
 // getting out-of-sync.
 func (mgr *endpointManager) markAndSweep(ctx context.Context) error {
-	marked := mgr.markEndpoints()
+	gcCandidates := make(map[uint16]struct{})
+	toSweep := []*endpoint.Endpoint{}
 
 	mgr.mutex.Lock()
-	toSweep := mgr.markedEndpoints
-	mgr.markedEndpoints = marked
-	mgr.mutex.Unlock()
-
-	// Avoid returning an error which would cause the calling controller to
-	// re-run the garbage collection more frequently than the RunInterval.
-	mgr.sweepEndpoints(toSweep)
-	return nil
-}
-
-// markEndpoints runs all endpoints in the manager against the configured
-// EndpointChecker and returns a slice of endpoint ids that require garbage
-// collection.
-func (mgr *endpointManager) markEndpoints() []uint16 {
-	mgr.mutex.RLock()
-	defer mgr.mutex.RUnlock()
-
-	needsGC := make([]uint16, 0, len(mgr.endpoints))
 	for eid, ep := range mgr.endpoints {
 		if err := mgr.checkHealth(ep); err != nil {
-			needsGC = append(needsGC, eid)
+			// Only collect previously marked endpoints for cleanup.
+			if _, ok := mgr.markedEndpoints[eid]; ok {
+				toSweep = append(toSweep, ep)
+			} else {
+				gcCandidates[eid] = struct{}{}
+			}
 		}
 	}
-	return needsGC
-}
-
-// sweepEndpoints iterates through the specified list of endpoints marked for
-// deletion and attempts to garbage-collect them if they still exist.
-func (mgr *endpointManager) sweepEndpoints(markedEndpoints []uint16) {
-	toSweep := make([]*endpoint.Endpoint, 0, len(markedEndpoints))
-
-	// 'markedEndpoints' were marked during the previous mark round, so
-	// they may no longer be valid endpoints. Narrow the list to only the
-	// endpoints that remain. Then, release the lock so RemoveEndpoint()
-	// below can independently grab it.
-	mgr.mutex.RLock()
-	for _, id := range markedEndpoints {
-		if ep, ok := mgr.endpoints[id]; ok {
-			toSweep = append(toSweep, ep)
-		}
-	}
-	mgr.mutex.RUnlock()
+	mgr.markedEndpoints = gcCandidates
+	mgr.mutex.Unlock()
 
 	for _, ep := range toSweep {
 		mgr.logger.Warn(
@@ -90,4 +61,8 @@ func (mgr *endpointManager) sweepEndpoints(markedEndpoints []uint16) {
 			}
 		}
 	}
+
+	// Avoid returning an error which would cause the calling controller to
+	// re-run the garbage collection more frequently than the RunInterval.
+	return nil
 }
