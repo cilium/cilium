@@ -68,6 +68,48 @@ type EndpointSuite struct {
 	mgr          *cache.CachingIdentityAllocator
 }
 
+func TestGetPolicyNamesCachesAddresses(t *testing.T) {
+	tests := []struct {
+		name string
+		ep   *Endpoint
+		want []string
+	}{
+		{
+			name: "dual stack",
+			ep: &Endpoint{
+				IPv4: netip.MustParseAddr("192.0.2.1"),
+				IPv6: netip.MustParseAddr("2001:db8::1"),
+			},
+			want: []string{"2001:db8::1", "192.0.2.1"},
+		},
+		{
+			name: "IPv4 only",
+			ep: &Endpoint{
+				IPv4: netip.MustParseAddr("192.0.2.1"),
+			},
+			want: []string{"192.0.2.1"},
+		},
+		{
+			name: "IPv6 only",
+			ep: &Endpoint{
+				IPv4: netip.MustParseAddr("2001:db8::1"),
+			},
+			want: []string{"2001:db8::1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			first := tt.ep.GetPolicyNames()
+			second := tt.ep.GetPolicyNames()
+
+			require.Equal(t, tt.want, first)
+			require.Equal(t, len(first), cap(first))
+			require.Same(t, &first[0], &second[0])
+		})
+	}
+}
+
 func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	testutils.IntegrationTest(tb)
 	logger := hivetest.Logger(tb)
