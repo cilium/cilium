@@ -1113,7 +1113,7 @@ github.com/google/renameio/v2
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/gopacket/gopacket v1.7.1
+# github.com/gopacket/gopacket v1.7.2
 ## explicit; go 1.25.0
 github.com/gopacket/gopacket
 github.com/gopacket/gopacket/layers
