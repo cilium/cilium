@@ -552,11 +552,10 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	}
 	feState.sourceRanges = nil
 
-	// Cleanup any wildcard entries this fe might be associated with.
-	if loadbalancer.IsWildcardCandidate(fe) && ops.isWildcardClass(fe.Service) {
-		if err := ops.deleteWildcard(fe, feID); err != nil {
-			return fmt.Errorf("delete wildcard: %w", err)
-		}
+	// Cleanup any wildcard entry this frontend owns. The current frontend
+	// properties may no longer qualify for creating one.
+	if err := ops.deleteWildcard(fe, feID); err != nil {
+		return fmt.Errorf("delete wildcard: %w", err)
 	}
 
 	delete(ops.frontendStates, fe.Address)
@@ -1253,15 +1252,15 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 
 	// Upsert wildcard entries such that the data path will have a service entry for any
 	// traffic for an unknown protocol/port combination.
-	if loadbalancer.IsWildcardCandidate(fe) && ops.isWildcardClass(svc) {
-		if ops.useWildcards() && (isLocalAddr == nil || !isLocalAddr(fe.Address.Addr())) {
-			if err := ops.upsertWildcard(fe, feID); err != nil {
-				return fmt.Errorf("upsert wildcard: %w", err)
-			}
-		} else {
-			if err := ops.deleteWildcard(fe, feID); err != nil {
-				return fmt.Errorf("delete wildcard: %w", err)
-			}
+	useWildcard := loadbalancer.IsWildcardCandidate(fe) && ops.isWildcardClass(svc) &&
+		ops.useWildcards() && (isLocalAddr == nil || !isLocalAddr(fe.Address.Addr()))
+	if useWildcard {
+		if err := ops.upsertWildcard(fe, feID); err != nil {
+			return fmt.Errorf("upsert wildcard: %w", err)
+		}
+	} else {
+		if err := ops.deleteWildcard(fe, feID); err != nil {
+			return fmt.Errorf("delete wildcard: %w", err)
 		}
 	}
 
