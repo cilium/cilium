@@ -5,7 +5,6 @@ package watchers
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
@@ -21,84 +20,79 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-// TestNodeTaintSyncCellShutdownDoesNotDeadlock verifies that starting and
-// stopping CiliumNodeGCCell and NodeTaintSyncCell does not deadlock. Both cells
-// depend on the package-global Node informer, store, and queue initialized by
-// nodesInit. CiliumNodeGCCell starts first and owns the informer lifecycle and
-// deferred queue shutdown, while NodeTaintSyncCell owns the workers consuming
-// that queue. Since Hive stops the cells in reverse order, NodeTaintSyncCell
-// must shut down the queue before waiting for its workers; otherwise the GC
-// stop hook that owns the informer cannot run.
-func TestNodeTaintSyncCellShutdownDoesNotDeadlock(t *testing.T) {
-	resetNodeWatcherStateForTest()
+// TestNodeTaintSyncCellShutdown verifies that starting and stopping
+// CiliumNodeGCCell and NodeTaintSyncCell together does not deadlock.
+//
+// Both cells read Kubernetes nodes, and the taint sync's workers block on a
+// queue fed from those node events. Hive runs stop hooks in reverse start
+// order, so if either cell owned state the other had to release, one stop hook
+// would wait on a hook that cannot run yet. The node resource owns the
+// informer and the taint sync owns its queue, so neither cell has to reach
+// into the other, and the order they are registered in must not matter.
+//
+// The EnableCiliumNodeCRD cases matter because the GC cell only reads nodes on
+// the enabled branch: with the CRD disabled the taint sync is the sole reader,
+// which used to swap which cell owned the shared informer.
+func TestNodeTaintSyncCellShutdown(t *testing.T) {
+	for _, tc := range []struct {
+		name                string
+		enableCiliumNodeCRD bool
+		taintSyncFirst      bool
+	}{
+		{name: "CRD enabled", enableCiliumNodeCRD: true},
+		{name: "CRD disabled", enableCiliumNodeCRD: false},
+		{name: "CRD enabled, taint sync registered first", enableCiliumNodeCRD: true, taintSyncFirst: true},
+		{name: "CRD disabled, taint sync registered first", enableCiliumNodeCRD: false, taintSyncFirst: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resetNodeWatcherStateForTest()
+			t.Cleanup(resetNodeWatcherStateForTest)
 
-	testHive := hive.New(
-		k8sFakeClient.FakeClientCell(),
-		operatorK8s.ResourcesCell,
-		ciliumpod.Cell,
-		cell.Provide(func() *option.DaemonConfig {
-			return &option.DaemonConfig{EnableCiliumNodeCRD: true}
-		}),
-		CiliumNodeGCCell,
-		NodeTaintSyncCell,
-	)
-	hive.AddConfigOverride(testHive, func(cfg *CiliumNodeGCConfig) {
-		cfg.NodesGCInterval = time.Hour
-	})
-	hive.AddConfigOverride(testHive, func(cfg *NodeTaintSyncConfig) {
-		cfg.TaintSyncWorkers = 1
-	})
-
-	logger := hivetest.Logger(t)
-	needsStop := true
-	t.Cleanup(func() {
-		if needsStop {
-			if nodeQueue != nil {
-				nodeQueue.ShutDown()
+			watcherCells := []cell.Cell{CiliumNodeGCCell, NodeTaintSyncCell}
+			if tc.taintSyncFirst {
+				watcherCells[0], watcherCells[1] = watcherCells[1], watcherCells[0]
 			}
-			_ = testHive.Stop(logger, context.Background())
-		}
-		resetNodeWatcherStateForTest()
-	})
 
-	require.NoError(t, testHive.Start(logger, t.Context()))
-	queue := nodeQueue
-	require.NotNil(t, queue)
-	require.False(t, queue.ShuttingDown())
+			testHive := hive.New(append([]cell.Cell{
+				k8sFakeClient.FakeClientCell(),
+				operatorK8s.ResourcesCell,
+				ciliumpod.Cell,
+				cell.Provide(func() *option.DaemonConfig {
+					return &option.DaemonConfig{EnableCiliumNodeCRD: tc.enableCiliumNodeCRD}
+				}),
+			}, watcherCells...)...)
+			hive.AddConfigOverride(testHive, func(cfg *CiliumNodeGCConfig) {
+				cfg.NodesGCInterval = time.Hour
+			})
+			hive.AddConfigOverride(testHive, func(cfg *NodeTaintSyncConfig) {
+				cfg.TaintSyncWorkers = 1
+			})
 
-	stopResult := make(chan error, 1)
-	stopCtx := t.Context()
-	go func() {
-		stopResult <- testHive.Stop(logger, stopCtx)
-	}()
+			logger := hivetest.Logger(t)
+			require.NoError(t, testHive.Start(logger, t.Context()))
 
-	timer := time.NewTimer(5 * time.Second)
-	defer timer.Stop()
+			stopResult := make(chan error, 1)
+			go func() {
+				stopResult <- testHive.Stop(logger, context.Background())
+			}()
 
-	select {
-	case err := <-stopResult:
-		needsStop = false
-		require.NoError(t, err)
-	case <-timer.C:
-		queue.ShutDown()
-		err := <-stopResult
-		needsStop = false
-		require.NoError(t, err)
-		t.Fatal("operator Hive deadlocked while stopping NodeTaintSyncCell")
+			timer := time.NewTimer(5 * time.Second)
+			defer timer.Stop()
+
+			select {
+			case err := <-stopResult:
+				require.NoError(t, err)
+			case <-timer.C:
+				t.Fatal("operator Hive deadlocked while stopping the node watcher cells")
+			}
+		})
 	}
-
-	require.True(t, queue.ShuttingDown())
 }
 
-// resetNodeWatcherStateForTest resets the package-global state guarded by
-// nodeSyncOnce. Without this reset, repeated test runs would reuse the stopped
-// queue and would no longer exercise the original startup and shutdown order.
+// resetNodeWatcherStateForTest resets the package-global state still shared by
+// the Cilium pod watcher and the taint workers, so that repeated runs in the
+// same binary do not observe each other's leftovers.
 func resetNodeWatcherStateForTest() {
-	nodeSyncOnce = sync.Once{}
-	slimNodeStore = nil
-	slimNodeStoreSynced = make(chan struct{})
-	nodeController = nil
-	nodeQueue = nil
 	ciliumPodsStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, ciliumIndexers)
 	mno = markNodeOptions{}
 }

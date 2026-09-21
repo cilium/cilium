@@ -35,10 +35,6 @@ func (f *fakeNodeGetter) GetK8sSlimNode(nodeName string) (*slim_corev1.Node, err
 	panic("OnGetK8sSlimNode called but not implemented!")
 }
 
-func (f *fakeNodeGetter) ListK8sSlimNode() []*slim_corev1.Node {
-	panic("not implemented!")
-}
-
 func TestNodeTaintWithoutCondition(t *testing.T) {
 	logger := hivetest.Logger(t)
 
