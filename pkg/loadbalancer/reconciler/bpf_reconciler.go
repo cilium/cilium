@@ -481,8 +481,9 @@ func (ops *BPFOps) deleteRestoredQuarantinedBackends(fe loadbalancer.L3n4Addr, b
 	}
 
 	// A state created only while restoring quarantine information has no
-	// backendReferences set. Remove it once that information has been consumed.
-	if state.backendReferences == nil {
+	// backendReferences set. Remove it once all quarantine information has been
+	// consumed.
+	if state.backendReferences == nil && state.restoredQuarantinedBackends == nil {
 		delete(ops.frontendStates, fe)
 	}
 }
@@ -657,8 +658,9 @@ func (ops *BPFOps) pruneServiceMaps() error {
 			port,
 			svcKey.GetScope(),
 		)
+		state := ops.frontendStates[addr]
 		expectedSlots := 0
-		if state := ops.frontendStates[addr]; state != nil && state.backendReferences != nil {
+		if state != nil && state.backendReferences != nil {
 			expectedSlots = 1 + state.slotCount
 		}
 		if svcKey.GetBackendSlot()+1 > expectedSlots {
@@ -667,8 +669,11 @@ func (ops *BPFOps) pruneServiceMaps() error {
 				logfields.Address, addr)
 			toDelete = append(toDelete, svcKey.ToNetwork())
 
-			// Drop restored quarantined state
-			if svcKey.GetBackendSlot() > 0 {
+			// A restore-only state belongs to a frontend that was not observed
+			// during reconciliation, so none of its quarantines remain relevant.
+			if state != nil && state.backendReferences == nil {
+				ops.deleteRestoredQuarantinedBackends(addr)
+			} else if svcKey.GetBackendSlot() > 0 {
 				if beAddr, found := ops.backendIDAlloc.idToAddr[svcValue.GetBackendID()]; found {
 					ops.deleteRestoredQuarantinedBackends(addr, beAddr)
 				}
@@ -1093,6 +1098,13 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 	backendAddrs := sets.New[loadbalancer.L3n4Addr]()
 	for _, be := range orderedBackends {
 		backendAddrs.Insert(be.Address)
+	}
+	if state := ops.frontendStates[fe.Address]; state != nil {
+		for addr := range state.restoredQuarantinedBackends {
+			if !backendAddrs.Has(addr) {
+				ops.deleteRestoredQuarantinedBackends(fe.Address, addr)
+			}
+		}
 	}
 
 	feState := ops.getOrCreateFrontendState(fe.Address)
