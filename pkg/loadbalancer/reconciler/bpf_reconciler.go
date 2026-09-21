@@ -500,23 +500,8 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	}
 
 	feState := ops.getOrCreateFrontendState(fe.Address)
-
-	// Clean up any potential affinity match entries. We do this regardless of
-	// whether or not SessionAffinity is enabled as it might've been toggled by
-	// the user. Could optimize this by holding some more state if needed.
-	for addr := range feState.backendReferences {
-		err := ops.deleteAffinityMatch(feID, ops.backendStates[addr].id)
-		if err != nil {
-			return fmt.Errorf("delete affinity match %d: %w", feID, err)
-		}
-	}
-
-	for _, orphanState := range ops.orphanBackends(fe.Address, nil) {
-		ops.log.Debug("Delete orphan backend", logfields.Address, orphanState.addr)
-		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
-			return fmt.Errorf("delete backend %d: %w", orphanState.id, err)
-		}
-		ops.releaseBackend(orphanState.id, orphanState.addr)
+	if err := ops.releaseBackends(feID, fe.Address, feState.backendReferences, nil); err != nil {
+		return err
 	}
 
 	var svcKey maps.ServiceKey
@@ -574,10 +559,56 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
-	ops.updateBackendRefCounts(fe.Address, nil)
 	delete(ops.frontendStates, fe.Address)
 	ops.serviceIDAlloc.deleteLocalID(feID)
 
+	return nil
+}
+
+func (ops *BPFOps) releaseBackends(
+	feID loadbalancer.ServiceID,
+	feAddr loadbalancer.L3n4Addr,
+	beRefs sets.Set[loadbalancer.L3n4Addr],
+	newRefs sets.Set[loadbalancer.L3n4Addr],
+) error {
+	for addr := range beRefs {
+		if newRefs.Has(addr) {
+			continue
+		}
+
+		state, ok := ops.backendStates[addr]
+		if !ok {
+			// The backend has already been released. Drop any stale frontend-specific
+			// state so this reference does not remain indefinitely.
+			beRefs.Delete(addr)
+			ops.deleteRestoredQuarantinedBackends(feAddr, addr)
+			continue
+		}
+
+		// Clean up any potential affinity match entries. We do this regardless of
+		// whether or not SessionAffinity is enabled as it might've been toggled by
+		// the user. Could optimize this by holding some more state if needed.
+		err := ops.deleteAffinityMatch(feID, state.id)
+		if err != nil {
+			return fmt.Errorf("delete affinity match %d: %w", feID, err)
+		}
+
+		// Delete the backend if we're the only reference to it, otherwise
+		// decrement reference count.
+		if state.refCount > 1 {
+			state.refCount--
+			ops.backendStates[addr] = state
+		} else {
+			ops.log.Debug("Delete orphan backend", logfields.Address, state.addr)
+			if err := ops.deleteBackend(state.addr.IsIPv6(), state.id); err != nil {
+				return fmt.Errorf("delete backend %d: %w", state.id, err)
+			}
+			delete(ops.backendStates, addr)
+			ops.backendIDAlloc.deleteLocalID(state.id)
+		}
+		beRefs.Delete(addr)
+		ops.deleteRestoredQuarantinedBackends(feAddr, addr)
+	}
 	return nil
 }
 
@@ -619,7 +650,7 @@ func (ops *BPFOps) pruneServiceMaps() error {
 		)
 		expectedSlots := 0
 		if state := ops.frontendStates[addr]; state != nil && state.backendReferences != nil {
-			expectedSlots = 1 + len(state.backendReferences)
+			expectedSlots = 1 + state.slotCount
 		}
 		if svcKey.GetBackendSlot()+1 > expectedSlots {
 			ops.log.Debug("pruneServiceMaps: deleting",
@@ -1006,16 +1037,8 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 
 	feState := ops.getOrCreateFrontendState(fe.Address)
 
-	for _, orphanState := range ops.orphanBackends(fe.Address, backendAddrs) {
-		ops.log.Debug("Delete orphan backend", logfields.Address, orphanState.addr)
-		ops.deleteRestoredQuarantinedBackends(fe.Address, orphanState.addr)
-		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
-			return fmt.Errorf("delete backend: %w", err)
-		}
-		if err := ops.deleteAffinityMatch(feID, orphanState.id); err != nil {
-			return fmt.Errorf("delete affinity match: %w", err)
-		}
-		ops.releaseBackend(orphanState.id, orphanState.addr)
+	if err := ops.releaseBackends(feID, fe.Address, feState.backendReferences, backendAddrs); err != nil {
+		return err
 	}
 
 	activeCount, terminatingCount, inactiveCount := 0, 0, 0
@@ -1041,18 +1064,33 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 			}
 		}
 
+		backendState := ops.backendStates[be.Address]
+		backendState.id = beID
+		backendState.addr = be.Address
+
+		// Mark the backend as referenced by this frontend regardless of the outcome.
+		// This ensures that the backend state is always cleaned up when the frontend
+		// changes or is removed.
+		newRef := !feState.backendReferences.Has(be.Address)
+		if newRef {
+			feState.backendReferences.Insert(be.Address)
+			backendState.refCount++
+		}
+
 		if be.Revision > ops.backendStates[be.Address].revision {
 			ops.log.Debug("Update backend",
 				logfields.Backend, be.Backend,
 				logfields.ID, beID,
 				logfields.Address, be.Address,
 			)
-			if err := ops.upsertBackend(beID, be.Backend); err != nil {
+			err := ops.upsertBackend(beID, be.Backend)
+			if err != nil {
+				ops.backendStates[be.Address] = backendState
 				return fmt.Errorf("upsert backend: %w", err)
 			}
-
-			ops.updateBackendRevision(beID, be.Address, be.Revision)
 		}
+		backendState.revision = be.Revision
+		ops.backendStates[be.Address] = backendState
 
 		if be.State == loadbalancer.BackendStateMaintenance {
 			// Backends that are in maintenance are not included in the services map.
@@ -1088,6 +1126,8 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		if err := ops.upsertService(svcKey, slotVal); err != nil {
 			return fmt.Errorf("upsert service: %w", err)
 		}
+		feState.slotCount = max(feState.slotCount, slotID)
+
 		// TODO: Most likely we'll just need to keep some state on the reconciled SessionAffinity
 		// state to avoid the extra syscalls when session affinity is not enabled.
 		// For now we update these regardless so that we handle properly the SessionAffinity being
@@ -1216,22 +1256,17 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		}
 	}
 
-	// Calculate the number of existing backend references, so we can cleanup if there there
-	// has been a change.
-	numPreviousBackends := len(feState.backendReferences)
-	if backendCount != numPreviousBackends {
+	// Remove any service slots left over from a previous or partially completed
+	// reconciliation.
+	if backendCount != feState.slotCount {
 		ops.log.Debug("Cleanup service slots",
 			logfields.ID, feID,
 			logfields.Count, backendCount,
-			logfields.Previous, numPreviousBackends)
-		if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+inactiveCount); err != nil {
+			logfields.Previous, feState.slotCount)
+		if err := ops.cleanupSlots(svcKey, feState.slotCount, activeCount+inactiveCount); err != nil {
 			return fmt.Errorf("cleanup service slots: %w", err)
 		}
 	}
-
-	// Finally update the new references. This makes sure any failures reconciling the service slots
-	// above can be retried and entries are not leaked.
-	ops.updateReferences(fe.Address, backendAddrs)
 	feState.slotCount = backendCount
 
 	return nil
@@ -1576,72 +1611,6 @@ func (ops *BPFOps) deleteWildcard(fe *loadbalancer.Frontend, feID loadbalancer.S
 }
 
 var _ reconciler.Operations[*loadbalancer.Frontend] = &BPFOps{}
-
-func (ops *BPFOps) updateBackendRefCounts(frontend loadbalancer.L3n4Addr, backends sets.Set[loadbalancer.L3n4Addr]) {
-	newRefs := backends.Clone()
-	state := ops.getOrCreateFrontendState(frontend)
-
-	// Decrease reference counts of backends that are no longer referenced
-	// by this frontend.
-	for addr := range state.backendReferences {
-		if newRefs.Has(addr) {
-			newRefs.Delete(addr)
-			continue
-		}
-		s, ok := ops.backendStates[addr]
-		if ok && s.refCount > 1 {
-			s.refCount--
-			ops.backendStates[addr] = s
-		}
-	}
-
-	// Increase the reference counts of backends that are newly
-	// referenced.
-	for addr := range newRefs {
-		s := ops.backendStates[addr]
-		s.addr = addr
-		s.refCount++
-		ops.backendStates[addr] = s
-	}
-}
-
-func (ops *BPFOps) updateReferences(frontend loadbalancer.L3n4Addr, backends sets.Set[loadbalancer.L3n4Addr]) {
-	ops.updateBackendRefCounts(frontend, backends)
-	ops.frontendStates[frontend].backendReferences = backends
-}
-
-func (ops *BPFOps) orphanBackends(frontend loadbalancer.L3n4Addr, backends sets.Set[loadbalancer.L3n4Addr]) (orphans []backendState) {
-	state := ops.frontendStates[frontend]
-	if state == nil {
-		return nil
-	}
-	for addr := range state.backendReferences {
-		if backends.Has(addr) {
-			continue
-		}
-		// If there is only one reference to this backend then it's from this frontend and
-		// since it's not part of the new set it has become an orphan.
-		if state, ok := ops.backendStates[addr]; ok && state.refCount <= 1 {
-			orphans = append(orphans, state)
-		}
-	}
-	return orphans
-}
-
-func (ops *BPFOps) updateBackendRevision(id loadbalancer.BackendID, addr loadbalancer.L3n4Addr, rev statedb.Revision) {
-	s := ops.backendStates[addr]
-	s.id = id
-	s.addr = addr
-	s.revision = rev
-	ops.backendStates[addr] = s
-}
-
-// releaseBackend releases the backends information and the ID when it has been deleted
-// successfully.
-func (ops *BPFOps) releaseBackend(id loadbalancer.BackendID, addr loadbalancer.L3n4Addr) {
-	delete(ops.backendStates, addr)
-	ops.backendIDAlloc.deleteLocalID(id)
-}
 
 func (ops *BPFOps) computeMaglevTable(bes []backendWithRevision) ([]loadbalancer.BackendID, error) {
 	var errs []error
