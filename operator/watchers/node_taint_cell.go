@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/operator/pkg/ciliumpod"
@@ -88,10 +89,16 @@ func registerNodeTaintSync(p nodeTaintSyncParams) {
 		cancel:       cancel,
 		clientset:    p.Clientset,
 		nodes:        p.Nodes,
+		ciliumPods:   newCiliumPodsStore(),
 		ciliumPodNS:  p.PodCfg.ResolveNamespace(p.AgentConfig.K8sNamespace),
 		ciliumLabels: p.PodCfg.Labels,
 		cfg:          p.Cfg,
-		logger:       p.Logger,
+		markOptions: markNodeOptions{
+			RemoveNodeTaint:        p.Cfg.RemoveCiliumNodeTaints,
+			SetNodeTaint:           p.Cfg.SetCiliumNodeTaints,
+			SetCiliumIsUpCondition: p.Cfg.SetCiliumIsUpCondition,
+		},
+		logger: p.Logger,
 		nodeQueue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.NewTypedItemExponentialFailureRateLimiter[string](1*time.Second, 120*time.Second),
 			workqueue.TypedRateLimitingQueueConfig[string]{
@@ -111,13 +118,20 @@ type nodeTaintSync struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	clientset    k8sClient.Clientset
-	nodes        resource.Resource[*slim_corev1.Node]
-	nodeQueue    workqueue.TypedRateLimitingInterface[string]
+	clientset k8sClient.Clientset
+	nodes     resource.Resource[*slim_corev1.Node]
+	nodeQueue workqueue.TypedRateLimitingInterface[string]
+
+	// ciliumPods holds the Cilium agent pods, indexed by the node they run
+	// on. It is owned by this cell: the informer that fills it is started by
+	// handleNodeTolerationAndTaints and stops with s.ctx.
+	ciliumPods   cache.Indexer
 	ciliumPodNS  string
 	ciliumLabels string
-	cfg          NodeTaintSyncConfig
-	logger       *slog.Logger
+
+	cfg         NodeTaintSyncConfig
+	markOptions markNodeOptions
+	logger      *slog.Logger
 }
 
 func (s *nodeTaintSync) start(ctx cell.HookContext) error {

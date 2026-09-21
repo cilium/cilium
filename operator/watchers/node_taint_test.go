@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8sTesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -23,6 +24,10 @@ import (
 	pkgOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
+
+// queueKeyFunc derives the work queue key of a node, the same way the Node
+// event feed does.
+var queueKeyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
 
 type fakeNodeGetter struct {
 	OnGetK8sSlimNode func(nodeName string) (*slim_corev1.Node, error)
@@ -38,7 +43,7 @@ func (f *fakeNodeGetter) GetK8sSlimNode(nodeName string) (*slim_corev1.Node, err
 func TestNodeTaintWithoutCondition(t *testing.T) {
 	logger := hivetest.Logger(t)
 
-	mno = markNodeOptions{
+	options := markNodeOptions{
 		RemoveNodeTaint:        true,
 		SetNodeTaint:           true,
 		SetCiliumIsUpCondition: false,
@@ -79,7 +84,9 @@ func TestNodeTaintWithoutCondition(t *testing.T) {
 	}
 
 	// Add the cilium pod that is running on k8s1
-	err := ciliumPodsStore.Add(ciliumPodOnNode1)
+	ciliumPods := newCiliumPodsStore()
+
+	err := ciliumPods.Add(ciliumPodOnNode1)
 	require.NoError(t, err)
 
 	patchReceived := make(chan struct{}, 1)
@@ -137,7 +144,7 @@ func TestNodeTaintWithoutCondition(t *testing.T) {
 
 	nodeQueue.Add(key)
 
-	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, nodeQueue, logger)
+	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, ciliumPods, nodeQueue, options, logger)
 	require.True(t, continueProcess)
 
 	err = testutils.WaitUntil(func() bool {
@@ -153,7 +160,7 @@ func TestNodeTaintWithoutCondition(t *testing.T) {
 
 func TestNodeCondition(t *testing.T) {
 	logger := hivetest.Logger(t)
-	mno = markNodeOptions{
+	options := markNodeOptions{
 		RemoveNodeTaint:        false,
 		SetNodeTaint:           false,
 		SetCiliumIsUpCondition: true,
@@ -196,7 +203,9 @@ func TestNodeCondition(t *testing.T) {
 	}
 
 	// Add the cilium pod that is running on k8s1
-	err := ciliumPodsStore.Add(ciliumPodOnNode1)
+	ciliumPods := newCiliumPodsStore()
+
+	err := ciliumPods.Add(ciliumPodOnNode1)
 	require.NoError(t, err)
 
 	patchReceived := make(chan struct{}, 1)
@@ -251,7 +260,7 @@ func TestNodeCondition(t *testing.T) {
 
 	nodeQueue.Add(key)
 
-	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, nodeQueue, logger)
+	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, ciliumPods, nodeQueue, options, logger)
 	require.True(t, continueProcess)
 
 	err = testutils.WaitUntil(func() bool {
@@ -267,12 +276,6 @@ func TestNodeCondition(t *testing.T) {
 
 func TestCiliumPodHandler(t *testing.T) {
 	logger := hivetest.Logger(t)
-	mno = markNodeOptions{
-		RemoveNodeTaint:        false,
-		SetNodeTaint:           false,
-		SetCiliumIsUpCondition: true,
-	}
-
 	ciliumPodOnNode := &slim_corev1.Pod{
 		Spec: slim_corev1.PodSpec{
 			NodeName: "k8s1",
@@ -292,12 +295,6 @@ func TestCiliumPodHandler(t *testing.T) {
 
 func TestCiliumPodHandlerSkipsUnscheduledPods(t *testing.T) {
 	logger := hivetest.Logger(t)
-	mno = markNodeOptions{
-		RemoveNodeTaint:        false,
-		SetNodeTaint:           false,
-		SetCiliumIsUpCondition: true,
-	}
-
 	ciliumPodOnNode := &slim_corev1.Pod{}
 
 	nodeQueue := workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]())
@@ -307,7 +304,7 @@ func TestCiliumPodHandlerSkipsUnscheduledPods(t *testing.T) {
 
 func TestNodeConditionIfCiliumIsNotReady(t *testing.T) {
 	logger := hivetest.Logger(t)
-	mno = markNodeOptions{
+	options := markNodeOptions{
 		RemoveNodeTaint:        true,
 		SetNodeTaint:           true,
 		SetCiliumIsUpCondition: true,
@@ -352,7 +349,9 @@ func TestNodeConditionIfCiliumIsNotReady(t *testing.T) {
 	}
 
 	// Add the cilium pod that is running on k8s1
-	err := ciliumPodsStore.Add(ciliumPodOnNode1)
+	ciliumPods := newCiliumPodsStore()
+
+	err := ciliumPods.Add(ciliumPodOnNode1)
 	require.NoError(t, err)
 
 	patchReceived := make(chan struct{}, 1)
@@ -378,7 +377,7 @@ func TestNodeConditionIfCiliumIsNotReady(t *testing.T) {
 
 	nodeQueue.Add(key)
 
-	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, nodeQueue, logger)
+	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, ciliumPods, nodeQueue, options, logger)
 	require.True(t, continueProcess)
 
 	err = testutils.WaitUntil(func() bool {
@@ -395,7 +394,7 @@ func TestNodeConditionIfCiliumIsNotReady(t *testing.T) {
 func TestNodeConditionIfCiliumAndNodeAreReady(t *testing.T) {
 	logger := hivetest.Logger(t)
 
-	mno = markNodeOptions{
+	options := markNodeOptions{
 		RemoveNodeTaint:        true,
 		SetCiliumIsUpCondition: true,
 		SetNodeTaint:           false, // we don't test _setting_ node taints here, just because it's unergonomic
@@ -440,7 +439,9 @@ func TestNodeConditionIfCiliumAndNodeAreReady(t *testing.T) {
 	}
 
 	// Add the cilium pod that is running on k8s1
-	err := ciliumPodsStore.Add(ciliumPodOnNode1)
+	ciliumPods := newCiliumPodsStore()
+
+	err := ciliumPods.Add(ciliumPodOnNode1)
 	require.NoError(t, err)
 
 	patchReceived := make(chan struct{}, 1)
@@ -466,7 +467,7 @@ func TestNodeConditionIfCiliumAndNodeAreReady(t *testing.T) {
 
 	nodeQueue.Add(key)
 
-	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, nodeQueue, logger)
+	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, ciliumPods, nodeQueue, options, logger)
 	require.True(t, continueProcess)
 
 	err = testutils.WaitUntil(func() bool {
@@ -485,7 +486,7 @@ func TestNodeConditionIfCiliumAndNodeAreReady(t *testing.T) {
 func TestTaintNodeCiliumDown(t *testing.T) {
 	logger := hivetest.Logger(t)
 
-	mno = markNodeOptions{
+	options := markNodeOptions{
 		RemoveNodeTaint:        true,
 		SetCiliumIsUpCondition: false,
 		SetNodeTaint:           true,
@@ -521,7 +522,9 @@ func TestTaintNodeCiliumDown(t *testing.T) {
 	}
 
 	// Add the cilium pod that is running on k8s1
-	err := ciliumPodsStore.Add(ciliumPodOnNode1)
+	ciliumPods := newCiliumPodsStore()
+
+	err := ciliumPods.Add(ciliumPodOnNode1)
 	require.NoError(t, err)
 
 	// Create a fake client to receive the patch from cilium-operator
@@ -576,7 +579,7 @@ func TestTaintNodeCiliumDown(t *testing.T) {
 
 	nodeQueue.Add(key)
 
-	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, nodeQueue, logger)
+	continueProcess := checkTaintForNextNodeItem(fakeClient, fng, ciliumPods, nodeQueue, options, logger)
 	require.True(t, continueProcess)
 
 	// Ensure taint was set
@@ -604,7 +607,7 @@ func TestTaintNodeCiliumDown(t *testing.T) {
 
 	// Re-trigger pod; ensure no patch is received,
 	nodeQueue.Add(key)
-	continueProcess = checkTaintForNextNodeItem(fakeClient, fng, nodeQueue, logger)
+	continueProcess = checkTaintForNextNodeItem(fakeClient, fng, ciliumPods, nodeQueue, options, logger)
 	require.True(t, continueProcess)
 
 	err = testutils.WaitUntil(func() bool {
@@ -620,7 +623,7 @@ func TestTaintNodeCiliumDown(t *testing.T) {
 	// Set pod to Ready, ensure taint is removed
 	ciliumPodOnNode1.Status.Conditions[0].Status = slim_corev1.ConditionTrue
 	nodeQueue.Add(key)
-	continueProcess = checkTaintForNextNodeItem(fakeClient, fng, nodeQueue, logger)
+	continueProcess = checkTaintForNextNodeItem(fakeClient, fng, ciliumPods, nodeQueue, options, logger)
 	require.True(t, continueProcess)
 	err = testutils.WaitUntil(func() bool {
 		select {
@@ -637,7 +640,7 @@ func TestTaintNodeCiliumDown(t *testing.T) {
 	// Re-trigger pod; ensure no patch is received,
 	node1.Spec.Taints = []slim_corev1.Taint{node1.Spec.Taints[1]}
 	nodeQueue.Add(key)
-	continueProcess = checkTaintForNextNodeItem(fakeClient, fng, nodeQueue, logger)
+	continueProcess = checkTaintForNextNodeItem(fakeClient, fng, ciliumPods, nodeQueue, options, logger)
 	require.True(t, continueProcess)
 
 	err = testutils.WaitUntil(func() bool {
@@ -674,20 +677,22 @@ func TestNodeHasCiliumPodWithDeletedFinalStateUnknown(t *testing.T) {
 	}
 
 	// First add the pod normally to the store
-	err := ciliumPodsStore.Add(ciliumPod)
+	ciliumPods := newCiliumPodsStore()
+
+	err := ciliumPods.Add(ciliumPod)
 	require.NoError(t, err)
 
 	// Verify the pod is detected as scheduled and ready
-	scheduled, ready := nodeHasCiliumPod("test-node")
+	scheduled, ready := nodeHasCiliumPod(ciliumPods, "test-node")
 	require.True(t, scheduled, "Pod should be scheduled")
 	require.True(t, ready, "Pod should be ready")
 
 	// Clean up
-	err = ciliumPodsStore.Delete(ciliumPod)
+	err = ciliumPods.Delete(ciliumPod)
 	require.NoError(t, err)
 
 	// Verify the pod is no longer detected
-	scheduled, ready = nodeHasCiliumPod("test-node")
+	scheduled, ready = nodeHasCiliumPod(ciliumPods, "test-node")
 	require.False(t, scheduled, "Deleted pod should not be scheduled")
 	require.False(t, ready, "Deleted pod should not be ready")
 }
