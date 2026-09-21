@@ -166,6 +166,12 @@ type backendState struct {
 	id       loadbalancer.BackendID
 }
 
+type featureHistoryFlags uint8
+
+const (
+	frontendFeatureMaglev featureHistoryFlags = 1 << iota
+)
+
 type frontendState struct {
 	// slotCount is the number of backend slots that may exist in the service map.
 	// It is updated as slots are created and only reduced after stale slots have
@@ -175,6 +181,10 @@ type frontendState struct {
 	// wildcardRefCount is 1 when this frontend references its wildcard entry. On
 	// synthetic ANY:0 frontend states it is the number of parent frontends.
 	wildcardRefCount int
+
+	// featureHistory records optional datapath features that may have entries
+	// associated with this frontend and therefore require explicit cleanup.
+	featureHistory featureHistoryFlags
 
 	// backendReferences contains every backend whose ownership has been acquired
 	// by this frontend and has not yet been successfully released.
@@ -492,14 +502,13 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	// Drop any restored quarantine state
 	ops.deleteRestoredQuarantinedBackends(fe.Address)
 
-	// Delete Maglev.
-	if ops.useMaglev(fe) {
+	feState := ops.getOrCreateFrontendState(fe.Address)
+	if feState.featureHistory&frontendFeatureMaglev != 0 {
 		if err := ops.LBMaps.DeleteMaglev(maps.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
 			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
 		}
+		feState.featureHistory &^= frontendFeatureMaglev
 	}
-
-	feState := ops.getOrCreateFrontendState(fe.Address)
 	if err := ops.releaseBackends(feID, fe.Address, feState.backendReferences, nil); err != nil {
 		return err
 	}
@@ -773,7 +782,12 @@ func (ops *BPFOps) pruneMaglev() error {
 	}
 	toDelete := []outerKeyWithIPVersion{}
 	cb := func(key maps.MaglevOuterKey, _ maps.MaglevOuterVal, _ maps.MaglevInnerKey, _ *maps.MaglevInnerVal, ipv6 bool) {
-		if _, ok := ops.serviceIDAlloc.idToAddr[loadbalancer.ServiceID(key.RevNatID)]; !ok {
+		addr, ok := ops.serviceIDAlloc.idToAddr[loadbalancer.ServiceID(key.RevNatID)]
+		if ok {
+			state := ops.frontendStates[addr]
+			ok = state != nil && state.featureHistory&frontendFeatureMaglev != 0
+		}
+		if !ok {
 			ops.log.Debug("pruneMaglev: enqueing for deletion", logfields.ID, key.RevNatID)
 			toDelete = append(toDelete, outerKeyWithIPVersion{key, ipv6})
 		}
@@ -1044,6 +1058,12 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 	}
 
 	feState := ops.getOrCreateFrontendState(fe.Address)
+	if ops.useMaglev(fe) {
+		// Record the desired feature before any fallible map operation. After a
+		// restart there is no prior history, so a failed update must not let
+		// pruning mistake an existing Maglev table for an orphan.
+		feState.featureHistory |= frontendFeatureMaglev
+	}
 
 	if err := ops.releaseBackends(feID, fe.Address, feState.backendReferences, backendAddrs); err != nil {
 		return err
@@ -1186,6 +1206,14 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		if err := ops.updateMaglev(fe, feID, orderedBackends[:activeCount]); err != nil {
 			return err
 		}
+		if activeCount == 0 {
+			feState.featureHistory &^= frontendFeatureMaglev
+		}
+	} else if feState.featureHistory&frontendFeatureMaglev != 0 {
+		if err := ops.LBMaps.DeleteMaglev(maps.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
+			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
+		}
+		feState.featureHistory &^= frontendFeatureMaglev
 	}
 
 	// Update source ranges. Maintain the invariant that the frontend state always

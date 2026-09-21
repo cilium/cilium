@@ -1691,6 +1691,56 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 		require.Zero(t, maglevEntryCount(t, fixture.lbmaps), "stale Maglev entries after algorithm change")
 	})
 
+	t.Run("startup prune removes stale Maglev", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		configure := func(cfg *loadbalancer.Config, _ *loadbalancer.ExternalConfig) {
+			cfg.AlgorithmAnnotation = true
+			cfg.LBAlgorithm = loadbalancer.LBAlgorithmRandom
+		}
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, configure)
+		frontend := newLeakTestFrontend(extraFrontend, LoadBalancer, baseBackend)
+		frontend.Service.Annotations = map[string]string{
+			annotation.ServiceLoadBalancingAlgorithm: loadbalancer.LBAlgorithmMaglev,
+		}
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "Maglev Update")
+		require.Equal(t, 1, maglevEntryCount(t, lbmaps), "Maglev entries before restart")
+
+		fixture = newBPFOpsLeakTestFixture(t, lbmaps, nil, configure)
+		frontend = newLeakTestFrontend(extraFrontend, LoadBalancer, baseBackend)
+		frontend.Service.Annotations = map[string]string{
+			annotation.ServiceLoadBalancingAlgorithm: loadbalancer.LBAlgorithmRandom,
+		}
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "random Update")
+		require.Equal(t, 1, maglevEntryCount(t, lbmaps), "Maglev should remain until Prune")
+		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
+		require.Zero(t, maglevEntryCount(t, lbmaps), "stale Maglev entries after Prune")
+	})
+
+	t.Run("failed startup update preserves Maglev", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		configure := func(cfg *loadbalancer.Config, _ *loadbalancer.ExternalConfig) {
+			cfg.AlgorithmAnnotation = true
+			cfg.LBAlgorithm = loadbalancer.LBAlgorithmRandom
+		}
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, configure)
+		frontend := newLeakTestFrontend(extraFrontend, LoadBalancer, baseBackend)
+		frontend.Service.Annotations = map[string]string{
+			annotation.ServiceLoadBalancingAlgorithm: loadbalancer.LBAlgorithmMaglev,
+		}
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "Maglev Update")
+		require.Equal(t, 1, maglevEntryCount(t, lbmaps), "Maglev entries before restart")
+
+		faultMaps := &faultyLBMaps{LBMaps: lbmaps, fail: true}
+		fixture = newBPFOpsLeakTestFixture(t, faultMaps, nil, configure)
+		frontend = newLeakTestFrontend(extraFrontend, LoadBalancer, baseBackend)
+		frontend.Service.Annotations = map[string]string{
+			annotation.ServiceLoadBalancingAlgorithm: loadbalancer.LBAlgorithmMaglev,
+		}
+		require.Error(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "failed Maglev Update")
+		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
+		require.Equal(t, 1, maglevEntryCount(t, lbmaps), "Maglev entries after failed startup Update")
+	})
+
 	programQuarantinedFrontend := func(t *testing.T, lbmaps maps.LBMaps) loadbalancer.L3n4Addr {
 		t.Helper()
 		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
