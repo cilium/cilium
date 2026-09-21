@@ -49,6 +49,7 @@
     ".github/workflows/**",
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
     "Documentation/requirements-min/requirements.txt",
+    "Documentation/requirements.txt",
     "cilium-cli/**",
     "pkg/azure/**",
     "images/**",
@@ -829,10 +830,18 @@
       // Only allow minor and patch updates for Documentation dependencies, no major updates
       "enabled": false,
       "matchFileNames": [
-        "Documentation/requirements-min/requirements.txt"
+        "Documentation/requirements-min/requirements.txt",
+        "Documentation/requirements.txt"
       ],
       "matchUpdateTypes": [
         "major"
+      ]
+    },
+    {
+      "groupName": "Documentation transitive dependencies",
+      "groupSlug": "docs-transitive-deps",
+      "matchFileNames": [
+        "Documentation/requirements.txt"
       ]
     },
     {
