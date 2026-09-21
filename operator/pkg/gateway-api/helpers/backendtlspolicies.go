@@ -127,9 +127,11 @@ func BuildBackendTLSPolicyLookup(btlspList *gatewayv1.BackendTLSPolicyList) Back
 				continue
 			}
 
-			// There is already a valid entry for this section name, so now we check timestamps.
-			if currentBTLSP.ObjectMeta.CreationTimestamp.Before(&existingBTLSP.ObjectMeta.CreationTimestamp) {
-				// if the current policy has an older creation time, it wins
+			// This section name is already taken, so rank the two candidates with the
+			// shared age-then-identity order: earlier creation prevails, with namespace
+			// and then name settling matching timestamps.
+			if CompareByCreationTimestampAndObjectKey(currentBTLSP.ObjectMeta, existingBTLSP.ObjectMeta) < 0 {
+				// The incoming entry ranks ahead, so it takes the slot.
 				// Move the existing policy into the Conflicted map
 				lookupMap[svcName].UpsertConflictedPolicy(existingName, existingBTLSP)
 				// Upsert the current BTLSP into the Valid set.
@@ -137,25 +139,7 @@ func BuildBackendTLSPolicyLookup(btlspList *gatewayv1.BackendTLSPolicyList) Back
 				continue
 			}
 
-			if existingBTLSP.ObjectMeta.CreationTimestamp.Before(&currentBTLSP.ObjectMeta.CreationTimestamp) {
-				// if the existing policy has an older creation time, it wins
-				// Move the current policy into the Conflicted map
-				lookupMap[svcName].UpsertConflictedPolicy(currentName, &currentBTLSP)
-				// The existing BTLSP is already in the Valid set, nothing more to do.
-				continue
-			}
-
-			// If the creation timestamps are equal, because neither are before the other,
-			// and they're not the same object, then the lexicographically first one wins.
-			if currentName.String() < existingName.String() {
-				// Move the existing policy into the Conflicted map
-				lookupMap[svcName].UpsertConflictedPolicy(existingName, existingBTLSP)
-				// Upsert the current BTLSP into the Valid set.
-				lookupMap[svcName].UpsertValidPolicy(sectionName, &currentBTLSP)
-				continue
-			}
-
-			// Otherwise, the current policy is conflicted.
+			// Otherwise the stored entry keeps the slot and the incoming one is recorded as conflicted.
 			lookupMap[svcName].UpsertConflictedPolicy(currentName, &currentBTLSP)
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
@@ -2158,4 +2159,20 @@ func TestGatewayAPIFrontendTLSValidationOnlyAppliesToHTTPS(t *testing.T) {
 			t.Fatalf("unexpected listener %q", listener.Name)
 		}
 	}
+}
+
+// Test_sortRoutesByAge covers the punctuation trap: with matching creation
+// times, "a" must stay ahead of "a-x" once the keys are kept apart.
+func Test_sortRoutesByAge(t *testing.T) {
+	sameTime := metav1.NewTime(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
+
+	routes := []gatewayv1.TCPRoute{
+		{ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "a-x", CreationTimestamp: sameTime}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "a", CreationTimestamp: sameTime}},
+	}
+
+	sortRoutesByAge(routes, func(r gatewayv1.TCPRoute) metav1.ObjectMeta { return r.ObjectMeta })
+
+	require.Equal(t, "a", routes[0].Namespace)
+	require.Equal(t, "a-x", routes[1].Namespace)
 }
