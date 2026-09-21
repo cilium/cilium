@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
-	"k8s.io/client-go/tools/cache"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/operator/pkg/ciliumpod"
@@ -45,9 +44,6 @@ func TestNodeTaintSyncCellShutdown(t *testing.T) {
 		{name: "CRD disabled, taint sync registered first", enableCiliumNodeCRD: false, taintSyncFirst: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			resetNodeWatcherStateForTest()
-			t.Cleanup(resetNodeWatcherStateForTest)
-
 			watcherCells := []cell.Cell{CiliumNodeGCCell, NodeTaintSyncCell}
 			if tc.taintSyncFirst {
 				watcherCells[0], watcherCells[1] = watcherCells[1], watcherCells[0]
@@ -87,12 +83,4 @@ func TestNodeTaintSyncCellShutdown(t *testing.T) {
 			}
 		})
 	}
-}
-
-// resetNodeWatcherStateForTest resets the package-global state still shared by
-// the Cilium pod watcher and the taint workers, so that repeated runs in the
-// same binary do not observe each other's leftovers.
-func resetNodeWatcherStateForTest() {
-	ciliumPodsStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, ciliumIndexers)
-	mno = markNodeOptions{}
 }

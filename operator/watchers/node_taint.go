@@ -42,24 +42,18 @@ const (
 	maxSilentRetries = 6
 )
 
-var (
-	// ciliumPodsStore contains all Cilium pods running in the cluster
-	ciliumPodsStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, ciliumIndexers)
+var errNoPod = errors.New("object is not a *slim_corev1.Pod")
 
-	// ciliumIndexers will index Cilium pods by namespace/name and hostname.
-	ciliumIndexers = cache.Indexers{
+// newCiliumPodsStore returns an empty store for the Cilium pods running in the
+// cluster, indexed by namespace/name and by the node they run on.
+func newCiliumPodsStore() cache.Indexer {
+	return cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 		hostnameIndexer:      hostNameIndexFunc,
-	}
+	})
+}
 
-	errNoPod = errors.New("object is not a *slim_corev1.Pod")
-
-	queueKeyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
-
-	mno markNodeOptions
-)
-
-func checkTaintForNextNodeItem(c kubernetes.Interface, nodeGetter slimNodeGetter, workQueue workqueue.TypedRateLimitingInterface[string], logger *slog.Logger) bool {
+func checkTaintForNextNodeItem(c kubernetes.Interface, nodeGetter slimNodeGetter, ciliumPods cache.Indexer, workQueue workqueue.TypedRateLimitingInterface[string], options markNodeOptions, logger *slog.Logger) bool {
 	// Get the next 'key' from the queue.
 	key, quit := workQueue.Get()
 	if quit {
@@ -72,7 +66,7 @@ func checkTaintForNextNodeItem(c kubernetes.Interface, nodeGetter slimNodeGetter
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	err := checkAndMarkNode(ctx, c, nodeGetter, key, mno, logger)
+	err := checkAndMarkNode(ctx, c, nodeGetter, ciliumPods, key, options, logger)
 	// Do not requeue on node not found errors
 	if err != nil && k8serrors.IsNotFound(err) {
 		workQueue.Forget(key)
@@ -109,7 +103,7 @@ func handleErr(err error, key string, workQueue workqueue.TypedRateLimitingInter
 
 // checkAndMarkNode checks if the node contains a Cilium pod in running state
 // so that it can set the taints / conditions of the node
-func checkAndMarkNode(ctx context.Context, c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string, options markNodeOptions, logger *slog.Logger) error {
+func checkAndMarkNode(ctx context.Context, c kubernetes.Interface, nodeGetter slimNodeGetter, ciliumPods cache.Indexer, nodeName string, options markNodeOptions, logger *slog.Logger) error {
 	node, err := nodeGetter.GetK8sSlimNode(nodeName)
 	if err != nil {
 		return err
@@ -119,7 +113,7 @@ func checkAndMarkNode(ctx context.Context, c kubernetes.Interface, nodeGetter sl
 	}
 
 	// should we remove the taint?
-	scheduled, running := nodeHasCiliumPod(node.GetName())
+	scheduled, running := nodeHasCiliumPod(ciliumPods, node.GetName())
 	if running {
 		if (options.RemoveNodeTaint && hasAgentNotReadyTaint(node)) ||
 			(options.SetCiliumIsUpCondition && !HasCiliumIsUpCondition(node)) {
@@ -146,7 +140,7 @@ func ciliumPodHandler(obj any, queue workqueue.TypedRateLimitingInterface[string
 }
 
 // ciliumPodsWatcher starts up a pod watcher to handle pod events.
-func ciliumPodsWatcher(wg *sync.WaitGroup, slimClient slimclientset.Interface, queue workqueue.TypedRateLimitingInterface[string], stopCh <-chan struct{}, logger *slog.Logger, namespace, labelSelector string) {
+func ciliumPodsWatcher(wg *sync.WaitGroup, slimClient slimclientset.Interface, ciliumPods cache.Indexer, queue workqueue.TypedRateLimitingInterface[string], stopCh <-chan struct{}, logger *slog.Logger, namespace, labelSelector string) {
 	ciliumPodInformer := informer.NewInformerWithStore(
 		k8sUtils.ListerWatcherWithModifier(
 			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](
@@ -166,7 +160,7 @@ func ciliumPodsWatcher(wg *sync.WaitGroup, slimClient slimclientset.Interface, q
 			},
 		},
 		transformToCiliumPod,
-		ciliumPodsStore,
+		ciliumPods,
 	)
 
 	wg.Go(func() {
@@ -178,8 +172,8 @@ func ciliumPodsWatcher(wg *sync.WaitGroup, slimClient slimclientset.Interface, q
 
 // nodeHasCiliumPod determines if a the node has a Cilium agent pod scheduled
 // on it, and if it is running and ready.
-func nodeHasCiliumPod(nodeName string) (scheduled bool, ready bool) {
-	ciliumPodsInNode, err := ciliumPodsStore.ByIndex(hostnameIndexer, nodeName)
+func nodeHasCiliumPod(ciliumPods cache.Indexer, nodeName string) (scheduled bool, ready bool) {
+	ciliumPodsInNode, err := ciliumPods.ByIndex(hostnameIndexer, nodeName)
 	if err != nil {
 		return false, false
 	}
@@ -504,19 +498,13 @@ func markNode(ctx context.Context, c kubernetes.Interface, nodeGetter slimNodeGe
 // view. The caller is responsible for having synchronized the node store that
 // backs nodes.
 func (s *nodeTaintSync) handleNodeTolerationAndTaints(nodes slimNodeGetter) {
-	mno = markNodeOptions{
-		RemoveNodeTaint:        s.cfg.RemoveCiliumNodeTaints,
-		SetNodeTaint:           s.cfg.SetCiliumNodeTaints,
-		SetCiliumIsUpCondition: s.cfg.SetCiliumIsUpCondition,
-	}
-
 	s.wg.Go(s.feedNodeQueue)
 
 	// ciliumPodsWatcher blocks waiting for cache sync. We need to do it before
 	// starting worker threads so checkAndMarkNode has cilium-pod information.
 	// It shares the node queue with the Node feed: a Cilium pod event is a
 	// reason to re-evaluate the taints of the node it runs on.
-	ciliumPodsWatcher(&s.wg, s.clientset.Slim(), s.nodeQueue, s.ctx.Done(), s.logger,
+	ciliumPodsWatcher(&s.wg, s.clientset.Slim(), s.ciliumPods, s.nodeQueue, s.ctx.Done(), s.logger,
 		s.ciliumPodNS, s.ciliumLabels)
 
 	for range s.cfg.TaintSyncWorkers {
@@ -524,7 +512,7 @@ func (s *nodeTaintSync) handleNodeTolerationAndTaints(nodes slimNodeGetter) {
 			// Do not use the slim client backing the Node resource: we need a
 			// k8s client that can update node structures and not simply watch
 			// for node events.
-			for checkTaintForNextNodeItem(s.clientset, nodes, s.nodeQueue, s.logger) {
+			for checkTaintForNextNodeItem(s.clientset, nodes, s.ciliumPods, s.nodeQueue, s.markOptions, s.logger) {
 			}
 		})
 	}
