@@ -73,6 +73,7 @@ cilium-operator-aws hive dot-graph [flags]
       --excess-ip-release-delay int                                Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
       --gateway-api-hostnetwork-enabled                            Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string           Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
+      --gateway-api-inference-extension-enabled                    Enables the use Gateway API Inference Extension (default true)
       --gateway-api-secrets-namespace string                       Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
       --gateway-api-service-externaltrafficpolicy string           Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances. (default "Cluster")
       --gateway-api-use-remote-address                             Use the immediate client's IP address as the origin client's IP address (default true)
