@@ -90,7 +90,7 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
  */
 #define ENABLE_PER_PACKET_LB (!CONFIG(socket_lb).enable_full || \
     CONFIG(socket_lb).hostns_only          || \
-    is_defined(ENABLE_L7_LB)               || \
+    CONFIG(enable_l7_lb)                   || \
     CONFIG(enable_sctp)                    || \
     is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING))
 
@@ -199,19 +199,20 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	if (svc) {
 		const struct lb4_backend *backend;
 
-#if defined(ENABLE_L7_LB)
-		if (lb4_svc_is_l7_loadbalancer(svc)) {
-			proxy_port = (__u16)svc->l7_lb_proxy_port;
-			goto skip_service_lookup;
+		if (CONFIG(enable_l7_lb)) {
+			if (lb4_svc_is_l7_loadbalancer(svc)) {
+				proxy_port = (__u16)svc->l7_lb_proxy_port;
+				goto skip_service_lookup;
+			}
+			/* We land here when socket-LB is enabled but we also have enable_l7_lb.
+			 * Given in socket-LB we skip translation, we also need to do it here as
+			 * otherwise we end up picking a backend in the per-packet handling which
+			 * we want to avoid for E/W traffic.
+			 */
+			if (lb4_svc_is_l7_punt_proxy(svc))
+				goto skip_service_lookup;
 		}
-		/* We land here when socket-LB is enabled but we also have ENABLE_L7_LB.
-		 * Given in socket-LB we skip translation, we also need to do it here as
-		 * otherwise we end up picking a backend in the per-packet handling which
-		 * we want to avoid for E/W traffic.
-		 */
-		if (lb4_svc_is_l7_punt_proxy(svc))
-			goto skip_service_lookup;
-#endif /* ENABLE_L7_LB */
+
 		/* When socket-LB is enabled, local-redirect services are load-balanced in
 		 * bpf_sock. In some cases, load-balancing can be skipped for certain local
 		 * redirect services based on user configured policies. Per packet LB should
@@ -373,15 +374,16 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	if (svc) {
 		const struct lb6_backend *backend;
 
-#if defined(ENABLE_L7_LB)
-		if (lb6_svc_is_l7_loadbalancer(svc)) {
-			proxy_port = (__u16)svc->l7_lb_proxy_port;
-			goto skip_service_lookup;
+		if (CONFIG(enable_l7_lb)) {
+			if (lb6_svc_is_l7_loadbalancer(svc)) {
+				proxy_port = (__u16)svc->l7_lb_proxy_port;
+				goto skip_service_lookup;
+			}
+			/* See comment in __per_packet_lb_svc_xlate_4. */
+			if (lb6_svc_is_l7_punt_proxy(svc))
+				goto skip_service_lookup;
 		}
-		/* See comment in __per_packet_lb_svc_xlate_4. */
-		if (lb6_svc_is_l7_punt_proxy(svc))
-			goto skip_service_lookup;
-#endif /* ENABLE_L7_LB */
+
 		/* See comment in __per_packet_lb_svc_xlate_4. */
 		if (CONFIG(enable_lrp) && CONFIG(socket_lb).enable_full &&
 		    unlikely(lb6_svc_is_localredirect(svc)))
@@ -533,9 +535,9 @@ int NAME(struct __ctx_buff *ctx)						\
 				      &cluster_id, false);			\
 		if (ct_state_new.rev_nat_index)					\
 			scope = SCOPE_FORWARD;					\
-		if (is_defined(ENABLE_L7_LB) && proxy_port)			\
+		if (CONFIG(enable_l7_lb) && proxy_port)				\
 			scope = SCOPE_FORWARD;					\
-		if (is_defined(ENABLE_L7_LB) &&					\
+		if (CONFIG(enable_l7_lb) &&					\
 		    (ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB))	\
 			scope = SCOPE_FORWARD;					\
 	}									\
@@ -596,9 +598,9 @@ int NAME(struct __ctx_buff *ctx)						\
 		lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, false);	\
 		if (ct_state_new.rev_nat_index)					\
 			scope = SCOPE_FORWARD;					\
-		if (is_defined(ENABLE_L7_LB) && proxy_port)			\
+		if (CONFIG(enable_l7_lb) && proxy_port)				\
 			scope = SCOPE_FORWARD;					\
-		if (is_defined(ENABLE_L7_LB) &&					\
+		if (CONFIG(enable_l7_lb) &&					\
 		    (ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB))	\
 			scope = SCOPE_FORWARD;					\
 	}									\
@@ -876,17 +878,17 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	switch (ct_status) {
 	case CT_NEW:
 	case CT_ESTABLISHED:
-#if defined(ENABLE_L7_LB)
-		from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+		if (CONFIG(enable_l7_lb)) {
+			from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
 
-		/* Forward to L7 LB first before applying network policy: */
-		if (proxy_port > 0) {
-			/* tuple addresses have been swapped by CT lookup */
-			cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
-				    bpf_ntohs(proxy_port));
-			break;
+			/* Forward to L7 LB first before applying network policy: */
+			if (proxy_port > 0) {
+				/* tuple addresses have been swapped by CT lookup */
+				cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
+					    bpf_ntohs(proxy_port));
+				break;
+			}
 		}
-#endif /* ENABLE_L7_LB */
 
 		/* When an endpoint connects to itself via service clusterIP, we need
 		 * to skip the policy enforcement. If we didn't, the user would have to
@@ -1051,9 +1053,9 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	if (unlikely(is_icmp6_ndp(ctx, ip6, ETH_HLEN)))
 		return icmp6_ndp_handle(ctx, ETH_HLEN, METRIC_EGRESS, ext_err);
 
-#ifdef ENABLE_L7_LB
-	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
-#endif
+	if (CONFIG(enable_l7_lb))
+		from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+
 	if (!from_l7lb && unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
@@ -1417,17 +1419,17 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	switch (ct_status) {
 	case CT_NEW:
 	case CT_ESTABLISHED:
-#if defined(ENABLE_L7_LB)
-		from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+		if (CONFIG(enable_l7_lb)) {
+			from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
 
-		/* Forward to L7 LB first before applying network policy: */
-		if (proxy_port > 0) {
-			/* tuple addresses have been swapped by CT lookup */
-			cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr, tuple->saddr,
-				    bpf_ntohs(proxy_port));
-			break;
+			/* Forward to L7 LB first before applying network policy: */
+			if (proxy_port > 0) {
+				/* tuple addresses have been swapped by CT lookup */
+				cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr, tuple->saddr,
+					    bpf_ntohs(proxy_port));
+				break;
+			}
 		}
-#endif /* ENABLE_L7_LB */
 
 		/* When an endpoint connects to itself via service clusterIP, we need
 		 * to skip the policy enforcement. If we didn't, the user would have to
@@ -1612,9 +1614,9 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 			return DROP_FRAG_NOSUPPORT;
 	}
 
-#ifdef ENABLE_L7_LB
-	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
-#endif
+	if (CONFIG(enable_l7_lb))
+		from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+
 	if (!from_l7lb && unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
 
@@ -2437,7 +2439,9 @@ out:
 __section_entry
 int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 {
-#if defined(ENABLE_L7_LB)
+	if (!CONFIG(enable_l7_lb))
+		return CTX_ACT_OK;
+
 	__be16 proto;
 	int ret;
 	__u32 sec_label = SECLABEL;
@@ -2484,9 +2488,6 @@ out:
 					    METRIC_EGRESS);
 
 	return ret;
-#else
-	return CTX_ACT_OK;
-#endif
 }
 
 /* Attached to the lxc device on the way to the container, only if endpoint
@@ -2510,8 +2511,8 @@ int cil_to_container(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
-#if defined(ENABLE_L7_LB)
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
+	if (CONFIG(enable_l7_lb) &&
+	    (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		__u16 lxc_id = get_epid(ctx);
 
 		ctx->mark = 0;
@@ -2519,7 +2520,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 		return send_drop_notify(ctx, lxc_id, sec_label, LXC_ID,
 					ret, METRIC_INGRESS);
 	}
-#endif
 
 	magic = inherit_identity_from_host(ctx, &identity);
 	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)

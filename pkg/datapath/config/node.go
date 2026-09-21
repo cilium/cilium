@@ -192,5 +192,7 @@ func NodeConfig(lnc *Config) Node {
 	node.EnableIPSec = lnc.EnableIPSec
 	node.EnableWireguard = lnc.EnableWireguard
 
+	node.EnableL7LB = option.Config.EnableEnvoyConfig
+
 	return node
 }

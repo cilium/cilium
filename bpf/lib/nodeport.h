@@ -1443,13 +1443,12 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	if (lb_punt_etp_local() && lb6_svc_is_etp_local(svc))
 		return CTX_ACT_OK;
 
-#if defined(ENABLE_L7_LB)
-	if (lb6_svc_is_l7_loadbalancer(svc))
+	if (CONFIG(enable_l7_lb) && lb6_svc_is_l7_loadbalancer(svc))
 		return nodeport_l7_lb_redirect(ctx, NULL,
 					       (__be16)svc->l7_lb_proxy_port,
 					       src_sec_identity,
 					       punt_to_stack);
-#endif
+
 	if (CONFIG(enable_ipip_termination)) {
 		union v6addr forced_addr = {};
 		const union v6addr zero = {};
@@ -2711,13 +2710,12 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 	if (lb_punt_etp_local() && lb4_svc_is_etp_local(svc))
 		return CTX_ACT_OK;
 
-#if defined(ENABLE_L7_LB)
-	if (lb4_svc_is_l7_loadbalancer(svc))
+	if (CONFIG(enable_l7_lb) && lb4_svc_is_l7_loadbalancer(svc))
 		return nodeport_l7_lb_redirect(ctx, ip4,
 					       (__be16)svc->l7_lb_proxy_port,
 					       src_sec_identity,
 					       punt_to_stack);
-#endif
+
 	if (lb4_to_lb6_service(svc)) {
 		if (!is_defined(ENABLE_IPV6) || !is_defined(NODEPORT_USE_NAT_46x64))
 			return DROP_NO_SERVICE;

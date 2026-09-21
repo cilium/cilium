@@ -216,3 +216,5 @@ NODE_CONFIG(struct srv6_config, srv6_cfg, "SRv6-specific configuration")
 NODE_CONFIG(bool, enable_ipsec, "Enable IPSec support")
 
 NODE_CONFIG(bool, enable_wireguard, "Enable Wireguard support")
+
+NODE_CONFIG(bool, enable_l7_lb, "Enable L7 load-balancing support")

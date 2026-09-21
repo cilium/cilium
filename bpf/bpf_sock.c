@@ -324,9 +324,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	const struct lb4_service *backend_slot;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
-#ifdef ENABLE_L7_LB
 	struct lb4_backend l7backend;
-#endif
 
 	if (CONFIG(socket_lb).hostns_only && !in_hostns)
 		return -ENXIO;
@@ -377,13 +375,12 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 					      dst_ip, dst_port))
 		return -ENXIO;
 
-#ifdef ENABLE_L7_LB
 	/* Do not perform service translation at socker layer for
 	 * services with L7 load balancing as we need to postpone
 	 * policy enforcement to take place after l7 load balancer and
 	 * we can't currently do that from the socket layer.
 	 */
-	if (lb4_svc_is_l7_loadbalancer(svc)) {
+	if (CONFIG(enable_l7_lb) && lb4_svc_is_l7_loadbalancer(svc)) {
 		/* TC level eBPF datapath does not handle node local traffic,
 		 * but we need to redirect for L7 LB also in that case.
 		 */
@@ -404,7 +401,6 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		/* Let the TC level eBPF datapath redirect to L7 LB. */
 		return 0;
 	}
-#endif /* ENABLE_L7_LB */
 
 	if (lb4_svc_is_affinity(svc)) {
 		/* Note, for newly created affinity entries there is a
@@ -457,9 +453,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	send_trace_sock_notify4(ctx_full, XLATE_POST_DIRECTION_FWD, backend->address,
 				bpf_ntohs(backend->port), is_connect);
 
-#ifdef ENABLE_L7_LB
 out:
-#endif
 	if (sock4_update_revnat(ctx_full, backend, dst_ip, dst_port,
 				svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
@@ -1063,9 +1057,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	const struct lb6_service *backend_slot;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
-#ifdef ENABLE_L7_LB
 	struct lb6_backend l7backend;
-#endif
 
 	if (CONFIG(socket_lb).hostns_only && !in_hostns)
 		return -ENXIO;
@@ -1104,9 +1096,8 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 					      dst_ip, dst_port))
 		return -ENXIO;
 
-#ifdef ENABLE_L7_LB
 	/* See __sock4_xlate_fwd for commentary. */
-	if (lb6_svc_is_l7_loadbalancer(svc)) {
+	if (CONFIG(enable_l7_lb) && lb6_svc_is_l7_loadbalancer(svc)) {
 		if (in_hostns) {
 			union v6addr loopback = { .addr[15] = 1, };
 
@@ -1119,7 +1110,6 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		}
 		return 0;
 	}
-#endif /* ENABLE_L7_LB */
 
 	if (lb6_svc_is_affinity(svc)) {
 		backend_id = lb6_affinity_backend_id_by_netns(svc, &id);
@@ -1159,9 +1149,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	send_trace_sock_notify6(ctx, XLATE_POST_DIRECTION_FWD, &backend->address,
 				bpf_ntohs(backend->port), is_connect);
 
-#ifdef ENABLE_L7_LB
 out:
-#endif
 	if (sock6_update_revnat(ctx, backend, &dst_ip, dst_port,
 				svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
