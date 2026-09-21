@@ -112,6 +112,8 @@ const (
 
 	LocalRedirectPolicy Feature = "enable-local-redirect-policy"
 
+	StandaloneDNSProxy Feature = "enable-standalone-dns-proxy"
+
 	BGPControlPlane Feature = "enable-bgp-control-plane"
 
 	NodeLocalDNS Feature = "node-local-dns"
@@ -434,6 +436,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[DefaultGlobalNamespace] = Status{
 		Enabled: cm.Data[string(DefaultGlobalNamespace)] == "true",
+	}
+
+	fs[StandaloneDNSProxy] = Status{
+		Enabled: cm.Data[string(StandaloneDNSProxy)] == "true",
 	}
 }
 
