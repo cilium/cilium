@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: port-filter
+  namespace: default
+spec:
+  ports:
+  - port: 80
+  - name: myport
+    # Conflicts with the derived service's port 42; omit this port when mirroring.
+    port: 8080

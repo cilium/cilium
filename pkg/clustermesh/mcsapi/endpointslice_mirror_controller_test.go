@@ -4,499 +4,96 @@
 package mcsapi
 
 import (
-	"fmt"
-	"maps"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
+
+	k8stestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 )
 
-func getExpectedDerivedLabels(localEpSliceName string) map[string]string {
-	labels := maps.Clone(commonLabels)
-	if len(localEpSliceName) <= 63 {
-		labels[localEndpointSliceLabel] = localEpSliceName
+var mirrorTestDerivedService = derivedName(types.NamespacedName{Name: "full", Namespace: "default"})
+
+func mirrorTestSource(name string) *discoveryv1.EndpointSlice {
+	return &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+			Labels:    map[string]string{discoveryv1.LabelServiceName: "full"},
+		},
+		Endpoints: []discoveryv1.Endpoint{
+			{
+				Addresses: []string{"10.0.0.1"},
+				Conditions: discoveryv1.EndpointConditions{
+					Ready:       new(true),
+					Serving:     new(true),
+					Terminating: new(false),
+				},
+			},
+			{
+				Addresses: []string{"10.0.0.2"},
+				Conditions: discoveryv1.EndpointConditions{
+					Ready:       new(false),
+					Serving:     new(true),
+					Terminating: new(false),
+				},
+			},
+		},
+		Ports:       []discoveryv1.EndpointPort{{Port: new(int32(80))}},
+		AddressType: discoveryv1.AddressTypeIPv4,
 	}
-	return labels
 }
 
-func getExpectedDerivedAnnotations(localEpSliceName string) map[string]string {
-	return map[string]string{localEndpointSliceNameAnnotation: localEpSliceName}
+func mirrorTestDesired(source *discoveryv1.EndpointSlice, name string) *discoveryv1.EndpointSlice {
+	desired := &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: source.Namespace,
+			Labels: map[string]string{
+				"test-label":                     "copied",
+				mcsapiv1beta1.LabelServiceName:   "full",
+				discoveryv1.LabelServiceName:     mirrorTestDerivedService,
+				mcsapiv1beta1.LabelSourceCluster: "cluster1",
+				discoveryv1.LabelManagedBy:       endpointSliceLocalMCSAPIControllerName,
+			},
+			Annotations: map[string]string{localEndpointSliceNameAnnotation: source.Name},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         "v1",
+				Kind:               "Service",
+				Name:               mirrorTestDerivedService,
+				UID:                "40108bac-8aa0-425d-903e-a1c15d896244",
+				Controller:         new(true),
+				BlockOwnerDeletion: new(true),
+			}},
+		},
+		Endpoints:   source.Endpoints,
+		Ports:       source.Ports,
+		AddressType: source.AddressType,
+	}
+	if len(source.Name) <= 63 {
+		desired.Labels[localEndpointSliceLabel] = source.Name
+	}
+	return desired
 }
 
-var (
-	commonEndpoints = []discoveryv1.Endpoint{{
-		Addresses: []string{"10.0.0.1", "10.0.0.2"},
-	}}
-	commonPorts = []discoveryv1.EndpointPort{{
-		Port: ptr.To[int32](80),
-	}}
-	commonOwnerReferences = []metav1.OwnerReference{{
-		APIVersion:         "v1",
-		Kind:               "Service",
-		Name:               commonDerivedName,
-		Controller:         ptr.To(true),
-		BlockOwnerDeletion: ptr.To(true),
-	}}
-	commonDerivedName = derivedName(types.NamespacedName{Name: "full", Namespace: "default"})
-	commonLabels      = map[string]string{
-		"test-label":                     "copied",
-		mcsapiv1beta1.LabelServiceName:   "full",
-		discoveryv1.LabelServiceName:     commonDerivedName,
-		mcsapiv1beta1.LabelSourceCluster: "cluster1",
-		discoveryv1.LabelManagedBy:       endpointSliceLocalMCSAPIControllerName,
-	}
+func runEndpointSliceMirrorReconcile(t *testing.T, scheme *runtime.Scheme, request string, objects ...client.Object) client.Client {
+	t.Helper()
 
-	endpointsliceMirrorFixtures = []client.Object{
-		&mcsapiv1beta1.ServiceExport{
-			TypeMeta: typeMetaSvcExport,
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full",
-				Namespace: "default",
-			},
-		},
-		&corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full",
-				Namespace: "default",
-			},
-			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{{
-					Port: 80,
-				}},
-			},
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-keep",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-update-1",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-update-2",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-update-3",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-update-4",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-update-5",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-wrong-family-delete",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv6,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-wrong-family-ignore",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv6,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-not-linked-service-1",
-				Namespace: "default",
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-not-linked-service-2",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-not-linked-service-3",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-not-linked-service-4",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "full-duplicate-derived",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-
-		&corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      commonDerivedName,
-				Namespace: "default",
-				Annotations: map[string]string{
-					"clustermesh.cilium.io/supported-ip-families": "IPv4",
-				},
-				Labels: map[string]string{
-					"test-label": "copied",
-				},
-			},
-			Spec: corev1.ServiceSpec{
-				IPFamilies: []corev1.IPFamily{
-					// Make sure this is ignored if the supported families annotation is present
-					corev1.IPv6Protocol,
-				},
-				Ports: []corev1.ServicePort{{
-					Port: 80,
-				}},
-			},
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            commonDerivedName + "-keep",
-				Namespace:       "default",
-				Labels:          getExpectedDerivedLabels("full-keep"),
-				OwnerReferences: commonOwnerReferences,
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            commonDerivedName + "-update-1",
-				Namespace:       "default",
-				Labels:          getExpectedDerivedLabels("full-update-1"),
-				OwnerReferences: commonOwnerReferences,
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv6,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            commonDerivedName + "-update-2",
-				Namespace:       "default",
-				Labels:          getExpectedDerivedLabels("full-update-2"),
-				OwnerReferences: commonOwnerReferences,
-			},
-			Endpoints: []discoveryv1.Endpoint{{
-				Hostname: ptr.To("to-update"),
-			}},
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            commonDerivedName + "-update-3",
-				Namespace:       "default",
-				Labels:          getExpectedDerivedLabels("full-update-3"),
-				OwnerReferences: commonOwnerReferences,
-			},
-			Endpoints: commonEndpoints,
-			Ports: []discoveryv1.EndpointPort{{
-				Port: ptr.To[int32](42),
-			}},
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      commonDerivedName + "-update-4",
-				Namespace: "default",
-				Labels: map[string]string{
-					mcsapiv1beta1.LabelServiceName: "full",
-					discoveryv1.LabelManagedBy:     endpointSliceLocalMCSAPIControllerName,
-					localEndpointSliceLabel:        "full-update-4",
-				},
-				OwnerReferences: commonOwnerReferences,
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      commonDerivedName + "-update-5",
-				Namespace: "default",
-				Labels: map[string]string{
-					mcsapiv1beta1.LabelServiceName: "full",
-					discoveryv1.LabelManagedBy:     endpointSliceLocalMCSAPIControllerName,
-					localEndpointSliceLabel:        "full-update-5",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            commonDerivedName + "-delete",
-				Namespace:       "default",
-				Labels:          getExpectedDerivedLabels("full-delete"),
-				OwnerReferences: commonOwnerReferences,
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            commonDerivedName + "-wrong-family-delete",
-				Namespace:       "default",
-				Labels:          getExpectedDerivedLabels("full-wrong-family-delete"),
-				OwnerReferences: commonOwnerReferences,
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv6,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            commonDerivedName + "-not-linked-service-1",
-				Namespace:       "default",
-				Labels:          getExpectedDerivedLabels("full-not-linked-service-1"),
-				OwnerReferences: commonOwnerReferences,
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      commonDerivedName + "-not-linked-service-2",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelManagedBy: endpointSliceLocalMCSAPIControllerName,
-					localEndpointSliceLabel:    "full-not-linked-service-2",
-				},
-				OwnerReferences: commonOwnerReferences,
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      commonDerivedName + "-not-linked-service-3",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelManagedBy: endpointSliceLocalMCSAPIControllerName,
-					localEndpointSliceLabel:    "full-not-linked-service-3",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      commonDerivedName + "-not-linked-service-4",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelManagedBy: endpointSliceLocalMCSAPIControllerName,
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            commonDerivedName + "-duplicate-derived",
-				Namespace:       "default",
-				Labels:          getExpectedDerivedLabels("full-duplicate-derived"),
-				OwnerReferences: commonOwnerReferences,
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            commonDerivedName + "-duplicate-derived-extra",
-				Namespace:       "default",
-				Labels:          getExpectedDerivedLabels("full-duplicate-derived"),
-				OwnerReferences: commonOwnerReferences,
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-
-		&mcsapiv1beta1.ServiceExport{
-			TypeMeta: typeMetaSvcExport,
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "port-filter",
-				Namespace: "default",
-			},
-		},
-		&corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "port-filter",
-				Namespace: "default",
-			},
-			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{Port: 80},
-					{
-						// This port conflicts with the derived service
-						// and should be ignored when mirroring local epslice
-						Name: "myport",
-						Port: 8080,
-					},
-				},
-			},
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "port-filter",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "port-filter",
-				},
-			},
-			Endpoints: commonEndpoints,
-			Ports: []discoveryv1.EndpointPort{
-				{Port: ptr.To[int32](80)},
-				{Name: ptr.To("myport"), Port: ptr.To[int32](4242)},
-			},
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      derivedName(types.NamespacedName{Name: "port-filter", Namespace: "default"}),
-				Namespace: "default",
-				Annotations: map[string]string{
-					"clustermesh.cilium.io/supported-ip-families": "IPv4",
-				},
-			},
-			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{Port: 80},
-					{Name: "myport", Port: 42},
-				},
-			},
-		},
-	}
-)
-
-func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
-		WithObjects(endpointsliceMirrorFixtures...).
-		WithScheme(testScheme()).
+		WithObjects(objects...).
+		WithScheme(scheme).
 		WithIndex(&discoveryv1.EndpointSlice{}, derivedEndpointSliceByLocalNameIndex, derivedEndpointSliceByLocalNameIndexFunc).
 		Build()
 	r := &mcsAPIEndpointSliceMirrorReconciler{
@@ -505,210 +102,244 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 		clusterName: "cluster1",
 	}
 
-	for _, suffix := range []string{
-		"keep",
-		"",
-		"update-1",
-		"update-2",
-		"update-3",
-		"update-4",
-		"update-5",
-		"not-linked-service-2",
-		"not-linked-service-3",
+	result, err := r.Reconcile(t.Context(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: request, Namespace: "default"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+	return c
+}
+
+func requireEndpointSlice(t *testing.T, c client.Client, expected *discoveryv1.EndpointSlice) {
+	t.Helper()
+
+	var actual discoveryv1.EndpointSlice
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(expected), &actual))
+	require.Empty(t, cmp.Diff(expected, &actual, cmpIgnoreFields), "EndpointSlice mismatch (-want +got)")
+}
+
+func requireNoEndpointSlice(t *testing.T, c client.Client, name string) {
+	t.Helper()
+
+	var actual discoveryv1.EndpointSlice
+	err := c.Get(t.Context(), types.NamespacedName{Name: name, Namespace: "default"}, &actual)
+	require.True(t, apierrors.IsNotFound(err), "EndpointSlice %s should be absent, got %v", name, err)
+}
+
+func Test_mcsEndpointSliceMirror(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		create bool
+		mutate func(*discoveryv1.EndpointSlice)
+	}{
+		{name: "create", create: true},
+		{name: "keep"},
+		{name: "update-address-type", mutate: func(ep *discoveryv1.EndpointSlice) {
+			ep.AddressType = discoveryv1.AddressTypeIPv6
+		}},
+		{name: "update-endpoints", mutate: func(ep *discoveryv1.EndpointSlice) {
+			ep.Endpoints = []discoveryv1.Endpoint{{Hostname: new("to-update")}}
+		}},
+		{name: "update-ports", mutate: func(ep *discoveryv1.EndpointSlice) {
+			ep.Ports = []discoveryv1.EndpointPort{{Port: new(int32(42))}}
+		}},
+		{name: "update-labels", mutate: func(ep *discoveryv1.EndpointSlice) {
+			ep.Labels = map[string]string{
+				mcsapiv1beta1.LabelServiceName: "full",
+				discoveryv1.LabelManagedBy:     endpointSliceLocalMCSAPIControllerName,
+				localEndpointSliceLabel:        ep.Labels[localEndpointSliceLabel],
+			}
+		}},
+		{name: "update-labels-and-owner", mutate: func(ep *discoveryv1.EndpointSlice) {
+			ep.Labels = map[string]string{
+				mcsapiv1beta1.LabelServiceName: "full",
+				discoveryv1.LabelManagedBy:     endpointSliceLocalMCSAPIControllerName,
+				localEndpointSliceLabel:        ep.Labels[localEndpointSliceLabel],
+			}
+			ep.OwnerReferences = nil
+		}},
+		{name: "repair-service-labels", mutate: func(ep *discoveryv1.EndpointSlice) {
+			ep.Labels = map[string]string{
+				discoveryv1.LabelManagedBy: endpointSliceLocalMCSAPIControllerName,
+				localEndpointSliceLabel:    ep.Labels[localEndpointSliceLabel],
+			}
+		}},
+		{name: "repair-service-labels-and-owner", mutate: func(ep *discoveryv1.EndpointSlice) {
+			ep.Labels = map[string]string{
+				discoveryv1.LabelManagedBy: endpointSliceLocalMCSAPIControllerName,
+				localEndpointSliceLabel:    ep.Labels[localEndpointSliceLabel],
+			}
+			ep.OwnerReferences = nil
+		}},
 	} {
-		t.Run(fmt.Sprintf("Check mirrored Endpoint %s", suffix), func(t *testing.T) {
-			fullSuffix := "-" + suffix
-			if suffix == "" {
-				fullSuffix = ""
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := testScheme()
+			objects := k8stestutils.ReadObjectsDir(t, "testdata/endpointslice-mirror/base", scheme)
+			source := mirrorTestSource("full-" + tt.name)
+			desired := mirrorTestDesired(source, mirrorTestDerivedService+"-"+tt.name)
+			objects = append(objects, source)
+			if !tt.create {
+				existing := desired.DeepCopy()
+				if tt.mutate != nil {
+					tt.mutate(existing)
+				}
+				objects = append(objects, existing)
 			}
-
-			key := types.NamespacedName{
-				Name:      "full" + fullSuffix,
-				Namespace: "default",
-			}
-			result, err := r.Reconcile(t.Context(), ctrl.Request{
-				NamespacedName: key,
-			})
-			require.NoError(t, err)
-			require.Equal(t, ctrl.Result{}, result, "Result should be empty")
-
-			keyDerived := types.NamespacedName{
-				Name:      commonDerivedName + "-" + suffix,
-				Namespace: "default",
-			}
-			if suffix == "" {
-				keyDerived.Name = commonDerivedName
-			}
-			epSlice := &discoveryv1.EndpointSlice{}
-			err = c.Get(t.Context(), keyDerived, epSlice)
-			require.NoError(t, err)
-
-			require.Equal(t, commonOwnerReferences, epSlice.OwnerReferences)
-			require.Equal(t, getExpectedDerivedLabels("full"+fullSuffix), epSlice.Labels)
-			require.Equal(t, getExpectedDerivedAnnotations("full"+fullSuffix), epSlice.Annotations)
-			require.Equal(t, commonPorts, epSlice.Ports)
-			require.Equal(t, commonEndpoints, epSlice.Endpoints)
-			require.Equal(t, discoveryv1.AddressTypeIPv4, epSlice.AddressType)
+			c := runEndpointSliceMirrorReconcile(t, scheme, source.Name, objects...)
+			requireEndpointSlice(t, c, desired)
 		})
 	}
+}
 
+func Test_mcsEndpointSliceMirror_LegacySourceLabel(t *testing.T) {
+	scheme := testScheme()
+	objects := k8stestutils.ReadObjectsDir(t, "testdata/endpointslice-mirror/base", scheme)
+	source := mirrorTestSource("full-legacy-label")
+	desired := mirrorTestDesired(source, mirrorTestDerivedService+"-legacy-label")
+	existing := desired.DeepCopy()
+	existing.Annotations = nil
+	objects = append(objects, source, existing)
+
+	c := runEndpointSliceMirrorReconcile(t, scheme, source.Name, objects...)
+	requireEndpointSlice(t, c, desired)
+}
+
+func Test_mcsEndpointSliceMirror_fixtures(t *testing.T) {
 	for _, tt := range []struct {
-		name        string
-		localName   string
-		derivedName string
+		name    string
+		request string
+	}{
+		{name: "port-filter", request: "port-filter"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join("testdata/endpointslice-mirror", tt.name)
+			scheme := testScheme()
+			objects := k8stestutils.ReadObjectsDir(t, filepath.Join(path, "input"), scheme)
+			c := runEndpointSliceMirrorReconcile(t, scheme, tt.request, objects...)
+
+			var expected discoveryv1.EndpointSlice
+			k8stestutils.ReadYAML(t, filepath.Join(path, "output/derived-endpointslice.yaml"), &expected)
+			requireEndpointSlice(t, c, &expected)
+		})
+	}
+}
+
+func Test_mcsEndpointSliceMirror_EnsureAbsent(t *testing.T) {
+	for _, tt := range []struct {
+		name                string
+		setupEndpointSlices func() ([]client.Object, string)
+	}{
+		{name: "full-delete", setupEndpointSlices: func() ([]client.Object, string) {
+			source := mirrorTestSource("full-delete")
+			derived := mirrorTestDesired(source, mirrorTestDerivedService+"-delete")
+			return []client.Object{derived}, derived.Name
+		}},
+		{name: "full-wrong-family-delete", setupEndpointSlices: func() ([]client.Object, string) {
+			source := mirrorTestSource("full-wrong-family-delete")
+			source.AddressType = discoveryv1.AddressTypeIPv6
+			derived := mirrorTestDesired(source, mirrorTestDerivedService+"-wrong-family-delete")
+			return []client.Object{source, derived}, derived.Name
+		}},
+		{name: "full-wrong-family-ignore", setupEndpointSlices: func() ([]client.Object, string) {
+			source := mirrorTestSource("full-wrong-family-ignore")
+			source.AddressType = discoveryv1.AddressTypeIPv6
+			return []client.Object{source}, mirrorTestDerivedService + "-wrong-family-ignore"
+		}},
+		{name: "full-not-linked-service-1", setupEndpointSlices: func() ([]client.Object, string) {
+			source := mirrorTestSource("full-not-linked-service-1")
+			derived := mirrorTestDesired(source, mirrorTestDerivedService+"-not-linked-service-1")
+			source.Labels = nil
+			return []client.Object{source, derived}, derived.Name
+		}},
+		{name: malformedDerivedEndpointSliceRequest(mirrorTestDerivedService + "-not-linked-service-4"), setupEndpointSlices: func() ([]client.Object, string) {
+			derived := mirrorTestDesired(mirrorTestSource("full-not-linked-service-4"), mirrorTestDerivedService+"-not-linked-service-4")
+			derived.Labels = map[string]string{discoveryv1.LabelManagedBy: endpointSliceLocalMCSAPIControllerName}
+			derived.Annotations = nil
+			require.Nil(t, derivedEndpointSliceByLocalNameIndexFunc(derived))
+			return []client.Object{derived}, derived.Name
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := testScheme()
+			objects := k8stestutils.ReadObjectsDir(t, "testdata/endpointslice-mirror/base", scheme)
+			configured, absent := tt.setupEndpointSlices()
+			objects = append(objects, configured...)
+			c := runEndpointSliceMirrorReconcile(t, scheme, tt.name, objects...)
+			requireNoEndpointSlice(t, c, absent)
+		})
+	}
+}
+
+func Test_mcsEndpointSliceMirror_DuplicateCleanup(t *testing.T) {
+	scheme := testScheme()
+	objects := k8stestutils.ReadObjectsDir(t, "testdata/endpointslice-mirror/base", scheme)
+	source := mirrorTestSource("full-duplicate-derived")
+	desired := mirrorTestDesired(source, mirrorTestDerivedService+"-duplicate-derived")
+	duplicate := desired.DeepCopy()
+	duplicate.Name += "-extra"
+	objects = append(objects, source, desired.DeepCopy(), duplicate)
+
+	c := runEndpointSliceMirrorReconcile(t, scheme, source.Name, objects...)
+	requireEndpointSlice(t, c, desired)
+	requireNoEndpointSlice(t, c, duplicate.Name)
+}
+
+func Test_mcsEndpointSliceMirror_NameBoundaries(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		localName    string
+		expectedName string
 	}{
 		{
-			name:        "long suffix preserved",
-			localName:   "long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing",
-			derivedName: commonDerivedName + "-long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing",
+			name:         "long suffix preserved",
+			localName:    "long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing",
+			expectedName: mirrorTestDerivedService + "-long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing",
 		},
 		{
-			name:        "at name limit",
-			localName:   strings.Repeat("a", 253-len(commonDerivedName)-1),
-			derivedName: commonDerivedName + "-" + strings.Repeat("a", 253-len(commonDerivedName)-1),
+			name:         "at name limit",
+			localName:    strings.Repeat("a", 253-len(mirrorTestDerivedService)-1),
+			expectedName: mirrorTestDerivedService + "-" + strings.Repeat("a", 253-len(mirrorTestDerivedService)-1),
 		},
 		{
-			name:        "over name limit",
-			localName:   strings.Repeat("a", 254-len(commonDerivedName)-1),
-			derivedName: commonDerivedName + "-" + strings.Repeat("a", 223) + "-2bkdbdh4ft",
+			name:         "over name limit",
+			localName:    strings.Repeat("a", 254-len(mirrorTestDerivedService)-1),
+			expectedName: mirrorTestDerivedService + "-" + strings.Repeat("a", 223) + "-2bkdbdh4ft",
 		},
 		{
-			name:        "service-prefixed at name limit",
-			localName:   "full-" + strings.Repeat("b", 253-len(commonDerivedName)-1),
-			derivedName: commonDerivedName + "-" + strings.Repeat("b", 253-len(commonDerivedName)-1),
+			name:         "service-prefixed at name limit",
+			localName:    "full-" + strings.Repeat("b", 253-len(mirrorTestDerivedService)-1),
+			expectedName: mirrorTestDerivedService + "-" + strings.Repeat("b", 253-len(mirrorTestDerivedService)-1),
 		},
 		{
-			name:        "service-prefixed over name limit",
-			localName:   "full-" + strings.Repeat("b", 254-len(commonDerivedName)-1),
-			derivedName: commonDerivedName + "-" + strings.Repeat("b", 223) + "-5gt6bkmtcd",
+			name:         "service-prefixed over name limit",
+			localName:    "full-" + strings.Repeat("b", 254-len(mirrorTestDerivedService)-1),
+			expectedName: mirrorTestDerivedService + "-" + strings.Repeat("b", 223) + "-5gt6bkmtcd",
 		},
 	} {
-		t.Run("Check very long mirrored EndpointSlice "+tt.name, func(t *testing.T) {
-			local := &discoveryv1.EndpointSlice{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      tt.localName,
-					Namespace: "default",
-					Labels:    map[string]string{discoveryv1.LabelServiceName: "full"},
-				},
-				Endpoints:   commonEndpoints,
-				Ports:       commonPorts,
-				AddressType: discoveryv1.AddressTypeIPv4,
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := testScheme()
+			objects := k8stestutils.ReadObjectsDir(t, "testdata/endpointslice-mirror/base", scheme)
+			source := mirrorTestSource(tt.localName)
+			objects = append(objects, source)
+			c := runEndpointSliceMirrorReconcile(t, scheme, source.Name, objects...)
+
+			desired := mirrorTestDesired(source, tt.expectedName)
+			requireEndpointSlice(t, c, desired)
+
+			var actual discoveryv1.EndpointSlice
+			require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(desired), &actual))
+			require.Equal(t, []ctrl.Request{{NamespacedName: client.ObjectKeyFromObject(source)}}, endpointSliceMirrorRequests(&actual))
+
+			require.NoError(t, c.Delete(t.Context(), source))
+			r := &mcsAPIEndpointSliceMirrorReconciler{
+				Client:      c,
+				Logger:      hivetest.Logger(t),
+				clusterName: "cluster1",
 			}
-			require.NoError(t, c.Create(t.Context(), local))
-			result, err := r.Reconcile(t.Context(), ctrl.Request{
-				NamespacedName: client.ObjectKeyFromObject(local),
-			})
+			result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(source)})
 			require.NoError(t, err)
 			require.Equal(t, ctrl.Result{}, result)
-
-			keyDerived := types.NamespacedName{
-				Name:      tt.derivedName,
-				Namespace: "default",
-			}
-			var epSlice discoveryv1.EndpointSlice
-			require.NoError(t, c.Get(t.Context(), keyDerived, &epSlice))
-			require.Equal(t, getExpectedDerivedLabels(tt.localName), epSlice.Labels)
-			require.Equal(t, getExpectedDerivedAnnotations(tt.localName), epSlice.Annotations)
-			require.Equal(t, commonOwnerReferences, epSlice.OwnerReferences)
-			require.Equal(t, commonEndpoints, epSlice.Endpoints)
-			require.Equal(t, commonPorts, epSlice.Ports)
-			require.Equal(t, []ctrl.Request{{NamespacedName: client.ObjectKeyFromObject(local)}}, endpointSliceMirrorRequests(&epSlice))
-
-			require.NoError(t, c.Delete(t.Context(), local))
-			result, err = r.Reconcile(t.Context(), ctrl.Request{
-				NamespacedName: client.ObjectKeyFromObject(local),
-			})
-			require.NoError(t, err)
-			require.Equal(t, ctrl.Result{}, result)
-			require.True(t, apierrors.IsNotFound(c.Get(t.Context(), keyDerived, &epSlice)))
+			requireNoEndpointSlice(t, c, desired.Name)
 		})
 	}
-
-	t.Run("Check duplicate derived Endpoint cleanup", func(t *testing.T) {
-		key := types.NamespacedName{
-			Name:      "full-duplicate-derived",
-			Namespace: "default",
-		}
-		result, err := r.Reconcile(t.Context(), ctrl.Request{
-			NamespacedName: key,
-		})
-		require.NoError(t, err)
-		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
-
-		keyDerived := types.NamespacedName{
-			Name:      commonDerivedName + "-duplicate-derived",
-			Namespace: "default",
-		}
-		epSlice := &discoveryv1.EndpointSlice{}
-		err = c.Get(t.Context(), keyDerived, epSlice)
-		require.NoError(t, err)
-
-		keyDuplicate := types.NamespacedName{
-			Name:      commonDerivedName + "-duplicate-derived-extra",
-			Namespace: "default",
-		}
-		err = c.Get(t.Context(), keyDuplicate, epSlice)
-		require.True(t, apierrors.IsNotFound(err), "duplicate EndpointSlice should be deleted")
-	})
-
-	for _, tt := range []struct {
-		suffix           string
-		malformedCleanup bool
-	}{
-		{suffix: "delete"},
-		{suffix: "wrong-family-delete"},
-		{suffix: "wrong-family-ignore"},
-		{suffix: "not-linked-service-1"},
-		{
-			suffix:           "not-linked-service-4",
-			malformedCleanup: true,
-		},
-	} {
-		t.Run(fmt.Sprintf("Check delete Endpoint %s", tt.suffix), func(t *testing.T) {
-			keyDerived := types.NamespacedName{
-				Name:      commonDerivedName + "-" + tt.suffix,
-				Namespace: "default",
-			}
-			keyReconcile := types.NamespacedName{
-				Name:      "full-" + tt.suffix,
-				Namespace: "default",
-			}
-			if tt.malformedCleanup {
-				keyReconcile.Name = malformedDerivedEndpointSliceRequest(keyDerived.Name)
-			}
-			result, err := r.Reconcile(t.Context(), ctrl.Request{
-				NamespacedName: keyReconcile,
-			})
-			require.NoError(t, err)
-			require.Equal(t, ctrl.Result{}, result, "Result should be empty")
-
-			epSlice := &discoveryv1.EndpointSlice{}
-			err = c.Get(t.Context(), keyDerived, epSlice)
-			require.True(t, apierrors.IsNotFound(err), "EndpointSlice should be deleted")
-		})
-	}
-
-	t.Run("Check mirrored Endpoint port-filter", func(t *testing.T) {
-		key := types.NamespacedName{
-			Name:      "port-filter",
-			Namespace: "default",
-		}
-		result, err := r.Reconcile(t.Context(), ctrl.Request{
-			NamespacedName: key,
-		})
-		require.NoError(t, err)
-		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
-
-		keyDerived := types.NamespacedName{
-			Name:      derivedName(types.NamespacedName{Name: "port-filter", Namespace: "default"}),
-			Namespace: "default",
-		}
-		epSlice := &discoveryv1.EndpointSlice{}
-		err = c.Get(t.Context(), keyDerived, epSlice)
-		require.NoError(t, err)
-
-		require.Equal(t, []discoveryv1.EndpointPort{{
-			Port: ptr.To[int32](80),
-		}}, epSlice.Ports)
-	})
 }
