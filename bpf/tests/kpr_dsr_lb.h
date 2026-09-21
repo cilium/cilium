@@ -14,6 +14,12 @@
 
 #define ENABLE_DSR_ICMP_ERRORS		1
 
+/* IPIP expectations below assume only the skb/GRO path */
+#if defined(ATTACHMENT_XDP) && defined(DSR_ENCAP_MODE) && \
+    DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+# error "kpr_dsr_lb.h does not cover DSR IPIP under XDP"
+#endif
+
 #define fib_lookup mock_fib_lookup
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		     __maybe_unused int plen, __maybe_unused __u32 flags)
@@ -196,6 +202,10 @@ const __u8 kpr_v4_dsr_lb3_mtu_post_geneve_xdp[] = {
 	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_geneve_xdp)
 };
 
+const __u8 kpr_v4_dsr_lb3_mtu_post_ipip[] = {
+	SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu_post_ipip)
+};
+
 const __u8 kpr_v4_dsr_lb3_mtu2[] = {
        SCAPY_BUF_BYTES(kpr_v4_dsr_lb3_mtu2)
 };
@@ -300,6 +310,10 @@ const __u8 kpr_v6_dsr_lb3_mtu_post_option[] = {
 
 const __u8 kpr_v6_dsr_lb3_mtu_post_geneve[] = {
 	SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu_post_geneve)
+};
+
+const __u8 kpr_v6_dsr_lb3_mtu_post_ipip[] = {
+	SCAPY_BUF_BYTES(kpr_v6_dsr_lb3_mtu_post_ipip)
 };
 
 const __u8 kpr_v6_dsr_lb3_mtu2[] = {
@@ -433,6 +447,22 @@ int kpr_v4_dsr_lb1_syn_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (dsr_opt->port != tcp_svc_one)
 		test_fatal("DSR port is not correct");
 # endif
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb1_syn",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb1_syn,
+			   sizeof(kpr_v4_dsr_lb1_syn));
+
+	struct bpf_tunnel_key *tunnel_key;
+	__u32 key = 0;
+
+	if (!tunnel_key_set)
+		test_fatal("no tunnel key set")
+	tunnel_key = map_lookup_elem(&tunnel_key_map, &key);
+	if (!tunnel_key)
+		test_fatal("no tunnel key");
+	if (tunnel_key->remote_ipv4 != bpf_ntohl(v4_pod_one))
+		test_fatal("tunnel remote IP is not correct");
 #else
 # ifdef ATTACHMENT_XDP
 	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb1_syn_post_option_xdp",
@@ -534,6 +564,22 @@ int kpr_v4_dsr_lb1_synack_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (tunnel_opt_set)
 		test_fatal("DSR opt set");
 # endif
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb1_synack",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb1_synack,
+			   sizeof(kpr_v4_dsr_lb1_synack));
+
+	struct bpf_tunnel_key *tunnel_key;
+	__u32 key = 0;
+
+	if (!tunnel_key_set)
+		test_fatal("no tunnel key set")
+	tunnel_key = map_lookup_elem(&tunnel_key_map, &key);
+	if (!tunnel_key)
+		test_fatal("no tunnel key");
+	if (tunnel_key->remote_ipv4 != bpf_ntohl(v4_pod_one))
+		test_fatal("tunnel remote IP is not correct");
 #else
 # ifdef ATTACHMENT_XDP
 	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb1_synack_post_option_xdp",
@@ -644,6 +690,22 @@ int kpr_v4_dsr_lb2_data_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (dsr_opt->port != tcp_svc_two)
 		test_fatal("DSR port is not correct");
 # endif
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb2_data",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb2_data,
+			   sizeof(kpr_v4_dsr_lb2_data));
+
+	struct bpf_tunnel_key *tunnel_key;
+	__u32 key = 0;
+
+	if (!tunnel_key_set)
+		test_fatal("no tunnel key set")
+	tunnel_key = map_lookup_elem(&tunnel_key_map, &key);
+	if (!tunnel_key)
+		test_fatal("no tunnel key");
+	if (tunnel_key->remote_ipv4 != bpf_ntohl(v4_pod_one))
+		test_fatal("tunnel remote IP is not correct");
 #else
 # ifdef ATTACHMENT_XDP
 	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb2_data_post_option_xdp",
@@ -754,6 +816,11 @@ int kpr_v4_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
 			   kpr_v4_dsr_lb3_mtu_post_geneve,
 			   sizeof(kpr_v4_dsr_lb3_mtu_post_geneve));
 # endif
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu_post_ipip",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb3_mtu_post_ipip,
+			   sizeof(kpr_v4_dsr_lb3_mtu_post_ipip));
 #else
 # ifdef ATTACHMENT_XDP
 	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu_post_option",
@@ -781,9 +848,10 @@ int kpr_v4_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
 	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR connection found");
+#if DSR_ENCAP_MODE != DSR_ENCAP_IPIP
 	if (!ct_entry->need_dsr_info)
 		test_fatal("CT entry doesn't have need_dsr_info flag");
-
+#endif
 	test_finish();
 }
 
@@ -872,6 +940,22 @@ int kpr_v4_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (dsr_opt->port != tcp_svc_three)
 		test_fatal("DSR port is not correct");
 # endif
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu2",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb3_mtu2,
+			   sizeof(kpr_v4_dsr_lb3_mtu2));
+
+	struct bpf_tunnel_key *tunnel_key;
+	__u32 key = 0;
+
+	if (!tunnel_key_set)
+		test_fatal("no tunnel key set")
+	tunnel_key = map_lookup_elem(&tunnel_key_map, &key);
+	if (!tunnel_key)
+		test_fatal("no tunnel key");
+	if (tunnel_key->remote_ipv4 != bpf_ntohl(v4_pod_one))
+		test_fatal("tunnel remote IP is not correct");
 #else
 # ifdef ATTACHMENT_XDP
 	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu2_post_option_xdp",
@@ -899,8 +983,10 @@ int kpr_v4_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR connection found");
+#if DSR_ENCAP_MODE != DSR_ENCAP_IPIP
 	if (!ct_entry->need_dsr_info)
 		test_fatal("CT entry lost the need_dsr_info flag");
+#endif
 
 	test_finish();
 }
@@ -970,6 +1056,22 @@ int kpr_v4_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("DSR addr is not correct");
 	if (dsr_opt->port != tcp_svc_three)
 		test_fatal("DSR port is not correct");
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu3_gso",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v4_dsr_lb3_mtu3_gso,
+			   sizeof(kpr_v4_dsr_lb3_mtu3_gso));
+
+	struct bpf_tunnel_key *tunnel_key;
+	__u32 key = 0;
+
+	if (!tunnel_key_set)
+		test_fatal("no tunnel key set")
+	tunnel_key = map_lookup_elem(&tunnel_key_map, &key);
+	if (!tunnel_key)
+		test_fatal("no tunnel key");
+	if (tunnel_key->remote_ipv4 != bpf_ntohl(v4_pod_one))
+		test_fatal("tunnel remote IP is not correct");
 #else
 	ASSERT_CTX_BUF_OFF("kpr_v4_dsr_lb3_mtu3_gso_post_option",
 			   "Ether", ctx, sizeof(__u32),
@@ -990,8 +1092,10 @@ int kpr_v4_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR connection found");
+#if DSR_ENCAP_MODE != DSR_ENCAP_IPIP
 	if (!ct_entry->need_dsr_info)
 		test_fatal("CT entry lost the need_dsr_info flag");
+#endif
 
 	test_finish();
 }
@@ -1094,6 +1198,26 @@ int kpr_v6_dsr_lb1_syn_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (dsr_opt->port != tcp_svc_one)
 		test_fatal("DSR port is not correct");
 # endif
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb1_syn",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v6_dsr_lb1_syn,
+			   sizeof(kpr_v6_dsr_lb1_syn));
+
+	struct bpf_tunnel_key *tunnel_key;
+	union v6addr tunnel_ep = { v6_pod_one_addr };
+	__u32 key = 0;
+
+	if (!tunnel_key_set)
+		test_fatal("no tunnel key set")
+	tunnel_key = map_lookup_elem(&tunnel_key_map, &key);
+	if (!tunnel_key)
+		test_fatal("no tunnel key");
+	if (tunnel_key->remote_ipv6[0] != tunnel_ep.p1 ||
+	    tunnel_key->remote_ipv6[1] != tunnel_ep.p2 ||
+	    tunnel_key->remote_ipv6[2] != tunnel_ep.p3 ||
+	    tunnel_key->remote_ipv6[3] != tunnel_ep.p4)
+		test_fatal("tunnel remote IP is not correct");
 #else
 # ifdef ATTACHMENT_XDP
 	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb1_syn_post_option_xdp",
@@ -1196,6 +1320,26 @@ int kpr_v6_dsr_lb1_synack_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (tunnel_opt_set)
 		test_fatal("DSR opt set");
 # endif
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb1_synack",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v6_dsr_lb1_synack,
+			   sizeof(kpr_v6_dsr_lb1_synack));
+
+	struct bpf_tunnel_key *tunnel_key;
+	union v6addr tunnel_ep = { v6_pod_one_addr };
+	__u32 key = 0;
+
+	if (!tunnel_key_set)
+		test_fatal("no tunnel key set")
+	tunnel_key = map_lookup_elem(&tunnel_key_map, &key);
+	if (!tunnel_key)
+		test_fatal("no tunnel key");
+	if (tunnel_key->remote_ipv6[0] != tunnel_ep.p1 ||
+	    tunnel_key->remote_ipv6[1] != tunnel_ep.p2 ||
+	    tunnel_key->remote_ipv6[2] != tunnel_ep.p3 ||
+	    tunnel_key->remote_ipv6[3] != tunnel_ep.p4)
+		test_fatal("tunnel remote IP is not correct");
 #else
 # ifdef ATTACHMENT_XDP
 	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb1_synack_post_option_xdp",
@@ -1306,6 +1450,26 @@ int kpr_v6_dsr_lb2_data_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (dsr_opt->port != tcp_svc_two)
 		test_fatal("DSR port is not correct");
 # endif
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb2_data",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v6_dsr_lb2_data,
+			   sizeof(kpr_v6_dsr_lb2_data));
+
+	struct bpf_tunnel_key *tunnel_key;
+	union v6addr tunnel_ep = { v6_pod_one_addr };
+	__u32 key = 0;
+
+	if (!tunnel_key_set)
+		test_fatal("no tunnel key set")
+	tunnel_key = map_lookup_elem(&tunnel_key_map, &key);
+	if (!tunnel_key)
+		test_fatal("no tunnel key");
+	if (tunnel_key->remote_ipv6[0] != tunnel_ep.p1 ||
+	    tunnel_key->remote_ipv6[1] != tunnel_ep.p2 ||
+	    tunnel_key->remote_ipv6[2] != tunnel_ep.p3 ||
+	    tunnel_key->remote_ipv6[3] != tunnel_ep.p4)
+		test_fatal("tunnel remote IP is not correct");
 #else
 # ifdef ATTACHMENT_XDP
 	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb2_data_post_option_xdp",
@@ -1412,6 +1576,11 @@ int kpr_v6_dsr_lb3_mtu_check(__maybe_unused const struct __ctx_buff *ctx)
 			   "Ether", ctx, sizeof(__u32),
 			   kpr_v6_dsr_lb3_mtu_post_geneve,
 			   sizeof(kpr_v6_dsr_lb3_mtu_post_geneve));
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu_post_ipip",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v6_dsr_lb3_mtu_post_ipip,
+			   sizeof(kpr_v6_dsr_lb3_mtu_post_ipip));
 #else
 	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu_post_option",
 			   "Ether", ctx, sizeof(__u32),
@@ -1523,6 +1692,26 @@ int kpr_v6_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (dsr_opt->port != tcp_svc_three)
 		test_fatal("DSR port is not correct");
 # endif
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu2",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v6_dsr_lb3_mtu2,
+			   sizeof(kpr_v6_dsr_lb3_mtu2));
+
+	struct bpf_tunnel_key *tunnel_key;
+	union v6addr tunnel_ep = { v6_pod_one_addr };
+	__u32 key = 0;
+
+	if (!tunnel_key_set)
+		test_fatal("no tunnel key set")
+	tunnel_key = map_lookup_elem(&tunnel_key_map, &key);
+	if (!tunnel_key)
+		test_fatal("no tunnel key");
+	if (tunnel_key->remote_ipv6[0] != tunnel_ep.p1 ||
+	    tunnel_key->remote_ipv6[1] != tunnel_ep.p2 ||
+	    tunnel_key->remote_ipv6[2] != tunnel_ep.p3 ||
+	    tunnel_key->remote_ipv6[3] != tunnel_ep.p4)
+		test_fatal("tunnel remote IP is not correct");
 #else
 # ifdef ATTACHMENT_XDP
 	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu2_post_option_xdp",
@@ -1551,8 +1740,10 @@ int kpr_v6_dsr_lb3_mtu2_check(__maybe_unused const struct __ctx_buff *ctx)
 	ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR connection found");
+#if DSR_ENCAP_MODE != DSR_ENCAP_IPIP
 	if (!ct_entry->need_dsr_info)
 		test_fatal("CT entry lost the need_dsr_info flag");
+#endif
 
 	test_finish();
 }
@@ -1619,6 +1810,26 @@ int kpr_v6_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("DSR addr is not correct");
 	if (dsr_opt->port != tcp_svc_three)
 		test_fatal("DSR port is not correct");
+#elif DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu3_gso",
+			   "Ether", ctx, sizeof(__u32),
+			   kpr_v6_dsr_lb3_mtu3_gso,
+			   sizeof(kpr_v6_dsr_lb3_mtu3_gso));
+
+	struct bpf_tunnel_key *tunnel_key;
+	union v6addr tunnel_ep = { v6_pod_one_addr };
+	__u32 key = 0;
+
+	if (!tunnel_key_set)
+		test_fatal("no tunnel key set")
+	tunnel_key = map_lookup_elem(&tunnel_key_map, &key);
+	if (!tunnel_key)
+		test_fatal("no tunnel key");
+	if (tunnel_key->remote_ipv6[0] != tunnel_ep.p1 ||
+	    tunnel_key->remote_ipv6[1] != tunnel_ep.p2 ||
+	    tunnel_key->remote_ipv6[2] != tunnel_ep.p3 ||
+	    tunnel_key->remote_ipv6[3] != tunnel_ep.p4)
+		test_fatal("tunnel remote IP is not correct");
 #else
 	ASSERT_CTX_BUF_OFF("kpr_v6_dsr_lb3_mtu3_gso_post_option",
 			   "Ether", ctx, sizeof(__u32),
@@ -1640,8 +1851,10 @@ int kpr_v6_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 	ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR connection found");
+#if DSR_ENCAP_MODE != DSR_ENCAP_IPIP
 	if (!ct_entry->need_dsr_info)
 		test_fatal("CT entry lost the need_dsr_info flag");
+#endif
 
 	test_finish();
 }
