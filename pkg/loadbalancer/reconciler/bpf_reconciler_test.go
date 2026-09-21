@@ -1823,6 +1823,36 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 			"restored quarantine state for an omitted backend remains")
 	})
 
+	t.Run("restored quarantine retains referenced backends", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+		firstBackend := newTestBackend(backend1, loadbalancer.BackendStateActive)
+		firstBackend.Unhealthy = true
+		secondBackend := newTestBackend(backend2, loadbalancer.BackendStateActive)
+		secondBackend.Unhealthy = true
+		frontend := newLeakTestFrontend(extraFrontend, ClusterIP, firstBackend, secondBackend)
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "quarantined Update")
+
+		fixture = newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+		state := fixture.ops.frontendStates[frontend.Address]
+		require.NotNil(t, state, "restored frontend state")
+		require.Contains(t, state.restoredQuarantinedBackends, backend1,
+			"first quarantined backend was not restored")
+		require.Contains(t, state.restoredQuarantinedBackends, backend2,
+			"second quarantined backend was not restored")
+
+		frontend = newLeakTestFrontend(extraFrontend, ClusterIP,
+			newTestBackend(backend2, loadbalancer.BackendStateActive))
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "Update")
+
+		state = fixture.ops.frontendStates[frontend.Address]
+		require.NotNil(t, state, "updated frontend state")
+		require.NotContains(t, state.restoredQuarantinedBackends, backend1,
+			"restored quarantine state for an omitted backend remains")
+		require.Contains(t, state.restoredQuarantinedBackends, backend2,
+			"restored quarantine state for a referenced backend was dropped")
+	})
+
 	t.Run("startup prune removes restore-only quarantine state", func(t *testing.T) {
 		lbmaps := maps.NewFakeLBMaps()
 		frontendAddr := programQuarantinedFrontend(t, lbmaps)
