@@ -61,3 +61,7 @@ func truncateString(epID string, maxLen uint) string {
 func DisableRpFilter(sysctl sysctl.Sysctl, ifName string) error {
 	return sysctl.Disable([]string{"net", "ipv4", "conf", ifName, "rp_filter"})
 }
+
+func EnableAcceptLocal(sysctl sysctl.Sysctl, ifName string) error {
+	return sysctl.Enable([]string{"net", "ipv4", "conf", ifName, "accept_local"})
+}

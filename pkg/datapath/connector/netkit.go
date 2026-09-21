@@ -101,6 +101,11 @@ func setupNetkitPair(defaultLogger *slog.Logger, cfg LinkConfig, l2Mode bool, sy
 		return nil, nil, err
 	}
 
+	err = EnableAcceptLocal(sysctl, cfg.HostIfName)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	peer, err := validateNetkitPair(logger, cfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("netkit validation failed: %w", err)

@@ -73,6 +73,11 @@ func setupVethPair(defaultLogger *slog.Logger, cfg LinkConfig, sysctl sysctl.Sys
 		return nil, nil, err
 	}
 
+	err = EnableAcceptLocal(sysctl, cfg.HostIfName)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	peer, err := safenetlink.LinkByName(cfg.PeerIfName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to lookup veth peer just created: %w", err)
