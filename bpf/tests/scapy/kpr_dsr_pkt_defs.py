@@ -213,6 +213,13 @@ kpr_v4_dsr_lb3_mtu_post_geneve_xdp = (
     IPerror(bytes(kpr_v4_dsr_lb3_mtu[IP])[:28])
 )
 
+kpr_v4_dsr_lb3_mtu_post_ipip = (
+    Ether(src=mac_one, dst=host_mac_addr) /
+    IP(src=v4_svc_one, dst=v4_ext_one, id=0) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=180) /
+    IPerror(bytes(kpr_v4_dsr_lb3_mtu[IP]))
+)
+
 kpr_v4_dsr_lb3_mtu2 = (
     Ether(src=host_mac_addr, dst=mac_one) /
     IP(src=v4_ext_one, dst=v4_svc_one) /
@@ -440,6 +447,13 @@ kpr_v6_dsr_lb3_mtu_post_geneve = (
     Ether(src=mac_one, dst=host_mac_addr) /
     IPv6(src=v6_svc_one, dst=v6_ext_node_one) /
     ICMPv6PacketTooBig(mtu=106) /
+    IPerror6(bytes(kpr_v6_dsr_lb3_mtu[IPv6]))
+)
+
+kpr_v6_dsr_lb3_mtu_post_ipip = (
+    Ether(src=mac_one, dst=host_mac_addr) /
+    IPv6(src=v6_svc_one, dst=v6_ext_node_one) /
+    ICMPv6PacketTooBig(mtu=160) /
     IPerror6(bytes(kpr_v6_dsr_lb3_mtu[IPv6]))
 )
 
