@@ -193,6 +193,55 @@ func TransformToOperatorPod(pod *slim_corev1.Pod) (*slim_corev1.Pod, error) {
 	return stripped, nil
 }
 
+func NodeResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Node], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_corev1.NodeList](cs.Slim().CoreV1().Nodes()),
+		opts...,
+	)
+
+	return resource.New[*slim_corev1.Node](
+			lc, lw, mp,
+			resource.WithTransform(TransformToOperatorNode),
+			resource.WithMetric("Node"),
+		),
+		nil
+}
+
+// TransformToOperatorNode strips the fields of a Node which no consumer of
+// NodeResource reads, before the object is stored.
+//
+// The retained set is the union of what the consumers actually use:
+//
+//   - node taint sync (operator/watchers): spec.taints, status.conditions
+//   - CiliumNode GC (operator/watchers): existence only, keyed by name
+func TransformToOperatorNode(node *slim_corev1.Node) (*slim_corev1.Node, error) {
+	stripped := &slim_corev1.Node{
+		TypeMeta: node.TypeMeta,
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:            node.Name,
+			ResourceVersion: node.ResourceVersion,
+		},
+		Spec: slim_corev1.NodeSpec{
+			Taints: node.Spec.Taints,
+		},
+		Status: slim_corev1.NodeStatus{
+			Conditions: node.Status.Conditions,
+		},
+	}
+
+	// Small GC optimization, as in TransformToOperatorPod: the transform is
+	// only ever handed a freshly decoded object, so zeroing it drops the last
+	// reference to everything not retained above. The retained taints and
+	// conditions are unaffected, as stripped holds copies of their slice
+	// headers.
+	*node = slim_corev1.Node{}
+
+	return stripped, nil
+}
+
 func LBIPPoolsResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool], error) {
 	if !cs.IsEnabled() {
 		return nil, nil

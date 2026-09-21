@@ -97,3 +97,72 @@ func TestTransformToOperatorPod(t *testing.T) {
 	assert.Equal(t, &slim_corev1.Pod{}, pod)
 	assert.Equal(t, expectedPod(), stripped)
 }
+
+func fullNode() *slim_corev1.Node {
+	return &slim_corev1.Node{
+		TypeMeta: slim_metav1.TypeMeta{Kind: "Node", APIVersion: "v1"},
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:              "node-1",
+			UID:               "6d6d5b1a-0a0a-4e4e-8b8b-2c2c2c2c2c2c",
+			ResourceVersion:   "42",
+			GenerateName:      "node-",
+			Generation:        7,
+			Labels:            map[string]string{"topology.kubernetes.io/zone": "eu-west-1a"},
+			Annotations:       map[string]string{"csi.volume.kubernetes.io/nodeid": "{}"},
+			DeletionTimestamp: &slim_metav1.Time{},
+			OwnerReferences:   []slim_metav1.OwnerReference{{Name: "some-owner"}},
+		},
+		Spec: slim_corev1.NodeSpec{
+			PodCIDR:    "10.1.0.0/24",
+			PodCIDRs:   []string{"10.1.0.0/24"},
+			ProviderID: "aws:///eu-west-1a/i-0123456789abcdef0",
+			Taints: []slim_corev1.Taint{
+				{Key: "node.cilium.io/agent-not-ready", Value: "true", Effect: slim_corev1.TaintEffectNoSchedule},
+			},
+		},
+		Status: slim_corev1.NodeStatus{
+			Conditions: []slim_corev1.NodeCondition{
+				{Type: slim_corev1.NodeReady, Status: slim_corev1.ConditionTrue, Reason: "KubeletReady"},
+			},
+			Addresses: []slim_corev1.NodeAddress{
+				{Type: slim_corev1.NodeInternalIP, Address: "10.0.0.1"},
+			},
+		},
+	}
+}
+
+// expectedNode is the field set the operator's consumers of NodeResource read.
+func expectedNode() *slim_corev1.Node {
+	return &slim_corev1.Node{
+		TypeMeta: slim_metav1.TypeMeta{Kind: "Node", APIVersion: "v1"},
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:            "node-1",
+			ResourceVersion: "42",
+		},
+		Spec: slim_corev1.NodeSpec{
+			Taints: []slim_corev1.Taint{
+				{Key: "node.cilium.io/agent-not-ready", Value: "true", Effect: slim_corev1.TaintEffectNoSchedule},
+			},
+		},
+		Status: slim_corev1.NodeStatus{
+			Conditions: []slim_corev1.NodeCondition{
+				{Type: slim_corev1.NodeReady, Status: slim_corev1.ConditionTrue, Reason: "KubeletReady"},
+			},
+		},
+	}
+}
+
+func TestTransformToOperatorNode(t *testing.T) {
+	node := fullNode()
+
+	stripped, err := TransformToOperatorNode(node)
+	require.NoError(t, err)
+	assert.Equal(t, expectedNode(), stripped)
+
+	// The source object is zeroed as a GC hint. The retained taints and
+	// conditions are unaffected, as the projection holds copies of their slice
+	// headers: the assertion above would fail if it pointed into the source
+	// instead.
+	assert.Equal(t, &slim_corev1.Node{}, node)
+	assert.Equal(t, expectedNode(), stripped)
+}
