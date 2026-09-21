@@ -22,8 +22,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
@@ -498,29 +498,53 @@ func markNode(ctx context.Context, c kubernetes.Interface, nodeGetter slimNodeGe
 	return nil
 }
 
-// HandleNodeTolerationAndTaints remove node
-func HandleNodeTolerationAndTaints(wg *sync.WaitGroup, clientset k8sClient.Clientset, stopCh <-chan struct{}, logger *slog.Logger, cfg NodeTaintSyncConfig, ciliumNamespace, ciliumPodLabels string) {
+// handleNodeTolerationAndTaints starts the Node event feed, the Cilium pod
+// watcher and the taint workers. It blocks until the Cilium pod cache is
+// synchronized, so that a worker never evaluates a node against an incomplete
+// view. The caller is responsible for having synchronized the node store that
+// backs nodes.
+func (s *nodeTaintSync) handleNodeTolerationAndTaints(nodes slimNodeGetter) {
 	mno = markNodeOptions{
-		RemoveNodeTaint:        cfg.RemoveCiliumNodeTaints,
-		SetNodeTaint:           cfg.SetCiliumNodeTaints,
-		SetCiliumIsUpCondition: cfg.SetCiliumIsUpCondition,
+		RemoveNodeTaint:        s.cfg.RemoveCiliumNodeTaints,
+		SetNodeTaint:           s.cfg.SetCiliumNodeTaints,
+		SetCiliumIsUpCondition: s.cfg.SetCiliumIsUpCondition,
 	}
 
-	nodesInit(wg, clientset.Slim(), stopCh, nil)
-	// ciliumPodWatcher blocks waiting for cache sync.
-	// we need to do it before starting worker threads
-	// so checkAndMarkNode has cilium-pod information.
-	// Additionally, we pass nodeQueue to ciliumPodWatcher.
-	// that was initialized in nodesInit.
-	ciliumPodsWatcher(wg, clientset.Slim(), nodeQueue, stopCh, logger, ciliumNamespace, ciliumPodLabels)
+	s.wg.Go(s.feedNodeQueue)
 
-	for range cfg.TaintSyncWorkers {
-		wg.Go(func() {
-			// Do not use the k8sClient provided by the nodesInit function since we
-			// need a k8s client that can update node structures and not simply
-			// watch for node events.
-			for checkTaintForNextNodeItem(clientset, &nodeGetter{}, nodeQueue, logger) {
+	// ciliumPodsWatcher blocks waiting for cache sync. We need to do it before
+	// starting worker threads so checkAndMarkNode has cilium-pod information.
+	// It shares the node queue with the Node feed: a Cilium pod event is a
+	// reason to re-evaluate the taints of the node it runs on.
+	ciliumPodsWatcher(&s.wg, s.clientset.Slim(), s.nodeQueue, s.ctx.Done(), s.logger,
+		s.ciliumPodNS, s.ciliumLabels)
+
+	for range s.cfg.TaintSyncWorkers {
+		s.wg.Go(func() {
+			// Do not use the slim client backing the Node resource: we need a
+			// k8s client that can update node structures and not simply watch
+			// for node events.
+			for checkTaintForNextNodeItem(s.clientset, nodes, s.nodeQueue, s.logger) {
 			}
 		})
+	}
+}
+
+// feedNodeQueue enqueues a node key for every Node upsert so the taint workers
+// re-evaluate it.
+//
+// Only upserts are enqueued, there is nothing to reconcile on a node that no
+// longer exists.
+//
+// Events are always marked done immediately. Retrying the taint patch is the
+// work queue's job, driven by the outcome of checkAndMarkNode, and handing the
+// subscription a second retry mechanism for the same key would have the two
+// fight over it.
+func (s *nodeTaintSync) feedNodeQueue() {
+	for ev := range s.nodes.Events(s.ctx) {
+		if ev.Kind == resource.Upsert {
+			s.nodeQueue.Add(ev.Key.Name)
+		}
+		ev.Done(nil)
 	}
 }

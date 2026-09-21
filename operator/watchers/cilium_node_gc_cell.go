@@ -6,17 +6,16 @@ package watchers
 import (
 	"context"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
-	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -48,12 +47,12 @@ func (def CiliumNodeGCConfig) Flags(flags *pflag.FlagSet) {
 type ciliumNodeGCParams struct {
 	cell.In
 
-	Logger                   *slog.Logger
-	Lifecycle                cell.Lifecycle
-	Clientset                k8sClient.Clientset
-	CiliumNodes              resource.Resource[*cilium_v2.CiliumNode]
-	WorkQueueMetricsProvider workqueue.MetricsProvider
-	DaemonConfig             *option.DaemonConfig
+	Logger       *slog.Logger
+	Lifecycle    cell.Lifecycle
+	Clientset    k8sClient.Clientset
+	CiliumNodes  resource.Resource[*cilium_v2.CiliumNode]
+	Nodes        resource.Resource[*slim_corev1.Node]
+	DaemonConfig *option.DaemonConfig
 
 	Cfg CiliumNodeGCConfig
 }
@@ -68,15 +67,15 @@ func registerCiliumNodeGC(p ciliumNodeGCParams) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	gc := &ciliumNodeGC{
-		ctx:                      ctx,
-		cancel:                   cancel,
-		clientset:                p.Clientset,
-		ciliumNodes:              p.CiliumNodes,
-		interval:                 p.Cfg.NodesGCInterval,
-		enableCiliumNodeCRD:      p.DaemonConfig.EnableCiliumNodeCRD,
-		workqueueMetricsProvider: p.WorkQueueMetricsProvider,
-		logger:                   p.Logger,
-		ctrlMgr:                  controller.NewManager(),
+		ctx:                 ctx,
+		cancel:              cancel,
+		clientset:           p.Clientset,
+		ciliumNodes:         p.CiliumNodes,
+		nodes:               p.Nodes,
+		interval:            p.Cfg.NodesGCInterval,
+		enableCiliumNodeCRD: p.DaemonConfig.EnableCiliumNodeCRD,
+		logger:              p.Logger,
+		ctrlMgr:             controller.NewManager(),
 	}
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: gc.start,
@@ -87,19 +86,19 @@ func registerCiliumNodeGC(p ciliumNodeGCParams) {
 type ciliumNodeGC struct {
 	ctx    context.Context
 	cancel context.CancelFunc
-	wg     sync.WaitGroup
 
-	clientset                k8sClient.Clientset
-	ciliumNodes              resource.Resource[*cilium_v2.CiliumNode]
-	interval                 time.Duration
-	enableCiliumNodeCRD      bool
-	workqueueMetricsProvider workqueue.MetricsProvider
-	logger                   *slog.Logger
-	ctrlMgr                  *controller.Manager
+	clientset           k8sClient.Clientset
+	ciliumNodes         resource.Resource[*cilium_v2.CiliumNode]
+	nodes               resource.Resource[*slim_corev1.Node]
+	interval            time.Duration
+	enableCiliumNodeCRD bool
+	logger              *slog.Logger
+	ctrlMgr             *controller.Manager
 }
 
 func (g *ciliumNodeGC) start(startCtx cell.HookContext) error {
 	var candidateStore *ciliumNodeGCCandidate
+	var nodes slimNodeGetter
 	var shouldGCPred func(
 		ctx context.Context,
 		nodeName string,
@@ -117,22 +116,20 @@ func (g *ciliumNodeGC) start(startCtx cell.HookContext) error {
 		interval = 0
 		shouldGCPred = shouldGCNodeCRDDisabled
 	} else {
-		nodesInit(&g.wg, g.clientset.Slim(), g.ctx.Done(), g.workqueueMetricsProvider)
-
-		// Wait for the node store to be synced before starting the GC loop
-		// so that shouldGCNode can reliably determine whether a node exists.
-		select {
-		case <-slimNodeStoreSynced:
-		case <-g.ctx.Done():
-			return nil
+		// Blocks until the node store is synced, so that shouldGCNode can
+		// reliably determine whether a node exists.
+		nodeStore, err := g.nodes.Store(startCtx)
+		if err != nil {
+			return err
 		}
+		nodes = nodeGetter{store: nodeStore}
 
 		g.logger.InfoContext(startCtx, "Starting to garbage collect stale CiliumNode custom resources")
 		candidateStore = newCiliumNodeGCCandidate()
 		shouldGCPred = shouldGCNode
 	}
 
-	ciliumNodeStore, err := g.ciliumNodes.Store(g.ctx)
+	ciliumNodeStore, err := g.ciliumNodes.Store(startCtx)
 	if err != nil {
 		return err
 	}
@@ -146,7 +143,7 @@ func (g *ciliumNodeGC) start(startCtx cell.HookContext) error {
 					ctx,
 					g.clientset.CiliumV2().CiliumNodes(),
 					ciliumNodeStore,
-					nodeGetter{},
+					nodes,
 					interval,
 					candidateStore,
 					g.logger,
@@ -163,6 +160,5 @@ func (g *ciliumNodeGC) start(startCtx cell.HookContext) error {
 func (g *ciliumNodeGC) stop(_ cell.HookContext) error {
 	g.cancel()
 	g.ctrlMgr.RemoveControllerAndWait("cilium-node-gc")
-	g.wg.Wait()
 	return nil
 }

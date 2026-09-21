@@ -8,13 +8,17 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/operator/pkg/ciliumpod"
 	"github.com/cilium/cilium/pkg/defaults"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -59,11 +63,13 @@ func (def NodeTaintSyncConfig) Flags(flags *pflag.FlagSet) {
 type nodeTaintSyncParams struct {
 	cell.In
 
-	Logger      *slog.Logger
-	Lifecycle   cell.Lifecycle
-	Clientset   k8sClient.Clientset
-	AgentConfig *option.DaemonConfig
-	PodCfg      ciliumpod.Config
+	Logger                   *slog.Logger
+	Lifecycle                cell.Lifecycle
+	Clientset                k8sClient.Clientset
+	Nodes                    resource.Resource[*slim_corev1.Node]
+	WorkQueueMetricsProvider workqueue.MetricsProvider
+	AgentConfig              *option.DaemonConfig
+	PodCfg                   ciliumpod.Config
 
 	Cfg NodeTaintSyncConfig
 }
@@ -81,10 +87,18 @@ func registerNodeTaintSync(p nodeTaintSyncParams) {
 		ctx:          ctx,
 		cancel:       cancel,
 		clientset:    p.Clientset,
+		nodes:        p.Nodes,
 		ciliumPodNS:  p.PodCfg.ResolveNamespace(p.AgentConfig.K8sNamespace),
 		ciliumLabels: p.PodCfg.Labels,
 		cfg:          p.Cfg,
 		logger:       p.Logger,
+		nodeQueue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.NewTypedItemExponentialFailureRateLimiter[string](1*time.Second, 120*time.Second),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name:            "node-queue",
+				MetricsProvider: p.WorkQueueMetricsProvider,
+			},
+		),
 	}
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: s.start,
@@ -98,6 +112,8 @@ type nodeTaintSync struct {
 	wg     sync.WaitGroup
 
 	clientset    k8sClient.Clientset
+	nodes        resource.Resource[*slim_corev1.Node]
+	nodeQueue    workqueue.TypedRateLimitingInterface[string]
 	ciliumPodNS  string
 	ciliumLabels string
 	cfg          NodeTaintSyncConfig
@@ -113,16 +129,22 @@ func (s *nodeTaintSync) start(ctx cell.HookContext) error {
 		logfields.SetCiliumNodeTaintsFlagOption, s.cfg.SetCiliumNodeTaints,
 		logfields.SetCiliumIsUpConditionFlagOption, s.cfg.SetCiliumIsUpCondition,
 	)
-	HandleNodeTolerationAndTaints(&s.wg, s.clientset, s.ctx.Done(), s.logger, s.cfg,
-		s.ciliumPodNS, s.ciliumLabels)
+	// Blocks until the node store is synced, so that a worker never evaluates
+	// a node against an incomplete view.
+	nodeStore, err := s.nodes.Store(ctx)
+	if err != nil {
+		return err
+	}
+
+	s.handleNodeTolerationAndTaints(nodeGetter{store: nodeStore})
 	return nil
 }
 
 func (s *nodeTaintSync) stop(_ cell.HookContext) error {
 	s.cancel()
-	// nodeQueue may be initialized by CiliumNodeGCCell, whose stop hook runs after
-	// this one. Shut it down explicitly so our workers blocked in Get can exit.
-	nodeQueue.ShutDown()
+	// Release the workers blocked in Get. The queue belongs to this cell, so
+	// nothing else can be draining it and no other stop hook has to run first.
+	s.nodeQueue.ShutDown()
 	s.wg.Wait()
 	return nil
 }
