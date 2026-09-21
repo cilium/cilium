@@ -130,29 +130,14 @@ type BPFOps struct {
 	backendIDAlloc     idAllocator[loadbalancer.BackendID]
 	restoredBackendIDs map[loadbalancer.L3n4Addr]loadbalancer.BackendID
 
-	// restoredQuarantinedBackends are backends that were quarantined for
-	// a specific frontend. This comes into play when we have active health checker.
-	// On restart we restore this information and use this until we get an update
-	// from a health checker ([Backend.UnhealthyUpdatedAt] is non-zero).
-	restoredQuarantinedBackends map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]
-
 	// backendStates maps from backend address to associated state.
 	// This is used to track which frontends reference a specific backend
 	// in order to delete orphaned backeds.
 	backendStates map[loadbalancer.L3n4Addr]backendState
 
-	// backendReferences maps from frontend address to the set of referenced
-	// backends.
-	backendReferences map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]
-
-	// prevSourceRanges is the source ranges that were previously reconciled.
-	// This is used when updating to remove orphans.
-	prevSourceRanges map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]
-
-	// wildcardReferences maps a Netip.Addr to a set of parent LoadBalancer or ClusterIP
-	// Service IDs. This is used to keep track of the relationship between real service
-	// entries and wildcard entries when reconciling the data path.
-	wildcardReferences map[netip.Addr][]loadbalancer.ServiceID
+	// frontendStates tracks the datapath state and backend ownership associated
+	// with each frontend.
+	frontendStates map[loadbalancer.L3n4Addr]*frontendState
 
 	// nodePortAddrByPort are the last used NodePort addresses for a given NodePort
 	// (or HostPort) service (by port).
@@ -171,10 +156,58 @@ type nodePortAddrKey struct {
 }
 
 type backendState struct {
-	addr     loadbalancer.L3n4Addr
+	addr loadbalancer.L3n4Addr
+
+	// revision at which the backend was successfully reconciled
 	revision statedb.Revision
+
+	// refCount is the number of frontends referencing this backend
 	refCount int
 	id       loadbalancer.BackendID
+}
+
+type frontendState struct {
+	// slotCount is the number of backend slots that may exist in the service map.
+	// It is updated as slots are created and only reduced after stale slots have
+	// been successfully removed.
+	slotCount int
+
+	// wildcardRefCount is 1 when this frontend references its wildcard entry. On
+	// synthetic ANY:0 frontend states it is the number of parent frontends.
+	wildcardRefCount int
+
+	// backendReferences contains every backend whose ownership has been acquired
+	// by this frontend and has not yet been successfully released.
+	backendReferences sets.Set[loadbalancer.L3n4Addr]
+
+	// sourceRanges contains every source range successfully reconciled for this
+	// frontend and is used to remove stale entries.
+	sourceRanges sets.Set[netip.Prefix]
+
+	// restoredQuarantinedBackends are backends restored as quarantined for this
+	// frontend. They remain quarantined until an active health check updates them.
+	restoredQuarantinedBackends sets.Set[loadbalancer.L3n4Addr]
+}
+
+func wildcardStateAddr(addr loadbalancer.L3n4Addr) loadbalancer.L3n4Addr {
+	return loadbalancer.NewL3n4Addr(
+		loadbalancer.ANY,
+		cmtypes.AddrClusterFrom(addr.Addr(), 0),
+		WildcardPortNumber,
+		addr.Scope(),
+	)
+}
+
+func (ops *BPFOps) getOrCreateFrontendState(addr loadbalancer.L3n4Addr) *frontendState {
+	state := ops.frontendStates[addr]
+	if state == nil {
+		state = &frontendState{}
+		ops.frontendStates[addr] = state
+	}
+	if state.backendReferences == nil {
+		state.backendReferences = sets.New[loadbalancer.L3n4Addr]()
+	}
+	return state
 }
 
 type bpfOpsParams struct {
@@ -250,10 +283,8 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.metrics.setIDMappingsPendingRestore(idAllocTypeBackend, len(ops.restoredBackendIDs))
 
 	ops.backendStates = map[loadbalancer.L3n4Addr]backendState{}
-	ops.backendReferences = map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{}
-	ops.wildcardReferences = map[netip.Addr][]loadbalancer.ServiceID{}
+	ops.frontendStates = map[loadbalancer.L3n4Addr]*frontendState{}
 	ops.nodePortAddrByPort = map[nodePortAddrKey][]netip.Addr{}
-	ops.prevSourceRanges = map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{}
 
 	// Restore backend IDs
 	backendIDToAddress := map[loadbalancer.BackendID]loadbalancer.L3n4Addr{}
@@ -329,15 +360,15 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 				continue
 			}
 			if beAddr, found := backendIDToAddress[slot.GetBackendID()]; found {
-				if ops.restoredQuarantinedBackends == nil {
-					ops.restoredQuarantinedBackends = make(map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr])
+				state := ops.frontendStates[addr]
+				if state == nil {
+					state = &frontendState{}
+					ops.frontendStates[addr] = state
 				}
-				backends := ops.restoredQuarantinedBackends[addr]
-				if backends == nil {
-					backends = sets.New[loadbalancer.L3n4Addr]()
-					ops.restoredQuarantinedBackends[addr] = backends
+				if state.restoredQuarantinedBackends == nil {
+					state.restoredQuarantinedBackends = sets.New[loadbalancer.L3n4Addr]()
 				}
-				backends.Insert(beAddr)
+				state.restoredQuarantinedBackends.Insert(beAddr)
 			}
 		}
 	}
@@ -422,22 +453,26 @@ func (ops *BPFOps) isPrimaryFrontend(txn statedb.ReadTxn, addr loadbalancer.L3n4
 }
 
 func (ops *BPFOps) deleteRestoredQuarantinedBackends(fe loadbalancer.L3n4Addr, bes ...loadbalancer.L3n4Addr) {
-	if ops.restoredQuarantinedBackends == nil {
+	state := ops.frontendStates[fe]
+	if state == nil || state.restoredQuarantinedBackends == nil {
 		return
 	}
 	if len(bes) == 0 {
-		delete(ops.restoredQuarantinedBackends, fe)
+		state.restoredQuarantinedBackends = nil
 	} else {
-		backends := ops.restoredQuarantinedBackends[fe]
+		backends := state.restoredQuarantinedBackends
 		if len(backends) > 0 {
 			backends.Delete(bes...)
 		}
 		if len(backends) == 0 {
-			delete(ops.restoredQuarantinedBackends, fe)
+			state.restoredQuarantinedBackends = nil
 		}
 	}
-	if len(ops.restoredQuarantinedBackends) == 0 {
-		ops.restoredQuarantinedBackends = nil
+
+	// A state created only while restoring quarantine information has no
+	// backendReferences set. Remove it once that information has been consumed.
+	if state.backendReferences == nil {
+		delete(ops.frontendStates, fe)
 	}
 }
 
@@ -464,10 +499,12 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
+	feState := ops.getOrCreateFrontendState(fe.Address)
+
 	// Clean up any potential affinity match entries. We do this regardless of
 	// whether or not SessionAffinity is enabled as it might've been toggled by
 	// the user. Could optimize this by holding some more state if needed.
-	for addr := range ops.backendReferences[fe.Address] {
+	for addr := range feState.backendReferences {
 		err := ops.deleteAffinityMatch(feID, ops.backendStates[addr].id)
 		if err != nil {
 			return fmt.Errorf("delete affinity match %d: %w", feID, err)
@@ -499,8 +536,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	}
 
 	// Delete all slots including master.
-	numBackends := len(ops.backendReferences[fe.Address])
-	for i := 0; i <= numBackends; i++ {
+	for i := 0; i <= feState.slotCount; i++ {
 		svcKey.SetBackendSlot(i)
 		ops.log.Debug("Delete service slot",
 			logfields.ID, feID,
@@ -518,7 +554,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		return fmt.Errorf("delete reverse nat %d: %w", feID, err)
 	}
 
-	for cidr := range ops.prevSourceRanges[fe.Address] {
+	for cidr := range feState.sourceRanges {
 		if cidr.Addr().Is6() != fe.Address.IsIPv6() {
 			continue
 		}
@@ -529,7 +565,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 			return fmt.Errorf("update source range: %w", err)
 		}
 	}
-	delete(ops.prevSourceRanges, fe.Address)
+	feState.sourceRanges = nil
 
 	// Cleanup any wildcard entries this fe might be associated with.
 	if loadbalancer.IsWildcardCandidate(fe) && ops.isWildcardClass(fe.Service) {
@@ -538,9 +574,8 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
-	// Decrease the backend reference counts and drop state associated with the frontend.
 	ops.updateBackendRefCounts(fe.Address, nil)
-	delete(ops.backendReferences, fe.Address)
+	delete(ops.frontendStates, fe.Address)
 	ops.serviceIDAlloc.deleteLocalID(feID)
 
 	return nil
@@ -563,7 +598,9 @@ func (ops *BPFOps) pruneServiceMaps() error {
 		if port == WildcardPortNumber && proto == uint8(WildcardProtoNumber) {
 			// We only add this entry into toDelete if it has nothing in. Otherwise, we may
 			// end up deleting a wildcard who still has active parent entries.
-			if wildRefs := ops.wildcardReferences[rawAddr]; len(wildRefs) == 0 {
+			wildcardAddr := loadbalancer.NewL3n4Addr(
+				loadbalancer.ANY, ac, WildcardPortNumber, svcKey.GetScope())
+			if state := ops.frontendStates[wildcardAddr]; state == nil || state.wildcardRefCount == 0 {
 				ops.log.Debug("pruneServiceMaps: deleting wild", logfields.Address, rawAddr)
 				toDelete = append(toDelete, svcKey.ToNetwork())
 			}
@@ -581,8 +618,8 @@ func (ops *BPFOps) pruneServiceMaps() error {
 			svcKey.GetScope(),
 		)
 		expectedSlots := 0
-		if bes, ok := ops.backendReferences[addr]; ok {
-			expectedSlots = 1 + len(bes)
+		if state := ops.frontendStates[addr]; state != nil && state.backendReferences != nil {
+			expectedSlots = 1 + len(state.backendReferences)
 		}
 		if svcKey.GetBackendSlot()+1 > expectedSlots {
 			ops.log.Debug("pruneServiceMaps: deleting",
@@ -676,9 +713,8 @@ func (ops *BPFOps) pruneSourceRanges() error {
 		addr, ok := ops.serviceIDAlloc.idToAddr[key.GetRevNATID()]
 		if ok {
 			prefix := key.GetPrefix()
-			var cidrs sets.Set[netip.Prefix]
-			cidrs, ok = ops.prevSourceRanges[addr]
-			ok = ok && cidrs.Has(prefix)
+			state := ops.frontendStates[addr]
+			ok = state != nil && state.sourceRanges.Has(prefix)
 		}
 		if !ok {
 			ops.log.Debug("pruneSourceRanges: enqueing for deletion",
@@ -968,6 +1004,8 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		backendAddrs.Insert(be.Address)
 	}
 
+	feState := ops.getOrCreateFrontendState(fe.Address)
+
 	for _, orphanState := range ops.orphanBackends(fe.Address, backendAddrs) {
 		ops.log.Debug("Delete orphan backend", logfields.Address, orphanState.addr)
 		ops.deleteRestoredQuarantinedBackends(fe.Address, orphanState.addr)
@@ -1003,7 +1041,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 			}
 		}
 
-		if ops.needsUpdate(be.Address, be.Revision) {
+		if be.Revision > ops.backendStates[be.Address].revision {
 			ops.log.Debug("Update backend",
 				logfields.Backend, be.Backend,
 				logfields.ID, beID,
@@ -1050,7 +1088,6 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		if err := ops.upsertService(svcKey, slotVal); err != nil {
 			return fmt.Errorf("upsert service: %w", err)
 		}
-
 		// TODO: Most likely we'll just need to keep some state on the reconciled SessionAffinity
 		// state to avoid the extra syscalls when session affinity is not enabled.
 		// For now we update these regardless so that we handle properly the SessionAffinity being
@@ -1103,15 +1140,15 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		}
 	}
 
-	// Update source ranges. Maintain the invariant that [ops.prevSourceRanges]
-	// always reflects what was successfully added to the BPF maps in order
-	// not to leak a source range on failed operation.
-	prevSourceRanges := ops.prevSourceRanges[fe.Address]
-	if prevSourceRanges == nil {
-		prevSourceRanges = sets.New[netip.Prefix]()
-		ops.prevSourceRanges[fe.Address] = prevSourceRanges
+	// Update source ranges. Maintain the invariant that the frontend state always
+	// reflects what was successfully added to the BPF maps in order not to leak a
+	// source range on a failed operation.
+	sourceRanges := feState.sourceRanges
+	if sourceRanges == nil {
+		sourceRanges = sets.New[netip.Prefix]()
+		feState.sourceRanges = sourceRanges
 	}
-	orphanSourceRanges := prevSourceRanges.Clone()
+	orphanSourceRanges := sourceRanges.Clone()
 	srcRangeValue := &maps.SourceRangeValue{}
 	for _, prefix := range fe.Service.SourceRanges {
 		if prefix.Addr().Is6() != fe.Address.IsIPv6() {
@@ -1127,7 +1164,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		}
 
 		orphanSourceRanges.Delete(prefix)
-		prevSourceRanges.Insert(prefix)
+		sourceRanges.Insert(prefix)
 	}
 	// Remove orphan source ranges.
 	for cidr := range orphanSourceRanges {
@@ -1141,7 +1178,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 			return fmt.Errorf("update source range: %w", err)
 		}
 
-		prevSourceRanges.Delete(cidr)
+		sourceRanges.Delete(cidr)
 	}
 
 	// Update RevNat
@@ -1181,7 +1218,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 
 	// Calculate the number of existing backend references, so we can cleanup if there there
 	// has been a change.
-	numPreviousBackends := len(ops.backendReferences[fe.Address])
+	numPreviousBackends := len(feState.backendReferences)
 	if backendCount != numPreviousBackends {
 		ops.log.Debug("Cleanup service slots",
 			logfields.ID, feID,
@@ -1195,6 +1232,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 	// Finally update the new references. This makes sure any failures reconciling the service slots
 	// above can be retried and entries are not leaked.
 	ops.updateReferences(fe.Address, backendAddrs)
+	feState.slotCount = backendCount
 
 	return nil
 }
@@ -1404,7 +1442,7 @@ func (ops *BPFOps) upsertRevNat(id loadbalancer.ServiceID, svcKey maps.ServiceKe
 	}
 	err := ops.LBMaps.UpdateRevNat(revNATKey.ToNetwork(), revNATValue.ToNetwork())
 	if err != nil {
-		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %w", revNATKey, revNATValue, err)
+		return fmt.Errorf("unable to update reverse NAT %+v => %+v: %w", revNATKey, revNATValue, err)
 	}
 	return nil
 }
@@ -1435,21 +1473,23 @@ func (ops *BPFOps) updateMaglev(fe *loadbalancer.Frontend, feID loadbalancer.Ser
 //
 // This routine updates relationships between a Frontend service and an associated wildcard
 // entry in the data path, used to drop traffic for unknown protocol/dest port combinations.
-//
-// There can be N frontend services to 1 wildcard entry, so we track the relationships via
-// presence of the Frontend ServiceID being present in the wildcardReferences map at the
-// index of the raw Frontend IP Address.
 func (ops *BPFOps) upsertWildcard(fe *loadbalancer.Frontend, feID loadbalancer.ServiceID) error {
-	// Identify the wildcardReferences slice by Frontend Address. If the Frontend
-	// ServiceID is present in the slice, we don't need to do anything. This FE is
-	// already mapped to a wildcard.
-	addr := fe.Address.Addr()
-	wildRefs := ops.wildcardReferences[addr]
-	if slices.Contains(wildRefs, feID) {
+	parentState := ops.frontendStates[fe.Address]
+	if parentState == nil {
+		return fmt.Errorf("frontend state for %s not found", fe.Address)
+	}
+	if parentState.wildcardRefCount > 0 {
 		return nil
 	}
 
-	if len(wildRefs) == 0 {
+	addr := fe.Address.Addr()
+	wildcardAddr := wildcardStateAddr(fe.Address)
+	wildcardState := ops.frontendStates[wildcardAddr]
+	if wildcardState == nil {
+		wildcardState = &frontendState{}
+	}
+
+	if wildcardState.wildcardRefCount == 0 {
 		var wildcardKey maps.ServiceKey
 		var wildcardVal maps.ServiceValue
 
@@ -1482,7 +1522,9 @@ func (ops *BPFOps) upsertWildcard(fe *loadbalancer.Frontend, feID loadbalancer.S
 
 	// The datapath entry already exists or was successfully programmed above,
 	// so it's now safe to record this frontend as a parent reference.
-	ops.wildcardReferences[addr] = append(wildRefs, feID)
+	parentState.wildcardRefCount = 1
+	wildcardState.wildcardRefCount++
+	ops.frontendStates[wildcardAddr] = wildcardState
 
 	return nil
 }
@@ -1490,48 +1532,46 @@ func (ops *BPFOps) upsertWildcard(fe *loadbalancer.Frontend, feID loadbalancer.S
 // Delete a wildcard entry based on the deletion of a Frontend.
 // See upsertWildcard() for semantics. This does the reverse.
 func (ops *BPFOps) deleteWildcard(fe *loadbalancer.Frontend, feID loadbalancer.ServiceID) error {
-	// Identify the wildcardReferences slice to use by Frontend Address.
-	addr := fe.Address.Addr()
-	wildRefs := ops.wildcardReferences[addr]
-	numParents := len(wildRefs)
-
-	// Scan over the wildRefs slice to look for this Frontend ServiceID. If
-	// found, we need to remove it.
-	for i, parentID := range wildRefs {
-		if parentID != feID {
-			continue
-		}
-
-		// If there are multiple parent frontends associated with this wildcard,
-		// we just remove this feID and carry on.
-		if numParents > 1 {
-			wildRefs = append(wildRefs[:i], wildRefs[i+1:]...)
-			ops.wildcardReferences[addr] = wildRefs
-			return nil
-		}
-
-		// This is the last parent entry, so it's safe to attempt to remove it
-		// from the datapath.
-		var wildcardKey maps.ServiceKey
-
-		if addr.Is6() {
-			wildcardKey = maps.NewService6Key(addr, WildcardPortNumber,
-				WildcardProtoNumber, fe.Address.Scope(), 0)
-		} else {
-			wildcardKey = maps.NewService4Key(addr, WildcardPortNumber,
-				WildcardProtoNumber, fe.Address.Scope(), 0)
-		}
-
-		ops.log.Debug("Delete wildcard service entry for last parent service",
-			logfields.ID, feID)
-		if err := ops.deleteService(wildcardKey); err != nil {
-			return err
-		}
-
-		delete(ops.wildcardReferences, addr)
+	parentState := ops.frontendStates[fe.Address]
+	if parentState == nil || parentState.wildcardRefCount == 0 {
 		return nil
 	}
 
+	addr := fe.Address.Addr()
+	wildcardAddr := wildcardStateAddr(fe.Address)
+	wildcardState := ops.frontendStates[wildcardAddr]
+	if wildcardState == nil || wildcardState.wildcardRefCount == 0 {
+		parentState.wildcardRefCount = 0
+		return nil
+	}
+
+	// If there are multiple parent frontends associated with this wildcard,
+	// only release this frontend's reference.
+	if wildcardState.wildcardRefCount > 1 {
+		wildcardState.wildcardRefCount--
+		parentState.wildcardRefCount = 0
+		return nil
+	}
+
+	// This is the last parent entry, so it is safe to remove the wildcard from
+	// the datapath.
+	var wildcardKey maps.ServiceKey
+	if addr.Is6() {
+		wildcardKey = maps.NewService6Key(addr, WildcardPortNumber,
+			WildcardProtoNumber, fe.Address.Scope(), 0)
+	} else {
+		wildcardKey = maps.NewService4Key(addr, WildcardPortNumber,
+			WildcardProtoNumber, fe.Address.Scope(), 0)
+	}
+
+	ops.log.Debug("Delete wildcard service entry for last parent service",
+		logfields.ID, feID)
+	if err := ops.deleteService(wildcardKey); err != nil {
+		return err
+	}
+
+	delete(ops.frontendStates, wildcardAddr)
+	parentState.wildcardRefCount = 0
 	return nil
 }
 
@@ -1539,20 +1579,19 @@ var _ reconciler.Operations[*loadbalancer.Frontend] = &BPFOps{}
 
 func (ops *BPFOps) updateBackendRefCounts(frontend loadbalancer.L3n4Addr, backends sets.Set[loadbalancer.L3n4Addr]) {
 	newRefs := backends.Clone()
+	state := ops.getOrCreateFrontendState(frontend)
 
 	// Decrease reference counts of backends that are no longer referenced
 	// by this frontend.
-	if oldRefs, ok := ops.backendReferences[frontend]; ok {
-		for addr := range oldRefs {
-			if newRefs.Has(addr) {
-				newRefs.Delete(addr)
-				continue
-			}
-			s, ok := ops.backendStates[addr]
-			if ok && s.refCount > 1 {
-				s.refCount--
-				ops.backendStates[addr] = s
-			}
+	for addr := range state.backendReferences {
+		if newRefs.Has(addr) {
+			newRefs.Delete(addr)
+			continue
+		}
+		s, ok := ops.backendStates[addr]
+		if ok && s.refCount > 1 {
+			s.refCount--
+			ops.backendStates[addr] = s
 		}
 	}
 
@@ -1568,28 +1607,25 @@ func (ops *BPFOps) updateBackendRefCounts(frontend loadbalancer.L3n4Addr, backen
 
 func (ops *BPFOps) updateReferences(frontend loadbalancer.L3n4Addr, backends sets.Set[loadbalancer.L3n4Addr]) {
 	ops.updateBackendRefCounts(frontend, backends)
-	ops.backendReferences[frontend] = backends
+	ops.frontendStates[frontend].backendReferences = backends
 }
 
 func (ops *BPFOps) orphanBackends(frontend loadbalancer.L3n4Addr, backends sets.Set[loadbalancer.L3n4Addr]) (orphans []backendState) {
-	if oldRefs, ok := ops.backendReferences[frontend]; ok {
-		for addr := range oldRefs {
-			if backends.Has(addr) {
-				continue
-			}
-			// If there is only one reference to this backend then it's from this frontend and
-			// since it's not part of the new set it has become an orphan.
-			if state, ok := ops.backendStates[addr]; ok && state.refCount <= 1 {
-				orphans = append(orphans, state)
-			}
+	state := ops.frontendStates[frontend]
+	if state == nil {
+		return nil
+	}
+	for addr := range state.backendReferences {
+		if backends.Has(addr) {
+			continue
+		}
+		// If there is only one reference to this backend then it's from this frontend and
+		// since it's not part of the new set it has become an orphan.
+		if state, ok := ops.backendStates[addr]; ok && state.refCount <= 1 {
+			orphans = append(orphans, state)
 		}
 	}
 	return orphans
-}
-
-// checkBackend returns true if the backend should be updated.
-func (ops *BPFOps) needsUpdate(addr loadbalancer.L3n4Addr, rev statedb.Revision) bool {
-	return rev > ops.backendStates[addr].revision
 }
 
 func (ops *BPFOps) updateBackendRevision(id loadbalancer.BackendID, addr loadbalancer.L3n4Addr, rev statedb.Revision) {
@@ -1636,7 +1672,10 @@ func (ops *BPFOps) computeMaglevTable(bes []backendWithRevision) ([]loadbalancer
 // Backends are sorted to deterministically to keep the order stable in BPF maps
 // when updating.
 func (ops *BPFOps) sortedBackends(fe *loadbalancer.Frontend) []backendWithRevision {
-	quarantined := ops.restoredQuarantinedBackends[fe.Address]
+	var quarantined sets.Set[loadbalancer.L3n4Addr]
+	if state := ops.frontendStates[fe.Address]; state != nil {
+		quarantined = state.restoredQuarantinedBackends
+	}
 
 	bes := []backendWithRevision{}
 	for be, rev := range fe.Backends {
@@ -1673,29 +1712,46 @@ func (ops *BPFOps) sortedBackends(fe *loadbalancer.Frontend) []backendWithRevisi
 }
 
 func (ops *BPFOps) StateIsEmpty() bool {
-	return len(ops.backendReferences) == 0 &&
-		len(ops.backendStates) == 0 &&
-		len(ops.nodePortAddrByPort) == 0 &&
-		len(ops.serviceIDAlloc.addrToId) == 0 &&
+	ops.mu.Lock()
+	defer ops.mu.Unlock()
+	return len(ops.serviceIDAlloc.addrToId) == 0 &&
+		len(ops.restoredServiceIDs) == 0 &&
 		len(ops.backendIDAlloc.addrToId) == 0 &&
-		len(ops.wildcardReferences) == 0
+		len(ops.restoredBackendIDs) == 0 &&
+		len(ops.backendStates) == 0 &&
+		len(ops.frontendStates) == 0 &&
+		len(ops.nodePortAddrByPort) == 0
 }
 
 // StateSummary returns a multi-line summary of the internal state.
 // Used in tests.
 func (ops *BPFOps) StateSummary() string {
+	ops.mu.Lock()
+	defer ops.mu.Unlock()
 	var b strings.Builder
+	var slots, backendRefs, sourceRanges, restoredQuarantines, wildcardRefs int
+	for addr, state := range ops.frontendStates {
+		slots += state.slotCount
+		backendRefs += len(state.backendReferences)
+		sourceRanges += len(state.sourceRanges)
+		restoredQuarantines += len(state.restoredQuarantinedBackends)
+		if addr != wildcardStateAddr(addr) {
+			wildcardRefs += state.wildcardRefCount
+		}
+	}
 
 	fmt.Fprintf(&b, "serviceIDs: %d\n", len(ops.serviceIDAlloc.idToAddr))
 	fmt.Fprintf(&b, "restoredServiceIDs: %d\n", len(ops.restoredServiceIDs))
 	fmt.Fprintf(&b, "backendIDs: %d\n", len(ops.backendIDAlloc.idToAddr))
 	fmt.Fprintf(&b, "restoredBackendIDs: %d\n", len(ops.restoredBackendIDs))
 	fmt.Fprintf(&b, "backendStates: %d\n", len(ops.backendStates))
-	fmt.Fprintf(&b, "backendReferences: %d\n", len(ops.backendReferences))
+	fmt.Fprintf(&b, "frontendStates: %d\n", len(ops.frontendStates))
+	fmt.Fprintf(&b, "frontendSlots: %d\n", slots)
+	fmt.Fprintf(&b, "frontendBackendReferences: %d\n", backendRefs)
+	fmt.Fprintf(&b, "frontendSourceRanges: %d\n", sourceRanges)
+	fmt.Fprintf(&b, "frontendRestoredQuarantines: %d\n", restoredQuarantines)
+	fmt.Fprintf(&b, "frontendWildcardReferences: %d\n", wildcardRefs)
 	fmt.Fprintf(&b, "nodePortAddrByPort: %d\n", len(ops.nodePortAddrByPort))
-	fmt.Fprintf(&b, "prevSourceRanges: %d\n", len(ops.prevSourceRanges))
-	fmt.Fprintf(&b, "restoredQuarantines: %d\n", len(ops.restoredQuarantinedBackends))
-	fmt.Fprintf(&b, "wildcardReferences: %d\n", len(ops.wildcardReferences))
 
 	return b.String()
 }

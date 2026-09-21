@@ -1629,8 +1629,8 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 		)
 		require.Contains(t, fixture.ops.serviceIDAlloc.addrToId, successfulExpansion,
 			"first expanded frontend was not programmed before the injected failure")
-		require.Contains(t, fixture.ops.serviceIDAlloc.addrToId, failedExpansion,
-			"failed expanded frontend did not allocate partial state")
+		require.Contains(t, fixture.ops.frontendStates, failedExpansion,
+			"failed expanded frontend did not create partial state")
 		require.Empty(t, fixture.ops.nodePortAddrByPort,
 			"the completed expansion list should not have been committed")
 
@@ -1657,7 +1657,11 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 		frontend.Service.LoadBalancerClass = &otherClass
 		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "class Update")
 
-		if hasWildcardService(t, fixture.lbmaps, frontend.Address) {
+		parentState := fixture.ops.frontendStates[frontend.Address]
+		wildcardAddr := wildcardStateAddr(frontend.Address)
+		if hasWildcardService(t, fixture.lbmaps, frontend.Address) ||
+			parentState == nil || parentState.wildcardRefCount != 0 ||
+			fixture.ops.frontendStates[wildcardAddr] != nil {
 			t.Fatalf("wildcard ownership remained after the frontend became ineligible\n%s", fixture.ops.StateSummary())
 		}
 	})
@@ -1697,7 +1701,9 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 		frontendAddr := programQuarantinedFrontend(t, lbmaps)
 		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
 
-		require.Contains(t, fixture.ops.restoredQuarantinedBackends[frontendAddr], backend1,
+		restoredState := fixture.ops.frontendStates[frontendAddr]
+		require.NotNil(t, restoredState, "restored frontend state")
+		require.Contains(t, restoredState.restoredQuarantinedBackends, backend1,
 			"quarantined backend was not restored")
 
 		frontend := newLeakTestFrontend(frontendAddr, ClusterIP,
@@ -1705,7 +1711,9 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "Update")
 		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
 
-		require.Empty(t, fixture.ops.restoredQuarantinedBackends[frontendAddr],
+		state := fixture.ops.frontendStates[frontendAddr]
+		require.NotNil(t, state, "updated frontend state")
+		require.Empty(t, state.restoredQuarantinedBackends,
 			"restored quarantine state for an omitted backend remains")
 	})
 
@@ -1714,13 +1722,14 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 		frontendAddr := programQuarantinedFrontend(t, lbmaps)
 		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
 
-		require.Contains(t, fixture.ops.restoredQuarantinedBackends[frontendAddr], backend1,
+		restoredState := fixture.ops.frontendStates[frontendAddr]
+		require.NotNil(t, restoredState, "restored frontend state")
+		require.Contains(t, restoredState.restoredQuarantinedBackends, backend1,
 			"quarantined backend was not restored")
 
 		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
 		remainingMaps := dumpLBMapsWithReplace(lbmaps, frontendAddr, false)
-		if len(remainingMaps) != 0 || !fixture.ops.StateIsEmpty() ||
-			len(fixture.ops.restoredQuarantinedBackends) != 0 {
+		if len(remainingMaps) != 0 || !fixture.ops.StateIsEmpty() {
 			t.Fatalf("startup pruning leaked restore-only quarantine state\nBPF maps:\n%sinternal state:\n%s",
 				showMaps(remainingMaps), fixture.ops.StateSummary())
 		}
@@ -1838,8 +1847,7 @@ func TestBPFOps(t *testing.T) {
 		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
 		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remains")
-		require.Empty(t, ops.backendReferences, "Backend references remain")
-		require.Empty(t, ops.wildcardReferences, "Wildcard references remain")
+		require.Empty(t, ops.frontendStates, "Frontend state remains")
 	})
 
 	runTests := func(ops *BPFOps, testCaseSet []testCase, algo string, addr loadbalancer.L3n4Addr, validateMaglev bool) {
@@ -1955,7 +1963,7 @@ func TestBPFOps(t *testing.T) {
 		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
 		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remain")
-		require.Empty(t, ops.backendReferences, "Backend references remain")
+		require.Empty(t, ops.frontendStates, "Frontend state remains")
 		require.Empty(t, ops.nodePortAddrByPort, "NodePort addrs state remain")
 	}
 
