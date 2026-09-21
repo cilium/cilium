@@ -13,6 +13,9 @@ _echoDeploymentWithHostPort: _echoDeployment & {
 	spec: template: spec: hostNetwork: true
 }
 
+// The apiserver draws dynamic node ports from the top of 30000-32767, so pin echo-b at the bottom.
+_echoBNodePort: 30014
+
 // Regular service exposed via ClusterIP.
 deployment: "echo-a": _echoDeployment & {
 	_serverPort:      "8080"
@@ -26,7 +29,7 @@ deployment: "echo-b": _echoDeployment & {
 	_serverPort:     "8080"
 	_exposeNodePort: true
 	_exposeHeadless: true
-	_nodePort:       31414
+	_nodePort:       _echoBNodePort
 
 	metadata: labels: component: "services-check"
 	spec: template: spec: containers: [{ports: [{_expose: true, containerPort: 8080, _portName: "http", hostPort: 40000}]}]
