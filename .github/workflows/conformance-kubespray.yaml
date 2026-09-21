@@ -176,6 +176,13 @@ jobs:
           kube_node
           EOF
 
+      - name: Remove the runner's CNI configuration
+        run: |
+          # Cilium is the only CNI here, so nothing else may sandbox a pod.
+          sudo ls -l /etc/cni/net.d || true
+          sudo mkdir -p /etc/cni/net.d
+          sudo find /etc/cni/net.d -mindepth 1 -delete
+
       - name: Deploy Kubernetes cluster
         id: deploy-cluster
         run: |
