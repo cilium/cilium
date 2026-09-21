@@ -79,9 +79,7 @@
   // paths that match 'examples/*' (which we explicitly do not want to ignore).
   "ignorePaths": [
     // These files are pinned to a specific action on the branch
-    ".github/workflows/call-backport-label-updater*",
-    // This file is deprecated and no longer present in main
-    "images/cilium-test/Dockerfile"
+    ".github/workflows/call-backport-label-updater*"
   ],
   "ignoreDeps": [
     // 'google/oss-fuzz' is ignored from the updates because it's currently
