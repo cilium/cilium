@@ -289,6 +289,7 @@ func (tc testCommands) cmds() map[string]script.Cmd {
 		"test/update-backend-health":        tc.updateHealth(),
 		"test/bpfops-reset":                 tc.opsReset(),
 		"test/bpfops-summary":               tc.opsSummary(),
+		"test/bpfops-state-empty":           tc.opsStateEmpty(),
 		"test/set-node-labels":              tc.setNodeLabels(),
 		"test/set-node-ip":                  tc.setNodeIP(),
 		"test/set-is-service-healthchecked": tc.setIsServiceHealthChecked(),
@@ -348,6 +349,22 @@ func (tc testCommands) opsSummary() script.Cmd {
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			return func(s *script.State) (stdout string, stderr string, err error) {
 				stdout = tc.ops.StateSummary()
+				return
+			}, nil
+		})
+}
+
+func (tc testCommands) opsStateEmpty() script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Fails if BPFOps state is not empty",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			return func(s *script.State) (stdout string, stderr string, err error) {
+				if !tc.ops.StateIsEmpty() {
+					stdout = tc.ops.StateSummary()
+					err = fmt.Errorf("state not empty")
+				}
 				return
 			}, nil
 		})
