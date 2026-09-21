@@ -10,7 +10,6 @@
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
-#define ENABLE_L7_LB		1
 
 /* Needed variables for the setup */
 #define CLIENT_IP		v4_pod_one
@@ -80,6 +79,8 @@ ASSIGN_CONFIG(__u32, cilium_host_ifindex, 2)
 
 ASSIGN_CONFIG(__u32, cilium_net_ifindex, 10)
 ASSIGN_CONFIG(__u32, interface_ifindex, 12)
+
+ASSIGN_CONFIG(bool, enable_l7_lb, true)
 
 /* Test that a packet received from a L7LB for a local backend gets correctly handled:
  * - in case of per-endpoint routes disabled, packet tail calls from

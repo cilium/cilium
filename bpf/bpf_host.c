@@ -1419,8 +1419,8 @@ int cil_from_host(struct __ctx_buff *ctx)
 #endif /* ENABLE_HOST_FIREWALL */
 	}
 
-#if defined(ENABLE_L7_LB)
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
+	if (CONFIG(enable_l7_lb) &&
+	    (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		__u16 lxc_id = get_epid(ctx);
 		int ret;
 
@@ -1428,7 +1428,6 @@ int cil_from_host(struct __ctx_buff *ctx)
 		ret = tail_call_egress_policy(ctx, lxc_id);
 		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
 	}
-#endif
 
 	magic = inherit_identity_from_host(ctx, &identity);
 	if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
@@ -1491,15 +1490,13 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		}
 	}
 
-#if defined(ENABLE_L7_LB)
-	if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
+	if (CONFIG(enable_l7_lb) && magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		__u32 lxc_id = get_epid(ctx);
 
 		ctx->mark = 0;
 		ret = tail_call_egress_policy(ctx, (__u16)lxc_id);
 		goto drop_err;
 	}
-#endif
 
 #ifdef ENABLE_HOST_FIREWALL
 	/* This was initially added for Egress GW. There it's no longer needed,

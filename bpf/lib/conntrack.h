@@ -59,13 +59,9 @@ struct ct_state {
 	__u32 backend_id;	/* Backend ID in lb4_backends */
 };
 
-static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)
+static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state)
 {
-#ifdef ENABLE_L7_LB
-	return ct_state->from_l7lb;
-#else
-	return false;
-#endif
+	return CONFIG(enable_l7_lb) && ct_state->from_l7lb;
 }
 
 struct ct_buffer4 {
