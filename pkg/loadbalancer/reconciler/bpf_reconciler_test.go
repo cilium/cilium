@@ -173,6 +173,7 @@ type faultyLBMaps struct {
 	maps.LBMaps
 	fail                    bool
 	failDeleteService       bool
+	failUpdateBackend       bool
 	shouldFailUpdateService func(maps.ServiceKey) bool
 }
 
@@ -190,6 +191,13 @@ func (m *faultyLBMaps) DeleteService(key maps.ServiceKey) error {
 		return errors.New("delete service failed")
 	}
 	return m.LBMaps.DeleteService(key)
+}
+
+func (m *faultyLBMaps) UpdateBackend(key maps.BackendKey, value maps.BackendValue) error {
+	if m.failUpdateBackend {
+		return errors.New("update backend failed")
+	}
+	return m.LBMaps.UpdateBackend(key, value)
 }
 
 var testServiceName = loadbalancer.NewServiceName("test", "test")
@@ -1587,6 +1595,16 @@ func maglevEntryCount(t *testing.T, lbmaps maps.LBMaps) int {
 	return count
 }
 
+func affinityEntryCount(t *testing.T, lbmaps maps.LBMaps) int {
+	t.Helper()
+	count := 0
+	err := lbmaps.DumpAffinityMatch(func(*maps.AffinityMatchKey, *maps.AffinityMatchValue) {
+		count++
+	})
+	require.NoError(t, err, "DumpAffinityMatch")
+	return count
+}
+
 func TestBPFOpsLeakRegressions(t *testing.T) {
 	t.Run("partial NodePort expansion is deleted", func(t *testing.T) {
 		firstNodeAddr := netip.MustParseAddr("10.0.0.3")
@@ -1739,6 +1757,39 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 		require.Error(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "failed Maglev Update")
 		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
 		require.Equal(t, 1, maglevEntryCount(t, lbmaps), "Maglev entries after failed startup Update")
+	})
+
+	t.Run("startup prune removes stale session affinity", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+		frontend := newLeakTestFrontend(extraFrontend, ClusterIP, baseBackend)
+		frontend.Service.SessionAffinity = true
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "affinity Update")
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps), "affinity entries before restart")
+
+		fixture = newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+		frontend = newLeakTestFrontend(extraFrontend, ClusterIP, baseBackend)
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "non-affinity Update")
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps), "affinity entry should remain until Prune")
+		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
+		require.Zero(t, affinityEntryCount(t, lbmaps), "stale affinity entries after Prune")
+	})
+
+	t.Run("failed startup update preserves session affinity", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+		frontend := newLeakTestFrontend(extraFrontend, ClusterIP, baseBackend)
+		frontend.Service.SessionAffinity = true
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "affinity Update")
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps), "affinity entries before restart")
+
+		faultMaps := &faultyLBMaps{LBMaps: lbmaps, failUpdateBackend: true}
+		fixture = newBPFOpsLeakTestFixture(t, faultMaps, nil, nil)
+		frontend = newLeakTestFrontend(extraFrontend, ClusterIP, baseBackend)
+		frontend.Service.SessionAffinity = true
+		require.Error(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "failed affinity Update")
+		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps), "affinity entries after failed startup Update")
 	})
 
 	programQuarantinedFrontend := func(t *testing.T, lbmaps maps.LBMaps) loadbalancer.L3n4Addr {

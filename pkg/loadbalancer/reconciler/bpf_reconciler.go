@@ -170,6 +170,7 @@ type featureHistoryFlags uint8
 
 const (
 	frontendFeatureMaglev featureHistoryFlags = 1 << iota
+	frontendFeatureSessionAffinity
 )
 
 type frontendState struct {
@@ -593,12 +594,12 @@ func (ops *BPFOps) releaseBackends(
 			continue
 		}
 
-		// Clean up any potential affinity match entries. We do this regardless of
-		// whether or not SessionAffinity is enabled as it might've been toggled by
-		// the user. Could optimize this by holding some more state if needed.
-		err := ops.deleteAffinityMatch(feID, state.id)
-		if err != nil {
-			return fmt.Errorf("delete affinity match %d: %w", feID, err)
+		feState := ops.frontendStates[feAddr]
+		if feState != nil && feState.featureHistory&frontendFeatureSessionAffinity != 0 {
+			err := ops.deleteAffinityMatch(feID, state.id)
+			if err != nil {
+				return fmt.Errorf("delete affinity match %d: %w", feID, err)
+			}
 		}
 
 		// Delete the backend if we're the only reference to it, otherwise
@@ -712,6 +713,42 @@ func (ops *BPFOps) pruneBackendMaps() error {
 	return nil
 }
 
+func (ops *BPFOps) pruneAffinityMatches() error {
+	toDelete := []maps.AffinityMatchKey{}
+	cb := func(key *maps.AffinityMatchKey, _ *maps.AffinityMatchValue) {
+		key = key.ToHost()
+		addr, ok := ops.serviceIDAlloc.idToAddr[loadbalancer.ServiceID(key.RevNATID)]
+		if ok {
+			state := ops.frontendStates[addr]
+			backendAddr, backendFound := ops.backendIDAlloc.idToAddr[key.BackendID]
+			ok = state != nil &&
+				state.featureHistory&frontendFeatureSessionAffinity != 0 &&
+				backendFound && state.backendReferences.Has(backendAddr)
+		}
+		if !ok {
+			ops.log.Debug("pruneAffinityMatches: enqueuing for deletion",
+				logfields.ID, key.RevNATID,
+				logfields.BackendID, key.BackendID)
+			toDelete = append(toDelete, *key)
+		}
+	}
+	if err := ops.LBMaps.DumpAffinityMatch(cb); err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, key := range toDelete {
+		if err := ops.LBMaps.DeleteAffinityMatch(key.ToNetwork()); err != nil {
+			ops.log.Warn("Failed to delete from affinity match map",
+				logfields.ID, key.RevNATID,
+				logfields.BackendID, key.BackendID,
+				logfields.Error, err)
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
 func (ops *BPFOps) pruneRestoredIDs() error {
 	ops.restoredServiceIDs = nil
 	ops.metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
@@ -818,6 +855,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 	return errors.Join(
 		ops.pruneRestoredIDs(),
 		ops.pruneServiceMaps(),
+		ops.pruneAffinityMatches(),
 		ops.pruneBackendMaps(),
 		ops.pruneRevNat(),
 		ops.pruneSourceRanges(),
@@ -1064,12 +1102,19 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		// pruning mistake an existing Maglev table for an orphan.
 		feState.featureHistory |= frontendFeatureMaglev
 	}
+	if svc.SessionAffinity {
+		// Record the desired feature before any fallible map operation. After a
+		// restart there is no prior history, so a failed update must not let
+		// pruning mistake existing affinity matches for orphans.
+		feState.featureHistory |= frontendFeatureSessionAffinity
+	}
 
 	if err := ops.releaseBackends(feID, fe.Address, feState.backendReferences, backendAddrs); err != nil {
 		return err
 	}
 
 	activeCount, terminatingCount, inactiveCount := 0, 0, 0
+	affinityDesired := false
 
 	// Update backends that are new or changed.
 	slotID := 1
@@ -1120,6 +1165,20 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		backendState.revision = be.Revision
 		ops.backendStates[be.Address] = backendState
 
+		if svc.SessionAffinity && be.State == loadbalancer.BackendStateActive {
+			affinityDesired = true
+			ops.log.Debug("Update affinity",
+				logfields.ID, feID,
+				logfields.BackendID, beID)
+			if err := ops.upsertAffinityMatch(feID, beID); err != nil {
+				return fmt.Errorf("upsert affinity match: %w", err)
+			}
+		} else if feState.featureHistory&frontendFeatureSessionAffinity != 0 {
+			if err := ops.deleteAffinityMatch(feID, beID); err != nil {
+				return fmt.Errorf("delete affinity match: %w", err)
+			}
+		}
+
 		if be.State == loadbalancer.BackendStateMaintenance {
 			// Backends that are in maintenance are not included in the services map.
 			continue
@@ -1156,25 +1215,6 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		}
 		feState.slotCount = max(feState.slotCount, slotID)
 
-		// TODO: Most likely we'll just need to keep some state on the reconciled SessionAffinity
-		// state to avoid the extra syscalls when session affinity is not enabled.
-		// For now we update these regardless so that we handle properly the SessionAffinity being
-		// flipped on and then off.
-		if svc.SessionAffinity && be.State == loadbalancer.BackendStateActive {
-			ops.log.Debug("Update affinity",
-				logfields.ID, feID,
-				logfields.BackendID, beID)
-			if err := ops.upsertAffinityMatch(feID, beID); err != nil {
-				return fmt.Errorf("upsert affinity match: %w", err)
-			}
-		} else {
-			// SessionAffinity either disabled or backend not active, no matter which
-			// clean up any affinity match that might exist.
-			if err := ops.deleteAffinityMatch(feID, beID); err != nil {
-				return fmt.Errorf("delete affinity match: %w", err)
-			}
-		}
-
 		if be.UnhealthyUpdatedAt != nil {
 			ops.deleteRestoredQuarantinedBackends(fe.Address, be.Address)
 		}
@@ -1189,6 +1229,9 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		}
 
 		slotID++
+	}
+	if !affinityDesired {
+		feState.featureHistory &^= frontendFeatureSessionAffinity
 	}
 	backendCount := slotID - 1
 
