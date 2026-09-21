@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/scaletozero"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -130,14 +131,16 @@ type scriptRuntime struct {
 	baseArgs []string
 	workDir  string
 
-	client *k8sClient.FakeClientset
-	lbMaps lbmaps.LBMaps
+	client         *k8sClient.FakeClientset
+	lbMaps         lbmaps.LBMaps
+	scaleToZeroMap scaletozero.Map
 }
 
 func (rt *scriptRuntime) newHive(extraArgs []string) (*hive.Hive, map[string]script.Cmd, error) {
 	var (
-		client *k8sClient.FakeClientset
-		lbMaps lbmaps.LBMaps
+		client         *k8sClient.FakeClientset
+		lbMaps         lbmaps.LBMaps
+		scaleToZeroMap scaletozero.Map
 	)
 
 	app := cell.Group(
@@ -172,9 +175,10 @@ func (rt *scriptRuntime) newHive(extraArgs []string) (*hive.Hive, map[string]scr
 				return uhive.NewScriptCmds(testCommands{w, lns, ops, waitFn}.cmds())
 			},
 		),
-		cell.Invoke(func(c *k8sClient.FakeClientset, m lbmaps.LBMaps) {
+		cell.Invoke(func(c *k8sClient.FakeClientset, m lbmaps.LBMaps, stz scaletozero.Map) {
 			client = c
 			lbMaps = m
+			scaleToZeroMap = stz
 		}),
 
 		lbcell.Cell,
@@ -193,6 +197,12 @@ func (rt *scriptRuntime) newHive(extraArgs []string) (*hive.Hive, map[string]scr
 	if rt.lbMaps != nil {
 		app = cell.Decorate(
 			func(lbmaps.LBMaps) lbmaps.LBMaps { return rt.lbMaps },
+			app,
+		)
+	}
+	if rt.scaleToZeroMap != nil {
+		app = cell.Decorate(
+			func(scaletozero.Map) scaletozero.Map { return rt.scaleToZeroMap },
 			app,
 		)
 	}
@@ -240,6 +250,9 @@ func (rt *scriptRuntime) newHive(extraArgs []string) (*hive.Hive, map[string]scr
 	}
 	if rt.lbMaps == nil {
 		rt.lbMaps = lbMaps
+	}
+	if rt.scaleToZeroMap == nil {
+		rt.scaleToZeroMap = scaleToZeroMap
 	}
 
 	// Always direct Kubernetes commands to the client retained across Hive

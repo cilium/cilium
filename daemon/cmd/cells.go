@@ -99,6 +99,7 @@ import (
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/scaletozero"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
@@ -276,6 +277,9 @@ var (
 
 		// Control-plane for configuring service load-balancing
 		loadbalancer_cell.Cell,
+
+		// Publishes the demand for services that are scaled to zero
+		scaletozero.Cell,
 
 		// Proxy provides the proxy port allocation and related datapath coordination and
 		// makes different L7 proxies (Envoy, DNS proxy) usable to Cilium endpoints through

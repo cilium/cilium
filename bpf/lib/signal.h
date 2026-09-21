@@ -17,6 +17,7 @@ enum {
 	SIGNAL_NAT_FILL_UP = 0,
 	SIGNAL_CT_FILL_UP,
 	SIGNAL_AUTH_REQUIRED,
+	SIGNAL_SCALE_FROM_ZERO,
 };
 
 enum {
@@ -31,6 +32,7 @@ struct signal_msg {
 			__u32 proto;
 		};
 		struct auth_key auth;
+		__u32 rev_nat_index;
 	};
 };
 
@@ -65,4 +67,10 @@ static __always_inline void send_signal_auth_required(const struct __ctx_buff *c
 						      const struct auth_key *auth)
 {
 	SEND_SIGNAL(ctx, SIGNAL_AUTH_REQUIRED, auth, *auth);
+}
+
+static __always_inline void send_signal_scale_from_zero(const struct __ctx_buff *ctx,
+							__u16 rev_nat_index)
+{
+	SEND_SIGNAL(ctx, SIGNAL_SCALE_FROM_ZERO, rev_nat_index, rev_nat_index);
 }

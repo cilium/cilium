@@ -35,6 +35,8 @@ func XDP(lnc *Config, link netlink.Link) any {
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
 	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 
+	cfg.EnableScaleToZero = lnc.LBConfig.EnableScaleToZero
+
 	lbRSSCfg := lnc.LoadBalancerRSS
 	ipv4Prefix := lbRSSCfg.IPv4Prefix()
 	cfg.IPv4RSSPrefix.Addr = ipv4Prefix.Addr().As4()

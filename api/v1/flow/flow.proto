@@ -544,6 +544,11 @@ enum DropReason {
     // be evaluated. Split from DROP_FRAG_NOT_FOUND to distinguish ambient
     // external fragments from in-cluster fragment-tracking bugs.
     DROP_FRAG_NOT_FOUND_WORLD = 207;
+    // A new connection to a service that opted into scale-to-zero was held
+    // while the service has no backends, so that the client's retransmit can
+    // reach a backend once the service has been scaled up. Held packets are
+    // dropped instead of being answered with the no-backend response.
+    DROP_SERVICE_SCALED_TO_ZERO = 208;
 }
 
 enum TrafficDirection {

@@ -23,6 +23,9 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
+	"github.com/cilium/cilium/pkg/maps/scaletozero"
+	"github.com/cilium/cilium/pkg/maps/scaletozero/fake"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -61,6 +64,33 @@ func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
 	r := &BPFLBMaps{Log: p.Log, Pinned: pinned, Cfg: p.Config, ExtCfg: p.ExtConfig, MaglevCfg: p.MaglevConfig}
 	p.Lifecycle.Append(r)
 	return bpf.NewMapOut(LBMaps(r))
+}
+
+type scaleToZeroMapParams struct {
+	cell.In
+
+	Log        *slog.Logger
+	Lifecycle  cell.Lifecycle
+	TestConfig *loadbalancer.TestConfig `optional:"true"`
+	// Registry is only present in the agent. The applications that run the
+	// load-balancing control-plane without a datapath provide a TestConfig
+	// instead and get the in-memory map.
+	Registry *registry.MapRegistry `optional:"true"`
+}
+
+// newScaleToZeroMap provides the map of the services that opted into
+// scale-to-zero, which the reconciler keeps in sync with the annotated
+// services. Unlike the load-balancing maps it has no privileged test variant:
+// the real map is created from the MapSpec the datapath registers, which is
+// exactly what the test hives lack.
+func newScaleToZeroMap(p scaleToZeroMapParams) (bpf.MapOut[scaletozero.Map], error) {
+	if p.TestConfig != nil {
+		return bpf.NewMapOut(scaletozero.Map(fake.NewFakeScaleToZeroMap())), nil
+	}
+	if p.Registry == nil {
+		return bpf.MapOut[scaletozero.Map]{}, errors.New("no BPF map registry to create the scale-to-zero map from")
+	}
+	return bpf.NewMapOut(scaletozero.NewMap(p.Lifecycle, p.Log, p.Registry)), nil
 }
 
 type serviceMaps interface {

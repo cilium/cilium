@@ -144,6 +144,24 @@ bool sock_proto_enabled(__u8 proto)
 	}
 }
 
+/* Same contract as scale_to_zero_wake(), but emitting from a socket context:
+ * lib/signal.h is expanded before <bpf/ctx/sock.h> redirects ctx_event_output()
+ * at the socket flavour, so the emitter has to be instantiated down here.
+ */
+static __always_inline __maybe_unused bool
+sock_scale_to_zero_wake(struct __ctx_sock *ctx, __u16 rev_nat_index)
+{
+	__u64 *last_wake = NULL;
+
+	if (!scale_to_zero_tracked(rev_nat_index, &last_wake))
+		return false;
+
+	if (scale_to_zero_take_wake_token(last_wake))
+		SEND_SIGNAL(ctx, SIGNAL_SCALE_FROM_ZERO, rev_nat_index, rev_nat_index);
+
+	return true;
+}
+
 #ifdef ENABLE_IPV4
 
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
@@ -338,6 +356,30 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		svc = sock4_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
 		return -ENXIO;
+
+	/* Tracked services signal demand here regardless of their backend count.
+	 * TCP passes through once per connect(), UDP once per sendmsg(), but the
+	 * emitter only sends a signal when the timestamp in the scale-to-zero map
+	 * is older than the rate limit, so a chatty datagram socket costs one map
+	 * lookup per datagram and nothing more. L7 services are translated by the
+	 * proxy rather than here, they neither signal nor hold.
+	 */
+	if (!lb4_svc_is_l7_loadbalancer(svc) && !lb4_svc_is_l7_punt_proxy(svc)) {
+		bool tracked = sock_scale_to_zero_wake(ctx_full, svc->rev_nat_index);
+
+		/* Leave the address untranslated so that the per-packet LB path
+		 * holds the packet until a backend exists. The host namespace has
+		 * no per-packet ClusterIP LB, so it keeps the fast reject below.
+		 * Services that this program must not translate at all keep their
+		 * existing answer instead: holding an external IP or an off-host
+		 * HostPort would send it to the per-packet path that the MITM
+		 * mitigation below exists to keep it away from.
+		 */
+		if (tracked && svc->count == 0 && !in_hostns &&
+		    !sock4_skip_xlate(svc, dst_ip))
+			return -ENXIO;
+	}
+
 	if (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc)) {
 		/* Drop packet when service has no endpoints when this flag is enabled (default) */
 		if (CONFIG(enable_no_service_endpoints_routable))
@@ -1082,6 +1124,16 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		svc = sock6_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
 		return sock6_xlate_v4_in_v6(ctx, udp_only, is_connect);
+
+	/* See __sock4_xlate_fwd(). */
+	if (!lb6_svc_is_l7_loadbalancer(svc) && !lb6_svc_is_l7_punt_proxy(svc)) {
+		bool tracked = sock_scale_to_zero_wake(ctx, svc->rev_nat_index);
+
+		if (tracked && svc->count == 0 && !in_hostns &&
+		    !sock6_skip_xlate(svc, &dst_ip))
+			return -ENXIO;
+	}
+
 	if (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc)) {
 		/* Drop packet when service has no endpoints when this flag is enabled (default) */
 		if (CONFIG(enable_no_service_endpoints_routable))

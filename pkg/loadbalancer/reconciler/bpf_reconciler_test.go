@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maglev"
+	scaletozerofake "github.com/cilium/cilium/pkg/maps/scaletozero/fake"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -1400,6 +1401,7 @@ func TestBPFOps(t *testing.T) {
 			Config:         localCfg,
 			ExternalConfig: external,
 			LBMaps:         faultMaps,
+			ScaleToZeroMap: scaletozerofake.NewFakeScaleToZeroMap(),
 			Maglev:         maglev,
 			DB:             db,
 			NodeAddresses:  nodeAddrs,
@@ -1439,6 +1441,144 @@ func TestBPFOps(t *testing.T) {
 		require.Empty(t, ops.backendStates, "Backend state remains")
 		require.Empty(t, ops.backendReferences, "Backend references remain")
 		require.Empty(t, ops.wildcardReferences, "Wildcard references remain")
+	})
+
+	t.Run("ScaleToZero", func(t *testing.T) {
+		// The script tests cover the annotation being added and removed. They
+		// cannot reach the two cases below: a service is only redirected to
+		// Envoy through CiliumEnvoyConfig, and the value of a scale-to-zero
+		// entry is only ever written by the datapath.
+		stz := scaletozerofake.NewFakeScaleToZeroMap()
+		localCfg := cfg
+		localCfg.EnableScaleToZero = true
+		ops := newBPFOps(bpfOpsParams{
+			Lifecycle:      lc,
+			Log:            log,
+			Config:         localCfg,
+			ExternalConfig: extCfg,
+			LBMaps:         faultMaps,
+			ScaleToZeroMap: stz,
+			Maglev:         maglev,
+			DB:             db,
+			NodeAddresses:  nodeAddrs,
+			Frontends:      frontends,
+		})
+
+		svc := baseService
+		svc.Annotations = map[string]string{annotation.ServiceScaleToZero: "true"}
+		frontend := baseFrontend
+		frontend.Type = ClusterIP
+		frontend.Address = extraFrontend
+		frontend.ServicePort = extraFrontend.Port()
+		frontend.Service = &svc
+		frontend.Backends = concatBe(frontend.Backends, baseBackend, 1)
+
+		require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend))
+		id := frontend.ID
+		require.NotZero(t, id, "programmed Frontend ID")
+		require.Equal(t, map[loadbalancer.ServiceID]uint64{id: 0}, stz.Entries())
+
+		// The datapath stamps the entry when it asks for a scale-up. Reconciling
+		// the frontend again must not reset that stamp, or the datapath would
+		// lose track of how recently it asked.
+		stz.Wake(id, 1234)
+		require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend))
+		require.Equal(t, map[loadbalancer.ServiceID]uint64{id: 1234}, stz.Entries())
+
+		// A service redirected to Envoy is never held, the connection the
+		// datapath sees is terminated by the proxy rather than by a backend.
+		svc.ProxyRedirects = loadbalancer.ProxyRedirects{{ProxyPort: 0x0a0a}}
+		require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend))
+		require.Empty(t, stz.Entries())
+
+		svc.ProxyRedirects = nil
+		require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend))
+		require.Equal(t, map[loadbalancer.ServiceID]uint64{id: 0}, stz.Entries())
+
+		require.NoError(t, ops.Delete(context.TODO(), db.ReadTxn(), 0, &frontend))
+		require.Empty(t, stz.Entries())
+		require.True(t, lbmaps.IsEmpty(), "BPF maps after Delete")
+	})
+
+	t.Run("ScaleToZeroNodePortExpansion", func(t *testing.T) {
+		// A NodePort frontend is a surrogate: only 0.0.0.0:port reaches
+		// StateDB, while the entries the datapath actually matches north/south
+		// traffic against are the per-node-address expansions, which live only
+		// in the BPF maps. Every one of them has to resolve back to the
+		// service, or the wake signal a held connection produces is dropped.
+		stz := scaletozerofake.NewFakeScaleToZeroMap()
+		localCfg := cfg
+		localCfg.EnableScaleToZero = true
+		ops := newBPFOps(bpfOpsParams{
+			Lifecycle:      lc,
+			Log:            log,
+			Config:         localCfg,
+			ExternalConfig: extCfg,
+			LBMaps:         faultMaps,
+			ScaleToZeroMap: stz,
+			Maglev:         maglev,
+			DB:             db,
+			NodeAddresses:  nodeAddrs,
+			Frontends:      frontends,
+		})
+
+		svc := baseService
+		svc.Annotations = map[string]string{annotation.ServiceScaleToZero: "true"}
+		frontend := baseFrontend
+		frontend.Type = NodePort
+		frontend.Address = parseAddrPort("0.0.0.0:30080")
+		frontend.ServicePort = 30080
+		frontend.Service = &svc
+		frontend.Backends = concatBe(frontend.Backends, baseBackend, 1)
+
+		require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend))
+
+		// The surrogate plus one entry per IPv4 node address.
+		entries := stz.Entries()
+		require.Len(t, entries, 2, "surrogate and expanded frontend are both tracked")
+		require.Contains(t, entries, frontend.ID, "surrogate is tracked")
+		for id := range entries {
+			name, found := stz.Resolve(id)
+			require.True(t, found, "ID %d resolves", id)
+			require.Equal(t, testServiceName, name, "ID %d", id)
+		}
+
+		require.NoError(t, ops.Delete(context.TODO(), db.ReadTxn(), 0, &frontend))
+		require.Empty(t, stz.Entries())
+		require.True(t, lbmaps.IsEmpty(), "BPF maps after Delete")
+	})
+
+	t.Run("ScaleToZeroDisabled", func(t *testing.T) {
+		// Without the feature flag the datapath does not hold connections, so
+		// the annotation must not program anything.
+		stz := scaletozerofake.NewFakeScaleToZeroMap()
+		ops := newBPFOps(bpfOpsParams{
+			Lifecycle:      lc,
+			Log:            log,
+			Config:         cfg,
+			ExternalConfig: extCfg,
+			LBMaps:         faultMaps,
+			ScaleToZeroMap: stz,
+			Maglev:         maglev,
+			DB:             db,
+			NodeAddresses:  nodeAddrs,
+			Frontends:      frontends,
+		})
+
+		svc := baseService
+		svc.Annotations = map[string]string{annotation.ServiceScaleToZero: "true"}
+		frontend := baseFrontend
+		frontend.Type = ClusterIP
+		frontend.Address = extraFrontend
+		frontend.ServicePort = extraFrontend.Port()
+		frontend.Service = &svc
+		frontend.Backends = concatBe(frontend.Backends, baseBackend, 1)
+
+		require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend))
+		require.Empty(t, stz.Entries())
+
+		require.NoError(t, ops.Delete(context.TODO(), db.ReadTxn(), 0, &frontend))
+		require.True(t, lbmaps.IsEmpty(), "BPF maps after Delete")
 	})
 
 	runTests := func(ops *BPFOps, testCaseSet []testCase, algo string, addr loadbalancer.L3n4Addr, validateMaglev bool) {
@@ -1583,6 +1723,7 @@ func TestBPFOps(t *testing.T) {
 					Config:         cfg,
 					ExternalConfig: external,
 					LBMaps:         faultMaps,
+					ScaleToZeroMap: scaletozerofake.NewFakeScaleToZeroMap(),
 					Maglev:         maglev,
 					DB:             db,
 					NodeAddresses:  nodeAddrs,
@@ -1611,6 +1752,7 @@ func TestBPFOps(t *testing.T) {
 				Config:         cfg,
 				ExternalConfig: external,
 				LBMaps:         faultMaps,
+				ScaleToZeroMap: scaletozerofake.NewFakeScaleToZeroMap(),
 				Maglev:         maglev,
 				DB:             db,
 				NodeAddresses:  nodeAddrs,
