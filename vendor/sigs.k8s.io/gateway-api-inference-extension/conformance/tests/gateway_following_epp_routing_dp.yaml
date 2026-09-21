@@ -1,0 +1,23 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-for-primary-gw-dp
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: conformance-primary
+    namespace: inference-conformance-infra
+    sectionName: http
+  hostnames:
+  - "primary.example.com"
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: dp-inference-pool
+    matches:
+    - path:
+        type: PathPrefix
+        value: /primary-gateway-dp-test

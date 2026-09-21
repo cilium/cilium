@@ -2461,6 +2461,16 @@ sigs.k8s.io/gateway-api/pkg/features
 # sigs.k8s.io/gateway-api-inference-extension v1.6.2
 ## explicit; go 1.26.0
 sigs.k8s.io/gateway-api-inference-extension/api/v1
+sigs.k8s.io/gateway-api-inference-extension/version
+# sigs.k8s.io/gateway-api-inference-extension/conformance v1.6.2
+## explicit; go 1.26.0
+sigs.k8s.io/gateway-api-inference-extension/conformance
+sigs.k8s.io/gateway-api-inference-extension/conformance/resources
+sigs.k8s.io/gateway-api-inference-extension/conformance/tests
+sigs.k8s.io/gateway-api-inference-extension/conformance/utils/config
+sigs.k8s.io/gateway-api-inference-extension/conformance/utils/features
+sigs.k8s.io/gateway-api-inference-extension/conformance/utils/headers
+sigs.k8s.io/gateway-api-inference-extension/conformance/utils/kubernetes
 # sigs.k8s.io/gateway-api/conformance v1.6.3
 ## explicit; go 1.26.0
 sigs.k8s.io/gateway-api/conformance

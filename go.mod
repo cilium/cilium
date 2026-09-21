@@ -133,6 +133,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/gateway-api v1.6.3
 	sigs.k8s.io/gateway-api-inference-extension v1.6.2
+	sigs.k8s.io/gateway-api-inference-extension/conformance v1.6.2
 	sigs.k8s.io/gateway-api/conformance v1.6.3
 	sigs.k8s.io/mcs-api v0.5.2
 	sigs.k8s.io/mcs-api/conformance v0.5.2
