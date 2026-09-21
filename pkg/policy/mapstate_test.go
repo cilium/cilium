@@ -3176,6 +3176,127 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 	}
 }
 
+func TestMapStateLookupL3L4Precedence(t *testing.T) {
+	// lookup() must implement the same L3-vs-L4 selection as the BPF datapath
+	// (bpf/lib/policy.h __policy_can_access): at equal precedence the aggregate
+	// entry wins only with a strictly longer LPM prefix, otherwise the specific
+	// entry wins. Auth is derived from the non-selected entry, as in
+	// __policy_check().
+	id := identity.NumericIdentity(100)
+	clusterInfo := emptyMapState(hivetest.Logger(t)).clusterInfo
+	agg := aggregateFor(id, clusterInfo)
+
+	// Port 443 exact (prefix length 16) vs covering range 440-447 (prefix
+	// length 13): the exact key is strictly more specific.
+	exact443 := func(nid identity.NumericIdentity) Key {
+		return egressKey(nid, u8proto.TCP, 443, 16)
+	}
+	range440 := func(nid identity.NumericIdentity) Key {
+		return egressKey(nid, u8proto.TCP, 440, 13)
+	}
+	probe := egressKey(id, u8proto.TCP, 443, 16)
+
+	derivedFail := AuthTypeAlwaysFail.AsDerivedRequirement()
+	explicitFail := AuthTypeAlwaysFail.AsExplicitRequirement()
+
+	tests := []struct {
+		name     string
+		idKey    Key
+		idEntry  mapStateEntry
+		aggKey   Key
+		aggEntry mapStateEntry
+		// wantAuth is the expected auth requirement of the returned entry.
+		// The winner is observable through it: only the selected entry is
+		// returned, carrying auth derived from the other entry when the
+		// selected entry has no explicit auth of its own.
+		wantAuth types.AuthRequirement
+		wantDeny bool
+	}{
+		{
+			name:     "specific L4 strictly longer selects specific",
+			idKey:    exact443(id),
+			idEntry:  allowEntry(),
+			aggKey:   range440(agg),
+			aggEntry: allowEntry().withExplicitAuth(AuthTypeAlwaysFail),
+			wantAuth: derivedFail,
+		},
+		{
+			name:     "aggregate L4 strictly longer selects aggregate",
+			idKey:    range440(id),
+			idEntry:  allowEntry().withExplicitAuth(AuthTypeAlwaysFail),
+			aggKey:   exact443(agg),
+			aggEntry: allowEntry(),
+			wantAuth: derivedFail,
+		},
+		{
+			name:     "tie selects specific",
+			idKey:    exact443(id),
+			idEntry:  allowEntry(),
+			aggKey:   exact443(agg),
+			aggEntry: allowEntry(),
+			wantAuth: types.NoAuthRequirement,
+		},
+		{
+			name:     "tie derives auth from aggregate to specific",
+			idKey:    exact443(id),
+			idEntry:  allowEntry(),
+			aggKey:   exact443(agg),
+			aggEntry: allowEntry().withExplicitAuth(AuthTypeAlwaysFail),
+			wantAuth: derivedFail,
+		},
+		{
+			name:     "specific deny wins",
+			idKey:    exact443(id),
+			idEntry:  denyEntry(),
+			aggKey:   range440(agg),
+			aggEntry: allowEntry(),
+			wantAuth: types.NoAuthRequirement,
+			wantDeny: true,
+		},
+		{
+			name:     "higher precedence aggregate deny wins",
+			idKey:    exact443(id),
+			idEntry:  allowEntry(),
+			aggKey:   exact443(agg),
+			aggEntry: denyEntry(),
+			wantAuth: types.NoAuthRequirement,
+			wantDeny: true,
+		},
+		{
+			name:     "explicit auth on winner is kept",
+			idKey:    exact443(id),
+			idEntry:  allowEntry().withExplicitAuth(AuthTypeAlwaysFail),
+			aggKey:   range440(agg),
+			aggEntry: allowEntry(),
+			wantAuth: explicitFail,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ms := testMapState(t, mapStateMap{
+				tt.idKey:  tt.idEntry,
+				tt.aggKey: tt.aggEntry,
+			})
+			// Both entries must be present at equal precedence for the
+			// L3-vs-L4 tie-break to apply (deny entries carry higher
+			// precedence by design, so the control cases skip this).
+			storedID, ok := ms.get(tt.idKey)
+			require.True(t, ok)
+			storedAgg, ok := ms.get(tt.aggKey)
+			require.True(t, ok)
+			if !tt.wantDeny {
+				require.Equal(t, storedID.Precedence, storedAgg.Precedence)
+				require.True(t, storedID.IsAllow() && storedAgg.IsAllow())
+			}
+
+			v, found := ms.lookup(probe)
+			require.True(t, found)
+			require.Equal(t, tt.wantDeny, v.IsDeny())
+			require.Equal(t, tt.wantAuth, v.AuthRequirement)
+		})
+	}
+}
+
 func TestMapState_passValidation(t *testing.T) {
 	// identities used in tests
 	identity1111 := localIdentity(1111)
