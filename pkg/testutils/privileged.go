@@ -13,6 +13,7 @@ const (
 	privilegedEnv            = "PRIVILEGED_TESTS"
 	integrationEnv           = "INTEGRATION_TESTS"
 	gatewayAPIConformanceEnv = "GATEWAY_API_CONFORMANCE_TESTS"
+	gieConformanceEnv        = "GIE_CONFORMANCE_TESTS"
 	mcsAPIConformanceEnv     = "MCS_API_CONFORMANCE_TESTS"
 
 	requiredTestPrefix      = "TestPrivileged"
@@ -83,6 +84,13 @@ func GatewayAPIConformanceTest(tb testing.TB) {
 
 	if os.Getenv(gatewayAPIConformanceEnv) == "" {
 		tb.Skipf("Set %s to run this test", gatewayAPIConformanceEnv)
+	}
+}
+func GIEConformanceTest(tb testing.TB) {
+	tb.Helper()
+
+	if os.Getenv(gieConformanceEnv) == "" {
+		tb.Skipf("Set %s to run this test", gieConformanceEnv)
 	}
 }
 
