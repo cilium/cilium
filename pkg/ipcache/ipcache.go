@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -108,7 +107,6 @@ type Configuration struct {
 	// Accessors to other subsystems, provided by the daemon
 	cache.IdentityAllocator
 	ipcacheTypes.IdentityUpdater
-	synced.CacheStatus
 }
 
 // IPCache is a collection of mappings:
@@ -158,6 +156,9 @@ type IPCache struct {
 	// injectionStarted is a sync.Once so we can lazily start the prefix injection controller,
 	// but only once
 	injectionStarted sync.Once
+
+	syncsMu sync.Mutex
+	syncs   []<-chan struct{}
 }
 
 // CIDRSelectorAllocator defines the interface to trigger identity resolution for
@@ -193,6 +194,30 @@ func NewIPCache(c *Configuration) *IPCache {
 		Configuration:     c,
 	}
 	return ipc
+}
+
+// RegisterSync registers a channel that must close before IPCache metadata is
+// injected. Sync channels must be registered before metadata injection starts.
+func (ipc *IPCache) RegisterSync(ch <-chan struct{}) {
+	if ch == nil {
+		return
+	}
+	ipc.syncsMu.Lock()
+	ipc.syncs = append(ipc.syncs, ch)
+	ipc.syncsMu.Unlock()
+}
+
+func (ipc *IPCache) synchronized() bool {
+	ipc.syncsMu.Lock()
+	defer ipc.syncsMu.Unlock()
+	for _, ch := range ipc.syncs {
+		select {
+		case <-ch:
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // Shutdown cleans up asynchronous routines associated with the IPCache.
@@ -535,9 +560,9 @@ func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
 }
 
 type MetadataBatchAPI interface {
+	RegisterSync(ch <-chan struct{})
 	UpsertMetadataBatch(updates ...MU) (revision uint64)
 	RemoveMetadataBatch(updates ...MU) (revision uint64)
-	WaitForRevision(ctx context.Context, rev uint64) error
 }
 
 var _ MetadataBatchAPI = &IPCache{}
