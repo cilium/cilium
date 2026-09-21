@@ -143,7 +143,7 @@ func (nnh *nodeNeighborHandler) NodeDelete(node nodeTypes.Node) error {
 				ipv4,
 				neighbor.ForwardableIPOwner{
 					Type: neighbor.ForwardableIPOwnerNode,
-					ID:   node.Name,
+					ID:   node.Identity().String(),
 				},
 			)
 			if err != nil {
@@ -159,7 +159,7 @@ func (nnh *nodeNeighborHandler) NodeDelete(node nodeTypes.Node) error {
 				ipv6,
 				neighbor.ForwardableIPOwner{
 					Type: neighbor.ForwardableIPOwnerNode,
-					ID:   node.Name,
+					ID:   node.Identity().String(),
 				},
 			)
 			if err != nil {
