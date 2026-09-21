@@ -881,6 +881,15 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 			}
 		}
 
+		// Track both previously programmed and newly desired addresses before
+		// updating any child frontend. If an update fails, Delete must still know
+		// about every child that may have created partial state.
+		tracked := old.Clone()
+		tracked.Insert(nodePortAddrs...)
+		if len(tracked) != 0 {
+			ops.nodePortAddrByPort[key] = tracked.UnsortedList()
+		}
+
 		// Create the NodePort/HostPort frontends with the node addresses.
 		for _, addr := range nodePortAddrs {
 			fe = fe.Clone()

@@ -1631,8 +1631,13 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 			"first expanded frontend was not programmed before the injected failure")
 		require.Contains(t, fixture.ops.frontendStates, failedExpansion,
 			"failed expanded frontend did not create partial state")
-		require.Empty(t, fixture.ops.nodePortAddrByPort,
-			"the completed expansion list should not have been committed")
+		key := nodePortAddrKey{
+			family:   parentAddr.IsIPv6(),
+			protocol: loadbalancer.L4TypeAsProtocolNumber(parentAddr.Protocol()),
+			port:     parentAddr.Port(),
+		}
+		require.ElementsMatch(t, []netip.Addr{firstNodeAddr, failingNodeAddr},
+			fixture.ops.nodePortAddrByPort[key], "partially attempted expansions were not tracked")
 
 		faultMaps.shouldFailUpdateService = nil
 		require.NoError(t, fixture.ops.Delete(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "Delete")
