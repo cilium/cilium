@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -248,10 +249,17 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 	if k.params.NodesWithoutCilium {
 		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.CiliumScheduleAffinity...)
 		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.CiliumOperatorScheduleAffinity...)
-		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, defaults.SpireAgentScheduleAffinity...)
+		k.params.HelmOpts.StringValues = append(k.params.HelmOpts.StringValues, k.spireAgentScheduleAffinity()...)
 	}
 
 	return nil
+}
+
+func (k *K8sInstaller) spireAgentScheduleAffinity() []string {
+	if versioncheck.MustCompile(">=1.21.0-0")(k.chartVersion) {
+		return defaults.SpireAgentScheduleAffinity
+	}
+	return defaults.LegacySpireAgentScheduleAffinity
 }
 
 func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient *k8s.Client) error {
