@@ -469,6 +469,18 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 
 	// We are responsible for this service.
 
+	oldSharingKey := sharingKey("")
+	oldSharingClusters := []*sharingCluster{}
+
+	if existing, found, _ := ipam.serviceStore.GetService(key); found {
+		oldSharingKey = existing.SharingKey
+		for _, alloc := range existing.AllocatedIPs {
+			if cluster, found := alloc.Origin.alloc.Get(alloc.IP); found {
+				oldSharingClusters = append(oldSharingClusters, cluster)
+			}
+		}
+	}
+
 	sv := ipam.serviceViewFromService(key, svc)
 
 	if init {
@@ -482,6 +494,24 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 	err := ipam.stripInvalidAllocations(sv)
 	if err != nil {
 		return fmt.Errorf("stripInvalidAllocations: %w", err)
+	}
+
+	if oldSharingKey != sv.SharingKey {
+		for _, cluster := range oldSharingClusters {
+			if !slices.ContainsFunc(cluster.Services, func(sv *ServiceView) bool { return sv.SharingKey == oldSharingKey }) {
+				// remove dangling cluster from index
+				ipam.sharingIndex.Remove(oldSharingKey, cluster)
+			}
+		}
+
+		if sv.SharingKey != "" {
+			for _, alloc := range sv.AllocatedIPs {
+				if cluster, found := alloc.Origin.alloc.Get(alloc.IP); found {
+					// index sharing cluster
+					ipam.sharingIndex.Add(sv.SharingKey, cluster)
+				}
+			}
+		}
 	}
 
 	// Check for each ingress, if its IP has been allocated by us. If it isn't check if we can allocate that IP.

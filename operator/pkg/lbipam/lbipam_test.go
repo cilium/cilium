@@ -611,6 +611,150 @@ func TestSharingKey(t *testing.T) {
 	}
 }
 
+// TestSharingKeyExistingServiceAddr tests that when an existing service has already been assigned an address, adding a
+// sharing key does not change the underlying address, and allows the previously assigned address to be reused.
+func TestSharingKeyExistingServiceAddr(t *testing.T) {
+	pool := mkPool(poolAUID, "pool", []string{"10.0.10.0/24"})
+	fixture := mkTestFixture(t, true, true)
+	fixture.UpsertPool(t, pool)
+
+	existingSvc := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-a",
+			Namespace: "default",
+			UID:       serviceAUID,
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+		},
+	}
+	fixture.UpsertSvc(t, existingSvc)
+
+	existingSvc = fixture.GetSvc("default", "service-a")
+	require.Len(t, existingSvc.Status.LoadBalancer.Ingress, 1)
+
+	origIP, err := netip.ParseAddr(existingSvc.Status.LoadBalancer.Ingress[0].IP)
+	require.NoError(t, err)
+	assert.True(t, origIP.Is4(), "Expected service to receive a IPv4 address")
+
+	_, inPool := fixture.lbipam.pools["pool"].ranges[0].alloc.Get(origIP)
+	assert.True(t, inPool)
+
+	// add sharing key to existing service
+	annotations := map[string]string{"io.cilium/lb-ipam-sharing-key": "key-a"}
+	existingSvc.Annotations = annotations
+
+	fixture.UpsertSvc(t, existingSvc)
+
+	existingSvc = fixture.GetSvc("default", "service-a")
+
+	existingSvcIP, err := netip.ParseAddr(existingSvc.Status.LoadBalancer.Ingress[0].IP)
+	require.NoError(t, err)
+
+	assert.Equal(t, origIP, existingSvcIP)
+
+	newSvc := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:        "service-b",
+			Namespace:   "default",
+			UID:         serviceBUID,
+			Annotations: annotations,
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+		},
+	}
+	fixture.UpsertSvc(t, newSvc)
+
+	newSvc = fixture.GetSvc("default", "service-b")
+	require.Len(t, newSvc.Status.LoadBalancer.Ingress, 1)
+
+	newSvcIP, err := netip.ParseAddr(newSvc.Status.LoadBalancer.Ingress[0].IP)
+	require.NoError(t, err)
+
+	assert.Equal(t, origIP, newSvcIP)
+}
+
+// TestSharingKeyIndexCleanup tests that after all services are removed from a sharing cluster, it's
+// deleted from the index.
+func TestSharingKeyIndexCleanup(t *testing.T) {
+	pool := mkPool(poolAUID, "pool", []string{"10.0.10.0/24"})
+	fixture := mkTestFixture(t, true, true)
+	fixture.UpsertPool(t, pool)
+
+	annotations := map[string]string{"io.cilium/lb-ipam-sharing-key": "key-a"}
+
+	svcA := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:        "service-a",
+			Namespace:   "default",
+			UID:         serviceAUID,
+			Annotations: annotations,
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+		},
+	}
+	fixture.UpsertSvc(t, svcA)
+
+	svcB := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:        "service-b",
+			Namespace:   "default",
+			UID:         serviceBUID,
+			Annotations: annotations,
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+		},
+	}
+	fixture.UpsertSvc(t, svcB)
+
+	svcA = fixture.GetSvc("default", "service-a")
+	require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+
+	svcAIP, err := netip.ParseAddr(svcA.Status.LoadBalancer.Ingress[0].IP)
+	require.NoError(t, err)
+	assert.True(t, svcAIP.Is4(), "Expected service to receive a IPv4 address")
+
+	svcB = fixture.GetSvc("default", "service-b")
+	require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+
+	svcBIP, err := netip.ParseAddr(svcB.Status.LoadBalancer.Ingress[0].IP)
+	require.NoError(t, err)
+	assert.Equal(t, svcAIP, svcBIP)
+
+	sharingClusters := fixture.lbipam.sharingIndex.Get("key-a")
+	require.Len(t, sharingClusters, 1)
+	require.Len(t, sharingClusters[0].Services, 2)
+
+	// delete sharing key on service-b
+	delete(svcB.Annotations, "io.cilium/lb-ipam-sharing-key")
+	fixture.UpsertSvc(t, svcB)
+
+	sharingClusters = fixture.lbipam.sharingIndex.Get("key-a")
+	require.Len(t, sharingClusters, 1)
+	require.Len(t, sharingClusters[0].Services, 1)
+
+	// delete sharing key on service-a
+	delete(svcA.Annotations, "io.cilium/lb-ipam-sharing-key")
+	fixture.UpsertSvc(t, svcA)
+
+	assert.Empty(t, fixture.lbipam.sharingIndex.Get("key-a"), 0)
+}
+
 func TestRegressionSharedKeyReaddBug(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
 	fixture := mkTestFixture(t, true, true)
