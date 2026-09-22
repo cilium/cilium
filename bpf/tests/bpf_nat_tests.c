@@ -6,7 +6,6 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_SCTP		1
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define ENABLE_MASQUERADE_IPV4
@@ -36,6 +35,8 @@ static char pkt[100];
 #include <lib/nodeport.h>
 
 ASSIGN_CONFIG(__u16, device_mtu, 1500);
+
+ASSIGN_CONFIG(bool, enable_sctp, true)
 
 __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress, bool rfc4884)
 {

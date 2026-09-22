@@ -7,7 +7,6 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_SCTP			1
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
 #define ENABLE_NODEPORT			1
@@ -29,6 +28,8 @@
 #include <lib/time.h>
 
 ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, { .addr = v6_node_one_addr })
+
+ASSIGN_CONFIG(bool, enable_sctp, true)
 
 #include "scapy.h"
 

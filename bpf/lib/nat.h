@@ -847,11 +847,12 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 
 	inner_l4_off = inner_l3_off + ipv4_hdrlen(&iphdr);
 	switch (tuple.nexthdr) {
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-# ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-# endif /* ENABLE_SCTP */
 		if (!ipfrag_has_l4_header(ipfrag_encode_ipv4(&iphdr)) ||
 		    l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
@@ -876,6 +877,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			return DROP_INVALID;
 		break;
 	default:
+unsup_proto:
 		return DROP_UNKNOWN_L4;
 	}
 
@@ -970,11 +972,12 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
 
 	switch (tuple->nexthdr) {
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
 		/* If we don't track fragments, packets without an L4 header
 		 * can't be NATed. Even though the first fragment always has an
 		 * L4 header, NATing it in this situation is useless, because
@@ -1050,6 +1053,7 @@ nat_icmp_v4:
 	}
 #endif /* ENABLE_SNAT_ICMPV4 */
 	default:
+unsup_proto:
 		return NAT_PUNT_TO_STACK;
 	};
 
@@ -1093,11 +1097,12 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 
 	inner_l4_off = (__u32)(inner_l3_off + ipv4_hdrlen(&iphdr));
 	switch (tuple.nexthdr) {
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
 		if (!ipfrag_has_l4_header(ipfrag_encode_ipv4(&iphdr)) ||
 		    l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
@@ -1122,6 +1127,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 			return DROP_INVALID;
 		break;
 	default:
+unsup_proto:
 		return NAT_PUNT_TO_STACK;
 	}
 
@@ -1190,11 +1196,12 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
 		ret = ipv4_load_l4_ports(ctx, ip4, fraginfo, (int)off,
 					 CT_INGRESS, &tuple.dport);
 		if (ret < 0)
@@ -1258,6 +1265,7 @@ rev_nat_icmp_v4:
 	}
 #endif /* ENABLE_SNAT_ICMPV4 */
 	default:
+unsup_proto:
 		return NAT_PUNT_TO_STACK;
 	};
 
@@ -1663,14 +1671,12 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
  * change to the outer checksum.
  */
 static __always_inline __wsum
-snat_v6_calc_icmp_error_csum_diff(__u8 nexthdr __maybe_unused,
-				  const union v6addr *old_addr __maybe_unused,
-				  const union v6addr *new_addr __maybe_unused)
+snat_v6_calc_icmp_error_csum_diff(__u8 nexthdr,
+				  const union v6addr *old_addr,
+				  const union v6addr *new_addr)
 {
-#ifdef ENABLE_SCTP
-	if (nexthdr == IPPROTO_SCTP)
+	if (CONFIG(enable_sctp) && nexthdr == IPPROTO_SCTP)
 		return csum_diff(old_addr, 16, new_addr, 16, 0);
-#endif /* ENABLE_SCTP */
 
 	return 0;
 }
@@ -1890,11 +1896,12 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	inner_l4_off = inner_l3_off + hdrlen;
 
 	switch (tuple.nexthdr) {
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif /* ENABLE_SCTP */
 		if (!ipfrag_has_l4_header(fraginfo) ||
 		    l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
@@ -1919,6 +1926,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			return DROP_INVALID;
 		break;
 	default:
+unsup_proto:
 		return DROP_UNKNOWN_L4;
 	}
 
@@ -1992,11 +2000,12 @@ snat_v6_nat(struct __ctx_buff *ctx, fraginfo_t fraginfo, int off, __s8 *ext_err)
 		return DROP_INVALID;
 
 	switch (args->tuple.nexthdr) {
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
 		/* If we don't track fragments, packets without an L4 header
 		 * can't be NATed. Even though the first fragment always has an
 		 * L4 header, NATing it in this situation is useless, because
@@ -2075,6 +2084,7 @@ nat_icmp_v6:
 	}
 #endif /* ENABLE_SNAT_ICMPV6 */
 	default:
+unsup_proto:
 		return NAT_PUNT_TO_STACK;
 	};
 
@@ -2123,11 +2133,12 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 	inner_l4_off = inner_l3_off + hdrlen;
 
 	switch (tuple.nexthdr) {
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
 		if (!ipfrag_has_l4_header(fraginfo) ||
 		    l4_load_ports(ctx, inner_l4_off, &tuple.dport) < 0)
 			return DROP_INVALID;
@@ -2149,6 +2160,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 			return DROP_INVALID;
 		break;
 	default:
+unsup_proto:
 		return NAT_PUNT_TO_STACK;
 	}
 
@@ -2196,11 +2208,12 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 
 	off = (__u32)(((void *)ip6 - data) + hdrlen);
 	switch (tuple.nexthdr) {
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
 		ret = ipv6_load_l4_ports(ctx, ip6, fraginfo, (int)off,
 					 CT_INGRESS, &tuple.dport);
 		if (ret < 0)
@@ -2253,6 +2266,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	}
 #endif /* ENABLE_SNAT_ICMPV6 */
 	default:
+unsup_proto:
 		return NAT_PUNT_TO_STACK;
 	};
 

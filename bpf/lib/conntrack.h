@@ -518,9 +518,7 @@ ipv6_extract_tuple(const struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple)
 		return ret;
 
 	if (unlikely(tuple->nexthdr != IPPROTO_TCP &&
-#ifdef ENABLE_SCTP
-			 tuple->nexthdr != IPPROTO_SCTP &&
-#endif  /* ENABLE_SCTP */
+		     (!CONFIG(enable_sctp) || tuple->nexthdr != IPPROTO_SCTP) &&
 		     tuple->nexthdr != IPPROTO_UDP))
 		return DROP_CT_UNKNOWN_PROTO;
 
@@ -628,15 +626,17 @@ ct_extract_ports6(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6, fragi
 	}
 
 	/* TCP, UDP, and SCTP all have the ports at the same location */
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
 		/* load sport + dport into tuple */
 		return ipv6_load_l4_ports(ctx, ip6, fraginfo, off,
 					  dir, &tuple->dport);
 	default:
+unsup_proto:
 		tuple->sport = 0;
 		tuple->dport = 0;
 		/* See comment in ct_extract_ports4. */
@@ -764,9 +764,7 @@ ipv4_extract_tuple(const struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple)
 	tuple->nexthdr = ip4->protocol;
 
 	if (unlikely(tuple->nexthdr != IPPROTO_TCP &&
-#ifdef ENABLE_SCTP
-			 tuple->nexthdr != IPPROTO_SCTP &&
-#endif  /* ENABLE_SCTP */
+		     (!CONFIG(enable_sctp) || tuple->nexthdr != IPPROTO_SCTP) &&
 		     tuple->nexthdr != IPPROTO_UDP))
 		return DROP_CT_UNKNOWN_PROTO;
 
@@ -877,14 +875,16 @@ ct_extract_ports4(const struct __ctx_buff *ctx, const struct iphdr *ip4, fraginf
 	}
 
 	/* TCP, UDP, and SCTP all have the ports at the same location */
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
 		return ipv4_load_l4_ports(ctx, ip4, fraginfo, off,
 					  dir, &tuple->dport);
 	default:
+unsup_proto:
 		tuple->sport = 0;
 		tuple->dport = 0;
 		/* Traffic is allowed/dropped based on user-defined policies. */

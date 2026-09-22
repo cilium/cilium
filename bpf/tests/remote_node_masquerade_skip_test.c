@@ -6,7 +6,6 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_SCTP		1
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #include <bpf/config/global.h>
@@ -39,6 +38,7 @@ ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = IPV4_MASQUERADE })
 ASSIGN_CONFIG(bool, enable_remote_node_masquerade, false)
 ASSIGN_CONFIG(__u32, trace_payload_len, 128UL)
 ASSIGN_CONFIG(bool, enable_extended_ip_protocols, false)
+ASSIGN_CONFIG(bool, enable_sctp, true)
 
 #include "lib/ipcache.h"
 
