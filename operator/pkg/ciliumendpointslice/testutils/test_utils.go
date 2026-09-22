@@ -5,25 +5,28 @@ package testutils
 import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/node/addressing"
 )
 
+// SanitizePodLabels adds a bare io.cilium.k8s.policy.cluster that Map2Labels
+// folds into the prefixed key below, so both must carry the cluster name.
 var (
 	TestLbsA = map[string]string{
 		"k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "ns",
-		"k8s:io.cilium.k8s.policy.cluster":                               "",
+		"k8s:io.cilium.k8s.policy.cluster":                               defaults.ClusterName,
 		"k8s:io.kubernetes.pod.namespace":                                "ns",
 		"key-a":                                                          "val-1"}
 	TestLbsB = map[string]string{
 		"k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "ns",
-		"k8s:io.cilium.k8s.policy.cluster":                               "",
+		"k8s:io.cilium.k8s.policy.cluster":                               defaults.ClusterName,
 		"k8s:io.kubernetes.pod.namespace":                                "ns",
 		"key-b":                                                          "val-2"}
 	TestLbsC = map[string]string{
 		"k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "ns",
-		"k8s:io.cilium.k8s.policy.cluster":                               "",
+		"k8s:io.cilium.k8s.policy.cluster":                               defaults.ClusterName,
 		"k8s:io.kubernetes.pod.namespace":                                "ns",
 		"key-c":                                                          "val-3"}
 )
