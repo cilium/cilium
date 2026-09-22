@@ -5,8 +5,12 @@ package cache
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log/slog"
 	"reflect"
+	"sort"
+	"text/tabwriter"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -26,6 +30,28 @@ type IdentitiesModel []*models.Identity
 // in index `j`
 func (s IdentitiesModel) Less(i, j int) bool {
 	return s[i].ID < s[j].ID
+}
+
+// FormatIdentities writes the identities as an ID/LABELS table, sorted by ID.
+func FormatIdentities(w io.Writer, identities []*models.Identity) {
+	im := IdentitiesModel(identities)
+	sort.Slice(im, im.Less)
+
+	tw := tabwriter.NewWriter(w, 2, 0, 3, ' ', 0)
+	fmt.Fprintf(tw, "ID\tLABELS\n")
+	for _, identity := range im {
+		lbls := labels.NewLabelsFromModel(identity.Labels)
+		first := true
+		for _, lbl := range lbls.GetPrintableModel() {
+			if first {
+				fmt.Fprintf(tw, "%d\t%s\n", identity.ID, lbl)
+				first = false
+			} else {
+				fmt.Fprintf(tw, "\t%s\n", lbl)
+			}
+		}
+	}
+	tw.Flush()
 }
 
 // FromIdentityCache populates the provided model from an identity cache.
