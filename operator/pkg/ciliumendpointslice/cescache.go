@@ -377,9 +377,10 @@ func (c *CESCache) getCESInNs(ns string) []CESKey {
 
 // Return the CID associated with the given CEP. If there are multiple CIDs, return the selected one
 // to minimize churn in CES reconciliation.
+// A CEP known to the cache may have no CID yet, in which case the returned bool is false.
 func (c *CESCache) getCIDForCEP(cepName CEPName) (CID, bool) {
 	if cepData, ok := c.cepData[cepName]; ok {
-		if secId, ok := c.globalIdLabelsToCIDSet[cepData.labels]; ok {
+		if secId, ok := c.globalIdLabelsToCIDSet[cepData.labels]; ok && secId.selectedID != "" {
 			return secId.selectedID, true
 		}
 	}
