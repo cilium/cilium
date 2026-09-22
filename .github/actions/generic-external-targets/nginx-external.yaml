@@ -97,7 +97,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: nginx
-        image: nginx:latest
+        image: "$NGINX_IMAGE"
         securityContext:
           allowPrivilegeEscalation: false
         # Only report ready once nginx actually serves HTTPS on 443. Without

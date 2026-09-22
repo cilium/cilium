@@ -9,6 +9,8 @@ IP4OTHERTARGET="$4"
 IP6TARGET="$5"
 IP6OTHERTARGET="$6"
 
+NGINX_IMAGE="${KIND_FAKE_EXTERNAL_TARGET_IMAGE:-nginx}"
+
 lvh_wrapper() {
 	if [ "$LVH" = "true" ]; then
 		ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@localhost "cd /host; ${@@Q}"
@@ -130,7 +132,7 @@ retry lvh_wrapper docker run -d --name webserver --network $KINDNETWORK \
     -v ./nginx.conf:/etc/nginx/nginx.conf:ro \
     -v ./external-service.cilium.crt:/etc/ssl/external-service.cilium.crt:ro \
     -v ./external-service.cilium.key:/etc/ssl/external-service.cilium.key:ro \
-    nginx
+    "$NGINX_IMAGE"
 
 # Start the second external target
 retry lvh_wrapper docker run -d --name other-webserver --network $KINDNETWORK \
@@ -138,7 +140,7 @@ retry lvh_wrapper docker run -d --name other-webserver --network $KINDNETWORK \
     -v ./nginx.conf:/etc/nginx/nginx.conf:ro \
     -v ./external-service.cilium.crt:/etc/ssl/external-service.cilium.crt:ro \
     -v ./external-service.cilium.key:/etc/ssl/external-service.cilium.key:ro \
-    nginx
+    "$NGINX_IMAGE"
 
 # Fail fast if either target did not actually come up.
 for container in webserver other-webserver; do
