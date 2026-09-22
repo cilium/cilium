@@ -80,6 +80,9 @@ you may need to take action to migrate to an alternative.
   version. Update existing manifests or tooling that references
   ``cilium.io/v2alpha1`` to use ``cilium.io/v2`` instead.
 
+* The agent option ``--fixed-identity-mapping`` is deprecated and will be removed
+  in a future release.
+
 Removed Options
 ###############
 
