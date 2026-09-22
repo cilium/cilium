@@ -93,3 +93,27 @@ func gatewayRequestForInferencePool(ctx context.Context, c client.Client, infere
 	}
 	return reqs
 }
+
+// EnqueueRequestForOwningShadowService returns an event handler that, when passed
+// a service owned by an InferencePool (shadow service), returns a reconcile.Request
+// for the relevant Cilium-gateways.
+func EnqueueRequestForOwningShadowService(c client.Client, logger *slog.Logger, controllerName string) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+		svc, ok := a.(*corev1.Service)
+		if !ok {
+			return nil
+		}
+		for _, ref := range svc.OwnerReferences {
+			if ref.Kind == "InferencePool" {
+				infPool := &gateway_inf_ext.InferencePool{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      ref.Name,
+						Namespace: svc.Namespace,
+					},
+				}
+				return gatewayRequestForInferencePool(ctx, c, infPool, logger, controllerName)
+			}
+		}
+		return nil
+	})
+}

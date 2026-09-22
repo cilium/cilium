@@ -178,9 +178,12 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	if inferencePoolEnabled {
-		// Watch for changes to InferencePool and InferenceObjective
+		// Watch for changes to InferencePool and shadow service
 		gatewayBuilder = gatewayBuilder.Watches(&gateway_inf_ext.InferencePool{}, watchhandlers.EnqueueRequestForOwningInferencePool(r.client, r.logger, r.controllerName)).
-			Watches(&discoveryv1.EndpointSlice{}, watchhandlers.EnqueueRequestForOwningEndpointSlice(r.client, r.logger, r.controllerName))
+			Watches(&discoveryv1.EndpointSlice{}, watchhandlers.EnqueueRequestForOwningEndpointSlice(r.client, r.logger, r.controllerName)).
+			// watch shadow service owned by an InferencePool
+			Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForOwningShadowService(r.client, r.logger, r.controllerName))
+
 	}
 	return gatewayBuilder.Complete(r)
 }
