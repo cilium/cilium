@@ -218,18 +218,40 @@ func CreateCustomResourceDefinitions(ctx context.Context, logger *slog.Logger, c
 	needsMigration []*apiextensionsv1.CustomResourceDefinition, err error) {
 	crds := CustomResourceDefinitionList()
 
-	for _, r := range synced.AllCiliumCRDResourceNames(bgpCfg) {
-		if crd, ok := crds[r]; ok {
-			obj, err := createCRD(ctx, logger, clientset, crd.Name, crd.FullName)
-			if err != nil {
-				return nil, fmt.Errorf("Unable to create custom resource definition %s: %w", crd.FullName, err)
-			}
-			if crdhelpers.CRDNeedsMigration(obj) {
-				needsMigration = append(needsMigration, obj)
-			}
-		} else {
-			logging.Fatal(logger, fmt.Sprintf("Unknown resource %s. Please update pkg/k8s/apis/cilium.io/client to understand this type.", r))
+	for _, resourceName := range synced.AllCiliumCRDResourceNames(bgpCfg) {
+		obj, err := createCRDByResourceName(ctx, logger, clientset, crds, resourceName)
+		if err != nil {
+			return nil, err
 		}
+		if crdhelpers.CRDNeedsMigration(obj) {
+			needsMigration = append(needsMigration, obj)
+		}
+	}
+	return
+}
+
+// CreateCustomResourceDefinition creates and updates a single Cilium CRD.
+func CreateCustomResourceDefinition(
+	ctx context.Context,
+	logger *slog.Logger,
+	clientset apiextensionsclient.Interface,
+	crdMetaName string,
+) (
+	needsMigration []*apiextensionsv1.CustomResourceDefinition,
+	err error,
+) {
+	obj, err := createCRDByResourceName(
+		ctx,
+		logger,
+		clientset,
+		CustomResourceDefinitionList(),
+		synced.CRDResourceName(crdMetaName),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if crdhelpers.CRDNeedsMigration(obj) {
+		needsMigration = append(needsMigration, obj)
 	}
 	return
 }
@@ -407,6 +429,21 @@ func createCRD(ctx context.Context, logger *slog.Logger, clientset apiextensions
 			versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
 		),
 	)
+}
+
+// createCRDByResourceName looks up a Cilium CRD by its synced resource name
+// and creates or updates it.
+func createCRDByResourceName(ctx context.Context, logger *slog.Logger, clientset apiextensionsclient.Interface, crds map[string]*CRDList, resourceName string) (*apiextensionsv1.CustomResourceDefinition, error) {
+	crd, ok := crds[resourceName]
+	if !ok {
+		logging.Fatal(logger, fmt.Sprintf("Unknown resource %s. Please update pkg/k8s/apis/cilium.io/client to understand this type.", resourceName))
+	}
+
+	obj, err := createCRD(ctx, logger, clientset, crd.Name, crd.FullName)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to create custom resource definition %s: %w", crd.FullName, err)
+	}
+	return obj, nil
 }
 
 func constructV1CRD(

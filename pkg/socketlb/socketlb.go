@@ -96,7 +96,7 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	cfg := config.NewBPFSock(config.NodeConfig(lnc))
 	cfg.DisableExternalIPMitigation = option.Config.DisableExternalIPMitigation
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
-	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
+	cfg.EnableLRP = lnc.EnableLocalRedirectPolicy
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
