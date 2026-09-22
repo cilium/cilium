@@ -97,18 +97,17 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u
 	#error "policy_log.h only supports inclusion from bpf_host or bpf_lxc"
 #endif
 
-	if (verdict == 0)
-		verdict = (int)proxy_port;
-
-	vars->rkey.usage = RATELIMIT_USAGE_EVENTS_MAP;
-	vars->settings.topup_interval_ns = NSEC_PER_SEC;
-
 	if (CONFIG(events_map_rate_limit) > 0) {
+		vars->rkey.usage = RATELIMIT_USAGE_EVENTS_MAP;
+		vars->settings.topup_interval_ns = NSEC_PER_SEC;
 		vars->settings.bucket_size = CONFIG(events_map_burst_limit);
 		vars->settings.tokens_per_topup = CONFIG(events_map_rate_limit);
 		if (!ratelimit_check_and_take(&vars->rkey, &vars->settings))
 			return;
 	}
+
+	if (verdict == 0)
+		verdict = (int)proxy_port;
 
 	*msg = (typeof(*msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_POLICY_VERDICT, 0),

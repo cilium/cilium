@@ -226,9 +226,9 @@ __send_trace_notify(const struct __ctx_buff *ctx, enum trace_point obs_point,
 	if (!emit_trace_notify(obs_point, monitor))
 		return;
 
-	vars->key.usage = RATELIMIT_USAGE_EVENTS_MAP;
-	vars->settings.topup_interval_ns = NSEC_PER_SEC;
 	if (CONFIG(events_map_rate_limit) > 0) {
+		vars->key.usage = RATELIMIT_USAGE_EVENTS_MAP;
+		vars->settings.topup_interval_ns = NSEC_PER_SEC;
 		vars->settings.bucket_size = CONFIG(events_map_burst_limit);
 		vars->settings.tokens_per_topup = CONFIG(events_map_rate_limit);
 		if (!ratelimit_check_and_take(&vars->key, &vars->settings))
