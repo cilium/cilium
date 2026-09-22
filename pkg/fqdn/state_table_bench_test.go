@@ -115,3 +115,67 @@ func BenchmarkDNSCacheUpdates(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkEndpointFQDNLookup compares the core indexed endpoint/IP lookup
+// with the existing per-endpoint DNS cache lookup. It excludes name formatting.
+func BenchmarkEndpointFQDNLookup(b *testing.B) {
+	const (
+		endpoints = 512
+		names     = 8
+	)
+	db := statedb.New()
+	table, err := NewEndpointFQDNStateTable(db)
+	if err != nil {
+		b.Fatal(err)
+	}
+	ip := netip.MustParseAddr("1.1.1.1")
+	expiration := time.Now().Add(time.Hour)
+	caches := make([]*DNSCache, endpoints)
+	txn := db.WriteTxn(table)
+	for endpointID := range endpoints {
+		cache := NewDNSCache(0)
+		caches[endpointID] = cache
+		for nameIndex := range names {
+			name := fmt.Sprintf("service-%d-%d.example.com.", endpointID, nameIndex)
+			row := EndpointFQDNMapping{
+				EndpointID:     uint16(endpointID),
+				Name:           name,
+				IP:             ip,
+				LookupTime:     expiration.Add(-time.Hour),
+				TTL:            3600,
+				ExpirationTime: expiration,
+			}
+			if _, _, err := table.Insert(txn, row); err != nil {
+				b.Fatal(err)
+			}
+			cache.Update(row.LookupTime, name, []netip.Addr{ip}, int(row.TTL))
+		}
+	}
+	txn.Commit()
+
+	b.Run("statedb", func(b *testing.B) {
+		b.ReportAllocs()
+		for iteration := range b.N {
+			query := QueryEndpointFQDNByEndpointIP(EndpointFQDNIPKey{
+				EndpointID: uint16(iteration % endpoints),
+				IP:         ip,
+			})
+			found := 0
+			for range table.List(db.ReadTxn(), query) {
+				found++
+			}
+			if found != names {
+				b.Fatalf("got %d names, want %d", found, names)
+			}
+		}
+	})
+	b.Run("dns-cache", func(b *testing.B) {
+		b.ReportAllocs()
+		for iteration := range b.N {
+			found := caches[iteration%endpoints].LookupIP(ip)
+			if len(found) != names {
+				b.Fatalf("got %d names, want %d", len(found), names)
+			}
+		}
+	})
+}

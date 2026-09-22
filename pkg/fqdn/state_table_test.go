@@ -118,6 +118,10 @@ func TestEndpointFQDNStateTableQueries(t *testing.T) {
 	require.Len(t, statedb.Collect(tbl.List(rtxn, QueryEndpointFQDNByEndpoint(42))), 2)
 	require.Len(t, statedb.Collect(tbl.List(rtxn, QueryEndpointFQDNByName("example.com"))), 2)
 	require.Len(t, statedb.Collect(tbl.List(rtxn, QueryEndpointFQDNByIP(netip.MustParseAddr("1.1.1.1")))), 3)
+	require.Len(t, statedb.Collect(tbl.List(rtxn, QueryEndpointFQDNByEndpointIP(EndpointFQDNIPKey{
+		EndpointID: 42,
+		IP:         netip.MustParseAddr("1.1.1.1"),
+	}))), 2)
 }
 
 func TestFQDNStateEventRoundTrip(t *testing.T) {
