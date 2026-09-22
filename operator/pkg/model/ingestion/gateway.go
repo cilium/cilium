@@ -309,6 +309,10 @@ func toHTTPRoutes(log *slog.Logger,
 	grants []gatewayv1.ReferenceGrant,
 	btlspMap helpers.BackendTLSPolicyServiceMap,
 ) []model.HTTPRoute {
+	// Sort by age and name so matches with equal priority keep this order when Envoy sorts them later.
+	input = slices.Clone(input)
+	sortRoutesByAge(input, func(r gatewayv1.HTTPRoute) metav1.ObjectMeta { return r.ObjectMeta })
+
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
 		if !parentRefsMatchListener(r.Spec.ParentRefs, listener) {
@@ -856,10 +860,9 @@ func parentRefsMatchListener(parentRefs []gatewayv1.ParentReference, listener ga
 	return false
 }
 
-// sortL4RoutesByAge orders routes oldest-first by creation timestamp, tie-broken
-// by namespace then name, so L4 conflict resolution deterministically binds the
-// oldest route to the listener.
-func sortL4RoutesByAge[T any](routes []T, meta func(T) metav1.ObjectMeta) {
+// sortRoutesByAge orders routes oldest-first by creation timestamp, tie-broken
+// by namespace then name, so providing deterministic ordering for HTTP and L4 routes.
+func sortRoutesByAge[T any](routes []T, meta func(T) metav1.ObjectMeta) {
 	slices.SortStableFunc(routes, func(a, b T) int {
 		ma, mb := meta(a), meta(b)
 		if c := ma.CreationTimestamp.Time.Compare(mb.CreationTimestamp.Time); c != 0 {
@@ -893,7 +896,7 @@ func toTCPRoutes(listener gatewayv1beta1.Listener,
 	if len(attached) == 0 {
 		return nil
 	}
-	sortL4RoutesByAge(attached, func(r gatewayv1.TCPRoute) metav1.ObjectMeta { return r.ObjectMeta })
+	sortRoutesByAge(attached, func(r gatewayv1.TCPRoute) metav1.ObjectMeta { return r.ObjectMeta })
 
 	var l4Routes []model.L4Route
 	{
@@ -930,7 +933,7 @@ func toUDPRoutes(listener gatewayv1beta1.Listener,
 	if len(attached) == 0 {
 		return nil
 	}
-	sortL4RoutesByAge(attached, func(r gatewayv1.UDPRoute) metav1.ObjectMeta { return r.ObjectMeta })
+	sortRoutesByAge(attached, func(r gatewayv1.UDPRoute) metav1.ObjectMeta { return r.ObjectMeta })
 
 	var l4Routes []model.L4Route
 	{

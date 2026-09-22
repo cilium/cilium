@@ -73,6 +73,7 @@ func setTestMergedListeners(input *Input, namespaces []corev1.Namespace) {
 func TestHTTPGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
 		"basic http":                                              {},
+		"http route ordering":                                     {},
 		"basic http nodeport service":                             {},
 		"basic http external traffic policy":                      {},
 		"basic http load balancer":                                {},

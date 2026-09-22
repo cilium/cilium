@@ -1,0 +1,50 @@
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: backend
+      namespace: default
+      port:
+        port: 8080
+    path_match:
+      prefix: /aab
+    timeout: {}
+  - backends:
+    - name: backend
+      namespace: default
+      port:
+        port: 8080
+    path_match:
+      prefix: /aaa
+    timeout: {}
+  - backends:
+    - name: backend
+      namespace: default
+      port:
+        port: 8080
+    path_match:
+      prefix: /bbb
+    timeout: {}
+  - backends:
+    - name: backend
+      namespace: other
+      port:
+        port: 8080
+    path_match:
+      prefix: /ccc
+    timeout: {}
+  - backends:
+    - name: backend
+      namespace: default
+      port:
+        port: 8080
+    path_match:
+      prefix: /ddd
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1
