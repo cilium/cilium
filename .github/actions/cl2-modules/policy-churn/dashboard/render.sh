@@ -16,37 +16,26 @@ DASHBOARD_UID="adzhr7t"
 DASHBOARD_SLUG="cilium-scale-test"
 OUTPUT_PATH="${OUTPUT_PATH:-./report/cilium-scale-dashboard.png}"
 
-MAGICK_CMD=""
-if command -v magick &> /dev/null; then
-  MAGICK_CMD="magick"
-elif command -v convert &> /dev/null; then
-  MAGICK_CMD="convert"
-else
-  echo "ImageMagick (magick/convert) is required to crop the render to its actual content height. Install it and re-run." >&2
-  exit 1
-fi
-
 # Rendering several time ranges of the same dashboard (eg. a baseline run, a
 # test run and both together) is just as many invocations of this script, so
 # skip the provisioning if a previous one already did it.
 if helm status grafana --namespace monitoring &> /dev/null; then
   echo "[*] Grafana is already provisioned by a previous run, skipping the install"
 else
+  echo "[*] Provisioning the dashboard via the grafana sidecar"
 
-echo "[*] Provisioning the dashboard via the grafana sidecar"
-
-# Remove the old grafana instance laying around from CL2 run.
-kubectl -n monitoring delete deployment/grafana service/grafana serviceaccount/grafana || true
-kubectl create configmap scale-test-dashboard \
+  # Remove the old grafana instance laying around from CL2 run.
+  kubectl -n monitoring delete deployment/grafana service/grafana serviceaccount/grafana || true
+  kubectl create configmap scale-test-dashboard \
   --namespace monitoring \
   --from-file=cilium-scale.json=./dashboard/cilium-scale.json \
   --dry-run=client -o yaml | kubectl apply -f -
-kubectl label configmap scale-test-dashboard -n monitoring grafana_dashboard=1 --overwrite
+  kubectl label configmap scale-test-dashboard -n monitoring grafana_dashboard=1 --overwrite
 
-echo "[*] Installing grafana + grafana-image-renderer via helm"
+  echo "[*] Installing grafana + grafana-image-renderer via helm"
 
-helm repo add grafana-community https://grafana-community.github.io/helm-charts --force-update
-cat <<EOF | helm upgrade --install grafana grafana-community/grafana --namespace monitoring --wait --timeout=5m -f -
+  helm repo add grafana-community https://grafana-community.github.io/helm-charts --force-update
+  cat <<EOF | helm upgrade --install grafana grafana-community/grafana --namespace monitoring --wait --timeout=5m -f -
 image:
   tag: "13.2.1"
 
@@ -93,7 +82,7 @@ for _ in $(seq 1 15); do
   sleep 2
 done
 
-RAW_SCREENSHOT="$(mktemp --suffix=.png)"
+mkdir -p "$(dirname "${OUTPUT_PATH}")"
 curl -sfG -u "admin:${GRAFANA_PW}" \
   "http://localhost:13000/render/d/${DASHBOARD_UID}/${DASHBOARD_SLUG}" \
   --data-urlencode "orgId=1" \
@@ -104,10 +93,6 @@ curl -sfG -u "admin:${GRAFANA_PW}" \
   --data-urlencode "tz=UTC" \
   --data-urlencode "var-node=${NODE_NAME}" \
   --data-urlencode "kiosk" \
-  -o "${RAW_SCREENSHOT}"
-
-mkdir -p "$(dirname "${OUTPUT_PATH}")"
-"${MAGICK_CMD}" "${RAW_SCREENSHOT}" -trim +repage "${OUTPUT_PATH}"
-rm -f "${RAW_SCREENSHOT}"
+  -o "${OUTPUT_PATH}"
 
 echo "[*] Dashboard screenshot saved to ${OUTPUT_PATH}"

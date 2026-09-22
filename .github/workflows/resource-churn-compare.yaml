@@ -7,24 +7,25 @@ on:
 
   workflow_dispatch:
     inputs:
-      base-sha:
-        description: "Commit SHA of the comparison baseline. CI images for it must already exist."
+      base-tag:
+        description: "Image tag of the comparison baseline, either a commit SHA or a released version (eg v1.19.8). Cilium images for it must already exist."
         required: true
         type: string
-      sha:
-        description: "Commit SHA under test. CI images for it must already exist."
+      test-tag:
+        description: "Image tag under test, either a commit SHA or a released version (eg v1.19.8). Cilium images for it must already exist."
         required: true
         type: string
       scenario:
         description: "Churn scenario to run, see .github/actions/cl2-modules/policy-churn/scenarios"
         required: true
-        default: global-identities-churn
+        default: l7-policy-identity-churn
         type: choice
         options:
           - global-identities-churn
           - local-identities-churn
           - selectors-churn
           - policy-identity-churn
+          - l7-policy-identity-churn
 
 permissions:
   # To be able to trigger eks-cluster-pool-manager.yaml workflow
@@ -35,13 +36,13 @@ permissions:
   id-token: write
 
 concurrency:
-  # One comparison per (base-sha, sha, scenario) at a time. Queue instead of
-  # cancelling, since a run holds a dedicated EKS cluster for over an hour and
-  # is always started deliberately by a human.
+  # One comparison per (base-tag, test-tag, scenario) at a time. Queue instead
+  # of cancelling, since a run holds a dedicated EKS cluster for over an hour
+  # and is always started deliberately by a human.
   group: |
     ${{ github.workflow }}
-    ${{ inputs.base-sha }}
-    ${{ inputs.sha }}
+    ${{ inputs.base-tag }}
+    ${{ inputs.test-tag }}
     ${{ inputs.scenario }}
   cancel-in-progress: false
 
@@ -101,25 +102,26 @@ jobs:
       - name: Set up job variables
         id: vars
         env:
-          BASE_SHA: ${{ inputs.base-sha }}
-          SHA: ${{ inputs.sha }}
+          BASE_TAG: ${{ inputs.base-tag }}
+          TEST_TAG: ${{ inputs.test-tag }}
           SCENARIO: ${{ inputs.scenario }}
         run: |
           # Default values for testing.
-          : "${BASE_SHA:=47db9528e4b8077f7551df0fbafc80095c50ee04}"
-          : "${SHA:=b0741c96dd13cd94323fd95fbb57ce0665768e3a}"
-          : "${SCENARIO:=global-identities-churn}"
+          : "${BASE_TAG:=5791d208dda456da8d08e9389c3d22514dc2db77}"
+          : "${TEST_TAG:=e0dc92bd6dac33d7ba3b5eace82a0448bbb13aac}"
+          : "${SCENARIO:=l7-policy-identity-churn}"
 
-          # Both SHAs end up in image tags, cluster resource names and shell
-          # commands, so reject anything that isn't a hex commit SHA.
-          for sha_input in "${BASE_SHA}" "${SHA}"; do
-            if [[ ! "${sha_input}" =~ ^[0-9a-f]{7,40}$ ]]; then
-              echo "::error::'${sha_input}' is not a valid commit SHA"
+          # A tag is either a commit SHA or a released version (eg v1.19.8).
+          # Both end up in image references, git refs, file names and shell
+          # commands, so reject anything outside the docker tag character set.
+          for tag_input in "${BASE_TAG}" "${TEST_TAG}"; do
+            if [[ ! "${tag_input}" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$ ]]; then
+              echo "::error::'${tag_input}' is not a valid image tag"
               exit 1
             fi
           done
-          if [ "${BASE_SHA}" == "${SHA}" ]; then
-            echo "::warning::base-sha and sha are identical, the comparison will not show anything"
+          if [ "${BASE_TAG}" == "${TEST_TAG}" ]; then
+            echo "::warning::base-tag and test-tag are identical, the comparison will not show anything"
           fi
           if [ ! -f ".github/actions/cl2-modules/policy-churn/scenarios/${SCENARIO}.yaml" ]; then
             echo "::error::unknown scenario '${SCENARIO}'"
@@ -136,10 +138,11 @@ jobs:
           EKS_REGION=$(echo "$eks_version_and_region" | cut -d',' -f2)
 
           {
-            echo "base_sha=${BASE_SHA}"
-            echo "sha=${SHA}"
-            echo "base_sha_short=${BASE_SHA:0:12}"
-            echo "sha_short=${SHA:0:12}"
+            echo "base_tag=${BASE_TAG}"
+            echo "test_tag=${TEST_TAG}"
+            # Long enough to identify a commit SHA, a no-op on a version tag.
+            echo "base_tag_short=${BASE_TAG:0:12}"
+            echo "test_tag_short=${TEST_TAG:0:12}"
             echo "scenario=${SCENARIO}"
             echo "owner=${OWNER}"
             echo "cluster_name=${CLUSTER_NAME}"
@@ -156,14 +159,14 @@ jobs:
             echo "| | |"
             echo "|---|---|"
             echo "| Scenario | \`${SCENARIO}\` |"
-            echo "| Baseline SHA | \`${BASE_SHA}\` |"
-            echo "| Test SHA | \`${SHA}\` |"
+            echo "| Baseline tag | \`${BASE_TAG}\` |"
+            echo "| Test tag | \`${TEST_TAG}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Checkout baseline chart (NOT TRUSTED)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ steps.vars.outputs.base_sha }}
+          ref: ${{ steps.vars.outputs.base_tag }}
           persist-credentials: false
           # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
           allow-unsafe-pr-checkout: true
@@ -174,7 +177,7 @@ jobs:
       - name: Checkout test chart (NOT TRUSTED)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ steps.vars.outputs.sha }}
+          ref: ${{ steps.vars.outputs.test_tag }}
           persist-credentials: false
           # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
           allow-unsafe-pr-checkout: true
@@ -182,12 +185,13 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
-      # Both SHAs are expected to have images built already.
+      # Both tags are expected to have images built already. The action's SHA
+      # input is used verbatim as the image tag, so a version works as well.
       - name: Wait for baseline Cilium images
         timeout-minutes: 5
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ steps.vars.outputs.base_sha }}
+          SHA: ${{ steps.vars.outputs.base_tag }}
           images: cilium-ci operator-generic-ci
           login-host: ${{ vars.DOCKER_READ_HOST }}
           login-username: ${{ vars.DOCKER_READ_USERNAME }}
@@ -198,8 +202,8 @@ jobs:
         timeout-minutes: 5
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ steps.vars.outputs.sha }}
-          images: cilium-ci operator-generic-ci cilium-cli-ci
+          SHA: ${{ steps.vars.outputs.test_tag }}
+          images: cilium-ci operator-generic-ci
           login-host: ${{ vars.DOCKER_READ_HOST }}
           login-username: ${{ vars.DOCKER_READ_USERNAME }}
           login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
@@ -283,17 +287,17 @@ jobs:
         id: baseline_vars
         uses: ./.github/actions/helm-default
         with:
-          image-tag: ${{ steps.vars.outputs.base_sha }}
+          image-tag: ${{ steps.vars.outputs.base_tag }}
           registry_host: ${{ vars.DOCKER_READ_HOST }}
           registry_organization: ${{ vars.DOCKER_READ_ORG }}
           chart-dir: ./untrusted/cilium-baseline/install/kubernetes/cilium
           image-pull-secret: "cilium-registry"
 
-      - name: Get Cilium's default values for the test SHA
+      - name: Get Cilium's default values for the test tag
         id: test_vars
         uses: ./.github/actions/helm-default
         with:
-          image-tag: ${{ steps.vars.outputs.sha }}
+          image-tag: ${{ steps.vars.outputs.test_tag }}
           registry_host: ${{ vars.DOCKER_READ_HOST }}
           registry_organization: ${{ vars.DOCKER_READ_ORG }}
           chart-dir: ./untrusted/cilium-test/install/kubernetes/cilium
@@ -301,10 +305,12 @@ jobs:
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@7ca7fc53c20275f5c10ef5f3557076691fd1d720 # v0.19.7
+        timeout-minutes: 5
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ steps.vars.outputs.sha }}
+          # TODO: Fix cilium-cli image tag
+          image-tag: bc38713ac7099e5083ef7b202c45a0d025ad5021
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
@@ -570,7 +576,7 @@ jobs:
           # next run; the Prometheus pod itself is left alone.
           kubectl --namespace monitoring delete secret prometheus-token --ignore-not-found
 
-      - name: Install cilium test SHA
+      - name: Install cilium test tag
         id: install-cilium-test
         run: |
           cilium uninstall
@@ -592,7 +598,7 @@ jobs:
           kubectl create namespace kfuzz
           kubectl --namespace monitoring get pods -o wide
 
-      - name: Run CL2 against the test SHA
+      - name: Run CL2 against the test tag
         id: run-cl2-test
         working-directory: ./perf-tests/clusterloader2
         shell: bash
@@ -605,7 +611,7 @@ jobs:
           "${GITHUB_WORKSPACE}/.github/actions/cl2-modules/policy-churn/run-cl2.sh"
           echo "test_end_ms=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
 
-      - name: Collect test-SHA test-node Cilium agent host logs
+      - name: Collect test-tag test-node Cilium agent host logs
         id: test-host-logs
         if: ${{ always() && steps.run-cl2-test.outcome != 'skipped' && steps.run-cl2-test.outcome != 'cancelled' }}
         continue-on-error: true
@@ -615,7 +621,7 @@ jobs:
             "${CL2_TEST_NODE_NAME}" test \
             ./perf-tests/clusterloader2/report/test/cilium-agent-test-node-host-logs.tar.gz
 
-      - name: Get test SHA sysdump
+      - name: Get test tag sysdump
         if: ${{ always() && steps.install-cilium-test.outcome == 'success' }}
         continue-on-error: true
         run: |
@@ -636,15 +642,14 @@ jobs:
           TEST_END_MS: ${{ steps.run-cl2-test.outputs.test_end_ms }}
           REPORT_ROOT: ${{ github.workspace }}/perf-tests/clusterloader2/report
           SCENARIO: ${{ steps.vars.outputs.scenario }}
-          BASELINE_SHA_SHORT: ${{ steps.vars.outputs.base_sha_short }}
-          TEST_SHA_SHORT: ${{ steps.vars.outputs.sha_short }}
+          BASELINE_TAG_SHORT: ${{ steps.vars.outputs.base_tag_short }}
+          TEST_TAG_SHORT: ${{ steps.vars.outputs.test_tag_short }}
         run: |
           if [ -z "${BASELINE_START_MS}" ]; then
             echo "::error::The baseline run never started, there is nothing to render"
             exit 1
           fi
 
-          sudo apt-get install -y imagemagick
           chmod +x ./dashboard/render.sh
 
           NOW=$(date +%s%3N)
@@ -664,9 +669,9 @@ jobs:
             echo "::endgroup::"
           }
 
-          baseline_dashboard_path="${REPORT_ROOT}/baseline/${SCENARIO}-baseline-${BASELINE_SHA_SHORT}-dashboard.png"
-          test_dashboard_path="${REPORT_ROOT}/test/${SCENARIO}-test-${TEST_SHA_SHORT}-dashboard.png"
-          comparision_dashboard_path="${REPORT_ROOT}/test/${SCENARIO}-compare-${BASELINE_SHA_SHORT}-vs-${TEST_SHA_SHORT}-dashboard.png"
+          baseline_dashboard_path="${REPORT_ROOT}/baseline/${SCENARIO}-baseline-${BASELINE_TAG_SHORT}-dashboard.png"
+          test_dashboard_path="${REPORT_ROOT}/test/${SCENARIO}-test-${TEST_TAG_SHORT}-dashboard.png"
+          comparision_dashboard_path="${REPORT_ROOT}/test/${SCENARIO}-compare-${BASELINE_TAG_SHORT}-vs-${TEST_TAG_SHORT}-dashboard.png"
 
           render "${BASELINE_START_MS}" "${BASELINE_END_MS}" "${baseline_dashboard_path}"
 
@@ -674,13 +679,17 @@ jobs:
             render "${TEST_START_MS}" "${TEST_END_MS}" "${test_dashboard_path}"
             render "${BASELINE_START_MS}" "${TEST_END_MS}" "${comparision_dashboard_path}"
           else
-            echo "::warning::The test SHA run never started, rendering the baseline dashboard only"
+            echo "::warning::The test tag run never started, rendering the baseline dashboard only"
           fi
 
-          echo "baseline_dashboard_path=${baseline_dashboard_path}" >> "${GITHUB_OUTPUT}"
-          echo "test_dashboard_path=${test_dashboard_path}" >> "${GITHUB_OUTPUT}"
-          echo "comparision_dashboard_path=${comparision_dashboard_path}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "baseline_dashboard_path=${baseline_dashboard_path}"
+            echo "test_dashboard_path=${test_dashboard_path}"
+            echo "comparision_dashboard_path=${comparision_dashboard_path}"
+          } >> "${GITHUB_OUTPUT}"
 
+      # Github doesn't support adding images in github summary.
+      # For now upload as separate artifacts so its easy to access.
       - name: Upload baseline result dashboard
         if: ${{ always() && steps.render-dashboards.outcome != 'skipped' && steps.render-dashboards.outcome != 'cancelled' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -711,8 +720,6 @@ jobs:
           retention-days: 7
           archive: false
 
-      # Github doesn't support adding images in github summary.
-      # For now upload as separate artifacts so its easy to access.
       - name: Upload result dashboards, host logs and sysdumps
         if: ${{ always() && steps.run-cl2-baseline.outcome != 'skipped' && steps.run-cl2-baseline.outcome != 'cancelled' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -730,7 +737,7 @@ jobs:
       - name: Baseline results heading
         if: ${{ always() && steps.run-cl2-baseline.outcome != 'skipped' }}
         run: |
-          echo "## Baseline results (\`${{ steps.vars.outputs.base_sha }}\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Baseline results (\`${{ steps.vars.outputs.base_tag }}\`)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish baseline results
         if: ${{ always() && steps.run-cl2-baseline.outcome != 'skipped' }}
@@ -742,12 +749,12 @@ jobs:
           capture_sysdump: 'false'
           capture_features_tested: 'false'
 
-      - name: Test SHA results heading
+      - name: Test tag results heading
         if: ${{ always() && steps.run-cl2-test.outcome != 'skipped' }}
         run: |
-          echo "## Test SHA results (\`${{ steps.vars.outputs.sha }}\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Test tag results (\`${{ steps.vars.outputs.test_tag }}\`)" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish test SHA results
+      - name: Publish test tag results
         if: ${{ always() && steps.run-cl2-test.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
@@ -762,17 +769,18 @@ jobs:
         uses: cilium/scale-tests-action/export-results@7e3eae9de9542f1a7616ca797e2d5090e8f9f8ee # main
         with:
           test_name: ${{ env.test_name }}-${{ steps.vars.outputs.scenario }}
-          tested_sha: ${{ steps.vars.outputs.base_sha }}
+          # Only used to label the results in the bucket, a version is fine.
+          tested_sha: ${{ steps.vars.outputs.base_tag }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/baseline/
           other_files: cilium-sysdump-baseline.zip ./perf-tests/clusterloader2/cl2-output-baseline.txt
 
-      - name: Export test SHA results to GS bucket
+      - name: Export test tag results to GS bucket
         if: ${{ always() && steps.run-cl2-test.outcome != 'skipped' && steps.run-cl2-test.outcome != 'cancelled' }}
         uses: cilium/scale-tests-action/export-results@7e3eae9de9542f1a7616ca797e2d5090e8f9f8ee # main
         with:
           test_name: ${{ env.test_name }}-${{ steps.vars.outputs.scenario }}
-          tested_sha: ${{ steps.vars.outputs.sha }}
+          tested_sha: ${{ steps.vars.outputs.test_tag }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./perf-tests/clusterloader2/report/test/
           other_files: cilium-sysdump-test.zip ./perf-tests/clusterloader2/cl2-output-test.txt
