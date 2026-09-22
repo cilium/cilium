@@ -467,6 +467,7 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 	defer mgr.mutex.Unlock()
 
 	delete(mgr.endpoints, ep.ID)
+	delete(mgr.markedEndpoints, ep.ID)
 	mgr.mcastManager.RemoveAddress(ep.IPv6)
 	mgr.removeReferencesLocked(identifiers)
 }
