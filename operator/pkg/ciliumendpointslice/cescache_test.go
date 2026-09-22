@@ -458,3 +458,23 @@ func TestCESCacheClearsStaleState(t *testing.T) {
 		}
 	}
 }
+
+func TestGetCIDForCEPWithoutCID(t *testing.T) {
+	cepName := NewCEPName("cep1", "ns")
+	cesName := CESName("ces1")
+	gidLabels := Labels("k8s:key-a=val-1")
+
+	cmap := newCESCache()
+	cmap.insertCES(cesName, "ns")
+	cmap.addCEP(cepName, cesName, NodeName("node1"), gidLabels)
+
+	cid, ok := cmap.getCIDForCEP(cepName)
+	assert.False(t, ok, "CEP whose labels have no CID yet should not report one")
+	assert.Equal(t, CID(""), cid)
+
+	cmap.insertCID(CID("1"), gidLabels)
+
+	cid, ok = cmap.getCIDForCEP(cepName)
+	assert.True(t, ok, "CEP should report a CID once one exists for its labels")
+	assert.Equal(t, CID("1"), cid)
+}
