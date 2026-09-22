@@ -4,9 +4,8 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
-	"text/tabwriter"
+	"sort"
 
 	"github.com/spf13/cobra"
 
@@ -14,7 +13,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/identity/cache"
 )
 
 var (
@@ -22,6 +21,9 @@ var (
 )
 
 func printIdentities(identities []*models.Identity) {
+	im := cache.IdentitiesModel(identities)
+	sort.Slice(im, im.Less)
+
 	if command.OutputOption() {
 		if err := command.PrintOutput(identities); err != nil {
 			Fatalf("Unable to provide %s output: %s", command.OutputOptionString(), err)
@@ -29,21 +31,7 @@ func printIdentities(identities []*models.Identity) {
 		return
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-	fmt.Fprintf(w, "ID\tLABELS\n")
-	for _, identity := range identities {
-		lbls := labels.NewLabelsFromModel(identity.Labels)
-		first := true
-		for _, lbl := range lbls.GetPrintableModel() {
-			if first {
-				fmt.Fprintf(w, "%d\t%s\n", identity.ID, lbl)
-				first = false
-			} else {
-				fmt.Fprintf(w, "\t%s\n", lbl)
-			}
-		}
-	}
-	w.Flush()
+	cache.FormatIdentities(os.Stdout, identities)
 }
 
 // identityGetCmd represents the identity_get command

@@ -1081,18 +1081,7 @@ func ScriptCmds(a *CachingIdentityAllocator) map[string]script.Cmd {
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
 				return func(s *script.State) (stdout string, stderr string, err error) {
 					var sb strings.Builder
-					models := a.GetIdentities()
-					sb.WriteRune('[')
-					for _, m := range models {
-						sb.WriteString(strconv.FormatInt(m.ID, 10))
-						sb.WriteRune(' ')
-						sb.WriteRune('{')
-						sb.WriteString(strings.Join([]string(m.Labels), ","))
-						sb.WriteRune('}')
-						sb.WriteRune(' ')
-					}
-					sb.WriteRune(']')
-					sb.WriteRune('\n')
+					FormatIdentities(&sb, a.GetIdentities())
 					return sb.String(), "", nil
 				}, nil
 			},

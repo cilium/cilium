@@ -4,15 +4,19 @@
 package identitymanager
 
 import (
+	"fmt"
+	"io"
 	"log/slog"
-	"strconv"
+	"sort"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/cilium/hive/script"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/model"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -235,6 +239,29 @@ func (s IdentitiesModel) Less(i, j int) bool {
 	return s[i].Identity.ID < s[j].Identity.ID
 }
 
+// FormatIdentityEndpoints writes the identities as an ID/LABELS/REFCOUNT table,
+// sorted by ID.
+func FormatIdentityEndpoints(w io.Writer, identities []*models.IdentityEndpoints) {
+	im := IdentitiesModel(identities)
+	sort.Slice(im, im.Less)
+
+	tw := tabwriter.NewWriter(w, 5, 0, 3, ' ', 0)
+	fmt.Fprintf(tw, "ID\tLABELS\tREFCOUNT\n")
+	for _, identity := range im {
+		lbls := labels.NewLabelsFromModel(identity.Identity.Labels)
+		first := true
+		for _, lbl := range lbls.GetPrintableModel() {
+			if first {
+				fmt.Fprintf(tw, "%d\t%s\t%d\t\n", identity.Identity.ID, lbl, identity.RefCount)
+				first = false
+			} else {
+				fmt.Fprintf(tw, "\t%s\t\n", lbl)
+			}
+		}
+	}
+	tw.Flush()
+}
+
 func ScriptCmds(idm *IdentityManager) map[string]script.Cmd {
 	return map[string]script.Cmd{
 		"idm/list": script.Command(
@@ -243,19 +270,7 @@ func ScriptCmds(idm *IdentityManager) map[string]script.Cmd {
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
 				var sb strings.Builder
-				models := idm.GetIdentityModels()
-				sb.WriteRune('[')
-				for _, m := range models {
-					sb.WriteString(strconv.FormatInt(m.Identity.ID, 10))
-					sb.WriteRune(' ')
-					sb.WriteRune('{')
-					sb.WriteString(strings.Join([]string(m.Identity.Labels), ","))
-					sb.WriteRune('}')
-					sb.WriteRune(' ')
-				}
-				sb.WriteRune(']')
-				sb.WriteRune('\n')
-
+				FormatIdentityEndpoints(&sb, idm.GetIdentityModels())
 				return func(s *script.State) (stdout string, stderr string, err error) {
 					return sb.String(), "", nil
 				}, nil
