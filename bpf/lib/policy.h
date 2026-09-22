@@ -151,8 +151,8 @@ __policy_account(__u32 remote_id, __u8 egress, __u8 proto, __be16 dport, __u8 lp
 	value = map_lookup_elem(&cilium_policystats, &stats_key);
 
 	if (value) {
-		__sync_fetch_and_add(&value->packets, 1);
-		__sync_fetch_and_add(&value->bytes, bytes);
+		value->packets++;
+		value->bytes += bytes;
 	} else {
 		struct policy_stats_value newval = { 1, bytes };
 
