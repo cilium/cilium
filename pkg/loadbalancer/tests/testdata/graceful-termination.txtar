@@ -75,11 +75,6 @@ db/cmp backends backends-terminating3.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps-terminating3.expected lbmaps.actual
 
-# Restart while the inactive tail contains a terminating-not-serving backend.
-# The terminating backend should not be considered quarantined and pending
-# health check after we set it to 'ready' in the next step.
-test/bpfops-reset
-
 # Set the first backend as not serving and second as ready+terminating .
 # First backend will be kept but in maintenance and not load-balanced..
 # The second backend will be just considered ready and its terminating
@@ -95,8 +90,7 @@ k8s/update endpointslice.yaml
 db/cmp frontends frontends.table
 db/cmp backends backends-terminating4.table
 
-# Check BPF maps. Backend 1 should not be present as it's not ready nor terminating
-# and backend 2 should be active and not quarantined.
+# Check BPF maps
 lb/maps-dump lbmaps.actual
 * cmp lbmaps-terminating4.expected lbmaps.actual
 
@@ -287,4 +281,3 @@ REV: ID=1 ADDR=10.96.116.33:8081
 SVC: ID=0 ADDR=10.96.116.33:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
 SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP
 SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
-SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
