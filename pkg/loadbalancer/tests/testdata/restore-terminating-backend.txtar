@@ -1,0 +1,185 @@
+#! --bpf-lb-algorithm=maglev --bpf-lb-external-clusterip=true --lb-test-fault-probability=0.0
+# Test that a terminating and not serving backend sitting in the inactive tail
+# of the service entry is restored as terminating and not as health-quarantined.
+
+# Privileged mode uses real BPF maps, which are attached to the hive lifecycle.
+# Stop this test in privileged mode because we can't simulate the agent restarting
+# against BPF state that is not retained.
+[privileged] stop
+
+hive start
+
+# The first backend is terminating but still serving, so it stays in rotation.
+# The second is terminating and not serving, so it sits in the inactive tail.
+cp endpointslice.yaml.tmpl endpointslice.yaml
+replace '$READY1' 'false' endpointslice.yaml
+replace '$SERVING1' 'true' endpointslice.yaml
+replace '$TERM1' 'true' endpointslice.yaml
+replace '$READY2' 'false' endpointslice.yaml
+replace '$SERVING2' 'false' endpointslice.yaml
+replace '$TERM2' 'true' endpointslice.yaml
+k8s/add service.yaml endpointslice.yaml
+db/cmp frontends frontends.table
+db/cmp backends backends-terminating.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-terminating.expected lbmaps.actual
+
+# Restart the agent. The replacement agent restores the IDs and the quarantine
+# state from the retained maps and reconstructs the same contents from scratch.
+hive stop
+hive/recreate
+hive start
+test/init-wait
+db/cmp frontends frontends.table
+db/cmp backends backends-terminating.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-terminating.expected lbmaps.actual
+
+# Set the first backend as not serving and second as ready+terminating.
+# First backend will be kept but in maintenance and not load-balanced.
+# The second backend will be just considered ready and its terminating
+# condition is ignored ("ready" overrides everything). It must be load-balanced
+# and not left quarantined by the restore.
+cp endpointslice.yaml.tmpl endpointslice.yaml
+replace '$READY1' 'false' endpointslice.yaml
+replace '$SERVING1' 'false' endpointslice.yaml
+replace '$TERM1' 'false' endpointslice.yaml
+replace '$READY2' 'true' endpointslice.yaml
+replace '$SERVING2' 'false' endpointslice.yaml
+replace '$TERM2' 'true' endpointslice.yaml
+k8s/update endpointslice.yaml
+db/cmp frontends frontends.table
+db/cmp backends backends-ready.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-ready.expected lbmaps.actual
+
+# Cleanup
+k8s/delete service.yaml endpointslice.yaml
+
+# Tables and maps should be empty now
+* db/empty services frontends backends
+* lb/maps-empty
+
+#####
+
+-- frontends.table --
+Address                 Type        ServiceName              Status  Backends
+10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   Done    10.244.0.112:8081/TCP, 10.244.0.113:8081/TCP
+
+-- backends-terminating.table --
+Service                 Address                State                    NodeName
+test/graceful-term-svc  10.244.0.112:8081/TCP  terminating              graceful-term-control-plane
+test/graceful-term-svc  10.244.0.113:8081/TCP  terminating-not-serving  graceful-term-control-plane
+
+-- backends-ready.table --
+Service                 Address                State        NodeName
+test/graceful-term-svc  10.244.0.112:8081/TCP  maintenance  graceful-term-control-plane
+test/graceful-term-svc  10.244.0.113:8081/TCP  active       graceful-term-control-plane
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"graceful-term-svc","namespace":"test"},"spec":{"ports":[{"port":8081}],"selector":{"app":"graceful-term-server"}}}
+  creationTimestamp: "2023-02-02T01:21:10Z"
+  name: graceful-term-svc
+  namespace: test
+  resourceVersion: "663"
+  uid: be7e85d4-6d27-400b-aff2-bd7284837fc9
+spec:
+  clusterIP: 10.96.116.33
+  clusterIPs:
+  - 10.96.116.33
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 8081
+    protocol: TCP
+    targetPort: 8081
+  selector:
+    app: graceful-term-server
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- endpointslice.yaml.tmpl --
+kind: EndpointSlice
+apiVersion: discovery.k8s.io/v1
+metadata:
+  creationTimestamp: "2023-02-02T01:21:10Z"
+  generateName: graceful-term-svc-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: graceful-term-svc
+  name: graceful-term-svc-pg7nd
+  namespace: test
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: graceful-term-svc
+    uid: be7e85d4-6d27-400b-aff2-bd7284837fc9
+  resourceVersion: "729"
+  uid: ed13283f-c92e-4531-ae1b-f6d6aa4463b7
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.0.112
+  conditions:
+    ready: $READY1
+    serving: $SERVING1
+    terminating: $TERM1
+  nodeName: graceful-term-control-plane
+  targetRef:
+    kind: Pod
+    name: graceful-term-server
+    namespace: test
+    uid: 82f690d0-e3ed-4981-af97-30133d1b457e
+
+- addresses:
+  - 10.244.0.113
+  conditions:
+    ready: $READY2
+    serving: $SERVING2
+    terminating: $TERM2
+  nodeName: graceful-term-control-plane
+  targetRef:
+    kind: Pod
+    name: graceful-term-server-2
+    namespace: test
+    uid: 92f690d0-e3ed-4981-af97-30133d1b457e
+ports:
+- name: ""
+  port: 8081
+  protocol: TCP
+
+-- lbmaps-terminating.expected --
+BE: ID=1 ADDR=10.244.0.112:8081/TCP STATE=terminating
+BE: ID=2 ADDR=10.244.0.113:8081/TCP STATE=terminating
+MAGLEV: ID=1 INNER=[1(1021)]
+REV: ID=1 ADDR=10.96.116.33:8081
+SVC: ID=0 ADDR=10.96.116.33:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=1 FLAGS=ClusterIP
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
+-- lbmaps-ready.expected --
+BE: ID=1 ADDR=10.244.0.112:8081/TCP STATE=maintenance
+BE: ID=2 ADDR=10.244.0.113:8081/TCP STATE=active
+MAGLEV: ID=1 INNER=[2(1021)]
+REV: ID=1 ADDR=10.96.116.33:8081
+SVC: ID=0 ADDR=10.96.116.33:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP
+SVC: ID=1 ADDR=10.96.116.33:8081/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP
