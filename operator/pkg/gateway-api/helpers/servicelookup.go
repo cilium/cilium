@@ -32,10 +32,9 @@ func GetBackendServiceName(k8sclient ClientReader, namespace string, backendObje
 		if err != nil {
 			return "", err
 		}
-	
-	case HasInferencePoolSupport(k8sclient.Scheme()) && IsInferencePool(backendObjectReference):
-		return string(backendObjectReference.Name),nil	
 
+	case HasInferencePoolSupport(k8sclient.Scheme()) && IsInferencePool(backendObjectReference):
+		return ShadowServiceName(string(backendObjectReference.Name)), nil
 
 	default:
 		return "", fmt.Errorf("unsupported backend kind %s", *backendObjectReference.Kind)
