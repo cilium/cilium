@@ -97,6 +97,7 @@ const (
 	testConnDisruptClientDeploymentName                              = "test-conn-disrupt-client"
 	testConnDisruptClientNSTrafficDeploymentName                     = "test-conn-disrupt-client"
 	testConnDisruptClientL7TrafficDeploymentName                     = "test-conn-disrupt-client-l7"
+	testConnDisruptClientEgressGatewayDeploymentName                 = "test-conn-disrupt-client-egw"
 	testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName    = "test-conn-disrupt-client-egw-gw-node"
 	testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName = "test-conn-disrupt-client-egw-non-gw-node"
 	testConnDisruptServerDeploymentName                              = "test-conn-disrupt-server"
@@ -657,7 +658,22 @@ func newConnDisruptCNPForEgressGateway(ns string) *ciliumv2.CiliumNetworkPolicy 
 	}
 }
 
-func newConnDisruptCEGP(ns, gwNode string) *ciliumv2.CiliumEgressGatewayPolicy {
+func (ct *ConnectivityTest) newConnDisruptCEGP(gwNode string) *ciliumv2.CiliumEgressGatewayPolicy {
+	var destinationCIDRs []iputil.Prefix
+	ct.ForEachIPFamily(func(family features.IPFamily) {
+		switch family {
+		case features.IPFamilyV4:
+			destinationCIDRs = append(destinationCIDRs, iputil.PrefixFrom(netip.MustParsePrefix("0.0.0.0/0")))
+		case features.IPFamilyV6:
+			if versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
+				destinationCIDRs = append(destinationCIDRs, iputil.PrefixFrom(netip.MustParsePrefix("::/0")))
+			}
+		}
+	})
+	if len(destinationCIDRs) == 0 {
+		destinationCIDRs = []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("0.0.0.0/0"))}
+	}
+
 	return &ciliumv2.CiliumEgressGatewayPolicy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       ciliumv2.CEGPKindDefinition,
@@ -669,13 +685,13 @@ func newConnDisruptCEGP(ns, gwNode string) *ciliumv2.CiliumEgressGatewayPolicy {
 				{
 					PodSelector: &slimmetav1.LabelSelector{
 						MatchLabels: map[string]slimmetav1.MatchLabelsValue{
-							k8sconst.PodNamespaceLabel: ns,
+							k8sconst.PodNamespaceLabel: ct.params.TestNamespace,
 							"kind":                     KindTestConnDisruptEgressGateway,
 						},
 					},
 				},
 			},
-			DestinationCIDRs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("0.0.0.0/0"))},
+			DestinationCIDRs: destinationCIDRs,
 			ExcludedCIDRs:    []iputil.Prefix{},
 			EgressGateway: &ciliumv2.EgressGateway{
 				NodeSelector: &slimmetav1.LabelSelector{
@@ -1151,7 +1167,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			cegp := newConnDisruptCEGP(ct.params.TestNamespace, gatewayNode)
+			cegp := ct.newConnDisruptCEGP(gatewayNode)
 			ct.Logf("✨ [%s] Deploying %s CiliumEgressGatewayPolicy...", ct.K8sClient().ClusterName(), cegp.Name)
 			_, err = ct.K8sClient().ApplyGeneric(ctx, cegp)
 			if err != nil {
@@ -1163,21 +1179,8 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				return err
 			}
 
-			if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, KindTestConnDisruptEgressGateway,
-				testConnDisruptClientEgressGatewayOnGatewayNodeAppLabel, fmt.Sprintf("test-conn-disrupt-egw.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
-				1, false, map[string]string{"kubernetes.io/hostname": gatewayNode}, ""); err != nil {
+			if err := ct.createTestConnDisruptClientDeploymentForEgressGateway(ctx, gatewayNode, nonGatewayNode); err != nil {
 				return err
-			}
-			if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName, KindTestConnDisruptEgressGateway,
-				testConnDisruptClientEgressGatewayOnNonGatewayNodeAppLabel, fmt.Sprintf("test-conn-disrupt-egw.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
-				1, false, map[string]string{"kubernetes.io/hostname": nonGatewayNode}, ""); err != nil {
-				return err
-			}
-			for _, clientDeploy := range []string{testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName} {
-				err := WaitForDeployment(ctx, ct, ct.clients.dst, ct.params.TestNamespace, clientDeploy)
-				if err != nil {
-					ct.Failf("%s deployment is not ready: %s", clientDeploy, err)
-				}
 			}
 
 			testPods := append(
@@ -2277,30 +2280,119 @@ func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, i
 	return netip.Addr{}
 }
 
-func (ct *ConnectivityTest) getConnDisruptClientEgressGatewayPodIPs(ctx context.Context) ([]string, error) {
-	var appLabels []string
-	appLabels = append(appLabels, fmt.Sprintf("app=%s", testConnDisruptClientEgressGatewayOnGatewayNodeAppLabel))
-	appLabels = append(appLabels, fmt.Sprintf("app=%s", testConnDisruptClientEgressGatewayOnNonGatewayNodeAppLabel))
+func getServiceClusterIP(svc *corev1.Service, family features.IPFamily) string {
+	var targetFamily corev1.IPFamily
+	switch family {
+	case features.IPFamilyV4:
+		targetFamily = corev1.IPv4Protocol
+	case features.IPFamilyV6:
+		targetFamily = corev1.IPv6Protocol
+	default:
+		return ""
+	}
 
-	var podIPs []string
-	for _, appLabel := range appLabels {
-		connDisruptPods, err := listLivePods(ctx, ct.K8sClient(), ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: appLabel})
-		if err != nil {
-			return nil, fmt.Errorf("unable to list pods with lable %s: %w", appLabel, err)
-		}
-
-		for _, connDisruptPod := range connDisruptPods {
-			podIPs = append(podIPs, connDisruptPod.Status.PodIP)
+	for i, f := range svc.Spec.IPFamilies {
+		if f == targetFamily && i < len(svc.Spec.ClusterIPs) {
+			return svc.Spec.ClusterIPs[i]
 		}
 	}
 
-	return podIPs, nil
+	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != corev1.ClusterIPNone {
+		ip, err := netip.ParseAddr(svc.Spec.ClusterIP)
+		if err == nil {
+			if (family == features.IPFamilyV4 && ip.Is4()) || (family == features.IPFamilyV6 && ip.Is6()) {
+				return svc.Spec.ClusterIP
+			}
+		}
+	}
+
+	return ""
+}
+
+func (ct *ConnectivityTest) createTestConnDisruptClientDeploymentForEgressGateway(ctx context.Context, gatewayNode, nonGatewayNode string) error {
+	svc, err := ct.clients.src.GetService(ctx, ct.params.TestNamespace, testConnDisruptEgressGatewayServiceName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to get service %s: %w", testConnDisruptEgressGatewayServiceName, err)
+	}
+
+	nodes := []struct {
+		nodeType string
+		nodeName string
+	}{
+		{nodeType: "gw-node", nodeName: gatewayNode},
+		{nodeType: "non-gw-node", nodeName: nonGatewayNode},
+	}
+
+	var errs error
+	ct.ForEachIPFamily(func(family features.IPFamily) {
+		if family == features.IPFamilyV6 && !versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
+			return
+		}
+
+		clusterIP := getServiceClusterIP(svc, family)
+		if clusterIP == "" {
+			errs = errors.Join(errs, fmt.Errorf("unable to find %s ClusterIP for service %s", family, testConnDisruptEgressGatewayServiceName))
+			return
+		}
+
+		targetAddress := net.JoinHostPort(clusterIP, "8000")
+
+		for _, n := range nodes {
+			deployName := fmt.Sprintf("%s-%s-%s", testConnDisruptClientEgressGatewayDeploymentName, n.nodeType, family)
+			appLabel := deployName
+			if err := ct.createTestConnDisruptClientDeployment(ctx,
+				deployName,
+				KindTestConnDisruptEgressGateway,
+				appLabel,
+				targetAddress,
+				1,
+				false,
+				map[string]string{"kubernetes.io/hostname": n.nodeName},
+				""); err != nil {
+				errs = errors.Join(errs, err)
+			}
+			ct.testConnDisruptClientEgressGatewayDeploymentNames = append(ct.testConnDisruptClientEgressGatewayDeploymentNames, deployName)
+		}
+	})
+
+	if errs != nil {
+		return errs
+	}
+
+	for _, clientDeploy := range ct.testConnDisruptClientEgressGatewayDeploymentNames {
+		err := WaitForDeployment(ctx, ct, ct.clients.dst, ct.params.TestNamespace, clientDeploy)
+		if err != nil {
+			ct.Failf("%s deployment is not ready: %s", clientDeploy, err)
+		}
+	}
+
+	return nil
+}
+
+func (ct *ConnectivityTest) getConnDisruptClientEgressGatewayPods(ctx context.Context) ([]corev1.Pod, error) {
+	podList, err := listLivePods(ctx, ct.K8sClient(), ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + KindTestConnDisruptEgressGateway})
+	if err != nil {
+		return nil, fmt.Errorf("unable to list pods with kind %s: %w", KindTestConnDisruptEgressGateway, err)
+	}
+
+	var clientPods []corev1.Pod
+	for _, pod := range podList {
+		if pod.Labels["app"] == testConnDisruptServerEgressGatewayAppLabel {
+			continue
+		}
+		if _, ok := ct.nodesWithoutCilium[pod.Spec.NodeName]; ok {
+			continue
+		}
+		clientPods = append(clientPods, pod)
+	}
+
+	return clientPods, nil
 }
 
 func (ct *ConnectivityTest) GetConnDisruptEgressPolicyEntries(ctx context.Context, ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
 	var targetEntries []BPFEgressGatewayPolicyEntry
 
-	podIPs, err := ct.getConnDisruptClientEgressGatewayPodIPs(ctx)
+	clientPods, err := ct.getConnDisruptClientEgressGatewayPods(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -2315,19 +2407,61 @@ func (ct *ConnectivityTest) GetConnDisruptEgressPolicyEntries(ctx context.Contex
 		return nil, nil
 	}
 
+	var ipv6Enabled bool
+	if status, ok := ct.Feature(features.IPv6); ok && status.Enabled && versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion) {
+		ipv6Enabled = true
+	}
+
+	gatewayIPv6 := ct.GetGatewayNodeInternalIP(gatewayNode, true)
+
 	egressIP := "0.0.0.0"
 	if ciliumPod.Pod.Spec.NodeName == gatewayNode {
 		egressIP = gatewayIP.String()
 	}
 
-	for _, podIP := range podIPs {
-		targetEntries = append(targetEntries,
-			BPFEgressGatewayPolicyEntry{
-				SourceIP:  podIP,
-				DestCIDR:  "0.0.0.0/0",
-				EgressIP:  egressIP,
-				GatewayIP: gatewayIP.String(),
-			})
+	egressIPv6 := "::"
+	if ipv6Enabled && gatewayIPv6.IsValid() && ciliumPod.Pod.Spec.NodeName == gatewayNode {
+		egressIPv6 = gatewayIPv6.String()
+	}
+
+	for _, pod := range clientPods {
+		var podIPv4, podIPv6 string
+		for _, podIP := range pod.Status.PodIPs {
+			parsedIP := net.ParseIP(podIP.IP)
+			if parsedIP == nil {
+				continue
+			}
+			if parsedIP.To4() != nil && podIPv4 == "" {
+				podIPv4 = podIP.IP
+			} else if parsedIP.To4() == nil && podIPv6 == "" {
+				podIPv6 = podIP.IP
+			}
+		}
+		if podIPv4 == "" && pod.Status.PodIP != "" {
+			if parsedIP := net.ParseIP(pod.Status.PodIP); parsedIP != nil && parsedIP.To4() != nil {
+				podIPv4 = pod.Status.PodIP
+			}
+		}
+
+		if podIPv4 != "" {
+			targetEntries = append(targetEntries,
+				BPFEgressGatewayPolicyEntry{
+					SourceIP:  podIPv4,
+					DestCIDR:  "0.0.0.0/0",
+					EgressIP:  egressIP,
+					GatewayIP: gatewayIP.String(),
+				})
+		}
+
+		if ipv6Enabled && podIPv6 != "" {
+			targetEntries = append(targetEntries,
+				BPFEgressGatewayPolicyEntry{
+					SourceIP:  podIPv6,
+					DestCIDR:  "::/0",
+					EgressIP:  egressIPv6,
+					GatewayIP: gatewayIP.String(),
+				})
+		}
 	}
 
 	return targetEntries, nil
@@ -2686,8 +2820,7 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		}
 		if ct.ShouldRunConnDisruptEgressGateway() {
 			srcList = append(srcList, testConnDisruptServerEgressGatewayDeploymentName)
-			dstList = append(dstList, testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName,
-				testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName)
+			dstList = append(dstList, ct.testConnDisruptClientEgressGatewayDeploymentNames...)
 		}
 	}
 
@@ -2780,7 +2913,16 @@ func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context,
 
 	deployList, err = client.ListDeployment(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + KindTestConnDisruptL7Traffic})
 	if err != nil {
-		ct.Warnf("failed to list deployments: %s %v", KindTestConnDisruptNSTraffic, err)
+		ct.Warnf("failed to list deployments: %s %v", KindTestConnDisruptL7Traffic, err)
+	}
+	for _, deploy := range deployList.Items {
+		_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, deploy.Name, metav1.DeleteOptions{})
+		_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, deploy.Name, metav1.DeleteOptions{})
+	}
+
+	deployList, err = client.ListDeployment(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + KindTestConnDisruptEgressGateway})
+	if err != nil {
+		ct.Warnf("failed to list deployments: %s %v", KindTestConnDisruptEgressGateway, err)
 	}
 	for _, deploy := range deployList.Items {
 		_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, deploy.Name, metav1.DeleteOptions{})

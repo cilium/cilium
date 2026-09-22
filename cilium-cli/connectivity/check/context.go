@@ -106,8 +106,9 @@ type ConnectivityTest struct {
 	nodesWithoutCilium map[string]struct{}
 	ciliumNodes        map[NodeIdentity]*ciliumv2.CiliumNode
 
-	testConnDisruptClientNSTrafficDeploymentNames []string
-	testConnDisruptClientL7TrafficDeploymentNames []string
+	testConnDisruptClientNSTrafficDeploymentNames     []string
+	testConnDisruptClientL7TrafficDeploymentNames     []string
+	testConnDisruptClientEgressGatewayDeploymentNames []string
 }
 
 // NodeIdentity uniquely identifies a Node by Cluster and Name.
