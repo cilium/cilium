@@ -177,6 +177,11 @@ func NewDNSCacheWithLimit(minTTL int, limit int) *DNSCache {
 	return c
 }
 
+// MinTTL returns the minimum TTL applied to new cache entries.
+func (c *DNSCache) MinTTL() int {
+	return c.minTTL
+}
+
 func (c *DNSCache) DisableCleanupTrack() {
 	c.mu.Lock()
 	defer c.mu.Unlock()

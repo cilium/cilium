@@ -28,10 +28,16 @@ func TestUpdateEndpointFQDNState(t *testing.T) {
 
 	lookupTime := time.Unix(1700000000, 0).UTC()
 	ip := netip.MustParseAddr("1.1.1.1")
-	handler.updateEndpointFQDNState(42, "example.com", []netip.Addr{ip}, lookupTime, 60)
-	handler.updateEndpointFQDNState(42, "example.com", []netip.Addr{ip}, lookupTime.Add(time.Second), 10)
+	handler.updateEndpointFQDNState(42, "example.com", []netip.Addr{ip}, lookupTime, 60, 0)
+	handler.updateEndpointFQDNState(42, "example.com", []netip.Addr{ip}, lookupTime.Add(time.Second), 10, 0)
 
 	rows := statedb.Collect(tbl.List(db.ReadTxn(), fqdn.QueryEndpointFQDNByEndpoint(42)))
 	require.Len(t, rows, 1)
 	require.Equal(t, lookupTime.Add(60*time.Second), rows[0].ExpirationTime)
+
+	handler.updateEndpointFQDNState(42, "example.org", []netip.Addr{ip}, lookupTime, 10, 30)
+	rows = statedb.Collect(tbl.List(db.ReadTxn(), fqdn.QueryEndpointFQDNByName("example.org")))
+	require.Len(t, rows, 1)
+	require.Equal(t, uint32(30), rows[0].TTL)
+	require.Equal(t, lookupTime.Add(30*time.Second), rows[0].ExpirationTime)
 }

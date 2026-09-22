@@ -108,7 +108,9 @@ func (n *manager) doGC(ctx context.Context) error {
 		if len(affectedNames) > 0 || len(dead) > 0 {
 			ep.SyncEndpointHeaderFile()
 		}
-		n.syncEndpointFQDNState(ep)
+		if len(affectedNames) > 0 {
+			n.syncEndpointFQDNState(ep)
+		}
 	}
 
 	leakedNames := initialNames.Difference(allEndpointNames)

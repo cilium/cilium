@@ -344,7 +344,7 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 		}
 		ep.SyncEndpointHeaderFile()
 	}
-	h.updateEndpointFQDNState(ep.ID, qname, responseIPs, lookupTime, TTL)
+	h.updateEndpointFQDNState(ep.ID, qname, responseIPs, lookupTime, TTL, ep.DNSHistory.MinTTL())
 	stat.UpdateEpCacheTime.End(true)
 
 	h.logger.Debug("Updating DNS name in cache from response to query",
@@ -382,9 +382,12 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 	)
 }
 
-func (h *dnsMessageHandler) updateEndpointFQDNState(endpointID uint16, name string, ips []netip.Addr, lookupTime time.Time, ttl int) {
+func (h *dnsMessageHandler) updateEndpointFQDNState(endpointID uint16, name string, ips []netip.Addr, lookupTime time.Time, ttl, minTTL int) {
 	if h.db == nil || h.endpointFQDNTable == nil || name == "" || ttl < 0 {
 		return
+	}
+	if minTTL > ttl {
+		ttl = minTTL
 	}
 
 	txn := h.db.WriteTxn(h.endpointFQDNTable)
