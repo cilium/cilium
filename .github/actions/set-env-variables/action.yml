@@ -38,6 +38,10 @@ runs:
         echo "GCP_PERF_RESULTS_BUCKET=gs://cilium-scale-results" >> $GITHUB_ENV
         echo "CILIUM_RUNTIME_IMAGE_PREFIX=quay.io/cilium/" >> $GITHUB_ENV
 
+        # renovate: datasource=docker
+        KIND_FAKE_EXTERNAL_TARGET_IMAGE="library/nginx:1.31.6-alpine-slim@sha256:80149a0e5bc9fa0b8beaff5b8a453f71ba8ba038895d418381297ffa5cd57782"
+        echo "KIND_FAKE_EXTERNAL_TARGET_IMAGE=$KIND_FAKE_EXTERNAL_TARGET_IMAGE" >> $GITHUB_ENV
+
         # renovate: datasource=github-releases depName=kubernetes-sigs/kind
         KIND_VERSION="v0.33.0"
         # renovate: datasource=docker
