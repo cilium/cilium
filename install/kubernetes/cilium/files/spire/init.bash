@@ -19,11 +19,11 @@ done
 
 echo "Spire Server is up, initializing cilium spire entries..."
 
-AGENT_SPIFFE_ID="spiffe://{{ .Values.authentication.mutual.spire.trustDomain }}/ns/{{ .Values.authentication.mutual.spire.install.namespace }}/sa/spire-agent"
-AGENT_SELECTORS="-selector k8s_psat:agent_ns:{{ .Values.authentication.mutual.spire.install.namespace }} -selector k8s_psat:agent_sa:spire-agent"
-CILIUM_AGENT_SPIFFE_ID="spiffe://{{ .Values.authentication.mutual.spire.trustDomain }}/cilium-agent"
+AGENT_SPIFFE_ID="spiffe://{{ .Values.encryption.ztunnel.spire.trustDomain }}/ns/{{ .Values.encryption.ztunnel.spire.install.namespace }}/sa/spire-agent"
+AGENT_SELECTORS="-selector k8s_psat:agent_ns:{{ .Values.encryption.ztunnel.spire.install.namespace }} -selector k8s_psat:agent_sa:spire-agent"
+CILIUM_AGENT_SPIFFE_ID="spiffe://{{ .Values.encryption.ztunnel.spire.trustDomain }}/cilium-agent"
 CILIUM_AGENT_SELECTORS="-selector k8s:ns:{{ include "cilium.namespace" . }} -selector k8s:sa:{{ .Values.serviceAccounts.cilium.name }}"
-CILIUM_OPERATOR_SPIFFE_ID="spiffe://{{ .Values.authentication.mutual.spire.trustDomain }}/cilium-operator"
+CILIUM_OPERATOR_SPIFFE_ID="spiffe://{{ .Values.encryption.ztunnel.spire.trustDomain }}/cilium-operator"
 CILIUM_OPERATOR_SELECTORS="-selector k8s:ns:{{ include "cilium.namespace" . }} -selector k8s:sa:{{ .Values.serviceAccounts.operator.name }}"
 
 while pgrep spire-server > /dev/null;
