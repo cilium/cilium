@@ -5,7 +5,6 @@ package node
 
 import (
 	"context"
-	"net"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -47,21 +46,21 @@ func (n *addressing) IPv4() node.AddressingFamily {
 	return addressFamily{n, ipv4}
 }
 
-func (a addressFamily) Router() net.IP {
+func (a addressFamily) Router() netip.Addr {
 	if n, err := a.localNode.Get(context.Background()); err == nil {
 		if a.flags&ipv6 != 0 {
 			return n.GetCiliumInternalIPv6()
 		}
 		return n.GetCiliumInternalIPv4()
 	}
-	return nil
+	return netip.Addr{}
 }
 
-func (a addressFamily) PrimaryExternal() net.IP {
+func (a addressFamily) PrimaryExternal() netip.Addr {
 	if n, err := a.localNode.Get(context.Background()); err == nil {
 		return n.GetNodeIP(a.flags&ipv6 != 0)
 	}
-	return nil
+	return netip.Addr{}
 }
 
 func (a addressFamily) AllocationCIDR() netip.Prefix {

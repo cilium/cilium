@@ -4,7 +4,7 @@
 package peer
 
 import (
-	"net"
+	"net/netip"
 	"sync"
 	"testing"
 
@@ -12,6 +12,7 @@ import (
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -57,7 +58,7 @@ func TestNodeAdd(t *testing.T) {
 				IPAddresses: []types.Address{
 					{
 						Type: addressing.NodeInternalIP,
-						IP:   net.ParseIP("192.0.2.1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 					},
 				},
 			},
@@ -76,7 +77,7 @@ func TestNodeAdd(t *testing.T) {
 				IPAddresses: []types.Address{
 					{
 						Type: addressing.NodeExternalIP,
-						IP:   net.ParseIP("192.0.2.1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 					},
 				},
 			},
@@ -95,11 +96,11 @@ func TestNodeAdd(t *testing.T) {
 				IPAddresses: []types.Address{
 					{
 						Type: addressing.NodeExternalIP,
-						IP:   net.ParseIP("192.0.2.1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 					},
 					{
 						Type: addressing.NodeInternalIP,
-						IP:   net.ParseIP("fe80::1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("fe80::1")),
 					},
 				},
 			},
@@ -118,11 +119,11 @@ func TestNodeAdd(t *testing.T) {
 				IPAddresses: []types.Address{
 					{
 						Type: addressing.NodeExternalIP,
-						IP:   net.ParseIP("192.0.2.1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 					},
 					{
 						Type: addressing.NodeInternalIP,
-						IP:   net.ParseIP("fe80::1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("fe80::1")),
 					},
 				},
 			},
@@ -269,7 +270,7 @@ func TestNodeUpdate(t *testing.T) {
 					IPAddresses: []types.Address{
 						{
 							Type: addressing.NodeInternalIP,
-							IP:   net.ParseIP("192.0.2.1"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 						},
 					},
 				}, types.Node{
@@ -278,7 +279,7 @@ func TestNodeUpdate(t *testing.T) {
 					IPAddresses: []types.Address{
 						{
 							Type: addressing.NodeInternalIP,
-							IP:   net.ParseIP("192.0.2.2"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.2")),
 						},
 					}},
 			},
@@ -300,7 +301,7 @@ func TestNodeUpdate(t *testing.T) {
 					IPAddresses: []types.Address{
 						{
 							Type: addressing.NodeExternalIP,
-							IP:   net.ParseIP("192.0.2.1"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 						},
 					},
 				}, types.Node{
@@ -309,7 +310,7 @@ func TestNodeUpdate(t *testing.T) {
 					IPAddresses: []types.Address{
 						{
 							Type: addressing.NodeExternalIP,
-							IP:   net.ParseIP("192.0.2.2"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.2")),
 						},
 					},
 				}},
@@ -331,7 +332,7 @@ func TestNodeUpdate(t *testing.T) {
 					IPAddresses: []types.Address{
 						{
 							Type: addressing.NodeExternalIP,
-							IP:   net.ParseIP("192.0.2.1"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 						},
 					},
 				}, types.Node{
@@ -340,11 +341,11 @@ func TestNodeUpdate(t *testing.T) {
 					IPAddresses: []types.Address{
 						{
 							Type: addressing.NodeExternalIP,
-							IP:   net.ParseIP("192.0.2.2"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.2")),
 						},
 						{
 							Type: addressing.NodeInternalIP,
-							IP:   net.ParseIP("fe80::2"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("fe80::2")),
 						},
 					},
 				}},
@@ -366,7 +367,7 @@ func TestNodeUpdate(t *testing.T) {
 					IPAddresses: []types.Address{
 						{
 							Type: addressing.NodeExternalIP,
-							IP:   net.ParseIP("fe80::1"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("fe80::1")),
 						},
 					},
 				}, types.Node{
@@ -375,11 +376,11 @@ func TestNodeUpdate(t *testing.T) {
 					IPAddresses: []types.Address{
 						{
 							Type: addressing.NodeExternalIP,
-							IP:   net.ParseIP("192.0.2.2"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.2")),
 						},
 						{
 							Type: addressing.NodeInternalIP,
-							IP:   net.ParseIP("fe80::2"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("fe80::2")),
 						},
 					},
 				}},
@@ -400,7 +401,7 @@ func TestNodeUpdate(t *testing.T) {
 					IPAddresses: []types.Address{
 						{
 							Type: addressing.NodeExternalIP,
-							IP:   net.ParseIP("192.0.2.1"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 						},
 					},
 				}, types.Node{
@@ -409,7 +410,7 @@ func TestNodeUpdate(t *testing.T) {
 					IPAddresses: []types.Address{
 						{
 							Type: addressing.NodeExternalIP,
-							IP:   net.ParseIP("192.0.2.1"),
+							IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 						},
 					},
 				}},
@@ -528,7 +529,7 @@ func TestNodeDelete(t *testing.T) {
 				IPAddresses: []types.Address{
 					{
 						Type: addressing.NodeInternalIP,
-						IP:   net.ParseIP("192.0.2.1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 					},
 				},
 			},
@@ -547,7 +548,7 @@ func TestNodeDelete(t *testing.T) {
 				IPAddresses: []types.Address{
 					{
 						Type: addressing.NodeExternalIP,
-						IP:   net.ParseIP("192.0.2.1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 					},
 				},
 			},
@@ -566,11 +567,11 @@ func TestNodeDelete(t *testing.T) {
 				IPAddresses: []types.Address{
 					{
 						Type: addressing.NodeExternalIP,
-						IP:   net.ParseIP("192.0.2.1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 					},
 					{
 						Type: addressing.NodeInternalIP,
-						IP:   net.ParseIP("fe80::1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("fe80::1")),
 					},
 				},
 			},
@@ -589,11 +590,11 @@ func TestNodeDelete(t *testing.T) {
 				IPAddresses: []types.Address{
 					{
 						Type: addressing.NodeExternalIP,
-						IP:   net.ParseIP("192.0.2.1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 					},
 					{
 						Type: addressing.NodeInternalIP,
-						IP:   net.ParseIP("fe80::1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("fe80::1")),
 					},
 				},
 			},
@@ -666,7 +667,7 @@ func TestHubblePort(t *testing.T) {
 				IPAddresses: []types.Address{
 					{
 						Type: addressing.NodeExternalIP,
-						IP:   net.ParseIP("192.0.2.1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("192.0.2.1")),
 					},
 				},
 			},
@@ -678,7 +679,7 @@ func TestHubblePort(t *testing.T) {
 				IPAddresses: []types.Address{
 					{
 						Type: addressing.NodeInternalIP,
-						IP:   net.ParseIP("fe80::1"),
+						IP:   iputil.AddrFrom(netip.MustParseAddr("fe80::1")),
 					},
 				},
 			},

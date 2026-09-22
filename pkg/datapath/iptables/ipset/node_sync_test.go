@@ -5,7 +5,6 @@ package ipset
 
 import (
 	"context"
-	"net"
 	"net/netip"
 	"sync"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -202,7 +202,7 @@ func testNode(name string, addresses ...nodeTypes.Address) *node.Node {
 }
 
 func testAddress(addressType addressing.AddressType, ip string) nodeTypes.Address {
-	return nodeTypes.Address{Type: addressType, IP: net.ParseIP(ip)}
+	return nodeTypes.Address{Type: addressType, IP: iputil.AddrFrom(netip.MustParseAddr(ip))}
 }
 
 func insertNode(

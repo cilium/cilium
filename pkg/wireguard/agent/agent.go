@@ -575,26 +575,28 @@ func (a *Agent) updatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 	// Handle Node IP change
 	if peer.nodeIPv4 != nil && !peer.nodeIPv4.Equal(nodeIPv4) {
 		delete(a.nodeNameByNodeIP, peer.nodeIPv4.String())
-		if ip := iputil.IPToNetPrefix(peer.nodeIPv4); ip.IsValid() {
-			peer.queueAllowedIPsRemove(ip)
+		if addr := iputil.AddrFromIP(peer.nodeIPv4); addr.IsValid() {
+			peer.queueAllowedIPsRemove(netip.PrefixFrom(addr, addr.BitLen()))
 		}
 	}
 	if peer.nodeIPv6 != nil && !peer.nodeIPv6.Equal(nodeIPv6) {
 		delete(a.nodeNameByNodeIP, peer.nodeIPv6.String())
-		if ip := iputil.IPToNetPrefix(peer.nodeIPv6); ip.IsValid() {
-			peer.queueAllowedIPsRemove(ip)
+		if addr := iputil.AddrFromIP(peer.nodeIPv6); addr.IsValid() {
+			peer.queueAllowedIPsRemove(netip.PrefixFrom(addr, addr.BitLen()))
 		}
 	}
 
 	if a.config.EnableIPv4 && nodeIPv4 != nil {
-		if ipn := iputil.IPToNetPrefix(nodeIPv4); ipn.IsValid() {
+		if addr := iputil.AddrFromIP(nodeIPv4); addr.IsValid() {
+			ipn := netip.PrefixFrom(addr, addr.BitLen())
 			if !peer.hasAllowedIP(ipn) {
 				peer.queueAllowedIPsInsert(ipn)
 			}
 		}
 	}
 	if a.config.EnableIPv6 && nodeIPv6 != nil {
-		if ipn := iputil.IPToNetPrefix(nodeIPv6); ipn.IsValid() {
+		if addr := iputil.AddrFromIP(nodeIPv6); addr.IsValid() {
+			ipn := netip.PrefixFrom(addr, addr.BitLen())
 			if !peer.hasAllowedIP(ipn) {
 				peer.queueAllowedIPsInsert(ipn)
 			}
