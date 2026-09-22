@@ -1,0 +1,68 @@
+- metadata:
+    name: route-0
+    namespace: default
+    creationTimestamp: '2026-01-02T00:00:00Z'
+  spec:
+    parentRefs:
+      - name: my-gateway
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /ddd
+        backendRefs:
+          - name: backend
+            port: 8080
+- metadata:
+    name: route-a
+    namespace: other
+    creationTimestamp: '2026-01-01T00:00:00Z'
+  spec:
+    parentRefs:
+      - name: my-gateway
+        namespace: default
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /ccc
+        backendRefs:
+          - name: backend
+            port: 8080
+- metadata:
+    name: route-z
+    namespace: default
+    creationTimestamp: '2026-01-01T00:00:00Z'
+  spec:
+    parentRefs:
+      - name: my-gateway
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /bbb
+        backendRefs:
+          - name: backend
+            port: 8080
+- metadata:
+    name: route-a
+    namespace: default
+    creationTimestamp: '2026-01-01T00:00:00Z'
+  spec:
+    parentRefs:
+      - name: my-gateway
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /aab
+        backendRefs:
+          - name: backend
+            port: 8080
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /aaa
+        backendRefs:
+          - name: backend
+            port: 8080
