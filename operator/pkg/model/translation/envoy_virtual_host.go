@@ -4,6 +4,7 @@
 package translation
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"regexp"
@@ -22,6 +23,7 @@ import (
 	envoy_type_http_v3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoy_type_v3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -53,6 +55,7 @@ type VirtualHostMutator func(*envoy_config_route_v3.VirtualHost) *envoy_config_r
 //   - Method match
 //   - Number of header matches
 //   - Number of query parameter matches
+//   - Generated route content for stable ordering
 //
 // As Envoy route matching logic is done sequentially, we need to enforce
 // such sorting order.
@@ -107,10 +110,22 @@ func (s SortableRoute) Less(i, j int) bool {
 		return headerMatch1 > headerMatch2
 	}
 
-	// lastly, sort by query match length
+	// Next, sort by query match length.
 	queryMatch1 := len(s[i].Match.GetQueryParameters())
 	queryMatch2 := len(s[j].Match.GetQueryParameters())
-	return queryMatch1 > queryMatch2
+	if queryMatch1 != queryMatch2 {
+		return queryMatch1 > queryMatch2
+	}
+
+	// Routes with the same precedence still need a consistent order.
+	// The route order may change between reconciliations, so use deterministic
+	// protobuf serialization to keep the generated CEC stable.
+	route1, err1 := proto.MarshalOptions{Deterministic: true}.Marshal(s[i])
+	route2, err2 := proto.MarshalOptions{Deterministic: true}.Marshal(s[j])
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return bytes.Compare(route1, route2) < 0
 }
 
 // countMatchingHeaders returns the number of Gateway API header matches that
