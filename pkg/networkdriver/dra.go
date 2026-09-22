@@ -485,6 +485,8 @@ func (driver *Driver) prepareClaimDevice(
 	return driver.getNewAllocation(ctx, claim, result, cfg)
 }
 
+// getNewAllocation sets up the kernel device for a newly allocated claim
+// device result.
 func (driver *Driver) getNewAllocation(
 	ctx context.Context,
 	claim *resourceapi.ResourceClaim,
@@ -500,7 +502,6 @@ func (driver *Driver) getNewAllocation(
 	claimNamespacedName := path.Join(claim.Namespace, claim.Name)
 	alloc := allocation{
 		DeviceName: result.Device,
-		Pool:       result.Pool,
 		Config:     cfg,
 	}
 
@@ -538,6 +539,7 @@ func (driver *Driver) getNewAllocation(
 	}
 	alloc.Device = draDevice.Dev
 	alloc.Manager = draDevice.Manager
+	alloc.LogicalPool = driver.resolvePool(draDevice.Dev, driver.sortedConfiguredPools())
 
 	// Build the device status
 	var built resourceapi.AllocatedDeviceStatus
@@ -664,20 +666,21 @@ func serializeDevice(a allocation) ([]byte, error) {
 	}
 
 	return json.Marshal(types.SerializedDevice{
-		Manager: a.Manager,
-		Dev:     data,
-		Config:  a.Config,
+		Manager:     a.Manager,
+		Dev:         data,
+		Config:      a.Config,
+		LogicalPool: a.LogicalPool,
 	})
 }
 
-func deserializeDevice(data []byte) (types.DeviceManagerType, json.RawMessage, types.DeviceConfig, error) {
+func deserializeDevice(data []byte) (types.DeviceManagerType, json.RawMessage, types.DeviceConfig, string, error) {
 	var dev types.SerializedDevice
 
 	if err := json.Unmarshal(data, &dev); err != nil {
-		return types.DeviceManagerTypeUnknown, nil, types.DeviceConfig{}, err
+		return types.DeviceManagerTypeUnknown, nil, types.DeviceConfig{}, "", err
 	}
 
-	return dev.Manager, dev.Dev, dev.Config, nil
+	return dev.Manager, dev.Dev, dev.Config, dev.LogicalPool, nil
 }
 
 func (driver *Driver) releaseAddrs(cfg types.DeviceConfig) error {
