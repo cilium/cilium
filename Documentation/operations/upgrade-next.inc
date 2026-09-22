@@ -62,7 +62,14 @@ Changed Options
 The following options have been modified in this version of Cilium to behave
 differently than in prior releases:
 
-* TODO
+* The SPIRE Helm values have moved from ``authentication.mutual.spire.*`` to
+  ``encryption.ztunnel.spire.*`` because mutual authentication has been removed
+  and SPIRE is now only used by ztunnel. The previous
+  ``authentication.mutual.spire.enabled`` switch has been removed. To use SPIRE
+  as the ztunnel CA backend, set ``encryption.enabled=true``,
+  ``encryption.type=ztunnel``, and ``encryption.ztunnel.ca.type=spire``. To use
+  an external SPIRE deployment instead of the chart-managed SPIRE resources, set
+  ``encryption.ztunnel.spire.install.enabled=false``.
 
 Deprecated Options
 ##################

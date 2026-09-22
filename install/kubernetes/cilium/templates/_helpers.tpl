@@ -223,6 +223,20 @@ Return user specified envoy.xdsMode or default value based on the upgradeCompati
 {{- end }}
 
 {{/*
+Return whether ztunnel is configured to use SPIRE as CA.
+*/}}
+{{- define "ztunnelSpireEnabled" }}
+  {{- and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") (eq .Values.encryption.ztunnel.ca.type "spire") }}
+{{- end }}
+
+{{/*
+Return whether Helm should install the bundled SPIRE resources for ztunnel.
+*/}}
+{{- define "ztunnelSpireInstallEnabled" }}
+  {{- and (eq (include "ztunnelSpireEnabled" .) "true") .Values.encryption.ztunnel.spire.install.enabled }}
+{{- end }}
+
+{{/*
 Return user specify tls.readSecretsOnlyFromSecretsNamespace and take into account tls.secretsBackend
 */}}
 {{- define "readSecretsOnlyFromSecretsNamespace" }}
