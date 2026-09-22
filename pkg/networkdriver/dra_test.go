@@ -34,30 +34,32 @@ func TestSerializeDevice(t *testing.T) {
 	t.Run("mock device round-trip", func(t *testing.T) {
 		dev := &trackedDevice{name: "eth0"}
 		cfg := types.DeviceConfig{PodIfName: "eth0-pod"}
-		a := allocation{Device: dev, Config: cfg, Manager: types.DeviceManagerTypeMock}
+		a := allocation{Device: dev, Config: cfg, Manager: types.DeviceManagerTypeMock, LogicalPool: "pool-a"}
 
 		raw, err := serializeDevice(a)
 		require.NoError(t, err)
 
-		mgr, devRaw, gotCfg, err := deserializeDevice(raw)
+		mgr, devRaw, gotCfg, gotPool, err := deserializeDevice(raw)
 		require.NoError(t, err)
 		require.Equal(t, types.DeviceManagerTypeMock, mgr)
 		require.Equal(t, cfg.PodIfName, gotCfg.PodIfName)
+		require.Equal(t, "pool-a", gotPool)
 		require.NotEmpty(t, devRaw)
 	})
 
 	t.Run("dummy device round-trip", func(t *testing.T) {
 		dev := &dummy.DummyDevice{Name: "dummy0", HWAddr: "aa:bb:cc:dd:ee:ff", MTU: 1500}
 		cfg := types.DeviceConfig{PodIfName: "eth-pod"}
-		a := allocation{Device: dev, Config: cfg, Manager: types.DeviceManagerTypeDummy}
+		a := allocation{Device: dev, Config: cfg, Manager: types.DeviceManagerTypeDummy, LogicalPool: "pool-b"}
 
 		raw, err := serializeDevice(a)
 		require.NoError(t, err)
 
-		mgr, devRaw, gotCfg, err := deserializeDevice(raw)
+		mgr, devRaw, gotCfg, gotPool, err := deserializeDevice(raw)
 		require.NoError(t, err)
 		require.Equal(t, types.DeviceManagerTypeDummy, mgr)
 		require.Equal(t, cfg.PodIfName, gotCfg.PodIfName)
+		require.Equal(t, "pool-b", gotPool)
 		require.NotEmpty(t, devRaw)
 
 		// Restore from the raw bytes using DummyManager.
@@ -248,7 +250,7 @@ func TestPrepareResourceClaim(t *testing.T) {
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		driver.allocationTable.Insert(wtxn, &DRAAllocation{
 			DeviceName:     "existing-device",
-			Pool:           prepTestPool,
+			LogicalPool:    prepTestPool,
 			Manager:        types.DeviceManagerTypeMock,
 			PreparedDevice: &trackedDevice{name: "existing-device"},
 			PodUID:         podUID,
