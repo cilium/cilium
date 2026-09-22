@@ -413,10 +413,9 @@ static __always_inline bool lb_is_svc_proto(__u8 proto)
 	switch (proto) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif /* ENABLE_SCTP */
 		return true;
+	case IPPROTO_SCTP:
+		return CONFIG(enable_sctp);
 	default:
 		return false;
 	}
@@ -715,22 +714,22 @@ static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 next
 					       struct csum_offset *csum_off)
 {
 	switch (nexthdr) {
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
 		if (port) {
 			int ret;
 
 			if (port != old_port) {
-#ifdef ENABLE_SCTP
 				/* This will change the SCTP checksum, which we cannot fix right now.
 				 * This will likely need kernel changes before we can remove this.
 				 */
 				if (nexthdr == IPPROTO_SCTP)
 					return DROP_CSUM_L4;
-#endif  /* ENABLE_SCTP */
+
 				ret = l4_modify_port(ctx, l4_off, TCP_SPORT_OFF,
 						     csum_off, port, old_port);
 				if (IS_ERR(ret))
@@ -744,6 +743,7 @@ static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 next
 		return CTX_ACT_OK;
 
 	default:
+unsup_proto:
 		return DROP_UNKNOWN_L4;
 	}
 
@@ -751,19 +751,17 @@ static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 next
 }
 
 static __always_inline int
-lb_l4_xlate(struct __ctx_buff *ctx, __u8 nexthdr __maybe_unused, int l4_off,
+lb_l4_xlate(struct __ctx_buff *ctx, __u8 nexthdr, int l4_off,
 	    struct csum_offset *csum_off, __be16 dport, __be16 backend_port)
 {
 	if (likely(backend_port) && dport != backend_port) {
 		int ret;
 
-#ifdef ENABLE_SCTP
 		/* This will change the SCTP checksum, which we cannot fix right now.
 		 * This will likely need kernel changes before we can remove this.
 		 */
-		if (nexthdr == IPPROTO_SCTP)
+		if (CONFIG(enable_sctp) && nexthdr == IPPROTO_SCTP)
 			return DROP_CSUM_L4;
-#endif  /* ENABLE_SCTP */
 
 		/* Port offsets for UDP and TCP are the same */
 		ret = l4_modify_port(ctx, l4_off, TCP_DPORT_OFF, csum_off,
@@ -965,16 +963,18 @@ lb6_extract_tuple(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6, fragi
 	ipv6_addr_copy(&tuple->saddr, (const union v6addr *)&ip6->saddr);
 
 	switch (tuple->nexthdr) {
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
 		return ipv6_load_l4_ports(ctx, ip6, fraginfo, l4_off,
 					  CT_EGRESS, &tuple->dport);
 	case IPPROTO_ICMPV6:
 		return DROP_UNSUPP_SERVICE_PROTO;
 	default:
+unsup_proto:
 		return DROP_UNKNOWN_L4;
 	}
 }
@@ -1778,16 +1778,18 @@ lb4_extract_tuple(const struct __ctx_buff *ctx, const struct iphdr *ip4, fraginf
 	tuple->saddr = ip4->saddr;
 
 	switch (tuple->nexthdr) {
+	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			goto unsup_proto;
+		fallthrough;
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-#endif  /* ENABLE_SCTP */
 		return ipv4_load_l4_ports(ctx, ip4, fraginfo, l4_off,
 					  CT_EGRESS, &tuple->dport);
 	case IPPROTO_ICMP:
 		return DROP_UNSUPP_SERVICE_PROTO;
 	default:
+unsup_proto:
 		return DROP_UNKNOWN_L4;
 	}
 }

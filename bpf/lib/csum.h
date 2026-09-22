@@ -38,8 +38,9 @@ static __always_inline void csum_l4_offset_and_flags(__u8 nexthdr,
 		off->offset = UDP_CSUM_OFF;
 		off->flags = BPF_F_MARK_MANGLED_0;
 		break;
-#ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
+		if (!CONFIG(enable_sctp))
+			break;
 		/* Disable readjusting checksums of SCTP packets.
 		 * SCTP packets use a crc32c checksum over the SCTP
 		 * header and the data and do not checksum the any
@@ -52,7 +53,6 @@ static __always_inline void csum_l4_offset_and_flags(__u8 nexthdr,
 		 */
 		off->offset = 0;
 		break;
-#endif  /* ENABLE_SCTP */
 	case IPPROTO_ICMPV6:
 		off->offset = offsetof(struct icmp6hdr, icmp6_cksum);
 		break;

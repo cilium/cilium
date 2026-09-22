@@ -90,7 +90,7 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #define ENABLE_PER_PACKET_LB (!is_defined(ENABLE_SOCKET_LB_FULL) || \
     is_defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
     is_defined(ENABLE_L7_LB)               || \
-    is_defined(ENABLE_SCTP)                || \
+    CONFIG(enable_sctp)                    || \
     is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING))
 
 struct nodeport_nat_info {

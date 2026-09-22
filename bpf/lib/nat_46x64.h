@@ -83,18 +83,19 @@ static __always_inline int get_csum_offset(__u8 protocol)
 	case IPPROTO_UDP:
 		csum_off = UDP_CSUM_OFF;
 		break;
-#ifdef ENABLE_SCTP
-	case IPPROTO_SCTP:
-		/* See comment in csum.h */
-		csum_off = 0;
-		break;
-#endif  /* ENABLE_SCTP */
 	case IPPROTO_ICMP:
 		csum_off = (offsetof(struct icmphdr, checksum));
 		break;
 	case IPPROTO_ICMPV6:
 		csum_off = (offsetof(struct icmp6hdr, icmp6_cksum));
 		break;
+	case IPPROTO_SCTP:
+		if (CONFIG(enable_sctp)) {
+			/* See comment in csum.h */
+			csum_off = 0;
+			break;
+		}
+		fallthrough;
 	default:
 		return DROP_UNKNOWN_L4;
 	}

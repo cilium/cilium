@@ -168,5 +168,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
 
+	node.EnableSCTP = option.Config.EnableSCTP
+
 	return node
 }
