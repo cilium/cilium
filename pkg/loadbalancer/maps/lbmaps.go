@@ -107,6 +107,12 @@ type sockRevNatMaps interface {
 	SockRevNat() (*bpf.Map, *bpf.Map)
 }
 
+type hostPortMaps interface {
+	AddHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) error
+	DeleteHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) error
+	HasHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) bool
+}
+
 // LBMaps defines the map operations performed by the reconciliation.
 // Depending on this interface instead of on the underlying maps allows
 // testing the implementation with a fake map or injected errors.
@@ -118,6 +124,7 @@ type LBMaps interface {
 	sourceRangeMaps
 	maglevMaps
 	sockRevNatMaps
+	hostPortMaps
 
 	IsEmpty() bool
 }
@@ -139,6 +146,17 @@ type BPFLBMaps struct {
 	sockRevNat4Map, sockRevNat6Map   *bpf.Map
 	sourceRange4Map, sourceRange6Map *bpf.Map
 	maglev4Map, maglev6Map           *bpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
+	hostPortTCP4Map, hostPortTCP6Map   *bpf.Map
+	hostPortUDP4Map, hostPortUDP6Map   *bpf.Map
+	hostPortSCTP4Map, hostPortSCTP6Map *bpf.Map
+
+	hostPortMu    lock.Mutex
+	hostPortTCP4  HostPortValue
+	hostPortUDP4  HostPortValue
+	hostPortSCTP4 HostPortValue
+	hostPortTCP6  HostPortValue
+	hostPortUDP6  HostPortValue
+	hostPortSCTP6 HostPortValue
 
 	maglevInnerMapSpec *ebpf.MapSpec
 
@@ -305,6 +323,72 @@ func NewMaglevOuterMap(name string, maxEntries int, innerSpec *ebpf.MapSpec) *bp
 	)
 }
 
+func NewHostPortTCP4Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		HostPortTCP4MapName,
+		ebpf.Array,
+		&HostPortKey{},
+		&HostPortValue{},
+		1,
+		unix.BPF_F_RDONLY_PROG,
+	)
+}
+
+func NewHostPortUDP4Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		HostPortUDP4MapName,
+		ebpf.Array,
+		&HostPortKey{},
+		&HostPortValue{},
+		1,
+		unix.BPF_F_RDONLY_PROG,
+	)
+}
+
+func NewHostPortSCTP4Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		HostPortSCTP4MapName,
+		ebpf.Array,
+		&HostPortKey{},
+		&HostPortValue{},
+		1,
+		unix.BPF_F_RDONLY_PROG,
+	)
+}
+
+func NewHostPortTCP6Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		HostPortTCP6MapName,
+		ebpf.Array,
+		&HostPortKey{},
+		&HostPortValue{},
+		1,
+		unix.BPF_F_RDONLY_PROG,
+	)
+}
+
+func NewHostPortUDP6Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		HostPortUDP6MapName,
+		ebpf.Array,
+		&HostPortKey{},
+		&HostPortValue{},
+		1,
+		unix.BPF_F_RDONLY_PROG,
+	)
+}
+
+func NewHostPortSCTP6Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		HostPortSCTP6MapName,
+		ebpf.Array,
+		&HostPortKey{},
+		&HostPortValue{},
+		1,
+		unix.BPF_F_RDONLY_PROG,
+	)
+}
+
 type mapDesc struct {
 	target     **bpf.Map // pointer to the field in realLBMaps
 	ctor       func(maxEntries int) *bpf.Map
@@ -334,6 +418,16 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.sockRevNat6Map, NewSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
 		{&r.affinity6Map, newAffinity6Map, r.Cfg.LBAffinityMapEntries},
 	}
+	v4HostPortMaps := []mapDesc{
+		{&r.hostPortTCP4Map, NewHostPortTCP4Map, 1},
+		{&r.hostPortUDP4Map, NewHostPortUDP4Map, 1},
+		{&r.hostPortSCTP4Map, NewHostPortSCTP4Map, 1},
+	}
+	v6HostPortMaps := []mapDesc{
+		{&r.hostPortTCP6Map, NewHostPortTCP6Map, 1},
+		{&r.hostPortUDP6Map, NewHostPortUDP6Map, 1},
+		{&r.hostPortSCTP6Map, NewHostPortSCTP6Map, 1},
+	}
 	affinityMap := mapDesc{&r.affinityMatchMap, NewAffinityMatchMap, r.Cfg.LBAffinityMapEntries}
 	v4SourceRangeMap := mapDesc{&r.sourceRange4Map, NewSourceRange4Map, r.Cfg.LBSourceRangeMapEntries}
 	v6SourceRangeMap := mapDesc{&r.sourceRange6Map, NewSourceRange6Map, r.Cfg.LBSourceRangeMapEntries}
@@ -352,6 +446,17 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		mapsToCreate = append(mapsToCreate, v6SourceRangeMap)
 	} else {
 		mapsToDelete = append(mapsToDelete, v6SourceRangeMap)
+	}
+
+	if r.ExtCfg.EnableIPv4 && r.Cfg.EnableIPMasqAvoidHostPort {
+		mapsToCreate = append(mapsToCreate, v4HostPortMaps...)
+	} else {
+		mapsToDelete = append(mapsToDelete, v4HostPortMaps...)
+	}
+	if r.ExtCfg.EnableIPv6 && r.Cfg.EnableIPMasqAvoidHostPort {
+		mapsToCreate = append(mapsToCreate, v6HostPortMaps...)
+	} else {
+		mapsToDelete = append(mapsToDelete, v6HostPortMaps...)
 	}
 
 	if r.ExtCfg.EnableIPv4 {
@@ -400,6 +505,26 @@ func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 		openedMaps = append(openedMaps, m)
 	}
 	r.openMaps = openedMaps
+
+	for _, pair := range []struct {
+		m   *bpf.Map
+		val *HostPortValue
+	}{
+		{r.hostPortTCP4Map, &r.hostPortTCP4},
+		{r.hostPortUDP4Map, &r.hostPortUDP4},
+		{r.hostPortSCTP4Map, &r.hostPortSCTP4},
+		{r.hostPortTCP6Map, &r.hostPortTCP6},
+		{r.hostPortUDP6Map, &r.hostPortUDP6},
+		{r.hostPortSCTP6Map, &r.hostPortSCTP6},
+	} {
+		if pair.m != nil {
+			if v, err := pair.m.Lookup(&HostPortKey{Index: 0}); err == nil && v != nil {
+				*pair.val = *v.(*HostPortValue)
+			} else {
+				_ = pair.m.Update(&HostPortKey{Index: 0}, pair.val)
+			}
+		}
+	}
 
 	if !r.Pinned {
 		// nothing to unpin, return early
@@ -794,6 +919,19 @@ func (r *BPFLBMaps) IsEmpty() bool {
 		if m == nil {
 			return true
 		}
+		if m.Type() == ebpf.Array {
+			v, err := m.Lookup(&HostPortKey{Index: 0})
+			if err != nil || v == nil {
+				return true
+			}
+			val := v.(*HostPortValue)
+			for _, b := range val.Bitmap {
+				if b != 0 {
+					return false
+				}
+			}
+			return true
+		}
 		var key []byte
 		return errors.Is(m.NextKey(nil, &key), ebpf.ErrKeyNotExist)
 	}
@@ -804,6 +942,72 @@ func (r *BPFLBMaps) IsEmpty() bool {
 		}
 	}
 	return true
+}
+
+func (r *BPFLBMaps) getHostPortMapAndVal(proto u8proto.U8proto, ipv6 bool) (*bpf.Map, *HostPortValue, error) {
+	if ipv6 {
+		switch proto {
+		case u8proto.TCP:
+			return r.hostPortTCP6Map, &r.hostPortTCP6, nil
+		case u8proto.UDP:
+			return r.hostPortUDP6Map, &r.hostPortUDP6, nil
+		case u8proto.SCTP:
+			return r.hostPortSCTP6Map, &r.hostPortSCTP6, nil
+		default:
+			return nil, nil, fmt.Errorf("unsupported protocol for hostport: %s", proto)
+		}
+	}
+	switch proto {
+	case u8proto.TCP:
+		return r.hostPortTCP4Map, &r.hostPortTCP4, nil
+	case u8proto.UDP:
+		return r.hostPortUDP4Map, &r.hostPortUDP4, nil
+	case u8proto.SCTP:
+		return r.hostPortSCTP4Map, &r.hostPortSCTP4, nil
+	default:
+		return nil, nil, fmt.Errorf("unsupported protocol for hostport: %s", proto)
+	}
+}
+
+func (r *BPFLBMaps) AddHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) error {
+	r.hostPortMu.Lock()
+	defer r.hostPortMu.Unlock()
+
+	m, val, err := r.getHostPortMapAndVal(proto, ipv6)
+	if err != nil {
+		return err
+	}
+	if m == nil {
+		return nil
+	}
+	val.Set(port)
+	return m.Update(&HostPortKey{Index: 0}, val)
+}
+
+func (r *BPFLBMaps) DeleteHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) error {
+	r.hostPortMu.Lock()
+	defer r.hostPortMu.Unlock()
+
+	m, val, err := r.getHostPortMapAndVal(proto, ipv6)
+	if err != nil {
+		return err
+	}
+	if m == nil {
+		return nil
+	}
+	val.Clear(port)
+	return m.Update(&HostPortKey{Index: 0}, val)
+}
+
+func (r *BPFLBMaps) HasHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) bool {
+	r.hostPortMu.Lock()
+	defer r.hostPortMu.Unlock()
+
+	m, val, err := r.getHostPortMapAndVal(proto, ipv6)
+	if err != nil || m == nil || val == nil {
+		return false
+	}
+	return val.Has(port)
 }
 
 var _ LBMaps = &BPFLBMaps{}
@@ -981,6 +1185,24 @@ func (f *FaultyLBMaps) LookupBackend(key BackendKey) (BackendValue, error) {
 	return f.impl.LookupBackend(key)
 }
 
+func (f *FaultyLBMaps) AddHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) error {
+	if f.isFaulty() {
+		return errFaulty
+	}
+	return f.impl.AddHostPort(proto, port, ipv6)
+}
+
+func (f *FaultyLBMaps) DeleteHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) error {
+	if f.isFaulty() {
+		return errFaulty
+	}
+	return f.impl.DeleteHostPort(proto, port, ipv6)
+}
+
+func (f *FaultyLBMaps) HasHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) bool {
+	return f.impl.HasHostPort(proto, port, ipv6)
+}
+
 func (f *FaultyLBMaps) isFaulty() bool {
 	// Float32() returns value between [0.0, 1.0).
 	// We fail if the value is less than our probability [0.0, 1.0].
@@ -1050,6 +1272,14 @@ type FakeLBMaps struct {
 	mglv6      fakeBPFMap
 	inners     lock.Map[uint32, *fakeBPFMap]
 	nextID     uint32
+
+	hostPortMu lock.Mutex
+	hpTCP4     HostPortValue
+	hpUDP4     HostPortValue
+	hpSCTP4    HostPortValue
+	hpTCP6     HostPortValue
+	hpUDP6     HostPortValue
+	hpSCTP6    HostPortValue
 }
 
 func NewFakeLBMaps() LBMaps {
@@ -1259,13 +1489,114 @@ func (f *FakeLBMaps) LookupBackend(key BackendKey) (BackendValue, error) {
 	return v.(BackendValue), nil
 }
 
+func (f *FakeLBMaps) AddHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) error {
+	f.hostPortMu.Lock()
+	defer f.hostPortMu.Unlock()
+	if ipv6 {
+		switch proto {
+		case u8proto.TCP:
+			f.hpTCP6.Set(port)
+		case u8proto.UDP:
+			f.hpUDP6.Set(port)
+		case u8proto.SCTP:
+			f.hpSCTP6.Set(port)
+		default:
+			return fmt.Errorf("unsupported protocol: %s", proto)
+		}
+		return nil
+	}
+	switch proto {
+	case u8proto.TCP:
+		f.hpTCP4.Set(port)
+	case u8proto.UDP:
+		f.hpUDP4.Set(port)
+	case u8proto.SCTP:
+		f.hpSCTP4.Set(port)
+	default:
+		return fmt.Errorf("unsupported protocol: %s", proto)
+	}
+	return nil
+}
+
+func (f *FakeLBMaps) DeleteHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) error {
+	f.hostPortMu.Lock()
+	defer f.hostPortMu.Unlock()
+	if ipv6 {
+		switch proto {
+		case u8proto.TCP:
+			f.hpTCP6.Clear(port)
+		case u8proto.UDP:
+			f.hpUDP6.Clear(port)
+		case u8proto.SCTP:
+			f.hpSCTP6.Clear(port)
+		default:
+			return fmt.Errorf("unsupported protocol: %s", proto)
+		}
+		return nil
+	}
+	switch proto {
+	case u8proto.TCP:
+		f.hpTCP4.Clear(port)
+	case u8proto.UDP:
+		f.hpUDP4.Clear(port)
+	case u8proto.SCTP:
+		f.hpSCTP4.Clear(port)
+	default:
+		return fmt.Errorf("unsupported protocol: %s", proto)
+	}
+	return nil
+}
+
+func (f *FakeLBMaps) HasHostPort(proto u8proto.U8proto, port uint16, ipv6 bool) bool {
+	f.hostPortMu.Lock()
+	defer f.hostPortMu.Unlock()
+	if ipv6 {
+		switch proto {
+		case u8proto.TCP:
+			return f.hpTCP6.Has(port)
+		case u8proto.UDP:
+			return f.hpUDP6.Has(port)
+		case u8proto.SCTP:
+			return f.hpSCTP6.Has(port)
+		default:
+			return false
+		}
+	}
+	switch proto {
+	case u8proto.TCP:
+		return f.hpTCP4.Has(port)
+	case u8proto.UDP:
+		return f.hpUDP4.Has(port)
+	case u8proto.SCTP:
+		return f.hpSCTP4.Has(port)
+	default:
+		return false
+	}
+}
+
 // IsEmpty implements lbmaps.
 func (f *FakeLBMaps) IsEmpty() bool {
+	f.hostPortMu.Lock()
+	defer f.hostPortMu.Unlock()
+	isZero := func(v *HostPortValue) bool {
+		for _, b := range v.Bitmap {
+			if b != 0 {
+				return false
+			}
+		}
+		return true
+	}
 	return f.aff.IsEmpty() &&
 		f.be.IsEmpty() &&
 		f.svc.IsEmpty() &&
 		f.revNat.IsEmpty() &&
-		f.srcRange.IsEmpty()
+		f.srcRange.IsEmpty() &&
+		isZero(&f.hpTCP4) &&
+		isZero(&f.hpUDP4) &&
+		isZero(&f.hpSCTP4) &&
+		isZero(&f.hpTCP6) &&
+		isZero(&f.hpUDP6) &&
+		isZero(&f.hpSCTP6)
 }
 
 var _ LBMaps = &FakeLBMaps{}

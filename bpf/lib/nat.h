@@ -23,6 +23,7 @@
 #include "eps.h"
 #include "icmp.h"
 #include "icmp6.h"
+#include "lb.h"
 #include "nat_46x64.h"
 #include "signal.h"
 #include "subnet.h"
@@ -233,6 +234,77 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_ipmasq_v4 __section_maps_btf;
 
+struct hostport_bitmap {
+	__u8 bits[8192];
+};
+
+/*
+ * Check if the port is allocated in the hostport bitmap.
+ */
+static __always_inline bool
+hostport_allocated(const struct hostport_bitmap *bm, __u16 port)
+{
+	__u32 byte_idx;
+	__u8 bit_mask;
+
+	if (!bm)
+		return false;
+
+	byte_idx = (port >> 3) & 8191;
+	bit_mask = (__u8)(1U << (port & 7));
+
+	return (bm->bits[byte_idx] & bit_mask) != 0;
+}
+
+#ifdef ENABLE_IPV4
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, struct hostport_bitmap);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 1);
+	__uint(map_flags, BPF_F_RDONLY_PROG_COND);
+} cilium_hostport_v4_tcp __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, struct hostport_bitmap);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 1);
+	__uint(map_flags, BPF_F_RDONLY_PROG_COND);
+} cilium_hostport_v4_udp __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, struct hostport_bitmap);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 1);
+	__uint(map_flags, BPF_F_RDONLY_PROG_COND);
+} cilium_hostport_v4_sctp __section_maps_btf;
+
+/*
+ * Return the hostport bitmap for the given protocol.
+ */
+static __always_inline const struct hostport_bitmap *
+hostport_v4_protocol_bitmap(__u8 nexthdr)
+{
+	__u32 key = 0;
+
+	switch (nexthdr) {
+	case IPPROTO_TCP:
+		return map_lookup_elem(&cilium_hostport_v4_tcp, &key);
+	case IPPROTO_UDP:
+		return map_lookup_elem(&cilium_hostport_v4_udp, &key);
+	case IPPROTO_SCTP:
+		return map_lookup_elem(&cilium_hostport_v4_sctp, &key);
+	default:
+		return NULL;
+	}
+}
+#endif /* ENABLE_IPV4 */
+
 #if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
 static __always_inline void *
 get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)
@@ -270,6 +342,7 @@ static __always_inline int snat_v4_new_mapping(const struct __ctx_buff *ctx,
 					       const struct ipv4_nat_target *target,
 					       bool needs_ct, __s8 *ext_err)
 {
+	const struct hostport_bitmap *hp_bm = NULL;
 	struct ipv4_ct_tuple rtuple = {};
 	struct ipv4_nat_entry rstate;
 	__u32 *retries_hist;
@@ -298,12 +371,15 @@ static __always_inline int snat_v4_new_mapping(const struct __ctx_buff *ctx,
 	rstate.common.needs_ct = needs_ct;
 	rstate.common.created = bpf_mono_now();
 
-#pragma unroll
+	if (CONFIG(enable_ip_masq_avoid_hostport))
+		hp_bm = hostport_v4_protocol_bitmap(otuple->nexthdr);
+
+# pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		rtuple.dport = bpf_htons(port);
-
-		/* Try to create a RevSNAT entry. */
-		if (__snat_create(map, &rtuple, &rstate, true) == 0)
+		/* Try to create a RevSNAT entry if port is not used by a HostPort. */
+		if (!hostport_allocated(hp_bm, port) &&
+		    __snat_create(map, &rtuple, &rstate, true) == 0)
 			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
@@ -1356,6 +1432,55 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_ipmasq_v6 __section_maps_btf;
 
+#ifdef ENABLE_IPV6
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, struct hostport_bitmap);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 1);
+	__uint(map_flags, BPF_F_RDONLY_PROG_COND);
+} cilium_hostport_v6_tcp __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, struct hostport_bitmap);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 1);
+	__uint(map_flags, BPF_F_RDONLY_PROG_COND);
+} cilium_hostport_v6_udp __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, struct hostport_bitmap);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 1);
+	__uint(map_flags, BPF_F_RDONLY_PROG_COND);
+} cilium_hostport_v6_sctp __section_maps_btf;
+
+/*
+ * Return the hostport bitmap for the given IPv6 protocol.
+ */
+static __always_inline const struct hostport_bitmap *
+hostport_v6_protocol_bitmap(__u8 nexthdr)
+{
+	__u32 key = 0;
+
+	switch (nexthdr) {
+	case IPPROTO_TCP:
+		return map_lookup_elem(&cilium_hostport_v6_tcp, &key);
+	case IPPROTO_UDP:
+		return map_lookup_elem(&cilium_hostport_v6_udp, &key);
+	case IPPROTO_SCTP:
+		return map_lookup_elem(&cilium_hostport_v6_sctp, &key);
+	default:
+		return NULL;
+	}
+}
+#endif /* ENABLE_IPV6 */
+
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 static __always_inline void *
 get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
@@ -1395,6 +1520,7 @@ static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
 					       const struct ipv6_nat_target *target,
 					       bool needs_ct, __s8 *ext_err)
 {
+	const struct hostport_bitmap *hp_bm = NULL;
 	struct ipv6_ct_tuple *rtuple = AUX(new_mapping_tuple);
 	struct ipv6_nat_entry *rstate = AUX(new_mapping_rstate);
 	__u32 *retries_hist;
@@ -1421,11 +1547,16 @@ static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
 	rstate->common.needs_ct = needs_ct;
 	rstate->common.created = bpf_mono_now();
 
-#pragma unroll
+	if (CONFIG(enable_ip_masq_avoid_hostport))
+		hp_bm = hostport_v6_protocol_bitmap(otuple->nexthdr);
+
+# pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		rtuple->dport = bpf_htons(port);
-
-		if (__snat_create(&cilium_snat_v6_external, rtuple, rstate, true) == 0)
+		/* Try to create a RevSNAT entry if protocol/port is not allocated to a hostport. */
+		if (!hostport_allocated(hp_bm, port) &&
+		    __snat_create(
+			    &cilium_snat_v6_external, rtuple, rstate, true) == 0)
 			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
