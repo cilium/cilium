@@ -427,6 +427,7 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 
 	// This must be done before the ID is released for the endpoint!
 	delete(mgr.endpoints, ep.ID)
+	delete(mgr.markedEndpoints, ep.ID)
 	mgr.mcastManager.RemoveAddress(ep.IPv6)
 
 	// We haven't yet allocated the ID for a restoring endpoint, so no
