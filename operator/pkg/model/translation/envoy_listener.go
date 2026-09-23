@@ -352,7 +352,7 @@ func (i *cecTranslator) filterChains(name string, m *model.Model) ([]*envoy_conf
 	}
 
 	if m.IsTLSListenerConfigured() {
-		filterChains = append(filterChains, tlsFilterChains(m)...)
+		filterChains = append(filterChains, tlsFilterChains(m, i.Config.SecretsNamespace)...)
 	}
 
 	return filterChains, nil
@@ -433,7 +433,7 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 		}
 
 		if hasTLSForBase {
-			filterChains = append(filterChains, tlsFilterChains(m)...)
+			filterChains = append(filterChains, tlsFilterChains(m, i.Config.SecretsNamespace)...)
 		}
 
 		insecureListener := &envoy_config_listener.Listener{
@@ -508,7 +508,7 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 		for _, port := range m.TLSPorts() {
 			lName := listenerNameForPort(port)
 
-			tlsFC := tlsFilterChainsForPort(port, m)
+			tlsFC := tlsFilterChainsForPort(port, m, i.Config.SecretsNamespace)
 			if len(tlsFC) == 0 {
 				continue
 			}
@@ -700,10 +700,10 @@ func getHostNetworkListenerAddresses(ports []uint32, ipv4Enabled, ipv6Enabled bo
 	}, additionalAddress
 }
 
-// tlsFilterChains returns TLS passthrough filter chains for all backends.
+// tlsFilterChains returns SNI-matched TLS filter chains for all backends.
 // These functions do not depend on cecTranslator state, so they are defined as
 // package-level helpers rather than receiver methods.
-func tlsFilterChains(m *model.Model) []*envoy_config_listener.FilterChain {
+func tlsFilterChains(m *model.Model, secretsNamespace string) []*envoy_config_listener.FilterChain {
 	var filterChains []*envoy_config_listener.FilterChain
 
 	for _, listener := range stableTLSListeners(m.TLS) {
@@ -713,9 +713,9 @@ func tlsFilterChains(m *model.Model) []*envoy_config_listener.FilterChain {
 				continue
 			}
 
-			tcpProxy := tcpProxyForTLSRoute(route, backends)
+			tcpProxy := tcpProxyForTLSRoute(listener.Mode, route, backends)
 			tcpProxy.AccessLog = getTCPAccessLogs(m)
-			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+			filterChain := &envoy_config_listener.FilterChain{
 				FilterChainMatch: toFilterChainMatch(route.Hostnames),
 				Filters: []*envoy_config_listener.Filter{
 					{
@@ -725,17 +725,21 @@ func tlsFilterChains(m *model.Model) []*envoy_config_listener.FilterChain {
 						},
 					},
 				},
-			})
+			}
+			if listener.Mode == model.TLSModeTerminate {
+				filterChain.TransportSocket = toTransportSocket(secretsNamespace, listener.TLS)
+			}
+			filterChains = append(filterChains, filterChain)
 		}
 	}
 
 	return filterChains
 }
 
-// tlsFilterChainsForPort returns TLS passthrough filter chains for
+// tlsFilterChainsForPort returns SNI-matched TLS filter chains for
 // routes on a specific port, used when per-port listeners are needed to scope
 // filter chains to the routes attached to a single listener port.
-func tlsFilterChainsForPort(port uint32, m *model.Model) []*envoy_config_listener.FilterChain {
+func tlsFilterChainsForPort(port uint32, m *model.Model, secretsNamespace string) []*envoy_config_listener.FilterChain {
 	var filterChains []*envoy_config_listener.FilterChain
 
 	for _, listener := range stableTLSListeners(m.TLS) {
@@ -748,17 +752,23 @@ func tlsFilterChainsForPort(port uint32, m *model.Model) []*envoy_config_listene
 				continue
 			}
 
-			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+			tcpProxy := tcpProxyForTLSRoute(listener.Mode, route, backends)
+			tcpProxy.AccessLog = getTCPAccessLogs(m)
+			filterChain := &envoy_config_listener.FilterChain{
 				FilterChainMatch: toFilterChainMatch(route.Hostnames),
 				Filters: []*envoy_config_listener.Filter{
 					{
 						Name: tcpProxyType,
 						ConfigType: &envoy_config_listener.Filter_TypedConfig{
-							TypedConfig: toAny(tcpProxyForTLSRoute(route, backends)),
+							TypedConfig: toAny(tcpProxy),
 						},
 					},
 				},
-			})
+			}
+			if listener.Mode == model.TLSModeTerminate {
+				filterChain.TransportSocket = toTransportSocket(secretsNamespace, listener.TLS)
+			}
+			filterChains = append(filterChains, filterChain)
 		}
 	}
 
@@ -818,9 +828,9 @@ func stableTLSBackends(backends []model.Backend) []model.Backend {
 	return stable
 }
 
-func tcpProxyForTLSRoute(route model.TLSRoute, backends []model.Backend) *envoy_extensions_filters_network_tcp_v3.TcpProxy {
+func tcpProxyForTLSRoute(mode model.TLSMode, route model.TLSRoute, backends []model.Backend) *envoy_extensions_filters_network_tcp_v3.TcpProxy {
 	tcpProxy := &envoy_extensions_filters_network_tcp_v3.TcpProxy{
-		StatPrefix: tlsFilterChainStatPrefix(route),
+		StatPrefix: tlsFilterChainStatPrefix(mode, route),
 	}
 
 	if len(backends) == 1 {
@@ -851,8 +861,12 @@ func tlsClusterName(backend model.Backend) string {
 	return getClusterName(backend.Namespace, backend.Name, backend.Port.GetPort())
 }
 
-func tlsFilterChainStatPrefix(route model.TLSRoute) string {
-	return "tls-passthrough:" + tlsHostnamesKey(route.Hostnames)
+func tlsFilterChainStatPrefix(mode model.TLSMode, route model.TLSRoute) string {
+	prefix := "tls-passthrough:"
+	if mode == model.TLSModeTerminate {
+		prefix = "tls-terminate:"
+	}
+	return prefix + tlsHostnamesKey(route.Hostnames)
 }
 
 func tlsHostnamesKey(hostnames []string) string {
@@ -900,7 +914,7 @@ func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) *env
 		tlsMap[syncnames.SyncedSDSSecretName(ciliumSecretNamespace, types.NamespacedName{Namespace: t.Namespace, Name: t.Name})] = struct{}{}
 	}
 
-	for k := range tlsMap {
+	for _, k := range goslices.Sorted(maps.Keys(tlsMap)) {
 		tlsSdsConfig = append(tlsSdsConfig, &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
 			Name: k,
 		})
