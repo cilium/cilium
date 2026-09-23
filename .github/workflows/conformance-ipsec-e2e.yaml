@@ -219,7 +219,6 @@ jobs:
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           ingress-controller: ${{ matrix.ingress-controller }}
-          mutual-auth: false
           misc: ${{ matrix.misc }}
           image-pull-secret: "cilium-registry"
 
