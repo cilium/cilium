@@ -170,7 +170,6 @@ jobs:
           chart-dir: 'install/kubernetes/cilium'
           ipv6: false
           egress-gateway: false # Currently incompatible with CES
-          mutual-auth: false
           misc: 'bpfClockProbe=false,cni.uninstall=false'
           image-pull-secret: "cilium-registry"
 

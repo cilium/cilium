@@ -160,7 +160,6 @@ jobs:
           tunnel: ${{ matrix.tunnel }}
           kpr: ${{ matrix.kpr }}
           encryption: 'ztunnel'
-          mutual-auth: false
           image-pull-secret: "cilium-registry"
 
       - name: Set Kind params
