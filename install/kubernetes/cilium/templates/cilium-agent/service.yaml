@@ -27,12 +27,12 @@ spec:
   - name: metrics
     port: {{ .Values.prometheus.port }}
     protocol: TCP
-    targetPort: prometheus
+    targetPort: {{ .Values.prometheus.portName | quote }}
   {{- if not $envoyDS }}
   - name: envoy-metrics
     port: {{ .Values.envoy.prometheus.port }}
     protocol: TCP
-    targetPort: envoy-metrics
+    targetPort: {{ .Values.envoy.prometheus.portName | quote }}
   {{- end }}
 {{- else if and .Values.envoy.prometheus.enabled (not $envoyDS) }}
 apiVersion: v1
@@ -64,6 +64,6 @@ spec:
   - name: envoy-metrics
     port: {{ .Values.envoy.prometheus.port }}
     protocol: TCP
-    targetPort: envoy-metrics
+    targetPort: {{ .Values.envoy.prometheus.portName | quote }}
 {{- end }}
 {{- end }}

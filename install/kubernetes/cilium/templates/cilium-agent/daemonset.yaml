@@ -269,12 +269,12 @@ spec:
           protocol: TCP
         {{- end }}
         {{- if .Values.prometheus.enabled }}
-        - name: prometheus
+        - name: {{ .Values.prometheus.portName | quote }}
           containerPort: {{ .Values.prometheus.port }}
           hostPort: {{ .Values.prometheus.port }}
           protocol: TCP
         {{- if and .Values.envoy.prometheus.enabled (not $envoyDS) }}
-        - name: envoy-metrics
+        - name: {{ .Values.envoy.prometheus.portName | quote }}
           containerPort: {{ .Values.envoy.prometheus.port }}
           hostPort: {{ .Values.envoy.prometheus.port }}
           protocol: TCP
@@ -287,7 +287,7 @@ spec:
         {{- end }}
         {{- end }}
         {{- if or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled }}
-        - name: hubble-metrics
+        - name: {{ .Values.hubble.metrics.portName | quote }}
           containerPort: {{ .Values.hubble.metrics.port }}
           hostPort: {{ .Values.hubble.metrics.port }}
           protocol: TCP

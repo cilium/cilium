@@ -24,7 +24,7 @@ spec:
   - name: metrics
     port: 9963
     protocol: TCP
-    targetPort: prometheus
+    targetPort: {{ .Values.operator.prometheus.portName | quote }}
   selector:
     io.cilium/app: operator
     name: cilium-operator
