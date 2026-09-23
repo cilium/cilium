@@ -67,6 +67,16 @@ DOCKER_CTR := $(DOCKER_CTR_BASE) \
 		--env INCREMENTAL=$(INCREMENTAL)
 DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
 
+# Sphinx loads the Rediraffe extension, which needs access to git metadata. In a git worktree, .git points outside the mounted source tree.
+# Mount the common git dir at a well known path, and set GIT_DIR to the corresponding directory within that mount.
+HOST_GIT_DIR := $(shell git rev-parse --absolute-git-dir 2>/dev/null)
+HOST_GIT_COMMON_DIR := $(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+DOCKER_SPHINX_CTR := $(DOCKER_CTR) \
+	--volume $(HOST_GIT_COMMON_DIR):/git-common-dir:ro \
+	--env GIT_WORK_TREE=$(DOCKER_CTR_ROOT_DIR) \
+	--env GIT_DIR=/git-common-dir$(patsubst $(HOST_GIT_COMMON_DIR)%,%,$(HOST_GIT_DIR)) # Preserve the GIT_DIR path within the common-dir mount so commondir resolves correctly.
+DOCKER_SPHINX_RUN := $(DOCKER_SPHINX_CTR) $(DOCS_BUILDER_IMG)
+
 ##@ Auto-generated Contents Updates and Validation
 
 .PHONY: api-flaggen
@@ -150,7 +160,7 @@ endif
 
 html epub latex: builder-image ## Check documentation and render it under the specified format.
 	@$(ECHO_GEN)_build/$@
-	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
+	$(QUIET)$(DOCKER_SPHINX_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 
 html-netlify:
 	@$(ECHO_GEN)_build/$@
@@ -160,14 +170,14 @@ DOCS_PORT = 9081
 
 live-preview: builder-image ## Build and serve the documentation locally.
 	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
-	$(QUIET)$(DOCKER_CTR) \
+	$(QUIET)$(DOCKER_SPHINX_CTR) \
 		--publish $(DOCS_PORT):$(DOCS_PORT) \
 			$(DOCS_BUILDER_IMG) \
 		sphinx-autobuild --open-browser --host 0.0.0.0 --port $(DOCS_PORT) $(SPHINX_OPTS) --ignore "*.swp" -Q . _preview
 
 update-redirects: builder-image ## Build and serve the documentation locally.
 	@echo "$$(tput setaf 2)Writing redirects$$(tput sgr0)"
-	$(QUIET)$(DOCKER_CTR) \
+	$(QUIET)$(DOCKER_SPHINX_CTR) \
 		$(DOCS_BUILDER_IMG) \
 		sphinx-build -M rediraffewritediff . _preview
 
