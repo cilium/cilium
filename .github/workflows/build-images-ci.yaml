@@ -66,6 +66,9 @@ jobs:
           - name: cilium
             dockerfile: ./images/cilium/Dockerfile
             platforms: linux/amd64,linux/arm64
+            # Only images consumed with a -race tag by conformance-ginkgo /
+            # conformance-race get a race variant.
+            race: true
 
           - name: cilium-cli
             dockerfile: ./cilium-cli/Dockerfile
@@ -87,10 +90,12 @@ jobs:
           - name: operator-generic
             dockerfile: ./images/operator/Dockerfile
             platforms: linux/amd64,linux/arm64
+            race: true
 
           - name: hubble-relay
             dockerfile: ./images/hubble-relay/Dockerfile
             platforms: linux/amd64,linux/arm64
+            race: true
 
           - name: clustermesh-apiserver
             dockerfile: ./images/clustermesh-apiserver/Dockerfile
@@ -190,6 +195,8 @@ jobs:
 
       - name: Getting image tag
         id: tag
+        env:
+          CACHE_BRANCH: ${{ github.base_ref || github.event.merge_group.base_ref || github.ref_name }}
         run: |
           if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
             sha=${{ github.event.pull_request.head.sha }}
@@ -221,13 +228,15 @@ jobs:
             normal_tag="${normal_tag},${floating_normal_tag}"
           fi
 
-          if [[ "${{ github.event_name }}" == 'merge_group' ]]; then
-            # Don't build race images for merge_group events.
+          if [[ "${{ github.event_name == 'merge_group' || matrix.race != true }}" == "true" ]]; then
+            # Don't build race images for merge_group events, nor for images
+            # that no CI consumer pulls with a -race tag.
             race_tag=""
           fi
 
-          if [[ "${{ github.event_name }}" == 'merge_group' || "${{ github.event_name }}" == 'push' ]]; then
-            # Don't build unstripped images for merge_group or push events.
+          # Unstripped images have no CI consumer; they only exist for
+          # interactive debugging, so PRs must opt in via label.
+          if [[ "${{ github.event_name != 'pull_request_target' || !contains(github.event.pull_request.labels.*.name, 'ci/build-unstripped') }}" == "true" ]]; then
             unstripped_tag=""
           fi
 
@@ -235,6 +244,19 @@ jobs:
           echo race_tag=${race_tag} >> $GITHUB_OUTPUT
           echo unstripped_tag=${unstripped_tag} >> $GITHUB_OUTPUT
           echo parent_tag="$(cat VERSION)" >> $GITHUB_OUTPUT
+
+          # Layer cache lives next to the image under a non-SHA tag, which the
+          # scruffy garbage collector ignores. Keyed by base branch so stable
+          # branches don't thrash main's cache. Only trusted events (push,
+          # merge_group) may write it; pull_request_target builds untrusted
+          # code and is read-only to avoid cache poisoning.
+          cache_branch="${CACHE_BRANCH#refs/heads/}"
+          cache_branch="${cache_branch//[^A-Za-z0-9._-]/-}"
+          cache_ref="${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/${{ matrix.name }}-ci:buildcache-${cache_branch}"
+          echo cache_from="type=registry,ref=${cache_ref}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name == 'push' || github.event_name == 'merge_group' }}" == "true" ]]; then
+            echo cache_to="type=registry,ref=${cache_ref},mode=max,image-manifest=true,oci-mediatypes=true" >> $GITHUB_OUTPUT
+          fi
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -365,6 +387,8 @@ jobs:
           platforms: ${{ matrix.platforms }}
           tags: ${{ steps.tag.outputs.normal_tag }}
           target: release
+          cache-from: ${{ steps.tag.outputs.cache_from }}
+          cache-to: ${{ steps.tag.outputs.cache_to }}
           build-args: |
             CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -408,6 +432,7 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.tag.outputs.race_tag }}
           target: release
+          cache-from: ${{ steps.tag.outputs.cache_from }}
           build-args: |
             BASE_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
@@ -426,6 +451,7 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.tag.outputs.unstripped_tag }}
           target: release
+          cache-from: ${{ steps.tag.outputs.cache_from }}
           build-args: |
             CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             MODIFIERS="NOSTRIP=1"
