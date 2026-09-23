@@ -26,9 +26,9 @@ on:
     - ft/main/**
     paths-ignore:
     - 'Documentation/**'
-  # Run every 8 hours
+  # Run every 12 hours
   schedule:
-    - cron:  '0 3/8 * * *'
+    - cron:  '0 3/12 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.

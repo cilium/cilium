@@ -22,7 +22,7 @@ on:
         default: "{}"
 
   schedule:
-    - cron: '0 5/8 * * *'
+    - cron: '0 5/12 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.

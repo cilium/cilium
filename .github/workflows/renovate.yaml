@@ -1,8 +1,8 @@
 name: Renovate
 on:
   schedule:
-    # Running every hour every working day (Monday to Friday)
-    - cron: '0 * * * 1-5'
+    # Running every four hours every working day (Monday to Friday)
+    - cron: '0 */4 * * 1-5'
     # Running every two hours on weekends (Saturday and Sunday)
     - cron: '0 */2 * * 6,0'
   # allow to manually trigger this workflow
