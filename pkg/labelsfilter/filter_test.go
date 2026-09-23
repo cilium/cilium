@@ -292,13 +292,16 @@ func TestFilterLabelsFromFile(t *testing.T) {
 		"my-label":                 "test",
 		"some-random-label":        "test",
 	}, labels.LabelSourceK8s)
-	allLabels["reserved:host"] = labels.NewLabel("reserved:host", "test", labels.LabelSourceReserved)
+	reservedLabels := labels.Map2Labels(map[string]string{
+		"host": "test",
+	}, labels.LabelSourceReserved)
+	allLabels.MergeLabels(reservedLabels)
 
 	identityLabels, infoLabels := Filter(allLabels)
 
 	// Verify reserved:host is NOT an identity label.
-	assert.NotContains(t, identityLabels, "reserved:host")
-	assert.Contains(t, infoLabels, "reserved:host")
+	assert.NotContains(t, identityLabels, "host")
+	assert.Contains(t, infoLabels, "host")
 
 	// Verify warning was logged about 'reserved:.*' labels not being considered for identity.
 	assert.Contains(t, logs.String(), reservedLabelsPattern)
@@ -351,13 +354,16 @@ func TestExclusiveOnlyFilterLabelsFromFile(t *testing.T) {
 		"pod-template-generation":  "test",
 		"some-random-label":        "test",
 	}, labels.LabelSourceK8s)
-	allLabels["reserved:host"] = labels.NewLabel("reserved:host", "test", labels.LabelSourceReserved)
+	reservedLabels := labels.Map2Labels(map[string]string{
+		"host": "test",
+	}, labels.LabelSourceReserved)
+	allLabels.MergeLabels(reservedLabels)
 
 	identityLabels, infoLabels := Filter(allLabels)
 
 	// Verify reserved:host IS an identity label.
-	assert.Contains(t, identityLabels, "reserved:host")
-	assert.NotContains(t, infoLabels, "reserved:host")
+	assert.Contains(t, identityLabels, "host")
+	assert.NotContains(t, infoLabels, "host")
 
 	// Verify NO warning was logged about 'reserved:.*' labels not being considered for identity.
 	assert.NotContains(t, logs.String(), reservedLabelsPattern)
