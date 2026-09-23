@@ -20,6 +20,7 @@ jobs:
   check_changes:
     name: Deduce required tests from code changes
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     outputs:
       docs-tree: ${{ steps.docs-tree.outputs.src }}
     steps:
@@ -57,6 +58,7 @@ jobs:
     if: ${{ needs.check_changes.outputs.docs-tree == 'true' }}
     name: Validate & Build HTML
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -78,6 +80,7 @@ jobs:
     name: Check generated documentation
     if: ${{ github.event_name != 'merge_group' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

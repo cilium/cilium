@@ -58,6 +58,7 @@ jobs:
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Set initial commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
@@ -68,6 +69,7 @@ jobs:
     env:
       job_name: "Conformance Smoke Test with IPv6"
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     name: Installation and Conformance Test (ipv6)
     steps:
       - name: Collect Workflow Telemetry

@@ -38,6 +38,7 @@ jobs:
     if: ${{ always() && inputs.merge-artifacts }}
     name: Merge and Upload Artifacts
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
       actions: read
@@ -64,6 +65,7 @@ jobs:
     if: ${{ always() }}
     name: Commit Status Final
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       statuses: write
     steps:
@@ -77,6 +79,7 @@ jobs:
     if: ${{ inputs.success == false }}
     name: Fail job if result is failure
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Fail job if result is failure
         # Besides reporting in the commit SHA if the test was or not successful,

@@ -27,6 +27,7 @@ jobs:
   check_changes:
     name: Deduce required tests from code changes
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
     steps:
@@ -50,6 +51,7 @@ jobs:
 
   preflight-clusterrole:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     name: Preflight Clusterrole Check
     steps:
       - name: Checkout code
@@ -62,6 +64,7 @@ jobs:
 
   helm-charts:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     name: Helm Charts Check
     steps:
       - name: Checkout

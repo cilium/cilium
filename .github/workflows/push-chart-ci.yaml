@@ -37,6 +37,7 @@ jobs:
   setup-charts:
     name: Setup Charts
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     outputs:
       chart-version: ${{ steps.get-version.outputs.chart_version }}
     steps:
@@ -81,6 +82,7 @@ jobs:
   push-charts:
     name: Push Charts
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs: setup-charts
     steps:
     - name: Checkout GitHub Actions definitions
@@ -160,6 +162,7 @@ jobs:
   post-push:
     name: Post-push steps
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs:
       - setup-charts
       - push-charts

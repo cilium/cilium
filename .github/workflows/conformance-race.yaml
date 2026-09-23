@@ -62,6 +62,7 @@ jobs:
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Echo Workflow Dispatch Inputs
         if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -78,6 +79,7 @@ jobs:
   prepare-extra-args:
     name: Prepare extra-args
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     outputs:
       extra-args: ${{ steps.merge.outputs.extra-args }}
     steps:

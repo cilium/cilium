@@ -1,5 +1,6 @@
 name: CodeQL
 
+# Any change in triggers needs to be reflected in the concurrency group.
 on:
   push:
     branches:
@@ -9,6 +10,10 @@ on:
       - opened
       - synchronize
       - reopened
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   analyze:

@@ -17,6 +17,7 @@ jobs:
   check_changes:
     name: Deduce required tests from code changes
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     outputs:
       added-files: ${{ steps.changes.outputs.added-files }}
       deleted-files: ${{ steps.changes.outputs.deleted-files }}
@@ -40,6 +41,7 @@ jobs:
     if: ${{ needs.check_changes.outputs.codeowners-changed == 'true' || needs.check_changes.outputs.added-files == 'true' || needs.check_changes.outputs.deleted-files == 'true' }}
     name: Check CODEOWNERS consistency
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

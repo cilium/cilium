@@ -18,6 +18,7 @@ jobs:
   ginkgo-workflow-comments:
     name: Lint Ginkgo Workflows Comments
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -114,6 +115,7 @@ jobs:
   ginkgo-schema-validation:
     name: Validate Ginkgo Schema
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -139,6 +141,7 @@ jobs:
   conformance-schema-validation:
     name: Validate k8s Versions Schema
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -171,6 +174,7 @@ jobs:
   name-validation:
     name: Validate Workflow Names
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -259,6 +263,7 @@ jobs:
   actionlint:
     name: actionlint
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         name: checkout
@@ -274,6 +279,7 @@ jobs:
   workflow-name-collisions:
     name: Validate Workflow Check Name Collisions
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

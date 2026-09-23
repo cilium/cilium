@@ -58,6 +58,7 @@ jobs:
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Echo Workflow Dispatch Inputs
         if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -75,6 +76,7 @@ jobs:
     env:
       job_name: "Conformance Smoke Test"
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     name: Installation and Conformance Test
     steps:
       - name: Collect Workflow Telemetry

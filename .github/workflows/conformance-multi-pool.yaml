@@ -131,6 +131,7 @@ jobs:
     needs: [wait-for-images, generate-matrix]
     strategy:
       fail-fast: false
+      max-parallel: 30
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 

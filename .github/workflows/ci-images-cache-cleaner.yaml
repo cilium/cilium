@@ -17,6 +17,7 @@ jobs:
   cache-cleaner:
     name: Clean Image Cache
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       # `actions:write` permission is required to delete caches
       #   See also: https://docs.github.com/en/rest/actions/cache?apiVersion=2022-11-28#delete-a-github-actions-cache-for-a-repository-using-a-cache-id
@@ -29,12 +30,23 @@ jobs:
           gh extension install actions/gh-actions-cache
 
           REPO=${{ github.repository }}
+          BRANCH=${{ github.event.repository.default_branch }}
           set +e
-          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-go- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); do
-            gh actions-cache delete ${cache} -R $REPO -B ${{ github.event.repository.default_branch }} --confirm || true
-          done
-          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-ccache- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); do
-            gh actions-cache delete ${cache} -R $REPO -B ${{ github.event.repository.default_branch }} --confirm || true
+          for prefix in ${{ runner.os }}-go- ${{ runner.os }}-ccache-; do
+            while true; do
+              caches=$(gh actions-cache list -R $REPO --key ${prefix} -B ${BRANCH} -L 100 | awk '{ print $1 }')
+              if [ -z "${caches}" ]; then
+                break
+              fi
+              deleted=0
+              for cache in ${caches}; do
+                gh actions-cache delete ${cache} -R $REPO -B ${BRANCH} --confirm && deleted=$((deleted + 1))
+              done
+              if [ "${deleted}" -eq 0 ]; then
+                echo "Failed to delete any cache entry matching ${prefix}, stopping to avoid looping forever"
+                break
+              fi
+            done
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

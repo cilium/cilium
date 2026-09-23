@@ -1,4 +1,6 @@
 name: CIFuzz
+
+# Any change in triggers needs to be reflected in the concurrency group.
 on:
   schedule:
     # Run the Fuzzers every Monday at 7am
@@ -9,11 +11,18 @@ on:
       - '.github/workflows/tests-cifuzz.yaml'
       - '**/fuzz_test.go'
       - 'test/fuzzing/*'
+
 permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   Fuzzing:
     name: Build and Run Fuzzers
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
     - name: Build Fuzzers
       id: build
