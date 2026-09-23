@@ -15,18 +15,6 @@ on:
         description: "Image tag under test, either a commit SHA or a released version (eg v1.19.8). Cilium images for it must already exist."
         required: true
         type: string
-      scenario:
-        description: "Churn scenario to run, see .github/actions/cl2-modules/policy-churn/scenarios"
-        required: true
-        default: l7-identity-churn
-        type: choice
-        options:
-          - global-identities-churn
-          - local-identities-churn
-          - selectors-churn
-          - policy-identity-churn
-          - l7-policy-identity-churn
-          - l7-identity-churn
 
 permissions:
   # To be able to trigger eks-cluster-pool-manager.yaml workflow
@@ -37,14 +25,10 @@ permissions:
   id-token: write
 
 concurrency:
-  # One comparison per (base-tag, test-tag, scenario) at a time. Queue instead
-  # of cancelling, since a run holds a dedicated EKS cluster for over an hour
-  # and is always started deliberately by a human.
   group: |
     ${{ github.workflow }}
     ${{ inputs.base-tag }}
     ${{ inputs.test-tag }}
-    ${{ inputs.scenario }}
   cancel-in-progress: false
 
 env:
@@ -74,8 +58,18 @@ env:
 jobs:
   churn-compare:
     runs-on: ubuntu-24.04
-    name: Compare Resource Churn of two Cilium builds
+    name: Compare Resource Churn of two Cilium builds (${{ matrix.scenario }})
     timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - global-identities-churn
+          - local-identities-churn
+          - policy-identity-churn
+          # - selectors-churn
+          # - l7-policy-identity-churn
+          # - l7-identity-churn
     env:
       CL2_ENABLE_PVS: "false"
       CL2_PROMETHEUS_PVC_ENABLED: "false"
@@ -105,12 +99,11 @@ jobs:
         env:
           BASE_TAG: ${{ inputs.base-tag }}
           TEST_TAG: ${{ inputs.test-tag }}
-          SCENARIO: ${{ inputs.scenario }}
+          SCENARIO: ${{ matrix.scenario }}
         run: |
           # Default values for testing.
-          : "${BASE_TAG:=bc38713ac7099e5083ef7b202c45a0d025ad5021}"
-          : "${TEST_TAG:=aaa161a3b2814f8a0f100f7eaa8526855a34bf4f}"
-          : "${SCENARIO:=l7-identity-churn}"
+          : "${BASE_TAG:=e0dc92bd6dac33d7ba3b5eace82a0448bbb13aac}"
+          : "${TEST_TAG:=e8c759de66e8fecb56f42cf0640fe2466525df56}"
 
           # A tag is either a commit SHA or a released version (eg v1.19.8).
           # Both end up in image references, git refs, file names and shell
@@ -124,6 +117,7 @@ jobs:
           if [ "${BASE_TAG}" == "${TEST_TAG}" ]; then
             echo "::warning::base-tag and test-tag are identical, the comparison will not show anything"
           fi
+          # Catches a typo in the scenario matrix before the cluster is created.
           if [ ! -f ".github/actions/cl2-modules/policy-churn/scenarios/${SCENARIO}.yaml" ]; then
             echo "::error::unknown scenario '${SCENARIO}'"
             exit 1
@@ -132,7 +126,7 @@ jobs:
           OWNER="${{ github.ref_name }}"
           OWNER="${OWNER//[.\/]/-}"
 
-          CLUSTER_NAME="scale-churn-${{ github.run_id }}-${{ github.run_attempt }}"
+          CLUSTER_NAME="scale-churn-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}"
 
           eks_version_and_region=$(yq '.include | sort_by(.version) | reverse | .[0] | "\(.version),\(.region)"' .github/actions/eks/k8s-versions.yaml)
           EKS_VERSION=$(echo "$eks_version_and_region" | cut -d',' -f1)
