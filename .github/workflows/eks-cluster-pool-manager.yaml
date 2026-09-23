@@ -20,6 +20,15 @@ permissions:
   # To be able to request the JWT from GitHub's OIDC provider
   id-token: write
 
+# Never let two pool-manager runs overlap: a slow run colliding with the next
+# scheduled tick would race on the same EKS cluster pool and could
+# double-provision clusters. Do not cancel the running job; GitHub keeps at
+# most one pending run per group, which is enough because every run
+# reconciles the pool to the desired state and the next tick catches up.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.230.0
