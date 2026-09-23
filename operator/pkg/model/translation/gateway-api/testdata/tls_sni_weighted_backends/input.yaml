@@ -1,4 +1,4 @@
-tls_passthrough:
+tls:
 - hostname: '*'
   name: prod-web-gw
   port: 443

@@ -448,7 +448,7 @@ func Test_translator_toServicePorts_MixedProtocolsSamePort(t *testing.T) {
 		&model.HTTPListener{
 			Port: 80,
 		},
-		&model.TLSPassthroughListener{
+		&model.TLSListener{
 			Port: 53,
 		},
 		&model.L4Listener{

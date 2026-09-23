@@ -216,7 +216,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 			})
 
 			if l.Protocol == gatewayv1.TLSProtocolType {
-				m.TLSPassthrough = append(m.TLSPassthrough, model.TLSPassthroughListener{
+				m.TLS = append(m.TLS, model.TLSListener{
 					Name:           string(l.Name),
 					Sources:        []model.FullyQualifiedResource{l.Source},
 					Port:           uint32(l.Port),
@@ -805,8 +805,8 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 	return grpcRoutes
 }
 
-func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string, input []gatewayv1.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.TLSPassthroughRoute {
-	var tlsRoutes []model.TLSPassthroughRoute
+func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string, input []gatewayv1.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.TLSRoute {
+	var tlsRoutes []model.TLSRoute
 	for _, r := range input {
 		if !parentRefsMatchListener(r.Spec.ParentRefs, listener) {
 			continue
@@ -831,7 +831,7 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnamesByProtocol m
 				}
 			}
 
-			tlsRoutes = append(tlsRoutes, model.TLSPassthroughRoute{
+			tlsRoutes = append(tlsRoutes, model.TLSRoute{
 				Hostnames: computedHost,
 				Backends:  bes,
 			})

@@ -17,11 +17,11 @@ import (
 // Model holds an abstracted data model representing the translation
 // of various types of Kubernetes config to Cilium config.
 type Model struct {
-	HTTP           []HTTPListener           `json:"http,omitempty"`
-	TLSPassthrough []TLSPassthroughListener `json:"tls_passthrough,omitempty"`
-	L4             []L4Listener             `json:"l4,omitempty"`
-	HTTPOptions    *HTTPOptions             `json:"http_options,omitempty"`
-	Telemetry      *Telemetry               `json:"telemetry,omitempty"`
+	HTTP        []HTTPListener `json:"http,omitempty"`
+	TLS         []TLSListener  `json:"tls,omitempty"`
+	L4          []L4Listener   `json:"l4,omitempty"`
+	HTTPOptions *HTTPOptions   `json:"http_options,omitempty"`
+	Telemetry   *Telemetry     `json:"telemetry,omitempty"`
 }
 
 type HTTPOptions struct {
@@ -40,8 +40,8 @@ func (m *Model) GetListeners() []Listener {
 		listeners = append(listeners, &m.HTTP[i])
 	}
 
-	for i := range m.TLSPassthrough {
-		listeners = append(listeners, &m.TLSPassthrough[i])
+	for i := range m.TLS {
+		listeners = append(listeners, &m.TLS[i])
 	}
 
 	for i := range m.L4 {
@@ -182,13 +182,13 @@ func (l HTTPListener) GetProtocol() L4Protocol {
 	return L4ProtocolTCP
 }
 
-// TLSPassthroughListener holds configuration for any listener that proxies TLS
+// TLSListener holds configuration for any listener that proxies TLS
 // based on the SNI value.
 // Each holds the configuration info for one distinct TLS listener, by
 //   - Hostname
 //   - Address
 //   - Port
-type TLSPassthroughListener struct {
+type TLSListener struct {
 	// Name of the TLSListener
 	Name string `json:"name,omitempty"`
 	// Sources is a slice of fully qualified resources this TLSListener is sourced
@@ -205,40 +205,40 @@ type TLSPassthroughListener struct {
 	Hostname string `json:"hostname,omitempty"`
 	// Routes associated with traffic to the service.
 	// An empty list means that traffic will not be routed.
-	Routes []TLSPassthroughRoute `json:"routes,omitempty"`
+	Routes []TLSRoute `json:"routes,omitempty"`
 	// Service configuration
 	Service *Service `json:"service,omitempty"`
 	// Infrastructure configuration
 	Infrastructure *Infrastructure `json:"infrastructure,omitempty"`
 }
 
-func (l TLSPassthroughListener) GetAnnotations() map[string]string {
+func (l TLSListener) GetAnnotations() map[string]string {
 	if l.Infrastructure != nil {
 		return l.Infrastructure.Annotations
 	}
 	return nil
 }
 
-func (l TLSPassthroughListener) GetLabels() map[string]string {
+func (l TLSListener) GetLabels() map[string]string {
 	if l.Infrastructure != nil {
 		return l.Infrastructure.Labels
 	}
 	return nil
 }
 
-func (l TLSPassthroughListener) GetSources() []FullyQualifiedResource {
+func (l TLSListener) GetSources() []FullyQualifiedResource {
 	return l.Sources
 }
 
-func (l TLSPassthroughListener) GetPort() uint32 {
+func (l TLSListener) GetPort() uint32 {
 	return l.Port
 }
 
-func (l TLSPassthroughListener) GetService() *Service {
+func (l TLSListener) GetService() *Service {
 	return l.Service
 }
 
-func (l TLSPassthroughListener) GetProtocol() L4Protocol {
+func (l TLSListener) GetProtocol() L4Protocol {
 	return L4ProtocolTCP
 }
 
@@ -682,8 +682,8 @@ func (r *HTTPRoute) GetBackendAggregationKey() string {
 	return r.SourceRule.key()
 }
 
-// TLSPassthroughRoute holds all the details needed to route TLS traffic to a backend.
-type TLSPassthroughRoute struct {
+// TLSRoute holds all the details needed to route TLS traffic to a backend.
+type TLSRoute struct {
 	Name string `json:"name,omitempty"`
 	// Hostnames that the route should match
 	Hostnames []string `json:"hostnames,omitempty"`
@@ -821,7 +821,7 @@ func (m *Model) GetServerHeaderTransformation() ServerHeaderTransformation {
 
 // IsEmpty returns true if the model has no HTTP, TLS Passthrough or L4 listeners.
 func (m *Model) IsEmpty() bool {
-	return len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0 && len(m.L4) == 0
+	return len(m.HTTP) == 0 && len(m.TLS) == 0 && len(m.L4) == 0
 }
 
 func (m *Model) IsGamma() bool {
@@ -880,16 +880,16 @@ func (m *Model) NeedsPerPortHTTPSListeners() bool {
 	return len(m.HTTPSPortsSorted()) > 1
 }
 
-// NeedsPerPortTLSPassthroughListeners returns true if the model has more than one distinct TLS passthrough port.
-func (m *Model) NeedsPerPortTLSPassthroughListeners() bool {
-	return len(m.TLSPassthroughPorts()) > 1
+// NeedsPerPortTLSListeners returns true if the model has more than one distinct TLS passthrough port.
+func (m *Model) NeedsPerPortTLSListeners() bool {
+	return len(m.TLSPorts()) > 1
 }
 
 // NeedsPerPortListeners returns true if any protocol has enough distinct ports
 // to require per-port Envoy Listener resources, or if cross-protocol SNI overlap
 // would make a combined listener lose the Gateway listener port boundary.
 func (m *Model) NeedsPerPortListeners() bool {
-	return m.NeedsPerPortHTTPSListeners() || m.NeedsPerPortTLSPassthroughListeners() || m.NeedsCrossProtocolSplit()
+	return m.NeedsPerPortHTTPSListeners() || m.NeedsPerPortTLSListeners() || m.NeedsCrossProtocolSplit()
 }
 
 // NeedsCrossProtocolSplit returns true when HTTPS and TLS passthrough filter
@@ -903,7 +903,7 @@ func (m *Model) NeedsPerPortListeners() bool {
 // listeners and need to be rejected before translation.
 func (m *Model) NeedsCrossProtocolSplit() bool {
 	for _, httpsMatch := range m.httpsFilterChainMatches() {
-		for _, tlsMatch := range m.tlsPassthroughFilterChainMatches() {
+		for _, tlsMatch := range m.tlsFilterChainMatches() {
 			if httpsMatch.port == tlsMatch.port {
 				continue
 			}
@@ -940,14 +940,14 @@ func (m *Model) httpsFilterChainMatches() []filterChainMatch {
 	return matches
 }
 
-// tlsPassthroughFilterChainMatches returns the normalized hostnames and ports
+// tlsFilterChainMatches returns the normalized hostnames and ports
 // that TLS passthrough filter chains will use for SNI matching. These derive
 // from route hostnames because each TLS passthrough route generates its own
 // filter chain.
-func (m *Model) tlsPassthroughFilterChainMatches() []filterChainMatch {
+func (m *Model) tlsFilterChainMatches() []filterChainMatch {
 	var matches []filterChainMatch
 	seen := map[filterChainMatch]struct{}{}
-	for _, l := range m.TLSPassthrough {
+	for _, l := range m.TLS {
 		for _, r := range l.Routes {
 			if len(r.Hostnames) == 0 {
 				match := filterChainMatch{hostname: allHosts, port: l.Port}
@@ -970,9 +970,9 @@ func (m *Model) tlsPassthroughFilterChainMatches() []filterChainMatch {
 	return matches
 }
 
-// IsTLSPassthroughListenerConfigured returns true if the model has any TLS Passthrough listeners.
-func (m *Model) IsTLSPassthroughListenerConfigured() bool {
-	for _, l := range m.TLSPassthrough {
+// IsTLSListenerConfigured returns true if the model has any TLS Passthrough listeners.
+func (m *Model) IsTLSListenerConfigured() bool {
+	for _, l := range m.TLS {
 		if len(l.Routes) > 0 {
 			return true
 		}
@@ -1047,10 +1047,10 @@ func (m *Model) IsTCPAccessLogsConfigured() bool {
 	return len(m.Telemetry.AccessLogs[AccessLogsTargetTCP]) > 0
 }
 
-// TLSPassthroughPorts returns a list of unique ports for all TLS Passthrough listeners.
-func (m *Model) TLSPassthroughPorts() []uint32 {
+// TLSPorts returns a list of unique ports for all TLS Passthrough listeners.
+func (m *Model) TLSPorts() []uint32 {
 	var ports []uint32
-	for _, l := range m.TLSPassthrough {
+	for _, l := range m.TLS {
 		if len(l.Routes) > 0 {
 			ports = append(ports, l.Port)
 		}
@@ -1062,7 +1062,7 @@ func (m *Model) TLSPassthroughPorts() []uint32 {
 func (m *Model) AllPorts() []uint32 {
 	var ports []uint32
 	ports = append(ports, m.HTTPPorts()...)
-	ports = append(ports, m.TLSPassthroughPorts()...)
+	ports = append(ports, m.TLSPorts()...)
 	return slices.SortedUnique(ports)
 }
 

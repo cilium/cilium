@@ -1247,7 +1247,7 @@ func TestReconcile(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		assert.Empty(t, cecTranslator.model.TLSPassthrough)
+		assert.Empty(t, cecTranslator.model.TLS)
 		assert.Len(t, cecTranslator.model.HTTP, 1)
 		assert.Equal(t, uint32(55555), cecTranslator.model.HTTP[0].Port)
 	})
@@ -1287,7 +1287,7 @@ func TestReconcile(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		assert.Empty(t, dedicatedIngressTranslator.model.TLSPassthrough)
+		assert.Empty(t, dedicatedIngressTranslator.model.TLS)
 		assert.Len(t, dedicatedIngressTranslator.model.HTTP, 1)
 		assert.Equal(t, uint32(55555), dedicatedIngressTranslator.model.HTTP[0].Port)
 	})
@@ -1351,7 +1351,7 @@ func TestReconcile(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		assert.Empty(t, dedicatedIngressTranslator.model.TLSPassthrough)
+		assert.Empty(t, dedicatedIngressTranslator.model.TLS)
 		assert.Empty(t, dedicatedIngressTranslator.model.HTTP)
 	})
 }

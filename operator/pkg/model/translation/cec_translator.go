@@ -171,7 +171,7 @@ func (i *cecTranslator) desiredServicesWithPortsCombined(namespace string, name 
 	for _, hl := range m.HTTP {
 		allPorts[uint16(hl.Port)] = struct{}{}
 	}
-	for _, tlsl := range m.TLSPassthrough {
+	for _, tlsl := range m.TLS {
 		if len(tlsl.Routes) > 0 {
 			allPorts[uint16(tlsl.Port)] = struct{}{}
 		}
@@ -200,15 +200,15 @@ func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name str
 
 	// All TLS passthrough ports are excluded from the plaintext HTTP port list,
 	// since they are handled by the TLS passthrough section below.
-	tlsPassthroughPorts := map[uint32]bool{}
-	for _, p := range m.TLSPassthroughPorts() {
-		tlsPassthroughPorts[p] = true
+	tlsPorts := map[uint32]bool{}
+	for _, p := range m.TLSPorts() {
+		tlsPorts[p] = true
 	}
 
 	// Plaintext HTTP ports.
 	var httpPorts []uint16
 	for _, hl := range m.HTTP {
-		if len(hl.TLS) == 0 && !tlsPassthroughPorts[hl.Port] {
+		if len(hl.TLS) == 0 && !tlsPorts[hl.Port] {
 			httpPorts = append(httpPorts, uint16(hl.Port))
 		}
 	}
@@ -235,9 +235,9 @@ func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name str
 	}
 
 	// TLS passthrough ports.
-	if m.NeedsPerPortTLSPassthroughListeners() {
+	if m.NeedsPerPortTLSListeners() {
 		// One entry per TLS passthrough port.
-		for _, port := range m.TLSPassthroughPorts() {
+		for _, port := range m.TLSPorts() {
 			envoyListenerName := listenerNameForPort(port)
 			result = append(result, &ciliumv2.ServiceListener{
 				Namespace: namespace,
@@ -248,7 +248,7 @@ func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name str
 		}
 	} else {
 		var ptPorts []uint16
-		for _, tlsl := range m.TLSPassthrough {
+		for _, tlsl := range m.TLS {
 			if len(tlsl.Routes) > 0 {
 				ptPorts = append(ptPorts, uint16(tlsl.Port))
 			}
@@ -394,7 +394,7 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 		}
 	}
 
-	for _, l := range m.TLSPassthrough {
+	for _, l := range m.TLS {
 		for _, r := range l.Routes {
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
 		}
