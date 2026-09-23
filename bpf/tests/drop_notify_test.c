@@ -16,8 +16,6 @@
 #include <bpf/ctx/skb.h>
 #include "common.h"
 
-#define DROP_NOTIFY
-
 /* Include node config */
 #include <bpf/config/node.h>
 
@@ -37,6 +35,8 @@ int mock_tail_call(void *ctx, const void *map, __u32 index);
 /* defining the above macros. */
 #include "lib/drop.h"
 
+ASSIGN_CONFIG(bool, enable_drop_notify, true)
+
 /* Undefine tail_call_internal to stop redirecting to the mock. It is not necessary */
 /* unless you would like to include something else that might conflict with the */
 /* redirection. */
@@ -47,10 +47,10 @@ static int tail_drop_notify_res;
 /* This is the function we use as the callback when stubbing the tailcall. */
 int mock_tail_call(void *ctx, __maybe_unused const void *map, __maybe_unused __u32 index)
 {
-  /* We can even unit-test the function which is actually called by the tailcall */
-  /* within the callback. */
-  tail_drop_notify_res = tail_drop_notify(ctx);
-  return 0;
+	/* We can even unit-test the function which is actually called by the tailcall */
+	/* within the callback. */
+	tail_drop_notify_res = tail_drop_notify(ctx);
+	return 0;
 }
 
 /* A sample test for function send_drop_notify */
