@@ -320,8 +320,8 @@ func Test_tlsFilterChains_Backends(t *testing.T) {
 		wantWeighted     []*envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedCluster_ClusterWeight
 	}{
 		{
-			name:             "no valid backends emits no filter chain",
-			wantFilterChains: 0,
+			name:             "no valid backends emits a close-only filter chain",
+			wantFilterChains: 1,
 		},
 		{
 			name: "single backend",
@@ -406,7 +406,11 @@ func Test_tlsFilterChains_Backends(t *testing.T) {
 			})
 
 			require.Len(t, filterChains, tt.wantFilterChains)
-			if tt.wantFilterChains == 0 {
+			if len(tt.backends) == 0 {
+				assert.Equal(t, []string{"test.example.com"}, filterChains[0].GetFilterChainMatch().GetServerNames())
+				assert.Equal(t, tlsTransportProtocol, filterChains[0].GetFilterChainMatch().GetTransportProtocol())
+				assert.Empty(t, filterChains[0].GetFilters())
+				assert.Nil(t, filterChains[0].GetTransportSocket())
 				return
 			}
 
@@ -423,6 +427,27 @@ func Test_tlsFilterChains_Backends(t *testing.T) {
 			assert.Equal(t, tt.wantWeighted, tcpProxy.GetWeightedClusters().GetClusters())
 		})
 	}
+}
+
+func Test_tlsFilterChainsForPort_NoBackends(t *testing.T) {
+	m := &model.Model{
+		TLS: []model.TLSListener{
+			{
+				Port: 443,
+				Routes: []model.TLSRoute{
+					{Hostnames: []string{"test.example.com"}},
+				},
+			},
+		},
+	}
+
+	filterChains := tlsFilterChainsForPort(443, m)
+	require.Len(t, filterChains, 1)
+	assert.Equal(t, []string{"test.example.com"}, filterChains[0].GetFilterChainMatch().GetServerNames())
+	assert.Equal(t, tlsTransportProtocol, filterChains[0].GetFilterChainMatch().GetTransportProtocol())
+	assert.Empty(t, filterChains[0].GetFilters())
+	assert.Nil(t, filterChains[0].GetTransportSocket())
+	assert.Empty(t, tlsFilterChainsForPort(8443, m))
 }
 
 func Test_tlsFilterChains_AccessLogs(t *testing.T) {

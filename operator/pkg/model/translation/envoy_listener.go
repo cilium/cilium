@@ -735,6 +735,11 @@ func tlsFilterChains(m *model.Model) []*envoy_config_listener.FilterChain {
 		for _, route := range stableTLSRoutes(listener.Routes) {
 			backends := stableTLSBackends(route.Backends)
 			if len(backends) == 0 {
+				// An invalid backend must reject the connection after SNI matching.
+				// Envoy closes connections selected by a chain without filters.
+				filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+					FilterChainMatch: toFilterChainMatch(route.Hostnames),
+				})
 				continue
 			}
 
@@ -770,6 +775,11 @@ func tlsFilterChainsForPort(port uint32, m *model.Model) []*envoy_config_listene
 		for _, route := range stableTLSRoutes(listener.Routes) {
 			backends := stableTLSBackends(route.Backends)
 			if len(backends) == 0 {
+				// An invalid backend must reject the connection after SNI matching.
+				// Envoy closes connections selected by a chain without filters.
+				filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+					FilterChainMatch: toFilterChainMatch(route.Hostnames),
+				})
 				continue
 			}
 
