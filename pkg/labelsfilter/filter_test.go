@@ -259,7 +259,7 @@ func TestFilterLabelsByRegex(t *testing.T) {
 func TestFilterLabelsFromFile(t *testing.T) {
 	var logs bytes.Buffer
 	handler := slog.NewTextHandler(&logs, &slog.HandlerOptions{
-		Level: slog.LevelWarn,
+		Level: slog.LevelError,
 	})
 	logger := slog.New(handler)
 
