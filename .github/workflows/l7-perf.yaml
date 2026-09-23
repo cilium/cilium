@@ -74,19 +74,17 @@ env:
   nighthawk_docker_image: docker.io/envoyproxy/nighthawk-dev:ee3f687f3485cf72f0c4262def369dfd89ad7ed1@sha256:b13687c0ac49025777ae8ed669b28fbf03626830d959e7452ec408d54ad8ffd1
 
 jobs:
-  echo-inputs:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Echo Workflow Dispatch Inputs
-        run: |
-          echo '${{ tojson(inputs) }}'
-
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-24.04
     steps:
+      - name: Echo Workflow Dispatch Inputs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          INPUTS: ${{ tojson(inputs) }}
+        run: |
+          echo "${INPUTS}"
+
       - name: Set initial commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
         with:
