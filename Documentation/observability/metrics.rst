@@ -509,7 +509,7 @@ The following tables categorize feature metrics into four groups:
 - **Network Policies** (:ref:`cilium-feature-network-policies`)
 
   This group encompasses metrics related to policy enforcement, including
-  Cilium Network Policies, Host Firewall, DNS policies, and Mutual Auth.
+  Cilium Network Policies, Host Firewall, and DNS policies.
 
 For example, to check if the Bandwidth Manager is enabled on a Cilium agent,
 observe the metric ``cilium_feature_adv_connect_and_lb_bandwidth_manager_enabled``.
