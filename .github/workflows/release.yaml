@@ -32,6 +32,9 @@ on:
         required: true
       CILIUM_RELEASE_BOT_APP_ID:
         required: true
+      # Unused since the Quay login below moved to OIDC, and kept only because
+      # the stable branches still pass them to this workflow at @main, which
+      # errors out when the secret is not declared here.
       QUAY_USERNAME_HELM_RELEASE_USERNAME:
         required: false
       QUAY_PASSWORD_HELM_RELEASE_PASSWORD:
@@ -40,8 +43,6 @@ on:
 permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
-  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
-  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.version }}-${{ inputs.step }}
@@ -122,6 +123,10 @@ jobs:
   release-helm:
     name: Release Helm
     if: ${{ inputs.step == '5-publish-helm' }}
+    permissions:
+      contents: read
+      # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
+      id-token: write
     environment:
       name: release-helm
       deployment: false
@@ -201,14 +206,44 @@ jobs:
           git config user.email "noreply@cilium.io"
           git remote set-url origin https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.repository }}.git
 
+      # Quay's registry endpoint only accepts credentials or a JWT signed by
+      # Quay itself, so the GitHub OIDC token cannot be used as the registry
+      # password directly. Trade it for a short lived robot token first.
+      #
+      # Because the job references an environment, the subject of the token is
+      # repo:cilium@21054566/cilium@48109239:environment:release-helm, the
+      # immutable form that carries the owner and repository ids. That is the
+      # identity federated with the robot account on the Quay side, so renaming
+      # the environment breaks the login.
+      - name: Get a quay.io robot token via OIDC
+        id: registry-token
+        env:
+          ROBOT: ${{ vars.QUAY_ROBOT_HELM }}
+        run: |
+          oidc_token="$(curl -sSf --retry 3 --retry-all-errors \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=quay.io" \
+            | jq -er '.value')"
+          echo "::add-mask::${oidc_token}"
+
+          # Pass the credentials on stdin so that the OIDC token is not visible
+          # in the process list of the runner.
+          robot_token="$(printf 'user = "%s:%s"\n' "${ROBOT}" "${oidc_token}" \
+            | curl -sSf --retry 3 --retry-all-errors -K - \
+              "https://quay.io/oauth2/federation/robot/token" \
+            | jq -er '.token')"
+          echo "::add-mask::${robot_token}"
+
+          echo "token=${robot_token}" >> "$GITHUB_OUTPUT"
+
       - name: Login to Helm registries
         shell: bash
         env:
-          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME_HELM_RELEASE_USERNAME }}
-          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD_HELM_RELEASE_PASSWORD }}
+          ROBOT: ${{ vars.QUAY_ROBOT_HELM }}
+          ROBOT_TOKEN: ${{ steps.registry-token.outputs.token }}
         run: |
           echo "Logging into Quay.io..."
-          echo "${QUAY_PASSWORD}" | helm registry login quay.io --username "${QUAY_USERNAME}" --password-stdin
+          echo "${ROBOT_TOKEN}" | helm registry login quay.io --username "${ROBOT}" --password-stdin
 
       - name: Run release tool
         shell: bash
@@ -355,12 +390,36 @@ jobs:
           echo "quay_digest=${QUAY_DIGEST}" >> $GITHUB_OUTPUT
           echo "✅ Quay.io digest: ${QUAY_DIGEST}"
 
+      # Waiting for the chart pull request to merge above takes tens of minutes,
+      # which outlives the token minted for the helm login, so cosign gets one
+      # of its own. The subject is the same as above.
+      - name: Get a fresh quay.io robot token via OIDC
+        id: signing-token
+        env:
+          ROBOT: ${{ vars.QUAY_ROBOT_HELM }}
+        run: |
+          oidc_token="$(curl -sSf --retry 3 --retry-all-errors \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=quay.io" \
+            | jq -er '.value')"
+          echo "::add-mask::${oidc_token}"
+
+          # Pass the credentials on stdin so that the OIDC token is not visible
+          # in the process list of the runner.
+          robot_token="$(printf 'user = "%s:%s"\n' "${ROBOT}" "${oidc_token}" \
+            | curl -sSf --retry 3 --retry-all-errors -K - \
+              "https://quay.io/oauth2/federation/robot/token" \
+            | jq -er '.token')"
+          echo "::add-mask::${robot_token}"
+
+          echo "token=${robot_token}" >> "$GITHUB_OUTPUT"
+
       - name: Sign quay.io OCI helm chart
         uses: ./.github/actions/cosign
         with:
           image: "quay.io/${{ github.repository_owner }}/charts/cilium@${{ steps.helm_digests.outputs.quay_digest }}"
           generate_sbom: 'false'
           attach_sbom: 'false'
-          registry_username: ${{ secrets.QUAY_USERNAME_HELM_RELEASE_USERNAME }}
-          registry_password: ${{ secrets.QUAY_PASSWORD_HELM_RELEASE_PASSWORD }}
+          registry_username: ${{ vars.QUAY_ROBOT_HELM }}
+          registry_password: ${{ steps.signing-token.outputs.token }}
           registry_url: 'quay.io'
