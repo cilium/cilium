@@ -195,7 +195,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 
 	for _, l := range listeners {
 		switch l.Protocol {
-		case gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType, gatewayv1.TLSProtocolType:
+		case gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType:
 			filteredHTTPRoutes := l.FilterHTTPRoutes(input.HTTPRoutes)
 			filteredGRPCRoutes := l.FilterGRPCRoutes(input.GRPCRoutes)
 
@@ -215,17 +215,18 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				ServerHeaderTransformation: toServerHeaderTransformation(input.GatewayClassConfig),
 			})
 
-			if l.Protocol == gatewayv1.TLSProtocolType {
-				m.TLS = append(m.TLS, model.TLSListener{
-					Name:           string(l.Name),
-					Sources:        []model.FullyQualifiedResource{l.Source},
-					Port:           uint32(l.Port),
-					Hostname:       toHostname(l.Hostname),
-					Routes:         toTLSRoutes(l.Listener, listenerHostnamesByProtocol, l.FilterTLSRoutes(input.TLSRoutes), input.Services, input.ServiceImports, input.ReferenceGrants),
-					Infrastructure: infra,
-					Service:        toServiceModel(input.GatewayClassConfig),
-				})
-			}
+		case gatewayv1.TLSProtocolType:
+			m.TLS = append(m.TLS, model.TLSListener{
+				Name:           string(l.Name),
+				Sources:        []model.FullyQualifiedResource{l.Source},
+				Port:           uint32(l.Port),
+				Hostname:       toHostname(l.Hostname),
+				Mode:           toTLSMode(l.TLS),
+				TLS:            toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
+				Routes:         toTLSRoutes(l.Listener, listenerHostnamesByProtocol, l.FilterTLSRoutes(input.TLSRoutes), input.Services, input.ServiceImports, input.ReferenceGrants),
+				Infrastructure: infra,
+				Service:        toServiceModel(input.GatewayClassConfig),
+			})
 
 		case gatewayv1.TCPProtocolType:
 			m.L4 = append(m.L4, model.L4Listener{
@@ -839,6 +840,14 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnamesByProtocol m
 	}
 
 	return tlsRoutes
+}
+
+func toTLSMode(tls *gatewayv1.ListenerTLSConfig) model.TLSMode {
+	if tls == nil || tls.Mode == nil {
+		return model.TLSModePassthrough
+	}
+
+	return model.TLSMode(*tls.Mode)
 }
 
 func parentRefsMatchListener(parentRefs []gatewayv1.ParentReference, listener gatewayv1.Listener) bool {

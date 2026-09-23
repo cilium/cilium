@@ -182,6 +182,15 @@ func (l HTTPListener) GetProtocol() L4Protocol {
 	return L4ProtocolTCP
 }
 
+// TLSMode describes whether a TLS listener passes encrypted traffic through or
+// terminates the downstream TLS connection.
+type TLSMode string
+
+const (
+	TLSModePassthrough TLSMode = "Passthrough"
+	TLSModeTerminate   TLSMode = "Terminate"
+)
+
 // TLSListener holds configuration for any listener that proxies TLS
 // based on the SNI value.
 // Each holds the configuration info for one distinct TLS listener, by
@@ -203,6 +212,10 @@ type TLSListener struct {
 	// Wildcards are supported in prefix or suffix forms, or the special wildcard `*`.
 	// An empty list means that the Listener should match all hostnames.
 	Hostname string `json:"hostname,omitempty"`
+	// Mode controls whether TLS is passed through or terminated at the listener.
+	Mode TLSMode `json:"mode,omitempty"`
+	// TLS contains certificate references used when Mode is Terminate.
+	TLS []TLSSecret `json:"tls,omitempty"`
 	// Routes associated with traffic to the service.
 	// An empty list means that traffic will not be routed.
 	Routes []TLSRoute `json:"routes,omitempty"`
