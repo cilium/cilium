@@ -20,6 +20,7 @@ jobs:
   go-mod:
     name: Check Go Modules
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - name: Install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -40,6 +41,7 @@ jobs:
   license-check:
     name: Check third party dependencies licenses
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - name: Install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -56,7 +58,8 @@ jobs:
 
   golangci:
     name: Lint Source Code
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - name: Collect Workflow Telemetry
         uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
@@ -90,6 +93,7 @@ jobs:
 
   precheck:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     name: Precheck
     steps:
       - name: Install Go
@@ -124,6 +128,7 @@ jobs:
 
   generate-api:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     name: Generate API
     steps:
       - name: Install Go
@@ -138,16 +143,28 @@ jobs:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
           path: src/github.com/cilium/cilium
+      - name: Restore Golang cache build from GitHub
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-cilium-cache-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-cilium-cache-
       - name: Check api generated files
         env:
           BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
           BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
+          # generate-api runs goimports with the host toolchain rather than
+          # through builder.sh, so point it at the same restored cache.
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg/mod"
         run: |
           cd src/github.com/cilium/cilium
           contrib/scripts/check-api-code-gen.sh
 
   generate-k8s-api:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     name: Generate k8s API
     steps:
       - name: Install Go
@@ -162,6 +179,13 @@ jobs:
           persist-credentials: false
           # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
           path: src/github.com/cilium/cilium
+      - name: Restore Golang cache build from GitHub
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-cilium-cache-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-cilium-cache-
       - name: Check k8s generated files
         env:
           BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
