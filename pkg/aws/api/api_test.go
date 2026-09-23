@@ -4,15 +4,51 @@
 package api
 
 import (
+	"io"
+	"net/http"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	metricsmock "github.com/cilium/cilium/pkg/api/metrics/mock"
 )
+
+func TestAssignPrivateIpAddressesReturnsOnlyAssignedAddresses(t *testing.T) {
+	ec2Client := ec2.New(ec2.Options{
+		Region:      "us-east-1",
+		Credentials: aws.AnonymousCredentials{},
+		HTTPClient: smithyhttp.ClientDoFunc(func(req *http.Request) (*http.Response, error) {
+			require.NoError(t, req.ParseForm())
+			require.Equal(t, "AssignPrivateIpAddresses", req.Form.Get("Action"))
+			require.Equal(t, "eni-123", req.Form.Get("NetworkInterfaceId"))
+			require.Equal(t, "2", req.Form.Get("SecondaryPrivateIpAddressCount"))
+
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": {"text/xml"}},
+				Body: io.NopCloser(strings.NewReader(`<AssignPrivateIpAddressesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+	<networkInterfaceId>eni-123</networkInterfaceId>
+	<assignedPrivateIpAddressesSet>
+		<item><privateIpAddress>10.0.0.2</privateIpAddress></item>
+	</assignedPrivateIpAddressesSet>
+</AssignPrivateIpAddressesResponse>`)),
+			}, nil
+		}),
+	})
+	client := NewClient(hivetest.Logger(t), ec2Client, metricsmock.NewMockMetrics(), 10, 1, nil, nil, nil, 0)
+
+	assignedIPs, err := client.AssignPrivateIpAddresses(t.Context(), "eni-123", 2)
+	require.NoError(t, err)
+	require.Equal(t, []string{"10.0.0.2"}, assignedIPs)
+}
 
 type Filters []ec2_types.Filter
 

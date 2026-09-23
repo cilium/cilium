@@ -969,7 +969,7 @@ func (c *Client) AssignPrivateIpAddresses(ctx context.Context, eniID string, add
 	if err != nil {
 		return nil, err
 	}
-	assignedIPs := make([]string, addresses)
+	assignedIPs := make([]string, len(output.AssignedPrivateIpAddresses))
 	for i, ip := range output.AssignedPrivateIpAddresses {
 		assignedIPs[i] = aws.ToString(ip.PrivateIpAddress)
 	}

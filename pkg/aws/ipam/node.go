@@ -594,6 +594,7 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 	// Check if the interface to allocate on is prefix delegated
 	n.mutex.RLock()
 	isPrefixDelegated := n.node.Ops().IsPrefixDelegated()
+	nodeName := n.k8sObj.Name
 	n.mutex.RUnlock()
 
 	if a.IPv6.MaxPrefixesToAllocate > 0 {
@@ -642,6 +643,14 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 			return err
 		}
 		n.manager.AddIPsToENI(n.node.InstanceID(), a.InterfaceID, assignedIPs)
+		n.logger.Load().Info(
+			"Assigned IP addresses to existing ENI",
+			logfields.Node, nodeName,
+			fieldEniID, a.InterfaceID,
+			logfields.SubnetID, a.PoolID,
+			logfields.IPsToAllocate, a.IPv4.AvailableForAllocation,
+			logfields.Allocated, len(assignedIPs),
+		)
 	}
 	return nil
 }
