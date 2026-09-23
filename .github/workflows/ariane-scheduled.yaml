@@ -1,13 +1,13 @@
 name: Ariane scheduled workflows
 
 on:
-  # Run every 1 hours
-  # Tests are only run when current GITHUB_RUN_NUMBER % 6 corresponds to the branch runModulo value in the matrix,
-  # meaning we run every branch roughly every six hours.
-  # We run this at :30, to avoid running at the same time as the default branch scheduled workflows (that mostly run
-  # at the top of the hour).
+  # Run every 2 hours at :30, to avoid running at the same time as the default
+  # branch scheduled workflows (that mostly run at the top of the hour).
+  # Each run serves exactly one stable branch, selected by
+  # GITHUB_RUN_NUMBER % <number of branches>, so every branch is visited
+  # roughly every six hours.
   schedule:
-    - cron: '30 */1 * * *'
+    - cron: '30 */2 * * *'
 
 
 permissions:
@@ -16,50 +16,99 @@ permissions:
   # To trigger workflows via workflow_dispatch
   actions: write
 
+env:
+  # Oldest to newest. The run-number modulo below indexes into this list, so
+  # keep it in sync with the supported stable branches.
+  STABLE_BRANCHES: 'v1.18 v1.19 v1.20'
+  # A branch whose HEAD has not moved since the previous dispatch is skipped,
+  # unless it was last exercised more than this many seconds ago. This keeps a
+  # daily signal on idle branches to catch infrastructure or flake drift.
+  FORCE_DISPATCH_AFTER_SECONDS: '82800'
+
 jobs:
   ariane-scheduled:
     name: Run Scheduled Workflows
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # runModulo (range [0, 5]) should be different for every branch
-          - branch: 'v1.18'
-            runModulo: 1
-          - branch: 'v1.19'
-            runModulo: 2
-          - branch: 'v1.20'
-            runModulo: 3
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - name: Checkout branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ matrix.branch }}
-          persist-credentials: false
-
-      - name: Manually run Ariane workflows from the branch
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Select branch for this run
+        id: select
         run: |
           echo "Current date time: $(date --utc --rfc-3339=seconds)"
           echo "Current run number: $GITHUB_RUN_NUMBER"
 
-          if (( GITHUB_RUN_NUMBER % 6 == ${{ matrix.runModulo }} )); then
-            echo "Running scheduled workflows for branch ${{ matrix.branch }}"
+          read -r -a branches <<< "${STABLE_BRANCHES}"
+          slot=$(( GITHUB_RUN_NUMBER % ${#branches[@]} ))
+          branch="${branches[$slot]}"
+          echo "Selected branch ${branch} (slot ${slot} of ${#branches[@]})"
+          echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Restore last dispatch record
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ariane-scheduled-state
+          key: ariane-scheduled-${{ steps.select.outputs.branch }}-${{ github.run_id }}
+          restore-keys: |
+            ariane-scheduled-${{ steps.select.outputs.branch }}-
+
+      - name: Decide whether the branch needs a run
+        id: decide
+        env:
+          BRANCH: ${{ steps.select.outputs.branch }}
+        run: |
+          set -eu -o pipefail
+
+          git fetch --depth=1 origin "${BRANCH}"
+          sha="$(git rev-parse FETCH_HEAD)"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+          echo "Branch ${BRANCH} is at ${sha}"
+
+          now="$(date --utc +%s)"
+          state=".ariane-scheduled-state/${BRANCH}"
+          last_sha=""
+          last_ts=0
+          if [[ -f "${state}" ]]; then
+            last_sha="$(sed -n '1p' "${state}")"
+            last_ts="$(sed -n '2p' "${state}")"
+            last_ts="${last_ts:-0}"
+            echo "Previous dispatch: ${last_sha} at $(date --utc --date="@${last_ts}" --rfc-3339=seconds)"
           else
-            echo "Skipping scheduled workflows for branch ${{ matrix.branch }}"
+            echo "No previous dispatch record for ${BRANCH}"
+          fi
+
+          age=$(( now - last_ts ))
+          if [[ "${sha}" == "${last_sha}" ]] && (( age < FORCE_DISPATCH_AFTER_SECONDS )); then
+            echo "HEAD unchanged since last dispatch ${age}s ago; skipping ${BRANCH}"
+            echo "dispatch=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          REF="${{ matrix.branch }}"
-          SHA=$(git rev-parse ${REF})
+          if [[ "${sha}" == "${last_sha}" ]]; then
+            echo "HEAD unchanged but last dispatch was ${age}s ago; forcing a run"
+          fi
+          echo "dispatch=true" >> "$GITHUB_OUTPUT"
+
+      - name: Manually run Ariane workflows from the branch
+        if: ${{ steps.decide.outputs.dispatch == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF: ${{ steps.select.outputs.branch }}
+          SHA: ${{ steps.decide.outputs.sha }}
+        run: |
+          set -eu -o pipefail
+
+          git show FETCH_HEAD:.github/ariane-config.yaml > /tmp/ariane-config.yaml
           # /test for 1.18 branch and lower
           # /test\s* for 1.19 branch and higher
           readarray workflows < <((
-            yq '.triggers["/test"].workflows[]' .github/ariane-config.yaml
-            yq '.triggers["/test\s*"].workflows[]' .github/ariane-config.yaml
-            yq '.schedule.nightly.workflows[]' .github/ariane-config.yaml
+            yq '.triggers["/test"].workflows[]' /tmp/ariane-config.yaml
+            yq '.triggers["/test\s*"].workflows[]' /tmp/ariane-config.yaml
+            yq '.schedule.nightly.workflows[]' /tmp/ariane-config.yaml
           ) | sort -u)
 
           for workflow in "${workflows[@]}"; do
@@ -70,3 +119,13 @@ jobs:
               -f context-ref=${REF} \
               -f SHA=${SHA}
           done
+
+          mkdir -p .ariane-scheduled-state
+          printf '%s\n%s\n' "${SHA}" "$(date --utc +%s)" > ".ariane-scheduled-state/${REF}"
+
+      - name: Save last dispatch record
+        if: ${{ steps.decide.outputs.dispatch == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ariane-scheduled-state
+          key: ariane-scheduled-${{ steps.select.outputs.branch }}-${{ github.run_id }}
