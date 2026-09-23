@@ -18,7 +18,7 @@ on:
       scenario:
         description: "Churn scenario to run, see .github/actions/cl2-modules/policy-churn/scenarios"
         required: true
-        default: l7-policy-identity-churn
+        default: l7-identity-churn
         type: choice
         options:
           - global-identities-churn
@@ -26,6 +26,7 @@ on:
           - selectors-churn
           - policy-identity-churn
           - l7-policy-identity-churn
+          - l7-identity-churn
 
 permissions:
   # To be able to trigger eks-cluster-pool-manager.yaml workflow
@@ -109,7 +110,7 @@ jobs:
           # Default values for testing.
           : "${BASE_TAG:=bc38713ac7099e5083ef7b202c45a0d025ad5021}"
           : "${TEST_TAG:=aaa161a3b2814f8a0f100f7eaa8526855a34bf4f}"
-          : "${SCENARIO:=l7-policy-identity-churn}"
+          : "${SCENARIO:=l7-identity-churn}"
 
           # A tag is either a commit SHA or a released version (eg v1.19.8).
           # Both end up in image references, git refs, file names and shell
