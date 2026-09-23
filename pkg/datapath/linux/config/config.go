@@ -190,12 +190,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		cDefinesMap["ENABLE_L7_LB"] = "1"
 	}
 
-	if h.kprCfg.EnableSocketLB {
-		if option.Config.UnsafeDaemonConfigOption.EnableSocketLBPeer {
-			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
-		}
-	}
-
 	cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 	cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 
