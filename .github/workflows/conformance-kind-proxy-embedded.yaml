@@ -71,8 +71,30 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA || github.sha }}
+          images: cilium-ci operator-generic-ci hubble-relay-ci
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
+
   installation-and-connectivity:
     name: "Installation and Connectivity Test (${{ matrix.name }})"
+    needs: [wait-for-images]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
@@ -201,16 +223,6 @@ jobs:
             --docker-server=${{ vars.DOCKER_READ_HOST }} \
             --docker-username="${{ vars.DOCKER_READ_USERNAME }}" \
             --docker-password="${{ secrets.DOCKER_READ_PASSWORD }}"
-
-      - name: Wait for images to be available
-        uses: ./.github/actions/wait-for-images
-        with:
-          SHA: ${{ steps.vars.outputs.sha }}
-          images: cilium-ci operator-generic-ci hubble-relay-ci
-          login-host: ${{ vars.DOCKER_READ_HOST }}
-          login-username: ${{ vars.DOCKER_READ_USERNAME }}
-          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
-          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.

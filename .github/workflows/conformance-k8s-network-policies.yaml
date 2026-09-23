@@ -10,6 +10,23 @@ on:
 
 permissions: read-all
 
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - push: SHA
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha)
+    }}
+  cancel-in-progress: true
+
 env:
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
@@ -38,8 +55,39 @@ jobs:
              cilium-agent/clusterrole.yaml \
              cilium-preflight/clusterrole.yaml
 
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout target branch to access local actions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.base_ref || github.ref }}
+          persist-credentials: false
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
+            echo tag=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
+          else
+            echo tag=${{ github.sha }} >> $GITHUB_OUTPUT
+          fi
+
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ steps.vars.outputs.tag }}
+          images: cilium-ci operator-generic-ci
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
+
   cyclonus-test:
     name: Cyclonus Test
+    needs: [wait-for-images]
     env:
       job_name: "Cyclonus Test"
     runs-on: ubuntu-24.04
@@ -77,16 +125,6 @@ jobs:
           else
             echo tag=${{ github.sha }} >> $GITHUB_OUTPUT
           fi
-
-      - name: Wait for images to be available
-        uses: ./.github/actions/wait-for-images
-        with:
-          SHA: ${{ steps.vars.outputs.tag }}
-          images: cilium-ci operator-generic-ci
-          login-host: ${{ vars.DOCKER_READ_HOST }}
-          login-username: ${{ vars.DOCKER_READ_USERNAME }}
-          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
-          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       - name: Create kind cluster
         uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0

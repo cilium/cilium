@@ -90,6 +90,52 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] ; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+
+          # Run test against specific commit SHA if provided
+          if [[ '${{ inputs.extra-args }}' =~ sha=([a-f0-9]+) ]]; then
+            SHA=${BASH_REMATCH[1]}
+          fi
+
+          # Retrieve the desired version from the arguments.
+          if [[ '${{ inputs.extra-args }}' =~ version=([-+.0-9a-z]+) ]]; then
+            VERSION=${BASH_REMATCH[1]}
+          else
+            VERSION=""
+          fi
+
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+          echo cilium_version=${VERSION} >> $GITHUB_OUTPUT
+
+      - name: Wait for images
+        if: ${{ steps.vars.outputs.cilium_version == '' }}
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ steps.vars.outputs.sha }}
+          images: cilium-ci operator-aws-ci cilium-cli-ci
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
+
   install-and-perftest:
     permissions:
       # To be able to trigger eks-cluster-pool-manager.yaml workflow
@@ -104,6 +150,7 @@ jobs:
       statuses: write
     runs-on: ubuntu-24.04
     name: Install and Perf Test
+    needs: [wait-for-images]
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -221,17 +268,6 @@ jobs:
           path: untrusted
           sparse-checkout: |
             install/kubernetes/cilium
-
-      - name: Wait for Cilium images
-        if: ${{ steps.vars.outputs.cilium_version == '' }}
-        uses: ./.github/actions/wait-for-images
-        with:
-          SHA: ${{ steps.vars.outputs.SHA }}
-          images: cilium-ci operator-aws-ci cilium-cli-ci
-          login-host: ${{ vars.DOCKER_READ_HOST }}
-          login-username: ${{ vars.DOCKER_READ_USERNAME }}
-          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
-          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
       - name: Wait for Nighthawk Benchmarking framework image
         shell: bash
