@@ -278,7 +278,7 @@ func addCiliumEnvironmentKeys(w *tabwriter.Writer, p *models.DebugInfo) {
 func addCiliumEndpointList(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Endpoint list", "")
 	printTicks(w)
-	printEndpointList(w, p.EndpointList)
+	pkg.FormatEndpoints(w, p.EndpointList, false)
 	printTicks(w)
 
 	for _, ep := range p.EndpointList {
