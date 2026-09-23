@@ -35,10 +35,11 @@ type endpointGetter interface {
 // reconciler is used to sync the current (i.e. desired) state of the CESs in datastore into current state CESs in the k8s-apiserver.
 // The source of truth is in local datastore.
 type reconciler struct {
-	logger   *slog.Logger
-	client   clientset.CiliumV2alpha1Interface
-	cesStore resource.Store[*cilium_v2a1.CiliumEndpointSlice]
-	metrics  *Metrics
+	logger    *slog.Logger
+	client    clientset.CiliumV2alpha1Interface
+	cesStore  resource.Store[*cilium_v2a1.CiliumEndpointSlice]
+	metrics   *Metrics
+	sharedCfg SharedConfig
 
 	cesManager     Manager
 	endpointGetter endpointGetter
@@ -69,6 +70,7 @@ type slimReconciler struct {
 
 // newDefaultReconciler creates and initializes a new defaultReconciler.
 func newDefaultReconciler(
+	sharedCfg SharedConfig,
 	client clientset.CiliumV2alpha1Interface,
 	cesMgr *defaultManager,
 	logger *slog.Logger,
@@ -83,6 +85,7 @@ func newDefaultReconciler(
 			cesManager: cesMgr,
 			cesStore:   cesStore,
 			metrics:    metrics,
+			sharedCfg:  sharedCfg,
 		},
 		manager:  cesMgr,
 		cepStore: cepStore,
@@ -93,6 +96,7 @@ func newDefaultReconciler(
 
 // newSlimReconciler creates and initializes a new slimReconciler.
 func newSlimReconciler(
+	sharedCfg SharedConfig,
 	client clientset.CiliumV2alpha1Interface,
 	cesMgr *slimManager,
 	logger *slog.Logger,
@@ -113,6 +117,7 @@ func newSlimReconciler(
 			cesManager: cesMgr,
 			cesStore:   cesStore,
 			metrics:    metrics,
+			sharedCfg:  sharedCfg,
 		},
 		namespaceStore:  namespaceStore,
 		cidStore:        cidStore,
@@ -275,10 +280,22 @@ func (r *reconciler) reconcileCESDelete(ctx context.Context, ces *cilium_v2a1.Ci
 	return
 }
 
+// sanitizeCoreCEP clears CoreCiliumEndpoint fields that no enabled consumer reads.
+//
+// ServiceAccount is only consumed by the ztunnel xDS workload API, so it is omitted
+// unless ztunnel is enabled. The field is `json:",omitempty"`, so clearing it removes
+// the key from the serialized CES and reduces watch traffic for every subscriber.
+func (r *reconciler) sanitizeCoreCEP(ccep *cilium_v2a1.CoreCiliumEndpoint) *cilium_v2a1.CoreCiliumEndpoint {
+	if ccep != nil && !r.sharedCfg.EnableZTunnel {
+		ccep.ServiceAccount = ""
+	}
+	return ccep
+}
+
 func (r *defaultReconciler) getCoreEndpointFromStore(cepName CEPName) *cilium_v2a1.CoreCiliumEndpoint {
 	cepObj, exists, err := r.cepStore.GetByKey(cepName.key())
 	if err == nil && exists {
-		return k8s.ConvertCEPToCoreCEP(cepObj)
+		return r.sanitizeCoreCEP(k8s.ConvertCEPToCoreCEP(cepObj))
 	}
 	r.logger.Debug(
 		fmt.Sprintf("Couldn't get CEP from Store (err=%v, exists=%v)", err, exists),
@@ -290,7 +307,7 @@ func (r *defaultReconciler) getCoreEndpointFromStore(cepName CEPName) *cilium_v2
 func (r *slimReconciler) getCoreEndpointFromStore(cepName CEPName) *cilium_v2a1.CoreCiliumEndpoint {
 	podObj, exists, err := r.podStore.GetByKey(cepName.key())
 	if err == nil && exists {
-		return r.convertPodToCoreCEP(podObj)
+		return r.sanitizeCoreCEP(r.convertPodToCoreCEP(podObj))
 	}
 	r.logger.Debug(
 		"Couldn't get Pod from Store",
