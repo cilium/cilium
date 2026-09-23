@@ -107,8 +107,8 @@ jobs:
           SCENARIO: ${{ inputs.scenario }}
         run: |
           # Default values for testing.
-          : "${BASE_TAG:=5791d208dda456da8d08e9389c3d22514dc2db77}"
-          : "${TEST_TAG:=e0dc92bd6dac33d7ba3b5eace82a0448bbb13aac}"
+          : "${BASE_TAG:=bc38713ac7099e5083ef7b202c45a0d025ad5021}"
+          : "${TEST_TAG:=aaa161a3b2814f8a0f100f7eaa8526855a34bf4f}"
           : "${SCENARIO:=l7-policy-identity-churn}"
 
           # A tag is either a commit SHA or a released version (eg v1.19.8).
@@ -749,6 +749,17 @@ jobs:
           capture_sysdump: 'false'
           capture_features_tested: 'false'
 
+      - name: Export baseline results to GS bucket
+        if: ${{ always() && steps.run-cl2-baseline.outcome != 'skipped' && steps.run-cl2-baseline.outcome != 'cancelled' }}
+        uses: cilium/scale-tests-action/export-results@7e3eae9de9542f1a7616ca797e2d5090e8f9f8ee # main
+        with:
+          test_name: ${{ env.test_name }}-${{ steps.vars.outputs.scenario }}
+          # Only used to label the results in the bucket, a version is fine.
+          tested_sha: ${{ steps.vars.outputs.base_tag }}
+          results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
+          artifacts: ./perf-tests/clusterloader2/report/baseline/
+          other_files: cilium-sysdump-baseline.zip ./perf-tests/clusterloader2/cl2-output-baseline.txt
+
       - name: Test tag results heading
         if: ${{ always() && steps.run-cl2-test.outcome != 'skipped' }}
         run: |
@@ -763,17 +774,6 @@ jobs:
           junits-directory: 'perf-tests/clusterloader2/report/test'
           capture_sysdump: 'false'
           capture_features_tested: 'false'
-
-      - name: Export baseline results to GS bucket
-        if: ${{ always() && steps.run-cl2-baseline.outcome != 'skipped' && steps.run-cl2-baseline.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@7e3eae9de9542f1a7616ca797e2d5090e8f9f8ee # main
-        with:
-          test_name: ${{ env.test_name }}-${{ steps.vars.outputs.scenario }}
-          # Only used to label the results in the bucket, a version is fine.
-          tested_sha: ${{ steps.vars.outputs.base_tag }}
-          results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
-          artifacts: ./perf-tests/clusterloader2/report/baseline/
-          other_files: cilium-sysdump-baseline.zip ./perf-tests/clusterloader2/cl2-output-baseline.txt
 
       - name: Export test tag results to GS bucket
         if: ${{ always() && steps.run-cl2-test.outcome != 'skipped' && steps.run-cl2-test.outcome != 'cancelled' }}
