@@ -32,7 +32,7 @@ spec:
   - name: hubble-metrics
     port: {{ .Values.hubble.metrics.port }}
     protocol: TCP
-    targetPort: hubble-metrics
+    targetPort: {{ .Values.hubble.metrics.portName | quote }}
   selector:
     k8s-app: cilium
 {{- end }}

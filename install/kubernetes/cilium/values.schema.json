@@ -1130,6 +1130,9 @@
                     },
                     "port": {
                       "type": "integer"
+                    },
+                    "portName": {
+                      "type": "string"
                     }
                   },
                   "type": "object"
@@ -1141,12 +1144,18 @@
                     },
                     "port": {
                       "type": "integer"
+                    },
+                    "portName": {
+                      "type": "string"
                     }
                   },
                   "type": "object"
                 },
                 "port": {
                   "type": "integer"
+                },
+                "portName": {
+                  "type": "string"
                 },
                 "serviceMonitor": {
                   "properties": {
@@ -2668,6 +2677,9 @@
             "port": {
               "type": "string"
             },
+            "portName": {
+              "type": "string"
+            },
             "serviceMonitor": {
               "properties": {
                 "annotations": {
@@ -3263,6 +3275,9 @@
             "port": {
               "type": "integer"
             },
+            "portName": {
+              "type": "string"
+            },
             "serviceAnnotations": {
               "type": "object"
             },
@@ -3647,6 +3662,9 @@
                 },
                 "port": {
                   "type": "integer"
+                },
+                "portName": {
+                  "type": "string"
                 },
                 "serviceMonitor": {
                   "properties": {
@@ -5437,6 +5455,9 @@
             "port": {
               "type": "integer"
             },
+            "portName": {
+              "type": "string"
+            },
             "serviceMonitor": {
               "properties": {
                 "annotations": {
@@ -5972,6 +5993,9 @@
         },
         "port": {
           "type": "integer"
+        },
+        "portName": {
+          "type": "string"
         },
         "serviceMonitor": {
           "properties": {

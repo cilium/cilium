@@ -50,6 +50,15 @@ New Options
 
 The following options have been introduced in this version of Cilium:
 
+* The Prometheus container port names can now be configured via the Helm values
+  ``prometheus.portName``, ``operator.prometheus.portName``,
+  ``envoy.prometheus.portName``, ``hubble.metrics.portName``,
+  ``hubble.relay.prometheus.portName``,
+  ``clustermesh.apiserver.metrics.portName``,
+  ``clustermesh.apiserver.metrics.kvstoremesh.portName``, and
+  ``clustermesh.apiserver.metrics.etcd.portName``. These default to their existing
+  names and support custom scrape configurations that require specific named
+  ports.
 * ``CiliumPodIPPool`` gained the ``spec.ipv4.pool`` and ``spec.ipv6.pool``
   fields, which carry per-CIDR configuration. Each entry references a CIDR from
   ``cidrs`` and may set ``reservedRanges`` to exclude IP ranges from allocation.

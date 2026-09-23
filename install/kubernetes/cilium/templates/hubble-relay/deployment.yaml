@@ -89,7 +89,7 @@ spec:
             - name: grpc
               containerPort: {{ include "hubble-relay.config.listenPort" . }}
             {{- if .Values.hubble.relay.prometheus.enabled }}
-            - name: prometheus
+            - name: {{ .Values.hubble.relay.prometheus.portName | quote }}
               containerPort: {{ .Values.hubble.relay.prometheus.port }}
               protocol: TCP
             {{- end }}

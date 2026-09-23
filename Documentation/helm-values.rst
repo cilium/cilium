@@ -708,6 +708,10 @@
      - Configure the port the etcd metric server listens on.
      - int
      - ``9963``
+   * - :spelling:ignore:`clustermesh.apiserver.metrics.etcd.portName`
+     - Name of the etcd metrics container port.
+     - string
+     - ``"etcd-metrics"``
    * - :spelling:ignore:`clustermesh.apiserver.metrics.kvstoremesh.enabled`
      - Enables exporting KVStoreMesh metrics in OpenMetrics format.
      - bool
@@ -716,10 +720,18 @@
      - Configure the port the KVStoreMesh metric server listens on.
      - int
      - ``9964``
+   * - :spelling:ignore:`clustermesh.apiserver.metrics.kvstoremesh.portName`
+     - Name of the KVStoreMesh metrics container port.
+     - string
+     - ``"kvmesh-metrics"``
    * - :spelling:ignore:`clustermesh.apiserver.metrics.port`
      - Configure the port the apiserver metric server listens on.
      - int
      - ``9962``
+   * - :spelling:ignore:`clustermesh.apiserver.metrics.portName`
+     - Name of the clustermesh-apiserver metrics container port.
+     - string
+     - ``"apiserv-metrics"``
    * - :spelling:ignore:`clustermesh.apiserver.metrics.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor clustermesh-apiserver
      - object
@@ -1779,7 +1791,7 @@
    * - :spelling:ignore:`envoy.prometheus`
      - Configure Cilium Envoy Prometheus options. Note that some of these apply to either cilium-agent or cilium-envoy.
      - object
-     - ``{"enabled":true,"port":"9964","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null}}``
+     - ``{"enabled":true,"port":"9964","portName":"envoy-metrics","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null}}``
    * - :spelling:ignore:`envoy.prometheus.enabled`
      - Enable prometheus metrics for cilium-envoy
      - bool
@@ -1788,6 +1800,10 @@
      - Serve prometheus metrics for cilium-envoy on the configured port
      - string
      - ``"9964"``
+   * - :spelling:ignore:`envoy.prometheus.portName`
+     - Name of the Envoy Prometheus container port, for both standalone and embedded Envoy.
+     - string
+     - ``"envoy-metrics"``
    * - :spelling:ignore:`envoy.prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor cilium-envoy
      - object
@@ -2131,7 +2147,7 @@
    * - :spelling:ignore:`hubble.metrics`
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"dynamic":{"config":{"configMapName":"cilium-dynamic-metrics-config","content":[],"createConfigMap":true},"enabled":false},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
+     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"dynamic":{"config":{"configMapName":"cilium-dynamic-metrics-config","content":[],"createConfigMap":true},"enabled":false},"enableOpenMetrics":false,"enabled":null,"port":9965,"portName":"hubble-metrics","serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
    * - :spelling:ignore:`hubble.metrics.dashboards`
      - Grafana dashboards for hubble grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
      - object
@@ -2160,6 +2176,10 @@
      - Configure the port the hubble metric server listens on.
      - int
      - ``9965``
+   * - :spelling:ignore:`hubble.metrics.portName`
+     - Name of the Hubble metrics container port.
+     - string
+     - ``"hubble-metrics"``
    * - :spelling:ignore:`hubble.metrics.serviceAnnotations`
      - Annotations to be added to hubble-metrics service.
      - object
@@ -2383,7 +2403,11 @@
    * - :spelling:ignore:`hubble.relay.prometheus`
      - Enable prometheus metrics for hubble-relay on the configured port at /metrics
      - object
-     - ``{"enabled":false,"port":9966,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}}``
+     - ``{"enabled":false,"port":9966,"portName":"prometheus","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}}``
+   * - :spelling:ignore:`hubble.relay.prometheus.portName`
+     - Name of the hubble-relay Prometheus container port.
+     - string
+     - ``"prometheus"``
    * - :spelling:ignore:`hubble.relay.prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor hubble-relay
      - object
@@ -3531,7 +3555,11 @@
    * - :spelling:ignore:`operator.prometheus`
      - Enable prometheus metrics for cilium-operator on the configured port at /metrics
      - object
-     - ``{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"tls":{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}}``
+     - ``{"enabled":true,"metricsService":false,"port":9963,"portName":"prometheus","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"tls":{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}}``
+   * - :spelling:ignore:`operator.prometheus.portName`
+     - Name of the cilium-operator Prometheus container port.
+     - string
+     - ``"prometheus"``
    * - :spelling:ignore:`operator.prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor cilium-operator
      - object
@@ -3795,7 +3823,7 @@
    * - :spelling:ignore:`prometheus`
      - Configure prometheus metrics on the configured port at /metrics
      - object
-     - ``{"controllerGroupMetrics":["write-cni-file","sync-host-ips","sync-lb-maps-with-k8s-services"],"enabled":false,"metrics":null,"metricsService":false,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"trustCRDsExist":false}}``
+     - ``{"controllerGroupMetrics":["write-cni-file","sync-host-ips","sync-lb-maps-with-k8s-services"],"enabled":false,"metrics":null,"metricsService":false,"port":9962,"portName":"prometheus","serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"action":"replace","replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"scrapeTimeout":null,"trustCRDsExist":false}}``
    * - :spelling:ignore:`prometheus.controllerGroupMetrics`
      - - Enable controller group metrics for monitoring specific Cilium subsystems. The list is a list of controller group names. The special values of "all" and "none" are supported. The set of controller group names is not guaranteed to be stable between Cilium versions.
      - list
@@ -3804,6 +3832,10 @@
      - Metrics that should be enabled or disabled from the default metric list. The list is expected to be separated by a space. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar). ref: https://docs.cilium.io/en/stable/observability/metrics/
      - string
      - ``nil``
+   * - :spelling:ignore:`prometheus.portName`
+     - Name of the cilium-agent Prometheus container port.
+     - string
+     - ``"prometheus"``
    * - :spelling:ignore:`prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor cilium-agent
      - object
