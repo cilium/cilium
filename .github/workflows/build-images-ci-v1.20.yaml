@@ -154,7 +154,7 @@ jobs:
       - name: Get a quay.io robot token via OIDC
         id: registry-token
         env:
-          ROBOT: ${{ secrets.QUAY_USERNAME_CI }}
+          ROBOT: ${{ vars.QUAY_ROBOT_CI }}
         run: |
           oidc_token="$(curl -sSf --retry 3 --retry-all-errors \
             -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
@@ -176,7 +176,7 @@ jobs:
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY_DEV }}
-          username: ${{ secrets.QUAY_USERNAME_CI }}
+          username: ${{ vars.QUAY_ROBOT_CI }}
           password: ${{ steps.registry-token.outputs.token }}
 
       - name: Getting image tag
@@ -526,13 +526,12 @@ jobs:
       contents: read
       pull-requests: read
       statuses: write
+      # Required by the Quay OIDC token exchange in the called workflow.
+      id-token: write
     uses: ./.github/workflows/push-chart-ci.yaml
     with:
       checkout_ref: ${{ needs.build-and-push-prs.outputs.sha }}
       image_tag: ${{ needs.build-and-push-prs.outputs.sha }}
-    secrets:
-      QUAY_CHARTS_DEV_USERNAME: ${{ secrets.QUAY_CHARTS_DEV_USERNAME }}
-      QUAY_CHARTS_DEV_PASSWORD: ${{ secrets.QUAY_CHARTS_DEV_PASSWORD }}
 
   pre-comment:
     # Avoid running the "Trigger CI from renovate PRs" environment if we don't need to.

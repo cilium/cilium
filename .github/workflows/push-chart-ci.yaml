@@ -16,11 +16,6 @@ on:
         type: string
         required: false
         default: "{}"
-    secrets:
-      QUAY_CHARTS_DEV_USERNAME:
-        required: true
-      QUAY_CHARTS_DEV_PASSWORD:
-        required: true
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -87,6 +82,17 @@ jobs:
     name: Push Charts
     runs-on: ubuntu-24.04
     needs: setup-charts
+    permissions:
+      contents: read
+      pull-requests: read
+      # Required by the Quay OIDC token exchange.
+      id-token: write
+    # Pins the OIDC token subject to
+    # repo:cilium/cilium:environment:publish-ci-charts, which is the identity
+    # federated with the Quay robot account.
+    environment:
+      name: publish-ci-charts
+      deployment: false
     steps:
     - name: Checkout GitHub Actions definitions
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -150,6 +156,36 @@ jobs:
 
         echo "json=${merged_changes}" >> "${GITHUB_OUTPUT}"
 
+    # Quay's registry endpoint only accepts credentials or a JWT signed by
+    # Quay itself, so the GitHub OIDC token cannot be used as the registry
+    # password directly. Trade it for a short lived robot token first.
+    #
+    # Because the job references an environment, the subject of the token is
+    # repo:cilium@21054566/cilium@48109239:environment:publish-ci-charts, the
+    # immutable form that carries the owner and repository ids. That is the
+    # identity federated with the robot account on the Quay side, so renaming
+    # the environment breaks the login.
+    - name: Get a quay.io robot token via OIDC
+      id: registry-token
+      env:
+        ROBOT: ${{ vars.QUAY_ROBOT_CHARTS_CI }}
+      run: |
+        oidc_token="$(curl -sSf --retry 3 --retry-all-errors \
+          -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=quay.io" \
+          | jq -er '.value')"
+        echo "::add-mask::${oidc_token}"
+
+        # Pass the credentials on stdin so that the OIDC token is not visible
+        # in the process list of the runner.
+        robot_token="$(printf 'user = "%s:%s"\n' "${ROBOT}" "${oidc_token}" \
+          | curl -sSf --retry 3 --retry-all-errors -K - \
+            "https://quay.io/oauth2/federation/robot/token" \
+          | jq -er '.token')"
+        echo "::add-mask::${robot_token}"
+
+        echo "token=${robot_token}" >> "$GITHUB_OUTPUT"
+
     - name: Push charts
       uses: cilium/reusable-workflows/.github/actions/push-helm-chart@ad5dbc4e2c7f7322efc87b0e20553d44e9de536e # v0.1.1
       with:
@@ -159,8 +195,8 @@ jobs:
         values_file_changes: ${{ steps.values.outputs.json }}
         registry: ${{ env.REGISTRY_DEV }}
         registry_namespace: ${{ env.CHARTS_ORGANIZATION_DEV }}
-        registry_username: ${{ secrets.QUAY_CHARTS_DEV_USERNAME }}
-        registry_password: ${{ secrets.QUAY_CHARTS_DEV_PASSWORD }}
+        registry_username: ${{ vars.QUAY_ROBOT_CHARTS_CI }}
+        registry_password: ${{ steps.registry-token.outputs.token }}
 
   post-push:
     name: Post-push steps

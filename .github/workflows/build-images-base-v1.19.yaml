@@ -16,8 +16,6 @@ on:
 permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
-  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
-  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -29,6 +27,10 @@ jobs:
     if: ${{ vars.QUAY_BASE_RELEASE_ENABLED == 'true' && ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 60
+    permissions:
+      contents: read
+      # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
+      id-token: write
     # No 'inputs.environment' here: this workflow has no 'workflow_call' trigger
     # (it only runs on pull_request_target). The reusable workflow_call variant
     # that wires 'inputs.environment' only exists on the stable branches, so the
@@ -109,13 +111,44 @@ jobs:
         id: qemu
         uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
 
+      # Quay's registry endpoint only accepts credentials or a JWT signed by
+      # Quay itself, so the GitHub OIDC token cannot be used as the registry
+      # password directly. Trade it for a short lived robot token first.
+      #
+      # Because the job references an environment, the subject of the token is
+      # repo:cilium@21054566/cilium@48109239:environment:release-base-images,
+      # the immutable form that carries the owner and repository ids. That is
+      # the identity federated with the robot account on the Quay side, so
+      # renaming the environment breaks the login.
+      - name: Get a quay.io robot token via OIDC for cilium-runtime
+        id: registry-token-runtime
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+        env:
+          ROBOT: ${{ vars.QUAY_ROBOT_BASE }}
+        run: |
+          oidc_token="$(curl -sSf --retry 3 --retry-all-errors \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=quay.io" \
+            | jq -er '.value')"
+          echo "::add-mask::${oidc_token}"
+
+          # Pass the credentials on stdin so that the OIDC token is not visible
+          # in the process list of the runner.
+          robot_token="$(printf 'user = "%s:%s"\n' "${ROBOT}" "${oidc_token}" \
+            | curl -sSf --retry 3 --retry-all-errors -K - \
+              "https://quay.io/oauth2/federation/robot/token" \
+            | jq -er '.token')"
+          echo "::add-mask::${robot_token}"
+
+          echo "token=${robot_token}" >> "$GITHUB_OUTPUT"
+
       - name: Login to ${{ env.REGISTRY_DEV }}
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY_DEV }}
-          username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 }}
-          password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD_202411 }}
+          username: ${{ vars.QUAY_ROBOT_BASE }}
+          password: ${{ steps.registry-token-runtime.outputs.token }}
 
       - name: Release build cilium-runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -197,13 +230,37 @@ jobs:
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
         uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
 
+      # The runtime token is only minted when the runtime image is rebuilt, so mint
+      # a separate one for the builder push.
+      - name: Get a quay.io robot token via OIDC for cilium-builder
+        id: registry-token-builder
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
+        env:
+          ROBOT: ${{ vars.QUAY_ROBOT_BASE }}
+        run: |
+          oidc_token="$(curl -sSf --retry 3 --retry-all-errors \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=quay.io" \
+            | jq -er '.value')"
+          echo "::add-mask::${oidc_token}"
+
+          # Pass the credentials on stdin so that the OIDC token is not visible
+          # in the process list of the runner.
+          robot_token="$(printf 'user = "%s:%s"\n' "${ROBOT}" "${oidc_token}" \
+            | curl -sSf --retry 3 --retry-all-errors -K - \
+              "https://quay.io/oauth2/federation/robot/token" \
+            | jq -er '.token')"
+          echo "::add-mask::${robot_token}"
+
+          echo "token=${robot_token}" >> "$GITHUB_OUTPUT"
+
       - name: Login to ${{ env.REGISTRY_DEV }}
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY_DEV }}
-          username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 }}
-          password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD_202411 }}
+          username: ${{ vars.QUAY_ROBOT_BASE }}
+          password: ${{ steps.registry-token-builder.outputs.token }}
 
       - name: Release build cilium-builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
