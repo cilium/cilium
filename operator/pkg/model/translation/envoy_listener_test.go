@@ -403,7 +403,7 @@ func Test_tlsFilterChains_Backends(t *testing.T) {
 						},
 					},
 				},
-			})
+			}, "")
 
 			require.Len(t, filterChains, tt.wantFilterChains)
 			if tt.wantFilterChains == 0 {
@@ -449,7 +449,7 @@ func Test_tlsFilterChains_AccessLogs(t *testing.T) {
 				},
 			},
 		},
-	})
+	}, "")
 
 	require.Len(t, filterChains, 1)
 	tcpProxy := getTCPProxy(t, filterChains[0])
@@ -477,7 +477,7 @@ func Test_tlsFilterChains_DuplicateSNIRoutesPreserveCurrentBehavior(t *testing.T
 				},
 			},
 		},
-	})
+	}, "")
 
 	require.Len(t, filterChains, 2)
 	assert.Equal(t, []string{"test.example.com"}, filterChains[0].GetFilterChainMatch().GetServerNames())
@@ -564,8 +564,8 @@ func Test_tlsFilterChains_DeterministicOrder(t *testing.T) {
 		},
 	}
 
-	filterChainsA := tlsFilterChains(modelA)
-	filterChainsB := tlsFilterChains(modelB)
+	filterChainsA := tlsFilterChains(modelA, "")
+	filterChainsB := tlsFilterChains(modelB, "")
 
 	diffOutput := cmp.Diff(filterChainsA, filterChainsB, protocmp.Transform())
 	if len(diffOutput) != 0 {
@@ -584,6 +584,96 @@ func Test_tlsFilterChains_DeterministicOrder(t *testing.T) {
 		{Name: "one:backend-a:443", Weight: 70},
 		{Name: "one:backend-c:443", Weight: 30},
 	}, tcpProxy.GetWeightedClusters().GetClusters())
+}
+
+func Test_tlsFilterChains_MixedTerminationModes(t *testing.T) {
+	filterChains := tlsFilterChains(&model.Model{
+		TLS: []model.TLSListener{
+			{
+				Name:       "a-terminate",
+				Port:       443,
+				Mode:       model.TLSModeTerminate,
+				TLSOptions: &model.TLSOptions{MinVersion: "1.2", MaxVersion: "1.3"},
+				TLS: []model.TLSSecret{
+					{Namespace: "gateway-ns", Name: "terminate-cert"},
+				},
+				Routes: []model.TLSRoute{
+					{
+						Hostnames: []string{"terminate.example.com"},
+						Backends: []model.Backend{
+							tlsBackend("one", "plaintext-backend", 8080, nil),
+						},
+					},
+				},
+			},
+			{
+				Name: "b-passthrough",
+				Port: 443,
+				Mode: model.TLSModePassthrough,
+				Routes: []model.TLSRoute{
+					{
+						Hostnames: []string{"passthrough.example.com"},
+						Backends: []model.Backend{
+							tlsBackend("one", "tls-backend", 8443, nil),
+						},
+					},
+				},
+			},
+		},
+	}, "cilium-secrets")
+
+	require.Len(t, filterChains, 2)
+
+	terminated := filterChains[0]
+	assert.Equal(t, []string{"terminate.example.com"}, terminated.GetFilterChainMatch().GetServerNames())
+	require.NotNil(t, terminated.GetTransportSocket())
+	assert.Equal(t, tlsTransportSocketType, terminated.GetTransportSocket().GetName())
+
+	downstreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+	require.NoError(t, terminated.GetTransportSocket().GetTypedConfig().UnmarshalTo(downstreamTLS))
+	require.Len(t, downstreamTLS.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs(), 1)
+	assert.Equal(t,
+		syncnames.SyncedSDSSecretName("cilium-secrets", types.NamespacedName{Namespace: "gateway-ns", Name: "terminate-cert"}),
+		downstreamTLS.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()[0].GetName(),
+	)
+	params := downstreamTLS.GetCommonTlsContext().GetTlsParams()
+	require.NotNil(t, params)
+	assert.Equal(t, envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_2, params.GetTlsMinimumProtocolVersion())
+	assert.Equal(t, envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_3, params.GetTlsMaximumProtocolVersion())
+	assert.Equal(t, "tls-terminate:terminate.example.com", getTCPProxy(t, terminated).GetStatPrefix())
+	assert.Equal(t, "one:plaintext-backend:8080", getTCPProxy(t, terminated).GetCluster())
+
+	passthrough := filterChains[1]
+	assert.Equal(t, []string{"passthrough.example.com"}, passthrough.GetFilterChainMatch().GetServerNames())
+	assert.Nil(t, passthrough.GetTransportSocket())
+	assert.Equal(t, "tls-passthrough:passthrough.example.com", getTCPProxy(t, passthrough).GetStatPrefix())
+	assert.Equal(t, "one:tls-backend:8443", getTCPProxy(t, passthrough).GetCluster())
+}
+
+func Test_tlsFilterChainsForPort_TLSOptions(t *testing.T) {
+	filterChains := tlsFilterChainsForPort(443, &model.Model{
+		TLS: []model.TLSListener{
+			{
+				Port:       443,
+				Mode:       model.TLSModeTerminate,
+				TLS:        []model.TLSSecret{{Namespace: "gateway-ns", Name: "terminate-cert"}},
+				TLSOptions: &model.TLSOptions{MinVersion: "1.3"},
+				Routes: []model.TLSRoute{
+					{
+						Hostnames: []string{"terminate.example.com"},
+						Backends:  []model.Backend{tlsBackend("one", "plaintext-backend", 8080, nil)},
+					},
+				},
+			},
+		},
+	}, "cilium-secrets")
+
+	require.Len(t, filterChains, 1)
+	downstreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+	require.NoError(t, filterChains[0].GetTransportSocket().GetTypedConfig().UnmarshalTo(downstreamTLS))
+	params := downstreamTLS.GetCommonTlsContext().GetTlsParams()
+	require.NotNil(t, params)
+	assert.Equal(t, envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_3, params.GetTlsMinimumProtocolVersion())
 }
 
 func tlsBackend(namespace, name string, port uint32, weight *int32) model.Backend {
