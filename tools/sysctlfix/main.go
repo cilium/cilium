@@ -15,6 +15,7 @@ import (
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
@@ -24,11 +25,11 @@ import (
 var (
 	flagSet = pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
 
-	sysctlD = flagSet.String("sysctl-conf-dir", "/etc/sysctl.d/", "Path to the sysctl config directory")
+	sysctlD = flagSet.String("sysctl-conf-dir", defaults.SysctlFixConfDir, "Path to the sysctl config directory")
 	// The 99-zzz prefix ensures our config file gets precedence over most if not all other files.
 	ciliumOverwrites = flagSet.String(
 		"sysctl-config-file",
-		"99-zzz-override_cilium.conf",
+		defaults.SysctlFixConfFile,
 		"Filename of the cilium sysctl overwrites config file",
 	)
 	// Name of the systemd-sysctl unit to restart after making changes

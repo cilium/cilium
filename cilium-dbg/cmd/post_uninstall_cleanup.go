@@ -29,7 +29,8 @@ var postUninstallCleanupCmd = &cobra.Command{
 	Use:   "post-uninstall-cleanup",
 	Short: "Remove system state installed by Cilium at runtime",
 	Long: `Clean up CNI configurations, CNI binaries, attached BPF programs,
-bpffs, tc filters, routes, links and named network namespaces.
+bpffs, tc filters, routes, links, named network namespaces and the sysctl
+overwrite config file written by sysctlfix.
 
 Running this command might be necessary to get the worker node back into
 working condition after uninstalling the Cilium agent.`,
@@ -70,6 +71,13 @@ const (
 	cniConfigV3       = cniPath + "/05-cilium-cni.conf"
 	cniConfigV4       = cniPath + "/05-cilium.conf"
 	cniConfigV5       = cniPath + "/05-cilium.conflist"
+
+	// sysctlConfPath is the sysctl overwrite config file written by the
+	// sysctlfix tool (tools/sysctlfix), built from the same shared defaults
+	// that tool uses for its "sysctl-conf-dir" and "sysctl-config-file"
+	// flags. This assumes sysctlfix is invoked without overriding either
+	// flag, which holds for the current daemonset.
+	sysctlConfPath = defaults.SysctlFixConfDir + defaults.SysctlFixConfFile
 )
 
 func init() {
@@ -240,6 +248,8 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s, %s, %s",
 			cniConfigV1, cniConfigV2, cniConfigV3, cniConfigV4, cniConfigV5))
 	}
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("sysctl configuration at %s",
+		sysctlConfPath))
 	return toBeRemoved
 }
 
@@ -267,6 +277,7 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 		funcs = append(funcs, removeDirs)
 		funcs = append(funcs, revertCNIBackup)
 		funcs = append(funcs, removeCNI)
+		funcs = append(funcs, removeSysctlConf)
 	}
 	return funcs
 }
@@ -360,6 +371,18 @@ func removeCNI() error {
 		if err != nil && !os.IsNotExist(err) {
 			return err
 		}
+	}
+	return nil
+}
+
+// removeSysctlConf removes the sysctl overwrite config file written by the
+// sysctlfix tool. The "99-zzz" prefix on that file makes it take precedence
+// over other sysctl.d config, including config managed outside of Cilium, so
+// it must not be left behind once Cilium itself is gone.
+func removeSysctlConf() error {
+	err := os.Remove(sysctlConfPath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
 	}
 	return nil
 }

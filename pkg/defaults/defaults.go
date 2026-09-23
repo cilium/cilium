@@ -114,6 +114,15 @@ const (
 	// DefaultCgroupRoot is the default path where cilium cgroup2 should be mounted
 	DefaultCgroupRoot = "/run/cilium/cgroupv2"
 
+	// SysctlFixConfDir is the default sysctl config directory that the
+	// sysctlfix tool (tools/sysctlfix) writes its overwrite file to.
+	SysctlFixConfDir = "/etc/sysctl.d/"
+
+	// SysctlFixConfFile is the default filename of the sysctl overwrites
+	// config file written by sysctlfix. The "99-zzz" prefix ensures it takes
+	// precedence over other sysctl.d config.
+	SysctlFixConfFile = "99-zzz-override_cilium.conf"
+
 	// FQDNRegexCompileLRUSize defines the maximum size for the FQDN regex
 	// compilation LRU used by the DNS proxy and policy validation.
 	FQDNRegexCompileLRUSize = 1024

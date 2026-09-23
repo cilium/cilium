@@ -7,7 +7,8 @@ Remove system state installed by Cilium at runtime
 ### Synopsis
 
 Clean up CNI configurations, CNI binaries, attached BPF programs,
-bpffs, tc filters, routes, links and named network namespaces.
+bpffs, tc filters, routes, links, named network namespaces and the sysctl
+overwrite config file written by sysctlfix.
 
 Running this command might be necessary to get the worker node back into
 working condition after uninstalling the Cilium agent.
