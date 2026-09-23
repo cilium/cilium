@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 
@@ -272,9 +273,10 @@ func TestFilterLabelsFromFile(t *testing.T) {
         ]
     }`
 
-	tmpFile, err := os.CreateTemp("", "label-prefix-*.json")
+	tmpDir := t.TempDir()
+	tmpFile, err := os.Create(filepath.Join(tmpDir, "label-prefix.json"))
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
 
 	_, err = tmpFile.WriteString(jsonContent)
 	require.NoError(t, err)
@@ -331,9 +333,10 @@ func TestExclusiveOnlyFilterLabelsFromFile(t *testing.T) {
         ]
     }`
 
-	tmpFile, err := os.CreateTemp("", "label-prefix-*.json")
+	tmpDir := t.TempDir()
+	tmpFile, err := os.Create(filepath.Join(tmpDir, "label-prefix.json"))
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
 
 	_, err = tmpFile.WriteString(jsonContent)
 	require.NoError(t, err)
