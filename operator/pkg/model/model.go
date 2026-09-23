@@ -228,6 +228,8 @@ type TLSListener struct {
 	Mode TLSMode `json:"mode,omitempty"`
 	// TLS contains certificate references used when Mode is Terminate.
 	TLS []TLSSecret `json:"tls,omitempty"`
+	// TLSOptions configures the downstream TLS connection when Mode is Terminate.
+	TLSOptions *TLSOptions `json:"tls_options,omitempty"`
 	// Routes associated with traffic to the service.
 	// An empty list means that traffic will not be routed.
 	Routes []TLSRoute `json:"routes,omitempty"`

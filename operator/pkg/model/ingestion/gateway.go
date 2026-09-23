@@ -239,6 +239,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				Hostname:       toHostname(l.Hostname),
 				Mode:           toTLSMode(l.TLS),
 				TLS:            toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
+				TLSOptions:     l.TLSOptions,
 				Routes:         toTLSRoutes(l.Listener, listenerHostnamesByProtocol, l.FilterTLSRoutes(input.TLSRoutes), input.Services, input.ServiceImports, input.ReferenceGrants),
 				Infrastructure: infra,
 				Service:        toServiceModel(input.GatewayClassConfig),
