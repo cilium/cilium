@@ -6,9 +6,8 @@ package exporter
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
-	"encoding/binary"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"log/slog"
 	"os"
@@ -23,7 +22,7 @@ type ExporterConfigParser interface {
 	Parse(io.Reader) (configs map[string]ExporterConfig, err error)
 }
 
-// configWatcherCallback is a callback that receives successfully parsed configurations and the md5
+// configWatcherCallback is a callback that receives successfully parsed configurations and the fnv
 // checksum of the source content.
 type configWatcherCallback func(configs map[string]ExporterConfig, hash uint64)
 
@@ -91,6 +90,7 @@ func (c *configWatcher) parseConfig() (map[string]ExporterConfig, uint64, error)
 }
 
 func calculateHash(file []byte) uint64 {
-	sum := md5.Sum(file)
-	return binary.LittleEndian.Uint64(sum[0:16])
+	h := fnv.New64a()
+	_, _ = h.Write(file)
+	return h.Sum64()
 }
