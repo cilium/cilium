@@ -52,9 +52,8 @@ func ParseLabelArrayFromArray(base []string) LabelArray {
 // NewLabelArrayFromSortedList returns labels based on the output of SortedList()
 // Trailing ';' will result in an empty key that must be filtered out.
 func NewLabelArrayFromSortedList(list string) LabelArray {
-	base := strings.Split(list, ";")
-	array := make(LabelArray, 0, len(base))
-	for _, v := range base {
+	array := make(LabelArray, 0, strings.Count(list, ";")+1)
+	for v := range strings.SplitSeq(list, ";") {
 		if lbl := ParseLabel(v); lbl.Key != "" {
 			array = append(array, lbl)
 		}
@@ -209,10 +208,9 @@ func LabelArrayFromString(str string) LabelArray {
 	// each LabelArray starts with '[' and ends with ']'
 	if len(str) > 2 && str[0] == '[' && str[len(str)-1] == ']' {
 		str = str[1 : len(str)-1] // remove brackets
-		labels := strings.Split(str, " ")
-		la := make(LabelArray, 0, len(labels))
-		for j := range labels {
-			la = append(la, ParseLabel(labels[j]))
+		la := make(LabelArray, 0, strings.Count(str, " ")+1)
+		for j := range strings.SplitSeq(str, " ") {
+			la = append(la, ParseLabel(j))
 		}
 		if len(la) > 0 {
 			return la
