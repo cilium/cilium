@@ -3421,3 +3421,82 @@ func TestNewMapStatePreallocation(t *testing.T) {
 	require.Len(t, ms.byId[identity.NumericIdentity(1000)], 1)
 	require.Empty(t, ms.byId[identity.NumericIdentity(1001)])
 }
+
+// TestMapState_Lookup_LPMPrecedence verifies that when both a specific-identity entry
+// and an aggregate-identity entry match a flow at the same precedence level, mapState.lookup()
+// selects the entry matching the BPF datapath logic (bpf/lib/policy.h):
+// 1. The aggregate entry is selected if it has a strictly longer LPM prefix length.
+// 2. The specific identity entry is selected if it has a longer or equal LPM prefix length.
+func TestMapState_Lookup_LPMPrecedence(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	const podID = identity.NumericIdentity(1001)
+	agg := identity.ReservedIdentityAggregateCluster
+
+	lblSpecific := labels.LabelArrayList{labels.LabelArray{
+		labels.NewLabel("rule", "specific-identity", labels.LabelSourceK8s)}}
+	lblAggregate := labels.LabelArrayList{labels.LabelArray{
+		labels.NewLabel("rule", "aggregate-identity", labels.LabelSourceK8s)}}
+
+	t.Run("aggregate has longer prefix", func(t *testing.T) {
+		ms := emptyMapState(logger)
+
+		// Specific identity with wildcard port -> prefix length = 9
+		kSpecific := EgressKey().WithIdentity(podID).WithTCPPort(0)
+		ms.upsert(kSpecific, NewMapStateEntry(AllowEntry.WithProxyPort(1000)).withLabels(lblSpecific))
+
+		// Aggregate identity with port 80 -> prefix length = 25
+		kAgg := EgressKey().WithIdentity(agg).WithTCPPort(80)
+		ms.upsert(kAgg, NewMapStateEntry(AllowEntry.WithProxyPort(2000)).withLabels(lblAggregate))
+
+		require.Greater(t, kAgg.PrefixLength(), kSpecific.PrefixLength(),
+			"aggregate entry must have longer prefix length")
+
+		// Lookup for pod 1001 on port 80 matches both; aggregate should be chosen.
+		entry, found := ms.lookup(EgressKey().WithIdentity(podID).WithTCPPort(80))
+		require.True(t, found)
+		require.Equal(t, lblAggregate.String(), string(entry.derivedFromRules.Value().LabelArrayListString()))
+		require.Equal(t, uint16(2000), entry.ProxyPort)
+	})
+
+	t.Run("specific identity has longer prefix", func(t *testing.T) {
+		ms := emptyMapState(logger)
+
+		// Specific identity with port 80 -> prefix length = 25
+		kSpecific := EgressKey().WithIdentity(podID).WithTCPPort(80)
+		ms.upsert(kSpecific, NewMapStateEntry(AllowEntry.WithProxyPort(1000)).withLabels(lblSpecific))
+
+		// Aggregate identity with wildcard port -> prefix length = 9
+		kAgg := EgressKey().WithIdentity(agg).WithTCPPort(0)
+		ms.upsert(kAgg, NewMapStateEntry(AllowEntry.WithProxyPort(2000)).withLabels(lblAggregate))
+
+		require.Greater(t, kSpecific.PrefixLength(), kAgg.PrefixLength(),
+			"specific identity entry must have longer prefix length")
+
+		// Lookup for pod 1001 on port 80 matches both; specific identity should be chosen.
+		entry, found := ms.lookup(EgressKey().WithIdentity(podID).WithTCPPort(80))
+		require.True(t, found)
+		require.Equal(t, lblSpecific.String(), string(entry.derivedFromRules.Value().LabelArrayListString()))
+		require.Equal(t, uint16(1000), entry.ProxyPort)
+	})
+
+	t.Run("equal prefix length selects specific identity", func(t *testing.T) {
+		ms := emptyMapState(logger)
+
+		// Both on port 80 -> prefix length = 25
+		kSpecific := EgressKey().WithIdentity(podID).WithTCPPort(80)
+		ms.upsert(kSpecific, NewMapStateEntry(AllowEntry.WithProxyPort(1000)).withLabels(lblSpecific))
+
+		kAgg := EgressKey().WithIdentity(agg).WithTCPPort(80)
+		ms.upsert(kAgg, NewMapStateEntry(AllowEntry.WithProxyPort(2000)).withLabels(lblAggregate))
+
+		require.Equal(t, kSpecific.PrefixLength(), kAgg.PrefixLength(),
+			"both entries must have identical prefix lengths")
+
+		// Lookup for pod 1001 on port 80 matches both; specific identity should be chosen.
+		entry, found := ms.lookup(EgressKey().WithIdentity(podID).WithTCPPort(80))
+		require.True(t, found)
+		require.Equal(t, lblSpecific.String(), string(entry.derivedFromRules.Value().LabelArrayListString()))
+		require.Equal(t, uint16(1000), entry.ProxyPort)
+	})
+}
