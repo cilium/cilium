@@ -1272,10 +1272,10 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 		a.allocation.IPv4.AvailableForAllocation = min(a.allocation.IPv4.AvailableForAllocation, a.allocation.IPv4.MaxIPsToAllocate)
 
 		start := time.Now()
-		err := n.ops.AllocateIPs(ctx, a.allocation)
+		allocated, err := n.ops.AllocateIPs(ctx, a.allocation)
 		if err == nil {
 			n.manager.metricsAPI.AllocationAttempt(allocateIP, success, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
-			n.manager.metricsAPI.AddIPAllocation(string(a.allocation.PoolID), int64(a.allocation.IPv4.AvailableForAllocation))
+			n.manager.metricsAPI.AddIPAllocation(string(a.allocation.PoolID), int64(allocated))
 			return true, nil
 		}
 

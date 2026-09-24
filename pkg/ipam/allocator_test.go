@@ -16,6 +16,7 @@ import (
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
 )
@@ -224,4 +225,27 @@ func TestAllocateNextWithExpiration(t *testing.T) {
 	// Release IPv4 address
 	err = ipam.ReleaseIP(ipv4.IP, PoolDefault())
 	require.NoError(t, err)
+}
+
+func TestAllocateNextFailureMetric(t *testing.T) {
+	metrics.NewLegacyMetrics()
+	fakeAddressing := fakenode.NewAddressing()
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:         hivetest.Logger(t),
+		NodeAddressing: fakeAddressing,
+		AgentConfig:    testConfiguration,
+		NodeDiscovery:  &ownerMock{},
+		LocalNodeStore: node.NewTestLocalNodeStore(node.LocalNode{}),
+		K8sEventReg:    &ownerMock{},
+		NodeResource:   &resourceMock{},
+		MTUConfig:      &mtuMock,
+		Metadata: fakeMetadataFunc(func(owner string, family Family) (string, error) {
+			return "", errors.New("test error")
+		}),
+	})
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
+
+	_, _, err := ipam.AllocateNextWithExpiration(string(IPv4), "foo", "", 0)
+	require.Error(t, err)
+	require.Equal(t, float64(1), metrics.IPAMEvent.WithLabelValues(metricAllocateFailure, string(IPv4)).Get())
 }

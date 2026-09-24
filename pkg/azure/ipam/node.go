@@ -145,18 +145,23 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.Alloc
 }
 
 // AllocateIPs performs the Azure IP allocation operation
-func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction) error {
+func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction) (int, error) {
 	iface, ok := a.Interface.(*types.AzureInterface)
 	if !ok {
-		return fmt.Errorf("invalid interface object")
+		return 0, fmt.Errorf("invalid interface object")
 	}
 
 	vmss := iface.GetVMScaleSetName()
+	var err error
 	if vmss == "" {
-		return n.manager.api.AssignPrivateIpAddressesVM(ctx, string(a.PoolID), iface.Name, a.IPv4.AvailableForAllocation)
+		err = n.manager.api.AssignPrivateIpAddressesVM(ctx, string(a.PoolID), iface.Name, a.IPv4.AvailableForAllocation)
 	} else {
-		return n.manager.api.AssignPrivateIpAddressesVMSS(ctx, iface.GetVMID(), vmss, string(a.PoolID), iface.Name, a.IPv4.AvailableForAllocation)
+		err = n.manager.api.AssignPrivateIpAddressesVMSS(ctx, iface.GetVMID(), vmss, string(a.PoolID), iface.Name, a.IPv4.AvailableForAllocation)
 	}
+	if err != nil {
+		return 0, err
+	}
+	return a.IPv4.AvailableForAllocation, nil
 }
 
 func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {

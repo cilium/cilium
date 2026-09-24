@@ -100,7 +100,9 @@ func TestAllocateIPs_IPv6Prefix(t *testing.T) {
 	a := &nodemanager.AllocationAction{InterfaceID: eniID}
 	a.IPv6.MaxPrefixesToAllocate = 1
 
-	require.NoError(t, n.AllocateIPs(t.Context(), a))
+	allocated, err := n.AllocateIPs(t.Context(), a)
+	require.NoError(t, err)
+	require.Zero(t, allocated)
 
 	require.Len(t, attachedIPv6Prefixes(t, n, instances), 1)
 }
@@ -113,9 +115,23 @@ func TestAllocateIPs_NoIPv6WhenNotRequested(t *testing.T) {
 	a.IPv4.AvailableForAllocation = 2
 	// IPv6.MaxPrefixesToAllocate left at 0.
 
-	require.NoError(t, n.AllocateIPs(t.Context(), a))
+	allocated, err := n.AllocateIPs(t.Context(), a)
+	require.NoError(t, err)
+	require.Equal(t, 2, allocated)
 
 	require.Empty(t, attachedIPv6Prefixes(t, n, instances))
+}
+
+func TestAllocateIPs_IPv4Prefix(t *testing.T) {
+	n, _, _ := newWiredNode(t, "i-allocate-ipv4-prefix", "m5.large")
+	n.node.(*mockIPAMNode).prefixDelegation = true
+
+	a := &nodemanager.AllocationAction{InterfaceID: primaryENIID(t, n)}
+	a.IPv4.AvailableForAllocation = 17
+
+	allocated, err := n.AllocateIPs(t.Context(), a)
+	require.NoError(t, err)
+	require.Equal(t, 32, allocated)
 }
 
 func TestCreateInterface_IPv6Only(t *testing.T) {

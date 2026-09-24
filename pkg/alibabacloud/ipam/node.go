@@ -313,9 +313,9 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (*nodemanager.Allocat
 }
 
 // AllocateIPs performs the ENI allocation operation
-func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction) error {
-	_, err := n.manager.api.AssignPrivateIPAddresses(ctx, a.InterfaceID, a.IPv4.AvailableForAllocation)
-	return err
+func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction) (int, error) {
+	allocated, err := n.manager.api.AssignPrivateIPAddresses(ctx, a.InterfaceID, a.IPv4.AvailableForAllocation)
+	return len(allocated), err
 }
 
 func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {

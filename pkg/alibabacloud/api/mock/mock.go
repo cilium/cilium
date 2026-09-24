@@ -298,6 +298,7 @@ func (a *API) AssignPrivateIPAddresses(ctx context.Context, eniID string, toAllo
 				return nil, fmt.Errorf("vSwitch %s don't have enough addresses available", eni.VSwitch.VSwitchID)
 			}
 
+			allocated := make([]string, 0, toAllocate)
 			for range toAllocate {
 				ip, err := a.allocator.AllocateNext()
 				if err != nil {
@@ -312,9 +313,10 @@ func (a *API) AssignPrivateIPAddresses(ctx context.Context, eniID string, toAllo
 					PrivateIpAddress: iputil.AddrFrom(ip),
 					Primary:          primary,
 				})
+				allocated = append(allocated, ip.String())
 			}
 			subnet.AvailableAddresses -= toAllocate
-			return nil, nil
+			return allocated, nil
 		}
 	}
 	return nil, fmt.Errorf("unable to find ENI with ID %s", eniID)

@@ -590,7 +590,7 @@ func isSubnetAtPrefixCapacity(err error) bool {
 }
 
 // AllocateIPs performs the ENI allocation operation
-func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction) error {
+func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction) (int, error) {
 	// Check if the interface to allocate on is prefix delegated
 	n.mutex.RLock()
 	isPrefixDelegated := n.node.Ops().IsPrefixDelegated()
@@ -600,7 +600,7 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 	if a.IPv6.MaxPrefixesToAllocate > 0 {
 		err := n.manager.ec2api.AssignENIIPv6Prefix(ctx, a.InterfaceID)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	}
 
@@ -608,8 +608,11 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 		if isPrefixDelegated {
 			numPrefixes := iputil.PrefixCeil(a.IPv4.AvailableForAllocation, option.ENIPDBlockSizeIPv4)
 			err := n.manager.ec2api.AssignENIPrefixes(ctx, a.InterfaceID, int32(numPrefixes))
+			if err == nil {
+				return numPrefixes * option.ENIPDBlockSizeIPv4, nil
+			}
 			if !isSubnetAtPrefixCapacity(err) {
-				return err
+				return 0, err
 			}
 			// Subnet might be out of available /28 prefixes, but /32 IP addresses might be available.
 			// We should attempt to allocate /32 IPs.
@@ -620,14 +623,14 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 			// If subnet is out of prefixes, re-calculate maximum allocatable IPs
 			limits, limitsAvailable := n.getLimits()
 			if !limitsAvailable {
-				return errors.New(errUnableToDetermineLimits)
+				return 0, errors.New(errUnableToDetermineLimits)
 			}
 			n.mutex.RLock()
 			e, ok := n.enis[a.InterfaceID]
 			usePrimary := n.usePrimaryAddress()
 			n.mutex.RUnlock()
 			if !ok {
-				return fmt.Errorf("%s: %s", errENINotFound, a.InterfaceID)
+				return 0, fmt.Errorf("%s: %s", errENINotFound, a.InterfaceID)
 			}
 			maxAllocatableIPs := limits.IPv4
 			if !usePrimary {
@@ -640,7 +643,7 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 		}
 		assignedIPs, err := n.manager.ec2api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.IPv4.AvailableForAllocation))
 		if err != nil {
-			return err
+			return 0, err
 		}
 		n.manager.AddIPsToENI(n.node.InstanceID(), a.InterfaceID, assignedIPs)
 		n.logger.Load().Info(
@@ -651,8 +654,9 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 			logfields.IPsToAllocate, a.IPv4.AvailableForAllocation,
 			logfields.Allocated, len(assignedIPs),
 		)
+		return len(assignedIPs), nil
 	}
-	return nil
+	return 0, nil
 }
 
 func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {

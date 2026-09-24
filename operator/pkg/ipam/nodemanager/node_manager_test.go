@@ -125,6 +125,8 @@ func (a *allocationImplementationMock) DeleteInstance(instanceID string) {
 
 type nodeOperationsMock struct {
 	allocator *allocationImplementationMock
+	// allocationLimit, when positive, caps the number of IPs returned by AllocateIPs.
+	allocationLimit int
 
 	// mutex protects allocatedIPs
 	mutex        lock.RWMutex
@@ -183,17 +185,44 @@ func (n *nodeOperationsMock) PrepareIPAllocation(scopedLog *slog.Logger) (*Alloc
 	}, nil
 }
 
-func (n *nodeOperationsMock) AllocateIPs(ctx context.Context, allocation *AllocationAction) error {
+func (n *nodeOperationsMock) AllocateIPs(ctx context.Context, allocation *AllocationAction) (int, error) {
+	allocated := allocation.IPv4.AvailableForAllocation
+	if n.allocationLimit > 0 {
+		allocated = min(allocated, n.allocationLimit)
+	}
 	n.mutex.Lock()
 	n.allocator.mutex.Lock()
-	n.allocator.allocatedIPs += allocation.IPv4.AvailableForAllocation
-	for range allocation.IPv4.AvailableForAllocation {
+	n.allocator.allocatedIPs += allocated
+	for range allocated {
 		n.allocator.ipGenerator++
 		n.allocatedIPs = append(n.allocatedIPs, fmt.Sprintf("10.0.%d.%d", n.allocator.ipGenerator/256, n.allocator.ipGenerator%256))
 	}
 	n.allocator.mutex.Unlock()
 	n.mutex.Unlock()
-	return nil
+	return allocated, nil
+}
+
+func TestHandleIPAllocationMetricsUseAllocatedCount(t *testing.T) {
+	metrics := metricsmock.NewMockMetrics()
+	node := &Node{
+		manager: &NodeManager{metricsAPI: metrics},
+		ops: &nodeOperationsMock{
+			allocator:       newAllocationImplementationMock(),
+			allocationLimit: 1,
+		},
+	}
+	action := &maintenanceAction{allocation: &AllocationAction{
+		PoolID: testPoolID,
+		IPv4: IPAllocationAction{
+			AvailableForAllocation: 2,
+			MaxIPsToAllocate:       2,
+		},
+	}}
+
+	mutated, err := node.handleIPAllocation(t.Context(), action)
+	require.NoError(t, err)
+	require.True(t, mutated)
+	require.Equal(t, int64(1), metrics.IPAllocations(string(testPoolID)))
 }
 
 func (n *nodeOperationsMock) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
@@ -1024,7 +1053,7 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 
 	node.mutex.Unlock()
 
-	node.ops.AllocateIPs(context.Background(), &AllocationAction{
+	_, _ = node.ops.AllocateIPs(context.Background(), &AllocationAction{
 		IPv4: IPAllocationAction{
 			AvailableForAllocation: 1,
 		},

@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	metricAllocate = "allocate"
-	metricRelease  = "release"
+	metricAllocate        = "allocate"
+	metricAllocateFailure = "allocate-failure"
+	metricRelease         = "release"
 )
 
 // Error definitions
@@ -172,6 +173,12 @@ func (ipam *IPAM) allocateIP(ip netip.Addr, owner string, pool Pool, needSyncUps
 }
 
 func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, needSyncUpstream bool) (result *AllocationResult, err error) {
+	defer func() {
+		if err != nil {
+			metrics.IPAMEvent.WithLabelValues(metricAllocateFailure, string(family)).Inc()
+		}
+	}()
+
 	var allocator Allocator
 	switch family {
 	case IPv6:

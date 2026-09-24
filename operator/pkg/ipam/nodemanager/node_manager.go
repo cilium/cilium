@@ -70,8 +70,9 @@ type NodeOperations interface {
 	PrepareIPAllocation(scopedLog *slog.Logger) (*AllocationAction, error)
 
 	// AllocateIPs is called after invoking PrepareIPAllocation and needs
-	// to perform the actual allocation.
-	AllocateIPs(ctx context.Context, allocation *AllocationAction) error
+	// to perform the actual allocation. It returns the number of IPv4
+	// addresses allocated.
+	AllocateIPs(ctx context.Context, allocation *AllocationAction) (int, error)
 
 	AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error)
 
