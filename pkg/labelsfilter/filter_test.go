@@ -496,3 +496,36 @@ func TestFilterLabelsReservedExplicitlyExcluded(t *testing.T) {
 	// Other labels are still identity labels (whitelist is false).
 	assert.Contains(t, identityLabels, "some-random-label")
 }
+
+func TestFilterLabelsReservedExplicitlyExcludedNoFile(t *testing.T) {
+	var logs bytes.Buffer
+	handler := slog.NewTextHandler(&logs, &slog.HandlerOptions{
+		Level: slog.LevelError,
+	})
+	logger := slog.New(handler)
+
+	// User explicitly excludes all reserved labels via --labels and does not
+	// use a label-prefix-file, so whitelist is false.
+	err := ParseLabelPrefixCfg(logger, []string{"reserved:!.*"}, []string{}, "")
+	require.NoError(t, err)
+
+	allLabels := labels.Map2Labels(map[string]string{
+		"some-random-label": "test",
+	}, labels.LabelSourceK8s)
+	reservedLabels := labels.Map2Labels(map[string]string{
+		"host": "test",
+	}, labels.LabelSourceReserved)
+	allLabels.MergeLabels(reservedLabels)
+
+	identityLabels, infoLabels := Filter(allLabels)
+
+	// Reserved labels are explicitly excluded, so the error must be logged.
+	assert.Contains(t, logs.String(), reservedLabelsPattern)
+
+	// Reserved label is not an identity label.
+	assert.NotContains(t, identityLabels, "host")
+	assert.Contains(t, infoLabels, "host")
+
+	// Other labels are still identity labels (whitelist is false).
+	assert.Contains(t, identityLabels, "some-random-label")
+}
