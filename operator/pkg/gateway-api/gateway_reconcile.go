@@ -600,7 +600,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		return false, fmt.Errorf("failed to retrieve reference grants: %w", err)
 	}
 
-	conflictedListeners := samePortCrossProtocolConflictedListeners(gw)
+	conflictedListeners := conflictsWithinGateway(gw.Spec.Listeners)
 
 	// Keep track of if there is at least one Valid Listener; if not, the Gateway cannot be Accepted.
 	oneValidListener := false
@@ -610,9 +610,9 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 
 		var conds []metav1.Condition
 
-		if conflictMessage, ok := conflictedListeners[l.Name]; ok {
-			conds = merge(conds, gatewayListenerConflictedCondition(gw, gatewayv1.ListenerReasonProtocolConflict, conflictMessage))
-			invalidMessages = append(invalidMessages, conflictMessage)
+		if conflict, ok := conflictedListeners[l.Name]; ok {
+			conds = merge(conds, gatewayListenerConflictedCondition(gw, conflict.reason, conflict.message))
+			invalidMessages = append(invalidMessages, conflict.message)
 			isValid = false
 		}
 
@@ -756,41 +756,83 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 	return oneValidListener, nil
 }
 
-func samePortCrossProtocolConflictedListeners(gw *gatewayv1.Gateway) map[gatewayv1.SectionName]string {
-	conflicted := map[gatewayv1.SectionName]string{}
+type listenerConflict struct {
+	reason  gatewayv1.ListenerConditionReason
+	message string
+}
 
-	for i := range gw.Spec.Listeners {
-		for j := i + 1; j < len(gw.Spec.Listeners); j++ {
-			first := &gw.Spec.Listeners[i]
-			second := &gw.Spec.Listeners[j]
-			if !listenersHaveSamePortCrossProtocolHostnameConflict(first, second) {
+func conflictsWithinGateway(listeners []gatewayv1.Listener) map[gatewayv1.SectionName]listenerConflict {
+	conflicts := map[gatewayv1.SectionName]listenerConflict{}
+
+	for i := range listeners {
+		for j := i + 1; j < len(listeners); j++ {
+			first := &listeners[i]
+			second := &listeners[j]
+			reason, ok := listenerPairConflict(first, second)
+			if !ok {
 				continue
 			}
 
-			conflicted[first.Name] = samePortCrossProtocolConflictMessage(second.Name, first.Port)
-			conflicted[second.Name] = samePortCrossProtocolConflictMessage(first.Name, second.Port)
+			conflicts[first.Name] = listenerConflict{reason: reason, message: listenerConflictMessage(reason, first, second)}
+			conflicts[second.Name] = listenerConflict{reason: reason, message: listenerConflictMessage(reason, second, first)}
 		}
 	}
 
-	return conflicted
+	return conflicts
 }
 
-func listenersHaveSamePortCrossProtocolHostnameConflict(first, second *gatewayv1.Listener) bool {
+func listenerPairConflict(first, second *gatewayv1.Listener) (gatewayv1.ListenerConditionReason, bool) {
 	if first.Port != second.Port {
-		return false
+		return "", false
 	}
 
-	if helpers.IsHTTPSTerminatedListener(first) && helpers.IsTLSPassthroughListener(second) {
-		return helpers.SNIHostnamesIntersect(helpers.ListenerHostname(first), helpers.ListenerHostname(second))
+	firstL4 := isL4Protocol(first.Protocol)
+	secondL4 := isL4Protocol(second.Protocol)
+	if firstL4 || secondL4 {
+		if firstL4 && secondL4 && first.Protocol != second.Protocol {
+			return "", false
+		}
+		return gatewayv1.ListenerReasonProtocolConflict, true
 	}
-	if helpers.IsHTTPSTerminatedListener(second) && helpers.IsTLSPassthroughListener(first) {
-		return helpers.SNIHostnamesIntersect(helpers.ListenerHostname(first), helpers.ListenerHostname(second))
+
+	if isHTTPSAndTLSPassthroughPair(first, second) {
+		if helpers.SNIHostnamesIntersect(helpers.ListenerHostname(first), helpers.ListenerHostname(second)) {
+			return gatewayv1.ListenerReasonProtocolConflict, true
+		}
+		return "", false
 	}
-	return false
+
+	if first.Protocol == second.Protocol && normalizedListenerHostname(first) == normalizedListenerHostname(second) {
+		return gatewayv1.ListenerReasonHostnameConflict, true
+	}
+	return "", false
 }
 
-func samePortCrossProtocolConflictMessage(listenerName gatewayv1.SectionName, port gatewayv1.PortNumber) string {
-	return fmt.Sprintf("Listener conflicts with listener %q: same port %d has overlapping HTTPS and TLS passthrough hostnames.", listenerName, port)
+func isL4Protocol(protocol gatewayv1.ProtocolType) bool {
+	return protocol == gatewayv1.TCPProtocolType || protocol == gatewayv1.UDPProtocolType
+}
+
+func isHTTPSAndTLSPassthroughPair(first, second *gatewayv1.Listener) bool {
+	return (helpers.IsHTTPSTerminatedListener(first) && helpers.IsTLSPassthroughListener(second)) ||
+		(helpers.IsHTTPSTerminatedListener(second) && helpers.IsTLSPassthroughListener(first))
+}
+
+func normalizedListenerHostname(listener *gatewayv1.Listener) string {
+	if hostname := helpers.ListenerHostname(listener); hostname != "" {
+		return hostname
+	}
+	return "*"
+}
+
+func listenerConflictMessage(reason gatewayv1.ListenerConditionReason, self, other *gatewayv1.Listener) string {
+	switch {
+	case reason == gatewayv1.ListenerReasonHostnameConflict:
+		return fmt.Sprintf("Listener conflicts with listener %q: same port %d has overlapping hostnames.", other.Name, self.Port)
+	case isHTTPSAndTLSPassthroughPair(self, other):
+		return fmt.Sprintf("Listener conflicts with listener %q: same port %d has overlapping HTTPS and TLS passthrough hostnames.", other.Name, self.Port)
+	default:
+		return fmt.Sprintf("Listener conflicts with listener %q: same port %d has incompatible protocols.", other.Name, self.Port)
+	}
 }
 
 func validateTLSSecret(ctx context.Context, c client.Client, namespace, name string) error {
