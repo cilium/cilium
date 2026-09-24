@@ -148,8 +148,11 @@ type CiliumNetworkDriverNodeConfigSpec struct {
 // Name for a pool.
 type CiliumNetworkDriverPoolName string
 
-// Pool configuration. Devices matched by the filter are advertised
-// with the pool name as a ResourceSlice.
+// Pool configuration. Devices matched by the filter are tagged with the
+// pool name as the "pool" device attribute, used for DeviceClass CEL
+// selector matching. This is a logical grouping only: it does not affect
+// the ResourceSlice a device is advertised in — that pool is always named
+// after the node.
 //
 // +deepequal-gen=true
 type CiliumNetworkDriverDevicePoolConfig struct {
