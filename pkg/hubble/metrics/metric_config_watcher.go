@@ -5,10 +5,9 @@ package metrics
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"log/slog"
 	"os"
 	"reflect"
@@ -125,8 +124,9 @@ func (c *metricConfigWatcher) readConfig() (*api.Config, bool, uint64, error) {
 }
 
 func calculateMetricHash(file []byte) uint64 {
-	sum := md5.Sum(file)
-	return binary.LittleEndian.Uint64(sum[0:16])
+	h := fnv.New64a()
+	_, _ = h.Write(file)
+	return h.Sum64()
 }
 
 func (c *metricConfigWatcher) validateMetricConfig(config *api.Config) error {
