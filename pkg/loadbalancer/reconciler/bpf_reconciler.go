@@ -1278,6 +1278,13 @@ func (ops *BPFOps) isDatapathCandidate(fe *loadbalancer.Frontend) bool {
 		// We should always program ClusterIP and LocalRedirect, as well as
 		// ExternalIP for pod-to-pod scenarios.
 		return true
+	case loadbalancer.SVCTypeLoadBalancer:
+		// In tunnel/overlay mode, the reply from a remote backend returns via
+		// the BPF/tunnel path directly to the client pod, bypassing host
+		// conntrack. Without BPF programming for the VIP, the kube-proxy DNAT
+		// is never reversed and the client pod RSTs the connection. Program the
+		// frontend in BPF so the full DNAT+reply path is handled there.
+		return ops.extCfg.TunnelingEnabled
 	}
 
 	return false
