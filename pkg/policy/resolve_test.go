@@ -36,9 +36,8 @@ var (
 		"foo": fooLabel,
 	}
 	fooIdentity = &identity.Identity{
-		ID:         303,
-		Labels:     lbls,
-		LabelArray: lbls.LabelArray(),
+		ID:     303,
+		Labels: lbls,
 	}
 )
 

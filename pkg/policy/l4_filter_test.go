@@ -150,7 +150,7 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 		maps.Copy(initial, im)
 	}
 	for id, lbls := range initial {
-		td.identityManager.Add(&identity.Identity{ID: id, Labels: lbls, LabelArray: lbls.LabelArray()})
+		td.identityManager.Add(&identity.Identity{ID: id, Labels: lbls})
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(initial, nil, wg)

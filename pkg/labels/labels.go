@@ -871,6 +871,15 @@ func (l Labels) CollectSources() map[string]struct{} {
 	return sources
 }
 
+func (l Labels) KeysSorted() []string {
+	ret := make([]string, 0, len(l))
+	for k := range l {
+		ret = append(ret, k)
+	}
+	slices.Sort(ret)
+	return ret
+}
+
 // parseSource returns the parsed source of the given str. It also returns the next piece
 // of text that is after the source.
 // Example:

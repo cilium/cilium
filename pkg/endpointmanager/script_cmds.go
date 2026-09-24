@@ -43,9 +43,8 @@ func ScriptCmds(epm EndpointManager, template *endpoint.Endpoint) map[string]scr
 				}
 
 				id := &identity.Identity{
-					ID:         identity.NumericIdentity(num),
-					Labels:     labels.FromSlice(labelArr...),
-					LabelArray: labels.LabelArray(labelArr),
+					ID:     identity.NumericIdentity(num),
+					Labels: labels.FromSlice(labelArr...),
 				}
 
 				// Simulate adding an Endpoint the way the Agent does.
