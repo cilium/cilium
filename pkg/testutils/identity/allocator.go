@@ -24,15 +24,18 @@ func (i *IdentityAllocatorOwnerMock) GetNodeSuffix() string {
 	return "foo"
 }
 
+type idEntry struct {
+	id             identity.Identity
+	referenceCount int
+}
+
 // MockIdentityAllocator is used as a mock identity allocator for unit tests.
 type MockIdentityAllocator struct {
-	identity.IdentityMap
-
 	// map from scope -> next ID
 	nextIDs map[identity.NumericIdentity]int
 
-	idToIdentity     map[int]*identity.Identity
-	labelsToIdentity map[string]int // labels are sorted as a key
+	idToIdentity     map[identity.NumericIdentity]idEntry
+	labelsToIdentity map[string]identity.NumericIdentity // labels are sorted as a key
 
 	withheldIdentities map[identity.NumericIdentity]struct{}
 
@@ -43,24 +46,24 @@ type MockIdentityAllocator struct {
 // for unit testing purposes. It can be used as a drop-in for "real" identity
 // allocation in a testing context.
 func NewMockIdentityAllocator(c identity.IdentityMap) *MockIdentityAllocator {
-	if c == nil {
-		c = identity.IdentityMap{}
-	}
-	return &MockIdentityAllocator{
-		IdentityMap: c,
-
+	f := &MockIdentityAllocator{
 		nextIDs: map[identity.NumericIdentity]int{
 			identity.IdentityScopeGlobal:     1000,
 			identity.IdentityScopeLocal:      0,
 			identity.IdentityScopeRemoteNode: 0,
 		},
 
-		idToIdentity:       make(map[int]*identity.Identity),
-		labelsToIdentity:   make(map[string]int),
+		idToIdentity:       make(map[identity.NumericIdentity]idEntry),
+		labelsToIdentity:   make(map[string]identity.NumericIdentity),
 		withheldIdentities: map[identity.NumericIdentity]struct{}{},
 
 		labelsToReject: map[string]struct{}{},
 	}
+
+	for nid, lbls := range c {
+		f.AllocateLocalIdentity(lbls, false, nid)
+	}
+	return f
 }
 
 // WaitForInitialGlobalIdentities does nothing.
@@ -71,7 +74,7 @@ func (f *MockIdentityAllocator) WaitForInitialGlobalIdentities(context.Context) 
 // GetIdentities returns the identities from the identity cache.
 func (f *MockIdentityAllocator) GetIdentities() cache.IdentitiesModel {
 	result := cache.IdentitiesModel{}
-	return result.FromIdentityCache(f.IdentityMap)
+	return result.FromIdentityCache(f.GetIdentityCache())
 }
 
 // Reject programs the mock allocator to reject an identity
@@ -96,41 +99,43 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 	}
 
 	if numID, ok := f.labelsToIdentity[lbls.String()]; ok {
-		id := f.idToIdentity[numID]
-		id.ReferenceCount++
-		return id, false, nil
+		ide := f.idToIdentity[numID]
+		ide.referenceCount++
+		f.idToIdentity[numID] = ide
+		return &ide.id, false, nil
 	}
 
 	scope := identity.ScopeForLabels(lbls)
-	id := identity.IdentityUnknown
+	nid := identity.IdentityUnknown
 
 	// if suggested id is available, use it
 	if scope != identity.IdentityScopeGlobal {
-		if _, ok := f.idToIdentity[int(oldNID)]; !ok && oldNID.Scope() == identity.ScopeForLabels(lbls) {
-			id = oldNID
+		if _, ok := f.idToIdentity[oldNID]; !ok && oldNID.Scope() == identity.ScopeForLabels(lbls) {
+			nid = oldNID
 		}
 	}
-	for id == identity.IdentityUnknown {
+	for nid == identity.IdentityUnknown {
 		candidate := identity.NumericIdentity(f.nextIDs[scope]) | scope
-		_, allocated := f.idToIdentity[int(candidate)]
+		_, allocated := f.idToIdentity[candidate]
 		_, withheld := f.withheldIdentities[candidate]
 		if !allocated && !withheld {
-			id = candidate
+			nid = candidate
 		}
 		f.nextIDs[scope]++
 	}
 
-	f.IdentityMap[identity.NumericIdentity(id)] = lbls
-	f.labelsToIdentity[lbls.String()] = int(id)
+	f.labelsToIdentity[lbls.String()] = nid
 
-	realID := &identity.Identity{
-		ID:             identity.NumericIdentity(id),
-		Labels:         lbls,
-		ReferenceCount: 1,
+	ide := idEntry{
+		id: identity.Identity{
+			ID:     identity.NumericIdentity(nid),
+			Labels: lbls,
+		},
+		referenceCount: 1,
 	}
-	f.idToIdentity[int(id)] = realID
+	f.idToIdentity[nid] = ide
 
-	return realID, true, nil
+	return &ide.id, true, nil
 }
 
 func (f *MockIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
@@ -162,20 +167,20 @@ func (f *MockIdentityAllocator) ReleaseLocalIdentities(nids ...identity.NumericI
 // Release releases a fake identity. It is meant to generally mock the
 // canonical identity release logic.
 func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity, _ bool) (released bool, err error) {
-	realID, ok := f.idToIdentity[int(id.ID)]
+	ide, ok := f.idToIdentity[id.ID]
 	if !ok {
 		return false, nil
 	}
-	if realID.ReferenceCount == 1 {
-		delete(f.idToIdentity, int(id.ID))
-		delete(f.IdentityMap, id.ID)
+	if ide.referenceCount == 1 {
+		delete(f.idToIdentity, id.ID)
 		for key, lblID := range f.labelsToIdentity {
-			if lblID == int(id.ID) {
+			if lblID == id.ID {
 				delete(f.labelsToIdentity, key)
 			}
 		}
 	} else {
-		realID.ReferenceCount--
+		ide.referenceCount--
+		f.idToIdentity[id.ID] = ide
 		return false, nil
 	}
 	return true, nil
@@ -198,21 +203,34 @@ func (f *MockIdentityAllocator) LookupIdentity(ctx context.Context, lbls labels.
 	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity
 	}
-	return f.idToIdentity[f.labelsToIdentity[lbls.String()]]
+	nid := f.labelsToIdentity[lbls.String()]
+	if nid == 0 {
+		return nil
+	}
+	ide := f.idToIdentity[nid]
+	return &ide.id
 }
 
 // LookupIdentityByID returns the identity corresponding to the id if the
 // identity is a reserved identity. Otherwise, returns nil.
-func (f *MockIdentityAllocator) LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity {
-	if identity := identity.LookupReservedIdentity(id); identity != nil {
+func (f *MockIdentityAllocator) LookupIdentityByID(ctx context.Context, nid identity.NumericIdentity) *identity.Identity {
+	if identity := identity.LookupReservedIdentity(nid); identity != nil {
 		return identity
 	}
-	return f.idToIdentity[int(id)]
+	ide, ok := f.idToIdentity[nid]
+	if !ok {
+		return nil
+	}
+	return &ide.id
 }
 
 // GetIdentityCache returns the identity cache.
 func (f *MockIdentityAllocator) GetIdentityCache() identity.IdentityMap {
-	return f.IdentityMap
+	out := make(identity.IdentityMap, len(f.idToIdentity))
+	for _, ide := range f.idToIdentity {
+		out[ide.id.ID] = ide.id.Labels
+	}
+	return out
 }
 
 func (f *MockIdentityAllocator) Observe(ctx context.Context, next func(cache.IdentityChange), complete func(error)) {
