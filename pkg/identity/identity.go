@@ -28,10 +28,6 @@ type Identity struct {
 	ID NumericIdentity `json:"id"`
 	// Set of labels that belong to this Identity.
 	Labels labels.Labels `json:"labels"`
-
-	// ReferenceCount counts the number of references pointing to this
-	// identity. This field is used by the owning cache of the identity.
-	ReferenceCount int `json:"-"`
 }
 
 // IPIdentityPair is a pairing of an IP and the security identity to which that

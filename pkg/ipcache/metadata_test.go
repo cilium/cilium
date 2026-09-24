@@ -443,7 +443,6 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 		identity.IdentityScopeLocal, // we assume first local ID
 	)
 	assert.NotNil(t, id)
-	assert.Equal(t, 1, id.ReferenceCount)
 
 	// Simulate adding CIDR policy by simulating UpsertMetadataBatch
 	s.IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "policy-uid", labels.GetCIDRLabels(worldPrefix.AsPrefix()))
@@ -457,7 +456,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 		t.Context(),
 		nid.ID,
 	)
-	assert.Equal(t, 1, id.ReferenceCount) // InjectLabels calls allocate and release on ID
+	assert.NotNil(t, id)
 
 	// Remove kube-apiserver label
 	s.IPIdentityCache.RemoveLabelsExcluded(
@@ -473,7 +472,6 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 		t.Context(),
 		nid.ID,
 	)
-	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
 
 	// Simulate removing CIDR policy.
 	s.IPIdentityCache.RemoveMetadata(worldPrefix, "policy-uid", labels.Labels{})
@@ -518,13 +516,11 @@ func TestOverrideIdentity(t *testing.T) {
 	// pre-allocate override identities
 	fooLabels := labels.NewLabelsFromSortedList("cidrgroup:name=foo")
 	fooID, isNew, err := allocator.AllocateIdentity(t.Context(), fooLabels, false, identity.InvalidIdentity)
-	assert.Equal(t, 1, fooID.ReferenceCount)
 	assert.NoError(t, err)
 	assert.True(t, isNew)
 
 	barLabels := labels.NewLabelsFromSortedList("cidrgroup:name=bar")
 	barID, isNew, err := allocator.AllocateIdentity(t.Context(), barLabels, false, identity.InvalidIdentity)
-	assert.Equal(t, 1, fooID.ReferenceCount)
 	assert.NoError(t, err)
 	assert.True(t, isNew)
 
@@ -554,7 +550,6 @@ func TestOverrideIdentity(t *testing.T) {
 
 	id, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.True(t, ok)
-	assert.Equal(t, 2, fooID.ReferenceCount)
 	assert.Equal(t, id.ID, fooID.ID)
 
 	// Remove identity override from prefix, should assign a CIDR identity again
@@ -567,7 +562,6 @@ func TestOverrideIdentity(t *testing.T) {
 	assert.True(t, ok)
 	assert.True(t, id.ID.HasLocalScope())
 	assert.False(t, id.ID.IsReservedIdentity())
-	assert.Equal(t, 1, fooID.ReferenceCount)
 
 	// Remove remaining labels from prefix, this should remove the entry
 	ipc.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
@@ -593,7 +587,6 @@ func TestOverrideIdentity(t *testing.T) {
 	id, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.True(t, ok)
 	assert.Equal(t, id.ID, barID.ID)
-	assert.Equal(t, 2, barID.ReferenceCount)
 
 	// Remove all metadata at once, this should remove the whole entry
 	ipc.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
@@ -603,7 +596,6 @@ func TestOverrideIdentity(t *testing.T) {
 	assert.Empty(t, remaining)
 
 	_, ok = ipc.LookupByPrefix(worldPrefix.String())
-	assert.Equal(t, 1, barID.ReferenceCount)
 	assert.False(t, ok)
 }
 

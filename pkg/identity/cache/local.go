@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"maps"
 
 	"github.com/cilium/stream"
 
@@ -17,11 +16,17 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+type idEntry struct {
+	id identity.Identity
+
+	referenceCount int
+}
+
 type localIdentityCache struct {
 	logger              *slog.Logger
 	mutex               lock.RWMutex
-	identitiesByID      map[identity.NumericIdentity]*identity.Identity
-	identitiesByLabels  map[string]*identity.Identity
+	identitiesByID      map[identity.NumericIdentity]idEntry
+	identitiesByLabels  map[string]identity.NumericIdentity
 	nextNumericIdentity identity.NumericIdentity
 	scope               identity.NumericIdentity
 	minID               identity.NumericIdentity
@@ -46,8 +51,8 @@ func newLocalIdentityCache(logger *slog.Logger, scope, minID, maxID identity.Num
 	mcast, emit, _ := stream.Multicast[IdentityChange]()
 	return &localIdentityCache{
 		logger:              logger,
-		identitiesByID:      map[identity.NumericIdentity]*identity.Identity{},
-		identitiesByLabels:  map[string]*identity.Identity{},
+		identitiesByID:      map[identity.NumericIdentity]idEntry{},
+		identitiesByLabels:  map[string]identity.NumericIdentity{},
 		nextNumericIdentity: minID,
 		scope:               scope,
 		minID:               minID,
@@ -120,14 +125,17 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 	// Not converting to string saves an allocation, as byte key lookups into
 	// string maps are optimized by the compiler, see
 	// https://github.com/golang/go/issues/3512.
-	repr := lbls.SortedList()
+	repr := string(lbls.SortedList())
 
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if id, ok := l.identitiesByLabels[string(repr)]; ok {
-		id.ReferenceCount++
-		return id, false, nil
+	if nid, ok := l.identitiesByLabels[repr]; ok {
+		ide := l.identitiesByID[nid]
+		ide.referenceCount++
+		l.identitiesByID[nid] = ide
+
+		return &ide.id, false, nil
 	}
 
 	numericIdentity, err := l.getNextFreeNumericIdentity(oldNID)
@@ -135,18 +143,20 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 		return nil, false, err
 	}
 
-	id := &identity.Identity{
-		ID:             numericIdentity,
-		Labels:         lbls,
-		ReferenceCount: 1,
+	ide := idEntry{
+		id: identity.Identity{
+			ID:     numericIdentity,
+			Labels: lbls,
+		},
+		referenceCount: 1,
 	}
 
-	l.identitiesByLabels[string(repr)] = id
-	l.identitiesByID[numericIdentity] = id
+	l.identitiesByLabels[repr] = numericIdentity
+	l.identitiesByID[numericIdentity] = ide
 
 	l.emitChange(IdentityChange{Kind: IdentityChangeUpsert, ID: numericIdentity, Labels: lbls})
 
-	return id, true, nil
+	return &ide.id, true, nil
 }
 
 // release releases a local identity from the cache. true is returned when the
@@ -156,13 +166,14 @@ func (l *localIdentityCache) release(id *identity.Identity) bool {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if id, ok := l.identitiesByID[id.ID]; ok {
+	if ide, ok := l.identitiesByID[id.ID]; ok {
 		switch {
-		case id.ReferenceCount > 1:
-			id.ReferenceCount--
+		case ide.referenceCount > 1:
+			ide.referenceCount--
+			l.identitiesByID[id.ID] = ide
 			return false
 
-		case id.ReferenceCount == 1:
+		case ide.referenceCount == 1:
 			// Release is only attempted once, when the reference count is
 			// hitting the last use
 			delete(l.identitiesByLabels, string(id.Labels.SortedList()))
@@ -217,8 +228,9 @@ func (l *localIdentityCache) lookup(lbls labels.Labels) *identity.Identity {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 
-	if id, ok := l.identitiesByLabels[string(lbls.SortedList())]; ok {
-		return id
+	if nid, ok := l.identitiesByLabels[string(lbls.SortedList())]; ok {
+		ide := l.identitiesByID[nid]
+		return &ide.id
 	}
 
 	return nil
@@ -232,7 +244,7 @@ func (l *localIdentityCache) lookupByID(id identity.NumericIdentity) *identity.I
 	defer l.mutex.RUnlock()
 
 	if id, ok := l.identitiesByID[id]; ok {
-		return id
+		return &id.id
 	}
 
 	return nil
@@ -242,14 +254,18 @@ func (l *localIdentityCache) lookupByID(id identity.NumericIdentity) *identity.I
 func (l *localIdentityCache) GetIdentities() map[identity.NumericIdentity]*identity.Identity {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
-	return maps.Clone(l.identitiesByID)
+	out := make(map[identity.NumericIdentity]*identity.Identity, len(l.identitiesByID))
+	for _, ide := range l.identitiesByID {
+		out[ide.id.ID] = &ide.id
+	}
+	return out
 }
 
 func (l *localIdentityCache) checkpoint(dst []*identity.Identity) []*identity.Identity {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
-	for _, id := range l.identitiesByID {
-		dst = append(dst, id)
+	for _, ide := range l.identitiesByID {
+		dst = append(dst, &ide.id)
 	}
 	return dst
 }
@@ -265,14 +281,14 @@ func (l *localIdentityCache) Observe(ctx context.Context, next func(IdentityChan
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 
-	for nid, id := range l.identitiesByID {
+	for nid, ide := range l.identitiesByID {
 		select {
 		case <-ctx.Done():
 			complete(ctx.Err())
 			return
 		default:
 		}
-		next(IdentityChange{Kind: IdentityChangeUpsert, ID: nid, Labels: id.Labels})
+		next(IdentityChange{Kind: IdentityChangeUpsert, ID: nid, Labels: ide.id.Labels})
 	}
 
 	select {
