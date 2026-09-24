@@ -227,6 +227,20 @@ func TestReverseUpdateLookup(t *testing.T) {
 	require.Empty(t, lookupNames, "Returned names for IP not in cache")
 }
 
+func TestCountNamesForIP(t *testing.T) {
+	cache := NewDNSCache(0)
+	sharedIP := netip.MustParseAddr("1.1.1.1")
+	otherIP := netip.MustParseAddr("2.2.2.2")
+
+	require.Zero(t, cache.CountNamesForIP(sharedIP))
+
+	cache.Update(time.Now(), "one.example.", []netip.Addr{sharedIP}, 60)
+	cache.Update(time.Now(), "two.example.", []netip.Addr{sharedIP, otherIP}, 60)
+
+	require.Equal(t, 2, cache.CountNamesForIP(sharedIP))
+	require.Equal(t, 1, cache.CountNamesForIP(otherIP))
+}
+
 func TestJSONMarshal(t *testing.T) {
 	names := map[string]netip.Addr{
 		"test1.com": netip.MustParseAddr("2.2.2.1"),
