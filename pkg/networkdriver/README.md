@@ -117,17 +117,24 @@ type DRAAllocation struct {
     DeviceName     string
     Manager        types.DeviceManagerType
     PreparedDevice types.Device
-    Pool           string
+    LogicalPool    string
     PodUID         kube_types.UID
     ClaimUID       kube_types.UID
     Config         types.DeviceConfig
 }
 ```
 
-The primary key is `AllocationKey(Pool, DeviceName)`. Secondary indexes
-support lookups by claim UID, device name, and pod UID. `PreparedDevice`
-holds the device state after setup, while `Config` records claim-specific
-settings such as the pod interface name or VLAN.
+`LogicalPool` is the user-configured Cilium pool (`spec.pools` in the CRD)
+the device was matched against at prepare time — it is **not** the DRA
+`ResourceSlice` pool name (that's the node name; see
+[ResourceSlice publication](#resourceslice-publication-a-change-to-either-table-wakes-this-loop)
+below). It is only ever used for the `pool` device attribute so
+`DeviceClass` CEL selectors can match it.
+
+The primary key is `AllocationKey(LogicalPool, DeviceName)`. Secondary
+indexes support lookups by claim UID, device name, and pod UID.
+`PreparedDevice` holds the device state after setup, while `Config` records
+claim-specific settings such as the pod interface name or VLAN.
 
 The allocation table has a different lifetime from device inventory. An
 inventory row answers, “What does the device manager see now?” An allocation
@@ -169,8 +176,13 @@ ResourceSlice publication (a change to either table wakes this loop)
   ├─ networkdriver-dra-devices
   │    └─ supplies the current device and its attributes
   ├─ networkdriver-dra-allocations
-  │    └─ pins a prepared device to its recorded pool
+  │    └─ pins a prepared device to its recorded LogicalPool attribute
   └─ buildPoolsFromTable()
+       ├─ groups all of the node's devices into one ResourceSlice pool,
+       │  named after the node (stable regardless of device count)
+       ├─ deviceSlices() splits that pool into multiple resourceslice.Slice
+       │  batches once device count exceeds maxDevicesPerResourceSlice — the
+       │  pool name itself never changes, only how many Slices make it up
        └─ draPlugin.PublishResources()
 
 Agent restart
@@ -190,9 +202,13 @@ restore. The driver logs a warning on restart because that device may require
 manual cleanup. If the status update succeeds but the agent stops before the
 StateDB write, restart recovery can rebuild the allocation from the status.
 
-Changes to either table trigger a new `ResourceSlice` publication. If one
-device has allocation rows that name different pools, the state is ambiguous.
-The driver logs the conflict and does not advertise that device.
+Changes to either table trigger a new `ResourceSlice` publication. Every
+node publishes exactly one `ResourceSlice` pool, named after the node — the
+DRA pool name is never derived from the user-configured logical pool, and
+it does not change as device count crosses the per-slice cap (see
+`deviceSlices`/`maxDevicesPerResourceSlice`). If one device has allocation
+rows that name different logical pools, the state is ambiguous. The driver
+logs the conflict and does not advertise the device.
 
 ### Inspecting state at runtime
 
@@ -202,7 +218,7 @@ kubectl -n kube-system exec <cilium-pod> -c cilium-agent -- \
   jq '{
     inventory: .["networkdriver-dra-devices"] | map({Name, Manager}),
     allocations: .["networkdriver-dra-allocations"] |
-      map({DeviceName, Manager, Pool, PodUID, ClaimUID, Config})
+      map({DeviceName, Manager, LogicalPool, PodUID, ClaimUID, Config})
   }'
 ```
 
@@ -220,7 +236,7 @@ Example output for one prepared SR-IOV Virtual Function:
     {
       "DeviceName": "0000-03-00-1",
       "Manager": "sr-iov",
-      "Pool": "sriov-pool",
+      "LogicalPool": "sriov-pool",
       "PodUID": "a1b2c3d4-...",
       "ClaimUID": "e5f6a7b8-...",
       "Config": {
@@ -325,7 +341,11 @@ spec:
 #### Pool filters
 
 Pools group devices that share a common purpose. Only devices matched by
-the pool's filter are advertised in the corresponding `ResourceSlice`.
+the pool's filter get the pool name set on their `pool` device attribute —
+used for `DeviceClass` CEL selector matching. This logical pool is
+independent from the DRA `ResourceSlice` pool (`spec.pool.name`), which is
+always the node name — see
+[ResourceSlice publication](#allocation-lifecycle) above.
 All specified filter fields are ANDed together.
 
 | Filter field     | SR-IOV                                                                                  | Dummy                                   |
@@ -353,11 +373,11 @@ one pool despite passing config-time validation (e.g. when pools overlap via
 device to one pool using the following priority:
 
 1. **Prepared allocation** — if the allocation table contains a row for the
-   device, the recorded `Pool` is kept for as long as that allocation exists,
-   regardless of how filters re-evaluate in the meantime. If multiple rows
-   name different pools, the driver logs the conflict and does not advertise
-   the device. Pool pinning does **not** apply after the final allocation row
-   is removed.
+   device, the recorded `LogicalPool` is kept for as long as that allocation
+   exists, regardless of how filters re-evaluate in the meantime. If multiple
+   rows name different logical pools, the driver logs the conflict and does
+   not advertise the device. Pool pinning does **not** apply after the final
+   allocation row is removed.
 2. **Alphabetically first matching pool** — deterministic tie-break, applied
    fresh on every publish for a device with no prepared allocation.
 
@@ -539,9 +559,15 @@ kubectl get resourceslice <name> -o yaml
 
 Example output:
 ```
-NAME                                              NODE           DRIVER                    POOL         AGE
-worker-node-1-networkdriver.cilium.io-abc12   worker-node-1  networkdriver.cilium.io   sriov-pool   30s
+NAME                                              NODE           DRIVER                    POOL          AGE
+worker-node-1-networkdriver.cilium.io-abc12   worker-node-1  networkdriver.cilium.io   worker-node-1   30s
 ```
+
+The `POOL` column is always the node name — it is the DRA ResourceSlice
+pool identity, independent of any logical pool configured under
+`spec.pools`. If a node publishes more devices than fit in a single
+`ResourceSlice`, `kubectl get resourceslice` shows multiple objects sharing
+that same `POOL` value (see `maxDevicesPerResourceSlice`).
 
 ### Verify ResourceClaims and allocations
 
