@@ -1195,3 +1195,66 @@ func TestPrivilegedBatchIterator(t *testing.T) {
 		}
 	}
 }
+
+func TestPrivilegedPerCPUBatchIterator(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	runTest := func(mapType ebpf.MapType, flags uint32, size, mapSize int, t *testing.T) {
+		m := NewMap("cilium_test_percpu_batch",
+			mapType,
+			&TestKey{},
+			&TestValue{},
+			mapSize,
+			flags,
+		)
+		require.NoError(t, m.OpenOrCreate())
+		defer assert.NoError(t, m.UnpinIfExists())
+
+		func() {
+			m.lock.Lock()
+			defer m.lock.Unlock()
+			for i := range size {
+				key := &TestKey{Key: uint32(i)}
+				value := &TestValue{Value: uint32(i + 1)}
+				err := m.m.Update(key, []any{value}, ebpf.UpdateAny)
+				require.NoError(t, err)
+			}
+		}()
+
+		ks := sets.New[int]()
+		vs := sets.New[int]()
+
+		iter := NewPerCPUBatchIterator[TestKey, TestValue](m)
+		count := 0
+		for k, values := range iter.IterateAll(context.TODO()) {
+			count++
+			ks.Insert(int(k.Key))
+			for _, v := range values {
+				if v.Value != 0 {
+					vs.Insert(int(v.Value))
+				}
+			}
+		}
+		require.NoError(t, iter.Err())
+		assert.Equal(t, size, count, "expected to iterate over %d keys, got %d", size, count)
+
+		for i := range size {
+			require.Contains(t, ks, i, "expect iterate to return key="+strconv.Itoa(i))
+			require.Contains(t, vs, i+1, "expect iterate to return val="+strconv.Itoa(i+1))
+		}
+	}
+
+	for _, test := range []struct {
+		name    string
+		mapType ebpf.MapType
+		flags   uint32
+	}{
+		{"percpuhash", ebpf.PerCPUHash, 0},
+		{"lrucpuhash", ebpf.LRUCPUHash, 0},
+		{"lrucpuhash-nocommonlru", ebpf.LRUCPUHash, unix.BPF_F_NO_COMMON_LRU},
+	} {
+		t.Run(fmt.Sprintf("%s size=10 mapSize=1024", test.name), func(t *testing.T) {
+			runTest(test.mapType, test.flags, 10, 1024, t)
+		})
+	}
+}
