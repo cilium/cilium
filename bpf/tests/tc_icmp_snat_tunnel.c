@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#define ENABLE_DSR		1
 #define ENCAP_IFINDEX		1
 
 #define ENABLE_IPV4			1
@@ -12,3 +11,5 @@
 
 #include "bpf_nat_icmp.h"
 #include "bpf_nat_icmp6.h"
+
+ASSIGN_CONFIG(bool, enable_dsr, true)

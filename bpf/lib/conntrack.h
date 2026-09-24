@@ -340,10 +340,9 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 			return true;
 	}
 
-# ifdef ENABLE_DSR
-	if ((ct_entry_types & CT_ENTRY_DSR) && entry->dsr_internal)
+	if (CONFIG(enable_dsr) && (ct_entry_types & CT_ENTRY_DSR) &&
+	    entry->dsr_internal)
 		return true;
-# endif
 #endif
 
 	return false;
