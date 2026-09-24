@@ -558,7 +558,7 @@ jobs:
              -cilium.hubble-relay-image=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/hubble-relay-ci \
              -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }}${{ needs.setup-vars.outputs.image_tag_suffix }} \
              -cilium.kubeconfig=/root/.kube/config \
-             ${HELM_OVERRIDES} \
+             \${HELM_OVERRIDES} \
              -cilium.operator-suffix=-ci"
 
               ./test.test \
@@ -573,7 +573,7 @@ jobs:
                -cilium.hubble-relay-image=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/hubble-relay-ci \
                -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }}${{ needs.setup-vars.outputs.image_tag_suffix }} \
                -cilium.kubeconfig=/root/.kube/config \
-               ${HELM_OVERRIDES} \
+               \${HELM_OVERRIDES} \
                -cilium.operator-suffix=-ci
 
       - name: Fetch artifacts
