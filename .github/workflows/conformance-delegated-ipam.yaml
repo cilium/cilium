@@ -255,6 +255,10 @@ jobs:
             ipFamily: "$ipFamily"
             podSubnet: "$podSubnet"
             serviceSubnet: "$serviceSubnet"
+          containerdConfigPatches:
+            - |
+              [plugins."io.containerd.grpc.v1.cri"]
+                image_pull_progress_timeout = "60s"
           EOF
 
       # Warning: since this is a privileged workflow, subsequent workflow job
