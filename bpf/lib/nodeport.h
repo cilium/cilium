@@ -780,8 +780,15 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 		if (ret == CTX_ACT_REDIRECT && oif)
 			return ctx_redirect(ctx, oif, 0);
 	} else {
-		if (dsr_fail_needs_reply(ret))
+		if (dsr_fail_needs_reply(ret)) {
+#if DSR_ENCAP_MODE == DSR_ENCAP_NONE || DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+			if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+				ret = DROP_INVALID;
+				goto drop_err;
+			}
+#endif
 			return dsr_reply_icmp6(ctx, ip6, &addr, port, ret, ohead);
+		}
 		goto drop_err;
 	}
 
@@ -2101,8 +2108,15 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		if (ret == CTX_ACT_REDIRECT && oif)
 			return ctx_redirect(ctx, oif, 0);
 	} else {
-		if (dsr_fail_needs_reply(ret))
+		if (dsr_fail_needs_reply(ret)) {
+#if DSR_ENCAP_MODE == DSR_ENCAP_NONE || DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+			if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+				ret = DROP_INVALID;
+				goto drop_err;
+			}
+#endif
 			return dsr_reply_icmp4(ctx, ip4, addr, port, ret, ohead);
+		}
 		goto drop_err;
 	}
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
