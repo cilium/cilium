@@ -135,7 +135,7 @@ func (mgr *epMgrMock) GetEndpoints() []*endpoint.Endpoint {
 		out = append(out, &endpoint.Endpoint{
 			ID:         uint16(i),
 			DNSHistory: c,
-			DNSZombies: fqdn.NewDNSZombieMappings(mgr.logger, 1000, 1000),
+			DNSZombies: fqdn.NewDNSZombieMappings(mgr.logger, 1000, 1000, nil),
 		})
 	}
 	return out
