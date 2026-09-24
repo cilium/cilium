@@ -152,6 +152,13 @@ func (h *payloadGetters) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
 		return nil
 	}
 	names := ep.DNSHistory.LookupIP(ip)
+	if len(names) == 0 {
+		// DNSHistory expires with the DNS TTL. A connection that outlives it
+		// keeps its mapping in DNSZombies, which is held for exactly as long as
+		// the connection is in use, so fall back to it rather than reporting no
+		// name for the remainder of a long-lived connection.
+		names = ep.DNSZombies.LookupIP(ip)
+	}
 
 	for i := range names {
 		names[i] = strings.TrimSuffix(names[i], ".")
