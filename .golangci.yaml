@@ -106,6 +106,14 @@ linters:
         - pattern: ^reflect\.DeepEqual$
           pkg: ^reflect$
           msg: Use assert.Equal from github.com/stretchr/testify/assert instead, which reports the differing fields on failure. See https://github.com/cilium/cilium/issues/40562.
+        # MD5 is flagged by security audits even when used as a plain checksum.
+        # See https://github.com/cilium/cilium/issues/47465
+        - pattern: ^md5\.
+          pkg: ^crypto/md5$
+          msg: crypto/md5 is deprecated. Use hash/fnv for non-cryptographic checksums, or crypto/sha256 if collision resistance matters.
+        - pattern: ^crypto\.MD5$
+          pkg: ^crypto$
+          msg: crypto.MD5 is deprecated. Use hash/fnv for non-cryptographic checksums, or crypto/sha256 if collision resistance matters.
       analyze-types: true
     goheader:
       values:
