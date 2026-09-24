@@ -25,3 +25,7 @@ networking:
   disableDefaultCNI: true
   podSubnet: "fd00:10:244::/48"
   serviceSubnet: "fd00:10:96::/112"
+containerdConfigPatches:
+  - |
+    [plugins."io.containerd.grpc.v1.cri"]
+      image_pull_progress_timeout = "60s"
