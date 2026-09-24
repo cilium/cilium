@@ -186,11 +186,12 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items, namespaceLabels)
 	tlsRoutes := r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items, namespaceLabels)
 	grpcRoutes := r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items, namespaceLabels)
+	translationGateway := gatewayWithoutConflictedListeners(gw)
 
 	m := ingestion.GatewayAPI(ingestion.Input{
 		GatewayClass:       *gwc,
 		GatewayClassConfig: r.getGatewayClassConfig(ctx, gwc),
-		Gateway:            *gw,
+		Gateway:            *translationGateway,
 		HTTPRoutes:         httpRoutes,
 		TLSRoutes:          tlsRoutes,
 		GRPCRoutes:         grpcRoutes,
@@ -759,6 +760,18 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 type listenerConflict struct {
 	reason  gatewayv1.ListenerConditionReason
 	message string
+}
+
+func gatewayWithoutConflictedListeners(gw *gatewayv1.Gateway) *gatewayv1.Gateway {
+	translationGateway := gw.DeepCopy()
+	conflicts := conflictsWithinGateway(gw.Spec.Listeners)
+	translationGateway.Spec.Listeners = translationGateway.Spec.Listeners[:0]
+	for _, listener := range gw.Spec.Listeners {
+		if _, conflicted := conflicts[listener.Name]; !conflicted {
+			translationGateway.Spec.Listeners = append(translationGateway.Spec.Listeners, listener)
+		}
+	}
+	return translationGateway
 }
 
 func conflictsWithinGateway(listeners []gatewayv1.Listener) map[gatewayv1.SectionName]listenerConflict {
