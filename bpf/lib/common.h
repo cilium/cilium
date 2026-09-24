@@ -39,7 +39,7 @@
 /* TUNNEL_MODE needs the encapsulation helpers guarded by HAVE_ENCAP. */
 #if defined(ENCAP_IFINDEX) || defined(ENABLE_EGRESS_GATEWAY_COMMON) || \
 	defined(TUNNEL_MODE) || \
-	(defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
+	(defined(DSR_ENCAP_MODE) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
 #define HAVE_ENCAP	1
 
 #endif
