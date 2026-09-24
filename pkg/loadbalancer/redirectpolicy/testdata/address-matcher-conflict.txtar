@@ -154,10 +154,10 @@ Address             Type        ServiceName           PortName  Backends        
 10.96.0.10:53/UDP   ClusterIP   kube-system/kube-dns  dns       10.244.0.108:53/UDP               Done
 
 -- backends.table --
-Address               Instances
-10.244.0.108:53/UDP   kube-system/kube-dns (dns)
-10.244.2.222:53/UDP   lrp-test/lrp-addr:local-redirect (dns)
+Service                            Address               PortNames
+kube-system/kube-dns               10.244.0.108:53/UDP   dns
+lrp-test/lrp-addr:local-redirect   10.244.2.222:53/UDP   dns
 
 -- backends-after.table --
-Address               Instances
-10.244.0.108:53/UDP   kube-system/kube-dns (dns)
+Service                Address               PortNames
+kube-system/kube-dns   10.244.0.108:53/UDP   dns
