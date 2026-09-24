@@ -198,7 +198,8 @@ jobs:
     needs: [generate-matrix, wait-for-images]
     if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    # Enough headroom for the cluster creation to fall back to another zone.
+    timeout-minutes: 90
     env:
       job_name: "Installation and Connectivity Test"
     strategy:
@@ -283,12 +284,30 @@ jobs:
         run: |
           gcloud info
 
+      - name: Determine fallback zones
+        id: fallback-zones
+        env:
+          ZONE: ${{ matrix.k8s.zone }}
+        run: |
+          # The other zones of the same region, so that a zone which is out of
+          # capacity does not fail the whole job. Same region only, because
+          # cluster names encode just the config index, so legs of different
+          # k8s versions share a name and must not meet in one zone, and each
+          # version is pinned to its own region.
+          region="${ZONE%-?}"
+          zones=$(gcloud compute zones list --filter="status=UP" --format='value(name)' \
+            | grep "^${region}-" | grep -v "^${ZONE}$" | tr '\n' ' ')
+          echo "Fallback zones for ${ZONE}: ${zones}"
+          echo "zones=${zones}" >> $GITHUB_OUTPUT
+          echo "candidates=${ZONE} ${zones}" >> $GITHUB_OUTPUT
+
       - name: Create GKE cluster
         id: create-cluster
         uses: ./.github/actions/setup-gke-cluster
         with:
           cluster-name: ${{ env.clusterName }}-${{ matrix.config.index }}
           zone: ${{ matrix.k8s.zone }}
+          fallback-zones: ${{ steps.fallback-zones.outputs.zones }}
           cluster-version: ${{ matrix.k8s.version }}
           nodes: ${{ matrix.config.nodes || 2 }}
           machine-type: e2-custom-2-4096
@@ -298,7 +317,7 @@ jobs:
         if: ${{ matrix.config.type == 'tunnel-ipsec' }}
         run: |
           cluster_name=${{ env.clusterName }}-${{ matrix.config.index }}
-          cluster_zone=${{ matrix.k8s.zone }}
+          cluster_zone=${{ steps.create-cluster.outputs.zone }}
           hash=$(gcloud container clusters describe $cluster_name --zone=$cluster_zone --format="value(id)")
           hash="${hash:0:8}"
           echo $hash
@@ -317,7 +336,7 @@ jobs:
 
       - name: Get cluster credentials
         run: |
-          gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }}
+          gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ steps.create-cluster.outputs.zone }}
 
       - name: Generate cilium-cli kubeconfig
         id: gen-kubeconfig
@@ -385,7 +404,7 @@ jobs:
         if: ${{ matrix.config.type == 'tunnel-ipsec' }}
         run: |
           cluster_name=${{ env.clusterName }}-${{ matrix.config.index }}
-          cluster_zone=${{ matrix.k8s.zone }}
+          cluster_zone=${{ steps.create-cluster.outputs.zone || matrix.k8s.zone }}
           hash=$(gcloud container clusters describe $cluster_name --zone=$cluster_zone --format="value(id)")
           hash="${hash:0:8}"
           firewall_rule_name=gke-${cluster_name}-${hash}-allow-esp
@@ -395,11 +414,25 @@ jobs:
 
       - name: Clean up GKE
         if: ${{ always() }}
+        env:
+          CLUSTER: ${{ env.clusterName }}-${{ matrix.config.index }}
+          # Every zone the cluster could have been created in, not just the one
+          # it ended up in: a creation attempt that was abandoned because it was
+          # too slow keeps provisioning on the GKE side. The cluster name is
+          # unique to this leg, so deleting it by name in each candidate zone
+          # cannot touch another leg's cluster.
+          ZONES: ${{ steps.fallback-zones.outputs.candidates || matrix.k8s.zone }}
         run: |
-          while [ "$(gcloud container operations list --zone ${{ matrix.k8s.zone }} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-${{ matrix.config.index }}" --format="value(name)")" ];do
-            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
+          for zone in ${ZONES}; do
+            while [ "$(gcloud container operations list --zone "${zone}" --filter="status=RUNNING AND targetLink~${CLUSTER}" --format="value(name)")" ];do
+              echo "cluster has an ongoing operation in ${zone}, waiting for all operations to finish"; sleep 15
+            done
+            gcloud container clusters describe "${CLUSTER}" --zone "${zone}" --format 'value(name)' > /dev/null 2>&1 || continue
+            for i in 1 2 3; do
+              gcloud container clusters delete "${CLUSTER}" --zone "${zone}" --quiet --async && break
+              echo "delete of ${CLUSTER} in ${zone} failed (attempt ${i}/3), retrying in 15s"; sleep 15
+            done
           done
-          gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }} --quiet --async
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
   merge-upload-and-status:

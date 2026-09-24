@@ -7,6 +7,10 @@ inputs:
   zone:
     description: "GCP zone for the cluster"
     required: true
+  fallback-zones:
+    description: "Space-separated list of additional zones to try if the primary zone is out of capacity (GCE STOCKOUT)"
+    required: false
+    default: ""
   cluster-version:
     description: "Explicit GKE cluster version"
     required: false
@@ -31,6 +35,9 @@ outputs:
   native_cidr:
     description: ""
     value: ${{ steps.create-cluster.outputs.native_cidr }}
+  zone:
+    description: "The zone the cluster was actually created in (may differ from the requested zone if a fallback zone was used)"
+    value: ${{ steps.create-cluster.outputs.zone }}
 
 runs:
   using: "composite"
@@ -61,24 +68,99 @@ runs:
           TAINTS="--node-taints ${{ inputs.node-taints }}"
         fi
 
-        gcloud container clusters create "${{ inputs.cluster-name }}" \
-          --zone "${{ inputs.zone }}" \
-          --release-channel "extended" \
-          --enable-ip-alias \
-          --create-subnetwork="range=/26" \
-          --cluster-ipv4-cidr="/21" \
-          --services-ipv4-cidr="/24" \
-          --image-type COS_CONTAINERD \
-          --num-nodes "${{ inputs.nodes }}" \
-          --machine-type "${{ inputs.machine-type }}" \
-          --disk-type pd-standard \
-          --disk-size 20GB \
-          --no-enable-insecure-kubelet-readonly-port \
-          --enable-master-authorized-networks \
-          --master-authorized-networks "${{ steps.get-runner-ip.outputs.cidr }}" \
-          $VERSION \
-          $LABELS \
-          $TAINTS
+        # Try the requested zone first, then any fallback zones in order. This
+        # makes cluster creation resilient to single-zone GCE capacity
+        # exhaustion (STOCKOUT), which otherwise fails the whole job after a
+        # long provisioning wait. Only capacity errors trigger a fallback: any
+        # other failure (bad flag, quota, config) is not zone-specific, so we
+        # fail fast and surface the real error rather than retrying blindly.
+        #
+        # The fallback zones are shuffled because several matrix legs share a
+        # zone and stock out together, so a fixed order would send all of them
+        # to the same next zone.
+        fallback_zones=$(tr ' ' '\n' <<< "${{ inputs.fallback-zones }}" | grep -v '^$' | shuf | tr '\n' ' ')
+        echo "Zone candidates: ${{ inputs.zone }} ${fallback_zones}"
 
-        native_cidr=$(gcloud container clusters describe "${{ inputs.cluster-name }}" --zone "${{ inputs.zone }}" --format 'value(clusterIpv4Cidr)')
+        # An attempt that is still not done after this long is not worth waiting
+        # for: the median creation takes under 5 minutes, while capacity
+        # starvation can sit in the GCE instance group manager for 35 minutes
+        # before it is reported as one. gcloud cannot cancel the operation it
+        # submitted, so an abandoned attempt keeps provisioning server side and
+        # is left to the teardown step of the caller.
+        attempt_minutes=12
+        # Bound all the attempts together as well, so that a job cannot spend
+        # its whole budget on getting a cluster.
+        budget_deadline=$(( SECONDS + 30 * 60 ))
+
+        created_zone=""
+        for zone in "${{ inputs.zone }}" ${fallback_zones}; do
+          if (( SECONDS >= budget_deadline )); then
+            echo "::warning::Ran out of time to create cluster ${{ inputs.cluster-name }}"
+            break
+          fi
+
+          echo "Attempting to create cluster in zone ${zone}"
+          set +e
+          create_out=$(timeout --kill-after=1m "${attempt_minutes}m" gcloud container clusters create "${{ inputs.cluster-name }}" \
+            --zone "${zone}" \
+            --release-channel "extended" \
+            --enable-ip-alias \
+            --create-subnetwork="range=/26" \
+            --cluster-ipv4-cidr="/21" \
+            --services-ipv4-cidr="/24" \
+            --image-type COS_CONTAINERD \
+            --num-nodes "${{ inputs.nodes }}" \
+            --machine-type "${{ inputs.machine-type }}" \
+            --disk-type pd-standard \
+            --disk-size 20GB \
+            --no-enable-insecure-kubelet-readonly-port \
+            --enable-master-authorized-networks \
+            --master-authorized-networks "${{ steps.get-runner-ip.outputs.cidr }}" \
+            $VERSION \
+            $LABELS \
+            $TAINTS 2>&1)
+          create_rc=$?
+          set -e
+          echo "${create_out}"
+
+          if [[ ${create_rc} -eq 0 ]]; then
+            created_zone="${zone}"
+            break
+          fi
+
+          # 124 and 137 are timeout(1) giving up on gcloud. Do not delete the
+          # cluster here: GKE refuses a delete while the creation operation is
+          # still running, and that operation cannot be cancelled.
+          if [[ ${create_rc} -eq 124 || ${create_rc} -eq 137 ]]; then
+            echo "::warning::Cluster creation in zone ${zone} is still not done after ${attempt_minutes}m; abandoning that zone"
+            continue
+          fi
+
+          # GKE stages version rollouts per zone, and the matrix only checks
+          # the zone it asks for, so a fallback zone may not offer the version.
+          if echo "${create_out}" | grep -qiE 'No valid versions|version is unsupported'; then
+            echo "::warning::Zone ${zone} does not offer GKE version ${{ inputs.cluster-version }}; trying the next zone"
+            continue
+          fi
+
+          if ! echo "${create_out}" | grep -qiE 'does not have enough resources|ZONE_RESOURCE_POOL_EXHAUSTED|STOCKOUT'; then
+            echo "::error::Cluster creation in zone ${zone} failed for a non-capacity reason; not retrying in other zones"
+            exit ${create_rc}
+          fi
+
+          echo "::warning::Zone ${zone} is out of capacity (STOCKOUT); deleting any partial cluster before trying the next zone"
+          # A failed create can leave a partial cluster behind; delete it
+          # (best-effort, async) so it does not leak, then try the next zone.
+          gcloud container clusters delete "${{ inputs.cluster-name }}" --zone "${zone}" --quiet --async || true
+        done
+
+        if [[ -z "${created_zone}" ]]; then
+          echo "::error::Could not create cluster ${{ inputs.cluster-name }} in any of the zones ${{ inputs.zone }} ${fallback_zones}"
+          exit 1
+        fi
+
+        echo "Cluster created in zone ${created_zone}"
+        echo "zone=${created_zone}" >> $GITHUB_OUTPUT
+
+        native_cidr=$(gcloud container clusters describe "${{ inputs.cluster-name }}" --zone "${created_zone}" --format 'value(clusterIpv4Cidr)')
         echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
