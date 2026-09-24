@@ -186,7 +186,8 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	httpRoutes := r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items, namespaceLabels)
 	tlsRoutes := r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items, namespaceLabels)
 	grpcRoutes := r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items, namespaceLabels)
-	translationGateway := gatewayWithoutConflictedListeners(gw)
+	conflictedListeners := conflictsWithinGateway(gw.Spec.Listeners)
+	translationGateway := gatewayWithoutConflictedListeners(gw, conflictedListeners)
 	r.filterOutInvalidListeners(ctx, translationGateway, grants.Items)
 
 	m := ingestion.GatewayAPI(ingestion.Input{
@@ -202,7 +203,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ReferenceGrants:    grants.Items,
 	})
 
-	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList, namespaceLabels)
+	validListener, err := r.setListenerStatus(ctx, gw, conflictedListeners, httpRouteList, tlsRouteList, grpcRouteList, namespaceLabels)
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to set listener status", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to set listener status", gatewayv1.GatewayReasonNoResources)
@@ -596,13 +597,19 @@ func (r *gatewayReconciler) setStaticAddressStatus(ctx context.Context, gw *gate
 	return nil
 }
 
-func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1.Gateway, httpRoutes *gatewayv1.HTTPRouteList, tlsRoutes *gatewayv1alpha2.TLSRouteList, grpcRoutes *gatewayv1.GRPCRouteList, namespaceLabels helpers.NamespaceLabelIndex) (bool, error) {
+func (r *gatewayReconciler) setListenerStatus(
+	ctx context.Context,
+	gw *gatewayv1.Gateway,
+	conflictedListeners map[gatewayv1.SectionName]listenerConflict,
+	httpRoutes *gatewayv1.HTTPRouteList,
+	tlsRoutes *gatewayv1alpha2.TLSRouteList,
+	grpcRoutes *gatewayv1.GRPCRouteList,
+	namespaceLabels helpers.NamespaceLabelIndex,
+) (bool, error) {
 	grants := &gatewayv1beta1.ReferenceGrantList{}
 	if err := r.Client.List(ctx, grants); err != nil {
 		return false, fmt.Errorf("failed to retrieve reference grants: %w", err)
 	}
-
-	conflictedListeners := conflictsWithinGateway(gw.Spec.Listeners)
 
 	// Keep track of if there is at least one Valid Listener; if not, the Gateway cannot be Accepted.
 	oneValidListener := false
@@ -690,9 +697,8 @@ type listenerConflict struct {
 	message string
 }
 
-func gatewayWithoutConflictedListeners(gw *gatewayv1.Gateway) *gatewayv1.Gateway {
+func gatewayWithoutConflictedListeners(gw *gatewayv1.Gateway, conflicts map[gatewayv1.SectionName]listenerConflict) *gatewayv1.Gateway {
 	translationGateway := gw.DeepCopy()
-	conflicts := conflictsWithinGateway(gw.Spec.Listeners)
 	translationGateway.Spec.Listeners = translationGateway.Spec.Listeners[:0]
 	for _, listener := range gw.Spec.Listeners {
 		if _, conflicted := conflicts[listener.Name]; !conflicted {
