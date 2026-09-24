@@ -3,22 +3,23 @@ metadata:
   annotations:
     cec.cilium.io/use-original-source-address: "false"
   labels:
-    gateway.networking.k8s.io/gateway-name: gw-tlsroute-exact-hostname-x-1
-  name: cilium-gateway-gw-tlsroute-exact-hostname-x-1
+    gateway.networking.k8s.io/gateway-name: gateway-tlsroute-mixed-termination
+  name: cilium-gateway-gateway-tlsroute-mixed-termination
   namespace: gateway-conformance-infra
   ownerReferences:
     - apiVersion: gateway.networking.k8s.io/v1
       controller: true
       kind: Gateway
-      name: gw-tlsroute-exact-hostname-x-1
+      name: gateway-tlsroute-mixed-termination
       uid: ""
   resourceVersion: "1"
 spec:
   backendServices:
-    - name: tls-backend
+    - name: tcp-backend
       namespace: gateway-conformance-infra
       number:
-        - "443"
+        - "3000"
+        - "8443"
   resources:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
       filterChains:
@@ -30,8 +31,25 @@ spec:
             - name: envoy.filters.network.tcp_proxy
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
-                cluster: gateway-conformance-infra:tls-backend:443
+                cluster: gateway-conformance-infra:tcp-backend:8443
                 statPrefix: tls-passthrough:abc.example.com
+        - filterChainMatch:
+            serverNames:
+              - tls.example.com
+            transportProtocol: tls
+          filters:
+            - name: envoy.filters.network.tcp_proxy
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+                cluster: gateway-conformance-infra:tcp-backend:3000
+                statPrefix: tls-terminate:tls.example.com
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              commonTlsContext:
+                tlsCertificateSdsSecretConfigs:
+                  - name: cilium-secrets/cilium-sync-secret-500e3be49f49f792095ab868a790d52c93e9b87961de22ae3ff2c25a63d56845
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
           typedConfig:
@@ -56,14 +74,21 @@ spec:
           name: "6"
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
-        serviceName: gateway-conformance-infra/tls-backend:443
-      name: gateway-conformance-infra:tls-backend:443
+        serviceName: gateway-conformance-infra/tcp-backend:3000
+      name: gateway-conformance-infra:tcp-backend:3000
+      outlierDetection:
+        splitExternalLocalOriginErrors: true
+      type: EDS
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      edsClusterConfig:
+        serviceName: gateway-conformance-infra/tcp-backend:8443
+      name: gateway-conformance-infra:tcp-backend:8443
       outlierDetection:
         splitExternalLocalOriginErrors: true
       type: EDS
   services:
     - listener: ""
-      name: cilium-gateway-gw-tlsroute-exact-hostname-x-1
+      name: cilium-gateway-gateway-tlsroute-mixed-termination
       namespace: gateway-conformance-infra
       ports:
-        - 443
+        - 8883

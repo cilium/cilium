@@ -645,12 +645,6 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 				break
 			}
 		}
-		if l.Protocol == gatewayv1.TLSProtocolType && l.TLS.Mode != nil && *l.TLS.Mode == gatewayv1.TLSModeTerminate {
-			res.isValid = false
-			res.invalidMessages = append(res.invalidMessages, "Using TLSRoute with TLS.mode Terminate is unsupported.")
-			res.invalidReason = gatewayv1.ListenerReasonUnsupportedValue
-			res.supportedKinds = []gatewayv1.RouteGroupKind{}
-		}
 	}
 
 	return res
