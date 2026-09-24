@@ -17,12 +17,13 @@
 
 # include "lib/bpf_host.h"
 #elif defined(EAST_WEST_TEST)
-# define ENABLE_SOCKET_LB_HOST_ONLY 1
 # define CLIENT_IP	v4_pod_two
 # define CLIENT_IPV6	v6_pod_two
 # define HOOK		pod_send_packet
 
 # include "lib/bpf_lxc.h"
+
+ASSIGN_CONFIG(bool, enable_socket_lb_hostns_only, true)
 #else
 # error "Needs to be included with either NORTH_SOUTH_TEST or EAST_WEST_TEST defined"
 #endif

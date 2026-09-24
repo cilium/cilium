@@ -7,7 +7,6 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
-#define ENABLE_SOCKET_LB_HOST_ONLY 1
 
 #include "lib/bpf_lxc.h"
 
@@ -15,6 +14,7 @@
 
 ASSIGN_CONFIG(bool, enable_lrp, true)
 ASSIGN_CONFIG(__u64, endpoint_netns_cookie, NETNS_COOKIE)
+ASSIGN_CONFIG(bool, enable_socket_lb_hostns_only, true)
 
 #include "lib/lb.h"
 #include "lib/ipcache.h"
