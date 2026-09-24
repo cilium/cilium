@@ -6,7 +6,6 @@ package labels
 import (
 	"bytes"
 	"slices"
-	"sort"
 	"strings"
 )
 
@@ -17,8 +16,8 @@ type LabelArray []Label
 // order, when the source material may be unsorted.  'ls' is sorted
 // in-place, but also returns the sorted array for convenience.
 func (ls LabelArray) Sort() LabelArray {
-	sort.Slice(ls, func(i, j int) bool {
-		return ls[i].Key < ls[j].Key
+	slices.SortFunc(ls, func(l, r Label) int {
+		return strings.Compare(l.Key, r.Key)
 	})
 	return ls
 }
