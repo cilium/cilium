@@ -26,6 +26,9 @@ type BPFSock struct {
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Reply with ICMP to traffic to a service with no backends.
 	EnableServiceNoBackendResponse bool `config:"enable_service_no_backend_response"`
+	// Skip socket LB for svcs when inside pod ns, in favor of svc LB at the pod
+	// iface.
+	EnableSocketLBHostNSOnly bool `config:"enable_socket_lb_hostns_only"`
 	// Enable socket-based service load-balancing tracing.
 	EnableSocketLBTracing bool `config:"enable_socket_lb_tracing"`
 	// Enable VTEP integration.
@@ -46,5 +49,5 @@ type BPFSock struct {
 
 func NewBPFSock(node Node) *BPFSock {
 	return &BPFSock{false, false, false, false, false, false, false, false, false,
-		false, 0x0, 0x0, 0x0, 0x0, 0x0, node}
+		false, false, 0x0, 0x0, 0x0, 0x0, 0x0, node}
 }
