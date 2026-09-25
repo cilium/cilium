@@ -1,6 +1,8 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
+import struct
+
 from scapy.all import *
 from scapy.layers.sctp import SCTP
 
@@ -102,6 +104,110 @@ icmp4_err_nat_full_tcp_after = (
     IP(src=v4_node_one, dst=v4_ext_one) /
     ICMP(type="dest-unreach", code="communication-prohibited") /
     IPerror(bytes(icmp4_tcp_ingress[IP]))
+)
+
+# IPv4 ICMP error packets embedding ICMP Echo.
+# Ingress/revNAT: router -> host, quoting the NATed endpoint -> external packet.
+icmp4_err_revnat_full_icmp = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_pod_two, dst=v4_node_one) /
+    ICMP(type=3, code=4, nexthopmtu=1500) /
+    IPerror(src=v4_node_one, dst=v4_ext_one, proto=1) /
+    ICMP(type=8, id=123)
+)
+
+# After revSNAT: outer destination -> pod, inner source -> pod.
+icmp4_err_revnat_full_icmp_after = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_pod_two, dst=v4_pod_one) /
+    ICMP(type=3, code=4, nexthopmtu=1500) /
+    IPerror(src=v4_pod_one, dst=v4_ext_one, proto=1) /
+    ICMP(type=8, id=123)
+)
+
+# IPv4 ICMP error packets embedding the 4-byte SCTP port tuple.
+# Ingress/revNAT: router -> host, quoting the NATed endpoint -> external packet.
+icmp4_err_revnat_full_sctp = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_pod_two, dst=v4_node_one) /
+    ICMP(type=3, code=4, nexthopmtu=1500) /
+    IPerror(src=v4_node_one, dst=v4_ext_one, proto=132) /
+    Raw(load=struct.pack("!HH", tcp_src_two, tcp_dst_one))
+)
+
+# After revSNAT: outer destination -> pod, inner source -> pod.
+icmp4_err_revnat_full_sctp_after = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_pod_two, dst=v4_pod_one) /
+    ICMP(type=3, code=4, nexthopmtu=1500) /
+    IPerror(src=v4_pod_one, dst=v4_ext_one, proto=132) /
+    Raw(load=struct.pack("!HH", tcp_src_two, tcp_dst_one))
+)
+
+# IPv4 ICMP error packets on the SNAT egress path, embedding ICMP Echo Reply.
+icmp4_err_nat_full_icmp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type=3, code=4, nexthopmtu=1500) /
+    IPerror(src=v4_ext_one, dst=v4_pod_one, proto=1) /
+    ICMP(type=0, id=123)
+)
+
+# After SNAT: outer source -> node, inner destination -> node.
+icmp4_err_nat_full_icmp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type=3, code=4, nexthopmtu=1500) /
+    IPerror(src=v4_ext_one, dst=v4_node_one, proto=1) /
+    ICMP(type=0, id=123)
+)
+
+# IPv4 ICMP error packets on the SNAT egress path, embedding the 4-byte SCTP port tuple.
+icmp4_err_nat_full_sctp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type=3, code=4, nexthopmtu=1500) /
+    IPerror(src=v4_ext_one, dst=v4_pod_one, proto=132) /
+    Raw(load=struct.pack("!HH", tcp_dst_one, tcp_src_two))
+)
+
+# After SNAT: outer source -> node, inner destination -> node; SCTP ports unchanged.
+icmp4_err_nat_full_sctp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type=3, code=4, nexthopmtu=1500) /
+    IPerror(src=v4_ext_one, dst=v4_node_one, proto=132) /
+    Raw(load=struct.pack("!HH", tcp_dst_one, tcp_src_two))
+)
+
+# Plain IPv4 ICMP Echo packets used to establish SNAT state.
+icmp4_err_revnat_egress_icmp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one, flags="DF") /
+    ICMP(type=8, id=123) /
+    Raw(default_data)
+)
+
+icmp4_err_revnat_egress_post_icmp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one, flags="DF") /
+    ICMP(type=8, id=123) /
+    Raw(default_data)
+)
+
+# Plain IPv4 SCTP packet used to establish SNAT state.
+icmp4_err_revnat_egress_sctp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one, flags="DF") /
+    SCTP(sport=tcp_src_two, dport=tcp_dst_one, tag=0) /
+    Raw(default_data)
+)
+
+icmp4_err_revnat_egress_post_sctp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one, flags="DF") /
+    SCTP(sport=tcp_src_two, dport=tcp_dst_one, tag=0) /
+    Raw(default_data)
 )
 
 # Shared header layers for the IPv6 egress flow, pre- and post-masquerade.

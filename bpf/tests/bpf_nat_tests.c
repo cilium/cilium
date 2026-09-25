@@ -35,7 +35,6 @@ static char pkt[100];
 #include <lib/nodeport.h>
 
 ASSIGN_CONFIG(__u16, device_mtu, 1500);
-
 ASSIGN_CONFIG(bool, enable_sctp, true)
 
 __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress, bool rfc4884)
@@ -165,6 +164,14 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress, b
 
 		memcpy(icmp_ptr + offsetof(struct icmphdr, un.frag.__unused) + 1,
 		       &extra_words, 1);
+	}
+
+	{
+		struct icmphdr *icmph = (struct icmphdr *)icmp_ptr;
+		__u32 msg_len = (__u32)(dst - icmp_ptr);
+
+		icmph->checksum = 0;
+		icmph->checksum = csum_fold(csum_diff(NULL, 0, icmp_ptr, msg_len, 0));
 	}
 
 	return (int)(dst - orig);
@@ -608,7 +615,6 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 		test_fatal("can't load icmp headers");
 	assert(icmphdr.type == ICMP_DEST_UNREACH);
 	assert(icmphdr.code == ICMP_FRAG_NEEDED);
-
 	/* Validating inner headers */
 	int in_l3_off;
 	int in_l4_off;
@@ -659,7 +665,7 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 		.nexthdr = IPPROTO_SCTP,
 		.saddr = bpf_htonl(IP_ENDPOINT),
 		.daddr = bpf_htonl(IP_WORLD),
-		.sport = bpf_htons(9999),
+		.sport = bpf_htons(NODEPORT_PORT_MIN_NAT),
 		.dport = bpf_htons(80),
 		.flags = 0,
 	};
@@ -683,9 +689,29 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 	 * snat_v4_rev_nat().
 	 */
 	ret = snat_v4_rev_nat(ctx, &target, &trace);
-	assert(ret == DROP_CSUM_L4);
+	assert(ret == 0);
 
-	/* nothing really change with udp/tcp */
+	__be16 proto;
+	void *data, *data_end;
+	int l3_off, l4_off;
+	struct iphdr *ip4;
+	struct icmphdr icmphdr __align_stack_8;
+
+	assert(validate_ethertype(ctx, &proto));
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+	if (data + pkt_size > data_end)
+		test_fatal("packet shrank");
+
+	assert(ip4->protocol == IPPROTO_ICMP);
+	assert(ip4->saddr == bpf_htonl(IP_ROUTER));
+	assert(ip4->daddr == bpf_htonl(IP_ENDPOINT));
+
+	l3_off = ETH_HLEN;
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+	if (ctx_load_bytes(ctx, l4_off, &icmphdr, sizeof(icmphdr)) < 0)
+		test_fatal("can't load icmp headers");
+	assert(icmphdr.type == ICMP_DEST_UNREACH);
+	assert(icmphdr.code == ICMP_FRAG_NEEDED);
 	test_finish();
 }
 
@@ -1147,7 +1173,6 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 		test_fatal("can't load icmp headers");
 	assert(icmphdr.type == ICMP_DEST_UNREACH);
 	assert(icmphdr.code == ICMP_FRAG_NEEDED);
-
 	/* Validating inner headers */
 	int in_l3_off;
 	int in_l4_off;
@@ -1254,7 +1279,6 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 		test_fatal("can't load icmp headers");
 	assert(icmphdr.type == ICMP_DEST_UNREACH);
 	assert(icmphdr.code == ICMP_FRAG_NEEDED);
-
 	/* Validating inner headers */
 	int in_l3_off;
 	int in_l4_off;
