@@ -7,8 +7,10 @@ import (
 	"context"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -108,6 +110,9 @@ func (n *manager) doGC(ctx context.Context) error {
 		if len(affectedNames) > 0 || len(dead) > 0 {
 			ep.SyncEndpointHeaderFile()
 		}
+		if len(affectedNames) > 0 {
+			n.syncEndpointFQDNState(ep)
+		}
 	}
 
 	leakedNames := initialNames.Difference(allEndpointNames)
@@ -155,8 +160,61 @@ func (n *manager) doGC(ctx context.Context) error {
 	// Remove any now-stale ipcache metadata.
 	// Need to RLock here so we don't race on re-insertion.
 	n.maybeRemoveMetadata(maybeStaleIPs)
+	n.syncFQDNStateFromCache()
+	n.persistFQDNState()
 
 	return nil
+}
+
+func (n *manager) syncEndpointFQDNState(ep *endpoint.Endpoint) {
+	if n.params.DB == nil || n.params.EndpointFQDNTable == nil || ep.DNSHistory == nil {
+		return
+	}
+	txn := n.params.DB.WriteTxn(n.params.EndpointFQDNTable)
+	for _, mapping := range statedb.Collect(n.params.EndpointFQDNTable.List(txn, fqdn.QueryEndpointFQDNByEndpoint(ep.ID))) {
+		if _, _, err := n.params.EndpointFQDNTable.Delete(txn, mapping); err != nil {
+			n.logger.Warn("Unable to remove endpoint FQDN mapping", logfields.Error, err,
+				logfields.EndpointID, ep.ID)
+		}
+	}
+	for _, entry := range ep.DNSHistory.Dump() {
+		for _, ip := range entry.IPs {
+			mapping := fqdn.EndpointFQDNMapping{
+				EndpointID:     ep.ID,
+				Name:           entry.Name,
+				IP:             ip.Unmap(),
+				LookupTime:     entry.LookupTime,
+				TTL:            uint32(entry.TTL),
+				ExpirationTime: entry.ExpirationTime,
+			}
+			if _, _, err := n.params.EndpointFQDNTable.Insert(txn, mapping); err != nil {
+				n.logger.Warn("Unable to restore endpoint FQDN mapping", logfields.Error, err,
+					logfields.EndpointID, ep.ID, logfields.DNSName, entry.Name)
+			}
+		}
+	}
+	txn.Commit()
+}
+
+func (n *manager) persistFQDNState() {
+	if n.params.DB == nil || n.params.FQDNTable == nil || n.params.Config.StateDir == "" {
+		return
+	}
+	path := filepath.Join(n.params.Config.StateDir, "fqdn_state.json")
+	if err := fqdn.PersistFQDNState(n.params.DB, n.params.FQDNTable.ToTable(), path); err != nil {
+		n.logger.Warn("Unable to persist global FQDN StateDB table", logfields.Error, err, logfields.Path, path)
+	}
+	if n.stateWAL != nil {
+		rows := statedb.Collect(n.params.FQDNTable.All(n.params.DB.ReadTxn()))
+		event := fqdn.FQDNStateEvent{Rows: rows}
+		if err := n.stateWAL.Write(event); err != nil {
+			n.logger.Warn("Unable to append global FQDN StateDB snapshot to WAL", logfields.Error, err)
+		} else if err := n.stateWAL.Compact(func(yield func(fqdn.FQDNStateEvent) bool) {
+			yield(event)
+		}); err != nil {
+			n.logger.Warn("Unable to compact global FQDN StateDB WAL", logfields.Error, err)
+		}
+	}
 }
 
 // RestorationNotify implements endpointstate.RestorationNotifier and loads cache state from the restored system:
@@ -213,7 +271,9 @@ func (n *manager) RestorationNotify(possibleEndpoints map[uint16]*endpoint.Endpo
 				}
 			}
 		}
+		n.syncEndpointFQDNState(possibleEP)
 	}
+	n.syncFQDNStateFromCache()
 }
 
 // readPreCache returns a fqdn.DNSCache object created from the json data at

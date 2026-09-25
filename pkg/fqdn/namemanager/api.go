@@ -197,10 +197,13 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 		if len(namesToRegen) > 0 || len(dead) > 0 {
 			ep.SyncEndpointHeaderFile()
 		}
+		n.syncEndpointFQDNState(ep)
 	}
 
 	// We may have removed entries; remove them from the ipcache metadata layer
 	n.maybeRemoveMetadata(maybeStaleIPs)
+	n.syncFQDNStateFromCache()
+	n.persistFQDNState()
 	return nil
 }
 
