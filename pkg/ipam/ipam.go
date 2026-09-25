@@ -215,7 +215,11 @@ func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
 		}
 
 		if ipam.config.IPv4Enabled() {
-			ipam.ipv4Allocator = newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
+			allocator := newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
+			ipam.ipv4Allocator = allocator
+			if ipam.config.IPAMMode() == ipamOption.IPAMAlibabaCloud {
+				ipam.ipv4RoutingMetadataResolver = allocator
+			}
 		}
 	case ipamOption.IPAMDelegatedPlugin:
 		ipam.logger.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")
