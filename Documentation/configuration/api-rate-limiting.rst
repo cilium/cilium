@@ -150,7 +150,7 @@ Understanding the log output
 The API rate limiter logs under the ``rate`` subsystem. An example message can
 be seen below::
 
-   level=info msg="API call has been processed" name=endpoint-create processingDuration=772.847247ms subsys=rate totalDuration=14.923958916s uuid=d34a2e1f-1ac9-11eb-8663-42010a8a0fe1 waitDurationTotal=14.151023084s
+   level=info msg="API call has been processed" name=endpoint-create processingDuration=772.847247ms unaccountedDuration=0s subsys=rate totalDuration=14.923958916s uuid=d34a2e1f-1ac9-11eb-8663-42010a8a0fe1 waitDurationTotal=14.151023084s
 
 The following is an explanation for all the API rate limiting messages:
 
@@ -184,6 +184,13 @@ The API rate limiter has processed this request and the underlying HTTP API
 action has finished. This means the request is no longer actively waiting or in
 other words, no longer being rate-limited. This does not mean the underlying
 HTTP action has succeeded; only that this request has been dealt with.
+
+``unaccountedDuration`` is the part of ``processingDuration`` that the API call
+spent waiting on work shared with the whole node, such as an endpoint creation
+waiting for the base datapath to initialize or for its BPF template to compile.
+The adjustment factor and the pause before answering a rejected request
+ignore it, while the mean processing duration metric still reports the full
+``processingDuration``.
 
 ::
 

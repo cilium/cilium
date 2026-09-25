@@ -218,6 +218,9 @@ func (h *EndpointPutEndpointIDHandler) Handle(params endpointapi.PutEndpointIDPa
 		return api.Error(code, err)
 	}
 
+	// Leave the node's shared build waits out of this request's service time.
+	r.Unaccounted(ep.SharedBuildDuration())
+
 	ep.Logger(endpointAPIModuleID).Info("Successful endpoint creation")
 
 	return endpointapi.NewPutEndpointIDCreated().WithPayload(ep.GetModel())
