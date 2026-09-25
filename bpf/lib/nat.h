@@ -897,10 +897,15 @@ unsup_proto:
 	}
 
 	/* Calculate the diff for the outer ICMP checksum. */
-	*outer_csum_diff = snat_v4_calc_icmp_error_csum_diff(tuple.saddr, (*state)->to_saddr,
-							     tuple.sport, (*state)->to_sport,
-							     icmp_has_inner_l4_csum &&
-							     is_inner_l4_csum_enabled);
+	if (tuple.nexthdr == IPPROTO_ICMP || tuple.nexthdr == IPPROTO_SCTP)
+		*outer_csum_diff = 0;
+	else
+		*outer_csum_diff = snat_v4_calc_icmp_error_csum_diff(tuple.saddr,
+								     (*state)->to_saddr,
+								     tuple.sport,
+								     (*state)->to_sport,
+								     icmp_has_inner_l4_csum &&
+								     is_inner_l4_csum_enabled);
 
 	/* We found SNAT entry to NAT embedded packet. The destination addr
 	 * should be NATed according to the entry.
@@ -1147,10 +1152,15 @@ unsup_proto:
 	}
 
 	/* Calculate the diff for the outer ICMP checksum. */
-	*outer_csum_diff = snat_v4_calc_icmp_error_csum_diff(tuple.daddr, (*state)->to_daddr,
-							     tuple.dport, (*state)->to_dport,
-							     icmp_has_inner_l4_csum &&
-							     is_inner_l4_csum_enabled);
+	if (tuple.nexthdr == IPPROTO_ICMP || tuple.nexthdr == IPPROTO_SCTP)
+		*outer_csum_diff = 0;
+	else
+		*outer_csum_diff = snat_v4_calc_icmp_error_csum_diff(tuple.daddr,
+								     (*state)->to_daddr,
+								     tuple.dport,
+								     (*state)->to_dport,
+								     icmp_has_inner_l4_csum &&
+								     is_inner_l4_csum_enabled);
 
 	/* The embedded packet was SNATed on egress. Reverse it again: */
 	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, (int)inner_l3_off,
