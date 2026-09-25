@@ -150,6 +150,7 @@ type testCase struct {
 
 	// kubeProxyReplacement overrides the default enabled setting for this case.
 	kubeProxyReplacement *bool
+	tunnelingEnabled     *bool
 	expectIDCleared      bool
 
 	// expectErr when true causes UpdateService to fail on backend slots
@@ -259,6 +260,11 @@ func newTestCase(name string, mod func(*loadbalancer.Service, *loadbalancer.Fron
 
 func withKubeProxyReplacement(enabled bool, tc testCase) testCase {
 	tc.kubeProxyReplacement = &enabled
+	return tc
+}
+
+func withTunnelingEnabled(enabled bool, tc testCase) testCase {
+	tc.tunnelingEnabled = &enabled
 	return tc
 }
 
@@ -895,6 +901,39 @@ var loadBalancerTestCases = []testCase{
 		nil,
 		false,
 	),
+
+	// KPR=false + tunnel mode: LoadBalancer VIP must be programmed in BPF because
+	// the reply from a remote backend returns via the BPF/tunnel path, bypassing
+	// host conntrack. Without BPF programming the DNAT is never reversed.
+	withTunnelingEnabled(true, withKubeProxyReplacement(false, newTestCase(
+		"LoadBalancer_tunnel_candidate",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = LoadBalancer
+			fe.Address = autoAddr
+			return false, []loadbalancer.Backend{}
+		},
+		[]maps.MapDump{
+			"REV: ID=1 ADDR=<auto>",
+			"SVC: ID=0 ADDR=<auto>/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal",
+		},
+		nil,
+		false,
+	))),
+
+	// KPR=false + native routing: LoadBalancer VIP should NOT be programmed in BPF;
+	// kube-proxy handles the DNAT and host conntrack handles the reply path correctly.
+	withStaleFrontendID(withTunnelingEnabled(false, withKubeProxyReplacement(false, newTestCase(
+		"LoadBalancer_native_non_candidate",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = LoadBalancer
+			fe.Address = autoAddr
+			return false, []loadbalancer.Backend{}
+		},
+		[]maps.MapDump{},
+		nil,
+		false,
+	)))),
 }
 
 var externalIPTestCases = []testCase{
@@ -1447,6 +1486,10 @@ func TestBPFOps(t *testing.T) {
 				ops.extCfg.KubeProxyReplacement = true
 				if testCase.kubeProxyReplacement != nil {
 					ops.extCfg.KubeProxyReplacement = *testCase.kubeProxyReplacement
+				}
+				ops.extCfg.TunnelingEnabled = false
+				if testCase.tunnelingEnabled != nil {
+					ops.extCfg.TunnelingEnabled = *testCase.tunnelingEnabled
 				}
 
 				frontend := testCase.frontend
