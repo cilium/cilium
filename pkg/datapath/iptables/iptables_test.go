@@ -893,6 +893,7 @@ func testTunnelRulesTunnelingEnabled(t *testing.T, port uint16) {
 	expected := "%s -A %s -p udp --dport %d -m comment --comment %s"
 
 	mockIp4tables.expectations = []expectation{
+		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_INPUT", port, "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
 		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", port, "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
 		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", port, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
 		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", port, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
